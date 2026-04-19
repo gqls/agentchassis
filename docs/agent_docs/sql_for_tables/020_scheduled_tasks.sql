@@ -1358,3 +1358,313 @@ UPDATE scheduled_tasks
 SET target_topic = 'system.agent.endpoint-health-checker.process'
 WHERE name = 'ai-endpoint-health-check';
 
+---
+-- update database cleanup to clear up typography, palette etc orphans
+
+-- =====================================================================
+-- Deliverable 6.5: Extend database-cleanup task with composition
+--                  orphan cleanup
+-- =====================================================================
+--
+-- Context:
+--   The existing `database-cleanup` scheduled task (interval 3600s,
+--   concurrency group 'maintenance', target_agent_type
+--   'database-cleanup') runs a pre_query with four DELETE CTEs:
+--     1. agent_error_log
+--     2. orchestration_state_audit
+--     3. orchestration_states (completed/failed, > 24h)
+--     4. orchestration_states (stuck in EXECUTING/AWAITING, > 4h)
+--
+--   site-design-planner's palette + typography resolvers commit their
+--   inserts before install_site_composition wires them into css_themes.
+--   If install fails OR the reset-sweep (008) deactivates css_themes
+--   ahead of the adopted palette/typography rows, those rows become
+--   orphans — adopted origin, no css_themes row references them.
+--
+--   This patch adds two more CTEs (5, 6) to the existing pre_query,
+--   extending the cleanup to composition orphans. No change to interval,
+--   target agent, concurrency, or enabled state.
+--
+-- Safety constraints:
+--   - origin = 'adopted' — seed library rows are NEVER touched
+--   - source_site_id IS NOT NULL — defensive row-level sanity
+--   - forked_at < NOW() - INTERVAL '24 hours' — grace period keeps us
+--     from racing in-flight installs
+--   - NOT EXISTS against css_themes only — that's the only FK column
+--     referencing palettes/typography_sets in the current schema.
+--     (draft_composition_orphan_cleanup.sql had a defensive
+--     style_collections check, but that column doesn't exist in the
+--     current schema. Dropped. If a future migration adds
+--     style_collections.palette_id or .typography_set_id, this
+--     cleanup needs an update.)
+--
+-- Idempotency:
+--   Re-running this UPDATE is safe — it sets pre_query to the same
+--   text. The row-count assertion catches missing or duplicate rows.
+--
+-- Rollback:
+--   Revert to the prior 4-CTE pre_query by running this file's
+--   ROLLBACK section (at the bottom, in a comment).
+--
+-- Prerequisite ordering:
+--   This SQL is safe to run ANY time after install_site_composition
+--   is deployed, since the cleanup only deletes adopted rows with no
+--   active references. Running it before composition exists is a
+--   harmless no-op (no adopted palettes / typography_sets rows exist
+--   yet, so both new CTEs return zero rows).
+-- =====================================================================
+
+BEGIN;
+
+-- Preflight: show the current pre_query length and the two counts of
+-- rows the new CTEs WOULD remove right now (dry-run preview).
+DO $$
+DECLARE
+v_current_length   int;
+    v_would_palettes   int;
+    v_would_typo       int;
+BEGIN
+SELECT length(pre_query) INTO v_current_length
+FROM scheduled_tasks WHERE name = 'database-cleanup';
+
+SELECT COUNT(*) INTO v_would_palettes
+FROM palettes p
+WHERE p.origin = 'adopted'
+  AND p.source_site_id IS NOT NULL
+  AND p.forked_at < NOW() - INTERVAL '24 hours'
+  AND NOT EXISTS (SELECT 1 FROM css_themes t WHERE t.palette_id = p.id);
+
+SELECT COUNT(*) INTO v_would_typo
+FROM typography_sets ts
+WHERE ts.origin = 'adopted'
+  AND ts.source_site_id IS NOT NULL
+  AND ts.forked_at < NOW() - INTERVAL '24 hours'
+  AND NOT EXISTS (SELECT 1 FROM css_themes t WHERE t.typography_set_id = ts.id);
+
+RAISE NOTICE 'database-cleanup pre_query length BEFORE: % chars', v_current_length;
+    RAISE NOTICE 'Dry-run: palettes orphan count = %', v_would_palettes;
+    RAISE NOTICE 'Dry-run: typography orphan count = %', v_would_typo;
+END $$;
+
+-- The replacement pre_query. Includes the existing four CTEs verbatim
+-- (per the live row you showed), plus two new CTEs (5, 6), plus two
+-- new columns in the final SELECT.
+UPDATE scheduled_tasks
+SET pre_query = $PREQUERY$
+    -- 1. Clean agent_error_log (resolved errors > 14 days, unresolved > 30 days)
+    WITH deleted_errors AS (
+        DELETE FROM agent_error_log
+        WHERE (resolved = true AND occurred_at < NOW() - INTERVAL '14 days')
+           OR (resolved = false AND occurred_at < NOW() - INTERVAL '30 days')
+        RETURNING id
+    ),
+
+    -- 2. Clean orchestration_state_audit (keep last 100k rows)
+    deleted_audit AS (
+        DELETE FROM orchestration_state_audit
+        WHERE id < (
+            SELECT COALESCE(MAX(id) - 100000, 0)
+            FROM orchestration_state_audit
+        )
+        RETURNING id
+    ),
+
+    -- 3. Clean completed/failed orchestration_states (> 24 hours)
+    -- CASCADE will clean orchestration_requests, input_requests, pending_requests
+    deleted_orchestrations AS (
+        DELETE FROM orchestration_states
+        WHERE status IN ('COMPLETED', 'FAILED')
+          AND updated_at < NOW() - INTERVAL '24 hours'
+        RETURNING orchestration_id
+    ),
+
+    -- 4. Clean stale orchestrations stuck in EXECUTING_STEP (> 4 hours)
+    -- These are leftovers from pod restarts that never completed
+    deleted_stale AS (
+        DELETE FROM orchestration_states
+        WHERE status IN ('EXECUTING_STEP', 'AWAITING_RESPONSES')
+          AND updated_at < NOW() - INTERVAL '4 hours'
+        RETURNING orchestration_id
+    ),
+
+    -- 5. Clean orphan composition palettes
+    --    Adopted palettes not referenced by any css_themes row, with a
+    --    24h grace period to avoid racing in-flight installs. Seed
+    --    palettes are NEVER touched (origin filter).
+    deleted_orphan_palettes AS (
+        DELETE FROM palettes p
+        WHERE p.origin = 'adopted'
+          AND p.source_site_id IS NOT NULL
+          AND p.forked_at < NOW() - INTERVAL '24 hours'
+          AND NOT EXISTS (
+              SELECT 1 FROM css_themes t WHERE t.palette_id = p.id
+          )
+        RETURNING id
+    ),
+
+    -- 6. Clean orphan composition typography_sets
+    --    Same shape as palettes. Seed typography_sets (sans-modern,
+    --    serif-editorial, etc.) stay even when no active theme currently
+    --    references them — they're library resources for future forks.
+    deleted_orphan_typography AS (
+        DELETE FROM typography_sets ts
+        WHERE ts.origin = 'adopted'
+          AND ts.source_site_id IS NOT NULL
+          AND ts.forked_at < NOW() - INTERVAL '24 hours'
+          AND NOT EXISTS (
+              SELECT 1 FROM css_themes t WHERE t.typography_set_id = ts.id
+          )
+        RETURNING id
+    )
+
+SELECT
+    (SELECT COUNT(*) FROM deleted_errors)::text as errors_deleted,
+    (SELECT COUNT(*) FROM deleted_audit)::text as audit_deleted,
+    (SELECT COUNT(*) FROM deleted_orchestrations)::text as orchestrations_deleted,
+    (SELECT COUNT(*) FROM deleted_stale)::text as stale_deleted,
+    (SELECT COUNT(*) FROM deleted_orphan_palettes)::text as orphan_palettes_deleted,
+    (SELECT COUNT(*) FROM deleted_orphan_typography)::text as orphan_typography_deleted
+    -- Always returns a row so scheduler marks task as executed
+$PREQUERY$,
+    updated_at = NOW()
+    WHERE name = 'database-cleanup';
+
+-- Confirm exactly one row was touched
+DO $$
+DECLARE
+v_updated int;
+BEGIN
+GET DIAGNOSTICS v_updated = ROW_COUNT;
+IF v_updated = 0 THEN
+        RAISE EXCEPTION 'database-cleanup scheduled_task row not found';
+    ELSIF v_updated > 1 THEN
+        RAISE EXCEPTION 'Matched % rows for database-cleanup — expected 1', v_updated;
+END IF;
+END $$;
+
+-- Post-update checks: pre_query includes the new CTE names, length
+-- increased, task still enabled at the same interval.
+DO $$
+DECLARE
+v_after_length    int;
+    v_has_palette_cte boolean;
+    v_has_typo_cte    boolean;
+    v_enabled         boolean;
+    v_interval        int;
+    v_target_agent    text;
+BEGIN
+SELECT length(pre_query),
+       pre_query LIKE '%deleted_orphan_palettes%',
+       pre_query LIKE '%deleted_orphan_typography%',
+       enabled,
+       interval_seconds,
+       target_agent_type
+INTO v_after_length, v_has_palette_cte, v_has_typo_cte,
+    v_enabled, v_interval, v_target_agent
+FROM scheduled_tasks
+WHERE name = 'database-cleanup';
+
+RAISE NOTICE 'database-cleanup pre_query length AFTER: % chars', v_after_length;
+    RAISE NOTICE 'database-cleanup has palette CTE: %', v_has_palette_cte;
+    RAISE NOTICE 'database-cleanup has typography CTE: %', v_has_typo_cte;
+    RAISE NOTICE 'database-cleanup enabled=%, interval=%s, target=%',
+        v_enabled, v_interval, v_target_agent;
+
+    IF NOT v_has_palette_cte THEN
+        RAISE EXCEPTION 'deleted_orphan_palettes CTE missing after update';
+END IF;
+    IF NOT v_has_typo_cte THEN
+        RAISE EXCEPTION 'deleted_orphan_typography CTE missing after update';
+END IF;
+    -- Sanity: we didn't accidentally change the other fields
+    IF v_target_agent != 'database-cleanup' THEN
+        RAISE EXCEPTION
+            'target_agent_type changed to % (expected database-cleanup)',
+            v_target_agent;
+END IF;
+    IF v_interval != 3600 THEN
+        RAISE EXCEPTION
+            'interval_seconds changed to % (expected 3600)', v_interval;
+END IF;
+END $$;
+
+COMMIT;
+
+-- =====================================================================
+-- Post-deployment verification
+-- =====================================================================
+-- View the full updated pre_query:
+--
+--     SELECT pre_query FROM scheduled_tasks WHERE name = 'database-cleanup';
+--
+-- Watch the task trigger on its next cycle (up to 3600s wait) and
+-- inspect the logs:
+--
+--     kubectl -n ai-persona-system logs -l app=kafka-scheduler | grep database-cleanup
+--
+-- You should see the scheduler log all six counts:
+--     errors_deleted, audit_deleted, orchestrations_deleted, stale_deleted,
+--     orphan_palettes_deleted, orphan_typography_deleted
+--
+-- Force an immediate trigger (useful for testing) — reset
+-- last_triggered_at so the scheduler considers it due on the next tick:
+--
+--     UPDATE scheduled_tasks
+--        SET last_triggered_at = NOW() - INTERVAL '2 hours'
+--      WHERE name = 'database-cleanup';
+-- =====================================================================
+
+
+-- =====================================================================
+-- ROLLBACK (manual — uncomment and run if needed)
+-- =====================================================================
+-- BEGIN;
+-- UPDATE scheduled_tasks
+--    SET pre_query = $ROLLBACK$
+--     -- 1. Clean agent_error_log (resolved errors > 14 days, unresolved > 30 days)
+--     WITH deleted_errors AS (
+--         DELETE FROM agent_error_log
+--         WHERE (resolved = true AND occurred_at < NOW() - INTERVAL '14 days')
+--            OR (resolved = false AND occurred_at < NOW() - INTERVAL '30 days')
+--         RETURNING id
+--     ),
+--
+--     -- 2. Clean orchestration_state_audit (keep last 100k rows)
+--     deleted_audit AS (
+--         DELETE FROM orchestration_state_audit
+--         WHERE id < (
+--             SELECT COALESCE(MAX(id) - 100000, 0)
+--             FROM orchestration_state_audit
+--         )
+--         RETURNING id
+--     ),
+--
+--     -- 3. Clean completed/failed orchestration_states (> 24 hours)
+--     -- CASCADE will clean orchestration_requests, input_requests, pending_requests
+--     deleted_orchestrations AS (
+--         DELETE FROM orchestration_states
+--         WHERE status IN ('COMPLETED', 'FAILED')
+--           AND updated_at < NOW() - INTERVAL '24 hours'
+--         RETURNING orchestration_id
+--     ),
+--
+--     -- 4. Clean stale orchestrations stuck in EXECUTING_STEP (> 4 hours)
+--     -- These are leftovers from pod restarts that never completed
+--     deleted_stale AS (
+--         DELETE FROM orchestration_states
+--         WHERE status IN ('EXECUTING_STEP', 'AWAITING_RESPONSES')
+--           AND updated_at < NOW() - INTERVAL '4 hours'
+--         RETURNING orchestration_id
+--     )
+--
+--     SELECT
+--         (SELECT COUNT(*) FROM deleted_errors)::text as errors_deleted,
+--         (SELECT COUNT(*) FROM deleted_audit)::text as audit_deleted,
+--         (SELECT COUNT(*) FROM deleted_orchestrations)::text as orchestrations_deleted,
+--         (SELECT COUNT(*) FROM deleted_stale)::text as stale_deleted
+--     -- Always returns a row so scheduler marks task as executed
+-- $ROLLBACK$,
+--        updated_at = NOW()
+--  WHERE name = 'database-cleanup';
+-- COMMIT;
+

@@ -2998,3 +2998,644 @@ COMMIT;
 --   - resolved_value = the css_theme_id from the query above
 --   - NO "emergency_fallback" logger.Error line
 -- =====================================================================
+
+---
+-- backup 19 April 2026
+
+9dc5f47a-7c1f-461a-80f1-8ae37feca24e | webdesign-agent | Web Design Agent | Generates CSS stylesheets for sites. Accepts site_context or loads from DB. Analyzes design requirements and generates production CSS. | specialist | {"workflow": {"steps": {"complete": {"action": "complete_workflow", "config": {"output_fields": ["design_spec", "css_deployed", "site_context", "install_result", "fork_result"]}}, "deploy_css": {"action": "git_commit", "config": {"file_path": "assets/css/styles.css", "domain_field": "site_context.domain", "content_field": "generated_css.result", "commit_message": "Update stylesheet via webdesign-agent"}, "next_step": "check_update_db", "description": "Deploy CSS to git", "output_field": "css_deployed"}, "fork_theme": {"action": "fork_theme_from_site", "config": {"domain": "site_context.domain", "site_id": "site_context.site_id", "design_spec_field": "design_spec.result", "rendered_css_field": "generated_css.result", "current_collection_id_field": "site_context.style_collection_id"}, "next_step": "complete", "error_step": "complete", "description": "Fork adopted site theme into reusable library", "output_field": "fork_result"}, "update_site": {"action": "update_site_content", "config": {"merge": true, "content_field": "design_spec.result", "site_id_field": "site_context.site_id"}, "next_step": "check_should_fork", "description": "Store design spec", "output_field": "site_updated"}, "generate_css": {"action": "render_css_from_spec", "config": {}, "next_step": "deploy_css", "description": "Render CSS from design spec using Go template (deterministic, no LLM)", "output_field": "generated_css"}, "install_theme": {"action": "fork_theme_from_site", "config": {"domain": "site_context.domain", "site_id": "site_context.site_id", "install_on_site": true, "design_spec_field": "design_spec.result", "rendered_css_field": "generated_css.result", "current_collection_id_field": "site_context.style_collection_id"}, "next_step": "complete", "error_step": "complete", "description": "Persist theme + collection and link to site (sets sites.style_collection_id)", "output_field": "install_result"}, "analyze_design": {"action": "execute_llm_prompt", "config": {"ai_service": {"model": "claude-sonnet-4-6", "provider": "anthropic", "max_tokens": 2000, "api_key_env_var": "ANTHROPIC_API_KEY"}, "input_fields": ["site_context", "site_specs"], "output_format": "json", "prompt_template": "You are a senior web designer specialising in brand-appropriate visual systems. You produce CSS design specifications that express a company's identity, industry, and audience through colour, typography, and spacing. Your designs are distinctive — you never fall back to generic blue-and-grey palettes. You understand that a game design utility platform should feel completely different from a veterinary practice, which should feel completely different from a fuel distribution company. Every design decision you make should be traceable to something specific about the business, its audience, or its industry.\n\n## Site\nDomain: {{.site_context.domain}}\nCompany: {{if .site_specs.specs.identity.company_name}}{{.site_specs.specs.identity.company_name}}{{else}}{{.site_context.company_name}}{{end}}\nIndustry: {{if .site_specs.specs.identity.industry}}{{.site_specs.specs.identity.industry}}{{else if .site_context.industry}}{{.site_context.industry}}{{else}}professional services{{end}}\nSub-industry: {{if .site_specs.specs.identity.sub_industry}}{{.site_specs.specs.identity.sub_industry}}{{end}}\nTagline: {{if .site_specs.specs.identity.tagline}}{{.site_specs.specs.identity.tagline}}{{else}}{{.site_context.tagline}}{{end}}\nSite Type: {{if .site_specs.specs.strategy.site_type}}{{.site_specs.specs.strategy.site_type}}{{else if .site_specs.specs.classification.site_type}}{{.site_specs.specs.classification.site_type}}{{else}}{{.site_context.site_type}}{{end}}\nTone: {{if .site_specs.specs.strategy.tone}}{{.site_specs.specs.strategy.tone}}{{else if .site_specs.specs.classification.tone_suggestion}}{{.site_specs.specs.classification.tone_suggestion}}{{else}}{{.site_context.brand_tone}}{{end}}\nTarget Audience: {{if .site_specs.specs.identity.target_audience}}{{.site_specs.specs.identity.target_audience}}{{end}}\nValue Proposition: {{if .site_specs.specs.strategy.value_proposition}}{{.site_specs.specs.strategy.value_proposition}}{{end}}\n\n{{if .site_specs.specs.identity.about_summary}}## About the Business\n{{.site_specs.specs.identity.about_summary}}{{else if .site_context.about_us}}## About the Business\n{{.site_context.about_us}}{{end}}\n\n{{if .site_specs.specs.identity.services}}## Services Offered\n{{range .site_specs.specs.identity.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}\n{{end}}{{else if .site_context.services}}## Services Offered\n{{range .site_context.services}}- {{if .name}}{{.name}}: {{.description}}{{else}}{{.}}{{end}}\n{{end}}{{end}}\n\n{{if .site_specs.specs.identity.unique_selling_points}}## Unique Selling Points\n{{range .site_specs.specs.identity.unique_selling_points}}- {{.}}\n{{end}}{{end}}\n\n{{if .site_specs.specs.strategy.content_strategy}}## Content Strategy\n{{.site_specs.specs.strategy.content_strategy}}{{end}}\n\n## Components Used\n{{range .site_context.all_component_functions}}- {{.}}\n{{end}}\n\n{{if .site_specs.specs.design_intent}}## Design Intent\n\nA design direction has been set for this site. You have creative freedom to interpret this intent. The reference values are starting points — you may adjust them to better express the described character. Explain your choices in design_notes.\n\n{{if .site_specs.specs.design_intent.palette}}### Palette\n{{if .site_specs.specs.design_intent.palette.character}}Character: {{.site_specs.specs.design_intent.palette.character}}{{end}}\n{{if .site_specs.specs.design_intent.palette.reference_values}}Reference values (starting points, not exact targets):\n{{range $key, $value := .site_specs.specs.design_intent.palette.reference_values}}  --color-{{$key}}: {{$value}}\n{{end}}{{end}}\n{{if .site_specs.specs.design_intent.palette.guidance}}Guidance: {{.site_specs.specs.design_intent.palette.guidance}}{{end}}\n{{end}}\n\n{{if .site_specs.specs.design_intent.typography}}### Typography\n{{if .site_specs.specs.design_intent.typography.character}}Character: {{.site_specs.specs.design_intent.typography.character}}{{end}}\n{{if .site_specs.specs.design_intent.typography.reference_values}}Reference values:\n{{range $key, $value := .site_specs.specs.design_intent.typography.reference_values}}  {{$key}}: {{$value}}\n{{end}}{{end}}\n{{if .site_specs.specs.design_intent.typography.guidance}}Guidance: {{.site_specs.specs.design_intent.typography.guidance}}{{end}}\n{{end}}\n\n{{if .site_specs.specs.design_intent.spacing}}### Spacing\n{{if .site_specs.specs.design_intent.spacing.character}}Character: {{.site_specs.specs.design_intent.spacing.character}}{{end}}\n{{if .site_specs.specs.design_intent.spacing.reference_values}}Reference values:\n{{range $key, $value := .site_specs.specs.design_intent.spacing.reference_values}}  {{$key}}: {{$value}}\n{{end}}{{end}}\n{{end}}\n\n{{else if .site_specs.specs.design_reference}}## Design Reference (Adopted Site — No Design Intent Set)\n\nThis site was adopted from an existing design. No design direction has been set yet, so your job is to faithfully reproduce the original visual identity using our CSS variable conventions. Do NOT invent a new palette or font stack — use the reference values directly.\n\n{{if .site_specs.specs.design_reference.suggested_mapping}}### Reference Values (mapped to our CSS variables)\nUse these values directly:\n{{range $key, $value := .site_specs.specs.design_reference.suggested_mapping}}  --color-{{$key}}: {{$value}}\n{{end}}{{end}}\n\n{{if .site_specs.specs.design_reference.css_variables}}### Original CSS Variables\nThe original site defined these custom properties:\n{{range $key, $value := .site_specs.specs.design_reference.css_variables}}  {{$key}}: {{$value}}\n{{end}}{{end}}\n\n{{if .site_specs.specs.design_reference.dark_sections}}### Dark/Light Scheme\nPredominant scheme: {{.site_specs.specs.design_reference.dark_sections.predominant_scheme}}\nHas dark sections: {{.site_specs.specs.design_reference.dark_sections.has_dark_sections}}\n{{end}}\n\n{{if .site_specs.specs.design_reference.llm_description}}### Design Character (from analysis)\n{{if .site_specs.specs.design_reference.llm_description.visual_tone}}Visual tone: {{.site_specs.specs.design_reference.llm_description.visual_tone}}{{end}}\n{{if .site_specs.specs.design_reference.llm_description.palette}}Palette: {{.site_specs.specs.design_reference.llm_description.palette}}{{end}}\n{{if .site_specs.specs.design_reference.llm_description.typography}}Typography: {{.site_specs.specs.design_reference.llm_description.typography}}{{end}}\n{{end}}\n\n{{else}}\n## Design Direction\n\nNo design reference or intent exists for this site. Using the industry, business description, tone, target audience, and services above, design a colour palette and typography system that is appropriate and distinctive for this specific business. Think about what colours and fonts the target audience would expect and trust. Think about what competitors in this industry typically use — then find a way to be distinctive without being inappropriate.\n\nDo NOT use generic defaults. Do NOT default to #2c3e50 or #3498db.\n{{end}}\n\nReturn ONLY valid JSON:\n{\n  \"color_scheme\": {\n    \"primary\": \"#hex\",\n    \"secondary\": \"#hex\",\n    \"accent\": \"#hex\",\n    \"background\": \"#hex\",\n    \"surface\": \"#hex\",\n    \"text\": \"#hex\",\n    \"text_muted\": \"#hex\",\n    \"border\": \"#hex\"\n  },\n  \"typography\": {\n    \"font_family\": \"appropriate font stack\",\n    \"heading_font\": \"inherit or specific heading font\",\n    \"base_size\": \"16px\",\n    \"line_height\": \"1.6\"\n  },\n  \"spacing\": {\n    \"section_padding\": \"appropriate section padding\",\n    \"container_max_width\": \"appropriate max width\"\n  },\n  \"design_notes\": \"explain specifically why each colour and font choice suits THIS business and audience — generic explanations are not acceptable\"\n}"}, "next_step": "generate_css", "description": "Generate design spec", "output_field": "design_spec"}, "check_update_db": {"action": "conditional", "config": {"condition": "site_context.site_id != null", "else_step": "check_should_fork", "then_step": "update_site"}, "description": "Check if we should update DB"}, "read_site_specs": {"action": "read_site_spec", "config": {"site_id": "site_context.site_id"}, "next_step": "analyze_design", "description": "Load identity, classification, strategy from site_specs", "output_field": "site_specs"}, "check_has_site_id": {"action": "conditional", "config": {"condition": "site_context.site_id != null", "else_step": "analyze_design", "then_step": "read_site_specs"}, "description": "Skip site_specs read when no DB record (e.g. scrape-only path)"}, "check_should_fork": {"action": "conditional", "config": {"condition": "input_data.should_fork_theme == true", "else_step": "check_should_install", "then_step": "fork_theme"}, "description": "Check if this design run should be forked into the theme library"}, "load_site_context": {"action": "load_site_for_design", "config": {"domain_field": "input_data.domain", "include_pages": true, "site_id_field": "input_data.site_id", "include_style_collection": true}, "next_step": "check_has_site_id", "description": "Load site from database", "output_field": "site_context"}, "check_site_context": {"action": "conditional", "config": {"condition": "input_data.site_context.domain != null", "else_step": "load_site_context", "then_step": "use_provided_context"}, "description": "Check if site_context was provided"}, "check_should_install": {"action": "conditional", "config": {"condition": "site_context.style_collection_id == null", "else_step": "complete", "then_step": "install_theme"}, "description": "Install generated theme on site if no collection is linked yet"}, "use_provided_context": {"action": "transform_data", "config": {"output_key": "site_context", "source_field": "input_data.site_context"}, "next_step": "check_has_site_id", "description": "Use provided site_context", "output_field": "site_context"}}, "start_step": "check_site_context"}, "processing_mode": "task", "timeout_seconds": 300} | t         | 2026-01-29 15:39:53.19592+00 | 2026-04-19 13:16:57.675793+00 |            | ["design", "css", "styling", "specialist"] | docker.io/aqls/agent-chassis | v1.0.974  |         | {"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}} | {"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"} | {"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30} | []       |       1 |                     |               |                       |                        | {"fallback_to_self": true, "prefer_delegation": true} |                | active | []          | {}                     |           0 | f           | {"optional": ["site_id", "domain", "site_context"], "required": []} | {"produces": {"design_spec": "design spec", "css_deployed": "git result"}} |                  180
+(1 row)
+
+      -- reorder
+      -- =====================================================================
+-- Deliverable 9: Reorder webdesign-agent workflow —
+--                install_theme BEFORE generate_css
+-- =====================================================================
+--
+-- Closes the ordering issue documented in handoff section 9.1:
+--
+--   Current flow: analyze_design → generate_css → deploy_css →
+--                 check_update_db → update_site → check_should_fork →
+--                 fork_theme → check_should_install → install_theme →
+--                 complete
+--
+--   Problem: if a site has no composition when webdesign-agent runs
+--   (site-design-planner didn't run, scrape-only path, orchestration
+--   bug), generate_css hits the renderer's emergency fallback and
+--   deploys a wrong-layout CSS to git. Install_theme then creates the
+--   correct composition from the design_spec — but the wrong-layout
+--   commit stays in git until the next build pass.
+--
+--   Target flow: analyze_design → update_site (if site_id) →
+--                check_should_install → install_theme (if no collection)
+--                → generate_css → deploy_css → check_should_fork →
+--                fork_theme → complete
+--
+--   After reorder: install runs BEFORE render. The renderer always
+--   finds a composition to resolve (either one site-design-planner
+--   installed, or one install_theme just created from design_spec).
+--   Emergency fallback becomes unreachable in the normal webdesign
+--   path.
+--
+-- Step next_step changes (documented for audit):
+--
+--   analyze_design       : generate_css        → check_update_db
+--   check_update_db.else : check_should_fork   → check_should_install
+--   update_site          : check_should_fork   → check_should_install
+--   check_should_install.then : install_theme  (unchanged)
+--   check_should_install.else : complete       → generate_css
+--   install_theme        : complete            → generate_css
+--   generate_css         : deploy_css          (unchanged)
+--   deploy_css           : check_update_db     → check_should_fork
+--   check_should_fork.then : fork_theme        (unchanged)
+--   check_should_fork.else : check_should_install → complete
+--   fork_theme           : complete            (unchanged)
+--
+--   check_update_db itself is RETAINED in its current role as the
+--   post-analyze branch "do we have a site_id to update?"
+--
+-- Approach:
+--   Single UPDATE that replaces the `workflow.steps` subtree via
+--   jsonb_set. Building an inline jsonb_build_object with every step
+--   explicitly is clearer than a chain of surgical jsonb_set calls on
+--   specific next_step fields — the whole-subtree replacement lets
+--   auditors read one complete spec rather than diffing against the
+--   prior row.
+--
+--   Other fields under default_config (processing_mode,
+--   timeout_seconds, start_step) are untouched.
+--
+-- Safety:
+--   - Running on a drifted workflow (one that has additional steps we
+--     didn't plan for) would drop those steps. A preflight check lists
+--     all current step names and errors if any unexpected names are
+--     present.
+--   - Single transaction — rollback on any assertion failure.
+--   - JSONB payload reuses the LLM prompt verbatim (analyze_design
+--     template) by preserving the step via path-read rather than
+--     literal replay. This avoids accidentally altering the prompt.
+--
+-- Idempotency:
+--   Re-running the SQL sets the workflow to the same shape. Safe.
+--
+-- Prerequisite:
+--   Deliverables 1–8 deployed. This reorder is only relevant for the
+--   fallback path (sites where site-design-planner didn't run). With
+--   the sweep in place, that set should be empty — this is a defensive
+--   fix.
+--
+-- Rollback:
+--   Reverse UPDATE at the bottom of this file (in a comment).
+-- =====================================================================
+
+BEGIN;
+
+-- =====================================================================
+-- Preflight: verify the workflow is in the expected shape before
+-- rearranging it. If additional steps exist that we didn't plan for,
+-- this reorder would drop them — abort instead.
+-- =====================================================================
+
+DO $$
+DECLARE
+    v_step_names      text[];
+    v_expected        text[] := ARRAY[
+        'analyze_design',
+        'check_has_site_id',
+        'check_should_fork',
+        'check_should_install',
+        'check_site_context',
+        'check_update_db',
+        'complete',
+        'deploy_css',
+        'fork_theme',
+        'generate_css',
+        'install_theme',
+        'load_site_context',
+        'read_site_specs',
+        'update_site',
+        'use_provided_context'
+    ];
+    v_unexpected      text[];
+    v_missing         text[];
+BEGIN
+    SELECT ARRAY(
+        SELECT jsonb_object_keys(default_config -> 'workflow' -> 'steps')
+          FROM agent_definitions
+         WHERE type = 'webdesign-agent'
+           AND is_active = true
+        ORDER BY 1
+    ) INTO v_step_names;
+
+    SELECT ARRAY(
+        SELECT unnest(v_step_names)
+        EXCEPT
+        SELECT unnest(v_expected)
+    ) INTO v_unexpected;
+
+    SELECT ARRAY(
+        SELECT unnest(v_expected)
+        EXCEPT
+        SELECT unnest(v_step_names)
+    ) INTO v_missing;
+
+    RAISE NOTICE 'webdesign-agent current steps: %', v_step_names;
+
+    IF v_unexpected IS NOT NULL AND array_length(v_unexpected, 1) > 0 THEN
+        RAISE EXCEPTION
+            'webdesign-agent has UNEXPECTED steps (not in reorder plan): %. Abort — inspect and update deliverable 9 before proceeding.',
+            v_unexpected;
+    END IF;
+
+    IF v_missing IS NOT NULL AND array_length(v_missing, 1) > 0 THEN
+        RAISE EXCEPTION
+            'webdesign-agent is MISSING expected steps: %. Abort — workflow shape does not match the plan.',
+            v_missing;
+    END IF;
+END $$;
+
+-- =====================================================================
+-- Capture the current analyze_design step verbatim — we keep its LLM
+-- prompt exactly as-is and only change next_step. Same for load_site_context.
+-- Pulling these via path-read avoids having to reproduce the ~6KB prompt
+-- template literal inside this file.
+-- =====================================================================
+
+-- Build the new steps object. Every step is rewritten explicitly so the
+-- final shape is fully auditable in one place. Steps whose config/prompt
+-- is preserved from the current value (analyze_design, load_site_context,
+-- read_site_specs, use_provided_context, check_site_context, check_has_site_id,
+-- fork_theme, install_theme, deploy_css, update_site, generate_css) have
+-- their existing body merged via the `|| jsonb_build_object('next_step', ...)`
+-- pattern, which overrides just the fields we're changing.
+
+WITH existing AS (
+    SELECT default_config -> 'workflow' -> 'steps' AS steps
+      FROM agent_definitions
+     WHERE type = 'webdesign-agent'
+       AND is_active = true
+     LIMIT 1
+),
+new_steps AS (
+    SELECT jsonb_build_object(
+        -- --- Entry and context loading (unchanged) ---
+        'check_site_context',   steps -> 'check_site_context',
+        'use_provided_context', steps -> 'use_provided_context',
+        'load_site_context',    steps -> 'load_site_context',
+        'check_has_site_id',    steps -> 'check_has_site_id',
+        'read_site_specs',      steps -> 'read_site_specs',
+
+        -- --- analyze_design: change next_step to check_update_db ---
+        -- (was: generate_css)
+        'analyze_design',
+            (steps -> 'analyze_design')
+            || jsonb_build_object('next_step', 'check_update_db'),
+
+        -- --- check_update_db: unchanged branches, but else_step now
+        --     goes to check_should_install instead of check_should_fork ---
+        'check_update_db', jsonb_build_object(
+            'action', 'conditional',
+            'config', jsonb_build_object(
+                'condition', 'site_context.site_id != null',
+                'then_step', 'update_site',
+                'else_step', 'check_should_install'
+            ),
+            'description', 'Check if we should update DB'
+        ),
+
+        -- --- update_site: next_step now goes to check_should_install ---
+        -- (was: check_should_fork)
+        'update_site',
+            (steps -> 'update_site')
+            || jsonb_build_object('next_step', 'check_should_install'),
+
+        -- --- check_should_install: else_step now goes to generate_css ---
+        -- (was: complete. Now we always render after the install gate.)
+        'check_should_install', jsonb_build_object(
+            'action', 'conditional',
+            'config', jsonb_build_object(
+                'condition', 'site_context.style_collection_id == null',
+                'then_step', 'install_theme',
+                'else_step', 'generate_css'
+            ),
+            'description', 'Install generated theme on site if no collection is linked yet'
+        ),
+
+        -- --- install_theme: next_step now goes to generate_css ---
+        -- (was: complete. Now we render AFTER the theme is installed.)
+        'install_theme',
+            (steps -> 'install_theme')
+            || jsonb_build_object(
+                'next_step',  'generate_css',
+                'error_step', 'generate_css'
+            ),
+
+        -- --- generate_css: unchanged target (deploy_css). Its config
+        --     remains {} per deliverable 7.5 — no theme literal. ---
+        'generate_css', steps -> 'generate_css',
+
+        -- --- deploy_css: next_step now goes to check_should_fork ---
+        -- (was: check_update_db. Update already ran earlier.)
+        'deploy_css',
+            (steps -> 'deploy_css')
+            || jsonb_build_object('next_step', 'check_should_fork'),
+
+        -- --- check_should_fork: else_step now goes to complete ---
+        -- (was: check_should_install. Install already ran earlier.)
+        'check_should_fork', jsonb_build_object(
+            'action', 'conditional',
+            'config', jsonb_build_object(
+                'condition', 'input_data.should_fork_theme == true',
+                'then_step', 'fork_theme',
+                'else_step', 'complete'
+            ),
+            'description', 'Check if this design run should be forked into the theme library'
+        ),
+
+        -- --- fork_theme: unchanged (goes to complete) ---
+        'fork_theme', steps -> 'fork_theme',
+
+        -- --- complete: unchanged ---
+        'complete', steps -> 'complete'
+    ) AS steps
+      FROM existing
+)
+UPDATE agent_definitions
+   SET default_config = jsonb_set(
+           default_config,
+           '{workflow,steps}',
+           (SELECT steps FROM new_steps),
+           false  -- don't create; path must exist
+       ),
+       updated_at = NOW()
+ WHERE type = 'webdesign-agent'
+   AND is_active = true;
+
+-- Row-count sanity
+DO $$
+DECLARE
+    v_updated int;
+BEGIN
+    GET DIAGNOSTICS v_updated = ROW_COUNT;
+    IF v_updated <> 1 THEN
+        RAISE EXCEPTION
+            'webdesign-agent UPDATE matched % rows (expected 1)', v_updated;
+    END IF;
+END $$;
+
+-- =====================================================================
+-- Post-update assertions: walk the new workflow and confirm every
+-- next_step / else_step is as planned.
+-- =====================================================================
+
+DO $$
+DECLARE
+    v                jsonb;
+    v_analyze_next   text;
+    v_update_next    text;
+    v_install_next   text;
+    v_install_err    text;
+    v_deploy_next    text;
+    v_chk_update_else text;
+    v_chk_install_else text;
+    v_chk_fork_else  text;
+BEGIN
+    SELECT default_config -> 'workflow' -> 'steps'
+      INTO v
+      FROM agent_definitions
+     WHERE type = 'webdesign-agent'
+       AND is_active = true;
+
+    v_analyze_next     := v -> 'analyze_design'       ->> 'next_step';
+    v_update_next      := v -> 'update_site'          ->> 'next_step';
+    v_install_next     := v -> 'install_theme'        ->> 'next_step';
+    v_install_err      := v -> 'install_theme'        ->> 'error_step';
+    v_deploy_next      := v -> 'deploy_css'           ->> 'next_step';
+    v_chk_update_else  := v -> 'check_update_db'      -> 'config' ->> 'else_step';
+    v_chk_install_else := v -> 'check_should_install' -> 'config' ->> 'else_step';
+    v_chk_fork_else    := v -> 'check_should_fork'    -> 'config' ->> 'else_step';
+
+    RAISE NOTICE 'analyze_design.next_step:           % (expected check_update_db)',       v_analyze_next;
+    RAISE NOTICE 'update_site.next_step:              % (expected check_should_install)',  v_update_next;
+    RAISE NOTICE 'install_theme.next_step:            % (expected generate_css)',          v_install_next;
+    RAISE NOTICE 'install_theme.error_step:           % (expected generate_css)',          v_install_err;
+    RAISE NOTICE 'deploy_css.next_step:               % (expected check_should_fork)',     v_deploy_next;
+    RAISE NOTICE 'check_update_db.else_step:          % (expected check_should_install)',  v_chk_update_else;
+    RAISE NOTICE 'check_should_install.else_step:     % (expected generate_css)',          v_chk_install_else;
+    RAISE NOTICE 'check_should_fork.else_step:        % (expected complete)',              v_chk_fork_else;
+
+    IF v_analyze_next     <> 'check_update_db'       THEN RAISE EXCEPTION 'analyze_design.next_step wrong'; END IF;
+    IF v_update_next      <> 'check_should_install'  THEN RAISE EXCEPTION 'update_site.next_step wrong'; END IF;
+    IF v_install_next     <> 'generate_css'          THEN RAISE EXCEPTION 'install_theme.next_step wrong'; END IF;
+    IF v_install_err      <> 'generate_css'          THEN RAISE EXCEPTION 'install_theme.error_step wrong'; END IF;
+    IF v_deploy_next      <> 'check_should_fork'     THEN RAISE EXCEPTION 'deploy_css.next_step wrong'; END IF;
+    IF v_chk_update_else  <> 'check_should_install'  THEN RAISE EXCEPTION 'check_update_db.else wrong'; END IF;
+    IF v_chk_install_else <> 'generate_css'          THEN RAISE EXCEPTION 'check_should_install.else wrong'; END IF;
+    IF v_chk_fork_else    <> 'complete'              THEN RAISE EXCEPTION 'check_should_fork.else wrong'; END IF;
+
+    RAISE NOTICE '--- webdesign-agent workflow reorder applied successfully ---';
+END $$;
+
+COMMIT;
+
+-- =====================================================================
+-- Post-deployment verification
+-- =====================================================================
+-- Inspect the full workflow with pretty-printing:
+--
+--     SELECT jsonb_pretty(default_config -> 'workflow' -> 'steps')
+--       FROM agent_definitions
+--      WHERE type = 'webdesign-agent';
+--
+-- Smoke test — dispatch a webdesign-agent run for a site with NO
+-- style_collection_id (simulating the fallback path this reorder fixes):
+--
+--     UPDATE sites SET style_collection_id = NULL
+--      WHERE domain = '<test-domain>' AND locked_at IS NULL;
+--
+--     INSERT INTO site_work_items (
+--         site_id, source, pipeline, item_type, severity, summary,
+--         spec, priority, handler_agent, status, created_by, item_key
+--     )
+--     SELECT id, 'manual', 'build', 'needs_design', 'high',
+--            'Smoke test reorder', '{}'::jsonb::text,
+--            8, 'webdesign-agent', 'triaged', 'admin',
+--            'smoke_reorder'
+--       FROM sites WHERE domain = '<test-domain>';
+--
+-- Expected log sequence:
+--     analyze_design  → check_update_db → update_site
+--                     → check_should_install → install_theme
+--                     → generate_css (with site_composition resolver path)
+--                     → deploy_css → check_should_fork → complete
+--
+-- Confirm no "emergency_fallback" logger.Error line from the renderer.
+-- =====================================================================
+
+
+-- =====================================================================
+-- ROLLBACK (manual — uncomment and run if needed)
+-- =====================================================================
+-- Reverses every next_step / else_step change to restore the prior
+-- shape. Requires deliverable 7.5's theme_name clear to remain in
+-- place (rolling back that separately).
+--
+-- BEGIN;
+-- WITH existing AS (
+--     SELECT default_config -> 'workflow' -> 'steps' AS steps
+--       FROM agent_definitions WHERE type = 'webdesign-agent' LIMIT 1
+-- ),
+-- reverted AS (
+--     SELECT jsonb_build_object(
+--         'check_site_context',   steps -> 'check_site_context',
+--         'use_provided_context', steps -> 'use_provided_context',
+--         'load_site_context',    steps -> 'load_site_context',
+--         'check_has_site_id',    steps -> 'check_has_site_id',
+--         'read_site_specs',      steps -> 'read_site_specs',
+--         'analyze_design',
+--             (steps -> 'analyze_design')
+--             || jsonb_build_object('next_step', 'generate_css'),
+--         'generate_css',        steps -> 'generate_css',
+--         'deploy_css',
+--             (steps -> 'deploy_css')
+--             || jsonb_build_object('next_step', 'check_update_db'),
+--         'check_update_db', jsonb_build_object(
+--             'action', 'conditional',
+--             'config', jsonb_build_object(
+--                 'condition', 'site_context.site_id != null',
+--                 'then_step', 'update_site',
+--                 'else_step', 'check_should_fork'
+--             ),
+--             'description', 'Check if we should update DB'
+--         ),
+--         'update_site',
+--             (steps -> 'update_site')
+--             || jsonb_build_object('next_step', 'check_should_fork'),
+--         'check_should_fork', jsonb_build_object(
+--             'action', 'conditional',
+--             'config', jsonb_build_object(
+--                 'condition', 'input_data.should_fork_theme == true',
+--                 'then_step', 'fork_theme',
+--                 'else_step', 'check_should_install'
+--             ),
+--             'description', 'Check if this design run should be forked into the theme library'
+--         ),
+--         'fork_theme',          steps -> 'fork_theme',
+--         'check_should_install', jsonb_build_object(
+--             'action', 'conditional',
+--             'config', jsonb_build_object(
+--                 'condition', 'site_context.style_collection_id == null',
+--                 'then_step', 'install_theme',
+--                 'else_step', 'complete'
+--             ),
+--             'description', 'Install generated theme on site if no collection is linked yet'
+--         ),
+--         'install_theme',
+--             (steps -> 'install_theme')
+--             || jsonb_build_object(
+--                 'next_step',  'complete',
+--                 'error_step', 'complete'
+--             ),
+--         'complete',            steps -> 'complete'
+--     ) AS steps FROM existing
+-- )
+-- UPDATE agent_definitions
+--    SET default_config = jsonb_set(default_config, '{workflow,steps}', (SELECT steps FROM reverted), false),
+--        updated_at = NOW()
+--  WHERE type = 'webdesign-agent';
+-- COMMIT;
+
+---
+-- above failed
+-- =====================================================================
+-- Deliverable 9 v2: Reorder webdesign-agent workflow (simplified)
+-- =====================================================================
+--
+-- Why v2:
+--   v1 used a WITH ... UPDATE with a CTE-built jsonb_build_object for
+--   the entire steps subtree. It reported UPDATE 1 successfully but a
+--   follow-up DO block assertion then errored (GET DIAGNOSTICS ROW_COUNT
+--   inside a separate DO block doesn't carry the previous statement's
+--   row count — the assertion was ill-posed), triggering ROLLBACK that
+--   reverted the UPDATE. The workflow stayed at the original shape.
+--
+-- Approach in v2:
+--   Chain eight surgical jsonb_set calls in one UPDATE. Each call
+--   targets one next_step or else_step path. No CTE, no inline
+--   workflow rebuild. psql reports "UPDATE 1" and that's the end of it
+--   — no separate assertion block that could fail after the fact.
+--
+-- The eight routing changes (target state):
+--
+--   analyze_design.next_step              : generate_css        → check_update_db
+--   check_update_db.config.else_step      : check_should_fork   → check_should_install
+--   update_site.next_step                 : check_should_fork   → check_should_install
+--   check_should_install.config.else_step : complete            → generate_css
+--   install_theme.next_step               : complete            → generate_css
+--   install_theme.error_step              : complete            → generate_css
+--   deploy_css.next_step                  : check_update_db     → check_should_fork
+--   check_should_fork.config.else_step    : check_should_install → complete
+--
+-- Resulting flow:
+--   check_site_context → {use_provided_context | load_site_context}
+--     → check_has_site_id → {read_site_specs | analyze_design}
+--     → analyze_design
+--     → check_update_db
+--        ├─ (site_id present) → update_site → check_should_install
+--        └─ (no site_id)      → check_should_install
+--            ├─ (no collection) → install_theme → generate_css
+--            └─ (have collection) → generate_css
+--     → deploy_css → check_should_fork
+--        ├─ (should_fork)  → fork_theme → complete
+--        └─ (no fork)      → complete
+--
+-- Idempotent: re-running sets the same values.
+-- Rollback: see inverse UPDATE at the bottom of this file in comments.
+-- =====================================================================
+
+BEGIN;
+
+UPDATE agent_definitions
+   SET default_config = jsonb_set(
+           jsonb_set(
+               jsonb_set(
+                   jsonb_set(
+                       jsonb_set(
+                           jsonb_set(
+                               jsonb_set(
+                                   jsonb_set(
+                                       default_config,
+                                       '{workflow,steps,analyze_design,next_step}',
+                                       '"check_update_db"'::jsonb
+                                   ),
+                                   '{workflow,steps,check_update_db,config,else_step}',
+                                   '"check_should_install"'::jsonb
+                               ),
+                               '{workflow,steps,update_site,next_step}',
+                               '"check_should_install"'::jsonb
+                           ),
+                           '{workflow,steps,check_should_install,config,else_step}',
+                           '"generate_css"'::jsonb
+                       ),
+                       '{workflow,steps,install_theme,next_step}',
+                       '"generate_css"'::jsonb
+                   ),
+                   '{workflow,steps,install_theme,error_step}',
+                   '"generate_css"'::jsonb
+               ),
+               '{workflow,steps,deploy_css,next_step}',
+               '"check_should_fork"'::jsonb
+           ),
+           '{workflow,steps,check_should_fork,config,else_step}',
+           '"complete"'::jsonb
+       ),
+       updated_at = NOW()
+ WHERE type = 'webdesign-agent'
+   AND is_active = true;
+
+-- Inline SELECT-based verification. Reads the eight routing fields in
+-- one row so they're all visible together. No DO block, no row-count
+-- assertion — if the UPDATE above didn't hit, every column would be
+-- null and the mismatch is obvious.
+SELECT
+    default_config #>> '{workflow,steps,analyze_design,next_step}'              AS analyze_next,
+    default_config #>> '{workflow,steps,check_update_db,config,else_step}'     AS check_update_else,
+    default_config #>> '{workflow,steps,update_site,next_step}'                AS update_next,
+    default_config #>> '{workflow,steps,check_should_install,config,else_step}' AS check_install_else,
+    default_config #>> '{workflow,steps,install_theme,next_step}'              AS install_next,
+    default_config #>> '{workflow,steps,install_theme,error_step}'             AS install_err,
+    default_config #>> '{workflow,steps,deploy_css,next_step}'                 AS deploy_next,
+    default_config #>> '{workflow,steps,check_should_fork,config,else_step}'   AS check_fork_else
+  FROM agent_definitions
+ WHERE type = 'webdesign-agent'
+   AND is_active = true;
+
+-- Expected row:
+--   analyze_next       = check_update_db
+--   check_update_else  = check_should_install
+--   update_next        = check_should_install
+--   check_install_else = generate_css
+--   install_next       = generate_css
+--   install_err        = generate_css
+--   deploy_next        = check_should_fork
+--   check_fork_else    = complete
+
+COMMIT;
+
+-- =====================================================================
+-- Post-commit verification
+-- =====================================================================
+-- Full pretty-printed workflow for visual audit:
+--
+--     SELECT jsonb_pretty(default_config -> 'workflow' -> 'steps')
+--       FROM agent_definitions
+--      WHERE type = 'webdesign-agent' AND is_active = true;
+--
+-- Smoke test — dispatch a webdesign-agent run on a site with no
+-- style_collection_id to exercise the install_theme → generate_css path:
+--
+--     UPDATE sites SET style_collection_id = NULL
+--      WHERE domain = '<test-domain>' AND locked_at IS NULL;
+--
+--     INSERT INTO site_work_items (
+--         site_id, source, pipeline, item_type, severity, summary,
+--         spec, priority, handler_agent, status, created_by, item_key
+--     )
+--     SELECT id, 'manual', 'build', 'needs_design', 'high',
+--            'Smoke test reorder v2', '{}'::jsonb,
+--            8, 'webdesign-agent', 'triaged', 'admin',
+--            'smoke_reorder_v2'
+--       FROM sites WHERE domain = '<test-domain>';
+--
+-- Expected log order:
+--   analyze_design → check_update_db → update_site →
+--   check_should_install → install_theme → generate_css →
+--   deploy_css → check_should_fork → complete
+-- =====================================================================
+
+
+-- =====================================================================
+-- ROLLBACK (uncomment to run)
+-- =====================================================================
+-- Reverses each of the eight routing changes. Safe on the v2-applied
+-- shape; idempotent.
+--
+-- BEGIN;
+-- UPDATE agent_definitions
+--    SET default_config = jsonb_set(
+--            jsonb_set(
+--                jsonb_set(
+--                    jsonb_set(
+--                        jsonb_set(
+--                            jsonb_set(
+--                                jsonb_set(
+--                                    jsonb_set(
+--                                        default_config,
+--                                        '{workflow,steps,analyze_design,next_step}',
+--                                        '"generate_css"'::jsonb
+--                                    ),
+--                                    '{workflow,steps,check_update_db,config,else_step}',
+--                                    '"check_should_fork"'::jsonb
+--                                ),
+--                                '{workflow,steps,update_site,next_step}',
+--                                '"check_should_fork"'::jsonb
+--                            ),
+--                            '{workflow,steps,check_should_install,config,else_step}',
+--                            '"complete"'::jsonb
+--                        ),
+--                        '{workflow,steps,install_theme,next_step}',
+--                        '"complete"'::jsonb
+--                    ),
+--                    '{workflow,steps,install_theme,error_step}',
+--                    '"complete"'::jsonb
+--                ),
+--                '{workflow,steps,deploy_css,next_step}',
+--                '"check_update_db"'::jsonb
+--            ),
+--            '{workflow,steps,check_should_fork,config,else_step}',
+--            '"check_should_install"'::jsonb
+--        ),
+--        updated_at = NOW()
+--  WHERE type = 'webdesign-agent' AND is_active = true;
+-- COMMIT;
+
+      
