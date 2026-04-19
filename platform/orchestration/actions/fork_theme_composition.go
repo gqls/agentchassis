@@ -69,6 +69,8 @@ import (
 // included if present. Non-core keys present in color_scheme are
 // ALSO included — specialised slots a site declares propagate, the
 // renderer's merge rules will then treat them as theme-owned.
+//
+// now just a thin wrapper
 func createPaletteForFork(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -83,64 +85,18 @@ func createPaletteForFork(
 	logger *zap.Logger,
 ) (uuid.UUID, error) {
 
-	// Extract the colour map from design_spec.
 	coloursMap := extractStringMap(designSpec, "color_scheme")
-	if len(coloursMap) == 0 {
-		return uuid.Nil, fmt.Errorf(
-			"cannot fork palette: design_spec has no color_scheme entries",
-		)
-	}
 
-	coloursJSON, err := json.Marshal(coloursMap)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("marshal palette colours: %w", err)
-	}
-
-	paletteName, err := resolveUniqueNameInTx(
+	return createPalette(
 		ctx, tx,
-		"palettes", "name",
-		"palette-"+baseName,
+		coloursMap,
+		baseName, displayName,
+		category, industryTags,
+		siteID, domain,
+		parentPaletteID,
+		"adopted", true, // fork path always adopted, review-gated
 		logger,
 	)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("resolve palette name: %w", err)
-	}
-
-	industryTagsArr := industryTagsToTextArray(industryTags)
-
-	var newID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
-		INSERT INTO palettes (
-			name, display_name, description, colours,
-			category, industry_tags, is_active,
-			origin, needs_review,
-			forked_from_palette_id, source_site_id, source_domain, forked_at
-		) VALUES (
-			$1, $2, $3, $4::jsonb,
-			$5, $6, true,
-			'adopted', true,
-			$7, $8, $9, NOW()
-		) RETURNING id
-	`,
-		paletteName,
-		displayName,
-		fmt.Sprintf("Palette extracted from adopted site %s", domain),
-		string(coloursJSON),
-		category,
-		industryTagsArr,
-		parentPaletteID, siteID, domain,
-	).Scan(&newID)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("insert palette: %w", err)
-	}
-
-	logger.Info("createPaletteForFork: inserted palette",
-		zap.String("palette_id", newID.String()),
-		zap.String("palette_name", paletteName),
-		zap.Int("colour_count", len(coloursMap)),
-	)
-
-	return newID, nil
 }
 
 // --- Typography set creation or match ---
@@ -541,6 +497,96 @@ func resolveTypographySet(
 		zap.String("font_family", fontFamily),
 	)
 	return newID, false, nil
+}
+
+// createPalette inserts a new palettes row with the caller-supplied
+// colours map and metadata. Used by:
+//   - createPaletteForFork              (fork path — from design_spec)
+//   - resolve_composition_palette_action (composition — from spec cascade)
+//
+// Palettes are always site-specific — library reuse of palettes across
+// sites is almost never correct. Callers should always invoke this to
+// create a fresh row, not try to match against existing palettes.
+//
+// `origin` should be 'adopted' for every caller today. `needsReview`
+// lets callers decide whether to gate the palette behind HITL: true
+// for fork-to-library, false for direct site composition (the site is
+// using its own palette, no library promotion implied).
+func createPalette(
+	ctx context.Context,
+	tx *sql.Tx,
+	coloursMap map[string]string,
+	baseName string,
+	displayName string,
+	category string,
+	industryTags []string,
+	siteID uuid.UUID,
+	domain string,
+	parentPaletteID *uuid.UUID,
+	origin string,
+	needsReview bool,
+	logger *zap.Logger,
+) (uuid.UUID, error) {
+
+	if len(coloursMap) == 0 {
+		return uuid.Nil, fmt.Errorf(
+			"cannot create palette: no colour entries supplied",
+		)
+	}
+
+	coloursJSON, err := json.Marshal(coloursMap)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("marshal palette colours: %w", err)
+	}
+
+	paletteName, err := resolveUniqueNameInTx(
+		ctx, tx,
+		"palettes", "name",
+		"palette-"+baseName,
+		logger,
+	)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("resolve palette name: %w", err)
+	}
+
+	industryTagsArr := industryTagsToTextArray(industryTags)
+
+	var newID uuid.UUID
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO palettes (
+			name, display_name, description, colours,
+			category, industry_tags, is_active,
+			origin, needs_review,
+			forked_from_palette_id, source_site_id, source_domain, forked_at
+		) VALUES (
+			$1, $2, $3, $4::jsonb,
+			$5, $6, true,
+			$7, $8,
+			$9, $10, $11, NOW()
+		) RETURNING id
+	`,
+		paletteName,
+		displayName,
+		fmt.Sprintf("Palette for %s", domain),
+		string(coloursJSON),
+		category,
+		industryTagsArr,
+		origin, needsReview,
+		parentPaletteID, siteID, domain,
+	).Scan(&newID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("insert palette: %w", err)
+	}
+
+	logger.Info("createPalette: inserted palette",
+		zap.String("palette_id", newID.String()),
+		zap.String("palette_name", paletteName),
+		zap.Int("colour_count", len(coloursMap)),
+		zap.String("origin", origin),
+		zap.Bool("needs_review", needsReview),
+	)
+
+	return newID, nil
 }
 
 // isValidIdentifier whitelists table/column names used by the helpers.

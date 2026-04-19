@@ -53,7 +53,6 @@ package actions
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -110,12 +109,12 @@ func ResolveCompositionTypographyAction(ctx context.Context, params ActionParams
 	fonts, source := extractTypographySignal(ctx, params, siteID, logger)
 
 	// Classification — used for industry_tags and category on any new row.
-	category, industryTags := readClassificationFieldsFromContext(
+	category, industryTags := readClassificationFromContext(
 		ctx, params, siteID, logger,
 	)
 
 	// baseName for the typography-set's name if we end up inserting one.
-	baseName := slugifyForTypography(domain)
+	baseName := slugifyForCompositionName(domain)
 	if baseName == "" {
 		baseName = "site-" + siteID.String()[:8]
 	}
@@ -180,9 +179,9 @@ func ResolveCompositionTypographyAction(ctx context.Context, params ActionParams
 // of the source that provided it.
 //
 // Cascade:
-//  1. design_reference.typography.reference_values
-//  2. design_intent.typography.reference_values
-//  3. mission.preferred_typography
+//   1. design_reference.typography.reference_values
+//   2. design_intent.typography.reference_values
+//   3. mission.preferred_typography
 //
 // Empty-or-missing at every step → returns empty map and "none". The
 // caller then lets resolveTypographySet apply its sans-modern default.
@@ -194,8 +193,8 @@ func extractTypographySignal(
 ) (map[string]string, string) {
 
 	// 1. design_reference (from fingerprint)
-	if ref, ok := readSpecAspectMap(ctx, params, siteID, "design_reference", logger); ok {
-		if fonts := extractReferenceValues(ref, "typography"); len(fonts) > 0 {
+	if ref, ok := loadSpecAspectFromContext(ctx, params, siteID, "design_reference", logger); ok {
+		if fonts := extractReferenceValuesFromSpec(ref, "typography"); len(fonts) > 0 {
 			if fonts["font_family"] != "" {
 				return fonts, "design_reference"
 			}
@@ -203,8 +202,8 @@ func extractTypographySignal(
 	}
 
 	// 2. design_intent (semantic)
-	if intent, ok := readSpecAspectMap(ctx, params, siteID, "design_intent", logger); ok {
-		if fonts := extractReferenceValues(intent, "typography"); len(fonts) > 0 {
+	if intent, ok := loadSpecAspectFromContext(ctx, params, siteID, "design_intent", logger); ok {
+		if fonts := extractReferenceValuesFromSpec(intent, "typography"); len(fonts) > 0 {
 			if fonts["font_family"] != "" {
 				return fonts, "design_intent"
 			}
@@ -212,10 +211,10 @@ func extractTypographySignal(
 	}
 
 	// 3. mission.preferred_typography
-	if mission, ok := readSpecAspectMap(ctx, params, siteID, "mission", logger); ok {
+	if mission, ok := loadSpecAspectFromContext(ctx, params, siteID, "mission", logger); ok {
 		if raw, exists := mission["preferred_typography"]; exists {
 			if m, ok := raw.(map[string]interface{}); ok {
-				fonts := mapInterfaceToString(m)
+				fonts := mapInterfaceToStrings(m)
 				if fonts["font_family"] != "" {
 					return fonts, "mission_hint"
 				}
@@ -224,171 +223,4 @@ func extractTypographySignal(
 	}
 
 	return map[string]string{}, "none"
-}
-
-// readSpecAspectMap loads a spec aspect. Tries collected_data first
-// (if the workflow already loaded it via read_site_spec), then falls back
-// to a direct DB read.
-func readSpecAspectMap(
-	ctx context.Context,
-	params ActionParams,
-	siteID uuid.UUID,
-	aspect string,
-	logger *zap.Logger,
-) (map[string]interface{}, bool) {
-
-	// Check collected_data under conventional paths used by read_site_spec
-	candidates := []string{
-		"site_specs.specs." + aspect,
-		aspect + "_spec.data",
-		aspect,
-	}
-	for _, p := range candidates {
-		raw := datahelpers.ExtractNestedField(params.CollectedData, p)
-		if raw != nil {
-			unwrapped := datahelpers.UnwrapDeep(raw, logger)
-			if m, ok := unwrapped.(map[string]interface{}); ok && len(m) > 0 {
-				return m, true
-			}
-		}
-	}
-
-	// Fall back to DB read. loadCurrentSpecData lives in
-	// validate_composition_inputs_action.go.
-	data, found, err := loadCurrentSpecData(ctx, params.DB, siteID, aspect)
-	if err != nil {
-		logger.Warn("readSpecAspectMap: DB read failed",
-			zap.String("aspect", aspect), zap.Error(err),
-		)
-		return nil, false
-	}
-	return data, found
-}
-
-// extractReferenceValues pulls the fonts map out of a design spec that
-// follows the documented schema:
-//
-//	{
-//	  "typography": {
-//	    "character": "...",
-//	    "reference_values": {
-//	      "font_family": "Inter, ...",
-//	      "heading_font": "..."
-//	    }
-//	  }
-//	}
-//
-// Falls through to direct keys on typography if reference_values is absent
-// (so shapes that are simpler than the full schema still work).
-func extractReferenceValues(spec map[string]interface{}, key string) map[string]string {
-	typoRaw, ok := spec[key]
-	if !ok {
-		return nil
-	}
-	typoMap, ok := typoRaw.(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	// Prefer nested reference_values
-	if refRaw, has := typoMap["reference_values"]; has {
-		if refMap, ok := refRaw.(map[string]interface{}); ok {
-			return mapInterfaceToString(refMap)
-		}
-	}
-	// Fall back: flat shape
-	return mapInterfaceToString(typoMap)
-}
-
-// mapInterfaceToString converts a map[string]interface{} to
-// map[string]string, keeping only string values and trimming whitespace.
-// Non-string values (arrays, numbers, nested maps) are dropped.
-func mapInterfaceToString(in map[string]interface{}) map[string]string {
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		if s, ok := v.(string); ok {
-			s = strings.TrimSpace(s)
-			if s != "" {
-				out[k] = s
-			}
-		}
-	}
-	return out
-}
-
-// readClassificationFieldsFromContext pulls category and industry_tags
-// following the same logic as extractClassificationTags in
-// resolve_composition_layout_action.go. Kept as a small separate function
-// here to avoid cross-file dependency coupling.
-func readClassificationFieldsFromContext(
-	ctx context.Context,
-	params ActionParams,
-	siteID uuid.UUID,
-	logger *zap.Logger,
-) (string, []string) {
-
-	classPath := "validated_inputs.classification"
-	if cs, ok := params.StepConfig.Config["classification_source"].(string); ok && cs != "" {
-		classPath = cs
-	}
-
-	var classData map[string]interface{}
-	classRaw := datahelpers.ExtractNestedField(params.CollectedData, classPath)
-	if classRaw != nil {
-		unwrapped := datahelpers.UnwrapDeep(classRaw, logger)
-		if m, ok := unwrapped.(map[string]interface{}); ok {
-			classData = m
-		}
-	}
-
-	if len(classData) == 0 {
-		// Fall back to spec read — validate_composition_inputs should
-		// have caught a missing classification earlier, so this is just
-		// a safety net.
-		if data, found, err := loadCurrentSpecData(ctx, params.DB, siteID, "classification"); err == nil && found {
-			classData = data
-		}
-	}
-
-	category, _ := classData["category"].(string)
-	var tags []string
-	if raw, ok := classData["industry_tags"]; ok {
-		switch v := raw.(type) {
-		case []interface{}:
-			for _, t := range v {
-				if s, ok := t.(string); ok {
-					tags = append(tags, s)
-				}
-			}
-		case []string:
-			tags = append(tags, v...)
-		}
-	}
-	return category, tags
-}
-
-// slugifyForTypography makes a domain safe for use inside a typography_set
-// name. Postgres identifiers allow lowercase/digits/underscores; we also
-// replace dots and hyphens to keep the name readable.
-func slugifyForTypography(domain string) string {
-	d := strings.ToLower(strings.TrimSpace(domain))
-	d = strings.ReplaceAll(d, ".", "-")
-	// Keep a-z, 0-9, hyphen, underscore. Drop anything else.
-	out := make([]byte, 0, len(d))
-	for i := 0; i < len(d); i++ {
-		c := d[i]
-		switch {
-		case c >= 'a' && c <= 'z',
-			c >= '0' && c <= '9',
-			c == '-' || c == '_':
-			out = append(out, c)
-		}
-	}
-	// Postgres identifiers cap at 63 chars; plus we prefix with "typography-"
-	// which is 11 chars. Leave some headroom for resolveUniqueNameInTx's
-	// collision suffix.
-	const maxLen = 40
-	if len(out) > maxLen {
-		out = out[:maxLen]
-	}
-	return string(out)
 }
