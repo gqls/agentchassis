@@ -931,6 +931,13 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Install composition into css_themes + style_collections + resolved_composition spec",
 		IsLocal:     true,
 	},
+	// --- Site composition (site-design-planner) ---
+	"resolve_composition_palette": {
+		Handler:     ResolveCompositionPaletteAction,
+		Category:    "site",
+		Description: "Extract palette colours via priority cascade and create palette row",
+		IsLocal:     true,
+	},
 
 	// RAG — retrieval-augmented generation
 	"rag_lookup": {
