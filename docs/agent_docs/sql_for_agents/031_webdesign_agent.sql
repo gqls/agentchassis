@@ -2833,3 +2833,168 @@ WHERE type = 'webdesign-agent' AND is_active = true;
 
 COMMIT;
 
+---
+      -- clear out hardcoded standard brochure
+      -- =====================================================================
+-- Deliverable 7.5: Clear hardcoded theme_name on webdesign-agent's
+--                  generate_css step
+-- =====================================================================
+--
+-- Context:
+--   render_css_from_spec_action.go's theme-resolution cascade is:
+--     1. config["theme_id"]             (explicit override)
+--     2. config["theme_name"]            (explicit override)
+--     3. site_context.site_id → sites.style_collection_id
+--                             → style_collections.css_theme_id   ← NEW path
+--     4. emergency fallback "standard-brochure" + logger.Error
+--
+--   webdesign-agent's generate_css step currently has:
+--     "config": { "theme_name": "standard-brochure" }
+--
+--   That literal fires branch #2 on every run, bypassing #3. With the
+--   renderer patch in place, clearing the literal lets the resolver
+--   fall through to #3 and pick up whatever composition
+--   site-design-planner installed for the site.
+--
+-- Safety:
+--   - The renderer still has the emergency fallback (branch #4) with
+--     loud logging, so if site-design-planner HASN'T run for a site,
+--     webdesign-agent's generate_css still produces a render (wrong
+--     layout, but the process doesn't panic).
+--   - Explicit config overrides (theme_id, theme_name) from callers
+--     that need a specific theme continue to work — we're only
+--     changing webdesign-agent's default workflow config, not the
+--     resolver behaviour.
+--
+-- Prerequisite:
+--   - patch_render_css_theme_resolution.go must be deployed first.
+--     Running this SQL before the renderer patch means every
+--     webdesign-agent run falls into the emergency fallback path
+--     (still produces a render, but triggers logger.Error for every
+--     site). Not catastrophic, but noisy.
+--
+-- Rollback:
+--   If the renderer patch misbehaves, restore the literal:
+--
+--     UPDATE agent_definitions
+--     SET default_config = jsonb_set(
+--           default_config,
+--           '{workflow,steps,generate_css,config}',
+--           '{"theme_name": "standard-brochure"}'::jsonb
+--         ),
+--         updated_at = NOW()
+--     WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
+-- =====================================================================
+
+BEGIN;
+
+-- Diagnostic: show the current config before touching it
+DO $$
+DECLARE
+    v_before jsonb;
+BEGIN
+    SELECT default_config #> '{workflow,steps,generate_css,config}'
+      INTO v_before
+      FROM agent_definitions
+     WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
+
+    RAISE NOTICE 'webdesign-agent generate_css.config BEFORE update: %', v_before;
+END $$;
+
+-- The update: replace generate_css.config with an empty object.
+-- jsonb_set with create_missing=false would fail silently if the path
+-- doesn't exist; we want it to error if the structure isn't there,
+-- because that would mean the workflow has drifted in a way we didn't
+-- plan for. create_missing defaults to true, which is fine here — the
+-- path exists in the current production row.
+UPDATE agent_definitions
+   SET default_config = jsonb_set(
+           default_config,
+           '{workflow,steps,generate_css,config}',
+           '{}'::jsonb,
+           true
+       ),
+       updated_at = NOW()
+ WHERE type = 'webdesign-agent'
+   AND deleted_at IS NULL;
+
+-- Confirm exactly one row was touched. If zero, webdesign-agent is
+-- missing; if >1, something has duplicated (which the partial unique
+-- index on type should prevent, but we check anyway).
+DO $$
+DECLARE
+    v_updated int;
+BEGIN
+    GET DIAGNOSTICS v_updated = ROW_COUNT;
+    IF v_updated = 0 THEN
+        RAISE EXCEPTION 'webdesign-agent row not found — nothing updated';
+    ELSIF v_updated > 1 THEN
+        RAISE EXCEPTION 'webdesign-agent matched % rows — expected 1', v_updated;
+    END IF;
+END $$;
+
+-- Diagnostic: show the config after update.
+-- Expected: generate_css.config = {}, with the rest of the step
+-- (action, next_step, description, output_field) untouched.
+DO $$
+DECLARE
+    v_after         jsonb;
+    v_step_after    jsonb;
+BEGIN
+    SELECT default_config #> '{workflow,steps,generate_css,config}',
+           default_config #> '{workflow,steps,generate_css}'
+      INTO v_after, v_step_after
+      FROM agent_definitions
+     WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
+
+    RAISE NOTICE 'webdesign-agent generate_css.config AFTER update: %', v_after;
+    RAISE NOTICE 'webdesign-agent generate_css full step AFTER update: %', v_step_after;
+
+    -- Hard check: config should now be the empty object
+    IF v_after IS NULL OR v_after != '{}'::jsonb THEN
+        RAISE EXCEPTION 'Post-update config is not an empty object (got %)', v_after;
+    END IF;
+
+    -- Hard check: the step itself still has action = render_css_from_spec
+    IF (v_step_after ->> 'action') != 'render_css_from_spec' THEN
+        RAISE EXCEPTION
+            'generate_css step lost its action field (now %)',
+            v_step_after ->> 'action';
+    END IF;
+END $$;
+
+COMMIT;
+
+-- =====================================================================
+-- Post-run verification (manual)
+-- =====================================================================
+-- After COMMIT, inspect the full generate_css step to confirm only the
+-- config object changed:
+--
+--   SELECT jsonb_pretty(default_config #> '{workflow,steps,generate_css}')
+--     FROM agent_definitions
+--    WHERE type = 'webdesign-agent' AND deleted_at IS NULL;
+--
+-- Expected output:
+--   {
+--       "action": "render_css_from_spec",
+--       "config": {},
+--       "next_step": "deploy_css",
+--       "description": "Render CSS from design spec using Go template (deterministic, no LLM)",
+--       "output_field": "generated_css"
+--   }
+--
+-- Smoke test — pick a site with composition installed:
+--
+--   SELECT s.domain, s.style_collection_id, sc.css_theme_id
+--     FROM sites s
+--     JOIN style_collections sc ON sc.id = s.style_collection_id
+--    WHERE s.style_collection_id IS NOT NULL
+--    LIMIT 3;
+--
+-- Manually dispatch a needs_design work item for one of those sites,
+-- tail the logs for a loadThemeComposition call, and confirm:
+--   - resolved_by = "site_composition" (not "theme_name")
+--   - resolved_value = the css_theme_id from the query above
+--   - NO "emergency_fallback" logger.Error line
+-- =====================================================================

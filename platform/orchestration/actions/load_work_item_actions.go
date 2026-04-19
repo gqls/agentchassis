@@ -352,6 +352,84 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 	}
 
 	// Design tracking item
+	// The existing block just inserted needs_design. Replace with the two-step
+	// sequence below — insert needs_composition first, look up its id, then
+	// insert needs_design with depends_on pointing at it.
+
+	// Composition tracking item — site-design-planner resolves palette/layout/
+	// typography BEFORE webdesign-agent renders. Priority 7 = one before design.
+	compSpec, _ := json.Marshal(map[string]interface{}{
+		"reason": "build_pipeline_initial_composition",
+	})
+	_, err = insertWorkItem(ctx, tx, workItem{
+		siteID:       siteID,
+		source:       "planner",
+		pipeline:     "build",
+		itemType:     "needs_composition",
+		severity:     "high",
+		summary:      "Resolve palette/layout/typography composition for the site",
+		spec:         string(compSpec),
+		priority:     7,
+		handlerAgent: "site-design-planner",
+		status:       "triaged",
+		createdBy:    "site-planner",
+		itemKey:      "needs_composition",
+		batchID:      batchID,
+	}, logger)
+	if err != nil {
+		return nil, fmt.Errorf("insert needs_composition: %w", err)
+	}
+
+	// Look up the composition item's id so we can wire needs_design's
+	// depends_on at it. insertWorkItem doesn't return the id (it returns
+	// only inserted/suppressed bool), and the two-strike / dedup logic
+	// means we can't assume we just inserted a fresh row. The partial
+	// unique index guarantees at most one open row for this (site_id,
+	// item_key) — that's the composition item we want to depend on.
+	//
+	// If a suppressed duplicate exists (same item_key, still open), we
+	// depend on that existing row — the design item waits for whichever
+	// composition item is actually active. If NO open composition item
+	// exists (both this insert AND any prior were terminal), we skip the
+	// dependency — design will run without waiting, which is the closest
+	// thing to correct behaviour: composition already ran or won't run.
+	var compositionIDPtr *uuid.UUID
+	var fetchedID uuid.UUID
+	err = tx.QueryRowContext(ctx, `
+		SELECT id FROM site_work_items
+		WHERE site_id = $1
+		  AND item_key = 'needs_composition'
+		  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, siteID).Scan(&fetchedID)
+	if err == nil {
+		compositionIDPtr = &fetchedID
+		inserted++ // Count the composition item as an insertion for summary purposes
+		logger.Info("WriteBuildItemsAction: composition item queued",
+			zap.String("composition_item_id", fetchedID.String()),
+		)
+	} else if err == sql.ErrNoRows {
+		logger.Info("WriteBuildItemsAction: no open composition item found — design will run without dependency",
+			zap.String("site_id", siteIDStr),
+		)
+	} else {
+		logger.Warn("WriteBuildItemsAction: composition item lookup failed — design will run without dependency",
+			zap.Error(err),
+		)
+	}
+
+	// Build the depends_on slice for the design item. Nil/empty slice means
+	// no dependency — insertWorkItem handles both identically (the
+	// dependsOnStr branch at line 911 only runs if len > 0).
+	var designDepends []uuid.UUID
+	if compositionIDPtr != nil {
+		designDepends = []uuid.UUID{*compositionIDPtr}
+	}
+
+	// Design tracking item — now gated by composition completion.
+	// Kept at priority 8 so the ordering signal is preserved even for
+	// operators reading the queue.
 	ok, _ := insertWorkItem(ctx, tx, workItem{
 		siteID: siteID, source: "planner", pipeline: "build",
 		itemType: "needs_design", severity: "high",
@@ -359,6 +437,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 		priority: 8, handlerAgent: "webdesign-agent",
 		status: "triaged", createdBy: "site-planner",
 		itemKey: "needs_design", batchID: batchID,
+		dependsOn: designDepends, // ← NEW: wait for composition
 	}, logger)
 	if ok {
 		inserted++

@@ -82,8 +82,32 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 	// 1. Resolve the theme composition (palette + layout + typography
 	// in one query). Hard-errors on missing theme, NULL FKs, or
 	// unparseable JSONB — migration gaps must be loud.
+	// Surface site_id from collectedData into config so the loader's
+	// site-composition resolution branch can find it. Does nothing if
+	// config already carries an explicit theme_id or theme_name (those
+	// paths short-circuit the site_id lookup in loadThemeComposition).
+	//
+	// Two candidate paths: site_context.site_id (standard for design
+	// agents) and input_data.site_id (less common). Config-supplied
+	// theme_id still wins over both.
+	if _, hasID := config["site_id"].(string); !hasID {
+		if sid := datahelpers.ExtractNestedFieldString(
+			params.CollectedData, "site_context.site_id",
+		); sid != "" {
+			config["site_id"] = sid
+		} else if sid := datahelpers.ExtractNestedFieldString(
+			params.CollectedData, "input_data.site_id",
+		); sid != "" {
+			config["site_id"] = sid
+		}
+	}
+
 	themeName := datahelpers.GetStringField(config, "theme_name", "standard-brochure")
 	comp, err := loadThemeComposition(ctx, params.DB, config, themeName, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load theme composition: %w", err)
+	}
+	
 	if err != nil {
 		return nil, fmt.Errorf("failed to load theme composition: %w", err)
 	}

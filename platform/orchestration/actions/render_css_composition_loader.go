@@ -125,6 +125,76 @@ func loadThemeComposition(
 		resolvedValue = themeName
 	}
 
+	// Problem:
+	//   The action currently resolves a theme via:
+	//     1. config["theme_id"]   (explicit override)
+	//     2. config["theme_name"] (explicit override)
+	//     3. fallback arg "standard-brochure" (silent default)
+	//
+	//   Step 3 is the "first render wrong layout" bug site-design-planner
+	//   was built to eliminate: if a site has composition installed but the
+	//   workflow config doesn't say so, the renderer silently falls back to
+	//   standard-brochure and produces the wrong CSS.
+	//
+	//   webdesign-agent's workflow still has `config: { "theme_name": "standard-brochure" }`
+	//   hardcoded on its generate_css step. That's config carried from before
+	//   composition existed. Leaving it forces standard-brochure every time,
+	//   regardless of what site-design-planner installed. No amount of
+	//   site_context plumbing helps as long as that config literal is present.
+	//
+	// this fix:
+	//   Insert a new resolution step 3 AHEAD of the existing fallback:
+	//     3. site_context.site_id → look up sites.style_collection_id →
+	//        style_collections.css_theme_id → use that theme_id
+	//
+	//   If that fails (no site_id in context, or no composition for the site):
+	//     4. Old step 3 behaviour as LAST-RESORT emergency fallback, with
+	//        a logger.Error ("site-design-planner did not run for this site")
+	//        distinguishing it from normal operation.
+	//
+	//   Explicit config overrides (theme_id, theme_name) STILL win over
+	//   site_id lookup. That preserves:
+	//     - HITL flow: operator picks a theme to render against
+	//     - Library preview: render an adopted theme without a live site
+	//     - Testing / dev workflows
+	//
+	//   webdesign-agent's workflow will need its hardcoded
+	//   "theme_name": "standard-brochure" REMOVED (tracked as a separate
+	//   workflow edit — once this patch lands, deleting that config literal
+	//   makes the resolver find site_context.site_id and pick up the real
+	//   composition).
+
+	if themeIDStr, ok := config["theme_id"].(string); ok && themeIDStr != "" {
+		row = db.QueryRowContext(ctx, selectSQL+" AND t.id = $1", themeIDStr)
+		resolvedBy = "theme_id"
+		resolvedValue = themeIDStr
+	} else if themeName, ok := config["theme_name"].(string); ok && themeName != "" {
+		row = db.QueryRowContext(ctx, selectSQL+" AND t.name = $1", themeName)
+		resolvedBy = "theme_name"
+		resolvedValue = themeName
+	} else if siteThemeID := resolveThemeIDFromSiteContext(ctx, db, config, logger); siteThemeID != "" {
+		// NEW: site-composition lookup. Uses site_id from config (which
+		// the caller populates from collectedData via path). Traces
+		// sites.style_collection_id → style_collections.css_theme_id.
+		row = db.QueryRowContext(ctx, selectSQL+" AND t.id = $1", siteThemeID)
+		resolvedBy = "site_composition"
+		resolvedValue = siteThemeID
+	} else {
+		// EMERGENCY fallback to the provided default (historically
+		// "standard-brochure"). Loud-error — this path means either
+		// site-design-planner didn't run, or the renderer was called
+		// without a site_id, or the sites row isn't linked to a
+		// style_collection. All three are worth investigating.
+		logger.Error(
+			"loadThemeComposition: no theme resolution path succeeded — using emergency fallback",
+			zap.String("emergency_fallback", fallbackThemeName),
+			zap.String("recommendation", "verify site-design-planner ran for this site and sites.style_collection_id is set"),
+		)
+		row = db.QueryRowContext(ctx, selectSQL+" AND t.name = $1", fallbackThemeName)
+		resolvedBy = "emergency_fallback"
+		resolvedValue = fallbackThemeName
+	}
+
 	var (
 		themeName                         string
 		paletteID, layoutID, typoID       sql.NullString
@@ -236,4 +306,65 @@ func loadThemeComposition(
 	)
 
 	return comp, nil
+}
+
+// resolveThemeIDFromSiteContext tries to find the site's installed
+// css_theme_id via the path:
+//
+//	sites (id = site_id) → style_collection_id → style_collections.css_theme_id
+//
+// Returns the theme id as a string (for direct use in a UUID-typed WHERE),
+// or empty string if no resolution path succeeds. Never errors — lookup
+// failures are logged and treated as "no resolution", letting
+// loadThemeComposition fall through to the emergency fallback.
+//
+// site_id is read from config["site_id"] — the caller (the action) is
+// responsible for populating it from collectedData before calling
+// loadThemeComposition. Config-based plumbing (rather than a new param)
+// keeps the loader's function signature unchanged.
+func resolveThemeIDFromSiteContext(
+	ctx context.Context,
+	db *sql.DB,
+	config map[string]interface{},
+	logger *zap.Logger,
+) string {
+
+	siteIDStr, ok := config["site_id"].(string)
+	if !ok || siteIDStr == "" {
+		return ""
+	}
+
+	var themeID sql.NullString
+	err := db.QueryRowContext(ctx, `
+		SELECT sc.css_theme_id::text
+		FROM sites s
+		JOIN style_collections sc ON sc.id = s.style_collection_id
+		WHERE s.id = $1
+		  AND s.style_collection_id IS NOT NULL
+		  AND sc.is_active = true
+		  AND sc.css_theme_id IS NOT NULL
+	`, siteIDStr).Scan(&themeID)
+
+	if err == sql.ErrNoRows {
+		logger.Warn("resolveThemeIDFromSiteContext: no composition linked to site",
+			zap.String("site_id", siteIDStr),
+		)
+		return ""
+	}
+	if err != nil {
+		logger.Warn("resolveThemeIDFromSiteContext: lookup failed",
+			zap.String("site_id", siteIDStr),
+			zap.Error(err),
+		)
+		return ""
+	}
+	if !themeID.Valid || themeID.String == "" {
+		return ""
+	}
+
+	logger.Info("resolveThemeIDFromSiteContext: resolved from site composition",
+		zap.String("site_id", siteIDStr),
+		zap.String("css_theme_id", themeID.String),
+	)
+	return themeID.String
 }

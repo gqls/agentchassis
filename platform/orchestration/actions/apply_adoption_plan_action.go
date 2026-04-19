@@ -300,6 +300,48 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		}
 	}
 
+	// The mission spec is written only if input_data carries a mission object
+	// with at least one recognised field. Empty or absent input_data.mission
+	// leaves the spec unwritten — adopted sites without explicit mission
+	// hints get the identical behaviour as before.
+
+	// Mission spec — optional; only written if input_data carries mission
+	// hints. The shape is free-form (forward-compatible with future fields)
+	// but recognises preferred_palette, preferred_typography, tone,
+	// objective — the fields site-design-planner looks for in its cascade.
+	missionRaw := datahelpers.ExtractNestedField(params.CollectedData, "input_data.mission")
+	if missionRaw == nil {
+		// Also check for top-level objective / direction if no nested mission.
+		// POST /sites passes {"objective": "...", "direction": {...}} and
+		// domain-submitter already writes mission from those. For adoption
+		// through the same API, reconstruct the mission shape if a direction
+		// was provided.
+		objective := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.objective")
+		directionRaw := datahelpers.ExtractNestedField(params.CollectedData, "input_data.direction")
+		if objective != "" || directionRaw != nil {
+			reconstructed := make(map[string]interface{})
+			if objective != "" {
+				reconstructed["objective"] = objective
+			}
+			if dMap, ok := directionRaw.(map[string]interface{}); ok {
+				for k, v := range dMap {
+					reconstructed[k] = v
+				}
+			}
+			missionRaw = reconstructed
+		}
+	}
+
+	if missionRaw != nil {
+		missionUnwrapped := datahelpers.UnwrapDeep(missionRaw, logger)
+		if missionData, ok := missionUnwrapped.(map[string]interface{}); ok && len(missionData) > 0 {
+			specAspects["mission"] = missionData
+			logger.Info("Writing mission spec from input_data",
+				zap.Int("mission_keys", len(missionData)),
+			)
+		}
+	}
+
 	for aspect, data := range specAspects {
 		if data == nil {
 			continue
@@ -468,12 +510,69 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 
 	// ── 5. Create work items ────────────────────────────────────────────
 
-	// Design — prefer fingerprint over LLM guess for adopt_from
+	// Composition item — site-design-planner resolves palette/layout/
+	// typography BEFORE webdesign-agent renders. Runs for adoption
+	// identically to the new-build path. Priority 7.
+	compSpec, _ := json.Marshal(map[string]interface{}{
+		"reason":       "adoption_initial_composition",
+		"adopted_from": domain,
+	})
+	_, err = insertWorkItem(ctx, tx, workItem{
+		siteID:       siteID,
+		source:       "adoption",
+		pipeline:     "build",
+		itemType:     "needs_composition",
+		severity:     "high",
+		summary:      fmt.Sprintf("Resolve composition for adopted site %s", domain),
+		spec:         string(compSpec),
+		priority:     7,
+		handlerAgent: "site-design-planner",
+		status:       "triaged",
+		createdBy:    "site-adoption-agent",
+		itemKey:      "needs_composition",
+		batchID:      batchID,
+	}, logger)
+	if err != nil {
+		return nil, fmt.Errorf("insert needs_composition: %w", err)
+	}
+
+	// Look up the composition item's id to wire depends_on. Same lookup
+	// pattern as WriteBuildItemsAction — partial unique index on
+	// (site_id, item_key) WHERE status NOT IN (terminal statuses)
+	// guarantees at most one open row.
+	var compositionIDPtr *uuid.UUID
+	var fetchedCompID uuid.UUID
+	err = tx.QueryRowContext(ctx, `
+		SELECT id FROM site_work_items
+		WHERE site_id = $1
+		  AND item_key = 'needs_composition'
+		  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, siteID).Scan(&fetchedCompID)
+	if err == nil {
+		compositionIDPtr = &fetchedCompID
+		itemsCreated++
+		logger.Info("Adoption: composition item queued",
+			zap.String("composition_item_id", fetchedCompID.String()),
+		)
+	} else if err == sql.ErrNoRows {
+		logger.Info("Adoption: no open composition item — design will run without dependency",
+			zap.String("site_id", siteID.String()),
+		)
+	} else {
+		logger.Warn("Adoption: composition item lookup failed — design will run without dependency",
+			zap.Error(err),
+		)
+	}
+
+	// Design item — build the same designSpec body as before (fingerprint
+	// preferred over LLM guess), but route through insertWorkItem so we
+	// can attach depends_on.
 	designSpec := map[string]interface{}{
 		"mode":         "recreate",
 		"adopted_from": domain,
 	}
-	// Use fingerprint data if we have it (concrete CSS values > LLM descriptions)
 	if fpRef, ok := specAspects["design_reference"].(map[string]interface{}); ok {
 		adoptFrom := map[string]interface{}{}
 		if suggested, ok := fpRef["suggested_mapping"].(map[string]interface{}); ok {
@@ -488,33 +587,44 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		if typo, ok := fpRef["typography"].(map[string]interface{}); ok {
 			adoptFrom["typography"] = typo
 		}
-		// Keep LLM description as supplementary context
 		if llmDesc, ok := fpRef["llm_description"].(map[string]interface{}); ok {
 			adoptFrom["llm_description"] = llmDesc
 		}
 		designSpec["adopt_from"] = adoptFrom
 		logger.Info("Enriched needs_design spec with fingerprint data")
 	} else if designData, ok := plan["design"].(map[string]interface{}); ok {
-		// Fallback to LLM design description
 		designSpec["adopt_from"] = designData
 	}
 	designSpecJSON, _ := json.Marshal(designSpec)
 
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			spec, priority, handler_agent, status, created_by,
-			item_key, batch_id
-		) VALUES ($1, 'adoption', 'build', 'needs_design', 'high',
-		          $2, $3::jsonb, 8, 'webdesign-agent', 'triaged',
-		          'site-adoption-agent', $4, $5)
-		ON CONFLICT DO NOTHING
-	`, siteID,
-		fmt.Sprintf("Generate stylesheet matching %s design", domain),
-		string(designSpecJSON),
-		fmt.Sprintf("adoption_design_%s", siteID),
-		batchID)
-	if err == nil {
+	var designDepends []uuid.UUID
+	if compositionIDPtr != nil {
+		designDepends = []uuid.UUID{*compositionIDPtr}
+	}
+
+	// NOTE: existing adoption used itemKey = fmt.Sprintf("adoption_design_%s", siteID)
+	// which collides with the build-path itemKey "needs_design" only if a
+	// site has already been through the build pipeline. Use the same
+	// itemKey as WriteBuildItemsAction ("needs_design") — the partial
+	// unique index across all open items means only one open needs_design
+	// at a time, which is what we want regardless of source.
+	ok, _ := insertWorkItem(ctx, tx, workItem{
+		siteID:       siteID,
+		source:       "adoption",
+		pipeline:     "build",
+		itemType:     "needs_design",
+		severity:     "high",
+		summary:      fmt.Sprintf("Generate stylesheet matching %s design", domain),
+		spec:         string(designSpecJSON),
+		priority:     8,
+		handlerAgent: "webdesign-agent",
+		status:       "triaged",
+		createdBy:    "site-adoption-agent",
+		itemKey:      "needs_design",
+		batchID:      batchID,
+		dependsOn:    designDepends,
+	}, logger)
+	if ok {
 		itemsCreated++
 	}
 
