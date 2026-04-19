@@ -255,22 +255,27 @@ type layoutResolution struct {
 	LayoutName string
 	Reason     string   // human-readable justification
 	Candidates []string // top few candidate names, for reviewer to switch to
+	IsFallback bool     // true when no layout matched and brochure-formal was used
 }
 
-// resolveLayoutForFork picks a layout for the forked theme by matching
-// the site's classification (category + industry_tags) against
-// layouts.industry_tags. Falls back to brochure-formal on no match.
+// resolveLayoutByTags picks a layout from the library by matching the
+// given tag set against layouts.industry_tags. Falls back to
+// brochure-formal on no match.
+//
+// Used by:
+//   - fork_theme_from_site (picks layout for a forked theme)
+//   - site-design-planner  (picks layout for a fresh composition)
 //
 // Selection is deliberately conservative. The initial library has 15
-// layouts with curated industry_tags (Phase 1 seeding). A match
-// against any site-supplied tag is a strong signal. On ambiguity
-// (multiple layouts match), we pick the highest-overlap layout first;
-// on tie, alphabetical by layout name for determinism.
+// layouts with curated industry_tags (Phase 1 seeding). A match against
+// any site-supplied tag is a strong signal. On ambiguity (multiple
+// layouts match), the highest-overlap layout wins; on tie, alphabetical
+// by layout name for determinism.
 //
-// The HITL work item receives the candidate list so the reviewer can
-// override — the initial pick is a reasonable default, not a final
-// answer.
-func resolveLayoutForFork(
+// The returned resolution carries the full candidate list so callers
+// (HITL work items, library-growth audit, etc.) can see what was
+// considered.
+func resolveLayoutByTags(
 	ctx context.Context,
 	tx *sql.Tx,
 	category string,
@@ -278,8 +283,7 @@ func resolveLayoutForFork(
 	logger *zap.Logger,
 ) (*layoutResolution, error) {
 
-	// Build the full set of tags to match against: category + the
-	// industryTags slice. Lowercase, deduped.
+	// Build the full tag set: category + industryTags, lowercase, deduped.
 	tagSet := make(map[string]struct{})
 	if category != "" && category != "general" {
 		tagSet[strings.ToLower(category)] = struct{}{}
@@ -291,7 +295,6 @@ func resolveLayoutForFork(
 		}
 	}
 
-	// Empty tag set → fallback to default layout.
 	if len(tagSet) == 0 {
 		return fallbackLayout(ctx, tx, "no classification tags", nil, logger)
 	}
@@ -301,10 +304,7 @@ func resolveLayoutForFork(
 		tags = append(tags, t)
 	}
 
-	// Score each active layout by tag overlap with the site's tags.
-	// cardinality(industry_tags & site_tags) gives the overlap count
-	// (Postgres array intersection is achieved via the && operator for
-	// existence but not count; we unnest and count).
+	// Score each active layout by tag overlap.
 	rows, err := tx.QueryContext(ctx, `
 		SELECT
 			l.id,
@@ -342,8 +342,6 @@ func resolveLayoutForFork(
 	}
 
 	if len(top) == 0 || top[0].overlap == 0 {
-		// No layout had any tag overlap. Include the top-by-alpha
-		// candidates anyway for HITL reviewer visibility.
 		var candidates []string
 		for _, c := range top {
 			candidates = append(candidates, c.name)
@@ -356,7 +354,6 @@ func resolveLayoutForFork(
 		)
 	}
 
-	// Top match.
 	picked := top[0]
 	reason := fmt.Sprintf(
 		"best tag overlap (%d match) between site tags [%s] and layout %q tags",
@@ -370,7 +367,7 @@ func resolveLayoutForFork(
 		candidates = append(candidates, c.name)
 	}
 
-	logger.Info("resolveLayoutForFork: matched layout",
+	logger.Info("resolveLayoutByTags: matched layout",
 		zap.String("layout_id", picked.id.String()),
 		zap.String("layout_name", picked.name),
 		zap.Int("overlap_count", picked.overlap),
@@ -383,6 +380,7 @@ func resolveLayoutForFork(
 		LayoutName: picked.name,
 		Reason:     reason,
 		Candidates: candidates,
+		IsFallback: false,
 	}, nil
 }
 
@@ -422,6 +420,7 @@ func fallbackLayout(
 		LayoutName: fb.name,
 		Reason:     "fallback — " + reason,
 		Candidates: candidates,
+		IsFallback: true,
 	}, nil
 }
 

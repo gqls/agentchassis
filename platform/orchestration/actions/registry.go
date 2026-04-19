@@ -906,6 +906,20 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	// Site Composition
+	"validate_composition_inputs": {
+		Handler:     ValidateCompositionInputsAction,
+		Category:    "site",
+		Description: "Check identity + classification specs exist, queue classifier if not",
+		IsLocal:     true,
+	},
+	"resolve_composition_layout": {
+		Handler:     ResolveCompositionLayoutAction,
+		Category:    "site",
+		Description: "Pick a library layout by tag-overlap against classification",
+		IsLocal:     true,
+	},
+
 	// RAG — retrieval-augmented generation
 	"rag_lookup": {
 		Handler:     RAGLookupAction,

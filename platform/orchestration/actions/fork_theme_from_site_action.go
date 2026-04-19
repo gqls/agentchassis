@@ -16,7 +16,7 @@ package actions
 //     css_themes INSERT:
 //       createPaletteForFork        → new palettes row
 //       resolveTypographySetForFork → matched or new typography_sets row
-//       resolveLayoutForFork        → matched layout from existing library
+//       resolveLayoutByTags        → matched layout from existing library
 //   - The resulting three FK ids are written into css_themes:
 //     palette_id, layout_id, typography_set_id are populated.
 //   - Legacy columns (css_content, css_template, color_palette,
@@ -233,7 +233,7 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// ── 3. Resolve layout (match from library, or fall back) ──
-	layoutRes, err := resolveLayoutForFork(
+	layoutRes, err := resolveLayoutByTags(
 		ctx, tx,
 		category, industryTags,
 		logger,
