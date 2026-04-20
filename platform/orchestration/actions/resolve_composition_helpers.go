@@ -241,3 +241,44 @@ func slugifyForCompositionName(s string) string {
 	}
 	return result
 }
+
+// toPGTextArrayLiteral converts a Go []string into a PostgreSQL array
+// literal suitable for passing as a parameter to an INSERT/UPDATE targeting
+// a text[] column, when used with an explicit ::text[] cast in the SQL.
+//
+// Format: '{"elem1","elem2","elem3"}' with per-element backslash-escaping of
+// double-quote and backslash. An empty slice produces '{}'.
+//
+// This avoids a dependency on github.com/lib/pq's pq.Array helper, which the
+// codebase does not currently use. Works identically under lib/pq and pgx's
+// database/sql wrapper.
+//
+// NOTE: This is for passing to Postgres, not for display. Do NOT json.Marshal
+// a []string for a text[] column — jsonb and text[] are different types.
+func toPGTextArrayLiteral(tags []string) string {
+	if len(tags) == 0 {
+		return "{}"
+	}
+	var b strings.Builder
+	b.WriteByte('{')
+	for i, t := range tags {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteByte('"')
+		// Escape backslash first, then double-quote
+		for j := 0; j < len(t); j++ {
+			c := t[j]
+			switch c {
+			case '\\', '"':
+				b.WriteByte('\\')
+				b.WriteByte(c)
+			default:
+				b.WriteByte(c)
+			}
+		}
+		b.WriteByte('"')
+	}
+	b.WriteByte('}')
+	return b.String()
+}

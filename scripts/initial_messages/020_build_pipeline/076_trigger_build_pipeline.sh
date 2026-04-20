@@ -211,6 +211,7 @@ kubectl -n ai-persona-system logs --tail=300 -l app=kafka-scheduler -f | tee log
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=med-price-collector -f --max-log-requests 20 | tee logs-med-price-collector.json
 kubectl -n ai-persona-system logs --tail=500 -l app=business-intel -f --max-log-requests 20 | tee logs-business-intel.json
 
+kubectl -n ai-persona-system logs -l 'app in (agent-chassis,dynamic-agent)'   -f --max-log-requests=20  | tee logs-all_chassis_logs_$(date +%H%M%S).log
 
 
 SELECT wi.item_type, wi.status, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.pipeline = 'build' AND wi.status != 'complete' ORDER BY wi.created_at DESC;
@@ -249,6 +250,16 @@ UPDATE site_work_items SET status = 'triaged', claimed_at = NULL, claimed_by = N
 WHERE status = 'claimed';
 
 
+------------------------------------------------
+see errors
+
+SELECT id, status, attempt_count, handler_agent,
+       created_at, claimed_at, completed_at, updated_at,
+       result,
+       LEFT(error, 300) AS error,
+       spec
+  FROM site_work_items
+ WHERE id = 'dbdbe82a-ae2e-4609-91ac-4a4d5b8825f7';
 ----
 
 -- monitoring query

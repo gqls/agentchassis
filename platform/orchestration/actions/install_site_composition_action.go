@@ -248,7 +248,12 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 		return nil, fmt.Errorf("resolve collection name: %w", err)
 	}
 
-	industryTagsJSON, _ := json.Marshal(industryTags)
+	// industry_tags is a PostgreSQL text[] column — NOT jsonb. Marshalling
+	// to JSON would pass bytes with the wrong shape and the INSERT fails
+	// with "column is of type text[] but expression is of type jsonb".
+	// datahelpers.PGTextArrayLiteral produces a PG array literal string
+	// that pairs with a $N::text[] cast in the SQL.
+	industryTagsLiteral := datahelpers.PGTextArrayLiteral(industryTags)
 
 	// Note on columns: style_collections does NOT have palette_id/layout_id/
 	// typography_set_id FK columns (Phase 2 migration only added those to
@@ -269,14 +274,14 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 		) VALUES (
 			$1, $2, $3,
 			NULL, NULL,
-			$4::jsonb, $5::jsonb, $6, $7::jsonb,
+			$4::jsonb, $5::jsonb, $6, $7::text[],
 			true, 'adopted', false,
 			$8, $9, NOW()
 		) RETURNING id
 	`,
 		collectionName, displayName, themeID,
 		string(legacyPaletteJSON), string(legacyTypoJSON),
-		category, string(industryTagsJSON),
+		category, industryTagsLiteral,
 		siteID, domain,
 	).Scan(&collectionID)
 	if err != nil {

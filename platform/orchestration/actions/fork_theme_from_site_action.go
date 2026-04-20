@@ -256,7 +256,8 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 
 	// Insert collection
 	var newCollectionID uuid.UUID
-	industryTagsJSON, _ := json.Marshal(industryTags)
+	// industry_tags is text[] not jsonb; see nullable_helpers.go for the helper.
+	industryTagsLiteral := datahelpers.PGTextArrayLiteral(industryTags)
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO style_collections (
 			name, display_name, css_theme_id,
@@ -267,19 +268,27 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		) VALUES (
 			$1, $2, $3,
 			$4, $5,
-			$6::jsonb, $7::jsonb, $8, $9::jsonb,
+			$6::jsonb, $7::jsonb, $8, $9::text[],
 			true, $10, $15,
 			$11, $12, $13, $14
 		) RETURNING id
 	`, collectionName, displayName, newThemeID,
 		headerComponentID, footerComponentID,
-		string(paletteJSON), string(typographyJSON), category, string(industryTagsJSON),
+		string(paletteJSON), string(typographyJSON), category, industryTagsLiteral,
 		origin,
 		parentCollectionID, siteID, domain, forkedAt,
 		needsReview,
 	).Scan(&newCollectionID)
 	if err != nil {
-		logger.Warn("fork_theme_from_site: collection insert failed, skipping", zap.Error(err))
+		// logger.Error (not Warn) because fork_theme silently absorbs the error
+		// via forkSkipped — without an error-level log we have no signal in
+		// production that this path is broken. See the industry_tags text[]
+		// type mismatch that hid here for months.
+		logger.Error("fork_theme_from_site: collection insert failed, skipping fork",
+			zap.Error(err),
+			zap.String("collection_name", collectionName),
+			zap.String("domain", domain),
+		)
 		return forkSkipped("collection insert failed: " + err.Error()), nil
 	}
 
