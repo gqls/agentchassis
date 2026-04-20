@@ -128,12 +128,31 @@ func UpdateComponentHTMLAction(ctx context.Context, params ActionParams) (interf
 	)
 
 	// --- 2. Optionally snapshot current HTML to component_versions ---
+	// Best-effort — a snapshot failure is logged but doesn't block the UPDATE.
+	// Uses live schema columns: version_number (computed as MAX+1),
+	// change_description, changed_by. The older code targeted a column
+	// named version_note which no longer exists — that INSERT was silently
+	// failing and the snapshot never actually landed.
 	versioned := false
 	if createVersion && currentHTML != "" {
+		var nextVersionNumber int
+		if vErr := params.DB.QueryRowContext(ctx, `
+			SELECT COALESCE(MAX(version_number), 0) + 1
+			FROM component_versions
+			WHERE component_id = $1::uuid
+		`, componentID).Scan(&nextVersionNumber); vErr != nil {
+			logger.Warn("UpdateComponentHTMLAction: could not compute next version_number, defaulting to 1",
+				zap.Error(vErr))
+			nextVersionNumber = 1
+		}
+
 		_, err = params.DB.ExecContext(ctx, `
-			INSERT INTO component_versions (component_id, html_template, version_note, created_at)
-			VALUES ($1, $2, $3, NOW())
-		`, componentID, currentHTML, versionNote)
+			INSERT INTO component_versions (
+				component_id, version_number,
+				html_template, change_description, changed_by,
+				created_at
+			) VALUES ($1::uuid, $2, $3, $4, $5, NOW())
+		`, componentID, nextVersionNumber, currentHTML, versionNote, "update_component_html")
 		if err != nil {
 			// Log but don't fail — versioning is best-effort
 			logger.Warn("UpdateComponentHTMLAction: Failed to create version snapshot",
@@ -144,6 +163,7 @@ func UpdateComponentHTMLAction(ctx context.Context, params ActionParams) (interf
 			versioned = true
 			logger.Info("UpdateComponentHTMLAction: Version snapshot created",
 				zap.String("component_id", componentIDStr),
+				zap.Int("version_number", nextVersionNumber),
 			)
 		}
 	}
@@ -164,11 +184,16 @@ func UpdateComponentHTMLAction(ctx context.Context, params ActionParams) (interf
 	}
 
 	// --- 4. Mark associated page_components as pending rebuild ---
+	// Do NOT set rendered_html here. The template lives on the component;
+	// rendered_html on page_components is the per-page render after
+	// variable substitution and cannot be recreated by copying the new
+	// template verbatim. The rerender pipeline regenerates rendered_html
+	// correctly; we just flag that it needs to run.
 	rebuildResult, err := params.DB.ExecContext(ctx, `
 		UPDATE page_components
-		SET build_status = 'pending', rendered_html = $1, updated_at = NOW()
-		WHERE component_id = $2
-	`, newHTML, componentID)
+		SET build_status = 'pending', updated_at = NOW()
+		WHERE component_id = $1
+	`, componentID)
 	if err != nil {
 		logger.Warn("UpdateComponentHTMLAction: Failed to update page_components",
 			zap.Error(err),

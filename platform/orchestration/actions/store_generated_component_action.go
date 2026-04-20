@@ -74,6 +74,16 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	pageContext := inputs.Get("page_context")
 	description := inputs.Get("description")
 
+	// Work item source (optional): the originating work item's `source`
+	// field, if this action was triggered by one. Used as change_source
+	// on component_versions rows so history can be traced back to the
+	// audit/triage/manual action that caused the change. Empty string if
+	// no work item (e.g. direct programmatic invocation) — the snapshot
+	// helper writes NULL in that case.
+	workItemSource := datahelpers.ExtractNestedFieldString(
+		params.CollectedData, "input_data.source",
+	)
+
 	// The LLM output is in collected_data under the output_field of the generate step.
 	// extract the generated template — look for the LLM result which contains
 	// html_template and input_schema as structured output.
@@ -167,30 +177,55 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		zap.Int("template_length", len(htmlTemplate)),
 		zap.Bool("is_dark", isDark))
 
-	// Check if a component with this function already exists
-	var existingID string
+	// ── Check for existing component (regeneration vs creation) ─────────
+	// If a component with this function name already exists, we're in the
+	// regeneration path: the new template will REPLACE the existing one,
+	// with the old state snapshotted to component_versions first. If not,
+	// we're creating a new component.
+	//
+	// Either way, Layer 1 validation below MUST pass before we touch the
+	// DB. An existing broken component is NOT grounds to silently accept
+	// another broken template.
+	var (
+		existingID      string
+		existingHTML    string
+		existingSchema  string
+		existingJS      sql.NullString
+		existingVersion int // max version_number from component_versions; 0 if none
+		isRegeneration  bool
+	)
 	err = params.DB.QueryRowContext(ctx, `
-		SELECT id::text FROM content_components
+		SELECT id::text,
+		       COALESCE(html_template, ''),
+		       COALESCE(input_schema::text, '{}'),
+		       js_content
+		FROM content_components
 		WHERE function = $1 AND is_active = true AND forked_from IS NULL
 		LIMIT 1
-	`, functionName).Scan(&existingID)
+	`, functionName).Scan(&existingID, &existingHTML, &existingSchema, &existingJS)
 
 	if err == nil {
-		logger.Info("store_generated_component: component already exists, skipping",
+		isRegeneration = true
+		// Find the latest version_number so the snapshot we write gets
+		// MAX+1. Unique index (component_id, version_number) enforces
+		// monotonic numbering.
+		if err := params.DB.QueryRowContext(ctx, `
+			SELECT COALESCE(MAX(version_number), 0)
+			FROM component_versions
+			WHERE component_id = $1::uuid
+		`, existingID).Scan(&existingVersion); err != nil {
+			// Non-fatal: if the query fails we default to 0 and the
+			// snapshot INSERT will use version_number=1. Log for visibility.
+			logger.Warn("store_generated_component: could not read current max version_number, defaulting to 0",
+				zap.String("component_id", existingID),
+				zap.Error(err))
+			existingVersion = 0
+		}
+		logger.Info("store_generated_component: regeneration — existing component found",
 			zap.String("function", functionName),
-			zap.String("existing_id", existingID))
-
-		// Mark pages waiting for this section_type as needs_rebuild
-		markPagesForRebuild(ctx, params.DB, sectionType, logger)
-
-		return map[string]interface{}{
-			"component_id": existingID,
-			"function":     functionName,
-			"status":       "already_exists",
-		}, nil
-	}
-
-	if err != nil && err != sql.ErrNoRows {
+			zap.String("existing_id", existingID),
+			zap.Int("current_max_version", existingVersion))
+	} else if err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to check existing component: %w", err)
 	}
 
@@ -248,76 +283,195 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		zap.Int("schema_field_count", preStoreScore.SchemaFieldCount),
 	)
 
-	// Insert the new component
-	var newID string
-	err = params.DB.QueryRowContext(ctx, `
-		INSERT INTO content_components (
-			name, display_name, function, category, component_level,
-			section_type, suitable_site_types, suitable_page_types,
-			description, html_template, js_content, input_schema,
-			is_dark_section, render_mode, created_from, is_active,
-			usage_count, avg_quality_score,
-			semantic_tags
-		) VALUES (
-			$1, $2, $3, $4, 'section',
-			$5, $6::jsonb, $7::jsonb,
-			$8, $9, $10, $11::jsonb,
-			$12, 'template', 'generated', true,
-			0, NULL,
-			$13::jsonb
-		)
-		RETURNING id::text
-	`,
-		functionName,                  // $1 name
-		displayName,                   // $2 display_name
-		functionName,                  // $3 function
-		category,                      // $4 category
-		sectionType,                   // $5 section_type
-		string(suitableSiteTypesJSON), // $6 suitable_site_types
-		string(suitablePageTypesJSON), // $7 suitable_page_types
-		description,                   // $8 description
-		htmlTemplate,                  // $9 html_template (JS extracted)
-		nullIfEmpty(jsContent),        // $10 js_content (NULL if no JS)
-		inputSchemaJSON,               // $11 input_schema
-		isDark,                        // $12 is_dark_section
-		datahelpers.BuildSemanticTags(sectionType, siteType), // $13 semantic_tags
-	).Scan(&newID)
+	// ── Write to DB: UPDATE (regeneration) or INSERT (creation) ─────────
+	// Both paths end with scoring + markPagesForRebuild so those stay below.
+	var componentID string
+	var status string
+	var regenPagesMarked int64
+	var newVersion int // populated on regeneration; 0 for creation
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert component: %w", err)
+	if isRegeneration {
+		// Snapshot current state to component_versions BEFORE the UPDATE.
+		// Best-effort: a failed snapshot logs Warn but does not block the
+		// UPDATE — losing history is recoverable; leaving a broken template
+		// in place is not.
+		newVersion = existingVersion + 1
+		snapshotErr := snapshotComponentVersion(
+			ctx, params.DB, existingID, newVersion,
+			existingHTML, existingSchema,
+			nullStringToGo(existingJS),
+			"Regenerated by component-creator",
+			"component-creator:regen",
+			workItemSource,
+			logger,
+		)
+		if snapshotErr != nil {
+			logger.Warn("store_generated_component: version snapshot failed, continuing with UPDATE",
+				zap.String("component_id", existingID),
+				zap.Int("intended_version", newVersion),
+				zap.Error(snapshotErr))
+			// newVersion still advances — even if we couldn't write the
+			// snapshot, we don't want to overwrite version N later and
+			// create a gap. The post-UPDATE return reflects what we tried.
+		}
+
+		// UPDATE in place: preserves component_id so all foreign key
+		// references (page_components, site_components, link_registry,
+		// etc.) keep resolving without any relink step.
+		result, err := params.DB.ExecContext(ctx, `
+			UPDATE content_components
+			SET html_template   = $1,
+			    input_schema    = $2::jsonb,
+			    js_content      = $3,
+			    is_dark_section = $4,
+			    updated_at      = NOW()
+			WHERE id = $5::uuid
+		`,
+			htmlTemplate,
+			inputSchemaJSON,
+			nullIfEmpty(jsContent),
+			isDark,
+			existingID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update existing component during regeneration: %w", err)
+		}
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected != 1 {
+			return nil, fmt.Errorf("regeneration UPDATE affected %d rows (expected 1) for component %s",
+				rowsAffected, existingID)
+		}
+		componentID = existingID
+		status = "regenerated"
+
+		// Mark dependent page_components pending so the rerender pipeline
+		// rebuilds them against the new template. We do NOT overwrite
+		// rendered_html — that field holds the last-good render per page
+		// and needs per-page variable substitution to regenerate correctly.
+		var affectedSiteIDs []string
+		regenPagesMarked, affectedSiteIDs = markPagesPendingRebuild(ctx, params.DB, existingID, logger)
+
+		// Raise one needs_rerender work item per affected site so the
+		// rerender-pages handler actually regenerates. Without this the
+		// build_status=pending flag is informational only — nothing
+		// downstream scans page_components for pending rows.
+		//
+		// The dedup index (site_id, item_key) with item_key scoped by
+		// component_id prevents duplicates if the same regen runs twice.
+		rerenderItemsCreated := 0
+		for _, siteID := range affectedSiteIDs {
+			if created := createRerenderWorkItem(
+				ctx, params.DB, siteID, existingID, functionName, workItemSource, logger,
+			); created {
+				rerenderItemsCreated++
+			}
+		}
+
+		logger.Info("store_generated_component: component regenerated",
+			zap.String("component_id", componentID),
+			zap.String("function", functionName),
+			zap.Int("previous_version", existingVersion),
+			zap.Int("new_version", newVersion),
+			zap.Int64("pages_marked_rebuild", regenPagesMarked),
+			zap.Int("affected_sites", len(affectedSiteIDs)),
+			zap.Int("rerender_items_created", rerenderItemsCreated))
+	} else {
+		// Creation path — unchanged INSERT block.
+		err = params.DB.QueryRowContext(ctx, `
+			INSERT INTO content_components (
+				name, display_name, function, category, component_level,
+				section_type, suitable_site_types, suitable_page_types,
+				description, html_template, js_content, input_schema,
+				is_dark_section, render_mode, created_from, is_active,
+				usage_count, avg_quality_score,
+				semantic_tags
+			) VALUES (
+				$1, $2, $3, $4, 'section',
+				$5, $6::jsonb, $7::jsonb,
+				$8, $9, $10, $11::jsonb,
+				$12, 'template', 'generated', true,
+				0, NULL,
+				$13::jsonb
+			)
+			RETURNING id::text
+		`,
+			functionName,                  // $1 name
+			displayName,                   // $2 display_name
+			functionName,                  // $3 function
+			category,                      // $4 category
+			sectionType,                   // $5 section_type
+			string(suitableSiteTypesJSON), // $6 suitable_site_types
+			string(suitablePageTypesJSON), // $7 suitable_page_types
+			description,                   // $8 description
+			htmlTemplate,                  // $9 html_template (JS extracted)
+			nullIfEmpty(jsContent),        // $10 js_content (NULL if no JS)
+			inputSchemaJSON,               // $11 input_schema
+			isDark,                        // $12 is_dark_section
+			datahelpers.BuildSemanticTags(sectionType, siteType), // $13 semantic_tags
+		).Scan(&componentID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to insert component: %w", err)
+		}
+		status = "created"
+
+		// Snapshot version 1 so history is complete from creation onward.
+		// Best-effort — a snapshot failure here doesn't undo the INSERT.
+		if err := snapshotComponentVersion(
+			ctx, params.DB, componentID, 1,
+			htmlTemplate, inputSchemaJSON,
+			jsContent,
+			"Initial version — created by component-creator",
+			"component-creator:create",
+			workItemSource,
+			logger,
+		); err != nil {
+			logger.Warn("store_generated_component: initial version snapshot failed, continuing",
+				zap.String("component_id", componentID),
+				zap.Error(err))
+		} else {
+			newVersion = 1
+		}
+
+		logger.Info("store_generated_component: component created",
+			zap.String("component_id", componentID),
+			zap.String("function", functionName),
+			zap.String("section_type", sectionType))
 	}
 
-	// Score the newly-stored component
+	// Score the resulting row (both paths). Persists to content_components.
 	qualityResult := ScoreAndPersistComponent(
 		ctx, params.DB,
-		newID, functionName, htmlTemplate, schemaJSONStr, "section",
+		componentID, functionName, htmlTemplate, schemaJSONStr, "section",
 		logger,
 	)
 
-	logger.Info("store_generated_component: component created",
-		zap.String("component_id", newID),
-		zap.String("function", functionName),
-		zap.String("section_type", sectionType))
-
 	// Mark pages that were waiting for this section_type as needs_rebuild.
-	// When plan_sections can't find a component, the page stays deployed with
-	// a gap. Now that the component exists, those pages should rebuild.
-	// Mark pages waiting for this section_type as needs_rebuild
+	// When plan_sections can't find a component, the page stays deployed
+	// with a gap. Now that the component exists (or has been regenerated),
+	// those pages should rebuild.
 	markPagesForRebuild(ctx, params.DB, sectionType, logger)
 
-	return map[string]interface{}{
-		"component_id":   newID,
+	response := map[string]interface{}{
+		"component_id":   componentID,
 		"function":       functionName,
 		"section_type":   sectionType,
 		"display_name":   displayName,
 		"category":       category,
-		"status":         "created",
+		"status":         status,
 		"template_size":  len(htmlTemplate),
 		"has_js":         jsContent != "",
 		"js_size":        len(jsContent),
 		"quality_score":  qualityResult.QualityScore,
 		"quality_issues": qualityResult.QualityIssues,
-	}, nil
+	}
+	if isRegeneration {
+		response["previous_version"] = existingVersion
+		response["new_version"] = newVersion
+		response["pages_marked_rebuild"] = regenPagesMarked
+	} else if newVersion > 0 {
+		response["new_version"] = newVersion
+	}
+	return response, nil
 }
 
 // parseGeneratedTemplate extracts html_template, input_schema, and metadata
@@ -657,4 +811,258 @@ func separateInlineJS(htmlTemplate, functionName string) (cleanHTML, jsContent s
 	}
 
 	return cleanHTML, jsContent
+}
+
+// ---------------------------------------------------------------------------
+// Regeneration helpers
+// ---------------------------------------------------------------------------
+
+// snapshotComponentVersion writes the pre-update state of a content_component
+// into component_versions so we have history for rollback, diffing, or
+// allowing other sites to opt back to an earlier version.
+//
+// Uses live schema columns: version_number, change_description, changed_by,
+// change_source, plus html_template, input_schema, css_template.
+// css_template is left NULL for now — the section components store
+// everything (CSS + HTML) in html_template and the separate css_template
+// column isn't used by the current generator.
+//
+// changedBy identifies the agent/principal making the change
+// (e.g. "component-creator:regen", "tool-improver:auto").
+// changeSource identifies the triggering work item or event
+// (e.g. the work item's source field, "manual_regen_after_prompt_fix",
+// "component-quality-auditor"). May be "" if there is no originating work
+// item — the column is nullable, and the helper writes NULL in that case.
+//
+// The caller is expected to precompute versionNumber as
+// MAX(version_number)+1 for this component_id. The unique index
+// (component_id, version_number) will reject duplicates, so if two concurrent
+// regenerations both compute the same MAX+1, one will fail here and the
+// caller logs+continues per best-effort policy.
+//
+// Returns non-nil error on failure. The caller treats snapshot as
+// best-effort: an error here should be logged but not block the UPDATE.
+func snapshotComponentVersion(
+	ctx context.Context,
+	db *sql.DB,
+	componentID string,
+	versionNumber int,
+	htmlTemplate string,
+	inputSchemaJSON string,
+	jsContent string, // currently not stored in component_versions; passed for future compatibility
+	changeDescription string,
+	changedBy string,
+	changeSource string,
+	logger *zap.Logger,
+) error {
+	_ = jsContent // reserved for when component_versions grows a js_content column
+
+	var changeSourceArg interface{}
+	if changeSource == "" {
+		changeSourceArg = nil
+	} else {
+		changeSourceArg = changeSource
+	}
+
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO component_versions (
+			component_id, version_number,
+			html_template, input_schema,
+			change_description, changed_by, change_source,
+			created_at
+		) VALUES (
+			$1::uuid, $2,
+			$3, $4::jsonb,
+			$5, $6, $7,
+			NOW()
+		)
+	`,
+		componentID,
+		versionNumber,
+		htmlTemplate,
+		inputSchemaJSON,
+		changeDescription,
+		changedBy,
+		changeSourceArg,
+	)
+	if err != nil {
+		return fmt.Errorf("insert component_versions (component=%s, version=%d): %w",
+			componentID, versionNumber, err)
+	}
+
+	logger.Info("store_generated_component: version snapshot written",
+		zap.String("component_id", componentID),
+		zap.Int("version_number", versionNumber),
+		zap.String("changed_by", changedBy),
+		zap.String("change_source", changeSource))
+	return nil
+}
+
+// markPagesPendingRebuild flips build_status to 'pending' for all
+// page_components that use this component_id. Does NOT touch rendered_html
+// (that's per-page content; the rerender pipeline will regenerate it with
+// variable substitution). Returns the count of pages marked AND the
+// distinct site_ids they belong to, so the caller can raise one
+// needs_rerender work item per affected site.
+//
+// Failures are logged but not returned — the UPDATE to content_components
+// has already succeeded, and page rebuild eligibility is something the
+// auditor can re-check independently. Returns (0, nil) on failure.
+func markPagesPendingRebuild(
+	ctx context.Context,
+	db *sql.DB,
+	componentID string,
+	logger *zap.Logger,
+) (pagesMarked int64, affectedSiteIDs []string) {
+	// First, collect the distinct site_ids that will be affected, via the
+	// join from page_components → pages. Do this BEFORE the UPDATE so we
+	// have a stable set of sites to raise rerender items for.
+	rows, err := db.QueryContext(ctx, `
+		SELECT DISTINCT p.site_id::text
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE pc.component_id = $1::uuid
+	`, componentID)
+	if err != nil {
+		logger.Warn("markPagesPendingRebuild: failed to enumerate affected sites",
+			zap.String("component_id", componentID),
+			zap.Error(err))
+		// Still try the UPDATE — pages can be marked pending even if we
+		// can't raise rerender items; the auditor will catch them later.
+	} else {
+		for rows.Next() {
+			var sid string
+			if scanErr := rows.Scan(&sid); scanErr == nil && sid != "" {
+				affectedSiteIDs = append(affectedSiteIDs, sid)
+			}
+		}
+		rows.Close()
+	}
+
+	result, err := db.ExecContext(ctx, `
+		UPDATE page_components
+		SET build_status = 'pending', updated_at = NOW()
+		WHERE component_id = $1::uuid
+	`, componentID)
+	if err != nil {
+		logger.Warn("markPagesPendingRebuild: UPDATE failed, page_components left in current state",
+			zap.String("component_id", componentID),
+			zap.Error(err))
+		return 0, affectedSiteIDs
+	}
+	pagesMarked, _ = result.RowsAffected()
+	if pagesMarked > 0 {
+		logger.Info("markPagesPendingRebuild: flagged pages for rebuild",
+			zap.String("component_id", componentID),
+			zap.Int64("pages", pagesMarked),
+			zap.Int("sites", len(affectedSiteIDs)))
+	}
+	return pagesMarked, affectedSiteIDs
+}
+
+// nullStringToGo converts a sql.NullString to a plain string, treating
+// NULL as "". Keeps call sites readable when we don't care about the
+// null-vs-empty distinction.
+func nullStringToGo(ns sql.NullString) string {
+	if !ns.Valid {
+		return ""
+	}
+	return ns.String
+}
+
+// createRerenderWorkItem inserts a needs_rerender work item for one site,
+// scoped to a specific regenerated component. The rerender-pages handler
+// picks up these items and rebuilds affected pages.
+//
+// The item_key is component-scoped (component_regen_rerender:<uuid>) so
+// that:
+//   - multiple concurrent regens of DIFFERENT components produce
+//     distinct work items even within the same site
+//   - repeat regens of the SAME component collide with the dedup index
+//     idx_swi_dedup (site_id, item_key) and the INSERT is a no-op
+//     (excluding completed/failed rows — see index WHERE clause)
+//
+// Returns true if a row was actually inserted, false if the dedup
+// ON CONFLICT path was taken or an error was logged.
+//
+// Errors are logged but never propagate — an orphaned pending page is
+// recoverable by the auditor, and blocking the whole regen on a work
+// item write would waste the UPDATE we just completed.
+//
+// workItemSource is the originating work item's source field, used as
+// the `source` column so this synthetic rerender item can be traced back
+// to whatever caused the regen. Empty string is safe — `source` has a
+// NOT NULL constraint in site_work_items, so we substitute a default
+// of "component-creator" when the caller passes "".
+func createRerenderWorkItem(
+	ctx context.Context,
+	db *sql.DB,
+	siteID string,
+	componentID string,
+	functionName string,
+	workItemSource string,
+	logger *zap.Logger,
+) bool {
+	sourceField := workItemSource
+	if sourceField == "" {
+		sourceField = "component-creator"
+	}
+
+	itemKey := fmt.Sprintf("component_regen_rerender:%s", componentID)
+	summary := fmt.Sprintf("Re-render pages after %s regeneration", functionName)
+	specJSON := fmt.Sprintf(
+		`{"component_id": %q, "function": %q, "refresh_site_components": false}`,
+		componentID, functionName,
+	)
+
+	// Insert with a guard that mirrors the dedup index's WHERE clause.
+	// The guard on the INSERT is redundant given the unique index but
+	// makes the intent readable and avoids a unique-violation error
+	// path that would need error-sniffing.
+	result, err := db.ExecContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, pipeline, item_type, severity,
+			summary, priority, handler_agent, status, created_by,
+			spec, item_key
+		)
+		SELECT $1::uuid, $2, 'build', 'needs_rerender', 'medium',
+		       $3, 99, 'rerender-pages', 'triaged', 'store_generated_component',
+		       $4::jsonb, $5
+		WHERE NOT EXISTS (
+			SELECT 1 FROM site_work_items
+			WHERE site_id = $1::uuid
+			  AND item_key = $5
+			  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+		)
+	`,
+		siteID,
+		sourceField,
+		summary,
+		specJSON,
+		itemKey,
+	)
+	if err != nil {
+		logger.Warn("createRerenderWorkItem: INSERT failed, site will rely on auditor to catch pending pages",
+			zap.String("site_id", siteID),
+			zap.String("component_id", componentID),
+			zap.Error(err))
+		return false
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		logger.Info("createRerenderWorkItem: rerender item already pending for this component/site (dedup)",
+			zap.String("site_id", siteID),
+			zap.String("component_id", componentID),
+			zap.String("item_key", itemKey))
+		return false
+	}
+
+	logger.Info("createRerenderWorkItem: raised needs_rerender work item",
+		zap.String("site_id", siteID),
+		zap.String("component_id", componentID),
+		zap.String("function", functionName),
+		zap.String("item_key", itemKey),
+		zap.String("source", sourceField))
+	return true
 }
