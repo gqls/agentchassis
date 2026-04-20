@@ -287,20 +287,4 @@ Site snapshots are the top-level coordination layer. The existing per-table vers
 | `agent_definitions` is_snapshot | Per-agent config | Yes — separate concern, agent-level not site-level |
 | Git commits | Deployed files | Yes — snapshot stores the SHA for cross-reference |
 
-### Populating component_versions
-
-The `component_versions` table has three population paths, all best-effort (a failed snapshot does not block the operation that prompted it):
-
-| Trigger | Writer | changed_by value | change_source |
-|---------|--------|------------------|---------------|
-| New component created | `StoreGeneratedComponentAction` | `component-creator:create` | work item's source, if any |
-| Component regenerated | `StoreGeneratedComponentAction` | `component-creator:regen` | work item's source |
-| Tool HTML improvement | `UpdateComponentHTMLAction` | `update_component_html` | caller-provided note |
-
-The `change_source` column (added April 2026) captures the originating work item's `source` field, so a version history entry can be traced back to the audit, triage, or manual trigger that caused the change. Null is allowed for legacy rows and direct programmatic edits that don't originate from a work item.
-
-Version numbers are monotonically increasing per component, computed as `MAX(version_number) + 1` at write time. A unique index on `(component_id, version_number)` rejects duplicates — concurrent regenerations of the same component will produce one successful snapshot and one logged-and-ignored conflict.
-
-The snapshot is written BEFORE the UPDATE on regeneration (capturing the pre-change state) and AFTER the INSERT on creation (capturing version 1 as the initial state).
-
 The snapshot adds the missing "everything together at this moment" capability. Individual aspect rollbacks via `site_specs` versioning remain the right tool for targeted changes. Full site revert via snapshots is for when you need to undo a coordinated set of changes across specs, pages, and navigation together.

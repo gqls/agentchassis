@@ -1470,14 +1470,6 @@ The persist steps use `error_step` to skip gracefully when the field isn't in `i
 
 **Rule:** The live database is the source of truth for column names. Schema dumps go stale. `\d site_work_items` takes 2 seconds and prevents hours of debugging invisible failures.
 
-### Second case: version_note → change_description on component_versions (April 2026)
-
-`UpdateComponentHTMLAction` wrote to `component_versions.version_note`. The live schema had `change_description`. The INSERT failed on every call. But because the snapshot was marked best-effort (the failure was logged as a Warn and ignored), the bug was invisible in normal flow — no observable failure, just silent data loss. Every component update that should have left a history row left nothing.
-
-This was discovered by code audit during the April 2026 component regeneration work, when we added `StoreGeneratedComponentAction` regeneration semantics that rely on snapshots. Two years' worth of `update_component_html` calls produced no `component_versions` rows before the fix.
-
-**Lesson:** `best-effort` operations need active monitoring. A persistent snapshot failure should eventually surface — either in metrics (e.g. "snapshots attempted vs committed" ratio) or via a smoke test that asserts at least ONE row got written. Silent best-effort is really "silent no-effort" when the code path is always broken.
-
 ---
 
 ## 19. LLM output with markdown code blocks breaks JSON parsing
