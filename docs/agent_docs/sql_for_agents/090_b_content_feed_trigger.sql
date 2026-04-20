@@ -171,3 +171,48 @@ FROM agent_definitions
 WHERE type = 'content-feed-trigger' AND deleted_at IS NULL;
 
 SELECT * FROM scheduled_tasks WHERE name = 'content-feed-refresh';
+--
+
+-- Option A: fix the two related steps atomically
+BEGIN;
+
+-- Snapshot current workflow state for easy rollback
+SELECT jsonb_pretty(default_config->'workflow'->'steps'->'find_news_sites') AS before_find,
+       jsonb_pretty(default_config->'workflow'->'steps'->'process_sites'->'config'->'items_field') AS before_items_field,
+       jsonb_pretty(default_config->'workflow'->'steps'->'check_has_sites') AS before_check
+FROM agent_definitions
+WHERE type = 'content-feed-trigger' AND is_active = true AND deleted_at IS NULL;
+
+-- 1. Change find_news_sites to output_format: "object"
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,find_news_sites,config,output_format}',
+        '"object"'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'content-feed-trigger' AND is_active = true AND deleted_at IS NULL;
+
+-- 2. Update process_sites to iterate news_sites.rows (not news_sites)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sites,config,items_field}',
+        '"news_sites.rows"'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'content-feed-trigger' AND is_active = true AND deleted_at IS NULL;
+
+-- Verify
+SELECT jsonb_pretty(default_config->'workflow'->'steps'->'find_news_sites') AS after_find,
+       jsonb_pretty(default_config->'workflow'->'steps'->'process_sites'->'config'->'items_field') AS after_items_field,
+       jsonb_pretty(default_config->'workflow'->'steps'->'check_has_sites') AS after_check
+FROM agent_definitions
+WHERE type = 'content-feed-trigger' AND is_active = true AND deleted_at IS NULL;
+
+-- If the "after" block shows:
+--   find_news_sites.config.output_format = "object"
+--   process_sites.config.items_field = "news_sites.rows"
+--   check_has_sites unchanged (still uses condition_field: "news_sites.count")
+-- then: COMMIT;
+-- otherwise: ROLLBACK;

@@ -82,12 +82,6 @@ ALL_COMPONENTS=(
 
     # Agent debugging contexts
     "agent-chassis-full"
-    "agent-chassis-focused"
-    "agent-chassis-core"
-    "agent-chassis-orchestration"
-    "agent-chassis-comms"
-    "agent-chassis-services"
-    "agent-chassis-deploy"
     "reasoning-agent-full"
     "web-search-adapter-full"
     "image-generator-adapter-full"
@@ -309,13 +303,8 @@ function show_help() {
   echo "    agent-adapters           # Web search and image adapter code"
   echo ""
   echo "  AGENT DEBUGGING:"
-  echo "    agent-chassis-full           # Massive combined context for the chassis"
-  echo "    agent-chassis-focused        # Truncated context for the chassis"
-  echo "    agent-chassis-core           # Chassis core and configs"
-  echo "    agent-chassis-orchestration  # Orchestration platform only"
-  echo "    agent-chassis-comms          # Kafka and messaging"
-  echo "    agent-chassis-services       # DB, discovery, storage, etc."
-  echo "    agent-chassis-deploy         # Deployment manifests"
+  echo "    agent-chassis-full"
+  echo "    agent-chassis-focused"
   echo "    reasoning-agent-full"
   echo "    web-search-adapter-full"
   echo "    image-generator-adapter-full"
@@ -342,7 +331,7 @@ function show_help() {
   echo "    test-unit                # Unit test code"
   echo "    test-integration         # Integration test code"
   echo "    test-e2e                 # End-to-end test code"
-  echo "    test-tools               # Test tools"
+  echo "    test-tools                 # Test tools"
   echo "    test-all                 # All test code"
 }
 
@@ -754,49 +743,6 @@ case "$COMPONENT_NAME" in
       "platform/governance/"
     )
     MODULE_FILES=( "makefile" "build/docker/backend/agent-chassis.dockerfile" )
-    ;;
-
-  # --- Modular Agent Chassis Debugging (Context-Friendly) ---
-
-  agent-chassis-core)
-    MODULE_DIRS=(
-      "cmd/agent-chassis/"
-      "internal/agents/"
-      "configs/"
-      "platform/agentbase/"
-    )
-    MODULE_FILES=( "makefile" "build/docker/backend/agent-chassis.dockerfile" )
-    ;;
-
-  agent-chassis-orchestration)
-    MODULE_DIRS=(
-      "platform/orchestration/"
-    )
-    ;;
-
-  agent-chassis-comms)
-    MODULE_DIRS=(
-      "platform/kafka/"
-      "platform/messaging/"
-    )
-    ;;
-
-  agent-chassis-services)
-    MODULE_DIRS=(
-      "platform/database/"
-      "platform/discovery/"
-      "platform/evolution/"
-      "platform/storage/"
-      "platform/aiservice/"
-      "platform/governance/"
-    )
-    ;;
-
-  agent-chassis-deploy)
-    MODULE_DIRS=(
-      "deployments/kustomize/services/agent-chassis/"
-      "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2210-agent-chassis/"
-    )
     ;;
 
 # =====================================================================

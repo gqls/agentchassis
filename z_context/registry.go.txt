@@ -906,6 +906,39 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	// Site Composition
+	"validate_composition_inputs": {
+		Handler:     ValidateCompositionInputsAction,
+		Category:    "site",
+		Description: "Check identity + classification specs exist, queue classifier if not",
+		IsLocal:     true,
+	},
+	"resolve_composition_layout": {
+		Handler:     ResolveCompositionLayoutAction,
+		Category:    "site",
+		Description: "Pick a library layout by tag-overlap against classification",
+		IsLocal:     true,
+	},
+	"resolve_composition_typography": {
+		Handler:     ResolveCompositionTypographyAction,
+		Category:    "site",
+		Description: "Pick a typography_set by font-family match with spec cascade",
+		IsLocal:     true,
+	},
+	"install_site_composition": {
+		Handler:     InstallSiteCompositionAction,
+		Category:    "site",
+		Description: "Install composition into css_themes + style_collections + resolved_composition spec",
+		IsLocal:     true,
+	},
+	// --- Site composition (site-design-planner) ---
+	"resolve_composition_palette": {
+		Handler:     ResolveCompositionPaletteAction,
+		Category:    "site",
+		Description: "Extract palette colours via priority cascade and create palette row",
+		IsLocal:     true,
+	},
+
 	// RAG — retrieval-augmented generation
 	"rag_lookup": {
 		Handler:     RAGLookupAction,

@@ -821,3 +821,110 @@ SET default_config = replace(
                      )::jsonb
 WHERE type = 'site-work-orchestrator';
 
+---
+-- missing 'source'
+
+-- ============================================================================
+-- Patch: forward work item `source` field into sub-agent input_data
+-- ============================================================================
+--
+-- Background: handler agents receive their input_data constructed from
+-- the dispatcher's `input_mapping` config. Today, when build-dispatch-loop
+-- and site-work-orchestrator call a handler, they forward fields like
+-- site_id, domain, work_item_id, spec, etc — but NOT the work item's
+-- `source` field (e.g. "component-quality-auditor",
+-- "manual_regen_after_prompt_fix", "site-review-agent").
+--
+-- This means actions like StoreGeneratedComponentAction, which extract
+-- `input_data.source` to populate component_versions.change_source,
+-- see an empty string and write NULL. Version history loses its trail
+-- back to the originating work item.
+--
+-- This patch adds "source": "current_item.source" (or
+-- current_fix_item.source) to the two dispatcher input_mappings so the
+-- source field propagates through the call chain. No Go code change —
+-- this is config-only.
+--
+-- Affected agents:
+--   1. build-dispatch-loop (main dispatch path for build/fix work)
+--   2. site-work-orchestrator (unified builder, fix_items_loop)
+--
+-- Safety:
+--   - Additive only: existing input_mapping keys unchanged
+--   - Handlers that don't care about input_data.source see no difference
+--   - Extract helper returns "" for a key that doesn't exist, and the
+--     snapshot helper writes NULL when source is ""
+--
+-- Verification: after applying, regen a component via a work item and
+-- check `component_versions.change_source` — it should now contain the
+-- work item's source value rather than NULL.
+-- ============================================================================
+
+BEGIN;
+
+-- ── 1. build-dispatch-loop: main build path ────────────────────────────────
+-- The call_handler step inside process_item > sub_workflow > call_handler
+-- dispatches generic handler agents for work items. Add source forwarding.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_item,config,sub_workflow,steps,call_handler,config,input_mapping,source}',
+        '"current_item.source"'::jsonb,
+        true  -- create_missing = true
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-dispatch-loop'
+  AND is_active = true
+  AND deleted_at IS NULL;
+
+-- ── 2. site-work-orchestrator: fix_items_loop path ─────────────────────────
+-- Same pattern, different variable name (current_fix_item) inside a
+-- different loop.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,fix_items_loop,config,sub_workflow,steps,call_handler,config,input_mapping,source}',
+        '"current_fix_item.source"'::jsonb,
+        true
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-work-orchestrator'
+  AND is_active = true
+  AND deleted_at IS NULL;
+
+-- ── 3. Verify ──────────────────────────────────────────────────────────────
+
+DO $verify$
+DECLARE
+v_dispatch_source text;
+    v_orch_source text;
+BEGIN
+    -- Read back the two values
+SELECT default_config
+           #>> '{workflow,steps,process_item,config,sub_workflow,steps,call_handler,config,input_mapping,source}'
+INTO v_dispatch_source
+FROM agent_definitions
+WHERE type = 'build-dispatch-loop' AND is_active = true AND deleted_at IS NULL;
+
+SELECT default_config
+           #>> '{workflow,steps,fix_items_loop,config,sub_workflow,steps,call_handler,config,input_mapping,source}'
+INTO v_orch_source
+FROM agent_definitions
+WHERE type = 'site-work-orchestrator' AND is_active = true AND deleted_at IS NULL;
+
+IF v_dispatch_source IS DISTINCT FROM 'current_item.source' THEN
+        RAISE EXCEPTION 'build-dispatch-loop source mapping not set correctly, got: %', v_dispatch_source;
+END IF;
+
+    IF v_orch_source IS DISTINCT FROM 'current_fix_item.source' THEN
+        RAISE EXCEPTION 'site-work-orchestrator source mapping not set correctly, got: %', v_orch_source;
+END IF;
+
+    RAISE NOTICE 'Both dispatchers now forward source. build-dispatch-loop: %, site-work-orchestrator: %',
+        v_dispatch_source, v_orch_source;
+END;
+$verify$;
+
+COMMIT;
