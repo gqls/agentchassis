@@ -128,6 +128,47 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		zap.Strings("plan_keys", mapKeys(plan)),
 	)
 
+	// ── Resolve source reference ───────────────────────────────────────
+	// The adoption flow may separate the crawled source URL from the
+	// destination domain being built. When that happens:
+	//   - `domain` (above, from apply_plan.config.domain → site_record.domain)
+	//      is the DESTINATION.
+	//   - sourceURL and sourceDomain describe the site that was CRAWLED.
+	// For legacy callers where source == destination, sourceURL fills
+	// from input_data.url and sourceDomain == domain (same value).
+	sourceURL := ""
+	if srcField, ok := params.StepConfig.Config["source_url_field"].(string); ok && srcField != "" {
+		sourceURL = datahelpers.ExtractNestedFieldString(params.CollectedData, srcField)
+	}
+	if sourceURL == "" {
+		sourceURL = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.target_url")
+	}
+	if sourceURL == "" {
+		sourceURL = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.url")
+	}
+
+	// Derive the host portion for URL matching. cleanDomain strips
+	// scheme/www/trailing-slash; we additionally strip any path after
+	// the host so "https://example.com/some/page" -> "example.com".
+	sourceDomain := domain // legacy default — identical to destination
+	if sourceURL != "" {
+		stripped := cleanDomain(sourceURL)
+		if idx := strings.Index(stripped, "/"); idx >= 0 {
+			stripped = stripped[:idx]
+		}
+		if stripped != "" {
+			sourceDomain = stripped
+		}
+	}
+
+	if sourceDomain != domain {
+		logger.Info("ApplyAdoptionPlanAction: source differs from destination",
+			zap.String("source_url", sourceURL),
+			zap.String("source_domain", sourceDomain),
+			zap.String("destination_domain", domain),
+		)
+	}
+
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
@@ -168,7 +209,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	if identityData == nil {
 		identityData = make(map[string]interface{})
 	}
-	identityData["adopted_from"] = domain
+	identityData["adopted_from"] = sourceDomain
 	identityData["adopted_at"] = time.Now().UTC().Format(time.RFC3339)
 
 	specAspects := map[string]interface{}{
@@ -296,7 +337,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		specAspects["structure"] = map[string]interface{}{
 			"pages":        pageNames,
 			"source":       "adoption",
-			"adopted_from": domain,
+			"adopted_from": sourceDomain,
 		}
 	}
 
@@ -361,7 +402,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			) VALUES ($1, $2, $3::jsonb, 'adoption', 'site-adoption-agent',
 			          true, 'site-adoption-agent', $4)
 		`, siteID, aspect, string(dataJSON),
-			fmt.Sprintf("Adopted from %s", domain))
+			fmt.Sprintf("Adopted from %s", sourceDomain))
 		if err == nil {
 			specsWritten++
 		}
@@ -462,13 +503,17 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
-		// Store crawl content — markdown always, rawHtml when available
-		crawlContent := matchCrawlContent(crawlPages, pageURL, domain)
+		// Store crawl content — markdown always, rawHtml when available.
+		// Use sourceDomain (not destination domain) because the crawl index
+		// is keyed by the SOURCE host — "https://source-site.com/about".
+		// When source == destination, sourceDomain == domain and behaviour
+		// is unchanged.
+		crawlContent := matchCrawlContent(crawlPages, pageURL, sourceDomain)
 		if crawlContent != nil {
 			contentData := map[string]interface{}{
 				"page_name":    pageName,
 				"page_id":      pageID.String(),
-				"adopted_from": domain,
+				"adopted_from": sourceDomain,
 				"mode":         "recreate",
 				"existing_content": map[string]interface{}{
 					"raw_markdown": crawlContent.Markdown,
@@ -515,7 +560,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	// identically to the new-build path. Priority 7.
 	compSpec, _ := json.Marshal(map[string]interface{}{
 		"reason":       "adoption_initial_composition",
-		"adopted_from": domain,
+		"adopted_from": sourceDomain,
 	})
 	_, err = insertWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
@@ -571,7 +616,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	// can attach depends_on.
 	designSpec := map[string]interface{}{
 		"mode":         "recreate",
-		"adopted_from": domain,
+		"adopted_from": sourceDomain,
 	}
 	if fpRef, ok := specAspects["design_reference"].(map[string]interface{}); ok {
 		adoptFrom := map[string]interface{}{}

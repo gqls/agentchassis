@@ -119,7 +119,31 @@ func EnsureSiteRecordAction(ctx context.Context, params ActionParams) (interface
 
 	// Extract domain from input_data
 	params.Logger.Info("EnsureSiteRecordAction: Extracting domain")
-	domain := extractDomainFromInput(params.CollectedData, params.Logger)
+
+	// Check for a config-declared destination domain override first.
+	// Used by site-adoption-agent to separate the crawled source URL from
+	// the destination domain being built. The override is a dot-path into
+	// CollectedData (e.g. "input_data.destination_domain"). If the path is
+	// missing or resolves to an empty string, we fall through to the
+	// existing aggressive search in extractDomainFromInput — so callers
+	// that don't set destination_domain behave exactly as before.
+	var domain string
+	if overridePath, ok := params.StepConfig.Config["domain_override_field"].(string); ok && overridePath != "" {
+		if explicitDomain := datahelpers.ExtractNestedFieldString(params.CollectedData, overridePath); explicitDomain != "" {
+			params.Logger.Info("EnsureSiteRecordAction: using destination domain override",
+				zap.String("override_path", overridePath),
+				zap.String("destination_domain", explicitDomain),
+			)
+			domain = explicitDomain
+		} else {
+			params.Logger.Info("EnsureSiteRecordAction: domain_override_field set but path empty, falling through to extractDomainFromInput",
+				zap.String("override_path", overridePath),
+			)
+		}
+	}
+	if domain == "" {
+		domain = extractDomainFromInput(params.CollectedData, params.Logger)
+	}
 	if domain == "" {
 		params.Logger.Error("EnsureSiteRecordAction: Domain not found")
 		return nil, fmt.Errorf("domain not found in input_data")
