@@ -2055,3 +2055,128 @@ SET default_config = jsonb_set(
 WHERE type = 'site-adoption-agent'
   AND is_active = true;
 
+---
+--
+
+-- ============================================================================
+-- 001_adoption_source_destination_separation.sql
+-- ============================================================================
+-- Phase 1 of FUTURE_adoption_source_destination_separation.md
+--
+-- Separates the SOURCE domain (crawled) from the DESTINATION domain (built)
+-- in the site-adoption-agent workflow.
+--
+-- Backward-compatible: if the new input fields are absent, the Go actions
+-- fall back to input_data.url / input_data.domain and the behaviour is
+-- identical to today.
+--
+-- New input shape (all optional except one source reference):
+--   {
+--     "target_url":         "https://competitor-example.com",   -- what to crawl
+--     "destination_domain": "my-new-site.com",                  -- what to build
+--     "url":                "https://competitor-example.com"    -- legacy fallback
+--   }
+--
+-- Workflow changes (no new steps — only config tweaks):
+--   1. crawl_site.config.url_field
+--        "input_data.url" -> "input_data.target_url"
+--        (WebscrapeAction already falls back to input_data.url when empty,
+--         so the legacy path still works without any Go change to the scraper.)
+--
+--   2. ensure_site_record.config.domain_override_field  (NEW)
+--        "input_data.destination_domain"
+--        (Read by EnsureSiteRecordAction's new override block. If absent
+--         in collected_data, the action falls through to the existing
+--         extractDomainFromInput helper — unchanged behaviour.)
+--
+--   3. apply_plan.config.source_url_field  (NEW)
+--        "input_data.target_url"
+--        (Read by ApplyAdoptionPlanAction to populate identity.adopted_from
+--         and to match crawled page URLs against the correct source host.
+--         Falls back to input_data.url, then to `domain`.)
+--
+-- Deployment:
+--   - Apply this SQL.
+--   - Ensure the two Go patches for EnsureSiteRecordAction and
+--     ApplyAdoptionPlanAction are deployed alongside. Without them, the
+--     new config keys are simply ignored and behaviour is unchanged.
+-- ============================================================================
+
+BEGIN;
+
+-- Sanity check: the agent must exist and be live.
+DO $$
+DECLARE
+v_count INT;
+BEGIN
+SELECT COUNT(*) INTO v_count
+FROM agent_definitions
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+
+IF v_count = 0 THEN
+        RAISE EXCEPTION 'site-adoption-agent not found (or soft-deleted) — aborting';
+END IF;
+    IF v_count > 1 THEN
+        RAISE EXCEPTION 'more than one live site-adoption-agent row (% found) — aborting', v_count;
+END IF;
+END $$;
+
+-- Apply the three config changes in one update. jsonb_set with
+-- create_missing=true adds the new keys; for url_field we set create_missing
+-- to false because the path must already exist (belt and braces).
+UPDATE agent_definitions
+SET
+    default_config = jsonb_set(
+            jsonb_set(
+                    jsonb_set(
+                            default_config,
+                            '{workflow,steps,crawl_site,config,url_field}',
+                            '"input_data.target_url"'::jsonb,
+                            false  -- must already exist
+                    ),
+                    '{workflow,steps,ensure_site_record,config,domain_override_field}',
+                    '"input_data.destination_domain"'::jsonb,
+                    true   -- create if absent
+            ),
+            '{workflow,steps,apply_plan,config,source_url_field}',
+            '"input_data.target_url"'::jsonb,
+            true   -- create if absent
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+
+-- Verification: all three keys must be present with the expected values.
+DO $$
+DECLARE
+v_url_field     TEXT;
+    v_domain_over   TEXT;
+    v_source_field  TEXT;
+BEGIN
+SELECT
+    default_config #>> '{workflow,steps,crawl_site,config,url_field}',
+        default_config #>> '{workflow,steps,ensure_site_record,config,domain_override_field}',
+        default_config #>> '{workflow,steps,apply_plan,config,source_url_field}'
+INTO v_url_field, v_domain_over, v_source_field
+FROM agent_definitions
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+
+IF v_url_field IS DISTINCT FROM 'input_data.target_url' THEN
+        RAISE EXCEPTION 'crawl_site.url_field is %, expected input_data.target_url', v_url_field;
+END IF;
+    IF v_domain_over IS DISTINCT FROM 'input_data.destination_domain' THEN
+        RAISE EXCEPTION 'ensure_site_record.domain_override_field is %, expected input_data.destination_domain', v_domain_over;
+END IF;
+    IF v_source_field IS DISTINCT FROM 'input_data.target_url' THEN
+        RAISE EXCEPTION 'apply_plan.source_url_field is %, expected input_data.target_url', v_source_field;
+END IF;
+
+    RAISE NOTICE 'site-adoption-agent adoption-split config applied cleanly:';
+    RAISE NOTICE '  crawl_site.url_field                         = %', v_url_field;
+    RAISE NOTICE '  ensure_site_record.domain_override_field     = %', v_domain_over;
+    RAISE NOTICE '  apply_plan.source_url_field                  = %', v_source_field;
+END $$;
+
+COMMIT;

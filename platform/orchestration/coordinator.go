@@ -1443,6 +1443,19 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 		zap.Any("DEBUGaa: in buildActionParams headers are execCtx.ToHeaders", execCtx.ToHeaders()),
 		zap.Any("DEBUGaa: in buildActionParams current step", state.CurrentStep),
 	)
+
+	// Guarantee step.Config is a non-nil (possibly empty) map before
+	// it reaches any action. Step.Config has `omitempty` in JSON tags
+	// (pkg/models/contracts.go), so a workflow step without a "config"
+	// key unmarshals to Config == nil. Reading from a nil map is
+	// fine, but writing panics. Initialising here is belt-and-braces:
+	// actions shouldn't mutate config (see render_css_from_spec_action
+	// for the pattern of resolving values to local vars), but if any
+	// do, they won't panic.
+	if step.Config == nil {
+		step.Config = make(map[string]interface{})
+	}
+
 	return actions.ActionParams{
 		Context:          ctx,
 		ExecutionContext: execCtx,
@@ -1461,12 +1474,49 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 	}
 }
 
-// Execute the action handler
-func executeAction(ctx context.Context, handler actions.ActionFunc, params actions.ActionParams, logger *zap.Logger) (interface{}, error) {
+// Execute the action handler.
+//
+// A deferred recover() converts any panic from inside the handler into
+// an error. Without this, a panic kills the processing goroutine and
+// leaves the orchestration stuck in EXECUTING_STEP with no log trail
+// past the panic — recovery via the reaper only kicks in after 30+
+// minutes. Converting to error lets the existing handleActionError +
+// error_step routing machinery fail the orchestration cleanly and
+// release any associated work items.
+//
+// The full stack trace is logged at Error level so the root cause is
+// visible in the pod logs even though the error that propagates back
+// to the caller is a single-line summary.
+func executeAction(ctx context.Context, handler actions.ActionFunc, params actions.ActionParams, logger *zap.Logger) (result interface{}, err error) {
 	logger.Info("Calling action handler",
 		zap.String("action", params.StepConfig.Action))
 
-	result, err := handler(ctx, params)
+	defer func() {
+		if r := recover(); r != nil {
+			// Capture a bounded-size stack trace. 64KiB is plenty for
+			// typical panics and keeps the log line size sane.
+			stackBuf := make([]byte, 64*1024)
+			n := runtime.Stack(stackBuf, false)
+			stack := string(stackBuf[:n])
+
+			logger.Error("PANIC recovered in action handler",
+				zap.String("action", params.StepConfig.Action),
+				zap.String("step_name", params.StepConfig.Name),
+				zap.Any("panic_value", r),
+				zap.String("stack", stack),
+			)
+
+			// Replace any (nil, nil) return from a panicking handler
+			// with a real error so the caller routes to the failure
+			// path. %v on the panic value covers both string panics
+			// and runtime.Error panics (like the "assignment to entry
+			// in nil map" that prompted this).
+			result = nil
+			err = fmt.Errorf("action %q panicked: %v", params.StepConfig.Action, r)
+		}
+	}()
+
+	result, err = handler(ctx, params)
 	if err != nil {
 		return nil, err
 	}

@@ -66,6 +66,8 @@ type sectionStyleEntry struct {
 // Reads from collectedData (populated by prior workflow steps):
 //   - design_spec.result.color_scheme / typography / spacing
 //   - site_context.all_component_functions
+//   - site_context.site_id (or input_data.site_id) for site-composition
+//     resolution inside loadThemeComposition
 func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger
 	logger.Info("RenderCSSFromSpecAction: Starting")
@@ -79,35 +81,30 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 
 	config := params.StepConfig.Config
 
+	// Resolve the site_id from collectedData to a plain local variable.
+	// Two candidate paths: site_context.site_id (standard for design
+	// agents) and input_data.site_id (less common). Explicit config
+	// overrides (theme_id, theme_name) still win over this inside
+	// loadThemeComposition.
+	//
+	// NB: we deliberately do NOT write site_id back into the step's
+	// config map. Step.Config may be nil (workflow JSON without a
+	// "config" key unmarshals to a nil map), and mutating shared
+	// workflow state from an action is a bad pattern regardless.
+	siteID := datahelpers.ExtractNestedFieldString(
+		params.CollectedData, "site_context.site_id",
+	)
+	if siteID == "" {
+		siteID = datahelpers.ExtractNestedFieldString(
+			params.CollectedData, "input_data.site_id",
+		)
+	}
+
 	// 1. Resolve the theme composition (palette + layout + typography
 	// in one query). Hard-errors on missing theme, NULL FKs, or
 	// unparseable JSONB — migration gaps must be loud.
-	// Surface site_id from collectedData into config so the loader's
-	// site-composition resolution branch can find it. Does nothing if
-	// config already carries an explicit theme_id or theme_name (those
-	// paths short-circuit the site_id lookup in loadThemeComposition).
-	//
-	// Two candidate paths: site_context.site_id (standard for design
-	// agents) and input_data.site_id (less common). Config-supplied
-	// theme_id still wins over both.
-	if _, hasID := config["site_id"].(string); !hasID {
-		if sid := datahelpers.ExtractNestedFieldString(
-			params.CollectedData, "site_context.site_id",
-		); sid != "" {
-			config["site_id"] = sid
-		} else if sid := datahelpers.ExtractNestedFieldString(
-			params.CollectedData, "input_data.site_id",
-		); sid != "" {
-			config["site_id"] = sid
-		}
-	}
-
 	themeName := datahelpers.GetStringField(config, "theme_name", "standard-brochure")
-	comp, err := loadThemeComposition(ctx, params.DB, config, themeName, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load theme composition: %w", err)
-	}
-	
+	comp, err := loadThemeComposition(ctx, params.DB, config, siteID, themeName, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load theme composition: %w", err)
 	}

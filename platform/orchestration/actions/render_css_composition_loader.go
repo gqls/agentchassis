@@ -7,10 +7,6 @@ package actions
 // rows — palette, layout, typography_set — in a single SQL query and
 // returns them as typed Go maps plus the layout's CSS template string.
 //
-// Phase 4.2 of the migration: this loader lands without being wired
-// into RenderCSSFromSpecAction. Phase 4.3 replaces the legacy
-// loadCSSGoTemplate call with this one.
-//
 // Error contract (per migration plan):
 //   - Theme row missing           → hard error
 //   - Any of palette_id / layout_id / typography_set_id is NULL
@@ -20,9 +16,12 @@ package actions
 //   - JSONB parse failure on any of colours / structure_tokens /
 //     fonts                       → hard error (data shape bug)
 //
-// The intent is to make failures loud and easy to track back to a
-// specific css_themes row. Silent fallback to standard-brochure (as
-// loadCSSGoTemplate did) hides the underlying problem.
+// Theme resolution order (first match wins):
+//  1. config["theme_id"]   — explicit operator/HITL override
+//  2. config["theme_name"] — explicit library preview / test override
+//  3. siteID parameter      — live site composition lookup
+//     (sites.style_collection_id → style_collections.css_theme_id)
+//  4. fallbackThemeName arg — emergency fallback, logged as Error
 
 import (
 	"context"
@@ -65,19 +64,25 @@ type themeComposition struct {
 // rows in one JOIN, returns a themeComposition struct populated with
 // parsed JSONB. Hard-errors on any missing FK or unparseable JSONB.
 //
-// Resolution order for the theme row:
-//  1. config["theme_id"]   (UUID string, if present and non-empty)
-//  2. config["theme_name"] (text name)
-//  3. fallback arg themeName (e.g. "standard-brochure")
+// Resolution order for the theme row (first match wins):
+//  1. config["theme_id"]    — explicit UUID override
+//  2. config["theme_name"]  — explicit name override
+//  3. siteID                — live site composition lookup
+//  4. fallbackThemeName     — emergency fallback (loud-error)
 //
-// This mirrors loadCSSGoTemplate's resolution order for behavioural
-// parity at the theme-selection boundary. The difference is what
-// happens after resolution: the old loader returned just css_template
-// text; this loader returns the full composition.
+// Explicit config overrides (theme_id, theme_name) STILL win over
+// siteID lookup. That preserves:
+//   - HITL flow: operator picks a theme to render against
+//   - Library preview: render an adopted theme without a live site
+//   - Testing / dev workflows
+//
+// siteID is passed by the caller as a plain string (not written into
+// config). An empty string disables the site-composition lookup path.
 func loadThemeComposition(
 	ctx context.Context,
 	db *sql.DB,
 	config map[string]interface{},
+	siteID string,
 	fallbackThemeName string,
 	logger *zap.Logger,
 ) (*themeComposition, error) {
@@ -111,59 +116,10 @@ func loadThemeComposition(
 		resolvedValue string
 	)
 
-	if themeIDStr, ok := config["theme_id"].(string); ok && themeIDStr != "" {
-		row = db.QueryRowContext(ctx, selectSQL+" AND t.id = $1", themeIDStr)
-		resolvedBy = "theme_id"
-		resolvedValue = themeIDStr
-	} else {
-		themeName := fallbackThemeName
-		if n, ok := config["theme_name"].(string); ok && n != "" {
-			themeName = n
-		}
-		row = db.QueryRowContext(ctx, selectSQL+" AND t.name = $1", themeName)
-		resolvedBy = "theme_name"
-		resolvedValue = themeName
-	}
-
-	// Problem:
-	//   The action currently resolves a theme via:
-	//     1. config["theme_id"]   (explicit override)
-	//     2. config["theme_name"] (explicit override)
-	//     3. fallback arg "standard-brochure" (silent default)
-	//
-	//   Step 3 is the "first render wrong layout" bug site-design-planner
-	//   was built to eliminate: if a site has composition installed but the
-	//   workflow config doesn't say so, the renderer silently falls back to
-	//   standard-brochure and produces the wrong CSS.
-	//
-	//   webdesign-agent's workflow still has `config: { "theme_name": "standard-brochure" }`
-	//   hardcoded on its generate_css step. That's config carried from before
-	//   composition existed. Leaving it forces standard-brochure every time,
-	//   regardless of what site-design-planner installed. No amount of
-	//   site_context plumbing helps as long as that config literal is present.
-	//
-	// this fix:
-	//   Insert a new resolution step 3 AHEAD of the existing fallback:
-	//     3. site_context.site_id → look up sites.style_collection_id →
-	//        style_collections.css_theme_id → use that theme_id
-	//
-	//   If that fails (no site_id in context, or no composition for the site):
-	//     4. Old step 3 behaviour as LAST-RESORT emergency fallback, with
-	//        a logger.Error ("site-design-planner did not run for this site")
-	//        distinguishing it from normal operation.
-	//
-	//   Explicit config overrides (theme_id, theme_name) STILL win over
-	//   site_id lookup. That preserves:
-	//     - HITL flow: operator picks a theme to render against
-	//     - Library preview: render an adopted theme without a live site
-	//     - Testing / dev workflows
-	//
-	//   webdesign-agent's workflow will need its hardcoded
-	//   "theme_name": "standard-brochure" REMOVED (tracked as a separate
-	//   workflow edit — once this patch lands, deleting that config literal
-	//   makes the resolver find site_context.site_id and pick up the real
-	//   composition).
-
+	// NB: config can legitimately be nil here (workflow JSON with no
+	// "config" key unmarshals Step.Config to nil). Reading from a nil
+	// map is safe in Go — returns zero values — so we don't need to
+	// allocate. We never WRITE to config in this function.
 	if themeIDStr, ok := config["theme_id"].(string); ok && themeIDStr != "" {
 		row = db.QueryRowContext(ctx, selectSQL+" AND t.id = $1", themeIDStr)
 		resolvedBy = "theme_id"
@@ -172,9 +128,8 @@ func loadThemeComposition(
 		row = db.QueryRowContext(ctx, selectSQL+" AND t.name = $1", themeName)
 		resolvedBy = "theme_name"
 		resolvedValue = themeName
-	} else if siteThemeID := resolveThemeIDFromSiteContext(ctx, db, config, logger); siteThemeID != "" {
-		// NEW: site-composition lookup. Uses site_id from config (which
-		// the caller populates from collectedData via path). Traces
+	} else if siteThemeID := resolveThemeIDFromSiteContext(ctx, db, siteID, logger); siteThemeID != "" {
+		// Site-composition lookup. Traces
 		// sites.style_collection_id → style_collections.css_theme_id.
 		row = db.QueryRowContext(ctx, selectSQL+" AND t.id = $1", siteThemeID)
 		resolvedBy = "site_composition"
@@ -299,6 +254,7 @@ func loadThemeComposition(
 		zap.String("palette", comp.PaletteName),
 		zap.String("layout", comp.LayoutName),
 		zap.String("typography", comp.TypographyName),
+		zap.String("resolved_by", resolvedBy),
 		zap.Int("palette_keys", len(comp.Palette)),
 		zap.Int("structure_keys", len(comp.Structure)),
 		zap.Int("typography_keys", len(comp.Typography)),
@@ -311,26 +267,20 @@ func loadThemeComposition(
 // resolveThemeIDFromSiteContext tries to find the site's installed
 // css_theme_id via the path:
 //
-//	sites (id = site_id) → style_collection_id → style_collections.css_theme_id
+//	sites (id = siteID) → style_collection_id → style_collections.css_theme_id
 //
 // Returns the theme id as a string (for direct use in a UUID-typed WHERE),
-// or empty string if no resolution path succeeds. Never errors — lookup
-// failures are logged and treated as "no resolution", letting
-// loadThemeComposition fall through to the emergency fallback.
-//
-// site_id is read from config["site_id"] — the caller (the action) is
-// responsible for populating it from collectedData before calling
-// loadThemeComposition. Config-based plumbing (rather than a new param)
-// keeps the loader's function signature unchanged.
+// or empty string if siteID is empty or no resolution path succeeds.
+// Never errors — lookup failures are logged and treated as "no resolution",
+// letting loadThemeComposition fall through to the emergency fallback.
 func resolveThemeIDFromSiteContext(
 	ctx context.Context,
 	db *sql.DB,
-	config map[string]interface{},
+	siteID string,
 	logger *zap.Logger,
 ) string {
 
-	siteIDStr, ok := config["site_id"].(string)
-	if !ok || siteIDStr == "" {
+	if siteID == "" {
 		return ""
 	}
 
@@ -343,17 +293,17 @@ func resolveThemeIDFromSiteContext(
 		  AND s.style_collection_id IS NOT NULL
 		  AND sc.is_active = true
 		  AND sc.css_theme_id IS NOT NULL
-	`, siteIDStr).Scan(&themeID)
+	`, siteID).Scan(&themeID)
 
 	if err == sql.ErrNoRows {
 		logger.Warn("resolveThemeIDFromSiteContext: no composition linked to site",
-			zap.String("site_id", siteIDStr),
+			zap.String("site_id", siteID),
 		)
 		return ""
 	}
 	if err != nil {
 		logger.Warn("resolveThemeIDFromSiteContext: lookup failed",
-			zap.String("site_id", siteIDStr),
+			zap.String("site_id", siteID),
 			zap.Error(err),
 		)
 		return ""
@@ -363,7 +313,7 @@ func resolveThemeIDFromSiteContext(
 	}
 
 	logger.Info("resolveThemeIDFromSiteContext: resolved from site composition",
-		zap.String("site_id", siteIDStr),
+		zap.String("site_id", siteID),
 		zap.String("css_theme_id", themeID.String),
 	)
 	return themeID.String

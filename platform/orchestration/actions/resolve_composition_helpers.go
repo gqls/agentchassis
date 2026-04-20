@@ -76,14 +76,40 @@ func loadSpecAspectFromContext(
 }
 
 // readClassificationFromContext pulls `category` and `industry_tags` from
-// the classification spec, preferring collected_data over a DB read.
+// the site's specs, for use in layout matching and for writing to
+// style_collections.industry_tags on palette/typography/css_theme rows.
 //
-// Used by every composition resolver that needs classification metadata
-// (layout matching, industry tags on new palette/typography rows, etc.).
+// Source priority (first match wins per field):
 //
-// If classification is absent, returns ("", nil). Callers should have
-// been blocked earlier by validate_composition_inputs — this is a safety
-// net, not an expected path.
+//	category:
+//	  1. classification.category          (future-proof — classifier may
+//	                                       start writing this directly)
+//	  2. classification.site_type         (current classifier output)
+//
+//	industry_tags:
+//	  1. classification.industry_tags     (future-proof)
+//	  2. derived from identity.industry + identity.sub_industry, with
+//	     classification.site_type folded in as an additional tag
+//
+// Derivation splits on non-alphanumeric runs, lowercases, drops common
+// stopwords ("and", "or", "the", "of", "for", "&", "to", "in", "with"),
+// dedupes while preserving first-seen order.
+//
+// For gamedesign.uk, the existing specs produce:
+//
+//	identity.industry     = "Gaming & Interactive Media"
+//	identity.sub_industry = "Game Design Resources, Tools & Education"
+//	classification.site_type = "interactive-platform"
+//
+// which yields:
+//
+//	category      = "interactive-platform"
+//	industry_tags = ["gaming", "interactive", "media", "game", "design",
+//	                 "resources", "tools", "education", "interactive-platform"]
+//
+// If neither classification nor identity is present, returns ("", nil).
+// Callers should have been blocked earlier by validate_composition_inputs
+// — the all-absent path is a safety net, not an expected operational path.
 func readClassificationFromContext(
 	ctx context.Context,
 	params ActionParams,
@@ -91,26 +117,146 @@ func readClassificationFromContext(
 	logger *zap.Logger,
 ) (category string, industryTags []string) {
 
-	data, found := loadSpecAspectFromContext(ctx, params, siteID, "classification", logger)
-	if !found {
-		return "", nil
-	}
+	classification, classFound := loadSpecAspectFromContext(ctx, params, siteID, "classification", logger)
 
-	category, _ = data["category"].(string)
-
-	if raw, ok := data["industry_tags"]; ok {
-		switch v := raw.(type) {
-		case []interface{}:
-			for _, t := range v {
-				if s, ok := t.(string); ok {
-					industryTags = append(industryTags, s)
-				}
-			}
-		case []string:
-			industryTags = append(industryTags, v...)
+	// --- category resolution ---
+	if classFound {
+		if c, ok := classification["category"].(string); ok && c != "" {
+			category = c
+		} else if st, ok := classification["site_type"].(string); ok && st != "" {
+			// Current classifier writes site_type, not category.
+			// Use it directly — it's a reasonable category proxy
+			// (e.g. "interactive-platform", "brochure", "authority-portal").
+			category = st
 		}
 	}
+
+	// --- industry_tags resolution ---
+	// Step 1: prefer an explicit tag array if the classifier ever writes one.
+	if classFound {
+		if raw, ok := classification["industry_tags"]; ok {
+			switch v := raw.(type) {
+			case []interface{}:
+				for _, t := range v {
+					if s, ok := t.(string); ok {
+						industryTags = append(industryTags, s)
+					}
+				}
+			case []string:
+				industryTags = append(industryTags, v...)
+			}
+		}
+	}
+
+	// Step 2: if no explicit tags, derive from identity + classification.site_type.
+	if len(industryTags) == 0 {
+		identity, idFound := loadSpecAspectFromContext(ctx, params, siteID, "identity", logger)
+
+		if idFound {
+			if ind, ok := identity["industry"].(string); ok {
+				industryTags = appendDerivedTags(industryTags, ind)
+			}
+			if sub, ok := identity["sub_industry"].(string); ok {
+				industryTags = appendDerivedTags(industryTags, sub)
+			}
+		}
+		// Fold site_type in as an additional matching signal (e.g.
+		// "interactive-platform"). Many seeded layouts tag themselves
+		// with archetype-style strings.
+		if classFound {
+			if st, ok := classification["site_type"].(string); ok && st != "" {
+				industryTags = appendDerivedTags(industryTags, st)
+			}
+		}
+	}
+
+	logger.Info("readClassificationFromContext: resolved",
+		zap.String("category", category),
+		zap.Strings("industry_tags", industryTags),
+		zap.Bool("classification_found", classFound),
+		zap.Int("tag_count", len(industryTags)),
+	)
+
 	return category, industryTags
+}
+
+// industryTagStopwords are common words dropped when deriving tags from
+// identity strings. Keeps the tag set focused on domain-relevant nouns.
+var industryTagStopwords = map[string]struct{}{
+	"and":  {},
+	"or":   {},
+	"the":  {},
+	"of":   {},
+	"for":  {},
+	"to":   {},
+	"in":   {},
+	"with": {},
+	"a":    {},
+	"an":   {},
+	"&":    {},
+}
+
+// appendDerivedTags splits `s` on non-alphanumeric boundaries, lowercases
+// each token, drops stopwords and empty tokens, and appends the result to
+// `existing` while preserving first-seen order and deduping against any
+// tag already in `existing`.
+//
+// Examples:
+//
+//	"Gaming & Interactive Media"                 → ["gaming", "interactive", "media"]
+//	"Game Design Resources, Tools & Education"   → ["game", "design", "resources",
+//	                                                "tools", "education"]
+//	"interactive-platform"                       → ["interactive-platform"]
+//	                                                (hyphens kept — they're
+//	                                                already lowercase alnum+hyphen)
+//
+// The last case is handled by treating "a-z0-9-" as the alnum class so
+// existing slug-style strings pass through unsplit.
+func appendDerivedTags(existing []string, s string) []string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		return existing
+	}
+
+	// Build a set of tags already present to dedupe against.
+	seen := make(map[string]struct{}, len(existing))
+	for _, t := range existing {
+		seen[t] = struct{}{}
+	}
+
+	var current strings.Builder
+	flush := func() {
+		if current.Len() == 0 {
+			return
+		}
+		tok := current.String()
+		current.Reset()
+		tok = strings.Trim(tok, "-")
+		if tok == "" {
+			return
+		}
+		if _, skip := industryTagStopwords[tok]; skip {
+			return
+		}
+		if _, dup := seen[tok]; dup {
+			return
+		}
+		seen[tok] = struct{}{}
+		existing = append(existing, tok)
+	}
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '-':
+			current.WriteByte(c)
+		default:
+			flush()
+		}
+	}
+	flush()
+
+	return existing
 }
 
 // extractReferenceValuesFromSpec pulls a reference_values sub-map out of
