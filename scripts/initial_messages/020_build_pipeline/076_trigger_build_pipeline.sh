@@ -204,6 +204,7 @@ kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | 
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=section-editor -f | tee logs-section-editor.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=deployer-agent -f | tee logs-deployer-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-adoption-agent -f | tee logs-site-adoption-agent.json
 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-generator -f | tee logs-image-generator.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-build-handler -f | tee logs-image-build-handler.json

@@ -1,0 +1,159 @@
+--- /mnt/project/002_system_architecture.md	2026-04-20 14:28:30.000000000 +0000
++++ /mnt/user-data/outputs/002_system_architecture.md	2026-04-21 11:47:44.190913862 +0000
+@@ -70,36 +70,147 @@
+ 
+ ### Active agents
+ 
++Organised by area. Not exhaustive — this lists the agents that play a distinct role in a current pipeline or illustrate a pattern worth knowing. The source of truth is `agent_definitions` in `templates_db`; a full live list is:
++
++```sql
++SELECT type, category, description
++FROM agent_definitions
++WHERE is_active = true AND deleted_at IS NULL
++ORDER BY type;
++```
++
++**Intake and site build**
++
+ | Agent | Type | Role |
+ |---|---|---|
+ | `intake-orchestrator` | orchestrator | Entry point — classifies, briefs, spawns builder |
+ | `site-classifier` | specialist | Classifies site type from domain/objective |
+ | `briefing-agent` | specialist | Runs questionnaire, collects brief data |
++| `site-work-orchestrator` | orchestrator | Unified build/maintenance — builds sites from work items, dispatches handlers |
++| `pageflow-builder` | orchestrator | Component-based website builder — spawns planner, content writer, reviewer in sequence |
+ | `site-planner` | specialist | Plans pages, selects components and style |
+-| `pageflow-builder` | orchestrator | Builds sites: plan → assets → content → deploy |
+ | `page-content-writer` | specialist | Writes content per page, section by section |
+ | `content-reviewer` | specialist | HITL or auto-eval content review |
+ | `research-agent` | specialist | Web research for content backing |
+-| `image-generator` | specialist | Generates logos and hero images |
+-| `asset-deployer` | specialist | Downloads S3 image, optimizes, commits to git |
+-| `webdesign-agent` | specialist | Generates design spec and CSS |
+-| `deployer-agent` | specialist | Git commit and Cloudflare deployment |
++| `page-build-handler` | specialist | Wraps content writer with section planning, validation, deploy |
+ | `page-rerender` | specialist | Re-assembles single page from stored components |
+ | `rerender-pages` | orchestrator | Batch rerender across all site pages |
++| `rerender-site` | orchestrator | Full rerender including site-level components (header/footer/head) |
+ | `section-editor` | specialist | Granular edits to individual page sections |
+-| `page-build-handler` | specialist | Wraps content writer with section planning, validation, deploy |
++
++**Design and assets**
++
++| Agent | Type | Role |
++|---|---|---|
++| `site-design-planner` | specialist | Resolves composition (palette, layout, typography) before CSS render |
++| `webdesign-agent` | specialist | Generates design spec and CSS |
++| `image-generator` | specialist | Generates logos and hero images |
++| `image-build-handler` | orchestrator | Self-contained handler for image work items |
++| `asset-deployer` | specialist | Downloads S3 image, optimises, commits to git |
++| `deployer-agent` | specialist | Git commit and Cloudflare deployment |
++
++**Adoption (takeover of existing sites)**
++
++| Agent | Type | Role |
++|---|---|---|
++| `site-adoption-orchestrator` | orchestrator | Wrapper — spawns `site-adoption-agent` as a Job so adoption runs in its own pod |
++| `site-adoption-agent` | specialist | Crawls source URL, classifies, writes specs and work items for the destination |
++| `tool-recreation-handler` | specialist | Recreates interactive tools from crawled source during adoption |
++
++**Improvement loop (post-build quality)**
++
++| Agent | Type | Role |
++|---|---|---|
++| `improvement-loop` | orchestrator | Post-build cycle: discovery → audit → triage → fix → rerender |
+ | `build-pipeline-trigger` | orchestrator | Heartbeat: seeds queue, dispatches one site per tick |
+ | `build-dispatch-loop` | specialist | Processes one work item per invocation |
++| `design-discovery-agent` | specialist | Scans for design-domain issues (undeployed assets, missing CSS, palette) |
++| `quality-discovery-agent` | specialist | Scans for quality issues (broken nav, placeholder contact, generic theme) |
++| `completeness-discovery-agent` | specialist | Scans for empty sections, cross-site contamination |
++| `design-audit-agent` | orchestrator | Top-level design audit — spawns visual and content auditors |
++| `visual-design-auditor` | analyst | Visual design quality findings |
++| `content-quality-auditor` | analyst | Content quality findings |
++| `site-review-agent` | analyst | Strategic alignment review vs brief and dream spec |
+ | `content-gap-planner` | specialist | Plans how to fill audit-discovered content gaps |
+ | `spec-updater` | specialist | Mechanical spec field updates from audit findings |
++| `css-patch-agent` | specialist | Applies targeted CSS fixes from audit findings |
++| `component-template-fixer` | specialist | Targeted fixes to site/page components |
++| `component-quality-auditor` | maintenance | Scores existing components, creates regen items for low-quality |
++| `nav-link-fixer` | orchestrator | Fixes broken navigation links in header/footer |
++| `nav-updater` | specialist | Refreshes navigation tables and re-renders header/footer |
++
++**News feed and content freshness**
++
++| Agent | Type | Role |
++|---|---|---|
++| `content-feed-trigger` | orchestrator | Heartbeat: finds sites recommended for news feeds |
++| `content-feed-orchestrator` | orchestrator | Per-site — dispatches feed-ingesters, produces latest-news |
++| `feed-ingester` | specialist | Fetches from one source (RSS, news search, LLM, scrape) |
++| `feed-triage` | specialist | Scores ingested items for relevance to site spec |
++| `blog-content-planner` | specialist | Plans initial blog posts from industry, services, audience |
++
++**Tool pipeline**
++
++| Agent | Type | Role |
++|---|---|---|
++| `tool-suggester` | specialist | Evaluates what tools would benefit a site |
++| `tool-generator` | specialist | Creates a new interactive tool via LLM |
++| `tool-deployer` | specialist | Forks a library tool to a site |
++| `tool-improver` | specialist | Incrementally improves deployed tools |
++| `tool-auditor` | specialist | LLM-based code review of deployed tools |
++
++**Business intelligence: veterinary medicine prices**
++
++| Agent | Type | Role |
++|---|---|---|
++| `med-url-map-orchestrator` | orchestrator | Wrapper — spawns `med-url-mapper` for URL discovery via Firecrawl |
++| `med-url-discover-orchestrator` | orchestrator | Wrapper — spawns `med-url-discoverer` for category-page URL discovery |
++| `med-price-scrape-orchestrator` | orchestrator | Wrapper — spawns `med-price-collector` for price scraping |
++| `med-export-orchestrator` | orchestrator | Wrapper — spawns `med-json-exporter` for JSON export to a site |
++| `med-url-mapper` | specialist | URL discovery via Firecrawl /map |
++| `med-url-discoverer` | specialist | URL discovery via category page scraping |
++| `med-price-collector` | specialist | Scrapes medicine prices from pharmacies |
++| `med-json-exporter` | specialist | Exports current prices as JSON, commits to site git |
++
++**Business intelligence: veterinary practice discovery**
++
++| Agent | Type | Role |
++|---|---|---|
++| `vet-pipeline-orchestrator` | orchestrator | Full pipeline: sweep → promote → verify |
++| `area-sweep-orchestrator` | orchestrator | Loads postcodes, dispatches area-sweep-discoverer |
++| `area-sweep-discoverer` | specialist | Searches for practices within one UK postcode district |
++| `vet-batch-processor` | orchestrator | Sequentially processes verification tasks |
++| `vet-practice-verifier` | specialist | Verifies and enriches a single practice |
++| `ch-collector` | specialist | Bulk collects Companies House vet SIC companies |
++| `ch-matcher` | specialist | Matches verified businesses against CH mirror |
++| `ch-detail-fetcher` | specialist | Fetches profile/officers/PSC for matched companies |
++| `ch-accounts-fetcher` | specialist | Fetches filed accounts (iXBRL), extracts financials |
++| `ch-llm-reviewer` | specialist | LLM-reviews ambiguous CH matches |
++
++**Infrastructure and utility**
++
++| Agent | Type | Role |
++|---|---|---|
++| `generic` | code-driven | No-op. Scheduled tasks that do work in pre_query CTEs send here |
++| `endpoint-health-checker` | system | Periodic health check for Ollama and Claude endpoints |
++| `work-item-archiver` | specialist | Archives terminal work items older than 7 days |
++| `maintenance-triage` | orchestrator | Scans deployed sites for maintenance issues |
++| `page-rebuild` | specialist | Rebuilds pages flagged as needs_rebuild |
++| `site-component-linker` | specialist | Links site_components to content_components from style collection |
++
++The `med-*` and adoption wrappers illustrate the "wrapper orchestrator" pattern described in doc 001 — each pairs a one-step orchestrator (spawn → call → complete) with the real worker it delegates to. That's the current canonical shape when an agent needs its own pod but has no parent-spawn relationship.
+ 
+ ### Active workflows
+ 
+ | Workflow | Entry Point | Function |
+ |---|---|---|
+-| `intake-orchestrator` | User submits domain + objective | Full pipeline: classify → brief → build |
+-| `pageflow-builder` | Spawned by intake | Plan → generate assets → build pages → deploy |
+-| `rerender-pages` | Manual or post-build | Re-assemble pages from stored components |
++| `intake-orchestrator` | Generic entry point, new domain + objective | Full pipeline: classify → brief → build |
++| `site-work-orchestrator` / `pageflow-builder` | Spawned by intake, or from build-pipeline-trigger | Plan → generate assets → build pages → deploy |
++| `site-adoption-orchestrator` | Generic entry point, `target_url` + `destination_domain` | Spawns `site-adoption-agent` as a Job; adoption runs in its own pod |
++| `improvement-loop` | Heartbeat (scheduler) or manual | Discovery → audit → triage → dispatch fixes → rerender |
++| `content-feed-trigger` | Heartbeat (scheduler, 6-hourly) | Finds news-feed sites, dispatches `content-feed-orchestrator` per site |
++| `build-pipeline-trigger` | Heartbeat (scheduler, 30-second) | Seeds queue, dispatches one site per tick |
++| `rerender-pages` / `rerender-site` | Manual or post-build | Re-assemble pages from stored components |
+ 
+ ### Implemented actions (not yet separate agents)
+ 

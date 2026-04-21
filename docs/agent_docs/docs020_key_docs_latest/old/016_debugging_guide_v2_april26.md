@@ -104,7 +104,7 @@ ORDER BY flight_status DESC, name;
 2. Has the interval elapsed since `last_triggered_at`?
 3. Is its concurrency group at capacity? (another task in the same group is in-flight)
 4. Is the pre_query returning no rows? Run it manually.
-5. Is `target_topic` correct? For a task that invokes an agent via the generic entry point, it should be `system.agent.generic.requests`. For a task that talks directly to a long-lived adapter Deployment, it's that adapter's fixed topic. It is never a `job.*` topic — those are created per-spawn and are not reachable from outside a spawning workflow.
+5. Is `target_topic` correct? Must be `system.agent.generic.requests` for chassis-spawned agents, or the specific static deployment topic.
 
 **Concurrency group stuck:**
 
