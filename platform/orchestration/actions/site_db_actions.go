@@ -151,7 +151,19 @@ func EnsureSiteRecordAction(ctx context.Context, params ActionParams) (interface
 
 	// Clean domain (remove protocol, trailing slashes)
 	domain = cleanDomain(domain)
-	params.Logger.Info("EnsureSiteRecordAction: Domain cleaned",
+
+	// Validate the domain is a real DNS-looking string, not a config
+	// placeholder or dot-path reference that leaked in via the aggressive
+	// domain search. Without this, the action would silently write a junk
+	// site row (observed case: literal "site_record.domain" stored as a
+	// domain because FindDomainAggressive matched the config placeholder).
+	if !isPlausibleDomain(domain) {
+		params.Logger.Error("EnsureSiteRecordAction: extracted value does not look like a domain — refusing to write",
+			zap.String("rejected_value", domain))
+		return nil, fmt.Errorf("extracted domain %q is not a plausible DNS domain — likely a config placeholder or dot-path reference leaked into domain extraction", domain)
+	}
+
+	params.Logger.Info("EnsureSiteRecordAction: Domain cleaned and validated",
 		zap.String("domain", domain))
 
 	// Get or create default network ID
@@ -518,6 +530,82 @@ func cleanDomain(domain string) string {
 	// Remove www. prefix for consistency
 	domain = strings.TrimPrefix(domain, "www.")
 	return domain
+}
+
+// isPlausibleDomain returns true if the string looks like a real DNS domain
+// rather than a config placeholder, dot-path reference, or other junk that
+// may have leaked in via the aggressive domain search.
+//
+// Rejection reasons observed in production:
+//   - "site_record.domain"     — config dot-path placeholder
+//   - "input_data.domain"      — workflow config reference
+//   - ""                       — empty (handled earlier but belt-and-braces)
+//   - "localhost"              — single word, no TLD
+//   - strings containing spaces or internal slashes
+//
+// This is deliberately permissive — it's a smoke test, not a DNS validator.
+// Real DNS resolution is not done here because (a) it would make the action
+// slow and network-dependent, and (b) we accept domains that aren't yet
+// registered (the user may be building a site before they register).
+func isPlausibleDomain(s string) bool {
+	if s == "" {
+		return false
+	}
+	// Must have at least one dot (TLD separator). Single-word values like
+	// "localhost" or "sitename" are rejected — the system is always
+	// dealing with fully-qualified domains.
+	if !strings.Contains(s, ".") {
+		return false
+	}
+	// Whitespace anywhere is disqualifying — DNS labels cannot contain it.
+	if strings.ContainsAny(s, " \t\n\r") {
+		return false
+	}
+	// Slashes mean we got a URL rather than a bare domain, or a path
+	// fragment. cleanDomain should have stripped these, so anything left
+	// is suspicious.
+	if strings.ContainsAny(s, "/\\") {
+		return false
+	}
+	// Known config-placeholder shapes: dot-path references to fields in
+	// collected_data. These all start with a well-known root segment that
+	// a real domain would never begin with.
+	placeholderPrefixes := []string{
+		"input_data.",
+		"site_record.",
+		"agent_config.",
+		"__", // internal CollectedData keys like __raw_message__
+	}
+	for _, p := range placeholderPrefixes {
+		if strings.HasPrefix(s, p) {
+			return false
+		}
+	}
+	// Known single-token placeholder strings that happen to contain a dot
+	// but aren't domains. Extend this list if new patterns emerge.
+	knownPlaceholders := map[string]bool{
+		"site_record.domain":  true,
+		"site_record.site_id": true,
+		"input_data.domain":   true,
+		"input_data.url":      true,
+	}
+	if knownPlaceholders[s] {
+		return false
+	}
+	// Last defence: the TLD (everything after the final dot) should be
+	// 2+ alphabetic characters. This rejects shapes like "foo.1" or
+	// "something." that technically contain a dot but aren't domains.
+	lastDot := strings.LastIndex(s, ".")
+	tld := s[lastDot+1:]
+	if len(tld) < 2 {
+		return false
+	}
+	for _, r := range tld {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')) {
+			return false
+		}
+	}
+	return true
 }
 
 func extractSiteID(data map[string]interface{}, logger *zap.Logger) string {

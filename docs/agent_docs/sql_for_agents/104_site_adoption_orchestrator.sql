@@ -177,3 +177,93 @@ END IF;
 END $$;
 
 COMMIT;
+
+---
+-- fix input mapping
+
+-- ============================================================================
+-- 003_fix_site_adoption_orchestrator_input_mapping.sql
+-- ============================================================================
+-- Bug: the wrapper's call_adopter step used `input_mapping: {"input_data":
+-- "input_data"}` which wrapped the inner input_data under a new input_data
+-- namespace, producing the shape `input_data.input_data.target_url` in the
+-- spawned adopter's CollectedData. The adopter's workflow reads fields at
+-- top-level paths (`input_data.target_url`, `input_data.destination_domain`)
+-- and couldn't find them, so ensure_site_record silently wrote junk and
+-- crawl_site crashed with "URL not found".
+--
+-- Diagnosis: the contract in 003_contracts_and_standards_v7.md ("Agent
+-- Definition SQL Conventions") makes clear that dispatch-loop-style
+-- `input_data.spec.*` is a deliberate convention for work items — fields
+-- sit under a named nested path, not a generic double-wrap. The wrapper
+-- orchestrator has no spec column; it's passing ordinary named fields.
+-- The right pattern is per-field mapping.
+--
+-- Fix: replace the namespace-wrap mapping with an explicit per-field
+-- mapping that places each field directly at the top of the child's
+-- input_data. All four known keys (target_url, destination_domain, url,
+-- domain) are mapped so both the separated and legacy flows work.
+-- ============================================================================
+
+BEGIN;
+
+-- Sanity
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions
+        WHERE type = 'site-adoption-orchestrator' AND deleted_at IS NULL
+    ) THEN
+        RAISE EXCEPTION 'site-adoption-orchestrator not found — aborting';
+END IF;
+END $$;
+
+-- Replace the input_mapping value with explicit per-field mapping.
+UPDATE agent_definitions
+SET
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,call_adopter,config,input_mapping}',
+            $json${
+              "target_url":         "input_data.target_url",
+              "destination_domain": "input_data.destination_domain",
+              "url":                "input_data.url",
+              "domain":             "input_data.domain"
+            }$json$::jsonb,
+            false   -- path must exist (set by 002_create_site_adoption_orchestrator.sql)
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-adoption-orchestrator'
+  AND deleted_at IS NULL;
+
+-- Verify the new mapping is in place.
+DO $$
+DECLARE
+v_target_url      TEXT;
+    v_destination     TEXT;
+    v_url             TEXT;
+    v_domain          TEXT;
+BEGIN
+SELECT
+    default_config #>> '{workflow,steps,call_adopter,config,input_mapping,target_url}',
+        default_config #>> '{workflow,steps,call_adopter,config,input_mapping,destination_domain}',
+        default_config #>> '{workflow,steps,call_adopter,config,input_mapping,url}',
+        default_config #>> '{workflow,steps,call_adopter,config,input_mapping,domain}'
+INTO v_target_url, v_destination, v_url, v_domain
+FROM agent_definitions
+WHERE type = 'site-adoption-orchestrator' AND deleted_at IS NULL;
+
+IF v_target_url  IS DISTINCT FROM 'input_data.target_url'         THEN RAISE EXCEPTION 'target_url mapping wrong: %', v_target_url; END IF;
+    IF v_destination IS DISTINCT FROM 'input_data.destination_domain' THEN RAISE EXCEPTION 'destination_domain mapping wrong: %', v_destination; END IF;
+    IF v_url         IS DISTINCT FROM 'input_data.url'                THEN RAISE EXCEPTION 'url mapping wrong: %', v_url; END IF;
+    IF v_domain      IS DISTINCT FROM 'input_data.domain'             THEN RAISE EXCEPTION 'domain mapping wrong: %', v_domain; END IF;
+
+    RAISE NOTICE 'site-adoption-orchestrator call_adopter.input_mapping fixed:';
+    RAISE NOTICE '  target_url         -> %', v_target_url;
+    RAISE NOTICE '  destination_domain -> %', v_destination;
+    RAISE NOTICE '  url                -> %', v_url;
+    RAISE NOTICE '  domain             -> %', v_domain;
+END $$;
+
+COMMIT;
+
