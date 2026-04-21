@@ -71,11 +71,13 @@ func RAGLookupAction(ctx context.Context, params ActionParams) (interface{}, err
 
 	embClient, embErr := createRAGEmbeddingClient(ctx, config)
 	if embErr == nil {
-		queryEmbedding, embGenErr := embClient.GenerateEmbedding(ctx, queryText)
+		promptText, prefixApplied := applyNomicPrefix(config, queryText, "search_query")
+		queryEmbedding, embGenErr := embClient.GenerateEmbedding(ctx, promptText)
 		if embGenErr == nil {
 			logger.Info("rag_lookup: generated query embedding",
 				zap.String("query_preview", truncateForLog(queryText, 100)),
 				zap.Int("embedding_dims", len(queryEmbedding)),
+				zap.Bool("prefix_applied", prefixApplied),
 				zap.String("collection", collection))
 
 			results, err = vectorSearchKB(ctx, params.DB, collection, industry, queryEmbedding, topK, logger)
@@ -178,14 +180,23 @@ func RAGIndexAction(ctx context.Context, params ActionParams) (interface{}, erro
 		orchID = params.ExecutionContext.OrchestrationID
 	}
 
+	prefixAppliedOnce := false
 	for i, chunk := range chunks {
-		// SHA256 for dedup
+		// SHA256 for dedup (computed on ORIGINAL chunk, not prefixed version)
 		hash := fmt.Sprintf("%x", sha256.Sum256([]byte(chunk)))
 
-		// Generate embedding (non-fatal)
+		// Generate embedding (non-fatal). Apply nomic task prefix to the
+		// text going to the embedder, but keep chunk unprefixed for storage
+		// and hashing.
 		var embeddingStr *string
 		if embClient != nil {
-			embedding, err := embClient.GenerateEmbedding(ctx, chunk)
+			embedInput, prefixApplied := applyNomicPrefix(config, chunk, "search_document")
+			if prefixApplied && !prefixAppliedOnce {
+				logger.Info("rag_index: applying nomic search_document prefix to embeddings",
+					zap.String("collection", collection))
+				prefixAppliedOnce = true
+			}
+			embedding, err := embClient.GenerateEmbedding(ctx, embedInput)
 			if err != nil {
 				logger.Warn("rag_index: embedding failed for chunk, storing without",
 					zap.Int("chunk", i), zap.Error(err))
@@ -428,4 +439,37 @@ func updateKBUsageCounts(db *sql.DB, results []map[string]interface{}, logger *z
 			}
 		}
 	}
+}
+
+// applyNomicPrefix prepends a nomic task prefix to the text when the
+// configured embedding model is a nomic variant. Nomic embedding models
+// (nomic-embed-text, nomic-embed-text-v2-moe, etc.) perform significantly
+// better with "search_document: " on indexed content and "search_query: "
+// on queries. Any non-nomic model receives the text unchanged.
+//
+// Returns the (possibly prefixed) text and a bool indicating whether a
+// prefix was applied — used for logging so regressions are visible in
+// llm_call_log and action logs.
+func applyNomicPrefix(config map[string]interface{}, text, task string) (string, bool) {
+	model := getEmbeddingModel(config)
+	if !strings.HasPrefix(model, "nomic-embed-") {
+		return text, false
+	}
+	// Don't double-prefix if caller already prepended one.
+	if strings.HasPrefix(text, "search_document: ") || strings.HasPrefix(text, "search_query: ") {
+		return text, false
+	}
+	return task + ": " + text, true
+}
+
+// getEmbeddingModel extracts the model name from the embedding_service
+// config map, defaulting to nomic-embed-text to match the default in
+// createRAGEmbeddingClient.
+func getEmbeddingModel(config map[string]interface{}) string {
+	if svc, ok := config["embedding_service"].(map[string]interface{}); ok {
+		if m, ok := svc["model"].(string); ok && m != "" {
+			return m
+		}
+	}
+	return "nomic-embed-text"
 }
