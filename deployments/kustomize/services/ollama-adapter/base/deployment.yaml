@@ -65,7 +65,7 @@ spec:
             # NEW: keep models resident indefinitely between calls
             # (default is 5 minutes; this avoids cold-reload mid-eval)
             - name: OLLAMA_KEEP_ALIVE
-              value: "-1"
+              value: "60m"
           ports:
             - containerPort: 11434
               name: http
