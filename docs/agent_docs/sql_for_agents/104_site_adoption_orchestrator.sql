@@ -267,3 +267,99 @@ END $$;
 
 COMMIT;
 
+---
+-- ? optional input data path
+
+-- ============================================================================
+-- 004_fix_site_adoption_orchestrator_optional_legacy_fields.sql
+-- ============================================================================
+-- Bug: the previous fix (003) mapped four known input fields unconditionally:
+--   target_url, destination_domain, url, domain
+--
+-- ResolveInputMapping fails fast on any missing source path. When a caller
+-- uses the separated shape (target_url + destination_domain only), the
+-- legacy url/domain source paths don't exist, and the mapping crashes:
+--
+--   "input_mapping failed: source path 'input_data.url' not found for field 'url'"
+--
+-- This matches the observed failure in orchestration 90776013-... where
+-- the orchestration went FAILED at step call_adopter.
+--
+-- Fix: mark the legacy fields as optional using the `?` suffix on the
+-- destination key. ResolveInputMapping strips the `?` and omits the
+-- field from the output if its source path doesn't resolve. The
+-- separated fields remain required because if those are absent we'd
+-- rather see the failure than crawl nothing.
+--
+-- If BOTH separated and legacy are absent, the call will still fail on
+-- target_url — which is the correct behaviour (we need *some* URL).
+-- The adoption action's own fallback chain handles the case where the
+-- caller used legacy-only (url/domain) — then target_url is absent from
+-- the mapping but input_data.url is present further up in collected_data.
+-- ============================================================================
+
+BEGIN;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions
+        WHERE type = 'site-adoption-orchestrator' AND deleted_at IS NULL
+    ) THEN
+        RAISE EXCEPTION 'site-adoption-orchestrator not found — aborting';
+END IF;
+END $$;
+
+-- Replace the input_mapping with one where legacy fields are `?`-marked.
+-- We also mark target_url and destination_domain as optional because a
+-- legacy caller won't have them either — the adoption action's step-level
+-- config reads from input_data.url as the fallback. Marking ALL fields
+-- optional lets the mapping succeed with whatever subset the caller sent;
+-- the action then picks whichever is present.
+UPDATE agent_definitions
+SET
+    default_config = jsonb_set(
+            default_config,
+            '{workflow,steps,call_adopter,config,input_mapping}',
+            $json${
+              "target_url?":         "input_data.target_url",
+              "destination_domain?": "input_data.destination_domain",
+              "url?":                "input_data.url",
+              "domain?":             "input_data.domain"
+            }$json$::jsonb,
+            false
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-adoption-orchestrator'
+  AND deleted_at IS NULL;
+
+-- Verify the four mappings are present with `?` markers.
+DO $$
+DECLARE
+v_target      TEXT;
+    v_destination TEXT;
+    v_url         TEXT;
+    v_domain      TEXT;
+BEGIN
+SELECT
+    default_config #>> '{workflow,steps,call_adopter,config,input_mapping,target_url?}',
+        default_config #>> '{workflow,steps,call_adopter,config,input_mapping,destination_domain?}',
+        default_config #>> '{workflow,steps,call_adopter,config,input_mapping,url?}',
+        default_config #>> '{workflow,steps,call_adopter,config,input_mapping,domain?}'
+INTO v_target, v_destination, v_url, v_domain
+FROM agent_definitions
+WHERE type = 'site-adoption-orchestrator' AND deleted_at IS NULL;
+
+IF v_target      IS DISTINCT FROM 'input_data.target_url'         THEN RAISE EXCEPTION 'target_url? mapping wrong: %', v_target; END IF;
+    IF v_destination IS DISTINCT FROM 'input_data.destination_domain' THEN RAISE EXCEPTION 'destination_domain? mapping wrong: %', v_destination; END IF;
+    IF v_url         IS DISTINCT FROM 'input_data.url'                THEN RAISE EXCEPTION 'url? mapping wrong: %', v_url; END IF;
+    IF v_domain      IS DISTINCT FROM 'input_data.domain'             THEN RAISE EXCEPTION 'domain? mapping wrong: %', v_domain; END IF;
+
+    RAISE NOTICE 'site-adoption-orchestrator input_mapping updated with optional markers:';
+    RAISE NOTICE '  target_url?         -> %', v_target;
+    RAISE NOTICE '  destination_domain? -> %', v_destination;
+    RAISE NOTICE '  url?                -> %', v_url;
+    RAISE NOTICE '  domain?             -> %', v_domain;
+END $$;
+
+COMMIT;

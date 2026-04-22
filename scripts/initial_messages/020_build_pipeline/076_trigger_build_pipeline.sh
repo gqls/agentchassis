@@ -187,6 +187,7 @@ kubectl -n ai-persona-system logs --tail=300 -l agent-type=design-discovery-agen
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=design-audit-agent -f | tee logs-design-audit-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=completeness-discovery-agent -f | tee logs-completeness-discovery-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l app=git-adapter -f | tee logs-git-adapter.json
+kubectl -n ai-persona-system logs --tail=500 -l app=web-scrape-adapter -f | tee logs-web-scrape-adapter.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=color-variable-fixer -f | tee logs-color-variable-fixer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=visual-design-auditor -f | tee logs-visual-design-auditor.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-quality-auditor -f | tee logs-content-quality-auditor.json

@@ -59,6 +59,13 @@ spec:
           env:
             - name: OLLAMA_MAX_LOADED_MODELS
               value: "1"
+            # NEW: generous model load timeout — 5 min instead of default 60s
+            - name: OLLAMA_LOAD_TIMEOUT
+              value: "10m"
+            # NEW: keep models resident indefinitely between calls
+            # (default is 5 minutes; this avoids cold-reload mid-eval)
+            - name: OLLAMA_KEEP_ALIVE
+              value: "-1"
           ports:
             - containerPort: 11434
               name: http
@@ -77,13 +84,17 @@ spec:
               path: /api/tags
               port: 11434
             initialDelaySeconds: 10
-            periodSeconds: 10
+            periodSeconds: 30          # was 10 — less probe pressure during inference
+            timeoutSeconds: 5          # was default 1 — headroom if Ollama is busy
+            failureThreshold: 5        # was default 3 — tolerate a few slow responses
           livenessProbe:
             httpGet:
               path: /api/tags
               port: 11434
-            initialDelaySeconds: 30
-            periodSeconds: 30
+            initialDelaySeconds: 60    # was 30 — let model loading finish first
+            periodSeconds: 60          # was 30
+            timeoutSeconds: 10         # was default 1 — don't restart for a busy server
+            failureThreshold: 5        # was default 3
       volumes:
         - name: ollama-models
           persistentVolumeClaim:
