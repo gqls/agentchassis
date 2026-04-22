@@ -101,3 +101,10 @@ Run the single Ollama smoke test.
 Only if all three pass, run the new runner.
 
 
+# Warm the model + confirm /api/chat works
+curl -s -m 180 -X POST http://localhost:21434/api/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"mistral-small3.1","messages":[{"role":"user","content":"Reply with one word: hello"}],"stream":false,"options":{"num_predict":10}}' \
+  | jq '{response: .message.content, load_ms: .load_duration, prompt_eval_count, eval_count}'
+
+
