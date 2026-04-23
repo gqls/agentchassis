@@ -251,26 +251,11 @@ After restoring: `kubectl -n ai-persona-system rollout restart deployment/agent-
 
 ### Taking a Fresh Backup
 
-**Naming convention:** `agent_definitions_backup_YYYYMMDD_pre<NNN>` where `NNN` is the migration number the backup is guarding (e.g. `agent_definitions_backup_20260423_pre008`). This ties each backup to the specific change it's protecting against, makes the purpose self-documenting, and prevents collisions when multiple migrations land on the same day.
-
 ```sql
-CREATE TABLE agent_definitions_backup_YYYYMMDD_preNNN AS SELECT * FROM agent_definitions;
+CREATE TABLE agent_definitions_backup_YYYYMMDD AS SELECT * FROM agent_definitions;
 SELECT
     (SELECT COUNT(*) FROM agent_definitions) as live,
-    (SELECT COUNT(*) FROM agent_definitions_backup_YYYYMMDD_preNNN) as backup;
-```
-
-**DO NOT use `DROP TABLE IF EXISTS` before `CREATE TABLE`.** A backup's entire reason to exist is to preserve the pre-migration state for recovery. If a migration is re-run after a partial failure, dropping the previous backup replaces a snapshot of the original state with a snapshot of a possibly-already-modified state — destroying the recovery path exactly when it's most needed.
-
-If `CREATE TABLE` fails because the name collides with an earlier backup, that's the safety mechanism working. Pick a new name (increment the suffix: `_pre008_retry`, `_pre008b`, or add a timestamp) rather than dropping.
-
-Scoped backups — when only some rows matter — follow the same rule: use a new name, don't drop the existing one.
-
-```sql
--- Scoped backup for a single agent type — same naming discipline
-CREATE TABLE agent_definitions_backup_20260423_pre008_classifier AS
-SELECT * FROM agent_definitions
-WHERE type = 'domain-research-classifier' AND is_active = true;
+    (SELECT COUNT(*) FROM agent_definitions_backup_YYYYMMDD) as backup;
 ```
 
 ### Checking What Models Agents Use
@@ -325,9 +310,7 @@ GROUP BY model, provider ORDER BY model;
 ### Rules
 
 1. Always take a dated backup before batch changes
-2. **Never drop or overwrite an existing backup.** A backup's whole purpose is to preserve the pre-change state for recovery. If the name collides, pick a new suffix (e.g. `_pre008_retry`, `_pre008b`, or a timestamp). Dropping a previous backup to "tidy up" replaces a known-good snapshot with whatever state the table happens to be in now — which on a failed-and-retried migration may already be partially modified.
-3. Name backups `agent_definitions_backup_YYYYMMDD_pre<NNN>` tied to the migration they guard, so the purpose is self-documenting and collisions are visible
-4. Use `swap_agent_model()` for single-agent swaps — it snapshots automatically
-5. Swap one agent at a time, verify via `llm_call_log`, then move to next
-6. Check endpoint health (`SELECT * FROM ai_endpoint_status`) before swapping
-7. Keep the nuclear revert table until confident in the new setup
+2. Use `swap_agent_model()` for single-agent swaps — it snapshots automatically
+3. Swap one agent at a time, verify via `llm_call_log`, then move to next
+4. Check endpoint health (`SELECT * FROM ai_endpoint_status`) before swapping
+5. Keep the nuclear revert table until confident in the new setup

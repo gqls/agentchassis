@@ -19,6 +19,7 @@
 \d content_items
 \d css_themes
 \d agent_error_log
+\d llm_call_log
 \d style_collections
 \d
 

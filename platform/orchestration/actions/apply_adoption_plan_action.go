@@ -554,124 +554,60 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// ── 5. Create work items ────────────────────────────────────────────
+	//
+	// Hand off to the classifier. Per doc 028 ("The classifier is the
+	// strategic brain — it always runs in full. Adoption does not shortcut
+	// it"), adoption does NOT queue needs_composition or needs_design
+	// directly. Those are produced by the cascade that the classifier
+	// starts (strategist → briefing → site-planner → composition →
+	// webdesign).
+	//
+	// The specs adoption wrote above — site_archetype, design_reference,
+	// identity, content_direction, design_intent — are read by the
+	// classifier (006 prompt) and preserved under doc 028's read-and-extend
+	// ownership pattern. The classifier also runs its own vertical /
+	// competitor research (doc 028 failure mode: "Adoption without
+	// strategic analysis"), and produces the classification spec with the
+	// category + industry_tags the layout matcher needs (migration 008).
+	//
+	// Priority 5 matches domain-submitter's default — from the classifier's
+	// point of view, adoption is just another input shape. The adopted_from
+	// hint in the spec lets the classifier's prompt distinguish when useful,
+	// without needing a different handler agent.
 
-	// Composition item — site-design-planner resolves palette/layout/
-	// typography BEFORE webdesign-agent renders. Runs for adoption
-	// identically to the new-build path. Priority 7.
-	compSpec, _ := json.Marshal(map[string]interface{}{
-		"reason":       "adoption_initial_composition",
-		"adopted_from": sourceDomain,
+	researchSpec, _ := json.Marshal(map[string]interface{}{
+		"site_id":      siteID.String(),
+		"domain":       domain, // destination — the site being built
+		"reason":       "post_adoption_classification",
+		"adopted_from": sourceDomain, // the crawled source — provenance only
+		"objective":    "Classify adopted site; respect site_archetype constraints; produce category + industry_tags for the layout matcher.",
 	})
 	_, err = insertWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       "adoption",
 		pipeline:     "build",
-		itemType:     "needs_composition",
+		itemType:     "needs_domain_research",
 		severity:     "high",
-		summary:      fmt.Sprintf("Resolve composition for adopted site %s", domain),
-		spec:         string(compSpec),
-		priority:     7,
-		handlerAgent: "site-design-planner",
+		summary:      fmt.Sprintf("Classify adopted site %s (adoption→classifier handoff)", domain),
+		spec:         string(researchSpec),
+		priority:     5, // matches domain-submitter's default
+		handlerAgent: "domain-research-classifier",
 		status:       "triaged",
 		createdBy:    "site-adoption-agent",
-		itemKey:      "needs_composition",
+		itemKey:      "needs_domain_research",
 		batchID:      batchID,
 	}, logger)
 	if err != nil {
-		return nil, fmt.Errorf("insert needs_composition: %w", err)
+		return nil, fmt.Errorf("insert needs_domain_research: %w", err)
 	}
+	itemsCreated++
 
-	// Look up the composition item's id to wire depends_on. Same lookup
-	// pattern as WriteBuildItemsAction — partial unique index on
-	// (site_id, item_key) WHERE status NOT IN (terminal statuses)
-	// guarantees at most one open row.
-	var compositionIDPtr *uuid.UUID
-	var fetchedCompID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
-		SELECT id FROM site_work_items
-		WHERE site_id = $1
-		  AND item_key = 'needs_composition'
-		  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
-		ORDER BY created_at DESC
-		LIMIT 1
-	`, siteID).Scan(&fetchedCompID)
-	if err == nil {
-		compositionIDPtr = &fetchedCompID
-		itemsCreated++
-		logger.Info("Adoption: composition item queued",
-			zap.String("composition_item_id", fetchedCompID.String()),
-		)
-	} else if err == sql.ErrNoRows {
-		logger.Info("Adoption: no open composition item — design will run without dependency",
-			zap.String("site_id", siteID.String()),
-		)
-	} else {
-		logger.Warn("Adoption: composition item lookup failed — design will run without dependency",
-			zap.Error(err),
-		)
-	}
-
-	// Design item — build the same designSpec body as before (fingerprint
-	// preferred over LLM guess), but route through insertWorkItem so we
-	// can attach depends_on.
-	designSpec := map[string]interface{}{
-		"mode":         "recreate",
-		"adopted_from": sourceDomain,
-	}
-	if fpRef, ok := specAspects["design_reference"].(map[string]interface{}); ok {
-		adoptFrom := map[string]interface{}{}
-		if suggested, ok := fpRef["suggested_mapping"].(map[string]interface{}); ok {
-			adoptFrom["suggested_mapping"] = suggested
-		}
-		if cssVars, ok := fpRef["css_variables"].(map[string]interface{}); ok {
-			adoptFrom["css_variables"] = cssVars
-		}
-		if darkSections, ok := fpRef["dark_sections"].(map[string]interface{}); ok {
-			adoptFrom["dark_sections"] = darkSections
-		}
-		if typo, ok := fpRef["typography"].(map[string]interface{}); ok {
-			adoptFrom["typography"] = typo
-		}
-		if llmDesc, ok := fpRef["llm_description"].(map[string]interface{}); ok {
-			adoptFrom["llm_description"] = llmDesc
-		}
-		designSpec["adopt_from"] = adoptFrom
-		logger.Info("Enriched needs_design spec with fingerprint data")
-	} else if designData, ok := plan["design"].(map[string]interface{}); ok {
-		designSpec["adopt_from"] = designData
-	}
-	designSpecJSON, _ := json.Marshal(designSpec)
-
-	var designDepends []uuid.UUID
-	if compositionIDPtr != nil {
-		designDepends = []uuid.UUID{*compositionIDPtr}
-	}
-
-	// NOTE: existing adoption used itemKey = fmt.Sprintf("adoption_design_%s", siteID)
-	// which collides with the build-path itemKey "needs_design" only if a
-	// site has already been through the build pipeline. Use the same
-	// itemKey as WriteBuildItemsAction ("needs_design") — the partial
-	// unique index across all open items means only one open needs_design
-	// at a time, which is what we want regardless of source.
-	ok, _ := insertWorkItem(ctx, tx, workItem{
-		siteID:       siteID,
-		source:       "adoption",
-		pipeline:     "build",
-		itemType:     "needs_design",
-		severity:     "high",
-		summary:      fmt.Sprintf("Generate stylesheet matching %s design", domain),
-		spec:         string(designSpecJSON),
-		priority:     8,
-		handlerAgent: "webdesign-agent",
-		status:       "triaged",
-		createdBy:    "site-adoption-agent",
-		itemKey:      "needs_design",
-		batchID:      batchID,
-		dependsOn:    designDepends,
-	}, logger)
-	if ok {
-		itemsCreated++
-	}
+	logger.Info("Adoption: handoff to classifier queued",
+		zap.String("site_id", siteID.String()),
+		zap.String("domain", domain),
+		zap.String("source_domain", sourceDomain),
+		zap.String("handoff", "needs_domain_research → domain-research-classifier"),
+	)
 
 	// Content pages — route interactive pages to tool-recreation-handler
 	for i, page := range adoptedPages {

@@ -1437,3 +1437,896 @@ COMMIT;
 --      - Explicit fidelity input variable (high / medium / low) — currently
 --        defaulted to "high when adoption present, unconstrained otherwise"
 -- ----------------------------------------------------------------------------
+
+-- enrich prompt - hardcodes values so not gonna use it
+
+
+-- 008_classifier_emits_category_and_industry_tags.sql
+--
+-- Update the domain-research-classifier prompt to emit two new fields
+-- on the classification spec:
+--   category:      one of brochure|interactive|social|editorial|ecommerce|
+--                  portfolio|hub|docs
+--   industry_tags: array of 4-10 specific tags describing the site shape
+--                  and vertical
+--
+-- These two fields are consumed by site-design-planner's layout matcher
+-- (resolveLayoutByTags). Without them, tagSet is empty and the matcher
+-- takes the "no classification tags" fallback path to brochure-formal —
+-- which is what gamesdesign.co.uk hit.
+--
+-- Pairs with migration 007 which seeded tool-portal-dark and social-lobby
+-- with industry_tags tuned to intersect the taxonomy this migration
+-- introduces.
+--
+-- Strategy: surgical regexp_replace inside a DO block that first verifies
+-- the current prompt matches the 006 state. This is safer than a full
+-- prompt rewrite — if anyone edited the prompt between 006 and 008 the
+-- migration aborts with a clear error rather than silently overwriting.
+-- The previous migration (006) did full-rewrite; this one is targeted
+-- because the change scope is genuinely narrow (one JSON schema block
+-- plus one taxonomy guidance block plus one adoption-fidelity bullet).
+--
+-- ----------------------------------------------------------------------------
+-- Rollback (undo this migration):
+--   UPDATE agent_definitions
+--   SET default_config = (
+--       SELECT default_config FROM agent_definitions_backup_20260423
+--       WHERE type = 'domain-research-classifier'
+--   )
+--   WHERE type = 'domain-research-classifier' AND is_active = true;
+--
+-- Then restart the chassis rollout so pods pick up the reverted prompt:
+--   kubectl -n ai-persona-system rollout restart deployment/<chassis-deployment>
+-- ----------------------------------------------------------------------------
+
+BEGIN;
+
+-- ---------------------------------------------------------------
+-- 1. Back up the current (post-006) state before modifying.
+-- ---------------------------------------------------------------
+
+DROP TABLE IF EXISTS agent_definitions_backup_20260423;
+CREATE TABLE agent_definitions_backup_20260423 AS
+SELECT * FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+SELECT 'BACKUP' AS phase, COUNT(*) AS rows_backed_up
+FROM agent_definitions_backup_20260423;
+
+
+-- ---------------------------------------------------------------
+-- 2. Apply the prompt update inside a guarded DO block.
+-- ---------------------------------------------------------------
+
+DO $migration$
+DECLARE
+old_prompt TEXT;
+    step1_prompt TEXT;
+    step2_prompt TEXT;
+    new_prompt TEXT;
+    expected_marker TEXT := '"suggested_style": "professional-dark|modern-light|bold-creative|etc"';
+BEGIN
+    -- Read the current prompt.
+SELECT default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template'
+INTO old_prompt
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+IF old_prompt IS NULL THEN
+        RAISE EXCEPTION
+            '008: classifier prompt not found. Is the domain-research-classifier agent_definition present and active?';
+END IF;
+
+    -- Pre-state sanity check: the 006 marker must be present. If not,
+    -- something has changed the prompt and we should not run blind.
+    IF position(expected_marker IN old_prompt) = 0 THEN
+        RAISE EXCEPTION
+            '008: expected the 006 prompt marker (%) but it is not present. Aborting — prompt is not in the state we can safely patch. Inspect the current prompt and update this migration before re-running.', expected_marker;
+END IF;
+
+    -- Edit 1: Replace the classification JSON schema block with the extended
+    -- version that includes category and industry_tags.
+    step1_prompt := regexp_replace(
+        old_prompt,
+        -- Match from `2. "classification"` through the closing `}` of the schema.
+        -- [\s\S]*? is a non-greedy any-char match that works across newlines.
+        -- The block contains no nested `{`/`}` so the first `}\n` we hit is
+        -- the closing brace.
+        '2\. "classification"[\s\S]*?\n\}\n',
+        E'2. "classification" — what kind of site to build:\n'
+        E'{\n'
+        E'  "site_type": "brochure|landing|portfolio|content|ecommerce|tools|interactive-platform|social",\n'
+        E'  "category": "brochure|interactive|social|editorial|ecommerce|portfolio|hub|docs",\n'
+        E'  "industry_tags": ["specific-tag-1", "specific-tag-2", "4 to 10 tags total"],\n'
+        E'  "confidence": 0.0-1.0,\n'
+        E'  "reasoning": "Why this site type fits",\n'
+        E'  "recommended_builder": "pageflow-builder",\n'
+        E'  "page_count_estimate": 5,\n'
+        E'  "detected_signals": ["signal1", "signal2"],\n'
+        E'  "tone_suggestion": "professional|friendly|bold|technical|editorial|game-like|energetic",\n'
+        E'  "suggested_style": "professional-dark|modern-light|bold-creative|etc"\n'
+        E'}\n'
+        E'\n'
+        E'category and industry_tags are used by the layout matcher (site-design-planner) to pick a CSS layout from the library. The matcher scores layouts by how many of these tags overlap with each layout''s own industry_tags.\n'
+        E'\n'
+        E'category — the highest-level shape of the site. Pick ONE:\n'
+        E'- brochure — traditional marketing/company site (services, about, contact)\n'
+        E'- interactive — tool/utility platform, calculators, simulators, practitioner tools\n'
+        E'- social — community platform, forum, social network, AI-seeded discussion\n'
+        E'- editorial — news, magazine, blog, opinion, long-form content\n'
+        E'- ecommerce — storefront, product catalogue, checkout\n'
+        E'- portfolio — work showcase for a creative, studio, or individual\n'
+        E'- hub — vertical information hub, regulatory resource, trade directory (non-commercial)\n'
+        E'- docs — technical documentation, API reference, knowledge base\n'
+        E'\n'
+        E'industry_tags — an array of 4-10 specific tags describing the site. Include BOTH:\n'
+        E'- site-shape tags: "interactive-platform", "tool-portal", "social-network", "provocation-platform", "magazine-grid", "affiliate-hub", "docs-sidebar", etc.\n'
+        E'- vertical/domain tags: "game-design", "veterinary", "legal", "fitness", "fintech", "wellness", etc.\n'
+        E'\n'
+        E'Use hyphenated lowercase. Prefer specific over generic: "game-design" not "games", "ai-platform" not "ai".\n'
+        E'\n'
+        E'Existing library tags (non-exhaustive, use as inspiration): consultancy, law, finance, b2b, professional-services, tech-startup, fitness, creative-studios, design-agency, news, opinion, long-form-blog, video-platform, audio-library, podcast, developer-docs, api-reference, knowledge-base, wellness, lifestyle, boxing-gym, combat-sports, price-comparison, insurance-comparison, product-review, buyer-guide, independent-shop, single-purpose-calculator, api-playground, regulatory-information, trade-directory, interactive-platform, tools, tool-portal, developer-tools, calculators, utility-platform, game-design, game-development, technical-reference, design-tools, dark-utility, professional-dark, social, social-network, community-platform, provocation-platform, challenge-platform, game-social, room-based-platform, content-first-social, ai-platform, ai-curated-content, ai-seeded-community, creator-platform, archetype-platform.\n'
+        E'\n'
+        E'If no existing tag fits well, coin a new one using the same style. The library-growth audit flags unmatched tags for review.\n'
+    );
+
+    IF step1_prompt = old_prompt THEN
+        RAISE EXCEPTION
+            '008 step 1: regexp_replace for classification block had no effect. Check the regex against the current prompt.';
+END IF;
+
+    -- Edit 2: Add an Adoption fidelity bullet for category/industry_tags.
+    -- Insert AFTER the existing suggested_style bullet, BEFORE the
+    -- identity.has_existing_site bullet.
+    step2_prompt := regexp_replace(
+        step1_prompt,
+        '(- classification\.suggested_style MUST be consistent with the adopted design_intent[^\n]*\n)',
+        E'\\1'
+        E'- classification.category and classification.industry_tags MUST reflect the adopted archetype. For an adopted tools/utility platform: category="interactive" and industry_tags include "interactive-platform" plus vertical tags drawn from site_archetype.industry (e.g. "game-design", "developer-tools"). For an adopted social/community platform: category="social" and industry_tags include "social-network" plus specific modality tags the archetype describes (e.g. "provocation-platform", "ai-seeded-community"). Prefer tags that intersect with existing library layouts before coining new ones.\n'
+    );
+
+    IF step2_prompt = step1_prompt THEN
+        RAISE EXCEPTION
+            '008 step 2: regexp_replace for adoption-fidelity bullet had no effect. The suggested_style bullet from 006 was not found.';
+END IF;
+
+    new_prompt := step2_prompt;
+
+    -- Post-state sanity: both new field markers must be present.
+    IF position('"category":' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION '008: post-edit prompt is missing "category": marker.';
+END IF;
+    IF position('"industry_tags":' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION '008: post-edit prompt is missing "industry_tags": marker.';
+END IF;
+
+    -- Apply.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,prompt_template}',
+        to_jsonb(new_prompt)
+                     )
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+RAISE NOTICE '008: classifier prompt updated. Old length % chars; new length % chars.',
+        length(old_prompt), length(new_prompt);
+END
+$migration$;
+
+
+-- ---------------------------------------------------------------
+-- 3. Verify — prompt length grew, new markers present.
+-- ---------------------------------------------------------------
+
+SELECT
+    'AFTER' AS phase,
+    type,
+    length(default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template') AS prompt_len,
+    CASE WHEN default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template' LIKE '%"category":%'
+    THEN 'YES' ELSE 'NO' END AS has_category_field,
+    CASE WHEN default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template' LIKE '%"industry_tags":%'
+         THEN 'YES' ELSE 'NO' END AS has_industry_tags_field,
+    CASE WHEN default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template' LIKE '%classification.category and classification.industry_tags MUST reflect%'
+         THEN 'YES' ELSE 'NO' END AS has_adoption_fidelity_bullet,
+    CASE WHEN default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template' LIKE '%Adoption Reference%'
+         THEN 'YES' ELSE 'NO' END AS still_has_006_adoption_block
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+
+-- input_fields unchanged? (The prompt relies on site_specs, search_results,
+-- scraped_data — none of which should need changing for this edit.)
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'classify_and_extract'->'config'->'input_fields' AS input_fields
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+COMMIT;
+
+
+-- ----------------------------------------------------------------------------
+-- After applying: restart the chassis pods so they pick up the updated
+-- agent_definition. The chassis caches agent configs in memory.
+--
+--   kubectl -n ai-persona-system rollout restart deployment/<chassis-deployment>
+--
+-- To test: queue a classifier re-run for any site and check the resulting
+-- classification spec contains category and industry_tags fields:
+--
+--   SELECT data->>'category', data->'industry_tags'
+--   FROM site_specs
+--   WHERE aspect='classification' AND is_current=true
+--   ORDER BY created_at DESC LIMIT 3;
+--
+-- The gamesdesign.co.uk remediation to exercise the new matcher path is
+-- a separate deliberate step (see next migration/remediation SQL) —
+-- invalidate resolved_composition AND queue needs_composition AND queue a
+-- fresh needs_domain_research so the classifier re-runs with 008's prompt
+-- and emits the fields the matcher expects. Doing those together avoids
+-- the "spec superseded but install not re-queued" failure mode captured
+-- in doc 028.
+-- ----------------------------------------------------------------------------
+
+-- 008_classifier_dynamic_taxonomy.sql
+--
+-- Wire the classifier to emit category + industry_tags on the classification
+-- spec, using a DYNAMIC taxonomy read at run time from the layouts library
+-- rather than hardcoded enum and tag lists in the prompt.
+--
+-- Three coordinated changes in one transaction:
+--   1. Insert a new workflow step `read_layout_taxonomy` between the
+--      existing `read_site_specs` step and `classify_and_extract`.
+--   2. Update `read_site_specs.next_step` from `classify_and_extract`
+--      to `read_layout_taxonomy`.
+--   3. Update the prompt template to (a) declare `category` and
+--      `industry_tags` on the classification JSON output, (b) render
+--      the current category set and tag list from
+--      `{{.layout_taxonomy.categories}}` and `{{.layout_taxonomy.industry_tags}}`
+--      instead of hardcoding them, and (c) add an adoption-fidelity bullet
+--      that ties the new tag fields to the adopted archetype.
+--
+-- DEPENDENCY: this migration requires the chassis to have a registered
+-- action handler for `read_layout_taxonomy` (see
+-- read_layout_taxonomy_action.go). If migrations land before the Go action
+-- is deployed, the first classifier run after 008 will fail fast with an
+-- unknown-action error — fail-loud is intentional; don't apply 008 until
+-- the Go action is in the image the chassis is running.
+--
+-- ----------------------------------------------------------------------------
+-- Rollback (undo this migration):
+--   UPDATE agent_definitions
+--   SET default_config = (
+--       SELECT default_config FROM agent_definitions_backup_20260423
+--       WHERE type = 'domain-research-classifier'
+--   )
+--   WHERE type = 'domain-research-classifier' AND is_active = true;
+--
+-- Then restart the chassis so pods pick up the reverted config:
+--   kubectl -n ai-persona-system rollout restart deployment/<chassis-deployment>
+-- ----------------------------------------------------------------------------
+
+BEGIN;
+
+-- ---------------------------------------------------------------
+-- 1. Back up the current (post-006) state before modifying.
+-- ---------------------------------------------------------------
+
+DROP TABLE IF EXISTS agent_definitions_backup_20260423;
+CREATE TABLE agent_definitions_backup_20260423 AS
+SELECT * FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+SELECT 'BACKUP' AS phase, COUNT(*) AS rows_backed_up
+FROM agent_definitions_backup_20260423;
+
+
+-- ---------------------------------------------------------------
+-- 2. Workflow + prompt changes inside a guarded DO block.
+-- ---------------------------------------------------------------
+
+DO $migration$
+DECLARE
+cfg jsonb;
+    current_next_step text;
+    old_prompt text;
+    step1_prompt text;
+    step2_prompt text;
+    new_prompt text;
+    prompt_marker text := '"suggested_style": "professional-dark|modern-light|bold-creative|etc"';
+    taxonomy_marker text := '{{.layout_taxonomy.categories';
+BEGIN
+    -- --- Load current config --------------------------------------------------
+SELECT default_config
+INTO cfg
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+IF cfg IS NULL THEN
+        RAISE EXCEPTION '008: classifier agent_definition not found or inactive.';
+END IF;
+
+    -- --- Pre-state checks -----------------------------------------------------
+    -- read_site_specs must currently point at classify_and_extract.
+    current_next_step := cfg #>> '{workflow,steps,read_site_specs,next_step}';
+    IF current_next_step IS NULL THEN
+        RAISE EXCEPTION '008: read_site_specs step not found in classifier workflow.';
+END IF;
+    IF current_next_step <> 'classify_and_extract' THEN
+        RAISE EXCEPTION
+            '008: expected read_site_specs.next_step = classify_and_extract, found %. Aborting — workflow is not in the state we can safely patch.',
+            current_next_step;
+END IF;
+
+    -- The new step name must not already exist — if it does, something
+    -- else has applied this (or a similar) change and we should not
+    -- overwrite blind.
+    IF cfg #> '{workflow,steps,read_layout_taxonomy}' IS NOT NULL THEN
+        RAISE EXCEPTION
+            '008: read_layout_taxonomy step already exists in classifier workflow. Aborting to avoid overwriting an existing definition.';
+END IF;
+
+    -- Prompt must contain the 006 marker.
+    old_prompt := cfg #>> '{workflow,steps,classify_and_extract,config,prompt_template}';
+    IF old_prompt IS NULL THEN
+        RAISE EXCEPTION '008: classify_and_extract.config.prompt_template not found.';
+END IF;
+    IF position(prompt_marker IN old_prompt) = 0 THEN
+        RAISE EXCEPTION
+            '008: prompt is not in expected 006 state (marker not found: %). Aborting.',
+            prompt_marker;
+END IF;
+
+    -- --- Workflow edit: insert the new step -----------------------------------
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,read_layout_taxonomy}',
+        jsonb_build_object(
+            'action',       'read_layout_taxonomy',
+            'config',       '{}'::jsonb,
+            'next_step',    'classify_and_extract',
+            'description',  'Load current categories and industry_tags from the layouts library so the prompt renders with the live taxonomy',
+            'output_field', 'layout_taxonomy'
+        ),
+        true
+    );
+
+    -- --- Workflow edit: repoint read_site_specs's next_step -------------------
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,read_site_specs,next_step}',
+        to_jsonb('read_layout_taxonomy'::text),
+        false
+    );
+
+    -- --- Prompt edit 1: replace classification schema + guidance --------------
+    -- Match from `2. "classification"` through the closing `}\n` of its
+    -- JSON schema block. The block contains no nested `{`/`}` so the
+    -- non-greedy `[\s\S]*?` stops at the first `}\n`.
+    step1_prompt := regexp_replace(
+        old_prompt,
+        '2\. "classification"[\s\S]*?\n\}\n',
+        E'2. "classification" — what kind of site to build:\n'
+        E'{\n'
+        E'  "site_type": "brochure|landing|portfolio|content|ecommerce|tools|interactive-platform|social",\n'
+        E'  "category": "<pick one from the Current library categories listed below>",\n'
+        E'  "industry_tags": ["4 to 10 specific tags — see Current library tags below"],\n'
+        E'  "confidence": 0.0-1.0,\n'
+        E'  "reasoning": "Why this site type fits",\n'
+        E'  "recommended_builder": "pageflow-builder",\n'
+        E'  "page_count_estimate": 5,\n'
+        E'  "detected_signals": ["signal1", "signal2"],\n'
+        E'  "tone_suggestion": "professional|friendly|bold|technical|editorial|game-like|energetic",\n'
+        E'  "suggested_style": "professional-dark|modern-light|bold-creative|etc"\n'
+        E'}\n'
+        E'\n'
+        E'category and industry_tags are used by the layout matcher (site-design-planner) to pick a CSS layout from the library. The matcher scores layouts by how many of these tags overlap with each layout''s own industry_tags. Both fields must be populated.\n'
+        E'\n'
+        E'### category — the highest-level shape of the site. Pick ONE.\n'
+        E'\n'
+        E'Current library categories (read at this classifier run):\n'
+        E'{{.layout_taxonomy.categories | toJSON}}\n'
+        E'\n'
+        E'Category meanings (stable vocabulary):\n'
+        E'- brochure — traditional marketing/company site (services, about, contact)\n'
+        E'- interactive — tool/utility platform, calculators, simulators, practitioner tools\n'
+        E'- social — community platform, forum, social network, AI-seeded discussion\n'
+        E'- editorial — news, magazine, blog, opinion, long-form content\n'
+        E'- ecommerce — storefront, product catalogue, checkout\n'
+        E'- portfolio — work showcase for a creative, studio, or individual\n'
+        E'- hub — vertical information hub, regulatory resource, trade directory (non-commercial)\n'
+        E'- docs — technical documentation, API reference, knowledge base\n'
+        E'\n'
+        E'If the library has a category not documented above, it was added after this documentation was last updated. Prefer a documented meaning when one fits; fall back to a library-current category when none of the documented meanings match.\n'
+        E'\n'
+        E'### industry_tags — 4 to 10 specific tags describing this site. Include BOTH:\n'
+        E'- site-shape tags (e.g. "interactive-platform", "tool-portal", "social-network", "provocation-platform", "magazine-grid", "affiliate-hub", "docs-sidebar")\n'
+        E'- vertical/domain tags (e.g. "game-design", "veterinary", "legal", "fitness", "fintech", "wellness")\n'
+        E'\n'
+        E'Use hyphenated lowercase. Prefer specific over generic: "game-design" not "games", "ai-platform" not "ai".\n'
+        E'\n'
+        E'Current library tags (match these when they describe this site — each match is an overlap point for the matcher):\n'
+        E'{{.layout_taxonomy.industry_tags | toJSON}}\n'
+        E'\n'
+        E'The library currently has {{.layout_taxonomy.layout_count}} active layouts. If no existing tag fits this site well, coin a new one using the same style — an unmatched tag will trigger a library-growth review work item rather than silently fail.\n'
+    );
+
+    IF step1_prompt = old_prompt THEN
+        RAISE EXCEPTION
+            '008 prompt edit 1: regexp_replace for classification block had no effect. Check the regex against the current prompt.';
+END IF;
+
+    -- --- Prompt edit 2: add adoption-fidelity bullet for the new tag fields --
+    -- Insert AFTER the existing suggested_style bullet.
+    step2_prompt := regexp_replace(
+        step1_prompt,
+        '(- classification\.suggested_style MUST be consistent with the adopted design_intent[^\n]*\n)',
+        E'\\1'
+        E'- classification.category and classification.industry_tags MUST reflect the adopted archetype. For an adopted tools/utility platform: category="interactive" and industry_tags include "interactive-platform" plus vertical tags drawn from site_archetype.industry (e.g. "game-design", "developer-tools"). For an adopted social/community platform: category="social" and industry_tags include "social-network" plus specific modality tags the archetype describes (e.g. "provocation-platform", "ai-seeded-community"). Prefer tags that appear in the Current library tags list so the matcher can find a close layout rather than triggering a library-growth fallback.\n'
+    );
+
+    IF step2_prompt = step1_prompt THEN
+        RAISE EXCEPTION
+            '008 prompt edit 2: regexp_replace for adoption-fidelity bullet had no effect. The suggested_style bullet from 006 was not found.';
+END IF;
+
+    new_prompt := step2_prompt;
+
+    -- --- Post-state checks ----------------------------------------------------
+    IF position('"category":' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION '008: post-edit prompt is missing "category": marker.';
+END IF;
+    IF position('"industry_tags":' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION '008: post-edit prompt is missing "industry_tags": marker.';
+END IF;
+    IF position(taxonomy_marker IN new_prompt) = 0 THEN
+        RAISE EXCEPTION
+            '008: post-edit prompt is missing the dynamic taxonomy marker (%). The hardcoded replacement would have worked but the dynamic version did not.',
+            taxonomy_marker;
+END IF;
+
+    -- --- Apply ----------------------------------------------------------------
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,classify_and_extract,config,prompt_template}',
+        to_jsonb(new_prompt),
+        false
+    );
+
+UPDATE agent_definitions
+SET default_config = cfg
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+RAISE NOTICE '008: classifier updated. Old prompt length % chars; new prompt length % chars.',
+        length(old_prompt), length(new_prompt);
+END
+$migration$;
+
+
+-- ---------------------------------------------------------------
+-- 3. Verify — workflow wiring and prompt markers.
+-- ---------------------------------------------------------------
+
+SELECT
+    'AFTER - workflow wiring' AS phase,
+    default_config #>> '{workflow,steps,read_site_specs,next_step}'           AS read_site_specs_next_step,
+    default_config #>> '{workflow,steps,read_layout_taxonomy,action}'         AS new_step_action,
+    default_config #>> '{workflow,steps,read_layout_taxonomy,next_step}'      AS new_step_next_step,
+    default_config #>> '{workflow,steps,read_layout_taxonomy,output_field}'   AS new_step_output_field
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+SELECT
+    'AFTER - prompt markers' AS phase,
+    length(default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}') AS prompt_len,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+        LIKE '%"category":%'                                  THEN 'YES' ELSE 'NO' END AS has_category_field,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%"industry_tags":%'                             THEN 'YES' ELSE 'NO' END AS has_industry_tags_field,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%{{.layout_taxonomy.categories%'                THEN 'YES' ELSE 'NO' END AS has_dynamic_categories,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%{{.layout_taxonomy.industry_tags%'             THEN 'YES' ELSE 'NO' END AS has_dynamic_tags,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%Adoption Reference%'                           THEN 'YES' ELSE 'NO' END AS still_has_006_adoption_block,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%classification.category and classification.industry_tags MUST reflect%'
+                                                                       THEN 'YES' ELSE 'NO' END AS has_adoption_fidelity_bullet
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+COMMIT;
+
+
+-- ----------------------------------------------------------------------------
+-- After applying
+-- ----------------------------------------------------------------------------
+-- 1. Verify the Go action is present in the running chassis image. If not
+--    yet deployed, hold here — do not queue classifier runs until the pod
+--    image contains read_layout_taxonomy_action.go. The first classifier
+--    run without the action will fail fast with "unknown action
+--    'read_layout_taxonomy'" in orchestration_states.error.
+--
+-- 2. Restart the chassis so pods pick up the updated agent_definition:
+--    kubectl -n ai-persona-system rollout restart deployment/<chassis-deployment>
+--
+-- 3. Test the action renders sensibly by triggering one classifier run
+--    and checking the llm_call_log prompt_rendered for a site:
+--
+--    SELECT prompt_rendered
+--    FROM llm_call_log
+--    WHERE agent_type = 'domain-research-classifier'
+--      AND step_name  = 'classify_and_extract'
+--      AND created_at > NOW() - INTERVAL '10 minutes'
+--    ORDER BY created_at DESC
+--    LIMIT 1;
+--
+--    The rendered prompt should contain JSON arrays inline where the
+--    taxonomy references are, e.g.
+--      Current library categories (read at this classifier run):
+--      ["brochure","interactive","social"]
+--    etc. Empty arrays would indicate the action ran but the library is
+--    empty or filtered everything out — check layouts.is_active values.
+--
+-- 4. Verify the resulting classification spec has the new fields:
+--    SELECT data->>'category', data->'industry_tags'
+--    FROM site_specs
+--    WHERE aspect = 'classification' AND is_current = true
+--    ORDER BY created_at DESC LIMIT 3;
+--
+-- The gamesdesign.co.uk remediation (invalidate resolved_composition AND
+-- queue needs_composition AND queue a fresh classifier re-run so it picks
+-- up 008's prompt) is a separate deliberate step — written as its own
+-- remediation SQL once 008 is confirmed working. Doing all three re-queues
+-- together avoids the "spec superseded but install not re-queued" failure
+-- mode captured in doc 028.
+-- ----------------------------------------------------------------------------
+
+-- fix
+
+-- 008_classifier_dynamic_taxonomy.sql
+--
+-- Wire the classifier to emit category + industry_tags on the classification
+-- spec, using a DYNAMIC taxonomy read at run time from the layouts library
+-- rather than hardcoded enum and tag lists in the prompt.
+--
+-- Three coordinated changes in one transaction:
+--   1. Insert a new workflow step `read_layout_taxonomy` between the
+--      existing `read_site_specs` step and `classify_and_extract`.
+--   2. Update `read_site_specs.next_step` from `classify_and_extract`
+--      to `read_layout_taxonomy`.
+--   3. Update the prompt template to (a) declare `category` and
+--      `industry_tags` on the classification JSON output, (b) render
+--      the current category set and tag list from
+--      `{{.layout_taxonomy.categories}}` and `{{.layout_taxonomy.industry_tags}}`
+--      instead of hardcoding them, and (c) add an adoption-fidelity bullet
+--      that ties the new tag fields to the adopted archetype.
+--
+-- DEPENDENCY: this migration requires the chassis to have a registered
+-- action handler for `read_layout_taxonomy` (see
+-- read_layout_taxonomy_action.go). If migrations land before the Go action
+-- is deployed, the first classifier run after 008 will fail fast with an
+-- unknown-action error — fail-loud is intentional; don't apply 008 until
+-- the Go action is in the image the chassis is running.
+--
+-- REWRITE NOTE: an earlier version of this file used multi-line E-string
+-- concatenation (E'...\n' on separate lines). That works in regular SQL
+-- but fails in PL/pgSQL's expression parser, which doesn't perform the
+-- adjacent-string-literal concatenation that plain SQL does. This version
+-- uses nested dollar-quoted strings with real embedded newlines instead.
+--
+-- ----------------------------------------------------------------------------
+-- Rollback (undo this migration):
+--   UPDATE agent_definitions
+--   SET default_config = (
+--       SELECT default_config FROM agent_definitions_backup_20260423
+--       WHERE type = 'domain-research-classifier'
+--   )
+--   WHERE type = 'domain-research-classifier' AND is_active = true;
+--
+-- Then restart the chassis so pods pick up the reverted config:
+--   kubectl -n ai-persona-system rollout restart deployment/<chassis-deployment>
+-- ----------------------------------------------------------------------------
+
+BEGIN;
+
+-- ---------------------------------------------------------------
+-- 1. Back up the current (post-006) state before modifying.
+-- ---------------------------------------------------------------
+
+DROP TABLE IF EXISTS agent_definitions_backup_20260423;
+CREATE TABLE agent_definitions_backup_20260423 AS
+SELECT * FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+SELECT 'BACKUP' AS phase, COUNT(*) AS rows_backed_up
+FROM agent_definitions_backup_20260423;
+
+
+-- ---------------------------------------------------------------
+-- 2. Workflow + prompt changes inside a guarded DO block.
+-- ---------------------------------------------------------------
+
+DO $migration$
+DECLARE
+cfg jsonb;
+    current_next_step text;
+    old_prompt text;
+    step1_prompt text;
+    step2_prompt text;
+    new_prompt text;
+    prompt_marker text := '"suggested_style": "professional-dark|modern-light|bold-creative|etc"';
+    taxonomy_marker text := '{{.layout_taxonomy.categories';
+
+    -- Replacement text for the classification JSON schema block.
+    -- Dollar-quoted with actual embedded newlines — PL/pgSQL does NOT
+    -- concatenate adjacent string literals the way plain SQL does, so
+    -- this has to be a single literal.
+    new_classification_block text := $newclass$2. "classification" — what kind of site to build:
+{
+  "site_type": "brochure|landing|portfolio|content|ecommerce|tools|interactive-platform|social",
+  "category": "<pick one from the Current library categories listed below>",
+  "industry_tags": ["4 to 10 specific tags — see Current library tags below"],
+  "confidence": 0.0-1.0,
+  "reasoning": "Why this site type fits",
+  "recommended_builder": "pageflow-builder",
+  "page_count_estimate": 5,
+  "detected_signals": ["signal1", "signal2"],
+  "tone_suggestion": "professional|friendly|bold|technical|editorial|game-like|energetic",
+  "suggested_style": "professional-dark|modern-light|bold-creative|etc"
+}
+
+category and industry_tags are used by the layout matcher (site-design-planner) to pick a CSS layout from the library. The matcher scores layouts by how many of these tags overlap with each layout's own industry_tags. Both fields must be populated.
+
+### category — the highest-level shape of the site. Pick ONE.
+
+Current library categories (read at this classifier run):
+{{.layout_taxonomy.categories | toJSON}}
+
+Category meanings (stable vocabulary):
+- brochure — traditional marketing/company site (services, about, contact)
+- interactive — tool/utility platform, calculators, simulators, practitioner tools
+- social — community platform, forum, social network, AI-seeded discussion
+- editorial — news, magazine, blog, opinion, long-form content
+- ecommerce — storefront, product catalogue, checkout
+- portfolio — work showcase for a creative, studio, or individual
+- hub — vertical information hub, regulatory resource, trade directory (non-commercial)
+- docs — technical documentation, API reference, knowledge base
+
+If the library has a category not documented above, it was added after this documentation was last updated. Prefer a documented meaning when one fits; fall back to a library-current category when none of the documented meanings match.
+
+### industry_tags — 4 to 10 specific tags describing this site. Include BOTH:
+- site-shape tags (e.g. "interactive-platform", "tool-portal", "social-network", "provocation-platform", "magazine-grid", "affiliate-hub", "docs-sidebar")
+- vertical/domain tags (e.g. "game-design", "veterinary", "legal", "fitness", "fintech", "wellness")
+
+Use hyphenated lowercase. Prefer specific over generic: "game-design" not "games", "ai-platform" not "ai".
+
+Current library tags (match these when they describe this site — each match is an overlap point for the matcher):
+{{.layout_taxonomy.industry_tags | toJSON}}
+
+The library currently has {{.layout_taxonomy.layout_count}} active layouts. If no existing tag fits this site well, coin a new one using the same style — an unmatched tag will trigger a library-growth review work item rather than silently fail.
+$newclass$;
+
+    -- Replacement for edit 2 — prepended before the existing bullet.
+    -- Uses \1 backreference inside a dollar-quoted string (which does
+    -- not process \-escapes, so \1 stays literal \1 as regex needs).
+    new_adoption_bullet text := E'\\1' || $bullet$- classification.category and classification.industry_tags MUST reflect the adopted archetype. For an adopted tools/utility platform: category="interactive" and industry_tags include "interactive-platform" plus vertical tags drawn from site_archetype.industry (e.g. "game-design", "developer-tools"). For an adopted social/community platform: category="social" and industry_tags include "social-network" plus specific modality tags the archetype describes (e.g. "provocation-platform", "ai-seeded-community"). Prefer tags that appear in the Current library tags list so the matcher can find a close layout rather than triggering a library-growth fallback.
+$bullet$;
+BEGIN
+    -- --- Load current config --------------------------------------------------
+    SELECT default_config
+      INTO cfg
+      FROM agent_definitions
+     WHERE type = 'domain-research-classifier'
+       AND is_active = true;
+
+    IF cfg IS NULL THEN
+        RAISE EXCEPTION '008: classifier agent_definition not found or inactive.';
+    END IF;
+
+    -- --- Pre-state checks -----------------------------------------------------
+    current_next_step := cfg #>> '{workflow,steps,read_site_specs,next_step}';
+    IF current_next_step IS NULL THEN
+        RAISE EXCEPTION '008: read_site_specs step not found in classifier workflow.';
+    END IF;
+    IF current_next_step <> 'classify_and_extract' THEN
+        RAISE EXCEPTION
+            '008: expected read_site_specs.next_step = classify_and_extract, found %. Aborting — workflow is not in the state we can safely patch.',
+            current_next_step;
+    END IF;
+
+    IF cfg #> '{workflow,steps,read_layout_taxonomy}' IS NOT NULL THEN
+        RAISE EXCEPTION
+            '008: read_layout_taxonomy step already exists in classifier workflow. Aborting to avoid overwriting an existing definition.';
+    END IF;
+
+    old_prompt := cfg #>> '{workflow,steps,classify_and_extract,config,prompt_template}';
+    IF old_prompt IS NULL THEN
+        RAISE EXCEPTION '008: classify_and_extract.config.prompt_template not found.';
+    END IF;
+    IF position(prompt_marker IN old_prompt) = 0 THEN
+        RAISE EXCEPTION
+            '008: prompt is not in expected 006 state (marker not found: %). Aborting.',
+            prompt_marker;
+    END IF;
+
+    -- --- Workflow edit: insert the new step -----------------------------------
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,read_layout_taxonomy}',
+        jsonb_build_object(
+            'action',       'read_layout_taxonomy',
+            'config',       '{}'::jsonb,
+            'next_step',    'classify_and_extract',
+            'description',  'Load current categories and industry_tags from the layouts library so the prompt renders with the live taxonomy',
+            'output_field', 'layout_taxonomy'
+        ),
+        true
+    );
+
+    -- --- Workflow edit: repoint read_site_specs's next_step -------------------
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,read_site_specs,next_step}',
+        to_jsonb('read_layout_taxonomy'::text),
+        false
+    );
+
+    -- --- Prompt edit 1: replace classification schema + guidance --------------
+    -- Pattern matches from `2. "classification"` through the closing `}\n`
+    -- of its JSON schema block. The block contains no nested `{`/`}` so the
+    -- non-greedy `[\s\S]*?` stops at the first `}\n`.
+    step1_prompt := regexp_replace(
+        old_prompt,
+        '2\. "classification"[\s\S]*?\n\}\n',
+        new_classification_block
+    );
+
+    IF step1_prompt = old_prompt THEN
+        RAISE EXCEPTION
+            '008 prompt edit 1: regexp_replace for classification block had no effect. Check the regex against the current prompt.';
+END IF;
+
+    -- --- Prompt edit 2: add adoption-fidelity bullet for the new tag fields --
+    -- Capture the existing suggested_style bullet in group 1 and prepend
+    -- the new bullet so ordering reads: suggested_style bullet, THEN new bullet.
+    -- Wait — we actually want the new bullet AFTER the existing, so we
+    -- reference \1 first then append the new text. See new_adoption_bullet above.
+    step2_prompt := regexp_replace(
+        step1_prompt,
+        '(- classification\.suggested_style MUST be consistent with the adopted design_intent[^\n]*\n)',
+        new_adoption_bullet
+    );
+
+    IF step2_prompt = step1_prompt THEN
+        RAISE EXCEPTION
+            '008 prompt edit 2: regexp_replace for adoption-fidelity bullet had no effect. The suggested_style bullet from 006 was not found.';
+END IF;
+
+    new_prompt := step2_prompt;
+
+    -- --- Post-state checks ----------------------------------------------------
+    IF position('"category":' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION '008: post-edit prompt is missing "category": marker.';
+END IF;
+    IF position('"industry_tags":' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION '008: post-edit prompt is missing "industry_tags": marker.';
+END IF;
+    IF position(taxonomy_marker IN new_prompt) = 0 THEN
+        RAISE EXCEPTION
+            '008: post-edit prompt is missing the dynamic taxonomy marker (%). The edit should have inserted {{.layout_taxonomy.categories ...}} but did not.',
+            taxonomy_marker;
+END IF;
+
+    -- --- Apply ----------------------------------------------------------------
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,classify_and_extract,config,prompt_template}',
+        to_jsonb(new_prompt),
+        false
+    );
+
+UPDATE agent_definitions
+SET default_config = cfg
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+RAISE NOTICE '008: classifier updated. Old prompt length % chars; new prompt length % chars.',
+        length(old_prompt), length(new_prompt);
+END
+$migration$;
+
+
+-- ---------------------------------------------------------------
+-- 3. Verify — workflow wiring and prompt markers.
+-- ---------------------------------------------------------------
+
+SELECT
+    'AFTER - workflow wiring' AS phase,
+    default_config #>> '{workflow,steps,read_site_specs,next_step}'         AS read_site_specs_next_step,
+    default_config #>> '{workflow,steps,read_layout_taxonomy,action}'       AS new_step_action,
+    default_config #>> '{workflow,steps,read_layout_taxonomy,next_step}'    AS new_step_next_step,
+    default_config #>> '{workflow,steps,read_layout_taxonomy,output_field}' AS new_step_output_field
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+SELECT
+    'AFTER - prompt markers' AS phase,
+    length(default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}') AS prompt_len,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+        LIKE '%"category":%'                                  THEN 'YES' ELSE 'NO' END AS has_category_field,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%"industry_tags":%'                             THEN 'YES' ELSE 'NO' END AS has_industry_tags_field,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%{{.layout_taxonomy.categories%'                THEN 'YES' ELSE 'NO' END AS has_dynamic_categories,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%{{.layout_taxonomy.industry_tags%'             THEN 'YES' ELSE 'NO' END AS has_dynamic_tags,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%Adoption Reference%'                           THEN 'YES' ELSE 'NO' END AS still_has_006_adoption_block,
+    CASE WHEN default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}'
+                 LIKE '%classification.category and classification.industry_tags MUST reflect%'
+                                                                       THEN 'YES' ELSE 'NO' END AS has_adoption_fidelity_bullet
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+COMMIT;
+
+
+-- ----------------------------------------------------------------------------
+-- After applying
+-- ----------------------------------------------------------------------------
+-- 1. Verify the Go action is present in the running chassis image. If not
+--    yet deployed, hold here — do not queue classifier runs until the pod
+--    image contains read_layout_taxonomy_action.go. The first classifier
+--    run without the action will fail fast with "unknown action
+--    'read_layout_taxonomy'" in orchestration_states.error.
+--
+-- 2. Restart the chassis so pods pick up the updated agent_definition:
+--    kubectl -n ai-persona-system rollout restart deployment/<chassis-deployment>
+--
+-- 3. Test the action renders sensibly by triggering one classifier run
+--    and checking the llm_call_log prompt_rendered for a site:
+--
+--    SELECT prompt_rendered
+--    FROM llm_call_log
+--    WHERE agent_type = 'domain-research-classifier'
+--      AND step_name  = 'classify_and_extract'
+--      AND created_at > NOW() - INTERVAL '10 minutes'
+--    ORDER BY created_at DESC
+--    LIMIT 1;
+--
+--    The rendered prompt should contain JSON arrays inline where the
+--    taxonomy references are, e.g.
+--      Current library categories (read at this classifier run):
+--      ["brochure","interactive","social"]
+--    Empty arrays indicate the action ran but the library is empty or
+--    filtered everything out — check layouts.is_active values.
+--
+-- 4. Verify the resulting classification spec has the new fields:
+--    SELECT data->>'category', data->'industry_tags'
+--    FROM site_specs
+--    WHERE aspect = 'classification' AND is_current = true
+--    ORDER BY created_at DESC LIMIT 3;
+--
+-- The gamesdesign.co.uk remediation (invalidate resolved_composition AND
+-- queue needs_composition AND queue a fresh classifier re-run so it picks
+-- up 008's prompt) is a separate deliberate step — written as its own
+-- remediation SQL once 008 is confirmed working. Doing all three re-queues
+-- together avoids the "spec superseded but install not re-queued" failure
+-- mode captured in doc 028.
+-- ----------------------------------------------------------------------------
