@@ -86,6 +86,10 @@ echo "Once the classifier completes (workflow reaches 'complete' step), verify:"
 echo "========================================="
 echo ""
 echo "1. LLM call was made with the 008 prompt + rendered taxonomy:"
+
+
+
+
 cat <<'SQL'
 
 SELECT created_at, step_name, success, length(prompt_rendered) AS prompt_len,

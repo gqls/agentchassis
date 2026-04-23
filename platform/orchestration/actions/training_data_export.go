@@ -1,42 +1,30 @@
 // FILE: platform/orchestration/actions/training_data_export.go
 //
-// TrainingDataExportAction exports successful LLM calls from llm_call_log as
-// training data in NDJSON format, suitable for fine-tuning.
+// TrainingDataExportAction — v3
 //
-// Format: ChatML messages + metadata sidecar. One JSON object per line.
+// Exports successful LLM calls from llm_call_log as training data written to
+// the training_exports Postgres schema. Replaces earlier file-writing
+// behaviour that landed on ephemeral chassis pods.
 //
-//   {
-//     "messages": [
-//       {"role": "user", "content": "<prompt_rendered>"},
-//       {"role": "assistant", "content": "<cleaned response>"}
-//     ],
-//     "metadata": {
-//       "source_log_id": "...",
-//       "agent_type": "page-content-writer",
-//       "step_name": "process_sections_loop_iter_0_generate_content",
-//       "orchestration_id": "...",
-//       "model": "claude-sonnet-4-6",
-//       "created_at": "2026-04-20T10:15:06Z",
-//       "export_version": "1"
-//     }
-//   }
+// Storage model:
 //
-// Response cleaning reuses stripMarkdownFromResponse (ai_actions.go).
+//   training_exports.runs — one row per export (filter + counts)
+//   training_exports.rows — one row per training record, FK to runs, CASCADE
 //
-// Parameters are read from orchestration CollectedData["input_data"], not from
-// static step config. This matches the existing convention (datahelpers.Extract...)
-// used elsewhere in the chassis and lets one agent definition handle exports
-// for any agent/step target by varying the input_data payload.
+// Each rows.messages is a ChatML-shaped JSONB array:
+//   [{"role":"user","content":<prompt_rendered>},
+//    {"role":"assistant","content":<cleaned response>}]
 //
-// Expected input_data fields:
-//   agent_type           (required) — filter on llm_call_log.agent_type
-//   step_name            (required) — filter on llm_call_log.step_name
-//   output_path          (required) — path inside the agent-chassis pod
-//   model_filter         (optional) — filter on llm_call_log.model
-//   include_fenced       (optional, default true)
-//   strict_json          (optional, default true)
-//   min_response_length  (optional, default 10)
-//   max_rows             (optional, default 100000)
+// Each rows.metadata is JSONB with: source_log_id, agent_type, step_name,
+// orchestration_id, model, created_at, export_version.
+//
+// Response cleaning reuses stripMarkdownFromResponse from ai_actions.go.
+// strict_json filter drops rows whose cleaned assistant text doesn't parse
+// as JSON (truncations, malformed escapes).
+//
+// This agent must be invoked through the training-data-export-orchestrator
+// wrapper so it runs in a dedicated spawned pod. See doc 001 §"Every pod-
+// running agent needs a parent that spawned it".
 
 package actions
 
@@ -45,13 +33,72 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
+
+// ---------------------------------------------------------------------------
+// Input specification
+// ---------------------------------------------------------------------------
+// Following the canonical pattern (doc 001 §3 Checklist for New Specialist
+// Agent). ExtractActionInputs handles all three extraction strategies:
+// explicit config paths, input_fields lists, direct flat lookup, and
+// deprecated-field backwards compatibility.
+//
+// Field name collision audit (doc 001 §"Field name collisions"):
+//   - agent_type       — nested lookup checks current_page, rerender_pages,
+//                        site_record, input_data. None of those hold a
+//                        conflicting agent_type for export purposes.
+//   - step_name        — no known collision with the nested-lookup parents.
+//   - model_filter     — novel name, no collision.
+//   - include_fenced   — novel name, no collision.
+//   - strict_json      — novel name, no collision.
+//   - min_response_length — novel name, no collision.
+//   - max_rows         — novel name, no collision.
+//   - source_notes     — novel name, no collision.
+
+var TrainingDataExportInputSpec = datahelpers.ActionInputSpec{
+	Required: []string{
+		"agent_type",
+		"step_name",
+	},
+	Optional: []string{
+		"model_filter",
+		"include_fenced",
+		"strict_json",
+		"min_response_length",
+		"max_rows",
+		"source_notes",
+	},
+	Defaults: map[string]interface{}{
+		"include_fenced":      true,
+		"strict_json":         true,
+		"min_response_length": 10,
+		"max_rows":            100000,
+	},
+	Deprecated: map[string]string{},
+}
+
+func init() {
+	datahelpers.RegisterActionInputSpec("training_data_export", TrainingDataExportInputSpec)
+}
+
+// ---------------------------------------------------------------------------
+// Batch size
+// ---------------------------------------------------------------------------
+// Postgres parameter limit is $65535 per query. Each row contributes 4
+// parameters (export_id, row_index, messages, metadata) so 500 rows = 2000
+// parameters, well under the ceiling. Big enough to amortise per-row
+// insert overhead without fragmenting into too many round-trips.
+
+const exportBatchSize = 500
+
+// ---------------------------------------------------------------------------
+// Action
+// ---------------------------------------------------------------------------
 
 func TrainingDataExportAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger
@@ -60,36 +107,37 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
-	// -- Read parameters from input_data -----------------------------------
+	// -- Extract inputs (canonical pattern) --------------------------------
 
-	agentType := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.agent_type")
-	if agentType == "" {
-		return nil, fmt.Errorf("training_data_export: required input_data.agent_type is missing or empty")
-	}
-	stepName := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.step_name")
-	if stepName == "" {
-		return nil, fmt.Errorf("training_data_export: required input_data.step_name is missing or empty")
-	}
-	outputPath := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.output_path")
-	if outputPath == "" {
-		return nil, fmt.Errorf("training_data_export: required input_data.output_path is missing or empty")
+	inputs, err := datahelpers.ExtractActionInputs(
+		params.CollectedData,
+		params.StepConfig.Config,
+		TrainingDataExportInputSpec,
+		logger,
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	modelFilter := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.model_filter")
-	// Optional fields with defaults. ExtractNestedField returns interface{}; type-assert.
-	includeFenced := extractBoolWithDefault(params.CollectedData, "input_data.include_fenced", true)
-	strictJSON := extractBoolWithDefault(params.CollectedData, "input_data.strict_json", true)
-	minResponseLength := extractIntWithDefault(params.CollectedData, "input_data.min_response_length", 10)
-	maxRows := extractIntWithDefault(params.CollectedData, "input_data.max_rows", 100000)
+	agentType := inputs.Get("agent_type")
+	stepName := inputs.Get("step_name")
+	modelFilter := inputs.Get("model_filter")
+	sourceNotes := inputs.Get("source_notes")
+
+	includeFenced := inputs.GetBool("include_fenced", true)
+	strictJSON := inputs.GetBool("strict_json", true)
+	minResponseLength := inputs.GetInt("min_response_length", 10)
+	maxRows := inputs.GetInt("max_rows", 100000)
 
 	if params.DB == nil {
 		return nil, fmt.Errorf("training_data_export requires a database connection")
 	}
 
-	logger.Info("training_data_export: starting",
+	orchestrationID := params.ExecutionContext.OrchestrationID
+
+	logger.Info("training_data_export v3: starting",
 		zap.String("agent_type", agentType),
 		zap.String("step_name", stepName),
-		zap.String("output_path", outputPath),
 		zap.String("model_filter", modelFilter),
 		zap.Bool("include_fenced", includeFenced),
 		zap.Bool("strict_json", strictJSON),
@@ -97,47 +145,86 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("max_rows", maxRows),
 	)
 
-	// -- Prepare output file ----------------------------------------------
+	// -- Begin transaction -------------------------------------------------
 
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
-		return nil, fmt.Errorf("creating output dir: %w", err)
-	}
-	outFile, err := os.Create(outputPath)
+	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("creating output file %s: %w", outputPath, err)
+		return nil, fmt.Errorf("begin tx: %w", err)
 	}
-	defer outFile.Close()
+	committed := false
+	defer func() {
+		if !committed {
+			if rbErr := tx.Rollback(); rbErr != nil && rbErr != sql.ErrTxDone {
+				logger.Warn("training_data_export: rollback failed", zap.Error(rbErr))
+			}
+		}
+	}()
 
-	// -- Query + stream ----------------------------------------------------
+	// -- Insert runs row, get export_id ------------------------------------
 
-	rows, queryErr := queryTrainingRows(ctx, params.DB, trainingQueryParams{
+	var exportID string
+	insertRunSQL := `
+        INSERT INTO training_exports.runs
+            (agent_type, step_name, model_filter, format, export_version,
+             orchestration_id, source_notes)
+        VALUES ($1, $2, NULLIF($3, ''), 'chatml', '1',
+                NULLIF($4, '')::uuid, NULLIF($5, ''))
+        RETURNING id::text
+    `
+	if err := tx.QueryRowContext(ctx, insertRunSQL,
+		agentType, stepName, modelFilter, orchestrationID, sourceNotes,
+	).Scan(&exportID); err != nil {
+		return nil, fmt.Errorf("insert runs row: %w", err)
+	}
+
+	logger.Info("training_data_export: runs row created",
+		zap.String("export_id", exportID))
+
+	// -- Query llm_call_log ------------------------------------------------
+
+	queryRows, err := tx.QueryContext(ctx, buildExportQuery(), queryExportArgs{
 		AgentType:         agentType,
 		StepName:          stepName,
 		ModelFilter:       modelFilter,
 		IncludeFenced:     includeFenced,
 		MinResponseLength: minResponseLength,
 		MaxRows:           maxRows,
-	})
-	if queryErr != nil {
-		return nil, fmt.Errorf("training_data_export query failed: %w", queryErr)
+	}.asSlice()...)
+	if err != nil {
+		return nil, fmt.Errorf("query llm_call_log: %w", err)
 	}
-	defer rows.Close()
+	defer queryRows.Close()
+
+	// -- Stream rows, clean, batch-insert into training_exports.rows -------
 
 	stats := exportStats{}
-	encoder := json.NewEncoder(outFile)
+	var batch []trainingRowInsert
+	rowIndex := 0
+	var totalSizeBytes int64 = 0
 
-	for rows.Next() {
+	flushBatch := func() error {
+		if len(batch) == 0 {
+			return nil
+		}
+		if err := bulkInsertRows(ctx, tx, exportID, batch); err != nil {
+			return fmt.Errorf("bulk insert %d rows: %w", len(batch), err)
+		}
+		batch = batch[:0]
+		return nil
+	}
+
+	for queryRows.Next() {
 		var (
-			id              string
-			logAgentType    string
-			logStepName     string
-			orchestrationID sql.NullString
-			model           string
-			createdAt       time.Time
-			promptRendered  string
-			responseText    string
+			id             string
+			logAgentType   string
+			logStepName    string
+			orchIDFromLog  sql.NullString
+			model          string
+			createdAt      time.Time
+			promptRendered string
+			responseText   string
 		)
-		if err := rows.Scan(&id, &logAgentType, &logStepName, &orchestrationID,
+		if err := queryRows.Scan(&id, &logAgentType, &logStepName, &orchIDFromLog,
 			&model, &createdAt, &promptRendered, &responseText); err != nil {
 			stats.RowsSkippedScanError++
 			logger.Warn("training_data_export: row scan failed", zap.Error(err))
@@ -148,7 +235,7 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 
 		cleaned := stripMarkdownFromResponse(responseText)
 
-		if strictJSON && !isValidJSON(cleaned) {
+		if strictJSON && !isValidTrainingJSON(cleaned) {
 			stats.RowsSkippedInvalidJSON++
 			logger.Warn("training_data_export: cleaned response is not valid JSON, skipping",
 				zap.String("source_log_id", id),
@@ -157,55 +244,97 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 			continue
 		}
 
-		record := trainingRecord{
-			Messages: []chatMessage{
-				{Role: "user", Content: promptRendered},
-				{Role: "assistant", Content: cleaned},
-			},
-			Metadata: trainingMetadata{
-				SourceLogID:     id,
-				AgentType:       logAgentType,
-				StepName:        logStepName,
-				OrchestrationID: orchestrationID.String,
-				Model:           model,
-				CreatedAt:       createdAt.UTC().Format("2006-01-02T15:04:05Z"),
-				ExportVersion:   "1",
-			},
+		messages := []chatMessage{
+			{Role: "user", Content: promptRendered},
+			{Role: "assistant", Content: cleaned},
+		}
+		metadata := trainingMetadata{
+			SourceLogID:     id,
+			AgentType:       logAgentType,
+			StepName:        logStepName,
+			OrchestrationID: orchIDFromLog.String,
+			Model:           model,
+			CreatedAt:       createdAt.UTC().Format("2006-01-02T15:04:05Z"),
+			ExportVersion:   "1",
 		}
 
-		if err := encoder.Encode(record); err != nil {
+		messagesJSON, err := json.Marshal(messages)
+		if err != nil {
 			stats.RowsSkippedMarshalError++
-			logger.Warn("training_data_export: marshal/write failed",
-				zap.String("source_log_id", id),
-				zap.Error(err),
-			)
+			logger.Warn("training_data_export: messages marshal failed",
+				zap.String("source_log_id", id), zap.Error(err))
 			continue
 		}
+		metadataJSON, err := json.Marshal(metadata)
+		if err != nil {
+			stats.RowsSkippedMarshalError++
+			logger.Warn("training_data_export: metadata marshal failed",
+				zap.String("source_log_id", id), zap.Error(err))
+			continue
+		}
+
+		batch = append(batch, trainingRowInsert{
+			RowIndex: rowIndex,
+			Messages: messagesJSON,
+			Metadata: metadataJSON,
+		})
+		rowIndex++
+		totalSizeBytes += int64(len(messagesJSON) + len(metadataJSON))
 		stats.RowsExported++
+
+		if len(batch) >= exportBatchSize {
+			if err := flushBatch(); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := queryRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating llm_call_log rows: %w", err)
+	}
+	if err := flushBatch(); err != nil {
+		return nil, err
+	}
+	queryRows.Close()
+
+	// -- Update runs row with final counts ---------------------------------
+
+	rowsSkippedJSON, _ := json.Marshal(map[string]int{
+		"invalid_json":  stats.RowsSkippedInvalidJSON,
+		"scan_error":    stats.RowsSkippedScanError,
+		"marshal_error": stats.RowsSkippedMarshalError,
+	})
+
+	updateRunSQL := `
+        UPDATE training_exports.runs
+        SET rows_seen = $1,
+            rows_exported = $2,
+            rows_skipped = $3::jsonb,
+            size_bytes = $4,
+            completed_at = NOW()
+        WHERE id = $5::uuid
+    `
+	if _, err := tx.ExecContext(ctx, updateRunSQL,
+		stats.RowsSeen, stats.RowsExported, string(rowsSkippedJSON),
+		totalSizeBytes, exportID,
+	); err != nil {
+		return nil, fmt.Errorf("update runs row: %w", err)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating training rows: %w", err)
-	}
+	// -- Commit ------------------------------------------------------------
 
-	if err := outFile.Sync(); err != nil {
-		logger.Warn("training_data_export: sync failed", zap.Error(err))
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
 	}
-
-	fileInfo, statErr := os.Stat(outputPath)
-	var fileSize int64 = 0
-	if statErr == nil {
-		fileSize = fileInfo.Size()
-	}
+	committed = true
 
 	result := map[string]interface{}{
+		"export_id":                  exportID,
 		"rows_seen":                  stats.RowsSeen,
 		"rows_exported":              stats.RowsExported,
 		"rows_skipped_invalid_json":  stats.RowsSkippedInvalidJSON,
 		"rows_skipped_scan_error":    stats.RowsSkippedScanError,
 		"rows_skipped_marshal_error": stats.RowsSkippedMarshalError,
-		"output_path":                outputPath,
-		"file_size_bytes":            fileSize,
+		"size_bytes":                 totalSizeBytes,
 		"agent_type":                 agentType,
 		"step_name":                  stepName,
 		"model_filter":               modelFilter,
@@ -213,47 +342,22 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 		"export_version":             "1",
 	}
 
-	logger.Info("training_data_export: complete",
+	logger.Info("training_data_export v3: complete",
+		zap.String("export_id", exportID),
 		zap.Int("rows_seen", stats.RowsSeen),
 		zap.Int("rows_exported", stats.RowsExported),
 		zap.Int("rows_skipped_invalid_json", stats.RowsSkippedInvalidJSON),
-		zap.Int64("file_size_bytes", fileSize),
-		zap.String("output_path", outputPath),
+		zap.Int64("size_bytes", totalSizeBytes),
 	)
 
 	return result, nil
 }
 
-// -- Helpers --------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// SQL / batch insert helpers (private to this file)
+// ---------------------------------------------------------------------------
 
-// extractBoolWithDefault reads a bool from CollectedData using dot-path,
-// returning the default if missing or wrong type.
-func extractBoolWithDefault(data map[string]interface{}, path string, def bool) bool {
-	v := datahelpers.ExtractNestedField(data, path)
-	if b, ok := v.(bool); ok {
-		return b
-	}
-	return def
-}
-
-// extractIntWithDefault reads an int from CollectedData using dot-path,
-// tolerating int / int64 / float64 (JSON numbers typically arrive as float64).
-func extractIntWithDefault(data map[string]interface{}, path string, def int) int {
-	v := datahelpers.ExtractNestedField(data, path)
-	switch n := v.(type) {
-	case int:
-		return n
-	case int64:
-		return int(n)
-	case float64:
-		return int(n)
-	}
-	return def
-}
-
-// -- Query and types ------------------------------------------------------
-
-type trainingQueryParams struct {
+type queryExportArgs struct {
 	AgentType         string
 	StepName          string
 	ModelFilter       string
@@ -262,36 +366,19 @@ type trainingQueryParams struct {
 	MaxRows           int
 }
 
-type exportStats struct {
-	RowsSeen                int
-	RowsExported            int
-	RowsSkippedInvalidJSON  int
-	RowsSkippedScanError    int
-	RowsSkippedMarshalError int
+func (q queryExportArgs) asSlice() []interface{} {
+	return []interface{}{
+		q.AgentType,         // $1
+		q.StepName,          // $2
+		q.MinResponseLength, // $3
+		q.ModelFilter,       // $4 (empty string = no filter)
+		q.MaxRows,           // $5
+		q.IncludeFenced,     // $6
+	}
 }
 
-type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type trainingMetadata struct {
-	SourceLogID     string `json:"source_log_id"`
-	AgentType       string `json:"agent_type"`
-	StepName        string `json:"step_name"`
-	OrchestrationID string `json:"orchestration_id,omitempty"`
-	Model           string `json:"model"`
-	CreatedAt       string `json:"created_at"`
-	ExportVersion   string `json:"export_version"`
-}
-
-type trainingRecord struct {
-	Messages []chatMessage    `json:"messages"`
-	Metadata trainingMetadata `json:"metadata"`
-}
-
-func queryTrainingRows(ctx context.Context, db *sql.DB, p trainingQueryParams) (*sql.Rows, error) {
-	query := `
+func buildExportQuery() string {
+	return `
         SELECT id::text,
                agent_type,
                step_name,
@@ -316,13 +403,70 @@ func queryTrainingRows(ctx context.Context, db *sql.DB, p trainingQueryParams) (
         ORDER BY created_at ASC
         LIMIT $5
     `
-	return db.QueryContext(ctx, query,
-		p.AgentType, p.StepName, p.MinResponseLength,
-		p.ModelFilter, p.MaxRows, p.IncludeFenced,
-	)
 }
 
-func isValidJSON(s string) bool {
+type trainingRowInsert struct {
+	RowIndex int
+	Messages []byte
+	Metadata []byte
+}
+
+// bulkInsertRows writes a batch of training rows via a single multi-VALUE
+// INSERT. 4 parameters per row (export_id, row_index, messages, metadata).
+// With batch size 500 that's 2000 parameters, well under Postgres' 65535 limit.
+func bulkInsertRows(ctx context.Context, tx *sql.Tx, exportID string, batch []trainingRowInsert) error {
+	if len(batch) == 0 {
+		return nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString("INSERT INTO training_exports.rows (export_id, row_index, messages, metadata) VALUES ")
+
+	args := make([]interface{}, 0, 4*len(batch))
+	for i, r := range batch {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		base := i*4 + 1
+		fmt.Fprintf(&sb, "($%d::uuid, $%d, $%d::jsonb, $%d::jsonb)",
+			base, base+1, base+2, base+3)
+		args = append(args, exportID, r.RowIndex, string(r.Messages), string(r.Metadata))
+	}
+
+	_, err := tx.ExecContext(ctx, sb.String(), args...)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Local types and one helper
+// ---------------------------------------------------------------------------
+
+type exportStats struct {
+	RowsSeen                int
+	RowsExported            int
+	RowsSkippedInvalidJSON  int
+	RowsSkippedScanError    int
+	RowsSkippedMarshalError int
+}
+
+type chatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type trainingMetadata struct {
+	SourceLogID     string `json:"source_log_id"`
+	AgentType       string `json:"agent_type"`
+	StepName        string `json:"step_name"`
+	OrchestrationID string `json:"orchestration_id,omitempty"`
+	Model           string `json:"model"`
+	CreatedAt       string `json:"created_at"`
+	ExportVersion   string `json:"export_version"`
+}
+
+// isValidTrainingJSON is unexported and specific to this file. Named with a
+// prefix to avoid collision with anything else in the actions package.
+func isValidTrainingJSON(s string) bool {
 	var v interface{}
 	return json.Unmarshal([]byte(s), &v) == nil
 }
