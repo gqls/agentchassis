@@ -103,3 +103,28 @@ echo "Once an export_id comes back, query the data:"
 echo ""
 echo "  SELECT * FROM training_exports.runs ORDER BY created_at DESC LIMIT 1;"
 echo "  SELECT COUNT(*) FROM training_exports.rows WHERE export_id = '<EXPORT_ID>';"
+
+
+-- Show the latest exports
+SELECT id, agent_type, step_name, model_filter, rows_exported, size_bytes,
+       source_notes, created_at, completed_at
+FROM training_exports.runs
+ORDER BY created_at DESC
+LIMIT 10;
+
+-- Sample a few rows from a specific export (replace UUID)
+SELECT row_index,
+       LEFT(messages::text, 100) as msg_preview,
+       metadata->>'source_log_id' as source_log_id,
+       metadata->>'model' as model
+FROM training_exports.rows
+WHERE export_id = '<UUID>'::uuid
+ORDER BY row_index
+LIMIT 5;
+
+-- Get row count back for an export
+SELECT export_id, COUNT(*) as actual_row_count
+FROM training_exports.rows
+WHERE export_id = '<UUID>'::uuid
+GROUP BY export_id;
+

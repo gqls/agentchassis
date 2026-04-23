@@ -2330,3 +2330,212 @@ COMMIT;
 -- together avoids the "spec superseded but install not re-queued" failure
 -- mode captured in doc 028.
 -- ----------------------------------------------------------------------------
+
+
+-- 011_classifier_skip_scrape_when_adopted.sql
+--
+-- For adopted sites, scrape_site is pointless:
+--   - adoption already wrote site_archetype, identity, content_direction,
+--     design_reference, design_intent — all the content knowledge we'd
+--     gain from a scrape is already in the specs
+--   - the destination isn't deployed yet, so the scrape returns a
+--     B2 NoSuchKey 404 (observed in logs 2026-04-23 11:09, 11:12, 11:27)
+--   - once deployed, we'd be scraping our own build — a hall of mirrors
+--
+-- Fix: add a conditional step BEFORE scrape_site that checks for
+-- site_archetype presence, skipping scrape when the site has already
+-- been adopted. For blank-domain builds (no site_archetype), the
+-- workflow proceeds to scrape_site as before.
+--
+-- Workflow change (step order):
+--   before: search_domain → scrape_site → read_site_specs
+--   after:  search_domain → read_site_specs → check_adoption_skip_scrape
+--           → [if adopted] → read_layout_taxonomy
+--           → [else]     → scrape_site → read_layout_taxonomy
+--
+-- Reordering read_site_specs to run BEFORE the conditional is necessary
+-- because the conditional needs to see what specs are in site_specs.
+-- read_site_specs is cheap (one DB query) and already idempotent.
+--
+-- DEPENDENCY: none beyond what migration 008 already established. Works
+-- with current Go action set (conditional is widely used — see
+-- site-design-planner, webdesign-agent, internal-linker, etc).
+--
+-- ----------------------------------------------------------------------------
+-- Rollback:
+--   UPDATE agent_definitions
+--   SET default_config = (
+--       SELECT default_config FROM agent_definitions_backup_20260423_pre011
+--       WHERE type = 'domain-research-classifier'
+--   )
+--   WHERE type = 'domain-research-classifier' AND is_active = true;
+--
+--   DROP TABLE agent_definitions_backup_20260423_pre011;
+-- ----------------------------------------------------------------------------
+
+BEGIN;
+
+-- ---------------------------------------------------------------
+-- 1. Back up (per doc 009 — no DROP, distinct suffix per migration)
+-- ---------------------------------------------------------------
+
+CREATE TABLE agent_definitions_backup_20260423_pre011 AS
+SELECT * FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+SELECT 'BACKUP' AS phase,
+       COUNT(*) AS rows_backed_up,
+       'agent_definitions_backup_20260423_pre011' AS backup_table
+FROM agent_definitions_backup_20260423_pre011;
+
+
+-- ---------------------------------------------------------------
+-- 2. Apply workflow changes inside a guarded DO block.
+-- ---------------------------------------------------------------
+
+DO $migration$
+DECLARE
+cfg jsonb;
+    search_next text;
+    scrape_next text;
+    read_specs_next text;
+BEGIN
+SELECT default_config
+INTO cfg
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+IF cfg IS NULL THEN
+        RAISE EXCEPTION '011: classifier agent_definition not found or inactive.';
+END IF;
+
+    -- --- Pre-state checks: assert the current wiring matches what we expect --
+    -- Expected (post-008): search_domain → scrape_site → read_site_specs
+    --                      → read_layout_taxonomy → classify_and_extract
+    search_next     := cfg #>> '{workflow,steps,search_domain,next_step}';
+    scrape_next     := cfg #>> '{workflow,steps,scrape_site,next_step}';
+    read_specs_next := cfg #>> '{workflow,steps,read_site_specs,next_step}';
+
+    IF search_next <> 'scrape_site' THEN
+        RAISE EXCEPTION
+            '011: expected search_domain.next_step = scrape_site, found %. Aborting.',
+            search_next;
+END IF;
+    IF scrape_next <> 'read_site_specs' THEN
+        RAISE EXCEPTION
+            '011: expected scrape_site.next_step = read_site_specs, found %. Aborting.',
+            scrape_next;
+END IF;
+    IF read_specs_next <> 'read_layout_taxonomy' THEN
+        RAISE EXCEPTION
+            '011: expected read_site_specs.next_step = read_layout_taxonomy (set by migration 008), found %. Apply 008 first.',
+            read_specs_next;
+END IF;
+
+    IF cfg #> '{workflow,steps,check_adoption_skip_scrape}' IS NOT NULL THEN
+        RAISE EXCEPTION
+            '011: check_adoption_skip_scrape step already exists. Aborting to avoid overwriting.';
+END IF;
+
+    -- --- Workflow edits ------------------------------------------------------
+
+    -- (a) search_domain now routes to read_site_specs (not scrape_site).
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,search_domain,next_step}',
+        to_jsonb('read_site_specs'::text),
+        false
+    );
+
+    -- (b) read_site_specs now routes to the new conditional.
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,read_site_specs,next_step}',
+        to_jsonb('check_adoption_skip_scrape'::text),
+        false
+    );
+
+    -- (c) scrape_site now routes to read_layout_taxonomy (skipping the
+    --     now-redundant read_site_specs trip). For non-adopted sites
+    --     that fall through the conditional, this preserves the original
+    --     pipeline shape minus one redundant spec-read.
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,scrape_site,next_step}',
+        to_jsonb('read_layout_taxonomy'::text),
+        false
+    );
+
+    -- (d) Insert the conditional step.
+    cfg := jsonb_set(
+        cfg,
+        '{workflow,steps,check_adoption_skip_scrape}',
+        jsonb_build_object(
+            'action',      'conditional',
+            'description', 'For adopted sites (site_archetype present), skip scrape_site — adoption specs already carry the content knowledge. For blank-domain builds, proceed to scrape.',
+            'config', jsonb_build_object(
+                'condition', 'site_specs.specs.site_archetype != null',
+                'then_step', 'read_layout_taxonomy',
+                'else_step', 'scrape_site'
+            )
+        ),
+        true
+    );
+
+    -- --- Post-state assertion -----------------------------------------------
+    IF cfg #>> '{workflow,steps,check_adoption_skip_scrape,action}' <> 'conditional' THEN
+        RAISE EXCEPTION '011: post-edit conditional step missing.';
+END IF;
+    IF cfg #>> '{workflow,steps,search_domain,next_step}' <> 'read_site_specs' THEN
+        RAISE EXCEPTION '011: post-edit search_domain routing not updated.';
+END IF;
+
+    -- --- Apply ---------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = cfg
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+RAISE NOTICE '011: classifier workflow updated — scrape_site now skipped when site_archetype present.';
+END
+$migration$;
+
+
+-- ---------------------------------------------------------------
+-- 3. Verify
+-- ---------------------------------------------------------------
+
+SELECT 'AFTER' AS phase,
+       default_config #>> '{workflow,steps,search_domain,next_step}'               AS search_next,
+       default_config #>> '{workflow,steps,read_site_specs,next_step}'             AS read_specs_next,
+       default_config #>> '{workflow,steps,check_adoption_skip_scrape,action}'     AS cond_action,
+       default_config #>> '{workflow,steps,check_adoption_skip_scrape,config,condition}' AS cond_expr,
+       default_config #>> '{workflow,steps,check_adoption_skip_scrape,config,then_step}' AS cond_then,
+       default_config #>> '{workflow,steps,check_adoption_skip_scrape,config,else_step}' AS cond_else,
+       default_config #>> '{workflow,steps,scrape_site,next_step}'                 AS scrape_next,
+       default_config #>> '{workflow,steps,read_layout_taxonomy,next_step}'        AS taxonomy_next
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+COMMIT;
+
+
+-- ----------------------------------------------------------------------------
+-- After applying:
+--
+-- 1. Restart chassis so pods pick up the new workflow:
+--      kubectl -n ai-persona-system rollout restart deployment/agent-chassis
+--
+-- 2. Trigger a fresh classifier run for an adopted site (e.g. gamesdesign
+--    via the trigger script). Expected behaviour:
+--      - llm_call_log shows a classify_and_extract row as usual
+--      - chassis logs show the new step executed: check_adoption_skip_scrape
+--        → decision "skip" → jumps straight to read_layout_taxonomy
+--      - NO B2 404 from firecrawl/scrape_web (because scrape_site didn't run)
+--      - prompt_rendered has full taxonomy and category + industry_tags emitted
+--
+-- 3. For a non-adopted (blank-domain) build, scrape_site still runs as before.
+-- ----------------------------------------------------------------------------

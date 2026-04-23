@@ -1010,15 +1010,16 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 			$8, $9, $10, $11, $12, $13,
 			$14, $15, $16::uuid[]
 		)
-		ON CONFLICT (site_id, item_key) 
-			WHERE item_key IS NOT NULL 
-			  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+		ON CONFLICT (site_id, item_key)
+			WHERE item_key IS NOT NULL
+			  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed', 'unresolved')
 		DO NOTHING
 	`, item.siteID, item.source, item.pipeline, item.itemType, item.severity,
 		item.summary, item.spec,
 		item.pageID, item.componentID, item.priority, item.handlerAgent, item.status, item.createdBy,
 		itemKeyPtr, batchIDPtr, dependsOnStr,
 	)
+
 	if err != nil {
 		return false, fmt.Errorf("insert failed for %s: %w", item.itemKey, err)
 	}
