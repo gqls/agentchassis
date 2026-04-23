@@ -1101,3 +1101,339 @@ SELECT
 FROM agent_definitions WHERE type = 'domain-research-classifier' AND is_active = true;
 -- Expected: t, t
 
+-- backup
+e6ca8cca-398b-49f9-a435-337b1cc26c38 | domain-research-classifier | Domain Research Classifier | Researches a domain via web search and scrape, classifies site type, extracts identity signals, writes findings to site_specs, creates next work item. | specialist | {"workflow": {"steps": {"complete": {"action": "complete_workflow", "config": {"output_fields": ["analysis", "identity_written", "classification_written", "next_item_created"]}, "description": "Research and classification complete"}, "scrape_site": {"action": "scrape_web", "config": {"max_pages": 3, "url_field": "input_data.domain", "add_protocol": true, "extract_mode": "text", "follow_links": ["about", "services", "contact", "team", "pricing"]}, "next_step": "read_site_specs", "description": "Scrape the live site if it exists", "output_field": "scraped_data"}, "search_domain": {"action": "web_search", "config": {"num_results": 8, "query_template": "{{.input_data.domain}} website company"}, "next_step": "scrape_site", "description": "Search for the domain to find its website and online presence", "output_field": "search_results"}, "read_site_specs": {"action": "read_site_spec", "config": {"site_id": "input_data.site_id"}, "next_step": "classify_and_extract", "description": "Load site_specs (includes mission_brief and roadmap_brief if present)", "output_field": "site_specs"}, "create_next_item": {"action": "create_work_item", "config": {"source": "domain-research-classifier", "site_id": "input_data.site_id", "summary": "Domain strategy analysis needed after research", "priority": 8, "severity": "high", "item_type": "needs_strategy", "item_domain": "build", "handler_agent": "domain-strategist", "item_key_prefix": "strategy"}, "next_step": "complete", "description": "Create work item for domain strategy analysis", "output_field": "next_item_created"}, "write_identity_spec": {"action": "write_site_spec", "config": {"aspect": "identity", "source": "domain-research-classifier", "site_id": "input_data.site_id", "spec_data": "analysis.result.identity", "source_agent": "domain-research-classifier", "source_item_id": "input_data.work_item_id"}, "next_step": "write_classification_spec", "description": "Persist identity findings to site_specs", "output_field": "identity_written"}, "classify_and_extract": {"action": "execute_llm_prompt", "config": {"ai_service": {"model": "claude-sonnet-4-6", "provider": "anthropic", "max_tokens": 6000, "api_key_env_var": "ANTHROPIC_API_KEY"}, "input_fields": ["input_data", "search_results", "scraped_data", "site_specs"], "output_format": "json", "prompt_template": "You are analyzing a domain for website creation.\n\nDomain: {{.input_data.domain}}\nObjective: {{if .input_data.objective}}{{.input_data.objective}}{{else}}Not specified — infer from domain name and research{{end}}\n\n{{if .site_specs.specs.mission_brief}}## Pre-Defined Mission\nThis site has a strategic mission provided by the owner. Use this as STRONG guidance for identity, tone, positioning, and design direction. The research below validates and supplements — the mission is the primary source.\n\n{{.site_specs.specs.mission_brief.text}}\n{{end}}\n{{if .site_specs.specs.roadmap_brief}}## Roadmap\n{{.site_specs.specs.roadmap_brief.text}}\n{{end}}\nSearch Results:\n{{.search_results}}\n\nScraped Website Content:\n{{.scraped_data}}\n\nAnalyze everything and return a JSON object with FOUR sections. Be as specific and detailed as possible — vague guidance like \"professional tone\" is useless. Respond ONLY with valid JSON.\n\n1. \"identity\" — what we know about this entity:\n{\n  \"company_name\": \"Best guess at company/brand name\",\n  \"tagline\": \"Tagline if found, null otherwise\",\n  \"industry\": \"Primary industry/sector\",\n  \"sub_industry\": \"More specific classification\",\n  \"about_summary\": \"2-3 sentence summary of what this company does\",\n  \"services\": [{\"name\": \"Service 1\", \"description\": \"Brief desc\"}],\n  \"contact\": {\n    \"email\": \"if found\",\n    \"phone\": \"if found\",\n    \"address\": \"if found\",\n    \"location\": \"city/region if found\"\n  },\n  \"has_existing_site\": true,\n  \"existing_site_quality\": \"good/adequate/poor/none\",\n  \"social_profiles\": {\"linkedin\": \"url\", \"twitter\": \"url\"},\n  \"key_people\": [{\"name\": \"Name\", \"role\": \"Role\"}],\n  \"unique_selling_points\": [\"USP 1\", \"USP 2\"],\n  \"target_audience\": \"Description of likely target audience\",\n  \"competitors_found\": [\"competitor1.com\", \"competitor2.com\"]\n}\n\n2. \"classification\" — what kind of site to build:\n{\n  \"site_type\": \"brochure|landing|portfolio|content|ecommerce|tools|interactive-platform\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"Why this site type fits\",\n  \"recommended_builder\": \"pageflow-builder\",\n  \"page_count_estimate\": 5,\n  \"detected_signals\": [\"signal1\", \"signal2\"],\n  \"tone_suggestion\": \"professional|friendly|bold|technical|editorial|game-like|energetic\",\n  \"suggested_style\": \"professional-dark|modern-light|bold-creative|etc\"\n}\n\n3. \"content_direction\" — DETAILED writing style guide for all content on this site:\n{\n  \"voice\": {\n    \"register\": \"Describe the overall register this site should use — e.g. 'Down-to-earth and matter-of-fact, avoids sales language'\",\n    \"person\": \"Which grammatical person — e.g. 'Second person (you/your) for the reader, first plural (we) for the company'\",\n    \"authority_level\": \"How the site should establish authority — e.g. 'States expertise confidently but never promises specific outcomes'\",\n    \"emotional_tone\": \"The emotional quality — e.g. 'Reassuring without being patronising'\",\n    \"formality\": \"Where on the formal-casual spectrum — e.g. 'Professional but not stiff. Uses contractions.'\"\n  },\n  \"sentence_style\": {\n    \"average_length\": \"Short/medium/long for this industry\",\n    \"structure_patterns\": \"How sentences should be constructed\",\n    \"rhythm\": \"The cadence appropriate for this audience\"\n  },\n  \"persuasion_approach\": {\n    \"method\": \"How the site should convince without hard selling\",\n    \"trust_building\": \"How trust should be established for this industry\",\n    \"social_proof_style\": \"How to handle testimonials and social proof\"\n  },\n  \"content_depth\": {\n    \"thoroughness\": \"How deeply topics should be explored\",\n    \"assumed_knowledge\": \"What the target audience already knows\",\n    \"explanation_pattern\": \"How complex ideas should be introduced\"\n  },\n  \"writing_rules\": [\n    \"At least 8 specific, actionable rules appropriate for this industry\",\n    \"Example for finance: 'Never promise specific returns or savings'\",\n    \"Example for health: 'Always recommend consulting a professional'\",\n    \"Example for tech: 'Explain jargon on first use'\"\n  ],\n  \"compliance_rules\": [\n    \"Industry-specific legal/regulatory rules — empty array if none apply\",\n    \"Example for finance: 'Calculations are illustrative — do not constitute financial advice'\",\n    \"Example for health: 'Information is not a substitute for professional medical advice'\"\n  ],\n  \"heading_style\": {\n    \"format\": \"How headings should be phrased for this industry\",\n    \"hierarchy\": \"How heading levels should be used\"\n  },\n  \"paragraph_style\": {\n    \"typical_length\": \"Appropriate paragraph length for the audience\",\n    \"structure\": \"How paragraphs should be organised\"\n  },\n  \"cta_style\": {\n    \"approach\": \"How calls-to-action should be handled\",\n    \"verb_choices\": \"What action verbs are appropriate\"\n  },\n  \"terminology\": {\n    \"approach\": \"How domain-specific terms should be handled\",\n    \"key_terms\": [\"List 5-10 key terms for this industry that content will need\"]\n  },\n  \"things_to_avoid\": [\n    \"At least 6 specific things to avoid for this industry\",\n    \"Example: 'Urgency language (limited time, act now)'\",\n    \"Example: 'Unsubstantiated claims about results'\"\n  ],\n  \"things_to_emulate\": [\n    \"At least 6 positive patterns appropriate for this industry\",\n    \"Example: 'Lead with the user benefit, not the feature'\"\n  ],\n  \"example_phrases\": {\n    \"characteristic\": [\"3-5 example phrases showing the right tone for this site\"],\n    \"would_never_say\": [\"3-5 phrases this site should never use\"]\n  }\n}\n\n4. \"design_intent\" — visual direction:\n{\n  \"style_direction\": \"professional-dark|modern-light|bold-creative\",\n  \"colour_mood\": \"Description of colour feeling and why\",\n  \"typography_mood\": \"Font personality description\",\n  \"imagery_direction\": \"What images should convey\",\n  \"layout_preference\": \"Layout style\",\n  \"avoid\": [\"Design elements to avoid\"]\n}\n\nIMPORTANT:\n- If a mission is provided above, derive identity/tone/design from it. Research validates.\n- If no mission, infer everything from domain name, research, and objective.\n- If no existing site found, infer from the domain name and industry norms.\n- Be specific about industry — \"veterinary practice\" not just \"healthcare\".\n- content_direction.writing_rules must have at least 8 entries.\n- content_direction.things_to_avoid and things_to_emulate must each have at least 6 entries.\n- content_direction.compliance_rules should be populated for regulated industries (finance, health, legal, insurance) and empty [] for others.\n- Every field in content_direction must be specific to THIS industry, not generic writing advice.\n- For interactive-platform or novel site types, use those in site_type rather than forcing brochure.\n- recommended_builder should always be \"pageflow-builder\" for now.\n\nReturn ONLY valid JSON with identity, classification, content_direction, and design_intent keys."}, "next_step": "write_identity_spec", "description": "LLM classifies site and extracts identity from research", "output_field": "analysis"}, "write_design_intent_spec": {"action": "write_site_spec", "config": {"aspect": "design_intent", "source": "domain-research-classifier", "site_id": "input_data.site_id", "spec_data": "analysis.result.design_intent", "error_step": "create_next_item", "source_agent": "domain-research-classifier", "source_item_id": "input_data.work_item_id"}, "next_step": "create_next_item", "description": "Persist design intent to site_specs", "output_field": "design_intent_written"}, "write_classification_spec": {"action": "write_site_spec", "config": {"aspect": "classification", "source": "domain-research-classifier", "site_id": "input_data.site_id", "spec_data": "analysis.result.classification", "source_agent": "domain-research-classifier", "source_item_id": "input_data.work_item_id"}, "next_step": "write_content_direction_spec", "description": "Persist classification to site_specs", "output_field": "classification_written"}, "write_content_direction_spec": {"action": "write_site_spec", "config": {"aspect": "content_direction", "source": "domain-research-classifier", "site_id": "input_data.site_id", "spec_data": "analysis.result.content_direction", "error_step": "create_next_item", "source_agent": "domain-research-classifier", "source_item_id": "input_data.work_item_id"}, "next_step": "write_design_intent_spec", "description": "Persist content direction to site_specs", "output_field": "content_direction_written"}}, "start_step": "search_domain"}, "processing_mode": "orchestrator", "timeout_seconds": 180} | t         | 2026-02-24 16:07:35.422594+00 | 2026-04-21 16:43:49.737291+00 |            | ["web-search", "scraping", "classification", "llm"] | docker.io/aqls/agent-chassis | v1.0.981  |         | {"limits": {"cpu": "500m", "memory": "512Mi"}, "requests": {"cpu": "100m", "memory": "256Mi"}} | {"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"} | {"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 15} | []       |       1 |                     |               |                       |                        | {"fallback_to_self": true, "prefer_delegation": true} | analyst        | experimental | ["domain-research", "classification", "identity-extraction"] | {}                     |           0 | f           | {"optional": ["objective", "work_item_id"], "required": ["site_id", "domain"], "description": "Receives site_id + domain from dispatch loop. Optional objective from build_queue direction."} | {"produces": {"identity_written": "site_spec write result for identity aspect", "next_item_created": "work item created for next pipeline stage", "classification_written": "site_spec write result for classification aspect"}} |                    0
+(1 row)
+
+
+-- change prompt to allow for adoption
+-- 006_classifier_adoption_aware_prompt.sql
+--
+-- Make domain-research-classifier's classify_and_extract prompt adoption-aware.
+--
+-- Background
+-- ----------
+-- When a site is adopted via site-adoption-agent, adoption writes identity,
+-- site_archetype, content_direction, design_intent, and design_reference
+-- specs. Shortly after, validate_composition_inputs (first step in
+-- site-design-planner's workflow) sees that classification is not present
+-- and queues a needs_domain_research work item as a self-heal. The
+-- domain-research-classifier then runs.
+--
+-- Observed on gamesdesign.co.uk (site_id available via lookup):
+--   19:29  adoption wrote faithful identity + site_archetype + content_direction
+--   20:14  classifier ran, web-searched the blank destination domain, invented
+--          a consultancy identity, overwrote identity + content_direction +
+--          design_intent with consultancy content. site_archetype was not
+--          overwritten (only adoption writes that aspect).
+--   21:31  build-site-planner wrote content_direction + design_intent a third
+--          time. (Tracked separately as an open question — see doc 028.)
+--
+-- Root cause for the 20:14 overwrite: the classifier's prompt template surfaces
+-- mission_brief and roadmap_brief from site_specs but nothing else. Adoption
+-- output is in site_specs.specs.{identity,site_archetype,content_direction,
+-- design_intent} but the prompt doesn't render it, so the LLM sees the
+-- destination as a blank domain with only web search to work from.
+--
+-- What this patch does
+-- --------------------
+-- Extends the prompt_template so that when site_archetype exists in site_specs
+-- (which only adoption writes), the prompt includes the adopted identity,
+-- archetype, content_direction, and design_intent as ground truth, plus
+-- explicit fidelity guidance: the first deployed version should stay close
+-- to the adopted source, with minimal aspirational extension at this stage.
+--
+-- No workflow shape changes, no new actions. The read_site_specs step
+-- already loads all aspects into site_specs.specs.<aspect>. The
+-- execute_llm_prompt step already has site_specs in input_fields. Only the
+-- prompt_template text changes.
+--
+-- Template uses the toJSON pipe (registered in datahelpers.RenderPromptTemplate)
+-- to render nested specs inline.
+--
+-- Fidelity dial (deferred)
+-- ------------------------
+-- The prompt currently implements fidelity=high as the implicit default when
+-- adoption is present. A future patch can accept an explicit fidelity value
+-- in input_data (high / medium / low) and branch the guidance accordingly.
+-- See doc 028 "Adoption as reference material".
+--
+-- Scope
+-- -----
+-- Only classify_and_extract.config.prompt_template is modified. All other
+-- fields (ai_service, input_fields, output_format, step ordering) are
+-- untouched. The rest of the agent_definitions row is untouched.
+--
+-- Rollback
+-- --------
+--   UPDATE agent_definitions
+--   SET default_config = (
+--       SELECT default_config FROM agent_definitions_backup_20260422
+--       WHERE type = 'domain-research-classifier'
+--   )
+--   WHERE type = 'domain-research-classifier';
+-- ----------------------------------------------------------------------------
+
+BEGIN;
+
+-- Safety: refuse to run if the dated backup is missing
+DO $guard$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_name = 'agent_definitions_backup_20260422'
+    ) THEN
+        RAISE EXCEPTION 'agent_definitions_backup_20260422 not found — run 005_agent_definitions_backup_20260422.sql first';
+END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions_backup_20260422
+        WHERE type = 'domain-research-classifier'
+    ) THEN
+        RAISE EXCEPTION 'Backup row for domain-research-classifier not found in agent_definitions_backup_20260422';
+END IF;
+END
+$guard$;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,classify_and_extract,config,prompt_template}',
+        to_jsonb($prompt$You are analyzing a domain for website creation.
+
+Domain: {{.input_data.domain}}
+Objective: {{if .input_data.objective}}{{.input_data.objective}}{{else}}Not specified — infer from domain name and research{{end}}
+
+{{if .site_specs.specs.mission_brief}}## Pre-Defined Mission
+This site has a strategic mission provided by the owner. Use this as STRONG guidance for identity, tone, positioning, and design direction. The research below validates and supplements — the mission is the primary source.
+
+{{.site_specs.specs.mission_brief.text}}
+{{end}}
+{{if .site_specs.specs.roadmap_brief}}## Roadmap
+{{.site_specs.specs.roadmap_brief.text}}
+{{end}}
+{{if .site_specs.specs.site_archetype}}## Adoption Reference — STRONGEST signal
+
+This site has been adopted from {{if and .site_specs.specs.identity .site_specs.specs.identity.adopted_from}}{{.site_specs.specs.identity.adopted_from}}{{else}}an existing source{{end}}. The adoption agent crawled the source and captured what this site IS right now. The first deployed version should closely resemble the adopted source. Finder/fixer agents can widen any aspirational gap over time; your job in this run is to produce a spec that is faithful to the adopted state, with only the minimal extension needed to fill fields the adopted specs do not cover.
+
+Treat the following adopted specs as ground truth. Do NOT fabricate services, competitors, unique selling points, or positioning that contradict them. Do NOT rewrite design character that the adopted design_intent already describes.
+
+### Adopted identity
+{{.site_specs.specs.identity | toJSON}}
+
+### Adopted archetype (what kind of site this is)
+{{.site_specs.specs.site_archetype | toJSON}}
+{{if .site_specs.specs.content_direction}}
+### Adopted content direction (writing style)
+{{.site_specs.specs.content_direction | toJSON}}
+{{end}}{{if .site_specs.specs.design_intent}}
+### Adopted design intent (visual direction)
+{{.site_specs.specs.design_intent | toJSON}}
+{{end}}
+
+### Adoption fidelity guidance (follow precisely)
+- classification.site_type MUST be consistent with site_archetype.content.primary_type and site_archetype.label. A site archetyped as a tools/utility platform with primary content "interactive tools and calculators" is site_type "tools" or "interactive-platform" — NOT "brochure".
+- classification.tone_suggestion MUST be consistent with site_archetype.character.feel and the adopted content_direction voice.
+- classification.suggested_style MUST be consistent with the adopted design_intent — specifically the palette character and dark/light scheme. If the adopted design is dark, suggested_style must be a dark variant.
+- identity.has_existing_site MUST be true — adoption evidence is present. identity.existing_site_quality should reflect site_archetype.character.polish.
+- identity.services — include ONLY what the adopted identity already contains or what site_archetype.purpose and content_model clearly imply. Do not invent services for a site whose archetype indicates no commercial services (e.g. revenue_model "none", content primarily tools or guides).
+- identity.competitors_found — leave empty unless the adopted identity already has competitors listed.
+- identity.unique_selling_points — derive from site_archetype.purpose and adopted content; do not invent.
+- content_direction — use the adopted content_direction as the baseline. Preserve its voice, writing_rules, things_to_avoid, and example_phrases. You may fill fields it does not populate, but do not substitute different wording for fields that do exist.
+- design_intent — preserve the adopted design_intent's palette reference values, typography, and dark/light scheme. You may refine guidance text or add character description, but do not propose different colours or a different scheme.
+- Preserve adopted_from and adopted_at in the identity output.
+{{end}}
+Search Results:
+{{.search_results}}
+
+Scraped Website Content:
+{{.scraped_data}}
+
+Analyze everything and return a JSON object with FOUR sections. Be as specific and detailed as possible — vague guidance like "professional tone" is useless. Respond ONLY with valid JSON.
+
+1. "identity" — what we know about this entity:
+{
+  "company_name": "Best guess at company/brand name",
+  "tagline": "Tagline if found, null otherwise",
+  "industry": "Primary industry/sector",
+  "sub_industry": "More specific classification",
+  "about_summary": "2-3 sentence summary of what this company does",
+  "services": [{"name": "Service 1", "description": "Brief desc"}],
+  "contact": {
+    "email": "if found",
+    "phone": "if found",
+    "address": "if found",
+    "location": "city/region if found"
+  },
+  "has_existing_site": true,
+  "existing_site_quality": "good/adequate/poor/none",
+  "social_profiles": {"linkedin": "url", "twitter": "url"},
+  "key_people": [{"name": "Name", "role": "Role"}],
+  "unique_selling_points": ["USP 1", "USP 2"],
+  "target_audience": "Description of likely target audience",
+  "competitors_found": ["competitor1.com", "competitor2.com"]
+}
+
+2. "classification" — what kind of site to build:
+{
+  "site_type": "brochure|landing|portfolio|content|ecommerce|tools|interactive-platform",
+  "confidence": 0.0-1.0,
+  "reasoning": "Why this site type fits",
+  "recommended_builder": "pageflow-builder",
+  "page_count_estimate": 5,
+  "detected_signals": ["signal1", "signal2"],
+  "tone_suggestion": "professional|friendly|bold|technical|editorial|game-like|energetic",
+  "suggested_style": "professional-dark|modern-light|bold-creative|etc"
+}
+
+3. "content_direction" — DETAILED writing style guide for all content on this site:
+{
+  "voice": {
+    "register": "Describe the overall register this site should use — e.g. 'Down-to-earth and matter-of-fact, avoids sales language'",
+    "person": "Which grammatical person — e.g. 'Second person (you/your) for the reader, first plural (we) for the company'",
+    "authority_level": "How the site should establish authority — e.g. 'States expertise confidently but never promises specific outcomes'",
+    "emotional_tone": "The emotional quality — e.g. 'Reassuring without being patronising'",
+    "formality": "Where on the formal-casual spectrum — e.g. 'Professional but not stiff. Uses contractions.'"
+  },
+  "sentence_style": {
+    "average_length": "Short/medium/long for this industry",
+    "structure_patterns": "How sentences should be constructed",
+    "rhythm": "The cadence appropriate for this audience"
+  },
+  "persuasion_approach": {
+    "method": "How the site should convince without hard selling",
+    "trust_building": "How trust should be established for this industry",
+    "social_proof_style": "How to handle testimonials and social proof"
+  },
+  "content_depth": {
+    "thoroughness": "How deeply topics should be explored",
+    "assumed_knowledge": "What the target audience already knows",
+    "explanation_pattern": "How complex ideas should be introduced"
+  },
+  "writing_rules": [
+    "At least 8 specific, actionable rules appropriate for this industry",
+    "Example for finance: 'Never promise specific returns or savings'",
+    "Example for health: 'Always recommend consulting a professional'",
+    "Example for tech: 'Explain jargon on first use'"
+  ],
+  "compliance_rules": [
+    "Industry-specific legal/regulatory rules — empty array if none apply",
+    "Example for finance: 'Calculations are illustrative — do not constitute financial advice'",
+    "Example for health: 'Information is not a substitute for professional medical advice'"
+  ],
+  "heading_style": {
+    "format": "How headings should be phrased for this industry",
+    "hierarchy": "How heading levels should be used"
+  },
+  "paragraph_style": {
+    "typical_length": "Appropriate paragraph length for the audience",
+    "structure": "How paragraphs should be organised"
+  },
+  "cta_style": {
+    "approach": "How calls-to-action should be handled",
+    "verb_choices": "What action verbs are appropriate"
+  },
+  "terminology": {
+    "approach": "How domain-specific terms should be handled",
+    "key_terms": ["List 5-10 key terms for this industry that content will need"]
+  },
+  "things_to_avoid": [
+    "At least 6 specific things to avoid for this industry",
+    "Example: 'Urgency language (limited time, act now)'",
+    "Example: 'Unsubstantiated claims about results'"
+  ],
+  "things_to_emulate": [
+    "At least 6 positive patterns appropriate for this industry",
+    "Example: 'Lead with the user benefit, not the feature'"
+  ],
+  "example_phrases": {
+    "characteristic": ["3-5 example phrases showing the right tone for this site"],
+    "would_never_say": ["3-5 phrases this site should never use"]
+  }
+}
+
+4. "design_intent" — visual direction:
+{
+  "style_direction": "professional-dark|modern-light|bold-creative",
+  "colour_mood": "Description of colour feeling and why",
+  "typography_mood": "Font personality description",
+  "imagery_direction": "What images should convey",
+  "layout_preference": "Layout style",
+  "avoid": ["Design elements to avoid"]
+}
+
+IMPORTANT:
+- If adoption reference is provided above, the Adoption fidelity guidance is MANDATORY. Adoption evidence outranks mission_brief, search_results, and scraped_data for identity, content_direction, and design_intent. Follow the fidelity rules precisely — this is the user's captured existing site, not a blank slate.
+- If a mission is provided above (and no adoption), derive identity/tone/design from it. Research validates.
+- If no mission and no adoption, infer everything from domain name, research, and objective.
+- If no existing site found and no adoption, infer from the domain name and industry norms.
+- Be specific about industry — "veterinary practice" not just "healthcare".
+- content_direction.writing_rules must have at least 8 entries.
+- content_direction.things_to_avoid and things_to_emulate must each have at least 6 entries.
+- content_direction.compliance_rules should be populated for regulated industries (finance, health, legal, insurance) and empty [] for others.
+- Every field in content_direction must be specific to THIS industry, not generic writing advice.
+- For interactive-platform or novel site types, use those in site_type rather than forcing brochure.
+- recommended_builder should always be "pageflow-builder" for now.
+
+Return ONLY valid JSON with identity, classification, content_direction, and design_intent keys.
+$prompt$::text)
+)
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+-- Verify the change took (should return exactly 1 row)
+SELECT
+    type,
+    is_active,
+    length(default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template') AS prompt_len,
+    substring(
+            default_config->'workflow'->'steps'->'classify_and_extract'->'config'->>'prompt_template'
+        FROM 'Adoption Reference[^\n]*'
+    ) AS adoption_block_marker
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+-- Defensive: verify that input_fields still includes site_specs (it should —
+-- this patch doesn't touch it, but if a prior edit removed it, the new
+-- prompt would render with empty site_specs references)
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'classify_and_extract'->'config'->'input_fields' AS input_fields
+FROM agent_definitions
+WHERE type = 'domain-research-classifier'
+  AND is_active = true;
+
+COMMIT;
+
+-- ----------------------------------------------------------------------------
+-- Post-apply notes
+--
+-- 1. No chassis rollout needed — agent_definitions are read live per invocation.
+--    A classifier pod that is mid-run will finish on the old prompt; the next
+--    invocation uses the new one.
+--
+-- 2. First test case: retrigger adoption on gamesdesign.co.uk (or any
+--    previously-drifted site) after clearing its site_specs and pages. The
+--    expected behaviour:
+--      - Adoption runs, writes identity/site_archetype/content_direction/design_intent
+--      - validate_composition_inputs queues a needs_domain_research item (same as before)
+--      - domain-research-classifier runs, reads adoption specs, produces a
+--        classification that matches the archetype (e.g. site_type=tools, not brochure)
+--        and an identity that preserves adopted_from / has_existing_site=true /
+--        doesn't invent consultancy services
+--      - content_direction and design_intent produced by the classifier should
+--        remain substantially consistent with what adoption wrote
+--
+-- 3. Observability: check llm_call_log after the next adoption. The prompt
+--    length will be noticeably longer than the prior prompt when site_archetype
+--    is present in site_specs. Output token counts per domain may also be
+--    slightly higher because the LLM is asked to respect more structured input.
+--
+-- 4. Separately tracked (NOT in this patch):
+--      - build-site-planner writing content_direction/design_intent a third time
+--      - derive_content_direction's commercial-bias framing (senior copywriter etc.)
+--      - analyze_site's hard-coded services[] schema
+--      - Explicit fidelity input variable (high / medium / low) — currently
+--        defaulted to "high when adoption present, unconstrained otherwise"
+-- ----------------------------------------------------------------------------

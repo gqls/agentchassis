@@ -952,6 +952,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Chunk, embed, and store content in the knowledge base",
 		IsLocal:     true,
 	},
+	"training_data_export": {
+		Handler:     TrainingDataExportAction,
+		Category:    "storage",
+		Description: "Export successful LLM calls from llm_call_log as NDJSON training data (ChatML format) for fine-tuning.",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline
