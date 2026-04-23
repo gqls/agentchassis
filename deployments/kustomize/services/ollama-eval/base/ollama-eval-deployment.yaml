@@ -75,10 +75,10 @@ spec:
           resources:
             requests:
               cpu: "2"
-              memory: "20Gi"
+              memory: "24Gi"
             limits:
               cpu: "8"
-              memory: "20Gi"
+              memory: "28Gi"
           readinessProbe:
             httpGet:
               path: /api/tags
