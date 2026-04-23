@@ -255,3 +255,40 @@ jq -n --slurpfile results $OUT '
   }
 }' | jq '{summary, per_case: (.per_case[:5])}'
 
+--------------
+
+# Distribution of prompt and response sizes, and detect any last-minute oddities
+jq -c '{
+  prompt_chars: (.messages[0].content | length),
+  assistant_chars: (.messages[-1].content | length),
+  assistant_keys: (try (.messages[-1].content | fromjson | keys | sort | join(",")) catch "PARSE_FAILED"),
+  model: .metadata.model,
+  month: (.metadata.created_at[0:7])
+}' ./page_content_writer_iter0.jsonl > /tmp/profile.jsonl
+
+echo "=== Prompt size distribution ==="
+jq -s '[.[].prompt_chars] | {
+  min: min, max: max,
+  p25: (sort | .[length/4 | floor]),
+  p50: (sort | .[length/2 | floor]),
+  p75: (sort | .[3 * length / 4 | floor]),
+  mean: (add / length | floor)
+}' /tmp/profile.jsonl
+
+echo ""
+echo "=== Assistant size distribution ==="
+jq -s '[.[].assistant_chars] | {
+  min: min, max: max,
+  p25: (sort | .[length/4 | floor]),
+  p50: (sort | .[length/2 | floor]),
+  p75: (sort | .[3 * length / 4 | floor]),
+  mean: (add / length | floor)
+}' /tmp/profile.jsonl
+
+echo ""
+echo "=== Month distribution ==="
+jq -s 'group_by(.month) | map({month: .[0].month, count: length}) | sort_by(.month)' /tmp/profile.jsonl
+
+echo ""
+echo "=== Schema variations (top 10 most common key sets) ==="
+jq -sc 'group_by(.assistant_keys) | map({keys: .[0].assistant_keys, count: length}) | sort_by(-.count) | .[0:10]' /tmp/profile.jsonl

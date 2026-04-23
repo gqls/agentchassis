@@ -939,6 +939,14 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	// layout taxonomy — expose current categories + industry_tags to prompts
+	"read_layout_taxonomy": {
+		Handler:     ReadLayoutTaxonomyAction,
+		Category:    "site",
+		Description: "Read current categories and industry_tags from the layouts library for prompt templates",
+		IsLocal:     true,
+	},
+
 	// RAG — retrieval-augmented generation
 	"rag_lookup": {
 		Handler:     RAGLookupAction,
