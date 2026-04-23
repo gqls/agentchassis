@@ -200,6 +200,7 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-content-writer -
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-rerender -f | tee logs-page-rerender.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=rerender-pages -f | tee logs-rerender-pages.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=site-review-agent -f | tee logs-site-review-agent.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=training-data-exporter -f | tee logs-training-data-exporter.json
 
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=build-dispatch-loop -f | tee logs-build-dispatch-loop.json

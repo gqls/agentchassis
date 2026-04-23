@@ -319,6 +319,11 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 	)
 
 	// -- Step 4: update the runs row with final counts (no-tx, single UPDATE)
+	// v3.2: strict error handling. Previous v3.1 version swallowed UPDATE
+	// errors as Warn; that hid a silent-update-miss where the UPDATE
+	// returned successfully but affected 0 rows (runs row had rows_exported=0
+	// and completed_at=NULL after action claimed success). Now we check
+	// RowsAffected explicitly and fail loudly if the update didn't land.
 
 	rowsSkippedJSON, _ := json.Marshal(map[string]int{
 		"invalid_json":  stats.RowsSkippedInvalidJSON,
@@ -335,18 +340,37 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
             completed_at = NOW()
         WHERE id = $5::uuid
     `
-	if _, err := params.DB.ExecContext(ctx, updateRunSQL,
+
+	logger.Info("training_data_export: about to update runs row",
+		zap.String("export_id", exportID),
+		zap.Int("rows_exported", stats.RowsExported),
+		zap.Int64("size_bytes", totalSizeBytes),
+	)
+
+	res, err := params.DB.ExecContext(ctx, updateRunSQL,
 		stats.RowsSeen, stats.RowsExported, string(rowsSkippedJSON),
 		totalSizeBytes, exportID,
-	); err != nil {
-		// The rows are all in place; only the counts update failed.
-		// Log and carry on — caller gets the export_id and can query the
-		// actual row count if needed.
-		logger.Warn("training_data_export: final counts update failed (rows are still correct)",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("update runs row %s: %w", exportID, err)
+	}
+	affected, raErr := res.RowsAffected()
+	if raErr != nil {
+		logger.Warn("training_data_export: could not read RowsAffected from UPDATE (proceeding)",
 			zap.String("export_id", exportID),
-			zap.Error(err),
+			zap.Error(raErr),
+		)
+	} else if affected != 1 {
+		return nil, fmt.Errorf(
+			"update runs row %s: expected 1 row affected, got %d — the runs row may not exist or UUID mismatch",
+			exportID, affected,
 		)
 	}
+
+	logger.Info("training_data_export: runs row updated",
+		zap.String("export_id", exportID),
+		zap.Int64("rows_affected", affected),
+	)
 
 	result := map[string]interface{}{
 		"export_id":                  exportID,
