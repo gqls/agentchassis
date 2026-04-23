@@ -89,12 +89,16 @@ func init() {
 // ---------------------------------------------------------------------------
 // Batch size
 // ---------------------------------------------------------------------------
-// Postgres parameter limit is $65535 per query. Each row contributes 4
-// parameters (export_id, row_index, messages, metadata) so 500 rows = 2000
-// parameters, well under the ceiling. Big enough to amortise per-row
-// insert overhead without fragmenting into too many round-trips.
+// 100 rows per batch. Each batch is its own transaction, so small size
+// ensures each transaction is fast (well under a second) and well under any
+// timeout / connection-drop window pgbouncer might apply. At 100 rows × 4
+// params = 400 params per statement, far under Postgres' $65535 limit.
+//
+// Earlier v3 used 500 which produced ~4.5MB INSERT statements and the first
+// batch flush would fail with "driver: bad connection" — likely due to
+// long-held transactions interacting with pgbouncer's pool management.
 
-const exportBatchSize = 500
+const exportBatchSize = 100
 
 // ---------------------------------------------------------------------------
 // Action
@@ -145,22 +149,10 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("max_rows", maxRows),
 	)
 
-	// -- Begin transaction -------------------------------------------------
-
-	tx, err := params.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("begin tx: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			if rbErr := tx.Rollback(); rbErr != nil && rbErr != sql.ErrTxDone {
-				logger.Warn("training_data_export: rollback failed", zap.Error(rbErr))
-			}
-		}
-	}()
-
-	// -- Insert runs row, get export_id ------------------------------------
+	// -- Step 1: insert the runs row (outside any export transaction) ------
+	// Short, single-row insert. Keeps the connection-held time minimal.
+	// completed_at stays NULL until we succeed; indicates "export failed
+	// mid-way or still in progress" if left NULL.
 
 	var exportID string
 	insertRunSQL := `
@@ -171,7 +163,7 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
                 NULLIF($4, '')::uuid, NULLIF($5, ''))
         RETURNING id::text
     `
-	if err := tx.QueryRowContext(ctx, insertRunSQL,
+	if err := params.DB.QueryRowContext(ctx, insertRunSQL,
 		agentType, stepName, modelFilter, orchestrationID, sourceNotes,
 	).Scan(&exportID); err != nil {
 		return nil, fmt.Errorf("insert runs row: %w", err)
@@ -180,9 +172,12 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 	logger.Info("training_data_export: runs row created",
 		zap.String("export_id", exportID))
 
-	// -- Query llm_call_log ------------------------------------------------
+	// -- Step 2: query llm_call_log (no transaction wrapper needed) --------
+	// We stream through the result set and accumulate batches. Each batch
+	// flush is its own short transaction (see flushBatch). This means we
+	// don't hold a long transaction around the whole export.
 
-	queryRows, err := tx.QueryContext(ctx, buildExportQuery(), queryExportArgs{
+	queryRows, err := params.DB.QueryContext(ctx, buildExportQuery(), queryExportArgs{
 		AgentType:         agentType,
 		StepName:          stepName,
 		ModelFilter:       modelFilter,
@@ -195,20 +190,40 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 	}
 	defer queryRows.Close()
 
-	// -- Stream rows, clean, batch-insert into training_exports.rows -------
+	// -- Step 3: stream, clean, batch-insert into training_exports.rows ----
 
 	stats := exportStats{}
 	var batch []trainingRowInsert
 	rowIndex := 0
 	var totalSizeBytes int64 = 0
+	batchesFlushed := 0
 
 	flushBatch := func() error {
 		if len(batch) == 0 {
 			return nil
 		}
-		if err := bulkInsertRows(ctx, tx, exportID, batch); err != nil {
-			return fmt.Errorf("bulk insert %d rows: %w", len(batch), err)
+		// Each batch is its own short transaction. No long-held tx means
+		// no pgbouncer pool-management interactions. If one batch fails,
+		// the runs row has completed_at=NULL and a partial rows count —
+		// the caller (or training-time consumer) can detect this.
+		tx, err := params.DB.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("begin batch tx: %w", err)
 		}
+		committed := false
+		defer func() {
+			if !committed {
+				_ = tx.Rollback()
+			}
+		}()
+		if err := bulkInsertRowsTx(ctx, tx, exportID, batch); err != nil {
+			return fmt.Errorf("bulk insert %d rows (batch %d): %w", len(batch), batchesFlushed+1, err)
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit batch %d: %w", batchesFlushed+1, err)
+		}
+		committed = true
+		batchesFlushed++
 		batch = batch[:0]
 		return nil
 	}
@@ -284,6 +299,8 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 
 		if len(batch) >= exportBatchSize {
 			if err := flushBatch(); err != nil {
+				// Partial export: runs row exists with completed_at=NULL
+				// and partial rows. Caller can detect via `WHERE completed_at IS NULL`.
 				return nil, err
 			}
 		}
@@ -296,7 +313,12 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 	}
 	queryRows.Close()
 
-	// -- Update runs row with final counts ---------------------------------
+	logger.Info("training_data_export: all batches committed",
+		zap.Int("batches", batchesFlushed),
+		zap.Int("rows_exported", stats.RowsExported),
+	)
+
+	// -- Step 4: update the runs row with final counts (no-tx, single UPDATE)
 
 	rowsSkippedJSON, _ := json.Marshal(map[string]int{
 		"invalid_json":  stats.RowsSkippedInvalidJSON,
@@ -313,19 +335,18 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
             completed_at = NOW()
         WHERE id = $5::uuid
     `
-	if _, err := tx.ExecContext(ctx, updateRunSQL,
+	if _, err := params.DB.ExecContext(ctx, updateRunSQL,
 		stats.RowsSeen, stats.RowsExported, string(rowsSkippedJSON),
 		totalSizeBytes, exportID,
 	); err != nil {
-		return nil, fmt.Errorf("update runs row: %w", err)
+		// The rows are all in place; only the counts update failed.
+		// Log and carry on — caller gets the export_id and can query the
+		// actual row count if needed.
+		logger.Warn("training_data_export: final counts update failed (rows are still correct)",
+			zap.String("export_id", exportID),
+			zap.Error(err),
+		)
 	}
-
-	// -- Commit ------------------------------------------------------------
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit: %w", err)
-	}
-	committed = true
 
 	result := map[string]interface{}{
 		"export_id":                  exportID,
@@ -411,10 +432,13 @@ type trainingRowInsert struct {
 	Metadata []byte
 }
 
-// bulkInsertRows writes a batch of training rows via a single multi-VALUE
-// INSERT. 4 parameters per row (export_id, row_index, messages, metadata).
-// With batch size 500 that's 2000 parameters, well under Postgres' 65535 limit.
-func bulkInsertRows(ctx context.Context, tx *sql.Tx, exportID string, batch []trainingRowInsert) error {
+// bulkInsertRowsTx writes a batch of training rows within an existing
+// transaction via a single multi-VALUE INSERT.  4 parameters per row
+// (export_id, row_index, messages, metadata). With batch size 100 that's
+// 400 parameters, well under Postgres' 65535 limit and far smaller than
+// the 500-batch size we used initially (which produced ~4.5MB INSERT
+// statements that failed with "driver: bad connection").
+func bulkInsertRowsTx(ctx context.Context, tx *sql.Tx, exportID string, batch []trainingRowInsert) error {
 	if len(batch) == 0 {
 		return nil
 	}
