@@ -143,19 +143,25 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 	}
 
 	// ---- Query pages from DB (same data as get_pages_to_build) ----
-	pages, err := queryPagesForBuild(ctx, params.DB, siteID, []string{"planned"}, false, logger)
+	//
+	// Match both 'planned' (fresh sites) and 'needs_rebuild' (re-plans,
+	// improvement-loop triggers, re-classification). sync_pages_to_db
+	// sets existing pages to 'needs_rebuild' when a planner re-plans
+	// them; the old filter on 'planned' alone would miss those.
+	pages, err := queryPagesForBuild(ctx, params.DB, siteID,
+		[]string{"planned", "needs_rebuild"}, false, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query pages: %w", err)
 	}
 
+	// Zero pages is NOT an early exit. needs_composition, needs_design,
+	// and needs_rerender are site-scoped and must queue regardless of
+	// per-page work. The per-page loop below is a no-op when pages is
+	// empty; execution continues to the site-level inserts that follow.
 	if len(pages) == 0 {
-		logger.Warn("WriteBuildItemsAction: No planned pages found")
-		return map[string]interface{}{
-			"items_inserted": 0,
-			"items_skipped":  0,
-			"batch_id":       batchID.String(),
-			"total_items":    0,
-		}, nil
+		logger.Info("WriteBuildItemsAction: no per-page builds needed; queuing site-level items only",
+			zap.String("site_id", siteIDStr),
+		)
 	}
 
 	// ---- Extract plan flags for asset/design items ----
@@ -395,14 +401,19 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 	// thing to correct behaviour: composition already ran or won't run.
 	var compositionIDPtr *uuid.UUID
 	var fetchedID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
+	// Note: predicate must match idx_swi_dedup's exclusion set — we want
+	// "open" items, i.e. rows the dedup index covers. Built from
+	// workItemTerminalStatuses so it stays aligned with insertWorkItem's
+	// ON CONFLICT WHERE clause and migration 012's index predicate.
+	compLookupSQL := fmt.Sprintf(`
 		SELECT id FROM site_work_items
 		WHERE site_id = $1
 		  AND item_key = 'needs_composition'
-		  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+		  AND status NOT IN (%s)
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, siteID).Scan(&fetchedID)
+	`, sqlInList(workItemTerminalStatuses))
+	err = tx.QueryRowContext(ctx, compLookupSQL, siteID).Scan(&fetchedID)
 	if err == nil {
 		compositionIDPtr = &fetchedID
 		inserted++ // Count the composition item as an insertion for summary purposes
@@ -1000,7 +1011,7 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 		dependsOnStr = &ids
 	}
 
-	result, err := tx.ExecContext(ctx, `
+	insertSQL := fmt.Sprintf(`
 		INSERT INTO site_work_items (
 			site_id, source, pipeline, item_type, severity, summary, spec,
 			page_id, component_id, priority, handler_agent, status, created_by,
@@ -1012,9 +1023,12 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 		)
 		ON CONFLICT (site_id, item_key)
 			WHERE item_key IS NOT NULL
-			  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed', 'unresolved')
+			  AND status NOT IN (%s)
 		DO NOTHING
-	`, item.siteID, item.source, item.pipeline, item.itemType, item.severity,
+	`, sqlInList(workItemTerminalStatuses))
+
+	result, err := tx.ExecContext(ctx, insertSQL,
+		item.siteID, item.source, item.pipeline, item.itemType, item.severity,
 		item.summary, item.spec,
 		item.pageID, item.componentID, item.priority, item.handlerAgent, item.status, item.createdBy,
 		itemKeyPtr, batchIDPtr, dependsOnStr,
