@@ -21,21 +21,22 @@
 //     }
 //   }
 //
-// Response cleaning reuses stripMarkdownFromResponse (ai_actions.go) to strip
-// markdown code fences. Stored text in llm_call_log is unchanged.
+// Response cleaning reuses stripMarkdownFromResponse (ai_actions.go).
 //
-// Config:
+// Parameters are read from orchestration CollectedData["input_data"], not from
+// static step config. This matches the existing convention (datahelpers.Extract...)
+// used elsewhere in the chassis and lets one agent definition handle exports
+// for any agent/step target by varying the input_data payload.
+//
+// Expected input_data fields:
 //   agent_type           (required) — filter on llm_call_log.agent_type
 //   step_name            (required) — filter on llm_call_log.step_name
 //   output_path          (required) — path inside the agent-chassis pod
-//   model_filter         (optional) — filter on llm_call_log.model (e.g. "claude-sonnet-4-6")
-//   include_fenced       (optional, default true) — include rows starting with ```
-//   strict_json          (optional, default true) — skip rows whose cleaned assistant
-//                                                   text doesn't parse as JSON
+//   model_filter         (optional) — filter on llm_call_log.model
+//   include_fenced       (optional, default true)
+//   strict_json          (optional, default true)
 //   min_response_length  (optional, default 10)
-//   max_rows             (optional, default 100000) — safety cap
-//   output_destination   (optional, default "local") — "local" only for now;
-//                                                      "s3" coming later
+//   max_rows             (optional, default 100000)
 
 package actions
 
@@ -48,44 +49,38 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
-// TrainingDataExportAction runs the export. Synchronous — the caller blocks
-// until the file is written and the summary is returned.
 func TrainingDataExportAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	config := params.StepConfig.Config
 	logger := params.Logger
 
 	if params.ExecutionContext.Action == "initialize" {
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
-	// -- Read config -------------------------------------------------------
+	// -- Read parameters from input_data -----------------------------------
 
-	agentType, err := requireStringConfig(config, "agent_type")
-	if err != nil {
-		return nil, err
+	agentType := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.agent_type")
+	if agentType == "" {
+		return nil, fmt.Errorf("training_data_export: required input_data.agent_type is missing or empty")
 	}
-	stepName, err := requireStringConfig(config, "step_name")
-	if err != nil {
-		return nil, err
+	stepName := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.step_name")
+	if stepName == "" {
+		return nil, fmt.Errorf("training_data_export: required input_data.step_name is missing or empty")
 	}
-	outputPath, err := requireStringConfig(config, "output_path")
-	if err != nil {
-		return nil, err
+	outputPath := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.output_path")
+	if outputPath == "" {
+		return nil, fmt.Errorf("training_data_export: required input_data.output_path is missing or empty")
 	}
 
-	modelFilter := optionalStringConfig(config, "model_filter", "")
-	outputDestination := optionalStringConfig(config, "output_destination", "local")
-	includeFenced := optionalBoolConfig(config, "include_fenced", true)
-	strictJSON := optionalBoolConfig(config, "strict_json", true)
-	minResponseLength := optionalIntConfig(config, "min_response_length", 10)
-	maxRows := optionalIntConfig(config, "max_rows", 100000)
-
-	if outputDestination != "local" {
-		return nil, fmt.Errorf("unsupported output_destination: %s (only 'local' supported for now)", outputDestination)
-	}
+	modelFilter := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.model_filter")
+	// Optional fields with defaults. ExtractNestedField returns interface{}; type-assert.
+	includeFenced := extractBoolWithDefault(params.CollectedData, "input_data.include_fenced", true)
+	strictJSON := extractBoolWithDefault(params.CollectedData, "input_data.strict_json", true)
+	minResponseLength := extractIntWithDefault(params.CollectedData, "input_data.min_response_length", 10)
+	maxRows := extractIntWithDefault(params.CollectedData, "input_data.max_rows", 100000)
 
 	if params.DB == nil {
 		return nil, fmt.Errorf("training_data_export requires a database connection")
@@ -98,6 +93,7 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 		zap.String("model_filter", modelFilter),
 		zap.Bool("include_fenced", includeFenced),
 		zap.Bool("strict_json", strictJSON),
+		zap.Int("min_response_length", minResponseLength),
 		zap.Int("max_rows", maxRows),
 	)
 
@@ -112,7 +108,7 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 	}
 	defer outFile.Close()
 
-	// -- Build and run query ----------------------------------------------
+	// -- Query + stream ----------------------------------------------------
 
 	rows, queryErr := queryTrainingRows(ctx, params.DB, trainingQueryParams{
 		AgentType:         agentType,
@@ -126,8 +122,6 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("training_data_export query failed: %w", queryErr)
 	}
 	defer rows.Close()
-
-	// -- Stream rows through, clean, and write ----------------------------
 
 	stats := exportStats{}
 	encoder := json.NewEncoder(outFile)
@@ -194,8 +188,6 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("iterating training rows: %w", err)
 	}
 
-	// -- Flush + stat file -------------------------------------------------
-
 	if err := outFile.Sync(); err != nil {
 		logger.Warn("training_data_export: sync failed", zap.Error(err))
 	}
@@ -232,12 +224,39 @@ func TrainingDataExportAction(ctx context.Context, params ActionParams) (interfa
 	return result, nil
 }
 
-// -- Internal types and helpers -------------------------------------------
+// -- Helpers --------------------------------------------------------------
+
+// extractBoolWithDefault reads a bool from CollectedData using dot-path,
+// returning the default if missing or wrong type.
+func extractBoolWithDefault(data map[string]interface{}, path string, def bool) bool {
+	v := datahelpers.ExtractNestedField(data, path)
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	return def
+}
+
+// extractIntWithDefault reads an int from CollectedData using dot-path,
+// tolerating int / int64 / float64 (JSON numbers typically arrive as float64).
+func extractIntWithDefault(data map[string]interface{}, path string, def int) int {
+	v := datahelpers.ExtractNestedField(data, path)
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	}
+	return def
+}
+
+// -- Query and types ------------------------------------------------------
 
 type trainingQueryParams struct {
 	AgentType         string
 	StepName          string
-	ModelFilter       string // "" = no filter
+	ModelFilter       string
 	IncludeFenced     bool
 	MinResponseLength int
 	MaxRows           int
@@ -272,9 +291,6 @@ type trainingRecord struct {
 }
 
 func queryTrainingRows(ctx context.Context, db *sql.DB, p trainingQueryParams) (*sql.Rows, error) {
-	// $1 agent_type, $2 step_name, $3 min_response_length,
-	// $4 model_filter ('' treated as "no filter"),
-	// $5 max_rows, $6 include_fenced (bool)
 	query := `
         SELECT id::text,
                agent_type,
@@ -300,67 +316,13 @@ func queryTrainingRows(ctx context.Context, db *sql.DB, p trainingQueryParams) (
         ORDER BY created_at ASC
         LIMIT $5
     `
-
 	return db.QueryContext(ctx, query,
-		p.AgentType,
-		p.StepName,
-		p.MinResponseLength,
-		p.ModelFilter,
-		p.MaxRows,
-		p.IncludeFenced,
+		p.AgentType, p.StepName, p.MinResponseLength,
+		p.ModelFilter, p.MaxRows, p.IncludeFenced,
 	)
 }
 
 func isValidJSON(s string) bool {
 	var v interface{}
 	return json.Unmarshal([]byte(s), &v) == nil
-}
-
-// -- Small config accessors ------------------------------------------------
-// These are intentionally local — datahelpers has ExtractNestedField but that
-// targets dot-path extraction from nested input data. Here we're reading flat
-// string/bool/int from a config map, which is simpler done inline.
-
-func requireStringConfig(config map[string]interface{}, key string) (string, error) {
-	v, ok := config[key]
-	if !ok {
-		return "", fmt.Errorf("required config field missing: %s", key)
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return "", fmt.Errorf("config field %s must be a non-empty string", key)
-	}
-	return s, nil
-}
-
-func optionalStringConfig(config map[string]interface{}, key, def string) string {
-	if v, ok := config[key]; ok {
-		if s, ok := v.(string); ok {
-			return s
-		}
-	}
-	return def
-}
-
-func optionalBoolConfig(config map[string]interface{}, key string, def bool) bool {
-	if v, ok := config[key]; ok {
-		if b, ok := v.(bool); ok {
-			return b
-		}
-	}
-	return def
-}
-
-func optionalIntConfig(config map[string]interface{}, key string, def int) int {
-	if v, ok := config[key]; ok {
-		switch n := v.(type) {
-		case int:
-			return n
-		case int64:
-			return int(n)
-		case float64:
-			return int(n)
-		}
-	}
-	return def
 }
