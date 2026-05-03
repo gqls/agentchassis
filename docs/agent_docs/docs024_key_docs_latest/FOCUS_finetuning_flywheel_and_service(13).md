@@ -5,7 +5,7 @@ Living document. Consolidates what we have planned for the AI training flywheel
 separate question of whether finetuning.uk becomes a **self-service fine-tuning
 product** for external users.
 
-Last touched: 2026-04-21
+Last touched: 2026-04-23
 
 ---
 
@@ -13,7 +13,7 @@ Last touched: 2026-04-21
 
 | Concern | What it is | Owner | State |
 |---|---|---|---|
-| **A. Internal flywheel** | Our pipeline produces training data as a byproduct of building sites. We periodically fine-tune local models on that data, swap them in for Claude calls where quality holds, and drop API costs. | Agent orchestration system | Infra mostly in place, training loop not yet run |
+| **A. Internal flywheel** | Our pipeline produces training data as a byproduct of building sites. We periodically fine-tune local models on that data, swap them in for Claude calls where quality holds, and drop API costs. | Agent orchestration system | Flywheel A (data export) + B (RAG) done. Flywheel C (training) scripted, awaiting first run on GPU VM. Flywheel D (eval) paused. |
 | **B. finetuning.uk product** | External users upload their own data and fine-tune a model through a UI on finetuning.uk. Likely monetised. | New product surface | Not started. Questions to answer before scoping. |
 
 A and B share plumbing (Ollama, GPU scheduling, training data export, Unsloth)
@@ -563,32 +563,240 @@ Training implication: the model must learn "Component: hero → hero JSON; Compo
 
 **Time distribution:** 98 rows March / 1,859 April. Recent-heavy, which matches the intuition that April prompt templates are the ones we want to imitate.
 
-### 2.5 Fine-tuning path (not yet executed)
+### 2.4h Flywheel A — v3 implementation notes (2026-04-23)
+
+**doc 001 review findings — canonical patterns I'd initially missed:**
+
+1. `ExtractActionInputs` + `ActionInputSpec`. The canonical three-layer input handling pattern (config → input_fields → flat lookup, with deprecated-field mapping and defaults). My initial v3 used direct `ExtractNestedFieldString` calls which work but bypass default handling and the input_fields layer. Rewritten to use the canonical pattern — `inputs.Get("agent_type")`, `inputs.GetBool("strict_json", true)`, etc. matches every other action in the codebase.
+2. Three confused columns on `agent_definitions`:
+    - `category` — free-text functional role (`orchestrator`, `specialist`, `analyst`, etc.)
+    - `agent_category` — CHECK-constrained to one of 6 values (`strategist`, `executor`, `analyst`, `integrator`, `coordinator`, `specialist`) — **NOT** `orchestrator`
+    - `status` — lifecycle (`active`, `experimental`, `deprecated`, `demo`, `template`)
+    Naïve writes put `experimental` in `category` (wrong slot). `improvement-loop` is the reference row: `category=orchestrator`, `agent_category=coordinator`, `status=experimental`.
+3. Orchestrator wrapper pattern — `spawn_agent → call_agent → complete`. Not one step, three. `target_role` (not `agent_type`) for `call_agent` lookup. Optional input_mapping fields suffixed with `?` to avoid hard failures when caller omits them.
+4. `GetBoolField` / `GetIntField` in datahelpers already exist — my `extractBoolWithDefault` / `extractIntWithDefault` duplicated them. Replaced with canonical.
+
+**Spawning confirmed working (2026-04-23 trigger test):**
+
+First v3 trigger failed with `required input_data.output_path is missing or empty` — but that error comes from v2 code, which was still running (agent definitions had been updated to v3 via SQL, but the Go binary hadn't been rolled out yet). The orchestrator wrapper DID spawn the worker correctly:
+
+- Worker pod appeared: `agent-training-data-exporter-4c4fe86e-tlg6s`
+- `__execution_context__.sender.role = "exporter"` — spawn+call linkage worked
+- parent_orchestration_id wiring correct (child orch returned failure to parent cleanly)
+- `processing_mode: "orchestrator"` at top level + `agent_category = coordinator` IS the combination that produces a dedicated spawned pod
+
+This confirms the architectural decision. When the v3 binary rolls out, the same trigger will succeed.
+
+**Five final files in `flywheel_A_v3/`:**
+
+| File | Status |
+|---|---|
+| `001_training_exports_schema.sql` | applied and verified |
+| `002_create_training_export_agents_v3.sql` | applied and verified |
+| `training_data_export_v3.go` | written, awaiting chassis build |
+| `trigger_training_export_v3.sh` | tested (confirmed spawning works, failed on stale binary) |
+| `003_backfill_jsonl_to_postgres.sh` | ready to load the 1,957-row JSONL we have on disk |
+
+**Reference patterns followed:**
+
+- Worker agent definition: `specialist` category, `processing_mode: task` at top level
+- Orchestrator agent definition: `orchestrator` category (free text), `coordinator` agent_category (constrained), `processing_mode: orchestrator` at top level
+- Action input extraction via `datahelpers.RegisterActionInputSpec` in `init()` + `ExtractActionInputs` at call time
+- `target_role` not `agent_type` for call_agent lookup
+- `?`-suffixed optional input mapping fields
+- Orchestrator timeout > worker timeout (1800 > 1200)
+
+### 2.4i Flywheel A — v3.1 → v3.2 runtime learnings (2026-04-23)
+
+**v3.0 first trigger failed: "bulk insert 500 rows: driver: bad connection"**
+
+After the orchestrator wrapper landed, the worker spawned correctly in a dedicated pod, started executing, then died during the first bulk-insert flush. Error was at the Go SQL driver level — pgbouncer-backed connection went bad before the 4.5MB INSERT could land.
+
+Diagnosis session covered:
+- Postgres `statement_timeout`, `idle_in_transaction_session_timeout`, `lock_timeout`, `tcp_keepalives_*` — all `0` (disabled). Not postgres-side.
+- pgbouncer log entries: `closing because: server lifetime over (age=3600s)`, `client_idle_timeout (age=604s)` — connection management happening, but not at the 33-second failure point.
+- Chassis connects via `pgbouncer.ai-persona-system.svc.cluster.local:6432` — every statement passes through pgbouncer. Pool mode likely `transaction`.
+
+Root cause hypothesis: the combination of a long-held transaction (single tx around the whole 2000-row export) and pgbouncer's pool management produced the bad-connection state. Specifically: holding a 4.5MB multi-VALUE INSERT open on a pooled connection for ~30 seconds before the first flush commit.
+
+**v3.1: split into per-batch transactions, batch size 500 → 100.**
+
+Architecture changed from:
+```
+BeginTx → INSERT runs → query → loop(flush batch within tx) → UPDATE runs → Commit
+```
+to:
+```
+INSERT runs (no tx) → query (no tx) → loop(BeginTx → INSERT batch → Commit per-batch) → UPDATE runs (no tx)
+```
+
+Each batch tx completes in well under a second. Runs row insert and final update are single-statement non-tx operations. No long-held connections.
+
+**v3.1 result — partial success:**
+
+- 1,958 rows landed in `training_exports.rows` with sequential `row_index` 0-1957. Per-batch commits worked.
+- Worker action returned success. Child orchestration COMPLETED cleanly.
+- Parent orchestration COMPLETED cleanly.
+- Action result map had correct counts: `rows_exported:1958, rows_seen:1960` (2 invalid-JSON rows skipped as expected).
+- **BUT**: `training_exports.runs` row had `rows_exported=0, size_bytes=0, completed_at=NULL`.
+
+The UPDATE step silently didn't take effect. Possibilities:
+1. UPDATE threw an error that was swallowed by the v3.1 "Warn and continue" handling. Log grep for "final counts update failed" returned nothing in the abbreviated log file (but full logs could have it — the upload was explicitly abbreviated).
+2. UPDATE returned success with `RowsAffected=0`. Unlikely but possible if there's some pgbouncer transaction visibility issue or UUID-casting edge case.
+
+Manually reconciled the runs row with the correct counts; dataset is usable.
+
+**v3.2: strict error handling on final UPDATE.**
+
+Changes:
+- Log line before UPDATE (shows export_id, rows_exported, size_bytes)
+- `err` from `ExecContext` now returns action failure (was Warn+continue)
+- `RowsAffected` checked — if != 1, action fails with diagnostic message
+- Log line after UPDATE confirms rows_affected count
+
+Next run will be loud either way; we'll learn definitively what the UPDATE is doing.
+
+**Spawning architecture — fully confirmed working:**
+
+- Parent orchestrator (`training-data-export-orchestrator`, class=`orchestrator`, agent_category=`coordinator`, `processing_mode: orchestrator` at top level) runs in the main agent-chassis pool.
+- Worker (`training-data-exporter`, class=`specialist`, agent_category=`specialist`, `processing_mode: task`) gets its own spawned pod (`agent-training-data-exporter-<id>-xxxxx`) every run.
+- `spawn_agent → call_agent(target_role=exporter)` pattern works end-to-end.
+- Input mapping with `?` suffix for optionals passes parameters correctly.
+- File-output concern from v2 is resolved — data lives in Postgres, pod lifecycle no longer matters.
+
+**Current state (end of 2026-04-23 session):**
+
+- Working dataset in Postgres: export_id `fef7be6b-887f-4bc9-b118-a5a9992c4179`, 1,958 rows, 21.2MB JSONB storage, reconciled with correct counts.
+- v3.2 action code written, awaiting chassis rebuild/deploy.
+- Backfill script ready to load the JSONL copy we retrieved earlier (for preservation as a second named export).
+
+### 2.5 Fine-tuning path — flywheel C scripted (2026-04-23)
+
+Pipeline shape now concrete, scripts written, awaiting first training run on
+a GPU VM.
 
 ```
-llm_call_log (200+ success rows for a given agent_type + step_name)
+training_exports.runs + .rows  (1,958 rows landed, export_id 146a9a12-...)
     │
-    ▼
-training_data_export.sql  (Alpaca or ChatML JSONL)
+    ▼  01_pull_dataset_from_postgres.sh (kubectl exec + COPY TO STDOUT)
+/workspace/training_iter0.jsonl on GPU VM
     │
-    ▼  scp to GPU host
-GPU host (RunPod / Lambda / ThunderCompute H100)
+    ▼  02_train_llama_3_3_70b.py (Unsloth QLoRA)
+LoRA adapter (~150MB) at /workspace/lora_iter0_full
     │
-    ▼  unsloth: QLoRA on llama-3.1-8b-instruct-bnb-4bit
-LoRA adapter (~3-50MB)
+    ▼  03_inference_test.py (sanity — 5 samples, JSON validity check)
+Confident the adapter works
     │
-    ▼  save_pretrained_gguf with q4_k_m quantisation
-GGUF file (~4GB for 7-8B Q4)
-    │
-    ▼  kubectl cp → ollama-gpu PVC + ollama create
-New Ollama model, e.g. site-classifier-v1
-    │
-    ▼  swap_agent_model('site-classifier', 'classify_site', {provider: ollama, ...})
-Live. A/B by running both and comparing, revert_agent() if worse.
+    ▼  [future] merge + export GGUF, or serve via vLLM, or upload to Together/Fireworks
+Deployed model, A/B against Claude
 ```
 
-Cost estimate from `018_canine_biology.md`: **£35-95** for first full pass
-(research → text LoRA → image LoRA).
+**Base model: Llama 3.3 70B Instruct.** Decision taken 2026-04-23. Not 3.1 —
+3.3 at 70B matches 3.1 405B quality per Meta benchmarks, released Dec 2024,
+same VRAM profile as 3.1 70B. Fits on single H100 or A100 80GB with QLoRA
+(~50-70GB peak VRAM). Batch size 1, grad accum 8, 3 epochs, lr 2e-4, LoRA
+rank 16, targets all linear layers. Use
+`unsloth/Llama-3.3-70B-Instruct-bnb-4bit` for 4× faster download.
+
+**Why 70B when 8B would be cheaper:** a narrow structured-JSON task like
+page-content-writer iter_0 doesn't need 70B's capacity. 8B likely delivers
+95% of the quality at 10% of inference cost. The 70B choice was made
+because the hardware was already available for it, and having a strong
+baseline is useful even if we later rebuild on 8B. Future run plan: train
+both on the same dataset, compare. The infrastructure scripts work for
+either size (change one MODEL_NAME constant).
+
+**Files in `flywheel_C/`:**
+
+| File | Purpose |
+|---|---|
+| `00_vm_setup.sh` | Python 3.12 venv + CUDA-matched torch + Unsloth + deps, VRAM verification |
+| `01_pull_dataset_from_postgres.sh` | Stream training data direct from Postgres to local JSONL via kubectl exec |
+| `02_train_llama_3_3_70b.py` | Main training script. CLI-configurable, writes adapter + manifest |
+| `03_inference_test.py` | Sanity check — generate N outputs from training prompts, check JSON validity |
+| `README.md` | Prereqs, sequence, expected timings, what-to-tune table |
+
+**Run sequence (~30-90 min from scratch):**
+
+1. `./00_vm_setup.sh` (one-off, 5-10 min)
+2. `source ~/unsloth_env/bin/activate`
+3. `./01_pull_dataset_from_postgres.sh <export_id> /workspace/training_iter0.jsonl`
+4. Smoke train: `python 02_train_llama_3_3_70b.py --limit 20 --epochs 1 ...`
+5. Smoke inference: `python 03_inference_test.py --n 3 ...`
+6. Full train (30-90 min): `python 02_train_llama_3_3_70b.py` with defaults
+7. Final inference: `python 03_inference_test.py --n 5 --skip 1900` (roughly held-out)
+
+**Expected signals for "first run worked":**
+
+- `train_loss` drops from ~2.5 → ~0.5-1.0 during training
+- VRAM peak 50-70GB, well under 80GB ceiling
+- Inference outputs parse as JSON without code fences
+- Keys match trained schemas (hero-with-CTAs 68%, minimal hero 18%, header/nav 9%)
+- Content is topical to the brief, not generic placeholder text
+
+**After first success — remaining flywheel C work (not scripted yet):**
+
+- Proper evaluation via flywheel D's 20-case test harness
+- Claude-as-judge quality scoring vs Claude vs ollama-mistral-small3.1 vs trained Llama-70B
+- Deployment decision: GGUF+Ollama (CPU, slow) vs vLLM on GPU VM vs hosted (Together/Fireworks)
+- Chassis integration as alternative `ai_service` provider
+- Production cost-per-page comparison
+
+### 2.5.1 Phase 2 — automating flywheel C (design locked, not built)
+
+Design decided 2026-04-23. Chassis drives, GPU VM serves. The GPU VM becomes
+a compute service the chassis calls, rather than a host that needs to reach
+into the cluster. This keeps credentials out of the VM, makes the VM easy
+to rebuild or replace, and fits the existing orchestrator/agent pattern.
+
+**VM side — HTTP job server (Option B chosen, ~200 lines of Python):**
+
+- `POST /jobs` — body contains dataset (base64 or URL) + hyperparameters, returns `job_id`, spawns training subprocess via `02_train_llama_3_3_70b.py`
+- `GET /jobs/{id}` — status, progress, final loss, timestamps
+- `GET /jobs/{id}/adapter` — downloads the resulting LoRA adapter (tarball)
+- Bearer-token auth
+- SQLite or in-memory jobs dict
+- Systemd unit to keep it running
+- TLS via Caddy auto-TLS or cloud LB
+
+Rejected alternatives:
+- **SSH + remote exec** — simpler but synchronous, chassis must hold a 30-90min connection, key management awkward
+- **Kafka consumer on VM** — cleanest messaging fit but needs VM → Kafka connectivity (public ingress or VPN), biggest setup cost, overkill for one consumer
+
+**Chassis side — three new components:**
+
+1. `model-trainer` (specialist agent) — takes `export_id` input, fetches rows from `training_exports`, builds JSONL, POSTs to VM's `/jobs`, polls until done, downloads adapter, records in `model_training_runs`
+2. `model-evaluator` (specialist agent) — runs the flywheel D test harness against a newly trained adapter, compares to Claude baseline, writes scores
+3. `training-flywheel-orchestrator` (orchestrator wrapper) — chains: spawn+call training-data-exporter → spawn+call model-trainer → spawn+call model-evaluator → conditional `swap_agent_model` if score ≥ baseline threshold, else record without deploying
+
+**Schema additions:**
+
+```
+model_training_runs    (id, export_id FK, adapter_path, final_loss,
+                        train_runtime_s, lora_r, lora_alpha, base_model,
+                        hyperparameters JSONB, created_at, completed_at,
+                        error TEXT NULLABLE)
+
+model_artefacts        (id, training_run_id FK, storage_path, size_bytes,
+                        sha256, created_at)
+
+model_evaluations      (id, training_run_id FK, test_suite, baseline_model,
+                        scores JSONB, deployment_decision TEXT, created_at)
+```
+
+**Trigger:** either a `scheduled_tasks` row running daily/weekly, or an event
+trigger when `training_exports` gains N+ new rows since the last training run.
+
+**Agent count delta for phase 2:** +3 new agent definitions (one orchestrator
+wrapper, two specialists). Pattern mirrors training-data-export-orchestrator +
+training-data-exporter already built today.
+
+**Preconditions before building phase 2:**
+
+1. Phase 1 complete — manual training run proves the scripts work
+2. Phase 1 produces a baseline LoRA + eval output we trust as the "working" reference point
+3. Flywheel D eval harness is either working or we know why it's paused
+4. VM has stable public endpoint (DNS, TLS)
 
 ### 2.6 Fine-tuning candidates (priority order)
 
@@ -983,7 +1191,13 @@ Habits and patterns earned during flywheel B and D. Keep referring back.
 - Action handlers follow the signature `func X(ctx context.Context, params ActionParams) (interface{}, error)` and should handle `params.ExecutionContext.Action == "initialize"` as an early return.
 - Action result maps are stored in `orchestration_states.collected_data` under the step's `output_field`, NOT in `final_result`.
 - **File writes from actions land on whichever pod handled the message.** By default an orchestration runs inside one of the three main `agent-chassis-*` pods (not a dedicated per-agent pod). Files written to `/tmp` are only present on that one pod, and lost on pod restart. For persistent artefacts, either spawn a dedicated pod (orchestrator wrapper pattern) or write to storage (Postgres / S3). Check which pod has the file: `for pod in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do kubectl -n ai-persona-system exec $pod -- ls /tmp/<dir>/; done`
-- **Kafka trigger JSON must be flat single-line and single-quoted.** Multi-line heredocs mangle payloads silently (see `016_debugging_guide_v2.md` §9). Use `<<<'{...flat json...}'` here-strings.
+- **To force dedicated pod spawning: orchestrator wrapper pattern.** Three steps: `spawn_agent → call_agent → complete_workflow`. Use `target_role` (not `agent_type`) in `call_agent`. Wrapper's `processing_mode: "orchestrator"` at top level of `default_config` (not inside workflow); `category='orchestrator'`, `agent_category='coordinator'`. Worker's `processing_mode: "task"`, `category='specialist'`, `agent_category='specialist'`.
+- **`agent_definitions` three-column trap.** `category` is free text functional role (`orchestrator`, `specialist`). `agent_category` is CHECK-constrained to one of `strategist, executor, analyst, integrator, coordinator, specialist` — NO `orchestrator`. `status` is lifecycle (`active`, `experimental`, etc.). Reference row: `improvement-loop` has `category=orchestrator, agent_category=coordinator, status=experimental`.
+- **Input extraction uses `ExtractActionInputs` + `ActionInputSpec`.** Register the spec via `init()` with `datahelpers.RegisterActionInputSpec(...)`. Call `datahelpers.ExtractActionInputs(params.CollectedData, params.StepConfig.Config, Spec, logger)` to get an `*ActionInputs` object with `.Get(key) string`, `.GetBool(key, def)`, `.GetInt(key, def)`, `.GetMap(key)`, `.Has(key)`, `.GetRaw(key)`. Handles three layers (explicit config paths, input_fields, flat lookup) plus deprecated mappings and defaults. Don't duplicate `GetBoolField`/`GetIntField` from `datahelpers`.
+- **call_agent input_mapping: explicit fields, not blob.** `"input_mapping": {"input_data": "input_data"}` produces `input_data.input_data.X` which breaks. Map fields individually: `{"agent_type": "input_data.agent_type", "model_filter?": "input_data.model_filter"}`. Suffix `?` for optional — otherwise missing field fails the whole call.
+- **Long-held transactions through pgbouncer are fragile.** Pgbouncer in transaction pool mode handles short, self-contained transactions well; long transactions that hold connections for 30+ seconds (large SELECTs streaming + large INSERTs) can trip connection-level failures ("driver: bad connection" at Go SQL layer). Default to per-batch commits for bulk work; don't wrap an entire streaming job in one transaction. Keep each transaction's work under a second where possible.
+- **When action stats and DB state disagree, check the final write step explicitly.** An action can return a complete result map with correct counts while the final UPDATE never landed (silent 0-rows-affected or swallowed error). Always check `RowsAffected()` on UPDATEs that are supposed to hit exactly one row, and return errors instead of Warn+continue unless the UPDATE is truly optional.
+- **Kafka trigger JSON must be flat single-line and single-quoted.** Multi-line heredocs mangle payloads silently (see `016_debugging_guide_v2.md` §9). Use `<<<'{...flat json...}'` here-strings, or build with `jq -nc` and pass as `<<<"$PAYLOAD"`.
 
 ### Eval and replay methodology
 
@@ -999,6 +1213,55 @@ Habits and patterns earned during flywheel B and D. Keep referring back.
 
 ## 15. Changelog
 
+- 2026-04-23 (flywheel C phase 2 design locked, build pending) — Decided
+  automation architecture. Chassis drives, GPU VM serves. Rejected SSH
+  (synchronous, fragile) and Kafka consumer (overkill for one client).
+  Chose HTTP job server on VM (FastAPI-style, POST /jobs → poll GET → fetch
+  adapter). Three new chassis components: model-trainer specialist,
+  model-evaluator specialist, training-flywheel-orchestrator wrapper. Three
+  new tables: model_training_runs, model_artefacts, model_evaluations.
+  Gated on phase 1 (manual training run) to confirm the scripts actually
+  work before automating them. Design captured in §2.5.1.
+- 2026-04-23 (flywheel C scripted, 70B training path chosen) — With flywheel
+  A done and a clean 1,958-row dataset in Postgres, wrote `flywheel_C/` —
+  five files covering VM setup, dataset pull, training, inference test,
+  plus README. Target: Llama 3.3 70B Instruct via Unsloth QLoRA on single
+  H100 or A100 80GB (user confirmed VM config). Training script defaults
+  to 3 epochs, batch 1, grad_accum 8, lr 2e-4, lora_r 16, max_seq 4096.
+  Expected: 30-90 min full train, ~150MB LoRA adapter output, ~50-70GB
+  VRAM peak. 70B chosen because hardware is already available; flagged
+  that 8B would likely deliver 95% of quality at 10% of inference cost
+  for this narrow structured-JSON task, so a follow-up 8B run on the same
+  dataset is on the table for direct comparison. Next: user runs the scripts
+  on the GPU VM — smoke train (20 rows) first, then full train if smoke
+  looks sensible.
+- 2026-04-23 (flywheel A v3.1 → v3.2, first dataset landed) — v3 with batch
+  size 500 + single big transaction failed on first bulk insert with
+  "driver: bad connection" (pgbouncer interaction with long-held tx).
+  v3.1 split into per-batch transactions (size 100, each commits quickly).
+  v3.1 successfully streamed 1,958 rows into `training_exports.rows` but
+  the final UPDATE silently didn't take — runs row stayed at zeros despite
+  action returning correct counts. v3.2 adds strict error handling on
+  UPDATE (RowsAffected check, immediate error return instead of Warn+continue).
+  **First real training dataset now in Postgres:** export_id
+  `fef7be6b-887f-4bc9-b118-a5a9992c4179`, 1,958 rows, 21.2MB, reconciled
+  manually. Spawning architecture fully validated — worker runs in dedicated
+  spawned pod, orchestrator wrapper pattern works end-to-end.
+- 2026-04-23 (flywheel A v3 polished, awaiting chassis binary) — Reviewed v3
+  against doc 001 development guide. Reworked to use canonical
+  `ExtractActionInputs` + `ActionInputSpec` pattern (registers via `init()`,
+  uses `inputs.Get/GetBool/GetInt`) instead of direct `ExtractNestedFieldString`.
+  Caught three agent_definitions column semantics confusions: `category`
+  (free text), `agent_category` (CHECK-constrained to 6 values, NOT
+  `orchestrator`), and `status` (lifecycle). Fixed: orchestrator has
+  `category='orchestrator', agent_category='coordinator'` matching
+  improvement-loop reference row. Agent definitions applied. First trigger
+  failed with v2 error message (`output_path missing`) because binary is
+  still v2 — agent definitions updated in DB but Go rollout pending. BUT
+  spawning verified working: worker pod
+  `agent-training-data-exporter-4c4fe86e-tlg6s` spawned, role=exporter,
+  parent-child wiring clean. processing_mode:orchestrator at top level +
+  agent_category:coordinator is the confirmed combination.
 - 2026-04-23 (flywheel A v3 design finalised, schema written) — Considered
   real-time streaming (every new `llm_call_log` row flows into
   `training_exports.rows` automatically) vs manual batch export. Chose

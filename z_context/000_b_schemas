@@ -21,6 +21,8 @@
 \d agent_error_log
 \d llm_call_log
 \d style_collections
+\d css_themes
+\d scheduled_tasks
 \d
 
 

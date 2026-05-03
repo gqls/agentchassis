@@ -939,6 +939,14 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	// layout taxonomy — expose current categories + industry_tags to prompts
+	"read_layout_taxonomy": {
+		Handler:     ReadLayoutTaxonomyAction,
+		Category:    "site",
+		Description: "Read current categories and industry_tags from the layouts library for prompt templates",
+		IsLocal:     true,
+	},
+
 	// RAG — retrieval-augmented generation
 	"rag_lookup": {
 		Handler:     RAGLookupAction,
@@ -950,6 +958,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler:     RAGIndexAction,
 		Category:    "storage",
 		Description: "Chunk, embed, and store content in the knowledge base",
+		IsLocal:     true,
+	},
+	"training_data_export": {
+		Handler:     TrainingDataExportAction,
+		Category:    "storage",
+		Description: "Export successful LLM calls from llm_call_log as NDJSON training data (ChatML format) for fine-tuning.",
 		IsLocal:     true,
 	},
 
