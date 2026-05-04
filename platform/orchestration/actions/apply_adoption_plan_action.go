@@ -431,32 +431,32 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			continue
 		}
 
-		pageName, _ := pm["name"].(string)
-		if pageName == "" {
-			pageName = fmt.Sprintf("page-%d", i+1)
+		// Canonicalise name / url / page_type via the shared helper so
+		// adoption and the planner produce identical identities for the
+		// same page (doc 029 Phase 0). Adoption's analyze_site LLM emits
+		// names like "tool-ttk-calculator", "guides-index"; the planner's
+		// LLM emits "ttk-calculator", "guides". CanonicalisePage absorbs
+		// both shapes.
+		rawName, _ := pm["name"].(string)
+		if rawName == "" {
+			rawName = fmt.Sprintf("page-%d", i+1)
 		}
-		pageName = strings.ToLower(strings.ReplaceAll(pageName, " ", "-"))
+		rawType, _ := pm["page_type"].(string)
+
+		pageName, pageURL, pageType := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+			Role: rawType,
+			Slug: rawName,
+		})
+		if pageName == "" {
+			logger.Warn("ApplyAdoptionPlanAction: page failed canonicalisation, skipping",
+				zap.String("raw_name", rawName),
+				zap.String("raw_type", rawType))
+			continue
+		}
 
 		pageTitle, _ := pm["title"].(string)
 		if pageTitle == "" {
 			pageTitle = strings.Title(strings.ReplaceAll(pageName, "-", " "))
-		}
-
-		pageType, _ := pm["page_type"].(string)
-		if pageType == "" {
-			pageType = "content"
-		}
-
-		pageURL, _ := pm["url"].(string)
-		if pageURL == "" {
-			switch pageType {
-			case "blog-post":
-				pageURL = "/blog/" + pageName + ".html"
-			case "tool":
-				pageURL = "/tools/" + pageName + ".html"
-			default:
-				pageURL = "/" + pageName + ".html"
-			}
 		}
 
 		metaDesc, _ := pm["meta_description"].(string)
@@ -650,7 +650,9 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			ON CONFLICT DO NOTHING
 		`, siteID, itemType,
 			summary, string(pageSpecJSON), page.ID, priority, handlerAgent,
-			fmt.Sprintf("adoption_page_%s_%s", page.Name, siteID),
+			// Canonical work-item key (doc 029 Phase 0). Shared shape with
+			// planner-emitted items so idx_swi_dedup catches collisions.
+			fmt.Sprintf("needs_page:%s", page.Name),
 			batchID)
 		if err == nil {
 			itemsCreated++

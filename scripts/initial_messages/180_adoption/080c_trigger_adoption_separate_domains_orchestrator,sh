@@ -161,6 +161,25 @@ UNION ALL SELECT 'palettes_orphaned',      COUNT(*) FROM palettes         WHERE 
 
 COMMIT;
 
+-- or one at a time outside begin block
+DELETE FROM style_collections WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM css_themes WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM palettes WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM typography_sets WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM layouts
+ WHERE source_domain = 'gamesdesign.co.uk'
+   AND name NOT IN ('tool-portal-dark','social-lobby','brochure-formal',
+                    'brochure-bold','technical-precise','affiliate-hub');
+
+--
+-- verify nothing exists
+SELECT 'sites' AS tbl, COUNT(*) FROM sites WHERE domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'css_themes',        COUNT(*) FROM css_themes        WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'palettes',          COUNT(*) FROM palettes          WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'style_collections', COUNT(*) FROM style_collections WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'typography_sets',   COUNT(*) FROM typography_sets   WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'layouts',           COUNT(*) FROM layouts           WHERE source_domain = 'gamesdesign.co.uk';
+
 
 Adoption fired. Orchestrator will go:
 

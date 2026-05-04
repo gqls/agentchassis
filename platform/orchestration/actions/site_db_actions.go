@@ -238,6 +238,46 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("no pages found in page_plan")
 	}
 
+	// Canonicalise LLM-emitted page identities through the shared helper
+	// (doc 029 Phase 0). Adoption writes pages with names like
+	// "tool-ttk-calculator" / "guides-index"; the planner's LLM emits
+	// bare slugs ("ttk-calculator" / "guides"). Without this pass,
+	// upsertPage's ON CONFLICT (site_id, name) never fires across
+	// surfaces and we end up with two pages rows per logical page.
+	//
+	// Mutates the page maps in place. CollectedData consumers that read
+	// page_plan downstream will see the canonical name/url/page_type —
+	// by design, since the canonical identity is the one that survives.
+	normalised := make([]map[string]interface{}, 0, len(pages))
+	for i, page := range pages {
+		rawName := datahelpers.GetStringField(page, "name", "")
+		if rawName == "" {
+			rawName = fmt.Sprintf("page-%d", i+1)
+		}
+		// upsertPage reads the LLM's role from the "type" key; some
+		// upstream variants use "page_type". Treat both as equivalent.
+		rawType := datahelpers.GetStringField(page, "type", "")
+		if rawType == "" {
+			rawType = datahelpers.GetStringField(page, "page_type", "")
+		}
+		name, url, pageType := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+			Role: rawType,
+			Slug: rawName,
+		})
+		if name == "" {
+			params.Logger.Warn("SyncPagesToDBAction: page failed canonicalisation, skipping",
+				zap.String("raw_name", rawName),
+				zap.String("raw_type", rawType))
+			continue
+		}
+		page["name"] = name
+		page["url"] = url
+		page["type"] = pageType
+		page["page_type"] = pageType
+		normalised = append(normalised, page)
+	}
+	pages = normalised
+
 	params.Logger.Info("SyncPagesToDBAction: Found pages to sync",
 		zap.Int("page_count", len(pages)),
 		zap.String("site_id", siteIDStr),
