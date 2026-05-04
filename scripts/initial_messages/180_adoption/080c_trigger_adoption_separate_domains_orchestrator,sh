@@ -161,6 +161,97 @@ UNION ALL SELECT 'palettes_orphaned',      COUNT(*) FROM palettes         WHERE 
 
 COMMIT;
 
+------------------------------------------------------------------------
+==========================================================================
+-- full delete
+
+BEGIN;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 0: confirm what we're about to delete
+-- ──────────────────────────────────────────────────────────────────────
+SELECT id, domain, status, style_collection_id
+FROM sites
+WHERE domain = 'gamesdesign.co.uk';
+-- expect 0 or 1 row; abort the transaction (ROLLBACK) if more
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 1: break FKs that point at rows we want to delete from libraries
+-- ──────────────────────────────────────────────────────────────────────
+
+-- sites → style_collections  (no ON DELETE, blocks)
+UPDATE sites
+SET style_collection_id = NULL
+WHERE domain = 'gamesdesign.co.uk';
+
+-- style_collections → css_themes  (no ON DELETE, blocks)
+-- Cover both linkage paths: by source_domain text, and by source_site_id
+UPDATE style_collections
+SET css_theme_id = NULL
+WHERE source_domain = 'gamesdesign.co.uk'
+   OR source_site_id IN (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk');
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 2: delete child tables of `sites` that don't cascade
+-- ──────────────────────────────────────────────────────────────────────
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM site_work_items       WHERE site_id IN (SELECT id FROM s);
+
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM content_feed_items    WHERE site_id IN (SELECT id FROM s);
+
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM maintenance_queue     WHERE site_id IN (SELECT id FROM s);
+
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM page_component_history WHERE site_id IN (SELECT id FROM s);
+
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM link_registry         WHERE target_site_id IN (SELECT id FROM s);
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 3: delete the site row
+--   Cascades through: pages, site_specs, site_components, site_areas,
+--   site_nav_items, site_nav_groups, site_snapshots, site_flows,
+--   navigation_structures, research_results, redirects, products,
+--   content_items, content_sources, assets, affiliate_products,
+--   link_registry (source_site_id).
+--   Sets NULL: palettes, typography_sets, layouts, css_themes,
+--   style_collections via source_site_id (we delete these by
+--   source_domain in Step 4 anyway).
+-- ──────────────────────────────────────────────────────────────────────
+DELETE FROM sites WHERE domain = 'gamesdesign.co.uk';
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 4: delete library rows by source_domain
+-- ──────────────────────────────────────────────────────────────────────
+DELETE FROM style_collections WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM css_themes        WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM palettes          WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM typography_sets   WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM layouts
+WHERE source_domain = 'gamesdesign.co.uk'
+  AND name NOT IN ('tool-portal-dark','social-lobby','brochure-formal',
+                   'brochure-bold','technical-precise','affiliate-hub');
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 5: verify
+-- ──────────────────────────────────────────────────────────────────────
+SELECT 'sites'             AS tbl, COUNT(*) FROM sites             WHERE domain        = 'gamesdesign.co.uk'
+UNION ALL SELECT 'css_themes',        COUNT(*) FROM css_themes        WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'palettes',          COUNT(*) FROM palettes          WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'style_collections', COUNT(*) FROM style_collections WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'typography_sets',   COUNT(*) FROM typography_sets   WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'layouts',           COUNT(*) FROM layouts           WHERE source_domain = 'gamesdesign.co.uk'
+                                                                        AND name NOT IN ('tool-portal-dark','social-lobby','brochure-formal',
+                                                                                         'brochure-bold','technical-precise','affiliate-hub');
+
+-- If all six counts are 0:
+COMMIT;
+
+-- If anything looks wrong, instead:
+-- ROLLBACK;
+
 -- or one at a time outside begin block
 DELETE FROM style_collections WHERE source_domain = 'gamesdesign.co.uk';
 DELETE FROM css_themes WHERE source_domain = 'gamesdesign.co.uk';
@@ -197,3 +288,42 @@ site-adoption-orchestrator
   → generate_design_intent (LLM)
   → write design_intent spec
   → complete
+
+
+  ---------------------------------------
+  =======================================
+
+  clients_db=# -- Where is the workflow?
+  SELECT
+      orchestration_name,
+      current_step,
+      status,
+      currently_executing,
+      error,
+      last_activity,
+      updated_at
+  FROM orchestration_states
+  WHERE orchestration_id = '8c0aba4e-f975-4885-9622-01d699f0207a';
+
+  -- What's it currently waiting on?
+  SELECT
+      step_name,
+      target_agent_type,
+      target_agent_id,
+      status,
+      sent_at,
+      timeout_at,
+      processing_pod
+  FROM awaited_requests
+  WHERE orchestration_id = '8c0aba4e-f975-4885-9622-01d699f0207a'
+  ORDER BY sent_at DESC
+  LIMIT 20;
+
+  -- Any errors logged for this run?
+  SELECT
+      occurred_at,
+      agent_type,
+      step_name,
+      action,
+      error_message,
+  ORDER BY created_at DESC;id FROM sites WHERE domain = 'gamesdesign.co.uk');

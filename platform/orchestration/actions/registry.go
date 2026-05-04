@@ -869,6 +869,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Validate a site plan structure before building",
 		IsLocal:     true,
 	},
+	"write_site_plan": {
+		Handler:     WriteSitePlanAction,
+		Category:    "site",
+		Description: "Write the validated plan to site_plans + site_plan_pages + site_plan_partials in one tx (doc 030)",
+		IsLocal:     true,
+	},
 	"generate_html": {
 		Handler:     GenerateHTMLAction,
 		Category:    "site",

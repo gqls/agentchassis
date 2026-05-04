@@ -1,21 +1,31 @@
 // FILE: platform/orchestration/datahelpers/page_canonical.go
 //
 // CanonicalisePage maps any logical page descriptor — from adoption's
-// analyze_site LLM, the site-planner's LLM, or a future reconciler — to
-// the single canonical (name, url, page_type) triple that the pages
-// table and `needs_page:<name>` work-item keys both use.
+// analyze_site LLM, the site-planner's LLM, the reconciler, or any
+// future role-validation pipeline — to the single canonical
+// (name, url, page_type) triple that the pages table, the
+// site_plan_pages table, and `needs_page:<name>` work-item keys all use.
 //
-// Without this helper, adoption's LLM emits names like
-// "tool-ttk-calculator" / "guides-index" while the planner's LLM emits
-// "ttk-calculator" / "guides". Both surfaces upsert to pages with
-// `ON CONFLICT (site_id, name) DO UPDATE`, but the conflict never fires
-// because the names diverge — the result is duplicate rows and parallel
-// `adoption_page_*` vs `needs_page:*` work-item streams that the
-// `idx_swi_dedup` index cannot collapse. See doc 029 Phase 0.
+// History:
+//
+//	Phase 0 (doc 029): introduced to converge adoption-shape names like
+//	"tool-ttk-calculator" / "guides-index" with planner-shape names like
+//	"ttk-calculator" / "guides". Without this convergence, both surfaces
+//	upserted into pages with disagreeing names, the
+//	ON CONFLICT (site_id, name) DO UPDATE never fired, and we got
+//	duplicate rows plus parallel work-item streams that idx_swi_dedup
+//	could not collapse.
+//
+//	Phase 1 (doc 030): extended with ParentSection so the same helper
+//	covers nested-URL synthesis for sites whose section directories
+//	don't match the role defaults (e.g. tools nested under "utilities"
+//	instead of "tools"). Adoption's existing call sites pass empty
+//	ParentSection and get identical Phase 0 behaviour.
 //
 // The helper is idempotent: feeding it the adoption-shape produces the
 // same output as feeding it the planner-shape. It does not query the
-// database — naming is decided purely from the descriptor.
+// database — naming and URL synthesis are decided purely from the
+// descriptor.
 
 package datahelpers
 
@@ -41,11 +51,28 @@ import (
 //
 // Section is used by section_index when the slug doesn't already encode
 // it. Optional — if empty, derived from Slug by stripping a trailing
-// "-index".
+// "-index". This is a Phase 0 field, kept for backward compatibility
+// with adoption's call sites; see ParentSection for the Phase 1 nested-
+// URL field.
+//
+// ParentSection (Phase 1, doc 030) is the canonical name of the section
+// directory this page sits under. When non-empty, it overrides the
+// role-default section directory in URL synthesis:
+//
+//	role=tool, slug=foo, ParentSection=""           → /tools/foo/index.html
+//	role=tool, slug=foo, ParentSection="utilities"  → /utilities/foo/index.html
+//	role=tool, slug=foo, ParentSection="tools-index"→ /tools/foo/index.html (suffix stripped)
+//
+// Only the nested roles (tool, guide, game, blog_post) honour
+// ParentSection. section_index, content, and index ignore it because
+// the concept doesn't apply to those page kinds. Adoption code that
+// pre-dates Phase 1 leaves ParentSection empty and gets identical
+// behaviour to before — the field is purely additive.
 type PageDescriptor struct {
-	Role    string
-	Slug    string
-	Section string
+	Role          string
+	Slug          string
+	Section       string
+	ParentSection string
 }
 
 // CanonicalisePage returns the canonical (name, url, pageType) for the
@@ -55,6 +82,7 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 	role := strings.ToLower(strings.TrimSpace(d.Role))
 	slug := normaliseSlug(d.Slug)
 	section := normaliseSlug(d.Section)
+	parent := strings.TrimSuffix(normaliseSlug(d.ParentSection), "-index")
 
 	// "index" role is unconditional — Slug is irrelevant.
 	if role == "index" {
@@ -75,26 +103,41 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		if bare == "" {
 			return "", "", ""
 		}
-		return "tool-" + bare, "/tools/" + bare + "/index.html", "tool"
+		dir := parent
+		if dir == "" {
+			dir = "tools"
+		}
+		return "tool-" + bare, "/" + dir + "/" + bare + "/index.html", "tool"
 
 	case "guide":
 		bare := strings.TrimPrefix(slug, "guide-")
 		if bare == "" {
 			return "", "", ""
 		}
-		return "guide-" + bare, "/guides/" + bare + "/index.html", "guide"
+		dir := parent
+		if dir == "" {
+			dir = "guides"
+		}
+		return "guide-" + bare, "/" + dir + "/" + bare + "/index.html", "guide"
 
 	case "game":
 		bare := strings.TrimPrefix(slug, "game-")
 		if bare == "" {
 			return "", "", ""
 		}
-		return "game-" + bare, "/games/" + bare + "/index.html", "game"
+		dir := parent
+		if dir == "" {
+			dir = "games"
+		}
+		return "game-" + bare, "/" + dir + "/" + bare + "/index.html", "game"
 
 	case "section_index":
 		// Adoption shape: slug="guides-index" (with -index suffix).
 		// Planner shape: slug="guides" (bare).
 		// Optional explicit section overrides slug-derivation.
+		// ParentSection is intentionally NOT honoured here — a section
+		// index page IS its section, so nesting it under another
+		// section makes no sense.
 		sec := section
 		if sec == "" {
 			sec = strings.TrimSuffix(slug, "-index")
@@ -105,19 +148,26 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		return sec + "-index", "/" + sec + "/index.html", "section_index"
 
 	case "blog_post":
-		// Phase 0 keeps adoption's existing convention so already-deployed
-		// blog URLs don't break: name=<slug>, url=/blog/<slug>.html. Phase 1
-		// may revisit if blog gets dedicated section_index treatment.
+		// Adoption convention: name=<slug>, url=/blog/<slug>.html.
+		// ParentSection allows nesting under a custom directory
+		// (e.g. /guides/<slug>.html for sites that put blog-shaped
+		// content under a guides hierarchy).
 		if slug == "" {
 			return "", "", ""
 		}
-		return slug, "/blog/" + slug + ".html", "blog_post"
+		dir := parent
+		if dir == "" {
+			dir = "blog"
+		}
+		return slug, "/" + dir + "/" + slug + ".html", "blog_post"
 
 	default:
 		// "content" and anything unrecognised: name=slug, url=/<slug>.html.
 		// pageType passes through the original role string when set, so
 		// unknown roles surface in logs rather than being silently
-		// rewritten to "content".
+		// rewritten to "content". ParentSection is intentionally NOT
+		// honoured for content — the LLM should give the page a more
+		// specific role if it belongs under a section.
 		if slug == "" {
 			return "", "", ""
 		}
