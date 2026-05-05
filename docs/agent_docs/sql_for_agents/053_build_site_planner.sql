@@ -773,6 +773,7 @@ SET default_config = jsonb_set(
 WHERE type = 'build-site-planner' AND is_active = true;
 
 ---------------
+-- backup = agent_def_build_site_planner_backup_20260505
 
 -- ============================================================================
 -- Migration 032: Phase 1 build-site-planner workflow change (doc 030 step 4)
@@ -1011,3 +1012,4 @@ COMMIT;
   "processing_mode": "orchestrator",
   "timeout_seconds": 300
 }
+

@@ -143,6 +143,24 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// Get prompt using three-tier priority system
 	promptTemplate, promptSource := getImagePromptWithPriority(params, agentConfig)
 
+	// Phase 0.1: prepend design_intent.imagery_direction (read from site_specs)
+	// when site_id is available via input_mapping. Direction is enrichment, not
+	// a requirement — if site_id is missing or no design_intent exists, the
+	// prompt is used as-is. Parents pass site_id through input_mapping; see
+	// migration phase_0_combined_migration.sql.
+	if siteID, _ := inputData["site_id"].(string); siteID != "" {
+		direction := getImageryDirectionForSite(ctx, params.DB, siteID, params.Logger)
+		if direction != "" {
+			composed := composeImagePromptWithDirection(promptTemplate, direction)
+			params.Logger.Info("Prepended imagery_direction from design_intent",
+				zap.String("site_id", siteID),
+				zap.String("direction_preview", datahelpers.TruncateString(direction, 100)),
+				zap.String("composed_preview", datahelpers.TruncateString(composed, 250)))
+			promptTemplate = composed
+			promptSource = promptSource + "+imagery_direction"
+		}
+	}
+
 	params.Logger.Info("Selected prompt for execution",
 		zap.String("source", promptSource),
 		zap.String("agent_type", params.AgentType),
@@ -473,385 +491,6 @@ func createImageGenerationTopics(ctx context.Context, requestsTopic, responsesTo
 	return nil
 }
 
-// sendImageGenerationRequest is no longer needed as we use producer directly
-//
-/*// internal/backend/agent-chassis/internal/actions/image_actions.go
-package actions
-
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
-
-	"github.com/google/uuid"
-	"github.com/gqls/agentchassis/platform/kafka"
-	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
-	"github.com/gqls/agentchassis/platform/orchestration/types"
-	"go.uber.org/zap"
-)
-
-// ImageGenerationResult represents the result of an image generation request
-type ImageGenerationResult struct {
-	Success              bool   `json:"success"`
-	ImageURI             string `json:"image_uri,omitempty"`
-	ErrorMessage         string `json:"error_message,omitempty"`
-	RequestID            string `json:"request_id"`
-	ChildOrchestrationID string `json:"child_orchestration,omitempty"`
-	ChildResponsesTopic  string `json:"child_responses_topic,omitempty"`
-	TargetAgentType      string `json:"target_agent_type"`
-	TopicSentTo          string `json:"topic_sent_to"`
-	StableIdentity       string `json:"stable_identity"`
-	AwaitResponse        bool   `json:"await_response"`
-}
-
-// GenerateImageAction handles image generation requests with dynamic topics
-func GenerateImageAction(ctx context.Context, params ActionParams) (interface{}, error) {
-	if params.Logger == nil {
-		return nil, fmt.Errorf("logger is required")
-	}
-
-	params.Logger.Info("in GenerateImageAction",
-		zap.Any("DEBUGaa: input action params", params),
-	)
-
-	logger := params.Logger.With(
-		zap.String("action", "generate_image"),
-		zap.String("step_name", params.ExecutionContext.StepName),
-		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
-		zap.String("correlation_id", params.ExecutionContext.CorrelationID),
-	)
-
-	// Extract input data
-	inputData := datahelpers.GetInputData(params.CollectedData, logger)
-
-	// Get the prompt from CollectedData top level
-	prompt, ok := params.CollectedData["prompt"].(string)
-	if !ok || prompt == "" {
-		// or from input data
-		prompt, ok = inputData["prompt"].(string)
-	}
-
-	if !ok || prompt == "" {
-		return nil, fmt.Errorf("prompt is required for image generation")
-	}
-
-	// Optional parameters
-	style, _ := inputData["style"].(string)
-	width, _ := inputData["width"].(int)
-	height, _ := inputData["height"].(int)
-
-	// Set defaults if not provided
-	if width == 0 {
-		width = 1024
-	}
-	if height == 0 {
-		height = 1024
-	}
-
-	// Create stable identity for this image generation request
-	// This ensures unique topics for each image generation
-	stableIdentity := fmt.Sprintf("%s-%s-image-generator-%s",
-		extractShortCorrelation(params.ExecutionContext.CorrelationID),
-		extractShortOrchestration(params.ExecutionContext.OrchestrationID),
-		params.ExecutionContext.StepName,
-	)
-
-	// Create dynamic topics for this specific image generation
-	requestsTopic := fmt.Sprintf("job.%s.requests", stableIdentity)
-	responsesTopic := fmt.Sprintf("job.%s.responses", stableIdentity)
-
-	// Get parent responses topic - where we should get the response
-	parentResponsesTopic := params.ExecutionContext.ResponsesTopic
-	if parentResponsesTopic == "" {
-		parentResponsesTopic = params.ExecutionContext.ReplyToTopic
-	}
-
-	logger.Info("Creating image generation topics",
-		zap.String("stable_identity", stableIdentity),
-		zap.String("requests_topic", requestsTopic),
-		zap.String("responses_topic", responsesTopic),
-		zap.String("parent_responses_topic", parentResponsesTopic),
-	)
-
-	// Create topics using the topic manager
-	if err := createImageGenerationTopics(params.Context, requestsTopic, responsesTopic, params.Logger); err != nil {
-		logger.Error("Failed to create image generation topics", zap.Error(err))
-		return nil, fmt.Errorf("failed to create topics: %w", err)
-	}
-
-	// Build the image generation request using the new data helpers
-	// This ensures all required fields are properly populated
-	imageData := map[string]interface{}{
-		"prompt": prompt,
-		"style":  style,
-		"width":  width,
-		"height": height,
-	}
-
-	// Use BuildRequestMessage from data_helpers to construct a properly formatted message
-	imageRequest := datahelpers.BuildRequestMessage(
-		params.ExecutionContext,
-		"image-generator", // target agent type
-		"generate",        // action
-		imageData,         // data
-		map[string]interface{}{ // config
-			"stable_identity":        stableIdentity,
-			"parent_responses_topic": parentResponsesTopic,
-		},
-		logger,
-	)
-
-	// Override the response topics to use our custom ones
-	imageRequest.Headers.RequestsTopic = requestsTopic
-	imageRequest.Headers.ResponsesTopic = responsesTopic
-	imageRequest.Headers.ParentResponsesTopic = parentResponsesTopic
-	imageRequest.Headers.Sender = params.ExecutionContext.Sender
-	imageRequest.Headers.StepID = params.ExecutionContext.StepID
-	imageRequest.Headers.StepName = params.ExecutionContext.StepName
-
-	// Add image generation specific metadata to body
-	if body, ok := imageRequest.Body.(map[string]interface{}); ok {
-		body["reply_to_topic"] = parentResponsesTopic
-		body["parent_responses_topic"] = parentResponsesTopic
-		body["stable_identity"] = stableIdentity
-		body["image_request"] = true
-		body["metadata"] = map[string]interface{}{
-			"stable_identity":       stableIdentity,
-			"parent_orchestration":  params.ExecutionContext.ParentOrchestrationID,
-			"requesting_agent_type": params.ExecutionContext.Sender.AgentType,
-			"requesting_step":       params.ExecutionContext.StepName,
-		}
-	}
-
-	// Determine which image generator topic to use
-	// We use a stable topic that multiple image generator containers listen to
-	imageGeneratorTopic := "system.adapter.image-generator.requests"
-
-	// Send the request
-	requestID := uuid.NewString()
-	if err := sendImageGenerationRequest(
-		params.Context,
-		params.Producer,
-		imageGeneratorTopic,
-		requestID,
-		imageRequest,
-		logger,
-	); err != nil {
-		logger.Error("Failed to send image generation request", zap.Error(err))
-		return nil, err
-	}
-
-	logger.Info("Image generation request sent successfully",
-		zap.String("request_id", requestID),
-		zap.String("topic", imageGeneratorTopic),
-		zap.String("stable_identity", stableIdentity),
-		zap.Any("DEBUGaa: image request sent", imageRequest),
-	)
-
-	// Store request tracking info in collected data
-	if params.CollectedData != nil {
-		params.CollectedData[params.ExecutionContext.StepName] = map[string]interface{}{
-			"request_id":            requestID,
-			"stable_identity":       stableIdentity,
-			"requests_topic":        requestsTopic,
-			"responses_topic":       responsesTopic,
-			"parent_topic":          parentResponsesTopic,
-			"image_generator_topic": imageGeneratorTopic,
-			"prompt":                prompt,
-			"status":                "awaiting_response",
-		}
-	}
-
-	// Return result with await flag
-	result := ImageGenerationResult{
-		Success:             true,
-		RequestID:           requestID,
-		ChildResponsesTopic: responsesTopic,
-		TargetAgentType:     "image-generator",
-		TopicSentTo:         imageGeneratorTopic,
-		StableIdentity:      stableIdentity,
-		AwaitResponse:       true, // We need to wait for the image generation
-	}
-
-	logger.Info("Image generation request sent",
-		zap.String("request_id", requestID),
-		zap.String("topic", imageGeneratorTopic),
-		zap.Bool("await_response", true),
-	)
-
-	return result, nil
-}
-
-// sendImageGenerationRequest sends the request message with proper validation
-func sendImageGenerationRequest(
-	ctx context.Context,
-	producer kafka.Producer,
-	topic string,
-	requestID string,
-	message *types.RequestMessage,
-	logger *zap.Logger,
-) error {
-	// Ensure the message has the request_id in headers
-	if message.Headers.RequestID == "" {
-		message.Headers.RequestID = requestID
-	}
-
-	// Ensure all required validation fields are present
-	// The validator checks these specific fields
-	if message.Headers.SenderAgentType == "" && message.Headers.Sender.AgentType != "" {
-		message.Headers.SenderAgentType = message.Headers.Sender.AgentType
-	}
-	if message.Headers.InResponseToStepName == "" && message.Headers.StepName != "" {
-		message.Headers.InResponseToStepName = message.Headers.StepName
-	}
-
-	logger.Info("Sending image generation request",
-		zap.String("topic", topic),
-		zap.String("request_id", requestID),
-		zap.String("correlation_id", message.Headers.CorrelationID),
-		zap.String("sender_agent_type", message.Headers.SenderAgentType),
-		zap.String("to_agent_type", message.Headers.ToAgentType),
-		zap.Any("DEBUGaa: message", message),
-	)
-
-	// Convert headers to map
-	headers := message.Headers.ToMap()
-
-	logger.Info("Sending image generation request - headers",
-		zap.Any("headers", headers),
-	)
-
-	// Convert message to bytes
-	messageBytes, err := json.Marshal(message)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Send with validation
-	key := []byte(message.Headers.CorrelationID)
-	return producer.ProduceWithValidation(ctx, topic, headers, key, messageBytes)
-}
-
-// ProcessImageResponse processes responses from image generation
-func ProcessImageResponse(params *ActionParams) (interface{}, error) {
-	logger := params.Logger.With(
-		zap.String("action", "process_image_response"),
-		zap.String("step_name", params.ExecutionContext.StepName),
-	)
-
-	// Get the response from collected data
-	stepData, ok := datahelpers.GetStepData(params.CollectedData, params.ExecutionContext.StepName, logger)
-	if !ok {
-		return nil, fmt.Errorf("no response data found for step %s", params.ExecutionContext.StepName)
-	}
-
-	// Extract image URI and URL from response
-	imageURI, _ := stepData["image_uri"].(string)
-	imageURL, _ := stepData["image_url"].(string)
-	if imageURI == "" {
-		// Check for error
-		if errorMsg, ok := stepData["error"].(string); ok {
-			return nil, fmt.Errorf("image generation failed: %s", errorMsg)
-		}
-		return nil, fmt.Errorf("no image URI in response")
-	}
-
-	// Store in collected data for use by other steps
-	if params.CollectedData != nil {
-		if inputData, ok := params.CollectedData["input_data"].(map[string]interface{}); ok {
-			inputData["generated_image_uri"] = imageURI
-			inputData["generated_image_url"] = imageURL
-			inputData["image_generation_complete"] = true
-		}
-	}
-
-	logger.Info("Image generation complete",
-		zap.String("image_uri", imageURI),
-		zap.String("image_url", imageURL),
-	)
-
-	return map[string]interface{}{
-		"success":   true,
-		"image_uri": imageURI,  // S3 URI for storage reference
-		"image_url": imageURL,  // Presigned URL for web use (valid for 7 days)
-	}, nil
-}
-
-// Helper functions
-
-func extractShortCorrelation(correlationID string) string {
-	if len(correlationID) >= 8 {
-		return correlationID[:8]
-	}
-	return correlationID
-}
-
-func extractShortOrchestration(orchestrationID string) string {
-	if len(orchestrationID) >= 8 {
-		return orchestrationID[:8]
-	}
-	return orchestrationID
-}
-
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-// createImageGenerationTopics creates the dynamic topics for image generation
-func createImageGenerationTopics(ctx context.Context, requestsTopic, responsesTopic string, logger *zap.Logger) error {
-	// Get Kafka brokers from environment or config
-	brokers := strings.Split(getEnvOrDefault("KAFKA_BROKERS", "kafka:9092"), ",")
-
-	// Create topic manager
-	topicManager := kafka.NewTopicManager(brokers, logger)
-
-	// Define topic configurations
-	topics := []kafka.TopicDefinition{
-		{
-			Name:              requestsTopic,
-			Partitions:        2,
-			ReplicationFactor: 1,
-		},
-		{
-			Name:              responsesTopic,
-			Partitions:        2,
-			ReplicationFactor: 1,
-		},
-	}
-
-	// Create topics
-	for _, topic := range topics {
-		if err := topicManager.CreateTopic(ctx, topic); err != nil {
-			// Check if topic already exists (not an error)
-			if !strings.Contains(err.Error(), "already exists") {
-				return fmt.Errorf("failed to create topic %s: %w", topic.Name, err)
-			}
-			logger.Debug("Topic already exists", zap.String("topic", topic.Name))
-		} else {
-			logger.Info("Created image generation topic",
-				zap.String("topic", topic.Name),
-				zap.Int("partitions", topic.Partitions),
-			)
-		}
-
-		// Wait for topic to be ready
-		if err := topicManager.WaitForTopic(ctx, topic.Name, logger); err != nil {
-			logger.Warn("Topic may not be fully ready",
-				zap.String("topic", topic.Name),
-				zap.Error(err),
-			)
-		}
-	}
-
-	return nil
-}
-*/
-
 // getPromptWithPriority implements three-tier priority for prompt selection
 func getImagePromptWithPriority(params ActionParams, agentConfig map[string]interface{}) (prompt string, source string) {
 	logger := params.Logger
@@ -1065,4 +704,130 @@ func updateSiteContentField(ctx context.Context, db interface{}, siteID, field, 
 		return err
 	}
 	return fmt.Errorf("unsupported database type")
+}
+
+// ============================================================================
+// Phase 0.1 — imagery_direction composition helpers
+//
+// Today this captures only the strategic-spec layer (site_specs.design_intent).
+// Once Phase 1 of doc 030 ships (site_plan_directives + brief renderer), this
+// helper should also compose plan-time directives where category=design AND
+// subject LIKE 'imagery%'. Tracked in PLAN_imagery_loop_closure.md as a
+// successor work item.
+// ============================================================================
+
+// maxImageryDirectionInPrompt is the soft cap for the style-direction half of
+// a composed image prompt. Set to fit comfortably under SDXL's 75-77 CLIP
+// token limit (~350-380 chars total) while leaving 100-150 chars for the
+// subject prompt.
+//
+// Provider-specific notes (relevant when provider routing lands):
+//   - SDXL / Stable Diffusion family: hard wall at 77 tokens; this cap is correct
+//   - FLUX (T5 encoder): ~256 tokens; cap could be raised to ~600 chars
+//   - Imagen / Banana Pro: ~1000+ char effective; cap could be raised significantly
+//   - Anthropic vision (audit-only): no meaningful cap; cap should not apply
+//
+// Until provider routing lands, 200 chars is the safe default for the only
+// generation backend (Stability hosted SDXL).
+const maxImageryDirectionInPrompt = 200
+
+// getImageryDirectionForSite reads design_intent.imagery_direction from
+// site_specs. Returns empty string if not found or on error — never blocks
+// image generation.
+//
+// Handles both *sql.DB and *pgxpool.Pool to match the action's database
+// abstraction (params.DB is interface{}).
+func getImageryDirectionForSite(ctx context.Context, db interface{}, siteID string, logger *zap.Logger) string {
+	if siteID == "" || db == nil {
+		return ""
+	}
+	const query = `
+		SELECT data->>'imagery_direction'
+		FROM site_specs
+		WHERE site_id = $1
+		  AND aspect = 'design_intent'
+		  AND is_current = true
+		LIMIT 1
+	`
+	var direction sql.NullString
+	switch d := db.(type) {
+	case *sql.DB:
+		err := d.QueryRowContext(ctx, query, siteID).Scan(&direction)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				logger.Warn("getImageryDirectionForSite: query failed",
+					zap.String("site_id", siteID),
+					zap.Error(err))
+			}
+			return ""
+		}
+	case *pgxpool.Pool:
+		err := d.QueryRow(ctx, query, siteID).Scan(&direction)
+		if err != nil {
+			// pgx returns its own no-rows sentinel; we treat any error as miss
+			// without warning when the message indicates no rows — keeps logs
+			// clean for sites without design_intent yet.
+			if !strings.Contains(err.Error(), "no rows") {
+				logger.Warn("getImageryDirectionForSite: query failed",
+					zap.String("site_id", siteID),
+					zap.Error(err))
+			}
+			return ""
+		}
+	default:
+		logger.Warn("getImageryDirectionForSite: unsupported database type",
+			zap.String("site_id", siteID))
+		return ""
+	}
+	if !direction.Valid {
+		return ""
+	}
+	return strings.TrimSpace(direction.String)
+}
+
+// composeImagePromptWithDirection prepends a design direction to the subject
+// prompt. The direction is truncated to maxImageryDirectionInPrompt with a
+// preference for ending at a sentence or comma boundary so the truncation
+// reads naturally. The full subject prompt is preserved — never truncated —
+// because losing the subject is unrecoverable while losing trailing style
+// modifiers is graceful.
+//
+// Format is intentionally label-less. SDXL doesn't reason about "Style:" /
+// "Subject:" meta-instructions and they cost ~17 tokens of the 77-token
+// budget for no model benefit.
+func composeImagePromptWithDirection(prompt, direction string) string {
+	prompt = strings.TrimSpace(prompt)
+	direction = strings.TrimSpace(direction)
+	if prompt == "" || direction == "" {
+		return prompt
+	}
+	if len(direction) > maxImageryDirectionInPrompt {
+		cut := direction[:maxImageryDirectionInPrompt]
+		// Prefer first sentence boundary within the cap; fall back to comma;
+		// fall back to hard cut. The minKeep guard avoids degenerate cases
+		// where a sentence boundary near the start would lose most of the
+		// direction.
+		minKeep := maxImageryDirectionInPrompt / 2
+		if idx := strings.Index(cut, ". "); idx > minKeep {
+			cut = cut[:idx+1]
+		} else if idx := strings.LastIndex(cut, ", "); idx > minKeep {
+			cut = cut[:idx]
+		}
+		direction = strings.TrimSpace(cut)
+	}
+	// Use period separator if direction doesn't already terminate with one.
+	sep := ". "
+	if endsWithSentenceBoundary(direction) {
+		sep = " "
+	}
+	return direction + sep + prompt
+}
+
+// endsWithSentenceBoundary reports whether s ends with ., !, or ?.
+func endsWithSentenceBoundary(s string) bool {
+	if s == "" {
+		return false
+	}
+	last := s[len(s)-1]
+	return last == '.' || last == '!' || last == '?'
 }
