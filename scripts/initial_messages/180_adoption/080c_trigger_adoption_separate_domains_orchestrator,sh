@@ -123,33 +123,34 @@ echo "  SELECT item_type, status, handler_agent, summary FROM site_work_items WH
 BEGIN;
 
 -- Confirm we're about to delete the right site
-SELECT id, domain, created_at FROM sites WHERE id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18';
+-- e2538c48-1a74-437b-836a-d28b66e12db8 | gamesdesign.co.uk
+SELECT id, domain, created_at FROM sites WHERE id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
 
 -- Clear the 4 NO ACTION blockers
-DELETE FROM site_work_items         WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18';
-DELETE FROM maintenance_queue       WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18';
-DELETE FROM content_feed_items      WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18';
-DELETE FROM page_component_history  WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18';
+DELETE FROM site_work_items         WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+DELETE FROM maintenance_queue       WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+DELETE FROM content_feed_items      WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+DELETE FROM page_component_history  WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
 
 -- link_registry.target_site_id — are any other sites linking TO gamesdesign?
 DELETE FROM link_registry
-WHERE target_site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18';
+WHERE target_site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
 -- Safe to hard-delete — gamesdesign isn't up, no other site should depend on its URLs.
 -- If this DELETE removes >0 rows we'll see it in the output.
 
 -- Now the main delete — CASCADEs + SET NULLs handle the rest
-DELETE FROM sites WHERE id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18';
+DELETE FROM sites WHERE id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
 
 -- Orphan check — should be all zero
-SELECT 'site_work_items'        AS tbl, COUNT(*) FROM site_work_items        WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18'
-UNION ALL SELECT 'maintenance_queue',       COUNT(*) FROM maintenance_queue       WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18'
-UNION ALL SELECT 'content_feed_items',      COUNT(*) FROM content_feed_items      WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18'
-UNION ALL SELECT 'page_component_history',  COUNT(*) FROM page_component_history  WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18'
-UNION ALL SELECT 'pages',                   COUNT(*) FROM pages                   WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18'
-UNION ALL SELECT 'site_specs',              COUNT(*) FROM site_specs              WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18'
-UNION ALL SELECT 'site_components',         COUNT(*) FROM site_components         WHERE site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18'
-UNION ALL SELECT 'link_registry_source',    COUNT(*) FROM link_registry           WHERE source_site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18'
-UNION ALL SELECT 'link_registry_target',    COUNT(*) FROM link_registry           WHERE target_site_id = '166cda1c-1f76-4013-a9b5-2da1dcdb1a18';
+SELECT 'site_work_items'        AS tbl, COUNT(*) FROM site_work_items        WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'maintenance_queue',       COUNT(*) FROM maintenance_queue       WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'content_feed_items',      COUNT(*) FROM content_feed_items      WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'page_component_history',  COUNT(*) FROM page_component_history  WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'pages',                   COUNT(*) FROM pages                   WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'site_specs',              COUNT(*) FROM site_specs              WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'site_components',         COUNT(*) FROM site_components         WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'link_registry_source',    COUNT(*) FROM link_registry           WHERE source_site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'link_registry_target',    COUNT(*) FROM link_registry           WHERE target_site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
 
 -- And the SET NULL tables — these rows should still exist but with NULL source_site_id
 SELECT 'css_themes_orphaned'       AS tbl, COUNT(*) FROM css_themes       WHERE source_site_id IS NULL AND source_domain = 'gamesdesign.co.uk'
