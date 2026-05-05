@@ -1,12 +1,24 @@
 // FILE: platform/orchestration/actions/write_site_plan_action.go
 //
 // WriteSitePlanAction is the plan-builder's terminal step. It takes the
-// LLM's structure output plus optional design_direction and
-// content_strategy partials from CollectedData, runs each page through
-// the role validator and the canonicaliser (which now produces both
-// canonical name and canonical URL — see doc 030 Phase 1
-// consolidation), and writes one site_plans row + N site_plan_pages
-// rows + M site_plan_partials rows in a single transaction.
+// LLM's single-call output (pages + design_direction + content_strategy
+// in one JSON shape) and writes:
+//
+//   - one site_plans row (the version anchor)
+//   - N site_plan_pages rows (per page, canonicalised + role-validated)
+//   - M site_plan_sections rows (per section within each page)
+//   - K site_plan_directives rows (flattened from nested design and
+//     content JSON; site / page / section scopes; ordering preserved
+//     for multi-cardinality subjects)
+//
+// All in one transaction. Marks the previous current plan superseded.
+//
+// Lock transfer: any directive on the previous current plan with
+// locked_at IS NOT NULL is matched against the new plan by composite
+// key (scope, scope_ref, category, subject, ordering). When matched,
+// locked_at and locked_by are copied onto the new directive, and the
+// HITL-approved directive text wins over the LLM's new text. See
+// doc 030 §"Lock transfer across plan rebuilds".
 //
 // The action does NOT emit work items. That responsibility belongs to
 // the reconciler (doc 030 step 5). Plan-builder's job ends with
@@ -15,9 +27,10 @@
 //
 // CollectedData keys read:
 //   - page_plan / site_plan  (extracted by existing extractPagesFromPlan)
-//   - design_direction       (optional, written as site_plan_partials)
-//   - content_strategy       (optional, written as site_plan_partials)
-//   - site_id                (declared in WriteSitePlanInputSpec)
+//   - design_direction / design_intent  (optional — flattened to directives)
+//   - content_strategy / content_direction  (optional — flattened to directives)
+//   - target_site_id  (declared in WriteSitePlanInputSpec; deliberately
+//     not 'site_id' to avoid nested-lookup collision risk)
 //
 // Returns:
 //
@@ -25,7 +38,9 @@
 //	  plan_id: <uuid>,
 //	  superseded_plan_id: <uuid string, empty if first plan for site>,
 //	  pages_written: <int>,
-//	  partials_written: <int>,
+//	  sections_written: <int>,
+//	  directives_written: <int>,
+//	  locks_transferred: <int>,
 //	  role_corrections: <int>,
 //	}
 
@@ -34,7 +49,6 @@ package actions
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -44,14 +58,21 @@ import (
 )
 
 // WriteSitePlanInputSpec declares the inputs this action expects.
-// Fields documented in the file-level comment above.
+// Free-form JSON partials (design_direction, content_strategy) are
+// pass-through blobs and not declared here — ActionInputSpec is for
+// typed scalars.
 //
-// Note: design_direction and content_strategy are NOT declared here
-// because they're free-form jsonb partials read directly from
-// CollectedData. ActionInputSpec is for typed scalars; partials are
-// pass-through blobs.
+// Field naming: `target_site_id` rather than `site_id` to avoid
+// collision with the nested-lookup behaviour in ExtractActionInputs.
+// Many callers carry `site_record.site_id` in CollectedData; an input
+// named `site_id` could be silently shadowed by that nested value when
+// the top-level isn't supplied. `target_site_id` is unambiguous and
+// not a column in any of sites / pages / site_record. The caller's
+// input_mapping should look like:
+//
+//	"input_mapping": { "target_site_id": "site_record.site_id" }
 var WriteSitePlanInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id"},
+	Required:   []string{"target_site_id"},
 	Optional:   []string{},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
@@ -61,19 +82,84 @@ func init() {
 	datahelpers.RegisterActionInputSpec("write_site_plan", WriteSitePlanInputSpec)
 }
 
-// WriteSitePlanAction is the action handler. Registered in the action
-// registry as "write_site_plan", IsLocal=true.
+// directiveSpec is one row in the LLM-output-to-directive mapping table.
+// Each spec declares: where to find the value in CollectedData (path),
+// what (category, subject) the directive belongs to, and whether it
+// produces a single row or multiple rows (one per item in a list).
+//
+// The table is the contract. Adding a new directive subject means
+// adding one row here, not changing flatten logic.
+type directiveSpec struct {
+	llmField string // dot-path under the planner's JSON output, e.g. "design_intent.colour_mood"
+	scope    string // "site" — page/section directives come from per-page LLM fields, handled separately
+	category string // "design" | "content"
+	subject  string // canonical subject name on the directive row
+	multi    bool   // false: scalar string. true: list of strings; one row per item.
+}
+
+// siteScopeDirectiveSpecs declares how the planner's site-level
+// design and content JSON flattens to directive rows. Unrecognised
+// fields are dropped silently — the LLM may emit extra keys that we
+// don't currently model.
+//
+// Two source-key shapes are checked for each spec because the planner
+// prompt is being migrated from "design_intent / content_direction"
+// (the old strategic-naming) toward "design_direction / content_strategy"
+// (the new plan-time naming). The action accepts either source.
+var siteScopeDirectiveSpecs = []directiveSpec{
+	// Design (was design_intent → becoming design_direction)
+	{llmField: "design_direction.style_direction", scope: "site", category: "design", subject: "style_direction", multi: false},
+	{llmField: "design_direction.colour_mood", scope: "site", category: "design", subject: "colour_mood", multi: false},
+	{llmField: "design_direction.typography_mood", scope: "site", category: "design", subject: "typography_mood", multi: false},
+	{llmField: "design_direction.imagery_direction", scope: "site", category: "design", subject: "imagery_direction", multi: false},
+	{llmField: "design_direction.layout_preference", scope: "site", category: "design", subject: "layout_preference", multi: false},
+	{llmField: "design_direction.avoid", scope: "site", category: "design", subject: "avoid", multi: true},
+
+	// Legacy keys (design_intent) — same flattening, accepted while prompt migrates
+	{llmField: "design_intent.style_direction", scope: "site", category: "design", subject: "style_direction", multi: false},
+	{llmField: "design_intent.colour_mood", scope: "site", category: "design", subject: "colour_mood", multi: false},
+	{llmField: "design_intent.typography_mood", scope: "site", category: "design", subject: "typography_mood", multi: false},
+	{llmField: "design_intent.imagery_direction", scope: "site", category: "design", subject: "imagery_direction", multi: false},
+	{llmField: "design_intent.layout_preference", scope: "site", category: "design", subject: "layout_preference", multi: false},
+	{llmField: "design_intent.avoid", scope: "site", category: "design", subject: "avoid", multi: true},
+
+	// Content (was content_direction → becoming content_strategy)
+	{llmField: "content_strategy.voice", scope: "site", category: "content", subject: "voice", multi: false},
+	{llmField: "content_strategy.emphasis", scope: "site", category: "content", subject: "emphasis", multi: false},
+	{llmField: "content_strategy.avoid_phrases", scope: "site", category: "content", subject: "avoid_phrases", multi: true},
+	{llmField: "content_strategy.social_proof_style", scope: "site", category: "content", subject: "social_proof_style", multi: false},
+	{llmField: "content_strategy.blog_strategy", scope: "site", category: "content", subject: "blog_strategy", multi: false},
+
+	// Legacy keys (content_direction)
+	{llmField: "content_direction.voice", scope: "site", category: "content", subject: "voice", multi: false},
+	{llmField: "content_direction.emphasis", scope: "site", category: "content", subject: "emphasis", multi: false},
+	{llmField: "content_direction.avoid_phrases", scope: "site", category: "content", subject: "avoid_phrases", multi: true},
+	{llmField: "content_direction.social_proof_style", scope: "site", category: "content", subject: "social_proof_style", multi: false},
+	{llmField: "content_direction.blog_strategy", scope: "site", category: "content", subject: "blog_strategy", multi: false},
+}
+
+// directiveRow is the in-memory shape we accumulate before writing.
+// It maps 1:1 to a row in site_plan_directives.
+type directiveRow struct {
+	Scope     string
+	ScopeRef  *string // nil for site scope
+	Category  string
+	Subject   string
+	Directive string
+	Ordering  int
+	Source    string
+}
+
+// WriteSitePlanAction handler.
 func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "write_site_plan"))
 	logger.Info("WriteSitePlanAction: Starting",
 		zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
 	)
 
-	// Handle initialization (chassis convention — see SyncPagesToDBAction).
 	if params.ExecutionContext.Action == "initialize" {
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
-
 	if params.DB == nil {
 		return nil, fmt.Errorf("database connection required")
 	}
@@ -85,20 +171,18 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	if err != nil {
 		return nil, fmt.Errorf("input extraction failed: %w", err)
 	}
-
-	siteIDStr := inputs.Get("site_id")
+	siteIDStr := inputs.Get("target_site_id")
 	siteID, err := uuid.Parse(siteIDStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid site_id %q: %w", siteIDStr, err)
+		return nil, fmt.Errorf("invalid target_site_id %q: %w", siteIDStr, err)
 	}
 
-	// ── 2. Extract LLM page list ────────────────────────────────────────
+	// ── 1. Extract LLM page list, validate roles, canonicalise ─────────
 	rawPages := extractPagesFromPlan(params.CollectedData, logger)
 	if len(rawPages) == 0 {
 		return nil, fmt.Errorf("no pages found in page_plan / site_plan")
 	}
 
-	// ── 3. Convert raw LLM maps to LLMPlannedPage and run validator ─────
 	llmPages := make([]datahelpers.LLMPlannedPage, 0, len(rawPages))
 	for _, p := range rawPages {
 		llmPages = append(llmPages, datahelpers.LLMPlannedPage{
@@ -109,12 +193,8 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 			ParentSection: datahelpers.GetStringField(p, "parent_section", ""),
 		})
 	}
-
 	validated := datahelpers.ValidateRoles(llmPages)
 
-	// Count corrections for observability — the gamesdesign post-mortem
-	// showed 3-of-12 mislabels; we log this every run so we can spot
-	// prompt regressions.
 	corrections := 0
 	for _, v := range validated {
 		if v.CorrectedFromRole != "" {
@@ -126,25 +206,24 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 
-	// ── 4. Canonicalise each validated page (name, url, page_type) ─────
-	// One CanonicalisePage call per page. Phase 1 extended the helper
-	// to honour ParentSection in URL synthesis (doc 030); we no longer
-	// need a separate URL helper.
 	type planPageRow struct {
-		Name          string
-		Role          string
-		Slug          string
-		URL           string
-		ParentSection string
-		InHeader      bool
-		InFooter      bool
-		NavOrder      int
-		PageData      []byte // marshalled JSONB
+		Name            string
+		Role            string
+		Slug            string
+		URL             string
+		ParentSection   string
+		Title           string
+		MetaDescription string
+		NavLabel        string
+		InHeader        bool
+		InFooter        bool
+		NavOrder        int
+		Sections        []string // component names in declared order
 	}
 	planRows := make([]planPageRow, 0, len(validated))
 
 	for i, v := range validated {
-		canonicalName, canonicalURL, canonicalType := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+		canonicalName, canonicalURL, _ := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
 			Role:          v.Role,
 			Slug:          firstNonEmpty(v.Slug, v.Name),
 			ParentSection: v.ParentSection,
@@ -155,27 +234,21 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 				zap.String("role", v.Role))
 			continue
 		}
-		// canonicalType passes through as the role we persist; it
-		// matches v.Role except in the unknown-role case where the
-		// helper preserves the raw string.
-		_ = canonicalType
 
-		// Read remaining fields from the original raw map so we don't
-		// lose title / sections / meta_description.
 		raw := rawPages[i]
-
-		pageData := buildPageDataJSON(raw)
-
 		planRows = append(planRows, planPageRow{
-			Name:          canonicalName,
-			Role:          v.Role,
-			Slug:          firstNonEmpty(v.Slug, v.Name),
-			URL:           canonicalURL,
-			ParentSection: v.ParentSection,
-			InHeader:      datahelpers.GetBoolField(raw, "in_header", true),
-			InFooter:      datahelpers.GetBoolField(raw, "in_footer", true),
-			NavOrder:      datahelpers.GetIntField(raw, "nav_order", 100),
-			PageData:      pageData,
+			Name:            canonicalName,
+			Role:            v.Role,
+			Slug:            firstNonEmpty(v.Slug, v.Name),
+			URL:             canonicalURL,
+			ParentSection:   v.ParentSection,
+			Title:           datahelpers.GetStringField(raw, "title", ""),
+			MetaDescription: datahelpers.GetStringField(raw, "meta_description", ""),
+			NavLabel:        datahelpers.GetStringField(raw, "nav_label", ""),
+			InHeader:        datahelpers.GetBoolField(raw, "in_header", true),
+			InFooter:        datahelpers.GetBoolField(raw, "in_footer", true),
+			NavOrder:        datahelpers.GetIntField(raw, "nav_order", 100),
+			Sections:        extractSectionNames(raw),
 		})
 	}
 
@@ -183,15 +256,18 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("no pages survived validation/canonicalisation")
 	}
 
-	// ── 5. Single transaction: supersede prior plan, write new plan ────
+	// ── 2. Flatten LLM design / content JSON to directive rows ─────────
+	directives := flattenSiteScopeDirectives(params.CollectedData, logger)
+
+	// ── 3. Single transaction: supersede prior plan, write new plan ────
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	// 5a. Mark previous current plan as superseded (if any).
-	var supersededID uuid.UUID
+	// 3a. Find previous current plan (for lock transfer) and supersede.
+	var prevPlanID uuid.UUID
 	err = tx.QueryRowContext(ctx, `
 		UPDATE site_plans
 		   SET is_current    = false,
@@ -199,92 +275,294 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		 WHERE site_id    = $1
 		   AND is_current = true
 		RETURNING id
-	`, siteID).Scan(&supersededID)
+	`, siteID).Scan(&prevPlanID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("supersede previous plan: %w", err)
 	}
 
-	// 5b. Insert the new plan row.
+	// 3b. Insert the new plan row.
 	var planID uuid.UUID
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO site_plans (site_id, source_agent, created_by)
 		VALUES ($1, $2, $3)
 		RETURNING id
-	`, siteID, "site-planner", "write_site_plan").Scan(&planID)
+	`, siteID, "build-site-planner", "write_site_plan").Scan(&planID)
 	if err != nil {
 		return nil, fmt.Errorf("insert site_plans: %w", err)
 	}
 
-	// 5c. Insert site_plan_pages rows.
+	// 3c. Insert site_plan_pages rows.
 	for _, r := range planRows {
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO site_plan_pages
 			    (plan_id, name, role, slug, url, parent_section,
-			     in_header, in_footer, nav_order, page_data)
-			VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''),
-			        $7, $8, $9, $10::jsonb)
+			     title, meta_description, nav_label,
+			     in_header, in_footer, nav_order)
+			VALUES ($1, $2, $3, $4, $5, $6,
+			        $7, $8, $9,
+			        $10, $11, $12)
 		`,
-			planID, r.Name, r.Role, r.Slug, r.URL, r.ParentSection,
-			r.InHeader, r.InFooter, r.NavOrder, string(r.PageData))
+			planID, r.Name, r.Role, r.Slug, r.URL,
+			datahelpers.NullableString(r.ParentSection),
+			datahelpers.NullableString(r.Title),
+			datahelpers.NullableString(r.MetaDescription),
+			datahelpers.NullableString(r.NavLabel),
+			r.InHeader, r.InFooter, r.NavOrder)
 		if err != nil {
 			return nil, fmt.Errorf("insert site_plan_pages for %q: %w", r.Name, err)
 		}
 	}
 
-	// 5d. Insert eager partials (design_direction, content_strategy).
-	partialsWritten := 0
-	for _, partialKey := range []string{"design_direction", "content_strategy"} {
-		raw, ok := params.CollectedData[partialKey]
-		if !ok {
-			logger.Info("WriteSitePlanAction: partial absent, skipping",
-				zap.String("partial", partialKey))
-			continue
+	// 3d. Insert site_plan_sections rows. ordering = position in the
+	//     page's section list. component_name = the section component
+	//     name from the LLM; resolved IDs (component_version_id,
+	//     palette_id, layout_id, typography_set_id) are NULL here and
+	//     filled by a downstream resolver.
+	sectionsWritten := 0
+	for _, r := range planRows {
+		for ord, componentName := range r.Sections {
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO site_plan_sections
+				    (plan_id, page_name, ordering, component_name)
+				VALUES ($1, $2, $3, $4)
+			`, planID, r.Name, ord, componentName)
+			if err != nil {
+				return nil, fmt.Errorf("insert site_plan_sections for %q[%d]: %w", r.Name, ord, err)
+			}
+			sectionsWritten++
 		}
-		// Tolerate the LLM-response wrapper: if the value is a map with
-		// a "result" key, persist that. Otherwise persist the value as-is.
-		dataJSON, err := marshalPartial(raw)
-		if err != nil {
-			logger.Warn("WriteSitePlanAction: partial marshalling failed, skipping",
-				zap.String("partial", partialKey),
-				zap.Error(err))
-			continue
-		}
+	}
+
+	// 3e. Insert site_plan_directives rows.
+	for _, d := range directives {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO site_plan_partials
-			    (plan_id, partial_type, data, source_agent, created_by)
-			VALUES ($1, $2, $3::jsonb, $4, $5)
-		`, planID, partialKey, string(dataJSON), "site-planner", "write_site_plan")
+			INSERT INTO site_plan_directives
+			    (plan_id, scope, scope_ref, category, subject,
+			     directive, ordering, source, source_agent, created_by)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		`,
+			planID, d.Scope, d.ScopeRef, d.Category, d.Subject,
+			d.Directive, d.Ordering, d.Source,
+			"build-site-planner", "write_site_plan")
 		if err != nil {
-			return nil, fmt.Errorf("insert site_plan_partials/%s: %w", partialKey, err)
+			return nil, fmt.Errorf("insert site_plan_directives (%s/%s/%s): %w",
+				d.Scope, d.Category, d.Subject, err)
 		}
-		partialsWritten++
+	}
+
+	// 3f. Lock transfer. For each locked directive on the previous plan,
+	//     find the matching new directive by composite key and copy
+	//     locked_at + locked_by. If the locked text differs from the
+	//     LLM's new text, the locked text wins.
+	locksTransferred := 0
+	if prevPlanID != uuid.Nil {
+		locksTransferred, err = transferDirectiveLocks(ctx, tx, prevPlanID, planID, logger)
+		if err != nil {
+			return nil, fmt.Errorf("lock transfer: %w", err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
 
-	supersededIDStr := ""
-	if supersededID != uuid.Nil {
-		supersededIDStr = supersededID.String()
+	prevPlanIDStr := ""
+	if prevPlanID != uuid.Nil {
+		prevPlanIDStr = prevPlanID.String()
 	}
 
 	logger.Info("WriteSitePlanAction: Complete",
 		zap.String("site_id", siteID.String()),
 		zap.String("plan_id", planID.String()),
-		zap.String("superseded_plan_id", supersededIDStr),
+		zap.String("superseded_plan_id", prevPlanIDStr),
 		zap.Int("pages_written", len(planRows)),
-		zap.Int("partials_written", partialsWritten),
+		zap.Int("sections_written", sectionsWritten),
+		zap.Int("directives_written", len(directives)),
+		zap.Int("locks_transferred", locksTransferred),
 		zap.Int("role_corrections", corrections),
 	)
 
 	return map[string]interface{}{
 		"plan_id":            planID.String(),
-		"superseded_plan_id": supersededIDStr,
+		"superseded_plan_id": prevPlanIDStr,
 		"pages_written":      len(planRows),
-		"partials_written":   partialsWritten,
+		"sections_written":   sectionsWritten,
+		"directives_written": len(directives),
+		"locks_transferred":  locksTransferred,
 		"role_corrections":   corrections,
 	}, nil
+}
+
+// flattenSiteScopeDirectives walks the siteScopeDirectiveSpecs table and
+// produces directive rows from CollectedData. Missing source paths are
+// silently skipped (the LLM may emit only one of design_intent /
+// design_direction; both are accepted and dedup-by-subject avoids
+// double-writing).
+func flattenSiteScopeDirectives(data map[string]interface{}, logger *zap.Logger) []directiveRow {
+	out := make([]directiveRow, 0, 16)
+	seen := make(map[string]bool) // category|subject — dedup across legacy/new key pairs
+
+	for _, spec := range siteScopeDirectiveSpecs {
+		key := spec.category + "|" + spec.subject
+		if seen[key] {
+			continue
+		}
+
+		raw := datahelpers.ExtractNestedField(data, spec.llmField)
+		if raw == nil {
+			continue
+		}
+
+		if spec.multi {
+			items, ok := raw.([]interface{})
+			if !ok {
+				logger.Info("WriteSitePlanAction: expected list for directive subject, got non-list",
+					zap.String("subject", spec.subject),
+					zap.String("path", spec.llmField))
+				continue
+			}
+			for i, item := range items {
+				text, ok := item.(string)
+				if !ok || text == "" {
+					continue
+				}
+				out = append(out, directiveRow{
+					Scope:     spec.scope,
+					ScopeRef:  nil,
+					Category:  spec.category,
+					Subject:   spec.subject,
+					Directive: text,
+					Ordering:  i,
+					Source:    "llm",
+				})
+			}
+			seen[key] = true
+		} else {
+			text, ok := raw.(string)
+			if !ok || text == "" {
+				continue
+			}
+			out = append(out, directiveRow{
+				Scope:     spec.scope,
+				ScopeRef:  nil,
+				Category:  spec.category,
+				Subject:   spec.subject,
+				Directive: text,
+				Ordering:  0,
+				Source:    "llm",
+			})
+			seen[key] = true
+		}
+	}
+	return out
+}
+
+// transferDirectiveLocks copies locked_at / locked_by from previous-plan
+// directives onto matching new-plan directives. Match key:
+// (scope, scope_ref, category, subject, ordering). When the previous
+// directive's text differs from the new one's text, the previous text
+// wins (HITL approval > LLM rewrite).
+//
+// Returns the number of locks transferred.
+func transferDirectiveLocks(ctx context.Context, tx *sql.Tx, prevPlanID, newPlanID uuid.UUID, logger *zap.Logger) (int, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT scope, scope_ref, category, subject, ordering, directive, locked_at, locked_by
+		FROM site_plan_directives
+		WHERE plan_id = $1 AND locked_at IS NOT NULL
+	`, prevPlanID)
+	if err != nil {
+		return 0, fmt.Errorf("query previous locks: %w", err)
+	}
+	defer rows.Close()
+
+	transferred := 0
+	for rows.Next() {
+		var (
+			scope, category, subject, lockedBy, prevText string
+			scopeRef                                     sql.NullString
+			ordering                                     int
+			lockedAt                                     sql.NullTime
+		)
+		if err := rows.Scan(&scope, &scopeRef, &category, &subject, &ordering, &prevText, &lockedAt, &lockedBy); err != nil {
+			return transferred, fmt.Errorf("scan previous lock: %w", err)
+		}
+
+		// Apply the lock — and prevText — onto the matching new-plan row.
+		// scope_ref is nullable; query handles both cases.
+		var result sql.Result
+		if scopeRef.Valid {
+			result, err = tx.ExecContext(ctx, `
+				UPDATE site_plan_directives
+				   SET locked_at = $1,
+				       locked_by = $2,
+				       directive = $3
+				 WHERE plan_id   = $4
+				   AND scope     = $5
+				   AND scope_ref = $6
+				   AND category  = $7
+				   AND subject   = $8
+				   AND ordering  = $9
+			`, lockedAt, lockedBy, prevText, newPlanID, scope, scopeRef.String, category, subject, ordering)
+		} else {
+			result, err = tx.ExecContext(ctx, `
+				UPDATE site_plan_directives
+				   SET locked_at = $1,
+				       locked_by = $2,
+				       directive = $3
+				 WHERE plan_id   = $4
+				   AND scope     = $5
+				   AND scope_ref IS NULL
+				   AND category  = $6
+				   AND subject   = $7
+				   AND ordering  = $8
+			`, lockedAt, lockedBy, prevText, newPlanID, scope, category, subject, ordering)
+		}
+		if err != nil {
+			return transferred, fmt.Errorf("apply lock to new directive: %w", err)
+		}
+		n, _ := result.RowsAffected()
+		if n > 0 {
+			transferred++
+		} else {
+			logger.Info("WriteSitePlanAction: locked directive on previous plan has no match on new plan, lock dropped",
+				zap.String("scope", scope),
+				zap.String("category", category),
+				zap.String("subject", subject),
+				zap.Int("ordering", ordering))
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return transferred, fmt.Errorf("iterate previous locks: %w", err)
+	}
+	return transferred, nil
+}
+
+// extractSectionNames pulls the per-page sections list out of the raw
+// LLM page map. Tolerates both shapes the planner has historically
+// emitted: a list of strings ("hero", "features") or a list of objects
+// ({"name": "hero", ...}). Returns names in declared order.
+func extractSectionNames(raw map[string]interface{}) []string {
+	v, ok := raw["sections"].([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(v))
+	for _, item := range v {
+		switch x := item.(type) {
+		case string:
+			if x != "" {
+				out = append(out, x)
+			}
+		case map[string]interface{}:
+			for _, key := range []string{"name", "type", "component", "component_name"} {
+				if name, ok := x[key].(string); ok && name != "" {
+					out = append(out, name)
+					break
+				}
+			}
+		}
+	}
+	return out
 }
 
 // firstNonEmpty returns the first non-empty string from its arguments.
@@ -307,41 +585,4 @@ func firstNonEmptyField(m map[string]interface{}, keys ...string) string {
 		}
 	}
 	return ""
-}
-
-// buildPageDataJSON extracts the non-structural page fields (title,
-// sections, meta_description, nav_label) into a JSONB blob for
-// site_plan_pages.page_data. Structural fields (name, role, slug, url,
-// parent_section, in_header, in_footer, nav_order) live in their own
-// columns and are excluded.
-func buildPageDataJSON(raw map[string]interface{}) []byte {
-	keep := []string{
-		"title",
-		"sections",
-		"meta_description",
-		"nav_label",
-	}
-	out := make(map[string]interface{}, len(keep))
-	for _, k := range keep {
-		if v, ok := raw[k]; ok {
-			out[k] = v
-		}
-	}
-	b, err := json.Marshal(out)
-	if err != nil {
-		return []byte("{}")
-	}
-	return b
-}
-
-// marshalPartial accepts arbitrary CollectedData partial values and
-// produces a JSONB-ready []byte. Unwraps a single-level "result"
-// wrapper if present (call_agent response format).
-func marshalPartial(v interface{}) ([]byte, error) {
-	if m, ok := v.(map[string]interface{}); ok {
-		if inner, ok := m["result"]; ok {
-			return json.Marshal(inner)
-		}
-	}
-	return json.Marshal(v)
 }

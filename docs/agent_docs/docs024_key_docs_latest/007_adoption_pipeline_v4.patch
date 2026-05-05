@@ -1,0 +1,36 @@
+--- a/007_adoption_pipeline_v4.md
++++ b/007_adoption_pipeline_v4.md
+@@ -407,12 +407,12 @@
+ | Full crawl analysis (LLM output) | `research_results` (result_type: `adoption_crawl`) | Reference, revert, comparison |
+ | Per-page markdown content | `research_results` (result_type: `adoption_page`) | Content writer source material |
+ | Identity (company, industry, tone) | `site_specs` aspect: `identity` | Ongoing site definition |
+ | Design reference (concrete CSS values) | `site_specs` aspect: `design_reference` | Historical record of original design. Extracted by Go from crawled HTML + external CSS. Contains hex colours, font families, CSS variables, layout patterns, suggested mapping to our variable names. |
+-| Design intent (semantic brief) | `site_specs` aspect: `design_intent` | Forward-looking design direction. LLM-generated from fingerprint + identity. Character descriptions with reference values as guidance. Read by webdesign-agent. Evolves via strategist or human. |
++| Design intent (strategic, semantic brief) | `site_specs` aspect: `design_intent` | The site's brand-level design identity. LLM-generated from fingerprint + identity at adoption time. Character descriptions with reference values as guidance. Survives plan rebuilds — the planner reads it as input but no longer overwrites it (Phase 1, doc 030). The plan-time design *direction* used by webdesign-agent for a specific build comes from `site_plan_directives` (category=design), assembled by the brief renderer alongside the strategic spec. Evolves via strategist or human. |
+ | Site archetype (character, constraints) | `site_specs` aspect: `site_archetype` | What kind of site this is. Constraints the improvement loop must respect. |
+-| Content direction (writing style) | `site_specs` aspect: `content_direction` | Detailed writing style guide. LLM-derived from actual content samples. |
++| Content direction (strategic writing style) | `site_specs` aspect: `content_direction` | The site's brand voice and writing style guide. LLM-derived from actual content samples at adoption time. Same Phase 1 split as design_intent: this strategic spec persists; the plan-time content *strategy* written by the planner lives in `site_plan_directives` (category=content). |
+ | Page structure | `site_specs` aspect: `structure` | Planner reference |
+ | `adopted_from` URL | Inside `identity` spec | Provenance only |
+
+ No raw crawl data in site_specs. The specs contain clean, forward-looking data. Research_results holds the raw material.
+
+@@ -429,11 +429,18 @@
+ The adoption agent handles the first two rows; `site-adoption-orchestrator` is the entry point for both (`config.agent_type: "site-adoption-orchestrator"`). The other modes go through the existing classifier/planner pipeline with richer input_data.
+
+ ### Post-adoption: the classifier runs, then the cascade
+
+-After the adoption agent terminates, the classifier picks up the `needs_domain_research` work item and runs with adoption's output as ground truth (see "Handoff to the classifier" above). Its completion queues `needs_strategy` and the normal cascade runs: strategist → briefing → site-planner → composition → webdesign → page-build → rerender.
++After the adoption agent terminates, the classifier picks up the `needs_domain_research` work item and runs with adoption's output as ground truth (see "Handoff to the classifier" above). Its completion queues `needs_strategy` and the normal cascade runs: strategist → briefing → site-planner → composition → webdesign → page-build → rerender.
++
++The site-planner (specifically `build-site-planner`) writes its output to the plan-domain tables — `site_plans`, `site_plan_pages`, `site_plan_sections`, `site_plan_directives` — rather than overwriting adoption's strategic specs. The reconciler (separate Go action) reads `site_plan_pages` versus the actual `pages` table and emits `needs_page:<name>` work items for the diff. This means:
++
++- Adoption's `design_intent` and `content_direction` in `site_specs` are not touched by the planner. They remain the strategic ground truth.
++- Plan-time direction (the planner's design and content guidance for *this* build) lives in `site_plan_directives` and is read by downstream agents (page-content-writer, webdesign-agent) via the brief renderer helper.
++- Page-build work items are emitted by the reconciler, not the planner. The planner's job ends with "the new plan is durably current."
++
++See doc 030 for the plan-domain schema and the lock-transfer mechanism that makes HITL-locked directives survive plan rebuilds.
+
+ The strategist's job is to add aspirational direction on top of the adopted baseline. Reading the classifier's output and the adoption specs it was built from, it extends `content_direction` beyond what was adopted: "This site has mortgage calculators. It should also have comparison tools, educational content about interest rates, and a blog covering market changes."
+
+ The improvement loop then has room to push toward the aspiration. The adopted state is the starting line, not the finish. See doc 028's "Fidelity" section for how the fidelity dial controls how aggressively aspirational extensions are built at launch versus deferred to the improvement loop.
