@@ -83,59 +83,60 @@ func init() {
 }
 
 // directiveSpec is one row in the LLM-output-to-directive mapping table.
-// Each spec declares: where to find the value in CollectedData (path),
-// what (category, subject) the directive belongs to, and whether it
-// produces a single row or multiple rows (one per item in a list).
+// Each spec declares: which sibling field under the located directive
+// tree carries the value, what (category, subject) the directive
+// belongs to, and whether it produces a single row or multiple rows
+// (one per item in a list).
 //
 // The table is the contract. Adding a new directive subject means
 // adding one row here, not changing flatten logic.
 type directiveSpec struct {
-	llmField string // dot-path under the planner's JSON output, e.g. "design_intent.colour_mood"
+	llmField string // sibling key under the directive tree (e.g. "colour_mood")
 	scope    string // "site" — page/section directives come from per-page LLM fields, handled separately
 	category string // "design" | "content"
 	subject  string // canonical subject name on the directive row
 	multi    bool   // false: scalar string. true: list of strings; one row per item.
 }
 
-// siteScopeDirectiveSpecs declares how the planner's site-level
-// design and content JSON flattens to directive rows. Unrecognised
-// fields are dropped silently — the LLM may emit extra keys that we
-// don't currently model.
+// directiveTreeSource describes where to find a directive tree in the
+// LLM output. The tree is a map of sibling fields (e.g.
+// {colour_mood: "...", typography_mood: "...", avoid: [...]}).
 //
-// Two source-key shapes are checked for each spec because the planner
-// prompt is being migrated from "design_intent / content_direction"
-// (the old strategic-naming) toward "design_direction / content_strategy"
-// (the new plan-time naming). The action accepts either source.
-var siteScopeDirectiveSpecs = []directiveSpec{
-	// Design (was design_intent → becoming design_direction)
-	{llmField: "design_direction.style_direction", scope: "site", category: "design", subject: "style_direction", multi: false},
-	{llmField: "design_direction.colour_mood", scope: "site", category: "design", subject: "colour_mood", multi: false},
-	{llmField: "design_direction.typography_mood", scope: "site", category: "design", subject: "typography_mood", multi: false},
-	{llmField: "design_direction.imagery_direction", scope: "site", category: "design", subject: "imagery_direction", multi: false},
-	{llmField: "design_direction.layout_preference", scope: "site", category: "design", subject: "layout_preference", multi: false},
-	{llmField: "design_direction.avoid", scope: "site", category: "design", subject: "avoid", multi: true},
+// The action looks for trees by these names — both legacy (design_intent,
+// content_direction) and new (design_direction, content_strategy) —
+// and uses the first one found per category. That makes the action
+// tolerant to the planner prompt being migrated incrementally.
+type directiveTreeSource struct {
+	treeKey  string
+	category string // "design" | "content"
+}
 
-	// Legacy keys (design_intent) — same flattening, accepted while prompt migrates
-	{llmField: "design_intent.style_direction", scope: "site", category: "design", subject: "style_direction", multi: false},
-	{llmField: "design_intent.colour_mood", scope: "site", category: "design", subject: "colour_mood", multi: false},
-	{llmField: "design_intent.typography_mood", scope: "site", category: "design", subject: "typography_mood", multi: false},
-	{llmField: "design_intent.imagery_direction", scope: "site", category: "design", subject: "imagery_direction", multi: false},
-	{llmField: "design_intent.layout_preference", scope: "site", category: "design", subject: "layout_preference", multi: false},
-	{llmField: "design_intent.avoid", scope: "site", category: "design", subject: "avoid", multi: true},
+var directiveTreeSources = []directiveTreeSource{
+	{treeKey: "design_direction", category: "design"},
+	{treeKey: "design_intent", category: "design"},
+	{treeKey: "content_strategy", category: "content"},
+	{treeKey: "content_direction", category: "content"},
+}
 
-	// Content (was content_direction → becoming content_strategy)
-	{llmField: "content_strategy.voice", scope: "site", category: "content", subject: "voice", multi: false},
-	{llmField: "content_strategy.emphasis", scope: "site", category: "content", subject: "emphasis", multi: false},
-	{llmField: "content_strategy.avoid_phrases", scope: "site", category: "content", subject: "avoid_phrases", multi: true},
-	{llmField: "content_strategy.social_proof_style", scope: "site", category: "content", subject: "social_proof_style", multi: false},
-	{llmField: "content_strategy.blog_strategy", scope: "site", category: "content", subject: "blog_strategy", multi: false},
+// siteScopeDesignDirectiveSpecs declares fields under a design-category
+// directive tree.
+var siteScopeDesignDirectiveSpecs = []directiveSpec{
+	{llmField: "style_direction", scope: "site", category: "design", subject: "style_direction", multi: false},
+	{llmField: "colour_mood", scope: "site", category: "design", subject: "colour_mood", multi: false},
+	{llmField: "typography_mood", scope: "site", category: "design", subject: "typography_mood", multi: false},
+	{llmField: "imagery_direction", scope: "site", category: "design", subject: "imagery_direction", multi: false},
+	{llmField: "layout_preference", scope: "site", category: "design", subject: "layout_preference", multi: false},
+	{llmField: "avoid", scope: "site", category: "design", subject: "avoid", multi: true},
+}
 
-	// Legacy keys (content_direction)
-	{llmField: "content_direction.voice", scope: "site", category: "content", subject: "voice", multi: false},
-	{llmField: "content_direction.emphasis", scope: "site", category: "content", subject: "emphasis", multi: false},
-	{llmField: "content_direction.avoid_phrases", scope: "site", category: "content", subject: "avoid_phrases", multi: true},
-	{llmField: "content_direction.social_proof_style", scope: "site", category: "content", subject: "social_proof_style", multi: false},
-	{llmField: "content_direction.blog_strategy", scope: "site", category: "content", subject: "blog_strategy", multi: false},
+// siteScopeContentDirectiveSpecs declares fields under a content-category
+// directive tree.
+var siteScopeContentDirectiveSpecs = []directiveSpec{
+	{llmField: "voice", scope: "site", category: "content", subject: "voice", multi: false},
+	{llmField: "emphasis", scope: "site", category: "content", subject: "emphasis", multi: false},
+	{llmField: "avoid_phrases", scope: "site", category: "content", subject: "avoid_phrases", multi: true},
+	{llmField: "social_proof_style", scope: "site", category: "content", subject: "social_proof_style", multi: false},
+	{llmField: "blog_strategy", scope: "site", category: "content", subject: "blog_strategy", multi: false},
 }
 
 // directiveRow is the in-memory shape we accumulate before writing.
@@ -393,36 +394,79 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	}, nil
 }
 
-// flattenSiteScopeDirectives walks the siteScopeDirectiveSpecs table and
-// produces directive rows from CollectedData. Missing source paths are
-// silently skipped (the LLM may emit only one of design_intent /
-// design_direction; both are accepted and dedup-by-subject avoids
-// double-writing).
+// flattenSiteScopeDirectives produces directive rows from CollectedData.
+// It first locates a design-category tree and a content-category tree
+// from the planner's output (tolerating either legacy or new key names
+// and wrapper shapes), then walks the per-category spec table to flatten
+// each tree's leaf fields into directive rows.
+//
+// Trees are located via findDirectiveTree, which mirrors the
+// "try multiple wrappers" pattern used by extractPagesFromPlan.
+// Once a tree is found for a category, the alternate-name tree for the
+// same category is ignored — we don't double-write.
 func flattenSiteScopeDirectives(data map[string]interface{}, logger *zap.Logger) []directiveRow {
 	out := make([]directiveRow, 0, 16)
-	seen := make(map[string]bool) // category|subject — dedup across legacy/new key pairs
 
-	for _, spec := range siteScopeDirectiveSpecs {
-		key := spec.category + "|" + spec.subject
-		if seen[key] {
-			continue
-		}
-
-		raw := datahelpers.ExtractNestedField(data, spec.llmField)
-		if raw == nil {
-			continue
-		}
-
-		if spec.multi {
-			items, ok := raw.([]interface{})
-			if !ok {
-				logger.Info("WriteSitePlanAction: expected list for directive subject, got non-list",
-					zap.String("subject", spec.subject),
-					zap.String("path", spec.llmField))
+	for _, category := range []string{"design", "content"} {
+		var tree map[string]interface{}
+		var foundKey string
+		for _, src := range directiveTreeSources {
+			if src.category != category {
 				continue
 			}
-			for i, item := range items {
-				text, ok := item.(string)
+			if t := findDirectiveTree(data, src.treeKey); t != nil {
+				tree = t
+				foundKey = src.treeKey
+				break
+			}
+		}
+		if tree == nil {
+			logger.Info("WriteSitePlanAction: no directive tree found for category, skipping",
+				zap.String("category", category))
+			continue
+		}
+		logger.Info("WriteSitePlanAction: located directive tree",
+			zap.String("category", category),
+			zap.String("source_key", foundKey))
+
+		var specs []directiveSpec
+		switch category {
+		case "design":
+			specs = siteScopeDesignDirectiveSpecs
+		case "content":
+			specs = siteScopeContentDirectiveSpecs
+		}
+
+		for _, spec := range specs {
+			raw, ok := tree[spec.llmField]
+			if !ok || raw == nil {
+				continue
+			}
+
+			if spec.multi {
+				items, ok := raw.([]interface{})
+				if !ok {
+					logger.Info("WriteSitePlanAction: expected list for directive subject, got non-list",
+						zap.String("subject", spec.subject))
+					continue
+				}
+				for i, item := range items {
+					text, ok := item.(string)
+					if !ok || text == "" {
+						continue
+					}
+					out = append(out, directiveRow{
+						Scope:     spec.scope,
+						ScopeRef:  nil,
+						Category:  spec.category,
+						Subject:   spec.subject,
+						Directive: text,
+						Ordering:  i,
+						Source:    "llm",
+					})
+				}
+			} else {
+				text, ok := raw.(string)
 				if !ok || text == "" {
 					continue
 				}
@@ -432,29 +476,54 @@ func flattenSiteScopeDirectives(data map[string]interface{}, logger *zap.Logger)
 					Category:  spec.category,
 					Subject:   spec.subject,
 					Directive: text,
-					Ordering:  i,
+					Ordering:  0,
 					Source:    "llm",
 				})
 			}
-			seen[key] = true
-		} else {
-			text, ok := raw.(string)
-			if !ok || text == "" {
-				continue
-			}
-			out = append(out, directiveRow{
-				Scope:     spec.scope,
-				ScopeRef:  nil,
-				Category:  spec.category,
-				Subject:   spec.subject,
-				Directive: text,
-				Ordering:  0,
-				Source:    "llm",
-			})
-			seen[key] = true
 		}
 	}
 	return out
+}
+
+// findDirectiveTree locates a named subtree in CollectedData, tolerating
+// the wrapper shapes the planner pipeline produces. Mirrors the
+// strategy used by extractPagesFromPlan for the pages list.
+//
+// Search order:
+//  1. data[key]                                         (top level)
+//  2. data["site_plan"][key], data["site_plan"]["plan_data"][key],
+//     data["site_plan"]["response"][key]               (after validate)
+//  3. data["llm_plan"][key], data["llm_plan"]["result"][key],
+//     data["llm_plan"]["response"][key]                (raw LLM output)
+//  4. data["page_plan"][key], data["page_plan"]["plan_data"][key],
+//     data["page_plan"]["response"][key]               (legacy)
+//
+// Returns nil if no map-shaped value is found at any of these locations.
+func findDirectiveTree(data map[string]interface{}, key string) map[string]interface{} {
+	// Top-level
+	if v, ok := data[key].(map[string]interface{}); ok {
+		return v
+	}
+	// Common wrapper keys
+	for _, wrapper := range []string{"site_plan", "llm_plan", "page_plan"} {
+		w, ok := data[wrapper].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		// Direct under wrapper
+		if v, ok := w[key].(map[string]interface{}); ok {
+			return v
+		}
+		// Under wrapper.result / wrapper.response / wrapper.plan_data
+		for _, inner := range []string{"result", "response", "plan_data"} {
+			if i, ok := w[inner].(map[string]interface{}); ok {
+				if v, ok := i[key].(map[string]interface{}); ok {
+					return v
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // transferDirectiveLocks copies locked_at / locked_by from previous-plan

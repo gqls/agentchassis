@@ -875,6 +875,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Write the validated plan to site_plans + site_plan_pages + site_plan_partials in one tx (doc 030)",
 		IsLocal:     true,
 	},
+	"reconcile_site_plan": {
+		Handler:     ReconcileSitePlanAction,
+		Category:    "site",
+		Description: "Diff site_plan_pages vs realised pages; emit needs_page work items for the delta; emit terminal needs_rerender if any (doc 030)",
+		IsLocal:     true,
+	},
 	"generate_html": {
 		Handler:     GenerateHTMLAction,
 		Category:    "site",

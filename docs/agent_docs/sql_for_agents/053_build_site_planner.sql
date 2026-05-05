@@ -1,3 +1,13 @@
+currently:
+
+         read_specs → ensure_site → load_components → load_styles → plan_site (LLM)
+→ validate_plan → write_plan_spec → write_design_intent → write_content_direction
+→ store_in_content_data → sync_pages → populate_nav → write_build_items → complete
+--- changed to:
+read_specs → ensure_site → load_components → load_styles → plan_site
+→ validate_plan → write_site_plan → sync_pages → populate_nav → reconcile_site_plan → complete
+
+--------------------------------------------------------------------------------------
 -- build-site-planner agent definition
 -- Handler for: needs_site_plan work items
 -- Pipeline position: after build-briefing-agent, before page content writing
@@ -762,3 +772,242 @@ SET default_config = jsonb_set(
     updated_at = NOW()
 WHERE type = 'build-site-planner' AND is_active = true;
 
+---------------
+
+-- ============================================================================
+-- Migration 032: Phase 1 build-site-planner workflow change (doc 030 step 4)
+-- ============================================================================
+-- Replaces the build-site-planner default_config with the Phase 1 form.
+--
+-- Old terminal stretch:
+--   validate_plan → write_plan_spec → write_design_intent →
+--   write_content_direction → store_in_content_data → sync_pages →
+--   populate_nav → write_build_items → complete
+--
+-- New terminal stretch:
+--   validate_plan → write_site_plan → sync_pages → populate_nav →
+--   reconcile_site_plan → complete
+--
+-- What changes:
+--   - Replaces 4 site_specs writes with one write_site_plan call.
+--     Plan and plan-time directives now live in the
+--     site_plans / site_plan_pages / site_plan_sections /
+--     site_plan_directives schema (migration 031).
+--   - Replaces write_build_items (planner emits page work items
+--     directly) with reconcile_site_plan (separate action that diffs
+--     intended vs realised and emits work items for the delta).
+--
+-- What stays:
+--   - read_specs, ensure_site, load_components, load_styles unchanged.
+--   - plan_site (the LLM call) — prompt and output schema unchanged.
+--     ValidateSitePlanAction strips site-chrome components and adds
+--     ensure_pages defaults; output keys design_intent and
+--     content_direction continue under the validated `site_plan` map.
+--   - validate_plan unchanged except next_step now points to
+--     write_site_plan.
+--   - sync_pages_to_db (transitional): keeps the pages table populated
+--     so page-build-handler can find rows. The reconciler reads pages
+--     to do its diff.
+--   - populate_nav_tables (transitional): nav tables still feed
+--     page-build-handler.
+--
+-- The older site-planner agent (UUID f7c8bee1-...) used by
+-- pageflow-builder and site-work-orchestrator is NOT touched by this
+-- migration.
+--
+-- Backup mechanism: per-agent dated snapshot table, matching the
+-- established convention (agent_def_page_build_handler_backup_20260331,
+-- agent_def_webdesign_backup_20260416, etc).
+--
+-- To roll back:
+--   UPDATE agent_definitions
+--   SET default_config = (SELECT default_config FROM agent_def_build_site_planner_backup_20260505 WHERE id = 'f263eaa1-...'),
+--       updated_at = NOW()
+--   WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+-- ============================================================================
+
+BEGIN;
+
+-- 1. Snapshot the row to a per-agent dated backup table (codebase convention).
+--    CREATE TABLE … AS SELECT preserves the row's exact state; the table is
+--    kept indefinitely as audit/rollback material.
+CREATE TABLE IF NOT EXISTS agent_def_build_site_planner_backup_20260505 AS
+SELECT * FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+  AND type = 'build-site-planner';
+
+-- Fail loudly if the snapshot is empty (no matching row) — better than
+-- silently UPDATE'ing zero rows.
+DO $$
+DECLARE
+snap_count INT;
+BEGIN
+SELECT COUNT(*) INTO snap_count FROM agent_def_build_site_planner_backup_20260505;
+IF snap_count = 0 THEN
+        RAISE EXCEPTION 'Snapshot table empty — no row found for build-site-planner UUID f263eaa1-61e1-446e-9410-648e12b7875b. Aborting.';
+END IF;
+END$$;
+
+-- 2. Apply the new default_config (the column is named default_config,
+--    NOT workflow_definition — verified against pg_catalog).
+UPDATE agent_definitions
+SET default_config = '{"workflow":{"steps":{"read_specs":{"action":"read_site_spec","config":{"site_id":"input_data.site_id"},"next_step":"ensure_site","description":"Load identity, classification, and briefing from site_specs","output_field":"site_specs"},"ensure_site":{"action":"ensure_site_record","config":{},"next_step":"load_components","description":"Ensure site record exists (needed for content_data storage and page sync)","output_field":"site_record"},"load_components":{"action":"query_database","config":{"query":"SELECT name, display_name, \"function\", category, description FROM content_components WHERE component_level IN (''section'', ''element'') AND is_active = true ORDER BY category, name","output_format":"array"},"next_step":"load_styles","description":"Load available section components from database","output_field":"available_components"},"load_styles":{"action":"query_database","config":{"query":"SELECT name, display_name, category, description FROM style_collections WHERE is_active = true ORDER BY name","output_format":"array"},"next_step":"plan_site","description":"Load available style collections","output_field":"available_styles"},"plan_site":{"action":"execute_llm_prompt","config":{"ai_service":{"model":"claude-opus-4-6","provider":"anthropic","max_tokens":4000,"api_key_env_var":"ANTHROPIC_API_KEY"},"input_fields":["input_data","site_specs","available_components","available_styles"],"output_format":"json","prompt_template":"Plan a website for {{.input_data.domain}}.\n\n## Research Data\nIdentity: {{.site_specs.specs.identity}}\nClassification: {{.site_specs.specs.classification}}\n\n## Domain Strategy\n{{if .site_specs.specs.strategy}}{{.site_specs.specs.strategy}}{{else}}No strategy data available \u2014 use the briefing and classification to determine site structure.{{end}}\n\n## Briefing Answers\n{{.site_specs.specs.briefing}}\n\n{{if .site_specs.specs.mission_brief}}## Mission\n{{.site_specs.specs.mission_brief.text}}\n{{end}}\n{{if .site_specs.specs.roadmap_brief}}## Roadmap\nIMPORTANT \u2014 ROADMAP OVERRIDES THE COMPONENT LIST. Build ONLY the pages listed in the current phase below. For each page, use EXACTLY the section_types listed \u2014 even if they do not appear in the Available Section Components list above. Unknown section types are handled by the component selector downstream. Do NOT replace roadmap section_types with standard components. Do NOT invent additional pages. The roadmap is the authority for this site.\n\n{{.site_specs.specs.roadmap_brief.text}}\n{{end}}\n## Available Section Components\nYou MUST use ONLY these exact component names in the \"sections\" arrays (unless the roadmap specifies section_types \u2014 those override):\n\n{{range .available_components}}\n- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}\n{{end}}\n\n## Available Style Collections\n{{.available_styles}}\n\n## Canonical Page Types\n\nEvery page MUST have a page_type from this list:\n\n| page_type | Description | Use for |\n|-----------|-------------|----------|\n| index | Home page | Always exactly one |\n| content | Standard content page | About, services, contact, FAQ, etc |\n| landing | Conversion-focused page | Lead capture, specific offers |\n| entity-directory | Searchable directory of entities | Business listings, provider directories |\n| entity-page | Individual entity profile | Single business/provider detail page |\n| tool | Interactive tool or calculator | Cost calculators, comparison tools |\n| blog-index | Blog/news listing page | Article index, news feed |\n| blog-post | Individual blog article | Editorial content, guides |\n\nNot all page types have builders available yet. Plan the IDEAL site regardless \u2014 the build system handles which pages can be built now vs later.\n\n## Strategy Guidance\n\nIf a domain strategy is available above, use it as strong input:\n- The recommended site_type should guide the overall structure\n- The recommended page_types should inform which pages you plan\n- The revenue model should shape what conversion/lead-capture mechanisms you include\n- The tone should influence your style_collection choice\n\nYou have FINAL SAY on architecture. If you disagree with the strategy, go with your judgment but note why in strategy_notes.\n\nReturn JSON:\n{\n  \"site_type\": \"from the strategy, roadmap, or your own assessment\",\n  \"strategy_notes\": \"any notes on how you used or diverged from the strategy/roadmap\",\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Page Title | Site Name\",\n      \"page_type\": \"index\",\n      \"nav_label\": \"Home\",\n      \"nav_order\": 1,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero\", \"features\", \"testimonials\", \"call-to-action\"]\n    }\n  ],\n  \"style_collection\": \"style-name\",\n  \"needs_logo\": true,\n  \"needs_images\": true,\n  \"image_prompts\": {\n    \"logo\": \"Description for logo generation\",\n    \"hero_home\": \"Description for home hero image\"\n  },\n  \"design_intent\": {\n    \"style_direction\": \"professional-dark or modern-light or bold-creative\",\n    \"colour_mood\": \"Description of colour feeling and why it fits the industry\",\n    \"typography_mood\": \"Description of font personality\",\n    \"imagery_direction\": \"What images should show\",\n    \"layout_preference\": \"Layout style description\",\n    \"avoid\": [\"Things to avoid in design\"]\n  },\n  \"content_direction\": {\n    \"voice\": \"How the site should sound\",\n    \"emphasis\": \"What to emphasise in content\",\n    \"avoid_phrases\": [\"Phrases to never use\"],\n    \"social_proof_style\": \"How to handle testimonials and proof\",\n    \"blog_strategy\": \"Content strategy for blog if applicable\"\n  }\n}\n\nRULES:\n1. Use component names from the Available Section Components list for sections arrays \u2014 UNLESS the roadmap specifies section_types, in which case use those\n2. Every page MUST have a page_type from the canonical list\n3. Pages with page_type entity-directory, entity-page, tool, blog-index, blog-post may have empty sections arrays\n4. Content and index pages need sections arrays populated\n5. Always include: index (home) and contact pages (unless the roadmap says otherwise)\n6. Keep header navigation to 5-8 items maximum\n7. Set needs_logo: true and needs_images: true (always)\n8. Provide detailed image_prompts for logo and hero_home\n9. Include design_intent with explicit colour mood, typography direction, and layout preferences\n10. Include content_direction with voice, emphasis, and avoid_phrases tailored to the target audience\n11. If the classification data includes content_features.news_feed.recommended = true, add \"latest-news\" to the homepage sections\n12. When a roadmap is present, the pages and section_types from the current phase take precedence over your own page planning\n\nReturn ONLY valid JSON."},"next_step":"validate_plan","description":"LLM creates site plan from research and briefing data","output_field":"llm_plan"},"validate_plan":{"action":"validate_site_plan","config":{"max_pages":20,"plan_field":"llm_plan.result","ensure_pages":["index","contact"],"default_style":"professional-dark","validate_components":true},"next_step":"write_site_plan","description":"Validate and normalize the site plan","output_field":"site_plan"},"write_site_plan":{"action":"write_site_plan","config":{"target_site_id":"site_record.site_id"},"next_step":"sync_pages","description":"Write validated plan to site_plans + site_plan_pages + site_plan_sections + site_plan_directives; transfer HITL locks from previous current plan","output_field":"plan_written"},"sync_pages":{"action":"sync_pages_to_db","config":{"input_fields":["site_record","site_plan"]},"next_step":"populate_nav","description":"Create page records from site plan","output_field":"db_sync"},"populate_nav":{"action":"populate_nav_tables","config":{"input_fields":["site_id"],"max_header_items":8},"next_step":"reconcile_site_plan","description":"Populate navigation tables from page records","output_field":"nav_data"},"reconcile_site_plan":{"action":"reconcile_site_plan","config":{"target_site_id":"site_record.site_id","plan_id":"plan_written.plan_id"},"next_step":"complete","description":"Diff site_plan_pages vs realised pages; emit needs_page work items for the delta; emit terminal needs_rerender if any","output_field":"reconcile_result"},"complete":{"action":"complete_workflow","config":{"output_fields":["site_plan","plan_written","db_sync","reconcile_result"]},"description":"Site planning complete \u2014 plan written, pages synced, reconciler emitted work items"}},"start_step":"read_specs"},"processing_mode":"orchestrator","timeout_seconds":300}'::jsonb,
+    updated_at     = NOW()
+WHERE id   = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+  AND type = 'build-site-planner';
+
+-- 3. Verification — should show exactly one row with the new step list.
+SELECT id, type,
+       default_config->'workflow'->>'start_step' AS start_step,
+    (SELECT count(*) FROM jsonb_object_keys(default_config->'workflow'->'steps')) AS step_count
+FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+
+COMMIT;
+
+-- After commit, this query lists the new step names for visual confirmation:
+-- SELECT jsonb_object_keys(default_config->'workflow'->'steps') AS step
+-- FROM agent_definitions
+-- WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+-- ORDER BY step;
+
+
+-- new workflow for reference:
+{
+  "workflow": {
+    "steps": {
+      "read_specs": {
+        "action": "read_site_spec",
+        "config": {
+          "site_id": "input_data.site_id"
+        },
+        "next_step": "ensure_site",
+        "description": "Load identity, classification, and briefing from site_specs",
+        "output_field": "site_specs"
+      },
+      "ensure_site": {
+        "action": "ensure_site_record",
+        "config": {},
+        "next_step": "load_components",
+        "description": "Ensure site record exists (needed for content_data storage and page sync)",
+        "output_field": "site_record"
+      },
+      "load_components": {
+        "action": "query_database",
+        "config": {
+          "query": "SELECT name, display_name, \"function\", category, description FROM content_components WHERE component_level IN ('section', 'element') AND is_active = true ORDER BY category, name",
+          "output_format": "array"
+        },
+        "next_step": "load_styles",
+        "description": "Load available section components from database",
+        "output_field": "available_components"
+      },
+      "load_styles": {
+        "action": "query_database",
+        "config": {
+          "query": "SELECT name, display_name, category, description FROM style_collections WHERE is_active = true ORDER BY name",
+          "output_format": "array"
+        },
+        "next_step": "plan_site",
+        "description": "Load available style collections",
+        "output_field": "available_styles"
+      },
+      "plan_site": {
+        "action": "execute_llm_prompt",
+        "config": {
+          "ai_service": {
+            "model": "claude-opus-4-6",
+            "provider": "anthropic",
+            "max_tokens": 4000,
+            "api_key_env_var": "ANTHROPIC_API_KEY"
+          },
+          "input_fields": [
+            "input_data",
+            "site_specs",
+            "available_components",
+            "available_styles"
+          ],
+          "output_format": "json",
+          "prompt_template": "Plan a website for {{.input_data.domain}}.\n\n## Research Data\nIdentity: {{.site_specs.specs.identity}}\nClassification: {{.site_specs.specs.classification}}\n\n## Domain Strategy\n{{if .site_specs.specs.strategy}}{{.site_specs.specs.strategy}}{{else}}No strategy data available \u2014 use the briefing and classification to determine site structure.{{end}}\n\n## Briefing Answers\n{{.site_specs.specs.briefing}}\n\n{{if .site_specs.specs.mission_brief}}## Mission\n{{.site_specs.specs.mission_brief.text}}\n{{end}}\n{{if .site_specs.specs.roadmap_brief}}## Roadmap\nIMPORTANT \u2014 ROADMAP OVERRIDES THE COMPONENT LIST. Build ONLY the pages listed in the current phase below. For each page, use EXACTLY the section_types listed \u2014 even if they do not appear in the Available Section Components list above. Unknown section types are handled by the component selector downstream. Do NOT replace roadmap section_types with standard components. Do NOT invent additional pages. The roadmap is the authority for this site.\n\n{{.site_specs.specs.roadmap_brief.text}}\n{{end}}\n## Available Section Components\nYou MUST use ONLY these exact component names in the \"sections\" arrays (unless the roadmap specifies section_types \u2014 those override):\n\n{{range .available_components}}\n- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}\n{{end}}\n\n## Available Style Collections\n{{.available_styles}}\n\n## Canonical Page Types\n\nEvery page MUST have a page_type from this list:\n\n| page_type | Description | Use for |\n|-----------|-------------|----------|\n| index | Home page | Always exactly one |\n| content | Standard content page | About, services, contact, FAQ, etc |\n| landing | Conversion-focused page | Lead capture, specific offers |\n| entity-directory | Searchable directory of entities | Business listings, provider directories |\n| entity-page | Individual entity profile | Single business/provider detail page |\n| tool | Interactive tool or calculator | Cost calculators, comparison tools |\n| blog-index | Blog/news listing page | Article index, news feed |\n| blog-post | Individual blog article | Editorial content, guides |\n\nNot all page types have builders available yet. Plan the IDEAL site regardless \u2014 the build system handles which pages can be built now vs later.\n\n## Strategy Guidance\n\nIf a domain strategy is available above, use it as strong input:\n- The recommended site_type should guide the overall structure\n- The recommended page_types should inform which pages you plan\n- The revenue model should shape what conversion/lead-capture mechanisms you include\n- The tone should influence your style_collection choice\n\nYou have FINAL SAY on architecture. If you disagree with the strategy, go with your judgment but note why in strategy_notes.\n\nReturn JSON:\n{\n  \"site_type\": \"from the strategy, roadmap, or your own assessment\",\n  \"strategy_notes\": \"any notes on how you used or diverged from the strategy/roadmap\",\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Page Title | Site Name\",\n      \"page_type\": \"index\",\n      \"nav_label\": \"Home\",\n      \"nav_order\": 1,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero\", \"features\", \"testimonials\", \"call-to-action\"]\n    }\n  ],\n  \"style_collection\": \"style-name\",\n  \"needs_logo\": true,\n  \"needs_images\": true,\n  \"image_prompts\": {\n    \"logo\": \"Description for logo generation\",\n    \"hero_home\": \"Description for home hero image\"\n  },\n  \"design_intent\": {\n    \"style_direction\": \"professional-dark or modern-light or bold-creative\",\n    \"colour_mood\": \"Description of colour feeling and why it fits the industry\",\n    \"typography_mood\": \"Description of font personality\",\n    \"imagery_direction\": \"What images should show\",\n    \"layout_preference\": \"Layout style description\",\n    \"avoid\": [\"Things to avoid in design\"]\n  },\n  \"content_direction\": {\n    \"voice\": \"How the site should sound\",\n    \"emphasis\": \"What to emphasise in content\",\n    \"avoid_phrases\": [\"Phrases to never use\"],\n    \"social_proof_style\": \"How to handle testimonials and proof\",\n    \"blog_strategy\": \"Content strategy for blog if applicable\"\n  }\n}\n\nRULES:\n1. Use component names from the Available Section Components list for sections arrays \u2014 UNLESS the roadmap specifies section_types, in which case use those\n2. Every page MUST have a page_type from the canonical list\n3. Pages with page_type entity-directory, entity-page, tool, blog-index, blog-post may have empty sections arrays\n4. Content and index pages need sections arrays populated\n5. Always include: index (home) and contact pages (unless the roadmap says otherwise)\n6. Keep header navigation to 5-8 items maximum\n7. Set needs_logo: true and needs_images: true (always)\n8. Provide detailed image_prompts for logo and hero_home\n9. Include design_intent with explicit colour mood, typography direction, and layout preferences\n10. Include content_direction with voice, emphasis, and avoid_phrases tailored to the target audience\n11. If the classification data includes content_features.news_feed.recommended = true, add \"latest-news\" to the homepage sections\n12. When a roadmap is present, the pages and section_types from the current phase take precedence over your own page planning\n\nReturn ONLY valid JSON."
+        },
+        "next_step": "validate_plan",
+        "description": "LLM creates site plan from research and briefing data",
+        "output_field": "llm_plan"
+      },
+      "validate_plan": {
+        "action": "validate_site_plan",
+        "config": {
+          "max_pages": 20,
+          "plan_field": "llm_plan.result",
+          "ensure_pages": [
+            "index",
+            "contact"
+          ],
+          "default_style": "professional-dark",
+          "validate_components": true
+        },
+        "next_step": "write_site_plan",
+        "description": "Validate and normalize the site plan",
+        "output_field": "site_plan"
+      },
+      "write_site_plan": {
+        "action": "write_site_plan",
+        "config": {
+          "target_site_id": "site_record.site_id"
+        },
+        "next_step": "sync_pages",
+        "description": "Write validated plan to site_plans + site_plan_pages + site_plan_sections + site_plan_directives; transfer HITL locks from previous current plan",
+        "output_field": "plan_written"
+      },
+      "sync_pages": {
+        "action": "sync_pages_to_db",
+        "config": {
+          "input_fields": [
+            "site_record",
+            "site_plan"
+          ]
+        },
+        "next_step": "populate_nav",
+        "description": "Create page records from site plan",
+        "output_field": "db_sync"
+      },
+      "populate_nav": {
+        "action": "populate_nav_tables",
+        "config": {
+          "input_fields": [
+            "site_id"
+          ],
+          "max_header_items": 8
+        },
+        "next_step": "reconcile_site_plan",
+        "description": "Populate navigation tables from page records",
+        "output_field": "nav_data"
+      },
+      "reconcile_site_plan": {
+        "action": "reconcile_site_plan",
+        "config": {
+          "target_site_id": "site_record.site_id",
+          "plan_id": "plan_written.plan_id"
+        },
+        "next_step": "complete",
+        "description": "Diff site_plan_pages vs realised pages; emit needs_page work items for the delta; emit terminal needs_rerender if any",
+        "output_field": "reconcile_result"
+      },
+      "complete": {
+        "action": "complete_workflow",
+        "config": {
+          "output_fields": [
+            "site_plan",
+            "plan_written",
+            "db_sync",
+            "reconcile_result"
+          ]
+        },
+        "description": "Site planning complete \u2014 plan written, pages synced, reconciler emitted work items"
+      }
+    },
+    "start_step": "read_specs"
+  },
+  "processing_mode": "orchestrator",
+  "timeout_seconds": 300
+}
