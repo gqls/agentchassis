@@ -261,6 +261,32 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		blockingIssues = append(blockingIssues, "template variables and schema fields do not match")
 	}
 
+	// Substantive template with no placeholders at all. Catches the case
+	// the prior conditions miss: both template AND schema are populated
+	// with HTML/CSS but no {{placeholder "..."}} tokens exist. Such a
+	// template can render only static markup — no LLM content can be
+	// injected, no static fallbacks can be substituted. The threshold
+	// (500 chars) excludes legitimately tiny utility components like
+	// dividers or spacers.
+	const substantiveTemplateThreshold = 500
+	if preStoreScore.TemplateVariableCount == 0 && len(htmlTemplate) > substantiveTemplateThreshold {
+		blockingIssues = append(blockingIssues, fmt.Sprintf(
+			"template is %d chars but has 0 {{placeholder \"...\"}} tokens — no content path exists",
+			len(htmlTemplate)))
+	}
+
+	// Literal "<no value>" strings in the template are Go text/template
+	// render artifacts: the template was rendered against an empty data
+	// context (or with default missing-key handling), the unresolved
+	// variables produced "<no value>", and that output was stored back
+	// as the template. Such a template is permanently broken — the
+	// placeholders are gone and can't be restored without regeneration.
+	if strings.Contains(htmlTemplate, "<no value>") {
+		blockingIssues = append(blockingIssues, fmt.Sprintf(
+			"template contains %d '<no value>' artifacts — Go template render output mistakenly stored as source",
+			strings.Count(htmlTemplate, "<no value>")))
+	}
+
 	if len(blockingIssues) > 0 {
 		logger.Warn("store_generated_component: rejecting low-quality template",
 			zap.String("function", functionName),

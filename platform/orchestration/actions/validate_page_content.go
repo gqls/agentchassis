@@ -34,6 +34,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -79,7 +80,11 @@ var placeholderPatterns = []struct {
 	{"[replace", "template bracket placeholder"},
 	{"[todo", "todo marker"},
 	{"[tbd", "to be determined"},
-	{"placeholder", "explicit placeholder"},
+	// Note: bare "placeholder" was previously in this list but produced
+	// false positives on legitimate HTML attributes (e.g.
+	// <input placeholder="...">) and CSS class names. The bracketed
+	// markers above and the labelled placeholder phrases below remain;
+	// they're unambiguous.
 	{"sample text", "sample text"},
 	{"example text", "example text"},
 	{"john doe", "placeholder name"},
@@ -254,6 +259,16 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 					zap.String("value", issue.Value))
 			}
 		}
+
+		// Persist the structured issue list to agent_error_log so post-mortem
+		// debugging doesn't require pod-log access. The chassis will write its
+		// own generic "step failed" row after this action returns; this insert
+		// adds the concrete blocker/error details that the chassis row lacks.
+		// Failure to write the log is itself only a Warn — we never want
+		// logging-failure to mask the actual validation failure.
+		writeValidationFailureLog(ctx, params, siteIDStr, domain,
+			issues, blockerCount, errorCount, logger)
+
 		return nil, fmt.Errorf("content validation failed: %d blockers, %d errors", blockerCount, errorCount)
 	}
 
@@ -274,6 +289,106 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 		"checked_links":  countInternalLinks(htmlStr),
 		"checked_emails": countEmailAddresses(htmlStr),
 	}, nil
+}
+
+// ============================================================================
+// Structured failure logging — agent_error_log
+// ============================================================================
+//
+// When validation produces blockers, the action returns a generic error
+// message. The chassis catches that and writes a row to agent_error_log,
+// but with no detail beyond "1 blockers, 0 errors". For post-mortem
+// debugging we want the actual blocker descriptions in the database —
+// not just in pod logs that may have rotated by the time we look.
+//
+// writeValidationFailureLog inserts a sibling row before the action
+// returns its error. The row's severity is 'warning' (the chassis row
+// is the canonical 'error') and its error_code is dedicated to this
+// detail-write so queries can join on it. The context JSONB carries the
+// full structured issue list.
+//
+// This is best-effort: if the insert fails, we log the secondary error
+// at Warn and proceed. Never let logging-failure mask the validation
+// failure itself.
+
+const validationDetailErrorCode = "CONTENT_VALIDATION_BLOCKER_DETAIL"
+
+func writeValidationFailureLog(
+	ctx context.Context,
+	params ActionParams,
+	siteIDStr string,
+	domain string,
+	issues []ValidationIssue,
+	blockerCount, errorCount int,
+	logger *zap.Logger,
+) {
+	if params.DB == nil {
+		return
+	}
+
+	// Build the issues payload — only blockers and errors. Warnings are
+	// not why the validation failed, so they don't belong in the failure
+	// detail row. (They're still in the action's return map on success.)
+	failureIssues := make([]map[string]string, 0, blockerCount+errorCount)
+	for _, issue := range issues {
+		if issue.Severity != "blocker" && issue.Severity != "error" {
+			continue
+		}
+		failureIssues = append(failureIssues, map[string]string{
+			"type":        issue.Type,
+			"category":    issue.Category,
+			"severity":    issue.Severity,
+			"location":    issue.Location,
+			"value":       issue.Value,
+			"description": issue.Description,
+		})
+	}
+
+	contextData := map[string]interface{}{
+		"blocker_count": blockerCount,
+		"error_count":   errorCount,
+		"issues":        failureIssues,
+		"page_name":     datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name"),
+	}
+	contextJSON, err := json.Marshal(contextData)
+	if err != nil {
+		logger.Warn("ValidatePageContentAction: failed to marshal failure context", zap.Error(err))
+		return
+	}
+
+	// site_id is uuid; only include if parseable.
+	var siteIDArg interface{}
+	if siteIDStr != "" {
+		if id, err := uuid.Parse(siteIDStr); err == nil {
+			siteIDArg = id
+		}
+	}
+
+	_, err = params.DB.ExecContext(ctx, `
+		INSERT INTO agent_error_log
+		    (site_id, domain, agent_type, step_name, action,
+		     error_message, error_code, severity, context)
+		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, 'warning', $8::jsonb)
+	`,
+		siteIDArg,
+		domain,
+		"page-build-handler", // best-effort; the action runs under this agent
+		"validate_content",
+		"validate_page_content",
+		fmt.Sprintf("Validation produced %d blocker(s) and %d error(s); see context.issues for detail",
+			blockerCount, errorCount),
+		validationDetailErrorCode,
+		string(contextJSON),
+	)
+	if err != nil {
+		logger.Warn("ValidatePageContentAction: failed to write structured failure log",
+			zap.Error(err))
+		return
+	}
+
+	logger.Info("ValidatePageContentAction: wrote structured failure log",
+		zap.Int("blocker_count", blockerCount),
+		zap.Int("error_count", errorCount))
 }
 
 // ============================================================================
