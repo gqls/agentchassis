@@ -97,6 +97,95 @@ func TestCanonicalisePage(t *testing.T) {
 			wantType: "section_index",
 		},
 
+		// ── Section-index family convergence ───────────────────────────
+		// Adoption emits role=blog-index for what the planner emits as
+		// role=section_index. Same logical page; canonicaliser must
+		// produce the same name and URL. page_type is preserved from
+		// the input so downstream dispatch can distinguish flavours.
+		{
+			name:     "blog-index (adoption) and section_index (planner) converge on name+url for slug=guides",
+			in:       PageDescriptor{Role: "blog-index", Slug: "guides"},
+			wantName: "guides-index",
+			wantURL:  "/guides/index.html",
+			wantType: "blog_index", // page_type retains the input role (normalised)
+		},
+		{
+			name:     "blog_index (underscore) accepted equivalent to blog-index",
+			in:       PageDescriptor{Role: "blog_index", Slug: "guides"},
+			wantName: "guides-index",
+			wantURL:  "/guides/index.html",
+			wantType: "blog_index",
+		},
+		{
+			name:     "entity-directory: same shape as section_index, different page_type",
+			in:       PageDescriptor{Role: "entity-directory", Slug: "tools"},
+			wantName: "tools-index",
+			wantURL:  "/tools/index.html",
+			wantType: "entity_directory",
+		},
+		{
+			name:     "entity_directory accepts adoption-shape slug (with -index)",
+			in:       PageDescriptor{Role: "entity_directory", Slug: "tools-index"},
+			wantName: "tools-index",
+			wantURL:  "/tools/index.html",
+			wantType: "entity_directory",
+		},
+		{
+			name:     "section-index family: ParentSection ignored (a section IS itself)",
+			in:       PageDescriptor{Role: "blog-index", Slug: "news", ParentSection: "ignored"},
+			wantName: "news-index",
+			wantURL:  "/news/index.html",
+			wantType: "blog_index",
+		},
+
+		// ── Landing pages (flat, page_type retained) ────────────────────
+		{
+			name:     "landing role: flat URL, page_type preserved",
+			in:       PageDescriptor{Role: "landing", Slug: "free-trial"},
+			wantName: "free-trial",
+			wantURL:  "/free-trial.html",
+			wantType: "landing",
+		},
+		{
+			name:     "landing slug=home aliases to root index",
+			in:       PageDescriptor{Role: "landing", Slug: "home"},
+			wantName: "index",
+			wantURL:  "/index.html",
+			wantType: "index",
+		},
+
+		// ── Entity pages (nested under directory) ───────────────────────
+		{
+			name:     "entity-page with explicit ParentSection",
+			in:       PageDescriptor{Role: "entity-page", Slug: "acme-corp", ParentSection: "clinics"},
+			wantName: "acme-corp",
+			wantURL:  "/clinics/acme-corp.html",
+			wantType: "entity_page",
+		},
+		{
+			name:     "entity_page without ParentSection defaults to /entities/<slug>.html",
+			in:       PageDescriptor{Role: "entity_page", Slug: "acme-corp"},
+			wantName: "acme-corp",
+			wantURL:  "/entities/acme-corp.html",
+			wantType: "entity_page",
+		},
+
+		// ── Dash/underscore role normalisation ──────────────────────────
+		{
+			name:     "blog-post (dash, planner shape) equals blog_post (underscore)",
+			in:       PageDescriptor{Role: "blog-post", Slug: "first-post"},
+			wantName: "first-post",
+			wantURL:  "/blog/first-post.html",
+			wantType: "blog_post",
+		},
+		{
+			name:     "MIXED-CASE role with whitespace normalised",
+			in:       PageDescriptor{Role: "  Blog-Post  ", Slug: "first-post"},
+			wantName: "first-post",
+			wantURL:  "/blog/first-post.html",
+			wantType: "blog_post",
+		},
+
 		// ── Content ────────────────────────────────────────────────────
 		{
 			name:     "content about",

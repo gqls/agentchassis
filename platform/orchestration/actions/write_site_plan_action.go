@@ -224,7 +224,7 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	planRows := make([]planPageRow, 0, len(validated))
 
 	for i, v := range validated {
-		canonicalName, canonicalURL, _ := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+		canonicalName, canonicalURL, canonicalPageType := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
 			Role:          v.Role,
 			Slug:          firstNonEmpty(v.Slug, v.Name),
 			ParentSection: v.ParentSection,
@@ -235,11 +235,22 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 				zap.String("role", v.Role))
 			continue
 		}
+		// Log when input role and canonical page_type differ — useful
+		// for spotting LLM mislabels and the empty-role-defaulted-to-
+		// content path. CanonicalisePage normalises dashes to
+		// underscores and collapses the section-index family, so a
+		// difference here is informative not alarming.
+		if v.Role != canonicalPageType {
+			logger.Info("WriteSitePlanAction: canonicaliser changed role",
+				zap.String("name", canonicalName),
+				zap.String("from", v.Role),
+				zap.String("to", canonicalPageType))
+		}
 
 		raw := rawPages[i]
 		planRows = append(planRows, planPageRow{
 			Name:            canonicalName,
-			Role:            v.Role,
+			Role:            canonicalPageType, // canonicaliser's output is authoritative
 			Slug:            firstNonEmpty(v.Slug, v.Name),
 			URL:             canonicalURL,
 			ParentSection:   v.ParentSection,

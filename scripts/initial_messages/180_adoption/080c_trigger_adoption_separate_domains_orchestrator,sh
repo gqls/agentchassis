@@ -328,3 +328,77 @@ site-adoption-orchestrator
       action,
       error_message,
   ORDER BY created_at DESC;id FROM sites WHERE domain = 'gamesdesign.co.uk');
+
+
+  --------
+
+  -- progress report
+
+  clients_db=# -- 1. What work items are queued/in-progress for this site?
+  SELECT item_type, status, handler_agent, created_at, claimed_at, completed_at, item_key
+  FROM site_work_items
+  WHERE site_id = '345e15cf-2679-415e-8b11-6e36031ef82f'
+  ORDER BY created_at;
+
+  -- 2. Have any orchestrations beyond the adoption pair started?
+  SELECT correlation_id, agent_type, status, current_step, started_at, completed_at, error
+  FROM orchestration_states
+  WHERE input_data::text LIKE '%345e15cf-2679-415e-8b11-6e36031ef82f%'
+     OR input_data::text LIKE '%gamesdesign%'
+  ORDER BY started_at DESC
+  LIMIT 20;
+
+  -- 3. Is there a plan yet at all? (likely not, but confirms either way)
+  SELECT id, source_agent, is_current, created_at
+  FROM site_plans
+  WHERE site_id = '345e15cf-2679-415e-8b11-6e36031ef82f'
+  ORDER BY created_at DESC;
+
+  -- 4. What site_specs has the cascade written so far?
+  SELECT aspect, source_agent, created_at, is_current
+  FROM site_specs
+  WHERE site_id = '345e15cf-2679-415e-8b11-6e36031ef82f'
+  ORDER BY created_at;
+         item_type       |  status  |       handler_agent        |          created_at           |          claimed_at           |         completed_at          |                        item_key
+  -----------------------+----------+----------------------------+-------------------------------+-------------------------------+-------------------------------+--------------------------------------------------------
+   needs_rerender        | triaged  | rerender-pages             | 2026-05-05 14:37:42.268635+00 |                               |                               | adoption_rerender_345e15cf-2679-415e-8b11-6e36031ef82f
+   needs_domain_research | complete | domain-research-classifier | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:38:16.376483+00 | 2026-05-05 14:40:51.373151+00 | needs_domain_research
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:40:55.826066+00 | 2026-05-05 14:43:58.708945+00 | needs_page:index
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:44:19.025167+00 | 2026-05-05 14:47:11.463713+00 | needs_page:tools
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:45:57.141093+00 | 2026-05-05 14:49:00.094367+00 | needs_page:guides
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:49:18.139443+00 | 2026-05-05 15:04:49.54241+00  | needs_page:games
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:06:05.467718+00 | 2026-05-05 15:09:34.211265+00 | needs_page:tool-ttk-calculator
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:09:38.77757+00  | 2026-05-05 15:26:49.496224+00 | needs_page:tool-ehp-calculator
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:28:54.030071+00 | 2026-05-05 15:31:29.072842+00 | needs_page:tool-drop-rate-simulator
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:30:56.260505+00 | 2026-05-05 15:46:19.528078+00 | needs_page:tool-jump-physics
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:31:58.771896+00 | 2026-05-05 15:48:49.528583+00 | needs_page:tool-progression-architect
+   needs_content_page    | triaged  | page-build-handler         | 2026-05-05 14:37:42.268635+00 |                               |                               | needs_page:tool-lanchester-sim
+   needs_content_page    | triaged  | page-build-handler         | 2026-05-05 14:37:42.268635+00 |                               |                               | needs_page:guide-p2p-architecture
+   needs_strategy        | complete | domain-strategist          | 2026-05-05 14:40:45.579609+00 | 2026-05-05 14:44:11.37703+00  | 2026-05-05 14:45:43.834417+00 | strategy_gamesdesign.co.uk
+   needs_briefing        | complete | build-briefing-agent       | 2026-05-05 14:45:37.913787+00 | 2026-05-05 15:05:10.683874+00 | 2026-05-05 15:05:59.75593+00  | briefing_gamesdesign.co.uk
+   needs_site_plan       | claimed  | build-site-planner         | 2026-05-05 15:05:53.046543+00 | 2026-05-05 15:49:10.36654+00  |                               | site_plan_gamesdesign.co.uk
+  (16 rows)
+
+  ERROR:  column "agent_type" does not exist
+  LINE 1: SELECT correlation_id, agent_type, status, current_step, sta...
+                                 ^
+   id | source_agent | is_current | created_at
+  ----+--------------+------------+------------
+  (0 rows)
+
+        aspect       |        source_agent        |          created_at           | is_current
+  -------------------+----------------------------+-------------------------------+------------
+   structure         | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | t
+   content_direction | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | f
+   design_reference  | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | t
+   identity          | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | f
+   site_archetype    | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | t
+   design_intent     | site-adoption-agent        | 2026-05-05 14:38:49.255403+00 | f
+   identity          | domain-research-classifier | 2026-05-05 14:40:38.570141+00 | t
+   classification    | domain-research-classifier | 2026-05-05 14:40:41.083648+00 | t
+   content_direction | domain-research-classifier | 2026-05-05 14:40:44.689484+00 | t
+   design_intent     | domain-research-classifier | 2026-05-05 14:40:45.105972+00 | t
+   strategy          | domain-strategist          | 2026-05-05 14:45:34.630151+00 | t
+   briefing          | build-briefing-agent       | 2026-05-05 15:05:51.550708+00 | t
+  (12 rows)
+

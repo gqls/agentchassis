@@ -1013,3 +1013,149 @@ COMMIT;
   "timeout_seconds": 300
 }
 
+-- ============================================================================
+-- Migration 034: Tighten build-site-planner prompt — strict role vocabulary,
+--                no speculative pages
+-- ============================================================================
+-- Two surgical changes to the plan_site step's prompt_template:
+--
+-- 1. Replace "Every page MUST have a page_type from this list" with
+--    "Use ONLY these page_type values, verbatim, lowercase,
+--    dash-separated". The original wording allowed the LLM to think
+--    "from this list" was a guideline; the new wording forbids
+--    invented values and tells the LLM to default to `content` if no
+--    listed type fits cleanly.
+--
+-- 2. Replace "Plan the IDEAL site regardless..." with explicit
+--    instruction to plan ONLY pages directly justified by inputs and
+--    NOT to add speculative/demo/example pages. The original encouraged
+--    the LLM to pad — gamesdesign's first Phase 1 plan included
+--    `prototype-page` and `post` neither of which had any justification
+--    in the briefing or strategy.
+--
+-- The change is applied via jsonb_set + replace() on the live prompt
+-- text, so it works regardless of whatever the current prompt looks
+-- like (idempotent against the specific old strings — running this
+-- migration a second time is a no-op because the old strings are gone).
+--
+-- Rollback: agent_def_build_site_planner_backup_20260505 was captured
+-- before migration 032 and contains the pre-Phase-1 prompt; for prompt-
+-- only rollback, copy default_config -> 'workflow' -> 'steps' ->
+-- 'plan_site' -> 'config' -> 'prompt_template' from there.
+-- ============================================================================
+
+BEGIN;
+
+-- Capture the current default_config before the prompt change. Per the
+-- per-agent dated backup convention.
+CREATE TABLE IF NOT EXISTS agent_def_build_site_planner_backup_20260505_promptchange AS
+SELECT * FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+  AND type = 'build-site-planner';
+
+DO $$
+DECLARE
+snap_count INT;
+BEGIN
+SELECT COUNT(*) INTO snap_count
+FROM agent_def_build_site_planner_backup_20260505_promptchange;
+IF snap_count = 0 THEN
+        RAISE EXCEPTION 'Snapshot empty — no row found for build-site-planner. Aborting.';
+END IF;
+END$$;
+
+-- Apply the two replacements as a single jsonb_set call. We extract the
+-- current prompt as text, run replace() twice, then set it back. This
+-- is idempotent: running again finds no matching old strings and
+-- replace() returns the unchanged value.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        replace(
+                                default_config #>> '{workflow,steps,plan_site,config,prompt_template}',
+                                'Every page MUST have a page_type from this list:',
+                                'Use ONLY these page_type values, verbatim, lowercase, dash-separated:'
+                        ),
+                        'Not all page types have builders available yet. Plan the IDEAL site regardless — the build system handles which pages can be built now vs later.',
+                        E'Plan ONLY pages that are directly justified by the briefing, strategy, classification, or roadmap. Do NOT add speculative, demo, or example pages. Every page in your output must serve an explicit need surfaced by one of those inputs. If you don''t have evidence for a page, leave it out — fewer well-justified pages are better than padding the count.\n\nIf a page doesn''t fit any category cleanly, use `content` as the default. Do not invent new page_type values.'
+                )
+        )
+                     ),
+    updated_at = NOW()
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+
+-- Verification: show that the new strings are present in the prompt.
+SELECT
+    'has_new_role_constraint' AS check,
+    (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')
+        LIKE '%Use ONLY these page_type values%' AS pass
+FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+UNION ALL
+SELECT
+    'has_no_ideal_site_phrase',
+    (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')
+        NOT LIKE '%Plan the IDEAL site%'
+FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+
+COMMIT;
+
+
+-- remove ensure contact, about pages validation
+
+-- ============================================================================
+-- Migration 035: Remove `contact` from build-site-planner's ensure_pages
+-- ============================================================================
+-- The validate_plan step on build-site-planner has historically forced
+-- `index` and `contact` to be present on every plan via:
+--
+--   "ensure_pages": ["index", "contact"]
+--
+-- This created a `contact` stub for sites that didn't justify one
+-- (e.g. gamesdesign, where the briefing pointed at tools/guides as the
+-- product, with no justification for a contact page). The stub had no
+-- role on it, which then propagated empty role values to
+-- site_plan_pages and pages.
+--
+-- The Phase 1 canonicaliser now defaults empty roles to "content", so
+-- the stub no longer breaks the persist step — but the principle
+-- remains: ensure_pages is a workflow-level forced add that should be
+-- driven by domain need (e.g. the strategist or briefing recommending
+-- a contact page) rather than baked into every site's planner config.
+--
+-- This migration narrows ensure_pages to ["index"] only. The home page
+-- is genuinely required for any web product and is a reasonable
+-- universal default. Other pages (contact, about, terms, privacy)
+-- should arrive when justified by upstream specs.
+--
+-- Rollback: previous full default_config is in
+--   agent_def_build_site_planner_backup_20260505 (from migration 032).
+-- For ensure_pages-only rollback, jsonb_set the array back to
+--   ["index", "contact"].
+-- ============================================================================
+
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS agent_def_build_site_planner_backup_20260505_ensurepages AS
+SELECT * FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,validate_plan,config,ensure_pages}',
+        '["index"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+
+-- Verify the change took.
+SELECT default_config #> '{workflow,steps,validate_plan,config,ensure_pages}' AS ensure_pages
+FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+
+COMMIT;
