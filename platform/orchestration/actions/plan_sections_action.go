@@ -38,6 +38,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -269,7 +270,12 @@ func (r *sourceResolver) resolve(ctx context.Context, source string) (interface{
 		return r.resolveConfigPath(path)
 
 	case "query":
-		// Query sources are resolved at render time, not at planning time
+		// Query sources are resolved by the field-loop in planSection via
+		// the queryresolve package, BEFORE this method is called. This case
+		// is defensive — if a future caller invokes resolveSource directly
+		// on a query.* source (instead of going through the field loop),
+		// returning (nil, true) keeps the system stable rather than treating
+		// it as an unknown source. Real callers should not hit this branch.
 		return nil, true
 
 	default:
@@ -852,11 +858,57 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 			continue
 		}
 
-		// Renderer/static/query fields — resolved at render time, not now
+		// Query.* fields — resolve via the queryresolve package.
+		// The query resolver runs SQL against the database and returns
+		// data shaped for the field. For array-typed fields (lists, grids,
+		// directories) the result is []map[string]interface{} that the
+		// downstream content writer / template renderer iterates over.
+		//
+		// Failure handling:
+		//   - Unknown query name → log warning, fall through to fallback/skip
+		//   - DB error → log warning, fall through to fallback/skip
+		//   - Empty result → put empty slice in resolvedData (the component's
+		//     html_template should handle empty lists; on_missing applies if
+		//     the field is required and the schema treats empty as missing)
+		if strings.HasPrefix(source, "query.") {
+			queryName := strings.TrimPrefix(source, "query.")
+
+			// Optional limit from the field schema (max items for the list).
+			itemLimit := 0
+			if l, ok := fieldDef["limit"].(float64); ok {
+				itemLimit = int(l)
+			}
+
+			req := queryresolve.QueryRequest{
+				Name:   queryName,
+				SiteID: resolver.siteID,
+				Limit:  itemLimit,
+			}
+			value, qerr := queryresolve.Resolve(ctx, resolver.db, req, resolver.logger)
+			if qerr != nil {
+				resolver.logger.Warn("plan_sections: query resolution failed",
+					zap.String("field", fieldName),
+					zap.String("source", source),
+					zap.Error(qerr))
+				// Fall through to fallback handling below
+			} else if value != nil {
+				resolvedData[fieldName] = value
+				continue
+			}
+
+			// Resolution failed or returned nil — apply fallback if any,
+			// otherwise leave the field unresolved (the template will see
+			// nothing for this field, which the html_template should handle).
+			if fallback != nil {
+				resolvedData[fieldName] = fallback
+			}
+			continue
+		}
+
+		// Renderer/static fields — resolved at render time, not now
 		if source == "renderer" || source == "static" ||
 			strings.HasPrefix(source, "renderer.") ||
-			strings.HasPrefix(source, "static.") ||
-			strings.HasPrefix(source, "query.") {
+			strings.HasPrefix(source, "static.") {
 			if fallback != nil {
 				resolvedData[fieldName] = fallback
 			}

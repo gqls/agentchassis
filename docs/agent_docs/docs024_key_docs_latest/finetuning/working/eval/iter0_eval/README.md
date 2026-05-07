@@ -68,3 +68,54 @@ python 04_eval_iter0.py --adapter ~/lora_iter0_full \
 tnr scp 0:/home/ubuntu/iter0_eval_results_v1.jsonl ./
 tnr delete 0
 
+----------------------------------------
+
+Updated workflow with the Unsloth template
+bash# Local
+mkdir -p ~/iter0_eval/
+
+# Create with Unsloth template this time
+tnr create   # pick Unsloth template
+tnr connect 0
+
+# Sanity-check the env BEFORE uploading anything
+nvidia-smi
+ls ~/                     # likely shows existing venv / cached models
+# run the python check above
+
+# Conditional: only run setup script if the env doesn't satisfy our needs
+# (probably won't need to)
+
+# Upload (the 791MB adapter is still the slow part regardless of template)
+# Run from your laptop in another terminal:
+tnr scp held_out_cases_v1.jsonl  0:/home/ubuntu/
+tnr scp 04_eval_iter0.py         0:/home/ubuntu/
+tnr scp -r lora_iter0_full       0:/home/ubuntu/lora_iter0_full
+
+# Run
+source <whatever_venv_path>
+python 04_eval_iter0.py --adapter ~/lora_iter0_full \
+--cases ~/held_out_cases_v1.jsonl \
+--output ~/iter0_eval_results_v1.jsonl \
+--n 20
+
+# Pull + delete
+tnr scp 0:/home/ubuntu/iter0_eval_results_v1.jsonl ./
+tnr delete 0
+
+export HF_HUB_ENABLE_HF_TRANSFER=1
+
+ls /home/ubuntu/lora_iter0_full/                      # should show lora_iter0_full/
+ls /home/ubuntu/lora_iter0_full/lora_iter0_full/      # should show adapter files
+
+mv /home/ubuntu/lora_iter0_full/lora_iter0_full /home/ubuntu/lora_iter0_full
+rmdir /home/ubuntu/lora_iter0_full/lora_iter0_full
+ls -lh /home/ubuntu/lora_iter0_full/                 # confirm: README, adapter_config.json, adapter_model.safetensors, etc
+
+# On VM
+source ~/unsloth_env/bin/activate
+export HF_HUB_ENABLE_HF_TRANSFER=1
+
+# From laptop (other terminal)
+tnr scp held_out_cases_v1.jsonl 0:/home/ubuntu/
+tnr scp 04_eval_iter0.py        0:/home/ubuntu/
