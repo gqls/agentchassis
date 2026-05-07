@@ -207,6 +207,11 @@ def main():
 
     # ── Save LoRA adapter ───────────────────────────────────────────────────
     print(f"\nSaving LoRA adapter to {args.output}...")
+    # Save in fp16 instead of default fp32 — halves disk + transfer cost
+    for p in model.parameters():
+        if p.requires_grad:
+            p.data = p.data.to(torch.float16)
+
     model.save_pretrained(args.output)
     tokenizer.save_pretrained(args.output)
     print("Done. Adapter size:")

@@ -91,3 +91,20 @@ tnr snapshot 0 unsloth-trainer-base
 
 # 4. Stop billing
 tnr stop 0
+
+
+
+## Cost recap for the patch document, since this turned out useful baseline data:
+Setup + smoke~1.5h
+
+Full training run (3 epochs, 1958 rows, max_seq 4096)9.2h
+
+Inference smoke + adapter exfil~30 min
+
+Total iter_0~11.2h
+
+Snapshot ongoing
+
+
+Worth flagging: we picked Production mode at the start of this session, which is why we're at $1.79/hr instead of the $0.78/hr Prototyping rate that gets quoted in Thunder's marketing. For phase-2's chassis-driven trainer, prototyping might be acceptable — training jobs are bounded-time, restart-tolerant, and we have snapshots to recover environment state. Worth testing on iter_1 whether prototyping mode actually delivers usable A100 80GB performance, or whether the virtualisation overhead degrades training speed enough to cancel the cost savings. That's a good experiment for next time, not this session.
+
