@@ -666,7 +666,7 @@ This is why HTML patching was rejected as an edit mechanism — edits vanish on 
 | `config.{path}` | Read from site config/specs | At plan_sections time |
 | `renderer` | Assembled by page-rerender agent | At render time |
 | `static` | Use fallback value always | At plan_sections time |
-| `query.{name}` | DB query at render time (blog posts, categories) | At render time |
+| `query.{name}` | DB query at plan time, projected to the field's shape | At `plan_sections` time |
 
 ### on_missing values
 

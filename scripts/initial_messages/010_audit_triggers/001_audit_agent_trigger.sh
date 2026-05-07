@@ -201,6 +201,10 @@ AGENT_TYPE="design-discovery-agent"
 SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"
 DOMAIN="robot-hands.com"
 
+AGENT_TYPE="improvement-loop"
+SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"
+DOMAIN="robot-hands.com"
+
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -216,7 +220,7 @@ echo ""
 kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
 --image=edenhill/kcat:1.7.1 \
 --restart=Never -- \
-kcat -P \
+kcat -P -c 1 \
 -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
 -t system.agent.generic.requests \
 -H correlation_id=$CORRELATION_ID \

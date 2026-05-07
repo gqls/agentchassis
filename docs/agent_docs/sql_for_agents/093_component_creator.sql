@@ -1295,3 +1295,166 @@ SET default_config = jsonb_set(
                      )
 WHERE type = 'component-creator';
 
+---
+-- change prompt
+    -- backup:
+-- UPDATE agent_definitions
+-- SET default_config = (
+--     SELECT default_config
+--     FROM agent_def_component_creator_backup_20260507_pre_directory_build
+--              LIMIT 1
+--     ), updated_at = NOW()
+-- WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+
+-- ============================================================================
+-- Migration 039: Component-creator prompt — Tier D (derived lists / query.*)
+-- ============================================================================
+-- Adds knowledge of the `query.*` source type to the component-creator
+-- prompt, plus the array + items schema shape used by list/directory/grid
+-- components. Without this, the LLM falls back to the per-item-field
+-- pattern (post1_title, post2_title, ..., post6_title) which forces
+-- fabrication: there is no real list of posts, just six independent
+-- string fields the LLM has to invent.
+--
+-- This migration teaches a fourth field-classification tier:
+--
+--   TIER D — DERIVED LIST (source: "query.{name}")
+--     Used for "show items from somewhere" — a list of tool pages, blog
+--     posts, entities, case studies, etc. The schema declares ONE field
+--     of type=array with an items sub-schema; the resolver runs a real
+--     DB query at plan time and produces the items list. The LLM does
+--     NOT fabricate items.
+--
+-- The migration also extends pre-output self-check (a) to handle array
+-- fields, since the placeholder-count-equals-schema-field-count rule
+-- breaks for arrays (one schema field maps to N placeholders inside a
+-- {{range}}).
+--
+-- The known query vocabulary starts small (one query: pages_where_type)
+-- and is extensible. The prompt enumerates what's available so the LLM
+-- doesn't invent new query names. Adding queries later means adding to
+-- both the queryresolve Go package and this prompt.
+--
+-- Idempotent: uses replace() against the prompt text. Re-running finds
+-- no matching old strings and is a no-op.
+-- ============================================================================
+
+BEGIN;
+
+-- Snapshot is already in place from migration 038. Verify it exists before
+-- proceeding so we never apply this prompt change without a rollback target.
+DO $$
+DECLARE
+backup_count INT;
+BEGIN
+SELECT COUNT(*) INTO backup_count
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name = 'agent_def_component_creator_backup_20260507_pre_directory_build';
+IF backup_count = 0 THEN
+        RAISE EXCEPTION
+            'Backup table from migration 038 not found. '
+            'Run migration 038 (backups) first. '
+            'Aborting before any prompt change.';
+END IF;
+END$$;
+
+-- ----------------------------------------------------------------------------
+-- (1) Insert a new TIER D block in the field-classification section.
+-- ----------------------------------------------------------------------------
+-- Anchored on the trailing line of the existing RENDERER block, so the new
+-- text lands BEFORE the "RULE:" line that closes the section.
+-- ----------------------------------------------------------------------------
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config #>> '{prompt_template}',
+                        E'    Also: RENDERER fields (source: "renderer", required: false)\n      Values filled at render time by JS or the renderer, not by the content writer.\n      Provide a safe initial fallback (e.g. "00:00" for a timer).',
+                        E'    Also: RENDERER fields (source: "renderer", required: false)\n      Values filled at render time by JS or the renderer, not by the content writer.\n      Provide a safe initial fallback (e.g. "00:00" for a timer).\n\n    TIER D — DERIVED LISTS (source: "query.{name}")\n      Used when the section displays a LIST of real items drawn from the\n      site''s own data: tool pages, blog posts, entities, case studies,\n      news articles, etc. The list is RESOLVED AT PLAN TIME by a database\n      query. The LLM does NOT fabricate items, does NOT invent names\n      or URLs, does NOT pad to a fixed count.\n\n      Schema shape — declare ONE field of type "array":\n        "items": {\n          "type": "array",\n          "source": "query.pages_where_type:tool",\n          "min_items": 1,\n          "limit": 6,\n          "required": true,\n          "items": {\n            "title":            { "type": "text" },\n            "url":              { "type": "url"  },\n            "meta_description": { "type": "text" },\n            "nav_label":        { "type": "text" }\n          }\n        }\n\n      Template shape — iterate with {{range}}, reference each row''s\n      fields with {{.field_name}} (NOT {{placeholder "..."}}):\n        <div class="grid">\n          {{range .items}}\n          <article class="card">\n            <h3>{{.title}}</h3>\n            <p>{{.meta_description}}</p>\n            <a href="{{.url}}">Open</a>\n          </article>\n          {{end}}\n        </div>\n\n      Known query names (use these EXACTLY — do not invent new ones):\n        query.pages_where_type:tool        — all tool pages on this site\n        query.pages_where_type:blog_post   — all blog posts on this site\n        query.pages_where_type:entity_page — all entity pages\n        query.pages_where_type:guide       — all guide pages\n        query.pages_where_type:game        — all game pages\n\n      Item shape returned by the resolver (you can reference any of these\n      in the template via {{.field_name}}):\n        title             — page title\n        url               — page URL (already canonical)\n        meta_description  — short description\n        nav_label         — navigation label\n        name              — internal page name (slug-form)\n\n      When to use Tier D: any time the section''s purpose is "show a list\n      of these items." If you find yourself writing post1_title, post2_title,\n      post3_title, ..., STOP — that is the wrong shape. Use Tier D instead.\n\n      LLM-source fields STILL apply to the section''s heading/eyebrow/intro/CTA\n      around the list. Tier D is for the items themselves; Tier A handles\n      the surrounding voice content.'
+                )
+        )
+                     ),
+    updated_at = NOW()
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+
+-- ----------------------------------------------------------------------------
+-- (2) Extend pre-output self-check (a) to cover array fields.
+-- ----------------------------------------------------------------------------
+-- The existing (a) rule says "placeholder count = schema field count".
+-- That rule breaks for array fields: one schema field maps to N {{.X}}
+-- references inside a {{range}}. We add a clarifying paragraph rather
+-- than rewriting (a) so the rule still applies for non-array fields.
+-- ----------------------------------------------------------------------------
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config #>> '{prompt_template}',
+                        E'(a) Count the occurrences of {{placeholder "field_name"}} tokens in your html_template.\n    Count the keys in your input_schema.fields object.\n    These two counts MUST be equal. If they differ, revise the template to\n    add the missing placeholders, or revise the schema to remove the\n    orphaned fields. Do not return a mismatched pair.',
+                        E'(a) Count the occurrences of {{placeholder "field_name"}} tokens in your html_template.\n    Count the keys in your input_schema.fields object.\n    These two counts MUST be equal. If they differ, revise the template to\n    add the missing placeholders, or revise the schema to remove the\n    orphaned fields. Do not return a mismatched pair.\n\n    Exception for Tier D array fields: an array field with type "array"\n    counts as ONE schema field even though the template references its\n    items multiple times via {{range .items}} ... {{.field}} ... {{end}}.\n    The {{.title}}, {{.url}}, etc. references INSIDE a {{range}} block\n    are NOT {{placeholder "..."}} tokens and do NOT count toward the\n    placeholder total. They are template field accesses against the\n    array''s items, declared in the array''s items sub-schema, not in\n    input_schema.fields.'
+                )
+        )
+                     ),
+    updated_at = NOW()
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+
+-- ----------------------------------------------------------------------------
+-- Verification — confirm both edits landed and the existing structure is intact.
+-- ----------------------------------------------------------------------------
+
+SELECT
+    'has_tier_d' AS check,
+    (default_config #>> '{prompt_template}') LIKE '%TIER D — DERIVED LISTS%' AS pass
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'has_query_vocabulary',
+    (default_config #>> '{prompt_template}') LIKE '%query.pages_where_type:tool%'
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'has_array_exception_in_check_a',
+    (default_config #>> '{prompt_template}') LIKE '%Exception for Tier D array fields%'
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'still_has_tier_a',
+    (default_config #>> '{prompt_template}') LIKE '%TIER A — VOICE CONTENT%'
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'still_has_tier_b',
+    (default_config #>> '{prompt_template}') LIKE '%TIER B — TUNABLE LABELS%'
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'still_has_tier_c',
+    (default_config #>> '{prompt_template}') LIKE '%TIER C — SITE DATA%'
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'still_has_check_b',
+    (default_config #>> '{prompt_template}') LIKE '%(b) Every schema field%'
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'still_has_check_c',
+    (default_config #>> '{prompt_template}') LIKE '%(c) Structural completeness%'
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+
+COMMIT;
