@@ -1,123 +1,76 @@
 #!/usr/bin/env python3
 """
-02_train_llama_3_3_70b.py
-============================================================================
-QLoRA fine-tune of Llama 3.3 70B Instruct on our page-content-writer iter_0
-dataset using Unsloth. Designed for a single H100 80GB or A100 80GB.
+02_train_llama_3_3_70b.py — QLoRA fine-tune of Llama 3.3 70B Instruct
+on JSONL produced by training_exports (each line = {messages, metadata}).
 
-Input dataset format (one JSON object per line):
-    {
-      "messages": [
-        {"role": "user", "content": "<prompt_rendered>"},
-        {"role": "assistant", "content": "<cleaned response>"}
-      ],
-      "metadata": {...}
-    }
+Defaults match HANDOFF_2026-04-23: 3 epochs, batch 1, grad_accum 8,
+lr 2e-4, lora_r 16, max_seq 4096. Override any of them via CLI.
 
-This matches what 01_pull_dataset_from_postgres.sh produces.
-
-Defaults tuned for ~1,958 training examples, narrow-task adaptation (format
-and voice, not new knowledge). Training wall time expected: ~30-90 minutes
-on H100 80GB. Adjust `num_train_epochs`, `per_device_train_batch_size`, and
-`max_seq_length` if VRAM or speed pushes back.
-
-Output: LoRA adapter saved to --output dir (~150MB). Merge later if desired.
-============================================================================
+Outputs the LoRA adapter (~150MB) plus a manifest.json describing the run
+(used downstream by the model-trainer agent in flywheel C phase 2).
 """
+from __future__ import annotations
+
+# Unsloth MUST be imported before transformers/peft/trl so its monkey-patches
+# land before any of the modules being patched are loaded.
+from unsloth import FastLanguageModel
+from unsloth.chat_templates import get_chat_template, train_on_responses_only
 
 import argparse
 import json
-import os
-import sys
+import time
+from pathlib import Path
 
-# Unsloth MUST be imported before transformers/trl per its README
-from unsloth import FastLanguageModel, is_bfloat16_supported
 import torch
 from datasets import load_dataset
 from trl import SFTTrainer, SFTConfig
 
 
-MODEL_NAME = "unsloth/Llama-3.3-70B-Instruct-bnb-4bit"
-# Note: Unsloth hosts pre-quantized 4-bit versions of popular models; much
-# faster download than quantizing locally.
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    p.add_argument("--data", required=True, help="Path to training JSONL")
+    p.add_argument("--output", required=True, help="Output dir for LoRA adapter + manifest")
+    p.add_argument("--base-model", default="unsloth/Llama-3.3-70B-Instruct-bnb-4bit")
+    p.add_argument("--epochs", type=int, default=3)
+    p.add_argument("--batch", type=int, default=1, help="per-device batch size")
+    p.add_argument("--grad-accum", type=int, default=8)
+    p.add_argument("--lr", type=float, default=2e-4)
+    p.add_argument("--lora-r", type=int, default=16)
+    p.add_argument("--lora-alpha", type=int, default=16)
+    p.add_argument("--max-seq", type=int, default=4096)
+    p.add_argument("--limit", type=int, default=0, help="cap rows (0 = use all). For smoke tests.")
+    p.add_argument("--seed", type=int, default=3407)
+    p.add_argument("--warmup-steps", type=int, default=5)
+    p.add_argument("--logging-steps", type=int, default=5)
+    return p.parse_args()
 
 
-def parse_args():
-    ap = argparse.ArgumentParser(description="Fine-tune Llama 3.3 70B on our dataset")
-    ap.add_argument("--data", required=True, help="Path to training JSONL")
-    ap.add_argument("--output", required=True, help="Output directory for LoRA adapter")
-    ap.add_argument("--max-seq-length", type=int, default=4096,
-                    help="Max context length. Our p99 prompt + response fits in ~2048 tokens.")
-    ap.add_argument("--epochs", type=int, default=3,
-                    help="Epochs (3 is a solid default for narrow-task adaptation)")
-    ap.add_argument("--batch-size", type=int, default=1,
-                    help="Per-GPU batch size. For 70B QLoRA on 80GB, 1 is safe; 2 if seq-len is short.")
-    ap.add_argument("--grad-accum", type=int, default=8,
-                    help="Gradient accumulation steps. Effective batch = batch_size * grad_accum.")
-    ap.add_argument("--lr", type=float, default=2e-4,
-                    help="Learning rate — 2e-4 is standard for QLoRA on 70B")
-    ap.add_argument("--lora-r", type=int, default=16,
-                    help="LoRA rank. 16 for narrow tasks, 32 for broader adaptation.")
-    ap.add_argument("--lora-alpha", type=int, default=16,
-                    help="LoRA alpha. Typically = rank.")
-    ap.add_argument("--seed", type=int, default=3407, help="Random seed")
-    ap.add_argument("--limit", type=int, default=0,
-                    help="Optional: limit to N examples for a quick smoke run")
-    return ap.parse_args()
-
-
-def format_example(example, tokenizer):
-    """
-    Convert one ChatML-shaped row into the model's expected conversational
-    format. Llama 3.3 uses the Llama 3 instruct chat template.
-
-    Input: example["messages"] is [{role, content}, {role, content}]
-    Output: {"text": "<full templated conversation including answer>"}
-    """
-    messages = example["messages"]
-    text = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=False,  # False because we include the assistant's answer
-    )
-    return {"text": text}
-
-
-def main():
+def main() -> None:
     args = parse_args()
 
-    if not os.path.exists(args.data):
-        sys.exit(f"Training data file not found: {args.data}")
+    output_path = Path(args.output)
+    output_path.mkdir(parents=True, exist_ok=True)
 
-    os.makedirs(args.output, exist_ok=True)
+    # ---- VRAM start ----------------------------------------------------------
+    torch.cuda.reset_peak_memory_stats()
+    free_start_gb = torch.cuda.mem_get_info(0)[0] / 1e9
+    total_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+    print(f"GPU: {torch.cuda.get_device_name(0)}  free={free_start_gb:.1f}GB / total={total_gb:.1f}GB")
 
-    print("=" * 72)
-    print("Llama 3.3 70B QLoRA fine-tune")
-    print("=" * 72)
-    print(f"Model:          {MODEL_NAME}")
-    print(f"Data:           {args.data}")
-    print(f"Output:         {args.output}")
-    print(f"Max seq len:    {args.max_seq_length}")
-    print(f"Epochs:         {args.epochs}")
-    print(f"Batch / grad:   {args.batch_size} / {args.grad_accum}")
-    print(f"LR:             {args.lr}")
-    print(f"LoRA r / alpha: {args.lora_r} / {args.lora_alpha}")
-    print("=" * 72)
-    print()
-
-    # ── Load model + tokenizer ──────────────────────────────────────────────
-
-    print("Loading base model (4-bit) — this is the big download if first time...")
+    # ---- Base model + tokenizer ---------------------------------------------
+    print(f"Loading base model: {args.base_model}")
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=MODEL_NAME,
-        max_seq_length=args.max_seq_length,
-        dtype=None,                  # auto: bf16 on Ampere/Hopper
+        model_name=args.base_model,
+        max_seq_length=args.max_seq,
         load_in_4bit=True,
+        dtype=None,   # Unsloth picks bf16 on A100/H100, fp16 elsewhere
     )
 
-    # ── Attach LoRA adapters ────────────────────────────────────────────────
+    # Llama 3.3 uses the same chat template as 3.1
+    tokenizer = get_chat_template(tokenizer, chat_template="llama-3.1")
 
-    print("Attaching LoRA adapters to all linear layers...")
+    # ---- LoRA adapters -------------------------------------------------------
+    print(f"Adding LoRA adapters (r={args.lora_r}, alpha={args.lora_alpha})")
     model = FastLanguageModel.get_peft_model(
         model,
         r=args.lora_r,
@@ -126,116 +79,113 @@ def main():
             "gate_proj", "up_proj", "down_proj",
         ],
         lora_alpha=args.lora_alpha,
-        lora_dropout=0.0,            # 0 is Unsloth-optimised
+        lora_dropout=0,
         bias="none",
-        use_gradient_checkpointing="unsloth",  # 30% less VRAM
+        use_gradient_checkpointing="unsloth",
         random_state=args.seed,
         use_rslora=False,
         loftq_config=None,
     )
 
-    # ── Load + format dataset ───────────────────────────────────────────────
+    # ---- Dataset -------------------------------------------------------------
+    print(f"Loading dataset: {args.data}")
+    ds = load_dataset("json", data_files=args.data, split="train")
+    if args.limit > 0:
+        ds = ds.select(range(min(args.limit, len(ds))))
+    print(f"  rows: {len(ds)}")
 
-    print(f"Loading dataset from {args.data}...")
-    dataset = load_dataset("json", data_files=args.data, split="train")
-    print(f"  loaded {len(dataset)} examples")
+    def to_text(example: dict) -> dict:
+        return {
+            "text": tokenizer.apply_chat_template(
+                example["messages"],
+                tokenize=False,
+                add_generation_prompt=False,
+            )
+        }
 
-    if args.limit > 0 and args.limit < len(dataset):
-        dataset = dataset.select(range(args.limit))
-        print(f"  limited to {len(dataset)} examples (smoke test mode)")
+    ds = ds.map(to_text, num_proc=2, remove_columns=ds.column_names)
 
-    dataset = dataset.map(
-        lambda ex: format_example(ex, tokenizer),
-        remove_columns=dataset.column_names,
-        desc="Formatting conversations",
-    )
-
-    # Sanity — log the first formatted example's length so we know the
-    # sequence profile matches our --max-seq-length.
-    sample = dataset[0]["text"]
-    sample_tokens = tokenizer(sample, return_tensors="pt")["input_ids"].shape[1]
-    print(f"  first example: {sample_tokens} tokens (max_seq={args.max_seq_length})")
-
-    # ── Trainer ─────────────────────────────────────────────────────────────
-
-    sft_config = SFTConfig(
-        output_dir=args.output,
-        num_train_epochs=args.epochs,
-        per_device_train_batch_size=args.batch_size,
-        gradient_accumulation_steps=args.grad_accum,
-        learning_rate=args.lr,
-        lr_scheduler_type="linear",
-        warmup_steps=5,
-        logging_steps=5,
-        save_strategy="epoch",
-        optim="adamw_8bit",
-        weight_decay=0.01,
-        seed=args.seed,
-        bf16=is_bfloat16_supported(),
-        fp16=not is_bfloat16_supported(),
-        dataset_num_proc=2,
-        dataset_text_field="text",
-        max_seq_length=args.max_seq_length,
-        packing=False,               # keep off for clean per-example loss
-        report_to=[],                # silence W&B etc. by default
-    )
-
+    # ---- Trainer -------------------------------------------------------------
+    print("Configuring trainer")
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
-        train_dataset=dataset,
-        args=sft_config,
+        train_dataset=ds,
+        args=SFTConfig(
+            output_dir=str(output_path / "checkpoints"),
+            per_device_train_batch_size=args.batch,
+            gradient_accumulation_steps=args.grad_accum,
+            num_train_epochs=args.epochs,
+            warmup_steps=args.warmup_steps,
+            learning_rate=args.lr,
+            logging_steps=args.logging_steps,
+            optim="adamw_8bit",
+            weight_decay=0.01,
+            lr_scheduler_type="linear",
+            seed=args.seed,
+            bf16=torch.cuda.is_bf16_supported(),
+            fp16=not torch.cuda.is_bf16_supported(),
+            save_strategy="no",   # final save via model.save_pretrained() below
+            report_to="none",
+            dataset_text_field="text",
+            max_seq_length=args.max_seq,
+            dataset_num_proc=2,
+            packing=False,
+        ),
     )
 
-    # ── VRAM snapshot before training ───────────────────────────────────────
-    start_gpu = torch.cuda.memory_allocated() / 1e9
-    print(f"\nVRAM after load: {start_gpu:.1f} GB used")
-    print()
+    # Train only on assistant tokens — the user/system tokens contribute zero
+    # loss. This is what makes finetuning on chat data behave well.
+    trainer = train_on_responses_only(
+        trainer,
+        instruction_part="<|start_header_id|>user<|end_header_id|>\n\n",
+        response_part="<|start_header_id|>assistant<|end_header_id|>\n\n",
+    )
 
-    # ── Train ───────────────────────────────────────────────────────────────
-    print("=" * 72)
-    print("Training starting...")
-    print("=" * 72)
-    trainer_stats = trainer.train()
+    # ---- Train ---------------------------------------------------------------
+    print("Starting training")
+    t0 = time.time()
+    train_result = trainer.train()
+    runtime_s = time.time() - t0
+    final_loss = (
+        float(train_result.training_loss) if train_result.training_loss is not None else None
+    )
+    peak_vram_gb = torch.cuda.max_memory_allocated() / 1e9
 
-    print()
-    print("=" * 72)
-    print(f"Training complete: {trainer_stats.metrics.get('train_runtime', 0):.1f}s total")
-    print(f"Final loss: {trainer_stats.metrics.get('train_loss', 'unknown')}")
-    print(f"VRAM peak: {torch.cuda.max_memory_reserved() / 1e9:.1f} GB")
-    print("=" * 72)
+    print(f"Training complete: {runtime_s:.1f}s, final_loss={final_loss}, peak_vram={peak_vram_gb:.1f}GB")
 
-    # ── Save LoRA adapter ───────────────────────────────────────────────────
-    print(f"\nSaving LoRA adapter to {args.output}...")
-    # Save in fp16 instead of default fp32 — halves disk + transfer cost
-    for p in model.parameters():
-        if p.requires_grad:
-            p.data = p.data.to(torch.float16)
+    # ---- Save adapter --------------------------------------------------------
+    print(f"Saving LoRA adapter to {output_path}")
+    model.save_pretrained(str(output_path))
+    tokenizer.save_pretrained(str(output_path))
 
-    model.save_pretrained(args.output)
-    tokenizer.save_pretrained(args.output)
-    print("Done. Adapter size:")
-    os.system(f"du -sh {args.output}")
-
-    # ── Write a small manifest for future reference ────────────────────────
+    # ---- Manifest ------------------------------------------------------------
     manifest = {
-        "model_base": MODEL_NAME,
-        "data_path": args.data,
+        "base_model": args.base_model,
+        "dataset_path": args.data,
+        "n_examples": len(ds),
         "epochs": args.epochs,
-        "per_device_batch_size": args.batch_size,
-        "grad_accum": args.grad_accum,
+        "per_device_batch_size": args.batch,
+        "gradient_accumulation_steps": args.grad_accum,
+        "effective_batch_size": args.batch * args.grad_accum,
         "learning_rate": args.lr,
         "lora_r": args.lora_r,
         "lora_alpha": args.lora_alpha,
-        "max_seq_length": args.max_seq_length,
-        "train_loss_final": trainer_stats.metrics.get("train_loss"),
-        "train_runtime_seconds": trainer_stats.metrics.get("train_runtime"),
-        "vram_peak_gb": torch.cuda.max_memory_reserved() / 1e9,
-        "dataset_examples": len(dataset),
+        "max_seq_length": args.max_seq,
+        "seed": args.seed,
+        "limit": args.limit,
+        "warmup_steps": args.warmup_steps,
+        "train_runtime_s": round(runtime_s, 1),
+        "final_loss": final_loss,
+        "peak_vram_gb": round(peak_vram_gb, 1),
+        "torch_version": torch.__version__,
+        "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
-    with open(os.path.join(args.output, "training_manifest.json"), "w") as f:
+    manifest_path = output_path / "manifest.json"
+    with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
-    print(f"\nManifest written to {args.output}/training_manifest.json")
+    print(f"Wrote {manifest_path}")
+    print("Done.")
 
 
 if __name__ == "__main__":
