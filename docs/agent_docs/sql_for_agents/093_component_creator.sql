@@ -1267,3 +1267,31 @@ FROM agent_definitions
 WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
 
 COMMIT;
+
+--
+
+-- Migration 038: fix component-creator workflow config paths
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        jsonb_set(
+                                jsonb_set(
+                                        default_config,
+                                        '{workflow,steps,store_component,config,section_type}',
+                                        '"input_data.spec.section_type"'::jsonb
+                                ),
+                                '{workflow,steps,store_component,config,description}',
+                                '"input_data.spec.description"'::jsonb
+                        ),
+                        '{workflow,steps,store_component,config,site_type}',
+                        '"input_data.spec.site_type"'::jsonb
+                ),
+                '{workflow,steps,store_component,config,page_context}',
+                '"input_data.spec.page_context"'::jsonb
+        ),
+        '{workflow,steps,store_component,config,design_direction}',
+        '"input_data.spec.design_direction"'::jsonb
+                     )
+WHERE type = 'component-creator';
+

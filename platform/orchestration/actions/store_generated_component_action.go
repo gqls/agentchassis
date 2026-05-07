@@ -200,9 +200,29 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		       COALESCE(input_schema::text, '{}'),
 		       js_content
 		FROM content_components
-		WHERE function = $1 AND is_active = true AND forked_from IS NULL
+		WHERE function = $1 AND forked_from IS NULL
+		ORDER BY is_active DESC, updated_at DESC
 		LIMIT 1
 	`, functionName).Scan(&existingID, &existingHTML, &existingSchema, &existingJS)
+
+	// Note on the is_active filter (changed 2026-05-06):
+	// Previously this query had `AND is_active = true`, which meant
+	// regeneration of a deactivated row would fall through to the
+	// creation branch and hit the unique-on-name constraint when the
+	// old row had name == function. Removing the filter and ordering
+	// by `is_active DESC, updated_at DESC` preserves the previous
+	// behaviour when active rows exist (the active row sorts first)
+	// and fixes the regeneration path when only an inactive row
+	// exists.
+	//
+	// Reactivation: the UPDATE branch below sets is_active = true
+	// unconditionally. A regenerated template that passes all
+	// pre-store quality gates is by definition healthy, and the
+	// most common reason for a component being inactive is "broken
+	// template, awaiting regeneration" (migration 036 set 42 rows
+	// inactive on this basis). Resurrecting an operator-deactivated
+	// component is acceptable here: if the operator wanted it gone
+	// permanently, they'd delete it, not deactivate it.
 
 	if err == nil {
 		isRegeneration = true
@@ -350,6 +370,7 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			    input_schema    = $2::jsonb,
 			    js_content      = $3,
 			    is_dark_section = $4,
+			    is_active       = true,
 			    updated_at      = NOW()
 			WHERE id = $5::uuid
 		`,

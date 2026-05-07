@@ -1,0 +1,867 @@
+ant@ant-XPS-15-9500:~/projects/agentchassis$ tnr connect 0
+Usage:
+  tnr connect [instance_id] [flags]
+
+Flags:
+  -h, --help             help for connect
+  -t, --tunnel strings   Port forwarding (can specify multiple times: -t 8080 -t 3000)
+
+Global Flags:
+      --json   Output in JSON format (non-interactive)
+  -y, --yes    Skip confirmation prompts
+
+✗ Error: usage error: instance '0' is not running (status: STARTING)
+ant@ant-XPS-15-9500:~/projects/agentchassis$ tnr connect 0
+
+⚡ Connecting to Thunder Instance
+
+  ✓ SSH key management (1.051s)
+  ✓ Establishing SSH connection (1.835s)
+  ✓ Setting up instance (494ms)
+
+✓ Connection established successfully
+
+                         ▒▒
+                      ▒▒▒
+                   ▒▒▒▒▒
+               ▒▒▒▒▒▒▒▒                ╭───────────────────────────────────╮
+            ▒▒▒▒▒▒▒▒▒                  │    Welcome to Thunder Compute!    │
+        ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒           │    For help, join our Discord:    │
+                      ▒▒▒              │       discord.gg/nwuETS9jJK       │
+ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒   ▒▒▒                ╰───────────────────────────────────╯
+             ▒▒▒  ▒▒▒
+            ▒▒▒▒▒▒▒                    OS:      Ubuntu 22.04.5 LTS x86_64
+          ▒▒▒▒▒▒▒                      Shell:   /bin/bash
+         ▒▒▒▒▒▒                        GPU:     NVIDIA A100 80GB PCIe
+        ▒▒▒▒                           CPU:     15 vCPUs
+      ▒▒▒▒                             Storage: 98G free of 98G
+     ▒▒▒                               Memory:  120 GB
+   ▒▒▒                                 Mode:    Production
+  ▒▒
+ ▒
+
+     ╭───────────────────────────────────╮
+     │  'start-ollama' to start services │
+     ╰───────────────────────────────────╯
+
+ubuntu@thunder-client:~$ ls ~/
+00_vm_setup.sh
+ubuntu@thunder-client:~$ chomd +x ~/00_vm_setup.sh
+-bash: chomd: command not found
+ubuntu@thunder-client:~$ ~/00_vm_setup.sh 2>&1 | tee ~/setup.log
+-bash: /home/ubuntu/00_vm_setup.sh: Permission denied
+ubuntu@thunder-client:~$ chmod +x ~/00_vm_setup.sh
+ubuntu@thunder-client:~$ ~/00_vm_setup.sh 2>&1 | tee ~/setup.log
+[16:12:10] Checking GPU...
+[16:12:10] GPU: NVIDIA A100 80GB PCIe, 81920 MiB VRAM, driver 580.95.05
+[16:12:10] Workspace: /workspace
+[16:12:10] Installing system packages...
+debconf: delaying package configuration, since apt-utils is not installed
+(Reading database ... 23358 files and directories currently installed.)
+Preparing to unpack .../0-curl_7.81.0-1ubuntu1.24_amd64.deb ...
+Unpacking curl (7.81.0-1ubuntu1.24) over (7.81.0-1ubuntu1.23) ...
+Preparing to unpack .../1-libcurl4_7.81.0-1ubuntu1.24_amd64.deb ...
+Unpacking libcurl4:amd64 (7.81.0-1ubuntu1.24) over (7.81.0-1ubuntu1.23) ...
+Preparing to unpack .../2-jq_1.6-2.1ubuntu3.2_amd64.deb ...
+Unpacking jq (1.6-2.1ubuntu3.2) over (1.6-2.1ubuntu3.1) ...
+Preparing to unpack .../3-libjq1_1.6-2.1ubuntu3.2_amd64.deb ...
+Unpacking libjq1:amd64 (1.6-2.1ubuntu3.2) over (1.6-2.1ubuntu3.1) ...
+Selecting previously unselected package libevent-core-2.1-7:amd64.
+Preparing to unpack .../4-libevent-core-2.1-7_2.1.12-stable-1build3_amd64.deb ...
+Unpacking libevent-core-2.1-7:amd64 (2.1.12-stable-1build3) ...
+Selecting previously unselected package tmux.
+Preparing to unpack .../5-tmux_3.2a-4ubuntu0.2_amd64.deb ...
+Unpacking tmux (3.2a-4ubuntu0.2) ...
+Setting up libjq1:amd64 (1.6-2.1ubuntu3.2) ...
+Setting up libevent-core-2.1-7:amd64 (2.1.12-stable-1build3) ...
+Setting up jq (1.6-2.1ubuntu3.2) ...
+Setting up libcurl4:amd64 (7.81.0-1ubuntu1.24) ...
+Setting up curl (7.81.0-1ubuntu1.24) ...
+Setting up tmux (3.2a-4ubuntu0.2) ...
+Processing triggers for libc-bin (2.35-0ubuntu3.13) ...
+[16:12:16] Python: Python 3.12.13
+[16:12:16] Creating venv at /home/ubuntu/unsloth_env...
+[16:12:20] Installing torch (cu124)...
+[16:14:04] Installing Unsloth + deps...
+WARNING: huggingface-hub 1.14.0 does not provide the extra 'hf-transfer'
+[16:14:49] Verifying torch CUDA...
+  torch=2.6.0+cu124
+  cuda_available=True
+  device=NVIDIA A100 80GB PCIe
+  vram_gib=79.3
+  bf16_supported=True
+[16:14:52] Verifying Unsloth...
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/importlib/metadata/__init__.py", line 397, in from_name
+    return next(cls.discover(name=name))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+StopIteration
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth/_gpu_init.py", line 91, in <module>
+    unsloth_zoo_version = importlib_version("unsloth_zoo")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/importlib/metadata/__init__.py", line 889, in version
+    return distribution(distribution_name).version
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/importlib/metadata/__init__.py", line 862, in distribution
+    return Distribution.from_name(distribution_name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/importlib/metadata/__init__.py", line 399, in from_name
+    raise PackageNotFoundError(name)
+importlib.metadata.PackageNotFoundError: No package metadata was found for unsloth_zoo
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth/__init__.py", line 127, in <module>
+    from ._gpu_init import *
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth/_gpu_init.py", line 107, in <module>
+    raise ImportError(
+ImportError: Unsloth: Please install unsloth_zoo via `pip install unsloth_zoo` then retry!
+ubuntu@thunder-client:~$ source ~/unsloth_env/bin/activate
+pip install unsloth_zoo hf_transfer
+Collecting unsloth_zoo
+  Downloading unsloth_zoo-2026.5.1-py3-none-any.whl.metadata (32 kB)
+Collecting hf_transfer
+  Downloading hf_transfer-0.1.9-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (1.7 kB)
+Requirement already satisfied: torch<2.11.0,>=2.4.0 in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (2.6.0+cu124)
+Collecting torchao>=0.13.0 (from unsloth_zoo)
+  Downloading torchao-0.17.0-cp310-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (20 kB)
+Requirement already satisfied: triton>=3.0.0 in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (3.2.0)
+Requirement already satisfied: packaging>=24.1 in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (26.2)
+Collecting tyro (from unsloth_zoo)
+  Downloading tyro-1.0.13-py3-none-any.whl.metadata (12 kB)
+Collecting transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3 (from unsloth_zoo)
+  Downloading transformers-5.5.0-py3-none-any.whl.metadata (32 kB)
+Collecting datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1 (from unsloth_zoo)
+  Downloading datasets-4.3.0-py3-none-any.whl.metadata (18 kB)
+Requirement already satisfied: sentencepiece>=0.2.0 in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (0.2.1)
+Requirement already satisfied: tqdm in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (4.67.3)
+Requirement already satisfied: psutil in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (7.2.2)
+Requirement already satisfied: wheel>=0.42.0 in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (0.47.0)
+Requirement already satisfied: numpy in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (2.4.3)
+Requirement already satisfied: accelerate>=0.34.1 in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (1.13.0)
+Collecting trl!=0.19.0,<=0.24.0,>=0.18.2 (from unsloth_zoo)
+  Downloading trl-0.24.0-py3-none-any.whl.metadata (11 kB)
+Requirement already satisfied: peft!=0.11.0,>=0.18.0 in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (0.19.1)
+Requirement already satisfied: protobuf in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (7.34.1)
+Requirement already satisfied: huggingface_hub>=0.34.0 in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (1.14.0)
+Collecting cut_cross_entropy (from unsloth_zoo)
+  Downloading cut_cross_entropy-25.1.1-py3-none-any.whl.metadata (9.3 kB)
+Requirement already satisfied: pillow in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (12.1.1)
+Requirement already satisfied: regex in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (2026.4.4)
+Collecting msgspec (from unsloth_zoo)
+  Downloading msgspec-0.21.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (5.8 kB)
+Requirement already satisfied: typing_extensions in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (4.15.0)
+Requirement already satisfied: filelock in ./unsloth_env/lib/python3.12/site-packages (from unsloth_zoo) (3.25.2)
+Requirement already satisfied: pyarrow>=21.0.0 in ./unsloth_env/lib/python3.12/site-packages (from datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (24.0.0)
+Collecting dill<0.4.1,>=0.3.0 (from datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo)
+  Downloading dill-0.4.0-py3-none-any.whl.metadata (10 kB)
+Requirement already satisfied: pandas in ./unsloth_env/lib/python3.12/site-packages (from datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (3.0.2)
+Requirement already satisfied: requests>=2.32.2 in ./unsloth_env/lib/python3.12/site-packages (from datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (2.33.1)
+Requirement already satisfied: httpx<1.0.0 in ./unsloth_env/lib/python3.12/site-packages (from datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (0.28.1)
+Requirement already satisfied: xxhash in ./unsloth_env/lib/python3.12/site-packages (from datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (3.7.0)
+Collecting multiprocess<0.70.17 (from datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo)
+  Downloading multiprocess-0.70.16-py312-none-any.whl.metadata (7.2 kB)
+Collecting fsspec<=2025.9.0,>=2023.1.0 (from fsspec[http]<=2025.9.0,>=2023.1.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo)
+  Downloading fsspec-2025.9.0-py3-none-any.whl.metadata (10 kB)
+Requirement already satisfied: pyyaml>=5.1 in ./unsloth_env/lib/python3.12/site-packages (from datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (6.0.3)
+Requirement already satisfied: aiohttp!=4.0.0a0,!=4.0.0a1 in ./unsloth_env/lib/python3.12/site-packages (from fsspec[http]<=2025.9.0,>=2023.1.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (3.13.5)
+Requirement already satisfied: anyio in ./unsloth_env/lib/python3.12/site-packages (from httpx<1.0.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (4.13.0)
+Requirement already satisfied: certifi in ./unsloth_env/lib/python3.12/site-packages (from httpx<1.0.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (2026.4.22)
+Requirement already satisfied: httpcore==1.* in ./unsloth_env/lib/python3.12/site-packages (from httpx<1.0.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (1.0.9)
+Requirement already satisfied: idna in ./unsloth_env/lib/python3.12/site-packages (from httpx<1.0.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (3.13)
+Requirement already satisfied: h11>=0.16 in ./unsloth_env/lib/python3.12/site-packages (from httpcore==1.*->httpx<1.0.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (0.16.0)
+Requirement already satisfied: hf-xet<2.0.0,>=1.4.3 in ./unsloth_env/lib/python3.12/site-packages (from huggingface_hub>=0.34.0->unsloth_zoo) (1.5.0)
+Requirement already satisfied: typer>=0.20.0 in ./unsloth_env/lib/python3.12/site-packages (from huggingface_hub>=0.34.0->unsloth_zoo) (0.25.1)
+Requirement already satisfied: networkx in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (3.6.1)
+Requirement already satisfied: jinja2 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (3.1.6)
+Requirement already satisfied: nvidia-cuda-nvrtc-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (12.4.127)
+Requirement already satisfied: nvidia-cuda-runtime-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (12.4.127)
+Requirement already satisfied: nvidia-cuda-cupti-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (12.4.127)
+Requirement already satisfied: nvidia-cudnn-cu12==9.1.0.70 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (9.1.0.70)
+Requirement already satisfied: nvidia-cublas-cu12==12.4.5.8 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (12.4.5.8)
+Requirement already satisfied: nvidia-cufft-cu12==11.2.1.3 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (11.2.1.3)
+Requirement already satisfied: nvidia-curand-cu12==10.3.5.147 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (10.3.5.147)
+Requirement already satisfied: nvidia-cusolver-cu12==11.6.1.9 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (11.6.1.9)
+Requirement already satisfied: nvidia-cusparse-cu12==12.3.1.170 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (12.3.1.170)
+Requirement already satisfied: nvidia-cusparselt-cu12==0.6.2 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (0.6.2)
+Requirement already satisfied: nvidia-nccl-cu12==2.21.5 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (2.21.5)
+Requirement already satisfied: nvidia-nvtx-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (12.4.127)
+Requirement already satisfied: nvidia-nvjitlink-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (12.4.127)
+Requirement already satisfied: setuptools in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (82.0.1)
+Requirement already satisfied: sympy==1.13.1 in ./unsloth_env/lib/python3.12/site-packages (from torch<2.11.0,>=2.4.0->unsloth_zoo) (1.13.1)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in ./unsloth_env/lib/python3.12/site-packages (from sympy==1.13.1->torch<2.11.0,>=2.4.0->unsloth_zoo) (1.3.0)
+Requirement already satisfied: tokenizers<=0.23.0,>=0.22.0 in ./unsloth_env/lib/python3.12/site-packages (from transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3->unsloth_zoo) (0.22.2)
+Requirement already satisfied: safetensors>=0.4.3 in ./unsloth_env/lib/python3.12/site-packages (from transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3->unsloth_zoo) (0.7.0)
+Requirement already satisfied: aiohappyeyeballs>=2.5.0 in ./unsloth_env/lib/python3.12/site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2025.9.0,>=2023.1.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (2.6.1)
+Requirement already satisfied: aiosignal>=1.4.0 in ./unsloth_env/lib/python3.12/site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2025.9.0,>=2023.1.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (1.4.0)
+Requirement already satisfied: attrs>=17.3.0 in ./unsloth_env/lib/python3.12/site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2025.9.0,>=2023.1.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (26.1.0)
+Requirement already satisfied: frozenlist>=1.1.1 in ./unsloth_env/lib/python3.12/site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2025.9.0,>=2023.1.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (1.8.0)
+Requirement already satisfied: multidict<7.0,>=4.5 in ./unsloth_env/lib/python3.12/site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2025.9.0,>=2023.1.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (6.7.1)
+Requirement already satisfied: propcache>=0.2.0 in ./unsloth_env/lib/python3.12/site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2025.9.0,>=2023.1.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (0.4.1)
+Requirement already satisfied: yarl<2.0,>=1.17.0 in ./unsloth_env/lib/python3.12/site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2025.9.0,>=2023.1.0->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (1.23.0)
+Requirement already satisfied: charset_normalizer<4,>=2 in ./unsloth_env/lib/python3.12/site-packages (from requests>=2.32.2->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (3.4.7)
+Requirement already satisfied: urllib3<3,>=1.26 in ./unsloth_env/lib/python3.12/site-packages (from requests>=2.32.2->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (2.6.3)
+Requirement already satisfied: click>=8.2.1 in ./unsloth_env/lib/python3.12/site-packages (from typer>=0.20.0->huggingface_hub>=0.34.0->unsloth_zoo) (8.3.3)
+Requirement already satisfied: shellingham>=1.3.0 in ./unsloth_env/lib/python3.12/site-packages (from typer>=0.20.0->huggingface_hub>=0.34.0->unsloth_zoo) (1.5.4)
+Requirement already satisfied: rich>=13.8.0 in ./unsloth_env/lib/python3.12/site-packages (from typer>=0.20.0->huggingface_hub>=0.34.0->unsloth_zoo) (15.0.0)
+Requirement already satisfied: annotated-doc>=0.0.2 in ./unsloth_env/lib/python3.12/site-packages (from typer>=0.20.0->huggingface_hub>=0.34.0->unsloth_zoo) (0.0.4)
+Requirement already satisfied: markdown-it-py>=2.2.0 in ./unsloth_env/lib/python3.12/site-packages (from rich>=13.8.0->typer>=0.20.0->huggingface_hub>=0.34.0->unsloth_zoo) (4.0.0)
+Requirement already satisfied: pygments<3.0.0,>=2.13.0 in ./unsloth_env/lib/python3.12/site-packages (from rich>=13.8.0->typer>=0.20.0->huggingface_hub>=0.34.0->unsloth_zoo) (2.20.0)
+Requirement already satisfied: mdurl~=0.1 in ./unsloth_env/lib/python3.12/site-packages (from markdown-it-py>=2.2.0->rich>=13.8.0->typer>=0.20.0->huggingface_hub>=0.34.0->unsloth_zoo) (0.1.2)
+Requirement already satisfied: MarkupSafe>=2.0 in ./unsloth_env/lib/python3.12/site-packages (from jinja2->torch<2.11.0,>=2.4.0->unsloth_zoo) (3.0.3)
+Requirement already satisfied: python-dateutil>=2.8.2 in ./unsloth_env/lib/python3.12/site-packages (from pandas->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (2.9.0.post0)
+Requirement already satisfied: six>=1.5 in ./unsloth_env/lib/python3.12/site-packages (from python-dateutil>=2.8.2->pandas->datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1->unsloth_zoo) (1.17.0)
+Collecting docstring-parser>=0.15 (from tyro->unsloth_zoo)
+  Downloading docstring_parser-0.18.0-py3-none-any.whl.metadata (3.5 kB)
+Collecting typeguard>=4.0.0 (from tyro->unsloth_zoo)
+  Downloading typeguard-4.5.1-py3-none-any.whl.metadata (3.8 kB)
+Downloading unsloth_zoo-2026.5.1-py3-none-any.whl (427 kB)
+Downloading datasets-4.3.0-py3-none-any.whl (506 kB)
+Downloading dill-0.4.0-py3-none-any.whl (119 kB)
+Downloading fsspec-2025.9.0-py3-none-any.whl (199 kB)
+Downloading multiprocess-0.70.16-py312-none-any.whl (146 kB)
+Downloading transformers-5.5.0-py3-none-any.whl (10.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.2/10.2 MB 88.7 MB/s  0:00:00
+Downloading trl-0.24.0-py3-none-any.whl (423 kB)
+Downloading hf_transfer-0.1.9-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.6/3.6 MB 73.6 MB/s  0:00:00
+Downloading torchao-0.17.0-cp310-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (3.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.2/3.2 MB 57.9 MB/s  0:00:00
+Downloading cut_cross_entropy-25.1.1-py3-none-any.whl (22 kB)
+Downloading msgspec-0.21.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (225 kB)
+Downloading tyro-1.0.13-py3-none-any.whl (185 kB)
+Downloading docstring_parser-0.18.0-py3-none-any.whl (22 kB)
+Downloading typeguard-4.5.1-py3-none-any.whl (36 kB)
+Installing collected packages: torchao, typeguard, msgspec, hf_transfer, fsspec, docstring-parser, dill, tyro, multiprocess, cut_cross_entropy, datasets, transformers, trl, unsloth_zoo
+  Attempting uninstall: fsspec
+    Found existing installation: fsspec 2026.2.0
+    Uninstalling fsspec-2026.2.0:
+      Successfully uninstalled fsspec-2026.2.0
+  Attempting uninstall: dill
+    Found existing installation: dill 0.4.1
+    Uninstalling dill-0.4.1:
+      Successfully uninstalled dill-0.4.1
+  Attempting uninstall: multiprocess
+    Found existing installation: multiprocess 0.70.19
+    Uninstalling multiprocess-0.70.19:
+      Successfully uninstalled multiprocess-0.70.19
+  Attempting uninstall: datasets
+    Found existing installation: datasets 4.8.5
+    Uninstalling datasets-4.8.5:
+      Successfully uninstalled datasets-4.8.5
+  Attempting uninstall: transformers
+    Found existing installation: transformers 5.8.0
+    Uninstalling transformers-5.8.0:
+      Successfully uninstalled transformers-5.8.0
+  Attempting uninstall: trl
+    Found existing installation: trl 1.3.0
+    Uninstalling trl-1.3.0:
+      Successfully uninstalled trl-1.3.0
+Successfully installed cut_cross_entropy-25.1.1 datasets-4.3.0 dill-0.4.0 docstring-parser-0.18.0 fsspec-2025.9.0 hf_transfer-0.1.9 msgspec-0.21.1 multiprocess-0.70.16 torchao-0.17.0 transformers-5.5.0 trl-0.24.0 typeguard-4.5.1 tyro-1.0.13 unsloth_zoo-2026.5.1
+((unsloth_env) ) ubuntu@thunder-client:~$ python <<'PY'
+import torch
+from unsloth import FastLanguageModel
+import unsloth
+print(f"torch:    {torch.__version__}")
+print(f"unsloth:  {unsloth.__version__}")
+print(f"gpu:      {torch.cuda.get_device_name(0)}")
+print(f"vram:     {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+print(f"bf16:     {'yes' if torch.cuda.is_bf16_supported() else 'NO'}")
+print("OK — ready to train.")
+PY
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth/__init__.py", line 127, in <module>
+    from ._gpu_init import *
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth/_gpu_init.py", line 105, in <module>
+    import unsloth_zoo
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth_zoo/__init__.py", line 289, in <module>
+    from .temporary_patches import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth_zoo/temporary_patches/__init__.py", line 19, in <module>
+    from .gemma import *
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth_zoo/temporary_patches/gemma.py", line 22, in <module>
+    from .utils import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth_zoo/temporary_patches/utils.py", line 146, in <module>
+    from transformers.processing_utils import Unpack
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/processing_utils.py", line 79, in <module>
+    from .modeling_utils import PreTrainedAudioTokenizerBase
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/modeling_utils.py", line 94, in <module>
+    from .quantizers import HfQuantizer
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/quantizers/__init__.py", line 14, in <module>
+    from .auto import AutoHfQuantizer, AutoQuantizationConfig, register_quantization_config, register_quantizer
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/quantizers/auto.py", line 67, in <module>
+    from .quantizer_torchao import TorchAoHfQuantizer
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/quantizers/quantizer_torchao.py", line 41, in <module>
+    from torchao.prototype.safetensors.safetensors_support import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/__init__.py", line 107, in <module>
+    from torchao.quantization import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/quantization/__init__.py", line 31, in <module>
+    from .quant_api import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/quantization/quant_api.py", line 54, in <module>
+    from torchao.prototype.quantization.quant_api import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/prototype/quantization/__init__.py", line 2, in <module>
+    from .quant_api import Int8DynamicActivationUIntxWeightConfig, UIntxWeightOnlyConfig
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/prototype/quantization/quant_api.py", line 32, in <module>
+    from torchao.quantization.quantize_.common import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/quantization/quantize_/common/__init__.py", line 1, in <module>
+    from .kernel_preference import KernelPreference
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/quantization/quantize_/common/kernel_preference.py", line 16, in <module>
+    @register_as_pytree_constant
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/utils.py", line 44, in register_as_pytree_constant
+    torch.utils._pytree.register_constant(cls)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'torch.utils._pytree' has no attribute 'register_constant'
+((unsloth_env) ) ubuntu@thunder-client:~$ pip install "transformers<5"
+Collecting transformers<5
+  Downloading transformers-4.57.6-py3-none-any.whl.metadata (43 kB)
+Requirement already satisfied: filelock in ./unsloth_env/lib/python3.12/site-packages (from transformers<5) (3.25.2)
+Collecting huggingface-hub<1.0,>=0.34.0 (from transformers<5)
+  Downloading huggingface_hub-0.36.2-py3-none-any.whl.metadata (15 kB)
+Requirement already satisfied: numpy>=1.17 in ./unsloth_env/lib/python3.12/site-packages (from transformers<5) (2.4.3)
+Requirement already satisfied: packaging>=20.0 in ./unsloth_env/lib/python3.12/site-packages (from transformers<5) (26.2)
+Requirement already satisfied: pyyaml>=5.1 in ./unsloth_env/lib/python3.12/site-packages (from transformers<5) (6.0.3)
+Requirement already satisfied: regex!=2019.12.17 in ./unsloth_env/lib/python3.12/site-packages (from transformers<5) (2026.4.4)
+Requirement already satisfied: requests in ./unsloth_env/lib/python3.12/site-packages (from transformers<5) (2.33.1)
+Requirement already satisfied: tokenizers<=0.23.0,>=0.22.0 in ./unsloth_env/lib/python3.12/site-packages (from transformers<5) (0.22.2)
+Requirement already satisfied: safetensors>=0.4.3 in ./unsloth_env/lib/python3.12/site-packages (from transformers<5) (0.7.0)
+Requirement already satisfied: tqdm>=4.27 in ./unsloth_env/lib/python3.12/site-packages (from transformers<5) (4.67.3)
+Requirement already satisfied: fsspec>=2023.5.0 in ./unsloth_env/lib/python3.12/site-packages (from huggingface-hub<1.0,>=0.34.0->transformers<5) (2025.9.0)
+Requirement already satisfied: hf-xet<2.0.0,>=1.1.3 in ./unsloth_env/lib/python3.12/site-packages (from huggingface-hub<1.0,>=0.34.0->transformers<5) (1.5.0)
+Requirement already satisfied: typing-extensions>=3.7.4.3 in ./unsloth_env/lib/python3.12/site-packages (from huggingface-hub<1.0,>=0.34.0->transformers<5) (4.15.0)
+Requirement already satisfied: charset_normalizer<4,>=2 in ./unsloth_env/lib/python3.12/site-packages (from requests->transformers<5) (3.4.7)
+Requirement already satisfied: idna<4,>=2.5 in ./unsloth_env/lib/python3.12/site-packages (from requests->transformers<5) (3.13)
+Requirement already satisfied: urllib3<3,>=1.26 in ./unsloth_env/lib/python3.12/site-packages (from requests->transformers<5) (2.6.3)
+Requirement already satisfied: certifi>=2023.5.7 in ./unsloth_env/lib/python3.12/site-packages (from requests->transformers<5) (2026.4.22)
+Downloading transformers-4.57.6-py3-none-any.whl (12.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 12.0/12.0 MB 28.1 MB/s  0:00:00
+Downloading huggingface_hub-0.36.2-py3-none-any.whl (566 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 566.4/566.4 kB 21.8 MB/s  0:00:00
+Installing collected packages: huggingface-hub, transformers
+  Attempting uninstall: huggingface-hub
+    Found existing installation: huggingface_hub 1.14.0
+    Uninstalling huggingface_hub-1.14.0:
+      Successfully uninstalled huggingface_hub-1.14.0
+  Attempting uninstall: transformers
+    Found existing installation: transformers 5.5.0
+    Uninstalling transformers-5.5.0:
+      Successfully uninstalled transformers-5.5.0
+Successfully installed huggingface-hub-0.36.2 transformers-4.57.6
+((unsloth_env) ) ubuntu@thunder-client:~$ python <<'PY'
+import torch
+from unsloth import FastLanguageModel
+import unsloth
+print(f"torch:    {torch.__version__}")
+print(f"unsloth:  {unsloth.__version__}")
+print(f"trans.:   ", __import__('transformers').__version__)
+print(f"gpu:      {torch.cuda.get_device_name(0)}")
+print(f"vram:     {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+print(f"bf16:     {'yes' if torch.cuda.is_bf16_supported() else 'NO'}")
+print("OK — ready to train.")
+PY
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth/__init__.py", line 127, in <module>
+    from ._gpu_init import *
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth/_gpu_init.py", line 105, in <module>
+    import unsloth_zoo
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth_zoo/__init__.py", line 289, in <module>
+    from .temporary_patches import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth_zoo/temporary_patches/__init__.py", line 19, in <module>
+    from .gemma import *
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth_zoo/temporary_patches/gemma.py", line 22, in <module>
+    from .utils import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/unsloth_zoo/temporary_patches/utils.py", line 146, in <module>
+    from transformers.processing_utils import Unpack
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/processing_utils.py", line 75, in <module>
+    from .modeling_utils import PreTrainedAudioTokenizerBase
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/modeling_utils.py", line 73, in <module>
+    from .quantizers import HfQuantizer
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/quantizers/__init__.py", line 14, in <module>
+    from .auto import AutoHfQuantizer, AutoQuantizationConfig, register_quantization_config, register_quantizer
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/quantizers/auto.py", line 62, in <module>
+    from .quantizer_torchao import TorchAoHfQuantizer
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/transformers/quantizers/quantizer_torchao.py", line 39, in <module>
+    import torchao
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/__init__.py", line 107, in <module>
+    from torchao.quantization import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/quantization/__init__.py", line 31, in <module>
+    from .quant_api import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/quantization/quant_api.py", line 54, in <module>
+    from torchao.prototype.quantization.quant_api import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/prototype/quantization/__init__.py", line 2, in <module>
+    from .quant_api import Int8DynamicActivationUIntxWeightConfig, UIntxWeightOnlyConfig
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/prototype/quantization/quant_api.py", line 32, in <module>
+    from torchao.quantization.quantize_.common import (
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/quantization/quantize_/common/__init__.py", line 1, in <module>
+    from .kernel_preference import KernelPreference
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/quantization/quantize_/common/kernel_preference.py", line 16, in <module>
+    @register_as_pytree_constant
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torchao/utils.py", line 44, in register_as_pytree_constant
+    torch.utils._pytree.register_constant(cls)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'torch.utils._pytree' has no attribute 'register_constant'
+((unsloth_env) ) ubuntu@thunder-client:~$ pip install "torchao<0.17"
+Collecting torchao<0.17
+  Downloading torchao-0.16.0-cp310-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (20 kB)
+Downloading torchao-0.16.0-cp310-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (3.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.2/3.2 MB 56.5 MB/s  0:00:00
+Installing collected packages: torchao
+  Attempting uninstall: torchao
+    Found existing installation: torchao 0.17.0
+    Uninstalling torchao-0.17.0:
+      Successfully uninstalled torchao-0.17.0
+Successfully installed torchao-0.16.0
+((unsloth_env) ) ubuntu@thunder-client:~$ python <<'PY'
+import torch
+from unsloth import FastLanguageModel
+import unsloth
+print(f"torch:    {torch.__version__}")
+print(f"unsloth:  {unsloth.__version__}")
+print(f"trans.:   ", __import__('transformers').__version__)
+print(f"gpu:      {torch.cuda.get_device_name(0)}")
+print(f"vram:     {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+print(f"bf16:     {'yes' if torch.cuda.is_bf16_supported() else 'NO'}")
+print("OK — ready to train.")
+PY
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+🦥 Unsloth Zoo will now patch everything to make training faster!
+torch:    2.6.0+cu124
+unsloth:  2026.5.2
+trans.:    4.57.6
+gpu:      NVIDIA A100 80GB PCIe
+vram:     85.1 GB
+bf16:     yes
+OK — ready to train.
+((unsloth_env) ) ubuntu@thunder-client:~$ head -1 ~/training_iter0.jsonl | python -c "import sys,json; d=json.loads(sys.stdin.read()); print('keys:', list(d.keys())); print('messages count:', len(d['messages']))"
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/usr/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 354, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ^^^^^^^^^^^^^^^^^^^^^^
+json.decoder.JSONDecodeError: Expecting ',' delimiter: line 1 column 2311 (char 2310)
+((unsloth_env) ) ubuntu@thunder-client:~$ head -1 ~/training_iter0.jsonl | python -c "import sys,json; d=json.loads(sys.stdin.read()); print('keys:', list(d.keys())); print('messages count:', len(d['messages']))"
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/usr/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 354, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ^^^^^^^^^^^^^^^^^^^^^^
+json.decoder.JSONDecodeError: Expecting ',' delimiter: line 1 column 2311 (char 2310)
+((unsloth_env) ) ubuntu@thunder-client:~$ pwd
+/home/ubuntu
+((unsloth_env) ) ubuntu@thunder-client:~$ head -1 ~/training_iter0.jsonl | python -c "import sys,json; d=json.loads(sys.stdin.read()); print('keys:', list(d.keys())); print('messages count:', len(d['messages']))"
+keys: ['messages', 'metadata']
+messages count: 2
+((unsloth_env) ) ubuntu@thunder-client:~$ source ~/unsloth_env/bin/activate
+cd ~
+
+python 02_train_llama_3_3_70b.py \
+    --data ~/training_iter0.jsonl \
+    --output ~/lora_smoke \
+    --limit 20 --epochs 1 \
+    2>&1 | tee ~/smoke_train.log
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+🦥 Unsloth Zoo will now patch everything to make training faster!
+GPU: NVIDIA A100 80GB PCIe  free=84.6GB / total=85.1GB
+Loading base model: unsloth/Llama-3.3-70B-Instruct-bnb-4bit
+==((====))==  Unsloth 2026.5.2: Fast Llama patching. Transformers: 4.57.6.
+   \\   /|    NVIDIA A100 80GB PCIe. Num GPUs = 1. Max memory: 79.251 GB. Platform: Linux.
+O^O/ \_/ \    Torch: 2.6.0+cu124. CUDA: 8.0. CUDA Toolkit: 12.4. Triton: 3.2.0
+\        /    Bfloat16 = TRUE. FA [Xformers = None. FA2 = False]
+ "-____-"     Free license: http://github.com/unslothai/unsloth
+Unsloth: Fast downloading is enabled - ignore downloading bars which are red colored!
+Loading checkpoint shards: 100%|██████████| 8/8 [00:06<00:00,  1.17it/s]
+Unsloth 2026.5.2 patched 80 layers with 80 QKV layers, 80 O layers and 80 MLP layers.
+Adding LoRA adapters (r=16, alpha=16)
+Loading dataset: /home/ubuntu/training_iter0.jsonl
+Generating train split: 1958 examples [00:00, 30318.55 examples/s]
+  rows: 20
+Map (num_proc=2): 100%|██████████| 20/20 [00:01<00:00, 14.48 examples/s]
+Configuring trainer
+Unsloth: Tokenizing ["text"] (num_proc=2):  50%|█████     | 10/20 [00:00<00:00, 10.02 examplUnsloth: Tokenizing ["text"] (num_proc=2): 100%|██████████| 20/20 [00:01<00:00, 20.47 examplUnsloth: Tokenizing ["text"] (num_proc=2): 100%|██████████| 20/20 [00:01<00:00, 13.62 examples/s]
+🦥 Unsloth: Padding-free auto-enabled, enabling faster training.
+Map (num_proc=19): 100%|██████████| 20/20 [00:02<00:00,  9.13 examples/s]
+Filter (num_proc=19): 100%|██████████| 20/20 [00:02<00:00,  8.50 examples/s]
+==((====))==  Unsloth - 2x faster free finetuning | Num GPUs used = 1
+   \\   /|    Num examples = 20 | Num Epochs = 1 | Total steps = 3
+O^O/ \_/ \    Batch size per device = 1 | Gradient accumulation steps = 8
+\        /    Data Parallel GPUs = 1 | Total batch size (1 x 8 x 1) = 8
+ "-____-"     Trainable parameters = 207,093,760 of 70,760,800,256 (0.29% trained)
+Starting training
+100%|██████████| 3/3 [01:49<00:00, 36.63s/it]
+Unsloth: Will smartly offload gradients to save VRAM!
+Unsloth: Double buffering enabled (parallel H2D + compute) for backward pass.
+{'train_runtime': 109.9148, 'train_samples_per_second': 0.182, 'train_steps_per_second': 0.027, 'train_loss': 1.7361235618591309, 'epoch': 1.0}
+Training complete: 111.9s, final_loss=1.7361235618591309, peak_vram=43.5GB
+Saving LoRA adapter to /home/ubuntu/lora_smoke
+Wrote /home/ubuntu/lora_smoke/manifest.json
+Done.
+((unsloth_env) ) ubuntu@thunder-client:~$ pip install flash-attn --no-build-isolation 2>&1 | tail -5
+× Encountered error while generating package metadata.
+╰─> flash-attn
+
+note: This is an issue with the package mentioned above, not pip.
+hint: See above for details.
+((unsloth_env) ) ubuntu@thunder-client:~$ pip install flash-attn --no-build-isolation 2>&1 | tail -50
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'error'
+  error: subprocess-exited-with-error
+
+  × Preparing metadata (pyproject.toml) did not run successfully.
+  │ exit code: 1
+  ╰─> [33 lines of output]
+      /home/ubuntu/unsloth_env/lib/python3.12/site-packages/wheel/bdist_wheel.py:4: FutureWarning: The 'wheel' package is no longer the canonical location of the 'bdist_wheel' command, and will be removed in a future release. Please update to setuptools v70.1 or later which contains an integrated version of this command.
+        warn(
+      <string>:106: UserWarning: flash_attn was requested, but nvcc was not found.  Are you sure your environment has nvcc available?  If you're installing within a container from https://hub.docker.com/r/pytorch/pytorch, only images whose names contain 'devel' will provide nvcc.
+
+
+      torch.__version__  = 2.6.0+cu124
+
+
+      Traceback (most recent call last):
+        File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 389, in <module>
+          main()
+        File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 373, in main
+          json_out["return_val"] = hook(**hook_input["kwargs"])
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 175, in prepare_metadata_for_build_wheel
+          return hook(metadata_directory, config_settings)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/setuptools/build_meta.py", line 380, in prepare_metadata_for_build_wheel
+          self.run_setup()
+        File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/setuptools/build_meta.py", line 520, in run_setup
+          super().run_setup(setup_script=setup_script)
+        File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/setuptools/build_meta.py", line 317, in run_setup
+          exec(code, locals())
+        File "<string>", line 227, in <module>
+        File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 1130, in CUDAExtension
+          library_dirs += library_paths(device_type="cuda")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 1264, in library_paths
+          if (not os.path.exists(_join_cuda_home(lib_dir)) and
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ubuntu/unsloth_env/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 2525, in _join_cuda_home
+          raise OSError('CUDA_HOME environment variable is not set. '
+      OSError: CUDA_HOME environment variable is not set. Please set it to your CUDA install root.
+      [end of output]
+
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+error: metadata-generation-failed
+
+× Encountered error while generating package metadata.
+╰─> flash-attn
+
+note: This is an issue with the package mentioned above, not pip.
+hint: See above for details.
+((unsloth_env) ) ubuntu@thunder-client:~$ pip install "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.7.4+cu124torch2.6-cp312-cp312-linux_x86_64.whl"
+Collecting flash-attn==2.7.4+cu124torch2.6
+  Downloading flash_attn-2.7.4+cu124torch2.6-cp312-cp312-linux_x86_64.whl (186.9 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 186.9/186.9 MB 38.3 MB/s  0:00:04
+Requirement already satisfied: torch in ./unsloth_env/lib/python3.12/site-packages (from flash-attn==2.7.4+cu124torch2.6) (2.6.0+cu124)
+Collecting einops (from flash-attn==2.7.4+cu124torch2.6)
+  Downloading einops-0.8.2-py3-none-any.whl.metadata (13 kB)
+Requirement already satisfied: filelock in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (3.25.2)
+Requirement already satisfied: typing-extensions>=4.10.0 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (4.15.0)
+Requirement already satisfied: networkx in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (3.6.1)
+Requirement already satisfied: jinja2 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (3.1.6)
+Requirement already satisfied: fsspec in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (2025.9.0)
+Requirement already satisfied: nvidia-cuda-nvrtc-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (12.4.127)
+Requirement already satisfied: nvidia-cuda-runtime-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (12.4.127)
+Requirement already satisfied: nvidia-cuda-cupti-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (12.4.127)
+Requirement already satisfied: nvidia-cudnn-cu12==9.1.0.70 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (9.1.0.70)
+Requirement already satisfied: nvidia-cublas-cu12==12.4.5.8 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (12.4.5.8)
+Requirement already satisfied: nvidia-cufft-cu12==11.2.1.3 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (11.2.1.3)
+Requirement already satisfied: nvidia-curand-cu12==10.3.5.147 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (10.3.5.147)
+Requirement already satisfied: nvidia-cusolver-cu12==11.6.1.9 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (11.6.1.9)
+Requirement already satisfied: nvidia-cusparse-cu12==12.3.1.170 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (12.3.1.170)
+Requirement already satisfied: nvidia-cusparselt-cu12==0.6.2 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (0.6.2)
+Requirement already satisfied: nvidia-nccl-cu12==2.21.5 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (2.21.5)
+Requirement already satisfied: nvidia-nvtx-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (12.4.127)
+Requirement already satisfied: nvidia-nvjitlink-cu12==12.4.127 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (12.4.127)
+Requirement already satisfied: triton==3.2.0 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (3.2.0)
+Requirement already satisfied: setuptools in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (82.0.1)
+Requirement already satisfied: sympy==1.13.1 in ./unsloth_env/lib/python3.12/site-packages (from torch->flash-attn==2.7.4+cu124torch2.6) (1.13.1)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in ./unsloth_env/lib/python3.12/site-packages (from sympy==1.13.1->torch->flash-attn==2.7.4+cu124torch2.6) (1.3.0)
+Requirement already satisfied: MarkupSafe>=2.0 in ./unsloth_env/lib/python3.12/site-packages (from jinja2->torch->flash-attn==2.7.4+cu124torch2.6) (3.0.3)
+Downloading einops-0.8.2-py3-none-any.whl (65 kB)
+Installing collected packages: einops, flash-attn
+Successfully installed einops-0.8.2 flash-attn-2.7.4+cu124torch2.6
+((unsloth_env) ) ubuntu@thunder-client:~$
+((unsloth_env) ) ubuntu@thunder-client:~$ # 1. Sanity (5s)
+python -c "import flash_attn; print('flash_attn:', flash_attn.__version__)"
+
+# 2. Full run, backgrounded so SSH disconnects don't kill it
+cd ~
+nohup python 02_train_llama_3_3_70b.py \
+    --data ~/training_iter0.jsonl \
+    --output ~/lora_iter0_full \
+    > ~/full_train.log 2>&1 &
+
+echo "Training PID: $!"
+
+# 3. Watch the banner + first few steps
+tail -f ~/full_train.log
+flash_attn: 2.7.4
+[1] 3466
+Training PID: 3466
+nohup: ignoring input
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+🦥 Unsloth Zoo will now patch everything to make training faster!
+GPU: NVIDIA A100 80GB PCIe  free=84.6GB / total=85.1GB
+Loading base model: unsloth/Llama-3.3-70B-Instruct-bnb-4bit
+==((====))==  Unsloth 2026.5.2: Fast Llama patching. Transformers: 4.57.6.
+   \\   /|    NVIDIA A100 80GB PCIe. Num GPUs = 1. Max memory: 79.251 GB. Platform: Linux.
+O^O/ \_/ \    Torch: 2.6.0+cu124. CUDA: 8.0. CUDA Toolkit: 12.4. Triton: 3.2.0
+\        /    Bfloat16 = TRUE. FA [Xformers = None. FA2 = True]
+ "-____-"     Free license: http://github.com/unslothai/unsloth
+Unsloth: Fast downloading is enabled - ignore downloading bars which are red colored!
+Loading checkpoint shards: 100%|██████████| 8/8 [00:06<00:00,  1.16it/s]
+Unsloth 2026.5.2 patched 80 layers with 80 QKV layers, 80 O layers and 80 MLP layers.
+Adding LoRA adapters (r=16, alpha=16)
+Loading dataset: /home/ubuntu/training_iter0.jsonl
+  rows: 1958
+Map (num_proc=2): 100%|██████████| 1958/1958 [00:01<00:00, 1295.91 examples/s]
+Configuring trainer
+Unsloth: Tokenizing ["text"] (num_proc=2):  50%|█████     | 979/1958 [00:04<00:04, 217.09 exUnsloth: Tokenizing ["text"] (num_proc=2): 100%|██████████| 1958/1958 [00:04<00:00, 509.09 eUnsloth: Tokenizing ["text"] (num_proc=2): 100%|██████████| 1958/1958 [00:04<00:00, 399.81 examples/s]
+🦥 Unsloth: Padding-free auto-enabled, enabling faster training.
+Map (num_proc=19): 100%|██████████| 1958/1958 [00:01<00:00, 1148.06 examples/s]
+Filter (num_proc=19): 100%|██████████| 1958/1958 [00:01<00:00, 1170.82 examples/s]
+==((====))==  Unsloth - 2x faster free finetuning | Num GPUs used = 1
+   \\   /|    Num examples = 1,934 | Num Epochs = 3 | Total steps = 726
+O^O/ \_/ \    Batch size per device = 1 | Gradient accumulation steps = 8
+\        /    Data Parallel GPUs = 1 | Total batch size (1 x 8 x 1) = 8
+ "-____-"     Trainable parameters = 207,093,760 of 70,760,800,256 (0.29% trained)
+Unsloth: Removed 24 out of 1958 samples from train_dataset where all labels were -100 (no response found after truncation). This prevents NaN loss during training.
+Starting training
+Unsloth: Will smartly offload gradients to save VRAM!
+Unsloth: Double buffering enabled (parallel H2D + compute) for backward pass.
+{'loss': 1.4892, 'grad_norm': 0.635964572429657, 'learning_rate': 0.00016, 'epoch': 0.02}
+{'loss': 0.844, 'grad_norm': 0.5616430044174194, 'learning_rate': 0.00019889042995839114, 'epoch': 0.04}
+{'loss': 0.6542, 'grad_norm': 0.4197556674480438, 'learning_rate': 0.00019750346740638004, 'epoch': 0.06}
+{'loss': 0.6642, 'grad_norm': 0.3995967507362366, 'learning_rate': 0.00019611650485436895, 'epoch': 0.08}
+{'loss': 0.5641, 'grad_norm': 14.384130477905273, 'learning_rate': 0.00019472954230235784, 'epoch': 0.1}
+{'loss': 0.5015, 'grad_norm': 1.0369926691055298, 'learning_rate': 0.00019334257975034676, 'epoch': 0.12}
+{'loss': 0.517, 'grad_norm': 0.41628292202949524, 'learning_rate': 0.00019195561719833565, 'epoch': 0.14}
+{'loss': 0.4648, 'grad_norm': 0.5686688423156738, 'learning_rate': 0.00019056865464632457, 'epoch': 0.17}
+{'loss': 0.4345, 'grad_norm': 0.5172930359840393, 'learning_rate': 0.00018918169209431346, 'epoch': 0.19}
+{'loss': 0.4924, 'grad_norm': 0.9618195295333862, 'learning_rate': 0.00018779472954230238, 'epoch': 0.21}
+{'loss': 0.4346, 'grad_norm': 0.4622715413570404, 'learning_rate': 0.00018640776699029127, 'epoch': 0.23}
+{'loss': 0.4523, 'grad_norm': 0.5039041042327881, 'learning_rate': 0.0001850208044382802, 'epoch': 0.25}
+{'loss': 0.4261, 'grad_norm': 0.5984258651733398, 'learning_rate': 0.00018363384188626908, 'epoch': 0.27}
+{'loss': 0.4285, 'grad_norm': 0.3929469585418701, 'learning_rate': 0.000182246879334258, 'epoch': 0.29}
+{'loss': 0.4684, 'grad_norm': 0.4989874064922333, 'learning_rate': 0.0001808599167822469, 'epoch': 0.31}
+{'loss': 0.3676, 'grad_norm': 0.49256542325019836, 'learning_rate': 0.0001794729542302358, 'epoch': 0.33}
+{'loss': 0.4033, 'grad_norm': 0.5681933760643005, 'learning_rate': 0.0001780859916782247, 'epoch': 0.35}
+{'loss': 0.3779, 'grad_norm': 0.46475088596343994, 'learning_rate': 0.00017669902912621362, 'epoch': 0.37}
+{'loss': 0.3727, 'grad_norm': 0.3306054174900055, 'learning_rate': 0.0001753120665742025, 'epoch': 0.39}
+{'loss': 0.4873, 'grad_norm': 0.4031974971294403, 'learning_rate': 0.0001739251040221914, 'epoch': 0.41}
+{'loss': 0.3132, 'grad_norm': 0.3822861313819885, 'learning_rate': 0.0001725381414701803, 'epoch': 0.43}
+{'loss': 0.4333, 'grad_norm': 1.9170353412628174, 'learning_rate': 0.0001711511789181692, 'epoch': 0.46}
+{'loss': 0.4417, 'grad_norm': 0.2987695634365082, 'learning_rate': 0.0001697642163661581, 'epoch': 0.48}
+{'loss': 0.3777, 'grad_norm': 0.4056110084056854, 'learning_rate': 0.00016837725381414702, 'epoch': 0.5}
+{'loss': 0.3772, 'grad_norm': 0.4389508366584778, 'learning_rate': 0.00016699029126213594, 'epoch': 0.52}
+{'loss': 0.389, 'grad_norm': 0.9135493636131287, 'learning_rate': 0.00016560332871012483, 'epoch': 0.54}
+{'loss': 0.3527, 'grad_norm': 0.5701122879981995, 'learning_rate': 0.00016421636615811375, 'epoch': 0.56}
+{'loss': 0.4441, 'grad_norm': 0.45226430892944336, 'learning_rate': 0.00016282940360610264, 'epoch': 0.58}
+{'loss': 0.4295, 'grad_norm': 0.427354097366333, 'learning_rate': 0.00016144244105409155, 'epoch': 0.6}
+{'loss': 0.3425, 'grad_norm': 0.4136134684085846, 'learning_rate': 0.00016005547850208045, 'epoch': 0.62}
+{'loss': 0.3513, 'grad_norm': 0.2594846785068512, 'learning_rate': 0.00015866851595006936, 'epoch': 0.64}
+{'loss': 0.3666, 'grad_norm': 0.6566861867904663, 'learning_rate': 0.00015728155339805825, 'epoch': 0.66}
+{'loss': 0.4859, 'grad_norm': 0.3663976490497589, 'learning_rate': 0.00015589459084604717, 'epoch': 0.68}
+{'loss': 0.4423, 'grad_norm': 0.3603750765323639, 'learning_rate': 0.00015450762829403606, 'epoch': 0.7}
+{'loss': 0.3671, 'grad_norm': 0.5003489255905151, 'learning_rate': 0.00015312066574202498, 'epoch': 0.72}
+{'loss': 0.3816, 'grad_norm': 0.2759448289871216, 'learning_rate': 0.00015173370319001387, 'epoch': 0.74}
+{'loss': 0.3472, 'grad_norm': 0.41938841342926025, 'learning_rate': 0.0001503467406380028, 'epoch': 0.77}
+{'loss': 0.2802, 'grad_norm': 0.4248720109462738, 'learning_rate': 0.00014895977808599168, 'epoch': 0.79}
+{'loss': 0.4859, 'grad_norm': 0.44110098481178284, 'learning_rate': 0.0001475728155339806, 'epoch': 0.81}
+{'loss': 0.3612, 'grad_norm': 0.3166230022907257, 'learning_rate': 0.0001461858529819695, 'epoch': 0.83}
+{'loss': 0.3055, 'grad_norm': 0.3377419412136078, 'learning_rate': 0.0001447988904299584, 'epoch': 0.85}
+{'loss': 0.3969, 'grad_norm': 0.32430702447891235, 'learning_rate': 0.0001434119278779473, 'epoch': 0.87}
+{'loss': 0.4408, 'grad_norm': 0.4542790651321411, 'learning_rate': 0.00014202496532593622, 'epoch': 0.89}
+{'loss': 0.3218, 'grad_norm': 0.49762672185897827, 'learning_rate': 0.0001406380027739251, 'epoch': 0.91}
+{'loss': 0.3951, 'grad_norm': 0.46864399313926697, 'learning_rate': 0.00013925104022191403, 'epoch': 0.93}
+{'loss': 0.3135, 'grad_norm': 0.3734078109264374, 'learning_rate': 0.00013786407766990292, 'epoch': 0.95}
+{'loss': 0.337, 'grad_norm': 0.38414886593818665, 'learning_rate': 0.00013647711511789184, 'epoch': 0.97}
+{'loss': 0.308, 'grad_norm': 0.32711634039878845, 'learning_rate': 0.00013509015256588073, 'epoch': 0.99}
+{'loss': 0.2654, 'grad_norm': 0.3288879692554474, 'learning_rate': 0.00013370319001386965, 'epoch': 1.01}
+{'loss': 0.3424, 'grad_norm': 0.3336663842201233, 'learning_rate': 0.00013231622746185854, 'epoch': 1.03}
+{'loss': 0.1652, 'grad_norm': 0.29770955443382263, 'learning_rate': 0.00013092926490984746, 'epoch': 1.05}
+{'loss': 0.2533, 'grad_norm': 0.4515959322452545, 'learning_rate': 0.00012954230235783635, 'epoch': 1.07}
+{'loss': 0.2557, 'grad_norm': 0.44356873631477356, 'learning_rate': 0.00012815533980582526, 'epoch': 1.1}
+{'loss': 0.2018, 'grad_norm': 0.45552510023117065, 'learning_rate': 0.00012676837725381416, 'epoch': 1.12}
+{'loss': 0.2292, 'grad_norm': 0.3791542947292328, 'learning_rate': 0.00012538141470180307, 'epoch': 1.14}
+{'loss': 0.2761, 'grad_norm': 0.5897100567817688, 'learning_rate': 0.00012399445214979194, 'epoch': 1.16}
+{'loss': 0.2914, 'grad_norm': 0.46495410799980164, 'learning_rate': 0.00012260748959778086, 'epoch': 1.18}
+{'loss': 0.2086, 'grad_norm': 0.5085631608963013, 'learning_rate': 0.00012122052704576976, 'epoch': 1.2}
+{'loss': 0.2167, 'grad_norm': 0.3685506284236908, 'learning_rate': 0.00011983356449375867, 'epoch': 1.22}
+{'loss': 0.1902, 'grad_norm': 0.3397185504436493, 'learning_rate': 0.00011844660194174757, 'epoch': 1.24}
+{'loss': 0.2166, 'grad_norm': 0.39957955479621887, 'learning_rate': 0.00011705963938973647, 'epoch': 1.26}
+{'loss': 0.2378, 'grad_norm': 0.5460593104362488, 'learning_rate': 0.00011567267683772538, 'epoch': 1.28}
+{'loss': 0.2662, 'grad_norm': 0.3979175090789795, 'learning_rate': 0.00011428571428571428, 'epoch': 1.3}
+{'loss': 0.2933, 'grad_norm': 0.33095583319664, 'learning_rate': 0.00011289875173370319, 'epoch': 1.32}
+{'loss': 0.1923, 'grad_norm': 0.3103046417236328, 'learning_rate': 0.00011151178918169209, 'epoch': 1.34}
+{'loss': 0.2432, 'grad_norm': 0.3585157096385956, 'learning_rate': 0.000110124826629681, 'epoch': 1.36}
+{'loss': 0.2126, 'grad_norm': 0.4086238443851471, 'learning_rate': 0.0001087378640776699, 'epoch': 1.38}
+{'loss': 0.2691, 'grad_norm': 0.41000571846961975, 'learning_rate': 0.0001073509015256588, 'epoch': 1.41}
+{'loss': 0.2115, 'grad_norm': 0.4014330506324768, 'learning_rate': 0.00010596393897364771, 'epoch': 1.43}
+{'loss': 0.2209, 'grad_norm': 0.4193362891674042, 'learning_rate': 0.00010457697642163662, 'epoch': 1.45}
+{'loss': 0.2959, 'grad_norm': 0.4542923867702484, 'learning_rate': 0.00010319001386962552, 'epoch': 1.47}
+{'loss': 0.2029, 'grad_norm': 0.4103633463382721, 'learning_rate': 0.00010180305131761442, 'epoch': 1.49}
+{'loss': 0.2023, 'grad_norm': 0.41561806201934814, 'learning_rate': 0.00010041608876560333, 'epoch': 1.51}
+{'loss': 0.2599, 'grad_norm': 0.340175598859787, 'learning_rate': 9.902912621359223e-05, 'epoch': 1.53}
+{'loss': 0.2407, 'grad_norm': 0.3115115165710449, 'learning_rate': 9.764216366158114e-05, 'epoch': 1.55}
+{'loss': 0.2187, 'grad_norm': 0.4155108630657196, 'learning_rate': 9.625520110957004e-05, 'epoch': 1.57}
+{'loss': 0.23, 'grad_norm': 0.4690014123916626, 'learning_rate': 9.486823855755895e-05, 'epo100%|██████████| 726/726 [9:12:13<00:00, 45.64s/it]
+
+{'loss': 0.1874, 'grad_norm': 0.3706083595752716, 'learning_rate': 9.348127600554785e-05, 'epoch': 1.61}
+{'loss': 0.2594, 'grad_norm': 0.38790231943130493, 'learning_rate': 9.209431345353676e-05, 'epoch': 1.63}
+{'loss': 0.2177, 'grad_norm': 0.3045732080936432, 'learning_rate': 9.070735090152566e-05, 'epoch': 1.65}
+{'loss': 0.2184, 'grad_norm': 0.47707295417785645, 'learning_rate': 8.932038834951457e-05, 'epoch': 1.67}
+{'loss': 0.2718, 'grad_norm': 0.2928336560726166, 'learning_rate': 8.793342579750347e-05, 'epoch': 1.69}
+{'loss': 0.2159, 'grad_norm': 0.3153247535228729, 'learning_rate': 8.654646324549238e-05, 'epoch': 1.72}
+{'loss': 0.2076, 'grad_norm': 0.30981895327568054, 'learning_rate': 8.515950069348128e-05, 'epoch': 1.74}
+{'loss': 0.2121, 'grad_norm': 0.41862189769744873, 'learning_rate': 8.377253814147018e-05, 'epoch': 1.76}
+{'loss': 0.2042, 'grad_norm': 0.46108949184417725, 'learning_rate': 8.238557558945909e-05, 'epoch': 1.78}
+{'loss': 0.2001, 'grad_norm': 0.5707456469535828, 'learning_rate': 8.0998613037448e-05, 'epoch': 1.8}
+{'loss': 0.2479, 'grad_norm': 0.2872296869754791, 'learning_rate': 7.96116504854369e-05, 'epoch': 1.82}
+{'loss': 0.2686, 'grad_norm': 0.5596428513526917, 'learning_rate': 7.82246879334258e-05, 'epoch': 1.84}
+{'loss': 0.2276, 'grad_norm': 0.3958148956298828, 'learning_rate': 7.683772538141471e-05, 'epoch': 1.86}
+{'loss': 0.3075, 'grad_norm': 0.40461739897727966, 'learning_rate': 7.545076282940361e-05, 'epoch': 1.88}
+{'loss': 0.2422, 'grad_norm': 0.45387783646583557, 'learning_rate': 7.406380027739252e-05, 'epoch': 1.9}
+{'loss': 0.219, 'grad_norm': 0.4991041123867035, 'learning_rate': 7.267683772538142e-05, 'epoch': 1.92}
+{'loss': 0.2587, 'grad_norm': 0.40143975615501404, 'learning_rate': 7.128987517337033e-05, 'epoch': 1.94}
+{'loss': 0.1841, 'grad_norm': 0.4130971133708954, 'learning_rate': 6.990291262135923e-05, 'epoch': 1.96}
+{'loss': 0.2371, 'grad_norm': 0.33144867420196533, 'learning_rate': 6.851595006934813e-05, 'epoch': 1.98}
+{'loss': 0.1864, 'grad_norm': 0.25025060772895813, 'learning_rate': 6.712898751733704e-05, 'epoch': 2.0}
+{'loss': 0.1355, 'grad_norm': 0.30260685086250305, 'learning_rate': 6.574202496532594e-05, 'epoch': 2.02}
+{'loss': 0.1192, 'grad_norm': 0.37130317091941833, 'learning_rate': 6.435506241331485e-05, 'epoch': 2.05}
+{'loss': 0.1313, 'grad_norm': 0.34296754002571106, 'learning_rate': 6.296809986130375e-05, 'epoch': 2.07}
+{'loss': 0.1417, 'grad_norm': 1.1549946069717407, 'learning_rate': 6.158113730929264e-05, 'epoch': 2.09}
+{'loss': 0.1227, 'grad_norm': 0.412765771150589, 'learning_rate': 6.019417475728155e-05, 'epoch': 2.11}
+{'loss': 0.1376, 'grad_norm': 0.3735751807689667, 'learning_rate': 5.8807212205270454e-05, 'epoch': 2.13}
+{'loss': 0.1097, 'grad_norm': 0.3206304609775543, 'learning_rate': 5.742024965325936e-05, 'epoch': 2.15}
+{'loss': 0.1356, 'grad_norm': 0.36650553345680237, 'learning_rate': 5.603328710124827e-05, 'epoch': 2.17}
+{'loss': 0.1379, 'grad_norm': 0.38710084557533264, 'learning_rate': 5.4646324549237174e-05, 'epoch': 2.19}
+{'loss': 0.1377, 'grad_norm': 0.39839357137680054, 'learning_rate': 5.325936199722608e-05, 'epoch': 2.21}
+{'loss': 0.1283, 'grad_norm': 0.43467068672180176, 'learning_rate': 5.187239944521498e-05, 'epoch': 2.23}
+{'loss': 0.1203, 'grad_norm': 0.5978180766105652, 'learning_rate': 5.048543689320389e-05, 'epoch': 2.25}
+{'loss': 0.1245, 'grad_norm': 0.3239156901836395, 'learning_rate': 4.909847434119279e-05, 'epoch': 2.27}
+{'loss': 0.1408, 'grad_norm': 0.35084009170532227, 'learning_rate': 4.77115117891817e-05, 'epoch': 2.29}
+{'loss': 0.1273, 'grad_norm': 0.44909337162971497, 'learning_rate': 4.63245492371706e-05, 'epoch': 2.31}
+{'loss': 0.1462, 'grad_norm': 0.2945023477077484, 'learning_rate': 4.4937586685159506e-05, 'epoch': 2.34}
+{'loss': 0.128, 'grad_norm': 0.36700040102005005, 'learning_rate': 4.3550624133148404e-05, 'epoch': 2.36}
+{'loss': 0.1122, 'grad_norm': 0.36897945404052734, 'learning_rate': 4.216366158113731e-05, 'epoch': 2.38}
+{'loss': 0.1036, 'grad_norm': 0.3345315754413605, 'learning_rate': 4.077669902912621e-05, 'epoch': 2.4}
+{'loss': 0.128, 'grad_norm': 0.4379350543022156, 'learning_rate': 3.938973647711512e-05, 'epoch': 2.42}
+{'loss': 0.1235, 'grad_norm': 0.48268774151802063, 'learning_rate': 3.800277392510402e-05, 'epoch': 2.44}
+{'loss': 0.1045, 'grad_norm': 0.3022645115852356, 'learning_rate': 3.661581137309293e-05, 'epoch': 2.46}
+{'loss': 0.114, 'grad_norm': 0.398202121257782, 'learning_rate': 3.522884882108183e-05, 'epoch': 2.48}
+{'loss': 0.1555, 'grad_norm': 0.39514121413230896, 'learning_rate': 3.3841886269070736e-05, 'epoch': 2.5}
+{'loss': 0.1219, 'grad_norm': 0.3413986265659332, 'learning_rate': 3.245492371705964e-05, 'epoch': 2.52}
+{'loss': 0.111, 'grad_norm': 0.30634838342666626, 'learning_rate': 3.1067961165048545e-05, 'epoch': 2.54}
+{'loss': 0.1091, 'grad_norm': 0.28914302587509155, 'learning_rate': 2.9680998613037447e-05, 'epoch': 2.56}
+{'loss': 0.1293, 'grad_norm': 1.2628505229949951, 'learning_rate': 2.829403606102635e-05, 'epoch': 2.58}
+{'loss': 0.1303, 'grad_norm': 0.48299261927604675, 'learning_rate': 2.6907073509015256e-05, 'epoch': 2.6}
+{'loss': 0.1251, 'grad_norm': 0.3064035177230835, 'learning_rate': 2.552011095700416e-05, 'epoch': 2.62}
+{'loss': 0.1111, 'grad_norm': 0.2500070333480835, 'learning_rate': 2.4133148404993068e-05, 'epoch': 2.65}
+{'loss': 0.1206, 'grad_norm': 0.4242524206638336, 'learning_rate': 2.2746185852981973e-05, 'epoch': 2.67}
+{'loss': 0.1342, 'grad_norm': 0.352864146232605, 'learning_rate': 2.1359223300970874e-05, 'epoch': 2.69}
+{'loss': 0.1025, 'grad_norm': 0.40515846014022827, 'learning_rate': 1.997226074895978e-05, 'epoch': 2.71}
+{'loss': 0.1181, 'grad_norm': 0.3669503927230835, 'learning_rate': 1.8585298196948683e-05, 'epoch': 2.73}
+{'loss': 0.11, 'grad_norm': 0.25277072191238403, 'learning_rate': 1.7198335644937588e-05, 'epoch': 2.75}
+{'loss': 0.1272, 'grad_norm': 0.3979639708995819, 'learning_rate': 1.5811373092926492e-05, 'epoch': 2.77}
+{'loss': 0.1313, 'grad_norm': 0.4635888934135437, 'learning_rate': 1.4424410540915395e-05, 'epoch': 2.79}
+{'loss': 0.1021, 'grad_norm': 0.4853922128677368, 'learning_rate': 1.30374479889043e-05, 'epoch': 2.81}
+{'loss': 0.1219, 'grad_norm': 0.268292099237442, 'learning_rate': 1.1650485436893204e-05, 'epoch': 2.83}
+{'loss': 0.0909, 'grad_norm': 0.32200518250465393, 'learning_rate': 1.0263522884882109e-05, 'epoch': 2.85}
+{'loss': 0.1132, 'grad_norm': 0.36416423320770264, 'learning_rate': 8.876560332871014e-06, 'epoch': 2.87}
+{'loss': 0.0984, 'grad_norm': 0.26185810565948486, 'learning_rate': 7.4895977808599166e-06, 'epoch': 2.89}
+{'loss': 0.1074, 'grad_norm': 0.38131552934646606, 'learning_rate': 6.102635228848821e-06, 'epoch': 2.91}
+{'loss': 0.1095, 'grad_norm': 0.33067649602890015, 'learning_rate': 4.715672676837726e-06, 'epoch': 2.93}
+{'loss': 0.1088, 'grad_norm': 0.37527933716773987, 'learning_rate': 3.32871012482663e-06, 'epoch': 2.96}
+{'loss': 0.1119, 'grad_norm': 0.3889867067337036, 'learning_rate': 1.941747572815534e-06, 'epoch': 2.98}
+{'loss': 0.0969, 'grad_norm': 0.3770958483219147, 'learning_rate': 5.547850208044384e-07, 'epoch': 3.0}
+{'train_runtime': 33133.8682, 'train_samples_per_second': 0.175, 'train_steps_per_second': 0.022, 'train_loss': 0.2668869247244409, 'epoch': 3.0}
+Training complete: 33136.0s, final_loss=0.2668869247244409, peak_vram=44.8GB
+Saving LoRA adapter to /home/ubuntu/lora_iter0_full
+Wrote /home/ubuntu/lora_iter0_full/manifest.json
+Done.
+
+
+
+---------------------------
+ant@ant-XPS-15-9500:~/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase2$ # 1. Pull the adapter off the ephemeral VM
+tnr scp 0:/home/ubuntu/lora_iter0_full ./lora_iter0_full
+Downloading oecrda3u:/home/ubuntu/lora_iter0_full to ./lora_iter0_full
+receiving incremental file list
+created directory ./lora_iter0_full
+lora_iter0_full/
+lora_iter0_full/README.md
+          5,254 100%    5.01MB/s    0:00:00 (xfr#1, to-chk=8/10)
+lora_iter0_full/adapter_config.json
+          1,252 100%    1.19MB/s    0:00:00 (xfr#2, to-chk=7/10)
+lora_iter0_full/adapter_model.safetensors
+    828,526,568 100%  790.61kB/s    0:17:03 (xfr#3, to-chk=6/10)
+lora_iter0_full/chat_template.jinja
+          4,568 100%   28.23kB/s    0:00:00 (xfr#4, to-chk=5/10)
+lora_iter0_full/manifest.json
+            554 100%    3.40kB/s    0:00:00 (xfr#5, to-chk=4/10)
+lora_iter0_full/special_tokens_map.json
+            454 100%    2.79kB/s    0:00:00 (xfr#6, to-chk=3/10)
+lora_iter0_full/tokenizer.json
+     17,209,920 100%    3.49MB/s    0:00:04 (xfr#7, to-chk=2/10)
+lora_iter0_full/tokenizer_config.json
+         50,641 100%  243.62kB/s    0:00:00 (xfr#8, to-chk=1/10)
+lora_iter0_full/checkpoints/
+Transfer complete
+ant@ant-XPS-15-9500:~/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase2$ ls -la
+total 96
+drwxrwxr-x 3 ant ant  4096 May  7 09:22 .
+drwxrwxr-x 4 ant ant  4096 May  6 18:54 ..
+-rw-rw-r-- 1 ant ant  7433 May  6 18:54 02_train_llama_3_3_70b.py
+-rw-rw-r-- 1 ant ant  6768 May  7 08:27 README.md
+-rw-rw-r-- 1 ant ant 66826 May  7 09:22 gpu_output_dump_01
+drwxrwxr-x 3 ant ant  4096 May  7 08:27 lora_iter0_full
+ant@ant-XPS-15-9500:~/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase2$ ls -la lora_iter0_full/
+total 12
+drwxrwxr-x 3 ant ant 4096 May  7 08:27 .
+drwxrwxr-x 3 ant ant 4096 May  7 09:22 ..
+drwxrwxr-x 3 ant ant 4096 May  7 04:54 lora_iter0_full
+ant@ant-XPS-15-9500:~/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase2$ ls -la lora_iter0_full/lora_iter0_full/
+total 826012
+drwxrwxr-x 3 ant ant      4096 May  7 04:54 .
+drwxrwxr-x 3 ant ant      4096 May  7 08:27 ..
+-rw-rw-r-- 1 ant ant      5254 May  7 04:54 README.md
+-rw-rw-r-- 1 ant ant      1252 May  7 04:54 adapter_config.json
+-rw-rw-r-- 1 ant ant 828526568 May  7 04:54 adapter_model.safetensors
+-rw-rw-r-- 1 ant ant      4568 May  7 04:54 chat_template.jinja
+drwxrwxr-x 2 ant ant      4096 May  6 19:41 checkpoints
+-rw-rw-r-- 1 ant ant       554 May  7 04:54 manifest.json
+-rw-rw-r-- 1 ant ant       454 May  7 04:54 special_tokens_map.json
+-rw-rw-r-- 1 ant ant  17209920 May  7 04:54 tokenizer.json
+-rw-rw-r-- 1 ant ant     50641 May  7 04:54 tokenizer_config.json
+ant@ant-XPS-15-9500:~/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase2$
+
+
+---------------------------
