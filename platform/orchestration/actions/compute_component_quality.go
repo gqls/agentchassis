@@ -184,7 +184,13 @@ func ComputeComponentQualityAction(ctx context.Context, params ActionParams) (in
 // ---------------------------------------------------------------------------
 
 var (
-	tmplVarPattern    = regexp.MustCompile(`\{\{\s*\.([A-Za-z_][A-Za-z0-9_]*)`)
+	// tmplVarPattern matches both {{.field}} and {{$.field}} references.
+	// The {{$.X}} form is needed inside a {{range}} block to access the
+	// outer scope ($ is Go template's root data context). LLMs producing
+	// Tier D templates use {{$.X}} for top-level fields referenced from
+	// inside the iteration. Both forms must be recognised so the sync
+	// check doesn't flag legitimate {{$.X}} references as missing.
+	tmplVarPattern    = regexp.MustCompile(`\{\{\s*\$?\.([A-Za-z_][A-Za-z0-9_]*)`)
 	dataCompAttrRegex = regexp.MustCompile(`data-component\s*=`)
 	sectionCloseRegex = regexp.MustCompile(`</section\s*>`)
 	sectionOpenRegex  = regexp.MustCompile(`<section\b`)
@@ -195,12 +201,20 @@ var (
 func scoreComponent(componentID, function, template, schemaJSON, componentLevel string) ComponentQualityResult {
 	issues := []string{}
 
-	// 1. Template variables — extract {{.foo}} names
+	// 1. Template variables — extract {{.foo}} and {{$.foo}} names
 	tmplVars := extractTemplateVariables(template)
 	tmplVarCount := len(tmplVars)
 
-	// 2. Schema fields — parse input_schema JSON
+	// 2. Schema fields — parse input_schema JSON.
+	//    schemaFields:    top-level fields (input_schema.fields.X keys)
+	//    subSchemaFields: array sub-schema fields (input_schema.fields.X.items keys
+	//                     where X has type=array)
+	//
+	// Top-level fields are required to appear as {{.X}} in the template.
+	// Sub-schema fields are valid {{.X}} targets but are not required to
+	// appear (the LLM declares a catalog and may use a subset).
 	schemaFields := extractSchemaFields(schemaJSON)
+	subSchemaFields := extractSubSchemaFields(schemaJSON)
 	schemaFieldCount := len(schemaFields)
 
 	// 3. Template closed — opening and closing <section> tags balance
@@ -214,14 +228,22 @@ func scoreComponent(componentID, function, template, schemaJSON, componentLevel 
 	// 5. Template/schema sync — every {{.x}} has schema entry AND vice versa
 	synced := true
 	if tmplVarCount > 0 || schemaFieldCount > 0 {
-		// Only check sync if at least one side has content
+		// Direction 1: every template var must be declared somewhere
+		// (top-level OR in a sub-schema). Strict — a {{.X}} in the
+		// template that has no schema declaration anywhere is a bug.
 		for _, v := range tmplVars {
-			if _, ok := schemaFields[v]; !ok {
+			_, inTopLevel := schemaFields[v]
+			_, inSubSchema := subSchemaFields[v]
+			if !inTopLevel && !inSubSchema {
 				synced = false
 				issues = append(issues, fmt.Sprintf("template var {{.%s}} has no schema entry", v))
 				break
 			}
 		}
+		// Direction 2: every TOP-LEVEL schema field must appear as a
+		// template var. Sub-schema fields are NOT required here — the
+		// LLM may declare nav_label in an array's items catalog and
+		// choose not to render it in this particular template.
 		if synced {
 			for f := range schemaFields {
 				found := false
@@ -309,21 +331,16 @@ func extractTemplateVariables(template string) []string {
 }
 
 // extractSchemaFields parses input_schema JSON and returns the field names
-// from input_schema.fields (if present).
+// declared at the TOP LEVEL of input_schema.fields.
 //
-// For Tier D array fields (type=array with an items sub-schema), the
-// sub-schema's field names are ALSO added to the returned map. This is
-// so the schema/template sync check accepts {{.title}}, {{.url}}, etc.
-// references that appear inside a {{range .items}} block — those names
-// are declared in the array's sub-schema, not at the top level.
-//
-// Without this, a Tier D template like
-//
-//	<div>{{range .items}}<h3>{{.title}}</h3>{{end}}</div>
-//
-// would fail validation because {{.title}} has no entry in fields (only
-// fields.items.items.title exists). With this, .title is added to the
-// returned map alongside .items, and the sync check passes.
+// For Tier D array fields, the array's sub-schema field names (the keys
+// under fields.X.items) are NOT included by this function. Use
+// extractSubSchemaFields for those. The two are kept separate because
+// they have different roles in the template/schema sync check:
+//   - Top-level fields must appear as {{.X}} in the template (direction 2)
+//   - Sub-schema fields appear as {{.X}} INSIDE a {{range}} block, but
+//     don't have to appear at all — the LLM may declare nav_label as an
+//     available field and choose not to render it in this template.
 func extractSchemaFields(schemaJSON string) map[string]bool {
 	fields := make(map[string]bool)
 	if schemaJSON == "" || schemaJSON == "{}" {
@@ -340,18 +357,47 @@ func extractSchemaFields(schemaJSON string) map[string]bool {
 		return fields
 	}
 
-	for name, def := range rawFields {
+	for name := range rawFields {
 		fields[name] = true
+	}
+	return fields
+}
 
-		// If this is a Tier D array field, also include its sub-schema
-		// field names. Shape:
-		//   "items": {
-		//     "type": "array",
-		//     "items": {
-		//       "title": { ... },
-		//       "url":   { ... }
-		//     }
-		//   }
+// extractSubSchemaFields returns field names declared inside any Tier D
+// array field's sub-schema. These are the names that appear as
+// {{.X}} INSIDE a {{range}} block in the template — title, url, etc.
+//
+// Sub-schema fields are valid template-var targets (so a {{.title}} in
+// the template doesn't fail "no schema entry"), but they are NOT
+// required to appear in the template. The LLM may declare a sub-schema
+// catalog of available fields and use only some of them.
+//
+// Shape recognised:
+//
+//	"items": {
+//	  "type": "array",
+//	  "items": {
+//	    "title": { "type": "text" },
+//	    "url":   { "type": "url" }
+//	  }
+//	}
+func extractSubSchemaFields(schemaJSON string) map[string]bool {
+	subFields := make(map[string]bool)
+	if schemaJSON == "" || schemaJSON == "{}" {
+		return subFields
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(schemaJSON), &parsed); err != nil {
+		return subFields
+	}
+
+	rawFields, ok := parsed["fields"].(map[string]interface{})
+	if !ok {
+		return subFields
+	}
+
+	for _, def := range rawFields {
 		defMap, defIsMap := def.(map[string]interface{})
 		if !defIsMap {
 			continue
@@ -365,10 +411,10 @@ func extractSchemaFields(schemaJSON string) map[string]bool {
 			continue
 		}
 		for subName := range subSchema {
-			fields[subName] = true
+			subFields[subName] = true
 		}
 	}
-	return fields
+	return subFields
 }
 
 // persistQuality writes the scored result to content_components.

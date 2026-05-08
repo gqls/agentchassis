@@ -32,7 +32,7 @@ Per the design described in `030_phase1_plan_and_reconciler.md`. Four new domain
 
 ### Doc updates landed
 
-- `029_locks.md` — canonical lock-pattern doc for the locked_at/locked_by columns.
+- `031_locks.md` — canonical lock-pattern doc for the locked_at/locked_by columns.
 - `001_development_guide.md` — corrected Field Name Collisions section (nested-source loop affects required AND optional fields, earlier guide wording was wrong).
 - `007_adoption_pipeline_v4.patch` — strategic-vs-plan-time naming clarifications.
 
