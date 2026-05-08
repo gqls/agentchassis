@@ -128,3 +128,32 @@ export HF_HUB_ENABLE_HF_TRANSFER=1
 # From laptop (other terminal)
 tnr scp held_out_cases_v1.jsonl 0:/home/ubuntu/
 tnr scp 04_eval_iter0.py        0:/home/ubuntu/
+
+
+---
+
+claude as judge
+# Cd into wherever the eval results live
+cd ~/projects/agentchassis/docs/.../eval/iter0_eval/
+
+# 1. Structural (free, immediate)
+python3 05_level1.py --results iter0_eval_results_v1.jsonl --output level1_metrics.json
+
+# 2. Judge (~$1, ~5 min)
+export ANTHROPIC_API_KEY="sk-ant-..._wAA"
+python3 06_level2.py --results iter0_eval_results_v1.jsonl --output level2_judgments.jsonl
+
+# 3. Report
+python3 build_report.py \
+--results iter0_eval_results_v1.jsonl \
+--level1  level1_metrics.json \
+--level2  level2_judgments.jsonl \
+--output  iter0_evaluation_report.md
+
+
+------
+set up conda
+
+conda create -n flywheel_d python=3.12 -y
+conda activate flywheel_d
+pip install anthropic

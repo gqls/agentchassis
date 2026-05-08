@@ -310,6 +310,20 @@ func extractTemplateVariables(template string) []string {
 
 // extractSchemaFields parses input_schema JSON and returns the field names
 // from input_schema.fields (if present).
+//
+// For Tier D array fields (type=array with an items sub-schema), the
+// sub-schema's field names are ALSO added to the returned map. This is
+// so the schema/template sync check accepts {{.title}}, {{.url}}, etc.
+// references that appear inside a {{range .items}} block — those names
+// are declared in the array's sub-schema, not at the top level.
+//
+// Without this, a Tier D template like
+//
+//	<div>{{range .items}}<h3>{{.title}}</h3>{{end}}</div>
+//
+// would fail validation because {{.title}} has no entry in fields (only
+// fields.items.items.title exists). With this, .title is added to the
+// returned map alongside .items, and the sync check passes.
 func extractSchemaFields(schemaJSON string) map[string]bool {
 	fields := make(map[string]bool)
 	if schemaJSON == "" || schemaJSON == "{}" {
@@ -326,8 +340,33 @@ func extractSchemaFields(schemaJSON string) map[string]bool {
 		return fields
 	}
 
-	for name := range rawFields {
+	for name, def := range rawFields {
 		fields[name] = true
+
+		// If this is a Tier D array field, also include its sub-schema
+		// field names. Shape:
+		//   "items": {
+		//     "type": "array",
+		//     "items": {
+		//       "title": { ... },
+		//       "url":   { ... }
+		//     }
+		//   }
+		defMap, defIsMap := def.(map[string]interface{})
+		if !defIsMap {
+			continue
+		}
+		fieldType, _ := defMap["type"].(string)
+		if fieldType != "array" {
+			continue
+		}
+		subSchema, subOk := defMap["items"].(map[string]interface{})
+		if !subOk {
+			continue
+		}
+		for subName := range subSchema {
+			fields[subName] = true
+		}
 	}
 	return fields
 }
@@ -405,43 +444,3 @@ func ScoreAndPersistComponent(
 	}
 	return result
 }
-
-// ---------------------------------------------------------------------------
-// REGISTRATION
-// ---------------------------------------------------------------------------
-// Add to action registry (registry.go):
-//
-//   "compute_component_quality": {
-//       Handler:     ComputeComponentQualityAction,
-//       Category:    "site",
-//       Description: "Score and store component quality metrics",
-//       IsLocal:     true,
-//   },
-
-// ---------------------------------------------------------------------------
-// INTEGRATION with store_generated_component
-// ---------------------------------------------------------------------------
-// After the INSERT block in StoreGeneratedComponentAction, add:
-//
-//     // Score the newly-stored component
-//     schemaJSONStr := string(inputSchemaJSON)
-//     qualityResult := ScoreAndPersistComponent(
-//         ctx, params.DB,
-//         newID, functionName, htmlTemplate, schemaJSONStr, "section",
-//         logger,
-//     )
-//
-//     // Include quality in the returned payload so downstream steps can see it
-//     return map[string]interface{}{
-//         "component_id":  newID,
-//         "function":      functionName,
-//         "section_type":  sectionType,
-//         "display_name":  displayName,
-//         "category":      category,
-//         "status":        "created",
-//         "template_size": len(htmlTemplate),
-//         "has_js":        jsContent != "",
-//         "js_size":       len(jsContent),
-//         "quality_score": qualityResult.QualityScore,
-//         "quality_issues": qualityResult.QualityIssues,
-//     }, nil
