@@ -152,8 +152,28 @@ python3 build_report.py \
 
 
 ------
-set up conda
+set up venv
 
-conda create -n flywheel_d python=3.12 -y
-conda activate flywheel_d
+python3 -m venv ~/.venvs/flywheel_d
+source ~/.venvs/flywheel_d/bin/activate
 pip install anthropic
+
+
+-----
+
+# Results
+
+Headline: Claude 16, iter_0 4, ties 0 (out of 20). On the surface that's a 4× win rate for Claude, which sounds bad.
+But the dimension scores are remarkably tight. Eyeballing the 60 numbers, both models cluster around 4-5 on every dimension. The gap on any individual dimension is mostly 1 point in either direction. iter_0 isn't getting destroyed — it's losing close votes.
+Three patterns worth flagging before you run the report builder, because they'll change how you read the output:
+1. Identical-score cases all went to Claude. Looking at:
+
+Case 11: iter_0 R5/V5/I5 vs Claude R5/V5/I5 → Claude
+Case 16: iter_0 R4/V4/I5 vs Claude R4/V4/I5 → Claude
+Case 17: iter_0 R5/V4/I5 vs Claude R5/V4/I5 → Claude
+Case 20: iter_0 R5/V4/I5 vs Claude R5/V4/I5 → Claude
+
+Four cases where the rubric scored them identically but the judge still picked Claude — every time. That's a strong signal of self-recognition bias (the judge is Claude Opus 4.7 evaluating an output from a model trained on Claude Sonnet 4.6 — close enough family that stylistic affinity is real). If the rubric can't distinguish but the picker still picks Claude 4/4, the picker is using something the rubric doesn't measure, and that something correlates with Claude-ness.
+This means the 16-4 headline overstates the gap. On numbers-the-judge-actually-articulated, it's closer to 12-4 with 4 not-meaningfully-different.
+2. Two iter_0 integrity scores of 2. Cases 8 and 9 are the only ones where iter_0 got a 2 (out of 5) on integrity — meaning the judge saw something it considered genuinely problematic, probably fabrication that L1's regex didn't catch. These are the most important cases to read in the report's L3 section. If iter_0 is fabricating in ways the regex missed, that's the real concern from this eval, not the head-to-head record.
+3. iter_0 won 4 cases, and three of them (4, 6, 14, 19) had iter_0 strictly beating Claude on at least two dimensions. Not flukes. Worth understanding what made those briefs work for iter_0.
