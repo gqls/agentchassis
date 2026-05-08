@@ -308,6 +308,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Transform data between formats",
 		IsLocal:     true,
 	},
+	"prepare_training_data": {
+		Handler:     PrepareTrainingDataAction,
+		Category:    "data",
+		Description: "Stream training_exports.rows to NDJSON in S3 and INSERT a model_lifecycle.training_runs row in pending state",
+		IsLocal:     true,
+	},
 	"validate_schema": {
 		Handler:     ValidateSchemaAction,
 		Category:    "data",

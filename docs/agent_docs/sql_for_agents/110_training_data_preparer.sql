@@ -95,3 +95,65 @@ SELECT type, category, agent_category, status, is_active
 FROM agent_definitions
 WHERE type = 'training-data-preparer'
   AND deleted_at IS NULL;
+
+
+---
+-- improve above
+
+-- ============================================================================
+-- 022_training_agents_corrections.sql
+-- ============================================================================
+-- Applies corrections from the development-guide compliance assessment:
+--   1. agent_category set on model-trainer (was added retroactively before; this
+--      makes it explicit so a fresh re-apply lands cleanly).
+--   2. env_vars on training-data-preparer so the existing storage client
+--      uses the finetuning bucket — no storage interface change required.
+--      The chassis storage client reads IMAGE_BUCKET as a fallback (see
+--      platform/storage/s3.go::NewS3Client). Spawned Job pods get this env
+--      var from agent_definitions.env_vars at spawn time.
+--   3. domain_tags consistency for both rows.
+--
+-- Step Zero check (per dev guide §0):
+--   Existing agents searched: train, gpu, provision, ssh, vm, instance
+--     - ch-detail-fetcher: external API call (Companies House) — different
+--       enough (no GPU/binary transfer/job lifecycle); no reuse.
+--     - med-url-mapper: external API (Firecrawl) — same conclusion.
+--     - vet-practice-verifier: external HTTP lookup; no reuse.
+--   Existing actions searched: prepare_training, run_training, provision,
+--     ssh_exec, gpu, model_artefact, model_evaluation
+--     - no precedents.
+--   Decision: new agents necessary; no reuse.
+-- ============================================================================
+
+-- ── Correction 1: ensure model-trainer has agent_category set ────────────────
+UPDATE agent_definitions
+SET agent_category = 'coordinator',
+    domain_tags = '["training", "orchestrator", "qlora", "thunder-compute"]'::jsonb,
+    updated_at = NOW()
+WHERE type = 'model-trainer'
+  AND deleted_at IS NULL
+  AND (agent_category IS NULL OR agent_category != 'coordinator');
+
+
+-- ── Correction 2: training-data-preparer gets IMAGE_BUCKET=finetuning ────────
+-- Spawned Job pods read this at startup; the chassis storage client falls
+-- back to os.Getenv("IMAGE_BUCKET") when cfg.Bucket is empty (see s3.go).
+-- This routes the worker's Upload() calls to the finetuning bucket without
+-- modifying the storage interface or constructing a second S3Client.
+UPDATE agent_definitions
+SET env_vars = '[
+        {"name": "IMAGE_BUCKET", "value": "finetuning"}
+    ]'::jsonb,
+    updated_at = NOW()
+WHERE type = 'training-data-preparer'
+  AND deleted_at IS NULL;
+
+
+-- ── Verify ───────────────────────────────────────────────────────────────────
+SELECT type, category, agent_category, status,
+       env_vars,
+       domain_tags
+FROM agent_definitions
+WHERE type IN ('model-trainer', 'training-data-preparer')
+  AND deleted_at IS NULL
+ORDER BY type;
