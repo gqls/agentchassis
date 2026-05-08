@@ -244,8 +244,9 @@ def build_md(args, results_rows, l1, l2_rows) -> str:
     a("| Metric | iter_0 | Claude |")
     a("|---|---|---|")
     a(f"| Valid JSON | {aggs['n_iter0_valid_json']}/{n} | {aggs['n_claude_valid_json']}/{n} |")
-    a(f"| Both valid (pairs eligible for comparison) | colspan=2 | {aggs['n_both_valid']}/{n} |")
-    a(f"| Schema match (same key set as Claude) | {aggs['n_schema_match']}/{aggs['n_both_valid']} | — |")
+    a(f"| Schema match (when both valid) | {aggs['n_schema_match']}/{aggs['n_both_valid']} | — |")
+    a("")
+    a(f"Pairs eligible for paired comparison (both valid JSON): **{aggs['n_both_valid']}/{n}**.")
     a("")
 
     # Schema mismatches detail
@@ -310,8 +311,15 @@ def build_md(args, results_rows, l1, l2_rows) -> str:
         for k, v in r["claude_fabrication"].items():
             claude_marker_breakdown[k] += len(v)
     all_marker_types = set(iter0_marker_breakdown) | set(claude_marker_breakdown)
-    for mt in sorted(all_marker_types):
-        a(f"| {mt} | {iter0_marker_breakdown.get(mt, 0)} | {claude_marker_breakdown.get(mt, 0)} |")
+    if all_marker_types:
+        a("| Marker type | iter_0 hits | Claude hits |")
+        a("|---|---|---|")
+        for mt in sorted(all_marker_types):
+            a(f"| {mt} | {iter0_marker_breakdown.get(mt, 0)} | {claude_marker_breakdown.get(mt, 0)} |")
+    else:
+        a("No regex-pattern markers detected in either model's outputs. Note that L1 regex patterns "
+          "(percentages, durations, named titles) catch only narrow cases — see L3 spot-check for "
+          "fabrication that requires contextual reading to detect.")
     a("")
     a(f"Rows with any marker: iter_0 {aggs['iter0_rows_with_fabrication']}/{n}, Claude {aggs['claude_rows_with_fabrication']}/{n}.")
     a("")
@@ -342,6 +350,26 @@ def build_md(args, results_rows, l1, l2_rows) -> str:
 
     a(f"**Position bias check.** {position_bias_warning}")
     a("")
+
+    # Self-recognition signal: cases where rubric scores were identical but a winner was picked
+    rubric_ties = []
+    for j in l2_rows:
+        si = j.get("iter0_scores", {})
+        sc = j.get("claude_scores", {})
+        if all(si.get(k) == sc.get(k) for k in ("relevance", "voice", "integrity")) \
+                and j["winner_label"] != "TIE" \
+                and si.get("relevance") is not None:
+            rubric_ties.append(j)
+    if rubric_ties:
+        n_rubric_ties = len(rubric_ties)
+        n_rubric_ties_to_claude = sum(1 for j in rubric_ties if j["winner_model"] == "claude")
+        a(f"**Self-recognition signal.** {n_rubric_ties} cases had *identical* relevance/voice/integrity "
+          f"scores for both responses but the judge still picked a winner. Of these, "
+          f"**{n_rubric_ties_to_claude}/{n_rubric_ties} went to Claude** — meaning the judge is using "
+          f"something the rubric doesn't measure to break ties, and that something correlates with "
+          f"Claude-style. With position bias controlled (A won {a_pct:.0f}%), this is consistent with "
+          f"residual self-recognition bias from the judge being a Claude model.")
+        a("")
 
     a("### Mean dimension scores")
     a("")
