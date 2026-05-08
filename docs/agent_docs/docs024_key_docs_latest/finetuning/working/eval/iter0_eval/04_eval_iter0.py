@@ -29,6 +29,9 @@ import time
 from pathlib import Path
 
 import torch
+from peft import PeftModel
+
+import torch
 
 
 def parse_args() -> argparse.Namespace:
@@ -83,6 +86,11 @@ def main() -> None:
             print(f"Resume: {len(already_done)} rows already in {output_path}, will skip.")
 
     # ---- Load model + adapter -------------------------------------------------
+    # Two-step load using the canonical peft pattern. Unsloth's newer
+    # FastLanguageModel.from_pretrained on an adapter dir requires `config.json`
+    # which save_pretrained() does not write — only `adapter_config.json`.
+    # peft.PeftModel.from_pretrained reads adapter_config.json directly and is
+    # API-stable across unsloth/unsloth_zoo versions.
     torch.cuda.reset_peak_memory_stats()
     print(f"GPU: {torch.cuda.get_device_name(0)}")
     print(f"Loading base model: {args.base_model}")
@@ -92,9 +100,8 @@ def main() -> None:
         load_in_4bit=True,
         dtype=None,
     )
-
-    print(f"Loading adapter: {args.adapter}")
-    model.load_adapter(args.adapter)
+    print(f"Applying LoRA adapter: {args.adapter}")
+    model = PeftModel.from_pretrained(model, args.adapter)
     tokenizer = get_chat_template(tokenizer, chat_template="llama-3.1")
 
     # Set pad token explicitly (avoids the "pad token same as eos" warning we

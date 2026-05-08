@@ -1108,6 +1108,8 @@ func RenderPromptTemplate(templateStr string, data map[string]interface{}, logge
 	funcMap := template.FuncMap{
 		"toJSON":      templateToJSON,
 		"placeholder": templatePlaceholder,
+		"rangeStart":  templateRangeStart,
+		"rangeEnd":    templateRangeEnd,
 	}
 	tmpl := template.New("agent_prompt").Funcs(funcMap)
 	parsedTemplate, err := tmpl.Parse(templateStr)
@@ -1865,4 +1867,26 @@ func FunctionToDisplayName(function string) string {
 // lets prompt authors embed the target syntax for the LLM to copy.
 func templatePlaceholder(name string) string {
 	return "{{." + name + "}}"
+}
+
+// templateRangeStart emits a literal Go-template {{range .field}} action
+// for use in prompts that illustrate iteration syntax to an LLM. Without
+// this helper, a literal {{range .items}} in a prompt would be parsed as
+// an action by RenderPromptTemplate, which would then attempt to range
+// over .items in the prompt's data context and fail with "missing value
+// for range" when there is no such field. Pair with templateRangeEnd.
+//
+// Usage in a prompt: {{rangeStart "items"}}
+// Rendered output:   {{range .items}}
+func templateRangeStart(field string) string {
+	return "{{range ." + field + "}}"
+}
+
+// templateRangeEnd emits a literal Go-template {{end}} action.
+// Companion to templateRangeStart.
+//
+// Usage in a prompt: {{rangeEnd}}
+// Rendered output:   {{end}}
+func templateRangeEnd() string {
+	return "{{end}}"
 }

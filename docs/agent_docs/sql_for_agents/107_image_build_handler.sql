@@ -388,3 +388,76 @@ COMMIT;
 --   WHERE type IN ('site-work-orchestrator', 'pageflow-builder');
 --
 -- COMMIT;
+
+---
+
+-- ============================================================================
+-- Phase 1.5 hotfix — add output_mapping to image-build-handler image-generator
+-- calls so store_asset can read image_result.image_url correctly.
+--
+-- Problem found in production verification (2026-05-07):
+--   image-build-handler.call_logo_gen and call_hero_gen have no output_mapping
+--   on their call_agent step. The image-generator response gets stored under
+--   image_result wholesale, deeply nested as
+--   image_result.response.generate.response.image_url.
+--   store_asset's data_field reads image_result.image_url and finds nothing,
+--   so it returns {stored: false, reason: "no asset URL found"}.
+--   Result: image-generator runs, uploads to S3, returns the URL, but no
+--   asset row is ever created.
+--
+-- Pattern: identical output_mapping to what pageflow-builder.generate_hero_image
+-- and pageflow-builder.call_logo_generation already use.
+--
+-- Idempotent: uses jsonb_set with create_missing=true. Re-running has no
+-- additional effect since the same value is set.
+-- ============================================================================
+
+BEGIN;
+
+-- Add output_mapping to call_hero_gen
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_hero_gen,config,output_mapping}',
+        '{"prompt": "generate.response.prompt", "image_uri": "generate.response.image_uri", "image_url": "generate.response.image_url", "generated_at": "generate.response.generated_at"}'::jsonb,
+        true
+                     ),
+    updated_at = NOW()
+WHERE type = 'image-build-handler';
+
+-- Add output_mapping to call_logo_gen
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_logo_gen,config,output_mapping}',
+        '{"prompt": "generate.response.prompt", "image_uri": "generate.response.image_uri", "image_url": "generate.response.image_url", "generated_at": "generate.response.generated_at"}'::jsonb,
+        true
+                     ),
+    updated_at = NOW()
+WHERE type = 'image-build-handler';
+
+
+-- ----------------------------------------------------------------------------
+-- Verification — both steps should now have output_mapping with the four keys.
+-- ----------------------------------------------------------------------------
+SELECT
+    type,
+    jsonb_pretty(default_config #> '{workflow,steps,call_hero_gen,config,output_mapping}') AS hero_output_mapping,
+    jsonb_pretty(default_config #> '{workflow,steps,call_logo_gen,config,output_mapping}') AS logo_output_mapping
+FROM agent_definitions
+WHERE type = 'image-build-handler';
+
+COMMIT;
+
+
+-- ============================================================================
+-- ROLLBACK — removes the output_mapping fields, restoring prior shape.
+-- ============================================================================
+-- BEGIN;
+-- UPDATE agent_definitions
+-- SET default_config = default_config
+--     #- '{workflow,steps,call_hero_gen,config,output_mapping}'
+--     #- '{workflow,steps,call_logo_gen,config,output_mapping}',
+--     updated_at = NOW()
+-- WHERE type = 'image-build-handler';
+-- COMMIT;
