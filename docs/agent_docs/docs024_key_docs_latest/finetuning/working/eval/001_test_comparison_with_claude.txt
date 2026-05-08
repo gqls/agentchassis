@@ -1,0 +1,26 @@
+Case 1 — Gas Wholesalers, contact-hero
+Output
+Claude : "Talk to a Wholesale Gas Supplier Who Picks Up the Phone" / "...sourcing fuel for a forecourt, a commercial fleet, or an industrial facility..." + admin flag re: email domain mismatch
+iter_0: "Talk to a Wholesale Gas Supplier Who Understands Your Operation" / "...manage a fuel forecourt, run a commercial fleet, or procure bulk fuel..."
+These are remarkably close. iter_0 essentially produced a paraphrase of Claude's headline ("Picks Up the Phone" → "Understands Your Operation") and reordered the same audience segments in the subhead. Same length, same register, same accuracy on which industries to call out. That's a strong result on a real held-out brief.
+One thing iter_0 didn't do that Claude did: the admin flag block at the end about the email domain mismatch. That's a feature, not a bug — Claude is occasionally helpful in ways the schema doesn't ask for. iter_0 stuck strictly to the schema. For a content-generation pipeline, schema-strict is correct behaviour. But it does mean the training data sometimes contained extra-schema material that iter_0 has learned to ignore.
+
+
+Case 2 — GamesDesign.co.uk, about-hero
+Output
+Claude: "Calculation Over Intuition" / "Free tools and rigorous guides for game designers who want to know why their systems work — not just that they do."
+iter_0: "Mathematical Rigour. Practical Tools. No Distractions." / "GamesDesign.co.uk exists to fill a gap in how game design is taught and practiced..."
+iter_0's longer and a bit more verbose ("exists to fill a gap" is the kind of phrase the brief's voice section actually warned against — "no hand-holding").
+Claude's is tighter and matches the brief's "Sentences are short" directive better. But both are valid, both stay on-message, both follow the schema. Quality difference: real but not large. Within human-judgment range of "could go either way."
+
+
+What this tells us
+Two-row sample is too small to draw a verdict, but the signs from these two are:
+
+Schema compliance: 2/2 ✓
+JSON validity: 2/2 ✓
+Topic alignment: 2/2 ✓
+Voice match: 1/2 (case 1 strong, case 2 weaker than Claude on brevity)
+No fabrication of contacts/metrics: 2/2 ✓
+
+

@@ -1458,3 +1458,505 @@ FROM agent_definitions
 WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
 
 COMMIT;
+
+---
+
+--fixing adoption
+
+-- ============================================================================
+-- Migration 039d: Tier D block — use funcMap helpers for literal Go-template
+-- syntax illustrations + reset failed regen work item
+-- ============================================================================
+-- The Tier D block landed in 039b contains literal Go-template syntax in
+-- its examples and prose:
+--   - "{{range .items}}", "{{end}}" in the example block
+--   - "{{.title}}", "{{.url}}", "{{.meta_description}}" inside the example
+--   - "{{range}}", "{{.field_name}}" in the prose
+-- These get parsed by RenderPromptTemplate's Go text/template engine BEFORE
+-- the prompt is sent to the LLM. The {{range .items}} action attempts to
+-- iterate over .items in the prompt's data context (which is input_data,
+-- site_record, site_specs — none of which has an "items" array), and
+-- explodes with "missing value for range".
+--
+-- Confirmed by the failed work item:
+--   step generate_template failed: failed to execute action execute_llm_prompt:
+--   failed to render prompt template: failed to parse template in render
+--   template: template: agent_prompt:102: missing value for range
+--
+-- Resolution per the agreed pattern (see templatePlaceholder helper in
+-- data_helpers.go): use funcMap helpers that emit literal template syntax
+-- for the LLM to read. The companion helpers rangeStart and rangeEnd
+-- have been added to data_helpers.go alongside the existing placeholder.
+--
+-- This migration:
+--   (1) Rewrites the Tier D block to use {{rangeStart "items"}},
+--       {{placeholder "title"}}, {{rangeEnd}} etc. instead of bare
+--       {{range .items}}, {{.title}}, {{end}}.
+--   (2) Resets the failed work item from migration 040b so component-
+--       creator picks it up again on the next dispatch cycle.
+--
+-- PRE-REQS:
+--   - Chassis image with rangeStart/rangeEnd funcMap helpers must be
+--     deployed BEFORE this migration runs. Without those helpers, the
+--     prompt fails to PARSE (not just execute) because the engine sees
+--     {{rangeStart "items"}} as an unknown function reference.
+--   - 039 + 039b + 039c have run (Tier D present, single Exception copy).
+--
+-- Idempotent: replacement uses regexp_replace with a unique anchor at
+-- the TIER D opening line. Re-running matches the new (helpers-based)
+-- text and replaces with the same content. The reset of the failed work
+-- item uses status='failed' as the precondition; if it's already triaged
+-- nothing happens.
+-- ============================================================================
+
+BEGIN;
+
+-- ----------------------------------------------------------------------------
+-- Pre-flight: backup exists, Tier D present (i.e. 039+039b ran), exactly
+-- one Exception paragraph (i.e. 039c ran)
+-- ----------------------------------------------------------------------------
+DO $preflight$
+DECLARE
+backup_count   INT;
+    has_tier_d     BOOLEAN;
+    exception_copies INT;
+BEGIN
+SELECT COUNT(*) INTO backup_count
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name = 'agent_def_component_creator_backup_20260507_pre_directory_build';
+IF backup_count = 0 THEN
+        RAISE EXCEPTION 'Backup table from migration 038 not found.';
+END IF;
+
+SELECT (default_config #>> '{prompt_template}') LIKE '%TIER D — DERIVED LISTS%'
+INTO has_tier_d
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF NOT has_tier_d THEN
+        RAISE EXCEPTION 'Tier D block not found. Run 039 + 039b first.';
+END IF;
+
+SELECT
+    ARRAY_LENGTH(
+            STRING_TO_ARRAY(
+                    default_config #>> '{prompt_template}',
+                    'Exception for Tier D array fields'
+            ),
+            1
+    ) - 1
+INTO exception_copies
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF exception_copies != 1 THEN
+        RAISE EXCEPTION
+            'Expected exactly 1 copy of Exception paragraph, found %. '
+            'Run 039c first.', exception_copies;
+END IF;
+
+    RAISE NOTICE 'Pre-flight checks passed.';
+END
+$preflight$;
+
+-- ----------------------------------------------------------------------------
+-- (1) Rewrite the Tier D block
+-- ----------------------------------------------------------------------------
+-- Anchor strategy: regexp_replace with (?s) flag (dot matches newlines),
+-- bracketed by:
+--   - leading anchor: 'TIER D — DERIVED LISTS (source: "query.{name}")'
+--     followed by lazy match across the entire body
+--   - trailing anchor: literal end-of-Tier-D content
+--     'the surrounding voice content.\n\n'
+--
+-- The lazy quantifier (.*?) ensures we capture the smallest possible match.
+-- ----------------------------------------------------------------------------
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{prompt_template}',
+        to_jsonb(
+                regexp_replace(
+                        default_config #>> '{prompt_template}',
+                        E'TIER D — DERIVED LISTS \\(source: "query\\.\\{name\\}"\\).*?the surrounding voice content\\.\n\n',
+                        E'TIER D — DERIVED LISTS (source: "query.{name}")\n     Used when the section displays a LIST of real items drawn from the\n     site''s own data: tool pages, blog posts, entities, case studies,\n     news articles, etc. The list is RESOLVED AT PLAN TIME by a database\n     query. The LLM does NOT fabricate items, does NOT invent names\n     or URLs, does NOT pad to a fixed count.\n\n     Schema shape — declare ONE field of type "array":\n       "items": {\n         "type": "array",\n         "source": "query.pages_where_type:tool",\n         "min_items": 1,\n         "limit": 6,\n         "required": true,\n         "items": {\n           "title":            { "type": "text" },\n           "url":              { "type": "url"  },\n           "meta_description": { "type": "text" },\n           "nav_label":        { "type": "text" }\n         }\n       }\n\n     Template shape — iterate with a range action; inside the loop,\n     reference each row''s fields directly. The LLM''s html_template\n     output should look like this (copy this form exactly into your\n     output, including the curly-brace template syntax):\n\n       <div class="grid">\n         {{rangeStart "items"}}\n         <article class="card">\n           <h3>{{placeholder "title"}}</h3>\n           <p>{{placeholder "meta_description"}}</p>\n           <a href="{{placeholder "url"}}">Open</a>\n         </article>\n         {{rangeEnd}}\n       </div>\n\n     Known query names (use these EXACTLY — do not invent new ones):\n       query.pages_where_type:tool        — all tool pages on this site\n       query.pages_where_type:blog_post   — all blog posts on this site\n       query.pages_where_type:entity_page — all entity pages\n       query.pages_where_type:guide       — all guide pages\n       query.pages_where_type:game        — all game pages\n\n     Item shape returned by the resolver — these are the field names\n     available inside the iteration:\n       title             — page title\n       url               — page URL (already canonical)\n       meta_description  — short description\n       nav_label         — navigation label\n       name              — internal page name (slug-form)\n\n     When to use Tier D: any time the section''s purpose is "show a list\n     of these items." If you find yourself writing post1_title, post2_title,\n     post3_title, ..., STOP — that is the wrong shape. Use Tier D instead.\n\n     LLM-source fields STILL apply to the section''s heading/eyebrow/intro/CTA\n     around the list. Tier D is for the items themselves; Tier A handles\n     the surrounding voice content.\n\n',
+                        'g'
+                )
+        )
+                     ),
+    updated_at = NOW()
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+
+-- ----------------------------------------------------------------------------
+-- (2) Reset the failed regen work item so component-creator retries
+-- ----------------------------------------------------------------------------
+-- The work item from 040b is in status='failed' with attempt_count=3.
+-- Reset to 'triaged' with cleared error and zeroed attempt_count so the
+-- dispatch loop picks it up again. Update source so we can tell from the
+-- audit trail that 039d unblocked it.
+-- ----------------------------------------------------------------------------
+
+UPDATE site_work_items
+SET status        = 'triaged',
+    attempt_count = 0,
+    error         = NULL,
+    claimed_by    = NULL,
+    claimed_at    = NULL,
+    completed_at  = NULL,
+    result        = '{}'::jsonb,
+    source        = '040b_tier_d_tool_list+039d_reset',
+    updated_at    = NOW()
+WHERE item_key = 'needs_component:tool-list'
+  AND item_type = 'needs_component_regeneration'
+  AND status = 'failed';
+
+-- ----------------------------------------------------------------------------
+-- Verification
+-- ----------------------------------------------------------------------------
+
+DO $verify$
+DECLARE
+has_helpers_in_block BOOLEAN;
+    has_bare_range_in_example BOOLEAN;
+    work_item_status TEXT;
+BEGIN
+    -- The Tier D block should now contain {{rangeStart "items"}}
+SELECT (default_config #>> '{prompt_template}') LIKE '%{{rangeStart "items"}}%'
+INTO has_helpers_in_block
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF NOT has_helpers_in_block THEN
+        RAISE EXCEPTION
+            'Replacement did not produce {{rangeStart "items"}}. Check anchor.';
+END IF;
+
+    -- Bare {{range .items}} inside the iteration example should be GONE
+    -- from the Tier D block (it may still appear in the prose explanation
+    -- of "what the LLM should output", which is intentional — but as a
+    -- sanity check, count occurrences should be ≤ 2: one in the prose,
+    -- maybe one in the new prose mentioning {{range .items}} as the
+    -- expected output form).
+    --
+    -- If the bare form appears 3+ times, the original example wasn't
+    -- replaced. We allow ≤2.
+SELECT (
+           ARRAY_LENGTH(
+                   STRING_TO_ARRAY(
+                           default_config #>> '{prompt_template}',
+                           E'{{range .items}}'
+                   ),
+                   1
+           ) - 1
+           ) > 2
+INTO has_bare_range_in_example
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF has_bare_range_in_example THEN
+        RAISE EXCEPTION
+            'Bare {{range .items}} appears more than twice — example was '
+            'probably not replaced.';
+END IF;
+
+    -- Work item should be triaged (we reset it from failed)
+SELECT status INTO work_item_status
+FROM site_work_items
+WHERE item_key = 'needs_component:tool-list'
+  AND item_type = 'needs_component_regeneration'
+ORDER BY updated_at DESC
+    LIMIT 1;
+IF work_item_status IS NULL THEN
+        RAISE EXCEPTION 'Work item for tool-list regen not found.';
+END IF;
+    IF work_item_status NOT IN ('triaged', 'claimed', 'complete') THEN
+        RAISE EXCEPTION
+            'Work item status is %, expected triaged/claimed/complete.',
+            work_item_status;
+END IF;
+
+    RAISE NOTICE 'Verification passed. Work item status: %', work_item_status;
+END
+$verify$;
+
+-- Summary view
+SELECT
+    'tier_d_uses_rangeStart_helper' AS check,
+    (default_config #>> '{prompt_template}') LIKE '%{{rangeStart "items"}}%' AS pass
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'tier_d_uses_rangeEnd_helper',
+    (default_config #>> '{prompt_template}') LIKE '%{{rangeEnd}}%'
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'tier_d_uses_placeholder_for_title',
+    (default_config #>> '{prompt_template}') LIKE '%{{placeholder "title"}}%'
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'work_item_resettriaged',
+    EXISTS (
+        SELECT 1 FROM site_work_items
+        WHERE item_key = 'needs_component:tool-list'
+          AND item_type = 'needs_component_regeneration'
+          AND status = 'triaged'
+          AND error IS NULL
+          AND attempt_count = 0
+    );
+
+COMMIT;
+
+---
+-- fix for above - finding all the {{.  in the examples and changing them so they're not interpolated
+
+-- ============================================================================
+-- Migration 039e: Exception paragraph — use funcMap helpers + reset work item
+-- ============================================================================
+-- 039d fixed Tier D's Go-template literals. 040b's regen retry showed the
+-- parser still fails at line 215 ("missing value for range") — the
+-- second instance of the same bug class. Source: the Exception paragraph
+-- inside pre-output self-check (a), added by 039 originally and never
+-- escaped. The paragraph contains:
+--   {{range .items}}  — bare action; parser tries to iterate .items
+--   {{.field}}        — evaluates to <no value>
+--   {{end}}           — bare end, parse error if no preceding range
+--   {{.title}}        — <no value>
+--   {{.url}}          — <no value>
+--   {{range}}         — no argument, parse error
+--   {{placeholder "..."}}  — actually valid funcMap call, fine
+--
+-- The first {{range .items}} is what trips line 215. Even if it were
+-- removed, the bare {{end}} and {{range}} would each trigger their own
+-- parse failures.
+--
+-- This migration:
+--   (1) Rewrites the Exception paragraph to use funcMap helpers
+--       (rangeStart, placeholder, rangeEnd) for every literal Go-template
+--       reference. The two prose mentions that have no clean helper
+--       substitute ({{range}} alone, {{placeholder "..."}} as a literal
+--       phrase) are reworded.
+--   (2) Resets the failed work item again so component-creator retries.
+--
+-- Idempotent: anchor includes a unique opening phrase ("Exception for
+-- Tier D array fields"); replacement no longer contains any bare
+-- {{...}} references; re-running matches the new (helpers-based) text
+-- and replaces with itself.
+-- ============================================================================
+
+BEGIN;
+
+-- Pre-flight
+DO $preflight$
+DECLARE
+backup_count   INT;
+    has_tier_d     BOOLEAN;
+    exception_copies INT;
+    tier_d_uses_helpers BOOLEAN;
+BEGIN
+SELECT COUNT(*) INTO backup_count
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name = 'agent_def_component_creator_backup_20260507_pre_directory_build';
+IF backup_count = 0 THEN
+        RAISE EXCEPTION 'Backup table from migration 038 not found.';
+END IF;
+
+SELECT (default_config #>> '{prompt_template}') LIKE '%TIER D — DERIVED LISTS%'
+INTO has_tier_d
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF NOT has_tier_d THEN
+        RAISE EXCEPTION 'Tier D block not present.';
+END IF;
+
+SELECT (default_config #>> '{prompt_template}') LIKE '%{{rangeStart "items"}}%'
+INTO tier_d_uses_helpers
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF NOT tier_d_uses_helpers THEN
+        RAISE EXCEPTION 'Tier D block does not use rangeStart helper. Run 039d first.';
+END IF;
+
+SELECT
+    ARRAY_LENGTH(
+            STRING_TO_ARRAY(
+                    default_config #>> '{prompt_template}',
+                    'Exception for Tier D array fields'
+            ),
+            1
+    ) - 1
+INTO exception_copies
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF exception_copies != 1 THEN
+        RAISE EXCEPTION
+            'Expected exactly 1 copy of Exception paragraph, found %.',
+            exception_copies;
+END IF;
+
+    RAISE NOTICE 'Pre-flight checks passed.';
+END
+$preflight$;
+
+-- ----------------------------------------------------------------------------
+-- (1) Rewrite the Exception paragraph
+-- ----------------------------------------------------------------------------
+-- Anchor: lazy match between "Exception for Tier D array fields" and the
+-- final "input_schema.fields." that closes the paragraph.
+-- ----------------------------------------------------------------------------
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{prompt_template}',
+        to_jsonb(
+                regexp_replace(
+                        default_config #>> '{prompt_template}',
+                        E'Exception for Tier D array fields:.*?input_schema\\.fields\\.',
+                        E'Exception for Tier D array fields: an array field with type "array"\n    counts as ONE schema field even though the template references its\n    items multiple times via {{rangeStart "items"}} ... {{placeholder "field"}} ... {{rangeEnd}}.\n    The {{placeholder "title"}}, {{placeholder "url"}}, etc. references INSIDE a range\n    block are NOT placeholder-helper tokens and do NOT count toward the\n    placeholder total. They are template field accesses against the\n    array''s items, declared in the array''s items sub-schema, not in\n    input_schema.fields.',
+                        'g'
+                )
+        )
+                     ),
+    updated_at = NOW()
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+
+-- ----------------------------------------------------------------------------
+-- (2) Reset the failed work item
+-- ----------------------------------------------------------------------------
+
+UPDATE site_work_items
+SET status        = 'triaged',
+    attempt_count = 0,
+    error         = NULL,
+    claimed_by    = NULL,
+    claimed_at    = NULL,
+    completed_at  = NULL,
+    result        = '{}'::jsonb,
+    source        = '040b_tier_d_tool_list+039e_reset',
+    updated_at    = NOW()
+WHERE item_key = 'needs_component:tool-list'
+  AND item_type = 'needs_component_regeneration'
+  AND status = 'failed';
+
+-- ----------------------------------------------------------------------------
+-- Verification
+-- ----------------------------------------------------------------------------
+
+DO $verify$
+DECLARE
+bare_range_count INT;
+    bare_field_count INT;
+    bare_end_count INT;
+    work_item_status TEXT;
+BEGIN
+SELECT
+    ARRAY_LENGTH(
+            STRING_TO_ARRAY(
+                    default_config #>> '{prompt_template}',
+                    E'{{range .items}}'
+            ),
+            1
+    ) - 1
+INTO bare_range_count
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF bare_range_count != 0 THEN
+        RAISE EXCEPTION
+            'Bare {{range .items}} appears %x — should be 0.', bare_range_count;
+END IF;
+
+SELECT
+    ARRAY_LENGTH(
+            STRING_TO_ARRAY(
+                    default_config #>> '{prompt_template}',
+                    E'{{.field}}'
+            ),
+            1
+    ) - 1
+INTO bare_field_count
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF bare_field_count != 0 THEN
+        RAISE EXCEPTION
+            'Bare {{.field}} appears %x — should be 0.', bare_field_count;
+END IF;
+
+    -- {{end}} count: the original prompt has 6 legitimate {{end}} closing
+    -- the {{if .input_data.spec.X}} blocks at the top. After our fix,
+    -- expect those 6 to remain.
+SELECT
+    ARRAY_LENGTH(
+            STRING_TO_ARRAY(
+                    default_config #>> '{prompt_template}',
+                    E'{{end}}'
+            ),
+            1
+    ) - 1
+INTO bare_end_count
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4';
+IF bare_end_count != 6 THEN
+        RAISE EXCEPTION
+            'Bare {{end}} appears %x — expected 6 (one per legitimate {{if}} block at top of prompt).', bare_end_count;
+END IF;
+
+SELECT status INTO work_item_status
+FROM site_work_items
+WHERE item_key = 'needs_component:tool-list'
+  AND item_type = 'needs_component_regeneration'
+ORDER BY updated_at DESC
+    LIMIT 1;
+IF work_item_status NOT IN ('triaged', 'claimed', 'complete') THEN
+        RAISE EXCEPTION 'Work item status is %.', work_item_status;
+END IF;
+
+    RAISE NOTICE 'Verification passed. Work item status: %', work_item_status;
+END
+$verify$;
+
+-- Summary
+SELECT
+    'no_bare_range_items' AS check,
+    NOT (default_config #>> '{prompt_template}' LIKE E'%{{range .items}}%') AS pass
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'no_bare_dot_field',
+    NOT (default_config #>> '{prompt_template}' LIKE E'%{{.field}}%')
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'no_bare_dot_title',
+    NOT (default_config #>> '{prompt_template}' LIKE E'%{{.title}}%')
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'no_bare_dot_url',
+    NOT (default_config #>> '{prompt_template}' LIKE E'%{{.url}}%')
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'no_bare_range_no_arg',
+    NOT (default_config #>> '{prompt_template}' LIKE E'%{{range}}%')
+FROM agent_definitions
+WHERE id = '23720180-7a39-4e3d-92e1-ebdbf95b57f4'
+UNION ALL
+SELECT
+    'work_item_reset',
+    EXISTS (
+        SELECT 1 FROM site_work_items
+        WHERE item_key = 'needs_component:tool-list'
+          AND status = 'triaged'
+          AND error IS NULL
+          AND attempt_count = 0
+    );
+
+COMMIT;

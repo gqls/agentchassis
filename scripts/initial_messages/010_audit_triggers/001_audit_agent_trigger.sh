@@ -808,3 +808,52 @@ echo "  WHERE site_id = '${SITE_ID}'"
 echo "    AND created_at > NOW() - INTERVAL '1 hour'"
 echo "  ORDER BY priority;"
 
+----
+
+image build handler
+AGENT_TYPE="image-build-handler"
+SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"
+DOMAIN="robot-hands.com"
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "=== Triggering: ${AGENT_TYPE} ==="
+echo "  Site: ${DOMAIN} (${SITE_ID})"
+echo "  Correlation: ${CORRELATION_ID}"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P -c 1 \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=orchestrate \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H responses_topic=system.agent.generic.responses \
+-H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"image-build-handler"},"input_data":{"site_id":"00ff3af5-dad8-4770-9f70-3edc267a3c92","domain":"robot-hands.com","item_type":"needs_logo","spec":{"purpose":"logo","image_prompts":{"logo":"A precise, technical logomark for Robot-Hands.com — a stylised robotic gripper or end-effector silhouette rendered in clean geometric lines, suggesting precision engineering and industrial automation. Monochrome or two-tone (electric blue accent on dark background). No cartoonish elements. The mark should read as a technical icon, like something you would see on an engineering schematic or HMI panel. Pair with clean sans-serif wordmark ROBOT-HANDS.COM. Professional, minimal, authoritative."}}}}
+JSON
+
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l agent-type=${AGENT_TYPE} --tail=50"
+echo ""
+echo "Check findings:"
+echo "  SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)"
+echo "  FROM site_work_items"
+echo "  WHERE site_id = '${SITE_ID}'"
+echo "    AND created_at > NOW() - INTERVAL '1 hour'"
+echo "  ORDER BY priority;"

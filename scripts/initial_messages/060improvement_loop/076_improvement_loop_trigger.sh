@@ -21,11 +21,20 @@ DOMAIN="finetuning.uk"
 
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 DOMAIN="gaswholesalers.com"
+
+AGENT_TYPE="improvement-loop"
+SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"
+DOMAIN="robot-hands.com"
+
+
 # ============================================================================
 set -euo pipefail
 
 SITE_ID="${1:-${SITE_ID:-1368e337-dd1d-4799-bbb3-8221a1b79bcc}}"
 DOMAIN="${2:-${DOMAIN:-finetuning.uk}}"
+
+SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"
+DOMAIN="robot-hands.com"
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -45,7 +54,7 @@ echo "========================================="
 kubectl -n kafka run -i --rm kcat-improve-$(date +%s) \
   --image=edenhill/kcat:1.7.1 \
   --restart=Never -- \
-  kcat -P \
+  kcat -P -c 1 \
   -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
   -t system.agent.generic.requests \
   -H correlation_id=$CORRELATION_ID \

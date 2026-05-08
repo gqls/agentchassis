@@ -49,6 +49,7 @@ ls ~/                     # likely shows existing venv / cached models
 tnr scp held_out_cases_v1.jsonl  0:/home/ubuntu/
 tnr scp 04_eval_iter0.py         0:/home/ubuntu/
 tnr scp  lora_iter0_full       0:/home/ubuntu/lora_iter0_full
+tnr scp 00_vm_setup.sh         0:/home/ubuntu/
 
 [
 ant@ant-XPS-15-9500:~/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/finetuning$ cd working/phase2/lora_iter0_full/
@@ -56,6 +57,14 @@ ant@ant-XPS-15-9500:~/projects/agentchassis/docs/agent_docs/docs024_key_docs_lat
 ant@ant-XPS-15-9500:~/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase2/lora_iter0_full$ cd ..
 ant@ant-XPS-15-9500:~/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase2$ tnr scp  lora_iter0_full 0:/home/ubuntu/lora_iter0_ful
 ]
+
+## from tnr
+chmod +x ~/00_vm_setup.sh
+~/00_vm_setup.sh 2>&1 | tee ~/setup.log
+
+# After setup, activate and run smoke
+source ~/unsloth_env/bin/activate
+export HF_HUB_ENABLE_HF_TRANSFER=1
 
 # Run
 source <whatever_venv_path>
@@ -90,7 +99,7 @@ ls ~/                     # likely shows existing venv / cached models
 # Run from your laptop in another terminal:
 tnr scp held_out_cases_v1.jsonl  0:/home/ubuntu/
 tnr scp 04_eval_iter0.py         0:/home/ubuntu/
-tnr scp -r lora_iter0_full       0:/home/ubuntu/lora_iter0_full
+tnr scp lora_iter0_full       0:/home/ubuntu/lora_iter0_full
 
 # Run
 source <whatever_venv_path>

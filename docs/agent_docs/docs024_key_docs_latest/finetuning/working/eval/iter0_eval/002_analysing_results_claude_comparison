@@ -1,0 +1,16 @@
+What's next — the comparison stage
+We have 20 paired (claude_response, iter0_response) tuples on real held-out briefs. Now we score them. The drafted methodology in FOCUS has three levels:
+Level 1 — structural (jq, seconds, free):
+
+JSON validity rate
+Schema compliance (correct field names, no extra fields)
+Forbidden phrases from the avoid-lists in each brief (does iter_0 use "revolutionary", "best-in-class" etc when the brief banned them?)
+Length distributions (iter_0 trends shorter or longer than Claude?)
+
+Level 2 — Claude-as-judge (~20 API calls, < $1):
+For each pair, ask Claude to score iter_0's response against three rubric dimensions (relevance to brief, voice match, no-fabrication) on a 1-5 scale, with reasoning. Pair-wise comparison with both responses anonymised so Claude doesn't know which is its own output.
+Level 3 — manual spot-check:
+Read any pair where level 1 and 2 disagree, or where level 1 found violations. Probably 3-5 cases out of 20.
+Output is a one-page summary: validity %, schema compliance %, voice match average, where iter_0 wins/loses/ties. That's the verdict on iter_0.
+
+
