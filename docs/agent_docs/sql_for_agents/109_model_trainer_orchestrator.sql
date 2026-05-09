@@ -184,3 +184,31 @@ WHERE type = 'model-trainer'
 
 UPDATE agent_definitions SET agent_category = 'coordinator', domain_tags = '["training", "orchestrator", "qlora", "thunder-compute"]'::jsonb WHERE type = 'model-trainer' AND deleted_at IS NULL;
 
+--
+-- 023_training_agents_health_config_fix.sql
+--
+-- Patches health_config on training agents to include the required `port`
+-- field. Without it, k8s Job creation fails with:
+--   spec.template.spec.containers[0].ports[0].containerPort: Required value
+--
+-- The chassis spawn_agent code reads health_config.port and uses it as
+-- the container's containerPort. Existing agents (e.g. defaults) use 8080.
+
+UPDATE agent_definitions
+SET health_config = '{
+    "port": 8080,
+    "liveness_path": "/health",
+    "readiness_path": "/ready",
+    "initial_delay_seconds": 30
+}'::jsonb,
+    updated_at = NOW()
+WHERE type IN ('model-trainer', 'training-data-preparer')
+  AND deleted_at IS NULL;
+
+-- Verify
+SELECT type, health_config
+FROM agent_definitions
+WHERE type IN ('model-trainer', 'training-data-preparer')
+  AND deleted_at IS NULL
+ORDER BY type;
+

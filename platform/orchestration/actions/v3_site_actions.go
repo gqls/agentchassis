@@ -2095,6 +2095,19 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		purpose = p
 	}
 
+	// Phase 2C: extract asset_key from config, defaulting to purpose.
+	// Backward-compatible — existing callers (pageflow-builder,
+	// image-build-handler, site-work-orchestrator) don't pass asset_key,
+	// so default-to-purpose preserves the (site_id, purpose) uniqueness
+	// they were relying on through the prior ON CONFLICT target.
+	// New callers (Phase 3 adoption mirror) pass an explicit asset_key
+	// like "adopted:<filename>" to differentiate multiple images that
+	// share a purpose.
+	assetKey := purpose
+	if k, ok := config["asset_key"].(string); ok && k != "" {
+		assetKey = k
+	}
+
 	// Get site_id (optional - assets can be global)
 	var siteID *uuid.UUID
 	if siteIDField, ok := config["site_id_field"].(string); ok && siteIDField != "" {
@@ -2189,10 +2202,11 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	assetID := uuid.New()
 
 	query := `
-		INSERT INTO assets (id, site_id, name, asset_type, purpose, url, origin_type,
+		INSERT INTO assets (id, site_id, name, asset_type, purpose, asset_key, url, origin_type,
 		                    origin_prompt, origin_model, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-		ON CONFLICT (site_id, purpose) WHERE purpose IS NOT NULL DO UPDATE SET
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+		ON CONFLICT (site_id, asset_key) WHERE asset_key IS NOT NULL AND status = 'active' DO UPDATE SET
+			purpose = EXCLUDED.purpose,
 			url = EXCLUDED.url,
 			name = EXCLUDED.name,
 			origin_type = EXCLUDED.origin_type,
@@ -2205,7 +2219,8 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	var returnedID uuid.UUID
 	err := queryRowScanUUID(ctx, params.DB, query, &returnedID,
 		assetID, siteID, assetName, assetType, nullString(purpose),
-		assetURL, originType, nullString(originPrompt), nullString(originModel))
+		nullString(assetKey), assetURL, originType,
+		nullString(originPrompt), nullString(originModel))
 
 	if err != nil {
 		// Try simpler insert without upsert if constraint doesn't exist
@@ -2213,14 +2228,15 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 			zap.Error(err))
 
 		simpleQuery := `
-			INSERT INTO assets (id, site_id, name, asset_type, purpose, url, origin_type,
+			INSERT INTO assets (id, site_id, name, asset_type, purpose, asset_key, url, origin_type,
 			                    origin_prompt, origin_model, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
 			RETURNING id
 		`
 		err = queryRowScanUUID(ctx, params.DB, simpleQuery, &returnedID,
 			assetID, siteID, assetName, assetType, nullString(purpose),
-			assetURL, originType, nullString(originPrompt), nullString(originModel))
+			nullString(assetKey), assetURL, originType,
+			nullString(originPrompt), nullString(originModel))
 
 		if err != nil {
 			params.Logger.Warn("StoreAssetAction: Insert failed",
