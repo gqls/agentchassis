@@ -262,6 +262,17 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	schemaJSONStr := string(inputSchemaJSON)
 	preStoreScore := scoreComponent("", functionName, htmlTemplate, schemaJSONStr, "section")
 
+	// TEMPORARY DEBUG (remove after Tier D verification)
+	logger.Warn("DEBUG_PRESTORE_SCORE",
+		zap.String("function", functionName),
+		zap.Int("template_variable_count", preStoreScore.TemplateVariableCount),
+		zap.Int("schema_field_count", preStoreScore.SchemaFieldCount),
+		zap.Bool("schema_template_synced", preStoreScore.SchemaTemplateSynced),
+		zap.Strings("quality_issues", preStoreScore.QualityIssues),
+		zap.Int("template_len", len(htmlTemplate)),
+		zap.Int("schema_len", len(schemaJSONStr)),
+	)
+
 	// Reject on structural problems that make the component unusable.
 	// These are the same conditions that produced quality_score=30 on
 	// provocation-feed and archetype-combinations (2026-04-17).
@@ -442,18 +453,18 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			)
 			RETURNING id::text
 		`,
-			functionName,                  // $1 name
-			displayName,                   // $2 display_name
-			functionName,                  // $3 function
-			category,                      // $4 category
-			sectionType,                   // $5 section_type
-			string(suitableSiteTypesJSON), // $6 suitable_site_types
-			string(suitablePageTypesJSON), // $7 suitable_page_types
-			description,                   // $8 description
-			htmlTemplate,                  // $9 html_template (JS extracted)
-			nullIfEmpty(jsContent),        // $10 js_content (NULL if no JS)
-			inputSchemaJSON,               // $11 input_schema
-			isDark,                        // $12 is_dark_section
+			functionName,                                         // $1 name
+			displayName,                                          // $2 display_name
+			functionName,                                         // $3 function
+			category,                                             // $4 category
+			sectionType,                                          // $5 section_type
+			string(suitableSiteTypesJSON),                        // $6 suitable_site_types
+			string(suitablePageTypesJSON),                        // $7 suitable_page_types
+			description,                                          // $8 description
+			htmlTemplate,                                         // $9 html_template (JS extracted)
+			nullIfEmpty(jsContent),                               // $10 js_content (NULL if no JS)
+			inputSchemaJSON,                                      // $11 input_schema
+			isDark,                                               // $12 is_dark_section
 			datahelpers.BuildSemanticTags(sectionType, siteType), // $13 semantic_tags
 		).Scan(&componentID)
 		if err != nil {

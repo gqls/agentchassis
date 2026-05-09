@@ -2980,6 +2980,8 @@ func isStorageEnabledAgent(agentType string) bool {
 		"site-architect",
 		"website-builder",
 		"asset-deployer",
+		"training-data-preparer",
+		"artefact-collector",
 	}
 
 	for _, t := range storageAgents {
