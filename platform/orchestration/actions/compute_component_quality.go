@@ -27,6 +27,8 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"text/template"
+	"text/template/parse"
 	"time"
 
 	"github.com/google/uuid"
@@ -184,32 +186,6 @@ func ComputeComponentQualityAction(ctx context.Context, params ActionParams) (in
 // ---------------------------------------------------------------------------
 
 var (
-	// tmplVarPattern matches Go-template field references in any of these forms:
-	//   {{.field}}             — direct access to top-level field
-	//   {{ .field}}            — with leading whitespace
-	//   {{$.field}}            — root-context access (used inside {{range}}
-	//                             blocks to reach outer scope)
-	//   {{range .field}}       — iterate over an array field
-	//   {{with .field}}        — switch context to field
-	//   {{if .field}}          — conditional on field
-	//
-	// All of these constructs USE the named field. For the validator's
-	// schema/template sync check, we want to extract the field NAME from
-	// each, regardless of which Go-template action consumes it. Without
-	// matching {{range .X}}, an array field declared in the schema (the
-	// Tier D `items` field) would not be recognised in the template, and
-	// the sync check would erroneously report "schema field 'items' has
-	// no template variable" — even when the template clearly iterates
-	// over .items via {{range .items}}.
-	//
-	// Pattern explanation:
-	//   \{\{                       literal "{{"
-	//   \s*                        optional whitespace
-	//   (?:range\s+|with\s+|if\s+)? optional keyword prefix
-	//   \$?                        optional "$" for root-context
-	//   \.                         literal "."
-	//   ([A-Za-z_]...)             captured identifier
-	tmplVarPattern    = regexp.MustCompile(`\{\{\s*(?:range\s+|with\s+|if\s+)?\$?\.([A-Za-z_][A-Za-z0-9_]*)`)
 	dataCompAttrRegex = regexp.MustCompile(`data-component\s*=`)
 	sectionCloseRegex = regexp.MustCompile(`</section\s*>`)
 	sectionOpenRegex  = regexp.MustCompile(`<section\b`)
@@ -332,14 +308,50 @@ func scoreComponent(componentID, function, template, schemaJSON, componentLevel 
 }
 
 // extractTemplateVariables returns a sorted, deduplicated list of
-// Go-template variable names in the form {{.foo}}.
-func extractTemplateVariables(template string) []string {
-	matches := tmplVarPattern.FindAllStringSubmatch(template, -1)
-	seen := make(map[string]bool)
-	for _, m := range matches {
-		if len(m) >= 2 {
-			seen[m[1]] = true
-		}
+// top-level field names referenced in a Go-template body.
+//
+// Implementation: parses the template with Go's text/template package
+// and walks the parse tree, collecting every FieldNode (which is what
+// every .X reference becomes after parsing — direct access {{.X}},
+// pipeline arg {{foo .X}}, range/with/if pipe {{range .X}}, and
+// root-context {{$.X}} all parse to a FieldNode whose first ident
+// is "X").
+//
+// Why parse instead of regex: the previous regex-based extractor had
+// to be updated each time a new construct turned up (the original missed
+// {{range .X}}, then {{$.X}}, then {{with .X}}, etc.). Each miss caused
+// a silent schema/template sync failure. The Go parser, by definition,
+// recognises every form the template language supports, so this stays
+// correct as the language evolves.
+//
+// On parse failure: returns empty slice. The caller's structural check
+// (TemplateClosed) will catch the unparseable-template case via the
+// section-tag-balance heuristic; we don't fail loudly here because
+// scoreComponent is also used for already-stored historical components
+// that may pre-date current expectations.
+//
+// Funcs registered: only "placeholder" and "toJSON" are present in any
+// agent prompt's funcMap, but the LLM's html_template output uses pure
+// {{.X}}/{{range .X}}/{{end}} syntax — no helper calls. Registering
+// no-op stubs costs little and makes the parser tolerant of the rare
+// case where an LLM mistakenly emits a helper call in its output.
+func extractTemplateVariables(tmplStr string) []string {
+	if tmplStr == "" {
+		return nil
+	}
+	funcs := template.FuncMap{
+		"placeholder": func(string) string { return "" },
+		"toJSON":      func(interface{}) string { return "" },
+		"rangeStart":  func(string) string { return "" },
+		"rangeEnd":    func() string { return "" },
+	}
+	trees, err := parse.Parse("component", tmplStr, "", "", funcs)
+	if err != nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	for _, t := range trees {
+		walkTemplateNode(t.Root, seen)
 	}
 	out := make([]string, 0, len(seen))
 	for name := range seen {
@@ -347,6 +359,65 @@ func extractTemplateVariables(template string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// walkTemplateNode recursively descends a parse.Node, collecting every
+// top-level field name into seen.
+func walkTemplateNode(n parse.Node, seen map[string]bool) {
+	if n == nil {
+		return
+	}
+	switch x := n.(type) {
+	case *parse.ListNode:
+		for _, c := range x.Nodes {
+			walkTemplateNode(c, seen)
+		}
+	case *parse.ActionNode:
+		walkTemplatePipe(x.Pipe, seen)
+	case *parse.RangeNode:
+		walkTemplatePipe(x.Pipe, seen)
+		walkTemplateNode(x.List, seen)
+		walkTemplateNode(x.ElseList, seen)
+	case *parse.IfNode:
+		walkTemplatePipe(x.Pipe, seen)
+		walkTemplateNode(x.List, seen)
+		walkTemplateNode(x.ElseList, seen)
+	case *parse.WithNode:
+		walkTemplatePipe(x.Pipe, seen)
+		walkTemplateNode(x.List, seen)
+		walkTemplateNode(x.ElseList, seen)
+	case *parse.TemplateNode:
+		walkTemplatePipe(x.Pipe, seen)
+	}
+	// Other node types (TextNode, CommentNode, etc.) carry no field refs.
+}
+
+// walkTemplatePipe walks a pipeline (the part after {{), which is a
+// sequence of commands; each command has a list of args; each arg may
+// itself be a node containing field refs.
+func walkTemplatePipe(p *parse.PipeNode, seen map[string]bool) {
+	if p == nil {
+		return
+	}
+	for _, cmd := range p.Cmds {
+		for _, arg := range cmd.Args {
+			switch a := arg.(type) {
+			case *parse.FieldNode:
+				if len(a.Ident) > 0 {
+					seen[a.Ident[0]] = true
+				}
+			case *parse.PipeNode:
+				walkTemplatePipe(a, seen)
+			case *parse.ChainNode:
+				if len(a.Field) > 0 {
+					seen[a.Field[0]] = true
+				}
+			}
+			// VariableNode ($x), IdentifierNode (function names),
+			// StringNode, NumberNode, etc. don't reference top-level
+			// data fields.
+		}
+	}
 }
 
 // extractSchemaFields parses input_schema JSON and returns the field names
