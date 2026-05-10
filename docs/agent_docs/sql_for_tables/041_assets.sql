@@ -275,4 +275,111 @@ BEGIN;
 unrecognized value "on--------------------------------------------------------------------------------Pre-dropsanitycheck(intransactionsoweabortonbadstate)------------------------------------------------------------------------------BEGIN;--Lookforactiverowsthathavepurposesetbutasset_keynotset.--Thesewouldbeinvisibletothenewindex(WHEREasset_keyISNOTNULL),--sodroppingtheoldindexwouldleavethemwithnouniquenessprotection.DO$$DECLAREstraggler_countinteger;BEGINSELECTCOUNT(*)INTOstraggler_countFROMassetsWHEREstatus=activeANDpurposeISNOTNULLANDasset_keyISNULL;IFstraggler_count>0THENRAISEEXCEPTIONPhase 2D abort: % active row(s) have purpose set without asset_key. These would lose uniqueness protection if the old index is dropped. Likely cause: rows inserted between Phase 2B migration and Phase 2C deploy by the unpatched StoreAssetAction. To resolve, backfill: UPDATE assets SET asset_key = purpose WHERE status = 'active' AND purpose IS NOT NULL AND asset_key IS NULL;  Then re-run this migration.,straggler_count;ENDIF;RAISENOTICEPre-drop check passed: 0 straggler rows.;END$$;--Alsoconfirmthenewindexexists.Ifitdoesnt, Phase 2B wasntapplied.DO$$BEGINIFNOTEXISTS(SELECT1FROMpg_indexesWHEREtablename=assetsANDindexname=idx_assets_site_asset_key_unique)THENRAISEEXCEPTIONPhase 2D abort: idx_assets_site_asset_key_unique does not exist. Phase 2B must be applied before Phase 2D.;ENDIF;RAISENOTICEPre-drop check passed: idx_assets_site_asset_key_unique present.;END$$;COMMIT;--------------------------------------------------------------------------------Droptheoldconstraint(mustbeOUTSIDEtransactionforCONCURRENTLY)------------------------------------------------------------------------------DROPINDEXCONCURRENTLYIFEXISTSidx_assets_site_purpose_unique;--------------------------------------------------------------------------------Post-dropverification------------------------------------------------------------------------------SELECTindexname,indexdefFROMpg_indexesWHEREtablename=assetsANDindexnameIN(idx_assets_site_purpose_unique,idx_assets_site_asset_key_unique)ORDERBYindexname;--Expected:onlyidx_assets_site_asset_key_uniquepresent.--============================================================================--ROLLBACK(recreatetheoldconstraint)--============================================================================--ThiswillFAILifanyrowsnowviolate(site_id,purpose)uniqueness—--whichistheverystatePhase2Denables.Resolveviolationsfirst.----CREATEUNIQUEINDEXCONCURRENTLYIFNOTEXISTSidx_assets_site_purpose_unique--ONassets(site_id,purpose)WHEREpurposeISNOTNULL;" for "ON_ERROR_STOP": Boolean expected
 clients_db=#
 
-             
+---
+-- -- drop purpose constraint
+
+-- ============================================================================
+-- Phase 2D — drop the old (site_id, purpose) unique constraint
+--
+-- Removes idx_assets_site_purpose_unique. After this, the only uniqueness
+-- protection on assets is idx_assets_site_asset_key_unique (created in
+-- Phase 2B). The multi-image case becomes possible at the schema level.
+--
+-- PRECONDITIONS (verify before running):
+--   1. Phase 2B has been applied (idx_assets_site_asset_key_unique exists,
+--      asset_key column populated for all existing rows).
+--   2. Phase 2C has been deployed (StoreAssetAction writes asset_key on
+--      every insert; ON CONFLICT target switched to (site_id, asset_key)).
+--   3. No active row has purpose set without asset_key — i.e. no straggler
+--      rows from the gap between Phase 2B migration and Phase 2C deploy.
+--      The pre-drop check below verifies this.
+--
+-- This migration has two statements:
+--   1. BEGIN/COMMIT block: pre-drop sanity check that fails the
+--      transaction if any active row has purpose without asset_key.
+--   2. DROP INDEX CONCURRENTLY IF EXISTS (must be outside transaction).
+--
+-- IMPORTANT: \set ON_ERROR_STOP on at the top is essential. Without it,
+-- psql would proceed to the DROP INDEX statement even when the sanity
+-- check transaction aborted — which would defeat the safety guard.
+-- ============================================================================
+
+\set ON_ERROR_STOP on
+
+-- ----------------------------------------------------------------------------
+-- Pre-drop sanity check (in transaction so we abort on bad state)
+-- ----------------------------------------------------------------------------
+BEGIN;
+
+-- Look for active rows that have purpose set but asset_key not set.
+-- These would be invisible to the new index (WHERE asset_key IS NOT NULL),
+-- so dropping the old index would leave them with no uniqueness protection.
+DO $$
+DECLARE
+straggler_count integer;
+BEGIN
+SELECT COUNT(*) INTO straggler_count
+FROM assets
+WHERE status = 'active'
+  AND purpose IS NOT NULL
+  AND asset_key IS NULL;
+
+IF straggler_count > 0 THEN
+        RAISE EXCEPTION
+            'Phase 2D abort: % active row(s) have purpose set without asset_key. '
+            'These would lose uniqueness protection if the old index is dropped. '
+            'Likely cause: rows inserted between Phase 2B migration and Phase 2C '
+            'deploy by the unpatched StoreAssetAction. To resolve, backfill: '
+            'UPDATE assets SET asset_key = purpose WHERE status = ''active'' '
+            'AND purpose IS NOT NULL AND asset_key IS NULL;  '
+            'Then re-run this migration.', straggler_count;
+END IF;
+
+    RAISE NOTICE 'Pre-drop check passed: 0 straggler rows.';
+END $$;
+
+-- Also confirm the new index exists. If it doesn't, Phase 2B wasn't applied.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes
+        WHERE tablename = 'assets'
+          AND indexname = 'idx_assets_site_asset_key_unique'
+    ) THEN
+        RAISE EXCEPTION
+            'Phase 2D abort: idx_assets_site_asset_key_unique does not exist. '
+            'Phase 2B must be applied before Phase 2D.';
+END IF;
+
+    RAISE NOTICE 'Pre-drop check passed: idx_assets_site_asset_key_unique present.';
+END $$;
+
+COMMIT;
+
+
+-- ----------------------------------------------------------------------------
+-- Drop the old constraint (must be OUTSIDE transaction for CONCURRENTLY)
+-- ----------------------------------------------------------------------------
+DROP INDEX CONCURRENTLY IF EXISTS idx_assets_site_purpose_unique;
+
+
+-- ----------------------------------------------------------------------------
+-- Post-drop verification
+-- ----------------------------------------------------------------------------
+SELECT indexname, indexdef
+FROM pg_indexes
+WHERE tablename = 'assets'
+  AND indexname IN ('idx_assets_site_purpose_unique',
+                    'idx_assets_site_asset_key_unique')
+ORDER BY indexname;
+-- Expected: only idx_assets_site_asset_key_unique present.
+
+
+-- ============================================================================
+-- ROLLBACK (recreate the old constraint)
+-- ============================================================================
+-- This will FAIL if any rows now violate (site_id, purpose) uniqueness —
+-- which is the very state Phase 2D enables. Resolve violations first.
+--
+-- CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_assets_site_purpose_unique
+--   ON assets(site_id, purpose) WHERE purpose IS NOT NULL;

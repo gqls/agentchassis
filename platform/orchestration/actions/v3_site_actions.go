@@ -2096,16 +2096,25 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	// Phase 2C: extract asset_key from config, defaulting to purpose.
-	// Backward-compatible — existing callers (pageflow-builder,
-	// image-build-handler, site-work-orchestrator) don't pass asset_key,
-	// so default-to-purpose preserves the (site_id, purpose) uniqueness
-	// they were relying on through the prior ON CONFLICT target.
-	// New callers (Phase 3 adoption mirror) pass an explicit asset_key
-	// like "adopted:<filename>" to differentiate multiple images that
-	// share a purpose.
-	assetKey := purpose
+	// Phase 2E: also support asset_key_field for JSONPath lookup so
+	// per-item variants can be passed through the workflow without
+	// hardcoded literals.
+	//
+	// Resolution priority:
+	//   1. config["asset_key"]        — literal string (e.g. "logo")
+	//   2. config["asset_key_field"]  — JSONPath into collected_data
+	//   3. purpose (default — Phase 2C backward-compat)
+	assetKey := ""
 	if k, ok := config["asset_key"].(string); ok && k != "" {
 		assetKey = k
+	}
+	if assetKey == "" {
+		if kf, ok := config["asset_key_field"].(string); ok && kf != "" {
+			assetKey = datahelpers.ExtractNestedFieldString(params.CollectedData, kf)
+		}
+	}
+	if assetKey == "" {
+		assetKey = purpose
 	}
 
 	// Get site_id (optional - assets can be global)
