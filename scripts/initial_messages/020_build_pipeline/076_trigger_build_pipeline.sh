@@ -195,6 +195,7 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-creator-agent
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-gap-planner -f | tee logs-content-gap-planner.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-feed-orchestrator -f | tee logs-content-feed-orchestrator.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=component-template-fixer -f | tee logs-component-template-fixer.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=component-creator -f | tee logs-component-creator.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-build-handler -f | tee logs-page-build-handler.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-content-writer -f | tee logs-page-content-writer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=page-rerender -f | tee logs-page-rerender.json

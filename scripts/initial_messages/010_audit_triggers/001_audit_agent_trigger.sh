@@ -825,6 +825,7 @@ CLIENT_ID="demo_client"
 echo "=== Triggering: ${AGENT_TYPE} ==="
 echo "  Site: ${DOMAIN} (${SITE_ID})"
 echo "  Correlation: ${CORRELATION_ID}"
+echo "  Time:           ${TIMESTAMP}"
 echo ""
 
 kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
@@ -857,3 +858,7 @@ echo "  FROM site_work_items"
 echo "  WHERE site_id = '${SITE_ID}'"
 echo "    AND created_at > NOW() - INTERVAL '1 hour'"
 echo "  ORDER BY priority;"
+
+
+orig:
+{"action":"orchestrate","config":{"agent_type":"image-build-handler"},"input_data":{"site_id":"00ff3af5-dad8-4770-9f70-3edc267a3c92","domain":"robot-hands.com","item_type":"needs_logo","spec":{"purpose":"logo","image_prompts":{"logo":"A precise, technical logomark for Robot-Hands.com — a stylised robotic gripper or end-effector silhouette rendered in clean geometric lines, suggesting precision engineering and industrial automation. Monochrome or two-tone (electric blue accent on dark background). No cartoonish elements. The mark should read as a technical icon, like something you would see on an engineering schematic or HMI panel. Pair with clean sans-serif wordmark ROBOT-HANDS.COM. Professional, minimal, authoritative."}}}}

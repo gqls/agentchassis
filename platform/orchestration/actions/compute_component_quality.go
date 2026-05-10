@@ -184,13 +184,32 @@ func ComputeComponentQualityAction(ctx context.Context, params ActionParams) (in
 // ---------------------------------------------------------------------------
 
 var (
-	// tmplVarPattern matches both {{.field}} and {{$.field}} references.
-	// The {{$.X}} form is needed inside a {{range}} block to access the
-	// outer scope ($ is Go template's root data context). LLMs producing
-	// Tier D templates use {{$.X}} for top-level fields referenced from
-	// inside the iteration. Both forms must be recognised so the sync
-	// check doesn't flag legitimate {{$.X}} references as missing.
-	tmplVarPattern    = regexp.MustCompile(`\{\{\s*\$?\.([A-Za-z_][A-Za-z0-9_]*)`)
+	// tmplVarPattern matches Go-template field references in any of these forms:
+	//   {{.field}}             — direct access to top-level field
+	//   {{ .field}}            — with leading whitespace
+	//   {{$.field}}            — root-context access (used inside {{range}}
+	//                             blocks to reach outer scope)
+	//   {{range .field}}       — iterate over an array field
+	//   {{with .field}}        — switch context to field
+	//   {{if .field}}          — conditional on field
+	//
+	// All of these constructs USE the named field. For the validator's
+	// schema/template sync check, we want to extract the field NAME from
+	// each, regardless of which Go-template action consumes it. Without
+	// matching {{range .X}}, an array field declared in the schema (the
+	// Tier D `items` field) would not be recognised in the template, and
+	// the sync check would erroneously report "schema field 'items' has
+	// no template variable" — even when the template clearly iterates
+	// over .items via {{range .items}}.
+	//
+	// Pattern explanation:
+	//   \{\{                       literal "{{"
+	//   \s*                        optional whitespace
+	//   (?:range\s+|with\s+|if\s+)? optional keyword prefix
+	//   \$?                        optional "$" for root-context
+	//   \.                         literal "."
+	//   ([A-Za-z_]...)             captured identifier
+	tmplVarPattern    = regexp.MustCompile(`\{\{\s*(?:range\s+|with\s+|if\s+)?\$?\.([A-Za-z_][A-Za-z0-9_]*)`)
 	dataCompAttrRegex = regexp.MustCompile(`data-component\s*=`)
 	sectionCloseRegex = regexp.MustCompile(`</section\s*>`)
 	sectionOpenRegex  = regexp.MustCompile(`<section\b`)
