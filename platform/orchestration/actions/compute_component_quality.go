@@ -339,54 +339,95 @@ func extractTemplateVariables(tmplStr string) []string {
 	if tmplStr == "" {
 		return nil
 	}
-	funcs := template.FuncMap{
-		"placeholder": func(string) string { return "" },
-		"toJSON":      func(interface{}) string { return "" },
-		"rangeStart":  func(string) string { return "" },
-		"rangeEnd":    func() string { return "" },
-	}
-	trees, err := parse.Parse("component", tmplStr, "", "", funcs)
-	if err != nil {
-		return nil
-	}
-	seen := map[string]bool{}
-	for _, t := range trees {
-		walkTemplateNode(t.Root, seen)
-	}
-	out := make([]string, 0, len(seen))
-	for name := range seen {
-		out = append(out, name)
-	}
-	sort.Strings(out)
-	return out
+	// Recover from any unexpected nil-deref during parse-tree traversal.
+	// Returning an empty slice on panic degrades gracefully — the sync
+	// check will fall back to whatever schemaFields contains, and the
+	// validator's structural checks (template_closed, has_data_component)
+	// still run independently.
+	var result []string
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				result = nil
+			}
+		}()
+		funcs := template.FuncMap{
+			"placeholder": func(string) string { return "" },
+			"toJSON":      func(interface{}) string { return "" },
+			"rangeStart":  func(string) string { return "" },
+			"rangeEnd":    func() string { return "" },
+		}
+		trees, err := parse.Parse("component", tmplStr, "", "", funcs)
+		if err != nil {
+			return
+		}
+		seen := map[string]bool{}
+		for _, t := range trees {
+			if t == nil {
+				continue
+			}
+			walkTemplateNode(t.Root, seen)
+		}
+		result = make([]string, 0, len(seen))
+		for name := range seen {
+			result = append(result, name)
+		}
+		sort.Strings(result)
+	}()
+	return result
 }
 
 // walkTemplateNode recursively descends a parse.Node, collecting every
 // top-level field name into seen.
+//
+// Each typed-pointer case guards against a typed-nil interface value
+// (interface holds a non-nil type descriptor but a nil pointer; the
+// `n == nil` check at the top doesn't catch this case). RangeNode.List
+// and similar can legitimately be nil when the parser leaves a branch
+// empty, and the interface-conversion target type-switch matches the
+// nil pointer rather than falling through.
 func walkTemplateNode(n parse.Node, seen map[string]bool) {
 	if n == nil {
 		return
 	}
 	switch x := n.(type) {
 	case *parse.ListNode:
+		if x == nil {
+			return
+		}
 		for _, c := range x.Nodes {
 			walkTemplateNode(c, seen)
 		}
 	case *parse.ActionNode:
+		if x == nil {
+			return
+		}
 		walkTemplatePipe(x.Pipe, seen)
 	case *parse.RangeNode:
+		if x == nil {
+			return
+		}
 		walkTemplatePipe(x.Pipe, seen)
 		walkTemplateNode(x.List, seen)
 		walkTemplateNode(x.ElseList, seen)
 	case *parse.IfNode:
+		if x == nil {
+			return
+		}
 		walkTemplatePipe(x.Pipe, seen)
 		walkTemplateNode(x.List, seen)
 		walkTemplateNode(x.ElseList, seen)
 	case *parse.WithNode:
+		if x == nil {
+			return
+		}
 		walkTemplatePipe(x.Pipe, seen)
 		walkTemplateNode(x.List, seen)
 		walkTemplateNode(x.ElseList, seen)
 	case *parse.TemplateNode:
+		if x == nil {
+			return
+		}
 		walkTemplatePipe(x.Pipe, seen)
 	}
 	// Other node types (TextNode, CommentNode, etc.) carry no field refs.
@@ -400,15 +441,30 @@ func walkTemplatePipe(p *parse.PipeNode, seen map[string]bool) {
 		return
 	}
 	for _, cmd := range p.Cmds {
+		if cmd == nil {
+			continue
+		}
 		for _, arg := range cmd.Args {
+			if arg == nil {
+				continue
+			}
 			switch a := arg.(type) {
 			case *parse.FieldNode:
+				if a == nil {
+					continue
+				}
 				if len(a.Ident) > 0 {
 					seen[a.Ident[0]] = true
 				}
 			case *parse.PipeNode:
+				if a == nil {
+					continue
+				}
 				walkTemplatePipe(a, seen)
 			case *parse.ChainNode:
+				if a == nil {
+					continue
+				}
 				if len(a.Field) > 0 {
 					seen[a.Field[0]] = true
 				}

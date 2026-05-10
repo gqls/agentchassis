@@ -1006,3 +1006,39 @@ DELETE FROM site_work_items
 WHERE site_id = (SELECT id FROM sites WHERE domain = 'vonc.com')
   AND item_type IN ('needs_rerender', 'page_rerender');
 
+-----------------------
+ SELECT orchestration_id, status, current_step,
+       created_at, updated_at,
+       jsonb_object_keys(collected_data) AS data_key
+  FROM orchestration_states
+ WHERE orchestration_id = '7399a901-e05d-42da-a0ce-39cccb4d8669';
+
+clients_db=# -- After aeacfb4c completes, see if any items got re-queued or hit conflicts
+SELECT item_type, status, source, item_key, created_at,
+       EXTRACT(EPOCH FROM (NOW() - created_at))::int AS age_s
+FROM site_work_items
+WHERE site_id = '3103b167-fc73-4a06-a0ab-cbf32294153e'
+ORDER BY created_at DESC
+LIMIT 30;
+
+-- See the spec history (older becomes is_current=false when newer arrives)
+SELECT aspect, is_current, source_agent, created_at
+FROM site_specs
+WHERE site_id = '3103b167-fc73-4a06-a0ab-cbf32294153e'
+ORDER BY aspect, created_at DESC;
+
+-- M) Every work item for this site, chronological — to see who touched what when
+SELECT
+    to_char(created_at,   'HH24:MI:SS') AS created_t,
+    to_char(updated_at,   'HH24:MI:SS') AS updated_t,
+    to_char(claimed_at,   'HH24:MI:SS') AS claimed_t,
+    to_char(completed_at, 'HH24:MI:SS') AS completed_t,
+    item_type,
+    LEFT(item_key, 50) AS item_key,
+    status,
+    LEFT(claimed_by, 30) AS claimed_by,
+    attempt_count,
+    LEFT(COALESCE(error, ''), 120) AS error_head
+  FROM site_work_items
+ WHERE site_id = '68f1852b-adcf-4e54-89d7-f32107205649'
+ ORDER BY created_at, updated_at;

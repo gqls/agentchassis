@@ -308,6 +308,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Transform data between formats",
 		IsLocal:     true,
 	},
+	"prepare_training_data": {
+		Handler:     PrepareTrainingDataAction,
+		Category:    "data",
+		Description: "Stream training_exports.rows to NDJSON in S3 and INSERT a model_lifecycle.training_runs row in pending state",
+		IsLocal:     true,
+	},
 	"validate_schema": {
 		Handler:     ValidateSchemaAction,
 		Category:    "data",
@@ -867,6 +873,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler:     ValidateSitePlanAction,
 		Category:    "site",
 		Description: "Validate a site plan structure before building",
+		IsLocal:     true,
+	},
+	"write_site_plan": {
+		Handler:     WriteSitePlanAction,
+		Category:    "site",
+		Description: "Write the validated plan to site_plans + site_plan_pages + site_plan_partials in one tx (doc 030)",
+		IsLocal:     true,
+	},
+	"reconcile_site_plan": {
+		Handler:     ReconcileSitePlanAction,
+		Category:    "site",
+		Description: "Diff site_plan_pages vs realised pages; emit needs_page work items for the delta; emit terminal needs_rerender if any (doc 030)",
 		IsLocal:     true,
 	},
 	"generate_html": {

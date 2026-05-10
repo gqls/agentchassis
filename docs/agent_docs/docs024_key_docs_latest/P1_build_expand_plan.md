@@ -1,3 +1,4 @@
+this doc is a bit out of date but still has merit
 # 005 — Site Lifecycle: Build, Expand, Market
 
 The unified pipeline for taking a domain from zero to a fully-built, continuously-improving, actively-marketed website.

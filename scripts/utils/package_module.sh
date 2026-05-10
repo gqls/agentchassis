@@ -746,7 +746,7 @@ case "$COMPONENT_NAME" in
       "platform/kafka/"
       "platform/messaging/"
       "platform/orchestration/"
-      "platform/database/"
+      # "platform/database/"
       "platform/discovery/"
       "platform/evolution/"
       "platform/storage/"
