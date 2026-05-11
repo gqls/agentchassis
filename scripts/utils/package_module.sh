@@ -752,6 +752,7 @@ case "$COMPONENT_NAME" in
       "platform/storage/"
       "platform/aiservice/"
       "platform/governance/"
+      "platform/validation/"
     )
     MODULE_FILES=( "makefile" "build/docker/backend/agent-chassis.dockerfile" )
     ;;

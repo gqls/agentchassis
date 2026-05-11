@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thunder-adapter
+  labels:
+    app: thunder-adapter
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: thunder-adapter
+  template:
+    metadata:
+      labels:
+        app: thunder-adapter
+    spec:
+      containers:
+        - name: thunder-adapter
+          image: thunder-adapter:latest  # overridden per environment in overlay
+          args: ["--config", "/app/configs/thunder-adapter.yaml"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            # Downward API — used for Tier-3 response headers (sender_pod_name)
+            # and pod-level trace logging.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AGENT_VERSION
+              value: "0.1.0"
+            # Topic override — picked up by NewAdapter, falls back to
+            # "system.adapter.thunder.requests" if unset.
+            - name: REQUESTS_TOPIC
+              value: "system.adapter.thunder.requests"
+            - name: CONSUMER_GROUP
+              value: "thunder.adapter.group"
+          envFrom:
+            # THUNDER_COMPUTE_API_KEY (used Phase 3+)
+            - secretRef:
+                name: personae-default-secrets
+            # CLIENTS_DB_PASSWORD, B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY
+            - secretRef:
+                name: personae-platform-secrets
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs/thunder-adapter.yaml
+              subPath: thunder-adapter.yaml
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: config
+          configMap:
+            name: thunder-adapter-config

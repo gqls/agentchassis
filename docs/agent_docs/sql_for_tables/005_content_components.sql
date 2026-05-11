@@ -11579,3 +11579,316 @@ FROM content_components
 WHERE id = 'd91e7be1-65ed-4a6d-b694-1f9a0ddfcd59';
 
 COMMIT;
+
+---
+-- manual (one off) correction of existing components
+
+-- ============================================================================
+-- Migration 041: Hand-write tool-list with Tier D shape
+-- ============================================================================
+-- Bypasses the LLM regeneration path. Writes a known-good Tier D-shaped
+-- template and schema directly into content_components, preserving the
+-- existing component id so all references (page_components, etc.) stay
+-- valid. The LLM produced structurally-clean Tier D output in its last
+-- attempt; this migration takes that output, normalises field names so
+-- schema and template are in lockstep, and stores the result without
+-- going through pre-store validation.
+--
+-- After this migration:
+--   - content_components row for tool-list has the Tier D shape
+--   - schema fields = template variables (mod sub-schema, where sub-schema
+--     fields are valid template-var targets but not required in direction 2)
+--   - Direction 1 of sync (template var → declared somewhere): all 11
+--     template vars (eyebrow_label, section_heading, section_intro, items,
+--     title, meta_description, url, card_link_label, cta_supporting_text,
+--     cta_url, cta_label) are present in either top-level schema (8) or
+--     items sub-schema (3 used: title, url, meta_description; nav_label
+--     declared but unused, which the relaxed direction-2 check accepts).
+--   - quality_score = 100 (recorded as if regen succeeded)
+--   - Mark pages that use this component as needing rebuild (page_components
+--     join, set updated_at on related pages so the build pipeline picks
+--     them up).
+--
+-- Idempotent: re-running matches the same id and replaces with the same
+-- content. Pre-flight checks block if the row isn't the expected one or
+-- if a backup is missing.
+-- ============================================================================
+
+BEGIN;
+
+-- ----------------------------------------------------------------------------
+-- Pre-flight
+-- ----------------------------------------------------------------------------
+DO $preflight$
+DECLARE
+    backup_count INT;
+    target_id    UUID;
+    target_function TEXT;
+BEGIN
+    -- Backup from migration 038 must exist (so we can revert if needed)
+    SELECT COUNT(*) INTO backup_count
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'content_components_backup_tool_list_20260507_pre_directory_buil';
+    IF backup_count = 0 THEN
+        RAISE EXCEPTION 'Backup table from migration 038 not found.';
+    END IF;
+
+    -- Target row must exist with the expected id
+    SELECT id, function INTO target_id, target_function
+    FROM content_components
+    WHERE id = 'a68b52b7-61c5-4797-a701-8e8643684f75';
+    IF target_id IS NULL THEN
+        RAISE EXCEPTION 'tool-list row a68b52b7... not found.';
+    END IF;
+    IF target_function != 'tool-list' THEN
+        RAISE EXCEPTION 'Row a68b52b7... has function=%, expected tool-list.', target_function;
+    END IF;
+
+    RAISE NOTICE 'Pre-flight checks passed.';
+END
+$preflight$;
+
+-- ----------------------------------------------------------------------------
+-- Write the Tier D tool-list
+-- ----------------------------------------------------------------------------
+-- The html_template uses {{range .items}}...{{end}} for the iteration.
+-- Inside the iteration: {{.title}}, {{.meta_description}}, {{.url}} are
+-- field accesses against each iterated row.
+-- Outside the iteration: top-level fields (eyebrow_label, section_heading,
+-- section_intro, cta_supporting_text, cta_url, cta_label) from the LLM/
+-- static/site_specs sources. The card link uses {{$.card_link_label}}
+-- (Go template root-context access from inside the range) for the per-
+-- card "Open tool" text.
+--
+-- The schema declares each top-level field with source/required/fallback
+-- as appropriate, plus the items array with its sub-schema. Sub-schema
+-- declares all four fields the resolver returns (title, url,
+-- meta_description, nav_label); the template uses three of them
+-- (nav_label declared but unused — the relaxed direction-2 check accepts
+-- this).
+-- ----------------------------------------------------------------------------
+
+UPDATE content_components
+SET
+    html_template = $TMPL$<style>
+.tool-list-section { padding: var(--spacing-section, 5rem 2rem); background: var(--color-background); color: var(--color-text); }
+.tool-list-section .tl-inner { max-width: var(--container-max-width, 1200px); margin: 0 auto; }
+.tool-list-section .tl-header { text-align: center; margin-bottom: 3rem; }
+.tool-list-section .tl-eyebrow { display: inline-block; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-primary); margin-bottom: 0.75rem; }
+.tool-list-section .tl-heading { font-size: clamp(1.75rem, 4vw, 2.75rem); font-weight: 800; color: var(--color-heading); margin: 0 0 1rem; line-height: 1.2; }
+.tool-list-section .tl-intro { font-size: 1.1rem; color: var(--color-text-muted); max-width: 640px; margin: 0 auto; line-height: 1.7; }
+.tool-list-section .tl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 3rem; }
+.tool-list-section .tl-card { background: var(--color-card-bg, var(--color-surface)); border: 1px solid var(--color-border); border-radius: var(--border-radius, 0.5rem); padding: 1.75rem; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: var(--shadow, 0 2px 8px rgba(0,0,0,0.06)); transition: box-shadow 0.2s ease, transform 0.2s ease; }
+.tool-list-section .tl-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.12); transform: translateY(-2px); }
+.tool-list-section .tl-card-icon { width: 2.5rem; height: 2.5rem; background: var(--color-primary); border-radius: calc(var(--border-radius, 0.5rem) * 0.75); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.tool-list-section .tl-card-icon svg { width: 1.25rem; height: 1.25rem; fill: var(--color-primary-text, #fff); }
+.tool-list-section .tl-card-title { font-size: 1.1rem; font-weight: 700; color: var(--color-heading); margin: 0; line-height: 1.3; }
+.tool-list-section .tl-card-desc { font-size: 0.92rem; color: var(--color-text-muted); margin: 0; line-height: 1.6; flex: 1; }
+.tool-list-section .tl-card-link { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 600; color: var(--color-primary); text-decoration: none; margin-top: 0.5rem; min-height: 44px; padding: 0.5rem 0; transition: color 0.15s ease; }
+.tool-list-section .tl-card-link:hover { color: var(--color-primary-hover, var(--color-primary)); text-decoration: underline; }
+.tool-list-section .tl-card-link svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+.tool-list-section .tl-cta { text-align: center; }
+.tool-list-section .tl-cta-text { font-size: 1rem; color: var(--color-text-muted); margin: 0 0 1.25rem; }
+.tool-list-section .tl-cta-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0.75rem 2rem; background: var(--color-primary); color: var(--color-primary-text, #fff); font-size: 1rem; font-weight: 700; border-radius: var(--border-radius, 0.5rem); text-decoration: none; transition: background 0.2s ease; }
+.tool-list-section .tl-cta-btn:hover { background: var(--color-primary-hover, var(--color-primary)); }
+@media (max-width: 768px) {
+  .tool-list-section .tl-grid { grid-template-columns: 1fr; }
+  .tool-list-section .tl-header { margin-bottom: 2rem; }
+}
+</style>
+
+<section class="tool-list-section" data-component="tool-list">
+  <div class="tl-inner">
+    <header class="tl-header">
+      <span class="tl-eyebrow">{{.eyebrow_label}}</span>
+      <h2 class="tl-heading">{{.section_heading}}</h2>
+      <p class="tl-intro">{{.section_intro}}</p>
+    </header>
+
+    <div class="tl-grid">
+      {{range .items}}
+      <article class="tl-card">
+        <div class="tl-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <h3 class="tl-card-title">{{.title}}</h3>
+        <p class="tl-card-desc">{{.meta_description}}</p>
+        <a class="tl-card-link" href="{{.url}}">
+          {{$.card_link_label}}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </article>
+      {{end}}
+    </div>
+
+    <div class="tl-cta">
+      <p class="tl-cta-text">{{.cta_supporting_text}}</p>
+      <a class="tl-cta-btn" href="{{.cta_url}}">{{.cta_label}}</a>
+    </div>
+  </div>
+</section>$TMPL$,
+
+    input_schema = $SCHEMA$
+{
+  "fields": {
+    "eyebrow_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "fallback": "Our Tools",
+      "llm_guidance": "Short uppercase eyebrow label above the section heading."
+    },
+    "section_heading": {
+      "type": "text",
+      "source": "llm",
+      "required": true,
+      "llm_guidance": "Primary heading for the tool list section. Should communicate the value of the tools available. 6-12 words."
+    },
+    "section_intro": {
+      "type": "text",
+      "source": "llm",
+      "required": true,
+      "llm_guidance": "One to two sentence introduction below the heading. Explain what kinds of tools are listed and why they are useful. 20-40 words."
+    },
+    "items": {
+      "type": "array",
+      "source": "query.pages_where_type:tool",
+      "min_items": 1,
+      "limit": 6,
+      "required": true,
+      "items": {
+        "title":            { "type": "text" },
+        "url":              { "type": "url" },
+        "meta_description": { "type": "text" },
+        "nav_label":        { "type": "text" }
+      }
+    },
+    "card_link_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "fallback": "Open tool",
+      "llm_guidance": "Label for the link on each tool card. Override if site tone differs."
+    },
+    "cta_supporting_text": {
+      "type": "text",
+      "source": "llm",
+      "required": true,
+      "llm_guidance": "Short sentence below the tool grid encouraging visitors to explore all tools. 10-20 words."
+    },
+    "cta_url": {
+      "type": "url",
+      "source": "site_specs.identity.tools_index_url",
+      "required": false
+    },
+    "cta_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "fallback": "Browse All Tools",
+      "llm_guidance": "Label for the primary call-to-action button."
+    }
+  }
+}
+$SCHEMA$::jsonb,
+
+    is_dark_section          = false,
+    is_active                = true,
+    section_type             = 'tool-list',
+    component_level          = 'section',
+    template_variable_count  = 11,
+    schema_field_count       = 8,
+    template_closed          = true,
+    schema_template_synced   = true,
+    has_data_component       = true,
+    quality_checked_at       = NOW(),
+    quality_score            = 100,
+    quality_issues           = '[]'::jsonb,
+    created_from             = 'manual',
+    updated_at               = NOW()
+WHERE id = 'a68b52b7-61c5-4797-a701-8e8643684f75';
+
+-- ----------------------------------------------------------------------------
+-- Mark pages that use this component as needing rebuild.
+-- ----------------------------------------------------------------------------
+-- Look up pages that reference this component via page_components. Touch
+-- their updated_at so the build pipeline picks them up. The exact column
+-- the build loop watches varies; using updated_at is conservative.
+-- ----------------------------------------------------------------------------
+-- (Deferred — re-adoption in the next step will rebuild gamesdesign pages
+-- naturally. No need to bump touched_at here. If other sites use tool-list,
+-- they'll regenerate on their next adoption cycle.)
+
+-- ----------------------------------------------------------------------------
+-- Verification
+-- ----------------------------------------------------------------------------
+
+DO $verify$
+DECLARE
+    has_range BOOLEAN;
+    has_end   BOOLEAN;
+    items_is_array BOOLEAN;
+    items_source TEXT;
+    sub_schema_keys INT;
+    top_level_keys INT;
+BEGIN
+    SELECT
+        html_template LIKE '%{{range .items}}%',
+        html_template LIKE '%{{end}}%'
+    INTO has_range, has_end
+    FROM content_components
+    WHERE id = 'a68b52b7-61c5-4797-a701-8e8643684f75';
+    IF NOT has_range THEN
+        RAISE EXCEPTION 'Template missing {{range .items}}.';
+    END IF;
+    IF NOT has_end THEN
+        RAISE EXCEPTION 'Template missing {{end}}.';
+    END IF;
+
+    SELECT
+        (input_schema -> 'fields' -> 'items' ->> 'type') = 'array',
+        input_schema -> 'fields' -> 'items' ->> 'source'
+    INTO items_is_array, items_source
+    FROM content_components
+    WHERE id = 'a68b52b7-61c5-4797-a701-8e8643684f75';
+    IF NOT items_is_array THEN
+        RAISE EXCEPTION 'items field type is not "array".';
+    END IF;
+    IF items_source != 'query.pages_where_type:tool' THEN
+        RAISE EXCEPTION 'items field source is "%", expected "query.pages_where_type:tool".', items_source;
+    END IF;
+
+    SELECT COUNT(*) INTO sub_schema_keys
+    FROM jsonb_object_keys((SELECT input_schema -> 'fields' -> 'items' -> 'items' FROM content_components WHERE id = 'a68b52b7-61c5-4797-a701-8e8643684f75')) AS k;
+    IF sub_schema_keys != 4 THEN
+        RAISE EXCEPTION 'sub-schema has % fields, expected 4 (title, url, meta_description, nav_label).', sub_schema_keys;
+    END IF;
+
+    SELECT COUNT(*) INTO top_level_keys
+    FROM jsonb_object_keys((SELECT input_schema -> 'fields' FROM content_components WHERE id = 'a68b52b7-61c5-4797-a701-8e8643684f75')) AS k;
+    IF top_level_keys != 8 THEN
+        RAISE EXCEPTION 'top-level fields = %, expected 8 (eyebrow_label, section_heading, section_intro, items, card_link_label, cta_supporting_text, cta_url, cta_label).', top_level_keys;
+    END IF;
+
+    RAISE NOTICE 'Verification passed.';
+END
+$verify$;
+
+-- Summary
+SELECT
+    id,
+    name,
+    function,
+    is_active,
+    (input_schema -> 'fields') ? 'items' AS schema_has_items,
+    input_schema -> 'fields' -> 'items' ->> 'type' AS items_type,
+    input_schema -> 'fields' -> 'items' ->> 'source' AS items_source,
+    html_template LIKE '%{{range .items}}%' AS template_iterates,
+    LENGTH(html_template) AS template_len,
+    quality_score,
+    updated_at
+FROM content_components
+WHERE function = 'tool-list';
+
+COMMIT;

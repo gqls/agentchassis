@@ -144,3 +144,9 @@ I want to use the git adapter for all git commits, in case one day I change the 
 agents are dynamically spawned usually
 
 the initial messages should be simple kafka messages without sql and bash functions because potentially these might be sent by another agent
+
+try and collect my prompts and responses
+
+You said: rather than or aswell as dropping, should we introduce a loud validation step?
+
+rather than or aswell as dropping, should we introduce a loud validation step? We should rather fix the error at source than just paper over it too. Should it be part algorithmic and not completely rely on the llm for the bits that it is not so good at? Should we use a better llm model for this step? what else can we do here to make it a bit more robust, simple, observable and reliable.
