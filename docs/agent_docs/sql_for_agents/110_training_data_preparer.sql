@@ -217,3 +217,126 @@ SELECT type, env_vars
 FROM agent_definitions
 WHERE type = 'training-data-preparer'
   AND deleted_at IS NULL;
+
+-----
+
+-- ============================================================================
+-- 027_input_mapping_path_simplification.sql
+-- ============================================================================
+-- Companion to the Go change in platform/orchestration/input_contracts/
+-- input_mapping.go (ResolveInputMapping now uses FindByPath, which
+-- auto-unwraps .response).
+--
+-- Three coordinated changes here, all reverting model-trainer paths to
+-- a cleaner shape now that the underlying machinery supports it:
+--
+-- 1. training-data-preparer.complete: switch from output_fields (plural,
+--    wraps fields in a map keyed by name) to output_field (singular,
+--    returns just the field's value). Eliminates the
+--    preparation_result.preparation_result double-keying at source.
+--
+-- 2. model-trainer.call_provisioner.input_mapping: drop the
+--    `.response.preparation_result.` middle hops, leaving natural paths
+--    like preparation_result.training_run_id. The new FindByPath-based
+--    resolver handles the .response auto-unwrap.
+--
+-- 3. model-trainer.call_launcher.input_mapping: same simplification, plus
+--    mark provisioning_result fields as ?-optional. The gpu-provisioner
+--    stub currently returns {} so these fields won't exist during the
+--    stub phase. The ? suffix lets the call proceed; when Phase 3 thunder-
+--    adapter ships and gpu-provisioner returns populated fields, the ?
+--    becomes a no-op (present fields are used; missing skipped).
+--
+-- Prerequisite: the Go change in input_mapping.go must be deployed BEFORE
+-- this migration. Otherwise the simplified paths (without .response.)
+-- will fail to resolve.
+-- ============================================================================
+
+BEGIN;
+
+-- ── 1. training-data-preparer.complete: output_fields plural → output_field singular ──
+-- This eliminates the double-keying. The child's response body becomes
+-- {dataset_uri, row_count, size_bytes, training_run_id, ...} directly
+-- rather than {preparation_result: {...}}.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config #- '{workflow,steps,complete,config,output_fields}',
+                '{workflow,steps,complete,config,output_field}',
+                '"preparation_result"'::jsonb,
+                true
+        ),
+        '{workflow,steps,complete,description}',
+        '"Return preparation_result fields directly (using singular output_field for clean shape)"'::jsonb,
+        true
+                     )
+WHERE type = 'training-data-preparer'
+  AND is_active = true
+  AND is_snapshot = false
+  AND deleted_at IS NULL;
+
+-- ── 2. model-trainer.call_provisioner: simplify paths ──
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_provisioner,config,input_mapping}',
+        '{
+            "hyperparameters": "input_data.hyperparameters",
+            "training_run_id": "preparation_result.training_run_id"
+        }'::jsonb,
+        true
+                     )
+WHERE type = 'model-trainer'
+  AND is_active = true
+  AND is_snapshot = false
+  AND deleted_at IS NULL;
+
+-- ── 3. model-trainer.call_launcher: simplify paths + ? for stub-phase fields ──
+-- preparation_result.* fields: required (data preparer always returns them)
+-- provisioning_result.* fields: ? optional (stub returns {}; real impl Phase 3)
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_launcher,config,input_mapping}',
+        '{
+            "hyperparameters": "input_data.hyperparameters",
+            "dataset_uri": "preparation_result.dataset_uri",
+            "training_run_id": "preparation_result.training_run_id",
+            "instance_ip?": "provisioning_result.instance_ip",
+            "ssh_user?": "provisioning_result.ssh_user",
+            "ssh_key_secret_name?": "provisioning_result.ssh_key_secret_name"
+        }'::jsonb,
+        true
+                     )
+WHERE type = 'model-trainer'
+  AND is_active = true
+  AND is_snapshot = false
+  AND deleted_at IS NULL;
+
+-- ── Verification ──
+
+-- ''
+-- '=== 1. training-data-preparer.complete (should show output_field singular, no output_fields) ==='
+SELECT default_config #> '{workflow,steps,complete,config}' AS complete_config
+FROM agent_definitions
+WHERE type = 'training-data-preparer'
+  AND is_active = true AND is_snapshot = false AND deleted_at IS NULL;
+
+--o ''
+-- '=== 2. model-trainer.call_provisioner.input_mapping ==='
+SELECT default_config #> '{workflow,steps,call_provisioner,config,input_mapping}' AS provisioner_input
+FROM agent_definitions
+WHERE type = 'model-trainer'
+  AND is_active = true AND is_snapshot = false AND deleted_at IS NULL;
+
+-- ''
+-- '=== 3. model-trainer.call_launcher.input_mapping ==='
+SELECT default_config #> '{workflow,steps,call_launcher,config,input_mapping}' AS launcher_input
+FROM agent_definitions
+WHERE type = 'model-trainer'
+  AND is_active = true AND is_snapshot = false AND deleted_at IS NULL;
+
+COMMIT;

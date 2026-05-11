@@ -11892,3 +11892,250 @@ FROM content_components
 WHERE function = 'tool-list';
 
 COMMIT;
+
+                                                     ---
+                                                     -- ============================================================================
+-- Migration 042: Regenerate guide-list to Tier D shape
+-- ============================================================================
+-- Follows the same pattern as 038 (backup) + 040b (regen work item):
+--   1. Backup the current guide-list row to a per-row backup table
+--   2. Emit a needs_component_regeneration work item targeted at the
+--      system.internal site, handler_agent=component-creator
+--
+-- The dispatch loop will pick up the work item, spawn a component-creator
+-- pod, run the LLM, and the new pre-store validator will either accept
+-- or reject the output. Rejections write structured records to
+-- agent_error_log (see migration 026 amendment for query patterns).
+--
+-- The current guide-list component (id=9d5e461a-...) is the pre-Tier-D
+-- shape with 48 fields including guide_1_url through guide_6_url,
+-- filter labels, level/category/read_time slots per guide. This is the
+-- shape that blocks gamesdesign.co.uk's index page from building
+-- (the index uses guide-list with site_specs.guides.* sources that
+-- don't exist for sites with fewer than 6 guides).
+--
+-- The target Tier D shape will mirror tool-list (migration 041):
+--   - items array with source query.pages_where_type:blog_post
+--   - sub-schema of title, url, meta_description, nav_label
+--   - top-level fields for eyebrow, heading, intro, CTA
+--   - card_link_label for the per-card button
+-- The LLM will produce its own variation; the validator enforces the
+-- structural contract.
+--
+-- Idempotent: backup table creation uses IF NOT EXISTS; work item
+-- creation uses DELETE+INSERT to handle the partial dedup index
+-- (idx_swi_dedup). Re-running the migration is safe.
+-- ============================================================================
+
+BEGIN;
+
+-- ----------------------------------------------------------------------------
+-- Step 1: Backup the current guide-list row
+-- ----------------------------------------------------------------------------
+-- Postgres NAMEDATALEN truncates table names at 63 chars. Target name
+-- below is 56 chars, well under the limit.
+-- ----------------------------------------------------------------------------
+
+DO $backup$
+DECLARE
+    table_exists BOOLEAN;
+    row_count    INT;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'content_components_backup_guide_list_20260511_pre_tier_d'
+    ) INTO table_exists;
+
+    IF NOT table_exists THEN
+        CREATE TABLE content_components_backup_guide_list_20260511_pre_tier_d
+        AS SELECT * FROM content_components WHERE function = 'guide-list';
+
+        SELECT COUNT(*) INTO row_count
+        FROM content_components_backup_guide_list_20260511_pre_tier_d;
+
+        IF row_count = 0 THEN
+            RAISE EXCEPTION 'Backup table created but contains 0 rows. Target guide-list row not found.';
+        END IF;
+
+        RAISE NOTICE 'Created backup table with % row(s).', row_count;
+    ELSE
+        RAISE NOTICE 'Backup table already exists. Skipping.';
+    END IF;
+END
+$backup$;
+
+-- ----------------------------------------------------------------------------
+-- Step 2: Pre-flight - confirm the target row exists
+-- ----------------------------------------------------------------------------
+
+DO $preflight$
+DECLARE
+    target_id UUID;
+    target_function TEXT;
+BEGIN
+    SELECT id, function INTO target_id, target_function
+    FROM content_components
+    WHERE id = '9d5e461a-8981-4ecc-b236-05895edfc15d';
+
+    IF target_id IS NULL THEN
+        RAISE EXCEPTION 'guide-list row 9d5e461a... not found.';
+    END IF;
+    IF target_function != 'guide-list' THEN
+        RAISE EXCEPTION 'Row 9d5e461a... has function=%, expected guide-list.', target_function;
+    END IF;
+    RAISE NOTICE 'Pre-flight passed. Target row: %', target_id;
+END
+$preflight$;
+
+-- ----------------------------------------------------------------------------
+-- Step 3: Emit the regeneration work item
+-- ----------------------------------------------------------------------------
+-- Targeted at system.internal (the canonical library site). The
+-- DELETE+INSERT pattern avoids partial-dedup-index conflicts if a
+-- prior work item with the same key is in a state the index counts
+-- (triaged/claimed). Completed/failed items in history are left alone.
+-- ----------------------------------------------------------------------------
+
+DELETE FROM site_work_items
+WHERE item_key = 'needs_component:guide-list'
+  AND site_id = 'eac60db8-b032-432b-b36d-76f37632045d'
+  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed');
+
+INSERT INTO site_work_items (
+    site_id,
+    item_type,
+    item_key,
+    severity,
+    priority,
+    summary,
+    source,
+    spec,
+    handler_agent,
+    approval_mode,
+    status,
+    created_by,
+    pipeline,
+    max_attempts
+)
+VALUES (
+    'eac60db8-b032-432b-b36d-76f37632045d',
+    'needs_component_regeneration',
+    'needs_component:guide-list',
+    'high',
+    20,
+    'Regenerate guide-list with Tier D / query.* shape (migration 042)',
+    '042_tier_d_guide_list',
+    jsonb_build_object(
+        'name',         'guide-list',
+        'function',     'guide-list',
+        'section_type', 'guide-list',
+        'site_type',    'general',
+        'old_id',       '9d5e461a-8981-4ecc-b236-05895edfc15d',
+        'old_length',   12680,
+        'reason',       'tier_d_migration',
+        'description',  'Regenerate guide-list with Tier D / query.* shape (migration 042)'
+    ),
+    'component-creator',
+    'auto',
+    'triaged',
+    '042_tier_d_guide_list',
+    'build',
+    3
+);
+
+-- ----------------------------------------------------------------------------
+-- Verification
+-- ----------------------------------------------------------------------------
+
+DO $verify$
+DECLARE
+    backup_rows INT;
+    work_item_id UUID;
+    work_item_status TEXT;
+BEGIN
+    SELECT COUNT(*) INTO backup_rows
+    FROM content_components_backup_guide_list_20260511_pre_tier_d;
+    IF backup_rows != 1 THEN
+        RAISE EXCEPTION 'Backup table has % rows, expected 1.', backup_rows;
+    END IF;
+
+    SELECT id, status INTO work_item_id, work_item_status
+    FROM site_work_items
+    WHERE item_key = 'needs_component:guide-list'
+      AND site_id = 'eac60db8-b032-432b-b36d-76f37632045d'
+      AND status = 'triaged'
+    ORDER BY created_at DESC
+    LIMIT 1;
+    IF work_item_id IS NULL THEN
+        RAISE EXCEPTION 'No triaged work item found after INSERT.';
+    END IF;
+
+    RAISE NOTICE 'Verification passed. Work item: % (status: %)', work_item_id, work_item_status;
+END
+$verify$;
+
+-- Summary
+SELECT
+    'backup_table' AS check,
+    EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'content_components_backup_guide_list_20260511_pre_tier_d'
+    ) AS pass
+UNION ALL
+SELECT
+    'work_item_created',
+    EXISTS (
+        SELECT 1 FROM site_work_items
+        WHERE item_key = 'needs_component:guide-list'
+          AND site_id = 'eac60db8-b032-432b-b36d-76f37632045d'
+          AND status = 'triaged'
+          AND source = '042_tier_d_guide_list'
+    );
+
+COMMIT;
+
+-- ============================================================================
+-- After running this migration:
+--
+-- 1. The dispatch loop should pick up the work item within ~30 seconds
+--    and spawn a component-creator pod.
+--
+-- 2. Watch progress:
+--    SELECT status, attempt_count, claimed_by, claimed_at,
+--           LEFT(COALESCE(error, ''), 300) AS error_preview,
+--           updated_at
+--    FROM site_work_items
+--    WHERE item_key = 'needs_component:guide-list'
+--      AND site_id = 'eac60db8-b032-432b-b36d-76f37632045d'
+--    ORDER BY updated_at DESC LIMIT 3;
+--
+-- 3. If it fails, check agent_error_log for structured rejection records:
+--    SELECT severity, error_code, context->>'function' AS function,
+--           context->'orphan_schema_fields' AS orphans,
+--           context->'unknown_template_vars' AS unknowns,
+--           LEFT(error_message, 200) AS msg,
+--           occurred_at
+--    FROM agent_error_log
+--    WHERE error_code LIKE 'component_validation_%'
+--      AND occurred_at > NOW() - INTERVAL '15 minutes'
+--    ORDER BY occurred_at DESC;
+--
+-- 4. If it succeeds, verify the new shape:
+--    SELECT name, function, is_active,
+--           (input_schema -> 'fields') ? 'items' AS has_items,
+--           input_schema -> 'fields' -> 'items' ->> 'source' AS items_source,
+--           html_template LIKE '%{{range .items}}%' AS template_iterates,
+--           quality_score,
+--           updated_at
+--    FROM content_components
+--    WHERE function = 'guide-list';
+--    Expected: has_items=t, items_source='query.pages_where_type:blog_post'
+--    (or similar — the LLM may pick exact query name).
+--
+-- 5. Once guide-list is verified, the gamesdesign.co.uk index page will
+--    need re-planning to use the new shape. The simplest path: delete
+--    and re-adopt gamesdesign.co.uk. Or selectively trigger plan_sections
+--    on the index page if you have a specific way to do that.
+-- ============================================================================

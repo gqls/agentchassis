@@ -1,25 +1,27 @@
 // FILE: platform/orchestration/input_contracts/input_mapping.go
 //
-// CHANGE from current:
-//   - ResolveInputMapping and ResolveInputMappingWithItem switch from
-//     GetValueAtExactPath (literal path traversal) to datahelpers.FindByPath
-//     (literal + .response auto-unwrap + UnwrapDeep fallback).
+// REVISION HISTORY:
+//   v1: Switched ResolveInputMapping from GetValueAtExactPath to
+//       datahelpers.FindByPath alone. This added .response auto-unwrap but
+//       regressed null-tolerance: paths whose value is JSON null
+//       (e.g. input_data.orchestration_id: null in a test trigger) failed
+//       because FindByPath returns nil for both "not found" and "found null".
 //
-// Why:
-//   The dev guide documents auto-unwrap behaviour as the canonical convention:
-//   "datahelpers.ExtractNestedFieldString already does exactly this, with
-//    .response auto-unwrapping as a bonus." But ResolveInputMapping (the
-//   function call_agent uses for input_mapping) was using a different
-//   resolver that didn't honour the convention. This patch closes that gap.
+//   v2 (this file): Two-step resolution preserves both behaviours:
+//     Step 1 — GetValueAtExactPath: returns (value, found). If the path
+//              exists literally, store value as-is (may be nil — that's a
+//              valid result, distinct from missing).
+//     Step 2 — datahelpers.FindByPath: fallback when literal path missed,
+//              for .response auto-unwrap, input_data prefix variations,
+//              and UnwrapDeep recursive unwrapping.
 //
-// Backward compatibility:
-//   FindByPath tries direct lookup first, so any input_mapping path that
-//   previously resolved literally still resolves literally. The only
-//   behaviour change is that previously-failing paths that match through
-//   .response auto-unwrap now resolve — which is the intent.
-//
-// Note: "found" was previously a bool from GetValueAtExactPath. FindByPath
-// returns interface{}, where nil means not-found. The semantic is preserved.
+// Why both:
+//   The dev guide documents auto-unwrap as the canonical convention
+//   ("datahelpers.ExtractNestedFieldString already does exactly this, with
+//   .response auto-unwrapping as a bonus"). But FindByPath's interface{}
+//   return value can't distinguish "found nil" from "not found". The
+//   two-step approach gives literal-path-exists precedence (preserving
+//   null tolerance) while still gaining auto-unwrap when literal misses.
 
 package input_contracts
 
@@ -52,12 +54,38 @@ type OutputContract struct {
 	Produces []string `json:"produces"`
 }
 
+// resolveSourcePath performs the two-step path resolution shared by
+// ResolveInputMapping and ResolveInputMappingWithItem:
+//
+//	Step 1 — GetValueAtExactPath: literal lookup, null-tolerant.
+//	         Returns (value, found) where found=true even if value is nil.
+//	Step 2 — datahelpers.FindByPath: auto-unwrap fallback when the literal
+//	         path doesn't exist. Returns nil for not-found.
+//
+// Returns (value, found). value may be nil when the literal path exists
+// with a null value; that's distinct from "path not found".
+func resolveSourcePath(
+	collectedData map[string]interface{},
+	sourcePath string,
+	logger *zap.Logger,
+) (interface{}, bool) {
+	// Step 1: literal lookup. Found-with-nil is a valid result.
+	if value, found := GetValueAtExactPath(collectedData, sourcePath); found {
+		return value, true
+	}
+
+	// Step 2: auto-unwrap fallback via datahelpers.FindByPath.
+	if value := datahelpers.FindByPath(collectedData, sourcePath, logger); value != nil {
+		return value, true
+	}
+
+	return nil, false
+}
+
 // ResolveInputMapping builds input data using explicit paths from the mapping.
-// Path resolution uses datahelpers.FindByPath which supports:
-//   - Literal dot-path traversal (primary)
-//   - .response auto-unwrap for call_agent / spawn_agent response wrappers
-//   - input_data prefix variations
-//   - UnwrapDeep recursive unwrapping for deeply nested results
+// Path resolution is two-step (see resolveSourcePath): literal lookup first
+// for null-tolerance, then datahelpers.FindByPath for auto-unwrap of
+// .response wrappers, input_data prefix variants, and UnwrapDeep results.
 //
 // Returns error if any required mapping path is not found (hard fail).
 // Fields marked with "?" suffix on the destination are silently skipped if
@@ -88,11 +116,10 @@ func ResolveInputMapping(
 			continue
 		}
 
-		// CHANGED: use FindByPath (auto-unwraps .response) instead of
-		// GetValueAtExactPath (literal-only). See file header for rationale.
-		value := datahelpers.FindByPath(collectedData, sourcePath, logger)
+		// Two-step resolution: literal first (null-tolerant), then auto-unwrap.
+		value, found := resolveSourcePath(collectedData, sourcePath, logger)
 
-		if value == nil {
+		if !found {
 			if isOptional {
 				// Optional field not found - just skip it
 				logger.Debug("Optional field not found in input_mapping, skipping",
@@ -109,11 +136,13 @@ func ResolveInputMapping(
 			)
 		}
 
+		// value may be nil here — that's valid if found=true (path exists, value is null)
 		result[actualDestField] = value
 		logger.Debug("Resolved input mapping",
 			zap.String("dest", actualDestField),
 			zap.String("source", sourcePath),
-			zap.Bool("optional", isOptional))
+			zap.Bool("optional", isOptional),
+			zap.Bool("value_nil", value == nil))
 	}
 
 	return result, nil
@@ -121,7 +150,7 @@ func ResolveInputMapping(
 
 // ResolveInputMappingWithItem is like ResolveInputMapping but also handles
 // the $item token by replacing it with the provided currentItem value.
-// Uses the same FindByPath resolver as ResolveInputMapping.
+// Uses the same two-step resolver (resolveSourcePath).
 func ResolveInputMappingWithItem(
 	collectedData map[string]interface{},
 	mapping InputMapping,
@@ -150,9 +179,10 @@ func ResolveInputMappingWithItem(
 			continue
 		}
 
-		value := datahelpers.FindByPath(collectedData, sourcePath, logger)
+		// Two-step resolution: literal first (null-tolerant), then auto-unwrap.
+		value, found := resolveSourcePath(collectedData, sourcePath, logger)
 
-		if value == nil {
+		if !found {
 			if isOptional {
 				// Optional field not found - just skip it
 				logger.Debug("Optional field not found in input_mapping, skipping",
@@ -173,7 +203,8 @@ func ResolveInputMappingWithItem(
 		logger.Debug("Resolved input mapping",
 			zap.String("dest", actualDestField),
 			zap.String("source", sourcePath),
-			zap.Bool("optional", isOptional))
+			zap.Bool("optional", isOptional),
+			zap.Bool("value_nil", value == nil))
 	}
 
 	return result, nil
@@ -182,6 +213,8 @@ func ResolveInputMappingWithItem(
 // GetValueAtExactPath retrieves a value at an exact dot-notation path.
 // No fallbacks, no hunting - just the exact path specified.
 // Returns (value, true) if found, (nil, false) if not found.
+// Note: returns (nil, true) for paths that exist but resolve to nil/null —
+// that's distinct from "not found". Used by resolveSourcePath as Step 1.
 func GetValueAtExactPath(data map[string]interface{}, path string) (interface{}, bool) {
 	if path == "" {
 		return nil, false
@@ -334,7 +367,6 @@ func GetAgentInputContract(ctx context.Context, db *sql.DB, agentType string, lo
 }
 
 // ParseInputMapping extracts and validates the input_mapping from step config.
-// (Unchanged — kept here for completeness of this file's surface.)
 func ParseInputMapping(config map[string]interface{}) (InputMapping, bool) {
 	raw, ok := config["input_mapping"]
 	if !ok {
