@@ -345,11 +345,21 @@ func (p *MessageProcessor) validateNoSelfRecursion(workflow models.WorkflowPlan,
 func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType string) (*actions.AgentDefinition, error) {
 	p.logger.Debug("Loading agent definition", zap.String("agent_type", agentType))
 
+	// Filter:
+	//   is_active = true               → pick the live row, not a deactivated one
+	//   deleted_at IS NULL             → respect soft-deletes
+	//   is_snapshot guard              → snapshots are stored with version+1000 (021_model_swap_and_rollback.sql)
+	//                                    which would otherwise sort ahead of the active row
+	//   ORDER BY version DESC LIMIT 1  → defensive against transient multi-active during deploys
 	query := `
         SELECT type, display_name, description, category, default_config, capabilities
         FROM agent_definitions
         WHERE type = $1
+		  AND is_active = true
+		  AND deleted_at IS NULL
+		  AND (is_snapshot IS NULL OR is_snapshot = false)
 		ORDER BY version DESC
+		LIMIT 1
     `
 
 	var def actions.AgentDefinition

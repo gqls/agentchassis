@@ -2118,13 +2118,22 @@ func (d *EnhancedDiscovery) GetAgentPerformanceSummary(ctx context.Context, agen
 
 // getAgentDefinition retrieves agent definition from database
 func getAgentDefinition(ctx context.Context, db interface{}, agentType string, logger *zap.Logger) (*AgentDefinition, error) {
+	// Filter:
+	//   is_active = true               → pick the live row, not a deactivated one
+	//   deleted_at IS NULL             → respect soft-deletes
+	//   is_snapshot guard              → snapshots are stored with version+1000 (021_model_swap_and_rollback.sql)
+	//                                    which would otherwise sort ahead of the active row
+	//   ORDER BY version DESC LIMIT 1  → defensive against transient multi-active during deploys
 	query := `
         SELECT id, type, display_name, description, category,
                image_repository, image_tag, command,
                resources, default_config, capabilities, topics,
                health_config, env_vars, is_active, idle_timeout_seconds
         FROM agent_definitions
-        WHERE type = $1 AND deleted_at IS NULL
+        WHERE type = $1
+		  AND is_active = true
+		  AND deleted_at IS NULL
+		  AND (is_snapshot IS NULL OR is_snapshot = false)
 		ORDER BY version DESC
         LIMIT 1
     `
