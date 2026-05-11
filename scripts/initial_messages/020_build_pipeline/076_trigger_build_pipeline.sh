@@ -209,6 +209,7 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=section-editor -f | t
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=deployer-agent -f | tee logs-deployer-agent.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-adoption-agent -f | tee logs-site-adoption-agent.json
 
+kubectl -n ai-persona-system logs --tail=500 -l app=image-generator-adapter -f | tee logs-image-generator-adapter.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-generator -f | tee logs-image-generator.json
 kubectl -n ai-persona-system logs --tail=300 -l agent-type=image-build-handler -f | tee logs-image-build-handler.json
 kubectl -n ai-persona-system logs --tail=300 -l app=kafka-scheduler -f | tee logs-kafka-scheduler.json
