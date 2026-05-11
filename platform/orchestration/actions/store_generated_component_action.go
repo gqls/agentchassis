@@ -262,17 +262,6 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	schemaJSONStr := string(inputSchemaJSON)
 	preStoreScore := scoreComponent("", functionName, htmlTemplate, schemaJSONStr, "section")
 
-	// TEMPORARY DEBUG (remove after Tier D verification)
-	logger.Warn("DEBUG_PRESTORE_SCORE",
-		zap.String("function", functionName),
-		zap.Int("template_variable_count", preStoreScore.TemplateVariableCount),
-		zap.Int("schema_field_count", preStoreScore.SchemaFieldCount),
-		zap.Bool("schema_template_synced", preStoreScore.SchemaTemplateSynced),
-		zap.Strings("quality_issues", preStoreScore.QualityIssues),
-		zap.Int("template_len", len(htmlTemplate)),
-		zap.Int("schema_len", len(schemaJSONStr)),
-	)
-
 	// Reject on structural problems that make the component unusable.
 	// These are the same conditions that produced quality_score=30 on
 	// provocation-feed and archetype-combinations (2026-04-17).
@@ -319,6 +308,21 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	}
 
 	if len(blockingIssues) > 0 {
+		// Persist a structured rejection record to agent_error_log. This
+		// makes validation failures queryable across the system — we can
+		// run analytics on "which fields does the LLM most often forget
+		// to declare?" or "which functions repeatedly fail Direction 2?"
+		// without trawling kubectl logs.
+		//
+		// The act of writing here is best-effort (best handled inside the
+		// helper). The next return is the actual rejection.
+		recordValidationRejection(
+			ctx, params.DB, logger, params,
+			functionName, sectionType,
+			htmlTemplate, schemaJSONStr,
+			preStoreScore, blockingIssues,
+		)
+
 		logger.Warn("store_generated_component: rejecting low-quality template",
 			zap.String("function", functionName),
 			zap.String("section_type", sectionType),
@@ -453,18 +457,18 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			)
 			RETURNING id::text
 		`,
-			functionName,                  // $1 name
-			displayName,                   // $2 display_name
-			functionName,                  // $3 function
-			category,                      // $4 category
-			sectionType,                   // $5 section_type
-			string(suitableSiteTypesJSON), // $6 suitable_site_types
-			string(suitablePageTypesJSON), // $7 suitable_page_types
-			description,                   // $8 description
-			htmlTemplate,                  // $9 html_template (JS extracted)
-			nullIfEmpty(jsContent),        // $10 js_content (NULL if no JS)
-			inputSchemaJSON,               // $11 input_schema
-			isDark,                        // $12 is_dark_section
+			functionName,                                         // $1 name
+			displayName,                                          // $2 display_name
+			functionName,                                         // $3 function
+			category,                                             // $4 category
+			sectionType,                                          // $5 section_type
+			string(suitableSiteTypesJSON),                        // $6 suitable_site_types
+			string(suitablePageTypesJSON),                        // $7 suitable_page_types
+			description,                                          // $8 description
+			htmlTemplate,                                         // $9 html_template (JS extracted)
+			nullIfEmpty(jsContent),                               // $10 js_content (NULL if no JS)
+			inputSchemaJSON,                                      // $11 input_schema
+			isDark,                                               // $12 is_dark_section
 			datahelpers.BuildSemanticTags(sectionType, siteType), // $13 semantic_tags
 		).Scan(&componentID)
 		if err != nil {
@@ -1123,4 +1127,155 @@ func createRerenderWorkItem(
 		zap.String("item_key", itemKey),
 		zap.String("source", sourceField))
 	return true
+}
+
+// ---------------------------------------------------------------------------
+// Validation rejection logging
+// ---------------------------------------------------------------------------
+
+// orphanSchemaFieldPattern extracts the field name from a Direction-2
+// sync issue like:  schema field "card_link_label" has no template variable
+var orphanSchemaFieldPattern = regexp.MustCompile(`^schema field "([^"]+)" has no template variable$`)
+
+// unknownTemplateVarPattern extracts the field name from a Direction-1
+// sync issue like:  template var {{.cta_link}} has no schema entry
+var unknownTemplateVarPattern = regexp.MustCompile(`^template var \{\{\.([^}]+)\}\} has no schema entry$`)
+
+// recordValidationRejection writes a structured row to agent_error_log
+// when pre-store validation rejects an LLM-generated component. This
+// gives us a queryable trail of which fields the LLM keeps getting
+// wrong, separable from the rest of the chassis log noise.
+//
+// Best-effort: failures inside this helper are logged at warn level but
+// do not affect the caller's return path. The action still returns the
+// same rejection error to its caller.
+//
+// Severity mapping:
+//   - "warning"  — Direction-2 bookkeeping mismatch (schema declares a
+//     field the template doesn't use, or vice versa). The
+//     LLM produced something structurally well-formed but
+//     failed list-reconciliation. Common, addressable.
+//   - "error"    — Structural failures (template not closed, missing
+//     data-component, "<no value>" artifacts, 0-placeholder
+//     substantive template). These indicate the LLM
+//     produced something broken at a deeper level.
+func recordValidationRejection(
+	ctx context.Context,
+	db *sql.DB,
+	logger *zap.Logger,
+	params ActionParams,
+	functionName string,
+	sectionType string,
+	htmlTemplate string,
+	schemaJSON string,
+	score ComponentQualityResult,
+	blockingIssues []string,
+) {
+	if db == nil {
+		return
+	}
+
+	// Classify issues into orphan-field (bookkeeping) vs other.
+	orphanSchemaFields := []string{}
+	unknownTemplateVars := []string{}
+	otherIssues := []string{}
+	for _, issue := range score.QualityIssues {
+		if m := orphanSchemaFieldPattern.FindStringSubmatch(issue); len(m) > 1 {
+			orphanSchemaFields = append(orphanSchemaFields, m[1])
+			continue
+		}
+		if m := unknownTemplateVarPattern.FindStringSubmatch(issue); len(m) > 1 {
+			unknownTemplateVars = append(unknownTemplateVars, m[1])
+			continue
+		}
+		otherIssues = append(otherIssues, issue)
+	}
+
+	// Severity: bookkeeping-only failures are warning; anything else is error.
+	severity := "warning"
+	if len(otherIssues) > 0 || len(unknownTemplateVars) > 0 {
+		severity = "error"
+	}
+	// Severity error if any structural blockers are present (not closed,
+	// missing data-component, no-value artifacts, 0-var substantive).
+	for _, b := range blockingIssues {
+		if strings.Contains(b, "not closed") ||
+			strings.Contains(b, "missing data-component") ||
+			strings.Contains(b, "<no value>") ||
+			strings.Contains(b, "0 {{.var}} placeholders") ||
+			strings.Contains(b, "0 {{placeholder") {
+			severity = "error"
+			break
+		}
+	}
+
+	// Pull context from the action params.
+	workItemID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.work_item_id")
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.site_id")
+	domain := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.domain")
+
+	contextPayload := map[string]interface{}{
+		"function":                functionName,
+		"section_type":            sectionType,
+		"pre_store_score":         score.QualityScore,
+		"template_variable_count": score.TemplateVariableCount,
+		"schema_field_count":      score.SchemaFieldCount,
+		"schema_template_synced":  score.SchemaTemplateSynced,
+		"template_closed":         score.TemplateClosed,
+		"has_data_component":      score.HasDataComponent,
+		"template_len":            len(htmlTemplate),
+		"schema_len":              len(schemaJSON),
+		"orphan_schema_fields":    orphanSchemaFields,
+		"unknown_template_vars":   unknownTemplateVars,
+		"other_issues":            otherIssues,
+		"blocking_issues":         blockingIssues,
+		"all_issues":              score.QualityIssues,
+	}
+	contextJSON, _ := json.Marshal(contextPayload)
+	if contextJSON == nil {
+		contextJSON = []byte("{}")
+	}
+
+	errorMessage := fmt.Sprintf(
+		"component validation rejected for function=%q section_type=%q: %s",
+		functionName, sectionType, strings.Join(blockingIssues, "; "))
+
+	errorCode := "component_validation_rejected"
+	if len(orphanSchemaFields) > 0 && len(otherIssues) == 0 && len(unknownTemplateVars) == 0 {
+		errorCode = "component_validation_orphan_schema_field"
+	}
+	if len(unknownTemplateVars) > 0 {
+		errorCode = "component_validation_unknown_template_var"
+	}
+
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO agent_error_log (
+			site_id, domain, work_item_id, orchestration_id,
+			agent_type, agent_id, pod_name, step_name, action,
+			error_message, error_code, severity, context
+		) VALUES (
+			NULLIF($1, '')::uuid, $2, NULLIF($3, '')::uuid, $4,
+			$5, $6, $7, $8, $9,
+			$10, $11, $12, $13::jsonb
+		)
+	`,
+		siteID,
+		domain,
+		workItemID,
+		params.ExecutionContext.OrchestrationID,
+		"component-creator",
+		params.ExecutionContext.Sender.AgentID,
+		params.ExecutionContext.Sender.PodName,
+		"store_component",
+		"store_generated_component",
+		errorMessage,
+		errorCode,
+		severity,
+		string(contextJSON),
+	)
+	if err != nil {
+		logger.Warn("recordValidationRejection: failed to write to agent_error_log",
+			zap.Error(err),
+			zap.String("function", functionName))
+	}
 }
