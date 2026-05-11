@@ -1,15 +1,12 @@
 // FILE: platform/orchestration/actions/prepare_training_data_action.go
 //
-// CHANGES from v2:
-//   - Drop the params.StorageClient dependency. The chassis-default storage
-//     client is unreliably wired; image actions don't use it either. They
-//     construct an S3Client per call via storage.NewS3Client (see
-//     storage_actions.go storeToB2/storeToS3). We follow the same pattern.
-//   - Build ObjectStorageConfig inline using the same env var names as
-//     storeToB2 (B2_APPLICATION_KEY_ID / B2_APPLICATION_KEY). The chassis
-//     pod has these populated from personae-platform-secrets.
-//   - Drop the IMAGE_BUCKET reliance — bucket defaults to "finetuning" in
-//     this action; can be overridden via step config "bucket" key.
+// CHANGES from v3:
+//   - Fix size_bytes=0 reporting bug. bytes.Buffer is drained when the AWS
+//     SDK reads from it during Upload, so buf.Len() returns 0 after the
+//     upload call. Capture buffer size into sizeBytes BEFORE Upload, use
+//     that variable in both the log line and the return map.
+//   - Functional behaviour unchanged. Upload itself was always working —
+//     only the reported size was wrong.
 
 package actions
 
@@ -84,9 +81,6 @@ func PrepareTrainingDataAction(ctx context.Context, params ActionParams) (interf
 	s3Key := strings.ReplaceAll(s3KeyTemplate, "{export_id}", exportID.String())
 
 	// ── Construct S3 client (same idiom as storage_actions.go::storeToB2) ─
-	// Bucket defaults to "finetuning" but can be overridden in step config.
-	// B2 env vars (B2_APPLICATION_KEY_ID / B2_APPLICATION_KEY) come from
-	// personae-platform-secrets via the chassis Deployment manifest.
 	bucket := "finetuning"
 	if b, ok := params.StepConfig.Config["bucket"].(string); ok && b != "" {
 		bucket = b
@@ -163,7 +157,10 @@ func PrepareTrainingDataAction(ctx context.Context, params ActionParams) (interf
 		return nil, fmt.Errorf("export %s has no training rows", exportID)
 	}
 
-	// ── Upload via the per-call s3Client (NOT params.StorageClient) ─────
+	// Capture buffer size BEFORE Upload — bytes.Buffer.Read is consuming,
+	// so buf.Len() drops to 0 after the AWS SDK reads it during PutObject.
+	sizeBytes := buf.Len()
+
 	datasetURI, err := s3Client.Upload(ctx, s3Key, "application/x-ndjson", &buf)
 	if err != nil {
 		markTrainingRunFailed(ctx, params, trainingRunID,
@@ -173,14 +170,14 @@ func PrepareTrainingDataAction(ctx context.Context, params ActionParams) (interf
 	logger.Info("Uploaded training dataset",
 		zap.String("dataset_uri", datasetURI),
 		zap.Int("rows", rowCount),
-		zap.Int("bytes", buf.Len()),
+		zap.Int("bytes", sizeBytes),
 	)
 
 	return map[string]interface{}{
 		"training_run_id": trainingRunID.String(),
 		"dataset_uri":     datasetURI,
 		"row_count":       rowCount,
-		"size_bytes":      buf.Len(),
+		"size_bytes":      sizeBytes,
 	}, nil
 }
 

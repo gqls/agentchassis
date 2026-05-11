@@ -157,3 +157,63 @@ FROM agent_definitions
 WHERE type IN ('model-trainer', 'training-data-preparer')
   AND deleted_at IS NULL
 ORDER BY type;
+
+
+---
+-- updaging s3 paths etc
+-- ============================================================================
+-- 024_training_data_preparer_bucket_layout.sql
+-- ============================================================================
+-- Updates training-data-preparer's prepare_data step config to:
+--   - use a generic top-level bucket: personae-model-training
+--   - use finetuning/ as the first-level prefix inside it
+-- Resulting URI:
+--   s3://personae-model-training/finetuning/datasets/<export_id>/training.jsonl
+--
+-- This keeps the bucket reusable for adjacent model-training artefacts
+-- (eval sets, base-model snapshots, intermediate checkpoints) under their
+-- own first-level prefix paths, rather than spinning up a bucket per concern.
+--
+-- No Go change required: prepare_training_data action v3 already reads
+-- `bucket` and `s3_key_template` from step config (with "finetuning" as the
+-- default when bucket is unset).
+--
+-- PRE-REQ: bucket `personae-model-training` must exist on B2 with the
+-- application key having read+write on it.
+-- ============================================================================
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,prepare_data,config,bucket}',
+                '"personae-model-training"'::jsonb
+        ),
+        '{workflow,steps,prepare_data,config,s3_key_template}',
+        '"finetuning/datasets/{export_id}/training.jsonl"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'training-data-preparer'
+  AND deleted_at IS NULL;
+
+-- Verify the bucket and key template are now in step config
+SELECT type,
+       default_config->'workflow'->'steps'->'prepare_data'->'config'->>'bucket' AS bucket,
+    default_config->'workflow'->'steps'->'prepare_data'->'config'->>'s3_key_template' AS key_template
+FROM agent_definitions
+WHERE type = 'training-data-preparer'
+  AND deleted_at IS NULL;
+
+-- The IMAGE_BUCKET env_var on this agent (set in 022_training_agents_corrections.sql)
+-- becomes a no-op: the action takes bucket from step config first, ignoring env.
+-- Leaving it set is harmless. Removing it for cleanliness:
+UPDATE agent_definitions
+SET env_vars = '[]'::jsonb,
+    updated_at = NOW()
+WHERE type = 'training-data-preparer'
+  AND deleted_at IS NULL;
+
+SELECT type, env_vars
+FROM agent_definitions
+WHERE type = 'training-data-preparer'
+  AND deleted_at IS NULL;

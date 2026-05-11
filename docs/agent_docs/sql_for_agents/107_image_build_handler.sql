@@ -716,3 +716,283 @@ COMMIT;
 --   }'::jsonb)
 -- WHERE type = 'image-build-handler';
 -- COMMIT;
+
+----
+-- fix image s3client paths
+-- ============================================================================
+-- Phase 2F: image-build-handler → spawn asset-deployer for deploy steps
+-- ============================================================================
+-- Background
+-- ----------
+-- image-build-handler currently runs `deploy_image_asset` inline in three
+-- steps: deploy_logo, deploy_hero, deploy_variant. Inline execution happens
+-- inside the chassis pod, which by design does NOT carry storage env vars
+-- (different operations write to different buckets and may run at different
+-- times). The result is "storage client not available" failures.
+--
+-- spawn_actions.go injects storage env vars (S3_ENDPOINT, IMAGE_BUCKET,
+-- ASSETS_BUCKET, B2_*, AWS_*) into spawned children whose agent_type is in
+-- isStorageEnabledAgent OR whose category is orchestrator/code-driven.
+-- asset-deployer is already in isStorageEnabledAgent (id e9a9bac9-…), with a
+-- workflow that runs deploy_image_asset against those credentials.
+--
+-- This migration replaces the three inline deploys with a single shared
+-- spawn_asset_deployer + call_asset_deployer pair. All three branches
+-- (logo / hero / variant) converge here because the input shape is uniform:
+--   - domain     ← site_record.domain
+--   - s3_uri     ← asset_stored.image_uri
+--   - purpose    ← asset_stored.purpose
+--   - asset_key  ← input_data.spec.asset_key  (optional, ? on missing)
+--
+-- Two coordinated changes — applied as a single transaction with snapshots
+-- taken first so revert_agent() can roll either agent back independently if
+-- something downstream surfaces.
+--
+-- Affected agents:
+--   asset-deployer       e9a9bac9-dfe4-4aca-8f32-19738ac265c6
+--   image-build-handler  04b10d94-11ee-447c-9ff9-7924b8e9897c
+-- ============================================================================
+
+\set ON_ERROR_STOP on
+
+BEGIN;
+
+-- ── 1. Snapshots ────────────────────────────────────────────────────────────
+-- snapshot_agent() inserts an is_snapshot=true copy of the current row,
+-- pointing previous_version_id back at the active row. revert_agent() reads
+-- the latest snapshot and restores default_config from it.
+
+SELECT snapshot_agent('asset-deployer')      AS asset_deployer_snapshot_id;
+SELECT snapshot_agent('image-build-handler') AS image_build_handler_snapshot_id;
+
+
+-- ── 2. asset-deployer: accept asset_key ─────────────────────────────────────
+-- 2a. Declare asset_key as an optional input on the agent's input_contract.
+
+UPDATE agent_definitions
+SET input_contract = jsonb_set(
+        input_contract,
+        '{optional}',
+        '["deploy_path", "purpose", "asset_key"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE id = 'e9a9bac9-dfe4-4aca-8f32-19738ac265c6'
+  AND type = 'asset-deployer'
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 2b. Make the deploy_asset step's deploy_image_asset action extract asset_key
+-- from input_data. The action already has asset_key in DeployImageAssetInputSpec
+-- (Optional list); this just adds it to the workflow-level input_fields
+-- declaration so ExtractActionInputs picks it up.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,deploy_asset,config,input_fields}',
+        '["s3_uri", "deploy_path", "purpose", "domain", "asset_key"]'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE id = 'e9a9bac9-dfe4-4aca-8f32-19738ac265c6'
+  AND type = 'asset-deployer'
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+
+-- ── 3. image-build-handler: replace inline deploys with spawn+call ──────────
+-- 3a. Remove the three inline deploy steps.
+
+UPDATE agent_definitions
+SET default_config = (
+    default_config
+        #- '{workflow,steps,deploy_logo}'
+        #- '{workflow,steps,deploy_hero}'
+        #- '{workflow,steps,deploy_variant}'
+    ),
+    updated_at = NOW()
+WHERE id = '04b10d94-11ee-447c-9ff9-7924b8e9897c'
+  AND type = 'image-build-handler'
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 3b. Add the spawn step. role naming follows the same convention as the
+-- existing spawn_image_gen / call_*_gen pairs in this same workflow
+-- (target_role lookup, fixed type).
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,spawn_asset_deployer}',
+        $json$
+            {
+            "action": "spawn_agent",
+        "config": {
+                "role": "asset_deployer",
+        "agent_type": "asset-deployer"
+    },
+            "next_step": "call_asset_deployer",
+            "description": "Spawn asset-deployer in its own Job pod (gets storage env vars via spawn_actions.go isStorageEnabledAgent gate).",
+            "output_field": "asset_deployer_agent"
+        }
+        $json$::jsonb
+    ),
+    updated_at = NOW()
+WHERE id = '04b10d94-11ee-447c-9ff9-7924b8e9897c'
+  AND type = 'image-build-handler'
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 3c. Add the call step. asset_key is optional (?) — present for variants and
+-- the canonical logo/hero paths via the classifier, omitted on any future
+-- caller that doesn't set spec.asset_key.
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_asset_deployer}',
+        $json$
+            {
+            "action": "call_agent",
+        "config": {
+                "agent_type": "asset-deployer",
+        "target_role": "asset_deployer",
+        "input_mapping": {
+                    "domain": "site_record.domain",
+        "s3_uri": "asset_stored.image_uri",
+        "purpose": "asset_stored.purpose",
+        "asset_key?": "input_data.spec.asset_key"
+    },
+                "timeout_seconds": 180
+            },
+            "next_step": "complete",
+            "error_step": "complete_error",
+            "description": "Call asset-deployer to download from S3, optimize by purpose, commit to git. asset_key drives per-variant deploy path when distinct from purpose (e.g. assets/images/hero-about.jpg).",
+            "output_field": "deploy_result"
+        }
+        $json$::jsonb
+    ),
+    updated_at = NOW()
+WHERE id = '04b10d94-11ee-447c-9ff9-7924b8e9897c'
+  AND type = 'image-build-handler'
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 3d. Repoint the three store steps' next_step / error_step at the new spawn
+-- entry. error_step matches the prior semantics: if store fails, still try to
+-- deploy (the storage URI is reachable through fallbacks even when the row
+-- insert errors).
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        jsonb_set(
+                                jsonb_set(
+                                        jsonb_set(
+                                                default_config,
+                                                '{workflow,steps,store_logo_asset,next_step}',
+                                                '"spawn_asset_deployer"'::jsonb
+                                        ),
+                                        '{workflow,steps,store_logo_asset,error_step}',
+                                        '"spawn_asset_deployer"'::jsonb
+                                ),
+                                '{workflow,steps,store_hero_asset,next_step}',
+                                '"spawn_asset_deployer"'::jsonb
+                        ),
+                        '{workflow,steps,store_hero_asset,error_step}',
+                        '"spawn_asset_deployer"'::jsonb
+                ),
+                '{workflow,steps,store_variant_asset,next_step}',
+                '"spawn_asset_deployer"'::jsonb
+        ),
+        '{workflow,steps,store_variant_asset,error_step}',
+        '"spawn_asset_deployer"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE id = '04b10d94-11ee-447c-9ff9-7924b8e9897c'
+  AND type = 'image-build-handler'
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+
+-- ── 4. Verification ─────────────────────────────────────────────────────────
+-- These selects are read-only and run before COMMIT so a failure here aborts
+-- the migration.
+
+-- 4a. asset-deployer accepts asset_key on the contract.
+SELECT
+    'asset-deployer.input_contract.optional' AS check_name,
+    input_contract->'optional'               AS value
+FROM agent_definitions
+WHERE id = 'e9a9bac9-dfe4-4aca-8f32-19738ac265c6'
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 4b. asset-deployer's deploy_asset step extracts asset_key.
+SELECT
+    'asset-deployer.deploy_asset.input_fields' AS check_name,
+    default_config->'workflow'->'steps'->'deploy_asset'->'config'->'input_fields' AS value
+FROM agent_definitions
+WHERE id = 'e9a9bac9-dfe4-4aca-8f32-19738ac265c6'
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- 4c. The three old inline deploy steps are gone (expect 0).
+SELECT
+    'image-build-handler orphan deploys (expect 0)' AS check_name,
+    count(*) AS count
+FROM agent_definitions,
+    jsonb_object_keys(default_config->'workflow'->'steps') AS k
+WHERE id = '04b10d94-11ee-447c-9ff9-7924b8e9897c'
+  AND (is_snapshot IS NULL OR is_snapshot = false)
+  AND k IN ('deploy_logo', 'deploy_hero', 'deploy_variant');
+
+-- 4d. The new spawn+call pair is present (expect 2).
+SELECT
+    'image-build-handler new spawn+call (expect 2)' AS check_name,
+    count(*) AS count
+FROM agent_definitions,
+    jsonb_object_keys(default_config->'workflow'->'steps') AS k
+WHERE id = '04b10d94-11ee-447c-9ff9-7924b8e9897c'
+  AND (is_snapshot IS NULL OR is_snapshot = false)
+  AND k IN ('spawn_asset_deployer', 'call_asset_deployer');
+
+-- 4e. All three store_*_asset steps now route to spawn_asset_deployer.
+SELECT
+    'image-build-handler store routing'                           AS check_name,
+    key                                                           AS step_name,
+    value->>'next_step'                                           AS next_step,
+    value->>'error_step'                                          AS error_step
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps')
+WHERE id = '04b10d94-11ee-447c-9ff9-7924b8e9897c'
+  AND (is_snapshot IS NULL OR is_snapshot = false)
+  AND key IN ('store_logo_asset', 'store_hero_asset', 'store_variant_asset')
+ORDER BY key;
+
+-- 4f. The new call_asset_deployer's input_mapping is what we wrote.
+SELECT
+    'image-build-handler call_asset_deployer.input_mapping' AS check_name,
+    default_config->'workflow'->'steps'->'call_asset_deployer'->'config'->'input_mapping' AS value
+FROM agent_definitions
+WHERE id = '04b10d94-11ee-447c-9ff9-7924b8e9897c'
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+COMMIT;
+
+
+-- ============================================================================
+-- Rollback (do NOT run as part of the migration — separate session)
+-- ============================================================================
+-- Each agent has its own snapshot. revert_agent restores from the latest one
+-- and deletes the snapshot. Run separately if needed:
+--
+--     SELECT revert_agent('image-build-handler');
+--     SELECT revert_agent('asset-deployer');
+--
+-- Order doesn't matter — they're independent rows. Note revert_agent only
+-- restores default_config; the input_contract change on asset-deployer is
+-- NOT covered by snapshot_agent's restore path. If you need to revert that
+-- too, do it manually:
+--
+--     UPDATE agent_definitions
+--     SET input_contract = jsonb_set(
+--             input_contract,
+--             '{optional}',
+--             '["deploy_path", "purpose"]'::jsonb
+--         ),
+--         updated_at = NOW()
+--     WHERE id = 'e9a9bac9-dfe4-4aca-8f32-19738ac265c6'
+--       AND (is_snapshot IS NULL OR is_snapshot = false);
