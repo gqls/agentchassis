@@ -402,3 +402,10 @@ site-adoption-orchestrator
    briefing          | build-briefing-agent       | 2026-05-05 15:05:51.550708+00 | t
   (12 rows)
 
+-- (6) The build pipeline — work items showing build progress
+SELECT item_type, status, handler_agent, LEFT(summary, 60) AS summary, attempt_count, updated_at
+FROM site_work_items
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND pipeline = 'build'
+ORDER BY updated_at DESC
+LIMIT 20;

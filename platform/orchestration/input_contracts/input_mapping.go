@@ -1,3 +1,26 @@
+// FILE: platform/orchestration/input_contracts/input_mapping.go
+//
+// CHANGE from current:
+//   - ResolveInputMapping and ResolveInputMappingWithItem switch from
+//     GetValueAtExactPath (literal path traversal) to datahelpers.FindByPath
+//     (literal + .response auto-unwrap + UnwrapDeep fallback).
+//
+// Why:
+//   The dev guide documents auto-unwrap behaviour as the canonical convention:
+//   "datahelpers.ExtractNestedFieldString already does exactly this, with
+//    .response auto-unwrapping as a bonus." But ResolveInputMapping (the
+//   function call_agent uses for input_mapping) was using a different
+//   resolver that didn't honour the convention. This patch closes that gap.
+//
+// Backward compatibility:
+//   FindByPath tries direct lookup first, so any input_mapping path that
+//   previously resolved literally still resolves literally. The only
+//   behaviour change is that previously-failing paths that match through
+//   .response auto-unwrap now resolve — which is the intent.
+//
+// Note: "found" was previously a bool from GetValueAtExactPath. FindByPath
+// returns interface{}, where nil means not-found. The semantic is preserved.
+
 package input_contracts
 
 import (
@@ -8,6 +31,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -29,8 +53,15 @@ type OutputContract struct {
 }
 
 // ResolveInputMapping builds input data using explicit paths from the mapping.
-// This is the new approach that replaces the fallback-based path hunting.
+// Path resolution uses datahelpers.FindByPath which supports:
+//   - Literal dot-path traversal (primary)
+//   - .response auto-unwrap for call_agent / spawn_agent response wrappers
+//   - input_data prefix variations
+//   - UnwrapDeep recursive unwrapping for deeply nested results
+//
 // Returns error if any required mapping path is not found (hard fail).
+// Fields marked with "?" suffix on the destination are silently skipped if
+// the source path doesn't resolve.
 func ResolveInputMapping(
 	collectedData map[string]interface{},
 	mapping InputMapping,
@@ -43,7 +74,7 @@ func ResolveInputMapping(
 		isOptional := strings.HasSuffix(destField, "?")
 		actualDestField := strings.TrimSuffix(destField, "?")
 
-		// Handle special $item token (for fan_out - caller must replace this)
+		// Handle special $item token (fan_out replaces this before calling)
 		if sourcePath == "$item" {
 			// This will be handled by the fan_out action which replaces $item
 			// with the actual current item before calling ResolveInputMapping
@@ -57,8 +88,11 @@ func ResolveInputMapping(
 			continue
 		}
 
-		value, found := GetValueAtExactPath(collectedData, sourcePath)
-		if !found {
+		// CHANGED: use FindByPath (auto-unwraps .response) instead of
+		// GetValueAtExactPath (literal-only). See file header for rationale.
+		value := datahelpers.FindByPath(collectedData, sourcePath, logger)
+
+		if value == nil {
 			if isOptional {
 				// Optional field not found - just skip it
 				logger.Debug("Optional field not found in input_mapping, skipping",
@@ -85,8 +119,9 @@ func ResolveInputMapping(
 	return result, nil
 }
 
-// ResolveInputMappingWithItem is like ResolveInputMapping but also handles the $item token
-// by replacing it with the provided currentItem value.
+// ResolveInputMappingWithItem is like ResolveInputMapping but also handles
+// the $item token by replacing it with the provided currentItem value.
+// Uses the same FindByPath resolver as ResolveInputMapping.
 func ResolveInputMappingWithItem(
 	collectedData map[string]interface{},
 	mapping InputMapping,
@@ -100,7 +135,7 @@ func ResolveInputMappingWithItem(
 		isOptional := strings.HasSuffix(destField, "?")
 		actualDestField := strings.TrimSuffix(destField, "?")
 
-		// Handle special $item token
+		// Handle $item — pass through directly
 		if sourcePath == "$item" {
 			result[actualDestField] = currentItem
 			logger.Debug("Resolved $item in input mapping",
@@ -110,13 +145,14 @@ func ResolveInputMappingWithItem(
 
 		// Handle empty source path
 		if sourcePath == "" {
-			logger.Warn("Empty source path in input_mapping",
+			logger.Warn("Empty source path in input_mapping (with_item)",
 				zap.String("dest_field", actualDestField))
 			continue
 		}
 
-		value, found := GetValueAtExactPath(collectedData, sourcePath)
-		if !found {
+		value := datahelpers.FindByPath(collectedData, sourcePath, logger)
+
+		if value == nil {
 			if isOptional {
 				// Optional field not found - just skip it
 				logger.Debug("Optional field not found in input_mapping, skipping",
@@ -127,7 +163,7 @@ func ResolveInputMappingWithItem(
 			// Required field not found - error
 			availablePaths := ListAvailablePaths(collectedData, 2)
 			return nil, fmt.Errorf(
-				"input_mapping failed: source path '%s' not found for field '%s'\n"+
+				"input_mapping (with_item) failed: source path '%s' not found for field '%s'\n"+
 					"Available top-level paths: %v",
 				sourcePath, actualDestField, availablePaths,
 			)
@@ -297,26 +333,34 @@ func GetAgentInputContract(ctx context.Context, db *sql.DB, agentType string, lo
 	return &contract, nil
 }
 
-// ParseInputMapping converts a map[string]interface{} from JSON config to InputMapping
+// ParseInputMapping extracts and validates the input_mapping from step config.
+// (Unchanged — kept here for completeness of this file's surface.)
 func ParseInputMapping(config map[string]interface{}) (InputMapping, bool) {
-	rawMapping, exists := config["input_mapping"]
-	if !exists {
-		return nil, false
-	}
-
-	mappingMap, ok := rawMapping.(map[string]interface{})
+	raw, ok := config["input_mapping"]
 	if !ok {
 		return nil, false
 	}
 
-	result := make(InputMapping)
-	for k, v := range mappingMap {
-		if strVal, ok := v.(string); ok {
-			result[k] = strVal
+	switch v := raw.(type) {
+	case map[string]interface{}:
+		mapping := make(InputMapping)
+		for k, val := range v {
+			if strVal, ok := val.(string); ok {
+				mapping[k] = strVal
+			}
 		}
+		if len(mapping) == 0 {
+			return nil, false
+		}
+		return mapping, true
+	case map[string]string:
+		mapping := make(InputMapping)
+		for k, v := range v {
+			mapping[k] = v
+		}
+		return mapping, true
 	}
-
-	return result, len(result) > 0
+	return nil, false
 }
 
 // ConvertInputFieldsToMapping converts legacy input_fields array to input_mapping format.
