@@ -2910,8 +2910,359 @@ func UpdatePageComponentsStatusAction(ctx context.Context, params ActionParams) 
 	}, nil
 }
 
+// ============================================================================
+// SHARED SECTION-COMPONENT LOADER
+// ============================================================================
+//
+// loadSectionComponents is the canonical loader for component rows used by
+// section-level callers. Extracted from LoadPageSectionComponentsAction so
+// plan_sections can reuse the same logic without a second SQL path. Both
+// callers get the same component-row shape; differences in behaviour are
+// expressed by what each caller does with the returned data, not by what
+// each caller queries.
+//
+// Behaviour matches the previous in-action implementation:
+//   - Match by name first, fall back to function (DISTINCT ON, newest first)
+//   - Stubs for sections with no matching component
+//   - Order preserved relative to sectionNames input
+//   - When pageID != "", content_brief is attached per slot
+//   - When activeOnly is true, only is_active=true rows are returned
+//
+// activeOnly preserves the historical behaviour difference between the two
+// callers: plan_sections used to filter `is_active = true` inline;
+// LoadPageSectionComponentsAction did not. Passing the flag explicitly keeps
+// both callers' behaviour intact while sharing one query path.
+//
+// The returned per-component map carries: component_id (when from DB),
+// name, function, display_name, category, semantic_tags (when set),
+// description (when set), html_template (when set), input_schema (when
+// set, as raw JSON string), render_mode, agent_type (when set),
+// component_level, needs_llm, and content_brief (when found).
+func loadSectionComponents(
+	ctx context.Context,
+	db *sql.DB,
+	sectionNames []string,
+	pageID string,
+	activeOnly bool,
+	logger *zap.Logger,
+) []map[string]interface{} {
+	if len(sectionNames) == 0 {
+		return []map[string]interface{}{}
+	}
+	if db == nil {
+		// No DB available — return name-stubs so callers can still proceed.
+		return buildStubSectionComponents(sectionNames)
+	}
+
+	placeholders := make([]string, len(sectionNames))
+	args := make([]interface{}, len(sectionNames))
+	for i, name := range sectionNames {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = name
+	}
+
+	var components []map[string]interface{}
+
+	// Pass 1: lookup by name
+	activeFilter := ""
+	if activeOnly {
+		activeFilter = " AND is_active = true"
+	}
+	nameQuery := fmt.Sprintf(`
+		SELECT
+			id,
+			name,
+			COALESCE(display_name, name) AS display_name,
+			function,
+			COALESCE(category, '') AS category,
+			semantic_tags,
+			description,
+			html_template,
+			input_schema,
+			COALESCE(render_mode, 'template') AS render_mode,
+			agent_type,
+			COALESCE(component_level, 'section') AS component_level
+		FROM content_components
+		WHERE name IN (%s)%s`, strings.Join(placeholders, ", "), activeFilter)
+
+	rows, err := db.QueryContext(ctx, nameQuery, args...)
+	if err != nil {
+		logger.Error("loadSectionComponents: name query failed",
+			zap.Error(err),
+			zap.Strings("sections", sectionNames))
+	} else {
+		for rows.Next() {
+			comp, scanErr := scanSectionComponentRow(rows)
+			if scanErr != nil {
+				logger.Error("loadSectionComponents: name row scan failed",
+					zap.Error(scanErr))
+				continue
+			}
+			components = append(components, comp)
+		}
+		rows.Close()
+	}
+
+	// Track which inputs are already satisfied by name or function
+	foundNames := make(map[string]bool)
+	for _, comp := range components {
+		if n, ok := comp["name"].(string); ok {
+			foundNames[n] = true
+		}
+		if fn, ok := comp["function"].(string); ok {
+			foundNames[fn] = true
+		}
+	}
+
+	var missing []string
+	for _, name := range sectionNames {
+		if !foundNames[name] {
+			missing = append(missing, name)
+		}
+	}
+
+	// Pass 2: lookup by function for anything still missing
+	if len(missing) > 0 {
+		logger.Info("loadSectionComponents: trying function lookup for missing",
+			zap.Strings("missing", missing))
+
+		funcPlaceholders := make([]string, len(missing))
+		funcArgs := make([]interface{}, len(missing))
+		for i, name := range missing {
+			funcPlaceholders[i] = fmt.Sprintf("$%d", i+1)
+			funcArgs[i] = name
+		}
+
+		funcQuery := fmt.Sprintf(`
+			SELECT DISTINCT ON (function)
+				id,
+				name,
+				COALESCE(display_name, name) AS display_name,
+				function,
+				COALESCE(category, '') AS category,
+				semantic_tags,
+				description,
+				html_template,
+				input_schema,
+				COALESCE(render_mode, 'template') AS render_mode,
+				agent_type,
+				COALESCE(component_level, 'section') AS component_level
+			FROM content_components
+			WHERE function IN (%s)%s
+			ORDER BY function, created_at DESC
+		`, strings.Join(funcPlaceholders, ", "), activeFilter)
+
+		funcRows, ferr := db.QueryContext(ctx, funcQuery, funcArgs...)
+		if ferr != nil {
+			logger.Warn("loadSectionComponents: function lookup failed",
+				zap.Error(ferr))
+		} else {
+			for funcRows.Next() {
+				comp, scanErr := scanSectionComponentRow(funcRows)
+				if scanErr != nil {
+					continue
+				}
+				function, _ := comp["function"].(string)
+				if !containsString(missing, function) {
+					continue
+				}
+				components = append(components, comp)
+				foundNames[function] = true
+				logger.Info("loadSectionComponents: found component by function",
+					zap.String("function", function),
+					zap.String("name", comp["name"].(string)))
+			}
+			funcRows.Close()
+		}
+	}
+
+	// Stubs for anything still not found
+	var stillMissing []string
+	for _, name := range sectionNames {
+		if !foundNames[name] {
+			stillMissing = append(stillMissing, name)
+		}
+	}
+	if len(stillMissing) > 0 {
+		logger.Warn("loadSectionComponents: stubs for unresolved sections",
+			zap.Strings("missing", stillMissing))
+		for _, name := range stillMissing {
+			components = append(components, map[string]interface{}{
+				"name":         name,
+				"display_name": name,
+				"function":     name,
+				"category":     "",
+				"needs_llm":    true,
+				"description":  "",
+			})
+		}
+	}
+
+	// Reorder to match sectionNames input order
+	ordered := make([]map[string]interface{}, 0, len(components))
+	for _, sectionName := range sectionNames {
+		for _, comp := range components {
+			name, _ := comp["name"].(string)
+			function, _ := comp["function"].(string)
+			if name == sectionName || function == sectionName {
+				ordered = append(ordered, comp)
+				break
+			}
+		}
+	}
+
+	// Optional: content_brief enrichment from page_components
+	if pageID != "" {
+		enrichSectionComponentsWithBriefs(ctx, db, pageID, ordered, logger)
+	}
+
+	return ordered
+}
+
+// scanSectionComponentRow turns one SQL row into the per-component map shape.
+// Centralised so the by-name and by-function passes produce identical shapes.
+func scanSectionComponentRow(rows *sql.Rows) (map[string]interface{}, error) {
+	var id, name, function string
+	var displayName, category sql.NullString
+	var semanticTags, description, htmlTemplate, inputSchema sql.NullString
+	var renderMode, agentType, componentLevel sql.NullString
+
+	if err := rows.Scan(
+		&id, &name, &displayName, &function, &category,
+		&semanticTags, &description, &htmlTemplate, &inputSchema,
+		&renderMode, &agentType, &componentLevel,
+	); err != nil {
+		return nil, err
+	}
+
+	comp := map[string]interface{}{
+		"component_id": id,
+		"name":         name,
+		"function":     function,
+	}
+	if displayName.Valid {
+		comp["display_name"] = displayName.String
+	} else {
+		comp["display_name"] = name
+	}
+	if category.Valid {
+		comp["category"] = category.String
+	} else {
+		comp["category"] = ""
+	}
+	if semanticTags.Valid {
+		comp["semantic_tags"] = semanticTags.String
+	}
+	if description.Valid && description.String != "" {
+		comp["description"] = description.String
+	}
+	if htmlTemplate.Valid && htmlTemplate.String != "" {
+		comp["html_template"] = htmlTemplate.String
+	}
+	if inputSchema.Valid && inputSchema.String != "" {
+		comp["input_schema"] = inputSchema.String
+	}
+	if renderMode.Valid && renderMode.String != "" {
+		comp["render_mode"] = renderMode.String
+	} else {
+		comp["render_mode"] = "template"
+	}
+	if agentType.Valid && agentType.String != "" {
+		comp["agent_type"] = agentType.String
+	}
+	if componentLevel.Valid && componentLevel.String != "" {
+		comp["component_level"] = componentLevel.String
+	} else {
+		comp["component_level"] = "section"
+	}
+	comp["needs_llm"] = detectNeedsLLMContent(htmlTemplate.String, inputSchema.String)
+	return comp, nil
+}
+
+// buildStubSectionComponents returns minimal stubs for the no-DB code path.
+func buildStubSectionComponents(sectionNames []string) []map[string]interface{} {
+	stubs := make([]map[string]interface{}, len(sectionNames))
+	for i, name := range sectionNames {
+		stubs[i] = map[string]interface{}{
+			"name":         name,
+			"function":     name,
+			"display_name": name,
+			"description":  "",
+			"needs_llm":    true,
+		}
+	}
+	return stubs
+}
+
+// enrichSectionComponentsWithBriefs attaches per-section admin content briefs
+// (from page_components.content_brief) onto the components in-place.
+func enrichSectionComponentsWithBriefs(
+	ctx context.Context,
+	db *sql.DB,
+	pageID string,
+	components []map[string]interface{},
+	logger *zap.Logger,
+) {
+	briefRows, briefErr := db.QueryContext(ctx, `
+		SELECT COALESCE(slot_name, ''), content_brief
+		FROM page_components
+		WHERE page_id = $1
+		  AND content_brief IS NOT NULL
+		  AND build_status != 'removed'
+	`, pageID)
+	if briefErr != nil {
+		logger.Warn("enrichSectionComponentsWithBriefs: query failed",
+			zap.Error(briefErr))
+		return
+	}
+	defer briefRows.Close()
+
+	briefMap := make(map[string]interface{})
+	for briefRows.Next() {
+		var slotName string
+		var briefJSON []byte
+		if err := briefRows.Scan(&slotName, &briefJSON); err != nil {
+			continue
+		}
+		if len(briefJSON) > 0 && slotName != "" {
+			var brief interface{}
+			if err := json.Unmarshal(briefJSON, &brief); err == nil {
+				briefMap[slotName] = brief
+			}
+		}
+	}
+	if len(briefMap) == 0 {
+		return
+	}
+
+	for _, comp := range components {
+		name, _ := comp["name"].(string)
+		function, _ := comp["function"].(string)
+		if brief, ok := briefMap[name]; ok {
+			comp["content_brief"] = brief
+		} else if brief, ok := briefMap[function]; ok {
+			comp["content_brief"] = brief
+		}
+	}
+	logger.Info("enrichSectionComponentsWithBriefs: attached briefs",
+		zap.Int("briefs_found", len(briefMap)))
+}
+
+// ============================================================================
+// ACTION: load_page_section_components
+// ============================================================================
+//
+// LoadPageSectionComponentsAction loads component definitions for a page's
+// sections. Thin workflow wrapper around loadSectionComponents.
+//
+// Config:
+//   - page_from: collected_data path to the page record (default "current_page")
+//   - include_templates, include_input_schema: kept for back-compat; the shared
+//     loader always returns both, so these flags are not consulted. See
+//     doc 019_tool_library.md for the rationale.
+//
 // When call_agent passes input_fields, they arrive under input_data.*
-// This checks both root and input_data locations
+// extractWithInputDataFallback handles both root and input_data locations.
 func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("LoadPageSectionComponentsAction: Starting")
 
@@ -2926,9 +3277,7 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 		pageField = pf
 	}
 
-	// Try to find page data with fallback to input_data
 	pageData := extractWithInputDataFallback(params.CollectedData, pageField, params.Logger)
-
 	if pageData == nil {
 		keys := make([]string, 0, len(params.CollectedData))
 		for k := range params.CollectedData {
@@ -2958,7 +3307,11 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 	sectionNames := datahelpers.ExtractSectionNamesHelper(sectionsRaw)
 	if len(sectionNames) == 0 {
 		params.Logger.Warn("No sections found for page")
-		return map[string]interface{}{"components": []interface{}{}, "count": 0, "from_database": false}, nil
+		return map[string]interface{}{
+			"components":    []interface{}{},
+			"count":         0,
+			"from_database": false,
+		}, nil
 	}
 
 	// Enforce naming contract: LLM site plans may output "social_proof" or "SocialProof"
@@ -2967,333 +3320,26 @@ func LoadPageSectionComponentsAction(ctx context.Context, params ActionParams) (
 	params.Logger.Info("Loading components for sections",
 		zap.Strings("sections", sectionNames))
 
-	var components []map[string]interface{}
+	pageID, _ := page["id"].(string)
+	// activeOnly=false: this action historically returned components regardless
+	// of is_active. Preserved here so existing callers (page-content-writer's
+	// load_page_components step, audit flows, admin tools) behave identically.
+	components := loadSectionComponents(ctx, params.DB, sectionNames, pageID, false, params.Logger)
 
-	if params.DB != nil {
-		placeholders := make([]string, len(sectionNames))
-		args := make([]interface{}, len(sectionNames))
-		for i, name := range sectionNames {
-			placeholders[i] = fmt.Sprintf("$%d", i+1)
-			args[i] = name
-		}
-
-		// Query for components by name
-		query := fmt.Sprintf(`
-				SELECT 
-					id,
-					name, 
-					COALESCE(display_name, name) as display_name,
-					function, 
-					COALESCE(category, '') as category,
-					semantic_tags, 
-					description, 
-					html_template,
-					input_schema,
-					COALESCE(render_mode, 'template') as render_mode,
-					agent_type,
-					COALESCE(component_level, 'section') as component_level
-				FROM content_components 
-				WHERE name IN (%s)`, strings.Join(placeholders, ", "))
-
-		rows, err := params.DB.QueryContext(ctx, query, args...)
-		if err != nil {
-			params.Logger.Error("LoadPageSectionComponentsAction: Query failed",
-				zap.Error(err),
-				zap.Strings("sections", sectionNames))
-			return map[string]interface{}{
-				"components":    sectionNames,
-				"count":         len(sectionNames),
-				"from_database": false,
-				"db_error":      err.Error(),
-			}, nil
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var id, name, function string
-			var displayName, category sql.NullString
-			var semanticTags, description, htmlTemplate, inputSchema sql.NullString
-			var renderMode, agentType, componentLevel sql.NullString
-
-			if err := rows.Scan(&id, &name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &inputSchema, &renderMode, &agentType, &componentLevel); err != nil {
-				params.Logger.Error("LoadPageSectionComponentsAction: Row scan failed",
-					zap.Error(err))
-				continue
-			}
-
-			comp := map[string]interface{}{
-				"component_id": id,
-				"name":         name,
-				"function":     function,
-			}
-
-			if displayName.Valid {
-				comp["display_name"] = displayName.String
-			} else {
-				comp["display_name"] = name
-			}
-
-			if category.Valid {
-				comp["category"] = category.String
-			} else {
-				comp["category"] = ""
-			}
-
-			if semanticTags.Valid {
-				comp["semantic_tags"] = semanticTags.String
-			}
-			if description.Valid && description.String != "" {
-				comp["description"] = description.String
-			}
-			if htmlTemplate.Valid && htmlTemplate.String != "" {
-				comp["html_template"] = htmlTemplate.String
-			}
-			if inputSchema.Valid && inputSchema.String != "" {
-				comp["input_schema"] = inputSchema.String
-			}
-			if renderMode.Valid && renderMode.String != "" {
-				comp["render_mode"] = renderMode.String
-			} else {
-				comp["render_mode"] = "template"
-			}
-
-			if agentType.Valid && agentType.String != "" {
-				comp["agent_type"] = agentType.String
-			}
-
-			if componentLevel.Valid && componentLevel.String != "" {
-				comp["component_level"] = componentLevel.String
-			} else {
-				comp["component_level"] = "section"
-			}
-
-			needsLLM := detectNeedsLLMContent(htmlTemplate.String, inputSchema.String)
-			comp["needs_llm"] = needsLLM
-
-			components = append(components, comp)
-		}
-
-		// Track which components were found by name
-		foundNames := make(map[string]bool)
-		for _, comp := range components {
-			if name, ok := comp["name"].(string); ok {
-				foundNames[name] = true
-			}
-			if fn, ok := comp["function"].(string); ok {
-				foundNames[fn] = true
-			}
-		}
-
-		// Find missing components
-		var missing []string
-		for _, name := range sectionNames {
-			if !foundNames[name] {
-				missing = append(missing, name)
-			}
-		}
-
-		// Try fallback: lookup missing components by function
-		if len(missing) > 0 {
-			params.Logger.Info("LoadPageSectionComponentsAction: Trying function lookup for missing components",
-				zap.Strings("missing", missing))
-
-			funcPlaceholders := make([]string, len(missing))
-			funcArgs := make([]interface{}, len(missing))
-			for i, name := range missing {
-				funcPlaceholders[i] = fmt.Sprintf("$%d", i+1)
-				funcArgs[i] = name
-			}
-
-			funcQuery := fmt.Sprintf(`
-				SELECT DISTINCT ON (function)
-					id,
-					name, 
-					COALESCE(display_name, name) as display_name,
-					function, 
-					COALESCE(category, '') as category,
-					semantic_tags, 
-					description, 
-					html_template,
-					input_schema
-				FROM content_components 
-				WHERE function IN (%s)
-				ORDER BY function, created_at DESC
-			`, strings.Join(funcPlaceholders, ", "))
-
-			funcRows, err := params.DB.QueryContext(ctx, funcQuery, funcArgs...)
-			if err != nil {
-				params.Logger.Warn("LoadPageSectionComponentsAction: Function lookup query failed",
-					zap.Error(err))
-			} else {
-				defer funcRows.Close()
-				for funcRows.Next() {
-					var id, name, function string
-					var displayName, category sql.NullString
-					var semanticTags, description, htmlTemplate, inputSchema sql.NullString
-
-					if err := funcRows.Scan(&id, &name, &displayName, &function, &category, &semanticTags, &description, &htmlTemplate, &inputSchema); err != nil {
-						continue
-					}
-
-					if containsString(missing, function) {
-						comp := map[string]interface{}{
-							"component_id": id,
-							"name":         name,
-							"function":     function,
-						}
-						if displayName.Valid {
-							comp["display_name"] = displayName.String
-						} else {
-							comp["display_name"] = name
-						}
-						if category.Valid {
-							comp["category"] = category.String
-						}
-						if semanticTags.Valid {
-							comp["semantic_tags"] = semanticTags.String
-						}
-						if description.Valid && description.String != "" {
-							comp["description"] = description.String
-						}
-						if htmlTemplate.Valid && htmlTemplate.String != "" {
-							comp["html_template"] = htmlTemplate.String
-						}
-						if inputSchema.Valid && inputSchema.String != "" {
-							comp["input_schema"] = inputSchema.String
-						}
-
-						needsLLM := detectNeedsLLMContent(htmlTemplate.String, inputSchema.String)
-						comp["needs_llm"] = needsLLM
-
-						components = append(components, comp)
-						foundNames[function] = true
-						params.Logger.Info("LoadPageSectionComponentsAction: Found component by function",
-							zap.String("function", function),
-							zap.String("name", name),
-							zap.Bool("needs_llm", needsLLM))
-					}
-				}
-			}
-		}
-
-		// Rebuild missing list after function lookup
-		var stillMissing []string
-		for _, name := range sectionNames {
-			if !foundNames[name] {
-				stillMissing = append(stillMissing, name)
-			}
-		}
-
-		// Create stubs only for components still not found
-		if len(stillMissing) > 0 {
-			params.Logger.Warn("LoadPageSectionComponentsAction: Creating stubs for components not found in database",
-				zap.Strings("missing", stillMissing))
-
-			for _, name := range stillMissing {
-				components = append(components, map[string]interface{}{
-					"name":         name,
-					"display_name": name,
-					"function":     name,
-					"category":     "",
-					"needs_llm":    true,
-					"description":  "",
-				})
-			}
-		}
-
-		// =====================================================================
-		// REORDER COMPONENTS TO MATCH ORIGINAL sectionNames ORDER
-		// Database query returns in arbitrary order, but we need to preserve
-		// the section order defined in the page plan
-		// =====================================================================
-		orderedComponents := make([]map[string]interface{}, 0, len(components))
-		for _, sectionName := range sectionNames {
-			for _, comp := range components {
-				name, _ := comp["name"].(string)
-				function, _ := comp["function"].(string)
-				if name == sectionName || function == sectionName {
-					orderedComponents = append(orderedComponents, comp)
-					break
-				}
-			}
-		}
-
-		params.Logger.Info("LoadPageSectionComponentsAction: Reordered components to match section order",
-			zap.Int("original_count", len(components)),
-			zap.Int("ordered_count", len(orderedComponents)),
-			zap.Strings("requested_order", sectionNames))
-
-		// =====================================================================
-		// ENRICH WITH CONTENT BRIEFS FROM page_components
-		// If page_id is available, load any content_brief values from existing
-		// page_components and attach them to matching components. This allows
-		// the content writer's LLM prompt to use admin-edited briefs.
-		// =====================================================================
-		if pageID, ok := page["id"].(string); ok && pageID != "" {
-			briefRows, briefErr := params.DB.QueryContext(ctx, `
-			SELECT COALESCE(slot_name, ''), content_brief
-			FROM page_components
-			WHERE page_id = $1
-			  AND content_brief IS NOT NULL
-			  AND build_status != 'removed'
-		`, pageID)
-			if briefErr == nil {
-				defer briefRows.Close()
-				briefMap := make(map[string]interface{})
-				for briefRows.Next() {
-					var slotName string
-					var briefJSON []byte
-					if err := briefRows.Scan(&slotName, &briefJSON); err != nil {
-						continue
-					}
-					if len(briefJSON) > 0 && slotName != "" {
-						var brief interface{}
-						if err := json.Unmarshal(briefJSON, &brief); err == nil {
-							briefMap[slotName] = brief
-						}
-					}
-				}
-				if len(briefMap) > 0 {
-					for _, comp := range orderedComponents {
-						name, _ := comp["name"].(string)
-						function, _ := comp["function"].(string)
-						if brief, ok := briefMap[name]; ok {
-							comp["content_brief"] = brief
-						} else if brief, ok := briefMap[function]; ok {
-							comp["content_brief"] = brief
-						}
-					}
-					params.Logger.Info("LoadPageSectionComponentsAction: Enriched components with content briefs",
-						zap.Int("briefs_found", len(briefMap)))
-				}
-			}
-		}
-
-		return map[string]interface{}{
-			"components":    orderedComponents,
-			"count":         len(orderedComponents),
-			"from_database": len(orderedComponents) > 0,
-			"requested":     sectionNames,
-		}, nil
-	}
-
-	// No DB - return section names as stub components
-	stubComponents := make([]map[string]interface{}, len(sectionNames))
-	for i, name := range sectionNames {
-		stubComponents[i] = map[string]interface{}{
-			"name":         name,
-			"function":     name,
-			"display_name": name,
-			"description":  "",
-			"needs_llm":    true,
+	// Detect whether any row carries a real component_id (i.e. came from DB)
+	// to preserve the from_database signal callers rely on.
+	fromDB := false
+	for _, c := range components {
+		if _, has := c["component_id"]; has {
+			fromDB = true
+			break
 		}
 	}
 
 	return map[string]interface{}{
-		"components":    stubComponents,
-		"count":         len(stubComponents),
-		"from_database": false,
-		"db_note":       "no matching components in database",
+		"components":    components,
+		"count":         len(components),
+		"from_database": fromDB,
 		"requested":     sectionNames,
 	}, nil
 }

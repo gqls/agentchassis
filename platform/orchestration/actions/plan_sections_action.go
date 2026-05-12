@@ -362,6 +362,14 @@ type sectionPlanItem struct {
 	LLMFields    []string               `json:"llm_fields,omitempty"`
 	Missing      []missingField         `json:"missing,omitempty"`
 	Reason       string                 `json:"reason,omitempty"`
+	// Component carries the full per-section component data as returned by
+	// the shared loadSectionComponents helper. Populated when a component
+	// was found (Paths 1 and 2). Nil for paths where no component was
+	// resolved (Path 3: not_found / selector_unavailable). Downstream
+	// consumers — page-content-writer in Step 3 — read input_schema,
+	// html_template, render_mode, description, category, content_brief
+	// etc. from here instead of re-loading via load_page_section_components.
+	Component map[string]interface{} `json:"component,omitempty"`
 }
 
 type missingField struct {
@@ -632,63 +640,108 @@ type componentInfo struct {
 	Name        string
 	Function    string
 	InputSchema map[string]interface{}
+	// Raw carries the full per-section component map produced by the
+	// shared loadSectionComponents loader. Plan_sections attaches this
+	// onto sectionPlanItem.Component so downstream consumers can read
+	// html_template, render_mode, description, category, etc. without
+	// re-loading from content_components. Step 3 swaps the page-content-
+	// writer over to consume this directly.
+	Raw map[string]interface{}
 }
 
+// loadComponentSchemas is a thin wrapper over the shared loadSectionComponents
+// helper. It converts the helper's per-component maps into componentInfo
+// records keyed by both name and function (the lookup pattern planSection
+// expects), parses input_schema JSON for the field-resolution walk, and
+// applies the template-truncation guard that the previous in-line SQL did.
+//
+// Note: plan_sections doesn't have a pageID at this point in the workflow,
+// so brief enrichment is skipped here. Briefs apply at content-write time
+// (page-content-writer's load path) where pageID is known. Step 3 may move
+// brief loading into the section_plan so plan_sections becomes the single
+// source for all per-section content.
 func loadComponentSchemas(ctx context.Context, db *sql.DB, sectionNames []string, logger *zap.Logger) map[string]componentInfo {
 	result := make(map[string]componentInfo)
 
-	// Build query for all section names — match by name or function
-	placeholders := make([]string, len(sectionNames))
-	args := make([]interface{}, len(sectionNames))
-	for i, name := range sectionNames {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
-		args[i] = name
-	}
+	// activeOnly=true preserves the historical is_active=true filter that the
+	// inline SQL had. Inactive components stay out of plan_sections so they
+	// flow to Path 2 (selector) and may be replaced by a current alternative.
+	components := loadSectionComponents(ctx, db, sectionNames, "", true, logger)
 
-	query := fmt.Sprintf(`
-		SELECT id::text, name, function, COALESCE(input_schema::text, '{}'),
-			CASE WHEN html_template LIKE '%%</section>%%' THEN true
-			     WHEN html_template IS NULL THEN true
-			     WHEN LENGTH(html_template) < 100 THEN true
-			     ELSE false END as template_valid
-		FROM content_components
-		WHERE is_active = true
-		  AND (name IN (%s) OR function IN (%s))
-		ORDER BY name
-	`, strings.Join(placeholders, ","), strings.Join(placeholders, ","))
-
-	rows, err := db.QueryContext(ctx, query, args...)
-	if err != nil {
-		logger.Warn("plan_sections: failed to load components", zap.Error(err))
-		return result
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var comp componentInfo
-		var schemaJSON string
-		var templateValid bool
-		if err := rows.Scan(&comp.ID, &comp.Name, &comp.Function, &schemaJSON, &templateValid); err != nil {
+	for _, comp := range components {
+		// Stubs from the helper have no component_id — drop them so plan_sections
+		// falls through to Path 2 (selector) for those names.
+		if _, hasID := comp["component_id"]; !hasID {
 			continue
 		}
 
-		if !templateValid {
-			// Template is truncated (missing </section>) — skip this component
-			// so it falls through to Path 3 and gets flagged for regeneration.
+		// Template truncation guard: components with HTML content but no
+		// closing </section> tag are treated as broken and skipped so they
+		// flow to Path 3 (needs_new_component work item) instead of
+		// rendering broken markup. Empty/very-short templates are NOT
+		// dropped here — they may be stubs that legitimately have no body.
+		htmlTpl, _ := comp["html_template"].(string)
+		if !sectionTemplateValid(htmlTpl) {
+			name, _ := comp["name"].(string)
+			function, _ := comp["function"].(string)
 			logger.Warn("plan_sections: component template truncated, skipping",
-				zap.String("function", comp.Function),
-				zap.String("name", comp.Name))
+				zap.String("function", function),
+				zap.String("name", name))
 			continue
 		}
 
-		json.Unmarshal([]byte(schemaJSON), &comp.InputSchema)
+		var ci componentInfo
+		if id, ok := comp["component_id"].(string); ok {
+			ci.ID = id
+		}
+		if name, ok := comp["name"].(string); ok {
+			ci.Name = name
+		}
+		if fn, ok := comp["function"].(string); ok {
+			ci.Function = fn
+		}
+		if schemaStr, ok := comp["input_schema"].(string); ok && schemaStr != "" {
+			if err := json.Unmarshal([]byte(schemaStr), &ci.InputSchema); err != nil {
+				logger.Warn("plan_sections: failed to parse input_schema",
+					zap.String("component", ci.Name),
+					zap.Error(err))
+			}
+		}
+		if ci.InputSchema == nil {
+			ci.InputSchema = make(map[string]interface{})
+		}
+		ci.Raw = comp
 
-		// Index by both name and function for lookup
-		result[comp.Name] = comp
-		result[comp.Function] = comp
+		// Index by both name and function for fast lookup in the section loop.
+		if ci.Name != "" {
+			result[ci.Name] = ci
+		}
+		if ci.Function != "" && ci.Function != ci.Name {
+			result[ci.Function] = ci
+		}
 	}
 
 	return result
+}
+
+// sectionTemplateValid mirrors the original SQL CASE used by loadComponentSchemas:
+//
+//	WHEN html_template LIKE '%</section>%' THEN true
+//	WHEN html_template IS NULL            THEN true
+//	WHEN LENGTH(html_template) < 100      THEN true
+//	ELSE false
+//
+// The only "invalid" case is a long template with no closing </section> tag —
+// the signature of a truncated LLM generation. Empty/short templates are
+// allowed through because they may be intentional stubs.
+func sectionTemplateValid(htmlTemplate string) bool {
+	if htmlTemplate == "" {
+		return true
+	}
+	if len(htmlTemplate) < 100 {
+		return true
+	}
+	return strings.Contains(htmlTemplate, "</section>")
 }
 
 // ============================================================================
@@ -745,40 +798,52 @@ func resolveSectionComponent(
 }
 
 // loadSingleComponentSchema loads one component's schema by function name.
-// Same query pattern as loadComponentSchemas but for a single component.
-// Rejects components with truncated templates (missing </section>).
+// Thin wrapper over the shared loadSectionComponents helper. Rejects components
+// with truncated templates (missing </section>) so they don't render broken HTML.
+// Always uses activeOnly=true to match the original is_active filter.
 func loadSingleComponentSchema(ctx context.Context, db *sql.DB, function string, logger *zap.Logger) *componentInfo {
-	var comp componentInfo
-	var schemaJSON string
-	var templateValid bool
+	components := loadSectionComponents(ctx, db, []string{function}, "", true, logger)
 
-	err := db.QueryRowContext(ctx, `
-		SELECT id::text, name, function, COALESCE(input_schema::text, '{}'),
-			CASE WHEN html_template LIKE '%</section>%' THEN true
-			     WHEN html_template IS NULL THEN true
-			     WHEN LENGTH(html_template) < 100 THEN true
-			     ELSE false END as template_valid
-		FROM content_components
-		WHERE function = $1
-		  AND is_active = true
-		LIMIT 1
-	`, function).Scan(&comp.ID, &comp.Name, &comp.Function, &schemaJSON, &templateValid)
+	for _, raw := range components {
+		// Stubs from the helper (no component_id) mean the function wasn't found.
+		if _, hasID := raw["component_id"]; !hasID {
+			continue
+		}
 
-	if err != nil {
-		logger.Warn("loadSingleComponentSchema: failed",
-			zap.String("function", function),
-			zap.Error(err))
-		return nil
+		htmlTpl, _ := raw["html_template"].(string)
+		if !sectionTemplateValid(htmlTpl) {
+			logger.Warn("loadSingleComponentSchema: template truncated, rejecting",
+				zap.String("function", function))
+			return nil
+		}
+
+		var ci componentInfo
+		if id, ok := raw["component_id"].(string); ok {
+			ci.ID = id
+		}
+		if name, ok := raw["name"].(string); ok {
+			ci.Name = name
+		}
+		if fn, ok := raw["function"].(string); ok {
+			ci.Function = fn
+		}
+		if schemaStr, ok := raw["input_schema"].(string); ok && schemaStr != "" {
+			if err := json.Unmarshal([]byte(schemaStr), &ci.InputSchema); err != nil {
+				logger.Warn("loadSingleComponentSchema: failed to parse input_schema",
+					zap.String("function", function),
+					zap.Error(err))
+			}
+		}
+		if ci.InputSchema == nil {
+			ci.InputSchema = make(map[string]interface{})
+		}
+		ci.Raw = raw
+		return &ci
 	}
 
-	if !templateValid {
-		logger.Warn("loadSingleComponentSchema: template truncated, rejecting",
-			zap.String("function", function))
-		return nil
-	}
-
-	json.Unmarshal([]byte(schemaJSON), &comp.InputSchema)
-	return &comp
+	logger.Warn("loadSingleComponentSchema: function not found",
+		zap.String("function", function))
+	return nil
 }
 
 // ============================================================================
@@ -791,6 +856,12 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 		ComponentID: comp.ID,
 		Function:    comp.Function,
 		Status:      "ready",
+		// Attach the full component data so downstream consumers (Step 3:
+		// page-content-writer) can read input_schema, html_template,
+		// render_mode, description, category, content_brief etc. without
+		// re-loading via load_page_section_components. Nil for sections
+		// where no component was resolved.
+		Component: comp.Raw,
 	}
 
 	// Get fields from schema
