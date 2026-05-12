@@ -22,10 +22,10 @@ spec:
       containers:
         - name: thunder-adapter
           image: docker.io/aqls/thunder-adapter:latest  # overridden per environment in overlay
-          args: ["--config", "/app/configs/thunder-adapter.yaml"]
+          command: ["./thunder-adapter", "-config", "/app/configs/thunder-adapter.yaml"]
           ports:
-            - containerPort: 8080
-              name: http
+          - containerPort: 8080
+            name: http
           env:
             # Downward API — used for Tier-3 response headers (sender_pod_name)
             # and pod-level trace logging.

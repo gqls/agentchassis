@@ -17,6 +17,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// Precompiled regexps used by sectionHasVisibleContent to strip non-visible
+// content (style/script blocks, tags, entities, whitespace) before measuring
+// the remaining text length. Package-level so they compile once at startup
+// rather than on every section.
+var (
+	reStyleBlocks  = regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
+	reScriptBlocks = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
+	reHTMLTags     = regexp.MustCompile(`<[^>]+>`)
+	reHTMLEntities = regexp.MustCompile(`&[a-zA-Z#0-9]+;`)
+	reWhitespace   = regexp.MustCompile(`\s+`)
+)
+
 // RerenderSinglePageAction assembles a page from pre-rendered components
 //
 // Config:
@@ -166,6 +178,7 @@ func getPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, 
 		SELECT 
 			p.id, p.site_id, p.site_area_id, 
 			p.name, COALESCE(p.title, p.name), p.url,
+			COALESCE(p.meta_description, ''),
 			s.domain
 		FROM pages p
 		JOIN sites s ON p.site_id = s.id
@@ -173,6 +186,7 @@ func getPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, 
 	`, pageID).Scan(
 		&p.ID, &p.SiteID, &areaID,
 		&p.Name, &p.Title, &p.URL,
+		&p.MetaDesc,
 		&p.Domain,
 	)
 	if err != nil {
@@ -215,7 +229,7 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	}
 
 	// 3. Get page sections
-	sections, err := getPageSections(ctx, db, page.ID)
+	sections, err := getPageSections(ctx, db, page.ID, logger)
 	if err != nil {
 		logger.Warn("Failed to load page sections", zap.Error(err))
 	}
@@ -342,8 +356,14 @@ func getAreaComponents(ctx context.Context, db *sql.DB, areaID uuid.UUID) (map[s
 	return components, nil
 }
 
-// getPageSections loads and concatenates page sections in order
-func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID) (string, error) {
+// getPageSections loads and concatenates page sections in order,
+// filtering out sections whose rendered_html has no visible text content.
+// Empty sections (e.g. a hero with <h1></h1>, a CTA with no copy) produce
+// blank space on the live site, so they're excluded from assembly and
+// logged. The pre-filter that already lives in the SQL (rendered_html
+// IS NOT NULL AND != ”) only catches the totally-empty case; this
+// catches the visually-empty case as well.
+func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) (string, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT COALESCE(rendered_html, '') 
 		FROM page_components 
@@ -358,16 +378,55 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID) (string,
 	defer rows.Close()
 
 	var sections strings.Builder
+	sectionIdx := 0
+	skipped := 0
 	for rows.Next() {
 		var html string
 		if err := rows.Scan(&html); err != nil {
 			continue
 		}
+		if !sectionHasVisibleContent(html) {
+			logger.Warn("getPageSections: skipping section with no visible content",
+				zap.String("page_id", pageID.String()),
+				zap.Int("section_index", sectionIdx),
+				zap.Int("html_length", len(html)),
+			)
+			skipped++
+			sectionIdx++
+			continue
+		}
 		sections.WriteString(html)
 		sections.WriteString("\n")
+		sectionIdx++
+	}
+
+	if skipped > 0 {
+		logger.Info("getPageSections: filtered empty sections",
+			zap.String("page_id", pageID.String()),
+			zap.Int("skipped", skipped),
+			zap.Int("kept", sectionIdx-skipped),
+		)
 	}
 
 	return sections.String(), nil
+}
+
+// sectionHasVisibleContent reports whether the given rendered HTML contains
+// more than 10 characters of visible text after stripping <style> and
+// <script> blocks, HTML tags, HTML entities, and whitespace. The threshold
+// is deliberately generous — sections with so little text aren't meaningful
+// page content and either represent a generation failure or a stale empty
+// shell. Either way they shouldn't make it into the deployed page.
+func sectionHasVisibleContent(html string) bool {
+	if html == "" {
+		return false
+	}
+	s := reStyleBlocks.ReplaceAllString(html, "")
+	s = reScriptBlocks.ReplaceAllString(s, "")
+	s = reHTMLTags.ReplaceAllString(s, "")
+	s = reHTMLEntities.ReplaceAllString(s, "")
+	s = reWhitespace.ReplaceAllString(s, "")
+	return len(s) > 10
 }
 
 // resolveComponent returns area component if exists, otherwise site component
