@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: thunder-adapter
-          image: thunder-adapter:latest  # overridden per environment in overlay
+          image: docker.io/aqls/thunder-adapter:latest  # overridden per environment in overlay
           args: ["--config", "/app/configs/thunder-adapter.yaml"]
           ports:
             - containerPort: 8080

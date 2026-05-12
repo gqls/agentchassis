@@ -10,5 +10,5 @@ resources:
 # the build pipeline pushes the actual image.
 # Example: newName: docker.io/aqls/thunder-adapter
 images:
-  - name: thunder-adapter
-    newTag: v0.1.0
+  - name: docker.io/aqls/thunder-adapter
+    newTag: v1.0.1009
