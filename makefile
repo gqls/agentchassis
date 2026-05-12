@@ -13,7 +13,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1009
+IMAGE_TAG ?= v1.0.1010
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -970,6 +970,7 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment vet-intel -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment business-intel -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment ollama-adapter -n ai-persona-system 2>/dev/null || true
+	kubectl rollout restart deployment thunder-adapter -n ai-persona-system 2>/dev/null || true
 
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications

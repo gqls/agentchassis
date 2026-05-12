@@ -216,6 +216,7 @@ kubectl -n ai-persona-system logs --tail=300 -l app=kafka-scheduler -f | tee log
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=med-price-collector -f --max-log-requests 20 | tee logs-med-price-collector.json
 kubectl -n ai-persona-system logs --tail=500 -l app=business-intel -f --max-log-requests 20 | tee logs-business-intel.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=training-data-preparer -f --max-log-requests 20 | tee logs-training-data-preparer.json
+kubectl -n ai-persona-system logs --tail=500 -l app=thunder-adapter -f --max-log-requests 20 | tee logs-thunder-adapter.json
 
 kubectl -n ai-persona-system logs -l 'app in (agent-chassis,dynamic-agent)'   -f --max-log-requests=20  | tee logs-all_chassis_logs_$(date +%H%M%S).log
 

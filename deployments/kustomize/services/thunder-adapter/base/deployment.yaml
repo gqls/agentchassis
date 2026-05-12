@@ -16,6 +16,9 @@ spec:
       labels:
         app: thunder-adapter
     spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
       containers:
         - name: thunder-adapter
           image: docker.io/aqls/thunder-adapter:latest  # overridden per environment in overlay
