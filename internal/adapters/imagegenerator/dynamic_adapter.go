@@ -135,9 +135,13 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 		return nil, fmt.Errorf("failed to create storage client: %w", err)
 	}
 
-	// Create base HTTP client
+	// Create base HTTP client.
+	// Timeout covers the whole request lifecycle: connect + send + server-side generation
+	// + response body read. SDXL at 1024x1024 with 30 steps commonly takes 30-60s
+	// server-side, plus ~1.7MB base64 response to transfer. 30s was too tight and caused
+	// "context deadline exceeded while reading body" failures.
 	baseHTTPClient := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 120 * time.Second,
 	}
 
 	// Create circuit breaker config
@@ -326,7 +330,9 @@ func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([
 	req.Header.Set("Accept", "application/json")
 
 	a.logger.Info("in generate Image about to execute request dynamic adapter",
-		zap.Any("the request that were sending to httpClient", req),
+		zap.String("method", req.Method),
+		zap.String("url", req.URL.String()),
+		zap.Int("body_length_bytes", len(jsonBody)),
 	)
 	// Execute request through circuit breaker
 	resp, err := a.httpClient.Do(req)
