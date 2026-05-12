@@ -2,7 +2,7 @@
 //
 // WriteSitePlanAction is the plan-builder's terminal step. It takes the
 // LLM's single-call output (pages + design_direction + content_strategy
-// in one JSON shape) and writes:
+// + imagery in one JSON shape) and writes:
 //
 //   - one site_plans row (the version anchor)
 //   - N site_plan_pages rows (per page, canonicalised + role-validated)
@@ -10,6 +10,9 @@
 //   - K site_plan_directives rows (flattened from nested design and
 //     content JSON; site / page / section scopes; ordering preserved
 //     for multi-cardinality subjects)
+//   - L site_plan_imagery rows (Phase 2G — structured imagery requests
+//     at site / page / section scope; kind + prompt + optional
+//     style_hints + constraints)
 //
 // All in one transaction. Marks the previous current plan superseded.
 //
@@ -18,7 +21,8 @@
 // key (scope, scope_ref, category, subject, ordering). When matched,
 // locked_at and locked_by are copied onto the new directive, and the
 // HITL-approved directive text wins over the LLM's new text. See
-// doc 030 §"Lock transfer across plan rebuilds".
+// doc 030 §"Lock transfer across plan rebuilds". Imagery rows mirror
+// this — match key (scope, scope_ref, key); locked prompt wins.
 //
 // The action does NOT emit work items. That responsibility belongs to
 // the reconciler (doc 030 step 5). Plan-builder's job ends with
@@ -29,6 +33,7 @@
 //   - page_plan / site_plan  (extracted by existing extractPagesFromPlan)
 //   - design_direction / design_intent  (optional — flattened to directives)
 //   - content_strategy / content_direction  (optional — flattened to directives)
+//   - imagery  (optional — Phase 2G; site/page/section imagery requests)
 //   - target_site_id  (declared in WriteSitePlanInputSpec; deliberately
 //     not 'site_id' to avoid nested-lookup collision risk)
 //
@@ -41,6 +46,8 @@
 //	  sections_written: <int>,
 //	  directives_written: <int>,
 //	  locks_transferred: <int>,
+//	  imagery_written: <int>,
+//	  imagery_locks_transferred: <int>,
 //	  role_corrections: <int>,
 //	}
 
@@ -49,6 +56,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -149,6 +157,46 @@ type directiveRow struct {
 	Directive string
 	Ordering  int
 	Source    string
+}
+
+// imageryRow is the in-memory shape for site_plan_imagery rows.
+// Maps 1:1 to a row in site_plan_imagery (Phase 2G).
+//
+// StyleHints and Constraints carry the serialised JSONB bytes (nil
+// when absent). Caller passes them via the nullableJSONB helper below
+// to coerce empty/nil to a SQL NULL.
+type imageryRow struct {
+	Scope       string
+	ScopeRef    *string // nil for site scope
+	Key         string
+	Kind        string
+	Prompt      string
+	StyleHints  []byte // serialised JSONB; nil for absent
+	Constraints []byte // serialised JSONB; nil for absent
+	Ordering    int
+	Source      string
+}
+
+// validImageryKinds is the in-process mirror of the chk_kind constraint
+// on site_plan_imagery. Adding a new kind requires both a code change
+// here and a migration to extend the constraint. Keep in sync.
+var validImageryKinds = map[string]bool{
+	"logo":         true,
+	"hero":         true,
+	"illustration": true,
+	"icon":         true,
+	"infographic":  true,
+}
+
+// nullableJSONB coerces a byte slice into the value to pass to
+// tx.ExecContext for a JSONB column. Empty/nil → SQL NULL; otherwise
+// the bytes. Inlined here rather than added to datahelpers to keep the
+// package surface tight; lift later if used elsewhere.
+func nullableJSONB(b []byte) interface{} {
+	if len(b) == 0 {
+		return nil
+	}
+	return b
 }
 
 // WriteSitePlanAction handler.
@@ -271,6 +319,11 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	// ── 2. Flatten LLM design / content JSON to directive rows ─────────
 	directives := flattenSiteScopeDirectives(params.CollectedData, logger)
 
+	// ── 2b. Flatten imagery block to imagery rows (Phase 2G). Empty
+	//        until the planner prompt extension ships in step 3; this
+	//        is dormant in step 2.
+	imageryRows := flattenImageryBlock(params.CollectedData, logger)
+
 	// ── 3. Single transaction: supersede prior plan, write new plan ────
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -362,15 +415,55 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 
-	// 3f. Lock transfer. For each locked directive on the previous plan,
-	//     find the matching new directive by composite key and copy
-	//     locked_at + locked_by. If the locked text differs from the
-	//     LLM's new text, the locked text wins.
+	// 3f. Insert site_plan_imagery rows (Phase 2G). Empty list during
+	//     transition; populated once the planner prompt extension ships.
+	//     Note source/source_agent columns don't exist on site_plan_imagery
+	//     — provenance is just the `source` text column on the row itself.
+	imageryWritten := 0
+	for _, r := range imageryRows {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO site_plan_imagery
+			    (plan_id, scope, scope_ref, key, kind, prompt,
+			     style_hints, constraints, ordering, source)
+			VALUES ($1, $2, $3, $4, $5, $6,
+			        $7::jsonb, $8::jsonb, $9, $10)
+		`,
+			planID, r.Scope, r.ScopeRef, r.Key, r.Kind, r.Prompt,
+			nullableJSONB(r.StyleHints),
+			nullableJSONB(r.Constraints),
+			r.Ordering, r.Source)
+		if err != nil {
+			scopeRefStr := ""
+			if r.ScopeRef != nil {
+				scopeRefStr = *r.ScopeRef
+			}
+			return nil, fmt.Errorf("insert site_plan_imagery (%s/%s/%s): %w",
+				r.Scope, scopeRefStr, r.Key, err)
+		}
+		imageryWritten++
+	}
+
+	// 3g. Lock transfer for directives. For each locked directive on the
+	//     previous plan, find the matching new directive by composite key
+	//     and copy locked_at + locked_by. If the locked text differs from
+	//     the LLM's new text, the locked text wins.
 	locksTransferred := 0
 	if prevPlanID != uuid.Nil {
 		locksTransferred, err = transferDirectiveLocks(ctx, tx, prevPlanID, planID, logger)
 		if err != nil {
 			return nil, fmt.Errorf("lock transfer: %w", err)
+		}
+	}
+
+	// 3h. Lock transfer for imagery (Phase 2G). Mirrors 3g exactly. Match
+	//     key for imagery is (scope, scope_ref, key) under the same site.
+	//     Locked prompt wins over LLM rewrite. No-op when prevPlanID is
+	//     Nil (first plan for site).
+	imageryLocksTransferred := 0
+	if prevPlanID != uuid.Nil {
+		imageryLocksTransferred, err = transferImageryLocks(ctx, tx, prevPlanID, planID, logger)
+		if err != nil {
+			return nil, fmt.Errorf("imagery lock transfer: %w", err)
 		}
 	}
 
@@ -391,17 +484,21 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		zap.Int("sections_written", sectionsWritten),
 		zap.Int("directives_written", len(directives)),
 		zap.Int("locks_transferred", locksTransferred),
+		zap.Int("imagery_written", imageryWritten),
+		zap.Int("imagery_locks_transferred", imageryLocksTransferred),
 		zap.Int("role_corrections", corrections),
 	)
 
 	return map[string]interface{}{
-		"plan_id":            planID.String(),
-		"superseded_plan_id": prevPlanIDStr,
-		"pages_written":      len(planRows),
-		"sections_written":   sectionsWritten,
-		"directives_written": len(directives),
-		"locks_transferred":  locksTransferred,
-		"role_corrections":   corrections,
+		"plan_id":                   planID.String(),
+		"superseded_plan_id":        prevPlanIDStr,
+		"pages_written":             len(planRows),
+		"sections_written":          sectionsWritten,
+		"directives_written":        len(directives),
+		"locks_transferred":         locksTransferred,
+		"imagery_written":           imageryWritten,
+		"imagery_locks_transferred": imageryLocksTransferred,
+		"role_corrections":          corrections,
 	}, nil
 }
 
@@ -665,4 +762,241 @@ func firstNonEmptyField(m map[string]interface{}, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// ============================================================================
+// Imagery helpers (Phase 2G)
+// ============================================================================
+
+// flattenImageryBlock walks the "imagery" key in CollectedData and
+// produces imageryRow values ready to insert. The expected shape (all
+// keys optional):
+//
+//	imagery: {
+//	  site: [{key, kind, prompt, style_hints?, constraints?}, ...],
+//	  pages: {page_name: [{...}, ...], ...},
+//	  sections: {"page_name:ordering": [{...}, ...], ...}
+//	}
+//
+// If "imagery" is absent or empty, returns nil. During the transition
+// window (step 2 deployed, step 3 not yet) every plan has imagery absent
+// and this is a no-op.
+//
+// Rows with malformed fields (missing key/kind/prompt) or unknown kind
+// values are SKIPPED with a warning log rather than failing the plan.
+// Partial imagery is better than a failed plan write.
+func flattenImageryBlock(data map[string]interface{}, logger *zap.Logger) []imageryRow {
+	imagery, ok := data["imagery"].(map[string]interface{})
+	if !ok || len(imagery) == 0 {
+		logger.Info("flattenImageryBlock: no imagery block in collected_data; skipping")
+		return nil
+	}
+
+	var rows []imageryRow
+
+	// Site scope
+	if siteEntries, ok := imagery["site"].([]interface{}); ok {
+		for ord, raw := range siteEntries {
+			if r, ok := buildImageryRow("site", nil, raw, ord, logger); ok {
+				rows = append(rows, r)
+			}
+		}
+	}
+
+	// Page scope
+	if pageMap, ok := imagery["pages"].(map[string]interface{}); ok {
+		for pageName, raw := range pageMap {
+			entries, ok := raw.([]interface{})
+			if !ok {
+				logger.Info("flattenImageryBlock: page entry not an array, skipping",
+					zap.String("page", pageName))
+				continue
+			}
+			pn := pageName
+			for ord, e := range entries {
+				if r, ok := buildImageryRow("page", &pn, e, ord, logger); ok {
+					rows = append(rows, r)
+				}
+			}
+		}
+	}
+
+	// Section scope — scope_ref is "page_name:ordering"
+	if sectionMap, ok := imagery["sections"].(map[string]interface{}); ok {
+		for sectionRef, raw := range sectionMap {
+			entries, ok := raw.([]interface{})
+			if !ok {
+				logger.Info("flattenImageryBlock: section entry not an array, skipping",
+					zap.String("section_ref", sectionRef))
+				continue
+			}
+			sr := sectionRef
+			for ord, e := range entries {
+				if r, ok := buildImageryRow("section", &sr, e, ord, logger); ok {
+					rows = append(rows, r)
+				}
+			}
+		}
+	}
+
+	if len(rows) > 0 {
+		logger.Info("flattenImageryBlock: rows flattened",
+			zap.Int("count", len(rows)))
+	}
+	return rows
+}
+
+// buildImageryRow validates one imagery entry from the LLM output.
+// Required fields: key, kind, prompt. kind must be in validImageryKinds.
+// Optional fields: style_hints, constraints (JSONB; serialised if present).
+//
+// Returns (zero, false) for invalid entries — the caller logs and skips.
+// We don't fail the whole plan write for a bad entry; the rest of the
+// plan is more valuable than perfect imagery.
+func buildImageryRow(scope string, scopeRef *string, raw interface{}, ordering int, logger *zap.Logger) (imageryRow, bool) {
+	entry, ok := raw.(map[string]interface{})
+	if !ok {
+		logger.Info("buildImageryRow: entry not a map, skipping",
+			zap.String("scope", scope),
+			zap.Int("ordering", ordering))
+		return imageryRow{}, false
+	}
+
+	key := datahelpers.GetStringField(entry, "key", "")
+	kind := datahelpers.GetStringField(entry, "kind", "")
+	prompt := datahelpers.GetStringField(entry, "prompt", "")
+
+	if key == "" || kind == "" || prompt == "" {
+		logger.Info("buildImageryRow: missing required field, skipping",
+			zap.String("scope", scope),
+			zap.String("key", key),
+			zap.String("kind", kind),
+			zap.Bool("prompt_empty", prompt == ""),
+			zap.Int("ordering", ordering),
+		)
+		return imageryRow{}, false
+	}
+
+	if !validImageryKinds[kind] {
+		logger.Info("buildImageryRow: unknown kind, skipping",
+			zap.String("scope", scope),
+			zap.String("key", key),
+			zap.String("kind", kind),
+		)
+		return imageryRow{}, false
+	}
+
+	// style_hints and constraints are optional JSONB. Serialise them
+	// directly if present.
+	var styleHints, constraints []byte
+	if v, ok := entry["style_hints"]; ok && v != nil {
+		if b, err := json.Marshal(v); err == nil {
+			styleHints = b
+		} else {
+			logger.Info("buildImageryRow: style_hints not serialisable, dropping",
+				zap.Error(err), zap.String("key", key))
+		}
+	}
+	if v, ok := entry["constraints"]; ok && v != nil {
+		if b, err := json.Marshal(v); err == nil {
+			constraints = b
+		} else {
+			logger.Info("buildImageryRow: constraints not serialisable, dropping",
+				zap.Error(err), zap.String("key", key))
+		}
+	}
+
+	return imageryRow{
+		Scope:       scope,
+		ScopeRef:    scopeRef,
+		Key:         key,
+		Kind:        kind,
+		Prompt:      prompt,
+		StyleHints:  styleHints,
+		Constraints: constraints,
+		Ordering:    ordering,
+		Source:      "llm",
+	}, true
+}
+
+// transferImageryLocks copies locked_at / locked_by (and the locked
+// prompt) from previous-plan imagery rows onto matching new-plan rows.
+// Match key: (scope, scope_ref, key) under the same plan_id.
+// Mirrors transferDirectiveLocks. HITL-approved prompt wins over LLM
+// rewrite.
+//
+// When the new plan has no row matching a previous locked row's key
+// (the LLM didn't produce a row at this scope/scope_ref/key in the new
+// plan), the lock is dropped and an Info log records it. The
+// previous-plan rows persist with is_current=false on their site_plans
+// row, so audit retrieval is possible.
+//
+// Returns the number of locks successfully transferred.
+func transferImageryLocks(ctx context.Context, tx *sql.Tx, prevPlanID, newPlanID uuid.UUID, logger *zap.Logger) (int, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT scope, scope_ref, key, prompt, locked_at, locked_by
+		FROM site_plan_imagery
+		WHERE plan_id = $1 AND locked_at IS NOT NULL
+	`, prevPlanID)
+	if err != nil {
+		return 0, fmt.Errorf("query previous imagery locks: %w", err)
+	}
+	defer rows.Close()
+
+	transferred := 0
+	for rows.Next() {
+		var (
+			scope, key, lockedBy, prevPrompt string
+			scopeRef                         sql.NullString
+			lockedAt                         sql.NullTime
+		)
+		if err := rows.Scan(&scope, &scopeRef, &key, &prevPrompt, &lockedAt, &lockedBy); err != nil {
+			return transferred, fmt.Errorf("scan previous imagery lock: %w", err)
+		}
+
+		// Apply the lock and the locked prompt onto the matching new-plan
+		// row. scope_ref is nullable; branch the SQL to handle both cases
+		// — same pattern as transferDirectiveLocks.
+		var result sql.Result
+		if scopeRef.Valid {
+			result, err = tx.ExecContext(ctx, `
+				UPDATE site_plan_imagery
+				   SET locked_at = $1,
+				       locked_by = $2,
+				       prompt    = $3
+				 WHERE plan_id   = $4
+				   AND scope     = $5
+				   AND scope_ref = $6
+				   AND key       = $7
+			`, lockedAt, lockedBy, prevPrompt, newPlanID, scope, scopeRef.String, key)
+		} else {
+			result, err = tx.ExecContext(ctx, `
+				UPDATE site_plan_imagery
+				   SET locked_at = $1,
+				       locked_by = $2,
+				       prompt    = $3
+				 WHERE plan_id   = $4
+				   AND scope     = $5
+				   AND scope_ref IS NULL
+				   AND key       = $6
+			`, lockedAt, lockedBy, prevPrompt, newPlanID, scope, key)
+		}
+		if err != nil {
+			return transferred, fmt.Errorf("apply lock to new imagery row: %w", err)
+		}
+		n, _ := result.RowsAffected()
+		if n > 0 {
+			transferred++
+		} else {
+			logger.Info("WriteSitePlanAction: locked imagery row on previous plan has no match on new plan, lock dropped",
+				zap.String("scope", scope),
+				zap.String("scope_ref", scopeRef.String),
+				zap.String("key", key),
+				zap.String("locked_by", lockedBy))
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return transferred, fmt.Errorf("iterate previous imagery locks: %w", err)
+	}
+	return transferred, nil
 }
