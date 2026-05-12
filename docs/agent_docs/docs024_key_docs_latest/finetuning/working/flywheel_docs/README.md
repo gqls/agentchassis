@@ -113,3 +113,42 @@ python 03_inference_test.py \
 
 For now: get a trained LoRA, inspect its outputs, decide if it's good enough
 to productionise.
+
+
+--------------------------------------------
+
+phase 3 scope:
+Phase 2 is verified — the response is showing in the adapter logs:
+"in_response_to_request_id":"cc2fd4e9-21a8-4c43-a592-f71fb207330f"   ← echoes our REQUEST_ID
+"sender_agent_type":"thunder-adapter"                                  ← validator tier-1
+"status":"error_unrecoverable","is_error":"true"                       ← correct vocabulary
+"action":"provision_instance","error":"not_implemented"                 ← right handler reached
+Headers and body shape exactly as designed. Now updating the FOCUS doc:Ran 2 commands, viewed a file, edited a fileRan 2 commands, viewed a file, edited a fileSummary of the FOCUS doc update
+Replaced the old 56-line "Deployment essentials" section with a 200-line one that's structured around six sub-sections:
+Sub-sectionCapturesThe full manifest patternAll three things missing from v1: serviceAccountName, imagePullSecrets, command: (vs args alone). With inline comments explaining the failure mode each one prevents.Required cluster resources before first deployFive-row table of dependencies — Secrets, SA, Docker Hub grant, and Kafka topics — with how to verify each. Plus the KafkaTopic CRD pattern.Service permissions (when applicable)Scoped Role/RoleBinding example for adapters managing k8s resources (relevant for thunder-adapter Phase 3+).Makefile integrationFour insertion points, plus the newName/newTag overlay gotcha (sed only updates newTag).Pre-deploy verification checklistEight items to tick off before make release-backend.Post-deploy verificationFour-step bring-up check.
+Cross-references section 10 of the debugging guide so anyone hitting a deployment problem has a clear path to the symptom-to-cause table.
+Phase 2 wrap
+Verified end-to-end:
+
+Schema migration 025 applied (thunder_config singleton seeded, thunder_instances empty, provision-check view returns can_provision=t)
+Image built and pushed: docker.io/aqls/thunder-adapter:v1.0.1010
+Pod running: 1/1 Ready
+Kafka topic provisioned: system.thunder.smoke.responses
+Round-trip verified: request → adapter consumed → not_implemented error response → producer sent → headers and body shape as designed
+
+Three docs updated this session:
+
+016_debugging_guide_v2.md — new section 10 on adapter deployment failure modes
+FOCUS_adapter_design.md — Deployment essentials rewritten with the real lessons learned
+(Earlier in the session) Tier 1/2/3 response header taxonomy and validator TODO
+
+# Phase 3 scope
+Per 013_thunder_adapter_design.md / your file 033_thunder_adapter_design_1_.md, Phase 3 is the provisioning lifecycle:
+
+Thunder Compute API client — Go HTTP client wrapping the Thunder Compute REST API (create instance, list instances, terminate instance, get instance status). Lives at internal/adapters/thunder/thunder_api.go.
+provision_instance action handler — pre-check via thunder_provision_check view, generate SSH keypair, store in k8s Secret, call Thunder API to create instance, wait for "running" state, INSERT into thunder_instances, return instance_ip, ssh_user, ssh_key_secret_name, thunder_instance_id, provisioned_at.
+decommission_instance action handler — call Thunder API to terminate, delete the k8s SSH Secret, UPDATE thunder_instances.status='decommissioned'.
+thunder-reaper scheduled task — runs every 15 min, finds instances older than hard_uptime_hours, dispatches decommission for each.
+
+Want to kick off with Phase 3.1 (the Thunder API client) since it's the foundation everything else depends on? Or do you want to settle the smoke-test KafkaTopic CRD properly first (e.g. apply it permanently rather than as a 5-minute retention)? Either way is reasonable — let me know how you want to start.
+

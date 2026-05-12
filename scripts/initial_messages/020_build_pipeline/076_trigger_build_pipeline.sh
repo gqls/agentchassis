@@ -5,6 +5,19 @@ INSERT INTO build_queue (domain, priority) VALUES ('example.com', 10);
 gaswholesalers.com
 INSERT INTO build_queue (domain, priority) VALUES ('gaswholesalers.com', 10);
 
+clients_db=# SELECT id, domain FROM sites;
+                  id                  |           domain
+--------------------------------------+----------------------------
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | finetuning.uk
+ 859d7ad5-0f22-4ba1-8efd-cd59e8fb042f | gamesdesign.co.uk
+ eac60db8-b032-432b-b36d-76f37632045d | system.internal
+ 00ff3af5-dad8-4770-9f70-3edc267a3c92 | robot-hands.com
+ 5fe15466-4e2e-4ff2-981e-98c1b7074002 | gaswholesalers.com
+ 4851f6fc-71cf-4160-a270-e03d6d3e0732 | leopardessconsulting.co.uk
+ e1e22a7d-0552-405a-85b3-1b1e51384df5 | vonc.com
+ 2a8ebf9c-20a2-4c39-b191-840b012371da | ai-agent-orchestration.com
+(8 rows)
+
 SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc"
 DOMAIN="finetuning.uk"
 

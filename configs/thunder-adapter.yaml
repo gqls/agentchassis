@@ -50,9 +50,12 @@ custom:
     consumer_group: "thunder.adapter.group"
     main_topic: "system.adapter.thunder.requests"
 
-  # Thunder Compute API connection (used from Phase 3 onward)
+  # Thunder Compute API connection (used from Phase 3 onward).
+  # Base URL confirmed from official docs at
+  # https://www.thundercompute.com/docs/api-reference/instances/create-instance
+  # — note non-standard port :8443 and /v1 prefix.
   thunder_api:
-    url: "${THUNDER_API_URL:https://api.thundercompute.com/v1}"
+    url: "${THUNDER_API_URL:https://api.thundercompute.com:8443/v1}"
     key_env_var: "THUNDER_COMPUTE_API_KEY"
 
   # SSH key management (used from Phase 3 onward)
@@ -69,3 +72,4 @@ custom:
     timeout_seconds: 60
     consecutive_failures: 5
     failure_ratio: 0.6
+    
