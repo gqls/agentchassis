@@ -220,8 +220,20 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 		logger.Warn("Failed to load page sections", zap.Error(err))
 	}
 
-	// No content at all?
-	if len(siteComponents) == 0 && len(sections) == 0 {
+	// No page-level content? Skip — we never deploy a page that is just
+	// header + empty <main> + footer. siteComponents being non-empty is
+	// expected on every page (header/footer/head live at site level), so
+	// it isn't a useful signal here; sections is what determines whether
+	// this page has anything to say. The caller (RerenderSinglePageAction)
+	// converts an empty return into skipped=true, which the page-rerender
+	// workflow's check_skipped conditional routes to complete_skipped so
+	// neither git_commit nor update_page_status runs.
+	if len(sections) == 0 {
+		logger.Info("assemblePage: page has no sections, skipping",
+			zap.String("page_name", page.Name),
+			zap.String("page_id", page.ID.String()),
+			zap.Int("site_components", len(siteComponents)),
+		)
 		return "", nil
 	}
 
