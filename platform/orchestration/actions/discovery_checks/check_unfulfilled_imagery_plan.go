@@ -76,12 +76,13 @@ type plannedImagery struct {
 //
 // Priority numbers match the legacy check's bands so the two checks
 // produce comparable queue orderings during transition:
-//   65 — page.index hero        (mirrors hero_home)
-//   70 — site.logo               (mirrors logo)
-//   75 — other site-scope        (brand-level supporting imagery)
-//   80 — page-scope hero (non-index, mirrors hero variants)
-//   90 — page-scope non-hero
-//  100 — section-scope decoratives
+//
+//	 65 — page.index hero        (mirrors hero_home)
+//	 70 — site.logo               (mirrors logo)
+//	 75 — other site-scope        (brand-level supporting imagery)
+//	 80 — page-scope hero (non-index, mirrors hero variants)
+//	 90 — page-scope non-hero
+//	100 — section-scope decoratives
 func classifyImageryRow(scope, kind string, scopeRef *string) (priority int, severity string) {
 	if scope == "page" && scopeRef != nil && *scopeRef == "index" && kind == "hero" {
 		return 65, "high"
