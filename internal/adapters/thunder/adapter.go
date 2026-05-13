@@ -1,11 +1,14 @@
 // FILE: internal/adapters/thunder/adapter.go
 //
-// Thunder Compute Adapter — Phase 2 skeleton.
+// Thunder Compute Adapter.
 //
-// Status: skeleton. Connects to Kafka and Postgres, serves /health and /ready,
-// receives messages on system.adapter.thunder.requests and returns
-// error_unrecoverable responses with reason "not_implemented" until Phase 3
-// lands the real action handlers.
+// Status: Phase 3.3 — provision_instance is implemented. decommission_instance
+// and the reaper land in 3.4 and 3.5 respectively. Currently:
+//
+//   - provision_instance: full flow — pre-check, keypair generation,
+//     Thunder API create, k8s Secret persistence, WaitForRunning poll,
+//     thunder_instances INSERT with retry, compensating cleanup on failure.
+//   - all other actions: return error_unrecoverable / not_implemented.
 //
 // See FOCUS_adapter_design.md for the canonical pattern this follows.
 // See 013/033_thunder_adapter_design.md for the design of the full adapter.
@@ -16,9 +19,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +31,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 
+	"github.com/gqls/agentchassis/internal/adapters/thunder/api"
+	"github.com/gqls/agentchassis/internal/adapters/thunder/ssh"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/kafka"
 )
@@ -42,6 +49,11 @@ type Adapter struct {
 	adapterID uuid.UUID
 
 	requestsTopic string
+
+	// Phase 3 dependencies — wired in NewAdapter.
+	thunderAPI      *api.Client
+	secretMgr       *ssh.SecretManager
+	provisionAction *ProvisionAction
 
 	healthServer *http.Server
 	shutdownOnce sync.Once
@@ -124,16 +136,55 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	}
 	logger.Info("Thunder adapter db connected", zap.Float64("daily_cap_usd", capCheck))
 
+	// ── 5. Thunder Compute API client ──
+	// Env vars take precedence (deployment can override per environment);
+	// fall back to the default URL if THUNDER_API_URL is unset.
+	thunderAPIBaseURL := os.Getenv("THUNDER_API_URL")
+	if thunderAPIBaseURL == "" {
+		thunderAPIBaseURL = "https://api.thundercompute.com:8443/v1"
+	}
+	thunderAPIKey := os.Getenv("THUNDER_COMPUTE_API_KEY")
+	if thunderAPIKey == "" {
+		db.Close()
+		producer.Close()
+		consumer.Close()
+		cancel()
+		return nil, fmt.Errorf("THUNDER_COMPUTE_API_KEY env var is empty — Thunder API auth will fail")
+	}
+	thunderAPIClient := api.NewClient(thunderAPIBaseURL, thunderAPIKey, logger)
+
+	// ── 6. k8s Secret manager (in-cluster) ──
+	// Namespace defaults to ai-persona-system to match the pod's own
+	// namespace; THUNDER_SSH_NAMESPACE overrides if needed for testing.
+	sshNamespace := os.Getenv("THUNDER_SSH_NAMESPACE")
+	if sshNamespace == "" {
+		sshNamespace = "ai-persona-system"
+	}
+	secretMgr, err := ssh.NewInClusterSecretManager(sshNamespace, logger)
+	if err != nil {
+		db.Close()
+		producer.Close()
+		consumer.Close()
+		cancel()
+		return nil, fmt.Errorf("failed to create ssh secret manager: %w", err)
+	}
+
+	// ── 7. Provision action — wires API + Secrets + DB ──
+	provisionAction := NewProvisionAction(thunderAPIClient, secretMgr, db, logger)
+
 	a := &Adapter{
-		ctx:           adapterCtx,
-		cancel:        cancel,
-		cfg:           cfg,
-		logger:        logger.With(zap.String("component", "thunder-adapter")),
-		consumer:      consumer,
-		producer:      producer,
-		db:            db,
-		adapterID:     adapterID,
-		requestsTopic: requestsTopic,
+		ctx:             adapterCtx,
+		cancel:          cancel,
+		cfg:             cfg,
+		logger:          logger.With(zap.String("component", "thunder-adapter")),
+		consumer:        consumer,
+		producer:        producer,
+		db:              db,
+		adapterID:       adapterID,
+		requestsTopic:   requestsTopic,
+		thunderAPI:      thunderAPIClient,
+		secretMgr:       secretMgr,
+		provisionAction: provisionAction,
 	}
 
 	logger.Info("Thunder adapter initialized",
@@ -141,6 +192,8 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		zap.String("requests_topic", requestsTopic),
 		zap.String("consumer_group", consumerGroup),
 		zap.String("adapter_id", adapterID.String()),
+		zap.String("thunder_api_url", thunderAPIBaseURL),
+		zap.String("ssh_namespace", sshNamespace),
 	)
 
 	return a, nil
@@ -183,8 +236,7 @@ func (a *Adapter) Run() error {
 	}
 }
 
-// handleMessage parses one inbound request and routes it.
-// Phase 2: every action returns error_unrecoverable / not_implemented.
+// handleMessage parses one inbound request and routes it by action.
 func (a *Adapter) handleMessage(msg kafka.Message) {
 	headers := kafka.HeadersToMap(msg.Headers)
 	l := a.logger.With(
@@ -212,13 +264,18 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		zap.String("reply_to_topic", replyToTopic),
 	)
 
-	// Phase 2: every action returns error_unrecoverable. Phase 3+ will
-	// replace this with a switch dispatching to per-action handlers.
-	a.sendErrorResponse(headers, replyToTopic, action,
-		"not_implemented",
-		"thunder-adapter is a skeleton; action handlers land in Phase 3",
-		"error_unrecoverable", l,
-	)
+	// Phase 3 dispatch: provision_instance is implemented; others still
+	// return not_implemented until later phases.
+	switch action {
+	case "provision_instance":
+		a.handleProvisionInstance(body, headers, replyToTopic, l)
+	default:
+		a.sendErrorResponse(headers, replyToTopic, action,
+			"not_implemented",
+			"thunder-adapter does not yet implement this action",
+			"error_unrecoverable", l,
+		)
+	}
 	a.commit(msg)
 }
 
@@ -276,6 +333,166 @@ func (a *Adapter) sendErrorResponse(
 		zap.String("status", status),
 		zap.String("error_code", errCode),
 	)
+}
+
+// handleProvisionInstance parses the body, calls ProvisionAction.Execute,
+// and sends either a success or error response. Error responses use
+// error_recoverable / error_unrecoverable based on the cause (caps and
+// auth → unrecoverable; 5xx / timeout → recoverable, chassis can retry).
+func (a *Adapter) handleProvisionInstance(
+	body map[string]interface{},
+	reqHeaders map[string]string,
+	replyToTopic string,
+	l *zap.Logger,
+) {
+	if replyToTopic == "" {
+		l.Warn("No reply_to_topic on provision_instance request — cannot send response")
+		return
+	}
+
+	// Re-marshal the body subtree into a strongly-typed request.
+	// We could parse map[string]interface{} field-by-field, but
+	// round-tripping through JSON is simpler and the body is small.
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "provision_instance",
+			"invalid_request_body",
+			fmt.Sprintf("could not re-marshal body: %v", err),
+			"error_unrecoverable", l,
+		)
+		return
+	}
+	var req ProvisionInstanceRequest
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "provision_instance",
+			"invalid_request_body",
+			fmt.Sprintf("could not unmarshal into ProvisionInstanceRequest: %v", err),
+			"error_unrecoverable", l,
+		)
+		return
+	}
+	// Populate the non-JSON RequestedBy from the message header.
+	req.RequestedBy = reqHeaders["sender_agent_type"]
+
+	// Use a generous ctx — provision can take up to ~5 min for WaitForRunning.
+	// The action itself wraps WaitForRunning with its own configured timeout;
+	// this outer ctx is the upper bound.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	result, err := a.provisionAction.Execute(ctx, req)
+	if err != nil {
+		status := "error_unrecoverable"
+		errCode := "provision_failed"
+		switch {
+		case isProvisionDenial(err):
+			errCode = "provision_denied"
+			// status stays error_unrecoverable — cap denial isn't retryable
+		case isInfrastructureError(err):
+			status = "error_recoverable"
+			errCode = "infrastructure_error"
+		}
+		a.sendErrorResponse(reqHeaders, replyToTopic, "provision_instance",
+			errCode, err.Error(), status, l,
+		)
+		return
+	}
+
+	// Success path — send shaped response. Fields match what model-trainer's
+	// call_launcher input_mapping reads from provisioning_result.* via
+	// the .response auto-unwrap in input_mapping.go.
+	a.sendSuccessResponse(reqHeaders, replyToTopic, "provision_instance",
+		map[string]interface{}{
+			"instance_ip":         result.InstanceIP,
+			"ssh_user":            result.SSHUser,
+			"ssh_key_secret_name": result.SSHKeySecretName,
+			"provisioning_id":     result.ProvisioningID,
+			"thunder_identifier":  result.ThunderIdentifier,
+			"provisioned_at":      result.ProvisionedAt.Format(time.RFC3339),
+		}, l)
+}
+
+// sendSuccessResponse builds and produces a success-shaped response on the
+// reply topic. Mirrors sendErrorResponse but with success=true, status=complete,
+// is_error=false. Action handler is responsible for constructing the body map.
+func (a *Adapter) sendSuccessResponse(
+	reqHeaders map[string]string,
+	replyToTopic string,
+	action string,
+	body map[string]interface{},
+	l *zap.Logger,
+) {
+	if replyToTopic == "" {
+		l.Warn("No reply_to_topic on success response — dropping",
+			zap.String("action", action))
+		return
+	}
+
+	respHeaders := buildResponseHeaders(reqHeaders, "complete", true, a.cfg.ServiceInfo.Name, a.adapterID)
+
+	// Inject action and success flag into the body envelope for callers
+	// that branch on body.success (mirroring sendErrorResponse's shape).
+	envelopeBody := map[string]interface{}{
+		"success": true,
+		"action":  action,
+	}
+	for k, v := range body {
+		envelopeBody[k] = v
+	}
+
+	envelope := map[string]interface{}{
+		"headers": respHeaders,
+		"body":    envelopeBody,
+	}
+	envelopeBytes, err := json.Marshal(envelope)
+	if err != nil {
+		l.Error("Failed to marshal success envelope", zap.Error(err))
+		return
+	}
+
+	produceCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := a.producer.Produce(
+		produceCtx,
+		replyToTopic,
+		respHeaders,
+		[]byte(reqHeaders["correlation_id"]),
+		envelopeBytes,
+	); err != nil {
+		l.Error("Failed to produce success response", zap.Error(err))
+		return
+	}
+	l.Info("Sent success response", zap.String("action", action))
+}
+
+// isProvisionDenial returns true if err originated from a thunder_provision_check
+// denial (cap breach, manual pause) rather than an infrastructure failure.
+// Used to decide between error_unrecoverable (intended denial) and
+// error_recoverable (transient infra). Substring match is fragile but
+// adequate while these are the only two paths that produce these strings.
+func isProvisionDenial(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "provision denied") ||
+		strings.Contains(msg, "provisioning paused")
+}
+
+// isInfrastructureError detects transient failures — Thunder 5xx, rate limit,
+// or ctx deadline/cancel during WaitForRunning. Caller returns
+// error_recoverable so the chassis retry policy applies.
+func isInfrastructureError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var apiErr *api.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.IsServer() || apiErr.IsRateLimit()
+	}
+	return errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, context.Canceled)
 }
 
 // buildResponseHeaders constructs the response header map per the FOCUS doc
