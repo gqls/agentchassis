@@ -365,7 +365,7 @@ type llmFieldSpec struct {
 	Name        string      `json:"name"`
 	Type        string      `json:"type,omitempty"` // text | url | image | rich_text | …
 	Required    bool        `json:"required,omitempty"`
-	Description string      `json:"description,omitempty"` // present when the schema declares one
+	Description string      `json:"description,omitempty"` // sourced from input_schema field's `llm_guidance` key
 	OnMissing   string      `json:"on_missing,omitempty"`  // skip_field | use_fallback | error
 	Fallback    interface{} `json:"fallback,omitempty"`    // value used when on_missing=use_fallback
 }
@@ -954,7 +954,7 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 				Name:        fieldName,
 				Type:        fieldType,
 				Required:    required,
-				Description: stringOrEmpty(fieldDef["description"]),
+				Description: stringOrEmpty(fieldDef["llm_guidance"]),
 				OnMissing:   onMissing,
 				Fallback:    fallback,
 			})
@@ -1329,7 +1329,7 @@ func sanitiseSectionKey(s string) string {
 
 // stringOrEmpty extracts a string from an interface{}, returning "" when the
 // value isn't a string or is nil. Used when reading optional fields off the
-// parsed input_schema map (description, on_missing) where the schema author
+// parsed input_schema map (llm_guidance, on_missing) where the schema author
 // may simply omit the key.
 func stringOrEmpty(v interface{}) string {
 	if s, ok := v.(string); ok {

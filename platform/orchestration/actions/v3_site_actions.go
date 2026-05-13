@@ -1450,6 +1450,40 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		}
 	}
 
+	// Step 3: optional merge_with — overlay pre-resolved data on top of the
+	// LLM/content output. Used by page-content-writer's loop with
+	// `merge_with: current_section.resolved_data` so query-resolved items,
+	// static fallback values, and other authoritative data land in both the
+	// rendered HTML AND the persisted content_data. The merge happens AFTER
+	// the content_from block so resolved_data wins on conflicts — by design,
+	// because it's database-derived and authoritative; the LLM should never
+	// be writing items/urls/labels that the resolver already produced.
+	if mw, ok := config["merge_with"].(string); ok && mw != "" {
+		mergeData := datahelpers.ExtractNestedField(params.CollectedData, mw)
+		if mergeMap, ok := mergeData.(map[string]interface{}); ok && len(mergeMap) > 0 {
+			params.Logger.Info("RenderComponentAction: Merging resolved data",
+				zap.String("merge_with", mw),
+				zap.Int("merge_field_count", len(mergeMap)),
+				zap.Any("merge_keys", datahelpers.GetMapKeys(mergeMap)))
+			if sectionContentData == nil {
+				sectionContentData = make(map[string]interface{})
+			}
+			// Overlay merge data onto section content data so it lands in both
+			// the render context AND the persisted content_data output.
+			// Last write wins → resolved_data overrides LLM duplicates.
+			for k, v := range mergeMap {
+				sectionContentData[k] = v
+			}
+			mergeIntoRenderContext(renderCtx, mergeMap)
+		} else if mergeData != nil {
+			params.Logger.Warn("RenderComponentAction: merge_with did not resolve to a map",
+				zap.String("merge_with", mw),
+				zap.String("type", fmt.Sprintf("%T", mergeData)))
+		}
+		// If mergeData is nil, that's fine — the path simply wasn't populated
+		// for this section (e.g. an all-LLM section with no resolved_data).
+	}
+
 	// Before calling RenderTemplate, set ComponentID in context
 	renderCtx.ContentData["ComponentID"] = comp.ID
 
