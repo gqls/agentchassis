@@ -778,17 +778,19 @@ func firstNonEmptyField(m map[string]interface{}, keys ...string) string {
 //	  sections: {"page_name:ordering": [{...}, ...], ...}
 //	}
 //
-// If "imagery" is absent or empty, returns nil. During the transition
-// window (step 2 deployed, step 3 not yet) every plan has imagery absent
-// and this is a no-op.
+// Imagery is located via findDirectiveTree, which tolerates the wrapper
+// shapes the planner pipeline produces — top-level, site_plan,
+// llm_plan.result, etc. If imagery is absent the function returns nil
+// and logs a warning (the planner is expected to emit it post-Phase 2G
+// step 3).
 //
 // Rows with malformed fields (missing key/kind/prompt) or unknown kind
 // values are SKIPPED with a warning log rather than failing the plan.
 // Partial imagery is better than a failed plan write.
 func flattenImageryBlock(data map[string]interface{}, logger *zap.Logger) []imageryRow {
-	imagery, ok := data["imagery"].(map[string]interface{})
-	if !ok || len(imagery) == 0 {
-		logger.Info("flattenImageryBlock: no imagery block in collected_data; skipping")
+	imagery := findDirectiveTree(data, "imagery")
+	if imagery == nil || len(imagery) == 0 {
+		logger.Warn("flattenImageryBlock: no imagery block found at any expected path; skipping")
 		return nil
 	}
 
