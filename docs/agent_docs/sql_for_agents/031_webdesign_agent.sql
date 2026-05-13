@@ -3926,3 +3926,759 @@ SELECT
 
 COMMIT;
 
+---
+      -- js snippets
+-- migration_c_wire_snippet_renderer.sql
+--
+-- Wires the snippet rendering pipeline into the existing workflows that
+-- should trigger it. Apply AFTER migration B (which creates the
+-- site-asset-renderer agent and registers render_js_snippets_for_site).
+--
+-- Two wiring patterns:
+--
+-- A. Workflows that already use render_site_components as an in-chassis
+--    action step → add render_js_snippets_for_site + git_commit as two
+--    inline steps RIGHT AFTER render_site_components. Inline because
+--    these are light (DB query + async git wait) — pod-spawn overhead
+--    of calling site-asset-renderer isn't worth it here.
+--
+--    Workflows updated:
+--      site-work-orchestrator
+--      nav-updater
+--      rerender-site
+--      pageflow-builder
+--      rerender-pages
+--      nav-link-fixer (step is named 'rerender_site_components' — special case)
+--
+-- B. webdesign-agent → spawn + call site-asset-renderer after deploy_css,
+--    before check_should_fork. Uses the wrapper-orchestrator pattern from
+--    the development guide (spawn before call, target_role).
+--
+-- Both patterns are idempotent: re-running this migration is a no-op
+-- on already-wired workflows.
+
+\set ON_ERROR_STOP on
+
+BEGIN;
+
+
+-- =====================================================================
+-- Pattern A: inline insertion after render_site_components (5 workflows)
+-- =====================================================================
+-- These workflows all have a step named exactly 'render_site_components'.
+-- Each is handled by the same loop.
+
+DO $$
+DECLARE
+  v_agent_name  text;
+  v_workflow    jsonb;
+  v_orig_next   text;
+  v_agent_names text[] := ARRAY[
+    'site-work-orchestrator',
+    'nav-updater',
+    'rerender-site',
+    'pageflow-builder',
+    'rerender-pages'
+  ];
+BEGIN
+  FOREACH v_agent_name IN ARRAY v_agent_names LOOP
+    SELECT config INTO v_workflow
+    FROM agent_definitions
+    WHERE name = v_agent_name;
+
+    IF v_workflow IS NULL THEN
+      RAISE NOTICE '[%] not found — skipping', v_agent_name;
+      CONTINUE;
+    END IF;
+
+    -- Idempotency: skip if already wired
+    IF v_workflow #>> '{workflow,steps,render_js_snippets,action}' IS NOT NULL THEN
+      RAISE NOTICE '[%] already wired — skipping', v_agent_name;
+      CONTINUE;
+    END IF;
+
+    -- Capture what render_site_components currently points at
+    v_orig_next := v_workflow #>> '{workflow,steps,render_site_components,next_step}';
+
+    IF v_orig_next IS NULL THEN
+      RAISE NOTICE '[%] has no render_site_components.next_step — skipping', v_agent_name;
+      CONTINUE;
+    END IF;
+
+    -- Insert render_js_snippets step
+    v_workflow := jsonb_set(
+      v_workflow,
+      '{workflow,steps,render_js_snippets}',
+      jsonb_build_object(
+        'action',       'render_js_snippets_for_site',
+        'config',       jsonb_build_object('site_id_field', 'site_record.site_id'),
+        'next_step',    'deploy_js_snippets',
+        'output_field', 'js_snippets_render',
+        'description',  'Render concatenated JS snippets bundle for this site'
+      )
+    );
+
+    -- Insert deploy_js_snippets step (preserves original chain)
+    v_workflow := jsonb_set(
+      v_workflow,
+      '{workflow,steps,deploy_js_snippets}',
+      jsonb_build_object(
+        'action', 'git_commit',
+        'config', jsonb_build_object(
+          'domain_field',   'site_record.domain',
+          'files_field',    'js_snippets_render.files',
+          'commit_message', 'Update JS snippets bundle'
+        ),
+        'next_step',    v_orig_next,
+        'output_field', 'js_snippets_deployed',
+        'description',  'Commit assets/js/snippets.js to git'
+      )
+    );
+
+    -- Redirect render_site_components → render_js_snippets
+    v_workflow := jsonb_set(
+      v_workflow,
+      '{workflow,steps,render_site_components,next_step}',
+      to_jsonb('render_js_snippets'::text)
+    );
+
+    UPDATE agent_definitions
+    SET config = v_workflow, updated_at = NOW()
+    WHERE name = v_agent_name;
+
+    RAISE NOTICE '[%] wired (render_site_components → render_js_snippets → deploy_js_snippets → %)',
+      v_agent_name, v_orig_next;
+  END LOOP;
+END
+$$;
+
+
+-- =====================================================================
+-- Pattern A (special case): nav-link-fixer uses 'rerender_site_components'
+-- =====================================================================
+
+DO $$
+DECLARE
+  v_workflow  jsonb;
+  v_orig_next text;
+BEGIN
+  SELECT config INTO v_workflow
+  FROM agent_definitions
+  WHERE name = 'nav-link-fixer';
+
+  IF v_workflow IS NULL THEN
+    RAISE NOTICE '[nav-link-fixer] not found — skipping';
+    RETURN;
+  END IF;
+
+  IF v_workflow #>> '{workflow,steps,render_js_snippets,action}' IS NOT NULL THEN
+    RAISE NOTICE '[nav-link-fixer] already wired — skipping';
+    RETURN;
+  END IF;
+
+  v_orig_next := v_workflow #>> '{workflow,steps,rerender_site_components,next_step}';
+
+  IF v_orig_next IS NULL THEN
+    RAISE NOTICE '[nav-link-fixer] has no rerender_site_components.next_step — skipping';
+    RETURN;
+  END IF;
+
+  v_workflow := jsonb_set(v_workflow, '{workflow,steps,render_js_snippets}',
+    jsonb_build_object(
+      'action',       'render_js_snippets_for_site',
+      'config',       jsonb_build_object('site_id_field', 'site_record.site_id'),
+      'next_step',    'deploy_js_snippets',
+      'output_field', 'js_snippets_render',
+      'description',  'Render concatenated JS snippets bundle for this site'
+    )
+  );
+  v_workflow := jsonb_set(v_workflow, '{workflow,steps,deploy_js_snippets}',
+    jsonb_build_object(
+      'action', 'git_commit',
+      'config', jsonb_build_object(
+        'domain_field',   'site_record.domain',
+        'files_field',    'js_snippets_render.files',
+        'commit_message', 'Update JS snippets bundle'
+      ),
+      'next_step',    v_orig_next,
+      'output_field', 'js_snippets_deployed',
+      'description',  'Commit assets/js/snippets.js to git'
+    )
+  );
+  v_workflow := jsonb_set(v_workflow,
+    '{workflow,steps,rerender_site_components,next_step}',
+    to_jsonb('render_js_snippets'::text)
+  );
+
+  UPDATE agent_definitions
+  SET config = v_workflow, updated_at = NOW()
+  WHERE name = 'nav-link-fixer';
+
+  RAISE NOTICE '[nav-link-fixer] wired (rerender_site_components → render_js_snippets → deploy_js_snippets → %)',
+    v_orig_next;
+END
+$$;
+
+
+-- =====================================================================
+-- Pattern B: webdesign-agent calls site-asset-renderer (spawn + call)
+-- =====================================================================
+-- webdesign-agent's chain is currently:
+--   ... → generate_css → deploy_css → check_should_fork → (fork_theme |) complete
+--
+-- After this migration:
+--   ... → deploy_css → spawn_asset_renderer → call_asset_renderer → check_should_fork → ...
+
+DO $$
+DECLARE
+  v_workflow  jsonb;
+  v_orig_next text;
+BEGIN
+  SELECT config INTO v_workflow
+  FROM agent_definitions
+  WHERE name = 'webdesign-agent';
+
+  IF v_workflow IS NULL THEN
+    RAISE NOTICE '[webdesign-agent] not found — skipping';
+    RETURN;
+  END IF;
+
+  IF v_workflow #>> '{workflow,steps,spawn_asset_renderer,action}' IS NOT NULL THEN
+    RAISE NOTICE '[webdesign-agent] already wired — skipping';
+    RETURN;
+  END IF;
+
+  v_orig_next := v_workflow #>> '{workflow,steps,deploy_css,next_step}';
+
+  IF v_orig_next IS NULL THEN
+    RAISE NOTICE '[webdesign-agent] has no deploy_css.next_step — skipping';
+    RETURN;
+  END IF;
+
+  -- spawn site-asset-renderer (role: asset_renderer)
+  v_workflow := jsonb_set(v_workflow, '{workflow,steps,spawn_asset_renderer}',
+    jsonb_build_object(
+      'action', 'spawn_agent',
+      'config', jsonb_build_object(
+        'role',       'asset_renderer',
+        'agent_type', 'site-asset-renderer'
+      ),
+      'next_step',    'call_asset_renderer',
+      'output_field', 'asset_renderer_agent',
+      'description',  'Spawn site-asset-renderer for JS snippets bundle'
+    )
+  );
+
+  -- call site-asset-renderer (target_role: asset_renderer)
+  v_workflow := jsonb_set(v_workflow, '{workflow,steps,call_asset_renderer}',
+    jsonb_build_object(
+      'action', 'call_agent',
+      'config', jsonb_build_object(
+        'target_role', 'asset_renderer',
+        'input_mapping', jsonb_build_object(
+          'site_id', 'site_context.site_id',
+          'domain',  'site_context.domain'
+        ),
+        'timeout_seconds', 120
+      ),
+      'next_step',    v_orig_next,
+      'output_field', 'asset_renderer_result',
+      'description',  'Render & deploy snippets.js via site-asset-renderer'
+    )
+  );
+
+  -- Redirect deploy_css → spawn_asset_renderer
+  v_workflow := jsonb_set(v_workflow,
+    '{workflow,steps,deploy_css,next_step}',
+    to_jsonb('spawn_asset_renderer'::text)
+  );
+
+  UPDATE agent_definitions
+  SET config = v_workflow, updated_at = NOW()
+  WHERE name = 'webdesign-agent';
+
+  RAISE NOTICE '[webdesign-agent] wired (deploy_css → spawn_asset_renderer → call_asset_renderer → %)',
+    v_orig_next;
+END
+$$;
+
+
+-- =====================================================================
+-- Verification
+-- =====================================================================
+
+\echo '--- AFTER: pattern A workflows (render_site_components → render_js_snippets → deploy_js_snippets) ---'
+SELECT
+  name,
+  config #>> '{workflow,steps,render_site_components,next_step}'  AS rsc_next,
+  config #>> '{workflow,steps,render_js_snippets,next_step}'      AS rjs_next,
+  config #>> '{workflow,steps,deploy_js_snippets,next_step}'      AS djs_next
+FROM agent_definitions
+WHERE name IN (
+  'site-work-orchestrator', 'nav-updater', 'rerender-site',
+  'pageflow-builder',       'rerender-pages'
+)
+ORDER BY name;
+
+\echo '--- AFTER: nav-link-fixer (rerender_site_components → render_js_snippets → deploy_js_snippets) ---'
+SELECT
+  name,
+  config #>> '{workflow,steps,rerender_site_components,next_step}' AS rsc_next,
+  config #>> '{workflow,steps,render_js_snippets,next_step}'       AS rjs_next,
+  config #>> '{workflow,steps,deploy_js_snippets,next_step}'       AS djs_next
+FROM agent_definitions
+WHERE name = 'nav-link-fixer';
+
+\echo '--- AFTER: webdesign-agent (deploy_css → spawn_asset_renderer → call_asset_renderer → check_should_fork) ---'
+SELECT
+  name,
+  config #>> '{workflow,steps,deploy_css,next_step}'             AS deploy_css_next,
+  config #>> '{workflow,steps,spawn_asset_renderer,next_step}'   AS spawn_next,
+  config #>> '{workflow,steps,call_asset_renderer,next_step}'    AS call_next
+FROM agent_definitions
+WHERE name = 'webdesign-agent';
+
+COMMIT;
+
+
+-- =====================================================================
+-- Design notes
+-- =====================================================================
+--
+-- Why inline for pattern A but spawn+call for pattern B:
+--
+-- - Pattern A workflows already do in-chassis action work
+--   (render_site_components is itself an in-chassis Go action). Adding
+--   two more in-chassis steps (DB query + async git_commit) costs
+--   nothing extra in pod lifecycle terms.
+--
+-- - webdesign-agent (pattern B) is the entry point most likely to be
+--   reached from a manual trigger or from a parent that spawned it.
+--   Delegating snippet work to a child gives clean log separation
+--   (kubectl logs <site-asset-renderer-pod>) and keeps each agent
+--   focused on one job. This is the "agents own their domain" rule
+--   from doc 001.
+--
+-- Both patterns produce the same end state: /assets/js/snippets.js is
+-- rendered and committed to the site's git repo.
+--
+-- Idempotency model: each DO block checks whether the workflow already
+-- has the new steps before touching it. A second run is a no-op,
+-- reported via RAISE NOTICE.
+
+-- fix for above plus other
+
+-- catchup_news_redesign.sql
+--
+-- Brings the system to the end state, picking up after migration B's
+-- partial run. The following from migration B already succeeded and
+-- is not redone here:
+--   - css_snippets rows for Latest News Grid + News Listing Page
+--   - content_components for latest-news + news-listing (contract 003)
+--   - head templates with /assets/js/snippets.js loader tag
+--
+-- What this script does:
+--   1. Adds is_active column to js_snippets (was migration A)
+--   2. INSERTs news-date-formatter js_snippets row
+--   3. INSERTs site-asset-renderer agent_definitions row
+--   4. Wires 5 workflows (Pattern A — inline insertion)
+--   5. Wires nav-link-fixer (Pattern A special case)
+--   6. Wires webdesign-agent (Pattern B — spawn + call)
+--
+-- All operations idempotent. Paste as one transaction — if anything
+-- fails, the whole thing rolls back. Verification SELECTs at the end
+-- run after COMMIT in autocommit mode.
+
+BEGIN;
+
+
+-- =====================================================================
+-- 1. Add is_active to js_snippets (was migration A — column was missing)
+-- =====================================================================
+
+ALTER TABLE js_snippets
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT false;
+
+
+-- =====================================================================
+-- 2. INSERT news-date-formatter js_snippets row
+-- =====================================================================
+
+INSERT INTO js_snippets (name, description, js_content, applies_to, semantic_tags, is_active)
+VALUES (
+  'news-date-formatter',
+  'Expands abbreviated relative-time strings ("2d ago" -> "2 days ago") for news feeds. Loaded via /assets/js/snippets.js, available globally.',
+  $JS$function formatNewsDate(s) {
+  if (!s) return "";
+  s = s.replace(/^(\d+)d\s*ago$/i, function (_, n) { return n + (n === "1" ? " day ago" : " days ago"); });
+  s = s.replace(/^(\d+)h\s*ago$/i, function (_, n) { return n + (n === "1" ? " hour ago" : " hours ago"); });
+  s = s.replace(/^(\d+)m\s*ago$/i, function (_, n) { return n + (n === "1" ? " minute ago" : " minutes ago"); });
+  s = s.replace(/^(\d+)w\s*ago$/i, function (_, n) { return n + (n === "1" ? " week ago" : " weeks ago"); });
+  return s;
+}
+$JS$,
+  '["latest-news", "news-listing"]'::jsonb,
+  '["news", "presentation", "time", "formatter"]'::jsonb,
+  true
+)
+ON CONFLICT (name) DO UPDATE SET
+  description = EXCLUDED.description,
+  js_content  = EXCLUDED.js_content,
+  applies_to  = EXCLUDED.applies_to,
+  is_active   = EXCLUDED.is_active;
+
+
+-- =====================================================================
+-- 3. INSERT site-asset-renderer agent definition
+-- =====================================================================
+-- Columns match actual agent_definitions schema:
+--   type, display_name, description, category (varchar 50),
+--   default_config (JSONB with workflow), capabilities (jsonb array),
+--   image_repository, image_tag, agent_category (constrained), status,
+--   domain_tags, input_contract, output_contract, idle_timeout_seconds.
+-- Defaults used for: is_active, version (=1), env_vars, resources,
+-- topics, health_config, delegation_preferences.
+
+INSERT INTO agent_definitions (
+  type,
+  display_name,
+  description,
+  category,
+  default_config,
+  capabilities,
+  image_repository,
+  image_tag,
+  agent_category,
+  status,
+  domain_tags,
+  input_contract,
+  output_contract,
+  idle_timeout_seconds
+)
+VALUES (
+  'site-asset-renderer',
+  'Site Asset Renderer',
+  'Renders /assets/js/snippets.js for a site and commits to git. Deterministic — no LLM. Triggered when js_snippets or component set changes, or invoked by webdesign-agent.',
+  'specialist',
+  $WF${
+    "workflow": {
+      "start_step": "load_site",
+      "steps": {
+        "load_site": {
+          "action": "ensure_site_record",
+          "config": { "site_id_field": "input_data.site_id", "domain_field": "input_data.domain" },
+          "next_step": "render_js_snippets",
+          "output_field": "site_record",
+          "description": "Resolve site_id and domain"
+        },
+        "render_js_snippets": {
+          "action": "render_js_snippets_for_site",
+          "config": { "site_id_field": "site_record.site_id" },
+          "next_step": "deploy_js_snippets",
+          "output_field": "js_snippets_render",
+          "description": "Concatenate active js_snippets for this site"
+        },
+        "deploy_js_snippets": {
+          "action": "git_commit",
+          "config": {
+            "domain_field": "site_record.domain",
+            "files_field": "js_snippets_render.files",
+            "commit_message": "Update JS snippets bundle"
+          },
+          "next_step": "complete",
+          "output_field": "deploy_result",
+          "description": "Commit assets/js/snippets.js"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "config": { "output_fields": ["site_record", "js_snippets_render", "deploy_result"] },
+          "description": "Asset render complete"
+        }
+      }
+    },
+    "processing_mode": "task",
+    "timeout_seconds": 120
+  }$WF$::jsonb,
+  '["assets", "snippets", "site-level"]'::jsonb,
+  'docker.io/aqls/agent-chassis',
+  'v1.0.1012',
+  'executor',
+  'active',
+  '["website"]'::jsonb,
+  '{"required": ["site_id"], "optional": ["domain"], "description": "Provide site_id; domain is loaded from sites table if absent."}'::jsonb,
+  '{"produces": {"js_snippets_render": "Bundle metadata", "deploy_result": "git_commit result"}}'::jsonb,
+  120
+)
+ON CONFLICT (type, version) DO UPDATE SET
+  default_config = EXCLUDED.default_config,
+  description    = EXCLUDED.description,
+  updated_at     = NOW();
+
+
+-- =====================================================================
+-- 4. Pattern A: wire 5 workflows that have 'render_site_components' step
+-- =====================================================================
+
+DO $$
+DECLARE
+  v_agent_type  text;
+  v_workflow    jsonb;
+  v_orig_next   text;
+  v_agent_types text[] := ARRAY[
+    'site-work-orchestrator',
+    'nav-updater',
+    'rerender-site',
+    'pageflow-builder',
+    'rerender-pages'
+  ];
+BEGIN
+  FOREACH v_agent_type IN ARRAY v_agent_types LOOP
+    SELECT default_config INTO v_workflow
+    FROM agent_definitions
+    WHERE type = v_agent_type;
+
+    IF v_workflow IS NULL THEN
+      RAISE NOTICE '[%] not found - skipping', v_agent_type;
+      CONTINUE;
+    END IF;
+
+    IF v_workflow #>> '{workflow,steps,render_js_snippets,action}' IS NOT NULL THEN
+      RAISE NOTICE '[%] already wired - skipping', v_agent_type;
+      CONTINUE;
+    END IF;
+
+    v_orig_next := v_workflow #>> '{workflow,steps,render_site_components,next_step}';
+
+    IF v_orig_next IS NULL THEN
+      RAISE NOTICE '[%] has no render_site_components.next_step - skipping', v_agent_type;
+      CONTINUE;
+    END IF;
+
+    v_workflow := jsonb_set(v_workflow, '{workflow,steps,render_js_snippets}',
+      jsonb_build_object(
+        'action',       'render_js_snippets_for_site',
+        'config',       jsonb_build_object('site_id_field', 'site_record.site_id'),
+        'next_step',    'deploy_js_snippets',
+        'output_field', 'js_snippets_render',
+        'description',  'Render concatenated JS snippets bundle for this site'
+      )
+    );
+
+    v_workflow := jsonb_set(v_workflow, '{workflow,steps,deploy_js_snippets}',
+      jsonb_build_object(
+        'action', 'git_commit',
+        'config', jsonb_build_object(
+          'domain_field',   'site_record.domain',
+          'files_field',    'js_snippets_render.files',
+          'commit_message', 'Update JS snippets bundle'
+        ),
+        'next_step',    v_orig_next,
+        'output_field', 'js_snippets_deployed',
+        'description',  'Commit assets/js/snippets.js to git'
+      )
+    );
+
+    v_workflow := jsonb_set(v_workflow,
+      '{workflow,steps,render_site_components,next_step}',
+      to_jsonb('render_js_snippets'::text)
+    );
+
+    UPDATE agent_definitions
+    SET default_config = v_workflow, updated_at = NOW()
+    WHERE type = v_agent_type;
+
+    RAISE NOTICE '[%] wired (render_site_components -> render_js_snippets -> deploy_js_snippets -> %)',
+      v_agent_type, v_orig_next;
+  END LOOP;
+END
+$$;
+
+
+-- =====================================================================
+-- 5. Pattern A special case: nav-link-fixer (step is 'rerender_site_components')
+-- =====================================================================
+
+DO $$
+DECLARE
+  v_workflow  jsonb;
+  v_orig_next text;
+BEGIN
+  SELECT default_config INTO v_workflow
+  FROM agent_definitions
+  WHERE type = 'nav-link-fixer';
+
+  IF v_workflow IS NULL THEN
+    RAISE NOTICE '[nav-link-fixer] not found - skipping';
+    RETURN;
+  END IF;
+
+  IF v_workflow #>> '{workflow,steps,render_js_snippets,action}' IS NOT NULL THEN
+    RAISE NOTICE '[nav-link-fixer] already wired - skipping';
+    RETURN;
+  END IF;
+
+  v_orig_next := v_workflow #>> '{workflow,steps,rerender_site_components,next_step}';
+
+  IF v_orig_next IS NULL THEN
+    RAISE NOTICE '[nav-link-fixer] has no rerender_site_components.next_step - skipping';
+    RETURN;
+  END IF;
+
+  v_workflow := jsonb_set(v_workflow, '{workflow,steps,render_js_snippets}',
+    jsonb_build_object(
+      'action',       'render_js_snippets_for_site',
+      'config',       jsonb_build_object('site_id_field', 'site_record.site_id'),
+      'next_step',    'deploy_js_snippets',
+      'output_field', 'js_snippets_render',
+      'description',  'Render concatenated JS snippets bundle for this site'
+    )
+  );
+  v_workflow := jsonb_set(v_workflow, '{workflow,steps,deploy_js_snippets}',
+    jsonb_build_object(
+      'action', 'git_commit',
+      'config', jsonb_build_object(
+        'domain_field',   'site_record.domain',
+        'files_field',    'js_snippets_render.files',
+        'commit_message', 'Update JS snippets bundle'
+      ),
+      'next_step',    v_orig_next,
+      'output_field', 'js_snippets_deployed',
+      'description',  'Commit assets/js/snippets.js to git'
+    )
+  );
+  v_workflow := jsonb_set(v_workflow,
+    '{workflow,steps,rerender_site_components,next_step}',
+    to_jsonb('render_js_snippets'::text)
+  );
+
+  UPDATE agent_definitions
+  SET default_config = v_workflow, updated_at = NOW()
+  WHERE type = 'nav-link-fixer';
+
+  RAISE NOTICE '[nav-link-fixer] wired (rerender_site_components -> render_js_snippets -> deploy_js_snippets -> %)',
+    v_orig_next;
+END
+$$;
+
+
+-- =====================================================================
+-- 6. Pattern B: webdesign-agent spawn + call site-asset-renderer
+-- =====================================================================
+
+DO $$
+DECLARE
+  v_workflow  jsonb;
+  v_orig_next text;
+BEGIN
+  SELECT default_config INTO v_workflow
+  FROM agent_definitions
+  WHERE type = 'webdesign-agent';
+
+  IF v_workflow IS NULL THEN
+    RAISE NOTICE '[webdesign-agent] not found - skipping';
+    RETURN;
+  END IF;
+
+  IF v_workflow #>> '{workflow,steps,spawn_asset_renderer,action}' IS NOT NULL THEN
+    RAISE NOTICE '[webdesign-agent] already wired - skipping';
+    RETURN;
+  END IF;
+
+  v_orig_next := v_workflow #>> '{workflow,steps,deploy_css,next_step}';
+
+  IF v_orig_next IS NULL THEN
+    RAISE NOTICE '[webdesign-agent] has no deploy_css.next_step - skipping';
+    RETURN;
+  END IF;
+
+  v_workflow := jsonb_set(v_workflow, '{workflow,steps,spawn_asset_renderer}',
+    jsonb_build_object(
+      'action', 'spawn_agent',
+      'config', jsonb_build_object(
+        'role',       'asset_renderer',
+        'agent_type', 'site-asset-renderer'
+      ),
+      'next_step',    'call_asset_renderer',
+      'output_field', 'asset_renderer_agent',
+      'description',  'Spawn site-asset-renderer for JS snippets bundle'
+    )
+  );
+
+  v_workflow := jsonb_set(v_workflow, '{workflow,steps,call_asset_renderer}',
+    jsonb_build_object(
+      'action', 'call_agent',
+      'config', jsonb_build_object(
+        'target_role', 'asset_renderer',
+        'input_mapping', jsonb_build_object(
+          'site_id', 'site_context.site_id',
+          'domain',  'site_context.domain'
+        ),
+        'timeout_seconds', 120
+      ),
+      'next_step',    v_orig_next,
+      'output_field', 'asset_renderer_result',
+      'description',  'Render and deploy snippets.js via site-asset-renderer'
+    )
+  );
+
+  v_workflow := jsonb_set(v_workflow,
+    '{workflow,steps,deploy_css,next_step}',
+    to_jsonb('spawn_asset_renderer'::text)
+  );
+
+  UPDATE agent_definitions
+  SET default_config = v_workflow, updated_at = NOW()
+  WHERE type = 'webdesign-agent';
+
+  RAISE NOTICE '[webdesign-agent] wired (deploy_css -> spawn_asset_renderer -> call_asset_renderer -> %)',
+    v_orig_next;
+END
+$$;
+
+COMMIT;
+
+
+-- =====================================================================
+-- Verification SELECTs (run after COMMIT in autocommit mode)
+-- =====================================================================
+
+-- A. js_snippets has is_active column and news-date-formatter row exists
+SELECT name, is_active, LENGTH(js_content) AS js_len, applies_to::text AS applies_to
+FROM js_snippets
+WHERE name = 'news-date-formatter';
+
+-- B. site-asset-renderer agent exists
+SELECT type, status, is_active, image_tag, category, agent_category, version
+FROM agent_definitions
+WHERE type = 'site-asset-renderer';
+
+-- C. Pattern A workflows wired (chain shows: render_site_components -> render_js_snippets -> deploy_js_snippets -> original_next)
+SELECT
+  type,
+  default_config #>> '{workflow,steps,render_site_components,next_step}'  AS rsc_next,
+  default_config #>> '{workflow,steps,render_js_snippets,next_step}'      AS rjs_next,
+  default_config #>> '{workflow,steps,deploy_js_snippets,next_step}'      AS djs_next
+FROM agent_definitions
+WHERE type IN (
+  'site-work-orchestrator', 'nav-updater', 'rerender-site',
+  'pageflow-builder',       'rerender-pages'
+)
+ORDER BY type;
+
+-- D. nav-link-fixer wired (its step is 'rerender_site_components')
+SELECT
+  type,
+  default_config #>> '{workflow,steps,rerender_site_components,next_step}' AS rsc_next,
+  default_config #>> '{workflow,steps,render_js_snippets,next_step}'       AS rjs_next,
+  default_config #>> '{workflow,steps,deploy_js_snippets,next_step}'       AS djs_next
+FROM agent_definitions
+WHERE type = 'nav-link-fixer';
+
+-- E. webdesign-agent wired (deploy_css -> spawn_asset_renderer -> call_asset_renderer -> original_next)
+SELECT
+  type,
+  default_config #>> '{workflow,steps,deploy_css,next_step}'           AS deploy_css_next,
+  default_config #>> '{workflow,steps,spawn_asset_renderer,next_step}' AS spawn_next,
+  default_config #>> '{workflow,steps,call_asset_renderer,next_step}'  AS call_next
+FROM agent_definitions
+WHERE type = 'webdesign-agent';

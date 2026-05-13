@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - service.yaml
+  - rbac.yaml
 
 # Generates a ConfigMap from the local thunder-adapter.yaml. Kustomize appends
 # a hash to the ConfigMap name (e.g. thunder-adapter-config-abc123) so any
