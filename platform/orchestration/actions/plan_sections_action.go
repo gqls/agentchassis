@@ -353,6 +353,23 @@ func navigateMap(data map[string]interface{}, dotPath string) (interface{}, bool
 // Section planning result
 // ============================================================================
 
+// llmFieldSpec carries per-field metadata for the Step 3 targeted-prompt
+// path on page-content-writer. Each entry corresponds to one field whose
+// `source` is "llm" in the component's input_schema. The page-content-writer
+// prompt template iterates this list instead of dumping the full schema —
+// the LLM is asked for exactly the fields it should write, with their
+// types and intent, and never given the opportunity to fabricate
+// query-resolved data (items, urls, page lists) that the system handles
+// elsewhere.
+type llmFieldSpec struct {
+	Name        string      `json:"name"`
+	Type        string      `json:"type,omitempty"` // text | url | image | rich_text | …
+	Required    bool        `json:"required,omitempty"`
+	Description string      `json:"description,omitempty"` // present when the schema declares one
+	OnMissing   string      `json:"on_missing,omitempty"`  // skip_field | use_fallback | error
+	Fallback    interface{} `json:"fallback,omitempty"`    // value used when on_missing=use_fallback
+}
+
 type sectionPlanItem struct {
 	Name         string                 `json:"name"`
 	ComponentID  string                 `json:"component_id"`
@@ -360,8 +377,14 @@ type sectionPlanItem struct {
 	Status       string                 `json:"status"` // "ready", "deferred", "skipped"
 	ResolvedData map[string]interface{} `json:"resolved_data,omitempty"`
 	LLMFields    []string               `json:"llm_fields,omitempty"`
-	Missing      []missingField         `json:"missing,omitempty"`
-	Reason       string                 `json:"reason,omitempty"`
+	// LLMFieldSpecs is the richer counterpart to LLMFields: each spec carries
+	// the field's name plus the metadata the targeted-prompt template needs
+	// (type, required flag, description, on_missing handling, fallback value).
+	// LLMFields stays as a fast lookup of "which fields are LLM-written";
+	// LLMFieldSpecs is what page-content-writer's prompt iterates.
+	LLMFieldSpecs []llmFieldSpec `json:"llm_field_specs,omitempty"`
+	Missing       []missingField `json:"missing,omitempty"`
+	Reason        string         `json:"reason,omitempty"`
 	// Component carries the full per-section component data as returned by
 	// the shared loadSectionComponents helper. Populated when a component
 	// was found (Paths 1 and 2). Nil for paths where no component was
@@ -896,6 +919,7 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 
 	resolvedData := make(map[string]interface{})
 	var llmFields []string
+	var llmFieldSpecs []llmFieldSpec
 	var missingFields []missingField
 	shouldSkip := false
 	shouldDefer := false
@@ -926,6 +950,14 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 		// LLM-generated fields — always available
 		if source == "llm" {
 			llmFields = append(llmFields, fieldName)
+			llmFieldSpecs = append(llmFieldSpecs, llmFieldSpec{
+				Name:        fieldName,
+				Type:        fieldType,
+				Required:    required,
+				Description: stringOrEmpty(fieldDef["description"]),
+				OnMissing:   onMissing,
+				Fallback:    fallback,
+			})
 			continue
 		}
 
@@ -1113,6 +1145,7 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 	// Section is ready
 	item.ResolvedData = resolvedData
 	item.LLMFields = llmFields
+	item.LLMFieldSpecs = llmFieldSpecs
 	return item
 }
 
@@ -1292,4 +1325,15 @@ func sanitiseSectionKey(s string) string {
 		s = s[:40]
 	}
 	return s
+}
+
+// stringOrEmpty extracts a string from an interface{}, returning "" when the
+// value isn't a string or is nil. Used when reading optional fields off the
+// parsed input_schema map (description, on_missing) where the schema author
+// may simply omit the key.
+func stringOrEmpty(v interface{}) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
 }

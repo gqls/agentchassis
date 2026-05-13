@@ -1836,3 +1836,90 @@ END
 $verify$;
 
 COMMIT;
+
+---
+-- more tokens
+
+-- phase_2g_step3_planner_maxtokens_bump.sql
+--
+-- Raise build-site-planner's plan_site step max_tokens from 4000 to 8000.
+-- Phase 2G step 3 (the imagery block) enlarged required output: site-scope
+-- logo + page-scope hero per page, on top of the existing pages/sections/
+-- directives/image_prompts/design_intent/content_direction structure.
+-- The prior 4000 cap truncated the LLM response on multi-page roadmaps
+-- (15-page site for robot-hands.com), causing validate_site_plan to fail
+-- with "unexpected end of JSON input" at the strategy_notes field.
+--
+-- Reversible. Backup taken per doc 009 convention.
+
+\set ON_ERROR_STOP on
+
+-- ── Backup (outside transaction) ──
+
+CREATE TABLE agent_def_build_site_planner_backup_20260513_pre_phase2g_maxtokens AS
+SELECT * FROM agent_definitions
+WHERE type = 'build-site-planner' AND is_active = true;
+
+SELECT
+    (SELECT COUNT(*) FROM agent_definitions
+     WHERE type = 'build-site-planner' AND is_active = true) AS live,
+    (SELECT COUNT(*) FROM agent_def_build_site_planner_backup_20260513_pre_phase2g_maxtokens) AS backup;
+
+-- ── Migration ──
+
+BEGIN;
+
+-- Sanity: target row exists and has the field we're about to update
+DO $check$
+DECLARE
+v_current_max int;
+BEGIN
+SELECT (default_config #>> '{workflow,steps,plan_site,config,ai_service,max_tokens}')::int
+INTO v_current_max
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND is_active = true;
+
+IF v_current_max IS NULL THEN
+        RAISE EXCEPTION 'plan_site.ai_service.max_tokens not found in default_config';
+END IF;
+
+    RAISE NOTICE 'Current max_tokens: %', v_current_max;
+END
+$check$;
+
+-- Apply the bump. jsonb_set with create_missing=false (last arg) is what
+-- we want here — we're updating an existing field, not creating one.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,ai_service,max_tokens}',
+        to_jsonb(8000),
+        false
+                     ),
+    updated_at = now()
+WHERE type = 'build-site-planner'
+  AND is_active = true;
+
+-- Verify
+DO $verify$
+DECLARE
+v_new_max int;
+BEGIN
+SELECT (default_config #>> '{workflow,steps,plan_site,config,ai_service,max_tokens}')::int
+INTO v_new_max
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND is_active = true;
+
+IF v_new_max IS NULL THEN
+        RAISE EXCEPTION 'max_tokens is NULL after update';
+END IF;
+
+    IF v_new_max <> 8000 THEN
+        RAISE EXCEPTION 'max_tokens not 8000 after update; got %', v_new_max;
+END IF;
+
+    RAISE NOTICE 'phase_2g_step3 max_tokens: 4000 -> %', v_new_max;
+END
+$verify$;
+
+COMMIT;
