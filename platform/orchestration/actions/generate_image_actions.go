@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -27,6 +28,113 @@ type ImageGenerationResult struct {
 	TopicSentTo          string `json:"topic_sent_to"`
 	StableIdentity       string `json:"stable_identity"`
 	AwaitResponse        bool   `json:"await_response"`
+}
+
+// ============================================================================
+// Phase 2H — per-kind generation defaults
+// ============================================================================
+
+// imageDefaults captures per-kind generation parameters that callers may
+// override via inputData. Zero values mean "no opinion; adapter applies
+// its own fallback".
+type imageDefaults struct {
+	NegativePrompt string
+	CfgScale       float64
+	Steps          int
+	Width          int
+	Height         int
+}
+
+// kindDefaults keyed by the `kind` enum from site_plan_imagery.
+// Tuned conservatively — biggest expected win is logo getting any
+// negative prompt at all. Tune from observation.
+var kindDefaults = map[string]imageDefaults{
+	"logo": {
+		NegativePrompt: "people, faces, text, signature, watermark, low quality, blurry, photorealistic, complex background",
+		CfgScale:       8,
+		Steps:          35,
+		Width:          1024,
+		Height:         1024,
+	},
+	"hero": {
+		NegativePrompt: "text, watermark, signature, low quality, blurry, distorted",
+		CfgScale:       7,
+		Steps:          30,
+		Width:          1024,
+		Height:         1024,
+	},
+	"illustration": {
+		NegativePrompt: "photorealistic, watermark, text, signature, low quality",
+		CfgScale:       7,
+		Steps:          30,
+		Width:          1024,
+		Height:         1024,
+	},
+	"icon": {
+		NegativePrompt: "background, shadows, photorealistic, text, complex, busy",
+		CfgScale:       7,
+		Steps:          25,
+		Width:          512,
+		Height:         512,
+	},
+	"infographic": {
+		NegativePrompt: "decorative, blurry, photorealistic, low quality",
+		CfgScale:       8,
+		Steps:          35,
+		Width:          1024,
+		Height:         1024,
+	},
+}
+
+// resolveKind picks the effective kind from (in order of precedence):
+//  1. inputData["kind"]         — caller-supplied via step input_mapping
+//  2. inputData["default_kind"] — step-level fallback set by phase_2h.4
+//     for legacy callers (call_logo_gen → "logo", call_hero_gen → "hero",
+//     call_variant_gen → "hero")
+//
+// Returns "" when neither is set; imageDefaults[""] is the zero value
+// meaning "no per-kind opinion".
+func resolveKind(inputData map[string]interface{}, agentConfig map[string]interface{}) string {
+	if k, ok := inputData["kind"].(string); ok && k != "" {
+		return k
+	}
+	if k, ok := inputData["default_kind"].(string); ok && k != "" {
+		return k
+	}
+	return ""
+}
+
+// parseAspectRatio takes a "W:H" string (e.g. "16:9", "1:1") plus
+// anchor dimensions, returns (width, height, ok). Snaps to multiples
+// of 64 per SDXL's requirement; keeps the longer side at the anchor.
+func parseAspectRatio(ar string, anchorW, anchorH int) (int, int, bool) {
+	parts := strings.Split(ar, ":")
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	w, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+	h, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil || w <= 0 || h <= 0 {
+		return 0, 0, false
+	}
+	anchor := anchorW
+	if anchorH > anchor {
+		anchor = anchorH
+	}
+	var width, height int
+	if w >= h {
+		width = anchor
+		height = anchor * h / w
+	} else {
+		height = anchor
+		width = anchor * w / h
+	}
+	width = (width / 64) * 64
+	height = (height / 64) * 64
+	if width < 256 || height < 256 {
+		return 0, 0, false
+	}
+	return width, height, true
 }
 
 // GenerateImageAction handles image generation requests with dynamic topics
@@ -60,23 +168,6 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		params.Logger.Info("initialization detected via action field")
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
-
-	// Check if we have a SagaCoordinator - not used
-	/*if params.SagaCoordinator == nil {
-		params.Logger.Error("SagaCoordinator is nil - cannot register awaited request")
-		return nil, fmt.Errorf("SagaCoordinator is required for async image generation")
-	}*/
-
-	// Normalize the collected data using the helper
-	/*normalizedData := datahelpers.NormalizeCollectedData(
-		params.CollectedData,
-		params.ExecutionContext,
-		params.ExecutionContext.RequestsTopic,
-		params.Logger,
-	)*/
-
-	// Update params.CollectedData with normalized version
-	//params.CollectedData = normalizedData
 
 	// removed NormalizeCollectedData was destroying accumulated state
 	// Only ensure essential topic fields if missing:
@@ -126,17 +217,93 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// Extract input data
 	inputData := datahelpers.GetInputData(params.CollectedData, params.Logger)
 
-	// Optional parameters
+	// Optional parameters — existing
 	style, _ := inputData["style"].(string)
 	width, _ := inputData["width"].(int)
 	height, _ := inputData["height"].(int)
 
-	// Set defaults if not provided
+	// Phase 2H — kind resolution and per-kind defaults
+	kind := resolveKind(inputData, agentConfig)
+	defaults := kindDefaults[kind] // zero value if kind unknown
+
+	// Width / height: caller wins, then per-kind default, then 1024 fallback
+	if width == 0 {
+		width = defaults.Width
+	}
 	if width == 0 {
 		width = 1024
 	}
 	if height == 0 {
+		height = defaults.Height
+	}
+	if height == 0 {
 		height = 1024
+	}
+
+	// Phase 2H — negative_prompt: caller wins; otherwise per-kind default
+	negativePrompt := defaults.NegativePrompt
+	if np, ok := inputData["negative_prompt"].(string); ok && np != "" {
+		negativePrompt = np
+	}
+
+	// Phase 2H — fold constraints from imagery spec into negative_prompt.
+	// constraints arrives as map[string]interface{} from input_data.spec.constraints.
+	// Known keys: no_text, no_logos, no_people, no_humans. Unknown keys ignored.
+	if c, ok := inputData["constraints"].(map[string]interface{}); ok {
+		var addNegatives []string
+		if v, ok := c["no_text"].(bool); ok && v {
+			addNegatives = append(addNegatives, "text", "letters", "writing")
+		}
+		if v, ok := c["no_logos"].(bool); ok && v {
+			addNegatives = append(addNegatives, "logo", "brand mark")
+		}
+		if v, ok := c["no_people"].(bool); ok && v {
+			addNegatives = append(addNegatives, "people", "faces", "humans")
+		} else if v, ok := c["no_humans"].(bool); ok && v {
+			addNegatives = append(addNegatives, "people", "faces", "humans")
+		}
+		if len(addNegatives) > 0 {
+			extra := strings.Join(addNegatives, ", ")
+			if negativePrompt != "" {
+				negativePrompt += ", " + extra
+			} else {
+				negativePrompt = extra
+			}
+		}
+	}
+
+	// Phase 2H — style_hints.aspect_ratio overrides width/height if supplied.
+	// Format: "16:9", "1:1", "4:3", etc.
+	if h, ok := inputData["style_hints"].(map[string]interface{}); ok {
+		if ar, ok := h["aspect_ratio"].(string); ok && ar != "" {
+			if w2, h2, ok := parseAspectRatio(ar, width, height); ok {
+				width, height = w2, h2
+			} else {
+				params.Logger.Warn("generate_image: aspect_ratio not understood; keeping default",
+					zap.String("aspect_ratio", ar))
+			}
+		}
+	}
+
+	// Phase 2H — cfg_scale and steps. Caller wins; per-kind default otherwise.
+	cfgScale := defaults.CfgScale
+	if cs, ok := inputData["cfg_scale"].(float64); ok && cs > 0 {
+		cfgScale = cs
+	}
+	steps := defaults.Steps
+	if s, ok := inputData["steps"].(int); ok && s > 0 {
+		steps = s
+	}
+
+	// Phase 2H — seed. 0 = random/unspecified.
+	seed, _ := inputData["seed"].(int)
+
+	// Phase 2H — reference_image_uri: accepted but not forwarded in v1.
+	// Phase 3.1 will switch the adapter to /image-to-image when set.
+	if refURI, ok := inputData["reference_image_uri"].(string); ok && refURI != "" {
+		params.Logger.Info("generate_image: reference_image_uri supplied; not wired in v1 (Phase 3.1)",
+			zap.String("reference_image_uri", refURI),
+			zap.String("kind", kind))
 	}
 
 	// Extract prompt template
@@ -164,6 +331,7 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	params.Logger.Info("Selected prompt for execution",
 		zap.String("source", promptSource),
 		zap.String("agent_type", params.AgentType),
+		zap.String("kind", kind),
 		zap.String("prompt_preview", datahelpers.TruncateString(promptTemplate, 350)))
 
 	// When running within the image-generator agent, we send to the adapter topic
@@ -193,12 +361,26 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		zap.String("prompt source", promptSource),
 	)
 
-	// Build the image generation request for the adapter
+	// Phase 2H — extended imageData. Base fields preserved; new ones omitted
+	// when empty/zero so adapter sees identical JSON for legacy callers that
+	// don't pass them.
 	imageData := map[string]interface{}{
 		"prompt": promptTemplate,
 		"style":  style,
 		"width":  width,
 		"height": height,
+	}
+	if negativePrompt != "" {
+		imageData["negative_prompt"] = negativePrompt
+	}
+	if cfgScale > 0 {
+		imageData["cfg_scale"] = cfgScale
+	}
+	if steps > 0 {
+		imageData["steps"] = steps
+	}
+	if seed > 0 {
+		imageData["seed"] = seed
 	}
 
 	newRequestID := uuid.NewString()

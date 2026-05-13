@@ -39,17 +39,26 @@ type DynamicImageAdapter struct {
 	podName       string
 }
 
+// ImageRequestData is the inner data payload of an image generation request.
+// Phase 2H added: NegativePrompt, CfgScale, Steps, Seed. All optional; legacy
+// callers sending only {prompt, style, width, height} produce identical JSON.
+type ImageRequestData struct {
+	Prompt         string  `json:"prompt"`
+	Style          string  `json:"style,omitempty"`
+	Width          int     `json:"width,omitempty"`
+	Height         int     `json:"height,omitempty"`
+	NegativePrompt string  `json:"negative_prompt,omitempty"`
+	CfgScale       float64 `json:"cfg_scale,omitempty"`
+	Steps          int     `json:"steps,omitempty"`
+	Seed           int     `json:"seed,omitempty"`
+}
+
 // ImageRequest represents an incoming image generation request
 type ImageRequest struct {
 	Headers types.RequestHeaders `json:"headers"`
 	Body    struct {
-		Action string `json:"action"`
-		Data   struct {
-			Prompt string `json:"prompt"`
-			Style  string `json:"style,omitempty"`
-			Width  int    `json:"width,omitempty"`
-			Height int    `json:"height,omitempty"`
-		} `json:"data"`
+		Action       string                 `json:"action"`
+		Data         ImageRequestData       `json:"data"`
 		ReplyToTopic string                 `json:"reply_to_topic"`
 		Metadata     map[string]interface{} `json:"metadata,omitempty"`
 	} `json:"body"`
@@ -254,7 +263,9 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 	}
 
 	// Generate image using external API
-	imageData, err := a.generateImage(request.Body.Data.Prompt, request.Body.Data.Width, request.Body.Data.Height)
+	// Phase 2H: pass the whole data struct so negative_prompt, cfg_scale,
+	// steps, and seed flow through to Stability.
+	imageData, err := a.generateImage(request.Body.Data)
 	if err != nil {
 		logger.Error("Failed to generate image", zap.Error(err))
 		a.sendErrorResponse(responseTopic, &request, err, logger)
@@ -286,27 +297,58 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 	)
 }
 
-// generateImage calls the external image generation API
-func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([]byte, error) {
-	// Set defaults
+// generateImage calls the external image generation API.
+// Phase 2H: takes the full data struct so negative_prompt, cfg_scale,
+// steps, and seed flow through to Stability rather than being hardcoded.
+func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, error) {
+	// Resolve dimensions with fallbacks
+	width := data.Width
 	if width == 0 {
 		width = 1024
 	}
+	height := data.Height
 	if height == 0 {
 		height = 1024
 	}
 
+	// Stability v1 SDXL: negative prompts are entries in text_prompts
+	// with negative weight, not a separate field.
+	textPrompts := []map[string]interface{}{
+		{"text": data.Prompt, "weight": 1.0},
+	}
+	if data.NegativePrompt != "" {
+		textPrompts = append(textPrompts, map[string]interface{}{
+			"text":   data.NegativePrompt,
+			"weight": -1.0,
+		})
+	}
+
+	// CFG scale and steps: caller wins; otherwise the prior Stability
+	// defaults (7, 30) preserved exactly.
+	cfgScale := data.CfgScale
+	if cfgScale <= 0 {
+		cfgScale = 7
+	}
+	steps := data.Steps
+	if steps <= 0 {
+		steps = 30
+	}
+
 	// Build request body
 	requestBody := map[string]interface{}{
-		"text_prompts": []map[string]interface{}{
-			{"text": prompt, "weight": 1},
-		},
-		"cfg_scale":            7,
+		"text_prompts":         textPrompts,
+		"cfg_scale":            cfgScale,
 		"clip_guidance_preset": "FAST_BLUE",
 		"height":               height,
 		"width":                width,
 		"samples":              1,
-		"steps":                30,
+		"steps":                steps,
+	}
+
+	// Seed: 0 = unspecified (Stability generates random). Only include
+	// when caller set a value, otherwise Stability uses its default.
+	if data.Seed > 0 {
+		requestBody["seed"] = data.Seed
 	}
 
 	jsonBody, err := json.Marshal(requestBody)
@@ -314,8 +356,14 @@ func (a *DynamicImageAdapter) generateImage(prompt string, width, height int) ([
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	a.logger.Info("in generateImage dynamic adapter just before http request to stability",
-		zap.Any("jsonBody of request Body", string(jsonBody)),
+	a.logger.Info("generateImage: stability request",
+		zap.Int("width", width),
+		zap.Int("height", height),
+		zap.Float64("cfg_scale", cfgScale),
+		zap.Int("steps", steps),
+		zap.Int("seed", data.Seed),
+		zap.Bool("has_negative_prompt", data.NegativePrompt != ""),
+		zap.Int("prompt_len", len(data.Prompt)),
 		zap.String("a.externalAPI", a.externalAPI),
 	)
 
