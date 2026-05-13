@@ -1159,3 +1159,680 @@ FROM agent_definitions
 WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
 
 COMMIT;
+
+----
+
+-- backup
+-- phase_2g_step3_pre_migration_backup.sql
+--
+-- Snapshots build-site-planner's current default_config as a single UPDATE
+-- statement, written to phase_2g_step3_rollback.sql. To roll back the
+-- prompt-template change later, run:
+--
+--   psql -d clients_db -f phase_2g_step3_rollback.sql
+--
+-- Safe to run any time before the main migration. Idempotent — re-running
+-- overwrites the rollback file with whatever the current state is.
+
+\set ON_ERROR_STOP on
+
+-- Sanity: confirm the target row exists and is active.
+DO $check$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions
+        WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+          AND is_active = true
+    ) THEN
+        RAISE EXCEPTION 'build-site-planner row not found or inactive (id f263eaa1-...)';
+END IF;
+END
+$check$;
+
+-- Emit a self-contained rollback UPDATE.
+\pset format unaligned
+\pset tuples_only on
+\o phase_2g_step3_rollback.sql
+
+SELECT format(
+               E'-- Rollback for phase_2g_step3 — restores build-site-planner default_config\n'
+    '-- Generated %s\n'
+    '\\set ON_ERROR_STOP on\n'
+    'BEGIN;\n'
+    'UPDATE agent_definitions\n'
+    '   SET default_config = %L::jsonb,\n'
+    '       updated_at = now()\n'
+    ' WHERE id = %L\n'
+    '   AND is_active = true;\n'
+    'COMMIT;\n',
+               now()::text,
+               default_config::text,
+               id::text
+       )
+FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+
+\o
+\pset tuples_only off
+\pset format aligned
+
+\echo ''
+\echo 'Rollback SQL written to phase_2g_step3_rollback.sql'
+\echo 'To roll back if needed: psql -d clients_db -f phase_2g_step3_rollback.sql'
+
+----
+
+-- imagery prompt
+
+-- phase_2g_step3_planner_imagery_prompt.sql
+--
+-- Phase 2G step 3 — teach build-site-planner to emit a structured `imagery`
+-- block alongside the legacy `image_prompts` map. Downstream
+-- write_site_plan_action.flattenImageryBlock has been deployed dormant
+-- since step 2; this migration is the first behavioural change that
+-- populates site_plan_imagery rows.
+--
+-- Idempotent in effect: replaces the entire prompt_template; safe to re-run.
+-- Wrapped in BEGIN/COMMIT with a post-write verification that aborts the
+-- transaction if either the new "## Imagery Block" section or the
+-- `"imagery":` key is missing from the resulting template.
+--
+-- Run AFTER phase_2g_step3_pre_migration_backup.sql.
+
+\set ON_ERROR_STOP on
+
+BEGIN;
+
+-- Sanity: target row still exists.
+DO $check$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions
+        WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+          AND is_active = true
+    ) THEN
+        RAISE EXCEPTION 'build-site-planner row not found or inactive';
+END IF;
+END
+$check$;
+
+-- Replace the prompt_template field. Dollar-quoted to preserve quotes,
+-- newlines, and braces in the template body. Tag $bsp_prompt$ chosen
+-- to avoid collision with any text inside the prompt.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb($bsp_prompt$Plan a website for {{.input_data.domain}}.
+
+## Research Data
+Identity: {{.site_specs.specs.identity}}
+Classification: {{.site_specs.specs.classification}}
+
+## Domain Strategy
+{{if .site_specs.specs.strategy}}{{.site_specs.specs.strategy}}{{else}}No strategy data available — use the briefing and classification to determine site structure.{{end}}
+
+## Briefing Answers
+{{.site_specs.specs.briefing}}
+
+{{if .site_specs.specs.mission_brief}}## Mission
+{{.site_specs.specs.mission_brief.text}}
+{{end}}
+{{if .site_specs.specs.roadmap_brief}}## Roadmap
+IMPORTANT — ROADMAP OVERRIDES THE COMPONENT LIST. Build ONLY the pages listed in the current phase below. For each page, use EXACTLY the section_types listed — even if they do not appear in the Available Section Components list above. Unknown section types are handled by the component selector downstream. Do NOT replace roadmap section_types with standard components. Do NOT invent additional pages. The roadmap is the authority for this site.
+
+{{.site_specs.specs.roadmap_brief.text}}
+{{end}}
+## Available Section Components
+You MUST use ONLY these exact component names in the "sections" arrays (unless the roadmap specifies section_types — those override):
+
+{{range .available_components}}
+- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}
+{{end}}
+
+## Available Style Collections
+{{.available_styles}}
+
+## Canonical Page Types
+
+Use ONLY these page_type values, verbatim, lowercase, dash-separated:
+
+| page_type | Description | Use for |
+|-----------|-------------|----------|
+| index | Home page | Always exactly one |
+| content | Standard content page | About, services, contact, FAQ, etc |
+| landing | Conversion-focused page | Lead capture, specific offers |
+| entity-directory | Searchable directory of entities | Business listings, provider directories |
+| entity-page | Individual entity profile | Single business/provider detail page |
+| tool | Interactive tool or calculator | Cost calculators, comparison tools |
+| blog-index | Blog/news listing page | Article index, news feed |
+| blog-post | Individual blog article | Editorial content, guides |
+
+Plan ONLY pages that are directly justified by the briefing, strategy, classification, or roadmap. Do NOT add speculative, demo, or example pages. Every page in your output must serve an explicit need surfaced by one of those inputs. If you don't have evidence for a page, leave it out — fewer well-justified pages are better than padding the count.
+
+If a page doesn't fit any category cleanly, use `content` as the default. Do not invent new page_type values.
+
+## Imagery Block
+
+Return a structured `imagery` block alongside the legacy `image_prompts` map. The downstream image pipeline reads `imagery` as the source of truth; `image_prompts` is retained for backward compatibility during transition.
+
+### Shape
+
+`imagery` is a nested object with three optional sub-keys: `site`, `pages`, `sections`. Scope is implied by position in the nesting — entries do NOT carry `scope` or `scope_ref` fields themselves.
+
+```
+"imagery": {
+  "site":     [ entry, entry, ... ],
+  "pages":    { "<page_name>": [ entry, ... ], ... },
+  "sections": { "<page_name>:<section_ordering>": [ entry, ... ], ... }
+}
+```
+
+The `<section_ordering>` is the zero-indexed position of the section within that page's `sections` array (so `"index:0"` is the first section of the home page).
+
+### Entry fields
+
+| Field | Required | Notes |
+|---|---|---|
+| key | yes | short identifier, lowercase, underscore-separated (e.g. `logo`, `hero_about`, `illustration_team_values`). Unique within its scope. |
+| kind | yes | one of: `logo`, `hero`, `illustration`, `icon`, `infographic`. No other values permitted. |
+| prompt | yes | full generation prompt, one sentence to one paragraph. Reflect the site's `imagery_direction` and `colour_mood`. |
+| style_hints | optional | JSON object, e.g. {"medium": "line drawing", "mood": "collaborative"} |
+| constraints | optional | JSON object, e.g. {"aspect": "1:1", "transparent_background": true} |
+
+### What to populate
+
+- **`site`** — imagery that appears across pages or is brand-level. Always include one `logo` entry. Optionally include one site-wide brand `hero` or `illustration` entry. Two to three entries is typical.
+- **`pages`** — one entry per page-specific image. Always include a `hero` entry for each page whose `sections` array contains a hero-class component. The map key is the page's `name` field. Skip pages that have no hero section.
+- **`sections`** — for icons, illustrations, or infographics attached to a specific section. Use sparingly in v1 — most plans will have zero section-scope entries. Only emit a section entry when a specific section's imagery need is not covered by the page hero.
+
+### Per-row prompt construction
+
+For each entry, write a `prompt` that:
+- Names the subject concretely (what is in the image)
+- Reflects the site's `design_intent.imagery_direction` and `colour_mood`
+- Avoids brand markings, logos in the subject (unless the entry IS a logo), and text-on-image unless explicit
+- Is self-contained — the image generator sees only this prompt, not the surrounding site context
+
+### Worked example
+
+```
+"imagery": {
+  "site": [
+    {
+      "key": "logo",
+      "kind": "logo",
+      "prompt": "A precise, technical logomark — geometric, restrained, no human figures, no text outside the wordmark itself"
+    },
+    {
+      "key": "hero_canonical",
+      "kind": "hero",
+      "prompt": "A dramatic, high-contrast close-up of an industrial robotic gripper in soft directional lighting, neutral background"
+    }
+  ],
+  "pages": {
+    "about": [
+      {
+        "key": "hero_about",
+        "kind": "hero",
+        "prompt": "A wide-angle view of a modern automated production line, calm and orderly, blue and grey palette"
+      },
+      {
+        "key": "illustration_team_values",
+        "kind": "illustration",
+        "prompt": "Stylised group of engineers collaborating around a workbench, no faces visible, mid-century technical illustration feel",
+        "style_hints": {"medium": "line drawing", "mood": "collaborative"}
+      }
+    ],
+    "tools": [
+      {
+        "key": "hero_tools",
+        "kind": "hero",
+        "prompt": "An engineering workspace abstraction — measurement instruments, technical drawings, soft daylight"
+      }
+    ]
+  },
+  "sections": {
+    "index:2": [
+      {
+        "key": "icon_precision",
+        "kind": "icon",
+        "prompt": "Geometric icon representing precision engineering — single colour, sharp corners",
+        "constraints": {"aspect": "1:1", "transparent_background": true}
+      }
+    ]
+  }
+}
+```
+
+## Strategy Guidance
+
+If a domain strategy is available above, use it as strong input:
+- The recommended site_type should guide the overall structure
+- The recommended page_types should inform which pages you plan
+- The revenue model should shape what conversion/lead-capture mechanisms you include
+- The tone should influence your style_collection choice
+
+You have FINAL SAY on architecture. If you disagree with the strategy, go with your judgment but note why in strategy_notes.
+
+Return JSON:
+{
+  "site_type": "from the strategy, roadmap, or your own assessment",
+  "strategy_notes": "any notes on how you used or diverged from the strategy/roadmap",
+  "pages": [
+    {
+      "name": "index",
+      "title": "Page Title | Site Name",
+      "page_type": "index",
+      "nav_label": "Home",
+      "nav_order": 1,
+      "in_header": true,
+      "in_footer": true,
+      "sections": ["hero", "features", "testimonials", "call-to-action"]
+    }
+  ],
+  "style_collection": "style-name",
+  "needs_logo": true,
+  "needs_images": true,
+  "image_prompts": {
+    "logo": "Description for logo generation",
+    "hero_home": "Description for home hero image"
+  },
+  "imagery": {
+    "site": [
+      {"key": "logo", "kind": "logo", "prompt": "..."}
+    ],
+    "pages": {
+      "index": [
+        {"key": "hero_home", "kind": "hero", "prompt": "..."}
+      ]
+    },
+    "sections": {}
+  },
+  "design_intent": {
+    "style_direction": "professional-dark or modern-light or bold-creative",
+    "colour_mood": "Description of colour feeling and why it fits the industry",
+    "typography_mood": "Description of font personality",
+    "imagery_direction": "What images should show",
+    "layout_preference": "Layout style description",
+    "avoid": ["Things to avoid in design"]
+  },
+  "content_direction": {
+    "voice": "How the site should sound",
+    "emphasis": "What to emphasise in content",
+    "avoid_phrases": ["Phrases to never use"],
+    "social_proof_style": "How to handle testimonials and proof",
+    "blog_strategy": "Content strategy for blog if applicable"
+  }
+}
+
+RULES:
+1. Use component names from the Available Section Components list for sections arrays — UNLESS the roadmap specifies section_types, in which case use those
+2. Every page MUST have a page_type from the canonical list
+3. Pages with page_type entity-directory, entity-page, tool, blog-index, blog-post may have empty sections arrays
+4. Content and index pages need sections arrays populated
+5. Always include: index (home) and contact pages (unless the roadmap says otherwise)
+6. Keep header navigation to 5-8 items maximum
+7. Set needs_logo: true and needs_images: true (always)
+8. Provide detailed image_prompts for logo and hero_home
+9. Include design_intent with explicit colour mood, typography direction, and layout preferences
+10. Include content_direction with voice, emphasis, and avoid_phrases tailored to the target audience
+11. If the classification data includes content_features.news_feed.recommended = true, add "latest-news" to the homepage sections
+12. When a roadmap is present, the pages and section_types from the current phase take precedence over your own page planning
+13. Populate the `imagery` block per the Imagery Block rules above. At minimum: one site-scope `logo` entry, and one page-scope `hero` entry for each page whose `sections` array contains a hero-class component
+14. `imagery` and `image_prompts` must be consistent: the site-scope `logo` entry's prompt should match `image_prompts.logo`; the page-scope `hero` entry for the index page should match `image_prompts.hero_home`
+15. Use ONLY the allowed values for `kind` (logo|hero|illustration|icon|infographic). Section scope keys MUST follow `"<page_name>:<ordering>"` format with a colon. Wrong values fail DB CHECK constraints and the plan is rejected
+
+Return ONLY valid JSON.$bsp_prompt$::text)
+       ),
+       updated_at = now()
+ WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+   AND is_active = true;
+
+-- Verify the new prompt contains both the new section marker and the
+-- "imagery" key in the JSON skeleton. Abort the transaction if either
+-- is missing — means the jsonb_set didn't land cleanly.
+DO $verify$
+DECLARE
+new_prompt text;
+BEGIN
+SELECT default_config #>> '{workflow,steps,plan_site,config,prompt_template}'
+INTO new_prompt
+FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+
+IF new_prompt IS NULL THEN
+        RAISE EXCEPTION 'prompt_template is NULL after update';
+END IF;
+
+    IF position('## Imagery Block' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION 'Imagery Block section not found in updated prompt_template';
+END IF;
+
+    IF position('"imagery":' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION '"imagery": key not found in updated prompt_template';
+END IF;
+
+    IF position('Rule 15' IN new_prompt) > 0 THEN
+        RAISE EXCEPTION 'Unexpected literal "Rule 15" found — template body may have been double-processed';
+END IF;
+
+    RAISE NOTICE 'phase_2g_step3: prompt_template updated successfully (length: % chars)', length(new_prompt);
+END
+$verify$;
+
+COMMIT;
+
+---
+-- correction to above
+
+-- phase_2g_step3_planner_imagery_prompt.sql
+--
+-- Phase 2G step 3 — teach build-site-planner to emit a structured `imagery`
+-- block alongside the legacy `image_prompts` map. Downstream
+-- write_site_plan_action.flattenImageryBlock has been deployed dormant
+-- since step 2; this migration is the first behavioural change that
+-- populates site_plan_imagery rows.
+--
+-- Idempotent in effect: replaces the entire prompt_template; safe to re-run.
+-- Wrapped in BEGIN/COMMIT with a post-write verification that aborts the
+-- transaction if either the new "## Imagery Block" section or the
+-- `"imagery":` key is missing from the resulting template.
+--
+-- Run AFTER taking the standard backup per doc 009:
+--   CREATE TABLE agent_definitions_backup_20260512_pre_phase2g_step3_planner AS
+--   SELECT * FROM agent_definitions
+--   WHERE type = 'build-site-planner' AND is_active = true;
+
+\set ON_ERROR_STOP on
+
+BEGIN;
+
+-- Sanity: target row still exists.
+DO $check$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions
+        WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+          AND is_active = true
+    ) THEN
+        RAISE EXCEPTION 'build-site-planner row not found or inactive';
+END IF;
+END
+$check$;
+
+-- Replace the prompt_template field. Dollar-quoted to preserve quotes,
+-- newlines, and braces in the template body. Tag $bsp_prompt$ chosen
+-- to avoid collision with any text inside the prompt.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb($bsp_prompt$Plan a website for {{.input_data.domain}}.
+
+## Research Data
+Identity: {{.site_specs.specs.identity}}
+Classification: {{.site_specs.specs.classification}}
+
+## Domain Strategy
+{{if .site_specs.specs.strategy}}{{.site_specs.specs.strategy}}{{else}}No strategy data available — use the briefing and classification to determine site structure.{{end}}
+
+## Briefing Answers
+{{.site_specs.specs.briefing}}
+
+{{if .site_specs.specs.mission_brief}}## Mission
+{{.site_specs.specs.mission_brief.text}}
+{{end}}
+{{if .site_specs.specs.roadmap_brief}}## Roadmap
+IMPORTANT — ROADMAP OVERRIDES THE COMPONENT LIST. Build ONLY the pages listed in the current phase below. For each page, use EXACTLY the section_types listed — even if they do not appear in the Available Section Components list above. Unknown section types are handled by the component selector downstream. Do NOT replace roadmap section_types with standard components. Do NOT invent additional pages. The roadmap is the authority for this site.
+
+{{.site_specs.specs.roadmap_brief.text}}
+{{end}}
+## Available Section Components
+You MUST use ONLY these exact component names in the "sections" arrays (unless the roadmap specifies section_types — those override):
+
+{{range .available_components}}
+- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}
+{{end}}
+
+## Available Style Collections
+{{.available_styles}}
+
+## Canonical Page Types
+
+Use ONLY these page_type values, verbatim, lowercase, dash-separated:
+
+| page_type | Description | Use for |
+|-----------|-------------|----------|
+| index | Home page | Always exactly one |
+| content | Standard content page | About, services, contact, FAQ, etc |
+| landing | Conversion-focused page | Lead capture, specific offers |
+| entity-directory | Searchable directory of entities | Business listings, provider directories |
+| entity-page | Individual entity profile | Single business/provider detail page |
+| tool | Interactive tool or calculator | Cost calculators, comparison tools |
+| blog-index | Blog/news listing page | Article index, news feed |
+| blog-post | Individual blog article | Editorial content, guides |
+
+Plan ONLY pages that are directly justified by the briefing, strategy, classification, or roadmap. Do NOT add speculative, demo, or example pages. Every page in your output must serve an explicit need surfaced by one of those inputs. If you don't have evidence for a page, leave it out — fewer well-justified pages are better than padding the count.
+
+If a page doesn't fit any category cleanly, use `content` as the default. Do not invent new page_type values.
+
+## Imagery Block
+
+Return a structured `imagery` block alongside the legacy `image_prompts` map. The downstream image pipeline reads `imagery` as the source of truth; `image_prompts` is retained for backward compatibility during transition.
+
+### Shape
+
+`imagery` is a nested object with three optional sub-keys: `site`, `pages`, `sections`. Scope is implied by position in the nesting — entries do NOT carry `scope` or `scope_ref` fields themselves.
+
+```
+"imagery": {
+  "site":     [ entry, entry, ... ],
+  "pages":    { "<page_name>": [ entry, ... ], ... },
+  "sections": { "<page_name>:<section_ordering>": [ entry, ... ], ... }
+}
+```
+
+The `<section_ordering>` is the zero-indexed position of the section within that page's `sections` array (so `"index:0"` is the first section of the home page).
+
+### Entry fields
+
+| Field | Required | Notes |
+|---|---|---|
+| key | yes | short identifier, lowercase, underscore-separated (e.g. `logo`, `hero_about`, `illustration_team_values`). Unique within its scope. |
+| kind | yes | one of: `logo`, `hero`, `illustration`, `icon`, `infographic`. No other values permitted. |
+| prompt | yes | full generation prompt, one sentence to one paragraph. Reflect the site's `imagery_direction` and `colour_mood`. |
+| style_hints | optional | JSON object, e.g. {"medium": "line drawing", "mood": "collaborative"} |
+| constraints | optional | JSON object, e.g. {"aspect": "1:1", "transparent_background": true} |
+
+### What to populate
+
+- **`site`** — imagery that appears across pages or is brand-level. Always include one `logo` entry. Optionally include one site-wide brand `hero` or `illustration` entry. Two to three entries is typical.
+- **`pages`** — one entry per page-specific image. Always include a `hero` entry for the `index` page, and a `hero` entry for every other page whose `sections` array contains a hero-class component. The map key is the page's `name` field. Skip pages that have no hero section.
+- **`sections`** — for icons, illustrations, or infographics attached to a specific section. Use sparingly in v1 — most plans will have zero section-scope entries. Only emit a section entry when a specific section's imagery need is not covered by the page hero.
+
+### Per-row prompt construction
+
+For each entry, write a `prompt` that:
+- Names the subject concretely (what is in the image)
+- Reflects the site's `design_intent.imagery_direction` and `colour_mood`
+- Avoids brand markings, logos in the subject (unless the entry IS a logo), and text-on-image unless explicit
+- Is self-contained — the image generator sees only this prompt, not the surrounding site context
+
+### Worked example
+
+```
+"imagery": {
+  "site": [
+    {
+      "key": "logo",
+      "kind": "logo",
+      "prompt": "A precise, technical logomark — geometric, restrained, no human figures, no text outside the wordmark itself"
+    },
+    {
+      "key": "hero_canonical",
+      "kind": "hero",
+      "prompt": "A dramatic, high-contrast close-up of an industrial robotic gripper in soft directional lighting, neutral background"
+    }
+  ],
+  "pages": {
+    "index": [
+      {
+        "key": "hero_home",
+        "kind": "hero",
+        "prompt": "A dramatic, high-contrast close-up of an industrial robotic gripper in soft directional lighting, neutral background"
+      }
+    ],
+    "about": [
+      {
+        "key": "hero_about",
+        "kind": "hero",
+        "prompt": "A wide-angle view of a modern automated production line, calm and orderly, blue and grey palette"
+      },
+      {
+        "key": "illustration_team_values",
+        "kind": "illustration",
+        "prompt": "Stylised group of engineers collaborating around a workbench, no faces visible, mid-century technical illustration feel",
+        "style_hints": {"medium": "line drawing", "mood": "collaborative"}
+      }
+    ],
+    "tools": [
+      {
+        "key": "hero_tools",
+        "kind": "hero",
+        "prompt": "An engineering workspace abstraction — measurement instruments, technical drawings, soft daylight"
+      }
+    ]
+  },
+  "sections": {
+    "index:2": [
+      {
+        "key": "icon_precision",
+        "kind": "icon",
+        "prompt": "Geometric icon representing precision engineering — single colour, sharp corners",
+        "constraints": {"aspect": "1:1", "transparent_background": true}
+      }
+    ]
+  }
+}
+```
+
+Note in the example above: `image_prompts.hero_home` would carry the same subject as the `pages.index[0]` entry's prompt, satisfying rule 14. The `pages.index` hero is REQUIRED whenever the index page has a hero section (which is nearly always).
+
+## Strategy Guidance
+
+If a domain strategy is available above, use it as strong input:
+- The recommended site_type should guide the overall structure
+- The recommended page_types should inform which pages you plan
+- The revenue model should shape what conversion/lead-capture mechanisms you include
+- The tone should influence your style_collection choice
+
+You have FINAL SAY on architecture. If you disagree with the strategy, go with your judgment but note why in strategy_notes.
+
+Return JSON:
+{
+  "site_type": "from the strategy, roadmap, or your own assessment",
+  "strategy_notes": "any notes on how you used or diverged from the strategy/roadmap",
+  "pages": [
+    {
+      "name": "index",
+      "title": "Page Title | Site Name",
+      "page_type": "index",
+      "nav_label": "Home",
+      "nav_order": 1,
+      "in_header": true,
+      "in_footer": true,
+      "sections": ["hero", "features", "testimonials", "call-to-action"]
+    }
+  ],
+  "style_collection": "style-name",
+  "needs_logo": true,
+  "needs_images": true,
+  "image_prompts": {
+    "logo": "Description for logo generation",
+    "hero_home": "Description for home hero image"
+  },
+  "imagery": {
+    "site": [
+      {"key": "logo", "kind": "logo", "prompt": "..."}
+    ],
+    "pages": {
+      "index": [
+        {"key": "hero_home", "kind": "hero", "prompt": "..."}
+      ]
+    },
+    "sections": {}
+  },
+  "design_intent": {
+    "style_direction": "professional-dark or modern-light or bold-creative",
+    "colour_mood": "Description of colour feeling and why it fits the industry",
+    "typography_mood": "Description of font personality",
+    "imagery_direction": "What images should show",
+    "layout_preference": "Layout style description",
+    "avoid": ["Things to avoid in design"]
+  },
+  "content_direction": {
+    "voice": "How the site should sound",
+    "emphasis": "What to emphasise in content",
+    "avoid_phrases": ["Phrases to never use"],
+    "social_proof_style": "How to handle testimonials and proof",
+    "blog_strategy": "Content strategy for blog if applicable"
+  }
+}
+
+RULES:
+1. Use component names from the Available Section Components list for sections arrays — UNLESS the roadmap specifies section_types, in which case use those
+2. Every page MUST have a page_type from the canonical list
+3. Pages with page_type entity-directory, entity-page, tool, blog-index, blog-post may have empty sections arrays
+4. Content and index pages need sections arrays populated
+5. Always include: index (home) and contact pages (unless the roadmap says otherwise)
+6. Keep header navigation to 5-8 items maximum
+7. Set needs_logo: true and needs_images: true (always)
+8. Provide detailed image_prompts for logo and hero_home
+9. Include design_intent with explicit colour mood, typography direction, and layout preferences
+10. Include content_direction with voice, emphasis, and avoid_phrases tailored to the target audience
+11. If the classification data includes content_features.news_feed.recommended = true, add "latest-news" to the homepage sections
+12. When a roadmap is present, the pages and section_types from the current phase take precedence over your own page planning
+13. Populate the `imagery` block per the Imagery Block rules above. At minimum: one site-scope `logo` entry, one page-scope `hero` entry under `pages.index`, and one page-scope `hero` entry for every other page whose `sections` array contains a hero-class component
+14. `imagery` and `image_prompts` must be consistent: the site-scope `logo` entry's prompt should match `image_prompts.logo`; the `pages.index` `hero` entry's prompt should match `image_prompts.hero_home`
+15. Use ONLY the allowed values for `kind` (logo|hero|illustration|icon|infographic). Section scope keys MUST follow `"<page_name>:<ordering>"` format with a colon. Wrong values fail DB CHECK constraints and the plan is rejected
+
+Return ONLY valid JSON.$bsp_prompt$::text)
+       ),
+       updated_at = now()
+ WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b'
+   AND is_active = true;
+
+-- Verify the new prompt contains both the new section marker and the
+-- "imagery" key in the JSON skeleton. Abort the transaction if either
+-- is missing — means the jsonb_set didn't land cleanly.
+DO $verify$
+DECLARE
+new_prompt text;
+BEGIN
+SELECT default_config #>> '{workflow,steps,plan_site,config,prompt_template}'
+INTO new_prompt
+FROM agent_definitions
+WHERE id = 'f263eaa1-61e1-446e-9410-648e12b7875b';
+
+IF new_prompt IS NULL THEN
+        RAISE EXCEPTION 'prompt_template is NULL after update';
+END IF;
+
+    IF position('## Imagery Block' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION 'Imagery Block section not found in updated prompt_template';
+END IF;
+
+    IF position('"imagery":' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION '"imagery": key not found in updated prompt_template';
+END IF;
+
+    IF position('"hero_home"' IN new_prompt) = 0 THEN
+        RAISE EXCEPTION '"hero_home" reference not found — worked example may be malformed';
+END IF;
+
+    RAISE NOTICE 'phase_2g_step3: prompt_template updated successfully (length: % chars)', length(new_prompt);
+END
+$verify$;
+
+COMMIT;

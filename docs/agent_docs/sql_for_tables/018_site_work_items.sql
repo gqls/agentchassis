@@ -878,3 +878,137 @@ WHERE status = 'failed'
   AND pipeline = 'build'
   AND item_type IN ('improve_tool', 'audit_tool')
   AND error LIKE '%resolved to nil%';
+
+---
+
+timeout fix
+
+-- migration_claimed_item_timeout_evidence_check.sql
+--
+-- Fix the false-positive completion bug in the claimed-item-timeout
+-- scheduled task. The previous evidence check for `page_rerender` and
+-- `needs_rerender` looked for ANY page on the site updated since the
+-- claim — so unrelated rerenders on the same site would falsely mark a
+-- stuck item complete. Also used updated_at (bumped on any UPDATE)
+-- rather than deployed_at (the actual deploy signal).
+--
+-- Confirmed false positive: gaswholesalers fuel-industry-insights on
+-- 2026-05-12 — claimed at 19:28, auto-completed at 19:43, actual git
+-- commit at 20:30 via a separate path. The 19:43 auto-complete had no
+-- evidence the targeted page had actually been rendered.
+--
+-- Changes:
+--   page_rerender    : was site-level + updated_at  → page_id-specific + deployed_at
+--   needs_content_page : was page_name + updated_at → page_id-specific + deployed_at
+--   needs_rerender   : dropped from evidence branch — page_id is NULL on
+--                      most rows (it's a site-level orchestrator that fans
+--                      out), and this branch was the main false-positive
+--                      source. Lets the item fall through to `reset` where
+--                      it'll retry; needs_rerender is fast and idempotent
+--                      so retry is cheap.
+--   needs_design     : unchanged. Site-level by nature. Comment added
+--                      to flag that this branch still has narrow false-
+--                      positive potential (only checks `head` slot, uses
+--                      updated_at).
+--
+-- Verification before applying:
+--   SELECT name, LEFT(pre_query, 100) AS preview
+--   FROM scheduled_tasks WHERE name = 'claimed-item-timeout';
+
+BEGIN;
+
+-- Snapshot the current pre_query so we can rollback by hand if needed.
+-- (Optional — pg_dump or pg_dumpall is the real backup mechanism.)
+SELECT name, pre_query, updated_at
+FROM scheduled_tasks
+WHERE name = 'claimed-item-timeout';
+
+UPDATE scheduled_tasks
+SET pre_query = $PQ$
+    WITH completed_by_evidence AS (
+    -- Items where the handler's work is provably done on the specific
+    -- targeted artifact (not just "something on the same site changed").
+    -- See debugging guide section 9: "claimed-item-timeout evidence
+    -- check produces false-positive completions" for the prior bug.
+    UPDATE site_work_items wi
+    SET status = 'complete',
+        completed_at = NOW(),
+        error = 'Auto-completed: work verified done despite lost response'
+    WHERE wi.status = 'claimed'
+      AND wi.claimed_at < NOW() - INTERVAL '15 minutes'
+      AND (
+        -- Content pages: the specific page was deployed after claim.
+        (wi.item_type = 'needs_content_page' AND wi.page_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM pages p
+            WHERE p.id = wi.page_id
+              AND p.build_status = 'deployed'
+              AND p.deployed_at IS NOT NULL
+              AND p.deployed_at > wi.claimed_at
+        ))
+        OR
+        -- Page rerenders: the specific page was deployed after claim.
+        -- Note: NOT 'needs_rerender' — that's a site-level orchestrator
+        -- with page_id NULL, can't have per-page evidence. Let it
+        -- fall through to reset.
+        (wi.item_type = 'page_rerender' AND wi.page_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM pages p
+            WHERE p.id = wi.page_id
+              AND p.build_status = 'deployed'
+              AND p.deployed_at IS NOT NULL
+              AND p.deployed_at > wi.claimed_at
+        ))
+        OR
+        -- Design items: site-level by nature. CAVEAT — this branch still
+        -- has narrow false-positive potential because (a) it only checks
+        -- the head slot, not header/footer, and (b) it uses updated_at
+        -- rather than a deploy-specific timestamp (site_components has
+        -- no deployed_at column). Acceptable for now; needs_design items
+        -- are rare and the impact is bounded to design-only work.
+        (wi.item_type = 'needs_design' AND EXISTS (
+            SELECT 1 FROM site_components sc
+            WHERE sc.site_id = wi.site_id
+              AND sc.slot_name = 'head'
+              AND sc.updated_at > wi.claimed_at
+        ))
+      )
+    RETURNING id, item_type, handler_agent, status
+),
+reset AS (
+    -- Remaining stuck items: no evidence of completion, reset for retry.
+    -- needs_rerender items always land here now (previously could be
+    -- false-positive auto-completed); that's intended — retry is cheap.
+    UPDATE site_work_items
+    SET status = CASE
+            WHEN attempt_count + 1 >= max_attempts THEN 'failed'
+            ELSE 'triaged'
+        END,
+        claimed_by = NULL,
+        claimed_at = NULL,
+        attempt_count = attempt_count + 1,
+        error = CASE
+            WHEN attempt_count + 1 >= max_attempts THEN 'Claim timed out (attempts exhausted)'
+            ELSE 'Claim timed out — handler pod likely died'
+        END
+    WHERE status = 'claimed'
+      AND claimed_at < NOW() - INTERVAL '40 minutes'
+      AND id NOT IN (SELECT id FROM completed_by_evidence)
+    RETURNING id, item_type, handler_agent, status
+)
+SELECT
+    (SELECT COUNT(*) FROM completed_by_evidence) as auto_completed,
+    (SELECT COUNT(*) FROM reset) as reset_count
+    $PQ$,
+    updated_at = NOW()
+    WHERE name = 'claimed-item-timeout';
+
+-- Verify the new pre_query took.
+SELECT name, enabled, interval_seconds, updated_at,
+    LEFT(pre_query, 200) AS preview
+FROM scheduled_tasks
+WHERE name = 'claimed-item-timeout';
+
+COMMIT;
+
+-- Rollback (paste the snapshot from before applying — keep that output):
+-- UPDATE scheduled_tasks SET pre_query = $$<original pre_query text>$$
+-- WHERE name = 'claimed-item-timeout';
