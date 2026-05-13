@@ -707,6 +707,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Render CSS from Go template + design spec (deterministic, no LLM)",
 		IsLocal:     true,
 	},
+	"render_js_snippets_for_site": {
+		Handler:     RenderJSSnippetsForSiteAction,
+		Category:    "site",
+		Description: "Render concatenated JS bundle from active js_snippets for a site",
+		IsLocal:     true,
+	},
 	"sync_site_identity": {
 		Handler:     SyncSiteIdentityAction,
 		Category:    "data",
