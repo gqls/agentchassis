@@ -434,3 +434,104 @@ SELECT type,
 FROM agent_definitions
 WHERE type = 'design-discovery-agent';
 
+---
+-- phase_2g_step4_register_check.sql
+--
+-- Phase 2G step 4 wiring — register `unfulfilled_imagery_plan` in
+-- design-discovery-agent's run_checks list so the new check actually
+-- fires during discovery runs.
+--
+-- Without this, the Go check self-registers via init() but is never
+-- invoked, because RunDiscoveryChecksAction iterates only the names
+-- listed in the workflow step's config.
+--
+-- Idempotent: re-running is a no-op if the check is already registered.
+--
+-- The existing legacy check `unfulfilled_image_prompt` is intentionally
+-- left in place. Both checks run in parallel during the transition;
+-- the legacy check naturally stops finding gaps once all sites' planner
+-- runs are post-2G.3. Deregistration is an operational decision for
+-- some future date, not part of this migration.
+
+\set ON_ERROR_STOP on
+
+-- ── Backup ──
+
+CREATE TABLE agent_def_design_discovery_agent_backup_20260513_pre_register_imagery_check AS
+SELECT * FROM agent_definitions
+WHERE type = 'design-discovery-agent' AND is_active = true;
+
+SELECT
+    (SELECT COUNT(*) FROM agent_definitions
+     WHERE type = 'design-discovery-agent' AND is_active = true) AS live,
+    (SELECT COUNT(*) FROM agent_def_design_discovery_agent_backup_20260513_pre_register_imagery_check) AS backup;
+
+-- ── Migration ──
+
+BEGIN;
+
+DO $register$
+DECLARE
+v_checks jsonb;
+BEGIN
+    -- Read current list
+SELECT default_config #> '{workflow,steps,run_checks,config,checks}'
+INTO v_checks
+FROM agent_definitions
+WHERE type = 'design-discovery-agent' AND is_active = true;
+
+IF v_checks IS NULL THEN
+        RAISE EXCEPTION 'design-discovery-agent: run_checks.config.checks not found';
+END IF;
+
+    -- Idempotency: skip if already registered
+    IF v_checks ? 'unfulfilled_imagery_plan' THEN
+        RAISE NOTICE 'unfulfilled_imagery_plan already registered; no change';
+        RETURN;
+END IF;
+
+    -- Append the new check name
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,run_checks,config,checks}',
+        v_checks || '["unfulfilled_imagery_plan"]'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'design-discovery-agent'
+  AND is_active = true;
+
+RAISE NOTICE 'unfulfilled_imagery_plan registered in design-discovery-agent run_checks list';
+END
+$register$;
+
+-- ── Verification ──
+
+DO $verify$
+DECLARE
+v_checks jsonb;
+    v_check_count int;
+BEGIN
+SELECT default_config #> '{workflow,steps,run_checks,config,checks}'
+INTO v_checks
+FROM agent_definitions
+WHERE type = 'design-discovery-agent' AND is_active = true;
+
+IF NOT (v_checks ? 'unfulfilled_imagery_plan') THEN
+        RAISE EXCEPTION 'unfulfilled_imagery_plan not in run_checks list after migration';
+END IF;
+
+    IF NOT (v_checks ? 'unfulfilled_image_prompt') THEN
+        RAISE EXCEPTION 'legacy unfulfilled_image_prompt missing — migration may have clobbered the list';
+END IF;
+
+SELECT jsonb_array_length(v_checks) INTO v_check_count;
+RAISE NOTICE 'design-discovery-agent now runs % checks (was 14, expected 15)', v_check_count;
+
+    IF v_check_count < 15 THEN
+        RAISE EXCEPTION 'check count is % after migration, expected ≥ 15', v_check_count;
+END IF;
+END
+$verify$;
+
+COMMIT;

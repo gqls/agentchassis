@@ -152,3 +152,30 @@ thunder-reaper scheduled task — runs every 15 min, finds instances older than 
 
 Want to kick off with Phase 3.1 (the Thunder API client) since it's the foundation everything else depends on? Or do you want to settle the smoke-test KafkaTopic CRD properly first (e.g. apply it permanently rather than as a 5-minute retention)? Either way is reasonable — let me know how you want to start.
 
+Phase 3.3
+What 3.3 will do
+The provision_instance action handler — wires everything together. Approximate shape:
+1. Read incoming request fields:    training_run_id, ?gpu, ?mode, ?vcpus, ?disk_size_gb
+2. Pre-check:                        SELECT * FROM thunder_provision_check;
+   If can_provision=false → return error with denial_reason
+3. Generate keypair:                 kp := ssh.GenerateKeypair("training-run-" + training_run_id)
+4. Call Thunder create:              resp := thunderAPI.CreateInstance(ctx, {gpu, mode, vcpus, ..., PublicKey: kp.PublicAuthorizedKey})
+5. Store keypair in Secret:          secretMgr.CreateKeypairSecret(ctx, resp.UUID, kp)
+6. Poll until RUNNING:               inst := thunderAPI.WaitForRunning(ctx, resp.Identifier, 5*time.Second)
+   ctx wrapped with 5-minute timeout from config
+7. INSERT thunder_instances row:     thunder_uuid=resp.UUID, identifier=resp.Identifier,
+   instance_ip=inst.IP, ssh_user='ubuntu', ssh_key_secret=name,
+   training_run_id=...,  status='running', provisioned_at=NOW()
+8. Return shaped response:           {instance_ip, ssh_user, ssh_key_secret_name, thunder_instance_id,
+   thunder_uuid, provisioned_at}
+   Plus error handling for:
+
+Pre-check denial (don't even try to provision)
+API auth error (token misconfigured)
+API 5xx / rate-limit (transient → return error_recoverable so chassis retries)
+WaitForRunning timeout (instance stuck in PENDING → decommission, return error)
+Terminal status (ERROR/TERMINATED → return error)
+DB INSERT failure after successful provision (compensating action: decommission the orphan)
+
+The compensating-action piece is the most interesting — if we successfully create the Thunder instance but the DB INSERT fails (e.g. transient pg outage), we'd be billed for an instance we can't track. Need a small recovery path that calls DeleteInstance + Secret cleanup before returning the error. I'll structure it as deferred cleanup that only fires on the error path.
+
