@@ -996,3 +996,265 @@ COMMIT;
 --         updated_at = NOW()
 --     WHERE id = 'e9a9bac9-dfe4-4aca-8f32-19738ac265c6'
 --       AND (is_snapshot IS NULL OR is_snapshot = false);
+
+---
+-- workflow changes
+
+-- phase_2g_step5_image_build_handler_needs_imagery.sql
+--
+-- Phase 2G step 5 — teach image-build-handler to process needs_imagery
+-- work items (emitted by step 4's check_unfulfilled_imagery_plan).
+--
+-- Approach: NEW BRANCH ALONGSIDE the existing variant chain rather than
+-- extending the variant branch's matcher. Justification: the next phase
+-- of imagery work (kind-specific behaviour — icon transparency, logo
+-- composition rules, infographic SVG output) wants separation from the
+-- variant chain's hero-only assumptions. Forking now is cheaper than
+-- forking later.
+--
+-- Workflow additions:
+--   1. check_item_type_imagery  — routes needs_imagery items to new branch
+--   2. spawn_image_gen_imagery  — spawn image-generator
+--   3. call_imagery_gen         — invoke generator with prompt + site_id
+--                                  + kind/style_hints/constraints (the
+--                                  latter three pass-through until the
+--                                  cascade is enriched in a follow-up)
+--   4. check_imagery_brand_update — routes on spec.brand_update boolean
+--                                    computed by step 4
+--   5. store_imagery_brand_asset  — store with update_site_brand_assets=true
+--   6. store_imagery_asset        — store with update_site_brand_assets=false
+--
+-- Both store steps feed into the shared spawn_asset_deployer → call_asset_deployer
+-- → complete tail, so the asset-deployer chain is unchanged.
+--
+-- ensure_site_record's next_step changes from check_item_type to
+-- check_item_type_imagery. check_item_type_imagery's else_step is
+-- check_item_type, preserving the existing routing for legacy item types.
+--
+-- Note on store_asset config: uses purpose_field and asset_key_field for
+-- dynamic spec lookup. asset_key_field is already established (variant chain
+-- uses it). purpose_field is by convention same pattern; if the store_asset
+-- action doesn't recognise it, the migration verification will surface a
+-- failure in the first run.
+--
+-- Run AFTER step 4 (check_unfulfilled_imagery_plan.go deployed) so that
+-- needs_imagery items exist to be consumed.
+
+\set ON_ERROR_STOP on
+
+-- ── Backup ──
+
+CREATE TABLE agent_def_image_build_handler_backup_20260513_pre_phase2g_step5 AS
+SELECT * FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+SELECT
+    (SELECT COUNT(*) FROM agent_definitions
+     WHERE type = 'image-build-handler' AND is_active = true) AS live,
+    (SELECT COUNT(*) FROM agent_def_image_build_handler_backup_20260513_pre_phase2g_step5) AS backup;
+
+-- ── Migration ──
+
+BEGIN;
+
+-- Sanity: target row exists and currently has the variant branch
+-- (confirms we're patching the post-Phase-2E state, not an older snapshot)
+DO $check$
+DECLARE
+v_has_variant boolean;
+BEGIN
+SELECT default_config #> '{workflow,steps,check_item_type}' IS NOT NULL
+       AND default_config #> '{workflow,steps,call_variant_gen}' IS NOT NULL
+INTO v_has_variant
+FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+IF NOT v_has_variant THEN
+        RAISE EXCEPTION 'image-build-handler does not have post-Phase-2E variant chain; check the agent_definition state before migrating';
+END IF;
+END
+$check$;
+
+-- 1. Add the six new workflow steps in one jsonb merge.
+--    Merging `||` onto an existing object key adds/replaces keys, leaving
+--    other siblings untouched.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps}',
+        (default_config #> '{workflow,steps}') || $new_steps$
+            {
+    "check_item_type_imagery": {
+        "action": "conditional",
+        "config": {
+            "condition": "input_data.item_type == 'needs_imagery'",
+        "then_step": "spawn_image_gen_imagery",
+        "else_step": "check_item_type"
+    },
+        "description": "Phase 2G step 5: route needs_imagery items to the structured imagery branch. Legacy item types fall through to check_item_type (variant/logo/hero)."
+    },
+    "spawn_image_gen_imagery": {
+        "action": "spawn_agent",
+        "config": {
+            "role": "image_generator",
+            "agent_type": "image-generator"
+        },
+        "next_step": "call_imagery_gen",
+        "description": "Spawn image generator for a needs_imagery item (Phase 2G step 5)",
+        "output_field": "image_gen_agent"
+    },
+    "call_imagery_gen": {
+        "action": "call_agent",
+        "config": {
+            "agent_type": "image-generator",
+            "target_role": "image_generator",
+            "input_mapping": {
+                "prompt": "input_data.spec.prompt",
+                "site_id": "site_record.site_id",
+                "kind": "input_data.spec.kind",
+                "style_hints": "input_data.spec.style_hints",
+                "constraints": "input_data.spec.constraints",
+                "site_plan": "input_data.spec"
+            },
+            "output_mapping": {
+                "prompt": "generate.response.prompt",
+                "image_uri": "generate.response.image_uri",
+                "image_url": "generate.response.image_url",
+                "generated_at": "generate.response.generated_at"
+            },
+            "timeout_seconds": 120
+        },
+        "next_step": "check_imagery_brand_update",
+        "error_step": "complete_error",
+        "description": "Generate imagery (Phase 2G step 5). site_id passes so generate_image_actions can prepend design_intent.imagery_direction. kind/style_hints/constraints pass through for future cascade enrichment.",
+        "output_field": "image_result"
+    },
+    "check_imagery_brand_update": {
+        "action": "conditional",
+        "config": {
+            "condition": "input_data.spec.brand_update == true",
+            "then_step": "store_imagery_brand_asset",
+            "else_step": "store_imagery_asset"
+        },
+        "description": "Phase 2G step 5: route based on the brand_update flag set by the discovery check (rule b: site-scope OR canonical index hero)."
+    },
+    "store_imagery_brand_asset": {
+        "action": "store_asset",
+        "config": {
+            "asset_type": "image",
+            "purpose_field": "input_data.spec.purpose",
+            "asset_key_field": "input_data.spec.asset_key",
+            "data_field": "image_result.image_url",
+            "origin_type": "generated",
+            "origin_model": "sdxl",
+            "site_id_field": "site_record.site_id",
+            "origin_prompt_field": "image_result.prompt",
+            "update_site_brand_assets": true
+        },
+        "next_step": "spawn_asset_deployer",
+        "error_step": "spawn_asset_deployer",
+        "description": "Store imagery asset and update site_brand_assets (logo or canonical index hero — rule b). Error step still deploys.",
+        "output_field": "asset_stored"
+    },
+    "store_imagery_asset": {
+        "action": "store_asset",
+        "config": {
+            "asset_type": "image",
+            "purpose_field": "input_data.spec.purpose",
+            "asset_key_field": "input_data.spec.asset_key",
+            "data_field": "image_result.image_url",
+            "origin_type": "generated",
+            "origin_model": "sdxl",
+            "site_id_field": "site_record.site_id",
+            "origin_prompt_field": "image_result.prompt",
+            "update_site_brand_assets": false
+        },
+        "next_step": "spawn_asset_deployer",
+        "error_step": "spawn_asset_deployer",
+        "description": "Store imagery asset without touching site_brand_assets (page-scope non-index, section-scope, non-hero kinds). Error step still deploys.",
+        "output_field": "asset_stored"
+    }
+}
+$new_steps$::jsonb
+       ),
+    updated_at = now()
+WHERE type = 'image-build-handler'
+  AND is_active = true;
+
+-- 2. Redirect ensure_site_record.next_step to the new imagery router.
+--    The new router falls through to the old check_item_type for any
+--    non-needs_imagery item, so legacy paths still work.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,ensure_site_record,next_step}',
+        '"check_item_type_imagery"'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'image-build-handler'
+  AND is_active = true;
+
+-- ── Verification ──
+
+DO $verify$
+DECLARE
+v_steps        jsonb;
+    v_next_step    text;
+    v_branch_count int;
+BEGIN
+SELECT default_config #> '{workflow,steps}'
+INTO v_steps
+FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+-- All six new steps must exist
+FOREACH v_next_step IN ARRAY ARRAY[
+        'check_item_type_imagery',
+        'spawn_image_gen_imagery',
+        'call_imagery_gen',
+        'check_imagery_brand_update',
+        'store_imagery_brand_asset',
+        'store_imagery_asset'
+    ]
+    LOOP
+        IF NOT (v_steps ? v_next_step) THEN
+            RAISE EXCEPTION 'Step % not present after migration', v_next_step;
+END IF;
+END LOOP;
+
+    -- Redirected entry point
+SELECT v_steps #>> '{ensure_site_record,next_step}' INTO v_next_step;
+IF v_next_step <> 'check_item_type_imagery' THEN
+        RAISE EXCEPTION 'ensure_site_record.next_step is %, expected check_item_type_imagery', v_next_step;
+END IF;
+
+    -- Legacy branches intact
+    FOREACH v_next_step IN ARRAY ARRAY[
+        'check_item_type',
+        'check_logo_or_hero',
+        'spawn_image_gen_variant',
+        'call_variant_gen',
+        'store_variant_asset',
+        'store_logo_asset',
+        'store_hero_asset',
+        'spawn_asset_deployer',
+        'call_asset_deployer',
+        'complete'
+    ]
+    LOOP
+        IF NOT (v_steps ? v_next_step) THEN
+            RAISE EXCEPTION 'Legacy step % missing after migration — backup may have been clobbered', v_next_step;
+END IF;
+END LOOP;
+
+    -- Branch count should be: 10 existing + 6 new = 16
+SELECT count(*) INTO v_branch_count FROM jsonb_object_keys(v_steps);
+IF v_branch_count < 16 THEN
+        RAISE EXCEPTION 'Step count after migration is %, expected at least 16', v_branch_count;
+END IF;
+
+    RAISE NOTICE 'phase_2g_step5: image-build-handler extended; total workflow steps now %', v_branch_count;
+END
+$verify$;
+
+COMMIT;

@@ -76,13 +76,12 @@ type plannedImagery struct {
 //
 // Priority numbers match the legacy check's bands so the two checks
 // produce comparable queue orderings during transition:
-//
-//	 65 — page.index hero        (mirrors hero_home)
-//	 70 — site.logo               (mirrors logo)
-//	 75 — other site-scope        (brand-level supporting imagery)
-//	 80 — page-scope hero (non-index, mirrors hero variants)
-//	 90 — page-scope non-hero
-//	100 — section-scope decoratives
+//   65 — page.index hero        (mirrors hero_home)
+//   70 — site.logo               (mirrors logo)
+//   75 — other site-scope        (brand-level supporting imagery)
+//   80 — page-scope hero (non-index, mirrors hero variants)
+//   90 — page-scope non-hero
+//  100 — section-scope decoratives
 func classifyImageryRow(scope, kind string, scopeRef *string) (priority int, severity string) {
 	if scope == "page" && scopeRef != nil && *scopeRef == "index" && kind == "hero" {
 		return 65, "high"
@@ -153,18 +152,28 @@ func (c *UnfulfilledImageryPlanCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 
 		priority, severity := classifyImageryRow(row.Scope, row.Kind, row.ScopeRef)
 
+		// brand_update rule (b): site-scope imagery, OR the canonical
+		// index-page hero. The site_brand_assets JSON on sites table only
+		// holds one logo / hero — site-wide brand identity. Page-scope
+		// heroes on non-index pages and section-scope decoratives don't
+		// belong there. Computed here so the workflow doesn't have to
+		// know the rule; it just routes on spec.brand_update.
+		brandUpdate := row.Scope == "site" ||
+			(row.Scope == "page" && row.ScopeRef != nil && *row.ScopeRef == "index" && row.Kind == "hero")
+
 		// Spec carries everything image-build-handler needs once step 5
 		// adds the needs_imagery branch. The legacy hero variant chain
 		// reads spec.prompt, spec.purpose, spec.asset_key; this spec
 		// is a superset.
 		spec := map[string]interface{}{
-			"check":     "unfulfilled_imagery_plan",
-			"scope":     row.Scope,
-			"key":       row.Key,
-			"kind":      row.Kind,
-			"asset_key": assetKey,
-			"purpose":   row.Kind, // step 5 may refine kind→purpose mapping
-			"prompt":    row.Prompt,
+			"check":        "unfulfilled_imagery_plan",
+			"scope":        row.Scope,
+			"key":          row.Key,
+			"kind":         row.Kind,
+			"asset_key":    assetKey,
+			"purpose":      row.Kind, // step 5 may refine kind→purpose mapping
+			"prompt":       row.Prompt,
+			"brand_update": brandUpdate,
 		}
 		if row.ScopeRef != nil {
 			spec["scope_ref"] = *row.ScopeRef
