@@ -1258,3 +1258,115 @@ END
 $verify$;
 
 COMMIT;
+
+---
+-- a kind is another word for type e.g. hero, logo
+
+-- phase_2h_step4_legacy_kind_defaults.sql
+--
+-- Phase 2H.4 — opt the legacy image-build-handler workflow steps into
+-- per-kind generation defaults from generate_image_actions.go's
+-- kindDefaults map.
+--
+-- generate_image_actions resolves `kind` from inputData["kind"] first,
+-- then from params.StepConfig.Config["default_kind"]. The Phase 2G step 5
+-- branch (call_imagery_gen) already passes kind via input_mapping. The
+-- three legacy callers don't know about kind, so we add a default_kind
+-- to their step config:
+--
+--   call_logo_gen      → default_kind = "logo"
+--   call_hero_gen      → default_kind = "hero"
+--   call_variant_gen   → default_kind = "hero"
+--
+-- After this migration, all four callers benefit from kind-aware defaults
+-- (negative_prompt, cfg_scale, steps). The most visible win is logo
+-- generation no longer producing human figures.
+--
+-- Idempotent. Backup per doc 009 convention.
+
+\set ON_ERROR_STOP on
+
+-- ── Backup ──
+
+CREATE TABLE agent_def_image_build_handler_backup_20260513_pre_phase2h_kind_defaults AS
+SELECT * FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+SELECT
+    (SELECT COUNT(*) FROM agent_definitions
+     WHERE type = 'image-build-handler' AND is_active = true) AS live,
+    (SELECT COUNT(*) FROM agent_def_image_build_handler_backup_20260513_pre_phase2h_kind_defaults) AS backup;
+
+-- ── Migration ──
+
+BEGIN;
+
+-- Sanity: confirm the three target steps exist
+DO $check$
+BEGIN
+    IF NOT (
+        EXISTS (SELECT 1 FROM agent_definitions
+                 WHERE type = 'image-build-handler' AND is_active = true
+                   AND default_config #> '{workflow,steps,call_logo_gen}' IS NOT NULL)
+        AND
+        EXISTS (SELECT 1 FROM agent_definitions
+                 WHERE type = 'image-build-handler' AND is_active = true
+                   AND default_config #> '{workflow,steps,call_hero_gen}' IS NOT NULL)
+        AND
+        EXISTS (SELECT 1 FROM agent_definitions
+                 WHERE type = 'image-build-handler' AND is_active = true
+                   AND default_config #> '{workflow,steps,call_variant_gen}' IS NOT NULL)
+    ) THEN
+        RAISE EXCEPTION 'one or more of call_logo_gen/call_hero_gen/call_variant_gen missing — wrong agent state for 2H.4';
+END IF;
+END
+$check$;
+
+-- Three jsonb_set chained — set default_kind on each step's config.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        default_config,
+                        '{workflow,steps,call_logo_gen,config,default_kind}',
+                        '"logo"'::jsonb
+                ),
+                '{workflow,steps,call_hero_gen,config,default_kind}',
+                '"hero"'::jsonb
+        ),
+        '{workflow,steps,call_variant_gen,config,default_kind}',
+        '"hero"'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'image-build-handler'
+  AND is_active = true;
+
+-- Verify
+DO $verify$
+DECLARE
+v_logo_kind    text;
+    v_hero_kind    text;
+    v_variant_kind text;
+BEGIN
+SELECT default_config #>> '{workflow,steps,call_logo_gen,config,default_kind}',
+           default_config #>> '{workflow,steps,call_hero_gen,config,default_kind}',
+           default_config #>> '{workflow,steps,call_variant_gen,config,default_kind}'
+INTO v_logo_kind, v_hero_kind, v_variant_kind
+FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+IF v_logo_kind <> 'logo' THEN
+        RAISE EXCEPTION 'call_logo_gen.default_kind is %, expected logo', v_logo_kind;
+END IF;
+    IF v_hero_kind <> 'hero' THEN
+        RAISE EXCEPTION 'call_hero_gen.default_kind is %, expected hero', v_hero_kind;
+END IF;
+    IF v_variant_kind <> 'hero' THEN
+        RAISE EXCEPTION 'call_variant_gen.default_kind is %, expected hero', v_variant_kind;
+END IF;
+
+    RAISE NOTICE 'phase_2h.4: default_kind set on legacy callers (logo, hero, hero)';
+END
+$verify$;
+
+COMMIT;

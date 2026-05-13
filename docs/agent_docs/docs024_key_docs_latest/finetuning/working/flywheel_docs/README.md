@@ -179,3 +179,32 @@ DB INSERT failure after successful provision (compensating action: decommission 
 
 The compensating-action piece is the most interesting — if we successfully create the Thunder instance but the DB INSERT fails (e.g. transient pg outage), we'd be billed for an instance we can't track. Need a small recovery path that calls DeleteInstance + Secret cleanup before returning the error. I'll structure it as deferred cleanup that only fires on the error path.
 
+# 3.4
+Design recap
+Inputs (from the calling agent):
+
+provisioning_id (DB row UUID — preferred, the natural handle), OR
+thunder_identifier (numeric Thunder API ID — fallback for cases where caller only has that)
+
+Flow:
+1. Look up thunder_instances row by id (or by thunder_instance_id if only identifier given)
+2. UPDATE status='decommissioning' to mark intent (idempotency anchor)
+3. Call Thunder API DeleteInstance — idempotent on 404
+4. Delete k8s Secret — idempotent on 404
+5. Compute cost: (NOW() - running_since) * hourly_rate_usd
+6. UPDATE status='decommissioned', decommissioned_at=NOW(), cost_usd=<computed>
+7. Return success
+   Idempotency:
+
+Row already decommissioned: return success with the existing row's fields
+Row in decommissioning (mid-flight crash recovery): finish the cleanup, then mark decommissioned
+Row not found: return error (caller has bad state)
+Thunder 404 / Secret 404: treat as success (already gone)
+
+Three files (mirroring 3.3 structure):
+
+internal/adapters/thunder/store/instances.go — DB access (lookup, status update, finalize)
+internal/adapters/thunder/decommission_action.go — the action itself
+Patch to adapter.go — dispatch decommission_instance
+
+

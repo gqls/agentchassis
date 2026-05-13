@@ -2,12 +2,15 @@
 //
 // Thunder Compute Adapter.
 //
-// Status: Phase 3.3 — provision_instance is implemented. decommission_instance
-// and the reaper land in 3.4 and 3.5 respectively. Currently:
+// Status: Phase 3.4 — provision_instance and decommission_instance are
+// implemented. The reaper (3.5) lands next. Currently:
 //
-//   - provision_instance: full flow — pre-check, keypair generation,
-//     Thunder API create, k8s Secret persistence, WaitForRunning poll,
-//     thunder_instances INSERT with retry, compensating cleanup on failure.
+//   - provision_instance: pre-check, keypair generation, Thunder API create,
+//     k8s Secret persistence, WaitForRunning poll, thunder_instances INSERT
+//     with retry, compensating cleanup on failure.
+//   - decommission_instance: row lookup, atomic state transition to
+//     'decommissioning', Thunder API delete (idempotent), Secret delete
+//     (idempotent), cost computation, finalization to 'decommissioned'.
 //   - all other actions: return error_unrecoverable / not_implemented.
 //
 // See FOCUS_adapter_design.md for the canonical pattern this follows.
@@ -51,9 +54,10 @@ type Adapter struct {
 	requestsTopic string
 
 	// Phase 3 dependencies — wired in NewAdapter.
-	thunderAPI      *api.Client
-	secretMgr       *ssh.SecretManager
-	provisionAction *ProvisionAction
+	thunderAPI         *api.Client
+	secretMgr          *ssh.SecretManager
+	provisionAction    *ProvisionAction
+	decommissionAction *DecommissionAction
 
 	healthServer *http.Server
 	shutdownOnce sync.Once
@@ -169,22 +173,24 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		return nil, fmt.Errorf("failed to create ssh secret manager: %w", err)
 	}
 
-	// ── 7. Provision action — wires API + Secrets + DB ──
+	// ── 7. Action handlers — wire API + Secrets + DB ──
 	provisionAction := NewProvisionAction(thunderAPIClient, secretMgr, db, logger)
+	decommissionAction := NewDecommissionAction(thunderAPIClient, secretMgr, db, logger)
 
 	a := &Adapter{
-		ctx:             adapterCtx,
-		cancel:          cancel,
-		cfg:             cfg,
-		logger:          logger.With(zap.String("component", "thunder-adapter")),
-		consumer:        consumer,
-		producer:        producer,
-		db:              db,
-		adapterID:       adapterID,
-		requestsTopic:   requestsTopic,
-		thunderAPI:      thunderAPIClient,
-		secretMgr:       secretMgr,
-		provisionAction: provisionAction,
+		ctx:                adapterCtx,
+		cancel:             cancel,
+		cfg:                cfg,
+		logger:             logger.With(zap.String("component", "thunder-adapter")),
+		consumer:           consumer,
+		producer:           producer,
+		db:                 db,
+		adapterID:          adapterID,
+		requestsTopic:      requestsTopic,
+		thunderAPI:         thunderAPIClient,
+		secretMgr:          secretMgr,
+		provisionAction:    provisionAction,
+		decommissionAction: decommissionAction,
 	}
 
 	logger.Info("Thunder adapter initialized",
@@ -269,6 +275,8 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	switch action {
 	case "provision_instance":
 		a.handleProvisionInstance(body, headers, replyToTopic, l)
+	case "decommission_instance":
+		a.handleDecommissionInstance(body, headers, replyToTopic, l)
 	default:
 		a.sendErrorResponse(headers, replyToTopic, action,
 			"not_implemented",
@@ -409,6 +417,69 @@ func (a *Adapter) handleProvisionInstance(
 			"provisioning_id":     result.ProvisioningID,
 			"thunder_identifier":  result.ThunderIdentifier,
 			"provisioned_at":      result.ProvisionedAt.Format(time.RFC3339),
+		}, l)
+}
+
+// handleDecommissionInstance parses the body, calls DecommissionAction.Execute,
+// and sends a success or error response. The action is idempotent end-to-end
+// (rows already decommissioned return success without re-calling the Thunder API).
+func (a *Adapter) handleDecommissionInstance(
+	body map[string]interface{},
+	reqHeaders map[string]string,
+	replyToTopic string,
+	l *zap.Logger,
+) {
+	if replyToTopic == "" {
+		l.Warn("No reply_to_topic on decommission_instance request — cannot send response")
+		return
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "decommission_instance",
+			"invalid_request_body",
+			fmt.Sprintf("could not re-marshal body: %v", err),
+			"error_unrecoverable", l,
+		)
+		return
+	}
+	var req DecommissionInstanceRequest
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "decommission_instance",
+			"invalid_request_body",
+			fmt.Sprintf("could not unmarshal into DecommissionInstanceRequest: %v", err),
+			"error_unrecoverable", l,
+		)
+		return
+	}
+
+	// Decommission shouldn't take more than ~30s — Thunder API delete is
+	// fast (no polling) and the DB UPDATE is trivial. The whole flow
+	// stays well inside the chassis-level 120s budget.
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	result, err := a.decommissionAction.Execute(ctx, req)
+	if err != nil {
+		status := "error_unrecoverable"
+		errCode := "decommission_failed"
+		if isInfrastructureError(err) {
+			status = "error_recoverable"
+			errCode = "infrastructure_error"
+		}
+		a.sendErrorResponse(reqHeaders, replyToTopic, "decommission_instance",
+			errCode, err.Error(), status, l,
+		)
+		return
+	}
+
+	a.sendSuccessResponse(reqHeaders, replyToTopic, "decommission_instance",
+		map[string]interface{}{
+			"provisioning_id":    result.ProvisioningID,
+			"thunder_identifier": result.ThunderIdentifier,
+			"cost_usd":           result.CostUSD,
+			"decommissioned_at":  result.DecommissionedAt.Format(time.RFC3339),
+			"was_already_done":   result.WasAlreadyDone,
 		}, l)
 }
 
