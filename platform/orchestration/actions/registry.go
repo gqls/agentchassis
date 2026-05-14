@@ -1110,12 +1110,20 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Create content_sources from classification news_feed recommendation",
 		IsLocal:     true,
 	},
+	// training
 	"save_tool_training_data": {
 		Handler:     SaveToolTrainingDataAction,
 		Category:    "training",
 		Description: "Save tool recreation triple for model fine-tuning",
 		IsLocal:     true,
 	},
+	"dispatch_thunder_decommission": {
+		Handler:     DispatchThunderDecommissionAction,
+		Category:    "training",
+		Description: "Publish a decommission_instance request to thunder-adapter and await the response. Used by thunder-reaper and any other workflow terminating a Thunder Compute instance.",
+		IsLocal:     true,
+	},
+
 
 	// =========================================================================
 	// Site Snapshots

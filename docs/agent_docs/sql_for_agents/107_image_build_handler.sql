@@ -1370,3 +1370,97 @@ END
 $verify$;
 
 COMMIT;
+
+---
+-- ? in paths optional paths
+
+-- phase_2g_step5_hotfix_optional_input_mapping.sql
+--
+-- Hotfix on top of phase_2g_step5: call_imagery_gen's input_mapping has
+-- `constraints`, `style_hints`, and `kind` as REQUIRED, but step 4's
+-- discovery check only emits these in the spec when the corresponding
+-- site_plan_imagery columns are non-null. Most imagery rows have null
+-- for both, so most specs are missing these fields, so call_imagery_gen
+-- fails immediately on input resolution.
+--
+-- Verified by orchestration e98deca7-c9df-438a-b256-be1cd15579ec failing
+-- at call_imagery_gen with error:
+--   "input_mapping failed: source path 'input_data.spec.constraints'
+--    not found for field 'constraints'"
+--
+-- Fix: rename the three fields in input_mapping with `?` suffix per the
+-- chassis's established optional-field convention (variant chain uses
+-- this pattern: "asset_key?" → "input_data.spec.asset_key").
+--
+-- Reversible. Backup taken per doc 009.
+
+\set ON_ERROR_STOP on
+
+CREATE TABLE agent_def_image_build_handler_backup_20260514_pre_phase2g_optional_mapping AS
+SELECT * FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+SELECT
+    (SELECT COUNT(*) FROM agent_definitions
+     WHERE type = 'image-build-handler' AND is_active = true) AS live,
+    (SELECT COUNT(*) FROM agent_def_image_build_handler_backup_20260514_pre_phase2g_optional_mapping) AS backup;
+
+BEGIN;
+
+-- Take the current input_mapping, drop the three required keys, add
+-- them back with `?` suffix pointing to the same source paths.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_imagery_gen,config,input_mapping}',
+        (
+            (default_config #> '{workflow,steps,call_imagery_gen,config,input_mapping}')
+                - 'kind' - 'style_hints' - 'constraints'
+            ) || jsonb_build_object(
+                'kind?',        'input_data.spec.kind',
+                'style_hints?', 'input_data.spec.style_hints',
+                'constraints?', 'input_data.spec.constraints'
+                 ),
+        false
+                     ),
+    updated_at = now()
+WHERE type = 'image-build-handler'
+  AND is_active = true;
+
+-- Verify
+DO $verify$
+DECLARE
+v_mapping jsonb;
+BEGIN
+SELECT default_config #> '{workflow,steps,call_imagery_gen,config,input_mapping}'
+INTO v_mapping
+FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+IF NOT (v_mapping ? 'kind?') THEN
+        RAISE EXCEPTION 'kind? not present after migration';
+END IF;
+    IF NOT (v_mapping ? 'style_hints?') THEN
+        RAISE EXCEPTION 'style_hints? not present';
+END IF;
+    IF NOT (v_mapping ? 'constraints?') THEN
+        RAISE EXCEPTION 'constraints? not present';
+END IF;
+    IF v_mapping ? 'constraints' THEN
+        RAISE EXCEPTION 'old required constraints key still present';
+END IF;
+
+    -- Required fields still required
+    IF NOT (v_mapping ? 'prompt') THEN
+        RAISE EXCEPTION 'prompt missing — migration corrupted the mapping';
+END IF;
+    IF NOT (v_mapping ? 'site_id') THEN
+        RAISE EXCEPTION 'site_id missing — migration corrupted the mapping';
+END IF;
+
+    RAISE NOTICE 'call_imagery_gen input_mapping now: %', v_mapping;
+END
+$verify$;
+
+COMMIT;
+

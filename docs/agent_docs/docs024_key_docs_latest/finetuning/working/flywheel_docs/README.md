@@ -207,4 +207,40 @@ internal/adapters/thunder/store/instances.go — DB access (lookup, status updat
 internal/adapters/thunder/decommission_action.go — the action itself
 Patch to adapter.go — dispatch decommission_instance
 
+# 3.5 delivered
+Three pieces:
+FilePurpose
+thunder_decommission_dispatch.go (~190 lines)
+New chassis action — builds adapter envelope, publishes to system.adapter.thunder.requests, returns AwaitResponse: true so the chassis waits for the response. Reads provisioning_id / thunder_identifier / reason from CollectedData["input_data"]. Mirrors git_commit action pattern.registry_patch.txtOne-line addition to actions/registry.go to register the new action028_thunder_reaper.sqlagent_definitions row for thunder-reaper (two-step task workflow) + scheduled_tasks row (every 15 min, fires when pre_query finds a timed-out instance)
+How the flow runs
+1. kafka-scheduler ticks every 30s
+2. Sees scheduled_tasks "thunder-reaper" interval elapsed (900s)
+3. Runs pre_query:
+   SELECT id::text AS provisioning_id, thunder_instance_id, reason
+   FROM thunder_instances
+   WHERE status='running' AND running_since < NOW() - max_uptime_hours
+   ORDER BY running_since ASC LIMIT 1
+4. If empty → skip. If 1 row → merges columns into input_data and fires:
+   POST system.agent.generic.requests
+   {action: orchestrate, config: {agent_type: thunder-reaper},
+   input_data: {provisioning_id, thunder_instance_id, reason}}
+5. Generic chassis pod picks up message, looks up thunder-reaper agent_def,
+   runs workflow:
+   step 1: dispatch_thunder_decommission
+   → builds chassis envelope for thunder-adapter
+   → publishes to system.adapter.thunder.requests
+   → returns AwaitResponse: true
+   step 2 (paused awaiting response):
+   thunder-adapter consumes, runs DecommissionAction.Execute,
+   sends success/error response to reaper's responses_topic
+   step 2 (resumes when response arrives):
+   complete_workflow
+6. Reaper orchestration COMPLETED. Next tick (15 min later) handles
+   the next timed-out instance, if any.
+   Key design notes
+   One per tick. LIMIT 1 in the pre_query means a backlog of N timed-out instances takes N × 15 min to clear. With max_concurrent_instances=2 in thunder_config, this is more than enough. If a future deployment needs more concurrency, lower interval_seconds (or replace the action with a fan-out one).
+   Reuse vs new action. The reaper does NOT use call_agent to talk to thunder-adapter. Looking at how existing adapter integrations work in this codebase (git_commit, web_search, web_scrape actions), each is a dedicated Go action that builds the adapter envelope and publishes directly. Following that pattern keeps the reaper consistent with established practice. When gpu-provisioner and training-launcher stubs get replaced later, they'd use similarly-shaped dispatch actions (dispatch_thunder_provision, dispatch_training_job).
+   Idempotency relied on, not added. The decommission_action (3.4) is already idempotent — alreadyTerminal check, 404-tolerant API/Secret deletes. So the reaper doesn't need to track "have I tried this instance yet". If a tick fires while a prior decommission is in flight, it just runs again safely.
+   Reason field uses meaningful text. Pre-query produces e.g. "reaper:max_uptime_exceeded after 18.5h (cap=18h)". Gets stored on the row (or logged) — useful when debugging "why did this die".
+
 
