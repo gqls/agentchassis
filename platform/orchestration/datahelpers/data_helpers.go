@@ -1234,6 +1234,26 @@ func ExtractNestedFieldMap(data map[string]interface{}, fieldPath string) map[st
 	return nil
 }
 
+// ExtractNestedFieldInt is a convenience wrapper that returns 0 if the
+// field is missing or not numeric. Handles all three numeric types that
+// can appear in a map[string]interface{}: float64 (JSON unmarshal default),
+// int (Go-native), and int64.
+func ExtractNestedFieldInt(data map[string]interface{}, fieldPath string) int {
+	value := ExtractNestedField(data, fieldPath)
+	if value == nil {
+		return 0
+	}
+	switch v := value.(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case int64:
+		return int(v)
+	}
+	return 0
+}
+
 func resolveFieldPath(data map[string]interface{}, path string) interface{} {
 	parts := strings.Split(path, ".")
 	current := interface{}(data)
