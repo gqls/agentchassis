@@ -1365,3 +1365,677 @@ WHERE type = 'page-content-writer'
   AND deleted_at IS NULL
   AND (is_snapshot IS NULL OR is_snapshot = false);
 
+---
+
+-- ============================================================================
+-- Step 3b: Update page-content-writer workflow
+-- ============================================================================
+--
+-- BEFORE running this: take a snapshot for revert safety.
+--
+--   SELECT snapshot_agent('page-content-writer');
+--   SELECT * FROM agent_snapshots WHERE type = 'page-content-writer';
+--
+-- AFTER running this: restart agent-chassis deployment if it caches definitions.
+--
+--   kubectl -n ai-persona-system rollout restart deployment/agent-chassis
+--
+-- IF SOMETHING IS WRONG: revert via the standard function.
+--
+--   SELECT revert_agent('page-content-writer');
+--
+-- ============================================================================
+-- Workflow changes (vs. previous version):
+--   1. Removed `load_page_components` step. Its job is now done upstream by
+--      `plan_sections` (in page-build-handler), which populates the
+--      `section_plan.sections_ready` array with full per-section data.
+--
+--   2. `prepare_link_context.next_step` redirected from `load_page_components`
+--      to `build_render_context` (closing the gap left by removing step 1).
+--
+--   3. `process_sections_loop.iterate_over` changed from
+--      `section_components.components` to `input_data.section_plan.sections_ready`.
+--      Each iteration's `current_section` is now a sectionPlanItem carrying
+--      `name`, `function`, `status`, `resolved_data`, `llm_fields`,
+--      `llm_field_specs`, `component_id`, and the nested `component` map.
+--
+--   4. `render_section.config.component_from` changed from `current_section`
+--      to `current_section.component` (where html_template, render_mode, etc.
+--      now live). `render_from_template.config.component_from` likewise.
+--
+--   5. `render_section.config.merge_with` added (NEW): pointed at
+--      `current_section.resolved_data`. RenderComponentAction merges this on
+--      top of LLM output before render, so query-resolved items, static
+--      fallbacks, and other authoritative data land in both the rendered
+--      HTML and the persisted content_data. `render_from_template` gets the
+--      same merge_with so its template-only path also benefits from
+--      resolved_data overlay.
+--
+--   6. `check_render_mode` and `check_needs_research` conditionals updated
+--      to read `current_section.component.render_mode`,
+--      `current_section.component.needs_llm`,
+--      `current_section.component.needs_research` (the fields moved into the
+--      nested component map).
+--
+--   7. `generate_content.config.prompt_template` rewritten:
+--      - The previous prompt dumped the full input_schema as text plus
+--        ~100 lines of fallback JSON examples covering hero/feature/CTA/
+--        text/contact/testimonial/case-study shapes. The LLM was asked to
+--        pick the right shape and fill it in — leaving room for fabrication
+--        of items, urls, and labels that should come from the database.
+--      - The new prompt iterates `current_section.llm_field_specs` and asks
+--        for ONLY the fields whose `source: llm` is declared in the schema.
+--        Each field shown with type, required flag, and `llm_guidance` from
+--        the component definition. The output format is a JSON object whose
+--        example shape is rendered from the same llm_field_specs.
+--      - All non-fabrication strict rules retained in full (rules 1-17).
+--      - All upstream context blocks retained: Company Context, Contact
+--        Info, Internal Linking, Content Direction, Rewrite Guidance, Admin
+--        Brief, Research Findings, Existing Content for Recreate mode.
+-- ============================================================================
+
+BEGIN;
+
+-- Confirm snapshot exists before applying (catch the case where snapshot was forgotten)
+DO $check$
+DECLARE
+snap_count integer;
+BEGIN
+SELECT COUNT(*) INTO snap_count
+FROM agent_definitions
+WHERE type = 'page-content-writer'
+  AND is_snapshot = true
+  AND deleted_at IS NULL;
+IF snap_count = 0 THEN
+        RAISE EXCEPTION 'No snapshot exists for page-content-writer. Run: SELECT snapshot_agent(''page-content-writer''); first.';
+END IF;
+    RAISE NOTICE 'Snapshot check OK: % snapshot row(s) exist for page-content-writer', snap_count;
+END;
+$check$;
+
+-- Apply the workflow change
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow}',
+        $JSON${
+  "start_step": "spawn_research_agent",
+        "timeout_seconds": 1200,
+        "steps": {
+    "spawn_research_agent": {
+      "action": "spawn_agent",
+        "config": {
+        "role": "researcher",
+        "agent_type": "research-agent",
+        "await_response": true
+    },
+      "next_step": "load_site_specs",
+      "description": "Spawn research agent in case sections need research",
+      "output_field": "researcher_info"
+    },
+    "load_site_specs": {
+      "action": "read_site_spec",
+      "config": {
+        "site_id": "input_data.site_record.site_id"
+      },
+      "next_step": "prepare_link_context",
+      "error_step": "prepare_link_context",
+      "description": "Load all site specs for content direction, identity, and design context",
+      "output_field": "site_specs"
+    },
+    "prepare_link_context": {
+      "action": "prepare_link_context",
+      "config": {
+        "enabled": true,
+        "pages_field": "db_sync.pages",
+        "max_links_per_section": 3
+      },
+      "next_step": "build_render_context",
+      "description": "Prepare available pages context for internal linking",
+      "output_field": "link_context"
+    },
+    "build_render_context": {
+      "action": "build_render_context",
+      "config": {
+        "sources": {
+          "page": "input_data.current_page",
+          "plan": "input_data.site_plan",
+          "site": "input_data.site_record",
+          "brief": "input_data.reviewed_brief",
+          "style": "input_data.style_collection",
+          "assets": "brand_assets",
+          "db_sync": "input_data.db_sync",
+          "available_pages": "db_sync.pages"
+        },
+        "site_id_field": "input_data.site_record.site_id"
+      },
+      "next_step": "process_sections_loop",
+      "description": "Build render context from brief, site, and brand data",
+      "output_field": "render_context"
+    },
+    "process_sections_loop": {
+      "action": "loop",
+      "config": {
+        "loop_var": "current_section",
+        "iterate_over": "input_data.section_plan.sections_ready",
+        "max_iterations": 15,
+        "sub_workflow": {
+          "start_step": "check_render_mode",
+          "steps": {
+            "check_render_mode": {
+              "action": "conditional",
+              "config": {
+                "condition": "current_section.component.render_mode == 'agent' OR current_section.component.needs_llm == true",
+                "then_step": "check_needs_research",
+                "else_step": "render_from_template"
+              },
+              "description": "Check if section needs LLM or just template"
+            },
+            "check_needs_research": {
+              "action": "conditional",
+              "config": {
+                "condition": "current_section.component.needs_research == true",
+                "then_step": "call_researcher",
+                "else_step": "generate_content"
+              },
+              "description": "Check if section needs research first"
+            },
+            "call_researcher": {
+              "action": "call_agent",
+              "config": {
+                "agent_type": "research-agent",
+                "target_role": "researcher",
+                "input_mapping": {
+                  "site_record": "input_data.site_record",
+                  "reviewed_brief": "input_data.reviewed_brief",
+                  "current_section": "current_section"
+                },
+                "timeout_seconds": 90
+              },
+              "next_step": "generate_content",
+              "description": "Research topic for this section",
+              "output_field": "research_result"
+            },
+            "generate_content": {
+              "action": "execute_llm_prompt",
+              "config": {
+                "ai_service": {
+                  "model": "claude-sonnet-4-6",
+                  "provider": "anthropic",
+                  "max_tokens": 2000,
+                  "api_key_env_var": "ANTHROPIC_API_KEY"
+                },
+                "input_fields": [
+                  "current_section",
+                  "render_context",
+                  "reviewed_brief",
+                  "current_page",
+                  "link_context",
+                  "site_plan",
+                  "site_specs",
+                  "existing_content",
+                  "build_mode",
+                  "rewrite_guidance"
+                ],
+                "output_format": "json",
+                "prompt_template": "Write content for the {{.current_section.name}} section of {{.current_page.title}}.\n\n## Language\nWrite all output content in the same language as the existing content, brief, and site specs in this prompt. Match the register, idioms, and conventions of that language.\n\n## Company Context\nCompany: {{.render_context.company_name}}\nIndustry: {{.render_context.industry}}\nTone: {{.render_context.tone}}\nTarget Audience: {{.render_context.target_audience}}\nServices: {{.reviewed_brief.services}}\nTagline: {{.render_context.tagline}}\n\n## Official Contact Information (USE ONLY THESE - DO NOT INVENT)\nEmail: {{.render_context.email}}\nPhone: {{.render_context.phone}}\nLocation: {{.reviewed_brief.headquarters}}\n\n{{if .link_context.link_constraint_text}}\n## Internal Linking\n{{.link_context.link_constraint_text}}\n\n{{end}}\n## Content Direction (from site spec \u2014 follow this closely)\n{{if .site_specs.specs.content_direction}}{{if .site_specs.specs.content_direction.formatted}}\n{{.site_specs.specs.content_direction.formatted}}\n{{end}}{{end}}\n{{if .site_specs.specs.identity.target_audience}}\nTarget Audience: {{.site_specs.specs.identity.target_audience}}\n{{end}}\n{{if .site_specs.specs.identity.key_differentiators}}\nKey Differentiators: {{.site_specs.specs.identity.key_differentiators}}\n{{end}}\n{{if .site_specs.specs.design_intent.imagery_direction}}\nImagery Direction: {{.site_specs.specs.design_intent.imagery_direction}}\n{{end}}\n\n{{if .rewrite_guidance}}## Rewrite Guidance (IMPORTANT \u2014 incorporate this into the content)\n{{.rewrite_guidance}}\n{{end}}\n\n{{if .current_section.component.content_brief}}## Admin Content Brief (follow these instructions closely)\n{{if .current_section.component.content_brief.purpose}}Brief Purpose: {{.current_section.component.content_brief.purpose}}\n{{end}}{{if .current_section.component.content_brief.tone_direction}}Brief Tone: {{.current_section.component.content_brief.tone_direction}}\n{{end}}{{if .current_section.component.content_brief.section_guidance}}Brief Guidance: {{.current_section.component.content_brief.section_guidance}}\n{{end}}{{end}}\n\n## What To Write\nWrite the following fields for the {{.current_section.name}} section. Each field's purpose is described in plain English \u2014 translate the intent into the output language as needed.\n\n{{range .current_section.llm_field_specs}}\n- `{{.name}}` ({{.type}}{{if .required}}, required{{end}}){{if .description}}: {{.description}}{{end}}\n{{end}}\n\n{{if .research_result}}\n## Research Findings\n{{.research_result.response.summary}}\n\nSources:\n{{range $index, $src := .research_result.response.sources}}\n- [{{$index}}] {{$src.title}} ({{$src.domain}})\n{{end}}\n{{end}}\n\n{{if .existing_content}}{{if .existing_content.has_existing}}\n## EXISTING CONTENT \u2014 Recreate Mode\nThis page is being adopted from an existing site. Below is the original content from the page.\nYour task: find the content relevant to this section and adapt it to fit the writing fields listed above.\n\nPrioritise preserving the original meaning and information. Adapt the structure to match the required field names.\nIf the existing content does not have material relevant to this section, write fresh content as you normally would.\n\nOriginal page content:\n{{.existing_content.raw_markdown}}\n{{end}}{{end}}\n\n## Output Format\nReturn a JSON object with exactly these keys:\n\n{\n{{range $i, $f := .current_section.llm_field_specs}}{{if $i}},\n{{end}}  \"{{$f.name}}\": \"...\"{{end}}\n}\n\n## STRICT RULES:\n1. Use the EXACT field names shown in \"What To Write\" (these are technical identifiers \u2014 do not translate them).\n2. Return a JSON object with exactly the keys listed in \"What To Write\". Do not add any keys not in that list.\n3. Return ONLY the JSON object \u2014 no commentary, no markdown wrapper around the JSON.\n4. No placeholder text like [Your Company] or Lorem ipsum, in any language.\n5. Write content that is relevant to this company's industry and services \u2014 but do NOT invent specific achievements, metrics, or outcomes that have not actually happened.\n6. Professional but engaging tone matching the brief.\n7. Include source citations [0], [1] if research was provided.\n8. NEVER invent contact information \u2014 use ONLY the email and phone provided in Official Contact Information above.\n9. For fields of type `text`: return a plain string with no HTML wrapping. The template handles paragraph wrapping for these fields.\n10. For fields of type `rich_text` or `content` that contain multiple paragraphs: use proper HTML markup, wrapping each paragraph in <p> tags: <p>Paragraph 1</p><p>Paragraph 2</p>.\n11. If contact email or phone is empty in the brief, do NOT make one up \u2014 omit it or write a generic contact-us link in the output language.\n12. Only create internal links to pages listed in the Internal Linking section above.\n13. NEVER invent fake people, client names, or attributed quotes. If the brief does not include real testimonials, write company philosophy statements instead and leave name/title fields empty.\n14. NEVER invent specific statistics, percentages, or metrics. Describe the type of outcome without fabricating numbers.\n15. NEVER invent fake case studies with named businesses presented as real clients. Describe service categories and typical outcomes instead.\n16. For testimonial sections: write 2-3 statements in the company's own voice about their values, approach, or commitment. These serve as placeholder content the site owner will replace with real testimonials.\n17. For case study sections: describe the types of problems the company solves and the approach they take, without inventing specific clients or results.\n18. It is ALWAYS better to be honest and general than specific and fabricated. A real visitor will trust a general statement of capability more than a fabricated testimonial.\n"
+              },
+              "next_step": "render_section",
+              "description": "Generate content for this section's writing fields only",
+              "output_field": "generated_content"
+            },
+            "render_section": {
+              "action": "render_component",
+              "config": {
+                "output_html": true,
+                "content_from": "generated_content.result",
+                "merge_with": "current_section.resolved_data",
+                "context_from": "render_context",
+                "component_from": "current_section.component"
+              },
+              "description": "Render merged content into component template",
+              "output_field": "section_output"
+            },
+            "render_from_template": {
+              "action": "render_component",
+              "config": {
+                "output_html": true,
+                "content_from": "render_context",
+                "merge_with": "current_section.resolved_data",
+                "context_from": "render_context",
+                "component_from": "current_section.component"
+              },
+              "description": "Render section from template with resolved data (no LLM)",
+              "output_field": "section_output"
+            }
+          }
+        }
+      },
+      "next_step": "compile_page",
+      "description": "Process each section \u2014 template render or LLM generate, then merge resolved data",
+      "output_field": "processed_sections"
+    },
+    "compile_page": {
+      "action": "compile_page_sections",
+      "config": {
+        "page_from": "input_data.current_page",
+        "inject_head": false,
+        "inject_footer": false,
+        "inject_header": false,
+        "sections_from": "processed_sections",
+        "include_research_ids": true
+      },
+      "next_step": "complete",
+      "description": "Compile all sections into page output",
+      "output_field": "page_content"
+    },
+    "complete": {
+      "action": "complete_workflow",
+      "config": {
+        "output_field": "page_content"
+      }
+    }
+  }
+}$JSON$::jsonb
+),
+    updated_at = now()
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- Verify exactly one row was updated
+DO $verify$
+DECLARE
+updated_count integer;
+    step_count integer;
+    has_load_step boolean;
+    has_merge_with boolean;
+BEGIN
+SELECT COUNT(*) INTO updated_count
+FROM agent_definitions
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+IF updated_count != 1 THEN
+        RAISE EXCEPTION 'Expected 1 active page-content-writer row, found %', updated_count;
+END IF;
+
+SELECT
+    jsonb_object_keys(default_config->'workflow'->'steps') = ANY(ARRAY['load_page_components']),
+    default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'render_section'->'config' ? 'merge_with',
+    (SELECT COUNT(*) FROM jsonb_object_keys(default_config->'workflow'->'steps'))
+INTO has_load_step, has_merge_with, step_count
+FROM agent_definitions
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+IF has_load_step THEN
+        RAISE EXCEPTION 'load_page_components step still present after update — workflow did not apply cleanly';
+END IF;
+    IF NOT has_merge_with THEN
+        RAISE EXCEPTION 'merge_with config not present on render_section — workflow did not apply cleanly';
+END IF;
+    IF step_count != 7 THEN
+        RAISE EXCEPTION 'Expected 7 top-level workflow steps, found %', step_count;
+END IF;
+
+    RAISE NOTICE 'Workflow updated successfully: 7 top-level steps, load_page_components removed, merge_with present';
+END;
+$verify$;
+
+COMMIT;
+
+-- Final inspection
+SELECT
+    type,
+    is_active,
+    updated_at,
+    jsonb_object_keys(default_config->'workflow'->'steps') AS workflow_step
+FROM agent_definitions
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+---
+
+    
+-- double p fix
+
+-- ============================================================================
+-- Step 3b: Update page-content-writer workflow
+-- ============================================================================
+--
+-- BEFORE running this: take a snapshot for revert safety.
+--
+--   SELECT snapshot_agent('page-content-writer');
+--   SELECT * FROM agent_snapshots WHERE type = 'page-content-writer';
+--
+-- AFTER running this: restart agent-chassis deployment if it caches definitions.
+--
+--   kubectl -n ai-persona-system rollout restart deployment/agent-chassis
+--
+-- IF SOMETHING IS WRONG: revert via the standard function.
+--
+--   SELECT revert_agent('page-content-writer');
+--
+-- ============================================================================
+-- Workflow changes (vs. previous version):
+--   1. Removed `load_page_components` step. Its job is now done upstream by
+--      `plan_sections` (in page-build-handler), which populates the
+--      `section_plan.sections_ready` array with full per-section data.
+--
+--   2. `prepare_link_context.next_step` redirected from `load_page_components`
+--      to `build_render_context` (closing the gap left by removing step 1).
+--
+--   3. `process_sections_loop.iterate_over` changed from
+--      `section_components.components` to `input_data.section_plan.sections_ready`.
+--      Each iteration's `current_section` is now a sectionPlanItem carrying
+--      `name`, `function`, `status`, `resolved_data`, `llm_fields`,
+--      `llm_field_specs`, `component_id`, and the nested `component` map.
+--
+--   4. `render_section.config.component_from` changed from `current_section`
+--      to `current_section.component` (where html_template, render_mode, etc.
+--      now live). `render_from_template.config.component_from` likewise.
+--
+--   5. `render_section.config.merge_with` added (NEW): pointed at
+--      `current_section.resolved_data`. RenderComponentAction merges this on
+--      top of LLM output before render, so query-resolved items, static
+--      fallbacks, and other authoritative data land in both the rendered
+--      HTML and the persisted content_data. `render_from_template` gets the
+--      same merge_with so its template-only path also benefits from
+--      resolved_data overlay.
+--
+--   6. `check_render_mode` and `check_needs_research` conditionals updated
+--      to read `current_section.component.render_mode`,
+--      `current_section.component.needs_llm`,
+--      `current_section.component.needs_research` (the fields moved into the
+--      nested component map).
+--
+--   7. `generate_content.config.prompt_template` rewritten:
+--      - The previous prompt dumped the full input_schema as text plus
+--        ~100 lines of fallback JSON examples covering hero/feature/CTA/
+--        text/contact/testimonial/case-study shapes. The LLM was asked to
+--        pick the right shape and fill it in — leaving room for fabrication
+--        of items, urls, and labels that should come from the database.
+--      - The new prompt iterates `current_section.llm_field_specs` and asks
+--        for ONLY the fields whose `source: llm` is declared in the schema.
+--        Each field shown with type, required flag, and `llm_guidance` from
+--        the component definition. The output format is a JSON object whose
+--        example shape is rendered from the same llm_field_specs.
+--      - All non-fabrication strict rules retained in full (rules 1-17).
+--      - All upstream context blocks retained: Company Context, Contact
+--        Info, Internal Linking, Content Direction, Rewrite Guidance, Admin
+--        Brief, Research Findings, Existing Content for Recreate mode.
+-- ============================================================================
+
+BEGIN;
+
+-- Confirm snapshot exists before applying (catch the case where snapshot was forgotten)
+DO $check$
+DECLARE
+snap_count integer;
+BEGIN
+SELECT COUNT(*) INTO snap_count
+FROM agent_definitions
+WHERE type = 'page-content-writer'
+  AND is_snapshot = true
+  AND deleted_at IS NULL;
+IF snap_count = 0 THEN
+        RAISE EXCEPTION 'No snapshot exists for page-content-writer. Run: SELECT snapshot_agent(''page-content-writer''); first.';
+END IF;
+    RAISE NOTICE 'Snapshot check OK: % snapshot row(s) exist for page-content-writer', snap_count;
+END;
+$check$;
+
+-- Apply the workflow change
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow}',
+        $JSON${
+  "start_step": "spawn_research_agent",
+        "timeout_seconds": 1200,
+        "steps": {
+    "spawn_research_agent": {
+      "action": "spawn_agent",
+        "config": {
+        "role": "researcher",
+        "agent_type": "research-agent",
+        "await_response": true
+    },
+      "next_step": "load_site_specs",
+      "description": "Spawn research agent in case sections need research",
+      "output_field": "researcher_info"
+    },
+    "load_site_specs": {
+      "action": "read_site_spec",
+      "config": {
+        "site_id": "input_data.site_record.site_id"
+      },
+      "next_step": "prepare_link_context",
+      "error_step": "prepare_link_context",
+      "description": "Load all site specs for content direction, identity, and design context",
+      "output_field": "site_specs"
+    },
+    "prepare_link_context": {
+      "action": "prepare_link_context",
+      "config": {
+        "enabled": true,
+        "pages_field": "db_sync.pages",
+        "max_links_per_section": 3
+      },
+      "next_step": "build_render_context",
+      "description": "Prepare available pages context for internal linking",
+      "output_field": "link_context"
+    },
+    "build_render_context": {
+      "action": "build_render_context",
+      "config": {
+        "sources": {
+          "page": "input_data.current_page",
+          "plan": "input_data.site_plan",
+          "site": "input_data.site_record",
+          "brief": "input_data.reviewed_brief",
+          "style": "input_data.style_collection",
+          "assets": "brand_assets",
+          "db_sync": "input_data.db_sync",
+          "available_pages": "db_sync.pages"
+        },
+        "site_id_field": "input_data.site_record.site_id"
+      },
+      "next_step": "process_sections_loop",
+      "description": "Build render context from brief, site, and brand data",
+      "output_field": "render_context"
+    },
+    "process_sections_loop": {
+      "action": "loop",
+      "config": {
+        "loop_var": "current_section",
+        "iterate_over": "input_data.section_plan.sections_ready",
+        "max_iterations": 15,
+        "sub_workflow": {
+          "start_step": "check_render_mode",
+          "steps": {
+            "check_render_mode": {
+              "action": "conditional",
+              "config": {
+                "condition": "current_section.component.render_mode == 'agent' OR current_section.component.needs_llm == true",
+                "then_step": "check_needs_research",
+                "else_step": "render_from_template"
+              },
+              "description": "Check if section needs LLM or just template"
+            },
+            "check_needs_research": {
+              "action": "conditional",
+              "config": {
+                "condition": "current_section.component.needs_research == true",
+                "then_step": "call_researcher",
+                "else_step": "generate_content"
+              },
+              "description": "Check if section needs research first"
+            },
+            "call_researcher": {
+              "action": "call_agent",
+              "config": {
+                "agent_type": "research-agent",
+                "target_role": "researcher",
+                "input_mapping": {
+                  "site_record": "input_data.site_record",
+                  "reviewed_brief": "input_data.reviewed_brief",
+                  "current_section": "current_section"
+                },
+                "timeout_seconds": 90
+              },
+              "next_step": "generate_content",
+              "description": "Research topic for this section",
+              "output_field": "research_result"
+            },
+            "generate_content": {
+              "action": "execute_llm_prompt",
+              "config": {
+                "ai_service": {
+                  "model": "claude-sonnet-4-6",
+                  "provider": "anthropic",
+                  "max_tokens": 2000,
+                  "api_key_env_var": "ANTHROPIC_API_KEY"
+                },
+                "input_fields": [
+                  "current_section",
+                  "render_context",
+                  "reviewed_brief",
+                  "current_page",
+                  "link_context",
+                  "site_plan",
+                  "site_specs",
+                  "existing_content",
+                  "build_mode",
+                  "rewrite_guidance"
+                ],
+                "output_format": "json",
+                "prompt_template": "Write content for the {{.current_section.name}} section of {{.current_page.title}}.\n\n## Language\nWrite all output content in the same language as the existing content, brief, and site specs in this prompt. Match the register, idioms, and conventions of that language.\n\n## Company Context\nCompany: {{.render_context.company_name}}\nIndustry: {{.render_context.industry}}\nTone: {{.render_context.tone}}\nTarget Audience: {{.render_context.target_audience}}\nServices: {{.reviewed_brief.services}}\nTagline: {{.render_context.tagline}}\n\n## Official Contact Information (USE ONLY THESE - DO NOT INVENT)\nEmail: {{.render_context.email}}\nPhone: {{.render_context.phone}}\nLocation: {{.reviewed_brief.headquarters}}\n\n{{if .link_context.link_constraint_text}}\n## Internal Linking\n{{.link_context.link_constraint_text}}\n\n{{end}}\n## Content Direction (from site spec \u2014 follow this closely)\n{{if .site_specs.specs.content_direction}}{{if .site_specs.specs.content_direction.formatted}}\n{{.site_specs.specs.content_direction.formatted}}\n{{end}}{{end}}\n{{if .site_specs.specs.identity.target_audience}}\nTarget Audience: {{.site_specs.specs.identity.target_audience}}\n{{end}}\n{{if .site_specs.specs.identity.key_differentiators}}\nKey Differentiators: {{.site_specs.specs.identity.key_differentiators}}\n{{end}}\n{{if .site_specs.specs.design_intent.imagery_direction}}\nImagery Direction: {{.site_specs.specs.design_intent.imagery_direction}}\n{{end}}\n\n{{if .rewrite_guidance}}## Rewrite Guidance (IMPORTANT \u2014 incorporate this into the content)\n{{.rewrite_guidance}}\n{{end}}\n\n{{if .current_section.component.content_brief}}## Admin Content Brief (follow these instructions closely)\n{{if .current_section.component.content_brief.purpose}}Brief Purpose: {{.current_section.component.content_brief.purpose}}\n{{end}}{{if .current_section.component.content_brief.tone_direction}}Brief Tone: {{.current_section.component.content_brief.tone_direction}}\n{{end}}{{if .current_section.component.content_brief.section_guidance}}Brief Guidance: {{.current_section.component.content_brief.section_guidance}}\n{{end}}{{end}}\n\n## What To Write\nWrite the following fields for the {{.current_section.name}} section. Each field's purpose is described in plain English \u2014 translate the intent into the output language as needed.\n\n{{range .current_section.llm_field_specs}}\n- `{{.name}}` ({{.type}}{{if .required}}, required{{end}}){{if .description}}: {{.description}}{{end}}\n{{end}}\n\n{{if .research_result}}\n## Research Findings\n{{.research_result.response.summary}}\n\nSources:\n{{range $index, $src := .research_result.response.sources}}\n- [{{$index}}] {{$src.title}} ({{$src.domain}})\n{{end}}\n{{end}}\n\n{{if .existing_content}}{{if .existing_content.has_existing}}\n## EXISTING CONTENT \u2014 Recreate Mode\nThis page is being adopted from an existing site. Below is the original content from the page.\nYour task: find the content relevant to this section and adapt it to fit the writing fields listed above.\n\nPrioritise preserving the original meaning and information. Adapt the structure to match the required field names.\nIf the existing content does not have material relevant to this section, write fresh content as you normally would.\n\nOriginal page content:\n{{.existing_content.raw_markdown}}\n{{end}}{{end}}\n\n## Output Format\nReturn a JSON object with exactly these keys:\n\n{\n{{range $i, $f := .current_section.llm_field_specs}}{{if $i}},\n{{end}}  \"{{$f.name}}\": \"...\"{{end}}\n}\n\n## STRICT RULES:\n1. Use the EXACT field names shown in \"What To Write\" (these are technical identifiers \u2014 do not translate them).\n2. Return a JSON object with exactly the keys listed in \"What To Write\". Do not add any keys not in that list.\n3. Return ONLY the JSON object \u2014 no commentary, no markdown wrapper around the JSON.\n4. No placeholder text like [Your Company] or Lorem ipsum, in any language.\n5. Write content that is relevant to this company's industry and services \u2014 but do NOT invent specific achievements, metrics, or outcomes that have not actually happened.\n6. Professional but engaging tone matching the brief.\n7. Include source citations [0], [1] if research was provided.\n8. NEVER invent contact information \u2014 use ONLY the email and phone provided in Official Contact Information above.\n9. For fields of type `text`: return a plain string with no HTML wrapping. The template handles paragraph wrapping for these fields.\n10. For fields of type `rich_text` or `content` that contain multiple paragraphs: use proper HTML markup, wrapping each paragraph in <p> tags: <p>Paragraph 1</p><p>Paragraph 2</p>.\n11. If contact email or phone is empty in the brief, do NOT make one up \u2014 omit it or write a generic contact-us link in the output language.\n12. Only create internal links to pages listed in the Internal Linking section above.\n13. NEVER invent fake people, client names, or attributed quotes. If the brief does not include real testimonials, write company philosophy statements instead and leave name/title fields empty.\n14. NEVER invent specific statistics, percentages, or metrics. Describe the type of outcome without fabricating numbers.\n15. NEVER invent fake case studies with named businesses presented as real clients. Describe service categories and typical outcomes instead.\n16. For testimonial sections: write 2-3 statements in the company's own voice about their values, approach, or commitment. These serve as placeholder content the site owner will replace with real testimonials.\n17. For case study sections: describe the types of problems the company solves and the approach they take, without inventing specific clients or results.\n18. It is ALWAYS better to be honest and general than specific and fabricated. A real visitor will trust a general statement of capability more than a fabricated testimonial.\n"
+              },
+              "next_step": "render_section",
+              "description": "Generate content for this section's writing fields only",
+              "output_field": "generated_content"
+            },
+            "render_section": {
+              "action": "render_component",
+              "config": {
+                "output_html": true,
+                "content_from": "generated_content.result",
+                "merge_with": "current_section.resolved_data",
+                "context_from": "render_context",
+                "component_from": "current_section.component"
+              },
+              "description": "Render merged content into component template",
+              "output_field": "section_output"
+            },
+            "render_from_template": {
+              "action": "render_component",
+              "config": {
+                "output_html": true,
+                "content_from": "render_context",
+                "merge_with": "current_section.resolved_data",
+                "context_from": "render_context",
+                "component_from": "current_section.component"
+              },
+              "description": "Render section from template with resolved data (no LLM)",
+              "output_field": "section_output"
+            }
+          }
+        }
+      },
+      "next_step": "compile_page",
+      "description": "Process each section \u2014 template render or LLM generate, then merge resolved data",
+      "output_field": "processed_sections"
+    },
+    "compile_page": {
+      "action": "compile_page_sections",
+      "config": {
+        "page_from": "input_data.current_page",
+        "inject_head": false,
+        "inject_footer": false,
+        "inject_header": false,
+        "sections_from": "processed_sections",
+        "include_research_ids": true
+      },
+      "next_step": "complete",
+      "description": "Compile all sections into page output",
+      "output_field": "page_content"
+    },
+    "complete": {
+      "action": "complete_workflow",
+      "config": {
+        "output_field": "page_content"
+      }
+    }
+  }
+}$JSON$::jsonb
+),
+    updated_at = now()
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- Verify exactly one row was updated
+DO $verify$
+DECLARE
+updated_count integer;
+    step_count integer;
+    has_load_step boolean;
+    has_merge_with boolean;
+BEGIN
+SELECT COUNT(*) INTO updated_count
+FROM agent_definitions
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+IF updated_count != 1 THEN
+        RAISE EXCEPTION 'Expected 1 active page-content-writer row, found %', updated_count;
+END IF;
+
+SELECT
+    jsonb_object_keys(default_config->'workflow'->'steps') = ANY(ARRAY['load_page_components']),
+    default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps'->'render_section'->'config' ? 'merge_with',
+    (SELECT COUNT(*) FROM jsonb_object_keys(default_config->'workflow'->'steps'))
+INTO has_load_step, has_merge_with, step_count
+FROM agent_definitions
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+IF has_load_step THEN
+        RAISE EXCEPTION 'load_page_components step still present after update — workflow did not apply cleanly';
+END IF;
+    IF NOT has_merge_with THEN
+        RAISE EXCEPTION 'merge_with config not present on render_section — workflow did not apply cleanly';
+END IF;
+    IF step_count != 7 THEN
+        RAISE EXCEPTION 'Expected 7 top-level workflow steps, found %', step_count;
+END IF;
+
+    RAISE NOTICE 'Workflow updated successfully: 7 top-level steps, load_page_components removed, merge_with present';
+END;
+$verify$;
+
+COMMIT;
+
+-- Final inspection
+SELECT
+    type,
+    is_active,
+    updated_at,
+    jsonb_object_keys(default_config->'workflow'->'steps') AS workflow_step
+FROM agent_definitions
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);

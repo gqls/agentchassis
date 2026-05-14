@@ -281,3 +281,97 @@ COMMIT;
 --
 -- 8. Restore cap:
 --    UPDATE thunder_config SET daily_cap_usd = 100;
+
+---
+
+-- ============================================================================
+-- gpu_provisioner_real_impl_DIRECT_UPDATE.sql
+--
+-- Manual UPDATE to replace the migration-022 stub with the real impl.
+-- Runs as a single statement against clients_db. Idempotent — re-running
+-- on an already-updated row is a no-op for the workflow but bumps updated_at.
+--
+-- Use this when migration 029 needs to be applied by hand (e.g. didn't run
+-- through the migrations tool, or ran in a different schema). The migration
+-- file version is functionally equivalent but uses jsonb_build_object which
+-- can be harder to verify before commit.
+-- ============================================================================
+
+BEGIN;
+
+UPDATE agent_definitions
+SET
+    default_config = '{
+      "processing_mode": "task",
+      "workflow": {
+        "start_step": "dispatch_provision",
+        "processing_mode": "task",
+        "timeout_seconds": 660,
+        "steps": {
+          "dispatch_provision": {
+            "action": "dispatch_thunder_provision",
+            "description": "Publishes provision_instance to thunder-adapter and awaits the response with the running instance details. Reads training_run_id and any optional GPU/sizing overrides from input_data; adapter applies defaults for unspecified fields.",
+            "config": {
+              "output_field": "provision_response",
+              "timeout_seconds": 600
+            },
+            "next_step": "complete"
+          },
+          "complete": {
+            "action": "complete_workflow",
+            "description": "Return the adapter response as this agent''s final result. The auto-unwrap in chassis input_mapping v2 lets callers read fields either as provisioning_result.instance_ip or provisioning_result.response.instance_ip.",
+            "config": {
+              "output_field": "provision_response"
+            }
+          }
+        }
+      }
+    }'::jsonb,
+    description = 'Provisions a Thunder Compute instance by dispatching provision_instance to thunder-adapter. Awaits the response containing instance_ip, ssh_user, ssh_key_secret_name, provisioning_id, thunder_identifier, provisioned_at. Replaces migration-022 stub.',
+    status = 'experimental',
+    updated_at = NOW()
+WHERE type = 'gpu-provisioner'
+  AND is_active = true
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- Verify exactly one row updated.
+-- If 0: WHERE clause didn't match (check is_active state).
+-- If >1: there are multiple active rows, which is a separate problem.
+
+DO $$
+DECLARE
+n INT;
+BEGIN
+SELECT COUNT(*) INTO n
+FROM agent_definitions
+WHERE type = 'gpu-provisioner' AND is_active = true
+  AND default_config->'workflow'->>'start_step' = 'dispatch_provision';
+
+IF n = 0 THEN
+        RAISE EXCEPTION 'gpu-provisioner row did not update — WHERE clause missed';
+    ELSIF n > 1 THEN
+        RAISE EXCEPTION 'Multiple active gpu-provisioner rows updated (n=%)', n;
+END IF;
+
+    RAISE NOTICE 'gpu-provisioner workflow swap OK (% row)', n;
+END
+$$;
+
+COMMIT;
+
+
+-- ============================================================================
+-- Verify the swap before firing kcat
+-- ============================================================================
+
+SELECT type, status,
+       default_config->'workflow'->>'start_step' AS start_step,
+    default_config->'workflow'->'steps'->'dispatch_provision'->>'action' AS step1_action,
+    default_config->'workflow'->'steps'->'complete'->>'action' AS step2_action,
+    updated_at
+FROM agent_definitions
+WHERE type = 'gpu-provisioner' AND is_active = true;
+
+-- Expect:
+--   gpu-provisioner | experimental | dispatch_provision
+--     | dispatch_thunder_provision | complete_workflow | <now>
