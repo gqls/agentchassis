@@ -2123,10 +2123,25 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		assetType = at
 	}
 
-	// Get purpose from config (e.g., "hero", "logo")
+	// Get purpose from config — supports literal OR field lookup.
+	// Phase 2H: purpose_field added so the new needs_imagery branch can pass
+	// spec.purpose through dynamically (logo, hero, illustration, icon,
+	// infographic) without hardcoding in workflow step config. Mirrors the
+	// asset_key / asset_key_field pattern below.
+	//
+	// Resolution priority:
+	//   1. config["purpose"]        — literal string (e.g. "hero", "logo")
+	//   2. config["purpose_field"]  — JSONPath into collected_data
+	//   3. ""                       — empty; downstream asset_key resolution
+	//                                 may still backfill via asset_key_field
 	purpose := ""
 	if p, ok := config["purpose"].(string); ok && p != "" {
 		purpose = p
+	}
+	if purpose == "" {
+		if pf, ok := config["purpose_field"].(string); ok && pf != "" {
+			purpose = datahelpers.ExtractNestedFieldString(params.CollectedData, pf)
+		}
 	}
 
 	// Phase 2C: extract asset_key from config, defaulting to purpose.
