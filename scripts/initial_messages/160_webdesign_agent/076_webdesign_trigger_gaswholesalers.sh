@@ -29,6 +29,16 @@ kcat -P \
 {"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_webdesign_agent","steps":{"spawn_webdesign_agent":{"action":"spawn_agent","config":{"role":"webdesigner","agent_type":"webdesign-agent"},"description":"Spawn webdesign agent","next_step":"call_webdesign_agent","output_field":"webdesign_agent_info"},"call_webdesign_agent":{"action":"call_agent","config":{"agent_type":"webdesign-agent","target_role":"webdesigner","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain"},"timeout_seconds":240},"description":"Call webdesign agent to generate CSS","next_step":"complete","output_field":"webdesign_result"},"complete":{"action":"complete_workflow","config":{"output_fields":["webdesign_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
 JSON
 
+
+echo " CORRELATION_ID=$CORRELATION_ID"
+echo " ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo " REQUEST_ID=$REQUEST_ID"
+echo " MESSAGE_ID=$MESSAGE_ID"
+echo " TIMESTAMP=$TIMESTAMP"
+echo " CLIENT_ID=$CLIENT_ID"
+echo " SITE_ID=$SITE_ID"
+echo " DOMAIN=$DOMAIN"
+
 echo "Monitor: kubectl -n ai-persona-system logs -f -l agent-type=webdesign-agent --tail=50"
 
 

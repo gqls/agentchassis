@@ -1565,3 +1565,313 @@ $verify$;
 
 COMMIT;
 
+---
+--
+-- phase_2g_followup_mark_work_item_complete.sql
+--
+-- Follow-up on Phase 2G step 5. The image-build-handler workflow completes
+-- successfully and deploys an asset, but does not update its triggering
+-- work item's status. Items sit in `detected` indefinitely after
+-- successful processing — observable in robot-hands.com after 2026-05-14
+-- end-to-end verification: 8 needs_imagery items, 7 still detected after
+-- one was processed end-to-end.
+--
+-- Fix: insert a new `mark_work_item_complete` step between
+-- `call_asset_deployer` and `complete`, using the new UpdateWorkItemStatus
+-- action (added to v3_site_actions.go and registered as
+-- "update_work_item_status" — see update_work_item_status_action.go).
+--
+-- The step is inserted in the SHARED tail of the workflow, so all four
+-- branches (needs_imagery, variant, logo, hero) benefit from a single
+-- insertion.
+--
+-- The action gracefully no-ops when input_data.work_item_id is absent,
+-- so manual triggers without a work_item_id (e.g. ad-hoc kcat calls
+-- bypassing dispatch) continue to work without error.
+--
+-- Reversible. Backup taken.
+--
+-- Prerequisite: UpdateWorkItemStatusAction Go code deployed to chassis.
+-- Without that, this step would attempt to invoke an unknown action and
+-- fail with action-not-registered.
+
+\set ON_ERROR_STOP on
+
+CREATE TABLE agent_def_image_build_handler_backup_20260514_pre_mark_work_item_complete AS
+SELECT * FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+BEGIN;
+
+-- Sanity: confirm the agent has the post-step-5 structure
+DO $check$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions
+         WHERE type = 'image-build-handler' AND is_active = true
+           AND default_config #> '{workflow,steps,call_asset_deployer}' IS NOT NULL
+           AND default_config #>> '{workflow,steps,call_asset_deployer,next_step}' = 'complete'
+    ) THEN
+        RAISE EXCEPTION 'image-build-handler does not have expected post-step-5 structure; call_asset_deployer.next_step is not "complete"';
+END IF;
+END
+$check$;
+
+-- 1. Add the new mark_work_item_complete step.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,mark_work_item_complete}',
+        $step$
+            {
+    "action": "update_work_item_status",
+        "config": {
+        "work_item_id_field": "input_data.work_item_id",
+        "status": "complete",
+        "skip_if_missing": true
+    },
+    "next_step": "complete",
+    "error_step": "complete",
+    "description": "Mark the triggering site_work_items row as complete. Gracefully no-ops if input_data.work_item_id is absent. error_step is `complete` (not complete_error) because failure to update the work item should not fail the asset workflow — the asset is already deployed.",
+    "output_field": "work_item_marked_complete"
+}
+$step$::jsonb
+       ),
+    updated_at = now()
+WHERE type = 'image-build-handler'
+  AND is_active = true;
+
+-- 2. Redirect call_asset_deployer.next_step from "complete" to
+--    "mark_work_item_complete". This is in the shared tail, so all four
+--    branches (needs_imagery, variant, logo, hero) benefit at once.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_asset_deployer,next_step}',
+        '"mark_work_item_complete"'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'image-build-handler'
+  AND is_active = true;
+
+-- Verify
+DO $verify$
+DECLARE
+v_steps     jsonb;
+    v_next_step text;
+BEGIN
+SELECT default_config #> '{workflow,steps}'
+INTO v_steps
+FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+IF NOT (v_steps ? 'mark_work_item_complete') THEN
+        RAISE EXCEPTION 'mark_work_item_complete step missing after migration';
+END IF;
+
+SELECT v_steps #>> '{call_asset_deployer,next_step}' INTO v_next_step;
+IF v_next_step <> 'mark_work_item_complete' THEN
+        RAISE EXCEPTION 'call_asset_deployer.next_step is %, expected mark_work_item_complete', v_next_step;
+END IF;
+
+SELECT v_steps #>> '{mark_work_item_complete,next_step}' INTO v_next_step;
+IF v_next_step <> 'complete' THEN
+        RAISE EXCEPTION 'mark_work_item_complete.next_step is %, expected complete', v_next_step;
+END IF;
+
+    -- Confirm the terminal "complete" step still exists
+    IF NOT (v_steps ? 'complete') THEN
+        RAISE EXCEPTION 'terminal "complete" step missing — migration may have corrupted the workflow';
+END IF;
+
+    RAISE NOTICE 'phase_2g followup: mark_work_item_complete inserted into image-build-handler tail';
+END
+$verify$;
+
+COMMIT;
+
+---
+-- mark site work item failed after image run
+
+-- phase_2g_followup_mark_work_item_failed.sql
+--
+-- Companion to phase_2g_followup_mark_work_item_complete.sql. Same
+-- pattern, error side of the workflow:
+--
+-- Insert a new step `mark_work_item_failed` immediately before the
+-- existing `complete_error` terminal. Redirect every step whose
+-- `error_step` currently points at `complete_error` to point at the new
+-- step instead. The new step then routes to `complete_error`.
+--
+-- After this, any failure in image-build-handler that would have hit
+-- `complete_error` first updates its triggering site_work_items row to
+-- status='failed' (and increments attempt_count), then terminates.
+-- Dispatch retry semantics that key on attempt_count now have correct
+-- input. Failed orchestrations are also auditable from the work item
+-- itself via result.completed_by_orchestration_id.
+--
+-- The action gracefully no-ops if `input_data.work_item_id` is absent,
+-- so manual triggers without a work_item_id continue to work.
+--
+-- The new step's own error_step is `complete_error` (not itself) — if
+-- the status update itself fails, terminate normally rather than loop.
+--
+-- Steps whose error_step is currently `spawn_asset_deployer` (the
+-- store_*_asset steps) are NOT changed. They route through deploy first
+-- to try to salvage the image URL, and if THAT chain ultimately fails,
+-- it lands at `mark_work_item_failed` via the redirected
+-- call_asset_deployer error path. Same effect, no special-case.
+--
+-- Reversible. Backup taken.
+--
+-- Prerequisite: UpdateWorkItemStatusAction Go code deployed AND
+-- registered (same prereq as the success-side migration).
+
+\set ON_ERROR_STOP on
+
+CREATE TABLE agent_def_image_build_handler_backup_20260514_pre_mark_work_item_failed AS
+SELECT * FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+BEGIN;
+
+-- Sanity: the success-side migration must already have applied
+-- (mark_work_item_complete exists). Otherwise we're applying out of order.
+DO $check$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions
+         WHERE type = 'image-build-handler' AND is_active = true
+           AND default_config #> '{workflow,steps,mark_work_item_complete}' IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'mark_work_item_complete missing — apply phase_2g_followup_mark_work_item_complete.sql first';
+END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions
+         WHERE type = 'image-build-handler' AND is_active = true
+           AND default_config #> '{workflow,steps,complete_error}' IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'complete_error terminal missing from workflow';
+END IF;
+END
+$check$;
+
+-- 1. Add the new mark_work_item_failed step.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,mark_work_item_failed}',
+        $step$
+            {
+    "action": "update_work_item_status",
+        "config": {
+        "work_item_id_field": "input_data.work_item_id",
+        "status": "failed",
+        "skip_if_missing": true
+    },
+    "next_step": "complete_error",
+    "error_step": "complete_error",
+    "description": "Mark the triggering site_work_items row as failed before terminating. Gracefully no-ops if input_data.work_item_id is absent. error_step is complete_error so a failure of the status-update itself terminates normally rather than looping.",
+    "output_field": "work_item_marked_failed"
+}
+$step$::jsonb
+       ),
+    updated_at = now()
+WHERE type = 'image-build-handler'
+  AND is_active = true;
+
+-- 2. Redirect every step's error_step from "complete_error" to
+--    "mark_work_item_failed". Each step listed explicitly so the
+--    migration is reviewable; spawn_*_asset steps' error_step is
+--    deliberately NOT changed (those route to spawn_asset_deployer for
+--    salvage and converge on call_asset_deployer's redirected error
+--    path anyway).
+UPDATE agent_definitions
+SET default_config =
+        jsonb_set(
+                jsonb_set(
+                        jsonb_set(
+                                jsonb_set(
+                                        jsonb_set(
+                                                default_config,
+                                                '{workflow,steps,call_hero_gen,error_step}',
+                                                '"mark_work_item_failed"'::jsonb
+                                        ),
+                                        '{workflow,steps,call_logo_gen,error_step}',
+                                        '"mark_work_item_failed"'::jsonb
+                                ),
+                                '{workflow,steps,call_variant_gen,error_step}',
+                                '"mark_work_item_failed"'::jsonb
+                        ),
+                        '{workflow,steps,call_imagery_gen,error_step}',
+                        '"mark_work_item_failed"'::jsonb
+                ),
+                '{workflow,steps,call_asset_deployer,error_step}',
+                '"mark_work_item_failed"'::jsonb
+        ),
+    updated_at = now()
+WHERE type = 'image-build-handler'
+  AND is_active = true;
+
+-- Verify
+DO $verify$
+DECLARE
+v_steps      jsonb;
+    v_err_step   text;
+BEGIN
+SELECT default_config #> '{workflow,steps}'
+INTO v_steps
+FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+-- New step exists
+IF NOT (v_steps ? 'mark_work_item_failed') THEN
+        RAISE EXCEPTION 'mark_work_item_failed step missing after migration';
+END IF;
+
+    -- New step's targets correct
+    IF (v_steps #>> '{mark_work_item_failed,next_step}') <> 'complete_error' THEN
+        RAISE EXCEPTION 'mark_work_item_failed.next_step is %, expected complete_error',
+                        v_steps #>> '{mark_work_item_failed,next_step}';
+END IF;
+
+    -- Each call_*_gen and call_asset_deployer redirected (explicit per step)
+    v_err_step := v_steps #>> '{call_hero_gen,error_step}';
+    IF v_err_step <> 'mark_work_item_failed' THEN
+        RAISE EXCEPTION 'call_hero_gen.error_step is %, expected mark_work_item_failed', v_err_step;
+END IF;
+
+    v_err_step := v_steps #>> '{call_logo_gen,error_step}';
+    IF v_err_step <> 'mark_work_item_failed' THEN
+        RAISE EXCEPTION 'call_logo_gen.error_step is %, expected mark_work_item_failed', v_err_step;
+END IF;
+
+    v_err_step := v_steps #>> '{call_variant_gen,error_step}';
+    IF v_err_step <> 'mark_work_item_failed' THEN
+        RAISE EXCEPTION 'call_variant_gen.error_step is %, expected mark_work_item_failed', v_err_step;
+END IF;
+
+    v_err_step := v_steps #>> '{call_imagery_gen,error_step}';
+    IF v_err_step <> 'mark_work_item_failed' THEN
+        RAISE EXCEPTION 'call_imagery_gen.error_step is %, expected mark_work_item_failed', v_err_step;
+END IF;
+
+    v_err_step := v_steps #>> '{call_asset_deployer,error_step}';
+    IF v_err_step <> 'mark_work_item_failed' THEN
+        RAISE EXCEPTION 'call_asset_deployer.error_step is %, expected mark_work_item_failed', v_err_step;
+END IF;
+
+    -- Terminal complete_error still exists
+    IF NOT (v_steps ? 'complete_error') THEN
+        RAISE EXCEPTION 'complete_error terminal missing — migration corrupted workflow';
+END IF;
+    -- mark_work_item_complete (from sibling migration) still intact
+    IF NOT (v_steps ? 'mark_work_item_complete') THEN
+        RAISE EXCEPTION 'mark_work_item_complete missing — migration corrupted workflow';
+END IF;
+
+    RAISE NOTICE 'phase_2g followup: mark_work_item_failed inserted; 5 error_step redirections applied';
+END
+$verify$;
+
+COMMIT;

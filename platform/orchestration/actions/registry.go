@@ -803,6 +803,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Update the build status of a page",
 		IsLocal:     true,
 	},
+	"update_work_item_status": {
+		Handler:     UpdateWorkItemStatusAction,
+		Category:    "site",
+		Description: "Update status of a site_work_items row (complete, failed, etc) from inside a workflow",
+		IsLocal:     true,
+	},
 	"build_render_context": {
 		Handler:     BuildRenderContextAction,
 		Category:    "site",

@@ -3873,6 +3873,135 @@ func detectNeedsLLMContent(htmlTemplate, inputSchema string) bool {
 	return false
 }
 
+// UpdateWorkItemStatusAction updates a site_work_items row's status.
+// Config:
+//   - work_item_id_field: path to work_item_id in collected_data
+//     (default: "input_data.work_item_id")
+//   - status:             new status — default "complete"
+//     (valid: complete, failed, claimed, executing,
+//     detected, wont_fix)
+//   - skip_if_missing:    bool — when true (default), gracefully no-op if
+//     work_item_id absent. When false, error.
+//   - result_fields:      optional map of extra fields to merge into the
+//     row's result JSONB. Values are literals; the
+//     action always adds orchestration_id and step
+//     metadata automatically.
+func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("UpdateWorkItemStatusAction: Starting")
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+
+	// Get work_item_id
+	workItemIDField := "input_data.work_item_id"
+	if f, ok := config["work_item_id_field"].(string); ok && f != "" {
+		workItemIDField = f
+	}
+	workItemIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, workItemIDField)
+
+	// Skip gracefully if missing — supports manual triggers without work_item_id
+	skipIfMissing := true
+	if v, ok := config["skip_if_missing"].(bool); ok {
+		skipIfMissing = v
+	}
+
+	if workItemIDStr == "" {
+		if skipIfMissing {
+			params.Logger.Info("UpdateWorkItemStatusAction: no work_item_id in collected_data; skipping",
+				zap.String("looked_at", workItemIDField))
+			return map[string]interface{}{
+				"updated": false,
+				"skipped": true,
+				"reason":  "work_item_id not present",
+			}, nil
+		}
+		return nil, fmt.Errorf("work_item_id not found at %s and skip_if_missing=false", workItemIDField)
+	}
+
+	workItemID, err := uuid.Parse(workItemIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid work_item_id %q: %w", workItemIDStr, err)
+	}
+
+	// Status (default complete)
+	newStatus := "complete"
+	if s, ok := config["status"].(string); ok && s != "" {
+		newStatus = s
+	}
+	validStatuses := map[string]bool{
+		"complete":  true,
+		"failed":    true,
+		"claimed":   true,
+		"executing": true,
+		"detected":  true,
+		"wont_fix":  true,
+	}
+	if !validStatuses[newStatus] {
+		return nil, fmt.Errorf("invalid work item status: %s (valid: complete, failed, claimed, executing, detected, wont_fix)", newStatus)
+	}
+
+	if params.DB == nil {
+		params.Logger.Warn("UpdateWorkItemStatusAction: No database")
+		return map[string]interface{}{"updated": false, "status": newStatus}, nil
+	}
+
+	// Build result payload — always includes orchestration tracking; merges
+	// any caller-supplied extras under result_fields.
+	resultPayload := map[string]interface{}{
+		"completed_by_orchestration_id": params.ExecutionContext.OrchestrationID,
+		"completed_by_step":             params.ExecutionContext.StepName,
+		"completed_at_iso":              time.Now().UTC().Format(time.RFC3339),
+	}
+	if extras, ok := config["result_fields"].(map[string]interface{}); ok {
+		for k, v := range extras {
+			resultPayload[k] = v
+		}
+	}
+	resultJSON, err := json.Marshal(resultPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal result payload: %w", err)
+	}
+
+	// Build query. completed_at only set when transitioning to complete; for
+	// other statuses (failed, etc.) leave it alone and just update status.
+	var query string
+	if newStatus == "complete" {
+		query = `UPDATE site_work_items
+		            SET status = $2,
+		                completed_at = NOW(),
+		                updated_at = NOW(),
+		                attempt_count = attempt_count + 1,
+		                result = COALESCE(result, '{}'::jsonb) || $3::jsonb
+		          WHERE id = $1`
+	} else {
+		query = `UPDATE site_work_items
+		            SET status = $2,
+		                updated_at = NOW(),
+		                attempt_count = attempt_count + 1,
+		                result = COALESCE(result, '{}'::jsonb) || $3::jsonb
+		          WHERE id = $1`
+	}
+
+	if err := execDB(ctx, params.DB, query, workItemID, newStatus, resultJSON); err != nil {
+		return nil, fmt.Errorf("failed to update work item status: %w", err)
+	}
+
+	params.Logger.Info("UpdateWorkItemStatusAction: status updated",
+		zap.String("work_item_id", workItemIDStr),
+		zap.String("status", newStatus),
+	)
+
+	return map[string]interface{}{
+		"updated":      true,
+		"work_item_id": workItemIDStr,
+		"status":       newStatus,
+		"timestamp":    time.Now().UTC().Format(time.RFC3339),
+	}, nil
+}
+
 func containsString(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
