@@ -542,6 +542,104 @@ UPDATE agent_definitions
  WHERE type = '<agent>' AND is_active = true;
 ```
 
+
+### `operator does not exist: jsonb && jsonb` — silent in CSS path, hard fail in JS
+
+**Symptom:** Workflow step fails with
+`ERROR: operator does not exist: jsonb && jsonb (SQLSTATE 42883)`.
+First seen on `render_js_snippets_for_site` when site-asset-renderer
+ran for the first time on gaswholesalers in May 2026.
+
+**Root cause:** Postgres's `&&` (array overlap) operator only exists
+for native Postgres arrays — `text[]`, `int[]`, etc. There is no
+`jsonb && jsonb` operator. The `loadComponentCSSSnippets` function
+in `render_css_from_spec_action.go` has used `applies_to && $1::jsonb`
+since the css_snippets table was added in jsonb form, so the query
+has been **silently failing the entire time**. The function's error
+handler is `logger.Warn(...); return ""`, so the CSS pipeline
+degraded gracefully (theme + section styles still rendered) and
+nobody noticed that no css_snippet has ever actually been included
+in any deployed `styles.css`.
+
+The JS analog (`loadJSSnippetsForSite` in
+`render_js_snippets_for_site_action.go`) treats snippets as its
+*entire* output, so the same bug surfaces as a hard workflow
+failure instead of silent degradation.
+
+**Diagnosis:**
+
+```sql
+-- Confirm the operator doesn't exist
+SELECT 'a'::jsonb && 'b'::jsonb;
+-- ERROR:  operator does not exist: jsonb && jsonb
+
+-- The working pattern
+SELECT EXISTS (
+  SELECT 1
+  FROM jsonb_array_elements_text('["a","b"]'::jsonb) AS x(elem)
+  WHERE x.elem IN (SELECT jsonb_array_elements_text('["b","c"]'::jsonb))
+);
+-- t
+
+-- For CSS snippets specifically — confirm the silent failure: pick
+-- any deployed site and check its styles.css for one of the rule
+-- names from a css_snippet row. If none of the rule names are in
+-- the file, css_snippets has never reached that site:
+
+SELECT name, css_content FROM css_snippets
+WHERE applies_to::text LIKE '%latest-news%';
+-- shows snippet rows that should have been included
+
+-- Then read the actual deployed file and grep for unique selectors
+-- from those snippets — e.g. `.latest-news-section .news-card-meta`.
+-- Absence confirms the silent failure.
+```
+
+**Fix pattern:** Replace `applies_to && $1::jsonb` with EXISTS +
+`jsonb_array_elements_text`:
+
+```sql
+WHERE EXISTS (
+  SELECT 1
+  FROM jsonb_array_elements_text(applies_to) AS a(elem)
+  WHERE a.elem IN (SELECT jsonb_array_elements_text($1::jsonb))
+)
+```
+
+Pure jsonb on both sides, no driver-side array conversion needed,
+no `pq.Array` dependency (the chassis explicitly avoids `lib/pq` —
+see comments around line 90168 in the chassis source).
+
+**Where this needs fixing now (May 2026):**
+
+- `platform/orchestration/actions/render_css_from_spec_action.go` —
+  function `loadComponentCSSSnippets` (silent failure path)
+- `platform/orchestration/actions/render_js_snippets_for_site_action.go` —
+  function `loadJSSnippetsForSite` (hard failure path — fixed in the
+  same change set)
+
+**Where this might exist elsewhere — audit pattern:**
+
+```bash
+# Find any other jsonb && usage in the codebase
+grep -rn "&& \$.*::jsonb\|applies_to &&" platform/
+grep -rn ":jsonb && \|jsonb && \"" platform/
+```
+
+Any match outside test files should be reviewed: if the operator is
+between a jsonb column and a jsonb parameter, it's broken; if it's
+on a converted array, it's fine.
+
+**Why this stayed hidden for months:** silent-failure error handlers
+(`logger.Warn(...); return ""` and similar) plus a graceful
+downstream consumer (the CSS theme builder doesn't care if snippets
+are empty). When writing similar loaders, prefer surfacing the error
+to the caller and letting the orchestration step fail visibly. Hard
+failure beats silent degradation when the data is supposed to be
+there.
+
+---
+
 ### New JSON walker silently returns nothing (canonical resolver bypassed)
 
 A new function reads `data["foo"]` at top level and finds nothing, while sibling functions in the same file use a multi-wrapper resolver like `findDirectiveTree(data, "foo")` and find the same data under `data["site_plan"]["foo"]` or `data["llm_plan"]["result"]["foo"]`.

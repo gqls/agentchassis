@@ -460,10 +460,17 @@ func loadComponentCSSSnippets(ctx context.Context, db *sql.DB, components []stri
 		return ""
 	}
 
+	// Overlap check between two jsonb arrays. The `&&` operator does NOT
+	// exist for jsonb (only for Postgres arrays like text[]). EXISTS +
+	// jsonb_array_elements_text is the pure-jsonb pattern.
 	rows, err := db.QueryContext(ctx, `
-		SELECT name, css_content 
-		FROM css_snippets 
-		WHERE applies_to && $1::jsonb
+		SELECT name, css_content
+		FROM css_snippets
+		WHERE EXISTS (
+		  SELECT 1
+		  FROM jsonb_array_elements_text(applies_to) AS a(elem)
+		  WHERE a.elem IN (SELECT jsonb_array_elements_text($1::jsonb))
+		)
 		ORDER BY name
 	`, string(componentsJSON))
 	if err != nil {
