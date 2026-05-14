@@ -1129,6 +1129,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Publish a decommission_instance request to thunder-adapter and await the response. Used by thunder-reaper and any other workflow terminating a Thunder Compute instance.",
 		IsLocal:     true,
 	},
+	"dispatch_thunder_provision": {
+		Handler:     DispatchThunderProvisionAction,
+		Category:    "training",
+		Description: "Publish a provision_instance request to thunder-adapter and await the response with the running instance details (instance_ip, ssh_user, ssh_key_secret_name, provisioning_id, thunder_identifier, provisioned_at). Used by gpu-provisioner.",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// Site Snapshots
