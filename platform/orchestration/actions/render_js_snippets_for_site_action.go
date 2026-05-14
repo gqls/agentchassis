@@ -3,18 +3,13 @@
 // the site's components into a single JS bundle for /assets/js/snippets.js.
 //
 // Mirrors loadComponentCSSSnippets's shape in render_css_from_spec_action.go
-// but simpler — no theme composition, just snippet concatenation.
-//
-// The result is intended to be deployed by a downstream git_commit step
-// using files_field: js_snippets_render.files. The head component template
-// references /assets/js/snippets.js unconditionally (synchronous <script>
-// before </head>), and an empty bundle is written when no active snippets
-// apply so the file always exists on the CDN.
-//
-// Activation gate: only rows with is_active = true contribute. The 9 existing
-// js_snippets rows (scroll-reveal, smooth-scroll, etc.) default to is_active
-// = false and stay dormant. Operators activate snippets by flipping the flag
-// on a per-row basis.
+// — but DIFFERENT WHERE CLAUSE. loadComponentCSSSnippets uses
+//   `applies_to && $1::jsonb`
+// which fails at runtime (operator does not exist: jsonb && jsonb) but the
+// CSS path swallows the error and returns empty, so it's been latently
+// broken. This action uses an EXISTS + jsonb_array_elements_text pattern
+// that works on pure jsonb. If/when loadComponentCSSSnippets is fixed, it
+// should use the same pattern.
 
 package actions
 
@@ -75,7 +70,6 @@ func RenderJSSnippetsForSiteAction(ctx context.Context, params ActionParams) (in
 		domain = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.domain")
 	}
 	if domain == "" {
-		// Fall back to the sites table
 		_ = params.DB.QueryRowContext(ctx,
 			`SELECT COALESCE(domain, '') FROM sites WHERE id = $1`, siteUUID).Scan(&domain)
 	}
@@ -150,8 +144,12 @@ type jsSnippetRow struct {
 
 // loadJSSnippetsForSite queries js_snippets where applies_to overlaps the
 // site's component list AND is_active = true. Ordered by name for
-// deterministic bundle output (so re-renders produce identical files
-// when nothing changes — no spurious git commits).
+// deterministic bundle output.
+//
+// Overlap check: PostgreSQL's `&&` operator works on Postgres ARRAYS (text[],
+// int[], etc.) — NOT on jsonb. So we use an EXISTS subquery that unwraps both
+// jsonb arrays to text via jsonb_array_elements_text. Pure jsonb, no array-
+// driver-dependency, works on any PG driver.
 func loadJSSnippetsForSite(ctx context.Context, db *sql.DB, components []string, logger *zap.Logger) ([]jsSnippetRow, error) {
 	jsonBytes, err := json.Marshal(components)
 	if err != nil {
@@ -162,7 +160,11 @@ func loadJSSnippetsForSite(ctx context.Context, db *sql.DB, components []string,
 		SELECT name, COALESCE(description, ''), js_content
 		FROM js_snippets
 		WHERE is_active = true
-		  AND applies_to && $1::jsonb
+		  AND EXISTS (
+		    SELECT 1
+		    FROM jsonb_array_elements_text(applies_to) AS a(elem)
+		    WHERE a.elem IN (SELECT jsonb_array_elements_text($1::jsonb))
+		  )
 		ORDER BY name
 	`, string(jsonBytes))
 	if err != nil {
@@ -206,7 +208,7 @@ func extractComponentFunctionsList(collectedData map[string]interface{}, field s
 
 // loadSiteComponentFunctionsForJS queries distinct content_components.function
 // values used by any page or site-level component on the given site.
-// Used as a fallback when component list isn't in collected data.
+// Fallback when component list isn't in collected data.
 func loadSiteComponentFunctionsForJS(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) []string {
 	rows, err := db.QueryContext(ctx, `
 		SELECT DISTINCT cc.function
