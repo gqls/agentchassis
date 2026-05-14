@@ -11,6 +11,9 @@ echo "$SPEC" | jq .
 /tmp/trigger.json
 {"action":"orchestrate","config":{"agent_type":"image-build-handler"},"input_data":{"site_id":"00ff3af5-dad8-4770-9f70-3edc267a3c92","domain":"robot-hands.com","work_item_id":"19a4b7cd-8bd8-4d52-a6a3-e8d094ad2536","item_type":"needs_imagery","spec":{"key":"hero_home","kind":"hero","check":"unfulfilled_imagery_plan","scope":"page","prompt":"A dramatic, high-contrast close-up photograph of an industrial robotic gripper mounted on a robot arm, gripping a machined metal component. Soft directional lighting from the left, dark neutral background with subtle blue ambient light. Shallow depth of field. The gripper shows visible pneumatic lines and machined aluminium surfaces. Mood: precision, power, technical excellence. No text overlays, no logos, no people.","purpose":"hero","asset_key":"hero_home","scope_ref":"index","brand_update":true}}}
 
+
+----------------------------------
+
 set -u            # fail on any unset variable
 set -o pipefail   # propagate pipe failures
 

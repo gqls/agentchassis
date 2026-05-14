@@ -1464,3 +1464,104 @@ $verify$;
 
 COMMIT;
 
+---
+--
+-- fix paths
+
+-- phase_2g_step5_hotfix_store_asset_purpose.sql
+--
+-- Second hotfix on top of phase_2g_step5. The store_asset action does NOT
+-- support a `purpose_field` config key — only the `*_field` keys actually
+-- attested in the existing chains (asset_key_field, site_id_field,
+-- data_field, origin_prompt_field). The migration assumed by analogy
+-- that purpose_field would work too. It doesn't: store_asset can't resolve
+-- purpose, writes a DB row with empty purpose, and the asset_stored
+-- output mapping silently drops image_uri. Downstream call_asset_deployer
+-- then fails reading asset_stored.image_uri.
+--
+-- Verified by orchestration 076b6f19-11ed-45d1-b250-4703e8f4aa2b:
+--  - SDXL call succeeded (child orchestration 222edd25 COMPLETED at 10:10:58)
+--  - assets row created with purpose=NULL (00caf435-e639-4e16-8e68-2a2f27cc12a3)
+--  - parent orchestration FAILED at call_asset_deployer with input_mapping
+--    error: 'asset_stored.image_uri' not found for field 's3_uri'
+--
+-- Fix: drop purpose_field, hardcode purpose: "hero" in both new store
+-- steps. Mirrors store_variant_asset exactly except for update_site_brand_assets.
+--
+-- Limitation: kind=logo imagery work items (if any exist for this site)
+-- will be stored with purpose="hero" — incorrect. For robot-hands.com,
+-- the legacy logo asset (asset_key=logo, from 2026-05-08) already covers
+-- the site_plan_imagery logo row, so no needs_imagery items of kind=logo
+-- are pending. Other sites may need either the Go-side purpose_field fix
+-- (proper) or kind-routing in the workflow (verbose) before they can use
+-- this branch for logos.
+--
+-- Reversible. Backup taken.
+
+\set ON_ERROR_STOP on
+
+CREATE TABLE agent_def_image_build_handler_backup_20260514_pre_store_purpose_hotfix AS
+SELECT * FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+BEGIN;
+
+-- Drop purpose_field and add hardcoded purpose: "hero" in both store steps.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,store_imagery_brand_asset,config}',
+                (
+                    (default_config #> '{workflow,steps,store_imagery_brand_asset,config}')
+                        - 'purpose_field'
+                    ) || jsonb_build_object('purpose', 'hero')
+        ),
+        '{workflow,steps,store_imagery_asset,config}',
+        (
+            (default_config #> '{workflow,steps,store_imagery_asset,config}')
+                - 'purpose_field'
+            ) || jsonb_build_object('purpose', 'hero')
+                     ),
+    updated_at = now()
+WHERE type = 'image-build-handler'
+  AND is_active = true;
+
+-- Verify
+DO $verify$
+DECLARE
+v_brand_cfg  jsonb;
+    v_plain_cfg  jsonb;
+BEGIN
+SELECT default_config #> '{workflow,steps,store_imagery_brand_asset,config}',
+           default_config #> '{workflow,steps,store_imagery_asset,config}'
+INTO v_brand_cfg, v_plain_cfg
+FROM agent_definitions
+WHERE type = 'image-build-handler' AND is_active = true;
+
+IF v_brand_cfg ? 'purpose_field' THEN
+        RAISE EXCEPTION 'store_imagery_brand_asset still has purpose_field';
+END IF;
+    IF v_plain_cfg ? 'purpose_field' THEN
+        RAISE EXCEPTION 'store_imagery_asset still has purpose_field';
+END IF;
+    IF (v_brand_cfg ->> 'purpose') <> 'hero' THEN
+        RAISE EXCEPTION 'store_imagery_brand_asset purpose is %, expected hero', (v_brand_cfg ->> 'purpose');
+END IF;
+    IF (v_plain_cfg ->> 'purpose') <> 'hero' THEN
+        RAISE EXCEPTION 'store_imagery_asset purpose is %, expected hero', (v_plain_cfg ->> 'purpose');
+END IF;
+    -- update_site_brand_assets should still be true/false respectively
+    IF (v_brand_cfg ->> 'update_site_brand_assets') <> 'true' THEN
+        RAISE EXCEPTION 'store_imagery_brand_asset.update_site_brand_assets corrupted';
+END IF;
+    IF (v_plain_cfg ->> 'update_site_brand_assets') <> 'false' THEN
+        RAISE EXCEPTION 'store_imagery_asset.update_site_brand_assets corrupted';
+END IF;
+
+    RAISE NOTICE 'hotfix applied: both store steps now use purpose=hero';
+END
+$verify$;
+
+COMMIT;
+
