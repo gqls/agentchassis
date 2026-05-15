@@ -14,8 +14,8 @@
 //     nil if the site has no collection yet. Surfaced so downstream steps
 //     (e.g. webdesign-agent's install_theme conditional) can test whether
 //     a theme is already installed.
-//   - pages: [{title, name, component_functions}]
-//   - all_component_functions: deduplicated list
+//   - pages: [{title, name, component_functions, built_component_count, planned_component_count}]
+//   - all_component_functions: deduplicated list across all pages
 //   - color_palette, typography (from style_collection or content_data)
 //   - source: "database"
 
@@ -153,7 +153,6 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 
 				switch aspect {
 				case "identity":
-					// identity.industry, identity.tagline, identity.company_name
 					if result["industry"] == "" || result["industry"] == nil {
 						if v, _ := specData["industry"].(string); v != "" {
 							result["industry"] = v
@@ -169,13 +168,11 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 							result["company_name"] = v
 						}
 					}
-					// Also extract services for richer context
 					if svcs, ok := specData["services"]; ok && svcs != nil {
 						result["services"] = svcs
 					}
 
 				case "briefing":
-					// briefing.tone, briefing.about_us, briefing.tagline
 					if result["tagline"] == "" || result["tagline"] == nil {
 						if v, _ := specData["tagline"].(string); v != "" {
 							result["tagline"] = v
@@ -186,7 +183,6 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 							result["company_name"] = v
 						}
 					}
-					// Pass tone and about_us for richer design context
 					if tone, _ := specData["tone"].(string); tone != "" {
 						result["brand_tone"] = tone
 					}
@@ -195,7 +191,6 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 					}
 
 				case "classification":
-					// classification.site_type, classification.recommended_builder
 					if siteType, _ := specData["site_type"].(string); siteType != "" {
 						result["site_type"] = siteType
 					}
@@ -217,14 +212,18 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	allComponents := make(map[string]bool)
+	pagesLoaded := 0
+	builtTotal := 0
+	plannedTotal := 0
 
 	if includePages {
-		pages, err := loadPagesWithComponents(ctx, params.DB, id)
+		pages, err := loadPagesWithComponents(ctx, params.DB, id, params.Logger)
 		if err != nil {
 			params.Logger.Warn("Failed to load pages", zap.Error(err))
 			pages = []map[string]interface{}{}
 		}
 		result["pages"] = pages
+		pagesLoaded = len(pages)
 
 		for _, page := range pages {
 			if funcs, ok := page["component_functions"].([]string); ok {
@@ -232,11 +231,29 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 					allComponents[f] = true
 				}
 			}
+			if n, ok := page["built_component_count"].(int); ok {
+				builtTotal += n
+			}
+			if n, ok := page["planned_component_count"].(int); ok {
+				plannedTotal += n
+			}
 		}
 	}
 
-	// Default components if none found
+	// Loud warning when the fallback fires. Previously this was a silent
+	// no-op which masked the load_site_for_design bug for months — empty
+	// allComponents meant every webdesign-agent run got the same 5-item
+	// hardcoded list as the "real" component inventory, no matter what the
+	// site actually contained. If this Warn fires on an established site
+	// (one with page_components rows), something is broken upstream.
 	if len(allComponents) == 0 {
+		params.Logger.Warn("LoadSiteForDesignAction: NO COMPONENTS FOUND — using hardcoded 5-item fallback list. "+
+			"For a site with built pages this indicates page_components is empty or the query is broken.",
+			zap.String("site_id", id.String()),
+			zap.Bool("queried_pages", includePages),
+			zap.Int("pages_loaded", pagesLoaded),
+			zap.Int("built_components_total", builtTotal),
+			zap.Int("planned_components_total", plannedTotal))
 		for _, f := range []string{"hero", "services-grid", "differentiators", "social-proof", "call-to-action"} {
 			allComponents[f] = true
 		}
@@ -287,18 +304,54 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 
 	params.Logger.Info("LoadSiteForDesignAction: Complete",
 		zap.String("site_id", id.String()),
-		zap.Int("components", len(funcSlice)))
+		zap.Int("components", len(funcSlice)),
+		zap.Int("pages_loaded", pagesLoaded),
+		zap.Int("built_components_total", builtTotal),
+		zap.Int("planned_components_total", plannedTotal))
 
 	return result, nil
 }
 
-// loadPagesWithComponents loads pages and extracts component functions from sections jsonb
-func loadPagesWithComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID) ([]map[string]interface{}, error) {
+// loadPagesWithComponents loads pages and their component functions for a site.
+//
+// PRIMARY source: page_components JOIN content_components — the live page
+// sections actually built by page-content-writer. This is what every
+// downstream CSS/JS pipeline step needs to see.
+//
+// SECONDARY source: pages.sections JSONB — used as a fallback for pages
+// PLANNED but not yet BUILT (page-content-writer hasn't run, so
+// page_components has no rows for them). Site-planner writes planned
+// section descriptors to pages.sections.
+//
+// Previously this function relied ONLY on extractComponentsFromSections
+// over pages.sections, which returned empty for every built site (planning-
+// time data, stale once content-writer runs). That caused the 5-item
+// hardcoded fallback in LoadSiteForDesignAction to fire on every webdesign-
+// agent invocation, masking the entire css_snippets library — only snippets
+// with applies_to overlapping those 5 names ever shipped to any site.
+func loadPagesWithComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) ([]map[string]interface{}, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, title, name, url, sections, status
-		FROM pages 
-		WHERE site_id = $1 AND status IN ('deployed', 'published', 'draft', 'planned')
-		ORDER BY CASE WHEN name = 'index' OR name = 'home' THEN 0 ELSE 1 END, nav_order
+		SELECT
+			p.id,
+			COALESCE(p.title, ''),
+			p.name,
+			p.url,
+			COALESCE(p.sections, '[]'::jsonb),
+			COALESCE(p.status, 'unknown'),
+			COALESCE(
+				jsonb_agg(DISTINCT cc.function ORDER BY cc.function) FILTER (
+					WHERE cc.function IS NOT NULL AND cc.function != ''
+				),
+				'[]'::jsonb
+			) AS built_component_functions
+		FROM pages p
+		LEFT JOIN page_components pc ON pc.page_id = p.id
+		LEFT JOIN content_components cc ON cc.id = pc.component_id
+		WHERE p.site_id = $1
+		  AND p.status IN ('deployed', 'published', 'draft', 'planned')
+		GROUP BY p.id
+		ORDER BY CASE WHEN p.name = 'index' OR p.name = 'home' THEN 0 ELSE 1 END,
+		         COALESCE(p.nav_order, 100)
 	`, siteID)
 	if err != nil {
 		return nil, err
@@ -307,12 +360,18 @@ func loadPagesWithComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID) 
 
 	var pages []map[string]interface{}
 	for rows.Next() {
-		var id uuid.UUID
-		var title, name, status string
-		var url *string
-		var sectionsJSON []byte
-
-		if err := rows.Scan(&id, &title, &name, &url, &sectionsJSON, &status); err != nil {
+		var (
+			id             uuid.UUID
+			title          string
+			name           string
+			url            *string
+			sectionsJSON   []byte
+			status         string
+			builtFuncsJSON []byte
+		)
+		if err := rows.Scan(&id, &title, &name, &url,
+			&sectionsJSON, &status, &builtFuncsJSON); err != nil {
+			logger.Warn("loadPagesWithComponents: scan error", zap.Error(err))
 			continue
 		}
 
@@ -322,22 +381,51 @@ func loadPagesWithComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID) 
 			"name":   name,
 			"status": status,
 		}
-
 		if url != nil {
 			page["url"] = *url
 		}
 
-		// Extract component functions from sections jsonb
-		page["component_functions"] = extractComponentsFromSections(sectionsJSON)
+		// PRIMARY: built component functions from page_components ⋈ content_components
+		var builtFuncs []string
+		if err := json.Unmarshal(builtFuncsJSON, &builtFuncs); err != nil {
+			logger.Warn("loadPagesWithComponents: built_component_functions JSON parse failed",
+				zap.String("page_name", name),
+				zap.Error(err))
+			builtFuncs = nil
+		}
+
+		// SECONDARY: planned section descriptors from pages.sections JSONB.
+		// Used when page-content-writer hasn't run yet (page_components empty).
+		plannedFuncs := extractComponentsFromSections(sectionsJSON)
+
+		// Merge — both sources contribute, deduped
+		merged := make(map[string]bool)
+		for _, f := range builtFuncs {
+			merged[f] = true
+		}
+		for _, f := range plannedFuncs {
+			merged[f] = true
+		}
+		funcs := make([]string, 0, len(merged))
+		for f := range merged {
+			funcs = append(funcs, f)
+		}
+
+		page["component_functions"] = funcs
+		page["built_component_count"] = len(builtFuncs)
+		page["planned_component_count"] = len(plannedFuncs)
 
 		pages = append(pages, page)
 	}
-
 	return pages, nil
 }
 
 // extractComponentsFromSections extracts component function names from the sections jsonb column.
 // Sections is an array like: [{"component_name": "hero-split-image", "function": "hero", ...}, ...]
+//
+// Used as SECONDARY source by loadPagesWithComponents for pages that have
+// been planned but not yet built. For built pages, page_components is the
+// authoritative source.
 func extractComponentsFromSections(sectionsJSON []byte) []string {
 	if len(sectionsJSON) == 0 {
 		return []string{}
