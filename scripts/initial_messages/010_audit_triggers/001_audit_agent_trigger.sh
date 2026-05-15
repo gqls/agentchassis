@@ -30,6 +30,9 @@
 # and need triage before the dispatch loop processes them.
 # ============================================================================
 
+set -u
+
+
 AGENT_TYPE="${1:?Usage: $0 <agent_type> <site_id> <domain>}"
 SITE_ID="${2:?Usage: $0 <agent_type> <site_id> <domain>}"
 DOMAIN="${3:?Usage: $0 <agent_type> <site_id> <domain>}"
@@ -71,6 +74,10 @@ DOMAIN="finetuning.uk"
 AGENT_TYPE="site-review-agent"
 SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
 DOMAIN="leopardessconsulting.co.uk"
+
+AGENT_TYPE="design-audit-agent"
+SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"
+DOMAIN="robot-hands.com"
 
 AGENT_TYPE="site-review-agent"
 SITE_ID="2a8ebf9c-20a2-4c39-b191-840b012371da"
@@ -418,11 +425,17 @@ echo "  WHERE site_id = '${SITE_ID}'"
 echo "    AND created_at > NOW() - INTERVAL '1 hour'"
 echo "  ORDER BY priority;"
 
-
+----------
 
 AGENT_TYPE="design-audit-agent"
 SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
 DOMAIN="leopardessconsulting.co.uk"
+
+set -u
+
+AGENT_TYPE="design-audit-agent"
+SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"
+DOMAIN="robot-hands.com"
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -439,7 +452,7 @@ echo ""
 kubectl -n kafka run -i --rm kcat-audit-$(date +%s) \
 --image=edenhill/kcat:1.7.1 \
 --restart=Never -- \
-kcat -P \
+kcat -P -c 1 \
 -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
 -t system.agent.generic.requests \
 -H correlation_id=$CORRELATION_ID \
@@ -466,7 +479,17 @@ echo "  FROM site_work_items"
 echo "  WHERE site_id = '${SITE_ID}'"
 echo "    AND created_at > NOW() - INTERVAL '1 hour'"
 echo "  ORDER BY priority;"
-
+echo " "
+echo " -- Audit pipeline activity for this site, last hour "
+echo " SELECT orchestration_id, owner_agent_type, status, current_step, "
+echo "        created_at, EXTRACT(EPOCH FROM (now() - updated_at))::int AS seconds_idle, "
+echo "        LEFT(COALESCE(error, ''), 200) AS error_preview "
+echo " FROM orchestration_states "
+echo " WHERE site_id = '${SITE_ID}' "
+echo "   AND created_at > now() - interval '1 hour' "
+echo " ORDER BY created_at DESC; "
+echo " ------------------------------------------------------- "
+echo ""
 
 AGENT_TYPE="design-audit-agent"
 SITE_ID="2a8ebf9c-20a2-4c39-b191-840b012371da"
