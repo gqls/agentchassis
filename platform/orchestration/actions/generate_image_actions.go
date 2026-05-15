@@ -71,12 +71,18 @@ var kindDefaults = map[string]imageDefaults{
 		Height:         1024,
 	},
 	"icon": {
+		// SDXL v1.0 only supports a fixed dimension whitelist (see
+		// invalid_sdxl_v1_dimensions API error). 1024x1024 is the
+		// smallest allowed square. Asset-deployer can downscale at
+		// deploy time if smaller files are wanted on disk.
+		// Stability's SDXL v1.0 endpoint only accepts a specific list of dimensions: 1024x1024, 1152x896, 1216x832, 1344x768, 1536x640, 640x1536, 768x1344, 832x1216, 896x1152
 		NegativePrompt: "background, shadows, photorealistic, text, complex, busy",
 		CfgScale:       7,
 		Steps:          25,
-		Width:          512,
-		Height:         512,
+		Width:          1024,
+		Height:         1024,
 	},
+
 	"infographic": {
 		NegativePrompt: "decorative, blurry, photorealistic, low quality",
 		CfgScale:       8,
