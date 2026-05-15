@@ -2180,3 +2180,153 @@ END IF;
 END $$;
 
 COMMIT;
+
+---
+-- backup
+snapshot_agent
+--------------------------------------
+4d1855e5-d066-4ea7-9577-f73342f47966
+
+--
+
+-- ============================================================================
+-- Step C2: Wire extract_interactive_fingerprint into site-adoption-agent
+-- ============================================================================
+-- Adds a new workflow step between extract_fingerprint (design) and
+-- check_has_external_css. The new step runs the NEW Go action introduced in
+-- step C1 (extract_interactive_fingerprint_action.go).
+--
+-- Behaviour change:
+--   - extract_fingerprint.next_step changes from "check_has_external_css" to
+--     "extract_interactive_fingerprint"
+--   - A new step "extract_interactive_fingerprint" is added with
+--     next_step "check_has_external_css"
+--   - Everything else is unchanged
+--
+-- The new step's output lands in collected_data as "interactive_fingerprint".
+-- Nothing downstream consumes it yet — that's C5 (LLM brief) and C6
+-- (spec writing).
+--clients_db=# \d agent_snapshots
+--                          View "public.agent_snapshots"
+--       Column       |           Type           | Collation | Nullable | Default
+-- -------------------+--------------------------+-----------+----------+---------
+--  type              | character varying(100)   |           |          |
+--  snapshot_id       | uuid                     |           |          |
+--  source_id         | uuid                     |           |          |
+--  snapshot_taken    | timestamp with time zone |           |          |
+--  step_keys         | jsonb                    |           |          |
+--  llm_step          | text                     |           |          |
+--  snapshot_model    | text                     |           |          |
+--  snapshot_provider | text                     |           |          |
+--
+--
+-- Snapshot first, then patch, then verify, then commit.
+-- Revert: SELECT revert_agent('site-adoption-agent');
+-- ============================================================================
+
+
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Snapshot guard
+-- ──────────────────────────────────────────────────────────────────────
+SELECT snapshot_agent('site-adoption-agent');
+
+-- Confirm snapshot was taken (should show at least one row)
+SELECT type, created_at
+FROM agent_snapshots
+WHERE type = 'site-adoption-agent'
+ORDER BY created_at DESC
+    LIMIT 3;
+
+
+
+BEGIN;
+-- ──────────────────────────────────────────────────────────────────────
+-- Patch 1: insert the new step
+-- ──────────────────────────────────────────────────────────────────────
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_interactive_fingerprint}',
+        '{
+            "action": "extract_interactive_fingerprint",
+            "config": {
+                "crawl_field": "crawl_result"
+            },
+            "next_step": "check_has_external_css",
+            "description": "Extract interactive element signals (scripts, canvas, forms, library signatures) from crawled HTML — no LLM",
+            "output_field": "interactive_fingerprint"
+        }'::jsonb,
+        true  -- create_missing
+                     )
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Patch 2: re-point extract_fingerprint's next_step
+-- ──────────────────────────────────────────────────────────────────────
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,extract_fingerprint,next_step}',
+        '"extract_interactive_fingerprint"'::jsonb
+                     )
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Verify
+-- ──────────────────────────────────────────────────────────────────────
+-- 1. The new step exists with correct next_step
+SELECT default_config->'workflow'->'steps'->'extract_interactive_fingerprint' AS new_step
+FROM agent_definitions
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+-- Expect: { action, config, next_step="check_has_external_css", description, output_field }
+
+-- 2. The design extractor now points to the new step
+SELECT default_config->'workflow'->'steps'->'extract_fingerprint'->>'next_step' AS design_next_step
+FROM agent_definitions
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+-- Expect: "extract_interactive_fingerprint"
+
+-- 3. check_has_external_css is still reachable (no orphaning)
+SELECT default_config->'workflow'->'steps'->'check_has_external_css' AS branching_step
+FROM agent_definitions
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+-- Expect: present, unchanged from before
+
+-- 4. Walk the chain to confirm no broken next_step references
+WITH step_table AS (
+    SELECT key AS step_name,
+    value->>'next_step' AS next_step,
+    value->>'then_step' AS then_step,
+    value->>'else_step' AS else_step
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps')
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL
+    )
+SELECT s.step_name, s.next_step, s.then_step, s.else_step,
+       CASE WHEN s.next_step IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM step_table t WHERE t.step_name = s.next_step)
+                THEN 'BROKEN next_step'
+            WHEN s.then_step IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM step_table t WHERE t.step_name = s.then_step)
+                THEN 'BROKEN then_step'
+            WHEN s.else_step IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM step_table t WHERE t.step_name = s.else_step)
+                THEN 'BROKEN else_step'
+            ELSE 'ok'
+           END AS link_status
+FROM step_table s
+ORDER BY s.step_name;
+-- Expect: all rows show 'ok'. Any 'BROKEN' row means we have an orphaned link.
+
+-- If everything looks correct, commit. Otherwise ROLLBACK.
+COMMIT;
+
+-- Revert if needed (run outside this transaction):
+-- SELECT revert_agent('site-adoption-agent');

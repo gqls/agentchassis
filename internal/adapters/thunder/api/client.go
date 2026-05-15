@@ -215,11 +215,13 @@ var ErrInstanceTerminal = errors.New("instance reached terminal non-running stat
 // out may be nil for endpoints that return no body of interest.
 func (c *Client) do(ctx context.Context, method, path string, body, out interface{}) error {
 	var bodyReader io.Reader
+	var bodyBytes []byte
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			return fmt.Errorf("marshal request: %w", err)
 		}
+		bodyBytes = b
 		bodyReader = bytes.NewReader(b)
 	}
 
@@ -234,8 +236,23 @@ func (c *Client) do(ctx context.Context, method, path string, body, out interfac
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	// Log the outbound call. Body is capped to avoid blowing log size.
+	// public_key is a public key — not sensitive. The bearer token lives
+	// in req.Header, not the JSON body, so it doesn't appear here.
+	c.logger.Info("Thunder API request",
+		zap.String("method", method),
+		zap.String("path", path),
+		zap.Int("body_bytes", len(bodyBytes)),
+		zap.String("body_preview", previewJSON(bodyBytes, 2048)),
+	)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		c.logger.Warn("Thunder API HTTP error",
+			zap.String("method", method),
+			zap.String("path", path),
+			zap.Error(err),
+		)
 		return fmt.Errorf("http: %w", err)
 	}
 	defer resp.Body.Close()
@@ -244,6 +261,14 @@ func (c *Client) do(ctx context.Context, method, path string, body, out interfac
 	if err != nil {
 		return fmt.Errorf("read response: %w", err)
 	}
+
+	c.logger.Info("Thunder API response",
+		zap.String("method", method),
+		zap.String("path", path),
+		zap.Int("status", resp.StatusCode),
+		zap.Int("body_bytes", len(respBody)),
+		zap.String("body_preview", previewJSON(respBody, 2048)),
+	)
 
 	// Map non-2xx to APIError. Caller can errors.As() to inspect.
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -262,6 +287,19 @@ func (c *Client) do(ctx context.Context, method, path string, body, out interfac
 		return fmt.Errorf("decode response (status %d): %w", resp.StatusCode, err)
 	}
 	return nil
+}
+
+// previewJSON returns a printable, length-bounded version of a JSON byte
+// buffer suitable for logs. Truncated bodies get a "...(truncated)" suffix.
+// Empty input returns "<empty>".
+func previewJSON(b []byte, max int) string {
+	if len(b) == 0 {
+		return "<empty>"
+	}
+	if len(b) <= max {
+		return string(b)
+	}
+	return string(b[:max]) + "...(truncated)"
 }
 
 // ─────────────────────────────────────────────────────────────────────────

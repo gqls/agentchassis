@@ -56,3 +56,45 @@ extract_design_fingerprint_action.go (line ~62021, 250+ lines)
 enrich_fingerprint_with_css_action.go (line ~38055, ~120 lines)
 
 And the surrounding workflow that calls them (likely in the adoption orchestrator workflow JSON). Once I have those clear, I'll propose the concrete changes: new selectors, new fetch step, new aspect names, new LLM prompt. We'll work in step sizes that keep things reversible.
+
+
+-------------------------
+
+The agent is site-adoption-agent and the design step is named extract_fingerprint. Let me trace through the workflow carefully before writing the patch.
+Current workflow flow (relevant section)
+crawl_site (firecrawl_crawl, formats: ["markdown", "rawHtml"], limit 30)
+→ format_crawl
+→ check_crawl_content
+├── then: extract_fingerprint   ← design extractor lives here
+│           output_field: design_fingerprint
+│           next_step: check_has_external_css
+│
+│      check_has_external_css
+│      ├── then: fetch_primary_css → enrich_fingerprint → analyze_site
+│      └── else: analyze_site
+│
+└── else: crawl_failed
+crawl_site already requests rawHtml in its formats. The crawled data with rawHtml is in crawl_result. The new action will read from the same crawl_result that the design extractor uses.
+Where to insert extract_interactive_fingerprint
+Cleanest insertion point: between extract_fingerprint and check_has_external_css.
+extract_fingerprint (UNCHANGED action+config, only next_step changes)
+next_step:  extract_interactive_fingerprint   ← was "check_has_external_css"
+
+extract_interactive_fingerprint (NEW)
+action:     extract_interactive_fingerprint
+config:     { crawl_field: "crawl_result" }
+output_field: interactive_fingerprint
+next_step:  check_has_external_css
+
+check_has_external_css (UNCHANGED)
+... unchanged from here on
+Why this position:
+
+Both fingerprints run against the same crawl_result
+Existing CSS branching downstream is untouched
+If the new action returns an empty fingerprint (no pages with rawHtml — edge case), nothing breaks; it just stores an empty result and moves on
+No existing workflow variables are renamed
+
+Collision check on variable names
+The new output_field: "interactive_fingerprint" doesn't collide with any existing variable in the workflow. Existing names: crawl_result, formatted_crawl, design_fingerprint, css_scrape_result, adoption_analysis, site_archetype_analysis, representative_content, content_direction_analysis, adoption_result, nav_data, design_intent_generated, design_intent_written, site_record. Clean.
+

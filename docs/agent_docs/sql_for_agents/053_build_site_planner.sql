@@ -1923,3 +1923,346 @@ END
 $verify$;
 
 COMMIT;
+
+---
+
+-- phase_2g_planner_imagery_prompt_decomposition.sql
+--
+-- Updates the build-site-planner prompt_template to:
+--   - rename constraints.aspect → style_hints.aspect_ratio (item 4)
+--   - add per-image decomposition guidance (item 25)
+--   - strengthen icon-style prompt construction (item 23)
+--   - demonstrate multi-entry sections in the worked example (items 23, 25)
+--   - add explicit Rule 16 about one-entry-equals-one-image
+--
+-- Reference: planner_prompt_patch_imagery.md
+--
+-- Safe to re-apply (idempotent in effect — overwrites with the same content).
+-- Old prompt value is saved to migration_backups for rollback.
+
+BEGIN;
+
+-- ----------------------------------------------------------------------------
+-- Backup infrastructure (created once, reused by all migrations)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS migration_backups (
+                                                 id serial PRIMARY KEY,
+                                                 migration_name text NOT NULL,
+                                                 applied_at timestamptz NOT NULL DEFAULT now(),
+    target_table text,
+    target_id text,
+    old_value jsonb,
+    notes text
+    );
+
+INSERT INTO migration_backups (migration_name, target_table, target_id, old_value, notes)
+SELECT
+    'phase_2g_planner_imagery_prompt_decomposition',
+    'agent_definitions',
+    id::text,
+    jsonb_build_object(
+            'prompt_template', default_config #> '{workflow,steps,plan_site,config,prompt_template}'
+    ),
+    'Pre-update value of build-site-planner prompt_template (Imagery Block changes for items 4, 23, 25)'
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND is_active = true;
+
+-- ----------------------------------------------------------------------------
+-- Apply: replace prompt_template with the updated version
+-- ----------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb($PROMPT$Plan a website for {{.input_data.domain}}.
+
+## Research Data
+Identity: {{.site_specs.specs.identity}}
+Classification: {{.site_specs.specs.classification}}
+
+## Domain Strategy
+{{if .site_specs.specs.strategy}}{{.site_specs.specs.strategy}}{{else}}No strategy data available — use the briefing and classification to determine site structure.{{end}}
+
+## Briefing Answers
+{{.site_specs.specs.briefing}}
+
+{{if .site_specs.specs.mission_brief}}## Mission
+{{.site_specs.specs.mission_brief.text}}
+{{end}}
+{{if .site_specs.specs.roadmap_brief}}## Roadmap
+IMPORTANT — ROADMAP OVERRIDES THE COMPONENT LIST. Build ONLY the pages listed in the current phase below. For each page, use EXACTLY the section_types listed — even if they do not appear in the Available Section Components list above. Unknown section types are handled by the component selector downstream. Do NOT replace roadmap section_types with standard components. Do NOT invent additional pages. The roadmap is the authority for this site.
+
+{{.site_specs.specs.roadmap_brief.text}}
+{{end}}
+## Available Section Components
+You MUST use ONLY these exact component names in the "sections" arrays (unless the roadmap specifies section_types — those override):
+
+{{range .available_components}}
+- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}
+{{end}}
+
+## Available Style Collections
+{{.available_styles}}
+
+## Canonical Page Types
+
+Use ONLY these page_type values, verbatim, lowercase, dash-separated:
+
+| page_type | Description | Use for |
+|-----------|-------------|----------|
+| index | Home page | Always exactly one |
+| content | Standard content page | About, services, contact, FAQ, etc |
+| landing | Conversion-focused page | Lead capture, specific offers |
+| entity-directory | Searchable directory of entities | Business listings, provider directories |
+| entity-page | Individual entity profile | Single business/provider detail page |
+| tool | Interactive tool or calculator | Cost calculators, comparison tools |
+| blog-index | Blog/news listing page | Article index, news feed |
+| blog-post | Individual blog article | Editorial content, guides |
+
+Plan ONLY pages that are directly justified by the briefing, strategy, classification, or roadmap. Do NOT add speculative, demo, or example pages. Every page in your output must serve an explicit need surfaced by one of those inputs. If you don't have evidence for a page, leave it out — fewer well-justified pages are better than padding the count.
+
+If a page doesn't fit any category cleanly, use `content` as the default. Do not invent new page_type values.
+
+## Imagery Block
+
+Return a structured `imagery` block alongside the legacy `image_prompts` map. The downstream image pipeline reads `imagery` as the source of truth; `image_prompts` is retained for backward compatibility during transition.
+
+### Shape
+
+`imagery` is a nested object with three optional sub-keys: `site`, `pages`, `sections`. Scope is implied by position in the nesting — entries do NOT carry `scope` or `scope_ref` fields themselves.
+
+```
+"imagery": {
+  "site":     [ entry, entry, ... ],
+  "pages":    { "<page_name>": [ entry, ... ], ... },
+  "sections": { "<page_name>:<section_ordering>": [ entry, ... ], ... }
+}
+```
+
+The `<section_ordering>` is the zero-indexed position of the section within that page's `sections` array (so `"index:0"` is the first section of the home page).
+
+### Entry fields
+
+| Field | Required | Notes |
+|---|---|---|
+| key | yes | short identifier, lowercase, underscore-separated (e.g. `logo`, `hero_about`, `illustration_team_values`). Unique within its scope. |
+| kind | yes | one of: `logo`, `hero`, `illustration`, `icon`, `infographic`. No other values permitted. |
+| prompt | yes | full generation prompt, one sentence to one paragraph. Reflect the site's `imagery_direction` and `colour_mood`. |
+| style_hints | optional | JSON object. Use `aspect_ratio` (e.g. "1:1", "16:9", "4:3") to control image proportions. Other keys (`medium`, `mood`, `palette`) are advisory and may be ignored. |
+| constraints | optional | JSON object. Currently informational only — does not influence generation. Reserved for future use (anticipated: per-provider validation, content safety modes). |
+
+### What to populate
+
+- **`site`** — imagery that appears across pages or is brand-level. Always include one `logo` entry. Optionally include one site-wide brand `hero` or `illustration` entry. Two to three entries is typical.
+- **`pages`** — one entry per page-specific image. Always include a `hero` entry for the `index` page, and a `hero` entry for every other page whose `sections` array contains a hero-class component. The map key is the page's `name` field. Skip pages that have no hero section.
+- **`sections`** — for icons, illustrations, or infographics attached to a specific section. Use sparingly in v1 — most plans will have zero section-scope entries. Only emit a section entry when a specific section's imagery need is not covered by the page hero.
+
+**Each entry produces exactly ONE image.** If a concept requires multiple images (e.g., six icons representing six gripper actuation types, or three illustrations representing three values), emit one entry per image with a distinct `key` for each. The image model interprets a single prompt as a single image — describing multiple images in one prompt produces a multi-panel composition that is unusable. Err toward over-decomposing rather than under-decomposing: a few unused icons are cheaper than one botched multi-panel image.
+
+### Per-row prompt construction
+
+For each entry, write a `prompt` that:
+- **Describes ONE image.** Never use "set of", "multiple", "various", "a series of", or counting words ("six", "three") that imply a composition. Each entry is its own image.
+- Names the subject concretely (what is in the image)
+- Reflects the site's `design_intent.imagery_direction` and `colour_mood`
+- For icons specifically: emphasise "single", "flat", "minimal", "line illustration", "plain background" — these style words help the model produce icon-appropriate output rather than photorealistic renders
+- Avoids brand markings, logos in the subject (unless the entry IS a logo), and text-on-image unless explicit
+- Is self-contained — the image generator sees only this prompt, not the surrounding site context
+
+### Worked example
+
+```
+"imagery": {
+  "site": [
+    {
+      "key": "logo",
+      "kind": "logo",
+      "prompt": "A precise, technical logomark — geometric, restrained, no human figures, no text outside the wordmark itself"
+    },
+    {
+      "key": "hero_canonical",
+      "kind": "hero",
+      "prompt": "A dramatic, high-contrast close-up of an industrial robotic gripper in soft directional lighting, neutral background"
+    }
+  ],
+  "pages": {
+    "index": [
+      {
+        "key": "hero_home",
+        "kind": "hero",
+        "prompt": "A dramatic, high-contrast close-up of an industrial robotic gripper in soft directional lighting, neutral background"
+      }
+    ],
+    "about": [
+      {
+        "key": "hero_about",
+        "kind": "hero",
+        "prompt": "A wide-angle view of a modern automated production line, calm and orderly, blue and grey palette"
+      },
+      {
+        "key": "illustration_team_values",
+        "kind": "illustration",
+        "prompt": "Stylised group of engineers collaborating around a workbench, no faces visible, mid-century technical illustration feel",
+        "style_hints": {"medium": "line drawing", "mood": "collaborative"}
+      }
+    ],
+    "tools": [
+      {
+        "key": "hero_tools",
+        "kind": "hero",
+        "prompt": "An engineering workspace abstraction — measurement instruments, technical drawings, soft daylight"
+      }
+    ]
+  },
+  "sections": {
+    "index:2": [
+      {
+        "key": "icon_precision",
+        "kind": "icon",
+        "prompt": "A single minimalist flat icon representing precision engineering — line illustration, geometric, sharp corners, single dark colour on plain background, no shadows, no photorealism",
+        "style_hints": {"aspect_ratio": "1:1"}
+      },
+      {
+        "key": "icon_speed",
+        "kind": "icon",
+        "prompt": "A single minimalist flat icon representing fast cycle speed — line illustration, dynamic geometric form, single dark colour on plain background, no shadows, no photorealism",
+        "style_hints": {"aspect_ratio": "1:1"}
+      },
+      {
+        "key": "icon_reliability",
+        "kind": "icon",
+        "prompt": "A single minimalist flat icon representing process reliability — line illustration, balanced geometric form, single dark colour on plain background, no shadows, no photorealism",
+        "style_hints": {"aspect_ratio": "1:1"}
+      }
+    ]
+  }
+}
+```
+
+Note in the example above: `image_prompts.hero_home` would carry the same subject as the `pages.index[0]` entry's prompt, satisfying rule 14. The `pages.index` hero is REQUIRED whenever the index page has a hero section (which is nearly always). The three icon entries in `sections."index:2"` demonstrate the key decomposition principle: each conceptually-distinct image gets its own entry — never describe multiple images in a single prompt.
+
+## Strategy Guidance
+
+If a domain strategy is available above, use it as strong input:
+- The recommended site_type should guide the overall structure
+- The recommended page_types should inform which pages you plan
+- The revenue model should shape what conversion/lead-capture mechanisms you include
+- The tone should influence your style_collection choice
+
+You have FINAL SAY on architecture. If you disagree with the strategy, go with your judgment but note why in strategy_notes.
+
+Return JSON:
+{
+  "site_type": "from the strategy, roadmap, or your own assessment",
+  "strategy_notes": "any notes on how you used or diverged from the strategy/roadmap",
+  "pages": [
+    {
+      "name": "index",
+      "title": "Page Title | Site Name",
+      "page_type": "index",
+      "nav_label": "Home",
+      "nav_order": 1,
+      "in_header": true,
+      "in_footer": true,
+      "sections": ["hero", "features", "testimonials", "call-to-action"]
+    }
+  ],
+  "style_collection": "style-name",
+  "needs_logo": true,
+  "needs_images": true,
+  "image_prompts": {
+    "logo": "Description for logo generation",
+    "hero_home": "Description for home hero image"
+  },
+  "imagery": {
+    "site": [
+      {"key": "logo", "kind": "logo", "prompt": "..."}
+    ],
+    "pages": {
+      "index": [
+        {"key": "hero_home", "kind": "hero", "prompt": "..."}
+      ]
+    },
+    "sections": {}
+  },
+  "design_intent": {
+    "style_direction": "professional-dark or modern-light or bold-creative",
+    "colour_mood": "Description of colour feeling and why it fits the industry",
+    "typography_mood": "Description of font personality",
+    "imagery_direction": "What images should show",
+    "layout_preference": "Layout style description",
+    "avoid": ["Things to avoid in design"]
+  },
+  "content_direction": {
+    "voice": "How the site should sound",
+    "emphasis": "What to emphasise in content",
+    "avoid_phrases": ["Phrases to never use"],
+    "social_proof_style": "How to handle testimonials and proof",
+    "blog_strategy": "Content strategy for blog if applicable"
+  }
+}
+
+RULES:
+1. Use component names from the Available Section Components list for sections arrays — UNLESS the roadmap specifies section_types, in which case use those
+2. Every page MUST have a page_type from the canonical list
+3. Pages with page_type entity-directory, entity-page, tool, blog-index, blog-post may have empty sections arrays
+4. Content and index pages need sections arrays populated
+5. Always include: index (home) and contact pages (unless the roadmap says otherwise)
+6. Keep header navigation to 5-8 items maximum
+7. Set needs_logo: true and needs_images: true (always)
+8. Provide detailed image_prompts for logo and hero_home
+9. Include design_intent with explicit colour mood, typography direction, and layout preferences
+10. Include content_direction with voice, emphasis, and avoid_phrases tailored to the target audience
+11. If the classification data includes content_features.news_feed.recommended = true, add "latest-news" to the homepage sections
+12. When a roadmap is present, the pages and section_types from the current phase take precedence over your own page planning
+13. Populate the `imagery` block per the Imagery Block rules above. At minimum: one site-scope `logo` entry, one page-scope `hero` entry under `pages.index`, and one page-scope `hero` entry for every other page whose `sections` array contains a hero-class component
+14. `imagery` and `image_prompts` must be consistent: the site-scope `logo` entry's prompt should match `image_prompts.logo`; the `pages.index` `hero` entry's prompt should match `image_prompts.hero_home`
+15. Use ONLY the allowed values for `kind` (logo|hero|illustration|icon|infographic). Section scope keys MUST follow `"<page_name>:<ordering>"` format with a colon. Wrong values fail DB CHECK constraints and the plan is rejected
+16. Each entry in `imagery` produces exactly ONE image. NEVER describe multiple images in a single prompt. If a section conceptually needs N icons (e.g., six gripper types, three pricing tiers), emit N separate entries with distinct `key` values. Phrases like "set of", "multiple", "various", "a series of", or counting words ("six", "three") cause the image model to produce a multi-panel composition that is unusable. Over-decomposing is cheap (a few unused icons); under-decomposing is expensive (manual cleanup of botched output).
+
+Return ONLY valid JSON.$PROMPT$::text),
+    false
+  )
+WHERE type = 'build-site-planner' AND is_active = true;
+
+-- ----------------------------------------------------------------------------
+-- Verify: confirm key strings are present in the updated prompt
+-- ----------------------------------------------------------------------------
+SELECT
+    type,
+    length(default_config #>> '{workflow,steps,plan_site,config,prompt_template}') AS prompt_length,
+    position('Each entry produces exactly ONE image' IN (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')) > 0 AS has_decomposition_rule,
+    position('style_hints.aspect_ratio' IN (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')) > 0 OR
+    position('"aspect_ratio"' IN (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')) > 0 AS has_aspect_ratio,
+    position('16. Each entry' IN (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')) > 0 AS has_rule_16,
+    position('"constraints": {"aspect"' IN (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')) = 0 AS no_old_constraints_aspect
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND is_active = true;
+
+COMMIT;
+
+-- Expected verification output:
+--   prompt_length: ~7500-8500 chars
+--   has_decomposition_rule: t
+--   has_aspect_ratio: t
+--   has_rule_16: t
+--   no_old_constraints_aspect: t
+--
+-- If any of these are wrong, ROLLBACK and investigate before re-applying.
+-- The previous prompt is recoverable from migration_backups.
+
+-- ----------------------------------------------------------------------------
+-- Rollback procedure (if needed)
+-- ----------------------------------------------------------------------------
+-- BEGIN;
+-- UPDATE agent_definitions
+-- SET default_config = jsonb_set(
+--     default_config,
+--     '{workflow,steps,plan_site,config,prompt_template}',
+--     (SELECT old_value->'prompt_template'
+--      FROM migration_backups
+--      WHERE migration_name = 'phase_2g_planner_imagery_prompt_decomposition'
+--      ORDER BY applied_at DESC LIMIT 1)
+--   )
+-- WHERE type = 'build-site-planner' AND is_active = true;
+-- COMMIT;
