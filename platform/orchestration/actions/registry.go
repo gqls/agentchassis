@@ -1173,6 +1173,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Extract concrete design data (colours, fonts, layout) from crawled HTML",
 		IsLocal:     true,
 	},
+	"extract_interactive_fingerprint": {
+		Handler:     ExtractInteractiveFingerprintAction,
+		Category:    "analysis",
+		Description: "Extract interactive element signals (scripts, canvas, forms) from crawled HTML",
+		IsLocal:     true,
+	},
 	"format_crawl_for_analysis": {
 		Handler:     FormatCrawlForAnalysisAction,
 		Category:    "web",

@@ -76,11 +76,23 @@ func ExtractDesignFingerprintAction(ctx context.Context, params ActionParams) (i
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
-	config := params.StepConfig.Config
+	// Resolve inputs via the canonical extractor (matches the convention in
+	// 001_development_guide for new code; the older direct-config-read
+	// pattern below produces identical results in practice but using
+	// ExtractActionInputs keeps siblings consistent).
+	inputs, err := datahelpers.ExtractActionInputs(
+		params.CollectedData,
+		params.StepConfig.Config,
+		ExtractDesignFingerprintInputSpec,
+		logger,
+	)
+	if err != nil {
+		return nil, err
+	}
 
-	crawlField := "crawl_result"
-	if cf, ok := config["crawl_field"].(string); ok && cf != "" {
-		crawlField = cf
+	crawlField := inputs.Get("crawl_field")
+	if crawlField == "" {
+		crawlField = "crawl_result"
 	}
 
 	// ── Find pages (same pattern as format_crawl_for_analysis) ──────

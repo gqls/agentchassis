@@ -12,7 +12,7 @@ echo "=== Webdesign: $CORRELATION_ID ==="
 kubectl -n kafka run -i --rm kcat-webdesign-$(date +%s) \
 --image=edenhill/kcat:1.7.1 \
 --restart=Never -- \
-kcat -P \
+kcat -P -c 1 \
 -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
 -t system.agent.generic.requests \
 -H correlation_id=$CORRELATION_ID \
