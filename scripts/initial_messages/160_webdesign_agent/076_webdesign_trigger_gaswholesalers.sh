@@ -7,7 +7,7 @@ CLIENT_ID="demo_client"
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 DOMAIN="gaswholesalers.com"
 
-echo "=== Webdesign: $CORRELATION_ID ==="
+echo "=== Webdesign: $CORRELATION_ID ===="
 
 kubectl -n kafka run -i --rm kcat-webdesign-$(date +%s) \
 --image=edenhill/kcat:1.7.1 \

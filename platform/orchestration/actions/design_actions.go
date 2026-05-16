@@ -246,7 +246,9 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 	// hardcoded list as the "real" component inventory, no matter what the
 	// site actually contained. If this Warn fires on an established site
 	// (one with page_components rows), something is broken upstream.
+	usingFallback := false
 	if len(allComponents) == 0 {
+		usingFallback = true
 		params.Logger.Warn("LoadSiteForDesignAction: NO COMPONENTS FOUND — using hardcoded 5-item fallback list. "+
 			"For a site with built pages this indicates page_components is empty or the query is broken.",
 			zap.String("site_id", id.String()),
@@ -264,6 +266,18 @@ func LoadSiteForDesignAction(ctx context.Context, params ActionParams) (interfac
 		funcSlice = append(funcSlice, f)
 	}
 	result["all_component_functions"] = funcSlice
+
+	// Surface the new code's signature into collected_data so external
+	// observers (the orchestration_states row) can confirm which code path
+	// ran AND track which sites still need the fallback. These fields are
+	// absent in the old design_actions.go, so their presence in collected_data
+	// is proof the new code is live. used_fallback_components specifically
+	// is the health metric — if it's ever true for a site with built
+	// page_components, something is broken upstream.
+	result["pages_loaded"] = pagesLoaded
+	result["built_components_total"] = builtTotal
+	result["planned_components_total"] = plannedTotal
+	result["used_fallback_components"] = usingFallback
 
 	// Get colors from content_data first
 	if cp := getMapFromPath(contentData, "color_palette"); cp != nil {
@@ -348,7 +362,7 @@ func loadPagesWithComponents(ctx context.Context, db *sql.DB, siteID uuid.UUID, 
 		LEFT JOIN page_components pc ON pc.page_id = p.id
 		LEFT JOIN content_components cc ON cc.id = pc.component_id
 		WHERE p.site_id = $1
-		  AND p.status IN ('deployed', 'published', 'draft', 'planned')
+		  AND p.status = 'active'
 		GROUP BY p.id
 		ORDER BY CASE WHEN p.name = 'index' OR p.name = 'home' THEN 0 ELSE 1 END,
 		         COALESCE(p.nav_order, 100)
