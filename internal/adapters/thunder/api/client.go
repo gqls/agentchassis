@@ -186,7 +186,7 @@ func (c *Client) WaitForRunning(ctx context.Context, identifier int, pollInterva
 			if IsReadyStatus(inst.Status) {
 				return inst, nil
 			}
-			if inst.Status == InstanceStatusTerminated || inst.Status == InstanceStatusError {
+			if inst.Status == InstanceStatusFailed || inst.Status == InstanceStatusDeleted {
 				return inst, fmt.Errorf("%w: instance %d reached %s",
 					ErrInstanceTerminal, identifier, inst.Status)
 			}

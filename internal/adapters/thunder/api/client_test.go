@@ -60,7 +60,7 @@ func TestCreateInstance_WithPublicKey(t *testing.T) {
 	ctx := context.Background()
 
 	resp, err := c.CreateInstance(ctx, CreateInstanceRequest{
-		GPU:       "a100",
+		GpuType:   "a100",
 		Mode:      "prototyping",
 		PublicKey: "ssh-ed25519 AAAA...",
 	})
@@ -110,8 +110,8 @@ func TestListInstances(t *testing.T) {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		json.NewEncoder(w).Encode([]Instance{
-			{Identifier: 1, UUID: "u1", Status: InstanceStatusRunning, IP: "10.0.0.1", GPU: "a100"},
-			{Identifier: 2, UUID: "u2", Status: InstanceStatusPending, IP: "", GPU: "a100"},
+			{Identifier: 1, UUID: "u1", Status: InstanceStatusRunning, IP: "10.0.0.1", GpuType: "a100"},
+			{Identifier: 2, UUID: "u2", Status: InstanceStatusPending, IP: "", GpuType: "a100"},
 		})
 	}))
 	defer srv.Close()
@@ -319,7 +319,7 @@ func TestWaitForRunning_ContextTimeout(t *testing.T) {
 func TestWaitForRunning_TerminalErrorState(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(Instance{
-			Identifier: 9, Status: InstanceStatusError,
+			Identifier: 9, Status: InstanceStatusFailed,
 		})
 	}))
 	defer srv.Close()
