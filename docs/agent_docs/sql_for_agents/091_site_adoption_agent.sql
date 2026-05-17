@@ -2330,3 +2330,176 @@ COMMIT;
 
 -- Revert if needed (run outside this transaction):
 -- SELECT revert_agent('site-adoption-agent');
+
+
+-----
+
+-- ============================================================================
+-- Patch: widen analyze_site page_type vocabulary
+-- ============================================================================
+-- Adds `game` to the page_type enum and clarifies what counts as a valid page
+-- to include. This unblocks adoption of source sites with playable prototypes
+-- — currently those pages are silently dropped at classification because the
+-- LLM has no enum value to put them in.
+--
+-- Source observation (gamedesign.uk readopt 2026-05-15):
+--   - Crawl returned 20 pages including 8 game prototypes and 6 tool pages
+--   - Classifier returned 11 pages total
+--   - Zero pages classified as `game` (vocabulary doesn't include it)
+--   - 5 tool pages dropped silently (vocabulary has `tool` but classifier
+--     applied an unstated content filter — probably "needs prose for LLM to
+--     summarise")
+--
+-- Behaviour change:
+--   1. page_type enum extended: content|tool|game|blog-index|blog-post|landing
+--   2. New rule explicitly tells the classifier to include interactive
+--      pages even when their text content is minimal — the interactive
+--      surface IS the content
+--   3. New rule clarifies the distinction between a directory page
+--      (e.g. /games/index.html → content) and individual prototypes
+--      (e.g. /games/auto-battler/ → game)
+--
+-- Snapshot first. Revert: SELECT revert_agent('site-adoption-agent');
+-- ============================================================================
+
+
+
+-- ============================================================================
+-- Patch: widen analyze_site page_type vocabulary  (v2 — dollar-quoted)
+-- ============================================================================
+-- Same intent as v1: adds `game` to the page_type enum, tightens inclusion
+-- rules, adds per-type guidance. Fixes two issues from v1:
+--   1. Dollar-quoting the prompt so embedded single quotes don't truncate
+--      the argument to to_jsonb()
+--   2. Snapshot verify uses snapshot_at instead of an assumed `version`
+--      column
+--
+-- Snapshot first. Revert: SELECT revert_agent('site-adoption-agent');
+-- ============================================================================
+
+-- ============================================================================
+-- Patch: widen analyze_site page_type vocabulary  (v3 — temp-table)
+-- ============================================================================
+-- Same intent as v1/v2. Fixes the polymorphic-type error by staging the
+-- prompt in a temp table first, so to_jsonb() sees a concrete text type
+-- instead of an unknown literal.
+--
+-- Snapshot first. Revert: SELECT revert_agent('site-adoption-agent');
+-- ============================================================================
+
+BEGIN;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Snapshot guard
+-- ──────────────────────────────────────────────────────────────────────
+SELECT snapshot_agent('site-adoption-agent');
+
+-- Sanity check: snapshots exist
+SELECT type, COUNT(*) AS snapshot_count
+FROM agent_snapshots
+WHERE type = 'site-adoption-agent'
+GROUP BY type;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Stage the new prompt in a temp table (clearly typed as text)
+-- ──────────────────────────────────────────────────────────────────────
+CREATE TEMP TABLE _new_prompt (body text);
+
+INSERT INTO _new_prompt (body) VALUES
+    ($p$You are analysing a crawled website to plan its adoption into our website building system.
+
+Domain: {{.site_record.domain}}
+
+Crawled page summaries:
+{{.formatted_crawl.research_text}}
+
+Analyse this site and produce a JSON object. Respond ONLY with valid JSON, no markdown backticks.
+
+        {
+     "identity": {
+     "company_name": "extracted company/brand name",
+     "tagline": "extracted tagline or slogan",
+     "industry": "detected industry vertical",
+     "target_audience": "who the site serves",
+     "tone": "writing tone description",
+     "services": [{"name": "...", "description": "..."}]
+  },
+     "design": {
+    "palette": {"primary": "#hex or description", "secondary": "#hex or description", "accent": "#hex or description", "background": "#hex or description", "text": "#hex or description"},
+     "typography": {"heading_font": "font name", "body_font": "font name"},
+     "visual_tone": "visual style description"
+  },
+     "pages": [
+    {
+      "name": "kebab-case-name",
+     "title": "Page Title",
+     "url": "/path/to/page.html",
+     "page_type": "content|tool|game|blog-index|blog-post|landing",
+     "in_header": true,
+     "in_footer": true,
+     "nav_label": "Nav Label",
+     "meta_description": "page description",
+     "sections": ["hero", "features", "call-to-action"]
+    }
+  ],
+     "interactive_features": [
+    {"name": "feature", "type": "calculator|search|form|tool|game|simulation", "description": "what it does", "self_contained": true, "page": "page-name"}
+  ]
+}
+
+Rules:
+- Page names must be kebab-case (index for homepage)
+- Use standard section names: hero, features, call-to-action, generic-text-block, testimonials, pricing, faq, contact-form, guide-list, tool-list, game-list
+         - Do NOT include existing_content — content extraction is handled separately
+- Identify interactive features (calculators, search, games, simulations) separately
+- Include every distinct page in the crawl, skipping only 404 pages or true duplicates. Interactive pages (tools, games, simulators) MUST be included even if their textual content is minimal — the interactive surface itself is the content and downstream processes will analyse it.
+- page_type guidance:
+  - "tool": individual calculator, converter, or analyser page (input -> output, deterministic). One page per tool.
+     - "game": individual playable prototype, simulator, or interactive demo where the user takes ongoing action (clicks, drags, runs simulations). One page per game/prototype. Use this even if the page also has explanatory prose.
+     - "blog-post": individual article, guide, or essay page with primarily prose content.
+     - "blog-index": a listing page enumerating blog-posts (e.g. /guides/index.html).
+     - "content": general-purpose informational page (about, contact, terms) OR a section landing page that enumerates tools/games (e.g. /tools/index.html, /games/index.html — these list child pages but are themselves general content).
+     - "landing": the site homepage (kebab name "index") OR a marketing-focused entry page.
+     - Distinguish directory pages from item pages: /games/index.html -> "content" (it lists prototypes); /games/auto-battler/ -> "game" (it IS a prototype).
+- Omit interactive_features if none exist$p$);
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Sanity check: prompt landed in the temp table
+-- ──────────────────────────────────────────────────────────────────────
+SELECT length(body) AS staged_prompt_length,
+       (body LIKE '%page_type": "content|tool|game|%')   AS has_game_in_enum,
+       (body LIKE '%Distinguish directory pages%')        AS has_directory_rule
+FROM _new_prompt;
+-- Expect: length around 3500-3700, both booleans true
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Apply
+-- ──────────────────────────────────────────────────────────────────────
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_site,config,prompt_template}',
+        to_jsonb((SELECT body FROM _new_prompt)),
+        false  -- create_missing = false (key must already exist)
+                     )
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Verify the patch landed
+-- ──────────────────────────────────────────────────────────────────────
+SELECT
+    default_config->'workflow'->'steps'->'analyze_site'->'config'->>'prompt_template' LIKE '%page_type": "content|tool|game|%'           AS has_game_in_enum,
+    default_config->'workflow'->'steps'->'analyze_site'->'config'->>'prompt_template' LIKE '%Distinguish directory pages from item pages%' AS has_directory_rule,
+    default_config->'workflow'->'steps'->'analyze_site'->'config'->>'prompt_template' LIKE '%interactive surface itself is the content%'   AS has_interactive_content_rule,
+    LENGTH(default_config->'workflow'->'steps'->'analyze_site'->'config'->>'prompt_template') AS new_prompt_length
+FROM agent_definitions
+WHERE type = 'site-adoption-agent'
+  AND deleted_at IS NULL;
+-- Expect all three booleans true, length matches the staged length above
+
+COMMIT;
+
+-- Revert:
+--   SELECT revert_agent('site-adoption-agent');
+
