@@ -277,3 +277,112 @@ SET page_type = 'blog-index',
     sections = '["hero", "blog-listing", "call-to-action"]'::jsonb,
     build_status = 'planned'
 WHERE id = 'ff56bcaf-cf3c-40bd-a6ee-18703bd3d656';
+
+---
+
+snake case kebab case
+
+      -- ============================================================================
+-- Migration: pages.page_type to kebab-case
+-- ============================================================================
+-- Two structural fixes in one migration:
+--
+-- 1. Kebab normalisation. Today the same conceptual page_type appears in
+--    two forms: 42 rows of 'blog-post' vs 3 rows of 'blog_post', 3 rows of
+--    'blog-index' vs 2 of 'blog_index', etc. Most reader code (line 14833,
+--    30916, 38036, 42374, 42376 of the chassis) checks against kebab forms,
+--    so the snake rows have been silently missed by those queries. The
+--    canonicaliser was the only writer producing snake; aligning it with
+--    the rest of the codebase + the standards-doc convention makes both
+--    sides agree.
+--
+-- 2. Landing fix (Phase 1.5). The homepage's page_type has been written as
+--    'index' by CanonicalisePage, conflating the page's NAME with its
+--    TYPE. Name=index is correct (storage convention for the homepage);
+--    Type=landing is the correct type. No code currently checks
+--    page_type='index' so this is a safe rename — only a comment in
+--    actions/load_page_record (line 71908) references the literal value
+--    as a possible example, and that comment is being updated alongside.
+--
+-- After the migration, ALL of pages.page_type matches the regex
+-- ^[a-z][a-z0-9]*(-[a-z0-9]+)*$
+-- which is enforced by the new CHECK constraint at the bottom.
+--
+-- Apply with: \i 051_pages_page_type_kebab.sql
+-- ============================================================================
+
+BEGIN;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- 1. Pre-flight: snapshot current distribution
+-- ──────────────────────────────────────────────────────────────────────
+SELECT 'before_migration' AS phase, page_type, COUNT(*) AS n
+FROM pages
+GROUP BY page_type
+ORDER BY n DESC;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- 2. Kebab data migration
+--    Five distinct snake → kebab updates, plus the landing rename.
+--    Using individual UPDATEs (rather than one big CASE) so each
+--    affected row count is logged separately in the migration output.
+-- ──────────────────────────────────────────────────────────────────────
+UPDATE pages SET page_type = 'blog-post'        WHERE page_type = 'blog_post';
+UPDATE pages SET page_type = 'blog-index'       WHERE page_type = 'blog_index';
+UPDATE pages SET page_type = 'section-index'    WHERE page_type = 'section_index';
+UPDATE pages SET page_type = 'entity-directory' WHERE page_type = 'entity_directory';
+UPDATE pages SET page_type = 'entity-page'      WHERE page_type = 'entity_page';
+
+-- Phase 1.5: landing/index canonical separation. Existing 'index' values
+-- become 'landing'. The page's NAME (separate column) remains 'index'
+-- where it was — only the TYPE moves.
+UPDATE pages SET page_type = 'landing' WHERE page_type = 'index';
+
+-- ──────────────────────────────────────────────────────────────────────
+-- 3. Verify nothing snake-shaped remains
+-- ──────────────────────────────────────────────────────────────────────
+SELECT 'after_migration' AS phase, page_type, COUNT(*) AS n
+FROM pages
+GROUP BY page_type
+ORDER BY n DESC;
+
+-- This should return zero rows. If it returns anything, abort and
+-- investigate — the migration is incomplete.
+SELECT 'rows_still_violating_kebab' AS metric, COUNT(*) AS value
+FROM pages
+WHERE page_type !~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$';
+
+-- ──────────────────────────────────────────────────────────────────────
+-- 4. Lock it in with a CHECK constraint
+--    Matches the regex from the standards doc's Component Naming
+--    Contract. Allows empty string (matching the spirit of
+--    chk_function_kebab_case on content_components) so legacy rows
+--    with NULL/empty page_type aren't broken. Tightening to NOT NULL
+--    is a separate decision.
+-- ──────────────────────────────────────────────────────────────────────
+ALTER TABLE pages
+    ADD CONSTRAINT chk_page_type_kebab_case
+        CHECK (page_type IS NULL
+            OR page_type = ''
+            OR page_type ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
+
+COMMENT ON CONSTRAINT chk_page_type_kebab_case ON pages IS
+    'Page types are kebab-case per the standards doc (data-shaped values). See contracts_and_standards.md for the identifier-shaped vs data-shaped distinction.';
+
+COMMIT;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Post-commit smoke test
+-- ──────────────────────────────────────────────────────────────────────
+-- Verify the constraint rejects snake-form inserts:
+--   INSERT INTO pages (site_id, name, page_type) VALUES (gen_random_uuid(), 'test', 'blog_post');
+--   -- Expect: ERROR: new row for relation "pages" violates check constraint "chk_page_type_kebab_case"
+--
+-- Confirm the readers at line 42374-42376 of the chassis now hit all
+-- the data they expected to:
+--   SELECT page_type, COUNT(*) FROM pages
+--   WHERE page_type IN ('blog-post', 'news-index', 'blog-index', 'sitemap',
+--                       'privacy', 'terms', 'entity-directory')
+--   GROUP BY page_type;
+--   -- Compare with the budget-calculation query at line 42375 — every
+--   -- row that was meant to be counted is now counted.

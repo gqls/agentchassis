@@ -218,7 +218,7 @@ func scanPageRowsForBuild(rows *sql.Rows, logger *zap.Logger) ([]map[string]inte
 			"page_name":        name,        // Alias: dispatch loop maps this to handler
 			"url":              url,         // Full path: "/index.html"
 			"title":            title,       // Page title for content
-			"page_type":        pageType,    // "index", "content", "landing"
+			"page_type":        pageType,    // "landing", "content", "tool", "blog-post", ...
 			"status":           status,      // "active", "draft"
 			"build_status":     buildStatus, // "planned", "deployed"
 			"sections":         sections,    // Section names to generate

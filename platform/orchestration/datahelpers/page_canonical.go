@@ -22,6 +22,15 @@
 //	instead of "tools"). Adoption's existing call sites pass empty
 //	ParentSection and get identical Phase 0 behaviour.
 //
+//	Phase 1.5 + kebab (doc 051): canonical page_type output is now
+//	kebab-case (matches the standards doc and the bulk of existing
+//	pages.page_type data). Snake inputs (blog_post, blog_index, etc.)
+//	are still accepted for backward compatibility with older planner
+//	prompts, but the function always returns kebab. The homepage's
+//	page_type is now "landing" rather than "index" (the page's name
+//	is still "index" — the rename separates the storage-convention
+//	name from the page-type description).
+//
 // The helper is idempotent: feeding it the adoption-shape produces the
 // same output as feeding it the planner-shape. It does not query the
 // database — naming and URL synthesis are decided purely from the
@@ -35,19 +44,23 @@ import (
 
 // PageDescriptor is the input to CanonicalisePage.
 //
-// Role is the LLM's `page_type` field. The recognised vocabulary
-// matches the planner prompt's canonical page type list. Both dash
-// and underscore variants are accepted (the helper normalises):
+// Role is the LLM's `page_type` field. The canonical vocabulary is
+// kebab-case; underscore inputs are still accepted for backward
+// compatibility:
 //
 //	"index" | "content" | "landing" |
 //	"tool" | "guide" | "game" |
-//	"section_index" | "blog_index" / "blog-index" |
-//	"entity_directory" / "entity-directory" |
-//	"blog_post" / "blog-post" |
-//	"entity_page" / "entity-page"
+//	"section-index" | "blog-index" |
+//	"entity-directory" |
+//	"blog-post" |
+//	"entity-page"
 //
-// The section-index family (`section_index`, `blog_index`,
-// `entity_directory`) all share the same name and URL shape — they
+// Underscore forms (blog_post, blog_index, section_index,
+// entity_directory, entity_page) are normalised to their kebab
+// equivalents on input.
+//
+// The section-index family (`section-index`, `blog-index`,
+// `entity-directory`) all share the same name and URL shape — they
 // represent "a page that lists other pages of a category" — but the
 // helper preserves the original role as `page_type` so downstream
 // consumers (page-build-handler in particular) can dispatch differently
@@ -76,7 +89,7 @@ import (
 //	role=tool, slug=foo, ParentSection="utilities"  → /utilities/foo/index.html
 //	role=tool, slug=foo, ParentSection="tools-index"→ /tools/foo/index.html (suffix stripped)
 //
-// The nested roles (tool, guide, game, blog_post, entity_page) honour
+// The nested roles (tool, guide, game, blog-post, entity-page) honour
 // ParentSection. The section-index family ignores it because a section
 // index IS its section. content/landing/index ignore it because the
 // concept doesn't apply.
@@ -96,24 +109,28 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 	section := normaliseSlug(d.Section)
 	parent := strings.TrimSuffix(normaliseSlug(d.ParentSection), "-index")
 
-	// "index" role is unconditional — Slug is irrelevant.
+	// "index" role is treated as a writer convention for "the homepage".
+	// We normalise to name="index", url="/index.html", page_type="landing"
+	// — the page_type captures the semantic (this IS a landing page),
+	// distinct from the name which is the convention for storing the
+	// homepage. Slug is irrelevant here.
 	if role == "index" {
-		return "index", "/index.html", "index"
+		return "index", "/index.html", "landing"
 	}
 
 	// "home" / "index" slug under content/landing/empty role collapses
-	// to index. Without this, an LLM emitting {role:"content", name:"home"}
-	// would produce a separate /home.html page that doesn't match the
-	// actual site root.
+	// to the homepage convention. Without this, an LLM emitting
+	// {role:"content", name:"home"} would produce a separate /home.html
+	// page that doesn't match the actual site root.
 	if (slug == "home" || slug == "index") && (role == "" || role == "content" || role == "landing") {
-		return "index", "/index.html", "index"
+		return "index", "/index.html", "landing"
 	}
 
-	// Section-index family: section_index, blog_index, entity_directory.
+	// Section-index family: section-index, blog-index, entity-directory.
 	// Same name and URL shape; page_type preserved as the input role so
 	// downstream dispatch can distinguish flavours. Adoption's
-	// (role=blog_index, slug=guides) and planner's
-	// (role=section_index, slug=guides) both produce
+	// (role=blog-index, slug=guides) and planner's
+	// (role=section-index, slug=guides) both produce
 	// (name=guides-index, url=/guides/index.html) — convergent.
 	if isSectionIndexRole(role) {
 		// Adoption shape: slug="guides-index" (with -index suffix).
@@ -165,7 +182,7 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		}
 		return "game-" + bare, "/" + dir + "/" + bare + "/index.html", "game"
 
-	case "blog_post":
+	case "blog-post":
 		// Adoption convention: name=<slug>, url=/blog/<slug>.html.
 		// ParentSection allows nesting under a custom directory
 		// (e.g. /guides/<slug>.html for sites that put blog-shaped
@@ -177,14 +194,14 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		if dir == "" {
 			dir = "blog"
 		}
-		return slug, "/" + dir + "/" + slug + ".html", "blog_post"
+		return slug, "/" + dir + "/" + slug + ".html", "blog-post"
 
-	case "entity_page":
+	case "entity-page":
 		// Individual entity within an entity directory. Name is the
 		// slug (no prefix); URL nests under the parent section if
 		// given, otherwise under "entities" as a sensible default.
 		// ParentSection here usually points at the corresponding
-		// entity-directory (e.g. parent=clinics for an entity_page
+		// entity-directory (e.g. parent=clinics for an entity-page
 		// representing one clinic).
 		if slug == "" {
 			return "", "", ""
@@ -193,12 +210,13 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		if dir == "" {
 			dir = "entities"
 		}
-		return slug, "/" + dir + "/" + slug + ".html", "entity_page"
+		return slug, "/" + dir + "/" + slug + ".html", "entity-page"
 
 	case "landing":
 		// Conversion-focused flat page. Same URL shape as content;
 		// page_type retained so downstream can render landing-specific
-		// CTA logic.
+		// CTA logic. (Homepage-shaped landings — slug=home/index —
+		// are caught by the earlier collapse rule before reaching here.)
 		if slug == "" {
 			return "", "", ""
 		}
@@ -223,28 +241,34 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 }
 
 // normalisePageType lowercases, trims whitespace, and converts known
-// hyphenated role variants to their canonical underscore form. This is
+// underscore-form role variants to their canonical kebab form. This is
 // distinct from the validator's normaliseRole (in
-// page_role_validator.go), which collapses blog-index and section-index
-// into section_index for the validator's routing logic.
+// page_role_validator.go), which additionally collapses the
+// section-index family into a single canonical "section-index" form
+// for the validator's routing logic.
 //
 // Here we deliberately do NOT collapse the section-index family —
 // CanonicalisePage retains them as distinct page_type values
-// (blog_index, entity_directory, section_index) so downstream
+// (blog-index, entity-directory, section-index) so downstream
 // consumers can dispatch differently for each.
+//
+// The underscore-to-kebab conversion is a backward-compatibility
+// affordance for older planner prompts that emit snake_case. New code
+// should emit kebab directly; the safety net should not be relied
+// upon (see standards doc, "Lookup safety net" note).
 func normalisePageType(r string) string {
 	r = strings.ToLower(strings.TrimSpace(r))
 	switch r {
-	case "blog-post":
-		return "blog_post"
-	case "blog-index":
-		return "blog_index"
-	case "section-index":
-		return "section_index"
-	case "entity-directory":
-		return "entity_directory"
-	case "entity-page":
-		return "entity_page"
+	case "blog_post":
+		return "blog-post"
+	case "blog_index":
+		return "blog-index"
+	case "section_index":
+		return "section-index"
+	case "entity_directory":
+		return "entity-directory"
+	case "entity_page":
+		return "entity-page"
 	default:
 		return r
 	}
@@ -252,10 +276,11 @@ func normalisePageType(r string) string {
 
 // isSectionIndexRole returns true for any role that represents "a page
 // listing other pages of a category". These all share name/URL shape;
-// only page_type differs.
+// only page_type differs. Input is expected to already be canonicalised
+// by normalisePageType (kebab form).
 func isSectionIndexRole(role string) bool {
 	switch role {
-	case "section_index", "blog_index", "entity_directory":
+	case "section-index", "blog-index", "entity-directory":
 		return true
 	}
 	return false

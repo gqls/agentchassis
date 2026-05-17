@@ -8,7 +8,7 @@
 //   {name: "guides", role: "blog-index", url: "/guides/index.html"}
 //   {name: "games",  role: "content",    url: "/games/index.html"}
 //
-// Every one of these is structurally a section_index (a directory landing
+// Every one of these is structurally a section-index (a directory landing
 // page that lists the sub-pages beneath it), but the LLM picked
 // "content" / "blog-index" / "content" respectively. Without correction,
 // these write to pages with role=content and url=/<slug>.html, breaking
@@ -17,6 +17,10 @@
 // Doc 030 Q3: role assignment is a deterministic concern, not an LLM one.
 // The plan-builder LLM is allowed to be sloppy about role; this validator
 // catches and corrects before anything is persisted.
+//
+// Doc 051: canonical role output is now kebab-case (matches the standards
+// doc and the data canonicaliser). Snake-form inputs are still accepted
+// for backward compatibility with older planner prompts.
 //
 // The validator operates on the full set of pages because correction
 // requires cross-page signals (e.g. "is any other page parented under
@@ -63,17 +67,18 @@ type ValidatedPage struct {
 //
 // Correction rules, applied in order (first match wins):
 //
-//  1. Explicit role "index" or page name "index" → role="index", regardless
-//     of LLM input.
+//  1. Explicit role "index" or page name "index" → role="landing", regardless
+//     of LLM input. "index" is the page name convention for the homepage;
+//     "landing" is the canonical page type for it.
 //
 //  2. Slug appears as ParentSection of any other page in the set →
-//     role="section_index". This is the structural signal: a page that
+//     role="section-index". This is the structural signal: a page that
 //     other pages claim as their parent IS a section index, no matter
 //     what the LLM said. This catches the gamesdesign case directly.
 //
 //  3. LLM-supplied URL ends in "/index.html" AND slug appears as the
 //     directory immediately above (e.g. url="/tools/index.html" and
-//     slug="tools") → role="section_index". This is a fallback for when
+//     slug="tools") → role="section-index". This is a fallback for when
 //     the LLM correctly emits the URL pattern but mislabels the role.
 //
 //  4. LLM-supplied URL fits a nested role pattern AND role disagrees:
@@ -83,8 +88,9 @@ type ValidatedPage struct {
 //     This catches the symmetric case where the LLM gets the URL right
 //     but the role wrong for nested pages.
 //
-//  5. Otherwise: accept LLM's role as-is, normalising "blog-post" /
-//     "blog-index" hyphenated variants to underscored canonical forms.
+//  5. Otherwise: accept LLM's role as-is, normalising underscore variants
+//     ("blog_post", "blog_index", "section_index", etc.) to their kebab
+//     canonical forms.
 //
 // Rule precedence matters because rule 2 is structurally stronger than
 // rule 3 (a page being someone's declared parent is decisive; URL
@@ -127,15 +133,16 @@ func ValidateRoles(pages []LLMPlannedPage) []ValidatedPage {
 		rawRole := normaliseRole(p.Role)
 		correctedRole := rawRole
 
-		// Rule 1: index identity.
+		// Rule 1: index identity. The page name "index" is the homepage
+		// storage convention; its canonical page type is "landing".
 		if rawRole == "index" || v.Name == "index" || slug == "index" {
-			correctedRole = "index"
+			correctedRole = "landing"
 		} else if declaredParents[slug] || declaredParents[slug+"-index"] {
 			// Rule 2: structural — this slug is someone's parent.
-			correctedRole = "section_index"
+			correctedRole = "section-index"
 		} else if isSectionIndexURL(p.URL, slug) {
-			// Rule 3: URL pattern says section_index.
-			correctedRole = "section_index"
+			// Rule 3: URL pattern says section-index.
+			correctedRole = "section-index"
 		} else if r, ok := nestedRoleFromURL(p.URL); ok && r != rawRole {
 			// Rule 4: URL pattern says nested role.
 			correctedRole = r
@@ -151,15 +158,26 @@ func ValidateRoles(pages []LLMPlannedPage) []ValidatedPage {
 	return out
 }
 
-// normaliseRole converts hyphenated LLM variants to canonical underscore
-// form and lowercases everything.
+// normaliseRole converts LLM role variants to canonical kebab form and
+// lowercases everything. Accepts both kebab and snake inputs for
+// backward compatibility with older planner prompts; output is always
+// kebab.
+//
+// Unlike CanonicalisePage's normalisePageType, this function additionally
+// collapses the section-index family (blog-index, section-index, and
+// their snake variants) into a single "section-index" form because
+// the validator only needs the routing distinction, not the flavour.
 func normaliseRole(r string) string {
 	r = strings.ToLower(strings.TrimSpace(r))
 	switch r {
-	case "blog-post":
-		return "blog_post"
-	case "blog-index", "section-index":
-		return "section_index"
+	case "blog-post", "blog_post":
+		return "blog-post"
+	case "blog-index", "blog_index", "section-index", "section_index":
+		return "section-index"
+	case "entity-directory", "entity_directory":
+		return "entity-directory"
+	case "entity-page", "entity_page":
+		return "entity-page"
 	default:
 		return r
 	}

@@ -67,78 +67,78 @@ func TestCanonicalisePage(t *testing.T) {
 			wantType: "game",
 		},
 
-		// ── Section indexes ────────────────────────────────────────────
+		// ── Section indexes (kebab canonical) ──────────────────────────
 		{
-			name:     "section_index adoption shape (guides-index)",
-			in:       PageDescriptor{Role: "section_index", Slug: "guides-index"},
+			name:     "section-index adoption shape (guides-index)",
+			in:       PageDescriptor{Role: "section-index", Slug: "guides-index"},
 			wantName: "guides-index",
 			wantURL:  "/guides/index.html",
-			wantType: "section_index",
+			wantType: "section-index",
 		},
 		{
-			name:     "section_index planner shape (guides)",
-			in:       PageDescriptor{Role: "section_index", Slug: "guides"},
+			name:     "section-index planner shape (guides)",
+			in:       PageDescriptor{Role: "section-index", Slug: "guides"},
 			wantName: "guides-index",
 			wantURL:  "/guides/index.html",
-			wantType: "section_index",
+			wantType: "section-index",
 		},
 		{
-			name:     "section_index with explicit Section overriding slug",
-			in:       PageDescriptor{Role: "section_index", Slug: "irrelevant", Section: "tools"},
+			name:     "section-index with explicit Section overriding slug",
+			in:       PageDescriptor{Role: "section-index", Slug: "irrelevant", Section: "tools"},
 			wantName: "tools-index",
 			wantURL:  "/tools/index.html",
-			wantType: "section_index",
+			wantType: "section-index",
 		},
 		{
-			name:     "section_index for tools",
-			in:       PageDescriptor{Role: "section_index", Slug: "tools-index"},
+			name:     "section-index for tools",
+			in:       PageDescriptor{Role: "section-index", Slug: "tools-index"},
 			wantName: "tools-index",
 			wantURL:  "/tools/index.html",
-			wantType: "section_index",
+			wantType: "section-index",
 		},
 
 		// ── Section-index family convergence ───────────────────────────
 		// Adoption emits role=blog-index for what the planner emits as
-		// role=section_index. Same logical page; canonicaliser must
+		// role=section-index. Same logical page; canonicaliser must
 		// produce the same name and URL. page_type is preserved from
 		// the input so downstream dispatch can distinguish flavours.
 		{
-			name:     "blog-index (adoption) and section_index (planner) converge on name+url for slug=guides",
+			name:     "blog-index and section-index converge on name+url for slug=guides",
 			in:       PageDescriptor{Role: "blog-index", Slug: "guides"},
 			wantName: "guides-index",
 			wantURL:  "/guides/index.html",
-			wantType: "blog_index", // page_type retains the input role (normalised)
+			wantType: "blog-index", // page_type retains the input role
 		},
 		{
-			name:     "blog_index (underscore) accepted equivalent to blog-index",
+			name:     "blog_index (legacy snake input) normalises to blog-index output",
 			in:       PageDescriptor{Role: "blog_index", Slug: "guides"},
 			wantName: "guides-index",
 			wantURL:  "/guides/index.html",
-			wantType: "blog_index",
+			wantType: "blog-index",
 		},
 		{
-			name:     "entity-directory: same shape as section_index, different page_type",
+			name:     "entity-directory: same shape as section-index, different page_type",
 			in:       PageDescriptor{Role: "entity-directory", Slug: "tools"},
 			wantName: "tools-index",
 			wantURL:  "/tools/index.html",
-			wantType: "entity_directory",
+			wantType: "entity-directory",
 		},
 		{
-			name:     "entity_directory accepts adoption-shape slug (with -index)",
+			name:     "entity_directory (legacy snake input) normalises to entity-directory output",
 			in:       PageDescriptor{Role: "entity_directory", Slug: "tools-index"},
 			wantName: "tools-index",
 			wantURL:  "/tools/index.html",
-			wantType: "entity_directory",
+			wantType: "entity-directory",
 		},
 		{
 			name:     "section-index family: ParentSection ignored (a section IS itself)",
 			in:       PageDescriptor{Role: "blog-index", Slug: "news", ParentSection: "ignored"},
 			wantName: "news-index",
 			wantURL:  "/news/index.html",
-			wantType: "blog_index",
+			wantType: "blog-index",
 		},
 
-		// ── Landing pages (flat, page_type retained) ────────────────────
+		// ── Landing pages (flat, page_type preserved) ────────────────────
 		{
 			name:     "landing role: flat URL, page_type preserved",
 			in:       PageDescriptor{Role: "landing", Slug: "free-trial"},
@@ -147,11 +147,11 @@ func TestCanonicalisePage(t *testing.T) {
 			wantType: "landing",
 		},
 		{
-			name:     "landing slug=home aliases to root index",
+			name:     "landing slug=home aliases to root index with landing page_type",
 			in:       PageDescriptor{Role: "landing", Slug: "home"},
 			wantName: "index",
 			wantURL:  "/index.html",
-			wantType: "index",
+			wantType: "landing", // Phase 1.5: name=index, type=landing
 		},
 
 		// ── Entity pages (nested under directory) ───────────────────────
@@ -160,30 +160,37 @@ func TestCanonicalisePage(t *testing.T) {
 			in:       PageDescriptor{Role: "entity-page", Slug: "acme-corp", ParentSection: "clinics"},
 			wantName: "acme-corp",
 			wantURL:  "/clinics/acme-corp.html",
-			wantType: "entity_page",
+			wantType: "entity-page",
 		},
 		{
-			name:     "entity_page without ParentSection defaults to /entities/<slug>.html",
+			name:     "entity_page (legacy snake input) normalises to entity-page output",
 			in:       PageDescriptor{Role: "entity_page", Slug: "acme-corp"},
 			wantName: "acme-corp",
 			wantURL:  "/entities/acme-corp.html",
-			wantType: "entity_page",
+			wantType: "entity-page",
 		},
 
-		// ── Dash/underscore role normalisation ──────────────────────────
+		// ── Dash/underscore role normalisation (backward compat) ───────
 		{
-			name:     "blog-post (dash, planner shape) equals blog_post (underscore)",
+			name:     "blog-post (kebab canonical) round-trips unchanged",
 			in:       PageDescriptor{Role: "blog-post", Slug: "first-post"},
 			wantName: "first-post",
 			wantURL:  "/blog/first-post.html",
-			wantType: "blog_post",
+			wantType: "blog-post",
 		},
 		{
 			name:     "MIXED-CASE role with whitespace normalised",
 			in:       PageDescriptor{Role: "  Blog-Post  ", Slug: "first-post"},
 			wantName: "first-post",
 			wantURL:  "/blog/first-post.html",
-			wantType: "blog_post",
+			wantType: "blog-post",
+		},
+		{
+			name:     "blog_post (legacy snake input) normalises to blog-post output",
+			in:       PageDescriptor{Role: "blog_post", Slug: "first-post"},
+			wantName: "first-post",
+			wantURL:  "/blog/first-post.html",
+			wantType: "blog-post",
 		},
 
 		// ── Content ────────────────────────────────────────────────────
@@ -202,36 +209,36 @@ func TestCanonicalisePage(t *testing.T) {
 			wantType: "content",
 		},
 
-		// ── Blog ───────────────────────────────────────────────────────
+		// ── Blog (canonical kebab) ─────────────────────────────────────
 		{
-			name:     "blog_post keeps adoption convention",
-			in:       PageDescriptor{Role: "blog_post", Slug: "first-post"},
+			name:     "blog-post with custom parent_section",
+			in:       PageDescriptor{Role: "blog-post", Slug: "first-post", ParentSection: "guides"},
 			wantName: "first-post",
-			wantURL:  "/blog/first-post.html",
-			wantType: "blog_post",
+			wantURL:  "/guides/first-post.html",
+			wantType: "blog-post",
 		},
 
-		// ── Index / home aliasing ──────────────────────────────────────
+		// ── Index / home aliasing (Phase 1.5: name=index, type=landing) ─
 		{
-			name:     "explicit index role",
+			name:     "explicit index role: name=index, type=landing",
 			in:       PageDescriptor{Role: "index", Slug: ""},
 			wantName: "index",
 			wantURL:  "/index.html",
-			wantType: "index",
+			wantType: "landing",
 		},
 		{
-			name:     "content role with home slug collapses to index",
+			name:     "content role with home slug collapses to index name + landing type",
 			in:       PageDescriptor{Role: "content", Slug: "home"},
 			wantName: "index",
 			wantURL:  "/index.html",
-			wantType: "index",
+			wantType: "landing",
 		},
 		{
-			name:     "content role with index slug collapses to index",
+			name:     "content role with index slug collapses to index name + landing type",
 			in:       PageDescriptor{Role: "content", Slug: "index"},
 			wantName: "index",
 			wantURL:  "/index.html",
-			wantType: "index",
+			wantType: "landing",
 		},
 
 		// ── Tolerance: URL fragments and trailing extensions ───────────
@@ -250,15 +257,6 @@ func TestCanonicalisePage(t *testing.T) {
 			wantType: "tool",
 		},
 
-		// ── Unknown role passes through but follows content URL shape ──
-		{
-			name:     "unknown role preserves role as page_type",
-			in:       PageDescriptor{Role: "landing", Slug: "promo"},
-			wantName: "promo",
-			wantURL:  "/promo.html",
-			wantType: "landing",
-		},
-
 		// ── Empty inputs ───────────────────────────────────────────────
 		{
 			name:     "empty slug under tool returns empty triple",
@@ -268,8 +266,8 @@ func TestCanonicalisePage(t *testing.T) {
 			wantType: "",
 		},
 		{
-			name:     "empty slug under section_index with no section",
-			in:       PageDescriptor{Role: "section_index", Slug: ""},
+			name:     "empty slug under section-index with no section",
+			in:       PageDescriptor{Role: "section-index", Slug: ""},
 			wantName: "",
 			wantURL:  "",
 			wantType: "",
@@ -305,18 +303,11 @@ func TestCanonicalisePage(t *testing.T) {
 			wantType: "game",
 		},
 		{
-			name:     "blog_post with parent_section nests under that dir",
-			in:       PageDescriptor{Role: "blog_post", Slug: "first-post", ParentSection: "guides"},
-			wantName: "first-post",
-			wantURL:  "/guides/first-post.html",
-			wantType: "blog_post",
-		},
-		{
-			name:     "section_index ignores parent_section (a section IS itself)",
-			in:       PageDescriptor{Role: "section_index", Slug: "tools", ParentSection: "ignored"},
+			name:     "section-index ignores parent_section (a section IS itself)",
+			in:       PageDescriptor{Role: "section-index", Slug: "tools", ParentSection: "ignored"},
 			wantName: "tools-index",
 			wantURL:  "/tools/index.html",
-			wantType: "section_index",
+			wantType: "section-index",
 		},
 		{
 			name:     "content ignores parent_section",

@@ -7,7 +7,7 @@ import "testing"
 func TestValidateRoles_GamesdesignReproduction(t *testing.T) {
 	// Exact LLM emission from the 2026-05-04 gamesdesign.co.uk run
 	// (subset). The validator must correct tools/guides/games from
-	// content/blog-index/content to section_index without us touching
+	// content/blog-index/content to section-index without us touching
 	// the prompt.
 	in := []LLMPlannedPage{
 		{Name: "tools", Role: "content", URL: "/tools/index.html"},
@@ -21,9 +21,9 @@ func TestValidateRoles_GamesdesignReproduction(t *testing.T) {
 	out := ValidateRoles(in)
 
 	wantRoles := map[string]string{
-		"tools":          "section_index",
-		"guides":         "section_index",
-		"games":          "section_index",
+		"tools":          "section-index",
+		"guides":         "section-index",
+		"games":          "section-index",
 		"ttk-calculator": "tool",
 		"rng-design":     "guide",
 		"snake":          "game",
@@ -49,7 +49,7 @@ func TestValidateRoles_GamesdesignReproduction(t *testing.T) {
 					v.CorrectedFromRole, "content")
 			}
 		case "guides":
-			// "blog-index" normalises to "section_index" before
+			// "blog-index" normalises to "section-index" before
 			// comparison; CorrectedFromRole captures the pre-normalised
 			// LLM output as it was actually emitted.
 			if v.CorrectedFromRole != "" {
@@ -78,11 +78,11 @@ func TestValidateRoles_RulePrecedence(t *testing.T) {
 		wantNoCorrect []string          // names that should pass through unchanged
 	}{
 		{
-			name: "rule 1: explicit index identity wins over everything",
+			name: "rule 1: explicit index identity → landing role",
 			in: []LLMPlannedPage{
 				{Name: "index", Role: "content", URL: "/index.html"},
 			},
-			wantByName: map[string]string{"index": "index"},
+			wantByName: map[string]string{"index": "landing"},
 		},
 		{
 			name: "rule 2: declared parent beats LLM role",
@@ -93,17 +93,17 @@ func TestValidateRoles_RulePrecedence(t *testing.T) {
 				{Name: "ttk-calculator", Role: "tool", URL: "/tools/ttk-calculator/", ParentSection: "tools"},
 			},
 			wantByName: map[string]string{
-				"tools":          "section_index",
+				"tools":          "section-index",
 				"ttk-calculator": "tool",
 			},
 		},
 		{
-			name: "rule 3: URL-only signal also produces section_index",
+			name: "rule 3: URL-only signal also produces section-index",
 			// No declared parent, but URL pattern is dispositive.
 			in: []LLMPlannedPage{
 				{Name: "guides", Role: "content", URL: "/guides/index.html"},
 			},
-			wantByName: map[string]string{"guides": "section_index"},
+			wantByName: map[string]string{"guides": "section-index"},
 		},
 		{
 			name: "rule 4: nested URL pattern corrects nested role",
@@ -125,16 +125,23 @@ func TestValidateRoles_RulePrecedence(t *testing.T) {
 			wantNoCorrect: []string{"about", "tool-jump-physics"},
 		},
 		{
-			name: "blog-post hyphenated normalises to blog_post",
+			name: "blog-post passes through unchanged (already canonical kebab)",
 			in: []LLMPlannedPage{
 				{Name: "first-post", Role: "blog-post", URL: "/blog/first-post.html"},
 			},
-			wantByName: map[string]string{"first-post": "blog_post"},
+			wantByName: map[string]string{"first-post": "blog-post"},
+		},
+		{
+			name: "blog_post (legacy snake input) normalises to blog-post",
+			in: []LLMPlannedPage{
+				{Name: "first-post", Role: "blog_post", URL: "/blog/first-post.html"},
+			},
+			wantByName: map[string]string{"first-post": "blog-post"},
 		},
 		{
 			name: "rule 2 wins over rule 4 (structural beats URL)",
 			// URL says nested-tool, but parent-section says
-			// section_index — rule 2 fires first.
+			// section-index — rule 2 fires first.
 			// Realistically you wouldn't see this combination, but
 			// the precedence is worth pinning.
 			in: []LLMPlannedPage{
@@ -142,7 +149,7 @@ func TestValidateRoles_RulePrecedence(t *testing.T) {
 				{Name: "child", Role: "tool", URL: "/tools/child/", ParentSection: "tools"},
 			},
 			wantByName: map[string]string{
-				"tools": "section_index",
+				"tools": "section-index",
 				"child": "tool",
 			},
 		},
@@ -155,7 +162,7 @@ func TestValidateRoles_RulePrecedence(t *testing.T) {
 				{Name: "g1", Role: "guide", URL: "/guides/g1/", ParentSection: "guides-index"},
 			},
 			wantByName: map[string]string{
-				"guides": "section_index",
+				"guides": "section-index",
 				"g1":     "guide",
 			},
 		},
