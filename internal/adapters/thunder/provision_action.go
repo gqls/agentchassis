@@ -27,6 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -156,16 +157,22 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 		req.NumGPUs = 1
 	}
 	if req.VCPUs == 0 {
-		req.VCPUs = 4
+		req.VCPUs = api.DefaultCPUCores
 	}
 	if req.DiskSizeGB == 0 {
-		req.DiskSizeGB = 100
+		req.DiskSizeGB = api.DefaultDiskSizeGB
 	}
 	if req.Mode == "" {
-		req.Mode = "prototyping"
+		req.Mode = api.InstanceModePrototyping
 	}
+	if req.Template == "" {
+		req.Template = api.DefaultTemplate
+	}
+	// Normalise GPU type: Thunder requires uppercase ("A100" not "a100").
+	// Callers (and our own old default) historically used lowercase.
+	req.GPU = strings.ToUpper(strings.TrimSpace(req.GPU))
 	if req.GPU == "" {
-		req.GPU = "a100" // sensible default for finetuning workloads
+		req.GPU = api.GPUTypeA100 // sensible default for finetuning workloads
 	}
 
 	instanceType := deriveInstanceType(req.GPU, req.NumGPUs)
@@ -189,9 +196,9 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 
 	// ── 4. Call Thunder API to create the instance ──
 	createReq := api.CreateInstanceRequest{
-		GPU:        req.GPU,
+		GpuType:    req.GPU, // internal name kept; API field renamed (see api/types.go)
 		NumGPUs:    req.NumGPUs,
-		VCPUs:      req.VCPUs,
+		CPUCores:   req.VCPUs, // internal name kept; Thunder calls this cpu_cores
 		DiskSizeGB: req.DiskSizeGB,
 		Mode:       req.Mode,
 		Template:   req.Template,
