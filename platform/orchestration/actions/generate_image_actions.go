@@ -280,8 +280,13 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 
 	// Phase 2H — style_hints.aspect_ratio overrides width/height if supplied.
 	// Format: "16:9", "1:1", "4:3", etc.
+	// Phase 2I — also captured as a top-level aspectRatio string so it can
+	// be forwarded to the adapter, letting the chosen provider snap to its
+	// own valid dimensions (SDXL whitelist vs Gemini's ratio set).
+	var aspectRatio string
 	if h, ok := inputData["style_hints"].(map[string]interface{}); ok {
 		if ar, ok := h["aspect_ratio"].(string); ok && ar != "" {
+			aspectRatio = ar
 			if w2, h2, ok := parseAspectRatio(ar, width, height); ok {
 				width, height = w2, h2
 			} else {
@@ -304,11 +309,27 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// Phase 2H — seed. 0 = random/unspecified.
 	seed, _ := inputData["seed"].(int)
 
-	// Phase 2H — reference_image_uri: accepted but not forwarded in v1.
-	// Phase 3.1 will switch the adapter to /image-to-image when set.
-	if refURI, ok := inputData["reference_image_uri"].(string); ok && refURI != "" {
-		params.Logger.Info("generate_image: reference_image_uri supplied; not wired in v1 (Phase 3.1)",
-			zap.String("reference_image_uri", refURI),
+	// Phase 2I — reference image URIs. Plural form preferred (multiple
+	// references for style consistency); singular form accepted for
+	// backward compat with the Phase 2H field name. Stability v1 REST
+	// ignores; Banana fetches via the injected ReferenceFetcher and
+	// sends as multimodal inlineData parts.
+	var referenceImageURIs []string
+	if uris, ok := inputData["reference_image_uris"].([]interface{}); ok {
+		for _, u := range uris {
+			if s, ok := u.(string); ok && s != "" {
+				referenceImageURIs = append(referenceImageURIs, s)
+			}
+		}
+	}
+	if len(referenceImageURIs) == 0 {
+		if u, ok := inputData["reference_image_uri"].(string); ok && u != "" {
+			referenceImageURIs = append(referenceImageURIs, u)
+		}
+	}
+	if len(referenceImageURIs) > 0 {
+		params.Logger.Info("generate_image: reference image URIs supplied",
+			zap.Int("count", len(referenceImageURIs)),
 			zap.String("kind", kind))
 	}
 
@@ -387,6 +408,21 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	}
 	if seed > 0 {
 		imageData["seed"] = seed
+	}
+
+	// Phase 2I — kind, aspect_ratio, reference_image_uris for provider
+	// abstraction. Adapter routes by kind; provider snaps aspect_ratio
+	// to its own valid dimensions; references go through to Banana
+	// (Stability ignores). Fields omitted when empty so legacy adapter
+	// builds see identical JSON.
+	if kind != "" {
+		imageData["kind"] = kind
+	}
+	if aspectRatio != "" {
+		imageData["aspect_ratio"] = aspectRatio
+	}
+	if len(referenceImageURIs) > 0 {
+		imageData["reference_image_uris"] = referenceImageURIs
 	}
 
 	newRequestID := uuid.NewString()

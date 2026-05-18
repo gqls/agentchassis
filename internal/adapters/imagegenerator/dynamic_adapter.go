@@ -40,8 +40,11 @@ type DynamicImageAdapter struct {
 }
 
 // ImageRequestData is the inner data payload of an image generation request.
-// Phase 2H added: NegativePrompt, CfgScale, Steps, Seed. All optional; legacy
-// callers sending only {prompt, style, width, height} produce identical JSON.
+// Phase 2H added: NegativePrompt, CfgScale, Steps, Seed.
+// Phase 2I added: Kind, AspectRatio, ReferenceImageURIs (provider abstraction —
+// the adapter routes by Kind and lets the chosen provider snap dimensions and
+// honour reference images as it can). All fields optional; legacy callers
+// sending only {prompt, style, width, height} produce identical JSON.
 type ImageRequestData struct {
 	Prompt         string  `json:"prompt"`
 	Style          string  `json:"style,omitempty"`
@@ -51,6 +54,26 @@ type ImageRequestData struct {
 	CfgScale       float64 `json:"cfg_scale,omitempty"`
 	Steps          int     `json:"steps,omitempty"`
 	Seed           int     `json:"seed,omitempty"`
+
+	// Kind identifies the image purpose ("icon", "hero", "logo",
+	// "illustration", "infographic"). Drives provider routing
+	// (icon → banana, others → stability) and per-kind defaults
+	// when AspectRatio/Width/Height are absent.
+	Kind string `json:"kind,omitempty"`
+
+	// AspectRatio is a semantic ratio label ("1:1", "16:9", "9:16",
+	// "4:3", "3:4", "3:2", "2:3", "21:9", "5:4", etc). Providers
+	// translate to provider-specific dimensions (e.g. Stability snaps
+	// to SDXL v1.0 whitelist; Banana passes through). Takes precedence
+	// over Width/Height when set; both forms coexist for backward compat.
+	AspectRatio string `json:"aspect_ratio,omitempty"`
+
+	// ReferenceImageURIs are optional style/content anchors. S3 URIs
+	// (s3://...) or HTTPS URLs. Banana fetches and sends as multimodal
+	// input; Stability v1 REST API ignores (no IP-Adapter on the public
+	// endpoint). Plumbed end-to-end so the field is forward-compatible
+	// even before discovery emits values.
+	ReferenceImageURIs []string `json:"reference_image_uris,omitempty"`
 }
 
 // ImageRequest represents an incoming image generation request
