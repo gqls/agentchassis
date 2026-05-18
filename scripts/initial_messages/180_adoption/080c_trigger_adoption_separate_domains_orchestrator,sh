@@ -389,6 +389,15 @@ WHERE source_domain = 'gamesdesign.co.uk'
     'brochure-bold', 'technical-precise', 'affiliate-hub'
   );
 
+
+-- Optional pre-clean (only if you want to remove the suspicious placeholder pages)
+DELETE FROM pages
+WHERE site_id IN (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk');
+
+-- And their work items
+DELETE FROM site_work_items
+WHERE site_id IN (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk');
+
 -- ──────────────────────────────────────────────────────────────────────
 -- Step 5: verify everything is gone
 -- ──────────────────────────────────────────────────────────────────────

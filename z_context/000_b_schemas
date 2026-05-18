@@ -23,6 +23,7 @@
 \d style_collections
 \d css_themes
 \d scheduled_tasks
+\dt business_intel.*
 \d
 
 

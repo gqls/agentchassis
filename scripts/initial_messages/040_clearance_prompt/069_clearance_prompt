@@ -171,7 +171,7 @@ kubectl -n ai-persona-system get pods | grep ContainerStatusUnknown | awk '{prin
 
 
 # 6. Scale back up
-kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=5
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
 kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
 kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
 kubectl -n ai-persona-system scale deployment/core-manager --replicas=2

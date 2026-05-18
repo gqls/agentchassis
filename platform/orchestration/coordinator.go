@@ -3151,6 +3151,11 @@ func (s *SagaCoordinator) skipStep(ctx context.Context, state *OrchestrationStat
 func (s *SagaCoordinator) routeToErrorStepOrFail(ctx context.Context, state *OrchestrationState, failedStepName string, errorMsg string) error {
 	if failedStepName != "" {
 		if step, exists := state.WorkflowPlan.Steps[failedStepName]; exists {
+			// Check step-level first (parallel to NextStep) — preferred location
+			if step.ErrorStep != "" {
+				return s.routeToErrorStep(ctx, state, failedStepName, step.ErrorStep, errorMsg)
+			}
+			// Fallback to config-level for backward compatibility
 			if errorStep, ok := step.Config["error_step"].(string); ok && errorStep != "" {
 				return s.routeToErrorStep(ctx, state, failedStepName, errorStep, errorMsg)
 			}
