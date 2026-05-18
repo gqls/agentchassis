@@ -1829,3 +1829,126 @@ SET default_config = jsonb_set(
                      ),
     updated_at = NOW()
 WHERE type = 'build-dispatch-loop';
+
+---
+-- pipeline is 'build' not 'design'
+
+-- loosen_build_dispatch_pipeline_filter.sql
+--
+-- Removes the item_pipeline filter from build-dispatch-loop's load_items
+-- step config. After this, dispatch loads triaged work items regardless of
+-- their pipeline value — decoupling discovery emissions from dispatch routing.
+--
+-- Pairs with check_unfulfilled_imagery_plan_pipeline_patch.go (hardcoded
+-- "build" in the discovery check). Both deploy together:
+--   - The hardcode ensures new emissions write the canonical value
+--   - The loosened filter ensures dispatch doesn't break if any other
+--     emission path (current or future) writes a non-"build" value
+--
+-- Pipeline column intent recorded in TODO item 7 / FOCUS Q4:
+--   - Field stays as soft routing label (NOT NULL, schema default 'build')
+--   - If multi-pipeline dispatchers are wired in the future (different
+--     cadences, concurrency limits, error tolerances), the filter can be
+--     re-introduced selectively on those dispatchers
+--
+-- Assumption being tested by this migration: the load_items action's Go
+-- code treats missing item_pipeline config as "no pipeline filter". This
+-- is the common idiom but not verified for this specific action. If wrong,
+-- dispatch will load zero items after this migration; rollback is at the
+-- bottom of this file.
+
+BEGIN;
+
+-- ----------------------------------------------------------------------------
+-- Backup
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS migration_backups (
+                                                 id serial PRIMARY KEY,
+                                                 migration_name text NOT NULL,
+                                                 applied_at timestamptz NOT NULL DEFAULT now(),
+    target_table text,
+    target_id text,
+    old_value jsonb,
+    notes text
+    );
+
+INSERT INTO migration_backups (migration_name, target_table, target_id, old_value, notes)
+SELECT
+    'loosen_build_dispatch_pipeline_filter',
+    'agent_definitions',
+    id::text,
+    jsonb_build_object(
+            'load_items_config_before',
+            default_config #> '{workflow,steps,load_items,config}'
+    ),
+    'Pre-removal value of build-dispatch-loop.load_items.config (item_pipeline filter removal)'
+FROM agent_definitions
+WHERE type = 'build-dispatch-loop' AND is_active = true;
+
+-- ----------------------------------------------------------------------------
+-- Apply: delete item_pipeline key from the load_items step's config
+-- ----------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = default_config #- '{workflow,steps,load_items,config,item_pipeline}'
+WHERE type = 'build-dispatch-loop' AND is_active = true;
+
+-- ----------------------------------------------------------------------------
+-- Verify
+-- ----------------------------------------------------------------------------
+SELECT
+    type,
+    default_config #> '{workflow,steps,load_items,config}' AS load_items_config_after,
+  (default_config #> '{workflow,steps,load_items,config,item_pipeline}') IS NULL
+    AS item_pipeline_removed
+FROM agent_definitions
+WHERE type = 'build-dispatch-loop' AND is_active = true;
+
+-- Expected:
+--   - load_items_config_after: shows max_items but no item_pipeline key
+--   - item_pipeline_removed: t
+
+COMMIT;
+
+-- ============================================================================
+-- Verification after commit
+-- ============================================================================
+--
+-- 1. Confirm a dispatch tick after the next scheduled trigger run still
+--    finds eligible work items. Run ~60s after the migration commits:
+--
+--    SELECT orchestration_id, status, current_step,
+--           collected_data->'pending'->>'has_items' AS had_items,
+--           collected_data->'pending'->'items'->0->>'item_type' AS first_item_type,
+--           collected_data->'pending'->'items'->0->>'pipeline' AS first_item_pipeline
+--    FROM orchestration_states
+--    WHERE owner_agent_type = 'build-dispatch-loop'
+--      AND created_at > now() - interval '2 minutes'
+--    ORDER BY created_at DESC LIMIT 5;
+--
+--    Expected: had_items='true' for at least one row (assuming triaged
+--    items exist on some site). first_item_pipeline may show 'build',
+--    'design', or any other value — that's the loosening working.
+--
+-- 2. If dispatch now claims zero items consistently AND there are triaged
+--    items in the queue, the Go action does NOT treat missing config as
+--    "no filter". Rollback (below) and try setting item_pipeline to ""
+--    explicitly, or share the load_items action Go source for an exact fix.
+
+-- ============================================================================
+-- Rollback (if needed)
+-- ============================================================================
+--
+-- BEGIN;
+-- UPDATE agent_definitions
+-- SET default_config = jsonb_set(
+--     default_config,
+--     '{workflow,steps,load_items,config}',
+--     (
+--       SELECT old_value->'load_items_config_before'
+--       FROM migration_backups
+--       WHERE migration_name = 'loosen_build_dispatch_pipeline_filter'
+--       ORDER BY applied_at DESC LIMIT 1
+--     )
+--   )
+-- WHERE type = 'build-dispatch-loop' AND is_active = true;
+-- COMMIT;

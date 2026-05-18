@@ -212,9 +212,14 @@ func (c *UnfulfilledImageryPlanCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 		})
 
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
-			SiteID:       dctx.SiteID,
-			Source:       "discovery",
-			Pipeline:     dctx.Pipeline,
+			SiteID: dctx.SiteID,
+			Source: "discovery",
+			// Pipeline is the destination, not the origin. needs_imagery routes
+			// to image-build-handler (build pipeline) regardless of which
+			// discovery agent invoked us. dctx.Pipeline gives us the origin
+			// (e.g. "design" from design-discovery-agent), which is the wrong
+			// axis for this field.
+			Pipeline:     "build", // dctx.Pipeline,
 			ItemType:     "needs_imagery",
 			Severity:     severity,
 			Summary:      summary,
