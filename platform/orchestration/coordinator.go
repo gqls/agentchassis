@@ -2940,7 +2940,14 @@ func (s *SagaCoordinator) handleUnrecoverableError(ctx context.Context, state *O
 	}
 	if failedStepName != "" {
 		if step, exists := state.WorkflowPlan.Steps[failedStepName]; exists {
-			if errorStep, ok := step.Config["error_step"].(string); ok && errorStep != "" {
+			// Resolve error_step from the step-level field first, then config fallback
+			resolvedErrorStep := step.ErrorStep
+			if resolvedErrorStep == "" {
+				if cfgErrorStep, ok := step.Config["error_step"].(string); ok {
+					resolvedErrorStep = cfgErrorStep
+				}
+			}
+			if resolvedErrorStep != "" {
 				// Clean up the awaited request before routing to error_step
 				delete(state.AwaitedRequests, requestID)
 				repo := NewStateRepository(s.db, s.logger)
@@ -2948,7 +2955,7 @@ func (s *SagaCoordinator) handleUnrecoverableError(ctx context.Context, state *O
 					s.logger.Warn("Failed to mark awaited request complete for error_step routing",
 						zap.String("request_id", requestID), zap.Error(markErr))
 				}
-				return s.routeToErrorStep(ctx, state, failedStepName, errorStep, errorMsg)
+				return s.routeToErrorStep(ctx, state, failedStepName, resolvedErrorStep, errorMsg)
 			}
 		}
 	}
