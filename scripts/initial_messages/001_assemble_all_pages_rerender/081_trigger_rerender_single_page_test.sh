@@ -30,6 +30,13 @@ PAGE_ID="08e34599-a130-417d-90d9-76370484d03a"
 PAGE_NAME="wholesale-pricing-explained"
 FILENAME="wholesale-pricing-explained.html"
 
+AGENT_TYPE="page-rerender"
+SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
+DOMAIN="gaswholesalers.com"
+PAGE_ID="4ff0e0ff-fab2-423e-a59c-b9de4674a84f"
+PAGE_NAME="Gas Wholesalers "
+FILENAME="index.html"
+
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)

@@ -5,7 +5,6 @@ package imagegenerator
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +14,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/internal/adapters/imagegenerator/banana"
+	"github.com/gqls/agentchassis/internal/adapters/imagegenerator/provider"
+	"github.com/gqls/agentchassis/internal/adapters/imagegenerator/stability"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
@@ -37,6 +39,19 @@ type DynamicImageAdapter struct {
 	apiKey        string
 	adapterID     string // Unique ID for this adapter instance
 	podName       string
+
+	// Phase 2I — image generation providers. Image work is routed via
+	// these (kind=icon → bananaProvider, others → stabilityProvider);
+	// see generateImage. httpClient/externalAPI/apiKey remain on the
+	// struct because StartHealthServer still reports circuit-breaker
+	// state from httpClient — they are no longer used for image
+	// generation calls.
+	// TODO(provider-circuit-breaker): the resilience wrapper isn't
+	// threaded into stability.api.Client, so image generation HTTP
+	// calls have no circuit breaker now. Plumb it through by adding a
+	// Doer parameter to api.NewClient.
+	stabilityProvider *stability.Provider
+	bananaProvider    *banana.Provider
 }
 
 // ImageRequestData is the inner data payload of an image generation request.
@@ -189,19 +204,45 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 	// Wrap with circuit breaker
 	httpClient := resilience.NewHTTPClientWithBreaker(baseHTTPClient, cbConfig, logger)
 
+	// Phase 2I — construct image-generation providers.
+	// STABILITY_API_KEY / STABILITY_API_ENDPOINT are existing env vars.
+	// BANANA_API_KEY / BANANA_DEFAULT_MODEL are new; the BANANA_API_KEY
+	// must exist in personae-default-secrets. BANANA_DEFAULT_MODEL has
+	// a code default if env is unset.
+	stabilityProvider, err := stability.New(stability.Config{
+		APIKey:  apiKey,
+		BaseURL: deriveStabilityBaseURL(externalAPI),
+	}, logger)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to construct stability provider: %w", err)
+	}
+
+	bananaProvider, err := banana.New(banana.Config{
+		APIKey:       os.Getenv("BANANA_API_KEY"),
+		BaseURL:      os.Getenv("BANANA_BASE_URL"),
+		DefaultModel: os.Getenv("BANANA_DEFAULT_MODEL"),
+	}, &httpReferenceFetcher{logger: logger}, logger)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to construct banana provider: %w", err)
+	}
+
 	adapter := &DynamicImageAdapter{
-		ctx:           adapterCtx,
-		cancel:        cancel,
-		logger:        logger,
-		config:        cfg,
-		consumer:      consumer,
-		producer:      producer,
-		storageClient: storageClient,
-		httpClient:    httpClient,
-		externalAPI:   externalAPI,
-		apiKey:        apiKey,
-		adapterID:     adapterID,
-		podName:       podName,
+		ctx:               adapterCtx,
+		cancel:            cancel,
+		logger:            logger,
+		config:            cfg,
+		consumer:          consumer,
+		producer:          producer,
+		storageClient:     storageClient,
+		httpClient:        httpClient,
+		externalAPI:       externalAPI,
+		apiKey:            apiKey,
+		adapterID:         adapterID,
+		podName:           podName,
+		stabilityProvider: stabilityProvider,
+		bananaProvider:    bananaProvider,
 	}
 
 	logger.Info("Dynamic image adapter initialized",
@@ -212,9 +253,76 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 		zap.String("externalAPI", externalAPI),
 		zap.String("apiKey", apiKey),
 		zap.String("adapterID", adapterID),
+		zap.String("banana_default_model", os.Getenv("BANANA_DEFAULT_MODEL")),
+		zap.Bool("banana_key_present", os.Getenv("BANANA_API_KEY") != ""),
 	)
 
 	return adapter, nil
+}
+
+// deriveStabilityBaseURL extracts the Stability API base URL from the
+// legacy STABILITY_API_ENDPOINT env var (which is a full path including
+// engine + operation, e.g. ".../v1/generation/{engine}/text-to-image").
+// The stability provider's api.Client wants just the host root
+// ("https://api.stability.ai") so it can append /v1/generation/{engine}/
+// internally per request. If the env var is empty or malformed, we
+// fall back to api.DefaultBaseURL (set inside the provider).
+func deriveStabilityBaseURL(legacyEndpoint string) string {
+	if legacyEndpoint == "" {
+		return ""
+	}
+	// Trim any path suffix; keep scheme + host. Best-effort — if the
+	// env var doesn't fit the expected shape, return empty and let the
+	// provider's default kick in.
+	if i := strings.Index(legacyEndpoint, "/v1/"); i > 0 {
+		return legacyEndpoint[:i]
+	}
+	return ""
+}
+
+// httpReferenceFetcher is the project's provider.ReferenceFetcher
+// implementation. Today it only supports https:// references (typical
+// for presigned S3 URLs the planner would emit). s3:// scheme is not
+// supported in this iteration — when the planner starts emitting
+// s3://bucket/key references, extend Fetch to dispatch to
+// storageClient.Download (or equivalent).
+type httpReferenceFetcher struct {
+	logger *zap.Logger
+}
+
+// Compile-time check.
+var _ provider.ReferenceFetcher = (*httpReferenceFetcher)(nil)
+
+func (f *httpReferenceFetcher) Fetch(ctx context.Context, uri string) ([]byte, string, error) {
+	if !strings.HasPrefix(uri, "http://") && !strings.HasPrefix(uri, "https://") {
+		return nil, "", fmt.Errorf("httpReferenceFetcher: unsupported scheme in %q (only http/https today)", uri)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("build reference fetch request: %w", err)
+	}
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("fetch reference: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("fetch reference %s: status %d", uri, resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("read reference body: %w", err)
+	}
+	mime := resp.Header.Get("Content-Type")
+	if mime == "" {
+		mime = "image/png"
+	}
+	f.logger.Debug("Reference image fetched",
+		zap.String("uri", uri),
+		zap.String("mime", mime),
+		zap.Int("bytes", len(body)),
+	)
+	return body, mime, nil
 }
 
 // Run starts the adapter's main processing loop
@@ -285,10 +393,11 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 		return
 	}
 
-	// Generate image using external API
-	// Phase 2H: pass the whole data struct so negative_prompt, cfg_scale,
-	// steps, and seed flow through to Stability.
-	imageData, err := a.generateImage(request.Body.Data)
+	// Generate image via the routed provider.
+	// Phase 2I: returns origin ("provider/model_id") for asset
+	// provenance — passed into sendSuccessResponse so the workflow's
+	// store_*_asset step can record it instead of hardcoded "sdxl".
+	imageData, _, origin, err := a.generateImage(request.Body.Data)
 	if err != nil {
 		logger.Error("Failed to generate image", zap.Error(err))
 		a.sendErrorResponse(responseTopic, &request, err, logger)
@@ -296,7 +405,8 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 		return
 	}
 
-	a.logger.Info("image about to be uploaded in handleMessage dynamic adapter") //zap.Binary("DEBUGaa: image binary", imageData),
+	a.logger.Info("image about to be uploaded in handleMessage dynamic adapter",
+		zap.String("origin", origin))
 
 	// Upload to S3 and get presigned URL
 	imageURI, presignedURL, err := a.uploadImage(imageData, request.Headers.ClientID, logger)
@@ -308,7 +418,7 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 	}
 
 	// Send success response with both S3 URI and presigned URL
-	a.sendSuccessResponse(responseTopic, &request, imageURI, presignedURL, time.Since(startTime), logger)
+	a.sendSuccessResponse(responseTopic, &request, imageURI, presignedURL, origin, time.Since(startTime), logger)
 
 	// Commit the message
 	a.consumer.CommitMessages(context.Background(), msg)
@@ -320,128 +430,61 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 	)
 }
 
-// generateImage calls the external image generation API.
-// Phase 2H: takes the full data struct so negative_prompt, cfg_scale,
-// steps, and seed flow through to Stability rather than being hardcoded.
-func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, error) {
-	// Resolve dimensions with fallbacks
-	width := data.Width
-	if width == 0 {
-		width = 1024
-	}
-	height := data.Height
-	if height == 0 {
-		height = 1024
-	}
-
-	// Stability v1 SDXL: negative prompts are entries in text_prompts
-	// with negative weight, not a separate field.
-	textPrompts := []map[string]interface{}{
-		{"text": data.Prompt, "weight": 1.0},
-	}
-	if data.NegativePrompt != "" {
-		textPrompts = append(textPrompts, map[string]interface{}{
-			"text":   data.NegativePrompt,
-			"weight": -1.0,
-		})
+// generateImage routes the request to the appropriate provider based on
+// data.Kind. Returns the raw image bytes, the MIME type, and a
+// provenance string ("provider/model_id") for asset-row origin tracking.
+//
+// Phase 2I — replaces the previous inline Stability HTTP call. SDXL
+// dimension whitelist, kind defaults, negative-prompt defaults and
+// Banana's multimodal reference handling now live inside the provider
+// implementations (internal/adapters/imagegenerator/stability,
+// internal/adapters/imagegenerator/banana). This function is just a
+// router; nothing here knows about Stability or Gemini wire formats.
+func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, string, string, error) {
+	req := provider.Request{
+		Kind:               data.Kind,
+		Prompt:             data.Prompt,
+		NegativePrompt:     data.NegativePrompt,
+		AspectRatio:        data.AspectRatio,
+		ReferenceImageURIs: data.ReferenceImageURIs,
 	}
 
-	// CFG scale and steps: caller wins; otherwise the prior Stability
-	// defaults (7, 30) preserved exactly.
-	cfgScale := data.CfgScale
-	if cfgScale <= 0 {
-		cfgScale = 7
-	}
-	steps := data.Steps
-	if steps <= 0 {
-		steps = 30
-	}
-
-	// Build request body
-	requestBody := map[string]interface{}{
-		"text_prompts":         textPrompts,
-		"cfg_scale":            cfgScale,
-		"clip_guidance_preset": "FAST_BLUE",
-		"height":               height,
-		"width":                width,
-		"samples":              1,
-		"steps":                steps,
+	// Routing: icons → banana (flat illustration quality), everything
+	// else → stability (proven on hero/logo/illustration kinds).
+	// Empty kind also goes to stability for backward compat with legacy
+	// callers that don't set the field.
+	var p provider.Provider
+	switch data.Kind {
+	case "icon":
+		p = a.bananaProvider
+	default:
+		p = a.stabilityProvider
 	}
 
-	// Seed: 0 = unspecified (Stability generates random). Only include
-	// when caller set a value, otherwise Stability uses its default.
-	if data.Seed > 0 {
-		requestBody["seed"] = data.Seed
-	}
-
-	jsonBody, err := json.Marshal(requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	a.logger.Info("generateImage: stability request",
-		zap.Int("width", width),
-		zap.Int("height", height),
-		zap.Float64("cfg_scale", cfgScale),
-		zap.Int("steps", steps),
-		zap.Int("seed", data.Seed),
-		zap.Bool("has_negative_prompt", data.NegativePrompt != ""),
+	a.logger.Info("generateImage: dispatching to provider",
+		zap.String("kind", data.Kind),
+		zap.String("provider", p.Name()),
+		zap.String("aspect_ratio", data.AspectRatio),
 		zap.Int("prompt_len", len(data.Prompt)),
-		zap.String("a.externalAPI", a.externalAPI),
+		zap.Bool("has_negative_prompt", data.NegativePrompt != ""),
+		zap.Int("reference_count", len(data.ReferenceImageURIs)),
 	)
 
-	// Create HTTP request
-	req, err := http.NewRequestWithContext(a.ctx, "POST", a.externalAPI, bytes.NewBuffer(jsonBody))
+	result, err := p.GenerateImage(a.ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		// Surface provider sentinels in the error so the action layer
+		// can errors.Is against provider.ErrSafetyBlocked / ErrInvalidRequest.
+		return nil, "", "", fmt.Errorf("provider %s: %w", p.Name(), err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", a.apiKey))
-	req.Header.Set("Accept", "application/json")
-
-	a.logger.Info("in generate Image about to execute request dynamic adapter",
-		zap.String("method", req.Method),
-		zap.String("url", req.URL.String()),
-		zap.Int("body_length_bytes", len(jsonBody)),
+	origin := result.ProviderName + "/" + result.ModelID
+	a.logger.Info("generateImage: provider succeeded",
+		zap.String("provider", result.ProviderName),
+		zap.String("model_id", result.ModelID),
+		zap.String("mime_type", result.MimeType),
+		zap.Int("bytes", len(result.ImageBytes)),
 	)
-	// Execute request through circuit breaker
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse response
-	var apiResponse struct {
-		Artifacts []struct {
-			Base64 string `json:"base64"`
-		} `json:"artifacts"`
-	}
-
-	if err := json.Unmarshal(body, &apiResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	a.logger.Info("in generate Image after sending, here is the api response. dynamic adapter",
-		zap.Any("apiResponse", "too big for the moment dynamic_adapter"),
-	)
-
-	if len(apiResponse.Artifacts) == 0 {
-		return nil, fmt.Errorf("no images in response")
-	}
-
-	// Decode base64 image
-	return base64.StdEncoding.DecodeString(apiResponse.Artifacts[0].Base64)
+	return result.ImageBytes, result.MimeType, origin, nil
 }
 
 // uploadImage uploads the generated image to S3 and returns both URI and presigned URL
@@ -500,6 +543,7 @@ func (a *DynamicImageAdapter) sendSuccessResponse(
 	request *ImageRequest,
 	imageURI string,
 	presignedURL string,
+	origin string,
 	duration time.Duration,
 	logger *zap.Logger,
 ) {
@@ -539,6 +583,12 @@ func (a *DynamicImageAdapter) sendSuccessResponse(
 			"generated_at":    time.Now().Format(time.RFC3339),
 			"generation_time": duration.Seconds(),
 			"adapter_id":      a.adapterID,
+			// Phase 2I — origin = "provider/model_id" (e.g.
+			// "banana/gemini-3-pro-image-preview"). The workflow's
+			// store_*_asset step can read this from
+			// generate.response.origin_model via output_mapping
+			// instead of the hardcoded "sdxl" it uses today.
+			"origin_model": origin,
 		},
 		Error: nil,
 	}
