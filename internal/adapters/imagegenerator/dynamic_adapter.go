@@ -222,7 +222,12 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 		APIKey:       os.Getenv("BANANA_API_KEY"),
 		BaseURL:      os.Getenv("BANANA_BASE_URL"),
 		DefaultModel: os.Getenv("BANANA_DEFAULT_MODEL"),
-	}, &httpReferenceFetcher{logger: logger}, logger)
+	}, &referenceFetcher{
+		storageClient: storageClient,
+		bucket:        storageConfig.Bucket,
+		httpClient:    &http.Client{Timeout: 30 * time.Second},
+		logger:        logger,
+	}, logger)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to construct banana provider: %w", err)
@@ -280,49 +285,112 @@ func deriveStabilityBaseURL(legacyEndpoint string) string {
 	return ""
 }
 
-// httpReferenceFetcher is the project's provider.ReferenceFetcher
-// implementation. Today it only supports https:// references (typical
-// for presigned S3 URLs the planner would emit). s3:// scheme is not
-// supported in this iteration — when the planner starts emitting
-// s3://bucket/key references, extend Fetch to dispatch to
-// storageClient.Download (or equivalent).
-type httpReferenceFetcher struct {
-	logger *zap.Logger
+// referenceFetcher is the project's provider.ReferenceFetcher
+// implementation. Handles two URI schemes:
+//
+//   - s3://<bucket>/<key>  — dispatches to storageClient.Download.
+//     The storageClient is bound to exactly one bucket (IMAGE_BUCKET),
+//     so only refs in that same bucket can be fetched this way. Refs in
+//     other buckets (e.g. site-assets bucket) error with a clear message.
+//   - https:// / http:// — plain HTTP GET. Useful for presigned URLs
+//     and external CDN-hosted references.
+//
+// MIME type for s3:// is inferred from the key extension (.png, .jpg,
+// .jpeg, .webp). storage.Client.Download doesn't expose the real
+// Content-Type from the S3 response; if exact MIME matters for a
+// reference, prefer the https:// scheme (response carries Content-Type).
+type referenceFetcher struct {
+	storageClient storage.Client
+	bucket        string // the bucket storageClient is bound to
+	httpClient    *http.Client
+	logger        *zap.Logger
 }
 
 // Compile-time check.
-var _ provider.ReferenceFetcher = (*httpReferenceFetcher)(nil)
+var _ provider.ReferenceFetcher = (*referenceFetcher)(nil)
 
-func (f *httpReferenceFetcher) Fetch(ctx context.Context, uri string) ([]byte, string, error) {
-	if !strings.HasPrefix(uri, "http://") && !strings.HasPrefix(uri, "https://") {
-		return nil, "", fmt.Errorf("httpReferenceFetcher: unsupported scheme in %q (only http/https today)", uri)
+func (f *referenceFetcher) Fetch(ctx context.Context, uri string) ([]byte, string, error) {
+	switch {
+	case storage.IsS3URI(uri):
+		return f.fetchS3(ctx, uri)
+	case strings.HasPrefix(uri, "http://"), strings.HasPrefix(uri, "https://"):
+		return f.fetchHTTP(ctx, uri)
+	default:
+		return nil, "", fmt.Errorf("referenceFetcher: unsupported URI scheme: %s", uri)
 	}
+}
+
+func (f *referenceFetcher) fetchS3(ctx context.Context, uri string) ([]byte, string, error) {
+	bucket, key, err := storage.ParseS3URI(uri)
+	if err != nil {
+		return nil, "", fmt.Errorf("referenceFetcher: parse s3 URI: %w", err)
+	}
+	if bucket != f.bucket {
+		return nil, "", fmt.Errorf("referenceFetcher: s3 URI bucket %q does not match configured bucket %q (cross-bucket refs not supported)",
+			bucket, f.bucket)
+	}
+	reader, err := f.storageClient.Download(ctx, key)
+	if err != nil {
+		return nil, "", fmt.Errorf("referenceFetcher: download s3://%s/%s: %w", bucket, key, err)
+	}
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, "", fmt.Errorf("referenceFetcher: read s3 body: %w", err)
+	}
+	mime := mimeFromKey(key)
+	f.logger.Debug("Reference image fetched (s3)",
+		zap.String("uri", uri),
+		zap.String("mime", mime),
+		zap.Int("bytes", len(data)),
+	)
+	return data, mime, nil
+}
+
+func (f *referenceFetcher) fetchHTTP(ctx context.Context, uri string) ([]byte, string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return nil, "", fmt.Errorf("build reference fetch request: %w", err)
+		return nil, "", fmt.Errorf("referenceFetcher: build request: %w", err)
 	}
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	resp, err := f.httpClient.Do(req)
 	if err != nil {
-		return nil, "", fmt.Errorf("fetch reference: %w", err)
+		return nil, "", fmt.Errorf("referenceFetcher: http fetch: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("fetch reference %s: status %d", uri, resp.StatusCode)
+		return nil, "", fmt.Errorf("referenceFetcher: http %s: status %d", uri, resp.StatusCode)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", fmt.Errorf("read reference body: %w", err)
+		return nil, "", fmt.Errorf("referenceFetcher: read http body: %w", err)
 	}
 	mime := resp.Header.Get("Content-Type")
 	if mime == "" {
-		mime = "image/png"
+		mime = mimeFromKey(uri)
 	}
-	f.logger.Debug("Reference image fetched",
+	f.logger.Debug("Reference image fetched (http)",
 		zap.String("uri", uri),
 		zap.String("mime", mime),
 		zap.Int("bytes", len(body)),
 	)
 	return body, mime, nil
+}
+
+// mimeFromKey infers an image MIME type from a path's file extension.
+// Defaults to image/png — Gemini accepts PNG/JPEG/WEBP and PNG is the
+// safest fallback (Stability outputs PNG too, so generated refs match).
+func mimeFromKey(key string) string {
+	lower := strings.ToLower(key)
+	switch {
+	case strings.HasSuffix(lower, ".jpg"), strings.HasSuffix(lower, ".jpeg"):
+		return "image/jpeg"
+	case strings.HasSuffix(lower, ".webp"):
+		return "image/webp"
+	case strings.HasSuffix(lower, ".png"):
+		return "image/png"
+	default:
+		return "image/png"
+	}
 }
 
 // Run starts the adapter's main processing loop
