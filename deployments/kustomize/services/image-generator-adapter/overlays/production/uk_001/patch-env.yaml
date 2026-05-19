@@ -20,6 +20,22 @@ spec:
                   key: STABILITY_API_KEY
             - name: STABILITY_API_ENDPOINT
               value: "https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image"
+
+            # Phase 2I — Banana (Gemini Image) provider for icon routing.
+            # BANANA_API_KEY must exist in personae-default-secrets; add via:
+            #   kubectl -n ai-persona-system patch secret personae-default-secrets \
+            #     --patch='{"stringData":{"BANANA_API_KEY":"AIza..."}}'
+            # Get the key from https://aistudio.google.com/app/apikey
+            - name: BANANA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: BANANA_API_KEY
+            # Model tier — Pro recommended for icons (best instruction-following).
+            # Alternatives: gemini-2.5-flash-image, gemini-3.1-flash-image-preview
+            - name: BANANA_DEFAULT_MODEL
+              value: "gemini-3-pro-image-preview"
+
             - name: S3_ENDPOINT
               value: "https://s3.us-east-005.backblazeb2.com"
             - name: S3_REGION

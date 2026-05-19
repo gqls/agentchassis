@@ -43,6 +43,12 @@ variable "default_stability_api_key" {
   sensitive   = true
 }
 
+variable "default_banana_api_key" {
+  description = "Default Gemini Banana API key"
+  type        = string
+  sensitive   = true
+}
+
 variable "default_serp_api_key" {
   description = "Default SERP API key"
   type        = string

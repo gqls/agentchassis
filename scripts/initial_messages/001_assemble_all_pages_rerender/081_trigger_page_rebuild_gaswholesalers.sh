@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # page-rebuild trigger for gaswholesalers.com.
-#
+#  REWRITES CONTENT
 # This regenerates content for pages flagged as needs_rebuild. The agent
 # workflow:
 #   ensure_site_record → load_rebuild_context → select_style_collection
