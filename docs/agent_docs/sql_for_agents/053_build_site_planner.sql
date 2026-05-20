@@ -2266,3 +2266,95 @@ COMMIT;
 --   )
 -- WHERE type = 'build-site-planner' AND is_active = true;
 -- COMMIT;
+
+---
+-- icon background transparency workaround
+
+-- planner_icon_background_fix.sql
+--
+-- Stop icons being planned with "transparent background" / "plain background".
+-- Image models can't produce true alpha — they paint a transparency
+-- checkerboard into the RGB pixels instead (confirmed on icon_cycle_time:
+-- mode=RGB, has_alpha=False, 1024x1024, painted grey/white checker).
+--
+-- DECISION (option 2 — embrace the box): icons are generated on a flat, solid,
+-- selectable grey background and sit inside a styled container ("chip") on the
+-- page. No keying, no alpha, nothing fragile. Dark-grey line on light-grey
+-- background so icon and background never merge; explicit hex so the CSS chip
+-- can match or deliberately contrast.
+--
+-- Edits the build-site-planner LLM prompt_template (two substrings):
+--   1. The "Per-row prompt construction" icon-guidance bullet.
+--   2. The three worked-example icon entries (one shared substring → all three).
+--
+-- METHOD: read prompt_template as text (#>>), replace() the two fragments,
+-- write back via to_jsonb(). Only the changed fragments are specified — the
+-- ~8KB template is otherwise untouched.
+--
+-- Schema: column default_config, key type='build-site-planner',
+--         path {workflow,steps,plan_site,config,prompt_template}.
+
+BEGIN;
+
+-- 0. Snapshot before mutating.
+SELECT snapshot_agent('build-site-planner', 'icon background: transparent/plain -> flat selectable grey (embrace the chip)');
+
+-- 1. Sanity: confirm the two target fragments are present (expect both true).
+SELECT
+    (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')
+        LIKE '%"line illustration", "plain background" — these style words%' AS has_guidance_fragment,
+    (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')
+        LIKE '%single dark colour on plain background, no shadows, no photorealism%' AS has_worked_example_fragment
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+-- 2. Apply both replacements.
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        replace(
+                                default_config #>> '{workflow,steps,plan_site,config,prompt_template}',
+                            -- (1) guidance bullet tail
+                                ', "plain background" — these style words help the model produce icon-appropriate output rather than photorealistic renders',
+                                '; specify a flat solid light grey (#EEEEEE) background with a darker grey (#4A4A4A) line icon — one single uniform background colour, no gradients, no shadows, no checkerboard pattern, no transparency, no photorealism. Icons are placed inside a styled container ("chip") on the page, so an opaque flat light-grey background is correct and expected — do NOT request or imply transparency'
+                        ),
+                    -- (2) worked-example shared substring (matches all three icon entries)
+                        'single dark colour on plain background, no shadows, no photorealism',
+                        'a darker grey (#4A4A4A) line on a flat solid light grey (#EEEEEE) background, one single uniform background colour, no gradients, no shadows, no checkerboard, no transparency, no photorealism'
+                )
+        )
+                     )
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+-- 3. Verify: old fragments gone, new guidance present.
+SELECT
+    (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')
+        LIKE '%plain background%'   AS still_has_plain_background_should_be_f,
+    (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')
+        LIKE '%transparent%'        AS still_mentions_transparent,
+    (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')
+        LIKE '%#EEEEEE%'            AS has_grey_hex_should_be_t,
+    (default_config #>> '{workflow,steps,plan_site,config,prompt_template}')
+        LIKE '%no checkerboard%'    AS has_no_checkerboard_should_be_t
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+-- Expect: still_has_plain_background = f
+--         still_mentions_transparent = f  (the only "transparent" refs were the icon ones;
+--                                          if other parts of the template legitimately use
+--                                          the word this may be t — eyeball if so)
+--         has_grey_hex = t
+--         has_no_checkerboard = t
+
+-- 4. Spot-check the actual edited region reads correctly.
+SELECT substring(
+               default_config #>> '{workflow,steps,plan_site,config,prompt_template}'
+  FROM '#EEEEEE.{0,180}'
+) AS edited_region_preview
+FROM agent_definitions
+WHERE type = 'build-site-planner' AND deleted_at IS NULL;
+
+-- COMMIT;  -- uncomment when verify output looks right
+ROLLBACK;   -- safe default
