@@ -256,7 +256,7 @@ func NewDynamicImageAdapter(ctx context.Context, cfg *config.ServiceConfig, logg
 		zap.String("consumer_group", consumerGroup),
 		zap.Any("storageClient", storageClient),
 		zap.String("externalAPI", externalAPI),
-		zap.String("apiKey", apiKey),
+		zap.String("apiKey", "apiKeyHere"),
 		zap.String("adapterID", adapterID),
 		zap.String("banana_default_model", os.Getenv("BANANA_DEFAULT_MODEL")),
 		zap.Bool("banana_key_present", os.Getenv("BANANA_API_KEY") != ""),

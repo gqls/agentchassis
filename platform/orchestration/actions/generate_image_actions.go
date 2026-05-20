@@ -337,21 +337,33 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// Get prompt using three-tier priority system
 	promptTemplate, promptSource := getImagePromptWithPriority(params, agentConfig)
 
-	// Phase 0.1: prepend design_intent.imagery_direction (read from site_specs)
-	// when site_id is available via input_mapping. Direction is enrichment, not
-	// a requirement — if site_id is missing or no design_intent exists, the
-	// prompt is used as-is. Parents pass site_id through input_mapping; see
-	// migration phase_0_combined_migration.sql.
+	// Phase 0.1 / Phase 2I: prepend design_intent.imagery_direction (read from
+	// site_specs) when site_id is available AND the kind is photographic.
+	// Direction is enrichment, not a requirement — if site_id is missing or no
+	// design_intent exists, the prompt is used as-is. Parents pass site_id
+	// through input_mapping; see migration phase_0_combined_migration.sql.
+	//
+	// Flat-vector kinds (icon, logo) are EXCLUDED — see directionAppliesToKind.
+	// Prepending a photographic direction ("industrial photography of robotic
+	// grippers...") to an icon prompt makes the model render a photo with the
+	// icon composited into a corner (observed on icon_cycle_time 2026-05-20).
 	if siteID, _ := inputData["site_id"].(string); siteID != "" {
-		direction := getImageryDirectionForSite(ctx, params.DB, siteID, params.Logger)
-		if direction != "" {
-			composed := composeImagePromptWithDirection(promptTemplate, direction)
-			params.Logger.Info("Prepended imagery_direction from design_intent",
+		if directionAppliesToKind(kind) {
+			direction := getImageryDirectionForSite(ctx, params.DB, siteID, params.Logger)
+			if direction != "" {
+				composed := composeImagePromptWithDirection(promptTemplate, direction)
+				params.Logger.Info("Prepended imagery_direction from design_intent",
+					zap.String("site_id", siteID),
+					zap.String("kind", kind),
+					zap.String("direction_preview", datahelpers.TruncateString(direction, 100)),
+					zap.String("composed_preview", datahelpers.TruncateString(composed, 250)))
+				promptTemplate = composed
+				promptSource = promptSource + "+imagery_direction"
+			}
+		} else {
+			params.Logger.Info("Skipping imagery_direction for flat-vector kind",
 				zap.String("site_id", siteID),
-				zap.String("direction_preview", datahelpers.TruncateString(direction, 100)),
-				zap.String("composed_preview", datahelpers.TruncateString(composed, 250)))
-			promptTemplate = composed
-			promptSource = promptSource + "+imagery_direction"
+				zap.String("kind", kind))
 		}
 	}
 
@@ -1007,6 +1019,31 @@ func getImageryDirectionForSite(ctx context.Context, db interface{}, siteID stri
 		return ""
 	}
 	return strings.TrimSpace(direction.String)
+}
+
+// directionAppliesToKind reports whether design_intent.imagery_direction
+// should be prepended for a given image kind.
+//
+// imagery_direction describes the brand's PHOTOGRAPHIC style — lighting,
+// setting, mood, e.g. "industrial photography of robotic grippers in real
+// manufacturing environments". That is correct for photographic kinds
+// (hero, illustration, infographic, and the empty/legacy default) but
+// actively harmful for flat-vector kinds: prepending a photography directive
+// to an icon prompt makes the model render a photograph with the icon
+// composited into a corner (observed on icon_cycle_time, 2026-05-20 — Banana
+// rendered the full industrial scene plus the requested flat stopwatch icon).
+//
+// Icons and logos carry their own complete style instructions from the
+// planner ("minimalist flat icon ... line illustration style, single light
+// grey colour on transparent background, no shadows, no photorealism") and
+// must not receive the photographic direction.
+func directionAppliesToKind(kind string) bool {
+	switch kind {
+	case "icon", "logo":
+		return false
+	default:
+		return true
+	}
 }
 
 // composeImagePromptWithDirection prepends a design direction to the subject
