@@ -1875,3 +1875,93 @@ END
 $verify$;
 
 COMMIT;
+
+--
+
+-- unhardcode sdxl
+
+    -- backup
+clients_db=# SELECT snapshot_agent('image-build-handler', 'unhardcode sdxl image handler type');
+NOTICE:  Snapshot captured: type=image-build-handler, source_version=1, source_id=04b10d94-11ee-447c-9ff9-7924b8e9897c, reason=unhardcode sdxl image handler type
+            snapshot_agent
+--------------------------------------
+ 04b10d94-11ee-447c-9ff9-7924b8e9897c
+(1 row)
+
+
+-- origin_model_workflow_propagation.sql  (v3 — column confirmed: default_config)
+--
+-- Propagate the real provider/model into assets.origin_model instead of the
+-- hardcoded "sdxl". Workflow-JSON only — StoreAssetAction already supports
+-- origin_model_field (v3_site_actions.go:2252-2257); the literal had to be
+-- removed because it takes precedence over the field.
+--
+-- CONFIRMED against the live row (04b10d94-…, version 1):
+--   • column : default_config   (NOT *_workflow — all three are null here)
+--   • key    : type = 'image-build-handler'
+--   • path   : {workflow,steps,<step>,config,...}  (wrapper present)
+--   • single active row, version = 1
+
+BEGIN;
+
+-- 0. Snapshot before mutating.
+SELECT snapshot_agent('image-build-handler', 'unhardcode sdxl image handler type');
+
+-- 1. Sanity: expect all five to read "sdxl".
+SELECT
+    default_config #> '{workflow,steps,store_hero_asset,config,origin_model}'          AS hero,
+  default_config #> '{workflow,steps,store_logo_asset,config,origin_model}'          AS logo,
+  default_config #> '{workflow,steps,store_imagery_asset,config,origin_model}'       AS imagery,
+  default_config #> '{workflow,steps,store_variant_asset,config,origin_model}'       AS variant,
+  default_config #> '{workflow,steps,store_imagery_brand_asset,config,origin_model}' AS imagery_brand
+FROM agent_definitions
+WHERE type = 'image-build-handler' AND deleted_at IS NULL;
+
+-- ── Part 1: add origin_model to the four call_*_gen output_mappings ──────────
+UPDATE agent_definitions SET default_config =
+                                 jsonb_set(jsonb_set(jsonb_set(jsonb_set(
+                                                                       default_config,
+                                                                       '{workflow,steps,call_hero_gen,config,output_mapping,origin_model}',    '"generate.response.origin_model"'::jsonb, true),
+                                                               '{workflow,steps,call_logo_gen,config,output_mapping,origin_model}',    '"generate.response.origin_model"'::jsonb, true),
+                                                     '{workflow,steps,call_imagery_gen,config,output_mapping,origin_model}', '"generate.response.origin_model"'::jsonb, true),
+                                           '{workflow,steps,call_variant_gen,config,output_mapping,origin_model}', '"generate.response.origin_model"'::jsonb, true)
+WHERE type = 'image-build-handler' AND deleted_at IS NULL;
+
+-- ── Part 2: add origin_model_field to the five store_*_asset steps ───────────
+UPDATE agent_definitions SET default_config =
+                                 jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(
+                                                                                 default_config,
+                                                                                 '{workflow,steps,store_hero_asset,config,origin_model_field}',          '"image_result.origin_model"'::jsonb, true),
+                                                                         '{workflow,steps,store_logo_asset,config,origin_model_field}',          '"image_result.origin_model"'::jsonb, true),
+                                                               '{workflow,steps,store_imagery_asset,config,origin_model_field}',       '"image_result.origin_model"'::jsonb, true),
+                                                     '{workflow,steps,store_variant_asset,config,origin_model_field}',       '"image_result.origin_model"'::jsonb, true),
+                                           '{workflow,steps,store_imagery_brand_asset,config,origin_model_field}', '"image_result.origin_model"'::jsonb, true)
+WHERE type = 'image-build-handler' AND deleted_at IS NULL;
+
+-- ── Part 2b: remove the "sdxl" literal so the field is actually consulted ────
+UPDATE agent_definitions SET default_config =
+                                 default_config
+    #- '{workflow,steps,store_hero_asset,config,origin_model}'
+    #- '{workflow,steps,store_logo_asset,config,origin_model}'
+    #- '{workflow,steps,store_imagery_asset,config,origin_model}'
+    #- '{workflow,steps,store_variant_asset,config,origin_model}'
+    #- '{workflow,steps,store_imagery_brand_asset,config,origin_model}'
+WHERE type = 'image-build-handler' AND deleted_at IS NULL;
+
+-- 2. Verify: literal gone, field + mapping present (spot-check imagery step).
+SELECT
+    default_config #> '{workflow,steps,store_imagery_asset,config,origin_model}'       AS imagery_literal_should_be_null,
+  default_config #> '{workflow,steps,store_imagery_asset,config,origin_model_field}' AS imagery_field,
+  default_config #> '{workflow,steps,call_imagery_gen,config,output_mapping,origin_model}' AS imagery_mapping,
+  default_config #> '{workflow,steps,store_hero_asset,config,origin_model}'          AS hero_literal_should_be_null,
+  default_config #> '{workflow,steps,store_hero_asset,config,origin_model_field}'    AS hero_field
+FROM agent_definitions
+WHERE type = 'image-build-handler' AND deleted_at IS NULL;
+-- Expect: *_literal_should_be_null = NULL
+--         imagery_field   = "image_result.origin_model"
+--         hero_field      = "image_result.origin_model"
+--         imagery_mapping = "generate.response.origin_model"
+
+-- COMMIT;  -- uncomment when the verify output looks right
+ROLLBACK;   -- safe default: review first, then switch to COMMIT
+
