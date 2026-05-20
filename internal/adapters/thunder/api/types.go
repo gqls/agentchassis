@@ -28,11 +28,19 @@ const (
 // Valid gpu_type values, lowercase per Thunder's CLI reference
 // (the OpenAPI spec's "H100" example casing is misleading — the real
 // enum is lowercase). t4=16GB, a100=40GB, a100xl=80GB, h100=80GB.
+
+// Valid gpu_type values, VERIFIED 2026-05-20 against GET /v1/specs (a 201
+// create with "a100xl" succeeded). These are the FIRST segment of the /specs
+// composite keys (e.g. spec key "a100xl_x1_prototyping" → gpu_type "a100xl");
+// the composite key itself is NOT a valid gpu_type. Note Thunder offers NO
+// plain "a100" — the 80GB A100 is "a100xl". The CLI's `--gpu a100` flag maps
+// to a100xl internally, which is why every "a100" API attempt 400'd.
 const (
-	GPUTypeT4     = "t4"
-	GPUTypeA100   = "a100"
-	GPUTypeA100XL = "a100xl"
-	GPUTypeH100   = "h100"
+	GPUTypeA100XL = "a100xl" // NVIDIA A100 80GB
+	GPUTypeA6000  = "a6000"  // RTX A6000 48GB (prototyping only)
+	GPUTypeH100   = "h100"   // NVIDIA H100 80GB
+	GPUTypeL40    = "l40"    // NVIDIA L40 48GB
+	GPUTypeL40S   = "l40s"   // NVIDIA L40S 48GB
 )
 
 // Default values the adapter applies when caller doesn't specify.
@@ -72,7 +80,7 @@ type CreateInstanceRequest struct {
 // All three fields are required per the OpenAPI spec.
 type CreateInstanceResponse struct {
 	Identifier int    `json:"identifier"` // numeric ID for delete/get/modify endpoints
-	Key        string `json:"key"`        // verify purpose on first real call
+	Key        string `json:"key"`        // server-generated SSH PRIVATE key (PEM). VERIFIED 2026-05-20: Thunder returns its own keypair's private key here. OPEN: does Thunder also honour the public_key we send, or only its own key? Affects which key the adapter must store for SSH.
 	UUID       string `json:"uuid"`       // string ID (may be the alternative public ID)
 }
 

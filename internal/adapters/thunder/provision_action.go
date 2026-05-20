@@ -168,11 +168,13 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 	if req.Template == "" {
 		req.Template = api.DefaultTemplate
 	}
-	// Normalise GPU type: Thunder requires lowercase ("a100" not "A100").
-	// Callers may send either; lowercase before dispatching to the API.
+	// Normalise GPU type. Thunder requires lowercase, and uses "a100xl" for the
+	// 80GB A100 — there is NO plain "a100" in Thunder's /specs. Callers (and our
+	// own docs/vocabulary) naturally say "a100", so we accept that as a friendly
+	// alias and map it to the real value. Verified 2026-05-20 via GET /v1/specs.
 	req.GPU = strings.ToLower(strings.TrimSpace(req.GPU))
-	if req.GPU == "" {
-		req.GPU = api.GPUTypeA100 // sensible default for finetuning workloads
+	if req.GPU == "" || req.GPU == "a100" {
+		req.GPU = api.GPUTypeA100XL // "a100xl" — the only A100 Thunder offers (80GB)
 	}
 
 	instanceType := deriveInstanceType(req.GPU, req.NumGPUs)
