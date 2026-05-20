@@ -33,7 +33,13 @@ const (
 const (
 	DefaultCPUCores   = 4
 	DefaultDiskSizeGB = 100
-	DefaultTemplate   = "ubuntu-22.04"
+	// "base" is Thunder's plain GPU instance template (verified against the
+	// docs — the OpenAPI spec's "ubuntu-22.04" example is NOT a real template
+	// name and Thunder rejects it with 400 "invalid template"). The named
+	// templates (ollama, comfy-ui, forge-neo, unsloth) are pre-built AI stacks
+	// we don't want for fine-tuning. To enumerate live templates, GET
+	// /thunder-templates.
+	DefaultTemplate = "base"
 )
 
 // ─── CreateInstance ─────────────────────────────────────────────────────────
