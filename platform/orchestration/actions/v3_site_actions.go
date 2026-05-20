@@ -2566,6 +2566,58 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// ── Resolve section names to canonical component functions ───────────
+	// Implements config flag `validate_components`. Each section name must
+	// map to a real content_components.function. Display names ("FAQ
+	// Section"), wrong case, and underscore variants are resolved;
+	// unresolvable names are dropped + logged. This does NOT deduplicate or
+	// make content-intent decisions — it only guarantees every surviving
+	// section name is a valid component function.
+	validateComponents := false
+	if vc, ok := config["validate_components"].(bool); ok {
+		validateComponents = vc
+	}
+	if validateComponents && params.DB != nil {
+		resolver := loadComponentNameResolver(ctx, params.DB, params.Logger)
+		if len(resolver.validFunctions) > 0 { // only act if components actually loaded
+			for _, p := range pages {
+				pm, ok := p.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				sectionsRaw, ok := pm["sections"].([]interface{})
+				if !ok {
+					continue
+				}
+				resolved := make([]interface{}, 0, len(sectionsRaw))
+				for _, s := range sectionsRaw {
+					name, ok := s.(string)
+					if !ok {
+						resolved = append(resolved, s) // brief objects pass through
+						continue
+					}
+					fn, ok := resolver.resolve(name)
+					if !ok {
+						params.Logger.Warn("ValidateSitePlanAction: dropped unresolvable section name",
+							zap.Any("page", pm["name"]),
+							zap.String("section", name))
+						continue
+					}
+					if fn != name {
+						params.Logger.Info("ValidateSitePlanAction: resolved section name to function",
+							zap.Any("page", pm["name"]),
+							zap.String("from", name),
+							zap.String("to", fn))
+					}
+					resolved = append(resolved, fn)
+				}
+				pm["sections"] = resolved
+			}
+		} else {
+			params.Logger.Warn("ValidateSitePlanAction: validate_components set but no components loaded — skipping name resolution")
+		}
+	}
+
 	params.Logger.Info("ValidateSitePlanAction: Complete", zap.Int("pages", len(pages)))
 	return plan, nil
 }
@@ -2596,6 +2648,85 @@ func loadSiteChromeNames(ctx context.Context, db *sql.DB, logger *zap.Logger) ma
 		}
 	}
 	return result
+}
+
+// componentNameResolver resolves plan section names to canonical
+// content_components.function values. Used to implement the
+// validate_components flag and to normalise gap-planner section names.
+type componentNameResolver struct {
+	validFunctions map[string]bool   // function -> true
+	displayToFunc  map[string]string // lower(display_name) -> function
+	nameToFunc     map[string]string // lower(name) -> function
+}
+
+// loadComponentNameResolver loads section/element component identity so
+// plan section names can be resolved to a canonical function. Returns an
+// empty (non-nil) resolver on error so callers can no-op safely.
+func loadComponentNameResolver(ctx context.Context, db *sql.DB, logger *zap.Logger) *componentNameResolver {
+	r := &componentNameResolver{
+		validFunctions: make(map[string]bool),
+		displayToFunc:  make(map[string]string),
+		nameToFunc:     make(map[string]string),
+	}
+	if db == nil {
+		return r
+	}
+	rows, err := db.QueryContext(ctx,
+		`SELECT "function", name, COALESCE(display_name, '')
+		   FROM content_components
+		  WHERE component_level IN ('section','element')
+		    AND is_active = true
+		    AND "function" <> ''`)
+	if err != nil {
+		logger.Warn("loadComponentNameResolver: query failed", zap.Error(err))
+		return r
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var fn, name, display string
+		if err := rows.Scan(&fn, &name, &display); err != nil {
+			continue
+		}
+		r.validFunctions[fn] = true
+		if name != "" {
+			r.nameToFunc[strings.ToLower(name)] = fn
+		}
+		if display != "" {
+			r.displayToFunc[strings.ToLower(display)] = fn
+		}
+	}
+	return r
+}
+
+// resolve maps a raw section name to a canonical component function.
+// Returns (function, true) if resolved, ("", false) if not. It does NOT
+// deduplicate or make content-intent decisions — only name resolution.
+func (r *componentNameResolver) resolve(raw string) (string, bool) {
+	if raw == "" {
+		return "", false
+	}
+	// 1. Already a valid function.
+	if r.validFunctions[raw] {
+		return raw, true
+	}
+	// 2. Normalise (underscore->hyphen, camelCase->kebab) and re-check.
+	norm := NormalizeComponentFunction(raw)
+	if norm != raw && r.validFunctions[norm] {
+		return norm, true
+	}
+	// 3. Display-name lookup (handles "FAQ Section" -> "faq").
+	if fn, ok := r.displayToFunc[strings.ToLower(raw)]; ok {
+		return fn, true
+	}
+	// 4. Component name lookup (row name differing from function).
+	if fn, ok := r.nameToFunc[strings.ToLower(raw)]; ok {
+		return fn, true
+	}
+	// 5. Display lookup on the normalised form.
+	if fn, ok := r.displayToFunc[strings.ToLower(norm)]; ok {
+		return fn, true
+	}
+	return "", false
 }
 
 // ============================================================================

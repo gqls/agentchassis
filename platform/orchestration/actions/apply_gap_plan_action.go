@@ -203,7 +203,29 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 			"source":           "content-gap-planner",
 		}
 		if addSections, ok := addPlan["add_sections"].([]interface{}); ok {
-			spec["add_sections"] = addSections
+			// Resolve section names to canonical functions before handing
+			// them to the build pipeline, so "faq-section"/"FAQ Section"
+			// don't orphan downstream.
+			resolver := loadComponentNameResolver(ctx, db, logger)
+			if len(resolver.validFunctions) > 0 {
+				resolved := make([]interface{}, 0, len(addSections))
+				for _, s := range addSections {
+					name, ok := s.(string)
+					if !ok {
+						resolved = append(resolved, s)
+						continue
+					}
+					if fn, ok := resolver.resolve(name); ok {
+						resolved = append(resolved, fn)
+					} else {
+						logger.Warn("applyAddToPage: dropped unresolvable section name",
+							zap.String("page", pageName), zap.String("section", name))
+					}
+				}
+				spec["add_sections"] = resolved
+			} else {
+				spec["add_sections"] = addSections
+			}
 		}
 		specJSON, _ := json.Marshal(spec)
 
@@ -282,13 +304,36 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 	purpose, _ := newPlan["purpose"].(string)
 
 	// Parse sections
-	sections := []string{"hero", "generic-text-block", "call-to-action"}
+	// Archetype-aware default: a recognised page type gets its archetype
+	// shape rather than a generic text block that competes with structured
+	// content. Unknown types keep the generic default.
+	sections := defaultSectionsForPage(pageName, pageType)
 	if sectionsRaw, ok := newPlan["sections"].([]interface{}); ok && len(sectionsRaw) > 0 {
-		sections = nil
+		raw := make([]string, 0, len(sectionsRaw))
 		for _, s := range sectionsRaw {
 			if ss, ok := s.(string); ok {
-				sections = append(sections, ss)
+				raw = append(raw, ss)
 			}
+		}
+		// Resolve names to canonical functions; drop unresolvable. This
+		// catches display names ("FAQ Section") and underscore/case
+		// variants before they orphan the page_component downstream.
+		resolver := loadComponentNameResolver(ctx, db, logger)
+		if len(resolver.validFunctions) > 0 {
+			resolved := make([]string, 0, len(raw))
+			for _, name := range raw {
+				if fn, ok := resolver.resolve(name); ok {
+					resolved = append(resolved, fn)
+				} else {
+					logger.Warn("applyNewPage: dropped unresolvable section name",
+						zap.String("page", pageName), zap.String("section", name))
+				}
+			}
+			if len(resolved) > 0 {
+				sections = resolved
+			}
+		} else if len(raw) > 0 {
+			sections = raw // resolver unavailable — use as-is rather than lose them
 		}
 	}
 	sectionsJSON, _ := json.Marshal(sections)
@@ -404,6 +449,27 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 		"page_id":      pageID.String(),
 		"item_created": true,
 	}, nil
+}
+
+// defaultSectionsForPage returns archetype-appropriate default sections
+// for a new page when the planner LLM provides none. A recognised page
+// type gets its archetype shape (e.g. faq -> structured faq, not a
+// generic-text-block that would compete with it). Unrecognised pages keep
+// the generic content shape.
+func defaultSectionsForPage(pageName, pageType string) []string {
+	key := strings.ToLower(strings.TrimSpace(pageName))
+	switch {
+	case key == "faq" || strings.Contains(key, "faq"):
+		return []string{"hero", "faq", "call-to-action"}
+	case key == "contact":
+		return []string{"contact-hero", "contact-form", "contact-info"}
+	case key == "pricing" || strings.Contains(key, "pricing"):
+		return []string{"hero", "pricing", "faq", "call-to-action"}
+	case key == "about":
+		return []string{"hero-about", "about-content", "call-to-action"}
+	default:
+		return []string{"hero", "generic-text-block", "call-to-action"}
+	}
 }
 
 // ============================================================================
