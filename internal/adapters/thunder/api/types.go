@@ -25,16 +25,13 @@ const (
 	InstanceModeProduction  = "production"
 )
 
-// Valid gpu_type values, lowercase per Thunder's CLI reference
-// (the OpenAPI spec's "H100" example casing is misleading — the real
-// enum is lowercase). t4=16GB, a100=40GB, a100xl=80GB, h100=80GB.
-
 // Valid gpu_type values, VERIFIED 2026-05-20 against GET /v1/specs (a 201
 // create with "a100xl" succeeded). These are the FIRST segment of the /specs
-// composite keys (e.g. spec key "a100xl_x1_prototyping" → gpu_type "a100xl");
-// the composite key itself is NOT a valid gpu_type. Note Thunder offers NO
-// plain "a100" — the 80GB A100 is "a100xl". The CLI's `--gpu a100` flag maps
-// to a100xl internally, which is why every "a100" API attempt 400'd.
+// composite keys (e.g. spec key "a100xl_x1_prototyping" → gpu_type "a100xl",
+// where x1 is the GPU COUNT and prototyping is the mode); the composite key
+// itself is NOT a valid gpu_type. Note Thunder offers NO plain "a100" — the
+// 80GB A100 is "a100xl". The CLI's `--gpu a100` flag maps to a100xl internally,
+// which is why every "a100" API attempt 400'd.
 const (
 	GPUTypeA100XL = "a100xl" // NVIDIA A100 80GB
 	GPUTypeA6000  = "a6000"  // RTX A6000 48GB (prototyping only)
