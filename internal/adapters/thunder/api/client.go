@@ -120,7 +120,7 @@ func (c *Client) GetInstance(ctx context.Context, identifier int) (*Instance, er
 			return nil, err
 		}
 		for i := range all {
-			if all[i].Identifier == identifier {
+			if n, ok := all[i].IdentifierInt(); ok && n == identifier {
 				return &all[i], nil
 			}
 		}
@@ -186,7 +186,11 @@ func (c *Client) WaitForRunning(ctx context.Context, identifier int, pollInterva
 			if IsReadyStatus(inst.Status) {
 				return inst, nil
 			}
-			if inst.Status == InstanceStatusFailed || inst.Status == InstanceStatusDeleted {
+			// Running already handled above; IsTerminalStatus (case-insensitive)
+			// catches failed/deleted. Thunder returns these UPPERCASE, so the
+			// exact-match comparison this replaced would have missed them and
+			// looped until ctx timeout.
+			if IsTerminalStatus(inst.Status) {
 				return inst, fmt.Errorf("%w: instance %d reached %s",
 					ErrInstanceTerminal, identifier, inst.Status)
 			}

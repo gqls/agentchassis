@@ -11,7 +11,11 @@
 // mode, num_gpus, template. These cannot be omitted.
 package api
 
-import "time"
+import (
+	"strconv"
+	"strings"
+	"time"
+)
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -74,39 +78,65 @@ type CreateInstanceResponse struct {
 
 // ─── GetInstance / ListInstances ────────────────────────────────────────────
 //
-// TODO(thunder/api): the OpenAPI excerpt fetched on 2026-05-15 was only for
-// create-instance. The schemas for /instances/{id} (get) and /instances/list
-// were NOT verified. On the first successful provision, capture the actual
-// JSON response shape and confirm these struct tags. Suspect fields if
-// polling silently fails: status casing ("RUNNING" vs "running"), and
-// whether ListInstances returns a bare array or wraps it in something like
-// {"instances": [...]}.
+// Instance shape VERIFIED 2026-05-20 from `tnr status --json` (the list/status
+// endpoint). Still unverified: (a) the CreateInstanceResponse shape — that's a
+// different endpoint (POST /instances/create) and may differ; the body-preview
+// logging in client.go will reveal it on the next real provision. (b) Whether
+// GET /instances/{id} returns a bare object or an array — GetInstance falls
+// back to list-and-filter on 404, but a non-404 shape surprise would surface
+// in the response body_preview log.
 // ────────────────────────────────────────────────────────────────────────────
 
 // Instance is the response payload for GetInstance and elements of
-// ListInstances. Field tags below are best guesses pending verification.
+// ListInstances.
+//
+// VERIFIED 2026-05-20 against `tnr status --json` on a live instance.
+// Three surprises confirmed by real data:
+//  1. The RESPONSE uses camelCase (gpuType, cpuCores, numGpus, createdAt) —
+//     even though the CREATE REQUEST uses snake_case (gpu_type, cpu_cores).
+//     Thunder's API is asymmetric. Do NOT assume request and response share
+//     field names.
+//  2. Numeric fields come back as JSON STRINGS: "id":"0", "cpuCores":"4",
+//     "numGpus":"1". Only "storage" and "port" are real ints. So id/cpuCores/
+//     numGpus are typed as string here; use IdentifierInt() to get the int id.
+//  3. Enum values are UPPERCASE in responses: "status":"RUNNING",
+//     "gpuType":"A100XL" — even though we send them lowercase. Status
+//     comparisons must be case-insensitive (see IsReadyStatus).
 type Instance struct {
-	Identifier int    `json:"identifier"`
-	UUID       string `json:"uuid"`
-	Status     string `json:"status"` // see InstanceStatus* constants
+	// ID arrives as a JSON string (e.g. "0"). Use IdentifierInt() for the int.
+	ID     string `json:"id"`
+	UUID   string `json:"uuid"`
+	Name   string `json:"name"`
+	Status string `json:"status"` // UPPERCASE in responses, e.g. "RUNNING"
 
 	// IP becomes populated once the instance reaches running state.
-	IP string `json:"ip"`
+	IP   string `json:"ip"`
+	Port int    `json:"port"`
 
-	// Hardware spec — likely-mirrored from CreateInstanceRequest.
-	GpuType    string `json:"gpu_type"`
-	NumGPUs    int    `json:"num_gpus"`
-	CPUCores   int    `json:"cpu_cores"`
-	DiskSizeGB int    `json:"disk_size_gb"`
-	Template   string `json:"template,omitempty"`
-	Mode       string `json:"mode"`
+	// Hardware spec — camelCase, numbers as strings.
+	GpuType  string `json:"gpuType"`  // e.g. "A100XL" (uppercase in responses)
+	NumGpus  string `json:"numGpus"`  // JSON string, e.g. "1"
+	CPUCores string `json:"cpuCores"` // JSON string, e.g. "4"
+	Memory   string `json:"memory"`   // JSON string, GB, e.g. "32"
+	Storage  int    `json:"storage"`  // real int, GB, e.g. 100
+	Template string `json:"template"`
+	Mode     string `json:"mode"`
 
-	// Timestamps — may vary.
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
-// InstanceStatus* values for polling.
-// VERIFY on first real provision: actual casing of these strings.
+// IdentifierInt parses the string id into an int for endpoints that take a
+// numeric identifier (delete/get). Returns 0 and false if unparseable.
+func (i *Instance) IdentifierInt() (int, bool) {
+	n, err := strconv.Atoi(i.ID)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
+}
+
+// InstanceStatus* values for polling. Stored lowercase; compare case-
+// insensitively because Thunder returns UPPERCASE in responses ("RUNNING").
 const (
 	InstanceStatusPending = "pending"
 	InstanceStatusRunning = "running"
@@ -115,17 +145,18 @@ const (
 )
 
 // IsReadyStatus returns true if the instance is in a state where it has an IP
-// and can accept SSH connections.
+// and can accept SSH connections. Case-insensitive: Thunder returns "RUNNING"
+// (uppercase) in API responses while our constants are lowercase, so we
+// lowercase both sides — a casing change on either side won't break the loop.
 func IsReadyStatus(status string) bool {
-	// Use exact comparison; if Thunder returns "RUNNING" we'll need to switch
-	// to strings.EqualFold or pre-lowercase the status here.
-	return status == InstanceStatusRunning
+	return strings.ToLower(strings.TrimSpace(status)) == InstanceStatusRunning
 }
 
 // IsTerminalStatus returns true if the instance is in a state where polling
-// should stop (success or terminal failure).
+// should stop (success or terminal failure). Case-insensitive, same reason.
 func IsTerminalStatus(status string) bool {
-	return status == InstanceStatusRunning ||
-		status == InstanceStatusFailed ||
-		status == InstanceStatusDeleted
+	s := strings.ToLower(strings.TrimSpace(status))
+	return s == InstanceStatusRunning ||
+		s == InstanceStatusFailed ||
+		s == InstanceStatusDeleted
 }

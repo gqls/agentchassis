@@ -10,3 +10,6 @@ jq --slurpfile silently produces null
 Manual triggers vs dispatch — different failure modes
 Parent and child orchestrations are separate rows
 ? suffix placement matters — destination key, not source path
+
+
+my priority is to make sure that these errors don't happen on future builds above just manually correcting this site. Whichever route tests that is the right one.
