@@ -168,9 +168,9 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 	if req.Template == "" {
 		req.Template = api.DefaultTemplate
 	}
-	// Normalise GPU type: Thunder requires uppercase ("A100" not "a100").
-	// Callers (and our own old default) historically used lowercase.
-	req.GPU = strings.ToUpper(strings.TrimSpace(req.GPU))
+	// Normalise GPU type: Thunder requires lowercase ("a100" not "A100").
+	// Callers may send either; lowercase before dispatching to the API.
+	req.GPU = strings.ToLower(strings.TrimSpace(req.GPU))
 	if req.GPU == "" {
 		req.GPU = api.GPUTypeA100 // sensible default for finetuning workloads
 	}

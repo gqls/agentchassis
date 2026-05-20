@@ -21,12 +21,14 @@ const (
 	InstanceModeProduction  = "production"
 )
 
-// Common gpu_type values. Thunder accepts capitalised forms ("A100", "H100").
-// Adapter callers should pass UPPERCASE; provision_action normalises lowercase
-// input from older callers before dispatching to the API.
+// Valid gpu_type values, lowercase per Thunder's CLI reference
+// (the OpenAPI spec's "H100" example casing is misleading — the real
+// enum is lowercase). t4=16GB, a100=40GB, a100xl=80GB, h100=80GB.
 const (
-	GPUTypeA100 = "A100"
-	GPUTypeH100 = "H100"
+	GPUTypeT4     = "t4"
+	GPUTypeA100   = "a100"
+	GPUTypeA100XL = "a100xl"
+	GPUTypeH100   = "h100"
 )
 
 // Default values the adapter applies when caller doesn't specify.
@@ -51,7 +53,7 @@ const (
 // (caller code must populate these explicitly).
 type CreateInstanceRequest struct {
 	// Required by Thunder API:
-	GpuType    string `json:"gpu_type"`     // e.g. "A100", "H100" — case-sensitive
+	GpuType    string `json:"gpu_type"`     // e.g. "a100", "h100" — lowercase, case-sensitive
 	NumGPUs    int    `json:"num_gpus"`     // 1, 2, 4, 8
 	CPUCores   int    `json:"cpu_cores"`    // 4, 8, 16, ...
 	DiskSizeGB int    `json:"disk_size_gb"` // 100, 200, ...
