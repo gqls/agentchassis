@@ -35,6 +35,10 @@ AGENT_TYPE="rerender-pages"
 SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002"
 DOMAIN="gaswholesalers.com"
 
+AGENT_TYPE="rerender-pages"
+SITE_ID="2a8ebf9c-20a2-4c39-b191-840b012371da"
+DOMAIN="ai-agent-orchestration.com"
+
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -67,7 +71,7 @@ kubectl -n kafka run -i --rm kcat-rerender-site-$(date +%s) \
   -H sender_agent_id=cli-user \
   -H responses_topic=system.agent.generic.responses \
   -H timestamp=$TIMESTAMP <<JSON
-{"action":"orchestrate","config":{"agent_type":"rerender-pages"},"input_data":{"site_id":"5fe15466-4e2e-4ff2-981e-98c1b7074002","domain":"gaswholesalers.com","refresh_site_components":true}}
+{"action":"orchestrate","config":{"agent_type":"rerender-pages"},"input_data":{"site_id":"$SITE_ID","domain":"$DOMAIN","refresh_site_components":true}}
 JSON
 
 echo ""
@@ -94,7 +98,7 @@ echo ""
 echo "Watch git for commit progression (in a separate terminal):"
 echo "  cd ~/projects/sites && while true; do"
 echo "    git fetch origin --quiet"
-echo "    git log -10 --pretty='%h %ad %s' --date=iso-strict origin/master -- gaswholesalers.com/ | head -10"
+echo "    git log -10 --pretty='%h %ad %s' --date=iso-strict origin/master -- domain.com/ | head -10"
 echo "    echo '---'; sleep 15"
 echo "  done"
 echo ""
@@ -112,8 +116,3 @@ echo "             AND item_type = 'page_rerender'"
 echo "             AND status = 'complete'"
 echo "             AND created_at > NOW() - INTERVAL '30 minutes';\""
 echo ""
-echo "And confirm wholesale-pricing-explained.html in git is unchanged"
-echo "(should still be the restored content from commit b378244e):"
-echo "  cd ~/projects/sites && git fetch origin --quiet && \\"
-echo "    git log -3 --pretty='%h %ad %s' --date=iso-strict \\"
-echo "    origin/master -- gaswholesalers.com/wholesale-pricing-explained.html"

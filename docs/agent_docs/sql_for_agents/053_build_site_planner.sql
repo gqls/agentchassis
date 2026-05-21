@@ -2358,3 +2358,176 @@ WHERE type = 'build-site-planner' AND deleted_at IS NULL;
 
 -- COMMIT;  -- uncomment when verify output looks right
 ROLLBACK;   -- safe default
+
+---
+-- adoption page similarity
+
+-- 052_planner_reads_realised_state.sql
+-- Doc 029 Phase 1: make build-site-planner read the realised (adopted) pages
+-- and converge on them, instead of planning a generic skeleton from identity alone.
+--
+-- Root cause (diagnosed 2026-05-19, FOCUS_planner_ignores_adopted_state.md):
+--   plan_site's input_fields are [input_data, site_specs, available_components,
+--   available_styles] — the realised pages are NOT among them. The planner had
+--   no idea adoption already built 20 pages, so it invented a 9-page generic
+--   skeleton (flat games/tools pages, renamed tool dups, a "post" placeholder).
+--
+-- Four changes, all to the build-site-planner definition:
+--   1. New step load_existing_pages (query_database) reads pages for the site
+--   2. plan_site gains existing_pages input + a "preserve exactly" prompt block
+--   3. plan_site max_tokens 4000 -> 8000 (room for ~30 pages of output)
+--   4. validate_plan max_pages 20 -> 40 (don't truncate a faithful plan)
+--
+-- No new Go code: load_existing_pages uses the same query_database action that
+-- load_components / load_styles already use. params resolves site_record.site_id
+-- to $1.
+--
+-- Unaffected: from-scratch (non-adopted) sites. existing_pages is empty on first
+-- plan, the {{else}} branch tells the planner to plan from the brief, and
+-- sync_pages creates the pages as before. On a re-plan it converges on the
+-- previously-planned pages, which is also desirable (no churn).
+
+BEGIN;
+
+-- Snapshot first (revertable via revert_agent('build-site-planner'))
+SELECT snapshot_agent('build-site-planner',
+                      'Phase 1: planner reads realised pages (052) — converge instead of re-propose');
+
+-- ---------------------------------------------------------------------------
+-- Change 1a: rewire ensure_site -> load_existing_pages (was -> load_components)
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,ensure_site,next_step}',
+        '"load_existing_pages"'::jsonb,
+        true
+                     )
+WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true;
+
+-- ---------------------------------------------------------------------------
+-- Change 1b: add the load_existing_pages step (next_step -> load_components)
+-- pages liveness column is `status = 'active'` (not deleted_at).
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_existing_pages}',
+        $STEP$
+            {
+            "action": "query_database",
+        "config": {
+                "query": "SELECT name, page_type, url, title, nav_label, in_header, in_footer FROM pages WHERE site_id = $1 AND status = 'active' ORDER BY name",
+        "params": ["site_record.site_id"],
+        "output_format": "array"
+    },
+            "next_step": "load_components",
+            "description": "Load already-realised pages (e.g. from adoption) so the planner converges on them rather than re-proposing a generic skeleton",
+            "output_field": "existing_pages"
+        }
+        $STEP$::jsonb,
+        true
+    )
+WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true;
+
+-- ---------------------------------------------------------------------------
+-- Change 2a: add existing_pages to plan_site.input_fields
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,input_fields}',
+        (default_config->'workflow'->'steps'->'plan_site'->'config'->'input_fields')
+            || '["existing_pages"]'::jsonb,
+        true
+                     )
+WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true;
+
+-- ---------------------------------------------------------------------------
+-- Change 2b: inject the "preserve exactly" block into the prompt, immediately
+-- before the "## Available Section Components" marker (appears exactly once).
+-- Uses replace() so we only author the new block, not the whole 4KB prompt.
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template',
+                        '## Available Section Components',
+                        $INJECT$## Existing Pages — ALREADY BUILT, PRESERVE EXACTLY
+
+{{if .existing_pages}}This site has already been built or adopted. The pages listed below ALREADY EXIST. You MUST include every one of them in your output with the EXACT same name, page_type, and url shown. Do NOT rename them. Do NOT change their page_type. Do NOT emit alternative or sibling versions of them. For example: if "games-index" exists, do not add a separate flat "games" page; if "tool-lanchester-sim" exists, do not rename it to "tool-lanchester-combat-calculator". You MAY add genuinely new pages if the briefing, strategy, or roadmap justifies them, but never duplicate, replace, or rename an existing page. Do not invent placeholder or example pages such as "post".
+
+Existing pages:
+{{range .existing_pages}}- name: {{.name}} | page_type: {{.page_type}} | url: {{.url}}
+{{end}}
+{{else}}No existing pages on this site yet — plan the structure from the brief below.
+{{end}}
+
+## Available Section Components$INJECT$
+            )
+        ),
+        true
+    )
+WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true;
+
+-- ---------------------------------------------------------------------------
+-- Change 3: raise plan_site max_tokens 4000 -> 8000
+-- build-site-planner has NO top-level ai_service, so the step-level
+-- ai_service.max_tokens IS the value the chassis reads (verified via the
+-- config-location audit). Setting it here takes effect.
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,ai_service,max_tokens}',
+        '8000'::jsonb,
+        true
+                     )
+WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true;
+
+-- ---------------------------------------------------------------------------
+-- Change 4: raise validate_plan max_pages 20 -> 40
+-- A faithful adopted plan can exceed 20 pages (gamesdesign has 27). Without
+-- this, validate_plan would truncate and drop real adopted pages.
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,validate_plan,config,max_pages}',
+        '40'::jsonb,
+        true
+                     )
+WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true;
+
+-- ---------------------------------------------------------------------------
+-- Verification (run after COMMIT)
+-- ---------------------------------------------------------------------------
+-- 1. New step exists and is wired
+--    SELECT default_config->'workflow'->'steps'->'ensure_site'->>'next_step' AS ensure_next,
+--           default_config->'workflow'->'steps'->'load_existing_pages'->>'next_step' AS lep_next,
+--           default_config->'workflow'->'steps'->'load_existing_pages'->'config'->>'query' AS lep_query
+--    FROM agent_definitions WHERE type = 'build-site-planner' AND is_active = true;
+--    -- expect: ensure_next=load_existing_pages, lep_next=load_components, query present
+--
+-- 2. plan_site input + max_tokens
+--    SELECT default_config->'workflow'->'steps'->'plan_site'->'config'->'input_fields' AS inputs,
+--           default_config->'workflow'->'steps'->'plan_site'->'config'->'ai_service'->>'max_tokens' AS max_tok
+--    FROM agent_definitions WHERE type = 'build-site-planner' AND is_active = true;
+--    -- expect: inputs includes "existing_pages", max_tok=8000
+--
+-- 3. prompt injection landed exactly once
+--    SELECT (length(default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template')
+--            - length(replace(default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template',
+--                              'PRESERVE EXACTLY', ''))) / length('PRESERVE EXACTLY') AS inject_count
+--    FROM agent_definitions WHERE type = 'build-site-planner' AND is_active = true;
+--    -- expect: inject_count = 1
+--
+-- 4. validate_plan max_pages
+--    SELECT default_config->'workflow'->'steps'->'validate_plan'->'config'->>'max_pages'
+--    FROM agent_definitions WHERE type = 'build-site-planner' AND is_active = true;
+--    -- expect: 40
+
+COMMIT;

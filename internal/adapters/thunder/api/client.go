@@ -83,50 +83,48 @@ func (c *Client) CreateInstance(ctx context.Context, req CreateInstanceRequest) 
 
 // ListInstances returns all instances visible to the authenticated token.
 // Useful for the reaper and for reconciliation queries.
+//
+// VERIFIED 2026-05-20/21: GET /instances/list returns a JSON OBJECT keyed by
+// string id, e.g. {"0":{...},"1":{...}} — NOT an array, and NOT wrapped in
+// {instances:[...]}. The id is the MAP KEY; it is not a field inside the
+// object, so we inject it into Instance.ID after decode.
 func (c *Client) ListInstances(ctx context.Context) ([]Instance, error) {
-	// TODO(verify-on-first-call): confirm response shape — array vs
-	// wrapped {instances: [...]}. Currently assumes bare array.
-	var resp []Instance
-	if err := c.do(ctx, http.MethodGet, "/instances", nil, &resp); err != nil {
+	var byID map[string]Instance
+	if err := c.do(ctx, http.MethodGet, "/instances/list", nil, &byID); err != nil {
 		return nil, fmt.Errorf("thunder list instances: %w", err)
 	}
-	return resp, nil
+	out := make([]Instance, 0, len(byID))
+	for id, inst := range byID {
+		inst.ID = id // the map key is the identifier; the object has no id field
+		out = append(out, inst)
+	}
+	return out, nil
 }
 
 // GetInstance fetches a single instance by numeric identifier.
 //
-// If the API doesn't provide a GET /instances/{id} endpoint (some Thunder
-// docs only show List), this falls back to filtering the List result.
-// The fallback path is also used as a safety net if the direct GET 404s
-// before the instance has propagated to the index.
+// VERIFIED 2026-05-21: Thunder has NO GET /instances/{id} endpoint — it 404s.
+// The only way to read an instance is via /instances/list and matching on the
+// map key. So this lists and filters. (Kept as a method for caller convenience
+// and so WaitForRunning has a single per-poll call site.)
 func (c *Client) GetInstance(ctx context.Context, identifier int) (*Instance, error) {
-	// Try direct GET first.
-	var inst Instance
-	path := "/instances/" + strconv.Itoa(identifier)
-	err := c.do(ctx, http.MethodGet, path, nil, &inst)
-	if err == nil {
-		return &inst, nil
+	all, err := c.ListInstances(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	// If 404, fall back to listing — gives the API a chance to have
-	// propagated a just-created instance into the index.
-	var apiErr *APIError
-	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
-		c.logger.Debug("GetInstance direct fetch 404, falling back to list",
-			zap.Int("identifier", identifier))
-		all, listErr := c.ListInstances(ctx)
-		if listErr != nil {
-			// Surface the original error if list also fails; that's more useful.
-			return nil, err
+	for i := range all {
+		if n, ok := all[i].IdentifierInt(); ok && n == identifier {
+			return &all[i], nil
 		}
-		for i := range all {
-			if n, ok := all[i].IdentifierInt(); ok && n == identifier {
-				return &all[i], nil
-			}
-		}
-		return nil, err // not in list either — preserve the 404
 	}
-	return nil, err
+	// Not found in the list. Return an APIError with 404 so callers (and
+	// WaitForRunning) can distinguish "not there yet" from a transport error.
+	return nil, &APIError{
+		StatusCode: http.StatusNotFound,
+		Method:     http.MethodGet,
+		Path:       "/instances/list",
+		Body:       fmt.Sprintf("instance %d not present in list", identifier),
+	}
 }
 
 // DeleteInstance terminates an instance. Idempotent: deleting an already-
