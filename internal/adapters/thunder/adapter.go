@@ -295,8 +295,8 @@ func (a *Adapter) sendErrorResponse(
 	replyToTopic string,
 	action string,
 	errCode string, // short code, e.g. "not_implemented", "thunder_api_unreachable"
-	errMsg string, // human-readable detail
-	status string, // "error_recoverable" or "error_unrecoverable"
+	errMsg string,  // human-readable detail
+	status string,  // "error_recoverable" or "error_unrecoverable"
 	l *zap.Logger,
 ) {
 	if replyToTopic == "" {
@@ -326,7 +326,7 @@ func (a *Adapter) sendErrorResponse(
 	produceCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := a.producer.Produce(
+	if err := a.producer.ProduceWithValidation(
 		produceCtx,
 		replyToTopic,
 		respHeaders,
@@ -524,7 +524,7 @@ func (a *Adapter) sendSuccessResponse(
 	produceCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := a.producer.Produce(
+	if err := a.producer.ProduceWithValidation(
 		produceCtx,
 		replyToTopic,
 		respHeaders,
@@ -577,20 +577,38 @@ func buildResponseHeaders(
 	senderID uuid.UUID,
 ) map[string]string {
 	return map[string]string{
-		"correlation_id":            reqHeaders["correlation_id"],
-		"orchestration_id":          reqHeaders["orchestration_id"],
+		"correlation_id":   reqHeaders["correlation_id"],
+		"orchestration_id": reqHeaders["orchestration_id"],
+
+		// in_response_to_request_id AND request_id both carry the ORIGINAL
+		// request's request_id. This matches the working git and webscrape
+		// adapters (git: RequestID: requestHeaders.RequestID; webscrape:
+		// headers["request_id"] = requestID). The chassis's response router
+		// keys on request_id matching an awaited entry to send the message to
+		// the coordinator's claim path (HandleResponse → ClaimAwaitedRequest)
+		// instead of the generic process-as-work path (ProcessMessage →
+		// BuildCollectedData). Generating a fresh request_id here (the prior
+		// behaviour) made the lookup miss, so successful responses were
+		// silently treated as new work and the awaited_requests row sat in
+		// 'waiting' until timeout. See contracts §"Adapter Response Envelope".
 		"in_response_to_request_id": reqHeaders["request_id"],
-		"request_id":                uuid.New().String(),
-		"client_id":                 reqHeaders["client_id"],
-		"message_type":              "response",
-		"status":                    status,
-		"is_complete":               "true",
-		"is_error":                  boolStr(!success),
-		"sender_agent_type":         senderType,
-		"sender_agent_id":           senderID.String(),
-		"in_response_to_step_name":  reqHeaders["step_name"],
-		"in_response_to_step_id":    reqHeaders["step_id"],
-		"time_sent":                 time.Now().UTC().Format(time.RFC3339),
+		"request_id":                reqHeaders["request_id"],
+
+		// message_id: the working git adapter always sets one. Without it the
+		// chassis synthesises a message_id, which contributes to the response
+		// being treated as an unsolicited inbound rather than a reply.
+		"message_id": uuid.New().String(),
+
+		"client_id":                reqHeaders["client_id"],
+		"message_type":             "response",
+		"status":                   status,
+		"is_complete":              "true",
+		"is_error":                 boolStr(!success),
+		"sender_agent_type":        senderType,
+		"sender_agent_id":          senderID.String(),
+		"in_response_to_step_name": reqHeaders["step_name"],
+		"in_response_to_step_id":   reqHeaders["step_id"],
+		"time_sent":                time.Now().UTC().Format(time.RFC3339),
 	}
 }
 
