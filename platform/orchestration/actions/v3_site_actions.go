@@ -2482,12 +2482,48 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("pages must be non-empty array")
 	}
 
+	// ── Deterministic convergence with adoption-locked pages ────────────────
+	// existing_pages is loaded by the load_existing_pages workflow step and
+	// carries an adoption_locked flag per page. reconcilePlanWithRealised
+	// force-preserves only the locked subset; it is a no-op once the adoption
+	// lock has expired (or for from-scratch builds). See
+	// FOCUS_adoption_faithfulness_via_locks.md.
+	existingField := "existing_pages"
+	if ef, ok := config["existing_pages_field"].(string); ok && ef != "" {
+		existingField = ef
+	}
+	var existingPages []interface{}
+	if ev := datahelpers.ExtractNestedField(params.CollectedData, existingField); ev != nil {
+		if ep, ok := ev.([]interface{}); ok {
+			existingPages = ep
+		}
+	}
+	var unionedIn, droppedCollision, snappedRename int
+	pages, unionedIn, droppedCollision, snappedRename =
+		reconcilePlanWithRealised(pages, existingPages, params.Logger)
+	plan["pages"] = pages
+	params.Logger.Info("ValidateSitePlanAction: reconciled with adoption-locked pages",
+		zap.Int("unioned_in", unionedIn),
+		zap.Int("dropped_collision", droppedCollision),
+		zap.Int("snapped_rename", snappedRename),
+		zap.Int("pages_after", len(pages)))
+
+	// ── Truncate, preserving adoption-locked pages ──────────────────────────
 	maxPages := 20
 	if mp, ok := config["max_pages"].(float64); ok {
 		maxPages = int(mp)
 	}
 	if len(pages) > maxPages {
-		pages = pages[:maxPages]
+		// Build the must-keep set: only the adoption-locked existing pages.
+		var lockedOnly []interface{}
+		for _, rp := range existingPages {
+			if rm, ok := rp.(map[string]interface{}); ok {
+				if locked, _ := rm["adoption_locked"].(bool); locked {
+					lockedOnly = append(lockedOnly, rp)
+				}
+			}
+		}
+		pages = truncatePreservingRealised(pages, lockedOnly, maxPages, params.Logger)
 		plan["pages"] = pages
 	}
 
@@ -4155,4 +4191,244 @@ func containsString(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// ============================================================================
+// Adoption-faithfulness convergence (doc 029 Phase 1 / FOCUS_adoption_faithfulness_via_locks.md)
+//
+// These helpers make ValidateSitePlanAction deterministically preserve the
+// pages that are currently under a live adoption lock, so the planner LLM
+// cannot drop, rename, or duplicate adopted pages during the faithful-first-
+// pass window. They become no-ops once the adoption lock has expired (or for
+// from-scratch builds), letting the site develop normally thereafter.
+// ============================================================================
+
+// isSectionIndexType reports whether a page_type is a directory/section index.
+func isSectionIndexType(pageType string) bool {
+	switch pageType {
+	case "blog-index", "entity-directory", "section-index":
+		return true
+	}
+	return false
+}
+
+// sectionStemOf returns the section stem for a realised section-index page, or
+// "" if it isn't a section index. e.g. ("games-index", "/games/index.html",
+// "entity-directory") -> "games". Prefers the URL path segment; falls back to
+// the name minus the "-index" suffix.
+func sectionStemOf(name, url, pageType string) string {
+	isIndex := isSectionIndexType(pageType)
+	if !isIndex {
+		// Also treat any non-root URL ending in /index.html as a section index.
+		if strings.HasSuffix(url, "/index.html") && url != "/index.html" {
+			isIndex = true
+		}
+	}
+	if !isIndex {
+		return ""
+	}
+	trimmed := strings.Trim(url, "/")
+	if i := strings.Index(trimmed, "/"); i > 0 {
+		return trimmed[:i]
+	}
+	return strings.TrimSuffix(name, "-index")
+}
+
+// slugOf derives a comparison slug from an LLM page's name/url. A flat page URL
+// like /games.html yields "games"; falls back to the name.
+func slugOf(name, url string) string {
+	if url != "" {
+		t := strings.Trim(url, "/")
+		t = strings.TrimSuffix(t, ".html")
+		t = strings.TrimSuffix(t, "/index")
+		if t != "" {
+			if i := strings.Index(t, "/"); i > 0 {
+				return t[:i]
+			}
+			return t
+		}
+	}
+	return name
+}
+
+// normaliseRealisedToPlanPage converts a realised pages-table row (as returned
+// by the load_existing_pages query) into the plan-page shape the downstream
+// write_site_plan / ValidateRoles expects. Carries a from_realised marker so
+// logging/debugging can distinguish these from LLM-proposed pages.
+func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface{} {
+	name, _ := rm["name"].(string)
+	pageType, _ := rm["page_type"].(string)
+	return map[string]interface{}{
+		"name":          name,
+		"page_type":     pageType,
+		"url":           rm["url"],
+		"title":         rm["title"],
+		"nav_label":     rm["nav_label"],
+		"in_header":     rm["in_header"],
+		"in_footer":     rm["in_footer"],
+		"sections":      []interface{}{},
+		"from_realised": true,
+	}
+}
+
+// reconcilePlanWithRealised enforces preservation of and convergence on the
+// realised pages that are CURRENTLY under an active adoption lock.
+//
+// The load_existing_pages query carries an "adoption_locked" boolean per page:
+// true while the 90-day adoption lock is live, false once expired (or for any
+// page never adoption-locked). This function force-preserves ONLY the
+// adoption_locked pages:
+//   - During the window: every adopted page is locked -> preserved faithfully.
+//   - After the window: nothing locked -> no-op -> site develops normally.
+//   - From-scratch builds: never locked -> always a no-op.
+//
+// Three passes over the locked subset:
+//
+//	Pass C — section-collision dedup: drop an LLM page whose slug equals the
+//	         stem of a realised section index ("games" vs "games-index").
+//	Pass B — rename snap-back: same URL as a realised page, different name ->
+//	         replace with the realised identity.
+//	Pass A — union: append every locked realised page not already present.
+//
+// Returns the reconciled page slice plus counts for logging.
+func reconcilePlanWithRealised(
+	llmPages []interface{},
+	existingPages []interface{},
+	logger *zap.Logger,
+) ([]interface{}, int, int, int) {
+	// Force-preserve only the pages under a live adoption lock.
+	var lockedPages []interface{}
+	for _, rp := range existingPages {
+		if rm, ok := rp.(map[string]interface{}); ok {
+			if locked, _ := rm["adoption_locked"].(bool); locked {
+				lockedPages = append(lockedPages, rp)
+			}
+		}
+	}
+	if len(lockedPages) == 0 {
+		// No active adoption locks: post-window, from-scratch, or a normally-
+		// developing site. Leave the LLM plan untouched.
+		return llmPages, 0, 0, 0
+	}
+	existingPages = lockedPages
+
+	realisedByURL := make(map[string]map[string]interface{})
+	sectionStems := make(map[string]string) // stem -> realised index name
+	for _, rp := range existingPages {
+		rm, ok := rp.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := rm["name"].(string)
+		url, _ := rm["url"].(string)
+		pageType, _ := rm["page_type"].(string)
+		if url != "" {
+			realisedByURL[url] = rm
+		}
+		if stem := sectionStemOf(name, url, pageType); stem != "" {
+			sectionStems[stem] = name
+		}
+	}
+
+	// Pass C (collision) + Pass B (rename) over the LLM pages.
+	var kept []interface{}
+	droppedCollision, snappedRename := 0, 0
+	for _, lp := range llmPages {
+		lm, ok := lp.(map[string]interface{})
+		if !ok {
+			kept = append(kept, lp)
+			continue
+		}
+		lname, _ := lm["name"].(string)
+		lurl, _ := lm["url"].(string)
+		ltype, _ := lm["page_type"].(string)
+		lslug := slugOf(lname, lurl)
+
+		// Pass C: flat page colliding with a realised section index.
+		if idxName, isStem := sectionStems[lslug]; isStem &&
+			!isSectionIndexType(ltype) && lname != idxName {
+			logger.Info("validate: dropped flat page colliding with realised section index",
+				zap.String("dropped", lname), zap.String("kept_index", idxName))
+			droppedCollision++
+			continue
+		}
+
+		// Pass B: same URL as a realised page, different name -> snap back.
+		if rp, ok := realisedByURL[lurl]; ok {
+			if rname, _ := rp["name"].(string); rname != "" && rname != lname {
+				logger.Info("validate: snapped renamed page back to realised identity",
+					zap.String("llm_name", lname), zap.String("realised_name", rname))
+				kept = append(kept, normaliseRealisedToPlanPage(rp))
+				snappedRename++
+				continue
+			}
+		}
+		kept = append(kept, lm)
+	}
+
+	// Pass A: union — add locked realised pages not present by name.
+	presentName := make(map[string]bool)
+	for _, p := range kept {
+		if pm, ok := p.(map[string]interface{}); ok {
+			if n, _ := pm["name"].(string); n != "" {
+				presentName[n] = true
+			}
+		}
+	}
+	unioned := 0
+	for _, rp := range existingPages {
+		rm, ok := rp.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := rm["name"].(string)
+		if name == "" || presentName[name] {
+			continue
+		}
+		kept = append(kept, normaliseRealisedToPlanPage(rm))
+		presentName[name] = true
+		unioned++
+	}
+
+	return kept, unioned, droppedCollision, snappedRename
+}
+
+// truncatePreservingRealised caps the plan at maxPages but never drops a
+// must-keep (adoption-locked) page. Locked pages are kept first; net-new
+// proposed pages fill the remaining budget in order.
+func truncatePreservingRealised(
+	pages, mustKeep []interface{},
+	maxPages int,
+	logger *zap.Logger,
+) []interface{} {
+	keepNames := make(map[string]bool)
+	for _, rp := range mustKeep {
+		if rm, ok := rp.(map[string]interface{}); ok {
+			if n, _ := rm["name"].(string); n != "" {
+				keepNames[n] = true
+			}
+		}
+	}
+	var locked, netNew []interface{}
+	for _, p := range pages {
+		name := ""
+		if pm, ok := p.(map[string]interface{}); ok {
+			name, _ = pm["name"].(string)
+		}
+		if keepNames[name] {
+			locked = append(locked, p)
+		} else {
+			netNew = append(netNew, p)
+		}
+	}
+	if len(locked) >= maxPages {
+		logger.Warn("validate: adoption-locked pages exceed max_pages; keeping all locked, dropping all net-new",
+			zap.Int("locked", len(locked)), zap.Int("max_pages", maxPages))
+		return locked
+	}
+	budget := maxPages - len(locked)
+	if budget > len(netNew) {
+		budget = len(netNew)
+	}
+	return append(locked, netNew[:budget]...)
 }
