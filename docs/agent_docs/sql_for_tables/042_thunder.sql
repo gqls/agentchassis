@@ -266,3 +266,48 @@ SELECT can_provision, denial_reason, daily_cap_usd, max_concurrent_instances,
        total_24h_spend, active_count
 FROM thunder_provision_check;
 -- Should show: true | NULL | 100 | 2 | 0 | 0
+
+---
+
+-- Migration: thunder_instances thunder_instance_id uniqueness → partial (live-only)
+--
+-- PROBLEM (observed in production 2026-05-22):
+--   Provision of a fresh instance failed with
+--     duplicate key value violates unique constraint
+--     "thunder_instances_thunder_instance_id_key" (SQLSTATE 23505)
+--   Thunder recycles its numeric identifiers: once an instance is
+--   decommissioned, the next provision into the (now-empty) account is
+--   handed the same low identifier (almost always "0"). The original
+--   table-wide UNIQUE CONSTRAINT on thunder_instance_id therefore collides
+--   with the decommissioned historical row holding the same id, blocking
+--   essentially every new provision.
+--
+-- FIX:
+--   The real invariant is "at most one LIVE instance per Thunder identifier",
+--   not "globally unique across all history". Replace the unconditional
+--   constraint with a PARTIAL unique index scoped to non-terminal rows.
+--   This mirrors the existing idx_thunder_instances_active partial index
+--   convention on this table.
+--
+-- Terminal states (from thunder_instances_status_check): decommissioned,
+-- reaped, failed, lost. Live (uniqueness-enforced) states: provisioning,
+-- running, decommissioning.
+--
+-- NOTE: paired with a code change to store.LookupByThunderIdentifier — once
+-- historical duplicate ids are allowed, that lookup must select the LIVE row
+-- deterministically rather than relying on the (now-removed) global
+-- uniqueness. See instances.go.
+
+BEGIN;
+
+-- Drop the table-wide unique constraint.
+ALTER TABLE thunder_instances
+DROP CONSTRAINT thunder_instances_thunder_instance_id_key;
+
+-- Enforce uniqueness only among live (non-terminal) instances.
+CREATE UNIQUE INDEX thunder_instances_live_identifier_uniq
+    ON thunder_instances (thunder_instance_id)
+    WHERE status IN ('provisioning', 'running', 'decommissioning');
+
+COMMIT;
+

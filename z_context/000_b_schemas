@@ -24,6 +24,7 @@
 \d css_themes
 \d scheduled_tasks
 \dt business_intel.*
+\d thunder_instances
 \d
 
 makefile

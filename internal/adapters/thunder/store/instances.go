@@ -58,6 +58,14 @@ func LookupByID(ctx context.Context, db *sql.DB, id uuid.UUID) (*Instance, error
 // LookupByThunderIdentifier fetches a row by Thunder's numeric identifier
 // (stored in the schema as TEXT). Used when the caller only has the API
 // identifier and not the DB UUID — e.g. reaper sweep against ListInstances.
+//
+// Thunder RECYCLES numeric identifiers after decommission, so multiple
+// historical rows can share one thunder_instance_id (one live + several
+// terminal). The partial unique index guarantees at most one LIVE row per
+// identifier, so we order live rows first, then most-recent, and take one.
+// This deterministically returns the live instance when one exists; when only
+// terminal history remains it returns the most recent (harmless — callers
+// short-circuit on already-terminal status).
 func LookupByThunderIdentifier(ctx context.Context, db *sql.DB, identifier string) (*Instance, error) {
 	return lookupOne(ctx, db,
 		`SELECT id, thunder_instance_id, instance_type, instance_ip, ssh_user,
@@ -65,7 +73,10 @@ func LookupByThunderIdentifier(ctx context.Context, db *sql.DB, identifier strin
 		        requested_by, hourly_rate_usd, cost_usd,
 		        provisioned_at, running_since, decommissioned_at
 		 FROM thunder_instances
-		 WHERE thunder_instance_id = $1`,
+		 WHERE thunder_instance_id = $1
+		 ORDER BY (status IN ('provisioning','running','decommissioning')) DESC,
+		          provisioned_at DESC NULLS LAST
+		 LIMIT 1`,
 		identifier)
 }
 
