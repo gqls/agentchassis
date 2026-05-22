@@ -2782,3 +2782,96 @@ COMMIT;
 -- Functional check after a fresh adoption + first plan run: every adopted page
 -- should come back adoption_locked = true. Re-run after 90+ days (or with a
 -- back-dated lock_expires_at) and they should be false.
+
+    -- backup
+snapshot_agent
+--------------------------------------
+f263eaa1-61e1-446e-9410-648e12b7875b
+(1 row)
+
+
+---
+-- amend to above split into parts
+
+-- 054_load_existing_pages_first_plan_only.sql
+--
+-- MINIMAL, LOCK-FREE variant of load_existing_pages. Gets faithful first-pass
+-- adoption working WITHOUT any of the timed-lock machinery (no 053 columns, no
+-- write_site_plan locking, no transferDirectiveLocks change).
+--
+-- Use this INSTEAD OF 054_load_existing_pages_adoption_locked.sql for now. The
+-- full version references d.lock_type / d.lock_expires_at on site_plan_directives,
+-- which only exist after 053 — applying it before 053 would make
+-- load_existing_pages fail with "column lock_type does not exist".
+--
+-- BEHAVIOUR with this minimal version:
+--   adoption_locked = true  ONLY when the site has no current plan yet.
+--   That is uniquely the first plan after adoption (from-scratch sites have no
+--   pages until the planner's own sync_pages runs, so "no current plan + pages
+--   exist" only happens for adopted sites).
+--
+--   => First plan after adoption: every existing (adopted) page is preserved
+--      faithfully by the convergence layer.
+--   => Every subsequent plan: a current plan exists, so adoption_locked = false
+--      for all pages, convergence is a no-op, and the site develops normally
+--      (the planner / improvement loop may add, edit, restructure, delete).
+--
+-- This fixes the doc-029 spurious/duplicate-pages problem (which occurred on the
+-- first plan after adoption). It does NOT give a 90-day window — after the first
+-- plan the site is immediately free to evolve. The 90-day window is added later
+-- by swapping in 054_load_existing_pages_adoption_locked.sql once 053 + the
+-- write_site_plan lock patch are applied.
+--
+-- PREREQUISITE: 052 must be applied (it creates the load_existing_pages step and
+-- raises max_pages -> 80, max_tokens -> 16000). If 052 is not applied, apply it
+-- first; this migration only rewrites the step's query.
+
+BEGIN;
+
+SELECT snapshot_agent('build-site-planner',
+                      'load_existing_pages adoption_locked, first-plan-only / lock-free (054 minimal)');
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_existing_pages,config,query}',
+        to_jsonb($Q$
+                     SELECT p.name, p.page_type, p.url, p.title, p.nav_label, p.in_header, p.in_footer,
+                 CASE
+                     WHEN NOT EXISTS (
+                         SELECT 1 FROM site_plans sp
+                         WHERE sp.site_id = p.site_id AND sp.is_current = true
+                     ) THEN true
+                     ELSE false
+                     END AS adoption_locked
+FROM pages p
+WHERE p.site_id = $1 AND p.status = 'active'
+ORDER BY p.name
+$Q$::text),
+        true
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true;
+
+COMMIT;
+
+-- ---------------------------------------------------------------------------
+-- Verification
+-- ---------------------------------------------------------------------------
+-- 1. The step query updated:
+--    SELECT default_config->'workflow'->'steps'->'load_existing_pages'->'config'->>'query'
+--    FROM agent_definitions WHERE type='build-site-planner' AND is_active=true;
+--    -- contains adoption_locked, the NOT EXISTS site_plans branch, no lock_type.
+--
+-- 2. Functional: trigger a fresh adoption (e.g. gamesdesign.co.uk) and let the
+--    planner run its first plan. Expect every adopted page returned with
+--    adoption_locked = true, and the final plan to contain all adopted pages
+--    with no spurious/duplicate pages (no flat games vs games-index, etc).
+--
+-- 3. Re-plan the same site (any later planner run): a current plan now exists,
+--    so adoption_locked = false for all pages and convergence is a no-op — the
+--    planner is free to change the structure. This is expected and correct for
+--    the lock-free variant.
+--
+-- ROLLBACK if needed: SELECT revert_agent('build-site-planner');
+
