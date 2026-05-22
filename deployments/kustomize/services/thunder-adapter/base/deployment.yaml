@@ -24,8 +24,8 @@ spec:
           image: docker.io/aqls/thunder-adapter:latest  # overridden per environment in overlay
           command: ["./thunder-adapter", "-config", "/app/configs/thunder-adapter.yaml"]
           ports:
-          - containerPort: 8080
-            name: http
+            - containerPort: 8080
+              name: http
           env:
             # Downward API — used for Tier-3 response headers (sender_pod_name)
             # and pod-level trace logging.
@@ -41,13 +41,29 @@ spec:
               value: "system.adapter.thunder.requests"
             - name: CONSUMER_GROUP
               value: "thunder.adapter.group"
+            # Phase 4: object-storage (B2) for presigned dataset/artefact URLs.
+            # B2_APPLICATION_KEY_ID / B2_APPLICATION_KEY come from
+            # personae-storage-secrets via envFrom below (that's where the
+            # cluster actually keeps them — NOT personae-platform-secrets as an
+            # earlier comment claimed). These two set the bucket + endpoint.
+            - name: TRAINING_BUCKET
+              value: "finetuning"
+            - name: S3_ENDPOINT
+              value: "https://s3.us-east-005.backblazeb2.com"
           envFrom:
             # THUNDER_COMPUTE_API_KEY (used Phase 3+)
             - secretRef:
                 name: personae-default-secrets
-            # CLIENTS_DB_PASSWORD, B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY
+            # CLIENTS_DB_PASSWORD (DB auth). NOTE: this secret does NOT carry the
+            # B2 keys despite an earlier comment — those live in
+            # personae-storage-secrets (below), verified against the cluster.
             - secretRef:
                 name: personae-platform-secrets
+            # B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY — required by the
+            # Phase 4 storage client (prepare_dataset_url / prepare_artefact_url).
+            # Same secret the agent-chassis storage client reads from.
+            - secretRef:
+                name: personae-storage-secrets
           volumeMounts:
             - name: config
               mountPath: /app/configs/thunder-adapter.yaml
@@ -80,3 +96,4 @@ spec:
         - name: config
           configMap:
             name: thunder-adapter-config
+            

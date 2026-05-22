@@ -36,12 +36,16 @@ import (
 // ─────────────────────────────────────────────────────────────────────────
 
 const (
-	// datasetKeyTemplate matches training-data-preparer's s3_key_template.
+	// datasetKeyTemplate matches the live training-data-preparer agent_def
+	// (verified 2026-05-22): bucket=finetuning,
+	// s3_key_template=finetuning/datasets/{export_id}/training.jsonl.
+	// The adapter targets the same bucket (TRAINING_BUCKET default "finetuning"),
+	// so the presigned GET resolves against the data the preparer actually wrote.
 	// Format arg: export_id.
 	datasetKeyTemplate = "finetuning/datasets/%s/training.jsonl"
 
 	// artefactKeyTemplate is where a finished QLoRA adapter is uploaded.
-	// Format arg: training_run_id. The VM PUTs a single tarball here.
+	// Same bucket as the dataset; format arg: training_run_id.
 	artefactKeyTemplate = "finetuning/artefacts/%s/adapter.tar.gz"
 
 	// Default presigned-URL lifetimes (minutes). Downloads are quick; the

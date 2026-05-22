@@ -192,7 +192,11 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	var dataURLAction *DataURLAction
 	trainingBucket := os.Getenv("TRAINING_BUCKET")
 	if trainingBucket == "" {
-		trainingBucket = "personae-model-training" // matches training-data-preparer
+		// "finetuning" matches the live training-data-preparer's s3_bucket
+		// (verified 2026-05-22 from its agent_def). The dataset is written to
+		// bucket=finetuning, key=finetuning/datasets/{export_id}/training.jsonl,
+		// so presigned URLs must target this bucket.
+		trainingBucket = "finetuning"
 	}
 	storageCfg := config.ObjectStorageConfig{
 		Endpoint:        os.Getenv("S3_ENDPOINT"),
