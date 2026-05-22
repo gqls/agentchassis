@@ -27,13 +27,6 @@ DEFAULT_OUTPUT_DIR=$SCRIPT_DIR"/output_contexts"
 ENVIRONMENT="production"
 REGION="uk_dev" # Assuming 'uk_dev' for development environment
 
-# --- File exclusion (used by the 'remainder' targets) ---
-# When non-empty, write_directory skips any file whose project-relative path
-# matches an entry here. Lets us express "this whole directory EXCEPT these
-# files" without enumerating the directory by hand. Empty for all other
-# components, so it has no effect unless a case sets it.
-EXCLUDE_FILES=()
-
 # --- Component List ---
 # List of all individual components for the 'all' option
 ALL_COMPONENTS=(
@@ -95,8 +88,6 @@ ALL_COMPONENTS=(
     "agent-chassis-comms"
     "agent-chassis-services"
     "agent-chassis-deploy"
-    "agent-chassis-actions-current"
-    "agent-chassis-actions-remainder"
     "reasoning-agent-full"
     "web-search-adapter-full"
     "image-generator-adapter-full"
@@ -163,21 +154,6 @@ function write_file() {
 }
 
 # Helper function to write all files in a directory to the output.
-# Returns 0 (true) if a file path is in the EXCLUDE_FILES list. Normalises a
-# leading "./" on both sides so matches are robust regardless of how find or
-# the case statement spell the path.
-function is_excluded() {
-  local f="${1#./}"
-  local ex
-  for ex in "${EXCLUDE_FILES[@]}"; do
-    ex="${ex#./}"
-    if [ "$f" = "$ex" ]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
 function write_directory() {
   local dir_path=$1
   local output_file=$2
@@ -195,11 +171,6 @@ function write_directory() {
   while IFS= read -r -d $'\0' file; do
     # Skip if this is the output file itself to avoid self-reference
     if [ "$(realpath "$file" 2>/dev/null)" = "$(realpath "$output_file" 2>/dev/null)" ]; then
-      continue
-    fi
-
-    # Skip files explicitly excluded (used by the 'remainder' targets).
-    if is_excluded "$file"; then
       continue
     fi
 
@@ -345,8 +316,6 @@ function show_help() {
   echo "    agent-chassis-comms          # Kafka and messaging"
   echo "    agent-chassis-services       # DB, discovery, storage, etc."
   echo "    agent-chassis-deploy         # Deployment manifests"
-  echo "    agent-chassis-actions-current    # Orchestration core + actions used by live workflows"
-  echo "    agent-chassis-actions-remainder  # All other action files (actions tree minus 'current')"
   echo "    reasoning-agent-full"
   echo "    web-search-adapter-full"
   echo "    image-generator-adapter-full"
@@ -503,151 +472,6 @@ SHARED_PLATFORM_CODE=("platform/" "pkg/")
 SHARED_DEPLOYMENT_MODULES=("deployments/terraform/modules/kustomize-apply/")
 SHARED_KUSTOMIZE_BASE=("deployments/kustomize/base/")
 SHARED_ROOT_FILES=("Makefile" "go.mod" "go.sum" "docker-compose.yaml")
-
-# --- Action surface split (from the action-usage audit) ---
-# CURRENT_ACTION_FILES: orchestration core + action files whose actions are
-# referenced by at least one ACTIVE workflow. Used directly by
-# 'agent-chassis-actions-current', and as the exclusion set for
-# 'agent-chassis-actions-remainder' (= everything else in the actions tree).
-# Keep this list as the single source of truth for the split — the remainder
-# target derives from it automatically, so files only need listing here once.
-CURRENT_ACTION_FILES=(
-  # --- orchestration core (outside actions/) ---
-  "platform/orchestration/coordinator.go"
-  "platform/orchestration/state.go"
-  "platform/orchestration/helpers.go"
-  "platform/orchestration/agent_error_log.go"
-  "platform/orchestration/loop_expansion_handler.go"
-  "platform/orchestration/loop_error_handler.go"
-  # --- data helpers ---
-  "platform/orchestration/datahelpers/data_helpers.go"
-  "platform/orchestration/datahelpers/action_inputs.go"
-  "platform/orchestration/datahelpers/unified_extractor.go"
-  "platform/orchestration/datahelpers/timeout_helpers.go"
-  # --- queryresolve subpackage ---
-  "platform/orchestration/actions/queryresolve/queryresolve.go"
-  # --- site-build pipeline action files (actions/ dir, excludes dormant subsystems) ---
-  "platform/orchestration/actions/ai_actions.go"
-  "platform/orchestration/actions/ai_errors.go"
-  "platform/orchestration/actions/apply_adoption_plan_action.go"
-  "platform/orchestration/actions/apply_gap_plan_action.go"
-  "platform/orchestration/actions/assemble_from_library.go"
-  "platform/orchestration/actions/await_response.go"
-  "platform/orchestration/actions/basic_actions.go"
-  "platform/orchestration/actions/batch_webscrape_action.go"
-  "platform/orchestration/actions/call_agent.go"
-  "platform/orchestration/actions/check_endpoint_health_action.go"
-  "platform/orchestration/actions/check_tool_completeness_action.go"
-  "platform/orchestration/actions/checkpoint_for_review_action.go"
-  "platform/orchestration/actions/claim_work_item_action.go"
-  "platform/orchestration/actions/cleanup_stale_topics.go"
-  "platform/orchestration/actions/color_util.go"
-  "platform/orchestration/actions/component_library.go"
-  "platform/orchestration/actions/component_selector.go"
-  "platform/orchestration/actions/component_validation.go"
-  "platform/orchestration/actions/compute_component_quality.go"
-  "platform/orchestration/actions/conditional_branch_action.go"
-  "platform/orchestration/actions/create_blog_posts_action.go"
-  "platform/orchestration/actions/create_rerender_items_action.go"
-  "platform/orchestration/actions/create_tool_component_action.go"
-  "platform/orchestration/actions/create_tool_cross_link_items.go"
-  "platform/orchestration/actions/create_work_item_action.go"
-  "platform/orchestration/actions/css_templating.go"
-  "platform/orchestration/actions/database_actions.go"
-  "platform/orchestration/actions/deploy_image_asset_action.go"
-  "platform/orchestration/actions/deploy_tool_action.go"
-  "platform/orchestration/actions/design_actions.go"
-  "platform/orchestration/actions/discovery_actions.go"
-  "platform/orchestration/actions/discovery_checks.go"
-  "platform/orchestration/actions/dispatch_actions.go"
-  "platform/orchestration/actions/enrich_fingerprint_with_css_action.go"
-  "platform/orchestration/actions/entity_state_actions.go"
-  "platform/orchestration/actions/extract_css_vars.go"
-  "platform/orchestration/actions/extract_design_fingerprint_action.go"
-  "platform/orchestration/actions/extract_interactive_fingerprint_action.go"
-  "platform/orchestration/actions/firecrawl_map_action.go"
-  "platform/orchestration/actions/fix_component_template_action.go"
-  "platform/orchestration/actions/fix_forced_text_colours_action.go"
-  "platform/orchestration/actions/fix_harcoded_colours_action.go"
-  "platform/orchestration/actions/fix_nav_link_templates_action.go"
-  "platform/orchestration/actions/fork_theme_composition.go"
-  "platform/orchestration/actions/fork_theme_from_site_action.go"
-  "platform/orchestration/actions/format_crawl_for_analysis_action.go"
-  "platform/orchestration/actions/generate_image_actions.go"
-  "platform/orchestration/actions/generic_actions.go"
-  "platform/orchestration/actions/get_pages_for_rerender_action.go"
-  "platform/orchestration/actions/get_pages_to_build_actions.go"
-  "platform/orchestration/actions/git_deployer_actions.go"
-  "platform/orchestration/actions/helpers.go"
-  "platform/orchestration/actions/hitl_actions.go"
-  "platform/orchestration/actions/hitl_persistence.go"
-  "platform/orchestration/actions/hitl_request_human_input.go"
-  "platform/orchestration/actions/html_actions.go"
-  "platform/orchestration/actions/http_request_logger.go"
-  "platform/orchestration/actions/install_site_composition_action.go"
-  "platform/orchestration/actions/link_constraints.go"
-  "platform/orchestration/actions/link_site_components_action.go"
-  "platform/orchestration/actions/llm_call_logger.go"
-  "platform/orchestration/actions/load_component_library_actions.go"
-  "platform/orchestration/actions/load_existing_content_action.go"
-  "platform/orchestration/actions/load_page_record_action.go"
-  "platform/orchestration/actions/load_page_sections_from_spec_action.go"
-  "platform/orchestration/actions/load_site_pages_action.go"
-  "platform/orchestration/actions/load_work_item_actions.go"
-  "platform/orchestration/actions/lock_helpers.go"
-  "platform/orchestration/actions/lock_policy.go"
-  "platform/orchestration/actions/loop_actions.go"
-  "platform/orchestration/actions/maintenance_actions.go"
-  "platform/orchestration/actions/multipage_actions.go"
-  "platform/orchestration/actions/nav_tables.go"
-  "platform/orchestration/actions/page_growth_budget.go"
-  "platform/orchestration/actions/plan_sections_action.go"
-  "platform/orchestration/actions/populate_nav_tables_action.go"
-  "platform/orchestration/actions/prepare_link_context_action.go"
-  "platform/orchestration/actions/query_agent_definitions_actions.go"
-  "platform/orchestration/actions/read_layout_taxonomy_action.go"
-  "platform/orchestration/actions/rebuild_blog_listing_action.go"
-  "platform/orchestration/actions/reconcile_site_plan_action.go"
-  "platform/orchestration/actions/registry.go"
-  "platform/orchestration/actions/render_css_composition_helpers.go"
-  "platform/orchestration/actions/render_css_composition_loader.go"
-  "platform/orchestration/actions/render_css_from_spec_action.go"
-  "platform/orchestration/actions/render_js_snippets_for_site_action.go"
-  "platform/orchestration/actions/render_site_components_action.go"
-  "platform/orchestration/actions/rerender_pages_actions.go"
-  "platform/orchestration/actions/rerender_single_page_action.go"
-  "platform/orchestration/actions/research_actions.go"
-  "platform/orchestration/actions/resolve_composition_helpers.go"
-  "platform/orchestration/actions/resolve_composition_layout_action.go"
-  "platform/orchestration/actions/resolve_composition_pallette_action.go"
-  "platform/orchestration/actions/resolve_composition_typography_action.go"
-  "platform/orchestration/actions/save_component_history_action.go"
-  "platform/orchestration/actions/save_page_sections_action.go"
-  "platform/orchestration/actions/section_editor_actions.go"
-  "platform/orchestration/actions/seed_build_queue_action.go"
-  "platform/orchestration/actions/site_db_actions.go"
-  "platform/orchestration/actions/site_snapshots_actions.go"
-  "platform/orchestration/actions/site_spec_actions.go"
-  "platform/orchestration/actions/spawn_actions.go"
-  "platform/orchestration/actions/spawn_group.go"
-  "platform/orchestration/actions/storage_actions.go"
-  "platform/orchestration/actions/store_generated_component_action.go"
-  "platform/orchestration/actions/sync_site_identity_action.go"
-  "platform/orchestration/actions/transform_actions.go"
-  "platform/orchestration/actions/triage_detect_items_action.go"
-  "platform/orchestration/actions/types.go"
-  "platform/orchestration/actions/update_component_html_action.go"
-  "platform/orchestration/actions/update_site_spec_from_item_action.go"
-  "platform/orchestration/actions/v3_site_actions.go"
-  "platform/orchestration/actions/validate_composition_inputs_action.go"
-  "platform/orchestration/actions/validate_dark_sections.go"
-  "platform/orchestration/actions/validate_page_content.go"
-  "platform/orchestration/actions/web_search_action.go"
-  "platform/orchestration/actions/webscrape_actions.go"
-  "platform/orchestration/actions/work_items_common.go"
-  "platform/orchestration/actions/write_audit_findings_action.go"
-  "platform/orchestration/actions/write_site_plan_action.go"
-)
 
 case "$COMPONENT_NAME" in
   # --- Horizontal Slices ---
@@ -974,25 +798,6 @@ case "$COMPONENT_NAME" in
       "deployments/kustomize/services/agent-chassis/"
       "deployments/terraform/environments/$ENVIRONMENT/$REGION/services/agents/2210-agent-chassis/"
     )
-    ;;
-
-  # --- Action surface, split by live-workflow usage ---
-  # Orchestration core + action files referenced by at least one ACTIVE
-  # workflow (per the action-usage audit). The file list lives in the shared
-  # CURRENT_ACTION_FILES array above so the 'remainder' target can derive from
-  # it without duplication.
-  agent-chassis-actions-current)
-    MODULE_FILES=( "${CURRENT_ACTION_FILES[@]}" )
-    ;;
-
-  # Everything else in the actions tree: the whole
-  # platform/orchestration/actions/ directory MINUS the files already in
-  # CURRENT_ACTION_FILES. Because it's computed by exclusion rather than a
-  # hand-listed set, it stays correct as new action files are added — any new
-  # file lands here automatically until it's promoted into CURRENT_ACTION_FILES.
-  agent-chassis-actions-remainder)
-    MODULE_DIRS=( "platform/orchestration/actions/" )
-    EXCLUDE_FILES=( "${CURRENT_ACTION_FILES[@]}" )
     ;;
 
 # =====================================================================

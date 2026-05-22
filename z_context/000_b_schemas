@@ -30,6 +30,8 @@
 makefile
 registry.go.txt
 
+ls -laR platform/orchestration/actions/
+
 SELECT type, description FROM agent_definitions;
 
 kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > bk_agent_definitions_backup.sql
@@ -44,6 +46,8 @@ kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_u
 /bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh api-all
 /bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh agent-adapters
 /bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh agent-chassis-full
+/bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh agent-chassis-actions-current
+/bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh agent-chassis-actions-remainder
 /bin/bash /home/ant/projects/agentchassis/scripts/utils/package_module.sh agent-chassis-focused
 
 
