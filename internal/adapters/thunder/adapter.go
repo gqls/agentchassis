@@ -577,8 +577,10 @@ func isInfrastructureError(err error) bool {
 // headers as a map[string]string, so is_complete went out as the STRING
 // "true". The chassis unmarshals the reply's `headers` object into a typed
 // struct with `IsComplete bool`, and string→bool fails:
-//   json: cannot unmarshal string into Go struct field
-//   ResponseHeaders.headers.is_complete of type bool
+//
+//	json: cannot unmarshal string into Go struct field
+//	ResponseHeaders.headers.is_complete of type bool
+//
 // On that error the chassis response-routing branch returned early and the
 // reply was dropped BEFORE ClaimAwaitedRequest — the awaited_requests row sat
 // in 'waiting' until timeout, even though the work had fully succeeded.

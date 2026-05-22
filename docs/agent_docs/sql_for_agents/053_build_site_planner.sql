@@ -2705,3 +2705,80 @@ WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true;
 --    -- expect: 80
 
 COMMIT;
+
+---
+-- adoption locks
+
+-- 054_load_existing_pages_adoption_locked.sql
+-- Update build-site-planner.load_existing_pages so each returned page carries
+-- an `adoption_locked` boolean. The validate_site_plan convergence layer
+-- (v3_site_actions.go) force-preserves only pages where adoption_locked = true.
+--
+-- adoption_locked is true when EITHER:
+--   (a) there is NO current plan for the site yet — the first plan after
+--       adoption. (Only adopted sites have pages before their first plan;
+--       from-scratch sites have none until sync_pages runs, so this branch
+--       only marks genuinely-adopted pages.) OR
+--   (b) the current plan has a LIVE adoption preserve-directive for this page
+--       (locked_by='adoption', lock_type='timed', not yet expired).
+--
+-- After the 90-day window, (b) goes false (expiry), (a) no longer applies
+-- (a plan exists), so adoption_locked = false and the site develops normally.
+--
+-- Depends on: 053 (lock_type/lock_expires_at columns) and the write_site_plan
+-- patch (emits + locks the preserve-directives). Until those land, branch (b)
+-- finds no rows and branch (a) still correctly protects the first plan.
+
+BEGIN;
+
+SELECT snapshot_agent('build-site-planner',
+                      'load_existing_pages exposes adoption_locked (054)');
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_existing_pages,config,query}',
+        to_jsonb($Q$
+                     SELECT p.name, p.page_type, p.url, p.title, p.nav_label, p.in_header, p.in_footer,
+                 CASE
+                     WHEN NOT EXISTS (
+                         SELECT 1 FROM site_plans sp
+                         WHERE sp.site_id = p.site_id AND sp.is_current = true
+                     ) THEN true
+                     WHEN EXISTS (
+                         SELECT 1
+                         FROM site_plans sp
+                                  JOIN site_plan_directives d ON d.plan_id = sp.id
+                         WHERE sp.site_id = p.site_id
+                           AND sp.is_current = true
+                           AND d.scope = 'page'
+                           AND d.scope_ref = p.name
+                           AND d.category = 'preserve'
+                           AND d.locked_by = 'adoption'
+                           AND d.lock_type = 'timed'
+                           AND d.lock_expires_at IS NOT NULL
+                           AND d.lock_expires_at > NOW()
+                     ) THEN true
+                     ELSE false
+                     END AS adoption_locked
+FROM pages p
+WHERE p.site_id = $1 AND p.status = 'active'
+ORDER BY p.name
+$Q$::text),
+        true
+                     ),
+    updated_at = NOW()
+WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true;
+
+COMMIT;
+
+-- ---------------------------------------------------------------------------
+-- Verification (after COMMIT)
+-- ---------------------------------------------------------------------------
+-- SELECT default_config->'workflow'->'steps'->'load_existing_pages'->'config'->>'query'
+-- FROM agent_definitions WHERE type = 'build-site-planner' AND is_active = true;
+-- -- confirm the query contains adoption_locked and the two CASE branches.
+--
+-- Functional check after a fresh adoption + first plan run: every adopted page
+-- should come back adoption_locked = true. Re-run after 90+ days (or with a
+-- back-dated lock_expires_at) and they should be false.
