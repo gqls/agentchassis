@@ -1,5 +1,15 @@
 # 002 — System Architecture
 
+> **Consolidation note.** Canonical `002 — System Architecture`. The
+> `002_system_architecture_patch.diff` (area-organised "Active agents" tables +
+> revised "Active workflows" table) is **already fully incorporated** here and
+> must **not** be re-applied — `patch` reports it as "previously applied", and a
+> forced re-apply would duplicate the entire Active-agents expansion. All 100
+> added lines are present and the superseded flat-table rows are correctly gone;
+> unlike the 001 patch, nothing here was corrected after application, so the doc
+> matches the patch target exactly.
+
+
 Complete reference for the agent orchestration system. Covers the design system, all agent families, the unified build/maintenance pipeline, and implementation phases.
 
 ---
