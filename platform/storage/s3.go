@@ -209,3 +209,24 @@ func (c *S3Client) GetPresignedURL(ctx context.Context, key string, expiryMinute
 
 	return request.URL, nil
 }
+
+// GetPresignedPutURL generates a temporary upload (PUT) URL.
+// expiryMinutes matches GetPresignedURL's convention (minutes).
+// Used by the thunder-adapter's prepare_artefact_url action so a training VM
+// can upload its trained adapter to B2 with a time-limited, credential-free URL.
+func (c *S3Client) GetPresignedPutURL(ctx context.Context, key string, expiryMinutes int) (string, error) {
+	presignClient := s3.NewPresignClient(c.client)
+
+	request, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(key),
+	}, func(opts *s3.PresignOptions) {
+		opts.Expires = time.Duration(expiryMinutes) * time.Minute
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create presigned PUT URL: %w", err)
+	}
+
+	return request.URL, nil
+}
