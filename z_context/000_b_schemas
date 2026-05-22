@@ -26,7 +26,8 @@
 \dt business_intel.*
 \d
 
-
+makefile
+registry.go.txt
 
 SELECT type, description FROM agent_definitions;
 

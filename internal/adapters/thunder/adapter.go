@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -295,8 +296,8 @@ func (a *Adapter) sendErrorResponse(
 	replyToTopic string,
 	action string,
 	errCode string, // short code, e.g. "not_implemented", "thunder_api_unreachable"
-	errMsg string, // human-readable detail
-	status string, // "error_recoverable" or "error_unrecoverable"
+	errMsg string,  // human-readable detail
+	status string,  // "error_recoverable" or "error_unrecoverable"
 	l *zap.Logger,
 ) {
 	if replyToTopic == "" {
@@ -305,7 +306,7 @@ func (a *Adapter) sendErrorResponse(
 		return
 	}
 
-	respHeaders := buildResponseHeaders(reqHeaders, status, false, a.cfg.ServiceInfo.Name, a.adapterID)
+	respHeaders := buildResponseHeaders(reqHeaders, status, a.cfg.ServiceInfo.Name, a.adapterID)
 
 	body := map[string]interface{}{
 		"success": false,
@@ -314,7 +315,7 @@ func (a *Adapter) sendErrorResponse(
 		"detail":  errMsg,
 	}
 	envelope := map[string]interface{}{
-		"headers": respHeaders,
+		"headers": respHeaders, // typed struct → is_complete/is_error marshal as JSON bools
 		"body":    body,
 	}
 	envelopeBytes, err := json.Marshal(envelope)
@@ -329,7 +330,7 @@ func (a *Adapter) sendErrorResponse(
 	if err := a.producer.ProduceWithValidation(
 		produceCtx,
 		replyToTopic,
-		respHeaders,
+		respHeaders.toKafkaHeaders(),
 		[]byte(reqHeaders["correlation_id"]), // key
 		envelopeBytes,                        // value
 	); err != nil {
@@ -499,7 +500,7 @@ func (a *Adapter) sendSuccessResponse(
 		return
 	}
 
-	respHeaders := buildResponseHeaders(reqHeaders, "complete", true, a.cfg.ServiceInfo.Name, a.adapterID)
+	respHeaders := buildResponseHeaders(reqHeaders, "complete", a.cfg.ServiceInfo.Name, a.adapterID)
 
 	// Inject action and success flag into the body envelope for callers
 	// that branch on body.success (mirroring sendErrorResponse's shape).
@@ -512,7 +513,7 @@ func (a *Adapter) sendSuccessResponse(
 	}
 
 	envelope := map[string]interface{}{
-		"headers": respHeaders,
+		"headers": respHeaders, // typed struct → is_complete/is_error marshal as JSON bools
 		"body":    envelopeBody,
 	}
 	envelopeBytes, err := json.Marshal(envelope)
@@ -527,7 +528,7 @@ func (a *Adapter) sendSuccessResponse(
 	if err := a.producer.ProduceWithValidation(
 		produceCtx,
 		replyToTopic,
-		respHeaders,
+		respHeaders.toKafkaHeaders(),
 		[]byte(reqHeaders["correlation_id"]),
 		envelopeBytes,
 	); err != nil {
@@ -566,57 +567,108 @@ func isInfrastructureError(err error) bool {
 		errors.Is(err, context.Canceled)
 }
 
-// buildResponseHeaders constructs the response header map per the FOCUS doc
-// adapter spec. Includes the in_response_to_* headers the chassis needs to
-// match this response back to its awaited request.
-func buildResponseHeaders(
-	reqHeaders map[string]string,
-	status string,
-	success bool,
-	senderType string,
-	senderID uuid.UUID,
-) map[string]string {
+// responseHeaders is the TYPED response-header envelope. It mirrors the JSON
+// shape of the chassis-side types.ResponseHeaders that the chassis unmarshals
+// the reply into (platform/types). The fields the chassis treats as booleans
+// — is_complete, is_error — are real Go bools here, so json.Marshal emits them
+// as JSON `true`/`false`, not the string `"true"`.
+//
+// WHY THIS EXISTS (the bug it fixes): the previous implementation built the
+// headers as a map[string]string, so is_complete went out as the STRING
+// "true". The chassis unmarshals the reply's `headers` object into a typed
+// struct with `IsComplete bool`, and string→bool fails:
+//   json: cannot unmarshal string into Go struct field
+//   ResponseHeaders.headers.is_complete of type bool
+// On that error the chassis response-routing branch returned early and the
+// reply was dropped BEFORE ClaimAwaitedRequest — the awaited_requests row sat
+// in 'waiting' until timeout, even though the work had fully succeeded.
+//
+// This is the favoured adapter response pattern (see contracts §"Adapter
+// Response Envelope Contract"): a typed struct marshalled into the body, plus
+// toKafkaHeaders() for the Kafka message-header arg. It matches the git
+// adapter's ResponseHeaders + ToKafkaHeaders() approach.
+type responseHeaders struct {
+	CorrelationID   string `json:"correlation_id"`
+	OrchestrationID string `json:"orchestration_id"`
+
+	// request_id and in_response_to_request_id BOTH carry the ORIGINAL
+	// request's request_id (matching git/webscrape). The chassis routes a
+	// reply to the coordinator's claim path by matching request_id against an
+	// awaited entry; a freshly-generated id would miss.
+	RequestID             string `json:"request_id"`
+	InResponseToRequestID string `json:"in_response_to_request_id"`
+
+	// message_id: the working git adapter always sets one; absence makes the
+	// chassis synthesise it and can mis-route the reply as unsolicited inbound.
+	MessageID string `json:"message_id"`
+
+	ClientID    string `json:"client_id"`
+	MessageType string `json:"message_type"` // always "response"
+	Status      string `json:"status"`       // "complete" | "error_recoverable" | "error_unrecoverable"
+
+	// Real bools — serialise as JSON true/false. This is the fix.
+	IsComplete bool `json:"is_complete"`
+	IsError    bool `json:"is_error"`
+
+	SenderAgentType      string `json:"sender_agent_type"`
+	SenderAgentID        string `json:"sender_agent_id"`
+	InResponseToStepName string `json:"in_response_to_step_name,omitempty"`
+	InResponseToStepID   string `json:"in_response_to_step_id,omitempty"`
+	TimeSent             string `json:"time_sent"`
+}
+
+// toKafkaHeaders renders the typed headers as the map[string]string the Kafka
+// producer takes for the message-header arg. Booleans become canonical
+// "true"/"false" strings here — that's correct for Kafka headers (which are
+// always byte strings); the type-sensitive consumer is the JSON body unmarshal,
+// which reads the typed struct above, not these. Mirrors git's ToKafkaHeaders().
+func (h responseHeaders) toKafkaHeaders() map[string]string {
 	return map[string]string{
-		"correlation_id":   reqHeaders["correlation_id"],
-		"orchestration_id": reqHeaders["orchestration_id"],
-
-		// in_response_to_request_id AND request_id both carry the ORIGINAL
-		// request's request_id. This matches the working git and webscrape
-		// adapters (git: RequestID: requestHeaders.RequestID; webscrape:
-		// headers["request_id"] = requestID). The chassis's response router
-		// keys on request_id matching an awaited entry to send the message to
-		// the coordinator's claim path (HandleResponse → ClaimAwaitedRequest)
-		// instead of the generic process-as-work path (ProcessMessage →
-		// BuildCollectedData). Generating a fresh request_id here (the prior
-		// behaviour) made the lookup miss, so successful responses were
-		// silently treated as new work and the awaited_requests row sat in
-		// 'waiting' until timeout. See contracts §"Adapter Response Envelope".
-		"in_response_to_request_id": reqHeaders["request_id"],
-		"request_id":                reqHeaders["request_id"],
-
-		// message_id: the working git adapter always sets one. Without it the
-		// chassis synthesises a message_id, which contributes to the response
-		// being treated as an unsolicited inbound rather than a reply.
-		"message_id": uuid.New().String(),
-
-		"client_id":                reqHeaders["client_id"],
-		"message_type":             "response",
-		"status":                   status,
-		"is_complete":              "true",
-		"is_error":                 boolStr(!success),
-		"sender_agent_type":        senderType,
-		"sender_agent_id":          senderID.String(),
-		"in_response_to_step_name": reqHeaders["step_name"],
-		"in_response_to_step_id":   reqHeaders["step_id"],
-		"time_sent":                time.Now().UTC().Format(time.RFC3339),
+		"correlation_id":            h.CorrelationID,
+		"orchestration_id":          h.OrchestrationID,
+		"request_id":                h.RequestID,
+		"in_response_to_request_id": h.InResponseToRequestID,
+		"message_id":                h.MessageID,
+		"client_id":                 h.ClientID,
+		"message_type":              h.MessageType,
+		"status":                    h.Status,
+		"is_complete":               strconv.FormatBool(h.IsComplete),
+		"is_error":                  strconv.FormatBool(h.IsError),
+		"sender_agent_type":         h.SenderAgentType,
+		"sender_agent_id":           h.SenderAgentID,
+		"in_response_to_step_name":  h.InResponseToStepName,
+		"in_response_to_step_id":    h.InResponseToStepID,
+		"time_sent":                 h.TimeSent,
 	}
 }
 
-func boolStr(b bool) string {
-	if b {
-		return "true"
+// buildResponseHeaders constructs the typed response headers. status drives the
+// IsComplete/IsError flags: a "complete" status is a successful completion;
+// any error_* status sets IsError.
+func buildResponseHeaders(
+	reqHeaders map[string]string,
+	status string,
+	senderType string,
+	senderID uuid.UUID,
+) responseHeaders {
+	isError := status != "complete"
+	return responseHeaders{
+		CorrelationID:         reqHeaders["correlation_id"],
+		OrchestrationID:       reqHeaders["orchestration_id"],
+		RequestID:             reqHeaders["request_id"],
+		InResponseToRequestID: reqHeaders["request_id"],
+		MessageID:             uuid.New().String(),
+		ClientID:              reqHeaders["client_id"],
+		MessageType:           "response",
+		Status:                status,
+		IsComplete:            true, // the reply always completes the awaited request
+		IsError:               isError,
+		SenderAgentType:       senderType,
+		SenderAgentID:         senderID.String(),
+		InResponseToStepName:  reqHeaders["step_name"],
+		InResponseToStepID:    reqHeaders["step_id"],
+		TimeSent:              time.Now().UTC().Format(time.RFC3339),
 	}
-	return "false"
 }
 
 // commit acknowledges a message; logs but doesn't error if the commit fails.
