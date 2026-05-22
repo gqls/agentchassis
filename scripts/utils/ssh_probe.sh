@@ -22,9 +22,9 @@ ID=$(echo "${CREATE}" | python3 -c 'import sys,json;print(json.load(sys.stdin)["
 echo "    identifier=${ID}"
 
 cleanup() {
-  echo "==> Deleting instance ${ID}"
-  curl -s "${AUTH[@]}" -X POST "${BASE}/instances/${ID}/delete" >/dev/null && echo "    deleted"
-  rm -rf "${WORK}"
+  echo "==> not Deleting instance ${ID}"
+  #curl -s "${AUTH[@]}" -X POST "${BASE}/instances/${ID}/delete" >/dev/null && echo "    deleted"
+  #rm -rf "${WORK}"
 }
 trap cleanup EXIT
 

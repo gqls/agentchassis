@@ -1,17 +1,5 @@
 # 001 — Development Guide
 
-> **Consolidation note.** This is the canonical `001_development_guide`. It
-> supersedes the prior copy (which still had the older "Field Name Collisions"
-> wording — the nested-source collision affects **required and optional** fields,
-> corrected here). The `001_development_guide_patch.diff` (wrapper-orchestrator +
-> topics sections) is **already incorporated** and must **not** be re-applied:
-> doing so would duplicate those sections AND reintroduce the patch's
-> `med-export-orchestrator` example, whose `"input_mapping": {"input_data":
-> "input_data"}` is the whole-blob anti-pattern. The example here has been
-> deliberately corrected to map fields individually with `?`-optional keys; see
-> "Map fields individually, not the whole `input_data` blob" below.
-
-
 Practical daily reference for building, debugging, and maintaining agents. Read this before writing any new code.
 
 Consolidated from: 001i_v9, 004_unblocking_items, 005_extended_thinking, 001_config_driven, 014_loop_mechanisms, 016_workflow_data_path_validation, 031_guidelines_model_update, 037_unresolved.
@@ -549,7 +537,7 @@ func init() {
 }
 ```
 
-**Warning:** Check field names — both required and optional — against the "Field Name Collisions" section below. Names like `content_data`, `status`, `domain`, `site_id` can be found via nested lookup in `site_record.*` or `input_data.*` even if the caller never explicitly mapped them.
+**Warning:** Check optional field names against the "Field Name Collisions" section below. Names like `content_data`, `status`, `domain` will be found via nested lookup in `site_record.*` even if the caller never sent them.
 
 ### 4. Use ExtractActionInputs in action
 
@@ -638,7 +626,7 @@ Use the `?` suffix when a destination field may not exist in the source:
 
 ### Field name collisions
 
-`ExtractActionInputs` (in `platform/orchestration/datahelpers/action_inputs.go`) runs a nested-source loop late in its resolution chain that checks these parent objects for any field name still unresolved:
+`ExtractActionInputs` has a backward-compat nested lookup that checks these parent objects:
 
 ```go
 nestedSources := []struct{ parent, child string }{
@@ -649,33 +637,19 @@ nestedSources := []struct{ parent, child string }{
 }
 ```
 
-**This loop iterates the full field list — both Required and Optional.** It does not distinguish between them. The resolution chain in full is:
+**Any optional field name in your ActionInputSpec will also match `site_record.<your_field>`, `input_data.<your_field>`, etc.** If those parent objects contain a key with the same name, ExtractActionInputs silently picks it up.
 
-1. **Strategy 0** — explicit dot-paths from workflow config (e.g. `"site_id": "site_record.site_id"` in `input_mapping`).
-2. **Strategy 1/2** — `ExtractFields` for top-level keys in CollectedData (e.g. `input_data.site_id` lifted to top level).
-3. **Strategy 3** — deprecated `*_field` config keys.
-4. **Nested-source loop** — fires only for fields still unresolved.
-5. **Strategy 4** — config-value-as-name fallback.
-
-A field reaches the nested-source loop only when none of strategies 0–3 found it. In the typical cascade flow, a required field is resolved by Strategy 0 (explicit caller mapping) or 1/2 (top-level value in `input_data`) before the loop runs, so the latent collision rarely fires for required fields. But "rarely" is not "never", and when it does fire the failure is silent — the action gets a value from the wrong source and proceeds.
-
-**The collision risk applies to any field name that matches a key in one of those four nested objects, regardless of Required/Optional.**
-
-**Real example (optional field):** The section-editor's spec had `content_data` as optional. `ensure_site_record` puts the site plan into `collected_data["site_record"]["content_data"]`. ExtractActionInputs found `site_record.content_data` via the nested loop and treated it as the caller's replacement data — overwriting the hero section with the site plan.
-
-**Latent risk (required field):** Many actions declare `site_id` as required. In the normal cascade flow this resolves via Strategy 0 or 1/2 and is safe. But an action invoked outside the cascade — directly, in a test, from a future caller that didn't explicitly map `site_id` — will silently pick up `site_record.site_id` if `site_record` is in scope. The value is *usually* correct (same site), but the failure mode when it isn't (cross-site context, stale `site_record`) is hard to debug.
+**Real example:** The section-editor's spec had `content_data` as optional. `ensure_site_record` puts the site plan into `collected_data["site_record"]["content_data"]`. ExtractActionInputs found `site_record.content_data` via nested lookup and treated it as the caller's replacement data — overwriting the hero section with the site plan.
 
 **Rules:**
 
-1. **For new code: avoid field names that match the nested sources.** The nested objects are `current_page`, `rerender_pages`, `site_record`, `input_data` — any column or key on these is a potential collision. Common collisions to watch for: `site_id`, `domain`, `content_data`, `status`, `name`, `title`, `description`, `config`, `metadata`, `page_id`. Prefer specific names: `target_site_id`, `replacement_content_data`, `item_domain`.
+1. Never name an optional field the same as a common column/key in `sites`, `pages`, or `site_record`. Watch out for: `content_data`, `status`, `domain`, `name`, `title`, `description`, `config`, `metadata`.
 
-2. **For existing code: leave it alone unless it bites.** Many existing actions declare `site_id` as required and ship in production. Renaming them all would be a large change for a latent risk that almost always resolves correctly via earlier strategies. Fix individual call sites if and when they actually fail.
+2. If your field could collide, prefix it: `replacement_content_data` not `content_data`, `item_domain` not `domain`.
 
-3. **If your field could collide, prefix it:** `replacement_content_data` not `content_data`, `item_domain` not `domain`, `target_site_id` not `site_id`.
+3. Check collected_data at runtime — if `ensure_site_record` runs before your action, `site_record.*` is in scope.
 
-4. **Check collected_data at runtime** — if `ensure_site_record` runs before your action, `site_record.*` is in scope.
-
-5. **When in doubt**, use explicit `input_fields` in your step config and verify the extraction path by checking logs.
+4. When in doubt, use explicit `input_fields` in your step config and verify the extraction path by checking logs.
 
 ### Config value patterns
 

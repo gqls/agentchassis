@@ -39,6 +39,7 @@ import (
 	"github.com/gqls/agentchassis/internal/adapters/thunder/ssh"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/kafka"
+	"github.com/gqls/agentchassis/platform/storage"
 )
 
 // Adapter is the long-running thunder-adapter service.
@@ -59,6 +60,11 @@ type Adapter struct {
 	secretMgr          *ssh.SecretManager
 	provisionAction    *ProvisionAction
 	decommissionAction *DecommissionAction
+
+	// Phase 4 dependency — presigned-URL actions (B2 dataset/artefact).
+	// nil if object storage isn't configured (TRAINING_BUCKET unset); the
+	// prepare_*_url actions then return a clear error rather than panicking.
+	dataURLAction *DataURLAction
 
 	healthServer *http.Server
 	shutdownOnce sync.Once
@@ -178,6 +184,32 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	provisionAction := NewProvisionAction(thunderAPIClient, secretMgr, db, logger)
 	decommissionAction := NewDecommissionAction(thunderAPIClient, secretMgr, db, logger)
 
+	// ── 7b. Phase 4: object-storage client for presigned dataset/artefact URLs ──
+	// Optional — mirrors the agent.go pattern: build only if a training bucket
+	// is configured; don't fail startup if it isn't (provision/decommission
+	// still work; only prepare_*_url need it). The training dataset/artefact
+	// bucket is separate from the image bucket.
+	var dataURLAction *DataURLAction
+	trainingBucket := os.Getenv("TRAINING_BUCKET")
+	if trainingBucket == "" {
+		trainingBucket = "personae-model-training" // matches training-data-preparer
+	}
+	storageCfg := config.ObjectStorageConfig{
+		Endpoint:        os.Getenv("S3_ENDPOINT"),
+		Bucket:          trainingBucket,
+		AccessKeyEnvVar: "B2_APPLICATION_KEY_ID",
+		SecretKeyEnvVar: "B2_APPLICATION_KEY",
+	}
+	if s3Client, sErr := storage.NewS3Client(adapterCtx, storageCfg, *logger); sErr != nil {
+		logger.Warn("Object storage client not initialised — prepare_dataset_url/prepare_artefact_url will be unavailable",
+			zap.Error(sErr))
+	} else {
+		dataURLAction = NewDataURLAction(s3Client, logger)
+		logger.Info("Object storage client initialised for presigned URLs",
+			zap.String("training_bucket", trainingBucket),
+			zap.String("endpoint", storageCfg.Endpoint))
+	}
+
 	a := &Adapter{
 		ctx:                adapterCtx,
 		cancel:             cancel,
@@ -192,6 +224,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		secretMgr:          secretMgr,
 		provisionAction:    provisionAction,
 		decommissionAction: decommissionAction,
+		dataURLAction:      dataURLAction,
 	}
 
 	logger.Info("Thunder adapter initialized",
@@ -278,6 +311,10 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		a.handleProvisionInstance(body, headers, replyToTopic, l)
 	case "decommission_instance":
 		a.handleDecommissionInstance(body, headers, replyToTopic, l)
+	case "prepare_dataset_url":
+		a.handlePrepareDatasetURL(body, headers, replyToTopic, l)
+	case "prepare_artefact_url":
+		a.handlePrepareArtefactURL(body, headers, replyToTopic, l)
 	default:
 		a.sendErrorResponse(headers, replyToTopic, action,
 			"not_implemented",
