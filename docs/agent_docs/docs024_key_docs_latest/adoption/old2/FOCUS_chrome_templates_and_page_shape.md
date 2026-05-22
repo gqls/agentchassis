@@ -105,10 +105,6 @@ Once Fix 1 lands and chrome templates use `{{.quick_links_html}}` rather than `{
 
 ## Fix 2 — Adoption and planner must produce the same page shape
 
-> Related: the adoption-side framing of this divergence (Variant C clone intent,
-> the ranked fidelity problems) lives in `FOCUS_adoption_fidelity_and_variants.md`.
-> This section is the chrome/page-table mechanism; that doc is the adoption goal.
-
 ### What's happening today
 
 Two snapshots from gamesdesign's pages table:
@@ -231,7 +227,7 @@ Both come AFTER the directory-builder work (focus doc `FOCUS_directory_builder_a
 ## See also
 
 - `FOCUS_directory_builder_and_list_components.md` — the directory-builder agent (A/B priority, blocks this work)
-- Phase 1 deployment state + the visible site-quality issues (dead BEM, nav dup, fabricated lists) are recorded in the directory-builder doc's Phase-1 history section and in `FOCUS_adoption_fidelity_and_variants.md`
+- `HANDOFF_2026-05-06_phase1_deployed_section_data_handler_pending.md` — Phase 1 state including section 8 (visible site quality issues)
 - `003_contracts_and_standards_v7.md` line 191 — the explicit "use template variables, NOT hardcoded links" rule
 - Doc 002 — page_canonical Phase 1 work
 - `apply_adoption_plan_action.go` lines 52169-52176 — where adoption's URL divergence originates

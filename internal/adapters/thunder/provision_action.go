@@ -78,7 +78,25 @@ type ProvisionInstanceRequest struct {
 	DiskSizeGB int    `json:"disk_size_gb,omitempty"` // default 100
 	Mode       string `json:"mode,omitempty"`         // "prototyping" or "production"
 	Template   string `json:"template,omitempty"`     // optional Thunder image
+
+	// MaxUptimeHours optionally overrides the reaper's kill deadline for this
+	// instance. 0 = derive automatically: a bare provision (no TrainingRunID)
+	// gets a short BareProvisionMaxUptimeHours guard so a forgotten test
+	// instance is reaped quickly; an attached provision (TrainingRunID set)
+	// gets the config default (cfg.DefaultHardUptimeHours, e.g. 18h). The
+	// reaper enforces whatever value lands in thunder_instances.max_uptime_hours.
+	MaxUptimeHours int `json:"max_uptime_hours,omitempty"`
 }
+
+// BareProvisionMaxUptimeHours is the reaper kill-deadline applied to a
+// provision with no TrainingRunID — i.e. a test/probe instance with no
+// training workload that would otherwise run to the full 18h default and
+// waste ~$14 of A100 time if forgotten. The reaper (scheduled_tasks
+// 'thunder-reaper') decommissions any 'running' row past
+// running_since + max_uptime_hours, so a low value here is a hard,
+// already-deployed backstop — no new mechanism. 2h leaves ample room for
+// a manual SSH probe / smoke test while capping waste at ~$1.60.
+const BareProvisionMaxUptimeHours = 2
 
 // ProvisionInstanceResult is the action's return shape. Field names match
 // what model-trainer's call_launcher input_mapping reads from
@@ -281,6 +299,21 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 	provisionedAt := time.Now().UTC()
 
 	// ── 7. INSERT thunder_instances row (with retry on transient pg errors) ──
+	// Reaper kill-deadline: explicit override > short bare-provision guard
+	// (no training attached) > config default (attached training run).
+	maxUptimeHours := cfg.DefaultHardUptimeHours
+	if req.TrainingRunID == "" {
+		maxUptimeHours = BareProvisionMaxUptimeHours
+	}
+	if req.MaxUptimeHours > 0 {
+		maxUptimeHours = req.MaxUptimeHours
+	}
+	p.logger.Info("Reaper deadline set for instance",
+		zap.Int("max_uptime_hours", maxUptimeHours),
+		zap.Bool("attached_to_training", req.TrainingRunID != ""),
+		zap.String("db_row_id", dbRowID.String()),
+	)
+
 	if err := p.insertWithRetry(ctx, insertRow{
 		ID:                dbRowID,
 		ThunderIdentifier: createResp.Identifier,
@@ -288,7 +321,7 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 		InstanceIP:        inst.IP,
 		SSHUser:           "ubuntu", // matches schema default
 		SSHKeySecretName:  secretName,
-		MaxUptimeHours:    cfg.DefaultHardUptimeHours,
+		MaxUptimeHours:    maxUptimeHours,
 		TrainingRunID:     nullableUUID(req.TrainingRunID),
 		RequestedBy:       req.RequestedBy,
 		HourlyRateUSD:     cfg.DefaultHourlyRateUSD,

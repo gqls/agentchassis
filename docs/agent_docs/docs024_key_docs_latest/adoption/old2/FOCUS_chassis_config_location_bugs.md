@@ -338,6 +338,8 @@ A future migration could move all 62 step-level `error_step` settings into confi
 
 **2026-05-18 (second revision):**
 
+**2026-05-18 (second revision):**
+
 - **Removed**: "step-level config is never read" claim
 - **Added**: shadowing mechanism — top-level ai_service blocks step fallback even when fields are missing
 - **Corrected**: 4-row table showing exactly where each location is read from

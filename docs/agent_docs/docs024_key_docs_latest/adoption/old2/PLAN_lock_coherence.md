@@ -1,36 +1,8 @@
 # PLAN — Lock-Model Coherence
 
 Date: 2026-05-19
-Status: **PLAN ONLY — NOTHING IN THIS PLAN HAS BEEN APPLIED.** Detailed and
-ready, held deliberately. The policy function (`lock_policy.go`) and its test
-were drafted as Step 1 artifacts but are **not deployed**; 053 (lock columns) is
-written but **not applied**; the `check_component_lock.go` switch, the filter
-sweep, and the Pattern B retirement are **not started**. Adoption-faithfulness
-is being taken on its minimal lock-free route first (see
-`FOCUS_adoption_faithfulness_via_locks.md` / the FIRST-PLAN-ONLY 054); this
-coherence work is resumed only once that is bedded in.
-
+Status: planned; step 1 (policy function) started in this session.
 Reference model: `031_locks.md` "Tech debt: lock-model coherence (target model)".
-
-### Pinning verification result (2026-05-19)
-`site_specs.pinned` (Pattern B) is **functionally dead in code**: one unrelated
-`pinned` reference (image tags), no `ON CONFLICT` on `site_specs` (all writes are
-supersede-then-insert), no trigger/function referencing it. Doc 031's
-`pinned`-guarded upsert was never implemented. Whether the COLUMN physically
-exists is the only open question — verify with `\d site_specs` +
-`SELECT tgname FROM pg_trigger WHERE tgrelid='site_specs'::regclass`. This makes
-Step 5 (retire Pattern B) low-risk: the chassis side is almost certainly a
-doc correction plus an optional column drop, not a migration of consumers.
-
-**Correction (reader surface is NOT empty).** The core-manager API *does*
-expose pin/unpin over HTTP — `server.go` routes
-`POST /sites/:site_id/specs/:aspect/pin` and `.../unpin` to
-`specAdminHandlers.HandlePinSpec` / `HandleUnpinSpec` (Phase 4 "Spec Direction
-Control"). So the earlier "reader-free" framing is wrong: before dropping
-`pinned`, check what those handlers read/write. If they set `site_specs.pinned`,
-step 5 must either repoint them at a Pattern A check on `site_specs`
-(`locked_at`/`locked_by`/`lock_type`) or retire the endpoints alongside the
-column. The chassis has no `pinned` readers; the admin API does.
 
 ## Goal
 
@@ -118,29 +90,6 @@ If `pinned` is absent or unenforced, Pattern B retirement is a doc correction
 (+ optional column drop), not a reader migration. If something does enforce it
 (a trigger, or a reader outside the chassis context dump), scope expands.
 
-### Site snapshots — a third durability concept (orthogonal, but interacts)
-"Reverting a whole site to known history" is a real, live capability — the
-site-snapshot system (`take_site_snapshot` / `revert_site_to_snapshot` /
-`list_site_snapshots`, `site_snapshots` JSONB table, triggers
-deploy/manual/pre_edit/scheduled). It is NOT `pinned` and NOT a lock; it captures
-and restores whole-site state. Locks prevent the next write; snapshots undo past
-writes — orthogonal.
-
-It interacts with locks in one unresolved way that a "coherent" model must pin
-down: revert is documented as a **wholesale replace** of `page_components` etc.
-Two things are unverified (the logic is in SQL functions not in the Go source):
-1. Does `take_site_snapshot` capture the lock columns (`locked_at`/`locked_by`/
-   future `lock_type`/`lock_expires_at`), or content only?
-2. Does `revert_site_to_snapshot` preserve a human-locked row, or clobber it?
-
-If revert ignores locks, a restore can silently wipe a human-locked edit.
-Resolve with `\sf take_site_snapshot` / `\sf revert_site_to_snapshot`, then make
-the behaviour explicit (preserve post-snapshot locks, or document revert as a
-deliberate human-initiated override — it already takes a `pre_revert` safety
-snapshot, so a clobber is itself undoable). This is documented in `031_locks.md`
-("Locks vs snapshots") and is part of the coherence end-state, not the adoption
-critical path.
-
 ## Steps (ordered, with risk)
 
 ### Step 1 — policy function (LOW risk, additive) — STARTED
@@ -179,19 +128,10 @@ Verify `site_specs.pinned` enforcement first (query above). Then:
   `site_specs` (add `locked_at`/`locked_by`/`lock_type`), then drop `pinned`.
 Either way the end state is one storage pattern.
 
-### Step 6 — resolve the snapshot × lock interaction (INVESTIGATION first)
-Read `\sf take_site_snapshot` and `\sf revert_site_to_snapshot`. Determine
-whether capture includes lock columns and whether revert preserves human locks.
-Then make it explicit: either revert preserves rows whose lock post-dates the
-snapshot, or revert is documented as a deliberate human-initiated override
-(safe because it takes a `pre_revert` snapshot). Update `031_locks.md`
-accordingly. Independent of the other steps; do whenever convenient.
-
-### Step 7 — final doc pass
+### Step 6 — final doc pass
 Update `031_locks.md`: remove Pattern B, fold hard/soft into `lock_type`,
-collapse the two-pattern "Where locks live" table to one, and confirm the
-"Locks vs snapshots" section reflects the resolved revert behaviour. The
-tech-debt section becomes the implemented model.
+collapse the two-pattern "Where locks live" table to one. The tech-debt section
+becomes the implemented model.
 
 ## Sequencing and dependencies
 
