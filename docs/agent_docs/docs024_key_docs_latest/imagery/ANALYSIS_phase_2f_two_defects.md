@@ -13,120 +13,210 @@ deep review session.
 
 ---
 
-## Defect 1: Chassis appears to cache stale agent definitions across migrations
+## Defect 1: Chassis ships pre-migration workflow definition despite correct DB state
 
 ### What was observed
 
 The Phase 2F migration applied successfully at 16:09 UTC on 2026-05-10. The
-active row of `agent_definitions` for `asset-deployer` was updated to:
+active row of `agent_definitions` for `asset-deployer` was updated:
 
 ```json
 "input_fields": ["s3_uri", "deploy_path", "purpose", "domain", "asset_key"]
 "input_contract.optional": ["deploy_path", "purpose", "asset_key"]
 ```
 
-(Confirmed by direct SELECT.)
+(Confirmed by direct SELECT against the active row — `is_snapshot=false, is_active=true`.)
 
-A test trigger 20 hours later (2026-05-11 12:20 UTC) spawned an asset-deployer
-Job pod. The spawn message embedded an `agent_config` block carrying the
-asset-deployer's workflow definition. That embedded workflow contained the
-**pre-migration** `input_fields`:
+Two test runs followed: one against a chassis pod that pre-dated the migration,
+one against a chassis pod that started **after** the migration was applied (post
+`rollout restart`). Both runs produced spawn messages with the **pre-migration**
+workflow embedded in `agent_config`:
 
 ```json
-"input_fields": ["s3_uri", "deploy_path", "purpose", "domain"]
+"workflow": {
+  "steps": {
+    "deploy_asset": {
+      "config": { "input_fields": ["s3_uri", "deploy_path", "purpose", "domain"] }
+    }
+  }
+}
 ```
 
-The extractor in the spawned pod then logged:
+The extractor in each spawned pod requested only those four fields, ignoring
+the `asset_key` present in `input_data`, and the deploy went to the canonical
+`assets/images/hero.jpg` instead of the variant-keyed path.
 
+The chassis restart (which would have cleared any in-memory cache) **did not
+change the behaviour**. So the original "stale in-memory cache" hypothesis is
+refuted. The chassis is reading something stale from a source that survives
+a process restart — i.e. from the database itself, just not the row we'd
+expect it to read.
+
+### Revised hypothesis: snapshot row is shadowing the active row
+
+The `snapshot_agent()` function in `021_model_swap_and_rollback.sql` inserts
+snapshots with `version + 1000` to avoid unique constraint conflicts:
+
+```sql
+INSERT INTO agent_definitions ( ..., version, is_snapshot, is_active, ... )
+SELECT  ..., version + 1000, true, false, ...
 ```
-"requested_fields": ["s3_uri", "deploy_path", "purpose", "domain"]
-"available_keys":   ["domain", "s3_uri", "purpose", "asset_key"]
+
+So after the migration we have:
+
+| id                                      | version | is_snapshot | is_active | input_fields                               |
+|-----------------------------------------|---------|-------------|-----------|--------------------------------------------|
+| `e9a9bac9-…` (active, migrated)         | 1       | false       | true      | `[..., asset_key]`                          |
+| `10a8978f-…` (snapshot, pre-migration)  | 1001    | true        | false     | pre-migration                              |
+
+If the chassis loads agent definitions with a query like:
+
+```sql
+SELECT default_config FROM agent_definitions
+WHERE type = 'asset-deployer' AND deleted_at IS NULL
+ORDER BY version DESC
+LIMIT 1;
 ```
 
-`asset_key` was present in `input_data` (delivered by the parent's input_mapping
-in the inline wrapper) but the spawned action didn't extract it, because the
-embedded workflow didn't ask for it. Result: the deploy ran with no `asset_key`,
-the action fell through to its purpose-derived default path
-(`assets/images/hero.jpg`), and the variant-keyed path
-(`assets/images/hero-about.jpg`) was not produced.
+— without filtering `is_snapshot = false` — then **version 1001 (snapshot)
+sorts above version 1 (active)** and the chassis reads the snapshot's
+workflow. This is exactly the pattern observed: the spawn message ships
+pre-migration `input_fields`, but the active DB row has post-migration values.
 
-### Where the stale workflow came from
+### Why this is structural, not transient
 
-The spawning chassis pod assembled the spawn message. The workflow embedded in
-that message was the pre-migration version. The pod was older than the
-migration's commit time (chassis Deployment had not been restarted since
-before 2026-05-10 16:09). Most likely explanation: the chassis caches agent
-definitions in memory at startup or first lookup, and that cache is not
-invalidated by `agent_definitions` UPDATEs.
+If this hypothesis is correct, the issue isn't with caching. It's with the
+snapshot mechanism in `021_model_swap_and_rollback.sql` creating rows that
+sort ahead of active rows in version-descending queries. Any code path that
+picks "the most recent" definition by version without excluding snapshots
+will pick the snapshot.
 
-This is an inference, not yet traced to the cache itself. A direct read of
-the agent-definition load path (likely something like `LoadAgentDefinition`
-in the chassis startup or per-spawn lookup) would confirm whether it queries
-the DB on every spawn or caches.
+This makes the snapshot/rollback feature a structural trap: every snapshot
+shadows the active definition until either the loader is fixed or the
+snapshot is deleted.
 
-### Important nuance: this is not "override is broken"
+### Diagnostic SQL to confirm
 
-The chassis intentionally supports override: a caller can include
-`config.workflow` (or `agent_config`) in the trigger to override the DB
-definition. That's correct, expected behaviour — used for testing,
-one-off variants, and gradual rollout. The defect is **not** that override
-exists. The defect is that **when nothing in the trigger specifies a workflow
-for the spawned child, the chassis appears to fall back to a cached copy
-rather than re-reading the DB**.
+To definitively confirm the hypothesis, run this query — it mimics a
+naive "most recent" lookup:
 
-The test trigger that surfaced this had an inline wrapper workflow at the
-top level (`config.workflow`), but did NOT specify an override workflow for
-the asset-deployer child. The child's workflow should therefore have come
-from the DB's current row. It didn't.
+```sql
+SELECT id, version, is_snapshot, is_active,
+       default_config->'workflow'->'steps'->'deploy_asset'
+         ->'config'->'input_fields' AS input_fields
+FROM agent_definitions
+WHERE type = 'asset-deployer' AND deleted_at IS NULL
+ORDER BY version DESC
+LIMIT 1;
+```
 
-### Workaround applied today
+**If this returns the snapshot row's input_fields (the pre-migration list),
+the snapshot-shadowing hypothesis is confirmed.** The active row is correct;
+the chassis just isn't reading it.
 
-Rolling restart of the chassis Deployment will pick up the current
-agent_definitions row on next startup:
+The next confirmation step is to find the actual loader query in the chassis
+code:
 
 ```bash
-kubectl -n ai-persona-system rollout restart deployment agent-chassis
-kubectl -n ai-persona-system rollout status deployment agent-chassis
+grep -rn "FROM agent_definitions" --include="*.go" .
+grep -rn "default_config" --include="*.go" .
 ```
 
-This is a workaround, not a fix. It implies every agent-definition change
-needs a chassis restart to take effect, which isn't documented anywhere and
-isn't enforced by tooling.
+Look for the WHERE clause. If it lacks `is_snapshot = false` (or equivalent),
+the hypothesis stands.
 
-### Questions for the deep discussion
+### Possible fixes
 
-1. **Where is the cache?** Trace the code path from spawn_agent → DB lookup
-   → embedded workflow assembly. Is it `LoadAgentDefinition`? Is there an
-   in-memory map keyed on agent_type?
+1. **Add `is_snapshot = false` to the chassis loader's WHERE clause.**
+   Structural fix. Doesn't change the snapshot mechanism. Doesn't affect
+   anyone else's queries (each loader manages its own filter).
 
-2. **What's the intended cache invalidation model?** Options:
-   - Reload on every spawn (cheap, but does N DB queries per orchestration
-     instead of 1; arguably the right default since spawns are sparse).
-   - TTL-based cache (e.g. 60s). Cheap most of the time; bounds staleness.
-   - Pub/sub invalidation via a kafka topic when agent_definitions changes.
-   - Manual flush via API or signal. Worst option for routine ops.
+2. **Change the snapshot mechanism to not use `version + 1000`.** For
+   example: store snapshots in a separate `agent_definitions_snapshots`
+   table; or use the same `version` but rely on `is_snapshot` flag and
+   never let snapshots sort ahead in a version-ordered query.
+   Higher-impact — touches `021_model_swap_and_rollback.sql` and possibly
+   restore/rollback logic.
 
-3. **Does this affect other config sources?** If agent definitions are
-   cached, are `style_collections`, `content_components`, `site_specs`
-   also cached and similarly stale? Worth checking before deciding on a
-   cache model — a unified approach would be better than per-table fixes.
+3. **Delete the offending snapshot (workaround).** Removes the shadowing
+   row but loses the rollback path. Fast, reversible only by re-running
+   `snapshot_agent()`. Not a real fix.
 
-4. **Is there a "reload-on-version-bump" pattern available?**
-   `agent_definitions` has a `version` column. The chassis could be told to
-   reload by an external trigger that bumps version. Less convenient than
-   automatic invalidation but explicit.
+The structural fix is #1 if the hypothesis is right. The work is a
+single-line SQL change in one Go function.
+
+### What this is not
+
+This is NOT a "workflow override is broken" issue. The chassis intentionally
+supports override: a caller can include `config.workflow` (or `agent_config`)
+in the trigger to override DB defaults. That's correct, expected behaviour —
+used for testing, one-off variants, gradual rollout. None of that is
+affected by this defect. The defect is only about which DB row the chassis
+reads when nothing in the trigger specifies an override.
+
+### Workaround that DOES NOT work
+
+Restarting the chassis Deployment was tried and made no difference. The
+pod that ran the second test was 2 minutes old at trigger time, started
+20+ hours after the migration committed. It still shipped the
+pre-migration workflow. So in-memory cache was not the problem and
+"rollout restart" is not the workaround.
+
+### Workaround that WOULD work (untested)
+
+If the snapshot-shadowing hypothesis is correct, deleting the snapshot
+row should restore correct behaviour:
+
+```sql
+-- TEST WORKAROUND — do not apply structurally
+DELETE FROM agent_definitions
+WHERE id = '10a8978f-07e5-4a7e-8a32-a53aaa8c55c7';  -- the snapshot
+```
+
+Then re-trigger the test. If `assets/images/hero-about.jpg` lands, the
+hypothesis is confirmed. If `hero.jpg` is overwritten again, the
+hypothesis is wrong and we need to look elsewhere.
+
+This costs the rollback path for asset-deployer (no snapshot to revert
+to), so it's a one-time test workaround, not an operational fix.
 
 ### Severity assessment
 
-Medium. Not a data-loss bug, but it silently produces wrong behaviour:
-migrations applied to `agent_definitions` don't take effect until a chassis
-restart, with no signal that anything is wrong. Anyone applying an agent-
-definition change without knowing this will wonder why their change isn't
-working. We just spent a debug cycle on exactly that.
+High. Every snapshot taken via `snapshot_agent()` since the system
+launched may be shadowing its corresponding active row in any
+agent-definition lookup. We've only noticed because Phase 2F is the
+first work to actually depend on a value that differs between the
+active and snapshot rows. There may be other latent cases where a
+recent change is silently using stale config because a snapshot is
+shadowing it.
 
-The fix needs the cache located and invalidation designed. The workaround
-(restart after agent-definition changes) is sufficient operationally as
-long as it's documented and routine.
+The fix is small but consequential. Worth a careful review before
+applying because it changes the semantics of the loader query.
+
+### Questions for the deep discussion
+
+1. **Confirm the hypothesis with the diagnostic SQL above.** Five
+   minutes; highest information yield of any next step.
+
+2. **Find every agent-definition loader.** `grep -rn "agent_definitions"`
+   across the Go source. Each one needs its WHERE clause audited for
+   `is_snapshot` handling.
+
+3. **Audit other tables with the same snapshot pattern.** Does
+   `021_model_swap_and_rollback.sql` define snapshot functions for other
+   tables? If so, the same shadowing risk applies to them.
+
+4. **Decide on the canonical filter.** Should it be `is_snapshot = false`,
+   `is_active = true`, or both? Subtle: a definition could exist that's
+   neither active nor snapshot (e.g. mid-deploy). Need a clear rule.
+
+5. **Add a regression test.** A SELECT against agent_definitions that's
+   expected to return the active row, run as part of CI or migration
+   verification, would catch this immediately. The migration's
+   verification queries currently filter by `is_active=true` explicitly,
+   so the migration "looks correct" even though the chassis behaves
+   incorrectly. The gap is between the verification query and the
+   chassis's actual query.
 
 ---
 
@@ -168,23 +258,56 @@ Deleting log /var/lib/kafka/data/kafka-log2/
 The suffix `-0` is the partition number. Only `-0` was logged — no `-1`,
 `-2`, etc. existed.
 
-### Why this matters
+### Update from 2026-05-11 13:27 run (second test)
 
-The asset-deployer entered AWAITING_RESPONSES at 12:20:28 expecting a reply
-from the git adapter on this topic. The reply was never delivered. After
-~3 minutes the asset-deployer's coordinator fired a timeout
-(`coordinator.go:3000 — Request timed out`).
+A second test under correlation `ac09c48d-…` ran the same trigger after a
+chassis restart. This time:
 
-Meanwhile, the deploy itself had completed successfully. The orchestration
-reports failure because the response didn't arrive, even though the
-underlying work succeeded.
+- The git adapter wrote successfully to the per-spawn responses topic.
+- No partition error in the git-adapter logs.
+- Asset-deployer received the response cleanly.
+- Both orchestrations (parent generic and child asset-deployer) reached
+  `COMPLETED` status.
 
-This shifts every asset-deployer call from "completes cleanly" to
-"deploys but reports timeout". From the parent's perspective (the inline
-wrapper, and by extension `image-build-handler` post-migration), this looks
-like the deploy failed. Downstream logic that branches on `deploy_result`
-will go down the failure path. Visible symptom: the file IS in git but the
-orchestration is FAILED.
+So defect 2 did not reproduce on the second run. This downgrades severity
+significantly. Possibilities for why the first run hit it and the second
+didn't:
+
+1. **Transient kafka metadata propagation.** The per-spawn topic
+   `job.9bff1ece-…` was created moments before the git adapter tried to
+   write to it. If the adapter's kafka client hadn't yet refreshed
+   partition metadata for the new topic when it constructed the write,
+   the balancer could have picked an out-of-range partition.
+
+2. **Git-adapter pod restart picked up a fix.** The git-adapter pod that
+   handled the second run (`git-adapter-68cc4dd455-nbmb9`) was restarted
+   between the two test runs. If a fix existed in the running image
+   (`v1.0.44`) but was masked by the first pod's state (e.g. cached bad
+   metadata), the restart would have cleared it.
+
+3. **The kafka topic cleanup cron** that ran between the two test runs
+   may have cleared some metadata state that contributed to the first
+   failure.
+
+None of these is confirmed. The defect happened once, did not reproduce
+on a repeat under similar (but not identical) conditions. It may be a
+genuine transient kafka-go metadata-cache issue that's hard to reproduce
+on demand.
+
+### Revised severity assessment
+
+Lower than initially stated. The defect happened once and did not
+reproduce. Not blocking Phase 2F. Worth keeping on the watch list because:
+
+- Same code path (kafka-go writer with `LeastBytes` balancer on per-spawn
+  topics) is used by multiple adapters. If one hit it, others can.
+- If it happens occasionally, that's a worst-case bug: orchestrations
+  fail intermittently with the underlying work having succeeded.
+
+Action: monitor adapter logs for partition errors over the next week of
+runtime. If it recurs, escalate to a real investigation. If it doesn't,
+the root cause can be left as "probably transient kafka-go metadata
+caching, not actionable without a repro".
 
 ### Where the wrong partition comes from
 
@@ -271,35 +394,51 @@ per-spawn topics (webscrape, image-generator). Worth a sweep.
 
 ## How the three parked defects interact
 
-All three were latent and hadn't surfaced together because:
+The three defects are independent in mechanism but were all latent because
+nothing prior to Phase 2F exercised this exact path: trigger via generic
+chassis → spawn child → child uses DB-defined workflow → child awaits
+adapter response.
 
-- The **consumer-group race** affects responses on shared topics
-  (`system.agent.generic.responses`). It manifests when multiple chassis
-  pods are running.
+- The **consumer-group race** (separate doc) affects responses on shared
+  topics (`system.agent.generic.responses`) and manifests only when
+  multiple chassis pods are running.
 
-- The **stale agent-definition cache** affects DB-driven changes that
-  aren't surfaced until a pod restart. It manifested today because we
-  applied a workflow change and tried to use it.
+- The **snapshot-shadowing defect** (defect 1 here) affects any chassis
+  read of an `agent_definitions` row that has a snapshot taken from it.
+  It manifests whenever the active row differs from the snapshot. Latent
+  prior to today because the migration we just applied is the first time
+  the active row diverged from a snapshot in a way that mattered to runtime
+  behaviour.
 
-- The **git adapter partition** affects responses on per-spawn topics from
-  adapters. It manifested today because asset-deployer is the first agent
-  to round-trip through the git adapter for image deploys (previously the
-  deploys ran in-chassis and there was no async response).
+- The **adapter partition routing** (defect 2 here) affects adapter
+  responses on per-spawn topics. Manifested once; did not reproduce on
+  second run. May be transient. Worth monitoring.
 
-Phase 2F is the first work to exercise all three paths in one orchestration:
-inline workflow override → spawn child → child uses DB-defined workflow →
-child awaits adapter response. Each defect blocks a different segment.
+Phase 2F is the first work to depend on all three paths cleanly. Each
+defect blocks (or threatens) a different segment:
 
-The right sequence to address them is probably:
+- Defect 1 prevents the chassis from shipping the right child workflow.
+  Hard block on Phase 2F's intended behaviour.
+- Defect 2 (when it occurs) prevents the child from receiving its adapter
+  response. Causes orchestration timeout even when underlying work
+  succeeded.
+- Consumer-group race prevents multiple chassis replicas from running
+  cleanly. Currently worked around with replicas=1.
 
-1. **Cache invalidation (defect 1).** Fastest to work around (restart).
-   Real fix is bounded — likely a single function in the chassis.
-2. **Adapter partition routing (defect 2).** Blocks all async adapter
-   responses. Likely affects multiple adapters; one fix may cover all.
-3. **Consumer-group race (separate doc).** Largest scope: wiring change
-   plus rollout planning. Held last.
+The right sequence to address them, given updated severity:
 
-None of these are caused by the Phase 2F migration. All three were already
+1. **Confirm and fix defect 1 (snapshot shadowing).** Highest priority.
+   Hypothesised cause is concrete; one-line fix likely. Blocking Phase 2F's
+   `asset_key` path from working.
+2. **Consumer-group race.** Real architectural defect. Required before
+   scaling chassis back up.
+3. **Defect 2 (adapter partition).** Monitor; may not need intervention.
+   If recurrence is observed, reopen.
+
+None of these defects is caused by the Phase 2F migration. The migration's
+SQL is correct (verified). All three were already present in the system
+and surfaced because Phase 2F is the first work to exercise these paths
+together at runtime.
 present and surfaced because Phase 2F is the first work to exercise these
 code paths together at runtime.
 
