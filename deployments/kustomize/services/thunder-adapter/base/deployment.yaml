@@ -47,7 +47,7 @@ spec:
             # cluster actually keeps them — NOT personae-platform-secrets as an
             # earlier comment claimed). These two set the bucket + endpoint.
             - name: TRAINING_BUCKET
-              value: "finetuning"
+              value: "personae-model-training"
             - name: S3_ENDPOINT
               value: "https://s3.us-east-005.backblazeb2.com"
           envFrom:
@@ -96,4 +96,3 @@ spec:
         - name: config
           configMap:
             name: thunder-adapter-config
-            

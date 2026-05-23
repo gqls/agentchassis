@@ -137,4 +137,11 @@ ORDER BY decommissioned_at DESC;
 
 ---
 
-
+-- presigned_url
+echo '{"body":{"action":"prepare_dataset_url","export_id":"146a9a12-c953-48eb-bf1f-c1856e5f13b7","reply_to_topic":"system.agent.generic.responses"}}' | \
+kubectl -n kafka run kcat-presign --rm -i --restart=Never --image=edenhill/kcat:1.7.1 -- \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.adapter.thunder.requests -P \
+  -H "request_id=presign-test-$(date +%s)" \
+  -H "correlation_id=presign-test" \
+  -H "message_type=request"
