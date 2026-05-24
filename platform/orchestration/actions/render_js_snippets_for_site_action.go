@@ -2,14 +2,6 @@
 // RenderJSSnippetsForSiteAction concatenates active js_snippets that apply to
 // the site's components into a single JS bundle for /assets/js/snippets.js.
 //
-// Mirrors loadComponentCSSSnippets's shape in render_css_from_spec_action.go
-// — but DIFFERENT WHERE CLAUSE. loadComponentCSSSnippets uses
-//   `applies_to && $1::jsonb`
-// which fails at runtime (operator does not exist: jsonb && jsonb) but the
-// CSS path swallows the error and returns empty, so it's been latently
-// broken. This action uses an EXISTS + jsonb_array_elements_text pattern
-// that works on pure jsonb. If/when loadComponentCSSSnippets is fixed, it
-// should use the same pattern.
 
 package actions
 
