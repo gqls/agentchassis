@@ -243,4 +243,21 @@ How the flow runs
    Idempotency relied on, not added. The decommission_action (3.4) is already idempotent — alreadyTerminal check, 404-tolerant API/Secret deletes. So the reaper doesn't need to track "have I tried this instance yet". If a tick fires while a prior decommission is in flight, it just runs again safely.
    Reason field uses meaningful text. Pre-query produces e.g. "reaper:max_uptime_exceeded after 18.5h (cap=18h)". Gets stored on the row (or logged) — useful when debugging "why did this die".
 
+------------------------
+the next milestone
+The natural next piece is Phase 5: the real training-launcher, because that's what consumes everything Phase 4 just built. From the model-trainer agent_def we saw, the launcher's job is: "SCP scripts and dataset; SSH-exec backgrounded training; update training_runs to running." With Phase 4 done, the launcher now has every primitive it needs:
+
+prepare_dataset_url → presigned GET so the VM pulls the dataset.
+ssh_exec → run the training script on the box (it resolves ip/user/port/key by provisioning_id).
+ssh_get_status → poll readiness / training progress.
+prepare_artefact_url → presigned PUT so the VM uploads the trained adapter.
+
+But before I start building, the launcher is a meatier piece than a single adapter action, and there are real design choices (what the training script is, how progress is monitored, where the launcher runs). Rather than guess at scope, let me put the shape to you:I'll wait on your pick. While you decide, here's the lay of the land for Phase 5 so the choice is informed — and a note on what I'd want to check first regardless of which way you go.
+The model-trainer orchestrator (agent 94f5a069) already defines the full chain in its workflow: spawn_data_preparer → call_data_preparer → spawn_provisioner → call_provisioner → spawn_launcher → call_launcher → complete. So the orchestration shape exists in the agent_def. What's missing is the actual launcher implementation — the agent_def references training-launcher as a call_agent target with target_role: launcher, but whether that agent is a stub or has real logic, I don't know yet. That's the first thing to verify before building, because:
+
+if training-launcher is a stub, Phase 5 is "implement it" — the meaty build.
+if it has partial logic, it's "finish/fix it" — and I'd need to read what's there first (reuse over rebuild).
+
+The launcher's real work, concretely, is a sequence of ssh_exec calls orchestrated against a provisioned box: pull the dataset (via a presigned URL it requests), drop the training script, kick off training backgrounded (so the SSH session can return while training runs for hours), and flip training_runs.status to running. Then a separate monitor (the agent_def mentions "the training-monitor scheduled task handles polling and completion") watches progress and, on completion, collects the artefact via a presigned PUT.
+
 

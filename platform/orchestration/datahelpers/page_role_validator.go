@@ -71,30 +71,42 @@ type ValidatedPage struct {
 //     of LLM input. "index" is the page name convention for the homepage;
 //     "landing" is the canonical page type for it.
 //
-//  2. Slug appears as ParentSection of any other page in the set →
+//  2. Page NAME ends in "-index" AND the LLM role is not an explicit leaf
+//     role → role="section-index". This is the NAME signal, and it is the
+//     reliable one: the plan-builder names section hubs "<section>-index"
+//     even when it omits the URL and parent_section that rules 3-5 depend
+//     on. On the 2026-05-23 gamesdesign.co.uk run, games-index/tools-index
+//     arrived as role="content" with NO url and NO declared children,
+//     starving rules 3-5; only the name carried the truth. Guarded by
+//     isLeafRole so an explicit tool/guide/game/blog-post/entity-page is
+//     not overridden by an unusual "-index" name.
+//
+//  3. Slug appears as ParentSection of any other page in the set →
 //     role="section-index". This is the structural signal: a page that
 //     other pages claim as their parent IS a section index, no matter
 //     what the LLM said. This catches the gamesdesign case directly.
 //
-//  3. LLM-supplied URL ends in "/index.html" AND slug appears as the
+//  4. LLM-supplied URL ends in "/index.html" AND slug appears as the
 //     directory immediately above (e.g. url="/tools/index.html" and
 //     slug="tools") → role="section-index". This is a fallback for when
 //     the LLM correctly emits the URL pattern but mislabels the role.
 //
-//  4. LLM-supplied URL fits a nested role pattern AND role disagrees:
+//  5. LLM-supplied URL fits a nested role pattern AND role disagrees:
 //     url="/tools/<x>/index.html" with role!="tool" → role="tool".
 //     url="/guides/<x>/index.html" with role!="guide" → role="guide".
 //     url="/games/<x>/index.html" with role!="game" → role="game".
 //     This catches the symmetric case where the LLM gets the URL right
 //     but the role wrong for nested pages.
 //
-//  5. Otherwise: accept LLM's role as-is, normalising underscore variants
+//  6. Otherwise: accept LLM's role as-is, normalising underscore variants
 //     ("blog_post", "blog_index", "section_index", etc.) to their kebab
 //     canonical forms.
 //
-// Rule precedence matters because rule 2 is structurally stronger than
-// rule 3 (a page being someone's declared parent is decisive; URL
-// pattern matching is heuristic).
+// Rule precedence matters. Rule 2 (name suffix) and rule 3 (declared
+// parent) are both strong, reliable signals and agree wherever both fire
+// (both → section-index), so their relative order is immaterial; rule 2 is
+// placed first only because it depends on no other page. Both are
+// structurally stronger than rules 4-5, which are URL-pattern heuristics.
 func ValidateRoles(pages []LLMPlannedPage) []ValidatedPage {
 	out := make([]ValidatedPage, len(pages))
 
@@ -137,14 +149,21 @@ func ValidateRoles(pages []LLMPlannedPage) []ValidatedPage {
 		// storage convention; its canonical page type is "landing".
 		if rawRole == "index" || v.Name == "index" || slug == "index" {
 			correctedRole = "landing"
+		} else if strings.HasSuffix(v.Name, "-index") && !isLeafRole(rawRole) {
+			// Rule 2: name signal — a page NAMED "<section>-index" is a
+			// section hub regardless of URL/parent. This is the reliable
+			// signal the plan-builder emits even when it omits everything
+			// rules 3-5 read (gamesdesign.co.uk 2026-05-23). Guarded so an
+			// explicit leaf role is not clobbered by an unusual name.
+			correctedRole = "section-index"
 		} else if declaredParents[slug] || declaredParents[slug+"-index"] {
-			// Rule 2: structural — this slug is someone's parent.
+			// Rule 3: structural — this slug is someone's parent.
 			correctedRole = "section-index"
 		} else if isSectionIndexURL(p.URL, slug) {
-			// Rule 3: URL pattern says section-index.
+			// Rule 4: URL pattern says section-index.
 			correctedRole = "section-index"
 		} else if r, ok := nestedRoleFromURL(p.URL); ok && r != rawRole {
-			// Rule 4: URL pattern says nested role.
+			// Rule 5: URL pattern says nested role.
 			correctedRole = r
 		}
 
@@ -156,6 +175,21 @@ func ValidateRoles(pages []LLMPlannedPage) []ValidatedPage {
 	}
 
 	return out
+}
+
+// isLeafRole reports whether a normalised role denotes a leaf/detail page
+// type — one that is never itself a section index. The name-suffix rule
+// (rule 2) consults this so that an explicit tool/guide/game/blog-post/
+// entity-page is trusted even if the page name unusually ends in "-index"
+// (e.g. a genuine blog post titled "weekly-index"). Roles that are absent,
+// generic ("content"), or already section-index-family fall through and
+// are eligible for the name-suffix correction.
+func isLeafRole(role string) bool {
+	switch role {
+	case "tool", "guide", "game", "blog-post", "entity-page":
+		return true
+	}
+	return false
 }
 
 // normaliseRole converts LLM role variants to canonical kebab form and

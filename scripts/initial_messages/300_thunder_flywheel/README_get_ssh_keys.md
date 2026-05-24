@@ -26,3 +26,13 @@ chmod 600 "$OURKEY"
 ssh -i "$OURKEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=12 -o BatchMode=yes -p "$PORT" "ubuntu@$IP" 'echo OUR_KEY_AS_UBUNTU_OK; whoami; nvidia-smi -L'
 echo "exit=$?"
 rm -f "$OURKEY"
+
+
+------------------
+
+-- delete instances in clients_db
+UPDATE thunder_instances SET status='decommissioned', decommissioned_at=NOW(),
+cost_usd=GREATEST(0,EXTRACT(EPOCH FROM(NOW()-running_since))/3600.0)*hourly_rate_usd
+WHERE id='60d89697-639e-4ede-89ef-c1a60a2a0c35' AND status='running';
+
+----------------------

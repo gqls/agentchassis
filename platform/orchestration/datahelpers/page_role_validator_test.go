@@ -246,3 +246,115 @@ func TestValidateRoles_PreservesOrder(t *testing.T) {
 		}
 	}
 }
+
+// TestValidateRoles_NameSuffixSectionIndex covers the 2026-05-23
+// gamesdesign.co.uk production shape: the plan-builder emitted section
+// hubs named "<section>-index" with role="content" (or "blog-index") and
+// NO url and NO parent_section on any page. Rules 3-5 (parent/URL) are all
+// starved; only rule 2 (name suffix) can recover the section-index role.
+func TestValidateRoles_NameSuffixSectionIndex(t *testing.T) {
+	in := []LLMPlannedPage{
+		// Exactly as emitted: name carries "-index", role is content,
+		// no URL, no parent_section.
+		{Name: "games-index", Role: "content"},
+		{Name: "tools-index", Role: "content"},
+		// guides-index came through as blog-index (normalises to
+		// section-index already); the name rule agrees.
+		{Name: "guides-index", Role: "blog-index"},
+		// Leaf pages in the same plan must be untouched by the name rule.
+		{Name: "tool-ttk-calculator", Role: "tool"},
+		{Name: "guide-rng-design", Role: "blog-post"},
+	}
+
+	out := ValidateRoles(in)
+	got := make(map[string]ValidatedPage, len(out))
+	for _, v := range out {
+		got[v.Name] = v
+	}
+
+	wantRole := map[string]string{
+		"games-index":         "section-index",
+		"tools-index":         "section-index",
+		"guides-index":        "section-index",
+		"tool-ttk-calculator": "tool",
+		"guide-rng-design":    "blog-post",
+	}
+	for name, want := range wantRole {
+		v, ok := got[name]
+		if !ok {
+			t.Fatalf("missing page %q in output", name)
+		}
+		if v.Role != want {
+			t.Errorf("page %q: role=%q want %q", name, v.Role, want)
+		}
+	}
+
+	// games-index/tools-index were corrected from a real "content" label,
+	// so CorrectedFromRole must be set for production logging. guides-index
+	// normalised to section-index before comparison, so no correction is
+	// logged. Leaf pages are untouched.
+	if got["games-index"].CorrectedFromRole != "content" {
+		t.Errorf("games-index: CorrectedFromRole=%q want %q",
+			got["games-index"].CorrectedFromRole, "content")
+	}
+	if got["tools-index"].CorrectedFromRole != "content" {
+		t.Errorf("tools-index: CorrectedFromRole=%q want %q",
+			got["tools-index"].CorrectedFromRole, "content")
+	}
+	if got["guides-index"].CorrectedFromRole != "" {
+		t.Errorf("guides-index: CorrectedFromRole=%q want \"\" (blog-index already normalises to section-index)",
+			got["guides-index"].CorrectedFromRole)
+	}
+	for _, name := range []string{"tool-ttk-calculator", "guide-rng-design"} {
+		if got[name].CorrectedFromRole != "" {
+			t.Errorf("%s: should not have been corrected, got CorrectedFromRole=%q",
+				name, got[name].CorrectedFromRole)
+		}
+	}
+}
+
+// TestValidateRoles_NameSuffixLeafGuard pins the role-guard: an explicit
+// leaf role whose name unusually ends in "-index" must NOT be reclassified
+// as a section index by rule 2.
+func TestValidateRoles_NameSuffixLeafGuard(t *testing.T) {
+	in := []LLMPlannedPage{
+		// A genuine blog post that happens to be titled "weekly-index".
+		{Name: "weekly-index", Role: "blog-post", URL: "/blog/weekly-index.html"},
+		// A tool whose name ends in -index — still a tool.
+		{Name: "tool-price-index", Role: "tool", URL: "/tools/price-index/index.html"},
+	}
+	out := ValidateRoles(in)
+	got := make(map[string]ValidatedPage, len(out))
+	for _, v := range out {
+		got[v.Name] = v
+	}
+	if got["weekly-index"].Role != "blog-post" {
+		t.Errorf("weekly-index: role=%q want blog-post (leaf guard should block name rule)",
+			got["weekly-index"].Role)
+	}
+	if got["tool-price-index"].Role != "tool" {
+		t.Errorf("tool-price-index: role=%q want tool (leaf guard should block name rule)",
+			got["tool-price-index"].Role)
+	}
+}
+
+// TestValidateRoles_NameSuffixIdempotent confirms the name-suffix
+// correction is stable: feeding the corrected section-index role back in
+// (now with a "-index" name) keeps it section-index.
+func TestValidateRoles_NameSuffixIdempotent(t *testing.T) {
+	in := []LLMPlannedPage{{Name: "games-index", Role: "content"}}
+	first := ValidateRoles(in)
+	if first[0].Role != "section-index" {
+		t.Fatalf("first pass: role=%q want section-index", first[0].Role)
+	}
+	second := ValidateRoles([]LLMPlannedPage{{
+		Name:          first[0].Name,
+		Role:          first[0].Role,
+		Slug:          first[0].Slug,
+		URL:           first[0].URL,
+		ParentSection: first[0].ParentSection,
+	}})
+	if second[0].Role != "section-index" {
+		t.Errorf("not idempotent: role changed to %q on second pass", second[0].Role)
+	}
+}
