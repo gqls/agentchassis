@@ -311,3 +311,25 @@ CREATE UNIQUE INDEX thunder_instances_live_identifier_uniq
 
 COMMIT;
 
+-- Migration: add ssh_port to thunder_instances
+--
+-- WHY: Phase 4 ssh_exec/ssh_get_status dial the instance directly over SSH.
+-- The SSH port comes from Thunder's /instances/list `port` field, which the
+-- provision poll already reads (api.Instance.Port). Verified 2026-05-24:
+-- for a given instance the /instances/list port == the tnr-connect-resolved
+-- port == directly dialable as ubuntu with our key. Provision now stores it so
+-- ssh_exec can dial without any Thunder API call or tnr binary at exec time.
+--
+-- APPLY SEPARATELY: psql ... -f this_file  (or \i). The deploy ships Go only;
+-- migrations are a separate step (see debugging guide item 17 — code shipped
+-- but migration unapplied has bitten this project repeatedly).
+--
+-- Nullable: existing rows (and any future provision that somehow lacks a port)
+-- carry NULL; ssh_exec treats a NULL/0 port as "port not captured" and errors
+-- clearly rather than dialing port 0.
+
+ALTER TABLE thunder_instances
+    ADD COLUMN IF NOT EXISTS ssh_port INTEGER;
+
+COMMENT ON COLUMN thunder_instances.ssh_port IS
+    'Direct SSH port from Thunder /instances/list (verified == tnr connect port). Used by ssh_exec. NULL if not captured at provision.';

@@ -319,7 +319,8 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 		ThunderIdentifier: createResp.Identifier,
 		InstanceType:      instanceType,
 		InstanceIP:        inst.IP,
-		SSHUser:           "ubuntu", // matches schema default
+		SSHPort:           inst.Port, // /instances/list port — verified the real SSH port
+		SSHUser:           "ubuntu",  // matches schema default
 		SSHKeySecretName:  secretName,
 		MaxUptimeHours:    maxUptimeHours,
 		TrainingRunID:     nullableUUID(req.TrainingRunID),
@@ -358,6 +359,7 @@ type insertRow struct {
 	ThunderIdentifier int
 	InstanceType      string
 	InstanceIP        string
+	SSHPort           int
 	SSHUser           string
 	SSHKeySecretName  string
 	MaxUptimeHours    int
@@ -402,17 +404,18 @@ func (p *ProvisionAction) insertWithRetry(ctx context.Context, row insertRow) er
 func (p *ProvisionAction) insertOnce(ctx context.Context, row insertRow) error {
 	const q = `
 		INSERT INTO thunder_instances (
-			id, thunder_instance_id, instance_type, instance_ip,
+			id, thunder_instance_id, instance_type, instance_ip, ssh_port,
 			ssh_user, ssh_key_secret_name, status, max_uptime_hours,
 			training_run_id, requested_by, hourly_rate_usd,
 			provisioned_at, running_since
-		) VALUES ($1, $2, $3, $4, $5, $6, 'running', $7, $8, $9, $10, $11, $12)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, 'running', $8, $9, $10, $11, $12, $13)
 	`
 	_, err := p.db.ExecContext(ctx, q,
 		row.ID,
 		strconv.Itoa(row.ThunderIdentifier), // thunder_instance_id TEXT — store as string
 		row.InstanceType,
 		row.InstanceIP,
+		row.SSHPort,
 		row.SSHUser,
 		row.SSHKeySecretName,
 		row.MaxUptimeHours,

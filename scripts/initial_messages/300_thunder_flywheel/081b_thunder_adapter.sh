@@ -10,6 +10,11 @@ SET status='expired', processed_at=NOW()
 WHERE orchestration_id = 'c09c94a1-b7be-4644-ae55-31b4cd5a358a'
   AND status='waiting';
 
+-- delete instances in clients_db
+UPDATE thunder_instances SET status='decommissioned', decommissioned_at=NOW(),
+     cost_usd=GREATEST(0,EXTRACT(EPOCH FROM(NOW()-running_since))/3600.0)*hourly_rate_usd
+   WHERE id='60d89697-639e-4ede-89ef-c1a60a2a0c35' AND status='running';
+
 # Open the log watchers first
 # Terminal A — adapter:
 
@@ -69,6 +74,19 @@ echo "========================================="
 echo ""
 
 --------------------------------------------------------
+
+
+-- presigned_url
+echo '{"body":{"action":"prepare_dataset_url","export_id":"146a9a12-c953-48eb-bf1f-c1856e5f13b7","reply_to_topic":"system.agent.generic.responses"}}' | \
+kubectl -n kafka run kcat-presign --rm -i --restart=Never --image=edenhill/kcat:1.7.1 -- \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.adapter.thunder.requests -P \
+  -H "request_id=presign-test-$(date +%s)" \
+  -H "correlation_id=presign-test" \
+  -H "message_type=request"
+
+
+----------------------------------------------------------
 
 SELECT thunder_instance_id, status, instance_ip, provisioned_at, requested_by
 FROM thunder_instances
@@ -137,11 +155,3 @@ ORDER BY decommissioned_at DESC;
 
 ---
 
--- presigned_url
-echo '{"body":{"action":"prepare_dataset_url","export_id":"146a9a12-c953-48eb-bf1f-c1856e5f13b7","reply_to_topic":"system.agent.generic.responses"}}' | \
-kubectl -n kafka run kcat-presign --rm -i --restart=Never --image=edenhill/kcat:1.7.1 -- \
-  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.adapter.thunder.requests -P \
-  -H "request_id=presign-test-$(date +%s)" \
-  -H "correlation_id=presign-test" \
-  -H "message_type=request"

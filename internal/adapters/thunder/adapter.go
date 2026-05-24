@@ -66,6 +66,10 @@ type Adapter struct {
 	// prepare_*_url actions then return a clear error rather than panicking.
 	dataURLAction *DataURLAction
 
+	// Phase 4 dependency — SSH exec actions (ssh_exec, ssh_get_status).
+	// Wired unconditionally (needs only db + secretMgr, both always present).
+	sshExecAction *SSHExecAction
+
 	healthServer *http.Server
 	shutdownOnce sync.Once
 	shutdownWg   sync.WaitGroup
@@ -192,11 +196,12 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	var dataURLAction *DataURLAction
 	trainingBucket := os.Getenv("TRAINING_BUCKET")
 	if trainingBucket == "" {
-		// "finetuning" matches the live training-data-preparer's s3_bucket
-		// (verified 2026-05-22 from its agent_def). The dataset is written to
-		// bucket=finetuning, key=finetuning/datasets/{export_id}/training.jsonl,
-		// so presigned URLs must target this bucket.
-		trainingBucket = "finetuning"
+		// "personae-model-training" is the REAL bucket holding training data
+		// (confirmed against the live B2 bucket list 2026-05-23). NOTE: the
+		// training-data-preparer agent_def lists s3_bucket="finetuning", but no
+		// such bucket exists — that value is stale/logical. The data is in
+		// personae-model-training (last written 2026-05-10, matches iter_0 prep).
+		trainingBucket = "personae-model-training"
 	}
 	storageCfg := config.ObjectStorageConfig{
 		Endpoint:        os.Getenv("S3_ENDPOINT"),
@@ -214,6 +219,10 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 			zap.String("endpoint", storageCfg.Endpoint))
 	}
 
+	// ── 7c. Phase 4: SSH exec actions (ssh_exec, ssh_get_status) ──
+	// Needs only db + secretMgr (both always present), so always wired.
+	sshExecAction := NewSSHExecAction(db, secretMgr, logger)
+
 	a := &Adapter{
 		ctx:                adapterCtx,
 		cancel:             cancel,
@@ -229,6 +238,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		provisionAction:    provisionAction,
 		decommissionAction: decommissionAction,
 		dataURLAction:      dataURLAction,
+		sshExecAction:      sshExecAction,
 	}
 
 	logger.Info("Thunder adapter initialized",
@@ -319,6 +329,10 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		a.handlePrepareDatasetURL(body, headers, replyToTopic, l)
 	case "prepare_artefact_url":
 		a.handlePrepareArtefactURL(body, headers, replyToTopic, l)
+	case "ssh_exec":
+		a.handleSSHExec(body, headers, replyToTopic, l)
+	case "ssh_get_status":
+		a.handleSSHGetStatus(body, headers, replyToTopic, l)
 	default:
 		a.sendErrorResponse(headers, replyToTopic, action,
 			"not_implemented",
