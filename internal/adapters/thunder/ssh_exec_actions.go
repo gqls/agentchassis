@@ -33,10 +33,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	gossh "golang.org/x/crypto/ssh"
 
-	"github.com/gqls/agentchassis/internal/adapters/thunder/ssh"
+	"github.com/gqls/agentchassis/internal/adapters/thunder/store"
 )
 
 const (
@@ -49,6 +50,14 @@ const (
 	// sshCommandTimeout bounds command execution once connected.
 	sshCommandTimeout = 5 * time.Minute
 )
+
+// privateKeyGetter is the subset of *ssh.SecretManager this action needs.
+// The existing secretManager interface (provision_action.go) only exposes
+// Create/Delete; ssh_exec needs to READ the key, so it declares its own
+// narrow interface — same pattern as the other actions' narrow interfaces.
+type privateKeyGetter interface {
+	GetPrivateKey(ctx context.Context, secretName string) ([]byte, error)
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Request / Result shapes
@@ -81,33 +90,25 @@ type SSHExecResult struct {
 	Reachable      bool   `json:"reachable"` // true if sshd accepted + authed
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// connectionInfo — what we need to dial, loaded from thunder_instances.
-// ─────────────────────────────────────────────────────────────────────────
-
+// connectionInfo — what dial() needs, derived from store.Instance.
 type connectionInfo struct {
 	IP            string
 	Port          int
 	SSHUser       string
 	SSHSecretName string
-	Status        string
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// SSHExecAction
-// ─────────────────────────────────────────────────────────────────────────
-
 // SSHExecAction runs commands over SSH on provisioned instances. It holds the
-// DB (to resolve connection info) and the SecretManager (to fetch the private
-// key). Constructed in NewAdapter alongside the other actions.
+// DB (to resolve the instance via the store) and a privateKeyGetter (to fetch
+// the private key). Constructed in NewAdapter alongside the other actions.
 type SSHExecAction struct {
 	db        *sql.DB
-	secretMgr *ssh.SecretManager
+	secretMgr privateKeyGetter
 	logger    *zap.Logger
 }
 
 // NewSSHExecAction builds an SSHExecAction.
-func NewSSHExecAction(db *sql.DB, secretMgr *ssh.SecretManager, logger *zap.Logger) *SSHExecAction {
+func NewSSHExecAction(db *sql.DB, secretMgr privateKeyGetter, logger *zap.Logger) *SSHExecAction {
 	return &SSHExecAction{
 		db:        db,
 		secretMgr: secretMgr,
@@ -115,45 +116,40 @@ func NewSSHExecAction(db *sql.DB, secretMgr *ssh.SecretManager, logger *zap.Logg
 	}
 }
 
-// loadConnectionInfo resolves ip/port/user/secret/status from the DB row.
-// Self-contained query — does not depend on the store's Instance struct.
+// loadConnectionInfo resolves connection details via the store (reusing
+// store.LookupByID — the same lookup decommission uses), then validates the
+// fields ssh_exec needs.
 func (s *SSHExecAction) loadConnectionInfo(ctx context.Context, provisioningID string) (*connectionInfo, error) {
-	const q = `
-		SELECT instance_ip, ssh_port, ssh_user, ssh_key_secret_name, status
-		FROM thunder_instances
-		WHERE id = $1
-	`
-	var (
-		ci     connectionInfo
-		port   sql.NullInt64
-		ip     sql.NullString
-		user   sql.NullString
-		secret sql.NullString
-	)
-	err := s.db.QueryRowContext(ctx, q, provisioningID).Scan(&ip, &port, &user, &secret, &ci.Status)
+	id, err := uuid.Parse(provisioningID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("provisioning_id %q is not a valid UUID: %w", provisioningID, err)
+	}
+	inst, err := store.LookupByID(ctx, s.db, id)
+	if err != nil {
+		if err == store.ErrInstanceNotFound {
 			return nil, fmt.Errorf("no thunder_instances row with id %s", provisioningID)
 		}
 		return nil, fmt.Errorf("lookup instance %s: %w", provisioningID, err)
 	}
-	if !ip.Valid || ip.String == "" {
+	if inst.InstanceIP == "" {
 		return nil, fmt.Errorf("instance %s has no instance_ip (not yet running?)", provisioningID)
 	}
-	if !port.Valid || port.Int64 == 0 {
+	if !inst.SSHPort.Valid || inst.SSHPort.Int64 == 0 {
 		return nil, fmt.Errorf("instance %s has no ssh_port stored (provisioned before port capture? re-provision needed)", provisioningID)
 	}
-	if !secret.Valid || secret.String == "" {
+	if inst.SSHKeySecretName == "" {
 		return nil, fmt.Errorf("instance %s has no ssh_key_secret_name", provisioningID)
 	}
-	ci.IP = ip.String
-	ci.Port = int(port.Int64)
-	ci.SSHUser = "ubuntu"
-	if user.Valid && user.String != "" {
-		ci.SSHUser = user.String
+	user := inst.SSHUser
+	if user == "" {
+		user = "ubuntu"
 	}
-	ci.SSHSecretName = secret.String
-	return &ci, nil
+	return &connectionInfo{
+		IP:            inst.InstanceIP,
+		Port:          int(inst.SSHPort.Int64),
+		SSHUser:       user,
+		SSHSecretName: inst.SSHKeySecretName,
+	}, nil
 }
 
 // dial establishes an SSH client, waiting for sshd to come up (RUNNING ≠ sshd

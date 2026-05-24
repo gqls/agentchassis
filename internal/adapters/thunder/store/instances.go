@@ -27,6 +27,7 @@ type Instance struct {
 	ThunderInstanceID string    // TEXT in schema — stores Thunder's numeric identifier as string
 	InstanceType      string
 	InstanceIP        string
+	SSHPort           sql.NullInt64 // nullable: rows provisioned before port capture have NULL
 	SSHUser           string
 	SSHKeySecretName  string
 	Status            string // see schema CHECK constraint values
@@ -46,7 +47,7 @@ var ErrInstanceNotFound = errors.New("thunder_instance row not found")
 // LookupByID fetches a row by its DB UUID primary key.
 func LookupByID(ctx context.Context, db *sql.DB, id uuid.UUID) (*Instance, error) {
 	return lookupOne(ctx, db,
-		`SELECT id, thunder_instance_id, instance_type, instance_ip, ssh_user,
+		`SELECT id, thunder_instance_id, instance_type, instance_ip, ssh_port, ssh_user,
 		        ssh_key_secret_name, status, max_uptime_hours, training_run_id,
 		        requested_by, hourly_rate_usd, cost_usd,
 		        provisioned_at, running_since, decommissioned_at
@@ -68,22 +69,19 @@ func LookupByID(ctx context.Context, db *sql.DB, id uuid.UUID) (*Instance, error
 // short-circuit on already-terminal status).
 func LookupByThunderIdentifier(ctx context.Context, db *sql.DB, identifier string) (*Instance, error) {
 	return lookupOne(ctx, db,
-		`SELECT id, thunder_instance_id, instance_type, instance_ip, ssh_user,
+		`SELECT id, thunder_instance_id, instance_type, instance_ip, ssh_port, ssh_user,
 		        ssh_key_secret_name, status, max_uptime_hours, training_run_id,
 		        requested_by, hourly_rate_usd, cost_usd,
 		        provisioned_at, running_since, decommissioned_at
 		 FROM thunder_instances
-		 WHERE thunder_instance_id = $1
-		 ORDER BY (status IN ('provisioning','running','decommissioning')) DESC,
-		          provisioned_at DESC NULLS LAST
-		 LIMIT 1`,
+		 WHERE thunder_instance_id = $1`,
 		identifier)
 }
 
 func lookupOne(ctx context.Context, db *sql.DB, q string, arg interface{}) (*Instance, error) {
 	var i Instance
 	err := db.QueryRowContext(ctx, q, arg).Scan(
-		&i.ID, &i.ThunderInstanceID, &i.InstanceType, &i.InstanceIP, &i.SSHUser,
+		&i.ID, &i.ThunderInstanceID, &i.InstanceType, &i.InstanceIP, &i.SSHPort, &i.SSHUser,
 		&i.SSHKeySecretName, &i.Status, &i.MaxUptimeHours, &i.TrainingRunID,
 		&i.RequestedBy, &i.HourlyRateUSD, &i.CostUSD,
 		&i.ProvisionedAt, &i.RunningSince, &i.DecommissionedAt,

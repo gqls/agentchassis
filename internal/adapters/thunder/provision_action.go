@@ -103,6 +103,7 @@ const BareProvisionMaxUptimeHours = 2
 // provisioning_result.* (instance_ip, ssh_user, ssh_key_secret_name).
 type ProvisionInstanceResult struct {
 	InstanceIP        string    `json:"instance_ip"`
+	SSHPort           int       `json:"ssh_port,omitempty"`
 	SSHUser           string    `json:"ssh_user"`
 	SSHKeySecretName  string    `json:"ssh_key_secret_name"`
 	ProvisioningID    string    `json:"provisioning_id"`    // our DB row UUID
@@ -342,6 +343,7 @@ func (p *ProvisionAction) Execute(ctx context.Context, req ProvisionInstanceRequ
 
 	return &ProvisionInstanceResult{
 		InstanceIP:        inst.IP,
+		SSHPort:           inst.Port,
 		SSHUser:           "ubuntu",
 		SSHKeySecretName:  secretName,
 		ProvisioningID:    secretLabelUUID,
