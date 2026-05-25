@@ -318,6 +318,7 @@ LIMIT 20;
 -- ============================================================================
 
 BEGIN;
+-- -> see 081e_cleanup_gamesdesign_by_site_id.sql and run that first <-
 
 -- ──────────────────────────────────────────────────────────────────────
 -- Step 0: confirm what we're about to delete
