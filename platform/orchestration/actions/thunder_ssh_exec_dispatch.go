@@ -234,14 +234,18 @@ func configOrInput(params ActionParams, name string) string {
 }
 
 // interpolateCommandTemplate replaces {token} placeholders in a command
-// template with runtime values pulled from input_data.<token> in CollectedData.
-// input_mapping can't interpolate strings, so the launcher passes the static
-// template in step config and the runtime values (e.g. presigned URLs) via
-// input_mapping; this stitches them together.
+// template with runtime values. Each token is resolved by resolveTemplateToken:
+// first a config-declared source dot-path (resolved from CollectedData — this
+// is how cross-step values such as a prior presign step's presigned_url reach
+// the command), then input_data.<token>. The launcher keeps the static template
+// and the source paths in step config (e.g. "scripts_url":
+// "scripts_url_result.presigned_url"); this stitches them together. We do NOT
+// use a local-step input_mapping — the coordinator doesn't resolve it for plain
+// local actions.
 //
-// A {token} whose input_data.<token> is absent is replaced with empty string
-// and logged — better a visibly-broken command in train.log than a literal
-// "{scripts_url}" silently curl'd. Tokens are [a-zA-Z0-9_].
+// A {token} that resolves to empty is substituted with empty string and logged
+// — better a visibly-broken command in launch.log than a literal "{scripts_url}"
+// silently curl'd. Tokens are [a-zA-Z0-9_].
 func interpolateCommandTemplate(tmpl string, params ActionParams) string {
 	var b []byte
 	i := 0
@@ -259,9 +263,9 @@ func interpolateCommandTemplate(tmpl string, params ActionParams) string {
 			}
 			if j < len(tmpl) && tmpl[j] == '}' && j > i+1 {
 				token := tmpl[i+1 : j]
-				val := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data."+token)
+				val := resolveTemplateToken(params, token)
 				if val == "" {
-					params.Logger.Warn("command_template token had no input_data value; substituting empty",
+					params.Logger.Warn("command_template token resolved to empty; substituting empty",
 						zap.String("token", token))
 				}
 				b = append(b, val...)
@@ -273,4 +277,27 @@ func interpolateCommandTemplate(tmpl string, params ActionParams) string {
 		i++
 	}
 	return string(b)
+}
+
+// resolveTemplateToken resolves a {token} used in a command_template. A token
+// names EITHER a config-declared source dot-path (resolved from CollectedData)
+// or, failing that, a field already in input_data. Tokens are paths by
+// convention, so a config value for a token is always treated as a dot-path
+// reference into CollectedData — never a literal. This is what distinguishes
+// tokens from key/method/command_template, which configOrInput reads as
+// literals. It is how a prior step's output (e.g.
+// "scripts_url_result.presigned_url") reaches the command, since the
+// coordinator does not resolve input_mapping for local action steps.
+//
+// Uses datahelpers.ExtractNestedFieldString (the canonical resolver, with
+// .response auto-unwrap) — no new path-resolution logic.
+func resolveTemplateToken(params ActionParams, token string) string {
+	if params.StepConfig.Config != nil {
+		if path, ok := params.StepConfig.Config[token].(string); ok && path != "" {
+			if v := datahelpers.ExtractNestedFieldString(params.CollectedData, path); v != "" {
+				return v
+			}
+		}
+	}
+	return datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data."+token)
 }

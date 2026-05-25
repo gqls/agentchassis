@@ -29,6 +29,7 @@
 
 makefile
 registry.go.txt
+add actions/discovery_checks directory
 
 ls -laR platform/orchestration/actions/
 

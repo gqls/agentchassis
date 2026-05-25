@@ -59,25 +59,34 @@ func DispatchThunderPrepareObjectURLAction(ctx context.Context, params ActionPar
 	)
 
 	// ── Extract input fields ──
-	// Constants (a literal key, the method, an expiry) come from STEP CONFIG —
-	// input_mapping only does field references, never literals (verified against
-	// ResolveInputMapping). Runtime references (the dataset's resolved s3_uri,
-	// or a key passed dynamically) come from input_data via input_mapping.
-	// Precedence: config first (explicit constant), then input_data.
+	// key/method/expiry are literals read from STEP CONFIG. configOrInput reads
+	// config first, then input_data.<name>. We do NOT use a local-step
+	// input_mapping: the coordinator only resolves input_mapping for call_agent
+	// and loop, so on a plain local action it would be dead config. Runtime
+	// values instead arrive in input_data (the parent threads them in via
+	// call_agent's input_mapping when it calls us).
 	//
-	// Caller supplies EITHER an explicit key, OR an s3://bucket/key URI (e.g. the
-	// preparer's dataset_uri). When given a URI we strip the scheme+bucket to
-	// recover the bucket-relative key the presigner needs.
+	// Source for the object, in order of precedence:
+	//   1. explicit `key` (config or input_data)
+	//   2. explicit `s3_uri` (an s3://bucket/key passed directly)
+	//   3. the preparer's `dataset_uri` in input_data — the launcher's standard
+	//      case: call_launcher threads preparation_result.dataset_uri into the
+	//      launcher's input_data, and we derive the bucket-relative key from it.
+	// When given an s3:// URI we strip the scheme+bucket to recover the key.
 	key := configOrInput(params, "key")
 	s3URI := configOrInput(params, "s3_uri")
 	method := configOrInput(params, "method")
 	expiryMinutes := configOrInput(params, "expiry_minutes")
 
+	if key == "" && s3URI == "" {
+		// Launcher path: derive from the preparer's dataset_uri in input_data.
+		s3URI = configOrInput(params, "dataset_uri")
+	}
 	if key == "" && s3URI != "" {
 		key = keyFromS3URI(s3URI)
 	}
 	if key == "" {
-		return nil, fmt.Errorf("dispatch_thunder_prepare_object_url: a key (config or input_data) or s3_uri is required")
+		return nil, fmt.Errorf("dispatch_thunder_prepare_object_url: need a key (config/input_data), an s3_uri, or input_data.dataset_uri")
 	}
 
 	clientID := params.ExecutionContext.ClientID
