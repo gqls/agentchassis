@@ -1135,6 +1135,26 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Publish a provision_instance request to thunder-adapter and await the response with the running instance details (instance_ip, ssh_user, ssh_key_secret_name, provisioning_id, thunder_identifier, provisioned_at). Used by gpu-provisioner.",
 		IsLocal:     true,
 	},
+	"dispatch_thunder_ssh_exec": {
+		Handler:     DispatchThunderSSHExecAction,
+		Category:    "training",
+		Description: "Publish an ssh_exec request to thunder-adapter (run a command on a provisioned instance by provisioning_id) and await the response with exit_code/stdout/stderr/reachable. Used by training-launcher to fetch data and launch the backgrounded training process.",
+		IsLocal:     true,
+	},
+
+	"dispatch_thunder_prepare_object_url": {
+		Handler:     DispatchThunderPrepareObjectURLAction,
+		Category:    "training",
+		Description: "Publish a prepare_object_url request to thunder-adapter to presign a B2 object by explicit key (GET or PUT) and await the presigned URL. Used by training-launcher to presign the dataset and the training scripts; the adapter remains the B2 credential boundary.",
+		IsLocal:     true,
+	},
+
+	"mark_training_run_running": {
+		Handler:     MarkTrainingRunRunningAction,
+		Category:    "training",
+		Description: "Transition a model_lifecycle.training_runs row from pending to running and stamp started_at (sibling of the failed-marker in prepare_training_data). Used by training-launcher after the training process is launched.",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// Site Snapshots
