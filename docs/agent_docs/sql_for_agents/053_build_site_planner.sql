@@ -3143,4 +3143,6 @@ SET default_config = jsonb_set(
 WHERE type = 'build-site-planner';
 -- ============================================================================
 
+The wiring: reconcile_site_plan.next_step → emit_design → emit_imagery → complete; emit_design calls emit_design_items and emit_imagery calls emit_imagery_items, both with site_id: input_data.site_id; output_contract.produces dropped build_items and now lists reconcile_result/design_items/imagery_items; complete.output_fields includes the two new ones. Updated 2026-05-26 11:06. The flow is right.
+
 
