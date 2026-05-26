@@ -331,7 +331,11 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 
 		// Child pages (under /tools/, /blog/, /guides/ etc) are skipped entirely.
 		// They shouldn't appear in any nav — the parent listing page represents them.
-		if isChildPageURL(page.URL) {
+		// EXCEPTION: a section-index page (e.g. games-index at /games/index.html) is
+		// the section's PARENT, not one of its children. It sits under the section
+		// prefix but must stay in nav. Keyed on page_type, not URL, so tool/game/
+		// entity-page leaves under the same prefix are still correctly skipped.
+		if isChildPageURL(page.URL) && !isSectionIndexType(page.PageType) {
 			logger.Info("classifyPagesForNav: skipping child page",
 				zap.String("name", page.Name),
 				zap.String("url", page.URL))
@@ -397,8 +401,9 @@ func navPriorityTier(nameLower, pageType string) int {
 		"pricing": true, "how-we-work": true, "portfolio": true,
 		"products": true, "solutions": true, "industries": true,
 	}
-	// Also tier 2: blog-index and entity-directory page types (listing pages)
-	if tier2[nameLower] || pageType == "blog-index" || pageType == "entity-directory" {
+	// Also tier 2: the section-index family (blog-index, entity-directory,
+	// section-index) — listing/hub pages.
+	if tier2[nameLower] || isSectionIndexType(pageType) {
 		return 2
 	}
 

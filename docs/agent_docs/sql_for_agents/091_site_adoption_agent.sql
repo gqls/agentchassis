@@ -2503,3 +2503,85 @@ COMMIT;
 -- Revert:
 --   SELECT revert_agent('site-adoption-agent');
 
+---
+--  directory paths for directory index pages
+
+-- patch_analyze_site_section_index.sql
+--
+-- Source-typing fix (structural complement to Part A / ValidateRoles).
+--
+-- Problem: the analyze_site adoption prompt explicitly instructs the LLM to
+-- type tool/game section-landing pages (/tools/index.html, /games/index.html)
+-- as page_type "content". They therefore arrive in `pages` as content, and
+-- only Part A's ValidateRoles (downstream, plan-side) rescues them to
+-- section-index in `site_plan_pages`. The adopted `pages` rows themselves
+-- stay mistyped, which the nav classifier and queryresolve read.
+--
+-- Fix: make "section-index" a first-class page_type in the analyze_site enum
+-- and guidance so adoption emits it directly. Genuine blog/guide listings keep
+-- "blog-index" (they already converge via the section-index family downstream).
+-- Part A stays in place as the deterministic net.
+--
+-- Method: replace() over the decoded prompt_template, written back with
+-- jsonb_set so nothing else in default_config is touched. Targets are
+-- byte-exact (em-dash in R3 is U+2014).
+--
+-- Apply, then run the verification block at the bottom; all four flags must be t.
+
+BEGIN;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,analyze_site,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        replace(
+                                replace(
+                                        replace(
+                                                default_config #>> '{workflow,steps,analyze_site,config,prompt_template}',
+
+                                            -- R1: add section-index to the allowed page_type enum
+                                                '"page_type": "content|tool|game|blog-index|blog-post|landing"',
+                                                '"page_type": "content|tool|game|section-index|blog-index|blog-post|landing"'
+                                        ),
+
+                                    -- R2: add a section-index guidance bullet right after the blog-index one
+                                        E'  - "blog-index": a listing page enumerating blog-posts (e.g. /guides/index.html).',
+                                        E'  - "blog-index": a listing page enumerating blog-posts (e.g. /guides/index.html).\n  - "section-index": a section landing/hub page that lists the child tool or game pages within a section (e.g. /tools/index.html, /games/index.html). Use this for the directory page of a tools or games section.'
+                                ),
+
+                            -- R3: trim the "content" bullet so it no longer claims section hubs (em-dash = U+2014)
+                                '  - "content": general-purpose informational page (about, contact, terms) OR a section landing page that enumerates tools/games (e.g. /tools/index.html, /games/index.html — these list child pages but are themselves general content).',
+                                '  - "content": general-purpose informational page (about, contact, terms).'
+                        ),
+
+                    -- R4: point the directory/item distinction at section-index for the hub
+                        '- Distinguish directory pages from item pages: /games/index.html -> "content" (it lists prototypes); /games/auto-battler/ -> "game" (it IS a prototype).',
+                        '- Distinguish directory/section-index pages from item pages: /games/index.html -> "section-index" (it lists prototypes); /games/auto-battler/ -> "game" (it IS a prototype).'
+                )
+        )
+                     )
+WHERE type = 'site-adoption-agent';
+
+-- ---------------------------------------------------------------------------
+-- Verification — all four must return t. Run inside the same transaction so a
+-- failed match can be rolled back rather than committed half-applied.
+-- ---------------------------------------------------------------------------
+SELECT
+    (default_config #>> '{workflow,steps,analyze_site,config,prompt_template}')
+        LIKE '%content|tool|game|section-index|blog-index|blog-post|landing%'      AS enum_ok,
+    (default_config #>> '{workflow,steps,analyze_site,config,prompt_template}')
+        LIKE '%"section-index": a section landing/hub page%'                       AS bullet_ok,
+    (default_config #>> '{workflow,steps,analyze_site,config,prompt_template}')
+        NOT LIKE '%OR a section landing page that enumerates tools/games%'         AS content_trimmed,
+    (default_config #>> '{workflow,steps,analyze_site,config,prompt_template}')
+        LIKE '%/games/index.html -> "section-index"%'                             AS distinguish_ok
+FROM agent_definitions
+WHERE type = 'site-adoption-agent';
+
+-- If all four are t:  COMMIT;
+-- If any is f      :  ROLLBACK;  -- (most likely R3's em-dash; re-pull exact bytes
+--                                --  from the LIVE value before retrying R3.)
+COMMIT;
+
