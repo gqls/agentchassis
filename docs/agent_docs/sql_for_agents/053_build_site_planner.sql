@@ -2875,3 +2875,272 @@ COMMIT;
 --
 -- ROLLBACK if needed: SELECT revert_agent('build-site-planner');
 
+---
+-- add design and composition back in
+
+-- ============================================================================
+-- build_pipeline_wiring.sql
+--
+-- Wires the three build-path fixes into agent workflows:
+--   1. build-site-planner: add emit_design  (emit_design_items)  after reconcile
+--   2. build-site-planner: add emit_imagery (emit_imagery_items) after emit_design
+--   3. rerender-pages:     add mark_site_deployed (update_site_status=deployed)
+--
+-- These edit agent_definitions.default_config (jsonb). Apply per your normal
+-- agent-update / versioning process (snapshot if you version defs).
+--
+-- IMPORTANT — INSPECT FIRST. These paths assume the backup snapshot's step
+-- names. Confirm the LIVE structure before applying:
+--
+--   SELECT jsonb_object_keys(default_config->'workflow'->'steps')
+--   FROM agent_definitions WHERE type = 'build-site-planner';
+--   -- expect: ..., reconcile_site_plan, complete  (NOT already emit_design)
+--
+--   SELECT default_config->'workflow'->'steps'->'reconcile_site_plan'->>'next_step'
+--   FROM agent_definitions WHERE type = 'build-site-planner';   -- expect: complete
+--
+--   SELECT jsonb_object_keys(default_config->'workflow'->'steps')
+--   FROM agent_definitions WHERE type = 'rerender-pages';
+--   -- expect: ..., create_rerender_items, complete
+--
+--   SELECT default_config->'workflow'->'steps'->'create_rerender_items'->>'next_step'
+--   FROM agent_definitions WHERE type = 'rerender-pages';        -- expect: complete
+--
+-- If default_config is `json` not `jsonb`, cast: default_config::jsonb ... ::json.
+-- Prereq: emit_design_items + emit_imagery_items registered in the action
+-- registry (see registry_entries.txt) and the chassis rebuilt.
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- 1 + 2. build-site-planner: reconcile_site_plan -> emit_design -> emit_imagery -> complete
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        default_config,
+                        '{workflow,steps,emit_design}',
+                        $$ {
+                    "action": "emit_design_items",
+                        "config": { "site_id": "input_data.site_id" },
+                    "next_step": "emit_imagery",
+                    "description": "Plan-time design trigger: queue needs_composition + needs_design (guarded on style_collection_id IS NULL)",
+                    "output_field": "design_items"
+                } $$::jsonb,
+                true
+            ),
+                '{workflow,steps,emit_imagery}',
+                $$ {
+                "action": "emit_imagery_items",
+                "config": { "site_id": "input_data.site_id" },
+                "next_step": "complete",
+                "description": "Plan-time imagery trigger: queue needs_imagery from the current plan's site_plan_imagery rows",
+                "output_field": "imagery_items"
+            } $$::jsonb,
+            true
+        ),
+        '{workflow,steps,reconcile_site_plan,next_step}',
+        '"emit_design"'::jsonb,
+        false
+                     ),
+    updated_at = now()
+WHERE type = 'build-site-planner';
+
+-- ---------------------------------------------------------------------------
+-- 3. rerender-pages: create_rerender_items -> mark_site_deployed -> complete
+--    Marks the site deployed once the terminal rerender has committed. Pages
+--    were already built+deployed by page-build-handler, so the site is live.
+--    Idempotent: re-stamps last_deployed_at on every rerender.
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,mark_site_deployed}',
+                $$ {
+                "action": "update_site_status",
+                "config": {
+                    "status": "deployed",
+                "deployed_at": "now",
+                "site_id_field": "input_data.site_id"
+            },
+                "next_step": "complete",
+                "description": "Mark site deployed after rerender + commit",
+                "output_field": "site_updated"
+            } $$::jsonb,
+            true
+        ),
+        '{workflow,steps,create_rerender_items,next_step}',
+        '"mark_site_deployed"'::jsonb,
+        false
+                     ),
+    updated_at = now()
+WHERE type = 'rerender-pages';
+
+-- ---------------------------------------------------------------------------
+-- POST-APPLY VERIFICATION (run after a fresh submit-domain build)
+-- ---------------------------------------------------------------------------
+-- Design + imagery items should appear for the new site:
+--   SELECT item_type, handler_agent, status, source, created_by, priority
+--   FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+--   WHERE s.domain = '<new-domain>'
+--     AND item_type IN ('needs_composition','needs_design','needs_imagery')
+--   ORDER BY priority;
+--
+-- After the terminal rerender, the site should be deployed:
+--   SELECT domain, status, style_collection_id, last_deployed_at
+--   FROM sites WHERE domain = '<new-domain>';
+-- ============================================================================
+
+---
+-- same as above
+-- ============================================================================
+-- build_pipeline_wiring.sql
+--
+-- Wires the three build-path fixes into agent workflows:
+--   1. build-site-planner: add emit_design  (emit_design_items)  after reconcile
+--   2. build-site-planner: add emit_imagery (emit_imagery_items) after emit_design
+--   3. rerender-pages:     add mark_site_deployed (update_site_status=deployed)
+--
+-- These edit agent_definitions.default_config (jsonb). Apply per your normal
+-- agent-update / versioning process (snapshot if you version defs).
+--
+-- IMPORTANT — INSPECT FIRST. These paths assume the backup snapshot's step
+-- names. Confirm the LIVE structure before applying:
+--
+--   SELECT jsonb_object_keys(default_config->'workflow'->'steps')
+--   FROM agent_definitions WHERE type = 'build-site-planner';
+--   -- expect: ..., reconcile_site_plan, complete  (NOT already emit_design)
+--
+--   SELECT default_config->'workflow'->'steps'->'reconcile_site_plan'->>'next_step'
+--   FROM agent_definitions WHERE type = 'build-site-planner';   -- expect: complete
+--
+--   SELECT jsonb_object_keys(default_config->'workflow'->'steps')
+--   FROM agent_definitions WHERE type = 'rerender-pages';
+--   -- expect: ..., create_rerender_items, complete
+--
+--   SELECT default_config->'workflow'->'steps'->'create_rerender_items'->>'next_step'
+--   FROM agent_definitions WHERE type = 'rerender-pages';        -- expect: complete
+--
+-- If default_config is `json` not `jsonb`, cast: default_config::jsonb ... ::json.
+-- Prereq: emit_design_items + emit_imagery_items registered in the action
+-- registry (see registry_entries.txt) and the chassis rebuilt.
+-- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- 1 + 2. build-site-planner: reconcile_site_plan -> emit_design -> emit_imagery -> complete
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                jsonb_set(
+                        default_config,
+                        '{workflow,steps,emit_design}',
+                        $$ {
+                    "action": "emit_design_items",
+                        "config": { "site_id": "input_data.site_id" },
+                    "next_step": "emit_imagery",
+                    "description": "Plan-time design trigger: queue needs_composition + needs_design (guarded on style_collection_id IS NULL)",
+                    "output_field": "design_items"
+                } $$::jsonb,
+                true
+            ),
+                '{workflow,steps,emit_imagery}',
+                $$ {
+                "action": "emit_imagery_items",
+                "config": { "site_id": "input_data.site_id" },
+                "next_step": "complete",
+                "description": "Plan-time imagery trigger: queue needs_imagery from the current plan's site_plan_imagery rows",
+                "output_field": "imagery_items"
+            } $$::jsonb,
+            true
+        ),
+        '{workflow,steps,reconcile_site_plan,next_step}',
+        '"emit_design"'::jsonb,
+        false
+                     ),
+    updated_at = now()
+WHERE type = 'build-site-planner';
+
+-- ---------------------------------------------------------------------------
+-- 3. rerender-pages: create_rerender_items -> mark_site_deployed -> complete
+--    Marks the site deployed once the terminal rerender has committed. Pages
+--    were already built+deployed by page-build-handler, so the site is live.
+--    Idempotent: re-stamps last_deployed_at on every rerender.
+-- ---------------------------------------------------------------------------
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,mark_site_deployed}',
+                $$ {
+                "action": "update_site_status",
+                "config": {
+                    "status": "deployed",
+                "deployed_at": "now",
+                "site_id_field": "input_data.site_id"
+            },
+                "next_step": "complete",
+                "description": "Mark site deployed after rerender + commit",
+                "output_field": "site_updated"
+            } $$::jsonb,
+            true
+        ),
+        '{workflow,steps,create_rerender_items,next_step}',
+        '"mark_site_deployed"'::jsonb,
+        false
+                     ),
+    updated_at = now()
+WHERE type = 'rerender-pages';
+
+-- ---------------------------------------------------------------------------
+-- POST-APPLY VERIFICATION (run after a fresh submit-domain build)
+-- ---------------------------------------------------------------------------
+-- Design + imagery items should appear for the new site:
+--   SELECT item_type, handler_agent, status, source, created_by, priority
+--   FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+--   WHERE s.domain = '<new-domain>'
+--     AND item_type IN ('needs_composition','needs_design','needs_imagery')
+--   ORDER BY priority;
+--
+-- After the terminal rerender, the site should be deployed:
+--   SELECT domain, status, style_collection_id, last_deployed_at
+--   FROM sites WHERE domain = '<new-domain>';
+-- ============================================================================
+
+-- ============================================================================
+-- 4. build-site-planner output_contract: drop stale "build_items", reflect the
+--    real terminal outputs (this workflow uses reconcile_site_plan, not
+--    write_build_items, and now also emits design + imagery items).
+-- ============================================================================
+UPDATE agent_definitions
+SET output_contract = jsonb_set(
+        output_contract,
+        '{produces}',
+        $$ {
+            "db_sync":          "Pages synced to database",
+        "site_plan":        "Validated site plan",
+        "plan_written":     "Plan written to site_plans + pages/sections/directives/imagery",
+        "reconcile_result": "needs_page work items + terminal needs_rerender emitted for the delta",
+        "design_items":     "needs_composition + needs_design emitted when no composition is installed",
+        "imagery_items":    "needs_imagery emitted from the plan's site_plan_imagery rows"
+    } $$::jsonb,
+        true
+    ),
+    updated_at = now()
+WHERE type = 'build-site-planner';
+
+-- Optional: surface the new step outputs in the workflow result alongside the
+-- existing ones (cosmetic — they already run; this just returns their counts).
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete,config,output_fields}',
+        $$ ["site_plan","plan_written","db_sync","reconcile_result","design_items","imagery_items"] $$::jsonb,
+        false
+                     ),
+    updated_at = now()
+WHERE type = 'build-site-planner';
+-- ============================================================================
+
+

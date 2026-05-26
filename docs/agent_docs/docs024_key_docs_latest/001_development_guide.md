@@ -1082,17 +1082,33 @@ If the answer to any of these is no, you need a wrapper handler agent.
 
 ---
 
-### Work item domain is NOT the site domain
+### Work item pipeline must be "build" to dispatch
 
-**Problem we hit:** `WriteBuildItemsAction` created `needs_design` with `domain: "design"`. The dispatch loop filters `item_domain: "build"`. CSS generation was never dispatched.
+**Problem we hit:** `WriteBuildItemsAction` created `needs_design` with
+`pipeline: "design"`. The dispatch loop filters on `pipeline = 'build'`, so CSS
+generation was never dispatched.
 
-**The `domain` column on `site_work_items` is a namespace for categorising work items** (like "build", "maintenance", "marketing"). It is NOT the website domain (like "gaswholesalers.com"). These are two completely different concepts sharing the same column name.
+**The `pipeline` column on `site_work_items` is a routing namespace** (`build`,
+`design`, `maintenance`, …) that the dispatch loop filters on. It is NOT the
+website domain (like "gaswholesalers.com"). It was previously named `domain`,
+which collided confusingly with the site domain — the rename to `pipeline`
+removed that clash, but the routing rule is unchanged.
 
-**Rule: All items in the initial build pipeline must use `domain: "build"`.** The dispatch loop filters by this. If you create items with a different domain, they won't be picked up.
+**Rule: every item in the initial build pipeline must use `pipeline: "build"`.**
+The dispatch loop's `find_dispatchable_site` / `LoadWorkItemsAction` only pick up
+`pipeline = 'build'`. Items written with any other pipeline won't be claimed.
+Discovery checks may emit at `pipeline: "design"` and rely on
+`TriageDetectedItemsAction` to rewrite it to `build` at triage — but items that
+emit straight to `triaged` (e.g. `emit_design_items`, `emit_imagery_items`) skip
+triage, so they must set `pipeline: "build"` at emission themselves.
 
-The site domain (gaswholesalers.com) comes from `input_data.domain` which is passed to the dispatch loop from the trigger. It's forwarded to handlers via `input_mapping`. The work item's `domain` field is never passed to handlers as the site domain.
+The site domain (gaswholesalers.com) comes from `input_data.domain`, passed to
+the dispatch loop from the trigger and forwarded to handlers via `input_mapping`.
+The work item's `pipeline` value is never passed to handlers as the site domain.
 
-**Naming trap:** The dispatch loop's `input_mapping` had `"domain": "pending.first_item.domain"` which would pass "build" to the handler instead of "gaswholesalers.com". The handler needs the site domain. Fixed to `"domain": "input_data.domain"`.
+**Naming trap (historical):** the dispatch loop's `input_mapping` once had
+`"domain": "pending.first_item.domain"`, which passed the routing namespace to
+the handler instead of the site domain. Fixed to `"domain": "input_data.domain"`.
 
 ---
 

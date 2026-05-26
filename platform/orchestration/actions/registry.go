@@ -899,6 +899,20 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Diff site_plan_pages vs realised pages; emit needs_page work items for the delta; emit terminal needs_rerender if any (doc 030)",
 		IsLocal:     true,
 	},
+	"emit_design_items": {
+		Handler:     EmitDesignItemsAction,
+		Category:    "site",
+		Description: "Plan-time: queue needs_composition + needs_design for a build (guarded on style_collection_id IS NULL)",
+		IsLocal:     true,
+	},
+
+	"emit_imagery_items": {
+		Handler:     EmitImageryItemsAction,
+		Category:    "site",
+		Description: "Plan-time: queue needs_imagery from the current plan's site_plan_imagery rows",
+		IsLocal:     true,
+	},
+
 	"generate_html": {
 		Handler:     GenerateHTMLAction,
 		Category:    "site",
