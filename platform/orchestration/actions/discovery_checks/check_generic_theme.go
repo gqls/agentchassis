@@ -58,6 +58,21 @@ type genericThemeFinding struct {
 }
 
 func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) {
+	// No-collection sites are owned by missing_style_collection, which emits
+	// the composition pair (needs_composition -> needs_design). Skip them here
+	// so generic_theme doesn't also queue a bare webdesign-agent run that would
+	// race ahead of composition. generic_theme handles only the "collection
+	// exists but the theme looks default/bland" case.
+	var hasCollection bool
+	if err := dctx.DB.QueryRowContext(dctx.Ctx, `
+		SELECT style_collection_id IS NOT NULL FROM sites WHERE id = $1
+	`, dctx.SiteID).Scan(&hasCollection); err != nil {
+		return nil, err
+	}
+	if !hasCollection {
+		return nil, nil
+	}
+
 	finding := &genericThemeFinding{}
 
 	// Check for webdesign spec

@@ -51,6 +51,23 @@ type MissingStyleCollectionCheck struct{}
 
 func (c *MissingStyleCollectionCheck) Name() string { return "missing_style_collection" }
 
+// CHANGE: missing_style_collection now OWNS the no-composition case. When
+// style_collection_id IS NULL it emits the same trigger pair the build path's
+// emit_design_items step emits — needs_composition (→ site-design-planner,
+// which installs the css_theme + style_collection and sets style_collection_id)
+// ahead of needs_design (→ webdesign-agent, which renders styles.css) — so a
+// stale site gets a resolved composition rather than emergency-fallback CSS.
+//
+// Previously this emitted a single missing_style_collection item straight to
+// webdesign-agent (priority 1), which rendered fallback CSS with no resolved
+// composition. missing_css and generic_theme defer the no-collection case to
+// this check now, so it is the single owner.
+//
+// item_keys are "needs_composition"/"needs_design" — identical to
+// emit_design_items — so build-time and loop emitters dedupe via idx_swi_dedup
+// (one open row per site/item_key). Priority 7 < 8 orders composition ahead of
+// design; the discovery WorkItemSpec path has no depends_on field, so ordering
+// relies on priority + one-dispatch-loop-per-site.
 func (c *MissingStyleCollectionCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
 	result := &CheckResult{}
 
@@ -68,42 +85,67 @@ func (c *MissingStyleCollectionCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 		return nil, fmt.Errorf("missing_style_collection: %w", err)
 	}
 
-	if !hasCollection {
-		summary := fmt.Sprintf("Site %s has no style collection assigned", domain)
-		reason := "no_style_collection"
-		if plannedName != nil && *plannedName != "" {
-			summary = fmt.Sprintf("Site %s has planned style '%s' but style_collection_id is NULL — name was never resolved to ID", domain, *plannedName)
-			reason = "style_name_not_resolved"
-		}
-
-		spec, _ := json.Marshal(map[string]interface{}{
-			"domain":       domain,
-			"planned_name": plannedName,
-			"reason":       reason,
-		})
-
-		result.WorkItems = append(result.WorkItems, WorkItemSpec{
-			SiteID:       dctx.SiteID,
-			Source:       "discovery",
-			Pipeline:     "build",
-			ItemType:     "missing_style_collection",
-			Severity:     "high",
-			Summary:      summary,
-			SpecJSON:     string(spec),
-			Priority:     1,
-			HandlerAgent: "webdesign-agent",
-			Status:       "detected",
-			CreatedBy:    dctx.AgentType,
-			ItemKey:      fmt.Sprintf("no_style_%s", domain),
-			BatchID:      dctx.BatchID,
-		})
-
-		result.Findings = append(result.Findings, map[string]interface{}{
-			"check":  "missing_style_collection",
-			"domain": domain,
-			"reason": reason,
-		})
+	if hasCollection {
+		return result, nil
 	}
+
+	reason := "no_style_collection"
+	if plannedName != nil && *plannedName != "" {
+		reason = "style_name_not_resolved"
+	}
+
+	// needs_composition → site-design-planner (resolves palette/layout/
+	// typography, installs css_theme + style_collection, sets style_collection_id).
+	compSpec, _ := json.Marshal(map[string]interface{}{
+		"domain":       domain,
+		"planned_name": plannedName,
+		"reason":       reason,
+		"stage":        "composition",
+	})
+	result.WorkItems = append(result.WorkItems, WorkItemSpec{
+		SiteID:       dctx.SiteID,
+		Source:       "discovery",
+		Pipeline:     "build",
+		ItemType:     "needs_composition",
+		Severity:     "high",
+		Summary:      fmt.Sprintf("Site %s has no composition — resolve palette/layout/typography", domain),
+		SpecJSON:     string(compSpec),
+		Priority:     7,
+		HandlerAgent: "site-design-planner",
+		Status:       "detected",
+		CreatedBy:    dctx.AgentType,
+		ItemKey:      "needs_composition",
+		BatchID:      dctx.BatchID,
+	})
+
+	// needs_design → webdesign-agent (renders styles.css), after composition.
+	designSpec, _ := json.Marshal(map[string]interface{}{
+		"domain": domain,
+		"reason": reason,
+		"stage":  "design",
+	})
+	result.WorkItems = append(result.WorkItems, WorkItemSpec{
+		SiteID:       dctx.SiteID,
+		Source:       "discovery",
+		Pipeline:     "build",
+		ItemType:     "needs_design",
+		Severity:     "high",
+		Summary:      fmt.Sprintf("Site %s needs stylesheet generated (after composition)", domain),
+		SpecJSON:     string(designSpec),
+		Priority:     8,
+		HandlerAgent: "webdesign-agent",
+		Status:       "detected",
+		CreatedBy:    dctx.AgentType,
+		ItemKey:      "needs_design",
+		BatchID:      dctx.BatchID,
+	})
+
+	result.Findings = append(result.Findings, map[string]interface{}{
+		"check":  "missing_style_collection",
+		"domain": domain,
+		"reason": reason,
+		"action": "emitted needs_composition + needs_design",
+	})
 
 	return result, nil
 }
