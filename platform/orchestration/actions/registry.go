@@ -905,14 +905,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Plan-time: queue needs_composition + needs_design for a build (guarded on style_collection_id IS NULL)",
 		IsLocal:     true,
 	},
-
 	"emit_imagery_items": {
 		Handler:     EmitImageryItemsAction,
 		Category:    "site",
 		Description: "Plan-time: queue needs_imagery from the current plan's site_plan_imagery rows",
 		IsLocal:     true,
 	},
-
+	"flag_page_image_rebuild": {
+		Handler:     FlagPageImageRebuildAction,
+		Category:    "site",
+		Description: "Re-render a page after its image asset lands so the hero resolves",
+		IsLocal:     true,
+	},
 	"generate_html": {
 		Handler:     GenerateHTMLAction,
 		Category:    "site",

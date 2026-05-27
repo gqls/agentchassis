@@ -66,19 +66,26 @@ type sourceResolver struct {
 	specs        map[string]map[string]interface{} // aspect → data
 	pages        map[string]string                 // page name → url
 	assets       map[string]string                 // asset type → url
+	pageName     string                            // page being planned; scopes per-page asset resolution (hero)
 	specsLoaded  bool
 	pagesLoaded  bool
 	assetsLoaded bool
 }
 
-func newSourceResolver(siteID uuid.UUID, db *sql.DB, logger *zap.Logger) *sourceResolver {
+// NOTE (signature change): newSourceResolver now takes pageName so site_assets
+// resolution can be page-aware (this page's hero rather than a single
+// site-wide hero_url). There is one caller (PlanSectionsAction); it passes the
+// page_name it already has. An empty pageName degrades safely — the per-page
+// hero lookup is skipped and resolution falls back to content_data.
+func newSourceResolver(siteID uuid.UUID, db *sql.DB, logger *zap.Logger, pageName string) *sourceResolver {
 	return &sourceResolver{
-		siteID: siteID,
-		db:     db,
-		logger: logger,
-		specs:  make(map[string]map[string]interface{}),
-		pages:  make(map[string]string),
-		assets: make(map[string]string),
+		siteID:   siteID,
+		db:       db,
+		logger:   logger,
+		pageName: pageName,
+		specs:    make(map[string]map[string]interface{}),
+		pages:    make(map[string]string),
+		assets:   make(map[string]string),
 	}
 }
 
@@ -142,33 +149,95 @@ func (r *sourceResolver) ensurePages(ctx context.Context) {
 	}
 }
 
-// loadAssets checks what site assets exist (once)
+// loadAssets resolves the asset URLs this page's sections may reference, once.
+//
+// CHANGE: previously this mapped a single site-wide content_data["hero_url"]
+// to assets["hero"], so every page shared one hero (and StoreAssetAction
+// overwrites hero_url per generation — last-write-wins). It now resolves the
+// PAGE'S hero from the current plan's imagery rows joined to the deployed
+// asset: site_plan_imagery.key is the asset_key, assets.url is the web path.
+// So site_assets.hero on the index page resolves to hero-home.jpg, on
+// games-index to hero-games.jpg, etc. The site logo (scope='site',
+// kind='logo') resolves the same way. content_data remains a fallback for
+// legacy/adopted sites with no plan imagery rows, or assets not yet active.
 func (r *sourceResolver) ensureAssets(ctx context.Context) {
 	if r.assetsLoaded {
 		return
 	}
 	r.assetsLoaded = true
 
-	// Check content_data for known asset URLs
-	var contentDataJSON []byte
-	err := r.db.QueryRowContext(ctx, `
-		SELECT content_data FROM sites WHERE id = $1
-	`, r.siteID).Scan(&contentDataJSON)
-	if err != nil {
-		return
+	// Per-page hero: this page's hero asset from the current plan, joined to
+	// the deployed asset row. Skipped when pageName is empty (degrades to the
+	// content_data fallback below).
+	if r.pageName != "" {
+		var heroURL string
+		err := r.db.QueryRowContext(ctx, `
+			SELECT a.url
+			  FROM site_plan_imagery spi
+			  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
+			  JOIN assets a ON a.site_id = sp.site_id
+			               AND a.asset_key = spi.key
+			               AND a.status = 'active'
+			 WHERE sp.site_id = $1
+			   AND spi.scope = 'page'
+			   AND spi.scope_ref = $2
+			   AND spi.kind = 'hero'
+			 ORDER BY spi.ordering
+			 LIMIT 1
+		`, r.siteID, r.pageName).Scan(&heroURL)
+		switch {
+		case err == nil && heroURL != "":
+			r.assets["hero"] = heroURL
+		case err != nil && err != sql.ErrNoRows:
+			r.logger.Warn("plan_sections: per-page hero lookup failed",
+				zap.String("page", r.pageName), zap.Error(err))
+		}
 	}
 
+	// Site logo.
+	var logoURL string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT a.url
+		  FROM site_plan_imagery spi
+		  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
+		  JOIN assets a ON a.site_id = sp.site_id
+		               AND a.asset_key = spi.key
+		               AND a.status = 'active'
+		 WHERE sp.site_id = $1
+		   AND spi.scope = 'site'
+		   AND spi.kind = 'logo'
+		 ORDER BY spi.ordering
+		 LIMIT 1
+	`, r.siteID).Scan(&logoURL)
+	switch {
+	case err == nil && logoURL != "":
+		r.assets["logo"] = logoURL
+	case err != nil && err != sql.ErrNoRows:
+		r.logger.Warn("plan_sections: logo lookup failed", zap.Error(err))
+	}
+
+	// Fallback: content_data for anything not resolved above (legacy/adopted
+	// sites without plan imagery, or assets not yet active). Gap-fill only —
+	// the per-plan values above take precedence.
+	var contentDataJSON []byte
+	if err := r.db.QueryRowContext(ctx, `
+		SELECT content_data FROM sites WHERE id = $1
+	`, r.siteID).Scan(&contentDataJSON); err != nil {
+		return
+	}
 	var contentData map[string]interface{}
 	if err := json.Unmarshal(contentDataJSON, &contentData); err != nil {
 		return
 	}
-
-	// Map known asset keys
-	if heroURL, ok := contentData["hero_url"].(string); ok && heroURL != "" {
-		r.assets["hero"] = heroURL
+	if _, ok := r.assets["hero"]; !ok {
+		if heroURL, ok := contentData["hero_url"].(string); ok && heroURL != "" {
+			r.assets["hero"] = heroURL
+		}
 	}
-	if logoURL, ok := contentData["logo_url"].(string); ok && logoURL != "" {
-		r.assets["logo"] = logoURL
+	if _, ok := r.assets["logo"]; !ok {
+		if logoURL, ok := contentData["logo_url"].(string); ok && logoURL != "" {
+			r.assets["logo"] = logoURL
+		}
 	}
 }
 
@@ -486,7 +555,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	components := loadComponentSchemas(ctx, params.DB, sectionNames, logger)
 
 	// Create resolver
-	resolver := newSourceResolver(siteID, params.DB, logger)
+	resolver := newSourceResolver(siteID, params.DB, logger, pageName)
 
 	// Pre-load specs so we can extract design_direction for needs_new_component items.
 	// ensureSpecs is idempotent — later calls in planSection() won't re-query.
