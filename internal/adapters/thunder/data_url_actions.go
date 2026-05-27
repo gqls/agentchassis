@@ -24,6 +24,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -72,6 +73,18 @@ type PrepareArtefactURLRequest struct {
 	ExpiryMinutes int    `json:"expiry_minutes,omitempty"`
 }
 
+// ObjectURLRequest is the general presign primitive: the caller passes an
+// explicit, already-bucket-relative key (the chassis dispatch action strips
+// any s3://bucket/ prefix before sending), plus the HTTP method. Used by the
+// training-launcher (Phase 5) to presign the dataset (GET, key derived from
+// the preparer's dataset_uri) and the scripts bundle (GET, literal key).
+// Method defaults to GET; PUT is supported for symmetry with artefact uploads.
+type ObjectURLRequest struct {
+	Key           string `json:"key"`
+	Method        string `json:"method,omitempty"`
+	ExpiryMinutes int    `json:"expiry_minutes,omitempty"`
+}
+
 // PreparedURLResult is the shared result shape for both actions.
 type PreparedURLResult struct {
 	PresignedURL string `json:"presigned_url"`
@@ -100,50 +113,74 @@ func NewDataURLAction(s storage.Client, logger *zap.Logger) *DataURLAction {
 	}
 }
 
+// ObjectURL is the general presign primitive: sign a GET or PUT for an
+// explicit, already-bucket-relative key. DatasetURL/ArtefactURL delegate to it
+// so there is a single presign code path (no parallel signing logic). Method
+// defaults to GET; expiry defaults by method (GET short, PUT long enough to
+// outlast a training run) unless the caller overrides.
+func (d *DataURLAction) ObjectURL(ctx context.Context, req ObjectURLRequest) (*PreparedURLResult, error) {
+	if req.Key == "" {
+		return nil, fmt.Errorf("key is required")
+	}
+	method := strings.ToUpper(strings.TrimSpace(req.Method))
+	if method == "" {
+		method = "GET"
+	}
+	expiry := req.ExpiryMinutes
+
+	var (
+		url string
+		err error
+	)
+	switch method {
+	case "GET":
+		if expiry <= 0 {
+			expiry = defaultDatasetURLExpiryMin
+		}
+		url, err = d.storage.GetPresignedURL(ctx, req.Key, expiry)
+	case "PUT":
+		if expiry <= 0 {
+			expiry = defaultArtefactURLExpiryMin
+		}
+		url, err = d.storage.GetPresignedPutURL(ctx, req.Key, expiry)
+	default:
+		return nil, fmt.Errorf("unsupported method %q (want GET or PUT)", method)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("presign %s %s: %w", method, req.Key, err)
+	}
+	return &PreparedURLResult{
+		PresignedURL: url,
+		Key:          req.Key,
+		ExpiresAt:    time.Now().UTC().Add(time.Duration(expiry) * time.Minute).Format(time.RFC3339),
+		Method:       method,
+	}, nil
+}
+
 // DatasetURL returns a presigned GET URL for the dataset belonging to export_id.
+// Delegates to ObjectURL after deriving the canonical key.
 func (d *DataURLAction) DatasetURL(ctx context.Context, req PrepareDatasetURLRequest) (*PreparedURLResult, error) {
 	if req.ExportID == "" {
 		return nil, fmt.Errorf("export_id is required")
 	}
-	expiry := req.ExpiryMinutes
-	if expiry <= 0 {
-		expiry = defaultDatasetURLExpiryMin
-	}
-	key := fmt.Sprintf(datasetKeyTemplate, req.ExportID)
-
-	url, err := d.storage.GetPresignedURL(ctx, key, expiry)
-	if err != nil {
-		return nil, fmt.Errorf("presign GET %s: %w", key, err)
-	}
-	return &PreparedURLResult{
-		PresignedURL: url,
-		Key:          key,
-		ExpiresAt:    time.Now().UTC().Add(time.Duration(expiry) * time.Minute).Format(time.RFC3339),
-		Method:       "GET",
-	}, nil
+	return d.ObjectURL(ctx, ObjectURLRequest{
+		Key:           fmt.Sprintf(datasetKeyTemplate, req.ExportID),
+		Method:        "GET",
+		ExpiryMinutes: req.ExpiryMinutes,
+	})
 }
 
 // ArtefactURL returns a presigned PUT URL for the artefact of training_run_id.
+// Delegates to ObjectURL after deriving the canonical key.
 func (d *DataURLAction) ArtefactURL(ctx context.Context, req PrepareArtefactURLRequest) (*PreparedURLResult, error) {
 	if req.TrainingRunID == "" {
 		return nil, fmt.Errorf("training_run_id is required")
 	}
-	expiry := req.ExpiryMinutes
-	if expiry <= 0 {
-		expiry = defaultArtefactURLExpiryMin
-	}
-	key := fmt.Sprintf(artefactKeyTemplate, req.TrainingRunID)
-
-	url, err := d.storage.GetPresignedPutURL(ctx, key, expiry)
-	if err != nil {
-		return nil, fmt.Errorf("presign PUT %s: %w", key, err)
-	}
-	return &PreparedURLResult{
-		PresignedURL: url,
-		Key:          key,
-		ExpiresAt:    time.Now().UTC().Add(time.Duration(expiry) * time.Minute).Format(time.RFC3339),
-		Method:       "PUT",
-	}, nil
+	return d.ObjectURL(ctx, ObjectURLRequest{
+		Key:           fmt.Sprintf(artefactKeyTemplate, req.TrainingRunID),
+		Method:        "PUT",
+		ExpiryMinutes: req.ExpiryMinutes,
+	})
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -250,6 +287,63 @@ func (a *Adapter) handlePrepareArtefactURL(
 	}
 
 	a.sendSuccessResponse(reqHeaders, replyToTopic, "prepare_artefact_url",
+		map[string]interface{}{
+			"presigned_url": result.PresignedURL,
+			"key":           result.Key,
+			"expires_at":    result.ExpiresAt,
+			"method":        result.Method,
+		}, l)
+}
+
+// handlePrepareObjectURL parses the body and returns a presigned URL for an
+// explicit key (GET or PUT). Mirrors handlePrepareDatasetURL's parse +
+// response pattern; the reply key "presigned_url" is what the launcher's
+// ssh_exec_launch tokens (scripts_url_result.presigned_url /
+// dataset_url_result.presigned_url) resolve against.
+func (a *Adapter) handlePrepareObjectURL(
+	body map[string]interface{},
+	reqHeaders map[string]string,
+	replyToTopic string,
+	l *zap.Logger,
+) {
+	if replyToTopic == "" {
+		l.Warn("No reply_to_topic on prepare_object_url request — cannot send response")
+		return
+	}
+	if a.dataURLAction == nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_object_url",
+			"storage_unavailable",
+			"object storage not configured (TRAINING_BUCKET / B2 credentials missing at startup)",
+			"error_unrecoverable", l)
+		return
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_object_url",
+			"invalid_request_body", fmt.Sprintf("could not re-marshal body: %v", err),
+			"error_unrecoverable", l)
+		return
+	}
+	var req ObjectURLRequest
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_object_url",
+			"invalid_request_body", fmt.Sprintf("could not unmarshal into ObjectURLRequest: %v", err),
+			"error_unrecoverable", l)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	result, err := a.dataURLAction.ObjectURL(ctx, req)
+	if err != nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_object_url",
+			"presign_failed", err.Error(), "error_unrecoverable", l)
+		return
+	}
+
+	a.sendSuccessResponse(reqHeaders, replyToTopic, "prepare_object_url",
 		map[string]interface{}{
 			"presigned_url": result.PresignedURL,
 			"key":           result.Key,

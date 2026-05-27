@@ -95,26 +95,29 @@ func DispatchThunderPrepareObjectURLAction(ctx context.Context, params ActionPar
 	}
 
 	// ── Pick the responses_topic the adapter reply must route to ──
-	// MUST be the PARENT (caller's) responses topic — the one the saga
-	// coordinator subscribes to for matching awaited_requests rows. Using the
-	// agent's OWN topic (the earlier bug) routes the reply where the chassis
-	// has no consumer, so the await never resolves. Matches the corrected
-	// derivation in thunder_provision_dispatch.go / thunder_decommission_dispatch.go.
-	//   1. CollectedData["__parent_responses_topic__"]  ← canonical v2 envelope field
-	//   2. Last-resort fallback: ExecutionContext.ResponsesTopic with a warning log
-	myResponsesTopic := ""
-	if parentTopic, ok := params.CollectedData["__parent_responses_topic__"].(string); ok && parentTopic != "" {
-		myResponsesTopic = parentTopic
-	}
+	// SAME derivation as the proven dispatch actions (provision/decommission):
+	// the agent's OWN responses topic. This agent's saga coordinator awaits the
+	// adapter reply on this topic and matches it against the awaited_request in
+	// THIS orchestration's state. ExecutionContext.ResponsesTopic is populated by
+	// the coordinator from __my_responses_topic__ first (coordinator.go ~L1352).
+	//
+	// NOT __parent_responses_topic__: that is the topic the child uses to notify
+	// its PARENT of its FINAL result (notifyParentOfSuccess/Failure). Using it for
+	// an intermediate adapter reply routes the reply to the parent, where no
+	// awaited_request matches — the launcher would publish fine but hang on the
+	// await. (provision/decommission, which work in production, use this
+	// own-topic derivation.)
+	myResponsesTopic := params.ExecutionContext.ResponsesTopic
 	if myResponsesTopic == "" {
-		myResponsesTopic = params.ExecutionContext.ResponsesTopic
-		params.Logger.Warn(
-			"dispatch_thunder_prepare_object_url: no __parent_responses_topic__ found, falling back to own ResponsesTopic — adapter response may not be matched by the chassis",
-			zap.String("fallback_topic", myResponsesTopic),
-		)
-	}
-	if myResponsesTopic == "" {
-		return nil, fmt.Errorf("dispatch_thunder_prepare_object_url: could not determine a responses topic — neither __parent_responses_topic__ nor ExecutionContext.ResponsesTopic is set; cannot route adapter reply")
+		agentType := params.ExecutionContext.Sender.AgentType
+		if agentType == "" {
+			agentType = os.Getenv("AGENT_TYPE")
+		}
+		if agentType != "" {
+			myResponsesTopic = fmt.Sprintf("system.agent.%s.responses", agentType)
+		} else {
+			myResponsesTopic = "system.agent.generic.responses"
+		}
 	}
 
 	newRequestID := uuid.NewString()
