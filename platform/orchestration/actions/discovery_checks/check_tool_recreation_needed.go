@@ -166,9 +166,12 @@ func (c *ToolRecreationNeededCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 			"action":    "requesting_recreation",
 		})
 
+		// Per-iteration local so &pid is stable across iterations (safe
+		// pre-Go 1.22, where the range variable was shared).
+		pid := t.ID
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:       dctx.SiteID,
-			PageID:       t.ID,
+			PageID:       &pid,
 			Source:       "discovery",
 			Pipeline:     "build",
 			ItemType:     "needs_tool_recreation",
