@@ -13,9 +13,11 @@
 --        SELECT id, created_at FROM sites WHERE domain='gamesdesign.co.uk';
 --      If MORE THAN ONE row, run this block once per id (set :sid each time).
 --   3. No adoption trigger is firing while this runs.
+
+SELECT id, created_at FROM sites WHERE domain='gamesdesign.co.uk';
 --
 -- Usage: replace the \set below with the actual UUID, then run the file.
-\set sid '00000000-0000-0000-0000-000000000000'   -- <<< SET THIS
+\set sid '5acc0a7a-13c8-4973-a4ca-ec439ea91ec9'   -- <<< SET THIS
 
 BEGIN;
 

@@ -3144,5 +3144,24 @@ WHERE type = 'build-site-planner';
 -- ============================================================================
 
 The wiring: reconcile_site_plan.next_step → emit_design → emit_imagery → complete; emit_design calls emit_design_items and emit_imagery calls emit_imagery_items, both with site_id: input_data.site_id; output_contract.produces dropped build_items and now lists reconcile_result/design_items/imagery_items; complete.output_fields includes the two new ones. Updated 2026-05-26 11:06. The flow is right.
+---
+
+                                                                                                                                                                                                                                                                                                                                        clients_db=# SELECT snapshot_agent('build-site-planner', 'write_site_plan step description: add site_plan_imagery');
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,write_site_plan,description}',
+        to_jsonb('Write validated plan to site_plans + site_plan_pages + site_plan_sections + site_plan_directives + site_plan_imagery; transfer HITL locks (directives + imagery) from previous current plan'::text),
+        false)
+WHERE type = 'build-site-planner'
+  AND is_active = true;
+NOTICE:  Snapshot captured: type=build-site-planner, source_version=1, source_id=f263eaa1-61e1-446e-9410-648e12b7875b, reason=write_site_plan step description: add site_plan_imagery
+            snapshot_agent
+--------------------------------------
+ f263eaa1-61e1-446e-9410-648e12b7875b
+(1 row)
+
+
 
 
