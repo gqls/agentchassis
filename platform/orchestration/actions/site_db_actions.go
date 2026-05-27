@@ -238,37 +238,58 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("no pages found in page_plan")
 	}
 
-	// Canonicalise LLM-emitted page identities through the shared helper
-	// (doc 029 Phase 0). Adoption writes pages with names like
-	// "tool-ttk-calculator" / "guides-index"; the planner's LLM emits
-	// bare slugs ("ttk-calculator" / "guides"). Without this pass,
-	// upsertPage's ON CONFLICT (site_id, name) never fires across
-	// surfaces and we end up with two pages rows per logical page.
+	// Canonicalise LLM-emitted page identities through the SAME pipeline the
+	// plan-writer uses: ValidateRoles (cross-page role correction) THEN
+	// CanonicalisePage (doc 029 Phase 0). This path previously called
+	// CanonicalisePage alone, so a section hub the LLM typed "content"
+	// (e.g. games-index) was written FLAT to pages (/games-index.html,
+	// page_type content) while WriteSitePlanAction — which runs ValidateRoles
+	// first — wrote it section-index (/games/index.html) to site_plan_pages.
+	// The two canonicalisation surfaces diverged and pages regressed a correct
+	// plan. Running ValidateRoles here makes both surfaces apply identical
+	// rules, so they cannot disagree. Mirrors write_site_plan_action.go.
+	//
+	// ValidateRoles needs the full set (rule 3 reads cross-page parents) and
+	// preserves order, so validated[i] aligns with pages[i].
 	//
 	// Mutates the page maps in place. CollectedData consumers that read
 	// page_plan downstream will see the canonical name/url/page_type —
 	// by design, since the canonical identity is the one that survives.
+	llmPages := make([]datahelpers.LLMPlannedPage, 0, len(pages))
+	for i, page := range pages {
+		name := datahelpers.GetStringField(page, "name", "")
+		if name == "" {
+			name = fmt.Sprintf("page-%d", i+1)
+		}
+		llmPages = append(llmPages, datahelpers.LLMPlannedPage{
+			Name:          name,
+			Role:          firstNonEmptyField(page, "page_type", "type", "role"),
+			Slug:          datahelpers.GetStringField(page, "slug", ""),
+			URL:           datahelpers.GetStringField(page, "url", ""),
+			ParentSection: datahelpers.GetStringField(page, "parent_section", ""),
+		})
+	}
+	validated := datahelpers.ValidateRoles(llmPages)
+
 	normalised := make([]map[string]interface{}, 0, len(pages))
 	for i, page := range pages {
-		rawName := datahelpers.GetStringField(page, "name", "")
-		if rawName == "" {
-			rawName = fmt.Sprintf("page-%d", i+1)
-		}
-		// upsertPage reads the LLM's role from the "type" key; some
-		// upstream variants use "page_type". Treat both as equivalent.
-		rawType := datahelpers.GetStringField(page, "type", "")
-		if rawType == "" {
-			rawType = datahelpers.GetStringField(page, "page_type", "")
-		}
+		v := validated[i]
 		name, url, pageType := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
-			Role: rawType,
-			Slug: rawName,
+			Role:          v.Role,
+			Slug:          firstNonEmpty(v.Slug, v.Name),
+			ParentSection: v.ParentSection,
 		})
 		if name == "" {
 			params.Logger.Warn("SyncPagesToDBAction: page failed canonicalisation, skipping",
-				zap.String("raw_name", rawName),
-				zap.String("raw_type", rawType))
+				zap.String("raw_name", v.Name),
+				zap.String("raw_role", v.Role))
 			continue
+		}
+		if v.CorrectedFromRole != "" {
+			params.Logger.Info("SyncPagesToDBAction: corrected page role",
+				zap.String("name", name),
+				zap.String("from", v.CorrectedFromRole),
+				zap.String("to", v.Role))
 		}
 		page["name"] = name
 		page["url"] = url
@@ -294,10 +315,25 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 		}, nil
 	}
 
+	// Resolve the current plan version so each synced page can record which
+	// plan it was built from. reconcile_site_plan treats a NULL
+	// built_from_plan_version as "stale" and re-emits the page every run, so
+	// without this the hubs churn forever. Best-effort: greenfield callers
+	// (pageflow-builder etc.) have no plan — currentPlanID stays invalid and
+	// built_from_plan_version is left NULL, i.e. unchanged behaviour for them.
+	var currentPlanID uuid.NullUUID
+	if err := params.DB.QueryRowContext(ctx, `
+		SELECT id FROM site_plans WHERE site_id = $1 AND is_current = true
+	`, siteID).Scan(&currentPlanID); err != nil {
+		params.Logger.Info("SyncPagesToDBAction: no current site_plan; built_from_plan_version left unset",
+			zap.String("site_id", siteIDStr))
+		currentPlanID = uuid.NullUUID{}
+	}
+
 	// Sync each page to database
 	syncedCount := 0
 	for i, page := range pages {
-		pageRecord, err := upsertPage(ctx, params.DB, siteID, page, i, params.Logger)
+		pageRecord, err := upsertPage(ctx, params.DB, siteID, page, i, currentPlanID, params.Logger)
 		if err != nil {
 			params.Logger.Error("Failed to upsert page",
 				zap.Any("page", page),
@@ -1021,7 +1057,7 @@ func upsertSite(ctx context.Context, db interface{}, domain string, networkID uu
 	return &site, nil
 }
 
-func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[string]interface{}, index int, logger *zap.Logger) (*PageRecord, error) {
+func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[string]interface{}, index int, planID uuid.NullUUID, logger *zap.Logger) (*PageRecord, error) {
 	// Extract page fields with defaults
 	name := datahelpers.GetStringField(page, "name", fmt.Sprintf("page-%d", index))
 	title := datahelpers.GetStringField(page, "title", name)
@@ -1057,8 +1093,8 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 	}
 
 	query := `
-		INSERT INTO pages (site_id, name, url, title, page_type, nav_label, nav_order, in_header, in_footer, meta_description, sections, build_status, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'planned', 'active')
+		INSERT INTO pages (site_id, name, url, title, page_type, nav_label, nav_order, in_header, in_footer, meta_description, sections, build_status, status, built_from_plan_version)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'planned', 'active', $12)
 		ON CONFLICT (site_id, name) DO UPDATE SET
 			url = EXCLUDED.url,
 			title = EXCLUDED.title,
@@ -1069,6 +1105,7 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 			in_footer = EXCLUDED.in_footer,
 			meta_description = EXCLUDED.meta_description,
 			sections = EXCLUDED.sections,
+			built_from_plan_version = COALESCE(EXCLUDED.built_from_plan_version, pages.built_from_plan_version),
 			build_status = CASE 
 				WHEN pages.build_status = 'deployed' THEN 'needs_rebuild'
 				WHEN pages.build_status IS NULL THEN 'planned'
@@ -1083,7 +1120,7 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 	switch d := db.(type) {
 	case *sql.DB:
 		err := d.QueryRowContext(ctx, query,
-			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, // Added sectionsJSON
+			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, planID,
 		).Scan(
 			&pageRecord.ID, &pageRecord.SiteID, &pageRecord.Name, &pageRecord.URL,
 			&pageRecord.Title, &pageRecord.PageType, &pageRecord.NavLabel, &pageRecord.NavOrder,
@@ -1094,7 +1131,7 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 		}
 	case *pgxpool.Pool:
 		err := d.QueryRow(ctx, query,
-			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, // Added sectionsJSON
+			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, planID,
 		).Scan(
 			&pageRecord.ID, &pageRecord.SiteID, &pageRecord.Name, &pageRecord.URL,
 			&pageRecord.Title, &pageRecord.PageType, &pageRecord.NavLabel, &pageRecord.NavOrder,
