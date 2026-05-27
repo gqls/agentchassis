@@ -715,9 +715,23 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-// buildPageFeatureMap maps page names to their interactive features from the
-// LLM's interactive_features array. Generic — works for tools, games,
-// calculators, forms, search, visualisations, or any other interactive element.
+// buildPageFeatureMap groups the LLM's interactive_features by the CANONICAL
+// page name, so the routing loop's pageFeatures[pageName] lookup
+// (pageName = datahelpers.CanonicalisePage(...)) resolves.
+//
+// interactive_features[].page references a page by its RAW name — the same
+// shape as pages[].name ("drop-rate-simulator" for tools, "game-foo" for
+// games). The routing loop canonicalises page names, and CanonicalisePage
+// adds a role prefix for some roles (tool -> "tool-foo") but not others
+// ("game-foo" is already prefixed). Keying this map by the raw name therefore
+// missed every tool page (raw "drop-rate-simulator" vs canonical
+// "tool-drop-rate-simulator") while games happened to match — so adopted tools
+// were misrouted to page-build-handler and rebuilt as static description pages
+// with no widget. Keying by the canonical name removes the divergence.
+// (See doc 016 addendum / doc 029 canonicalisation.)
+//
+// Generic — works for tools, games, calculators, forms, search,
+// visualisations, or any other interactive element.
 func buildPageFeatureMap(plan map[string]interface{}) map[string][]map[string]interface{} {
 	featuresByPage := make(map[string][]map[string]interface{})
 
@@ -726,16 +740,53 @@ func buildPageFeatureMap(plan map[string]interface{}) map[string][]map[string]in
 		return featuresByPage
 	}
 
+	// Map each page's raw name -> canonical name, using the same
+	// CanonicalisePage call the routing loop uses. interactive_features[].page
+	// references a page by its raw name, so this lets us key features by the
+	// canonical name the lookup will use.
+	canonByRawName := make(map[string]string)
+	if pages, ok := plan["pages"].([]interface{}); ok {
+		for _, pr := range pages {
+			pm, ok := pr.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			rawName, _ := pm["name"].(string)
+			rawType, _ := pm["page_type"].(string)
+			if rawName == "" {
+				continue
+			}
+			if cname, _, _ := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+				Role: rawType,
+				Slug: rawName,
+			}); cname != "" {
+				canonByRawName[strings.ToLower(strings.TrimSpace(rawName))] = cname
+			}
+		}
+	}
+
 	for _, f := range features {
 		fm, ok := f.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		pageName, _ := fm["page"].(string)
-		if pageName == "" {
+		// NOTE: local renamed from `pageName` to `rawPage` — this is the RAW
+		// feature reference, not the canonical pageName the routing loop uses;
+		// the old name invited exactly the confusion behind this bug.
+		rawPage, _ := fm["page"].(string)
+		if rawPage == "" {
 			continue
 		}
-		featuresByPage[pageName] = append(featuresByPage[pageName], fm)
+
+		// Prefer the canonical name (matches the routing loop's lookup); fall
+		// back to the raw ref if the feature names a page absent from
+		// plan.pages, so nothing is silently dropped.
+		key := rawPage
+		if cname, found := canonByRawName[strings.ToLower(strings.TrimSpace(rawPage))]; found {
+			key = cname
+		}
+
+		featuresByPage[key] = append(featuresByPage[key], fm)
 	}
 
 	return featuresByPage
