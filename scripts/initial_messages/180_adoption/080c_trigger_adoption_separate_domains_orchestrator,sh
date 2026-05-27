@@ -118,12 +118,12 @@ echo "Check work items:"
 echo "  SELECT item_type, status, handler_agent, summary FROM site_work_items WHERE site_id = (SELECT id FROM sites WHERE domain = '$DEST_DOMAIN') AND pipeline = 'build' ORDER BY priority;"
 
 
-
+SELECT id, created_at FROM sites WHERE domain='gamesdesign.co.uk';
 # Ordered delete:
 BEGIN;
 
 -- Confirm we're about to delete the right site
--- e2538c48-1a74-437b-836a-d28b66e12db8 | gamesdesign.co.uk
+-- e2538c-NoNoNo-dfg | gamesdesign.co.uk
 SELECT id, domain, created_at FROM sites WHERE id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
 
 -- Clear the 4 NO ACTION blockers

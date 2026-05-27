@@ -28,7 +28,8 @@
 //      plan_sections (re-resolving the hero) and re-deploys the page.
 //   Priority 99 so the re-render runs after this site's imagery (≤98) and after
 //   the terminal needs_rerender's reassembly, producing the final correct HTML.
-//   item_key is stable per page (img_rebuild:<page>) so multiple image
+//   item_key is stable per page (page_rerender:<page>, shared with the
+//   section-data reconciler) so multiple image
 //   completions for one page collapse to a single re-render via idx_swi_dedup.
 //
 // VERIFY BEFORE RELYING ON IT
@@ -119,7 +120,7 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 	// 2. Emit needs_page so page-build-handler re-renders through plan_sections.
 	batchID := uuid.New()
 	spec := fmt.Sprintf(`{"reason":"image_landed","page_name":%q}`, pageName)
-	itemKey := fmt.Sprintf("img_rebuild:%s", pageName)
+	itemKey := fmt.Sprintf("page_rerender:%s", pageName)
 
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {

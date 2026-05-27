@@ -17,7 +17,7 @@
 SELECT id, created_at FROM sites WHERE domain='gamesdesign.co.uk';
 --
 -- Usage: replace the \set below with the actual UUID, then run the file.
-\set sid '5acc0a7a-13c8-4973-a4ca-ec439ea91ec9'   -- <<< SET THIS
+\set sid 'a79c77ec-208e-4436-ab44-2b54a1ab442c'   -- <<< SET THIS
 
 BEGIN;
 

@@ -7,7 +7,7 @@
 // resolution.
 //
 // Initial scope (v1, focus doc FOCUS_directory_builder_and_list_components.md):
-//   - One concrete query: pages_where_type:tool
+//   - Concrete queries: pages_where_type:<type>, pages_under_section:<area>
 //   - Called inline from plan_sections_action.go's source resolver
 //   - Returns []map[string]interface{} suitable for the "items" field of an
 //     array-typed schema field
@@ -78,6 +78,9 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 	switch base {
 	case "pages_where_type":
 		return resolvePagesWhereType(ctx, db, req.SiteID, arg, req.Limit, logger)
+
+	case "pages_under_section":
+		return resolvePagesUnderSection(ctx, db, req.SiteID, arg, req.Limit, logger)
 
 	default:
 		return nil, fmt.Errorf("queryresolve.Resolve: unknown query name %q (base %q)", req.Name, base)
@@ -182,6 +185,90 @@ func resolvePagesWhereType(
 
 	logger.Info("queryresolve: resolved pages_where_type",
 		zap.String("page_type", pageType),
+		zap.String("site_id", siteID.String()),
+		zap.Int("count", len(items)),
+		zap.Int("limit", limit),
+	)
+
+	return items, nil
+}
+
+// resolvePagesUnderSection returns all pages that belong to the named site
+// area (section), projected to the same standard list-item shape as
+// resolvePagesWhereType. The <area> argument matches site_areas.name (the
+// per-site unique key) via pages.site_area_id; url_prefix is a forgiving
+// fallback so `query.pages_under_section:guides` resolves whether the area was
+// keyed "guides" or "/guides".
+//
+// Filter: status IN ('active', 'deployed') so unbuilt pages don't appear.
+// in_header is deliberately NOT filtered — item pages under a section often
+// have in_header=false but still belong in the section's listing (same
+// reasoning as resolvePagesWhereType).
+func resolvePagesUnderSection(
+	ctx context.Context,
+	db *sql.DB,
+	siteID uuid.UUID,
+	area string,
+	limit int,
+	logger *zap.Logger,
+) (interface{}, error) {
+	if area == "" {
+		return nil, fmt.Errorf("resolvePagesUnderSection: empty section argument")
+	}
+
+	const hardCap = 24
+	if limit <= 0 {
+		limit = 12
+	}
+	if limit > hardCap {
+		limit = hardCap
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+		    p.name,
+		    COALESCE(p.title, p.name)              AS title,
+		    p.url,
+		    COALESCE(p.meta_description, '')       AS meta_description,
+		    COALESCE(p.nav_label, p.title, p.name) AS nav_label
+		FROM pages p
+		JOIN site_areas sa
+		  ON sa.id = p.site_area_id
+		 AND sa.site_id = p.site_id
+		WHERE p.site_id = $1
+		  AND (lower(sa.name) = lower($2)
+		       OR sa.url_prefix = $2
+		       OR sa.url_prefix = '/' || $2)
+		  AND p.status IN ('active', 'deployed')
+		ORDER BY COALESCE(p.nav_order, 100), p.name
+		LIMIT $3
+	`, siteID, area, limit)
+	if err != nil {
+		return nil, fmt.Errorf("resolvePagesUnderSection query failed: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]map[string]interface{}, 0)
+	for rows.Next() {
+		var name, title, url, metaDesc, navLabel string
+		if err := rows.Scan(&name, &title, &url, &metaDesc, &navLabel); err != nil {
+			logger.Warn("resolvePagesUnderSection: scan failed", zap.Error(err))
+			continue
+		}
+		items = append(items, map[string]interface{}{
+			"name":             name,
+			"title":            title,
+			"url":              url,
+			"meta_description": metaDesc,
+			"nav_label":        navLabel,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("resolvePagesUnderSection rows iter failed: %w", err)
+	}
+
+	logger.Info("queryresolve: resolved pages_under_section",
+		zap.String("section", area),
 		zap.String("site_id", siteID.String()),
 		zap.Int("count", len(items)),
 		zap.Int("limit", limit),

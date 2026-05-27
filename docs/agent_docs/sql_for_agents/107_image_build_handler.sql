@@ -1965,3 +1965,87 @@ WHERE type = 'image-build-handler' AND deleted_at IS NULL;
 -- COMMIT;  -- uncomment when the verify output looks right
 ROLLBACK;   -- safe default: review first, then switch to COMMIT
 
+---
+
+-- ============================================================================
+-- Wire flag_page_image_rebuild into image-build-handler
+-- DB: templates_db   Table: agent_definitions   type = 'image-build-handler'
+-- Row id (from the provided dump): 04b10d94-11ee-447c-9ff9-7924b8e9897c
+--
+-- Adds a terminal step `flag_rebuild` after `mark_work_item_complete` and
+-- redirects mark_work_item_complete.next_step → flag_rebuild. Every path
+-- (needs_imagery, logo, hero, variant) converges at mark_work_item_complete,
+-- so all flow through flag_rebuild; the action no-ops unless the work item's
+-- spec.scope == 'page' (legacy logo/hero items have no spec.scope).
+--
+-- Config paths resolve via ExtractActionInputs Strategy 0 (dot-paths from
+-- collected data): site_id ← site_record.site_id, scope/scope_ref ←
+-- input_data.spec.*. The InputSpec field names (site_id/scope/scope_ref) match
+-- these config keys.
+-- ============================================================================
+
+-- ── 0. Inspect first ────────────────────────────────────────────────────────
+-- Confirm exactly one row, and the current terminal chain.
+SELECT id, type, image_tag,
+       default_config #>> '{workflow,steps,mark_work_item_complete,next_step}' AS mwc_next,
+       (default_config #> '{workflow,steps,flag_rebuild}') IS NOT NULL          AS flag_rebuild_exists
+FROM agent_definitions
+WHERE type = 'image-build-handler';
+-- Expect: one row, mwc_next = 'complete', flag_rebuild_exists = f.
+-- If more than one row, scope the UPDATE below by id instead of type.
+
+-- ── 1. Add the flag_rebuild step + redirect mark_work_item_complete ──────────
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,flag_rebuild}',
+                '{
+                    "action": "flag_page_image_rebuild",
+                    "config": {
+                        "site_id":   "site_record.site_id",
+                        "scope":     "input_data.spec.scope",
+                        "scope_ref": "input_data.spec.scope_ref"
+                    },
+                    "next_step": "complete",
+                    "error_step": "complete",
+                    "description": "Page-scoped imagery: flag the page needs_rebuild and emit needs_page so plan_sections re-resolves the now-present asset. No-ops for non-page-scoped (logo/legacy). error_step is complete so a failure here does not fail the asset workflow.",
+                    "output_field": "rebuild_flagged"
+                }'::jsonb,
+                true
+        ),
+        '{workflow,steps,mark_work_item_complete,next_step}',
+        '"flag_rebuild"'::jsonb,
+        false
+                     ),
+    updated_at = now()
+WHERE type = 'image-build-handler';
+-- (swap the WHERE to `WHERE id = '04b10d94-11ee-447c-9ff9-7924b8e9897c'` if
+--  step 0 showed more than one row.)
+
+-- ── 2. Verify ────────────────────────────────────────────────────────────────
+SELECT default_config #>> '{workflow,steps,mark_work_item_complete,next_step}'      AS mwc_next,
+       default_config #>> '{workflow,steps,flag_rebuild,action}'                    AS fr_action,
+       default_config #>> '{workflow,steps,flag_rebuild,next_step}'                 AS fr_next,
+       default_config #>> '{workflow,steps,flag_rebuild,config,scope_ref}'          AS fr_scope_ref
+FROM agent_definitions
+WHERE type = 'image-build-handler';
+-- Expect: mwc_next = 'flag_rebuild', fr_action = 'flag_page_image_rebuild',
+--         fr_next = 'complete', fr_scope_ref = 'input_data.spec.scope_ref'.
+
+-- ============================================================================
+-- Registry entries (registry.go) — add for BOTH new local actions:
+--
+--   "flag_page_image_rebuild": {
+--       Handler:     FlagPageImageRebuildAction,
+--       Category:    "site",
+--       Description: "Re-render a page after its image asset lands so the hero resolves",
+--       IsLocal:     true,
+--   },
+--   "reconcile_section_data": {
+--       Handler:     ReconcileSectionDataAction,
+--       Category:    "site",
+--       Description: "Re-trigger pages whose deferred section data is now query-resolvable",
+--       IsLocal:     true,
+--   },
+-- ============================================================================
