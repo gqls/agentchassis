@@ -78,7 +78,6 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 	}
 
 	// Check if extended thinking is requested
-	var thinkingEnabled bool
 	if options != nil {
 		if budgetTokens, ok := options["budget_tokens"]; ok {
 			switch bt := budgetTokens.(type) {
@@ -88,7 +87,6 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 						"type":          "enabled",
 						"budget_tokens": int(bt),
 					}
-					thinkingEnabled = true
 				}
 			case int:
 				if bt > 0 {
@@ -96,27 +94,29 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 						"type":          "enabled",
 						"budget_tokens": bt,
 					}
-					thinkingEnabled = true
 				}
 			}
 		}
 	}
 
-	// Temperature is not compatible with extended thinking
-	// Only set it when thinking is disabled
-	if !thinkingEnabled {
-		requestBody["temperature"] = 0.7
-	}
-
-	// Override with provided options
+	// Temperature is intentionally NOT sent to Anthropic.
+	// Claude Opus 4.7+ returns a 400 for any non-default temperature, and
+	// extended thinking is incompatible with temperature on any model.
+	// Temperature stays in the generic options contract for other providers
+	// (e.g. ollama); the Anthropic client simply ignores it.
 	if options != nil {
+		// Override max_tokens from provided options
 		if maxTokens, ok := options["max_tokens"]; ok {
 			requestBody["max_tokens"] = maxTokens
 		}
-		if !thinkingEnabled {
-			if temperature, ok := options["temperature"]; ok {
-				requestBody["temperature"] = temperature
-			}
+		// Record what was actually sent, for llm_call_log (mirrors the
+		// __usage_* write-back below). No temperature is sent, so
+		// __sent_temperature is deliberately left unset.
+		switch mt := requestBody["max_tokens"].(type) {
+		case int:
+			options["__sent_max_tokens"] = mt
+		case float64:
+			options["__sent_max_tokens"] = int(mt)
 		}
 	}
 

@@ -297,6 +297,16 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			zap.Error(err),
 		)
 
+		// Capture what the provider actually sent, for llm_call_log
+		var sentTemperature interface{}
+		if t, ok := options["__sent_temperature"]; ok {
+			sentTemperature = t
+		}
+		sentMaxTokens := 0
+		if mt, ok := options["__sent_max_tokens"].(int); ok {
+			sentMaxTokens = mt
+		}
+
 		// Log the failed call
 		LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
 			AgentType:       params.AgentType,
@@ -312,6 +322,8 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			LatencyMs:       llmLatencyMs,
 			Success:         false,
 			ErrorMessage:    err.Error(),
+			Temperature:     sentTemperature,
+			MaxTokens:       sentMaxTokens,
 			WorkItemID:      flywheelWorkItemID,
 			Vertical:        flywheelVertical,
 			RAGContextUsed:  flywheelRAG,
@@ -422,6 +434,14 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	if ot, ok := options["__usage_output_tokens"].(int); ok {
 		outputTokens = ot
 	}
+	var sentTemperature interface{}
+	if t, ok := options["__sent_temperature"]; ok {
+		sentTemperature = t
+	}
+	sentMaxTokens := 0
+	if mt, ok := options["__sent_max_tokens"].(int); ok {
+		sentMaxTokens = mt
+	}
 	LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
 		AgentType:       params.AgentType,
 		AgentID:         params.Headers["agent_id"],
@@ -438,6 +458,8 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		OutputTokens:    outputTokens,
 		LatencyMs:       llmLatencyMs,
 		Success:         true,
+		Temperature:     sentTemperature,
+		MaxTokens:       sentMaxTokens,
 		WorkItemID:      flywheelWorkItemID,
 		Vertical:        flywheelVertical,
 		RAGContextUsed:  flywheelRAG,

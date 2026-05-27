@@ -134,6 +134,16 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 
 		llmLatencyMs := int(time.Since(llmCallStart).Milliseconds())
 
+		// Capture what the provider actually sent, for llm_call_log
+		var sentTemperature interface{}
+		if t, ok := llmOptions["__sent_temperature"]; ok {
+			sentTemperature = t
+		}
+		sentMaxTokens := 0
+		if mt, ok := llmOptions["__sent_max_tokens"].(int); ok {
+			sentMaxTokens = mt
+		}
+
 		// Extract model name for logging
 		llmModel := ""
 		if m, ok := aiServiceConfig["model"].(string); ok {
@@ -162,6 +172,8 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 				LatencyMs:       llmLatencyMs,
 				Success:         false,
 				ErrorMessage:    err.Error(),
+				Temperature:     sentTemperature,
+				MaxTokens:       sentMaxTokens,
 			})
 
 			continue
@@ -190,6 +202,8 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 			OutputTokens:    outputTokens,
 			LatencyMs:       llmLatencyMs,
 			Success:         true,
+			Temperature:     sentTemperature,
+			MaxTokens:       sentMaxTokens,
 		})
 
 		decisions := parseReviewResponse(response, len(batch))

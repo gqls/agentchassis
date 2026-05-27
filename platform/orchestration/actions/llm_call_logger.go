@@ -49,14 +49,16 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 				prompt_template, prompt_rendered, response_text,
 				input_tokens, output_tokens, latency_ms,
 				success, error_message,
-				work_item_id, vertical, prompt_variant, rag_context_used
+				work_item_id, vertical, prompt_variant, rag_context_used,
+				temperature, max_tokens
 			) VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
 				$9, $10, $11,
 				$12, $13, $14,
 				$15, $16,
-				$17, $18, $19, $20
+				$17, $18, $19, $20,
+				$21, $22
 			)`,
 			params.AgentType, nullIfEmpty(params.AgentID),
 			nullIfEmpty(params.StepName), nullIfEmpty(params.OrchestrationID),
@@ -69,6 +71,7 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 			params.Success, nullIfEmpty(params.ErrorMessage),
 			nullIfEmpty(params.WorkItemID), nullIfEmpty(params.Vertical),
 			promptVariant, params.RAGContextUsed,
+			params.Temperature, nullIfZero(params.MaxTokens),
 		)
 
 		if err != nil {
@@ -93,6 +96,8 @@ type LLMCallLogParams struct {
 	Model           string
 	ModelResolved   string
 	Provider        string
+	Temperature     interface{} // actual temperature sent by the provider; nil → NULL
+	MaxTokens       int         // actual max_tokens sent by the provider; 0 → NULL
 	PromptTemplate  string
 	PromptRendered  string
 	ResponseText    string

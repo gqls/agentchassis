@@ -74,8 +74,14 @@ func (c *OllamaClient) GenerateText(ctx context.Context, prompt string, options 
 		if temperature, ok := options["temperature"].(float64); ok {
 			optionsBlock["temperature"] = temperature
 		}
-		if maxTokens, ok := options["max_tokens"].(float64); ok {
-			optionsBlock["num_predict"] = int(maxTokens)
+		// max_tokens arrives as int from ExecuteLLMPromptAction (ai_actions.go
+		// stores int(maxTokens)); accept both int and float64 so the configured
+		// value is applied rather than silently dropped.
+		switch mt := options["max_tokens"].(type) {
+		case int:
+			optionsBlock["num_predict"] = mt
+		case float64:
+			optionsBlock["num_predict"] = int(mt)
 		}
 
 		// System prompt support
@@ -84,6 +90,15 @@ func (c *OllamaClient) GenerateText(ctx context.Context, prompt string, options 
 			requestBody["messages"] = append([]map[string]string{
 				{"role": "system", "content": systemPrompt},
 			}, msgs...)
+		}
+
+		// Record what was actually sent, for llm_call_log (parity with
+		// anthropic.go and the __usage_* write-back below).
+		if t, ok := optionsBlock["temperature"].(float64); ok {
+			options["__sent_temperature"] = t
+		}
+		if np, ok := optionsBlock["num_predict"].(int); ok {
+			options["__sent_max_tokens"] = np
 		}
 	}
 
