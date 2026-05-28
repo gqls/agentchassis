@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>idea.uk — Verified AI opportunity reports</title>
+  <meta name="description" content="A structured method that finds AI opportunities for your business — generated across four lenses, cut against the real free alternative, verified with sources, scored honestly. Delivered as a ranked report." />
+
+  <!--
+    Deployment notes
+    ────────────────
+    Static HTML. Drops into your existing git → GitHub Actions → B2 pipeline.
+
+    Phase 1 — INTENT CAPTURE ONLY (current). No payment is taken; visitors
+    request a report via the form and we follow up manually within 24h to
+    confirm a slot and arrange payment. This limits manual fulfilment to
+    what we can actually deliver and avoids refund overhead.
+
+    Wire-up before going live:
+      1. Replace REQUEST_FORM_ACTION with a Formspree / Netlify Forms /
+         Cloudflare Pages forms endpoint that accepts the fields below
+         (name, email, business, audience, notes).
+      2. Replace UPDATES_FORM_ACTION (lower-commitment email capture) with
+         the same / a list-management endpoint.
+      3. Replace CONTACT_EMAIL with the real address.
+      4. Set MONTH_SLOTS in the throttle indicator to your actual capacity.
+
+    Phase 2 — when demand validates: add Stripe Checkout for those who
+    skip the form, swap "Request a report" → "Order a report".
+
+    Price (£199) is set in the .price-tag below. Cost-plus per
+    PLAN_idea_uk.md §8. Test the price by what people commit to in the
+    request, not what they pay (yet).
+  -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --ink:       #1A1816;
+      --ink-soft:  #4A4540;
+      --ink-mute:  #837C72;
+      --paper:     #EFE7D6;
+      --paper-2:   #E8DFCC;
+      --rust:      #A8391A;
+      --rust-deep: #7D2A12;
+      --rule:      #1A1816;
+
+      --serif: "Fraunces", "Times New Roman", Georgia, serif;
+      --sans:  "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { background: var(--paper); }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--paper);
+      /* faint paper grain */
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.10 0 0 0 0 0.09 0 0 0 0 0.09 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    /* HEADER ─────────────────────────────────────────────── */
+    header {
+      padding-top: 36px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--rule);
+    }
+    header .wrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 24px;
+    }
+    .wordmark {
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: 28px;
+      letter-spacing: -0.02em;
+      font-variation-settings: "opsz" 144, "SOFT" 0;
+      color: var(--ink);
+    }
+    .wordmark .dot { color: var(--rust); }
+    .label {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+    .label::before {
+      content: "● ";
+      color: var(--rust);
+      font-size: 8px;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+
+    /* HERO ───────────────────────────────────────────────── */
+    .hero {
+      padding: 80px 0 64px;
+      display: grid;
+      grid-template-columns: 7fr 5fr;
+      gap: 64px;
+      align-items: end;
+    }
+    .eyebrow {
+      font-family: var(--sans);
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--rust);
+      font-weight: 500;
+      margin: 0 0 24px;
+    }
+    .hero h1 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-variation-settings: "opsz" 144, "SOFT" 30;
+      font-size: clamp(46px, 7vw, 96px);
+      line-height: 0.95;
+      letter-spacing: -0.025em;
+      margin: 0;
+      color: var(--ink);
+    }
+    .hero h1 em {
+      font-style: italic;
+      font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 1;
+      color: var(--rust-deep);
+    }
+    .hero .lede {
+      font-family: var(--sans);
+      font-weight: 300;
+      font-size: 19px;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      max-width: 38ch;
+    }
+    .hero .lede strong {
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    /* RULE ───────────────────────────────────────────────── */
+    .rule {
+      border-top: 1px solid var(--rule);
+      margin: 0;
+    }
+    .rule-thick {
+      border-top: 3px solid var(--rule);
+      margin: 0;
+    }
+
+    /* SECTION SHARED ─────────────────────────────────────── */
+    section { padding: 80px 0; }
+    .section-label {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      font-weight: 500;
+      margin: 0 0 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .section-label::before {
+      content: "";
+      width: 32px;
+      height: 1px;
+      background: var(--ink-mute);
+    }
+    .h2 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-variation-settings: "opsz" 60, "SOFT" 20;
+      font-size: clamp(34px, 4.5vw, 56px);
+      line-height: 1.05;
+      letter-spacing: -0.018em;
+      margin: 0 0 48px;
+      color: var(--ink);
+      max-width: 22ch;
+    }
+
+    /* WHAT YOU GET — report mock ─────────────────────────── */
+    .what-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 80px;
+      align-items: start;
+    }
+    .what-text p {
+      margin: 0 0 18px;
+      color: var(--ink-soft);
+    }
+    .what-text p strong { color: var(--ink); }
+
+    .report-mock {
+      background: var(--paper-2);
+      border: 1px solid var(--ink);
+      padding: 32px 36px;
+      position: relative;
+    }
+    .report-mock::before {
+      content: "SPECIMEN";
+      position: absolute;
+      top: 18px;
+      right: 22px;
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.25em;
+      color: var(--rust);
+      font-weight: 600;
+    }
+    .report-header {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 8px;
+    }
+    .report-title {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      line-height: 1.2;
+      margin: 0 0 24px;
+    }
+    .report-candidate {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 16px;
+      padding: 18px 0;
+      border-top: 1px solid var(--ink);
+    }
+    .report-candidate:last-child { border-bottom: 1px solid var(--ink); }
+    .report-num {
+      font-family: var(--serif);
+      font-weight: 300;
+      font-variation-settings: "opsz" 144, "SOFT" 0;
+      font-size: 44px;
+      line-height: 0.9;
+      color: var(--rust);
+      letter-spacing: -0.04em;
+    }
+    .report-cand-title {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 17px;
+      line-height: 1.25;
+      margin: 0 0 6px;
+      color: var(--ink);
+    }
+    .report-cand-meta {
+      font-family: var(--sans);
+      font-size: 12.5px;
+      color: var(--ink-mute);
+      line-height: 1.5;
+    }
+    .report-cand-meta .sep {
+      color: var(--rust);
+      margin: 0 6px;
+    }
+    .report-scores {
+      font-family: var(--sans);
+      font-size: 11.5px;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      margin-top: 6px;
+    }
+    .report-scores .score-strong { color: var(--rust); font-weight: 500; }
+
+    /* METHOD ─────────────────────────────────────────────── */
+    .method-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 48px 64px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .step-num {
+      font-family: var(--serif);
+      font-weight: 300;
+      font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 0;
+      font-size: 88px;
+      line-height: 0.85;
+      letter-spacing: -0.05em;
+      color: var(--rust);
+    }
+    .step-title {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      line-height: 1.2;
+      margin: 0 0 8px;
+      color: var(--ink);
+    }
+    .step-body {
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+
+    /* WHY IT'S DIFFERENT — callout ────────────────────────── */
+    .callout {
+      background: var(--ink);
+      color: var(--paper);
+      padding: 64px 0;
+    }
+    .callout .h2 { color: var(--paper); }
+    .callout .section-label { color: var(--paper-2); }
+    .callout .section-label::before { background: var(--paper-2); }
+    .callout p {
+      font-family: var(--serif);
+      font-weight: 300;
+      font-variation-settings: "opsz" 144, "SOFT" 30;
+      font-size: clamp(22px, 2.4vw, 28px);
+      line-height: 1.35;
+      color: var(--paper);
+      max-width: 32ch;
+      margin: 0;
+    }
+    .callout p em {
+      font-style: italic;
+      color: #E89B7C;
+      font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 1;
+    }
+    .callout-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 64px;
+      align-items: end;
+    }
+    .callout-fine {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--paper-2);
+      line-height: 1.65;
+      max-width: 40ch;
+    }
+    .callout-fine strong { color: var(--paper); font-weight: 500; }
+
+    /* PRICE ──────────────────────────────────────────────── */
+    .price-section { padding: 96px 0; }
+    .price-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 64px;
+      align-items: start;
+    }
+    .price-card {
+      border: 1px solid var(--ink);
+      padding: 40px 36px;
+      background: var(--paper-2);
+    }
+    .price-sku {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin: 0 0 12px;
+    }
+    .price-tag {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-variation-settings: "opsz" 144, "SOFT" 0;
+      font-size: 92px;
+      line-height: 0.9;
+      letter-spacing: -0.035em;
+      color: var(--ink);
+      margin: 0 0 6px;
+    }
+    .price-tag sup {
+      font-size: 36px;
+      line-height: 1;
+      vertical-align: top;
+      color: var(--rust);
+      font-weight: 400;
+      margin-right: 4px;
+    }
+    .price-unit {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink-mute);
+      margin: 0 0 32px;
+    }
+    .cta {
+      display: inline-block;
+      background: var(--rust);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 16px;
+      letter-spacing: 0.02em;
+      padding: 18px 28px;
+      text-decoration: none;
+      border: none;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .cta:hover {
+      background: var(--rust-deep);
+      transform: translateY(-1px);
+    }
+    .cta-secondary {
+      display: inline-block;
+      background: transparent;
+      color: var(--ink);
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 14px;
+      letter-spacing: 0.02em;
+      padding: 14px 0;
+      margin-left: 24px;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      text-decoration-thickness: 1.5px;
+      text-decoration-color: var(--rust);
+    }
+    .price-includes {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .price-includes li {
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      padding: 12px 0;
+      border-bottom: 1px solid var(--paper-2);
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 12px;
+    }
+    .price-includes li:last-child { border-bottom: none; }
+    .price-includes li::before {
+      content: "→";
+      color: var(--rust);
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 18px;
+    }
+    .price-includes li strong { color: var(--ink); font-weight: 500; }
+
+    /* DISCLOSURE / EARLY ACCESS ──────────────────────────── */
+    .disclosure {
+      padding: 64px 0 96px;
+      border-top: 1px solid var(--rule);
+    }
+    .disclosure-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 64px;
+    }
+    .disclosure p {
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--ink-soft);
+      margin: 0 0 16px;
+    }
+    .disclosure p strong { color: var(--ink); font-weight: 500; }
+
+    /* INTEREST FORM ──────────────────────────────────────── */
+    .interest {
+      background: var(--paper-2);
+      padding: 72px 0;
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+    }
+    .interest-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 64px;
+      align-items: center;
+    }
+    .interest h3 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(28px, 3.4vw, 40px);
+      line-height: 1.05;
+      letter-spacing: -0.015em;
+      margin: 0 0 12px;
+      color: var(--ink);
+    }
+    .interest h3 em {
+      font-style: italic;
+      font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 1;
+      color: var(--rust-deep);
+    }
+    .interest .sub {
+      font-family: var(--sans);
+      font-size: 15px;
+      color: var(--ink-soft);
+      max-width: 32ch;
+      margin: 0;
+    }
+    .interest form {
+      display: flex;
+      gap: 12px;
+    }
+    .interest input[type="email"] {
+      flex: 1;
+      font-family: var(--sans);
+      font-size: 16px;
+      padding: 18px 22px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .interest input[type="email"]:focus { border-color: var(--rust); }
+    .interest button {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 15px;
+      padding: 18px 28px;
+      background: var(--ink);
+      color: var(--paper);
+      border: 1px solid var(--ink);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .interest button:hover {
+      background: var(--rust);
+      border-color: var(--rust);
+    }
+
+    /* REQUEST FORM — structured override ─────────────────── */
+    .request-form { flex-direction: column; gap: 18px; display: flex; }
+    .request-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .request-form .field-label {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      font-weight: 500;
+    }
+    .request-form input[type="text"],
+    .request-form input[type="email"],
+    .request-form textarea {
+      font-family: var(--sans);
+      font-size: 16px;
+      padding: 14px 18px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s ease;
+      width: 100%;
+      resize: vertical;
+    }
+    .request-form input:focus,
+    .request-form textarea:focus { border-color: var(--rust); }
+    .request-form .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .request-form .form-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .request-form button {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 15px;
+      padding: 18px 28px;
+      background: var(--rust);
+      color: var(--paper);
+      border: 1px solid var(--rust);
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .request-form button:hover {
+      background: var(--rust-deep);
+      border-color: var(--rust-deep);
+    }
+    .request-form .form-meta {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink-mute);
+      margin: 0;
+    }
+    /* override default .interest form flex-row layout for the structured request form */
+    .interest form.request-form { display: flex; }
+
+    /* UPDATES STRIP ──────────────────────────────────────── */
+    .updates-strip {
+      padding: 32px 0;
+      background: var(--paper);
+      border-bottom: 1px solid var(--rule);
+    }
+    .updates-strip-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .updates-strip p {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 18px;
+      color: var(--ink-soft);
+      margin: 0;
+      line-height: 1.3;
+    }
+    .updates-strip p em {
+      font-style: italic;
+      font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 1;
+      color: var(--rust-deep);
+    }
+    .updates-strip form {
+      display: flex;
+      gap: 10px;
+      flex: 0 1 auto;
+    }
+    .updates-strip input[type="email"] {
+      font-family: var(--sans);
+      font-size: 14px;
+      padding: 12px 16px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      color: var(--ink);
+      min-width: 220px;
+      outline: none;
+    }
+    .updates-strip input[type="email"]:focus { border-color: var(--rust); }
+    .updates-strip button {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 14px;
+      padding: 12px 20px;
+      background: var(--ink);
+      color: var(--paper);
+      border: 1px solid var(--ink);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .updates-strip button:hover { background: var(--rust); border-color: var(--rust); }
+
+    /* FOOTER ─────────────────────────────────────────────── */
+    footer {
+      padding: 48px 0;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink-mute);
+    }
+    footer .wrap {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    footer a {
+      color: var(--ink);
+      text-decoration-color: var(--rust);
+      text-underline-offset: 3px;
+    }
+
+    /* PAGE LOAD STAGGER ─────────────────────────────────── */
+    .stagger > * { opacity: 0; transform: translateY(8px); animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+    .stagger > *:nth-child(1) { animation-delay: 0.05s; }
+    .stagger > *:nth-child(2) { animation-delay: 0.20s; }
+    .stagger > *:nth-child(3) { animation-delay: 0.35s; }
+    .stagger > *:nth-child(4) { animation-delay: 0.50s; }
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* RESPONSIVE ──────────────────────────────────────────── */
+    @media (max-width: 880px) {
+      .wrap { padding: 0 22px; }
+      .hero { grid-template-columns: 1fr; gap: 32px; padding: 56px 0 48px; }
+      .hero h1 { font-size: clamp(40px, 11vw, 72px); }
+      .what-grid, .method-grid, .callout-grid, .price-grid, .disclosure-grid, .interest-grid {
+        grid-template-columns: 1fr; gap: 40px;
+      }
+      .interest form { flex-direction: column; }
+      .request-form .form-row { grid-template-columns: 1fr; gap: 18px; }
+      .request-form .form-actions { flex-direction: column; align-items: flex-start; }
+      .request-form button { width: 100%; }
+      .updates-strip-inner { flex-direction: column; align-items: stretch; gap: 16px; }
+      .updates-strip form { flex-direction: column; }
+      .updates-strip input[type="email"] { min-width: 0; }
+      .step-num { font-size: 64px; }
+      section { padding: 56px 0; }
+      .price-section { padding: 64px 0; }
+      .price-tag { font-size: 72px; }
+      .price-tag sup { font-size: 28px; }
+      .cta-secondary { margin-left: 0; display: block; margin-top: 16px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="wrap">
+      <div class="wordmark">idea<span class="dot">.</span>uk</div>
+      <span class="label">Early access · accepting MONTH_SLOTS requests this month</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- HERO ─────────────────────────────────────────── -->
+    <section class="hero wrap stagger">
+      <div>
+        <p class="eyebrow">Verified AI opportunity reports</p>
+        <h1>Most AI "opportunities" don't <em>survive scrutiny.</em> We find the ones that do.</h1>
+      </div>
+      <p class="lede">
+        Tell us about your business and audience. We run a structured method
+        across <strong>four idea-generation lenses</strong>, cut the candidates
+        against the <strong>specific free alternative</strong> a customer would
+        actually use, <strong>verify the survivors</strong> with web research,
+        and score them honestly. You get a ranked report and the cheapest test
+        to run first.
+      </p>
+    </section>
+
+    <hr class="rule-thick" />
+
+    <!-- WHAT YOU GET ─────────────────────────────────── -->
+    <section>
+      <div class="wrap">
+        <p class="section-label">01 · What you get</p>
+        <h2 class="h2">A report you can act on, not a deck.</h2>
+
+        <div class="what-grid">
+          <div class="what-text">
+            <p>
+              <strong>3–6 ranked candidate ideas</strong>, each with the
+              specific asset it depends on, the AI capability it uses, and the
+              one-line reason it beats a free model with a good prompt.
+            </p>
+            <p>
+              <strong>Web-verified facts</strong> attached to each candidate —
+              competitors, prices, market signals, regulatory specifics. We
+              drop the ones whose premise fails on verification.
+            </p>
+            <p>
+              <strong>Five-factor scoring</strong> on defensibility, willingness
+              to pay, buildability, reuse, and durability — with the cheapest
+              demand test for each candidate that survives.
+            </p>
+            <p>
+              <strong>An honest verdict.</strong> If nothing in your space
+              advances the gate, we tell you that and why, with the route to a
+              better-fit audience or pivot. The method has produced
+              "don't build yet" outputs as often as "test now."
+            </p>
+          </div>
+
+          <article class="report-mock" aria-label="Specimen of a report">
+            <p class="report-header">Idea report — specimen layout</p>
+            <p class="report-title">Audience: mid-market energy procurement managers</p>
+
+            <div class="report-candidate">
+              <div class="report-num">01</div>
+              <div>
+                <p class="report-cand-title">Aligned-incentive procurement advisor</p>
+                <p class="report-cand-meta">
+                  Asset: curated procurement-context reasoning
+                  <span class="sep">·</span>
+                  Capability: live-data + persistent profile
+                </p>
+                <p class="report-scores">
+                  Def <span class="score-strong">4</span> ·
+                  Will <span class="score-strong">4</span> ·
+                  Build 2 · Reuse 3 · Dur 3
+                  <span class="sep">|</span>
+                  Sum 16 · ADVANCES
+                </p>
+              </div>
+            </div>
+
+            <div class="report-candidate">
+              <div class="report-num">02</div>
+              <div>
+                <p class="report-cand-title">RFQ agent: agentic supplier comparison</p>
+                <p class="report-cand-meta">
+                  Asset: structured normalisation
+                  <span class="sep">·</span>
+                  Capability: agentic browsing
+                </p>
+                <p class="report-scores">
+                  Def <span class="score-strong">4</span> ·
+                  Will <span class="score-strong">4</span> ·
+                  Build 2 · Reuse 3 · Dur 3
+                  <span class="sep">|</span>
+                  Sum 16 · ADVANCES
+                </p>
+              </div>
+            </div>
+
+            <div class="report-candidate">
+              <div class="report-num">03</div>
+              <div>
+                <p class="report-cand-title">Hedge strategy assistant</p>
+                <p class="report-cand-meta">
+                  Asset: verified financial computation
+                  <span class="sep">·</span>
+                  Capability: reasoning model
+                </p>
+                <p class="report-scores">
+                  Def 3 · Will 3 · Build 3 · Reuse 2 · Dur 2
+                  <span class="sep">|</span>
+                  Sum 13 · ADVANCES <em>(low durability)</em>
+                </p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- HOW IT WORKS ─────────────────────────────────── -->
+    <section>
+      <div class="wrap">
+        <p class="section-label">02 · How the method works</p>
+        <h2 class="h2">Generated across four lenses. Filtered hard. Verified.</h2>
+
+        <div class="method-grid">
+          <div class="step">
+            <div class="step-num">01</div>
+            <div>
+              <h3 class="step-title">Frame the audience honestly</h3>
+              <p class="step-body">
+                We challenge the stated audience first — is this the right one,
+                or is a better-fit audience being missed? Audience-fit is the
+                single biggest predictor of whether the rest of the report has
+                any value.
+              </p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">02</div>
+            <div>
+              <h3 class="step-title">Generate across four lenses</h3>
+              <p class="step-body">
+                Not one pass — four. What the audience deeply wants. Where
+                generalist AI fails them. What just became possible in the last
+                six months. What "done" looks like for them. Crossed with your
+                assets and the current capability list.
+              </p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">03</div>
+            <div>
+              <h3 class="step-title">Cut against the real alternative</h3>
+              <p class="step-body">
+                For each candidate we name the specific free thing a customer
+                would actually do instead. If that gets them most of the way,
+                the candidate dies here. Most should. This step uses a
+                different model from the generator, so it isn't marking its
+                own work.
+              </p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">04</div>
+            <div>
+              <h3 class="step-title">Verify, score, and rank</h3>
+              <p class="step-body">
+                The survivors get checked with web research — does the data
+                feed exist and what does it cost; do competitors already do it;
+                is the willingness to pay real, not assumed. Then five-factor
+                scoring, ranked output, cheapest test attached to each
+                advancing candidate.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHY DIFFERENT — callout ──────────────────────── -->
+    <section class="callout">
+      <div class="wrap">
+        <p class="section-label">03 · Why it isn't another AI brainstorm</p>
+        <div class="callout-grid">
+          <p>
+            Most AI idea outputs are <em>plausible-sounding</em> things a free
+            chatbot will say with confidence. We filter for ideas that survive
+            <em>a second model's critique</em> and <em>real verification</em> —
+            so what you get is closer to a research brief than a brainstorm.
+          </p>
+          <div class="callout-fine">
+            <p><strong>Multi-model.</strong> Generation, critique, and verification use different providers — so the method doesn't rubber-stamp itself.</p>
+            <p><strong>Capability-current.</strong> The lens of "what just became possible" runs against a watchlist we maintain, not the model's stale self-knowledge.</p>
+            <p><strong>Honest results.</strong> We've delivered "no candidate advances" reports. If your space doesn't have one yet, we'll say so — and tell you what would change that.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRICE ────────────────────────────────────────── -->
+    <section class="price-section">
+      <div class="wrap">
+        <p class="section-label">04 · Request a report</p>
+        <h2 class="h2">One price. One report. No payment until we confirm.</h2>
+
+        <div class="price-grid">
+          <div class="price-card">
+            <p class="price-sku">Single report</p>
+            <p class="price-tag"><sup>£</sup>199</p>
+            <p class="price-unit">per report · delivered within 5 days of confirmation</p>
+
+            <a class="cta" href="#request" id="request-cta">Request a report</a>
+            <a class="cta-secondary" href="#disclosure">How this works ↓</a>
+          </div>
+
+          <ul class="price-includes">
+            <li>
+              <span><strong>3–6 ranked candidates</strong> for your specific business and audience, with sources attached.</span>
+            </li>
+            <li>
+              <span><strong>The audience challenge</strong> — sometimes the most valuable line in the report.</span>
+            </li>
+            <li>
+              <span><strong>Multi-lens generation</strong> across demand, generalist failure, frontier, and outcome — not a single brainstorm pass.</span>
+            </li>
+            <li>
+              <span><strong>Web-verified facts</strong> for each candidate's premise — feeds, competitors, prices, regs.</span>
+            </li>
+            <li>
+              <span><strong>Five-factor scoring</strong> and the cheapest demand test for each advancing candidate.</span>
+            </li>
+            <li>
+              <span><strong>No payment</strong> until we confirm a slot and a delivery date in writing.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- DISCLOSURE ───────────────────────────────────── -->
+    <section class="disclosure" id="disclosure">
+      <div class="wrap">
+        <p class="section-label">05 · How this works</p>
+        <div class="disclosure-grid">
+          <div>
+            <h2 class="h2" style="margin: 0;">Request first. Payment only on confirmation.</h2>
+          </div>
+          <div>
+            <p>
+              <strong>idea.uk is early access.</strong> The method is real and
+              tested. The agent that runs it autonomously isn't fully built yet
+              — so during this phase, your report is produced manually by a
+              person following the same method, using the same multi-model and
+              web-verification steps an autonomous version would.
+            </p>
+            <p>
+              Because each report takes real time, we're throttling requests
+              to what we can actually deliver well. <strong>You submit a
+              request first; we reply within 24 hours</strong> with either a
+              confirmed slot, a delivery date, and a Stripe payment link — or
+              a kind decline if we're full this month and a chance to be
+              first in the next batch.
+            </p>
+            <p>
+              <strong>No payment is taken until we confirm.</strong> If we
+              can't find any advancing candidates for your business once we've
+              run the method, you get the analysis of why, free of charge,
+              and no payment is taken. No commitment beyond the single report;
+              your context isn't stored to sell anything later.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REQUEST FORM ─────────────────────────────────── -->
+    <section class="interest" id="request">
+      <div class="wrap">
+        <div class="interest-grid">
+          <div>
+            <h3>Request a report. <em>We reply within 24 hours.</em></h3>
+            <p class="sub">Tell us briefly about your business and the audience you're trying to reach. Enough detail that we know whether we can do a useful job — we'll come back to you with a confirmed slot or a polite decline.</p>
+          </div>
+          <form action="REQUEST_FORM_ACTION" method="POST" novalidate class="request-form">
+            <div class="form-row">
+              <label>
+                <span class="field-label">Your name</span>
+                <input type="text" name="name" required aria-label="Your name" />
+              </label>
+              <label>
+                <span class="field-label">Email</span>
+                <input type="email" name="email" placeholder="you@example.com" required aria-label="Email" />
+              </label>
+            </div>
+            <label>
+              <span class="field-label">Business · domain or short description</span>
+              <input type="text" name="business" placeholder="e.g. acme.co.uk — small accountancy for trades" required aria-label="Business" />
+            </label>
+            <label>
+              <span class="field-label">Audience · who you're trying to reach</span>
+              <textarea name="audience" rows="2" placeholder="e.g. sole-trader builders and plumbers in the South West, turnover £80k–£300k" required aria-label="Audience"></textarea>
+            </label>
+            <label>
+              <span class="field-label">Anything specific you want covered (optional)</span>
+              <textarea name="notes" rows="2" placeholder="e.g. we already have a customer database; AI capabilities we're curious about" aria-label="Notes"></textarea>
+            </label>
+            <div class="form-actions">
+              <button type="submit">Send request — no payment yet</button>
+              <p class="form-meta">£199 per report · payment only on confirmation</p>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOWER-COMMITMENT UPDATES STRIP ──────────────────── -->
+    <section class="updates-strip">
+      <div class="wrap">
+        <div class="updates-strip-inner">
+          <p>Not ready to request? <em>Get the next worked example by email instead.</em></p>
+          <form action="UPDATES_FORM_ACTION" method="POST" novalidate>
+            <input type="email" name="email" placeholder="you@example.com" required aria-label="Email for updates" />
+            <button type="submit">Send me the next run</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER ───────────────────────────────────────── -->
+    <footer>
+      <div class="wrap">
+        <span>idea.uk · early access · operated from the UK</span>
+        <span>Questions? <a href="mailto:CONTACT_EMAIL">CONTACT_EMAIL</a></span>
+      </div>
+    </footer>
+
+  </main>
+
+</body>
+</html>

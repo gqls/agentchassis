@@ -32,6 +32,8 @@ ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
 CLIENT_ID="demo_client"
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 
 echo "========================================="
 echo "Separated Adoption Trigger"
@@ -40,6 +42,7 @@ echo "  Source (crawl):      $SOURCE_URL"
 echo "  Destination (build): $DEST_DOMAIN"
 echo "  Correlation ID:      $CORRELATION_ID"
 echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  TIMESTAMP=$TIMESTAMP"
 echo "========================================="
 echo ""
 echo "SAVE THESE IDs:"

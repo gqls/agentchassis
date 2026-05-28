@@ -5,3 +5,6 @@ By following the track of the code back through functions called and storage of 
 Then, by magic, when you ask it to do something forward looking - write code to ..., I want this ..., let's build this ..., it reasons for you.
 Reasoning is the new averaging.
 most probable completion
+
+
+only if you cut and paste into chat, otherwise useless

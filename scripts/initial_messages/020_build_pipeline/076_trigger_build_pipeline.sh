@@ -395,6 +395,39 @@ SELECT aspect, LEFT(data::text, 300) as preview
 FROM site_specs
 WHERE site_id='5fe15466-4e2e-4ff2-981e-98c1b7074002';
 
+clients_db=# -- did the orchestrator advance past spawn_adopter, and did a CHILD adopter orchestration appear?
+SELECT orchestration_id, orchestration_name, owner_agent_type, current_step, status,
+       parent_orchestration_id, created_at, last_activity
+FROM orchestration_states
+WHERE correlation_id = 'fae7085a-0be6-414b-a765-1f1514279f72'
+ORDER BY created_at;
+           orchestration_id           |      orchestration_name       |  owner_agent_type   | current_step |  status   |       parent_orchestration_id        |          created_at           |       last_activity
+--------------------------------------+-------------------------------+---------------------+--------------+-----------+--------------------------------------+-------------------------------+----------------------------
+ c29d5dc3-774c-4ffa-aa8c-b8c6ae44319e | generic-orchestrate-0528-1243 | generic             | complete     | COMPLETED |                                      | 2026-05-28 12:43:24.44682+00  | 2026-05-28 12:50:11.034025
+ fd3b22fa-5b94-44f2-af05-ca54b6a25671 |                               | site-adoption-agent | complete     | COMPLETED | c29d5dc3-774c-4ffa-aa8c-b8c6ae44319e | 2026-05-28 12:43:39.243161+00 | 2026-05-28 12:50:16.097969
+(2 rows)
+
+clients_db=# -- is the cascade running? work items by status + newest activity
+SELECT status, COUNT(*) FROM site_work_items
+WHERE site_id=(SELECT id FROM sites WHERE domain='gamesdesign.co.uk')
+GROUP BY status;
+
+SELECT MAX(last_activity) AS newest, COUNT(*) AS active
+FROM orchestration_states
+WHERE site_id=(SELECT id FROM sites WHERE domain='gamesdesign.co.uk')
+  AND status NOT IN ('COMPLETED','FAILED');
+ status  | count
+---------+-------
+ claimed |     1
+ triaged |    21
+(2 rows)
+
+           newest           | active
+----------------------------+--------
+ 2026-05-28 12:52:15.797623 |      2
+(1 row)
+
+
 
 -- you need to reset the status so the dispatch loop picks it up again. Something like:
 
