@@ -504,6 +504,46 @@ func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData 
 		})
 	}
 
+	// Fallback: no <section> blocks found but the HTML has content.
+	// Recreated tools/games (tool-recreation-handler) emit their body as
+	// <div class="tool-page">…</div> with no <section> element, so the regex
+	// above matches nothing. Returning empty here leaves the page with zero
+	// page_components, which makes the rerender's getPageSections return empty
+	// and skip the page — no git commit, no deployed file — while only logging
+	// "no sections". Instead, store the whole fragment as a single section so it
+	// deploys through the existing insert path.
+	//
+	// Guard: only do this for a content fragment, not a full document. If the
+	// HTML carries <html>/<!doctype> it is an assembled page (header + footer +
+	// chrome); wrapping that as one "section" would make the rerender double-wrap
+	// site chrome. tool-recreation passes chrome-free inner HTML (its prompt
+	// forbids <html>/<head>/<body>), so this fires exactly on the single-fragment
+	// case it needs to and not on assembled pages.
+	if len(sections) == 0 {
+		trimmed := strings.TrimSpace(html)
+		lower := strings.ToLower(trimmed)
+		if trimmed != "" && !strings.Contains(lower, "<html") && !strings.Contains(lower, "<!doctype") {
+			// Default name "section" so the existing enrichment path
+			// (enrichSectionsWithPlannedNames / enrichSectionsWithComponentIDs)
+			// can refine it from pages.sections / data-component, exactly as for
+			// the <section> path. Tool HTML has no data-component, so it stays
+			// "section" unless a planned name exists.
+			componentName := "section"
+			if componentMatch := dataComponentRe.FindStringSubmatch(trimmed); len(componentMatch) >= 2 {
+				componentName = componentMatch[1]
+			}
+			sections = append(sections, SectionData{
+				ComponentName: componentName,
+				HTML:          trimmed,
+				Position:      1,
+			})
+			logger.Info("saveSectionsExtractFromHTML: no <section> blocks found; stored whole fragment as one section",
+				zap.String("component_name", componentName),
+				zap.Int("html_length", len(trimmed)),
+			)
+		}
+	}
+
 	logger.Info("saveSectionsExtractFromHTML: Found sections",
 		zap.Int("count", len(sections)),
 	)
