@@ -625,8 +625,24 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 	// Build the query - use build_status column (not status)
 	var query string
 	if newStatus == "deployed" {
-		// Also set deployed_at when marking as deployed
-		query = `UPDATE pages SET build_status = $2, deployed_at = NOW(), updated_at = NOW() WHERE id = $1`
+		// Also set deployed_at, and stamp built_from_plan_version with the site's
+		// current plan id. This is the build-time drift stamp the reconciler
+		// compares against (029/030 design; the deferred item in HANDOFF_2026-05-07
+		// #5). COALESCE keeps any existing value when no current plan exists yet —
+		// e.g. tool-recreation deploys before build-site-planner has written the
+		// plan — and SyncPagesToDBAction then fills it on its first pass. With this
+		// stamp in place the reconciler detects genuine drift (built_from_plan_version
+		// != current) rather than relying on the blunt deployed->needs_rebuild flip.
+		query = `UPDATE pages
+		         SET build_status = $2,
+		             deployed_at = NOW(),
+		             built_from_plan_version = COALESCE(
+		                 (SELECT sp.id FROM site_plans sp
+		                   WHERE sp.site_id = pages.site_id AND sp.is_current = true),
+		                 built_from_plan_version
+		             ),
+		             updated_at = NOW()
+		         WHERE id = $1`
 	} else {
 		query = `UPDATE pages SET build_status = $2, updated_at = NOW() WHERE id = $1`
 	}

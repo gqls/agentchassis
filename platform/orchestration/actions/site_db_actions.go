@@ -1092,6 +1092,19 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 		inFooter = true
 	}
 
+	// build_status / built_from_plan_version behaviour on conflict:
+	//   - built_from_plan_version is filled only when the existing row has none
+	//     (COALESCE existing-first). The authoritative stamp is written at deploy
+	//     time by UpdatePageStatusAction; sync must not overwrite it, or drift
+	//     detection across re-plans breaks (a v1-built page would look v2-current).
+	//     Pre-plan deploys (tool-recreation) arrive with NULL and are adopted into
+	//     the current plan here.
+	//   - build_status is NOT flipped deployed->needs_rebuild. Rebuild-on-plan-change
+	//     is the reconciler's job via drift detection (built_from_plan_version !=
+	//     current plan id; 029/030 item 9, decideEmit). The old flip fired on every
+	//     deployed page on every sync and churned pages deployed before the plan
+	//     existed (tools). NULL is normalised to 'planned'; other states are left
+	//     intact for the reconciler / dispatch to act on.
 	query := `
 		INSERT INTO pages (site_id, name, url, title, page_type, nav_label, nav_order, in_header, in_footer, meta_description, sections, build_status, status, built_from_plan_version)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'planned', 'active', $12)
@@ -1105,9 +1118,8 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 			in_footer = EXCLUDED.in_footer,
 			meta_description = EXCLUDED.meta_description,
 			sections = EXCLUDED.sections,
-			built_from_plan_version = COALESCE(EXCLUDED.built_from_plan_version, pages.built_from_plan_version),
-			build_status = CASE 
-				WHEN pages.build_status = 'deployed' THEN 'needs_rebuild'
+			built_from_plan_version = COALESCE(pages.built_from_plan_version, EXCLUDED.built_from_plan_version),
+			build_status = CASE
 				WHEN pages.build_status IS NULL THEN 'planned'
 				ELSE pages.build_status
 			END,
