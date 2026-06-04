@@ -386,3 +386,222 @@ COMMIT;
 --   GROUP BY page_type;
 --   -- Compare with the budget-calculation query at line 42375 — every
 --   -- row that was meant to be counted is now counted.
+
+---
+
+-- migration_retype_guides_to_guide.sql
+-- ----------------------------------------------------------------------------
+-- LIVE-SITE FIX for gamesdesign.co.uk.
+--
+-- Re-type the 5 content-bearing guide-* pages from blog-post -> guide so the
+-- guide-list component (items.source = query.pages_where_type:guide) resolves
+-- them. This mirrors the working game-list / page_type=game precedent: `game`
+-- pages resolve via pages_where_type:game with no resolver change, so guide
+-- pages will resolve the same way once typed `guide`.
+--
+-- SCOPE — only the 5 guide-* pages (they each have a content section):
+--   guide-economy-basics, guide-fairness-in-rng, guide-p2p-architecture,
+--   guide-rng-design, guide-skinner-box
+-- The 5 EMPTY bare duplicates (economy-basics, fairness-in-rng,
+-- p2p-architecture, rng-design, skinner-box; sections = []) are deliberately
+-- LEFT as blog-post. They are empty shells and a SEPARATE defect — re-typing
+-- them would surface 5 broken/empty cards in the guide list.
+--
+-- SCHEMA NOTE (checked): pages.page_type is varchar(50) with CHECK
+-- chk_page_type_kebab_case — kebab-case FORMAT only, NO value allowlist.
+-- 'guide' is valid format, so this UPDATE does not violate the constraint.
+--
+-- Data-only change. No code deploy. Effective on COMMIT.
+-- ----------------------------------------------------------------------------
+
+BEGIN;
+
+-- SNAPSHOT (rollback safety): full backup of the rows being changed, taken
+-- inside the txn before the UPDATE so it captures the pre-change page_type.
+CREATE TABLE IF NOT EXISTS pages_bak_retype_guides AS
+SELECT * FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND name LIKE 'guide-%'
+  AND page_type = 'blog-post';
+
+-- Before: the rows we will re-type (expect exactly 5).
+SELECT name, page_type, url, sections
+FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND name LIKE 'guide-%'
+  AND page_type = 'blog-post'
+ORDER BY name;
+
+-- Re-type the content-bearing guide pages.
+UPDATE pages
+SET page_type = 'guide'
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND name LIKE 'guide-%'
+  AND page_type = 'blog-post';
+
+-- After: confirm the 5 guide-* rows are now 'guide'; the bare duplicates remain
+-- blog-post (they are NOT in this result because they don't match name LIKE).
+SELECT name, page_type, url, sections
+FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND (name LIKE 'guide-%' OR page_type = 'guide')
+ORDER BY name;
+
+COMMIT;
+
+-- ----------------------------------------------------------------------------
+-- ROLLBACK (if needed): restore page_type from the snapshot.
+--   UPDATE pages p SET page_type = b.page_type
+--   FROM pages_bak_retype_guides b WHERE p.id = b.id;
+-- Drop the snapshot once satisfied: DROP TABLE pages_bak_retype_guides;
+-- ----------------------------------------------------------------------------
+
+-- ============================================================================
+-- RUN SEPARATELY, AFTER THE ABOVE COMMITS.
+-- Re-render the pages that SHOW a guide-list so plan_sections re-resolves the
+-- list against the now-guide-typed pages. `sections` is the page's jsonb array
+-- of section functions.
+--
+-- IMPORTANT — coverage note: guide-list currently appears on the HOMEPAGE
+-- (index). The guides hub `guides-index` has sections = [] (no guide-list
+-- section at all), so re-typing alone will NOT populate the guides hub — that
+-- hub needs a guide-list section added to its plan (separate work, same shape
+-- as how the tools hub got its tool-list). The flip below rebuilds whatever
+-- pages actually contain guide-list today.
+--
+-- 1) Verify which pages this targets:
+--      SELECT name, url, build_status FROM pages
+--      WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+--        AND sections @> '["guide-list"]'::jsonb;
+--
+-- 2) SNAPSHOT before the flip (rollback safety):
+--      CREATE TABLE IF NOT EXISTS pages_bak_guidelist_rebuild AS
+--      SELECT id, name, url, build_status, built_from_plan_version, NOW() AS snapshot_at
+--      FROM pages
+--      WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+--        AND sections @> '["guide-list"]'::jsonb;
+--
+-- 3) Flip to rebuild:
+--      UPDATE pages
+--      SET build_status = 'needs_rebuild', built_from_plan_version = NULL
+--      WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+--        AND sections @> '["guide-list"]'::jsonb;
+--
+-- Rollback the flip if needed:
+--      UPDATE pages p
+--      SET build_status = b.build_status, built_from_plan_version = b.built_from_plan_version
+--      FROM pages_bak_guidelist_rebuild b WHERE p.id = b.id;
+-- ============================================================================
+
+---
+
+-- migration_guides_url_to_canonical.sql
+-- ----------------------------------------------------------------------------
+-- STRUCTURAL (optional) — move the 5 guide pages from their blog-post-origin
+-- URLs (/blog/guide-<slug>.html) to the canonical guide shape that
+-- datahelpers.CanonicalisePage produces for role=guide:
+--
+--     /guides/<slug>/index.html        (slug = name with the "guide-" prefix dropped)
+--
+-- This makes guides a peer of tools (/tools/<slug>/index.html) and games
+-- (/games/<slug>/index.html), and lets the guides hub at /guides/index.html
+-- contain its children. NAME is unchanged (guide-<slug> is already canonical);
+-- only url + a rebuild flip change here.
+--
+-- PRE-REQUISITE: run migration_retype_guides_to_guide.sql first (these rows must
+-- already be page_type='guide').
+--
+-- BLAST RADIUS (handle via the separate steps at the foot, sized by the three
+-- diagnostics in the handoff):
+--   - the 5 guides rebuild+redeploy at the new paths (flip below)
+--   - the OLD /blog/guide-*.html files become orphaned in the repo (the deployer
+--     writes the new path; it does NOT delete the old file) — delete them as a
+--     git cleanup
+--   - pages whose rendered_html hardcodes /blog/guide-* links go stale until they
+--     re-render (diagnostic c) — rebuild those too
+--   - guide-list links are dynamic (resolved from pages.url by queryresolve), so
+--     they pick up the new URLs automatically on the homepage's next rebuild
+--
+-- SCHEMA NOTE: pages.url has no format CHECK; the deployer already writes nested
+-- <section>/<slug>/index.html paths (tools and games use them), so /guides/<slug>/
+-- index.html is a supported output path.
+--
+-- Data-only change. Effective on COMMIT; files move on the subsequent rebuild.
+-- ----------------------------------------------------------------------------
+
+BEGIN;
+
+-- SNAPSHOT (rollback safety): full backup of the rows being changed (captures
+-- url, build_status, built_from_plan_version before the edit).
+CREATE TABLE IF NOT EXISTS pages_bak_guides_url AS
+SELECT * FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND page_type = 'guide'
+  AND name LIKE 'guide-%'
+  AND url LIKE '/blog/guide-%';
+
+-- Before: current url + the computed canonical url (verify the mapping looks
+-- right; expect 5 rows).
+SELECT name,
+       url AS current_url,
+       '/guides/' || substring(name from 7) || '/index.html' AS canonical_url,
+       build_status
+FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND page_type = 'guide'
+  AND name LIKE 'guide-%'
+  AND url LIKE '/blog/guide-%'
+ORDER BY name;
+
+-- Move the URL to canonical and flip to rebuild so the page redeploys at the
+-- new path. substring(name from 7) drops the 6-char "guide-" prefix.
+UPDATE pages
+SET url                    = '/guides/' || substring(name from 7) || '/index.html',
+    build_status           = 'needs_rebuild',
+    built_from_plan_version = NULL
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND page_type = 'guide'
+  AND name LIKE 'guide-%'
+  AND url LIKE '/blog/guide-%';
+
+-- After: confirm the 5 rows now carry /guides/<slug>/index.html.
+SELECT name, url, page_type, build_status
+FROM pages
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND page_type = 'guide'
+ORDER BY name;
+
+COMMIT;
+
+-- ----------------------------------------------------------------------------
+-- ROLLBACK (if needed): restore url + build state from the snapshot.
+--   UPDATE pages p
+--   SET url = b.url, build_status = b.build_status,
+--       built_from_plan_version = b.built_from_plan_version
+--   FROM pages_bak_guides_url b WHERE p.id = b.id;
+-- Drop the snapshot once satisfied: DROP TABLE pages_bak_guides_url;
+-- ----------------------------------------------------------------------------
+
+-- ============================================================================
+-- FOLLOW-UPS (run after the diagnostics in the handoff tell you the scope):
+--
+-- 1) Rebuild pages that SHOW guide-list (homepage; guides hub once it has the
+--    section) so list links point at the new URLs. Snapshot then flip:
+--      CREATE TABLE IF NOT EXISTS pages_bak_guidelist_rebuild AS
+--      SELECT id, name, url, build_status, built_from_plan_version, NOW() AS snapshot_at
+--      FROM pages
+--      WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+--        AND sections @> '["guide-list"]'::jsonb;
+--      UPDATE pages SET build_status='needs_rebuild', built_from_plan_version=NULL
+--      WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+--        AND sections @> '["guide-list"]'::jsonb;
+--
+-- 2) Rebuild pages whose rendered_html hardcodes /blog/guide-* links
+--    (diagnostic c) so their inline links + link_registry re-sync.
+--
+-- 3) GIT CLEANUP (outside the DB): delete the orphaned old files
+--    /blog/guide-economy-basics.html, /blog/guide-fairness-in-rng.html,
+--    /blog/guide-p2p-architecture.html, /blog/guide-rng-design.html,
+--    /blog/guide-skinner-box.html  (optionally add redirects).
+-- ============================================================================
+

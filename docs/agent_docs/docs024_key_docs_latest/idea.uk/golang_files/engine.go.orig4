@@ -5,6 +5,9 @@ package main
 // over net/http (no SDKs). Output is similar, not identical, to the by-hand runs;
 // LLM output is non-deterministic.
 
+// to run
+// GOPROXY=off GOTOOLCHAIN=local go run . internal "agritec.uk" "UK small farmers" "curate scheme docs"
+
 import (
 	"bytes"
 	"encoding/json"
@@ -35,16 +38,7 @@ func env(k, def string) string {
 	return def
 }
 
-// 15-minute ceiling. The verify step (Opus 4.8 at xhigh effort + up to 6 web
-// searches) is a long agentic call: the server holds the connection while it
-// thinks, searches, thinks again — no response headers arrive until it's done,
-// which blew the old 180s timeout ("context deadline exceeded while awaiting
-// headers"). The other calls finish in seconds; this is just a safe ceiling.
-// The more robust long-term fix for very long calls is streaming (Anthropic
-// recommends it for large thinking budgets — incremental SSE events keep the
-// connection alive and dodge intermediary proxy timeouts); that's a bigger
-// change deferred for now.
-var httpClient = &http.Client{Timeout: 900 * time.Second}
+var httpClient = &http.Client{Timeout: 180 * time.Second}
 
 // EngineFunc is the shape both front doors call. Swappable in tests.
 type EngineFunc func(domain, audience, assets string) (string, error)
@@ -68,11 +62,11 @@ type scored struct {
 	Buildability       int    `json:"buildability"`
 	Reuse              int    `json:"reuse"`
 	Durability         int    `json:"durability"`
-	Risk               int    `json:"risk"`          // 1–5, 5 = low operator-side risk (consequences of being wrong). Separate from Sum; gates and ranks via dedicated rules.
-	Sum                int    `json:"sum"`           // Def+Will+Build+Reuse+Dur (Risk excluded — it's a hazard label, not a fitness contribution).
+	Risk               int    `json:"risk"` // 1–5, 5 = low operator-side risk (consequences of being wrong). Separate from Sum; gates and ranks via dedicated rules.
+	Sum                int    `json:"sum"`  // Def+Will+Build+Reuse+Dur (Risk excluded — it's a hazard label, not a fitness contribution).
 	Advances           bool   `json:"advances"`
 	ShortLived         bool   `json:"short_lived"`
-	NeedsLiabilityWork bool   `json:"-"`             // derived in Go from Risk ≤ 2; not asked of the model.
+	NeedsLiabilityWork bool   `json:"-"` // derived in Go from Risk ≤ 2; not asked of the model.
 	CheapestTest       string `json:"cheapest_test"`
 	Flag               string `json:"flag"`
 	candidate          `json:"-"`
@@ -83,12 +77,9 @@ type scored struct {
 // fields are optional. Defaults preserve the simple-string-system / no-thinking
 // behaviour the engine had before extended thinking and prompt caching landed.
 //
-//   - Effort "" disables thinking. Otherwise one of low|medium|high|xhigh|max.
-//     The wire format DIFFERS BY MODEL (this bit us — see debugging guide §0):
-//     Opus 4.7/4.8 and Mythos use adaptive thinking (thinking:{type:adaptive}
-//     + output_config:{effort}); they 400 on manual budgets. Sonnet 4.6 and
-//     older use manual extended thinking (thinking:{type:enabled,budget_tokens}).
-//     callClaudeOpts picks the right one based on the model string.
+//   - ThinkBudget = 0 disables extended thinking. Anthropic requires >= 1024 and
+//     < MaxTokens when enabled, so we silently treat anything in (0, 1024) as
+//     1024 and clamp to MaxTokens-1 if too large.
 //   - CacheSystem = true wraps the system prompt as a single content block with
 //     cache_control: ephemeral, so the system text becomes a cache hit on
 //     subsequent calls within the same TTL (5 min). One run makes 5 calls in
@@ -99,38 +90,8 @@ type callOpts struct {
 	User        string
 	Tools       []map[string]any
 	MaxTokens   int
-	Effort      string // "" = no thinking; else low|medium|high|xhigh|max
+	ThinkBudget int
 	CacheSystem bool
-}
-
-// usesAdaptiveThinking reports whether a model takes adaptive thinking +
-// output_config.effort (true) rather than manual thinking budgets (false).
-// Opus 4.7, Opus 4.8, and Mythos dropped manual budgets; Sonnet 4.6 and older
-// still take them. Matching on substrings keeps this working across the
-// dated/aliased forms of the same model id.
-func usesAdaptiveThinking(model string) bool {
-	return strings.Contains(model, "opus-4-7") ||
-		strings.Contains(model, "opus-4-8") ||
-		strings.Contains(model, "mythos")
-}
-
-// effortToBudget maps an effort level to a manual thinking budget (tokens), for
-// the older models that still use thinking:{type:enabled,budget_tokens}.
-func effortToBudget(effort string) int {
-	switch effort {
-	case "low":
-		return 2000
-	case "medium":
-		return 4000
-	case "high":
-		return 8000
-	case "xhigh":
-		return 12000
-	case "max":
-		return 16000
-	default:
-		return 0
-	}
 }
 
 func callClaudeOpts(o callOpts) (string, error) {
@@ -156,27 +117,22 @@ func callClaudeOpts(o callOpts) (string, error) {
 	if o.Tools != nil {
 		body["tools"] = o.Tools
 	}
-	// Thinking — wire format depends on the model family.
-	if o.Effort != "" {
-		if usesAdaptiveThinking(o.Model) {
-			// Opus 4.7/4.8/Mythos: adaptive thinking + effort. Manual budgets 400.
-			body["thinking"] = map[string]any{"type": "adaptive"}
-			body["output_config"] = map[string]any{"effort": o.Effort}
-		} else {
-			// Sonnet 4.6 and older: manual budget. Must be >=1024 and < max_tokens,
-			// leaving room for the actual output.
-			b := effortToBudget(o.Effort)
-			if b < 1024 {
-				b = 1024
-			}
-			if b >= o.MaxTokens {
-				b = o.MaxTokens - 1024
-			}
-			body["thinking"] = map[string]any{
-				"type":          "enabled",
-				"budget_tokens": b,
-				"display":       "omitted", // we never surface thinking; skip the wire cost
-			}
+	if o.ThinkBudget > 0 {
+		b := o.ThinkBudget
+		if b < 1024 {
+			b = 1024
+		}
+		if b >= o.MaxTokens {
+			b = o.MaxTokens - 1
+		}
+		// "display": "omitted" keeps thinking content out of the response — the
+		// engine never surfaces it, so there's no point paying for the wire
+		// roundtrip. Tokens are still billed (Anthropic charges for the full
+		// thinking even when display is omitted), but the response is smaller.
+		body["thinking"] = map[string]any{
+			"type":          "enabled",
+			"budget_tokens": b,
+			"display":       "omitted",
 		}
 	}
 	raw, _ := json.Marshal(body)
@@ -286,8 +242,8 @@ func critique(user string) (string, error) {
 		Model:       critiqueModel,
 		System:      systemBase,
 		User:        user,
-		MaxTokens:   12000,
-		Effort:      "high", // critique is reasoning-heavy; budget pays off here
+		MaxTokens:   8000,
+		ThinkBudget: 4000, // critique is reasoning-heavy; budget pays off here
 		CacheSystem: true,
 	})
 }
@@ -378,7 +334,7 @@ func RunMethod(domain, audience, assets string) (string, error) {
 	// STEP 2 — generate (multi-lens). CacheSystem true; reads the warm cache
 	// that runAudience just established (5-min TTL — fits inside a full run).
 	s2, err := callClaudeOpts(callOpts{
-		Model: genModel,
+		Model:  genModel,
 		System: systemBase,
 		User: fill(generatePrompt, "{domain}", domain, "{audience}", aud.CarriedAudience,
 			"{wtp}", aud.WillingnessToPay, "{assets}", assets, "{capabilities}", capabilityMenu),
@@ -447,8 +403,8 @@ func RunMethod(domain, audience, assets string) (string, error) {
 		Tools: []map[string]any{
 			{"type": "web_search_20260209", "name": "web_search", "max_uses": 6},
 		},
-		MaxTokens:   32000,   // room for adaptive thinking + search-result text + output
-		Effort:      "xhigh", // Anthropic recommends xhigh for agentic work with repeated search
+		MaxTokens:   16000, // headroom for extended thinking + search-result text
+		ThinkBudget: 8000,  // multi-step inference across search hits
 		CacheSystem: true,
 	})
 	if err != nil {
@@ -491,8 +447,8 @@ func RunMethod(domain, audience, assets string) (string, error) {
 		Model:       scoreModel,
 		System:      systemBase,
 		User:        fill(scorePrompt, "{verified_json}", string(verJSON)),
-		MaxTokens:   10000,
-		Effort:      "medium",
+		MaxTokens:   6000,
+		ThinkBudget: 2000,
 		CacheSystem: true,
 	})
 	if err != nil {

@@ -35,16 +35,7 @@ func env(k, def string) string {
 	return def
 }
 
-// 15-minute ceiling. The verify step (Opus 4.8 at xhigh effort + up to 6 web
-// searches) is a long agentic call: the server holds the connection while it
-// thinks, searches, thinks again — no response headers arrive until it's done,
-// which blew the old 180s timeout ("context deadline exceeded while awaiting
-// headers"). The other calls finish in seconds; this is just a safe ceiling.
-// The more robust long-term fix for very long calls is streaming (Anthropic
-// recommends it for large thinking budgets — incremental SSE events keep the
-// connection alive and dodge intermediary proxy timeouts); that's a bigger
-// change deferred for now.
-var httpClient = &http.Client{Timeout: 900 * time.Second}
+var httpClient = &http.Client{Timeout: 180 * time.Second}
 
 // EngineFunc is the shape both front doors call. Swappable in tests.
 type EngineFunc func(domain, audience, assets string) (string, error)
