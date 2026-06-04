@@ -1197,6 +1197,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Transition a model_lifecycle.training_runs row running→complete|failed (config status); stamps completed_at and (on failed) error_message. Idempotent: only transitions rows still 'running'. Used by thunder-training-monitor's mark_complete/mark_failed steps.",
 		IsLocal:     true,
 	},
+	"find_active_training_instances": {
+		Handler:     FindActiveTrainingInstancesAction,
+		Category:    "training",
+		Description: "Query clients_db for running Thunder instances with a training_run_id and no decommission requested; returns {instances:[{provisioning_id,training_run_id,thunder_instance_id,instance_ip}], count} for thunder-training-monitor's loop fan-out.",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// Site Snapshots

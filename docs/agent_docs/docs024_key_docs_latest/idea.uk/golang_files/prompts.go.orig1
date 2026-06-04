@@ -125,8 +125,8 @@ After searching, return JSON only (no prose outside the JSON):
 {"results": [{"id": "...", "title": "...",
   "findings": "<what you verified, with specifics>", "premise_holds": true|false}]}`
 
-const scorePrompt = `STEP 5 — SCORE each candidate whose premise held. Six factors, 1-5, where 5 is
-ALWAYS more attractive / safer. Score honestly; guessing high defeats the point.
+const scorePrompt = `STEP 5 — SCORE each candidate whose premise held. Five factors, 1-5, where 5 is
+ALWAYS more attractive. Score honestly; guessing high defeats the point.
 
 - Defensibility: 1 = a free model with a good prompt does this; 3 = needs our
   process/curation, a determined expert could copy with effort; 5 = depends on an
@@ -139,47 +139,18 @@ ALWAYS more attractive / safer. Score honestly; guessing high defeats the point.
 - Durability (resistance to base-model improvement): 1 = next release erodes it /
   substitute improving fast; 3 = holds a while, needs refresh; 5 = rests on
   something model progress doesn't erode.
-- Risk to the operator (us, if we build and operate it): score the CONSEQUENCE
-  of being wrong, not the chance of being wrong. 5 = pure analysis, customer
-  makes their own decisions, no plausible loss beyond the fee we charged; 4 =
-  minor downstream consequences possible, a refund would make the customer
-  whole; 3 = meaningful financial/operational decisions ride on our output,
-  customer can verify our citations, PII insurance is recommended; 2 =
-  high-stakes decisions (real money, regulated or quasi-regulated matters,
-  legal/medical adjacency), requires human review every report + PII +
-  carefully reviewed T&Cs before building; 1 = regulated profession territory
-  (medical advice, legal advice, FCA-regulated financial advice) — should NOT
-  be built without proper qualifications, regardless of how attractive it looks
-  on the other factors.
-
-  Use the asymmetry test: if our output is wrong, what could it cost the
-  customer? Time wasted = high score. Lost grant money / missed regulatory
-  window / wrong medical decision = low score.
-
-  Risk is NOT added to the sum. The sum is fitness; Risk is hazard. They are
-  reported separately. Risk = 1 gets dropped automatically downstream; Risk ≤ 2
-  gets flagged as "needs liability work before building."
 
 GATE: a candidate ADVANCES only if Defensibility >= 3 AND Willingness >= 3.
-(Risk is NOT a hard gate — Risk = 1 is dropped in post-processing; Risk = 2 still
-advances but flagged.)
-
-Flag any advancing candidate with Durability <= 2 as "short_lived": true.
-
-For each advancing candidate, give the cheapest demand test. IMPORTANT: if Risk
-<= 2, the cheapest_test MUST explicitly say "validate demand first; do not
-build until PII insurance is in force and T&Cs are reviewed by a UK solicitor."
-For Risk >= 3 candidates the cheapest_test can be a normal fake-door / landing
-page / etc.
-
-Mark "test_now" if Buildability >= 4 OR the demand test is cheap AND Risk >= 3;
-else "consider".
+Flag any advancing candidate with Durability <= 2 as "short-lived".
+For each advancing candidate, give the cheapest demand test (e.g. a fake-door
+"buy" button that records intent before building). Mark "test_now" if
+Buildability >= 4 OR the demand test is cheap; else "consider".
 
 Candidates with findings (each has an "id" — echo the SAME id for each):
 {verified_json}
 
 Return JSON only:
 {"scored": [{"id": "...", "title": "...", "defensibility": n, "willingness": n,
-  "buildability": n, "reuse": n, "durability": n, "risk": n, "sum": n,
+  "buildability": n, "reuse": n, "durability": n, "sum": n,
   "advances": true|false, "short_lived": true|false,
   "cheapest_test": "...", "flag": "test_now"|"consider"|"failed"}]}`

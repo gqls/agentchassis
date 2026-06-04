@@ -52,21 +52,19 @@ type candidate struct {
 }
 
 type scored struct {
-	ID                 string `json:"id"`
-	Title              string `json:"title"`
-	Defensibility      int    `json:"defensibility"`
-	Willingness        int    `json:"willingness"`
-	Buildability       int    `json:"buildability"`
-	Reuse              int    `json:"reuse"`
-	Durability         int    `json:"durability"`
-	Risk               int    `json:"risk"`          // 1–5, 5 = low operator-side risk (consequences of being wrong). Separate from Sum; gates and ranks via dedicated rules.
-	Sum                int    `json:"sum"`           // Def+Will+Build+Reuse+Dur (Risk excluded — it's a hazard label, not a fitness contribution).
-	Advances           bool   `json:"advances"`
-	ShortLived         bool   `json:"short_lived"`
-	NeedsLiabilityWork bool   `json:"-"`             // derived in Go from Risk ≤ 2; not asked of the model.
-	CheapestTest       string `json:"cheapest_test"`
-	Flag               string `json:"flag"`
-	candidate          `json:"-"`
+	ID            string `json:"id"`
+	Title         string `json:"title"`
+	Defensibility int    `json:"defensibility"`
+	Willingness   int    `json:"willingness"`
+	Buildability  int    `json:"buildability"`
+	Reuse         int    `json:"reuse"`
+	Durability    int    `json:"durability"`
+	Sum           int    `json:"sum"`
+	Advances      bool   `json:"advances"`
+	ShortLived    bool   `json:"short_lived"`
+	CheapestTest  string `json:"cheapest_test"`
+	Flag          string `json:"flag"`
+	candidate     `json:"-"`
 }
 
 // ── API calls ────────────────────────────────────────────────────────────────
@@ -272,7 +270,7 @@ func RunMethod(domain, audience, assets string) (string, error) {
 		}
 	}
 	if len(survivors) == 0 {
-		return render(domain, aud.CarriedAudience, aud.WillingnessToPay, nil, nil, nil,
+		return render(domain, aud.CarriedAudience, aud.WillingnessToPay, nil, nil,
 			"No candidate survived the cut."), nil
 	}
 
@@ -308,7 +306,7 @@ func RunMethod(domain, audience, assets string) (string, error) {
 		}
 	}
 	if len(verified) == 0 {
-		return render(domain, aud.CarriedAudience, aud.WillingnessToPay, nil, nil, nil,
+		return render(domain, aud.CarriedAudience, aud.WillingnessToPay, nil, nil,
 			"No premise survived verification."), nil
 	}
 
@@ -329,44 +327,31 @@ func RunMethod(domain, audience, assets string) (string, error) {
 	for _, c := range verified {
 		byID[c.ID] = c
 	}
-	var advancing, dropped, riskDropped []scored
+	var advancing, dropped []scored
 	for _, s := range sc.Scored {
 		base, ok := byID[s.ID] // merge by id; skip unmatched (no blank rows)
 		if !ok {
 			continue
 		}
 		s.candidate = base
-		// Risk=1 = regulated profession territory. Don't recommend, even if it
-		// would have advanced — surface separately so the operator sees what got
-		// killed for risk vs what failed the Def/Will gate.
-		if s.Risk == 1 {
-			fmt.Fprintf(os.Stderr, "[score] dropping %s for risk=1 (regulated-profession territory)\n", s.Title)
-			riskDropped = append(riskDropped, s)
-			continue
-		}
-		// Risk ≤ 2 = "needs liability work before building" — still advances if it
-		// passes the Def/Will gate, but flagged in the report.
-		s.NeedsLiabilityWork = s.Risk <= 2
 		if s.Advances {
 			advancing = append(advancing, s)
 		} else {
 			dropped = append(dropped, s)
 		}
 	}
-	// Rank advancing by sum desc; tiebreak by Risk desc (prefer safer builds
-	// when fitness is equal — Risk is a tiebreaker, not a heavy weight).
+	// rank advancing by sum, descending
 	for i := 0; i < len(advancing); i++ {
 		for j := i + 1; j < len(advancing); j++ {
-			if advancing[j].Sum > advancing[i].Sum ||
-				(advancing[j].Sum == advancing[i].Sum && advancing[j].Risk > advancing[i].Risk) {
+			if advancing[j].Sum > advancing[i].Sum {
 				advancing[i], advancing[j] = advancing[j], advancing[i]
 			}
 		}
 	}
-	return render(domain, aud.CarriedAudience, aud.WillingnessToPay, advancing, dropped, riskDropped, ""), nil
+	return render(domain, aud.CarriedAudience, aud.WillingnessToPay, advancing, dropped, ""), nil
 }
 
-func render(domain, audience, wtp string, advancing, dropped, riskDropped []scored, note string) string {
+func render(domain, audience, wtp string, advancing, dropped []scored, note string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Idea report — %s\n\n", domain)
 	fmt.Fprintf(&b, "**Audience:** %s  \n**Willingness to pay:** %s\n\n", audience, wtp)
@@ -379,55 +364,23 @@ func render(domain, audience, wtp string, advancing, dropped, riskDropped []scor
 	} else {
 		b.WriteString("## Advancing candidates (ranked)\n\n")
 		for i, x := range advancing {
-			tags := ""
+			sl := ""
 			if x.ShortLived {
-				tags += " — *short-lived (low durability)*"
+				sl = " — *short-lived (low durability)*"
 			}
-			if x.NeedsLiabilityWork {
-				tags += " — **⚠ needs liability work before building** (risk " + fmt.Sprintf("%d", x.Risk) + "/5)"
-			}
-			fmt.Fprintf(&b, "### %d. %s  [%s]%s\n", i+1, x.Title, x.Flag, tags)
+			fmt.Fprintf(&b, "### %d. %s  [%s]%s\n", i+1, x.Title, x.Flag, sl)
 			fmt.Fprintf(&b, "- **Idea:** use *%s* on *%s* to %s\n", x.Capability, x.Asset, x.BeatsFreeBecause)
 			fmt.Fprintf(&b, "- **Verification:** %s\n", x.Findings)
 			fmt.Fprintf(&b, "- **Scores:** Defensibility %d/5 · Willingness %d/5 · Buildability %d/5 · Reuse %d/5 · Durability %d/5 (sum %d)\n",
 				x.Defensibility, x.Willingness, x.Buildability, x.Reuse, x.Durability, x.Sum)
-			fmt.Fprintf(&b, "- **Operator risk:** %d/5 %s\n", x.Risk, riskNote(x.Risk))
 			fmt.Fprintf(&b, "- **Cheapest test:** %s\n\n", x.CheapestTest)
 		}
 	}
 	if len(dropped) > 0 {
-		b.WriteString("## Did not advance (failed the Defensibility/Willingness gate)\n\n")
+		b.WriteString("## Did not advance\n\n")
 		for _, x := range dropped {
-			fmt.Fprintf(&b, "- **%s** — Def %d / Will %d (gate is ≥3 on both)\n", x.Title, x.Defensibility, x.Willingness)
-		}
-		b.WriteString("\n")
-	}
-	if len(riskDropped) > 0 {
-		b.WriteString("## Dropped for operator risk (Risk = 1)\n\n")
-		b.WriteString("Regulated-profession territory or comparable. These may be genuine opportunities, " +
-			"but they aren't safe for us to build without the right qualifications/cover — surfaced here for visibility, not as a recommendation.\n\n")
-		for _, x := range riskDropped {
-			fmt.Fprintf(&b, "- **%s** — Risk 1/5 (Def %d / Will %d / Build %d)\n",
-				x.Title, x.Defensibility, x.Willingness, x.Buildability)
+			fmt.Fprintf(&b, "- **%s** — Def %d / Will %d (failed the gate)\n", x.Title, x.Defensibility, x.Willingness)
 		}
 	}
 	return b.String()
-}
-
-// riskNote returns the short label shown next to the Risk score in the report.
-func riskNote(r int) string {
-	switch r {
-	case 5:
-		return "(pure analysis; customer decides)"
-	case 4:
-		return "(low — refunds make customers whole)"
-	case 3:
-		return "(moderate — cite sources; PII recommended)"
-	case 2:
-		return "(high — needs review, insurance, tight T&Cs before building)"
-	case 1:
-		return "(regulated territory — should not build without proper qualifications)"
-	default:
-		return ""
-	}
 }
