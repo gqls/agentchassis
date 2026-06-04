@@ -1173,6 +1173,24 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Transition a model_lifecycle.training_runs row from pending to running and stamp started_at (sibling of the failed-marker in prepare_training_data). Used by training-launcher after the training process is launched.",
 		IsLocal:     true,
 	},
+	"dispatch_thunder_ssh_get_status": {
+		Handler:     DispatchThunderSSHGetStatusAction,
+		Category:    "training",
+		Description: "Publish an ssh_get_status request to thunder-adapter (probe reachability + run an optional status_command on a provisioned instance by provisioning_id) and await reachable/exit_code/stdout/stderr. Used by thunder-training-monitor to poll whether a detached training run is alive or finished.",
+		IsLocal:     true,
+	},
+	"classify_training_probe": {
+		Handler:     ClassifyTrainingProbeAction,
+		Category:    "training",
+		Description: "Classify a prior ssh_get_status probe (training-monitor) into a verdict (alive/done_ok/done_fail/gone_unknown/unreachable/no_status) and route the workflow via a next_step override. Pure logic; no DB.",
+		IsLocal:     true,
+	},
+	"record_probe_streak": {
+		Handler:     RecordProbeStreakAction,
+		Category:    "training",
+		Description: "Maintain the per-instance consecutive-unreachable counter on thunder_instances (mode=bump|reset) for thunder-training-monitor; route to lost_step once unreachable_threshold is reached. Requires migration 106.",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// Site Snapshots

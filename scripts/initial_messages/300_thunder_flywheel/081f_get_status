@@ -1,0 +1,4 @@
+on the box
+tnr connect
+
+pgrep -af '02_train_llama_3_3_70b|/workspace/run.sh' >/dev/null 2>&1 && { echo STATUS=ALIVE; exit 0; }; if grep -q RUN_SH_DONE /workspace/train.log 2>/dev/null && [ -f /workspace/adapter_out/adapter_config.json ]; then echo STATUS=DONE_OK; elif grep -q RUN_SH_FATAL /workspace/train.log 2>/dev/null; then echo STATUS=DONE_FAIL; else echo STATUS=GONE_UNKNOWN; fi; tail -n 3 /workspace/train.log 2>/dev/null
