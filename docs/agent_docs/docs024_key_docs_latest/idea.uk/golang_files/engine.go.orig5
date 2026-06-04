@@ -13,7 +13,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -32,17 +31,6 @@ var (
 func env(k, def string) string {
 	if v := os.Getenv(k); v != "" {
 		return v
-	}
-	return def
-}
-
-// envInt reads an int from the environment, falling back to def on unset or
-// unparseable. Used for tunables like the web-search budget.
-func envInt(k string, def int) int {
-	if v := os.Getenv(k); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
-		}
 	}
 	return def
 }
@@ -457,7 +445,7 @@ func RunMethod(domain, audience, assets string) (string, error) {
 		System: systemBase,
 		User:   fill(verifyPrompt, "{domain}", domain, "{survivors_json}", string(survJSON)),
 		Tools: []map[string]any{
-			{"type": "web_search_20260209", "name": "web_search", "max_uses": envInt("WEB_SEARCH_MAX_USES", 12)},
+			{"type": "web_search_20260209", "name": "web_search", "max_uses": 6},
 		},
 		MaxTokens:   32000,   // room for adaptive thinking + search-result text + output
 		Effort:      "xhigh", // Anthropic recommends xhigh for agentic work with repeated search

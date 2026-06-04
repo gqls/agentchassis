@@ -3163,5 +3163,71 @@ NOTICE:  Snapshot captured: type=build-site-planner, source_version=1, source_id
 (1 row)
 
 
+---
+      -- migration_planner_topic_sibling_rule.sql
+-- ----------------------------------------------------------------------------
+-- OPTIONAL STOPGAP — build-site-planner prompt hardening.
+--
+-- Diagnosis (llm_call_log, plan_site @ 2026-06-03 20:25:22): the planner WAS
+-- handed the adopted guide pages in existing_pages (e.g.
+-- "guide-economy-basics | page_type: blog-post | url: /blog/guide-economy-basics.html")
+-- and still emitted a parallel "economy-basics" blog-post. The existing
+-- "do NOT emit alternative or sibling versions" rule only illustrates a hub/flat
+-- pair (games/games-index) and a rename (tool-lanchester-sim); the LLM did not
+-- generalise it to a guide-prefix sibling.
+--
+-- This adds an explicit topic/prefix/role-duplicate rule with the concrete
+-- guide-economy-basics example.
+--
+-- NOTE ON LAYER: this is a PROMPT nudge, not a guarantee — the LLM can still
+-- ignore it. The durable fix is a deterministic guard in validate_site_plan /
+-- write_site_plan that drops a planned page whose topic STEM (role-prefix
+-- stripped, as CanonicalisePage already computes via TrimPrefix) collides with
+-- an existing page. Treat this migration as a bridge until that lands.
+--
+-- One quote-free, newline-free replace() on default_config::text -> jsonb
+-- (the cast validates the JSON; a malformed result aborts the txn). Anchor
+-- verified unique in the live build-site-planner config (pre-check below).
+-- ----------------------------------------------------------------------------
 
+BEGIN;
+
+-- SNAPSHOT (rollback safety): full backup of the agent row before the edit.
+CREATE TABLE IF NOT EXISTS agent_definitions_bak_planner_sibling AS
+SELECT * FROM agent_definitions WHERE type = 'build-site-planner';
+
+-- Pre-check: the anchor must be present exactly once (column = 1). If not, STOP.
+SELECT
+    (length(default_config::text)
+        - length(replace(default_config::text,
+                         'but never duplicate, replace, or rename an existing page.', '')))
+        / length('but never duplicate, replace, or rename an existing page.')
+        AS anchor_count
+FROM agent_definitions
+WHERE type = 'build-site-planner';
+
+-- Apply: append the topic/prefix/role-duplicate rule after the anchor sentence.
+UPDATE agent_definitions
+SET default_config = replace(
+        default_config::text,
+        'but never duplicate, replace, or rename an existing page.',
+        'but never duplicate, replace, or rename an existing page. This also bars TOPIC duplicates across different names, slugs, prefixes, or page_types: if an existing page already covers a subject (including an existing guide- or blog- page), do NOT plan another page on that same subject. For example, if guide-economy-basics exists, do NOT add an economy-basics blog-post and do NOT add an economy-basics guide; reuse the existing page. A genuinely new page must be a NEW subject not covered by ANY existing page, never a re-slugged, re-prefixed, or re-typed version of one.'
+                     )::jsonb,
+    updated_at = NOW()
+WHERE type = 'build-site-planner';
+
+-- Verify: the new rule is present (expect t).
+SELECT (default_config::text LIKE '%This also bars TOPIC duplicates%') AS rule_present
+FROM agent_definitions
+WHERE type = 'build-site-planner';
+
+COMMIT;
+
+-- ----------------------------------------------------------------------------
+-- ROLLBACK (if needed): restore the whole config from the snapshot.
+--   UPDATE agent_definitions a
+--   SET default_config = b.default_config, updated_at = NOW()
+--   FROM agent_definitions_bak_planner_sibling b WHERE a.type = b.type;
+-- Drop the snapshot once satisfied: DROP TABLE agent_definitions_bak_planner_sibling;
+-- ----------------------------------------------------------------------------
 
