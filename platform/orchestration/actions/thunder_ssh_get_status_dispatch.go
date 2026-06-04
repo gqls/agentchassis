@@ -90,23 +90,30 @@ func DispatchThunderSSHGetStatusAction(ctx context.Context, params ActionParams)
 	}
 
 	// ── Pick the responses_topic the adapter reply must route to ──
-	// MUST be the PARENT (caller's) responses topic — the one the saga coordinator
-	// subscribes to for matching awaited_requests. Using the agent's OWN topic
-	// routes the reply where the chassis has no consumer and the await never
-	// resolves. Same derivation as the other thunder dispatch actions.
-	myResponsesTopic := ""
-	if parentTopic, ok := params.CollectedData["__parent_responses_topic__"].(string); ok && parentTopic != "" {
-		myResponsesTopic = parentTopic
+	// This MUST equal the topic the saga coordinator registers the awaited request
+	// against, or the adapter's reply lands where the chassis has no consumer and the
+	// await never resolves. coordinator.determineResponsesTopic resolves to
+	// (env RESPONSES_TOPIC | execCtx.ResponsesTopic) — i.e. the AWAITING pod's OWN
+	// responses topic, not its parent's. Observed 2026-06-04: firing this worker via
+	// the generic entry, the coordinator awaited on system.agent.generic.responses
+	// (own/env) while __parent_responses_topic__ was system.generic.responses (the
+	// CLI's reply topic, which nothing consumes) → orphaned await, row never updated.
+	// DIVERGES (intentionally) from the other thunder dispatch actions, which prefer
+	// __parent_responses_topic__; those are only ever called from spawned children
+	// where the two coincide. Preferring ExecutionContext.ResponsesTopic makes the
+	// envelope match the coordinator in BOTH the spawned and generic-entry paths.
+	myResponsesTopic := params.ExecutionContext.ResponsesTopic
+	if myResponsesTopic == "" {
+		if parentTopic, ok := params.CollectedData["__parent_responses_topic__"].(string); ok && parentTopic != "" {
+			myResponsesTopic = parentTopic
+			params.Logger.Warn(
+				"dispatch_thunder_ssh_get_status: ExecutionContext.ResponsesTopic empty; falling back to __parent_responses_topic__ — verify the chassis awaits on this topic",
+				zap.String("fallback_topic", myResponsesTopic),
+			)
+		}
 	}
 	if myResponsesTopic == "" {
-		myResponsesTopic = params.ExecutionContext.ResponsesTopic
-		params.Logger.Warn(
-			"dispatch_thunder_ssh_get_status: no __parent_responses_topic__ found, falling back to own ResponsesTopic — adapter response may not be matched by the chassis",
-			zap.String("fallback_topic", myResponsesTopic),
-		)
-	}
-	if myResponsesTopic == "" {
-		return nil, fmt.Errorf("dispatch_thunder_ssh_get_status: could not determine a responses topic — neither __parent_responses_topic__ nor ExecutionContext.ResponsesTopic is set; cannot route adapter reply")
+		return nil, fmt.Errorf("dispatch_thunder_ssh_get_status: could not determine a responses topic — neither ExecutionContext.ResponsesTopic nor __parent_responses_topic__ is set; cannot route adapter reply")
 	}
 
 	newRequestID := uuid.NewString()
