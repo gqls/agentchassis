@@ -49,34 +49,8 @@ IDEA_BINARY_PATH="${IDEA_BINARY_PATH:-/tmp/idea}"
 
 HARDEN_SSH="${HARDEN_SSH:-true}"              # disable password auth IF key auth is in place
 
-# Optional space-separated IPs to EXEMPT from nginx rate limiting (done the
-# correct way via geo+map, unlike the old `if ($remote_addr) { break; }` which
-# was a no-op). Empty = no exemption (fine for idea.uk: operator endpoints are
-# key-gated and /audience-check is rate-limited in the app).
-WHITELIST_IPS="${WHITELIST_IPS:-}"
-
 log() { echo "[setup] $*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
-
-# Emit the nginx http-context rate-limit preamble. With WHITELIST_IPS set, uses
-# the canonical geo+map pattern so listed IPs map to an empty key (= not counted
-# = genuinely exempt). Without it, a plain per-IP zone.
-rate_limit_preamble() {
-  if [[ -n "$WHITELIST_IPS" ]]; then
-    echo "geo \$rate_limited {"
-    echo "    default 1;"
-    local ip
-    for ip in $WHITELIST_IPS; do echo "    $ip 0;"; done
-    echo "}"
-    echo "map \$rate_limited \$limit_key {"
-    echo "    1 \$binary_remote_addr;"
-    echo '    0 "";'
-    echo "}"
-    echo "limit_req_zone \$limit_key zone=idea_rl:10m rate=10r/s;"
-  else
-    echo "limit_req_zone \$binary_remote_addr zone=idea_rl:10m rate=10r/s;"
-  fi
-}
 
 # ── binary install (used by both full and update) ──────────────────────────────
 install_binary() {
@@ -191,7 +165,7 @@ NGINX_CONF="/etc/nginx/sites-available/idea.conf"
 write_nginx_http_only() {
   cat >"$NGINX_CONF" <<EOF
 # managed by setup.sh — do not edit by hand; re-run setup.sh to change.
-$(rate_limit_preamble)
+limit_req_zone \$binary_remote_addr zone=idea_rl:10m rate=10r/s;
 
 server {
     listen 80;
@@ -243,7 +217,7 @@ if [[ -d "/etc/letsencrypt/live/$DOMAIN" ]]; then
   log "writing nginx conf (stage 2: https)"
   cat >"$NGINX_CONF" <<EOF
 # managed by setup.sh — do not edit by hand; re-run setup.sh to change.
-$(rate_limit_preamble)
+limit_req_zone \$binary_remote_addr zone=idea_rl:10m rate=10r/s;
 
 server {
     listen 80;
@@ -266,12 +240,6 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
-
-    # security headers
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
     # modest body cap — the engine takes small form posts and JSON, not uploads
     client_max_body_size 1m;
@@ -309,24 +277,6 @@ ufw allow OpenSSH
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
-
-# ── nginx log rotation (size-based; improves on the daily default) ──────────────
-log "configuring nginx logrotate"
-cat >/etc/logrotate.d/nginx <<'EOF'
-/var/log/nginx/*.log {
-    size 100M
-    missingok
-    rotate 14
-    compress
-    delaycompress
-    notifempty
-    create 0640 www-data adm
-    sharedscripts
-    postrotate
-        [ -f /run/nginx.pid ] && kill -USR1 $(cat /run/nginx.pid) || true
-    endscript
-}
-EOF
 
 # ── fail2ban (ssh brute-force protection) ────────────────────────────────────────
 log "configuring fail2ban"

@@ -3231,3 +3231,71 @@ COMMIT;
 -- Drop the snapshot once satisfied: DROP TABLE agent_definitions_bak_planner_sibling;
 -- ----------------------------------------------------------------------------
 
+-- migration_load_existing_pages_carry_fields.sql
+-- ----------------------------------------------------------------------------
+-- PROPER FIX (a of 2) — make load_existing_pages expose the fields the
+-- adoption-union must carry, so activating the convergence does not regress
+-- adopted content.
+--
+-- CONTEXT: 054 is live — load_existing_pages already emits adoption_locked via
+-- the first-plan branch (no current plan), so reconcilePlanWithRealised runs on
+-- the first post-adoption pass. Pass A unions LLM-omitted adopted pages via
+-- normaliseRealisedToPlanPage; sync_pages -> upsertPage then does
+-- "sections = EXCLUDED.sections", "meta_description = EXCLUDED.meta_description",
+-- "nav_order = EXCLUDED.nav_order" (nav_label is COALESCE-preserved, so safe).
+-- The current query does NOT select sections/meta_description/nav_order, so the
+-- union has nothing to carry and the upsert clobbers the adopted page's real
+-- values to empty. This adds those three columns to the SELECT.
+--
+-- Pairs with the Go change (b): normaliseRealisedToPlanPage now reads
+-- rm["sections"] (jsonb arrives as a JSON string via query_database),
+-- rm["meta_description"], rm["nav_order"]. Both must land together.
+--
+-- One quote-free, value-preserving replace() on default_config::text -> jsonb.
+-- Anchor verified against the live query (the load_existing_pages SELECT is the
+-- only one aliased `p.`). Pre-check below must report anchor_count = 1.
+-- ----------------------------------------------------------------------------
+
+BEGIN;
+
+-- SNAPSHOT (rollback safety).
+CREATE TABLE IF NOT EXISTS agent_definitions_bak_lep_carry AS
+SELECT * FROM agent_definitions WHERE type = 'build-site-planner';
+
+-- Pre-check: the anchor must appear exactly once (column = 1). If not, STOP.
+SELECT
+    (length(default_config::text)
+        - length(replace(default_config::text,
+                         'p.nav_label, p.in_header, p.in_footer,', '')))
+        / length('p.nav_label, p.in_header, p.in_footer,')
+        AS anchor_count
+FROM agent_definitions
+WHERE type = 'build-site-planner';
+
+-- Apply: add sections, meta_description, nav_order to the SELECT list.
+UPDATE agent_definitions
+SET default_config = replace(
+        default_config::text,
+        'p.nav_label, p.in_header, p.in_footer,',
+        'p.nav_label, p.in_header, p.in_footer, p.sections, p.meta_description, p.nav_order,'
+                     )::jsonb,
+    updated_at = NOW()
+WHERE type = 'build-site-planner';
+
+-- Verify: the query now selects the three fields (expect t), and still emits
+-- adoption_locked (expect t).
+SELECT
+    (default_config::text LIKE '%p.sections, p.meta_description, p.nav_order%') AS carries_fields,
+    (default_config::text LIKE '%adoption_locked%')                            AS still_emits_lock
+FROM agent_definitions
+WHERE type = 'build-site-planner';
+
+COMMIT;
+
+-- ----------------------------------------------------------------------------
+-- ROLLBACK:
+--   UPDATE agent_definitions a SET default_config = b.default_config,
+--          updated_at = NOW()
+--   FROM agent_definitions_bak_lep_carry b WHERE a.type = b.type;
+--   DROP TABLE agent_definitions_bak_lep_carry;
+-- ----------------------------------------------------------------------------

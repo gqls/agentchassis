@@ -4330,6 +4330,24 @@ func slugOf(name, url string) string {
 	return name
 }
 
+// itemStemOf returns the topic stem of an item page name by stripping the
+// role prefixes that CanonicalisePage adds (tool-, guide-, game-): e.g.
+// "guide-economy-basics" -> "economy-basics", "economy-basics" ->
+// "economy-basics". Mirrors the TrimPrefix calls in CanonicalisePage's
+// tool/guide/game cases - keep this prefix list in sync with them. Returns
+// the input unchanged when no role prefix is present, so two adopted pages on
+// the same topic share a stem and a re-proposed bare sibling collides with
+// them. Unlike sectionStemOf, this is name-based rather than URL/hub-based.
+func itemStemOf(name string) string {
+	n := strings.ToLower(strings.TrimSpace(name))
+	for _, p := range []string{"tool-", "guide-", "game-"} {
+		if strings.HasPrefix(n, p) {
+			return strings.TrimPrefix(n, p)
+		}
+	}
+	return n
+}
+
 // normaliseRealisedToPlanPage converts a realised pages-table row (as returned
 // by the load_existing_pages query) into the plan-page shape the downstream
 // write_site_plan / ValidateRoles expects. Carries a from_realised marker so
@@ -4337,16 +4355,38 @@ func slugOf(name, url string) string {
 func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface{} {
 	name, _ := rm["name"].(string)
 	pageType, _ := rm["page_type"].(string)
+	// Carry the realised page's sections so a unioned adopted page keeps them.
+	// load_existing_pages runs via query_database, which stringifies jsonb
+	// columns, so rm["sections"] arrives as a JSON string (e.g. ["hero",
+	// "guide-list"]); tolerate a native []interface{} too. Empty/missing -> [].
+	// Without carrying these, the union emits empty values and the page sync's
+	// "<col> = EXCLUDED.<col>" clobbers the adopted page's real sections,
+	// meta_description, and nav_order. (nav_label is COALESCE-preserved by the
+	// upsert, so it is safe without carrying.)
+	sections := []interface{}{}
+	switch v := rm["sections"].(type) {
+	case []interface{}:
+		sections = v
+	case string:
+		if v != "" {
+			var parsed []interface{}
+			if err := json.Unmarshal([]byte(v), &parsed); err == nil {
+				sections = parsed
+			}
+		}
+	}
 	return map[string]interface{}{
-		"name":          name,
-		"page_type":     pageType,
-		"url":           rm["url"],
-		"title":         rm["title"],
-		"nav_label":     rm["nav_label"],
-		"in_header":     rm["in_header"],
-		"in_footer":     rm["in_footer"],
-		"sections":      []interface{}{},
-		"from_realised": true,
+		"name":             name,
+		"page_type":        pageType,
+		"url":              rm["url"],
+		"title":            rm["title"],
+		"nav_label":        rm["nav_label"],
+		"in_header":        rm["in_header"],
+		"in_footer":        rm["in_footer"],
+		"meta_description": rm["meta_description"],
+		"nav_order":        rm["nav_order"],
+		"sections":         sections,
+		"from_realised":    true,
 	}
 }
 
@@ -4409,6 +4449,32 @@ func reconcilePlanWithRealised(
 		}
 	}
 
+	// Item-topic stems: the role-prefix-stripped name stem of each realised
+	// page (guide-economy-basics -> economy-basics). Keyed to a SET of realised
+	// names so a topic legitimately covered by two adopted pages (e.g. a tool
+	// and a guide) does not false-positive on either of them. Lets Pass C2 drop
+	// an LLM page that re-proposes an adopted item under a different
+	// prefix/role/URL.
+	itemStemSets := make(map[string]map[string]bool)
+	for _, rp := range existingPages {
+		rm, ok := rp.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := rm["name"].(string)
+		if name == "" {
+			continue
+		}
+		stem := itemStemOf(name)
+		if stem == "" {
+			continue
+		}
+		if itemStemSets[stem] == nil {
+			itemStemSets[stem] = make(map[string]bool)
+		}
+		itemStemSets[stem][name] = true
+	}
+
 	// Pass C (collision) + Pass B (rename) over the LLM pages.
 	var kept []interface{}
 	droppedCollision, snappedRename := 0, 0
@@ -4428,6 +4494,19 @@ func reconcilePlanWithRealised(
 			!isSectionIndexType(ltype) && lname != idxName {
 			logger.Info("validate: dropped flat page colliding with realised section index",
 				zap.String("dropped", lname), zap.String("kept_index", idxName))
+			droppedCollision++
+			continue
+		}
+
+		// Pass C2: item-topic collision - the LLM re-proposes an adopted item
+		// under a different name/prefix/role (e.g. "economy-basics" beside the
+		// adopted "guide-economy-basics"; different URL, so Pass B misses it).
+		// Drop it; the adopted page already covers the topic. Skips when the LLM
+		// name IS one of the realised names for that stem (a preserved page).
+		if names, isStem := itemStemSets[itemStemOf(lname)]; isStem && !names[lname] {
+			logger.Info("validate: dropped page duplicating an adopted item topic",
+				zap.String("dropped", lname),
+				zap.String("stem", itemStemOf(lname)))
 			droppedCollision++
 			continue
 		}
