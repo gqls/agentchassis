@@ -21,15 +21,13 @@
 //   - error_message TEXT — populated only when status='failed'; cleared to NULL
 //     on 'complete'.
 //
-// Input resolution:
-//   - status:        config literal "complete"|"failed" — read directly via
-//                    configOrInput. (ExtractActionInputs resolves dot-paths/keys
-//                    from collected data, not bare literals, so it is the wrong
-//                    tool for this field.)
+// Input resolution (per 001 §Config value patterns — literals direct, paths via spec):
+//   - status:        config literal "complete"|"failed" — read directly from
+//                    params.StepConfig.Config via datahelpers.GetStringField.
 //   - training_run_id: a value from input_data (input_mapping at spawn) — read via
 //                    ExtractActionInputs, mirroring mark_training_run_running.
-//   - error_message: optional config literal (failed only); a default is used if
-//                    absent.
+//   - error_message: optional config literal (failed only) via GetStringField; a
+//                    default is used if absent.
 //
 // Idempotent: the WHERE clause only transitions rows still 'running', so a
 // re-drive once the row is already terminal is a harmless no-op and an existing
@@ -70,7 +68,7 @@ func MarkTrainingRunTerminalAction(ctx context.Context, params ActionParams) (in
 		return nil, fmt.Errorf("mark_training_run_terminal: database connection required")
 	}
 
-	status := strings.ToLower(strings.TrimSpace(configOrInput(params, "status")))
+	status := strings.ToLower(strings.TrimSpace(datahelpers.GetStringField(params.StepConfig.Config, "status", "")))
 	if status != "complete" && status != "failed" {
 		return nil, fmt.Errorf("mark_training_run_terminal: status must be \"complete\" or \"failed\", got %q", status)
 	}
@@ -104,7 +102,7 @@ func MarkTrainingRunTerminalAction(ctx context.Context, params ActionParams) (in
 		}
 		n, _ = r.RowsAffected()
 	} else {
-		errMsg := strings.TrimSpace(configOrInput(params, "error_message"))
+		errMsg := strings.TrimSpace(datahelpers.GetStringField(params.StepConfig.Config, "error_message", ""))
 		if errMsg == "" {
 			errMsg = "training run marked failed by thunder-training-monitor"
 		}

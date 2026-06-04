@@ -33,10 +33,8 @@ type App struct {
 	store    *Store
 	provider Provider
 	engine   EngineFunc
-	audience func(business, audience, assets string) (audienceResult, error) // step 1 only; reused by /audience-check
 	deliver  func(to, subject, body string)
 	dispatch func(func()) // how background work runs (goroutine in prod, inline in tests)
-	taster   *rateLimiter // per-IP rate limiter for the public /audience-check endpoint
 }
 
 func NewApp(cfg Config, store *Store, p Provider) *App {
@@ -45,10 +43,8 @@ func NewApp(cfg Config, store *Store, p Provider) *App {
 		store:    store,
 		provider: p,
 		engine:   RunMethod,
-		audience: runAudience,
 		deliver:  makeDeliver(cfg.OperatorEmail),
 		dispatch: func(f func()) { go f() },
-		taster:   newRateLimiter(),
 	}
 }
 
@@ -267,7 +263,6 @@ func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", a.health)
 	mux.HandleFunc("/capacity", a.capacity)
-	mux.HandleFunc("/audience-check", a.audienceCheck) // free public taster — Step 1 only
 	mux.HandleFunc("/subscribe", a.subscribe)
 	mux.HandleFunc("/request", a.handleRequest)
 	mux.HandleFunc("/confirm", a.confirm)

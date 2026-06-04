@@ -21,9 +21,9 @@ import (
 // (genuine cross-vendor critique), else a different Anthropic model.
 // Strings verified against docs.claude.com (May 2026); override via env.
 var (
-	genModel      = env("GEN_MODEL", "claude-opus-4-8")
+	genModel      = env("GEN_MODEL", "claude-opus-4-7")
 	critiqueModel = env("CRITIQUE_MODEL", "claude-sonnet-4-6")
-	verifyModel   = env("VERIFY_MODEL", "claude-opus-4-8")
+	verifyModel   = env("VERIFY_MODEL", "claude-opus-4-7")
 	scoreModel    = env("SCORE_MODEL", "claude-sonnet-4-6")
 	openAIModel   = env("OPENAI_CRITIQUE_MODEL", "gpt-4o")
 )
@@ -70,67 +70,19 @@ type scored struct {
 }
 
 // ── API calls ────────────────────────────────────────────────────────────────
-// callOpts bundles the parameters for an Anthropic Messages API call. Most
-// fields are optional. Defaults preserve the simple-string-system / no-thinking
-// behaviour the engine had before extended thinking and prompt caching landed.
-//
-//   - ThinkBudget = 0 disables extended thinking. Anthropic requires >= 1024 and
-//     < MaxTokens when enabled, so we silently treat anything in (0, 1024) as
-//     1024 and clamp to MaxTokens-1 if too large.
-//   - CacheSystem = true wraps the system prompt as a single content block with
-//     cache_control: ephemeral, so the system text becomes a cache hit on
-//     subsequent calls within the same TTL (5 min). One run makes 5 calls in
-//     under 10 min, so steps 2–5 land cache reads on the (identical) system.
-type callOpts struct {
-	Model       string
-	System      string
-	User        string
-	Tools       []map[string]any
-	MaxTokens   int
-	ThinkBudget int
-	CacheSystem bool
-}
-
-func callClaudeOpts(o callOpts) (string, error) {
+func callClaude(model, system, user string, tools []map[string]any, maxTokens int) (string, error) {
 	key := os.Getenv("ANTHROPIC_API_KEY")
 	if key == "" {
 		return "", errors.New("ANTHROPIC_API_KEY not set")
 	}
 	body := map[string]any{
-		"model":      o.Model,
-		"max_tokens": o.MaxTokens,
-		"messages":   []map[string]any{{"role": "user", "content": o.User}},
+		"model":      model,
+		"max_tokens": maxTokens,
+		"system":     system,
+		"messages":   []map[string]any{{"role": "user", "content": user}},
 	}
-	// System: either a plain string, or a single cached content block.
-	if o.CacheSystem {
-		body["system"] = []map[string]any{{
-			"type":          "text",
-			"text":          o.System,
-			"cache_control": map[string]any{"type": "ephemeral"},
-		}}
-	} else {
-		body["system"] = o.System
-	}
-	if o.Tools != nil {
-		body["tools"] = o.Tools
-	}
-	if o.ThinkBudget > 0 {
-		b := o.ThinkBudget
-		if b < 1024 {
-			b = 1024
-		}
-		if b >= o.MaxTokens {
-			b = o.MaxTokens - 1
-		}
-		// "display": "omitted" keeps thinking content out of the response — the
-		// engine never surfaces it, so there's no point paying for the wire
-		// roundtrip. Tokens are still billed (Anthropic charges for the full
-		// thinking even when display is omitted), but the response is smaller.
-		body["thinking"] = map[string]any{
-			"type":         "enabled",
-			"budget_tokens": b,
-			"display":      "omitted",
-		}
+	if tools != nil {
+		body["tools"] = tools
 	}
 	raw, _ := json.Marshal(body)
 	req, _ := http.NewRequest("POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(raw))
@@ -151,39 +103,17 @@ func callClaudeOpts(o callOpts) (string, error) {
 			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
-		Usage struct {
-			InputTokens              int `json:"input_tokens"`
-			OutputTokens             int `json:"output_tokens"`
-			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
-			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
-		} `json:"usage"`
 	}
 	if err := json.Unmarshal(b, &out); err != nil {
 		return "", err
 	}
-	// Log the cache hit rate so the operator can see caching actually working
-	// when it should. Cache reads come "for free" at 10% of the input rate.
-	if out.Usage.CacheReadInputTokens > 0 || out.Usage.CacheCreationInputTokens > 0 {
-		fmt.Fprintf(os.Stderr, "[cache] %s: created=%d read=%d input=%d output=%d\n",
-			o.Model, out.Usage.CacheCreationInputTokens, out.Usage.CacheReadInputTokens,
-			out.Usage.InputTokens, out.Usage.OutputTokens)
-	}
 	var sb strings.Builder
-	for _, c := range out.Content { // concat text blocks; skip thinking/tool blocks
+	for _, c := range out.Content { // concat text blocks; skip tool-use/result blocks
 		if c.Type == "text" {
 			sb.WriteString(c.Text)
 		}
 	}
 	return sb.String(), nil
-}
-
-// callClaude is the simple form. New code should use callClaudeOpts directly
-// when it needs thinking or caching; leaving this in keeps every existing call
-// site unchanged.
-func callClaude(model, system, user string, tools []map[string]any, maxTokens int) (string, error) {
-	return callClaudeOpts(callOpts{
-		Model: model, System: system, User: user, Tools: tools, MaxTokens: maxTokens,
-	})
 }
 
 func callOpenAI(system, user string) (string, error) {
@@ -234,15 +164,8 @@ func critique(user string) (string, error) {
 		fmt.Fprintf(os.Stderr, "[cut] cross-vendor: OpenAI (%s)\n", openAIModel)
 		return callOpenAI(systemBase, user)
 	}
-	fmt.Fprintf(os.Stderr, "[cut] same-vendor: Anthropic (%s) with extended thinking\n", critiqueModel)
-	return callClaudeOpts(callOpts{
-		Model:       critiqueModel,
-		System:      systemBase,
-		User:        user,
-		MaxTokens:   8000,
-		ThinkBudget: 4000, // critique is reasoning-heavy; budget pays off here
-		CacheSystem: true,
-	})
+	fmt.Fprintf(os.Stderr, "[cut] same-vendor: Anthropic (%s)\n", critiqueModel)
+	return callClaude(critiqueModel, systemBase, user, nil, 4000)
 }
 
 // parseJSON pulls the first JSON object/array out of a model reply, tolerating
@@ -287,57 +210,27 @@ func fill(tmpl string, kv ...string) string {
 	return strings.NewReplacer(kv...).Replace(tmpl)
 }
 
-// audienceResult is the full parsed shape of step 1. RunMethod only needs the
-// first two fields, but the public /audience-check endpoint surfaces the
-// alternatives — that's the whole point of the free taster.
-type audienceResult struct {
-	CarriedAudience  string `json:"carried_audience"`
-	WillingnessToPay string `json:"willingness_to_pay"`
-	Alternatives     []struct {
-		Audience string `json:"audience"`
-		Why      string `json:"why"`
-	} `json:"alternatives"`
-}
-
-// runAudience runs just step 1 of the method. Used both internally by RunMethod
-// (the carried audience feeds step 2) and externally by the /audience-check
-// public endpoint (the free taster on the page).
-func runAudience(business, audience, assets string) (audienceResult, error) {
-	var aud audienceResult
-	out, err := callClaudeOpts(callOpts{
-		Model:       genModel,
-		System:      systemBase,
-		User:        fill(audiencePrompt, "{domain}", business, "{audience}", audience, "{assets}", assets),
-		MaxTokens:   4096,
-		CacheSystem: true, // first call in a run; subsequent steps will hit the cache
-	})
-	if err != nil {
-		return aud, fmt.Errorf("audience step: %w", err)
-	}
-	if err := parseJSON(out, &aud); err != nil {
-		return aud, fmt.Errorf("audience parse: %w", err)
-	}
-	return aud, nil
-}
-
 // ── RunMethod: the pipeline ──────────────────────────────────────────────────
 func RunMethod(domain, audience, assets string) (string, error) {
 	// STEP 1 — audience framing + challenge
-	aud, err := runAudience(domain, audience, assets)
+	s1, err := callClaude(genModel, systemBase,
+		fill(audiencePrompt, "{domain}", domain, "{audience}", audience, "{assets}", assets), nil, 4096)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("audience step: %w", err)
+	}
+	var aud struct {
+		CarriedAudience  string `json:"carried_audience"`
+		WillingnessToPay string `json:"willingness_to_pay"`
+	}
+	if err := parseJSON(s1, &aud); err != nil {
+		return "", fmt.Errorf("audience parse: %w", err)
 	}
 
-	// STEP 2 — generate (multi-lens). CacheSystem true; reads the warm cache
-	// that runAudience just established (5-min TTL — fits inside a full run).
-	s2, err := callClaudeOpts(callOpts{
-		Model: genModel,
-		System: systemBase,
-		User: fill(generatePrompt, "{domain}", domain, "{audience}", aud.CarriedAudience,
+	// STEP 2 — generate (multi-lens)
+	s2, err := callClaude(genModel, systemBase,
+		fill(generatePrompt, "{domain}", domain, "{audience}", aud.CarriedAudience,
 			"{wtp}", aud.WillingnessToPay, "{assets}", assets, "{capabilities}", capabilityMenu),
-		MaxTokens:   8000,
-		CacheSystem: true,
-	})
+		nil, 6000)
 	if err != nil {
 		return "", fmt.Errorf("generate step: %w", err)
 	}
@@ -383,25 +276,11 @@ func RunMethod(domain, audience, assets string) (string, error) {
 			"No candidate survived the cut."), nil
 	}
 
-	// STEP 4 — verify (web_search v2 + code execution for dynamic filtering).
-	// web_search_20260209 lets Claude run code to filter results before they hit
-	// the context window — Anthropic's own benchmarks: ~11% accuracy lift on
-	// BrowseComp/DeepsearchQA, ~24% fewer input tokens. Code execution is free
-	// when paired with web_search. Extended thinking is on — verify is the most
-	// reasoning-heavy step (multi-step inference over a stream of search hits).
+	// STEP 4 — verify (web search)
 	survJSON, _ := json.MarshalIndent(survivors, "", "  ")
-	s4, err := callClaudeOpts(callOpts{
-		Model:  verifyModel,
-		System: systemBase,
-		User:   fill(verifyPrompt, "{domain}", domain, "{survivors_json}", string(survJSON)),
-		Tools: []map[string]any{
-			{"type": "web_search_20260209", "name": "web_search", "max_uses": 6},
-			{"type": "code_execution_20250522", "name": "code_execution"},
-		},
-		MaxTokens:   16000, // headroom for extended thinking + search-result text
-		ThinkBudget: 8000,  // multi-step inference across search hits
-		CacheSystem: true,
-	})
+	s4, err := callClaude(verifyModel, systemBase,
+		fill(verifyPrompt, "{domain}", domain, "{survivors_json}", string(survJSON)),
+		[]map[string]any{{"type": "web_search_20250305", "name": "web_search", "max_uses": 6}}, 6000)
 	if err != nil {
 		return "", fmt.Errorf("verify step: %w", err)
 	}
@@ -433,19 +312,10 @@ func RunMethod(domain, audience, assets string) (string, error) {
 			"No premise survived verification."), nil
 	}
 
-	// STEP 5 — score. Small thinking budget supports careful rubric application
-	// (the Risk column especially benefits from a moment of deliberation about
-	// "consequence of being wrong"). Sonnet 4.6 stays as the model — different
-	// from the generator, so the method isn't marking its own work.
+	// STEP 5 — score
 	verJSON, _ := json.MarshalIndent(verified, "", "  ")
-	s5, err := callClaudeOpts(callOpts{
-		Model:       scoreModel,
-		System:      systemBase,
-		User:        fill(scorePrompt, "{verified_json}", string(verJSON)),
-		MaxTokens:   6000,
-		ThinkBudget: 2000,
-		CacheSystem: true,
-	})
+	s5, err := callClaude(scoreModel, systemBase,
+		fill(scorePrompt, "{verified_json}", string(verJSON)), nil, 4000)
 	if err != nil {
 		return "", fmt.Errorf("score step: %w", err)
 	}

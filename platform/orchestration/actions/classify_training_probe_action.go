@@ -74,10 +74,7 @@ func ClassifyTrainingProbeAction(ctx context.Context, params ActionParams) (inte
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
-	probeStep := configOrInput(params, "probe_step")
-	if probeStep == "" {
-		probeStep = "probe"
-	}
+	probeStep := datahelpers.GetStringField(params.StepConfig.Config, "probe_step", "probe")
 
 	// stdout is a string; reachable is a bool (read via ExtractNestedField, then
 	// type-assert — ExtractNestedFieldString returns "" for non-strings).
@@ -88,8 +85,8 @@ func ClassifyTrainingProbeAction(ctx context.Context, params ActionParams) (inte
 	verdict := classifyVerdict(rawStatus, reachable, reachableKnown)
 
 	// Resolve the routing target for this verdict from config.
-	aliveStep := configOrInput(params, "alive_step") // default handled below
-	unreachableStep := configOrInput(params, "unreachable_step")
+	aliveStep := datahelpers.GetStringField(params.StepConfig.Config, "alive_step", "")
+	unreachableStep := datahelpers.GetStringField(params.StepConfig.Config, "unreachable_step", "")
 	if unreachableStep == "" {
 		unreachableStep = aliveStep // leave it; next tick re-probes
 	}
@@ -101,12 +98,12 @@ func ClassifyTrainingProbeAction(ctx context.Context, params ActionParams) (inte
 	case verdictUnreachable, verdictNoStatus:
 		nextStep = unreachableStep
 	case verdictDoneOK:
-		nextStep = configOrInput(params, "complete_step")
+		nextStep = datahelpers.GetStringField(params.StepConfig.Config, "complete_step", "")
 		if nextStep == "" {
 			return nil, fmt.Errorf("classify_training_probe: verdict %q requires complete_step in config", verdict)
 		}
 	case verdictDoneFail, verdictGoneUnknown:
-		nextStep = configOrInput(params, "failed_step")
+		nextStep = datahelpers.GetStringField(params.StepConfig.Config, "failed_step", "")
 		if nextStep == "" {
 			return nil, fmt.Errorf("classify_training_probe: verdict %q requires failed_step in config", verdict)
 		}
