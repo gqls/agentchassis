@@ -147,13 +147,9 @@ print(f"  unsloth={unsloth.__version__}")
 PY
 
 # ---------------------------------------------------------------------------
-# 9. Persist HF transfer accelerator for next shells (best-effort)
+# 9. Persist HF transfer accelerator for next shells
 # ---------------------------------------------------------------------------
-# On some base images ${HOME}/.bashrc is root-owned (the home dir is writable
-# but the pre-seeded .bashrc is not). This step is only a convenience for future
-# shells; the run does not depend on it, so it must NEVER abort setup (set -e).
-# Guard on writability.
-if [ -w "${HOME}/.bashrc" ] && ! grep -q HF_HUB_ENABLE_HF_TRANSFER "${HOME}/.bashrc" 2>/dev/null; then
+if ! grep -q HF_HUB_ENABLE_HF_TRANSFER "${HOME}/.bashrc"; then
   echo 'export HF_HUB_ENABLE_HF_TRANSFER=1' >> "${HOME}/.bashrc"
 fi
 

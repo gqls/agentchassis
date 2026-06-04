@@ -319,3 +319,164 @@ WHERE id = '94f5a069-6fb5-4aba-81e5-4fcc9220ed30';
 
 COMMIT;
 
+---
+
+-- 104_provisioner_output_fields_and_launcher_mapping.sql
+--
+-- APPLY TO: clients_db (NOT templates_db). The flywheel-C agent_definitions
+-- (rich schema with version/is_snapshot) are read by the chassis from clients_db;
+-- templates_db holds only the old website-builder catalog.
+--   <your clients_db psql> -f 104_provisioner_output_fields_and_launcher_mapping.sql
+--
+-- WHAT / WHY
+-- Two in-place edits, no version bump (chassis loads definitions per-orchestrate,
+-- so no restart needed):
+--
+--   1) gpu-provisioner (0bf9fa8a) complete step: replace the NON-STANDARD singular
+--      `output_field: provision_response` with the standard `output_fields:
+--      ["dispatch_provision"]`. extractWorkflowResult only honours the plural
+--      `output_fields`; the singular key was silently ignored, dropping the agent
+--      into the fallback dump ({dispatch_provision, input_data, ...}). The provision
+--      result lands under the STEP NAME `dispatch_provision` (await storage keys by
+--      step name; `provision_response` is never a collected key), so that is the
+--      field we surface. This also drops the stray input_data echo.
+--
+--   2) model-trainer (94f5a069) call_launcher input_mapping: re-point the four
+--      provisioning fields from `provisioning_result.<field>` to
+--      `provisioning_result.dispatch_provision.<field>`. These resolve via the same
+--      `.response` auto-unwrap that already makes `preparation_result.dataset_uri`
+--      work (dispatch_provision is the immediate child once provisioning_result.response
+--      is unwrapped). dataset_uri / training_run_id / hyperparameters are unchanged.
+--
+-- NOTE: the gpu-provisioner dispatch step keeps `output_field: provision_response`
+-- (cosmetic for await results; the result keys by step name regardless). Left as-is
+-- to keep this change minimal.
+
+BEGIN;
+
+-- ── BEFORE ──
+SELECT 'gpu-provisioner complete.config BEFORE' AS label,
+       default_config #> '{workflow,steps,complete,config}' AS value
+FROM public.agent_definitions
+WHERE id = '0bf9fa8a-925c-4ab5-9287-2c8e5d7b9451';
+
+SELECT 'model-trainer call_launcher.input_mapping BEFORE' AS label,
+       default_config #> '{workflow,steps,call_launcher,config,input_mapping}' AS value
+FROM public.agent_definitions
+WHERE id = '94f5a069-6fb5-4aba-81e5-4fcc9220ed30';
+
+-- ── 1) gpu-provisioner: singular output_field → standard output_fields ──
+UPDATE public.agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete,config}',
+        '{"output_fields": ["dispatch_provision"]}'::jsonb,
+        false
+                     ),
+    updated_at = now()
+WHERE id = '0bf9fa8a-925c-4ab5-9287-2c8e5d7b9451'
+  AND default_config #> '{workflow,steps,complete,config}' IS NOT NULL;
+
+-- ── 2) model-trainer: re-point call_launcher provisioning fields ──
+UPDATE public.agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,call_launcher,config,input_mapping}',
+        '{
+            "dataset_uri": "preparation_result.dataset_uri",
+            "training_run_id": "preparation_result.training_run_id",
+            "hyperparameters": "input_data.hyperparameters",
+            "provisioning_id": "provisioning_result.dispatch_provision.provisioning_id",
+            "instance_ip?": "provisioning_result.dispatch_provision.instance_ip",
+            "ssh_user?": "provisioning_result.dispatch_provision.ssh_user",
+            "ssh_key_secret_name?": "provisioning_result.dispatch_provision.ssh_key_secret_name"
+        }'::jsonb,
+        false
+                     ),
+    updated_at = now()
+WHERE id = '94f5a069-6fb5-4aba-81e5-4fcc9220ed30'
+  AND default_config #> '{workflow,steps,call_launcher,config,input_mapping}' IS NOT NULL;
+
+-- ── AFTER ──
+SELECT 'gpu-provisioner complete.config AFTER' AS label,
+       default_config #> '{workflow,steps,complete,config}' AS value
+FROM public.agent_definitions
+WHERE id = '0bf9fa8a-925c-4ab5-9287-2c8e5d7b9451';
+
+SELECT 'model-trainer call_launcher.input_mapping AFTER' AS label,
+       default_config #> '{workflow,steps,call_launcher,config,input_mapping}' AS value
+FROM public.agent_definitions
+WHERE id = '94f5a069-6fb5-4aba-81e5-4fcc9220ed30';
+
+COMMIT;
+
+--
+
+-- 105_launcher_workspace_sudo_mkdir.sql
+-- DB: clients_db  (the live flywheel-C agent_definitions — NOT templates_db)
+--
+-- Problem (observed live 2026-06-03, orch cd906623 / launcher orch b002b359):
+--   The full iter_0 chain ran end-to-end for the first time after 104. The
+--   training-launcher's ssh_exec_launch connected, returned exit_code 0 and
+--   LAUNCH_PID=193 — but training never started. stderr was:
+--       mkdir: cannot create directory '/workspace': Permission denied
+--       bash: line 1: /workspace/launch.log: No such file or directory
+--
+--   The command_template did a *plain* `mkdir -p /workspace`. The `ubuntu` ssh
+--   user cannot create a dir at `/`, so the mkdir failed; the curls/run.sh had
+--   nowhere to land, and the `&`-backgrounded setsid job died immediately. The
+--   exit_code is 0 only because the command's last token is `echo` (the known
+--   detached-ssh_exec false-success: a VM-side failure looks like success).
+--
+-- Why this fix (and why it is NOT a patch):
+--   The bundle's OWN setup script already establishes the convention —
+--   00_vm_setup.sh L51-52:
+--       sudo mkdir -p "${WORKSPACE}"
+--       sudo chown "$(id -u):$(id -g)" "${WORKSPACE}"
+--   i.e. /workspace is meant to be created with sudo and chowned to the caller.
+--   The launcher's command_template diverged (plain mkdir) AND runs the curls
+--   before 00_vm_setup.sh executes. This migration makes the command_template
+--   mirror the script: create + chown /workspace up front, as the running user.
+--   sudo is known-good on these Thunder instances (the whole setup script uses
+--   it) and /workspace on the root volume has the 100GB the prior manual run
+--   used — so no re-bundle is needed: run.sh and 00_vm_setup.sh keep /workspace
+--   (its sudo-mkdir simply becomes idempotent).
+--
+-- Shape change: in-place edit of one string. The chassis loads the def per
+--   orchestrate (no restart needed). No version bump (consistent with 104).
+--
+-- Target def: training-launcher (active, non-snapshot). Verify the BEFORE/AFTER
+--   SELECT shows exactly one row and the expected string.
+
+BEGIN;
+
+SELECT 'training-launcher ssh_exec_launch.command_template BEFORE' AS label,
+       default_config #> '{workflow,steps,ssh_exec_launch,config,command_template}' AS value
+FROM public.agent_definitions
+WHERE type = 'training-launcher'
+  AND is_active = true
+  AND COALESCE(is_snapshot, false) = false;
+
+UPDATE public.agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,ssh_exec_launch,config,command_template}',
+        to_jsonb($cmd$sudo mkdir -p /workspace && sudo chown $(id -u):$(id -g) /workspace; setsid bash -c 'curl -fsSL "{scripts_url}" -o /workspace/bundle.tar.gz && tar -xzf /workspace/bundle.tar.gz -C /workspace && curl -fsSL "{dataset_url}" -o /workspace/training_iter0.jsonl && chmod +x /workspace/run.sh && /workspace/run.sh > /workspace/train.log 2>&1' < /dev/null > /workspace/launch.log 2>&1 & echo "LAUNCH_PID=$!"$cmd$::text),
+       false
+   )
+ WHERE type = 'training-launcher'
+   AND is_active = true
+   AND COALESCE(is_snapshot, false) = false;
+
+SELECT 'training-launcher ssh_exec_launch.command_template AFTER' AS label,
+       default_config #> '{workflow,steps,ssh_exec_launch,config,command_template}' AS value
+FROM public.agent_definitions
+WHERE type = 'training-launcher'
+  AND is_active = true
+  AND COALESCE(is_snapshot, false) = false;
+
+-- Expect: UPDATE 1, and the AFTER value beginning with
+--   sudo mkdir -p /workspace && sudo chown $(id -u):$(id -g) /workspace; setsid ...
+-- If satisfied:
+COMMIT;
+-- else: ROLLBACK;
