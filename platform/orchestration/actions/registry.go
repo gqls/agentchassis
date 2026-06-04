@@ -1191,6 +1191,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Maintain the per-instance consecutive-unreachable counter on thunder_instances (mode=bump|reset) for thunder-training-monitor; route to lost_step once unreachable_threshold is reached. Requires migration 106.",
 		IsLocal:     true,
 	},
+	"mark_training_run_terminal": {
+		Handler:     MarkTrainingRunTerminalAction,
+		Category:    "training",
+		Description: "Transition a model_lifecycle.training_runs row running→complete|failed (config status); stamps completed_at and (on failed) error_message. Idempotent: only transitions rows still 'running'. Used by thunder-training-monitor's mark_complete/mark_failed steps.",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// Site Snapshots
