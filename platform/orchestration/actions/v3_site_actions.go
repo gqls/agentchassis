@@ -622,6 +622,41 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("could not determine page_id")
 	}
 
+	// Option B guard: never mark a page "deployed" without rendered components.
+	// build_status='deployed' is what the reconciler trusts to skip a page, so a
+	// 0-component page marked deployed becomes permanently fileless (gamesdesign
+	// homepage, 2026-06-04: its needs_content_page was auto-completed on a lost
+	// response with zero components, then a deploy path stamped it deployed, so
+	// the reconciler never rebuilt it). Refuse the deploy mark and flip to
+	// needs_rebuild (clearing the stamp) so the reconciler re-emits a build.
+	// Fail-open on a check error: a transient check failure must not halt
+	// legitimate deploys; Option A (the claimed-item-timeout evidence check) is
+	// the other layer of protection.
+	if newStatus == "deployed" {
+		hasComponents, checkErr := pageHasComponents(ctx, params.DB, pageID)
+		if checkErr != nil {
+			params.Logger.Warn("UpdatePageStatusAction: component check failed; proceeding with deploy",
+				zap.String("page_id", pageID.String()),
+				zap.Error(checkErr))
+		} else if !hasComponents {
+			params.Logger.Warn("UpdatePageStatusAction: refusing to mark page deployed with no rendered components; setting needs_rebuild",
+				zap.String("page_id", pageID.String()))
+			const rebuildQuery = `UPDATE pages SET build_status = 'needs_rebuild', built_from_plan_version = NULL, updated_at = NOW() WHERE id = $1`
+			if rbErr := execDB(ctx, params.DB, rebuildQuery, pageID); rbErr != nil {
+				params.Logger.Error("UpdatePageStatusAction: failed to set needs_rebuild after refusing deploy",
+					zap.String("page_id", pageID.String()),
+					zap.Error(rbErr))
+				return nil, fmt.Errorf("failed to set needs_rebuild for 0-component page: %w", rbErr)
+			}
+			return map[string]interface{}{
+				"updated":      false,
+				"page_id":      pageID.String(),
+				"build_status": "needs_rebuild",
+				"reason":       "refused deploy: page has no rendered components",
+			}, nil
+		}
+	}
+
 	// Build the query - use build_status column (not status)
 	var query string
 	if newStatus == "deployed" {
@@ -669,6 +704,34 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		"build_status":  newStatus,
 		"rows_affected": rowsAffected,
 	}, nil
+}
+
+// pageHasComponents reports whether a page has at least one real rendered
+// component (non-null component_id, non-empty rendered_html). This is the
+// "positive evidence" check from FOCUS_page_build_handler_silent_completion.md,
+// used by Option B to stop a 0-component page being marked deployed. Mirrors the
+// db type switch used by lookupPageID/execDB so it works with both *sql.DB and
+// *pgxpool.Pool.
+func pageHasComponents(ctx context.Context, db interface{}, pageID uuid.UUID) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1 FROM page_components
+			WHERE page_id = $1
+			  AND component_id IS NOT NULL
+			  AND rendered_html IS NOT NULL
+			  AND rendered_html <> ''
+		)`
+	var exists bool
+	switch d := db.(type) {
+	case *sql.DB:
+		err := d.QueryRowContext(ctx, query, pageID).Scan(&exists)
+		return exists, err
+	case *pgxpool.Pool:
+		err := d.QueryRow(ctx, query, pageID).Scan(&exists)
+		return exists, err
+	default:
+		return false, fmt.Errorf("unsupported database type: %T", db)
+	}
 }
 
 // BuildRenderContextAction assembles a RenderContext from multiple sources
