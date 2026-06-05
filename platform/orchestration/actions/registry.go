@@ -1203,6 +1203,19 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Query clients_db for running Thunder instances with a training_run_id and no decommission requested; returns {instances:[{provisioning_id,training_run_id,thunder_instance_id,instance_ip}], count} for thunder-training-monitor's loop fan-out.",
 		IsLocal:     true,
 	},
+	"assemble_upload_manifest": {
+		Handler:     AssembleUploadManifestAction,
+		Category:    "training",
+		Description: "Pure: build /workspace/upload_manifest.json content (and a base64 form for an ssh_exec base64 -d write) from the checkpoint keys + presigned PUT/GET URLs. Pairs checkpoint_keys[i] with checkpoint_urls[i] (same order) into the shape 02_train's --upload-manifest consumes; errors on a key/url length mismatch.",
+		IsLocal:     true,
+	},
+
+	"compute_checkpoint_keys": {
+		Handler:     ComputeCheckpointKeysAction,
+		Category:    "training",
+		Description: "Pure: produce the list of B2 checkpoint keys (finetuning/checkpoints/<run>/ckpt-<i>.tar.gz) plus the final-adapter key for the Phase 5 launcher to presign. K = ceil(max_steps/save_steps)+buffer when both are known, else a config fallback (default 64). Clamped to [1,512].",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// Site Snapshots
