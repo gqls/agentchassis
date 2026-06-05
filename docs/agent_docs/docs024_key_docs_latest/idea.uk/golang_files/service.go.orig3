@@ -10,7 +10,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"html"
 	"io"
 	"log"
 	"net/http"
@@ -34,8 +33,6 @@ type Config struct {
 	PublicBaseURL  string
 	InternalAPIKey string
 	OperatorEmail  string
-	ContactEmail   string // public-facing support address shown on pages
-	Slots          string // header capacity phrase, e.g. "a limited number of" or "5"
 	MaxActive      int
 	AllowedOrigins []string
 }
@@ -49,22 +46,9 @@ type App struct {
 	deliver  func(to, subject, body string)
 	dispatch func(func()) // how background work runs (goroutine in prod, inline in tests)
 	taster   *rateLimiter // per-IP rate limiter for the public /audience-check endpoint
-	landingHTML    []byte       // the landing page with CONTACT_EMAIL / MONTH_SLOTS placeholders filled
 }
 
 func NewApp(cfg Config, store *Store, p Provider) *App {
-	contact := cfg.ContactEmail
-	if contact == "" {
-		contact = cfg.OperatorEmail
-	}
-	slots := cfg.Slots
-	if slots == "" {
-		slots = "a limited number of"
-	}
-	rendered := strings.NewReplacer(
-		"CONTACT_EMAIL", contact,
-		"MONTH_SLOTS", slots,
-	).Replace(string(pageHTML))
 	return &App{
 		cfg:      cfg,
 		store:    store,
@@ -74,7 +58,6 @@ func NewApp(cfg Config, store *Store, p Provider) *App {
 		deliver:  makeDeliver(cfg.OperatorEmail),
 		dispatch: func(f func()) { go f() },
 		taster:   newRateLimiter(),
-		landingHTML:    []byte(rendered),
 	}
 }
 
@@ -131,11 +114,7 @@ func (a *App) subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.store.AddSubscriber(email)
-	writeHTML(w, a.page("You're on the list",
-		`<h1>You're on the list.</h1>
-<p>Thanks. The next time we run the method on a real business, we'll email you the write-up — so you can see exactly what the £29 report looks like before you ever pay for one.</p>
-<p>That's all we'll send, and you can unsubscribe from any email at any time.</p>
-<a class="back" href="/">← Back to idea.uk</a>`))
+	writeHTML(w, "<h1>Thanks</h1><p>We'll send the next worked example.</p>")
 }
 
 func (a *App) handleRequest(w http.ResponseWriter, r *http.Request) {
@@ -156,13 +135,8 @@ func (a *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("From: %s <%s>\nBusiness: %s\nAudience: %s\nNotes: %s\n\n"+
 			"Confirm: POST /confirm {\"order_id\":\"%s\"}\nDecline: POST /decline {\"order_id\":\"%s\"}",
 			name, email, business, audience, notes, id, id))
-	writeHTML(w, a.page("Request received",
-		`<h1>Thanks, `+html.EscapeString(firstName(name))+` — we've got your request.</h1>
-<div class="accent">
-<p>We'll read it properly and reply by email within 24 hours — either to confirm a place and a delivery date with a link to pay, or to let you know if we're full this month and offer you the next one.</p>
-<p><strong>Nothing is charged until you've seen that and said yes.</strong> Once you go ahead, the report arrives by email within a few days. If it doesn't turn up anything worth acting on, you get your money back.</p>
-</div>
-<a class="back" href="/">← Back to idea.uk</a>`))
+	writeHTML(w, "<h1>Request received</h1><p>We'll reply within 24 hours with a "+
+		"confirmed slot or a polite decline. No charge yet.</p>")
 }
 
 func (a *App) confirm(w http.ResponseWriter, r *http.Request) {
@@ -289,20 +263,12 @@ func (a *App) orderSuccess(w http.ResponseWriter, r *http.Request) {
 			a.fulfil(id)
 		}
 	}
-	writeHTML(w, a.page("Payment received",
-		`<h1>Payment received — thank you.</h1>
-<div class="accent">
-<p>We're putting your report together now. It'll arrive by email within 72 hours, and usually sooner. A person reads it before it goes out.</p>
-<p>If, after reading it, you don't think it turns up anything worth acting on, just email us within 14 days and we'll refund you in full.</p>
-</div>
-<a class="back" href="/">← Back to idea.uk</a>`))
+	writeHTML(w, "<h1>Payment received</h1><p>Your report is being prepared and will "+
+		"arrive by email within 72 hours. If we can't find anything worth acting on, you're refunded.</p>")
 }
 
 func (a *App) orderCancel(w http.ResponseWriter, r *http.Request) {
-	writeHTML(w, a.page("Nothing was charged",
-		`<h1>No problem — nothing was charged.</h1>
-<p>Your card hasn't been billed. If you cancelled by mistake, you can start again whenever you're ready.</p>
-<a class="back" href="/">← Back to idea.uk</a>`))
+	writeHTML(w, "<h1>Order cancelled</h1><p>No charge was made.</p>")
 }
 
 // ── routing + CORS ───────────────────────────────────────────────────────────
@@ -332,7 +298,7 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(a.landingHTML)
+	_, _ = w.Write(pageHTML)
 }
 
 func (a *App) cors(next http.Handler) http.Handler {
@@ -365,50 +331,6 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 func writeHTML(w http.ResponseWriter, s string) {
 	w.Header().Set("content-type", "text/html; charset=utf-8")
 	w.Write([]byte(s))
-}
-
-// firstName returns the first word of a name for a friendly greeting.
-func firstName(full string) string {
-	if f := strings.Fields(full); len(f) > 0 {
-		return f[0]
-	}
-	return "there"
-}
-
-// page wraps body HTML in a full, brand-styled document so the post-submit and
-// order pages look like idea.uk instead of bare unstyled text. Body is trusted
-// (we build it ourselves); any user input interpolated into it must be escaped
-// by the caller.
-func (a *App) page(title, body string) string {
-	contact := a.cfg.ContactEmail
-	if contact == "" {
-		contact = a.cfg.OperatorEmail
-	}
-	return `<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>` + html.EscapeString(title) + ` · idea.uk</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
-<style>
-:root{--ink:#1A1816;--ink-soft:#4A4540;--ink-mute:#837C72;--paper:#EFE7D6;--rust:#A8391A;--rust-deep:#7D2A12;--serif:"Fraunces","Times New Roman",Georgia,serif;--sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,sans-serif}
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans)}
-.bar{border-bottom:1px solid var(--ink);padding:20px 24px}
-.wordmark{font-family:var(--serif);font-weight:600;font-size:22px}
-.wordmark .dot{color:var(--rust)}
-main{max-width:600px;margin:0 auto;padding:72px 24px}
-h1{font-family:var(--serif);font-weight:600;font-size:32px;line-height:1.15;margin:0 0 20px}
-p{font-size:17px;line-height:1.6;color:var(--ink-soft);margin:0 0 16px}
-strong{color:var(--ink)}
-a{color:var(--ink);text-decoration-color:var(--rust)}
-.accent{border-left:3px solid var(--rust);padding-left:20px;margin:24px 0}
-.back{display:inline-block;margin-top:20px;font-size:15px}
-.foot{margin-top:44px;padding-top:20px;border-top:1px solid var(--ink-mute);font-size:14px;color:var(--ink-mute)}
-</style></head><body>
-<div class="bar"><span class="wordmark">idea<span class="dot">.</span>uk</span></div>
-<main>` + body + `
-<p class="foot">Questions? Email <a href="mailto:` + contact + `">` + contact + `</a> &nbsp;·&nbsp; <a href="/">idea.uk</a> &nbsp;·&nbsp; <a href="/terms">Terms</a></p>
-</main></body></html>`
 }
 
 func readBody(r *http.Request) []byte {

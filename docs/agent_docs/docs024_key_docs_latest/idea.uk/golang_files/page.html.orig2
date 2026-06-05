@@ -832,11 +832,6 @@
       .taster-result.error { border-left-color: var(--ink-mute); color: var(--ink-soft); font-family: var(--sans); font-size: 15px; }
       .taster-result h4 { font-family: var(--sans); font-weight: 500; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--rust); margin: 0 0 8px; }
       .taster-result p { margin: 0 0 14px; }
-      .taster-upsell { white-space: normal; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--ink-mute); font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); }
-      .taster-upsell strong { color: var(--ink); }
-      .taster-upsell p { margin: 0 0 14px; }
-      .taster-cta { display: inline-block; margin-top: 6px; background: var(--rust); color: var(--paper); padding: 13px 22px; font-family: var(--sans); font-weight: 500; text-decoration: none; }
-      .taster-cta:hover { background: var(--rust-deep); }
     </style>
 
     <script>

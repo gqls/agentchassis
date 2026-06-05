@@ -170,7 +170,7 @@ func renderAudienceHTML(business, statedAudience string, aud audienceResult) str
 	var b strings.Builder
 	fmt.Fprintf(&b, "<h4>Your stated audience</h4><p>%s</p>", html.EscapeString(statedAudience))
 	if aud.CarriedAudience != "" {
-		fmt.Fprintf(&b, "<h4>Who we think you should actually be selling to</h4><p>%s</p>",
+		fmt.Fprintf(&b, "<h4>Our reframe — who you should actually be selling to</h4><p>%s</p>",
 			html.EscapeString(aud.CarriedAudience))
 	}
 	if aud.WillingnessToPay != "" {
@@ -184,13 +184,10 @@ func renderAudienceHTML(business, statedAudience string, aud audienceResult) str
 		}
 		b.WriteString("</ol>")
 	}
-	b.WriteString(`<div class="taster-upsell">` +
-		`<p><strong>That's the free part — the audience check.</strong> It tells you who you'd be best off selling to.</p>` +
-		`<p>The <strong>£29 report</strong> gives you the ideas themselves: three to six specific things you could build for that audience, ranked best first. For each one it spells out, in plain terms, what it would do, what it would use from your own business, why it's better than just typing the question into a free chatbot, and the cheapest way to find out whether people will actually pay for it.</p>` +
-		`<p>We check the facts behind every idea — who your real competitors are, what they charge, the rules you'd have to follow — and throw out any that don't stand up. And if there's nothing worth building in your area yet, we tell you that plainly, with the reason.</p>` +
-		`<p>It's a written report, sent by email, usually within a few days. You only pay once we've confirmed we can do a useful job for you — and if the report doesn't turn up anything worth acting on, you get your money back.</p>` +
-		`<p><a href="#request" class="taster-cta">Request the full report — £29 →</a></p>` +
-		`</div>`)
+	b.WriteString(`<p class="taster-footer">This is the first step of our full method. ` +
+		`The paid report continues with idea generation across four lenses, a critique pass ` +
+		`against the free AI alternative, web-verified findings, and ranked scoring including ` +
+		`an operator-risk score. <a href="#request">Get the full report — £29 →</a></p>`)
 	return b.String()
 }
 

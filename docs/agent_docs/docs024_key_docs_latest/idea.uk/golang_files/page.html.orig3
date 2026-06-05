@@ -769,9 +769,11 @@
       </div>
       <p class="lede">
         Tell us about your business. We use a structured method to find ideas
-        worth building, <strong>test each one against the free thing your
-        customer would use instead</strong>, check the survivors with web
-        research, and rank them. You get a written report and a specific test
+        worth building. <strong>We'll test each idea against five filters: how hard
+          it would be to copy, whether people would pay, how easy it is to
+          build, how much you can reuse it elsewhere, and how long the
+          advantage would last</strong>, the surviving ideas are checked with actual web
+        research, and then ranked. You get a written report and a specific test
         to run for each idea. <strong>£29.</strong> Refund if it doesn't
         find anything worth acting on.
       </p>
@@ -1043,8 +1045,8 @@
         <div class="callout-grid">
           <p>
             A free chatbot will happily hand you a list of ideas that sound
-            plausible. We keep only the ones that get past a second AI model's
-            criticism and real checking — so what you end up with reads more
+            plausible. We use more than one AI model to create and judge the ideas and keep only the ones that get past
+            the criticism and real checking — so what you end up with reads more
             like a piece of research than a brainstorm.
           </p>
           <div class="callout-fine">

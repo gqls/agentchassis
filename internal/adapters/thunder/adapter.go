@@ -331,6 +331,8 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		a.handlePrepareArtefactURL(body, headers, replyToTopic, l)
 	case "prepare_object_url":
 		a.handlePrepareObjectURL(body, headers, replyToTopic, l)
+	case "prepare_resume_url":
+		a.handlePrepareResumeURL(body, headers, replyToTopic, l)
 	case "ssh_exec":
 		a.handleSSHExec(body, headers, replyToTopic, l)
 	case "ssh_get_status":
@@ -353,8 +355,8 @@ func (a *Adapter) sendErrorResponse(
 	replyToTopic string,
 	action string,
 	errCode string, // short code, e.g. "not_implemented", "thunder_api_unreachable"
-	errMsg string, // human-readable detail
-	status string, // "error_recoverable" or "error_unrecoverable"
+	errMsg string,  // human-readable detail
+	status string,  // "error_recoverable" or "error_unrecoverable"
 	l *zap.Logger,
 ) {
 	if replyToTopic == "" {
