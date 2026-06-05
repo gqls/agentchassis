@@ -15,10 +15,12 @@
 // This file MUST NOT redeclare them.
 //
 // Input (from CollectedData["input_data"]):
-//   - key: the B2 object key to presign (required). The launcher supplies the
-//     concrete key; for the dataset it comes from the agent_def step config's
-//     key_template with {export_id} substituted, so the template lives in ONE
-//     declarative place (the migration), not hardcoded in Go.
+//   - key: the B2 object key to presign (required unless key_path/s3_uri given).
+//     The launcher supplies the concrete key; for the dataset it comes from the
+//     agent_def step config's key_template with {export_id} substituted, so the
+//     template lives in ONE declarative place (the migration), not hardcoded in Go.
+//   - key_path: a collected-data dot-path to a dynamic key (e.g. "ckpt_keys.final_key"),
+//     for plain local steps where input_mapping is dead. Consulted only if no key.
 //   - method: "GET" (default) or "PUT"
 //   - expiry_minutes: optional override
 //
@@ -37,6 +39,8 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 const (
@@ -74,6 +78,17 @@ func DispatchThunderPrepareObjectURLAction(ctx context.Context, params ActionPar
 	//      launcher's input_data, and we derive the bucket-relative key from it.
 	// When given an s3:// URI we strip the scheme+bucket to recover the key.
 	key := configOrInput(params, "key")
+	// key_path (ADDED Phase B): resolve a dynamic, bucket-relative key from a
+	// collected-data dot-path (e.g. "ckpt_keys.final_key"). Needed for PLAIN LOCAL
+	// steps, where input_mapping is dead so a cross-step value can't arrive via
+	// input_data.key — the step declares WHERE to read the key, exactly as
+	// ssh_exec_launch declares scripts_url/dataset_url. Backward-compatible: only
+	// consulted when no explicit key was supplied. No existing source changed.
+	if key == "" {
+		if kp, ok := params.StepConfig.Config["key_path"].(string); ok && kp != "" {
+			key = datahelpers.ExtractNestedFieldString(params.CollectedData, kp)
+		}
+	}
 	s3URI := configOrInput(params, "s3_uri")
 	method := configOrInput(params, "method")
 	expiryMinutes := configOrInput(params, "expiry_minutes")

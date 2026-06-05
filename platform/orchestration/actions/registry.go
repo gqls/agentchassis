@@ -1216,6 +1216,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Pure: produce the list of B2 checkpoint keys (finetuning/checkpoints/<run>/ckpt-<i>.tar.gz) plus the final-adapter key for the Phase 5 launcher to presign. K = ceil(max_steps/save_steps)+buffer when both are known, else a config fallback (default 64). Clamped to [1,512].",
 		IsLocal:     true,
 	},
+	"flatten_presign_results": {
+		Handler:     FlattenPresignResultsAction,
+		Category:    "training",
+		Description: "Pure connector: reshape the checkpoint presign loop's loop_complete results array into flat, ordered, same-length checkpoint_urls[] and checkpoint_keys[] for assemble_upload_manifest. Keeps assemble loop-agnostic; errors on any element missing url/key.",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// Site Snapshots
