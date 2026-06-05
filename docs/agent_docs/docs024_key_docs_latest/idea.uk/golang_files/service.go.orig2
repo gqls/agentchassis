@@ -7,7 +7,6 @@ package main
 // default holds paid runs for operator review (honours the 72h/refund promise).
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,14 +17,6 @@ import (
 	"strings"
 	"time"
 )
-
-// pageHTML is the idea.uk landing page (the taster + request/subscribe forms),
-// embedded into the binary so the service is a single self-contained artefact:
-// nginx just terminates TLS and proxies, and when the deployer ships the binary
-// the page travels with it. Edit page.html and rebuild to change the page.
-//
-//go:embed page.html
-var pageHTML []byte
 
 type Config struct {
 	PriceGBP       int
@@ -285,20 +276,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("/internal/run", a.internalRun)
 	mux.HandleFunc("/order/success", a.orderSuccess)
 	mux.HandleFunc("/order/cancel", a.orderCancel)
-	mux.HandleFunc("/", a.home) // landing page at "/"; 404 for anything else unmatched
 	return a.cors(mux)
-}
-
-// home serves the embedded landing page at "/" only. ServeMux routes every
-// otherwise-unmatched path here, so anything that isn't exactly "/" gets a 404
-// rather than the page.
-func (a *App) home(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(pageHTML)
 }
 
 func (a *App) cors(next http.Handler) http.Handler {

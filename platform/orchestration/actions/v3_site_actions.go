@@ -2573,10 +2573,26 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	}
 	var existingPages []interface{}
 	if ev := datahelpers.ExtractNestedField(params.CollectedData, existingField); ev != nil {
-		if ep, ok := ev.([]interface{}); ok {
-			existingPages = ep
+		switch vv := ev.(type) {
+		case []interface{}:
+			existingPages = vv
+		case []map[string]interface{}:
+			// query_database (output_format=array) returns []map[string]interface{},
+			// which does NOT satisfy a []interface{} assertion in Go. Convert it so
+			// the convergence actually sees the realised pages. Without this the
+			// assertion silently fails, existingPages stays empty, and
+			// reconcilePlanWithRealised no-ops for every site (adopted pages never
+			// preserved, planner siblings never dropped).
+			existingPages = make([]interface{}, len(vv))
+			for i := range vv {
+				existingPages[i] = vv[i]
+			}
 		}
 	}
+	// Surface the convergence input size so an empty set is never silent again.
+	params.Logger.Info("ValidateSitePlanAction: existing pages loaded for convergence",
+		zap.Int("existing_pages", len(existingPages)),
+		zap.String("existing_pages_field", existingField))
 	var unionedIn, droppedCollision, snappedRename int
 	pages, unionedIn, droppedCollision, snappedRename =
 		reconcilePlanWithRealised(pages, existingPages, params.Logger)
