@@ -23,6 +23,7 @@ package thunder
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -370,16 +371,11 @@ const (
 	defaultResumeURLExpiryMin = 6 * 60
 )
 
-// objectLister is the NARROW capability the resume path needs: list object keys
-// under a prefix. It is deliberately defined HERE (not added to storage.Client)
-// so that introducing listing does NOT widen the broadly-implemented
-// storage.Client interface and force every importer (core-manager, all adapters)
-// to change — see debugging guide item 18. *storage.S3Client satisfies this once
-// it gains a ListKeys method; if the configured storage backend does not, ResumeURL
-// degrades to found=false (a fresh run) rather than failing.
-type objectLister interface {
-	ListKeys(ctx context.Context, prefix string) ([]string, error)
-}
+// errResumeListRecoverable wraps a transient failure to list a run's checkpoints
+// in B2 (a network call). The handler maps it to error_recoverable so the chassis
+// retries check_resume rather than failing the launch. Presign failures (local
+// SigV4 signing — no network) and bad input are NOT wrapped: those are unrecoverable.
+var errResumeListRecoverable = errors.New("resume checkpoint listing failed (recoverable)")
 
 // ResumeURLRequest. Caller passes training_run_id; the adapter derives the
 // checkpoint prefix, lists it, picks the latest checkpoint, and presigns a GET.
@@ -413,7 +409,9 @@ func (d *DataURLAction) ResumeURL(ctx context.Context, req ResumeURLRequest) (*R
 	prefix := fmt.Sprintf(checkpointPrefixTemplate, req.TrainingRunID)
 	objs, err := d.storage.ListObjects(ctx, prefix)
 	if err != nil {
-		return nil, fmt.Errorf("list checkpoints under %s: %w", prefix, err)
+		// B2 network call — wrap the recoverable sentinel so a transient failure
+		// retries the launch step (error_recoverable) rather than failing it.
+		return nil, fmt.Errorf("%w: list under %s: %v", errResumeListRecoverable, prefix, err)
 	}
 
 	// latestCheckpointKey works on plain keys (pure/testable); adapt ObjectInfo.
@@ -530,8 +528,17 @@ func (a *Adapter) handlePrepareResumeURL(
 
 	result, err := a.dataURLAction.ResumeURL(ctx, req)
 	if err != nil {
+		// A transient checkpoint-listing failure (B2 network) is recoverable —
+		// let the chassis retry check_resume rather than fail the launch. Presign
+		// (local signing) and bad-input errors are unrecoverable.
+		status := "error_unrecoverable"
+		errCode := "resume_presign_failed"
+		if errors.Is(err, errResumeListRecoverable) {
+			status = "error_recoverable"
+			errCode = "resume_list_failed"
+		}
 		a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_resume_url",
-			"resume_presign_failed", err.Error(), "error_unrecoverable", l)
+			errCode, err.Error(), status, l)
 		return
 	}
 
