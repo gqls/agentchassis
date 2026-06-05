@@ -765,7 +765,7 @@
     <section class="hero wrap stagger">
       <div>
         <p class="eyebrow">AI product ideas, tested before we recommend them</p>
-        <h1>Ideas for an AI product in your business. <em>Tested. Verified. Ranked.</em></h1>
+        <h1>Ideas for an AI product in your business. <em>Tested. Verified. Honest.</em></h1>
       </div>
       <p class="lede">
         Tell us about your business. We use a structured method to find ideas
@@ -773,7 +773,7 @@
         customer would use instead</strong>, check the survivors with web
         research, and rank them. You get a written report and a specific test
         to run for each idea. <strong>£29.</strong> Refund if it doesn't
-        find anything worth acting on.
+        surface anything worth acting on.
       </p>
     </section>
 
@@ -788,10 +788,10 @@
         <div class="taster-grid">
           <p class="taster-intro">
             Tell us about your business in one line, and who you think your
-            customers are. We'll take a look at that audience and suggest
-            others worth selling to — often the most useful part of the whole
-            report. It costs nothing and takes about ten seconds. If it helps,
-            the full report is £29.
+            audience is. We'll challenge that audience — sometimes a sharper
+            audience is the single most valuable thing in the whole report.
+            Costs you nothing, takes about 10 seconds. If it's useful, the
+            full report is £29.
           </p>
 
           <form id="taster-form" class="taster-form" onsubmit="return runTaster(event)">
@@ -870,35 +870,30 @@
     <section>
       <div class="wrap">
         <p class="section-label">01 · What you get</p>
-        <h2 class="h2">A report you can act on.</h2>
+        <h2 class="h2">A report you can act on, not a deck.</h2>
 
         <div class="what-grid">
           <div class="what-text">
             <p>
-              <strong>3–6 ranked ideas</strong>, each one showing what it would
-              use from your business — your data, your customers, your know-how
-              — what the AI actually does in it, and the one reason it beats
-              what a free chatbot would give you.
+              <strong>3–6 ranked candidate ideas</strong>, each with the
+              specific asset it depends on, the AI capability it uses, and the
+              one-line reason it beats a free model with a good prompt.
             </p>
             <p>
-              <strong>Facts we've checked on the web</strong> for each idea —
-              competitors, prices, what's going on in the market, the rules
-              that apply. If an idea doesn't hold up when we check it, we drop
-              it.
+              <strong>Web-verified facts</strong> attached to each candidate —
+              competitors, prices, market signals, regulatory specifics. We
+              drop the ones whose premise fails on verification.
             </p>
             <p>
-              <strong>A score for each idea</strong> on five things: how hard
-              it would be to copy, whether people will pay, how easy it is to
-              build, how much you can reuse elsewhere, and how long the
-              advantage lasts. With the cheapest way to test demand for each
-              idea that makes it through.
+              <strong>Five-factor scoring</strong> on defensibility, willingness
+              to pay, buildability, reuse, and durability — with the cheapest
+              demand test for each candidate that survives.
             </p>
             <p>
-              <strong>A straight answer.</strong> If there's nothing worth
-              building in your area right now, we say so and explain why — then
-              point you to a better audience or a different angle. The method
-              tells people "don't build this yet" about as often as "go and
-              test this one."
+              <strong>An honest verdict.</strong> If nothing in your space
+              advances the gate, we tell you that and why, with the route to a
+              better-fit audience or pivot. The method has produced
+              "don't build yet" outputs as often as "test now."
             </p>
           </div>
 
@@ -911,9 +906,9 @@
               <div>
                 <p class="report-cand-title">Aligned-incentive procurement advisor</p>
                 <p class="report-cand-meta">
-                  Relies on: curated procurement-context reasoning
+                  Asset: curated procurement-context reasoning
                   <span class="sep">·</span>
-                  Uses: live-data + persistent profile
+                  Capability: live-data + persistent profile
                 </p>
                 <p class="report-scores">
                   Def <span class="score-strong">4</span> ·
@@ -930,9 +925,9 @@
               <div>
                 <p class="report-cand-title">RFQ agent: agentic supplier comparison</p>
                 <p class="report-cand-meta">
-                  Relies on: structured normalisation
+                  Asset: structured normalisation
                   <span class="sep">·</span>
-                  Uses: agentic browsing
+                  Capability: agentic browsing
                 </p>
                 <p class="report-scores">
                   Def <span class="score-strong">4</span> ·
@@ -949,9 +944,9 @@
               <div>
                 <p class="report-cand-title">Hedge strategy assistant</p>
                 <p class="report-cand-meta">
-                  Relies on: verified financial computation
+                  Asset: verified financial computation
                   <span class="sep">·</span>
-                  Uses: reasoning model
+                  Capability: reasoning model
                 </p>
                 <p class="report-scores">
                   Def 3 · Will 3 · Build 3 · Reuse 2 · Dur 2
@@ -971,17 +966,17 @@
     <section>
       <div class="wrap">
         <p class="section-label">02 · How the method works</p>
-        <h2 class="h2">Ideas from four angles. Most get cut. The rest get checked.</h2>
+        <h2 class="h2">Generated across four lenses. Filtered hard. Verified.</h2>
 
         <div class="method-grid">
           <div class="step">
             <div class="step-num">01</div>
             <div>
-              <h3 class="step-title">We check your audience first</h3>
+              <h3 class="step-title">We challenge your audience first</h3>
               <p class="step-body">
-                Sometimes the best audience isn't the one you'd have picked.
-                The first step checks whether the audience you named is really
-                the best one to sell to.
+                Sometimes the sharpest audience is one you hadn't picked yet.
+                Step one of the method tests whether the audience you've named
+                is really the best one to sell to.
               </p>
             </div>
           </div>
@@ -991,11 +986,10 @@
             <div>
               <h3 class="step-title">We come up with ideas from four angles</h3>
               <p class="step-body">
-                Four goes at it, from four different angles: what your
-                customers actually want, where free AI tools let them down,
-                what's become possible in just the last few months, and what a
-                finished result looks like for them. Twelve to twenty-four
-                ideas in all.
+                Not one brainstorm — four. What your customer actually wants.
+                Where free AI tools fail them. What's just become possible in
+                the last few months. What "done" looks like for them. Twelve to
+                twenty-four candidate ideas.
               </p>
             </div>
           </div>
@@ -1003,13 +997,12 @@
           <div class="step">
             <div class="step-num">03</div>
             <div>
-              <h3 class="step-title">We cut the weak ideas</h3>
+              <h3 class="step-title">We kill the weak ideas</h3>
               <p class="step-body">
-                Each idea has to beat the free option your customer would
-                otherwise use. The judging is done by a different AI model,
-                from a different company — so the method isn't marking its own
-                homework. Most ideas don't make it past this step. That's the
-                point.
+                Each idea has to beat the specific free thing your customer
+                would do instead. A different AI model (a different vendor) is
+                the one judging — so the method isn't marking its own homework.
+                Most ideas die at this step. Good.
               </p>
             </div>
           </div>
@@ -1017,13 +1010,12 @@
           <div class="step">
             <div class="step-num">04</div>
             <div>
-              <h3 class="step-title">We check what's left and rank it</h3>
+              <h3 class="step-title">We check the survivors and rank them</h3>
               <p class="step-body">
-                Web research, with sources you can click through. Then a score
-                on five things — how hard it is to copy, whether people will
-                pay, how easy it is to build, how much you can reuse, and how
-                long the advantage lasts — and the cheapest test you can run
-                for each one.
+                Web research, with sources you can click through. Five-factor
+                score (how defendable, willingness to pay, how buildable, reuse,
+                how long the advantage will last). The cheapest test you can
+                run for each one.
               </p>
             </div>
           </div>
@@ -1034,18 +1026,18 @@
     <!-- WHY DIFFERENT — callout ──────────────────────── -->
     <section class="callout">
       <div class="wrap">
-        <p class="section-label">03 · How this differs from an AI brainstorm</p>
+        <p class="section-label">03 · Why it isn't another AI brainstorm</p>
         <div class="callout-grid">
           <p>
-            A free chatbot will happily hand you a list of ideas that sound
-            plausible. We keep only the ones that get past a second AI model's
-            criticism and real checking — so what you end up with reads more
-            like a piece of research than a brainstorm.
+            Most AI idea outputs are <em>plausible-sounding</em> things a free
+            chatbot will say with confidence. We filter for ideas that survive
+            <em>a second model's critique</em> and <em>real verification</em> —
+            so what you get is closer to a research brief than a brainstorm.
           </p>
           <div class="callout-fine">
-            <p><strong>Different AI models.</strong> Coming up with the ideas, criticising them, and checking them are each done by AI from a different company — so the method can't simply agree with itself.</p>
-            <p><strong>Kept up to date.</strong> One of the four angles is "what's just become possible". That runs against a list we keep current by hand, not whatever the AI happened to learn months ago.</p>
-            <p><strong>Straight answers.</strong> We've sent reports that said nothing was worth building yet. If that's true for your area, we'll tell you — and explain what would have to change.</p>
+            <p><strong>Multi-model.</strong> Generation, critique, and verification use different providers — so the method doesn't rubber-stamp itself.</p>
+            <p><strong>Capability-current.</strong> The lens of "what just became possible" runs against a watchlist we maintain, not the model's stale self-knowledge.</p>
+            <p><strong>Honest results.</strong> We've delivered "no candidate advances" reports. If your space doesn't have one yet, we'll say so — and tell you what would change that.</p>
           </div>
         </div>
       </div>
@@ -1072,16 +1064,16 @@
               <span><strong>3–6 ranked ideas</strong> for your specific business and audience, with sources you can check.</span>
             </li>
             <li>
-              <span><strong>A sharper audience</strong> — often the most useful single thing in the report.</span>
+              <span><strong>A sharper audience</strong> — often the most valuable single thing in the report.</span>
             </li>
             <li>
-              <span><strong>Ideas built from four different angles.</strong></span>
+              <span><strong>Ideas from four angles</strong>, not a one-shot brainstorm.</span>
             </li>
             <li>
-              <span><strong>Facts we've checked</strong> behind every claim — competitors, prices, regulations, with links.</span>
+              <span><strong>Web-verified facts</strong> behind every claim — competitors, prices, regulations, with links.</span>
             </li>
             <li>
-              <span><strong>A clear score</strong>, and a specific test you can run for each idea this week.</span>
+              <span><strong>Honest scoring</strong> and a specific test you can run for each idea this week.</span>
             </li>
             <li>
               <span><strong>No payment</strong> until we confirm a slot and a delivery date in writing.</span>
@@ -1112,7 +1104,7 @@
               <strong>No payment is taken until we confirm.</strong> Once you
               pay, the report is produced by our analysis engine and reviewed
               by a human before it's sent to you. Delivery typically within
-              72 hours. If, after reading it, you don't think it turns up
+              72 hours. If, after reading it, you don't think it surfaces
               anything worth acting on — email us within 14 days and we
               refund you. No quibble.
             </p>
@@ -1165,7 +1157,7 @@
             </label>
             <label class="accept-row">
               <input type="checkbox" name="accept_terms" value="yes" required />
-              <span>I've read the <a href="/terms" target="_blank">terms</a> and understand this is an information service, not professional advice. £29 is only charged after we confirm; refund if the report doesn't turn up anything worth acting on.</span>
+              <span>I've read the <a href="/terms" target="_blank">terms</a> and understand this is an information service, not professional advice. £29 is only charged after we confirm; refund if the report doesn't surface anything worth acting on.</span>
             </label>
             <div class="form-actions">
               <button type="submit">Send request — no payment yet</button>
