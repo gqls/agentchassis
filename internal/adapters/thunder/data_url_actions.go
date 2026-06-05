@@ -399,28 +399,27 @@ type ResumeURLResult struct {
 }
 
 // ResumeURL lists the run's checkpoints in B2, picks the latest, and returns a
-// presigned GET for it. Returns Found=false (no error) when there are no
-// checkpoints yet OR when the storage backend can't list — both mean "start
-// fresh". Listing uses the narrow objectLister capability; the presign reuses the
-// existing GET path (GetPresignedURL).
+// presigned GET for it. Returns Found=false (no error) when the run has no
+// checkpoints yet — the launcher treats that as a fresh start. Listing reuses
+// the existing storage.Client.ListObjects; the presign reuses the existing GET
+// path (GetPresignedURL). A genuine list/presign failure is returned as an error
+// (handled like the other prepare_* actions); an empty prefix is not an error —
+// ListObjects returns no objects and we report Found=false.
 func (d *DataURLAction) ResumeURL(ctx context.Context, req ResumeURLRequest) (*ResumeURLResult, error) {
 	if req.TrainingRunID == "" {
 		return nil, fmt.Errorf("training_run_id is required")
 	}
 
-	lister, ok := d.storage.(objectLister)
-	if !ok {
-		// Backend can't list — cannot offer resume. Not fatal: caller proceeds
-		// fresh. (Expected until *S3Client gains ListKeys.)
-		d.logger.Warn("storage backend does not support listing; resume unavailable, treating as fresh",
-			zap.String("training_run_id", req.TrainingRunID))
-		return &ResumeURLResult{Found: false}, nil
-	}
-
 	prefix := fmt.Sprintf(checkpointPrefixTemplate, req.TrainingRunID)
-	keys, err := lister.ListKeys(ctx, prefix)
+	objs, err := d.storage.ListObjects(ctx, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("list checkpoints under %s: %w", prefix, err)
+	}
+
+	// latestCheckpointKey works on plain keys (pure/testable); adapt ObjectInfo.
+	keys := make([]string, 0, len(objs))
+	for _, o := range objs {
+		keys = append(keys, o.Key)
 	}
 
 	key, index, found := latestCheckpointKey(keys, prefix)
@@ -428,7 +427,7 @@ func (d *DataURLAction) ResumeURL(ctx context.Context, req ResumeURLRequest) (*R
 		d.logger.Info("no checkpoints found for run; fresh start",
 			zap.String("training_run_id", req.TrainingRunID),
 			zap.String("prefix", prefix),
-			zap.Int("keys_seen", len(keys)))
+			zap.Int("objects_seen", len(objs)))
 		return &ResumeURLResult{Found: false}, nil
 	}
 
