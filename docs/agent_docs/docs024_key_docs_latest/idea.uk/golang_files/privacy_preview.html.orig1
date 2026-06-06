@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Privacy · idea.uk</title>
+<title>x · idea.uk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -27,10 +27,10 @@ a{color:var(--ink);text-decoration-color:var(--rust)}
 <div class="bar"><span class="wordmark">idea<span class="dot">.</span>uk</span></div>
 <main><h1>Privacy policy</h1>
 <p class="meta">Last updated: 5 June 2026</p>
-<p>This explains what personal information idea.uk collects, why, who else handles it, and the rights you have. It is written to be read, not to be clever. If anything is unclear, email us at <a href="mailto:idea-uk@leopardess.uk">idea-uk@leopardess.uk</a>.</p>
+<p>This explains what personal information idea.uk collects, why, who else handles it, and the rights you have. It is written to be read, not to be clever. If anything is unclear, email us at <a href="mailto:idea@contactforsales.com">idea@contactforsales.com</a>.</p>
 
 <h2>Who is responsible for your information</h2>
-<p>idea.uk, operating under the name idea.uk in the United Kingdom, is responsible for the personal information described here (the "data controller"). You can reach us at <a href="mailto:idea-uk@leopardess.uk">idea-uk@leopardess.uk</a>.</p>
+<p>idea.uk, operating under the name idea.uk in the United Kingdom, is responsible for the personal information described here (the "data controller"). You can reach us at <a href="mailto:idea@contactforsales.com">idea@contactforsales.com</a>.</p>
 
 <h2>What we collect</h2>
 <ul>
@@ -54,13 +54,11 @@ a{color:var(--ink);text-decoration-color:var(--rust)}
 <ul>
 <li><strong>Stripe</strong> — to take and process payments.</li>
 <li><strong>Anthropic</strong> — our AI provider. The business and audience details you give us are sent to Anthropic so the report can be researched, generated, and checked. We do not send your name or email to the AI for this.</li>
-<li><strong>Hetzner</strong> — our hosting provider; the servers that run the service are in Germany.</li>
-<li><strong>Clook</strong> — our email provider (UK); it sends our email and receives the email you send us.</li>
-<li><strong>Google (Gmail)</strong> — the email you send us is forwarded on to a Gmail inbox that we read.</li>
+<li><strong>Our hosting and email suppliers</strong> — to run the servers that deliver the service and to send you email. [Confirm your hosting and email providers here, e.g. Hetzner and your email sender.]</li>
 </ul>
 
 <h2>Information that leaves the UK</h2>
-<p>We keep your information in the UK or the EU where we can: our servers are in Germany, and our email is handled in the UK by Clook. Information goes outside the UK in two places: the business and audience details are sent to Anthropic, in the United States, so your report can be produced; and any email you send us is forwarded on to a Gmail inbox, so it is handled by Google in the United States. Where information goes outside the UK, we rely on the protections allowed under UK data protection law, such as an adequacy decision or the UK's standard contractual terms for international transfers. [Ask your adviser to confirm the exact safeguards for each supplier.]</p>
+<p>Some of our suppliers, including Anthropic, process information outside the UK. Where that happens, we rely on the protections allowed under UK data protection law, such as an adequacy decision or the UK's standard contractual terms for international transfers. [Ask your adviser to confirm the exact safeguards for each supplier you use.]</p>
 
 <h2>How long we keep it</h2>
 <ul>
@@ -70,7 +68,7 @@ a{color:var(--ink);text-decoration-color:var(--rust)}
 </ul>
 
 <h2>Your rights</h2>
-<p>Under UK data protection law you can ask us to: give you a copy of the information we hold about you; correct anything that is wrong; delete it; restrict or object to how we use it; or provide it in a portable form. Where we rely on your consent, you can withdraw it at any time. To exercise any of these, email <a href="mailto:idea-uk@leopardess.uk">idea-uk@leopardess.uk</a> and we will respond within the time the law allows.</p>
+<p>Under UK data protection law you can ask us to: give you a copy of the information we hold about you; correct anything that is wrong; delete it; restrict or object to how we use it; or provide it in a portable form. Where we rely on your consent, you can withdraw it at any time. To exercise any of these, email <a href="mailto:idea@contactforsales.com">idea@contactforsales.com</a> and we will respond within the time the law allows.</p>
 <p>If you are unhappy with how we have handled your information, you can complain to the Information Commissioner's Office (ICO) at <a href="https://ico.org.uk">ico.org.uk</a>. We would appreciate the chance to put things right first.</p>
 
 <h2>Cookies and tracking</h2>
@@ -86,7 +84,7 @@ a{color:var(--ink);text-decoration-color:var(--rust)}
 <p>We may update this policy from time to time. The version published here is the one that applies.</p>
 
 <h2>Contact</h2>
-<p>Questions about your information, or want to exercise a right? Email <a href="mailto:idea-uk@leopardess.uk">idea-uk@leopardess.uk</a>.</p>
+<p>Questions about your information, or want to exercise a right? Email <a href="mailto:idea@contactforsales.com">idea@contactforsales.com</a>.</p>
 <a class="back" href="/">← Back to idea.uk</a>
-<p class="foot">Questions? Email <a href="mailto:idea-uk@leopardess.uk">idea-uk@leopardess.uk</a> &nbsp;·&nbsp; <a href="/">idea.uk</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refund-policy">Refunds</a> &nbsp;·&nbsp; <a href="/privacy">Privacy</a></p>
+<p class="foot">Questions? Email <a href="mailto:idea@contactforsales.com">idea@contactforsales.com</a> &nbsp;·&nbsp; <a href="/">idea.uk</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refund-policy">Refunds</a> &nbsp;·&nbsp; <a href="/privacy">Privacy</a></p>
 </main></body></html>

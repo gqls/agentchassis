@@ -1197,11 +1197,10 @@
     <!-- FOOTER ───────────────────────────────────────── -->
     <footer>
       <div class="wrap">
-        <span>idea.uk · by <a href="https://leopardess.uk">leopardess.uk</a> · operated from the UK</span>
+        <span>idea.uk · early access · operated from the UK</span>
         <span>
           <a href="/terms">Terms</a> ·
           <a href="/refund-policy">Refund policy</a> ·
-          <a href="/privacy">Privacy</a> ·
           Questions? <a href="mailto:CONTACT_EMAIL">CONTACT_EMAIL</a>
         </span>
       </div>

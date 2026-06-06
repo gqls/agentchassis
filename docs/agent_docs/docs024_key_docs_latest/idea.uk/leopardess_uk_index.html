@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leopardess — an AI-agent-first development company</title>
+<meta name="description" content="Leopardess is a UK development company built around AI agents.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;1,400&family=Hanken+Grotesk:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#0E0C0A;        /* warm near-black ground */
+    --panel:#15120E;
+    --cream:#ECE3D2;        /* warm off-white text */
+    --cream-soft:#C9BFAC;
+    --mute:#8A8071;
+    --gold:#C8912F;         /* leopard gold accent */
+    --gold-soft:#E0B45E;
+    --umber:#6E4A1E;
+    --line:rgba(236,227,210,.14);
+    --display:"Cormorant", Georgia, "Times New Roman", serif;
+    --sans:"Hanken Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono:"Spline Sans Mono", ui-monospace, "Cascadia Code", monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--black);
+    color:var(--cream);
+    font-family:var(--sans);
+    line-height:1.6;
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* atmosphere: faint gold glow + abstract leopard "spots" + grain */
+  .atmos{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .glow{
+    position:absolute;top:-30vh;left:50%;transform:translateX(-50%);
+    width:90vw;height:90vh;border-radius:50%;
+    background:radial-gradient(closest-side, rgba(200,145,47,.16), rgba(200,145,47,0) 70%);
+    filter:blur(20px);
+  }
+  .spot{position:absolute;border-radius:50%;filter:blur(60px);opacity:.10}
+  .spot.a{width:340px;height:300px;top:12%;left:-90px;background:var(--umber)}
+  .spot.b{width:280px;height:260px;bottom:8%;right:-70px;background:var(--gold)}
+  .spot.c{width:200px;height:200px;top:58%;left:18%;background:var(--umber);opacity:.07}
+  .grain{
+    position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap{position:relative;z-index:1;max-width:780px;margin:0 auto;padding:0 28px;
+    min-height:100vh;display:flex;flex-direction:column}
+
+  /* top bar */
+  header{display:flex;align-items:center;justify-content:space-between;padding:34px 0}
+  .mark{font-family:var(--mono);font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--cream-soft)}
+  .mark .dot{color:var(--gold)}
+  .loc{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+
+  /* hero */
+  main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:40px 0 64px}
+  .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.26em;text-transform:uppercase;
+    color:var(--gold);margin-bottom:30px}
+  h1{font-family:var(--display);font-weight:500;letter-spacing:-.01em;line-height:.96;
+    font-size:clamp(64px,15vw,148px);color:var(--cream)}
+  h1 .ess{font-style:italic;font-weight:400;color:var(--gold-soft)}
+  .lede{font-family:var(--display);font-weight:400;font-size:clamp(23px,4.2vw,33px);
+    line-height:1.3;color:var(--cream);max-width:30ch;margin-top:28px}
+  .body{max-width:54ch;margin-top:30px;color:var(--cream-soft);font-size:17px;line-height:1.7}
+  .body p+p{margin-top:16px}
+
+  .rule{height:1px;background:var(--line);margin:46px 0 0;max-width:120px}
+
+  .contact{margin-top:34px}
+  .contact .label{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--mute);display:block;margin-bottom:10px}
+  .contact a{display:inline-block;font-family:var(--display);font-style:italic;font-size:clamp(26px,5vw,40px);
+    color:var(--cream);text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:3px;
+    transition:color .25s ease,border-color .25s ease}
+  .contact a:hover{color:var(--gold-soft);border-color:var(--gold)}
+
+  footer{padding:30px 0 38px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--mute)}
+  footer .u{color:var(--cream-soft)}
+
+  /* staggered load */
+  .rise{opacity:0;transform:translateY(14px);animation:rise .9s cubic-bezier(.2,.7,.2,1) forwards}
+  .d1{animation-delay:.05s}.d2{animation-delay:.18s}.d3{animation-delay:.32s}
+  .d4{animation-delay:.46s}.d5{animation-delay:.60s}.d6{animation-delay:.74s}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.rise{animation:none;opacity:1;transform:none}}
+
+  @media (max-width:560px){
+    header{padding:24px 0}.loc{display:none}
+    main{padding:24px 0 40px}.eyebrow{margin-bottom:22px}
+  }
+</style>
+</head>
+<body>
+  <div class="atmos" aria-hidden="true">
+    <div class="glow"></div>
+    <div class="spot a"></div>
+    <div class="spot b"></div>
+    <div class="spot c"></div>
+    <div class="grain"></div>
+  </div>
+
+  <div class="wrap">
+    <header class="rise d1">
+      <span class="mark">Leopardess<span class="dot">.</span></span>
+      <span class="loc">United Kingdom</span>
+    </header>
+
+    <main>
+      <p class="eyebrow rise d2">An AI-agent-first development company</p>
+      <h1 class="rise d2">Leopard<span class="ess">ess</span></h1>
+
+      <p class="lede rise d3">We build software with AI agents doing the work.</p>
+
+      <div class="body rise d4">
+        <p>Leopardess is a small development company built around AI agents. We design and build software systems in which agents do most of the work — researching, writing, testing, and running it — with people directing and checking what they produce.</p>
+        <p>We work in the open-ended space where this approach is still being figured out, and we build our own products as well as work on others'.</p>
+      </div>
+
+      <div class="rule rise d5"></div>
+
+      <div class="contact rise d5">
+        <span class="label">Get in touch</span>
+        <a href="mailto:info@leopardess.uk">info@leopardess.uk</a>
+      </div>
+    </main>
+
+    <footer class="rise d6">
+      <span class="u">leopardess.uk</span>
+      <span>Built in the UK, with agents</span>
+    </footer>
+  </div>
+</body>
+</html>

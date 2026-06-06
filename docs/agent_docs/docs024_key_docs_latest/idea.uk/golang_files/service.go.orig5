@@ -433,7 +433,7 @@ a{color:var(--ink);text-decoration-color:var(--rust)}
 </style></head><body>
 <div class="bar"><span class="wordmark">idea<span class="dot">.</span>uk</span></div>
 <main>` + body + `
-<p class="foot">Questions? Email <a href="mailto:` + contact + `">` + contact + `</a> &nbsp;·&nbsp; <a href="/">idea.uk</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refund-policy">Refunds</a> &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; by <a href="https://leopardess.uk">leopardess.uk</a></p>
+<p class="foot">Questions? Email <a href="mailto:` + contact + `">` + contact + `</a> &nbsp;·&nbsp; <a href="/">idea.uk</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refund-policy">Refunds</a> &nbsp;·&nbsp; <a href="/privacy">Privacy</a></p>
 </main></body></html>`
 }
 
@@ -452,24 +452,14 @@ func makeDeliver(operatorEmail string) func(to, subject, body string) {
 			log.Printf("SMTP not configured — wrote %s", fn)
 			return
 		}
-		from := env("SMTP_FROM", operatorEmail) // bare envelope sender; must be a verified SES identity
-		fromHeader := from
-		if name := os.Getenv("SMTP_FROM_NAME"); name != "" {
-			fromHeader = fmt.Sprintf("%s <%s>", name, from) // friendly display name, e.g. idea.uk <noreply@idea.uk>
-		}
-		var msg strings.Builder
-		fmt.Fprintf(&msg, "From: %s\r\nTo: %s\r\nSubject: %s\r\n", fromHeader, to, subject)
-		if rt := os.Getenv("SMTP_REPLY_TO"); rt != "" {
-			fmt.Fprintf(&msg, "Reply-To: %s\r\n", rt) // route replies to a monitored inbox (e.g. contactforsales.com)
-		}
-		msg.WriteString("\r\n")
-		msg.WriteString(body)
+		from := env("SMTP_FROM", operatorEmail)
+		msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", from, to, subject, body)
 		var auth smtp.Auth
 		if u := os.Getenv("SMTP_USER"); u != "" {
 			auth = smtp.PlainAuth("", u, os.Getenv("SMTP_PASS"), host)
 		}
 		addr := host + ":" + env("SMTP_PORT", "587")
-		if err := smtp.SendMail(addr, auth, from, []string{to}, []byte(msg.String())); err != nil {
+		if err := smtp.SendMail(addr, auth, from, []string{to}, []byte(msg)); err != nil {
 			log.Printf("email to %s failed: %v", to, err)
 		}
 	}
@@ -577,13 +567,11 @@ const privacyBody = `<h1>Privacy policy</h1>
 <ul>
 <li><strong>Stripe</strong> — to take and process payments.</li>
 <li><strong>Anthropic</strong> — our AI provider. The business and audience details you give us are sent to Anthropic so the report can be researched, generated, and checked. We do not send your name or email to the AI for this.</li>
-<li><strong>Hetzner</strong> — our hosting provider; the servers that run the service are in Germany.</li>
-<li><strong>Clook</strong> — our email provider (UK); it sends our email and receives the email you send us.</li>
-<li><strong>Google (Gmail)</strong> — the email you send us is forwarded on to a Gmail inbox that we read.</li>
+<li><strong>Our hosting and email suppliers</strong> — to run the servers that deliver the service and to send you email. [Confirm your hosting and email providers here, e.g. Hetzner and your email sender.]</li>
 </ul>
 
 <h2>Information that leaves the UK</h2>
-<p>We keep your information in the UK or the EU where we can: our servers are in Germany, and our email is handled in the UK by Clook. Information goes outside the UK in two places: the business and audience details are sent to Anthropic, in the United States, so your report can be produced; and any email you send us is forwarded on to a Gmail inbox, so it is handled by Google in the United States. Where information goes outside the UK, we rely on the protections allowed under UK data protection law, such as an adequacy decision or the UK's standard contractual terms for international transfers. [Ask your adviser to confirm the exact safeguards for each supplier.]</p>
+<p>Some of our suppliers, including Anthropic, process information outside the UK. Where that happens, we rely on the protections allowed under UK data protection law, such as an adequacy decision or the UK's standard contractual terms for international transfers. [Ask your adviser to confirm the exact safeguards for each supplier you use.]</p>
 
 <h2>How long we keep it</h2>
 <ul>

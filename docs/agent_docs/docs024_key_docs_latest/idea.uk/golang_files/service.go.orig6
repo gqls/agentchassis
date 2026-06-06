@@ -433,7 +433,7 @@ a{color:var(--ink);text-decoration-color:var(--rust)}
 </style></head><body>
 <div class="bar"><span class="wordmark">idea<span class="dot">.</span>uk</span></div>
 <main>` + body + `
-<p class="foot">Questions? Email <a href="mailto:` + contact + `">` + contact + `</a> &nbsp;·&nbsp; <a href="/">idea.uk</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refund-policy">Refunds</a> &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; by <a href="https://leopardess.uk">leopardess.uk</a></p>
+<p class="foot">Questions? Email <a href="mailto:` + contact + `">` + contact + `</a> &nbsp;·&nbsp; <a href="/">idea.uk</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refund-policy">Refunds</a> &nbsp;·&nbsp; <a href="/privacy">Privacy</a></p>
 </main></body></html>`
 }
 
