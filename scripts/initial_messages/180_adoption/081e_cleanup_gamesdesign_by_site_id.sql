@@ -85,3 +85,21 @@ WHERE s.domain='gamesdesign.co.uk') AS plans,
     (SELECT count(*) FROM orchestration_states
 WHERE site_id IN (SELECT id FROM sites WHERE domain='gamesdesign.co.uk')) AS orch_rows;
 
+--
+
+rebuild root landing
+        Here's the SQL to rebuild the root landing — same pattern, just targeting index:
+sql-- rebuild the root landing so its guide-list picks up the cta_url fix
+INSERT INTO site_work_items
+  (site_id, source, pipeline, item_type, severity, summary,
+   page_id, priority, handler_agent, status, created_by, spec, item_key)
+SELECT
+  s.id, 'manual-rebuild', 'build', 'needs_page', 'medium',
+  'Rebuild ' || p.name || ' — guide-list cta_url made optional',
+  p.id, 90, 'page-build-handler', 'triaged', 'manual-rebuild',
+  jsonb_build_object('reason','guide_list_fix','page_name',p.name),
+  'page_rerender:' || p.name
+FROM sites s
+JOIN pages p ON p.site_id = s.id AND p.name = 'index'
+WHERE s.domain = 'gamesdesign.co.uk'
+ON CONFLICT DO NOTHING;
