@@ -4,7 +4,7 @@ WHERE status = 'running'
 ORDER BY created_at DESC LIMIT 3;
 
 PROVISIONING_ID='paste-the-id-here'
-PROVISIONING_ID='fabfd7fa-ac84-4476-86f3-f7ac57862214'
+PROVISIONING_ID='6c06a83d-1bdc-4a46-b111-deb08012cef6'
 CORRELATION=$(uuidgen)
 
 printf '{"headers":{"correlation_id":"%s","client_id":"demo_client","message_type":"request","action":"decommission_instance"},"body":{"action":"decommission_instance","provisioning_id":"%s","reason":"manual cleanup: iter0 orphan, call_launcher failed before training","reply_to_topic":"system.generic.responses"}}\n' "$CORRELATION" "$PROVISIONING_ID" \

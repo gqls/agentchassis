@@ -13,22 +13,21 @@
 
 # ── required ──────────────────────────────────────────────────────────────────
 # the engine API key (required for real runs)
-ANTHROPIC_API_KEY=sk-ant-api03-Rn...TKZWQAA
+ANTHROPIC_API_KEY=
 # must match SERVICE_PORT in setup.sh
 PORT=8080
 PUBLIC_BASE_URL=https://idea.uk
 IDEA_DB_PATH=/var/lib/idea/orders.json
 # where new-order notifications go (internal)
-OPERATOR_EMAIL=idea@contactforsales.com
-# a long random secret; gates /confirm /decline /refund. Generate: openssl rand -hex 32
-INTERNAL_API_KEY=bc4b818ff0b1c45a03170b97b84e3b968a9de68bf5c0535b5a1623f16510c8c3
-
+OPERATOR_EMAIL=ops@idea.uk
 # public support address shown on the page footer + the confirmation pages.
 # Falls back to OPERATOR_EMAIL if left blank.
-CONTACT_EMAIL=idea@contactforsales.com
+CONTACT_EMAIL=
 # header line reads "accepting <this> requests this month".
 # Blank → "a limited number of". Or set a number, e.g. 5.
-MONTH_SLOTS=5
+MONTH_SLOTS=
+# a long random secret; gates /confirm /decline /refund. Generate: openssl rand -hex 32
+INTERNAL_API_KEY=
 
 # ── product / safety ────────────────────────────────────────────────────────────
 # the £29 price (the binary default is a stale 199 — set this)
@@ -36,7 +35,7 @@ REPORT_PRICE_GBP=29
 # hold paid reports for operator review until trusted
 AUTO_DELIVER=false
 # capacity cap; /confirm refuses beyond this
-MAX_ACTIVE_ORDERS=5
+MAX_ACTIVE_ORDERS=8
 
 # ── billing (absent → FakeProvider; both present → real Stripe) ──────────────────
 # sk_test_... then sk_live_...
@@ -56,22 +55,18 @@ STRIPE_WEBHOOK_SECRET=
 # OPENAI_CRITIQUE_MODEL=gpt-4o
 
 # ── email delivery (absent → reports written to files instead of sent) ───────────
-# SMTP_HOST=
-# SMTP_PORT=587
-# SMTP_USER=
-# SMTP_PASS=
-# SMTP_FROM=reports@idea.uk
+# Clook (cPanel) SMTP. Host/port from cPanel → Email Accounts → Connect Devices.
+# Port 465 = implicit TLS (what Clook offers); the mailer handles it.
+# SMTP_HOST=mail.leopardess.uk
+# SMTP_PORT=465
+# SMTP_USER=system@leopardess.uk     # a real mailbox = the SMTP login
+# SMTP_PASS=                          # that mailbox's password
+# Envelope sender — idea.uk's encoded operator address on leopardess.uk:
+# SMTP_FROM=idea-uk@leopardess.uk
+# Friendly display name shown to recipients:
+# SMTP_FROM_NAME=idea.uk
+# Where replies go (the same address; the leopardess.uk catch-all forwards it to Gmail):
+# SMTP_REPLY_TO=idea-uk@leopardess.uk
 
 # ── CORS (only if the page is served from a different origin than the service) ───
 # ALLOWED_ORIGINS=https://idea.uk
-
-
-SMTP_HOST=mail.leopardess.uk
-SMTP_PORT=587
-SMTP_USER=system@leopardess.uk
-SMTP_PASS=<the system@ mailbox password>
-SMTP_FROM=idea-uk@leopardess.uk
-SMTP_FROM_NAME=idea.uk
-SMTP_REPLY_TO=idea-uk@leopardess.uk
-CONTACT_EMAIL=idea-uk@leopardess.uk
-OPERATOR_EMAIL=idea-uk@leopardess.uk
