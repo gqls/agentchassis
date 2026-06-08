@@ -1,0 +1,106 @@
+# =====================================================================
+# Paste this case into package_module_v2.sh (alongside agent-chassis-focused).
+# Invoke with module name:  page-build-debug
+#
+# PURPOSE: the page-build / section-resolution / render-deploy / dispatch
+# subsystem — i.e. everything in the blast radius of the open threads:
+#   - guide-skinner-box won't build (load_page_sections_from_spec / plan_sections
+#     readiness; complete_error == complete_workflow success-exit)
+#   - index render short-circuit on build_status='deployed' (rerender path)
+#   - silent-completion modes (claim-timeout / validate / reaper)
+#
+# BALANCE (re: "don't reinvent" vs "isolate only what we need"):
+#   KEEPS the catalogue + shared layers so existing code stays discoverable:
+#     registry.go (every registered action), types.go, helpers.go,
+#     datahelpers/ (shared field getters), input_contracts/ (what actions expect).
+#   ADDS three files the agent-chassis-focused module OMITS but we need:
+#     load_page_sections_from_spec_action.go  ← skinner-box next-root
+#     write_site_plan_action.go               ← plan/section reference
+#     reconcile_section_data_action.go         ← deferred-section recovery
+#   DROPS subsystems outside the blast radius: blog, research, vet pipeline,
+#     nav tables, design/library/assemble, hitl, fix_*, transform, entity,
+#     sync, web/scrape, deploy_tool/image, discovery/audit, mysql.
+#   NOTE: agent *workflows* (page-build-handler, page-rerender, page-content-writer)
+#     live in agent_definitions (DB), not here — capture them via the DB dump
+#     (see NEXT_CHAT_INPUTS §4). The QA-loop plan needs a wider module
+#     (discovery_checks/ + tool/game lifecycle) — not this one.
+#
+# Lines marked  # VERIFY PATH  are best-guess locations (package may differ);
+# the packager will simply skip a path it can't find, so correct as needed.
+# =====================================================================
+page-build-debug)
+MODULE_DIRS=(
+# Shared types + contracts + helpers (reuse-discovery; keep workflow var names
+# in sync with what actions expect)
+"platform/orchestration/types/"
+"platform/orchestration/input_contracts/"
+"platform/orchestration/actioncheck/"
+"platform/orchestration/datahelpers/"
+)
+MODULE_FILES=(
+# --- Orchestration engine: how steps/workflows actually run ---
+"platform/orchestration/coordinator.go"
+"platform/orchestration/state.go"
+"platform/orchestration/helpers.go"
+"platform/orchestration/agent_error_log.go"
+"platform/orchestration/monitoring.go"            # reaper / claim watchdog → silent-completion modes 1 & 3
+
+# --- Action catalogue + shared (REUSE-DISCOVERY: what already exists) ---
+"platform/orchestration/actions/registry.go"      # full list of every registered action
+"platform/orchestration/actions/types.go"
+"platform/orchestration/actions/helpers.go"
+
+# --- Control flow + terminal status ---
+"platform/orchestration/actions/workflow_actions.go"          # complete_workflow (and the complete_error == success mislabel)
+"platform/orchestration/actions/conditional_branch_action.go" # check_has_ready_sections (ready_count gate)
+"platform/orchestration/actions/basic_actions.go"
+"platform/orchestration/actions/generic_actions.go"
+"platform/orchestration/actions/spawn_actions.go"             # spawn content_writer / rerender
+"platform/orchestration/actions/call_agent.go"                # call_content_writer / deploy_page
+"platform/orchestration/actions/await_response.go"
+
+# --- Page-build pipeline (the skinner-box + index core) ---
+"platform/orchestration/actions/load_page_record_action.go"            # load_page_record, load_page_section_components, load_existing_content
+"platform/orchestration/actions/load_page_sections_from_spec_action.go" # KEY next-root (focused module OMITS this)
+"platform/orchestration/actions/plan_sections_action.go"               # KEY: how section_plan.ready_count is computed
+"platform/orchestration/actions/save_page_sections_action.go"
+"platform/orchestration/actions/validate_page_content.go"
+"platform/orchestration/actions/v3_site_actions.go"                    # update_page_status; ValidateSitePlanAction; reconcilePlanWithRealised
+"platform/orchestration/actions/site_db_actions.go"                    # ensure_site_record; upsertPage
+"platform/orchestration/actions/site_spec_actions.go"                  # site_specs read/write
+"platform/orchestration/actions/maintenance_actions.go"
+"platform/orchestration/actions/reconcile_section_data_action.go"      # deferred-section recovery (focused OMITS)   # VERIFY PATH
+"platform/orchestration/actions/page_canonical.go"                     # CanonicalisePage (focused OMITS)            # VERIFY PATH
+"platform/orchestration/actions/queryresolve.go"                       # resolvePagesWhereType for list items (focused OMITS) # VERIFY PATH (may be a queryresolve/ package)
+
+# --- Render + deploy (the build_status='deployed' render short-circuit) ---
+"platform/orchestration/actions/render_site_components_action.go"
+"platform/orchestration/actions/rerender_pages_actions.go"             # create_rerender_items
+"platform/orchestration/actions/rerender_single_page_action.go"
+"platform/orchestration/actions/render_css_from_spec_action.go"
+"platform/orchestration/actions/get_pages_for_rerender_action.go"
+"platform/orchestration/actions/get_pages_to_build_actions.go"
+"platform/orchestration/actions/git_deployer_actions.go"
+
+# --- Work item + dispatch + reaper (silent-completion path) ---
+"platform/orchestration/actions/load_work_item_actions.go"             # load_work_items, fail_work_item
+"platform/orchestration/actions/claim_work_item_action.go"
+"platform/orchestration/actions/create_work_item_action.go"
+"platform/orchestration/actions/dispatch_actions.go"
+"platform/orchestration/actions/seed_build_queue_action.go"
+
+# --- Plan reference (convergence resolved; kept for plan/section reuse) ---
+"platform/orchestration/actions/write_site_plan_action.go"             # focused OMITS
+
+# --- DB ---
+"platform/database/postgres.go"
+
+# --- Agent implementation (content writer behaviour) ---
+"internal/agents/contentcreator/agent.go"
+"cmd/agent-chassis/main.go"
+
+# --- Configs / deployment (runtime context) ---
+"configs/agent-chassis.yaml"
+"deployments/kustomize/services/agent-chassis/overlays/production/uk_001/patch-deployment.yaml"
+)
+;;
