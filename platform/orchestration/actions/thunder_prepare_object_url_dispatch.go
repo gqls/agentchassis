@@ -187,6 +187,45 @@ func DispatchThunderPrepareObjectURLAction(ctx context.Context, params ActionPar
 		return nil, fmt.Errorf("dispatch_thunder_prepare_object_url: marshal envelope: %w", err)
 	}
 
+	// ── Pre-register the awaited request BEFORE the send (loop-await race fix) ──
+	// The adapter can reply in ~1s. Without this, the send happens first and the
+	// coordinator only inserts the awaited_requests row afterwards (in
+	// processAwaitResponse → InsertAwaitedRequest); a fast reply can land before
+	// the row exists, ClaimAwaitedRequest (WHERE status='waiting') finds nothing,
+	// the reply is dropped, the request times out and re-dispatches forever. We
+	// register first — exactly as spawn_agent does via preRegisterAwaitedRequest
+	// (spawn_actions.go, same `actions` package so no import needed).
+	//
+	// Consistency with the coordinator's later insert (so that insert cleanly
+	// no-ops instead of creating a second row):
+	//   - newRequestID is the SAME id we put in the envelope header and return in
+	//     result["request_id"], so processAwaitResponse → InsertAwaitedRequest
+	//     reuses it and hits ON CONFLICT (request_id) DO NOTHING ("already
+	//     exists" → treated as success, no duplicate timeout goroutine).
+	//   - step_name = params.CurrentStep, which buildActionParams sets to
+	//     state.CurrentStep — identical to what createAwaitedRequest writes, so
+	//     the response resumes the same (expanded loop) step.
+	//   - target_agent_id "" matches createAwaitedRequest's extractTargetAgentID
+	//     (our result carries no agent_id key).
+	// Arg order is (requestsTopic, responsesTopic) — requests first.
+	//
+	// NOTE: preRegisterAwaitedRequest hardcodes a 120s await timeout; via the
+	// ON CONFLICT path that pins every presign dispatch's await to 120s
+	// regardless of the step's configured timeout. Fine for ~1s presigns.
+	if params.DB != nil {
+		if err := preRegisterAwaitedRequest(ctx, params, newRequestID,
+			"",                  // target_agent_id (unknown; matches createAwaitedRequest)
+			"thunder-adapter",   // target_agent_type
+			thunderAdapterTopic, // requestsTopic
+			myResponsesTopic,    // responsesTopic
+		); err != nil {
+			params.Logger.Warn("Failed to pre-register awaited request before prepare_object_url send - response matching may race",
+				zap.String("request_id", newRequestID),
+				zap.Error(err))
+			// Continue: race mitigation, not a hard requirement (same posture as spawn).
+		}
+	}
+
 	// ── Publish to thunder-adapter's requests topic ──
 	key2 := []byte(params.ExecutionContext.CorrelationID)
 
