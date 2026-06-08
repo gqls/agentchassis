@@ -61,7 +61,7 @@ fi
 cd "$PROJECT_ROOT"
 
 # --- Configuration ---------------------------------------------------
-DEFAULT_OUTPUT_DIR="$SCRIPT_DIR/docs/agent_docs/docs024_key_docs_latest/finetuning/working/context_packages/thunder-checkpoint-race"
+DEFAULT_OUTPUT_DIR="$SCRIPT_DIR/context_packages/thunder-checkpoint-race"
 ENVIRONMENT="production"                       # only affects the output filename
 COMPONENT_NAME="thunder-checkpoint-race"       # fixed; this script packages one module
 WITH_LIVE=true                                 # append read-only live capture if kubectl present

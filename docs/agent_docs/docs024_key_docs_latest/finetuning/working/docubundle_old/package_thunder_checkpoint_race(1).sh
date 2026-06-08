@@ -61,7 +61,7 @@ fi
 cd "$PROJECT_ROOT"
 
 # --- Configuration ---------------------------------------------------
-DEFAULT_OUTPUT_DIR="$SCRIPT_DIR/docs/agent_docs/docs024_key_docs_latest/finetuning/working/context_packages/thunder-checkpoint-race"
+DEFAULT_OUTPUT_DIR="$SCRIPT_DIR/context_packages/thunder-checkpoint-race"
 ENVIRONMENT="production"                       # only affects the output filename
 COMPONENT_NAME="thunder-checkpoint-race"       # fixed; this script packages one module
 WITH_LIVE=true                                 # append read-only live capture if kubectl present
@@ -219,19 +219,19 @@ for item in "${ADAPTER_FILES_LITERAL[@]}"; do write_file "$item" "$OUTPUT_FILE" 
 DOCS_FILES=(
   # thread working docs (uploaded versions)
   "HANDOFF_2026-06-06_checkpoint_upload_loop_await_race.md"
-  "docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase5/NOTES_phase5_training_launcher_running(35).md"
-  "docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase5/RUNBOOK_phase_b_c_d_deploy(4).md"
-  "docs/agent_docs/docs024_key_docs_latest/finetuning/working/phase5/PLAN_checkpoint_and_artefact_upload_b2(4).md"
+  "NOTES_phase5_training_launcher_running_34_.md"
+  "RUNBOOK_phase_b_c_d_deploy_4_.md"
+  "PLAN_checkpoint_and_artefact_upload_b2_4_.md"
   "CONTEXT_PACK_thunder_checkpoint_race.md"
-  "docs/agent_docs/docs024_key_docs_latest/finetuning/working/flywheel_docs/FOCUS_finetuning_flywheel_and_service(25).md"
+  "FOCUS_finetuning_flywheel_and_service_25_.md"
   # fallback-route docs
   "STATUS_thunder_adapter_2026-06_04.md"
-  "docs/agent_docs/docs024_key_docs_latest/finetuning/working/flywheel_docs/FOCUS_adapter_design(3).md"
+  "FOCUS_adapter_design_3_.md"
   # guidelines (the constitution) — confirmed paths under docs/agent_docs/docs024_key_docs_latest/
   "docs/agent_docs/docs024_key_docs_latest/001_development_guide(3).md"
   "docs/agent_docs/docs024_key_docs_latest/002_system_architecture.md"
   "docs/agent_docs/docs024_key_docs_latest/003_contracts_and_standards.md"
-  "docs/agent_docs/docs024_key_docs_latest/016_debugging_guide_v2_35.md"   # merged v34 + the loop-await race branch; replaces v2_33/34
+  "docs/agent_docs/docs024_key_docs_latest/016_debugging_guide_v2_34.md"   # merged (v33 + v30 Traps A-C); replaces v2_33
   # the targeted code extract (optional; the context .txt above supersedes it)
   # "CHASSIS_await_loop_extract.txt"
 )
