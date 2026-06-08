@@ -32,18 +32,10 @@ import (
 	"sort"
 	"strings"
 
-	acode "contextkit/internal/analysis"
+	"contextkit/internal/analysis"
 )
 
-// ---- the analyser's contract (defined once in internal/analysis) ----
-
-type (
-	analysis = acode.Output
-	fileInfo = acode.FileInfo
-	funcDef  = acode.FuncDef
-	field    = acode.Field
-	typeDef  = acode.TypeDef
-)
+// The analyser's contract is defined in internal/analysis and referenced as analysis.*.
 
 // ---- repeatable -scope flag ----
 
@@ -98,8 +90,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "load analysis: %v\n", err)
 		os.Exit(1)
 	}
-	byPath := map[string]fileInfo{}
-	byPackage := map[string][]fileInfo{}
+	byPath := map[string]analysis.FileInfo{}
+	byPackage := map[string][]analysis.FileInfo{}
 	index := map[string][]symRef{} // name -> declarations (funcs and types)
 	var allFuncs []symRef          // for the caller scan
 	for _, f := range an.Files {
@@ -356,7 +348,7 @@ type symRef struct {
 }
 
 // refFor builds a symRef for a named decl in a file (used for in-scope symbols).
-func refFor(fi fileInfo, name string) symRef {
+func refFor(fi analysis.FileInfo, name string) symRef {
 	for _, fn := range fi.Functions {
 		if fn.Name == name {
 			return symRef{Name: name, Path: fi.Path, Pkg: fi.Package, Kind: "func", Signature: fn.Signature, Calls: fn.Calls, IsFunc: true}
@@ -426,12 +418,12 @@ func capLines(lines []string, cap int) (shown []string, omitted int) {
 	return lines, 0
 }
 
-func loadAnalysis(path string) (*analysis, error) {
+func loadAnalysis(path string) (*analysis.Output, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var a analysis
+	var a analysis.Output
 	if err := json.Unmarshal(b, &a); err != nil {
 		return nil, err
 	}
@@ -448,7 +440,7 @@ func splitScope(s string) (path, sym string) {
 	return s[:i], s[i+1:]
 }
 
-func locateSymbol(fi fileInfo, name string) (start, end int, kind string, found bool) {
+func locateSymbol(fi analysis.FileInfo, name string) (start, end int, kind string, found bool) {
 	for _, fn := range fi.Functions {
 		if fn.Name == name {
 			return fn.StartLine, fn.EndLine, "func", true
@@ -462,7 +454,7 @@ func locateSymbol(fi fileInfo, name string) (start, end int, kind string, found 
 	return 0, 0, "", false
 }
 
-func symbolSignature(fi fileInfo, name string) string {
+func symbolSignature(fi analysis.FileInfo, name string) string {
 	for _, fn := range fi.Functions {
 		if fn.Name == name {
 			return fn.Signature
@@ -476,7 +468,7 @@ func symbolSignature(fi fileInfo, name string) string {
 	return name
 }
 
-func fileSignatures(fi fileInfo) string {
+func fileSignatures(fi analysis.FileInfo) string {
 	var lines []string
 	for _, fn := range fi.Functions {
 		lines = append(lines, fn.Signature)
@@ -488,7 +480,7 @@ func fileSignatures(fi fileInfo) string {
 	return "```go\n" + strings.Join(lines, "\n") + "\n```"
 }
 
-func typeSignature(td typeDef) string {
+func typeSignature(td analysis.TypeDef) string {
 	switch td.Kind {
 	case "struct":
 		parts := make([]string, 0, len(td.Fields))

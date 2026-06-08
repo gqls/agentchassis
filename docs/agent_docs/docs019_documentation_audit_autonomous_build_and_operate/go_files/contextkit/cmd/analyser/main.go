@@ -28,20 +28,10 @@ import (
 	"strings"
 	"time"
 
-	acode "contextkit/internal/analysis"
+	"contextkit/internal/analysis"
 )
 
-// ---- output shapes: the canonical contract lives in internal/analysis ----
-
-type (
-	Output   = acode.Output
-	FileInfo = acode.FileInfo
-	Import   = acode.Import
-	Param    = acode.Param
-	FuncDef  = acode.FuncDef
-	Field    = acode.Field
-	TypeDef  = acode.TypeDef
-)
+// The output contract is defined in internal/analysis and referenced as analysis.*.
 
 func main() {
 	args := os.Args[1:]
@@ -62,7 +52,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	out := Output{
+	out := analysis.Output{
 		Root:        root,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 	}
@@ -107,8 +97,8 @@ func main() {
 	}
 }
 
-func analyseFile(path, rel string) FileInfo {
-	fi := FileInfo{Path: rel}
+func analyseFile(path, rel string) analysis.FileInfo {
+	fi := analysis.FileInfo{Path: rel}
 	fset := token.NewFileSet()
 	src, err := os.ReadFile(path)
 	if err != nil {
@@ -126,7 +116,7 @@ func analyseFile(path, rel string) FileInfo {
 	fi.Package = f.Name.Name
 
 	for _, imp := range f.Imports {
-		i := Import{Path: strings.Trim(imp.Path.Value, `"`)}
+		i := analysis.Import{Path: strings.Trim(imp.Path.Value, `"`)}
 		if imp.Name != nil {
 			i.Alias = imp.Name.Name
 		}
@@ -152,8 +142,8 @@ func analyseFile(path, rel string) FileInfo {
 	return fi
 }
 
-func funcDef(fset *token.FileSet, d *ast.FuncDecl) FuncDef {
-	fn := FuncDef{
+func funcDef(fset *token.FileSet, d *ast.FuncDecl) analysis.FuncDef {
+	fn := analysis.FuncDef{
 		Name:      d.Name.Name,
 		Exported:  d.Name.IsExported(),
 		StartLine: fset.Position(d.Pos()).Line,
@@ -162,7 +152,7 @@ func funcDef(fset *token.FileSet, d *ast.FuncDecl) FuncDef {
 	}
 	if d.Recv != nil && len(d.Recv.List) > 0 {
 		r := d.Recv.List[0]
-		fn.Receiver = &Param{Name: fieldName(r), Type: exprString(fset, r.Type)}
+		fn.Receiver = &analysis.Param{Name: fieldName(r), Type: exprString(fset, r.Type)}
 	}
 	fn.Params = fieldList(fset, d.Type.Params)
 	fn.Results = fieldList(fset, d.Type.Results)
@@ -203,8 +193,8 @@ func callsIn(d *ast.FuncDecl) []string {
 	return out
 }
 
-func typeDef(fset *token.FileSet, d *ast.GenDecl, ts *ast.TypeSpec) TypeDef {
-	td := TypeDef{
+func typeDef(fset *token.FileSet, d *ast.GenDecl, ts *ast.TypeSpec) analysis.TypeDef {
+	td := analysis.TypeDef{
 		Name:      ts.Name.Name,
 		Exported:  ts.Name.IsExported(),
 		StartLine: fset.Position(ts.Pos()).Line,
@@ -228,10 +218,10 @@ func typeDef(fset *token.FileSet, d *ast.GenDecl, ts *ast.TypeSpec) TypeDef {
 					tag = fld.Tag.Value
 				}
 				if len(fld.Names) == 0 { // embedded
-					td.Fields = append(td.Fields, Field{Type: typ, Tag: tag})
+					td.Fields = append(td.Fields, analysis.Field{Type: typ, Tag: tag})
 				}
 				for _, n := range fld.Names {
-					td.Fields = append(td.Fields, Field{Name: n.Name, Type: typ, Tag: tag})
+					td.Fields = append(td.Fields, analysis.Field{Name: n.Name, Type: typ, Tag: tag})
 				}
 			}
 		}
@@ -240,12 +230,12 @@ func typeDef(fset *token.FileSet, d *ast.GenDecl, ts *ast.TypeSpec) TypeDef {
 		if t.Methods != nil {
 			for _, m := range t.Methods.List {
 				if len(m.Names) == 0 { // embedded interface
-					td.Methods = append(td.Methods, Param{Type: exprString(fset, m.Type)})
+					td.Methods = append(td.Methods, analysis.Param{Type: exprString(fset, m.Type)})
 					continue
 				}
 				sig := exprString(fset, m.Type) // func(...) (...)
 				for _, n := range m.Names {
-					td.Methods = append(td.Methods, Param{Name: n.Name, Type: n.Name + strings.TrimPrefix(sig, "func")})
+					td.Methods = append(td.Methods, analysis.Param{Name: n.Name, Type: n.Name + strings.TrimPrefix(sig, "func")})
 				}
 			}
 		}
@@ -256,19 +246,19 @@ func typeDef(fset *token.FileSet, d *ast.GenDecl, ts *ast.TypeSpec) TypeDef {
 	return td
 }
 
-func fieldList(fset *token.FileSet, fl *ast.FieldList) []Param {
-	var out []Param
+func fieldList(fset *token.FileSet, fl *ast.FieldList) []analysis.Param {
+	var out []analysis.Param
 	if fl == nil {
 		return out
 	}
 	for _, f := range fl.List {
 		typ := exprString(fset, f.Type)
 		if len(f.Names) == 0 {
-			out = append(out, Param{Type: typ})
+			out = append(out, analysis.Param{Type: typ})
 			continue
 		}
 		for _, n := range f.Names {
-			out = append(out, Param{Name: n.Name, Type: typ})
+			out = append(out, analysis.Param{Name: n.Name, Type: typ})
 		}
 	}
 	return out
@@ -294,7 +284,7 @@ func exprString(fset *token.FileSet, e ast.Expr) string {
 	return b.String()
 }
 
-func renderFuncSig(fn FuncDef) string {
+func renderFuncSig(fn analysis.FuncDef) string {
 	var b strings.Builder
 	b.WriteString("func ")
 	if fn.Receiver != nil {
@@ -323,7 +313,7 @@ func renderFuncSig(fn FuncDef) string {
 	return b.String()
 }
 
-func joinParams(ps []Param) string {
+func joinParams(ps []analysis.Param) string {
 	parts := make([]string, 0, len(ps))
 	for _, p := range ps {
 		if p.Name != "" {

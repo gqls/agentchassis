@@ -16,11 +16,11 @@ import (
 	"sort"
 	"strings"
 
-	acode "contextkit/internal/analysis"
+	"contextkit/internal/analysis"
 	"contextkit/internal/candidates"
 )
 
-type analysis = acode.Output
+// analysis.Output is the analyser contract (internal/analysis).
 
 type cand struct {
 	path, name, kind string
@@ -116,7 +116,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "read analysis: %v\n", err)
 		os.Exit(1)
 	}
-	var an analysis
+	var an analysis.Output
 	if err := json.Unmarshal(raw, &an); err != nil {
 		fmt.Fprintf(os.Stderr, "parse analysis: %v\n", err)
 		os.Exit(1)

@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	acode "contextkit/internal/analysis"
+	"contextkit/internal/analysis"
 	"contextkit/internal/candidates"
 )
 
@@ -141,7 +141,7 @@ type vindex struct {
 	Items []indexItem `json:"items"`
 }
 
-type analysis = acode.Output
+// analysis.Output is the analyser contract (internal/analysis).
 
 func embedderFrom(local bool, ollamaURL, model string) (Embedder, string, error) {
 	if local {
@@ -189,7 +189,7 @@ func main() {
 		ck(err)
 		raw, err := os.ReadFile(*analysisPath)
 		ck(err)
-		var an analysis
+		var an analysis.Output
 		ck(json.Unmarshal(raw, &an))
 
 		var texts []string
