@@ -12,6 +12,18 @@
 // Also syncs: if site_specs sections differ from pages.sections, updates
 // the pages table so the two stay in sync going forward.
 //
+// Fallback 2b (added): if neither site_specs.site_plan nor pages.sections
+// has sections for this page, borrow the layout skeleton from a same-role
+// sibling in the current plan. "sections" is a layout (an ordered list of
+// component types, e.g. ["hero","generic-text-block"]), NOT content — same-
+// role pages share a layout by design, and content is still written per page
+// by the content writer from this page's own source. This rescues a page
+// that reached the build with an empty sections array (e.g. a page unioned
+// back into the plan during adoption convergence with no sections to carry),
+// which would otherwise see zero sections and short-circuit the build to a
+// (silently successful) "no sections defined" completion. Adds a new
+// "source" value: "same_role_sibling".
+//
 // Registration:
 //   "load_page_sections_from_spec": {
 //       Handler:     LoadPageSectionsFromSpecAction,
@@ -177,6 +189,116 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 			logger.Info("LoadPageSectionsFromSpec: using pages.sections fallback",
 				zap.String("page", pageName),
 				zap.Int("sections", len(specSections)))
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// 2b. Last-resort fallback: borrow the layout from a same-role sibling.
+	//
+	// "sections" is a layout skeleton (an ordered list of component types,
+	// e.g. ["hero","generic-text-block"]), NOT content. Pages of the same
+	// role share a layout by design — every guide on a site uses the same
+	// skeleton. Content is written later, per page, by the content writer
+	// from THIS page's own source, so nothing is borrowed but the skeleton.
+	//
+	// Rescues a page that reached the build with no sections in either
+	// site_specs.site_plan or pages.sections (e.g. a page unioned back into
+	// the plan during adoption convergence with an empty sections array).
+	// Last resort only, and logged at WARN so a synthesised layout is always
+	// visible in the logs. Persists to pages.sections (the field the build
+	// reads) using the same guarded UPDATE as the site_specs path above.
+	// -----------------------------------------------------------------------
+	if len(specSections) == 0 {
+		rows, qErr := params.DB.QueryContext(ctx, `
+			WITH cur AS (
+				SELECT id AS plan_id FROM site_plans
+				WHERE site_id = $1 AND is_current = true
+			),
+			target AS (
+				SELECT spp.role
+				FROM site_plan_pages spp
+				JOIN cur ON spp.plan_id = cur.plan_id
+				WHERE spp.name = $2
+			)
+			SELECT spp.name,
+			       to_jsonb(array_agg(sps.component_name ORDER BY sps.ordering))
+			FROM site_plan_pages spp
+			JOIN cur ON spp.plan_id = cur.plan_id
+			JOIN target ON spp.role IS NOT DISTINCT FROM target.role
+			JOIN site_plan_sections sps
+			  ON sps.plan_id = spp.plan_id AND sps.page_name = spp.name
+			WHERE spp.name <> $2
+			GROUP BY spp.name
+		`, siteID, pageName)
+		if qErr != nil {
+			logger.Warn("LoadPageSectionsFromSpec: same-role sibling lookup failed",
+				zap.Error(qErr))
+		} else {
+			// Tally distinct layouts so one outlier sibling cannot skew the
+			// choice; pick the layout shared by the most siblings (modal),
+			// with a deterministic tie-break (more siblings, then longer
+			// layout, then lexicographic by key).
+			layoutCounts := map[string]int{}
+			layoutSections := map[string][]string{}
+			layoutExample := map[string]string{}
+			for rows.Next() {
+				var sibName string
+				var compsJSON []byte
+				if scanErr := rows.Scan(&sibName, &compsJSON); scanErr != nil {
+					logger.Warn("LoadPageSectionsFromSpec: sibling scan failed",
+						zap.Error(scanErr))
+					continue
+				}
+				var comps []string
+				if json.Unmarshal(compsJSON, &comps) != nil || len(comps) == 0 {
+					continue
+				}
+				key := fmt.Sprintf("%q", comps)
+				layoutCounts[key]++
+				if _, seen := layoutSections[key]; !seen {
+					layoutSections[key] = comps
+					layoutExample[key] = sibName
+				}
+			}
+			rows.Close()
+
+			bestKey := ""
+			for key := range layoutCounts {
+				if bestKey == "" {
+					bestKey = key
+					continue
+				}
+				better := layoutCounts[key] > layoutCounts[bestKey] ||
+					(layoutCounts[key] == layoutCounts[bestKey] &&
+						len(layoutSections[key]) > len(layoutSections[bestKey])) ||
+					(layoutCounts[key] == layoutCounts[bestKey] &&
+						len(layoutSections[key]) == len(layoutSections[bestKey]) &&
+						key < bestKey)
+				if better {
+					bestKey = key
+				}
+			}
+
+			if bestKey != "" {
+				specSections = layoutSections[bestKey]
+				specSource = "same_role_sibling"
+				logger.Warn("LoadPageSectionsFromSpec: SYNTHESISED layout from same-role sibling — page had no sections in site_specs or pages.sections",
+					zap.String("page", pageName),
+					zap.String("sibling", layoutExample[bestKey]),
+					zap.Strings("section_names", specSections))
+
+				// Persist to pages.sections so the build can read it and the
+				// page stops being a zero-section dead-end.
+				sectionsJSON, _ := json.Marshal(specSections)
+				if _, syncErr := params.DB.ExecContext(ctx, `
+					UPDATE pages SET sections = $1::jsonb, updated_at = NOW()
+					WHERE site_id = $2 AND name = $3
+					  AND sections::text IS DISTINCT FROM $1
+				`, string(sectionsJSON), siteID, pageName); syncErr != nil {
+					logger.Warn("LoadPageSectionsFromSpec: persisting synthesised sections failed",
+						zap.Error(syncErr))
+				}
+			}
 		}
 	}
 
