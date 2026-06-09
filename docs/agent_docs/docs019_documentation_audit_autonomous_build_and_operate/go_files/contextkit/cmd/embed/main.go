@@ -143,6 +143,20 @@ type vindex struct {
 
 // analysis.Output is the analyser contract (internal/analysis).
 
+// nomicPrefix mirrors the chassis applyNomicPrefix so a feasibility run embeds the
+// same way rag_index/rag_lookup do: nomic-embed-* models retrieve better with
+// "search_document: " on indexed text and "search_query: " on queries. No-op for
+// other models; never double-prefixes. Without this, nomic quality is under-measured.
+func nomicPrefix(model, task, text string) string {
+	if !strings.HasPrefix(model, "nomic-embed-") {
+		return text
+	}
+	if strings.HasPrefix(text, "search_document: ") || strings.HasPrefix(text, "search_query: ") {
+		return text
+	}
+	return task + ": " + text
+}
+
 func embedderFrom(local bool, ollamaURL, model string) (Embedder, string, error) {
 	if local {
 		return hashEmbedder{dim: 256}, "local-hash-256", nil
@@ -207,6 +221,9 @@ func main() {
 				items = append(items, indexItem{f.Path, td.Name, td.Kind, nil})
 			}
 		}
+		for i := range texts {
+			texts[i] = nomicPrefix(modelName, "search_document", texts[i])
+		}
 		for i := 0; i < len(texts); i += *batch {
 			j := i + *batch
 			if j > len(texts) {
@@ -238,13 +255,13 @@ func main() {
 			fmt.Fprintln(os.Stderr, "need -task")
 			os.Exit(2)
 		}
-		emb, _, err := embedderFrom(*local, *ollamaURL, *model)
+		emb, qModel, err := embedderFrom(*local, *ollamaURL, *model)
 		ck(err)
 		raw, err := os.ReadFile(*embeddingsPath)
 		ck(err)
 		var idx vindex
 		ck(json.Unmarshal(raw, &idx))
-		qv, err := emb.Embed([]string{*task})
+		qv, err := emb.Embed([]string{nomicPrefix(qModel, "search_query", *task)})
 		ck(err)
 		q := qv[0]
 		l2normalize(q)
