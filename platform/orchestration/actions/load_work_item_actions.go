@@ -748,16 +748,37 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 		agentType = params.ExecutionContext.Sender.AgentType
 	}
 
-	_, err = params.DB.ExecContext(ctx, `
+	// Guard: do NOT overwrite a status a handler deliberately set to a flagged
+	// or terminal state. The dispatch loop calls complete_work_item on every
+	// successful handler saga, and page-build-handler's complete_error is a
+	// SUCCESS-labelled complete_workflow — so without this guard a handler that
+	// flagged its item needs_human_review (mark_needs_review for validation
+	// failures; mark_no_sections for a sectionless page with no sibling layout)
+	// would be re-stamped 'complete' here, silently undoing the flag. Completing
+	// from an in-progress status (claimed/triaged/approved/detected/…) is
+	// unaffected; only deliberate flags/terminals are preserved.
+	res, err := params.DB.ExecContext(ctx, `
 		UPDATE site_work_items
 		SET status = 'complete',
 		    result = $2::jsonb,
 		    completed_at = NOW(),
 		    handled_by = $3
 		WHERE id = $1
+		  AND status NOT IN ('needs_human_review','failed','unresolved','rejected','wont_fix','verified','blocked')
 	`, itemID, string(resultJSON), agentType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to complete work item: %w", err)
+	}
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		logger.Info("CompleteWorkItemAction: skipped — item already in a flagged/terminal status, not overwriting",
+			zap.String("item_id", itemIDStr))
+		return map[string]interface{}{
+			"completed": false,
+			"item_id":   itemIDStr,
+			"reason":    "already_flagged_or_terminal",
+		}, nil
 	}
 
 	logger.Info("CompleteWorkItemAction: Done", zap.String("item_id", itemIDStr))
