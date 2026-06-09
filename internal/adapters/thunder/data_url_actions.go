@@ -87,6 +87,16 @@ type ObjectURLRequest struct {
 	ExpiryMinutes int    `json:"expiry_minutes,omitempty"`
 }
 
+// ObjectURLsRequest is the batch form of ObjectURLRequest: presign the SAME
+// method (typically PUT) for many keys in one request. Used by the launcher's
+// single batch presign step that replaced the per-checkpoint loop — one awaited
+// round-trip instead of K, and no K-iteration workflow expansion to re-persist.
+type ObjectURLsRequest struct {
+	Keys          []string `json:"keys"`
+	Method        string   `json:"method,omitempty"`
+	ExpiryMinutes int      `json:"expiry_minutes,omitempty"`
+}
+
 // PreparedURLResult is the shared result shape for both actions.
 type PreparedURLResult struct {
 	PresignedURL string `json:"presigned_url"`
@@ -351,6 +361,94 @@ func (a *Adapter) handlePrepareObjectURL(
 			"key":           result.Key,
 			"expires_at":    result.ExpiresAt,
 			"method":        result.Method,
+		}, l)
+}
+
+// handlePrepareObjectURLs is the BATCH form of handlePrepareObjectURL: it
+// presigns a list of keys (same method/expiry) in ONE reply, reusing the same
+// ObjectURL primitive per key — no parallel signing path. The reply's
+// "presigned_urls" is an ordered list aligned 1:1 with the request "keys"; the
+// launcher feeds it straight into assemble_upload_manifest's checkpoint_urls
+// (paired by index with compute_checkpoint_keys.checkpoint_keys), so the
+// per-checkpoint loop + flatten_checkpoint_urls steps are no longer needed.
+// Replaces the K-iteration awaited loop (which re-persisted the whole expanded
+// workflow each iteration → O(K^2)) with a single awaited round-trip.
+func (a *Adapter) handlePrepareObjectURLs(
+	body map[string]interface{},
+	reqHeaders map[string]string,
+	replyToTopic string,
+	l *zap.Logger,
+) {
+	if replyToTopic == "" {
+		l.Warn("No reply_to_topic on prepare_object_urls request — cannot send response")
+		return
+	}
+	if a.dataURLAction == nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_object_urls",
+			"storage_unavailable",
+			"object storage not configured (TRAINING_BUCKET / B2 credentials missing at startup)",
+			"error_unrecoverable", l)
+		return
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_object_urls",
+			"invalid_request_body", fmt.Sprintf("could not re-marshal body: %v", err),
+			"error_unrecoverable", l)
+		return
+	}
+	var req ObjectURLsRequest
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_object_urls",
+			"invalid_request_body", fmt.Sprintf("could not unmarshal into ObjectURLsRequest: %v", err),
+			"error_unrecoverable", l)
+		return
+	}
+	if len(req.Keys) == 0 {
+		a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_object_urls",
+			"invalid_request_body", "keys is required and must be non-empty",
+			"error_unrecoverable", l)
+		return
+	}
+
+	// Presigning is local SigV4 (no network per key); a generous timeout covers a
+	// large key list without being a real constraint.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// presigned_urls[i] pairs with keys[i] (same order) — the contract with
+	// assemble_upload_manifest. A single failed presign fails the whole batch (a
+	// silently short list would drop a checkpoint), matching the retired loop's
+	// continue_on_error:false.
+	presignedURLs := make([]string, 0, len(req.Keys))
+	keys := make([]string, 0, len(req.Keys))
+	for _, k := range req.Keys {
+		result, err := a.dataURLAction.ObjectURL(ctx, ObjectURLRequest{
+			Key:           k,
+			Method:        req.Method,
+			ExpiryMinutes: req.ExpiryMinutes,
+		})
+		if err != nil {
+			a.sendErrorResponse(reqHeaders, replyToTopic, "prepare_object_urls",
+				"presign_failed", fmt.Sprintf("presign %q: %v", k, err),
+				"error_unrecoverable", l)
+			return
+		}
+		presignedURLs = append(presignedURLs, result.PresignedURL)
+		keys = append(keys, result.Key)
+	}
+
+	l.Info("prepared batch object URLs",
+		zap.Int("count", len(presignedURLs)),
+		zap.String("method", req.Method),
+	)
+
+	a.sendSuccessResponse(reqHeaders, replyToTopic, "prepare_object_urls",
+		map[string]interface{}{
+			"presigned_urls": presignedURLs,
+			"keys":           keys,
+			"count":          len(presignedURLs),
 		}, l)
 }
 

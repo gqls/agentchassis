@@ -122,18 +122,7 @@ func DispatchThunderPrepareObjectURLAction(ctx context.Context, params ActionPar
 	// awaited_request matches — the launcher would publish fine but hang on the
 	// await. (provision/decommission, which work in production, use this
 	// own-topic derivation.)
-	myResponsesTopic := params.ExecutionContext.ResponsesTopic
-	if myResponsesTopic == "" {
-		agentType := params.ExecutionContext.Sender.AgentType
-		if agentType == "" {
-			agentType = os.Getenv("AGENT_TYPE")
-		}
-		if agentType != "" {
-			myResponsesTopic = fmt.Sprintf("system.agent.%s.responses", agentType)
-		} else {
-			myResponsesTopic = "system.agent.generic.responses"
-		}
-	}
+	myResponsesTopic := ownResponsesTopic(params)
 
 	newRequestID := uuid.NewString()
 
@@ -276,4 +265,30 @@ func keyFromS3URI(uri string) string {
 	}
 	// No '/' after the bucket — no key component.
 	return ""
+}
+
+// ownResponsesTopic derives the agent's OWN responses topic — the topic this
+// agent's saga coordinator awaits the adapter reply on, matched against the
+// awaited_request in THIS orchestration's state. Seeded from
+// ExecutionContext.ResponsesTopic (__my_responses_topic__) first; falls back to
+// system.agent.<type>.responses, then a generic topic. NOT the parent topic
+// (__parent_responses_topic__) — that is for notifying the parent of the FINAL
+// result; using it for an intermediate adapter reply routes it where no
+// awaited_request matches and the agent hangs on the await. Shared by the
+// singular and batch prepare-object-url dispatches (extracted 2026-06-09; the
+// singular's behaviour is unchanged).
+func ownResponsesTopic(params ActionParams) string {
+	t := params.ExecutionContext.ResponsesTopic
+	if t == "" {
+		agentType := params.ExecutionContext.Sender.AgentType
+		if agentType == "" {
+			agentType = os.Getenv("AGENT_TYPE")
+		}
+		if agentType != "" {
+			t = fmt.Sprintf("system.agent.%s.responses", agentType)
+		} else {
+			t = "system.agent.generic.responses"
+		}
+	}
+	return t
 }

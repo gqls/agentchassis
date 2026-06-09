@@ -899,6 +899,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Diff site_plan_pages vs realised pages; emit needs_page work items for the delta; emit terminal needs_rerender if any (doc 030)",
 		IsLocal:     true,
 	},
+	"reconcile_section_data": {
+		Handler:     ReconcileSectionDataAction,
+		Category:    "site",
+		Description: "Re-trigger pages whose deferred section data is now query-resolvable",
+		IsLocal:     true,
+	},
 	"emit_design_items": {
 		Handler:     EmitDesignItemsAction,
 		Category:    "site",

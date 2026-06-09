@@ -331,6 +331,8 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		a.handlePrepareArtefactURL(body, headers, replyToTopic, l)
 	case "prepare_object_url":
 		a.handlePrepareObjectURL(body, headers, replyToTopic, l)
+	case "prepare_object_urls":
+		a.handlePrepareObjectURLs(body, headers, replyToTopic, l)
 	case "prepare_resume_url":
 		a.handlePrepareResumeURL(body, headers, replyToTopic, l)
 	case "ssh_exec":
