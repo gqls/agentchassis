@@ -1,10 +1,12 @@
 // Command dbcontext fetches database context for a bundle by shelling out to a
-// configurable psql. It does two things:
+// configurable psql. It does three things:
 //
-//   - schema: runs `\d <table>` for each requested table (complete and bounded).
-//   - rows:   runs a SELECT with multipass sizing — probe with LIMIT N+1, then
-//             show all rows if within the cap, or a sample plus a pointer (the
-//             query to run for the full result) if over. Never an unbounded dump.
+//   - schema:       runs `\d <table>` for each requested table (complete and bounded).
+//   - rows:         runs a SELECT with multipass sizing — probe with LIMIT N+1, then
+//                   show all rows if within the cap, or a sample plus a pointer (the
+//                   query to run for the full result) if over. Never an unbounded dump.
+//   - capabilities: runs `\dx` (installed extensions) and `\df` (functions) — what the
+//                   DB can do, so generation reuses helpers/extensions, not hand-rolled SQL.
 //
 // It connects the way you already do. Set -psql to a direct connection or your
 // kubectl-exec pattern:
@@ -13,8 +15,9 @@
 //	dbcontext -psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db' \
 //	          -rows "SELECT name, build_status FROM pages WHERE site_id='...'"
 //
-// Output is markdown. Feed schema to the assembler via -schema <file>, and row
-// output via -doc <file>. No Go DB driver dependency — psql does the talking.
+// Output is markdown. Feed schema to the assembler via -schema <file>, capabilities
+// via -dbfacts <file>, and row output via -doc <file>. No Go DB driver dependency —
+// psql does the talking.
 package main
 
 import (
@@ -34,6 +37,8 @@ func main() {
 	maxRows := flag.Int("max-rows", 50, "row cap; above this, show a sample + the query as a pointer")
 	runtimeSite := flag.String("runtime-site", "", "domain to pull runtime evidence for (recent errors + work-item lifecycle)")
 	runtimePage := flag.String("runtime-page", "", "optional page name to narrow the work-item lifecycle")
+	capabilities := flag.Bool("capabilities", false, "capture \\dx (installed extensions) and \\df (functions) — what the DB can do, for reuse-before-recreate")
+	dfFilter := flag.String("df-filter", "", "restrict \\df to a name pattern, e.g. 'snapshot' or '*agent*' (default: all functions)")
 	flag.Parse()
 
 	base := strings.Fields(*psql)
@@ -41,8 +46,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "empty -psql")
 		os.Exit(2)
 	}
-	if *schema == "" && *rows == "" && *runtimeSite == "" {
-		fmt.Fprintln(os.Stderr, "nothing to do: pass -schema, -rows, and/or -runtime-site")
+	if *schema == "" && *rows == "" && *runtimeSite == "" && !*capabilities {
+		fmt.Fprintln(os.Stderr, "nothing to do: pass -schema, -rows, -runtime-site, and/or -capabilities")
 		os.Exit(2)
 	}
 
@@ -79,6 +84,31 @@ func main() {
 			}
 			b.WriteString("```\n\n")
 		}
+	}
+
+	if *capabilities {
+		b.WriteString("# Database capabilities\n\n")
+		b.WriteString("_What the database can do — installed extensions and helper functions. Reuse these before hand-rolling SQL (e.g. snapshot_agent for backups, pgvector for similarity)._\n\n")
+
+		b.WriteString("## Installed extensions (`\\dx`)\n\n```\n")
+		if out, err := run(nil, `\dx`); err != nil {
+			b.WriteString("error: " + err.Error() + "\n")
+		} else {
+			b.WriteString(strings.TrimRight(out, "\n") + "\n")
+		}
+		b.WriteString("```\n\n")
+
+		dfCmd := `\df`
+		if *dfFilter != "" {
+			dfCmd = `\df ` + *dfFilter
+		}
+		b.WriteString("## Functions (`" + dfCmd + "`)\n\n```\n")
+		if out, err := run(nil, dfCmd); err != nil {
+			b.WriteString("error: " + err.Error() + "\n")
+		} else {
+			b.WriteString(strings.TrimRight(out, "\n") + "\n")
+		}
+		b.WriteString("```\n\n")
 	}
 
 	// fetchAndRender runs a SELECT with multipass sizing and returns markdown

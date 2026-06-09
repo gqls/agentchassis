@@ -55,6 +55,7 @@ func main() {
 		task         = flag.String("task", "", "the task description")
 		step         = flag.String("step", "implementation", "framing | implementation | debug")
 		schemaPath   = flag.String("schema", "", "optional schema text to include")
+		dbfactsPath  = flag.String("dbfacts", "", "optional DB capabilities file (from `dbcontext -capabilities`): extensions + helper functions to reuse")
 		maxNeighbour = flag.Int("max-neighbour", 60, "cap on neighbourhood signatures per group")
 		neighbour    = flag.String("neighbour", "callgraph", "neighbourhood mode: callgraph | package")
 	)
@@ -121,6 +122,15 @@ func main() {
 			os.Exit(1)
 		}
 		schemaText = string(b)
+	}
+	dbfactsText := ""
+	if *dbfactsPath != "" {
+		b, err := os.ReadFile(*dbfactsPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "read dbfacts: %v\n", err)
+			os.Exit(1)
+		}
+		dbfactsText = string(b)
 	}
 
 	full := *step != "framing" // framing shows signatures only
@@ -313,6 +323,14 @@ func main() {
 		w("_none provided — supply with -schema if this task touches the database_\n\n")
 	} else {
 		w("```\n%s\n```\n\n", strings.TrimSpace(schemaText))
+	}
+
+	// ---- database capabilities (helpers to reuse, extensions available) ----
+	w("---\n\n## Database capabilities\n\n")
+	if dbfactsText == "" {
+		w("_none provided — for a DB-touching task, capture with `dbcontext -capabilities` and pass `-dbfacts`. Lists helper functions to reuse (e.g. snapshot_agent) and installed extensions (e.g. pgvector) so you don't hand-roll what already exists._\n\n")
+	} else {
+		w("%s\n\n", strings.TrimSpace(dbfactsText))
 	}
 
 	// ---- runtime evidence (debug only) ----
