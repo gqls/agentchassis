@@ -22,3 +22,6 @@ kubectl -n kafka run kcat-iter0-$(date +%s) --rm -i --restart=Never \
   -H timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ") <<'JSON'
 {"action":"orchestrate","config":{"agent_type":"model-trainer"},"input_data":{"export_id":"146a9a12-c953-48eb-bf1f-c1856e5f13b7","hyperparameters":{"epochs":3,"batch":1,"grad_accum":8,"lr":0.0002,"lora_r":16,"lora_alpha":16,"max_seq":4096}}}
 JSON
+
+
+146a9a12-c953-48eb-bf1f-c1856e5f13b7

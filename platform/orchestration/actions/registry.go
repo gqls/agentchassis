@@ -1173,6 +1173,13 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	"dispatch_thunder_prepare_object_urls": {
+		Handler:     DispatchThunderPrepareObjectURLsAction,
+		Category:    "training",
+		Description: "Publish a BATCH prepare_object_urls request to thunder-adapter to presign many B2 keys (same method/expiry) in ONE awaited round-trip; returns ordered presigned_urls[] aligned 1:1 with the input keys. Replaces training-launcher's per-checkpoint presign loop + flatten (the loop re-persisted the expanded workflow each iteration, O(K^2)); the adapter remains the B2 credential boundary.",
+		IsLocal:     true,
+	},
+
 	"mark_training_run_running": {
 		Handler:     MarkTrainingRunRunningAction,
 		Category:    "training",
