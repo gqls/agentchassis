@@ -8,7 +8,8 @@
 // current_section.resolved_data) picks them up with no render-loop change.
 //
 // Contract:
-//   in : site_id, page_type, sections (the section_plan.sections_ready list)
+//   in : site_id (required), page_type, page_name, and a `sections` config PATH
+//        pointing at section_plan.sections_ready
 //   out: { "sections_ready": [...augmented...],
 //          "unresolved":     [ {section, component, field, slot} ... ] }
 // The caller (page-content-writer) iterates the returned sections_ready; an
@@ -19,13 +20,20 @@
 // about/contact/legal, skipping the page's own hub). Real, validated, never a
 // phantom; absent hub -> field left unset (gated template renders no button) and
 // reported unresolved. The agent boundary lets this be upgraded (LLM intent-
-// matching: a guide -> its related tool) without changing callers.
+// matching: a guide -> its related tool) without changing callers — page_type is
+// carried for that future use.
 //
 // Field names differ by component:
 //   hero            -> cta_url (primary), secondary_cta_url (secondary)
 //   call-to-action  -> primary_cta_url (primary), secondary_cta_url (secondary)
 //
-// Registration:
+// Input handling follows 003/001 contracts: site_id/page_type/page_name are
+// scalars via ExtractActionInputs; `sections` is a complex (array) value whose
+// config holds a PATH, so it is resolved directly from collected_data. `sections`
+// is deliberately NOT an InputSpec field — that name collides with the
+// pages.sections column reachable through the current_page nested-source loop.
+//
+// Registration (action_registry.go):
 //   "resolve_internal_links": { Handler: ResolveInternalLinksAction,
 //       Category: "content", IsLocal: true }
 
@@ -44,7 +52,7 @@ import (
 
 var ResolveInternalLinksInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
-	Optional:   []string{"page_type", "sections"},
+	Optional:   []string{"page_type", "page_name"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }
@@ -89,20 +97,27 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 		return nil, fmt.Errorf("invalid site_id: %w", err)
 	}
 	pageType := inputs.Get("page_type")
+	pageName := inputs.Get("page_name")
 
-	// Sections come through as the section_plan.sections_ready list. Read them
-	// as a generic slice; we mutate the CTA-bearing ones in place.
-	rawSections := datahelpers.ExtractNestedField(params.CollectedData, "sections")
-	sections, _ := rawSections.([]interface{})
+	// `sections` config value is a PATH (e.g. "input_data.section_plan.sections_ready").
+	// Resolve it directly from collected_data: it is a complex array value (not a
+	// scalar ExtractActionInputs could return) and keeping it out of the InputSpec
+	// avoids the current_page.sections field-name collision.
+	var sections []interface{}
+	if sectionsPath, ok := params.StepConfig.Config["sections"].(string); ok && sectionsPath != "" {
+		if raw := datahelpers.ExtractNestedField(params.CollectedData, sectionsPath); raw != nil {
+			sections, _ = raw.([]interface{})
+		}
+	}
 
 	hubs, err := loadContentHubs(ctx, params, siteID, logger)
 	if err != nil {
 		return nil, err
 	}
 	validPages := loadResolverPageSet(ctx, params, siteID, logger)
+	primary, secondary := chooseCTATargets(pageType, pageName, hubs)
 
 	var unresolved []map[string]interface{}
-
 	for _, raw := range sections {
 		section, ok := raw.(map[string]interface{})
 		if !ok {
@@ -113,10 +128,7 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 		if !isCTA {
 			continue
 		}
-
 		sectionName := stringOrEmpty(section["name"])
-		primary, secondary := chooseCTATargets(pageType, sectionName, hubs)
-
 		resolved := sectionResolvedData(section)
 		setCTAField(resolved, fields[0], primary, validPages, function, sectionName, "primary", &unresolved)
 		setCTAField(resolved, fields[1], secondary, validPages, function, sectionName, "secondary", &unresolved)
@@ -125,6 +137,7 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 
 	logger.Info("resolve_internal_links: augmented CTA sections",
 		zap.String("page_type", pageType),
+		zap.String("page_name", pageName),
 		zap.Int("section_count", len(sections)),
 		zap.Int("hub_count", len(hubs)),
 		zap.Int("unresolved", len(unresolved)))
@@ -151,11 +164,16 @@ func setCTAField(resolved map[string]interface{}, field, url string, validPages 
 }
 
 // chooseCTATargets — v1: top two content hubs by nav_order, excluding the page's
-// own hub and utility/legal areas. Empty string => no sensible target.
-func chooseCTATargets(pageType, sectionName string, hubs []contentHub) (string, string) {
+// own hub (by name) and utility/legal areas. Empty string => no sensible target.
+// pageType is carried for a future intent-aware (LLM) upgrade; v1 does not branch
+// on it.
+func chooseCTATargets(pageType, pageName string, hubs []contentHub) (string, string) {
 	ordered := make([]contentHub, 0, len(hubs))
 	for _, h := range hubs {
 		if areasExcludedFromCTA[h.Area] {
+			continue
+		}
+		if pageName != "" && h.Name == pageName { // don't point a page's hero at itself
 			continue
 		}
 		ordered = append(ordered, h)

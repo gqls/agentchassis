@@ -50,10 +50,16 @@ ENV_DIR="${ENV_DIR:-/etc/probe}"
 ENV_FILE="${ENV_FILE:-$ENV_DIR/probe.env}"
 ACME_WEBROOT="${ACME_WEBROOT:-/var/www/letsencrypt}"
 WEBROOT_BASE="${WEBROOT_BASE:-/var/www/probe}" # per-domain static roots: $WEBROOT_BASE/<domain>
-# Owner of the per-domain web roots. The deploy Action's SSH user (VM_USER) must
-# be able to WRITE here; nginx (www-data) only needs READ. Default keeps the old
-# www-data ownership; set e.g. "deploy:www-data" to let a `deploy` user rsync in.
-# (NEW param vs the idea.uk original.)
+# Optional deploy user that the GitHub Actions (content rsync + engine update) SSH
+# in as. When set: the per-domain web roots default to being owned by it, and a
+# narrow privileged engine-update hook + sudoers rule are installed (see below).
+# setup.sh does NOT create this user or its SSH key — the operator does that
+# during onboarding (see runbook). (NEW param vs the idea.uk original.)
+DEPLOY_USER="${DEPLOY_USER:-}"
+# Owner of the per-domain web roots. The deploy user must be able to WRITE here;
+# nginx (www-data) only needs READ. Defaults to the deploy user when one is set,
+# else the old www-data ownership. (NEW param vs the idea.uk original.)
+WEBROOT_OWNER="${WEBROOT_OWNER:-${DEPLOY_USER:+$DEPLOY_USER:www-data}}"
 WEBROOT_OWNER="${WEBROOT_OWNER:-www-data:www-data}"
 WEBROOT_USER="${WEBROOT_OWNER%%:*}"
 WEBROOT_GROUP="${WEBROOT_OWNER##*:}"
@@ -328,6 +334,32 @@ EOF
 
 systemctl daemon-reload
 systemctl enable probe >/dev/null 2>&1 || true
+
+# ── engine-update hook (least-privilege path for the engine-deploy Action) ───────
+# When DEPLOY_USER is set, install a narrow root-owned script that atomically
+# swaps the engine binary and restarts the service, plus a sudoers rule letting
+# DEPLOY_USER run ONLY that script. The CI engine-deploy workflow then does:
+#   scp probe deploy@box:/tmp/probe.new
+#   ssh deploy@box sudo /usr/local/sbin/probe-deploy-engine /tmp/probe.new
+# The swapped binary runs as the unprivileged $SERVICE_USER (systemd User=), so a
+# compromised deploy key cannot escalate to root.
+if [[ -n "$DEPLOY_USER" ]]; then
+  log "installing engine-update hook for deploy user '$DEPLOY_USER'"
+  cat >/usr/local/sbin/probe-deploy-engine <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+src="\${1:?usage: probe-deploy-engine /path/to/new/binary}"
+[[ -f "\$src" ]] || { echo "no such binary: \$src" >&2; exit 1; }
+install -m 0755 -o root -g root "\$src" "$APP_DIR/probe.new"
+mv -f "$APP_DIR/probe.new" "$APP_DIR/probe"   # atomic swap
+systemctl restart probe
+systemctl --no-pager status probe | head -n 3 || true
+EOF
+  chmod 0755 /usr/local/sbin/probe-deploy-engine
+  echo "$DEPLOY_USER ALL=(root) NOPASSWD: /usr/local/sbin/probe-deploy-engine" >/etc/sudoers.d/probe-deploy
+  chmod 0440 /etc/sudoers.d/probe-deploy
+  visudo -cf /etc/sudoers.d/probe-deploy >/dev/null
+fi
 
 # ── nginx, stage 1: http (serves static + ACME + API proxy) ──────────────────────
 log "writing nginx conf (stage 1: http for all domains)"
