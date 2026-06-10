@@ -332,7 +332,8 @@ func (r *sourceResolver) resolve(ctx context.Context, source string) (interface{
 			return url, true
 		}
 		// Fallback: construct URL
-		return "/" + path + ".html", true
+		// return "/" + path + ".html", true
+		return nil, false
 
 	case "config":
 		r.ensureSpecs(ctx)

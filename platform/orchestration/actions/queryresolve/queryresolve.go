@@ -82,6 +82,9 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 	case "pages_under_section":
 		return resolvePagesUnderSection(ctx, db, req.SiteID, arg, req.Limit, logger)
 
+	case "section_index_for":
+		return resolveSectionIndexForType(ctx, db, req.SiteID, arg, logger)
+
 	default:
 		return nil, fmt.Errorf("queryresolve.Resolve: unknown query name %q (base %q)", req.Name, base)
 	}
