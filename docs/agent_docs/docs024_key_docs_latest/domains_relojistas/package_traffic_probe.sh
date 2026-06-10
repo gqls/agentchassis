@@ -1,45 +1,41 @@
 #!/bin/bash
 #
-# package_idea_uk_golive.sh
-#   Self-contained packager for the IDEA.UK GO-LIVE context.
-#   Bundles the idea.uk service (Go code + embedded page + deploy) and the
-#   go-live docs (handoff, architecture, email, liability, Stripe plan, the
-#   §11 deploy guide) into one context file for an AI assistant.
+# package_traffic_probe.sh
+#   Self-contained packager for the DOMAIN TRAFFIC-PROBE context (a SEPARATE
+#   project from idea.uk that reuses idea.uk's VM/nginx/Go deployment model).
+#   Bundles: the task brief + the domain list, the reusable Go service to fork,
+#   and the deploy/persistence/VM docs — into one context file for a new chat.
 #
-#   idea.uk is a single self-contained Go binary with file-based persistence
-#   (store.go) — NO database, NO SQL/schema, NOT on Kubernetes. No live capture.
+#   No live capture: the probe boxes don't exist yet, there's no DB, not on k8s.
+#   Copes with the messy folder: docs resolve to the NEWEST (N) variant by mtime;
+#   the code walk drops *.orig* backups + the idea binary.
 #
-#   COPES WITH A MESSY FOLDER: the idea.uk docs accumulate as (N)-versioned
-#   copies where the un-suffixed name is the OLDEST, so each doc is resolved to
-#   the NEWEST variant by mtime. The code walk drops *.orig* backups + the binary.
+# Usage:  ./package_traffic_probe.sh [-o output_dir] [--no-debugdoc]
+#   Run from the repo root (go.mod), or set REPO_ROOT.
+#   Put the brief + domain list in  docs024_key_docs_latest/traffic_probe/  (or set TASK_DIR).
+#   Env: REPO_ROOT TASK_DIR DOC_SEARCH_ROOT IDEA_GO_DIR
 #
-# Usage:  ./package_idea_uk_golive.sh [-o output_dir] [--no-debugdoc]
-#   Run it from the repo root (where go.mod is), or set REPO_ROOT / IDEA_ROOT.
-#   Env overrides: REPO_ROOT, IDEA_ROOT, CODE_DIR, DOC_SEARCH_ROOT
+# Output:  <output_dir>/traffic-probe_context.txt   (default under traffic_probe/output_contexts)
 #
-# Output:  <output_dir>/idea-uk-golive_context.txt
-#   (default under idea.uk/docubundle_idea_golive/package_module/output_contexts)
-#
-# Requires GNU find (Linux) for -printf. --no-debugdoc drops the large guide.
+# Requires GNU find (Linux) for -printf.
 # ---------------------------------------------------------------------
 
 set -e
 
-# --- Self-locating (find the agentchassis repo root) -----------------
+# --- Self-locating (agentchassis repo root) --------------------------
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 REPO_ROOT="${REPO_ROOT:-$SCRIPT_DIR}"
 if [ ! -f "$REPO_ROOT/go.mod" ] && [ -f "$PWD/go.mod" ]; then REPO_ROOT="$PWD"; fi
 
 # --- Configuration (override any as env vars) ------------------------
 DOCS024="$REPO_ROOT/docs/agent_docs/docs024_key_docs_latest"
-IDEA_ROOT="${IDEA_ROOT:-$DOCS024/idea.uk}"          # the idea.uk folder
-CODE_DIR="${CODE_DIR:-$IDEA_ROOT/golang_files}"     # the Go service
-DOC_SEARCH_ROOT="${DOC_SEARCH_ROOT:-$DOCS024}"      # docs tree (searched for newest variants)
-PROJECT_ROOT="$REPO_ROOT"                            # ./relative headers are repo-relative
-DEFAULT_OUTPUT_DIR="$IDEA_ROOT/docubundle_idea_golive/package_module/output_contexts"
+TASK_DIR="${TASK_DIR:-$DOCS024/traffic_probe}"          # where the brief + domain list live
+DOC_SEARCH_ROOT="${DOC_SEARCH_ROOT:-$DOCS024}"          # docs tree (searched for newest variants)
+IDEA_GO_DIR="${IDEA_GO_DIR:-$DOCS024/idea.uk/golang_files}"  # the reusable Go service to fork
+PROJECT_ROOT="$REPO_ROOT"                                # ./relative headers are repo-relative
+DEFAULT_OUTPUT_DIR="$TASK_DIR/domains_relojistas/docubundle/output_contexts"
 WITH_DEBUGDOC=true
 
-# Directories never worth walking/searching (old copies, isolation blobs, prior bundles).
 NOISE=( -not -path '*/.git/*' -not -path '*/vendor/*' -not -path '*/node_modules/*'
         -not -path '*/output_contexts/*' -not -path '*/old_golang_files/*'
         -not -path '*/python_files/*' -not -path '*/_iso/*' )
@@ -52,7 +48,8 @@ while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
     --no-debugdoc)  WITH_DEBUGDOC=false ;;
     -h | --help)
       echo "Usage: $0 [-o output_dir] [--no-debugdoc]"
-      echo "Env: REPO_ROOT IDEA_ROOT CODE_DIR DOC_SEARCH_ROOT"
+      echo "Env: REPO_ROOT TASK_DIR DOC_SEARCH_ROOT IDEA_GO_DIR"
+      echo "Put TASK_traffic_probe_brief.md + traffic_probe_domains.tsv in \$TASK_DIR."
       exit 0 ;;
   esac
   shift
@@ -60,7 +57,7 @@ done
 
 RESOLVED=(); MISSING=()
 
-# --- Helpers ---------------------------------------------------------
+# --- Helpers (same resolution logic as the other packagers) ----------
 function emit() {                # $1=path  $2=list_only
   local path=$1 lo=$2 rel
   rel="${path#$PROJECT_ROOT/}"
@@ -71,8 +68,7 @@ function emit() {                # $1=path  $2=list_only
   RESOLVED+=("$rel")
 }
 
-# Resolve a logical doc name to the NEWEST matching variant (name + name(N).ext).
-function add_doc() {             # $1=logical name  $2=search_root  $3=list_only(optional)
+function add_doc() {             # $1=name  $2=search_root  $3=list_only(optional)
   local want=$1 root=${2:-$DOC_SEARCH_ROOT} lo=${3:-false}
   local base stem ext pat2 hits path n
   base=$(basename "$want"); stem="${base%.*}"; ext="${base##*.}"
@@ -87,10 +83,9 @@ function add_doc() {             # $1=logical name  $2=search_root  $3=list_only
   else MISSING+=("$want"); echo "  MISSING: $want" >&2; fi
 }
 
-# Walk a directory: every non-binary, non-test, non-.orig file.
 function write_directory() {     # $1=dir
   local dir_path=$1
-  if [ ! -d "$dir_path" ]; then echo "Warning: directory '$dir_path' not found. Skipping." >&2; MISSING+=("$dir_path/"); return; fi
+  if [ ! -d "$dir_path" ]; then echo "Warning: dir '$dir_path' not found. Skipping." >&2; MISSING+=("$dir_path/"); return; fi
   dir_path="${dir_path%/}"
   while IFS= read -r -d $'\0' file; do
     [ "$(realpath "$file" 2>/dev/null)" = "$(realpath "$OUTPUT_FILE" 2>/dev/null)" ] && continue
@@ -106,42 +101,38 @@ function write_directory() {     # $1=dir
 
 # --- The bundle ------------------------------------------------------
 mkdir -p "$OUTPUT_DIR"
-OUTPUT_FILE="${OUTPUT_DIR}/idea-uk-golive_context.txt"
+OUTPUT_FILE="${OUTPUT_DIR}/traffic-probe_context.txt"
 > "$OUTPUT_FILE"
 
-echo "Packaging idea.uk go-live context"
+echo "Packaging domain traffic-probe context"
 echo "  repo root:   $REPO_ROOT"
-echo "  idea root:   $IDEA_ROOT"
-echo "  code dir:    $CODE_DIR"
+echo "  task dir:    $TASK_DIR"
+echo "  engine src:  $IDEA_GO_DIR"
 echo "  output file: $OUTPUT_FILE"
 
-# 1) The Go service (code + embedded page + deploy/). Tests + *.orig excluded.
-#    This also captures terms_preview.html / privacy_preview.html (they live here).
-write_directory "$CODE_DIR"
+# 1) The new task definition: brief + domain list.
+add_doc "TASK_traffic_probe_brief.md" "$TASK_DIR"
+add_doc "traffic_probe_domains.tsv"   "$TASK_DIR"
 
-# 2) Go-live docs — each resolved to its NEWEST (N) variant under the docs tree.
-DOCS=(
-  "HANDOFF.md"
-  "running_notes.md"
-  "idea_uk_architecture_and_deployment.md"
-  "EMAIL_identity_in_site_spec.md"
-  "LIABILITY_AND_TERMS.md"
-  "PLAN_stripe_billing_integration.md"
-  "RUNBOOK_idea_uk.md"
-  "DEVELOPMENT_RUNBOOK.md"
-  "leopardess_uk_index.html"
-)
-for d in "${DOCS[@]}"; do add_doc "$d"; done
+# 2) The reusable VM/nginx/Go service to fork (drops *.orig + the binary).
+#    Keep service.go/store.go/page.html/main.go/deploy/; the idea.uk-specific
+#    engine/prompts/billing/audience_check ride along as Go+Anthropic reference.
+write_directory "$IDEA_GO_DIR"
 
-# 3) The large deploy/debug guide (skip with --no-debugdoc).
-if [ "$WITH_DEBUGDOC" = true ]; then add_doc "016_debugging_guide_v2_32.md"
+# 3) Deploy / persistence / VM docs (newest variant under the docs tree).
+for f in idea_uk_architecture_and_deployment.md VM_LAUNCH_PLAN.md README_setup_box.md \
+         PERSISTENCE_design.md PLAN_checkpoint_and_artefact_upload_b2.md; do
+  add_doc "$f" "$DOC_SEARCH_ROOT"; done
+
+# 4) The large deploy/debug guide (skip with --no-debugdoc).
+if [ "$WITH_DEBUGDOC" = true ]; then add_doc "016_debugging_guide_v2_32.md" "$DOC_SEARCH_ROOT"
 else echo "  (skipping 016_debugging_guide_v2_32.md per --no-debugdoc)"; fi
 
 # --- Report ----------------------------------------------------------
 echo ""
 echo "Included ${#RESOLVED[@]} files."
 if [ "${#MISSING[@]}" -gt 0 ]; then
-  echo "MISSING (${#MISSING[@]}) — adjust REPO_ROOT/IDEA_ROOT/CODE_DIR/DOC_SEARCH_ROOT, or sync the file in:"
+  echo "MISSING (${#MISSING[@]}) — fix REPO_ROOT/TASK_DIR/DOC_SEARCH_ROOT/IDEA_GO_DIR, or drop the file in:"
   printf '  - %s\n' "${MISSING[@]}"
 fi
 echo "Done. Context saved to $OUTPUT_FILE"

@@ -1,0 +1,388 @@
+# traffic_probe_domains.tsv
+# Domain list for the traffic-probe task. Source: parked/aftermarket marketplace export.
+# The LAST column is the marketplace own ESTIMATED recent visits (relative ranking, not audited).
+# Columns (tab-separated): domain  priceA  priceB  floor_min  flag  -  lander_type  Y  Y  N  N  tld  date_listed  listing_state  eligibility_status  est_visits
+# Eligibility statuses (Pending Review / Opt-in Required / TLD Not Eligible / Registrar Not Eligible / Active / Buy Now Price Too High)
+# refer to the PARKING program monetisation, NOT to whether you can repoint DNS.
+
+## RANKED BY ESTIMATED VISITS (desc):  est_visits  domain  tld  eligibility_status
+1201799	relojistas.com	com	Registrar Not Eligible
+28822	wayfaringlondoner.com	com	Pending Review
+3285	traderboltai.com	com	Active
+3104	surgerylight.com	com	Opt-in Required
+1489	kitchensep.com	com	Pending Review
+880	zdec.com	com	Pending Review
+523	komunikatif.com	com	Opt-in Required
+335	fallingwaterdesignbuild.com	com	Pending Review
+234	hoeinvestereninvastgoed.com	com	Pending Review
+224	makeitaquote.com	com	Opt-in Required
+150	vinrose.com	com	Pending Review
+141	buysportskit.com	com	Pending Review
+130	thecentralbanker.com	com	Pending Review
+122	monitorizare.com	com	Pending Review
+114	lodgeswithhottubs.club	club	TLD Not Eligible
+109	equitycalculator.co.uk	co.uk	TLD Not Eligible
+106	designs.co.uk	co.uk	TLD Not Eligible
+106	bitesizejewelry.com	com	Registrar Not Eligible
+102	bigotime.com	com	Pending Review
+98	idea.uk	uk	TLD Not Eligible
+91	hcare.co.uk	co.uk	TLD Not Eligible
+83	thoroughcleaners.com	com	Pending Review
+80	nanangmrk.com	com	Active
+77	toletonline.com	com	Pending Review
+64	ijih.com	com	Registrar Not Eligible
+54	outfax.com	com	Registrar Not Eligible
+49	gluestore.com	com	Pending Review
+43	whatvacancy.com	com	Opt-in Required
+42	canadianforestry.com	com	Registrar Not Eligible
+39	smartbusinesssupplies.com	com	Pending Review
+34	vetsait.com	com	Pending Review
+34	reclinerseat.com	com	Registrar Not Eligible
+33	industrialsewingholland.com	com	Opt-in Required
+32	conjurar.com	com	Pending Review
+30	womandaybook.com	com	Pending Review
+28	hesjes.com	com	Opt-in Required
+27	jet-hire.com	com	Opt-in Required
+26	teknolojisa.com	com	Pending Review
+25	ideal-property-mallorca.com	com	Opt-in Required
+25	free-credit-report-check.com	com	Opt-in Required
+24	giftxmas.com	com	Pending Review
+24	apetlon.com	com	Pending Review
+22	promowork.com	com	Opt-in Required
+22	goldwerte.com	com	Pending Review
+21	sportswearinc.com	com	Pending Review
+20	swisswealthm.com	com	Opt-in Required
+20	dumptruckinsurancedeals.com	com	Pending Review
+20	corporateinvitation.com	com	Opt-in Required
+20	campingandcaravanpark.com	com	Pending Review
+19	appareilsmenagers.com	com	Pending Review
+18	terracepaint.com	com	Opt-in Required
+18	southernprints.co.uk	co.uk	TLD Not Eligible
+18	kilocars.com	com	Pending Review
+17	ticketsconcertssports.com	com	Pending Review
+17	modernlandscapedesigners.com	com	Pending Review
+17	easypedestal.com	com	Pending Review
+17	droneroofsurvey.com	com	Pending Review
+16	findinsurersonline.com	com	Pending Review
+15	syndicatedloandirect.com	com	Pending Review
+14	umeg.com	com	Pending Review
+14	trekkingsaddles.com	com	Opt-in Required
+14	finance.org.uk	org.uk	TLD Not Eligible
+13	tourercaravans.com	com	Pending Review
+13	goldbrocade.com	com	Registrar Not Eligible
+13	creditoinmobiliario.com	com	Pending Review
+13	caravanparkhomes.com	com	Pending Review
+13	avenueprivee.com	com	Pending Review
+13	aproximar.com	com	Pending Review
+12	xhii.com	com	Pending Review
+12	ukcommercialmortgage.com	com	Opt-in Required
+12	primus-capital.com	com	Opt-in Required
+12	deluxemeubelen.com	com	Pending Review
+11	designs.uk	uk	TLD Not Eligible
+11	cogk.com	com	Opt-in Required
+11	caravan-sites.com	com	Pending Review
+11	boxingonline.com	com	Pending Review
+10	kathyappleby.com	com	Pending Review
+10	excavador.com	com	Pending Review
+9	plumbersjobs.com	com	Pending Review
+9	plaquefreedental.com	com	Pending Review
+9	lasislasmaldivas.com	com	Opt-in Required
+9	kongelige.com	com	Pending Review
+9	holidaytime.com	com	Pending Review
+9	cassavaroot.com	com	Pending Review
+8	plantarproblems.com	com	Pending Review
+8	oldgoldjewelry.com	com	Pending Review
+8	irrcalculator.com	com	Pending Review
+8	horizon-agency.com	com	Opt-in Required
+8	girly.co.uk	co.uk	TLD Not Eligible
+8	eetz.com	com	Buy Now Price Too High
+8	dreamholidayvillas.com	com	Registrar Not Eligible
+8	depositprotectionscheme.com	com	Opt-in Required
+8	badskor.com	com	Pending Review
+7	ventilateurs.com	com	Pending Review
+7	roomfinder.co.uk	co.uk	TLD Not Eligible
+7	lincolnshireproperties.com	com	Registrar Not Eligible
+7	kzlu.com	com	Pending Review
+7	gymproteins.com	com	Pending Review
+7	fees.co.uk	co.uk	TLD Not Eligible
+7	cvconsultants.com	com	Registrar Not Eligible
+7	bicicletasplegables.com	com	Pending Review
+7	bancaras.com	com	Pending Review
+7	averyvet.com	com	Pending Review
+7	arabianperfumes.co.uk	co.uk	TLD Not Eligible
+6	surgeryhealthcare.com	com	Pending Review
+6	operazione.com	com	Pending Review
+6	mietswohnungen.com	com	Pending Review
+6	malagahomerentals.com	com	Pending Review
+6	fertilizerdispensers.com	com	Pending Review
+6	cebolleta.com	com	Pending Review
+6	apis.uk	uk	TLD Not Eligible
+6	altergasthof.com	com	Pending Review
+6	allesreiniger.com	com	Pending Review
+5	vehicle-hire.com	com	Opt-in Required
+5	ujoi.com	com	Pending Review
+5	turbine-maintenance.com	com	Opt-in Required
+5	smallmicrowaves.com	com	Pending Review
+5	posh.uk	uk	TLD Not Eligible
+5	plaquistes.com	com	Pending Review
+5	ortd.com	com	Pending Review
+5	lvqf.com	com	Pending Review
+5	le-site.com	com	Pending Review
+5	healthscare.uk	uk	TLD Not Eligible
+5	ekcema.com	com	Pending Review
+5	clips.uk	uk	TLD Not Eligible
+5	boatrepairs.co.uk	co.uk	TLD Not Eligible
+5	bleusaphir.com	com	Pending Review
+4	viuty.shop	shop	TLD Not Eligible
+4	vidaartificial.com	com	Pending Review
+4	vacanzaperfetta.com	com	Opt-in Required
+4	speelhuisjes.com	com	Pending Review
+4	slevio.com	com	Pending Review
+4	seqd.com	com	Pending Review
+4	ricemills.com	com	Pending Review
+4	pitforex.com	com	Pending Review
+4	metalprimer.com	com	Pending Review
+4	ledernes.com	com	Pending Review
+4	laserbatteries.com	com	Registrar Not Eligible
+4	kogj.com	com	Pending Review
+4	jethire.co.uk	co.uk	TLD Not Eligible
+4	hingedkneebraces.com	com	Pending Review
+4	guaranteed.co.uk	co.uk	TLD Not Eligible
+4	fixedtermloans.com	com	Pending Review
+4	finance-analyst.com	com	Opt-in Required
+4	dreiraeder.com	com	Pending Review
+4	beekar.com	com	Opt-in Required
+4	aprj.com	com	Opt-in Required
+4	applesorter.com	com	Opt-in Required
+4	anatinae.com	com	Pending Review
+4	aggeggi.com	com	Pending Review
+4	adversecreditmortgage.co.uk	co.uk	TLD Not Eligible
+3	yachtingropes.com	com	Pending Review
+3	websydesigns.com	com	Pending Review
+3	tradenonline.com	com	Pending Review
+3	splendent.co.uk	co.uk	TLD Not Eligible
+3	sabinanigo.com	com	Pending Review
+3	rampljus.com	com	Pending Review
+3	privatemedicatlinsurancequotation.co.uk	co.uk	TLD Not Eligible
+3	overpronation.com	com	Opt-in Required
+3	overclad.com	com	Pending Review
+3	onlinepuzzle.co.uk	co.uk	TLD Not Eligible
+3	oilexplorer.com	com	Opt-in Required
+3	negociado.com	com	Pending Review
+3	monologuer.com	com	Pending Review
+3	lampusolar.com	com	Pending Review
+3	kopz.com	com	Pending Review
+3	ipry.com	com	Pending Review
+3	interestonlytermmortgage.com	com	Pending Review
+3	healthscare.co.uk	co.uk	TLD Not Eligible
+3	gynasyke.com	com	Pending Review
+3	greenpowerjuicers.com	com	Pending Review
+3	ga85.com	com	Pending Review
+3	evaporative-cooling.com	com	Pending Review
+3	dividends.co.uk	co.uk	TLD Not Eligible
+3	developmentarea.com	com	Pending Review
+3	delivery-driver-job.co.uk	co.uk	TLD Not Eligible
+3	deep-dive.uk	uk	TLD Not Eligible
+3	cuddle.uk	uk	TLD Not Eligible
+3	cranehireuk.com	com	Pending Review
+3	concrete-homes.com	com	Pending Review
+3	comprarticket.com	com	Opt-in Required
+3	compareenergyprices.co.uk	co.uk	TLD Not Eligible
+3	companyjingles.com	com	Registrar Not Eligible
+3	chocolatefountainhire.com	com	Pending Review
+3	carbootfair.com	com	Pending Review
+3	auberginen.com	com	Pending Review
+3	articlesubmission.co.uk	co.uk	TLD Not Eligible
+3	aircraft-docking.com	com	Pending Review
+3	actuariel.com	com	Pending Review
+
+## RAW EXPORT (verbatim, as supplied)
+actuariel.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+aircraft-docking.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+articlesubmission.co.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	3
+auberginen.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+carbootfair.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	3
+chocolatefountainhire.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+companyjingles.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	3
+compareenergyprices.co.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	3
+comprarticket.com	24000	15000	10000	N	-	Request Price	Y	Y	N	N	com	Wed Dec 10 2025	Listed	Opt-in Required	3
+concrete-homes.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+cranehireuk.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	3
+cuddle.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	uk	Sat Oct 26 2024	Listed	TLD Not Eligible	3
+deep-dive.uk	0	0	10000	N	-	Request Price	Y	Y	N	N	uk	Tue Dec 09 2025	Listed	TLD Not Eligible	3
+delivery-driver-job.co.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	3
+developmentarea.com	0	0	30000	N	-	Custom Lander	N	N	Y	N	com	Sat Oct 26 2024	Listed	Pending Review	3
+dividends.co.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	3
+evaporative-cooling.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+ga85.com	0	0	30000	N	-	Custom Lander	N	N	Y	N	com	Sat Oct 26 2024	Listed	Pending Review	3
+greenpowerjuicers.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon Dec 29 2025	Listed	Pending Review	3
+gynasyke.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+healthscare.co.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	3
+interestonlytermmortgage.com	0	0	30000	N	-	Custom Lander	N	N	Y	N	com	Sat Oct 26 2024	Listed	Pending Review	3
+ipry.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	3
+kopz.com	0	0	10000	N	-	Request Price	N	N	Y	N	com	Wed Dec 10 2025	Listed	Pending Review	3
+lampusolar.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+monologuer.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+negociado.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+oilexplorer.com	4999	4300	2500	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Opt-in Required	3
+onlinepuzzle.co.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	3
+overclad.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Wed Dec 10 2025	Listed	Pending Review	3
+overpronation.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	3
+privatemedicatlinsurancequotation.co.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	3
+rampljus.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+sabinanigo.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+splendent.co.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	3
+tradenonline.com	0	0	20000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+websydesigns.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon Dec 29 2025	Listed	Pending Review	3
+yachtingropes.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	3
+adversecreditmortgage.co.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	4
+aggeggi.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	4
+anatinae.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	4
+applesorter.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Opt-in Required	4
+aprj.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	4
+beekar.com	4999	4300	2500	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	4
+dreiraeder.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	4
+finance-analyst.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	4
+fixedtermloans.com	0	0	30000	N	-	Custom Lander	N	N	Y	N	com	Sat Oct 26 2024	Listed	Pending Review	4
+guaranteed.co.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	4
+hingedkneebraces.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	4
+jethire.co.uk	0	0	30000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	4
+kogj.com	0	0	10000	N	-	Request Price	N	N	Y	N	com	Wed Dec 10 2025	Listed	Pending Review	4
+laserbatteries.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	4
+ledernes.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Fri Dec 19 2025	Listed	Pending Review	4
+metalprimer.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	4
+pitforex.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon Dec 29 2025	Listed	Pending Review	4
+ricemills.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	4
+seqd.com	0	0	50000	N	-	Custom Lander	N	N	Y	N	com	Sat Oct 26 2024	Listed	Pending Review	4
+slevio.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Wed Dec 10 2025	Listed	Pending Review	4
+speelhuisjes.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	4
+vacanzaperfetta.com	4999	4300	2500	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	4
+vidaartificial.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	4
+viuty.shop	4999	4300	2500	N	-	Request Price	Y	Y	N	N	shop	Tue Dec 09 2025	Listed	TLD Not Eligible	4
+bleusaphir.com	0	10000	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	5
+boatrepairs.co.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	5
+clips.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	uk	Sat Oct 26 2024	Listed	TLD Not Eligible	5
+ekcema.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon Dec 29 2025	Listed	Pending Review	5
+healthscare.uk	0	0	20000	N	-	Custom Lander	N	N	Y	N	uk	Sat Oct 26 2024	Listed	TLD Not Eligible	5
+le-site.com	0	0	10000	N	-	Request Price	N	N	Y	N	com	Wed Dec 10 2025	Listed	Pending Review	5
+lvqf.com	0	0	10000	N	-	Request Price	N	N	Y	N	com	Wed Dec 10 2025	Listed	Pending Review	5
+ortd.com	0	0	10000	N	-	Request Price	N	N	Y	N	com	Tue Dec 09 2025	Listed	Pending Review	5
+plaquistes.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	5
+posh.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	uk	Sat Oct 26 2024	Listed	TLD Not Eligible	5
+smallmicrowaves.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	5
+turbine-maintenance.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	5
+ujoi.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon Dec 29 2025	Listed	Pending Review	5
+vehicle-hire.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	5
+allesreiniger.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	6
+altergasthof.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	6
+apis.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	uk	Sat Oct 26 2024	Listed	TLD Not Eligible	6
+cebolleta.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	6
+fertilizerdispensers.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	6
+malagahomerentals.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	6
+mietswohnungen.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	6
+operazione.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	6
+surgeryhealthcare.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	6
+arabianperfumes.co.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	7
+averyvet.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	7
+bancaras.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon Dec 29 2025	Listed	Pending Review	7
+bicicletasplegables.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	7
+cvconsultants.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	7
+fees.co.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	7
+gymproteins.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Apr 21 2026	Listed	Pending Review	7
+kzlu.com	0	0	10000	N	-	Request Price	N	N	Y	N	com	Wed Dec 10 2025	Listed	Pending Review	7
+lincolnshireproperties.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	7
+roomfinder.co.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	7
+ventilateurs.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	7
+badskor.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	8
+depositprotectionscheme.com	20000	12000	10000	N	-	Request Price	Y	Y	N	N	com	Mon Dec 29 2025	Listed	Opt-in Required	8
+dreamholidayvillas.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	8
+eetz.com	180000	0	120000	N	-	Custom Lander	Y	N	Y	N	com	Sat Oct 26 2024	Listed	Buy Now Price Too High	8
+girly.co.uk	0	0	10000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	8
+horizon-agency.com	4999	4300	2500	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	8
+irrcalculator.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	8
+oldgoldjewelry.com	0	20000	20000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	8
+plantarproblems.com	0	0	20000	N	-	Request Price	Y	Y	N	N	com	Mon Dec 29 2025	Listed	Pending Review	8
+cassavaroot.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	9
+holidaytime.com	0	0	100000	N	-	Request Price	N	N	Y	N	com	Wed Dec 10 2025	Listed	Pending Review	9
+kongelige.com	0	0	20000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	9
+lasislasmaldivas.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Opt-in Required	9
+plaquefreedental.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	9
+plumbersjobs.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	9
+excavador.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	10
+kathyappleby.com	0	0	30000	N	-	Custom Lander	N	N	Y	N	com	Sat Oct 26 2024	Listed	Pending Review	10
+boxingonline.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	11
+caravan-sites.com	0	0	10000	N	-	Request Price	N	N	Y	N	com	Wed Dec 10 2025	Listed	Pending Review	11
+cogk.com	28500	20000	10000	N	-	Request Price	N	N	Y	N	com	Wed Dec 10 2025	Listed	Opt-in Required	11
+designs.uk	0	0	100000	N	-	Custom Lander	N	N	Y	N	uk	Sat Oct 26 2024	Listed	TLD Not Eligible	11
+deluxemeubelen.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	12
+primus-capital.com	4999	4300	2500	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	12
+ukcommercialmortgage.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Opt-in Required	12
+xhii.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	12
+aproximar.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	13
+avenueprivee.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	13
+caravanparkhomes.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	13
+creditoinmobiliario.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	13
+goldbrocade.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	13
+tourercaravans.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	13
+finance.org.uk	0	0	50000	N	-	Custom Lander	N	N	Y	N	org.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	14
+trekkingsaddles.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Opt-in Required	14
+umeg.com	0	0	50000	N	-	Request Price	N	N	Y	N	com	Wed Dec 10 2025	Listed	Pending Review	14
+syndicatedloandirect.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	15
+findinsurersonline.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	16
+droneroofsurvey.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	17
+easypedestal.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	17
+modernlandscapedesigners.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	17
+ticketsconcertssports.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	17
+kilocars.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	18
+southernprints.co.uk	0	0	10000	N	-	Request Price	Y	Y	N	N	co.uk	Wed Sep 24 2025	Listed	TLD Not Eligible	18
+terracepaint.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	18
+appareilsmenagers.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon Dec 29 2025	Listed	Pending Review	19
+campingandcaravanpark.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Wed Dec 10 2025	Listed	Pending Review	20
+corporateinvitation.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Thu Mar 26 2026	Listed	Opt-in Required	20
+dumptruckinsurancedeals.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	20
+swisswealthm.com	4999	4300	2500	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	20
+sportswearinc.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	21
+goldwerte.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	22
+promowork.com	16999	11000	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Opt-in Required	22
+apetlon.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	24
+giftxmas.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Fri Dec 19 2025	Listed	Pending Review	24
+free-credit-report-check.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Opt-in Required	25
+ideal-property-mallorca.com	4999	4300	2500	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	25
+teknolojisa.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	26
+jet-hire.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	27
+hesjes.com	19900	14900	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	28
+womandaybook.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 16 2025	Listed	Pending Review	30
+conjurar.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	32
+industrialsewingholland.com	20000	15000	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Opt-in Required	33
+reclinerseat.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	34
+vetsait.com	0	10000	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	34
+smartbusinesssupplies.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	39
+canadianforestry.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	42
+whatvacancy.com	25000	17000	15000	N	-	Request Price	Y	Y	N	N	com	Thu Jan 08 2026	Listed	Opt-in Required	43
+gluestore.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	49
+outfax.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	54
+ijih.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	64
+toletonline.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	77
+nanangmrk.com	4999	4300	2500	N	-	Request Price	Y	Y	N	N	com	Thu Jan 01 2026	Listed	Active	80
+thoroughcleaners.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	83
+hcare.co.uk	0	0	100000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	91
+idea.uk	0	0	1000000	N	-	Custom Lander	N	N	Y	N	uk	Sat Oct 26 2024	Listed	TLD Not Eligible	98
+bigotime.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	102
+bitesizejewelry.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Registrar Not Eligible	106
+designs.co.uk	0	0	200000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	106
+equitycalculator.co.uk	0	0	12000	N	-	Custom Lander	N	N	Y	N	co.uk	Sat Oct 26 2024	Listed	TLD Not Eligible	109
+lodgeswithhottubs.club	4999	4300	2500	N	-	Request Price	Y	Y	N	N	club	Tue Dec 09 2025	Listed	TLD Not Eligible	114
+monitorizare.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	122
+thecentralbanker.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	130
+buysportskit.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	141
+vinrose.com	0	0	20000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	150
+makeitaquote.com	4999	3500	2500	N	-	Request Price	Y	Y	N	N	com	Tue Dec 23 2025	Listed	Opt-in Required	224
+hoeinvestereninvastgoed.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	234
+fallingwaterdesignbuild.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Wed Feb 18 2026	Listed	Pending Review	335
+komunikatif.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	523
+zdec.com	0	0	30000	N	-	Request Price	Y	Y	N	N	com	Wed Dec 10 2025	Listed	Pending Review	880
+kitchensep.com	0	0	10000	N	-	Request Price	Y	Y	N	N	com	Mon May 04 2026	Listed	Pending Review	1489
+surgerylight.com	25000	25000	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Opt-in Required	3104
+traderboltai.com	7999	6100	2500	N	-	Request Price	Y	Y	N	N	com	Tue Dec 23 2025	Listed	Active	3285
+wayfaringlondoner.com	0	0	12000	N	-	Request Price	Y	Y	N	N	com	Tue Dec 09 2025	Listed	Pending Review	28822
+relojistas.com	28000	23000	12000	N	-	Request Price	Y	Y	N	N	com	Fri Dec 19 2025	Listed	Registrar Not Eligible	1201799
