@@ -731,6 +731,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Prepare internal link context for page rendering",
 		IsLocal:     true,
 	},
+	"resolve_internal_links": {
+		Handler:     ResolveInternalLinksAction,
+		Category:    "content",
+		Description: "Resolve intent-appropriate internal CTA destinations from real pages",
+		IsLocal:     true,
+	},
 	"validate_page_content": {
 		Handler:     ValidatePageContentAction,
 		Category:    "site",

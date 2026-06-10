@@ -1,0 +1,66 @@
+name: Deploy Sites to VM
+# Mirror of deploy-to-b2.yml for the VM-sites repo. Same trigger, same
+# changed-folder detection, same hosted runner — the only swap is the target:
+# rsync each changed sites/<domain>/ over SSH into the box web root instead of
+# `b2 sync` to a bucket. No Cloudflare purge: nginx serves the files directly
+# (DNS points at the box), so there is no edge cache to invalidate.
+#
+# Scope: this deploys CONTENT for domains already provisioned on the box (i.e.
+# already in setup.sh's DOMAINS, with an nginx server block + cert). Onboarding a
+# NEW domain (new vhost + cert) is the one-time provisioning step: add it to
+# DOMAINS and re-run setup.sh. The ENGINE binary is deployed by its own workflow
+# in the probe-go repo, not here.
+#
+# Required repo secrets:
+#   VM_HOST    — box hostname or IP
+#   VM_USER    — SSH user that owns/can write /var/www/probe/<domain>
+#                (see setup.sh WEBROOT_OWNER)
+#   VM_SSH_KEY — that user's private key (ed25519)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sites/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # need the previous commit for the diff
+
+      - name: Get changed sites
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- sites/ | cut -d'/' -f2 | sort -u | tr '\n' ' ')
+          echo "sites=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed sites: $CHANGED"
+
+      - name: Set up SSH
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Rsync changed sites to the VM
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          WEBROOT_BASE: /var/www/probe
+        run: |
+          for site in ${{ steps.changed.outputs.sites }}; do
+            if [ -d "sites/$site" ]; then
+              echo "Deploying $site ..."
+              rsync -az --delete \
+                -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" \
+                "sites/$site/" "$VM_USER@$VM_HOST:$WEBROOT_BASE/$site/"
+            else
+              echo "Skipping $site (folder absent — likely deleted)."
+            fi
+          done
