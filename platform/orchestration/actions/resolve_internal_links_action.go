@@ -1,35 +1,33 @@
 // FILE: platform/orchestration/actions/resolve_internal_links_action.go
 //
-// ResolveInternalLinksAction resolves intent-appropriate internal link
-// destinations for a page's CTA-bearing sections, from the real pages — never a
-// hardcoded or fabricated target. It is the core action of the
-// internal-link-resolver agent.
+// ResolveInternalLinksAction is the core action of the internal-link-resolver
+// agent. It augments a page's CTA-bearing sections (hero, call-to-action) with
+// intent-appropriate internal link destinations resolved from the REAL pages —
+// never a hardcoded or fabricated target — writing them into each section's
+// resolved_data so the existing render path (render_component's merge_with:
+// current_section.resolved_data) picks them up with no render-loop change.
 //
-// v1 rule (deterministic, generic): a page's primary/secondary CTA point at the
-// site's top content hubs (page_type='section-index', ordered by nav_order,
-// excluding about/contact/legal areas, skipping the page itself). Every target
-// is a real page; an absent hub yields no target (the gated templates render no
-// button) and an unresolved CTA is reported so the absence is not silent. The
-// agent bubble lets this be upgraded later (e.g. LLM intent-matching: a guide ->
-// its related tool) without changing callers.
+// Contract:
+//   in : site_id, page_type, sections (the section_plan.sections_ready list)
+//   out: { "sections_ready": [...augmented...],
+//          "unresolved":     [ {section, component, field, slot} ... ] }
+// The caller (page-content-writer) iterates the returned sections_ready; an
+// unresolved entry feeds the build-time unresolved_cta signal.
 //
-// Returned shape:
-//   {
-//     "cta_targets": { "primary_cta_url": "/tools/index.html",
-//                      "secondary_cta_url": "/guides/index.html" },
-//     "unresolved":  [ "primary_cta_url" ],   // requested but no real target
-//     "page_type":   "landing"
-//   }
-// The caller (page-content-writer) merges cta_targets into the section
-// resolved_data before render; "unresolved" feeds an unresolved_cta signal.
+// v1 rule (deterministic, generic): primary/secondary CTA point at the site's
+// top content hubs (page_type='section-index', by nav_order, excluding
+// about/contact/legal, skipping the page's own hub). Real, validated, never a
+// phantom; absent hub -> field left unset (gated template renders no button) and
+// reported unresolved. The agent boundary lets this be upgraded (LLM intent-
+// matching: a guide -> its related tool) without changing callers.
+//
+// Field names differ by component:
+//   hero            -> cta_url (primary), secondary_cta_url (secondary)
+//   call-to-action  -> primary_cta_url (primary), secondary_cta_url (secondary)
 //
 // Registration:
-//   "resolve_internal_links": {
-//       Handler:     ResolveInternalLinksAction,
-//       Category:    "content",
-//       Description: "Resolve intent-appropriate internal CTA destinations from real pages",
-//       IsLocal:     true,
-//   }
+//   "resolve_internal_links": { Handler: ResolveInternalLinksAction,
+//       Category: "content", IsLocal: true }
 
 package actions
 
@@ -46,7 +44,7 @@ import (
 
 var ResolveInternalLinksInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
-	Optional:   []string{"page_id", "page_name", "page_type"},
+	Optional:   []string{"page_type", "sections"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }
@@ -55,18 +53,21 @@ func init() {
 	datahelpers.RegisterActionInputSpec("resolve_internal_links", ResolveInternalLinksInputSpec)
 }
 
-// contentHub is a section-index page eligible as a CTA destination.
 type contentHub struct {
 	Name     string
 	URL      string
-	Area     string // first path segment, e.g. "tools"
+	Area     string
 	NavOrder int
 }
 
-// areasExcludedFromCTA are section areas that are not content destinations for a
-// hero/CTA (utility/legal pages).
 var areasExcludedFromCTA = map[string]bool{
 	"about": true, "contact": true, "privacy": true, "terms": true, "legal": true,
+}
+
+// ctaFieldNames maps a CTA component to its primary/secondary url field names.
+var ctaFieldNames = map[string][2]string{
+	"hero":           {"cta_url", "secondary_cta_url"},
+	"call-to-action": {"primary_cta_url", "secondary_cta_url"},
 }
 
 func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -83,68 +84,78 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 	if err != nil {
 		return nil, fmt.Errorf("input extraction failed: %w", err)
 	}
-
 	siteID, err := uuid.Parse(inputs.Get("site_id"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid site_id: %w", err)
 	}
-	pageName := inputs.Get("page_name")
 	pageType := inputs.Get("page_type")
-	pageID := inputs.Get("page_id")
 
-	// Resolve page_type if only an id/name was given (rules key off type).
-	if pageType == "" && (pageID != "" || pageName != "") {
-		pageType = loadPageType(ctx, params, siteID, pageID, pageName, logger)
-	}
+	// Sections come through as the section_plan.sections_ready list. Read them
+	// as a generic slice; we mutate the CTA-bearing ones in place.
+	rawSections := datahelpers.ExtractNestedField(params.CollectedData, "sections")
+	sections, _ := rawSections.([]interface{})
 
 	hubs, err := loadContentHubs(ctx, params, siteID, logger)
 	if err != nil {
 		return nil, err
 	}
-
-	primary, secondary := chooseCTATargets(pageType, pageName, hubs)
-
-	// Validate against real pages (belt-and-suspenders — targets come from the
-	// pages table already, but this guarantees no phantom can ever leave here).
 	validPages := loadResolverPageSet(ctx, params, siteID, logger)
-	ctaTargets := map[string]interface{}{}
-	var unresolved []string
 
-	if primary != "" && validPages.Contains(primary) {
-		ctaTargets["primary_cta_url"] = primary
-	} else {
-		unresolved = append(unresolved, "primary_cta_url")
-	}
-	if secondary != "" && validPages.Contains(secondary) {
-		ctaTargets["secondary_cta_url"] = secondary
-	} else {
-		unresolved = append(unresolved, "secondary_cta_url")
+	var unresolved []map[string]interface{}
+
+	for _, raw := range sections {
+		section, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		function := sectionComponentFunction(section)
+		fields, isCTA := ctaFieldNames[function]
+		if !isCTA {
+			continue
+		}
+
+		sectionName := stringOrEmpty(section["name"])
+		primary, secondary := chooseCTATargets(pageType, sectionName, hubs)
+
+		resolved := sectionResolvedData(section)
+		setCTAField(resolved, fields[0], primary, validPages, function, sectionName, "primary", &unresolved)
+		setCTAField(resolved, fields[1], secondary, validPages, function, sectionName, "secondary", &unresolved)
+		section["resolved_data"] = resolved
 	}
 
-	logger.Info("resolve_internal_links: resolved CTA targets",
+	logger.Info("resolve_internal_links: augmented CTA sections",
 		zap.String("page_type", pageType),
-		zap.String("page_name", pageName),
+		zap.Int("section_count", len(sections)),
 		zap.Int("hub_count", len(hubs)),
-		zap.Int("resolved", len(ctaTargets)),
-		zap.Strings("unresolved", unresolved))
+		zap.Int("unresolved", len(unresolved)))
 
 	return map[string]interface{}{
-		"cta_targets": ctaTargets,
-		"unresolved":  unresolved,
-		"page_type":   pageType,
+		"sections_ready": sections,
+		"unresolved":     unresolved,
 	}, nil
 }
 
-// chooseCTATargets returns (primaryURL, secondaryURL) for the page. v1: the top
-// two content hubs by nav_order, excluding the page's own hub. Empty string
-// means "no sensible target" (the caller drops the button + reports unresolved).
-func chooseCTATargets(pageType, pageName string, hubs []contentHub) (string, string) {
+// setCTAField writes a validated url into resolved_data, or records it unresolved.
+func setCTAField(resolved map[string]interface{}, field, url string, validPages datahelpers.PageURLSet,
+	function, sectionName, slot string, unresolved *[]map[string]interface{}) {
+	if url != "" && validPages.Contains(url) {
+		resolved[field] = url
+		return
+	}
+	*unresolved = append(*unresolved, map[string]interface{}{
+		"section":   sectionName,
+		"component": function,
+		"field":     field,
+		"slot":      slot,
+	})
+}
+
+// chooseCTATargets — v1: top two content hubs by nav_order, excluding the page's
+// own hub and utility/legal areas. Empty string => no sensible target.
+func chooseCTATargets(pageType, sectionName string, hubs []contentHub) (string, string) {
 	ordered := make([]contentHub, 0, len(hubs))
 	for _, h := range hubs {
 		if areasExcludedFromCTA[h.Area] {
-			continue
-		}
-		if h.Name == pageName { // don't point a page's hero at itself
 			continue
 		}
 		ordered = append(ordered, h)
@@ -164,6 +175,26 @@ func chooseCTATargets(pageType, pageName string, hubs []contentHub) (string, str
 		secondary = ordered[1].URL
 	}
 	return primary, secondary
+}
+
+func sectionComponentFunction(section map[string]interface{}) string {
+	if comp, ok := section["component"].(map[string]interface{}); ok {
+		if fn := stringOrEmpty(comp["function"]); fn != "" {
+			return fn
+		}
+		if nm := stringOrEmpty(comp["name"]); nm != "" {
+			return nm
+		}
+	}
+	// Fall back to the section name (often equals the component function).
+	return stringOrEmpty(section["name"])
+}
+
+func sectionResolvedData(section map[string]interface{}) map[string]interface{} {
+	if rd, ok := section["resolved_data"].(map[string]interface{}); ok && rd != nil {
+		return rd
+	}
+	return map[string]interface{}{}
 }
 
 func loadContentHubs(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) ([]contentHub, error) {
@@ -193,25 +224,6 @@ func loadContentHubs(ctx context.Context, params ActionParams, siteID uuid.UUID,
 		return nil, fmt.Errorf("loadContentHubs iteration failed: %w", err)
 	}
 	return hubs, nil
-}
-
-func loadPageType(ctx context.Context, params ActionParams, siteID uuid.UUID, pageID, pageName string, logger *zap.Logger) string {
-	var pt string
-	var err error
-	if pageID != "" {
-		if id, perr := uuid.Parse(pageID); perr == nil {
-			err = params.DB.QueryRowContext(ctx,
-				`SELECT COALESCE(page_type, '') FROM pages WHERE id = $1`, id).Scan(&pt)
-		}
-	} else if pageName != "" {
-		err = params.DB.QueryRowContext(ctx,
-			`SELECT COALESCE(page_type, '') FROM pages WHERE site_id = $1 AND name = $2`, siteID, pageName).Scan(&pt)
-	}
-	if err != nil {
-		logger.Warn("resolve_internal_links: could not load page_type", zap.Error(err))
-		return ""
-	}
-	return pt
 }
 
 func loadResolverPageSet(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) datahelpers.PageURLSet {
