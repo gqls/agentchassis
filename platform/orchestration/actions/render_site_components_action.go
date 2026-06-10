@@ -138,8 +138,11 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		}
 	}
 
-	// Build company links (about, contact, careers)
+	// Build company links (about, contact, careers).
+	// Also capture the real contact page URL for the header CTA, so it points
+	// at an existing page instead of the hardcoded phantom /contact.html.
 	companyLinks := []map[string]interface{}{}
+	ctaURL := ""
 	for _, item := range footerNavItems {
 		lowerLabel := strings.ToLower(item.Label)
 		if lowerLabel == "about" || lowerLabel == "contact" || lowerLabel == "careers" {
@@ -148,12 +151,23 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 				"url":  item.URL,
 			})
 		}
+		if lowerLabel == "contact" {
+			ctaURL = item.URL
+		}
 	}
 
-	// Build legal links (privacy, terms)
-	legalLinks := []map[string]interface{}{
-		{"name": "Privacy Policy", "url": "/privacy.html"},
-		{"name": "Terms of Service", "url": "/terms.html"},
+	// Build legal links from real pages classified into the legal nav group.
+	// Was a hardcoded {/privacy.html, /terms.html} slice — those pages do not
+	// necessarily exist, so it produced phantom links. Now: only pages that
+	// actually exist appear; if none, the list is empty and the footer renders
+	// no legal links.
+	legalNavItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupLegal}, false, 0, params.Logger)
+	legalLinks := make([]map[string]interface{}, 0, len(legalNavItems))
+	for _, item := range legalNavItems {
+		legalLinks = append(legalLinks, map[string]interface{}{
+			"name": item.Label,
+			"url":  item.URL,
+		})
 	}
 
 	// Social links (empty for now - could be populated from site data)
@@ -209,9 +223,11 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 			"legal_links":      legalLinks,   // privacy, terms
 			"social_links":     socialLinks,  // social media (empty for now)
 
-			// CTA defaults
+			// CTA defaults — cta_url resolved from the real contact page above
+			// (empty when there is no contact page; the gated header template
+			// then renders no CTA button rather than a phantom).
 			"cta_text":       "Get Started",
-			"cta_url":        "/contact.html",
+			"cta_url":        ctaURL,
 			"subscribe_text": "Subscribe",
 			"show_subscribe": false,
 

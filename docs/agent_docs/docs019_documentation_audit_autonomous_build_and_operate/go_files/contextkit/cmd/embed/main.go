@@ -38,15 +38,32 @@ type Embedder interface {
 	Embed(texts []string) ([][]float32, error)
 }
 
-// --- Ollama embedder (POST {model,input[]} to /api/embed -> {embeddings[][]}) ---
+// --- Ollama embedder: matches the chassis (platform/aiservice/ollama.go) — POST
+// {model,prompt} to /api/embeddings per text -> {embedding[]}. Single-call, not
+// batch, so a feasibility run embeds exactly as rag_index/rag_lookup and the
+// AIService.GenerateEmbedding graduation seam do, hits the endpoint the chassis
+// provably serves, and measures realistic single-call latency. (Batch /api/embed
+// is a later optimisation if the adapter exposes it.) ---
 type ollamaEmbedder struct {
 	base, model string
 	client      *http.Client
 }
 
 func (o ollamaEmbedder) Embed(texts []string) ([][]float32, error) {
-	body, _ := json.Marshal(map[string]interface{}{"model": o.model, "input": texts})
-	url := strings.TrimRight(o.base, "/") + "/api/embed"
+	out := make([][]float32, len(texts))
+	for i, t := range texts {
+		v, err := o.embedOne(t)
+		if err != nil {
+			return nil, fmt.Errorf("embedding text %d/%d: %w", i+1, len(texts), err)
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func (o ollamaEmbedder) embedOne(text string) ([]float32, error) {
+	body, _ := json.Marshal(map[string]interface{}{"model": o.model, "prompt": text})
+	url := strings.TrimRight(o.base, "/") + "/api/embeddings"
 	resp, err := o.client.Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -57,16 +74,16 @@ func (o ollamaEmbedder) Embed(texts []string) ([][]float32, error) {
 		b.ReadFrom(resp.Body)
 		return nil, fmt.Errorf("ollama %d: %s", resp.StatusCode, strings.TrimSpace(b.String()))
 	}
-	var out struct {
-		Embeddings [][]float32 `json:"embeddings"`
+	var parsed struct {
+		Embedding []float32 `json:"embedding"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
 		return nil, err
 	}
-	if len(out.Embeddings) != len(texts) {
-		return nil, fmt.Errorf("ollama returned %d embeddings for %d inputs", len(out.Embeddings), len(texts))
+	if len(parsed.Embedding) == 0 {
+		return nil, fmt.Errorf("empty embedding from ollama model %s", o.model)
 	}
-	return out.Embeddings, nil
+	return parsed.Embedding, nil
 }
 
 // --- offline stand-in: token-hashing bag of words. Deterministic, NOT semantic. ---
