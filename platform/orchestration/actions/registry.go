@@ -1180,6 +1180,13 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	"dispatch_thunder_prepare_resume_url": {
+		Handler:     DispatchThunderPrepareResumeURLAction,
+		Category:    "training",
+		Description: "Publish a prepare_resume_url request to thunder-adapter: list the run's checkpoints in B2, presign a GET for the latest, and reply {found, presigned_url, key, index}. found=false means no checkpoints yet (fresh start). Lets the launcher resume an interrupted run from its latest checkpoint; the adapter is the B2 credential boundary.",
+		IsLocal:     true,
+	},
+
 	"mark_training_run_running": {
 		Handler:     MarkTrainingRunRunningAction,
 		Category:    "training",
