@@ -19,10 +19,12 @@
 // link_registry is not used — it is currently unpopulated (extract_and_sync_links
 // is wired into no live workflow).
 //
-// Authority for "is this a real page": a row in `pages`. A valid internal link
-// normalises to some pages.url; a phantom matches none. We compare on a forgiving
-// normal form (strip trailing index.html and slashes, drop ?query/#fragment) so
-// /tools/, /tools/index.html and /tools all compare equal and do not false-flag.
+// Extraction/classification/normalisation are the SHARED datahelpers definitions
+// (ExtractHrefs / ClassifyLinkScope / PageURLSet), the same ones the deploy gate
+// (validate_page_content) uses — so the gate and this audit agree, by one literal
+// implementation, on what is an internal page link and what resolves to a real
+// page. "Real page" = a pages row (status not deleted/archived); a planned-but-
+// unbuilt page has a row and is not flagged.
 //
 // Routing — distinct responsibilities by surface:
 //   - site_component (header/footer/nav literals) -> nav-link-fixer
@@ -34,11 +36,12 @@
 package discovery_checks
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -146,92 +149,138 @@ type phantomLinkFinding struct {
 	Occurrences int    `json:"occurrences"`
 }
 
-// findPhantomInternalLinks extracts every href from deployed page_components and
-// site_components HTML, keeps the internal page links (and empty hrefs), and
-// returns those whose normalised target matches no row in `pages`.
-//
-// "Real page" = existence of a pages row for the site, regardless of build_status:
-// a planned-but-not-yet-deployed page is a valid target and must not be flagged.
-const phantomInternalLinksSQL = `
-WITH real_pages AS (
-    SELECT DISTINCT
-        regexp_replace(regexp_replace(url, 'index\.html$', ''), '/+$', '') AS norm_url
-    FROM pages
-    WHERE site_id = $1
-),
-raw_links AS (
-    SELECT 'page_component'::text         AS surface,
-           p.name                         AS page_name,
-           pc.page_id::text               AS page_id,
-           COALESCE(pc.slot_name, '')     AS slot_name,
-           (regexp_matches(pc.rendered_html, 'href="([^"]*)"', 'g'))[1] AS href
-    FROM page_components pc
-    JOIN pages p ON p.id = pc.page_id
-    WHERE p.site_id = $1
-      AND pc.rendered_html IS NOT NULL
-      AND pc.rendered_html <> ''
-    UNION ALL
-    SELECT 'site_component'::text         AS surface,
-           ''                             AS page_name,
-           ''                             AS page_id,
-           COALESCE(sc.slot_name, '')     AS slot_name,
-           (regexp_matches(sc.rendered_html, 'href="([^"]*)"', 'g'))[1] AS href
-    FROM site_components sc
-    WHERE sc.site_id = $1
-      AND sc.rendered_html IS NOT NULL
-      AND sc.rendered_html <> ''
-),
-classified AS (
-    SELECT surface, page_name, page_id, slot_name, href,
-           CASE
-               WHEN href = '' THEN 'empty'
-               WHEN href LIKE '/%' AND href NOT LIKE '//%'
-                    AND split_part(split_part(href, '#', 1), '?', 1) ~ '\.html$'
-                   THEN 'page_link'
-               ELSE 'skip'
-           END AS kind,
-           regexp_replace(
-               regexp_replace(
-                   split_part(split_part(href, '#', 1), '?', 1),
-                   'index\.html$', ''),
-               '/+$', '') AS norm_href
-    FROM raw_links
-)
-SELECT c.surface, c.page_name, c.page_id, c.slot_name, c.href,
-       CASE WHEN c.kind = 'empty' THEN 'empty_internal_href'
-            ELSE 'phantom_internal_link' END AS issue_type,
-       COUNT(*)::int AS occurrences
-FROM classified c
-LEFT JOIN real_pages rp ON rp.norm_url = c.norm_href
-WHERE c.kind = 'empty'
-   OR (c.kind = 'page_link' AND rp.norm_url IS NULL)
-GROUP BY c.surface, c.page_name, c.page_id, c.slot_name, c.href, issue_type
-ORDER BY c.surface, c.page_name, c.href
-`
+// plKey identifies a distinct offending link occurrence for aggregation.
+type plKey struct {
+	surface, pageName, pageID, slotName, href, issue string
+}
 
+// findPhantomInternalLinks scans deployed page_components and site_components
+// HTML, extracts hrefs with the shared datahelpers helpers, and returns the
+// internal page links that match no real page (phantoms) plus empty hrefs,
+// aggregated with occurrence counts.
 func findPhantomInternalLinks(dctx DiscoveryCheckContext) ([]phantomLinkFinding, error) {
-	rows, err := dctx.DB.QueryContext(dctx.Ctx, phantomInternalLinksSQL, dctx.SiteID)
+	validPages, err := loadSitePageURLSet(dctx)
 	if err != nil {
-		return nil, fmt.Errorf("phantom_internal_links query failed: %w", err)
+		return nil, err
+	}
+
+	counts := make(map[plKey]int)
+
+	// page_components — body sections (hero/CTA/lists/prose).
+	pageRows, err := dctx.DB.QueryContext(dctx.Ctx, `
+		SELECT p.name, pc.page_id::text, COALESCE(pc.slot_name, ''), pc.rendered_html
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE p.site_id = $1
+		  AND pc.rendered_html IS NOT NULL AND pc.rendered_html <> ''
+	`, dctx.SiteID)
+	if err != nil {
+		return nil, fmt.Errorf("phantom_internal_links page query failed: %w", err)
+	}
+	defer pageRows.Close()
+	for pageRows.Next() {
+		var pageName, pageID, slotName, html string
+		if err := pageRows.Scan(&pageName, &pageID, &slotName, &html); err != nil {
+			dctx.Logger.Warn("phantom_internal_links: page scan error", zap.Error(err))
+			continue
+		}
+		accumulateLinkIssues(counts, "page_component", pageName, pageID, slotName, html, validPages)
+	}
+	if err := pageRows.Err(); err != nil {
+		return nil, fmt.Errorf("phantom_internal_links page iteration failed: %w", err)
+	}
+
+	// site_components — header/footer/head (literal nav/legal links).
+	siteRows, err := dctx.DB.QueryContext(dctx.Ctx, `
+		SELECT COALESCE(sc.slot_name, ''), sc.rendered_html
+		FROM site_components sc
+		WHERE sc.site_id = $1
+		  AND sc.rendered_html IS NOT NULL AND sc.rendered_html <> ''
+	`, dctx.SiteID)
+	if err != nil {
+		return nil, fmt.Errorf("phantom_internal_links site query failed: %w", err)
+	}
+	defer siteRows.Close()
+	for siteRows.Next() {
+		var slotName, html string
+		if err := siteRows.Scan(&slotName, &html); err != nil {
+			dctx.Logger.Warn("phantom_internal_links: site scan error", zap.Error(err))
+			continue
+		}
+		accumulateLinkIssues(counts, "site_component", "", "", slotName, html, validPages)
+	}
+	if err := siteRows.Err(); err != nil {
+		return nil, fmt.Errorf("phantom_internal_links site iteration failed: %w", err)
+	}
+
+	findings := make([]phantomLinkFinding, 0, len(counts))
+	for k, n := range counts {
+		findings = append(findings, phantomLinkFinding{
+			Surface:     k.surface,
+			PageName:    k.pageName,
+			PageID:      k.pageID,
+			SlotName:    k.slotName,
+			Href:        k.href,
+			IssueType:   k.issue,
+			Occurrences: n,
+		})
+	}
+	// Deterministic order (map iteration is random) — stable findings/work items.
+	sort.Slice(findings, func(i, j int) bool {
+		if findings[i].Surface != findings[j].Surface {
+			return findings[i].Surface < findings[j].Surface
+		}
+		if findings[i].PageName != findings[j].PageName {
+			return findings[i].PageName < findings[j].PageName
+		}
+		if findings[i].Href != findings[j].Href {
+			return findings[i].Href < findings[j].Href
+		}
+		return findings[i].IssueType < findings[j].IssueType
+	})
+	return findings, nil
+}
+
+// accumulateLinkIssues extracts hrefs from one rendered component and records
+// empty hrefs and phantom page links into counts.
+func accumulateLinkIssues(counts map[plKey]int, surface, pageName, pageID, slotName, html string, validPages datahelpers.PageURLSet) {
+	for _, href := range datahelpers.ExtractHrefs(html) {
+		switch datahelpers.ClassifyLinkScope(href) {
+		case datahelpers.LinkScopeEmpty:
+			counts[plKey{surface, pageName, pageID, slotName, href, "empty_internal_href"}]++
+		case datahelpers.LinkScopePage:
+			if !validPages.Contains(href) {
+				counts[plKey{surface, pageName, pageID, slotName, href, "phantom_internal_link"}]++
+			}
+		}
+		// external / anchor / mailto / asset are not internal page links — skip.
+	}
+}
+
+// loadSitePageURLSet builds the normalised set of real page targets for the
+// site, using the same page selection and normalisation as the deploy gate.
+func loadSitePageURLSet(dctx DiscoveryCheckContext) (datahelpers.PageURLSet, error) {
+	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
+		SELECT url FROM pages
+		WHERE site_id = $1 AND status NOT IN ('deleted', 'archived')
+	`, dctx.SiteID)
+	if err != nil {
+		return nil, fmt.Errorf("phantom_internal_links pages query failed: %w", err)
 	}
 	defer rows.Close()
 
-	var findings []phantomLinkFinding
+	var urls []string
 	for rows.Next() {
-		var f phantomLinkFinding
-		var pageName, pageID, slotName, href sql.NullString
-		if err := rows.Scan(&f.Surface, &pageName, &pageID, &slotName, &href, &f.IssueType, &f.Occurrences); err != nil {
-			dctx.Logger.Warn("phantom_internal_links: scan error", zap.Error(err))
+		var url string
+		if err := rows.Scan(&url); err != nil {
 			continue
 		}
-		f.PageName = pageName.String
-		f.PageID = pageID.String
-		f.SlotName = slotName.String
-		f.Href = href.String
-		findings = append(findings, f)
+		urls = append(urls, url)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("phantom_internal_links row iteration failed: %w", err)
+		return nil, fmt.Errorf("phantom_internal_links pages iteration failed: %w", err)
 	}
-	return findings, nil
+	urls = append(urls, "/", "/index.html") // site root is always valid
+
+	return datahelpers.NewPageURLSet(urls), nil
 }

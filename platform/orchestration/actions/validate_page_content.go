@@ -514,75 +514,48 @@ func validateInternalLinks(ctx context.Context, db *sql.DB, html string, siteID 
 
 	validPages := loadValidPagePaths(ctx, db, siteID, logger)
 
-	hrefRe := regexp.MustCompile(`href=["']([^"']+)["']`)
-	matches := hrefRe.FindAllStringSubmatch(html, -1)
-
-	for _, match := range matches {
-		href := match[1]
-
-		// Skip external, anchors, mailto, tel, javascript
-		if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") ||
-			strings.HasPrefix(href, "#") || strings.HasPrefix(href, "mailto:") ||
-			strings.HasPrefix(href, "tel:") || strings.HasPrefix(href, "javascript:") {
-			continue
-		}
-
-		// Skip asset paths — these are files in the git repo, not pages.
-		// Catches: /assets/css/styles.css, /assets/images/hero.jpg, /favicon.ico, etc.
-		if isAssetPath(href) {
-			continue
-		}
-
-		normalizedPath := normalizePagePath(href)
-
-		if !isValidPage(normalizedPath, validPages) {
-			// Missing pages are warnings, not errors — the page may be planned
-			// but not yet built (e.g. /privacy.html, /terms.html in footers).
-			// This avoids blocking deployment of working pages because a
-			// linked page hasn't been created yet.
+	// Href extraction, scope classification and page-path normalisation are the
+	// shared datahelpers definitions — the same ones the post-deploy audit
+	// (check_phantom_internal_links) uses, so the gate and the audit agree on
+	// what counts as an internal page link and what resolves to a real page.
+	for _, href := range datahelpers.ExtractHrefs(html) {
+		switch datahelpers.ClassifyLinkScope(href) {
+		case datahelpers.LinkScopeEmpty:
+			// An empty href renders as a dead link/button (e.g. an unpopulated
+			// "Browse All X" CTA). Loud but non-blocking.
 			issues = append(issues, ValidationIssue{
-				Type:        "missing_link_target",
+				Type:        "empty_internal_href",
 				Category:    "link",
 				Severity:    "warning",
-				Location:    fmt.Sprintf("href=\"%s\"", href),
-				Value:       href,
-				Description: fmt.Sprintf("Link to page not found in pages table: %s", href),
+				Location:    `href=""`,
+				Description: "Empty href — link/button has no destination",
 			})
+		case datahelpers.LinkScopePage:
+			// Policy: a missing internal target is loud but NON-blocking — the
+			// improvement loop resolves it; a missing link is not a deploy
+			// stopper. We flag only true phantoms: an href with no pages row at
+			// all. Planned-but-unbuilt pages have a row (status not
+			// deleted/archived) and are tolerated silently.
+			if !validPages.Contains(href) {
+				issues = append(issues, ValidationIssue{
+					Type:        "phantom_link",
+					Category:    "link",
+					Severity:    "warning",
+					Location:    fmt.Sprintf("href=%q", href),
+					Value:       href,
+					Description: fmt.Sprintf("Link target has no matching page: %s", href),
+				})
+			}
 		}
+		// external / anchor / mailto / asset scopes are not page links — skip.
 	}
 
 	return issues
 }
 
-// isAssetPath returns true for paths that are static assets, not pages.
-// These come from <link rel="stylesheet">, <img src="">, <script src="">, etc.
-func isAssetPath(path string) bool {
-	lower := strings.ToLower(path)
-
-	// Directory-based: /assets/*, /images/*, /static/*
-	if strings.HasPrefix(lower, "/assets/") ||
-		strings.HasPrefix(lower, "/images/") ||
-		strings.HasPrefix(lower, "/static/") ||
-		strings.HasPrefix(lower, "/fonts/") ||
-		strings.HasPrefix(lower, "/js/") ||
-		strings.HasPrefix(lower, "/css/") {
-		return true
-	}
-
-	// Extension-based: non-HTML file extensions
-	assetExts := []string{
-		".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
-		".ico", ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".xml", ".json",
-		".map", ".txt", ".mp4", ".webm",
-	}
-	for _, ext := range assetExts {
-		if strings.HasSuffix(lower, ext) {
-			return true
-		}
-	}
-
-	return false
-}
+// isAssetPath / normalizePagePath / isValidPage now live in datahelpers
+// (links.go) as IsAssetPath / NormalizePagePath / PageURLSet.Contains, shared
+// with the post-deploy phantom-link audit so both agree on classification.
 
 // ============================================================================
 // Check 5: Hallucinated emails (from existing code)
@@ -662,47 +635,35 @@ func checkTextLength(html string) []ValidationIssue {
 // DB helpers (from existing code)
 // ============================================================================
 
-func loadValidPagePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) map[string]bool {
-	pages := make(map[string]bool)
-
+// loadValidPagePaths returns the set of real page targets for the site.
+// Return type is datahelpers.PageURLSet (was map[string]bool): membership is now
+// tested via the shared NormalizePagePath, so the many hand-built url variants
+// the old map carried are no longer needed — one normal form covers them.
+func loadValidPagePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) datahelpers.PageURLSet {
 	rows, err := db.QueryContext(ctx, `
-		SELECT url, name FROM pages
+		SELECT url FROM pages
 		WHERE site_id = $1 AND status NOT IN ('deleted', 'archived')
 	`, siteID)
 	if err != nil {
 		logger.Warn("Failed to load pages for validation", zap.Error(err))
-		return pages
+		return datahelpers.NewPageURLSet(nil)
 	}
 	defer rows.Close()
 
-	var pageNames []string
+	var urls []string
 	for rows.Next() {
-		var url, name string
-		if err := rows.Scan(&url, &name); err != nil {
+		var url string
+		if err := rows.Scan(&url); err != nil {
 			continue
 		}
-		pageNames = append(pageNames, name)
-		pages[url] = true
-		pages[normalizePagePath(url)] = true
-		if url == "/" {
-			pages["/index.html"] = true
-			pages["index.html"] = true
-		}
-		if !strings.HasSuffix(url, ".html") && url != "/" {
-			pages[url+".html"] = true
-			pages[strings.TrimPrefix(url, "/")+".html"] = true
-		}
+		urls = append(urls, url)
 	}
-
-	pages["/"] = true
-	pages["/index.html"] = true
-	pages["index.html"] = true
+	urls = append(urls, "/", "/index.html") // site root is always valid
 
 	logger.Info("ValidatePageContentAction: loaded valid pages",
-		zap.Int("page_count", len(pageNames)),
-		zap.Strings("pages", pageNames))
+		zap.Int("page_count", len(urls)))
 
-	return pages
+	return datahelpers.NewPageURLSet(urls)
 }
 
 func loadSiteContactEmail(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) string {
@@ -729,30 +690,6 @@ func loadSiteContactEmail(ctx context.Context, db *sql.DB, siteID uuid.UUID, log
 		return ""
 	}
 	return email.String
-}
-
-func normalizePagePath(path string) string {
-	path = strings.TrimSpace(path)
-	path = strings.ToLower(path)
-	path = strings.TrimPrefix(path, "/")
-	if path != "" && !strings.HasSuffix(path, ".html") && !strings.Contains(path, ".") {
-		path = path + ".html"
-	}
-	return path
-}
-
-func isValidPage(path string, validPages map[string]bool) bool {
-	if validPages[path] {
-		return true
-	}
-	if validPages["/"+path] {
-		return true
-	}
-	withoutHtml := strings.TrimSuffix(path, ".html")
-	if validPages[withoutHtml] || validPages["/"+withoutHtml] {
-		return true
-	}
-	return false
 }
 
 func isPlaceholderEmail(email string) bool {
