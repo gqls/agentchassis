@@ -30,6 +30,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -227,13 +228,55 @@ func parsePositiveInt(s string) (int, error) {
 // a literal constant. So constants live in step config (the proven preparer
 // pattern, e.g. s3_key_template), while runtime references arrive via
 // input_mapping under input_data.*.
+//
+// Config scalars are coerced via coerceConfigScalar: step config is decoded
+// from JSON, so a numeric literal like {"expiry_minutes": 3000} arrives as a
+// float64 (or json.Number), NOT a string. The previous bare `.(string)`
+// assertion silently dropped such values, so callers fell back to input_data
+// (usually absent) and then to a hardcoded default — e.g. expiry_minutes:3000
+// was ignored and presigned URLs used the 24h/1h adapter defaults. Coercing
+// here lets any numeric config literal survive for every caller (expiry_minutes,
+// timeout_seconds, and any future numeric config read through this helper).
 func configOrInput(params ActionParams, name string) string {
 	if params.StepConfig.Config != nil {
-		if v, ok := params.StepConfig.Config[name].(string); ok && v != "" {
-			return v
+		if raw, ok := params.StepConfig.Config[name]; ok {
+			if s := coerceConfigScalar(raw); s != "" {
+				return s
+			}
 		}
 	}
 	return datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data."+name)
+}
+
+// coerceConfigScalar renders a step-config scalar as a string. Handles the
+// scalar types a JSON-decoded config can produce — string, the float64 that
+// encoding/json uses for all numbers, json.Number (when a decoder uses
+// UseNumber, e.g. some jsonb scans), the Go int/int64 a programmatic config
+// might hold, and bool. An integral float64 is formatted WITHOUT a decimal
+// point (3000 -> "3000", not "3000.000000" or "3e+03") so downstream parsers
+// like parsePositiveInt accept it. Returns "" for nil or non-scalar types
+// (maps, slices) so configOrInput falls through to input_data — preserving the
+// previous behaviour for anything that wasn't a usable string.
+func coerceConfigScalar(v interface{}) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64: // encoding/json's default number type
+		if t == float64(int64(t)) {
+			return strconv.FormatInt(int64(t), 10)
+		}
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case json.Number:
+		return t.String()
+	case int:
+		return strconv.Itoa(t)
+	case int64:
+		return strconv.FormatInt(t, 10)
+	case bool:
+		return strconv.FormatBool(t)
+	default:
+		return ""
+	}
 }
 
 // interpolateCommandTemplate replaces {token} placeholders in a command
