@@ -1,0 +1,70 @@
+name: Deploy Sites to VM
+# Faithful sibling of the LIVE sites-repo "Deploy to B2" action (self-hosted
+# runner, dotted-domain regex, full-sync fallback, secret presence checks) —
+# target swapped from `b2 sync` to rsync-over-SSH into the box web roots.
+# Domain folders live at the REPO ROOT (what the git-adapter produces).
+# No Cloudflare purge: nginx serves directly. If a domain is later put behind
+# Cloudflare proxied mode (runbook §8), lift the purge step from the live
+# sites-repo action as-is.
+#
+# vm-sites' default branch is `main` (new repo); the sites repo uses `master`.
+#
+# Required repo secrets:
+#   VM_HOST    — box hostname or IP
+#   VM_USER    — SSH user owning /var/www/vm-sites/<domain> (setup.sh DEPLOY_USER)
+#   VM_SSH_KEY — that user's private key (ed25519)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/**'
+      - 'README.md'
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get changed domains
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^[^/]+\.[^/]+/' | cut -d'/' -f1 | sort -u | tr '\n' ' ' || echo "")
+          if [ -z "$CHANGED" ]; then
+            CHANGED=$(ls -d */ 2>/dev/null | grep -E '^[^/]+\.[^/]+/$' | tr -d '/' | tr '\n' ' ' || echo "")
+          fi
+          echo "domains=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed domains: $CHANGED"
+
+      - name: Set up SSH
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+        run: |
+          if [ -z "$VM_SSH_KEY" ]; then echo "ERROR: VM_SSH_KEY secret is not set!"; exit 1; fi
+          if [ -z "$VM_HOST" ]; then echo "ERROR: VM_HOST secret is not set!"; exit 1; fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Rsync changed domains to the VM
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          WEBROOT_BASE: /var/www/vm-sites
+        run: |
+          if [ -z "$VM_USER" ]; then echo "ERROR: VM_USER secret is not set!"; exit 1; fi
+          for domain in ${{ steps.changed.outputs.domains }}; do
+            if [ -d "$domain" ]; then
+              echo "Deploying $domain ..."
+              rsync -az --delete \
+                -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" \
+                "$domain/" "$VM_USER@$VM_HOST:$WEBROOT_BASE/$domain/"
+            else
+              echo "Skipping $domain (not a directory)."
+            fi
+          done
