@@ -26,9 +26,15 @@
 // page. "Real page" = a pages row (status not deleted/archived); a planned-but-
 // unbuilt page has a row and is not flagged.
 //
-// Routing — distinct responsibilities by surface:
-//   - site_component (header/footer/nav literals) -> nav-link-fixer
-//   - page_component (hero/CTA/body links)        -> internal-link-resolver
+// Routing — remediation by surface, mirroring existing improvement-loop pairs:
+//   - site_component (header/footer/nav literals) -> nav-link-fixer (build):
+//     its workflow force re-renders site components from real-page data.
+//   - page_component (hero/CTA/body links)        -> page-build-handler (content):
+//     a page rebuild re-runs page-content-writer, which runs build-time link
+//     resolution (internal-link-resolver) — the resolver is a build-time
+//     augmenter, not a rendered-HTML patcher, so findings trigger a rebuild
+//     rather than routing to the resolver directly. Same handler pairing as
+//     check_empty_sections.
 //
 // Registration: automatic via init() -> Register(&PhantomInternalLinksCheck{}).
 // Enable by adding "phantom_internal_links" to a discovery agent's checks array.
@@ -69,7 +75,7 @@ func (c *PhantomInternalLinksCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 	}
 
 	for _, f := range findings {
-		handlerAgent, priority := routeBySurface(f.Surface)
+		handlerAgent, pipeline, priority := routeBySurface(f.Surface)
 
 		severity := "high"
 		if f.IssueType == "empty_internal_href" {
@@ -86,7 +92,8 @@ func (c *PhantomInternalLinksCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 			"href":        f.Href,
 			"occurrences": f.Occurrences,
 			"fix": "Internal href has no matching pages.url row (or is empty). " +
-				"Resolve the destination against real pages, or remove the link.",
+				"Page surfaces: rebuild the page (build-time link resolution re-runs). " +
+				"Site surfaces: re-render site components from real-page data.",
 		})
 
 		// Locate within the offending surface for the dedup key.
@@ -106,7 +113,7 @@ func (c *PhantomInternalLinksCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 			SiteID:       dctx.SiteID,
 			PageID:       pageIDPtr,
 			Source:       "discovery",
-			Pipeline:     "build",
+			Pipeline:     pipeline,
 			ItemType:     f.IssueType,
 			Severity:     severity,
 			Summary:      fmt.Sprintf("%s in %s (%s): href %q has no matching page", f.IssueType, f.Surface, locator, f.Href),
@@ -127,15 +134,18 @@ func (c *PhantomInternalLinksCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 	return result, nil
 }
 
-// routeBySurface keeps the two link surfaces under distinct, single-responsibility
-// handlers. Header/footer literals are a site-component concern; page-body CTAs are
-// a link-resolution concern. Both agents must exist before enabling this check.
-func routeBySurface(surface string) (handlerAgent string, priority int) {
+// routeBySurface pairs each link surface with its remediation handler and
+// pipeline, mirroring the existing improvement-loop pairs (broken_nav_links ->
+// nav-link-fixer/build; empty_sections -> page-build-handler/content). A
+// page_component phantom is fixed by REBUILDING the page (the rebuild re-runs
+// build-time link resolution); it is not routed to internal-link-resolver
+// directly, which is a build-time augmenter with no rendered-HTML surface.
+func routeBySurface(surface string) (handlerAgent, pipeline string, priority int) {
 	switch surface {
 	case "site_component":
-		return "nav-link-fixer", 40
+		return "nav-link-fixer", "build", 40
 	default: // page_component
-		return "internal-link-resolver", 35
+		return "page-build-handler", "content", 35
 	}
 }
 

@@ -41,6 +41,7 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -142,10 +143,90 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 		zap.Int("hub_count", len(hubs)),
 		zap.Int("unresolved", len(unresolved)))
 
+	// Build-time detectability: a correctly-dropped CTA leaves no fingerprint in
+	// deployed HTML (the gated template renders no button), so the absence is
+	// only knowable HERE. Emit one HITL work item per affected section,
+	// mirroring createDeferredItems (same dedup + status semantics). Rebuilding
+	// cannot fix "no hub exists", so these go to review, not to a handler.
+	if len(unresolved) > 0 {
+		emitUnresolvedCTAItems(ctx, params, siteID, pageName, unresolved, logger)
+	}
+
 	return map[string]interface{}{
 		"sections_ready": sections,
 		"unresolved":     unresolved,
 	}, nil
+}
+
+// emitUnresolvedCTAItems inserts an unresolved_cta work item per affected
+// section (needs_human_review, deduped on item_key — ON CONFLICT DO NOTHING,
+// same as createDeferredItems). Failures are logged, never returned: the
+// signal must not block the build.
+func emitUnresolvedCTAItems(ctx context.Context, params ActionParams, siteID uuid.UUID,
+	pageName string, unresolved []map[string]interface{}, logger *zap.Logger) {
+
+	pageKey := pageName
+	if pageKey == "" {
+		pageKey = "unknown-page"
+	}
+
+	// Group by section: one item per section, listing its missing fields.
+	type sectionMiss struct {
+		component string
+		fields    []string
+	}
+	bySection := make(map[string]*sectionMiss)
+	order := make([]string, 0, len(unresolved))
+	for _, u := range unresolved {
+		section := stringOrEmpty(u["section"])
+		if _, seen := bySection[section]; !seen {
+			bySection[section] = &sectionMiss{component: stringOrEmpty(u["component"])}
+			order = append(order, section)
+		}
+		bySection[section].fields = append(bySection[section].fields, stringOrEmpty(u["field"]))
+	}
+
+	for _, section := range order {
+		miss := bySection[section]
+
+		spec := map[string]interface{}{
+			"page_name":    pageName,
+			"section_name": section,
+			"component":    miss.component,
+			"missing":      miss.fields,
+			"source":       "resolve_internal_links",
+			"fix": "No real page exists to serve as this CTA's destination " +
+				"(no eligible content hub). The gated template renders no button. " +
+				"Add/activate a section-index hub, or set the destination manually.",
+		}
+		specJSON, _ := json.Marshal(spec)
+
+		summary := fmt.Sprintf("Unresolved CTA on %s ('%s'): no real-page destination for %s",
+			pageName, section, strings.Join(miss.fields, ", "))
+		if len(summary) > 250 {
+			summary = summary[:247] + "..."
+		}
+
+		itemKey := fmt.Sprintf("unresolved_cta_%s_%s_%s",
+			pageKey, sanitiseSectionKey(section), siteID)
+
+		_, err := params.DB.ExecContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, pipeline, item_type, severity, summary,
+				spec, priority, status, created_by, item_key
+			) VALUES ($1, 'internal-link-resolver', 'build', 'unresolved_cta', 'low', $2,
+					  $3::jsonb, 30, 'needs_human_review', 'resolve_internal_links', $4)
+			ON CONFLICT DO NOTHING
+		`, siteID, summary, string(specJSON), itemKey)
+		if err != nil {
+			logger.Warn("resolve_internal_links: failed to insert unresolved_cta item",
+				zap.String("section", section), zap.Error(err))
+		} else {
+			logger.Info("resolve_internal_links: unresolved_cta item created",
+				zap.String("page", pageName), zap.String("section", section),
+				zap.Strings("missing", miss.fields))
+		}
+	}
 }
 
 // setCTAField writes a validated url into resolved_data, or records it unresolved.
