@@ -831,63 +831,18 @@ Orchestrators and child agents have distinct responsibilities.
 
 ## Adapter Response Envelope Contract
 
-When a long-lived adapter (git, webscrape, image, thunder, ollama, …) replies to a request it received on its fixed `system.agent.<type>.*` topic, the reply must be shaped so the chassis recognises it as an **awaited response** and routes it to the coordinator's claim path (`HandleResponse → ProcessResponse → ClaimAwaitedRequest`). If the envelope is wrong, the chassis silently falls through to the generic *process-as-work* path (`processMessage → ProcessMessage → BuildCollectedData`); the `awaited_requests` row stays `waiting` until it times out, and the orchestration retries every ~10 minutes with no error logged. The provision itself can have fully succeeded — only the reply is lost.
+Moved to `035_adapter_guide.md` §1 ("The message envelope contract"), now the
+single source for it. The contract is normative for any component that replies to
+a chassis request — adapters, spawned agents, and inline actions.
 
-### Required response headers
-
-An adapter reply MUST set:
-
-| Header | Value | Why |
-|---|---|---|
-| `message_type` | `"response"` | Selects the response consumer path. |
-| `request_id` | the **incoming request's** `request_id` (reused verbatim) | The router matches this against the awaited entry. A freshly-generated id misses the lookup and the reply is treated as new work. |
-| `in_response_to_request_id` | same value as `request_id` | The coordinator claims the awaited row by this id. |
-| `orchestration_id` | the incoming `orchestration_id` | Identifies the orchestration that owns the awaited row. |
-| `correlation_id` | the incoming `correlation_id` | Used as the Kafka partition key and for tracing. |
-| `status` | `"complete"` \| `"error_recoverable"` \| `"error_unrecoverable"` | Drives the coordinator's status switch. |
-| `message_id` | a fresh UUID | Without it the chassis synthesises one and may treat the message as unsolicited inbound. |
-| `sender_agent_type` | the adapter's type | Tracing / audit. |
-| `in_response_to_step_id`, `in_response_to_step_name` | echoed from the request | Lets the coordinator resume the correct workflow step. |
-
-The reply is sent to the request's `reply_to_topic` (a.k.a. `responses_topic`) via **`ProduceWithValidation`**, never plain `Produce`. `ProduceWithValidation` runs the outgoing-message validator (when one is injected) and blocks a malformed non-error response at send time instead of emitting one that fails silently downstream; error responses (`is_error=true`) are always sent even if validation fails.
-
-### The key trap: `request_id` reuse
-
-The single most important rule is **reuse the incoming `request_id`** in both `request_id` and `in_response_to_request_id`. The chassis routes claim-vs-process on `request_id` matching an awaited entry. Generating a new `request_id` for the reply (and only echoing the original in `in_response_to_request_id`) makes that match miss — the symptom above. This was a real production fault in the thunder-adapter: provision succeeded end-to-end, the response was consumed, but it routed to `BuildCollectedData` and the awaited row never flipped.
-
-### Favoured pattern (use for all new adapters)
-
-The **webscrape adapter** (`internal/adapters/webscrape`) and the **git adapter** (`internal/adapters/git`) are the reference implementations. Both:
-- reuse the incoming `request_id` (git: `RequestID: requestHeaders.RequestID`; webscrape: `headers["request_id"] = requestID`),
-- set `message_id`,
-- send via `ProduceWithValidation` to the request's reply topic.
-
-New adapters should mirror the **webscrape** map-based builder (it's the simplest and most direct match for a map-headers adapter); the git adapter's typed `ResponseHeaders` struct + `ToKafkaHeaders()` is equally correct and preferred where an adapter already works with typed headers.
-
-### Headers MUST be a typed struct, never `map[string]string` (the bool trap)
-
-Build the response envelope's `headers` from a **typed Go struct**, not a `map[string]string`. The chassis unmarshals the reply's `headers` object into `types.ResponseHeaders`, where `is_complete` and `is_error` are Go `bool`. A `map[string]string` can only emit them as JSON *strings* (`"true"`), and the chassis unmarshal then fails:
-
-```
-json: cannot unmarshal string into Go struct field
-ResponseHeaders.headers.is_complete of type bool
-```
-
-On that error the chassis response-routing branch returns early and the reply is **dropped before `ClaimAwaitedRequest`** — the awaited_requests row sits in `waiting` until timeout, even though the work fully succeeded. This was the root cause of a multi-day thunder-adapter matcher failure (verified 2026-05-22): provision completed, response was consumed and identified as `message_type: response`, then silently discarded on the bool unmarshal.
-
-The fix is structural: a typed `responseHeaders` struct with real `bool` fields marshals `is_complete`/`is_error` as JSON `true`/`false`, and a `toKafkaHeaders()` method renders the `map[string]string` for the Kafka *message-header* arg (where string bools are correct — Kafka headers are byte strings). This mirrors the git adapter's `ResponseHeaders` + `ToKafkaHeaders()`. The type-sensitive consumer is the JSON *body* unmarshal, not the Kafka headers.
-
-Note the chassis is itself inconsistent here — some chassis paths emit a string `is_complete` into the same bool-typed struct. That's a latent chassis bug; adapters must not rely on it and must send real bools in the body.
-
-### Deprecated anti-pattern
-
-The original thunder-adapter `buildResponseHeaders` — a **`map[string]string`** with **string `is_complete`/`is_error`**, a **fresh `request_id` via `uuid.New()`**, **no `message_id`**, and plain **`Produce`** — is the anti-pattern. Any adapter still doing any of those should be migrated to the favoured typed-struct pattern. Checklist when auditing an adapter's `sendSuccessResponse`/`sendErrorResponse`:
-1. Are the headers a **typed struct** with `bool` `is_complete`/`is_error`, or a `map[string]string` emitting string bools? (must be a typed struct)
-2. Is `request_id` the incoming one, or a new UUID? (must be incoming)
-3. Is `message_id` set? (must be)
-4. Is it `ProduceWithValidation`? (must be)
-
----
+In short: a reply must be recognised as an *awaited response* (`HandleResponse →
+ProcessResponse → ClaimAwaitedRequest`), or the chassis falls through to the
+process-as-work path and the `awaited_requests` row sits `waiting` until timeout
+with no error logged. The load-bearing field is `in_response_to_request_id` (the
+incoming `request_id`); the body `headers` object must be a typed struct with
+real bool `is_complete`/`is_error`; send via `ProduceWithValidation`. See 035 §1
+for the full contract, the request-parse rules, the header tiers, and the audit
+checklist.
 
 ## site_context Schema
 

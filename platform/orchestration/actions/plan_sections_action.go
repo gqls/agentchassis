@@ -331,8 +331,14 @@ func (r *sourceResolver) resolve(ctx context.Context, source string) (interface{
 		if url, ok := r.pages[path]; ok {
 			return url, true
 		}
-		// Fallback: construct URL
-		// return "/" + path + ".html", true
+		// No such page — do NOT fabricate a URL. Returning (nil, false) lets
+		// the field's on_missing govern (skip_field drops the field; gated
+		// templates then render no button). Fabricating "/<path>.html" here
+		// was the phantom-link generator (/contact.html, /services.html on
+		// every hero/CTA site-wide).
+		r.logger.Info("plan_sections: pages source not found; deferring to on_missing",
+			zap.String("page_ref", path),
+			zap.String("site_id", r.siteID.String()))
 		return nil, false
 
 	case "config":
