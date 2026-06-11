@@ -11,3 +11,7 @@ scp idea root@116.203.204.115:/opt/idea/idea.new
 ssh root@116.203.204.115 'chmod 755 /opt/idea/idea.new && mv -f /opt/idea/idea.new /opt/idea/idea && systemctl restart idea'
 
 (The mv matters — overwriting a running binary in place gives "text file busy"; writing to a temp name and renaming over it doesn't. That's also what setup.sh's MODE=update does, if you'd rather use that.) Then curl -sS https://idea.uk/ should return the page HTML, and the browser should show the fake-door with the working taster widget.
+
+
+---
+

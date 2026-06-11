@@ -1541,6 +1541,29 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	// ========================================================================
+	// DOCUMENT AND CODE ANALYSIS
+	// ========================================================================
+
+	"lookup_code_symbols": {
+		Handler:     LookupCodeSymbolsAction,
+		Category:    "storage",
+		Description: "Retrieve relevant code symbols from code_symbols (vector, trigram fallback)",
+		IsLocal:     true,
+	},
+	"index_code_symbols": {
+		Handler:     IndexCodeSymbolsAction,
+		Category:    "storage",
+		Description: "Upsert analysed symbols into code_symbols; embed changed, prune by commit",
+		IsLocal:     true,
+	},
+	"request_repo_analysis": {
+		Handler:     RequestRepoAnalysisAction,
+		Category:    "code",
+		Description: "Ask the analyser adapter to parse a repo at ref; awaits the symbol output",
+		IsLocal:     true,
+	},
+
 	// =========================================================================
 	// EXTERNAL — notifications, HTTP
 	// =========================================================================
