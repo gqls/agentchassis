@@ -15,6 +15,11 @@
 //   6. Mobile-ready     — CSS contains @media breakpoint (warning)
 //   7. CSS variables    — no bare hex outside var() fallbacks (warning)
 //   8. Self-contained   — no fetch(), no external src= (warning)
+//   9. Doc header       — tool-doc header present in html_template (warning;
+//                         019 §Tool Doc Header — template-only: rendered_html
+//                         is post-strip)
+//  10. Doc header shape — opener without closer (error — the malformed block
+//                         would SHIP; StripToolDocHeader leaves it untouched)
 //
 // Creates improve_tool work items for tool-improver to fix.
 // Cooldown: skips tools that had an improve_tool item in the last 7 days.
@@ -28,6 +33,11 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+
+	// Sentinel consts + HasToolDocHeader (019 §Tool Doc Header). Reconcile the
+	// import path with wherever tool_doc_header.go lands (drafted as
+	// platform/content, beside the render path that calls StripToolDocHeader).
+	"github.com/gqls/agentchassis/platform/content"
 )
 
 func init() { Register(&ToolHealthCheck{}) }
@@ -373,6 +383,29 @@ func auditTool(templateHTML, renderedHTML, buildStatus string) []toolIssue {
 			severity:    "warning",
 			description: "Tool references an external CDN — tools should have no external dependencies",
 		})
+	}
+
+	// 9./10. Tool-doc header (019 §Tool Doc Header). Checked on the TEMPLATE
+	// only — never on rendered_html, which is post-strip once
+	// StripToolDocHeader ships. Guarded on templateHTML: when the fork is
+	// empty, empty_template (blocker) has already fired.
+	if templateHTML != "" && !content.HasToolDocHeader(templateHTML) {
+		if strings.Contains(templateHTML, content.ToolDocOpen) {
+			// Opener without closer: StripToolDocHeader deliberately leaves a
+			// malformed block untouched (truncating a script would be worse),
+			// so until fixed the block SHIPS to the public page.
+			issues = append(issues, toolIssue{
+				check:       "malformed_doc_header",
+				severity:    "error",
+				description: "Tool-doc header opener present but closer missing — the block will ship to the public page until fixed (019 §Tool Doc Header)",
+			})
+		} else {
+			issues = append(issues, toolIssue{
+				check:       "no_doc_header",
+				severity:    "warning",
+				description: "Tool has no tool-doc header — add the sentinel block stating purpose and behavioural invariants (019 §Tool Doc Header)",
+			})
+		}
 	}
 
 	return issues
