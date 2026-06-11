@@ -1,0 +1,115 @@
+# FILE: deploy/analyser-adapter.yaml
+#
+# DRAFT for your cluster (namespace ai-persona-system). Reconcile the image tag
+# and kustomize layout (deployments/kustomize/services/analyser-adapter/) with
+# how the thunder adapter is deployed. The container command, the config
+# volumeMount, and the POD_NAME env are load-bearing: they match
+# cmd/analyser-adapter/main.go (-config default) and adapter.go (POD_NAME).
+#
+# Two things are deliberate here:
+#   - The GitHub credential is a SEPARATE, read-only, repo-scoped secret
+#     (analyser-github-read), mounted only on this pod. Least privilege: the
+#     analyser reads source, it never writes. The git adapter keeps its own
+#     write credential.
+#   - Health endpoints (/health, /ready) are served by the adapter's HTTP
+#     server (adapter.go StartHealthServer, started by main), so the probes
+#     below are valid; /ready returns 503 once shutdown begins (drain).
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analyser-adapter
+  namespace: ai-persona-system
+  labels:
+    app: analyser-adapter
+    app.kubernetes.io/part-of: agent-chassis
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # avoids two adapters on the same partition during rollout (035 §2.12)
+  selector:
+    matchLabels:
+      app: analyser-adapter
+  template:
+    metadata:
+      labels:
+        app: analyser-adapter
+    spec:
+      # Pod-spec fields most often missed (035 §2.12):
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: analyser-adapter
+          # Reconcile the tag with your release process (deploy-agents seds newTag).
+          image: docker.io/aqls/analyser-adapter:vX.Y.Z
+          imagePullPolicy: IfNotPresent
+          # command (NOT args alone): our Dockerfiles use CMD, so args would
+          # replace the binary path (035 §2.12). Path matches main.go's -config
+          # default and the volumeMount below.
+          command: ["./analyser-adapter", "-config", "/app/configs/analyser-adapter.yaml"]
+          ports:
+            - name: health
+              containerPort: 8080
+          env:
+            - name: REQUESTS_TOPIC
+              value: "system.adapter.analyser.requests"
+            - name: CONSUMER_GROUP
+              value: "analyser.adapter.group"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AGENT_VERSION
+              value: "0.1.0"
+            - name: GITHUB_API_BASE
+              value: "https://api.github.com"
+            - name: GITHUB_READ_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: analyser-github-read
+                  key: token
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs/analyser-adapter.yaml
+              subPath: analyser-adapter.yaml
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            # kustomize configMapGenerator from configs/analyser-adapter.yaml —
+            # the generated hash suffix makes config changes restart the pod.
+            name: analyser-adapter-config
+---
+# Read-only, repo-scoped GitHub credential. Create it via your secret manager
+# (sealed-secrets / external-secrets) — do NOT commit the token to git. A
+# fine-grained PAT or deploy key with "contents: read" on the chassis repo only.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: analyser-github-read
+  namespace: ai-persona-system
+  labels:
+    app: analyser-adapter
+type: Opaque
+stringData:
+  token: "REPLACE_WITH_FINE_GRAINED_READ_ONLY_TOKEN"

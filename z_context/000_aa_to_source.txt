@@ -1,8 +1,8 @@
 \pset pager off
 
 SELECT count(*), source, status FROM site_work_items GROUP BY source, status;
-SELECT * FROM site_work_items LIMIT 2;
-SELECT * FROM maintenance_queue LIMIT 2;
+SELECT * FROM site_work_items LIMIT 1;
+SELECT * FROM maintenance_queue LIMIT 1;
 
 
 include some initial messages

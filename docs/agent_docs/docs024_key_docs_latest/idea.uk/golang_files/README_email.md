@@ -1,3 +1,55 @@
+AWS Amazon
+
+dad Acocb3579!
+
+Account ID
+2905-6737-7117
+Account name
+Anthony Appleby
+Account color
+Unset
+
+arn:aws:ses:eu-west-2:290567377117:identity/leopardess.uk
+
+https://eu-west-2.console.aws.amazon.com/ses/home?region=eu-west-2#/identities
+
+Type    Name                                                         Value
+CNAME   ly4vxsi22da2ocovkcb5zwsf34x53btj._domainkey.leopardess.uk   ly4vxsi22da2ocovkcb5zwsf34x53btj.dkim.amazonses.com
+CNAME   s2sejjwg5gmaivknawylbtkrivzryd6l._domainkey.leopardess.uk   s2sejjwg5gmaivknawylbtkrivzryd6l.dkim.amazonses.com
+CNAME   u6ubjmx3dmbdcofiwkm4ycqonfb2weo5._domainkey.leopardess.uk   u6ubjmx3dmbdcofiwkm4ycqonfb2weo5.dkim.amazonses.com
+
+Endpoint and ports confirmed: email-smtp.eu-west-2.amazonaws.com, STARTTLS on 587 — and one of those results even notes Hetzner blocks 465 but allows 587 with SES, which matches your box exactly. Let me confirm the sandbox/production-access and domain-verification steps, then write it up.Architected comprehensive AWS SES setup plan with environment configurationArchitected comprehensive AWS SES setup plan with environment configurationConfirmed and current. Before the steps, three things to set expectations: this is an env-only switch on the service (no rebuild), the From stays idea-uk@leopardess.uk signed with leopardess.uk's own DKIM, and your box already reaches SES on the port that matters — Hetzner blocks 465 but allows 587, and SES works over STARTTLS on 587. The work is in the AWS console and the leopardess.uk DNS at Clook.
+Region is London = eu-west-2; SMTP endpoint email-smtp.eu-west-2.amazonaws.com, STARTTLS on 587.
+
+AWS account, then open SES and set the region (top-right) to eu-west-2 (London).
+Verify leopardess.uk. SES → Identities → Create identity → Domain → leopardess.uk, with Easy DKIM. SES uses DKIM to verify domain ownership; Easy DKIM defaults to a 2048-bit key and gives you three CNAME records — add them to leopardess.uk's zone in cPanel → Zone Editor at Clook (that's where leopardess.uk's DNS lives). Wait until the identity reads Verified and DKIM Successful; DNS can take a little while. AWS
+Create SMTP credentials. SES → SMTP settings → Create SMTP credentials. It creates an IAM user and hands you an SMTP username and password — note these are not the same as your AWS access keys or console login. Save them. Wikipedia
+Request production access now, because it isn't instant. SES → Account dashboard → Request production access → choose Transactional, point it at idea.uk, and describe the use honestly (order confirmations, pay-links, report delivery to people who submitted a request; bounces and refunds handled; no marketing lists). It matters that the domain has a real website showing the nature of the business — a generic landing page can get the request rejected, and idea.uk qualifies. Until it's granted you're in the sandbox, where you can only send to verified addresses or domains, capped at 200 messages per 24 hours and 1 per second. Approval is usually a day or two. CiscoAWS
+Point the service at SES — edit /etc/idea/idea.env:
+
+SMTP_HOST=email-smtp.eu-west-2.amazonaws.com
+SMTP_PORT=587
+SMTP_USER=<SES SMTP username>
+SMTP_PASS=<SES SMTP password>
+SMTP_FROM=idea-uk@leopardess.uk
+SMTP_FROM_NAME=idea.uk
+SMTP_REPLY_TO=idea-uk@leopardess.uk
+then systemctl restart idea. No rebuild — the existing smtpSend does STARTTLS on anything that isn't 465, which is exactly what SES wants.
+
+Test while still in sandbox. Verify one test recipient (your own Gmail) as an email identity in SES, place a request with that Gmail, confirm the order on the box, and check the pay-link arrives: From idea.uk <idea-uk@leopardess.uk>, and in Gmail's "show original" DKIM PASS with d=leopardess.uk. journalctl -u idea -f should show no "email failed".
+Go live when production access lands — any customer address then receives, and email is finished.
+
+Two notes so nothing surprises you:
+
+The sandbox only sends to verified recipients, so an unverified address bouncing before production access is expected, not a misconfiguration.
+Your operator notifications keep working — the service sends them via SES to idea-uk@leopardess.uk, which still routes to your Clook mailbox. Once in production you can, if you prefer, point OPERATOR_EMAIL at aaa@designconsultancy.co.uk so they land in your Gmail.
+
+A custom MAIL FROM subdomain (mail.leopardess.uk) is optional polish for SPF alignment later; it isn't needed to send, since Easy DKIM alone makes DMARC pass.
+Let me record this, and then tell me when leopardess.uk shows Verified and the env is set, and we'll run the sandbox test against a verified Gmail.
+
+---------------------------------------
+Clook
+
 The email — the one test that decides the rest
 The service can now hand mail to Clook (587 works). The only thing we've seen fail is the spam filter blocking that internal notification. We still don't know whether it also blocks the customer email — and that's the whole question, because the customer email is the one that matters for going live. So:
 
@@ -34,4 +86,6 @@ Here's the insight that makes this test the decider. The operator notification k
 
 If it delivers — direct sends work, and the [CS] blocks are specifically the forwarded operator notifications. Then customer email is fine (those are always direct to the buyer), and we fix the operator notification too by pointing OPERATOR_EMAIL straight at aaa@designconsultancy.co.uk so it stops going through the idea-uk@ forward. The wording tidy helps, but the real fix is removing the forward.
 If it's blocked too — MailChannels is rejecting leopardess.uk's direct outbound as well, not just forwards, and we move sending off MailChannels rather than keep adjusting.
+
+-------------
 

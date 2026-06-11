@@ -1,5 +1,3 @@
- \pset pager off
-Pager usage is off.
 clients_db=# \d site_work_items
 \d sites
 \d pages
@@ -28,46 +26,45 @@ clients_db=# \d site_work_items
 \dt business_intel.*
 \d thunder_instances
 \d
-                             Table "public.site_work_items"
-      Column      |           Type           | Collation | Nullable |      Default
-------------------+--------------------------+-----------+----------+-------------------
- id               | uuid                     |           | not null | gen_random_uuid()
- site_id          | uuid                     |           | not null |
- source           | text                     |           | not null |
- item_type        | text                     |           | not null |
- severity         | text                     |           | not null | 'medium'::text
- summary          | text                     |           | not null |
- spec             | jsonb                    |           |          | '{}'::jsonb
- page_id          | uuid                     |           |          |
- component_id     | uuid                     |           |          |
- entity_id        | uuid                     |           |          |
- affected_url     | text                     |           |          |
- impact           | jsonb                    |           |          |
- resolution_path  | text                     |           |          |
- suggested_action | text                     |           |          |
- priority         | integer                  |           |          | 100
- handler_agent    | text                     |           |          |
- status           | text                     |           | not null | 'detected'::text
- created_by       | text                     |           | not null |
- handled_by       | text                     |           |          |
- approved_by      | text                     |           |          |
- claimed_by       | text                     |           |          |
- depends_on       | uuid[]                   |           |          |
- parent_item_id   | uuid                     |           |          |
- related_item_ids | uuid[]                   |           |          |
- batch_id         | uuid                     |           |          |
- attempt_count    | integer                  |           |          | 0
- max_attempts     | integer                  |           |          | 3
- result           | jsonb                    |           |          | '{}'::jsonb
- error            | text                     |           |          |
- item_key         | text                     |           |          |
- created_at       | timestamp with time zone |           |          | now()
- triaged_at       | timestamp with time zone |           |          |
- claimed_at       | timestamp with time zone |           |          |
- completed_at     | timestamp with time zone |           |          |
- approval_mode    | text                     |           |          | 'auto'::text
- updated_at       | timestamp with time zone |           |          | now()
- pipeline         | text                     |           | not null | 'build'::text
+Table "public.site_work_items"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid||not null|
+source|text||not null|
+item_type|text||not null|
+severity|text||not null|'medium'::text
+summary|text||not null|
+spec|jsonb|||'{}'::jsonb
+page_id|uuid|||
+component_id|uuid|||
+entity_id|uuid|||
+affected_url|text|||
+impact|jsonb|||
+resolution_path|text|||
+suggested_action|text|||
+priority|integer|||100
+handler_agent|text|||
+status|text||not null|'detected'::text
+created_by|text||not null|
+handled_by|text|||
+approved_by|text|||
+claimed_by|text|||
+depends_on|uuid[]|||
+parent_item_id|uuid|||
+related_item_ids|uuid[]|||
+batch_id|uuid|||
+attempt_count|integer|||0
+max_attempts|integer|||3
+result|jsonb|||'{}'::jsonb
+error|text|||
+item_key|text|||
+created_at|timestamp with time zone|||now()
+triaged_at|timestamp with time zone|||
+claimed_at|timestamp with time zone|||
+completed_at|timestamp with time zone|||
+approval_mode|text|||'auto'::text
+updated_at|timestamp with time zone|||now()
+pipeline|text||not null|'build'::text
 Indexes:
     "site_work_items_pkey" PRIMARY KEY, btree (id)
     "idx_swi_batch" btree (batch_id) WHERE batch_id IS NOT NULL
@@ -87,42 +84,40 @@ Foreign-key constraints:
 Referenced by:
     TABLE "content_feed_items" CONSTRAINT "content_feed_items_work_item_id_fkey" FOREIGN KEY (work_item_id) REFERENCES site_work_items(id)
     TABLE "site_work_items" CONSTRAINT "site_work_items_parent_item_id_fkey" FOREIGN KEY (parent_item_id) REFERENCES site_work_items(id)
-
-                                        Table "public.sites"
-       Column        |           Type           | Collation | Nullable |           Default
----------------------+--------------------------+-----------+----------+-----------------------------
- id                  | uuid                     |           | not null | gen_random_uuid()
- network_id          | uuid                     |           |          |
- domain              | character varying(255)   |           | not null |
- name                | character varying(255)   |           |          |
- brand_dna           | jsonb                    |           |          | '{}'::jsonb
- github_repo         | character varying(500)   |           |          |
- github_branch       | character varying(100)   |           |          | 'main'::character varying
- settings            | jsonb                    |           |          | '{}'::jsonb
- status              | character varying(50)    |           |          | 'active'::character varying
- last_built_at       | timestamp with time zone |           |          |
- last_deployed_at    | timestamp with time zone |           |          |
- created_at          | timestamp with time zone |           |          | now()
- updated_at          | timestamp with time zone |           |          | now()
- style_collection_id | uuid                     |           |          |
- style_overrides     | jsonb                    |           |          | '{}'::jsonb
- content_data        | jsonb                    |           |          | '{}'::jsonb
- brand_assets        | jsonb                    |           |          | '{}'::jsonb
- default_components  | jsonb                    |           |          | '{}'::jsonb
- deploy_config       | jsonb                    |           |          | '{}'::jsonb
- build_status        | text                     |           |          | 'pending'::text
- schema_mode         | text                     |           |          | 'flexible'::text
- strict_mode_trigger | text                     |           |          | 'first_deploy'::text
- company_name        | character varying(255)   |           |          |
- tagline             | text                     |           |          |
- email               | character varying(255)   |           |          |
- phone               | character varying(100)   |           |          |
- logo_text           | character varying(255)   |           |          |
- contact_address     | text                     |           |          |
- logo_url            | character varying(500)   |           |          |
- locked_at           | timestamp with time zone |           |          |
- locked_by           | text                     |           |          |
- last_reconciled_at  | timestamp with time zone |           |          |
+Table "public.sites"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+network_id|uuid|||
+domain|character varying(255)||not null|
+name|character varying(255)|||
+brand_dna|jsonb|||'{}'::jsonb
+github_repo|character varying(500)|||
+github_branch|character varying(100)|||'main'::character varying
+settings|jsonb|||'{}'::jsonb
+status|character varying(50)|||'active'::character varying
+last_built_at|timestamp with time zone|||
+last_deployed_at|timestamp with time zone|||
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+style_collection_id|uuid|||
+style_overrides|jsonb|||'{}'::jsonb
+content_data|jsonb|||'{}'::jsonb
+brand_assets|jsonb|||'{}'::jsonb
+default_components|jsonb|||'{}'::jsonb
+deploy_config|jsonb|||'{}'::jsonb
+build_status|text|||'pending'::text
+schema_mode|text|||'flexible'::text
+strict_mode_trigger|text|||'first_deploy'::text
+company_name|character varying(255)|||
+tagline|text|||
+email|character varying(255)|||
+phone|character varying(100)|||
+logo_text|character varying(255)|||
+contact_address|text|||
+logo_url|character varying(500)|||
+locked_at|timestamp with time zone|||
+locked_by|text|||
+last_reconciled_at|timestamp with time zone|||
 Indexes:
     "sites_pkey" PRIMARY KEY, btree (id)
     "idx_sites_build_status" btree (build_status)
@@ -166,40 +161,38 @@ Referenced by:
     TABLE "site_work_items" CONSTRAINT "site_work_items_site_id_fkey" FOREIGN KEY (site_id) REFERENCES sites(id)
     TABLE "style_collections" CONSTRAINT "style_collections_source_site_id_fkey" FOREIGN KEY (source_site_id) REFERENCES sites(id) ON DELETE SET NULL
     TABLE "typography_sets" CONSTRAINT "typography_sets_source_site_id_fkey" FOREIGN KEY (source_site_id) REFERENCES sites(id) ON DELETE SET NULL
-
-                                          Table "public.pages"
-         Column          |           Type           | Collation | Nullable |           Default
--------------------------+--------------------------+-----------+----------+-----------------------------
- id                      | uuid                     |           | not null | gen_random_uuid()
- site_id                 | uuid                     |           |          |
- name                    | character varying(255)   |           | not null |
- url                     | character varying(500)   |           | not null |
- title                   | character varying(500)   |           |          |
- page_type               | character varying(50)    |           |          |
- status                  | character varying(50)    |           |          | 'active'::character varying
- content_hash            | character varying(64)    |           |          |
- meta_description        | text                     |           |          |
- topics                  | text[]                   |           |          |
- nav_label               | character varying(255)   |           |          |
- nav_order               | integer                  |           |          | 100
- in_header               | boolean                  |           |          | true
- in_footer               | boolean                  |           |          | true
- last_built_at           | timestamp with time zone |           |          |
- expires_at              | timestamp with time zone |           |          |
- created_at              | timestamp with time zone |           |          | now()
- updated_at              | timestamp with time zone |           |          | now()
- build_status            | text                     |           |          | 'pending'::text
- deployed_at             | timestamp with time zone |           |          |
- sections                | jsonb                    |           |          | '[]'::jsonb
- version                 | integer                  |           |          | 1
- rendered_header         | text                     |           |          |
- rendered_footer         | text                     |           |          |
- rendered_head           | text                     |           |          |
- site_area_id            | uuid                     |           |          |
- content_direction       | jsonb                    |           |          |
- page_spec               | jsonb                    |           |          |
- suppressed_sections     | jsonb                    |           |          | '[]'::jsonb
- built_from_plan_version | uuid                     |           |          |
+Table "public.pages"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid|||
+name|character varying(255)||not null|
+url|character varying(500)||not null|
+title|character varying(500)|||
+page_type|character varying(50)|||
+status|character varying(50)|||'active'::character varying
+content_hash|character varying(64)|||
+meta_description|text|||
+topics|text[]|||
+nav_label|character varying(255)|||
+nav_order|integer|||100
+in_header|boolean|||true
+in_footer|boolean|||true
+last_built_at|timestamp with time zone|||
+expires_at|timestamp with time zone|||
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+build_status|text|||'pending'::text
+deployed_at|timestamp with time zone|||
+sections|jsonb|||'[]'::jsonb
+version|integer|||1
+rendered_header|text|||
+rendered_footer|text|||
+rendered_head|text|||
+site_area_id|uuid|||
+content_direction|jsonb|||
+page_spec|jsonb|||
+suppressed_sections|jsonb|||'[]'::jsonb
+built_from_plan_version|uuid|||
 Indexes:
     "pages_pkey" PRIMARY KEY, btree (id)
     "idx_pages_area" btree (site_area_id) WHERE site_area_id IS NOT NULL
@@ -227,37 +220,35 @@ Referenced by:
     TABLE "site_nav_items" CONSTRAINT "site_nav_items_page_id_fkey" FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE SET NULL
 Triggers:
     trg_invalidate_nav_on_page_change AFTER INSERT OR DELETE OR UPDATE ON pages FOR EACH ROW EXECUTE FUNCTION invalidate_navigation_cache()
-
-                               Table "public.page_components"
-        Column        |           Type           | Collation | Nullable |      Default
-----------------------+--------------------------+-----------+----------+-------------------
- id                   | uuid                     |           | not null | gen_random_uuid()
- page_id              | uuid                     |           |          |
- component_id         | uuid                     |           |          |
- position             | integer                  |           | not null |
- slot_name            | character varying(100)   |           |          |
- parent_instance_id   | uuid                     |           |          |
- rendered_html        | text                     |           |          |
- content_data         | jsonb                    |           |          |
- content_hash         | character varying(64)    |           |          |
- data_path            | character varying(500)   |           |          |
- data_uuid            | uuid                     |           |          | gen_random_uuid()
- created_at           | timestamp with time zone |           |          | now()
- updated_at           | timestamp with time zone |           |          | now()
- build_status         | text                     |           |          | 'pending'::text
- reviewed_at          | timestamp with time zone |           |          |
- reviewed_by          | text                     |           |          |
- deploy_commit        | text                     |           |          |
- research_id          | uuid                     |           |          |
- sources_displayed    | boolean                  |           |          | false
- content_item_id      | uuid                     |           |          |
- component_version_id | uuid                     |           |          |
- schema_mode          | text                     |           |          |
- locked_at            | timestamp with time zone |           |          |
- locked_by            | text                     |           |          |
- content_brief        | jsonb                    |           |          |
- lock_type            | text                     |           |          |
- lock_expires_at      | timestamp with time zone |           |          |
+Table "public.page_components"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+page_id|uuid|||
+component_id|uuid|||
+position|integer||not null|
+slot_name|character varying(100)|||
+parent_instance_id|uuid|||
+rendered_html|text|||
+content_data|jsonb|||
+content_hash|character varying(64)|||
+data_path|character varying(500)|||
+data_uuid|uuid|||gen_random_uuid()
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+build_status|text|||'pending'::text
+reviewed_at|timestamp with time zone|||
+reviewed_by|text|||
+deploy_commit|text|||
+research_id|uuid|||
+sources_displayed|boolean|||false
+content_item_id|uuid|||
+component_version_id|uuid|||
+schema_mode|text|||
+locked_at|timestamp with time zone|||
+locked_by|text|||
+content_brief|jsonb|||
+lock_type|text|||
+lock_expires_at|timestamp with time zone|||
 Indexes:
     "page_components_pkey" PRIMARY KEY, btree (id)
     "idx_page_components_content" btree (content_item_id)
@@ -283,23 +274,21 @@ Referenced by:
     TABLE "research_results" CONSTRAINT "research_results_component_instance_id_fkey" FOREIGN KEY (component_instance_id) REFERENCES page_components(id) ON DELETE SET NULL
 Triggers:
     trigger_auto_lock_on_deploy BEFORE UPDATE ON page_components FOR EACH ROW EXECUTE FUNCTION auto_lock_on_deploy()
-
-                            Table "public.site_components"
-     Column      |           Type           | Collation | Nullable |      Default
------------------+--------------------------+-----------+----------+-------------------
- id              | uuid                     |           | not null | gen_random_uuid()
- site_id         | uuid                     |           | not null |
- slot_name       | character varying(100)   |           | not null |
- component_id    | uuid                     |           |          |
- rendered_html   | text                     |           |          |
- content_data    | jsonb                    |           |          | '{}'::jsonb
- build_status    | text                     |           |          | 'pending'::text
- created_at      | timestamp with time zone |           |          | now()
- updated_at      | timestamp with time zone |           |          | now()
- locked_at       | timestamp with time zone |           |          |
- locked_by       | text                     |           |          |
- lock_type       | text                     |           |          |
- lock_expires_at | timestamp with time zone |           |          |
+Table "public.site_components"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid||not null|
+slot_name|character varying(100)||not null|
+component_id|uuid|||
+rendered_html|text|||
+content_data|jsonb|||'{}'::jsonb
+build_status|text|||'pending'::text
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+locked_at|timestamp with time zone|||
+locked_by|text|||
+lock_type|text|||
+lock_expires_at|timestamp with time zone|||
 Indexes:
     "site_components_pkey" PRIMARY KEY, btree (id)
     "idx_site_components_locked" btree (locked_at) WHERE locked_at IS NOT NULL
@@ -312,40 +301,38 @@ Check constraints:
 Foreign-key constraints:
     "site_components_component_id_fkey" FOREIGN KEY (component_id) REFERENCES content_components(id)
     "site_components_site_id_fkey" FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
-
-                                 Table "public.assets"
-      Column      |           Type           | Collation | Nullable |      Default
-------------------+--------------------------+-----------+----------+-------------------
- id               | uuid                     |           | not null | gen_random_uuid()
- site_id          | uuid                     |           |          |
- asset_type       | text                     |           | not null |
- purpose          | text                     |           |          |
- name             | text                     |           |          |
- url              | text                     |           | not null |
- storage_provider | text                     |           |          |
- storage_path     | text                     |           |          |
- filename         | text                     |           |          |
- mime_type        | text                     |           |          |
- file_size        | integer                  |           |          |
- dimensions       | jsonb                    |           |          |
- duration         | integer                  |           |          |
- origin_type      | text                     |           | not null | 'uploaded'::text
- origin_url       | text                     |           |          |
- origin_prompt    | text                     |           |          |
- origin_model     | text                     |           |          |
- origin_asset_id  | uuid                     |           |          |
- alterations      | jsonb                    |           |          | '[]'::jsonb
- attribution      | text                     |           |          |
- license          | text                     |           |          |
- license_url      | text                     |           |          |
- status           | text                     |           |          | 'active'::text
- created_at       | timestamp with time zone |           |          | now()
- updated_at       | timestamp with time zone |           |          | now()
- locked_at        | timestamp with time zone |           |          |
- locked_by        | text                     |           |          |
- asset_key        | text                     |           |          |
- lock_type        | text                     |           |          |
- lock_expires_at  | timestamp with time zone |           |          |
+Table "public.assets"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid|||
+asset_type|text||not null|
+purpose|text|||
+name|text|||
+url|text||not null|
+storage_provider|text|||
+storage_path|text|||
+filename|text|||
+mime_type|text|||
+file_size|integer|||
+dimensions|jsonb|||
+duration|integer|||
+origin_type|text||not null|'uploaded'::text
+origin_url|text|||
+origin_prompt|text|||
+origin_model|text|||
+origin_asset_id|uuid|||
+alterations|jsonb|||'[]'::jsonb
+attribution|text|||
+license|text|||
+license_url|text|||
+status|text|||'active'::text
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+locked_at|timestamp with time zone|||
+locked_by|text|||
+asset_key|text|||
+lock_type|text|||
+lock_expires_at|timestamp with time zone|||
 Indexes:
     "assets_pkey" PRIMARY KEY, btree (id)
     "idx_assets_locked" btree (locked_at) WHERE locked_at IS NOT NULL
@@ -367,43 +354,41 @@ Referenced by:
     TABLE "product_assets" CONSTRAINT "product_assets_asset_id_fkey" FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
 Triggers:
     trg_assets_updated_at BEFORE UPDATE ON assets FOR EACH ROW EXECUTE FUNCTION update_assets_updated_at()
-
-                                                                                    Table "public.agent_definitions"
-         Column         |           Type           | Collation | Nullable |                                                           Default
-------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------------------------------------------------------------------
- id                     | uuid                     |           | not null | gen_random_uuid()
- type                   | character varying(100)   |           | not null |
- display_name           | character varying(255)   |           | not null |
- description            | text                     |           |          |
- category               | character varying(50)    |           | not null |
- default_config         | jsonb                    |           | not null | '{}'::jsonb
- is_active              | boolean                  |           |          | true
- created_at             | timestamp with time zone |           | not null | now()
- updated_at             | timestamp with time zone |           | not null | now()
- deleted_at             | timestamp with time zone |           |          |
- capabilities           | jsonb                    |           |          | '[]'::jsonb
- image_repository       | character varying(255)   |           |          | 'docker.io/aqls/agent-chassis'::character varying
- image_tag              | character varying(100)   |           |          | 'latest'::character varying
- command                | text[]                   |           |          |
- resources              | jsonb                    |           |          | '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}'::jsonb
- topics                 | jsonb                    |           |          | '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb
- health_config          | jsonb                    |           |          | '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}'::jsonb
- env_vars               | jsonb                    |           |          | '[]'::jsonb
- version                | integer                  |           |          | 1
- previous_version_id    | uuid                     |           |          |
- task_workflow          | jsonb                    |           |          |
- orchestrator_workflow  | jsonb                    |           |          |
- orchestration_workflow | json                     |           |          |
- delegation_preferences | jsonb                    |           |          | '{"fallback_to_self": true, "prefer_delegation": true}'::jsonb
- agent_category         | text                     |           |          |
- status                 | text                     |           |          | 'experimental'::text
- domain_tags            | jsonb                    |           |          | '[]'::jsonb
- briefing_questionnaire | jsonb                    |           |          | '{}'::jsonb
- usage_count            | integer                  |           |          | 0
- is_snapshot            | boolean                  |           |          | false
- input_contract         | jsonb                    |           |          |
- output_contract        | jsonb                    |           |          |
- idle_timeout_seconds   | integer                  |           | not null | 0
+Table "public.agent_definitions"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+type|character varying(100)||not null|
+display_name|character varying(255)||not null|
+description|text|||
+category|character varying(50)||not null|
+default_config|jsonb||not null|'{}'::jsonb
+is_active|boolean|||true
+created_at|timestamp with time zone||not null|now()
+updated_at|timestamp with time zone||not null|now()
+deleted_at|timestamp with time zone|||
+capabilities|jsonb|||'[]'::jsonb
+image_repository|character varying(255)|||'docker.io/aqls/agent-chassis'::character varying
+image_tag|character varying(100)|||'latest'::character varying
+command|text[]|||
+resources|jsonb|||'{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}'::jsonb
+topics|jsonb|||'{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb
+health_config|jsonb|||'{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}'::jsonb
+env_vars|jsonb|||'[]'::jsonb
+version|integer|||1
+previous_version_id|uuid|||
+task_workflow|jsonb|||
+orchestrator_workflow|jsonb|||
+orchestration_workflow|json|||
+delegation_preferences|jsonb|||'{"fallback_to_self": true, "prefer_delegation": true}'::jsonb
+agent_category|text|||
+status|text|||'experimental'::text
+domain_tags|jsonb|||'[]'::jsonb
+briefing_questionnaire|jsonb|||'{}'::jsonb
+usage_count|integer|||0
+is_snapshot|boolean|||false
+input_contract|jsonb|||
+output_contract|jsonb|||
+idle_timeout_seconds|integer||not null|0
 Indexes:
     "agent_definitions_pkey" PRIMARY KEY, btree (id)
     "agent_definitions_type_version_key" UNIQUE CONSTRAINT, btree (type, version)
@@ -423,42 +408,40 @@ Foreign-key constraints:
 Referenced by:
     TABLE "agent_definitions" CONSTRAINT "agent_definitions_previous_version_id_fkey" FOREIGN KEY (previous_version_id) REFERENCES agent_definitions(id)
     TABLE "client_system.agent_instances" CONSTRAINT "agent_instances_template_id_fkey" FOREIGN KEY (template_id) REFERENCES agent_definitions(id)
-
-                                 Table "public.orchestration_states"
-         Column          |            Type             | Collation | Nullable |        Default
--------------------------+-----------------------------+-----------+----------+-----------------------
- orchestration_id        | uuid                        |           | not null |
- correlation_id          | uuid                        |           | not null |
- client_id               | character varying(100)      |           | not null |
- status                  | character varying(50)       |           | not null |
- current_step            | character varying(255)      |           | not null |
- awaited_steps           | jsonb                       |           |          | '[]'::jsonb
- collected_data          | jsonb                       |           |          | '{}'::jsonb
- initial_request_data    | jsonb                       |           |          |
- final_result            | jsonb                       |           |          |
- error                   | text                        |           |          |
- workflow_plan           | jsonb                       |           | not null |
- execution_metadata      | jsonb                       |           |          | '{}'::jsonb
- execution_path          | jsonb                       |           |          | '[]'::jsonb
- version                 | integer                     |           |          | 1
- created_at              | timestamp with time zone    |           | not null | now()
- updated_at              | timestamp with time zone    |           | not null | now()
- parent_orchestration_id | uuid                        |           |          |
- fuel_budget             | integer                     |           |          | 1000
- currently_executing     | character varying(100)      |           |          |
- last_activity           | timestamp without time zone |           |          | now()
- processing_node         | character varying(100)      |           |          |
- execution_started_at    | timestamp without time zone |           |          |
- awaited_requests        | jsonb                       |           |          | '{}'::jsonb
- processing_history      | jsonb                       |           |          | '[]'::jsonb
- subtree_agents          | jsonb                       |           |          | '{}'::jsonb
- owner_agent_id          | uuid                        |           |          |
- owner_agent_type        | character varying(50)       |           |          |
- orchestration_name      | character varying(255)      |           |          |
- owner_agent_role        | character varying(255)      |           |          | ''::character varying
- requests_topic          | character varying(255)      |           |          |
- responses_topic         | character varying(255)      |           |          |
- site_id                 | uuid                        |           |          |
+Table "public.orchestration_states"
+Column|Type|Collation|Nullable|Default
+orchestration_id|uuid||not null|
+correlation_id|uuid||not null|
+client_id|character varying(100)||not null|
+status|character varying(50)||not null|
+current_step|character varying(255)||not null|
+awaited_steps|jsonb|||'[]'::jsonb
+collected_data|jsonb|||'{}'::jsonb
+initial_request_data|jsonb|||
+final_result|jsonb|||
+error|text|||
+workflow_plan|jsonb||not null|
+execution_metadata|jsonb|||'{}'::jsonb
+execution_path|jsonb|||'[]'::jsonb
+version|integer|||1
+created_at|timestamp with time zone||not null|now()
+updated_at|timestamp with time zone||not null|now()
+parent_orchestration_id|uuid|||
+fuel_budget|integer|||1000
+currently_executing|character varying(100)|||
+last_activity|timestamp without time zone|||now()
+processing_node|character varying(100)|||
+execution_started_at|timestamp without time zone|||
+awaited_requests|jsonb|||'{}'::jsonb
+processing_history|jsonb|||'[]'::jsonb
+subtree_agents|jsonb|||'{}'::jsonb
+owner_agent_id|uuid|||
+owner_agent_type|character varying(50)|||
+orchestration_name|character varying(255)|||
+owner_agent_role|character varying(255)|||''::character varying
+requests_topic|character varying(255)|||
+responses_topic|character varying(255)|||
+site_id|uuid|||
 Indexes:
     "orchestration_states_pkey" PRIMARY KEY, btree (orchestration_id)
     "idx_awaited_requests" gin (awaited_requests)
@@ -479,27 +462,25 @@ Referenced by:
     TABLE "pending_requests" CONSTRAINT "fk_pending_orch" FOREIGN KEY (orchestration_id) REFERENCES orchestration_states(orchestration_id) ON DELETE CASCADE
 Triggers:
     orchestration_state_audit_trigger AFTER UPDATE ON orchestration_states FOR EACH ROW EXECUTE FUNCTION log_orchestration_state_changes()
-
-                                      Table "public.awaited_requests"
-        Column         |            Type             | Collation | Nullable |           Default
------------------------+-----------------------------+-----------+----------+------------------------------
- request_id            | character varying(255)      |           | not null |
- orchestration_id      | uuid                        |           | not null |
- correlation_id        | character varying(255)      |           | not null |
- step_id               | character varying(255)      |           |          |
- step_name             | character varying(255)      |           |          |
- retry_version         | integer                     |           | not null | 0
- target_agent_id       | character varying(255)      |           |          |
- target_agent_type     | character varying(255)      |           |          |
- responses_topic       | character varying(255)      |           | not null |
- requests_topic        | character varying(255)      |           |          |
- sent_at               | timestamp without time zone |           | not null |
- timeout_at            | timestamp without time zone |           | not null |
- reply_to_request_id   | character varying(255)      |           |          |
- status                | character varying(20)       |           | not null | 'waiting'::character varying
- processed_at          | timestamp without time zone |           |          |
- processing_started_at | timestamp without time zone |           |          |
- processing_pod        | text                        |           |          |
+Table "public.awaited_requests"
+Column|Type|Collation|Nullable|Default
+request_id|character varying(255)||not null|
+orchestration_id|uuid||not null|
+correlation_id|character varying(255)||not null|
+step_id|character varying(255)|||
+step_name|character varying(255)|||
+retry_version|integer||not null|0
+target_agent_id|character varying(255)|||
+target_agent_type|character varying(255)|||
+responses_topic|character varying(255)||not null|
+requests_topic|character varying(255)|||
+sent_at|timestamp without time zone||not null|
+timeout_at|timestamp without time zone||not null|
+reply_to_request_id|character varying(255)|||
+status|character varying(20)||not null|'waiting'::character varying
+processed_at|timestamp without time zone|||
+processing_started_at|timestamp without time zone|||
+processing_pod|text|||
 Indexes:
     "awaited_requests_pkey" PRIMARY KEY, btree (request_id)
     "idx_awaited_requests_cleanup" btree (status, timeout_at) WHERE status::text = 'waiting'::text
@@ -511,28 +492,26 @@ Indexes:
     "idx_awaited_requests_target" btree (target_agent_type, target_agent_id)
 Check constraints:
     "awaited_requests_status_check" CHECK (status::text = ANY (ARRAY['waiting'::character varying, 'processing'::character varying, 'processed'::character varying, 'expired'::character varying, 'cancelled'::character varying, 'error'::character varying]::text[]))
-
-                          Table "public.maintenance_queue"
-    Column     |           Type           | Collation | Nullable |      Default
----------------+--------------------------+-----------+----------+-------------------
- id            | uuid                     |           | not null | gen_random_uuid()
- site_id       | uuid                     |           | not null |
- task_type     | text                     |           | not null |
- priority      | integer                  |           | not null | 5
- reason        | text                     |           |          |
- payload       | jsonb                    |           | not null | '{}'::jsonb
- status        | text                     |           | not null | 'pending'::text
- claimed_by    | text                     |           |          |
- claimed_at    | timestamp with time zone |           |          |
- started_at    | timestamp with time zone |           |          |
- completed_at  | timestamp with time zone |           |          |
- result        | jsonb                    |           |          |
- error_message | text                     |           |          |
- retry_count   | integer                  |           | not null | 0
- max_retries   | integer                  |           | not null | 3
- requested_by  | text                     |           |          |
- created_at    | timestamp with time zone |           | not null | now()
- updated_at    | timestamp with time zone |           | not null | now()
+Table "public.maintenance_queue"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid||not null|
+task_type|text||not null|
+priority|integer||not null|5
+reason|text|||
+payload|jsonb||not null|'{}'::jsonb
+status|text||not null|'pending'::text
+claimed_by|text|||
+claimed_at|timestamp with time zone|||
+started_at|timestamp with time zone|||
+completed_at|timestamp with time zone|||
+result|jsonb|||
+error_message|text|||
+retry_count|integer||not null|0
+max_retries|integer||not null|3
+requested_by|text|||
+created_at|timestamp with time zone||not null|now()
+updated_at|timestamp with time zone||not null|now()
 Indexes:
     "maintenance_queue_pkey" PRIMARY KEY, btree (id)
     "idx_maintenance_queue_pending" btree (priority, created_at) WHERE status = 'pending'::text
@@ -540,33 +519,29 @@ Indexes:
     "idx_maintenance_queue_type" btree (task_type, status)
 Foreign-key constraints:
     "maintenance_queue_site_id_fkey" FOREIGN KEY (site_id) REFERENCES sites(id)
-
-                              Table "public.css_snippets"
-    Column     |            Type             | Collation | Nullable |      Default
----------------+-----------------------------+-----------+----------+-------------------
- id            | uuid                        |           | not null | gen_random_uuid()
- name          | character varying(100)      |           | not null |
- description   | text                        |           |          |
- css_content   | text                        |           | not null |
- semantic_tags | jsonb                       |           |          | '[]'::jsonb
- applies_to    | jsonb                       |           |          | '[]'::jsonb
- created_at    | timestamp without time zone |           |          | now()
+Table "public.css_snippets"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+name|character varying(100)||not null|
+description|text|||
+css_content|text||not null|
+semantic_tags|jsonb|||'[]'::jsonb
+applies_to|jsonb|||'[]'::jsonb
+created_at|timestamp without time zone|||now()
 Indexes:
     "css_snippets_pkey" PRIMARY KEY, btree (id)
     "css_snippets_name_key" UNIQUE CONSTRAINT, btree (name)
-
-                           Table "public.area_components"
-    Column     |           Type           | Collation | Nullable |      Default
----------------+--------------------------+-----------+----------+-------------------
- id            | uuid                     |           | not null | gen_random_uuid()
- area_id       | uuid                     |           | not null |
- slot_name     | character varying(100)   |           | not null |
- component_id  | uuid                     |           |          |
- rendered_html | text                     |           |          |
- content_data  | jsonb                    |           |          | '{}'::jsonb
- build_status  | text                     |           |          | 'pending'::text
- created_at    | timestamp with time zone |           |          | now()
- updated_at    | timestamp with time zone |           |          | now()
+Table "public.area_components"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+area_id|uuid||not null|
+slot_name|character varying(100)||not null|
+component_id|uuid|||
+rendered_html|text|||
+content_data|jsonb|||'{}'::jsonb
+build_status|text|||'pending'::text
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
 Indexes:
     "area_components_pkey" PRIMARY KEY, btree (id)
     "area_components_area_id_slot_name_key" UNIQUE CONSTRAINT, btree (area_id, slot_name)
@@ -574,40 +549,38 @@ Indexes:
 Foreign-key constraints:
     "area_components_area_id_fkey" FOREIGN KEY (area_id) REFERENCES site_areas(id) ON DELETE CASCADE
     "area_components_component_id_fkey" FOREIGN KEY (component_id) REFERENCES content_components(id)
-
-                                 Table "public.assets"
-      Column      |           Type           | Collation | Nullable |      Default
-------------------+--------------------------+-----------+----------+-------------------
- id               | uuid                     |           | not null | gen_random_uuid()
- site_id          | uuid                     |           |          |
- asset_type       | text                     |           | not null |
- purpose          | text                     |           |          |
- name             | text                     |           |          |
- url              | text                     |           | not null |
- storage_provider | text                     |           |          |
- storage_path     | text                     |           |          |
- filename         | text                     |           |          |
- mime_type        | text                     |           |          |
- file_size        | integer                  |           |          |
- dimensions       | jsonb                    |           |          |
- duration         | integer                  |           |          |
- origin_type      | text                     |           | not null | 'uploaded'::text
- origin_url       | text                     |           |          |
- origin_prompt    | text                     |           |          |
- origin_model     | text                     |           |          |
- origin_asset_id  | uuid                     |           |          |
- alterations      | jsonb                    |           |          | '[]'::jsonb
- attribution      | text                     |           |          |
- license          | text                     |           |          |
- license_url      | text                     |           |          |
- status           | text                     |           |          | 'active'::text
- created_at       | timestamp with time zone |           |          | now()
- updated_at       | timestamp with time zone |           |          | now()
- locked_at        | timestamp with time zone |           |          |
- locked_by        | text                     |           |          |
- asset_key        | text                     |           |          |
- lock_type        | text                     |           |          |
- lock_expires_at  | timestamp with time zone |           |          |
+Table "public.assets"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid|||
+asset_type|text||not null|
+purpose|text|||
+name|text|||
+url|text||not null|
+storage_provider|text|||
+storage_path|text|||
+filename|text|||
+mime_type|text|||
+file_size|integer|||
+dimensions|jsonb|||
+duration|integer|||
+origin_type|text||not null|'uploaded'::text
+origin_url|text|||
+origin_prompt|text|||
+origin_model|text|||
+origin_asset_id|uuid|||
+alterations|jsonb|||'[]'::jsonb
+attribution|text|||
+license|text|||
+license_url|text|||
+status|text|||'active'::text
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+locked_at|timestamp with time zone|||
+locked_by|text|||
+asset_key|text|||
+lock_type|text|||
+lock_expires_at|timestamp with time zone|||
 Indexes:
     "assets_pkey" PRIMARY KEY, btree (id)
     "idx_assets_locked" btree (locked_at) WHERE locked_at IS NOT NULL
@@ -629,24 +602,22 @@ Referenced by:
     TABLE "product_assets" CONSTRAINT "product_assets_asset_id_fkey" FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
 Triggers:
     trg_assets_updated_at BEFORE UPDATE ON assets FOR EACH ROW EXECUTE FUNCTION update_assets_updated_at()
-
-                              Table "public.site_specs"
-     Column     |           Type           | Collation | Nullable |      Default
-----------------+--------------------------+-----------+----------+-------------------
- id             | uuid                     |           | not null | gen_random_uuid()
- site_id        | uuid                     |           | not null |
- aspect         | text                     |           | not null |
- data           | jsonb                    |           | not null |
- source         | text                     |           | not null |
- source_agent   | text                     |           |          |
- source_item_id | uuid                     |           |          |
- notes          | text                     |           |          |
- is_current     | boolean                  |           | not null | true
- created_at     | timestamp with time zone |           | not null | now()
- superseded_at  | timestamp with time zone |           |          |
- created_by     | text                     |           | not null |
- pinned         | boolean                  |           |          | false
- updated_at     | timestamp with time zone |           |          | now()
+Table "public.site_specs"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid||not null|
+aspect|text||not null|
+data|jsonb||not null|
+source|text||not null|
+source_agent|text|||
+source_item_id|uuid|||
+notes|text|||
+is_current|boolean||not null|true
+created_at|timestamp with time zone||not null|now()
+superseded_at|timestamp with time zone|||
+created_by|text||not null|
+pinned|boolean|||false
+updated_at|timestamp with time zone|||now()
 Indexes:
     "site_specs_pkey" PRIMARY KEY, btree (id)
     "idx_site_specs_current" UNIQUE, btree (site_id, aspect) WHERE is_current = true
@@ -658,25 +629,23 @@ Foreign-key constraints:
     "site_specs_site_id_fkey" FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
 Triggers:
     trg_site_specs_updated_at BEFORE UPDATE ON site_specs FOR EACH ROW EXECUTE FUNCTION set_updated_at()
-
-                                 Table "public.research_results"
-        Column         |           Type           | Collation | Nullable |        Default
------------------------+--------------------------+-----------+----------+------------------------
- id                    | uuid                     |           | not null | gen_random_uuid()
- site_id               | uuid                     |           |          |
- page_id               | uuid                     |           |          |
- component_instance_id | uuid                     |           |          |
- query                 | text                     |           | not null |
- topic                 | text                     |           |          |
- findings              | jsonb                    |           |          |
- summary               | text                     |           |          |
- sources               | jsonb                    |           | not null | '[]'::jsonb
- researched_by         | text                     |           |          |
- research_agent_type   | text                     |           |          | 'research-agent'::text
- created_at            | timestamp with time zone |           |          | now()
- expires_at            | timestamp with time zone |           |          |
- result_type           | character varying(50)    |           |          |
- data                  | jsonb                    |           |          |
+Table "public.research_results"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid|||
+page_id|uuid|||
+component_instance_id|uuid|||
+query|text||not null|
+topic|text|||
+findings|jsonb|||
+summary|text|||
+sources|jsonb||not null|'[]'::jsonb
+researched_by|text|||
+research_agent_type|text|||'research-agent'::text
+created_at|timestamp with time zone|||now()
+expires_at|timestamp with time zone|||
+result_type|character varying(50)|||
+data|jsonb|||
 Indexes:
     "research_results_pkey" PRIMARY KEY, btree (id)
     "idx_research_component" btree (component_instance_id)
@@ -690,64 +659,60 @@ Foreign-key constraints:
 Referenced by:
     TABLE "content_items" CONSTRAINT "content_items_origin_research_id_fkey" FOREIGN KEY (origin_research_id) REFERENCES research_results(id) ON DELETE SET NULL
     TABLE "page_components" CONSTRAINT "page_components_research_id_fkey" FOREIGN KEY (research_id) REFERENCES research_results(id) ON DELETE SET NULL
-
-                            Table "public.build_queue"
-   Column   |           Type           | Collation | Nullable |      Default
-------------+--------------------------+-----------+----------+-------------------
- id         | uuid                     |           | not null | gen_random_uuid()
- domain     | text                     |           | not null |
- direction  | jsonb                    |           |          |
- status     | text                     |           | not null | 'queued'::text
- batch_id   | uuid                     |           |          |
- priority   | integer                  |           |          | 100
- created_at | timestamp with time zone |           |          | now()
- updated_at | timestamp with time zone |           |          | now()
+Table "public.build_queue"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+domain|text||not null|
+direction|jsonb|||
+status|text||not null|'queued'::text
+batch_id|uuid|||
+priority|integer|||100
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
 Indexes:
     "build_queue_pkey" PRIMARY KEY, btree (id)
     "build_queue_domain_key" UNIQUE CONSTRAINT, btree (domain)
     "idx_build_queue_status" btree (status, priority) WHERE status = 'queued'::text
-
-                                   Table "public.content_components"
-         Column          |           Type           | Collation | Nullable |          Default
--------------------------+--------------------------+-----------+----------+----------------------------
- id                      | uuid                     |           | not null | gen_random_uuid()
- name                    | text                     |           | not null |
- description             | text                     |           |          |
- html_template           | text                     |           | not null |
- input_schema            | jsonb                    |           |          |
- function                | text                     |           | not null | 'generic-text-block'::text
- created_at              | timestamp with time zone |           |          | now()
- updated_at              | timestamp with time zone |           |          | now()
- display_name            | text                     |           |          | ''::text
- category                | character varying(255)   |           |          | ''::character varying
- semantic_tags           | jsonb                    |           |          |
- sort_order              | integer                  |           |          |
- render_mode             | text                     |           |          | 'template'::text
- agent_type              | text                     |           |          |
- agent_workflow          | text                     |           |          |
- data_sources            | text[]                   |           |          |
- child_components        | jsonb                    |           |          |
- component_level         | text                     |           |          | 'section'::text
- is_active               | boolean                  |           |          | true
- is_dark_section         | boolean                  |           |          | false
- forked_from             | uuid                     |           |          |
- section_type            | text                     |           |          |
- suitable_site_types     | jsonb                    |           |          | '[]'::jsonb
- suitable_page_types     | jsonb                    |           |          | '[]'::jsonb
- content_shape           | text                     |           |          |
- visual_density          | text                     |           |          |
- usage_count             | integer                  |           |          | 0
- avg_quality_score       | double precision         |           |          |
- created_from            | text                     |           |          | 'manual'::text
- js_content              | text                     |           |          |
- template_variable_count | integer                  |           |          |
- schema_field_count      | integer                  |           |          |
- template_closed         | boolean                  |           |          |
- schema_template_synced  | boolean                  |           |          |
- has_data_component      | boolean                  |           |          |
- quality_checked_at      | timestamp with time zone |           |          |
- quality_score           | smallint                 |           |          |
- quality_issues          | jsonb                    |           |          | '[]'::jsonb
+Table "public.content_components"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+name|text||not null|
+description|text|||
+html_template|text||not null|
+input_schema|jsonb|||
+function|text||not null|'generic-text-block'::text
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+display_name|text|||''::text
+category|character varying(255)|||''::character varying
+semantic_tags|jsonb|||
+sort_order|integer|||
+render_mode|text|||'template'::text
+agent_type|text|||
+agent_workflow|text|||
+data_sources|text[]|||
+child_components|jsonb|||
+component_level|text|||'section'::text
+is_active|boolean|||true
+is_dark_section|boolean|||false
+forked_from|uuid|||
+section_type|text|||
+suitable_site_types|jsonb|||'[]'::jsonb
+suitable_page_types|jsonb|||'[]'::jsonb
+content_shape|text|||
+visual_density|text|||
+usage_count|integer|||0
+avg_quality_score|double precision|||
+created_from|text|||'manual'::text
+js_content|text|||
+template_variable_count|integer|||
+schema_field_count|integer|||
+template_closed|boolean|||
+schema_template_synced|boolean|||
+has_data_component|boolean|||
+quality_checked_at|timestamp with time zone|||
+quality_score|smallint|||
+quality_issues|jsonb|||'[]'::jsonb
 Indexes:
     "content_components_pkey" PRIMARY KEY, btree (id)
     "content_components_name_key" UNIQUE CONSTRAINT, btree (name)
@@ -787,34 +752,32 @@ Referenced by:
     TABLE "style_collections" CONSTRAINT "style_collections_header_fk" FOREIGN KEY (header_component_id) REFERENCES content_components(id)
     TABLE "style_collections" CONSTRAINT "style_collections_header_home_component_id_fkey" FOREIGN KEY (header_home_component_id) REFERENCES content_components(id)
     TABLE "style_collections" CONSTRAINT "style_collections_header_home_fk" FOREIGN KEY (header_home_component_id) REFERENCES content_components(id)
-
-                             Table "public.content_feed_items"
-       Column        |           Type           | Collation | Nullable |      Default
----------------------+--------------------------+-----------+----------+-------------------
- id                  | uuid                     |           | not null | gen_random_uuid()
- site_id             | uuid                     |           |          |
- source_id           | uuid                     |           |          |
- external_id         | text                     |           |          |
- source_url          | text                     |           |          |
- source_title        | text                     |           |          |
- source_summary      | text                     |           |          |
- source_content      | text                     |           |          |
- source_published_at | timestamp with time zone |           |          |
- relevance_score     | double precision         |           |          |
- topics              | jsonb                    |           |          | '[]'::jsonb
- entity_ids          | uuid[]                   |           |          |
- duplicate_of        | uuid                     |           |          |
- status              | text                     |           |          | 'ingested'::text
- work_item_id        | uuid                     |           |          |
- published_page_id   | uuid                     |           |          |
- created_at          | timestamp with time zone |           |          | now()
- processed_at        | timestamp with time zone |           |          |
- published_at        | timestamp with time zone |           |          |
- expires_at          | timestamp with time zone |           |          |
- credibility         | text                     |           |          |
- credibility_reason  | text                     |           |          |
- source_attribution  | jsonb                    |           |          | '{}'::jsonb
- updated_at          | timestamp with time zone |           |          | now()
+Table "public.content_feed_items"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid|||
+source_id|uuid|||
+external_id|text|||
+source_url|text|||
+source_title|text|||
+source_summary|text|||
+source_content|text|||
+source_published_at|timestamp with time zone|||
+relevance_score|double precision|||
+topics|jsonb|||'[]'::jsonb
+entity_ids|uuid[]|||
+duplicate_of|uuid|||
+status|text|||'ingested'::text
+work_item_id|uuid|||
+published_page_id|uuid|||
+created_at|timestamp with time zone|||now()
+processed_at|timestamp with time zone|||
+published_at|timestamp with time zone|||
+expires_at|timestamp with time zone|||
+credibility|text|||
+credibility_reason|text|||
+source_attribution|jsonb|||'{}'::jsonb
+updated_at|timestamp with time zone|||now()
 Indexes:
     "content_feed_items_pkey" PRIMARY KEY, btree (id)
     "idx_cfi_credibility" btree (site_id, credibility) WHERE credibility IS NOT NULL
@@ -832,29 +795,27 @@ Referenced by:
     TABLE "content_feed_items" CONSTRAINT "content_feed_items_duplicate_of_fkey" FOREIGN KEY (duplicate_of) REFERENCES content_feed_items(id)
 Triggers:
     trg_content_feed_items_updated_at BEFORE UPDATE ON content_feed_items FOR EACH ROW EXECUTE FUNCTION set_updated_at()
-
-                                   Table "public.content_items"
-       Column       |           Type           | Collation | Nullable |          Default
---------------------+--------------------------+-----------+----------+----------------------------
- id                 | uuid                     |           | not null | gen_random_uuid()
- site_id            | uuid                     |           |          |
- content_type       | character varying(100)   |           | not null |
- content_key        | character varying(255)   |           |          |
- content_data       | jsonb                    |           | not null | '{}'::jsonb
- plain_text         | text                     |           |          |
- is_library         | boolean                  |           |          | false
- library_tags       | text[]                   |           |          |
- industry_vertical  | character varying(100)   |           |          |
- origin_type        | text                     |           | not null | 'generated'::text
- origin_agent       | text                     |           |          |
- origin_research_id | uuid                     |           |          |
- origin_content_id  | uuid                     |           |          |
- status             | character varying(50)    |           |          | 'draft'::character varying
- version            | integer                  |           |          | 1
- created_at         | timestamp with time zone |           |          | now()
- updated_at         | timestamp with time zone |           |          | now()
- approved_at        | timestamp with time zone |           |          |
- approved_by        | character varying(100)   |           |          |
+Table "public.content_items"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+site_id|uuid|||
+content_type|character varying(100)||not null|
+content_key|character varying(255)|||
+content_data|jsonb||not null|'{}'::jsonb
+plain_text|text|||
+is_library|boolean|||false
+library_tags|text[]|||
+industry_vertical|character varying(100)|||
+origin_type|text||not null|'generated'::text
+origin_agent|text|||
+origin_research_id|uuid|||
+origin_content_id|uuid|||
+status|character varying(50)|||'draft'::character varying
+version|integer|||1
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+approved_at|timestamp with time zone|||
+approved_by|character varying(100)|||
 Indexes:
     "content_items_pkey" PRIMARY KEY, btree (id)
     "idx_content_items_key" btree (site_id, content_key)
@@ -871,33 +832,31 @@ Foreign-key constraints:
 Referenced by:
     TABLE "content_items" CONSTRAINT "content_items_origin_content_id_fkey" FOREIGN KEY (origin_content_id) REFERENCES content_items(id)
     TABLE "page_components" CONSTRAINT "page_components_content_item_id_fkey" FOREIGN KEY (content_item_id) REFERENCES content_items(id) ON DELETE SET NULL
-
-                                 Table "public.css_themes"
-        Column        |           Type           | Collation | Nullable |      Default
-----------------------+--------------------------+-----------+----------+-------------------
- id                   | uuid                     |           | not null | gen_random_uuid()
- name                 | text                     |           | not null |
- display_name         | text                     |           | not null |
- description          | text                     |           |          |
- category             | text                     |           |          |
- css_content          | text                     |           | not null |
- version              | integer                  |           |          | 1
- is_active            | boolean                  |           |          | true
- created_at           | timestamp with time zone |           |          | now()
- updated_at           | timestamp with time zone |           |          | now()
- semantic_tags        | text[]                   |           |          |
- color_palette        | jsonb                    |           |          |
- typography           | jsonb                    |           |          |
- css_template         | text                     |           |          |
- palette_id           | uuid                     |           |          |
- layout_id            | uuid                     |           |          |
- typography_set_id    | uuid                     |           |          |
- origin               | text                     |           | not null | 'seed'::text
- needs_review         | boolean                  |           | not null | false
- forked_from_theme_id | uuid                     |           |          |
- source_site_id       | uuid                     |           |          |
- source_domain        | text                     |           |          |
- forked_at            | timestamp with time zone |           |          |
+Table "public.css_themes"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+name|text||not null|
+display_name|text||not null|
+description|text|||
+category|text|||
+css_content|text||not null|
+version|integer|||1
+is_active|boolean|||true
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+semantic_tags|text[]|||
+color_palette|jsonb|||
+typography|jsonb|||
+css_template|text|||
+palette_id|uuid|||
+layout_id|uuid|||
+typography_set_id|uuid|||
+origin|text||not null|'seed'::text
+needs_review|boolean||not null|false
+forked_from_theme_id|uuid|||
+source_site_id|uuid|||
+source_domain|text|||
+forked_at|timestamp with time zone|||
 Indexes:
     "css_themes_pkey" PRIMARY KEY, btree (id)
     "css_themes_name_key" UNIQUE CONSTRAINT, btree (name)
@@ -917,65 +876,61 @@ Foreign-key constraints:
 Referenced by:
     TABLE "css_themes" CONSTRAINT "css_themes_forked_from_theme_id_fkey" FOREIGN KEY (forked_from_theme_id) REFERENCES css_themes(id) ON DELETE SET NULL
     TABLE "style_collections" CONSTRAINT "style_collections_css_theme_id_fkey" FOREIGN KEY (css_theme_id) REFERENCES css_themes(id)
-
-                             Table "public.agent_error_log"
-      Column      |           Type           | Collation | Nullable |      Default
-------------------+--------------------------+-----------+----------+-------------------
- id               | uuid                     |           | not null | gen_random_uuid()
- occurred_at      | timestamp with time zone |           | not null | now()
- site_id          | uuid                     |           |          |
- domain           | text                     |           |          |
- work_item_id     | uuid                     |           |          |
- orchestration_id | text                     |           |          |
- agent_type       | text                     |           | not null |
- agent_id         | text                     |           |          |
- pod_name         | text                     |           |          |
- step_name        | text                     |           |          |
- action           | text                     |           |          |
- error_message    | text                     |           | not null |
- error_code       | text                     |           |          |
- severity         | text                     |           | not null | 'error'::text
- context          | jsonb                    |           |          | '{}'::jsonb
- resolved         | boolean                  |           | not null | false
- resolved_at      | timestamp with time zone |           |          |
- resolved_by      | text                     |           |          |
+Table "public.agent_error_log"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+occurred_at|timestamp with time zone||not null|now()
+site_id|uuid|||
+domain|text|||
+work_item_id|uuid|||
+orchestration_id|text|||
+agent_type|text||not null|
+agent_id|text|||
+pod_name|text|||
+step_name|text|||
+action|text|||
+error_message|text||not null|
+error_code|text|||
+severity|text||not null|'error'::text
+context|jsonb|||'{}'::jsonb
+resolved|boolean||not null|false
+resolved_at|timestamp with time zone|||
+resolved_by|text|||
 Indexes:
     "agent_error_log_pkey" PRIMARY KEY, btree (id)
     "idx_error_log_agent" btree (agent_type, occurred_at DESC)
     "idx_error_log_site" btree (site_id, occurred_at DESC)
     "idx_error_log_time" btree (occurred_at DESC)
     "idx_error_log_unresolved" btree (resolved, occurred_at DESC) WHERE resolved = false
-
-                                     Table "public.llm_call_log"
-      Column      |           Type           | Collation | Nullable |            Default
-------------------+--------------------------+-----------+----------+--------------------------------
- id               | uuid                     |           | not null | gen_random_uuid()
- agent_type       | character varying(100)   |           | not null |
- step_name        | character varying(100)   |           |          |
- orchestration_id | character varying(255)   |           |          |
- correlation_id   | character varying(255)   |           |          |
- client_id        | character varying(100)   |           |          |
- provider         | character varying(50)    |           | not null | 'anthropic'::character varying
- model            | character varying(100)   |           | not null |
- model_resolved   | character varying(100)   |           |          |
- temperature      | real                     |           |          |
- max_tokens       | integer                  |           |          |
- prompt_template  | text                     |           |          |
- prompt_rendered  | text                     |           |          |
- response_text    | text                     |           |          |
- response_type    | character varying(20)    |           |          |
- input_tokens     | integer                  |           |          |
- output_tokens    | integer                  |           |          |
- latency_ms       | integer                  |           |          |
- success          | boolean                  |           | not null | true
- error_message    | text                     |           |          |
- retry_count      | integer                  |           |          | 0
- created_at       | timestamp with time zone |           | not null | now()
- agent_id         | character varying(255)   |           |          |
- work_item_id     | uuid                     |           |          |
- prompt_variant   | text                     |           |          | 'default'::text
- vertical         | text                     |           |          |
- rag_context_used | boolean                  |           |          | false
+Table "public.llm_call_log"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+agent_type|character varying(100)||not null|
+step_name|character varying(100)|||
+orchestration_id|character varying(255)|||
+correlation_id|character varying(255)|||
+client_id|character varying(100)|||
+provider|character varying(50)||not null|'anthropic'::character varying
+model|character varying(100)||not null|
+model_resolved|character varying(100)|||
+temperature|real|||
+max_tokens|integer|||
+prompt_template|text|||
+prompt_rendered|text|||
+response_text|text|||
+response_type|character varying(20)|||
+input_tokens|integer|||
+output_tokens|integer|||
+latency_ms|integer|||
+success|boolean||not null|true
+error_message|text|||
+retry_count|integer|||0
+created_at|timestamp with time zone||not null|now()
+agent_id|character varying(255)|||
+work_item_id|uuid|||
+prompt_variant|text|||'default'::text
+vertical|text|||
+rag_context_used|boolean|||false
 Indexes:
     "llm_call_log_pkey" PRIMARY KEY, btree (id)
     "idx_llm_call_log_vertical" btree (vertical) WHERE vertical IS NOT NULL
@@ -987,31 +942,29 @@ Indexes:
     "idx_llm_log_model" btree (model)
     "idx_llm_log_orch" btree (orchestration_id) WHERE orchestration_id IS NOT NULL
     "idx_llm_log_training" btree (agent_type, step_name, success) WHERE success = true
-
-                                                                                                               Table "public.style_collections"
-          Column           |           Type           | Collation | Nullable |                                                                                    Default
----------------------------+--------------------------+-----------+----------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- id                        | uuid                     |           | not null | gen_random_uuid()
- name                      | text                     |           | not null |
- display_name              | text                     |           | not null |
- description               | text                     |           |          |
- header_component_id       | uuid                     |           |          |
- header_home_component_id  | uuid                     |           |          |
- footer_component_id       | uuid                     |           |          |
- css_theme_id              | uuid                     |           |          |
- color_palette             | jsonb                    |           |          | '{"text": "#333333", "accent": "#16a085", "primary": "#1a1a2e", "secondary": "#2d2d44", "background": "#ffffff", "text_light": "#666666", "background_alt": "#f8f9fa"}'::jsonb
- typography                | jsonb                    |           |          | '{"base_size": "16px", "font_family": "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif", "line_height": "1.6", "heading_font": "inherit"}'::jsonb
- category                  | text                     |           |          |
- industry_tags             | text[]                   |           |          |
- is_active                 | boolean                  |           |          | true
- created_at                | timestamp with time zone |           |          | now()
- updated_at                | timestamp with time zone |           |          | now()
- origin                    | text                     |           | not null | 'seed'::text
- needs_review              | boolean                  |           | not null | false
- forked_from_collection_id | uuid                     |           |          |
- source_site_id            | uuid                     |           |          |
- source_domain             | text                     |           |          |
- forked_at                 | timestamp with time zone |           |          |
+Table "public.style_collections"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+name|text||not null|
+display_name|text||not null|
+description|text|||
+header_component_id|uuid|||
+header_home_component_id|uuid|||
+footer_component_id|uuid|||
+css_theme_id|uuid|||
+color_palette|jsonb|||'{"text": "#333333", "accent": "#16a085", "primary": "#1a1a2e", "secondary": "#2d2d44", "background": "#ffffff", "text_light": "#666666", "background_alt": "#f8f9fa"}'::jsonb
+typography|jsonb|||'{"base_size": "16px", "font_family": "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif", "line_height": "1.6", "heading_font": "inherit"}'::jsonb
+category|text|||
+industry_tags|text[]|||
+is_active|boolean|||true
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+origin|text||not null|'seed'::text
+needs_review|boolean||not null|false
+forked_from_collection_id|uuid|||
+source_site_id|uuid|||
+source_domain|text|||
+forked_at|timestamp with time zone|||
 Indexes:
     "style_collections_pkey" PRIMARY KEY, btree (id)
     "idx_style_collections_active_reviewed" btree (is_active, needs_review) WHERE is_active = true
@@ -1032,33 +985,31 @@ Foreign-key constraints:
 Referenced by:
     TABLE "sites" CONSTRAINT "sites_style_collection_id_fkey" FOREIGN KEY (style_collection_id) REFERENCES style_collections(id)
     TABLE "style_collections" CONSTRAINT "style_collections_forked_from_collection_id_fkey" FOREIGN KEY (forked_from_collection_id) REFERENCES style_collections(id) ON DELETE SET NULL
-
-                                 Table "public.css_themes"
-        Column        |           Type           | Collation | Nullable |      Default
-----------------------+--------------------------+-----------+----------+-------------------
- id                   | uuid                     |           | not null | gen_random_uuid()
- name                 | text                     |           | not null |
- display_name         | text                     |           | not null |
- description          | text                     |           |          |
- category             | text                     |           |          |
- css_content          | text                     |           | not null |
- version              | integer                  |           |          | 1
- is_active            | boolean                  |           |          | true
- created_at           | timestamp with time zone |           |          | now()
- updated_at           | timestamp with time zone |           |          | now()
- semantic_tags        | text[]                   |           |          |
- color_palette        | jsonb                    |           |          |
- typography           | jsonb                    |           |          |
- css_template         | text                     |           |          |
- palette_id           | uuid                     |           |          |
- layout_id            | uuid                     |           |          |
- typography_set_id    | uuid                     |           |          |
- origin               | text                     |           | not null | 'seed'::text
- needs_review         | boolean                  |           | not null | false
- forked_from_theme_id | uuid                     |           |          |
- source_site_id       | uuid                     |           |          |
- source_domain        | text                     |           |          |
- forked_at            | timestamp with time zone |           |          |
+Table "public.css_themes"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+name|text||not null|
+display_name|text||not null|
+description|text|||
+category|text|||
+css_content|text||not null|
+version|integer|||1
+is_active|boolean|||true
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+semantic_tags|text[]|||
+color_palette|jsonb|||
+typography|jsonb|||
+css_template|text|||
+palette_id|uuid|||
+layout_id|uuid|||
+typography_set_id|uuid|||
+origin|text||not null|'seed'::text
+needs_review|boolean||not null|false
+forked_from_theme_id|uuid|||
+source_site_id|uuid|||
+source_domain|text|||
+forked_at|timestamp with time zone|||
 Indexes:
     "css_themes_pkey" PRIMARY KEY, btree (id)
     "css_themes_name_key" UNIQUE CONSTRAINT, btree (name)
@@ -1078,84 +1029,80 @@ Foreign-key constraints:
 Referenced by:
     TABLE "css_themes" CONSTRAINT "css_themes_forked_from_theme_id_fkey" FOREIGN KEY (forked_from_theme_id) REFERENCES css_themes(id) ON DELETE SET NULL
     TABLE "style_collections" CONSTRAINT "style_collections_css_theme_id_fkey" FOREIGN KEY (css_theme_id) REFERENCES css_themes(id)
-
-                                       Table "public.scheduled_tasks"
-      Column       |           Type           | Collation | Nullable |                Default
--------------------+--------------------------+-----------+----------+---------------------------------------
- id                | uuid                     |           | not null | gen_random_uuid()
- name              | text                     |           | not null |
- description       | text                     |           |          |
- interval_seconds  | integer                  |           | not null | 300
- target_agent_type | text                     |           | not null |
- target_topic      | text                     |           | not null | 'system.agent.generic.requests'::text
- input_data        | jsonb                    |           |          | '{}'::jsonb
- concurrency_group | text                     |           |          |
- max_concurrent    | integer                  |           |          | 1
- pre_query         | text                     |           |          |
- enabled           | boolean                  |           |          | true
- last_triggered_at | timestamp with time zone |           |          |
- last_completed_at | timestamp with time zone |           |          |
- timeout_seconds   | integer                  |           |          | 600
- created_at        | timestamp with time zone |           |          | now()
- updated_at        | timestamp with time zone |           |          | now()
- fire_message      | boolean                  |           | not null | true
+Table "public.scheduled_tasks"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+name|text||not null|
+description|text|||
+interval_seconds|integer||not null|300
+target_agent_type|text||not null|
+target_topic|text||not null|'system.agent.generic.requests'::text
+input_data|jsonb|||'{}'::jsonb
+concurrency_group|text|||
+max_concurrent|integer|||1
+pre_query|text|||
+enabled|boolean|||true
+last_triggered_at|timestamp with time zone|||
+last_completed_at|timestamp with time zone|||
+timeout_seconds|integer|||600
+created_at|timestamp with time zone|||now()
+updated_at|timestamp with time zone|||now()
+fire_message|boolean||not null|true
 Indexes:
     "scheduled_tasks_pkey" PRIMARY KEY, btree (id)
     "idx_st_enabled" btree (enabled) WHERE enabled = true
     "idx_st_group" btree (concurrency_group) WHERE concurrency_group IS NOT NULL
     "scheduled_tasks_name_key" UNIQUE CONSTRAINT, btree (name)
-
-                        List of relations
-     Schema     |           Name           | Type  |    Owner
-----------------+--------------------------+-------+--------------
- business_intel | business_contact_details | table | clients_user
- business_intel | business_prices          | table | clients_user
- business_intel | business_verticals       | table | clients_user
- business_intel | businesses               | table | clients_user
- business_intel | ch_vet_companies         | table | clients_user
- business_intel | collection_tasks         | table | clients_user
- business_intel | companies_house_data     | table | clients_user
- business_intel | data_observations        | table | clients_user
- business_intel | discovery_candidates     | table | clients_user
- business_intel | med_price_snapshots      | table | clients_user
- business_intel | med_products             | table | clients_user
- business_intel | med_retailer_listings    | table | clients_user
- business_intel | med_retailers            | table | clients_user
- business_intel | med_scrape_evidence      | table | clients_user
- business_intel | people                   | table | clients_user
- business_intel | people_business_roles    | table | clients_user
- business_intel | product_prices           | table | clients_user
- business_intel | products                 | table | clients_user
- business_intel | search_areas             | table | clients_user
- business_intel | search_result_cache      | table | clients_user
- business_intel | vet_practice_details     | table | clients_user
+List of relations
+Schema|Name|Type|Owner
+business_intel|business_contact_details|table|clients_user
+business_intel|business_prices|table|clients_user
+business_intel|business_verticals|table|clients_user
+business_intel|businesses|table|clients_user
+business_intel|ch_vet_companies|table|clients_user
+business_intel|collection_tasks|table|clients_user
+business_intel|companies_house_data|table|clients_user
+business_intel|data_observations|table|clients_user
+business_intel|discovery_candidates|table|clients_user
+business_intel|med_price_snapshots|table|clients_user
+business_intel|med_products|table|clients_user
+business_intel|med_retailer_listings|table|clients_user
+business_intel|med_retailers|table|clients_user
+business_intel|med_scrape_evidence|table|clients_user
+business_intel|people|table|clients_user
+business_intel|people_business_roles|table|clients_user
+business_intel|product_prices|table|clients_user
+business_intel|products|table|clients_user
+business_intel|search_areas|table|clients_user
+business_intel|search_result_cache|table|clients_user
+business_intel|vet_practice_details|table|clients_user
 (21 rows)
-
-                                Table "public.thunder_instances"
-          Column           |           Type           | Collation | Nullable |      Default
----------------------------+--------------------------+-----------+----------+-------------------
- id                        | uuid                     |           | not null | gen_random_uuid()
- thunder_instance_id       | text                     |           | not null |
- instance_type             | text                     |           | not null |
- instance_ip               | text                     |           |          |
- ssh_user                  | text                     |           | not null | 'ubuntu'::text
- ssh_key_secret_name       | text                     |           | not null |
- status                    | text                     |           | not null |
- max_uptime_hours          | integer                  |           | not null | 18
- training_run_id           | uuid                     |           |          |
- requested_by              | text                     |           |          |
- hourly_rate_usd           | numeric                  |           | not null | 1.80
- cost_usd                  | numeric                  |           |          |
- reaped_at                 | timestamp with time zone |           |          |
- reaped_reason             | text                     |           |          |
- error_message             | text                     |           |          |
- provisioned_at            | timestamp with time zone |           |          |
- running_since             | timestamp with time zone |           |          |
- decommission_requested_at | timestamp with time zone |           |          |
- decommissioned_at         | timestamp with time zone |           |          |
- created_at                | timestamp with time zone |           | not null | now()
- updated_at                | timestamp with time zone |           | not null | now()
- ssh_port                  | integer                  |           |          |
+Table "public.thunder_instances"
+Column|Type|Collation|Nullable|Default
+id|uuid||not null|gen_random_uuid()
+thunder_instance_id|text||not null|
+instance_type|text||not null|
+instance_ip|text|||
+ssh_user|text||not null|'ubuntu'::text
+ssh_key_secret_name|text||not null|
+status|text||not null|
+max_uptime_hours|integer||not null|18
+training_run_id|uuid|||
+requested_by|text|||
+hourly_rate_usd|numeric||not null|1.80
+cost_usd|numeric|||
+reaped_at|timestamp with time zone|||
+reaped_reason|text|||
+error_message|text|||
+provisioned_at|timestamp with time zone|||
+running_since|timestamp with time zone|||
+decommission_requested_at|timestamp with time zone|||
+decommissioned_at|timestamp with time zone|||
+created_at|timestamp with time zone||not null|now()
+updated_at|timestamp with time zone||not null|now()
+ssh_port|integer|||
+consecutive_unreachable_probes|integer||not null|0
+last_probe_at|timestamp with time zone|||
 Indexes:
     "thunder_instances_pkey" PRIMARY KEY, btree (id)
     "idx_thunder_instances_active" btree (status, running_since) WHERE status = ANY (ARRAY['provisioning'::text, 'running'::text, 'decommissioning'::text])
@@ -1168,153 +1115,172 @@ Foreign-key constraints:
     "thunder_instances_training_run_id_fkey" FOREIGN KEY (training_run_id) REFERENCES model_lifecycle.training_runs(id)
 Triggers:
     trg_thunder_instances_updated_at BEFORE UPDATE ON thunder_instances FOR EACH ROW EXECUTE FUNCTION thunder_set_updated_at()
-
-                                              List of relations
- Schema |                              Name                               |       Type        |    Owner
---------+-----------------------------------------------------------------+-------------------+--------------
- public | affiliate_products                                              | table             | clients_user
- public | affiliate_programs                                              | table             | clients_user
- public | agent_capabilities                                              | table             | clients_user
- public | agent_def_build_site_planner_backup_20260505                    | table             | clients_user
- public | agent_def_build_site_planner_backup_20260505_ensurepages        | table             | clients_user
- public | agent_def_build_site_planner_backup_20260505_promptchange       | table             | clients_user
- public | agent_def_build_site_planner_backup_20260513_pre_phase2g_maxtok | table             | clients_user
- public | agent_def_component_creator_backup_20260506                     | table             | clients_user
- public | agent_def_component_creator_backup_20260507_pre_directory_build | table             | clients_user
- public | agent_def_content_feed_orch_backup_20260402                     | table             | clients_user
- public | agent_def_design_discovery_agent_backup_20260505_pre_phase1_ima | table             | clients_user
- public | agent_def_design_discovery_agent_backup_20260513_pre_register_i | table             | clients_user
- public | agent_def_feed_triage_backup_20260403                           | table             | clients_user
- public | agent_def_image_build_handler_backup_20260505_pre_phase0_imager | table             | clients_user
- public | agent_def_image_build_handler_backup_20260507_pre_phase15_outpu | table             | clients_user
- public | agent_def_image_build_handler_backup_20260513_pre_phase2g_step5 | table             | clients_user
- public | agent_def_image_build_handler_backup_20260513_pre_phase2h_kind_ | table             | clients_user
- public | agent_def_image_build_handler_backup_20260514_pre_mark_work_ite | table             | clients_user
- public | agent_def_image_build_handler_backup_20260514_pre_phase2g_optio | table             | clients_user
- public | agent_def_image_build_handler_backup_20260514_pre_store_purpose | table             | clients_user
- public | agent_def_page_build_handler_backup_20260331                    | table             | clients_user
- public | agent_def_page_build_handler_backup_20260402                    | table             | clients_user
- public | agent_def_pageflow_builder_backup_20260505_pre_phase0_imagery   | table             | clients_user
- public | agent_def_site_work_orchestrator_backup_20260505_pre_phase0_ima | table             | clients_user
- public | agent_def_webdesign_backup_20260416                             | table             | clients_user
- public | agent_default_configs                                           | table             | clients_user
- public | agent_definition_prompt_backups                                 | table             | clients_user
- public | agent_definitions                                               | table             | clients_user
- public | agent_definitions_backup                                        | table             | clients_user
- public | agent_definitions_backup_20260322                               | table             | clients_user
- public | agent_definitions_backup_20260326                               | table             | clients_user
- public | agent_definitions_backup_20260422                               | table             | clients_user
- public | agent_definitions_backup_20260423                               | table             | clients_user
- public | agent_definitions_backup_20260423_pre008_classifier             | table             | clients_user
- public | agent_definitions_backup_20260423_pre011                        | table             | clients_user
- public | agent_definitions_backup_20260512_pre_phase2g_step3_planner     | table             | clients_user
- public | agent_definitions_backup_20260512_pre_phase2g_step3_planner_v2  | table             | clients_user
- public | agent_dependencies                                              | table             | clients_user
- public | agent_error_log                                                 | table             | clients_user
- public | agent_group_definitions                                         | table             | clients_user
- public | agent_group_members                                             | table             | clients_user
- public | agent_groups                                                    | table             | clients_user
- public | agent_metrics                                                   | table             | clients_user
- public | agent_metrics_config                                            | table             | clients_user
- public | agent_snapshots                                                 | view              | clients_user
- public | ai_endpoint_health                                              | table             | clients_user
- public | ai_endpoint_status                                              | view              | clients_user
- public | approval_requests                                               | table             | clients_user
- public | area_components                                                 | table             | clients_user
- public | assets                                                          | table             | clients_user
- public | assets_backup_20260508_pre_phase2b_assetkey                     | table             | clients_user
- public | assets_backup_20260508_pre_phase2d_dropconstraint               | table             | clients_user
- public | awaited_requests                                                | table             | clients_user
- public | build_queue                                                     | table             | clients_user
- public | clients                                                         | table             | clients_user
- public | component_versions                                              | table             | clients_user
- public | content_components                                              | table             | clients_user
- public | content_components_backup_guide_list_20260511_pre_tier_d        | table             | clients_user
- public | content_components_backup_tool_list_20260507_pre_directory_buil | table             | clients_user
- public | content_feed_items                                              | table             | clients_user
- public | content_items                                                   | table             | clients_user
- public | content_sources                                                 | table             | clients_user
- public | css_snippets                                                    | table             | clients_user
- public | css_themes                                                      | table             | clients_user
- public | css_themes_backup                                               | table             | clients_user
- public | entity_state_log                                                | table             | clients_user
- public | entity_state_log_id_seq                                         | sequence          | clients_user
- public | event_statistics                                                | materialized view | clients_user
- public | flow_pages                                                      | table             | clients_user
- public | http_request_log                                                | table             | clients_user
- public | http_request_log_id_seq                                         | sequence          | clients_user
- public | http_request_stats                                              | view              | clients_user
- public | improvement_proposals                                           | table             | clients_user
- public | input_requests                                                  | table             | clients_user
- public | js_snippets                                                     | table             | clients_user
- public | knowledge_base                                                  | table             | clients_user
- public | knowledge_base_stats                                            | view              | clients_user
- public | layouts                                                         | table             | clients_user
- public | link_registry                                                   | table             | clients_user
- public | llm_call_log                                                    | table             | clients_user
- public | llm_call_stats                                                  | view              | clients_user
- public | maintenance_queue                                               | table             | clients_user
- public | migration_backups                                               | table             | clients_user
- public | migration_backups_id_seq                                        | sequence          | clients_user
- public | navigation_structures                                           | table             | clients_user
- public | networks                                                        | table             | clients_user
- public | orchestration_requests                                          | table             | clients_user
- public | orchestration_state_audit                                       | table             | clients_user
- public | orchestration_state_audit_id_seq                                | sequence          | clients_user
- public | orchestration_states                                            | table             | clients_user
- public | page_component_history                                          | table             | clients_user
- public | page_components                                                 | table             | clients_user
- public | pages                                                           | table             | clients_user
- public | palettes                                                        | table             | clients_user
- public | pending_input_requests                                          | view              | clients_user
- public | pending_requests                                                | table             | clients_user
- public | processed_messages                                              | table             | clients_user
- public | product_assets                                                  | table             | clients_user
- public | products                                                        | table             | clients_user
- public | recent_agent_events                                             | view              | clients_user
- public | redirects                                                       | table             | clients_user
- public | relationships                                                   | table             | clients_user
- public | research_results                                                | table             | clients_user
- public | scheduled_tasks                                                 | table             | clients_user
- public | site_areas                                                      | table             | clients_user
- public | site_components                                                 | table             | clients_user
- public | site_flows                                                      | table             | clients_user
- public | site_locking_progress                                           | view              | clients_user
- public | site_nav_groups                                                 | table             | clients_user
- public | site_nav_items                                                  | table             | clients_user
- public | site_plan_directives                                            | table             | clients_user
- public | site_plan_imagery                                               | table             | clients_user
- public | site_plan_pages                                                 | table             | clients_user
- public | site_plan_sections                                              | table             | clients_user
- public | site_plans                                                      | table             | clients_user
- public | site_snapshots                                                  | table             | clients_user
- public | site_specs                                                      | table             | clients_user
- public | site_specs_supersede_log_20260422                               | table             | clients_user
- public | site_work_items                                                 | table             | clients_user
- public | site_work_items_archive                                         | table             | clients_user
- public | site_work_items_backup_20260423_pre_cascade_restart             | table             | clients_user
- public | sites                                                           | table             | clients_user
- public | style_collections                                               | table             | clients_user
- public | system_events                                                   | table             | clients_user
- public | theme_tags                                                      | table             | clients_user
- public | thunder_config                                                  | table             | clients_user
- public | thunder_instances                                               | table             | clients_user
- public | thunder_provision_check                                         | view              | clients_user
- public | thunder_spend_24h                                               | view              | clients_user
- public | tool_list_count                                                 | table             | clients_user
- public | typography_sets                                                 | table             | clients_user
- public | v_active_workflows                                              | view              | clients_user
- public | v_agents_by_category                                            | view              | clients_user
- public | v_all_workflows                                                 | view              | clients_user
- public | v_content_usage                                                 | view              | clients_user
- public | v_navigation_pages                                              | view              | clients_user
- public | v_page_build_status                                             | view              | clients_user
- public | v_research_summary                                              | view              | clients_user
- public | v_section_schema_status                                         | view              | clients_user
- public | v_site_assets                                                   | view              | clients_user
- public | v_site_links                                                    | view              | clients_user
- public | v_site_snapshots                                                | view              | clients_user
- public | workflow_contract_chain                                         | view              | clients_user
- public | workflow_templates                                              | table             | clients_user
-(144 rows)
-
+List of relations
+Schema|Name|Type|Owner
+public|affiliate_products|table|clients_user
+public|affiliate_programs|table|clients_user
+public|agent_capabilities|table|clients_user
+public|agent_def_build_site_planner_backup_20260505|table|clients_user
+public|agent_def_build_site_planner_backup_20260505_ensurepages|table|clients_user
+public|agent_def_build_site_planner_backup_20260505_promptchange|table|clients_user
+public|agent_def_build_site_planner_backup_20260513_pre_phase2g_maxtok|table|clients_user
+public|agent_def_component_creator_backup_20260506|table|clients_user
+public|agent_def_component_creator_backup_20260507_pre_directory_build|table|clients_user
+public|agent_def_content_feed_orch_backup_20260402|table|clients_user
+public|agent_def_design_discovery_agent_backup_20260505_pre_phase1_ima|table|clients_user
+public|agent_def_design_discovery_agent_backup_20260513_pre_register_i|table|clients_user
+public|agent_def_feed_triage_backup_20260403|table|clients_user
+public|agent_def_image_build_handler_backup_20260505_pre_phase0_imager|table|clients_user
+public|agent_def_image_build_handler_backup_20260507_pre_phase15_outpu|table|clients_user
+public|agent_def_image_build_handler_backup_20260513_pre_phase2g_step5|table|clients_user
+public|agent_def_image_build_handler_backup_20260513_pre_phase2h_kind_|table|clients_user
+public|agent_def_image_build_handler_backup_20260514_pre_mark_work_ite|table|clients_user
+public|agent_def_image_build_handler_backup_20260514_pre_phase2g_optio|table|clients_user
+public|agent_def_image_build_handler_backup_20260514_pre_store_purpose|table|clients_user
+public|agent_def_page_build_handler_backup_20260331|table|clients_user
+public|agent_def_page_build_handler_backup_20260402|table|clients_user
+public|agent_def_pageflow_builder_backup_20260505_pre_phase0_imagery|table|clients_user
+public|agent_def_site_work_orchestrator_backup_20260505_pre_phase0_ima|table|clients_user
+public|agent_def_webdesign_backup_20260416|table|clients_user
+public|agent_default_configs|table|clients_user
+public|agent_definition_prompt_backups|table|clients_user
+public|agent_definitions|table|clients_user
+public|agent_definitions_backup|table|clients_user
+public|agent_definitions_backup_20260322|table|clients_user
+public|agent_definitions_backup_20260326|table|clients_user
+public|agent_definitions_backup_20260422|table|clients_user
+public|agent_definitions_backup_20260423|table|clients_user
+public|agent_definitions_backup_20260423_pre008_classifier|table|clients_user
+public|agent_definitions_backup_20260423_pre011|table|clients_user
+public|agent_definitions_backup_20260512_pre_phase2g_step3_planner|table|clients_user
+public|agent_definitions_backup_20260512_pre_phase2g_step3_planner_v2|table|clients_user
+public|agent_definitions_bak_adopt_guide|table|clients_user
+public|agent_definitions_bak_lep_carry|table|clients_user
+public|agent_definitions_bak_planner_sibling|table|clients_user
+public|agent_dependencies|table|clients_user
+public|agent_error_log|table|clients_user
+public|agent_group_definitions|table|clients_user
+public|agent_group_members|table|clients_user
+public|agent_groups|table|clients_user
+public|agent_metrics|table|clients_user
+public|agent_metrics_config|table|clients_user
+public|agent_snapshots|view|clients_user
+public|ai_endpoint_health|table|clients_user
+public|ai_endpoint_status|view|clients_user
+public|approval_requests|table|clients_user
+public|area_components|table|clients_user
+public|assets|table|clients_user
+public|assets_backup_20260508_pre_phase2b_assetkey|table|clients_user
+public|assets_backup_20260508_pre_phase2d_dropconstraint|table|clients_user
+public|awaited_requests|table|clients_user
+public|build_queue|table|clients_user
+public|clients|table|clients_user
+public|code_symbols|table|clients_user
+public|component_versions|table|clients_user
+public|content_components|table|clients_user
+public|content_components_backup_guide_list_20260511_pre_tier_d|table|clients_user
+public|content_components_backup_tool_list_20260507_pre_directory_buil|table|clients_user
+public|content_components_bak_gamelist_tierd|table|clients_user
+public|content_components_bak_glcta|table|clients_user
+public|content_components_bak_hubfix_0610|table|clients_user
+public|content_components_bak_navfix_0610|table|clients_user
+public|content_feed_items|table|clients_user
+public|content_items|table|clients_user
+public|content_sources|table|clients_user
+public|css_snippets|table|clients_user
+public|css_themes|table|clients_user
+public|css_themes_backup|table|clients_user
+public|entity_state_log|table|clients_user
+public|entity_state_log_id_seq|sequence|clients_user
+public|event_statistics|materialized view|clients_user
+public|flow_pages|table|clients_user
+public|http_request_log|table|clients_user
+public|http_request_log_id_seq|sequence|clients_user
+public|http_request_stats|view|clients_user
+public|improvement_proposals|table|clients_user
+public|input_requests|table|clients_user
+public|js_snippets|table|clients_user
+public|knowledge_base|table|clients_user
+public|knowledge_base_stats|view|clients_user
+public|layouts|table|clients_user
+public|link_registry|table|clients_user
+public|llm_call_log|table|clients_user
+public|llm_call_stats|view|clients_user
+public|maintenance_queue|table|clients_user
+public|migration_backups|table|clients_user
+public|migration_backups_id_seq|sequence|clients_user
+public|navigation_structures|table|clients_user
+public|networks|table|clients_user
+public|orchestration_requests|table|clients_user
+public|orchestration_state_audit|table|clients_user
+public|orchestration_state_audit_id_seq|sequence|clients_user
+public|orchestration_states|table|clients_user
+public|page_component_history|table|clients_user
+public|page_components|table|clients_user
+public|pages|table|clients_user
+public|pages_bak_del_bare|table|clients_user
+public|pages_bak_guides_url|table|clients_user
+public|pages_bak_hubfix|table|clients_user
+public|pages_bak_idxrebuild|table|clients_user
+public|pages_bak_relist|table|clients_user
+public|pages_bak_retype_guides|table|clients_user
+public|pages_bak_skbox|table|clients_user
+public|palettes|table|clients_user
+public|pending_input_requests|view|clients_user
+public|pending_requests|table|clients_user
+public|processed_messages|table|clients_user
+public|product_assets|table|clients_user
+public|products|table|clients_user
+public|recent_agent_events|view|clients_user
+public|redirects|table|clients_user
+public|relationships|table|clients_user
+public|research_results|table|clients_user
+public|scheduled_tasks|table|clients_user
+public|site_areas|table|clients_user
+public|site_components|table|clients_user
+public|site_flows|table|clients_user
+public|site_locking_progress|view|clients_user
+public|site_nav_groups|table|clients_user
+public|site_nav_items|table|clients_user
+public|site_plan_directives|table|clients_user
+public|site_plan_imagery|table|clients_user
+public|site_plan_pages|table|clients_user
+public|site_plan_sections|table|clients_user
+public|site_plans|table|clients_user
+public|site_plans_bak_retire|table|clients_user
+public|site_snapshots|table|clients_user
+public|site_specs|table|clients_user
+public|site_specs_supersede_log_20260422|table|clients_user
+public|site_work_items|table|clients_user
+public|site_work_items_archive|table|clients_user
+public|site_work_items_backup_20260423_pre_cascade_restart|table|clients_user
+public|sites|table|clients_user
+public|splanpages_bak_del_bare|table|clients_user
+public|splansecs_bak_del_bare|table|clients_user
+public|splansecs_bak_hubfix|table|clients_user
+public|sps_bak_skbox|table|clients_user
+public|style_collections|table|clients_user
+public|swi_bak_del_bare|table|clients_user
+public|system_events|table|clients_user
+public|theme_tags|table|clients_user
+public|thunder_config|table|clients_user
+public|thunder_instances|table|clients_user
+public|thunder_provision_check|view|clients_user
+public|thunder_spend_24h|view|clients_user
+public|tool_list_count|table|clients_user
+public|typography_sets|table|clients_user
+public|v_active_workflows|view|clients_user
+public|v_agents_by_category|view|clients_user
+public|v_all_workflows|view|clients_user
+public|v_content_usage|view|clients_user
+public|v_navigation_pages|view|clients_user
+public|v_page_build_status|view|clients_user
+public|v_research_summary|view|clients_user
+public|v_section_schema_status|view|clients_user
+public|v_site_assets|view|clients_user
+public|v_site_links|view|clients_user
+public|v_site_snapshots|view|clients_user
+public|workflow_contract_chain|view|clients_user
+public|workflow_templates|table|clients_user
+(165 rows)
+clients_db=#
