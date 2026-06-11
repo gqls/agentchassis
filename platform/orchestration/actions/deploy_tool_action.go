@@ -215,11 +215,19 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			zap.String("fork_id", forkID.String()))
 	} else {
 		// --- 3. Fork the tool (create site-owned copy) ---
+		// source_* = the DEPLOYING actor (creation provenance for the fork);
+		// forked_from carries the library lineage. NOTE (flagged, unchanged):
+		// created_from is not set here so forks default to 'manual' — the
+		// CHECK allows 'forked' if that's ever wanted, but changing it is a
+		// behaviour change beyond this patch. js_content is also not copied
+		// (the known landmine — see 019 correction); harmless while tools
+		// stay inline.
 		_, err = params.DB.ExecContext(ctx, `
 			INSERT INTO content_components (
 				id, name, display_name, function, category, component_level, render_mode,
 				is_dark_section, is_active, description,
-				semantic_tags, html_template, input_schema, forked_from
+				semantic_tags, html_template, input_schema, forked_from,
+				source_agent_type, source_orchestration_id
 			)
 			SELECT
 				$1,
@@ -235,10 +243,14 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 				semantic_tags,
 				html_template,
 				input_schema,
-				$3
+				$3,
+				$4,
+				$5
 			FROM content_components
 			WHERE id = $3
-		`, forkID, forkName, toolID)
+		`, forkID, forkName, toolID,
+			nullIfEmpty(params.ExecutionContext.Sender.AgentType),
+			nullIfEmpty(params.ExecutionContext.OrchestrationID))
 		if err != nil {
 			return nil, fmt.Errorf("fork tool: %w", err)
 		}

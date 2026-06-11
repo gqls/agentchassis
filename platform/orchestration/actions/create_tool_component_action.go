@@ -31,6 +31,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/content"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -92,6 +93,19 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 
 	// Strip markdown fences if LLM included them despite instructions
 	htmlContent = datahelpers.StripCodeFences(htmlContent)
+
+	// Tool-doc header gate (019 §Tool Doc Header). All tool-generator output
+	// passes through here, so this is the contract's enforcement point (the
+	// generator workflow has no check_tool_completeness step — that action
+	// rides the tool-recreation flow only). Hard fail: the workflow's
+	// error_step fires and the work item carries the reason.
+	// DEPLOYMENT ORDER: apply the tool-generator prompt update (which teaches
+	// the header) before or with the binary carrying this gate, or every
+	// generation fails here.
+	if !content.HasToolDocHeader(htmlContent) {
+		return nil, fmt.Errorf("generated tool HTML lacks the tool-doc header (%s ... %s) — prompt not yet updated, or the LLM dropped it; regenerate (019 §Tool Doc Header)",
+			content.ToolDocOpen, content.ToolDocClose)
+	}
 
 	function := inputs.Get("function")
 	displayName := inputs.Get("display_name")
@@ -166,14 +180,20 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// --- Create component ---
 	componentID := uuid.New()
 
+	// source_* = creation provenance (NNN_add_component_provenance.sql),
+	// mirroring knowledge_base's pair. Values from the execution context the
+	// action already holds — apply that migration before this binary deploys.
 	_, err = params.DB.ExecContext(ctx, `
 		INSERT INTO content_components (
 			id, name, display_name, function, component_level,
 			category, description, html_template,
-			is_active, is_dark_section, created_from
-		) VALUES ($1, $2, $3, $4, 'tool', $5, $6, $7, true, false, 'generated')
+			is_active, is_dark_section, created_from,
+			source_agent_type, source_orchestration_id
+		) VALUES ($1, $2, $3, $4, 'tool', $5, $6, $7, true, false, 'generated', $8, $9)
 	`, componentID, componentName, displayName, function,
-		category, description, htmlContent)
+		category, description, htmlContent,
+		nullIfEmpty(params.ExecutionContext.Sender.AgentType),
+		nullIfEmpty(params.ExecutionContext.OrchestrationID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tool component: %w", err)
 	}

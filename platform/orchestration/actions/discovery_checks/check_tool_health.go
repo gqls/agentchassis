@@ -16,8 +16,9 @@
 //   7. CSS variables    — no bare hex outside var() fallbacks (warning)
 //   8. Self-contained   — no fetch(), no external src= (warning)
 //   9. Doc header       — tool-doc header present in html_template (warning;
-//                         019 §Tool Doc Header — template-only: rendered_html
-//                         is post-strip)
+//                         019 §Tool Doc Header — template-only: the strip
+//                         runs at deploy assembly, so rendered_html may
+//                         legitimately retain the header)
 //  10. Doc header shape — opener without closer (error — the malformed block
 //                         would SHIP; StripToolDocHeader leaves it untouched)
 //
@@ -386,9 +387,10 @@ func auditTool(templateHTML, renderedHTML, buildStatus string) []toolIssue {
 	}
 
 	// 9./10. Tool-doc header (019 §Tool Doc Header). Checked on the TEMPLATE
-	// only — never on rendered_html, which is post-strip once
-	// StripToolDocHeader ships. Guarded on templateHTML: when the fork is
-	// empty, empty_template (blocker) has already fired.
+	// only — the template is the contract's home; the strip runs at deploy
+	// assembly (page HTML + JS assets), so rendered_html may legitimately
+	// retain the header. Guarded on templateHTML: when the fork is empty,
+	// empty_template (blocker) has already fired.
 	if templateHTML != "" && !content.HasToolDocHeader(templateHTML) {
 		if strings.Contains(templateHTML, content.ToolDocOpen) {
 			// Opener without closer: StripToolDocHeader deliberately leaves a

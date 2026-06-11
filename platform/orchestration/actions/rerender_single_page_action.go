@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/content"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -104,6 +105,11 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		}, nil
 	}
 
+	// Strip tool-doc headers from the OUTBOUND page HTML (019 §Tool Doc
+	// Header). DB rendered_html keeps the header (audit/parse parity with the
+	// template); only what ships is stripped. No-op when absent.
+	html = content.StripToolDocHeader(html)
+
 	// Collect JS assets for components used on this page.
 	// Components with js_content get deployed as /tools/assets/{function}.js
 	jsAssets := collectJSAssets(ctx, params.DB, pageID, params.Logger)
@@ -160,7 +166,10 @@ func collectJSAssets(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 			continue
 		}
 		assetPath := fmt.Sprintf("tools/assets/%s.js", function)
-		assets[assetPath] = jsContent
+		// Strip any tool-doc header — the asset ships verbatim to the public
+		// CDN path, and separateInlineJS copies script bodies into js_content
+		// unmodified (019 §Tool Doc Header).
+		assets[assetPath] = content.StripToolDocHeader(jsContent)
 		logger.Info("collectJSAssets: found JS asset",
 			zap.String("function", function),
 			zap.Int("js_length", len(jsContent)))

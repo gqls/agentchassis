@@ -15,6 +15,7 @@ import (
 	"text/template"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/content"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -560,6 +561,14 @@ func rerenderSinglePage(ctx context.Context, db *sql.DB, page RerenderPageInfo, 
 
 	// Clean up any double DOCTYPE that might have been in sections
 	finalHTML = rerenderCleanDoubleDoctype(finalHTML)
+
+	// Strip tool-doc headers from the outbound HTML (019 §Tool Doc Header) —
+	// this bulk path deploys independently of RerenderSinglePageAction, so it
+	// needs its own strip. No-op when absent.
+	// NOTE (observed, unchanged): unlike the single-page path, this bulk path
+	// has no collectJSAssets equivalent — js_content assets are only emitted
+	// by single-page rerenders.
+	finalHTML = content.StripToolDocHeader(finalHTML)
 
 	logger.Debug("Re-rendered page",
 		zap.String("page", page.Name),
