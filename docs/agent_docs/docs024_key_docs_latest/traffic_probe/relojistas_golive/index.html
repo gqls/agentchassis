@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Relojistas — relojes, marcas y reparación</title>
+<style>
+  :root{--ink:#1c1c1e;--soft:#48484a;--mute:#8a8a8e;--line:#d8d8dc;--paper:#fbfbfa;--accent:#2b5fb3}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  main{max-width:680px;margin:0 auto;padding:13vh 24px 64px}
+  h1{font-size:28px;font-weight:600;margin:0 0 10px}
+  .tagline{font-size:17px;line-height:1.55;color:var(--soft);margin:0 0 30px}
+  label{display:block;font-size:16px;font-weight:600;margin:0 0 10px}
+  input[type=text]{width:100%;font-size:17px;font-family:inherit;padding:13px 15px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  button{margin-top:14px;font-size:16px;font-weight:500;font-family:inherit;padding:12px 22px;border:0;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
+  .privacy{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;line-height:1.6;color:var(--mute)}
+  @media (max-width:768px){main{padding-top:9vh}button{width:100%}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Relojistas</h1>
+  <p class="tagline">Relojes: marcas, modelos, reparación y compraventa. Durante años este dominio fue un foro de relojería en español.</p>
+  <form method="post" action="/intent">
+    <input type="hidden" name="kind" value="search">
+    <label for="q">¿Qué buscas? (marca, modelo, reparación, compraventa…)</label>
+    <input type="text" id="q" name="value" autocomplete="off" maxlength="500" placeholder="p. ej. correa Omega Seamaster, taller en Madrid">
+    <button type="submit">Buscar</button>
+  </form>
+  <p class="privacy">Esta página la gestiona el propietario del dominio. Al usar el buscador registramos únicamente lo que escribes, un país aproximado y el sitio del que procedes — sin nombres, sin cookies, sin rastreadores de terceros y sin direcciones IP. Conservamos los datos solo el tiempo necesario para entender qué buscan los visitantes.</p>
+  <img src="/api/hit" width="1" height="1" alt="" aria-hidden="true">
+</main>
+</body>
+</html>

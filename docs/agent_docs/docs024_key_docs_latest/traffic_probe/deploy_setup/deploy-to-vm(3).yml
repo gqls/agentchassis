@@ -1,0 +1,73 @@
+name: Deploy Sites to VM
+# Lives in the vm-sites repo. Mirrors the LIVE sites-repo deploy model:
+# domain folders at the REPO ROOT (e.g. relojistas.com/index.html), which is
+# what the git-adapter produces (CommitToRepo prefixes every file with
+# "<domain>/"). On push, rsync each changed domain folder over SSH into the
+# box web root. No Cloudflare purge: nginx serves the files directly.
+#
+# Scope: deploys CONTENT for domains already provisioned on the box (in
+# setup.sh's DOMAINS, with an nginx vhost + cert). Onboarding a NEW domain is
+# the one-time provisioning step. The ENGINE binary deploys via its own
+# workflow in the site-engine repo, not here.
+#
+# Known gap (shared with the B2 action): deleting a domain folder does not
+# remove it from the box — the loop skips absent folders.
+#
+# Required repo secrets:
+#   VM_HOST    — box hostname or IP
+#   VM_USER    — SSH user that owns /var/www/vm-sites/<domain> (setup.sh DEPLOY_USER)
+#   VM_SSH_KEY — that user's private key (ed25519)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/**'
+      - 'README*'
+      - 'LICENSE'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # need the previous commit for the diff
+
+      - name: Get changed sites
+        id: changed
+        run: |
+          # Domain folders live at the repo ROOT: first path segment = domain.
+          CHANGED=$(git diff --name-only HEAD~1 HEAD | cut -d'/' -f1 | sort -u | tr '\n' ' ')
+          echo "sites=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed top-level entries: $CHANGED"
+
+      - name: Set up SSH
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Rsync changed sites to the VM
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          WEBROOT_BASE: /var/www/vm-sites
+        run: |
+          for site in ${{ steps.changed.outputs.sites }}; do
+            case "$site" in
+              .*) echo "Skipping $site (dot entry)"; continue ;;
+            esac
+            if [ -d "$site" ]; then
+              echo "Deploying $site ..."
+              rsync -az --delete \
+                -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" \
+                "$site/" "$VM_USER@$VM_HOST:$WEBROOT_BASE/$site/"
+            else
+              echo "Skipping $site (not a directory — file edit or deleted folder)."
+            fi
+          done
