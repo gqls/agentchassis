@@ -30,8 +30,8 @@ func newTestApp() (*App, *[][3]string) {
 
 func reqID(sent *[][3]string) string {
 	for i := len(*sent) - 1; i >= 0; i-- {
-		if s := (*sent)[i][1]; strings.Contains(s, "NEW REQUEST ") {
-			return strings.SplitN(strings.SplitN(s, "NEW REQUEST ", 2)[1], " ", 2)[0]
+		if s := (*sent)[i][1]; strings.Contains(s, "New report request ") {
+			return strings.SplitN(strings.SplitN(s, "New report request ", 2)[1], " ", 2)[0]
 		}
 	}
 	return ""
@@ -252,7 +252,7 @@ func TestAudienceCheckHappyPath(t *testing.T) {
 		"stubbed reframed audience",
 		"stubbed wtp explanation",
 		"alt-1", "alt-2", "reason-1",
-		"Get the full report — £29",
+		"Request the full report — £29",
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("response missing %q\nbody:\n%s", want, body)

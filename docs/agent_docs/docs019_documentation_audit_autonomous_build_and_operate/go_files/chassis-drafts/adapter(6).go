@@ -56,6 +56,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -74,19 +75,40 @@ const (
 )
 
 // Adapter consumes analyse requests from Kafka and replies with a
-// ResponseMessage on the caller's responses topic.
+// ResponseMessage on the caller's responses topic. Lifecycle mirrors the
+// thunder/git adapters: NewAdapter → StartHealthServer → Run; Shutdown is
+// sync.Once-guarded and safe to call from both the signal handler and a test
+// harness.
 type Adapter struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	cfg    *config.ServiceConfig
+	logger *zap.Logger
+
 	consumer      *kafka.Consumer
 	producer      kafka.Producer
 	requestsTopic string
-	analyse       *AnalyseAction
-	logger        *zap.Logger
-	podName       string
+
+	analyse *AnalyseAction
+
+	// Identity for response headers: senderType is cfg.ServiceInfo.Name
+	// (fallback adapterAgentType); adapterID is this instance's run UUID.
+	adapterID  uuid.UUID
+	senderType string
+	podName    string
+
+	healthServer *http.Server
+	shutdownOnce sync.Once
+	shutdownWg   sync.WaitGroup
 }
 
 // NewAdapter wires the Kafka consumer/producer, the read-only GitHub source,
-// and the analyse action.
+// and the analyse action. Cleanup convention (035 §2.5): every failure path
+// closes everything successfully opened before it, then cancels.
 func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*Adapter, error) {
+	adapterCtx, cancel := context.WithCancel(ctx)
+
+	// 1. Topics + consumer group (env override or default — matches thunder).
 	requestsTopic := os.Getenv("REQUESTS_TOPIC")
 	if requestsTopic == "" {
 		requestsTopic = defaultRequestsTopic
@@ -96,69 +118,179 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		consumerGroup = defaultConsumerGroup
 	}
 
+	adapterID, _ := uuid.NewUUID()
+
+	// 2. Kafka consumer.
 	consumer, err := kafka.NewConsumer(cfg.Infrastructure.KafkaBrokers, requestsTopic, consumerGroup, logger)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("create kafka consumer: %w", err)
 	}
+
+	// 3. Kafka producer.
 	producer, err := kafka.NewProducer(cfg.Infrastructure.KafkaBrokers, logger)
 	if err != nil {
 		consumer.Close()
+		cancel()
 		return nil, fmt.Errorf("create kafka producer: %w", err)
 	}
 
-	// Read-only, repo-scoped GitHub token from a k8s Secret (least privilege).
+	// 4. Read-only, repo-scoped GitHub token from a k8s Secret (least
+	// privilege). NewGitHubSource fails fast on an empty token. The env var
+	// names are documented in configs/analyser-adapter.yaml (custom.github);
+	// direct env reads match the thunder pattern.
 	source, err := NewGitHubSource(os.Getenv("GITHUB_READ_TOKEN"), os.Getenv("GITHUB_API_BASE"), logger)
 	if err != nil {
+		producer.Close()
 		consumer.Close()
+		cancel()
 		return nil, fmt.Errorf("create github source: %w", err)
 	}
 
-	return &Adapter{
+	// Identity for response headers. sender_agent_type comes from the config
+	// (service_info.name), falling back to the const so the adapter still
+	// answers sensibly if the config field is blank.
+	senderType := cfg.ServiceInfo.Name
+	if senderType == "" {
+		senderType = adapterAgentType
+	}
+	podName := os.Getenv("POD_NAME")
+	if podName == "" {
+		podName = os.Getenv("HOSTNAME")
+	}
+
+	a := &Adapter{
+		ctx:           adapterCtx,
+		cancel:        cancel,
+		cfg:           cfg,
+		logger:        logger.Named("analyser_adapter"),
 		consumer:      consumer,
 		producer:      producer,
 		requestsTopic: requestsTopic,
 		analyse:       NewAnalyseAction(source, logger),
-		logger:        logger.Named("analyser_adapter"),
-		podName:       os.Getenv("HOSTNAME"),
-	}, nil
+		adapterID:     adapterID,
+		senderType:    senderType,
+		podName:       podName,
+	}
+
+	logger.Info("Analyser adapter initialized",
+		zap.Strings("kafka_brokers", cfg.Infrastructure.KafkaBrokers),
+		zap.String("requests_topic", requestsTopic),
+		zap.String("consumer_group", consumerGroup),
+		zap.String("adapter_id", adapterID.String()),
+		zap.String("sender_agent_type", senderType),
+	)
+	return a, nil
 }
 
-// Run starts the health server and consumes the requests topic until ctx is
-// cancelled.
-func (a *Adapter) Run(ctx context.Context) error {
-	a.startHealthServer()
-	a.logger.Info("analyser adapter started", zap.String("requests_topic", a.requestsTopic))
+// Run is the main message-processing loop. Returns nil on graceful shutdown.
+// Sequential by design — no `go a.handleMessage(msg)` (035 §2.6).
+func (a *Adapter) Run() error {
+	a.logger.Info("Analyser adapter starting message processing",
+		zap.String("topic", a.requestsTopic))
+
+	a.shutdownWg.Add(1)
+	defer a.shutdownWg.Done()
+
 	for {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
+		case <-a.ctx.Done():
+			a.logger.Info("Shutdown signal received, stopping message processing")
+			return nil
 		default:
+			fetchCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			msg, err := a.consumer.FetchMessage(fetchCtx)
+			cancel()
+
+			if err != nil {
+				if err == context.Canceled || err == context.DeadlineExceeded {
+					continue // no messages — re-poll
+				}
+				select {
+				case <-a.ctx.Done():
+					return nil // shutdown is the real reason for the error
+				default:
+				}
+				a.logger.Error("Failed to fetch message", zap.Error(err))
+				time.Sleep(time.Second) // backoff before retry
+				continue
+			}
+			a.handleMessage(msg)
 		}
-		fetchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		msg, err := a.consumer.FetchMessage(fetchCtx)
-		cancel()
-		if err != nil {
-			continue // fetch timeout / transient — loop (match webscrape/thunder)
-		}
-		a.handleMessage(ctx, msg)
 	}
 }
 
-// startHealthServer serves /health and /ready for the k8s probes.
-func (a *Adapter) startHealthServer() {
-	port := os.Getenv("HEALTH_PORT")
-	if port == "" {
-		port = "8080"
-	}
+// StartHealthServer serves /health (liveness) and /ready (readiness) on the
+// given port. Called by main before Run. The analyser's only external
+// dependency is the GitHub API; pinging it on every probe period would burn
+// rate limit for no signal, so /ready instead reports draining state: 503 once
+// shutdown has begun (so k8s pulls the pod from Service endpoints), 200
+// otherwise.
+func (a *Adapter) StartHealthServer(port string) {
 	mux := http.NewServeMux()
-	ok := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }
-	mux.HandleFunc("/health", ok)
-	mux.HandleFunc("/ready", ok)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
+		if a.ctx.Err() != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"status":"draining"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ready"}`))
+	})
+
+	a.healthServer = &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	go func() {
-		if err := http.ListenAndServe(":"+port, mux); err != nil {
-			a.logger.Warn("health server stopped", zap.Error(err))
+		if err := a.healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			a.logger.Error("Health server error", zap.Error(err))
 		}
 	}()
+	a.logger.Info("Health server started", zap.String("port", port))
+}
+
+// Shutdown stops the adapter gracefully. sync.Once makes it safe to call more
+// than once — the signal handler in main() and a test harness can both call it.
+func (a *Adapter) Shutdown() {
+	a.shutdownOnce.Do(func() {
+		a.logger.Info("Analyser adapter shutting down")
+		a.cancel() // signals Run() to exit at next iteration
+
+		if a.healthServer != nil {
+			sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = a.healthServer.Shutdown(sctx)
+		}
+
+		done := make(chan struct{})
+		go func() {
+			a.shutdownWg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			a.logger.Warn("Shutdown wait exceeded; closing connections anyway")
+		}
+
+		a.consumer.Close()
+		a.producer.Close()
+		a.logger.Info("Analyser adapter shutdown complete")
+	})
+}
+
+// commit acknowledges a message; logs but doesn't error if the commit fails.
+// Uses a background context so commits still land during shutdown drain.
+func (a *Adapter) commit(msg kafka.Message) {
+	if err := a.consumer.CommitMessages(context.Background(), msg); err != nil {
+		a.logger.Warn("Failed to commit message", zap.Error(err))
+	}
 }
 
 // incoming reuses the canonical RequestHeaders for the envelope headers, and
@@ -176,16 +308,20 @@ type incoming struct {
 	} `json:"body"`
 }
 
-func (a *Adapter) handleMessage(ctx context.Context, msg kafka.Message) {
+func (a *Adapter) handleMessage(msg kafka.Message) {
 	var in incoming
 	if err := json.Unmarshal(msg.Value, &in); err != nil {
 		a.logger.Error("unparseable request — dropping", zap.Error(err))
-		_ = a.consumer.CommitMessages(ctx, msg) // poison message: commit so we don't loop
+		a.commit(msg) // poison message: commit so we don't loop
 		return
 	}
 
 	ec := types.FromRequestHeaders(in.Headers)
-	ec.Sender = types.AgentIdentity{AgentType: adapterAgentType, PodName: a.podName}
+	ec.Sender = types.AgentIdentity{
+		AgentType: a.senderType,
+		AgentID:   a.adapterID.String(),
+		PodName:   a.podName,
+	}
 
 	var (
 		result  interface{}
@@ -194,11 +330,24 @@ func (a *Adapter) handleMessage(ctx context.Context, msg kafka.Message) {
 	switch in.Body.Action {
 	case "analyse":
 		var req AnalyseRequest
+		// Execute on a.ctx so a shutdown aborts a long-running analysis
+		// (tarball fetch + AST walk) instead of holding the drain window.
 		if execErr = json.Unmarshal(in.Body.Data, &req); execErr == nil {
-			result, execErr = a.analyse.Execute(ctx, req)
+			result, execErr = a.analyse.Execute(a.ctx, req)
 		}
 	default:
 		execErr = fmt.Errorf("analyser adapter: action %q not implemented", in.Body.Action)
+	}
+
+	// Shutdown-mid-work: the failure is the drain, not the request. Don't
+	// reply (an error_unrecoverable here would wrongly tell the caller not to
+	// retry) and don't commit — at-least-once redelivery re-runs it on the
+	// next pod.
+	if execErr != nil && a.ctx.Err() != nil {
+		a.logger.Warn("analysis aborted by shutdown — leaving message uncommitted for redelivery",
+			zap.String("correlation_id", in.Headers.CorrelationID),
+			zap.String("request_id", in.Headers.RequestID))
+		return
 	}
 
 	status := "complete"
@@ -220,7 +369,7 @@ func (a *Adapter) handleMessage(ctx context.Context, msg kafka.Message) {
 		a.logger.Error("no reply topic on request — cannot reply",
 			zap.String("correlation_id", in.Headers.CorrelationID),
 			zap.String("request_id", in.Headers.RequestID))
-		_ = a.consumer.CommitMessages(ctx, msg)
+		a.commit(msg)
 		return
 	}
 
@@ -228,24 +377,25 @@ func (a *Adapter) handleMessage(ctx context.Context, msg kafka.Message) {
 	payload, err := json.Marshal(resp)
 	if err != nil {
 		a.logger.Error("marshal response failed", zap.Error(err))
-		_ = a.consumer.CommitMessages(ctx, msg)
+		a.commit(msg)
 		return
 	}
 
 	// Kafka MESSAGE headers — what the chassis router matches the awaited
 	// request on. request_id is the incoming one, reused verbatim.
-	kHeaders := buildResponseKafkaHeaders(in.Headers, status, uuid.New().String())
+	kHeaders := a.buildResponseKafkaHeaders(in.Headers, status, uuid.New().String())
 
-	// ProduceWithValidation, never plain Produce (doc 003). It runs the
-	// outgoing validator and still sends error responses even if validation
-	// fails. Align the exact signature with webscrape/git.
-	if err := a.producer.ProduceWithValidation(ctx, replyTopic, kHeaders, []byte(in.Headers.CorrelationID), payload); err != nil {
+	// ProduceWithValidation, never plain Produce (035 §1.6). Background-derived
+	// timeout so a completed analysis still gets its reply out during drain.
+	prodCtx, prodCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer prodCancel()
+	if err := a.producer.ProduceWithValidation(prodCtx, replyTopic, kHeaders, []byte(in.Headers.CorrelationID), payload); err != nil {
 		a.logger.Error("produce response failed",
 			zap.Error(err), zap.String("topic", replyTopic))
 		return // don't commit — let it redeliver (at-least-once)
 	}
 
-	_ = a.consumer.CommitMessages(ctx, msg)
+	a.commit(msg)
 	a.logger.Info("analyse response sent",
 		zap.String("correlation_id", in.Headers.CorrelationID),
 		zap.String("in_response_to_request_id", in.Headers.RequestID),
@@ -287,16 +437,16 @@ func (a *Adapter) buildResponseBody(ec *types.ExecutionContext, result interface
 }
 
 // buildResponseKafkaHeaders builds the map[string]string Kafka message headers
-// the Adapter Response Envelope Contract requires. This is the git adapter's
+// the envelope contract (035 §1.3-1.4) requires. This is the git adapter's
 // ToKafkaHeaders() equivalent — supplied here because the canonical
 // types.ResponseHeaders has no such method and no request_id/message_id fields.
 // String bools are correct in KAFKA headers (they're byte strings); the typed
 // bools live in the JSON body.
-func buildResponseKafkaHeaders(req types.RequestHeaders, status, messageID string) map[string]string {
+func (a *Adapter) buildResponseKafkaHeaders(req types.RequestHeaders, status, messageID string) map[string]string {
 	return map[string]string{
 		"message_type":              "response",
-		"request_id":                req.RequestID, // REUSED incoming id — router matches on this
-		"in_response_to_request_id": req.RequestID,
+		"request_id":                req.RequestID, // REUSED incoming id — covers the fallback match path
+		"in_response_to_request_id": req.RequestID, // the load-bearing claim key (035 §1.4)
 		"in_response_to_step_id":    req.StepID,
 		"in_response_to_step_name":  req.StepName,
 		"orchestration_id":          req.OrchestrationID,
@@ -304,7 +454,10 @@ func buildResponseKafkaHeaders(req types.RequestHeaders, status, messageID strin
 		"client_id":                 req.ClientID,
 		"message_id":                messageID, // fresh
 		"status":                    status,
-		"sender_agent_type":         adapterAgentType,
+		"sender_agent_type":         a.senderType,
+		"sender_agent_id":           a.adapterID.String(),
+		"sender_pod_name":           a.podName,
+		"time_sent":                 time.Now().UTC().Format(time.RFC3339),
 		"in_response_to_action":     req.Action,
 	}
 }

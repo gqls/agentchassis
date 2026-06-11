@@ -15,7 +15,7 @@
 // adapter reads Headers.Action and unmarshals body into AnalyseRequest. Kafka
 // message headers mirror the JSON headers (stringified), like WebscrapeAction.
 
-package actions
+package documentation_analysis_tool
 
 import (
 	"context"

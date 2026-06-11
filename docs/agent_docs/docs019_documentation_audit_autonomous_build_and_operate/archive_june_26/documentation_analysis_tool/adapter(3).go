@@ -3,26 +3,41 @@
 // DRAFT for the agent-chassis repo (module github.com/gqls/agentchassis).
 // Does not compile in the contextkit container — built/deployed in your env.
 //
-// Analyser adapter dispatcher. Mirrors the thunder/git/webscrape adapters for
-// Kafka wiring and follows the Adapter Response Envelope Contract (doc 003).
+// Analyser adapter dispatcher. Mirrors the thunder/git/image-generator adapters.
+// The response envelope is grounded in the orchestrator (coordinator.go) and the
+// three working adapters, not the docs — which disagree (003 vs FOCUS) and were
+// resolved empirically:
 //
-// Contract compliance (the part that makes responses route to the awaited
-// request instead of silently timing out):
-//   - The reply's KAFKA MESSAGE HEADERS carry request_id (the incoming one,
-//     reused verbatim), a fresh message_id, in_response_to_request_id,
-//     orchestration_id, correlation_id, status, message_type — see
-//     buildResponseKafkaHeaders. The router matches request_id here.
+// REQUEST parse:
+//   - action comes from the BODY (body.action), never the headers — matching
+//     thunder (body["action"]), git (req.Body.Action), image-generator
+//     (req.Body.Data). The payload is at body.data.
+//   - reply topic is mixed in the codebase: git/websearch read it from the
+//     headers, thunder/image-generator from the body. Both are accepted.
+//
+// RESPONSE build (the part that makes responses route instead of timing out):
+//   - The chassis claims the awaited request on in_response_to_request_id first
+//     (coordinator.go ProcessResponse), falling back to request_id only if that
+//     is empty. So in_response_to_request_id (= the incoming request_id) is the
+//     load-bearing field. Following git, request_id is also reused from the
+//     incoming request and a fresh message_id is added — this covers both the
+//     primary and fallback match paths. See buildResponseKafkaHeaders.
 //   - The reply BODY uses the canonical types.ResponseHeaders (via
-//     ToResponseHeaders), so is_complete/is_error marshal as real JSON bools
-//     (the "bool trap" the chassis unmarshal is sensitive to).
-//   - Sent via ProduceWithValidation, never plain Produce.
+//     ToResponseHeaders), so is_complete/is_error marshal as real JSON bools.
+//     This is the "bool trap": the orchestrator unmarshals into a struct with
+//     bool fields, and a map[string]string sending the string "true" fails the
+//     unmarshal (documented in thunder-adapter, lines ~634-643). websearch is
+//     the lone adapter still on the string-bool map + plain Produce — the
+//     deprecated path the FOCUS skeleton happens to describe; do not copy it.
+//   - Sent via ProduceWithValidation, never plain Produce (git/thunder/dynamic).
 //
 // Import-reuse note: the canonical types.ResponseHeaders has NO request_id /
 // message_id field and NO ToKafkaHeaders method (verified against
-// platform/orchestration/types/context.go). The adapter envelope needs those in
-// the Kafka headers, so this file supplies buildResponseKafkaHeaders locally —
-// the same fields the git adapter's ToKafkaHeaders() emits. The body still
-// reuses the canonical type.
+// platform/orchestration/types/context.go) — which is exactly why the git
+// adapter carries its own ResponseHeaders mirror. The adapter envelope needs
+// request_id/message_id in the Kafka headers, so this file supplies
+// buildResponseKafkaHeaders locally (the same fields git's ToKafkaHeaders emits)
+// while the body reuses the canonical type for the real-bool guarantee.
 //
 // RECONCILE against your tree before building:
 //   1. The kafka package import path + the exact signatures of NewConsumer /
@@ -33,7 +48,7 @@
 //   2. The ExecutionContext fields ToResponseHeaders reads (Sender/Status/
 //      IsComplete/IsError) and AgentIdentity's field names.
 
-package analyser
+package documentation_analysis_tool
 
 import (
 	"context"
@@ -146,11 +161,19 @@ func (a *Adapter) startHealthServer() {
 	}()
 }
 
-// incoming reuses the canonical RequestHeaders and captures the body as raw
-// JSON so it can be unmarshalled into the action's typed request.
+// incoming reuses the canonical RequestHeaders for the envelope headers, and
+// reads the action + payload from the BODY — matching every working adapter
+// (thunder body["action"], git req.Body.Action, image-generator req.Body.Data).
+// The action is deliberately NOT taken from the headers. reply_to_topic is in
+// the body on some adapters (thunder, image-generator) and in the headers on
+// others (git, websearch), so it is captured here and resolved at dispatch.
 type incoming struct {
 	Headers types.RequestHeaders `json:"headers"`
-	Body    json.RawMessage      `json:"body"`
+	Body    struct {
+		Action       string          `json:"action"`
+		Data         json.RawMessage `json:"data"`
+		ReplyToTopic string          `json:"reply_to_topic"`
+	} `json:"body"`
 }
 
 func (a *Adapter) handleMessage(ctx context.Context, msg kafka.Message) {
@@ -168,14 +191,14 @@ func (a *Adapter) handleMessage(ctx context.Context, msg kafka.Message) {
 		result  interface{}
 		execErr error
 	)
-	switch in.Headers.Action {
+	switch in.Body.Action {
 	case "analyse":
 		var req AnalyseRequest
-		if execErr = json.Unmarshal(in.Body, &req); execErr == nil {
+		if execErr = json.Unmarshal(in.Body.Data, &req); execErr == nil {
 			result, execErr = a.analyse.Execute(ctx, req)
 		}
 	default:
-		execErr = fmt.Errorf("analyser adapter: action %q not implemented", in.Headers.Action)
+		execErr = fmt.Errorf("analyser adapter: action %q not implemented", in.Body.Action)
 	}
 
 	status := "complete"
@@ -183,9 +206,15 @@ func (a *Adapter) handleMessage(ctx context.Context, msg kafka.Message) {
 		status = "error_unrecoverable"
 	}
 
-	replyTopic := in.Headers.ReplyToTopic
+	// Reply topic source is mixed across the working adapters: git/websearch
+	// read it from the headers, thunder/image-generator from the body. Accept
+	// all three keys rather than assume one.
+	replyTopic := in.Headers.ResponsesTopic
 	if replyTopic == "" {
-		replyTopic = in.Headers.ResponsesTopic
+		replyTopic = in.Headers.ReplyToTopic
+	}
+	if replyTopic == "" {
+		replyTopic = in.Body.ReplyToTopic
 	}
 	if replyTopic == "" {
 		a.logger.Error("no reply topic on request — cannot reply",

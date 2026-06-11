@@ -11,9 +11,10 @@
 // (e.g. "repo_analysis"), where index_code_symbols then reads it.
 //
 // The request envelope matches what the analyser adapter parses: the JSON value
-// is {headers:{... action:"analyse" ...}, body:{owner,repo,ref,language}} — the
-// adapter reads Headers.Action and unmarshals body into AnalyseRequest. Kafka
-// message headers mirror the JSON headers (stringified), like WebscrapeAction.
+// is {headers:{...}, body:{action:"analyse", reply_to_topic, data:{owner,repo,
+// ref,language}}} — the adapter reads body.action and unmarshals body.data into
+// AnalyseRequest. Kafka message headers mirror the JSON headers (stringified),
+// like WebscrapeAction.
 
 package actions
 
@@ -75,7 +76,12 @@ func RequestRepoAnalysisAction(ctx context.Context, params ActionParams) (interf
 		clientID = "default"
 	}
 
-	// JSON value: headers (action on headers) + body (the AnalyseRequest shape).
+	// JSON value: headers carry routing/identity + responses_topic (git reads
+	// the reply topic there); the BODY carries action + reply_to_topic + the
+	// AnalyseRequest payload under data. The adapter reads body.action and
+	// unmarshals body.data — matching thunder/git/image-generator. action and
+	// reply_to_topic are also left in the headers so header-reading adapters
+	// still work (belt-and-braces, as WebscrapeAction does).
 	adapterRequest := map[string]interface{}{
 		"headers": map[string]interface{}{
 			"correlation_id":          params.ExecutionContext.CorrelationID,
@@ -97,10 +103,14 @@ func RequestRepoAnalysisAction(ctx context.Context, params ActionParams) (interf
 			"timestamp":               time.Now().UTC().Format(time.RFC3339),
 		},
 		"body": map[string]interface{}{
-			"owner":    owner,
-			"repo":     repo,
-			"ref":      ref,
-			"language": language,
+			"action":         "analyse",
+			"reply_to_topic": myResponsesTopic,
+			"data": map[string]interface{}{
+				"owner":    owner,
+				"repo":     repo,
+				"ref":      ref,
+				"language": language,
+			},
 		},
 	}
 

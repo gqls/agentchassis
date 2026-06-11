@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // PageInfo holds page details for rendering
@@ -200,4 +201,15 @@ func errString(err error) string {
 		return err.Error()
 	}
 	return ""
+}
+
+// resolveGitRepoName: explicit step config → the site's own repo → default.
+func resolveGitRepoName(config, collected map[string]interface{}) string {
+	if r, _ := config["repo_name"].(string); r != "" {
+		return r
+	}
+	if r := datahelpers.ExtractNestedFieldString(collected, "site_record.github_repo"); r != "" {
+		return r
+	}
+	return "sites"
 }

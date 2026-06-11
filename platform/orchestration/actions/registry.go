@@ -1542,9 +1542,8 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 
 	// ========================================================================
-	// DOCUMENT AND CODE ANALYSIS
+	// DOCUMENT AND CODE ANALYSIS — code-context retrieval (analyser adapter + code_symbols)
 	// ========================================================================
-
 	"lookup_code_symbols": {
 		Handler:     LookupCodeSymbolsAction,
 		Category:    "storage",
