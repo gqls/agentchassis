@@ -8,8 +8,8 @@ Stability, Thunder, Backblaze, Ollama, …).
 applies to *any* component that replies to a chassis request: adapters, spawned
 agents, and inline actions alike. It was extracted from `003_contracts_and_standards.md`
 §"Adapter Response Envelope Contract"; 003 now points here rather than restating
-it. Sections 2+ are the adapter-specific construction recipe and are being
-migrated from `FOCUS_adapter_design` (which this doc supersedes).
+it. Section 2 is the adapter-specific construction recipe, consolidated from
+`FOCUS_adapter_design`, which this doc now fully supersedes and replaces.
 
 **Provenance.** Last verified against code: **2026-06-11** — `coordinator.go`
 (`ProcessResponse`), the `git` / `thunder` / `image-generator` adapters (favoured
@@ -94,6 +94,26 @@ The required Tier-1/Tier-2 values in full:
 
 The reply is sent to the request's reply topic (see 1.2) via
 `ProduceWithValidation` (see 1.6).
+
+**The body envelope.** The reply's JSON value carries both the headers (again,
+in the body) and a result body:
+
+```json
+{
+  "headers": { "in_response_to_request_id": "...", "request_id": "...",
+               "status": "complete", "is_complete": true, "is_error": false,
+               "orchestration_id": "...", "correlation_id": "...",
+               "sender_agent_type": "..." },
+  "body": { "success": true, "data": { /* action result */ } }
+}
+```
+
+On the error path the body is `{ "success": false, "error": "<message>" }`. Both
+the Kafka *message* headers and these body-embedded headers are set; the
+body-embedded headers are the ones the chassis primarily reads, which is why they
+are the type-sensitive consumer (1.5). The result field is `data` in the
+reference adapters (git, thunder); if your `types.ResponseBody` tags the payload
+field differently, confirm the consuming action reads the same name at first run.
 
 ### 1.4 The matcher — `in_response_to_request_id` is the load-bearing field
 
@@ -243,51 +263,633 @@ drift away from. **Status: not yet filed — raise as a tracked task.**
 
 ## 2. Construction (adapter-specific recipe)
 
-> **To be migrated from `FOCUS_adapter_design`.** The sections below are the
-> intended structure; until each is filled, `FOCUS_adapter_design` remains the
-> detailed source. The envelope material that FOCUS duplicated is **not** copied
-> here — it lives in Section 1, and FOCUS's "Sending responses" skeleton (which
-> used the deprecated map/string-bool/`Produce` shape) should not be carried over;
-> use the favoured pattern in 1.8 instead.
+Consolidated from the former `FOCUS_adapter_design`. The envelope material that
+doc duplicated is not repeated here — it lives in Section 1. In particular, do
+**not** copy a `map[string]string` / string-bool / plain-`Produce` send skeleton
+(the shape §1.9 marks deprecated); use the favoured pattern in §1.8.
 
-- **2.1 Decision: adapter vs agent vs inline** — when an adapter is the right
-  pattern (one external credential boundary, request/response shaped, multiple
-  internal callers) versus a spawned agent or an inline action.
-- **2.2 Responsibilities** — what the adapter owns (credentials, validation,
-  retry, throttle, circuit breaker, response mapping) and does not (orchestration
-  state, the decision of when to call).
-- **2.3 File and package layout** — `cmd/<name>-adapter/main.go`,
-  `internal/adapters/<name>/adapter.go`, `configs/<name>-adapter.yaml`,
-  `deployments/kustomize/services/<name>-adapter/`; one hyphenated name
-  throughout.
-- **2.4 The adapter struct** — ctx/cancel, cfg, logger, consumer, producer,
-  adapterID, the API client, optional db/storage/throttle, requestsTopic,
-  healthServer, shutdownOnce, shutdownWg.
-- **2.5 `NewAdapter` (cleanup ordering)** — each failure path closes everything
-  opened before it; manual, no `defer` magic.
-- **2.6 Run loop** — fetch one, handle, loop; **sequential by default**; backoff
-  on real fetch errors; return nil on shutdown.
-- **2.7 `handleMessage`** — parse envelope (per 1.2), dispatch by action, send a
-  response (per 1.3–1.6), commit.
-- **2.8 Graceful shutdown** — `Shutdown()` guarded by `sync.Once`; cancel the
-  context, stop the health server, wait on `shutdownWg`, close Kafka/DB.
-- **2.9 Health endpoints** — `/health` unconditional 200; `/ready` checks the
-  critical dependency (503 on failure). Keep both cheap.
-- **2.10 Topic naming** — convention A: `system.adapter.<name>.requests`,
-  consumer group `<name>.adapter.group`; `REQUESTS_TOPIC` / `CONSUMER_GROUP` env
-  overrides.
-- **2.11 Config YAML field names** — `service_info.name` (becomes
-  `sender_agent_type`), `server.port` (string), `logging.level` (not `logger:`),
-  `infrastructure.kafka_brokers`, `sslmode` (not `ssl_mode`),
-  `custom.adapter_settings`.
-- **2.12 Deployment** — kustomize base + overlays; `imagePullSecrets`, the
-  service account, `envFrom: secretRef:` for credentials, health probes.
-- **2.13 Credentials and secrets** — read from env, never config; config holds
-  the env var *name*, never the value; least-privilege per adapter.
-- **2.14 End-to-end testing** — smoke a request with `kcat`, confirm a response
-  on the reply topic with `in_response_to_request_id` set and `status=complete`.
-- **2.15 Pre-merge checklist** — main.go signal handler, struct + NewAdapter +
-  Run + handleMessage + Shutdown, config field names, `ProduceWithValidation`
-  with five args, response correlation headers, health endpoints, `sync.Once`
-  shutdown, NewAdapter cleanup, no credentials in config, kustomize with probes +
-  secrets, smoke test.
+### 2.1 Decision: adapter vs agent vs inline
+
+| Scenario | Pattern |
+|---|---|
+| Talks to one external API, multiple internal callers want it | **Adapter** (this doc) |
+| Long-running per-orchestration work (training, site build) | Spawned agent (Job pod) |
+| Short call inside one agent's workflow | Inline action |
+| Shared infrastructure with no external API (db, kafka) | No wrapper needed |
+
+When in doubt: if more than one agent type will call the same external API, build an adapter.
+
+### 2.2 Responsibilities
+
+**Adapter owns:** credentials for the external system (held in pod env, never
+propagated outward); request validation and shape coercion before hitting the
+external API; retry policy with backoff; rate limiting / throttle; circuit
+breaker; per-call logging and metrics; mapping external responses back to
+chassis-shape responses; database tracking when the work creates persistent state
+(e.g. `thunder_instances`).
+
+**Adapter does NOT own:** orchestration state (the chassis owns that);
+per-orchestration data lifecycle (the calling workflow owns it); the decision of
+when to call (the orchestrator decides); knowledge of which agent type called it
+(it is just request/response).
+
+### 2.3 File and package layout
+
+```
+cmd/<name>-adapter/main.go              ← entry point: load config, init, signal handling
+internal/adapters/<name>/adapter.go     ← struct, NewAdapter, Run, handleMessage, Shutdown
+internal/adapters/<name>/<api>_client.go  ← optional: external API client
+internal/adapters/<name>/<feature>.go   ← optional: per-action handlers
+configs/<name>-adapter.yaml             ← config file mounted as ConfigMap
+build/docker/backend/<name>-adapter.dockerfile   ← optional, often shared multi-stage build
+deployments/kustomize/services/<name>-adapter/   ← kustomize base + overlays
+```
+
+Use a hyphenated name for files and topics; one canonical name throughout (e.g.
+`web-scrape`, not `webscrape` in some places and `web-scrape` in others). The
+`internal/adapters/<name>/` package may use a single-word identifier
+(`webscrape`) since Go packages do not allow hyphens.
+
+### 2.4 The adapter struct
+
+Standard shape, drawn from `git-adapter` and `image-generator-adapter`:
+
+```go
+type Adapter struct {
+    ctx       context.Context
+    cancel    context.CancelFunc
+    cfg       *config.ServiceConfig
+    logger    *zap.Logger
+    consumer  *kafka.Consumer
+    producer  kafka.Producer       // interface, not struct
+    adapterID uuid.UUID
+
+    // External-system client (per adapter)
+    apiClient *MyAPIClient
+
+    // Optional persistent state
+    db *sql.DB
+
+    // Optional cluster-side storage for outputs (e.g. images, adapters)
+    storageClient storage.Client
+
+    // Throttle / rate limit / circuit breaker
+    throttle *throttle.Throttle
+
+    // Topic config
+    requestsTopic string
+
+    // Health server + shutdown coordination
+    healthServer *http.Server
+    shutdownOnce sync.Once
+    shutdownWg   sync.WaitGroup
+}
+```
+
+Drop fields the adapter does not need. Most adapters have producer + consumer +
+apiClient + logger as the core; storage and DB are optional.
+
+### 2.5 NewAdapter (cleanup ordering)
+
+Order matters: each step can fail, and earlier resources must close cleanly on
+later failure.
+
+```go
+func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger) (*Adapter, error) {
+    adapterCtx, cancel := context.WithCancel(ctx)
+
+    // 1. Resolve topics + consumer group (env overrides config)
+    requestsTopic := envOrDefault("REQUESTS_TOPIC", "system.adapter.<name>.requests")
+    consumerGroup := envOrDefault("CONSUMER_GROUP", "<name>.adapter.group")
+
+    // 2. Kafka consumer
+    consumer, err := kafka.NewConsumer(cfg.Infrastructure.KafkaBrokers, requestsTopic, consumerGroup, logger)
+    if err != nil { cancel(); return nil, err }
+
+    // 3. Kafka producer
+    producer, err := kafka.NewProducer(cfg.Infrastructure.KafkaBrokers, logger)
+    if err != nil { consumer.Close(); cancel(); return nil, err }
+
+    // 4. External API client (with credentials from env)
+    apiClient, err := NewMyAPIClient(os.Getenv("MY_API_KEY"), logger)
+    if err != nil { producer.Close(); consumer.Close(); cancel(); return nil, err }
+
+    // 5. Optional: DB, storage, throttle, circuit breaker — each with the same
+    //    pattern of cleaning up prior resources on failure
+
+    return &Adapter{ /* fields */ }, nil
+}
+```
+
+**Cleanup convention:** every failure path closes everything successfully opened
+before it. No `defer` magic; explicit and manual. Matches `git-adapter` and
+`image-generator-adapter`.
+
+### 2.6 Run loop
+
+Fixed shape: fetch one message, handle it, loop.
+
+```go
+func (a *Adapter) Run() error {
+    a.logger.Info("Adapter starting message processing",
+        zap.String("topic", a.requestsTopic))
+
+    a.shutdownWg.Add(1)
+    defer a.shutdownWg.Done()
+
+    for {
+        select {
+        case <-a.ctx.Done():
+            a.logger.Info("Shutdown signal received")
+            return nil   // normal shutdown returns nil, not an error
+        default:
+            consumeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+            msg, err := a.consumer.FetchMessage(consumeCtx)
+            cancel()
+
+            if err != nil {
+                if err == context.Canceled || err == context.DeadlineExceeded {
+                    continue   // normal — no messages or shutdown — re-poll
+                }
+                select {
+                case <-a.ctx.Done():
+                    return nil   // shutdown is the real reason for the error
+                default:
+                }
+                a.logger.Error("Failed to fetch message", zap.Error(err))
+                time.Sleep(time.Second)   // backoff before retry
+                continue
+            }
+            a.handleMessage(msg)   // sequential by default
+            if a.throttle != nil {
+                a.throttle.Wait()
+            }
+        }
+    }
+}
+```
+
+**Do not `go a.handleMessage(msg)` by default.** Sequential is safer: Kafka
+offsets commit cleanly only after the handler finishes; concurrent handlers can
+starve the external API's rate limit; `throttle.Wait()` between handlers is
+meaningless if they are concurrent. Some adapters use goroutines deliberately —
+make it a conscious choice, not the default.
+
+### 2.7 handleMessage
+
+Three steps per message: parse the envelope (per §1.2), dispatch by action, send
+a response (per §1.3–1.6) and commit.
+
+```go
+func (a *Adapter) handleMessage(msg kafka.Message) {
+    headers := kafka.HeadersToMap(msg.Headers)
+    l := a.logger.With(
+        zap.String("correlation_id", headers["correlation_id"]),
+        zap.String("request_id", headers["request_id"]),
+    )
+
+    var envelope map[string]interface{}
+    if err := json.Unmarshal(msg.Value, &envelope); err != nil {
+        l.Error("Failed to unmarshal message", zap.Error(err))
+        a.commit(msg)   // commit anyway — re-processing won't help a malformed message
+        return
+    }
+
+    body, _ := envelope["body"].(map[string]interface{})
+    if body == nil { body = make(map[string]interface{}) }
+    action, _ := body["action"].(string)            // action from body (§1.2)
+    replyToTopic, _ := body["reply_to_topic"].(string)
+
+    var result interface{}
+    var err error
+    switch action {
+    case "provision_instance":
+        result, err = a.handleProvisionInstance(body)
+    default:
+        err = fmt.Errorf("unknown action: %s", action)
+    }
+
+    if err != nil {
+        a.sendErrorResponse(headers, replyToTopic, action, err, l)
+    } else {
+        a.sendSuccessResponse(headers, replyToTopic, action, result, l)
+    }
+    a.commit(msg)
+}
+```
+
+Two cross-references that matter: the reply topic may arrive in the headers
+rather than the body depending on the caller (§1.2 — accept both); and the
+`sendSuccessResponse` / `sendErrorResponse` helpers must build a **typed**
+response per §1.8, not the deprecated map/string-bool skeleton (§1.9). The
+correlation rules (§1.4), the bool trap (§1.5), and the body envelope (§1.3) all
+apply to those helpers.
+
+### 2.8 Graceful shutdown
+
+```go
+func (a *Adapter) Shutdown() {
+    a.shutdownOnce.Do(func() {
+        a.logger.Info("Adapter shutting down")
+        a.cancel()  // signals Run() to exit at next iteration
+
+        if a.healthServer != nil {
+            sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+            defer cancel()
+            _ = a.healthServer.Shutdown(sctx)
+        }
+
+        done := make(chan struct{})
+        go func() { a.shutdownWg.Wait(); close(done) }()
+        select {
+        case <-done:
+        case <-time.After(10 * time.Second):
+            a.logger.Warn("Shutdown wait exceeded")
+        }
+
+        a.consumer.Close()
+        a.producer.Close()
+        if a.db != nil { _ = a.db.Close() }
+        a.logger.Info("Shutdown complete")
+    })
+}
+```
+
+`sync.Once` makes this safe to call more than once — the signal handler in
+`main()` and a test harness can both call it.
+
+### 2.9 Health endpoints
+
+Two endpoints, on the port from `cfg.Server.Port` (default 8080):
+
+| Path | Purpose | Implementation |
+|---|---|---|
+| `/health` | Liveness — am I alive? | Return 200 with `{"status":"ok"}` unconditionally |
+| `/ready` | Readiness — can I serve traffic? | Ping the DB and any critical dependency; 200 on success, 503 on failure |
+
+K8s probes use these: `/health` triggers pod restart on failure; `/ready` removes
+the pod from Service endpoints. Keep them cheap (<100ms).
+
+### 2.10 Topic naming
+
+New adapters use **convention A**:
+
+- **Convention A — `system.adapter.<name>.requests`** (used by `git-adapter`,
+  `image-generator-adapter`, `thunder-adapter`), e.g. `system.adapter.thunder.requests`.
+- **Convention B — `system.agent.<name>-adapter.process`** (legacy, e.g.
+  `system.agent.webscrape-adapter.process`). Predates A; old adapters keep their
+  topic for compatibility but should migrate when convenient.
+
+**Consumer group:** `<name>.adapter.group` (e.g. `thunder.adapter.group`); stable
+across pod restarts for offset continuity. **Env overrides:** `REQUESTS_TOPIC`
+and `CONSUMER_GROUP` on the Deployment override the YAML defaults (useful for
+staging environments that share a cluster).
+
+### 2.11 Config YAML
+
+**Use these exact field names** — the Go struct tags expect them:
+
+```yaml
+service_info:
+  name: "thunder-adapter"          # used as sender_agent_type in responses
+  version: "0.1.0"
+  environment: "production"        # production | development | staging
+
+server:
+  port: "8080"                     # STRING in quotes; reads as cfg.Server.Port
+                                   # (some adapters use http_port/grpc_port — a different schema, avoid)
+
+logging:                           # NOT `logger:` — Go field is cfg.Logging.Level
+  level: "info"                    # debug | info | warn | error
+  format: "json"                   # optional
+
+observability:
+  tracing_endpoint: "${SERVICE_OBSERVABILITY_TRACING_ENDPOINT:http://jaeger-collector:14268/api/traces}"
+
+infrastructure:
+  kafka_brokers:
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+  # Only include database configs the adapter actually uses
+  clients_database:
+    host: "pgbouncer.ai-persona-system.svc.cluster.local"
+    port: 6432
+    user: "clients_user"
+    password_env_var: "CLIENTS_DB_PASSWORD"
+    db_name: "clients_db"
+    sslmode: "disable"             # ONE WORD `sslmode`, not `ssl_mode`
+
+  templates_database: {}           # empty map = not used
+  auth_database: {}
+
+  # object_storage only if the adapter writes to S3
+  object_storage:
+    endpoint: "https://s3.us-east-005.backblazeb2.com"
+    region: "us-east-005"
+    bucket: "personae-model-training"
+    access_key_env_var: "B2_APPLICATION_KEY_ID"
+    secret_key_env_var: "B2_APPLICATION_KEY"
+    use_ssl: true
+    use_path_style: false
+
+custom:                            # adapter-specific settings — free-form map
+  adapter_settings:
+    consumer_group: "thunder.adapter.group"
+    main_topic: "system.adapter.thunder.requests"
+
+  thunder_api:                     # the external system this adapter wraps
+    url: "${THUNDER_API_URL:https://api.thundercompute.com/v1}"
+    key_env_var: "THUNDER_COMPUTE_API_KEY"
+
+  circuit_breaker:                 # standard knobs (matches existing adapters)
+    name: "thunder-api"
+    max_requests: 3
+    interval_seconds: 60
+    timeout_seconds: 60
+    consecutive_failures: 5
+    failure_ratio: 0.6
+```
+
+**Codebase inconsistency:** `image-adapter.yaml` uses `http_port` + `grpc_port` +
+`shutdown_timeout` under `server:` — a different schema with extra fields. For new
+adapters use the single-`port` shape from `agent-chassis.yaml` and
+`web-scrape-adapter.yaml`.
+
+### 2.12 Deployment
+
+Real lessons from the thunder-adapter Phase 2 deploy; none optional.
+
+**The full manifest pattern** — the first three (`serviceAccountName`,
+`imagePullSecrets`, and `command:` with full invocation) are the ones most often
+missed and produce confusing failures (see §10 of `016_debugging_guide` for the
+symptom-to-cause table):
+
+```yaml
+spec:
+  template:
+    spec:
+      # ── Pod-spec fields (NOT container-spec) ──
+
+      # Required: SA with the permissions the adapter actually needs.
+      serviceAccountName: ai-persona-app
+
+      # Required: pulling private aqls/* images from Docker Hub.
+      # Without this: "insufficient_scope: authorization failed" on image pull.
+      imagePullSecrets:
+        - name: docker-hub-creds
+
+      containers:
+        - name: <name>-adapter
+          image: docker.io/aqls/<name>-adapter:vX.Y.Z
+
+          # CRITICAL: use `command:` with full path, NOT `args:` alone.
+          # Our Dockerfiles use CMD (not ENTRYPOINT); `args:` would REPLACE the
+          # entire CMD including the binary path, and kubelet then tries to exec
+          # the first arg as the binary ("exec: '--config': ... not found").
+          command: ["./<name>-adapter", "-config", "/app/configs/<name>-adapter.yaml"]
+
+          ports:
+            - containerPort: 8080
+              name: http
+
+          env:
+            - name: POD_NAME            # Required for Tier-3 sender_pod_name
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AGENT_VERSION
+              value: "0.1.0"
+
+          envFrom:
+            - secretRef:
+                name: personae-default-secrets    # API keys (ANTHROPIC_, THUNDER_, …)
+            - secretRef:
+                name: personae-platform-secrets   # DB passwords, B2 credentials
+
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs/<name>-adapter.yaml
+              subPath: <name>-adapter.yaml
+              readOnly: true
+
+          readinessProbe:
+            httpGet: {path: /ready, port: 8080}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /health, port: 8080}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits:   {cpu: 500m, memory: 512Mi}
+
+      volumes:
+        - name: config
+          configMap:
+            name: <name>-adapter-config
+
+  replicas: 1
+  strategy:
+    type: Recreate     # avoids two adapters processing the same partition during rollout
+```
+
+**Required cluster resources before first deploy** — the manifest assumes these
+exist; if any are missing the pod starts but fails at first message:
+
+| Resource | Purpose | How to check |
+|---|---|---|
+| `docker-hub-creds` Secret in `ai-persona-system` | imagePullSecret for private repos | `kubectl -n ai-persona-system get secret docker-hub-creds` |
+| `ai-persona-app` ServiceAccount | Pod identity, future k8s API access | `kubectl -n ai-persona-system get sa ai-persona-app` |
+| `personae-default-secrets`, `personae-platform-secrets` | Env API keys / DB / B2 | `kubectl -n ai-persona-system get secrets \| grep personae-` |
+| Docker Hub repo grant for the new image | Pull credential needs read on this repo | `docker pull docker.io/aqls/<name>-adapter:<tag>` |
+| **Kafka topics the adapter produces to** | Strimzi `auto.create.topics.enable=false` | `kubectl -n kafka get kafkatopic` |
+
+The Kafka-topic gotcha is easy to miss because it does not fail at startup: the
+adapter consumes happily, then fails on first response with `Unknown Topic Or
+Partition`; and a missing *requests* topic makes every fetch hang with `context
+deadline exceeded`. Declare each topic the adapter reads or writes:
+
+```yaml
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: <topic-name>
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: personae-kafka-cluster
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 604800000   # 7 days; tune per use case
+```
+
+**Service permissions (when applicable)** — if the adapter manages k8s resources
+(e.g. SSH key Secrets), scope a Role/RoleBinding to just those resources; never
+`cluster-admin`, never broad `*` verbs:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: thunder-adapter-secret-manager
+  namespace: ai-persona-system
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["thunder-ssh-*"]   # specific pattern, not all secrets
+    verbs: ["create", "get", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: thunder-adapter-secret-manager
+  namespace: ai-persona-system
+subjects:
+  - kind: ServiceAccount
+    name: ai-persona-app
+    namespace: ai-persona-system
+roleRef:
+  kind: Role
+  name: thunder-adapter-secret-manager
+  apiGroup: rbac.authorization.k8s.io
+```
+
+**Makefile integration** — four insertion points: a `build-<name>-adapter`
+target; add to the `build-adapters` aggregate; add `docker push
+$(REGISTRY)/<name>-adapter:$(IMAGE_TAG)` to `push-backend`; add a deploy block to
+`deploy-agents`. `deploy-agents` only seds `newTag`, so the overlay sets `newName`
+once:
+
+```yaml
+images:
+  - name: <name>-adapter
+    newName: docker.io/aqls/<name>-adapter
+    newTag: vX.Y.Z          # overwritten by sed on each release
+```
+
+**Pre-deploy checklist** (before `make release-backend IMAGE_TAG=vX.Y.Z`):
+Dockerfile at `build/docker/backend/<name>-adapter.dockerfile` matching the
+canonical two-stage pattern; the four Makefile insertions; `base/` has
+deployment.yaml, service.yaml, kustomization.yaml, and the config YAML; base
+deployment has `serviceAccountName`, `imagePullSecrets`, and `command:`; overlay
+sets `newName` once; all KafkaTopic CRDs applied; Docker Hub read granted.
+
+**Post-deploy verification:**
+
+```bash
+# 1. Pod running
+kubectl -n ai-persona-system get pods -l app=<name>-adapter            # Expect: 1/1 Running
+# 2. SA + image actually applied
+kubectl -n ai-persona-system describe pod -l app=<name>-adapter | grep -E "Service Account|Image:"
+# 3. Startup logs clean
+kubectl -n ai-persona-system logs deploy/<name>-adapter --tail=30      # connection lines, then "starting message processing"
+# 4. Smoke test (see 2.15)
+```
+
+### 2.13 Credentials and secrets
+
+Adapters hold credentials so individual agents do not have to. Two rules:
+
+1. **Read credentials from env, never from code.** Set them via `envFrom:
+   secretRef:` in the Deployment manifest.
+2. **Never put credentials in the config YAML.** Config holds the env var NAME
+   (`access_key_env_var: "B2_APPLICATION_KEY_ID"`), not the value.
+
+If the adapter forwards a temporary credential to an external system (e.g. a
+presigned URL to a VM), generate it on the fly with short expiry and never log the
+full URL. Each adapter gets the least privilege it needs — a read-only token for a
+read-only adapter, not a shared broad credential.
+
+### 2.14 Common mistakes (real examples)
+
+- **`Producer.Produce` arguments** — five args:
+  `(ctx, topic, headers map[string]string, key []byte, value []byte)`. Do not pass
+  a `[]kafka.Header` slice where `map[string]string` is expected; do not forget
+  `key` (conventionally the correlation_id as bytes); four args will not compile,
+  and the error blames the wrong line.
+- **Response correlation and bools** — covered in §1.3–1.6. The two separate
+  failure modes (validator rejection on the five Tier-1 fields; silent
+  `AWAITING_RESPONSES` hang on a missing `in_response_to_request_id`) and the bool
+  trap all live there.
+- **Status vocabulary** — only `complete` / `error_recoverable` /
+  `error_unrecoverable` (§1.6). Do not invent values.
+- **Topic naming inconsistency** — two conventions exist; new work uses A; check
+  the similar adapter and do not mix.
+- **YAML field names** — `logger:` vs `logging:`, `ssl_mode` vs `sslmode`,
+  `http_port` vs `port`. Copy from a known-good config (`agent-chassis.yaml`,
+  `git-adapter.yaml`) rather than typing fresh; cryptic config-load crashes are
+  usually this.
+- **Closing resources on `NewAdapter` failure** — manual cleanup at every step
+  (§2.5); forgetting one leaks open Kafka/DB connections.
+- **`go a.handleMessage(msg)` by default** — sequential is the default (§2.6).
+- **Logging credentials** — strip bearer tokens / signed URLs from any
+  request-body logging; never log `os.Environ()` raw in production.
+
+### 2.15 Testing a new adapter end-to-end
+
+```bash
+# 1. Pod up and ready
+kubectl -n ai-persona-system get pods -l app=<name>-adapter
+kubectl -n ai-persona-system logs deploy/<name>-adapter | head -50
+# Expect: connection logs for kafka, db (if used), and "Adapter initialized"
+
+# 2. Health endpoints
+kubectl -n ai-persona-system port-forward deploy/<name>-adapter 8081:8080 &
+curl -s http://localhost:8081/health
+curl -s http://localhost:8081/ready
+
+# 3. Smoke message — produce a test request, listen for the response
+CORRELATION_ID=$(uuidgen)
+REQUEST_ID=$(uuidgen)
+# Open the consumer first, in another terminal:
+kubectl -n kafka run -i --rm listen-$(date +%s) \
+  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -C -c 1 -e \
+    -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    -t system.<name>.smoke.responses
+
+# Then produce:
+kubectl -n kafka run -i --rm send-$(date +%s) \
+  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -c 1 \
+    -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    -t system.adapter.<name>.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_type=request <<JSON
+{"headers":{"correlation_id":"$CORRELATION_ID","request_id":"$REQUEST_ID"},
+ "body":{"action":"<some-action>","reply_to_topic":"system.<name>.smoke.responses"}}
+JSON
+
+# 4. Verify the response shape
+# Expect headers including in_response_to_request_id=$REQUEST_ID, status=complete-or-error_*
+```
+
+If the consumer in step 3 never receives anything, the adapter consumed the
+request but did not produce — almost always a header/envelope shape bug (check
+§1.2–1.6 and the adapter logs).
+
+### 2.16 Pre-merge checklist
+
+- [ ] `cmd/<name>-adapter/main.go` matches the standard signal-handler pattern
+- [ ] `internal/adapters/<name>/adapter.go` has Adapter struct + NewAdapter + Run + handleMessage + Shutdown + StartHealthServer
+- [ ] `configs/<name>-adapter.yaml` uses correct field names (logging, port, sslmode)
+- [ ] `Producer.Produce` / `ProduceWithValidation` called with the right args, headers as `map[string]string`
+- [ ] Response sets `in_response_to_request_id` and `status`, body headers a typed struct (§1.4, §1.5)
+- [ ] `/health` and `/ready` endpoints functional
+- [ ] Shutdown is `sync.Once`-protected and idempotent
+- [ ] All resources closed on `NewAdapter` failure paths
+- [ ] No credentials in config YAML (only env var NAMES)
+- [ ] Kustomize manifest deployed with health probes + envFrom secrets
+- [ ] All KafkaTopic CRDs the adapter reads/writes are applied
+- [ ] Smoke test produces a response with correct correlation headers
+- [ ] If touching a database, integration-tested against `clients_db` (or whichever schema)
+- [ ] If touching B2/S3, integration-tested with the actual bucket
+- 
