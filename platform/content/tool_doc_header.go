@@ -7,8 +7,9 @@
 // html_template begins its <script> with ONE sentinel-delimited JS block
 // comment carrying purpose + behavioural invariants. The header is read by
 // the tool-auditor / tool-improver / the future JS parser (all from the DB
-// html_template) and is STRIPPED from rendered_html before deploy, so it
-// never ships to the public page.
+// html_template) and is STRIPPED at deploy assembly — the outbound page HTML
+// and emitted .js assets — so it never ships. rendered_html in the DB
+// deliberately RETAINS the header (audit/parse parity with the template).
 //
 // Why sentinel-strip and NOT general comment stripping: removing arbitrary JS
 // comments safely requires a JS-aware minifier (a regex destroys "https://…"
@@ -45,8 +46,10 @@ func HasToolDocHeader(template string) bool {
 // StripToolDocHeader returns template with every tool-doc header block
 // removed (sentinels inclusive), plus the immediately following newline so no
 // blank gap ships. Idempotent: input without sentinels is returned unchanged.
-// Call it where rendered_html is produced (compile_page_sections), for every
-// component — it is a cheap string scan and a no-op when the block is absent.
+// Call sites (deploy assembly, NOT rendered_html writes):
+// RerenderSinglePageAction's page html, collectJSAssets' emitted values, and
+// rerender_pages_actions.go's bulk finalHTML. Cheap string scan; no-op when
+// the block is absent.
 //
 // A malformed block (opener without closer) is left UNTOUCHED rather than
 // guessed at: shipping an inert comment is harmless; truncating someone's
