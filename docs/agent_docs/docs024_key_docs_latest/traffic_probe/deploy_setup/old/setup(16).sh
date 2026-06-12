@@ -34,7 +34,14 @@
 set -euo pipefail
 
 # ── parameters ────────────────────────────────────────────────────────────────
-DOMAINS="${DOMAINS:?set DOMAINS, space-separated, e.g. \"relojistas.com surgerylight.com\"}"
+# Convenience: positional args become DOMAINS when the env var is unset, so
+# both invocation forms work:
+#   DOMAINS="a.com b.com" LETSENCRYPT_EMAIL=… bash setup.sh
+#   LETSENCRYPT_EMAIL=… bash setup.sh a.com b.com
+if [ -z "${DOMAINS:-}" ] && [ "$#" -ge 1 ]; then
+  DOMAINS="$*"
+fi
+DOMAINS="${DOMAINS:?set DOMAINS env var or pass domains as arguments, e.g. bash setup.sh relojistas.com}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:?set LETSENCRYPT_EMAIL for cert registration}"
 if [[ "$LETSENCRYPT_EMAIL" == *@example.com || "$LETSENCRYPT_EMAIL" == *@example.org ]]; then
   echo "[setup] ERROR: LETSENCRYPT_EMAIL is a placeholder ($LETSENCRYPT_EMAIL). Use a real address." >&2
@@ -75,6 +82,10 @@ WHITELIST_IPS="${WHITELIST_IPS:-}"
 # Days to keep daily event files (events-YYYYMMDD.jsonl) before the prune
 # timer deletes them. Collection (P4) must run well inside this window.
 RETENTION_DAYS="${RETENTION_DAYS:-90}"
+# WWW_ALIAS=true also serves www.<domain> (server_name on every vhost) and
+# requests the www SAN on certs WHEN www DNS resolves. Off by default: v1 is
+# apex-only. Enabling later = add the www A record, re-run with WWW_ALIAS=true.
+WWW_ALIAS="${WWW_ALIAS:-false}"
 
 log() { echo "[setup] $*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -158,7 +169,7 @@ server_block_http_only() {
 server {
     listen 80;
     listen [::]:80;
-    server_name $domain;
+    server_name $domain$( [[ "$WWW_ALIAS" == "true" ]] && echo " www.$domain" );
 
     location ^~ /.well-known/acme-challenge/ {
         root $ACME_WEBROOT;
@@ -175,7 +186,7 @@ server_block_https() {
 server {
     listen 80;
     listen [::]:80;
-    server_name $domain;
+    server_name $domain$( [[ "$WWW_ALIAS" == "true" ]] && echo " www.$domain" );
     location ^~ /.well-known/acme-challenge/ {
         root $ACME_WEBROOT;
         default_type "text/plain";
@@ -184,9 +195,13 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name $domain;
+    # http2 is omitted to stay version-neutral: the "listen ... http2" form is
+    # deprecated on nginx >=1.25 and the "http2 on;" directive doesn't exist
+    # before 1.25.1. For backend sites that want it (nginx >=1.25.1), add
+    # "http2 on;" on the line below.
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name $domain$( [[ "$WWW_ALIAS" == "true" ]] && echo " www.$domain" );
 
     ssl_certificate     /etc/letsencrypt/live/$domain/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$domain/privkey.pem;
@@ -231,6 +246,9 @@ install_binary() {
   elif [[ -f "$ENGINE_BINARY_PATH" ]]; then
     log "using local engine binary at $ENGINE_BINARY_PATH"
     cp "$ENGINE_BINARY_PATH" "$tmp"
+  elif [[ -x "$APP_DIR/site-engine" ]]; then
+    log "no new binary provided — keeping the installed engine"
+    return 0
   else
     echo "[setup] ERROR: no binary. Set ENGINE_BINARY_URL or place one at $ENGINE_BINARY_PATH" >&2
     exit 1
@@ -404,7 +422,14 @@ systemctl reload nginx
 for d in $DOMAINS; do
   if [[ ! -d "/etc/letsencrypt/live/$d" ]]; then
     log "obtaining TLS certificate for $d"
-    certbot certonly --webroot -w "$ACME_WEBROOT" -d "$d" \
+    local extra_san=""
+    if [[ "$WWW_ALIAS" == "true" ]] && getent hosts "www.$d" >/dev/null 2>&1; then
+      extra_san="-d www.$d"
+      log "including www.$d SAN (DNS resolves)"
+    elif [[ "$WWW_ALIAS" == "true" ]]; then
+      log "WWW_ALIAS set but www.$d does not resolve — apex-only cert for now; re-run after DNS"
+    fi
+    certbot certonly --webroot -w "$ACME_WEBROOT" -d "$d" $extra_san \
       --non-interactive --agree-tos -m "$LETSENCRYPT_EMAIL" \
       || log "WARNING: certbot failed for $d — staying on HTTP for it. Fix (DNS/port 80) and re-run; a successful re-run upgrades it to HTTPS."
   else
