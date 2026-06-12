@@ -1,25 +1,42 @@
 package main
 
-// store.go — persistence for site-engine intent events. Forked from idea.uk's store.go:
-// same JSON-file model (stdlib only, coarse lock, atomic-ish rename on persist),
-// so it runs standalone with no DB driver and the on-box file can be checkpointed
-// to B2 later. What changed from idea.uk:
-//   - Order            → IntentEvent   (we capture stated intent, not paid orders)
-//   - Orders/Events/Subs maps → Events (host → []*IntentEvent) + Visits (host → n)
-// Everything is keyed by canonical host (domains.go::canonicalHost) so one binary
-// serving many vhosts keeps each domain's data cleanly separated.
+// store.go — persistence for site-engine intent events, v2 (high-traffic shape).
 //
-// Privacy (UK GDPR/PECR, low risk appetite): we do NOT store IP addresses. Referer
-// is reduced to its host before it reaches here; Country is only ever a coarse
-// CDN-supplied code or empty. Free-text Value is treated as potentially personal —
-// retention is enforced by the periodic checkpoint/prune step (later), not here.
+// v1 kept every event in RAM and rewrote one ever-growing JSON file on every
+// persist — two cliffs (write amplification + unbounded memory). v2 splits the
+// data by access pattern:
+//
+//   EVENTS  → append-only JSONL, one line per submission, in daily files
+//             (events-YYYYMMDD.jsonl). O(1) per event at any volume; nothing
+//             held in RAM; rotation is just the date changing; retention is
+//             "delete old files"; the future /events collector tails lines.
+//   COUNTS  → a tiny snapshot (counters.json: visits + event counts per host)
+//             for /stats, flushed by the debounced dirty-flag flusher.
+//
+// CHANGES vs v1 (per the naming rule):
+//   REMOVED: Store.Events (map of full events in RAM), Store.Snapshot()
+//            (nothing called it; meaningless without in-RAM events).
+//   NEW:     Store.EventCounts, Store.dir/snapPath/eventsF/eventsDay,
+//            openEventsFileLocked(). Snapshot file shape is now
+//            {"visits":…, "event_counts":…} — a deliberate on-disk format
+//            change, acceptable pre-launch.
+//   KEPT:    AddVisit / AddEvent / Stats / Flush signatures (service.go
+//            untouched), dirty-flag + flushInterval flusher, atomic-rename
+//            snapshot writes, SIGTERM flush pairing in main.go.
 
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
+
+// flushInterval is how often the background flusher persists counter changes.
+// Event LINES are written synchronously per event; only counters ride the
+// flusher, so a hard crash loses ≤ this window of COUNTS (recomputable from
+// the JSONL anyway), never an event line.
+const flushInterval = 5 * time.Second
 
 // IntentEvent is one action a visitor took on a probe page.
 type IntentEvent struct {
@@ -32,62 +49,82 @@ type IntentEvent struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// flushInterval is how often the background flusher persists visit-count
-// changes. Events are persisted immediately; only visit increments ride the
-// flusher, so a hard crash loses at most this window of COUNTS, never events.
-const flushInterval = 5 * time.Second
-
 type Store struct {
-	mu     sync.Mutex
-	path   string
-	dirty  bool // unpersisted visit increments pending (NEW field)
-	Events map[string][]*IntentEvent `json:"events"` // host → events
-	Visits map[string]int            `json:"visits"` // host → page-load count
+	mu        sync.Mutex
+	dir       string   // data directory; "" = in-memory only (tests)
+	snapPath  string   // dir/counters.json
+	eventsF   *os.File // current day's append-only events file
+	eventsDay string   // UTC yyyymmdd the open file belongs to
+	dirty     bool     // unpersisted counter changes pending
+
+	Visits      map[string]int `json:"visits"`       // host → page-load count
+	EventCounts map[string]int `json:"event_counts"` // host → submissions count
 }
 
-func NewStore(path string) (*Store, error) {
+// NewStore opens (or starts) the store in dir. The snapshot is loaded if
+// present; event files are append-only and never read by the engine itself.
+func NewStore(dir string) (*Store, error) {
 	s := &Store{
-		path:   path,
-		Events: map[string][]*IntentEvent{},
-		Visits: map[string]int{},
+		dir:         dir,
+		Visits:      map[string]int{},
+		EventCounts: map[string]int{},
 	}
-	if path == "" {
+	if dir == "" {
 		return s, nil // in-memory only (tests)
 	}
-	b, err := os.ReadFile(path)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return nil, err
+	}
+	s.snapPath = filepath.Join(dir, "counters.json")
+	b, err := os.ReadFile(s.snapPath)
 	if err == nil {
 		_ = json.Unmarshal(b, s)
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	}
-	// Unmarshal of an older/empty file can leave nil maps; guarantee non-nil.
-	if s.Events == nil {
-		s.Events = map[string][]*IntentEvent{}
-	}
 	if s.Visits == nil {
 		s.Visits = map[string]int{}
 	}
-	go s.flushLoop() // background persist of dirty visit counts (NEW)
+	if s.EventCounts == nil {
+		s.EventCounts = map[string]int{}
+	}
+	go s.flushLoop()
 	return s, nil
 }
 
-// persist must be called with the lock held. Compact Marshal (not Indent):
-// the file is machine-read; smaller writes matter at volume.
+// openEventsFileLocked ensures the append file for the current UTC day is
+// open, rotating at the day boundary. Must be called with the lock held.
+func (s *Store) openEventsFileLocked(now time.Time) error {
+	day := now.UTC().Format("20060102")
+	if s.eventsF != nil && day == s.eventsDay {
+		return nil
+	}
+	if s.eventsF != nil {
+		_ = s.eventsF.Close()
+	}
+	f, err := os.OpenFile(filepath.Join(s.dir, "events-"+day+".jsonl"),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	s.eventsF, s.eventsDay = f, day
+	return nil
+}
+
+// persist writes the counters snapshot. Must be called with the lock held.
 func (s *Store) persist() {
-	if s.path == "" {
+	if s.dir == "" {
 		return
 	}
 	b, _ := json.Marshal(s)
-	tmp := s.path + ".tmp"
+	tmp := s.snapPath + ".tmp"
 	if os.WriteFile(tmp, b, 0o600) == nil {
-		_ = os.Rename(tmp, s.path) // atomic-ish replace
+		_ = os.Rename(tmp, s.snapPath) // atomic-ish replace
 	}
 	s.dirty = false
 }
 
-// flushLoop persists pending visit increments at most once per flushInterval.
-// This replaces the old persist-per-visit behaviour, which rewrote the whole
-// (ever-growing) file on EVERY beacon hit — the known scaling cliff.
+// flushLoop persists pending counter changes at most once per flushInterval.
 func (s *Store) flushLoop() {
 	for range time.Tick(flushInterval) {
 		s.mu.Lock()
@@ -98,18 +135,21 @@ func (s *Store) flushLoop() {
 	}
 }
 
-// Flush persists any pending changes now. Called on shutdown (SIGTERM/SIGINT).
+// Flush persists pending counters and syncs the events file. Called on
+// shutdown (SIGTERM/SIGINT) from main.go.
 func (s *Store) Flush() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.dirty {
 		s.persist()
 	}
+	if s.eventsF != nil {
+		_ = s.eventsF.Sync()
+	}
 }
 
 // AddVisit counts one page load for a host (denominator for intent-per-1k).
-// BEHAVIOUR CHANGE (deliberate): no longer persists per call — marks dirty for
-// the flusher instead.
+// Counter only — persisted by the flusher.
 func (s *Store) AddVisit(host string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -117,14 +157,25 @@ func (s *Store) AddVisit(host string) {
 	s.dirty = true
 }
 
-// AddEvent records one intent event under its host. Persists immediately —
-// captured intent is the product; it never waits on the flusher.
+// AddEvent appends one event line to today's JSONL (O(1) regardless of
+// history) and bumps the counter. The line write is synchronous; the counter
+// rides the flusher.
 func (s *Store) AddEvent(ev *IntentEvent) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cp := *ev
-	s.Events[ev.Host] = append(s.Events[ev.Host], &cp)
-	s.persist()
+	s.EventCounts[ev.Host]++
+	s.dirty = true
+	if s.dir == "" {
+		return // in-memory mode: counters only
+	}
+	if err := s.openEventsFileLocked(time.Now()); err != nil {
+		return // counter still recorded; line lost — surfaced by Sync/ops
+	}
+	b, err := json.Marshal(ev)
+	if err != nil {
+		return
+	}
+	_, _ = s.eventsF.Write(append(b, '\n'))
 }
 
 // HostStat is the per-domain summary used by /stats and ranking.
@@ -143,13 +194,13 @@ func (s *Store) Stats() []HostStat {
 	for h := range s.Visits {
 		hosts[h] = true
 	}
-	for h := range s.Events {
+	for h := range s.EventCounts {
 		hosts[h] = true
 	}
 	out := make([]HostStat, 0, len(hosts))
 	for h := range hosts {
 		v := s.Visits[h]
-		e := len(s.Events[h])
+		e := s.EventCounts[h]
 		var per float64
 		if v > 0 {
 			per = float64(e) * 1000 / float64(v)
@@ -157,27 +208,4 @@ func (s *Store) Stats() []HostStat {
 		out = append(out, HostStat{Host: h, Visits: v, Events: e, EventsPer1kVisit: per})
 	}
 	return out
-}
-
-// Snapshot returns a deep-ish copy of the whole store for off-box checkpointing
-// (the B2 upload step, later). Taken under lock so it is internally consistent.
-func (s *Store) Snapshot() *Store {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	cp := &Store{
-		Events: make(map[string][]*IntentEvent, len(s.Events)),
-		Visits: make(map[string]int, len(s.Visits)),
-	}
-	for h, n := range s.Visits {
-		cp.Visits[h] = n
-	}
-	for h, evs := range s.Events {
-		c := make([]*IntentEvent, len(evs))
-		for i, e := range evs {
-			ev := *e
-			c[i] = &ev
-		}
-		cp.Events[h] = c
-	}
-	return cp
 }
