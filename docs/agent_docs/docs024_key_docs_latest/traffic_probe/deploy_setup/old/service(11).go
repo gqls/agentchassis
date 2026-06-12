@@ -1,4 +1,4 @@
-package main
+package old
 
 // service.go — site-engine: the capture backend for VM-hosted backend sites (API only).
 //
@@ -104,10 +104,13 @@ func (a *App) intent(w http.ResponseWriter, r *http.Request) {
 	default:
 		kind = ProbeFreeText
 	}
-	value := sanitizeValue(r.FormValue("value"), a.cfg.MaxValueLen)
+	value := strings.TrimSpace(r.FormValue("value"))
 	if value == "" || !a.accepted(host) {
 		http.Redirect(w, r, a.cfg.ThanksPath, http.StatusSeeOther)
 		return
+	}
+	if n := a.cfg.MaxValueLen; n > 0 && len(value) > n {
+		value = value[:n]
 	}
 
 	a.store.AddEvent(&IntentEvent{
@@ -146,25 +149,6 @@ func (a *App) country(r *http.Request) string {
 		return ""
 	}
 	return strings.ToUpper(strings.TrimSpace(r.Header.Get(a.cfg.GeoHeader)))
-}
-
-// sanitizeValue cleans a captured value at the source: trims, strips control
-// characters (which would pollute JSONL lines and downstream display), and
-// caps length by RUNES so multibyte text (ñ, é, …) is never split mid-character.
-// NOTE: MaxValueLen now counts runes, not bytes (deliberate semantic change).
-func sanitizeValue(s string, maxRunes int) string {
-	s = strings.TrimSpace(s)
-	out := make([]rune, 0, len(s))
-	for _, r := range s {
-		if r < 0x20 || r == 0x7f { // control chars incl. \n, \t
-			continue
-		}
-		out = append(out, r)
-		if maxRunes > 0 && len(out) >= maxRunes {
-			break
-		}
-	}
-	return strings.TrimSpace(string(out))
 }
 
 // refHost reduces a Referer to its bare host for privacy; blanks same-site.

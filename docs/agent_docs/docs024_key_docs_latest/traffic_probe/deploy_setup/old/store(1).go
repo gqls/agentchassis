@@ -1,4 +1,4 @@
-package main
+package old
 
 // store.go — persistence for site-engine intent events, v2 (high-traffic shape).
 //
@@ -41,11 +41,11 @@ const flushInterval = 5 * time.Second
 // IntentEvent is one action a visitor took on a probe page.
 type IntentEvent struct {
 	ID        string    `json:"id"`
-	Host      string    `json:"host"`       // canonical host the event belongs to
-	Kind      string    `json:"kind"`       // ProbeSearch | ProbeCategory | ProbeFreeText
-	Value     string    `json:"value"`      // search term / chosen category / free text
-	RefHost   string    `json:"ref_host"`   // referer reduced to host only ("" if none/same)
-	Country   string    `json:"country"`    // coarse CDN country code, or ""
+	Host      string    `json:"host"`     // canonical host the event belongs to
+	Kind      string    `json:"kind"`     // ProbeSearch | ProbeCategory | ProbeFreeText
+	Value     string    `json:"value"`    // search term / chosen category / free text
+	RefHost   string    `json:"ref_host"` // referer reduced to host only ("" if none/same)
+	Country   string    `json:"country"`  // coarse CDN country code, or ""
 	CreatedAt time.Time `json:"created_at"`
 }
 
