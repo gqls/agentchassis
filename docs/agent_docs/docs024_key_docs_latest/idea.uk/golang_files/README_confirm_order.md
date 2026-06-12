@@ -47,3 +47,18 @@ curl -s localhost:8080/confirm -H "X-Internal-Key: $KEY" -H 'content-type: appli
 Read the log straight after:
 
 journalctl -u idea --since "3 min ago" --no-pager | grep -iE "email|smtp|fail"
+
+-----------------------
+Your operator workflow becomes, on the box:
+
+KEY=$(grep '^INTERNAL_API_KEY=' /etc/idea/idea.env | cut -d= -f2)
+
+# confirm — now starts the engine; you'll get the draft to review
+curl -s localhost:8080/confirm -H "X-Internal-Key: $KEY" -H 'content-type: application/json' -d '{"order_id":"ord_..."}'
+
+# after reading the REVIEW email: approve — bills the buyer (sends the pay-link)
+curl -s localhost:8080/approve -H "X-Internal-Key: $KEY" -H 'content-type: application/json' -d '{"order_id":"ord_..."}'
+
+# or decline — no charge
+curl -s localhost:8080/decline -H "X-Internal-Key: $KEY" -H 'content-type: application/json' -d '{"order_id":"ord_...","reason":"weak differentiator"}'
+
