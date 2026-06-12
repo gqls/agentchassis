@@ -238,9 +238,6 @@ install_binary() {
   elif [[ -f "$ENGINE_BINARY_PATH" ]]; then
     log "using local engine binary at $ENGINE_BINARY_PATH"
     cp "$ENGINE_BINARY_PATH" "$tmp"
-  elif [[ -x "$APP_DIR/site-engine" ]]; then
-    log "no new binary provided — keeping the installed engine"
-    return 0
   else
     echo "[setup] ERROR: no binary. Set ENGINE_BINARY_URL or place one at $ENGINE_BINARY_PATH" >&2
     exit 1

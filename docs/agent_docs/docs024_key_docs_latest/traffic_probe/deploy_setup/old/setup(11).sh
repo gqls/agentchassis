@@ -34,14 +34,7 @@
 set -euo pipefail
 
 # ── parameters ────────────────────────────────────────────────────────────────
-# Convenience: positional args become DOMAINS when the env var is unset, so
-# both invocation forms work:
-#   DOMAINS="a.com b.com" LETSENCRYPT_EMAIL=… bash setup.sh
-#   LETSENCRYPT_EMAIL=… bash setup.sh a.com b.com
-if [ -z "${DOMAINS:-}" ] && [ "$#" -ge 1 ]; then
-  DOMAINS="$*"
-fi
-DOMAINS="${DOMAINS:?set DOMAINS env var or pass domains as arguments, e.g. bash setup.sh relojistas.com}"
+DOMAINS="${DOMAINS:?set DOMAINS, space-separated, e.g. \"relojistas.com surgerylight.com\"}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:?set LETSENCRYPT_EMAIL for cert registration}"
 if [[ "$LETSENCRYPT_EMAIL" == *@example.com || "$LETSENCRYPT_EMAIL" == *@example.org ]]; then
   echo "[setup] ERROR: LETSENCRYPT_EMAIL is a placeholder ($LETSENCRYPT_EMAIL). Use a real address." >&2
@@ -238,9 +231,6 @@ install_binary() {
   elif [[ -f "$ENGINE_BINARY_PATH" ]]; then
     log "using local engine binary at $ENGINE_BINARY_PATH"
     cp "$ENGINE_BINARY_PATH" "$tmp"
-  elif [[ -x "$APP_DIR/site-engine" ]]; then
-    log "no new binary provided — keeping the installed engine"
-    return 0
   else
     echo "[setup] ERROR: no binary. Set ENGINE_BINARY_URL or place one at $ENGINE_BINARY_PATH" >&2
     exit 1
