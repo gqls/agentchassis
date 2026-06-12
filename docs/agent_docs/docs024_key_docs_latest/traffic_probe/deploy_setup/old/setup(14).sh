@@ -191,8 +191,12 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    # http2 is omitted to stay version-neutral: the "listen ... http2" form is
+    # deprecated on nginx >=1.25 and the "http2 on;" directive doesn't exist
+    # before 1.25.1. For backend sites that want it (nginx >=1.25.1), add
+    # "http2 on;" on the line below.
+    listen 443 ssl;
+    listen [::]:443 ssl;
     server_name $domain;
 
     ssl_certificate     /etc/letsencrypt/live/$domain/fullchain.pem;
