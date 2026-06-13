@@ -1,4 +1,4 @@
-package main
+package working_dir
 
 // store.go — persistence for site-engine intent events, v2 (high-traffic shape).
 //

@@ -1,4 +1,4 @@
-package main
+package working_dir
 
 // service.go — site-engine: the capture backend for VM-hosted backend sites (API only).
 //
@@ -30,8 +30,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"unicode"
 	"time"
+	"unicode"
 )
 
 // ProbeKind values — the kind of invited action recorded on an event. The page
@@ -114,13 +114,14 @@ func (a *App) intent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.store.AddEvent(&IntentEvent{
-		ID:        newEventID(),
-		Host:      host,
-		Kind:      kind,
-		Value:     value,
-		RefHost:   refHost(r.Header.Get("Referer"), host),
-		Country:   a.country(r),
-		CreatedAt: time.Now().UTC(),
+		ID:           newEventID(),
+		Host:         host,
+		Kind:         kind,
+		Value:        value,
+		RefHost:      refHost(r.Header.Get("Referer"), host),
+		LandingQuery: landingQuery(r.Header.Get("Referer")),
+		Country:      a.country(r),
+		CreatedAt:    time.Now().UTC(),
 	})
 	http.Redirect(w, r, a.cfg.ThanksPath, http.StatusSeeOther)
 }
@@ -144,6 +145,24 @@ func (a *App) hit(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// landingQuery returns the (length-capped) query string of the page the form
+// was submitted from — i.e. inbound ?q=/?utm=… params that survived into the
+// landing URL. Passive; empty when the landing URL had no query.
+func landingQuery(referer string) string {
+	if referer == "" {
+		return ""
+	}
+	u, err := url.Parse(referer)
+	if err != nil || u.RawQuery == "" {
+		return ""
+	}
+	q := u.RawQuery
+	if len(q) > 512 {
+		q = q[:512]
+	}
+	return q
+}
+
 func (a *App) country(r *http.Request) string {
 	if a.cfg.GeoHeader == "" {
 		return ""
@@ -160,6 +179,7 @@ func (a *App) country(r *http.Request) string {
 //   - collapses internal whitespace runs to a single space (and trims), so
 //     "rolex   gmt" and "rolex gmt" aggregate as one term.
 //   - caps by RUNES (multibyte-safe).
+//
 // Deliberately NOT here: NFC normalisation (needs golang.org/x/text — engine is
 // stdlib-only) and lowercasing — both belong to the collector/analysis side,
 // which normalises before aggregation. Raw-but-safe is stored; HTML escaping

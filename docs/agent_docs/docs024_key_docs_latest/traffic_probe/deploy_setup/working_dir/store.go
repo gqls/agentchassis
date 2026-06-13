@@ -1,4 +1,4 @@
-package main
+package working_dir
 
 // store.go — persistence for site-engine intent events, v2 (high-traffic shape).
 //
@@ -49,6 +49,7 @@ type IntentEvent struct {
 	Kind      string    `json:"kind"`       // ProbeSearch | ProbeCategory | ProbeFreeText
 	Value     string    `json:"value"`      // search term / chosen category / free text
 	RefHost   string    `json:"ref_host"`   // referer reduced to host only ("" if none/same)
+	LandingQuery string `json:"landing_query,omitempty"` // query string on the page the form was submitted from (inbound ?q=/?utm=… that survived)
 	Country   string    `json:"country"`    // coarse CDN country code, or ""
 	CreatedAt time.Time `json:"created_at"`
 }

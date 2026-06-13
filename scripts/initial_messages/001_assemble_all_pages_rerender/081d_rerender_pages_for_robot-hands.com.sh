@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-AGENT_TYPE="rerender-pages"
+#
+# AGENT_TYPE="rerender-pages"
 SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"
 DOMAIN="robot-hands.com"
+
+SITE_ID=" e33263f4-74f8-494f-b191-546845dbbddf"
+DOMAIN="gamesdesign.co.uk"
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -21,5 +25,7 @@ kubectl -n kafka run -i --rm kcat-rerender-rh-$(date +%s) \
   -H action=orchestrate -H sender_agent_type=cli -H sender_agent_id=cli-user \
   -H responses_topic=system.agent.generic.responses \
   -H timestamp=$TIMESTAMP <<JSON
-{"action":"orchestrate","config":{"agent_type":"rerender-pages"},"input_data":{"site_id":"00ff3af5-dad8-4770-9f70-3edc267a3c92","domain":"robot-hands.com","refresh_site_components":true}}
+{"action":"orchestrate","config":{"agent_type":"rerender-pages"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}","refresh_site_components":true}}
 JSON
+
+echo "CORRELATION_ID=$CORRELATION_ID  ORCHESTRATION_ID=$ORCHESTRATION_ID  REQUEST_ID=$REQUEST_ID TIMESTAMP=$TIMESTAMP"

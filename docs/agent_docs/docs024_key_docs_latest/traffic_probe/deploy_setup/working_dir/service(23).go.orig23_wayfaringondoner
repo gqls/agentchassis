@@ -1,4 +1,4 @@
-package main
+package working_dir
 
 // service.go — site-engine: the capture backend for VM-hosted backend sites (API only).
 //

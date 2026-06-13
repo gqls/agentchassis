@@ -28,5 +28,8 @@ sometimes it uses terms that I used first
 consistency
 "attempting to obtain a real kustomize binary..." - it decided it need that binary on its own and installed it
 making sure running notes are updated and delivered on every turn if asked for
+--
+Sandbox bash can't reach archive.org (not in its egress allowlist), but my web tools use a different path
+sometimes injects a question in the response - to see if user reads it perhaps?
 
 
