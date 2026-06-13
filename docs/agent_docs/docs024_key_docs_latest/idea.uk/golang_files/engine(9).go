@@ -660,7 +660,9 @@ func renderHTML(domain, audience, wtp string, advancing, dropped, riskDropped []
 			fmt.Fprintf(&b, `<p style="margin:2px 0 0;color:%s;font-size:15px">Set aside because it falls in regulated territory (risk %d/5).</p></div>`, muted, x.Risk)
 		}
 	}
-	fmt.Fprintf(&b, `<div style="border-top:1px solid %s;margin-top:24px;padding-top:16px;color:%s;font-size:14px">%s</div>`, line, muted, esc(reportFooter()))
+	addr := reportContact()
+	fmt.Fprintf(&b, `<div style="background:#f6f1e6;border:1px solid %s;border-radius:6px;padding:16px 18px;margin:26px 0 12px;color:%s"><span style="font-weight:bold;color:%s">Want to take one of these further?</span><br>If you'd like us to help turn any of these ideas into a working tool — or you have any questions about this report — just email us at <a href="mailto:%s" style="color:%s;font-weight:bold;text-decoration:none">%s</a>.</div>`, line, slate, navy, esc(addr), navy, esc(addr))
+	fmt.Fprintf(&b, `<div style="border-top:1px solid %s;margin-top:8px;padding-top:16px;color:%s;font-size:14px">%s</div>`, line, muted, esc(reportFooter()))
 	b.WriteString(`</div></div></div>`)
 	return b.String()
 }
@@ -676,9 +678,22 @@ func reportIntro(domain string) string {
 		"found and a cheap way to test each one — followed by the ideas we looked at and set aside, and why."
 }
 
+func reportContact() string {
+	if e := os.Getenv("CONTACT_EMAIL"); e != "" {
+		return e
+	}
+	return "idea-uk@leopardess.uk"
+}
+
+// reportCTA invites the reader to hire us to build one of the ideas.
+func reportCTA() string {
+	return "If you'd like us to help turn any of these ideas into a working tool — or you have any " +
+		"questions about this report — just email us at " + reportContact() + "."
+}
+
 func reportFooter() string {
 	return "idea.uk finds and tests AI product ideas for your business, so you can spend your time " +
-		"building the ones most likely to pay off. Questions about this report? Just reply to this email."
+		"building the ones most likely to pay off."
 }
 
 // flagLabel turns the internal flag into plain words for the reader.
@@ -768,7 +783,7 @@ func render(domain, audience, wtp string, advancing, dropped, riskDropped []scor
 			fmt.Fprintf(&b, "   Set aside because it falls in regulated territory (risk %d/5).\n\n", x.Risk)
 		}
 	}
-	fmt.Fprintf(&b, "%s\n%s\n", reportRule, reportFooter())
+	fmt.Fprintf(&b, "%s\n%s\n\n%s\n", reportRule, reportCTA(), reportFooter())
 	return b.String()
 }
 
@@ -778,7 +793,7 @@ func riskNote(r int) string {
 	case 5:
 		return "(pure analysis; customer decides)"
 	case 4:
-		return "(low — refunds make customers whole)"
+		return "(low — a mistake would be minor, and a refund would put it right)"
 	case 3:
 		return "(moderate — show your sources; insurance for handling personal data is recommended)"
 	case 2:
