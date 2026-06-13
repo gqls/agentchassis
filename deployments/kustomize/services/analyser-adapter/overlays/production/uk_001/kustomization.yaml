@@ -6,12 +6,14 @@ namespace: ai-persona-system
 resources:
   - ../../../base
 
-# Per-cluster environment (topic, consumer group, GitHub endpoint) — the
-# values most likely to differ between deployments, patched in here so the
-# base stays cluster-agnostic. A new cluster copies this overlay and edits
+# Per-cluster environment (topic, consumer group, GitHub endpoint, AGENT_VERSION)
+# — the values most likely to differ between deployments, patched in here so
+# the base stays cluster-agnostic. A new cluster copies this overlay and edits
 # this file + its config copy; the base is never touched.
-patchesStrategicMerge:
-  - deployment-env.yaml
+# (Modern `patches:` form — `patchesStrategicMerge` is deprecated; kustomize
+# still merges by resource kind/name + env name identically.)
+patches:
+  - path: deployment-env.yaml
 
 # Pin the image tag for this cluster. deploy-agents in the Makefile rewrites
 # the tag-pin line below on each release (sed on the literal key) — keep

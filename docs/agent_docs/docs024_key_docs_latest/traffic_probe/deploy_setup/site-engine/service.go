@@ -160,6 +160,7 @@ func (a *App) country(r *http.Request) string {
 //   - collapses internal whitespace runs to a single space (and trims), so
 //     "rolex   gmt" and "rolex gmt" aggregate as one term.
 //   - caps by RUNES (multibyte-safe).
+//
 // Deliberately NOT here: NFC normalisation (needs golang.org/x/text — engine is
 // stdlib-only) and lowercasing — both belong to the collector/analysis side,
 // which normalises before aggregation. Raw-but-safe is stored; HTML escaping
