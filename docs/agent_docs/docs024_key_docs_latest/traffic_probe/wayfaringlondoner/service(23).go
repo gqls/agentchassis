@@ -1,4 +1,4 @@
-package old
+package main
 
 // service.go — site-engine: the capture backend for VM-hosted backend sites (API only).
 //
@@ -28,8 +28,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // ProbeKind values — the kind of invited action recorded on an event. The page
@@ -82,6 +84,7 @@ func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", a.health)
 	mux.HandleFunc("/stats", a.stats)
+	mux.HandleFunc("/events", a.events)
 	mux.HandleFunc("/intent", a.intent)
 	mux.HandleFunc("/api/hit", a.hit)
 	return a.cors(mux)
@@ -111,13 +114,14 @@ func (a *App) intent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.store.AddEvent(&IntentEvent{
-		ID:        newEventID(),
-		Host:      host,
-		Kind:      kind,
-		Value:     value,
-		RefHost:   refHost(r.Header.Get("Referer"), host),
-		Country:   a.country(r),
-		CreatedAt: time.Now().UTC(),
+		ID:           newEventID(),
+		Host:         host,
+		Kind:         kind,
+		Value:        value,
+		RefHost:      refHost(r.Header.Get("Referer"), host),
+		LandingQuery: landingQuery(r.Header.Get("Referer")),
+		Country:      a.country(r),
+		CreatedAt:    time.Now().UTC(),
 	})
 	http.Redirect(w, r, a.cfg.ThanksPath, http.StatusSeeOther)
 }
@@ -141,6 +145,24 @@ func (a *App) hit(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// landingQuery returns the (length-capped) query string of the page the form
+// was submitted from — i.e. inbound ?q=/?utm=… params that survived into the
+// landing URL. Passive; empty when the landing URL had no query.
+func landingQuery(referer string) string {
+	if referer == "" {
+		return ""
+	}
+	u, err := url.Parse(referer)
+	if err != nil || u.RawQuery == "" {
+		return ""
+	}
+	q := u.RawQuery
+	if len(q) > 512 {
+		q = q[:512]
+	}
+	return q
+}
+
 func (a *App) country(r *http.Request) string {
 	if a.cfg.GeoHeader == "" {
 		return ""
@@ -148,23 +170,41 @@ func (a *App) country(r *http.Request) string {
 	return strings.ToUpper(strings.TrimSpace(r.Header.Get(a.cfg.GeoHeader)))
 }
 
-// sanitizeValue cleans a captured value at the source: trims, strips control
-// characters (which would pollute JSONL lines and downstream display), and
-// caps length by RUNES so multibyte text (ñ, é, …) is never split mid-character.
-// NOTE: MaxValueLen now counts runes, not bytes (deliberate semantic change).
+// sanitizeValue cleans a captured value at the source. v2 (the v1 control-char
+// strip was insufficient for terms that get stored, aggregated, and displayed):
+//   - strips Cc (controls incl. \n,\t) AND Cf (format chars: zero-widths
+//     U+200B…, bidi overrides U+202A–E/U+2066–9 — display-spoofing in any
+//     terminal or dashboard — BOM, soft hyphen). Trade-off: stripping Cf
+//     breaks ZWJ emoji sequences into components; acceptable for term analytics.
+//   - collapses internal whitespace runs to a single space (and trims), so
+//     "rolex   gmt" and "rolex gmt" aggregate as one term.
+//   - caps by RUNES (multibyte-safe).
+//
+// Deliberately NOT here: NFC normalisation (needs golang.org/x/text — engine is
+// stdlib-only) and lowercasing — both belong to the collector/analysis side,
+// which normalises before aggregation. Raw-but-safe is stored; HTML escaping
+// happens at display, never at capture.
 func sanitizeValue(s string, maxRunes int) string {
-	s = strings.TrimSpace(s)
 	out := make([]rune, 0, len(s))
+	pendingSpace := false
 	for _, r := range s {
-		if r < 0x20 || r == 0x7f { // control chars incl. \n, \t
+		if unicode.IsSpace(r) { // FIRST: \t and \n are also Cc — they must
+			pendingSpace = true //        separate words, not vanish
 			continue
 		}
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			continue
+		}
+		if pendingSpace && len(out) > 0 {
+			out = append(out, ' ')
+		}
+		pendingSpace = false
 		out = append(out, r)
 		if maxRunes > 0 && len(out) >= maxRunes {
 			break
 		}
 	}
-	return strings.TrimSpace(string(out))
+	return string(out)
 }
 
 // refHost reduces a Referer to its bare host for privacy; blanks same-site.
@@ -193,6 +233,44 @@ func (a *App) stats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, a.store.Stats())
+}
+
+// events streams stored intent events as NDJSON for the off-box collector
+// (P4). Key-gated like /stats. Params: since (RFC3339, strictly-after), host,
+// limit (default 5000). The FINAL line is a _meta object — count, truncated,
+// server_time — the collector's checkpoint aid.
+func (a *App) events(w http.ResponseWriter, r *http.Request) {
+	if a.cfg.InternalKey == "" || r.Header.Get("X-Internal-Key") != a.cfg.InternalKey {
+		http.Error(w, "unauthorised", http.StatusUnauthorized)
+		return
+	}
+	var since time.Time
+	if v := r.URL.Query().Get("since"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			http.Error(w, "since must be RFC3339", http.StatusBadRequest)
+			return
+		}
+		since = t
+	}
+	limit := 5000
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	n, truncated, err := a.store.StreamEvents(w, since, r.URL.Query().Get("host"), limit)
+	if err != nil && n == 0 {
+		http.Error(w, "read failed", http.StatusInternalServerError)
+		return
+	}
+	meta, _ := json.Marshal(map[string]any{"_meta": map[string]any{
+		"count": n, "truncated": truncated,
+		"server_time": time.Now().UTC().Format(time.RFC3339Nano),
+	}})
+	w.Write(meta)
+	w.Write([]byte("\n"))
 }
 
 func (a *App) cors(next http.Handler) http.Handler {

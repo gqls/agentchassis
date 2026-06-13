@@ -1,4 +1,4 @@
-package old
+package working_dir
 
 // env.go — tiny config helpers. These are copied verbatim from idea.uk's
 // engine.go (which the probe drops), so the rest of the service keeps the same

@@ -1,4 +1,4 @@
-package old
+package working_dir
 
 // service.go — site-engine: the capture backend for VM-hosted backend sites (API only).
 //
@@ -30,7 +30,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"unicode"
 )
 
 // ProbeKind values — the kind of invited action recorded on an event. The page
@@ -105,10 +104,13 @@ func (a *App) intent(w http.ResponseWriter, r *http.Request) {
 	default:
 		kind = ProbeFreeText
 	}
-	value := sanitizeValue(r.FormValue("value"), a.cfg.MaxValueLen)
+	value := strings.TrimSpace(r.FormValue("value"))
 	if value == "" || !a.accepted(host) {
 		http.Redirect(w, r, a.cfg.ThanksPath, http.StatusSeeOther)
 		return
+	}
+	if n := a.cfg.MaxValueLen; n > 0 && len(value) > n {
+		value = value[:n]
 	}
 
 	a.store.AddEvent(&IntentEvent{
@@ -147,43 +149,6 @@ func (a *App) country(r *http.Request) string {
 		return ""
 	}
 	return strings.ToUpper(strings.TrimSpace(r.Header.Get(a.cfg.GeoHeader)))
-}
-
-// sanitizeValue cleans a captured value at the source. v2 (the v1 control-char
-// strip was insufficient for terms that get stored, aggregated, and displayed):
-//   - strips Cc (controls incl. \n,\t) AND Cf (format chars: zero-widths
-//     U+200B…, bidi overrides U+202A–E/U+2066–9 — display-spoofing in any
-//     terminal or dashboard — BOM, soft hyphen). Trade-off: stripping Cf
-//     breaks ZWJ emoji sequences into components; acceptable for term analytics.
-//   - collapses internal whitespace runs to a single space (and trims), so
-//     "rolex   gmt" and "rolex gmt" aggregate as one term.
-//   - caps by RUNES (multibyte-safe).
-//
-// Deliberately NOT here: NFC normalisation (needs golang.org/x/text — engine is
-// stdlib-only) and lowercasing — both belong to the collector/analysis side,
-// which normalises before aggregation. Raw-but-safe is stored; HTML escaping
-// happens at display, never at capture.
-func sanitizeValue(s string, maxRunes int) string {
-	out := make([]rune, 0, len(s))
-	pendingSpace := false
-	for _, r := range s {
-		if unicode.IsSpace(r) { // FIRST: \t and \n are also Cc — they must
-			pendingSpace = true //        separate words, not vanish
-			continue
-		}
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
-			continue
-		}
-		if pendingSpace && len(out) > 0 {
-			out = append(out, ' ')
-		}
-		pendingSpace = false
-		out = append(out, r)
-		if maxRunes > 0 && len(out) >= maxRunes {
-			break
-		}
-	}
-	return string(out)
 }
 
 // refHost reduces a Referer to its bare host for privacy; blanks same-site.
