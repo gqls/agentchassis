@@ -28,9 +28,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
-	"unicode"
 	"time"
+	"unicode"
 )
 
 // ProbeKind values — the kind of invited action recorded on an event. The page
@@ -83,6 +84,7 @@ func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", a.health)
 	mux.HandleFunc("/stats", a.stats)
+	mux.HandleFunc("/events", a.events)
 	mux.HandleFunc("/intent", a.intent)
 	mux.HandleFunc("/api/hit", a.hit)
 	return a.cors(mux)
@@ -211,6 +213,44 @@ func (a *App) stats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, a.store.Stats())
+}
+
+// events streams stored intent events as NDJSON for the off-box collector
+// (P4). Key-gated like /stats. Params: since (RFC3339, strictly-after), host,
+// limit (default 5000). The FINAL line is a _meta object — count, truncated,
+// server_time — the collector's checkpoint aid.
+func (a *App) events(w http.ResponseWriter, r *http.Request) {
+	if a.cfg.InternalKey == "" || r.Header.Get("X-Internal-Key") != a.cfg.InternalKey {
+		http.Error(w, "unauthorised", http.StatusUnauthorized)
+		return
+	}
+	var since time.Time
+	if v := r.URL.Query().Get("since"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			http.Error(w, "since must be RFC3339", http.StatusBadRequest)
+			return
+		}
+		since = t
+	}
+	limit := 5000
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	n, truncated, err := a.store.StreamEvents(w, since, r.URL.Query().Get("host"), limit)
+	if err != nil && n == 0 {
+		http.Error(w, "read failed", http.StatusInternalServerError)
+		return
+	}
+	meta, _ := json.Marshal(map[string]any{"_meta": map[string]any{
+		"count": n, "truncated": truncated,
+		"server_time": time.Now().UTC().Format(time.RFC3339Nano),
+	}})
+	w.Write(meta)
+	w.Write([]byte("\n"))
 }
 
 func (a *App) cors(next http.Handler) http.Handler {

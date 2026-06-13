@@ -25,9 +25,13 @@ package main
 //            snapshot writes, SIGTERM flush pairing in main.go.
 
 import (
+	"bufio"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -208,4 +212,72 @@ func (s *Store) Stats() []HostStat {
 		out = append(out, HostStat{Host: h, Visits: v, Events: e, EventsPer1kVisit: per})
 	}
 	return out
+}
+
+// StreamEvents writes stored events as NDJSON lines to w, oldest first,
+// original line bytes preserved: events strictly AFTER `since` (zero time =
+// everything), optionally filtered to one host, capped at `limit` lines
+// (<=0 = uncapped). Returns lines written and whether the cap truncated.
+//
+// Deliberately LOCK-FREE: a large export must never block live captures. The
+// appender may be mid-write on the current file's final line, so any
+// unparsable trailing line is skipped — its created_at is after any caller's
+// checkpoint, so the next pull picks it up. Collector checkpoint contract:
+// store the max created_at received; `since` is strictly-after, so no
+// duplicates across pulls.
+func (s *Store) StreamEvents(w io.Writer, since time.Time, host string, limit int) (int, bool, error) {
+	if s.dir == "" {
+		return 0, false, nil
+	}
+	names, err := filepath.Glob(filepath.Join(s.dir, "events-*.jsonl"))
+	if err != nil {
+		return 0, false, err
+	}
+	sort.Strings(names) // dated filenames sort chronologically
+	sinceDay := ""
+	if !since.IsZero() {
+		sinceDay = since.UTC().Format("20060102")
+	}
+	n := 0
+	nl := []byte{'\n'}
+	for _, name := range names {
+		day := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(name), "events-"), ".jsonl")
+		if sinceDay != "" && day < sinceDay {
+			continue // whole file predates the checkpoint's UTC day
+		}
+		f, err := os.Open(name)
+		if err != nil {
+			continue
+		}
+		sc := bufio.NewScanner(f)
+		sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		for sc.Scan() {
+			line := sc.Bytes()
+			var ev IntentEvent
+			if json.Unmarshal(line, &ev) != nil {
+				continue // torn/garbled tail line — next pull catches it
+			}
+			if !since.IsZero() && !ev.CreatedAt.After(since) {
+				continue
+			}
+			if host != "" && ev.Host != host {
+				continue
+			}
+			if limit > 0 && n >= limit {
+				f.Close()
+				return n, true, nil
+			}
+			if _, err := w.Write(line); err != nil {
+				f.Close()
+				return n, false, err
+			}
+			if _, err := w.Write(nl); err != nil {
+				f.Close()
+				return n, false, err
+			}
+			n++
+		}
+		f.Close()
+	}
+	return n, false, nil
 }

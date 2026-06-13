@@ -88,4 +88,9 @@ If it delivers — direct sends work, and the [CS] blocks are specifically the f
 If it's blocked too — MailChannels is rejecting leopardess.uk's direct outbound as well, not just forwards, and we move sending off MailChannels rather than keep adjusting.
 
 -------------
+WHat happens when email link to webpage is clicked:
 
+Good — the link and page worked, and the "status: running" page is the confirm step doing its job: the draft only goes out after the engine finishes, which takes a few minutes. So the question is what happened in the background run after that. Let me frame it by the flow and get the facts off the box rather than guess.
+After you click Confirm, fulfil runs in the background: it runs the engine (minutes, real API calls), then stores the draft and emails it to your operator address. So a missing draft means one of: the engine is still running, the engine failed, or the engine finished but the email send failed. The order's status tells us which. Let me first re-read the mailer that sends that draft, since it's the one piece that's new and unproven in production (the request email that did arrive uses the plain path; the draft uses the new multipart/HTML path).Architected diagnostic commands and documented investigation strategyArchitected diagnostic commands and documented investigation strategyThe mailer and its wiring look correct — deliverHTML is wired, the multipart structure is sound, and it goes through the same SMTP path as the request email that did arrive. So I won't guess at a code fix. The decisive information is on the box. Let me first check whether the engine and fulfil log enough to make your diagnostic run useful.
+
+---------------------
