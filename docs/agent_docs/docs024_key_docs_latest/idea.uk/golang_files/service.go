@@ -7,8 +7,8 @@ package main
 // default holds paid runs for operator review (honours the 72h/refund promise).
 
 import (
-	_ "embed"
 	"crypto/tls"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -45,15 +45,16 @@ type Config struct {
 }
 
 type App struct {
-	cfg      Config
-	store    *Store
-	provider Provider
-	engine   EngineFunc
-	audience func(business, audience, assets string) (audienceResult, error) // step 1 only; reused by /audience-check
-	deliver  func(to, subject, body string)
-	dispatch func(func()) // how background work runs (goroutine in prod, inline in tests)
-	taster   *rateLimiter // per-IP rate limiter for the public /audience-check endpoint
-	landingHTML    []byte       // the landing page with CONTACT_EMAIL / MONTH_SLOTS placeholders filled
+	cfg         Config
+	store       *Store
+	provider    Provider
+	engine      EngineFunc
+	audience    func(business, audience, assets string) (audienceResult, error) // step 1 only; reused by /audience-check
+	deliver     func(to, subject, body string)
+	deliverHTML func(to, subject, text, htmlBody string)
+	dispatch    func(func()) // how background work runs (goroutine in prod, inline in tests)
+	taster      *rateLimiter // per-IP rate limiter for the public /audience-check endpoint
+	landingHTML []byte       // the landing page with CONTACT_EMAIL / MONTH_SLOTS placeholders filled
 }
 
 func NewApp(cfg Config, store *Store, p Provider) *App {
@@ -70,15 +71,16 @@ func NewApp(cfg Config, store *Store, p Provider) *App {
 		"MONTH_SLOTS", slots,
 	).Replace(string(pageHTML))
 	return &App{
-		cfg:      cfg,
-		store:    store,
-		provider: p,
-		engine:   RunMethod,
-		audience: runAudience,
-		deliver:  makeDeliver(cfg.OperatorEmail),
-		dispatch: func(f func()) { go f() },
-		taster:   newRateLimiter(),
-		landingHTML:    []byte(rendered),
+		cfg:         cfg,
+		store:       store,
+		provider:    p,
+		engine:      RunMethod,
+		audience:    runAudience,
+		deliver:     makeDeliver(cfg.OperatorEmail),
+		deliverHTML: makeDeliverHTML(cfg.OperatorEmail),
+		dispatch:    func(f func()) { go f() },
+		taster:      newRateLimiter(),
+		landingHTML: []byte(rendered),
 	}
 }
 
@@ -107,7 +109,7 @@ func (a *App) fulfil(id string) {
 		return
 	}
 	a.store.Update(id, func(o *Order) { o.Status = "running" })
-	report, err := a.engine(o.Domain, o.Audience, o.Assets)
+	rep, err := a.engine(o.Domain, o.Audience, o.Assets)
 	if err != nil {
 		a.store.Update(id, func(o *Order) { o.Status = "failed" })
 		a.deliver(a.cfg.OperatorEmail, "[idea.uk] RUN FAILED "+id,
@@ -118,16 +120,19 @@ func (a *App) fulfil(id string) {
 	// they have already paid. In review-before-pay we always hold for operator
 	// approval — the buyer has not paid yet, and delivery happens after payment.
 	if a.cfg.AutoDeliver && !a.cfg.ReviewBeforePay {
-		a.store.Update(id, func(o *Order) { o.Status = "delivered"; o.Report = report })
-		a.deliver(o.Email, "Your idea.uk report", report)
+		a.store.Update(id, func(o *Order) { o.Status = "delivered"; o.Report = rep.Text; o.ReportHTML = rep.HTML })
+		a.deliverHTML(o.Email, "Your idea.uk report", rep.Text, rep.HTML)
 	} else {
-		a.store.Update(id, func(o *Order) { o.Status = "awaiting_review"; o.Report = report })
+		a.store.Update(id, func(o *Order) { o.Status = "awaiting_review"; o.Report = rep.Text; o.ReportHTML = rep.HTML })
 		lead := "Paid order ready for review before sending"
 		if a.cfg.ReviewBeforePay {
 			lead = "Draft ready for review — /approve to bill the buyer, or /decline (no charge), before anything is sent"
 		}
-		a.deliver(a.cfg.OperatorEmail, fmt.Sprintf("[idea.uk] REVIEW %s (%s)", id, o.Domain),
-			fmt.Sprintf("%s to %s.\n\n--- DRAFT REPORT ---\n\n%s", lead, o.Email, report))
+		subject := fmt.Sprintf("[idea.uk] REVIEW %s (%s)", id, o.Domain)
+		text := fmt.Sprintf("%s to %s.\n\n--- DRAFT REPORT ---\n\n%s", lead, o.Email, rep.Text)
+		htmlBody := fmt.Sprintf(`<p style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#4A4540">%s to %s.</p>%s`,
+			html.EscapeString(lead), html.EscapeString(o.Email), rep.HTML)
+		a.deliverHTML(a.cfg.OperatorEmail, subject, text, htmlBody)
 	}
 }
 
@@ -162,7 +167,7 @@ func (a *App) deliverReport(id string) {
 		return
 	}
 	a.store.Update(id, func(o *Order) { o.Status = "delivered" })
-	a.deliver(o.Email, "Your idea.uk report", o.Report)
+	a.deliverHTML(o.Email, "Your idea.uk report", o.Report, o.ReportHTML)
 }
 
 // ── handlers ─────────────────────────────────────────────────────────────────
@@ -362,12 +367,12 @@ func (a *App) internalRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing field", 400)
 		return
 	}
-	report, err := a.engine(d.Domain, d.Audience, d.Assets)
+	rep, err := a.engine(d.Domain, d.Audience, d.Assets)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	writeJSON(w, 200, map[string]any{"report": report})
+	writeJSON(w, 200, map[string]any{"report": rep.Text, "report_html": rep.HTML})
 }
 
 func (a *App) orderSuccess(w http.ResponseWriter, r *http.Request) {
@@ -536,43 +541,58 @@ func readBody(r *http.Request) []byte {
 	return b
 }
 
-func makeDeliver(operatorEmail string) func(to, subject, body string) {
-	return func(to, subject, body string) {
-		// Send asynchronously: SMTP I/O must never block the HTTP request path.
-		// Failures are logged, not returned (the webhook/store is the source of
-		// truth for fulfilment; these messages are notifications).
-		go func() {
-			host := os.Getenv("SMTP_HOST")
-			if host == "" {
-				fn := fmt.Sprintf("delivered_%s_%d.md",
-					strings.NewReplacer("@", "_at_", "/", "_").Replace(to), time.Now().Unix())
-				_ = os.WriteFile(fn, []byte(body), 0o600)
-				log.Printf("SMTP not configured — wrote %s", fn)
-				return
-			}
-			from := env("SMTP_FROM", operatorEmail) // bare envelope sender
-			fromHeader := from
-			if name := os.Getenv("SMTP_FROM_NAME"); name != "" {
-				fromHeader = fmt.Sprintf("%s <%s>", mime.QEncoding.Encode("utf-8", name), from)
-			}
-			var msg strings.Builder
-			fmt.Fprintf(&msg, "From: %s\r\nTo: %s\r\nSubject: %s\r\n", fromHeader, to, mime.QEncoding.Encode("utf-8", subject))
-			if rt := os.Getenv("SMTP_REPLY_TO"); rt != "" {
-				fmt.Fprintf(&msg, "Reply-To: %s\r\n", rt)
-			}
-			// Declare UTF-8 so multi-byte characters (£, —, ≥, smart quotes) render
-			// correctly instead of as mojibake (e.g. â‰¥) when a client assumes Latin-1.
-			msg.WriteString("MIME-Version: 1.0\r\n")
-			msg.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n")
-			msg.WriteString("Content-Transfer-Encoding: 8bit\r\n")
-			msg.WriteString("\r\n")
-			msg.WriteString(body)
-			port := env("SMTP_PORT", "587")
-			if err := smtpSend(host, port, os.Getenv("SMTP_USER"), os.Getenv("SMTP_PASS"), from, []string{to}, []byte(msg.String())); err != nil {
-				log.Printf("email to %s failed: %v", to, err)
-			}
-		}()
+// sendOne builds and sends a single email. If htmlBody is non-empty it sends a
+// multipart/alternative message (plain-text fallback + HTML); otherwise plain
+// text only. Synchronous — callers wrap it in a goroutine so SMTP I/O never
+// blocks the HTTP request path; failures are logged, not returned (the
+// webhook/store is the source of truth for fulfilment).
+func sendOne(operatorEmail, to, subject, text, htmlBody string) {
+	host := os.Getenv("SMTP_HOST")
+	if host == "" {
+		fn := fmt.Sprintf("delivered_%s_%d.md",
+			strings.NewReplacer("@", "_at_", "/", "_").Replace(to), time.Now().Unix())
+		_ = os.WriteFile(fn, []byte(text), 0o600)
+		log.Printf("SMTP not configured — wrote %s", fn)
+		return
 	}
+	from := env("SMTP_FROM", operatorEmail) // bare envelope sender
+	fromHeader := from
+	if name := os.Getenv("SMTP_FROM_NAME"); name != "" {
+		fromHeader = fmt.Sprintf("%s <%s>", mime.QEncoding.Encode("utf-8", name), from)
+	}
+	var msg strings.Builder
+	fmt.Fprintf(&msg, "From: %s\r\nTo: %s\r\nSubject: %s\r\n", fromHeader, to, mime.QEncoding.Encode("utf-8", subject))
+	if rt := os.Getenv("SMTP_REPLY_TO"); rt != "" {
+		fmt.Fprintf(&msg, "Reply-To: %s\r\n", rt)
+	}
+	msg.WriteString("MIME-Version: 1.0\r\n")
+	if htmlBody == "" {
+		// Plain text. UTF-8 declared so £, —, ≥, smart quotes render correctly
+		// instead of as mojibake (e.g. â‰¥) when a client assumes Latin-1.
+		msg.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n")
+		msg.WriteString("Content-Transfer-Encoding: 8bit\r\n\r\n")
+		msg.WriteString(text)
+	} else {
+		// multipart/alternative: plain-text fallback first, HTML second — clients
+		// pick the richest part they can render.
+		boundary := fmt.Sprintf("idea-bnd-%d", time.Now().UnixNano())
+		fmt.Fprintf(&msg, "Content-Type: multipart/alternative; boundary=\"%s\"\r\n\r\n", boundary)
+		fmt.Fprintf(&msg, "--%s\r\nContent-Type: text/plain; charset=\"UTF-8\"\r\nContent-Transfer-Encoding: 8bit\r\n\r\n%s\r\n", boundary, text)
+		fmt.Fprintf(&msg, "--%s\r\nContent-Type: text/html; charset=\"UTF-8\"\r\nContent-Transfer-Encoding: 8bit\r\n\r\n%s\r\n", boundary, htmlBody)
+		fmt.Fprintf(&msg, "--%s--\r\n", boundary)
+	}
+	port := env("SMTP_PORT", "587")
+	if err := smtpSend(host, port, os.Getenv("SMTP_USER"), os.Getenv("SMTP_PASS"), from, []string{to}, []byte(msg.String())); err != nil {
+		log.Printf("email to %s failed: %v", to, err)
+	}
+}
+
+func makeDeliver(operatorEmail string) func(to, subject, body string) {
+	return func(to, subject, body string) { go sendOne(operatorEmail, to, subject, body, "") }
+}
+
+func makeDeliverHTML(operatorEmail string) func(to, subject, text, htmlBody string) {
+	return func(to, subject, text, htmlBody string) { go sendOne(operatorEmail, to, subject, text, htmlBody) }
 }
 
 // smtpSend delivers one message. Port 465 uses implicit TLS (the connection is

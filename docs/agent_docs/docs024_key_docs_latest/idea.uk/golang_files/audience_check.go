@@ -14,6 +14,7 @@ package main
 import (
 	"fmt"
 	"html"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -157,6 +158,16 @@ func (a *App) audienceCheck(w http.ResponseWriter, r *http.Request) {
 		writeHTML(w, `<h4>We couldn't run the check just now</h4><p>Sorry — try again in a minute, or skip straight to the full report below.</p>`)
 		return
 	}
+	alts := make([]string, 0, len(aud.Alternatives))
+	for _, alt := range aud.Alternatives {
+		alts = append(alts, alt.Audience)
+	}
+	altSummary := "none"
+	if len(alts) > 0 {
+		altSummary = strings.Join(alts, "; ")
+	}
+	log.Printf("free taster:\n  business: %s\n  stated audience: %s\n  -> carried audience: %s\n  -> willingness: %s\n  -> alternatives: %s",
+		business, audience, aud.CarriedAudience, aud.WillingnessToPay, altSummary)
 	writeHTML(w, renderAudienceHTML(business, audience, aud))
 }
 

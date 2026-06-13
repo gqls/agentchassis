@@ -12,7 +12,8 @@ import (
 )
 
 // Order lifecycle: requested → (declined | awaiting_payment) → paid → running
-//                  → (awaiting_review | delivered | failed)
+//
+//	→ (awaiting_review | delivered | failed)
 type Order struct {
 	ID                string    `json:"id"`
 	Name              string    `json:"name"`
@@ -22,6 +23,7 @@ type Order struct {
 	Assets            string    `json:"assets"`
 	Status            string    `json:"status"`
 	Report            string    `json:"report"`
+	ReportHTML        string    `json:"report_html,omitempty"`
 	ProviderSessionID string    `json:"provider_session_id"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`

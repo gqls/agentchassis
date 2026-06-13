@@ -47,11 +47,11 @@ func makeProvider(cfg Config) Provider {
 
 func main() {
 	if len(os.Args) >= 5 && os.Args[1] == "internal" {
-		report, err := RunMethod(os.Args[2], os.Args[3], os.Args[4])
+		rep, err := RunMethod(os.Args[2], os.Args[3], os.Args[4])
 		if err != nil {
 			log.Fatal(err)
 		}
-		os.Stdout.WriteString(report)
+		os.Stdout.WriteString(rep.Text)
 		return
 	}
 
