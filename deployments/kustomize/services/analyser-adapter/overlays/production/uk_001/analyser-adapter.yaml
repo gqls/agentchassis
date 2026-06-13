@@ -1,18 +1,12 @@
-# FILE: configs/analyser-adapter.yaml  (repo-root, local-run copy)
+# FILE: deployments/kustomize/services/analyser-adapter/overlays/production/uk_001/configs/analyser-adapter.yaml
 #
-# Service config for the analyser adapter, in the NESTED platform/config family
-# (service_info / server / logging / observability / infrastructure / custom) —
-# the same loader thunder-adapter.yaml, agent-chassis.yaml and
-# content-creator-agent.yaml use, and the one cmd/analyser-adapter/main.go reads
-# (cfg.ServiceInfo.*, cfg.Logging.Level, cfg.Server.Port). It is NOT the flat
-# git-adapter.yaml shape (kafka:/github:/health: — a different loader the
-# analyser does not use). Struct tags are picky: logging not logger, port a
-# quoted string, sslmode one word [checked 2026-06-12: thunder/agent-chassis/
-# content-creator configs all share these top-level keys].
-#
-# DEPLOYED source of truth is the per-cluster copy under each overlay
-# (overlays/<cluster>/configs/analyser-adapter.yaml); keep this root copy in
-# sync for local runs (main.go's -config default).
+# PRODUCTION/uk_001 service config for the analyser adapter — the DEPLOYED
+# source of truth, generated into the analyser-adapter-config ConfigMap by
+# this overlay's configMapGenerator. Per-cluster values (kafka brokers,
+# environment) live here so other clusters/overlays can carry their own copy.
+# Keep in sync with the repo-root configs/analyser-adapter.yaml (local runs).
+# Field names follow 035 §2.11 exactly — the Go struct tags are picky
+# (logging not logger, port as a quoted string, sslmode one word).
 
 service_info:
   name: "analyser-adapter"           # used as sender_agent_type in responses

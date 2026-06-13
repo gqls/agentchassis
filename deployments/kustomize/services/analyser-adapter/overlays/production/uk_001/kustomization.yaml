@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ai-persona-system
+
+resources:
+  - ../../../base
+
+# Per-cluster environment (topic, consumer group, GitHub endpoint) — the
+# values most likely to differ between deployments, patched in here so the
+# base stays cluster-agnostic. A new cluster copies this overlay and edits
+# this file + its config copy; the base is never touched.
+patchesStrategicMerge:
+  - deployment-env.yaml
+
+# Pin the image tag for this cluster. deploy-agents in the Makefile rewrites
+# the tag-pin line below on each release (sed on the literal key) — keep
+# exactly one such line in this file, and don't repeat the key in comments.
+# Matches the thunder overlay: match on the full image name, swap the tag.
+images:
+  - name: docker.io/aqls/analyser-adapter
+    newTag: v1.0.1060
+
+# Per-cluster service config (kafka brokers, environment, endpoints) —
+# generated here rather than in the base so each cluster/overlay carries its
+# own copy (configs/analyser-adapter.yaml in this directory). Kustomize
+# hash-suffixes the ConfigMap name, so config changes restart the pod.
+#
+# NOTE: configs/analyser-adapter.yaml at the REPO ROOT is the local-run copy
+# (main.go's -config default); this overlay copy is the deployed source of
+# truth. Keep the two in sync when editing.
+configMapGenerator:
+  - name: analyser-adapter-config
+    files:
+      - analyser-adapter.yaml=configs/analyser-adapter.yaml
