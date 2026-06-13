@@ -9,6 +9,9 @@
 #   CONSUMER_GROUP   — Kafka consumer group.
 #   GITHUB_API_BASE  — github.com by default; point at an enterprise endpoint
 #                      per cluster if ever needed (empty = https://api.github.com).
+#   AGENT_VERSION    — tracks THIS cluster's release tag; keep in step with the
+#                      overlay's image newTag on each release (manual today —
+#                      deploy-agents seds newTag but not this value).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,3 +28,5 @@ spec:
               value: "analyser.adapter.group"
             - name: GITHUB_API_BASE
               value: "https://api.github.com"
+            - name: AGENT_VERSION
+              value: "v1.0.1060"

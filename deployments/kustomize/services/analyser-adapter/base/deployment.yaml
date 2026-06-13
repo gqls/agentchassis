@@ -28,16 +28,15 @@ spec:
               name: http
           env:
             # CLUSTER-AGNOSTIC identity only. Everything that can vary per
-            # deployment (topic, consumer group, GitHub endpoint) is injected
-            # by the overlay's deployment-env patch — keep this block minimal
-            # so a new cluster only edits its overlay, never the base.
+            # deployment (topic, consumer group, GitHub endpoint, AGENT_VERSION)
+            # is injected by the overlay's deployment-env patch — keep this
+            # block minimal so a new cluster only edits its overlay, never the
+            # base.
             # Downward API — Tier-3 response headers (sender_pod_name) + traces.
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: AGENT_VERSION
-              value: "0.1.0"
             # GITHUB_READ_TOKEN: a SEPARATE fine-grained repo-scoped contents:read
             # credential (least privilege; the git adapter holds the write one).
             # The Secret NAME can still be overlay-patched if a cluster names it
