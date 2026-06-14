@@ -52,6 +52,13 @@ type backendSite struct {
 	statsKey string
 }
 
+// statsEntry is one row of the engine's /stats response.
+type statsEntry struct {
+	Host   string `json:"host"`
+	Visits int64  `json:"visits"`
+	Events int64  `json:"events"`
+}
+
 // CollectIntentEventsAction collects new events from all VM-hosted backend
 // sites. Per-site failures are logged and skipped; the run continues.
 func CollectIntentEventsAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -75,6 +82,12 @@ func CollectIntentEventsAction(ctx context.Context, params ActionParams) (interf
 			log.Warn("intent-collector: site failed", zap.String("domain", s.domain), zap.Error(err))
 		} else {
 			sitesOK++
+		}
+		// Pull the visit/event counters (/stats) for the events-per-1k
+		// denominator. Non-fatal: a stats failure doesn't fail the site.
+		if serr := collectSiteStats(ctx, db, s); serr != nil {
+			entry["stats_error"] = serr.Error()
+			log.Warn("intent-collector: stats pull failed", zap.String("domain", s.domain), zap.Error(serr))
 		}
 		totalInserted += ins
 		totalScanned += scn
@@ -181,4 +194,45 @@ func collectOneSite(ctx context.Context, db *sql.DB, log *zap.Logger, s backendS
 		log.Warn("intent-collector: stream ended early", zap.String("domain", s.domain), zap.Error(scErr))
 	}
 	return inserted, scanned, nil
+}
+
+// collectSiteStats pulls the engine's /stats and upserts the latest cumulative
+// visit/event counts for this site's host into intent_site_stats. /stats
+// returns all hosts on the box; we take the row matching this site's domain.
+func collectSiteStats(ctx context.Context, db *sql.DB, s backendSite) error {
+	if s.baseURL == "" || s.statsKey == "" {
+		return fmt.Errorf("%s has no deploy_config.engine.base_url/stats_key", s.domain)
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, s.baseURL+"/stats", nil)
+	req.Header.Set("X-Internal-Key", s.statsKey)
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s /stats returned %d", s.domain, resp.StatusCode)
+	}
+	var rows []statsEntry
+	if err := json.NewDecoder(resp.Body).Decode(&rows); err != nil {
+		return fmt.Errorf("%s /stats decode: %w", s.domain, err)
+	}
+	var sid interface{}
+	if s.siteID.Valid {
+		sid = s.siteID.String
+	}
+	for _, r := range rows {
+		if r.Host != s.domain {
+			continue
+		}
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO intent_site_stats (host, site_id, visits, events, observed_at)
+			VALUES ($1, $2, $3, $4, now())
+			ON CONFLICT (host) DO UPDATE
+			SET visits = EXCLUDED.visits, events = EXCLUDED.events,
+			    site_id = EXCLUDED.site_id, observed_at = now()`,
+			r.Host, sid, r.Visits, r.Events)
+		return err
+	}
+	return nil // host not present in /stats yet (no traffic) — fine
 }
