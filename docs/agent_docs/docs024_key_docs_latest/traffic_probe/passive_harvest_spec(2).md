@@ -1,0 +1,90 @@
+# P4 — passive harvest (access log + visit counts): spec & decision
+
+**Decision taken (2026-06-13):** Option A — engine reads its own box's log +
+`/stats`, exposes a key-gated digest, cluster pulls over HTTPS, no new infra.
+
+**Part 1 — visit counts: DONE.** `intent_site_stats` table + the collector's
+`/stats` pull (`collectSiteStats`) + ranking query 1 now LEFT JOINs it for true
+events-per-1k. Build/validate complete.
+
+**Part 2 — access-log digest: DONE.** Engine `GET /access-digest?host=&since=&top=`
+(key-gated) parses /var/log/nginx/<host>.access.log into a JSON digest: status
+mix, top referers (reduced via canonicalHost, self excluded — consistent with
+intent_events.ref_host), top request paths, top 404 paths (the forum-link
+intent signal), UA buckets (known_search_bot / seo_or_scraper_bot / other_bot /
+browser_like / empty / other), and top client IPs (real client IP via CF
+real_ip). setup.sh: per-domain access_log, `usermod -aG adm site-engine`,
+`CLOUDFLARE=true` writes the CF real_ip conf, and the /access-digest nginx
+location. Parser + render tested. STILL TO DO on the collector side: pull
+/access-digest per site into a rollup table (referer/404/UA/IP) — the structured
+storage of the digest; the endpoint + storage being separate is deliberate.
+
+**Cloudflare note (relojistas now proxied):** the engine's `GeoHeader` defaults
+to `CF-IPCountry`, so `country` starts populating on new events with no change.
+For the digest, origin nginx now sees Cloudflare IPs as the client — so the
+digest's IP/bot analysis (and the Thread-D blocklist) needs nginx `real_ip`
+config (`set_real_ip_from` the CF ranges + `real_ip_header CF-Connecting-IP`)
+added in setup.sh, or the real client IP read from `CF-Connecting-IP` directly.
+Referer + UA still pass through combined-format logging unchanged.
+
+Two numbers the structured `/events` stream does NOT carry, both needed to
+complete P4:
+
+1. **Visit counts** (the events-per-1k denominator) — live in the engine's
+   `counters.json`, exposed at `/stats`. Cheap to collect: the collector already
+   authenticates to the box; add a `/stats` pull alongside `/events`.
+2. **Passive signals** — external referer, landing path, the forum-404 intent
+   paths, user-agent (for bot classification). These are in nginx's **combined
+   access log** on the box (confirmed: setup.sh sets no custom log_format, so
+   `$http_referer` + `$http_user_agent` + the request line are all logged). The
+   engine does NOT see them on a static page load.
+
+## Decision needed: how does the chassis read the access log?
+
+**Option A — engine reads its own box's nginx log, exposes a key-gated digest.**
+Add `GET /access-digest?since=` to site-engine: it tails
+`/var/log/nginx/<domain>.access.log`, parses combined-format lines, returns
+structured JSON (top referers, top 404 paths, UA buckets: known-good-bot /
+known-bad-bot / browser, request counts). setup.sh grants the `site-engine`
+user read access to the logs (add it to the `adm` group, or a read ACL on the
+log dir). The collector pulls it like `/events`.
+- Pro: keeps the "cluster pulls over HTTPS" model; no new infra; one consistent
+  auth path; parsing/classification logic lives in Go next to the engine.
+- Con: couples the engine to nginx's log path + a permission grant; the engine
+  grows a second responsibility (it's no longer purely the capture API).
+
+**Option B — defer to the P5 vmhost adapter (ssh).** The adapter reads the log
+over ssh during its lifecycle passes and ships a digest.
+- Pro: keeps the engine single-purpose; ssh access already part of P5.
+- Con: passive signals wait for P5; needs the adapter built first.
+
+**Option C — Cloudflare analytics (only if a box is proxied).** Use CF's
+logs/analytics API for referer/UA/country.
+- Pro: no box-side work; CF already classifies bots.
+- Con: only for proxied boxes (relojistas is DNS-only today); per-zone API
+  wiring; another credential.
+
+**Recommendation:** Option A for the **visit counts now** (trivial — extend the
+collector to pull `/stats` into a small `intent_site_stats` table), and Option A
+for the **access-log digest** as the next engine increment, because it preserves
+the pull model and needs no new infra; fall back to C opportunistically if/when
+a box goes proxied. B only if we decide the engine must stay capture-only.
+
+## If Option A (sketch, to build next)
+- Engine: `GET /stats` already exists (visits+events per host). Add
+  `GET /access-digest?since=` (key-gated, NDJSON or JSON summary). setup.sh:
+  `usermod -aG adm site-engine` (or `setfacl` on the log dir) + confirm the
+  per-domain `access_log` path.
+- New table `intent_site_stats (id, site_id, host, visits, events, observed_at)`
+  — the collector upserts the latest `/stats` each run; ranking query 1 then
+  joins it for true events-per-1k.
+- Collector: one more action step (or extend `collect_intent_events`) to pull
+  `/stats` (+ `/access-digest`) and write `intent_site_stats` (+ a referer/404/UA
+  rollup table if we structure the digest).
+- Discovery: the bot-IP blocklist idea (handoff Thread D) consumes the same UA/
+  IP rollup — build the digest with that in mind.
+
+## What's NOT blocked
+The ranking queries (`intent_ranking_queries.sql`) work today on absolute
+signal (volume, distinct terms, dominant-cluster share, recency, referer,
+landing-query). Only the per-1k RATE waits on the visit-count pull above.
