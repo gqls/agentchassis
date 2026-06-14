@@ -5,7 +5,7 @@ set -euo pipefail
 SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"
 DOMAIN="robot-hands.com"
 
-SITE_ID=" e33263f4-74f8-494f-b191-546845dbbddf"
+SITE_ID="e33263f4-74f8-494f-b191-546845dbbddf"
 DOMAIN="gamesdesign.co.uk"
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)

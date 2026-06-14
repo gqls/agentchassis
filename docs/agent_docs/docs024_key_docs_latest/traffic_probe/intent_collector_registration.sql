@@ -1,0 +1,97 @@
+-- ============================================================================
+-- intent-collector — registry entry + agent topology (P4)
+-- Verified against the uploaded registry.go + 001/002/003 guidelines.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1) registry.go — add this entry to GlobalActionRegistry, in the DATA region
+--    (right after the "extract_fields" entry, ~line 340). Exact shape matches
+--    the neighbours:
+--
+--      "collect_intent_events": {
+--          Handler:     CollectIntentEventsAction,
+--          Category:    "data",
+--          Description: "Pull new intent events from every VM-hosted backend site's /events endpoint into intent_events.",
+--          IsLocal:     true,
+--      },
+--
+--    File intent_collector_actions.go goes in the same package (alongside
+--    git_deployer_actions.go). No datahelpers import (self-queries the DB).
+-- ----------------------------------------------------------------------------
+
+-- ----------------------------------------------------------------------------
+-- 2) AGENT TOPOLOGY — wrapper-orchestrator (REQUIRED by 001 "does this agent
+--    need a wrapper?", 405-462).
+--
+--    WHY: the collector is reached via the SCHEDULER (the generic entry point)
+--    and its step does SUBSTANTIVE in-chassis work (HTTP to every backend box +
+--    multi-row DB upserts; unbounded as boxes grow). Running that directly in a
+--    shared agent-chassis pod holds a consumer slot for the whole pull and
+--    interleaves logs. So the scheduled task targets a THIN parent that spawns a
+--    worker child (which gets its own pod). The action is untouched.
+--
+--    Two agent_definitions (apply via the agent-definition process; mirror an
+--    existing code-driven pair like med-export-orchestrator / med-json-exporter
+--    for image_repository/image_tag/command/category/resources — those deploy
+--    fields couldn't be read here). The WORKFLOWS (default_config.workflow):
+--
+--    (a) intent-collection-orchestrator  (thin parent; category 'coordinator'):
+--        {
+--          "workflow": {
+--            "start_step": "spawn_collector",
+--            "steps": {
+--              "spawn_collector": {
+--                "action": "spawn_agent",
+--                "config": { "role": "collector", "agent_type": "intent-collector" },
+--                "next_step": "call_collector"
+--              },
+--              "call_collector": {
+--                "action": "call_agent",
+--                "config": {
+--                  "agent_type": "intent-collector",
+--                  "target_role": "collector",
+--                  "timeout_seconds": 280
+--                },
+--                "next_step": "complete"
+--              },
+--              "complete": { "action": "complete_workflow" }
+--            }
+--          }
+--        }
+--        (No input_mapping needed — the collector self-queries; nothing to pass.)
+--
+--    (b) intent-collector  (worker child; category 'specialist' or 'analyst'):
+--        {
+--          "workflow": {
+--            "start_step": "collect",
+--            "steps": {
+--              "collect": { "action": "collect_intent_events", "next_step": "complete" },
+--              "complete": { "action": "complete_workflow" }
+--            }
+--          }
+--        }
+--        Reached only via spawn_agent from the orchestrator → gets its own pod →
+--        no wrapper of its own (462).
+-- ----------------------------------------------------------------------------
+
+-- ----------------------------------------------------------------------------
+-- 3) Correct the scheduled task to target the ORCHESTRATOR (the migration
+--    inserted it pointing at 'intent-collector' directly — pre-wrapper). The
+--    row is DISABLED, so this is safe:
+--
+--      UPDATE scheduled_tasks
+--      SET target_agent_type = 'intent-collection-orchestrator'
+--      WHERE name = 'intent-collection';
+-- ----------------------------------------------------------------------------
+
+-- ----------------------------------------------------------------------------
+-- 4) ENABLE ORDER:
+--    a. intent_events_migration.sql applied (DONE — table + disabled task).
+--    b. deploy the action (registry entry + file).
+--    c. apply both agent_definitions (orchestrator + collector).
+--    d. run the UPDATE in (3) to retarget the task.
+--    e. populate deploy_config.engine.{base_url,stats_key} on each backend site
+--       (the onboarding UPDATE in intent_events_migration.sql).
+--    f. UPDATE scheduled_tasks SET enabled = true WHERE name = 'intent-collection';
+--    g. watch: SELECT count(*), max(event_created_at) FROM intent_events;
+-- ----------------------------------------------------------------------------

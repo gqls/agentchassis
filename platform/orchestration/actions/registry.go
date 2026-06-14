@@ -338,6 +338,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Extract multiple fields from collected data",
 		IsLocal:     true,
 	},
+	"collect_intent_events": {
+		Handler:     CollectIntentEventsAction,
+		Category:    "data",
+		Description: "Pull new intent events from every VM-hosted backend site's /events endpoint into intent_events.",
+		IsLocal:     true,
+	},
 	"calculate": {
 		Handler:     CalculateAction,
 		Category:    "data",
