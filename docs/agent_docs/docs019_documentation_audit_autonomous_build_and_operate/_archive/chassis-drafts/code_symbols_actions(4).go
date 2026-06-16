@@ -18,7 +18,7 @@
 // lookup_code_symbols: embed query → vector search code_symbols → trigram
 //                      fallback → top-k + combined code_context.
 
-package actions
+package analyser
 
 import (
 	"context"

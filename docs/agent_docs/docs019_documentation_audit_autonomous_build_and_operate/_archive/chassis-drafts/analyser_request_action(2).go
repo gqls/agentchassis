@@ -16,7 +16,7 @@
 // AnalyseRequest. Kafka message headers mirror the JSON headers (stringified),
 // like WebscrapeAction.
 
-package actions
+package analyser
 
 import (
 	"context"
