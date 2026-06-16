@@ -30,6 +30,10 @@ DOMAIN="dartsonline.com"
 EMAIL="darts@contactforsales.com"
 PHONE="+44 (0) 7934 524 911"
 
+DOMAIN="idea.uk"
+EMAIL="idea-uk@leopardess.uk"
+PHONE="+44 (0) 7934 524 911"
+
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
