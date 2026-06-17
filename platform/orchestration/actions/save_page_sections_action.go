@@ -141,9 +141,15 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 
 	if metaField, ok := config["sections_metadata_field"].(string); ok && metaField != "" {
 		metaData := datahelpers.ExtractNestedField(params.CollectedData, metaField)
+		metaArrayLen := -1
+		if arr, isArr := metaData.([]interface{}); isArr {
+			metaArrayLen = len(arr)
+		}
 		params.Logger.Info("SavePageSectionsAction: metadata field check",
 			zap.String("field", metaField),
-			zap.Bool("metadata_present", metaData != nil))
+			zap.Bool("metadata_present", metaData != nil),
+			zap.String("metadata_type", fmt.Sprintf("%T", metaData)),
+			zap.Int("metadata_array_len", metaArrayLen))
 		if metaData != nil {
 			sections = extractSectionsFromMetadata(metaData, params.Logger)
 			if len(sections) > 0 {
@@ -218,6 +224,28 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			"page_id":        pageID.String(),
 			"reason":         "no sections found",
 		}, nil
+	}
+
+	// DIAGNOSTIC: record what actually reached the save path — per-section HTML
+	// lengths and the stripped-text total the regression guard will compute.
+	// Logged unconditionally so these numbers are visible on a passing save too,
+	// not only when the guard blocks.
+	{
+		diagStripper := regexp.MustCompile(`<[^>]*>`)
+		diagTotal := 0
+		diagPerSection := make([]string, 0, len(sections))
+		for _, s := range sections {
+			diagStripped := strings.TrimSpace(diagStripper.ReplaceAllString(s.HTML, ""))
+			diagTotal += len(diagStripped)
+			diagPerSection = append(diagPerSection,
+				fmt.Sprintf("%s:html=%d,stripped=%d", s.ComponentName, len(s.HTML), len(diagStripped)))
+		}
+		params.Logger.Info("SavePageSectionsAction: sections reaching save",
+			zap.String("page_name", pageName),
+			zap.Int("section_count", len(sections)),
+			zap.Int("stripped_text_total", diagTotal),
+			zap.String("per_section", strings.Join(diagPerSection, " | ")),
+		)
 	}
 
 	// --- Content regression guard ---
@@ -402,14 +430,19 @@ func extractSectionsFromMetadata(metaData interface{}, logger *zap.Logger) []Sec
 		return nil
 	}
 
+	skippedNotMap := 0
+	skippedEmptyHTML := 0
+
 	for i, item := range items {
 		m, ok := item.(map[string]interface{})
 		if !ok {
+			skippedNotMap++
 			continue
 		}
 
 		html, _ := m["rendered_html"].(string)
 		if html == "" {
+			skippedEmptyHTML++
 			continue
 		}
 
@@ -446,6 +479,13 @@ func extractSectionsFromMetadata(metaData interface{}, logger *zap.Logger) []Sec
 		})
 	}
 
+	logger.Info("extractSectionsFromMetadata: parsed metadata array",
+		zap.Int("items_in", len(items)),
+		zap.Int("sections_out", len(sections)),
+		zap.Int("skipped_not_map", skippedNotMap),
+		zap.Int("skipped_empty_rendered_html", skippedEmptyHTML),
+	)
+
 	return sections
 }
 
@@ -466,6 +506,11 @@ func saveSectionsExtractFromHTML(html string, logger *zap.Logger) []SectionData 
 	dataComponentRe := regexp.MustCompile(`data-component="([^"]+)"`)
 
 	matches := sectionRe.FindAllStringSubmatch(html, -1)
+
+	logger.Info("saveSectionsExtractFromHTML: input",
+		zap.Int("html_length", len(html)),
+		zap.Int("section_matches", len(matches)),
+	)
 
 	for i, match := range matches {
 		if len(match) < 2 {
