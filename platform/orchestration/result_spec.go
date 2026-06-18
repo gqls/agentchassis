@@ -26,9 +26,11 @@
 //     Keys: result_mapping (preferred), output (deprecated).
 //   - none      -> FALLBACK skipPatterns dump (discouraged; large/unbounded).
 //
-// REUSE CHECK before merge: grep pkg/datahelpers and this package for existing
-// equivalents of toStringSlice / toStringMap / setIfAbsent and reuse them rather
-// than adding duplicates (CleanDataMap, getMapKeys already exist).
+// REUSE: field-name lists use datahelpers.ToStringSlice (path
+// platform/orchestration/datahelpers, same as coordinator.go). toStringMap and
+// setIfAbsent have no datahelpers equivalent so they are local to this package.
+// Pre-merge: grep the rest of package orchestration for any existing toStringMap
+// / setIfAbsent to avoid redeclaration (none in coordinator.go / processor.go).
 
 package orchestration
 
@@ -108,15 +110,23 @@ func resolveResultSpec(completeConfig map[string]interface{}, logger *zap.Logger
 			return ResultSpec{Mode: ResultModeFlatten, From: s, MatchedKey: "output_field"}, true
 		}},
 		{key: "multiple_output_fields", build: func() (ResultSpec, bool) {
-			f, ok := toStringSlice(completeConfig["multiple_output_fields"])
+			raw, ok := completeConfig["multiple_output_fields"].([]interface{})
 			if !ok {
+				return ResultSpec{}, false
+			}
+			f := datahelpers.ToStringSlice(raw)
+			if len(f) == 0 {
 				return ResultSpec{}, false
 			}
 			return ResultSpec{Mode: ResultModeFields, Fields: f, MatchedKey: "multiple_output_fields"}, true
 		}},
 		{key: "output_fields", deprecated: "multiple_output_fields", build: func() (ResultSpec, bool) {
-			f, ok := toStringSlice(completeConfig["output_fields"])
+			raw, ok := completeConfig["output_fields"].([]interface{})
 			if !ok {
+				return ResultSpec{}, false
+			}
+			f := datahelpers.ToStringSlice(raw)
+			if len(f) == 0 {
 				return ResultSpec{}, false
 			}
 			return ResultSpec{Mode: ResultModeFields, Fields: f, MatchedKey: "output_fields"}, true
@@ -212,24 +222,11 @@ func (s *SagaCoordinator) fallbackDumpInto(result map[string]interface{}, state 
 	}
 }
 
-// --- small helpers (see REUSE CHECK in the file header) --------------------
-
-func toStringSlice(v interface{}) ([]string, bool) {
-	raw, ok := v.([]interface{})
-	if !ok {
-		return nil, false
-	}
-	out := make([]string, 0, len(raw))
-	for _, item := range raw {
-		if s, ok := item.(string); ok && s != "" {
-			out = append(out, s)
-		}
-	}
-	if len(out) == 0 {
-		return nil, false
-	}
-	return out, true
-}
+// --- small helpers ----------------------------------------------------------
+// REUSE: field-name lists go through datahelpers.ToStringSlice (above).
+// toStringMap and setIfAbsent have no datahelpers equivalent (the package has
+// CleanDataMap / GetMapKeys / ExtractNestedField* / ExtractStepData / ToStringSlice
+// only), so they stay here, local to package orchestration.
 
 func toStringMap(v interface{}) (map[string]string, bool) {
 	raw, ok := v.(map[string]interface{})
