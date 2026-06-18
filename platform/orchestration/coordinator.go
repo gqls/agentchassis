@@ -3351,77 +3351,69 @@ func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *Orch
 func (s *SagaCoordinator) extractWorkflowResult(state *OrchestrationState) map[string]interface{} {
 	result := make(map[string]interface{})
 
-	// Try to get output_fields from the complete step's config
-	// state.WorkflowPlan is models.WorkflowPlan with Steps map[string]Step
-	var outputFields []string
+	// Resolve the result contract from the complete step's config. Centralised,
+	// loud and testable — see resolveResultSpec (result_spec.go). This replaces
+	// the old inline "if output_fields else dump" branch that silently ignored
+	// the singular output_field and the output mapping.
+	var completeConfig map[string]interface{}
 	if state.WorkflowPlan.Steps != nil {
 		if completeStep, ok := state.WorkflowPlan.Steps["complete"]; ok {
-			if config, ok := completeStep.Config["output_fields"].([]interface{}); ok {
-				for _, f := range config {
-					if fieldName, ok := f.(string); ok {
-						outputFields = append(outputFields, fieldName)
-					}
-				}
-			}
+			completeConfig = completeStep.Config
 		}
 	}
 
-	// If output_fields is configured, only include those fields
-	if len(outputFields) > 0 {
-		s.logger.Info("extractWorkflowResult: using configured output_fields",
-			zap.Strings("output_fields", outputFields))
+	spec := resolveResultSpec(completeConfig, s.logger)
 
-		for _, fieldName := range outputFields {
+	switch spec.Mode {
+	case ResultModeFields:
+		// Each named field, nested under its own key (historic plural behaviour).
+		for _, fieldName := range spec.Fields {
 			if value := datahelpers.ExtractNestedField(state.CollectedData, fieldName); value != nil {
-				// Extract step data to remove .response wrapper if present
 				result[fieldName] = datahelpers.ExtractStepData(value)
 			}
 		}
-	} else {
-		// Fallback: include non-internal, non-large fields
-		// Skip fields that are typically large and not needed by parent
-		skipPatterns := []string{
-			"page_content_",     // Individual page content (can be large)
-			"reviewed_content_", // Reviewed versions
-			"build_pages_loop_", // Loop iteration data
-			"assembled_page",    // Full HTML
-			"page_deployed_",    // Deployment results per page
+
+	case ResultModeFlatten:
+		// The single named field's CONTENTS become the body — the flat contract
+		// page-build-handler / page-rebuild / site-work-orchestrator read.
+		value := datahelpers.ExtractNestedField(state.CollectedData, spec.From)
+		unwrapped := datahelpers.ExtractStepData(value)
+		switch v := unwrapped.(type) {
+		case map[string]interface{}:
+			for k, val := range v {
+				result[k] = val
+			}
+		case nil:
+			s.logger.Warn("extractWorkflowResult: result_from field not found in collected data",
+				zap.String("field", spec.From))
+		default:
+			// Non-map single field: nothing to flatten — preserve under its name.
+			result[spec.From] = unwrapped
+			s.logger.Warn("extractWorkflowResult: result_from field is not a map; stored under its name",
+				zap.String("field", spec.From))
 		}
 
-		for key, value := range state.CollectedData {
-			// Skip internal fields
-			if strings.HasPrefix(key, "__") {
-				continue
+	case ResultModeMapping:
+		// Build the body from explicit target<-source.path pairs.
+		for target, sourcePath := range spec.Mapping {
+			if value := datahelpers.ExtractNestedField(state.CollectedData, sourcePath); value != nil {
+				result[target] = value
 			}
-			// Skip loop metadata
-			if key == "loop_metadata" {
-				continue
-			}
-			// Skip large pattern matches
-			skip := false
-			for _, pattern := range skipPatterns {
-				if strings.HasPrefix(key, pattern) {
-					skip = true
-					break
-				}
-			}
-			if skip {
-				continue
-			}
-
-			// Extract step data to remove .response wrapper
-			result[key] = datahelpers.ExtractStepData(value)
 		}
+
+	default: // ResultModeFallback
+		s.fallbackDumpInto(result, state)
 	}
 
-	// Add completion metadata (small, always useful)
-	result["orchestration_id"] = state.OrchestrationID
-	result["completed_steps"] = state.ExecutionMetadata.CompletedSteps
-	result["completed_at"] = time.Now().Format(time.RFC3339)
+	// Completion metadata — only if absent, so a flattened/mapped field whose
+	// payload happens to carry these keys cannot be clobbered.
+	setIfAbsent(result, "orchestration_id", state.OrchestrationID)
+	setIfAbsent(result, "completed_steps", state.ExecutionMetadata.CompletedSteps)
+	setIfAbsent(result, "completed_at", time.Now().Format(time.RFC3339))
 
-	// Log the final size for monitoring
 	if resultBytes, err := json.Marshal(result); err == nil {
-		s.logger.Info("extractWorkflowResult: result size",
+		s.logger.Info("extractWorkflowResult: result built",
+			zap.String("mode", spec.Mode.String()),
 			zap.Int("size_bytes", len(resultBytes)),
 			zap.Int("field_count", len(result)))
 	}
