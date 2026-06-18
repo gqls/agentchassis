@@ -1,0 +1,2 @@
+The behaviour change to watch on deploy: any agent that was quietly "succeeding" via the stub or via truncation will now fail loudly until it declares a result contract. That surfacing is the intent, and the oversizeResultError log (largest field + size breakdown) tells you exactly which field to bound. With resolveResultSpec deployed, the writer is bounded at ~81k and never reaches this path, so this hardening is about every other agent, not gamesdesign.
+

@@ -3310,8 +3310,19 @@ func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *Orch
 		zap.String("reply_to_request_id", replyToRequestID),
 		zap.String("orchestration_id", state.OrchestrationID))
 
-	// Build result from CollectedData - extract workflow outputs
-	resultData := s.extractWorkflowResultWithSizeLimit(state)
+	// Build result from CollectedData - extract workflow outputs.
+	// If the result cannot be delivered (exceeds the bus size cap), the workflow
+	// ran its steps but did NOT hand a result back — that is not a success. Surface
+	// it as a failure so the parent's error_step / needs-review handling fires,
+	// instead of a silent "completed" stub that loses the output.
+	resultData, err := s.extractWorkflowResultWithSizeLimit(state)
+	if err != nil {
+		s.logger.Error("notifyParentOfSuccess: result undeliverable — notifying parent of FAILURE instead",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.Error(err))
+		s.notifyParentOfFailure(ctx, state, err.Error())
+		return
+	}
 
 	successResponse := types.ResponseMessage{
 		Headers: types.ResponseHeaders{
@@ -3423,55 +3434,69 @@ func (s *SagaCoordinator) extractWorkflowResult(state *OrchestrationState) map[s
 
 const MaxResultSizeBytes = 900000 // Leave headroom below 1MB Kafka limit
 
-// extractWorkflowResultWithSizeLimit builds result respecting size limits
-func (s *SagaCoordinator) extractWorkflowResultWithSizeLimit(state *OrchestrationState) map[string]interface{} {
-	// First try with configured output_fields
+// extractWorkflowResultWithSizeLimit builds the result and enforces the Kafka
+// delivery cap. It returns an ERROR (not a stub) when the result cannot be
+// delivered: a workflow that ran its steps but cannot hand its result back has
+// not succeeded from the parent's point of view, and must never report success.
+//
+// It deliberately does NOT silently truncate to fit — a truncated page_html or
+// sections_metadata delivered as "success" is a corrupt result, worse than a
+// clean failure. The fix for an oversize result is a result contract on the
+// complete step (result_from for a single object, multiple_output_fields for
+// selected fields) so the workflow returns only what the parent needs instead of
+// its whole working state. Oversize is now a loud, actionable signal, not a
+// silent stub.
+func (s *SagaCoordinator) extractWorkflowResultWithSizeLimit(state *OrchestrationState) (map[string]interface{}, error) {
 	result := s.extractWorkflowResult(state)
 
-	// Check size
 	resultBytes, err := json.Marshal(result)
 	if err != nil {
-		s.logger.Error("Failed to marshal result for size check", zap.Error(err))
-		return s.extractMinimalResult(state)
+		return nil, fmt.Errorf("failed to marshal workflow result for delivery: %w", err)
 	}
 
 	if len(resultBytes) <= MaxResultSizeBytes {
-		return result
+		return result, nil
 	}
 
-	// Result too large - try removing large string fields
-	s.logger.Warn("extractWorkflowResult: result too large, trimming",
-		zap.Int("original_size", len(resultBytes)))
-
-	for key, value := range result {
-		if str, ok := value.(string); ok && len(str) > 10000 {
-			// Truncate large strings
-			result[key] = str[:1000] + "...[truncated]"
-		}
-		// Could also recurse into maps/arrays if needed
-	}
-
-	// Re-check size
-	resultBytes, _ = json.Marshal(result)
-	if len(resultBytes) <= MaxResultSizeBytes {
-		return result
-	}
-
-	// Still too large - return minimal result
-	s.logger.Warn("extractWorkflowResult: still too large after trimming, using minimal result",
-		zap.Int("size_after_trim", len(resultBytes)))
-	return s.extractMinimalResult(state)
+	return nil, s.oversizeResultError(state, result, len(resultBytes))
 }
 
-// extractMinimalResult returns just the essential completion info
-func (s *SagaCoordinator) extractMinimalResult(state *OrchestrationState) map[string]interface{} {
-	return map[string]interface{}{
-		"orchestration_id": state.OrchestrationID,
-		"completed_steps":  state.ExecutionMetadata.CompletedSteps,
-		"completed_at":     time.Now().Format(time.RFC3339),
-		"status":           "completed",
-		"message":          "Workflow completed successfully. Full result exceeded size limit.",
+// oversizeResultError logs the per-field size breakdown and returns an actionable
+// error naming the largest field and the fix. The breakdown goes to the log
+// (Error level, so it surfaces); the message carries the headline numbers + the
+// remedy so the failure is self-explanatory wherever it lands.
+func (s *SagaCoordinator) oversizeResultError(state *OrchestrationState, result map[string]interface{}, size int) error {
+	fieldSizes := make(map[string]int, len(result))
+	largestField, largestSize := "", 0
+	for k, v := range result {
+		b, err := json.Marshal(v)
+		if err != nil {
+			continue
+		}
+		fieldSizes[k] = len(b)
+		if len(b) > largestSize {
+			largestField, largestSize = k, len(b)
+		}
 	}
+
+	s.logger.Error("extractWorkflowResult: result exceeds delivery cap — failing instead of stubbing a success",
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("owner_agent_type", state.OwnerAgentType),
+		zap.Int("result_size_bytes", size),
+		zap.Int("max_result_size_bytes", MaxResultSizeBytes),
+		zap.Int("field_count", len(result)),
+		zap.String("largest_field", largestField),
+		zap.Int("largest_field_bytes", largestSize),
+		zap.Any("field_sizes", fieldSizes),
+	)
+
+	return fmt.Errorf(
+		"workflow result %d bytes exceeds the %d-byte delivery cap (largest field %q=%d bytes); "+
+			"declare a result contract on the complete step — result_from for a single object, or "+
+			"multiple_output_fields for selected fields — so the workflow returns only what the parent "+
+			"needs instead of its whole working state",
+		size, MaxResultSizeBytes, largestField, largestSize,
+	)
 }
 
 func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *OrchestrationState, errorMsg string) {
