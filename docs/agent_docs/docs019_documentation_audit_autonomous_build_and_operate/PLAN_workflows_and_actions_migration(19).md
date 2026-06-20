@@ -1,0 +1,427 @@
+# Plan — migrating contextkit to chassis workflows, actions, and agents
+
+**Status: pre-implementation, discussion-first.** Nothing here is built. The structure below is a proposal to refine together; the open-questions section is the point of this document. Update the changelog at the bottom as decisions land, and move items from "open" to "decided" rather than deleting them.
+
+---
+
+## What this migrates
+
+The standalone `contextkit` module (analyser, assembler, embed, dbcontext, resolve_targets, fuse, eval_targets, plus the `analysis` and `candidates` contracts) into the chassis as workflows, actions, and agents — so context assembly and the build-time reviews run as first-class, logged, orchestrated work instead of CLI tools. This is additive: the standalone tools stay as the dogfooding and measurement harness, and `eval_targets` in particular stays offline.
+
+## Constraints that shape the design (our standing rules, restated so the plan is judged against them)
+
+- Workflows stay thin (SQL/data); complexity lives in Go actions.
+- No subworkflows in SQL — separable concerns become spawned sub-agents with their own workflows (clearer logs, separate responsibility).
+- Every agent is an orchestrator.
+- Sub-agents reply on the caller's (parent's) responses topic, not their own.
+- Reuse and adapt existing functions/architecture before creating new ones.
+- Confirm DB schema before writing SQL; parameterised SQL only.
+- text + CHECK over enums; `version` + `previous_version_id`; `deleted_at` soft-delete.
+- No `logger.Debug` (won't show); log agent creation and inter-agent messages with headers and body.
+- Workflow variable names must match what the actions expect.
+
+## Confirmed model (from the guideline docs — 001 development guide, 002 system architecture)
+
+These were the "gate" unknowns; the guides settle most of them. (The empty `00x_*.sql` files in the project were placeholders; the model lives in the guide docs.)
+
+- **A workflow is declarative JSON in `agent_definitions.default_config` (`templates_db`).** A step is keyed by name: `{ "action": ..., "config": {...}, "next_step": ..., "output_field": ... }`. Logic stays in Go actions; the JSON expresses intent.
+- **Every agent is an orchestrator, and a workflow can be a single step.** The canonical small form is the "wrapper orchestrator" (spawn → call → complete) that gives a worker its own pod, logs, and topic — so wrapping one action in its own agent is normal, not heavyweight.
+- **There is a library of generic, config-driven actions to reuse before writing Go:** `query_database`, `spawn_agent`, `call_agent`, `loop`, `conditional`, `rag_lookup`, and the work-item lifecycle (`claim_work_item`, `complete_work_item`, `complete_workflow`, `fail_work_item`), among others. New Go actions are for genuinely novel compute only.
+- **Group by shared context; don't make every check its own agent.** The architecture explicitly rejects "a registry of mini-actions" for LLM-assisted work: checks that share a context load are steps inside one *group agent* (one context load, one LLM call per group). Pure structural/binary checks use the existing `DiscoveryCheck` registry, not agents.
+- **The promotion pattern is the evolution path.** A check starts as an action step in a group agent's workflow; when it needs independence (vision AI, a research sub-agent, its own workflow) it is promoted to a spawned sub-agent — the workflow changes one line (`action: spawn_agent`).
+- **Spawning** is `spawnAgentKubernetesJobFromDefinition` (+ `setupAgentTopics`); a spawned Job pod gets a per-spawn topic `job.<corr[:8]>-<orch[:8]>-<type>-<parent_step>.requests`, its own logs/resources/idle-timeout, and terminates on completion. `agent_definitions.topics` is a declaration; the Deployment manifest actually subscribes.
+- **Reuse discipline is encoded:** doc 001 says to first search `agent_definitions` for a similar agent, and `default_config::text ILIKE '%<action>%'` for an existing use of an action, before creating anything.
+
+## Proposed structure (now aligned to that model)
+
+**Shared Go packages.** `analysis` and `candidates` move in as-is; a `bundle` package for the assembler's render. Reuse the chassis DB layer (not `dbcontext` psql), the ollama-adapter (keep the `Embedder` interface), the generation/model adapter, the spawn API, and artifact upload. The analyser's walk becomes a library function.
+
+**New Go actions — only the novel compute.** The analyser walk (build the code-structure index), the embedding build, and target resolution (lexical + semantic + fusion folded into one). Possibly a bundle-assemble action, though parts may be templating + `query_database`. Everything else likely maps to generics: `gather_schema_context` and `gather_runtime_evidence` are `query_database` with config; `match_guidelines` may be `rag_lookup` (investigate the overlap — A5); generation is the existing model-adapter path via `call_agent`.
+
+**Indexing agent** (commit-triggered, SHA-keyed): a small workflow over the analyse + embed actions, marking an index version.
+
+**Build agent** (a top-level orchestrator like `pageflow-builder` / `site-work-orchestrator`): resolve targets → optional HITL scope confirm → gather context (a few `query_database` steps + the code-context action) → assemble → generate → review → emit.
+
+**Reviews and any LLM-assisted contributors are group agents, not individual agents.** Following `content-quality-auditor` / `design-audit-agent`: one context load, a step per check, promoted to a sub-agent only when one needs independence. This replaces the earlier proposal of separate `review_reuse` / `review_liability` / … agents. The build-time review group is the same *shape* as the deployed-site auditors — which is also where the checker / improvement-loop concept lives, so confirm reuse rather than duplicate.
+
+**Eval stays offline** — measurement/flywheel only, never in the build path.
+
+---
+
+## Open questions and areas to investigate — BEFORE we implement
+
+### A. Live-system schema and APIs — mostly answered by the guides; confirm the remainder against live + code
+
+The Confirmed-model section settles how workflows are stored and shaped, the generic action library, the spawn mechanics and topics, the grouping principle, and the promotion pattern. What still needs confirming directly:
+
+1. **The run-trace / orchestration tables.** Confirm `orchestration_states` (or equivalent) and what records the per-step run trace, so `gather_runtime_evidence` uses the real trace, not just `agent_error_log` + `site_work_items`. Confirm how `orchestration_id` correlates across parent and sub-agents.
+2. **HITL representation.** No human-pause/approval step type appeared in the guides. Confirm whether a workflow can park for human approval and resume (for the scope-confirm and contested-review gates). If not, that is a design item, not just a lookup.
+3. **The generation / model-adapter path.** Confirm the exact action/adapter the build's generate step reuses (model-agnostic), so generation is not a new integration.
+4. **Artifact storage.** Confirm the artifacts table / Backblaze path for the assembled bundle and its provenance.
+5. **`rag_lookup` and existing retrieval — largely answered from `rag_actions.go`; one input left.** The chassis RAG path is more complete than assumed and overlaps directly with `embed`/`resolve_targets`. **Reusable as-is:** the embedder (`aiservice.OllamaClient`, `nomic-embed-text` via the `ollama-adapter`, with the asymmetric `search_document:` / `search_query:` nomic prefixes); the **pgvector** store (`knowledge_base` table, cosine `<=>`, similarity `1 - (embedding <=> q)`, idempotent dedup `ON CONFLICT (collection, content_hash)`); vector search with a **trigram fallback** when embedding fails; usage counting. So the embedding/vector layer should reuse this, not build a parallel store. **Not a fit as-is:** `rag_index`'s chunker (`chunkContent` — character windows broken at `.`/`\n`) fragments Go code mid-function; code must be chunked at **symbol boundaries**, which the analyser already produces. So contextkit indexing = analyser symbols → nomic prefix → the *same* embedder → a `knowledge_base`-shaped store, bypassing `rag_index`'s prose chunker; `embed`/`fuse`/`resolve_targets`/`eval_targets` become the lexical layer + fusion + offline measurement, not a parallel index. **One input still needed:** `\d knowledge_base` — exact columns, the `embedding` vector **dimension** (confirms nomic = 768 and what a code index must match), and whether there's an **ANN index** (HNSW/IVFFlat) on `embedding` or exact scan (decides per-query latency at scale, and whether code symbols ride in `knowledge_base` under a `collection='chassis_code'` or need a sibling table shaped for symbols).
+
+   **Resolved (2026-06-09) by `\d knowledge_base` (clients_db) + `aiservice/interface.go` + `ollama.go`:** dimension is `vector(768)` (nomic = 768 confirmed; a code index must match). There IS an ANN index — `idx_kb_embedding ivfflat (embedding vector_cosine_ops) WITH (lists='100')` — so per-query latency is index-backed, not a full scan; and `idx_kb_content_trgm gin (content gin_trgm_ops)` sits in the *same* table, so lexical (trigram) and semantic (cosine) retrieval run together — the hybrid I built (`resolve_targets` + `embed` + `fuse`) is exactly this pattern, and the fusion can run in SQL, so the in-Go `fuse` may not graduate at all. Dedup is `idx_kb_dedup UNIQUE (collection, content_hash)`. The embedder seam is `aiservice.AIService.GenerateEmbedding(ctx, text) ([]float32, error)` (OllamaClient → `/api/embeddings`, single text; batch via a loop) — note it does *not* apply the nomic `search_document:`/`search_query:` prefix; the caller does (as `rag_actions.go` does, and `embed.go`'s `nomicPrefix` mirrors). **Code-in-KB vs sibling table — now a clean decision, leaning sibling:** `knowledge_base` is marketing-knowledge-shaped (industry, domain, title, source_url, quality_score, usage_count) on a quality/usage-and-web-parse lifecycle; code symbols are SHA-keyed, commit-indexed, shaped by path/kind/signature/line-range. Riding in `knowledge_base` under `collection='chassis_code'` would overload `collection` and leave half the columns null. Better to mirror the *proven shape* (vector(768) + cosine ANN + trigram-on-content + unique dedup) in a sibling table with code columns — reusing the embedder, pgvector, the hybrid pattern and the dedup approach, not the table itself. One adaptation: the KB uses **IVFFlat** (lists tuned to its size, fine for batch-ish growth); a code index that re-embeds changed symbols every commit grows incrementally, where **HNSW** is the better fit (no centroid retraining/REINDEX as rows churn). So reuse pgvector + the hybrid + the embedder, but choose HNSW over IVFFlat for the incremental code table, tuned at build time. A5 is no longer a blocker.
+6. **Confirm-in-code the spawn call** (`spawnAgentKubernetesJobFromDefinition`, `setupAgentTopics`) and the action-registration contract, before writing the new actions/agents.
+
+### B. Architecture decisions not yet settled
+
+1. **Action-vs-agent boundary, reconciled with "every agent is an orchestrator."** The proposal makes contributors sub-agents and keeps `resolve_targets`/`assemble` as actions. If every agent is an orchestrator, we should state explicitly why those two are *not* agents (pure transforms; a step-level log entry suffices) and confirm that cut is intended. Re-examine which `gather_*` steps deserve to be agents (e.g. a guidelines contributor that spawns a research sub-agent) versus plain actions.
+2. **Index granularity and invalidation.** Full re-index per commit versus incremental (re-embed only changed symbols). The analyser is cheap (parse-only); embeddings are the cost. Decide the incremental strategy, how a build verifies the index matches the SHA it is building against, and what happens if code changes mid-build (the freshness race).
+2a. **DB capabilities (`\dx`/`\df`) belong in the captured context — decided, mechanism built.** The same reuse-before-recreate that applies to Go code applies at the DB layer: generation that writes SQL/migrations should *see* the installed extensions (so it knows pgvector is available) and the helper functions (so it reuses `snapshot_agent` rather than hand-rolling a backup table — exactly the migration-110 footgun in debug guide §6.1). So `\dx` and `\df` are captured into the assembled context, not left to memory. Built now in the dogfood harness: `dbcontext -capabilities` runs `\dx`+`\df` (it already shells `\d` for schema, same path), and the assembler has a **Database capabilities** section (`-dbfacts`) that includes the capture for DB-touching tasks, with a reuse nudge when absent. Note the division of labour: this is **DB context, not the analyser** — the analyser is Go-AST (code structure) and stays language-only; DB facts live in `dbcontext` and the assembler's section. **To make it automatic in the future (the durable half):** fold the `\dx`/`\df` capture into the **indexing workflow** alongside the schema snapshot, on a **migration cadence** (extensions/functions change when a migration runs, not every commit — so capture on migration apply or staleness-check, not per build), store it in the index, and have the build's assemble step pull it for any DB-relevant task. That way no one has to remember the flag — the bundle always carries current DB capabilities. Gate by task type so a pure-frontend task doesn't carry it (size discipline). The debug-guide §6.2 capture is the human-readable twin of the same facts.
+3. **On-demand context versus assemble-then-send — leaning decided: the gather phase is a loop.** Because tasks can get long, a single up-front assemble is likely to under- or over-shoot, so the working decision is that gathering is iterative: assemble a seed, let the build request more context, gather again, rather than one fixed sequence. This has direct precedent in the system — the `loop` action exists and `call_agent`-substep loops already run (`vet-batch process_batch`, `content-feed process_sites`), and `rag_lookup` shows retrieval-as-a-step is normal. Still to settle within that decision: how the build expresses "I need more" in a model-agnostic way (the parked second-round-trip — the model states needs in its output, the loop fulfils them and re-gathers), and the loop's termination/budget. Provenance (B8) must then record the dynamic fetched set, not a static bundle.
+4. **Embedding storage at scale.** A table plus in-Go cosine is fine for one repo (thousands of symbols); multi-tenant / many repos likely needs pgvector or a vector store. Decide the threshold, and whether to start on pgvector to avoid a later migration. **Update (2026-06-09):** pgvector is now **confirmed in use** — `rag_actions.go` stores/queries `knowledge_base.embedding` as `::vector` with the `<=>` cosine operator. So there is no storage decision to make: reuse the existing pgvector store from the start (no in-Go cosine). Remaining question is only whether code symbols share `knowledge_base` or get a sibling table — pending `\d knowledge_base` (A5). **Resolved (2026-06-09):** `\d knowledge_base` shows `vector(768)` + an IVFFlat cosine ANN index + a trigram index, so reuse the pgvector store and the hybrid pattern from the start (no in-Go cosine). Code symbols get a **sibling table** mirroring that shape — not a `knowledge_base` collection (different columns/lifecycle) — and prefer **HNSW** over IVFFlat for the incrementally-updated code index (see A5).
+4a. **CPU Ollama feasibility — narrowed (2026-06-09).** The model is already wired and serving: `knowledge_base.embedding` is populated by `nomic-embed-text` (768-d) via the `ollama-adapter`, and `ollama-eval` has been up 47 days — so "is it working at all" is answered yes. Two genuine questions remain, both measurable with the existing harness: **code-domain quality** — nomic is prose-trained, so code retrieval is a domain shift; measure recall@N with `eval_targets` against the real adapter, applying the `search_document:`/`search_query:` prefix (`embed.go`'s `nomicPrefix`) so it is apples-to-apples with how `rag_*` embeds; and **bulk-index speed** — time embedding the whole chassis on the CPU adapter, Thunder GPU for the bulk pass if too slow. Per-query latency is largely de-risked now that retrieval is ANN-indexed (only the single query-embedding call is on the hot path). If code-domain recall does not beat the lexical baseline, the lexical layer (`resolve_targets`, trigram) carries more weight and embeddings are the tie-breaker, not the spine.
+4b. **Text vs code embeddings are separate responsibilities — share the mechanism, separate the policy (decided 2026-06-09).** Shared, not to be duplicated: the embedder seam (`AIService`, already model-agnostic, configured per agent via `ai_service`), the provider implementations, pgvector, and the semantic+trigram hybrid pattern. Separate per domain so each upgrades independently: the **model** (a prose model for `knowledge_base` vs a code-specific model for `code_symbols` — the main lever, and the answer to B4a's domain-shift risk); the **dimension** (follows the model; already isolated by the separate tables); **preprocessing** (nomic's `search_*` prefixes vs whatever a code model wants — caller-side); **retrieval tuning** (HNSW vs IVFFlat, and a lexical-heavier hybrid for code since symbol names are exact); **what a row is** (symbol vs prose chunk); and **evaluation** (code ground-truth vs text). The schema already embodies this — the sibling table was step one, and the `embedding_model` column on each table lets you re-embed one domain after a model upgrade (`WHERE embedding_model <> '<new>'`) without touching the other. Chassis expression: a knowledge-indexer over `knowledge_base` and a code-indexer over `code_symbols`, each with its own `ai_service` config. Sub-decision resolved (2026-06-09, from `rag_actions.go`): code retrieval gets a **sibling action**, not a parameterised `rag_lookup`. `vectorSearchKB`/`trigramSearchKB` bake in `knowledge_base`'s table and columns (title/source_url/domain); a focused `code_symbols` query returning path/symbol/kind/signature is cleaner than threading table+columns through the existing one. The embedder helpers themselves ARE shared — see the code-indexer reuse mapping below. Consequence for B4a: it becomes "which model for code", measurable independently (Ollama can host a second embedding model; `AIService` selects per agent). Caution: separation pays only if the shared mechanism stays shared — policy separate, plumbing shared.
+5. **Multi-tenancy and genericity.** The tool is meant to be generic (per-tenant config; pluggable per-language analysers). Decide whether to migrate single-tenant (chassis-only) first and generalise later, or bake tenant-scoping in from the start, and where each action loads the active-config. The analyser is Go-only (`go/ast`); per-language producers are a later concern, but the `analysis` contract should stay language-agnostic.
+6. **Review gating and the revise loop.** How a review contributor "revises or gates": does a raised concern loop back to re-generate with the concern as input; how many cycles before it goes to HITL; reuse `attempt_count`/`max_attempts` (already on work items) for loop termination. Define the loop and its termination before building the reviews.
+7. **Contributors versus checkers overlap (already flagged).** Whether the build-time reviews reuse any of the deployed-site `check_*.go` logic. Unconfirmed; it affects whether review actions share code with the improvement-loop checkers. Tied to the separate checker/improvement-loop investigation.
+8. **Provenance model.** Where "what was in the bundle / what was fetched" is recorded (the bundle artifact plus a provenance record), and its shape. This matters more if on-demand retrieval (B3) is adopted, since the fetched set is then dynamic.
+9. **The morality/liability standard source.** The configured, layered standard lives in the active-config (designed in the earlier contracts). Confirm that schema is actually in place before the review contributors depend on it.
+
+### C. Sequencing and scope
+
+1. **Thin-slice the migration too.** Suggested first slice: the indexing workflow + `resolve_targets` action + `assemble_bundle` action + one build workflow **without** the review contributors (reviews are a later layer). Prove the pattern end-to-end before breadth.
+2. **Prove one sub-agent first.** Stand up a single context contributor as a sub-agent end-to-end to validate the spawn / topic / logging pattern before building all of them.
+3. **Keep the standalone tools.** `contextkit` stays as the dogfooding and measurement harness during and after migration; `eval_targets` stays standalone. Don't delete a tool when its action exists.
+4. **Schema-confirmation is the gate.** The workflow shape is now known; the remaining gate before writing the build path is A1 (run-trace tables) and A5 (`rag_lookup` overlap) — confirm those rather than building a parallel retrieval or guessing the run trace.
+
+### D. Smaller technical doubts
+
+1. **Analyser as a library function** (so the index action is glue) — and the qualified-names verbosity that prompted considering it. Minor; decide when moving the code.
+2. **Workflow variable-name sync** with each action's expectations — a per-workflow checklist item, not a one-off.
+3. **Logging levels** — no `logger.Debug`; ensure agent-creation and message logging (headers + body) is wired the way we want from the first agent.
+4. **Per-language analyser pluggability** — no longer deferred (decided 2026-06-09): the JS tools exist now and need indexing/provenance, so the polyglot **analyser adapter** is built now rather than later (tech debt, not a future plan). Keep the `analysis` contract language-agnostic; the adapter fronts per-language parsers. See the analyser-adapter decision below.
+
+---
+
+## Reuse inventory to verify (confirm each, then reuse — do not reimplement)
+
+Before creating anything, doc 001's discipline: search `agent_definitions` for a similar agent, and `default_config::text ILIKE '%<action>%'` for an existing use of an action.
+
+- **`rag_lookup` / existing retrieval** — the key one. Confirm what it indexes and how; it may already do part of what `embed`/`resolve_targets` do. Reuse or extend, don't parallel.
+- Generic actions: `query_database`, `spawn_agent`, `call_agent`, `loop`, `conditional`, the work-item lifecycle — map gather/generate/control-flow onto these before writing Go.
+- Chassis Postgres access layer (replaces `dbcontext` psql-shelling).
+- ollama-adapter (replaces `embed`'s HTTP client; keep the `Embedder` interface).
+- Spawn API (`spawnAgentKubernetesJobFromDefinition`, `setupAgentTopics`) and the action-registration contract (`registry.go`).
+- Artifact upload (Backblaze) and any artifacts table.
+- Generation / model adapter (for the build's generate step).
+- The deployed-site auditor agents (`design-audit-agent`, `content-quality-auditor`, `site-review-agent`) as the *template* for the review group — and the locus of the checker/improvement-loop concept (possible reuse — B7).
+- active-config schema (for guidelines/standards in the reviews — confirm built, B9).
+
+## Suggested first slice (to agree before starting)
+
+Once A1 (run-trace) and A5 (`rag_lookup`) are confirmed: build the indexing agent (analyse + embed actions) and the `resolve_targets` action, wired into a minimal build agent (resolve → assemble), with no reviews and no sub-agent contributors yet. Then add a single context contributor as a sub-agent — using the wrapper-orchestrator shape — to validate the spawn/topic/logging pattern. Reviews (as a group agent), the revise loop, and HITL follow once that spine is proven.
+
+---
+
+## Changelog
+
+- 2026-06-09 — Created. Proposed structure recorded; open questions and reuse inventory enumerated. Pre-implementation; nothing built.
+- 2026-06-09 — Grounded the model in docs 001/002 (the `00x_*.sql` examples were empty placeholders). Confirmed: workflows are JSON in `agent_definitions.default_config` (templates_db); step shape; the generic action library (incl. `rag_lookup`); group-agents-by-shared-context over individual mini-action agents; the promotion pattern; spawn mechanics/topics. Corrected the proposed structure accordingly (group agents, generic-action reuse, fewer new Go actions). Section A reduced to the remaining live/code confirmations; flagged `rag_lookup` as the key reuse check. Still pre-implementation.
+- 2026-06-09 — Two real `agent_definitions` rows (`page-build-handler`, `build-dispatch-loop`) and the action code (`spawn_actions.go`, `call_agent.go`, `ai_actions.go`) confirmed the model concretely; findings folded into the debug guide (016 §6.0: agent = DB row not Go type; step shape; spawn/call as a pair; the description-vs-config trap). Decisions: gather phase is a **loop** (B3), reasoning = long tasks + existing loop/`rag_lookup` precedent; added the **CPU Ollama feasibility check** (B4a, speed + quality) as an early gate on the embedding layer. Still pre-implementation.
+- 2026-06-09 — Debug guide v40 had already absorbed §6.0 and the snapshot/`\df` discipline (a real migration-110 footgun drove the latter), so merged only the net-new into v40: §6.2, a *captured* `\df` inventory + `\dx` extension list + the pgvector finding. Acted on the "how do we ensure `\dx`/`\df` reach the bundle" question: built the capture in the harness — `dbcontext -capabilities` (`\dx`+`\df`) and the assembler's `-dbfacts` **Database capabilities** section (compiles/tested end-to-end; tarball refreshed). Decision B2a: these are captured *context*, to be folded into the indexing workflow on a migration cadence so the bundle always carries them for DB-touching tasks; the analyser stays code-only (DB facts live in `dbcontext` + the assembler section). Still pre-implementation on the chassis side.
+- 2026-06-09 — `\d knowledge_base` + `aiservice/interface.go` + `ollama.go` closed the embedding open questions. A5 resolved: embedder seam = `AIService.GenerateEmbedding` (Ollama, nomic-embed-text, caller-applied prefix); store = pgvector `knowledge_base.embedding vector(768)` with IVFFlat cosine + gin_trgm in one table (so the hybrid runs in SQL; the in-Go `fuse` may not graduate). B4 resolved (reuse pgvector; sibling code table, not a KB collection; HNSW over IVFFlat for incremental updates). B4a narrowed to code-domain quality (the one real risk) + bulk-index speed; latency de-risked by the ANN index, model confirmed serving (ollama-eval 47d up). Debug guide §6.2 pgvector note upgraded to "confirmed in use". Still pre-implementation.
+- 2026-06-09 — Sibling-table + HNSW approved; drafted the DDL (`NNN_create_code_symbols_index.sql`, in outputs). `code_symbols` mirrors `knowledge_base`'s pgvector(768)+trigram shape but is keyed for code (`unique(repo, path, symbol)`), SHA-versioned (`commit_sha`), and pruned rather than soft-deleted — the latter two flagged as deliberate departures from the `version`/`deleted_at` conventions (it's a rebuildable cache). HNSW is primary (incremental-friendly), IVFFlat the documented fallback per "try HNSW until it doesn't work". The file carries the parameterised index/upsert/prune/retrieve queries it's built to serve, incl. the **hybrid RRF in SQL** that replaces the in-Go `fuse`. Two pre-apply checks before it runs: `\dt *code*`/`*symbol*` (reuse-before-recreate; the file uses plain `CREATE TABLE` so a pre-existing one errors rather than silently no-ops — the §6.1 trap), and `\dx` to confirm pgvector >= 0.5.0 for HNSW (the KB's IVFFlat doesn't prove HNSW is available). Next step (not built): graduate the harness/indexing path to populate and query this table via `AIService.GenerateEmbedding`, keeping `embeddings.json` for the offline B4a measurement.
+- 2026-06-09 — Pre-apply gates passed: `\dt *code*`/`*symbol*` found nothing (clear to `CREATE`), and `\dx` shows **vector 0.8.0** ("ivfflat and hnsw access methods") + pg_trgm 1.6 + pgcrypto — so HNSW is available and the primary index stands (IVFFlat fallback not needed); `gen_random_uuid()` is provided. The `code_symbols` migration is clear to apply as-is (renumber NNN). B4 and A5 are now fully closed on the storage side; the remaining embedding question is B4a code-domain quality, which this table + the harness now let us measure.
+- 2026-06-09 — `code_symbols` applied cleanly (table + 4 indexes; extensions skipped). Recorded B4b: text-embedding and code-embedding are separate responsibilities — share the mechanism (`AIService` seam, providers, pgvector, the hybrid pattern), separate the policy (model, dimension, preprocessing, retrieval tuning, row definition, eval) so each domain upgrades independently. The sibling table + the `embedding_model` column already enable per-domain re-embedding. Turns B4a into "which model for code", measurable independently. Open: parameterise `rag_lookup` for both vs a sibling code-retrieval action.
+
+## Code-indexer reuse mapping (grounded from rag_actions.go, 2026-06-09)
+
+The existing knowledge-indexing path is two actions: `rag_index` (chunk → embed → store in `knowledge_base`) and `rag_lookup` (embed query → vector search, trigram fallback). The code-indexer reuses the *mechanism* and differs only where code genuinely differs.
+
+**Reuse as-is** (all package-level funcs in the `actions` package, so direct calls — no duplication):
+- `createRAGEmbeddingClient(ctx, config)` — builds the `OllamaClient` from `embedding_service` config; point it at the code model via config, nothing else changes.
+- `applyNomicPrefix(config, text, task)` — the `search_document:`/`search_query:` prefix logic; a no-op for a non-nomic code model, which is correct.
+- `pgvectorString([]float32)` — formats the vector as the `[…]` literal for the `::vector` cast.
+- The pattern: sha256 `content_hash` for dedup; embedding **non-fatal** (store the row without an embedding if the model fails, so trigram still works); `ON CONFLICT` for idempotent write.
+
+**Differ** (this is why the code-indexer is a thin new action, not a call to `rag_index`):
+- *Input + chunking.* `rag_index` reads one `content` blob and chunks it with `chunkContent` (character windows broken at `.`/`\n`) — which fragments Go mid-function. The code-indexer takes the **analyser's symbols** and does NOT chunk: one symbol = one row, `content = symbolText(name,kind,signature,doc,path)`.
+- *Target + columns.* `rag_index` writes `knowledge_base`; the code-indexer writes `code_symbols` (path/symbol/kind/signature/line-range).
+- *Conflict semantics.* `rag_index` uses `ON CONFLICT (collection, content_hash) DO NOTHING` (content dedup — identical chunks skip). The code-indexer uses `ON CONFLICT (repo, path, symbol) DO UPDATE … WHERE content_hash IS DISTINCT` (identity upsert — a symbol persists across commits; when its content changes, re-embed and update). KB is content-keyed; code is identity-keyed.
+- *Retrieval.* `vectorSearchKB`/`trigramSearchKB` hardcode `knowledge_base`'s table + columns, so code retrieval is its own small vector+trigram query over `code_symbols` (resolved sub-decision above).
+
+**Shape to build (next):**
+- `index_code_symbols` action — reuses the three helpers + the pattern; iterates analyser symbols (no chunk); upserts into `code_symbols` with identity-conflict; prunes removed symbols (hard delete).
+- `lookup_code_symbols` action — mirrors `rag_lookup`'s structure (embed query → vector search → trigram fallback) but queries `code_symbols`, returning path/symbol/kind/signature.
+- Dependency: the indexer needs the analyser's symbol output as input — cleanest is the **analyser-as-library** (AST walk is parse-only, runs in-process in the indexing step; the D-item). The indexer **agent** is then a small orchestrator: parse repo at SHA (analyser) → `index_code_symbols` → prune. Each is one step; no sub-workflow needed.
+- Optional light refactor when building: the three shared helpers live in `rag_actions.go` but aren't rag-specific — moving them to `embedding_helpers.go` (same package) makes the shared mechanism explicit so the code path doesn't look dependent on the RAG path. Matches the "share the mechanism" line in B4b.
+
+Caveat: chassis Go compiles in your environment (module `github.com/gqls/agentchassis/...`), not in this container — so these actions will be drafted for review and built/deployed via your GitHub Actions → Backblaze pipeline, unlike the contextkit harness which compiles here.
+
+## Documentation indexing (related, lighter — keep distinct from the code index)
+Docs are prose, so they fit the existing `rag_index`/`knowledge_base` path essentially as-is: index each guide under a new `collection` (e.g. `standards`), retrieve with `rag_lookup`. The flat files remain the editable, version-controlled source of truth; the DB copy is a derived, rebuildable retrieval index (so the assembler pulls relevant sections instead of pasting whole 124KB guides). Ride in a `knowledge_base` collection to start; a sibling docs table only if doc-specific columns (version, section) or lifecycle later justify it. Separate, smaller workstream from `code_symbols`.
+
+- 2026-06-09 — Grounded the code-indexer's reuse target from `rag_actions.go` (now in uploads). Recorded the reuse mapping: reuse `createRAGEmbeddingClient`/`applyNomicPrefix`/`pgvectorString` + the non-fatal-embedding + dedup pattern; differ on chunking (symbols, not character windows), target (`code_symbols`), conflict (identity upsert, not content DO NOTHING), and retrieval (own `code_symbols` query). Resolved the B4b retrieval sub-decision → sibling action (`vectorSearchKB` bakes in KB columns). Noted docs indexing reuses the existing rag path as-is (prose) — a separate, lighter workstream. Next: draft `index_code_symbols` + `lookup_code_symbols` + the indexer agent (chassis code, built/deployed in your env), then the end-to-end test incl. the B4a measurement.
+
+## Analyser adapter, in-cluster execution, and parsing (decided 2026-06-09)
+
+**Production runs in-cluster; the contextkit harness is a prototyping/measurement scaffold.** Parsing, indexing, retrieval, and context assembly are in-cluster chassis capabilities with no desktop dependency. The harness binaries proved the approach and measure recall (a dev/tuning activity); their production-relevant parts graduate in-cluster (analyser → adapter; embed → `index_code_symbols`; the hybrid → SQL over `code_symbols`; assembler → a build action), and what remains of the harness is the measurement tool (`eval_targets` + ground truth) for the flywheel. (Earlier "analyses locally and offline" framing corrected: the Go walk is a library because it's the parsing primitive the in-cluster adapter wraps, not because anything is desktop-bound.)
+
+**Three layers (with the decision applied):**
+1. *Go AST walk = library* (`analysis.Analyse(root) → Output`), extracted from `cmd/analyser`. Still needed — it runs *inside* the adapter; a polyglot adapter imports it for Go rather than replacing it.
+2. *`Analyser` seam* — the code-indexer depends on an interface (`Analyse(ctx, repo, ref, language) → analysis.Output`), mirroring how callers depend on `AIService` not `OllamaClient`. Lock this; everything behind it is swappable.
+3. *Analyser adapter = service*, **built now**. Fronts per-language parsers (the Go library now, a JS parser as a drop-in). **Kafka message-based, not HTTP** (correction: the custom adapters git and thunder are Kafka workers — consume `AdapterRequest` from a requests topic, dispatch by `Body.Action`, reply with a `ResponseMessage` on the caller's `responses_topic`; only the *stock* ollama-adapter is HTTP because it isn't custom). So the analyser adapter consumes an `analyse` request `(owner, repo, ref, language)`, fetches source read-only, parses via the library, and replies with a `ResponseMessage` whose `data` is the `Output` + resolved `commit_sha`. The code-indexer never touches files.
+
+**Why build the adapter now (not later):** the JS tools already exist and need code-symbol indexing/provenance — tech debt, not a foreseeable-future plan. Building polyglot-ready once beats redoing it. Three JS needs are distinct: code-symbol *indexing* needs a JS parser (the adapter — JS drop-in); *documentation* is prose handled by the language-agnostic `rag_index` path (no parser); *provenance* is recorded by `code_symbols` (commit_sha, path, symbol) for any language. (Separate, far-future and NOT an analyser concern: the *performance* of the end-user quant tools the chassis builds — TCP tricks, faster languages — is product code in the generated sites, handled when those tools are built; the analyser only has to parse those languages well enough to index them.)
+
+**Parsing input — git checkout in-cluster, not raw files in B2/Postgres.** The repo is the editable source of truth; the checkout is ephemeral; Postgres holds only the derived index (symbols/chunks + embeddings + searchable content); B2 is for built deliverables. Flow: check out the repo at the SHA into a container workspace → parse/read → write the derived index to Postgres (`code_symbols` for code; a `knowledge_base` collection for docs) → discard the checkout. The adapter owns the checkout for code (clones `repo`@`ref`, parses, returns symbols); docs (prose, no AST) are read from a checkout and fed to `rag_index`.
+- Precondition: this assumes the docs are in a git repo. If the guideline docs are currently loose files (desktop/chat project), step one is putting them in git (chassis repo or a docs repo) — "flat files as source of truth" must mean "files in a versioned repo". Do not store raw docs in Postgres (that's the index) or rely on B2 for the editable source (that's artifacts).
+- Access decision (flag, not now): the cluster needs either git read access (a GitHub token/deploy key as a k8s secret) to clone, or a source snapshot staged to B2 by the existing pipeline to fetch. Cloning is the simpler default; B2-snapshot avoids cluster git credentials.
+
+**Adapter shape to design next:** API = `(repo, ref, language) → analysis.Output` (the symbol JSON already defined); a k8s Deployment + Service + health check, versioned like other agents; git (or B2-fetch) + a read credential; the Go library compiled in, a JS parser behind the same endpoint as the drop-in. The `Analyser` seam means `index_code_symbols` can be drafted against the interface now, independent of the adapter being built.
+
+- 2026-06-09 — Decided: production is in-cluster (harness is a dev/measurement scaffold); build the polyglot **analyser adapter now** (JS tools exist and need indexing — tech debt). Locked the three layers: Go walk = library (runs inside the adapter), `Analyser` seam = the interface the code-indexer depends on, adapter = the service fronting per-language parsers. Parsing input = git checkout in-cluster (ephemeral), derived index to Postgres, B2 for deliverables; precondition that docs live in git; flagged the clone-creds-vs-B2-snapshot access choice. Distinguished JS's three needs (code indexing = adapter; docs = rag path; provenance = code_symbols) and kept end-user-tool performance out of the analyser's scope. Next: design the adapter (API/manifest/credential) and draft `index_code_symbols` against the seam.
+
+## Analyser adapter — build grounded in the git/thunder adapters (2026-06-09)
+
+Reading the real adapters (`git`: github_client.go + interface.go; `thunder`: adapter.go, client.go, the action handlers + store/ssh) settled the pattern. The analyser adapter mirrors them.
+
+**Message contract ("output messages pass validation").** Custom adapters consume an `AdapterRequest{Headers, Body{Action, Data}}` from their requests topic and reply with a `ResponseMessage{Headers ResponseHeaders, Body ResponseBody{Success, Data, Error}}` on the caller's `responses_topic`. `ResponseHeaders` carries `in_response_to_request_id`, `correlation_id`, `client_id`, `message_type:"response"`, `message_id`, `status`, `sender_agent_type`, `timestamp`, fuel, etc., and `ToKafkaHeaders()` flattens it for Kafka. These shapes live in `platform/models` (git's interface.go mirrors them locally, "aligned with platform/models") — the analyser adapter should use the shared models. The analyse result rides in `ResponseBody.Data`.
+
+**Dispatcher pattern (from thunder/adapter.go).** `Adapter` holds a `kafka.Consumer` + `kafka.Producer`, a `requestsTopic` (env `REQUESTS_TOPIC`, default e.g. `system.adapter.analyser.requests`) and consumer group (default `analyser.adapter.group`), and the wired action handlers. `Run()` fetch-loops; `handleMessage` parses, reads `reply_to_topic`, dispatches by action (`case "analyse"`), calls the handler, builds a `ResponseMessage`, produces it to the reply topic. Unknown actions return not_implemented (thunder's convention).
+
+**Handler shape (from thunder action handlers).** `NewAnalyseAction(source, logger)` + `Execute(ctx, AnalyseRequest) (*AnalyseResult, error)`; stateless, idempotent; cleans up the temp checkout. Reuses the layer-1 `analysis.Analyse`.
+
+**Built this turn (drafts in `chassis-drafts/analyser-adapter/`, for your build — chassis module doesn't compile here):**
+- `analysis.Analyse(root)` extracted into the analysis package (contextkit `internal/analysis/analyse.go`; CLI now a thin wrapper) — **compiled + vetted + behaviour-checked**. Moves to the chassis as `internal/analysis`.
+- `github_source.go` — read-only source fetcher: GETs the repo **tarball** at ref (one request, no git binary), extracts to a tempdir, recovers the exact `commit_sha` from the archive's top-level dir, path-traversal-guarded.
+- `analyse_action.go` — the handler: validate → fetch → `analysis.Analyse` → `AnalyseResult{…, commit_sha, Output}`; Go-only today, a JS parser slots in behind the same action.
+
+**Next chunk (mechanical, mirror thunder):** `adapter.go` dispatcher (consumer/producer wiring, `Run`, `handleMessage` + `ResponseMessage` build using `platform/models`), a small contract/types file, and the k8s manifest (Deployment + the requests topic + the read-only git Secret + health). Then the consumer side: the `index_code_symbols` agent calls this adapter (spawn/call to its requests topic) and upserts the returned symbols.
+
+## Repo access & security (decided direction, 2026-06-09)
+Not "give the cluster repo access". Give the analyser adapter its **own least-privilege credential**: a fine-grained, **repo-scoped, read-only (contents: read)** GitHub token (or deploy key), as a k8s Secret mounted only on the analyser pod. The git adapter keeps its separate **write** credential (commits). Two narrow credentials, each least-privileged — not one broad token, not cluster-wide access. Reuse the git adapter's GitHub-API **client pattern** (bearer auth, headers); the analyser reads via the **tarball** endpoint (one request, recovers the SHA). Hardening as the framework becomes well-known: fine-grained scoped read-only tokens, rotated; k8s secrets encrypted at rest (sealed/external secrets); network policy restricting who reaches the adapter and which pod uses the secret; the indexed code sits in the same in-cluster Postgres trust boundary you already secure (no new exposure). More secure variant if you want no static secret: a **GitHub App installation token** (short-lived, repo-scoped, auto-rotating) — more setup, no long-lived secret.
+
+- 2026-06-09 — Corrected the adapter transport to **Kafka** (git/thunder are Kafka workers; only stock ollama is HTTP) and grounded the build in the real adapters. Extracted + compiled the layer-1 `analysis.Analyse` library; drafted the analyser adapter's source fetcher (read-only tarball) and analyse handler (chassis drafts). Settled the security direction (least-privilege read-only repo-scoped credential, reuse the GitHub-API pattern). Created `FOCUS_js_tools_documentation.md` (JS tools need prose docs via the rag path + provenance via the JS parser drop-in; spec/history is a seed, not sufficient). Next: the dispatcher + manifest, then the `index_code_symbols` consumer.
+
+## Analyser adapter — dispatcher built, import-reuse confirmed (2026-06-09)
+
+**Import-reuse confirmed (the right call).** The canonical message types live in `platform/orchestration/types` (context.go): `RequestMessage`/`RequestHeaders` (note: `Action` and `ResponsesTopic` are on the HEADERS), `ResponseMessage`/`ResponseHeaders`/`ResponseBody{Success, Body, Error}`/`ErrorInfo`, `AgentIdentity`, plus the conversion helpers `FromRequestHeaders(headers) *ExecutionContext` and `(ec) ToResponseHeaders() ResponseHeaders`. The analyser adapter **imports and reuses** these — and builds its response via `FromRequestHeaders` → set status/sender → `ToResponseHeaders`, so the envelope is constructed by the platform's own logic (the strongest guarantee that output messages pass validation). It does NOT mirror the types locally the way the git adapter did — that local re-declaration is the duplication import-reuse avoids. The cyclic-import concern this codebase manages (see interfaces.go: `MessageTracer` defined locally "to avoid cyclic import") applies to BEHAVIORAL interfaces, not these plain data types, so importing them is clean.
+
+**Naming = `analyser`.** `system.adapter.analyser.requests`, consumer group `analyser.adapter.group`. Convention: adapters are named for the capability they front (thunder→GPU, git→git, ollama→models, analyser→code/doc parsers). The offered product names (contextkit/contexttool/doctool) name the consumer, not this adapter's job; doctool is too narrow (code-first). Trivially renamable.
+
+**`adapter.go` built (draft in chassis-drafts/analyser-adapter/).** Mirrors thunder/adapter.go: `Adapter{kafka.Consumer, kafka.Producer, requestsTopic, analyse *AnalyseAction}`; `NewAdapter` (env-overridable topic/group, `kafka.NewConsumer`/`NewProducer`, read-only `GitHubSource` from `GITHUB_READ_TOKEN`); `Run` (fetch loop + a small `/health`,`/ready` HTTP server like thunder); `handleMessage` (parse incoming `{Headers types.RequestHeaders, Body json.RawMessage}` → `FromRequestHeaders` → dispatch by `Headers.Action=="analyse"` → `AnalyseAction.Execute` → `buildResponse` → produce to `Headers.ResponsesTopic` → commit). `buildResponse` uses `ToResponseHeaders` + `ResponseBody`, status vocab complete/error_unrecoverable. Unknown actions return not_implemented.
+
+**Manifest built** (`analyser-adapter.yaml`): Deployment in ai-persona-system + read-only repo-scoped Secret `analyser-github-read` (mounted only here) + HTTP health probes. Image/command/Kafka-config wiring flagged to mirror thunder.
+
+**Two reconcile flags in adapter.go (only these):** (1) the kafka package import path + the exact `NewConsumer`/`NewProducer`/`FetchMessage`/`Produce`/`CommitMessages` signatures — copy from thunder/adapter.go; (2) which `ExecutionContext` fields to set before `ToResponseHeaders` (it sets Sender/Status/IsComplete/IsError) + confirm `AgentIdentity` field names and whether `FromRequestHeaders` populates the ToAgent routing fields.
+
+**Adapter is now complete as drafts:** `github_source.go` (read-only tarball fetch) + `analyse_action.go` (handler) + `adapter.go` (dispatcher) + `analyser-adapter.yaml` (manifest) + the compiled `analysis.Analyse` library (moves to chassis `internal/analysis`). **Next: the consumer side** — `index_code_symbols` + `lookup_code_symbols` actions and the indexer agent (one-step-each orchestrator: call the analyser adapter at `system.adapter.analyser.requests` → upsert returned symbols into `code_symbols` → prune), then the end-to-end run (index chassis → B4a measurement → assemble with retrieved context).
+
+- 2026-06-09 — Confirmed import-reuse of the canonical `platform/orchestration/types` (and the `FromRequestHeaders`/`ToResponseHeaders` helpers) for the response envelope; built the analyser adapter dispatcher (`adapter.go`, mirrors thunder, reuses the helpers) + the k8s manifest. Naming settled: `analyser`. Adapter complete as drafts; next is the index/lookup consumer side.
+
+## Guideline audit + dispatcher fix (2026-06-09, after reading 001/002/003)
+
+**Audit of the analyser adapter vs the guidelines.** Conforms: typed-struct response headers with real bool is_complete/is_error (003 bool trap — the body uses types.ResponseHeaders via ToResponseHeaders); import-reuse of the canonical types; actions not split wrapper+core; no logger.Debug; structured zap logging; idempotent handler; index/lookup_code_symbols correctly scoped as actions (003: rag_lookup/rag_index are actions, not agents) and the indexer as the anticipated knowledge-indexer agent.
+
+**Did NOT conform — fixed this turn (structural, doc 003 Adapter Response Envelope Contract):**
+1. The reply set NO Kafka message headers, so the chassis router couldn't match the awaited_requests row → silent fall-through to process-as-work → row sits `waiting` until timeout (the exact documented thunder fault). Fixed: `buildResponseKafkaHeaders` sets message_type=response, **request_id = incoming request_id reused verbatim**, fresh message_id, in_response_to_request_id, orchestration_id, correlation_id, status, sender_agent_type, in_response_to_step_id/name.
+2. Used plain `Produce`. Fixed: `ProduceWithValidation` (runs the outgoing validator; still sends error responses on validation failure).
+3. Reply topic now prefers `ReplyToTopic` then `ResponsesTopic`.
+
+**Correction to the earlier import-reuse advice.** The canonical `types.ResponseHeaders` has NO `request_id`/`message_id` field and NO `ToKafkaHeaders` method (verified in context.go). So import-reuse is right for the BODY (real bools via ToResponseHeaders) but the adapter MUST add a Kafka-header builder + ProduceWithValidation — which is exactly why the git adapter mirrored its ResponseHeaders locally (it added those fields + ToKafkaHeaders). 003 names webscrape (map builder) and git (typed struct + ToKafkaHeaders) as the reference implementations; this adapter's body=canonical, kafka-headers=local-builder is the correct hybrid.
+
+## Consumer side — plan (build next, needs source to do it right first time)
+
+Per 001/003: `index_code_symbols` and `lookup_code_symbols` are **actions** (infrastructure, mirroring rag_index/rag_lookup), in `platform/orchestration/actions/code_symbols_actions.go`, registered in `action_registry.go`, using `datahelpers.ActionInputSpec` + `ExtractActionInputs`, parameterised SQL (003 parameterisation contract), reusing the rag embedding helpers (createRAGEmbeddingClient/applyNomicPrefix/pgvectorString). The **code-indexer** is an **agent** (a row in agent_definitions; agent_category `integrator`), an orchestrator whose workflow calls the analyser adapter then indexes.
+
+- `index_code_symbols` — Required: repo; Optional: commit_sha, symbols (the analyser Output), embedding_service. Upsert each symbol into code_symbols `ON CONFLICT(repo,path,symbol) DO UPDATE WHERE content_hash IS DISTINCT`, embed signature+doc (non-fatal, like rag_index), prune rows for repo whose commit_sha != the current one (hard delete — rebuildable cache). Field names prefixed to dodge the nested-source collisions (001): `repo`, not `domain`/`site_id`.
+- `lookup_code_symbols` — Required: query (or query_field); Optional: repo, top_k (default 12), embedding_service. Embed query → vector search code_symbols (cosine) → trigram fallback → return top-k + a combined `code_context` + `search_method`. Mirrors rag_lookup's output contract.
+- code-indexer agent workflow (orchestrator): `request_analysis` (calls the analyser adapter at system.adapter.analyser.requests, action `analyse`, awaits Output) → `index` (index_code_symbols with the returned symbols + commit_sha) → complete. One concern per step.
+
+**Open mechanism + source needed (mirrors the user's offer to send the kafka package for the dispatcher):** to write these to compile/validate first time, need —
+1. `rag_actions.go` — to reuse the exact embedding helpers + match the ActionParams signature, embedding_service config block, and the vector/trigram query shape (avoid re-deriving — 001's resolveRAGFieldPath lesson).
+2. An existing **adapter-calling action** (the chassis-side action that sends to webscrape/git's adapter topic and awaits the response, e.g. WebscrapeAction or the git_commit action) — to write `request_repo_analysis` (send `analyse` to the analyser adapter + await) the same way, rather than inventing a request-reply mechanism (001's "universal topic fallback" trap).
+3. `action_registry.go` (or a snippet) — registration convention.
+4. One sample `agent_definitions` row (any orchestrator) — to match default_config.workflow + input_contract/output_contract + docker_image/tag + agent_category for the code-indexer.
+
+- 2026-06-09 — Audited the adapter against 001/002/003; found + fixed a doc-003 Adapter Response Envelope violation (no Kafka headers / plain Produce) that would have silently timed out every reply; corrected the import-reuse note (canonical ResponseHeaders lacks request_id/message_id/ToKafkaHeaders → body reuses it, adapter adds a Kafka-header builder + ProduceWithValidation). Planned the consumer side (index/lookup_code_symbols actions + code-indexer agent) and listed the four source files needed to build it right first time.
+
+## Consumer side BUILT (2026-06-09, against the real rag_actions.go / webscrape_actions.go / registry.go / agent_definitions rows)
+
+**Compile fix:** adapter.go `ProduceWithValidation` arg order was wrong; the real signature (webscrape_actions.go) is `ProduceWithValidation(ctx, topic, headers map[string]string, key []byte, value []byte)` — headers BEFORE key. Fixed.
+
+**Three actions built (drafts in chassis-drafts/analyser-adapter/, package `actions`):**
+- `code_symbols_actions.go` — `LookupCodeSymbolsAction` + `IndexCodeSymbolsAction` + code_symbols search/scan/flatten helpers. REUSES (same package, no new code) createRAGEmbeddingClient, applyNomicPrefix, pgvectorString, getEmbeddingModel, resolveRAGConfigField, nullIfEmpty, truncateForLog. Index: analysis.Output → flatten to symbol rows (methods carry receiver, e.g. `(*OllamaClient).GenerateEmbedding`) → load existing content_hashes (skip re-embedding unchanged) → embed changed (non-fatal) → upsert ON CONFLICT(repo,path,symbol) DO UPDATE with `embedding = COALESCE(EXCLUDED.embedding, code_symbols.embedding)` → prune `WHERE repo=$1 AND commit_sha IS DISTINCT FROM $current` (skipped + logged when no commit). Lookup: mirrors rag_lookup (query→vector cosine `<=>`→trigram `%` fallback→top-k + `code_context`). All SQL parameterised (doc 003). Output decode: re-marshal the collected_data field → unmarshal into analysis.Output (collected_data holds JSON, not the Go struct).
+- `analyser_request_action.go` — `RequestRepoAnalysisAction`, modelled on WebscrapeAction. Sends JSON `{headers:{...action:"analyse"...}, body:{owner,repo,ref,language}}` to `system.adapter.analyser.requests` via ProduceWithValidation (headers map mirrors JSON headers), returns `AwaitResponse=true` → engine awaits the adapter reply into the step's output_field.
+- `NNN_create_code_indexer_agent.sql` — the code-indexer agent definition (category `code-driven`, agent_category `integrator`), modelled on the real rows. Orchestrator workflow: request_analysis → index_symbols → complete.
+
+**Registry entries to add to GlobalActionRegistry (registry.go), Category "storage"/"code", IsLocal true:** index_code_symbols→IndexCodeSymbolsAction, lookup_code_symbols→LookupCodeSymbolsAction, request_repo_analysis→RequestRepoAnalysisAction.
+
+**Two things to confirm against a real run (configs trivially adjustable):**
+1. `\d agent_definitions` — NOT NULL/defaults/CHECK before applying the agent INSERT (agent_category CHECK allows integrator; category is freeform).
+2. The shape the awaited adapter reply takes in collected_data under the step's output_field — index_code_symbols reads `repo_analysis.output` / `.commit_sha` / `.repo` (ExtractNestedField auto-unwraps `.response`, so a `.response` wrapper is tolerated). Confirm from the first run's logs and adjust the `analysis_field`/`commit_field`/`repo_field` configs if the engine nests differently.
+
+**End-to-end test sequence:** deploy analyser adapter → seed the read-only secret → trigger code-indexer (generic entry point, input_data {owner, repo, ref}) → verify code_symbols populated (counts in index_result) → run the B4a measurement (lexical vs semantic-against-real-adapter vs fused on the code ground truth) → assemble a bundle using lookup_code_symbols for retrieval.
+
+- 2026-06-09 — Fixed the adapter ProduceWithValidation arg order; built the consumer side (index_code_symbols + lookup_code_symbols + request_repo_analysis actions, reusing the rag helpers + the webscrape adapter-call pattern) and the code-indexer agent definition (modelled on real rows). Registry entries + two run-time confirmations noted. Next: apply + the end-to-end run.
+
+## Analyser thread — built to deploy-ready (2026-06-10/11)
+
+Everything below exists as verified drafts in `chassis-drafts/analyser-adapter/`
+(destinations in the tree-anchored map, `contextkit/README.md`). The thread moved
+from "consumer side built" to **deploy-ready**: the only file not drafted is the
+dockerfile (a name-swap copy of thunder's).
+
+**Envelope contract — resolved empirically, then single-sourced.** The 003-vs-FOCUS
+contradiction was settled from code, not docs: coordinator.go claims the awaited
+request on `in_response_to_request_id` first (`request_id` only a fallback); the
+working adapters (git/thunder/image-generator) all use typed body headers with
+REAL bools + `ProduceWithValidation`; web-search is the lone deprecated outlier the
+FOCUS skeleton happened to describe. Every adapter reads `action` from the BODY.
+The adapter + sender were fixed accordingly (body.action + body.data; reply topic
+accepted from headers OR body). The contract now lives once in
+**035_adapter_guide.md §1** (FOCUS_adapter_design fully merged into §2 and
+retired); the validator-tightening TODO is §1.10. PENDING on the user: replace 003
+§832-890 with the short pointer to 035 §1 (text supplied 2026-06-11).
+
+**Adapter structurally complete.** Reworked to the thunder/git lifecycle: struct
+holds ctx/cancel/cfg/adapterID/senderType/healthServer/shutdownOnce/shutdownWg;
+`Run()` (no args, backoff, nil-on-shutdown); exported `StartHealthServer(port)`
+(/ready = 503 while draining — no GitHub ping, it would burn rate limit);
+`sync.Once` `Shutdown()`; `commit()` on Background ctx; produce on Background+10s
+so completed work replies during drain; shutdown-mid-work leaves the message
+uncommitted for redelivery (no false `error_unrecoverable`). Fixed a real producer
+LEAK on NewAdapter's github-source failure path. `main.go` is pattern-identical to
+the git/thunder mains (`config.Load` + `logger.New` confirmed from the real
+files; Run-in-goroutine + runComplete select). `configs/analyser-adapter.yaml`
+follows 035 §2.11; no databases.
+
+**Registry + destinations verified against the real repo.** The three entries
+(lookup_code_symbols, index_code_symbols → "storage" matching rag siblings;
+request_repo_analysis → "code", a NEW category, "analysis" the existing
+alternative — user's call) are formatted to the house multi-line style with the
+anchor after `training_data_export`; `IsLocal: true` matches every adapter-calling
+precedent. The real tree confirmed: actions home = `platform/orchestration/actions/`;
+migrations = `platform/database/migrations/`; **`internal/analysis` already exists
+in the repo** (verify it matches contextkit's copy); contextkit's in-repo home =
+`docs/agent_docs/docs019_…/go_files/contextkit/`.
+
+**Deploy artifacts drafted (2026-06-11, modelled on the uploaded thunder set).**
+Kustomize: cluster-agnostic base (Deployment+Service only — no rbac, the analyser
+manages no k8s resources) + **overlay-heavy config** per the user's
+different-clusters preference (configMapGenerator + per-cluster
+`configs/analyser-adapter.yaml` live in `overlays/production/uk_001/`, the
+auth-service/core-manager precedent); image pin in thunder's name+newTag form;
+exactly ONE `newTag` occurrence (deploy-agents' sed mangles comments containing
+the literal key — trap caught, worth a 035 §2.12 line). Makefile updated (4
+insertions cloned tab-exact from thunder's blocks; `make -n` verified). KafkaTopic
+CRD drafted standalone (kafka namespace — deliberately NOT a kustomize resource,
+the overlay namespace would override it); user confirmed topics were applied the
+thunder/provisioner way.
+
+**Deployment sequence (replaces the earlier end-to-end sketch; detail in
+RUNBOOK_thin_slice.md "In-cluster path"):** copy files per the map → create the
+read-only secret + apply the topic CRD → paste registry entries + dockerfile
+name-swap → `\d agent_definitions` then the code-indexer INSERT → `kubectl
+kustomize` dry-build → `make release-backend` → kcat smoke → trigger code-indexer
+→ confirm the two runtime shapes (agent INSERT columns; awaited-reply nesting for
+`analysis_field`/`commit_field`/`repo_field`) → verify code_symbols counts → B4a
+with sem.json now from the live path.
+
+**Open before indexing in anger:** the `code_symbols.repo` naming convention
+(repo vs owner/repo vs tenant-prefixed) — settle once, it keys the table.
+
+## Changelog (continued)
+
+- 2026-06-10/11 — Envelope contract resolved empirically (in_response_to_request_id matcher; real bools; ProduceWithValidation; body.action) and single-sourced into 035_adapter_guide (FOCUS retired; 003 pointer pending user). Adapter + sender envelope fixed; adapter structurally completed (lifecycle, main.go, config, shutdown, leak fix); registry insertions verified to house format; destinations tree-anchored (internal/analysis already in repo); kustomize set (overlay-heavy config) + Makefile (4 insertions, make -n verified) + KafkaTopic CRD drafted. Remaining to deploy-ready: dockerfile name-swap copy. Then the deployment sequence above.
+
+- 2026-06-11 — PARALLEL THREAD (tools/provenance/docs, tracked in NOTES): grounded in 019/020 + \d content_components/knowledge_base — tools are content_components rows (fork-on-deploy); docs half-built (companion guides exist; gap is rag_index-ing them); provenance = two source_* columns drafted; tool-doc header contract + sentinel strip designed (ships-to-public constraint), Go helpers built+tested, tool_health checks 9/10 patched, splice-point map grounded (save_page_sections INSERT, assemblePage/collectJSAssets choke points; js_content assets-split EXISTS per 003). Remaining: create_tool_component_action.go + deploy_tool_action.go uploads; agent prompt rows from clients_db. Artifacts: chassis-drafts/tool-docs/.
+
+- 2026-06-11 (later) — TOOLS THREAD COMPLETE TO APPLY-READY: the previous entry's "Remaining" items are resolved (both tool actions + the agent prompt rows arrived). Built: HasToolDocHeader hard gate + source_* stamping in create_tool_component; source_* stamping on deploy_tool's fork; strips at ALL THREE outbound deploy points (single-page html, collectJSAssets values, bulk finalHTML — the bulk path was a third site found this session); tool_health checks 9/10; anchored+idempotent prompt UPDATEs SQL (top-level paths, snapshot-first). Docs reconciled to the final strip-at-deploy design (rendered_html RETAINS the header). Deployment order is three-staged and load-bearing: provenance migration → prompts SQL → one binary release; sequence + verification in RUNBOOK "Tool-doc header rollout". Flagged-not-changed: forks default created_from='manual'; js_content not copied on fork (landmine while unarmed); bulk path lacks collectJSAssets.
+
+- 2026-06-12 — ANALYSER DEPLOYED TO PRODUCTION (uk_001). The thread moved from deploy-ready to deployed; the code-indexer agent row is applied (INSERT 0 1). Remaining is verification, not construction: post-deploy smoke → first indexing run (watch the awaited-reply nesting caveat) → code_symbols counts (WHERE repo='gqls/agentchassis') → B4a embedding-quality measurement (the one unmeasured risk), all per RUNBOOK "In-cluster path" steps 3-6. Deploy-time fixes recorded in NOTES: domain_tags jsonb cast, missing overlay configs/ dir, patchesStrategicMerge→patches:.
+
+## Diagnosis loop — migrated to a chassis agent (designed + drafted, 2026-06-14/17)
+
+A NEW workstream beyond the original analyser/embed/assemble migration: an
+LLM-reasoning agent that diagnoses chassis bugs read-only. It is the lever B4a
+identified — when a cause lives in shared infrastructure named for its function
+not its failure mode, symptom retrieval has a ceiling (lexical AND semantic at
+0.00 on the real gamesdesign-fix symbols), so the answer is iterative re-scoping
+that FOLLOWS runtime/call-graph evidence, not better retrieval. Full B4a result
+and the engine build are in NOTES (STATE DIGEST) + RUNBOOK_thin_slice.md §B4a +
+RUNBOOK_design_diagnosis_loop.md.
+
+**Engine — built + tested standalone (26 tests), graduates to `pkg/diagnose`.**
+`contextkit/internal/diagnose/`: loop.go (Run) + step.go (DecideStep, the pure
+per-iteration guard+re-scope = one source of truth) + callgraph.go + verdict_wire.go
++ advance.go (the chassis-facing LoopState/Advance/Encode/Decode/ParseVerdictValue).
+Four convergence guards + the no-citation→UNVERIFIABLE coercion all behaviour-tested;
+advance_test.go proves Advance threaded across iterations (with state round-trips,
+as the chassis does) reproduces Run(). cmd/diagnose is the dev/test harness only.
+
+**Chassis shape — an AGENT, workflow-driven + observable (the user's call).** The
+loop is gather → verdict (its OWN execute_llm_prompt step) → route → [loop back to
+assemble | emit]. STEP ZERO (the dev-guide reuse rule) found most of the gather
+already exists as live chassis actions:
+- REUSE `request_repo_analysis` (the deployed analyser adapter) + `lookup_code_symbols`
+  (deployed, vector+trigram) — the analyse + retrieve steps.
+- REUSE `execute_llm_prompt` for the verdict (NOT a new action; returns {"result":...}
+  read at verdict.result; renders the prompt against flattened collected_data).
+- TWO new gather actions (drafted, chassis-drafts/): `diagnose_load_runtime`
+  (real-schema SQL over agent_error_log / site_work_items / orchestration_states —
+  \d-verified) and `diagnose_assemble_bundle` (composes hypothesis + symbol bodies
+  read at commit_sha + runtime; scope fallback chain route.scope→seed→code_results).
+- `diagnose_route` (the loop controller: Advance → next_step override; a ROUTER, so
+  NO output_field — its result lands under step name "route", read as route.*; the
+  conditional_route pattern, confirmed against coordinator.go getNextStepFromResult).
+- `diagnose_emit` (thin read-only formatter; no DB, no new table — persistence would
+  need its own schema; the report goes back via complete_workflow result_from).
+All four guideline-AUDITED (ActionInputSpec+init; export only XxxAction+XxxInputSpec
+per the over-abstraction test; field-collision-checked; composition via workflow).
+
+**Agent definitions — drafted against the REAL schema + rows (corrected).** Two rows
+in `NNN_seed_diagnose_agents.sql`: `diagnose-orchestrator` (wrapper, the
+intake-orchestrator spawn→call→complete shape, processing_mode "orchestration") and
+`diagnose-agent` (worker, processing_mode "task", the observable loop). KEY
+CORRECTION from a real row: the workflow lives in **default_config**, not the three
+NULL workflow columns (task_workflow/orchestrator_workflow/orchestration_workflow);
+default_config = {"workflow":{start_step,steps}, "processing_mode", "timeout_seconds"};
+a call_agent child result is read under the call step's output_field then .response.*;
+the verdict prompt is INLINE (no prompt-ref store). All grounded in the live
+intake-orchestrator + site-classifier rows.
+
+**Triggering — no new code.** On-demand via the existing generic-request envelope
+(kcat to system.agent.generic.requests, agent_type diagnose-orchestrator, input_data
+{symptom, seed_scope, runtime_site, ...}). Orchestrator-spawns-worker per "every
+agent is an orchestrator" + the wrapper rule (the loop does substantive in-chassis
+work — LLM calls, iterations, minutes — so MUST be wrapped, not run on shared
+chassis pods). Later triggers (b) on build/rebuild failure via site_work_items /
+agent_error_log, (c) proactive sweep — same envelope, different sender, gated on the
+eval below.
+
+**To wire (no design left — wiring + verification):** (1) readSymbolBody in
+assemble_bundle → slice start_line/end_line from repo_analysis (NOT re-parse);
+(2) paste PROMPT_diagnosis_verdict.md into the migration's verdict placeholder
+(JSON-escaped); (3) confirm 5 chassis mechanics (route next_step under step-name vs
+a live conditional_route; assemble re-exec on loop-back with route.* visible;
+{{.bundle.bundle}} via input_fields; default_config column CONFIRMED; call_agent
+child-result key). Build order: ChassisGatherer wiring + the 2 actions → diagnose_route
++ diagnose_emit + registry (Category "diagnose") → the 2 agent-definition rows →
+trigger (a) via trigger-diagnose.sh → THE EVAL GATE.
+
+**The eval gate (stands before any unsupervised use):** scaffold correct ≠ reasons
+well. Run the LIVE agent on the gamesdesign bug + 016 §9 catalogue; require it to
+reproduce the mid-course REVERSALS and ABSTAIN when unsettled, not confirm first
+guesses. Read-only/human-gated boundaries do NOT relax in the chassis.
+
+## Changelog (continued)
+
+- 2026-06-14/17 — DIAGNOSIS LOOP workstream (new). B4a answered: embeddings don't
+  earn a code-path place (skinner-box lexical 0.50 vs semantic 0.00; resultspec all
+  three 0.00 — the symptom→infrastructure ceiling); the lever is the loop, not
+  retrieval. Engine BUILT+TESTED standalone (26 tests, internal/diagnose: loop/step/
+  callgraph/verdict_wire/advance; cmd/diagnose harness; end-to-end reproduces the
+  gamesdesign reversals). Verdict prompt written (PROMPT_diagnosis_verdict.md).
+  Chassis integration DESIGNED + DRAFTED (chassis-drafts/): the loop is an AGENT,
+  workflow-driven + observable (gather→verdict→route→[loop|emit]); gather REUSES
+  request_repo_analysis + lookup_code_symbols + execute_llm_prompt (verdict), + 2
+  new gather actions (diagnose_load_runtime real-schema SQL, diagnose_assemble_bundle)
+  + diagnose_route (router, next_step override) + diagnose_emit (read-only formatter);
+  registry entries (Category "diagnose"); 2 agent definitions (default_config-shaped —
+  CORRECTED from the workflow columns after reading a real row). Triggering = existing
+  generic-request envelope, orchestrator-spawns-worker, no new code. Remaining: wire
+  readSymbolBody, paste the prompt, confirm 5 mechanics, then the real-bug eval gate.
+  Docs: DESIGN_diagnosis_loop_chassis_integration.md, RUNBOOK_design_diagnosis_loop.md.

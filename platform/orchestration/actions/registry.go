@@ -1062,7 +1062,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 
 	// =========================================================================
-	// DIAGNOSE — the read-only diagnosis loop (engine in pkg/diagnose)
+	// DIAGNOSE — the read-only, workflow-driven diagnosis loop (engine: pkg/diagnose)
+	//   gather: request_repo_analysis → lookup_code_symbols → diagnose_load_runtime
+	//           → diagnose_assemble_bundle
+	//   verdict: execute_llm_prompt (verdict prompt; NOT a diagnose action)
+	//   control: diagnose_route (guards + re-scope; loops back to assemble | → emit)
+	//   output:  diagnose_emit (formats the human-facing diagnosis; read-only)
 	// =========================================================================
 	"diagnose_load_runtime": {
 		Handler:     DiagnoseLoadRuntimeAction,
@@ -1073,21 +1078,21 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	"diagnose_assemble_bundle": {
 		Handler:     DiagnoseAssembleBundleAction,
 		Category:    "diagnose",
-		Description: "Compose the diagnosis bundle: in-scope symbol bodies (read at commit_sha) + runtime evidence, for the verdict step",
+		Description: "Compose the diagnosis bundle: hypothesis + in-scope symbol bodies (read at commit_sha) + runtime evidence, for the verdict step",
 		IsLocal:     true,
 	},
-	/*	"diagnose_run": {
-			Handler:     DiagnoseRunAction,
-			Category:    "diagnose",
-			Description: "Run the read-only diagnosis loop (pkg/diagnose): hypothesise, gather, cite-or-abstain verdict, re-scope by following evidence; emits a diagnosis + trail, never a fix",
-			IsLocal:     true,
-		},
-		"diagnose_emit": {
-			Handler:     DiagnoseEmitAction,
-			Category:    "diagnose",
-			Description: "Write the final diagnosis + evidence trail (to the caller / a triage note) for a human; never a fix",
-			IsLocal:     true,
-		},*/
+	"diagnose_route": {
+		Handler:     DiagnoseRouteAction,
+		Category:    "diagnose",
+		Description: "Per-iteration loop controller: apply the engine guards + call-graph re-scope to the verdict, return a next_step override to iterate (back to gather) or stop (to emit); read-only",
+		IsLocal:     true,
+	},
+	"diagnose_emit": {
+		Handler:     DiagnoseEmitAction,
+		Category:    "diagnose",
+		Description: "Format the human-facing diagnosis + evidence trail from the loop's terminal state; read-only, never a fix",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline
