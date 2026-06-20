@@ -1054,7 +1054,7 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Ask the analyser adapter to parse a repo at ref; awaits the symbol output",
 		IsLocal:     true,
 	},
-	
+
 	// =========================================================================
 	// DIAGNOSE — the read-only diagnosis loop (engine in pkg/diagnose)
 	// =========================================================================
@@ -1070,19 +1070,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Compose the diagnosis bundle: in-scope symbol bodies (read at commit_sha) + runtime evidence, for the verdict step",
 		IsLocal:     true,
 	},
-	"diagnose_run": {
-		Handler:     DiagnoseRunAction,
-		Category:    "diagnose",
-		Description: "Run the read-only diagnosis loop (pkg/diagnose): hypothesise, gather, cite-or-abstain verdict, re-scope by following evidence; emits a diagnosis + trail, never a fix",
-		IsLocal:     true,
-	},
-	"diagnose_emit": {
-		Handler:     DiagnoseEmitAction,
-		Category:    "diagnose",
-		Description: "Write the final diagnosis + evidence trail (to the caller / a triage note) for a human; never a fix",
-		IsLocal:     true,
-	},
-
+	/*	"diagnose_run": {
+			Handler:     DiagnoseRunAction,
+			Category:    "diagnose",
+			Description: "Run the read-only diagnosis loop (pkg/diagnose): hypothesise, gather, cite-or-abstain verdict, re-scope by following evidence; emits a diagnosis + trail, never a fix",
+			IsLocal:     true,
+		},
+		"diagnose_emit": {
+			Handler:     DiagnoseEmitAction,
+			Category:    "diagnose",
+			Description: "Write the final diagnosis + evidence trail (to the caller / a triage note) for a human; never a fix",
+			IsLocal:     true,
+		},*/
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline
