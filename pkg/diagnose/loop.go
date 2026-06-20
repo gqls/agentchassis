@@ -181,54 +181,46 @@ func Run(seedHypothesis string, seedScope Scope, g Gatherer, v Verdicter, cg Cal
 		if err != nil {
 			return Result{}, fmt.Errorf("iteration %d verdict: %w", i, err)
 		}
-		// Coerce: a Confirmed/Refuted WITHOUT a citation is invalid → Unverifiable
-		// (DESIGN §2, the item-24 rule as a machine check).
-		if (verdict.Outcome == Confirmed || verdict.Outcome == Refuted) && len(verdict.Citations) == 0 {
-			verdict.Outcome = Unverifiable
-			verdict.NeededEvidence = "verdict gave no citation; cannot stand — " + verdict.NeededEvidence
+
+		// One iteration of the shared decision logic (guards + re-scope + the
+		// no-citation coercion). Run() owns the IO above; Step() owns the decision.
+		d := DecideStep(StepInput{
+			Iteration:       i,
+			MaxIterations:   cfg.MaxIterations,
+			Hypothesis:      hyp,
+			Scope:           scope,
+			Verdict:         verdict,
+			CallGraph:       cg,
+			FollowCallGraph: cfg.FollowCallGraph,
+			SeenCitations:   seenCitations,
+			HypHistory:      hypHistory,
+			PrevScopeSize:   prevScopeSize,
+		})
+
+		// Record this iteration in the trail (Step coerces the verdict internally;
+		// re-apply the same coercion here so the trail shows what Step decided on).
+		recorded := verdict
+		if (recorded.Outcome == Confirmed || recorded.Outcome == Refuted) && len(recorded.Citations) == 0 {
+			recorded.Outcome = Unverifiable
+		}
+		trail = append(trail, Step{
+			Iteration: i, Hypothesis: hyp, Scope: scope, BundlePath: bundlePath,
+			Verdict: recorded, GuardStop: d.StopReason,
+		})
+
+		if d.Decision == "stop" {
+			if d.TerminalStatus == Confirmed {
+				return Result{Status: Confirmed, Conclusion: d.Conclusion, Trail: trail, StoppedBy: d.StopReason}, nil
+			}
+			return Result{Status: Unverifiable, Conclusion: d.Conclusion, Trail: trail, StoppedBy: d.StopReason}, nil
 		}
 
-		step := Step{Iteration: i, Hypothesis: hyp, Scope: scope, BundlePath: bundlePath, Verdict: verdict}
-
-		switch verdict.Outcome {
-		case Confirmed:
-			step.GuardStop = "confirmed"
-			trail = append(trail, step)
-			return Result{
-				Status:     Confirmed,
-				Conclusion: confirmConclusion(hyp, verdict),
-				Trail:      trail,
-				StoppedBy:  "confirmed",
-			}, nil
-
-		case Refuted:
-			// The falsification move: adopt the revised hypothesis + re-scope by
-			// FOLLOWING evidence (§1a), not re-searching.
-			next := nextScope(scope, verdict, cg, cfg)
-			// Guards (DESIGN §3) — evaluate BEFORE committing to the next round.
-			if stop := guardAfter(verdict, next, prevScopeSize, seenCitations, &hypHistory, hyp); stop != "" {
-				step.GuardStop = stop
-				trail = append(trail, step)
-				return bestEffort(trail, stop), nil
-			}
-			trail = append(trail, step)
-			hyp = verdict.RevisedHypothesis
-			prevScopeSize = scope.size()
-			scope = next
-
-		case Unverifiable:
-			// Widen to get the named missing evidence; same guards apply.
-			next := nextScope(scope, verdict, cg, cfg)
-			if stop := guardAfter(verdict, next, prevScopeSize, seenCitations, &hypHistory, hyp); stop != "" {
-				step.GuardStop = stop
-				trail = append(trail, step)
-				return bestEffort(trail, stop), nil
-			}
-			trail = append(trail, step)
-			prevScopeSize = scope.size()
-			scope = next
-			// hypothesis unchanged on Unverifiable (we're gathering, not pivoting)
-		}
+		// continue: carry the advanced state into the next iteration
+		seenCitations = d.SeenCitations
+		hypHistory = d.HypHistory
+		prevScopeSize = scope.size()
+		hyp = d.NextHypothesis
+		scope = d.NextScope
 	}
 
 	return bestEffort(trail, "iteration-cap"), nil
@@ -328,17 +320,33 @@ func confirmConclusion(hyp string, v Verdict) string {
 }
 
 func bestEffort(trail []Step, stoppedBy string) Result {
-	var b strings.Builder
-	fmt.Fprintf(&b, "NOT CONFIRMED (stopped: %s). Best-effort state after %d iteration(s):\n",
-		stoppedBy, len(trail))
+	var lastHyp string
+	var lastVerdict Verdict
 	if n := len(trail); n > 0 {
-		last := trail[n-1]
-		fmt.Fprintf(&b, "  last hypothesis: %s\n", last.Hypothesis)
-		fmt.Fprintf(&b, "  last verdict: %s\n", last.Verdict.Outcome)
-		if last.Verdict.NeededEvidence != "" {
-			fmt.Fprintf(&b, "  still needed: %s\n", last.Verdict.NeededEvidence)
+		lastHyp = trail[n-1].Hypothesis
+		lastVerdict = trail[n-1].Verdict
+	}
+	return Result{
+		Status:     Unverifiable,
+		Conclusion: bestEffortConclusion(stoppedBy, lastHyp, lastVerdict),
+		Trail:      trail,
+		StoppedBy:  stoppedBy,
+	}
+}
+
+// bestEffortConclusion renders the not-confirmed summary. Shared by bestEffort
+// (standalone Run) and Step (the chassis per-iteration decision) so the wording
+// is identical in both paths.
+func bestEffortConclusion(stoppedBy, lastHypothesis string, lastVerdict Verdict) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "NOT CONFIRMED (stopped: %s).\n", stoppedBy)
+	if lastHypothesis != "" {
+		fmt.Fprintf(&b, "  last hypothesis: %s\n", lastHypothesis)
+		fmt.Fprintf(&b, "  last verdict: %s\n", lastVerdict.Outcome)
+		if lastVerdict.NeededEvidence != "" {
+			fmt.Fprintf(&b, "  still needed: %s\n", lastVerdict.NeededEvidence)
 		}
 	}
 	fmt.Fprintf(&b, "Hand to a human with the full trail; do NOT auto-conclude.")
-	return Result{Status: Unverifiable, Conclusion: b.String(), Trail: trail, StoppedBy: stoppedBy}
+	return b.String()
 }

@@ -18,7 +18,7 @@ import (
 	"sort"
 	"strings"
 
-	"contextkit/internal/analysis"
+	"github.com/gqls/agentchassis/internal/analysis"
 )
 
 // AnalysisCallGraph implements CallGraph over an analyser Output.
