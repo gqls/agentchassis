@@ -72,7 +72,12 @@ import (
 )
 
 var RerenderPageSectionsInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id", "page_name"},
+	// target_site_id (NOT site_id) per 001 §Field name collisions: site_id is a
+	// key on the nested-source objects (site_record.site_id, input_data.site_id),
+	// so a bare site_id can be silently bound from the wrong source. The wiring
+	// maps it explicitly: "target_site_id": "input_data.site_id". Same precedent
+	// as reconcile_site_plan.
+	Required: []string{"target_site_id", "page_name"},
 	Optional: []string{"reason"},
 	Defaults: map[string]interface{}{},
 }
@@ -107,9 +112,9 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	if err != nil {
 		return nil, fmt.Errorf("input extraction failed: %w", err)
 	}
-	siteID, err := uuid.Parse(inputs.Get("site_id"))
+	siteID, err := uuid.Parse(inputs.Get("target_site_id"))
 	if err != nil {
-		return nil, fmt.Errorf("invalid site_id %q: %w", inputs.Get("site_id"), err)
+		return nil, fmt.Errorf("invalid target_site_id %q: %w", inputs.Get("target_site_id"), err)
 	}
 	pageName := inputs.Get("page_name")
 	if pageName == "" {
