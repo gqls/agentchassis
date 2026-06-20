@@ -12,15 +12,28 @@
 //   statement about one specific site, not a reusable template.
 //
 // Signal priority cascade:
-//   1. design_reference.palette.reference_values    (fingerprint — adopted sites)
-//   2. mission.preferred_palette                    (human pre-specified)
-//   3. design_intent.palette.reference_values       (semantic brief)
+//   1. mission.preferred_palette                    (human pre-specified)
+//   2. design_intent.palette.reference_values       (semantic brief; for adopted
+//                                                    sites this carries the
+//                                                    fingerprint colours PLUS the
+//                                                    accent/secondary enrichment)
+//   3. design_reference fingerprint                 (suggested_mapping / css_variables
+//                                                    via paletteFromDesignReference —
+//                                                    FALLBACK, only when design_intent
+//                                                    produced no palette; adopted sites
+//                                                    only)
 //   4. Inherit from chosen layout's default library palette
 //      (e.g. brochure-formal → "default" palette, high-energy → "boxing")
 //      — only the CORE slots (primary/secondary/accent/background/
 //      surface/text/text_muted/border) — so the site has a coherent
 //      starting point. Core slots can still be overridden later by
 //      design_spec merge at render time.
+//   5. The "default" library palette (last resort).
+//
+// NOTE: design_intent stays ahead of the design_reference fingerprint on
+// purpose. The fingerprint's suggested_mapping is typically 6 colour slots
+// with no accent; the generated design_intent adds accent/secondary. Reading
+// the fingerprint first would strip an adopted site's accent colour.
 //
 // Separation of concerns:
 //   - The INSERT logic lives in `createPalette` (fork_theme_composition.go)
@@ -208,16 +221,7 @@ func extractPaletteSignal(
 	logger *zap.Logger,
 ) (map[string]string, string, error) {
 
-	// 1. design_reference.palette.reference_values (fingerprint)
-	if ref, ok := loadSpecAspectFromContext(ctx, params, siteID, "design_reference", logger); ok {
-		if colours := extractReferenceValuesFromSpec(ref, "palette"); len(colours) > 0 {
-			logger.Info("extractPaletteSignal: using design_reference",
-				zap.Int("colour_count", len(colours)))
-			return colours, "design_reference", nil
-		}
-	}
-
-	// 2. mission.preferred_palette (human hint)
+	// 1. mission.preferred_palette (human hint — most authoritative)
 	if mission, ok := loadSpecAspectFromContext(ctx, params, siteID, "mission", logger); ok {
 		if raw, exists := mission["preferred_palette"]; exists {
 			if m, ok := raw.(map[string]interface{}); ok {
@@ -231,12 +235,33 @@ func extractPaletteSignal(
 		}
 	}
 
-	// 3. design_intent.palette.reference_values (semantic)
+	// 2. design_intent.palette.reference_values (semantic brief).
+	//    For an adopted site this is the fingerprint colours PLUS the
+	//    accent/secondary the enrichment step (generate_design_intent) added,
+	//    so it MUST stay ahead of the raw design_reference fingerprint below —
+	//    otherwise an adopted site would lose its accent colour to the leaner
+	//    suggested_mapping. (For a fresh site this carries the classifier's
+	//    structured palette, once the classifier emits one.)
 	if intent, ok := loadSpecAspectFromContext(ctx, params, siteID, "design_intent", logger); ok {
 		if colours := extractReferenceValuesFromSpec(intent, "palette"); len(colours) > 0 {
 			logger.Info("extractPaletteSignal: using design_intent",
 				zap.Int("colour_count", len(colours)))
 			return colours, "design_intent", nil
+		}
+	}
+
+	// 3. design_reference fingerprint (suggested_mapping / css_variables).
+	//    FALLBACK: only reached when design_intent produced no palette — e.g.
+	//    generate_design_intent failed or returned an empty palette. Reads the
+	//    fingerprint's real shape via paletteFromDesignReference; the
+	//    palette.reference_values key this slot used to read is never written
+	//    by extract_design_fingerprint, so the old slot could never fire.
+	//    Has no effect on fresh sites (they have no design_reference).
+	if ref, ok := loadSpecAspectFromContext(ctx, params, siteID, "design_reference", logger); ok {
+		if colours := paletteFromDesignReference(ref); len(colours) > 0 {
+			logger.Info("extractPaletteSignal: using design_reference fingerprint (design_intent had no palette)",
+				zap.Int("colour_count", len(colours)))
+			return colours, "design_reference", nil
 		}
 	}
 

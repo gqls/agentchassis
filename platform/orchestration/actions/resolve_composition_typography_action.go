@@ -10,10 +10,19 @@
 //     from the site's specs using a priority cascade, then delegate.
 //
 // Signal priority cascade:
-//   1. design_reference.typography.reference_values  (from fingerprint, if adopted)
-//   2. design_intent.typography.reference_values     (semantic brief)
-//   3. mission.preferred_typography                  (if human pre-specified)
+//   1. design_intent.typography.reference_values     (semantic brief)
+//   2. mission.preferred_typography                  (if human pre-specified)
+//   3. design_reference fingerprint                  (suggested_mapping.font_family /
+//                                                    css_variables via
+//                                                    typographyFromDesignReference —
+//                                                    FALLBACK, only when design_intent
+//                                                    produced no typography; adopted
+//                                                    sites only)
 //   4. (fall through to resolveTypographySet's own default: sans-modern)
+//
+// design_intent stays ahead of the design_reference fingerprint: the generated
+// design_intent carries the font stack plus a heading_font, the raw fingerprint
+// only the family.
 //
 // The chosen layout may also imply typography (docs layouts often pair
 // with mono-technical, editorial with serif-editorial). That's a later
@@ -179,9 +188,9 @@ func ResolveCompositionTypographyAction(ctx context.Context, params ActionParams
 // of the source that provided it.
 //
 // Cascade:
-//  1. design_reference.typography.reference_values
-//  2. design_intent.typography.reference_values
-//  3. mission.preferred_typography
+//  1. design_intent.typography.reference_values
+//  2. mission.preferred_typography
+//  3. design_reference fingerprint (suggested_mapping.font_family / css_variables)
 //
 // Empty-or-missing at every step → returns empty map and "none". The
 // caller then lets resolveTypographySet apply its sans-modern default.
@@ -192,25 +201,16 @@ func extractTypographySignal(
 	logger *zap.Logger,
 ) (map[string]string, string) {
 
-	// 1. design_reference (from fingerprint)
-	if ref, ok := loadSpecAspectFromContext(ctx, params, siteID, "design_reference", logger); ok {
-		if fonts := extractReferenceValuesFromSpec(ref, "typography"); len(fonts) > 0 {
-			if fonts["font_family"] != "" {
-				return fonts, "design_reference"
-			}
-		}
-	}
-
-	// 2. design_intent (semantic)
+	// 1. design_intent.typography.reference_values (semantic). For an adopted
+	//    site this carries the fingerprint's font stack plus a heading_font, so
+	//    it stays ahead of the raw design_reference fingerprint below.
 	if intent, ok := loadSpecAspectFromContext(ctx, params, siteID, "design_intent", logger); ok {
-		if fonts := extractReferenceValuesFromSpec(intent, "typography"); len(fonts) > 0 {
-			if fonts["font_family"] != "" {
-				return fonts, "design_intent"
-			}
+		if fonts := extractReferenceValuesFromSpec(intent, "typography"); fonts["font_family"] != "" {
+			return fonts, "design_intent"
 		}
 	}
 
-	// 3. mission.preferred_typography
+	// 2. mission.preferred_typography
 	if mission, ok := loadSpecAspectFromContext(ctx, params, siteID, "mission", logger); ok {
 		if raw, exists := mission["preferred_typography"]; exists {
 			if m, ok := raw.(map[string]interface{}); ok {
@@ -219,6 +219,17 @@ func extractTypographySignal(
 					return fonts, "mission_hint"
 				}
 			}
+		}
+	}
+
+	// 3. design_reference fingerprint (suggested_mapping.font_family / css_variables).
+	//    FALLBACK: reached only when design_intent produced no typography. Reads the
+	//    fingerprint's real shape via typographyFromDesignReference; the
+	//    typography.reference_values key this slot used to read is never written by
+	//    extract_design_fingerprint. Has no effect on fresh sites.
+	if ref, ok := loadSpecAspectFromContext(ctx, params, siteID, "design_reference", logger); ok {
+		if fonts := typographyFromDesignReference(ref); fonts["font_family"] != "" {
+			return fonts, "design_reference"
 		}
 	}
 
