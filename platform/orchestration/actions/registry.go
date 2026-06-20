@@ -767,6 +767,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Re-render a single page with updated content or styles",
 		IsLocal:     true,
 	},
+	"rerender_page_sections": {
+		Handler:     RerenderPageSectionsAction,
+		Category:    "site",
+		Description: "Re-render a page's sections from stored content_data + fresh resolved fields (no LLM)",
+		IsLocal:     true,
+	},
 	"create_rerender_items": {
 		Handler:     CreateRerenderItemsAction,
 		Category:    "site",
