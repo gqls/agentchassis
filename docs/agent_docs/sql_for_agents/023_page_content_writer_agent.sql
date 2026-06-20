@@ -2039,3 +2039,146 @@ WHERE type = 'page-content-writer'
   AND is_active = true
   AND deleted_at IS NULL
   AND (is_snapshot IS NULL OR is_snapshot = false);
+
+--
+
+-- prompt change for item keys to unbug item_key, item_type overlap
+--  the ## What To Write and ## Output Format blocks should now reference item_fields:
+
+clients_db=# SELECT snapshot_agent('page-content-writer', 'item_key, item_type unbug');
+NOTICE:  Snapshot captured: type=page-content-writer, source_version=2, source_id=5946a27b-38ab-41e8-8b49-7bc1a4b626b8, reason=item_key, item_type unbug
+snapshot_agent
+5946a27b-38ab-41e8-8b49-7bc1a4b626b8
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}',
+        to_jsonb(
+                replace(
+                        replace(
+                                default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}',
+                                $old_wtw$- `{{.name}}` ({{.type}}{{if .required}}, required{{end}}){{if .description}}: {{.description}}{{end}}$old_wtw$,
+        $new_wtw$- `{{.name}}` ({{.type}}{{if .required}}, required{{end}}){{if .description}}: {{.description}}{{end}}{{if .item_fields}} — each item is an object with exactly these fields: {{range $i, $f := .item_fields}}{{if $i}}, {{end}}`{{$f}}`{{end}}{{end}}$new_wtw$
+      ),
+                        $old_out$  "{{$f.name}}": "..."$old_out$,
+                        $new_out$  "{{$f.name}}": {{if $f.item_fields}}[{ {{range $j, $k := $f.item_fields}}{{if $j}}, {{end}}"{{$k}}": "..."{{end}} }]{{else}}"..."{{end}}$new_out$
+    )
+        ),
+        false
+                     ),
+    updated_at = now()
+WHERE type = 'page-content-writer';
+
+SELECT default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}'
+FROM agent_definitions WHERE type = 'page-content-writer';
+
+clients_db=# SELECT default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,prompt_template}'
+             FROM agent_definitions WHERE type = 'page-content-writer';
+?column?
+Write content for the {{.current_section.name}} section of {{.current_page.title}}.
+
+## Language
+Write all output content in the same language as the existing content, brief, and site specs in this prompt. Match the register, idioms, and conventions of that language.
+
+## Company Context
+Company: {{.render_context.company_name}}
+Industry: {{.render_context.industry}}
+Tone: {{.render_context.tone}}
+Target Audience: {{.render_context.target_audience}}
+Services: {{.reviewed_brief.services}}
+Tagline: {{.render_context.tagline}}
+
+## Official Contact Information (USE ONLY THESE - DO NOT INVENT)
+Email: {{.render_context.email}}
+Phone: {{.render_context.phone}}
+Location: {{.reviewed_brief.headquarters}}
+
+{{if .link_context.link_constraint_text}}
+## Internal Linking
+{{.link_context.link_constraint_text}}
+
+{{end}}
+## Content Direction (from site spec — follow this closely)
+{{if .site_specs.specs.content_direction}}{{if .site_specs.specs.content_direction.formatted}}
+{{.site_specs.specs.content_direction.formatted}}
+{{end}}{{end}}
+{{if .site_specs.specs.identity.target_audience}}
+Target Audience: {{.site_specs.specs.identity.target_audience}}
+{{end}}
+{{if .site_specs.specs.identity.key_differentiators}}
+Key Differentiators: {{.site_specs.specs.identity.key_differentiators}}
+{{end}}
+{{if .site_specs.specs.design_intent.imagery_direction}}
+Imagery Direction: {{.site_specs.specs.design_intent.imagery_direction}}
+{{end}}
+
+{{if .rewrite_guidance}}## Rewrite Guidance (IMPORTANT — incorporate this into the content)
+{{.rewrite_guidance}}
+{{end}}
+
+{{if .current_section.component.content_brief}}## Admin Content Brief (follow these instructions closely)
+{{if .current_section.component.content_brief.purpose}}Brief Purpose: {{.current_section.component.content_brief.purpose}}
+{{end}}{{if .current_section.component.content_brief.tone_direction}}Brief Tone: {{.current_section.component.content_brief.tone_direction}}
+{{end}}{{if .current_section.component.content_brief.section_guidance}}Brief Guidance: {{.current_section.component.content_brief.section_guidance}}
+{{end}}{{end}}
+
+## What To Write
+Write the following fields for the {{.current_section.name}} section. Each field's purpose is described in plain English — translate the intent into the output language as needed.
+
+{{range .current_section.llm_field_specs}}
+- `{{.name}}` ({{.type}}{{if .required}}, required{{end}}){{if .description}}: {{.description}}{{end}}{{if .item_fields}} — each item is an object with exactly these fields: {{range $i, $f := .item_fields}}{{if $i}}, {{end}}`{{$f}}`{{end}}{{end}}
+{{end}}
+
+{{if .research_result}}
+## Research Findings
+{{.research_result.response.summary}}
+
+Sources:
+{{range $index, $src := .research_result.response.sources}}
+- [{{$index}}] {{$src.title}} ({{$src.domain}})
+{{end}}
+{{end}}
+
+{{if .existing_content}}{{if .existing_content.has_existing}}
+## EXISTING CONTENT — Recreate Mode
+This page is being adopted from an existing site. Below is the original content from the page.
+Your task: find the content relevant to this section and adapt it to fit the writing fields listed above.
+
+Prioritise preserving the original meaning and information. Adapt the structure to match the required field names.
+If the existing content does not have material relevant to this section, write fresh content as you normally would.
+
+Original page content:
+{{.existing_content.raw_markdown}}
+{{end}}{{end}}
+
+## Output Format
+Return a JSON object with exactly these keys:
+
+{
+{{range $i, $f := .current_section.llm_field_specs}}{{if $i}},
+{{end}}  "{{$f.name}}": {{if $f.item_fields}}[{ {{range $j, $k := $f.item_fields}}{{if $j}}, {{end}}"{{$k}}": "..."{{end}} }]{{else}}"..."{{end}}{{end}}
+}
+
+## STRICT RULES:
+1. Use the EXACT field names shown in "What To Write" (these are technical identifiers — do not translate them).
+2. Return a JSON object with exactly the keys listed in "What To Write". Do not add any keys not in that list.
+3. Return ONLY the JSON object — no commentary, no markdown wrapper around the JSON.
+4. No placeholder text like [Your Company] or Lorem ipsum, in any language.
+5. Write content that is relevant to this company's industry and services — but do NOT invent specific achievements, metrics, or outcomes that have not actually happened.
+6. Professional but engaging tone matching the brief.
+7. Include source citations [0], [1] if research was provided.
+8. NEVER invent contact information — use ONLY the email and phone provided in Official Contact Information above.
+9. For fields of type `text`: return a plain string with no HTML wrapping. The template handles paragraph wrapping for these fields.
+10. For fields of type `rich_text` or `content` that contain multiple paragraphs: use proper HTML markup, wrapping each paragraph in <p> tags: <p>Paragraph 1</p><p>Paragraph 2</p>.
+11. If contact email or phone is empty in the brief, do NOT make one up — omit it or write a generic contact-us link in the output language.
+12. Only create internal links to pages listed in the Internal Linking section above.
+13. NEVER invent fake people, client names, or attributed quotes. If the brief does not include real testimonials, write company philosophy statements instead and leave name/title fields empty.
+14. NEVER invent specific statistics, percentages, or metrics. Describe the type of outcome without fabricating numbers.
+15. NEVER invent fake case studies with named businesses presented as real clients. Describe service categories and typical outcomes instead.
+16. For testimonial sections: write 2-3 statements in the company's own voice about their values, approach, or commitment. These serve as placeholder content the site owner will replace with real testimonials.
+17. For case study sections: describe the types of problems the company solves and the approach they take, without inventing specific clients or results.
+18. It is ALWAYS better to be honest and general than specific and fabricated. A real visitor will trust a general statement of capability more than a fabricated testimonial.
+
+(1 row)
+clients_db=#

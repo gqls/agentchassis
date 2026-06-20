@@ -35,6 +35,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -444,6 +445,13 @@ type llmFieldSpec struct {
 	Description string      `json:"description,omitempty"` // sourced from input_schema field's `llm_guidance` key
 	OnMissing   string      `json:"on_missing,omitempty"`  // skip_field | use_fallback | error
 	Fallback    interface{} `json:"fallback,omitempty"`    // value used when on_missing=use_fallback
+	// ItemFields lists the field names each element of an array-typed field
+	// must contain, from the schema field's `items` (or `item_schema`) map.
+	// Empty for non-array fields. Surfaced to the LLM (via the prompt) and to
+	// the render-time reconciler so the model emits the exact keys the
+	// component template reads, instead of guessing item field names (e.g.
+	// title/body) that render empty against a template reading name/description.
+	ItemFields []string `json:"item_fields,omitempty"`
 }
 
 type sectionPlanItem struct {
@@ -1033,6 +1041,7 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 				Description: stringOrEmpty(fieldDef["llm_guidance"]),
 				OnMissing:   onMissing,
 				Fallback:    fallback,
+				ItemFields:  extractArrayItemFields(fieldDef),
 			})
 			continue
 		}
@@ -1407,6 +1416,28 @@ func sanitiseSectionKey(s string) string {
 // value isn't a string or is nil. Used when reading optional fields off the
 // parsed input_schema map (llm_guidance, on_missing) where the schema author
 // may simply omit the key.
+// extractArrayItemFields returns the sorted field names each element of an
+// array-typed input_schema field must contain. Supports both conventions in
+// use: `items` (flat name->type map: faq, differentiators, services-grid) and
+// `item_schema` (name->{type,...} map: info-card-grid). Returns nil for
+// non-array fields or fields with no declared element shape. Sorted because Go
+// map iteration is otherwise random and we want stable prompts and specs.
+func extractArrayItemFields(fieldDef map[string]interface{}) []string {
+	var fields []string
+	if items, ok := fieldDef["items"].(map[string]interface{}); ok {
+		for k := range items {
+			fields = append(fields, k)
+		}
+	}
+	if itemSchema, ok := fieldDef["item_schema"].(map[string]interface{}); ok {
+		for k := range itemSchema {
+			fields = append(fields, k)
+		}
+	}
+	sort.Strings(fields)
+	return fields
+}
+
 func stringOrEmpty(v interface{}) string {
 	if s, ok := v.(string); ok {
 		return s

@@ -1516,6 +1516,15 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		// LLM responses sometimes have .result wrapper, sometimes not
 		contentData := extractContentWithFallbacks(params.CollectedData, contentField, params.Logger)
 		if contentData != nil {
+			// Safety net: reconcile any array-item keys the LLM invented
+			// (e.g. title/body) against the keys the component template reads
+			// (e.g. name/description), using the section plan's declared item
+			// fields, before the content reaches the template or is persisted.
+			// No-op outside the writer loop (no specs) and on the template-only
+			// path (content is render_context, no fields match the schema arrays).
+			if specs := datahelpers.ExtractNestedField(params.CollectedData, "current_section.llm_field_specs"); specs != nil {
+				reconcileGeneratedItemKeys(contentData, expectedItemFieldsFromSpecs(specs), componentFunction, params.Logger)
+			}
 			sectionContentData = contentData // ← capture before merge
 			params.Logger.Info("RenderComponentAction: Merging content data",
 				zap.String("content_field", contentField),
@@ -4605,4 +4614,156 @@ func truncatePreservingRealised(
 		budget = len(netNew)
 	}
 	return append(locked, netNew[:budget]...)
+}
+
+// ----------------------------------------------------------------------------
+// LLM array-item key reconciliation (page-content-writer safety net)
+//
+// Array components declare the per-element field names in their input_schema
+// (items / item_schema); plan_sections carries those onto each llm_field_spec
+// as ItemFields, and the prompt now asks the LLM for exactly those keys. This
+// is the belt-and-braces second line: if the model still emits a different
+// spelling (title/body where the template reads name/description), repair it
+// before it reaches the template or is persisted. See plan_sections_action.go.
+// ----------------------------------------------------------------------------
+
+// itemKeySynonyms groups field names that mean the same thing across component
+// templates. Matching is case- and separator-insensitive, so "Title" and
+// "card_title" both match "title". Keep common spellings first; extend a group
+// rather than scattering new pairs elsewhere.
+var itemKeySynonyms = [][]string{
+	{"title", "name", "heading", "header", "label", "headline"},
+	{"description", "body", "text", "content", "desc", "detail", "details", "summary", "copy", "caption"},
+	{"icon_svg", "icon", "image", "img", "svg"},
+	{"url", "href", "link"},
+	{"cta_text", "cta", "button_text", "button_label", "action_text"},
+}
+
+func synonymsFor(key string) []string {
+	for _, group := range itemKeySynonyms {
+		for _, k := range group {
+			if k == key {
+				return group
+			}
+		}
+	}
+	return nil
+}
+
+func normaliseKeyForMatch(s string) string {
+	return strings.NewReplacer("_", "", "-", "", " ", "").Replace(strings.ToLower(s))
+}
+
+// expectedItemFieldsFromSpecs reads the section plan's llm_field_specs as they
+// arrive in collected_data (post JSON round-trip) and returns, per array field
+// that declares an item shape, the field names each element must contain. Empty
+// when no such specs exist (render_component called outside the writer loop),
+// which makes reconcile a no-op.
+func expectedItemFieldsFromSpecs(specsRaw interface{}) map[string][]string {
+	out := map[string][]string{}
+	specs, ok := specsRaw.([]interface{})
+	if !ok {
+		return out
+	}
+	for _, s := range specs {
+		spec, ok := s.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := spec["name"].(string)
+		rawItems, ok := spec["item_fields"].([]interface{})
+		if name == "" || !ok || len(rawItems) == 0 {
+			continue
+		}
+		var fields []string
+		for _, it := range rawItems {
+			if f, ok := it.(string); ok && f != "" {
+				fields = append(fields, f)
+			}
+		}
+		if len(fields) > 0 {
+			out[name] = fields
+		}
+	}
+	return out
+}
+
+// reconcileGeneratedItemKeys repairs LLM array output whose per-item keys don't
+// match the keys the component template reads. Per element: an expected key
+// that is missing but present under a case/separator variant or a known synonym
+// is moved onto the expected key (WARN, so disobedience is visible); an expected
+// key still missing afterwards is logged at ERROR with the element's actual
+// keys, so a silent empty card cannot pass unseen. Modifies content in place.
+// Non-fatal by design.
+func reconcileGeneratedItemKeys(content map[string]interface{}, expected map[string][]string, componentFn string, logger *zap.Logger) {
+	if len(content) == 0 || len(expected) == 0 {
+		return
+	}
+	for fieldName, wantFields := range expected {
+		raw, present := content[fieldName]
+		if !present {
+			continue
+		}
+		items, ok := raw.([]interface{})
+		if !ok {
+			logger.Warn("reconcileGeneratedItemKeys: array field is not a list — skipping",
+				zap.String("component", componentFn), zap.String("field", fieldName),
+				zap.String("got_type", fmt.Sprintf("%T", raw)))
+			continue
+		}
+		wantSet := make(map[string]bool, len(wantFields))
+		for _, w := range wantFields {
+			wantSet[w] = true
+		}
+		for idx, itemRaw := range items {
+			item, ok := itemRaw.(map[string]interface{})
+			if !ok {
+				logger.Warn("reconcileGeneratedItemKeys: array element is not an object — skipping",
+					zap.String("component", componentFn), zap.String("field", fieldName),
+					zap.Int("index", idx), zap.String("got_type", fmt.Sprintf("%T", itemRaw)))
+				continue
+			}
+			norm := make(map[string]string, len(item))
+			for k := range item {
+				norm[normaliseKeyForMatch(k)] = k
+			}
+			for _, want := range wantFields {
+				if _, has := item[want]; has {
+					continue
+				}
+				wantNorm := normaliseKeyForMatch(want)
+				if actual, ok := norm[wantNorm]; ok && actual != want {
+					item[want] = item[actual]
+					delete(item, actual)
+					norm[wantNorm] = want
+					logger.Warn("reconcileGeneratedItemKeys: normalised LLM item key",
+						zap.String("component", componentFn), zap.String("field", fieldName),
+						zap.Int("index", idx), zap.String("from", actual), zap.String("to", want))
+					continue
+				}
+				remapped := false
+				for _, syn := range synonymsFor(want) {
+					if syn == want || wantSet[syn] {
+						continue
+					}
+					if actual, ok := norm[normaliseKeyForMatch(syn)]; ok {
+						item[want] = item[actual]
+						delete(item, actual)
+						norm[wantNorm] = want
+						logger.Warn("reconcileGeneratedItemKeys: remapped LLM item key",
+							zap.String("component", componentFn), zap.String("field", fieldName),
+							zap.Int("index", idx), zap.String("from", actual), zap.String("to", want))
+						remapped = true
+						break
+					}
+				}
+				if !remapped {
+					logger.Error("reconcileGeneratedItemKeys: expected item field missing and unrecoverable",
+						zap.String("component", componentFn), zap.String("field", fieldName),
+						zap.Int("index", idx), zap.String("expected_key", want),
+						zap.Any("item_keys", datahelpers.GetMapKeys(item)))
+				}
+			}
+		}
+	}
 }
