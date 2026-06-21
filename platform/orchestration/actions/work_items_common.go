@@ -51,3 +51,28 @@ func sqlInList(statuses []string) string {
 	}
 	return out
 }
+
+// workItemKey builds the canonical deduplication key for a site_work_items
+// row. The contract is "{itemType}:{target}", with the prefix EQUAL to the
+// row's item_type, so that:
+//   - idx_swi_dedup (UNIQUE on (site_id, item_key) over non-terminal rows)
+//     collapses exactly the rows that represent the same unit of work, and
+//   - the key is safe to filter / group by type (its prefix encodes the type).
+//
+// Every creator should build item_key through this helper — whether it
+// inserts via insertWorkItem(workItem{...}) or an inline INSERT ... VALUES —
+// rather than fmt.Sprintf-ing its own prefix. Hand-rolled prefixes are how the
+// keys drifted from their item_type in the first place (e.g. flag_page_image_
+// rebuild minting page_rerender:<page> for a needs_page row, and adoption
+// minting needs_page:<name> for BOTH a content page and a tool recreation).
+//
+// Deliberate shared-namespace use is allowed but must be commented at the
+// callsite: when two item_types are genuinely the SAME dedup unit on the SAME
+// handler and SHOULD collapse together, a creator may pass the namespace-owning
+// type rather than the row's own item_type — e.g. an adoption needs_content_page
+// that must co-dedup with a planner needs_page build of the same page would call
+// workItemKey("needs_page", page.Name). State which namespace is shared and why,
+// so the exception is visible to the "prefix == item_type" invariant.
+func workItemKey(itemType, target string) string {
+	return itemType + ":" + target
+}

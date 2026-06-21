@@ -2586,17 +2586,13 @@ SET
             to_jsonb(
                     replace(
                             default_config #>> '{workflow,steps,classify_and_extract,config,prompt_template}',
-                            $old$You are analyzing a domain for website creation.
-
-Domain:$old$,
+                            $old$You are analyzing a domain for website creation.$old$,
                             $new$You are analyzing a domain for website creation.
 
 ## Build standard (applies to every site, regardless of inputs)
 Aim for best-in-class quality in this site's field. The bar is not "competent template" but "stands comparison with the strongest sites in this vertical" — in the quality of the design, the clarity and usefulness of the writing, and the genuine value of any tools or content to the people who will actually use the site. When forming direction, consider what the best sites in this space do — how they position, what their design signals, how their copy reads, what earns return visits — and build on the reasoning behind those choices rather than copying them. Choose design and content that fit this specific industry and these objectives, not a generic house style. Favour fewer things done genuinely well over filler, and prefer interactive or visual elements where they aid understanding. Do what is most useful and interesting for the site's visitors.
 
-This standard governs QUALITY and FIT, not scope. Do not invent services, pages, features, or facts beyond what the evidence supports; where research is thin, say so honestly in the confidence fields rather than fabricating detail. Treat aspirational ideas as direction to be realised at the pace the site's fidelity allows — adopted sites stay faithful to their source at first — not as things to force into the first build.
-
-Domain:$new$
+This standard governs QUALITY and FIT, not scope. Do not invent services, pages, features, or facts beyond what the evidence supports; where research is thin, say so honestly in the confidence fields rather than fabricating detail. Treat aspirational ideas as direction to be realised at the pace the site's fidelity allows — adopted sites stay faithful to their source at first — not as things to force into the first build.$new$
       )
     ),
     false
