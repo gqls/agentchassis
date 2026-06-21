@@ -119,9 +119,9 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	// first iteration; (3) lookup_code_symbols' code_results on the first
 	// iteration when no seed was given. First non-empty wins.
 	loopScopeField := datahelpers.GetStringField(config, "loop_scope_field", "route.scope")
-	scope := datahelpers.ExtractStringSlice(params.CollectedData, loopScopeField)
+	scope := datahelpers.ExtractStringListHelper(datahelpers.ExtractNestedField(params.CollectedData, loopScopeField))
 	if len(scope) == 0 {
-		scope = datahelpers.ExtractStringSlice(params.CollectedData, scopeField)
+		scope = datahelpers.ExtractStringListHelper(datahelpers.ExtractNestedField(params.CollectedData, scopeField))
 	}
 	if len(scope) == 0 {
 		crField := datahelpers.GetStringField(config, "code_results_field", "code_lookup.code_results")
