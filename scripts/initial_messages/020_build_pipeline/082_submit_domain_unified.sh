@@ -40,6 +40,7 @@
 #   --email <email>
 #   --phone <phone>
 #   --mission <text>    Owner mission brief (fresh builds; weights the classifier)
+#   --mission-file <p>  Owner mission brief read from a file (use for long briefs; escaped + single-lined)
 #
 # Examples:
 #   ./082_submit_domain_unified.sh idea.uk --email idea-uk@leopardess.uk
@@ -72,17 +73,27 @@ FIDELITY=""
 EMAIL=""
 PHONE=""
 MISSION=""
+MISSION_FILE=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --from)     SOURCE_URL="${2:?missing URL}";     shift 2 ;;
-    --fidelity) FIDELITY="${2:?missing level}";     shift 2 ;;
-    --email)    EMAIL="${2:?missing email}";        shift 2 ;;
-    --phone)    PHONE="${2:?missing phone}";        shift 2 ;;
-    --mission)  MISSION="${2:?missing text}";       shift 2 ;;
+    --from)         SOURCE_URL="${2:?missing URL}";     shift 2 ;;
+    --fidelity)     FIDELITY="${2:?missing level}";     shift 2 ;;
+    --email)        EMAIL="${2:?missing email}";        shift 2 ;;
+    --phone)        PHONE="${2:?missing phone}";        shift 2 ;;
+    --mission)      MISSION="${2:?missing text}";       shift 2 ;;
+    --mission-file) MISSION_FILE="${2:?missing path}";  shift 2 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
+
+# --mission-file wins if given. Read the file and make it JSON-safe for the string-concat
+# embedding below: escape backslashes then double-quotes, and fold newlines/tabs to spaces so
+# the brief becomes a single JSON string value (no jq dependency).
+if [ -n "$MISSION_FILE" ]; then
+  if [ ! -f "$MISSION_FILE" ]; then echo "mission file not found: $MISSION_FILE" >&2; exit 2; fi
+  MISSION="$(sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' "$MISSION_FILE" | tr '\n\t' '  ' | sed 's/  */ /g')"
+fi
 
 # Mode + default fidelity (recorded only — see NOTE)
 if [ -n "$SOURCE_URL" ]; then
@@ -92,7 +103,7 @@ else
 fi
 
 # Build input_data (string concat, matching 077 — no jq dependency).
-# Keep --mission free of embedded double-quotes; pass complex briefs via SQL instead.
+# --mission text is embedded as-is (keep it free of " and \); --mission-file is escaped above.
 if [ "$MODE" = "adopt" ]; then
   INPUT_DATA="{\"target_url\":\"$SOURCE_URL\",\"destination_domain\":\"$DOMAIN\",\"fidelity\":\"$FIDELITY\"}"
 else
