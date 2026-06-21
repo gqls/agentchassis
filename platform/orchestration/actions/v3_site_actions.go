@@ -1518,12 +1518,17 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		if contentData != nil {
 			// Safety net: reconcile any array-item keys the LLM invented
 			// (e.g. title/body) against the keys the component template reads
-			// (e.g. name/description), using the section plan's declared item
-			// fields, before the content reaches the template or is persisted.
-			// No-op outside the writer loop (no specs) and on the template-only
-			// path (content is render_context, no fields match the schema arrays).
-			if specs := datahelpers.ExtractNestedField(params.CollectedData, "current_section.llm_field_specs"); specs != nil {
-				reconcileGeneratedItemKeys(contentData, expectedItemFieldsFromSpecs(specs), componentFunction, params.Logger)
+			// (e.g. name/description), before the content reaches the template
+			// or is persisted. Expected keys are sourced from the component's
+			// own input_schema (reloaded fresh above from the component store),
+			// which is the authoritative contract the html_template is built
+			// against — so reconciliation does not depend on section-plan
+			// freshness or on the prompt. Scoped to source:"llm" array fields so
+			// reach matches the writer loop; a no-op on the template-only path
+			// (content is render_context, whose keys don't match the schema's
+			// llm array fields).
+			if comp != nil && len(comp.InputSchema) > 0 {
+				reconcileGeneratedItemKeys(contentData, expectedItemFieldsFromComponentSchema(comp.InputSchema), componentFunction, params.Logger)
 			}
 			sectionContentData = contentData // ← capture before merge
 			params.Logger.Info("RenderComponentAction: Merging content data",
@@ -4654,35 +4659,34 @@ func normaliseKeyForMatch(s string) string {
 	return strings.NewReplacer("_", "", "-", "", " ", "").Replace(strings.ToLower(s))
 }
 
-// expectedItemFieldsFromSpecs reads the section plan's llm_field_specs as they
-// arrive in collected_data (post JSON round-trip) and returns, per array field
-// that declares an item shape, the field names each element must contain. Empty
-// when no such specs exist (render_component called outside the writer loop),
-// which makes reconcile a no-op.
-func expectedItemFieldsFromSpecs(specsRaw interface{}) map[string][]string {
+// expectedItemFieldsFromComponentSchema reads the component's own input_schema
+// and returns, per source:"llm" array field that declares an item shape, the
+// field names each element must contain. The schema is the authoritative
+// contract the html_template is built against and is reloaded fresh on every
+// render, so reconciliation no longer depends on the section plan carrying
+// item_fields or on the prompt. Scoped to source:"llm" so the reconciler's
+// reach matches the writer loop; query-resolved/static arrays (already keyed
+// correctly by the system) are left untouched. Reuses extractArrayItemFields
+// (plan_sections_action.go) so item-field extraction stays identical to how the
+// plan and prompt derive it. Empty — reconcile becomes a no-op — when the
+// schema has no fields map or no llm array fields (e.g. render_component called
+// outside the writer loop, or on a non-array component).
+func expectedItemFieldsFromComponentSchema(inputSchema map[string]interface{}) map[string][]string {
 	out := map[string][]string{}
-	specs, ok := specsRaw.([]interface{})
+	fields, ok := inputSchema["fields"].(map[string]interface{})
 	if !ok {
 		return out
 	}
-	for _, s := range specs {
-		spec, ok := s.(map[string]interface{})
+	for name, raw := range fields {
+		fieldDef, ok := raw.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		name, _ := spec["name"].(string)
-		rawItems, ok := spec["item_fields"].([]interface{})
-		if name == "" || !ok || len(rawItems) == 0 {
+		if src, _ := fieldDef["source"].(string); src != "llm" {
 			continue
 		}
-		var fields []string
-		for _, it := range rawItems {
-			if f, ok := it.(string); ok && f != "" {
-				fields = append(fields, f)
-			}
-		}
-		if len(fields) > 0 {
-			out[name] = fields
+		if itemFields := extractArrayItemFields(fieldDef); len(itemFields) > 0 {
+			out[name] = itemFields
 		}
 	}
 	return out
