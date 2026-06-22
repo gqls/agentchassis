@@ -170,3 +170,37 @@ SELECT type,
     default_config->'workflow'->'steps'->'deploy_page'->'config'->>'content_field' as content_field_fallback
 FROM agent_definitions
 WHERE type = 'page-rerender';
+--
+-- consolidation page rerender/rerender pages or stg
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(default_config, '{workflow,start_step}', '"check_rerender_mode"'),
+        '{workflow,steps}',
+        (default_config #> '{workflow,steps}') || '{
+           "check_rerender_mode": {
+             "action": "conditional",
+             "config": {"condition": "input_data.spec.reason == ''image_landed'' OR input_data.spec.reason == ''section_data_resolved''", "then_step": "rerender_sections", "else_step": "render_page"},
+             "description": "Re-render sections only for re-render reasons; else assemble stored HTML"
+           },
+           "rerender_sections": {
+             "action": "rerender_page_sections",
+             "config": {"target_site_id": "input_data.site_id", "page_name": "input_data.spec.page_name", "reason": "input_data.spec.reason"},
+             "output_field": "rerender_sections", "next_step": "check_escalated",
+             "description": "Re-render all sections from stored content_data + fresh resolved fields (no LLM)"
+           },
+           "check_escalated": {
+             "action": "conditional",
+             "config": {"condition": "rerender_sections.escalated == true", "then_step": "complete", "else_step": "save_sections"},
+             "description": "If a section had no content_data, the page was escalated to the writer — stop"
+           },
+           "save_sections": {
+             "action": "save_page_sections",
+             "config": {"site_id_field": "rerender_sections.site_id", "page_name_field": "input_data.spec.page_name", "sections_metadata_field": "rerender_sections.sections_metadata"},
+             "output_field": "sections_saved", "next_step": "render_page",
+             "description": "Persist re-rendered sections, then assemble + deploy via the existing path"
+           }
+         }'::jsonb
+                     ),
+    updated_at = now()
+WHERE type = 'page-rerender';

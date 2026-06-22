@@ -1,0 +1,438 @@
+// resolveLayoutByTags_weighted.go
+//
+// Drop-in replacement for resolveLayoutByTags in fork_theme_composition.go.
+// Keeps the same package, the same layoutResolution return type (with two new
+// fields, noted below), and the same callers — but changes how a layout is
+// chosen.
+//
+// =====================================================================
+// WHY THE REWRITE
+// =====================================================================
+// The previous matcher counted EXACT industry_tag overlaps in SQL and picked
+// the highest count, ties broken alphabetically. Two failure modes, both seen
+// in production:
+//
+//   1. Scheme-blind. A warm/light editorial-tools site (idea.uk) matched the
+//      only dark tool layout (tool-portal-dark) because its tool-portal /
+//      interactive-platform tags overlapped. Light palette on a dark layout
+//      reads as broken. Scheme is a CATEGORICAL surface fact, not a similarity
+//      gradient — no amount of tag/semantic similarity captures it, so it has
+//      to be an explicit constraint.
+//
+//   2. Tag specificity ignored. A generic shape tag ("interactive") counted
+//      the same as a precise vertical tag ("game-design"). And near-synonyms
+//      ("editorial" vs "editorial-publication", "games" vs "game-design") did
+//      not match at all, so a well-described layout could lose to a worse one.
+//
+// =====================================================================
+// THE MODEL (all in Go — the library is small, ~17 rows, so we fetch every
+// active layout and score it here; that keeps the logic transparent, unit-
+// testable, and easy to tune, per "complexity in Go not SQL")
+// =====================================================================
+//
+//   scheme   — near-hard constraint. If the site scheme is known (light/dark,
+//              derived from design_intent) and a layout's scheme is the
+//              OPPOSITE, that layout is only eligible when NO same-scheme (or
+//              neutral / unknown-scheme) layout has any positive fit. A light
+//              site will not land on a dark layout while any non-dark layout
+//              fits. Layouts with scheme NULL/'neutral' are never excluded by
+//              this rule, so the table can be populated incrementally.
+//
+//   tags     — weighted by RARITY across the library (inverse document
+//              frequency): weight(tag) = ln(1 + N/df(tag)). A tag in few
+//              layouts is specific and scores high; a tag in many layouts is
+//              generic and scores low. Self-maintaining — no hand-curated
+//              "generic tags" list to rot. Site tags and layout tags are
+//              folded to a canonical form first (canonicalTag) so synonyms
+//              align.
+//
+//   category — exact category match adds a small fixed bonus.
+//
+//   desc     — each distinct canonical site term that appears as a word in the
+//              layout's prose `description` adds a small secondary bonus
+//              (capped). This finally uses the richest field in the table.
+//
+// Ties break by: total score, then tag-weight subtotal, then layout name
+// (determinism). Zero fit anywhere -> scheme-aware fallback.
+//
+// =====================================================================
+// CALLER CHANGES REQUIRED (do these alongside dropping this in)
+// =====================================================================
+//   * SIGNATURE gains `siteScheme string`. The two callers — fork_theme_from_site
+//     and the site-design-planner `resolve_composition_layout` wrapper — must
+//     derive it and pass it. Use deriveSchemeFromDesignIntent(designIntent)
+//     below. Pass "" when design_intent is absent (no scheme constraint).
+//   * layoutResolution gains two fields:
+//         Scheme          string // the chosen layout's scheme ("" if unknown)
+//         IsSchemeMismatch bool  // true if we had to cross schemes (gap signal)
+//     When IsSchemeMismatch is true, the caller SHOULD queue the existing
+//     needs_new_layout_candidate HITL item (handler 'hitl-review',
+//     status 'needs_human_review') — that is the honest "the library is missing
+//     a <scheme> layout for these tags" signal, surfaced the same way as a
+//     no-match today.
+//   * Requires the layouts.scheme column (see
+//     migration_layouts_scheme_and_light_tool_portal.sql). Until a layout's
+//     scheme is set it is treated as unknown (never excluded).
+//
+// fallbackLayout stays as-is but gains an optional scheme preference; the
+// simplest version (kept here) prefers brochure-formal for light/unknown and a
+// dark default for dark — adjust to whatever dark fallback you seed.
+
+package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"math"
+	"sort"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"go.uber.org/zap"
+)
+
+// Tunable weights — kept together so they are easy to adjust from one place.
+const (
+	categoryMatchBonus = 0.75 // exact category == a site tag/category
+	descWordBonus      = 0.15 // per distinct canonical site term found in description
+	descBonusCap       = 0.90 // max total description contribution
+	sameSchemeBonus    = 0.50 // gentle nudge toward an exactly-matching scheme
+)
+
+// canonicalTag folds known synonyms / variants to one canonical token so the
+// matcher treats them as equal. Starter controlled vocabulary — extend as new
+// tags appear. Anything not in the map is returned trimmed + lowercased.
+func canonicalTag(t string) string {
+	c := strings.ToLower(strings.TrimSpace(t))
+	switch c {
+	case "games", "game", "gaming":
+		return "game-design"
+	case "game-dev", "gamedev":
+		return "game-development"
+	case "editorial", "publication", "magazine", "editorial-content":
+		return "editorial-publication"
+	case "dev-tools", "developer-tool", "devtools":
+		return "developer-tools"
+	case "calculator", "calculators":
+		return "calculators"
+	case "tool", "tooling":
+		return "tools"
+	case "maker", "makers", "builder-tools":
+		return "maker-tools"
+	case "founder", "founders", "startup-tools":
+		return "founder-tools"
+	case "ai", "llm", "genai":
+		return "ai-platform"
+	case "social-network", "community", "community-platform":
+		return "social-platform"
+	default:
+		return c
+	}
+}
+
+func canonicalSet(tags []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(tags))
+	for _, t := range tags {
+		c := canonicalTag(t)
+		if c != "" && c != "general" {
+			out[c] = struct{}{}
+		}
+	}
+	return out
+}
+
+// deriveSchemeFromDesignIntent maps design_intent to a "light"/"dark"/"" scheme.
+// Caller passes design_intent.style_direction and design_intent.suggested_style
+// (either may be empty). Conservative: only returns a scheme on a clear signal.
+func deriveSchemeFromDesignIntent(styleDirection, suggestedStyle string) string {
+	s := strings.ToLower(styleDirection + " " + suggestedStyle)
+	switch {
+	case strings.Contains(s, "dark"):
+		return "dark"
+	case strings.Contains(s, "light"), strings.Contains(s, "warm"),
+		strings.Contains(s, "editorial"), strings.Contains(s, "paper"),
+		strings.Contains(s, "bright"), strings.Contains(s, "soft"):
+		return "light"
+	default:
+		return "" // unknown -> no scheme constraint
+	}
+}
+
+type layoutRow struct {
+	id       uuid.UUID
+	name     string
+	category string
+	tags     []string
+	scheme   string // "", "light", "dark", "neutral"
+	desc     string
+}
+
+type scoredLayout struct {
+	row        layoutRow
+	tagScore   float64
+	total      float64
+	mismatched bool // opposite scheme to the site
+}
+
+// resolveLayoutByTags — weighted, scheme-aware. Signature gains siteScheme.
+func resolveLayoutByTags(
+	ctx context.Context,
+	tx *sql.Tx,
+	category string,
+	industryTags []string,
+	siteScheme string, // "light" | "dark" | "" (from deriveSchemeFromDesignIntent)
+	logger *zap.Logger,
+) (*layoutResolution, error) {
+
+	// Site term set = canonical(category + industryTags).
+	siteTerms := canonicalSet(append([]string{category}, industryTags...))
+	if len(siteTerms) == 0 {
+		return fallbackLayout(ctx, tx, siteScheme, "no classification tags", nil, logger)
+	}
+	siteCategory := canonicalTag(category)
+
+	// Fetch every active layout with all scoring fields (small table).
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, name, COALESCE(category,''), COALESCE(industry_tags, '{}'),
+		       COALESCE(scheme,''), COALESCE(description,'')
+		FROM layouts
+		WHERE is_active = true
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("layout fetch failed: %w", err)
+	}
+	defer rows.Close()
+
+	var layouts []layoutRow
+	df := map[string]int{} // document frequency per canonical tag
+	for rows.Next() {
+		var lr layoutRow
+		var tags pq.StringArray
+		if err := rows.Scan(&lr.id, &lr.name, &lr.category, &tags, &lr.scheme, &lr.desc); err != nil {
+			return nil, fmt.Errorf("layout row scan: %w", err)
+		}
+		lr.tags = []string(tags)
+		layouts = append(layouts, lr)
+		for c := range canonicalSet(lr.tags) {
+			df[c]++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("layout rows iteration: %w", err)
+	}
+	if len(layouts) == 0 {
+		return fallbackLayout(ctx, tx, siteScheme, "no active layouts", nil, logger)
+	}
+	N := float64(len(layouts))
+
+	// idf weight for a canonical tag: rarer -> higher.
+	weight := func(tag string) float64 {
+		d := df[tag]
+		if d == 0 {
+			d = 1
+		}
+		return math.Log(1.0 + N/float64(d))
+	}
+
+	// Score each layout.
+	scored := make([]scoredLayout, 0, len(layouts))
+	for _, lr := range layouts {
+		layoutTags := canonicalSet(lr.tags)
+
+		var tagScore float64
+		for term := range siteTerms {
+			if _, ok := layoutTags[term]; ok {
+				tagScore += weight(term)
+			}
+		}
+
+		bonus := 0.0
+		if lr.category != "" && (canonicalTag(lr.category) == siteCategory || hasTerm(siteTerms, canonicalTag(lr.category))) {
+			bonus += categoryMatchBonus
+		}
+
+		// description keyword hits (distinct site terms appearing as words)
+		descLower := " " + strings.ToLower(lr.desc) + " "
+		descBonus := 0.0
+		for term := range siteTerms {
+			if term == "" {
+				continue
+			}
+			if strings.Contains(descLower, " "+term+" ") ||
+				strings.Contains(descLower, " "+strings.ReplaceAll(term, "-", " ")+" ") {
+				descBonus += descWordBonus
+			}
+		}
+		if descBonus > descBonusCap {
+			descBonus = descBonusCap
+		}
+		bonus += descBonus
+
+		mismatched := false
+		if siteScheme != "" && lr.scheme != "" && lr.scheme != "neutral" {
+			if lr.scheme == siteScheme {
+				bonus += sameSchemeBonus
+			} else {
+				mismatched = true
+			}
+		}
+
+		scored = append(scored, scoredLayout{
+			row:      lr,
+			tagScore: tagScore,
+			total:    tagScore + bonus,
+			mismatched: mismatched,
+		})
+	}
+
+	// Deterministic ordering: total, then tagScore, then name.
+	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].total != scored[j].total {
+			return scored[i].total > scored[j].total
+		}
+		if scored[i].tagScore != scored[j].tagScore {
+			return scored[i].tagScore > scored[j].tagScore
+		}
+		return scored[i].row.name < scored[j].row.name
+	})
+
+	// Candidate list (top 5, for the audit trail / HITL).
+	candidates := make([]string, 0, 5)
+	for i := 0; i < len(scored) && i < 5; i++ {
+		candidates = append(candidates, fmt.Sprintf("%s[%s:%.2f]",
+			scored[i].row.name, schemeOrDash(scored[i].row.scheme), scored[i].total))
+	}
+
+	// Prefer the best SAME-SCHEME (or neutral/unknown) layout with positive fit.
+	if best := firstEligible(scored); best != nil {
+		logger.Info("resolveLayoutByTags: matched layout (scheme-aware)",
+			zap.String("layout_name", best.row.name),
+			zap.String("layout_scheme", best.row.scheme),
+			zap.String("site_scheme", siteScheme),
+			zap.Float64("score", best.total),
+			zap.Float64("tag_score", best.tagScore),
+			zap.Strings("candidates", candidates),
+		)
+		return &layoutResolution{
+			LayoutID:   best.row.id,
+			LayoutName: best.row.name,
+			Scheme:     best.row.scheme,
+			Reason: fmt.Sprintf("weighted match: score %.2f (tags %.2f) for %q [scheme=%s] vs site scheme %q; candidates %s",
+				best.total, best.tagScore, best.row.name, schemeOrDash(best.row.scheme), siteScheme, strings.Join(candidates, ", ")),
+			Candidates: candidates,
+			IsFallback: false,
+		}, nil
+	}
+
+	// No same-scheme fit. If a cross-scheme layout has positive fit, use it but
+	// FLAG the gap (caller queues needs_new_layout_candidate).
+	if best := firstWithFit(scored); best != nil {
+		logger.Warn("resolveLayoutByTags: only opposite-scheme layouts fit — library gap",
+			zap.String("layout_name", best.row.name),
+			zap.String("layout_scheme", best.row.scheme),
+			zap.String("site_scheme", siteScheme),
+			zap.Strings("candidates", candidates),
+		)
+		return &layoutResolution{
+			LayoutID:         best.row.id,
+			LayoutName:       best.row.name,
+			Scheme:           best.row.scheme,
+			IsSchemeMismatch: true,
+			Reason: fmt.Sprintf("scheme gap: no %s layout fit these tags; using %q [scheme=%s] — queue a %s-layout candidate. candidates %s",
+				siteScheme, best.row.name, schemeOrDash(best.row.scheme), siteScheme, strings.Join(candidates, ", ")),
+			Candidates: candidates,
+			IsFallback: false,
+		}, nil
+	}
+
+	// Nothing fit at all.
+	return fallbackLayout(ctx, tx, siteScheme,
+		fmt.Sprintf("no layout fit site terms (%s)", strings.Join(keys(siteTerms), ",")),
+		candidates, logger)
+}
+
+// firstEligible: best-scoring layout that is NOT an opposite-scheme mismatch
+// and has positive fit.
+func firstEligible(s []scoredLayout) *scoredLayout {
+	for i := range s {
+		if !s[i].mismatched && s[i].total > 0 {
+			return &s[i]
+		}
+	}
+	return nil
+}
+
+// firstWithFit: best-scoring layout with any positive fit (used only after
+// firstEligible found none — i.e. the only fits are opposite-scheme).
+func firstWithFit(s []scoredLayout) *scoredLayout {
+	for i := range s {
+		if s[i].total > 0 {
+			return &s[i]
+		}
+	}
+	return nil
+}
+
+func hasTerm(set map[string]struct{}, t string) bool { _, ok := set[t]; return ok }
+func keys(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+func schemeOrDash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
+
+// fallbackLayout — scheme-aware. Prefers brochure-formal (light) for light or
+// unknown sites. Swap in a seeded dark fallback name for dark sites if/when one
+// exists; until then brochure-formal is the safe default and the mismatch is
+// recorded in the reason.
+func fallbackLayout(
+	ctx context.Context,
+	tx *sql.Tx,
+	siteScheme string,
+	reason string,
+	candidates []string,
+	logger *zap.Logger,
+) (*layoutResolution, error) {
+
+	fallbackName := "brochure-formal"
+	// If you seed a dark generic fallback later, select it here for dark sites.
+
+	var fb struct {
+		id     uuid.UUID
+		name   string
+		scheme string
+	}
+	err := tx.QueryRowContext(ctx, `
+		SELECT id, name, COALESCE(scheme,'') FROM layouts
+		WHERE name = $1 AND is_active = true
+		LIMIT 1
+	`, fallbackName).Scan(&fb.id, &fb.name, &fb.scheme)
+	if err != nil {
+		return nil, fmt.Errorf("fallback layout %q not found: %w — was Phase 1 seed loaded?", fallbackName, err)
+	}
+
+	logger.Info("fallbackLayout",
+		zap.String("layout", fb.name),
+		zap.String("site_scheme", siteScheme),
+		zap.String("reason", reason),
+	)
+	return &layoutResolution{
+		LayoutID:         fb.id,
+		LayoutName:       fb.name,
+		Scheme:           fb.scheme,
+		IsSchemeMismatch: siteScheme != "" && fb.scheme != "" && fb.scheme != siteScheme,
+		Reason:           "fallback — " + reason,
+		Candidates:       candidates,
+		IsFallback:       true,
+	}, nil
+}

@@ -65,7 +65,7 @@
 
 set -euo pipefail
 
-DOMAIN="${1:?Usage: $0 <domain> [--from URL] [--fidelity L] [--email E] [--phone P] [--mission TXT]}"
+DOMAIN="${1:?Usage: $0 <domain> [--from URL] [--fidelity L] [--email E] [--phone P] [--mission TXT] [--mission-file PATH]}"
 shift || true
 
 SOURCE_URL=""

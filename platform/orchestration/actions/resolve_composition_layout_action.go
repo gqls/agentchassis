@@ -5,45 +5,47 @@
 // has confirmed identity + classification specs exist.
 //
 // Separation of concerns:
-//   - The tag-overlap matching LOGIC lives in `resolveLayoutByTags`
-//     (fork_theme_composition.go) — shared with fork_theme_from_site.
-//   - This action is the thin workflow wrapper: extract inputs, call the
-//     shared helper, shape the output, and emit the library-growth work
-//     item on fallback.
+//   - The matching LOGIC lives in `resolveLayoutByTagsWeighted`
+//     (fork_theme_composition.go) — weighted, scheme-aware. The old
+//     `resolveLayoutByTags(ctx, tx, category, tags, logger)` is kept there as a
+//     backwards-compatible shim for the fork path.
+//   - This action is the thin workflow wrapper: extract inputs, derive the
+//     light/dark scheme from the design brief, call the matcher, shape the
+//     output, and emit the library-growth work item when the library had no
+//     same-scheme match (a hard fallback, or a scheme gap).
 //
-// On fallback (no layout scored above zero overlap), the action emits a
-// `needs_new_layout_candidate` work item. This is the library-growth
-// signal — when a site's classification didn't match any seeded layout,
-// a reviewer should see it and decide whether a new layout is warranted.
-// Same pattern as the classifier recovery item in validate_composition_inputs:
-// loud log + durable work item via insertWorkItem.
+// On fallback (no layout scored above zero) OR a scheme gap (only an
+// opposite-scheme layout fit), the action emits a `needs_new_layout_candidate`
+// work item. This is the library-growth signal — a reviewer decides whether a
+// new layout (e.g. a light variant) is warranted. Same durable-work-item
+// pattern as the classifier recovery item in validate_composition_inputs.
 //
 // Inputs:
 //   - site_id (path-resolved, required)
 //
 // Config literals:
 //   - classification_source (optional) — path to classification data in
-//     collected_data. Default: "validated_inputs.classification" (the
-//     output field from validate_composition_inputs). Falls back to a
-//     direct site_specs read if the path yields nothing.
+//     collected_data. Default: "validated_inputs.classification".
 //
 // Returns:
 //   {
 //     "layout_id":           "uuid-string",
-//     "layout_name":         "brochure-formal",
-//     "reason":              "best tag overlap (2 match) …",
-//     "candidates":          ["utility-tool", "docs-sidebar", "brochure-formal"],
+//     "layout_name":         "tool-portal-light",
+//     "reason":              "weighted match: score 3.41 …",
+//     "candidates":          ["tool-portal-light", "tool-portal-dark", ...],
 //     "is_fallback":         false,
-//     "site_tags":           ["corporate", "consulting"],
+//     "scheme":              "light",   // chosen layout's scheme ("" if unknown)
+//     "is_scheme_mismatch":  false,     // true if we had to cross schemes
+//     "site_tags":           ["interactive", "tool-portal", "founder-tools"],
 //     "review_item_queued":  null | "uuid-string",
 //   }
 //
-// Registration (add to registry.go):
+// Registration (registry.go) unchanged:
 //
 //   "resolve_composition_layout": {
 //       Handler:     ResolveCompositionLayoutAction,
 //       Category:    "site",
-//       Description: "Pick a library layout by tag-overlap against classification",
+//       Description: "Pick a library layout by weighted, scheme-aware match",
 //       IsLocal:     true,
 //   },
 
@@ -117,6 +119,10 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 		return nil, fmt.Errorf("extract classification tags: %w", err)
 	}
 
+	// Derive the light/dark scheme from the design brief so the matcher won't
+	// place a light site on a dark layout (or vice-versa) on tag overlap alone.
+	siteScheme := deriveSiteScheme(ctx, params, siteID, logger)
+
 	// Open a short transaction. The shared resolver takes *sql.Tx because it
 	// is used by the fully-transactional fork path. Here we use it read-only
 	// and commit without writes.
@@ -126,9 +132,9 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 	}
 	defer tx.Rollback()
 
-	resolution, err := resolveLayoutByTags(ctx, tx, category, industryTags, logger)
+	resolution, err := resolveLayoutByTagsWeighted(ctx, tx, category, industryTags, siteScheme, logger)
 	if err != nil {
-		return nil, fmt.Errorf("resolveLayoutByTags failed: %w", err)
+		return nil, fmt.Errorf("resolveLayoutByTagsWeighted failed: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -137,20 +143,36 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 
 	siteTagsForOutput := collectNormalisedSiteTags(category, industryTags)
 
-	// On fallback, emit a library-growth work item so a reviewer sees
-	// that the library didn't have a good match.
+	// Emit a library-growth work item when the library had no same-scheme
+	// match: either a hard fallback, or a scheme gap (an opposite-scheme
+	// layout was applied). Both mean "the library is missing a good fit".
 	var reviewItemQueued interface{}
-	if resolution.IsFallback {
-		logger.Error("ResolveCompositionLayoutAction: no library layout matched — fell back to brochure-formal",
-			zap.String("site_id", siteID.String()),
-			zap.String("domain", domain),
-			zap.Strings("site_tags", siteTagsForOutput),
-			zap.Strings("candidates_considered", resolution.Candidates),
-			zap.String("recommendation", "consider adding a new layout to the library"),
-		)
+	if resolution.IsFallback || resolution.IsSchemeMismatch {
+		if resolution.IsSchemeMismatch && !resolution.IsFallback {
+			logger.Warn("ResolveCompositionLayoutAction: scheme gap — no same-scheme layout fit; applied a cross-scheme match",
+				zap.String("site_id", siteID.String()),
+				zap.String("domain", domain),
+				zap.String("site_scheme", siteScheme),
+				zap.String("applied_layout", resolution.LayoutName),
+				zap.String("applied_layout_scheme", resolution.Scheme),
+				zap.Strings("site_tags", siteTagsForOutput),
+				zap.Strings("candidates_considered", resolution.Candidates),
+				zap.String("recommendation", fmt.Sprintf("consider adding a %s layout for these tags", schemeLabel(siteScheme))),
+			)
+		} else {
+			logger.Error("ResolveCompositionLayoutAction: no library layout matched — fell back to brochure-formal",
+				zap.String("site_id", siteID.String()),
+				zap.String("domain", domain),
+				zap.String("site_scheme", siteScheme),
+				zap.Strings("site_tags", siteTagsForOutput),
+				zap.Strings("candidates_considered", resolution.Candidates),
+				zap.String("recommendation", "consider adding a new layout to the library"),
+			)
+		}
 		itemID, qerr := queueLayoutCandidateReview(
 			ctx, params.DB,
-			siteID, domain,
+			siteID, domain, siteScheme,
+			resolution.Reason, resolution.LayoutName,
 			siteTagsForOutput, resolution.Candidates,
 			logger,
 		)
@@ -171,9 +193,40 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 		"reason":             resolution.Reason,
 		"candidates":         resolution.Candidates,
 		"is_fallback":        resolution.IsFallback,
+		"scheme":             resolution.Scheme,
+		"is_scheme_mismatch": resolution.IsSchemeMismatch,
 		"site_tags":          siteTagsForOutput,
 		"review_item_queued": reviewItemQueued,
 	}, nil
+}
+
+// deriveSiteScheme reads the light/dark intent from the design brief:
+// design_intent.style_direction (primary) + classification.suggested_style
+// (secondary). Returns "light" | "dark" | "" (unknown -> no constraint).
+// deriveSchemeFromDesignIntent lives in fork_theme_composition.go (same package).
+func deriveSiteScheme(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) string {
+	var styleDirection, suggestedStyle string
+	if di, found, err := loadCurrentSpecData(ctx, params.DB, siteID, "design_intent"); err == nil && found {
+		styleDirection, _ = di["style_direction"].(string)
+	}
+	if cl, found, err := loadCurrentSpecData(ctx, params.DB, siteID, "classification"); err == nil && found {
+		suggestedStyle, _ = cl["suggested_style"].(string)
+	}
+	s := deriveSchemeFromDesignIntent(styleDirection, suggestedStyle)
+	logger.Info("deriveSiteScheme",
+		zap.String("style_direction", styleDirection),
+		zap.String("suggested_style", suggestedStyle),
+		zap.String("scheme", s),
+	)
+	return s
+}
+
+// schemeLabel renders "" as "a same-scheme" for log readability.
+func schemeLabel(s string) string {
+	if s == "" {
+		return "matching-scheme"
+	}
+	return s
 }
 
 // extractClassificationTags pulls `category` and `industry_tags` from
@@ -271,17 +324,24 @@ func collectNormalisedSiteTags(category string, industryTags []string) []string 
 
 // queueLayoutCandidateReview inserts a needs_new_layout_candidate work item.
 // Non-fatal: if the queue fails, the main composition path continues with
-// the fallback layout.
+// the applied layout.
 //
-// item_key = "needs_new_layout_candidate" (site-scoped by the partial
-// unique index). Repeated fallbacks for the same site consolidate into
-// one active item; the two-strike rule surfaces persistently-bad
-// classifications as `unresolved` for investigation.
+// Widened to record the real situation: `reason` and `appliedLayout` come from
+// the resolution (so the item is accurate for both the hard-fallback case —
+// applied brochure-formal — and the scheme-gap case — applied a cross-scheme
+// layout), plus the derived `siteScheme`.
+//
+// item_key = "needs_new_layout_candidate" (site-scoped by the partial unique
+// index). Repeated misses for the same site consolidate into one active item;
+// the two-strike rule surfaces persistently-bad classifications as `unresolved`.
 func queueLayoutCandidateReview(
 	ctx context.Context,
 	db *sql.DB,
 	siteID uuid.UUID,
 	domain string,
+	siteScheme string,
+	reason string,
+	appliedLayout string,
 	siteTags []string,
 	candidatesConsidered []string,
 	logger *zap.Logger,
@@ -295,31 +355,36 @@ func queueLayoutCandidateReview(
 
 	spec := map[string]interface{}{
 		"domain":                domain,
-		"reason":                "no library layout matched site classification",
+		"reason":                reason,
+		"site_scheme":           siteScheme,
 		"queued_by":             "site-design-planner:resolve_composition_layout",
 		"site_tags":             siteTags,
 		"candidates_considered": candidatesConsidered,
-		"fallback_applied":      "brochure-formal",
+		"applied_layout":        appliedLayout,
 	}
 	specJSON, err := json.Marshal(spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal spec: %w", err)
 	}
 
-	// handler "hitl-review" + status "needs_human_review" matches the
-	// existing tool-auditor → HITL pattern (see agent_definitions for
-	// tool-auditor). `needs_human_review` is a first-class status: the
-	// dispatch loop skips these items, so the bogus handler doesn't
-	// cause the "handler not registered → blocked" flip in ClaimWorkItemAction.
-	// A human resolves the item via admin API (PATCH /work-items/:id)
-	// by either adding a new layout and retrying, or marking it wont_fix.
+	scheme := siteScheme
+	if scheme == "" {
+		scheme = "unknown"
+	}
+
+	// handler "hitl-review" + status "needs_human_review" matches the existing
+	// tool-auditor → HITL pattern. `needs_human_review` is a first-class status:
+	// the dispatch loop skips these items, so the bogus handler doesn't cause the
+	// "handler not registered → blocked" flip in ClaimWorkItemAction. A human
+	// resolves it via admin API (PATCH /work-items/:id): add a layout and retry,
+	// or mark wont_fix.
 	item := workItem{
 		siteID:       siteID,
 		source:       "side_effect",
 		pipeline:     "build",
 		itemType:     "needs_new_layout_candidate",
 		severity:     "low",
-		summary:      fmt.Sprintf("No library layout matched %s — review classification or add a new layout", domain),
+		summary:      fmt.Sprintf("Layout gap for %s (scheme=%s) — applied %s; review classification or add a layout", domain, scheme, appliedLayout),
 		spec:         string(specJSON),
 		priority:     80,
 		handlerAgent: "hitl-review",
@@ -359,6 +424,8 @@ func queueLayoutCandidateReview(
 	logger.Info("Queued needs_new_layout_candidate review item",
 		zap.String("site_id", siteID.String()),
 		zap.String("new_item_id", newItemID.String()),
+		zap.String("site_scheme", scheme),
+		zap.String("applied_layout", appliedLayout),
 	)
 	return &newItemID, nil
 }

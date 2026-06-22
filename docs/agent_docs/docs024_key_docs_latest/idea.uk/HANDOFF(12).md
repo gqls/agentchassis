@@ -1,0 +1,63 @@
+# HANDOFF — idea.uk + chassis website-builder (current state)
+
+_Canonical cold-start doc. Full chronological journal is `running_notes.md` (~5500 lines, checkpoints to (qqq)+). This file is the distilled current picture — keep it fresh each session._
+
+Date of this refresh: 2026-06-21.
+
+## The two projects
+1. **idea.uk (LIVE, earning, do not break).** A £29 "verified AI product idea" report service. Single **Go binary under systemd** (`idea`) on a **Hetzner box** (Nuremberg, IPv4 `116.203.204.115` — confirm), behind **nginx + Let's Encrypt**, listening `127.0.0.1:8080`. Orders in a **file** `/var/lib/idea/orders.json` (no DB). Env `/etc/idea/idea.env`. **Live Stripe webhook** → `https://idea.uk/stripe/webhook` (money path, idempotent). Reserved tool paths: `/request /confirm /approve /decline /stripe/webhook /internal/* /order/*` (+ buyer success page/assets — confirm full set). DNS (Cloudflare) → the VM.
+2. **Chassis website-builder.** Multi-agent Go/Kafka/Postgres system in k8s that turns a domain into a multipage static site and deploys it (GitHub → GitHub Actions → Backblaze B2). Being used to rebuild idea.uk's front site. **Because DNS points at the VM and the chassis deploys to B2, chassis builds are invisible to the live site** — safe staging-in-place. Going live is a deliberate VM cutover (below), not done.
+
+## How to operate (environment)
+- **DB:** `kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db` (one-off: add `-c "..."`; run a file: `kubectl exec -i -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db < file.sql`). **Run migration FILES via `< file`, never paste** (paste mangles blank-line whitespace — it broke a migration twice).
+- **Namespaces:** app pods `-n ai-persona-system`; Kafka `-n kafka`. **Cluster:** `personae-kafka-cluster` (bootstrap `personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092`).
+- **Deploy path:** chassis → GitHub → GitHub Actions → Backblaze B2.
+
+## User preferences (STRICT — honour every turn)
+Go not Python. Plain human language, **no LLM/hype tone**, no flattery, no "excellent choice". **Banned words: "perfect", "critical", "excellent".** Confirm live API/schema/product facts before asserting or coding (a `0 rows` result is not decisive — check the query first). **Reuse before rebuild; fix the framework structurally over one-off patches.** Honest caveats + pushback, including correcting my own earlier reads. British English. Low risk appetite. Reasonable step sizes, ≤1 question per reply. **Don't create summary docs unless asked.** Minimal formatting (prose, not bullet soup). No `logger.Debug` (won't surface — use `logger.Info`). Keep workflows simple, complexity in Go. No sub-workflows in SQL — spawn sub-agents. Every agent is an orchestrator owning a workflow of steps→actions. Don't say a fix is "final/last". Keep `running_notes.md`, this `HANDOFF.md`, and the runbooks fresh.
+
+## Chassis pipeline (the agent graph)
+Two entry agents converge on one work item, then a shared cascade:
+- **Fresh domain** → `domain-submitter` (input `{domain, email?, phone?, mission_brief?}`) → creates site + queues `needs_domain_research`.
+- **Adopt a source** → `site-adoption-orchestrator` (input `{target_url, destination_domain}`) → crawl + seed identity/archetype/design_reference/design_intent → queues `needs_domain_research`.
+- Then: `needs_domain_research` → **domain-research-classifier** (researches, classifies, writes the spec aspects; read-and-extends adopted seeds) → `needs_strategy` → domain-strategist → `needs_briefing` → build-briefing-agent → `needs_site_plan` → build-site-planner → (cascade) `needs_composition` → **site-design-planner** → (cascade) `needs_design` → **webdesign-agent** → `needs_content_page`×N → **page-build-handler** → rerender.
+- **Launch idioms:** (1) orchestrate a static agent = kcat produce to `system.agent.generic.requests`, `action=orchestrate`, `config.agent_type`, `input_data` (see `082_submit_domain_unified.sh`). (2) dynamic handlers (page-build-handler etc.) can't be orchestrated directly — insert a `site_work_items` row (`status='triaged'`) and the running `build-dispatch-loop` spawns them.
+- **Fidelity** dial (locked/high/medium/low) is **documented but not wired** (doc 028): currently implicit `high`; explicit input + `build_policy` aspect + per-item planned/deployed status are later phases. The trigger records `--fidelity` but it doesn't yet modulate the build.
+
+## Design pipeline model (three layers)
+1. **Direction** — specs the classifier writes (`identity`, `classification`, `content_direction`, `design_intent`).
+2. **Composition** — `site-design-planner` resolves layout (by tags) + palette (cascade) + typography and installs `css_themes` + `style_collections` + sets `sites.style_collection_id` + writes a `resolved_composition` spec (a **pointer/decision record**, NOT rendered CSS). Refuses to overwrite an already-installed composition.
+3. **Execution** — `webdesign-agent` renders `styles.css` from the installed composition + a design overlay, and is the only deployer of `styles.css`.
+Palette cascade: `design_reference.suggested_mapping` → `mission.preferred_palette` → `design_intent.palette.reference_values` → layout seed → default. Typography cascade analogous. Palettes are always site-specific; layouts are a shared, curated library.
+
+## idea.uk current state
+- **New chassis site_id = `1244516d-014d-421c-88c6-090bb1e9552a`** (submitted fresh 2026-06-21; correlation `988c3c8b-…`, orchestration `692cc495-…`; email `idea-uk@leopardess.uk`). The previous chassis idea.uk was torn down by the user.
+- **Mission** (reframed off the £29 tool): idea.uk = a broad workshop of genuinely good tools (the main event, free+paid) for taking your own idea seriously (exists?/pressure-test/what-it'd-take/sharpen/decide); tools labelled **private (in-browser, nothing sent)** vs **AI/hosted**, private leads; **guides** (cutting-edge, succinct, research-grounded); **news**; **never verdicts → opinion+evidence+questions** (legal reframe); the £29 verified report is **one specialised flagship tool** (own idea or ready-made); later a build-and-bring-to-market service; preserve warm-paper/ink/single-rust-accent/Fraunces+IBM-Plex identity. Shipped as `idea_uk_mission.txt`; passed via `082_submit_domain_unified.sh idea.uk --mission-file idea_uk_mission.txt`. NOTE: the privacy/client-only and "based on latest research papers" promises are stated **intent** the chassis can't yet enforce.
+- **Build result (this run):** classifier read the mission well — `site_type=interactive-platform`, `category=interactive`, tags lead `tool-portal`/`idea-validation`/`founder-tools`, `suggested_style=editorial-warm`, `style_direction=modern-light`. **Palette migration proven on a real build:** `resolved_composition.palette_source=design_intent_values`, parchment palette (`#EFE7D6`/`#1A1816`/`#A8391A` + sensible muted/secondary/surface) — no invented blue.
+- **Open problem (fix ready, not yet applied):** the composition picked **layout `tool-portal-dark`** — the matcher (`resolveLayoutByTags`) is **tags-only + scheme-blind**, so a light-editorial tools site matched the one dark tool layout. Fix shipped this session (below). Decision history: NO auto-layout-generation (the lever is the design rendered on top of a varied-enough library); a few hand-added light layouts + a scheme-aware matcher is the agreed approach.
+
+## Migrations status
+- **APPLIED:** `migration_domain_research_classifier_structured_design_intent.sql` (classifier emits structured `design_intent.palette.reference_values` + `typography.reference_values`) — proven on site 1244516d.
+- **READY, PROVEN-CORRECT, NOT YET APPLIED:** `migration_classifier_build_standard.sql` — adds a "Build standard" (best-in-class **quality/fit, not scope**) block to the top of the classifier prompt. Anchor bug fixed (single-line anchor); `replace()` simulated against the live prompt → lands cleanly, one `Domain:`. Affects future classifier runs only. Run the FILE. Test on a fresh build + confirm an adopted rebuild stays faithful.
+- **READY THIS SESSION, NOT YET APPLIED:** `migration_layouts_scheme_and_light_tool_portal.sql` — adds `layouts.scheme`, sets the two confirmed (tool-portal-dark=dark, soft-editorial=light), inserts a new **`tool-portal-light`** layout (light counterpart to tool-portal-dark; flat/editorial; reads palette vars; tagged to win for idea.uk), and a query to populate remaining schemes. Pairs with the matcher rewrite.
+
+## The layout matcher rewrite (this session)
+`resolveLayoutByTags_weighted.go` — drop-in replacement for `resolveLayoutByTags` in `fork_theme_composition.go`. Weighted, scheme-aware: scheme is a **near-hard constraint** (a light site won't land on a dark layout while any non-dark fits); tags weighted by **IDF rarity** (specific tags beat generic); **synonym normalisation** (controlled vocabulary); `category` + `description` keyword bonuses (finally uses the description field). Deterministic, transparent, all in Go. **Caller changes needed:** signature gains `siteScheme string` (use `deriveSchemeFromDesignIntent`); `layoutResolution` gains `Scheme` + `IsSchemeMismatch`; on mismatch the caller queues the existing `needs_new_layout_candidate` HITL item; requires the `layouts.scheme` column. Future (separate task): LLM-as-judge over the shortlist; pgvector only if the library grows into the thousands (it would blur the light/dark distinction, so not now).
+
+## VM cutover (to go live alongside the tool — deliberate, not done)
+Runbook: `RUNBOOK_idea_uk_vm_cutover.md`. nginx becomes the front door: static for general pages, **proxy the reserved tool paths to `127.0.0.1:8080`**, never static-serve `/stripe/webhook` or operator paths. DNS unchanged; rollback = restore one nginx block; tool service untouched. Prove the webhook through nginx BEFORE cutover. Prerequisite: build reviewed, CTAs point at `/request`, no static page collides with a reserved tool path. Biggest risk = completeness of the reserved-path list (Step 0).
+
+## Open backlog (roughly prioritised)
+1. **Apply + validate the layout fix:** run `migration_layouts_scheme_and_light_tool_portal.sql`; deploy the matcher rewrite (chassis image rebuild + roll site-design-planner) with the caller changes; re-resolve idea.uk's composition and confirm it now picks `tool-portal-light` with the parchment palette. (idea.uk in-place re-resolve = detach `style_collection_id` + re-queue `needs_composition`+`needs_design`; idea.uk is fresh, so detach — don't reuse the adoption `source_domain` bulk delete.)
+2. **Apply + test the build-standard migration** (fresh build first; adopted stays faithful).
+3. **Deploy the dead-slot hardening** (3 Go files: `resolve_composition_reference_helpers.go` + the two extract*Signal swaps) — chassis image rebuild + roll site-design-planner.
+4. **improver-not-rewriter overlay** (fix 2): webdesign-agent `analyze_design` overlay becomes an improver (show established palette + diff + audit), not a rewriter. Check for an existing audit/log table first.
+5. **Review idea.uk's built site** (CTAs→`/request`, no reserved-path collision) → then **VM cutover**.
+6. **Populate remaining `layouts.scheme`** values (query in the layouts migration).
+7. Stale doc: `002_system_architecture.md` still names webdesign-agent as the sole design agent (no composition/overlay model) — rewrite is a separate task.
+
+## Key confirmed schemas (via \d)
+- `site_specs`: jsonb column is **`data`** (not spec_data); partial UNIQUE `(site_id,aspect) WHERE is_current`; `created_by` NOT NULL; trigger sets updated_at. To add nested keys use `||` (jsonb_set into a missing parent silently no-ops).
+- `agent_definitions`: PK id; UNIQUE `(type,version)`; `default_config` jsonb; runtime picks `is_active=true AND deleted_at IS NULL AND (is_snapshot IS NULL OR =false) ORDER BY version DESC`. `snapshot_agent(type[,reason])` backs up before edits (handles versioning even with a prior snapshot).
+- `layouts`: `css_template` (NOT NULL, Go-template with `{{palette}}/{{typo}}/{{token}}` helpers), `structure_tokens` jsonb, `industry_tags` text[], `category`, `origin`, `needs_review`, **`scheme`** (added this session), UNIQUE name. Matcher reads these.
+- `css_themes` / `style_collections`: `sites.style_collection_id → style_collections` and `style_collections.css_theme_id → css_themes` have **no on-delete** (must NULL before delete); `css_themes.{palette,layout,typography_set}_id → library` are ON DELETE SET NULL. Adopted sites fork these (by `source_domain`); fresh sites point at shared library rows.
