@@ -2,46 +2,20 @@ package actions
 
 // FILE: platform/orchestration/actions/fork_theme_composition.go
 //
-// Helpers used by ForkThemeFromSiteAction (Phase 5) to produce
-// palette + typography_set rows from an adopted site's design_spec
-// and to resolve which layout best fits the site's classification.
+// Shared composition helpers used by the site-design-planner actions:
+//   - resolveLayoutByTags  — weighted, scheme-aware layout match (resolve_composition_layout)
+//   - resolveTypographySet — match-or-insert a typography_sets row (resolve_composition_typography)
+//   - createPalette        — insert a site-specific palettes row (resolve_composition_palette)
+//   - resolveUniqueNameInTx and small utilities
 //
-// Called once per adoption fork, inside the fork's transaction.
-// All three resolutions happen before the css_themes INSERT so the
-// three FKs are known values when the insert runs.
+// Each runs inside the caller's transaction. Palettes are always new (site
+// colours are site-specific); typography_sets are matched-or-new (fonts are
+// shared more often); layouts are matched from the library or fall back to
+// brochure-formal.
 //
-// Design: palette is always new (site colours are site-specific);
-// typography_set is matched-or-new (fonts are shared more often);
-// layout is matched-or-default (pick from existing library by
-// classification tag match, fall back to brochure-formal).
-
-// Goal: make the typography resolver reusable by site-design-planner the
-// same way we refactored the layout resolver.
-//
-// The existing `resolveTypographySetForFork` does three things:
-//   1. Extracts typography info from a design_spec map
-//   2. Tries to match an existing typography_set by font_family
-//   3. Inserts a new typography_sets row if no match
-//
-// site-design-planner has a different source for the typography signal
-// (design_reference or design_intent specs, or mission hints), but wants
-// the same match-or-insert behaviour. Splitting #1 off lets both callers
-// share #2 and #3.
-//
-// New shape:
-//   resolveTypographySet(ctx, tx, fonts, baseName, displayName, category,
-//                        industryTags, siteID, domain, logger)
-//      → uuid, matched bool, error
-//
-//   fonts is a plain map[string]string with keys like "font_family",
-//   "heading_font", "body_font". Callers build this however they want.
-//
-//   resolveTypographySetForFork stays as a thin wrapper for the fork path:
-//   extracts fonts from design_spec, delegates to resolveTypographySet.
-//
-// Behaviour is identical for the fork path. The fork action call site
-// changes zero characters.
-// ============================================================================
+// NOTE: ForkThemeFromSiteAction does NOT use these — it builds css_themes +
+// style_collections with the palette/typography stored inline as JSON on the
+// css_themes row and templates the CSS from the captured design_spec.
 
 import (
 	"context"
@@ -55,92 +29,6 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
-
-// --- Palette creation ---
-
-// createPaletteForFork inserts a new palettes row from the site's
-// design_spec.color_scheme, with origin='adopted', needs_review=true,
-// and source lineage populated. Always creates a new row — site
-// colours are site-specific and library palette reuse would be lying.
-//
-// Runs inside the caller's transaction. Returns the new palette's id.
-//
-// The inserted row's `colours` JSONB contains every string-valued
-// entry from color_scheme. Core palette keys (primary, secondary,
-// accent, background, surface, text, text_muted, border) are all
-// included if present. Non-core keys present in color_scheme are
-// ALSO included — specialised slots a site declares propagate, the
-// renderer's merge rules will then treat them as theme-owned.
-//
-// now just a thin wrapper
-func createPaletteForFork(
-	ctx context.Context,
-	tx *sql.Tx,
-	baseName string,
-	displayName string,
-	category string,
-	industryTags []string,
-	designSpec map[string]interface{},
-	siteID uuid.UUID,
-	domain string,
-	parentPaletteID *uuid.UUID,
-	logger *zap.Logger,
-) (uuid.UUID, error) {
-
-	coloursMap := extractStringMap(designSpec, "color_scheme")
-
-	return createPalette(
-		ctx, tx,
-		coloursMap,
-		baseName, displayName,
-		category, industryTags,
-		siteID, domain,
-		parentPaletteID,
-		"adopted", true, // fork path always adopted, review-gated
-		logger,
-	)
-}
-
-// --- Typography set creation or match ---
-
-// resolveTypographySetForFork matches the design_spec's typography
-// block against existing typography_sets rows by exact font_family
-// string match. If none match, creates a new row.
-//
-// Returns (id, matched): matched=true means an existing row was
-// reused; matched=false means a new row was inserted.
-//
-// The match is deliberately exact-string on font_family. Normalising
-// font stacks is fiddly and often wrong — "'Inter', system-ui" and
-// "Inter, -apple-system, BlinkMacSystemFont" likely render the same
-// Inter glyphs, but they're different stacks and shouldn't be
-// silently merged. The HITL review can consolidate duplicates later.
-//
-// now just a thin wrapper
-func resolveTypographySetForFork(
-	ctx context.Context,
-	tx *sql.Tx,
-	baseName string,
-	displayName string,
-	category string,
-	industryTags []string,
-	designSpec map[string]interface{},
-	siteID uuid.UUID,
-	domain string,
-	logger *zap.Logger,
-) (uuid.UUID, bool, error) {
-
-	typoMap := extractStringMap(designSpec, "typography")
-
-	return resolveTypographySet(
-		ctx, tx,
-		typoMap,
-		baseName, displayName,
-		category, industryTags,
-		siteID, domain,
-		logger,
-	)
-}
 
 // --- Layout resolution ---
 
@@ -540,7 +428,6 @@ func resolveUniqueNameInTx(
 // or inserts a new one if none matches.
 //
 // Used by:
-//   - resolveTypographySetForFork   (fork path — extracts fonts from design_spec)
 //   - resolve_composition_typography (site-design-planner — extracts from design
 //     specs or falls through to layout default)
 //
@@ -666,7 +553,6 @@ func resolveTypographySet(
 
 // createPalette inserts a new palettes row with the caller-supplied
 // colours map and metadata. Used by:
-//   - createPaletteForFork              (fork path — from design_spec)
 //   - resolve_composition_palette_action (composition — from spec cascade)
 //
 // Palettes are always site-specific — library reuse of palettes across
