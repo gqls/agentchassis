@@ -5,10 +5,10 @@
 // has confirmed identity + classification specs exist.
 //
 // Separation of concerns:
-//   - The matching LOGIC lives in `resolveLayoutByTagsWeighted`
-//     (fork_theme_composition.go) — weighted, scheme-aware. The old
-//     `resolveLayoutByTags(ctx, tx, category, tags, logger)` is kept there as a
-//     backwards-compatible shim for the fork path.
+//   - The matching LOGIC lives in `resolveLayoutByTags`
+//     (fork_theme_composition.go) — weighted, scheme-aware (tag IDF + scheme
+//     constraint + category/description). It gained a `siteScheme` parameter in
+//     this change; this action is its single caller.
 //   - This action is the thin workflow wrapper: extract inputs, derive the
 //     light/dark scheme from the design brief, call the matcher, shape the
 //     output, and emit the library-growth work item when the library had no
@@ -132,9 +132,9 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 	}
 	defer tx.Rollback()
 
-	resolution, err := resolveLayoutByTagsWeighted(ctx, tx, category, industryTags, siteScheme, logger)
+	resolution, err := resolveLayoutByTags(ctx, tx, category, industryTags, siteScheme, logger)
 	if err != nil {
-		return nil, fmt.Errorf("resolveLayoutByTagsWeighted failed: %w", err)
+		return nil, fmt.Errorf("resolveLayoutByTags failed: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {

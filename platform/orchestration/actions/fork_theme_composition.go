@@ -157,10 +157,9 @@ type layoutResolution struct {
 	IsSchemeMismatch bool     // true when only an opposite-scheme layout fit (a library-gap signal)
 }
 
-// resolveLayoutByTags / resolveLayoutByTagsWeighted — weighted, scheme-aware
-// layout matching. See the model note in resolveLayoutByTagsWeighted below.
-// resolveLayoutByTags is kept as a backwards-compatible shim (no scheme
-// constraint) for any caller that still uses the old 5-arg signature.
+// Weighted, scheme-aware layout matching. The tunables, synonym map, and
+// scoring live here; resolveLayoutByTags (below) is the single entry point.
+
 // --- tunables (one place to adjust scoring) ---
 const (
 	lmCategoryMatchBonus = 0.75 // layout.category matches a site term
@@ -241,19 +240,7 @@ type scoredLayout struct {
 	mismatched bool
 }
 
-// resolveLayoutByTags — backwards-compatible shim. Existing callers (the fork
-// path) keep working unchanged; no scheme constraint is applied for them.
-func resolveLayoutByTags(
-	ctx context.Context,
-	tx *sql.Tx,
-	category string,
-	industryTags []string,
-	logger *zap.Logger,
-) (*layoutResolution, error) {
-	return resolveLayoutByTagsWeighted(ctx, tx, category, industryTags, "", logger)
-}
-
-// resolveLayoutByTagsWeighted — weighted, scheme-aware layout match.
+// resolveLayoutByTags — weighted, scheme-aware layout match.
 //
 //	scheme   near-hard constraint: a light site won't take a dark layout while
 //	         any non-dark (same/neutral/unknown) layout fits, and vice-versa.
@@ -262,7 +249,7 @@ func resolveLayoutByTags(
 //	desc     small bonus per site term found in the layout's description.
 //
 // Zero fit anywhere -> scheme-aware fallback.
-func resolveLayoutByTagsWeighted(
+func resolveLayoutByTags(
 	ctx context.Context,
 	tx *sql.Tx,
 	category string,
