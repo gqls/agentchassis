@@ -83,11 +83,24 @@ type Citation struct {
 // Verdict is the result of one verdict step.
 type Verdict struct {
 	Outcome           Outcome
-	Citations         []Citation // REQUIRED for Confirmed/Refuted; empty ⇒ coerced Unverifiable
-	RevisedHypothesis string     // Refuted: the new hypothesis
-	NextScope         []string   // Refuted/Unverifiable: symbols/files to scope next
-	NeededEvidence    string     // Unverifiable: what evidence would settle it
-	RuntimeSite       string     // if the evidence names a runtime fault site to follow
+	Citations         []Citation    // REQUIRED for Confirmed/Refuted; empty ⇒ coerced Unverifiable
+	RevisedHypothesis string        // Refuted: the new hypothesis
+	NextScope         []string      // Refuted/Unverifiable: symbols/files to scope next
+	NeededEvidence    string        // Unverifiable: what evidence would settle it
+	RuntimeSite       string        // if the evidence names a runtime fault site to follow
+	DataRequests      []DataRequest // Refuted/Unverifiable: read-only SQL the gather should run next
+	//                                 (the DATA analogue of NextScope). Each is linted to read-only
+	//                                 at parse (Guard 2) and MUST run under a read-only transaction/role
+	//                                 (Guard 3); the prompt instructs SELECT-only (Guard 1).
+}
+
+// DataRequest is one read-only query the verdict asks the next gather to run,
+// when the bundle doesn't settle the hypothesis and specific DB evidence would.
+// All-strings, so one type serves both the domain Verdict and the wire (unlike
+// Outcome/Tier, which are enums needing a wire variant).
+type DataRequest struct {
+	SQL string `json:"sql"`           // a SINGLE read-only SELECT (or WITH … SELECT)
+	Why string `json:"why,omitempty"` // what this query would settle (for the trail)
 }
 
 // Scope is the bundle scope for one iteration. The loop narrows this over time.

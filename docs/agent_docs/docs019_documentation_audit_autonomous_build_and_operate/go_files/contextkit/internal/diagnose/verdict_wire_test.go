@@ -1,6 +1,9 @@
 package diagnose
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseVerdict_StringFormat(t *testing.T) {
 	raw := []byte(`{
@@ -81,5 +84,33 @@ func TestParseVerdicts_ArrayScript_GamesdesignPath(t *testing.T) {
 	}
 	if res.Status != Confirmed {
 		t.Fatalf("wire-format script should drive loop to Confirmed, got %s (%s)", res.Status, res.StoppedBy)
+	}
+}
+
+func TestParseVerdict_DataRequestsLintedAtParse(t *testing.T) {
+	raw := []byte(`{
+	  "outcome": "UNVERIFIABLE",
+	  "needed_evidence": "need the page rows",
+	  "data_requests": [
+	    {"sql": "SELECT name, status FROM pages WHERE site_id = $1", "why": "what pages exist"},
+	    {"sql": "WITH t AS (DELETE FROM pages RETURNING *) SELECT * FROM t", "why": "sneaky"},
+	    {"sql": "SELECT 1; DROP TABLE pages", "why": "stacked"}
+	  ]
+	}`)
+	v, err := ParseVerdict(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// only the read-only SELECT survives; the data-modifying CTE and the stacked
+	// statement are dropped at parse
+	if len(v.DataRequests) != 1 {
+		t.Fatalf("expected 1 surviving data request, got %d: %+v", len(v.DataRequests), v.DataRequests)
+	}
+	if v.DataRequests[0].SQL != "SELECT name, status FROM pages WHERE site_id = $1" {
+		t.Fatalf("wrong request survived: %q", v.DataRequests[0].SQL)
+	}
+	// the drops are surfaced in the trail, not silent
+	if !strings.Contains(v.NeededEvidence, "dropped non-read-only data_request") {
+		t.Fatalf("dropped requests not surfaced in NeededEvidence: %q", v.NeededEvidence)
 	}
 }
