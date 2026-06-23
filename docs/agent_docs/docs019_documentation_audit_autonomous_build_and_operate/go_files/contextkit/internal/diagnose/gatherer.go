@@ -31,6 +31,12 @@ type BundleGatherer struct {
 	//                        §9 entry or a dev-guide section. Constant across iterations
 	//                        (the per-iteration evidence is the code bodies + runtime), so the
 	//                        verdicter judges against the SAME standing context each time.
+	DocRules []DocRule // per-hypothesis doc selection: each iteration ALSO includes the
+	//                     docs whose keywords/paths match the CURRENT hypothesis/scope
+	//                     (the task-specific 003 contracts), via SelectDocs. The 003 contract
+	//                     for component linkage rides in on a component-linkage hypothesis, the
+	//                     CSS contract on a CSS hypothesis, neither otherwise — so the bundle
+	//                     stays focused as the loop re-scopes. Loaded from a JSON catalogue.
 	Psql   string // -psql (empty => bundle skips the DB gather)
 	Step   string // -step (default "debug")
 	OutDir string // where per-iteration bundles are written
@@ -96,8 +102,23 @@ func (b *BundleGatherer) buildArgs(hypothesis string, s Scope, outPath string) [
 	for _, sym := range s.Symbols {
 		args = append(args, "-scope", sym)
 	}
+	// Authored context: the always-include Docs plus the per-hypothesis matches
+	// from DocRules (the 003 contract / 016 §9 entry that fits THIS hypothesis or
+	// scope). De-duplicated so an always-include doc that also matches a rule
+	// isn't pasted twice. Each goes to the assembler's verbatim "Reference
+	// documents" section.
+	docSeen := map[string]bool{}
+	emitDoc := func(d string) {
+		if d != "" && !docSeen[d] {
+			docSeen[d] = true
+			args = append(args, "-doc", d)
+		}
+	}
 	for _, d := range b.Docs {
-		args = append(args, "-doc", d) // forwarded to the assembler's verbatim Reference documents section
+		emitDoc(d)
+	}
+	for _, d := range SelectDocs(hypothesis, s, b.DocRules) {
+		emitDoc(d)
 	}
 	if b.Psql != "" {
 		args = append(args, "-psql", b.Psql)

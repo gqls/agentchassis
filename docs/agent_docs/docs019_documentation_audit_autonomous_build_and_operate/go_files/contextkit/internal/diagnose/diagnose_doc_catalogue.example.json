@@ -1,0 +1,41 @@
+[
+  {
+    "doc": "docs/003_contracts/component_naming.md",
+    "keywords": ["component naming", "data-component", "one function one component", "active component"],
+    "path_globs": ["component", "create_tool_component", "assemble_from_library"]
+  },
+  {
+    "doc": "docs/003_contracts/js_content_separation.md",
+    "keywords": ["javascript", "js snippet", "asset path", "html/js split", "inline script"],
+    "path_globs": ["js_snippet", "tool_component", "asset"]
+  },
+  {
+    "doc": "docs/003_contracts/component_creation_regeneration.md",
+    "keywords": ["regenerate", "recreate", "return status", "version history", "rerender"],
+    "path_globs": ["regenerat", "rerender", "component"]
+  },
+  {
+    "doc": "docs/003_contracts/site_component_linkage.md",
+    "keywords": ["linkage", "slot", "unlinked", "slot mapping", "unlinked_site_components"],
+    "path_globs": ["link", "linkage", "slot", "component"]
+  },
+  {
+    "doc": "docs/003_contracts/css_colour_inheritance.md",
+    "keywords": ["colour inheritance", "color inheritance", "dark section", "section context", "css inherit"],
+    "path_globs": ["css", "colour", "color", "section"]
+  },
+  {
+    "doc": "docs/003_contracts/css_theme_template.md",
+    "keywords": ["theme", "theme template", "fork", "lineage", "review gate"],
+    "path_globs": ["theme", "css_theme"]
+  },
+  {
+    "doc": "docs/003_contracts/query_db_parameterisation.md",
+    "keywords": ["parameterise", "parameterised query", "sql injection", "query parameter", "spec_data"],
+    "path_globs": ["_actions.go", "db_actions", "sql_helpers"]
+  },
+  {
+    "doc": "docs/016_debugging_guide_silent_failures.md",
+    "always": true
+  }
+]

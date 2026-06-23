@@ -48,6 +48,7 @@ func main() {
 		bundleBin                               string
 		noFollow                                bool
 		docs                                    []string
+		docCatalogue                            string
 	)
 	bundleBin = "./cmd/bundle"
 	maxIter = 5
@@ -87,6 +88,8 @@ func main() {
 			callgraphPath = need(&i)
 		case "-doc":
 			docs = append(docs, need(&i)) // authored context pasted verbatim into every bundle
+		case "-doc-catalogue":
+			docCatalogue = need(&i) // JSON catalogue; per-hypothesis doc selection
 		case "-verdict-script":
 			verdictScript = need(&i)
 		case "-dry-bundle":
@@ -113,10 +116,15 @@ func main() {
 	}
 
 	// Gatherer (read-only bundle wrapper).
+	docRules, err := diagnose.LoadDocCatalogue(docCatalogue)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "load doc catalogue: %v\n", err)
+		os.Exit(2)
+	}
 	g := &diagnose.BundleGatherer{
 		BundleBin: bundleBin, UseGoRun: true,
 		AnalysisPath: analysisPath, Root: root, Constitution: constitution,
-		Docs: docs,
+		Docs: docs, DocRules: docRules,
 		Psql: psql, Step: "debug", DryRun: dryBundle,
 	}
 
