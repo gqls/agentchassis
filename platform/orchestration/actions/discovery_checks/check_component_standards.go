@@ -4,7 +4,8 @@
 // Detects: unlinked site_components, missing data-component attributes,
 // slot_name mismatches, missing site metadata, missing asset refs in rendered HTML,
 // stacked nav (missing flex CSS), unwanted elements (search icon),
-// and empty page sections.
+// empty page sections, and broken template slots (<no value> artifacts in
+// html_template that prevent content substitution during rendering).
 //
 // Each sub-check produces WorkItemSpec entries routed to the appropriate handler.
 // Register with: checks = ["validate_component_standards"] in workflow config.
@@ -37,6 +38,7 @@ func (c *ComponentStandardsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 	checkNavLayout(dctx, result)
 	checkUnwantedElements(dctx, result)
 	checkEmptyPageSections(dctx, result)
+	checkBrokenTemplateSlots(dctx, result)
 
 	dctx.Logger.Info("ComponentStandardsCheck complete",
 		zap.Int("findings", len(result.Findings)),
@@ -453,5 +455,89 @@ func checkEmptyPageSections(dctx DiscoveryCheckContext, result *CheckResult) {
 			ItemKey:      fmt.Sprintf("empty_page_%s_%s", pageName, dctx.SiteID),
 			BatchID:      dctx.BatchID,
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Sub-check: broken template slots (<no value> artifacts in html_template)
+//
+// Detects content_components whose html_template contains literal "<no value>"
+// strings — a Go text/template render artifact that occurs when a template is
+// executed against an empty data context and the rendered output is mistakenly
+// stored back as the source template. Such a template cannot have its slots
+// substituted at render time; all affected fields render as empty strings after
+// RenderTemplate's cleanup pass, producing pages with blank headings, labels,
+// and CTAs.
+//
+// StoreGeneratedComponentAction rejects templates with this pattern at creation
+// time (via blockingIssues). This check catches components that pre-date that
+// gate or were written through a path that bypasses it.
+//
+// Scoped to components used by this site's pages to avoid false positives on
+// unrelated components in the shared library.
+// ---------------------------------------------------------------------------
+
+func checkBrokenTemplateSlots(dctx DiscoveryCheckContext, result *CheckResult) {
+	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
+		SELECT DISTINCT cc.id::text, cc.function,
+		       (LENGTH(cc.html_template) - LENGTH(REPLACE(cc.html_template, '<no value>', '')))
+		           / LENGTH('<no value>') AS artifact_count
+		FROM content_components cc
+		JOIN page_components pc ON pc.component_id = cc.id
+		JOIN pages p ON p.id = pc.page_id
+		WHERE p.site_id = $1
+		  AND cc.html_template LIKE '%<no value>%'
+		  AND cc.is_active = true
+	`, dctx.SiteID)
+	if err != nil {
+		dctx.Logger.Warn("checkBrokenTemplateSlots: query failed", zap.Error(err))
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var componentID, function string
+		var artifactCount int
+		if err := rows.Scan(&componentID, &function, &artifactCount); err != nil {
+			continue
+		}
+
+		specJSON, _ := json.Marshal(map[string]interface{}{
+			"check":          "broken_template_slots",
+			"component_id":   componentID,
+			"function":       function,
+			"artifact_count": artifactCount,
+			"fix_type":       "repair_template_slots",
+		})
+
+		result.Findings = append(result.Findings, map[string]interface{}{
+			"check":          "broken_template_slots",
+			"function":       function,
+			"artifact_count": artifactCount,
+			"detail": fmt.Sprintf(
+				"component %q html_template contains %d '<no value>' artifacts — slots cannot be substituted",
+				function, artifactCount),
+		})
+
+		result.WorkItems = append(result.WorkItems, WorkItemSpec{
+			SiteID:       dctx.SiteID,
+			Source:       "discovery",
+			Pipeline:     "build",
+			ItemType:     "broken_template_slots",
+			Severity:     "high",
+			Summary:      fmt.Sprintf("Component %q has %d broken template slots — content cannot be injected", function, artifactCount),
+			SpecJSON:     string(specJSON),
+			Priority:     5,
+			HandlerAgent: "component-template-fixer",
+			Status:       "detected",
+			CreatedBy:    dctx.AgentType,
+			ItemKey:      fmt.Sprintf("broken_slots_%s_%s", function, dctx.SiteID),
+			BatchID:      dctx.BatchID,
+		})
+
+		dctx.Logger.Info("checkBrokenTemplateSlots: found broken component",
+			zap.String("function", function),
+			zap.String("component_id", componentID),
+			zap.Int("artifact_count", artifactCount))
 	}
 }

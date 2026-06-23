@@ -154,6 +154,8 @@ func FixComponentTemplateAction(ctx context.Context, params ActionParams) (inter
 	)
 
 	switch fixType {
+	case "repair_template_slots":
+		return fixRepairTemplateSlots(ctx, params, logger)
 	case "inject_nav_flex_css", "spacing_fix", "spacing":
 		// "spacing" is a raw category value from SQL-patched items
 		return fixInjectNavFlexCSS(ctx, params, siteID, logger)
@@ -461,4 +463,146 @@ func fixAlignSlotName(ctx context.Context, params ActionParams, logger *zap.Logg
 		"page_component_id": pcIDStr,
 		"new_slot_name":     dataComponent,
 	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// repair_template_slots: rewrites <no value>field_name</no> → {{.field_name}}
+//
+// Targets content_components.html_template. The pattern arises when a template
+// is rendered against an empty context and the output is stored as the source.
+// StoreGeneratedComponentAction rejects this at creation time, but older
+// components may carry the artifact.
+//
+// The fix uses a regexp replace: captures the field name between <no value>
+// and </no>, rewrites as {{.field_name}}. A snapshot is written to
+// component_versions before the UPDATE so the repair is reversible.
+// ---------------------------------------------------------------------------
+
+func fixRepairTemplateSlots(ctx context.Context, params ActionParams, logger *zap.Logger) (interface{}, error) {
+	componentIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.component_id")
+	if componentIDStr == "" {
+		componentIDStr = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.component_id")
+	}
+	if componentIDStr == "" {
+		return nil, fmt.Errorf("component_id is required for repair_template_slots (expected in spec.component_id)")
+	}
+
+	componentID, err := uuid.Parse(componentIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid component_id %q: %w", componentIDStr, err)
+	}
+
+	// Read current template
+	var function, currentTemplate string
+	err = params.DB.QueryRowContext(ctx, `
+		SELECT function, html_template
+		FROM content_components
+		WHERE id = $1
+	`, componentID).Scan(&function, &currentTemplate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load component %s: %w", componentIDStr, err)
+	}
+
+	if !strings.Contains(currentTemplate, "<no value>") {
+		logger.Info("repair_template_slots: no artifacts found, nothing to do",
+			zap.String("function", function))
+		return map[string]interface{}{
+			"fixed":    false,
+			"function": function,
+			"reason":   "no <no value> artifacts found",
+		}, nil
+	}
+
+	artifactCount := strings.Count(currentTemplate, "<no value>")
+
+	// Snapshot before modifying — write to component_versions so the repair
+	// is reversible. Non-fatal if this fails; log and continue.
+	var maxVersion int
+	_ = params.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(version_number), 0) FROM component_versions WHERE component_id = $1
+	`, componentID).Scan(&maxVersion)
+
+	_, snapErr := params.DB.ExecContext(ctx, `
+		INSERT INTO component_versions (component_id, version_number, html_template, change_source)
+		VALUES ($1, $2, $3, 'repair_template_slots')
+	`, componentID, maxVersion+1, currentTemplate)
+	if snapErr != nil {
+		logger.Warn("repair_template_slots: snapshot failed, continuing with repair",
+			zap.String("function", function),
+			zap.Error(snapErr))
+	}
+
+	// Replace <no value>FIELDNAME</no> with {{.FIELDNAME}} using Go strings.
+	// We iterate rather than using a single regex to avoid importing regexp
+	// and to handle the pattern precisely.
+	repairedTemplate := repairNoValueSlots(currentTemplate)
+
+	// Verify the repair was clean — no residual artifacts
+	residual := strings.Count(repairedTemplate, "<no value>")
+	if residual > 0 {
+		return nil, fmt.Errorf(
+			"repair_template_slots: %d artifacts remain after repair for %q — template may have unexpected slot format",
+			residual, function)
+	}
+
+	_, err = params.DB.ExecContext(ctx, `
+		UPDATE content_components
+		SET html_template = $1, updated_at = now()
+		WHERE id = $2
+	`, repairedTemplate, componentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update template for %s: %w", function, err)
+	}
+
+	logger.Info("repair_template_slots: template repaired",
+		zap.String("function", function),
+		zap.String("component_id", componentIDStr),
+		zap.Int("artifacts_fixed", artifactCount),
+		zap.Int("snapshot_version", maxVersion+1))
+
+	return map[string]interface{}{
+		"fixed":            true,
+		"fix_type":         "repair_template_slots",
+		"function":         function,
+		"component_id":     componentIDStr,
+		"artifacts_fixed":  artifactCount,
+		"snapshot_version": maxVersion + 1,
+	}, nil
+}
+
+// repairNoValueSlots replaces all occurrences of <no value>FIELDNAME</no>
+// with {{.FIELDNAME}} in a template string.
+func repairNoValueSlots(template string) string {
+	const prefix = "<no value>"
+	const suffix = "</no>"
+
+	var b strings.Builder
+	remaining := template
+	for {
+		start := strings.Index(remaining, prefix)
+		if start == -1 {
+			b.WriteString(remaining)
+			break
+		}
+		// Write everything before the artifact
+		b.WriteString(remaining[:start])
+
+		// Find the closing tag
+		afterPrefix := remaining[start+len(prefix):]
+		end := strings.Index(afterPrefix, suffix)
+		if end == -1 {
+			// Malformed: no closing tag — write the prefix literally and advance past it
+			b.WriteString(prefix)
+			remaining = afterPrefix
+			continue
+		}
+
+		fieldName := afterPrefix[:end]
+		b.WriteString("{{.")
+		b.WriteString(fieldName)
+		b.WriteString("}}")
+
+		remaining = afterPrefix[end+len(suffix):]
+	}
+	return b.String()
 }
