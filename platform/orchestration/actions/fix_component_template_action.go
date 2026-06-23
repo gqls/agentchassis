@@ -532,6 +532,26 @@ func fixRepairTemplateSlots(ctx context.Context, params ActionParams, logger *za
 			zap.Error(snapErr))
 	}
 
+	// Before attempting repair, check whether the pattern is repairable.
+	// repairNoValueSlots requires </no> closing tags to identify field names.
+	// If none are present, the rendered output was stored without field name
+	// fallbacks — the slots are unrecoverable and the component must be
+	// regenerated via needs_component_regeneration, not repaired.
+	closingTagCount := strings.Count(currentTemplate, "</no>")
+	if closingTagCount == 0 {
+		logger.Info("repair_template_slots: no </no> closing tags — needs regeneration",
+			zap.String("function", function),
+			zap.Int("artifact_count", artifactCount))
+		return map[string]interface{}{
+			"fixed":        false,
+			"fix_type":     "repair_template_slots",
+			"function":     function,
+			"component_id": componentIDStr,
+			"reason":       "template slots unrecoverable — field names absent, component needs regeneration",
+			"action":       "needs_regeneration",
+		}, nil
+	}
+
 	// Replace <no value>FIELDNAME</no> with {{.FIELDNAME}} using Go strings.
 	// We iterate rather than using a single regex to avoid importing regexp
 	// and to handle the pattern precisely.
@@ -541,7 +561,7 @@ func fixRepairTemplateSlots(ctx context.Context, params ActionParams, logger *za
 	residual := strings.Count(repairedTemplate, "<no value>")
 	if residual > 0 {
 		return nil, fmt.Errorf(
-			"repair_template_slots: %d artifacts remain after repair for %q — template may have unexpected slot format",
+			"repair_template_slots: %d artifacts remain after repair for %q — mixed or unexpected slot format",
 			residual, function)
 	}
 
