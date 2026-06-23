@@ -70,6 +70,12 @@ func TestGatherer_ScopeToFlags_DryRun(t *testing.T) {
 		Root:         "/repo",
 		Constitution: "const.md",
 		Docs:         []string{"docs/016_debugging_guide.md", "docs/dev_guide_s3.md"},
+		SchemaTables: []string{"site_specs", "pages"}, // constant domain schema; "pages" also in scope below → dedup
+		DocRules: []DocRule{
+			{Doc: "matched_by_keyword.md", Keywords: []string{"h"}}, // hypothesis is "h"
+			{Doc: "matched_by_path.md", PathGlobs: []string{"a.go"}}, // scope has a.go:Foo
+			{Doc: "not_matched.md", Keywords: []string{"zzz"}, PathGlobs: []string{"qqq"}},
+		},
 		Psql:         "kubectl exec -n ai-persona-system pg -- psql -U u -d d",
 		OutDir:       dir,
 		DryRun:       true,
@@ -96,7 +102,9 @@ func TestGatherer_ScopeToFlags_DryRun(t *testing.T) {
 		"-scope b.go",
 		"-doc docs/016_debugging_guide.md", // authored context forwarded to the bundle
 		"-doc docs/dev_guide_s3.md",
-		"-schema-tables pages,page_components",
+		"-doc matched_by_keyword.md", // per-hypothesis: keyword matched "h"
+		"-doc matched_by_path.md",    // per-hypothesis: path glob matched a.go
+		"-schema-tables site_specs,pages,page_components", // constant SchemaTables first, then scope; "pages" deduped
 		"-runtime-site gamesdesign.co.uk",
 		"-runtime-page index",
 		"-capabilities",
@@ -105,6 +113,10 @@ func TestGatherer_ScopeToFlags_DryRun(t *testing.T) {
 		if !strings.Contains(cmd, want) {
 			t.Fatalf("gathered command missing %q\ncmd: %s", want, cmd)
 		}
+	}
+	// the non-matching catalogue doc must NOT be included — proves SelectDocs filters
+	if strings.Contains(cmd, "not_matched.md") {
+		t.Fatalf("non-matching doc leaked into the bundle command\ncmd: %s", cmd)
 	}
 }
 

@@ -40,6 +40,7 @@ func main() {
 		analysisPath, root, constitution, psql  string
 		seedHypothesis, seedScopeCSV            string
 		seedTablesCSV, runtimeSite, runtimePage string
+		schemaTablesCSV                         string
 		capabilities                            bool
 		callgraphPath                           string
 		verdictScript                           string
@@ -78,6 +79,8 @@ func main() {
 			seedScopeCSV = need(&i)
 		case "-seed-tables":
 			seedTablesCSV = need(&i)
+		case "-schema-tables":
+			schemaTablesCSV = need(&i) // constant domain schema \d'd into every bundle (for data_requests)
 		case "-runtime-site":
 			runtimeSite = need(&i)
 		case "-runtime-page":
@@ -125,7 +128,8 @@ func main() {
 		BundleBin: bundleBin, UseGoRun: true,
 		AnalysisPath: analysisPath, Root: root, Constitution: constitution,
 		Docs: docs, DocRules: docRules,
-		Psql: psql, Step: "debug", DryRun: dryBundle,
+		SchemaTables: splitCSV(schemaTablesCSV),
+		Psql:         psql, Step: "debug", DryRun: dryBundle,
 	}
 
 	// CallGraph (re-scope by following calls).

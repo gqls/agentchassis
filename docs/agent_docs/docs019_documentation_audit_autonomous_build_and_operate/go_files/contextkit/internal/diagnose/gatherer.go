@@ -38,6 +38,14 @@ type BundleGatherer struct {
 	//                     CSS contract on a CSS hypothesis, neither otherwise — so the bundle
 	//                     stays focused as the loop re-scopes. Loaded from a JSON catalogue.
 	Psql   string // -psql (empty => bundle skips the DB gather)
+	// SchemaTables are domain tables whose \d is included in EVERY bundle
+	// (independent of the per-iteration scope), so the verdict can write
+	// data_requests against confirmed columns rather than guessing — the
+	// "confirm schema" step. Constant across iterations, like Docs; merged with
+	// the scope's per-iteration Tables. Only takes effect when Psql is set (\d
+	// needs a connection). Reuses the existing -schema-tables -> dbcontext -schema
+	// path; no new mechanism.
+	SchemaTables []string
 	Step   string // -step (default "debug")
 	OutDir string // where per-iteration bundles are written
 	iter   int    // internal counter for output filenames
@@ -122,8 +130,18 @@ func (b *BundleGatherer) buildArgs(hypothesis string, s Scope, outPath string) [
 	}
 	if b.Psql != "" {
 		args = append(args, "-psql", b.Psql)
-		if len(s.Tables) > 0 {
-			args = append(args, "-schema-tables", join2(s.Tables, ","))
+		// Merge the constant domain-schema tables (so the model always sees the
+		// columns it may query) with this iteration's scope tables, de-duplicated.
+		tblSeen := map[string]bool{}
+		var schemaTables []string
+		for _, t := range append(append([]string{}, b.SchemaTables...), s.Tables...) {
+			if t != "" && !tblSeen[t] {
+				tblSeen[t] = true
+				schemaTables = append(schemaTables, t)
+			}
+		}
+		if len(schemaTables) > 0 {
+			args = append(args, "-schema-tables", join2(schemaTables, ","))
 		}
 		if s.RuntimeSite != "" {
 			args = append(args, "-runtime-site", s.RuntimeSite)
