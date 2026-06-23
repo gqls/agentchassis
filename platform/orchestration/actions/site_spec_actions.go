@@ -149,6 +149,25 @@ func WriteSiteSpecAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("spec_data is nil")
 	}
 
+	// Coerce a string spec_data to an object.
+	// JSON string  → parse it (LLM may emit spec as a JSON-encoded string)
+	// Plain string → wrap as {"text": value} (mission_brief, roadmap_brief, etc.)
+	// Already-parsed objects pass through unchanged.
+	if strVal, isString := specData.(string); isString {
+		strVal = datahelpers.StripCodeFences(strVal)
+		var parsed map[string]interface{}
+		if err := json.Unmarshal([]byte(strVal), &parsed); err == nil {
+			logger.Info("write_site_spec: coerced JSON string spec_data to object")
+			specData = parsed
+		} else if strVal != "" {
+			logger.Info("write_site_spec: wrapped plain string spec_data as {text:...}",
+				zap.Int("len", len(strVal)))
+			specData = map[string]interface{}{"text": strVal}
+		} else {
+			return nil, fmt.Errorf("spec_data is an empty string")
+		}
+	}
+
 	specMap, ok := specData.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("spec_data must be a JSON object, got %T", specData)

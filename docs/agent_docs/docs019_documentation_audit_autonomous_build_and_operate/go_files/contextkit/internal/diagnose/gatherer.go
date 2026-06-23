@@ -35,8 +35,10 @@ type BundleGatherer struct {
 	DryRun bool
 }
 
-// Gather assembles the bundle for this scope and returns its path.
-func (b *BundleGatherer) Gather(_ string, s Scope) (string, error) {
+// Gather assembles the bundle for this scope and returns its path. The
+// hypothesis is forwarded to cmd/bundle as its required -task (the one-sentence
+// framing the bundle is built around) — bundle rejects args without it.
+func (b *BundleGatherer) Gather(hypothesis string, s Scope) (string, error) {
 	b.iter++
 	if b.Step == "" {
 		b.Step = "debug"
@@ -46,7 +48,7 @@ func (b *BundleGatherer) Gather(_ string, s Scope) (string, error) {
 	}
 	outPath := filepath.Join(b.OutDir, "diag_bundle_"+strconv.Itoa(b.iter)+".md")
 
-	args := b.buildArgs(s, outPath)
+	args := b.buildArgs(hypothesis, s, outPath)
 
 	if b.DryRun {
 		// Write the command we WOULD run, so tests/inspection can assert the
@@ -75,12 +77,14 @@ func (b *BundleGatherer) Gather(_ string, s Scope) (string, error) {
 }
 
 // buildArgs translates the fixed config + the per-iteration Scope into the
-// bundle argv. Mirrors cmd/bundle's own flag names exactly.
-func (b *BundleGatherer) buildArgs(s Scope, outPath string) []string {
+// bundle argv. Mirrors cmd/bundle's own flag names exactly — including -task,
+// which bundle REQUIRES (main.go: "required: -analysis -root -constitution -task").
+func (b *BundleGatherer) buildArgs(hypothesis string, s Scope, outPath string) []string {
 	args := []string{"run", b.BundleBin,
 		"-analysis", b.AnalysisPath,
 		"-root", b.Root,
 		"-constitution", b.Constitution,
+		"-task", hypothesis,
 		"-step", b.Step,
 		"-out", outPath,
 	}

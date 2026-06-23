@@ -90,6 +90,7 @@ func TestGatherer_ScopeToFlags_DryRun(t *testing.T) {
 	for _, want := range []string{
 		"-analysis /tmp/chassis_clean.json",
 		"-root /repo",
+		"-task h", // the hypothesis MUST be forwarded as bundle's required -task
 		"-scope a.go:Foo",
 		"-scope b.go",
 		"-schema-tables pages,page_components",
