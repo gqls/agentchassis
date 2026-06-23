@@ -69,6 +69,7 @@ func TestGatherer_ScopeToFlags_DryRun(t *testing.T) {
 		AnalysisPath: "/tmp/chassis_clean.json",
 		Root:         "/repo",
 		Constitution: "const.md",
+		Docs:         []string{"docs/016_debugging_guide.md", "docs/dev_guide_s3.md"},
 		Psql:         "kubectl exec -n ai-persona-system pg -- psql -U u -d d",
 		OutDir:       dir,
 		DryRun:       true,
@@ -93,6 +94,8 @@ func TestGatherer_ScopeToFlags_DryRun(t *testing.T) {
 		"-task h", // the hypothesis MUST be forwarded as bundle's required -task
 		"-scope a.go:Foo",
 		"-scope b.go",
+		"-doc docs/016_debugging_guide.md", // authored context forwarded to the bundle
+		"-doc docs/dev_guide_s3.md",
 		"-schema-tables pages,page_components",
 		"-runtime-site gamesdesign.co.uk",
 		"-runtime-page index",

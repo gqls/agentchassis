@@ -47,6 +47,7 @@ func main() {
 		maxIter                                 int
 		bundleBin                               string
 		noFollow                                bool
+		docs                                    []string
 	)
 	bundleBin = "./cmd/bundle"
 	maxIter = 5
@@ -84,6 +85,8 @@ func main() {
 			capabilities = true
 		case "-callgraph":
 			callgraphPath = need(&i)
+		case "-doc":
+			docs = append(docs, need(&i)) // authored context pasted verbatim into every bundle
 		case "-verdict-script":
 			verdictScript = need(&i)
 		case "-dry-bundle":
@@ -113,6 +116,7 @@ func main() {
 	g := &diagnose.BundleGatherer{
 		BundleBin: bundleBin, UseGoRun: true,
 		AnalysisPath: analysisPath, Root: root, Constitution: constitution,
+		Docs: docs,
 		Psql: psql, Step: "debug", DryRun: dryBundle,
 	}
 

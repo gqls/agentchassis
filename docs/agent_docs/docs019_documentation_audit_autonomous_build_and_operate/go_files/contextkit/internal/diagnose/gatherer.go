@@ -21,15 +21,20 @@ import (
 // inputs that DON'T change across iterations (analysis, root, constitution,
 // psql); the per-iteration Scope supplies the rest.
 type BundleGatherer struct {
-	BundleBin    string // how to invoke bundle, e.g. "./cmd/bundle" (go run target)
-	UseGoRun     bool   // true => `go run <BundleBin> …`; false => exec BundleBin directly
-	AnalysisPath string // -analysis
-	Root         string // -root
-	Constitution string // -constitution
-	Psql         string // -psql (empty => bundle skips the DB gather)
-	Step         string // -step (default "debug")
-	OutDir       string // where per-iteration bundles are written
-	iter         int    // internal counter for output filenames
+	BundleBin    string   // how to invoke bundle, e.g. "./cmd/bundle" (go run target)
+	UseGoRun     bool     // true => `go run <BundleBin> …`; false => exec BundleBin directly
+	AnalysisPath string   // -analysis
+	Root         string   // -root
+	Constitution string   // -constitution
+	Docs         []string // -doc (repeatable): authored context pasted verbatim into every
+	//                        bundle's "Reference documents" section — e.g. the relevant 016
+	//                        §9 entry or a dev-guide section. Constant across iterations
+	//                        (the per-iteration evidence is the code bodies + runtime), so the
+	//                        verdicter judges against the SAME standing context each time.
+	Psql   string // -psql (empty => bundle skips the DB gather)
+	Step   string // -step (default "debug")
+	OutDir string // where per-iteration bundles are written
+	iter   int    // internal counter for output filenames
 	// DryRun: if set, build the command and write the command line to the output
 	// path instead of running bundle — lets the wiring be tested without a cluster.
 	DryRun bool
@@ -90,6 +95,9 @@ func (b *BundleGatherer) buildArgs(hypothesis string, s Scope, outPath string) [
 	}
 	for _, sym := range s.Symbols {
 		args = append(args, "-scope", sym)
+	}
+	for _, d := range b.Docs {
+		args = append(args, "-doc", d) // forwarded to the assembler's verbatim Reference documents section
 	}
 	if b.Psql != "" {
 		args = append(args, "-psql", b.Psql)
