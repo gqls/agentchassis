@@ -44,17 +44,8 @@ type DocRule struct {
 // Matching is case-insensitive substring — dependency-free and consistent with
 // the analyser's substring excludes.
 func SelectDocs(hypothesis string, scope Scope, rules []DocRule) []string {
-	h := strings.ToLower(hypothesis)
-
-	// in-scope paths (strip ":Symbol" to the file path), lowercased
-	paths := make([]string, 0, len(scope.Symbols))
-	for _, s := range scope.Symbols {
-		p := s
-		if i := strings.Index(p, ":"); i >= 0 {
-			p = p[:i]
-		}
-		paths = append(paths, strings.ToLower(p))
-	}
+	h := lower(hypothesis)
+	paths := scopePaths(scope)
 
 	seen := map[string]bool{}
 	var out []string
@@ -76,6 +67,25 @@ func SelectDocs(hypothesis string, scope Scope, rules []DocRule) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// lower is strings.ToLower, named for brevity at the call sites that lowercase
+// the hypothesis once.
+func lower(s string) string { return strings.ToLower(s) }
+
+// scopePaths returns the in-scope symbols' file paths (stripping ":Symbol"),
+// lowercased — the form path-glob matching compares against. Shared by the doc
+// and query selectors.
+func scopePaths(scope Scope) []string {
+	paths := make([]string, 0, len(scope.Symbols))
+	for _, s := range scope.Symbols {
+		p := s
+		if i := strings.Index(p, ":"); i >= 0 {
+			p = p[:i]
+		}
+		paths = append(paths, strings.ToLower(p))
+	}
+	return paths
 }
 
 func matchesAny(hypothesis string, keywords []string) bool {

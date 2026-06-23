@@ -1,0 +1,42 @@
+[
+  {
+    "name": "pages_for_site",
+    "title": "Pages (name, type, status, url)",
+    "sql": "SELECT name, page_type, status, url FROM pages WHERE site_id = $1 ORDER BY name",
+    "params": ["site_id"],
+    "keywords": ["page", "url", "route", "status", "missing page", "404", "structure"],
+    "path_globs": ["page", "site_planner", "build_site_planner"]
+  },
+  {
+    "name": "page_components_for_page",
+    "title": "Page components for a page (position, slot, build_status, function)",
+    "sql": "SELECT pc.position, pc.slot_name, pc.build_status, pc.created_at, pc.updated_at, cc.function, cc.section_type FROM page_components pc JOIN content_components cc ON cc.id = pc.component_id JOIN pages p ON p.id = pc.page_id WHERE p.site_id = $1 AND p.name = $2 ORDER BY pc.position",
+    "params": ["site_id", "page_name"],
+    "keywords": ["component", "placeholder", "slot", "render", "content", "unfilled", "template", "styling", "theme"],
+    "path_globs": ["component", "render", "page_build", "content_writer"]
+  },
+  {
+    "name": "work_items_recent",
+    "title": "Recent work items (type, status, attempts, error)",
+    "sql": "SELECT item_type, status, attempts, error, item_key, created_at, completed_at FROM site_work_items WHERE site_id = $1 ORDER BY created_at DESC LIMIT 30",
+    "params": ["site_id"],
+    "keywords": ["work item", "claim", "claimed", "timeout", "dispatch", "build", "rerender", "attempts", "pod died", "stuck"],
+    "path_globs": ["dispatch", "work_item", "build_dispatch", "claim"]
+  },
+  {
+    "name": "needs_page_items",
+    "title": "needs_page work items with page_name (did the build run per page?)",
+    "sql": "SELECT item_type, status, error, item_key, created_at, completed_at, spec->>'page_name' AS page_name FROM site_work_items WHERE site_id = $1 AND item_type = 'needs_page' ORDER BY created_at DESC",
+    "params": ["site_id"],
+    "keywords": ["needs_page", "page build", "build handler", "did not build", "page-build-handler", "rerender"],
+    "path_globs": ["page_build", "needs_page"]
+  },
+  {
+    "name": "site_specs_current",
+    "title": "Current site specs (aspect, source)",
+    "sql": "SELECT aspect, source, source_agent, is_current, created_at FROM site_specs WHERE site_id = $1 AND is_current ORDER BY aspect",
+    "params": ["site_id"],
+    "keywords": ["spec", "brief", "classification", "classifier", "design intent", "content direction", "mission", "roadmap", "identity"],
+    "path_globs": ["site_spec", "classifier", "write_site_spec"]
+  }
+]
