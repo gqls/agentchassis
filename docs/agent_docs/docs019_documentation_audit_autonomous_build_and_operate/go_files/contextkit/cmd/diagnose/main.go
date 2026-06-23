@@ -28,7 +28,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -187,8 +186,10 @@ func loadScript(path string) (*scriptVerdicter, error) {
 	if err != nil {
 		return nil, err
 	}
-	var vs []diagnose.Verdict
-	if err := json.Unmarshal(raw, &vs); err != nil {
+	// The script is the MODEL WIRE FORMAT (string outcomes/tiers) — the same
+	// bytes the real model would emit — so a script is a faithful model stand-in.
+	vs, err := diagnose.ParseVerdicts(raw)
+	if err != nil {
 		return nil, err
 	}
 	return &scriptVerdicter{verdicts: vs}, nil
