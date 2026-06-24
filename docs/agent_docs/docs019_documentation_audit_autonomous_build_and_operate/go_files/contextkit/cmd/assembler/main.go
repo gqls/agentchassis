@@ -192,7 +192,7 @@ func main() {
 				inScopeSyms[seen{path, td.Name}] = true
 				inScopeRefs = append(inScopeRefs, symRef{Name: td.Name, Path: path, Pkg: fi.Package, Kind: td.Kind, Signature: typeSignature(td)})
 			}
-			src, err := readLines(*root, path, 1, -1)
+			src, err := analysis.ReadSymbolBody(*root, *an, path)
 			if err != nil {
 				w("> scope %q: %v\n\n", sc, err)
 				continue
@@ -216,7 +216,7 @@ func main() {
 		inScopeRefs = append(inScopeRefs, refFor(fi, sym))
 		w("### %s — `%s` (%s, lines %d–%d)\n\n", path, sym, kind, start, end)
 		if full {
-			src, err := readLines(*root, path, start, end)
+			src, err := analysis.ReadSymbolBody(*root, *an, sc) // sc is the full "path:sym"
 			if err != nil {
 				w("> %v\n\n", err)
 				continue
@@ -522,26 +522,6 @@ func typeSignature(td analysis.TypeDef) string {
 		}
 		return "type " + td.Name
 	}
-}
-
-// readLines returns lines [start,end] (1-indexed, inclusive) of root/relPath.
-// end == -1 means to end of file.
-func readLines(root, relPath string, start, end int) (string, error) {
-	b, err := os.ReadFile(filepath.Join(root, relPath))
-	if err != nil {
-		return "", err
-	}
-	lines := strings.Split(string(b), "\n")
-	if start < 1 {
-		start = 1
-	}
-	if end == -1 || end > len(lines) {
-		end = len(lines)
-	}
-	if start > len(lines) {
-		return "", fmt.Errorf("start line %d beyond file length %d", start, len(lines))
-	}
-	return strings.Join(lines[start-1:end], "\n"), nil
 }
 
 func sortedKeys(m map[string]bool) []string {

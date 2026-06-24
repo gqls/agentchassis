@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/pkg/diagnose"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -33,7 +34,7 @@ import (
 var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
 		"site_id_field", "correlation_id_field", "domain_field",
-		"error_limit", "work_item_limit",
+		"error_limit", "work_item_limit", "data_requests_field",
 	},
 	Defaults: map[string]interface{}{
 		"site_id_field":        "input_data.site_id",
@@ -41,6 +42,10 @@ var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 		"domain_field":         "input_data.runtime_site",
 		"error_limit":          20,
 		"work_item_limit":      20,
+		// On a loop-back, diagnose_route carries the prior verdict's data_requests
+		// here (same pattern as route.scope / route.hypothesis). Empty on the first
+		// iteration (no verdict yet).
+		"data_requests_field": "route.data_requests",
 	},
 }
 
@@ -176,11 +181,24 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		b.WriteString("(no orchestration rows for this correlation/site)\n")
 	}
 
+	// ── model-written data requests (read-only, the §1a re-scope driver) ──────
+	// On a loop-back, the prior verdict's data_requests arrive via route.* . Each
+	// is run in a READ ONLY transaction with a statement_timeout and the rows are
+	// appended. The IsReadOnlySQL lint is Guard 2 (defence in depth); the
+	// read-only tx (Guard 3) is the real guarantee. Empty on the first iteration.
+	dataReqField := datahelpers.GetStringField(config, "data_requests_field", "route.data_requests")
+	dataReqs := dataRequestsFromCollected(params.CollectedData, dataReqField)
+	if len(dataReqs) > 0 {
+		b.WriteString("\n### data_requests (model-written, read-only)\n")
+		runDataRequests(ctx, params.DB, dataReqs, &b)
+	}
+
 	logger.Info("diagnose_load_runtime: gathered runtime evidence",
 		zap.String("site_id", siteID),
 		zap.String("correlation_id", correlationID),
 		zap.String("domain", domain),
-		zap.Int("error_rows", errCount))
+		zap.Int("error_rows", errCount),
+		zap.Int("data_requests", len(dataReqs)))
 
 	// Returned under "runtime_evidence" — the field diagnose_assemble_bundle reads.
 	return map[string]interface{}{
@@ -195,8 +213,10 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 // PRE-MERGE (dev guide: grep before adding helpers): nullUUID / nullText /
 // errSuffix are generic names that may ALREADY exist in package actions or in
 // datahelpers. Before merging, run:
-//   grep -rn "func nullUUID\|func nullText\|func errSuffix" platform/orchestration/actions/
-//   grep -rn "NullUUID\|NullText" platform/orchestration/actions/datahelpers/
+//
+//	grep -rn "func nullUUID\|func nullText\|func errSuffix" platform/orchestration/actions/
+//	grep -rn "NullUUID\|NullText" platform/orchestration/actions/datahelpers/
+//
 // If an equivalent exists, delete these and use it (or move these to helpers.go).
 // Do NOT introduce a second copy.
 func nullUUID(s string) interface{} {
@@ -216,4 +236,121 @@ func errSuffix(e string) string {
 		return ""
 	}
 	return " error=" + e
+}
+
+// dataReq is a single model-written read query and the reason the verdict wants
+// it. The verdict step already linted these (Guard 2 at toVerdict) and dropped
+// the unsafe ones; we re-lint here as defence in depth and run them read-only.
+type dataReq struct{ SQL, Why string }
+
+// dataRequestsFromCollected pulls the verdict's data_requests out of
+// collected_data at `field` ([]{sql,why}). PRE-MERGE: confirm the wire keys
+// against docs/PROMPT_diagnosis_verdict.md and VerdictWire's json tags — they are
+// "sql"/"why" here; adjust if the prompt schema differs.
+func dataRequestsFromCollected(collected map[string]interface{}, field string) []dataReq {
+	raw := datahelpers.ExtractNestedField(collected, field)
+	arr, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	var out []dataReq
+	for _, it := range arr {
+		m, ok := it.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		q, _ := m["sql"].(string)
+		why, _ := m["why"].(string)
+		if strings.TrimSpace(q) != "" {
+			out = append(out, dataReq{SQL: q, Why: why})
+		}
+	}
+	return out
+}
+
+// runDataRequests runs each request in a READ ONLY transaction with a
+// statement_timeout, appending the rows to `into`. params.DB is *sql.DB;
+// pgbouncer pool_mode = transaction. Reads only; defer Rollback; never commits.
+// (Guard 3 is the real guarantee; the IsReadOnlySQL lint is Guard 2 in depth.)
+func runDataRequests(ctx context.Context, db *sql.DB, reqs []dataReq, into *strings.Builder) {
+	for _, r := range reqs {
+		if err := diagnose.IsReadOnlySQL(r.SQL); err != nil {
+			fmt.Fprintf(into, "\n> data_request skipped (lint): %v\n> %s\n", err, r.Why)
+			continue
+		}
+		tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+		if err != nil {
+			fmt.Fprintf(into, "\n> data_request tx error: %v\n", err)
+			continue
+		}
+		func() {
+			defer tx.Rollback() // this path never commits
+			if _, err := tx.ExecContext(ctx, "SET LOCAL statement_timeout = '15s'"); err != nil {
+				fmt.Fprintf(into, "\n> statement_timeout error: %v\n", err)
+				return
+			}
+			rows, err := tx.QueryContext(ctx, r.SQL)
+			if err != nil {
+				fmt.Fprintf(into, "\n> data_request error: %v\n> %s\n", err, r.Why)
+				return
+			}
+			defer rows.Close()
+			text, err := formatRowsText(rows)
+			if err != nil {
+				fmt.Fprintf(into, "\n> data_request scan error: %v\n", err)
+				return
+			}
+			fmt.Fprintf(into, "\n#### %s\n\n```\n%s```\n", r.Why, text)
+		}()
+	}
+}
+
+// formatRowsText renders arbitrary result rows (unknown columns) as a header +
+// pipe-separated rows. PRE-MERGE: grep the actions/maintenance code for an
+// existing generic row->text helper before keeping this:
+//
+//	grep -rn "func formatRows\|rows.Columns()" platform/orchestration/actions/
+//
+// If one exists, use it and delete this; do NOT add a second copy.
+func formatRowsText(rows *sql.Rows) (string, error) {
+	cols, err := rows.Columns()
+	if err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	sb.WriteString(strings.Join(cols, " | "))
+	sb.WriteString("\n")
+	vals := make([]interface{}, len(cols))
+	ptrs := make([]interface{}, len(cols))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	n := 0
+	for rows.Next() {
+		if err := rows.Scan(ptrs...); err != nil {
+			return "", err
+		}
+		cells := make([]string, len(cols))
+		for i, v := range vals {
+			cells[i] = cellToString(v)
+		}
+		sb.WriteString(strings.Join(cells, " | "))
+		sb.WriteString("\n")
+		n++
+	}
+	if n == 0 {
+		sb.WriteString("(0 rows)\n")
+	}
+	return sb.String(), rows.Err()
+}
+
+func cellToString(v interface{}) string {
+	switch t := v.(type) {
+	case nil:
+		return "NULL"
+	case []byte:
+		return string(t)
+	default:
+		return fmt.Sprintf("%v", t)
+	}
 }
