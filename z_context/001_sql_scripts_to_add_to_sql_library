@@ -1,0 +1,47 @@
+-- 1. Index component content — are the slots populated in the DB?
+SELECT pc.slot_name, pc.build_status,
+       pc.content_data IS NOT NULL AS has_content_data,
+       LEFT(pc.content_data::text, 200) AS content_preview,
+       LEFT(pc.rendered_html, 200) AS html_preview
+FROM page_components pc
+JOIN pages p ON p.id = pc.page_id
+JOIN sites s ON s.id = p.site_id
+WHERE s.domain = 'vonc.com'
+  AND p.name = 'index'
+ORDER BY pc.position;
+
+-- 2. Tool pages — do components exist and have content?
+SELECT p.name, pc.slot_name, pc.build_status,
+       pc.content_data IS NOT NULL AS has_content_data,
+       LEFT(pc.rendered_html, 100) AS html_preview
+FROM page_components pc
+JOIN pages p ON p.id = pc.page_id
+JOIN sites s ON s.id = p.site_id
+WHERE s.domain = 'vonc.com'
+  AND p.name IN ('tool-gauntlet', 'tool-archetype-taster-quiz')
+ORDER BY p.name, pc.position;
+
+-- 3. Any stuck or failed work items right now?
+SELECT item_type, status, error, item_key, created_at
+FROM site_work_items
+WHERE site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
+  AND status IN ('claimed', 'triaged', 'detected', 'failed')
+ORDER BY created_at DESC
+LIMIT 20;
+
+SELECT cc.function, cc.render_mode, cc.template_variable_count,
+       cc.quality_score
+FROM content_components cc
+WHERE cc.function IN ('provocation-card', 'brief-explanation', 'lobby-grid',
+                      'gauntlet-cta', 'system-stats', 'hero')
+ORDER BY cc.function;
+
+SELECT p.name, pc.slot_name, pc.build_status,
+       LEFT(pc.rendered_html, 300) AS html_preview
+FROM page_components pc
+JOIN pages p ON p.id = pc.page_id
+JOIN sites s ON s.id = p.site_id
+WHERE s.domain = 'vonc.com'
+  AND pc.slot_name = 'archetype-result-card'
+ORDER BY p.name;
+

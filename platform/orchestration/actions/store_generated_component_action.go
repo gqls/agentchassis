@@ -385,14 +385,16 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			    input_schema    = $2::jsonb,
 			    js_content      = $3,
 			    is_dark_section = $4,
+			    render_mode     = $5,
 			    is_active       = true,
 			    updated_at      = NOW()
-			WHERE id = $5::uuid
+			WHERE id = $6::uuid
 		`,
 			htmlTemplate,
 			inputSchemaJSON,
 			nullIfEmpty(jsContent),
 			isDark,
+			deriveRenderMode(inputSchemaJSON), // derived from schema, not hardcoded
 			existingID,
 		)
 		if err != nil {
@@ -451,25 +453,26 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 				$1, $2, $3, $4, 'section',
 				$5, $6::jsonb, $7::jsonb,
 				$8, $9, $10, $11::jsonb,
-				$12, 'template', 'generated', true,
+				$12, $13, 'generated', true,
 				0, NULL,
-				$13::jsonb
+				$14::jsonb
 			)
 			RETURNING id::text
 		`,
-			functionName,                  // $1 name
-			displayName,                   // $2 display_name
-			functionName,                  // $3 function
-			category,                      // $4 category
-			sectionType,                   // $5 section_type
-			string(suitableSiteTypesJSON), // $6 suitable_site_types
-			string(suitablePageTypesJSON), // $7 suitable_page_types
-			description,                   // $8 description
-			htmlTemplate,                  // $9 html_template (JS extracted)
-			nullIfEmpty(jsContent),        // $10 js_content (NULL if no JS)
-			inputSchemaJSON,               // $11 input_schema
-			isDark,                        // $12 is_dark_section
-			datahelpers.BuildSemanticTags(sectionType, siteType), // $13 semantic_tags
+			functionName,                      // $1 name
+			displayName,                       // $2 display_name
+			functionName,                      // $3 function
+			category,                          // $4 category
+			sectionType,                       // $5 section_type
+			string(suitableSiteTypesJSON),     // $6 suitable_site_types
+			string(suitablePageTypesJSON),     // $7 suitable_page_types
+			description,                       // $8 description
+			htmlTemplate,                      // $9 html_template (JS extracted)
+			nullIfEmpty(jsContent),            // $10 js_content (NULL if no JS)
+			inputSchemaJSON,                   // $11 input_schema
+			isDark,                            // $12 is_dark_section
+			deriveRenderMode(inputSchemaJSON), // $13 render_mode (derived from schema, not hardcoded)
+			datahelpers.BuildSemanticTags(sectionType, siteType), // $14 semantic_tags
 		).Scan(&componentID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert component: %w", err)
@@ -1278,4 +1281,43 @@ func recordValidationRejection(
 			zap.Error(err),
 			zap.String("function", functionName))
 	}
+}
+
+// deriveRenderMode inspects a JSON-encoded input_schema and returns "agent"
+// if any field has source="llm", otherwise "template".
+//
+// This ensures render_mode is always consistent with the schema rather than
+// being hardcoded at creation time. The page-content-writer workflow's
+// check_render_mode conditional routes sections to LLM generation when
+// render_mode == "agent"; without this derivation every component would
+// permanently take the template-only path regardless of its content needs.
+//
+// Called by both the INSERT (creation) and UPDATE (regeneration) paths in
+// StoreGeneratedComponentAction so the value is always up to date.
+func deriveRenderMode(inputSchemaJSON string) string {
+	if inputSchemaJSON == "" || inputSchemaJSON == "{}" {
+		return "template"
+	}
+
+	var schema map[string]interface{}
+	if err := json.Unmarshal([]byte(inputSchemaJSON), &schema); err != nil {
+		return "template"
+	}
+
+	fields, ok := schema["fields"].(map[string]interface{})
+	if !ok {
+		return "template"
+	}
+
+	for _, v := range fields {
+		fieldDef, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if source, ok := fieldDef["source"].(string); ok && source == "llm" {
+			return "agent"
+		}
+	}
+
+	return "template"
 }
