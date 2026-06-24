@@ -40,9 +40,9 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 		"gather_step", "emit_step", "max_iterations",
 	},
 	Defaults: map[string]interface{}{
-		"verdict_field":  "verdict.result", // ExecuteLLMPromptAction wraps JSON under .result
-		"state_field":    "diagnose_state", // where this action persists loop state across iterations
-		"analysis_field": "repo_analysis",  // analyser Output, for call-graph re-scope
+		"verdict_field":  "verdict.result",  // ExecuteLLMPromptAction wraps JSON under .result
+		"state_field":    "diagnose_state",  // where this action persists loop state across iterations
+		"analysis_field": "repo_analysis",   // analyser Output, for call-graph re-scope
 		"gather_step":    "assemble_bundle", // the step to loop BACK to for the next iteration
 		"emit_step":      "emit",            // the step to proceed to when the loop stops
 		"max_iterations": 5,
@@ -61,6 +61,8 @@ func init() {
 //     gather step reads to assemble the next bundle;
 //   - "diagnose_state": the accumulated loop state (iteration, evidence trail,
 //     hypothesis history) threaded into the next iteration;
+//   - "data_requests": the verdict's read-only SELECTs (when iterating), which the
+//     next load_runtime executes under a read-only transaction;
 //   - "status"/"conclusion": when stopping, the engine's terminal result.
 func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
@@ -136,9 +138,39 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 	result["next_step"] = gatherStep
 	result["scope"] = diagnose.EncodeScope(decision.NextScope)
 	result["hypothesis"] = decision.Hypothesis // the (possibly revised) hypothesis for the next bundle
+
+	// Forward the verdict's read-only data_requests so the next gather (load_runtime)
+	// runs them under a read-only transaction and folds the rows into the next bundle.
+	// These already passed the read-only lint at parse (Guard 2 in
+	// verdict_wire.toVerdict); the gather re-lints (defence in depth) and runs them in
+	// a read-only transaction (Guard 3, the real guarantee). The engine's Scope
+	// intentionally does not carry these — code re-scope (the call graph) and data
+	// re-gather (these) are separate channels, and this action has the parsed verdict
+	// in hand, so it bridges the data channel directly.
+	if drs := encodeDataRequests(verdict.DataRequests); len(drs) > 0 {
+		result["data_requests"] = drs
+	}
+
 	logger.Info("diagnose_route: iterating",
 		zap.Int("next_iteration", st.Iteration+1),
 		zap.Int("scope_size", len(decision.NextScope.Symbols)),
+		zap.Int("data_requests", len(verdict.DataRequests)),
 		zap.String("next_step", gatherStep))
 	return result, nil
+}
+
+// encodeDataRequests renders the verdict's read-only data_requests as the
+// []{sql,why} list diagnose_load_runtime reads at route.data_requests on the next
+// iteration. verdict.DataRequests is already filtered to read-only at parse
+// (verdict_wire.toVerdict drops anything IsReadOnlySQL rejects); the gather re-lints
+// and runs each under a read-only transaction.
+func encodeDataRequests(drs []diagnose.DataRequest) []interface{} {
+	if len(drs) == 0 {
+		return nil
+	}
+	out := make([]interface{}, 0, len(drs))
+	for _, dr := range drs {
+		out = append(out, map[string]interface{}{"sql": dr.SQL, "why": dr.Why})
+	}
+	return out
 }

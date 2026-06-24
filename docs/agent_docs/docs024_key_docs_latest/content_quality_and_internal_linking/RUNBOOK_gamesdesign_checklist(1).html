@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page-pipeline runbook — progress</title>
+<style>
+  :root{
+    --canvas:#e9ebf0; --card:#ffffff; --line:#d7dbe3; --line-soft:#e6e9ef;
+    --ink:#1d2330; --ink-soft:#5b6473; --muted:#475569; --faint:#7c8696;
+    --accent:#4338ca; --accent-soft:#eef0ff;
+    --done:#16a34a; --done-bg:#dcfce7; --done-ink:#15803d;
+    --run:#f59e0b;  --run-bg:#fef3c7;  --run-ink:#b45309;
+    --blk:#94a3b8;  --blk-bg:#e2e8f0;  --blk-ink:#475569;
+    --todo:#cbd5e1; --todo-ink:#64748b;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--canvas); color:var(--ink); font-family:var(--sans);
+    line-height:1.5; -webkit-font-smoothing:antialiased; padding:32px 18px 64px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  /* ---- header / board ---- */
+  .board{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px 22px 20px;box-shadow:0 1px 0 rgba(20,25,40,.03);
+  }
+  .kick{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  h1{font-size:25px;letter-spacing:-.02em;line-height:1.1;margin:.35rem 0 .15rem;font-weight:780}
+  .sub{color:var(--muted);font-size:14px;margin:0}
+  .stamp{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px}
+
+  .meter{display:flex;gap:2px;margin:18px 0 10px;height:16px}
+  .meter .cell{flex:1 1 0;border-radius:2px;background:var(--todo);min-width:5px}
+  .cell.s-done{background:var(--done)}
+  .cell.s-run{background:var(--run)}
+  .cell.s-blk{background:var(--blk)}
+
+  .readout{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .pct{font-size:22px;font-weight:760;letter-spacing:-.01em}
+  .pct small{font-size:13px;color:var(--muted);font-weight:500;letter-spacing:0}
+  .counts{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .counts b{color:var(--ink);font-weight:700}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
+  .dot.done{background:var(--done)} .dot.run{background:var(--run)} .dot.blk{background:var(--blk)} .dot.todo{background:var(--todo)}
+  .reset{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint);background:none;border:0;cursor:pointer;text-decoration:underline;padding:4px}
+  .reset:hover{color:var(--muted)}
+
+  /* ---- part cards ---- */
+  .part{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:14px}
+  .phead{display:flex;align-items:center;gap:12px;margin-bottom:2px}
+  .pnum{font-family:var(--mono);font-weight:700;font-size:13px;color:#fff;background:var(--accent);
+    min-width:26px;height:26px;border-radius:7px;display:grid;place-items:center;letter-spacing:0}
+  .ptitle{font-weight:700;font-size:16px;letter-spacing:-.01em}
+  .pcount{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .pnote{color:var(--faint);font-size:12.5px;margin:0 0 12px 38px}
+  .pbar{display:flex;gap:3px;height:6px;margin:0 0 12px 38px}
+  .pbar .cell{flex:1 1 0;border-radius:2px;background:var(--todo);min-width:8px}
+
+  ul.steps{list-style:none;margin:0;padding:0}
+  li.step{display:flex;align-items:flex-start;gap:11px;padding:8px 6px;border-radius:9px}
+  li.step + li.step{border-top:1px solid var(--line-soft)}
+  li.step:hover{background:#f7f8fb}
+  label.box{position:relative;display:inline-flex;cursor:pointer;flex:0 0 auto;margin-top:1px}
+  label.box input{position:absolute;opacity:0;width:20px;height:20px;margin:0;cursor:pointer}
+  .tick{width:20px;height:20px;border:1.8px solid #b9c0cd;border-radius:6px;display:grid;place-items:center;
+    transition:background .12s,border-color .12s;background:#fff}
+  .tick svg{width:13px;height:13px;opacity:0;transform:scale(.6);transition:opacity .12s,transform .12s}
+  label.box input:checked + .tick{background:var(--done);border-color:var(--done)}
+  label.box input:checked + .tick svg{opacity:1;transform:scale(1)}
+  label.box input:focus-visible + .tick{outline:3px solid var(--accent-soft);outline-offset:2px;border-color:var(--accent)}
+
+  .body{flex:1 1 auto;min-width:0}
+  .lab{font-size:14px;color:var(--ink)}
+  .step.checked .lab{color:var(--todo-ink);text-decoration:line-through;text-decoration-color:#c3cad6}
+  .hint{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px}
+
+  .chip{flex:0 0 auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+    font-weight:600;padding:3px 8px;border-radius:999px;margin-top:1px;white-space:nowrap}
+  .chip.done{background:var(--done-bg);color:var(--done-ink)}
+  .chip.run{background:var(--run-bg);color:var(--run-ink)}
+  .chip.blk{background:var(--blk-bg);color:var(--blk-ink)}
+  .chip.todo{background:#eef1f6;color:var(--todo-ink)}
+  .chip.run .live{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--run-ink);margin-right:5px;vertical-align:1px}
+
+  .foot{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:22px;text-align:center;line-height:1.7}
+  .foot code{background:#dfe3ea;padding:1px 5px;border-radius:4px;color:var(--muted)}
+
+  @media (prefers-reduced-motion: no-preference){
+    .chip.run .live{animation:pulse 1.4s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  }
+  @media (max-width:520px){
+    .pnote,.pbar{margin-left:0}
+    .chip{display:none}
+    h1{font-size:22px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="board">
+    <div class="kick">gamesdesign · build / re-render fixes</div>
+    <h1>Page-pipeline runbook — progress</h1>
+    <p class="sub">What's done and what's left across the connected build and re-render fixes.</p>
+    <div class="stamp">status as of 24 Jun 2026 · mirrors RUNBOOK_gamesdesign_index_rebuild.md</div>
+
+    <div class="meter" id="meter" aria-hidden="true"></div>
+
+    <div class="readout">
+      <div class="pct"><span id="pctNum">0%</span> <small>complete</small></div>
+      <div class="counts">
+        <span><span class="dot done"></span><b id="cDone">0</b> done</span>
+        <span><span class="dot run"></span><b id="cRun">0</b> running</span>
+        <span><span class="dot blk"></span><b id="cBlk">0</b> blocked</span>
+        <span><span class="dot todo"></span><b id="cTodo">0</b> to do</span>
+      </div>
+      <button class="reset" id="reset" title="Clear your ticks and return to the seeded 24 Jun status">reset to current status</button>
+    </div>
+  </div>
+
+  <div id="parts"></div>
+
+  <p class="foot">
+    Tick a box as each step lands — your ticks are saved on this device.<br>
+    Seeded status reflects the runbook; the running rebuild is work item <code>0b8114c1</code> (claimed by <code>build-dispatch-loop</code>).
+  </p>
+</div>
+
+<script>
+const PARTS = [
+  { n:'1', title:'result-contract drop', note:'shipped 06-18, verified on a real build',
+    items:[ {id:'p1-1', label:'Shipped (result_spec.go + coordinator.go) and verified', st:'done'} ] },
+
+  { n:'2', title:'no-LLM re-render path', note:'Test 1 passed; remaining tests pending',
+    items:[
+      {id:'p2-1', label:'P2.1 — pre-flight wiring fact confirmed', st:'done'},
+      {id:'p2-2', label:'P2.2 — baseline captured', st:'done'},
+      {id:'p2-3', label:'P2.3 — Test 1 happy path (no-LLM re-render runs)', st:'done'},
+      {id:'p2-4', label:'P2.4 — Test 2 real image-landed flow', st:'todo'},
+      {id:'p2-5', label:'P2.5 — Test 3 section_data_resolved', st:'todo'},
+      {id:'p2-6', label:'P2.6 — Test 4 NULL content_data escalation (self-heal)', st:'todo'},
+      {id:'p2-7', label:'P2.7 — Test 5 backward-compat (plain page_rerender)', st:'todo'},
+    ] },
+
+  { n:'3', title:'item_key canonicalization', note:'code prepared; apply after Part 2 verifies',
+    items:[
+      {id:'p3-1', label:'P3.1 — decisions resolved (Option B)', st:'done'},
+      {id:'p3-2', label:'P3.2 — pre-flight survey + baseline (runnable now)', st:'todo'},
+      {id:'p3-3', label:'P3.3 — apply the moves', st:'blk', hint:'gated on Part 2 verify + code written'},
+      {id:'p3-4', label:'P3.4 — tests', st:'blk', hint:'gated on P3.3'},
+    ] },
+
+  { n:'4', title:'interactive page clobber', note:'fix written, not yet deployed',
+    items:[
+      {id:'p4-0', label:'Root cause confirmed — full rebuild plans from spec; tool lives only in rendered_html', st:'done'},
+      {id:'p4-1', label:'Fix written — Layer 1 + Layer 2 + source_item_id in save_page_sections', st:'done'},
+      {id:'p4-2', label:'P4.3·1 — set work_item_id_field on the 3 save_page_sections callers', st:'todo'},
+      {id:'p4-3', label:'P4.3·2 — go build, deploy, bump image_tag on the 3 agents', st:'todo'},
+      {id:'p4-4', label:'P4.3·3 — re-create game-pathfinding A* tool and verify', st:'todo'},
+    ] },
+
+  { n:'5', title:'system-stats section dropped', note:'rebuild ran 18:37 — it dropped the band rather than re-keying it',
+    items:[
+      {id:'p5-0', label:'Root cause confirmed — content_data keys ≠ template keys (component fdd92ad4)', st:'done'},
+      {id:'p5-1', label:'P5.1 — full content rebuild ran (WI 0b8114c1 complete 18:37)', st:'done'},
+      {id:'p5-2', label:'P5.2/3 — re-check: rebuild DROPPED the band (index now 4 sections); key-mismatch unverified', st:'done', hint:'band removed, not repaired'},
+      {id:'p5-3', label:'P5.5·1 — confirm structure (page_components rows; renamed-slot guard)', st:'todo'},
+      {id:'p5-4', label:'P5.5·2 — fleet check: do other fdd92ad4 pages carry writer keys or template keys?', st:'todo'},
+      {id:'p5-5', label:'P5.5·3 — durable fix: align component template ↔ writer keys (repairs all pages)', st:'todo'},
+      {id:'p5-6', label:'P5.5·4 — decide: pin system-stats back on the index, or accept 4 sections', st:'todo'},
+    ] },
+
+  { n:'+', title:'cross-cutting follow-ups', note:'',
+    items:[
+      {id:'fx-1', label:'Phantom-CTA — apply select_sections path fix + rebuild guide-economy-basics', st:'todo'},
+      {id:'fx-2', label:'rerender_single_page invalid page_id — root-cause in rerender-pages (triaged)', st:'todo'},
+    ] },
+];
+
+const KEY = 'pagePipelineChecklist:v1';
+const ALL = PARTS.flatMap(p => p.items);
+const seed = () => Object.fromEntries(ALL.map(i => [i.id, i.st === 'done']));
+let checked = seed();
+
+const CHECK_SVG = '<svg viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function eff(item){ return checked[item.id] ? 'done' : item.st; }      // effective status
+function cls(st){ return st==='done'?'s-done':st==='run'?'s-run':st==='blk'?'s-blk':''; }
+function chipText(st){ return st==='done'?'done':st==='run'?'running':st==='blk'?'blocked':'to do'; }
+
+async function load(){
+  try{
+    if (window.storage && typeof window.storage.get === 'function'){
+      const r = await window.storage.get(KEY, false);
+      if (r && r.value){
+        const saved = JSON.parse(r.value);
+        checked = seed();
+        for (const id in saved){ if (id in checked) checked[id] = !!saved[id]; }
+      }
+    }
+  }catch(e){ /* no saved state / storage unavailable — use seed */ }
+  render();
+}
+async function save(){
+  try{
+    if (window.storage && typeof window.storage.set === 'function'){
+      await window.storage.set(KEY, JSON.stringify(checked), false);
+    }
+  }catch(e){ /* in-session only */ }
+}
+
+function render(){
+  // meter (all items in order)
+  document.getElementById('meter').innerHTML =
+    ALL.map(i => `<span class="cell ${cls(eff(i))}"></span>`).join('');
+
+  // counts
+  let d=0,r=0,b=0,t=0;
+  ALL.forEach(i=>{ const s=eff(i); s==='done'?d++:s==='run'?r++:s==='blk'?b++:t++; });
+  document.getElementById('cDone').textContent=d;
+  document.getElementById('cRun').textContent=r;
+  document.getElementById('cBlk').textContent=b;
+  document.getElementById('cTodo').textContent=t;
+  document.getElementById('pctNum').textContent=Math.round((d/ALL.length)*100)+'%';
+
+  // parts
+  document.getElementById('parts').innerHTML = PARTS.map(p=>{
+    const done = p.items.filter(i=>eff(i)==='done').length;
+    const bar = p.items.map(i=>`<span class="cell ${cls(eff(i))}"></span>`).join('');
+    const rows = p.items.map(i=>{
+      const s = eff(i), on = checked[i.id];
+      return `<li class="step${on?' checked':''}">
+        <label class="box">
+          <input type="checkbox" data-id="${i.id}" ${on?'checked':''} aria-label="${i.label.replace(/"/g,'&quot;')}">
+          <span class="tick">${CHECK_SVG}</span>
+        </label>
+        <span class="body">
+          <span class="lab">${i.label}</span>
+          ${i.hint?`<span class="hint">${i.hint}</span>`:''}
+        </span>
+        <span class="chip ${s}">${s==='run'?'<span class="live"></span>':''}${chipText(s)}</span>
+      </li>`;
+    }).join('');
+    return `<section class="part">
+      <div class="phead">
+        <span class="pnum">${p.n}</span>
+        <span class="ptitle">${p.title}</span>
+        <span class="pcount">${done}/${p.items.length}</span>
+      </div>
+      ${p.note?`<p class="pnote">${p.note}</p>`:''}
+      <div class="pbar">${bar}</div>
+      <ul class="steps">${rows}</ul>
+    </section>`;
+  }).join('');
+
+  document.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{ checked[cb.dataset.id]=cb.checked; save(); render(); });
+  });
+}
+
+document.getElementById('reset').addEventListener('click', async ()=>{
+  checked = seed();
+  try{ if (window.storage && window.storage.delete) await window.storage.delete(KEY, false); }catch(e){}
+  render();
+});
+
+load();
+</script>
+</body>
+</html>

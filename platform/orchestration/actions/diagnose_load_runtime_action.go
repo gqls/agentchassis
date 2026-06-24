@@ -42,11 +42,11 @@ var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 		"domain_field":         "input_data.runtime_site",
 		"error_limit":          20,
 		"work_item_limit":      20,
-		// Re-invocation design (one iteration per orchestration): the prior
-		// verdict's data_requests are passed into THIS orchestration's input_data
-		// by the previous diagnose_route's call_next mapping. So they live at
-		// input_data.data_requests, not collected_data. Empty on the first iteration.
-		"data_requests_field": "input_data.data_requests",
+		// The prior verdict's data_requests are forwarded by diagnose_route into
+		// route.data_requests, and the loop RETURNS to this step (the workflow's
+		// gather_step = load_runtime), so each iteration runs them. Empty on the
+		// first iteration (route has not run yet).
+		"data_requests_field": "route.data_requests",
 	},
 }
 
@@ -182,12 +182,20 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		b.WriteString("(no orchestration rows for this correlation/site)\n")
 	}
 
-	// ── model-written data requests (read-only, the §1a re-scope driver) ──────
-	// One iteration per orchestration: the prior verdict's data_requests arrive in
-	// THIS orchestration's input_data (passed by the previous diagnose_route). Each
-	// is run in a READ ONLY transaction with a statement_timeout and the rows are
-	// appended. IsReadOnlySQL is Guard 2 (defence in depth); the read-only tx
-	// (Guard 3) is the real guarantee. Empty on the first iteration.
+	// ── model-written data requests (read-only, the §1a DB-following channel) ──
+	// On loop-back the previous verdict's data_requests are forwarded by
+	// diagnose_route into route.data_requests, and the loop returns HERE (the
+	// workflow's gather_step = load_runtime). Each is run under a READ ONLY
+	// transaction with a statement_timeout and appended.
+	//
+	// SELECT-only is enforced at THREE layers (defence in depth):
+	//   1. the verdict prompt instructs a single read-only SELECT/WITH … SELECT only;
+	//   2. the model's text is FILTERED twice through diagnose.IsReadOnlySQL — once at
+	//      parse (verdict_wire.toVerdict drops non-read-only requests) and again here
+	//      in runDataRequests before execution;
+	//   3. the read-only transaction (BeginTx ReadOnly) is the REAL guarantee — it
+	//      rejects any write (incl. data-modifying CTEs) regardless of the lint.
+	// Empty on the first iteration.
 	dataReqField := datahelpers.GetStringField(config, "data_requests_field", "route.data_requests")
 	dataReqs := dataRequestsFromCollected(params.CollectedData, dataReqField)
 	if len(dataReqs) > 0 {
