@@ -12,6 +12,12 @@ and `NOTES_running_synthesis_v2*.md` (already in the repo).
 
 ## STATE DIGEST (read first)
 
+**Deploy status (2026-06-24).** Release image **v1.0.1073** deploying
+(GitHub → GitHub Actions → Backblaze S3). The deploy carries the current chassis
+state. Post-deploy verification: the §2 chassis build check, then the gated
+analyser-path / eval items below — a deployed image is not yet evidence the loop
+reasons.
+
 **What we are building.** contextkit — a task-scoped context-assembly + diagnosis
 tool, dogfooded on the agent-chassis repo (`github.com/gqls/agentchassis`, Go +
 Postgres + Kafka, k8s ns `ai-persona-system`). The immediate sub-thing is the
@@ -130,6 +136,13 @@ never re-searching the symptom. Human-gated, never a fix, never triggers a run.
   deleted the stub; dropped the now-redundant `_ = analysisField`. gofmt-clean,
   syntax OK (full compile still needs your env).
 - Created this NOTES file, `RUNBOOK.md`, `PLAN.md`.
+
+### 2026-06-24 — turn 4: rename + deploy
+- Renamed the running notes to `NOTES_running_synthesis_v3.md` (continues the
+  repo's `_v2` series); updated the cross-references in `RUNBOOK.md` and `PLAN.md`.
+- Release image **v1.0.1073** deploying (GitHub → Actions → Backblaze S3). No code
+  change this turn; the deploy carries the current chassis state. Next verification
+  is the §2 build check, then the gated analyser-path / eval items.
 
 ---
 

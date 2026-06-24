@@ -1,0 +1,37 @@
+https://claude.ai/chat/6f220af3-cf78-4fe3-b3a8-284e2883116f
+
+One-sentence summary of the task:
+
+Apply and verify the workflow fix for gamesdesign's phantom hero CTAs — page-content-writer's select_sections reads the wrong path for the internal-link-resolver reply (resolved_links.sections_ready instead of resolved_links.response.link_resolution.sections_ready) and falls back to the un-augmented plan, so the resolver's real hub links never reach the rendered hero.
+
+Filled-in bundle invocation (phantom-CTA thread):
+cd docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/contextkit
+
+go run ./cmd/bundle \
+  -analysis /tmp/analysis_repo.json -root ~/projects/agentchassis \
+  -constitution thin_slice_constitution.md -step debug \
+  -task "gamesdesign guide hero renders phantom CTAs (/contact.html, /services.html): internal-link-resolver computes correct hub links but page-content-writer's select_sections reads resolved_links.sections_ready instead of resolved_links.response.link_resolution.sections_ready and falls back to the un-augmented plan. Confirm the path fix lands the resolver's hubs on the rendered hero; assess two follow-ups — the resolver's narrow hero/call-to-action function matching, and its oversized reply / empty final_result." \
+  -scope platform/orchestration/actions/resolve_internal_links_action.go:ResolveInternalLinksAction \
+  -scope platform/orchestration/actions/extract_fields_action.go:ExtractFieldsAction \
+  -scope platform/orchestration/actions/call_agent_action.go:CallAgentAction \
+  -scope platform/orchestration/actions/complete_workflow_action.go:CompleteWorkflowAction \
+  -include platform/orchestration/actions/compile_page_sections_action.go \
+  -include platform/orchestration/actions/render_component_action.go \
+  -include platform/orchestration/actions/registry.go \
+  -doc docs/agent_docs/docs024_key_docs_latest/016_debugging_guide_v2_56(1).md \
+  -doc docs/agent_docs/docs024_key_docs_latest/005_tool_pipeline(1).md \
+  -doc docs/agent_docs/docs024_key_docs_latest/003_contracts_and_standards(7).md \
+  -psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db' \
+  -schema-tables orchestration_states,agent_definitions,pages,page_components,page_component_history,site_work_items \
+  -runtime-site gamesdesign.co.uk -runtime-page guide-economy-basics \
+  -capabilities -df-filter snapshot \
+  -out /tmp/bundle_phantom_cta.md
+
+  cp /tmp/bundle_phantom_cta.md ~/projects/agentchassis
+
+
+Why these choices, and what to check:
+The four -scope entries are the bug's actual path through the code, so the call graph expands from them: the resolver (its ctaFieldNames/chooseCTATargets/setCTAField and output shape — covers follow-up #1 and #2), call_agent (the envelope that nests the reply under response.…), extract_fields (how select_sections resolves its path array), and complete_workflow (which should pull in the result-spec via the graph — the empty-final_result question). The three -include files are the rest of the render path plus the registry that maps action names to handlers. Schema includes agent_definitions because both workflows live there, and orchestration_states because the reply envelope and final_result are the evidence.
+Two things to verify before running, since I inferred them by convention rather than from the repo: the action filenames and exported symbols (I'm confident of ResolveInternalLinksAction; ExtractFieldsAction/CallAgentAction/CompleteWorkflowAction follow the <name>_action.go:<Name>Action pattern but confirm against registry.go), and the -doc paths (the filenames match the repo catalogue, but fill in the real docs/... prefix).
+One gap the bundle won't cover: the session docs we built this round — HANDOFF_page_pipeline.md, RUNBOOK_gamesdesign_index_rebuild.md, NOTES_gamesdesign_silent_norebuild.md, and the 016b additions — live in /mnt/user-data/outputs/, not in the repo, so -doc can't reach them. Carry those into the next chat directly alongside the bundle.
+
