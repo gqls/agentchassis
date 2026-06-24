@@ -42,10 +42,11 @@ var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 		"domain_field":         "input_data.runtime_site",
 		"error_limit":          20,
 		"work_item_limit":      20,
-		// On a loop-back, diagnose_route carries the prior verdict's data_requests
-		// here (same pattern as route.scope / route.hypothesis). Empty on the first
-		// iteration (no verdict yet).
-		"data_requests_field": "route.data_requests",
+		// Re-invocation design (one iteration per orchestration): the prior
+		// verdict's data_requests are passed into THIS orchestration's input_data
+		// by the previous diagnose_route's call_next mapping. So they live at
+		// input_data.data_requests, not collected_data. Empty on the first iteration.
+		"data_requests_field": "input_data.data_requests",
 	},
 }
 
@@ -182,10 +183,11 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 	}
 
 	// ── model-written data requests (read-only, the §1a re-scope driver) ──────
-	// On a loop-back, the prior verdict's data_requests arrive via route.* . Each
+	// One iteration per orchestration: the prior verdict's data_requests arrive in
+	// THIS orchestration's input_data (passed by the previous diagnose_route). Each
 	// is run in a READ ONLY transaction with a statement_timeout and the rows are
-	// appended. The IsReadOnlySQL lint is Guard 2 (defence in depth); the
-	// read-only tx (Guard 3) is the real guarantee. Empty on the first iteration.
+	// appended. IsReadOnlySQL is Guard 2 (defence in depth); the read-only tx
+	// (Guard 3) is the real guarantee. Empty on the first iteration.
 	dataReqField := datahelpers.GetStringField(config, "data_requests_field", "route.data_requests")
 	dataReqs := dataRequestsFromCollected(params.CollectedData, dataReqField)
 	if len(dataReqs) > 0 {

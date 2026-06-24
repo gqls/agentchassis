@@ -1,0 +1,12 @@
+import re
+
+with open("input.txt") as f:
+    text = f.read()
+
+matches = re.findall(
+    r"(?is)\bSELECT\b.*?;",
+    text
+)
+
+with open("selects.sql", "w") as f:
+    f.write("\n\n".join(m.strip() for m in matches))
