@@ -248,6 +248,90 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		)
 	}
 
+	// --- Preserve interactive tool sections (Layer 2) ---
+	// Interactive tools (games/simulators) exist ONLY as rendered_html in
+	// page_components — their bespoke <canvas>/JS markup is not in the page
+	// spec and is not LLM-regeneratable. A full rebuild plans sections from
+	// the spec, which omits the tool, so the section set reaching this save
+	// carries no interactive markup and the DELETE+INSERT below would drop it.
+	// Carry any existing deployed interactive section the new set does not
+	// reproduce forward, so a rebuild keeps the tool while still updating the
+	// other sections. This is the only place with the rendered markup to
+	// preserve; the planning path deals in section-name skeletons and cannot
+	// reconstruct the tool.
+	{
+		rows, qErr := params.DB.QueryContext(ctx, `
+			SELECT slot_name, rendered_html, content_data
+			FROM page_components
+			WHERE page_id = $1 AND build_status = 'deployed'
+			  AND (rendered_html ILIKE '%<canvas%'
+			    OR rendered_html ILIKE '%game-container%'
+			    OR rendered_html ILIKE '%tool-page%')
+		`, pageID)
+		if qErr != nil {
+			params.Logger.Warn("SavePageSectionsAction: interactive-section preload failed (Layer 2)",
+				zap.Error(qErr))
+		} else {
+			type preservedSection struct {
+				slot        string
+				html        string
+				contentData map[string]interface{}
+			}
+			var preserved []preservedSection
+			for rows.Next() {
+				var slot, html string
+				var cdJSON []byte
+				if scanErr := rows.Scan(&slot, &html, &cdJSON); scanErr != nil {
+					params.Logger.Warn("SavePageSectionsAction: interactive-section scan failed (Layer 2)",
+						zap.Error(scanErr))
+					continue
+				}
+				var cd map[string]interface{}
+				if len(cdJSON) > 0 {
+					_ = json.Unmarshal(cdJSON, &cd)
+				}
+				preserved = append(preserved, preservedSection{slot: slot, html: html, contentData: cd})
+			}
+			rows.Close()
+
+			for _, p := range preserved {
+				matchedIdx := -1
+				for i := range sections {
+					if sections[i].ComponentName == p.slot {
+						matchedIdx = i
+						break
+					}
+				}
+				switch {
+				case matchedIdx >= 0 && sectionHTMLIsInteractive(sections[matchedIdx].HTML):
+					// Rebuild reproduced an interactive section for this slot — keep it.
+				case matchedIdx >= 0:
+					// Same slot, non-interactive rebuild content (e.g. the hero
+					// regenerated as plain text). Keep the existing interactive
+					// markup in place rather than overwriting the tool with prose.
+					params.Logger.Warn("SavePageSectionsAction: preserving interactive tool over non-interactive rebuild (Layer 2)",
+						zap.String("page_name", pageName),
+						zap.String("slot_name", p.slot))
+					sections[matchedIdx].HTML = p.html
+					if p.contentData != nil {
+						sections[matchedIdx].ContentData = p.contentData
+					}
+				default:
+					// Slot dropped entirely — re-append the tool so it survives.
+					params.Logger.Warn("SavePageSectionsAction: re-appending dropped interactive tool (Layer 2)",
+						zap.String("page_name", pageName),
+						zap.String("slot_name", p.slot))
+					sections = append(sections, SectionData{
+						ComponentName: p.slot,
+						HTML:          p.html,
+						ContentData:   p.contentData,
+						Position:      len(sections) + 1,
+					})
+				}
+			}
+		}
+	}
+
 	// --- Content regression guard ---
 	// Refuse to overwrite content-rich pages with empty template shells.
 	// This prevents LLM failures (credit exhaustion, timeouts, empty responses)
@@ -286,28 +370,84 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// --- Interactivity regression guard (Layer 1) ---
+	// The text guard above misses the loss of an interactive tool: the tool is
+	// mostly markup + JS, so tag-stripping leaves little text and a plain-
+	// content replacement can have MORE text — passing the text check while
+	// silently dropping a <canvas>/game-container/tool-page section. If Layer 2
+	// above could not preserve it (e.g. the preload query failed), refuse the
+	// overwrite rather than destroy the tool: a blocked save leaves the existing
+	// good page in place and surfaces a loud error to investigate.
+	{
+		var existingInteractive bool
+		scanErr := params.DB.QueryRowContext(ctx, `
+			SELECT COALESCE(bool_or(
+				rendered_html ILIKE '%<canvas%'
+			 OR rendered_html ILIKE '%game-container%'
+			 OR rendered_html ILIKE '%tool-page%'
+			), false)
+			FROM page_components
+			WHERE page_id = $1 AND build_status = 'deployed'
+		`, pageID).Scan(&existingInteractive)
+
+		if scanErr == nil && existingInteractive {
+			newInteractive := false
+			for _, s := range sections {
+				if sectionHTMLIsInteractive(s.HTML) {
+					newInteractive = true
+					break
+				}
+			}
+			if !newInteractive {
+				params.Logger.Warn("SavePageSectionsAction: INTERACTIVITY REGRESSION BLOCKED — existing page has an interactive tool, new content has none",
+					zap.String("page_name", pageName),
+					zap.Int("new_sections", len(sections)),
+				)
+				return nil, fmt.Errorf(
+					"interactivity regression blocked: page %s currently has an interactive tool "+
+						"(<canvas>/game-container/tool-page) but the rebuilt content has none. "+
+						"A full rebuild planned from the page spec does not include the tool. Refusing to overwrite.",
+					pageName)
+			}
+		}
+	}
+
 	// Load page purpose for content_brief population
 	var pagePurpose string
 	_ = params.DB.QueryRowContext(ctx, `
 		SELECT COALESCE(page_spec->>'purpose', '') FROM pages WHERE id = $1
 	`, pageID).Scan(&pagePurpose)
 
+	// Optional: stamp the work item driving this save into history for
+	// attribution. The overwrite previously wrote NULL source_item_id, which
+	// forced forensic-by-timing when tracing a destructive rebuild. Config-
+	// driven path into collected_data; nil leaves SQL NULL (unchanged
+	// behaviour) until the workflow sets work_item_id_field.
+	var sourceItemID interface{} // nil = SQL NULL
+	if f, ok := config["work_item_id_field"].(string); ok && f != "" {
+		if v := datahelpers.ExtractNestedFieldString(params.CollectedData, f); v != "" {
+			if parsed, parseErr := uuid.Parse(v); parseErr == nil {
+				sourceItemID = parsed
+			}
+		}
+	}
+
 	// --- Snapshot existing content to history before overwrite ---
 	_, snapshotErr := params.DB.ExecContext(ctx, `
-		INSERT INTO page_component_history (component_id, page_id, site_id, content_data, source)
+		INSERT INTO page_component_history (component_id, page_id, site_id, content_data, source, source_item_id)
 		SELECT pc.id, pc.page_id, p.site_id,
 			   COALESCE(pc.content_data, jsonb_build_object(
 				   'rendered_html', pc.rendered_html,
 				   'slot_name', pc.slot_name,
 				   'build_status', pc.build_status
 			   )),
-			   'save_page_sections_overwrite'
+			   'save_page_sections_overwrite', $2::uuid
 		FROM page_components pc
 		JOIN pages p ON pc.page_id = p.id
 		WHERE pc.page_id = $1
 		  AND pc.rendered_html IS NOT NULL
 		  AND LENGTH(pc.rendered_html) > 0
-	`, pageID)
+	`, pageID, sourceItemID)
 	if snapshotErr != nil {
 		params.Logger.Warn("SavePageSectionsAction: Failed to snapshot existing content to history",
 			zap.Error(snapshotErr),
@@ -750,6 +890,16 @@ func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []
 				zap.Int("position", i+1))
 		}
 	}
+}
+
+// sectionHTMLIsInteractive reports whether a section's rendered HTML carries an
+// interactive tool/game. Same signal used by the blast-radius sweep, the
+// Layer 2 carry-forward, and the Layer 1 interactivity guard.
+func sectionHTMLIsInteractive(html string) bool {
+	h := strings.ToLower(html)
+	return strings.Contains(h, "<canvas") ||
+		strings.Contains(h, "game-container") ||
+		strings.Contains(h, "tool-page")
 }
 
 // saveSectionsLookupPageID finds page UUID by site_id and page name
