@@ -7,7 +7,7 @@ FROM orchestration_states
 WHERE owner_agent_type IN ('page-build-handler','page-content-writer')
   AND created_at > now() - interval '30 minutes'
 ORDER BY created_at DESC;
-                                                 
+
 SELECT
   jsonb_typeof(collected_data #> '{page_content,response,sections_metadata}')       AS sm_type,
   jsonb_array_length(collected_data #> '{page_content,response,sections_metadata}')  AS sm_count,
