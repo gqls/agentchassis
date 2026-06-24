@@ -8,7 +8,13 @@
 // the harness and production parse identically. It is Go-only by design; a
 // non-Go producer fills the same Output contract behind the analyser adapter.
 //
-// Skips: vendor/, testdata/, hidden dirs (starting with "."), and *_test.go.
+// Skips ALWAYS: vendor/, testdata/, hidden dirs (starting with "."), *_test.go,
+// and download-duplicate files matching *(N).go (e.g. "assembler(2).go") — those
+// are never legitimate Go source and only ever appear as stale copies.
+// Skips ALSO (caller-supplied): any path whose slash-relative form contains one
+// of the `exclude` substrings — for trees that carry archived copies of their
+// own code (e.g. docs/.../go_files_old/, docubundle/), which would otherwise be
+// indexed as duplicate symbols. See AnalyseWithExclude.
 package analysis
 
 import (
@@ -19,27 +25,65 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 )
 
-// Analyse walks root and returns the structural summary. A walk error (e.g. a
-// missing root) is returned; per-file parse errors are recorded on the file's
-// ParseError and do not abort the walk.
+// dupSuffixRe matches a download-duplicate filename like "name(2).go" /
+// "name(12).go". These are always stale copies, never real source, so they are
+// skipped unconditionally (no caller opt-in needed).
+var dupSuffixRe = regexp.MustCompile(`\(\d+\)\.go$`)
+
+// Analyse walks root and returns the structural summary, skipping only the
+// ALWAYS set above. Back-compat wrapper over AnalyseWithExclude with no
+// caller-supplied excludes.
 func Analyse(root string) (Output, error) {
+	return AnalyseWithExclude(root, nil)
+}
+
+// AnalyseWithExclude is Analyse with additional caller-supplied path excludes.
+// Each exclude is matched as a substring against the forward-slash relative
+// path (filepath.ToSlash(rel)); a file or directory whose relative path
+// contains any exclude is skipped (directories via filepath.SkipDir, so the
+// whole subtree is pruned). Example excludes for a repo that archives copies of
+// its own code under docs/:
+//
+//	[]string{"go_files_old/", "docubundle/", "thin_slice_run/", "scripts/documentation_project/"}
+//
+// A walk error (e.g. a missing root) is returned; per-file parse errors are
+// recorded on the file's ParseError and do not abort the walk.
+func AnalyseWithExclude(root string, exclude []string) (Output, error) {
 	out := Output{
 		Root:        root,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	excluded := func(rel string) bool {
+		s := filepath.ToSlash(rel)
+		for _, e := range exclude {
+			if e != "" && strings.Contains(s, e) {
+				return true
+			}
+		}
+		return false
 	}
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
+		rel, rerr := filepath.Rel(root, path)
+		if rerr != nil {
+			rel = path
+		}
 		if info.IsDir() {
 			base := info.Name()
 			if base == "vendor" || base == "testdata" || (strings.HasPrefix(base, ".") && base != ".") {
+				return filepath.SkipDir
+			}
+			if rel != "." && excluded(rel) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -47,9 +91,11 @@ func Analyse(root string) (Output, error) {
 		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
-		rel, rerr := filepath.Rel(root, path)
-		if rerr != nil {
-			rel = path
+		if dupSuffixRe.MatchString(filepath.Base(path)) {
+			return nil // download-duplicate copy, never real source
+		}
+		if excluded(rel) {
+			return nil
 		}
 		out.Files = append(out.Files, analyseFile(path, rel))
 		return nil

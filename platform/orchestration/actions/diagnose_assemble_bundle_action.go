@@ -45,9 +45,11 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/internal/analysis"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -70,11 +72,11 @@ var DiagnoseAssembleBundleInputSpec = datahelpers.ActionInputSpec{
 		"analysis_field", "repo_root_field", "runtime_field", "max_body_chars",
 	},
 	Defaults: map[string]interface{}{
-		"loop_scope_field":      "route.scope",          // set by diagnose_route on loop-back
-		"scope_field":           "input_data.seed_scope", // first iteration, if caller gave one
+		"loop_scope_field":      "route.scope",              // set by diagnose_route on loop-back
+		"scope_field":           "input_data.seed_scope",    // first iteration, if caller gave one
 		"code_results_field":    "code_lookup.code_results", // first iteration fallback
-		"hypothesis_field":      "route.hypothesis",      // revised hypothesis on loop-back
-		"seed_hypothesis_field": "input_data.symptom",    // first iteration hypothesis
+		"hypothesis_field":      "route.hypothesis",         // revised hypothesis on loop-back
+		"seed_hypothesis_field": "input_data.symptom",       // first iteration hypothesis
 		"analysis_field":        "repo_analysis",
 		"repo_root_field":       "repo_analysis.root",
 		"runtime_field":         "runtime.runtime_evidence",
@@ -94,12 +96,13 @@ func init() {
 //     by reference so the verdict sees it).
 //
 // Config keys (all optional, with defaults):
-//   scope_field          path to the loop's current scope []string  (default "scope")
-//   code_results_field   path to lookup_code_symbols' code_results   (default "code_lookup.code_results")
-//   analysis_field       path to the analyser Output                 (default "repo_analysis")
-//   repo_root_field      path to the checked-out repo root on disk    (default "repo_analysis.root")
-//   runtime_field        path to runtime evidence text                (default "runtime_evidence")
-//   max_body_chars       cap on total body text                       (default 60000)
+//
+//	scope_field          path to the loop's current scope []string  (default "scope")
+//	code_results_field   path to lookup_code_symbols' code_results   (default "code_lookup.code_results")
+//	analysis_field       path to the analyser Output                 (default "repo_analysis")
+//	repo_root_field      path to the checked-out repo root on disk    (default "repo_analysis.root")
+//	runtime_field        path to runtime evidence text                (default "runtime_evidence")
+//	max_body_chars       cap on total body text                       (default 60000)
 func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 	logger := params.Logger
@@ -147,6 +150,17 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		return nil, fmt.Errorf("diagnose_assemble_bundle: repo root not found at %q (need the analysed checkout to read bodies)", repoRootField)
 	}
 
+	// The analyser Output (already in collected_data under analysisField) carries
+	// the start_line/end_line spans the body reader slices from. Decode it ONCE
+	// into the typed analysis.Output. collected_data normally holds the adapter's
+	// decoded Output map (repo_root_field "repo_analysis.root" only resolves when
+	// it IS a map), so decodeAnalysisOutput handles the map case and, defensively,
+	// a raw JSON string.
+	anaOut, err := decodeAnalysisOutput(datahelpers.ExtractNestedField(params.CollectedData, analysisField))
+	if err != nil || len(anaOut.Files) == 0 {
+		return nil, fmt.Errorf("diagnose_assemble_bundle: analyser Output empty/undecodable at %q (need its line spans to slice bodies): %v", analysisField, err)
+	}
+
 	// Compose: hypothesis first (so the verdict judges THIS hypothesis), then the
 	// in-scope code bodies, then the runtime/DB evidence.
 	var b strings.Builder
@@ -157,7 +171,7 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	total, truncated := 0, false
 	included := 0
 	for _, sym := range scope {
-		body, err := readSymbolBody(repoRoot, sym) // reads file at path, slices the symbol's lines
+		body, err := analysis.ReadSymbolBody(repoRoot, anaOut, sym) // slice the symbol's lines from the analyser spans
 		if err != nil {
 			logger.Warn("diagnose_assemble_bundle: could not read body", zap.String("symbol", sym), zap.Error(err))
 			continue
@@ -179,9 +193,8 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		b.WriteString("\n")
 	}
 
-	// The analyser Output stays in collected_data for the engine's call-graph
+	// The analyser Output also stays in collected_data for the engine's call-graph
 	// re-scope (it reads `calls`); we don't duplicate it into the bundle text.
-	_ = analysisField
 
 	logger.Info("diagnose_assemble_bundle: composed",
 		zap.Int("symbols_in_scope", len(scope)),
@@ -224,11 +237,32 @@ func scopeFromCodeResults(collected map[string]interface{}, field string) []stri
 	return out
 }
 
-// readSymbolBody reads the body of "path:Symbol" (or whole file for "path") from
-// the repo root. Implementation note for your env: parse the file with go/ast (or
-// reuse the analyser's funcDef line spans, already in repo_analysis) to slice the
-// symbol's start_line..end_line — the analyser Output ALREADY has these spans, so
-// prefer reading them from collected_data over re-parsing. Left as a stub here.
-func readSymbolBody(repoRoot, symbol string) (string, error) {
-	return "", fmt.Errorf("readSymbolBody not implemented in the sketch; wire to the analyser Output's start_line/end_line spans for %q under %s", symbol, repoRoot)
+// decodeAnalysisOutput coerces the analyser Output sitting in collected_data
+// (normally a decoded map[string]interface{}; defensively also a raw JSON string)
+// into the typed analysis.Output whose start_line/end_line spans
+// analysis.ReadSymbolBody slices from. The body-reading itself lives in the
+// shared analysis package, so cmd/assembler and this action slice IDENTICALLY
+// (verified byte-for-byte) rather than re-implementing the convention here.
+func decodeAnalysisOutput(raw interface{}) (analysis.Output, error) {
+	var out analysis.Output
+	if raw == nil {
+		return out, fmt.Errorf("not present")
+	}
+	var jb []byte
+	switch v := raw.(type) {
+	case string:
+		jb = []byte(v)
+	case []byte:
+		jb = v
+	default:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return out, err
+		}
+		jb = b
+	}
+	if err := json.Unmarshal(jb, &out); err != nil {
+		return out, err
+	}
+	return out, nil
 }
