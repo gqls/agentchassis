@@ -28,6 +28,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gqls/agentchassis/pkg/diagnose"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -141,36 +142,59 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 
 	// Forward the verdict's read-only data_requests so the next gather (load_runtime)
 	// runs them under a read-only transaction and folds the rows into the next bundle.
-	// These already passed the read-only lint at parse (Guard 2 in
-	// verdict_wire.toVerdict); the gather re-lints (defence in depth) and runs them in
-	// a read-only transaction (Guard 3, the real guarantee). The engine's Scope
-	// intentionally does not carry these — code re-scope (the call graph) and data
-	// re-gather (these) are separate channels, and this action has the parsed verdict
-	// in hand, so it bridges the data channel directly.
-	if drs := encodeDataRequests(verdict.DataRequests); len(drs) > 0 {
-		result["data_requests"] = drs
+	// Read them from the RAW verdict wire value (verdict.result) rather than a typed
+	// Verdict field — the data_requests are model-supplied wire data, and reading the
+	// map directly keeps this independent of the engine's Verdict shape (the chassis
+	// pkg/diagnose Verdict does not carry them). Keep ONLY the read-only ones
+	// (diagnose.IsReadOnlySQL) — the route-layer filter; load_runtime re-lints (defence
+	// in depth) and the read-only transaction is the real backstop. Code re-scope (the
+	// call graph, carried in Scope) and data re-gather (these) are separate channels.
+	dataReqs, droppedDR := readOnlyDataRequestsFromWire(verdictRaw)
+	if len(dataReqs) > 0 {
+		result["data_requests"] = dataReqs
+	}
+	if droppedDR > 0 {
+		logger.Warn("diagnose_route: dropped non-read-only data_requests at route", zap.Int("dropped", droppedDR))
 	}
 
 	logger.Info("diagnose_route: iterating",
 		zap.Int("next_iteration", st.Iteration+1),
 		zap.Int("scope_size", len(decision.NextScope.Symbols)),
-		zap.Int("data_requests", len(verdict.DataRequests)),
+		zap.Int("data_requests", len(dataReqs)),
 		zap.String("next_step", gatherStep))
 	return result, nil
 }
 
-// encodeDataRequests renders the verdict's read-only data_requests as the
-// []{sql,why} list diagnose_load_runtime reads at route.data_requests on the next
-// iteration. verdict.DataRequests is already filtered to read-only at parse
-// (verdict_wire.toVerdict drops anything IsReadOnlySQL rejects); the gather re-lints
-// and runs each under a read-only transaction.
-func encodeDataRequests(drs []diagnose.DataRequest) []interface{} {
-	if len(drs) == 0 {
-		return nil
+// readOnlyDataRequestsFromWire pulls the verdict's data_requests out of the RAW
+// verdict wire value (the parsed LLM JSON at verdict.result) as a []{sql,why} list,
+// keeping ONLY the read-only ones (diagnose.IsReadOnlySQL) and counting the rest as
+// dropped. Reading the wire map directly (not a typed Verdict field) keeps this
+// independent of the engine's Verdict shape; load_runtime re-lints and runs each
+// survivor under a read-only transaction.
+func readOnlyDataRequestsFromWire(verdictRaw interface{}) (kept []interface{}, dropped int) {
+	m, ok := verdictRaw.(map[string]interface{})
+	if !ok {
+		return nil, 0
 	}
-	out := make([]interface{}, 0, len(drs))
-	for _, dr := range drs {
-		out = append(out, map[string]interface{}{"sql": dr.SQL, "why": dr.Why})
+	arr, ok := m["data_requests"].([]interface{})
+	if !ok {
+		return nil, 0
 	}
-	return out
+	for _, it := range arr {
+		dm, ok := it.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		sqlText, _ := dm["sql"].(string)
+		why, _ := dm["why"].(string)
+		if strings.TrimSpace(sqlText) == "" {
+			continue
+		}
+		if diagnose.IsReadOnlySQL(sqlText) != nil {
+			dropped++
+			continue
+		}
+		kept = append(kept, map[string]interface{}{"sql": sqlText, "why": why})
+	}
+	return kept, dropped
 }

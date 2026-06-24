@@ -190,9 +190,9 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 	//
 	// SELECT-only is enforced at THREE layers (defence in depth):
 	//   1. the verdict prompt instructs a single read-only SELECT/WITH … SELECT only;
-	//   2. the model's text is FILTERED twice through diagnose.IsReadOnlySQL — once at
-	//      parse (verdict_wire.toVerdict drops non-read-only requests) and again here
-	//      in runDataRequests before execution;
+	//   2. the model's text is FILTERED twice through diagnose.IsReadOnlySQL — first at
+	//      the route layer (diagnose_route reads data_requests from the verdict wire and
+	//      drops non-read-only ones) and again here in runDataRequests before execution;
 	//   3. the read-only transaction (BeginTx ReadOnly) is the REAL guarantee — it
 	//      rejects any write (incl. data-modifying CTEs) regardless of the lint.
 	// Empty on the first iteration.
