@@ -100,6 +100,7 @@ resource "kubernetes_secret" "personae_platform_secrets" {
     TEMPLATES_DB_PASSWORD = var.templates_db_user_password
     CLIENTS_DB_PASSWORD   = var.clients_db_user_password
     GITHUB_TOKEN = var.github_personal_access_token
+    GITHUB_READ_TOKEN = var.github_read_token
 
     # JWT key for auth-service
     JWT_SECRET_KEY = var.jwt_secret_key

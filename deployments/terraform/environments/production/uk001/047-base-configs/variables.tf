@@ -109,6 +109,12 @@ variable "github_personal_access_token" {
     sensitive = true
 }
 
+variable "github_read_token" {
+    description = " Github personal access token for doc analyser READ ONLY"
+    type = string
+    sensitive = true
+}
+
 variable "auth_db_host" {
   description = "The endpoint for the external MySQL database."
   type        = string

@@ -30,3 +30,8 @@ spec:
               value: "https://api.github.com"
             - name: AGENT_VERSION
               value: "v1.0.1060"
+            - name: GITHUB_READ_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: GITHUB_READ_TOKEN

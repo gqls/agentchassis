@@ -45,7 +45,7 @@ custom:
     # Documentary, matching the thunder pattern (direct env reads in code):
     # the adapter reads GITHUB_READ_TOKEN and GITHUB_API_BASE from the pod
     # env. The token is a fine-grained, repo-scoped, READ-ONLY credential
-    # supplied by the analyser-github-read Secret via envFrom — never put the
+    # is a secretKeyRef to personae-platform-secrets/GITHUB_READ_TOKEN — never put the
     # value here (035 §2.13).
     read_token_env_var: "GITHUB_READ_TOKEN"
     api_base_env_var: "GITHUB_API_BASE"   # empty env = https://api.github.com
