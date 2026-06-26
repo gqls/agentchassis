@@ -34,6 +34,40 @@ import (
 )
 
 // ============================================================================
+// shared repo-label resolution
+// ============================================================================
+
+// resolveCodeRepoLabel resolves the owner/repo label that BOTH index_code_symbols
+// and lookup_code_symbols key on, so the writer and the reader can never diverge
+// (a divergence is what caused lookup to query a bare "agentchassis" against rows
+// stored under "gqls/agentchassis" -> 0 hits). Resolution order:
+//  1. config.repo / config.repo_field — explicit override (non-git corpora,
+//     e.g. "domain:kruste.com");
+//  2. COMPOSE owner/repo from the analyser reply — the default, which matches
+//     what was actually fetched and stored
+//     (repo_analysis.owner + "/" + repo_analysis.repo);
+//  3. input_data.repo — last-resort fallback.
+//
+// config keys owner_field / repo_name_field default to the request step's
+// output_field "repo_analysis".
+func resolveCodeRepoLabel(config map[string]interface{}, collected map[string]interface{}) string {
+	repo := resolveRAGConfigField(config, "repo_field", "repo", collected)
+	if repo == "" {
+		ownerPath := datahelpers.GetStringField(config, "owner_field", "repo_analysis.owner")
+		namePath := datahelpers.GetStringField(config, "repo_name_field", "repo_analysis.repo")
+		owner := datahelpers.ExtractNestedFieldString(collected, ownerPath)
+		name := datahelpers.ExtractNestedFieldString(collected, namePath)
+		if owner != "" && name != "" {
+			repo = owner + "/" + name
+		}
+	}
+	if repo == "" {
+		repo = datahelpers.ExtractNestedFieldString(collected, "input_data.repo")
+	}
+	return repo
+}
+
+// ============================================================================
 // lookup_code_symbols
 // ============================================================================
 
@@ -56,7 +90,7 @@ func LookupCodeSymbolsAction(ctx context.Context, params ActionParams) (interfac
 		}, nil
 	}
 
-	repo := resolveRAGConfigField(config, "repo_field", "repo", params.CollectedData)
+	repo := resolveCodeRepoLabel(config, params.CollectedData)
 	topK := datahelpers.GetIntField(config, "top_k", 12)
 
 	searchMethod := "vector"
@@ -127,34 +161,13 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
-	// Resolve repo + commit + the analyser Output from collected_data. Field
-	// names are prefixed (repo, not site_id/domain) to dodge the
-	// ExtractActionInputs nested-source collisions (doc 001).
-	//
-	// LABEL CONVENTION (decided 2026-06-11): code_symbols.repo is the
-	// "owner/repo" form (e.g. "gqls/agentchassis"). Resolution order:
-	//   1. config.repo / config.repo_field — explicit override (non-git
-	//      corpora, e.g. "domain:kruste.com" later);
-	//   2. COMPOSED from the analyser reply's owner + repo — the default
-	//      path, which guarantees the label matches what was actually
-	//      fetched (no trigger-supplied label that could mismatch);
-	//   3. input_data.repo — last-resort fallback.
-	// NEW config keys (flagged): owner_field / repo_name_field — paths to
-	// the reply's owner and repo, defaulting to the request step's
-	// output_field "repo_analysis".
-	repo := resolveRAGConfigField(config, "repo_field", "repo", params.CollectedData)
-	if repo == "" {
-		ownerPath := datahelpers.GetStringField(config, "owner_field", "repo_analysis.owner")
-		namePath := datahelpers.GetStringField(config, "repo_name_field", "repo_analysis.repo")
-		owner := datahelpers.ExtractNestedFieldString(params.CollectedData, ownerPath)
-		name := datahelpers.ExtractNestedFieldString(params.CollectedData, namePath)
-		if owner != "" && name != "" {
-			repo = owner + "/" + name
-		}
-	}
-	if repo == "" {
-		repo = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.repo")
-	}
+	// Resolve the owner/repo label via the shared resolver (same logic the lookup
+	// now uses, so writer and reader can't diverge). LABEL CONVENTION (2026-06-11):
+	// code_symbols.repo is the "owner/repo" form (e.g. "gqls/agentchassis"),
+	// composed from the analyser reply's owner + repo by default. See
+	// resolveCodeRepoLabel for the full resolution order. Field names are prefixed
+	// (repo, not site_id/domain) to dodge ExtractActionInputs collisions (doc 001).
+	repo := resolveCodeRepoLabel(config, params.CollectedData)
 	if repo == "" {
 		return nil, fmt.Errorf("index_code_symbols: repo label not found (set config.repo, config.repo_field, or let it compose from %q owner+repo)", "repo_analysis")
 	}
