@@ -985,6 +985,7 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment business-intel -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment ollama-adapter -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment thunder-adapter -n ai-persona-system 2>/dev/null || true
+	kubectl rollout restart deployment analyser-adapter -n ai-persona-system 2>/dev/null || true
 
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications
