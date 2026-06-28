@@ -1,14 +1,19 @@
-// FILE: internal/adapters/analyser/github_source.go
+// FILE: internal/reposource/github_source.go
 //
 // DRAFT for the agent-chassis repo (module github.com/gqls/agentchassis).
 // Does not compile in the contextkit container — built/deployed in your env.
 //
-// Read-only GitHub source fetcher for the analyser adapter. Fetches a repo at a
-// ref as a tarball (one API call) and extracts it to a temp directory for
-// parsing. Mirrors the auth/header pattern of the git adapter's GitHubClient,
-// but holds a SEPARATE, READ-ONLY, repo-scoped credential — least privilege:
-// the analyser only reads source, it never writes (the git adapter keeps the
-// write credential for commits).
+// Read-only GitHub source fetcher. Fetches a repo at a ref as a tarball (one API
+// call) and extracts it to a temp directory for parsing. Mirrors the auth/header
+// pattern of the git adapter's GitHubClient, but holds a SEPARATE, READ-ONLY,
+// repo-scoped credential — least privilege: this only reads source, it never
+// writes (the git adapter keeps the write credential for commits).
+//
+// LIFTED (unchanged logic) from internal/adapters/analyser/github_source.go into
+// this neutral package so BOTH the analyser adapter AND the diagnose-agent's
+// in-process analyse_repo_local action fetch source identically, without the
+// action importing an adapter package. The credential (GITHUB_READ_TOKEN) and
+// behaviour are exactly as before; only the import path moved.
 //
 // Why a tarball rather than a clone or per-blob fetch: GET /repos/{owner}/
 // {repo}/tarball/{ref} returns the whole tree in a single request — no git
@@ -16,7 +21,7 @@
 // archive in a single top-level dir "{owner}-{repo}-{sha}", so the exact commit
 // SHA is recovered from it, which is what code_symbols.commit_sha needs.
 
-package analyser
+package reposource
 
 import (
 	"archive/tar"
@@ -32,6 +37,14 @@ import (
 
 	"go.uber.org/zap"
 )
+
+// Fetcher is the seam consumers depend on (GitHubSource implements it): fetch a
+// repo at a ref to a local directory, returning the dir and the resolved commit
+// SHA. Defining it here lets callers (the analyser adapter, the diagnose action,
+// tests) depend on the behaviour rather than the concrete type.
+type Fetcher interface {
+	FetchToDir(ctx context.Context, owner, repo, ref string) (dir, commitSHA string, err error)
+}
 
 // GitHubSource fetches repository source over the GitHub API. Read-only.
 type GitHubSource struct {

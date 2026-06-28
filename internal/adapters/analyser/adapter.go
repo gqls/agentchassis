@@ -62,6 +62,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/gqls/agentchassis/internal/reposource"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	// NOTE: align this import path with the kafka package webscrape/git use.
@@ -139,7 +140,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	// privilege). NewGitHubSource fails fast on an empty token. The env var
 	// names are documented in configs/analyser-adapter.yaml (custom.github);
 	// direct env reads match the thunder pattern.
-	source, err := NewGitHubSource(os.Getenv("GITHUB_READ_TOKEN"), os.Getenv("GITHUB_API_BASE"), logger)
+	source, err := reposource.NewGitHubSource(os.Getenv("GITHUB_READ_TOKEN"), os.Getenv("GITHUB_API_BASE"), logger)
 	if err != nil {
 		producer.Close()
 		consumer.Close()

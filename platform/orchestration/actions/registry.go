@@ -1060,10 +1060,16 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Ask the analyser adapter to parse a repo at ref; awaits the symbol output",
 		IsLocal:     true,
 	},
+	"analyse_repo_local": {
+		Handler:     AnalyseRepoLocalAction,
+		Category:    "code",
+		Description: "Fetch a repo at ref to a local temp dir (read-only tarball) and analyse it in-process; returns the analyser Output with a real local root + commit_sha (for the diagnose loop's body reads). Read-only.",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// DIAGNOSE — the read-only, workflow-driven diagnosis loop (engine: pkg/diagnose)
-	//   gather: request_repo_analysis → lookup_code_symbols → diagnose_load_runtime
+	//   gather: analyse_repo_local → lookup_code_symbols → diagnose_load_runtime
 	//           → diagnose_assemble_bundle
 	//   verdict: execute_llm_prompt (verdict prompt; NOT a diagnose action)
 	//   control: diagnose_route (guards + re-scope; loops back to assemble | → emit)

@@ -1,7 +1,7 @@
 
 RUNBOOK_thin_slice.md
 
-d docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/contextkit
+cd docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/contextkit
 go run ./cmd/bundle \
 -analysis /tmp/analysis_repo.json -root ~/projects/agentchassis \
 -constitution thin_slice_constitution.md -step debug \
