@@ -2500,6 +2500,27 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		},
 	}...)
 
+	// Scope a read-only, single-repo GitHub token to repo-cloning agents ONLY
+	// (the diagnose-agent clones the analysed repo at its commit to read symbol
+	// bodies for the bundle). secretKeyRef — NOT a passthrough from the spawner's
+	// env — so the token is read straight from the k8s Secret into this pod: the
+	// spawning chassis pod never holds it and no other agent type receives it.
+	if isRepoCloningAgent(agentDef.Type) {
+		envList = append(envList, corev1.EnvVar{
+			Name: "GITHUB_READ_TOKEN",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-platform-secrets",
+					},
+					Key: "GITHUB_READ_TOKEN",
+				},
+			},
+		})
+		logger.Info("Injecting read-only GitHub token (repo-cloning agent)",
+			zap.String("agent_type", agentDef.Type))
+	}
+
 	// Add storage configuration for storage-enabled agents
 	if isStorageEnabledAgent(agentDef.Type) || agentDef.Category == "orchestrator" || agentDef.Category == "code-driven" {
 		// Get storage credentials from orchestrator's environment
@@ -2994,6 +3015,22 @@ func isStorageEnabledAgent(agentType string) bool {
 	}
 
 	for _, t := range storageAgents {
+		if t == agentType {
+			return true
+		}
+	}
+	return false
+}
+
+// isRepoCloningAgent reports whether an agent type clones a git repo at runtime
+// and so needs the read-only GITHUB_READ_TOKEN scoped to its pod. Kept separate
+// from isStorageEnabledAgent on purpose, so the GitHub token never rides along
+// with the storage credentials to storage agents (and vice versa).
+func isRepoCloningAgent(agentType string) bool {
+	repoCloningAgents := []string{
+		"diagnose-agent",
+	}
+	for _, t := range repoCloningAgents {
 		if t == agentType {
 			return true
 		}
