@@ -43,7 +43,7 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 	},
 	Defaults: map[string]interface{}{
 		"verdict_field":  "verdict.result",  // ExecuteLLMPromptAction wraps JSON under .result
-		"state_field":    "diagnose_state",  // where this action persists loop state across iterations
+		"state_field":    "route.diagnose_state", // this action's result lands under output_field "route", so it reads its PRIOR LoopState back at route.diagnose_state — a bare "diagnose_state" never exists at top level, so the loop would re-seed every iteration (cap unenforced, trail truncated, guard memory reset). Must track the route step's output_field.
 		"analysis_field": "repo_analysis",   // analyser Output, for call-graph re-scope
 		"gather_step":    "assemble_bundle", // the step to loop BACK to for the next iteration
 		"emit_step":      "emit",            // the step to proceed to when the loop stops
@@ -81,7 +81,7 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	verdictField := datahelpers.GetStringField(config, "verdict_field", "verdict.result")
-	stateField := datahelpers.GetStringField(config, "state_field", "diagnose_state")
+	stateField := datahelpers.GetStringField(config, "state_field", "route.diagnose_state")
 	analysisField := datahelpers.GetStringField(config, "analysis_field", "repo_analysis")
 	gatherStep := datahelpers.GetStringField(config, "gather_step", "assemble_bundle")
 	emitStep := datahelpers.GetStringField(config, "emit_step", "emit")
@@ -112,6 +112,27 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 			return nil, fmt.Errorf("diagnose_route: decode loop state: %w", err)
 		}
 	} else {
+		// FAILSAFE (defence in depth): we are about to SEED because no prior state was
+		// found at state_field. On a genuine first iteration that is correct. But if the
+		// route step has ALREADY produced output (route.diagnose_state exists) and we
+		// still found nothing, the state did not THREAD — state_field is misconfigured
+		// relative to the route step's output_field (the exact bug that silently re-seeds
+		// every iteration, disarming the iteration cap and the guards, leaving only the
+		// engine timeout to catch a runaway). Fail LOUD and stop to emit rather than spin.
+		// (Best-effort: assumes the route step's output_field is "route"; a false negative
+		// just falls back to the engine timeout, and it never false-positives — it only
+		// fires when route.diagnose_state actually exists.)
+		if datahelpers.ExtractNestedField(params.CollectedData, "route.diagnose_state") != nil {
+			logger.Error("diagnose_route: loop state did not thread — route has run before but no state at state_field; state_field must match the route step's output_field (expected route.diagnose_state). Stopping to avoid a runaway re-seed loop.",
+				zap.String("state_field", stateField))
+			return map[string]interface{}{
+				"next_step":  emitStep,
+				"status":     diagnose.Unverifiable.String(),
+				"stopped_by": "state-threading-error",
+				"conclusion": "Diagnosis aborted: loop state failed to thread between iterations (state_field misconfigured relative to the route step's output_field). Stopped to avoid a runaway; no diagnosis. Fix: set the route step's state_field to '<route output_field>.diagnose_state'.",
+			}, nil
+		}
+
 		seedHyp := datahelpers.ExtractNestedFieldString(params.CollectedData,
 			datahelpers.GetStringField(config, "seed_hypothesis_field", "input_data.symptom"))
 		seedScope := seedScopeForRoute(params.CollectedData, config)

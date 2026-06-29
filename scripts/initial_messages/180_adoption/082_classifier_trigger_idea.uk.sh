@@ -28,6 +28,7 @@ ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
 CLIENT_ID='demo_client'
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 echo "========================================="
 echo "Manual classifier trigger — smoke test"
@@ -41,6 +42,7 @@ echo ""
 echo "SAVE THESE IDs:"
 echo "  CORRELATION_ID=$CORRELATION_ID"
 echo "  ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo "  TIMESTAMP=$TIMESTAMP"
 echo ""
 
 kubectl -n kafka run -i --rm "kcat-classifier-$(date +%s)" \
