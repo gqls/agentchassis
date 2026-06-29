@@ -1,5 +1,5 @@
 -- NNN_move_diagnose_workflow_to_default_config.sql
---
+-- DON'T USE THIS
 -- Renumber NNN to the next number in your migration sequence (3-digit prefixes).
 --
 -- FIX: the seeded diagnose agents (diagnose-agent, diagnose-orchestrator, created

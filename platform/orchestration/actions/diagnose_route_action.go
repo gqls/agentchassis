@@ -39,6 +39,7 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
 		"verdict_field", "state_field", "analysis_field",
 		"gather_step", "emit_step", "max_iterations",
+		"seed_hypothesis_field", "seed_scope_field", "code_results_field",
 	},
 	Defaults: map[string]interface{}{
 		"verdict_field":  "verdict.result",  // ExecuteLLMPromptAction wraps JSON under .result
@@ -47,6 +48,12 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 		"gather_step":    "assemble_bundle", // the step to loop BACK to for the next iteration
 		"emit_step":      "emit",            // the step to proceed to when the loop stops
 		"max_iterations": 5,
+		// First-iteration SEED (no diagnose_state yet). These mirror the fields
+		// diagnose_assemble_bundle seeds from, so the loop's initial hypothesis +
+		// scope match the bundle actually assembled on iteration 1.
+		"seed_hypothesis_field": "input_data.symptom",
+		"seed_scope_field":      "input_data.seed_scope",
+		"code_results_field":    "code_lookup.code_results",
 	},
 }
 
@@ -90,12 +97,30 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("diagnose_route: parse verdict: %w", err)
 	}
 
-	// 2) Rehydrate loop state from the prior iteration (empty on the first).
+	// 2) Rehydrate loop state from the prior iteration, or SEED it on the FIRST
+	//    iteration (when no diagnose_state exists yet). Seeding mirrors the standalone
+	//    Run(): hypothesis = the symptom, scope = the SAME seed diagnose_assemble_bundle
+	//    used (seed_scope → lookup code_results), via diagnose.InitLoopState — which sets
+	//    PrevScopeSize = seed.size()+1 (the "first iteration always narrows" buffer) and
+	//    initialises SeenCitations + Follow. WITHOUT this, st is the zero LoopState:
+	//    PrevScopeSize = 0, so the scope-must-narrow guard trips on the very first
+	//    re-scope (next.size() > 0+2) and the loop stops at iteration 1 with
+	//    "scope-not-narrowing"; the hypothesis is also empty in the trail.
 	var st diagnose.LoopState
 	if prev := datahelpers.ExtractNestedField(params.CollectedData, stateField); prev != nil {
 		if err := diagnose.DecodeLoopState(prev, &st); err != nil {
 			return nil, fmt.Errorf("diagnose_route: decode loop state: %w", err)
 		}
+	} else {
+		seedHyp := datahelpers.ExtractNestedFieldString(params.CollectedData,
+			datahelpers.GetStringField(config, "seed_hypothesis_field", "input_data.symptom"))
+		seedScope := seedScopeForRoute(params.CollectedData, config)
+		// follow the call graph on re-scope, matching DefaultConfig().FollowCallGraph.
+		st = diagnose.InitLoopState(seedHyp, seedScope, maxIter, true)
+		logger.Info("diagnose_route: seeded loop state (first iteration)",
+			zap.String("seed_hypothesis", seedHyp),
+			zap.Int("seed_scope_size", len(seedScope.Symbols)),
+			zap.Int("prev_scope_size", st.PrevScopeSize))
 	}
 	if st.MaxIterations == 0 {
 		st.MaxIterations = maxIter
@@ -163,6 +188,23 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 		zap.Int("data_requests", len(dataReqs)),
 		zap.String("next_step", gatherStep))
 	return result, nil
+}
+
+// seedScopeForRoute builds the FIRST iteration's loop scope from the SAME chain
+// diagnose_assemble_bundle seeds from — (1) the caller's seed_scope, else (2)
+// lookup_code_symbols' code_results — so the loop's PrevScopeSize matches the scope
+// actually bundled on iteration 1. REUSES scopeFromCodeResults (the assemble action's
+// code_results→"path:Symbol" helper, same package) rather than re-implementing it. An
+// empty seed is fine: InitLoopState still sets PrevScopeSize = 0+1 = 1, which keeps the
+// narrowing guard from tripping on the first re-scope.
+func seedScopeForRoute(collected map[string]interface{}, config map[string]interface{}) diagnose.Scope {
+	seedScopeField := datahelpers.GetStringField(config, "seed_scope_field", "input_data.seed_scope")
+	syms := datahelpers.ExtractStringListHelper(datahelpers.ExtractNestedField(collected, seedScopeField))
+	if len(syms) == 0 {
+		crField := datahelpers.GetStringField(config, "code_results_field", "code_lookup.code_results")
+		syms = scopeFromCodeResults(collected, crField)
+	}
+	return diagnose.Scope{Symbols: syms}
 }
 
 // readOnlyDataRequestsFromWire pulls the verdict's data_requests out of the RAW

@@ -1,0 +1,69 @@
+0. How work happens here (operating model)
+
+
+The platform builds/maintains multi-page websites with a fleet of agents. Each agent is a row in
+Postgres agent_definitions (DB clients_db), runs as a K8s pod from the chassis image
+docker.io/aqls/agent-chassis, communicates over Kafka, and persists run state in
+orchestration_states.
+Work = rows in site_work_items, claimed by the build-dispatch-loop (claimable status
+triaged/approved), routed to handler agents that spawn child agents.
+I (the assistant) have NO cluster or DB access — my network is locked to package registries. The
+human runs all kubectl/psql/git and pastes results back. So: I propose exact SQL/commands; they run
+them; I read the output.
+DB access (human runs):
+kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db
+Give bare SQL (no \x, no psql meta unless asked).
+Two kinds of change, very different cost:
+
+Workflow change = editing an agent's default_config JSON in the DB. Immediate, no redeploy.
+This is how most fixes here land.
+Go code change = code → GitHub → Backblaze → new chassis image → bump image_tag on the
+affected agent rows. Slow. Only when logic must change in Go.
+
+
+
+Back up before editing an agent: SELECT snapshot_agent('<type>','<reason>'); and revert with
+SELECT revert_agent('<type>'); (these are the human's helpers; exact signature is theirs).
+
+
+Schema gotchas (verified this project)
+
+
+orchestration_states: PK is orchestration_id (there is no id column). Useful columns:
+parent_orchestration_id, owner_agent_type, collected_data (jsonb), final_result (jsonb),
+site_id, responses_topic, status, created_at.
+site_work_items: error column is error (not error_message); category column is pipeline (not
+domain). Dedup index idx_swi_dedup = UNIQUE(site_id,item_key) over non-terminal rows. Terminal
+statuses: complete, failed, verified, rejected, wont_fix, unresolved.
+agent_definitions: the identity column is type (not name).
+A work-item spec that needs page routing must include page_name.
+psql JSON operators: #> takes a text[] path ('{a,b}') and returns jsonb; #>> returns text;
+-> / ->> take a single key. (A bare string after #> errors with "malformed array literal".)
+
+
+Known gamesdesign.co.uk IDs
+
+
+site e33263f4-74f8-494f-b191-546845dbbddf
+index page 6e988cc4-4898-4021-aa5e-2ab0271f9b75
+game-pathfinding 56af8679-1f7d-4da6-b148-f5727b16693d (/games/pathfinding/index.html)
+guide-economy-basics 8ed97fd2-2e33-4bdb-a24e-0f3badaca382
+guide-rng-design e40b26cc-049b-4c60-becf-803f8bf1430b
+contact-index 66d42e30-… (url /contact/index.html)
+
+
+
+1. Standing rules (the human's preferences — follow these)
+
+
+Prefer structural fixes over quick patches. Reuse existing functions/structs/actions rather than
+adding new ones.
+Every agent is an orchestrator. Thin workflows, complexity in Go. No SQL sub-workflows — spawn a
+sub-agent instead.
+Agents respond to the caller's (parent's) responses topic.
+Check the schema before writing SQL. Don't treat a 0 rows / false result as decisive until you've
+ruled out that the query/path itself is wrong (this bit us twice — an ILIKE probe and a path typo).
+Don't rename workflow variables except deliberately, and when you do, say so explicitly. Keep
+workflow variable names in sync with what the actions actually return.
+Go style: no logger.Debug (use Info). Avoid the words "perfect/critical/excellent"; no
+congratulatory filler. Keep replies moderately brief.
