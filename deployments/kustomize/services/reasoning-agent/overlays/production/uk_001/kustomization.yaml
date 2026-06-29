@@ -11,7 +11,7 @@ labels:
 
 images:
   - name: docker.io/aqls/reasoning-agent
-    newTag: v1.0.1079
+    newTag: v1.0.1080
 
 patches:
   - path: patch-deployment.yaml
