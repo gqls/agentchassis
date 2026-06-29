@@ -13,7 +13,7 @@ go run ./cmd/bundle \
 -scope platform/orchestration/actions/save_page_sections_action.go:SavePageSectionsAction \
 -scope platform/orchestration/actions/plan_sections_action.go \
 -include platform/orchestration/actions/registry.go \
--doc docs/.../016_debugging_guide_v2_45.md \
+-doc docs/agent_docs/docs024_key_docs_latest/016_debugging_guide_v2_57.md \
 -psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db' \
 -schema-tables page_components,pages,site_work_items \
 -runtime-site gamesdesign.co.uk -runtime-page index \
