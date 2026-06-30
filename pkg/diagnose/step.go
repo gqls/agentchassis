@@ -9,7 +9,7 @@ package diagnose
 import (
 	"encoding/json"
 
-	"github.com/gqls/agentchassis/internal/analysis"
+	"contextkit/internal/analysis"
 )
 
 // StepInput is one iteration's inputs: where we are (iteration, hypothesis,
@@ -24,6 +24,7 @@ type StepInput struct {
 	CallGraph       CallGraph
 	FollowCallGraph bool
 	SeenCitations   map[string]bool
+	SeenRequests    map[string]bool
 	HypHistory      []string
 	PrevScopeSize   int
 }
@@ -42,6 +43,7 @@ type StepDecision struct {
 
 	// updated guard memory to carry into the next iteration
 	SeenCitations map[string]bool
+	SeenRequests  map[string]bool
 	HypHistory    []string
 }
 
@@ -65,6 +67,10 @@ func DecideStep(in StepInput) StepDecision {
 	if seen == nil {
 		seen = map[string]bool{}
 	}
+	seenReq := in.SeenRequests
+	if seenReq == nil {
+		seenReq = map[string]bool{}
+	}
 	hypHistory := append([]string{}, in.HypHistory...)
 
 	switch verdict.Outcome {
@@ -77,18 +83,20 @@ func DecideStep(in StepInput) StepDecision {
 			NextHypothesis: in.Hypothesis,
 			NextScope:      in.Scope,
 			SeenCitations:  seen,
+			SeenRequests:   seenReq,
 			HypHistory:     hypHistory,
 		}
 
 	case Refuted:
 		next := nextScope(in.Scope, verdict, in.CallGraph, cfg)
-		if stop := guardAfter(verdict, next, in.PrevScopeSize, seen, &hypHistory, in.Hypothesis); stop != "" {
+		if stop := guardAfter(verdict, next, in.PrevScopeSize, seen, seenReq, &hypHistory, in.Hypothesis); stop != "" {
 			return StepDecision{
 				Decision:       "stop",
 				StopReason:     stop,
 				TerminalStatus: Unverifiable,
 				Conclusion:     bestEffortConclusion(stop, in.Hypothesis, verdict),
 				SeenCitations:  seen,
+				SeenRequests:   seenReq,
 				HypHistory:     hypHistory,
 			}
 		}
@@ -100,6 +108,7 @@ func DecideStep(in StepInput) StepDecision {
 				TerminalStatus: Unverifiable,
 				Conclusion:     bestEffortConclusion("iteration-cap", verdict.RevisedHypothesis, verdict),
 				SeenCitations:  seen,
+				SeenRequests:   seenReq,
 				HypHistory:     hypHistory,
 			}
 		}
@@ -108,18 +117,20 @@ func DecideStep(in StepInput) StepDecision {
 			NextHypothesis: verdict.RevisedHypothesis,
 			NextScope:      next,
 			SeenCitations:  seen,
+			SeenRequests:   seenReq,
 			HypHistory:     hypHistory,
 		}
 
 	default: // Unverifiable
 		next := nextScope(in.Scope, verdict, in.CallGraph, cfg)
-		if stop := guardAfter(verdict, next, in.PrevScopeSize, seen, &hypHistory, in.Hypothesis); stop != "" {
+		if stop := guardAfter(verdict, next, in.PrevScopeSize, seen, seenReq, &hypHistory, in.Hypothesis); stop != "" {
 			return StepDecision{
 				Decision:       "stop",
 				StopReason:     stop,
 				TerminalStatus: Unverifiable,
 				Conclusion:     bestEffortConclusion(stop, in.Hypothesis, verdict),
 				SeenCitations:  seen,
+				SeenRequests:   seenReq,
 				HypHistory:     hypHistory,
 			}
 		}
@@ -130,6 +141,7 @@ func DecideStep(in StepInput) StepDecision {
 				TerminalStatus: Unverifiable,
 				Conclusion:     bestEffortConclusion("iteration-cap", in.Hypothesis, verdict),
 				SeenCitations:  seen,
+				SeenRequests:   seenReq,
 				HypHistory:     hypHistory,
 			}
 		}
@@ -138,6 +150,7 @@ func DecideStep(in StepInput) StepDecision {
 			NextHypothesis: in.Hypothesis, // unchanged on Unverifiable
 			NextScope:      next,
 			SeenCitations:  seen,
+			SeenRequests:   seenReq,
 			HypHistory:     hypHistory,
 		}
 	}

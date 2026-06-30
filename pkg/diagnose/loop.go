@@ -83,11 +83,24 @@ type Citation struct {
 // Verdict is the result of one verdict step.
 type Verdict struct {
 	Outcome           Outcome
-	Citations         []Citation // REQUIRED for Confirmed/Refuted; empty ⇒ coerced Unverifiable
-	RevisedHypothesis string     // Refuted: the new hypothesis
-	NextScope         []string   // Refuted/Unverifiable: symbols/files to scope next
-	NeededEvidence    string     // Unverifiable: what evidence would settle it
-	RuntimeSite       string     // if the evidence names a runtime fault site to follow
+	Citations         []Citation    // REQUIRED for Confirmed/Refuted; empty ⇒ coerced Unverifiable
+	RevisedHypothesis string        // Refuted: the new hypothesis
+	NextScope         []string      // Refuted/Unverifiable: symbols/files to scope next
+	NeededEvidence    string        // Unverifiable: what evidence would settle it
+	RuntimeSite       string        // if the evidence names a runtime fault site to follow
+	DataRequests      []DataRequest // Refuted/Unverifiable: read-only SQL the gather should run next
+	//                                 (the DATA analogue of NextScope). Each is linted to read-only
+	//                                 at parse (Guard 2) and MUST run under a read-only transaction/role
+	//                                 (Guard 3); the prompt instructs SELECT-only (Guard 1).
+}
+
+// DataRequest is one read-only query the verdict asks the next gather to run,
+// when the bundle doesn't settle the hypothesis and specific DB evidence would.
+// All-strings, so one type serves both the domain Verdict and the wire (unlike
+// Outcome/Tier, which are enums needing a wire variant).
+type DataRequest struct {
+	SQL string `json:"sql"`           // a SINGLE read-only SELECT (or WITH … SELECT)
+	Why string `json:"why,omitempty"` // what this query would settle (for the trail)
 }
 
 // Scope is the bundle scope for one iteration. The loop narrows this over time.
@@ -167,6 +180,7 @@ func Run(seedHypothesis string, seedScope Scope, g Gatherer, v Verdicter, cg Cal
 
 	// Guard memory across iterations.
 	seenCitations := map[string]bool{} // dedup key for evidence-must-grow
+	seenRequests := map[string]bool{}  // dedup key for in-flight data_requests (guardAfter)
 	var hypHistory []string            // for no-thrash detection
 	prevScopeSize := scope.size() + 1  // ensure first iteration always "narrows"
 
@@ -193,6 +207,7 @@ func Run(seedHypothesis string, seedScope Scope, g Gatherer, v Verdicter, cg Cal
 			CallGraph:       cg,
 			FollowCallGraph: cfg.FollowCallGraph,
 			SeenCitations:   seenCitations,
+			SeenRequests:    seenRequests,
 			HypHistory:      hypHistory,
 			PrevScopeSize:   prevScopeSize,
 		})
@@ -217,6 +232,7 @@ func Run(seedHypothesis string, seedScope Scope, g Gatherer, v Verdicter, cg Cal
 
 		// continue: carry the advanced state into the next iteration
 		seenCitations = d.SeenCitations
+		seenRequests = d.SeenRequests
 		hypHistory = d.HypHistory
 		prevScopeSize = scope.size()
 		hyp = d.NextHypothesis
@@ -267,7 +283,7 @@ func nextScope(prev Scope, v Verdict, cg CallGraph, cfg Config) Scope {
 
 // guardAfter applies the convergence guards (DESIGN §3). Returns a non-empty
 // stop-reason if the loop must halt, else "".
-func guardAfter(v Verdict, next Scope, prevSize int, seen map[string]bool, hypHistory *[]string, currentHyp string) string {
+func guardAfter(v Verdict, next Scope, prevSize int, seen, seenReq map[string]bool, hypHistory *[]string, currentHyp string) string {
 	// Scope must NARROW (or hold) — a widening scope is not converging.
 	// Exception: Unverifiable MAY widen once to fetch named evidence, but the
 	// guard still trips if it balloons beyond the previous size + a small slack.
@@ -275,8 +291,12 @@ func guardAfter(v Verdict, next Scope, prevSize int, seen map[string]bool, hypHi
 		return "scope-not-narrowing"
 	}
 
-	// Evidence must GROW — if this verdict adds NO new citation vs everything
-	// seen, the loop is spinning (DESIGN §3).
+	// Evidence must GROW — but a verdict that issues a NEW (previously-unseen)
+	// read-only data_request is making progress, not spinning: its answer arrives in
+	// the NEXT gather, so the stale-citation test must not stop the loop one iteration
+	// before it. Issued requests are tracked like citations, so a RE-issue of the same
+	// query does NOT count as progress (a true re-issue spin still trips; the iteration
+	// cap bounds the worst case). (DESIGN §3.)
 	newEvidence := false
 	for _, c := range v.Citations {
 		key := c.Where + "|" + c.Quote
@@ -285,7 +305,20 @@ func guardAfter(v Verdict, next Scope, prevSize int, seen map[string]bool, hypHi
 			newEvidence = true
 		}
 	}
-	if len(v.Citations) > 0 && !newEvidence {
+	newRequest := false
+	if seenReq != nil {
+		for _, dr := range v.DataRequests {
+			key := strings.TrimSpace(dr.SQL)
+			if key == "" {
+				continue
+			}
+			if !seenReq[key] {
+				seenReq[key] = true
+				newRequest = true
+			}
+		}
+	}
+	if len(v.Citations) > 0 && !newEvidence && !newRequest {
 		return "evidence-not-growing"
 	}
 
@@ -296,7 +329,7 @@ func guardAfter(v Verdict, next Scope, prevSize int, seen map[string]bool, hypHi
 		h := normaliseHyp(v.RevisedHypothesis)
 		hist := *hypHistory
 		for j := len(hist) - 1; j >= 0 && j >= len(hist)-2; j-- {
-			if hist[j] == h && !newEvidence {
+			if hist[j] == h && !newEvidence && !newRequest {
 				return "hypothesis-thrash"
 			}
 		}

@@ -26,6 +26,7 @@ type LoopState struct {
 	Hypothesis    string          `json:"hypothesis"`
 	Scope         Scope           `json:"scope"`
 	SeenCitations map[string]bool `json:"seen_citations"`
+	SeenRequests  map[string]bool `json:"seen_requests"`
 	HypHistory    []string        `json:"hyp_history"`
 	PrevScopeSize int             `json:"prev_scope_size"`
 	Trail         []Step          `json:"trail"`
@@ -55,6 +56,7 @@ func InitLoopState(seedHypothesis string, seed Scope, maxIter int, follow bool) 
 		Hypothesis:    seedHypothesis,
 		Scope:         seed,
 		SeenCitations: map[string]bool{},
+		SeenRequests:  map[string]bool{},
 		PrevScopeSize: seed.size() + 1,
 		Follow:        follow,
 	}
@@ -76,6 +78,7 @@ func Advance(st *LoopState, verdict Verdict, cg CallGraph) AdvanceResult {
 		CallGraph:       cg,
 		FollowCallGraph: st.Follow,
 		SeenCitations:   st.SeenCitations,
+		SeenRequests:    st.SeenRequests,
 		HypHistory:      st.HypHistory,
 		PrevScopeSize:   st.PrevScopeSize,
 	})
@@ -102,6 +105,7 @@ func Advance(st *LoopState, verdict Verdict, cg CallGraph) AdvanceResult {
 
 	// continue: advance the state exactly as Run() does between iterations
 	st.SeenCitations = d.SeenCitations
+	st.SeenRequests = d.SeenRequests
 	st.HypHistory = d.HypHistory
 	st.PrevScopeSize = st.Scope.size()
 	st.Hypothesis = d.NextHypothesis
