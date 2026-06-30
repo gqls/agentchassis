@@ -22,12 +22,13 @@ import (
 // VerdictWire is the JSON the model returns for one iteration. Field names and
 // string values MUST match docs/PROMPT_diagnosis_verdict.md's output schema.
 type VerdictWire struct {
-	Outcome           string         `json:"outcome"`            // "CONFIRMED" | "REFUTED" | "UNVERIFIABLE"
-	Citations         []CitationWire `json:"citations"`          // verbatim quotes from the bundle
-	RevisedHypothesis string         `json:"revised_hypothesis"` // REFUTED only
-	NextScope         []string       `json:"next_scope"`         // REFUTED/UNVERIFIABLE
-	NeededEvidence    string         `json:"needed_evidence"`    // UNVERIFIABLE only
-	RuntimeSite       string         `json:"runtime_site"`       // optional: a runtime fault site to follow
+	Outcome           string         `json:"outcome"`                 // "CONFIRMED" | "REFUTED" | "UNVERIFIABLE"
+	Citations         []CitationWire `json:"citations"`               // verbatim quotes from the bundle
+	RevisedHypothesis string         `json:"revised_hypothesis"`      // REFUTED only
+	NextScope         []string       `json:"next_scope"`              // REFUTED/UNVERIFIABLE
+	NeededEvidence    string         `json:"needed_evidence"`         // UNVERIFIABLE only
+	RuntimeSite       string         `json:"runtime_site"`            // optional: a runtime fault site to follow
+	DataRequests      []DataRequest  `json:"data_requests,omitempty"` // optional: read-only SQL to gather next
 }
 
 type CitationWire struct {
@@ -81,6 +82,18 @@ func (w VerdictWire) toVerdict() Verdict {
 			Where: c.Where,
 			Fresh: c.Fresh,
 		})
+	}
+	// Guard 2 at the parse boundary: keep only read-only data requests; drop any
+	// that fail the lint, surfacing the reason in NeededEvidence so it shows in the
+	// trail rather than silently vanishing. This is defence in depth — the gather
+	// MUST still run survivors under a read-only transaction/role (Guard 3).
+	for _, dr := range w.DataRequests {
+		if lintErr := IsReadOnlySQL(dr.SQL); lintErr != nil {
+			v.NeededEvidence = strings.TrimSpace(v.NeededEvidence +
+				" — dropped non-read-only data_request (" + lintErr.Error() + ")")
+			continue
+		}
+		v.DataRequests = append(v.DataRequests, dr)
 	}
 	if err != nil {
 		v.Outcome = Unverifiable
