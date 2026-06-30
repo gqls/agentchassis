@@ -9,7 +9,7 @@ package diagnose
 import (
 	"encoding/json"
 
-	"contextkit/internal/analysis"
+	"github.com/gqls/agentchassis/internal/analysis"
 )
 
 // StepInput is one iteration's inputs: where we are (iteration, hypothesis,

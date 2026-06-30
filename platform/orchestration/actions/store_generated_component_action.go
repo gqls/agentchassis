@@ -34,6 +34,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -307,6 +308,42 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			strings.Count(htmlTemplate, "<no value>")))
 	}
 
+	// Regeneration must not break the field-name contract that existing
+	// dependents' content_data is keyed on. content_data is written to
+	// match the component's input_schema field names at build time;
+	// renaming or removing a retained field strands that stored content —
+	// the renamed placeholder no longer matches the stored key, and
+	// RenderTemplate silently strips the unmatched placeholder to "", so
+	// the section renders empty with no error (this is the fdd92ad4
+	// system-stats failure: e.g. stat_1_number→stat1_value, eyebrow→
+	// eyebrow_label renamed in place while dependents' content_data stayed
+	// on the old keys). Adding new fields is fine; dropping/renaming an
+	// existing one is the damage, so block it here rather than overwrite
+	// the shared row and silently empty every dependent. Intentional
+	// field-set changes to a shared component must go through a deliberate
+	// migration, not an LLM regeneration side effect.
+	//
+	// This compares old-schema fields to new-schema fields as a proxy for
+	// "what dependents have" (content_data is written to match the schema).
+	// If exactness is ever needed, swap to querying the affected
+	// page_components for the union of their content_data keys.
+	if isRegeneration {
+		oldFields := schemaFieldSet(existingSchema)
+		newFields := schemaFieldSet(schemaJSONStr)
+		var stranded []string
+		for name := range oldFields {
+			if !newFields[name] {
+				stranded = append(stranded, name)
+			}
+		}
+		if len(stranded) > 0 {
+			sort.Strings(stranded) // deterministic message ordering
+			blockingIssues = append(blockingIssues, fmt.Sprintf(
+				"regeneration removes/renames %d existing schema field(s) (%s) that dependents' content_data is keyed on — overwriting would strand stored content and render those sections empty; preserve these field names or migrate dependents explicitly",
+				len(stranded), strings.Join(stranded, ", ")))
+		}
+	}
+
 	if len(blockingIssues) > 0 {
 		// Persist a structured rejection record to agent_error_log. This
 		// makes validation failures queryable across the system — we can
@@ -459,19 +496,19 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			)
 			RETURNING id::text
 		`,
-			functionName,                      // $1 name
-			displayName,                       // $2 display_name
-			functionName,                      // $3 function
-			category,                          // $4 category
-			sectionType,                       // $5 section_type
-			string(suitableSiteTypesJSON),     // $6 suitable_site_types
-			string(suitablePageTypesJSON),     // $7 suitable_page_types
-			description,                       // $8 description
-			htmlTemplate,                      // $9 html_template (JS extracted)
-			nullIfEmpty(jsContent),            // $10 js_content (NULL if no JS)
-			inputSchemaJSON,                   // $11 input_schema
-			isDark,                            // $12 is_dark_section
-			deriveRenderMode(inputSchemaJSON), // $13 render_mode (derived from schema, not hardcoded)
+			functionName,                                         // $1 name
+			displayName,                                          // $2 display_name
+			functionName,                                         // $3 function
+			category,                                             // $4 category
+			sectionType,                                          // $5 section_type
+			string(suitableSiteTypesJSON),                        // $6 suitable_site_types
+			string(suitablePageTypesJSON),                        // $7 suitable_page_types
+			description,                                          // $8 description
+			htmlTemplate,                                         // $9 html_template (JS extracted)
+			nullIfEmpty(jsContent),                               // $10 js_content (NULL if no JS)
+			inputSchemaJSON,                                      // $11 input_schema
+			isDark,                                               // $12 is_dark_section
+			deriveRenderMode(inputSchemaJSON),                    // $13 render_mode (derived from schema, not hardcoded)
 			datahelpers.BuildSemanticTags(sectionType, siteType), // $14 semantic_tags
 		).Scan(&componentID)
 		if err != nil {
@@ -1075,8 +1112,15 @@ func createRerenderWorkItem(
 
 	itemKey := fmt.Sprintf("component_regen_rerender:%s", componentID)
 	summary := fmt.Sprintf("Re-render pages after %s regeneration", functionName)
+	// reason=section_data_resolved so page-rerender runs the section
+	// re-render (rerender_page_sections) and regenerates each dependent's
+	// rendered_html from its content_data against the new template, rather
+	// than the assemble-only render_page path (which re-ships the stale
+	// rendered_html). NOTE: this only takes effect if rerender-pages
+	// propagates spec.reason onto the per-page page_rerender items it
+	// creates — verify/align rerender-pages' create_rerender_items step.
 	specJSON := fmt.Sprintf(
-		`{"component_id": %q, "function": %q, "refresh_site_components": false}`,
+		`{"component_id": %q, "function": %q, "reason": "section_data_resolved", "refresh_site_components": false}`,
 		componentID, functionName,
 	)
 
@@ -1320,4 +1364,26 @@ func deriveRenderMode(inputSchemaJSON string) string {
 	}
 
 	return "template"
+}
+
+// schemaFieldSet returns the set of field names declared under
+// input_schema.fields. Empty or invalid schema → empty set. Mirrors the
+// fields-parse used by deriveRenderMode.
+func schemaFieldSet(inputSchemaJSON string) map[string]bool {
+	out := map[string]bool{}
+	if inputSchemaJSON == "" || inputSchemaJSON == "{}" {
+		return out
+	}
+	var schema map[string]interface{}
+	if err := json.Unmarshal([]byte(inputSchemaJSON), &schema); err != nil {
+		return out
+	}
+	fields, ok := schema["fields"].(map[string]interface{})
+	if !ok {
+		return out
+	}
+	for name := range fields {
+		out[name] = true
+	}
+	return out
 }
