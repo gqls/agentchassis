@@ -701,6 +701,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Apply targeted fixes to component HTML/CSS",
 		IsLocal:     true,
 	},
+	"load_existing_component": {
+		Handler:     LoadExistingComponentAction,
+		Category:    "site",
+		Description: "Load existing component field names for regeneration preservation",
+		IsLocal:     true,
+	},
 	"write_audit_findings": {
 		Handler:     WriteAuditFindingsAction,
 		Category:    "site",
