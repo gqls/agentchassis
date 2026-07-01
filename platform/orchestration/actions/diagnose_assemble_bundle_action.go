@@ -69,7 +69,7 @@ var DiagnoseAssembleBundleInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
 		"loop_scope_field", "scope_field", "code_results_field",
 		"hypothesis_field", "seed_hypothesis_field",
-		"analysis_field", "repo_root_field", "runtime_field", "max_body_chars",
+		"analysis_field", "repo_root_field", "runtime_field", "schema_field", "max_body_chars",
 	},
 	Defaults: map[string]interface{}{
 		"loop_scope_field":      "route.scope",              // set by diagnose_route on loop-back
@@ -80,6 +80,7 @@ var DiagnoseAssembleBundleInputSpec = datahelpers.ActionInputSpec{
 		"analysis_field":        "repo_analysis",
 		"repo_root_field":       "repo_analysis.root",
 		"runtime_field":         "runtime.runtime_evidence",
+		"schema_field":          "runtime.schema",
 		"max_body_chars":        60000,
 	},
 }
@@ -115,6 +116,7 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	analysisField := datahelpers.GetStringField(config, "analysis_field", "repo_analysis")
 	repoRootField := datahelpers.GetStringField(config, "repo_root_field", "repo_analysis.root")
 	runtimeField := datahelpers.GetStringField(config, "runtime_field", "runtime.runtime_evidence")
+	schemaField := datahelpers.GetStringField(config, "schema_field", "runtime.schema")
 	maxBodyChars := datahelpers.GetIntField(config, "max_body_chars", 60000)
 
 	// Scope FALLBACK CHAIN (doc-003 action-level defense): (1) loop scope from
@@ -183,6 +185,15 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		fmt.Fprintf(&b, "### %s\n```go\n%s\n```\n\n", sym, body)
 		total += len(body)
 		included++
+	}
+
+	// Schema (live tables) — real table/column names so the verdict writes a
+	// correct data_request instead of guessing a relation that does not exist
+	// (the gamesdesign loop wasted iterations on a non-existent "page_sections").
+	if sch := datahelpers.ExtractNestedFieldString(params.CollectedData, schemaField); sch != "" {
+		b.WriteString("## Schema (live tables)\n\n```\n")
+		b.WriteString(sch)
+		b.WriteString("```\n\n")
 	}
 
 	// Runtime/DB evidence already gathered upstream — include verbatim so the
