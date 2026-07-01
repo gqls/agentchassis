@@ -46,15 +46,22 @@ func IsReadOnlySQL(sql string) error {
 	}
 
 	// Drop a single trailing ';', then reject any remaining ';' — psql -c stacks
-	// statements, so an internal ';' is the stacking-injection signal. (A ';'
-	// inside a string literal would trip this too; for a read-only LINT that
-	// over-rejection is acceptable — rewrite the query without the literal ';'.)
+	// statements, so an internal ';' is the stacking-injection signal. Literals are
+	// blanked first (below), so a ';' inside a string literal no longer trips this.
 	body := strings.TrimSuffix(strings.TrimSpace(s), ";")
-	if strings.Contains(body, ";") {
+
+	// Blank the CONTENTS of string literals / quoted identifiers before the stacking
+	// and write-token checks, so a keyword or ';' that appears INSIDE a literal — e.g.
+	// a page slug like 'tool-drop-rate-simulator', whose "drop" otherwise reads as DDL
+	// — is not mistaken for SQL syntax. The read-only transaction/role (see header)
+	// stays the real guarantee, so blanking here cannot admit a write; it only removes
+	// false rejections.
+	scan := stripQuoted(body)
+	if strings.Contains(scan, ";") {
 		return fmt.Errorf("multiple statements not allowed (found ';' mid-query)")
 	}
 
-	lower := strings.ToLower(body)
+	lower := strings.ToLower(scan)
 	if !strings.HasPrefix(lower, "select") && !strings.HasPrefix(lower, "with") {
 		return fmt.Errorf("query must start with SELECT or WITH, got %q", firstWord(body))
 	}
@@ -65,6 +72,45 @@ func IsReadOnlySQL(sql string) error {
 		}
 	}
 	return nil
+}
+
+// stripQuoted blanks the CONTENTS of single-quoted string literals and
+// double-quoted identifiers, keeping the delimiters, so a keyword or ';' that
+// appears INSIDE a literal/identifier (e.g. the page slug
+// 'tool-drop-rate-simulator', which contains "drop") cannot trip the
+// statement-stacking or write-token checks. Handles the SQL escapes ” and "".
+// Lint-accuracy only: the read-only transaction/role remains the real guarantee,
+// so blanking literals here cannot admit an actual write.
+func stripQuoted(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	i := 0
+	for i < len(s) {
+		c := s[i]
+		if c == '\'' || c == '"' {
+			q := c
+			b.WriteByte(q)
+			i++
+			for i < len(s) {
+				if s[i] == q {
+					if i+1 < len(s) && s[i+1] == q { // doubled = escaped delimiter, stay in
+						i += 2
+						continue
+					}
+					break
+				}
+				i++ // drop literal/identifier content
+			}
+			if i < len(s) { // closing delimiter
+				b.WriteByte(q)
+				i++
+			}
+			continue
+		}
+		b.WriteByte(c)
+		i++
+	}
+	return b.String()
 }
 
 // containsWord reports whether tok appears in s on word boundaries (so "created_at"
