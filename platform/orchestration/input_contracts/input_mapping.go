@@ -254,23 +254,47 @@ func ValidateInputContract(
 		return nil
 	}
 
+	// spec is the documented container for handler inputs (input_data.spec.*).
+	// A required field may be delivered here rather than flattened top-level.
+	spec, _ := data["spec"].(map[string]interface{})
+
 	var missing []string
+	var satisfiedViaSpec []string
 
 	for _, required := range contract.Required {
-		// Check if field exists at top level
-		if _, exists := data[required]; !exists {
-			missing = append(missing, required)
+		// 1) top-level (the historical check)
+		if _, exists := data[required]; exists {
+			continue
 		}
+		// 2) input_data.spec.* — the path handlers actually read (doc 003).
+		if spec != nil {
+			if _, inSpec := spec[required]; inSpec {
+				satisfiedViaSpec = append(satisfiedViaSpec, required)
+				continue
+			}
+		}
+		missing = append(missing, required)
 	}
 
 	if len(missing) > 0 {
 		providedFields := MapKeys(data)
+		var specKeys []string
+		if spec != nil {
+			specKeys = MapKeys(spec)
+		}
 		return fmt.Errorf(
 			"contract violation for agent '%s': missing required fields: %v\n"+
 				"Provided fields: %v\n"+
-				"Hint: Check input_mapping in the step config",
-			agentType, missing, providedFields,
+				"Provided spec.* fields: %v\n"+
+				"Hint: required fields must be present top-level or under input_data.spec.*; check input_mapping in the step config",
+			agentType, missing, providedFields, specKeys,
 		)
+	}
+
+	if len(satisfiedViaSpec) > 0 {
+		logger.Info("Input contract satisfied (some fields via input_data.spec.*)",
+			zap.String("agent_type", agentType),
+			zap.Strings("via_spec", satisfiedViaSpec))
 	}
 
 	logger.Debug("Input contract validated successfully",
