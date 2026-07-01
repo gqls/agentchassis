@@ -496,19 +496,19 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			)
 			RETURNING id::text
 		`,
-			functionName,                                         // $1 name
-			displayName,                                          // $2 display_name
-			functionName,                                         // $3 function
-			category,                                             // $4 category
-			sectionType,                                          // $5 section_type
-			string(suitableSiteTypesJSON),                        // $6 suitable_site_types
-			string(suitablePageTypesJSON),                        // $7 suitable_page_types
-			description,                                          // $8 description
-			htmlTemplate,                                         // $9 html_template (JS extracted)
-			nullIfEmpty(jsContent),                               // $10 js_content (NULL if no JS)
-			inputSchemaJSON,                                      // $11 input_schema
-			isDark,                                               // $12 is_dark_section
-			deriveRenderMode(inputSchemaJSON),                    // $13 render_mode (derived from schema, not hardcoded)
+			functionName,                      // $1 name
+			displayName,                       // $2 display_name
+			functionName,                      // $3 function
+			category,                          // $4 category
+			sectionType,                       // $5 section_type
+			string(suitableSiteTypesJSON),     // $6 suitable_site_types
+			string(suitablePageTypesJSON),     // $7 suitable_page_types
+			description,                       // $8 description
+			htmlTemplate,                      // $9 html_template (JS extracted)
+			nullIfEmpty(jsContent),            // $10 js_content (NULL if no JS)
+			inputSchemaJSON,                   // $11 input_schema
+			isDark,                            // $12 is_dark_section
+			deriveRenderMode(inputSchemaJSON), // $13 render_mode (derived from schema, not hardcoded)
 			datahelpers.BuildSemanticTags(sectionType, siteType), // $14 semantic_tags
 		).Scan(&componentID)
 		if err != nil {
