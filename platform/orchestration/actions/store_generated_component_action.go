@@ -1112,15 +1112,13 @@ func createRerenderWorkItem(
 
 	itemKey := fmt.Sprintf("component_regen_rerender:%s", componentID)
 	summary := fmt.Sprintf("Re-render pages after %s regeneration", functionName)
-	// reason=section_data_resolved so page-rerender runs the section
-	// re-render (rerender_page_sections) and regenerates each dependent's
-	// rendered_html from its content_data against the new template, rather
-	// than the assemble-only render_page path (which re-ships the stale
-	// rendered_html). NOTE: this only takes effect if rerender-pages
-	// propagates spec.reason onto the per-page page_rerender items it
-	// creates — verify/align rerender-pages' create_rerender_items step.
+	// reason=section_data_resolved so the per-page rerender items (created by
+	// rerender-pages' create_rerender_items, once it propagates spec.reason)
+	// drive a section re-render of this component's dependents rather than an
+	// assemble-only re-ship. component_id above is what scopes it to those
+	// dependents.
 	specJSON := fmt.Sprintf(
-		`{"component_id": %q, "function": %q, "refresh_site_components": false}`,
+		`{"component_id": %q, "function": %q, "reason": "section_data_resolved", "refresh_site_components": false}`,
 		componentID, functionName,
 	)
 

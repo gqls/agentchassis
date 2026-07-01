@@ -33,7 +33,7 @@ import (
 
 var CreateRerenderItemsInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
-	Optional:   []string{"domain", "pages_field"},
+	Optional:   []string{"domain", "pages_field", "reason", "component_id"},
 	Defaults:   map[string]interface{}{"pages_field": "rerender_pages.pages"},
 	Deprecated: map[string]string{},
 }
@@ -71,6 +71,50 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 	if domain == "" {
 		// Fallback: look up from DB
 		params.DB.QueryRowContext(ctx, `SELECT domain FROM sites WHERE id = $1`, siteID).Scan(&domain)
+	}
+
+	// When the rerender was triggered by a specific component changing, the
+	// inbound spec carries a section-rerender reason and the component_id. In
+	// that case we (a) stamp the reason onto each page_rerender item so
+	// page-rerender runs the section re-render (rerender_page_sections)
+	// instead of assemble-only, and (b) scope the items to the pages that
+	// actually use that component — so a component regen only re-renders its
+	// own dependents, not every page on the site (which would re-render
+	// unrelated sections and could surface other latent mismatches). Without
+	// both signals we leave behaviour exactly as before: one assemble-only
+	// item per page, which is what site-wide refreshes rely on.
+	reason := inputs.Get("reason")
+	componentIDStr := inputs.Get("component_id")
+	// Reasons page-rerender gates the section re-render on.
+	scoped := (reason == "section_data_resolved" || reason == "image_landed") && componentIDStr != ""
+
+	var dependentPages map[string]bool
+	if scoped {
+		compUUID, perr := uuid.Parse(componentIDStr)
+		if perr != nil {
+			return nil, fmt.Errorf("invalid component_id: %w", perr)
+		}
+		dependentPages = map[string]bool{}
+		rows, qerr := params.DB.QueryContext(ctx, `
+			SELECT pc.page_id::text
+			FROM page_components pc
+			JOIN pages p ON p.id = pc.page_id
+			WHERE pc.component_id = $1 AND p.site_id = $2
+		`, compUUID, siteID)
+		if qerr != nil {
+			return nil, fmt.Errorf("dependent-page lookup failed: %w", qerr)
+		}
+		for rows.Next() {
+			var pid string
+			if serr := rows.Scan(&pid); serr == nil {
+				dependentPages[pid] = true
+			}
+		}
+		rows.Close()
+		logger.Info("CreateRerenderItemsAction: scoping to component dependents",
+			zap.String("component_id", componentIDStr),
+			zap.String("reason", reason),
+			zap.Int("dependent_pages", len(dependentPages)))
 	}
 
 	// Extract pages list
@@ -126,11 +170,20 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 			continue
 		}
 
+		// Scoped rerender: skip pages that don't use the changed component.
+		if scoped && !dependentPages[pageID] {
+			continue
+		}
+
 		spec := map[string]interface{}{
 			"page_id":   pageID,
 			"page_name": pageName,
 			"filename":  filename,
 			"domain":    domain,
+		}
+		if scoped {
+			// page-rerender gates the section re-render on this reason.
+			spec["reason"] = reason
 		}
 		specJSON, _ := json.Marshal(spec)
 
