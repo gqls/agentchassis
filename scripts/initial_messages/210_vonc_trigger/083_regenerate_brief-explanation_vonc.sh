@@ -68,3 +68,21 @@ echo ""
 echo "Verify: brief-explanation row 58363894-... updated in place (status regenerated,"
 echo "        active_rows=1, schema_field_count>0, has_no_value=f, has_placeholders=t),"
 echo "        plus any rebuild items raised (query 3)."
+
+SELECT id, function, section_type, is_active, quality_score,
+         template_variable_count, schema_field_count,
+         LENGTH(html_template) AS tmpl_len,
+          LENGTH(COALESCE(js_content,'')) AS js_len,
+          (html_template LIKE '%<no value>%')     AS has_no_value,
+          (html_template LIKE '%{{placeholder %') AS has_placeholders,
+          created_at, updated_at
+   FROM content_components WHERE function = 'brief-explanation'
+   ORDER BY is_active DESC, updated_at DESC;
+
+   SELECT COUNT(*) AS active_rows FROM content_components
+   WHERE function='brief-explanation' AND is_active=true AND forked_from IS NULL;
+
+   SELECT item_type, item_key, status, created_at FROM site_work_items
+   WHERE site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'::uuid
+    AND created_at > NOW() - INTERVAL '15 minutes'
+   ORDER BY created_at DESC;
