@@ -3029,6 +3029,7 @@ func isStorageEnabledAgent(agentType string) bool {
 func isRepoCloningAgent(agentType string) bool {
 	repoCloningAgents := []string{
 		"diagnose-agent",
+		"code-indexer",
 	}
 	for _, t := range repoCloningAgents {
 		if t == agentType {
