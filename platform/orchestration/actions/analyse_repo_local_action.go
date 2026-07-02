@@ -144,7 +144,7 @@ func AnalyseRepoLocalAction(ctx context.Context, params ActionParams) (interface
 	// Read-only token, injected to diagnose-agent pods only (spawn_actions.go).
 	token := os.Getenv(githubReadTokenEnv)
 	if token == "" {
-		return nil, fmt.Errorf("analyse_repo_local: %s not set (the diagnose-agent pod must carry the read-only GitHub token; see spawn_actions.go isRepoCloningAgent)", githubReadTokenEnv)
+		return nil, fmt.Errorf("analyse_repo_local: %s not set — this action must run in a SPAWNED repo-cloning agent pod (spawn_actions.go isRepoCloningAgent injects the secretKeyRef; the shared chassis pod deliberately never holds the token). If this fired on an agent-chassis pod, the workflow was adopted in-place: trigger via a spawning orchestrator (e.g. index-orchestrator) instead", githubReadTokenEnv)
 	}
 	apiBase := resolveRAGConfigField(config, "github_api_base_field", "github_api_base", params.CollectedData)
 
