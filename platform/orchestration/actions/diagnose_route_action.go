@@ -20,8 +20,10 @@
 // So the loop is expressed in the WORKFLOW (gather → verdict → route → back to
 // gather | emit), with the guard/re-scope COMPLEXITY kept in Go (the guideline).
 //
-// READ-ONLY: pure decision logic over data already in collected_data. No DB, no
-// LLM, no spawn, no writes.
+// READ-ONLY decision logic over collected_data, PLUS (§7D, 2026-07-02) the
+// evidence-fed scope resolver: a read-only vector search over code_symbols and
+// one embedding HTTP call per FUZZY next_scope entry. Still no writes, no LLM
+// verdicts, no spawn — but the original "no DB" claim no longer holds.
 
 package actions
 
@@ -40,13 +42,14 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 		"verdict_field", "state_field", "analysis_field",
 		"gather_step", "emit_step", "max_iterations",
 		"seed_hypothesis_field", "seed_scope_field", "code_results_field",
+		"resolver_top_k", "resolver_min_similarity",
 	},
 	Defaults: map[string]interface{}{
-		"verdict_field":  "verdict.result",  // ExecuteLLMPromptAction wraps JSON under .result
+		"verdict_field":  "verdict.result",       // ExecuteLLMPromptAction wraps JSON under .result
 		"state_field":    "route.diagnose_state", // this action's result lands under output_field "route", so it reads its PRIOR LoopState back at route.diagnose_state — a bare "diagnose_state" never exists at top level, so the loop would re-seed every iteration (cap unenforced, trail truncated, guard memory reset). Must track the route step's output_field.
-		"analysis_field": "repo_analysis",   // analyser Output, for call-graph re-scope
-		"gather_step":    "assemble_bundle", // the step to loop BACK to for the next iteration
-		"emit_step":      "emit",            // the step to proceed to when the loop stops
+		"analysis_field": "repo_analysis",        // analyser Output, for call-graph re-scope
+		"gather_step":    "assemble_bundle",      // the step to loop BACK to for the next iteration
+		"emit_step":      "emit",                 // the step to proceed to when the loop stops
 		"max_iterations": 5,
 		// First-iteration SEED (no diagnose_state yet). These mirror the fields
 		// diagnose_assemble_bundle seeds from, so the loop's initial hypothesis +
@@ -54,6 +57,14 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 		"seed_hypothesis_field": "input_data.symptom",
 		"seed_scope_field":      "input_data.seed_scope",
 		"code_results_field":    "code_lookup.code_results",
+		// §7D scope resolver. top_k default 2, NOT 3: substitution nets +K-1
+		// entries per fuzzy item, and the engine's scope-narrowing guard stops at
+		// prevSize+2 — K=2 keeps two fuzzy entries per verdict inside the guard.
+		// 0 disables the resolver. min_similarity 0.55 is a permissive floor just
+		// above the measured stale-corpus garbage band (0.547–0.574); §7E
+		// calibrates it — all similarities are logged for that purpose.
+		"resolver_top_k":          2,
+		"resolver_min_similarity": 0.55,
 	},
 }
 
@@ -148,13 +159,29 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	// 3) Call-graph for re-scope (follow the evidence, not the symptom — §1a).
+	//    analysisRaw is hoisted (same name, wider scope — no rename) because the
+	//    §7D resolver below reads the same value.
+	analysisRaw := datahelpers.ExtractNestedField(params.CollectedData, analysisField)
 	var cg diagnose.CallGraph
-	if analysisRaw := datahelpers.ExtractNestedField(params.CollectedData, analysisField); analysisRaw != nil {
+	if analysisRaw != nil {
 		if g, err := diagnose.NewCallGraphFromValue(analysisRaw); err == nil {
 			cg = g
 		} else {
 			logger.Warn("diagnose_route: could not build call graph; re-scope will use verdict next_scope verbatim", zap.Error(err))
 		}
+	}
+
+	// 3.5) §7D: evidence-fed scope resolver — translate the verdict's FUZZY
+	// next_scope entries (natural-language descriptions of code) into real
+	// path:Symbol handles by searching code_symbols with the ENTRY TEXT as the
+	// query. Runs BEFORE Advance so the call-graph expansion and the narrowing
+	// guard operate on real symbols. Exact entries pass through; entries that
+	// resolve to nothing survive as labels (previous behaviour, fail-open).
+	// DELIBERATE CHANGE (RUNBOOK §7D): mutates verdict.NextScope, so the
+	// evidence trail records the RESOLVED scope — the more auditable record.
+	if analysisRaw != nil {
+		knownFiles, knownSyms := knownScopeIdentities(analysisRaw)
+		resolveFuzzyNextScope(ctx, params, config, &verdict, knownFiles, knownSyms, logger)
 	}
 
 	// 4) ONE engine step: apply guards, decide continue/stop, compute next scope.
@@ -260,4 +287,185 @@ func readOnlyDataRequestsFromWire(verdictRaw interface{}) (kept []interface{}, d
 		kept = append(kept, map[string]interface{}{"sql": sqlText, "why": why})
 	}
 	return kept, dropped
+}
+
+// ── §7D: evidence-fed next_scope resolver ────────────────────────────────────
+
+// knownScopeIdentities builds the exactness sets the resolver checks against:
+// bare file paths and "path:Name" handles (functions AND types) — the SAME
+// identity scopeFromCodeResults emits and diagnose_assemble_bundle slices by.
+// Built here from the repo_analysis value rather than extending the engine's
+// AnalysisCallGraph with a presence method: the graph's callsBySym covers only
+// functions (types define no calls), and keeping the engine untouched avoids a
+// second engine-file copy/deploy for a read-only classification concern.
+func knownScopeIdentities(analysisRaw interface{}) (files map[string]bool, syms map[string]bool) {
+	files, syms = map[string]bool{}, map[string]bool{}
+	m, ok := analysisRaw.(map[string]interface{})
+	if !ok {
+		return
+	}
+	arr, ok := m["files"].([]interface{})
+	if !ok {
+		return
+	}
+	for _, fi := range arr {
+		fm, ok := fi.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		path, _ := fm["path"].(string)
+		if path == "" {
+			continue
+		}
+		files[path] = true
+		for _, listKey := range []string{"functions", "types"} {
+			items, _ := fm[listKey].([]interface{})
+			for _, it := range items {
+				im, ok := it.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if name, _ := im["name"].(string); name != "" {
+					syms[path+":"+name] = true
+				}
+			}
+		}
+	}
+	return
+}
+
+// resolveFuzzyNextScope applies the resolver to the verdict IN PLACE (flagged
+// deliberate mutation — the trail then records the resolved scope). A cited
+// Confirmed stops the loop in DecideStep, so no embeddings are spent on it; a
+// CITATION-LESS Confirmed is coerced to Unverifiable (item 24) and continues,
+// so it IS resolved.
+func resolveFuzzyNextScope(ctx context.Context, params ActionParams, config map[string]interface{}, v *diagnose.Verdict, knownFiles, knownSyms map[string]bool, logger *zap.Logger) {
+	topK := datahelpers.GetIntField(config, "resolver_top_k", 2)
+	if topK <= 0 || len(v.NextScope) == 0 {
+		return
+	}
+	if v.Outcome == diagnose.Confirmed && len(v.Citations) > 0 {
+		return
+	}
+	minSim := configFloatField(config, "resolver_min_similarity", 0.55)
+	repo := resolveCodeRepoLabel(config, params.CollectedData)
+	search := buildScopeResolverSearch(ctx, params, config, repo, topK, logger)
+	if search == nil {
+		return
+	}
+	before := len(v.NextScope)
+	v.NextScope = resolveScopeEntries(v.NextScope, knownFiles, knownSyms, search, minSim, logger)
+	logger.Info("diagnose_route: scope resolver applied",
+		zap.Int("entries_in", before),
+		zap.Int("entries_out", len(v.NextScope)),
+		zap.Float64("min_similarity", minSim),
+		zap.Int("resolver_top_k", topK))
+}
+
+// buildScopeResolverSearch wires the REUSED retrieval chain — the same repo
+// label, embedding client, nomic search_query prefix, vector search, and
+// trigram fallback lookup_code_symbols uses. Returns nil (resolver disabled)
+// only when no DB handle is available; embedding failures fall back to trigram
+// PER ENTRY, mirroring the lookup.
+func buildScopeResolverSearch(ctx context.Context, params ActionParams, config map[string]interface{}, repo string, topK int, logger *zap.Logger) func(string) ([]map[string]interface{}, error) {
+	if params.DB == nil {
+		logger.Warn("diagnose_route: scope resolver disabled — no DB handle on this step")
+		return nil
+	}
+	embClient, embErr := createRAGEmbeddingClient(ctx, config)
+	if embErr != nil {
+		logger.Warn("diagnose_route: resolver embedding client unavailable — trigram fallback for all entries", zap.Error(embErr))
+	}
+	return func(entry string) ([]map[string]interface{}, error) {
+		if embErr == nil {
+			promptText, _ := applyNomicPrefix(config, entry, "search_query")
+			if emb, genErr := embClient.GenerateEmbedding(ctx, promptText); genErr == nil {
+				return vectorSearchCodeSymbols(ctx, params.DB, repo, emb, topK)
+			} else {
+				logger.Warn("diagnose_route: resolver embedding failed — trigram fallback for this entry", zap.Error(genErr))
+			}
+		}
+		return trigramSearchCodeSymbols(ctx, params.DB, repo, entry, topK)
+	}
+}
+
+// resolveScopeEntries is the pure substitution core (tested directly).
+// Exact entries (known file or known path:Name) pass through untouched. Fuzzy
+// entries are replaced by their hits at/above the similarity floor; rows
+// WITHOUT a similarity key (the trigram fallback) are accepted as lexical
+// matches. A fuzzy entry with no surviving hits — or a search error — stays as
+// a label: the previous behaviour, so the failure mode is "no worse".
+func resolveScopeEntries(entries []string, knownFiles, knownSyms map[string]bool, search func(string) ([]map[string]interface{}, error), minSim float64, logger *zap.Logger) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(sym string) {
+		if sym != "" && !seen[sym] {
+			seen[sym] = true
+			out = append(out, sym)
+		}
+	}
+	for _, e := range entries {
+		t := strings.TrimSpace(e)
+		if t == "" {
+			continue
+		}
+		if knownSyms[t] || knownFiles[t] {
+			add(t) // exact — the engine/assembler identity
+			continue
+		}
+		hits, err := search(t)
+		if err != nil {
+			logger.Warn("diagnose_route: resolver search failed — keeping entry as label",
+				zap.String("entry", truncateForLog(t, 100)), zap.Error(err))
+			add(t)
+			continue
+		}
+		resolved := 0
+		for _, h := range hits {
+			path, _ := h["path"].(string)
+			symbol, _ := h["symbol"].(string)
+			if path == "" || symbol == "" {
+				continue
+			}
+			if sim, hasSim := h["similarity"].(float64); hasSim {
+				if sim < minSim {
+					logger.Info("diagnose_route: resolver hit below similarity floor",
+						zap.String("entry", truncateForLog(t, 100)),
+						zap.String("symbol", path+":"+symbol),
+						zap.Float64("similarity", sim))
+					continue
+				}
+				logger.Info("diagnose_route: resolved fuzzy scope entry",
+					zap.String("entry", truncateForLog(t, 100)),
+					zap.String("symbol", path+":"+symbol),
+					zap.Float64("similarity", sim))
+			} else {
+				logger.Info("diagnose_route: resolved fuzzy scope entry (trigram)",
+					zap.String("entry", truncateForLog(t, 100)),
+					zap.String("symbol", path+":"+symbol))
+			}
+			add(path + ":" + symbol)
+			resolved++
+		}
+		if resolved == 0 {
+			add(t)
+		}
+	}
+	return out
+}
+
+// configFloatField reads a float config value (jsonb numbers arrive as
+// float64; ints tolerated), returning def when absent or mistyped.
+// PRE-MERGE (dev guide: grep before adding helpers): if datahelpers has grown a
+// GetFloatField, use it instead:
+//
+//	grep -rn "func GetFloatField" platform/orchestration/datahelpers/
+func configFloatField(config map[string]interface{}, key string, def float64) float64 {
+	switch v := config[key].(type) {
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	}
+	return def
 }

@@ -20,7 +20,9 @@
 //   2. Fetch the repo source to a LOCAL temp dir via the shared read-only tarball
 //      fetcher (reposource.GitHubSource — one GET /repos/{o}/{r}/tarball/{ref},
 //      no git binary; GITHUB_READ_TOKEN injected to diagnose-agent pods only).
-//   3. analysis.Analyse(dir) IN-PROCESS -> Output, whose Root IS that local dir.
+//   3. analysis.AnalyseWithExclude(dir, exclude_patterns) IN-PROCESS -> Output,
+//      whose Root IS that local dir. §7C.1: excludes default ["docs/"] so
+//      archived code copies under docs/ never enter the index/bundle.
 //   4. Return the Output (root = the local checkout) + commit_sha as repo_analysis.
 //
 // Result SHAPE is what the DOWNSTREAM diagnose consumers actually read: the
@@ -78,6 +80,7 @@ var AnalyseRepoLocalInputSpec = datahelpers.ActionInputSpec{
 		"owner", "repo", "ref", "language",
 		"github_api_base_field", "github_api_base",
 		"pin_to_index_commit",
+		"exclude_patterns",
 	},
 	Defaults: map[string]interface{}{
 		"owner_field":         "input_data.owner",
@@ -165,7 +168,15 @@ func AnalyseRepoLocalAction(ctx context.Context, params ActionParams) (interface
 
 	// Parse IN-PROCESS. out.Root == dir (a real local path) — the whole point: it
 	// makes repo_analysis.root a checkout THIS pod can slice bodies from.
-	out, err := analysis.Analyse(dir)
+	// §7C.1: denylist-style excludes (substring match inside the analyser walk),
+	// default ["docs/"] — the §7C reindex showed archived code copies under
+	// docs/agent_docs/… entering the index. Config-overridable per step; the
+	// default lives in Go (defaultAnalyseExcludePatterns), NOT in the Defaults
+	// map, so there is a single source of truth. configStringSlice is REUSED
+	// from diagnose_load_runtime_action.go (same package).
+	excludes := configStringSlice(config, "exclude_patterns", defaultAnalyseExcludePatterns)
+	logger.Info("analyse_repo_local: analysing with excludes", zap.Strings("exclude_patterns", excludes))
+	out, err := analysis.AnalyseWithExclude(dir, excludes)
 	if err != nil {
 		return nil, fmt.Errorf("analyse_repo_local: analyse %s (%s/%s@%s): %w", dir, owner, repo, ref, err)
 	}
@@ -246,3 +257,8 @@ func outputToMap(out analysis.Output) (map[string]interface{}, error) {
 	}
 	return m, nil
 }
+
+// defaultAnalyseExcludePatterns backs the exclude_patterns config key (§7C.1).
+// Denylist style, consistent with the bundle schema-section decision: new
+// archive locations under docs/ never re-enter the index without a config edit.
+var defaultAnalyseExcludePatterns = []string{"docs/"}
