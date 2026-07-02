@@ -1,0 +1,93 @@
+
+  Agent Chassis — what this project is
+
+  This is a distributed, multi-tenant, multi-agent orchestration platform written primarily in Go (module github.com/gqls/agentchassis). It lets you compose "AI agents" that talk to each
+  other over Kafka to carry out complex workflows — the flagship use case being automated content/website creation (there's heavy tooling around a "vonc" content-generation pipeline).
+
+  The core idea: the "chassis"
+
+  The central concept is the agent chassis (platform/agentbase/, cmd/agent-chassis/main.go). Every agent runs the same generic binary but is specialised at runtime via environment variables
+  (AGENT_TYPE, KAFKA_TOPIC, KAFKA_CONSUMER_GROUP). Each agent is simultaneously:
+
+  - a Server (AgentServer) — consumes work requests from its Kafka topic, and
+  - a Client (AgentClient) — consumes responses from other agents it delegated to.
+
+  So every agent is both a worker and an orchestrator. An agent can receive a task, decompose it, fan work out to other agents (reasoning, image generation, etc.), collect their responses,
+  and continue its workflow. This eliminates a central orchestrator as a single point of failure (platform/agentbase/README.md, docs/architecture/004-agent-chassis-architecture.md).
+
+  Architecture / how it communicates
+
+  - Kafka is the message backbone. Topic conventions:
+    - system.agent.{type}.requests/process — incoming work
+    - system.responses.{type} — responses from delegated agents
+    - system.errors.{type}, system.notifications.ui, system.commands.workflow.resume
+  - Two PostgreSQL databases (pgx driver, pgbouncer in front):
+    - Templates DB — configuration: agent_definitions (the "type" of each agent, its default workflow as JSONB).
+    - Clients DB — runtime/per-tenant: agent_instances (config overrides per client) plus shared orchestrator_state (tracks each workflow run by correlation_id, status, workflow_plan,
+  execution_path, awaited_steps, etc.).
+  - Multi-tenancy is first-class: requests carry client_id, correlation_id, and agent_instance_id headers; each client gets its own schema.
+
+  The services (in cmd/ and deployments/kustomize/services/)
+
+  - agent-chassis — the generic agent runtime (specialised per deployment).
+  - reasoning-agent, content-creator-agent — concrete "smart" agents (internal/agents/).
+  - core-manager — central management service.
+  - auth-service — authentication (JWT), backed by its own auth DB.
+  - Adapters (internal/adapters/) — bridges to external capabilities: image-generator-adapter, web-search-adapter, web-scrape-adapter, analyser-adapter, git-adapter, thunder-adapter,
+  ollama-adapter (local LLM).
+  - Infra/support: kafka-scheduler, remote-job-spawner, agent-job-cleanup, database-backup, pgbouncer, wireguard, github-actions-runner, business-intel/vet-intel (domain analytics).
+
+  Frontends (frontends/)
+
+  admin-dashboard, user-portal, and agent-playground — web UIs for operating and experimenting with the system.
+
+  Deployment
+
+  Fully Kubernetes-native via Kustomize (deployments/kustomize/services/*/overlays/production/uk_001/). Each service has a base + production overlay (the uk_001 overlays are what's currently
+  modified on your branch). Rich platform/ libraries back it all: kafka, config, discovery, governance, resilience, observability, memory, evolution, storage, aiservice.
+
+  Tech stack summary
+
+  Go · Kafka · PostgreSQL (pgx/pgbouncer) · Kubernetes/Kustomize · Zap logging · JWT auth · Ollama for local LLM inference · web frontends.
+
+  ---
+  In one sentence: it's a Kafka-orchestrated, Kubernetes-deployed fleet of interchangeable Go "agents" — each one both worker and orchestrator — that collaborate to run configurable
+  multi-agent AI workflows (notably automated content/website generation) for multiple tenant clients.
+
+  Want me to go deeper on any part — e.g. the workflow orchestration engine, the content-creation ("vonc") pipeline, a specific adapter, or the deployment setup?
+
+✻ Waiting for 1 background agent to finish
+
+● Agent "Explore repo structure and purpose" finished · 4m 12s
+
+● The deep exploration finished and confirms my summary, with a few useful additions and one correction worth flagging:
+
+  Additions to what I described
+
+  - Auth uses MySQL, not Postgres. The auth-service stores users/roles/permissions/JWT tokens in MySQL, while the two application databases (Clients + Templates) are PostgreSQL. So it's a
+  three-database system, not two. Auth-service (port 8081) also doubles as the API gateway — external requests, JWT auth, request proxying, and WebSocket relay all go through it.
+  - Object storage: MinIO (S3-compatible) for artifacts, via platform/storage.
+  - Vector memory: the Clients DB uses pgvector — agents store embeddings in agent_memory for a memory/recall capability (platform/memory).
+  - Terminology — "personas": the templates the core-manager manages are called persona_templates (in the Templates DB). Core-manager (port 8088) owns their lifecycle via
+  system.personas.commands → system.personas.events.
+  - The "fuel" system: requests carry a fuel_budget header — a per-request cost/rate-limit budget the chassis enforces as it fans work out. This is how runaway multi-agent workflows are
+  bounded.
+  - Reasoning agent → Anthropic Claude API: the reasoning agent integrates with Claude for its analyze/decide/evaluate/reason actions (via platform/aiservice, which abstracts LLM providers).
+  Ollama-adapter provides local-LLM inference as an alternative.
+  - Frontends confirmed: React 18 + TypeScript (Vite) — Admin Dashboard, User Portal, Agent Playground.
+  - Local dev: there's a Docker Compose stack (deployments/docker-compose/) bringing up Kafka, Zookeeper, Postgres, MySQL, and MinIO, with make dev-up / dev-down / dev-logs.
+  - Observability: OpenTelemetry tracing + Prometheus metrics (platform/observability).
+
+  Best doc entry points, if you want to read further
+
+  - docs/architecture/002-agent-chassis-docs.md — core chassis
+  - docs/architecture/004-agent-chassis-architecture.md — full architecture report
+  - docs/architecture/databases.md — DB design
+  - docs/API_DOCUMENTATION.md — API reference
+  - platform/agentbase/agent.go — the chassis implementation itself
+
+  The one thing to keep in mind: the report's "reasoning topic" names (agents.reasoning.process vs. system.agent.reasoning.requests) differ slightly between docs and code — the actual topics
+  are built at runtime from AGENT_TYPE in cmd/agent-chassis/main.go, so trust the env-var pattern over any hardcoded topic name in docs.
+
+  Want me to drill into any specific area next — the orchestration/workflow engine, the fuel/budget enforcement, the content-creation ("vonc") pipeline, or the auth gateway?
+

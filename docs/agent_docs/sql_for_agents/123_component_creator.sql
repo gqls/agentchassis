@@ -47,3 +47,27 @@ SELECT SUBSTRING(
 ) AS new_section7
 FROM agent_definitions
 WHERE type = 'component-creator';
+
+---
+
+BEGIN;
+DO $mig$
+DECLARE p text; n int;
+BEGIN
+SELECT default_config->>'prompt_template' INTO p FROM agent_definitions
+WHERE type='component-creator' AND deleted_at IS NULL AND is_active=true AND (is_snapshot IS NULL OR is_snapshot=false);
+IF p IS NULL THEN RAISE EXCEPTION 'prompt not found'; END IF;
+  n := (length(p) - length(replace(p, '{{if .existing_field_names}}', ''))) / length('{{if .existing_field_names}}');
+  IF n = 0 THEN RAISE NOTICE 'no dead block — nothing to clean'; RETURN; END IF;
+  PERFORM snapshot_agent('component-creator', 'F1-prompt cleanup: remove dead existing_field_names block');
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{prompt_template}',
+                               to_jsonb(regexp_replace(p, '\{\{if \.existing_field_names\}\}.*?\{\{end\}\}\s*', '', 'g')), true)
+WHERE type='component-creator' AND deleted_at IS NULL AND is_active=true AND (is_snapshot IS NULL OR is_snapshot=false);
+RAISE NOTICE 'removed % dead existing_field_names block(s)', n;
+END $mig$;
+-- verify: dead gone (0), live remains (t)
+SELECT position('{{if .existing_field_names}}' IN (default_config->>'prompt_template')) AS dead_pos,
+       position('{{if .existing_component.field_names}}' IN (default_config->>'prompt_template')) > 0 AS live_present
+FROM agent_definitions WHERE type='component-creator' AND deleted_at IS NULL AND is_active=true;
+COMMIT;

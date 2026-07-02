@@ -11,7 +11,7 @@ labels:
 
 images:
   - name: docker.io/aqls/kafka-scheduler
-    newTag: v1.0.1084
+    newTag: v1.0.1086
 
 patches:
   - path: patch-deployment.yaml
