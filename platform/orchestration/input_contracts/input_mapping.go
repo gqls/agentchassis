@@ -122,7 +122,7 @@ func ResolveInputMapping(
 		if !found {
 			if isOptional {
 				// Optional field not found - just skip it
-				logger.Debug("Optional field not found in input_mapping, skipping",
+				logger.Info("Optional field not found in input_mapping, skipping",
 					zap.String("dest_field", actualDestField),
 					zap.String("source_path", sourcePath))
 				continue
@@ -138,7 +138,7 @@ func ResolveInputMapping(
 
 		// value may be nil here — that's valid if found=true (path exists, value is null)
 		result[actualDestField] = value
-		logger.Debug("Resolved input mapping",
+		logger.Info("Resolved input mapping",
 			zap.String("dest", actualDestField),
 			zap.String("source", sourcePath),
 			zap.Bool("optional", isOptional),
@@ -167,7 +167,7 @@ func ResolveInputMappingWithItem(
 		// Handle $item — pass through directly
 		if sourcePath == "$item" {
 			result[actualDestField] = currentItem
-			logger.Debug("Resolved $item in input mapping",
+			logger.Info("Resolved $item in input mapping",
 				zap.String("dest", actualDestField))
 			continue
 		}
@@ -185,7 +185,7 @@ func ResolveInputMappingWithItem(
 		if !found {
 			if isOptional {
 				// Optional field not found - just skip it
-				logger.Debug("Optional field not found in input_mapping, skipping",
+				logger.Info("Optional field not found in input_mapping, skipping",
 					zap.String("dest_field", actualDestField),
 					zap.String("source_path", sourcePath))
 				continue
@@ -200,7 +200,7 @@ func ResolveInputMappingWithItem(
 		}
 
 		result[actualDestField] = value
-		logger.Debug("Resolved input mapping",
+		logger.Info("Resolved input mapping",
 			zap.String("dest", actualDestField),
 			zap.String("source", sourcePath),
 			zap.Bool("optional", isOptional),
@@ -249,7 +249,7 @@ func ValidateInputContract(
 	logger *zap.Logger,
 ) error {
 	if contract == nil {
-		logger.Debug("No input contract defined, skipping validation",
+		logger.Info("No input contract defined, skipping validation",
 			zap.String("agent_type", agentType))
 		return nil
 	}
@@ -297,7 +297,7 @@ func ValidateInputContract(
 			zap.Strings("via_spec", satisfiedViaSpec))
 	}
 
-	logger.Debug("Input contract validated successfully",
+	logger.Info("Input contract validated successfully",
 		zap.String("agent_type", agentType),
 		zap.Int("required_count", len(contract.Required)),
 		zap.Int("provided_count", len(data)))
@@ -350,7 +350,7 @@ func MapKeys(m map[string]interface{}) []string {
 // GetAgentInputContract retrieves the input contract for an agent type from the database.
 func GetAgentInputContract(ctx context.Context, db *sql.DB, agentType string, logger *zap.Logger) (*InputContract, error) {
 	if db == nil {
-		logger.Debug("No database connection, skipping contract lookup",
+		logger.Info("No database connection, skipping contract lookup",
 			zap.String("agent_type", agentType))
 		return nil, nil
 	}
@@ -361,7 +361,7 @@ func GetAgentInputContract(ctx context.Context, db *sql.DB, agentType string, lo
 	err := db.QueryRowContext(ctx, query, agentType).Scan(&contractJSON)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			logger.Debug("No agent definition found",
+			logger.Info("No agent definition found",
 				zap.String("agent_type", agentType))
 			return nil, nil
 		}
@@ -369,7 +369,7 @@ func GetAgentInputContract(ctx context.Context, db *sql.DB, agentType string, lo
 	}
 
 	if !contractJSON.Valid || contractJSON.String == "" || contractJSON.String == "null" {
-		logger.Debug("No input contract defined for agent",
+		logger.Info("No input contract defined for agent",
 			zap.String("agent_type", agentType))
 		return nil, nil
 	}
@@ -382,7 +382,7 @@ func GetAgentInputContract(ctx context.Context, db *sql.DB, agentType string, lo
 		return nil, nil
 	}
 
-	logger.Debug("Loaded input contract",
+	logger.Info("Loaded input contract",
 		zap.String("agent_type", agentType),
 		zap.Strings("required", contract.Required),
 		zap.Strings("optional", contract.Optional))
