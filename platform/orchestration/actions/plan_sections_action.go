@@ -195,6 +195,50 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 		}
 	}
 
+	// Per-page section imagery: illustrations / icons / infographics requested at
+	// section scope for this page (scope_ref = "<page>:<ordinal>"), joined to the
+	// deployed asset row. Mapped by KEY (per-key schema paths, e.g. icon sets) and
+	// aliased by KIND first-wins (generic paths like site_assets.illustration),
+	// mirroring the hero mapping above. Skipped when pageName is empty.
+	if r.pageName != "" {
+		rows, err := r.db.QueryContext(ctx, `
+			SELECT spi.kind, spi.key, a.url
+			  FROM site_plan_imagery spi
+			  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
+			  JOIN assets a ON a.site_id = sp.site_id
+			               AND a.asset_key = spi.key
+			               AND a.status = 'active'
+			 WHERE sp.site_id = $1
+			   AND spi.scope = 'section'
+			   AND spi.scope_ref LIKE $2 || ':%'
+			   AND spi.kind IN ('illustration', 'icon', 'infographic')
+			 ORDER BY spi.kind, spi.ordering
+		`, r.siteID, r.pageName)
+		if err != nil {
+			r.logger.Warn("plan_sections: section imagery lookup failed",
+				zap.String("page", r.pageName), zap.Error(err))
+		} else {
+			defer rows.Close()
+			for rows.Next() {
+				var kind, key, url string
+				if err := rows.Scan(&kind, &key, &url); err != nil {
+					continue
+				}
+				if url == "" {
+					continue
+				}
+				r.assets[key] = url
+				if _, exists := r.assets[kind]; !exists {
+					r.assets[kind] = url
+				}
+			}
+			if err := rows.Err(); err != nil {
+				r.logger.Warn("plan_sections: section imagery rows error",
+					zap.String("page", r.pageName), zap.Error(err))
+			}
+		}
+	}
+
 	// Site logo.
 	var logoURL string
 	err := r.db.QueryRowContext(ctx, `
@@ -1141,6 +1185,13 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 
 			// Required field missing — apply on_missing
 			switch onMissing {
+			case "skip_field":
+				// Required-but-skippable: honour the schema's declared intent and
+				// omit the field instead of deferring the section (mirrors the
+				// optional branch; templates gate on the field).
+				logger.Info("plan_sections: required field missing with on_missing=skip_field — omitting field",
+					zap.String("field", fieldName),
+					zap.String("source", source))
 			case "use_fallback":
 				if fallback != nil {
 					resolvedData[fieldName] = fallback
