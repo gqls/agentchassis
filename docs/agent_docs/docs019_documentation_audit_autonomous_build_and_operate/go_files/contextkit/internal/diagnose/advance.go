@@ -29,8 +29,11 @@ type LoopState struct {
 	SeenRequests  map[string]bool `json:"seen_requests"`
 	HypHistory    []string        `json:"hyp_history"`
 	PrevScopeSize int             `json:"prev_scope_size"`
-	Trail         []Step          `json:"trail"`
-	Follow        bool            `json:"follow_call_graph"`
+	// MaxExpandedScope caps nextScope enrichment (0 = engine default, <0 =
+	// unlimited); set each call by diagnose_route from step config.
+	MaxExpandedScope int    `json:"max_expanded_scope,omitempty"`
+	Trail            []Step `json:"trail"`
+	Follow           bool   `json:"follow_call_graph"`
 }
 
 // AdvanceResult is diagnose_route's view of one iteration's outcome.
@@ -70,17 +73,18 @@ func Advance(st *LoopState, verdict Verdict, cg CallGraph) AdvanceResult {
 	st.Iteration++
 
 	d := DecideStep(StepInput{
-		Iteration:       st.Iteration,
-		MaxIterations:   st.MaxIterations,
-		Hypothesis:      st.Hypothesis,
-		Scope:           st.Scope,
-		Verdict:         verdict,
-		CallGraph:       cg,
-		FollowCallGraph: st.Follow,
-		SeenCitations:   st.SeenCitations,
-		SeenRequests:    st.SeenRequests,
-		HypHistory:      st.HypHistory,
-		PrevScopeSize:   st.PrevScopeSize,
+		Iteration:        st.Iteration,
+		MaxIterations:    st.MaxIterations,
+		Hypothesis:       st.Hypothesis,
+		Scope:            st.Scope,
+		Verdict:          verdict,
+		CallGraph:        cg,
+		FollowCallGraph:  st.Follow,
+		MaxExpandedScope: st.MaxExpandedScope,
+		SeenCitations:    st.SeenCitations,
+		SeenRequests:     st.SeenRequests,
+		HypHistory:       st.HypHistory,
+		PrevScopeSize:    st.PrevScopeSize,
 	})
 
 	// Record the iteration (coerce the verdict the same way DecideStep does, so
@@ -107,7 +111,9 @@ func Advance(st *LoopState, verdict Verdict, cg CallGraph) AdvanceResult {
 	st.SeenCitations = d.SeenCitations
 	st.SeenRequests = d.SeenRequests
 	st.HypHistory = d.HypHistory
-	st.PrevScopeSize = st.Scope.size()
+	// model-named size, NOT the expanded scope: the guard compares model intent
+	// iteration-over-iteration (guard-vs-expansion fix, run 17933a83).
+	st.PrevScopeSize = d.NamedScopeSize
 	st.Hypothesis = d.NextHypothesis
 	st.Scope = d.NextScope
 

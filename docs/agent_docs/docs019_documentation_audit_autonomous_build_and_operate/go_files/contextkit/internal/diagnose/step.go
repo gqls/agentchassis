@@ -9,7 +9,7 @@ package diagnose
 import (
 	"encoding/json"
 
-	"contextkit/internal/analysis"
+	"github.com/gqls/agentchassis/internal/analysis"
 )
 
 // StepInput is one iteration's inputs: where we are (iteration, hypothesis,
@@ -23,10 +23,12 @@ type StepInput struct {
 	Verdict         Verdict
 	CallGraph       CallGraph
 	FollowCallGraph bool
-	SeenCitations   map[string]bool
-	SeenRequests    map[string]bool
-	HypHistory      []string
-	PrevScopeSize   int
+	// MaxExpandedScope threads Config.MaxExpandedScope (see loop.go); 0 = engine default.
+	MaxExpandedScope int
+	SeenCitations    map[string]bool
+	SeenRequests     map[string]bool
+	HypHistory       []string
+	PrevScopeSize    int
 }
 
 // StepDecision is the outcome of one iteration: whether to continue or stop, and
@@ -40,6 +42,10 @@ type StepDecision struct {
 
 	NextHypothesis string
 	NextScope      Scope
+	// NamedScopeSize is the MODEL-NAMED scope size (post-§7D-resolver, PRE
+	// call-graph expansion). Advance threads it as the next PrevScopeSize so the
+	// narrowing guard compares model intent iteration-over-iteration.
+	NamedScopeSize int
 
 	// updated guard memory to carry into the next iteration
 	SeenCitations map[string]bool
@@ -53,7 +59,7 @@ type StepDecision struct {
 // call graph (DESIGN §1a). PURE: no IO; the engine's Gather/Verdict IO happens
 // outside (in Run, or in the workflow's gather/verdict steps).
 func DecideStep(in StepInput) StepDecision {
-	cfg := Config{MaxIterations: in.MaxIterations, FollowCallGraph: in.FollowCallGraph}
+	cfg := Config{MaxIterations: in.MaxIterations, FollowCallGraph: in.FollowCallGraph, MaxExpandedScope: in.MaxExpandedScope}
 	verdict := in.Verdict
 
 	// item-24: a Confirmed/Refuted WITHOUT a citation cannot stand → Unverifiable.
@@ -88,8 +94,11 @@ func DecideStep(in StepInput) StepDecision {
 		}
 
 	case Refuted:
-		next := nextScope(in.Scope, verdict, in.CallGraph, cfg)
-		if stop := guardAfter(verdict, next, in.PrevScopeSize, seen, seenReq, &hypHistory, in.Hypothesis); stop != "" {
+		// Guard on the MODEL-NAMED scope (guard-vs-expansion fix, run 17933a83):
+		// expansion is the engine's enrichment and must not count against "is the
+		// model narrowing". nextScope runs only after the guard passes.
+		named := namedScope(in.Scope, verdict)
+		if stop := guardAfter(verdict, named, in.PrevScopeSize, seen, seenReq, &hypHistory, in.Hypothesis); stop != "" {
 			return StepDecision{
 				Decision:       "stop",
 				StopReason:     stop,
@@ -112,8 +121,10 @@ func DecideStep(in StepInput) StepDecision {
 				HypHistory:     hypHistory,
 			}
 		}
+		next := nextScope(in.Scope, verdict, in.CallGraph, cfg)
 		return StepDecision{
 			Decision:       "continue",
+			NamedScopeSize: named.size(),
 			NextHypothesis: verdict.RevisedHypothesis,
 			NextScope:      next,
 			SeenCitations:  seen,
@@ -122,8 +133,11 @@ func DecideStep(in StepInput) StepDecision {
 		}
 
 	default: // Unverifiable
-		next := nextScope(in.Scope, verdict, in.CallGraph, cfg)
-		if stop := guardAfter(verdict, next, in.PrevScopeSize, seen, seenReq, &hypHistory, in.Hypothesis); stop != "" {
+		// Guard on the MODEL-NAMED scope (guard-vs-expansion fix, run 17933a83):
+		// expansion is the engine's enrichment and must not count against "is the
+		// model narrowing". nextScope runs only after the guard passes.
+		named := namedScope(in.Scope, verdict)
+		if stop := guardAfter(verdict, named, in.PrevScopeSize, seen, seenReq, &hypHistory, in.Hypothesis); stop != "" {
 			return StepDecision{
 				Decision:       "stop",
 				StopReason:     stop,
@@ -145,8 +159,10 @@ func DecideStep(in StepInput) StepDecision {
 				HypHistory:     hypHistory,
 			}
 		}
+		next := nextScope(in.Scope, verdict, in.CallGraph, cfg)
 		return StepDecision{
 			Decision:       "continue",
+			NamedScopeSize: named.size(),
 			NextHypothesis: in.Hypothesis, // unchanged on Unverifiable
 			NextScope:      next,
 			SeenCitations:  seen,

@@ -155,7 +155,16 @@ type Config struct {
 	// FollowCallGraph: when a verdict names a RuntimeSite or NextScope symbol,
 	// expand the next scope to its call-graph neighbourhood (§1a). Off ⇒ verbatim.
 	FollowCallGraph bool
+	// MaxExpandedScope caps nextScope's call-graph enrichment (named entries are
+	// ALWAYS all kept). 0 = engine default (defaultMaxExpandedScope); <0 =
+	// unlimited (explicit opt-out). Guard-vs-expansion fix, run 17933a83.
+	MaxExpandedScope int
 }
+
+// defaultMaxExpandedScope bounds Neighbourhood enrichment when the caller does
+// not set Config.MaxExpandedScope: seed-sized (12) plus modest headroom, so a
+// rich graph cannot flood the bundle (B4a: irrelevant context buries signal).
+const defaultMaxExpandedScope = 18
 
 func DefaultConfig() Config { return Config{MaxIterations: 5, FollowCallGraph: true} }
 
@@ -267,10 +276,24 @@ func nextScope(prev Scope, v Verdict, cg CallGraph, cfg Config) Scope {
 				out = append(out, s)
 			}
 		}
+		limit := cfg.MaxExpandedScope
+		if limit == 0 {
+			limit = defaultMaxExpandedScope
+		}
+		// Named entries first — ALWAYS all included (they are the model's ask);
+		// the limit caps only the engine's enrichment. limit < 0 = unlimited.
 		for _, s := range seeds {
 			add(s)
+		}
+		for _, s := range seeds {
 			for _, n := range cg.Neighbourhood(s) {
+				if limit > 0 && len(out) >= limit {
+					break
+				}
 				add(n) // follow callers/callees toward the cause
+			}
+			if limit > 0 && len(out) >= limit {
+				break
 			}
 		}
 		next.Symbols = out
@@ -281,8 +304,39 @@ func nextScope(prev Scope, v Verdict, cg CallGraph, cfg Config) Scope {
 	return next
 }
 
+// namedScope is the MODEL-NAMED next scope: the verdict's next_scope entries
+// (already §7D-resolved by the route action), deduped, runtime fields carried —
+// and NO call-graph expansion. The narrowing guard measures THIS; nextScope's
+// enrichment is applied only after the guard passes.
+func namedScope(prev Scope, v Verdict) Scope {
+	s := Scope{
+		Tables:       prev.Tables,
+		RuntimeSite:  prev.RuntimeSite,
+		RuntimePage:  prev.RuntimePage,
+		Capabilities: prev.Capabilities,
+	}
+	if v.RuntimeSite != "" {
+		s.RuntimeSite = v.RuntimeSite
+	}
+	seen := map[string]bool{}
+	for _, e := range v.NextScope {
+		e = strings.TrimSpace(e)
+		if e != "" && !seen[e] {
+			seen[e] = true
+			s.Symbols = append(s.Symbols, e)
+		}
+	}
+	sort.Strings(s.Symbols)
+	return s
+}
+
 // guardAfter applies the convergence guards (DESIGN §3). Returns a non-empty
-// stop-reason if the loop must halt, else "".
+// stop-reason if the loop must halt, else "". `next` is the MODEL-NAMED scope
+// (see namedScope) — the narrowing check measures model intent, never the
+// engine's own call-graph enrichment (guard-vs-expansion fix, run 17933a83:
+// on the first real 515-file graph, unbounded expansion of six named symbols
+// tripped scope-not-narrowing at iteration 1; the stale 69-file graph had
+// masked the difference because empty neighbourhoods made expansion a no-op).
 func guardAfter(v Verdict, next Scope, prevSize int, seen, seenReq map[string]bool, hypHistory *[]string, currentHyp string) string {
 	// Scope must NARROW (or hold) — a widening scope is not converging.
 	// Exception: Unverifiable MAY widen once to fetch named evidence, but the

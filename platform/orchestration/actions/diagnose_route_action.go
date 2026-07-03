@@ -42,7 +42,7 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 		"verdict_field", "state_field", "analysis_field",
 		"gather_step", "emit_step", "max_iterations",
 		"seed_hypothesis_field", "seed_scope_field", "code_results_field",
-		"resolver_top_k", "resolver_min_similarity",
+		"resolver_top_k", "resolver_min_similarity", "max_expanded_scope",
 	},
 	Defaults: map[string]interface{}{
 		"verdict_field":  "verdict.result",       // ExecuteLLMPromptAction wraps JSON under .result
@@ -65,6 +65,9 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 		// calibrates it — all similarities are logged for that purpose.
 		"resolver_top_k":          2,
 		"resolver_min_similarity": 0.55,
+		// Cap on the engine's call-graph enrichment of next_scope (named entries
+		// always kept). 0 = engine default (18); <0 = unlimited.
+		"max_expanded_scope": 18,
 	},
 }
 
@@ -186,6 +189,7 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 
 	// 4) ONE engine step: apply guards, decide continue/stop, compute next scope.
 	//    This is the tested pkg/diagnose logic, exposed as a single advance.
+	st.MaxExpandedScope = datahelpers.GetIntField(config, "max_expanded_scope", 18)
 	decision := diagnose.Advance(&st, verdict, cg)
 
 	// 5) Translate the engine decision into a workflow route + carry state/scope.
