@@ -3,6 +3,7 @@
 \d pages
 \d page_components
 \d site_components
+\d component_versions
 \d assets
 \d agent_definitions
 \d orchestration_states

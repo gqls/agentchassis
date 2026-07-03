@@ -1,0 +1,250 @@
+clients_db=# -- state (expect parent COMPLETED, child COMPLETED)
+SELECT status, current_step, EXTRACT(EPOCH FROM (NOW()-last_activity))::int AS since_s,
+       substring(COALESCE(error,''),1,400) AS err
+FROM orchestration_states
+WHERE correlation_id = '73ed55c6-6978-4951-b40d-0cec771b5208'::uuid ORDER BY created_at;
+
+-- delivery verification: parent must now HOLD the child result, small
+SELECT status, pg_column_size(collected_data) AS cd_bytes,
+       (collected_data ? 'diagnose-agent_result') AS has_child_result
+FROM orchestration_states
+WHERE correlation_id = '73ed55c6-6978-4951-b40d-0cec771b5208'::uuid ORDER BY created_at;
+
+-- the diagnosis + full trail (the child row, selected by key presence)
+SELECT jsonb_pretty(collected_data->'diagnosis')
+FROM orchestration_states
+WHERE correlation_id = '73ed55c6-6978-4951-b40d-0cec771b5208'::uuid
+  AND collected_data ? 'diagnosis';
+status|current_step|since_s|err
+COMPLETED|complete|964|
+COMPLETED|complete|942|
+(2 rows)
+status|cd_bytes|has_child_result
+COMPLETED|14449|f
+COMPLETED|1314367|f
+(2 rows)
+jsonb_pretty
+{
+    "is_fix": false,
+    "status": "CONFIRMED",
+    "summary": "Diagnosis CONFIRMED — see conclusion for the cited cause.",
+    "conclusion": "CONFIRMED: The index page is NOT a stub — it has 4 deployed page_components with substantive rendered_html (hero with site headline, differentiators section, guide-list, game-list). The index page completed successfully and has real content. The narrower remaining issue is that one section ('system-stats') was deferred rather than rendered, because a required field 'cta_url' was missing from site_specs.cta.primary_url; that section was skipped (on_missing=skip_field) rather than blocking the build. The page as deployed is functionally complete; the only gap is the absent system-stats section.\n\nGrounded by:\n  [state] site_work_items — \"[2026-06-24T18:27:26.973506Z] build/needs_section_data status=needs_human_review attempts=0 — Section 'system-stats' on index needs: field 'cta_url' from site_specs.cta.primary_url\"\n  [state] data_requests result: SELECT aspect, data FROM site_specs WHERE site_id = ... AND aspect = 'cta' AND is_current = true — \"aspect | data\\n(0 rows)\"\n  [static] platform/orchestration/actions/plan_sections_action.go:planSection — \"case \\\"skip_field\\\":\\n\\t\\t\\t\\t\\t// Just omit it\"\n",
+    "stopped_by": "confirmed",
+    "evidence_trail": [
+        {
+            "Scope": {
+                "Tables": null,
+                "Symbols": [
+                    "platform/orchestration/actions/plan_sections_action.go:(*sourceResolver).ensurePages",
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:ensureArticleLinks",
+                    "platform/orchestration/datahelpers/links.go:(PageURLSet).Contains",
+                    "platform/orchestration/actions/queryresolve/section_index_for.go:resolveSectionIndexForType",
+                    "platform/orchestration/actions/reconcile_site_plan_action.go:realisedPageRecord",
+                    "platform/orchestration/datahelpers/page_role_validator.go:ValidatedPage",
+                    "platform/orchestration/actions/site_db_actions.go:PageRecord",
+                    "platform/orchestration/datahelpers/page_role_validator.go:isSectionIndexURL",
+                    "platform/orchestration/actions/v3_site_actions.go:sectionStemOf",
+                    "platform/orchestration/actions/apply_adoption_plan_action.go:crawlPageContent",
+                    "platform/orchestration/actions/plan_sections_action.go:closeResolvedDataRequest",
+                    "platform/orchestration/actions/maintenance_actions.go:findPagesWithNoContent"
+                ],
+                "RuntimePage": "",
+                "RuntimeSite": "",
+                "Capabilities": false
+            },
+            "Verdict": {
+                "Outcome": 0,
+                "Citations": [
+                    {
+                        "Tier": 2,
+                        "Fresh": "2026-06-24T18:27:26.973506Z",
+                        "Quote": "build/needs_section_data status=needs_human_review attempts=0 — Section 'system-stats' on index needs: field 'cta_url' from site_specs.cta.primary_url",
+                        "Where": "site_work_items"
+                    },
+                    {
+                        "Tier": 2,
+                        "Fresh": "2026-06-24T15:19:15.761372Z",
+                        "Quote": "build/page_rerender status=complete attempts=0 — Rerender page: tools-index",
+                        "Where": "site_work_items"
+                    }
+                ],
+                "NextScope": [
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:RebuildBlogListingAction",
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:findBlogListingSlot",
+                    "platform/orchestration/actions/plan_sections_action.go:PlanSectionsAction",
+                    "platform/orchestration/actions/plan_sections_action.go:planSection",
+                    "platform/orchestration/actions/maintenance_actions.go:findPagesWithNoContent",
+                    "platform/orchestration/actions/maintenance_actions.go:maintenanceSiteRecord"
+                ],
+                "RuntimeSite": "page-build-handler",
+                "DataRequests": [
+                    {
+                        "sql": "SELECT p.name, p.url, p.page_type, p.build_status, p.status, p.last_built_at, p.content_hash, COUNT(pc.id) AS component_count FROM pages p LEFT JOIN page_components pc ON pc.page_id = p.id WHERE p.site_id = 'e33263f4-74f8-494f-b191-546845dbbddf' AND (p.page_type = 'section-index' OR p.url LIKE '%index.html') GROUP BY p.id, p.name, p.url, p.page_type, p.build_status, p.status, p.last_built_at, p.content_hash ORDER BY p.last_built_at DESC NULLS LAST",
+                        "why": "Identifies all index pages for this site, their build/deploy status, and whether they have any page_components at all — zero components would directly support the stub-content hypothesis"
+                    },
+                    {
+                        "sql": "SELECT pc.position, pc.slot_name, pc.build_status, pc.rendered_html, pc.content_data, cc.name AS component_name, cc.section_type FROM page_components pc JOIN pages p ON p.id = pc.page_id JOIN content_components cc ON cc.id = pc.component_id WHERE p.site_id = 'e33263f4-74f8-494f-b191-546845dbbddf' AND (p.page_type = 'section-index' OR p.url LIKE '%index.html') ORDER BY pc.position",
+                        "why": "Shows the actual rendered_html and content_data stored for each component on the index page(s), revealing whether content is empty, stub, or populated"
+                    },
+                    {
+                        "sql": "SELECT id, item_type, status, summary, spec, result, error, created_at, updated_at FROM site_work_items WHERE site_id = 'e33263f4-74f8-494f-b191-546845dbbddf' AND (spec->>'page_name' ILIKE '%index%' OR affected_url ILIKE '%index%') ORDER BY created_at DESC LIMIT 20",
+                        "why": "Surfaces any open or failed work items specifically referencing the index page, including the known needs_section_data item for system-stats, to establish whether a data dependency blocked full content generation"
+                    }
+                ],
+                "NeededEvidence": "The bundle does not identify which index page is the diagnosis target, nor show its current page_components rows or rendered_html. To settle whether the index page completed with stub content we need: (1) the page row for the index page (name, build_status, last_built_at, content_hash) for site_id=e33263f4-74f8-494f-b191-546845dbbddf; (2) the page_components rows for that page (component_id, rendered_html, content_data, build_status) to see whether components exist and contain real content; (3) any agent_error_log entries naming that index page's build step. The work-item shows a 'needs_human_review' data-dependency for section 'system-stats' on 'index', which is a candidate cause, but whether the page build completed with a stub rather than being blocked outright cannot be confirmed without querying the page and its components.",
+                "RevisedHypothesis": ""
+            },
+            "GuardStop": "",
+            "Iteration": 1,
+            "BundlePath": "",
+            "Hypothesis": "index page completed but content is a stub"
+        },
+        {
+            "Scope": {
+                "Tables": null,
+                "Symbols": [
+                    "platform/orchestration/actions/component_selector.go:CreateNeedsNewComponentItem",
+                    "platform/orchestration/actions/maintenance_actions.go:findPagesWithNoContent",
+                    "platform/orchestration/actions/maintenance_actions.go:maintenanceSiteRecord",
+                    "platform/orchestration/actions/plan_sections_action.go:PlanSectionsAction",
+                    "platform/orchestration/actions/plan_sections_action.go:closeResolvedDataRequest",
+                    "platform/orchestration/actions/plan_sections_action.go:createDeferredItems",
+                    "platform/orchestration/actions/plan_sections_action.go:ensureSpecs",
+                    "platform/orchestration/actions/plan_sections_action.go:filterSiteLevelSections",
+                    "platform/orchestration/actions/plan_sections_action.go:loadComponentSchemas",
+                    "platform/orchestration/actions/plan_sections_action.go:planSection",
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:RebuildBlogListingAction",
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:ensureArticleLinks",
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:estimateReadTime",
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:findBlogListingSlot",
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:findBlogPage",
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:loadContentListingTemplate",
+                    "platform/orchestration/actions/rebuild_blog_listing_action.go:renderBlogTemplate",
+                    "platform/orchestration/datahelpers/action_inputs.go:ExtractActionInputs"
+                ],
+                "RuntimePage": "",
+                "RuntimeSite": "page-build-handler",
+                "Capabilities": false
+            },
+            "Verdict": {
+                "Outcome": 2,
+                "Citations": [
+                    {
+                        "Tier": 1,
+                        "Fresh": "2026-07-03",
+                        "Quote": "position | slot_name | build_status | rendered_html | content_data | component_name | section_type\n1 | hero | deployed | <section class=\"hero\" data-component=\"hero\" ...<h1>Your Drop Rates Are Lying to You</h1>...\n2 | differentiators | deployed | <section class=\"differentiators-section\" data-component=\"differentiators\">...<h2>Why GameDesign.uk</h2>...\n3 | guide-list | deployed | <style>\\n  .guide-list-section {...\n4 | game-list | deployed | <style>\\n.game-list-section {...",
+                        "Where": "data_requests: page_components for index page"
+                    },
+                    {
+                        "Tier": 1,
+                        "Fresh": "2026-07-03",
+                        "Quote": "index | /index.html | landing | deployed | active | NULL | NULL | 4",
+                        "Where": "data_requests: index page component count"
+                    },
+                    {
+                        "Tier": 1,
+                        "Fresh": "2026-06-24",
+                        "Quote": "d2e2ac9b-78f4-4e23-a852-71c49bcda44e | needs_section_data | needs_human_review | Section 'system-stats' on index needs: field 'cta_url' from site_specs.cta.primary_url | {\"source\": \"plan_sections\", \"missing\": [{\"type\": \"url\", \"field\": \"cta_url\", \"reason\": \"\", \"source\": \"site_specs.cta.primary_url\", \"on_missing\": \"skip_field\"}], \"function\": \"system-stats\", \"page_name\": \"index\", \"component_id\": \"fdd92ad4-521a-4602-89cf-7ee1a66c10f1\", \"section_name\": \"system-stats\"}",
+                        "Where": "data_requests: work items for index page"
+                    },
+                    {
+                        "Tier": 1,
+                        "Fresh": "2026-06-24",
+                        "Quote": "1ff3a7e8-b38b-4a5a-adc5-308cdf7a8efa | page_rerender | complete | Rerender page: index",
+                        "Where": "data_requests: page_rerender work item for index"
+                    }
+                ],
+                "NextScope": [
+                    "platform/orchestration/actions/plan_sections_action.go:planSection",
+                    "platform/orchestration/actions/plan_sections_action.go:PlanSectionsAction",
+                    "platform/orchestration/actions/update_site_spec_from_item_action.go:applyFieldUpdate",
+                    "platform/orchestration/actions/validate_composition_inputs_action.go:loadCurrentSpecData"
+                ],
+                "RuntimeSite": "index",
+                "DataRequests": [
+                    {
+                        "sql": "SELECT aspect, data FROM site_specs WHERE site_id = 'e33263f4-74f8-494f-b191-546845dbbddf' AND aspect = 'cta' AND is_current = true LIMIT 1",
+                        "why": "Confirms whether site_specs.cta.primary_url is absent (causing system-stats deferral) or present but not being resolved correctly by plan_sections"
+                    }
+                ],
+                "NeededEvidence": "",
+                "RevisedHypothesis": "The index page is NOT a stub — it has 4 deployed page_components with substantive rendered_html (hero with site headline, differentiators section, guide-list, game-list). The index page completed successfully and has real content. The narrower remaining issue is that one section ('system-stats') was deferred rather than rendered, because a required field 'cta_url' was missing from site_specs.cta.primary_url; that section was skipped (on_missing=skip_field) rather than blocking the build. The page as deployed is functionally complete; the only gap is the absent system-stats section."
+            },
+            "GuardStop": "",
+            "Iteration": 2,
+            "BundlePath": "",
+            "Hypothesis": "index page completed but content is a stub"
+        },
+        {
+            "Scope": {
+                "Tables": null,
+                "Symbols": [
+                    "platform/orchestration/actions/component_selector.go:CreateNeedsNewComponentItem",
+                    "platform/orchestration/actions/plan_sections_action.go:PlanSectionsAction",
+                    "platform/orchestration/actions/plan_sections_action.go:closeResolvedDataRequest",
+                    "platform/orchestration/actions/plan_sections_action.go:createDeferredItems",
+                    "platform/orchestration/actions/plan_sections_action.go:ensureSpecs",
+                    "platform/orchestration/actions/plan_sections_action.go:extractArrayItemFields",
+                    "platform/orchestration/actions/plan_sections_action.go:filterSiteLevelSections",
+                    "platform/orchestration/actions/plan_sections_action.go:loadComponentSchemas",
+                    "platform/orchestration/actions/plan_sections_action.go:loadOpenSectionDataRequests",
+                    "platform/orchestration/actions/plan_sections_action.go:newSourceResolver",
+                    "platform/orchestration/actions/plan_sections_action.go:planSection",
+                    "platform/orchestration/actions/plan_sections_action.go:resolve",
+                    "platform/orchestration/actions/plan_sections_action.go:stringOrEmpty",
+                    "platform/orchestration/actions/queryresolve/queryresolve.go:Resolve",
+                    "platform/orchestration/actions/update_site_spec_from_item_action.go:applyFieldUpdate",
+                    "platform/orchestration/actions/v3_site_actions.go:resolve",
+                    "platform/orchestration/actions/validate_composition_inputs_action.go:loadCurrentSpecData",
+                    "platform/orchestration/datahelpers/links.go:Contains"
+                ],
+                "RuntimePage": "",
+                "RuntimeSite": "index",
+                "Capabilities": false
+            },
+            "Verdict": {
+                "Outcome": 1,
+                "Citations": [
+                    {
+                        "Tier": 1,
+                        "Fresh": "2026-06-24",
+                        "Quote": "[2026-06-24T18:27:26.973506Z] build/needs_section_data status=needs_human_review attempts=0 — Section 'system-stats' on index needs: field 'cta_url' from site_specs.cta.primary_url",
+                        "Where": "site_work_items"
+                    },
+                    {
+                        "Tier": 1,
+                        "Fresh": "2026-07-03",
+                        "Quote": "aspect | data\n(0 rows)",
+                        "Where": "data_requests result: SELECT aspect, data FROM site_specs WHERE site_id = ... AND aspect = 'cta' AND is_current = true"
+                    },
+                    {
+                        "Tier": 0,
+                        "Fresh": "",
+                        "Quote": "case \"skip_field\":\n\t\t\t\t\t// Just omit it",
+                        "Where": "platform/orchestration/actions/plan_sections_action.go:planSection"
+                    }
+                ],
+                "NextScope": [
+                ],
+                "RuntimeSite": "",
+                "DataRequests": [
+                    {
+                        "sql": "SELECT pc.slot_name, pc.build_status, length(pc.rendered_html) AS html_len, pc.updated_at FROM page_components pc JOIN pages p ON p.id = pc.page_id WHERE p.site_id = 'e33263f4-74f8-494f-b191-546845dbbddf' AND p.name = 'index' ORDER BY pc.position",
+                        "why": "Confirms that exactly 4 page_components exist for the index page with substantive rendered_html (as the hypothesis states), and that no system-stats component row is present"
+                    },
+                    {
+                        "sql": "SELECT id, status, summary, spec FROM site_work_items WHERE site_id = 'e33263f4-74f8-494f-b191-546845dbbddf' AND item_type = 'needs_section_data' AND spec->>'page_name' = 'index' AND status NOT IN ('complete', 'wont_fix', 'rejected', 'failed')",
+                        "why": "Confirms the system-stats deferral work item remains open and no other index-page sections are deferred, establishing that the index page is otherwise complete"
+                    }
+                ],
+                "NeededEvidence": "",
+                "RevisedHypothesis": ""
+            },
+            "GuardStop": "confirmed",
+            "Iteration": 3,
+            "BundlePath": "",
+            "Hypothesis": "The index page is NOT a stub — it has 4 deployed page_components with substantive rendered_html (hero with site headline, differentiators section, guide-list, game-list). The index page completed successfully and has real content. The narrower remaining issue is that one section ('system-stats') was deferred rather than rendered, because a required field 'cta_url' was missing from site_specs.cta.primary_url; that section was skipped (on_missing=skip_field) rather than blocking the build. The page as deployed is functionally complete; the only gap is the absent system-stats section."
+        }
+    ]
+}
+(1 row)
