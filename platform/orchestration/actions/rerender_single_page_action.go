@@ -28,6 +28,12 @@ var (
 	reHTMLTags     = regexp.MustCompile(`<[^>]+>`)
 	reHTMLEntities = regexp.MustCompile(`&[a-zA-Z#0-9]+;`)
 	reWhitespace   = regexp.MustCompile(`\s+`)
+
+	// reRuntimeFill matches the data-runtime-fill marker on a section that is
+	// intentionally empty at build time and populated client-side by a loader
+	// (e.g. the daily provocation card). Such sections must NOT be dropped by
+	// sectionHasVisibleContent for lacking build-time text.
+	reRuntimeFill = regexp.MustCompile(`(?i)data-runtime-fill`)
 )
 
 // RerenderSinglePageAction assembles a page from pre-rendered components
@@ -305,7 +311,7 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 
 	html.WriteString("</body>\n</html>")
 
-	logger.Debug("assemblePage: Complete",
+	logger.Info("assemblePage: Complete",
 		zap.String("page", page.Name),
 		zap.Bool("has_header", header != ""),
 		zap.Bool("has_footer", footer != ""),
@@ -420,15 +426,24 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 	return sections.String(), nil
 }
 
-// sectionHasVisibleContent reports whether the given rendered HTML contains
-// more than 10 characters of visible text after stripping <style> and
-// <script> blocks, HTML tags, HTML entities, and whitespace. The threshold
-// is deliberately generous — sections with so little text aren't meaningful
-// page content and either represent a generation failure or a stale empty
-// shell. Either way they shouldn't make it into the deployed page.
+// sectionHasVisibleContent reports whether the given rendered HTML should be
+// kept in the assembled page. Sections explicitly marked data-runtime-fill are
+// intentionally empty at build time — a client-side loader populates them in the
+// browser — and are always kept. Otherwise the section is kept only if it
+// contains more than 10 characters of visible text after stripping <style> and
+// <script> blocks, HTML tags, HTML entities, and whitespace. The threshold is
+// deliberately generous — sections with so little text (and no runtime-fill
+// marker) aren't meaningful page content and either represent a generation
+// failure or a stale empty shell, so they shouldn't reach the deployed page.
 func sectionHasVisibleContent(html string) bool {
 	if html == "" {
 		return false
+	}
+	// Runtime-filled sections carry no build-time text by design; keep them
+	// regardless. Genuine empty shells do not carry this marker and are still
+	// filtered by the visible-text measure below.
+	if reRuntimeFill.MatchString(html) {
+		return true
 	}
 	s := reStyleBlocks.ReplaceAllString(html, "")
 	s = reScriptBlocks.ReplaceAllString(s, "")
