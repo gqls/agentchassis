@@ -311,7 +311,7 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 
 	html.WriteString("</body>\n</html>")
 
-	logger.Info("assemblePage: Complete",
+	logger.Debug("assemblePage: Complete",
 		zap.String("page", page.Name),
 		zap.Bool("has_header", header != ""),
 		zap.Bool("has_footer", footer != ""),
@@ -426,22 +426,20 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 	return sections.String(), nil
 }
 
-// sectionHasVisibleContent reports whether the given rendered HTML should be
-// kept in the assembled page. Sections explicitly marked data-runtime-fill are
-// intentionally empty at build time — a client-side loader populates them in the
-// browser — and are always kept. Otherwise the section is kept only if it
-// contains more than 10 characters of visible text after stripping <style> and
-// <script> blocks, HTML tags, HTML entities, and whitespace. The threshold is
-// deliberately generous — sections with so little text (and no runtime-fill
-// marker) aren't meaningful page content and either represent a generation
-// failure or a stale empty shell, so they shouldn't reach the deployed page.
+// sectionHasVisibleContent reports whether the given rendered HTML should be kept in the
+// assembled page. Sections explicitly marked data-runtime-fill are intentionally empty at
+// build time (a client-side loader populates them) and are always kept. Otherwise the
+// section is kept only if it contains more than 10 characters of visible text after
+// stripping <style>/<script> blocks, HTML tags, HTML entities, and whitespace — sections
+// with less than that aren't meaningful build-time content and represent a generation
+// failure or a stale/not-yet-built empty shell, which shouldn't reach the deployed page.
 func sectionHasVisibleContent(html string) bool {
 	if html == "" {
 		return false
 	}
-	// Runtime-filled sections carry no build-time text by design; keep them
-	// regardless. Genuine empty shells do not carry this marker and are still
-	// filtered by the visible-text measure below.
+	// Runtime-filled sections (e.g. the daily provocation card) are intentionally empty
+	// at build time; a browser-side loader fills them. Keep them regardless of build-time
+	// text. Genuine empty shells do not carry this marker and are filtered below.
 	if reRuntimeFill.MatchString(html) {
 		return true
 	}
