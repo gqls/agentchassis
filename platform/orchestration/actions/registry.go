@@ -1531,6 +1531,34 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 
 	// =========================================================================
+	// DOCUMENTATION PROJECT - Tool plans, lasting, travelling plans e.g. with acceptance criteria
+	// =========================================================================
+	"persist_diagnosis_note": {
+		Handler:     PersistDiagnosisNoteAction,
+		Category:    "documentation",
+		Description: "Persist a diagnosis report as a NOTES entry when the subject is explicit",
+		IsLocal:     true,
+	},
+	"write_doc_plan": {
+		Handler:     WriteDocPlanAction,
+		Category:    "documentation",
+		Description: "Supersede-write the current PLAN doc for a tool/pipeline subject",
+		IsLocal:     true,
+	},
+	"append_doc_note": {
+		Handler:     AppendDocNoteAction,
+		Category:    "documentation",
+		Description: "Append one NOTES entry (row) for a tool/pipeline subject",
+		IsLocal:     true,
+	},
+	"load_doc_context": {
+		Handler:     LoadDocContextAction,
+		Category:    "documentation",
+		Description: "Load current PLAN + latest NOTES for a tool/pipeline subject",
+		IsLocal:     true,
+	},
+
+	// =========================================================================
 	// STORAGE — S3, assets, entity state, memory
 	// =========================================================================
 	"upload_to_s3": {
