@@ -1,0 +1,90 @@
+clients_db=# -- A. chain since 17:00 (with attribution)
+SELECT s.domain, w.item_type, coalesce(w.spec->>'page_name', w.spec->>'function') AS what,
+       w.status, w.created_by, (w.error IS NOT NULL AND w.error <> '') AS has_err, w.updated_at
+FROM site_work_items w JOIN sites s ON s.id = w.site_id
+WHERE w.updated_at > '2026-07-03 17:00'
+  AND ( w.item_key LIKE 'f8_rerender_briefexp:%'
+     OR (w.item_type = 'page_rerender' AND w.spec->>'reason' = 'section_data_resolved')
+     OR w.item_type = 'needs_page' )
+ORDER BY w.updated_at;
+
+-- B. the word in context in the flagged renders
+SELECT s.domain, p.name,
+       substring(lower(pc.rendered_html) FROM '.{0,70}gauntlet.{0,70}') AS ctx
+FROM page_components pc JOIN content_components cc ON cc.id = pc.component_id
+JOIN pages p ON p.id = pc.page_id JOIN sites s ON s.id = p.site_id
+WHERE cc.function = 'brief-explanation' AND strpos(lower(pc.rendered_html),'gauntlet') > 0
+ORDER BY 1, 2;
+
+-- C. which content_data FIELD carries it (the decider)
+SELECT s.domain, p.name, t.key, left(t.value, 90) AS val
+FROM page_components pc JOIN content_components cc ON cc.id = pc.component_id
+JOIN pages p ON p.id = pc.page_id JOIN sites s ON s.id = p.site_id,
+LATERAL jsonb_each_text(pc.content_data) t
+WHERE cc.function = 'brief-explanation' AND lower(t.value) LIKE '%gauntlet%'
+ORDER BY 1, 2, 3;
+
+-- D. robot-hands page statuses (the matchmatrix skip)
+SELECT p.name, p.status
+FROM pages p JOIN sites s ON s.id = p.site_id
+WHERE s.domain = 'robot-hands.com'
+  AND p.name IN ('matchmatrix','gripper-selection-guide','how-it-works','index');
+domain|item_type|what|status|created_by|has_err|updated_at
+idea.uk|needs_rerender|brief-explanation|complete|manual-recovery|f|2026-07-03 17:26:04.516121+00
+robot-hands.com|needs_rerender|brief-explanation|complete|manual-recovery|f|2026-07-03 17:26:04.516121+00
+robot-hands.com|page_rerender|index|complete|rerender-pages|f|2026-07-03 17:27:03.894198+00
+robot-hands.com|page_rerender|matchmatrix|complete|rerender-pages|t|2026-07-03 17:27:03.905429+00
+robot-hands.com|page_rerender|gripper-selection-guide|complete|rerender-pages|f|2026-07-03 17:27:03.913951+00
+robot-hands.com|page_rerender|how-it-works|complete|rerender-pages|f|2026-07-03 17:27:03.92012+00
+idea.uk|page_rerender|index|complete|rerender-pages|f|2026-07-03 17:27:58.822153+00
+idea.uk|page_rerender|tools|complete|rerender-pages|t|2026-07-03 17:27:58.828346+00
+robot-hands.com|needs_page|matchmatrix|complete|page-rerender|f|2026-07-03 17:31:08.225503+00
+robot-hands.com|needs_page|gripper-selection-guide|complete|page-rerender|f|2026-07-03 17:37:56.181947+00
+(10 rows)
+domain|name|ctx
+idea.uk|index|pan>
+      <h2 class="brief-explanation__heading">every day a new <em>gauntlet</em> begins</h2>
+      <p class="brief-explanation__description">each
+idea.uk|tools|pan>
+      <h2 class="brief-explanation__heading">every day a new <em>gauntlet</em> begins</h2>
+      <p class="brief-explanation__description">each
+robot-hands.com|gripper-selection-guide|pan>
+      <h2 class="brief-explanation__heading">every day a new <em>gauntlet</em> begins</h2>
+      <p class="brief-explanation__description">each
+vonc.com|index|lass="brief-explanation__heading">one provocation. every day. <em>the gauntlet</em> awaits.</h2>
+      <p class="brief-explanation__description">a p
+(4 rows)
+domain|name|key|val
+idea.uk|index|badge_label|Today's Gauntlet Open
+idea.uk|index|description|Each day a fresh provocation goes live. You stake a position, the clock runs, and the Gaun
+idea.uk|index|heading|Every day a new <em>Gauntlet</em> begins
+idea.uk|index|step_2_sentence|You read the provocation and commit to a clear stance — the Gauntlet has no space for sitt
+idea.uk|index|step_3_sentence|When time runs out, the Gauntlet reveals how the whole room split and ranks every response
+idea.uk|index|step_3_title|The Gauntlet Scores the Room
+idea.uk|tools|badge_label|Today's Gauntlet Open
+idea.uk|tools|description|Each day a new provocation goes live, you stake a clear position, and the Gauntlet scores
+idea.uk|tools|heading|Every day a new <em>Gauntlet</em> begins
+idea.uk|tools|step_2_sentence|Read the provocation carefully, then commit to a clear stance — the Gauntlet has no room f
+idea.uk|tools|step_3_sentence|When time runs out, the Gauntlet reveals exactly how the room split and ranks every respon
+idea.uk|tools|step_3_title|The Gauntlet Scores the Room
+robot-hands.com|gripper-selection-guide|badge_label|Today's Gauntlet Open
+robot-hands.com|gripper-selection-guide|description|Each day a provocation drops, you stake a position, and the Gauntlet scores everyone in th
+robot-hands.com|gripper-selection-guide|heading|Every day a new <em>Gauntlet</em> begins
+robot-hands.com|gripper-selection-guide|illustration_alt|Daily Gauntlet arena interface showing live provocation timer and player response field
+robot-hands.com|gripper-selection-guide|step_3_sentence|When time expires, the Gauntlet reveals the full room split and ranks every submitted resp
+robot-hands.com|gripper-selection-guide|step_3_title|The Gauntlet Scores the Room
+vonc.com|index|badge_label|Gauntlet Closes Soon
+vonc.com|index|cta_primary_label|Play Today's Gauntlet
+vonc.com|index|description|A Provocation drops. You stake a position. The Gauntlet scores everyone. One daily game, r
+vonc.com|index|heading|One Provocation. Every day. <em>The Gauntlet</em> awaits.
+vonc.com|index|stat_1_label|New Gauntlet Daily
+vonc.com|index|step_3_sentence|Time's up: the Gauntlet reveals exactly how the room split and ranks every position filed.
+vonc.com|index|step_3_title|The Gauntlet Scores the Room
+(25 rows)
+name|status
+gripper-selection-guide|active
+index|active
+matchmatrix|active
+how-it-works|active
+(4 rows)
+clients_db=#

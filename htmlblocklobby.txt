@@ -1,0 +1,535 @@
+clients_db=# -- (1) is the shell usable? selectors present, Mode-B?
+SELECT
+  (html_template LIKE '%lobby-grid-section__card%')       AS has_card,
+  (html_template LIKE '%lobby-grid-section__card-title%') AS has_card_title,
+  (html_template LIKE '%lobby-grid-section__card-icon%')  AS has_card_icon,
+  (html_template LIKE '%lobby-grid-section__card-tag%')   AS has_card_tag,
+  (html_template LIKE '%lobby-grid-section__card-desc%')  AS has_card_desc,
+  (html_template LIKE '%lobby-grid-section__card-stat%')  AS has_card_stat,
+  (html_template LIKE '%lobby-grid-section__eyebrow%')    AS has_eyebrow,
+  (html_template LIKE '%lobby-grid-section__cta%')        AS has_cta,
+  (html_template LIKE '%<no value>%')                      AS is_mode_b,
+  (html_template LIKE '%data-component="lobby-grid"%')     AS has_data_component,
+  LENGTH(html_template)                                     AS tmpl_len
+FROM content_components WHERE id = '9304f14d-e19b-4ce1-b3fd-f6a315aec6ed';
+
+-- (2) full template — paste it; I'll design the loader against the exact card markup
+SELECT html_template FROM content_components WHERE id = '9304f14d-e19b-4ce1-b3fd-f6a315aec6ed';
+has_card|has_card_title|has_card_icon|has_card_tag|has_card_desc|has_card_stat|has_eyebrow|has_cta|is_mode_b|has_data_component|tmpl_len
+t|t|t|t|t|t|t|t|t|t|15652
+(1 row)
+html_template
+<style>
+  .lobby-grid-section {
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.15);
+    background: var(--color-background, #0a0a0f);
+    color: var(--section-text);
+    padding: var(--spacing-section, 5rem 2rem);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .lobby-grid-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(135deg, rgba(var(--color-primary-rgb, 120,60,255), 0.06) 0%, transparent 50%),
+      repeating-linear-gradient(0deg, transparent, transparent 60px, rgba(255,255,255,0.02) 60px, rgba(255,255,255,0.02) 61px),
+      repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(255,255,255,0.02) 60px, rgba(255,255,255,0.02) 61px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .lobby-grid-section__inner {
+    position: relative;
+    z-index: 1;
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+  }
+
+  .lobby-grid-section__header {
+    text-align: center;
+    margin-bottom: 3.5rem;
+  }
+
+  .lobby-grid-section__eyebrow {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-primary, #7c3cff);
+    border: 1px solid rgba(var(--color-primary-rgb, 120,60,255), 0.4);
+    background: rgba(var(--color-primary-rgb, 120,60,255), 0.08);
+    padding: 0.35rem 0.9rem;
+    border-radius: 2px;
+    margin-bottom: 1.25rem;
+  }
+
+  .lobby-grid-section__title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800;
+    color: var(--section-heading);
+    line-height: 1.15;
+    margin: 0 0 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .lobby-grid-section__title em {
+    font-style: normal;
+    color: var(--color-primary, #7c3cff);
+  }
+
+  .lobby-grid-section__subtitle {
+    font-size: 1rem;
+    color: var(--section-text-muted);
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .lobby-grid-section__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 3rem;
+  }
+
+  .lobby-grid-section__card {
+    position: relative;
+    background: var(--section-surface);
+    border: 1px solid var(--section-border);
+    border-radius: calc(var(--border-radius, 8px) * 1.5);
+    padding: 2rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: hidden;
+    transition: border-color 0.25s ease, transform 0.25s ease, background 0.25s ease;
+    cursor: default;
+  }
+
+  .lobby-grid-section__card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--card-accent, var(--color-primary, #7c3cff)), transparent);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  .lobby-grid-section__card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at top left, rgba(var(--color-primary-rgb, 120,60,255), 0.07) 0%, transparent 65%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .lobby-grid-section__card:hover {
+    border-color: rgba(var(--color-primary-rgb, 120,60,255), 0.5);
+    transform: translateY(-3px);
+    background: rgba(255,255,255,0.07);
+  }
+
+  .lobby-grid-section__card:hover::before,
+  .lobby-grid-section__card:hover::after {
+    opacity: 1;
+  }
+
+  .lobby-grid-section__card--featured {
+    grid-column: span 2;
+    background: linear-gradient(135deg, rgba(var(--color-primary-rgb, 120,60,255), 0.12) 0%, rgba(255,255,255,0.04) 100%);
+    border-color: rgba(var(--color-primary-rgb, 120,60,255), 0.3);
+  }
+
+  .lobby-grid-section__card--featured::before {
+    opacity: 0.6;
+  }
+
+  .lobby-grid-section__card--wide {
+    grid-column: span 3;
+    flex-direction: row;
+    align-items: center;
+    gap: 2.5rem;
+    padding: 2rem 2.5rem;
+  }
+
+  .lobby-grid-section__card-icon {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--color-primary-rgb, 120,60,255), 0.12);
+    border: 1px solid rgba(var(--color-primary-rgb, 120,60,255), 0.25);
+    border-radius: calc(var(--border-radius, 8px));
+    color: var(--color-primary, #7c3cff);
+  }
+
+  .lobby-grid-section__card-icon svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .lobby-grid-section__card-body {
+    flex: 1;
+  }
+
+  .lobby-grid-section__card-tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-accent, #ff6b35);
+    margin-bottom: 0.5rem;
+  }
+
+  .lobby-grid-section__card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--section-heading);
+    margin: 0 0 0.5rem;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .lobby-grid-section__card--featured .lobby-grid-section__card-title {
+    font-size: 1.3rem;
+  }
+
+  .lobby-grid-section__card--wide .lobby-grid-section__card-title {
+    font-size: 1.15rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .lobby-grid-section__card-desc {
+    font-size: 0.875rem;
+    color: var(--section-text-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .lobby-grid-section__card-stat {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid var(--section-border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--section-text-muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .lobby-grid-section__card-stat-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-primary, #7c3cff);
+    flex-shrink: 0;
+    animation: lobby-pulse 2s ease-in-out infinite;
+  }
+
+  .lobby-grid-section__card-stat-dot--accent {
+    background: var(--color-accent, #ff6b35);
+  }
+
+  @keyframes lobby-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.75); }
+  }
+
+  .lobby-grid-section__card--wide .lobby-grid-section__card-stat {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    flex-shrink: 0;
+  }
+
+  .lobby-grid-section__cta {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .lobby-grid-section__cta-label {
+    font-size: 0.75rem;
+    color: var(--section-text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .lobby-grid-section__cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--color-primary, #7c3cff);
+    color: var(--color-primary-text, #ffffff);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.9rem 2.25rem;
+    border-radius: var(--border-radius, 8px);
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    min-height: 48px;
+    box-shadow: 0 0 24px rgba(var(--color-primary-rgb, 120,60,255), 0.35);
+  }
+
+  .lobby-grid-section__cta-btn:hover {
+    background: var(--color-primary-hover, #6a2ee0);
+    transform: translateY(-2px);
+    box-shadow: 0 0 36px rgba(var(--color-primary-rgb, 120,60,255), 0.55);
+  }
+
+  .lobby-grid-section__cta-btn:focus-visible {
+    outline: 2px solid var(--color-primary, #7c3cff);
+    outline-offset: 3px;
+  }
+
+  .lobby-grid-section__cta-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  @media (max-width: 900px) {
+    .lobby-grid-section__grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .lobby-grid-section__card--featured {
+      grid-column: span 2;
+    }
+    .lobby-grid-section__card--wide {
+      grid-column: span 2;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.25rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .lobby-grid-section {
+      padding: 3.5rem 1.25rem;
+    }
+    .lobby-grid-section__grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    .lobby-grid-section__card--featured,
+    .lobby-grid-section__card--wide {
+      grid-column: span 1;
+    }
+    .lobby-grid-section__card--wide {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .lobby-grid-section__header {
+      margin-bottom: 2.5rem;
+    }
+  }
+</style>
+
+<section class="lobby-grid-section" data-component="lobby-grid" aria-label="<no value>">
+  <div class="lobby-grid-section__inner">
+
+    <header class="lobby-grid-section__header">
+      <span class="lobby-grid-section__eyebrow"><no value></span>
+      <h2 class="lobby-grid-section__title"><no value></h2>
+      <p class="lobby-grid-section__subtitle"><no value></p>
+    </header>
+
+    <div class="lobby-grid-section__grid" role="list">
+
+      <!-- Featured card (spans 2 cols) -->
+      <article class="lobby-grid-section__card lobby-grid-section__card--featured" role="listitem">
+        <div class="lobby-grid-section__card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><no value></svg>
+        </div>
+        <div class="lobby-grid-section__card-body">
+          <span class="lobby-grid-section__card-tag"><no value></span>
+          <h3 class="lobby-grid-section__card-title"><no value></h3>
+          <p class="lobby-grid-section__card-desc"><no value></p>
+        </div>
+        <div class="lobby-grid-section__card-stat">
+          <span class="lobby-grid-section__card-stat-dot" aria-hidden="true"></span>
+          <span><no value></span>
+        </div>
+      </article>
+
+      <!-- Standard card 1 -->
+      <article class="lobby-grid-section__card" role="listitem">
+        <div class="lobby-grid-section__card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><no value></svg>
+        </div>
+        <div class="lobby-grid-section__card-body">
+          <span class="lobby-grid-section__card-tag"><no value></span>
+          <h3 class="lobby-grid-section__card-title"><no value></h3>
+          <p class="lobby-grid-section__card-desc"><no value></p>
+        </div>
+        <div class="lobby-grid-section__card-stat">
+          <span class="lobby-grid-section__card-stat-dot" aria-hidden="true"></span>
+          <span><no value></span>
+        </div>
+      </article>
+
+      <!-- Standard card 2 -->
+      <article class="lobby-grid-section__card" role="listitem">
+        <div class="lobby-grid-section__card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><no value></svg>
+        </div>
+        <div class="lobby-grid-section__card-body">
+          <span class="lobby-grid-section__card-tag"><no value></span>
+          <h3 class="lobby-grid-section__card-title"><no value></h3>
+          <p class="lobby-grid-section__card-desc"><no value></p>
+        </div>
+        <div class="lobby-grid-section__card-stat">
+          <span class="lobby-grid-section__card-stat-dot" aria-hidden="true"></span>
+          <span><no value></span>
+        </div>
+      </article>
+
+      <!-- Standard card 3 -->
+      <article class="lobby-grid-section__card" role="listitem">
+        <div class="lobby-grid-section__card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><no value></svg>
+        </div>
+        <div class="lobby-grid-section__card-body">
+          <span class="lobby-grid-section__card-tag"><no value></span>
+          <h3 class="lobby-grid-section__card-title"><no value></h3>
+          <p class="lobby-grid-section__card-desc"><no value></p>
+        </div>
+        <div class="lobby-grid-section__card-stat">
+          <span class="lobby-grid-section__card-stat-dot" aria-hidden="true"></span>
+          <span><no value></span>
+        </div>
+      </article>
+
+      <!-- Standard card 4 -->
+      <article class="lobby-grid-section__card" role="listitem">
+        <div class="lobby-grid-section__card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><no value></svg>
+        </div>
+        <div class="lobby-grid-section__card-body">
+          <span class="lobby-grid-section__card-tag"><no value></span>
+          <h3 class="lobby-grid-section__card-title"><no value></h3>
+          <p class="lobby-grid-section__card-desc"><no value></p>
+        </div>
+        <div class="lobby-grid-section__card-stat">
+          <span class="lobby-grid-section__card-stat-dot lobby-grid-section__card-stat-dot--accent" aria-hidden="true"></span>
+          <span><no value></span>
+        </div>
+      </article>
+
+      <!-- Wide card (spans full row) -->
+      <article class="lobby-grid-section__card lobby-grid-section__card--wide" role="listitem">
+        <div class="lobby-grid-section__card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><no value></svg>
+        </div>
+        <div class="lobby-grid-section__card-body">
+          <span class="lobby-grid-section__card-tag"><no value></span>
+          <h3 class="lobby-grid-section__card-title"><no value></h3>
+          <p class="lobby-grid-section__card-desc"><no value></p>
+        </div>
+        <div class="lobby-grid-section__card-stat">
+          <span class="lobby-grid-section__card-stat-dot lobby-grid-section__card-stat-dot--accent" aria-hidden="true"></span>
+          <span><no value></span>
+        </div>
+      </article>
+
+    </div>
+
+    <div class="lobby-grid-section__cta">
+      <p class="lobby-grid-section__cta-label"><no value></p>
+      <a href="<no value>" class="lobby-grid-section__cta-btn" role="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="5,3 19,12 5,21"/></svg>
+        <no value>
+      </a>
+    </div>
+
+  </div>
+</section>
+
+<script>
+(function() {
+  var section = document.querySelector('[data-component="lobby-grid"]');
+  if (!section) return;
+
+  var cards = section.querySelectorAll('.lobby-grid-section__card');
+
+  cards.forEach(function(card) {
+    card.addEventListener('mouseenter', function() {
+      cards.forEach(function(other) {
+        if (other !== card) {
+          other.style.opacity = '0.65';
+        }
+      });
+    });
+    card.addEventListener('mouseleave', function() {
+      cards.forEach(function(other) {
+        other.style.opacity = '';
+      });
+    });
+    card.addEventListener('focusin', function() {
+      card.style.borderColor = 'rgba(var(--color-primary-rgb, 120,60,255), 0.7)';
+    });
+    card.addEventListener('focusout', function() {
+      card.style.borderColor = '';
+    });
+  });
+
+  // Staggered entrance animation
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          var visibleCards = section.querySelectorAll('.lobby-grid-section__card');
+          visibleCards.forEach(function(card, i) {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(16px)';
+            card.style.transition = 'opacity 0.4s ease ' + (i * 0.07) + 's, transform 0.4s ease ' + (i * 0.07) + 's, border-color 0.25s ease, background 0.25s ease';
+            setTimeout(function() {
+              card.style.opacity = '';
+              card.style.transform = '';
+            }, 50 + i * 70);
+          });
+          observer.disconnect();
+        }
+      });
+    }, { threshold: 0.15 });
+    observer.observe(section);
+  }
+})();
+</script>
+(1 row)
+clients_db=#
