@@ -61,6 +61,25 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("failed to marshal response: %w", err)
 	}
 
+	// Response size guard (Option A, run 17933a83): a mis-keyed contract must
+	// never again ship megabytes silently. Over budget -> WARN + a bounded
+	// truncation stub; the full result remains in orchestration state,
+	// retrievable by correlation_id. max_response_bytes: step-config override;
+	// Go default 900000 (headroom under Kafka's ~1,048,588 default cap);
+	// <=0 disables.
+	maxBytes := datahelpers.GetIntField(params.StepConfig.Config, "max_response_bytes", 900000)
+	if maxBytes > 0 && len(responseBytes) > maxBytes {
+		params.Logger.Warn("CompleteWorkflowAction: response exceeds budget — shipping truncation stub; full result stays in orchestration state",
+			zap.Int("response_bytes", len(responseBytes)),
+			zap.Int("max_response_bytes", maxBytes))
+		finalResult = truncatedResponseStub(len(responseBytes), maxBytes, finalResult)
+		responseMsg = buildResponseMessage(params.ExecutionContext, replyTo, finalResult)
+		responseBytes, err = json.Marshal(responseMsg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal truncated response: %w", err)
+		}
+	}
+
 	headers := responseMsg.Headers.ToMap()
 	key := []byte(params.ExecutionContext.CorrelationID)
 
@@ -76,60 +95,18 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 	return map[string]interface{}{"result": finalResult}, nil
 }
 
-// extractFinalResult gets the workflow result from CollectedData
-// If stepConfig has output_field, return just that field's value to avoid double-nesting
+// extractFinalResult gets the workflow result from CollectedData.
+// 2026-07-03 (Option A): delegates to the SHARED contract table + apply in
+// datahelpers/result_contract.go — the same table resolveResultSpec uses on
+// the coordinator path. This closes the two-readers/two-vocabularies bug
+// (runs 17933a83, 73ed55c6): a config key either resolves identically for
+// both readers or warns identically for both. Name/signature retained; the
+// old ad-hoc ladder (output_field -> output_fields -> process/aggregate ->
+// silent dump) is preserved semantically inside ApplyResultSpec, with the
+// dump now WARNING.
 func extractFinalResult(collectedData map[string]interface{}, config map[string]interface{}, logger *zap.Logger) interface{} {
-	// Check if a specific output_field is configured
-	// This prevents double-nesting when parent stores at the same output_field name
-	if outputField, ok := config["output_field"].(string); ok && outputField != "" {
-		if result := datahelpers.ExtractNestedField(collectedData, outputField); result != nil {
-			logger.Info("extractFinalResult: using configured output_field",
-				zap.String("output_field", outputField))
-			return result
-		}
-		logger.Warn("extractFinalResult: configured output_field not found, falling back",
-			zap.String("output_field", outputField))
-	}
-
-	// Check if specific output fields are configured (array of field names)
-	if outputFields, ok := config["output_fields"].([]interface{}); ok && len(outputFields) > 0 {
-		result := make(map[string]interface{})
-		for _, fieldName := range outputFields {
-			if fn, ok := fieldName.(string); ok {
-				if value := datahelpers.ExtractNestedField(collectedData, fn); value != nil {
-					result[fn] = value
-				}
-			}
-		}
-		if len(result) > 0 {
-			logger.Info("extractFinalResult: using configured output_fields",
-				zap.Int("fields_found", len(result)))
-			return result
-		}
-	}
-
-	// Try common result locations
-	if processResult, ok := collectedData["process"]; ok {
-		return processResult
-	}
-	if aggResult, ok := collectedData["aggregate_results"]; ok {
-		return aggResult
-	}
-
-	// Return all non-system data
-	filteredData := make(map[string]interface{})
-	for key, value := range collectedData {
-		if !strings.HasPrefix(key, "__") && key != "agent_config" {
-			filteredData[key] = value
-		}
-	}
-
-	if len(filteredData) == 0 {
-		logger.Warn("CompleteWorkflowAction: no result data found in CollectedData")
-		return map[string]interface{}{"message": "workflow completed"}
-	}
-
-	return filteredData
+	spec := datahelpers.ResolveResultSpec(config, logger)
+	return datahelpers.ApplyResultSpec(spec, collectedData, logger)
 }
 
 // extractReplyToMetadata finds where to send the response
@@ -811,4 +788,24 @@ func extractS3Links(data map[string]interface{}) []string {
 
 	extractLinks(data)
 	return links
+}
+
+// truncatedResponseStub is the bounded stand-in for an over-budget response:
+// enough for the caller to know WHAT happened and WHERE the real result lives
+// (orchestration state, by correlation_id), without shipping the payload.
+func truncatedResponseStub(originalBytes, maxBytes int, result interface{}) map[string]interface{} {
+	stub := map[string]interface{}{
+		"__truncated__":       true,
+		"reason":              "response exceeded max_response_bytes; full result remains in orchestration state (query by correlation_id)",
+		"original_size_bytes": originalBytes,
+		"max_response_bytes":  maxBytes,
+	}
+	if m, ok := result.(map[string]interface{}); ok {
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		stub["result_top_level_keys"] = keys
+	}
+	return stub
 }

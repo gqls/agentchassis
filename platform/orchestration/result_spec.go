@@ -32,6 +32,15 @@
 // Pre-merge: grep the rest of package orchestration for any existing toStringMap
 // / setIfAbsent to avoid redeclaration (none in coordinator.go / processor.go).
 
+//
+// 2026-07-03 (Option A, run 17933a83/73ed55c6 aftermath): the contract table —
+// ResultMode/ResultSpec/resolveResultSpec/toStringMap — is LIFTED VERBATIM to
+// platform/orchestration/datahelpers/result_contract.go so the response-building
+// action (CompleteWorkflowAction.extractFinalResult) reads the SAME table. This
+// file keeps the coordinator-facing names as thin aliases/delegates, so
+// coordinator.go is untouched; fallbackDumpInto and setIfAbsent (coordinator
+// apply path) stay here.
+
 package orchestration
 
 import (
@@ -41,154 +50,23 @@ import (
 	"go.uber.org/zap"
 )
 
-// ResultMode is how a completed workflow's payload is shaped before return.
-// Exactly one mode is selected per workflow by resolveResultSpec.
-type ResultMode int
+// ResultMode / ResultSpec now live in datahelpers (shared table); the
+// aliases keep every existing reference in this package compiling unchanged.
+type ResultMode = datahelpers.ResultMode
 
 const (
-	// ResultModeFallback: no contract declared -> legacy skipPatterns dump.
-	ResultModeFallback ResultMode = iota
-	// ResultModeFields: nest each named field under its own key.
-	ResultModeFields
-	// ResultModeFlatten: the single named field's CONTENTS become the body.
-	ResultModeFlatten
-	// ResultModeMapping: build result from explicit target<-source.path pairs.
-	ResultModeMapping
+	ResultModeFallback = datahelpers.ResultModeFallback
+	ResultModeFields   = datahelpers.ResultModeFields
+	ResultModeFlatten  = datahelpers.ResultModeFlatten
+	ResultModeMapping  = datahelpers.ResultModeMapping
 )
 
-func (m ResultMode) String() string {
-	switch m {
-	case ResultModeFields:
-		return "fields"
-	case ResultModeFlatten:
-		return "flatten"
-	case ResultModeMapping:
-		return "mapping"
-	default:
-		return "fallback"
-	}
-}
+type ResultSpec = datahelpers.ResultSpec
 
-// ResultSpec is the normalised result contract for a `complete` step.
-type ResultSpec struct {
-	Mode       ResultMode
-	Fields     []string          // ResultModeFields
-	From       string            // ResultModeFlatten
-	Mapping    map[string]string // ResultModeMapping
-	MatchedKey string            // which config key selected this (for logs)
-}
-
-// resolveResultSpec inspects the `complete` step config and returns the
-// normalised contract. Precedence is the candidates order below; when (against
-// guidance) more than one key is present the highest-precedence one wins and the
-// conflict is logged. Deprecated keys are accepted with a migration Warn. No
-// logger.Debug — Debug does not surface in our logs.
+// resolveResultSpec delegates to the shared table (single source of truth for
+// the complete-step key vocabulary).
 func resolveResultSpec(completeConfig map[string]interface{}, logger *zap.Logger) ResultSpec {
-	if completeConfig == nil {
-		return ResultSpec{Mode: ResultModeFallback}
-	}
-
-	type candidate struct {
-		key        string
-		deprecated string // preferred replacement name, "" if current
-		build      func() (ResultSpec, bool)
-	}
-
-	candidates := []candidate{
-		{key: "result_from", build: func() (ResultSpec, bool) {
-			s, ok := completeConfig["result_from"].(string)
-			if !ok || s == "" {
-				return ResultSpec{}, false
-			}
-			return ResultSpec{Mode: ResultModeFlatten, From: s, MatchedKey: "result_from"}, true
-		}},
-		{key: "output_field", deprecated: "result_from", build: func() (ResultSpec, bool) {
-			s, ok := completeConfig["output_field"].(string)
-			if !ok || s == "" {
-				return ResultSpec{}, false
-			}
-			return ResultSpec{Mode: ResultModeFlatten, From: s, MatchedKey: "output_field"}, true
-		}},
-		{key: "multiple_output_fields", build: func() (ResultSpec, bool) {
-			raw, ok := completeConfig["multiple_output_fields"].([]interface{})
-			if !ok {
-				return ResultSpec{}, false
-			}
-			f := datahelpers.ToStringSlice(raw)
-			if len(f) == 0 {
-				return ResultSpec{}, false
-			}
-			return ResultSpec{Mode: ResultModeFields, Fields: f, MatchedKey: "multiple_output_fields"}, true
-		}},
-		{key: "output_fields", deprecated: "multiple_output_fields", build: func() (ResultSpec, bool) {
-			raw, ok := completeConfig["output_fields"].([]interface{})
-			if !ok {
-				return ResultSpec{}, false
-			}
-			f := datahelpers.ToStringSlice(raw)
-			if len(f) == 0 {
-				return ResultSpec{}, false
-			}
-			return ResultSpec{Mode: ResultModeFields, Fields: f, MatchedKey: "output_fields"}, true
-		}},
-		{key: "result_mapping", build: func() (ResultSpec, bool) {
-			m, ok := toStringMap(completeConfig["result_mapping"])
-			if !ok {
-				return ResultSpec{}, false
-			}
-			return ResultSpec{Mode: ResultModeMapping, Mapping: m, MatchedKey: "result_mapping"}, true
-		}},
-		{key: "output", deprecated: "result_mapping", build: func() (ResultSpec, bool) {
-			m, ok := toStringMap(completeConfig["output"])
-			if !ok {
-				return ResultSpec{}, false
-			}
-			return ResultSpec{Mode: ResultModeMapping, Mapping: m, MatchedKey: "output"}, true
-		}},
-	}
-
-	var chosen *ResultSpec
-	var chosenDeprecated string
-	var present []string
-
-	for i := range candidates {
-		c := candidates[i]
-		spec, ok := c.build()
-		if !ok {
-			continue
-		}
-		present = append(present, c.key)
-		if chosen == nil {
-			s := spec
-			chosen = &s
-			chosenDeprecated = c.deprecated
-		}
-	}
-
-	if chosen == nil {
-		logger.Info("resolveResultSpec: no result contract on complete step; using fallback dump")
-		return ResultSpec{Mode: ResultModeFallback}
-	}
-
-	if chosenDeprecated != "" {
-		logger.Warn("resolveResultSpec: deprecated complete-step key in use; migrate to preferred name",
-			zap.String("deprecated_key", chosen.MatchedKey),
-			zap.String("preferred", chosenDeprecated))
-	}
-
-	if len(present) > 1 {
-		logger.Warn("resolveResultSpec: multiple result-contract keys present; using highest precedence",
-			zap.Strings("present_keys", present),
-			zap.String("using", chosen.MatchedKey))
-	}
-
-	logger.Info("resolveResultSpec: resolved result contract",
-		zap.String("mode", chosen.Mode.String()),
-		zap.String("matched_key", chosen.MatchedKey),
-		zap.Int("field_count", len(chosen.Fields)),
-		zap.Int("mapping_count", len(chosen.Mapping)))
-
-	return *chosen
+	return datahelpers.ResolveResultSpec(completeConfig, logger)
 }
 
 // fallbackDumpInto is the previous default behaviour, extracted verbatim so
@@ -227,23 +105,6 @@ func (s *SagaCoordinator) fallbackDumpInto(result map[string]interface{}, state 
 // toStringMap and setIfAbsent have no datahelpers equivalent (the package has
 // CleanDataMap / GetMapKeys / ExtractNestedField* / ExtractStepData / ToStringSlice
 // only), so they stay here, local to package orchestration.
-
-func toStringMap(v interface{}) (map[string]string, bool) {
-	raw, ok := v.(map[string]interface{})
-	if !ok || len(raw) == 0 {
-		return nil, false
-	}
-	out := make(map[string]string, len(raw))
-	for k, val := range raw {
-		if s, ok := val.(string); ok {
-			out[k] = s
-		}
-	}
-	if len(out) == 0 {
-		return nil, false
-	}
-	return out, true
-}
 
 func setIfAbsent(m map[string]interface{}, key string, value interface{}) {
 	if _, exists := m[key]; !exists {
