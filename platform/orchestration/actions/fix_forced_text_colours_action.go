@@ -496,11 +496,11 @@ func rewriteSectionDeclarationsInHTML(html string, class paintClass, pairKind st
 				case "bg":
 					return decl // the band's own background stands (hex bands are fix_hardcoded's territory)
 				case "muted":
-					return "--section-muted: color-mix(in srgb, var(--color-on-primary, var(--color-background)) 70%, transparent);"
+					return "--section-muted: color-mix(in srgb, var(--color-primary-text, var(--color-background)) 70%, transparent);"
 				case "border":
-					return "--section-border: color-mix(in srgb, var(--color-on-primary, var(--color-background)) 25%, transparent);"
+					return "--section-border: color-mix(in srgb, var(--color-primary-text, var(--color-background)) 25%, transparent);"
 				default:
-					return "--section-" + name + ": var(--color-on-primary, var(--color-background));"
+					return "--section-" + name + ": var(--color-primary-text, var(--color-background));"
 				}
 			default: // paintAmbient — non-painters must not declare
 				return ""
