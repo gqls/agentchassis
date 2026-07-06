@@ -15,12 +15,10 @@
 //   action emits the re-render that does.
 //
 // SCOPE
-//   Page-scoped imagery only (hero / section images on a specific page). The
-//   needs_imagery spec carries scope + scope_ref (the page name). Site-scoped
-//   imagery (logo) lives in the header — a SITE component rendered by
-//   render_site_components, a separate path — so flagging a page rebuild would
-//   not re-resolve it. Logo wiring is a follow-up in the header render path,
-//   deliberately not handled here.
+// Section-scoped imagery (scope_ref = "<page>:<ordinal>") re-renders its page
+// too: plan_sections resolves section assets per page, so a landed section
+// image needs the same needs_page emit as a hero. Derive the page from the
+// scope_ref prefix and fall through to the page path.
 //
 // MECHANISM (reuses existing pieces)
 //   1. flagPagesForRebuild — sets pages.build_status = 'needs_rebuild'.
@@ -64,6 +62,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -104,6 +103,18 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 
 	scope := inputs.Get("scope")
 	pageName := inputs.Get("scope_ref")
+
+	// Section-scoped imagery (scope_ref = "<page>:<ordinal>") re-renders its page
+	// too: plan_sections resolves section assets per page, so a landed section
+	// image needs the same needs_page emit as a hero. Derive the page from the
+	// scope_ref prefix and fall through to the page path.
+	if scope == "section" && strings.Contains(pageName, ":") {
+		pageName = strings.SplitN(pageName, ":", 2)[0]
+		scope = "page"
+		logger.Info("flag_page_image_rebuild: section-scoped imagery mapped to its page",
+			zap.String("scope_ref", inputs.Get("scope_ref")),
+			zap.String("page", pageName))
+	}
 
 	// Only page-scoped imagery triggers a page re-render.
 	if scope != "page" || pageName == "" {
