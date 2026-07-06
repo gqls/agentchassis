@@ -235,6 +235,7 @@ kubectl -n ai-persona-system logs --tail=500 -l agent-type=gpu-provisioner -f --
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=model-trainer -f --max-log-requests 20 | tee logs-model-trainer.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=diagnose-agent -f --max-log-requests 20 | tee logs-diagnose-agent.json
 kubectl -n ai-persona-system logs --tail=500 -l agent-type=code-indexer -f --max-log-requests 20 | tee logs-code-indexer.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=vertical-exemplar-researcher -f --max-log-requests 20 | tee logs-vertical-exemplar-researcher.json
 
 kubectl -n ai-persona-system logs --tail=500 -l app=thunder-adapter -f --max-log-requests 20 | tee logs-thunder-adapter.json
 kubectl -n ai-persona-system logs --tail=500 -l app=analyser-adapter -f --max-log-requests 20 | tee logs-analyser-adapter.json
