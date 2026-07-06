@@ -221,10 +221,23 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 		renderedCSS = renderedCSS + sectionDefaults
 	}
 
+	// 11. Append renderer-enforced compatibility aliases for custom-property
+	// names that component templates consume but this theme does not define
+	// (R6f vocabulary audit 2026-07-06: synonym drift such as --border-radius
+	// vs --radius, legacy names such as --primary-color, and orphan tokens
+	// such as --hero-ink). Only names absent from the CSS built so far are
+	// added, so a layout that defines its own value always wins. Same
+	// renderer-enforced pattern as buildSectionDefaults in step 10.
+	aliasCSS := buildTokenAliases(renderedCSS, logger)
+	if aliasCSS != "" {
+		renderedCSS = renderedCSS + aliasCSS
+	}
+
 	logger.Info("RenderCSSFromSpecAction: CSS rendered",
 		zap.Int("css_length", len(renderedCSS)),
 		zap.Int("snippet_css_length", len(snippetCSS)),
 		zap.Int("section_defaults_length", len(sectionDefaults)),
+		zap.Int("token_alias_length", len(aliasCSS)),
 		zap.String("theme", comp.ThemeName),
 		zap.String("layout", comp.LayoutName),
 	)
@@ -497,4 +510,47 @@ func loadComponentCSSSnippets(ctx context.Context, db *sql.DB, components []stri
 	}
 
 	return "\n\n/* === Component-specific styles === */\n" + strings.Join(parts, "\n\n")
+}
+
+// tokenAliases maps component-consumed custom-property names that some
+// themes never define onto canonical tokens (or safe literals). Order is
+// stable so output is deterministic. Sourced from the R6f vocabulary
+// audit (2026-07-06): synonym drift, legacy names, orphan tokens. Extend
+// here when a new template vocabulary variant appears in the wild.
+var tokenAliases = []struct{ Name, Value string }{
+	{"--border-radius", "var(--radius, 8px)"},
+	{"--shadow", "var(--shadow-md, 0 2px 12px rgba(0, 0, 0, 0.15))"},
+	{"--spacing-section", "var(--section-pad-y, 4rem)"},
+	{"--container-max-width", "var(--container-max, 1200px)"},
+	{"--primary-color", "var(--color-primary)"},
+	{"--secondary-color", "var(--color-secondary)"},
+	{"--accent-color", "var(--color-accent)"},
+	{"--color-heading", "var(--color-text)"},
+	{"--color-white", "#ffffff"},
+	{"--color-error", "#d64545"},
+	{"--hero-ink", "var(--color-text)"},
+}
+
+// buildTokenAliases returns a :root block defining every tokenAliases
+// name that is not already DEFINED anywhere in css. A definition is the
+// name followed by a colon ("--shadow:"), which cannot match a var()
+// usage ("var(--shadow)") or a longer sibling name ("--shadow-md:").
+// Returns "" when nothing is missing.
+func buildTokenAliases(css string, logger *zap.Logger) string {
+	var missing []string
+	var b strings.Builder
+	for _, a := range tokenAliases {
+		if strings.Contains(css, a.Name+":") {
+			continue
+		}
+		missing = append(missing, a.Name)
+		b.WriteString("  " + a.Name + ": " + a.Value + ";\n")
+	}
+	if len(missing) == 0 {
+		return ""
+	}
+	logger.Info("RenderCSSFromSpecAction: appending compatibility token aliases",
+		zap.Strings("aliases", missing))
+	return "\n\n/* renderer-enforced compatibility aliases (component vocabulary bridge) */\n:root {\n" +
+		b.String() + "}\n"
 }
