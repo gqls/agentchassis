@@ -240,6 +240,37 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	result["output_path"] = processed.Paths.FilePath
 	result["size_bytes"] = len(processed.Data)
 
+	// Record the deployed local URL on the asset row so resolvers (plan_sections'
+	// site_assets source) serve the site-local path instead of the expiring
+	// presigned storage URL. The pre-update url's unsigned object path is
+	// preserved into storage_path (COALESCE = only when empty), mirroring the
+	// w9_04 backfill. Best-effort: a failure here must not fail the deploy.
+	if params.DB != nil {
+		if assetIDStr := inputs.Get("asset_id"); assetIDStr != "" {
+			if assetUUID, parseErr := uuid.Parse(assetIDStr); parseErr == nil {
+				if _, execErr := params.DB.ExecContext(ctx, `
+					UPDATE assets
+					SET storage_path     = COALESCE(storage_path, split_part(url, '?', 1)),
+					    storage_provider = COALESCE(storage_provider, 'backblaze'),
+					    filename         = $2,
+					    url              = $3
+					WHERE id = $1
+				`, assetUUID, processed.Paths.Filename, processed.Paths.RelativeURL); execErr != nil {
+					logger.Warn("deploy_image_asset: failed to record local url on asset",
+						zap.String("asset_id", assetIDStr),
+						zap.Error(execErr))
+				} else {
+					logger.Info("deploy_image_asset: recorded local url on asset",
+						zap.String("asset_id", assetIDStr),
+						zap.String("url", processed.Paths.RelativeURL))
+				}
+			} else {
+				logger.Warn("deploy_image_asset: invalid asset_id for local url record",
+					zap.String("asset_id", assetIDStr))
+			}
+		}
+	}
+
 	// Write URL directly to collected_data so it survives the git adapter
 	// response overwriting this step's output_field (hero_deployed/logo_deployed).
 	// The build loop's input_mapping reads hero_url/logo_url from collected_data
