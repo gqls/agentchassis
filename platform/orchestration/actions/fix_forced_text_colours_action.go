@@ -415,43 +415,145 @@ var textColorDeclRe = regexp.MustCompile(`(^|[{;\s])color:\s*(#[0-9a-fA-F]{3,8})
 // styleBlockRe finds <style> blocks.
 var styleBlockRe = regexp.MustCompile(`(?is)(<style[^>]*>)(.*?)(</style>)`)
 
-// sectionContractRe checks if --section-text is defined in the CSS.
-var sectionContractRe = regexp.MustCompile(`--section-text\s*:`)
+// paintClass describes what a template's own CSS paints, derived from the CSS
+// itself — never from is_dark_section.
+type paintClass int
+
+const (
+	paintAmbient     paintClass = iota // background/surface vars, or no background of its own
+	paintPair                          // var(--color-<kind>-bg) band (cta/header/footer)
+	paintInk                           // --hero-ink model (layered/image sections)
+	paintPaletteBand                   // primary/secondary/accent band, or a literal hex band
+)
+
+var pairBgRe = regexp.MustCompile(`var\(--color-(cta|header|footer)-bg`)
+var inkModelRe = regexp.MustCompile(`--hero-ink`)
+var paletteBandBgRe = regexp.MustCompile(`background[^;{}]*var\(--color-(primary|secondary|accent)\b`)
+var hexBandBgRe = regexp.MustCompile(`background(?:-color)?\s*:\s*[^;{}]*#[0-9a-fA-F]{3,8}`)
+
+// sectionDeclRe matches a full --section-* custom-property declaration.
+var sectionDeclRe = regexp.MustCompile(`--section-(bg|text|heading|muted|border|link)\s*:\s*[^;}]+;?`)
+
+// classifySectionPainting inspects the template's CSS and returns its painting
+// class; for paintPair it also returns the pair kind (cta/header/footer).
+func classifySectionPainting(html string) (paintClass, string) {
+	if m := pairBgRe.FindStringSubmatch(html); m != nil {
+		return paintPair, m[1]
+	}
+	if inkModelRe.MatchString(html) {
+		return paintInk, ""
+	}
+	if paletteBandBgRe.MatchString(html) || hexBandBgRe.MatchString(html) {
+		return paintPaletteBand, ""
+	}
+	return paintAmbient, ""
+}
+
+// rewriteSectionDeclarationsInHTML converts literal --section-* declarations in
+// <style> blocks to references appropriate to the painting class, and removes
+// them entirely for ambient (non-painting) sections. Declarations that already
+// reference vars or color-mix are left alone.
+func rewriteSectionDeclarationsInHTML(html string, class paintClass, pairKind string) string {
+	return styleBlockRe.ReplaceAllStringFunc(html, func(block string) string {
+		m := styleBlockRe.FindStringSubmatch(block)
+		if len(m) < 4 {
+			return block
+		}
+		newCSS := sectionDeclRe.ReplaceAllStringFunc(m[2], func(decl string) string {
+			sub := sectionDeclRe.FindStringSubmatch(decl)
+			if len(sub) < 2 {
+				return decl
+			}
+			name := sub[1]
+			if strings.Contains(decl, "var(") || strings.Contains(decl, "color-mix(") {
+				return decl // already a reference
+			}
+			switch class {
+			case paintPair:
+				switch name {
+				case "bg":
+					return "--section-bg: var(--color-" + pairKind + "-bg);"
+				case "muted":
+					return "--section-muted: color-mix(in srgb, var(--color-" + pairKind + "-text) 70%, transparent);"
+				case "border":
+					return "--section-border: color-mix(in srgb, var(--color-" + pairKind + "-text) 25%, transparent);"
+				default: // text, heading, link
+					return "--section-" + name + ": var(--color-" + pairKind + "-text);"
+				}
+			case paintInk:
+				switch name {
+				case "bg":
+					return decl // the template paints its own layered background
+				case "muted":
+					return "--section-muted: color-mix(in srgb, var(--hero-ink) 75%, transparent);"
+				case "border":
+					return "--section-border: color-mix(in srgb, var(--hero-ink) 30%, transparent);"
+				default:
+					return "--section-" + name + ": var(--hero-ink);"
+				}
+			case paintPaletteBand:
+				switch name {
+				case "bg":
+					return decl // the band's own background stands (hex bands are fix_hardcoded's territory)
+				case "muted":
+					return "--section-muted: color-mix(in srgb, var(--color-on-primary, var(--color-background)) 70%, transparent);"
+				case "border":
+					return "--section-border: color-mix(in srgb, var(--color-on-primary, var(--color-background)) 25%, transparent);"
+				default:
+					return "--section-" + name + ": var(--color-on-primary, var(--color-background));"
+				}
+			default: // paintAmbient — non-painters must not declare
+				return ""
+			}
+		})
+		if newCSS == m[2] {
+			return block
+		}
+		return m[1] + newCSS + m[3]
+	})
+}
+
 
 func processComponentCSS(
 	html, function string, isDarkSection bool,
 	palette sitePalette, minContrast float64, logger *zap.Logger,
 ) cssFixResult {
+	// NOTE (paired-variable re-aim): isDarkSection is deliberately IGNORED. A
+	// section's appearance derives from what its own CSS paints; is_dark_section
+	// is metadata only and must never key styling. The parameter is kept so the
+	// two call sites and both Scans stay unchanged.
+	_ = isDarkSection
+
 	result := cssFixResult{html: html, worstRatio: 99.0}
 
-	// Determine what the text and heading colors WILL BE after removing forced colors
-	var expectedTextColor, expectedHeadingColor, bgColor string
+	// --- Classify what the template's own CSS paints ---
+	class, pairKind := classifySectionPainting(html)
 
-	if isDarkSection {
-		// Dark section: text gets --section-text (white-ish) or inherits body color
-		// Headings get --section-heading (#fff) or --color-primary
-		expectedTextColor = "#ffffff"    // --section-text resolves to ~white
-		expectedHeadingColor = "#ffffff" // --section-heading resolves to white
-		bgColor = palette.primary        // dark sections typically use primary as bg
-	} else {
-		// Light section: text inherits from body (--color-text)
-		// Headings get --color-primary (fallback from --section-heading)
-		expectedTextColor = palette.text
-		expectedHeadingColor = palette.primary
-		bgColor = palette.background
+	// --- Rewrite literal --section-* declarations to references per the contract:
+	// pair painters re-export the pair; the ink model re-exports the ink;
+	// palette/hex bands take the on-colour family; ambient painters must not
+	// declare at all (their declarations are removed).
+	newHTML := rewriteSectionDeclarationsInHTML(html, class, pairKind)
+	if newHTML != html {
+		html = newHTML
+		result.html = html
+		result.contractAdded = true // repurposed: declarations rewritten/removed
+		result.changed = true
 	}
 
-	// Try to extract actual background color from the component's CSS
+	// --- Contrast pre-check for the literal-strip step (the safety property kept):
+	// after stripping, text inherits the ambient chain — palette text on the
+	// extracted/ambient background must clear minContrast or literals stay.
+	expectedTextColor := palette.text
+	expectedHeadingColor := palette.primary
+	bgColor := palette.background
 	if extracted := extractBgColor(html); extracted != "" {
 		bgColor = extracted
 	}
-
-	// --- Contrast pre-check ---
 	textRatio, textErr := wcagContrastRatio(expectedTextColor, bgColor)
 	headingRatio, headingErr := wcagContrastRatio(expectedHeadingColor, bgColor)
-
 	if textErr != nil || headingErr != nil {
-		logger.Warn("processComponentCSS: contrast calc failed, skipping",
+		logger.Warn("processComponentCSS: contrast calc failed, skipping strip",
 			zap.String("function", function),
 			zap.Error(textErr),
 		)
@@ -459,34 +561,21 @@ func processComponentCSS(
 		result.worstRatio = 0
 		return result
 	}
-
 	worst := math.Min(textRatio, headingRatio)
 	result.worstRatio = math.Round(worst*100) / 100
-
 	if worst < minContrast {
-		logger.Warn("processComponentCSS: resulting contrast too low, skipping",
+		logger.Warn("processComponentCSS: ambient contrast too low, keeping literals",
 			zap.String("function", function),
-			zap.Float64("text_ratio", textRatio),
-			zap.Float64("heading_ratio", headingRatio),
+			zap.Float64("worst_ratio", result.worstRatio),
 			zap.Float64("min_required", minContrast),
 			zap.String("bg", bgColor),
-			zap.String("expected_text", expectedTextColor),
 		)
 		result.skippedContrast = true
 		return result
 	}
 
-	// --- For dark sections missing --section-* contract, add it ---
-	if isDarkSection {
-		newHTML := ensureSectionContractInHTML(html, logger)
-		if newHTML != html {
-			html = newHTML
-			result.contractAdded = true
-		}
-	}
-
-	// --- Remove forced text colors from child element rules ---
-	newHTML := removeChildTextColorsFromHTML(html)
+	// --- Remove forced text colors from child element rules (unchanged) ---
+	newHTML = removeChildTextColorsFromHTML(html)
 	if newHTML != html {
 		result.html = newHTML
 		result.changed = true
@@ -608,31 +697,6 @@ const sectionContractCSS = `
     --section-surface: rgba(255,255,255,0.05);
     --section-border: rgba(255,255,255,0.2);`
 
-// ensureSectionContractInHTML checks if the HTML's <style> blocks contain
-// --section-text. If not, finds the container rule (first class-only selector
-// that sets background) and injects the contract variables.
-func ensureSectionContractInHTML(html string, logger *zap.Logger) string {
-	return styleBlockRe.ReplaceAllStringFunc(html, func(block string) string {
-		matches := styleBlockRe.FindStringSubmatch(block)
-		if len(matches) < 4 {
-			return block
-		}
-		openTag := matches[1]
-		cssContent := matches[2]
-		closeTag := matches[3]
-
-		// Already has the contract
-		if sectionContractRe.MatchString(cssContent) {
-			return block
-		}
-
-		newCSS := injectSectionContract(cssContent, logger)
-		if newCSS == cssContent {
-			return block
-		}
-		return openTag + newCSS + closeTag
-	})
-}
 
 // containerBgRe finds CSS rules with a dark background (container-level).
 // Matches rules like: .hero-section { background: #1a1a2e; ... }
@@ -640,24 +704,6 @@ var containerBgRe = regexp.MustCompile(
 	`(\.[a-z][a-z0-9-]*-section\s*\{[^}]*)(background(?:-color)?:\s*(?:#[0-4][0-9a-fA-F]{5}|var\(--color-primary\)))([^}]*)(\})`,
 )
 
-func injectSectionContract(css string, logger *zap.Logger) string {
-	// Find the container rule that sets a dark background
-	if !containerBgRe.MatchString(css) {
-		// No recognisable dark container rule — can't safely inject
-		logger.Debug("injectSectionContract: no dark container rule found")
-		return css
-	}
-
-	// Insert --section-* variables just before the closing } of the container rule
-	return containerBgRe.ReplaceAllStringFunc(css, func(match string) string {
-		// Only inject once (first match)
-		closingIdx := strings.LastIndex(match, "}")
-		if closingIdx < 0 {
-			return match
-		}
-		return match[:closingIdx] + sectionContractCSS + "\n" + match[closingIdx:]
-	})
-}
 
 // ============================================================================
 // Background color extraction
