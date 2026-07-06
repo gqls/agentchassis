@@ -1,0 +1,59 @@
+ERROR:  operator does not exist: integer + timestamp with time zone
+LINE 1: ...l, 95) AS url_head, created_at, duration, duration+created_a...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+clients_db=# -- W8 step 8 (read-only): the CORRECTED probes. The old LIKE '%illustration_%' tested
+-- the asset KEY string, but asset objects are UUID-named — the probe was blind.
+
+-- 8.1 What the renders actually contain (both pages):
+SELECT p.name, pc.updated_at,
+       (pc.rendered_html LIKE '%brief-explanation__image-wrapper%') AS wrapper_rendered,
+       (pc.rendered_html LIKE '%personae-prod-uk001-images%')       AS b2_url_in_render,
+       substr(pc.rendered_html,
+              greatest(position('__image' in pc.rendered_html) - 40, 1), 320) AS image_region
+FROM page_components pc JOIN pages p ON p.id = pc.page_id
+WHERE p.site_id = (SELECT id FROM sites WHERE domain='idea.uk')
+  AND p.name IN ('index','tools') AND pc.slot_name = 'brief-explanation'
+ORDER BY p.name;
+
+-- 8.2 URL forms by kind — how do heroes avoid the presigned problem? (deployed heroes
+--     reference local /assets/images/ paths; these rows show whether assets.url differs
+--     by kind or localisation happens downstream):
+SELECT asset_key, status, left(url, 95) AS url_head, created_at, duration
+FROM assets
+WHERE site_id = (SELECT id FROM sites WHERE domain='idea.uk')
+  AND asset_key IN ('hero_home', 'illustration_home', 'illustration_tools')
+ORDER BY asset_key;
+ name  |          updated_at           | wrapper_rendered | b2_url_in_render |                        image_region
+-------+-------------------------------+------------------+------------------+-------------------------------------------------------------
+ index | 2026-07-04 13:02:10.277132+00 | t                | t                | anslateY(-1px);                                            +
+       |                               |                  |                  |   }                                                        +
+       |                               |                  |                  |   .brief-explanation__image-col {                          +
+       |                               |                  |                  |     position: relative;                                    +
+       |                               |                  |                  |   }                                                        +
+       |                               |                  |                  |   .brief-explanation__image-wrapper {                      +
+       |                               |                  |                  |     position: relative;                                    +
+       |                               |                  |                  |     border-radius: var(--border-radius, 0.75rem);          +
+       |                               |                  |                  |     overflow: hidden;                                      +
+       |                               |                  |                  |     border: 1px solid var(--section-border);               +
+       |                               |                  |                  |     box-shadow: var(--shadow, 0 20px 60px rgba(0,0,0,0.4));
+ tools | 2026-07-03 18:12:55.268264+00 | t                | t                | anslateY(-1px);                                            +
+       |                               |                  |                  |   }                                                        +
+       |                               |                  |                  |   .brief-explanation__image-col {                          +
+       |                               |                  |                  |     position: relative;                                    +
+       |                               |                  |                  |   }                                                        +
+       |                               |                  |                  |   .brief-explanation__image-wrapper {                      +
+       |                               |                  |                  |     position: relative;                                    +
+       |                               |                  |                  |     border-radius: var(--border-radius, 0.75rem);          +
+       |                               |                  |                  |     overflow: hidden;                                      +
+       |                               |                  |                  |     border: 1px solid var(--section-border);               +
+       |                               |                  |                  |     box-shadow: var(--shadow, 0 20px 60px rgba(0,0,0,0.4));
+(2 rows)
+
+     asset_key      | status |                                            url_head                                             |          created_at           | duration
+--------------------+--------+-------------------------------------------------------------------------------------------------+-------------------------------+----------
+ hero_home          | active | https://s3.us-east-005.backblazeb2.com/personae-prod-uk001-images/images/system/20260621/7b4cb7 | 2026-06-21 16:15:10.098402+00 |
+ illustration_home  | active | https://s3.us-east-005.backblazeb2.com/personae-prod-uk001-images/images/system/20260703/de73be | 2026-07-03 13:25:21.913918+00 |
+ illustration_tools | active | https://s3.us-east-005.backblazeb2.com/personae-prod-uk001-images/images/system/20260703/b8454c | 2026-07-03 13:28:06.397126+00 |
+(3 rows)
+
