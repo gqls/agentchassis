@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <title>Gripper Selection Guide | Common Mistakes, Decision Framework & Application Examples | ROBOT-HANDS.COM</title>
+  <style>
+    /* CSS Reset & Base Styles */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--color-text);
+      background-color: var(--color-background);
+    }
+
+    /* Layout */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+    .container--narrow { max-width: 800px; }
+
+    /* Grid System */
+    .grid {
+      display: grid;
+      gap: 2rem;
+    }
+    .grid--2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .grid--3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+    .grid--4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+    /* Sections */
+    .section { padding: 4rem 1rem; }
+    .section__title {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: var(--color-heading);
+    }
+    .section__title--center { text-align: center; }
+    .section__content { font-size: 1.125rem; }
+
+    /* Cards */
+    .card {
+      padding: 2rem;
+      background: var(--color-card-bg);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+    }
+
+    /* Buttons */
+    .button {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .button--primary {
+      background: var(--color-primary);
+      color: var(--color-primary-text);
+    }
+    .button--primary:hover {
+      background: var(--color-primary-hover);
+    }
+    .button--secondary {
+      background: var(--color-secondary);
+      color: var(--color-secondary-text);
+    }
+    .button--secondary:hover {
+      background: var(--color-secondary-hover);
+    }
+    .button--primary-inverse {
+      background: var(--color-background);
+      color: var(--color-primary);
+    }
+    .button--secondary-inverse {
+      background: transparent;
+      color: var(--color-background);
+      border: 2px solid var(--color-background);
+    }
+    .button--large {
+      padding: 1rem 2rem;
+      font-size: 1.125rem;
+    }
+    .button--small {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+    .button--full-width {
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Header */
+    .site-header {
+      background: var(--color-header-bg);
+      color: var(--color-header-text);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: var(--shadow);
+    }
+    .site-header__nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+    }
+    .site-header__brand {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    .site-header__menu {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+    .site-header__link {
+      color: var(--color-header-text);
+      text-decoration: none;
+    }
+    .site-header__link:hover {
+      opacity: 0.8;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 4rem 1rem;
+    }
+    .hero__title {
+      font-size: 3rem;
+      margin-bottom: 1.5rem;
+      color: var(--color-hero-title);
+    }
+    .hero__subtitle {
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
+      color: var(--color-hero-subtitle);
+    }
+    .hero__actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Features */
+    .feature {
+      text-align: center;
+    }
+    .feature__icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    .feature__title {
+      font-size: 1.25rem;
+      margin-bottom: 0.5rem;
+      color: var(--color-heading);
+    }
+    .feature__description {
+      color: var(--color-text-muted);
+    }
+
+    /* Pricing */
+    .pricing-tier {
+      position: relative;
+    }
+    .pricing-tier--featured {
+      border: 3px solid var(--color-primary);
+      transform: scale(1.05);
+    }
+    .pricing-tier__badge {
+      position: absolute;
+      top: -1rem;
+      right: 1rem;
+      background: var(--color-primary);
+      color: var(--color-primary-text);
+      padding: 0.25rem 1rem;
+      border-radius: var(--border-radius);
+      font-size: 0.875rem;
+      font-weight: bold;
+    }
+    .pricing-tier__name {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .pricing-tier__price {
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin-bottom: 1.5rem;
+      color: var(--color-primary);
+    }
+    .pricing-tier__features {
+      list-style: none;
+      margin-bottom: 2rem;
+    }
+    .pricing-tier__feature {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    /* Testimonials */
+    .stat-highlight {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .stat-highlight__number {
+      font-size: 3rem;
+      font-weight: bold;
+      color: var(--color-primary);
+    }
+    .stat-highlight__label {
+      font-size: 1.25rem;
+      color: var(--color-text-muted);
+    }
+    .testimonial {
+      text-align: center;
+    }
+    .testimonial__rating {
+      color: var(--color-accent);
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .testimonial__text {
+      font-style: italic;
+      margin-bottom: 1rem;
+    }
+    .testimonial__author {
+      font-weight: bold;
+      color: var(--color-text-muted);
+    }
+
+    /* FAQ */
+    .faq-item {
+      padding: 1.5rem;
+      background: var(--color-card-bg);
+      border-radius: var(--border-radius);
+      margin-bottom: 1rem;
+      cursor: pointer;
+    }
+    .faq-item__question {
+      font-size: 1.125rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .faq-item__answer {
+      margin-top: 1rem;
+      color: var(--color-text-muted);
+    }
+
+    /* CTA Section */
+    .section--cta {
+      background: var(--color-cta-bg);
+      color: var(--color-cta-text);
+    }
+    .cta {
+      text-align: center;
+    }
+    .cta__title {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: var(--color-cta-text);
+    }
+    .cta__subtitle {
+      font-size: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .cta__actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Footer */
+    .site-footer {
+      background: var(--color-footer-bg);
+      color: var(--color-footer-text);
+      padding: 3rem 1rem 1rem;
+    }
+    .site-footer__brand {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    .site-footer__tagline {
+      opacity: 0.8;
+    }
+    .site-footer__heading {
+      font-size: 1.125rem;
+      margin-bottom: 1rem;
+    }
+    .site-footer__links {
+      list-style: none;
+    }
+    .site-footer__links li {
+      margin-bottom: 0.5rem;
+    }
+    .site-footer__link {
+      color: var(--color-footer-text);
+      text-decoration: none;
+      opacity: 0.8;
+    }
+    .site-footer__link:hover {
+      opacity: 1;
+    }
+    .site-footer__bottom {
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--color-border);
+      text-align: center;
+      opacity: 0.6;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .site-header__menu { display: none; }
+      .hero__title { font-size: 2rem; }
+      .hero__subtitle { font-size: 1.25rem; }
+      .section__title { font-size: 2rem; }
+      .grid--4 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    }
+  </style>
+  <style>
+    /* Theme-specific styles injected here:  */
+
+  </style>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <script src="/assets/js/snippets.js"></script>
+</head>
+<body>
+<header class="site-header site-header--gradient">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            <span class="logo-icon">◆</span>
+            <span class="logo-text">robot-hands.com</span>
+        </a>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/services.html">Services</a></li>
+                <li><a href="/gripper-catalog.html">Gripper Catalog</a></li>
+                <li><a href="/gripper-catalog/index.html">Gripper Catalog</a></li>
+                <li><a href="/matchmatrix.html">MatchMatrix</a></li>
+                <li><a href="/selection-guide.html">Selection Guide</a></li>
+                <li><a href="/learning-center.html">Learning Center</a></li>
+                <li><a href="/tools/tool-grip-force-friction-calculator.html">Grip Force & Friction Coefficient Calculator</a></li>
+            </ul>
+        </nav>
+        <a href="/contact.html" class="header-cta">Get Started</a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</header>
+<style>
+.site-header--gradient {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+.site-header--gradient .header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+.site-header--gradient .logo {
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+}
+.site-header--gradient .logo-icon {
+    color: #16a085;
+    font-size: 1.5rem;
+}
+.site-header--gradient .main-nav {
+    flex: 1;
+}
+.site-header--gradient .main-nav ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2rem;
+    justify-content: center;
+}
+.site-header--gradient .main-nav a {
+    color: rgba(255,255,255,0.9);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+.site-header--gradient .main-nav a:hover,
+.site-header--gradient .main-nav a.active { color: #16a085; }
+.site-header--gradient .header-cta {
+    background: #16a085;
+    color: white;
+    padding: 0.6rem 1.25rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.site-header--gradient .header-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.site-header--gradient .logo-img {
+          max-height: 40px;
+          width: auto;
+          display: block;
+      }
+      .mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+.site-header--gradient .mobile-menu-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: white;
+    margin: 5px 0;
+}
+@media (max-width: 768px) {
+    .site-header--gradient .logo-img {
+          max-height: 40px;
+          width: auto;
+          display: block;
+      }
+      .mobile-menu-toggle { display: block; }
+    .site-header--gradient .main-nav, .site-header--gradient .header-cta { display: none; }
+    .site-header--gradient .main-nav.active {
+        display: block;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #1a1a2e;
+        padding: 1rem;
+    }
+    .site-header--gradient .main-nav ul { flex-direction: column; }
+    .site-header--gradient .main-nav a { display: block; padding: 0.75rem 0; }
+}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var toggle = document.querySelector(".mobile-menu-toggle");
+    var nav = document.querySelector(".main-nav");
+    if (toggle && nav) {
+        toggle.addEventListener("click", function() {
+            nav.classList.toggle("active");
+        });
+    }
+});
+</script>
+<main>
+<section class="hero" data-component="hero" style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url('/assets/images/hero.jpg'); background-size: cover; background-position: center; --hero-ink: #fff;">
+        <div class="hero-content">
+            <h1>Gripper Selection Mistakes That Cost Cycles, Rework, and Restarts</h1>
+            <p class="hero-subheadline">Mismatched actuation technology, underspecified grip force, unquantified cycle-time budget — these are the failure modes engineers encounter after commissioning, not before. This guide maps the most common selection errors against a structured decision framework, with application examples across pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive technologies. Work through the criteria in order: payload and geometry first, then environmental constraints, then actuation trade-offs. Cross-technology comparisons use consistent benchmarking parameters throughout — not manufacturer datasheets read in isolation.</p>
+            <a href="/contact.html" class="btn btn-primary">Open the Decision Framework</a>
+            <a href="/services.html" class="btn btn-secondary">Run a MatchMatrix Query</a>
+        </div>
+    </section>
+<style>
+.hero {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    position: relative;
+
+    /* Dark section context */
+    --section-text: color-mix(in srgb, var(--hero-ink) 95%, transparent);
+    --section-text-muted: color-mix(in srgb, var(--hero-ink) 80%, transparent);
+    --section-heading: var(--hero-ink);
+    --section-surface: color-mix(in srgb, var(--hero-ink) 10%, transparent);
+    --section-border: color-mix(in srgb, var(--hero-ink) 30%, transparent);
+}
+.hero-content {
+    max-width: 900px;
+    margin: 0 auto;
+    color: var(--hero-ink);
+    z-index: 1;
+}
+.hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.35rem);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+.hero .btn {
+    display: inline-block;
+    padding: 0.875rem 2rem;
+    margin: 0.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+.hero .btn-primary {
+    background: var(--hero-ink);
+    color: var(--color-primary);
+    border: 2px solid var(--hero-ink);
+}
+.hero .btn-primary:hover {
+    background: transparent;
+    color: var(--hero-ink);
+}
+.hero .btn-secondary {
+    background: transparent;
+    color: var(--hero-ink);
+    border: 2px solid color-mix(in srgb, var(--hero-ink) 80%, transparent);
+}
+.hero .btn-secondary:hover {
+    background: color-mix(in srgb, var(--hero-ink) 10%, transparent);
+}
+@media (max-width: 768px) {
+    .hero {
+        min-height: 60vh;
+        padding: 3rem 1.5rem;
+    }
+    .hero .btn {
+        display: block;
+        width: 100%;
+        max-width: 280px;
+        margin: 0.5rem auto;
+    }
+}
+</style>
+<style>
+  .brief-explanation-section {
+    --section-text: var(--color-text);
+    --section-text-muted: var(--color-text-muted);
+    --section-heading: var(--color-heading, var(--color-text));
+    --section-surface: var(--color-surface);
+    --section-border: var(--color-border);
+    background: var(--color-background, #0d0d0d);
+    color: var(--section-text);
+    padding: var(--spacing-section, 5rem 2rem);
+    position: relative;
+    overflow: hidden;
+  }
+  .brief-explanation-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 60% 40%, color-mix(in srgb, var(--color-primary) 12%, transparent) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .brief-explanation__container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+  .brief-explanation__eyebrow {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-accent, #f59e0b);
+    margin-bottom: 1rem;
+  }
+  .brief-explanation__heading {
+    font-size: clamp(1.75rem, 3vw, 2.75rem);
+    font-weight: 800;
+    line-height: 1.15;
+    color: var(--section-heading);
+    margin: 0 0 1.25rem;
+  }
+  .brief-explanation__heading em {
+    font-style: normal;
+    color: var(--color-accent, #f59e0b);
+  }
+  .brief-explanation__description {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: var(--section-text-muted);
+    margin: 0 0 2.5rem;
+    max-width: 48ch;
+  }
+  .brief-explanation__steps {
+    list-style: none;
+    margin: 0 0 2.75rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .brief-explanation__step {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+  .brief-explanation__step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--color-primary, #7c3aed);
+    color: var(--color-primary-text, #ffffff);
+    font-size: 0.85rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+  }
+  .brief-explanation__step-body {
+    padding-top: 0.35rem;
+  }
+  .brief-explanation__step-title {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--section-heading);
+    margin-bottom: 0.25rem;
+  }
+  .brief-explanation__step-sentence {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--section-text-muted);
+    margin: 0;
+  }
+  .brief-explanation__stats {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2.5rem;
+    padding: 1.25rem 1.5rem;
+    background: var(--section-surface);
+    border: 1px solid var(--section-border);
+    border-radius: var(--border-radius, 0.75rem);
+  }
+  .brief-explanation__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .brief-explanation__stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--color-accent, #f59e0b);
+    line-height: 1;
+  }
+  .brief-explanation__stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--section-text-muted);
+  }
+  .brief-explanation__stat-divider {
+    width: 1px;
+    background: var(--section-border);
+    align-self: stretch;
+  }
+  .brief-explanation__ctas {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .brief-explanation__cta-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 2rem;
+    background: var(--color-primary, #7c3aed);
+    color: var(--color-primary-text, #ffffff);
+    font-size: 0.95rem;
+    font-weight: 700;
+    border-radius: var(--border-radius, 0.75rem);
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    min-height: 44px;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .brief-explanation__cta-primary:hover {
+    background: var(--color-primary-hover, #6d28d9);
+    transform: translateY(-1px);
+  }
+  .brief-explanation__cta-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 2rem;
+    background: transparent;
+    color: var(--section-text);
+    font-size: 0.95rem;
+    font-weight: 700;
+    border-radius: var(--border-radius, 0.75rem);
+    text-decoration: none;
+    border: 1.5px solid var(--section-border);
+    cursor: pointer;
+    min-height: 44px;
+    transition: border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+  .brief-explanation__cta-secondary:hover {
+    border-color: var(--color-accent, #f59e0b);
+    color: var(--color-accent, #f59e0b);
+    transform: translateY(-1px);
+  }
+  .brief-explanation__image-col {
+    position: relative;
+  }
+  .brief-explanation__image-wrapper {
+    position: relative;
+    border-radius: var(--border-radius, 0.75rem);
+    overflow: hidden;
+    border: 1px solid var(--section-border);
+    box-shadow: var(--shadow, 0 20px 60px rgba(0,0,0,0.4));
+  }
+  .brief-explanation__image {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+  }
+  .brief-explanation__badge {
+    position: absolute;
+    bottom: 1.25rem;
+    left: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--color-primary, #7c3aed);
+    color: var(--color-primary-text, #ffffff);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    border-radius: calc(var(--border-radius, 0.75rem) * 0.6);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .brief-explanation__badge-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-accent, #f59e0b);
+    animation: be-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes be-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.75); }
+  }
+  @media (max-width: 900px) {
+    .brief-explanation__container {
+      grid-template-columns: 1fr;
+      gap: 3rem;
+    }
+    .brief-explanation__image-col {
+      order: -1;
+    }
+    .brief-explanation__description {
+      max-width: 100%;
+    }
+  }
+  @media (max-width: 768px) {
+    .brief-explanation__stats {
+      gap: 1.25rem;
+      padding: 1rem;
+    }
+    .brief-explanation__stat-value {
+      font-size: 1.25rem;
+    }
+    .brief-explanation__ctas {
+      flex-direction: column;
+    }
+    .brief-explanation__cta-primary,
+    .brief-explanation__cta-secondary {
+      width: 100%;
+      text-align: center;
+    }
+  }
+</style>
+
+<section class="brief-explanation-section" data-component="brief-explanation">
+  <div class="brief-explanation__container">
+    <div class="brief-explanation__text-col">
+      <span class="brief-explanation__eyebrow">HOW IT WORKS</span>
+      <h2 class="brief-explanation__heading">Gripper selection built on <em>methodology</em>, not guesswork</h2>
+      <p class="brief-explanation__description">A structured framework for gripper selection: filter by actuation technology, calculate load and stroke parameters, then run MatchMatrix to generate a ranked shortlist against your application constraints.</p>
+
+      <ol class="brief-explanation__steps">
+        <li class="brief-explanation__step">
+          <span class="brief-explanation__step-number">1</span>
+          <div class="brief-explanation__step-body">
+            <strong class="brief-explanation__step-title">Define Application Constraints</strong>
+            <p class="brief-explanation__step-sentence">Enter payload, environment, duty cycle, and interface requirements to filter the catalog to relevant gripper technologies.</p>
+          </div>
+        </li>
+        <li class="brief-explanation__step">
+          <span class="brief-explanation__step-number">2</span>
+          <div class="brief-explanation__step-body">
+            <strong class="brief-explanation__step-title">Calculate Key Parameters</strong>
+            <p class="brief-explanation__step-sentence">Run the payload and stroke calculators using your actual cycle time, workpiece mass, and grip geometry.</p>
+          </div>
+        </li>
+        <li class="brief-explanation__step">
+          <span class="brief-explanation__step-number">3</span>
+          <div class="brief-explanation__step-body">
+            <strong class="brief-explanation__step-title">Generate Ranked Shortlist</strong>
+            <p class="brief-explanation__step-sentence">MatchMatrix scores candidates against your weighted criteria and outputs an auditable shortlist with documented trade-offs.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="brief-explanation__stats">
+        <div class="brief-explanation__stat">
+          <span class="brief-explanation__stat-value">6</span>
+          <span class="brief-explanation__stat-label">Cross-Technology Comparisons in One Workflow</span>
+        </div>
+        <div class="brief-explanation__stat-divider"></div>
+        <div class="brief-explanation__stat">
+          <span class="brief-explanation__stat-value">Pneumatic · Electric · Vacuum · Magnetic · Soft-Robotic · Adhesive</span>
+          <span class="brief-explanation__stat-label">Actuation Technologies Benchmarked</span>
+        </div>
+        <div class="brief-explanation__stat-divider"></div>
+        <div class="brief-explanation__stat">
+          <span class="brief-explanation__stat-value">100%</span>
+          <span class="brief-explanation__stat-label">Documented, Auditable Scoring Methodology</span>
+        </div>
+      </div>
+
+      <div class="brief-explanation__ctas">
+        <a href="#" class="brief-explanation__cta-primary">Get Started</a>
+        <a href="#" class="brief-explanation__cta-secondary">Learn More</a>
+      </div>
+    </div>
+
+    <div class="brief-explanation__image-col">
+
+    </div>
+  </div>
+</section>
+{
+  "heading": "Gripper Selection Guide: Common Mistakes, Decision Framework & Application Examples",
+  "content": "<p>Most gripper selection errors are made before a single datasheet is opened. The engineer anchors on a technology they have used before, rules out alternatives on the basis of a single limiting factor, or inherits a specification from a previous cell without verifying that the application constraints still apply. This guide documents the most common selection mistakes, presents a structured decision framework for narrowing the technology space, and walks through representative application examples across pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive gripper technologies — all benchmarked against the same set of criteria so comparisons are valid.</p><p>The framework here does not replace calculation. It structures the decisions you need to make before running payload calculations or submitting a MatchMatrix query. Work through it in order: application constraints first, technology envelope second, performance parameters third, integration requirements last. Skipping steps is where the common mistakes originate.</p><p><strong>Common Mistake 1: Specifying grip force from peak payload alone.</strong> Grip force requirements are a function of payload mass, acceleration profile, coefficient of friction between jaw face and workpiece, and safety factor — not payload alone. Undersizing happens when engineers use static weight and ignore dynamic loading during high-acceleration moves. Oversizing happens when engineers apply a blanket safety factor without accounting for friction. Both are avoidable with a force calculation that uses actual cycle kinematics.</p><p><strong>Common Mistake 2: Treating cycle time as a gripper parameter rather than a system parameter.</strong> Pneumatic gripper actuation times are typically in the range of 20–150 ms depending on bore size, stroke, and supply line volume. Electric grippers vary by motor sizing and stroke — some achieve comparable actuation times, others are significantly slower. If your cycle budget is tight, actuation time needs to be quantified against the full motion sequence, not assumed negligible. Magnetic and adhesive technologies have different engagement and release dynamics entirely, and these must be modelled for the application, not taken from best-case datasheet figures.</p><p><strong>Common Mistake 3: Selecting jaw geometry from the workpiece nominal dimensions only.</strong> Jaw contact geometry must account for dimensional variation across the workpiece population, surface finish, compliance requirements, and the grip point's relationship to the part's centre of gravity. A jaw set that works on nominal parts can fail on parts at tolerance limits if the contact geometry does not accommodate the variation. This is particularly critical in applications handling cast or formed components with flash or parting-line variation.</p><p><strong>Common Mistake 4: Ignoring environmental compatibility until late in the design cycle.</strong> Washdown requirements, IP rating, temperature range, chemical exposure, and contamination sensitivity all constrain the available technology options. A pneumatic gripper that is acceptable in a dry assembly environment may require a fully sealed variant in food processing — and the sealed variant may have a different force-to-bore-area relationship than the standard catalogue model. Establish environmental constraints at the start of the selection process, not after a preferred model is already in the bill of materials.</p><p><strong>Common Mistake 5: Benchmarking on manufacturer datasheet specifications rather than application-relevant performance criteria.</strong> Datasheets report maximum grip force at rated pressure, maximum finger length, and maximum payload — all under idealised conditions. Real-world performance depends on actual supply pressure at the gripper (accounting for pressure drop through the circuit), actual finger length in the tooled configuration, and actual workpiece surface properties. Cross-technology comparison is only valid when all candidates are evaluated against the same application-specific criteria, not against their own best-case published figures.</p><p><strong>Decision Framework: Five Questions in Order</strong></p><p><strong>1. What are the workpiece properties?</strong> Define: mass (kg), dimensional envelope (mm), surface condition (machined, cast, flexible, fragile, porous, contaminated), and any properties that constrain contact type — temperature, surface finish requirements, electrostatic sensitivity, food-grade compliance. These properties rule out technology classes before any other analysis. Fragile or compliant surfaces rule out high-force jaw grippers unless compliance is engineered into the jaw. Porous surfaces rule out vacuum unless a foam or bellows seal compensates. Ferromagnetic workpieces open the magnetic lifter option; non-ferromagnetic closes it.</p><p><strong>2. What are the cycle and throughput requirements?</strong> State: target cycle time (s), required actuation speed (ms), and acceptable positional repeatability (mm or degrees). High-speed pick-and-place applications with cycle times under 1 second will typically constrain you to pneumatic or purpose-built electric solutions. Applications requiring in-process force feedback or programmable grip force profiles favour electric actuation. Applications where repeatability tolerances are tight — under ±0.05 mm — require attention to backlash and compliance in the gripper mechanics, not just the robot arm.</p><p><strong>3. What are the environmental and integration constraints?</strong> Define: IP rating requirement, temperature range, presence of washdown, compressed air availability and supply pressure (bar), controller interface (digital I/O, fieldbus, analogue), and payload budget on the robot flange including cabling and tooling. Compressed air availability and supply pressure directly affect pneumatic feasibility. Fieldbus integration requirements affect electric gripper selection more than pneumatic. Flange payload budget constrains gripper mass, which in turn constrains jaw material choices and maximum stroke.</p><p><strong>4. What grip strategy does the geometry allow?</strong> Identify whether the application permits external grip, internal grip, or surface contact. External jaw grip requires clearance access around the workpiece perimeter. Internal grip requires a bore or recess of sufficient depth. Vacuum requires a flat or contoured sealable surface area. Magnetic requires a ferromagnetic contact surface of sufficient area and thickness to sustain the required holding force. Adhesive grippers require clean, consistent surface conditions. Soft-robotic fingers require volume around the workpiece for the fingers to conform. Rule out grip strategies that the workpiece geometry does not support.</p><p><strong>5. What are the failure mode and safety requirements?</strong> Define the required behaviour on loss of power or loss of air supply. Pneumatic grippers with spring-return mechanisms maintain grip or release on air loss depending on configuration — specify which is required. Electric grippers with braking mechanisms can hold position on power loss; not all do. Vacuum systems fail on loss of vacuum generation unless a venturi reservoir maintains partial vacuum transiently. Magnetic permanent-magnet lifters maintain grip on power loss by default — which may be the required fail-safe or may create a safety hazard depending on the application. Define the required fail-state before shortlisting, not after.</p><p><strong>Application Examples by Technology</strong></p><p><strong>Pneumatic parallel gripper — machined metal component handling.</strong> A two-jaw parallel pneumatic gripper operating at 5–6 bar supply with a bore diameter sized for the required grip force, external jaw grip on a turned cylindrical workpiece. Jaw faces machined to a V-groove profile to accommodate diameter variation and provide a defined contact geometry. Actuation time in the range of 30–60 ms. No positional feedback required — proximity sensors on open and closed positions confirm state. This is the appropriate solution when cycle time is demanding, compressed air is available, and the workpiece is rigid with defined grip surfaces. It is not appropriate when the robot controller needs to know actual grip force, when the workpiece surface cannot tolerate jaw marking, or when compressed air is not available at the cell.</p><p><strong>Electric servo gripper — mixed-SKU assembly.</strong> A servo-actuated parallel gripper with programmable stroke and force control, integrated fieldbus interface, and position feedback with sub-millimetre resolution. Grip force set by programme to a value appropriate for each part type — lower force for compliant or fragile parts, higher force for heavy or dynamically loaded components. Stroke programmed to each part's grip diameter without mechanical jaw changeover. This is appropriate when the application handles multiple part variants with differing size and fragility, when force feedback is required for process verification, or when the cell operates without compressed air infrastructure. Actuation time is application-dependent and must be verified against the cycle budget — do not assume it is equivalent to pneumatic without checking the specific model's speed-force curve.</p><p><strong>Vacuum cup array — flat cardboard carton handling.</strong> A vacuum gripper with multiple bellows-profile cups arranged to cover the available surface area, venturi or pump vacuum generation, and a vacuum switch for grip confirmation. Cup diameter and array layout sized to distribute load and maintain the required safety factor across the full weight range of the carton. This is appropriate when the workpiece provides a consistent flat or slightly contoured sealable surface
+<section class="features-section" data-component="features">
+    <div class="features-container">
+        <h2>Every Variable That Affects Gripper Selection, In One Place</h2>
+        <p class="features-subtitle">Cross-technology benchmarking, documented methodology, and integrated calculation tools — built for engineers who need a defensible specification, not a shortlist of sponsored products.</p>
+        <div class="features-grid">
+
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="grid"></i></div>
+                <h3>Cross-Technology Catalog</h3>
+                <p>Pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive grippers indexed under a consistent specification schema. Compare gripping force in Newtons, jaw stroke in millimetres, cycle time in milliseconds, and IP rating across actuation technologies without normalising datasheets by hand. Filter by payload, workpiece geometry, environmental constraints, or duty cycle requirements.</p>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="sliders"></i></div>
+                <h3>MatchMatrix Scoring Engine</h3>
+                <p>Structured multi-criteria scoring across application parameters — not a proprietary algorithm producing unexplained rankings. Every weighting factor in MatchMatrix is documented and auditable. Adjust the weighting to reflect your actual constraints: if cleanroom compliance outweighs cycle speed in your application, the scoring reflects that. Methodology documentation is publicly available.</p>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="calculator"></i></div>
+                <h3>Integrated Parameter Calculators</h3>
+                <p>Gripping force, vacuum flow rate, payload capacity under acceleration, and finger moment load calculators built into the specification workflow. Input your workpiece mass, coefficient of friction, and robot acceleration profile — get the minimum required gripping force before you open the catalog. Assumptions are stated explicitly in every calculation.</p>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="activity"></i></div>
+                <h3>Real-World Performance Criteria</h3>
+                <p>Manufacturer datasheet values are the starting point, not the final word. Where application data exists on surface finish sensitivity, temperature drift in gripping force, or cycle-count degradation, it is surfaced alongside nominal specs. The catalog distinguishes between tested performance data and published datasheet claims.</p>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="book-open"></i></div>
+                <h3>Application Engineering Guides by Vertical</h3>
+                <p>Gripper selection in automotive assembly has different binding constraints than electronics handling or food packaging. The Learning Center structures selection guidance by application vertical — each guide frames the problem from the constraints that actually govern that environment: wash-down ratings, contamination risk, cycle rate, workpiece variability, and changeover requirements.</p>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="bar-chart-2"></i></div>
+                <h3>Technology Trade-Off Analyses</h3>
+                <p>Head-to-head comparisons — pneumatic vs electric, vacuum vs magnetic, two-jaw vs three-jaw — structured around the decision criteria that determine which technology fits which application. No preferred vendor. No sponsored rankings. Trade-offs are presented in terms of force output, energy consumption, controllability, maintenance interval, and total cost of ownership.</p>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="git-merge"></i></div>
+                <h3>Specification Workflow Integration</h3>
+                <p>Filter the catalog → run parameter calculations → score candidates through MatchMatrix → generate a documented shortlist. Each step feeds the next. The output is a shortlist with the scoring rationale attached — a specification artefact you can present to a procurement team or engineering review, not just a product recommendation.</p>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="shield"></i></div>
+                <h3>Data Source Transparency</h3>
+                <p>Every specification entry states its data source and last-verified date. Where a value comes from a manufacturer datasheet, that is labelled. Where it comes from independent benchmarking or application testing, that is labelled separately. You know exactly what you are relying on before you commit to a specification.</p>
+            </div>
+
+        </div>
+    </div>
+</section>
+<style>
+/* Layout only - colors inherited from global CSS */
+.features-section {
+    padding: var(--spacing-section, 5rem 2rem);
+}
+.features-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.features-section h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.features-subtitle {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}
+.feature-item {
+    text-align: center;
+    padding: 2rem;
+}
+.feature-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    color: var(--color-accent, #0f3460);
+}
+.feature-icon svg {
+    width: 100%;
+    height: 100%;
+}
+.feature-item h3 {
+    margin-bottom: 1rem;
+}
+.feature-item p {
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .features-section { padding: 3rem 1.5rem; }
+    .features-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+</style>
+<section id="d91e7be1-65ed-4a6d-b694-1f9a0ddfcd59" class="section section--faq" data-component="faq">
+  <div class="container container--narrow">
+    <h2 class="section__title section__title--center">Gripper Selection: Frequently Asked Questions</h2>
+    <div class="faq-list">
+
+      <details class="faq-item">
+        <summary class="faq-item__question">What is the difference between using this guide and reading a manufacturer's datasheet?</summary>
+        <p class="faq-item__answer"><p>Manufacturer datasheets report performance under ideal lab conditions — typically clean parts, controlled temperature, and static loading. This guide cross-references those specs against real-world operating variables: cycle-induced fatigue, contamination ingress, workpiece compliance variation, and dynamic load factors. Where datasheet values are used, the source and last-verified date are stated explicitly so you can assess their relevance to your application conditions.</p><p>The goal is not to replace datasheets but to give you the contextual framework to interpret them — and to compare specs across actuation technologies using consistent benchmarking criteria rather than each manufacturer's preferred units and test conditions.</p></p>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-item__question">How does the decision framework handle applications that could work with more than one actuation technology?</summary>
+        <p class="faq-item__answer"><p>Most real-world applications have a viable window of at least two or three actuation technologies. The framework does not collapse that window prematurely. Instead, it surfaces the trade-offs that differentiate viable options for your specific constraints: available utility (compressed air, 24 V DC, vacuum supply), cycle time budget in milliseconds, grip force requirement in Newtons, allowable footprint, IP rating, and cleanroom classification if relevant.</p><p>Where multiple technologies remain viable after applying hard constraints, the framework presents them side by side with quantified trade-offs — typically force-to-weight ratio, energy consumption per cycle, and total cost of ownership factors — so you can make the final call based on your system's priority weighting.</p></p>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-item__question">What are the most common mistakes engineers make when selecting a gripper?</summary>
+        <p class="faq-item__answer"><p>Three mistakes account for the majority of late-stage specification failures. First, sizing grip force from static load only — ignoring the dynamic load multiplier during acceleration and deceleration, which on a fast pick-and-place can be three to five times the static workpiece weight. Second, selecting vacuum cup diameter based on workpiece weight without accounting for surface porosity, temperature, or surface contamination, all of which directly reduce effective holding force. Third, specifying an electric gripper on cycle time alone without verifying that the motor's thermal rating supports sustained duty cycle at that cadence — intermittent peak speed is not the same as continuous throughput speed.</p><p>The common thread is treating the gripper as an isolated component rather than part of a dynamic system. The selection framework here explicitly builds in system-level parameters at each decision step.</p></p>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-item__question">How should I approach gripper selection for a part that has variable geometry or mixed SKUs?</summary>
+        <p class="faq-item__answer"><p>Variable geometry is the primary driver toward adaptive or underactuated finger designs, compliant soft-robotic grippers, or reconfigurable tooling with rapid-change capability. The right answer depends on how much geometric variation exists, how quickly changeovers must occur, and whether the variation is predictable (discrete SKUs) or continuous (random orientation, deformable parts).</p><p>For discrete SKUs with predictable geometry, a pneumatic parallel gripper with interchangeable jaws on a tool-change coupler is often the lowest-complexity, lowest-cost solution. For continuous geometric variation — particularly in logistics sortation or food handling — vacuum arrays or soft-robotic fingers typically offer better coverage of the variation envelope without requiring mechanical reconfiguration. The application guides on this site walk through both scenarios with force calculations and stroke requirements for representative part families.</p></p>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-item__question">What does MatchMatrix actually score, and how is the scoring documented?</summary>
+        <p class="faq-item__answer"><p>MatchMatrix scores gripper candidates against your application profile across a defined set of weighted criteria: grip force adequacy (static and dynamic), stroke sufficiency, duty cycle compatibility, environmental rating, payload-to-gripper-weight ratio, utility availability, and cycle time achievability. Each criterion is scored on a normalised scale, and the weighting applied reflects the constraint hierarchy you define — a cleanroom application weights IP/particle rating more heavily than a general-purpose one.</p><p>The full methodology — including the scoring rubric, weighting logic, and the data sources used to populate each gripper's parameter set — is documented in the MatchMatrix methodology page. The scoring is auditable: you can inspect how any candidate scored on any individual criterion and adjust the weighting if your application has a non-standard constraint priority.</p></p>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-item__question">Is this guide relevant if I am specifying a collaborative robot (cobot) application?</summary>
+        <p class="faq-item__answer"><p>Yes, with some additional constraints that are specific to cobot integration. Cobot applications impose stricter limits on end-effector mass and centre-of-gravity offset, both because of payload capacity limitations and because ISO/TS 15066 power-and-force-limiting calculations include the end-effector in the moving mass. Gripper selection for cobot deployment therefore requires payload calculations that account for TCP offset and inertial loading, not just static workpiece weight.</p><p>The guide addresses cobot-specific constraints in the force and parameter calculation section. Electric and vacuum grippers tend to dominate cobot applications due to the absence of pneumatic umbilicals and better controllability for contact-sensitive tasks, but the framework covers all technologies without assuming a preferred solution.</p></p>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-item__question">How do I determine the correct grip force for my application, and what safety factor should I apply?</summary>
+        <p class="faq-item__answer"><p>Start with the required holding force under dynamic conditions: F_hold = m × (g + a_max) × safety_factor, where m is workpiece mass in kg, g is 9.81 m/s², and a_max is the maximum acceleration in m/s² during the move profile. Apply this to each axis of acceleration independently if the robot path includes combined translational and rotational acceleration phases.</p><p>Safety factor selection depends on workpiece surface condition and grip type. A clean, dry, rigid part in a two-jaw parallel grip at a known friction coefficient of 0.3–0.4 typically uses a safety factor of 1.5–2.0. Oily surfaces, compliant workpieces, or single-point contact geometries warrant factors of 2.5–3.0 or higher. For vacuum grippers, calculate theoretical suction force from cup area and vacuum level, then apply a contamination and surface-roughness derating factor before comparing to the required holding force.</p></p>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-item__question">Why doesn't the guide simply recommend a specific brand or product for a given application type?</summary>
+        <p class="faq-item__answer"><p>Vendor-neutral coverage is a deliberate design decision, not a commercial constraint. Engineering specifications should be driven by performance criteria — force, stroke, cycle time, environmental rating, utility compatibility — not by distributor relationships or marketing positioning. A recommendation that fits one integrator's supplier list may be the wrong choice for another's production environment, spares inventory, or fieldbus architecture.</p><p>The catalog indexes grippers across manufacturers and actuation technologies using consistent benchmarking criteria. The MatchMatrix output is a shortlist with scored trade-offs, not a single winner. The final selection decision — and the accountability for it — belongs to the engineer specifying the system, supported by complete, comparable data rather than curated vendor suggestions.</p></p>
+      </details>
+
+    </div>
+  </div>
+</section>
+
+</main>
+<!-- FOOTER SOURCE: component-db:footer-4-column -->
+<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <h3>robot-hands.com</h3>
+            <p></p>
+        </div>
+        <div class="footer-links">
+            <h4>Quick Links</h4>
+            <ul>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/services.html">Services</a></li>
+                <li><a href="/gripper-catalog.html">Gripper Catalog</a></li>
+                <li><a href="/gripper-catalog/index.html">Gripper Catalog</a></li>
+                <li><a href="/matchmatrix.html">MatchMatrix</a></li>
+                <li><a href="/selection-guide.html">Selection Guide</a></li>
+                <li><a href="/learning-center.html">Learning Center</a></li>
+                <li><a href="/learning-center/index.html">Learning Center</a></li>
+                <li><a href="/gripper-selection-guide.html">Selection Guide</a></li>
+                <li><a href="/learning-center-hub.html">Learning Center</a></li>
+                <li><a href="/index.html">Home</a></li>
+                <li><a href="/contact.html">Contact</a></li>
+                <li><a href="/gripper-payload-calculator.html">Gripper Payload Calculator</a></li>
+                <li><a href="/gripper-cycle-time-estimator.html">Gripper Cycle Time Estimator</a></li>
+                <li><a href="/pneumatic-vs-electric-grippers.html">Pneumatic vs Electric</a></li>
+                <li><a href="/how-to-specify-a-gripper.html">Learning Center</a></li>
+                <li><a href="/how-it-works.html">How It Works</a></li>
+                <li><a href="/matchmatrix-methodology.html">MatchMatrix Method</a></li>
+                <li><a href="/tools/tool-grip-force-friction-calculator.html">Grip Force & Friction Coefficient Calculator</a></li>
+            </ul>
+        </div>
+        <div class="footer-services">
+            <h4>Our Services</h4>
+            <ul>
+                <li><a href="/gripper-catalog.html">Gripper Catalog</a></li>
+                <li><a href="/gripper-catalog/index.html">Gripper Catalog</a></li>
+                <li><a href="/matchmatrix.html">MatchMatrix</a></li>
+                <li><a href="/tools/matchmatrix/index.html">MatchMatrix</a></li>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/selection-guide.html">Selection Guide</a></li>
+            </ul>
+        </div>
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            <p><a href="mailto:"></a></p>
+            <p></p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <div class="footer-bottom-container">
+            <p>&copy; 2026 robot-hands.com. All rights reserved.</p>
+            <div class="footer-legal">
+                <a href="/privacy.html">Privacy Policy</a>
+                <a href="/terms.html">Terms of Service</a>
+            </div>
+        </div>
+    </div>
+</footer>
+<style>
+.site-footer {
+    background: #1a1a2e;
+    color: rgba(255,255,255,0.9);
+    padding: 4rem 0 0;
+    margin-top: auto;
+}
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 3rem;
+}
+.footer-brand h3 {
+    color: #fff;
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
+}
+.footer-brand p {
+    color: rgba(255,255,255,0.7);
+    margin: 0 0 1.5rem;
+    line-height: 1.6;
+}
+.footer-links h4,
+.footer-services h4,
+.footer-contact h4 {
+    color: #fff;
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.footer-links ul,
+.footer-services ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.footer-links li,
+.footer-services li {
+    margin-bottom: 0.5rem;
+}
+.footer-links a,
+.footer-services a,
+.footer-contact a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.footer-links a:hover,
+.footer-services a:hover,
+.footer-contact a:hover {
+    color: #fff;
+}
+.footer-contact p {
+    margin: 0 0 0.5rem;
+    color: rgba(255,255,255,0.7);
+}
+.footer-bottom {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.footer-bottom-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.footer-bottom p {
+    margin: 0;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+}
+.footer-legal {
+    display: flex;
+    gap: 2rem;
+}
+.footer-legal a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+.footer-legal a:hover {
+    color: rgba(255,255,255,0.8);
+}
+@media (max-width: 768px) {
+    .footer-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    .footer-bottom-container {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+</style>
+</body>
+</html>
