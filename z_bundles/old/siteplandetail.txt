@@ -1,0 +1,94 @@
+clients_db=# -- A. Is the spec 'site_plan' aspect a dead branch everywhere, and is the name right for vonc?
+SELECT aspect FROM site_specs
+WHERE site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74' AND is_current = true ORDER BY aspect;
+SELECT site_id, aspect, is_current FROM site_specs WHERE aspect = 'site_plan';
+
+-- B. Schema first, then: did the June planner know the PAGE but skip its SECTIONS?
+
+SELECT * FROM site_plan_pages
+WHERE plan_id = '77493277-f510-47ea-aa27-8fca415743d6'
+ORDER BY 1;
+
+-- C. Drift check for vonc: plan sections vs pages.sections, side by side (should now agree)
+SELECT p.name,
+       p.sections AS pages_sections,
+       COALESCE(jsonb_agg(sps.component_name ORDER BY sps.ordering)
+                FILTER (WHERE sps.id IS NOT NULL), '[]'::jsonb) AS plan_sections
+FROM pages p
+LEFT JOIN site_plans sp  ON sp.site_id = p.site_id AND sp.is_current = true
+LEFT JOIN site_plan_sections sps ON sps.plan_id = sp.id AND sps.page_name = p.name
+WHERE p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
+GROUP BY p.name, p.sections
+ORDER BY p.name;
+        aspect
+----------------------
+ briefing
+ classification
+ content_direction
+ cta
+ design_intent
+ identity
+ mission
+ resolved_composition
+ roadmap
+ strategy
+ submission
+(11 rows)
+
+               site_id                |  aspect   | is_current
+--------------------------------------+-----------+------------
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 5fe15466-4e2e-4ff2-981e-98c1b7074002 | site_plan | f
+ 5fe15466-4e2e-4ff2-981e-98c1b7074002 | site_plan | t
+ 00ff3af5-dad8-4770-9f70-3edc267a3c92 | site_plan | t
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | f
+ 1368e337-dd1d-4799-bbb3-8221a1b79bcc | site_plan | t
+ 2a8ebf9c-20a2-4c39-b191-840b012371da | site_plan | f
+ 2a8ebf9c-20a2-4c39-b191-840b012371da | site_plan | t
+ 4851f6fc-71cf-4160-a270-e03d6d3e0732 | site_plan | f
+ 4851f6fc-71cf-4160-a270-e03d6d3e0732 | site_plan | t
+(29 rows)
+
+                  id                  |               plan_id                |            name            |     role      |         slug          |                   url                   | parent_section | in_header | in_footer | nav_order |          created_at           |             title              | meta_description |   nav_label
+--------------------------------------+--------------------------------------+----------------------------+---------------+-----------------------+-----------------------------------------+----------------+-----------+-----------+-----------+-------------------------------+--------------------------------+------------------+---------------
+ 1f60cc36-dd61-4777-bffb-e92278f114b9 | 77493277-f510-47ea-aa27-8fca415743d6 | provocation                | blog-post     | provocation           | /blog/provocation.html                  |                | f         | f         |       100 | 2026-06-22 17:13:00.113565+00 | Provocation | Spark            |                  |
+ 51951182-2d6e-428a-b7f3-a32a5733e1ed | 77493277-f510-47ea-aa27-8fca415743d6 | contact                    | content       | contact               | /contact.html                           |                | f         | t         |         7 | 2026-06-22 17:13:00.113565+00 | Contact | Spark                |                  | Contact
+ 623dc5be-6a12-475e-9cdd-ed07fb5bbf42 | 77493277-f510-47ea-aa27-8fca415743d6 | index                      | landing       | index                 | /index.html                             |                | t         | t         |         1 | 2026-06-22 17:13:00.113565+00 | Spark | Where You Play         |                  | Home
+ 8fa88751-064e-4a8f-95e1-a21858c7545d | 77493277-f510-47ea-aa27-8fca415743d6 | provocations-index         | section-index | provocations          | /provocations/index.html                |                | t         | t         |         5 | 2026-06-22 17:13:00.113565+00 | Provocations Archive | Spark   |                  | Provocations
+ d8ac3665-aaaf-4deb-a10b-2210a666b405 | 77493277-f510-47ea-aa27-8fca415743d6 | tool-gauntlet              | tool          | gauntlet              | /tools/gauntlet/index.html              |                | t         | t         |         2 | 2026-06-22 17:13:00.113565+00 | The Gauntlet | Spark           |                  | Gauntlet
+ d8b2468b-9169-403c-aa07-588d6872752d | 77493277-f510-47ea-aa27-8fca415743d6 | about                      | content       | about                 | /about.html                             |                | t         | t         |         6 | 2026-06-22 17:13:00.113565+00 | How It Works | Spark           |                  | How It Works
+ ee84f330-2ad0-4e82-a0fc-30687fdbeca5 | 77493277-f510-47ea-aa27-8fca415743d6 | archetypes                 | content       | archetypes            | /archetypes.html                        |                | t         | t         |         3 | 2026-06-22 17:13:00.113565+00 | Archetypes | Spark             |                  | Archetypes
+ f6df70e2-ea3c-4b48-b842-e420dfdf5426 | 77493277-f510-47ea-aa27-8fca415743d6 | tool-archetype-taster-quiz | tool          | archetype-taster-quiz | /tools/archetype-taster-quiz/index.html |                | t         | t         |         4 | 2026-06-22 17:13:00.113565+00 | What's Your Archetype? | Spark |                  | Take the Quiz
+(8 rows)
+
+            name            |                                                       pages_sections                                                       |                                                       plan_sections
+----------------------------+----------------------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------
+ about                      | ["hero-about", "content-block-about", "game-master-explanation", "platform-comparison", "differentiators", "gauntlet-cta"] | ["hero-about", "content-block-about", "game-master-explanation", "platform-comparison", "differentiators", "gauntlet-cta"]
+ archetypes                 | ["hero", "archetype-grid", "archetype-combinations", "call-to-action"]                                                     | ["hero", "archetype-grid", "archetype-combinations", "call-to-action"]
+ contact                    | ["hero-contact", "contact-form"]                                                                                           | ["hero-contact", "contact-form"]
+ index                      | ["hero", "provocation-card", "gauntlet-cta", "brief-explanation", "lobby-grid", "system-stats"]                            | ["hero", "provocation-card", "gauntlet-cta", "brief-explanation", "lobby-grid", "system-stats"]
+ provocation                | []                                                                                                                         | []
+ provocations-index         | ["provocations-archive-list"]                                                                                              | ["provocations-archive-list"]
+ tool-archetype-taster-quiz | ["tool-archetype-taster-quiz", "archetype-result-card"]                                                                    | ["tool-archetype-taster-quiz", "archetype-result-card"]
+ tool-gauntlet              | ["gauntlet-interface", "archetype-result-card"]                                                                            | ["gauntlet-interface", "archetype-result-card"]
+(8 rows)
+

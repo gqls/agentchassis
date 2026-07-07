@@ -1,28 +1,38 @@
 // FILE: platform/orchestration/actions/load_page_sections_from_spec_action.go
 //
-// LoadPageSectionsFromSpecAction reads the section list for a page from
-// site_specs.site_plan (the authoritative spec), falling back to
-// pages.sections (the legacy source).
+// LoadPageSectionsFromSpecAction reads the section list for a page.
+//
+// Source priority (2026-07-06 — the site_plans table family is authoritative;
+// see PLAN_dynamic_sections_and_loaders "Plan storage" decision):
+//   1. site_plans tables — site_plan_sections for the CURRENT plan, by
+//      page_name, ordered. The normalised, versioned, constrained store the
+//      newer planner generation writes. When it serves, sections are synced
+//      to pages.sections (materialised cache) exactly as the spec path does.
+//   2. site_specs.site_plan aspect — the older planner generation's store;
+//      five sites currently carry a current aspect and are served here
+//      unchanged (their table lookup simply misses).
+//   3. pages.sections (legacy fallback / materialised cache).
+//   4. Same-role sibling layout synthesis (last resort, WARN-logged) — note
+//      this path already read the site_plans tables before this change.
 //
 // This replaces the implicit page_record.sections path in the page-build
-// workflow. When site_specs has a site_plan for this site, and the plan
-// includes sections for this page, those sections are used. Otherwise
-// the pages.sections column is used (backward compatible).
+// workflow.
 //
-// Also syncs: if site_specs sections differ from pages.sections, updates
-// the pages table so the two stay in sync going forward.
+// Also syncs: when a higher-priority source serves and differs from
+// pages.sections, the pages table is updated so the cache stays consistent.
 //
-// Fallback 2b (added): if neither site_specs.site_plan nor pages.sections
-// has sections for this page, borrow the layout skeleton from a same-role
-// sibling in the current plan. "sections" is a layout (an ordered list of
-// component types, e.g. ["hero","generic-text-block"]), NOT content — same-
-// role pages share a layout by design, and content is still written per page
-// by the content writer from this page's own source. This rescues a page
-// that reached the build with an empty sections array (e.g. a page unioned
-// back into the plan during adoption convergence with no sections to carry),
-// which would otherwise see zero sections and short-circuit the build to a
-// (silently successful) "no sections defined" completion. Adds a new
-// "source" value: "same_role_sibling".
+// Fallback 4 (was 2b): if no source has sections for this page, borrow the
+// layout skeleton from a same-role sibling in the current plan. "sections" is
+// a layout (an ordered list of component types, e.g.
+// ["hero","generic-text-block"]), NOT content — same-role pages share a
+// layout by design, and content is still written per page by the content
+// writer from this page's own source. This rescues a page that reached the
+// build with an empty sections array (e.g. a page unioned back into the plan
+// during adoption convergence with no sections to carry), which would
+// otherwise see zero sections and short-circuit the build to a (silently
+// successful) "no sections defined" completion. "source" values:
+// "site_plan_tables" (new, 2026-07-06), "site_specs", "pages_table",
+// "same_role_sibling", "none".
 //
 // Registration:
 //   "load_page_sections_from_spec": {
@@ -96,16 +106,72 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	}
 
 	// -----------------------------------------------------------------------
-	// 1. Try site_specs.site_plan (authoritative source)
+	// 1. site_plans tables (authoritative): site_plan_sections for the CURRENT
+	//    plan, by page_name, ordered. Written by the newer planner generation;
+	//    the same store fallback 4 (sibling synthesis) already reads.
 	// -----------------------------------------------------------------------
 	var specSections []string
 	var specSource string
 
+	planRows, tblErr := params.DB.QueryContext(ctx, `
+		SELECT sps.component_name
+		FROM site_plan_sections sps
+		JOIN site_plans sp ON sp.id = sps.plan_id
+		WHERE sp.site_id = $1 AND sp.is_current = true AND sps.page_name = $2
+		ORDER BY sps.ordering
+	`, siteID, pageName)
+	if tblErr != nil {
+		logger.Warn("LoadPageSectionsFromSpec: site_plan_sections lookup failed",
+			zap.Error(tblErr))
+	} else {
+		for planRows.Next() {
+			var comp string
+			if scanErr := planRows.Scan(&comp); scanErr != nil {
+				logger.Warn("LoadPageSectionsFromSpec: site_plan_sections scan failed",
+					zap.Error(scanErr))
+				continue
+			}
+			if comp != "" {
+				specSections = append(specSections, comp)
+			}
+		}
+		planRows.Close()
+	}
+
+	if len(specSections) > 0 {
+		specSource = "site_plan_tables"
+		logger.Info("LoadPageSectionsFromSpec: using site_plans tables (authoritative)",
+			zap.String("page", pageName),
+			zap.Int("sections", len(specSections)),
+			zap.Strings("section_names", specSections))
+
+		// Sync to pages.sections (materialised cache) — same guarded UPDATE as
+		// the site_specs path below.
+		sectionsJSON, _ := json.Marshal(specSections)
+		_, syncErr := params.DB.ExecContext(ctx, `
+			UPDATE pages SET sections = $1::jsonb, updated_at = NOW()
+			WHERE site_id = $2 AND name = $3
+			  AND sections::text IS DISTINCT FROM $1
+		`, string(sectionsJSON), siteID, pageName)
+		if syncErr != nil {
+			logger.Warn("LoadPageSectionsFromSpec: sync to pages.sections failed",
+				zap.Error(syncErr))
+		} else {
+			logger.Info("LoadPageSectionsFromSpec: synced sections to pages table")
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// 2. site_specs.site_plan aspect (older planner generation; five sites
+	//    currently live here — their table lookup above simply misses)
+	// -----------------------------------------------------------------------
 	var planDataJSON []byte
-	err = params.DB.QueryRowContext(ctx, `
+	if len(specSections) == 0 {
+		err = params.DB.QueryRowContext(ctx, `
 		SELECT data FROM site_specs
 		WHERE site_id = $1 AND aspect = 'site_plan' AND is_current = true
 	`, siteID).Scan(&planDataJSON)
+	}
 
 	if err == nil && planDataJSON != nil {
 		var planData map[string]interface{}
@@ -131,7 +197,10 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 		}
 	}
 
-	if len(specSections) > 0 {
+	// NOTE (2026-07-06): condition gained `specSource == ""` so this block only
+	// fires when the ASPECT served — Step 1 (site_plan_tables) now also fills
+	// specSections and must not be relabelled/re-synced here.
+	if specSource == "" && len(specSections) > 0 {
 		specSource = "site_specs"
 		logger.Info("LoadPageSectionsFromSpec: using site_specs.site_plan",
 			zap.String("page", pageName),
@@ -154,7 +223,7 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	}
 
 	// -----------------------------------------------------------------------
-	// 2. Fallback to pages.sections (legacy source)
+	// 3. Fallback to pages.sections (legacy source / materialised cache)
 	// -----------------------------------------------------------------------
 	if len(specSections) == 0 {
 		// Try from collected_data first (page_record.sections)
@@ -193,7 +262,7 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	}
 
 	// -----------------------------------------------------------------------
-	// 2b. Last-resort fallback: borrow the layout from a same-role sibling.
+	// 4 (was 2b). Last-resort fallback: borrow the layout from a same-role sibling.
 	//
 	// "sections" is a layout skeleton (an ordered list of component types,
 	// e.g. ["hero","generic-text-block"]), NOT content. Pages of the same
@@ -303,7 +372,7 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	}
 
 	// -----------------------------------------------------------------------
-	// 3. Return sections for plan_sections to consume
+	// 5. Return sections for plan_sections to consume
 	// -----------------------------------------------------------------------
 	if len(specSections) == 0 {
 		logger.Warn("LoadPageSectionsFromSpec: no sections found for page",

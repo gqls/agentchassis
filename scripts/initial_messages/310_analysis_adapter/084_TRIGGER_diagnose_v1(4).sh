@@ -41,6 +41,7 @@ RUNTIME_SITE="${RUNTIME_SITE:-}"   # optional: domain for the runtime evidence t
 SITE_ID="${SITE_ID:-}"             # optional: site uuid
 SUBJECT_TYPE="${SUBJECT_TYPE:-}"   # 3b: tool | pipeline (persists a NOTES row)
 SUBJECT_KEY="${SUBJECT_KEY:-}"     # 3b: <function> | build|content|design|maintenance
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # input_data — string concat, matching 082 (no jq dependency)
 INPUT_DATA="{\"symptom\":\"$SYMPTOM\",\"owner\":\"$OWNER\",\"repo\":\"$REPO\",\"ref\":\"$REF\""
@@ -72,6 +73,7 @@ else
 fi
 echo "  Correlation:   ${CORRELATION_ID}"
 echo "  Orchestration: ${ORCHESTRATION_ID}"
+echo "  Timestamp: $TIMESTAMP"
 echo "========================================="
 echo "SAVE: CORRELATION_ID=${CORRELATION_ID}  ORCHESTRATION_ID=${ORCHESTRATION_ID}"
 echo ""
