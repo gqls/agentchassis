@@ -147,7 +147,73 @@ here. RECOMMENDATION: promote this from *discovery* pilot to **known-answer
 benchmark** — the loop runs on the original symptom string, blind, and we score
 its output against the findings recorded above. See PLAN_fixloop_pilot.md §3.
 
+### Turn 2 — owner rulings; F0.1a LANDED (diagnosis_artifacts is live)
+
+**Owner ruled: the F1 edit plan targets the PLATFORM**, not dartsonline's data.
+Confirms the 2026-07-09 decision below and closes the only question turn 1 left
+open. Owner also directed: proceed with the migration.
+
+**Route taken.** Checked convention before inventing one.
+`scripts/migration/run-migrations.sh` is **empty (0 bytes)** — there is no
+migration runner and no `schema_migrations` version table in `clients_db`
+(only `migration_backups`). Migrations are hand-applied via psql, and the
+tools chat's live `doc_plans`/`doc_notes` still sit at `0NN_` in their own
+workstream directory. So: same pattern, same directory, `0NN_` prefix,
+`BEGIN`/`COMMIT`, `COMMENT ON`, an explicit manual-rollback footer, and a
+companion pre-flight script.
+
+**Pre-flight gates (`verify_before_migration_diagnosis_artifacts.sql`) — all
+clean** on clients_db: no `diagnosis_artifacts` table; no collision on the three
+index names (checked separately, because index names are schema-global and a
+clean table check does not cover them); `site_work_items.pipeline` carries **no
+CHECK constraint** and its live values are `build` (3758), `content` (24),
+`design` (13), `maintenance` (2) — so F0.1c's `'diagnose'` namespace is free and
+needs no schema change.
+
+**Applied `0NN_diagnosis_artifacts.sql`.** Shape: `correlation_id` (text, *not*
+uuid — `ExecutionContext.CorrelationID` is a string and the chassis does not
+guarantee uuid form), `orchestration_id`, `iteration` (CHECK ≥ 1), `kind`
+(CHECK ∈ {bundle, iteration_note}), `body`, nullable `site_id` (anchorless runs),
+`metadata` jsonb, `source_agent`, `created_by`, `created_at`, plus the retention
+knob `expires_at` + `pinned`. Three indexes: the `(correlation_id, iteration,
+kind)` read path; a **partial unique** on `(correlation_id, iteration) WHERE
+kind='bundle'`; a partial expiry index for the future sweep.
+
+*Why the unique index is partial:* exactly one bundle per (run, iteration), so a
+workflow step retry upserts rather than duplicates — but per-**step** notes mean
+several `iteration_note` rows share one iteration, so notes must not be covered.
+
+**F0.1a criteria — all seven pass.**
+1. Applies clean. 2. **Idempotent**: re-applying the file is a no-op (`IF NOT
+EXISTS` throughout; only harmless NOTICEs). 3. Round-trip: one row of each kind
+inserts and reads back with `metadata` intact. 4. The `kind` CHECK **rejects** a
+third kind (`'verdict'`). 5. The `iteration` CHECK **rejects** `0`. 6. The
+partial unique **rejects** a second `bundle` for the same (run, iteration)…
+7. …while **allowing** a second `iteration_note` for that same iteration.
+Plus, verified because the Go write depends on it: `ON CONFLICT
+(correlation_id, iteration) WHERE kind='bundle' DO UPDATE` correctly infers the
+partial index and **replaces** the body, leaving one row. That exact conflict
+clause is what F0.1b must use. Self-test rows deleted; table is empty.
+
+**Reconnaissance for F0.1b, done while here.** `DiagnoseAssembleBundleAction`
+(line 107) already has `params.DB` and `params.ExecutionContext` in hand, and
+returns its map at line 219 — the write-through goes immediately before that
+return, no signature change, no workflow-shape change. The iteration number is
+derivable without new plumbing: `diagnose_route` writes
+`route.diagnose_state` (`pkg/diagnose/advance.go:23`, json tag `iteration`), and
+assemble runs *before* route each pass, so
+`iteration = route.diagnose_state.iteration + 1`, defaulting to **1** when
+`diagnose_state` is absent (the genuine first pass). Note the trap
+`diagnose_route` documents at its `state_field` default: a bare `diagnose_state`
+never exists at top level — it must be read at `route.diagnose_state`.
+
 ## DECISIONS (with rationale)
+
+### 2026-07-09 (turn 2) — F1 targets the platform (OWNER CONFIRMED)
+- The missing `mark_no_sections` step and the nav column fix land in the
+  platform. Fixing dartsonline's plan would fix one site; causes B and C are
+  relay-level and fix every site by construction. Same reasoning that promoted
+  the roadmap gap to builder item 6.
 
 ### 2026-07-09 — pilot reframed as a known-answer benchmark (proposed, owner to confirm)
 - The dartsonline guides symptom is fully diagnosed by hand, with static /

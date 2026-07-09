@@ -92,6 +92,14 @@ news at the same time; full latitude on this site.**
 33-page plan with news in the header nav; content build is working through
 the queue unattended. See PLAN Phase I0 status block and running notes Turn 4.
 
+**Update 2026-07-09:** build essentially done — 14 hero images generated and
+deployed to git overnight, content layer healthy. Known issue (agent-side, no
+action needed from you): heroes don't render on 4 pages because some preset
+components ask for image keys the generator doesn't produce
+(`site_assets.background`/`product_screenshot`/etc.). Diagnosed; fix approach
+in PLAN "I0 finding". You may still see empty image areas on product-detail /
+about / gripper-detail / learning-center-index until that fix lands.
+
 ### B3. ~~Answer the seven open questions~~ ✅ DONE 2026-07-08
 All answers recorded in the running notes (Turn 2) and folded into the plan.
 

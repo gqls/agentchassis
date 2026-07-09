@@ -242,4 +242,114 @@ queue statuses refreshed; this entry.
 - User: B7 (layout gap decision) when convenient; B6 logo approval once the
   new logo asset exists (agent will flag it).
 
+## Turn 5 — 2026-07-09 — Build essentially done; imagery renders diagnosed (structural, not timing)
+
+**User input:** robot-hands.com near complete (services.html rendered ~17 min
+ago); downloaded services.html + product-detail.html. Observed: services has no
+imagery; product-detail missing images and the tool shows missing content.
+Flagged as maybe "renders later in time."
+
+**Build state now (~overnight run finished):**
+- Content build all but done: `page_rerender` 31 complete / 2 claimed / 3
+  triaged; 14 `needs_page` still queued. All 20 `needs_imagery` COMPLETE.
+- **14 hero assets generated and deployed to git overnight** (00:43–05:00),
+  keyed `hero_home`, `hero_product_detail`, `hero_services`, `hero_news`, etc.
+- product-detail and services now each have 3 components with **0 null
+  content** — the broken adoption content layer is gone; content is healthy.
+
+**DIAGNOSIS — the imagery-not-showing is a KEY-MISMATCH, not timing.**
+Two distinct structural problems:
+
+1. **Component image-source ≠ generated asset key (empty `src=""`).**
+   The product-detail hero (`product-hero_pre_037`, a generic preset) template
+   is `<img src="{{.hero_background_image_url}}">` +
+   `<img src="{{.product_image_url}}" alt="{{.product_image_alt}}">`, and its
+   schema sources those from `site_assets.background` and
+   `site_assets.product_screenshot`. But the plan generated the page hero under
+   key `hero_product_detail`. The page-aware resolver (FOCUS §5.1 fix) only maps
+   `site_assets.hero` → the page-hero asset; it does NOT satisfy `background`,
+   `product_screenshot`, `illustration`, or `image`. So those `src` render
+   empty while `product_image_alt` (LLM text) fills — exactly what the
+   downloaded HTML shows (alt present, src="").
+   - **Blast radius:** 4 pages carry empty `src=""` — about, gripper-detail,
+     learning-center-index, product-detail(×2).
+   - **All `site_assets.*` sources components ask for:** `hero` (works),
+     `background`, `illustration`, `image`, `product_screenshot` (none of the
+     latter four resolve — no generator produces those keys).
+
+2. **Generated hero with no slot to show it (orphan).** The `services-hero`
+   component template has NO `<img>` at all, so the generated + deployed
+   `hero_services.jpg` is never rendered. "No imagery on services" is the
+   component's design, not a failure — but we spent a generation on an asset
+   nothing consumes.
+
+**Why this matters / where it fits:** this is the FOCUS assessment's
+planner↔component↔resolver gap (§4.2, §5, §9-item5, §13) showing up concretely
+on the fresh build. It is squarely I0 acceptance ("logo/heroes render") AND
+shapes I3 (Lane B content imagery) and any resolver work. Fixing it is
+agent-side; options in the plan's new "I0 finding" block. NOT yet fixed —
+surfaced for a decision on approach.
+
+**Docs updated:** PLAN I0 status + new finding block; RUNBOOK state refresh;
+this entry.
+
+**Next actions:**
+- Agent: propose + (on go-ahead) implement the resolver/planner fix for
+  problem 1 (recommend: broaden the page-aware resolver to map the generic
+  image sources — `background`/`illustration`/`image` — to the page hero asset,
+  and treat `product_screenshot` as a distinct Lane-B need); decide services
+  orphan (give services-hero an image slot, or stop planning a hero for it).
+- User: still B7 (layout gap) when convenient; logo approval (B6) — logo asset
+  `hero_home`/logo now exist, agent to surface the logo for approval next.
+
+## Turn 6 — 2026-07-09 — Root cause unified: no single "how a component gets its image" contract
+
+**User observation (key):** the pages that DO show a hero all show the SAME
+image, and user wants the durable domain-general fix, not a robot-hands patch.
+
+**Verified:** 8 pages (index, gripper-catalog, matchmatrix, selection-guide,
+how-it-works, matchmatrix-methodology, gripper-selection-guide,
+tool-grip-force-…-guide) all render `url('/assets/images/hero.jpg')` — the
+generic 2-month-old placeholder — NOT their per-page generated hero (which
+exists in git). The standard `hero` component template is
+`url('{{or .hero_url .background_image}}')`; `content_data.hero_url` is a single
+site-wide value = the placeholder. So all pages read one field → one image.
+
+**UNIFIED ROOT CAUSE.** There is no single contract for how a component gets
+its image. Components resolve images THREE incompatible ways, and only one is
+wired to the per-page `site_plan_imagery → assets` pipeline:
+| Component pattern | Reads | Result |
+|---|---|---|
+| standard `hero` | `content_data.hero_url` (site-wide legacy field) | same placeholder on every page |
+| preset `*_pre_0NN` (e.g. product-hero) | `site_assets.background` / `product_screenshot` (keys nothing generates) | empty `src=""` |
+| `services-hero` | no image field at all | generated hero orphaned |
+Only components declaring `site_assets.hero` benefit from the 2026-05-27
+page-aware resolver (FOCUS §5.1) — and most don't. So per-page heroes generate
++ deploy correctly but the components never read them.
+
+**Also confirmed (rules out Option B as a complete fix):** the actual component
+INSTANCE is chosen by the component selector at build time (`plan_sections`),
+AFTER build-site-planner runs. So at plan time the planner cannot know a page
+will get `product-hero_pre_037` and thus need `product_screenshot`. Planner-side
+key alignment is therefore structurally incomplete.
+
+**Options discussed (detail + recommendation in PLAN "I0 finding", revised):**
+- A. Resolver as single source of truth — normalise all image field-names to a
+  small set of ROLES (hero-background, secondary/product image, inline
+  illustration) and resolve every role against per-page asset → site asset →
+  placeholder. Fixes all three symptoms for every domain; backfills on rerender.
+- B. Planner emits keys matching each component — brittle + can't know the
+  component at plan time (above). Rejected as the primary fix.
+- C. Normalise the component library onto one canonical image field — clean end
+  state but requires migrating dozens of (incl. imported preset) components;
+  slow, ongoing discipline.
+- Plus: discovery check `image_source_unsatisfiable` (component asks for a
+  `site_assets.X` role no generator produces) so this class is CAUGHT on every
+  future domain, not eyeballed.
+
+**Recommendation:** A now (load-bearing, domain-general, self-healing on
+rerender) + the discovery check (guarantee for new domains) + planner guard for
+the orphan case; drift toward C as cleanup so A's heuristic layer can retire.
+Awaiting user steer on approach before implementing.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

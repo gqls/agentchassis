@@ -151,6 +151,42 @@ Everything below depends on knowing what's actually live, and on a clean testbed
 - **Rebuild robot-hands.com from scratch with news scope** (decision 2026-07-08). Route: re-plan via `build-site-planner` (not patch-in-place), per `HANDOFF_robot_hands_rebuild.md`: first verify `site_specs` (identity/classification/briefing/strategy) are current; ensure `classification.content_features.news_feed.recommended=true` (or roadmap equivalent) so RULE 11 puts `latest-news` on the homepage; then trigger the rebuild. This exercises the imagery block end-to-end on a clean site and gives every later phase its acceptance surface.
 - **Acceptance:** robot-hands.com is a freshly-built site with a populated content layer, a news section on the index, its generated logo rendering in the header, and valid Lucide glyphs in the features grid.
 
+**Status 2026-07-09 — build essentially DONE; imagery-render gap diagnosed.**
+Content build all but complete (31 page rerenders done, 14 needs_page queued);
+all 20 needs_imagery complete; **14 hero assets generated + deployed to git
+overnight**; product-detail/services content layers healthy (0 null content).
+BUT heroes are not rendering on some pages — diagnosed as a structural
+key-mismatch, not timing. See "I0 finding" below.
+
+**I0 FINDING (2026-07-09) — component image-source ↔ asset-key mismatch.**
+Blocks the I0 acceptance line ("logo/heroes render"). Two problems:
+1. *Empty `src=""` on 4 pages* (about, gripper-detail, learning-center-index,
+   product-detail). Generic preset components declare image fields sourced from
+   `site_assets.background`, `site_assets.product_screenshot`,
+   `site_assets.illustration`, `site_assets.image` — but the plan generates
+   page heroes under key `hero_<page>`, and the page-aware resolver
+   (FOCUS §5.1) only maps `site_assets.hero`. The other four sources resolve to
+   nothing → empty `src`. (LLM alt text still fills, so alt present + src empty.)
+2. *Orphan hero* — `services-hero` template has no `<img>`; the generated
+   `hero_services.jpg` is never consumed.
+
+   **Fix options (decide before implementing):**
+   (a) Broaden the page-aware resolver so the generic single-image sources
+       (`background`, `illustration`, `image`) also resolve to the page-hero
+       asset — smallest change, fixes 3 of the 4 pages immediately.
+   (b) Treat `product_screenshot` as a genuine distinct need → Lane B (I3):
+       a product/hero-secondary image, not the page hero. Interim: fall back to
+       the page hero so nothing renders empty.
+   (c) Services orphan: either give `services-hero` an image slot, or stop the
+       planner emitting a page hero for pages whose selected component can't
+       show one (add a "component consumes a hero image?" check before emitting
+       the page-hero imagery row). Prefer the check — avoids wasted generation.
+   Recommended: (a) now (unblocks I0 acceptance), fold (b) into I3, add the
+   (c) check as a small planner/emit guard. This finding also strengthens the
+   case for I8's `imagery_direction`/delivery audit and an
+   `image_source_unsatisfiable` discovery check (component asks for a
+   `site_assets.X` no generator produces).
+
 **Status 2026-07-08 evening — re-plan DONE, content build IN PROGRESS:**
 - Prep executed (SQL artifacts beside this plan): specs backed up (42 rows), adoption-residue aspects superseded, classification news-enabled, `mission_brief` news hint added, 5 stale pre-2G items retired, `needs_site_plan` trigger inserted and manually promoted to `triaged` (manual items are not auto-triaged — record this pattern).
 - New current plan `7a40a0f9-a1cd-4259-8654-cc0922e942aa` (complete 16:46 BST, ~6 min): **33 pages** — `news-index` in header nav + `news-post` template (mission hint landed), 5 `tool`-role pages — and **29 imagery rows** (19 page heroes, 8 section icons, site logo + hero).

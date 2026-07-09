@@ -29,13 +29,22 @@ we can now mark objectively instead of taking on trust.
 Three thin slices, each independently landable, each with criteria fixed
 before the code is written.
 
-### F0.1a — `diagnosis_artifacts` table
-Columns: `id`, `correlation_id`, `iteration` (int), `kind` (text, CHECK IN
-('bundle','iteration_note')), `body` (text), `created_at`, plus a retention
-knob per kind. Index on `(correlation_id, iteration, kind)`.
+### F0.1a — `diagnosis_artifacts` table — ✅ LANDED 2026-07-09
+Applied to `clients_db` from `0NN_diagnosis_artifacts.sql` after
+`verify_before_migration_diagnosis_artifacts.sql` returned clean. Columns as
+designed (`correlation_id` is **text**, not uuid — the chassis does not
+guarantee uuid form), plus `orchestration_id`, nullable `site_id`, `metadata`
+jsonb, and the `expires_at`/`pinned` retention knob. Partial unique index on
+`(correlation_id, iteration) WHERE kind='bundle'` gives retry-safety for
+bundles while leaving `iteration_note` free to have several rows per iteration
+(per-step notes, F0.3).
 
-*Criteria*: migration applies clean and is idempotent; a hand-inserted row of
-each kind round-trips; the CHECK rejects a third kind.
+*Criteria — all pass*: applies clean; **idempotent** on re-apply; both kinds
+round-trip; the `kind` CHECK rejects a third kind; the `iteration` CHECK
+rejects 0; the partial unique rejects a duplicate bundle but permits a second
+note. Verified additionally, because F0.1b depends on it:
+`ON CONFLICT (correlation_id, iteration) WHERE kind='bundle' DO UPDATE`
+infers the partial index and replaces in place. **Use that exact clause.**
 
 ### F0.1b — write-through inside the assemble action
 `platform/orchestration/actions/diagnose_assemble_bundle_action.go` —
