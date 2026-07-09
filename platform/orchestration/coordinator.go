@@ -1186,8 +1186,8 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	params := buildActionParams(ctx, execCtx, state, step, s, contextLogger)
 
 	s.logger.Info("Executing local action",
-		zap.Any("DEBUGaa: params sent to action handler", params),
-		zap.Any("action in handler", step.Action),
+		zap.String("action", step.Action),
+		zap.String("step", step.Name),
 	)
 
 	// 6. Execute the action
@@ -1437,12 +1437,6 @@ func getActionHandler(action string) (actions.ActionFunc, error) {
 // Build action parameters
 func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, state *OrchestrationState,
 	step models.Step, coordinator *SagaCoordinator, logger *zap.Logger) actions.ActionParams {
-
-	logger.Info("in buildActionParams",
-		zap.Any("DEBUGaa: in buildActionParams state.CollectedData", state.CollectedData), // good here in generic but not in hero
-		zap.Any("DEBUGaa: in buildActionParams headers are execCtx.ToHeaders", execCtx.ToHeaders()),
-		zap.Any("DEBUGaa: in buildActionParams current step", state.CurrentStep),
-	)
 
 	// Guarantee step.Config is a non-nil (possibly empty) map before
 	// it reaches any action. Step.Config has `omitempty` in JSON tags
@@ -3826,8 +3820,9 @@ func prefixConfigStepReferences(config map[string]interface{}, loopName string, 
 		"source_field",
 		"input_from",
 		"result_from",
-		"content_field", // Used by assemble_page, git_commit
-		"commit_from",   // Used by update_page_status
+		"content_field",           // Used by assemble_page, git_commit
+		"commit_from",             // Used by update_page_status
+		"page_component_id_field", // Used by update_page_status
 	}
 
 	for _, key := range dataRefKeys {

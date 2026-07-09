@@ -698,11 +698,50 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		zap.String("build_status", newStatus),
 		zap.Int64("rows_affected", rowsAffected))
 
+	// Mirror the deploy mark onto one page_component when the caller names it via
+	// config page_component_id_field. Every discovery check matches
+	// page_components.build_status = 'deployed', and apply_section_edit leaves its
+	// row at 'approved', so without this an edited section silently disappears from
+	// the whole audit surface (check_empty_sections, check_image_url_404,
+	// check_undeployed_assets, check_placeholder_image_in_use, check_component_standards).
+	// Non-fatal: the page row is already committed, and failing here would re-run the
+	// step and re-deploy.
+	componentUpdated := false
+	if newStatus == "deployed" {
+		if field, ok := config["page_component_id_field"].(string); ok && field != "" {
+			pcIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, field)
+			switch {
+			case pcIDStr == "":
+				params.Logger.Warn("UpdatePageStatusAction: page_component_id_field configured but empty",
+					zap.String("page_component_id_field", field))
+			default:
+				pcID, parseErr := uuid.Parse(pcIDStr)
+				if parseErr != nil {
+					params.Logger.Warn("UpdatePageStatusAction: invalid page_component_id",
+						zap.String("value", pcIDStr),
+						zap.Error(parseErr))
+					break
+				}
+				const pcQuery = `UPDATE page_components SET build_status = $2, updated_at = NOW() WHERE id = $1`
+				if pcErr := execDB(ctx, params.DB, pcQuery, pcID, newStatus); pcErr != nil {
+					params.Logger.Error("UpdatePageStatusAction: failed to mark page_component deployed",
+						zap.String("page_component_id", pcID.String()),
+						zap.Error(pcErr))
+					break
+				}
+				componentUpdated = true
+				params.Logger.Info("UpdatePageStatusAction: Marked page_component deployed",
+					zap.String("page_component_id", pcID.String()))
+			}
+		}
+	}
+
 	return map[string]interface{}{
-		"updated":       true,
-		"page_id":       pageID.String(),
-		"build_status":  newStatus,
-		"rows_affected": rowsAffected,
+		"updated":                true,
+		"page_id":                pageID.String(),
+		"build_status":           newStatus,
+		"rows_affected":          rowsAffected,
+		"page_component_updated": componentUpdated,
 	}, nil
 }
 

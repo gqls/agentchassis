@@ -180,6 +180,13 @@ func RAGIndexAction(ctx context.Context, params ActionParams) (interface{}, erro
 		orchID = params.ExecutionContext.OrchestrationID
 	}
 
+	// Per-chunk embedding deadline: a stalled ollama-adapter must degrade into
+	// the non-fatal "store without embeddings" path below, never freeze the
+	// action. Default mirrors the OllamaClient http.Client 120s cap (ollama on
+	// CPU is slow, cold model loads slower) — so defaults change nothing; the
+	// config key exists to TIGHTEN it per-step where a faster bound is wanted.
+	embTimeout := time.Duration(datahelpers.GetIntField(config, "embedding_timeout_seconds", 120)) * time.Second
+
 	prefixAppliedOnce := false
 	for i, chunk := range chunks {
 		// SHA256 for dedup (computed on ORIGINAL chunk, not prefixed version)
@@ -196,7 +203,9 @@ func RAGIndexAction(ctx context.Context, params ActionParams) (interface{}, erro
 					zap.String("collection", collection))
 				prefixAppliedOnce = true
 			}
-			embedding, err := embClient.GenerateEmbedding(ctx, embedInput)
+			embCtx, cancel := context.WithTimeout(ctx, embTimeout)
+			embedding, err := embClient.GenerateEmbedding(embCtx, embedInput)
+			cancel()
 			if err != nil {
 				logger.Warn("rag_index: embedding failed for chunk, storing without",
 					zap.Int("chunk", i), zap.Error(err))

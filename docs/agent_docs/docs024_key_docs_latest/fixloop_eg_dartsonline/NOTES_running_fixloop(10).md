@@ -657,6 +657,41 @@ build + rollout (v1.0.1101), then fire 090 with the IDENTICAL symptom string,
 no SEED_SCOPE, site data untouched. F0.4d (symptom-closure gate) is
 deliberately NOT in this batch — one variable cluster per run.
 
+### Turn 9 — v1.0.1101 deployed; run-2 attempt 1 LOST TO THE ROLLOUT; re-fired as r3
+
+Owner deployed. Verified before firing: commit `16961a04 v1.0.1101 diagnosis
+loop amend` carries all four F0.4 source changes (only the untracked
+`step_tierguard_test.go` stayed local — test-only, no binary effect); all three
+diagnose agent_definitions carry `image_tag=v1.0.1101`; no stale diagnose-agent
+pod to be reused.
+
+**Attempt 1 (`guides-nav-benchmark-r2`, corr `32c1e88f`) never started.** The
+spawned diagnoser (confirmed on v1.0.1101) initialised and successfully
+produced its init response at 18:35:30 — but the parent orchestration froze at
+`spawn_diagnoser`/`AWAITING_RESPONSES` (`last_activity` 18:35:29, never moved).
+`call_diagnoser` was never issued, so the job topic was never created — which
+is why the idle diagnoser then logged "Unknown Topic Or Partition" against its
+own request topic, plus broker dial timeouts. **Not a Kafka outage**: brokers
+11 days up / 0 restarts, and the platform completed 90 orchestrations in the
+same 40 minutes. **Cause: a race with the rollout.** The parent `agent-chassis`
+pod restarted at ~18:32 (the v1.0.1101 rollout); the run was fired at 18:35
+into its boot/consumer-rebalance window and the init response fell into the
+gap. GOTCHA recorded: **after `make release redeploy-agents`, wait for the
+chassis deployment to settle before firing a diagnosis** — a run dispatched
+into the rebalance window dies silently at spawn, with no error row anywhere.
+
+Cleanup: r2 intake marked `failed` with the cause in `error`; the stuck
+orchestration rows left for the stale-orchestration-reaper; the idle pod reaps
+at ~3600s. **Re-fired as `guides-nav-benchmark-r3`, corr
+`dd1186b9-467d-4edd-9240-fa16a9a7d780`** — identical symptom string, no
+SEED_SCOPE, deployments all fully ready this time. This remains "benchmark
+run 2" for scoring; r3 is only the item slug.
+
+(Noted with a smile: "orchestration stuck at spawn with no error anywhere" is
+itself precisely diagnosis-loop material — runtime tier names the frozen step,
+static tier names the missing error_step on `call_diagnoser` in
+diagnose-orchestrator's workflow. A future intake candidate.)
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys
