@@ -187,6 +187,19 @@ Blocks the I0 acceptance line ("logo/heroes render"). Two problems:
    `image_source_unsatisfiable` discovery check (component asks for a
    `site_assets.X` no generator produces).
 
+   **BUILT 2026-07-09 (commit on 083_imagery, pending deploy).** Option (a)
+   plus the discovery check, with two design corrections found during the
+   guideline re-check (full detail: running notes Turn 7): the same-image
+   symptom was actually the render-context's site-wide `hero_url` winning
+   `{{or .hero_url .background_image}}` — fixed by injecting the per-page hero
+   under the legacy alias keys into `resolved_data`, which the renderer merges
+   last as the designed authoritative overlay; and the planner guard (c) is
+   impossible at plan time (component selected later) — substituted by the
+   discovery check, which runs when components are known. Shared alias table
+   in `imageryplan.ImageRoleForPath` so resolver and check cannot drift.
+   Post-deploy: run `SQL_2026-07-09_register_image_source_unsatisfiable.sql`,
+   let the 14 queued re-resolves drain, spot-check pages.
+
 **Status 2026-07-08 evening — re-plan DONE, content build IN PROGRESS:**
 - Prep executed (SQL artifacts beside this plan): specs backed up (42 rows), adoption-residue aspects superseded, classification news-enabled, `mission_brief` news hint added, 5 stale pre-2G items retired, `needs_site_plan` trigger inserted and manually promoted to `triaged` (manual items are not auto-triaged — record this pattern).
 - New current plan `7a40a0f9-a1cd-4259-8654-cc0922e942aa` (complete 16:46 BST, ~6 min): **33 pages** — `news-index` in header nav + `news-post` template (mission hint landed), 5 `tool`-role pages — and **29 imagery rows** (19 page heroes, 8 section icons, site logo + hero).

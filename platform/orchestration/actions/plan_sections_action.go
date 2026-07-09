@@ -41,6 +41,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/imageryplan"
 	"go.uber.org/zap"
 )
 
@@ -192,6 +193,32 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 		case err != nil && err != sql.ErrNoRows:
 			r.logger.Warn("plan_sections: per-page hero lookup failed",
 				zap.String("page", r.pageName), zap.Error(err))
+		}
+	}
+
+	// Site-scope brand hero: fallback when the page has no hero of its own,
+	// so image-role-aliased fields still resolve to something brand-consistent
+	// rather than nothing. Page-scope (above) always wins.
+	if _, ok := r.assets["hero"]; !ok {
+		var siteHeroURL string
+		err := r.db.QueryRowContext(ctx, `
+			SELECT a.url
+			  FROM site_plan_imagery spi
+			  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
+			  JOIN assets a ON a.site_id = sp.site_id
+			               AND a.asset_key = spi.key
+			               AND a.status = 'active'
+			 WHERE sp.site_id = $1
+			   AND spi.scope = 'site'
+			   AND spi.kind = 'hero'
+			 ORDER BY spi.ordering
+			 LIMIT 1
+		`, r.siteID).Scan(&siteHeroURL)
+		switch {
+		case err == nil && siteHeroURL != "":
+			r.assets["hero"] = siteHeroURL
+		case err != nil && err != sql.ErrNoRows:
+			r.logger.Warn("plan_sections: site-scope hero lookup failed", zap.Error(err))
 		}
 	}
 
@@ -368,6 +395,21 @@ func (r *sourceResolver) resolve(ctx context.Context, source string) (interface{
 		r.ensureAssets(ctx)
 		if url, ok := r.assets[path]; ok {
 			return url, true
+		}
+		// Literal key missed — try the image-role alias. Preset/imported
+		// components name their image fields freely (site_assets.background,
+		// site_assets.product_screenshot, ...) but the pipeline generates
+		// per-page heroes; without the alias those fields resolve to nothing
+		// and templates render src="". Exact keys above always win, so a
+		// future dedicated asset under the literal key takes precedence.
+		if role, ok := imageryplan.ImageRoleForPath(path); ok {
+			if url, ok := r.assets[role]; ok {
+				r.logger.Info("plan_sections: site_assets path resolved via image-role alias",
+					zap.String("path", path),
+					zap.String("role", role),
+					zap.String("page", r.pageName))
+				return url, true
+			}
 		}
 		return nil, false
 
@@ -1278,11 +1320,49 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 		return item
 	}
 
+	// Authoritative hero aliasing: when this section declares an image-typed
+	// field, also write the resolved page hero under the legacy alias keys
+	// (hero_url, background_image) unless the schema declares them itself.
+	// resolved_data is merged LAST at render time (RenderComponentAction's
+	// merge_with overlay — "resolved data wins on conflicts, by design"), so
+	// this is what lets the per-page hero defeat the site-wide hero_url that
+	// BuildRenderContext still injects for legacy templates: without it,
+	// {{or .hero_url .background_image}} picks the site-wide value and every
+	// page shows the same image.
+	if sectionHasImageField(fieldsRaw) {
+		resolver.ensureAssets(ctx)
+		if heroURL, ok := resolver.assets["hero"]; ok && heroURL != "" {
+			for _, alias := range []string{"hero_url", "background_image"} {
+				if _, declared := fieldsRaw[alias]; declared {
+					continue // the field's own resolution governs
+				}
+				if _, already := resolvedData[alias]; !already {
+					resolvedData[alias] = heroURL
+				}
+			}
+		}
+	}
+
 	// Section is ready
 	item.ResolvedData = resolvedData
 	item.LLMFields = llmFields
 	item.LLMFieldSpecs = llmFieldSpecs
 	return item
+}
+
+// sectionHasImageField reports whether any declared field in a component's
+// input_schema fields map is image-typed (type "image" or "image_url").
+func sectionHasImageField(fieldsRaw map[string]interface{}) bool {
+	for _, defRaw := range fieldsRaw {
+		def, ok := defRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if t, _ := def["type"].(string); t == "image" || t == "image_url" {
+			return true
+		}
+	}
+	return false
 }
 
 // filterSiteLevelSections removes section names that correspond to site-level

@@ -46,18 +46,23 @@ note. Verified additionally, because F0.1b depends on it:
 `ON CONFLICT (correlation_id, iteration) WHERE kind='bundle' DO UPDATE`
 infers the partial index and replaces in place. **Use that exact clause.**
 
-### F0.1b — write-through inside the assemble action
-`platform/orchestration/actions/diagnose_assemble_bundle_action.go` —
-`DiagnoseAssembleBundleAction` (line 107) already composes the bundle in
-memory and returns at line 219. Persist there, in Go, before returning. Zero
-workflow-shape change; zero contact with the tools chat's live
-`emit → persist_note → complete` surface. That isolation was the whole point
-of choosing this placement (Q-A, decided 2026-07-07).
+### F0.1b — write-through inside the assemble action — ✅ CODE-COMPLETE 2026-07-09 (not yet deployed)
+Landed in `DiagnoseAssembleBundleAction`, immediately before its existing
+return. Zero workflow-shape change; zero contact with the tools chat's live
+`emit → persist_note → complete` surface. New optional config: `persist_bundle`,
+`iteration_field`, `site_id_field`, `bundle_retention_days`.
 
-*Criteria*: a loop run leaves one `kind='bundle'` row per iteration; the
-persisted body is byte-identical to what the action returned; a write failure
-degrades to a logged warning and **never** fails the diagnosis (the loop's
-read-only contract outranks our observability).
+*Criteria*: a write failure degrades to a logged warning and **never** fails the
+diagnosis — enforced on all four failure paths (nil DB, missing correlation_id,
+marshal error, INSERT error). Iteration derivation unit-tested, including the
+bare-`diagnose_state` trap. The production SQL was executed against the live
+table with typed params: partial-index conflict inference, retry-replaces,
+NULL site_id, and both retention modes all confirmed.
+
+*Remaining*: "one `kind='bundle'` row per iteration for a real run" cannot be
+observed until the chassis image is rebuilt and rolled out — the pod runs a
+built binary. **F0.1b is code-complete, not live.** That proof arrives with the
+benchmark run (§5, step 6).
 
 ### F0.1c — the `needs_diagnosis` envelope
 A work item with `pipeline='diagnose'` (the column exists and defaults to

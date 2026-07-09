@@ -70,6 +70,7 @@ var DiagnoseAssembleBundleInputSpec = datahelpers.ActionInputSpec{
 		"loop_scope_field", "scope_field", "code_results_field",
 		"hypothesis_field", "seed_hypothesis_field",
 		"analysis_field", "repo_root_field", "runtime_field", "schema_field", "max_body_chars",
+		"persist_bundle", "iteration_field", "site_id_field", "bundle_retention_days",
 	},
 	Defaults: map[string]interface{}{
 		"loop_scope_field":      "route.scope",              // set by diagnose_route on loop-back
@@ -82,6 +83,12 @@ var DiagnoseAssembleBundleInputSpec = datahelpers.ActionInputSpec{
 		"runtime_field":         "runtime.runtime_evidence",
 		"schema_field":          "runtime.schema",
 		"max_body_chars":        60000,
+		// Durable egress (F0.1). Bundles are ~60KB × ≤5 iterations, so they
+		// expire sooner than the prose notes they sit beside; 0 keeps forever.
+		"persist_bundle":        true,
+		"iteration_field":       "route.diagnose_state.iteration",
+		"site_id_field":         "input_data.site_id",
+		"bundle_retention_days": 30,
 	},
 }
 
@@ -213,14 +220,148 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		zap.Int("body_chars", total),
 		zap.Bool("truncated", truncated))
 
+	bundle := b.String()
+
+	// ── Durable egress (F0.1) ───────────────────────────────────────────────
+	// Until now each iteration's bundle lived only in memory: the loop could be
+	// neither audited nor replayed after the fact. Persist it here, as a
+	// write-through INSIDE this action, rather than as a new workflow step —
+	// the diagnose-agent workflow's emit → persist_note → complete shape is an
+	// active surface owned by another workstream, and a Go-side write touches
+	// none of it.
+	//
+	// The loop's READ-ONLY contract concerns the system under diagnosis. This
+	// writes only to our own artifacts table. Even so, persistence is
+	// observability and observability must never cost us a diagnosis, so every
+	// failure below degrades to a warning and the action returns normally.
+	if datahelpers.GetBoolField(config, "persist_bundle", true) {
+		persistBundleArtifact(ctx, params, bundleArtifact{
+			Body:            bundle,
+			Iteration:       assembleIteration(params.CollectedData, config),
+			SiteID:          datahelpers.ExtractNestedFieldString(params.CollectedData, datahelpers.GetStringField(config, "site_id_field", "input_data.site_id")),
+			SymbolsInScope:  len(scope),
+			SymbolsIncluded: included,
+			BodyChars:       total,
+			Truncated:       truncated,
+			RetentionDays:   datahelpers.GetIntField(config, "bundle_retention_days", 30),
+		})
+	}
+
 	// Return a map, matching the codebase convention (lookup_code_symbols,
 	// index_code_symbols, the maintenance actions all return map[string]interface{}
 	// rather than a bespoke exported result struct — dev guide over-abstraction rule).
 	return map[string]interface{}{
-		"bundle":       b.String(),
+		"bundle":       bundle,
 		"symbol_count": included,
 		"truncated":    truncated,
 	}, nil
+}
+
+// bundleArtifact is the row this action writes for one iteration.
+type bundleArtifact struct {
+	Body            string
+	Iteration       int
+	SiteID          string // "" for an anchorless (code-only) diagnosis → NULL
+	SymbolsInScope  int
+	SymbolsIncluded int
+	BodyChars       int
+	Truncated       bool
+	RetentionDays   int // ≤0 keeps the bundle indefinitely
+}
+
+// assembleIteration derives the 1-based iteration number of the pass currently
+// being assembled.
+//
+// diagnose_route writes its LoopState to collected_data AFTER this step runs,
+// so on pass N we observe pass N-1's state, and on the genuine first pass there
+// is no state at all (0 + 1 = 1). Note the field path: diagnose_route documents
+// that a bare "diagnose_state" never exists at top level — the state lands under
+// that step's output_field, hence "route.diagnose_state.iteration". Reading the
+// bare name would silently yield 1 on every pass and stamp every bundle as
+// iteration 1, which the partial unique index would then collapse into one row.
+func assembleIteration(collected map[string]interface{}, config map[string]interface{}) int {
+	field := datahelpers.GetStringField(config, "iteration_field", "route.diagnose_state.iteration")
+	return datahelpers.ExtractNestedFieldInt(collected, field) + 1
+}
+
+// persistBundleArtifact write-throughs one iteration's bundle to
+// diagnosis_artifacts. It never returns an error: see the caller's note on why
+// a failed write must not fail the diagnosis.
+//
+// The ON CONFLICT target names the partial unique index
+// (correlation_id, iteration) WHERE kind='bundle', so a workflow step RETRY
+// replaces that iteration's bundle in place instead of duplicating it. Notes
+// are deliberately outside that index — per-step notes share an iteration.
+func persistBundleArtifact(ctx context.Context, params ActionParams, a bundleArtifact) {
+	logger := params.Logger
+
+	if params.DB == nil {
+		logger.Warn("diagnose_assemble_bundle: no DB handle, bundle not persisted (diagnosis continues)")
+		return
+	}
+	if params.ExecutionContext == nil || params.ExecutionContext.CorrelationID == "" {
+		logger.Warn("diagnose_assemble_bundle: no correlation_id, bundle not persisted (diagnosis continues)")
+		return
+	}
+
+	metadata, err := json.Marshal(map[string]interface{}{
+		"symbols_in_scope": a.SymbolsInScope,
+		"symbol_count":     a.SymbolsIncluded,
+		"body_chars":       a.BodyChars,
+		"truncated":        a.Truncated,
+	})
+	if err != nil {
+		logger.Warn("diagnose_assemble_bundle: metadata marshal failed, bundle not persisted (diagnosis continues)",
+			zap.Error(err))
+		return
+	}
+
+	// site_id is a uuid column; an empty string is not a valid uuid, so send a
+	// true NULL. Anchorless (code-only) diagnoses legitimately have no site.
+	var siteID interface{}
+	if a.SiteID != "" {
+		siteID = a.SiteID
+	}
+
+	const q = `
+		INSERT INTO diagnosis_artifacts (
+			correlation_id, orchestration_id, iteration, kind, body,
+			site_id, metadata, source_agent, created_by, expires_at
+		) VALUES (
+			$1, $2, $3, 'bundle', $4,
+			$5, $6::jsonb, $7, 'diagnose_assemble_bundle',
+			CASE WHEN $8::int > 0 THEN now() + make_interval(days => $8::int) END
+		)
+		ON CONFLICT (correlation_id, iteration) WHERE kind = 'bundle'
+		DO UPDATE SET body             = EXCLUDED.body,
+		              metadata         = EXCLUDED.metadata,
+		              expires_at       = EXCLUDED.expires_at,
+		              orchestration_id = EXCLUDED.orchestration_id,
+		              site_id          = EXCLUDED.site_id,
+		              source_agent     = EXCLUDED.source_agent,
+		              created_at       = now()`
+
+	if _, err := params.DB.ExecContext(ctx, q,
+		params.ExecutionContext.CorrelationID,
+		nullIfEmpty(params.ExecutionContext.OrchestrationID),
+		a.Iteration,
+		a.Body,
+		siteID,
+		string(metadata),
+		nullIfEmpty(params.AgentType),
+		a.RetentionDays,
+	); err != nil {
+		logger.Warn("diagnose_assemble_bundle: bundle not persisted (diagnosis continues)",
+			zap.String("correlation_id", params.ExecutionContext.CorrelationID),
+			zap.Int("iteration", a.Iteration),
+			zap.Error(err))
+		return
+	}
+
+	logger.Info("diagnose_assemble_bundle: bundle persisted",
+		zap.String("correlation_id", params.ExecutionContext.CorrelationID),
+		zap.Int("iteration", a.Iteration),
+		zap.Int("body_chars", a.BodyChars))
 }
 
 // scopeFromCodeResults turns lookup_code_symbols' code_results ([]{path,symbol})

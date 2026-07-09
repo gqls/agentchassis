@@ -352,4 +352,66 @@ rerender) + the discovery check (guarantee for new domains) + planner guard for
 the orphan case; drift toward C as cleanup so A's heuristic layer can retire.
 Awaiting user steer on approach before implementing.
 
+## Turn 7 — 2026-07-09 — Fix built: image-role resolver + unsatisfiable-source check (commit pending deploy)
+
+**User:** double-check the solution against guidelines, then build it.
+
+**Guidelines check (constitution + 003):** structural fix not symptom ✓;
+reuse (extends sourceResolver, imageryplan, discovery-check pattern) ✓;
+complexity in Go, workflows untouched ✓; snake_case item_type ✓; no new
+enums/schema ✓; parameterised queries ✓; no logger.Debug ✓; snapshot_agent +
+idempotent guard in the migration ✓.
+
+**Additional root-cause evidence found while re-verifying (changed the design):**
+- `RenderComponentAction` merges `merge_with: resolved_data` LAST — "resolved
+  data wins on conflicts, by design". That's the designed authoritative
+  overlay, and the fix rides it.
+- `sites.content_data.hero_url = '/assets/images/hero.jpg'` (live) and
+  BuildRenderContext injects it site-wide; standard hero template is
+  `{{or .hero_url .background_image}}` → hero_url always won → the SAME image
+  on 8 pages. So the queued re-resolves alone would NOT have fixed it: the
+  per-page `background_image` would resolve correctly and still lose the `or`.
+- The proposed "planner guard" (don't plan a hero for a page whose component
+  can't show one) is structurally impossible: the component is selected at
+  build time, after planning. SUBSTITUTED with the discovery check, which
+  runs when components ARE known. (Orphaned generated assets — the services
+  case — remain detectable via the existing undeployed_assets shape; full
+  orphan check deferred.)
+
+**Built (branch 083_imagery):**
+1. `imageryplan.ImageRoleForPath` — shared alias table (background,
+   background_image, image, hero_image, hero_background, banner, header_image,
+   product_screenshot, product_image, screenshot → role "hero"). Literal keys
+   always win; product imagery re-points automatically when Lane B (I3) lands
+   real product assets under literal keys. Unit-tested (imageryplan_test.go).
+2. `plan_sections_action.go`:
+   - `resolve()` consults the alias after a literal `site_assets.*` miss →
+     fixes the empty-`src=""` preset components (4 pages).
+   - `ensureAssets` falls back to the site-scope brand hero when the page has
+     no page-scope hero.
+   - `planSection` injects the resolved hero under legacy alias keys
+     (`hero_url`, `background_image`) into resolved_data for image-bearing
+     sections (unless schema-declared) → via the authoritative merge_with
+     overlay this defeats the site-wide hero_url → fixes the same-image-
+     everywhere symptom per page, for any domain.
+3. `check_image_source_unsatisfiable.go` — discovery check flagging image
+   fields sourced from `site_assets.<path>` that nothing can supply
+   (flag-only: no handler, status needs_human_review, dedup per
+   site/page/function/path, cap 25/pass). Registered via
+   `SQL_2026-07-09_register_image_source_unsatisfiable.sql` (run AFTER deploy).
+
+**Verification state:** `go build`/`go vet` clean; imageryplan test passes;
+pre-existing test/unit build failures confirmed unrelated (fail identically
+with changes stashed). The 14 "Re-render X after its image asset landed"
+items are STILL queued — once the new chassis image deploys they re-resolve
+through the fixed resolver with no extra triggering (if they drain before
+deploy, re-emit needs_page@99 for image-bearing pages).
+
+**Post-deploy checklist (next session):**
+1. Confirm new chassis image live; 2. run the register SQL; 3. watch the 14
+re-resolves complete; 4. spot-check product-detail (product image = its hero,
+no empty src), index vs gripper-catalog (different heroes), about; 5. run a
+discovery pass and confirm image_source_unsatisfiable flags services-hero-like
+gaps only where real.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

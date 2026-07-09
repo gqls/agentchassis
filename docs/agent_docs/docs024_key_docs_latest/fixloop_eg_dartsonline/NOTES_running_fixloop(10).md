@@ -207,6 +207,73 @@ assemble runs *before* route each pass, so
 `diagnose_route` documents at its `state_field` default: a bare `diagnose_state`
 never exists at top level — it must be read at `route.diagnose_state`.
 
+### Turn 3 — F0.1b written, built, tested; NOT YET DEPLOYED
+
+**The write-through lives inside `DiagnoseAssembleBundleAction`**, immediately
+before its existing return. No signature change, no workflow-shape change, no
+new step — exactly the placement Q-A chose to keep off the tools chat's active
+`emit → persist_note → complete` surface.
+
+Four config knobs added to the InputSpec (all optional, all defaulted):
+`persist_bundle` (true), `iteration_field` (`route.diagnose_state.iteration`),
+`site_id_field` (`input_data.site_id`), `bundle_retention_days` (30; ≤0 keeps
+forever). Nothing existing changed shape.
+
+**The read-only contract is preserved and the degradation rule is enforced.**
+The loop's read-only contract concerns the *system under diagnosis*; this writes
+only our own artifacts table. Even so, persistence is observability, and
+observability must never cost a diagnosis — so a nil DB handle, a missing
+correlation_id, a marshal failure or a failed INSERT each log a warning and the
+action returns its bundle normally. There is no error path back to the loop.
+
+**Reuse caught before recreate.** I had written a `nullIfEmpty` helper; the
+package already has one at `helpers.go:133` with an identical signature. Deleted
+mine. (Precisely the "we already have one of these" case the future reuse
+reviewer is meant to catch — worth noting that it was a grep, not a memory.)
+
+**A wart the verification found, not the compiler.** The first `DO UPDATE` set
+refreshed only `body`/`metadata`/`expires_at`. Executing the real SQL showed a
+retry that supplied `orch-9` leaving `orchestration_id` NULL on the stored row —
+the row would then misreport which orchestration last wrote it. `DO UPDATE` now
+also refreshes `orchestration_id`, `site_id` and `source_agent`. Found by
+running the statement, not by reading it.
+
+**Verification actually performed** (not "it compiles"):
+- `gofmt` clean; `go build ./platform/orchestration/actions/` OK; whole-repo
+  `go build ./...` OK apart from a **pre-existing** stray-package clash under
+  `docs/.../traffic_probe/deploy_setup/working_dir` (two `package` names in one
+  dir), untouched by this change.
+- `go test ./pkg/diagnose/... ./platform/orchestration/actions/...` — all pass.
+- **New unit test** `diagnose_assemble_iteration_test.go` pins `assembleIteration`:
+  first pass → 1 (never 0, which the CHECK rejects); `float64(1)` → 2 (JSON
+  decodes the LoopState, so the value is float64, not int); int → works too; and
+  two cases locking down **the trap** — a bare `diagnose_state` path does *not*
+  resolve and silently collapses every bundle to iteration 1 (where the partial
+  unique index would upsert them into a single row), while the same data at the
+  correct `route.diagnose_state.iteration` path resolves. The test exists so
+  nobody "simplifies" the default field path.
+- **The exact production SQL executed against the live table** via
+  `PREPARE`/`EXECUTE` with typed parameters — because the risk here is in the
+  SQL, not the Go. Confirmed: `ON CONFLICT … WHERE kind='bundle'` infers the
+  partial index; a retry of iteration 1 **replaces** (3 inserts → 2 rows, then
+  2 → 1); NULL `site_id` works for an anchorless run; `make_interval(days => 30)`
+  gives a 30-day expiry and retention `0` yields NULL (keeps forever). Test rows
+  deleted; `diagnosis_artifacts` is empty.
+
+**⚠ NOT LIVE IN THE CLUSTER.** The `agent-chassis` pod runs a built binary.
+This change is in the repo and green, but no bundle row will appear until the
+image is rebuilt and rolled out. F0.1b is *code-complete*, not *deployed*. The
+first real end-to-end proof (rows appearing for an actual run) arrives with the
+benchmark run, and that ordering is fine — but do not read "verified" as "live".
+
+**Unrelated working-tree changes observed, not mine, not touched:**
+`platform/orchestration/actions/plan_sections_action.go` (+80 lines) and the
+untracked `actions/discovery_checks/check_image_source_unsatisfiable.go`. Some
+other session's work in progress. Flagged so a future commit does not sweep them
+in by accident. (`plan_sections` is, note, the very step upstream of
+`check_has_ready_sections` in the pilot diagnosis — worth a look before F1
+edits that area.)
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 2) — F1 targets the platform (OWNER CONFIRMED)

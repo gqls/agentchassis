@@ -198,3 +198,39 @@ func HasActiveAsset(ctx context.Context, db RowQueryer, siteID interface{}, asse
 	}
 	return n > 0, nil
 }
+
+// imageRoleAliases maps generic image field paths (the <path> in a component
+// schema's source "site_assets.<path>") onto the image ROLE the pipeline can
+// satisfy. Preset and imported components name their image fields freely
+// (background, product_screenshot, image, ...) while the plan pipeline
+// generates per-page heroes plus a site logo — without this mapping those
+// fields resolve to nothing and templates render src="" (2026-07-09 finding,
+// PLAN_imagery_best_in_class.md Phase I0).
+//
+// Shared here so the section resolver (plan_sections) and the
+// image_source_unsatisfiable discovery check cannot drift. Literal asset keys
+// always win — callers consult this only after an exact lookup misses, so a
+// future dedicated product image (content-imagery lane, Phase I3) takes
+// precedence automatically the moment it exists under the literal key.
+var imageRoleAliases = map[string]string{
+	"background":       "hero",
+	"background_image": "hero",
+	"image":            "hero",
+	"hero_image":       "hero",
+	"hero_background":  "hero",
+	"banner":           "hero",
+	"header_image":     "hero",
+	// Product/secondary imagery has no dedicated generator yet (Phase I3).
+	// Interim: the page hero, so nothing renders an empty src.
+	"product_screenshot": "hero",
+	"product_image":      "hero",
+	"screenshot":         "hero",
+}
+
+// ImageRoleForPath maps a generic site_assets.<path> image field name to the
+// image role the pipeline can satisfy (currently only "hero"). ok is false
+// for paths with no alias — the caller treats those as literal asset keys.
+func ImageRoleForPath(path string) (string, bool) {
+	role, ok := imageRoleAliases[path]
+	return role, ok
+}
