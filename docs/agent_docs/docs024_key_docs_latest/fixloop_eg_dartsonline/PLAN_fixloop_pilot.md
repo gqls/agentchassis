@@ -164,6 +164,17 @@ Score its emitted diagnosis against these, fixed now, before the run:
 | 7 | `mark_no_sections` is referenced in a comment and does not exist | static | bonus |
 | 8 | the two intake paths (`WriteBuildItemsAction` vs `reconcile_site_plan`) disagree on `unavailableBuilders` | static | bonus |
 
+| 9 | the four "guide" pages are `blog-post` at `/blog/*.html` with `site_area_id IS NULL`, so `resolveSectionIndexForType` can never bind them to `guides-index` | live data + static | bonus |
+
+*(Claim 9 added 2026-07-09 **after** the first run, which discovered it. It is
+recorded as a bonus, not a must, and it was **not** part of the pre-registered set
+— saying so is the point of pre-registration.)*
+
+**RESULT OF RUN 1 (2026-07-09, correlation `4d43d002-…`): 0 of 4 musts; verdict
+`CONFIRMED` anyway; refutation credit passed; claim 9 discovered.** Full scoring
+and the three engine defects it exposed are in RUNBOOK §BENCHMARK RESULT and
+NOTES(10) turn 6.
+
 **Pass** = all four *must* claims, each with a citation that resolves to the
 named file/step. **Refutation credit**: the loop should *not* assert the
 standing hypothesis (that `reconcile_site_plan`'s routing table drops guide
@@ -187,6 +198,32 @@ user could observe; (2) **`seed_scope`** — run with **none**. Seeding it with
 `populate_nav_tables_action.go` or `load_work_item_actions.go` hands the loop the
 answer. Absent a seed, assemble falls back to `lookup_code_symbols`' `code_results`,
 which is the honest starting point.
+
+## 3b. F0.4 — engine fixes from benchmark run 1 (added 2026-07-09, turn 7)
+
+Run 1's failure decomposed, on evidence, into: the verdict **never sees the
+original symptom after iteration 2** (bundles 3–5 carry only the drifted
+hypothesis — proven by grep over the persisted bundles); the static tier is
+Go-only while cause B lives in workflow JSON; retrieval scoped the right file's
+wrong symbol; and the engine enforces **no tier coverage** (its only confirm
+guard is citations ≥ 1, advance.go:93).
+
+Slices, by ownership: **F0.4a** symptom anchor in assemble (Go, ours);
+**F0.4b** follow-the-error-log workflow-step enrichment (Go, ours);
+**F0.4c** same-file sibling signatures (Go, ours); **F0.4e** tier-coverage guard
+in Advance (Go, ours); **F0.4d** symptom-closure gate on CONFIRMED — verdict_wire
++ prompt_template change atomically (prompt lives in the diagnose-agent workflow
+JSON = the tools chat's surface; fetch-first, snapshot, courtesy FYI).
+
+**Run protocol:** run 2 = a+b+c+e only, identical symptom string, site data
+untouched — measures whether the loop now *finds* the cause. Run 3 = d —
+measures whether a loop that cannot reach an answer says so honestly instead of
+confirming a drift. One variable cluster per run.
+
+**F1 split:** the dartsonline platform fix (mark_no_sections; nav on
+build_status) is human-diagnosed and does not wait on any of this. The F1 *fixer
+mechanism* waits on F0.4d, because it gates on CONFIRMED and today's CONFIRMED
+admits wrong-cause confirmations.
 
 ## 4. F1 stretch — the constrained edit plan
 

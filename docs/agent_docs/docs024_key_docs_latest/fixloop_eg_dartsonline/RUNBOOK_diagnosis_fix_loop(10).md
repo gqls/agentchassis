@@ -433,6 +433,44 @@ The two things that *can* leak the answer into a benchmark run, and must be chec
   nor completes its own item.
 - `snapshot_agent(type, reason)` writes to **`agent_definitions_backup`**, not
   to `agent_definitions` with `is_snapshot=true`. Verify there.
+- **`orchestration_states.last_activity` is `timestamp WITHOUT time zone`** while
+  `created_at` is `timestamptz`. Any `NOW() - last_activity` arithmetic is wrong
+  by the UTC offset — the `idle_s` query printed by 084/090 included. And this
+  dev host runs **BST (+0100)** while the DB is UTC, so `stat`/`date` output and
+  DB timestamps differ by an hour. A run can look like it finished before it
+  started.
+- **`code_symbols` indexes `.go` files only.** Workflow definitions live in
+  `agent_definitions.default_config` as JSON and are therefore INVISIBLE to the
+  loop's static tier — even though they contain load-bearing control flow (the
+  pilot's cause B is a workflow step). Reach them with a `data_request`.
+
+## BENCHMARK RESULT — 2026-07-09 (first run; correlation 4d43d002-671f-496f-a64a-c3bb8ffe35e2)
+Plumbing **passed**: intake via the documented route; five per-iteration bundles
+persisted and fetched back out of `diagnosis_artifacts`; the terminal note landed
+in `doc_notes` (`pipeline/build`, category `diagnosis`) proving Q-F's integration.
+Per-iteration notes were not written — F0.3 is not built.
+
+Rubric: **0 of 4 must-claims**, verdict `CONFIRMED` regardless. It passed the
+refutation check (never blamed `reconcile_site_plan`) and contributed one *new,
+independently verified* finding: the four "guide" pages are `blog-post` rows at
+`/blog/*.html` with `site_area_id IS NULL`, so `resolveSectionIndexForType` could
+never bind them to `guides-index` — they would not have appeared under `/guides/`
+even if built. **Add that as rubric claim 9.**
+
+Three engine defects it exposed, in value order:
+1. **No symptom-explanation gate.** Cite-or-abstain permits a CONFIRMED verdict
+   whose cited cause does not explain the reported symptom. Every citation was
+   real; the conclusion never accounted for why a nav link was published.
+2. **Static tier is Go-only** (see the corpus gotcha above), so the causal
+   workflow step was unreachable.
+3. **Symbol-granular retrieval overshoots.** Iteration 1 scoped
+   `populate_nav_tables_action.go:isLegalPage` (a trivial helper) while the bug
+   sits in `loadPagesForNav` in the same file; that function entered no bundle.
+   When retrieval implicates a file, offer the verdict its sibling symbols.
+
+Also: `page-build-handler/complete_error (complete_workflow) fatal: …` appeared
+verbatim in the `agent_error_log` section of **all five** bundles. The engine
+does not enforce the runbook's own "FOLLOW what the evidence names" principle.
 - `cmd/bundle` needs `-psql` as ONE quoted argument with NO `-it`/`-t`;
   without it the bundle silently carries code+docs only.
 

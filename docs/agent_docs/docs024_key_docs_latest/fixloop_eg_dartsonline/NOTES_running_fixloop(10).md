@@ -430,7 +430,205 @@ forward `seed_scope` — `query_database` flattens every column to text — so
 assemble falls back to `code_results`, which is the designed default. Documented,
 not hidden.
 
+### Turn 6 — ★ THE BENCHMARK RAN. Plumbing passed. The loop FAILED the rubric — instructively.
+
+Fired 090 at 15:54:23 UTC, `REF=main`, `RUNTIME_SITE=dartsonline.com`,
+`SUBJECT_TYPE=pipeline SUBJECT_KEY=build`, **no `SEED_SCOPE`** (blinding).
+`correlation_id=4d43d002-671f-496f-a64a-c3bb8ffe35e2`. Ran 5 iterations,
+15:58 → 16:22, verdict **CONFIRMED**, `stopped_by=confirmed`.
+
+**Timeline gotcha, nearly a false alarm.** The first poll appeared to show a run
+that had completed 50 minutes *before* it was fired. Cause: the host is on **BST
+(+0100)** while the DB is UTC, so `stat`'s `16:54 +0100` is `15:54` UTC. Worse,
+`orchestration_states.last_activity` is `timestamp WITHOUT time zone` while
+`created_at` is `timestamptz` — so the `idle_s` arithmetic in 084/090's own
+suggested query is silently wrong by the UTC offset. Recorded as a gotcha.
+
+### F0 plumbing criteria — 3 of 4 pass, and the fourth isn't built yet
+1. **Intake via the documented route — PASS.** Item written, dispatched, and
+   closed on one `correlation_id`.
+2. **Per-iteration bundles fetchable — PASS.** Five `kind='bundle'` rows
+   (34.8k / 45.2k / 33.4k / 18.7k / 33.2k bytes), one per iteration, fetched back
+   out to files by the documented query. **F0.1a+b work end to end in production.**
+3. **Per-iteration notes — NOT MET, because F0.3 does not exist yet.** Only
+   `kind='bundle'` rows were written. Not a failure of the run; a slice we have
+   not built. The table already carries the `iteration_note` kind for it.
+4. **Terminal note in doc_notes — PASS (unplanned bonus).** One row,
+   `subject_type=pipeline`, `subject_key=build`, `categories=["diagnosis"]`,
+   `source='diagnosis-loop'`, 3,267 bytes. **Q-F's integration is verified live**:
+   our envelope's subject fields opened the tools chat's persist_note gate. Their
+   3b threading has landed (`diagnose-orchestrator` now forwards
+   `subject_type?`/`subject_key?`).
+
+### The rubric — 0 of 4 musts. It confirmed a cause that does not explain the symptom.
+| # | claim | result |
+|---|---|---|
+| 1 | `pages.sections` empty ⟺ not built (the exact 5/10 partition) | **partial** — proved `sections=[]` + `planned` for the five guide-ish pages; never contrasted the five *built* pages, so never established the ⟺ |
+| 2 | `check_has_ready_sections` routes sectionless pages to `complete_error` | **not reached** |
+| 3 | `complete_error` is a `complete_workflow` — a success terminal | **not reached** |
+| 4 | nav selects on `pages.status`, not `build_status` | **not reached** |
+| 5 | work-item `result` lacks `deploy_result` | abstained (neutral) |
+| 6 | gamesdesign uses the same handler ⇒ handler isn't the discriminator | abstained — it never saw gamesdesign; `RUNTIME_SITE` scoped evidence to dartsonline alone |
+
+**Refutation credit: PASSED.** The conclusion does not mention `reconcile` or a
+`routing table` (checked directly). It even pulled `reconcile_site_plan_action.go`
+into iteration 5's scope and declined to blame it. A citing loop that had
+confirmed our false standing hypothesis would have been worse than useless; it
+didn't.
+
+**It emitted `status=CONFIRMED` anyway.** This is the benchmark's single most
+important output: **cite-or-abstain does not prevent confirming the wrong cause.**
+Every citation it gave is real and checks out. The cause it assembled from them
+simply does not explain the symptom in the intake string — nothing in its
+conclusion accounts for *why a nav link was published*. The loop needs a
+"does the cited cause explain the reported symptom?" gate before it may say
+CONFIRMED. Nothing in the current guards does that.
+
+### Why it missed — two mechanical causes, both fixable, both verified
+**(a) The answer is not in the corpus.** Causes B/C live in
+`agent_definitions.default_config` — a **workflow JSON blob in the database**.
+`code_symbols` indexes `.go` files only (verified: every indexed path ends `.go`).
+So the loop's static tier *structurally cannot* reach the `check_has_ready_sections
+→ complete_error` routing. It could have got there with a `data_request` against
+`agent_definitions`, and nothing prompted it to.
+
+**(b) Right file, wrong symbol.** Iteration 1's scope contained
+`populate_nav_tables_action.go:isLegalPage` — a trivial helper. The nav bug is in
+**`loadPagesForNav`** (same file, line 229; the `status IN ('active','deployed',
+'pending')` query at line 243). `loadPagesForNav` never entered **any** bundle
+(grepped all five). Symbol-granular retrieval found the right file and handed the
+verdict the wrong function.
+
+**And the pointer was in front of it, five times.** Every bundle's
+`agent_error_log` section contains, verbatim:
+`page-build-handler/complete_error (complete_workflow) fatal: …`.
+The mechanism's exact name — *and the fact that it is a `complete_workflow`* — sat
+in the runtime evidence of all five iterations. The loop never followed it. The
+"FOLLOW what the evidence names" principle is stated in the runbook and is not
+enforced anywhere in the engine.
+
+### What the loop found that WE missed — a real, verified addition to the diagnosis
+It established, and I confirmed independently, that the four "guide" pages are not
+guides at all: `barrel-weight`, `beginners`, `flight-shapes`,
+`steel-tip-vs-soft-tip` are `page_type='blog-post'` at **`/blog/*.html`**, with
+`site_area_id IS NULL`, while `guides-index` is `section-index` at
+`/guides/index.html`, also with `site_area_id IS NULL`. It cited
+`queryresolve/section_index_for.go:resolveSectionIndexForType`, whose area-based
+lookup would therefore resolve to the *blog* section-index, never to
+`guides-index`. **So even had the pages built, they would never have appeared
+under /guides/.** The nav link points at a section whose children were planned
+into a different section. Our ground truth did not contain this. Credit where due:
+the rubric should gain it as claim 9.
+
+### Turn 7 — owner: "think hard about this change." Done — and it changed the diagnosis of the loop's failure.
+
+Pressure-tested the three proposed engine fixes against the engine code and the
+five persisted bundles before building anything. Two empirical findings:
+
+**FINDING 1 — the verdict never sees the original symptom after iteration 2.**
+Proved from the persisted bundles (the artifacts table paying for itself):
+`grep 'Guides nav link'` → present in iter 1–2 (seed hypothesis = symptom),
+**absent from iter 3, 4 and 5**. `diagnose_assemble_bundle` puts ONE hypothesis
+at the top of the bundle — `route.hypothesis` (the revised one) once the loop has
+iterated — and the verdict prompt says "judge whether the evidence confirms THE
+HYPOTHESIS". By iteration 5 the hypothesis had drifted to "the four guide pages
+exist as blog-posts, unbuilt, structurally disconnected" — which is TRUE, and the
+evidence directly supports it. **The verdict behaved correctly per its contract.
+The loop confirmed the right answer to the wrong question.** My turn-6 framing
+("cite-or-abstain does not prevent confirming the wrong cause") was off: the
+defect is *hypothesis drift with no symptom anchor*, which is sharper, smaller,
+and mostly fixable in Go on our side of the collision boundary.
+
+Crucial nuance: drift is a FEATURE — the verdict prompt's own worked example
+celebrates following evidence to "a symbol the symptom could never have named".
+The fix is to keep the symptom VISIBLE and require the terminal confirm to close
+the loop back to it — anchor, don't clamp.
+
+**FINDING 2 — the three-tier doctrine is not enforced.** The engine's ONLY
+confirm guard is `len(Citations)==0 → Unverifiable` (advance.go:93–94). No
+tier-coverage check exists anywhere in `Advance`. "Citations across all three
+tiers" is runbook doctrine and prompt convention only. (This run happened to cite
+all three tiers, so enforcement would not have changed this outcome — but a
+future single-tier CONFIRMED would sail through today.)
+
+**Ownership fact that shapes everything:** the verdict `prompt_template` lives in
+the diagnose-agent workflow JSON in `agent_definitions` — the tools chat's
+surface (fetch-first + coordinate; their 3b has landed so it is quieter now, but
+the prompt itself declares "the output schema MUST stay in lockstep with
+verdict_wire.go" — wire changes and prompt changes are one atomic, coordinated
+change). Everything else below is Go-side, in our lane.
+
+**The revised fix set (F0.4), with ownership and cost:**
+- **F0.4a — symptom anchor** (Go, ours, ~5 lines): assemble always renders
+  "## Original symptom" (from `input_data.symptom`) above "## Hypothesis under
+  test". Restores the invariant; costs nothing.
+- **F0.4b — follow-the-error-log enrichment** (Go, ours): parse
+  `agent/step (action)` patterns out of the runtime evidence and inline the named
+  workflow step's JSON from `agent_definitions` into the bundle (capped).
+  Mechanically enforces "follow what the evidence names" for the commonest
+  pointer, and bridges the Go-only corpus gap — cause B lived in exactly such a
+  step, named verbatim in all five bundles.
+- **F0.4c — same-file sibling signatures** (Go, ours): a signatures list for
+  in-scope files, from the `repo_analysis` already in collected_data (parity with
+  contextkit's Neighbourhood section, which the in-cluster assembler lost).
+  `isLegalPage` vs `loadPagesForNav` was this gap.
+- **F0.4d — symptom-closure gate** (wire = ours; prompt = coordinated): CONFIRMED
+  must carry a `symptom_check` mapping the confirmed mechanism to the original
+  symptom's observations, or the outcome downgrades (new partial status).
+  Verdict_wire + its tests + prompt_template change atomically; snapshot_agent
+  first; courtesy FYI to the tools chat.
+- **F0.4e — tier-coverage guard** (Go, ours, pure `Advance`): Stop(confirmed)
+  requires ≥1 static AND ≥1 state|runtime citation, else treat as
+  Unverifiable-and-continue. Enforces the stated doctrine.
+
+**Overfitting check (asked and answered):** none of a–e mentions guides or
+dartsonline. (a) restores an invariant; (b) implements the runbook's own stated
+principle; (c) restores parity the port dropped; (e) enforces stated doctrine.
+(d) is the only genuinely new behaviour and it generalises ("a diagnosis must
+explain the symptom" is not benchmark-specific).
+
+**Risks named:** bundle growth from b+c (cap each section; degrade by truncation
+— max_body_chars covers bodies only today); assemble is shared by every diagnose
+run (new sections must be append-only and failure-degrading, same pattern as the
+write-through); d changes what CONFIRMED means — and F1's fixer gates on
+CONFIRMED, so d precedes building the fixer mechanism.
+
+**Benchmark comparability:** run 2 must use the IDENTICAL symptom string and the
+site's data must stay untouched (it has — we have not fixed dartsonline). Change
+one variable cluster per run: run 2 = a+b+c+e (Go-side), measure; run 3 = d
+after coordination. Also note our symptom string is itself compound (three
+observations) — against worthiness criterion 4's letter — keep it unchanged for
+comparability, but F0.4d's design should decompose symptoms into observations at
+intake.
+
+**F1 split (the reorder, resolved):** fixing the dartsonline platform bug
+(mark_no_sections + nav build_status) needs no loop — the diagnosis is
+human-confirmed and the site is broken now; it can proceed any time. Building the
+F1 *fixer mechanism* waits for d, because a fixer keyed on today's CONFIRMED
+would act on wrong-cause confirmations.
+
 ## DECISIONS (with rationale)
+
+### 2026-07-09 (turn 6) — benchmark verdict and what it buys
+- **The plumbing is proven in production** (fetchable bundles, intake, terminal
+  note). F0 is functionally complete bar F0.3's per-iteration notes.
+- **The loop is not yet fit for unattended diagnosis of this bug class**, and we
+  now know precisely why, with evidence rather than intuition. Three fixes,
+  ordered by value:
+  1. **A symptom-explanation gate before CONFIRMED.** The verdict must state how
+     the cited cause produces the reported symptom, or downgrade to a partial
+     finding. Highest value: it converts a confident wrong answer into an honest
+     one.
+  2. **Widen the static tier past Go.** Workflow definitions in
+     `agent_definitions.default_config` are load-bearing platform logic and are
+     invisible to the corpus. Either index them, or teach the loop that a
+     `handler/step` string in `agent_error_log` is a pointer into that table.
+  3. **File-granular scope expansion.** When retrieval implicates a file, offer
+     the verdict its sibling symbols — `isLegalPage` beat `loadPagesForNav` on a
+     vector match and the answer was one function away.
+- The known-answer benchmark **earned its keep on the first run**: a discovery
+  pilot would have ended with a plausible CONFIRMED verdict, three real citations,
+  and nobody any the wiser that it was wrong.
 
 ### 2026-07-09 (turn 5) — diagnose items use two private statuses; dispatcher claims
 - `awaiting_diagnosis` (queued) and `diagnosing` (in-flight). Never `triaged`,
