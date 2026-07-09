@@ -16,10 +16,32 @@ ACT="$ROOT/platform/orchestration/actions"
 cd "$ROOT"
 
 echo "=== resolving scope paths (eyeball these before the bundle runs) ==="
-resolve() {  # resolve <symbol-or-token> <fallback-glob>
-  local hit
-  hit=$(grep -rl "$1" "$ACT"/*.go 2>/dev/null | grep -v _test | grep -v registry.go | head -1)
-  [ -n "$hit" ] && echo "${hit#$ROOT/}" || echo ""
+
+# Resolve an action's FILE from its registered action name.
+#   1. find the registration line in registry.go -> the constructor/type name
+#   2. find the file that defines that constructor/type
+#   3. fallback: CamelCase the action name and search
+#   4. last resort: search the whole platform tree
+# (v1 grepped only for the quoted name inside action files and excluded
+#  registry.go — which is precisely where the mapping lives. File names are not
+#  consistent either: validate_page_content.go has no _action suffix.)
+resolve_action() {
+  local name="$1" ctor file camel
+  ctor=$(grep -h "\"$name\"" "$ACT"/registry.go 2>/dev/null | head -1 \
+         | grep -oE '\bNew[A-Za-z0-9_]+|\b[A-Z][A-Za-z0-9_]*Action\b' | head -1)
+  if [ -n "$ctor" ]; then
+    file=$(grep -rl -E "func +(\(.*\) )?$ctor|type +${ctor#New} " "$ACT"/*.go 2>/dev/null \
+           | grep -v _test | grep -v registry.go | head -1)
+  fi
+  if [ -z "${file:-}" ]; then
+    camel=$(echo "$name" | awk -F_ '{for(i=1;i<=NF;i++){printf toupper(substr($i,1,1)) substr($i,2)}}')
+    file=$(grep -rl "$camel" "$ACT"/*.go 2>/dev/null | grep -v _test | grep -v registry.go | head -1)
+  fi
+  if [ -z "${file:-}" ]; then
+    file=$(grep -rl "\"$name\"" "$ROOT/platform" --include=*.go 2>/dev/null \
+           | grep -v _test | grep -v registry.go | head -1)
+  fi
+  [ -n "${file:-}" ] && echo "${file#$ROOT/}" || echo ""
 }
 
 LOAD_EXISTING="platform/orchestration/actions/load_existing_content_action.go"   # confirmed by grep
@@ -29,21 +51,34 @@ RAG="platform/orchestration/actions/rag_actions.go"                             
 WRITE_PLAN="platform/orchestration/actions/write_doc_plan_action.go"             # confirmed (bundle)
 APPEND_NOTE="platform/orchestration/actions/append_doc_note_action.go"           # confirmed (bundle)
 COMPLETENESS="platform/orchestration/actions/check_tool_completeness_action.go"  # confirmed (uploaded)
+LLM_ACTION="platform/orchestration/actions/ai_actions.go"                        # confirmed: execute_llm_prompt
+COORD="platform/orchestration/coordinator.go"                                    # confirmed
 
-SAVE_SECTIONS=$(resolve '"save_page_sections"')
-VALIDATE_PAGE=$(resolve '"validate_page_content"')
-UPDATE_STATUS=$(resolve '"update_page_status"')
-TOOL_HEALTH=$(resolve '"check_tool_health"')
-LLM_ACTION=$(grep -rl 'func.*ExecuteLLMPrompt\|"execute_llm_prompt"' "$ACT"/*.go 2>/dev/null | grep -v _test | grep -v registry.go | head -1)
-LLM_ACTION="${LLM_ACTION#$ROOT/}"
-COORD=$(ls platform/orchestration/coordinator.go 2>/dev/null || echo "")
+SAVE_SECTIONS=$(resolve_action 'save_page_sections')
+VALIDATE_PAGE=$(resolve_action 'validate_page_content')
+UPDATE_STATUS=$(resolve_action 'update_page_status')
+TOOL_HEALTH=$(resolve_action 'check_tool_health')
 
 for v in LOAD_EXISTING APPLY_ADOPTION CREATE_TOOL RAG WRITE_PLAN APPEND_NOTE COMPLETENESS \
          SAVE_SECTIONS VALIDATE_PAGE UPDATE_STATUS TOOL_HEALTH LLM_ACTION COORD; do
   printf '  %-14s %s\n' "$v" "${!v:-<not found>}"
 done
+
+# Show candidates for anything still missing, so a miss is diagnosable rather
+# than mysterious. check_tool_health may simply not exist yet (Stage 5 unbuilt).
+show_candidates() {  # show_candidates <action_name> <resolved_value>
+  [ -n "${2:-}" ] && return 0
+  echo
+  echo "--- candidates for '$1' (none resolved) ---"
+  grep -rn "$1" "$ROOT/platform" --include=*.go 2>/dev/null | grep -v _test | head -5 \
+    || echo "    no occurrences under platform/ — probably not implemented yet"
+}
+show_candidates save_page_sections  "$SAVE_SECTIONS"
+show_candidates update_page_status  "$UPDATE_STATUS"
+show_candidates check_tool_health   "$TOOL_HEALTH"
+
 echo
-echo "If any line says <not found>, fix it before continuing (or drop that -scope)."
+echo "Missing entries are dropped from -scope automatically (non-fatal)."
 echo "Press Enter to build the bundle, Ctrl-C to abort."; read -r _
 
 SCOPES=()
