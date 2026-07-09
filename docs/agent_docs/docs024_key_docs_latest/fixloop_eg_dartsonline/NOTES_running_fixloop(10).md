@@ -274,7 +274,87 @@ in by accident. (`plan_sections` is, note, the very step upstream of
 `check_has_ready_sections` in the pilot diagnosis — worth a look before F1
 edits that area.)
 
+### Turn 4 — F0.1c LANDED; Q-B's "null-site" was impossible; reuse found instead
+
+**Q-B, as decided on 2026-07-07, could not be built.** It said site-less code
+bugs "ride null-site in the new `pipeline='diagnose'` namespace". Reading the
+schema before writing the code killed that in two independent ways:
+
+1. `site_work_items.site_id` is **NOT NULL**. The runbook assumed nullable.
+2. Even with the constraint dropped it would not work: `LoadWorkItemsAction`
+   parses `site_id` as a **required uuid** and its query is
+   `WHERE wi.site_id = $1`. The relay's loader is site-anchored *by
+   construction*, and `site_id = NULL` matches nothing regardless. A NULL-site
+   item would sit in the table forever, invisible.
+
+**The platform had already solved it — we just hadn't looked.** `system.internal`
+(`eac60db8-b032-432b-b36d-76f37632045d`, `sites.status='system'`) is an existing
+pseudo-site holding platform-wide work: the `maintenance`-pipeline
+`component_quality_scan` items live there today, alongside 45
+`needs_component_regeneration` rows. So: anchor `needs_diagnosis` to
+`system.internal`. No migration, no constraint change, no second mechanism.
+Reuse before recreate — and this is the second time in two slices that grep beat
+memory (the first being `nullIfEmpty`).
+
+**A hazard found while doing it, worth more than the slice.** The live
+`build-dispatch-loop`'s `load_items` step is configured with **only**
+`{site_id, max_items}` — it has **no `item_pipeline` filter**. So a work item of
+*any* pipeline, parked on a real site, is claimed by that site's next build
+dispatch and handed to whatever `handler_agent` it names. Two consequences:
+- **Every** `needs_diagnosis` item anchors to `system.internal`, even when the
+  bug is about a real site. The site under diagnosis travels in
+  `spec.site_id` / `spec.runtime_site`, never in the item's own `site_id`
+  column. This keeps the diagnose namespace physically off every per-site
+  dispatch loop **without editing a workflow the builder thread owns** — the
+  collision rule holds.
+- Belt and braces: the item is written with `status='detected'`, and the loader
+  takes only `status IN ('triaged','approved')`. Nothing existing can claim it
+  even if a loop is one day pointed at `system.internal`.
+
+**Deliverable:** `090_TRIGGER_needs_diagnosis_v1.sh` (085–089 were taken). It
+writes the durable intake record, then fires the 084 envelope on the **same
+correlation_id**, so the work item, the `diagnosis_artifacts` bundles, and the
+terminal `doc_notes` row all join on one key. `DISPATCH=0` records without
+firing. 084 is *not* replaced — Q-B kept the bare manual trigger for ad-hoc runs
+with no intake record.
+
+**F0.1c criteria — all pass** (`bash -n` clean; run with `DISPATCH=0`):
+1. Item inserts with `pipeline='diagnose'`, `item_type='needs_diagnosis'`,
+   `handler_agent='diagnose-orchestrator'`, anchored to `system.internal`;
+   `spec` carries symptom, ref, target `runtime_site`, `subject_type`/
+   `subject_key` and the `correlation_id`.
+2. **Not claimable**: the loader's *exact* query, run against `system.internal`,
+   returns 0 rows. (0 rows is decisive here only because the preceding query
+   proved the row exists — the "0 rows isn't decisive until the query is
+   checked" rule, honoured.)
+3. **Negative control**: flipping the row to `status='triaged'` makes it appear
+   in that same loader query immediately. So non-claimability is caused by the
+   status guard, not by a typo in the query — and the build-dispatch hazard
+   above is demonstrated, not merely argued.
+4. **Idempotent**: re-running the same `SLUG` with a different symptom while the
+   intake is open yields `INSERT 0 0` and still one open intake — `ON CONFLICT
+   DO NOTHING` pairing with `idx_swi_dedup (site_id, item_key) WHERE status NOT
+   IN (terminal…)`.
+Self-test rows deleted; `pipeline='diagnose'` is empty again.
+
+**Still open, deliberately:** automatic dispatch of `pipeline='diagnose'` needs
+its own pipeline-filtered loop (a new agent definition, or an `item_pipeline`
+filter added to `build-dispatch-loop` — the latter touches the builder thread's
+surface and should be *their* call). Until then this script is the dispatcher,
+and that is the documented route F0.2 asked for. Flagged rather than quietly
+built.
+
 ## DECISIONS (with rationale)
+
+### 2026-07-09 (turn 4) — Q-B CORRECTED: system.internal anchor, not null-site
+- Null-site is impossible (NOT NULL column; site-anchored loader). Anchor every
+  `needs_diagnosis` item to the existing `system.internal` pseudo-site and carry
+  the site under diagnosis in `spec`. Status starts at `detected` so no existing
+  dispatch loop can claim it.
+- **Why this beats dropping the constraint:** dropping NOT NULL would weaken an
+  invariant the entire relay relies on, to serve one namespace, and would still
+  need a new loader. The pseudo-site already exists and already carries
+  platform-wide work. The narrower change is the right one.
 
 ### 2026-07-09 (turn 2) — F1 targets the platform (OWNER CONFIRMED)
 - The missing `mark_no_sections` step and the nav column fix land in the

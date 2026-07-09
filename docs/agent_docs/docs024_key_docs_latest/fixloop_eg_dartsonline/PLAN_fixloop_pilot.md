@@ -64,15 +64,33 @@ observed until the chassis image is rebuilt and rolled out — the pod runs a
 built binary. **F0.1b is code-complete, not live.** That proof arrives with the
 benchmark run (§5, step 6).
 
-### F0.1c — the `needs_diagnosis` envelope
-A work item with `pipeline='diagnose'` (the column exists and defaults to
-`'build'`), `site_id` nullable, envelope extending
-`drafts/084_TRIGGER_diagnose_v1.sh`, carrying `subject_type`/`subject_key` so
-the tools chat's persist_note subject gate opens once their 3b lands.
+### F0.1c — the `needs_diagnosis` envelope — ✅ LANDED 2026-07-09
+`090_TRIGGER_needs_diagnosis_v1.sh` writes the durable intake record, then fires
+the 084 envelope on the same `correlation_id`, so item → bundles → terminal note
+all join on one key. `DISPATCH=0` records without firing. 084 is retained for
+ad-hoc runs.
 
-*Criteria*: an item inserted with a null `site_id` dispatches; the anchorless
-run survives (their `load_runtime` error-routing is already applied); the
-manual trigger still works.
+**Q-B corrected.** "Null-site allowed" was impossible: `site_work_items.site_id`
+is NOT NULL, *and* `LoadWorkItemsAction` requires a uuid and queries
+`WHERE wi.site_id = $1`, so a NULL-site item could never be loaded anyway.
+Instead we reuse the existing `system.internal` pseudo-site
+(`eac60db8-…`, `sites.status='system'`) that already carries platform-wide
+maintenance work. **Every** `needs_diagnosis` item anchors there — even
+site-specific bugs — because `build-dispatch-loop`'s `load_items` has **no
+`item_pipeline` filter** and would otherwise claim diagnose items parked on a
+real site. Items start at `status='detected'`, outside the loader's
+`('triaged','approved')` filter, as a second guard.
+
+*Criteria — all pass*: correct row shape with the envelope in `spec`; the
+loader's exact query returns 0 rows against `system.internal`; a **negative
+control** (flip to `triaged`) makes it appear, proving the status guard is what
+holds it and that the dispatch hazard is real; re-running the same `SLUG` is
+idempotent via `idx_swi_dedup`.
+
+*Deliberately not built*: automatic dispatch of `pipeline='diagnose'` needs its
+own pipeline-filtered loop, or an `item_pipeline` filter on `build-dispatch-loop`
+— the latter is the builder thread's surface and should be their call. Until
+then the script is the dispatcher, which is the documented route F0.2 required.
 
 **Gotcha to honour while touching any workflow**: `error_step` belongs *inside*
 a step's `config`. Step-level `error_step` is silently ignored (001 §16).

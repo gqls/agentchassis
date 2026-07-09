@@ -105,13 +105,33 @@ enrichment.
 
 **DECIDED 2026-07-07 (owner).** **Q-A** `diagnosis_artifacts` table, written
 through inside assemble (`kind ∈ {bundle, iteration_note}`). **Q-B** intake =
-`needs_diagnosis` item in a new `pipeline='diagnose'` namespace (null-site
-allowed; envelope extends 084; manual trigger retained). **Q-C** separate fixer
+`needs_diagnosis` item in a new `pipeline='diagnose'` namespace (~~null-site
+allowed~~ — **CORRECTED 2026-07-09, see below**; envelope extends 084; manual
+trigger retained). **Q-C** separate fixer
 agent (isolated write token; constrained edit plan; gofmt+build in a spawned
 job pre-PR). **Q-D** flag-based `hard_veto`; guideline-gap = SIDE-TASK
 (amendment PR against the guideline docs; human terminal; fix unblocked; F3
 recurrence record). **Q-F** shape (c): working notes in our own storage; only
 the TERMINAL note lands in `doc_notes` via the tools chat's `persist_note`.
+
+**Q-B CORRECTION (2026-07-09, established from schema + code, not assumed).**
+"Null-site allowed" is **impossible**, twice over: `site_work_items.site_id` is
+`NOT NULL`, and `LoadWorkItemsAction` parses `site_id` as a required uuid and
+filters `WHERE wi.site_id = $1` — the relay's loader is site-anchored by
+construction, so a NULL-site item could never be loaded even with the constraint
+dropped. **Instead, reuse the existing `system.internal` pseudo-site**
+(`eac60db8-b032-432b-b36d-76f37632045d`, `sites.status='system'`), which already
+carries platform-wide `maintenance` work. Every `needs_diagnosis` item anchors
+there — *including* site-specific bugs — because `build-dispatch-loop`'s
+`load_items` step is configured with only `{site_id, max_items}` and has **no
+`item_pipeline` filter**, so any item parked on a real site is claimed by that
+site's next build dispatch. The site under diagnosis travels in
+`spec.site_id`/`spec.runtime_site`. Items are written at `status='detected'`,
+outside the loader's `('triaged','approved')` filter, as a second guard.
+Intake route: `090_TRIGGER_needs_diagnosis_v1.sh`. Automatic dispatch of the
+`diagnose` pipeline remains unbuilt — it needs a pipeline-filtered loop, or an
+`item_pipeline` filter on `build-dispatch-loop`, which is the builder thread's
+surface and their call.
 
 **STILL OPEN (F2-phase).**
 - **Q-E architecture-change signals**: packages touched; `platform/` vs
@@ -279,6 +299,14 @@ means nothing.
 - `site_work_items.attempt_count`, not `attempts`. `pages.status` (lifecycle,
   default `'active'`) is **not** `pages.build_status` (build state). This
   distinction is itself the nav bug — expect it to bite elsewhere.
+- `site_work_items.site_id` is **NOT NULL**, and `LoadWorkItemsAction` is
+  site-anchored (`WHERE wi.site_id = $1`). Platform-wide work anchors to the
+  `system.internal` pseudo-site. There is no site-less work item.
+- **`build-dispatch-loop` does not filter by pipeline.** Its `load_items` config
+  is `{site_id, max_items}` only. Any item of any pipeline, on a dispatched
+  site, at `status IN ('triaged','approved')`, will be claimed and handed to its
+  `handler_agent`. Park non-build items on `system.internal`, or leave them at
+  `status='detected'`, or both.
 - `cmd/bundle` needs `-psql` as ONE quoted argument with NO `-it`/`-t`;
   without it the bundle silently carries code+docs only.
 

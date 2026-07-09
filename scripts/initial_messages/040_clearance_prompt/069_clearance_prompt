@@ -204,3 +204,4 @@ kubectl -n ai-persona-system scale deployment/business-intel --replicas=1
 # kubectl get nodes -o custom-columns="NAME:.metadata.name,DISK_PRESSURE:.status.conditions[?(@.type=='DiskPressure')].status,EPHEMERAL:.status.conditions[?(@.type=='EphemeralStoragePressure')].status"
 # kubectl -n ai-persona-system get pods --field-selector=status.phase=Failed -o name | xargs kubectl -n ai-persona-system delete
 # kubectl -n ai-persona-system exec -it deploy/pgbouncer -- pg_isready -h localhost -p 6432
+# date; make release redeploy-agents  ENVIRONMENT=production REGION=uk001; date
