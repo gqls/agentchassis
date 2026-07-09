@@ -465,4 +465,48 @@ forward only).
    its hero (no empty src), logo resolves to `/assets/images/logo.png`.
 4. Then run a discovery pass and read `image_source_unsatisfiable` findings.
 
+## Turn 9 — 2026-07-09 — Deploy 2 verified: both fixes work at scale; dispatch stall is the only friction
+
+**Deploy 2 live.** Reset all 15 "Re-render … image asset landed" items to
+re-render against deploy-2. Result on every page that re-rendered:
+
+**BOTH FIXES PROVEN AT SCALE — zero `backblazeb2` S3 URLs remain.** Each
+re-rendered page shows its OWN deployed git-path hero:
+- index → `/assets/images/hero-home.jpg`
+- gripper-catalog → `/assets/images/hero-gripper-catalog.jpg`
+- matchmatrix → `/assets/images/hero-matchmatrix.jpg`
+- matchmatrix-methodology → `/assets/images/hero-matchmatrix-methodology.jpg`
+- learning-center → `/assets/images/hero-learning-center.jpg`
+- learning-center-hub → `/assets/images/hero-learning-center-hub.jpg`
+- how-to-specify-a-gripper → `/assets/images/hero-how-to-specify.jpg`
+- gripper-payload-calculator → `/assets/images/hero-payload-calc-overview.jpg`
+Distinct per page, correct committed paths, no expiring S3 URLs, no shared
+placeholder. The original three symptoms (same image everywhere, empty src,
+wrong-url) are resolved for every re-rendered page.
+
+**Dispatch stall is now the sole friction (pre-existing infra, not the fix).**
+Two zombie-claimed needs_page items (36 & 26 min old, no error) were blocking
+the WHOLE site via find_dispatchable_site's NOT-EXISTS clause — confirmed the
+TODO-item-6 mechanism. Cleared them; drain resumed at ~7.5 min/page but zombies
+keep re-forming. Running a self-healing drain (auto-clears claims >8 min) to
+finish the last ~5 pages (about, product-detail, services, gripper-selection-
+guide, pneumatic-vs-electric).
+
+**Still-pending / separate items (NOT fix failures):**
+- product-detail + about show empty src ONLY because they haven't re-rendered
+  under deploy-2 yet (still triaged) — they are THE test of the role-alias
+  path; verdict pending their render (captured by the running drain monitor).
+- Orphan old pages (how-it-works, selection-guide, tool-…-guide) still show the
+  stale `/assets/images/hero.jpg` — they are adoption-residue duplicates NOT in
+  the current 33-page plan, so no re-render item targets them. Plan cleanup /
+  orphan-page removal is separate from imagery.
+- **Logo in header unaffected** (0 pages reference /assets/images/logo) — the
+  header is a SITE component rendered by render_site_components, not
+  plan_sections, so this fix doesn't touch it. This is the known
+  "logo-in-header resolution gap" (I0 open item) — still needs its own fix.
+
+**Infra follow-up worth prioritising (yours, already scoped):** bump the
+zombie-claim reaper cadence / add per-item-type circuit breaker (TODO 6/10/11).
+It is now the slowest part of the imagery loop and will bite every future site.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
