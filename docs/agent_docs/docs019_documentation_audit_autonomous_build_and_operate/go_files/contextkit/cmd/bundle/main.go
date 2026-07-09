@@ -208,7 +208,12 @@ func main() {
 			}
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "no -psql given: skipping DB gather (schema/runtime/capabilities); composing from -scope/-doc only")
+		fmt.Fprintln(os.Stderr, "no -psql given: skipping DB gather (schema/runtime/capabilities); composing from -scope/-doc only.")
+		fmt.Fprintln(os.Stderr, "  The bundle will contain NO schema, NO runtime evidence and NO capability facts —")
+		fmt.Fprintln(os.Stderr, "  code and docs only. To include them, pass a read-only psql invocation, e.g.:")
+		fmt.Fprintln(os.Stderr, "    -psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db'")
+		fmt.Fprintln(os.Stderr, "  Format: the full command that starts an interactive-less psql session, as ONE quoted")
+		fmt.Fprintln(os.Stderr, "  argument. Do NOT include -it/-t (no TTY is attached; output is captured).")
 	}
 
 	// Build the assembler invocation.
@@ -285,7 +290,13 @@ SCOPE / DOCS (repeatable):
   -doc FILE            authored doc to include verbatim
 
 DB GATHER (all read-only; only run if -psql given):
-  -psql STRING         psql invocation (e.g. 'kubectl exec -n … -- psql -U … -d …')
+  -psql STRING         psql invocation as ONE quoted argument; no TTY flags (-it/-t)
+                       since output is captured. Everything after -- is the psql
+                       command and its connection flags.
+                       In-cluster: -psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db'
+                       Local:      -psql 'psql -U clients_user -d clients_db'
+                       Omit it and the bundle carries code+docs ONLY (no schema,
+                       runtime or capabilities).
   -schema-tables CSV   tables to \d            -> assembler -schema
   -runtime-site DOMAIN runtime evidence        -> assembler -doc
   -runtime-page NAME   narrow runtime to a page
