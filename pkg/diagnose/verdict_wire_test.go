@@ -60,7 +60,8 @@ func TestParseVerdicts_ArrayScript_GamesdesignPath(t *testing.T) {
 	   "citations":[{"tier":"static","where":"content_writer","quote":"max_tokens 2000"}],
 	   "revised_hypothesis":"discarded at result extraction","next_scope":["coordinator.go:extractWorkflowResult"]},
 	  {"outcome":"CONFIRMED",
-	   "citations":[{"tier":"static","where":"result_spec.go:resolveResultSpec","quote":"singular output_field ignored"}]}
+	   "citations":[{"tier":"static","where":"result_spec.go:resolveResultSpec","quote":"singular output_field ignored"},
+	                {"tier":"runtime","where":"orchestration_states","quote":"collected_data missing the writer output"}]}
 	]`)
 	vs, err := ParseVerdicts(raw)
 	if err != nil {

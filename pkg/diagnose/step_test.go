@@ -9,7 +9,9 @@ func TestDecideStep_ConfirmStops(t *testing.T) {
 	d := DecideStep(StepInput{
 		Iteration: 1, MaxIterations: 5,
 		Hypothesis: "h", Scope: Scope{Symbols: []string{"a.go"}},
-		Verdict:       Verdict{Outcome: Confirmed, Citations: []Citation{{Where: "a.go:F", Quote: "q", Tier: TierRuntime}}},
+		Verdict: Verdict{Outcome: Confirmed, Citations: []Citation{
+			{Where: "a.go:F", Quote: "q", Tier: TierRuntime},
+			{Where: "a.go:F", Quote: "the mechanism", Tier: TierStatic}}},
 		PrevScopeSize: 2,
 	})
 	if d.Decision != "stop" || d.StopReason != "confirmed" || d.TerminalStatus != Confirmed {

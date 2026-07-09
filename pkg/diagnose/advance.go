@@ -87,12 +87,9 @@ func Advance(st *LoopState, verdict Verdict, cg CallGraph) AdvanceResult {
 		PrevScopeSize:    st.PrevScopeSize,
 	})
 
-	// Record the iteration (coerce the verdict the same way DecideStep does, so
-	// the trail shows what was decided on) — identical to Run()'s trail append.
-	recorded := verdict
-	if (recorded.Outcome == Confirmed || recorded.Outcome == Refuted) && len(recorded.Citations) == 0 {
-		recorded.Outcome = Unverifiable
-	}
+	// Record the iteration coerced the same way DecideStep decided on it, so the
+	// trail shows what was actually acted upon — one shared coercion, no drift.
+	recorded := coerceVerdict(verdict)
 	st.Trail = append(st.Trail, Step{
 		Iteration: st.Iteration, Hypothesis: st.Hypothesis, Scope: st.Scope,
 		Verdict: recorded, GuardStop: d.StopReason,

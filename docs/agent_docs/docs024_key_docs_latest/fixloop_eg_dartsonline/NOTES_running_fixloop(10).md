@@ -607,6 +607,56 @@ human-confirmed and the site is broken now; it can proceed any time. Building th
 F1 *fixer mechanism* waits for d, because a fixer keyed on today's CONFIRMED
 would act on wrong-cause confirmations.
 
+### Turn 8 — F0.4 a/b/c/e BUILT AND TESTED; awaiting image for run 2
+
+**F0.4e — tier-coverage guard (pkg/diagnose).** The two duplicated item-24
+coercion blocks (DecideStep + Advance's trail record) — plus a THIRD copy found
+in `Run()`'s trail append — are now one shared `coerceVerdict()`, extended with
+the new rule: CONFIRMED must carry ≥1 `static` AND ≥1 `state|runtime` citation
+or it degrades to Unverifiable and the loop continues gathering. Refutation is
+exempt on purpose (prompt rule-3 asymmetry: one contradicting log line
+legitimately breaks a hypothesis; a confirm must show the mechanism AND its
+occurrence). Five existing test fixtures confirmed on a single tier — including
+the wire-format replay of the real gamesdesign path — and now correctly failed;
+each was updated to carry both families, which IS the new contract. New
+`step_tierguard_test.go` pins: four single-family confirm shapes all degrade;
+static+state and static+runtime both stand; single-tier REFUTE still stands;
+and Advance's trail records the COERCED outcome (decision/trail no-drift).
+
+**F0.4a — symptom anchor (assemble).** New `symptom_field` config (default
+`input_data.symptom`); the bundle now opens with "## Original symptom (the
+question this diagnosis must answer)" whenever it differs from the hypothesis
+under test — i.e. exactly from iteration 2 onwards, where run 1's bundles lost
+it. Drift stays allowed; the question stays visible.
+
+**F0.4b — follow-the-error-log enrichment (assemble).** A regex over the
+runtime evidence extracts up to 4 distinct `agent/step (action)` refs (the
+agent_error_log line shape); each named step's JSON is fetched from
+`agent_definitions` (`ORDER BY version DESC LIMIT 1`, live rows only) and
+inlined under "## Workflow step definitions named in the runtime evidence…",
+capped at 8KB, every failure degrading to a log line. **Verified against the
+live DB with run 1's actual ref**: the exact query returns page-build-handler's
+`complete_error` JSON — `action: complete_workflow`, success_message included.
+In run 2 the causal step is citable static evidence the moment the error log
+names it, as it did in all five run-1 bundles.
+
+**F0.4c — same-file sibling signatures (assemble).** For each `path:Symbol`
+scope entry, the signatures of that file's OTHER functions are listed (6KB cap,
+whole-file entries excluded) with an explicit "name these in next_scope" hint.
+Unit test pins the exact run-1 gap: `isLegalPage` in scope ⇒ `loadPagesForNav`
+listed as a sibling, the in-scope symbol itself excluded, unrelated files
+excluded, cap leaves a truncation marker.
+
+**Verification:** gofmt clean (two pre-existing dirty files in the package are
+not mine and untouched); `go build` OK; full `pkg/diagnose` +
+`actions` suites green; new tests: `TestTierGuard_*` (4),
+`TestWorkflowRefsFromRuntime`, `TestSiblingSignatures`.
+
+**NOT LIVE:** all four slices are chassis-binary changes. Run 2 needs an image
+build + rollout (v1.0.1101), then fire 090 with the IDENTICAL symptom string,
+no SEED_SCOPE, site data untouched. F0.4d (symptom-closure gate) is
+deliberately NOT in this batch — one variable cluster per run.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

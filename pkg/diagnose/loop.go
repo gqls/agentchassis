@@ -221,12 +221,9 @@ func Run(seedHypothesis string, seedScope Scope, g Gatherer, v Verdicter, cg Cal
 			PrevScopeSize:   prevScopeSize,
 		})
 
-		// Record this iteration in the trail (Step coerces the verdict internally;
-		// re-apply the same coercion here so the trail shows what Step decided on).
-		recorded := verdict
-		if (recorded.Outcome == Confirmed || recorded.Outcome == Refuted) && len(recorded.Citations) == 0 {
-			recorded.Outcome = Unverifiable
-		}
+		// Record this iteration in the trail coerced the same way DecideStep
+		// decided on it — one shared coercion (coerceVerdict), no drift.
+		recorded := coerceVerdict(verdict)
 		trail = append(trail, Step{
 			Iteration: i, Hypothesis: hyp, Scope: scope, BundlePath: bundlePath,
 			Verdict: recorded, GuardStop: d.StopReason,

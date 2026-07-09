@@ -45,8 +45,11 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/gqls/agentchassis/internal/analysis"
@@ -68,7 +71,7 @@ var DiagnoseAssembleBundleInputSpec = datahelpers.ActionInputSpec{
 	// because diagnose_route loops the workflow back to this step with a new scope.
 	Optional: []string{
 		"loop_scope_field", "scope_field", "code_results_field",
-		"hypothesis_field", "seed_hypothesis_field",
+		"hypothesis_field", "seed_hypothesis_field", "symptom_field",
 		"analysis_field", "repo_root_field", "runtime_field", "schema_field", "max_body_chars",
 		"persist_bundle", "iteration_field", "site_id_field", "bundle_retention_days",
 	},
@@ -78,6 +81,7 @@ var DiagnoseAssembleBundleInputSpec = datahelpers.ActionInputSpec{
 		"code_results_field":    "code_lookup.code_results", // first iteration fallback
 		"hypothesis_field":      "route.hypothesis",         // revised hypothesis on loop-back
 		"seed_hypothesis_field": "input_data.symptom",       // first iteration hypothesis
+		"symptom_field":         "input_data.symptom",       // F0.4a: the ANCHOR — always in the bundle
 		"analysis_field":        "repo_analysis",
 		"repo_root_field":       "repo_analysis.root",
 		"runtime_field":         "runtime.runtime_evidence",
@@ -170,9 +174,21 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		return nil, fmt.Errorf("diagnose_assemble_bundle: analyser Output empty/undecodable at %q (need its line spans to slice bodies): %v", analysisField, err)
 	}
 
-	// Compose: hypothesis first (so the verdict judges THIS hypothesis), then the
-	// in-scope code bodies, then the runtime/DB evidence.
+	// Compose: the ORIGINAL symptom first, then the hypothesis under test, then
+	// the in-scope code bodies, then the runtime/DB evidence.
+	//
+	// F0.4a (benchmark run 4d43d002): once diagnose_route revises the hypothesis,
+	// the verdict used to see ONLY the revision — from iteration 3 the original
+	// symptom was absent from every bundle, so the loop could confirm a true but
+	// symptom-irrelevant hypothesis. The anchor keeps the question in view without
+	// clamping the drift (following evidence away from the symptom's wording is
+	// the loop's whole re-scope mechanism).
 	var b strings.Builder
+	symptom := datahelpers.ExtractNestedFieldString(params.CollectedData,
+		datahelpers.GetStringField(config, "symptom_field", "input_data.symptom"))
+	if symptom != "" && symptom != hypothesis {
+		fmt.Fprintf(&b, "## Original symptom (the question this diagnosis must answer)\n\n%s\n\n", symptom)
+	}
 	if hypothesis != "" {
 		fmt.Fprintf(&b, "## Hypothesis under test\n\n%s\n\n", hypothesis)
 	}
@@ -194,6 +210,18 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		included++
 	}
 
+	// F0.4c: signatures of the OTHER symbols in each in-scope file. Retrieval is
+	// symbol-granular and can land on the right file's wrong function (benchmark
+	// run 4d43d002: isLegalPage was scoped while the cause sat in loadPagesForNav,
+	// same file, never seen). The signature list gives the verdict the map to
+	// name a sibling in next_scope. Parity with contextkit's Neighbourhood
+	// section, which this action's port dropped.
+	if sigs := siblingSignatures(anaOut, scope, siblingSigCap); sigs != "" {
+		b.WriteString("## Same-file signatures (siblings of the in-scope symbols — name these in next_scope to read their bodies)\n\n")
+		b.WriteString(sigs)
+		b.WriteString("\n")
+	}
+
 	// Schema (live tables) — real table/column names so the verdict writes a
 	// correct data_request instead of guessing a relation that does not exist
 	// (the gamesdesign loop wasted iterations on a non-existent "page_sections").
@@ -203,9 +231,27 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		b.WriteString("```\n\n")
 	}
 
+	rt := datahelpers.ExtractNestedFieldString(params.CollectedData, runtimeField)
+
+	// F0.4b: workflow logic lives in agent_definitions JSON, not Go, so the
+	// static tier cannot reach it (code_symbols indexes .go only). When the
+	// runtime evidence names `agent/step (action)` — the agent_error_log line
+	// format — inline those steps' definitions so the verdict can cite the
+	// control flow the error came from. Benchmark run 4d43d002: the causal step
+	// (page-build-handler/complete_error, a success-labelled complete_workflow)
+	// was named verbatim in all five bundles and was unreachable as evidence.
+	// Enrichment failure degrades to a log line; it must never fail assembly.
+	if rt != "" && params.DB != nil {
+		if steps := renderWorkflowSteps(ctx, params.DB, logger, workflowRefsFromRuntime(rt, maxWorkflowRefs)); steps != "" {
+			b.WriteString("## Workflow step definitions named in the runtime evidence (from agent_definitions — citable as static tier)\n\n")
+			b.WriteString(steps)
+			b.WriteString("\n")
+		}
+	}
+
 	// Runtime/DB evidence already gathered upstream — include verbatim so the
 	// verdict sees the logs/rows that name the layer (the §1a re-scope driver).
-	if rt := datahelpers.ExtractNestedFieldString(params.CollectedData, runtimeField); rt != "" {
+	if rt != "" {
 		b.WriteString("## Runtime / DB evidence\n\n")
 		b.WriteString(rt)
 		b.WriteString("\n")
@@ -362,6 +408,114 @@ func persistBundleArtifact(ctx context.Context, params ActionParams, a bundleArt
 		zap.String("correlation_id", params.ExecutionContext.CorrelationID),
 		zap.Int("iteration", a.Iteration),
 		zap.Int("body_chars", a.BodyChars))
+}
+
+// F0.4b/c caps — bounded additions to a bundle whose bodies are already capped
+// by max_body_chars; these sections must never crowd the evidence out.
+const (
+	siblingSigCap   = 6000 // chars of same-file signature listing
+	workflowStepCap = 8000 // chars of inlined workflow-step JSON
+	maxWorkflowRefs = 4    // distinct agent/step pairs to look up per bundle
+)
+
+// workflowRefRe matches the agent_error_log line shape
+// `page-build-handler/complete_error (complete_workflow)`.
+var workflowRefRe = regexp.MustCompile(`([a-z][a-z0-9-]*)/([a-z][a-z0-9_]*) \(([a-z_]+)\)`)
+
+// workflowRefsFromRuntime extracts up to max distinct (agent_type, step) pairs
+// named by the runtime evidence, in order of first appearance.
+func workflowRefsFromRuntime(runtime string, max int) [][2]string {
+	seen := map[string]bool{}
+	var out [][2]string
+	for _, m := range workflowRefRe.FindAllStringSubmatch(runtime, -1) {
+		key := m[1] + "/" + m[2]
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, [2]string{m[1], m[2]})
+		if len(out) >= max {
+			break
+		}
+	}
+	return out
+}
+
+// renderWorkflowSteps inlines the named steps' JSON from agent_definitions.
+// Read-only; every failure degrades to a log line and an absent subsection.
+func renderWorkflowSteps(ctx context.Context, db *sql.DB, logger *zap.Logger, refs [][2]string) string {
+	var b strings.Builder
+	total := 0
+	for _, ref := range refs {
+		var stepJSON sql.NullString
+		err := db.QueryRowContext(ctx, `
+			SELECT jsonb_pretty(default_config->'workflow'->'steps'->$2)
+			FROM agent_definitions
+			WHERE type = $1 AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
+			ORDER BY version DESC LIMIT 1
+		`, ref[0], ref[1]).Scan(&stepJSON)
+		if err != nil || !stepJSON.Valid || stepJSON.String == "" || stepJSON.String == "null" {
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				logger.Warn("diagnose_assemble_bundle: workflow-step lookup failed (bundle continues without it)",
+					zap.String("agent", ref[0]), zap.String("step", ref[1]), zap.Error(err))
+			}
+			continue
+		}
+		if total+len(stepJSON.String) > workflowStepCap {
+			b.WriteString("_(further named steps omitted — cap reached)_\n")
+			break
+		}
+		fmt.Fprintf(&b, "### %s / %s\n```json\n%s\n```\n\n", ref[0], ref[1], stepJSON.String)
+		total += len(stepJSON.String)
+	}
+	return b.String()
+}
+
+// siblingSignatures renders the signatures of symbols that share a file with the
+// in-scope symbols but are NOT themselves in scope. Pure over the analyser
+// Output already in collected_data — no IO.
+func siblingSignatures(out analysis.Output, scope []string, capChars int) string {
+	inScope := map[string]map[string]bool{} // path -> symbol names in scope
+	for _, s := range scope {
+		path, name := s, ""
+		if i := strings.LastIndex(s, ":"); i > 0 {
+			path, name = s[:i], s[i+1:]
+		}
+		if inScope[path] == nil {
+			inScope[path] = map[string]bool{}
+		}
+		if name != "" {
+			inScope[path][name] = true
+		} else {
+			inScope[path]["*"] = true // whole file already included; no siblings to add
+		}
+	}
+
+	var b strings.Builder
+	total := 0
+	for _, f := range out.Files {
+		named, ok := inScope[f.Path]
+		if !ok || named["*"] {
+			continue
+		}
+		var lines []string
+		for _, fn := range f.Functions {
+			if !named[fn.Name] {
+				lines = append(lines, fmt.Sprintf("- `%s:%s` — `%s`", f.Path, fn.Name, fn.Signature))
+			}
+		}
+		if len(lines) == 0 {
+			continue
+		}
+		section := fmt.Sprintf("**%s**\n%s\n\n", f.Path, strings.Join(lines, "\n"))
+		if total+len(section) > capChars {
+			b.WriteString("_(further files omitted — cap reached)_\n")
+			break
+		}
+		b.WriteString(section)
+		total += len(section)
+	}
+	return b.String()
 }
 
 // scopeFromCodeResults turns lookup_code_symbols' code_results ([]{path,symbol})

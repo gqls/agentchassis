@@ -26,8 +26,11 @@ func TestNewDataRequestDefersEvidenceNotGrowing(t *testing.T) {
 		Outcome: Unverifiable, Citations: []Citation{c1}, NextScope: []string{"x.go"},
 		DataRequests: []DataRequest{{SQL: "SELECT 1 FROM pages WHERE page_type = 'index'"}},
 	}
-	// step 3: the requested data has now been gathered; a grounded confirm lands.
-	confirm := Verdict{Outcome: Confirmed, Citations: []Citation{cite("pages", "content is 120 chars", TierState)}}
+	// step 3: the requested data has now been gathered; a grounded, tier-covered
+	// confirm lands (state row showing the effect + code showing the mechanism).
+	confirm := Verdict{Outcome: Confirmed, Citations: []Citation{
+		cite("pages", "content is 120 chars", TierState),
+		cite("x.go:F", "truncates content to 120", TierStatic)}}
 
 	v := &scriptVerdicter{verdicts: []Verdict{step1, step2, confirm}}
 	res, err := Run("index page is a stub", Scope{Symbols: []string{"x.go"}}, &fakeGather{}, v, nil, Config{MaxIterations: 5})

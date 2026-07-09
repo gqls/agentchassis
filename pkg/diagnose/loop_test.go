@@ -51,7 +51,11 @@ func cite(where, quote string, t Tier) Citation {
 
 func TestConfirmedHappyPath(t *testing.T) {
 	v := &scriptVerdicter{verdicts: []Verdict{
-		{Outcome: Confirmed, Citations: []Citation{cite("save_page_sections_action.go:SavePageSectionsAction", "content regression blocked", TierRuntime)}},
+		// tier-covered: mechanism (static) + occurrence (runtime); a single-tier
+		// confirm no longer stands (see coerceVerdict).
+		{Outcome: Confirmed, Citations: []Citation{
+			cite("save_page_sections_action.go:SavePageSectionsAction", "content regression blocked", TierRuntime),
+			cite("save_page_sections_action.go:SavePageSectionsAction", "if newLen < existingLen/2 { block }", TierStatic)}},
 	}}
 	res, err := Run("hypothesis A", Scope{Symbols: []string{"a.go"}}, &fakeGather{}, v, nil, DefaultConfig())
 	if err != nil {
@@ -77,7 +81,9 @@ func TestRefuteThenConfirm_FollowsCallGraph(t *testing.T) {
 			RevisedHypothesis: "the generation is short upstream",
 			NextScope:         []string{"plan_sections_action.go:spawn_content_writer"}},
 		{Outcome: Confirmed,
-			Citations: []Citation{cite("content_writer.go:generate_content", "max_tokens 2000", TierStatic)}},
+			Citations: []Citation{
+				cite("content_writer.go:generate_content", "max_tokens 2000", TierStatic),
+				cite("agent_error_log", "content generated: 1998 tokens (cap hit)", TierRuntime)}},
 	}}
 	cg := fakeCG{"plan_sections_action.go:spawn_content_writer": {"content_writer.go:generate_content"}}
 	res, err := Run("sections never reach save", Scope{Symbols: []string{"save_page_sections_action.go:SavePageSectionsAction"}}, &fakeGather{}, v, cg, DefaultConfig())

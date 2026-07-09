@@ -53,20 +53,51 @@ type StepDecision struct {
 	HypHistory    []string
 }
 
+// coerceVerdict applies the standing verdict coercions in one place so
+// DecideStep's decision and Advance's trail record cannot drift apart:
+//   - item-24: a Confirmed/Refuted WITHOUT a citation cannot stand → Unverifiable.
+//   - tier coverage: a CONFIRMED verdict must carry BOTH evidence families —
+//     static (code/schema) and observed (state or runtime) — or it degrades to
+//     Unverifiable and the loop continues gathering. Refutation is exempt on
+//     purpose: one contradicting log line legitimately breaks a hypothesis
+//     (the verdict prompt's rule-3 asymmetry); confirmation must show the
+//     mechanism AND its occurrence. Benchmark run 4d43d002 (2026-07-09) showed
+//     the doctrine was previously unenforced: the only guard was citations ≥ 1.
+func coerceVerdict(v Verdict) Verdict {
+	if (v.Outcome == Confirmed || v.Outcome == Refuted) && len(v.Citations) == 0 {
+		v.Outcome = Unverifiable
+		v.NeededEvidence = "verdict gave no citation; cannot stand — " + v.NeededEvidence
+	}
+	if v.Outcome == Confirmed && !tierCovered(v.Citations) {
+		v.Outcome = Unverifiable
+		v.NeededEvidence = "confirmed on one evidence family only; a confirm needs BOTH a static (code/schema) citation showing the mechanism AND a state/runtime citation showing it occurring — " + v.NeededEvidence
+	}
+	return v
+}
+
+// tierCovered reports whether the citations span both evidence families:
+// static (the mechanism in code) and state/runtime (the mechanism observed).
+func tierCovered(cs []Citation) bool {
+	var static, observed bool
+	for _, c := range cs {
+		switch c.Tier {
+		case TierStatic:
+			static = true
+		case TierState, TierRuntime:
+			observed = true
+		}
+	}
+	return static && observed
+}
+
 // DecideStep applies the verdict to the current state and returns the decision. It
-// performs, in order: the no-citation coercion (item-24), then per-outcome
+// performs, in order: the verdict coercions (coerceVerdict), then per-outcome
 // handling with the convergence guards (DESIGN §3), re-scoping by FOLLOWING the
 // call graph (DESIGN §1a). PURE: no IO; the engine's Gather/Verdict IO happens
 // outside (in Run, or in the workflow's gather/verdict steps).
 func DecideStep(in StepInput) StepDecision {
 	cfg := Config{MaxIterations: in.MaxIterations, FollowCallGraph: in.FollowCallGraph, MaxExpandedScope: in.MaxExpandedScope}
-	verdict := in.Verdict
-
-	// item-24: a Confirmed/Refuted WITHOUT a citation cannot stand → Unverifiable.
-	if (verdict.Outcome == Confirmed || verdict.Outcome == Refuted) && len(verdict.Citations) == 0 {
-		verdict.Outcome = Unverifiable
-		verdict.NeededEvidence = "verdict gave no citation; cannot stand — " + verdict.NeededEvidence
-	}
+	verdict := coerceVerdict(in.Verdict)
 
 	// working copies of guard memory
 	seen := in.SeenCitations

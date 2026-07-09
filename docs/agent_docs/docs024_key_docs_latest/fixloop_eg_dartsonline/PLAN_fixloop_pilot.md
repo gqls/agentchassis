@@ -208,12 +208,20 @@ Go-only while cause B lives in workflow JSON; retrieval scoped the right file's
 wrong symbol; and the engine enforces **no tier coverage** (its only confirm
 guard is citations ≥ 1, advance.go:93).
 
-Slices, by ownership: **F0.4a** symptom anchor in assemble (Go, ours);
-**F0.4b** follow-the-error-log workflow-step enrichment (Go, ours);
-**F0.4c** same-file sibling signatures (Go, ours); **F0.4e** tier-coverage guard
-in Advance (Go, ours); **F0.4d** symptom-closure gate on CONFIRMED — verdict_wire
-+ prompt_template change atomically (prompt lives in the diagnose-agent workflow
-JSON = the tools chat's surface; fetch-first, snapshot, courtesy FYI).
+Slices, by ownership: **F0.4a** symptom anchor in assemble (Go, ours) —
+✅ CODE-COMPLETE 2026-07-09; **F0.4b** follow-the-error-log workflow-step
+enrichment (Go, ours) — ✅ CODE-COMPLETE, its SQL verified live against run 1's
+actual `page-build-handler/complete_error` ref; **F0.4c** same-file sibling
+signatures (Go, ours) — ✅ CODE-COMPLETE, unit test pins the
+isLegalPage/loadPagesForNav gap; **F0.4e** tier-coverage guard (Go, ours) —
+✅ CODE-COMPLETE via a shared `coerceVerdict()` (three duplicated coercion
+blocks unified), CONFIRMED now requires static + state|runtime, REFUTED exempt;
+**F0.4d** symptom-closure gate on CONFIRMED — NOT STARTED, deliberately: it is
+run 3's variable. Prompt lives in the diagnose-agent workflow JSON = the tools
+chat's surface; fetch-first, snapshot, courtesy FYI.
+
+All four landed slices are chassis-binary changes: **run 2 is blocked on an
+image build + rollout (v1.0.1101).**
 
 **Run protocol:** run 2 = a+b+c+e only, identical symptom string, site data
 untouched — measures whether the loop now *finds* the cause. Run 3 = d —

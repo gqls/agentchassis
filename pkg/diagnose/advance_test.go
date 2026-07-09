@@ -32,7 +32,8 @@ func driveAdvance(seedHyp string, seed Scope, verdicts []Verdict, cg CallGraph, 
 
 func TestAdvance_ConfirmedMatchesRun(t *testing.T) {
 	v := []Verdict{
-		{Outcome: Confirmed, Citations: []Citation{cite("a.go:F", "proof", TierRuntime)}},
+		// tier-covered: a confirm carries the mechanism (static) AND its occurrence (runtime)
+		{Outcome: Confirmed, Citations: []Citation{cite("a.go:F", "proof", TierRuntime), cite("a.go:F", "the mechanism", TierStatic)}},
 	}
 	status, by, iters := driveAdvance("h", Scope{Symbols: []string{"a.go"}}, v, nil, DefaultConfig().MaxIterations)
 	if status != Confirmed || by != "confirmed" || iters != 1 {
@@ -47,7 +48,7 @@ func TestAdvance_RefuteThenConfirm_FollowsCallGraph(t *testing.T) {
 			RevisedHypothesis: "short upstream",
 			NextScope:         []string{"plan.go:spawn"}},
 		{Outcome: Confirmed,
-			Citations: []Citation{cite("cw.go:gen", "cap 2000", TierStatic)}},
+			Citations: []Citation{cite("cw.go:gen", "cap 2000", TierStatic), cite("agent_error_log", "generation truncated at 2000", TierRuntime)}},
 	}
 	cg := fakeCG{"plan.go:spawn": {"cw.go:gen"}}
 	status, by, iters := driveAdvance("sections never reach save",
