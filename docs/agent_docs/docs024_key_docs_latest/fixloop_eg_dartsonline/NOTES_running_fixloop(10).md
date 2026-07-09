@@ -344,7 +344,104 @@ surface and should be *their* call). Until then this script is the dispatcher,
 and that is the documented route F0.2 asked for. Flagged rather than quietly
 built.
 
+### Turn 5 — automatic dispatch built; owner's challenge exposed a design flaw
+
+Owner is deploying `v1.0.1100` (`make release redeploy-agents ENVIRONMENT=production
+REGION=uk001`) and asked for automatic dispatch of the `diagnose` pipeline here.
+
+**Why the standard claim path cannot carry this namespace** (all read live, none
+assumed). The relay cannot tell pipelines apart at the point it matters:
+- `build-dispatch-loop`'s `load_items` has only `{site_id, max_items}` — **no
+  `item_pipeline` filter**.
+- `build-pipeline-trigger`'s `find_dispatchable_site` has **no pipeline filter
+  either**, though its description says "a site with pending *build* items". Any
+  site holding a `triaged`/`approved` item of any pipeline is selected.
+- **This is how the `maintenance` pipeline gets dispatched at all — by accident.**
+  So the tempting one-key fix (add `item_pipeline='build'` to
+  `build-dispatch-loop`) would **orphan the maintenance pipeline**. Reported to
+  the builder thread; deliberately not fixed here.
+- `triage_detect_items` promotes `WHERE site_id=$1 AND status='detected'` — no
+  pipeline filter — and **rewrites `pipeline` to `'build'`**. Its comment claims
+  "the dispatch loop (which filters item_pipeline='build')". It does not. Same
+  comment-vs-code family as the pilot bug. So `'detected'` is not safe parking.
+- `claim_work_item` claims only `triaged|approved` — precisely the statuses that
+  expose an item to the two unfiltered readers above.
+
+**Design: two private statuses, inert by construction.** Queued =
+`awaiting_diagnosis`; in-flight = `diagnosing`. Every sweep filters on explicit
+status values, so unknown values are ignored by construction rather than by luck
+of anchor-site choice. Deliverables: `0NN_diagnose_dispatch_loop.sql` —
+`diagnose-dispatch-loop` agent (image columns copied from the `build-dispatch-loop`
+donor per the seed gotcha; tag already `v1.0.1100`) + `diagnose-pipeline-trigger`
+scheduled task, **shipped `enabled=false`**.
+
+**★ OWNER'S CHALLENGE — "why are we setting claimed status; the handler will pick
+that up when ready" — half wrong, half a real bug I had missed.**
+- *The premise*: on this platform the **dispatcher** claims, not the handler.
+  Only `build-dispatch-loop` (and now ours) reference `claim_work_item`;
+  `page-build-handler` neither claims nor completes its own item — the dispatch
+  loop calls `complete_work_item` on its behalf (`load_work_item_actions.go:750`).
+  Verified before answering. Without an atomic move out of the queue state, the
+  next 60s tick re-dispatches the same 26-minute LLM run.
+- *The flaw it exposed*: I argued for a private, inert status and then moved the
+  item into **`claimed`** — the one status that walks straight back into the
+  sweep surface I had just escaped. Two live consequences:
+  (a) `claimed-item-timeout` resets any 40-minute-old claim to **`triaged`**,
+  handing a slow diagnosis to the build dispatcher — I had "fixed" this with
+  `max_attempts=1`, a workaround, not a design;
+  (b) `find_dispatchable_site` excludes any site holding a `claimed` item, so a
+  70-minute diagnosis would have **blocked build dispatch for `system.internal`
+  for its entire duration** — unasked-for cross-pipeline interference I had not
+  spotted at all.
+- *Fix*: the in-flight status is now **`diagnosing`**. `claimed_by`/`claimed_at`
+  are still stamped for audit. Because `diagnosing` is (by design) invisible to
+  `claimed-item-timeout`, the loop now **reaps its own dead runs**: a new
+  `reap_stuck` first step fails any `diagnosing` row older than 75 minutes (past
+  the workflow's own 4200s timeout). `max_attempts=1` is kept, but as semantics —
+  a 26-minute LLM loop should not silently auto-retry — not as the safety net.
+- The 15-minute auto-complete branch is safe either way: it is gated on
+  `item_type IN (needs_content_page, page_rerender, needs_design)`.
+
+**Verification (live, then cleaned up).** `snapshot_agent` taken before the
+update — it writes to `agent_definitions_backup`, *not* `agent_definitions` with
+`is_snapshot=true`, so my first check looked in the wrong table; the pre-update
+workflow (`start_step=claim_item`) is captured there. Then:
+- **Inertness matrix**: the item at `awaiting_diagnosis`, and again at
+  `diagnosing`, scores **0 hits** against all six sweep predicates —
+  `claim_work_item`, `load_work_items`, `triage_detect_items`,
+  `feasibility-recheck`, `stale-work-item-reaper`, and (the one that matters)
+  `claimed-item-timeout`.
+- **Positive control**: our own claim predicate finds it (1 hit). Inertness only
+  means something if *someone* can still claim it.
+- `find_dispatchable_site`'s exact query returns robot-hands.com, not
+  `system.internal`; and `blocks_system_internal` is **false** with our item
+  in-flight — the interference is gone.
+- The workflow's exact `claim_item` statement claims one row, returns the
+  envelope with `target_site_id=dartsonline` (**not** the anchor), and a second
+  tick returns 0 rows → `claimed.count=0` → `notify_scheduler`.
+- `reap_stuck`'s exact statement turns a 76-minute-old `diagnosing` row into
+  `failed`, `attempt_count=1`. Terminal, never `triaged`.
+
+**Also fixed this turn:** 090 emitted `seed_scope` as a comma string.
+`ExtractStringListHelper` accepts only `[]interface{}`/`[]string`, so it would
+have parsed to nil and the seed silently ignored. Now emitted as a JSON array
+(verified: `jsonb_typeof = array`). The auto path deliberately does **not**
+forward `seed_scope` — `query_database` flattens every column to text — so
+assemble falls back to `code_results`, which is the designed default. Documented,
+not hidden.
+
 ## DECISIONS (with rationale)
+
+### 2026-07-09 (turn 5) — diagnose items use two private statuses; dispatcher claims
+- `awaiting_diagnosis` (queued) and `diagnosing` (in-flight). Never `triaged`,
+  `approved`, `detected` or `claimed`. Rationale: every sweep in the platform
+  filters on explicit status values, so a private value is inert *by
+  construction*. Anchor-site choice then stops carrying any safety weight.
+- The dispatcher claims (platform pattern, verified). The loop owns its own reap
+  because it opted out of `claimed-item-timeout`'s coverage.
+- Automatic dispatch ships **disabled**. Enable only after the image is live and
+  the benchmark's blinding is confirmed — otherwise the loop would claim the
+  pilot item and run it before we have checked it cannot read the answer.
 
 ### 2026-07-09 (turn 4) — Q-B CORRECTED: system.internal anchor, not null-site
 - Null-site is impossible (NOT NULL column; site-anchored loader). Anchor every

@@ -279,6 +279,110 @@ Exclude `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/` from
 the loop's corpus and `-doc` selection before the benchmark run, or the result
 means nothing.
 
+## REGENERATING THE CONTEXT BUNDLE (contextkit) — verified end-to-end 2026-07-09
+
+The original `BUNDLE_fixloop_F0.md` was built without `-psql` and carries code +
+docs only. This is the exact, tested procedure to rebuild one *with* the database
+half. Total time ≈ 23 s.
+
+### Where the tool actually lives
+**Not** `cmd/bundle` in the chassis. contextkit is a separate Go module vendored at:
+
+```
+docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/contextkit
+```
+
+`bundle` is a thin wrapper that shells out to **`go run ./cmd/dbcontext`** and
+**`go run ./cmd/assembler`** using *relative* paths. **You must `cd` into that
+directory first** or it fails to find them. `dbcontext` is the only component
+that touches SQL (bounded, read-only); the assembler never opens a connection.
+
+### Step 1 — regenerate the analysis index
+The chassis stores archived copies of its own source under `docs/`, so without
+`-exclude` the index double-counts symbols.
+
+```bash
+cd docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/contextkit
+
+go run ./cmd/analyser /home/ant/projects/agentchassis \
+  -exclude 'go_files_old/,go_files/,docubundle/,thin_slice_run/,scripts/documentation_project/,docs024_key_docs_latest/,docs/_archive/' \
+  > /tmp/analysis_repo.json
+```
+
+*Verify* (do not skip — a leak silently inflates the corpus):
+```bash
+python3 -c "import json;d=json.load(open('/tmp/analysis_repo.json'));p=[f['path'] for f in d['files']];\
+print(len(p),'files;','docs024 leaks:',sum('docs024' in x for x in p),'go_files leaks:',sum('go_files' in x for x in p))"
+# expect: 468 files; docs024 leaks: 0 go_files leaks: 0
+```
+
+### Step 2 — dry-run, then build
+`-dry-run` prints the `dbcontext` and `assembler` commands it *would* run and
+exits. Use it whenever you change flags.
+
+```bash
+go run ./cmd/bundle \
+  -analysis /tmp/analysis_repo.json -root /home/ant/projects/agentchassis \
+  -constitution thin_slice_constitution.md -step debug \
+  -psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db' \
+  -schema-tables pages,site_plans,site_plan_pages,site_work_items,page_components,site_specs,sites,agent_definitions,diagnosis_artifacts \
+  -runtime-site dartsonline.com \
+  -capabilities \
+  -task "one sentence stating the bug or slice" \
+  -scope platform/orchestration/actions/populate_nav_tables_action.go \
+  -scope platform/orchestration/actions/reconcile_site_plan_action.go \
+  -scope platform/orchestration/actions/load_work_item_actions.go \
+  -include platform/orchestration/actions/registry.go \
+  -out /path/to/BUNDLE.md
+```
+
+**`-psql` is ONE quoted argument and must NOT contain `-it`/`-t`.** It is passed
+through to `dbcontext` as a single argv element and run via `exec.Command` with no
+shell; a TTY either errors ("input device is not a TTY") or corrupts the captured
+output. Without `-psql`, the tool prints a warning and silently produces a
+code-and-docs-only bundle — which is exactly how F0's bundle came to be deficient.
+
+`-schema-tables` **must include `site_plans` and `site_plan_pages`** — the original
+invocation omitted both, and the guides evidence lives there. Add
+`diagnosis_artifacts` now that F0.1a has landed.
+`-include` forwards a file to the assembler as a whole-file `-scope`.
+
+### Step 3 — verify the DB half actually landed
+```bash
+grep -c "_none provided\|not available in the thin slice" BUNDLE.md   # expect exactly 1
+grep -n '^## ' BUNDLE.md
+```
+Expect these sections populated: `Recent errors (agent_error_log)`,
+`Work-item lifecycle (site_work_items)`, `Schema`, `Database capabilities`,
+`Installed extensions`, `Functions`, and the code sections.
+
+**Known wart, do not be misled:** the heading `## Runtime evidence` *always* reads
+"not available in the thin slice". `bundle` feeds `dbcontext`'s runtime output to
+the assembler as a `-doc`, so the real runtime rows appear under **"Recent errors"**
+and **"Work-item lifecycle"** instead; the assembler's own `-runtime` slot is never
+wired by the wrapper. One placeholder is correct; two or more means `-psql` was
+skipped or a gather failed. Watch stderr for `gathered schema|capabilities|runtime`.
+
+Verified output 2026-07-09: `z_bundles/BUNDLE_fixloop_F1.md` (306,897 B, 468 files
+analysed, all three gathers succeeded). The old, deficient
+`z_bundles/BUNDLE_fixloop_F0.md` (199,579 B) is left in place for comparison.
+
+### BLINDING — what it does and does NOT cover
+The context bundle is for a **human or chat**, not for the loop. The live
+`diagnose-agent` never reads it: it runs `analyse_repo_local` + `lookup_code_symbols`
+over a checkout at an explicit ref, and `diagnose_assemble_bundle` reads only the
+**bodies of in-scope Go symbols**. The analyser walks Go source; the live
+diagnose-agent workflow has **no doc step** (verified). So the markdown in this
+directory is structurally unreachable by the loop — blinding is largely automatic.
+
+The two things that *can* leak the answer into a benchmark run, and must be checked:
+1. **the symptom string** — pass the original one verbatim (★ F0 PILOT above), which
+   describes only what a user could observe;
+2. **`seed_scope`** — run the benchmark with **no seed scope at all**. Seeding it
+   with `populate_nav_tables_action.go` or `load_work_item_actions.go` hands the loop
+   the answer and makes the result meaningless. Absent a seed, the fallback chain
+   uses `lookup_code_symbols`' `code_results`, which is the honest starting point.
+
 ## Inherited gotchas (diagnose-relevant subset)
 - Loop core is READ-ONLY by contract; `sqlguard` allowlists reads — keep it so.
   The F1 write surface is a separate agent with isolated credentials.
@@ -302,11 +406,33 @@ means nothing.
 - `site_work_items.site_id` is **NOT NULL**, and `LoadWorkItemsAction` is
   site-anchored (`WHERE wi.site_id = $1`). Platform-wide work anchors to the
   `system.internal` pseudo-site. There is no site-less work item.
-- **`build-dispatch-loop` does not filter by pipeline.** Its `load_items` config
-  is `{site_id, max_items}` only. Any item of any pipeline, on a dispatched
-  site, at `status IN ('triaged','approved')`, will be claimed and handed to its
-  `handler_agent`. Park non-build items on `system.internal`, or leave them at
-  `status='detected'`, or both.
+- **Nothing in the relay filters work items by pipeline where it matters.**
+  `build-dispatch-loop`'s `load_items` config is `{site_id, max_items}` only.
+  `build-pipeline-trigger`'s `find_dispatchable_site` has no pipeline filter
+  either, despite its description saying "pending *build* items". Any item of
+  any pipeline, on a selected site, at `status IN ('triaged','approved')`, is
+  claimed and handed to its `handler_agent`. **The `maintenance` pipeline is
+  dispatched only because of this accident** — so adding `item_pipeline='build'`
+  to `build-dispatch-loop` would orphan it. Builder thread's call.
+- **`triage_detect_items` is not pipeline-safe**: it promotes
+  `WHERE site_id=$1 AND status='detected'` and **rewrites `pipeline` to
+  `'build'`**. Its own comment asserts the dispatch loop filters on
+  `item_pipeline='build'`; it does not. So `'detected'` is not safe parking for
+  a non-build item.
+- **`claimed-item-timeout` resets any `claimed` item older than 40 minutes to
+  `'triaged'`** (or `'failed'` once `attempt_count+1 >= max_attempts`), and
+  `find_dispatchable_site` excludes any site holding a `'claimed'` item. So
+  `'claimed'` is a shared, swept status — a long-running non-build handler
+  should not sit in it.
+- **Pattern for a private pipeline**: give it statuses no sweep names
+  (`diagnose` uses `awaiting_diagnosis` → `diagnosing`), claim atomically with
+  `UPDATE … FOR UPDATE SKIP LOCKED … RETURNING` rather than `claim_work_item`
+  (which only claims `triaged|approved`), and **reap your own dead runs** —
+  opting out of the shared sweeps means opting out of their cleanup too.
+  The dispatcher claims, not the handler: `page-build-handler` neither claims
+  nor completes its own item.
+- `snapshot_agent(type, reason)` writes to **`agent_definitions_backup`**, not
+  to `agent_definitions` with `is_snapshot=true`. Verify there.
 - `cmd/bundle` needs `-psql` as ONE quoted argument with NO `-it`/`-t`;
   without it the bundle silently carries code+docs only.
 

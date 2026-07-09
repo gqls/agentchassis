@@ -87,10 +87,36 @@ control** (flip to `triaged`) makes it appear, proving the status guard is what
 holds it and that the dispatch hazard is real; re-running the same `SLUG` is
 idempotent via `idx_swi_dedup`.
 
-*Deliberately not built*: automatic dispatch of `pipeline='diagnose'` needs its
-own pipeline-filtered loop, or an `item_pipeline` filter on `build-dispatch-loop`
-— the latter is the builder thread's surface and should be their call. Until
-then the script is the dispatcher, which is the documented route F0.2 required.
+### F0.1d — automatic dispatch — ✅ LANDED 2026-07-09, SHIPPED DISABLED
+`0NN_diagnose_dispatch_loop.sql`: the `diagnose-dispatch-loop` agent (image
+columns copied from the `build-dispatch-loop` donor) + the
+`diagnose-pipeline-trigger` scheduled task on a 60s tick, `max_concurrent=1`.
+
+The `diagnose` namespace cannot ride the shared claim path: neither
+`build-dispatch-loop.load_items` nor `build-pipeline-trigger.find_dispatchable_site`
+filters by pipeline, `triage_detect_items` rewrites `pipeline` to `'build'`, and
+`claim_work_item` claims only `triaged|approved`. So diagnose items use two
+private statuses — `awaiting_diagnosis` → `diagnosing` — that no sweep names,
+claimed atomically by the loop's own `UPDATE … SKIP LOCKED … RETURNING`. Because
+that opts out of `claimed-item-timeout`, the loop reaps its own dead runs
+(`reap_stuck`, 75 min).
+
+*Criteria — all pass*: inertness matrix scores 0 against all six sweeps in both
+states; positive control confirms our claim still finds it; the claim returns the
+**target** site from `spec`, not the anchor; a second tick returns 0 rows; the
+reap turns a 76-minute-old run terminal (`failed`), never `triaged`; and a
+diagnosis in flight no longer blocks build dispatch for `system.internal`.
+
+**The trigger ships `enabled=false` on purpose.** Enable only after the image is
+live *and* §3's blinding is confirmed — otherwise the loop claims the pilot item
+and runs it before we have checked it cannot read the answer:
+`UPDATE scheduled_tasks SET enabled = true WHERE name = 'diagnose-pipeline-trigger';`
+
+*Routed to the builder thread, not fixed here*: the `maintenance` pipeline is
+dispatched only because `build-dispatch-loop` lacks a pipeline filter, so the
+obvious one-key fix would orphan it. And `triage_detect_items`' comment asserts a
+filter that does not exist. Both are the pilot bug's family — a rule enforced in
+one place and not its partner.
 
 **Gotcha to honour while touching any workflow**: `error_step` belongs *inside*
 a step's `config`. Step-level `error_step` is silently ignored (001 §16).
@@ -99,16 +125,21 @@ Note that `page-build-handler`'s live definition carries `error_step` at
 `validate_content` and `load_spec_sections` — the inner one is load-bearing,
 the outer is dead. Correct adjacent instances as a noted change if we touch it.
 
-## 2. Regenerate the bundle before the benchmark run
+## 2. Regenerate the bundle — ✅ DONE 2026-07-09
 
-`z_bundles/BUNDLE_fixloop_F0.md` is code+docs only — its Schema, Database
-capabilities and Runtime evidence sections are all placeholders. Rebuild with
-`-psql` as **one quoted argument, no `-it`/`-t`** (a TTY corrupts captured
-output; `cmd/bundle`'s skip message and usage text were patched to say so).
-Add `-schema-tables pages,page_components,site_work_items,site_specs,sites,
-agent_definitions,site_plans,site_plan_pages` — note `site_plans` and
-`site_plan_pages`, which the original invocation omitted and which the guides
-evidence turned out to live in.
+`z_bundles/BUNDLE_fixloop_F1.md` (306,897 B) is rebuilt **with** `-psql`: schema,
+capabilities and runtime rows all present, 468 files analysed. The deficient
+`BUNDLE_fixloop_F0.md` (199,579 B, code+docs only) is kept for comparison.
+
+Full procedure, verified end to end, is in RUNBOOK §"REGENERATING THE CONTEXT
+BUNDLE". Three points that cost time to discover: contextkit is **not** at
+`cmd/bundle` but at `docs/…/docs019_…/go_files/contextkit`, and you must `cd`
+there because it shells out to relative `./cmd/dbcontext` and `./cmd/assembler`;
+`-schema-tables` must include `site_plans`/`site_plan_pages` (omitted originally,
+and where the guides evidence lives) plus `diagnosis_artifacts`; and the heading
+`## Runtime evidence` is *always* a placeholder — the real runtime rows arrive as
+a `-doc` under "Recent errors" and "Work-item lifecycle". Exactly one placeholder
+means success; two means a gather silently failed.
 
 ## 3. The benchmark — pre-registered scoring rubric
 
@@ -146,11 +177,16 @@ route; (b) every iteration's bundle is fetchable from `diagnosis_artifacts`;
 (c) per-iteration notes were written; (d) iteration count and wall-clock, as
 the first entry in the loop's own performance record.
 
-**Blinding.** The benchmark is only worth running if the loop cannot read the
-answer. NOTES(10) and this plan live in the repo. Confirm the loop's corpus and
-`-doc` selection exclude `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/`
-before the run, or the result is worthless. This is the single most important
-setup step and the easiest to forget.
+**Blinding — narrower than first assumed, and now established.** The loop cannot
+structurally reach this directory: `diagnose-agent` reads only the bodies of
+in-scope **Go symbols** from a checkout, the analyser walks Go source, and the
+live workflow has **no doc step** (verified 2026-07-09). The context bundle is for
+humans, not the loop. So only two things can leak the answer, and both are on us:
+(1) the **symptom string** — pass the original verbatim, it describes only what a
+user could observe; (2) **`seed_scope`** — run with **none**. Seeding it with
+`populate_nav_tables_action.go` or `load_work_item_actions.go` hands the loop the
+answer. Absent a seed, assemble falls back to `lookup_code_symbols`' `code_results`,
+which is the honest starting point.
 
 ## 4. F1 stretch — the constrained edit plan
 
