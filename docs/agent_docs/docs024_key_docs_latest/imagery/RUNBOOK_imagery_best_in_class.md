@@ -87,9 +87,10 @@ plaintext logging of `STABILITY_API_KEY`/`BANANA_API_KEY` + B2 keys.
 
 ### B2. ~~Confirm robot-hands.com rebuild status~~ ✅ ANSWERED 2026-07-08
 Not rebuilt; site is in poor shape. **Decision: rebuild from scratch and add
-news at the same time; full latitude on this site.** The rebuild is now the
-closing step of Phase I0 — expect an approval request before the re-plan is
-triggered (it replaces the current site plan).
+news at the same time; full latitude on this site.**
+**Update (same day, evening):** the re-plan has RUN and completed — new
+33-page plan with news in the header nav; content build is working through
+the queue unattended. See PLAN Phase I0 status block and running notes Turn 4.
 
 ### B3. ~~Answer the seven open questions~~ ✅ DONE 2026-07-08
 All answers recorded in the running notes (Turn 2) and folded into the plan.
@@ -114,6 +115,21 @@ per site per discovery pass).
 When Phase I1 lands, you'll be asked to approve robot-hands.com's logo — the
 first use of the approve-then-lock flow. Budget five minutes to compare the
 candidate against the site's brand direction.
+**Status 2026-07-08:** getting closer — the rebuild's 20 `needs_imagery` items
+(including the fresh logo) are queued behind the page builds; the agent will
+flag you when the logo asset exists.
+
+### B7. Layout-gap decision for robot-hands.com (from the 2026-07-08 rebuild)
+The composition step found no layout candidate for the site's `scheme=dark`
+and applied the `brochure-formal` fallback, raising a
+`needs_new_layout_candidate` item with `status='needs_human_review'`.
+Your decision, when convenient (not blocking the build):
+- **Accept the fallback** — tell the agent; the item gets closed `wont_fix`
+  with a note; or
+- **Add a dark-scheme layout candidate** — the agent will scope what a new
+  layout entry needs and bring you the proposal.
+Look at the rebuilt pages first (they render with brochure-formal) — if they
+look right, accepting is the cheap and reasonable path.
 
 ---
 

@@ -209,4 +209,37 @@ sees what's in the specs at plan time).
 auto-approves read-only psql (SELECT/`\d`) via kubectl exec and leaves
 mutations prompting — tested against a 20-case matrix and proven live.
 
+## Turn 4 — 2026-07-08 (evening) — Build in progress; docs synced to current state
+
+Status snapshot (~17:55 BST, 70 min after the re-plan completed):
+- **Plan:** current plan `7a40a0f9…` (33 pages incl. news-index in header,
+  5 tool pages, 29 imagery rows). `sync_pages` has created 6 new page records
+  (36 total — old adopted pages still present; cleanup expected once builds
+  land / orphan checks run).
+- **Content build:** `needs_page` — 1 claimed (in flight), 26 queued, 0
+  complete yet. Dispatch processes one item at a time per site, so the full
+  page build will take hours; it runs unattended.
+- **Imagery:** all 20 `needs_imagery` items still queued behind the page
+  builds. No new assets yet — the fresh logo/heroes/icons generate when these
+  dispatch. Logo approval (RUNBOOK B6/A3) will come after that.
+- **Composition:** `needs_composition` complete, but it surfaced a **layout
+  gap**: no layout candidate for `scheme=dark`; the system applied the
+  `brochure-formal` fallback and raised `needs_new_layout_candidate` with
+  status `needs_human_review` → new RUNBOOK task **B7** (decide: accept
+  brochure-formal, or add a dark-scheme layout candidate).
+- `needs_design` and `needs_rerender` queued behind the above. Old-plan
+  work items and assets from May remain untouched (watch item from Turn 3
+  stands: verify supersession once new assets land).
+
+Docs updated this turn: PLAN Phase I0 status block added; RUNBOOK B7 added and
+queue statuses refreshed; this entry.
+
+**Next actions:**
+- Agent (next session): check build progress; verify first built pages render
+  with components + content; verify imagery items generate against new asset
+  keys; then logo-in-header fix + Lucide wiring; start drafting I1
+  (`imagery_style_guide` schema).
+- User: B7 (layout gap decision) when convenient; B6 logo approval once the
+  new logo asset exists (agent will flag it).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

@@ -151,6 +151,13 @@ Everything below depends on knowing what's actually live, and on a clean testbed
 - **Rebuild robot-hands.com from scratch with news scope** (decision 2026-07-08). Route: re-plan via `build-site-planner` (not patch-in-place), per `HANDOFF_robot_hands_rebuild.md`: first verify `site_specs` (identity/classification/briefing/strategy) are current; ensure `classification.content_features.news_feed.recommended=true` (or roadmap equivalent) so RULE 11 puts `latest-news` on the homepage; then trigger the rebuild. This exercises the imagery block end-to-end on a clean site and gives every later phase its acceptance surface.
 - **Acceptance:** robot-hands.com is a freshly-built site with a populated content layer, a news section on the index, its generated logo rendering in the header, and valid Lucide glyphs in the features grid.
 
+**Status 2026-07-08 evening — re-plan DONE, content build IN PROGRESS:**
+- Prep executed (SQL artifacts beside this plan): specs backed up (42 rows), adoption-residue aspects superseded, classification news-enabled, `mission_brief` news hint added, 5 stale pre-2G items retired, `needs_site_plan` trigger inserted and manually promoted to `triaged` (manual items are not auto-triaged — record this pattern).
+- New current plan `7a40a0f9-a1cd-4259-8654-cc0922e942aa` (complete 16:46 BST, ~6 min): **33 pages** — `news-index` in header nav + `news-post` template (mission hint landed), 5 `tool`-role pages — and **29 imagery rows** (19 page heroes, 8 section icons, site logo + hero).
+- Downstream queue: 27 `needs_page` (1 in flight, rest queued), 20 `needs_imagery` (queued behind pages), `needs_composition` complete, `needs_design`/`needs_rerender` queued. Runs unattended via build-dispatch-loop; expect hours.
+- Composition surfaced a layout gap (`scheme=dark` → fallback `brochure-formal` applied) — human decision queued as RUNBOOK **B7**.
+- Still open in I0: logo-in-header fix; Lucide wiring; post-build verification (content layer populated, old pages/assets superseded not orphaned, learning-center page sprawl check).
+
 ### Phase I1 — Brand consistency layer (G1, G8 groundwork)
 - `imagery_style_guide` site-spec aspect + schema (palette, medium, mood, avoid, reference asset keys).
 - Prompt composition reads the guide for all kinds (per-kind gating like `directionAppliesToKind`).

@@ -1,0 +1,108 @@
+clients_db=# -- Q1: everything actually linked to the game page, no name filter
+SELECT cc.id::text AS component_id, cc.function, cc.component_level, cc.is_active,
+       cc.forked_from IS NOT NULL AS is_fork, length(cc.html_template) AS html_len
+FROM content_components cc
+JOIN page_components pc ON pc.component_id = cc.id
+JOIN pages p ON pc.page_id = p.id
+WHERE p.site_id = 'e33263f4-74f8-494f-b191-546845dbbddf'::uuid
+  AND p.name = 'game-economy-simulator'
+ORDER BY cc.function;
+
+-- Q2: any economy-ish component sitewide, INCLUDING unlinked rows (matches the game's H1)
+SELECT id::text AS component_id, function, component_level, is_active,
+       forked_from IS NOT NULL AS is_fork, length(html_template) AS html_len
+FROM content_components
+WHERE site_id = 'e33263f4-74f8-494f-b191-546845dbbddf'::uuid
+  AND (function ILIKE '%econom%' OR display_name ILIKE '%econom%'
+       OR html_template ILIKE '%Economy Stabilization Sim%')
+ORDER BY function;
+             component_id             | function | component_level | is_active | is_fork | html_len
+--------------------------------------+----------+-----------------+-----------+---------+----------
+ 23f95f00-f293-466e-b43a-81791ea0fc6c | hero     | section         | t         | f       |     2790
+(1 row)
+
+ERROR:  column "site_id" does not exist
+LINE 4: WHERE site_id = 'e33263f4-74f8-494f-b191-546845dbbddf'::uuid
+              ^
+clients_db=# \d content_components
+                                   Table "public.content_components"
+         Column          |           Type           | Collation | Nullable |          Default
+-------------------------+--------------------------+-----------+----------+----------------------------
+ id                      | uuid                     |           | not null | gen_random_uuid()
+ name                    | text                     |           | not null |
+ description             | text                     |           |          |
+ html_template           | text                     |           | not null |
+ input_schema            | jsonb                    |           |          |
+ function                | text                     |           | not null | 'generic-text-block'::text
+ created_at              | timestamp with time zone |           |          | now()
+ updated_at              | timestamp with time zone |           |          | now()
+ display_name            | text                     |           |          | ''::text
+ category                | character varying(255)   |           |          | ''::character varying
+ semantic_tags           | jsonb                    |           |          |
+ sort_order              | integer                  |           |          |
+ render_mode             | text                     |           |          | 'template'::text
+ agent_type              | text                     |           |          |
+ agent_workflow          | text                     |           |          |
+ data_sources            | text[]                   |           |          |
+ child_components        | jsonb                    |           |          |
+ component_level         | text                     |           |          | 'section'::text
+ is_active               | boolean                  |           |          | true
+ is_dark_section         | boolean                  |           |          | false
+ forked_from             | uuid                     |           |          |
+ section_type            | text                     |           |          |
+ suitable_site_types     | jsonb                    |           |          | '[]'::jsonb
+ suitable_page_types     | jsonb                    |           |          | '[]'::jsonb
+ content_shape           | text                     |           |          |
+ visual_density          | text                     |           |          |
+ usage_count             | integer                  |           |          | 0
+ avg_quality_score       | double precision         |           |          |
+ created_from            | text                     |           |          | 'manual'::text
+ js_content              | text                     |           |          |
+ template_variable_count | integer                  |           |          |
+ schema_field_count      | integer                  |           |          |
+ template_closed         | boolean                  |           |          |
+ schema_template_synced  | boolean                  |           |          |
+ has_data_component      | boolean                  |           |          |
+ quality_checked_at      | timestamp with time zone |           |          |
+ quality_score           | smallint                 |           |          |
+ quality_issues          | jsonb                    |           |          | '[]'::jsonb
+Indexes:
+    "content_components_pkey" PRIMARY KEY, btree (id)
+    "content_components_name_key" UNIQUE CONSTRAINT, btree (name)
+    "idx_cc_forked_from" btree (forked_from) WHERE forked_from IS NOT NULL
+    "idx_cc_section_type" btree (section_type) WHERE section_type IS NOT NULL AND is_active = true AND forked_from IS NULL
+    "idx_cc_selector" btree (section_type, component_level) WHERE is_active = true AND forked_from IS NULL AND section_type IS NOT NULL
+    "idx_cc_suitable_site_types" gin (suitable_site_types) WHERE is_active = true AND forked_from IS NULL
+    "idx_cc_tool_function_unique" UNIQUE, btree (function) WHERE component_level = 'tool'::text AND forked_from IS NULL AND is_active = true
+    "idx_cc_tool_library" btree (component_level) WHERE component_level = 'tool'::text AND forked_from IS NULL AND is_active = true
+    "idx_components_agent_type" btree (agent_type) WHERE agent_type IS NOT NULL
+    "idx_components_level" btree (component_level)
+    "idx_components_render_mode" btree (render_mode)
+    "idx_content_components_category" btree (category)
+    "idx_content_components_function" btree (function)
+    "idx_content_components_function_quality" btree (function, quality_score DESC NULLS LAST) WHERE is_active = true
+    "idx_content_components_quality" btree (quality_score, quality_checked_at) WHERE is_active = true
+Check constraints:
+    "chk_created_from_valid" CHECK (created_from IS NULL OR (created_from = ANY (ARRAY['manual'::text, 'generated'::text, 'adopted'::text, 'tool'::text, 'forked'::text])))
+    "chk_function_kebab_case" CHECK (function = ''::text OR function ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'::text)
+    "chk_quality_score_range" CHECK (quality_score IS NULL OR quality_score >= 0 AND quality_score <= 100)
+    "chk_section_type_kebab_case" CHECK (section_type IS NULL OR section_type ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'::text)
+    "chk_usage_count_non_negative" CHECK (usage_count IS NULL OR usage_count >= 0)
+    "chk_visual_density_valid" CHECK (visual_density IS NULL OR (visual_density = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text])))
+Foreign-key constraints:
+    "content_components_forked_from_fkey" FOREIGN KEY (forked_from) REFERENCES content_components(id)
+Referenced by:
+    TABLE "area_components" CONSTRAINT "area_components_component_id_fkey" FOREIGN KEY (component_id) REFERENCES content_components(id)
+    TABLE "component_versions" CONSTRAINT "component_versions_component_id_fkey" FOREIGN KEY (component_id) REFERENCES content_components(id) ON DELETE CASCADE
+    TABLE "content_components" CONSTRAINT "content_components_forked_from_fkey" FOREIGN KEY (forked_from) REFERENCES content_components(id)
+    TABLE "layouts" CONSTRAINT "layouts_default_footer_component_id_fkey" FOREIGN KEY (default_footer_component_id) REFERENCES content_components(id) ON DELETE SET NULL
+    TABLE "layouts" CONSTRAINT "layouts_default_header_component_id_fkey" FOREIGN KEY (default_header_component_id) REFERENCES content_components(id) ON DELETE SET NULL
+    TABLE "page_components" CONSTRAINT "page_components_component_id_fkey" FOREIGN KEY (component_id) REFERENCES content_components(id)
+    TABLE "site_components" CONSTRAINT "site_components_component_id_fkey" FOREIGN KEY (component_id) REFERENCES content_components(id)
+    TABLE "style_collections" CONSTRAINT "style_collections_footer_component_id_fkey" FOREIGN KEY (footer_component_id) REFERENCES content_components(id)
+    TABLE "style_collections" CONSTRAINT "style_collections_footer_fk" FOREIGN KEY (footer_component_id) REFERENCES content_components(id)
+    TABLE "style_collections" CONSTRAINT "style_collections_header_component_id_fkey" FOREIGN KEY (header_component_id) REFERENCES content_components(id)
+    TABLE "style_collections" CONSTRAINT "style_collections_header_fk" FOREIGN KEY (header_component_id) REFERENCES content_components(id)
+    TABLE "style_collections" CONSTRAINT "style_collections_header_home_component_id_fkey" FOREIGN KEY (header_home_component_id) REFERENCES content_components(id)
+    TABLE "style_collections" CONSTRAINT "style_collections_header_home_fk" FOREIGN KEY (header_home_component_id) REFERENCES content_components(id)
+
