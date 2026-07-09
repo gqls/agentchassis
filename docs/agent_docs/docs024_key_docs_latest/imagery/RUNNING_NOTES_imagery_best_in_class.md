@@ -414,4 +414,55 @@ no empty src), index vs gripper-catalog (different heroes), about; 5. run a
 discovery pass and confirm image_source_unsatisfiable flags services-hero-like
 gaps only where real.
 
+## Turn 8 — 2026-07-09 — First fix deployed; verification exposed a second bug (S3 url vs git path) — fixed, needs redeploy
+
+**Deploy 1 verification (the image-role resolver, commit 18a5a834):**
+- New chassis live; `image_source_unsatisfiable` registered on
+  design-discovery-agent (was already present — went in with the deploy;
+  snapshot taken, idempotent guard held).
+- The 14 "Re-render … after its image asset landed" items are DISPATCH-STALLED,
+  not draining: stuck ~14 for an hour, only `index` + `gripper-cycle-time-
+  estimator` completed. Claimed items show "Claim timed out — handler pod
+  likely died" — the pre-existing zombie-claim / handler-reliability issue
+  (bundle TODO items 6 & 11), NOT this change. Reaper recycles them slowly.
+
+**NEW BUG found from the one page that did complete.** `index` re-rendered and
+the resolver correctly picked the PER-PAGE hero (no longer the shared
+`/assets/images/hero.jpg`) — but resolved it to a **presigned S3 URL**
+(`…backblazeb2.com/…?X-Amz-Expires=604800…`), i.e. `assets.url`, which expires
+in 7 days and is per-generation. Root cause: the deployed git path
+(`/assets/images/hero-home.jpg`, asset_key with `_`→`-`) is **stored nowhere** —
+only derived at deploy time. The resolver (old and new) selected `a.url`, whose
+value is now the S3 presigned URL, not a web path. So the first fix was
+necessary but not sufficient.
+
+**Fix 2 (commit 84f07d38 on 083_imagery — needs a SECOND deploy):**
+- `storage.AssetKeyFilename` + `storage.DeployedWebPath(asset_key, purpose)` —
+  single source of truth for the committed-path convention
+  (`hero_home`→`/assets/images/hero-home.jpg`, `logo`→`/assets/images/logo.png`).
+  Unit-tested against the files actually in the robot-hands.com repo.
+- `deploy_image_asset` now derives its variant filename via `AssetKeyFilename`
+  (behaviour-identical) so committer and resolver cannot drift.
+- `plan_sections.ensureAssets` resolves page hero / site hero / section imagery
+  / logo to `DeployedWebPath(...)` instead of `a.url`.
+- `go build` + `go vet` clean (one pre-existing unreachable-code vet note in an
+  untouched file); storage + imageryplan unit tests pass.
+
+**Git note:** commit 84f07d38 also bundled some pre-staged travelling_docs
+files from a parallel workstream (harmless; not reset per user instruction —
+forward only).
+
+**Post-DEPLOY-2 checklist (next session):**
+1. Confirm new chassis live.
+2. Reset the 2 pages that already completed with the S3 URL back to re-resolve:
+   `UPDATE site_work_items SET status='triaged', claimed_by=NULL, claimed_at=NULL
+    WHERE site_id=… AND summary LIKE 'Re-render%image asset landed'
+    AND status='complete';` (index, gripper-cycle-time-estimator).
+3. Dispatch is slow (handler timeouts) — consider driving the affected pages'
+   re-render directly rather than waiting on the loop, OR bump the reaper
+   cadence. Verification target: every page references
+   `/assets/images/hero-<page>.jpg` (distinct per page), product-detail shows
+   its hero (no empty src), logo resolves to `/assets/images/logo.png`.
+4. Then run a discovery pass and read `image_source_unsatisfiable` findings.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
