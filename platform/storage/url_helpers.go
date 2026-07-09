@@ -139,6 +139,47 @@ func BuildAssetPaths(purpose string, extension string) AssetPaths {
 	}
 }
 
+// AssetKeyFilename returns the committed git filename for an asset variant:
+// the asset_key with underscores rendered as hyphens, plus the given
+// extension. This is the single source of truth for the variant filename
+// convention shared by the deployer (deploy_image_asset) and the render-time
+// resolver (plan_sections) so the path a file is committed to and the path a
+// page references cannot drift.
+//
+//	AssetKeyFilename("hero_home", ".jpg") == "hero-home.jpg"
+//	AssetKeyFilename("icon_cycle_time", "jpg") == "icon-cycle-time.jpg"
+func AssetKeyFilename(assetKey, extension string) string {
+	if extension == "" {
+		extension = ".jpg"
+	}
+	if !strings.HasPrefix(extension, ".") {
+		extension = "." + extension
+	}
+	return strings.ReplaceAll(assetKey, "_", "-") + extension
+}
+
+// DeployedWebPath returns the web-accessible path a generated asset is
+// committed to and served from (e.g. /assets/images/hero-home.jpg), derived
+// from its asset_key and purpose. It mirrors deploy_image_asset's path
+// derivation: purpose fixes the directory and extension; asset_key (when it
+// differs from purpose) fixes the filename. Use this — NOT assets.url, which
+// holds an expiring presigned S3 URL — whenever a template needs to reference
+// a deployed generated asset.
+//
+//	DeployedWebPath("hero_home", "hero") == "/assets/images/hero-home.jpg"
+//	DeployedWebPath("logo", "logo")      == "/assets/images/logo.png"
+func DeployedWebPath(assetKey, purpose string) string {
+	_, _, _, ext := GetImageConfig(purpose)
+	base := BuildAssetPaths(purpose, ext)
+	if assetKey == "" || assetKey == purpose {
+		return base.RelativeURL
+	}
+	// Keep base's directory and extension; swap the purpose-based filename for
+	// the asset_key-based one (same as deploy_image_asset's Phase 2E branch).
+	dotExt := base.Filename[strings.LastIndex(base.Filename, "."):]
+	return "/" + DefaultAssetBasePath + "/" + AssetKeyFilename(assetKey, dotExt)
+}
+
 // ImagePurposes defines valid image purposes and their configurations
 var ImagePurposes = map[string]struct {
 	Width     uint

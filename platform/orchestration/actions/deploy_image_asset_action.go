@@ -184,7 +184,9 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	if assetKey != "" && assetKey != purpose {
 		ext := filepath.Ext(processed.Paths.Filename)
 		pathDir := filepath.Dir(processed.Paths.FilePath)
-		derivedFilename := strings.ReplaceAll(assetKey, "_", "-") + ext
+		// Shared convention (storage.AssetKeyFilename) so the committed path
+		// and the render-time resolver's DeployedWebPath cannot drift.
+		derivedFilename := storage.AssetKeyFilename(assetKey, ext)
 		derivedPath := filepath.Join(pathDir, derivedFilename)
 		processed.Paths = storage.AssetPaths{
 			FilePath:    derivedPath,

@@ -42,6 +42,7 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/imageryplan"
+	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
 
@@ -172,9 +173,9 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 	// the deployed asset row. Skipped when pageName is empty (degrades to the
 	// content_data fallback below).
 	if r.pageName != "" {
-		var heroURL string
+		var assetKey, purpose string
 		err := r.db.QueryRowContext(ctx, `
-			SELECT a.url
+			SELECT a.asset_key, a.purpose
 			  FROM site_plan_imagery spi
 			  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
 			  JOIN assets a ON a.site_id = sp.site_id
@@ -186,10 +187,12 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 			   AND spi.kind = 'hero'
 			 ORDER BY spi.ordering
 			 LIMIT 1
-		`, r.siteID, r.pageName).Scan(&heroURL)
+		`, r.siteID, r.pageName).Scan(&assetKey, &purpose)
 		switch {
-		case err == nil && heroURL != "":
-			r.assets["hero"] = heroURL
+		case err == nil && assetKey != "":
+			// Resolve to the deployed git path, NOT assets.url (a presigned S3
+			// URL that expires and is per-generation).
+			r.assets["hero"] = storage.DeployedWebPath(assetKey, purpose)
 		case err != nil && err != sql.ErrNoRows:
 			r.logger.Warn("plan_sections: per-page hero lookup failed",
 				zap.String("page", r.pageName), zap.Error(err))
@@ -200,9 +203,9 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 	// so image-role-aliased fields still resolve to something brand-consistent
 	// rather than nothing. Page-scope (above) always wins.
 	if _, ok := r.assets["hero"]; !ok {
-		var siteHeroURL string
+		var assetKey, purpose string
 		err := r.db.QueryRowContext(ctx, `
-			SELECT a.url
+			SELECT a.asset_key, a.purpose
 			  FROM site_plan_imagery spi
 			  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
 			  JOIN assets a ON a.site_id = sp.site_id
@@ -213,10 +216,10 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 			   AND spi.kind = 'hero'
 			 ORDER BY spi.ordering
 			 LIMIT 1
-		`, r.siteID).Scan(&siteHeroURL)
+		`, r.siteID).Scan(&assetKey, &purpose)
 		switch {
-		case err == nil && siteHeroURL != "":
-			r.assets["hero"] = siteHeroURL
+		case err == nil && assetKey != "":
+			r.assets["hero"] = storage.DeployedWebPath(assetKey, purpose)
 		case err != nil && err != sql.ErrNoRows:
 			r.logger.Warn("plan_sections: site-scope hero lookup failed", zap.Error(err))
 		}
@@ -229,7 +232,7 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 	// mirroring the hero mapping above. Skipped when pageName is empty.
 	if r.pageName != "" {
 		rows, err := r.db.QueryContext(ctx, `
-			SELECT spi.kind, spi.key, a.url
+			SELECT spi.kind, a.asset_key, a.purpose
 			  FROM site_plan_imagery spi
 			  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
 			  JOIN assets a ON a.site_id = sp.site_id
@@ -247,14 +250,15 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 		} else {
 			defer rows.Close()
 			for rows.Next() {
-				var kind, key, url string
-				if err := rows.Scan(&kind, &key, &url); err != nil {
+				var kind, assetKey, purpose string
+				if err := rows.Scan(&kind, &assetKey, &purpose); err != nil {
 					continue
 				}
-				if url == "" {
+				if assetKey == "" {
 					continue
 				}
-				r.assets[key] = url
+				url := storage.DeployedWebPath(assetKey, purpose)
+				r.assets[assetKey] = url
 				if _, exists := r.assets[kind]; !exists {
 					r.assets[kind] = url
 				}
@@ -267,9 +271,9 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 	}
 
 	// Site logo.
-	var logoURL string
+	var logoKey, logoPurpose string
 	err := r.db.QueryRowContext(ctx, `
-		SELECT a.url
+		SELECT a.asset_key, a.purpose
 		  FROM site_plan_imagery spi
 		  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
 		  JOIN assets a ON a.site_id = sp.site_id
@@ -280,10 +284,10 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 		   AND spi.kind = 'logo'
 		 ORDER BY spi.ordering
 		 LIMIT 1
-	`, r.siteID).Scan(&logoURL)
+	`, r.siteID).Scan(&logoKey, &logoPurpose)
 	switch {
-	case err == nil && logoURL != "":
-		r.assets["logo"] = logoURL
+	case err == nil && logoKey != "":
+		r.assets["logo"] = storage.DeployedWebPath(logoKey, logoPurpose)
 	case err != nil && err != sql.ErrNoRows:
 		r.logger.Warn("plan_sections: logo lookup failed", zap.Error(err))
 	}
