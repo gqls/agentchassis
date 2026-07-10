@@ -769,4 +769,39 @@ haven't cycled since registration — expected; the watch continues).
 **Workstream state: I0 threads done. Next: Phase I1 (brand consistency layer)
 — user has signalled to proceed after these threads.**
 
+## Turn 17 — 2026-07-10 — Phase I1 built: style guide + lock guard (committed, needs deploy)
+
+**Prerequisite check:** `IMAGE_BUCKET` is still NOT set on the agent-chassis
+deployment (only AGENT_IMAGE_* present) — the leopardess fix has not landed.
+Logo FILE deployment to git remains broken; the I1 logo approve-and-lock flow
+waits on it (B6 note stands). Asset locking columns (locked_at/locked_by/
+lock_type) confirmed present from Phase 2A.
+
+**Built (one commit, rides the next chassis deploy):**
+1. `imagery_style_guide.go` — new site_specs aspect `imagery_style_guide`
+   {palette, medium, mood, avoid, reference_asset_keys}. `directionForKind`
+   gates per kind: photographic kinds get medium+mood+palette; icons palette
+   only; logos nothing (preserves the 2026-05-20 contamination lesson).
+   Nil-safe; unit-tested.
+2. `generate_image` integration — guide direction SUPERSEDES the free-text
+   design_intent.imagery_direction when present (one brand voice, no double
+   prepend; fallback preserved for guide-less sites). `avoid` terms append to
+   the NEGATIVE prompt. `reference_asset_keys` resolve to stable `s3://` URIs
+   (presignedURLToS3URI — anchors outlive the 7-day presign expiry) and flow
+   to Banana as style anchors for photographic kinds when the caller passed
+   none.
+3. **D5 lock guard** — the assets upsert now has `WHERE assets.locked_at IS
+   NULL`; storing over a locked (approved) asset is refused and reported, not
+   silently applied. First enforcement point of logo permanence.
+4. Seeded robot-hands.com's `imagery_style_guide` (live in DB now; SQL
+   artifact saved) — distilled from its rich design_intent: charcoal/electric-
+   blue palette, industrial-photography medium, engineered mood, anchored to
+   `hero_canonical` + `hero_home`.
+
+**I1 acceptance test (post-deploy):** trigger two generations of different
+kinds (e.g. an illustration + an icon) on robot-hands; verify the log lines
+`+style_guide`, the icon getting palette-only, reference anchors on the
+Banana call; then lock an asset and confirm store_asset refuses to overwrite.
+Logo approve-and-lock (B6) additionally waits on IMAGE_BUCKET.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
