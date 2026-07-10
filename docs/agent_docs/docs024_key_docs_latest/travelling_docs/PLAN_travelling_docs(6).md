@@ -145,9 +145,18 @@ column only on volume (graduation rule).
   that proof run.
 - **Migrations are now a system, and they write pipeline NOTES.** Numbered
   files in `sql_for_agents/` (baseline 124), `schema_migrations` ledger,
-  `scripts/migration/run-migrations.sh`. The travelling-docs arc is 125–141.
+  `scripts/migration/run-migrations.sh`. The travelling-docs arc is 125–144.
   The "NOTES — from workflow-altering migrations" write-hook below is live
   practice from 140 onward, not aspiration.
+- **Criteria describe DELIVERED reality, not aspiration (decided 2026-07-10,
+  Option B).** The composer asserted a designed-but-never-built JS extraction
+  (`asset_loads /tools/assets/<fn>.js`) in every PLAN; Tier-2's first sweep
+  failed every tool on it by construction. Remedy: PLANs superseded to inline
+  delivery (143), composer emits four standard checks and an inline delivery
+  line (144). An aspiration belongs in a roadmap; if it ships, PLANs
+  supersede forward. Corollary: Tier-2's standard checks are now
+  boots/console/status/mobile-fit (+ optional interaction from real
+  selectors).
 
 ## Write hooks
 

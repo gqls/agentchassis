@@ -1,7 +1,7 @@
 # RUNBOOK — Travelling Docs (PLAN + NOTES): Tools, Complex Components, Pipelines
 
 **Created:** 2026-07-04
-**Handoff for a fresh chat:** `HANDOFF_2026-07-09_recreation_and_chassis.md` (current) — plus `drafts/bundle_recreation_v1.sh` to build the context bundle. *(Superseded: `HANDOFF_2026-07-08_travelling_docs_and_toolgen_bug.md`.)*
+**Handoff for a fresh chat:** `HANDOFF_2026-07-10_stage5_live_and_next_fronts.md` (current — updated EVERY turn, read its Turn log first). *(Superseded: `HANDOFF_2026-07-09_recreation_and_chassis.md`.)*
 
 **Last updated:** 2026-07-10 (rev 44 — TASK 5 CLOSED: economy-simulator recreated with both bugs fixed, TWO machine-written `fix` notes = **Task 4 PROVEN**. Migrations system live (schema_migrations, baseline 124, runner). OOM root cause CONFIRMED = chunkContent infinite loop — fix in tree, index_plan re-bypassed by 140 until it deploys; 141 parked.)
 
@@ -820,9 +820,17 @@ Resolved agent types (from the live `agent_definitions` list):
 > xp-curve failed `asset` only. Only the two generator-created tools were in
 > scope — the adopted tools (ehp-calculator etc.) have no content_components
 > rows (recreation writes page sections), so they are invisible to this check
-> by construction. PENDING DESIGN DECISION when the items are processed:
-> implement the JS extraction the PLANs describe, or supersede their delivery
-> mechanism + asset criterion to match inline reality.
+> by construction. ~~PENDING DESIGN DECISION~~ **DECIDED 2026-07-10: Option B
+> — inline reality** (user: "I choose option B and surrender"). Migration 143
+> superseded both PLANs (asset check removed; delivery = inline; drop-rate's
+> invented kebab selectors corrected to the real `#dropChance`/`#statMedian`)
+> and cancelled the two items — PLAN-side resolution, no tool change; 144
+> fixed the composer (five → four standard checks, inline delivery
+> instruction, snapshot `1bca62f6`). Principle on record: criteria describe
+> DELIVERED reality; aspirations live in roadmaps. If extraction ships later,
+> PLANs supersede forward. Footnote: the 7-day improve_tool cooldown counts
+> cancelled items, so sweeps skip these two tools until ~2026-07-17 (future
+> tweak: exclude cancelled).
 > **Status:** implemented as discovery check `tool_acceptance`
 > (`discovery_checks/check_tool_acceptance.go`, sibling of `tool_health`),
 > unit-tested (anchor rule incl. the founding `#tableWrap`/`#xpTableBody`

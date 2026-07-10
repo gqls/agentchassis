@@ -2555,3 +2555,25 @@ inline delivery. Lesson banked: verify a deploy carries your files by
 ANCESTRY (git merge-base --is-ancestor), not by assumption — untracked files
 survive any number of release commits.
 Categories: (proof, position, gotcha)
+
+### Option B executed — PLANs surrender to delivered reality (143 + 144)
+User decision on record: criteria must describe what the system DELIVERS, not
+what it aspires to. Migration 143 superseded both PLANs (window-surgery on
+the Delivery mechanism section — robust to line-wrapping; exact-byte guard on
+the asset check line; both old rows retired, new current rows source=human,
+created_by=143_...): asset_loads check REMOVED, delivery section now states
+inline + the supersede rationale; drop-rate-tuner's invented kebab-case
+interaction selectors corrected to the live page's real ids
+(#dropChance range 0.1–25, #statMedian) — second invented-selector fix, this
+time caught by the machine (Tier 2) rather than by hand. Correction notes in
+both tools' streams; the two Tier-2 items CANCELLED with the resolution in
+result (leaving them would send tool-improver chasing a stale contract).
+Migration 144 (snapshot 1bca62f6) fixed the composer: compose_plan's standard
+checks five → four (asset_loads dropped), Delivery instruction now "inline —
+all JS and CSS ship inside the page HTML". Verified: fence_has_asset_check=f
+on both current PLANs; all remaining anchors probed present on the live
+pages; PLAN chains intact (v1→v2→v3, history preserved). Footnote: the
+7-day improve_tool cooldown counts CANCELLED items, so sweeps skip these two
+tools until ~07-17 — future tweak: exclude cancelled from the cooldown query.
+If extraction ever ships, PLANs supersede forward again.
+Categories: (decision, migration, fix)
