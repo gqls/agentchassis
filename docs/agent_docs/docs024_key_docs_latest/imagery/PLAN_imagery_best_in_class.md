@@ -312,6 +312,27 @@ Blocks the I0 acceptance line ("logo/heroes render"). Two problems:
 - Logo lock policy (D5): approval flow + locked-asset respect in handlers/auditors; favicon + OG card derived from logo.
 - **Acceptance:** two consecutive generations of different kinds on robot-hands.com visibly share palette/mood; logo asset locked; regeneration attempt refuses to touch it.
 
+**Status 2026-07-10 — core BUILT and DEPLOYED (running notes Turns 17–18):**
+`imagery_style_guide.go` + generate_image integration (guide supersedes
+free-text direction; avoid→negative prompt; reference anchors as stable
+s3:// URIs) and the D5 lock guard (assets upsert refuses locked rows) are in
+production. robot-hands.com's guide is seeded from its design_intent.
+Remaining in I1: acceptance generations; logo approve-and-lock flow —
+STILL GATED on the leopardess `IMAGE_BUCKET` env fix (verified absent
+2026-07-10); favicon/OG derivation.
+
+**B7 RESOLVED 2026-07-10 (user: no brochure fallback).** The
+needs_new_layout_candidate spec showed the true cause: "fallback — no
+classification tags" — the scheme-aware matcher (resolve_composition_layout,
+doc 027) had NOTHING to score because robot-hands' old-format classification
+lacked `industry_tags`. The library already held the right answer
+(`tool-portal-dark`: scheme=dark, interactive-platform/tools/calculators
+tags — grown from a prior instance of this exact gap). Fix applied
+(`SQL_2026-07-10_b7_layout_fix.sql`): classification superseded with matching
+industry_tags; review item closed; `needs_composition` re-queued so
+site-design-planner re-resolves — expected result tool-portal-dark, then a
+site re-render.
+
 ### Phase I2 — Sprite sheets & list treatment (G4)
 Build the already-locked sprite plan: `kind='sprite_sheet'` (migration batch D3), one sheet per site (3×3 @ 768², 256px cells), Banana generation, CSS `background-position` classes emitted as a css_snippet, bullets/nav via `::before`.
 - Add a fulfilment check beside `check_unfulfilled_imagery_plan`.

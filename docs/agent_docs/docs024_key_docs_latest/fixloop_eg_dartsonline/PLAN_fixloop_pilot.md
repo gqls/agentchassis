@@ -268,10 +268,51 @@ grounded_in quotes required, 32KB cap) and persisted as artifacts; **no code
 writes, no git token**. F1.1b (branch + PR via the spawn-gated token, gofmt +
 build in a spawned job) is the next slice.
 
-**Next after deploy:** run 5 (measures F0.6 + fair-share on the identical
-symptom — watch for [context] marks on the control clauses and a nav-clause
-explanation that finally cites `loadPagesForNav`), then fire fix-proposer on
-the freshest CONFIRMED correlation for the first persisted plan.
+**RUN 5 + FIRST FIX PLAN — both landed 2026-07-10.** Run 5: CONFIRMED under
+the strictest gates, [context] marks working, fair-share put nav-generation
+code into the citations for the first time (full score: NOTES turn 16).
+Fix-proposer: first plan persisted on correlation `e08c5b01` after two
+truncated attempts were correctly REFUSED — root cause a platform-wide
+dead-config gotcha (`max_tokens` must live INSIDE `ai_service`; the verdict
+step ran capped at 2048 through all five runs; both agents fixed live).
+Plan judged against ground truth (NOTES turn 17): machinery PASSED; plan
+quality bounded by its input — it misses causes B and C and half its edits
+are no-ops.
+
+**F1.1b(a)+(b) + F2.1 — ✅ BUILT 2026-07-10:**
+- (a) validator rejects no-op edits — explicit phrases only ("no code change",
+  "clarifying note/comment", …); the first plan's two semantic no-ops are the
+  test fixtures.
+- (b) proposer input: last TWO bundles; prompt gains rules 6 (cover every
+  cited mechanism or say why not in risks) and 7 (every edit changes
+  something).
+- **F2.1 — the council's first slice, wired INTO fix-proposer (10 steps,
+  live):** persist_plan → review_editquality (real edits? right causal path?
+  missing mechanisms?) → review_guardian (blast radius, architecture-change
+  signals, surface ownership — **holds the hard veto**, Q-D v1 placement in
+  step config) → `diagnose_council_decide` (deterministic Go: hard veto →
+  rejected, any veto → rejected, any objection → revise, else approved;
+  persists kind='council_report' on the same correlation). Reviewer contract
+  is the verdict-wire-style opinion Q-D asked for. Q-G v1 = role prompts +
+  plan + diagnosis (no per-reviewer corpora yet); Q-E v1 = the guardian's
+  signal list. 5 aggregation tests; malformed reviewer output fails closed.
+
+**F1.1b(c) — branch + PR (DESIGN, build next):** a separate `fix-implementer`
+agent gated on `council.decision == 'approved'`. Write token isolation mirrors
+`isRepoCloningAgent`: a new gate injects GITHUB_WRITE_TOKEN only into
+fix-implementer pods, never shared chassis. Flow: clone at explicit ref →
+LLM turns plan sketches into concrete diffs → a constrained editor action
+applies them with the plan's file list as a hard allowlist → branch pushed →
+**gofmt + go build in a spawned golang-image Job** (the chassis image has no
+toolchain) gates PR creation → PR body carries diagnosis + coverage + plan +
+council report (Q-H's package). Human review is the terminal; nothing merges
+itself.
+
+**Deploy note:** `diagnose_council_decide` + validator changes ride the next
+image; the v2 workflow is live but its council steps will fail as unknown
+actions until then — do not fire fix-proposer before the deploy. The
+dartsonline platform fix (mark_no_sections + nav build_status) remains
+human-implementable any time, independent of all this.
 
 **Run protocol:** run 2 = a+b+c+e only, identical symptom string, site data
 untouched — measures whether the loop now *finds* the cause. Run 3 = d —

@@ -479,3 +479,77 @@ when L6 imagery needs it.
 Next: H1 answered (keep "Founder and engineer", no name — already matches the spec). L4
 (layout: 3-per-row / no orphans) and L5 (content/copy), then L9 the coherent re-render
 that makes the palette, logo, favicon/OG, and content all go live together.
+
+## Turn 11 — L4 + L5: fabrications removed, cards in threes, copy rewritten
+
+Owner asked for a durable note on the imagery path in a main doc, then L4/L5.
+
+**Imagery doc.** Found my own retracted claim had already propagated into
+`PLAN_imagery_best_in_class.md` — the very doc that would send the next person down
+the wrong path. Replaced it with a standing "HOW IMAGE SERVING ACTUALLY WORKS" box:
+the two-URL model (`assets.url` = throwaway 7-day presigned handle, never rendered;
+`/assets/images/<key>.<ext>` = the durable git path that pages actually serve), why
+SigV4 makes a permanent presigned URL impossible, the debugging order (look up the
+real asset_key — never guess the path; my wasted turn came from curling
+`/assets/images/logo.png` on sites with no logo asset), and a **do not add
+IMAGE_BUCKET to agent-chassis** warning, since deploys run in a spawned asset-deployer
+with the env injected by design.
+
+**L4 folded into L5.** The grid components (`features`, `info-card-grid`,
+`services-grid`) are **shared across five sites** — `features` alone backs 33 sections —
+so their CSS is untouchable, and `css_snippets` are global too. The brief's own answer
+is better anyway: make the card counts multiples of three and cut the panels that
+repeat each other. That is a purely site-scoped content change. Confirmed first that
+`rerender_page_sections` re-renders each section from stored `content_data` via
+`RenderTemplate`, so editing `content_data` is sufficient and `rendered_html`
+regenerates at L9.
+
+**What was actually on the live site, beyond what the audit already knew:**
+- `system-stats` on the homepage rendered *nonsense*: the suffixes were misaligned, so
+  it published "70%" deployed agents, "3ms" orchestration model, and "99.9x" uptime —
+  plus an uptime target the plan explicitly bans claiming.
+- `differentiators-section` was built on strawmen ("Most LLM integrations are
+  single-agent: one model, one prompt, one point of failure") and the fabricated
+  "Platform Depth Across 70+ Agents".
+- `/who-we-help.html`'s cards were all negative framing ("No Observability", "Cost
+  Controls That Don't Exist Yet"), and its FAQ asserted per-agent token budgets,
+  circuit breakers, Helm charts, AWS/GCP/Azure deployment and per-agent least-privilege
+  IAM. None of that exists in the codebase. (A circuit breaker is in fact an explicit
+  unwired TODO.)
+
+**Applied** (backed up first: `bak_page_components_leopardess_20260710`, 99 rows), in
+three reviewable transactions — `scripts/L5_homepage.sql`, `L5_pages.sql`,
+`L5_faq_hero.sql`:
+- Homepage: hero, stats (four real figures, suffixes fixed, dated footnote), features
+  8→3 "What we have built", differentiators 6→3 "What we might build with you"
+  (honestly labelled not-yet-done), CTA. **Deleted** `case-studies-grid` (invented
+  clients, 404 images, hard-wired to 5 cards).
+- `/about.html`: **deleted** `leadership-team` (it listed two AI agents as people with
+  404 portraits) and moved the founder story into the prose block, unnamed per H1, with
+  the hedged worldsoccernews.com claim intact and three real stats.
+- `/how-we-work.html`: **deleted** `departments-grid`.
+- `/who-we-help.html`: **deleted** `case-studies-grid`; rewrote the cards out of negative
+  framing; replaced the 8-question CTO FAQ with 6 questions the real reader asks,
+  answered only from the audit — including the honest data-sovereignty boundary (the
+  mechanism works; we have not run it for a client; our own platform shares one database).
+- `/services.html`: services 7→6, engagement cards 4→3 (pilot-first ladder, H6).
+
+**Verified by artifact:** a sweep of every `page_components.content_data` on the site for
+16 fabrication patterns (Peter Grenfell, eight departments, 70+, Playwright, proxy pool,
+Veterinary Data Aggregator, 99.9, circuit breaker, Helm chart…) returns **CLEAN**. All
+touched grids are 3 or 6 cards.
+
+**Two things noticed and worth recording.** (1) Agents modified this site's
+`page_components` at 10:29 today, which is why `departments-grid` gained the
+`content_data` the audit recorded as NULL (U9) — the re-render heavy path backfills it,
+as documented. So U9 was true when observed and is now stale. (2) Checked for concurrent
+risk before editing: **zero dispatchable work items** (all open ones are
+`needs_human_review`/`failed`), so nothing will auto-overwrite this. Re-check before L9.
+
+Still stale on the live site until L9: `rendered_html` for every edited section, the
+header's retired tagline, and the `<head>` favicon/OG links. Next: L9 — one coherent
+re-render + deploy that lands the palette, logo, favicon/OG and all this copy together.
+Lower-priority remainder: `features` grids on engagement-model / for-engineering-teams /
+how-it-works / our-approach / technical-architecture still carry CTO-register copy and
+un-checked card counts; and several near-duplicate pages should be merged rather than
+restyled.

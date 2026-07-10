@@ -1091,6 +1091,103 @@ The failure chain itself is a good sign: a truncated plan was REFUSED by the
 validation gate rather than persisted — exactly the fail-closed behaviour
 F1.1a promised. Retry in flight on the same correlation.
 
+### Turn 17 (2026-07-10) — ★ THE FIRST FIX PLAN PERSISTED — pipeline proven; plan quality judged honestly
+
+Attempt 3 (after the max_tokens-inside-ai_service fix): **fix plan persisted in
+~80s** — kind='fix_plan' on correlation `e08c5b01`, 4 edits, 7 grounded_in
+quotes, risks section present. The FULL CHAIN now exists end to end on one
+correlation id: symptom in via 090 → 2 bundles → gated CONFIRMED with
+symptom coverage → constrained edit plan, all in diagnosis_artifacts.
+
+**Judged against ground truth (the fix we have known since turn 1):**
+- **MISSES cause B**: no edit touches page-build-handler's missing
+  `mark_no_sections` — the silent-success terminal the diagnosis itself cited.
+- **MISSES cause C**: edit 4 says "no change is needed here for the nav" and
+  proposes... a COMMENT. The `loadPagesForNav` status-vs-build_status fix
+  remains unproposed.
+- Edit 1 (defaultSectionsForPage: add a section-index case) is a defensible
+  platform hardening but targets the GAP-PLAN creation path — the pages were
+  planner-created (same apply_gap_plan mis-attribution as run 4's citations).
+- Edits 2–3 are an "audit this" instruction and a literal "no code change
+  required" — structurally valid, semantically no-ops.
+- On the plus side: honest risks ("the reviewer MUST verify
+  'section-listing' exists in content_components"), real grounding quotes,
+  nothing destructive, platform-not-site respected.
+
+**Verdict on F1.1a: the MACHINERY passed; the PLAN quality is limited by its
+input** — the proposer sees only the diagnosis + final bundle, and run 5's
+conclusion foregrounded sections=[]/page_components/classifyPagesForNav rather
+than the complete_error chain runs 2/4 had front-and-centre. Garbage-bounded-in,
+garbage-bounded-out: the fail-closed shape works; the diagnosis→plan
+information channel needs widening (feed ALL coverage entries + the
+complete_error citation explicitly, or all bundles not just the last).
+
+**F1.1b refinements queued from this first plan:**
+1. Validator: reject no-op edits (sketch containing "no code change
+   required" / operation 'modify' with an audit-only sketch).
+2. Proposer input: include the diagnosis's full citation list verbatim, not
+   just the conclusion prose; consider all bundles.
+3. The COUNCIL (F2) is visibly the missing organ: a guidelines/reuse reviewer
+   would have flagged "comment-only edit" and "wrong creation path" instantly.
+
+**Also this turn — the max_tokens dead-config find (platform-wide gotcha):**
+`execute_llm_prompt` reads max_tokens ONLY from agent top-level config or
+INSIDE step ai_service (ai_actions.go:252-256); step-config root is silently
+ignored and the Anthropic client defaults to 2048. The diagnose-agent verdict
+step ran capped at 2048 through ALL FIVE benchmark runs (survived on short
+outputs; coverage-rich verdicts are near the ceiling). Both agents fixed live
+with snapshots; runbook gotcha added; FYI addendum tells the tools chat to
+grep their workflows for the pattern. Two truncated plans (~8KB ≈ 2048 tokens,
+the tell) were correctly REFUSED by the F1.1a validation gate — fail-closed
+worked on its first two real failures.
+
+### Turn 18 (2026-07-10) — F1.1b(a)+(b) and F2.1 BUILT; F1.1b(c) designed
+
+Owner: continue with F1* and F2 in my suggested order. Delivered:
+
+**F1.1b(a) — no-op rejection in the validator** (Go, awaits image): explicit
+phrases only ("no code change", "no change required/needed", "clarifying
+note/comment", "comment-only") — over-blocking a real edit is worse than
+letting the council catch a subtle no-op. The first plan's own two no-ops are
+now test fixtures and are rejected.
+
+**F1.1b(b) — proposer input widened** (DB, live): last TWO bundles
+(string_agg, desc); prompt rules 6 (every cited mechanism gets a covering edit
+or an explicit risks line saying why not — aimed squarely at the missed
+complete_error) and 7 (every edit CHANGES something; observations belong in
+risks). max_tokens correctly inside ai_service in the seed now too.
+
+**F2.1 — the council, first slice** (workflow live; decision action awaits
+image). Two reviewers as sequential LLM steps + a DETERMINISTIC Go decision —
+deliberately not a third model opinion about two model opinions:
+- review_editquality: real edits / minimality / right causal path / missing
+  cited mechanisms (the run-e08c5b01 failures, made a standing reviewer).
+- review_guardian: blast radius, architecture-change signals (Q-E v1 lives in
+  its prompt), surface ownership — **holds the hard veto** (Q-D v1: flag in
+  step config as hard_veto_from; column-vs-config placement stays open).
+- diagnose_council_decide: ordered rules (hard veto → rejected; any veto →
+  rejected; any objection → revise; all approve → approved), decided_by names
+  the rule that fired, report persisted as kind='council_report' on the same
+  correlation. Malformed reviewer output FAILS CLOSED (same stance as the plan
+  validator; reuses planBytes' map-or-string defence + the truncation-aware
+  error). 5 aggregation tests.
+- Q-G v1 = role prompts + plan + diagnosis. plan_persisted.plan_json (string)
+  added to the persist action's result so reviewer templates render the exact
+  plan, not a Go map dump.
+
+**F1.1b(c) — DESIGN recorded in the plan** (build next): separate
+fix-implementer agent, gated on council approval; GITHUB_WRITE_TOKEN via a new
+spawn gate mirroring isRepoCloningAgent (never on shared pods); sketches →
+concrete diffs → constrained editor with the plan's file list as a hard
+allowlist → branch → gofmt+build in a spawned golang-image Job (chassis image
+has no toolchain) → PR carrying the Q-H package. Human terminal.
+
+**State:** kind CHECK now includes 'council_report' (applied); fix-proposer v2
+live (10 steps); suites green. **Everything Go rides the next image — do NOT
+fire fix-proposer until it deploys** (council steps would fail as unknown
+actions). After deploy: re-fire on `e08c5b01` → expect plan v2 (no no-ops,
+complete_error covered or excused) + the first council report.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

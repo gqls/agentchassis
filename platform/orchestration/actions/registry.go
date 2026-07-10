@@ -1111,6 +1111,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Validate the fix-proposer's constrained edit plan and persist it to diagnosis_artifacts (kind=fix_plan); writes no code — F1.1b turns an approved plan into a branch",
 		IsLocal:     true,
 	},
+	"diagnose_council_decide": {
+		Handler:     DiagnoseCouncilDecideAction,
+		Category:    "diagnose",
+		Description: "Deterministic council decision over the fix-plan reviewers' verdicts (veto→rejected, object→revise, else approved; hard_veto_from honored); persists kind=council_report",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline

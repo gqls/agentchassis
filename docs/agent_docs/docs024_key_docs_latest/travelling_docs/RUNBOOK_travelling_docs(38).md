@@ -810,7 +810,27 @@ Resolved agent types (from the live `agent_definitions` list):
 - Fetch each definition (same A/B/C pattern), paste, migration drafted against
   the real JSON, targeting the current version row.
 
-### Stage 5 — Tier-2 contract-presence check  ← DEFINITION
+### Stage 5 — Tier-2 contract-presence check  ← BUILT 2026-07-10, awaiting deploy
+> **Status:** implemented as discovery check `tool_acceptance`
+> (`discovery_checks/check_tool_acceptance.go`, sibling of `tool_health`),
+> unit-tested (anchor rule incl. the founding `#tableWrap`/`#xpTableBody`
+> cases; `-EDIT` skip; shell checks; class tokens are whitespace-delimited —
+> Go's `\b` wrongly splits on hyphens). Wired by migration 142 into
+> `design-discovery-agent.run_checks` (safe pre-deploy: unknown names
+> warn+skip). **Activates on the next chassis image.**
+> **Pre-verified against production:** a manual probe of the two live tool
+> pages shows the first sweep will legitimately fail BOTH — (1)
+> drop-rate-tuner's interaction anchors `#drop-chance`/`#stat-median` don't
+> exist (composer wrote kebab-case, the generator emitted camelCase
+> `#dropChance`/`#statHalf` — the invented-selector class, caught); (2) both
+> tools fail `asset_loads` because the JS ships INLINE and
+> `/tools/assets/<fn>.js` is never referenced — the PLANs' "Path 1 extracted
+> on rerender" delivery isn't what the deploy path does (`js-not-extracted`).
+> Expect two improve_tool items + acceptance-fail notes on the first live
+> sweep; the asset question (implement extraction vs correct the PLANs'
+> delivery mechanism) is a design decision to take when they land.
+>
+> *(Original definition below — unchanged.)*
 **A static, browserless verifier.** Loads the tool's `criteria_json` (same
 query as `load_doc_context`) and asserts the **statically visible subset**
 against the DEPLOYED artifacts — parse deployed page HTML for

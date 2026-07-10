@@ -804,4 +804,47 @@ kinds (e.g. an illustration + an icon) on robot-hands; verify the log lines
 Banana call; then lock an asset and confirm store_asset refuses to overwrite.
 Logo approve-and-lock (B6) additionally waits on IMAGE_BUCKET.
 
+## Turn 18 — 2026-07-10 — I1 deployed; B7 root-caused and fixed; discovery cycle triggered
+
+**I1 deploy confirmed** (fresh chassis pod): style guide + lock guard now
+active in production. robot-hands' seeded guide is live for the next
+generation. Acceptance generations still to run.
+
+**B7 resolved (user decision: no brochure fallback). "We have been here
+before" confirmed — twice over:**
+- The item's spec held the real cause: `"reason": "fallback — no
+  classification tags"`, `site_tags: []`. The scheme-aware matcher
+  (resolve_composition_layout → resolveLayoutByTags, doc 027) scores
+  `classification.industry_tags` against `layouts.industry_tags`;
+  robot-hands' old-format classification HAS no industry_tags (same
+  old-format gap as the missing news flag fixed during the rebuild).
+- The library ALREADY contains the right layout: **tool-portal-dark**
+  (scheme=dark, category=interactive, tags interactive-platform/tools/
+  tool-portal/calculators/technical-reference/professional-dark) — the
+  needs_new_layout_candidate → human → library-growth loop had already run
+  once before and produced it.
+- Fix (`SQL_2026-07-10_b7_layout_fix.sql`): classification superseded with
+  nine matching industry_tags; review item closed wont_fix; fresh
+  `needs_composition` queued (site-design-planner re-resolves; expected
+  match tool-portal-dark, then site re-render through the design pipeline).
+
+**Discovery cycle triggered** for robot-hands.com: the documented
+`system.intake` pattern is STALE (topic doesn't exist) — the working
+mechanism is the kcat trigger script pattern (033_rerender_pages_trigger.sh):
+`action=orchestrate` envelope to `system.agent.generic.requests` with
+`config.agent_type: improvement-loop` + input_data {site_id, domain}.
+Trigger sent (correlation 5b43181e…). The improvement loop runs quality +
+design + completeness discovery, triages, and dispatches — this exercises
+BOTH new checks (component_template_corrupted → bridge regens for the
+corrupted components still used on robot-hands' tool-guide pages;
+image_source_unsatisfiable → flags) plus picks up the queued composition.
+Background monitor watching: orchestrations, bridge emissions, unsat flags,
+and the B7 composition outcome (chosen layout).
+
+**Next:** on monitor results — verify tool-portal-dark chosen + bridge
+emissions; then I1 acceptance generations (illustration + icon with
++style_guide in logs); consider triggering improvement loops for
+finetuning.uk / vonc.com / leopardessconsulting.co.uk to sweep their
+corrupted components.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

@@ -79,3 +79,29 @@ func TestPlanBytes_StringAndMapShapes(t *testing.T) {
 		t.Fatalf("bare string shape: %q", b)
 	}
 }
+
+// F1.1b(a): the first live plan's two semantic no-ops must now be rejected.
+func TestValidateFixPlan_RejectsNoOpEdits(t *testing.T) {
+	base := fixPlan{
+		Summary:    "s",
+		GroundedIn: []string{"quote"},
+		Edits: []fixPlanEdit{{
+			File: "a/b.go", Operation: "modify", Rationale: "r",
+			Sketch: "add AND build_status = 'deployed' to the WHERE clause",
+		}},
+	}
+	if p := validateFixPlan(base, 8); len(p) != 0 {
+		t.Fatalf("real edit must pass: %v", p)
+	}
+	for _, sketch := range []string{
+		"No code change required in applyAddToPage itself — the function is correct",
+		"In the block comment above childPrefixes, add a clarifying note: 'section-index pages are exempt'",
+		"Audit the branch; no change is needed here for the nav",
+	} {
+		p := base
+		p.Edits = []fixPlanEdit{{File: "a/b.go", Operation: "modify", Rationale: "r", Sketch: sketch}}
+		if problems := validateFixPlan(p, 8); len(problems) == 0 {
+			t.Fatalf("no-op sketch must be rejected: %q", sketch)
+		}
+	}
+}

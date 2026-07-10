@@ -244,6 +244,31 @@ code reading, the third was caught by running the loop against the live site wit
 
 ---
 
+## 2026-07-10 (night) — v1.0.1105: third guard PROVEN; thread engineering COMPLETE
+
+Chassis `v1.0.1105` deployed carrying the `check_empty_sections` guard (string-verified in the pod binary).
+Re-ran completeness discovery on vonc (correlation `a62610c3-…`) — deliberately, because the two rejected
+shell items sit **outside** the partial dedup index: on the old binary this pass would have re-raised them,
+so their absence is positive proof, not a dedup artifact.
+
+Result: **zero new work items**; the only shell `empty_section` rows remain the two `rejected` ones from the
+first pass. The spawned pod logged all four exemptions by name:
+
+```
+empty_sections: runtime-fill shell exempt from rebuild              | provocation-card
+empty_sections: runtime-fill shell exempt from rebuild              | lobby-grid
+component_template_corrupted: runtime-fill shell not auto-regenerable | lobby-grid
+component_template_corrupted: runtime-fill shell not auto-regenerable | provocation-card
+```
+
+The caution against re-running completeness discovery on vonc is **lifted**. Everything this thread produced —
+section-editor writer fix, trigger drop, three runtime-fill guards, drift check, status fixer — is deployed
+and artifact-verified. Remaining items are operational, tracked in `RUNBOOK_minilobby_task.md` §0.
+
+`Categories:` (milestone)
+
+---
+
 ## 2026-07-09 — the dropped trigger, for the record (verbatim from the session Q&A)
 
 `auto_lock_on_deploy` — a Postgres trigger on the `page_components` table (trigger name

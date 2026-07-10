@@ -490,6 +490,15 @@ rebalance window); and the completion signal (`diagnosis` in collected_data)
 precedes persist_note by ~2 min — don't read doc_notes in that gap.
 - `cmd/bundle` needs `-psql` as ONE quoted argument with NO `-it`/`-t`;
   without it the bundle silently carries code+docs only.
+- **`max_tokens` at a step-config's root is DEAD CONFIG** for
+  `execute_llm_prompt`: the action reads it from the agent's top-level config
+  or from inside the step's `ai_service` block only (ai_actions.go:252-256),
+  and the Anthropic client then defaults to **2048 output tokens**. The
+  diagnose-agent verdict step ran capped at 2048 through all five benchmark
+  runs; the fix-proposer's plan was truncated mid-JSON twice before this was
+  found (byte counts ~7.5-8.1KB ≈ 2048 tokens — the tell). Put `max_tokens`
+  INSIDE `ai_service`. Same family as 001 §16's error_step placement bug:
+  config that looks right, parses fine, and is silently ignored.
 
 ## BENCHMARK RUN 3 — 2026-07-10 (corr `5120c0dc`; F0.4d live on v1.0.1102)
 Honest UNVERIFIABLE in 3 iterations (~16 min): iteration 2's state-only

@@ -1,5 +1,5 @@
--- 0NN_fix_proposer.sql — F1.1a of the diagnosis→fix loop.
--- 2026-07-10. Renumber 0NN when filing. Applies to clients_db.
+-- 0NN_fix_proposer.sql — F1.1a + F1.1b(b) + F2.1 of the diagnosis→fix loop.
+-- 2026-07-10 (v2: council wired in; proposer input widened; max_tokens inside ai_service). Renumber 0NN when filing. Applies to clients_db.
 --
 -- Creates: (1) diagnosis_artifacts gains kind='fix_plan' (+ iteration 0 for
 --              run-level artifacts);
@@ -20,7 +20,7 @@ BEGIN;
 -- ── 1. artifacts table: new kind + run-level iteration 0 ─────────────────────
 ALTER TABLE diagnosis_artifacts DROP CONSTRAINT diagnosis_artifacts_kind_check;
 ALTER TABLE diagnosis_artifacts ADD CONSTRAINT diagnosis_artifacts_kind_check
-    CHECK (kind IN ('bundle', 'iteration_note', 'fix_plan'));
+    CHECK (kind IN ('bundle', 'iteration_note', 'fix_plan', 'council_report'));
 ALTER TABLE diagnosis_artifacts DROP CONSTRAINT diagnosis_artifacts_iteration_check;
 ALTER TABLE diagnosis_artifacts ADD CONSTRAINT diagnosis_artifacts_iteration_check
     CHECK (iteration >= 0);
@@ -43,7 +43,7 @@ INSERT INTO agent_definitions (
 SELECT
     'fix-proposer',
     'Fix Proposer (F1.1a)',
-    'Turns a CONFIRMED diagnosis (by correlation_id) into a constrained edit plan persisted to diagnosis_artifacts. Writes no code; refuses non-CONFIRMED diagnoses.',
+    'Turns a CONFIRMED diagnosis (by correlation_id) into a constrained edit plan + a council review (edit-quality + guardian reviewers, deterministic decision), all persisted to diagnosis_artifacts. Writes no code; refuses non-CONFIRMED diagnoses.',
     'diagnose', 'coordinator', 'experimental',
     true, 1, '["diagnose", "fix-planning"]'::jsonb,
     d.image_repository, d.image_tag, d.command, d.resources, d.topics, d.health_config, d.env_vars,
@@ -90,9 +90,10 @@ SELECT
             'output_format', 'object',
             'params', jsonb_build_array('input_data.fix_correlation_id'),
             'query',
-              'SELECT body FROM diagnosis_artifacts ' ||
-              'WHERE correlation_id = $1 AND kind = ''bundle'' ' ||
-              'ORDER BY iteration DESC LIMIT 1'
+              'SELECT string_agg(body, chr(10) || ''=== earlier iteration bundle ==='' || chr(10) ORDER BY iteration DESC) AS body ' ||
+              'FROM (SELECT body, iteration FROM diagnosis_artifacts ' ||
+              '      WHERE correlation_id = $1 AND kind = ''bundle'' ' ||
+              '      ORDER BY iteration DESC LIMIT 2) last_two'
           )
         ),
 
@@ -106,9 +107,9 @@ SELECT
             'ai_service', jsonb_build_object(
               'model', 'claude-sonnet-4-6',
               'provider', 'anthropic',
-              'api_key_env_var', 'ANTHROPIC_API_KEY'
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 8000
             ),
-            'max_tokens', 4000,
             'temperature', 0.0,
             'input_fields', jsonb_build_array('diagnosis_row', 'last_bundle'),
             'output_format', 'json',
@@ -120,7 +121,9 @@ SELECT
 '2. MINIMAL: the fewest edits that remove the confirmed cause. If you need more than a handful, the fix is architecture change — say so in risks and keep the plan to the safe core.' || chr(10) ||
 '3. GROUNDED: every edit''s rationale must trace to the diagnosis conclusion or the bundle; quote the evidence in grounded_in.' || chr(10) ||
 '4. NO new dependencies, no schema DDL, no deletes of files.' || chr(10) ||
-'5. Respect surface ownership: an edit to a workflow JSON in agent_definitions is operation "config_change" and must say so.' || chr(10) || chr(10) ||
+'5. Respect surface ownership: an edit to a workflow JSON in agent_definitions is operation "config_change" and must say so.' || chr(10) ||
+'6. COVER EVERY MECHANISM the diagnosis cites: a workflow step quoted in the citations (e.g. a success-labelled error terminal) and any generation code cited must each have a covering edit or an explicit line in risks saying why not.' || chr(10) ||
+'7. Every edit CHANGES something. "No code change required", audits, and comment-only edits are invalid and will be rejected by validation — put observations in risks, not edits.' || chr(10) || chr(10) ||
 '## The confirmed diagnosis' || chr(10) || chr(10) ||
 '{{.diagnosis_row.conclusion}}' || chr(10) || chr(10) ||
 '## Final evidence bundle' || chr(10) || chr(10) ||
@@ -144,7 +147,7 @@ SELECT
           'action', 'diagnose_persist_fix_plan',
           'description', 'Structural validation + write to diagnosis_artifacts (kind=fix_plan). A failed validation FAILS the run.',
           'output_field', 'plan_persisted',
-          'next_step', 'complete',
+          'next_step', 'review_editquality',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
             'fix_correlation_id', 'input_data.fix_correlation_id',
@@ -152,10 +155,79 @@ SELECT
           )
         ),
 
+        'review_editquality', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Council reviewer 1 — edit quality: real changes, minimality, right causal path, missing mechanisms.',
+          'output_field', 'review_editquality',
+          'next_step', 'review_guardian',
+          'config', jsonb_build_object(
+            'error_step', 'complete_refused',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 3000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted'),
+            'output_format', 'json',
+            'prompt_template',
+'# Council reviewer: EDIT QUALITY' || chr(10) || chr(10) ||
+'You review a proposed fix plan against its diagnosis. You change nothing; you judge.' || chr(10) || chr(10) ||
+'Judge: (a) does every edit CHANGE something real (audits/comments are not edits); (b) does the plan address every mechanism the diagnosis cites — quote any cited mechanism with no covering edit into missing; (c) does each edit target the causal path the diagnosis established, not an adjacent one; (d) is the plan minimal.' || chr(10) || chr(10) ||
+'Verdicts: approve (sound), object (fixable problems — list them), veto (fundamentally wrong: fixes a different bug, or all edits are no-ops).' || chr(10) || chr(10) ||
+'## The diagnosis' || chr(10) || '{{.diagnosis_row.conclusion}}' || chr(10) || chr(10) ||
+'## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Output — ONLY this JSON' || chr(10) ||
+'{"reviewer": "editquality", "verdict": "approve|object|veto", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": ["cited mechanism with no covering edit"], "notes": "..."}'
+          )
+        ),
+
+        'review_guardian', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Council reviewer 2 — pipeline guardian: surface ownership, blast radius, architecture-change signals. HARD VETO holder.',
+          'output_field', 'review_guardian',
+          'next_step', 'council_decide',
+          'config', jsonb_build_object(
+            'error_step', 'complete_refused',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 3000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted'),
+            'output_format', 'json',
+            'prompt_template',
+'# Council reviewer: PIPELINE GUARDIAN (hard-veto holder)' || chr(10) || chr(10) ||
+'You protect the platform''s other pipelines from collateral damage. You change nothing; you judge.' || chr(10) || chr(10) ||
+'Judge: (a) blast radius — which pipelines/workflows consume each edited file or workflow step; does the plan acknowledge them; (b) architecture-change signals — edits to shared contracts, wire formats, message shapes, exported signatures, or MANY packages at once mean this is not a constrained fix: veto and say it needs an architecture review; (c) surface ownership — workflow-JSON edits must be operation config_change and name the owning pipeline.' || chr(10) || chr(10) ||
+'Verdicts: approve, object (containable concerns), veto (cross-pipeline damage or architecture change dressed as a fix). Your veto BLOCKS.' || chr(10) || chr(10) ||
+'## The diagnosis' || chr(10) || '{{.diagnosis_row.conclusion}}' || chr(10) || chr(10) ||
+'## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Output — ONLY this JSON' || chr(10) ||
+'{"reviewer": "guardian", "verdict": "approve|object|veto", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": [], "notes": "..."}'
+          )
+        ),
+
+        'council_decide', jsonb_build_object(
+          'action', 'diagnose_council_decide',
+          'description', 'Deterministic aggregation: veto→rejected, object→revise, else approved. Guardian holds the hard veto. Persists kind=council_report.',
+          'output_field', 'council',
+          'next_step', 'complete',
+          'config', jsonb_build_object(
+            'error_step', 'complete_refused',
+            'fix_correlation_id', 'input_data.fix_correlation_id',
+            'review_fields', jsonb_build_array('review_editquality.result', 'review_guardian.result'),
+            'hard_veto_from', jsonb_build_array('guardian')
+          )
+        ),
+
         'complete', jsonb_build_object(
           'action', 'complete_workflow',
-          'description', 'Plan persisted; fetch it from diagnosis_artifacts by correlation_id.',
-          'config', jsonb_build_object('output_fields', jsonb_build_array('plan_persisted'))
+          'description', 'Plan + council report persisted; fetch both from diagnosis_artifacts by correlation_id.',
+          'config', jsonb_build_object('output_fields', jsonb_build_array('plan_persisted', 'council'))
         ),
 
         'complete_refused', jsonb_build_object(

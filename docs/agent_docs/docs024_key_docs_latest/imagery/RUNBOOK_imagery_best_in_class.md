@@ -138,17 +138,16 @@ to either approve-and-lock this logo or request a regeneration first. (The
 separate logo-in-header render gap — the header doesn't yet resolve
 `site_assets.logo` — is agent-side work, also queued for I1/I0 close-out.)
 
-### B7. Layout-gap decision for robot-hands.com (from the 2026-07-08 rebuild)
-The composition step found no layout candidate for the site's `scheme=dark`
-and applied the `brochure-formal` fallback, raising a
-`needs_new_layout_candidate` item with `status='needs_human_review'`.
-Your decision, when convenient (not blocking the build):
-- **Accept the fallback** — tell the agent; the item gets closed `wont_fix`
-  with a note; or
-- **Add a dark-scheme layout candidate** — the agent will scope what a new
-  layout entry needs and bring you the proposal.
-Look at the rebuilt pages first (they render with brochure-formal) — if they
-look right, accepting is the cheap and reasonable path.
+### B7. ~~Layout-gap decision for robot-hands.com~~ ✅ RESOLVED 2026-07-10
+Your decision: no brochure fallback. Investigation found this was NOT a
+missing-layout problem — the matcher fell back because robot-hands' old-format
+classification had no `industry_tags` to score against, and the library
+already holds `tool-portal-dark` (dark, interactive/tools/calculators — added
+after a previous instance of this same gap). Fixed: classification superseded
+with matching tags, the review item closed, and composition re-queued
+(`SQL_2026-07-10_b7_layout_fix.sql`). Expect the site to move to
+tool-portal-dark on the next composition + re-render; eyeball the site
+afterwards (A3 ritual).
 
 ### B8. ~~Run the check-registration SQL after your NEXT chassis deploy~~ ✅ DONE 2026-07-10
 Chassis deployed; `component_template_corrupted` registered on

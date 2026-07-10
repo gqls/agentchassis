@@ -17,16 +17,16 @@
 | `repair_page_component_status` fixer | **SHIPPED** `v1.0.1103`, confirmed in `v1.0.1104` |
 | `page_component_status_drift` check | **SHIPPED** `v1.0.1104`; §3 checks pass |
 | Enable decision | **DONE 2026-07-10** — `page_component_status_drift`, `sectionless_pages`, `component_template_corrupted` added to completeness-discovery-agent; first pass run on vonc; guard fired correctly (3 emit / 2 refuse) |
-| Runtime-fill guard #3 (`check_empty_sections`) | **WRITTEN, needs next chassis build** — the enabled-all-along check flagged the two shells as `empty_heading` on the first pass and routed them to page-build-handler; items rejected by hand, guard added |
+| Runtime-fill guard #3 (`check_empty_sections`) | **SHIPPED `v1.0.1105` + PROVEN** — re-ran discovery on vonc; the rejected shell items were NOT re-raised (they sit outside the partial dedup index, so absence is positive proof); both guards logged their exemptions by name in the spawned pod |
 | 3 × `needs_component_regeneration` + 3 × `empty_section` (genuinely corrupted components) + 1 × `needs_rerender` | **OPEN, legitimate** — sit at `detected`; nothing dispatches while improvement-sweep stays disabled (off since 2026-05-02) |
 | `brief-explanation` `<img src="">` | **OPEN** → imagery workstream |
 | `provocations.json` dead `lobby` key | **OPEN**, trivial |
 
-**Next action:** ship the `check_empty_sections` guard in the next chassis build.
-**CAUTION until then:** do **not** re-run completeness discovery on vonc — `idx_swi_dedup` is partial (covers
-only non-terminal rows) and the two-strike rule counts only `complete`/`failed`, so the current binary will
-re-raise the two rejected shell `empty_section` items. If it happens, re-reject them
-(`item_key` values in `RUNNING_NOTES`, entry of 2026-07-10 evening).
+**This thread's engineering is COMPLETE as of `v1.0.1105` (2026-07-10).** Every check, guard, fixer and
+writer-fix is deployed and artifact-verified. The earlier caution about re-running completeness discovery on
+vonc is **lifted**. What remains is operational: dispatch of the open legitimate items (needs the
+improvement-sweep re-enabled, or manual dispatch), the imagery-workstream `<img src="">`, the dead `lobby`
+key, and the PLAN §4 CHECK-constraint proposal.
 
 **Build practice (2026-07-10):** images are built from the **local filesystem via the Makefile**; commits are
 at the user's discretion and unrelated to builds — the source of truth for code is local. The Makefile image

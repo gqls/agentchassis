@@ -50,7 +50,16 @@ project: **no claim ships unless it has a row in this table.**
 | U6 | `/how-we-work.html` (live): *"Playwright-based agents handle dynamic JavaScript rendering, session management, and anti-bot navigation. Supervisor agents detect rate-limit signals and reroute traffic across proxy pools."* | **Playwright is not used.** It appears in exactly two places: a comment in `internal/adapters/webscrape/adapter.go:130` — *"Could add other providers here (Playwright, Puppeteer, etc.)"* — and a commented-out line in a dev configmap. The real scraper is **Firecrawl**. `proxy_pool`/`proxypool`/`anti-bot`/`antibot` → **0 matches** in the entire Go codebase. Every specific in that sentence is fabricated. |
 | U7 | `/about.html` (live) lists **two AI agents as team members**: "Orchestration Agent: Operations" and "Orchestration Agent: Research & Intelligence", each with a `photo` filename, under the heading "The People Behind the Platform". | They are not people. The section also asserts *"the orchestration platform powering our client deployments"* and *"our published case studies"* — both refer to things that do not exist (U3). The intro also contains a competitor swipe: *"not consultants who advise from a distance"*. |
 | U8 | The three `leadership-team` `photo` files | `founder-principal-engineer.jpg`, `orchestration-agent-operations.jpg`, `orchestration-agent-research.jpg` all return **HTTP 404**. The About page has three broken portraits of people who do not exist. |
-| U9 | `/how-we-work.html` header: *"Seventy-plus agents organised across eight functional departments"* | Rendered into `page_components.rendered_html` (7 KB) with **`content_data IS NULL`** — the copy is baked into the artifact, so fixing the spec alone will not change the page. Departments do not exist (U1). |
+| U9 | `/how-we-work.html` header: *"Seventy-plus agents organised across eight functional departments"* | Departments do not exist (U1). **Section DELETED 2026-07-10.** *Note on the NULL-`content_data` observation:* it was true when recorded, and an agent backfilled it at 10:29 on 2026-07-10 — `rerender_page_sections` escalates a section with missing `content_data` to a heavy path that backfills it. So the "baked into `rendered_html`" concern was real but self-healing. |
+| U10 | `/who-we-help.html` FAQ asserted per-agent **token budgets**, **circuit breakers**, routing to a cheaper model tier, **Helm charts**, deployment into **AWS/GCP/Azure**, and per-agent **least-privilege IAM**. | None appear in the codebase. A circuit breaker is in fact an explicit *unwired* `TODO(provider-circuit-breaker)` in `dynamic_adapter.go`. **FAQ replaced 2026-07-10.** |
+| U11 | Homepage `system-stats` published **"70%" deployed agents, "3ms" orchestration model, "Minutes+" deploy time, "99.9x" uptime**. | The `stat{N}_suffix` fields were misaligned against `stat{N}_value`, so the section rendered nonsense — *and* the uptime target was an unsupportable claim the plan bans. **Rewritten 2026-07-10** with four real, dated figures and empty suffixes. |
+
+**Fabrication sweep, 2026-07-10:** every `page_components.content_data` on the site was
+checked against 16 patterns (Peter Grenfell, eight departments, 70+, Seventy-plus,
+Playwright, proxy pool, anti-bot, Orchestration Agent, Veterinary Data Aggregator,
+Multi-Site Content Platform, digital transformation, Grace and Precision, 99.9, circuit
+breaker, Helm chart). Result: **CLEAN.** `content_data` is the render source, so this is
+the surface that matters; `rendered_html` regenerates from it at L9.
 
 ---
 
@@ -181,6 +190,11 @@ smaller than ESPN's Soccernet. This is a deliberate, informed choice by the prim
 source about their own history — not a claim I generated or independently verified.
 It is drafted into `specs/identity.json` with the hedge intact, which is the pattern
 this whole rebuild is built on: say the true thing, and say plainly when a part of it
-can't be proven. The 12M-uniques, magazine and Microsoft details are owner-asserted
-and not independently checked by me; flagging that here for completeness, not to
-relitigate a decision the owner has already made.
+can't be proven.
+
+**Source named 2026-07-10:** the owner identifies the publication as **New Media Age**
+(the UK digital-media trade magazine). The copy now names it, which turns the
+12-million-uniques figure from an assertion into something a reader could in principle
+check against a back issue. I have not seen the article myself — the claim is
+*attributed*, not independently verified, and that is the honest standing of it. The
+"third busiest" ordinal remains explicitly labelled as recollection.

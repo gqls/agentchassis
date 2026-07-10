@@ -151,6 +151,9 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 		"edit_count": len(plan.Edits),
 		"files":      files,
 		"summary":    plan.Summary,
+		// The validated plan verbatim, for the council reviewers' prompts —
+		// a string, so template rendering is exact rather than a Go map dump.
+		"plan_json": string(planJSON),
 	}, nil
 }
 
@@ -208,6 +211,33 @@ func validateFixPlan(p fixPlan, maxEdits int) []string {
 		if strings.TrimSpace(e.Sketch) == "" {
 			problems = append(problems, tag+": sketch is empty")
 		}
+		if reason := noOpEditReason(e.Sketch); reason != "" {
+			problems = append(problems, fmt.Sprintf("%s: %s — a fix plan proposes changes, not observations; drop the edit or make it real", tag, reason))
+		}
 	}
 	return problems
+}
+
+// noOpEditReason flags edits that change nothing. The first live plan
+// (correlation e08c5b01, 2026-07-10) passed validation with an edit whose
+// sketch said "No code change required" and another proposing only a
+// clarifying comment — structurally valid, semantically empty. Explicit
+// phrases only: over-blocking a real edit is worse than letting the council
+// catch a subtle no-op.
+func noOpEditReason(sketch string) string {
+	s := strings.ToLower(sketch)
+	switch {
+	case strings.Contains(s, "no code change"),
+		strings.Contains(s, "no change required"),
+		strings.Contains(s, "no change is required"),
+		strings.Contains(s, "no change needed"),
+		strings.Contains(s, "no change is needed"):
+		return "sketch declares no code change"
+	case strings.Contains(s, "clarifying note"),
+		strings.Contains(s, "clarifying comment"),
+		strings.Contains(s, "add a comment"),
+		strings.Contains(s, "comment-only"):
+		return "sketch is comment-only"
+	}
+	return ""
 }

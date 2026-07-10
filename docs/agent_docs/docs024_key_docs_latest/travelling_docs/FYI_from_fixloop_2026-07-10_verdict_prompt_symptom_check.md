@@ -55,3 +55,17 @@ Conclusions now render three marks: [explained] / [UNEXPLAINED] / [context].
 Also FYI: a `fix-proposer` agent (F1.1a) now exists — it READS your
 doc_notes-adjacent surfaces only via orchestration_states/diagnosis_artifacts
 and writes only kind='fix_plan' artifacts; no code writes, no git token.
+
+## Second addendum, 2026-07-10 — verdict step max_tokens was DEAD CONFIG
+
+Found while debugging the fix-proposer: `execute_llm_prompt` reads `max_tokens`
+from the agent's top-level config or from INSIDE the step's `ai_service` block
+(ai_actions.go:252-256) — never from the step-config root, where the
+diagnose-agent verdict step (and our propose step) had it. The Anthropic client
+then defaults to **2048 output tokens**. Your verdict step has been silently
+capped at 2048 all along — it survived because verdict JSONs were short, but
+coverage-rich verdicts post-symptom_check are near the limit and a truncated
+verdict JSON parses to UNVERIFIABLE. Fixed on both agents (snapshot first):
+`max_tokens` moved inside `ai_service`, root copy removed. Grep your other
+workflows for the same pattern: `config.max_tokens` OUTSIDE `ai_service` is
+dead wherever execute_llm_prompt is the action.

@@ -2495,3 +2495,45 @@ killed two pods is a five-second no-event. **Phase A of travelling docs is
 proven end-to-end, including the derived index.** Next front: Stage 5 (Tier-2
 anchor checker), Stage 6 (Tier-4 runner), and the two `planned` tool pages.
 Categories: (proof, position)
+
+### Both planned tool pages deployed (loose end closed)
+`needs_content_page` items had completed but nothing enqueued the final
+render+deploy hop — pages had full rendered components (17/22KB) yet 404'd.
+Inserted two `page_rerender` work items exactly as `create_rerender_items`
+does (same spec/item_key/priority); the dispatch loop deployed both within
+minutes: xp-curve 31,899 bytes, drop-rate-tuner 37,242 bytes, both HTTP 200,
+build_status=deployed. Gap on record: tool creation ends at `complete`
+without enqueuing a page_rerender item — the pages deploy only when something
+else sweeps. Worth a `create_rerender_item` tail on tool-generator later.
+Categories: (fix, seam)
+
+### Stage 5 BUILT — discovery check `tool_acceptance` (+ migration 142)
+Tier-2 static checker implemented as a sibling of `tool_health` in
+`discovery_checks/` (the runbook's "inside check_tool_health" resolved to the
+check-plugin framework once read). Loads the current PLAN's ```criteria fence
+(same extraction as load_doc_context), fetches the DEPLOYED page (bounded
+12s, 2MB, cached per run), and evaluates the static subset under the ANCHOR
+RULE: selector_exists/selector_count/interaction anchors (leftmost id/class
+token; confirm never refute; -EDIT skipped), asset_loads (path referenced),
+page_status_ok (the fetch), plus built-in shell checks (tool-doc header not
+leaked; no '<no value>' residue). No criteria → needs_criteria note (30-day
+cooldown), never a fake pass. Failures → improve_tool item (criteria embedded
+as acceptance_test, handler tool-improver, shares tool_health's 7-day
+per-component cooldown) + acceptance-fail note (source
+'tool-acceptance-tier2'). Unit tests pass — including a real catch during
+writing: Go regexp \b treats '-' as a boundary, so .tool would have matched
+class="tool-page"; class tokens are now compared whitespace-delimited.
+Migration 142 wired it into design-discovery-agent.run_checks (safe
+pre-deploy: unknown check names warn+skip; activates with the next image).
+
+**Pre-verified against production (manual probe of the live pages): the first
+sweep will legitimately fail BOTH tools.** (1) drop-rate-tuner's interaction
+anchors #drop-chance/#stat-median exist nowhere — the composer wrote
+kebab-case ids while the generator emitted camelCase (#dropChance/#statHalf):
+the invented-selector class, caught statically, second sighting. (2) BOTH
+tools fail asset_loads — the JS ships inline; /tools/assets/<fn>.js is never
+referenced: the PLANs' "Path 1 — extracted on rerender" delivery mechanism is
+not what the deploy path does (js-not-extracted). Design decision pending
+when the items land: implement extraction or supersede the PLANs' delivery
+mechanism + asset criterion.
+Categories: (build, migration, proof)
