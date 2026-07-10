@@ -121,20 +121,26 @@ inert until then. After deploys: clear zombies, re-trigger interrupted loops.
   (logo/illustration/infographic → Banana, honours reference images) —
   deployed with the 2026-07-10 builds; their workstream verifies.
 
-## Next actions (in order)
-1. Verify the in-flight drains: 36 page_rerenders + 3 needs_imagery on
-   robot-hands; then the I1 style-guide acceptance check (origin_prompt
-   fingerprints) and eyeball two generations for shared brand voice.
+## Next actions (in order — updated Turn 23)
+1. Verify the in-flight drains: 36 page_rerenders + 3 needs_imagery + the
+   fresh logo item on robot-hands; then the I1 style-guide acceptance check
+   (origin_prompt fingerprints on the new assets) and eyeball two
+   generations for shared brand voice.
 2. User A3 eyeball of tool-portal-dark on robot-hands.com.
-3. Close I0 stragglers: logo-in-header resolution in render_site_components;
-   wire the Lucide validator; orphan old-page cleanup (how-it-works,
-   selection-guide, learning-center sprawl).
-4. B6 logo approve-and-lock — UNGATED per the correction above: queue a logo
-   needs_imagery item (regenerates via Banana with the new routing, deploys
-   via the working spawned-deployer chain) → user approves → set locked_at →
-   lock guard enforces; then favicon/OG derivation.
+3. **B6 logo approve-and-lock — candidate QUEUED (Turn 23):**
+   `needs_imagery:site:-:logo` regenerates via Banana + deploys via the
+   spawned-deployer chain. When the asset lands: show the user →
+   on approval `UPDATE assets SET locked_at=now(), locked_by='user-b6'
+   WHERE site_id='00ff3af5…' AND asset_key='logo';` → the store-guard
+   enforces permanence. Header fix (commit b00c150b, resolves plan logo via
+   DeployedWebPath in loadSiteDataFull) NEEDS THE NEXT CHASSIS DEPLOY, then
+   re-render site components (rerender-pages with refresh_site_components).
+   Then favicon/OG derivation.
+4. Remaining I0 stragglers: wire the Lucide validator; orphan old-page
+   cleanup (how-it-works, selection-guide, learning-center sprawl).
 5. Optionally trigger improvement-loop for finetuning.uk / vonc.com /
-   leopardessconsulting.co.uk to sweep their 7 corrupted components.
+   leopardessconsulting.co.uk to sweep the 4 remaining corrupted components
+   (archetype-taster-quiz, lobby-grid, provocation-card, tool-cta).
 6. Then Phase I2 (sprite sheets — design already locked in
    CONTEXT_PACK_imagery_sprite_sheet.md) and I3 (card imagery / Lane B:
    generic entity_type+entity_id columns on assets — user-confirmed D2).

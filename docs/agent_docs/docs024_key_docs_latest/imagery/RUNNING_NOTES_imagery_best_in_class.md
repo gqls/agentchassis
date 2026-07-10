@@ -954,4 +954,31 @@ photography", "charcoal") when they complete = direct acceptance evidence.
 for continuing in a fresh chat — keep it updated at every turn alongside these
 notes.
 
+## Turn 23 — 2026-07-10 — Logo thread executed: header fix coded + fresh logo candidate queued
+
+**Facts established (live site):** no logo file deployed
+(`/assets/images/logo.png` and `.jpg` both 404 — the May logo asset was
+never committed to git); the live header renders the text mark. The header
+component TEMPLATE already supports `{{if .logo_url}}<img …>` — only the
+data was missing: `render_site_components` → `loadSiteDataFull` read the
+never-populated `sites.logo_url` column and never consulted the imagery
+plan.
+
+**Fix coded (commit b00c150b — needs next chassis deploy):**
+`loadSiteDataFull` now resolves the site-scope logo from
+site_plan_imagery→assets via `storage.DeployedWebPath` (committed git path,
+never assets.url), keeping `sites.logo_url` as legacy fallback; logger
+threaded through both callers. Build + vet clean.
+
+**B6 candidate queued:** fresh `needs_imagery:site:-:logo` item (triaged,
+priority 70, brand_update=true, using the plan's logo prompt) — regenerates
+via the new Banana routing and deploys through the spawned asset-deployer
+chain. Sequencing: generate → USER APPROVES (A3/B6) → set assets.locked_at
+(lock guard then enforces permanence) → deploy header fix → re-render
+header → logo live.
+
+**Drain progress at turn end:** dispatch healthy (~1 item/min; 62 open and
+falling); 3 needs_imagery + 36 rerenders still queued behind by priority —
+the I1 acceptance evidence arrives when those imagery items generate.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
