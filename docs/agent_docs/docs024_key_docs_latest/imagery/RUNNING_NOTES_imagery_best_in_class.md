@@ -928,4 +928,30 @@ site-local; tool-portal-dark declares no default header/footer (both NULL, per
 re-compose path (site-design-planner "re-resolve" mode with lineage) is
 missing by deliberate deferral; today's FK-swap is the documented workaround.
 
+## Turn 22 — 2026-07-10 (evening) — B7 chain landed; docs + handoff synced; drain in progress
+
+**B7 outcome (user-visible result already live):**
+- webdesign-agent COMPLETED: CSS rendered from the swapped composition
+  (tool-portal-dark structure under robot-hands' own charcoal/electric-blue
+  palette) and committed to git. Since the layout change is substantially a
+  CSS change, **robot-hands.com already renders as the dark tool-portal** —
+  A3 eyeball is available NOW.
+- Timing subtlety understood: the 36 page_rerender items were queued by the
+  improvement loop BEFORE the swap; my rerender-pages trigger dedup'd against
+  them (correct — one queue). They refresh the HTML side and drain through
+  dispatch behind the design-audit backlog (~75 open items total).
+- Monitoring-bug note for the record: one earlier monitor misread transient
+  psql failures as "0 remaining" — corrected monitors distinguish query
+  failure from empty queue.
+
+**I1 acceptance happening organically:** discovery queued 3 needs_imagery
+items; they will be the first generations through the live style guide. The
+watch checks their assets' origin_prompt for guide fingerprints ("industrial
+photography", "charcoal") when they complete = direct acceptance evidence.
+
+**Docs synced this turn:** notes (this), PLAN (I1/B7 closing state), RUNBOOK
+(B7 closed, A3 eyeball requested), and a NEW `HANDOFF_imagery_best_in_class.md`
+for continuing in a fresh chat — keep it updated at every turn alongside these
+notes.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

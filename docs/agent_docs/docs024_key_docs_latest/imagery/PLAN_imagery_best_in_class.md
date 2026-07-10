@@ -333,6 +333,20 @@ industry_tags; review item closed; `needs_composition` re-queued so
 site-design-planner re-resolves — expected result tool-portal-dark, then a
 site re-render.
 
+**B7 COMPLETED 2026-07-10 evening — via the 025 FK-swap pattern.** The
+re-queued composition FAILED by design: `install_site_composition` refuses
+re-resolve when a collection exists, and fork_theme_from_site's install mode
+was removed 2026-04-19 — **there is no runtime re-compose path** (deliberate
+deferral). Executed the sanctioned alternative: targeted
+`css_themes.layout_id` swap on the site-specific theme row
+(`SQL_2026-07-10_b7_layout_swap.sql`, backup + verify), then webdesign-agent
+(kcat trigger) rendered + committed the new CSS — **robot-hands.com now
+renders tool-portal-dark**; 36 page re-renders queued behind the improvement
+backlog refresh the HTML side. The classification-tags fix stands for all
+future compositions. NEW OPEN ITEM for the backlog: build a proper runtime
+re-compose mode (site-design-planner re-resolve with theme lineage) if layout
+changes become routine.
+
 ### Phase I2 — Sprite sheets & list treatment (G4)
 Build the already-locked sprite plan: `kind='sprite_sheet'` (migration batch D3), one sheet per site (3×3 @ 768², 256px cells), Banana generation, CSS `background-position` classes emitted as a css_snippet, bullets/nav via `::before`.
 - Add a fulfilment check beside `check_unfulfilled_imagery_plan`.

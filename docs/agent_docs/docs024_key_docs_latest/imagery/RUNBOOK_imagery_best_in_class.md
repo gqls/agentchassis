@@ -138,16 +138,17 @@ to either approve-and-lock this logo or request a regeneration first. (The
 separate logo-in-header render gap — the header doesn't yet resolve
 `site_assets.logo` — is agent-side work, also queued for I1/I0 close-out.)
 
-### B7. ~~Layout-gap decision for robot-hands.com~~ ✅ RESOLVED 2026-07-10
-Your decision: no brochure fallback. Investigation found this was NOT a
-missing-layout problem — the matcher fell back because robot-hands' old-format
-classification had no `industry_tags` to score against, and the library
-already holds `tool-portal-dark` (dark, interactive/tools/calculators — added
-after a previous instance of this same gap). Fixed: classification superseded
-with matching tags, the review item closed, and composition re-queued
-(`SQL_2026-07-10_b7_layout_fix.sql`). Expect the site to move to
-tool-portal-dark on the next composition + re-render; eyeball the site
-afterwards (A3 ritual).
+### B7. ~~Layout-gap decision for robot-hands.com~~ ✅ COMPLETED 2026-07-10
+Your decision: no brochure fallback. Root cause was missing `industry_tags`
+in the old-format classification (fixed, supersede-row); the library already
+held `tool-portal-dark`. The re-composition path turned out to be unsupported
+by design ("re-resolve not supported"), so the switch was executed as a
+targeted `css_themes.layout_id` migration (025 pattern,
+`SQL_2026-07-10_b7_layout_swap.sql`) + webdesign-agent CSS re-render/deploy.
+**👀 YOUR A3 EYEBALL IS NOW DUE: open robot-hands.com — it should read as a
+dark, engineered tool-portal (charcoal/electric-blue), not a formal
+brochure.** HTML-side re-renders are still draining through dispatch; minor
+header/footer refresh may land after your first look.
 
 ### B8. ~~Run the check-registration SQL after your NEXT chassis deploy~~ ✅ DONE 2026-07-10
 Chassis deployed; `component_template_corrupted` registered on
