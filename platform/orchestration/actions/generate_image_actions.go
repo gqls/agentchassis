@@ -309,6 +309,21 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// Phase 2H — seed. 0 = random/unspecified.
 	seed, _ := inputData["seed"].(int)
 
+	// Phase I1 — per-site imagery style guide (site_specs aspect
+	// 'imagery_style_guide'): the structured brand signal. Loaded once here;
+	// used below for the prompt direction (superseding the free-text
+	// design_intent.imagery_direction when it yields one), the negative
+	// prompt (avoid terms), and reference-image style anchors.
+	siteID, _ := inputData["site_id"].(string)
+	styleGuide := getImageryStyleGuideForSite(ctx, params.DB, siteID, params.Logger)
+	if styleGuide != nil && styleGuide.Avoid != "" && kind != "logo" {
+		if negativePrompt != "" {
+			negativePrompt += ", " + styleGuide.Avoid
+		} else {
+			negativePrompt = styleGuide.Avoid
+		}
+	}
+
 	// Phase 2I — reference image URIs. Plural form preferred (multiple
 	// references for style consistency); singular form accepted for
 	// backward compat with the Phase 2H field name. Stability v1 REST
@@ -333,6 +348,21 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 			zap.String("kind", kind))
 	}
 
+	// Phase I1 — style-anchor references from the style guide when the caller
+	// supplied none. Photographic kinds only (anchoring an icon or logo to a
+	// photographic brand hero invites contamination). Banana consumes these;
+	// Stability ignores them.
+	if len(referenceImageURIs) == 0 && styleGuide != nil &&
+		directionAppliesToKind(kind) && len(styleGuide.ReferenceAssetKeys) > 0 {
+		refs := resolveReferenceAssetURIs(ctx, params.DB, siteID, styleGuide.ReferenceAssetKeys, params.Logger)
+		if len(refs) > 0 {
+			referenceImageURIs = refs
+			params.Logger.Info("generate_image: style-guide reference anchors applied",
+				zap.Int("count", len(refs)),
+				zap.String("kind", kind))
+		}
+	}
+
 	// Extract prompt template
 	// Get prompt using three-tier priority system
 	promptTemplate, promptSource := getImagePromptWithPriority(params, agentConfig)
@@ -347,21 +377,30 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// Prepending a photographic direction ("industrial photography of robotic
 	// grippers...") to an icon prompt makes the model render a photo with the
 	// icon composited into a corner (observed on icon_cycle_time 2026-05-20).
-	if siteID, _ := inputData["site_id"].(string); siteID != "" {
-		if directionAppliesToKind(kind) {
-			direction := getImageryDirectionForSite(ctx, params.DB, siteID, params.Logger)
-			if direction != "" {
-				composed := composeImagePromptWithDirection(promptTemplate, direction)
-				params.Logger.Info("Prepended imagery_direction from design_intent",
-					zap.String("site_id", siteID),
-					zap.String("kind", kind),
-					zap.String("direction_preview", datahelpers.TruncateString(direction, 100)),
-					zap.String("composed_preview", datahelpers.TruncateString(composed, 250)))
-				promptTemplate = composed
-				promptSource = promptSource + "+imagery_direction"
-			}
-		} else {
-			params.Logger.Info("Skipping imagery_direction for flat-vector kind",
+	if siteID != "" {
+		// Phase I1 — the style guide's per-kind direction wins when present
+		// (structured, brand-approved, kind-gated inside directionForKind:
+		// full voice for photographic kinds, palette-only for icons, nothing
+		// for logos). Free-text design_intent.imagery_direction remains the
+		// fallback for sites without a guide.
+		direction := styleGuide.directionForKind(kind)
+		directionSource := "+style_guide"
+		if direction == "" && directionAppliesToKind(kind) {
+			direction = getImageryDirectionForSite(ctx, params.DB, siteID, params.Logger)
+			directionSource = "+imagery_direction"
+		}
+		if direction != "" {
+			composed := composeImagePromptWithDirection(promptTemplate, direction)
+			params.Logger.Info("Prepended imagery direction",
+				zap.String("site_id", siteID),
+				zap.String("kind", kind),
+				zap.String("source", directionSource),
+				zap.String("direction_preview", datahelpers.TruncateString(direction, 100)),
+				zap.String("composed_preview", datahelpers.TruncateString(composed, 250)))
+			promptTemplate = composed
+			promptSource = promptSource + directionSource
+		} else if !directionAppliesToKind(kind) {
+			params.Logger.Info("No imagery direction for flat-vector kind",
 				zap.String("site_id", siteID),
 				zap.String("kind", kind))
 		}

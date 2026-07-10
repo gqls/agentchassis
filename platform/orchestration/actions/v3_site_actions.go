@@ -2403,6 +2403,7 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 			origin_prompt = COALESCE(EXCLUDED.origin_prompt, assets.origin_prompt),
 			origin_model = COALESCE(EXCLUDED.origin_model, assets.origin_model),
 			updated_at = NOW()
+		WHERE assets.locked_at IS NULL
 		RETURNING id
 	`
 
@@ -2411,6 +2412,24 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		assetID, siteID, assetName, assetType, nullString(purpose),
 		nullString(assetKey), assetURL, originType,
 		nullString(originPrompt), nullString(originModel))
+
+	// Phase I1 (D5, logo permanence): the conflict target matched a LOCKED
+	// asset — the DO UPDATE ... WHERE suppressed the write and RETURNING
+	// produced no row. Approved assets (locked_at set, e.g. an
+	// approve-and-locked logo) must never be silently replaced by a fresh
+	// generation. Report it as a refusal, not an error, so callers complete.
+	if err != nil && strings.Contains(err.Error(), "no rows") {
+		params.Logger.Warn("StoreAssetAction: target asset is LOCKED — refusing to overwrite",
+			zap.String("asset_key", assetKey),
+			zap.String("purpose", purpose))
+		return map[string]interface{}{
+			"stored":     false,
+			"locked":     true,
+			"asset_key":  assetKey,
+			"asset_name": assetName,
+			"reason":     "asset is locked (locked_at set) — approved assets are never overwritten",
+		}, nil
+	}
 
 	if err != nil {
 		// Try simpler insert without upsert if constraint doesn't exist
