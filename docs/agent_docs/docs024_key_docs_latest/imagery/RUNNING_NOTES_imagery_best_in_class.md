@@ -724,4 +724,49 @@ I2 (sprites) / I3 (card imagery).
   B5 (budget sign-off before scale-out), B6 (logo approve/lock, at I1),
   B7 (layout-gap decision), B9 (reaper cadence — recommended).
 
+## Turn 16 — 2026-07-10 — Both investigation threads closed (corruption source + no-op complete)
+
+**THREAD B — corruption source: CLOSED, nothing to build.**
+- Forensics: `component_versions` only holds today's pre-regen snapshots → the
+  corrupted templates were written by a path that predates version tracking.
+  Provenance columns settle it: all 14 corrupted components were
+  `created_from='generated'` between **2026-03-31 and 2026-04-13** — the early
+  component-generation era.
+- The modern writer already guards against exactly this:
+  `store_generated_component` Layer-1 pre-store validation REJECTS templates
+  containing `<no value>` ("Go template render output mistakenly stored as
+  source") AND templates whose variables don't match the schema. Verified in
+  code (~lines 282–308).
+- So: historical corruption, modern writers safe, retroactive cleanup handled
+  by the now-live `component_template_corrupted` bridge check. No action.
+
+**THREAD A — "no-op complete": ROOT-CAUSED AND FIXED (live, no deploy).**
+- Full chain for the 07:36 about run (orch `535e3ce5…`): the content-writer
+  CHILD failed at REPLY time — Kafka `topic partition not found` on the
+  parent's per-job responses topic (transient infra flake) → parent's
+  `call_content_writer` got CHILD_ORCHESTRATION_FAILED → step-level
+  `error_step: complete_error` → **complete_error is a SUCCESS-labelled
+  `complete_workflow`** → orchestration COMPLETED → dispatcher's
+  `complete_work_item` stamped the item 'complete', no error recorded.
+- The codebase already half-knew: CompleteWorkItemAction's guard comment
+  documents that complete_error is success-labelled, and the established
+  pattern is "flag the item BEFORE completing" (mark_needs_review,
+  mark_no_sections). Real errors just never flagged.
+- **Fix applied** (`SQL_2026-07-10_pagebuild_mark_item_failed.sql`, backup +
+  snapshot, verified): new `mark_item_failed` step (update_work_item_status →
+  'failed', attempt-counted, skip_if_missing) inserted ahead of
+  complete_error; all 8 step-level error pointers repointed through it.
+  Workflow-config-only — live for the next page build. Failed page builds are
+  now VISIBLE instead of silently complete.
+- **Residual (infra, noted not fixed):** the Kafka per-job response-topic
+  partition race that triggered the original failure remains a transient
+  flake — now surfaced as failed items rather than swallowed. Topic-lifecycle
+  hardening is dispatch/infra scope (sits alongside B9).
+
+**Bridge-check watch:** no auto-emissions yet (other sites' discovery passes
+haven't cycled since registration — expected; the watch continues).
+
+**Workstream state: I0 threads done. Next: Phase I1 (brand consistency layer)
+— user has signalled to proceed after these threads.**
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
