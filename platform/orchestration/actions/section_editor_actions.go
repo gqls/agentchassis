@@ -382,7 +382,7 @@ func buildRenderContextFromDB(
 ) (*RenderContext, error) {
 
 	// 1. Load site data
-	siteData, err := loadSiteDataFull(ctx, db, siteID)
+	siteData, err := loadSiteDataFull(ctx, db, siteID, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load site data: %w", err)
 	}

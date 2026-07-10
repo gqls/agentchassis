@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
 
@@ -77,7 +78,7 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	forceRerender, _ := config["force_rerender"].(bool)
 
 	// Load site data
-	siteData, err := loadSiteDataFull(ctx, params.DB, siteID)
+	siteData, err := loadSiteDataFull(ctx, params.DB, siteID, params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load site data: %w", err)
 	}
@@ -288,7 +289,7 @@ type SiteDataFull struct {
 	FontURL         string // Google Fonts URL if set
 }
 
-func loadSiteDataFull(ctx context.Context, db *sql.DB, siteID uuid.UUID) (*SiteDataFull, error) {
+func loadSiteDataFull(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) (*SiteDataFull, error) {
 	var s SiteDataFull
 	s.ID = siteID
 
@@ -337,6 +338,36 @@ func loadSiteDataFull(ctx context.Context, db *sql.DB, siteID uuid.UUID) (*SiteD
 	// Load theme CSS
 	if themeCSSContent.Valid {
 		s.ThemeCSS = themeCSSContent.String
+	}
+
+	// Phase I1 (closes the "logo-in-header" gap): resolve the site logo from
+	// the current plan's imagery rows joined to the deployed asset, exactly
+	// as plan_sections resolves page heroes. The legacy sites.logo_url value
+	// (loaded above) remains the fallback for adopted/guide-less sites. The
+	// resolved value is the DERIVED committed git path
+	// (storage.DeployedWebPath) — never assets.url, which holds an expiring
+	// presigned URL. Only override when the asset row exists AND is active,
+	// so headers never reference a file the deployer hasn't committed.
+	var logoKey, logoPurpose string
+	logoErr := db.QueryRowContext(ctx, `
+		SELECT a.asset_key, a.purpose
+		  FROM site_plan_imagery spi
+		  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
+		  JOIN assets a ON a.site_id = sp.site_id
+		               AND a.asset_key = spi.key
+		               AND a.status = 'active'
+		 WHERE sp.site_id = $1
+		   AND spi.scope = 'site'
+		   AND spi.kind = 'logo'
+		 ORDER BY spi.ordering
+		 LIMIT 1
+	`, siteID).Scan(&logoKey, &logoPurpose)
+	if logoErr == nil && logoKey != "" {
+		s.LogoURL = storage.DeployedWebPath(logoKey, logoPurpose)
+	} else if logoErr != nil && logoErr != sql.ErrNoRows {
+		// Non-fatal: keep the legacy fallback and continue.
+		logger.Warn("loadSiteDataFull: plan logo lookup failed — falling back to sites.logo_url",
+			zap.Error(logoErr))
 	}
 
 	return &s, err
