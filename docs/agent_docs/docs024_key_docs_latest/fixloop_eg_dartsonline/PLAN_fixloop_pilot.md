@@ -216,17 +216,28 @@ signatures (Go, ours) — ✅ CODE-COMPLETE, unit test pins the
 isLegalPage/loadPagesForNav gap; **F0.4e** tier-coverage guard (Go, ours) —
 ✅ CODE-COMPLETE via a shared `coerceVerdict()` (three duplicated coercion
 blocks unified), CONFIRMED now requires static + state|runtime, REFUTED exempt;
-**F0.4d** symptom-closure gate on CONFIRMED — NOT STARTED, deliberately: it is
-run 3's variable. Prompt lives in the diagnose-agent workflow JSON = the tools
-chat's surface; fetch-first, snapshot, courtesy FYI.
-
-All four landed slices are chassis-binary changes: **run 2 is blocked on an
-image build + rollout (v1.0.1101).**
+**F0.4d** symptom-closure gate on CONFIRMED — ✅ BUILT 2026-07-10.
+Engine half (ours): the gate lives in the shared `coerceVerdict` — CONFIRMED
+without a `symptom_check`, or with any `explained:false` entry, degrades to
+Unverifiable with the residue named, so the loop works the residue instead of
+stopping on a half-answer; conclusion renders a "Symptom coverage:" block.
+Prompt half (tools chat's surface): hard rule 8 + schema entry, applied
+fetch-first with snapshot `34f4afc8` and an FYI filed in travelling_docs.
+**Prompt is live now; the engine gate rides the next chassis image — run 3 is
+blocked on that build.** Run-3 grading: full-coverage CONFIRMED (nav clause
+explained) or honest UNVERIFIABLE-at-cap both pass; a CONFIRMED whose
+symptom_check omits the nav clause is the gaming failure mode to watch.
 
 **Run protocol:** run 2 = a+b+c+e only, identical symptom string, site data
 untouched — measures whether the loop now *finds* the cause. Run 3 = d —
 measures whether a loop that cannot reach an answer says so honestly instead of
 confirming a drift. One variable cluster per run.
+
+**RUN 2 RESULT (2026-07-09, corr `dd1186b9`): 0/4 → 1 pass + 2 partial + 1 fail.**
+Claim 3 cited via the agent_definitions enrichment; the confirm now explains the
+blank-page half of the symptom (the silent-success mechanism). The nav half was
+dismissed unexplained ("not a nav issue") — the precise residue F0.4d exists to
+catch. Full scoring: RUNBOOK §BENCHMARK RUN 2 and NOTES(10) turn 10.
 
 **F1 split:** the dartsonline platform fix (mark_no_sections; nav on
 build_status) is human-diagnosed and does not wait on any of this. The F1 *fixer

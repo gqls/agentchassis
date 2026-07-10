@@ -30,7 +30,8 @@ func TestNewDataRequestDefersEvidenceNotGrowing(t *testing.T) {
 	// confirm lands (state row showing the effect + code showing the mechanism).
 	confirm := Verdict{Outcome: Confirmed, Citations: []Citation{
 		cite("pages", "content is 120 chars", TierState),
-		cite("x.go:F", "truncates content to 120", TierStatic)}}
+		cite("x.go:F", "truncates content to 120", TierStatic)},
+		SymptomCheck: covered("index page is a stub")}
 
 	v := &scriptVerdicter{verdicts: []Verdict{step1, step2, confirm}}
 	res, err := Run("index page is a stub", Scope{Symbols: []string{"x.go"}}, &fakeGather{}, v, nil, Config{MaxIterations: 5})

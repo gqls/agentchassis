@@ -471,6 +471,23 @@ Three engine defects it exposed, in value order:
 Also: `page-build-handler/complete_error (complete_workflow) fatal: …` appeared
 verbatim in the `agent_error_log` section of **all five** bundles. The engine
 does not enforce the runbook's own "FOLLOW what the evidence names" principle.
+
+## BENCHMARK RUN 2 — 2026-07-09 (corr `dd1186b9`; after F0.4 a/b/c/e on v1.0.1101)
+Same symptom string, no seed scope, site data untouched. 5 iterations, ~18.5 min,
+CONFIRMED, terminal note persisted. **Score moved from 0/4 musts to 1 pass +
+2 partial + 1 fail**: claim 3 (the success-labelled `complete_error`) is now
+**cited**, the static citation sourced from the new agent_definitions enrichment
+section — run 1's structurally unreachable cause became run 2's quoted evidence.
+Claims 1–2 partial (mechanism described; site-wide partition and the routing
+conditional not established). Claim 4 **failed and was actively dismissed**
+("not a nav issue") while confirming — the compound symptom's nav clause is the
+unexplained residue, which is the empirical case for F0.4d (symptom-closure
+gate, run 3's variable). One false side-claim ("those pages built") shows
+periphery statements still escape the citation discipline. Refutation credit
+passed in both runs. Two verification gotchas for future runs: fire NOTHING into
+a settling rollout (run-2 attempt 1 died silently at spawn in the chassis pod's
+rebalance window); and the completion signal (`diagnosis` in collected_data)
+precedes persist_note by ~2 min — don't read doc_notes in that gap.
 - `cmd/bundle` needs `-psql` as ONE quoted argument with NO `-it`/`-t`;
   without it the bundle silently carries code+docs only.
 

@@ -92,6 +92,23 @@ type Verdict struct {
 	//                                 (the DATA analogue of NextScope). Each is linted to read-only
 	//                                 at parse (Guard 2) and MUST run under a read-only transaction/role
 	//                                 (Guard 3); the prompt instructs SELECT-only (Guard 1).
+	SymptomCheck []SymptomCheck `json:"symptom_check,omitempty"` // Confirmed: REQUIRED coverage of the ORIGINAL symptom (F0.4d)
+}
+
+// SymptomCheck is one entry of a CONFIRMED verdict's mapping from the ORIGINAL
+// symptom's observations back to the confirmed mechanism — the symptom-closure
+// gate (F0.4d). Benchmark run dd1186b9 (2026-07-09) confirmed a mechanism that
+// explained half the reported symptom and dismissed the rest ("not a nav
+// issue") — well-cited, and still not an answer to what was asked. A confirm
+// whose entries are missing or not all Explained is coerced to Unverifiable in
+// coerceVerdict, so the loop keeps working the residue instead of stopping on
+// a partial. Observation strings are model-authored: the gate enforces that
+// coverage was DECLARED, not that the decomposition is complete — that
+// judgement stays with the prompt and the human.
+type SymptomCheck struct {
+	Observation string `json:"observation"`   // one observation from the ORIGINAL symptom
+	Explained   bool   `json:"explained"`     // does the confirmed mechanism produce it?
+	How         string `json:"how,omitempty"` // one line: how it does — or why it remains unexplained
 }
 
 // DataRequest is one read-only query the verdict asks the next gather to run,
@@ -399,6 +416,18 @@ func confirmConclusion(hyp string, v Verdict) string {
 	fmt.Fprintf(&b, "CONFIRMED: %s\n\nGrounded by:\n", hyp)
 	for _, c := range v.Citations {
 		fmt.Fprintf(&b, "  [%s] %s — %q\n", c.Tier, c.Where, c.Quote)
+	}
+	// F0.4d: show the human the coverage the gate enforced — which observation
+	// of the original symptom this mechanism produces, and how.
+	if len(v.SymptomCheck) > 0 {
+		b.WriteString("\nSymptom coverage:\n")
+		for _, s := range v.SymptomCheck {
+			mark := "explained"
+			if !s.Explained {
+				mark = "UNEXPLAINED"
+			}
+			fmt.Fprintf(&b, "  [%s] %s — %s\n", mark, s.Observation, s.How)
+		}
 	}
 	return b.String()
 }

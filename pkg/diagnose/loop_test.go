@@ -47,6 +47,13 @@ func cite(where, quote string, t Tier) Citation {
 	return Citation{Tier: t, Where: where, Quote: quote}
 }
 
+// covered is the F0.4d symptom-closure boilerplate for confirm fixtures whose
+// test target is something OTHER than the gate: full coverage of one
+// observation, so the gate passes and the fixture's own variable is isolated.
+func covered(obs string) []SymptomCheck {
+	return []SymptomCheck{{Observation: obs, Explained: true, How: "mechanism produces it directly"}}
+}
+
 // --- tests -----------------------------------------------------------------
 
 func TestConfirmedHappyPath(t *testing.T) {
@@ -55,7 +62,8 @@ func TestConfirmedHappyPath(t *testing.T) {
 		// confirm no longer stands (see coerceVerdict).
 		{Outcome: Confirmed, Citations: []Citation{
 			cite("save_page_sections_action.go:SavePageSectionsAction", "content regression blocked", TierRuntime),
-			cite("save_page_sections_action.go:SavePageSectionsAction", "if newLen < existingLen/2 { block }", TierStatic)}},
+			cite("save_page_sections_action.go:SavePageSectionsAction", "if newLen < existingLen/2 { block }", TierStatic)},
+			SymptomCheck: covered("hypothesis A")},
 	}}
 	res, err := Run("hypothesis A", Scope{Symbols: []string{"a.go"}}, &fakeGather{}, v, nil, DefaultConfig())
 	if err != nil {
@@ -83,7 +91,8 @@ func TestRefuteThenConfirm_FollowsCallGraph(t *testing.T) {
 		{Outcome: Confirmed,
 			Citations: []Citation{
 				cite("content_writer.go:generate_content", "max_tokens 2000", TierStatic),
-				cite("agent_error_log", "content generated: 1998 tokens (cap hit)", TierRuntime)}},
+				cite("agent_error_log", "content generated: 1998 tokens (cap hit)", TierRuntime)},
+			SymptomCheck: covered("sections never reach save")},
 	}}
 	cg := fakeCG{"plan_sections_action.go:spawn_content_writer": {"content_writer.go:generate_content"}}
 	res, err := Run("sections never reach save", Scope{Symbols: []string{"save_page_sections_action.go:SavePageSectionsAction"}}, &fakeGather{}, v, cg, DefaultConfig())

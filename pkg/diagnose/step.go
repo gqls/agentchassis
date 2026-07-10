@@ -8,6 +8,7 @@ package diagnose
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/gqls/agentchassis/internal/analysis"
 )
@@ -72,7 +73,35 @@ func coerceVerdict(v Verdict) Verdict {
 		v.Outcome = Unverifiable
 		v.NeededEvidence = "confirmed on one evidence family only; a confirm needs BOTH a static (code/schema) citation showing the mechanism AND a state/runtime citation showing it occurring — " + v.NeededEvidence
 	}
+	// F0.4d — the symptom-closure gate: a confirm must declare, per observation
+	// of the ORIGINAL symptom (rendered at the top of every bundle since F0.4a),
+	// that the confirmed mechanism explains it. Missing coverage or an
+	// unexplained observation sends the loop back to work the residue instead
+	// of stopping on a half-answer (benchmark run dd1186b9: "not a nav issue").
+	if v.Outcome == Confirmed {
+		if len(v.SymptomCheck) == 0 {
+			v.Outcome = Unverifiable
+			v.NeededEvidence = "confirm carried no symptom_check; a CONFIRMED verdict must map each observation of the ORIGINAL symptom to the confirmed mechanism, or mark it unexplained — " + v.NeededEvidence
+		} else if open := unexplainedObservations(v.SymptomCheck); len(open) > 0 {
+			v.Outcome = Unverifiable
+			v.NeededEvidence = "confirmed mechanism leaves symptom observations UNEXPLAINED: " +
+				strings.Join(open, "; ") +
+				" — gather evidence that explains them (or refutes them) before confirming — " + v.NeededEvidence
+		}
+	}
 	return v
+}
+
+// unexplainedObservations lists the symptom_check entries the confirmed
+// mechanism does not account for.
+func unexplainedObservations(cs []SymptomCheck) []string {
+	var out []string
+	for _, c := range cs {
+		if !c.Explained {
+			out = append(out, c.Observation)
+		}
+	}
+	return out
 }
 
 // tierCovered reports whether the citations span both evidence families:

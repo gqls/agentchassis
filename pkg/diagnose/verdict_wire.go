@@ -29,6 +29,7 @@ type VerdictWire struct {
 	NeededEvidence    string         `json:"needed_evidence"`         // UNVERIFIABLE only
 	RuntimeSite       string         `json:"runtime_site"`            // optional: a runtime fault site to follow
 	DataRequests      []DataRequest  `json:"data_requests,omitempty"` // optional: read-only SQL to gather next
+	SymptomCheck      []SymptomCheck `json:"symptom_check,omitempty"` // CONFIRMED: coverage of the ORIGINAL symptom (F0.4d)
 }
 
 type CitationWire struct {
@@ -74,6 +75,7 @@ func (w VerdictWire) toVerdict() Verdict {
 		NextScope:         append([]string{}, w.NextScope...),
 		NeededEvidence:    w.NeededEvidence,
 		RuntimeSite:       w.RuntimeSite,
+		SymptomCheck:      append([]SymptomCheck{}, w.SymptomCheck...),
 	}
 	for _, c := range w.Citations {
 		v.Citations = append(v.Citations, Citation{

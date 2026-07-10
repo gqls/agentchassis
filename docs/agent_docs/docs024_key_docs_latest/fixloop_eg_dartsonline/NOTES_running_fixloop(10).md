@@ -692,6 +692,135 @@ itself precisely diagnosis-loop material — runtime tier names the frozen step,
 static tier names the missing error_step on `call_diagnoser` in
 diagnose-orchestrator's workflow. A future intake candidate.)
 
+### Turn 10 — ★ BENCHMARK RUN 2 SCORED: the F0.4 fixes moved the needle exactly where predicted
+
+Run 2 (`guides-nav-benchmark-r3`, corr `dd1186b9`): 5 iterations, diagnosis in
+~18.5 min (vs ~24 in run 1), verdict **CONFIRMED**, terminal note persisted to
+doc_notes (id `5366fbd9`; my first check raced the emit→persist_note gap and
+wrongly read 0 rows — the completion watch fires on emit, persist lands ~2 min
+later; noted).
+
+**F0.4 verified in production, each doing its designed job:**
+- **b (enrichment)**: iteration 1's bundle already carried
+  `page-build-handler / complete_error` JSON with the success_message — pulled
+  in because the error log names it. **The verdict's static citation is sourced
+  "(agent_definitions)" — it cited the new section.** Run 1's unreachable cause
+  became run 2's quoted evidence.
+- **a (anchor)**: absent on iterations 1–2 (hypothesis still = symptom),
+  **present on iteration 5** alongside the drifted hypothesis. Anchor, not clamp.
+- **c (siblings)**: section present from iteration 1.
+- **e (tier guard)**: the confirm carries state+static+runtime and passes the
+  guard legitimately — the static leg being the causal step itself.
+
+**RUBRIC SCORE (run 1 → run 2):**
+| # | must-claim | run 1 | run 2 |
+|---|---|---|---|
+| 1 | `sections=[]` ⟺ not built (exact 5/10 partition) | partial | **partial** — correctly names `sections=[]` as guides-index's cause; never establishes the site-wide partition; and asserts one FALSE side-claim (the four guide pages "suggesting those pages built" — all are `planned`) |
+| 2 | `check_has_ready_sections` routes sectionless → `complete_error` | not reached | **partial** — mechanism described ("no-sections condition … completing via the complete_error step") but the conditional not named/cited |
+| 3 | `complete_error` is a SUCCESS-labelled `complete_workflow` | not reached | **PASS, CITED** — [static] quote of the success_message from agent_definitions |
+| 4 | nav selects on `pages.status`, not `build_status` | not reached | **FAIL — and actively dismissed**: the conclusion asserts "not a nav issue" |
+
+Refutation credit: PASS again (no reconcile/routing-table blame). Net: from
+0/4-with-a-drifted-confirm to **1 pass + 2 partial + 1 fail, with the confirm
+now genuinely explaining the blank-page half of the symptom** (sections=[] →
+complete_error succeeds → work item complete → build_status stays planned →
+blank page). The heart of cause B is diagnosed and cited.
+
+**The residue is a precision-guided case for F0.4d.** The symptom's other half
+— *why was the nav link published* — is not merely unreached; the verdict
+waves it off ("not a nav issue") while confirming. A symptom-closure gate that
+required each clause of the intake symptom to be explained-or-marked-unexplained
+would have forced either another iteration into nav territory or an honest
+partial. Run 3's variable is now empirically motivated, not speculative.
+
+**Also observed:** the loop still asserts beyond its evidence in the periphery
+(the "those pages built" side-claim). The closure gate's design should require
+side-claims to carry citations too, or be dropped from the conclusion.
+
+### 2026-07-09 (turn 10) — decisions
+- **Benchmark method validated end-to-end**: same symptom, one variable cluster,
+  measurable delta (0/4 → 1+2 partials). Runs are ~19 min and ~£small; keep
+  iterating.
+- **Next slice = F0.4d** (symptom-closure gate), now with run-2 evidence for its
+  design: decompose the intake symptom into clauses; CONFIRMED must map each
+  clause to a cited mechanism or list it as UNEXPLAINED; any UNEXPLAINED clause
+  ⇒ status downgrades (or one more iteration targeted at the residue).
+  Coordination: verdict_wire (ours) + prompt_template (tools chat's surface,
+  fetch-first, snapshot, FYI).
+- F0.3 (per-iteration `iteration_note` rows) remains open; the anchor/enrichment
+  work has not touched it.
+
+### Turn 11 (2026-07-10) — F0.4d BUILT: the symptom-closure gate; prompt updated on the tools chat's surface
+
+**WHAT THESE ARE (owner-requested plain-language paragraph, kept verbatim):**
+The symptom-closure gate is a new rule in the diagnosis loop's engine that
+stops it from declaring victory on a partial answer. Today the loop ends with
+CONFIRMED whenever its *current* hypothesis is directly supported by cited
+evidence — but benchmark run 2 showed a verdict can be genuinely well-cited and
+still explain only half of what the user reported: it nailed why
+/guides/index.html was blank, then waved away the other half of the report
+("not a nav issue") — why a navigation link to that empty page was ever
+published. The gate closes that hole: a CONFIRMED verdict must now carry a
+`symptom_check` — a short checklist mapping each observation in the *original*
+reported symptom to the confirmed mechanism ("explained, and here's how") or
+honestly marking it `unexplained`. If any observation is unexplained, or the
+checklist is missing, the engine refuses to accept the confirm and sends the
+loop back to gather evidence for the residue; if iterations run out, it ends as
+an honest "couldn't fully explain it" rather than a confident half-answer. The
+tools chat is not software — it is a separate, parallel Claude conversation the
+owner runs, whose workstream owns the tool-generation pipeline and the
+travelling-docs infrastructure (the doc_plans/doc_notes tables, the
+persist_note wiring that files each diagnosis's terminal note, and the
+diagnose-agent workflow's tail). The two chats coordinate through documents in
+the repo rather than a shared context, and the standing collision rule is that
+neither edits the other's active surface without fetching its current state
+first and leaving a note. That matters here because the verdict *prompt* lives
+inside the diagnose-agent workflow JSON — the tools chat's territory — so this
+change was done fetch-first, with a snapshot, and with a written FYI.
+
+**BUILD RECORD:**
+- **Domain + wire** (ours): `Verdict.SymptomCheck []SymptomCheck`
+  (`{observation, explained, how}`) in `loop.go`; `VerdictWire` +
+  `toVerdict()` carry it through; the doc-comment records honestly that the
+  gate enforces coverage was DECLARED, not that the model's decomposition is
+  complete — that judgement stays with the prompt and the human.
+- **Engine** (ours): the gate lives in `coerceVerdict` — the SAME shared
+  coercion as item-24 and the tier guard, so DecideStep's decision, Advance's
+  trail, and Run()'s trail cannot drift. CONFIRMED with missing `symptom_check`
+  → Unverifiable ("must map each observation…"); CONFIRMED with any
+  `explained:false` → Unverifiable with the residue NAMED in NeededEvidence so
+  the next iteration can chase it. REFUTED/UNVERIFIABLE are exempt — the gate
+  stops premature victory, not investigation. `confirmConclusion` now renders a
+  "Symptom coverage:" block so the human sees what the gate enforced.
+- **Hard-require rationale**: a lazy model could bypass a presence-optional
+  gate by omitting the field; requiring it mirrors cite-or-abstain's hard rule.
+  All 6 standing confirm fixtures gained coverage via a shared `covered()` test
+  helper; new `step_closuregate_test.go` pins: missing check degrades; partial
+  coverage degrades AND names the residue; full coverage stands and renders;
+  REFUTED/UNVERIFIABLE exempt; wire round-trip parses and degrades.
+- **Prompt** (tools chat's surface, coordinated): fetch-first;
+  `snapshot_agent` id `34f4afc8-de3c-45e6-a713-263ef19755c7`; added hard rule 8
+  (decompose the ORIGINAL symptom; never dismiss an unexplained observation as
+  out of scope; side-claims need grounding — the run-2 "those pages built"
+  false side-claim is this line's origin) + the `symptom_check` schema entry.
+  Write-back via dollar-quoted UPDATE ($F04DQ$ tag, collision-checked);
+  verified after: length 9,497, rule 8 present, `{{.bundle.bundle}}` intact,
+  verdict config keys untouched. **FYI filed for the tools chat**:
+  `travelling_docs/FYI_from_fixloop_2026-07-10_verdict_prompt_symptom_check.md`.
+- gofmt clean; build OK; full `pkg/diagnose` + `actions` suites green.
+
+**DEPLOY STATE**: the prompt is LIVE now (workflow JSON is read per run); the
+engine gate rides the next chassis image (needs a build past v1.0.1101). Until
+that deploys, the model is asked for `symptom_check` but nothing enforces it —
+old binaries ignore the unknown field harmlessly, so ordering is safe. **Run 3
+(the F0.4d measurement) is blocked on the image.** Prediction to grade run 3
+against: on the identical symptom, the loop either (a) chases the nav clause
+into `populate_nav_tables_action.go` territory and confirms with full coverage,
+or (b) ends UNVERIFIABLE-at-cap with the nav clause explicitly named
+unexplained. Either is a pass for the gate; a CONFIRMED with the nav clause
+absent from symptom_check is the failure mode to watch for (model games the
+decomposition by omitting the awkward observation).
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

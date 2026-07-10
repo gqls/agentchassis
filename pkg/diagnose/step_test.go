@@ -11,7 +11,8 @@ func TestDecideStep_ConfirmStops(t *testing.T) {
 		Hypothesis: "h", Scope: Scope{Symbols: []string{"a.go"}},
 		Verdict: Verdict{Outcome: Confirmed, Citations: []Citation{
 			{Where: "a.go:F", Quote: "q", Tier: TierRuntime},
-			{Where: "a.go:F", Quote: "the mechanism", Tier: TierStatic}}},
+			{Where: "a.go:F", Quote: "the mechanism", Tier: TierStatic}},
+			SymptomCheck: covered("h")},
 		PrevScopeSize: 2,
 	})
 	if d.Decision != "stop" || d.StopReason != "confirmed" || d.TerminalStatus != Confirmed {
