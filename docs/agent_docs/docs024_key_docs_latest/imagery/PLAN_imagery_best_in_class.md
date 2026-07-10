@@ -317,9 +317,11 @@ Blocks the I0 acceptance line ("logo/heroes render"). Two problems:
 free-text direction; avoid→negative prompt; reference anchors as stable
 s3:// URIs) and the D5 lock guard (assets upsert refuses locked rows) are in
 production. robot-hands.com's guide is seeded from its design_intent.
-Remaining in I1: acceptance generations; logo approve-and-lock flow —
-STILL GATED on the leopardess `IMAGE_BUCKET` env fix (verified absent
-2026-07-10); favicon/OG derivation.
+Remaining in I1: acceptance generations (3 needs_imagery items queued will be
+the first through the guide — check origin_prompt fingerprints); logo
+approve-and-lock flow — UNGATED per the IMAGE_BUCKET retraction below (the
+deploy chain works by design; regenerate the logo through the normal
+pipeline, approve, set locked_at); favicon/OG derivation.
 
 **B7 RESOLVED 2026-07-10 (user: no brochure fallback).** The
 needs_new_layout_candidate spec showed the true cause: "fallback — no

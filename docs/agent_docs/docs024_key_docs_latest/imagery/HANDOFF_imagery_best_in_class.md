@@ -105,14 +105,21 @@ field preservation when the guard rejects a regen).
 **Deploys:** user deploys chassis via git → GitHub Actions. Go changes are
 inert until then. After deploys: clear zombies, re-trigger interrupted loops.
 
-## Cross-workstream dependencies
-- **IMAGE_BUCKET missing on agent-chassis deployment** (leopardess workstream
-  owns the fix: `docs/leopardessconsulting/AUDIT_verified_facts.md` D8) —
-  asset-deployer's git-commit fails on agent-chassis; 34 robot-hands assets
-  are expiring presigned URLs; the LOGO 404s. GATES I1's logo flow (B6).
+## Cross-workstream notes (CORRECTED 2026-07-10 evening)
+- **The IMAGE_BUCKET scare was RETRACTED by the leopardess workstream**
+  (`docs/leopardessconsulting/AUDIT_verified_facts.md` D8): the deploy
+  pipeline WORKS by design — the base chassis intentionally carries no
+  storage vars; the real pipeline spawns asset-deployer with storage env
+  INJECTED (spawn_actions.go isStorageEnabledAgent). Live asset paths serve
+  HTTP 200; `assets.url` presigned staleness is cosmetic (83 rows; fix =
+  generalise the idea.uk w9_04 url-flip backfill). **B6 (logo flow) is
+  therefore NOT gated** — regenerating the logo through the normal
+  image-build-handler → asset-deployer chain deploys it correctly. (Verify
+  whether robot-hands' logo.png is committed; if not, one needs_imagery item
+  for the logo regenerates+deploys it, then approve → set locked_at → done.)
 - leopardess also committed a dynamic_adapter routing change
-  (logo/illustration/infographic → Banana) — deployed with the 2026-07-10
-  builds; their workstream verifies.
+  (logo/illustration/infographic → Banana, honours reference images) —
+  deployed with the 2026-07-10 builds; their workstream verifies.
 
 ## Next actions (in order)
 1. Verify the in-flight drains: 36 page_rerenders + 3 needs_imagery on
@@ -122,8 +129,10 @@ inert until then. After deploys: clear zombies, re-trigger interrupted loops.
 3. Close I0 stragglers: logo-in-header resolution in render_site_components;
    wire the Lucide validator; orphan old-page cleanup (how-it-works,
    selection-guide, learning-center sprawl).
-4. B6 logo approve-and-lock once IMAGE_BUCKET lands (regenerate logo → user
-   approves → set locked_at → lock guard enforces; favicon/OG derivation).
+4. B6 logo approve-and-lock — UNGATED per the correction above: queue a logo
+   needs_imagery item (regenerates via Banana with the new routing, deploys
+   via the working spawned-deployer chain) → user approves → set locked_at →
+   lock guard enforces; then favicon/OG derivation.
 5. Optionally trigger improvement-loop for finetuning.uk / vonc.com /
    leopardessconsulting.co.uk to sweep their 7 corrupted components.
 6. Then Phase I2 (sprite sheets — design already locked in
