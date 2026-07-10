@@ -227,6 +227,19 @@ Before claiming a work item, `ClaimWorkItemAction`:
 - [ ] RAG actions (registered, not workflow-tested)
 - [ ] LoRA training pipeline
 - [ ] Training data export from llm_call_log
+- [ ] **Wire the trained llama3.3:70b into a live inference path.** Status as of
+      2026-07-10 (`model_lifecycle.training_runs`): one `complete` run
+      (2026-06-03→04), several `failed`/stuck `pending`. GPU provisioning via
+      Thunder is real and dynamic (`thunder_instances`, decommissioned after each
+      run). No `agent_definitions` row currently points `ai_service` at
+      `llama3.3:70b` — trained and tested, never used for production inference.
+      Not a large step from here (the per-step `ai_service` routing already
+      supports `provider:"ollama", model:"llama3.3:70b"` — see `ai_actions.go`
+      and the worked example in `021_model_swap_and_rollback.sql`). Raised during
+      leopardessconsulting.co.uk positioning work — see
+      `docs/leopardessconsulting/RUNNING_NOTES.md` turn 6. Once this is live it
+      becomes citable fact for the "self-hosted, Claude-comparable quality"
+      claim; until then that claim is scoped to tested-not-deployed.
 
 ---
 

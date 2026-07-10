@@ -30,6 +30,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/gqls/agentchassis/pkg/diagnose"
@@ -227,6 +228,17 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 	// in depth) and the read-only transaction is the real backstop. Code re-scope (the
 	// call graph, carried in Scope) and data re-gather (these) are separate channels.
 	dataReqs, droppedDR := readOnlyDataRequestsFromWire(verdictRaw)
+	// F0.5: forward the CUMULATIVE request set, not just this verdict's.
+	// Benchmark run 5120c0dc (2026-07-10): answers were one-shot — they rode only
+	// the bundle immediately after the requesting verdict, so a guard-refused
+	// confirm LOST the fetched evidence; the loop re-requested near-identical SQL
+	// and tripped scope-not-narrowing. The engine already accumulates every issued
+	// request in LoopState.SeenRequests (keyed by trimmed SQL, for the spin
+	// guard); re-forwarding those keys makes load_runtime re-run them every
+	// iteration, so answered evidence PERSISTS for the price of a few capped
+	// SELECTs. The spin guard is unaffected — it judges what the MODEL issues,
+	// never what the route forwards.
+	dataReqs = withPriorRequests(dataReqs, st.SeenRequests, maxForwardedDataRequests)
 	if len(dataReqs) > 0 {
 		result["data_requests"] = dataReqs
 	}
@@ -257,6 +269,52 @@ func seedScopeForRoute(collected map[string]interface{}, config map[string]inter
 		syms = scopeFromCodeResults(collected, crField)
 	}
 	return diagnose.Scope{Symbols: syms}
+}
+
+// maxForwardedDataRequests caps route.data_requests (the current verdict's plus
+// re-forwarded prior ones). The strings are small SQL (~hundreds of bytes) and
+// each re-run is bounded by load_runtime's per-request row/cost caps, so this
+// bound is mostly about keeping bundle noise down, not safety.
+const maxForwardedDataRequests = 12
+
+// withPriorRequests appends prior iterations' requests (LoopState.SeenRequests
+// keys — trimmed SQL, maintained by the engine's spin guard) after the current
+// verdict's, deduped, sorted for determinism, capped, and re-linted read-only.
+// The state round-trips through collected_data, so treat its keys as data:
+// anything failing the read-only lint is skipped, and load_runtime's read-only
+// transaction remains the real guarantee.
+func withPriorRequests(current []interface{}, seen map[string]bool, max int) []interface{} {
+	have := map[string]bool{}
+	out := make([]interface{}, 0, len(current))
+	for _, it := range current {
+		if m, ok := it.(map[string]interface{}); ok {
+			if s, _ := m["sql"].(string); s != "" {
+				have[strings.TrimSpace(s)] = true
+			}
+		}
+		out = append(out, it)
+		if len(out) >= max {
+			return out
+		}
+	}
+	prior := make([]string, 0, len(seen))
+	for k := range seen {
+		if strings.TrimSpace(k) == "" || have[k] || diagnose.IsReadOnlySQL(k) != nil {
+			continue
+		}
+		prior = append(prior, k)
+	}
+	sort.Strings(prior)
+	for _, k := range prior {
+		if len(out) >= max {
+			break
+		}
+		out = append(out, map[string]interface{}{
+			"sql": k,
+			"why": "re-run of a prior iteration's request so its answer persists across iterations (F0.5)",
+		})
+	}
+	return out
 }
 
 // readOnlyDataRequestsFromWire pulls the verdict's data_requests out of the RAW

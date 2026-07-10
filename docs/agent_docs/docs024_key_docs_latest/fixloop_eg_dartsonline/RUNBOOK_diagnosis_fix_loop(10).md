@@ -491,6 +491,19 @@ precedes persist_note by ~2 min — don't read doc_notes in that gap.
 - `cmd/bundle` needs `-psql` as ONE quoted argument with NO `-it`/`-t`;
   without it the bundle silently carries code+docs only.
 
+## BENCHMARK RUN 3 — 2026-07-10 (corr `5120c0dc`; F0.4d live on v1.0.1102)
+Honest UNVERIFIABLE in 3 iterations (~16 min): iteration 2's state-only
+CONFIRMED was **coerced by the tier guard in production** (its exact message in
+the trail); the final output names `complete_error` + `sections=[]` as prime
+suspect and instructs "hand to a human; do NOT auto-conclude". Primary
+criterion (no confident half-answer) PASSED; no symptom_check gaming observed.
+Third engine defect found: **data_request answers are one-shot** — they appear
+only in the bundle immediately after the requesting verdict, so a guard-refused
+confirm loses the fetched evidence, the loop re-requests, and
+scope-not-narrowing fires. Fix = F0.5 (persist answered requests across
+iterations). Run arc: run 1 wrong-confidently → run 2 half-right-confidently →
+run 3 honest abstention with the mechanism in its sights.
+
 ## CURRENT POSITION — 2026-07-09
 F0/F1 design questions all decided (2026-07-07). The pilot bug is **fully
 diagnosed ahead of the loop** and has been reframed as a known-answer

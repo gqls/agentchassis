@@ -821,6 +821,108 @@ unexplained. Either is a pass for the gate; a CONFIRMED with the nav clause
 absent from symptom_check is the failure mode to watch for (model games the
 decomposition by omitting the awkward observation).
 
+### Turn 12 (2026-07-10) — ★ RUN 3 SCORED: no more confident half-answers; the guards fired in production; and the benchmark found its third engine defect
+
+v1.0.1102 deployed (owner). Pre-flight: diagnose definitions on 1102; gate
+sources clean in HEAD; chassis pod 63 min old (past the rebalance window that
+killed run-2 attempt 1); no stale diagnoser. Fired `guides-nav-benchmark-r4`,
+corr `5120c0dc-2fee-4b33-bb9c-a1117868dec5`, identical symptom, no seed scope.
+Spawned pod confirmed on v1.0.1102. **3 iterations, ~16 min, verdict
+UNVERIFIABLE, stopped_by scope-not-narrowing.**
+
+**The run, iteration by iteration (from the trail + persisted bundles):**
+1. Model abstains, issues **4 data_requests** for the pages/work-item rows.
+2. Bundle 2 (55.9KB) **carries the answers** — the guides-index
+   `planned`/`sections=[]` row is in it. The model attempts **CONFIRMED**… and
+   **the tier guard coerces it**: the trail's NeededEvidence carries F0.4e's
+   exact text ("confirmed on one evidence family only; a confirm needs BOTH a
+   static … AND a state/runtime citation"). **First production firing of any
+   of the new guards.** The confirm was state-only; the engine demanded the
+   mechanism too; the loop continued. (The closure gate sat layered BEHIND the
+   tier guard and was never reached — first refusal wins. Its prompt half
+   plausibly contributed to the model's caution; unmeasurable.)
+3. Bundle 3 is **byte-identical in size to bundle 1 (37,529 B)** — the
+   data_request answers are GONE. Blind again, the model re-issues 4 near-same
+   requests; the scope-narrowing guard stops the loop.
+
+**Final output — the honest version of run 2's overreach.** "NOT CONFIRMED …
+still needed:" a four-item gap list that explicitly names the causal mechanism
+as the leading suspect — "if [sections] empty or missing, the page-build-handler
+complete_error step fires with 'Content writer skipped — page has no sections
+defined', which would produce a blank page" — and ends "Hand to a human with
+the full trail; do NOT auto-conclude."
+
+**SCORE against the pre-registered run-3 criteria:** primary criterion **PASS**
+— no confident half-answer exists to hand to a fixer; what would have shipped
+as run 2's partial CONFIRMED now ends as an honest, precisely-scoped
+abstention. The gaming failure mode (a confirm whose symptom_check omits the
+nav clause) did not occur. The (b)-path nuance recorded honestly: the residue
+named in still-needed is the missing DB evidence, not the nav clause verbatim —
+because no confirm survived long enough for the closure gate to interrogate
+its coverage.
+
+**★ NEW ENGINE DEFECT — the benchmark's third: data_request answers are
+ONE-SHOT.** They ride only the bundle immediately after the requesting verdict
+and evaporate from every later one. So when a guard (rightly) refuses the
+verdict that follows the enriched bundle, the fetched evidence is LOST; the
+loop re-requests, looks like it is spinning, and trips scope-not-narrowing.
+Run 3 ended UNVERIFIABLE not because the loop couldn't reach the answer but
+because it couldn't KEEP it. Next slice (**F0.5**): persist data_request
+results across iterations — accumulate them in LoopState (capped) or re-inline
+prior answers in every subsequent gather. With that, run 3's shape converges:
+iter-3 would have held the rows AND the tier guard's demand for a static
+citation, pointing straight at a full-coverage confirm.
+
+**The arc across three runs, for the record:** run 1 — wrong answer,
+confidently (drifted confirm, 0/4 musts). Run 2 — half answer, confidently
+(right mechanism for the blank page; nav clause dismissed). Run 3 — no
+half-answer possible: over-reach refused by the guards, honest abstention with
+the mechanism named as prime suspect and a hand-to-human instruction. Each run
+cost ~20 min and found a real engine defect. The known-answer benchmark is
+carrying this workstream.
+
+### Turn 13 (2026-07-10) — F0.5 BUILT: data_request answers now persist across iterations
+
+**The design found reuse instead of new machinery.** Three options were on the
+table: (A) persist answers in `diagnosis_artifacts` and re-read them each
+gather (durable, but needs a `kind` CHECK migration and a write path);
+(B) accumulate answers in LoopState (rejected outright — answer TEXT riding
+collected_data is exactly the cd-bloat class that caused the recorded 1.27MB
+Kafka incident); (C) **re-run, don't store**. C won on a found fact: the
+engine's spin guard ALREADY accumulates every issued request in
+`LoopState.SeenRequests`, keyed by the raw trimmed SQL
+(`loop.go:guardAfter` — `key := strings.TrimSpace(dr.SQL)`). The requests
+already round-trip through state; only the FORWARDING was one-shot.
+
+**The whole fix is one change in `diagnose_route_action.go`:** where the
+continue branch forwarded only the current verdict's wire requests into
+`route.data_requests`, it now forwards the UNION — current first (their `why`
+preserved), then the prior `SeenRequests` keys, deduped, sorted for
+determinism, capped at 12 (`maxForwardedDataRequests`), and each prior key
+re-linted with `IsReadOnlySQL` before forwarding (state rides collected_data,
+so its keys are treated as data; load_runtime re-lints again and its READ ONLY
+transaction remains the real guarantee). `load_runtime` then re-runs the lot
+every iteration under its existing per-request row/cost caps — answered
+evidence persists for the price of a few bounded SELECTs. The spin guard is
+untouched: it judges what the MODEL issues, never what the route forwards.
+
+**Cost note:** ~12 SQL strings ≈ 3–4KB in collected_data (safe), and the
+re-run results land in the BUNDLE (disk-persisted artifact), not in state.
+
+**Tests** (`diagnose_route_datareq_test.go`, all pass): the run-3 hole (empty
+current verdict still re-forwards prior requests, marked as re-runs);
+current-request `why` preserved + dedupe against seen; cap honoured with
+current first; **a write statement in state is never re-forwarded**; empty in
+→ empty out. gofmt clean; both suites green.
+
+**Predicted run-4 shape** (pre-registered): iteration 2's guard-refused
+confirm no longer loses the rows — iteration 3's bundle carries the
+guides-index row AND the tier guard's demand for a static citation AND (via
+F0.4b) the `complete_error` step JSON. Expected outcome: a CONFIRMED with
+static+state citations and a `symptom_check` covering both symptom clauses —
+the first full-coverage confirm — or an honest abstention if the nav clause
+still eludes it. **Run 4 is blocked on the next chassis image (post-1102).**
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

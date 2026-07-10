@@ -517,13 +517,22 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 		ReferenceImageURIs: data.ReferenceImageURIs,
 	}
 
-	// Routing: icons → banana (flat illustration quality), everything
-	// else → stability (proven on hero/logo/illustration kinds).
-	// Empty kind also goes to stability for backward compat with legacy
-	// callers that don't set the field.
+	// Routing: icon/logo/illustration/infographic → banana (flat
+	// illustration quality, and the only provider that honours
+	// ReferenceImageURIs — required for brand-consistent imagery). hero
+	// stays on stability (photographic work). Empty kind also goes to
+	// stability for backward compat with legacy callers that don't set
+	// the field.
+	//
+	// logo/illustration/infographic moved from stability 2026-07-10: a
+	// site's logo is the reference image every other asset is generated
+	// against, so it must go to the provider that actually reads
+	// ReferenceImageURIs, or brand consistency is structurally
+	// impossible. See docs/leopardessconsulting/RUNNING_NOTES.md turn 4
+	// (decision A6) and AUDIT_verified_facts.md C5.
 	var p provider.Provider
 	switch data.Kind {
-	case "icon":
+	case "icon", "logo", "illustration", "infographic":
 		p = a.bananaProvider
 	default:
 		p = a.stabilityProvider

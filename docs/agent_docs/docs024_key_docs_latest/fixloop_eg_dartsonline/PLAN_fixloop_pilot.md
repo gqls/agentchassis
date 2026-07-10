@@ -223,10 +223,25 @@ Unverifiable with the residue named, so the loop works the residue instead of
 stopping on a half-answer; conclusion renders a "Symptom coverage:" block.
 Prompt half (tools chat's surface): hard rule 8 + schema entry, applied
 fetch-first with snapshot `34f4afc8` and an FYI filed in travelling_docs.
-**Prompt is live now; the engine gate rides the next chassis image — run 3 is
-blocked on that build.** Run-3 grading: full-coverage CONFIRMED (nav clause
-explained) or honest UNVERIFIABLE-at-cap both pass; a CONFIRMED whose
-symptom_check omits the nav clause is the gaming failure mode to watch.
+**RUN 3 RESULT (2026-07-10, corr `5120c0dc`, v1.0.1102): PASS on the primary
+criterion.** 3 iterations, ~16 min, honest UNVERIFIABLE (scope-not-narrowing)
+with a precise gap list naming `complete_error`/`sections=[]` as prime suspect
+and "hand to a human; do NOT auto-conclude". **The tier guard fired in
+production** — iteration 2's state-only CONFIRMED was coerced with F0.4e's
+exact message. No gaming observed. Full record: NOTES(10) turn 12.
+
+**F0.5 — persist data_request answers across iterations — ✅ CODE-COMPLETE
+2026-07-10 (from run 3):** re-run, don't store. `diagnose_route` now forwards
+the UNION of the current verdict's requests and the engine's accumulated
+`SeenRequests` keys (already raw SQL, already round-tripping in state for the
+spin guard) — deduped, sorted, capped at 12, prior keys re-linted read-only.
+`load_runtime` re-runs them every iteration under its existing caps, so
+answered evidence persists without touching collected_data size (the cd-bloat
+constraint that ruled out storing answer text in state). One file changed;
+five unit tests incl. the run-3 hole and a poisoned-state write statement
+being refused. **Run 4 is blocked on the next chassis image (post-v1.0.1102)**
+— predicted shape: the first full-coverage CONFIRMED (static+state citations,
+symptom_check spanning both clauses), or an honest abstention.
 
 **Run protocol:** run 2 = a+b+c+e only, identical symptom string, site data
 untouched — measures whether the loop now *finds* the cause. Run 3 = d —

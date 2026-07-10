@@ -21,6 +21,20 @@
 // component), so before emitting, the check skips any component that already
 // has an OPEN regeneration item from ANY site — the per-site dedup index
 // cannot catch that.
+//
+// Runtime-fill guard: a section marked data-runtime-fill is DELIBERATELY empty at
+// build time — a browser-side loader in /assets/js/snippets.js populates it (see
+// sectionHasVisibleContent's exemption in rerender_single_page_action.go). For
+// those, a literal "<no value>" is the MECHANISM, not the defect: RenderTemplate
+// strips it, leaving exactly the empty shell the loader fills. Regenerating one
+// would emit real {{.field}} slots plus an input_schema, the next content pass
+// would bake build-time copy into the shell, and the loader would then fight it
+// (copy flash, or the marker lost entirely and the section dropped by the
+// ≤10-char assembler filter). vonc.com's provocation-card and lobby-grid are
+// exactly this shape. So runtime-fill shells are EXCLUDED FROM EMISSION but still
+// reported as findings — a silent skip is the failure mode this codebase keeps
+// paying for, and these components do still need a hand-built regeneration that
+// re-establishes the empty-shell + data-runtime-fill contract.
 
 package discovery_checks
 
@@ -44,7 +58,8 @@ func (c *ComponentTemplateCorruptedCheck) Run(dctx DiscoveryCheckContext) (*Chec
 		SELECT DISTINCT cc.id, cc.name, cc.function,
 		       COALESCE(cc.quality_score, 0),
 		       COALESCE(cc.quality_issues::text, '[]'),
-		       position('<no value>' IN cc.html_template) > 0 AS has_no_value
+		       position('<no value>' IN cc.html_template) > 0 AS has_no_value,
+		       cc.html_template LIKE '%data-runtime-fill%' AS is_runtime_fill
 		  FROM page_components pc
 		  JOIN pages p ON p.id = pc.page_id
 		  JOIN content_components cc ON cc.id = pc.component_id
@@ -68,11 +83,12 @@ func (c *ComponentTemplateCorruptedCheck) Run(dctx DiscoveryCheckContext) (*Chec
 		id, name, function, qualityIssues string
 		qualityScore                      int
 		hasNoValue                        bool
+		isRuntimeFill                     bool
 	}
 	var found []corrupted
 	for rows.Next() {
 		var r corrupted
-		if err := rows.Scan(&r.id, &r.name, &r.function, &r.qualityScore, &r.qualityIssues, &r.hasNoValue); err != nil {
+		if err := rows.Scan(&r.id, &r.name, &r.function, &r.qualityScore, &r.qualityIssues, &r.hasNoValue, &r.isRuntimeFill); err != nil {
 			continue
 		}
 		found = append(found, r)
@@ -86,7 +102,28 @@ func (c *ComponentTemplateCorruptedCheck) Run(dctx DiscoveryCheckContext) (*Chec
 
 	result := &CheckResult{}
 	emitted := 0
+	skippedRuntimeFill := 0
 	for _, r := range found {
+		// Runtime-fill shells: report, never auto-regenerate. See the header note.
+		// Checked before the cap so a skipped shell is always surfaced and never
+		// consumes a regeneration slot.
+		if r.isRuntimeFill {
+			skippedRuntimeFill++
+			dctx.Logger.Warn("component_template_corrupted: runtime-fill shell not auto-regenerable",
+				zap.String("component", r.name),
+				zap.String("function", r.function),
+				zap.String("component_id", r.id))
+			result.Findings = append(result.Findings, map[string]interface{}{
+				"check":        "component_template_corrupted",
+				"component":    r.name,
+				"function":     r.function,
+				"component_id": r.id,
+				"skipped":      true,
+				"reason":       "data-runtime-fill shell — build-time emptiness is intended; regeneration must re-establish the empty-shell contract by hand",
+			})
+			continue
+		}
+
 		if emitted >= maxTemplateRegensPerPass {
 			dctx.Logger.Info("component_template_corrupted: per-pass cap reached",
 				zap.Int("cap", maxTemplateRegensPerPass),
@@ -155,9 +192,10 @@ func (c *ComponentTemplateCorruptedCheck) Run(dctx DiscoveryCheckContext) (*Chec
 		emitted++
 	}
 
-	if emitted > 0 {
-		dctx.Logger.Info("component_template_corrupted: emitted regeneration items",
-			zap.Int("count", emitted),
+	if emitted > 0 || skippedRuntimeFill > 0 {
+		dctx.Logger.Info("component_template_corrupted: pass complete",
+			zap.Int("emitted", emitted),
+			zap.Int("skipped_runtime_fill", skippedRuntimeFill),
 			zap.Int("found_total", len(found)))
 	}
 	return result, nil

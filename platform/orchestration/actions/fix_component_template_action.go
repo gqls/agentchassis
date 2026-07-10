@@ -1,17 +1,31 @@
 // FILE: platform/orchestration/actions/fix_component_template_action.go
 //
-// FixComponentTemplateAction applies targeted fixes to site_components and
-// page_components rendered HTML. Routes on spec.fix_type:
+// FixComponentTemplateAction applies targeted fixes. Routes on spec.fix_type.
 //
-//   - inject_nav_flex_css: adds display:flex CSS for stacked nav lists
-//   - remove_element: removes HTML elements matching a pattern (e.g. search icon)
-//   - align_slot_name: updates page_components.slot_name to match data-component
+// Grouped by what each fix_type actually touches — the distinction matters, and
+// an earlier version of this header blurred it:
 //
-// This action modifies rendered_html directly. Per the source-of-truth principle
-// (003b), this is acceptable for site_components (header/footer/head) because
-// they are re-rendered from templates. For page_components, we update slot_name
-// (metadata) but NOT rendered_html content — content changes go through the
-// section-editor workflow.
+//	site_components.rendered_html   (header/footer/head ONLY, keyed by site_id+slot_name)
+//	  - inject_nav_flex_css: adds display:flex CSS for stacked nav lists
+//	  - responsive_fix:      adds mobile media queries
+//	  - remove_element:      removes HTML elements matching a pattern (e.g. search icon)
+//
+//	page_components METADATA (never its rendered_html)
+//	  - align_slot_name:               slot_name := the data-component value
+//	  - repair_page_component_status:  build_status := 'deployed' for a live section
+//	                                   carrying a status no reader honours
+//
+//	content_components.html_template
+//	  - repair_template_slots: rewrites <no value>field</no> -> {{.field}}
+//
+// NOTE: remove_element operates on site_components ONLY. It cannot reach a
+// content_components template or a page section — a 2026-07-09 handoff planned a
+// section trim around it on the strength of this header and had to be re-planned.
+//
+// Per the source-of-truth principle (003b), rewriting rendered_html is acceptable
+// for site_components because they are re-rendered from templates. page_components
+// content changes go through the section-editor workflow (apply_section_edit);
+// this action only ever touches their metadata columns.
 //
 // Registration:
 //   "fix_component_template": {
@@ -163,6 +177,8 @@ func FixComponentTemplateAction(ctx context.Context, params ActionParams) (inter
 		return fixRemoveElement(ctx, params, siteID, logger)
 	case "align_slot_name":
 		return fixAlignSlotName(ctx, params, logger)
+	case "repair_page_component_status":
+		return fixPageComponentStatus(ctx, params, logger)
 	case "responsive_fix", "responsive":
 		// "responsive" is a raw category value from SQL-patched items
 		return fixInjectResponsiveCSS(ctx, params, siteID, logger)
@@ -462,6 +478,114 @@ func fixAlignSlotName(ctx context.Context, params ActionParams, logger *zap.Logg
 		"fix_type":          "align_slot_name",
 		"page_component_id": pcIDStr,
 		"new_slot_name":     dataComponent,
+	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// repair_page_component_status: flips a live page_component's build_status back
+// to 'deployed'.
+//
+// Raised by the page_component_status_drift discovery check. build_status has no
+// CHECK constraint, so a writer can invent a value; every discovery check filters
+// `pc.build_status = 'deployed'`, so such a row ships live yet is invisible to the
+// whole audit surface (apply_section_edit's 'approved', 2026-07-09).
+//
+// Metadata-only, like align_slot_name above — this does NOT touch rendered_html,
+// so 003's source-of-truth principle is not in play.
+//
+// Two guards, both refusing rather than guessing:
+//   - the parent page must itself be 'deployed' (the HTML really is live);
+//   - the component must carry non-empty rendered_html (positive evidence, the
+//     same rule pageHasComponents applies before marking a page deployed).
+//
+// It deliberately refuses to touch 'pending' / 'needs_rebuild' / 'removed': those
+// are honest states whose repair is a rebuild, not a status flip. The check does
+// not raise them, but a hand-written work item might.
+// ---------------------------------------------------------------------------
+
+// knownRebuildStatuses are honest non-deployed states: a rebuild resolves them,
+// a status flip would only hide them. Mirrors knownComponentStatuses in
+// discovery_checks/check_page_component_status_drift.go, minus 'deployed'.
+var knownRebuildStatuses = map[string]bool{
+	"pending":       true,
+	"removed":       true,
+	"needs_rebuild": true,
+}
+
+func fixPageComponentStatus(ctx context.Context, params ActionParams, logger *zap.Logger) (interface{}, error) {
+	pcIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.page_component_id")
+	if pcIDStr == "" {
+		pcIDStr = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.page_component_id")
+	}
+	if pcIDStr == "" {
+		return nil, fmt.Errorf("page_component_id is required for repair_page_component_status")
+	}
+	pcID, err := uuid.Parse(pcIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid page_component_id %q: %w", pcIDStr, err)
+	}
+
+	var observed, slotName, pageStatus string
+	var hasHTML bool
+	err = params.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(pc.build_status, ''), COALESCE(pc.slot_name, ''),
+		       COALESCE(p.build_status, ''),
+		       (pc.rendered_html IS NOT NULL AND pc.rendered_html <> '')
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE pc.id = $1
+	`, pcID).Scan(&observed, &slotName, &pageStatus, &hasHTML)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load page_component %s: %w", pcIDStr, err)
+	}
+
+	switch {
+	case observed == "deployed":
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "repair_page_component_status",
+			"reason": "already deployed",
+		}, nil
+	case knownRebuildStatuses[observed]:
+		logger.Info("repair_page_component_status: refusing to flip an honest status",
+			zap.String("slot", slotName), zap.String("build_status", observed))
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "repair_page_component_status",
+			"observed_status": observed,
+			"reason":          "status is a legitimate awaiting-rebuild state — needs a rebuild, not a status flip",
+			"action":          "needs_review",
+		}, nil
+	case pageStatus != "deployed":
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "repair_page_component_status",
+			"reason": fmt.Sprintf("parent page build_status is %q, not deployed", pageStatus),
+			"action": "needs_review",
+		}, nil
+	case !hasHTML:
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "repair_page_component_status",
+			"reason": "component has no rendered_html — cannot claim it is deployed",
+			"action": "needs_review",
+		}, nil
+	}
+
+	if _, err = params.DB.ExecContext(ctx, `
+		UPDATE page_components SET build_status = 'deployed', updated_at = NOW() WHERE id = $1
+	`, pcID); err != nil {
+		return nil, fmt.Errorf("failed to repair build_status for %s: %w", pcIDStr, err)
+	}
+
+	logger.Info("repair_page_component_status: build_status repaired",
+		zap.String("page_component_id", pcIDStr),
+		zap.String("slot_name", slotName),
+		zap.String("observed_status", observed))
+
+	return map[string]interface{}{
+		"fixed":             true,
+		"fix_type":          "repair_page_component_status",
+		"page_component_id": pcIDStr,
+		"slot_name":         slotName,
+		"observed_status":   observed,
+		"new_status":        "deployed",
 	}, nil
 }
 

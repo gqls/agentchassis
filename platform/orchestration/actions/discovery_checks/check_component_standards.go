@@ -475,13 +475,23 @@ func checkEmptyPageSections(dctx DiscoveryCheckContext, result *CheckResult) {
 //
 // Scoped to components used by this site's pages to avoid false positives on
 // unrelated components in the shared library.
+//
+// Runtime-fill guard: a section marked data-runtime-fill is deliberately empty at
+// build time — a browser-side loader populates it. There, "<no value>" is the
+// MECHANISM (RenderTemplate strips it, leaving the shell the loader fills), not a
+// defect, and repair_template_slots cannot repair it anyway: with no "</no>"
+// closing tags it snapshots to component_versions and bails with
+// needs_regeneration, so an unguarded emission churns a work item and a version
+// row every pass, forever. Report as a finding, emit no work item. Mirrors the
+// same guard in check_component_template_corrupted.go.
 // ---------------------------------------------------------------------------
 
 func checkBrokenTemplateSlots(dctx DiscoveryCheckContext, result *CheckResult) {
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT DISTINCT cc.id::text, cc.function,
 		       (LENGTH(cc.html_template) - LENGTH(REPLACE(cc.html_template, '<no value>', '')))
-		           / LENGTH('<no value>') AS artifact_count
+		           / LENGTH('<no value>') AS artifact_count,
+		       cc.html_template LIKE '%data-runtime-fill%' AS is_runtime_fill
 		FROM content_components cc
 		JOIN page_components pc ON pc.component_id = cc.id
 		JOIN pages p ON p.id = pc.page_id
@@ -498,7 +508,25 @@ func checkBrokenTemplateSlots(dctx DiscoveryCheckContext, result *CheckResult) {
 	for rows.Next() {
 		var componentID, function string
 		var artifactCount int
-		if err := rows.Scan(&componentID, &function, &artifactCount); err != nil {
+		var isRuntimeFill bool
+		if err := rows.Scan(&componentID, &function, &artifactCount, &isRuntimeFill); err != nil {
+			continue
+		}
+
+		// Runtime-fill shell: surface it, never hand it to the fixer.
+		if isRuntimeFill {
+			dctx.Logger.Warn("checkBrokenTemplateSlots: runtime-fill shell not repairable",
+				zap.String("function", function),
+				zap.Int("artifact_count", artifactCount))
+			result.Findings = append(result.Findings, map[string]interface{}{
+				"check":          "broken_template_slots",
+				"function":       function,
+				"artifact_count": artifactCount,
+				"skipped":        true,
+				"detail": fmt.Sprintf(
+					"component %q is a data-runtime-fill shell — its %d '<no value>' artifacts are the empty-shell mechanism, not a defect; not repairable by repair_template_slots",
+					function, artifactCount),
+			})
 			continue
 		}
 
