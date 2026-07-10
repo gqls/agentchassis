@@ -670,4 +670,31 @@ regenerated automatically as their sites' discovery passes run.
 - Final site-wide acceptance sweep running in background: empty-src scan,
   S3-URL scan, hero-ref distribution, fleet corrupted-template count.
 
+## Turn 14 — 2026-07-10 (afternoon) — Docs synced; near-final state snapshot
+
+Snapshot at doc-sync time (final sweep still draining in background):
+- Re-renders: 6 of 9 complete (about, gripper-detail, product-detail,
+  how-it-works, pneumatic-vs-electric, selection-guide); gripper-catalog
+  claimed; learning-center + learning-center-index queued.
+- **Empty `src=""` across the ENTIRE site: 1 remaining** — the
+  learning-center-index pre-rebuild orphan (its re-render is queued; and card
+  thumbnails in listings are Phase I3 scope regardless).
+- Zero presigned-S3 image URLs anywhere; per-page git-path heroes across all
+  re-rendered pages.
+- Fleet: **8 active corrupted components remain** (lobby-grid, archetype-*,
+  game-master-explanation, platform-comparison, provocation-card, tool-cta,
+  tool-guide-intro) — handled automatically once the next chassis deploy
+  carries `check_component_template_corrupted` and its registration SQL is run
+  (RUNBOOK B8).
+- Robot-hands logo asset is still the May generation (2026-05-08) — the
+  rebuild's imagery pass found it active and did not regenerate. Logo approval
+  + lock (B6) becomes real work in Phase I1.
+
+Runbook refreshed this turn (B8 added, statuses updated). Where this leaves
+the workstream: the I0 imagery-render acceptance is effectively met on
+robot-hands (pending the last 3 re-renders); open threads are the no-op-
+complete anomaly, the corruption-source hunt, logo-in-header, orphan old
+pages — then the plan proper resumes at I1 (brand guide) / I2 (sprites) / I3
+(card imagery).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

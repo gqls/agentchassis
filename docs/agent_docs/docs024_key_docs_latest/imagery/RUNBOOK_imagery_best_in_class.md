@@ -100,6 +100,14 @@ components ask for image keys the generator doesn't produce
 in PLAN "I0 finding". You may still see empty image areas on product-detail /
 about / gripper-detail / learning-center-index until that fix lands.
 
+**Update 2026-07-10 — RESOLVED.** Two deploys later the imagery rendering is
+verified end-to-end: every re-rendered page shows its own committed-path hero
+(`/assets/images/hero-<page>.jpg`), zero expiring S3 URLs, and the three
+corrupted component templates (content-block-about, product-specs,
+info-card-grid) were regenerated via the component-creator path. One empty
+image slot remains site-wide (learning-center-index listing card — Phase I3
+scope). Full story: running notes Turns 8–14.
+
 ### B3. ~~Answer the seven open questions~~ ✅ DONE 2026-07-08
 All answers recorded in the running notes (Turn 2) and folded into the plan.
 
@@ -123,9 +131,12 @@ per site per discovery pass).
 When Phase I1 lands, you'll be asked to approve robot-hands.com's logo — the
 first use of the approve-then-lock flow. Budget five minutes to compare the
 candidate against the site's brand direction.
-**Status 2026-07-08:** getting closer — the rebuild's 20 `needs_imagery` items
-(including the fresh logo) are queued behind the page builds; the agent will
-flag you when the logo asset exists.
+**Status 2026-07-10:** all rebuild imagery is generated and deployed. The
+active logo asset is still the May generation (2026-05-08) — the pipeline
+found it active and did not regenerate. When Phase I1 starts you'll be asked
+to either approve-and-lock this logo or request a regeneration first. (The
+separate logo-in-header render gap — the header doesn't yet resolve
+`site_assets.logo` — is agent-side work, also queued for I1/I0 close-out.)
 
 ### B7. Layout-gap decision for robot-hands.com (from the 2026-07-08 rebuild)
 The composition step found no layout candidate for the site's `scheme=dark`
@@ -138,6 +149,30 @@ Your decision, when convenient (not blocking the build):
   layout entry needs and bring you the proposal.
 Look at the rebuilt pages first (they render with brochure-formal) — if they
 look right, accepting is the cheap and reasonable path.
+
+### B8. Run the check-registration SQL after your NEXT chassis deploy
+Your next deploy carries the new `component_template_corrupted` discovery
+check (committed 2026-07-10 — the quality→regeneration bridge). Once the new
+image is live, run:
+```
+kubectl exec -i -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 < docs/agent_docs/docs024_key_docs_latest/imagery/SQL_2026-07-10_register_component_template_corrupted.sql
+```
+(Or ask the agent to run it — it's idempotent and takes an agent snapshot
+first.) After registration, the 8 remaining corrupted components fleet-wide
+(lobby-grid, archetype-*, game-master-explanation, platform-comparison,
+provocation-card, tool-cta, tool-guide-intro — mostly games sites) get
+regenerated automatically as those sites' discovery passes run.
+Note: `image_source_unsatisfiable` (the other new check) is ALREADY registered
+and live — nothing to do for it.
+
+### B9. Infra priority nudge (your call, already scoped in your TODO)
+The zombie-claim dispatch stall was the single biggest time cost of the
+2026-07-09/10 verification — every batch needed manual claim-clearing
+(15-min-stuck items block the whole site from dispatch). Your existing TODO
+items 6/10/11 (reaper cadence bump, per-item-type circuit breaker) are now the
+highest-leverage infra fix for every future build. Recommended before the next
+site build.
 
 ---
 
