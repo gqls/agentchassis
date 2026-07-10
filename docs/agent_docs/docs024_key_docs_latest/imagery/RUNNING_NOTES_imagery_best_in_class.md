@@ -690,11 +690,21 @@ Snapshot at doc-sync time (final sweep still draining in background):
   rebuild's imagery pass found it active and did not regenerate. Logo approval
   + lock (B6) becomes real work in Phase I1.
 
-Runbook refreshed this turn (B8 added, statuses updated). Where this leaves
-the workstream: the I0 imagery-render acceptance is effectively met on
-robot-hands (pending the last 3 re-renders); open threads are the no-op-
-complete anomaly, the corruption-source hunt, logo-in-header, orphan old
-pages — then the plan proper resumes at I1 (brand guide) / I2 (sprites) / I3
-(card imagery).
+Runbook refreshed this turn (B8 added, statuses updated).
+
+**FINAL ACCEPTANCE SWEEP (completed during doc sync) — I0 render acceptance MET:**
+1. Empty `src=""` site-wide: **1** (learning-center-index listing card —
+   orphan residue + Phase I3 scope).
+2. Presigned S3 image URLs: **0**.
+3. Hero distribution: **16 distinct hero files, each referenced by exactly one
+   page** (hero-home, hero-about, hero-gripper-catalog, … incl. the previously
+   stale how-it-works and selection-guide, now on their own heroes; one page on
+   hero-canonical — the site-scope brand-hero fallback working as designed).
+4. Fleet: 8 active corrupted components remain on other sites → auto-handled
+   once B8 (bridge check registration) runs after the next deploy.
+
+Open threads: no-op-complete anomaly, corruption-source hunt, logo-in-header,
+orphan old pages — then the plan proper resumes at I1 (brand guide) /
+I2 (sprites) / I3 (card imagery).
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
