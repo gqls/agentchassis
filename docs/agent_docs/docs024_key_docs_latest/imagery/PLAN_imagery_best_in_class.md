@@ -169,6 +169,20 @@ acceptance line:
   writer that originally saved rendered output as templates.
 The two remaining ⬜ items close out I0 alongside the start of I1.
 
+**⚠️ Cross-workstream finding (2026-07-10, from the leopardess rebuild —
+affects this testbed):** the asset-deployer's git-commit step fails on
+`agent-chassis` because `IMAGE_BUCKET` is not set in that deployment (storage
+client never builds) — platform-wide, 83 of 102 active assets are expiring
+presigned URLs; **robot-hands.com has 34 such assets and its logo 404s**. The
+16 verified heroes ARE committed to git (deployed via the image-build-handler
+→ spawned asset-deployer path, which injects storage env), so the I0 render
+acceptance stands — but the logo (B6/I1 work) needs the underlying deploy fix
+first. Fix + workaround are owned/documented by the leopardess workstream:
+`docs/leopardessconsulting/AUDIT_verified_facts.md` D8 (add
+IMAGE_BUCKET/S3_ENDPOINT/S3_REGION to the agent-chassis deployment) and
+`scripts/commit_brand_assets.sh`. Also from that workstream: a routing change
+(logo/illustration/infographic → Banana) is committed but not yet deployed.
+
 **Status 2026-07-09 — build essentially DONE; imagery-render gap diagnosed.**
 Content build all but complete (31 page rerenders done, 14 needs_page queued);
 all 20 needs_imagery complete; **14 hero assets generated + deployed to git
