@@ -1,0 +1,24 @@
+{
+  "domain": "gamesdesign.co.uk",
+  "site_id": "e33263f4-74f8-494f-b191-546845dbbddf",
+  "page_name": "game-economy-simulator",
+  "page_id": "d9a8e6e8-e40b-49df-b613-2fed24c1bc78",
+  "spec": {
+    "mode": "recreate",
+    "function": "game-economy-simulator",
+    "interactive_features": [
+      {
+        "name": "Player Influx rate mapping",
+        "type": "control-logic",
+        "page": "economy-simulator",
+        "description": "The Player Influx slider (id slPop, min 0 max 5) selects an INTENSITY LEVEL, not a literal per-tick count. Map the slider index to a real players-per-tick growth rate: index 0..5 -> [0, 1, 5, 15, 40, 100]. BUG TO FIX: the original code did players += parseInt(slPop.value), using the raw slider index (0-5) as the per-tick rate, so even the top 'Flood/Zerg Rush' setting only added ~5 players per tick — far too weak to visibly move the economy. Apply the mapped rate so the top setting clearly floods the market and the Active Players figure climbs fast."
+      },
+      {
+        "name": "Players series own axis",
+        "type": "visualisation",
+        "page": "economy-simulator",
+        "description": "The Chart.js line chart plots three series over time: Bread Price, Total Gold, and Players. BUG TO FIX: the Players dataset was bound to yAxisID 'yGold' — the gold axis, scaled to tens of thousands — so the Players line (range roughly 50-500) renders flat on the baseline and looks like it stays at 0. Give the Players dataset its OWN y axis, scaled to player counts, so the Players line rises visibly as population grows. Keep Bread Price on its own left axis and Total Gold on the gold axis."
+      }
+    ]
+  }
+}
