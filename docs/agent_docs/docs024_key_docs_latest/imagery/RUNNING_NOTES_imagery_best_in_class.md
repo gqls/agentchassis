@@ -618,4 +618,35 @@ correct; content_data proves it; the template simply can't receive values.
 4. Regenerate the remaining 8 corrupted active components (mostly games-site
    components — lobby-grid, archetype-*).
 
+## Turn 12 — 2026-07-10 — Regens: 2/3 clean; guard caught the 3rd; bridge check built; re-renders queued
+
+**Regeneration outcomes:**
+- `content-block-about` ✅ and `product-specs` ✅ regenerated clean — real
+  `{{…}}` template variables, no `<no value>`, schema fields preserved.
+- `info-card-grid` ❌ failed 3 attempts — but for a GOOD reason: pre-store
+  validation (the Component Regeneration Contract guard) rejected it because
+  the LLM's regenerated schema dropped/renamed `cards`, `section_subtitle`,
+  `section_title`, which deployed content_data is keyed on. The guard
+  protected existing content. The creator prompt already shows
+  `{{.existing_component.field_names}}`, but the model ignored it 3×.
+- **Retry queued** with an explicit preserve-instruction injected via
+  `spec.description` (which the creator prompt renders): keep the three field
+  names exactly, use `{{range .cards}}`.
+
+**Re-renders queued** (needs_page @99, `rerender_component_regen:<page>`) for
+the pages using the two fixed components: about, gripper-detail,
+product-detail. The five info-card-grid pages (gripper-catalog, how-it-works,
+learning-center, pneumatic-vs-electric, selection-guide) re-render after the
+retry lands. Background monitor running with the zombie-clear self-heal.
+
+**Bridge built (commit on 084_site_improvements_local_ai):**
+`check_component_template_corrupted` discovery check — detects baked templates
+(literal `<no value>`, or zero `{{` with declared schema fields) on the site's
+pages and emits needs_component_regeneration in the system-stats precedent
+shape. Cross-site open-item guard (components are fleet-shared); cap 5/pass.
+Registration SQL saved (`SQL_2026-07-10_register_component_template_corrupted.sql`)
+— **run after the next chassis deploy** (the check rides it). Once registered,
+the remaining 8 corrupted components (lobby-grid, archetype-*, etc.) get
+regenerated automatically as their sites' discovery passes run.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
