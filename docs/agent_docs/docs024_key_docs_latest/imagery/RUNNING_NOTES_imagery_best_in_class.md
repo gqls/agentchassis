@@ -899,4 +899,33 @@ Captured just before the user's second deploy of the evening:
   stale site components, CTA/colour fixes) — robot-hands general quality
   improving as a side effect.
 
+## Turn 21 — 2026-07-10 — Deploy-3 recovered; B7 executed via the 025 FK-swap pattern
+
+**Post-deploy-3 recovery:** new pod up; 2 zombies cleared (archetype-grid
+empty_section, llm-cost-calculator needs_page); 82 triaged items dispatching.
+
+**B7 route settled after investigating the theme system:** there is NO runtime
+re-compose path by design — `install_site_composition` refuses when a
+collection exists, and `fork_theme_from_site`'s install mode was REMOVED
+2026-04-19 ("Composition install moved to site-design-planner"). The sanctioned
+precedent for changing an EXISTING site's composition is the 025 migration
+pattern: a targeted FK update. robot-hands' css_theme (theme-robot-hands-com)
+is site-specific (origin=adopted, source_site_id=self) so the swap is
+site-local; tool-portal-dark declares no default header/footer (both NULL, per
+025 convention) so no collection relinking was needed.
+
+**Executed:**
+1. `SQL_2026-07-10_b7_layout_swap.sql` — css_themes.layout_id: brochure-formal
+   → tool-portal-dark (backup + verify); failed needs_composition item closed
+   with the outcome note.
+2. Triggered webdesign-agent (kcat orchestrate) — renders CSS from the updated
+   composition FKs (render_css_from_spec: palette=spec-wins core slots, layout
+   structure tokens) and commits assets/css/styles.css to git.
+3. Monitor auto-triggers rerender-pages with refresh_site_components=true once
+   the CSS lands, then watches the page_rerender items drain.
+
+**FUTURE flag (structural, for the plan's open list):** a proper runtime
+re-compose path (site-design-planner "re-resolve" mode with lineage) is
+missing by deliberate deferral; today's FK-swap is the documented workaround.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
