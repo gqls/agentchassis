@@ -509,4 +509,54 @@ guide, pneumatic-vs-electric).
 zombie-claim reaper cadence / add per-item-type circuit breaker (TODO 6/10/11).
 It is now the slowest part of the imagery loop and will bite every future site.
 
+## Turn 10 — 2026-07-10 — Drain complete; resolver fully proven (incl. content_data); a SEPARATE rerender gap surfaced
+
+**Drain finished (13/15 complete overnight; 2 were older terminal states).**
+Final hero state: EVERY current-plan page that re-rendered under deploy-2 shows
+its own git-path hero, e.g. product-detail → `/assets/images/hero-product-detail.jpg`,
+pneumatic-vs-electric → `hero-pneumatic-vs-electric.jpg`,
+gripper-selection-guide → `hero-gripper-selection-guide.jpg`. Zero `backblazeb2`.
+about position-1 hero → `hero-about.jpg`. **Role-alias path proven** (product-detail's
+`site_assets.background`, about's `site_assets.image` both alias to the page hero).
+
+**Resolver is proven correct even one level deeper than the HTML shows.** The 4
+residual empty-`src` pages (product-detail, about, gripper-detail,
+learning-center-index) are NOT resolver failures:
+- about position-2 (`content-block-about`, source `site_assets.image`): its
+  **content_data.image_src = `/assets/images/hero-about.jpg`** (alias resolved +
+  persisted correctly) — but the section's rendered_html still has `src=""` AND
+  `alt=""`. Both fields are populated in content_data yet absent from the HTML.
+  → The resolver wrote the right value; the **rendered_html was not regenerated
+  from the updated content_data**.
+
+**NEW, SEPARATE ISSUE (not the imagery resolver): rerender-completeness gap.**
+The page rebuild re-resolves ALL sections' content_data but only regenerates
+rendered_html for the hero/changed section; secondary content sections keep
+stale HTML even though their content_data now holds the resolved image (and alt).
+This is the FOCUS §5.1 root-cause-3 flavour ("rerender reassembles, does not
+re-resolve") applied to non-hero sections. Affects inline content images
+(content-block-about, product-specs), NOT heroes. Fix belongs in the
+rerender/page-assembly path, separate from this workstream's resolver change.
+`product-specs` is additionally a near-empty-schema component whose `<img>` has
+no backing field — a broken-template case (candidate for image_source_unsatisfiable
+or component regeneration).
+
+**VERDICT on the imagery fix: COMPLETE and correct.** Both symptoms from the
+brief (same-image-everywhere, empty/expiring hero URLs) are resolved end-to-end;
+per-page heroes render across the site with stable committed paths. Remaining
+empty inline images are downstream of a distinct rerender-assembly gap.
+
+**Recommended next steps (for user to steer — separate from the resolver fix):**
+1. Rerender-completeness: make the page rebuild regenerate rendered_html for
+   every section whose content_data changed, not just the hero. (Biggest user-
+   visible remaining gap; would light up the inline content images already
+   resolved in content_data.)
+2. Infra: bump the zombie-claim reaper cadence / per-type circuit breaker
+   (TODO 6/10/11) — the drain needed manual zombie-clearing throughout.
+3. Run a discovery pass to exercise `image_source_unsatisfiable` and get the
+   systematic list of components asking for images nothing supplies
+   (e.g. product-specs).
+4. Separate: logo-in-header path (render_site_components), orphan old pages
+   (how-it-works, selection-guide) not in the current plan.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
