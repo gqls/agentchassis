@@ -151,6 +151,24 @@ Everything below depends on knowing what's actually live, and on a clean testbed
 - **Rebuild robot-hands.com from scratch with news scope** (decision 2026-07-08). Route: re-plan via `build-site-planner` (not patch-in-place), per `HANDOFF_robot_hands_rebuild.md`: first verify `site_specs` (identity/classification/briefing/strategy) are current; ensure `classification.content_features.news_feed.recommended=true` (or roadmap equivalent) so RULE 11 puts `latest-news` on the homepage; then trigger the rebuild. This exercises the imagery block end-to-end on a clean site and gives every later phase its acceptance surface.
 - **Acceptance:** robot-hands.com is a freshly-built site with a populated content layer, a news section on the index, its generated logo rendering in the header, and valid Lucide glyphs in the features grid.
 
+**Status 2026-07-10 — PHASE I0 SUBSTANTIALLY COMPLETE.** Scorecard against the
+acceptance line:
+- ✅ Freshly-built site with a populated content layer (33-page plan, content
+  healthy; 3 corrupted component templates found and regenerated).
+- ✅ News on the index: `latest-news` at position 5 (RULE 11 fired), dedicated
+  news-index page in header nav, **9 content_sources seeded, 0 erroring**.
+- ✅ Per-page imagery renders: 16 distinct heroes, one per page, committed git
+  paths, 0 S3 URLs, 1 empty slot site-wide (Phase I3 scope).
+- ⬜ Logo rendering in the header — still open (header renders via
+  `render_site_components`, untouched by the page-level resolver; pairs with
+  the B6 approve-and-lock flow in Phase I1).
+- ⬜ Lucide glyphs validated in the features grid — validator still unwired;
+  verify what the rebuilt features sections actually emit, then wire.
+- Cleanup queue: orphan pre-rebuild pages (how-it-works, selection-guide,
+  learning-center sprawl); "no-op complete" dispatch anomaly; hunt for the
+  writer that originally saved rendered output as templates.
+The two remaining ⬜ items close out I0 alongside the start of I1.
+
 **Status 2026-07-09 — build essentially DONE; imagery-render gap diagnosed.**
 Content build all but complete (31 page rerenders done, 14 needs_page queued);
 all 20 needs_imagery complete; **14 hero assets generated + deployed to git
@@ -199,6 +217,29 @@ Blocks the I0 acceptance line ("logo/heroes render"). Two problems:
    in `imageryplan.ImageRoleForPath` so resolver and check cannot drift.
    Post-deploy: run `SQL_2026-07-09_register_image_source_unsatisfiable.sql`,
    let the 14 queued re-resolves drain, spot-check pages.
+
+   **RESOLVED 2026-07-10 — the finding took THREE fixes, all deployed/applied
+   (running notes Turns 8–14 carry the full evidence trail):**
+   1. *Image-role resolver + authoritative aliases* (above) — deployed
+      2026-07-09; proven when pages started selecting their own heroes.
+   2. *Deployed-path fix* — verification exposed that the resolver surfaced
+      `assets.url` (an expiring presigned S3 URL; the committed git path is
+      stored nowhere). Added `storage.DeployedWebPath(asset_key, purpose)` as
+      the single source of truth shared with the deployer; resolver now emits
+      `/assets/images/hero-<page>.jpg` paths. Deployed 2026-07-09 (2nd deploy).
+   3. *Corrupted-template regeneration* — the residual empty-`src` pages were
+      NOT resolver failures: 14 components fleet-wide (11 active) had
+      html_templates saved as RENDERED OUTPUT (literal `<no value>`, zero
+      `{{…}}` vars). Regenerated the three robot-hands ones via the existing
+      `needs_component_regeneration` → component-creator path (the
+      field-preservation guard rejected one attempt — correctly; retry with
+      explicit preserve-instructions in `spec.description` succeeded). Built
+      `check_component_template_corrupted` as the missing quality→regeneration
+      bridge (committed; registration = RUNBOOK B8 after next deploy) to
+      auto-regenerate the remaining 8 on other sites.
+   **Final acceptance sweep:** 16 distinct hero files, each referenced by
+   exactly one page; 0 presigned S3 URLs; 1 empty image slot site-wide
+   (learning-center-index listing card — orphan residue + Phase I3 scope).
 
 **Status 2026-07-08 evening — re-plan DONE, content build IN PROGRESS:**
 - Prep executed (SQL artifacts beside this plan): specs backed up (42 rows), adoption-residue aspects superseded, classification news-enabled, `mission_brief` news hint added, 5 stale pre-2G items retired, `needs_site_plan` trigger inserted and manually promoted to `triaged` (manual items are not auto-triaged — record this pattern).
