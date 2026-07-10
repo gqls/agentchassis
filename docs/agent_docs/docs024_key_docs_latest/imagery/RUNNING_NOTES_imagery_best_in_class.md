@@ -707,4 +707,21 @@ Open threads: no-op-complete anomaly, corruption-source hunt, logo-in-header,
 orphan old pages — then the plan proper resumes at I1 (brand guide) /
 I2 (sprites) / I3 (card imagery).
 
+## Turn 15 — 2026-07-10 — B8 executed: bridge check live in production
+
+- Chassis deploy confirmed (fresh pod). Ran
+  `SQL_2026-07-10_register_component_template_corrupted.sql` — UPDATE 1,
+  verify passed, snapshot taken. Both new discovery checks now live:
+  `image_source_unsatisfiable` + `component_template_corrupted`.
+- Watch running for the bridge's first automatic
+  `needs_component_regeneration` emissions (source design-discovery-agent) as
+  other sites' discovery passes hit their 8 corrupted components.
+- Cross-workstream note (from leopardess, see PLAN I0 status): this deploy
+  presumably also carries their dynamic_adapter routing change
+  (logo/illustration/infographic → Banana); their workstream owns verifying
+  it, plus the IMAGE_BUCKET env fix that gates our B6/I1 logo work.
+- Runbook B8 marked done. Remaining human queue: B4 (data-source key, at I4),
+  B5 (budget sign-off before scale-out), B6 (logo approve/lock, at I1),
+  B7 (layout-gap decision), B9 (reaper cadence — recommended).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

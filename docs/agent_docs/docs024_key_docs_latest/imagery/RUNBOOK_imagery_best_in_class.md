@@ -150,21 +150,14 @@ Your decision, when convenient (not blocking the build):
 Look at the rebuilt pages first (they render with brochure-formal) — if they
 look right, accepting is the cheap and reasonable path.
 
-### B8. Run the check-registration SQL after your NEXT chassis deploy
-Your next deploy carries the new `component_template_corrupted` discovery
-check (committed 2026-07-10 — the quality→regeneration bridge). Once the new
-image is live, run:
-```
-kubectl exec -i -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db \
-  -v ON_ERROR_STOP=1 < docs/agent_docs/docs024_key_docs_latest/imagery/SQL_2026-07-10_register_component_template_corrupted.sql
-```
-(Or ask the agent to run it — it's idempotent and takes an agent snapshot
-first.) After registration, the 8 remaining corrupted components fleet-wide
-(lobby-grid, archetype-*, game-master-explanation, platform-comparison,
-provocation-card, tool-cta, tool-guide-intro — mostly games sites) get
-regenerated automatically as those sites' discovery passes run.
-Note: `image_source_unsatisfiable` (the other new check) is ALREADY registered
-and live — nothing to do for it.
+### B8. ~~Run the check-registration SQL after your NEXT chassis deploy~~ ✅ DONE 2026-07-10
+Chassis deployed; `component_template_corrupted` registered on
+design-discovery-agent (snapshot taken, verified in live config). The 8
+remaining corrupted components fleet-wide (lobby-grid, archetype-*,
+game-master-explanation, platform-comparison, provocation-card, tool-cta,
+tool-guide-intro — mostly games sites) now regenerate automatically as those
+sites' discovery passes run; the agent set a watch for the first emissions.
+`image_source_unsatisfiable` was already registered earlier.
 
 ### B9. Infra priority nudge (your call, already scoped in your TODO)
 The zombie-claim dispatch stall was the single biggest time cost of the
