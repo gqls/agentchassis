@@ -879,4 +879,24 @@ deploy disruption from real failures:
 4. The DB-reading monitors survive a chassis restart (postgres isn't
    redeployed); they may just time out — re-launch if needed.
 
+## Turn 20 — 2026-07-10 — Pre-deploy-2 baseline: bridge loop FULLY proven; B7 needs the theme-fork path
+
+Captured just before the user's second deploy of the evening:
+- ✅ **Bridge self-heal proven END-TO-END**: tool-guide-intro auto-detected by
+  discovery → needs_component_regeneration auto-emitted → triaged → dispatched
+  → component-creator regenerated → template verified clean (no <no value>,
+  real vars). No human involvement at any step. Fleet-remaining corrupted: 7.
+- ❌→📋 **B7 composition failed with a DESIGN-LEVEL refusal** (not deploy
+  damage): `install_site_composition: site already has style_collection_id;
+  re-resolve not supported` (3 attempts). Composition install is write-once;
+  changing an EXISTING site's layout must go through the theme-fork path —
+  `fork_theme_from_site` (shares resolveLayoutByTags; see 003 CSS Theme
+  Template Contract forking rules; fork_theme_composition.go). NEXT ACTION:
+  re-do the B7 layout change via the fork route post-deploy. Classification
+  tags fix stands (the matcher will now score correctly whichever path runs).
+- Re-triggered improvement loop had triaged the stranded backlog; dispatch
+  working through ~84 pending design-audit items (deactivated components,
+  stale site components, CTA/colour fixes) — robot-hands general quality
+  improving as a side effect.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
