@@ -649,4 +649,25 @@ Registration SQL saved (`SQL_2026-07-10_register_component_template_corrupted.sq
 the remaining 8 corrupted components (lobby-grid, archetype-*, etc.) get
 regenerated automatically as their sites' discovery passes run.
 
+## Turn 13 — 2026-07-10 — All 3 components regenerated; original empty-src pages verified fixed; final sweep running
+
+- **info-card-grid retry: COMPLETE on first attempt.** The explicit
+  preserve-instruction via `spec.description` worked — template now has real
+  vars including `{{range .cards}}`, schema fields intact. **Pattern for the
+  record:** when component regeneration trips the field-preservation guard,
+  re-queue with the exact field names spelled out in `spec.description` (the
+  creator prompt renders it).
+- **Original empty-src pages all verified fixed:** about (re-rendered 11:06),
+  product-detail (10:32), gripper-detail — `empty_src=false`, hero images
+  present, on all three.
+- **learning-center-index's empty src is a DIFFERENT class:** an orphan
+  page_component (component_id NULL, rendered 2026-07-03 — pre-rebuild
+  residue, blog-listing card slot). Listing-card thumbnails don't exist yet BY
+  DESIGN — that's Phase I3 (card imagery) scope, not corruption. Page
+  re-render queued to clear the stale residue.
+- Queued re-renders for the five info-card-grid pages (gripper-catalog,
+  how-it-works, learning-center, pneumatic-vs-electric, selection-guide).
+- Final site-wide acceptance sweep running in background: empty-src scan,
+  S3-URL scan, hero-ref distribution, fleet corrupted-template count.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
