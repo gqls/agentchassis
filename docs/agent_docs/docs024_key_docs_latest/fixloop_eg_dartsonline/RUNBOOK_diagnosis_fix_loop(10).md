@@ -1,9 +1,11 @@
 # RUNBOOK — Diagnosis→Fix Loop (v2 of the diagnosis loop)
 
-Rev 10, 2026-07-09; **current through 2026-07-10 (turn 20)**. Supersedes
+Rev 10, 2026-07-09; **current through 2026-07-10 (turn 20, handoff at turn 21)**. Supersedes
 RUNBOOK(9). Detailed evidence in NOTES_running_fixloop(10).md; forward plan in
 PLAN_fixloop_pilot.md; the plain-language story in
 MILESTONE_diagnosis_fix_loop_2026-07-10.md.
+
+**HANDOFF NOTE (turn 21):** All of F0–F2 are built and running. Revise-loop demo in flight on run-5's CONFIRMED diagnosis. See `HANDOFF_turn21_2026-07-10.md` for complete state summary, gotchas, and checkpoint queries. Start a new chat by reading that doc first.
 
 **WHERE THIS STANDS (2026-07-10):** F0 (intake, egress, observability, honest
 verdicts) and F1.1a + F2.1/F2.2 (constrained fix plans + a working council with

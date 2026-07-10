@@ -1,9 +1,8 @@
 # PLAN — F0.1 plumbing, then the dartsonline pilot as a known-answer benchmark
 
-Written 2026-07-09. Supersedes the "order of work" paragraph in the intake.
-Companion documents: RUNBOOK_diagnosis_fix_loop(10).md (task statement, what
-exists, phases, boundaries), NOTES_running_fixloop(10).md (evidence trail and
-the reasoning that produced this plan).
+Written 2026-07-09; current through turn 20 (2026-07-10). Supersedes the "order of work" paragraph in the intake.
+
+**HANDOFF NOTE (turn 21):** This plan is complete through F2.2. The revise loop is deployed and a demo run (`e08c5b01`) is in flight. See `HANDOFF_turn21_2026-07-10.md` for checkpoint queries and next steps. Companion documents: RUNBOOK_diagnosis_fix_loop(10).md (task statement, what exists, phases, boundaries), NOTES_running_fixloop(10).md (evidence trail and the reasoning that produced this plan).
 
 ## 0. What changed, and why the plan changed with it
 

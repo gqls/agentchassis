@@ -1255,6 +1255,36 @@ revise loop won't fire correctly until then (should_revise absent → check_revi
 else → complete, i.e. it degrades to single-round, harmless). Re-fire on
 `e08c5b01` after deploy to watch a plan converge across rounds.
 
+### Turn 21 (2026-07-10) — Handoff: revise-loop demo fired; awaiting results
+
+**Handoff document created:** `HANDOFF_turn21_2026-07-10.md` — comprehensive
+state summary for the next chat: what's built, what's running, what's untracked,
+gotchas, database queries for checkpoint, and F1.1b(c) design sketch. Start a
+new chat by reading this first.
+
+**Critical design fix applied during turn 20:** round count was scoped per
+correlation (the diagnosis), but correlation accumulates council_reports across
+proposer re-runs. Fixed to count per orchestration_id (per proposer run).
+Without this fix, demo run would start at round 2 of 2 and exhaust without a
+repropose.
+
+**Demo run in flight:** `e08c5b01-01ef-42ad-80d0-b77c50ec9e84` (run 5's CONFIRMED),
+max_rounds=3, settled 300s before firing (rebalance-window safety). Expected:
+plan v2 → council → revise → repropose → plan v3 → council → {approved | revise
+| exhausted}. This is the first time the full five-step chain (diagnosis →
+bundle → plan → review → revise-iterate) runs end-to-end in production.
+
+**Untracked files ready for commit:** diagnose_council_decide_action.go (new,
+F2.1 + F2.2), diagnose_council_test.go (new, 5-case cap + decision tests),
+MILESTONE doc (new, shareable narrative), NOTES/PLAN/RUNBOOK (updated turns 16–20),
+0NN_fix_proposer.sql (v3 seed), FYI addendum. Snapshot discipline observed for
+all agent updates.
+
+**Next steps:** (1) check demo completion (SQL in handoff); (2) if approved,
+proceed to F1.1b(c) (design ready, sketch in handoff); (3) if revise/exhausted,
+diagnose via council objections; (4) if timeout, check orchestration_states
+`__step_error`.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys
