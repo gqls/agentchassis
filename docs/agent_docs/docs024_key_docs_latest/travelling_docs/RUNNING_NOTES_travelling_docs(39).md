@@ -2577,3 +2577,57 @@ pages; PLAN chains intact (v1→v2→v3, history preserved). Footnote: the
 tools until ~07-17 — future tweak: exclude cancelled from the cooldown query.
 If extraction ever ships, PLANs supersede forward again.
 Categories: (decision, migration, fix)
+
+## Session log — 2026-07-10 (cont.) — Option B executed + Stage 6 adapter built
+
+### Option B (delivery decision) — migrations 143/144
+User chose "surrender to reality". 143 superseded both PLANs to inline delivery
+(asset_loads check removed; drop-rate's invented kebab selectors #drop-chance/
+#stat-median corrected to the live #dropChance/#statMedian) + cancelled the two
+Tier-2 items (PLAN-side resolution). 144 fixed compose_plan (five→four standard
+checks, inline delivery line). Verified: no asset check on either current fence;
+all remaining anchors present on the live pages; chains v1→v2→v3 intact.
+Principle banked: criteria describe DELIVERED reality; aspirations live in
+roadmaps. Residue: 7-day cooldown counts cancelled items (sweeps skip these two
+tools till ~07-17) — future tweak, exclude cancelled.
+Categories: (decision, migration, fix)
+
+### Stage 6 — browser-runner-adapter BUILT (code prep; deploy is user's)
+Read the mould first (035 adapter guide §1 normative envelope; 002/001/003;
+analyser adapter internal/adapters/analyser as the pattern; runner PLAN rev 2).
+STEP ZERO: no existing headless/browser capability (webscrape adapter is
+Firecrawl, not a driver). Added playwright-go v0.5200.0 (the latest tag
+@v0.6100.0 declares a broken upstream module path mxschmitt→playwright-community,
+so pinned to 0.5200.0). Wrote:
+- cmd/browser-runner-adapter/main.go — signal-handler shell, mirrors analyser.
+- internal/adapters/browserrunner/adapter.go — dispatcher. Envelope exactly per
+  035: action from body.action ("run_checks"), payload body.data, reply topic
+  from responses_topic|reply_to_topic(headers)|reply_to_topic(body); response
+  body headers via canonical types.ResponseHeaders (real bools — the bool trap);
+  in_response_to_request_id=incoming request_id + request_id reused + fresh
+  message_id in kafka headers; ProduceWithValidation; sequential handling;
+  shutdown sync.Once; /health+/ready (draining, no browser-per-probe). run_checks
+  errors are error_recoverable (fresh Chromium/pod may succeed); unknown action
+  unrecoverable.
+- run_checks_action.go — playwright-go headless Chromium, desktop 1366×900,
+  browser launched PER REQUEST (a crash poisons one run, not the pod). Three P0
+  checks: page_status_ok (nav response 200), selector_exists (FULL selector
+  Locator.Count in the live DOM after a 2s settle — THE tier that can assert
+  #tableWrap tr for real, which Tier 2 only anchors statically), no_console_errors
+  (console.error + pageerror). Everything else (interaction, no_horizontal_
+  overflow, asset_loads, selector_count, mobile) reported in skipped[], never a
+  fake pass; -EDIT skipped; navigation failure = check fail, not infra error;
+  mobile-only request skips everything honestly. Probe func injectable → 5 unit
+  tests (healthy/failures/nav-fail/empty-criteria/mobile-only) pass.
+Packaging: dockerfile (debian-slim + `playwright-cli install --with-deps
+chromium`, shared world-readable driver/browser homes, runs as appuser),
+kustomize base+overlay (Recreate, 512Mi/2Gi, /health+/ready probes), the
+system.adapter.browser-runner.requests KafkaTopic CR (apply once, kafka ns —
+NOT in the overlay which forces ai-persona-system), config YAML (local +
+overlay copies), and all FIVE makefile points (build-browser-runner-adapter,
+build-adapters, push-backend, deploy sed+apply block, redeploy rollout). Full
+go build ./... + vet clean. User deploys (Chromium image ~1.2GB, slow build).
+Exit test after deploy: §2.15 smoke — hand-produced run_checks against one live
+tool page → response with in_response_to_request_id + status=complete + results
+matching manual inspection. Then the tool-acceptance-agent orchestrator.
+Categories: (build, adapter)

@@ -165,3 +165,56 @@ whoever shows this: these are two rounds on one bug, and the round counting in
 the currently-deployed image over-counts when a correlation already carries
 review history (fixed in source, rides the next image build) — so a fresh clean
 run is the fair benchmark.
+
+### A third outcome — a guardian **veto** (`rejected`), 2026-07-10
+
+A clean re-run (round counting uncontaminated) produced the council's *other*
+terminal path. This time the proposer's plan was the closest yet to the true
+answer — its third edit was exactly `complete_error → fail_workflow`, the
+known-answer cause-B fix. The **guardian vetoed all three edits** as *"an
+architecture change dressed as a contained fix"*: (1) `defaultSectionsForPage`
+changes the default layout for every section-index page on every domain; (2) the
+`applyNewPage` guard rewrites the shared page-creation contract for all sites;
+(3) flipping `complete_error` to `fail_workflow` alters terminal failure
+semantics for every page-build-handler run fleet-wide (and the logged Kafka
+partition fault means the new terminal can't write its response either). Because
+a veto is terminal, the loop stopped at round 1 — no repropose.
+
+The guardian then named the safe alternative itself: *"a scoped data fix: update
+the sections column… then insert a new page_rerender work item — zero code
+changes, zero blast radius, fully reversible."* The substance: the guardian
+correctly saw that **fixing this bug properly is an architecture-level change,
+not a constrained point-edit** — which is a true statement about the bug, and a
+mismatch with the proposer's "smallest constrained plan" mandate. That mismatch,
+not a reasoning error, is what the veto surfaced.
+
+Across the two clean runs the council has now shown both decisive terminals:
+*revise → exhausted* (fixable objections, iterated, budget spent) and
+*veto → rejected* (wrong instrument for the job, stop and escalate). What the
+tool does *with* a rejection is the open design question — see NOTES turn 22.
+
+### A fourth run — the full three-round cycle, converging (2026-07-10)
+
+A second clean re-fire finally showed the uncontaminated multi-round loop, and
+the convergence is measurable round over round:
+
+- **Round 1:** both reviewers object — edit-quality 3 objections (1 high) plus
+  1 missing mechanism; guardian 3 objections (2 high) plus 4 missing → *revise*.
+- **Round 2:** edit-quality narrows to 2 objections and **nothing missing**;
+  guardian still 3 → *revise*.
+- **Round 3:** **edit-quality approves — zero objections.** The guardian still
+  objects, but its own notes say the quiet part: *"None of these objections
+  cross into architecture-change territory… Veto is not warranted. All four
+  objections are containable by pre-deploy audit queries."* → *revise* →
+  **exhausted** at the cap of 3.
+
+All three plans kept the same three-edit skeleton and refined within it. So the
+loop ended one reviewer fully satisfied and the other reduced to deployment
+gates — run-this-query-before-merge checks (does the component name exist; what
+is the sections column's type; how many section-index pages exist fleet-wide)
+and sequencing on a known Kafka fault. That final state is honestly *exhausted*,
+but it is really "conditionally approved pending verifications the loop has no
+step to run" — which, together with the veto run, defines exactly what F2.3
+must add: a decision router (veto → reframe or escalate with the reviewer's
+alternative attached) and a verify step (run the reviewers' read-only pre-deploy
+queries and feed the answers into the next round instead of burning it blind).

@@ -1285,6 +1285,113 @@ proceed to F1.1b(c) (design ready, sketch in handoff); (3) if revise/exhausted,
 diagnose via council objections; (4) if timeout, check orchestration_states
 `__step_error`.
 
+### Turn 22 (2026-07-10) — demo graded; deploy gap found; a VETO exposes the loop's real gap
+
+**The turn-20 demo did NOT get a fair run — and the reason is a deploy gap, not
+config.** Graded the flight: 2 council reports, 1 repropose, final result stored
+as `{round:3, decision:exhausted, "revise cap reached (3 rounds)"}`. But the run
+wrote only 2 reports of its own, and there were 3 on the correlation (one from a
+PRIOR proposer run at 15:51). round=3 = the **correlation-wide** count, not the
+per-orchestration count (=2). So the **deployed v1.0.1107 binary counts council
+rounds per correlation** — it does NOT carry the orchestration_id-scoping fix.
+That fix is in the source (`diagnose_council_decide_action.go:155-158`,
+committed 0333302d this session) but never rode into the image. Consequence: a
+proposer run on a correlation that already has review history starts mid-count
+and burns rounds it never used. `max_rounds` was already 3 (verified: DB row,
+JSON number, updated 16:17:12 before the 16:18:40 spawn) — the config was a red
+herring. **Gotcha added:** deployed round-counting is per-correlation until the
+next chassis image; for a fair run, clear prior `council_report` rows on the
+fix_correlation_id first (orchestration_id scoping makes this unnecessary once
+deployed).
+
+**Clean re-fire (orch `8c770fd5`, via new `091_TRIGGER_fix_proposer_v1.sh`).**
+Cleared the 3 stale reports on `e08c5b01` (bundles + fix_plans preserved), fired
+a fresh run. Passed the CONFIRMED gate, drafted a plan, council decided in one
+round: **guardian HARD VETO → `rejected`** (`decided_by: hard veto from
+guardian`). Terminal by design (veto ≠ revise → no repropose). Notably the plan
+was the closest yet to ground truth — edit 3 was `complete_error → fail_workflow`
+(the known-answer cause B) — yet the guardian vetoed all three edits as *"an
+architecture change dressed as a contained fix"* (each touches shared platform
+surface: `defaultSectionsForPage`/`applyNewPage`/the page-build-handler terminal,
+all fleet-wide), and named the safe alternative (scoped data fix + re-queue a
+page_rerender, "zero blast radius, fully reversible").
+
+**THE FINDING (matters more than the demo):** the veto is CORRECT, and it
+exposes a structural gap in the loop, not a reviewer error. Fixing causes B/C
+*properly* is a broad, cross-pipeline change — an **architecture-level** edit —
+which is exactly what the fix-proposer's mandate ("the smallest set of edits…
+MINIMAL… if you need more than a handful it's architecture change — say so and
+keep to the safe core") is built to REFUSE. So on this bug the proposer is asked
+to produce a constrained plan for a fix that cannot be constrained; the guardian
+rightly vetoes it every time. A `rejected` today is a silent terminal — the run
+completes, the veto (with its recommended remediation) is persisted, and nothing
+consumes it. That dead-end is the loop's real gap.
+
+**REJECTION-HANDLING DESIGN (proposed — F2.3 candidate).** `revise` and
+`rejected` must feed back DIFFERENTLY. Plan:
+1. Replace the single `check_revise` conditional with a decision router
+   (`check_decision`) that branches on `council.decision`:
+   `approved`→complete(→F1.1b(c) PR); `revise`(rounds left)→repropose (as now);
+   `exhausted`→escalate; `rejected`→**reframe-once**→(still vetoed)→escalate.
+2. A **reframe** step distinct from repropose. Repropose says "address these
+   objections, same plan shape." Reframe says: "The council VETOED this as too
+   broad / architecture-level / cross-pipeline. Produce EITHER (a) a strictly
+   narrower remediation the guardian would accept — prefer the reviewer's own
+   recommended alternative — OR (b) an explicit 'this needs architecture review'
+   declaration plus the minimal safe interim step. Do NOT resubmit platform-wide
+   edits." Cap at 1 so it can't thrash.
+3. **Escalation becomes a first-class SUCCESS terminal**, not a silent complete:
+   write an `escalation` artifact (new kind, or council_report flag) carrying the
+   diagnosis conclusion, the plan(s), the blocking veto/objections, and the
+   reviewer-recommended alternative — the human hand-off package (feeds
+   F1.1b(c): the human-review PR can carry it). "Needs architecture review" is a
+   legitimate correct output for an architecture-level bug, not a failure.
+4. Do NOT auto-apply the guardian's scoped data-fix suggestion: it fixes ONE
+   site and leaves causes B/C live everywhere, contradicting the 2026-07-09
+   platform-fix decision. The human owns the platform-review-vs-interim call;
+   the tool's job is to surface both, which (b) does.
+Deferred implementation to after the deploy gap is closed (round-scoping must be
+live first) and after the F1.1b(c) write step, since escalation shares its
+human-hand-off surface.
+
+**Re-fire for a multi-round revise cycle (B) launched** after clearing the veto
+report — plan variability (plans differ run-to-run despite temp=0) means another
+run may draw objections rather than a veto.
+
+**B result (orch `aadd532a`) — the full 3-round cycle, and it CONVERGED on one
+axis.** Clean start (0 prior reports), 3 plans, 3 council reports, all this
+run's own; deployed binary counted correctly (round 1→2→3, exhausted at cap,
+`decided_by: objection from guardian — revise cap reached (3 rounds)`). The arc
+is the demo we wanted:
+- R1: editquality object (3: high/med/med, 1 missing) + guardian object (3:
+  high/high/med, 4 missing) → revise.
+- R2: editquality object (2: low/high, 0 missing) + guardian object (3:
+  high/med/med, 3 missing) → revise.
+- R3: **editquality APPROVE (0 objections)**; guardian object (4, but its notes
+  say explicitly: "None of these objections cross into architecture-change
+  territory… Veto is not warranted. All four objections are containable by
+  pre-deploy audit queries") → revise → exhausted.
+All three plans kept the same 3-edit skeleton (defaultSectionsForPage /
+applyNewPage / page-build-handler config_change) and refined within it. So the
+revise loop demonstrably converges: one reviewer fully satisfied, the other down
+from architecture anxieties to OPERATIONAL DEPLOY GATES — pre-deploy audit
+queries (cross-platform section-index survey; build_status domain check;
+confirm the real component function name for the 'section-list' placeholder)
+and sequencing on the known Kafka partition fault.
+
+**Second design insight (pairs with the rejection design above):** round-3
+exhausted here is really "conditionally approved pending verifications the loop
+never ran." The guardian kept asking for READ-ONLY queries the platform can
+answer (schema type of pages.sections; content_components.function values;
+cross-site section-index counts). The diagnosis loop already has a data_request
+mechanism — the PROPOSER lacks one. F2.3 should therefore also consider a
+**verify step**: when a council round's blocking objections are all
+"containable by pre-deploy checks", run those read-only queries and feed the
+results into the next repropose instead of burning a blind revise round. That
+plus the decision router turns both observed dead-ends (rejected, exhausted)
+into productive paths: veto→reframe-or-escalate; exhausted-on-verifiable-asks→
+verify-and-continue (or attach the checklist to the escalation package).
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

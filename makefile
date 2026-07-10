@@ -143,6 +143,12 @@ build-analyser-adapter: ## Build analyser-adapter image
 	docker build -t $(REGISTRY)/analyser-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/analyser-adapter.dockerfile .
 
+.PHONY: build-browser-runner-adapter
+build-browser-runner-adapter: ## Build browser-runner-adapter image (Tier-4 headless runner; ~1.2GB — Chromium+Playwright baked in)
+	@echo "$(YELLOW)Building browser-runner-adapter (Chromium image — slow, large)...$(NC)"
+	docker build -t $(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG) \
+		-f build/docker/backend/browser-runner-adapter.dockerfile .
+
 .PHONY: build-content-creator-agent
 build-content-creator-agent: ## Build content-creator-agent image
 	@echo "$(YELLOW)Building content-creator-agent...$(NC)"
@@ -166,7 +172,7 @@ build-kafka-scheduler: ## Build kafka-scheduler image
 build-agents: build-agent-chassis build-reasoning-agent build-content-creator-agent build-remote-job-spawner build-kafka-scheduler ## Build all agents
 
 .PHONY: build-adapters
-build-adapters: build-web-search-adapter build-web-scrape-adapter build-git-adapter build-image-generator-adapter build-thunder-adapter build-analyser-adapter ## Build all adapters
+build-adapters: build-web-search-adapter build-web-scrape-adapter build-git-adapter build-image-generator-adapter build-thunder-adapter build-analyser-adapter build-browser-runner-adapter ## Build all adapters
 
 # Frontend applications
 .PHONY: build-admin-dashboard
@@ -205,6 +211,7 @@ push-backend: ## Push all backend images
 	docker push $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG)
 	docker push $(REGISTRY)/thunder-adapter:$(IMAGE_TAG)
 	docker push $(REGISTRY)/analyser-adapter:$(IMAGE_TAG)
+	docker push $(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG)
 	docker push $(REGISTRY)/content-creator-agent:$(IMAGE_TAG)
 	docker push $(REGISTRY)/remote-job-spawner:$(IMAGE_TAG)
 	docker push $(REGISTRY)/kafka-scheduler:$(IMAGE_TAG)
@@ -915,6 +922,17 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/analyser-adapter/overlays/$(OVERLAY_PATH); \
 	fi
 
+	# Update browser-runner-adapter kustomization.yaml (Tier-4 headless runner).
+	# NOTE: its requests topic is a Strimzi KafkaTopic in the `kafka` namespace
+	# and is NOT part of the overlay (the overlay forces ai-persona-system).
+	# Apply it ONCE before the first deploy:
+	#   kubectl apply -f $(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH)/browser-runner-requests-topic.yaml
+	@echo "Updating browser-runner-adapter to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH); \
+	fi
+
 	# Update content-creator-agent kustomization.yaml
 	@echo "Updating content-creator-agent to $(IMAGE_TAG)..."
 	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/content-creator-agent/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
@@ -986,6 +1004,7 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment ollama-adapter -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment thunder-adapter -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment analyser-adapter -n ai-persona-system 2>/dev/null || true
+	kubectl rollout restart deployment browser-runner-adapter -n ai-persona-system 2>/dev/null || true
 
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications

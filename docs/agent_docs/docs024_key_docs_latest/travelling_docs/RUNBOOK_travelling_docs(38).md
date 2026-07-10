@@ -867,7 +867,40 @@ without one gets a `needs_criteria` note, never a fake pass. **Failures →**
 an `acceptance-fail` note. **Precondition:** ≥1 tool PLAN with criteria (the
 pilot above, or Stage 4).
 
-### Stage 6 — Runner P0  ← DEFINITION
+### Stage 6 — Runner P0  ← **ADAPTER BUILT 2026-07-10, awaiting deploy**
+> **Status:** the `browser-runner-adapter` is written, unit-tested, and builds
+> clean — code prep complete; only the image build + deploy + the §2.15 smoke
+> remain (both the user's, since deploys are user-driven and the image is a
+> ~1.2GB Chromium build).
+> - `cmd/browser-runner-adapter/main.go` (mirrors analyser main exactly);
+>   `internal/adapters/browserrunner/adapter.go` (dispatcher — 035 §1 envelope:
+>   body.action, three reply-topic sources, canonical body headers for real
+>   bools, `in_response_to_request_id`=incoming request_id, ProduceWithValidation,
+>   sequential handling) + `run_checks_action.go` (playwright-go, headless
+>   Chromium, desktop 1366×900, three checks: `page_status_ok`,
+>   `selector_exists` — the tier that asserts `#tableWrap tr` for REAL against
+>   the live DOM — and `no_console_errors`; everything else honestly `skipped`,
+>   never faked; `-EDIT` skipped; navigation failure is a check-fail not an
+>   infra error). Five unit tests pass (fake probe injected).
+> - Packaging: `build/docker/backend/browser-runner-adapter.dockerfile`
+>   (debian-slim + Playwright + Chromium baked in), kustomize base+overlay,
+>   the `system.adapter.browser-runner.requests` KafkaTopic CR (apply ONCE,
+>   `kafka` namespace), config YAML (local + overlay), `playwright-go v0.5200.0`
+>   in go.mod (latest tag has a broken upstream module path — pinned), and all
+>   five makefile insertion points (build target, build-adapters, push-backend,
+>   deploy sed+apply, redeploy rollout).
+> - **Deploy steps (user):** apply the KafkaTopic CR once; `make
+>   build-browser-runner-adapter push-backend deploy-agents IMAGE_TAG=vX`
+>   (Chromium build is slow); then §2.15 smoke — hand-produce a `run_checks`
+>   request against one live tool page, expect a response with
+>   `in_response_to_request_id=$REQUEST_ID`, `status=complete`, results matching
+>   manual inspection.
+> - **After the adapter proves the contract:** the `tool-acceptance-agent`
+>   orchestrator (load_doc_context criteria → resolve URLs → call adapter →
+>   judge → acceptance-run/acceptance-fail notes + improve_tool items). P1
+>   adds the criteria interpreter + mobile; P2 interactions; P3 screenshots.
+>
+> *(Original definition below — unchanged.)*
 > **2026-07-06:** contract pinned to the 035 Adapter Guide (normative): topic
 > `system.adapter.browser-runner.requests` (Convention A), matcher
 > `in_response_to_request_id` = incoming `request_id`, typed header struct with
