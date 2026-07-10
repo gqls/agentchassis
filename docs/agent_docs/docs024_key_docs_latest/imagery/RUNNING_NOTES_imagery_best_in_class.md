@@ -847,4 +847,36 @@ emissions; then I1 acceptance generations (illustration + icon with
 finetuning.uk / vonc.com / leopardessconsulting.co.uk to sweep their
 corrupted components.
 
+## Turn 19 — 2026-07-10 — PRE-DEPLOY BASELINE (user deploying a new build mid-run)
+
+Snapshot taken just before a user-initiated chassis deploy, so we can tell
+deploy disruption from real failures:
+
+**Already SUCCEEDED before the deploy (durable — in DB):**
+- Discovery cycle ran clean: quality + design + completeness discovery agents
+  all COMPLETED.
+- ✅ **Bridge check works end-to-end via discovery** — `component_template_
+  corrupted` auto-emitted a `needs_component_regeneration` for
+  **tool-guide-intro** (created_by=design-discovery-agent, status detected).
+  This is the proof the fleet-wide self-heal fires without manual queueing.
+- `image_source_unsatisfiable`: 0 flags (expected — heroes all resolve now).
+
+**In-flight / not-yet-done at deploy time (may be disrupted → zombie claims):**
+- B7 `needs_composition_b7_fix`: still **triaged** (site-design-planner hasn't
+  run it yet); robot-hands layout still shows `brochure-formal` — the re-
+  compose to tool-portal-dark has NOT happened yet. VERIFY POST-DEPLOY.
+- 1 claimed item: `rerender_component_regen:learning-center-index` (claimed
+  15:08 — likely already a zombie).
+- The tool-guide-intro regen (detected) not yet dispatched.
+
+**Post-deploy recovery checklist:**
+1. Clear zombie claims (>10min) — the deploy will orphan any claimed items.
+2. Re-confirm the discovery findings above are intact (they're DB rows, should
+   survive).
+3. Verify B7 composition runs → layout becomes tool-portal-dark → site
+   re-renders; if the trigger orchestration died mid-flight, re-trigger the
+   improvement loop (kcat pattern, Turn 18).
+4. The DB-reading monitors survive a chassis restart (postgres isn't
+   redeployed); they may just time out — re-launch if needed.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
