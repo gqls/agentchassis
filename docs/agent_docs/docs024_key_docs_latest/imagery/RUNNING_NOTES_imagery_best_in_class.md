@@ -559,4 +559,63 @@ empty inline images are downstream of a distinct rerender-assembly gap.
 4. Separate: logo-in-header path (render_site_components), orphan old pages
    (how-it-works, selection-guide) not in the current plan.
 
+## Turn 11 — 2026-07-10 — "Rerender completeness" diagnosis CORRECTED: corrupted templates, not a render gap; regeneration queued
+
+**User asked for the rerender-completeness fix. The investigation disproved the
+hypothesis and found the real root cause — no new code needed.**
+
+**Hypothesis walk (kept for the record):**
+1. Traced the full render path (plan_sections → content-writer render loop with
+   merge_with resolved_data → RenderComponentAction → contextToInterfaceMap →
+   save_page_sections): every step correctly carries resolved image fields into
+   BOTH content_data and the template data. The "HTML not regenerated from
+   content_data" framing could not be produced by this code.
+2. Attempted a clean reproduction on `about` — exposed a REAL but separate
+   anomaly: the needs_page item completed at 07:36 **without rendering anything**
+   (page_components still timestamped 02:34). Logged as the "no-op complete"
+   dispatch/workflow anomaly — needs its own investigation (suspect:
+   check_has_ready_sections branch completing without save). NOT blocking.
+3. Re-examined the component templates themselves → **ROOT CAUSE**.
+
+**ROOT CAUSE: baked/corrupted html_templates.** `content-block-about`,
+`product-specs`, `info-card-grid` (and 8 more active components fleet-wide, 14
+total incl. inactive) have **zero `{{…}}` template variables** — their
+html_template is saved RENDERED OUTPUT, with literal `<no value>` strings where
+every field should be (13–49 holes each). RenderTemplate's `<no value>` cleanup
+then renders `src=""`/empty text. So at the 02:34 save the HTML *was*
+regenerated — through a template with no slots. The resolver fix is fully
+correct; content_data proves it; the template simply can't receive values.
+
+**Everything needed already exists (reuse before recreate):**
+- Detection: `compute_component_quality` already flags exactly this ("section
+  component has 0 template variables (content likely hardcoded)") and has
+  scored all 11 active corrupted components at 30–50.
+- Repair: `needs_component_regeneration` → `component-creator`, with a proven
+  precedent (system-stats, same corruption class, regenerated successfully —
+  it's now clean and rendering on the index).
+- **The missing piece is only the BRIDGE**: nothing auto-emits regeneration
+  items from bad quality scans. system-stats was queued manually.
+
+**Done this turn:**
+- Queued `needs_component_regeneration` (triaged, priority 5, precedent spec
+  shape) for content-block-about, product-specs, info-card-grid. Monitor
+  running; the affected pages (about, product-detail, gripper-detail, index,
+  learning-center-index) need a re-render after regeneration completes.
+- Full list of remaining corrupted active components (regen later, most belong
+  to other sites): archetype-grid, archetype-taster-quiz,
+  game-master-explanation, lobby-grid, platform-comparison, provocation-card,
+  tool-cta, tool-guide-intro.
+
+**Follow-ups surfaced (decisions for user):**
+1. Build the quality→regeneration bridge (small: a discovery check or an
+   auditor step that emits needs_component_regeneration when quality_issues
+   contains "0 template variables"). Prevents this class silently recurring.
+2. Investigate how templates got saved as rendered output in the first place
+   (suspect the component save path once round-tripped a render; find and
+   guard it).
+3. The "no-op complete" anomaly (item complete, nothing rendered) — dispatch/
+   workflow correctness issue, separate thread.
+4. Regenerate the remaining 8 corrupted active components (mostly games-site
+   components — lobby-grid, archetype-*).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
