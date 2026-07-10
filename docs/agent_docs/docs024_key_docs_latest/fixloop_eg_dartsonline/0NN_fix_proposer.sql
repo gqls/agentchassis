@@ -1,5 +1,5 @@
 -- 0NN_fix_proposer.sql — F1.1a + F1.1b(b) + F2.1 of the diagnosis→fix loop.
--- 2026-07-10 (v2: council wired in; proposer input widened; max_tokens inside ai_service). Renumber 0NN when filing. Applies to clients_db.
+-- 2026-07-10 (v3: council revise loop — objections fed back, capped 2 rounds). Renumber 0NN when filing. Applies to clients_db.
 --
 -- Creates: (1) diagnosis_artifacts gains kind='fix_plan' (+ iteration 0 for
 --              run-level artifacts);
@@ -43,7 +43,7 @@ INSERT INTO agent_definitions (
 SELECT
     'fix-proposer',
     'Fix Proposer (F1.1a)',
-    'Turns a CONFIRMED diagnosis (by correlation_id) into a constrained edit plan + a council review (edit-quality + guardian reviewers, deterministic decision), all persisted to diagnosis_artifacts. Writes no code; refuses non-CONFIRMED diagnoses.',
+    'Turns a CONFIRMED diagnosis (by correlation_id) into a constrained edit plan + a council review (edit-quality + guardian reviewers, deterministic decision, revise loop capped at 2 rounds), all persisted to diagnosis_artifacts. Writes no code; refuses non-CONFIRMED diagnoses.',
     'diagnose', 'coordinator', 'experimental',
     true, 1, '["diagnose", "fix-planning"]'::jsonb,
     d.image_repository, d.image_tag, d.command, d.resources, d.topics, d.health_config, d.env_vars,
@@ -213,14 +213,53 @@ SELECT
 
         'council_decide', jsonb_build_object(
           'action', 'diagnose_council_decide',
-          'description', 'Deterministic aggregation: veto→rejected, object→revise, else approved. Guardian holds the hard veto. Persists kind=council_report.',
+          'description', 'Deterministic aggregation: veto→rejected, object→revise, else approved. Guardian holds the hard veto. Persists kind=council_report. Sets should_revise for the loop.',
           'output_field', 'council',
-          'next_step', 'complete',
+          'next_step', 'check_revise',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
             'fix_correlation_id', 'input_data.fix_correlation_id',
             'review_fields', jsonb_build_array('review_editquality.result', 'review_guardian.result'),
-            'hard_veto_from', jsonb_build_array('guardian')
+            'hard_veto_from', jsonb_build_array('guardian'),
+            'max_rounds', 2
+          )
+        ),
+
+        'check_revise', jsonb_build_object(
+          'action', 'conditional',
+          'description', 'A revise decision with rounds left loops back to repropose; approved/rejected/exhausted are terminal.',
+          'config', jsonb_build_object(
+            'condition', 'council.should_revise == true',
+            'then_step', 'repropose',
+            'else_step', 'complete'
+          )
+        ),
+
+        'repropose', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Revise the plan to address the council objections, then re-run persist + review + decide (the loop).',
+          'output_field', 'proposal',
+          'next_step', 'persist_plan',
+          'config', jsonb_build_object(
+            'error_step', 'complete_refused',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 8000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted', 'review_editquality', 'review_guardian'),
+            'output_format', 'json',
+            'prompt_template',
+'# PROMPT — REVISE the constrained fix plan' || chr(10) || chr(10) ||
+'A council reviewed your previous plan and asked for revision. Produce a NEW full plan (same JSON schema) that addresses every objection and covers every mechanism listed missing. You still write no code — you name edits.' || chr(10) || chr(10) ||
+'The SAME hard rules apply: platform not site data; minimal; grounded; no new deps/DDL; workflow-JSON edits are config_change and name the owning pipeline; cover EVERY cited mechanism; every edit CHANGES something (no audits, no comment-only, no "no change required").' || chr(10) || chr(10) ||
+'## The confirmed diagnosis' || chr(10) || '{{.diagnosis_row.conclusion}}' || chr(10) || chr(10) ||
+'## Your previous plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Edit-quality reviewer said' || chr(10) || '{{.review_editquality.result}}' || chr(10) || chr(10) ||
+'## Guardian reviewer said (holds a hard veto)' || chr(10) || '{{.review_guardian.result}}' || chr(10) || chr(10) ||
+'## Output — ONLY the plan JSON (summary, edits[], grounded_in[], risks). Address the objections; do not merely restate the old plan.'
           )
         ),
 

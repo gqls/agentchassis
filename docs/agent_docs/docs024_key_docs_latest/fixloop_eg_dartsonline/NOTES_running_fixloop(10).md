@@ -1188,6 +1188,73 @@ fire fix-proposer until it deploys** (council steps would fail as unknown
 actions). After deploy: re-fire on `e08c5b01` → expect plan v2 (no no-ops,
 complete_error covered or excused) + the first council report.
 
+### Turn 19 (2026-07-10) — ★ THE COUNCIL'S FIRST LIVE RUN: plan v2 much better, council said REVISE with real objections
+
+Re-fired fix-proposer v2 on `e08c5b01` (settle-hold honoured — pod was 3m37s).
+Full chain ran in ~140s: plan → 2 reviewers → deterministic decision →
+council_report persisted. **DECISION: revise** (by editquality's objection).
+
+**Plan v2 vs v1 — the F1.1b input+prompt changes worked:**
+- **Edit 2 now hits cause B directly**: `page-build-handler/complete_error`
+  `action: complete_workflow` → `fail_workflow` — the success-labelled error
+  terminal, the exact mechanism v1 ignored. Rule 6 (cover every cited
+  mechanism) did its job. This IS the mark_no_sections fix in different dress.
+- **No no-op edits** (rule 7 + the validator): 2 real edits, down from v1's
+  4-with-2-noops.
+- Still imperfect: edit 1 still targets the gap-plan creation path.
+
+**The council caught exactly its designed quarry — it did NOT wave it through:**
+- editquality (object): edit 1 targets the wrong causal path — the diagnosis
+  established sections=[] arrives via applyNewPage's `ON CONFLICT DO UPDATE SET
+  sections=EXCLUDED.sections`, not defaultSectionsForPage; flagged the Kafka
+  "topic partition not found" line as a red herring; MISSING: the actual
+  ON CONFLICT path. Every one of these is correct.
+- guardian (object): edit 1 touches apply_gap_plan_action.go, a **shared
+  platform file every site consumes** (blast radius — the guardian's whole
+  reason to exist); edit 2 doesn't name the owning pipeline (surface
+  ownership); and — the best catch — **"does fail_workflow trigger unbounded
+  retry when sections is empty?"**, a genuine architecture-safety question a
+  human reviewer would want answered before merge.
+- Deterministic decision: two objections, no veto → **revise**, decided_by
+  "objection from editquality". Auditable, no third LLM.
+
+**Why this is the turn that matters:** for six runs the loop's failure mode was
+overconfidence — wrong/half/shallow answers stated as fact. The council is the
+first component that pushes BACK on the fixer with specific, correct, actionable
+objections and a decision that is neither rubber-stamp (approved) nor
+dead-end (rejected) but "revise — here's what's wrong". The organ the first
+plan proved was missing now exists and demonstrably works on the first firing.
+
+**Artifacts on `e08c5b01` now:** 2 bundle, 2 fix_plan (v1+v2), 1 council_report
+— the full symptom→diagnosis→plan→review chain, one correlation id, all
+fetchable. F2.1 DONE. Next: F1.1b(c) (branch+PR behind the write token) — but
+note a revise decision means there's nothing to implement yet; a natural
+follow-on is a REVISE LOOP (feed council objections back to a re-propose step,
+cap 2) so the fixer converges before F1.1b(c) ever opens a PR.
+
+### Turn 20 (2026-07-10) — F2.2 revise loop BUILT; docs brought current; milestone doc written
+
+**Revise loop** (owner: build it). `diagnose_council_decide` now counts the
+council_reports for the run (one per round — the durable counter, no workflow
+loop-state threading) and returns `round` + `should_revise` (= decision=='revise'
+AND round<max_rounds, default 2). A revise that runs out of rounds becomes
+**'exhausted'** (terminal, named so a human sees the loop gave up rather than
+silently approved). Workflow v3: council_decide → **check_revise** conditional →
+`should_revise` ? **repropose** (feeds diagnosis + prior plan + BOTH reviewers'
+objections back to the model) → persist_plan (re-validates) → review ×2 →
+council_decide (loop). Cap makes it terminate; a fresh plan each round makes it
+converge. Verified wiring: persist_plan→review_editquality→…→council_decide→
+check_revise→{repropose→persist_plan | complete}. 5-case cap test; suites green.
+
+**Docs**: this file, PLAN, RUNBOOK all refreshed to current state (RUNBOOK's
+CURRENT POSITION was stale at 2026-07-09; now reflects the full F0–F2 arc).
+New shareable milestone doc: `MILESTONE_diagnosis_fix_loop_2026-07-10.md`.
+
+**Deploy**: workflow v3 live; the round-counting Go rides the next image — the
+revise loop won't fire correctly until then (should_revise absent → check_revise
+else → complete, i.e. it degrades to single-round, harmless). Re-fire on
+`e08c5b01` after deploy to watch a plan converge across rounds.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys
