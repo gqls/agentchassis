@@ -316,13 +316,22 @@ path + the real ON CONFLICT mechanism missing; guardian: shared-file blast
 radius, unnamed pipeline, and the unbounded-retry safety question). It neither
 rubber-stamped nor dead-ended. Full record: NOTES turn 19.
 
-**Next — two options, owner's call:**
-- **REVISE LOOP** (recommended before F1.1b(c)): feed the council's objections
-  + missing-list back into a re-propose step, capped at 2 rounds, so the plan
-  converges to approved before any PR is opened. Small; closes the F2 loop.
-- **F1.1b(c)** branch+PR behind the write token (designed above) — but a
-  `revise` decision means there is nothing approved to implement yet, so the
-  revise loop logically comes first.
+**F2.2 REVISE LOOP — ✅ BUILT 2026-07-10 (workflow v3 live; Go rides next image).**
+`diagnose_council_decide` counts council_reports (the per-round durable counter)
+→ `round` + `should_revise`; a revise past the cap becomes `exhausted`
+(terminal, not a silent approve). Loop: council_decide → check_revise →
+{repropose (objections fed back) → persist_plan → review → decide | complete}.
+Cap 2 terminates; a fresh plan each round converges. Verified closed; 5-case
+cap test.
+
+**Next — F1.1b(c): branch + PR behind the write token.** Now unblocked in
+principle (an approved plan is reachable once the revise loop runs on the next
+image). Design recap: separate `fix-implementer`, gated on
+`council.decision == 'approved'`; GITHUB_WRITE_TOKEN via a new spawn gate
+mirroring isRepoCloningAgent (never shared pods); sketches → diffs →
+plan-file-allowlisted editor → branch → gofmt+build in a spawned golang-image
+Job → PR carrying the Q-H package (diagnosis + coverage + plan + council
+report). Human review terminal.
 
 The dartsonline platform fix (mark_no_sections/fail_workflow + nav
 build_status) remains human-implementable any time, independent of all this.

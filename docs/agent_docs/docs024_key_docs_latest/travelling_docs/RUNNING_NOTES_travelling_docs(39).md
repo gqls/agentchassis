@@ -2537,3 +2537,21 @@ not what the deploy path does (js-not-extracted). Design decision pending
 when the items land: implement extraction or supersede the PLANs' delivery
 mechanism + asset criterion.
 Categories: (build, migration, proof)
+
+### Stage 5 LIVE — first sweep exactly as pre-verified (`cd0d9731`, v1.0.1107)
+The checker missed two release commits (untracked files — v1.0.1106 shipped
+without it; caught by ancestry check, committed as ad39ec6e on user's say-so).
+v1.0.1107 carries it; triggered design-discovery on gamesdesign: COMPLETED,
+two improve_tool items + two acceptance-fail notes, check-level precision
+matching the pre-verification byte for byte — drop-rate-tuner failed
+["asset","slider-updates-stat"] (interaction anchor #drop-chance absent;
+boots/status passed), xp-curve failed asset only. Items carry failing_checks
++ full criteria as acceptance_test. Scope note: only generator-created tools
+have content_components rows; adopted/recreated tools are page-sections and
+invisible to this check by construction (Tier 4 will see them via pages).
+The ladder now has a working Tier 2. Pending decision when the items process:
+implement JS extraction (PLAN delivery "Path 1") or supersede the PLANs to
+inline delivery. Lesson banked: verify a deploy carries your files by
+ANCESTRY (git merge-base --is-ancestor), not by assumption — untracked files
+survive any number of release commits.
+Categories: (proof, position, gotcha)

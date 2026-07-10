@@ -810,7 +810,19 @@ Resolved agent types (from the live `agent_definitions` list):
 - Fetch each definition (same A/B/C pattern), paste, migration drafted against
   the real JSON, targeting the current version row.
 
-### Stage 5 — Tier-2 contract-presence check  ← BUILT 2026-07-10, awaiting deploy
+### Stage 5 — Tier-2 contract-presence check  ← **LIVE 2026-07-10 ✓ (first sweep proven)**
+> **First live sweep (v1.0.1107, run `cd0d9731`, 16:25Z): exactly as
+> pre-verified.** Two improve_tool items (`tool_acceptance:<fn>:<site>`,
+> detected/medium, criteria embedded as acceptance_test + failing_checks) and
+> two acceptance-fail notes (source `tool-acceptance-tier2`). Check-level
+> precision confirmed: drop-rate-tuner failed `["asset","slider-updates-stat"]`
+> (the absent `#drop-chance` anchor caught; `boots`/`status` passed);
+> xp-curve failed `asset` only. Only the two generator-created tools were in
+> scope — the adopted tools (ehp-calculator etc.) have no content_components
+> rows (recreation writes page sections), so they are invisible to this check
+> by construction. PENDING DESIGN DECISION when the items are processed:
+> implement the JS extraction the PLANs describe, or supersede their delivery
+> mechanism + asset criterion to match inline reality.
 > **Status:** implemented as discovery check `tool_acceptance`
 > (`discovery_checks/check_tool_acceptance.go`, sibling of `tool_health`),
 > unit-tested (anchor rule incl. the founding `#tableWrap`/`#xpTableBody`

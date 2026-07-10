@@ -1,11 +1,22 @@
 # RUNBOOK — Diagnosis→Fix Loop (v2 of the diagnosis loop)
 
-Rev 10, 2026-07-09. Supersedes RUNBOOK_diagnosis_fix_loop(9).md. The change in
-this revision is confined to the ★ F0 PILOT section, which now records a
-**closed, evidence-backed diagnosis** rather than a standing hypothesis, and to
-the pre-check SQL, which had a wrong column name. Everything else is carried
-forward. Detailed evidence in NOTES_running_fixloop(10).md; forward plan in
-PLAN_fixloop_pilot.md.
+Rev 10, 2026-07-09; **current through 2026-07-10 (turn 20)**. Supersedes
+RUNBOOK(9). Detailed evidence in NOTES_running_fixloop(10).md; forward plan in
+PLAN_fixloop_pilot.md; the plain-language story in
+MILESTONE_diagnosis_fix_loop_2026-07-10.md.
+
+**WHERE THIS STANDS (2026-07-10):** F0 (intake, egress, observability, honest
+verdicts) and F1.1a + F2.1/F2.2 (constrained fix plans + a working council with
+a revise loop) are BUILT and exercised on the live pilot. The read-only
+diagnosis loop was hardened across 5 benchmark runs on ONE symptom (the
+dartsonline guides defect) — each run found a real engine defect; four fixes
+shipped: durable per-iteration bundles, a symptom anchor, workflow-step and
+sibling-signature bundle enrichment, and three verdict guards (tier coverage,
+symptom-closure, citation-backed coverage). The fixer (fix-proposer) turns a
+CONFIRMED diagnosis into a constrained edit plan; a two-reviewer council
+(edit-quality + pipeline-guardian-with-hard-veto) judges it deterministically
+and loops it back to revise. F1.1b(c) — the git branch + PR behind an isolated
+write token — is the next slice. See the ★ RUN LOG sections below.
 
 ## THE TASK (read this first if you are new)
 
@@ -527,7 +538,27 @@ unverifiable → F0.6: a `context` disposition + citation-backed `explained`.
 Four-run arc: wrong-confidently → half-right-confidently → honest abstention →
 right-with-declared-coverage. F0 functionally complete bar F0.3.
 
-## CURRENT POSITION — 2026-07-09
+## CURRENT POSITION — 2026-07-10 (turn 20)
+The read-only diagnosis loop is hardened and the diagnosis→fix chain exists end
+to end on the pilot correlation `e08c5b01`: symptom → 2 bundles → gated
+CONFIRMED (with symptom coverage) → 2 fix plans → council report, all in
+`diagnosis_artifacts`. BUILT: F0 (artifacts table + assemble write-through; 090
+intake trigger; diagnose-dispatch-loop, shipped disabled); F0.4 a/b/c/e (anchor,
+enrichment, siblings, tier guard); F0.4d + F0.6 (symptom-closure + context/cited
+coverage); F0.5 (data_request persistence); F1.1a (fix-proposer + constrained
+plan validation + no-op rejection); F2.1 (2-reviewer council + deterministic
+decision); F2.2 (revise loop, cap 2). OPEN: F0.3 (per-iteration iteration_note
+rows — the table carries the kind, nothing writes it yet); F1.1b(c) (branch+PR
+behind the write token); F3 (bug_records/learning). Q-E/Q-G/Q-H have v1 answers
+inside the council; Q-D hard-veto placement (config vs column) still open.
+Pilot blind spot: must-claim 4 (`loadPagesForNav` filters on `status` not
+`build_status`) reached as ADJACENT evidence, never cited verbatim.
+GOTCHAS earned live (all in the gotchas list above): settling-rollout rebalance
+window; `max_tokens` must live inside `ai_service`; `snapshot_agent` writes to
+`_backup`; no relay reader filters work items by pipeline; BST-vs-UTC +
+`last_activity` is `timestamp` not `timestamptz`.
+
+## HISTORICAL POSITION — 2026-07-09
 F0/F1 design questions all decided (2026-07-07). The pilot bug is **fully
 diagnosed ahead of the loop** and has been reframed as a known-answer
 benchmark. F0.1's three slices (artifacts migration, assemble write-through,
