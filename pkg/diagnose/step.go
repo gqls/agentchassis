@@ -78,6 +78,9 @@ func coerceVerdict(v Verdict) Verdict {
 	// that the confirmed mechanism explains it. Missing coverage or an
 	// unexplained observation sends the loop back to work the residue instead
 	// of stopping on a half-answer (benchmark run dd1186b9: "not a nav issue").
+	// F0.6 tightens it: context entries are exempt from the accounting, and an
+	// explained entry must be grounded by ≥1 in-range citation index (run
+	// 5179a2ea marked clauses explained that its own text called unverifiable).
 	if v.Outcome == Confirmed {
 		if len(v.SymptomCheck) == 0 {
 			v.Outcome = Unverifiable
@@ -87,17 +90,45 @@ func coerceVerdict(v Verdict) Verdict {
 			v.NeededEvidence = "confirmed mechanism leaves symptom observations UNEXPLAINED: " +
 				strings.Join(open, "; ") +
 				" — gather evidence that explains them (or refutes them) before confirming — " + v.NeededEvidence
+		} else if ungrounded := uncitedExplanations(v.SymptomCheck, len(v.Citations)); len(ungrounded) > 0 {
+			v.Outcome = Unverifiable
+			v.NeededEvidence = "explained symptom observations carry no valid citation (cites indices into the citations array): " +
+				strings.Join(ungrounded, "; ") +
+				" — an explanation you cannot ground is not an explanation; cite it, mark it unexplained, or mark it context — " + v.NeededEvidence
 		}
 	}
 	return v
 }
 
 // unexplainedObservations lists the symptom_check entries the confirmed
-// mechanism does not account for.
+// mechanism does not account for. Context entries are background, not
+// observations of the defect — exempt.
 func unexplainedObservations(cs []SymptomCheck) []string {
 	var out []string
 	for _, c := range cs {
-		if !c.Explained {
+		if !c.Explained && !c.Context {
+			out = append(out, c.Observation)
+		}
+	}
+	return out
+}
+
+// uncitedExplanations lists explained, non-context entries with no in-range
+// citation index — declared coverage must be grounded coverage (F0.6).
+func uncitedExplanations(cs []SymptomCheck, nCitations int) []string {
+	var out []string
+	for _, c := range cs {
+		if !c.Explained || c.Context {
+			continue
+		}
+		grounded := false
+		for _, i := range c.Cites {
+			if i >= 0 && i < nCitations {
+				grounded = true
+				break
+			}
+		}
+		if !grounded {
 			out = append(out, c.Observation)
 		}
 	}

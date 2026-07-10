@@ -51,7 +51,7 @@ func cite(where, quote string, t Tier) Citation {
 // test target is something OTHER than the gate: full coverage of one
 // observation, so the gate passes and the fixture's own variable is isolated.
 func covered(obs string) []SymptomCheck {
-	return []SymptomCheck{{Observation: obs, Explained: true, How: "mechanism produces it directly"}}
+	return []SymptomCheck{{Observation: obs, Explained: true, How: "mechanism produces it directly", Cites: []int{0}}}
 }
 
 // --- tests -----------------------------------------------------------------

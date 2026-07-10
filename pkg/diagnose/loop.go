@@ -109,6 +109,16 @@ type SymptomCheck struct {
 	Observation string `json:"observation"`   // one observation from the ORIGINAL symptom
 	Explained   bool   `json:"explained"`     // does the confirmed mechanism produce it?
 	How         string `json:"how,omitempty"` // one line: how it does — or why it remains unexplained
+	// F0.6 (benchmark run 5179a2ea): two refinements the first live coverage
+	// exposed. Context marks a COMPARATIVE clause (e.g. "site X works on the
+	// same platform") that is background, not an observation of the defect —
+	// exempt from the explained/unexplained accounting, so the model is not
+	// forced to grade-inflate clauses it structurally cannot verify. Cites are
+	// indices into the verdict's citations array: an explained entry must be
+	// grounded by at least one in-range index, or it degrades — run 4 marked
+	// two clauses explained whose own text said "unverifiable from this bundle".
+	Context bool  `json:"context,omitempty"`
+	Cites   []int `json:"cites,omitempty"`
 }
 
 // DataRequest is one read-only query the verdict asks the next gather to run,
@@ -423,7 +433,10 @@ func confirmConclusion(hyp string, v Verdict) string {
 		b.WriteString("\nSymptom coverage:\n")
 		for _, s := range v.SymptomCheck {
 			mark := "explained"
-			if !s.Explained {
+			switch {
+			case s.Context:
+				mark = "context"
+			case !s.Explained:
 				mark = "UNEXPLAINED"
 			}
 			fmt.Fprintf(&b, "  [%s] %s — %s\n", mark, s.Observation, s.How)

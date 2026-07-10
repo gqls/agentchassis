@@ -417,10 +417,19 @@ func chunkContent(content string, chunkSize, overlap int) []string {
 		}
 
 		chunks = append(chunks, strings.TrimSpace(content[start:end]))
-		start = end - overlap
-		if start < 0 {
-			start = 0
+
+		// The final chunk ends the loop. Without this, start = end - overlap
+		// lands before len(content), the loop re-enters, and the same tail
+		// chunk is appended forever — 2Gi of duplicates in seconds (both
+		// chassis OOMKills of 2026-07-09/10 were this loop on a ~3KB PLAN).
+		if end == len(content) {
+			break
 		}
+		next := end - overlap
+		if next <= start { // guarantee forward progress for any overlap config
+			next = end
+		}
+		start = next
 	}
 	return chunks
 }

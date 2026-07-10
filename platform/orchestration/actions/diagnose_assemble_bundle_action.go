@@ -474,6 +474,15 @@ func renderWorkflowSteps(ctx context.Context, db *sql.DB, logger *zap.Logger, re
 // siblingSignatures renders the signatures of symbols that share a file with the
 // in-scope symbols but are NOT themselves in scope. Pure over the analyser
 // Output already in collected_data — no IO.
+//
+// The budget is FAIR-SHARED per scoped file, not first-come-first-served.
+// Benchmark forensics (runs dd1186b9/5120c0dc, 2026-07-10): every bundle's
+// sibling section hit the cap, and because files render in analysis order,
+// alphabetically-early giants (apply_gap_plan, maintenance_actions) consumed
+// the whole 6KB every time — populate_nav_tables_action.go, holding the one
+// mechanism no run ever reached (loadPagesForNav), NEVER got a line despite
+// its isLegalPage sitting in scope. Each file now gets capChars/n (floored),
+// with a per-file "+N more" marker telling the model how to see the rest.
 func siblingSignatures(out analysis.Output, scope []string, capChars int) string {
 	inScope := map[string]map[string]bool{} // path -> symbol names in scope
 	for _, s := range scope {
@@ -491,24 +500,52 @@ func siblingSignatures(out analysis.Output, scope []string, capChars int) string
 		}
 	}
 
+	// Collect the scoped files first (out.Files order — deterministic) so the
+	// share is divided by the real participant count.
+	var scoped []analysis.FileInfo
+	for _, f := range out.Files {
+		if named, ok := inScope[f.Path]; ok && !named["*"] {
+			scoped = append(scoped, f)
+		}
+	}
+	if len(scoped) == 0 {
+		return ""
+	}
+	perFile := capChars / len(scoped)
+	if perFile < 600 {
+		perFile = 600 // floor: a few signatures each beats zero for the tail files
+	}
+
 	var b strings.Builder
 	total := 0
-	for _, f := range out.Files {
-		named, ok := inScope[f.Path]
-		if !ok || named["*"] {
-			continue
-		}
-		var lines []string
+	for _, f := range scoped {
+		named := inScope[f.Path]
+		var fb strings.Builder
+		fmt.Fprintf(&fb, "**%s**\n", f.Path)
+		listed, skipped := 0, 0
 		for _, fn := range f.Functions {
-			if !named[fn.Name] {
-				lines = append(lines, fmt.Sprintf("- `%s:%s` — `%s`", f.Path, fn.Name, fn.Signature))
+			if named[fn.Name] {
+				continue
 			}
+			line := fmt.Sprintf("- `%s:%s` — `%s`\n", f.Path, fn.Name, fn.Signature)
+			if fb.Len()+len(line) > perFile {
+				skipped++
+				continue
+			}
+			fb.WriteString(line)
+			listed++
 		}
-		if len(lines) == 0 {
+		if listed == 0 && skipped == 0 {
 			continue
 		}
-		section := fmt.Sprintf("**%s**\n%s\n\n", f.Path, strings.Join(lines, "\n"))
-		if total+len(section) > capChars {
+		if skipped > 0 {
+			fmt.Fprintf(&fb, "- _(+%d more in this file — put the bare file path in next_scope to see it whole)_\n", skipped)
+		}
+		fb.WriteString("\n")
+		section := fb.String()
+		// Global guard with slack for the floor: the per-file share is the real
+		// allocator; this only stops a pathological many-file scope.
+		if total+len(section) > capChars+capChars/4 {
 			b.WriteString("_(further files omitted — cap reached)_\n")
 			break
 		}

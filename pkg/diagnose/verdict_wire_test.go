@@ -62,7 +62,7 @@ func TestParseVerdicts_ArrayScript_GamesdesignPath(t *testing.T) {
 	  {"outcome":"CONFIRMED",
 	   "citations":[{"tier":"static","where":"result_spec.go:resolveResultSpec","quote":"singular output_field ignored"},
 	                {"tier":"runtime","where":"orchestration_states","quote":"collected_data missing the writer output"}],
-	   "symptom_check":[{"observation":"sections never reach save","explained":true,"how":"the coordinator drops the writer output before save runs"}]}
+	   "symptom_check":[{"observation":"sections never reach save","explained":true,"how":"the coordinator drops the writer output before save runs","cites":[0]}]}
 	]`)
 	vs, err := ParseVerdicts(raw)
 	if err != nil {

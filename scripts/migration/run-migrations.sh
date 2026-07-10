@@ -53,6 +53,19 @@ mapfile -t FILES < <(
     | sort
 )
 
+# Loud warning for near-misses: a *.sql file whose 3-digit prefix is >= baseline
+# but whose name breaks the pattern (hyphens, 'NNNb_' suffixes, spaces) would
+# otherwise be SILENTLY skipped — this shop has used such names (081_..-fetcher).
+while IFS= read -r odd; do
+  echo "WARNING: '$odd' looks like a migration (number >= $BASELINE) but does not match" >&2
+  echo "         NNN_name.sql (digits+underscores only) — it will NOT be applied. Rename it." >&2
+done < <(
+  cd "$MIGRATIONS_DIR" && ls -1 2>/dev/null \
+    | grep -E '^[0-9]{3}.*\.sql$' \
+    | grep -vE '^[0-9]{3}_[A-Za-z0-9_]+\.sql$' \
+    | awk -v base="$BASELINE" '{ n=substr($0,1,3)+0; if (n >= base) print }'
+)
+
 PENDING=()
 for f in "${FILES[@]}"; do
   is_applied "$f" || PENDING+=("$f")

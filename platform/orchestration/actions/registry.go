@@ -1105,6 +1105,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Format the human-facing diagnosis + evidence trail from the loop's terminal state; read-only, never a fix",
 		IsLocal:     true,
 	},
+	"diagnose_persist_fix_plan": {
+		Handler:     DiagnosePersistFixPlanAction,
+		Category:    "diagnose",
+		Description: "Validate the fix-proposer's constrained edit plan and persist it to diagnosis_artifacts (kind=fix_plan); writes no code — F1.1b turns an approved plan into a branch",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline

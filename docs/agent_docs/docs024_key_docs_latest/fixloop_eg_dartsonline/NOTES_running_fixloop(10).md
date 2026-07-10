@@ -923,6 +923,138 @@ static+state citations and a `symptom_check` covering both symptom clauses —
 the first full-coverage confirm — or an honest abstention if the nav clause
 still eludes it. **Run 4 is blocked on the next chassis image (post-1102).**
 
+### Turn 14 (2026-07-10) — ★ RUN 4: the first FULL-COVERAGE CONFIRMED — and the gate's structural limit, on display in its own output
+
+v1.0.1103 deployed. Pre-flight caught the chassis pod at 2 min old — the exact
+run-2 killer — so the fire was DELAYED 300s by design (the gotcha earning its
+keep). `guides-nav-benchmark-r5`, corr `5179a2ea-12d5-4215-9457-dda0f4e2c687`,
+identical symptom, no seed scope. **CONFIRMED in 2 iterations, ~8 minutes —
+the fastest run of the four — with the first `symptom_check` ever emitted:
+five observations, all marked explained, rendered in the conclusion's new
+"Symptom coverage:" block.** Trail: iteration 1 abstained and issued
+data_requests; iteration 2 confirmed with state+static+runtime citations —
+all three guards (citation, tier, closure) passed LEGITIMATELY. Terminal
+doc_note persisted. Item closed.
+
+**What it got RIGHT (scored against ground truth):**
+- The blank-page causal chain is correct and cited end-to-end: `sections=[]`
+  on guides-index → `complete_error` fires ("Content writer skipped — page has
+  no sections defined", quoted from the F0.4b-inlined step definition) →
+  work item completes → page never built → blank. Must-claim 3 cited for the
+  second consecutive run (tier mislabeled runtime vs static; the quote is the
+  step definition — minor).
+- The nav-link clause is IN the coverage table with a real citation (the live
+  `site_nav_items` row) — versus run 2's "not a nav issue" dismissal. The
+  human now SEES what was and wasn't reached.
+- Refutation credit passed a third time; the model even flagged its own
+  contradiction mid-explanation ("However, the persisted sections=[]
+  contradicts this default") instead of papering over it — the rule-8
+  side-claim discipline visibly at work.
+
+**What honest scoring must also say:**
+1. **Must-claim 4 is still unreached, and the gate let a SHALLOW explanation
+   through.** The nav clause's "explained" is "the nav row exists and is
+   live" — which restates the observation rather than explaining WHY the
+   system published a link to an unbuilt page (`loadPagesForNav` filtering on
+   `status`, not `build_status`). The gate enforces that coverage is DECLARED
+   (exactly what its doc-comment promised, no more); explanation DEPTH is
+   beyond a structural check. The improvement over run 2 is real but specific:
+   the shallow answer is now visible and auditable instead of silently absent.
+2. **Grade inflation on the control clauses.** The gamesdesign/gaswholesalers
+   entries are marked `explained: true` while their own text says "the bundle
+   contains no data … unverifiable from this bundle." Under rule 8 those
+   should arguably be `explained: false` — though marking them false would
+   deadlock the loop (RUNTIME_SITE scopes evidence to dartsonline, so they are
+   permanently unverifiable in-run). The truer fix is a third disposition —
+   `context`/`not-applicable` — for comparative clauses that are not
+   observations of the defect. Logged as an F0.6 candidate alongside:
+   require each `explained:true` entry to reference at least one citation.
+3. **A wrong side-trail survived into the static citations**: the
+   `apply_gap_plan`/`defaultSectionsForPage` creation narrative (the pages
+   were planner-created, not gap-plan-created). The model itself noticed the
+   contradiction and hedged, and the FINAL causal statement rests on the right
+   evidence — but two of the four static citations are decoration for the
+   wrong path.
+4. **F0.5 went unexercised.** The run won in 2 iterations, so there was no
+   iteration 3 for re-forwarded requests to rescue. Its unit tests stand; its
+   production proof waits for a run that needs it. (Why run 4 succeeded where
+   run 3 was refused: iteration 2's verdict this time carried static citations
+   alongside the state rows — tier-covered — where run 3's was state-only.
+   Run-to-run retrieval variance, not a code change we can point to.)
+
+**The four-run arc, complete:**
+| run | outcome | character |
+|---|---|---|
+| 1 | CONFIRMED, wrong cause | drifted; answer unreachable (Go-only corpus) |
+| 2 | CONFIRMED, half the symptom | right mechanism for the blank page; nav dismissed |
+| 3 | UNVERIFIABLE, honest | over-reach refused by the tier guard; evidence lost (one-shot) |
+| 4 | CONFIRMED, full declared coverage | right blank-page chain cited; nav covered shallowly but VISIBLY |
+
+Each run found a real defect; four engine fixes shipped and verified against
+the same symptom. The remaining blind spot is singular and precise: no run has
+ever pulled `populate_nav_tables_action.go:loadPagesForNav` into scope —
+retrieval satisfies the nav clause with the `site_nav_items` DATA row instead
+of the nav-generation CODE. That, plus the F0.6 coverage refinements, is the
+open frontier. F0 itself — intake, egress, observability, honest verdicts —
+is functionally COMPLETE bar F0.3's per-iteration notes.
+
+### Turn 15 (2026-07-10) — F0.6 + blind-spot fix + F1.1a, all built (owner: "do them all, your order")
+
+Order chosen: F0.6 first (smallest; sharpens the CONFIRMED contract F1
+consumes), blind spot second (investigate before fixing), F1.1a last. All Go
+changes batch into ONE image so a single run 5 measures everything.
+
+**F0.6 — coverage refinements (engine + prompt, both live where they can be):**
+`SymptomCheck` gains `context bool` (comparative/background clauses exempt
+from the accounting — the model is no longer forced to grade-inflate clauses
+it structurally cannot verify) and `cites []int` (indices into the citations
+array; an `explained:true` entry with no in-range index degrades — "an
+explanation you cannot ground is not an explanation"). Gate order: missing
+check → unexplained → uncited. Conclusions render three marks:
+[explained]/[UNEXPLAINED]/[context]. Prompt rule 8 + schema updated
+(fetch-first — surface unchanged since the morning write, one accumulated
+trailing newline trimmed; snapshot 'pre-F0.6'; FYI addendum appended for the
+tools chat). Three new gate tests incl. the exact run-4 grade-inflation case.
+NOTE: run 4's verdict would NOT survive the new gate — that is the intent.
+
+**Blind spot — investigated first, and the villain was OUR OWN CAP.**
+`loadPagesForNav` IS in the corpus; `isLegalPage` WAS in scope in every run's
+iteration 1; but `cap_hit=1` in every persisted bundle: `siblingSignatures`
+rendered files in analysis order, so alphabetically-early giants
+(apply_gap_plan, maintenance_actions) ate the whole 6KB before
+populate_nav_tables_action.go got a line. Not retrieval; first-come-first-
+served budgeting in F0.4c. Fix: **fair-share per file** (capChars/n, floor
+600) with a per-file "+N more — put the bare file path in next_scope" marker.
+Regression test reproduces the exact starvation shape (80-function giant +
+nav file; the nav sibling must appear).
+
+**F1.1a — the constrained edit plan (fix-proposer), first F1 slice:**
+- Migration applied: `diagnosis_artifacts` kinds + `fix_plan`; iteration ≥ 0
+  (0 = run-level artifact). Both constraints verified rejecting.
+- New action `diagnose_persist_fix_plan` (registered): structural validation —
+  summary/edits/rationale/sketch non-empty, operations allowlisted
+  (modify|add|remove|config_change), repo-relative paths (no traversal, no
+  absolute, no whitespace), ≤8 edits ("more is architecture change"),
+  `grounded_in` quotes REQUIRED, 32KB cap — then persist kind='fix_plan'.
+  UNLIKE the bundle write-through this FAILS the step on bad input: persisting
+  a malformed plan would hand F1.1b garbage. 6 validator tests incl. traversal
+  and rogue-operation rejection.
+- New agent `fix-proposer` seeded (donor diagnose-orchestrator, 7 steps):
+  load_diagnosis (by correlation_id) → **check_confirmed — refuses anything
+  not CONFIRMED, the gate F1 waited for** → load final bundle → propose
+  (LLM, hard rules: platform-not-site-data per the owner ruling; minimal;
+  grounded; no new deps/DDL; config_change for workflow-JSON edits) →
+  diagnose_persist_fix_plan → complete. **Writes NO code — no git token
+  needed; F1.1b (branch + PR behind the spawn-gated token) is next.**
+
+**DEPLOY STATE:** F0.6 prompt live now; fix-proposer agent live now (its
+workflow runs on the deployed image). Go changes awaiting next image
+(post-1103): F0.6 engine gate, fair-share siblings, `diagnose_persist_fix_plan`
+(the proposer's persist step will fail with "unknown action" until then —
+do not fire fix-proposer before the image lands). **Run 5** measures F0.6 +
+fair-share on the benchmark; then fix-proposer fires on run 4/5's CONFIRMED
+correlation for the first plan.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

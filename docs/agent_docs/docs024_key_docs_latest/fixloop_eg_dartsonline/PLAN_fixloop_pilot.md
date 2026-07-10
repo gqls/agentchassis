@@ -239,9 +239,39 @@ spin guard) — deduped, sorted, capped at 12, prior keys re-linted read-only.
 answered evidence persists without touching collected_data size (the cd-bloat
 constraint that ruled out storing answer text in state). One file changed;
 five unit tests incl. the run-3 hole and a poisoned-state write statement
-being refused. **Run 4 is blocked on the next chassis image (post-v1.0.1102)**
-— predicted shape: the first full-coverage CONFIRMED (static+state citations,
-symptom_check spanning both clauses), or an honest abstention.
+being refused. **RUN 4 RESULT (2026-07-10, corr `5179a2ea`, v1.0.1103): the first
+full-coverage CONFIRMED** — 2 iterations, ~8 min, all three guards passed
+legitimately, five-entry symptom_check rendered in the conclusion. The
+blank-page chain is right and cited (must-claim 3 again, via the F0.4b step
+definition); the nav clause is now VISIBLE in coverage but explained shallowly
+("the nav row exists") — must-claim 4 remains unreached. F0.5 went unexercised
+(no iteration 3). Full honest scoring: NOTES(10) turn 14.
+
+**F0.6 — ✅ BUILT 2026-07-10:** `context` disposition + citation-backed
+`explained` (`cites` indices, in-range required). Prompt live (snapshot
+'pre-F0.6', FYI addendum filed); engine gate awaits the next image. Run 4's
+verdict would not survive the new gate — intended.
+
+**Blind spot — ✅ FIXED (it was ours, not retrieval's):** `loadPagesForNav`
+was in the corpus and its file in scope all along; F0.4c's sibling cap was
+first-come-first-served and alphabetically-early giants starved
+populate_nav_tables_action.go in every run (cap_hit=1 in all persisted
+bundles). Now fair-shared per file with a "+N more" affordance. Regression
+test reproduces the starvation.
+
+**F1.1a — ✅ BUILT 2026-07-10 (the fixer's first slice, plan-only):**
+`fix-proposer` agent (live) + `diagnose_persist_fix_plan` action (awaits
+image) + artifacts kinds extended with `fix_plan` (applied, verified). The
+workflow REFUSES non-CONFIRMED diagnoses — the gate F1 waited three benchmark
+runs for. Plans are constrained (≤8 allowlisted edits, repo-relative paths,
+grounded_in quotes required, 32KB cap) and persisted as artifacts; **no code
+writes, no git token**. F1.1b (branch + PR via the spawn-gated token, gofmt +
+build in a spawned job) is the next slice.
+
+**Next after deploy:** run 5 (measures F0.6 + fair-share on the identical
+symptom — watch for [context] marks on the control clauses and a nav-clause
+explanation that finally cites `loadPagesForNav`), then fire fix-proposer on
+the freshest CONFIRMED correlation for the first persisted plan.
 
 **Run protocol:** run 2 = a+b+c+e only, identical symptom string, site data
 untouched — measures whether the loop now *finds* the cause. Run 3 = d —

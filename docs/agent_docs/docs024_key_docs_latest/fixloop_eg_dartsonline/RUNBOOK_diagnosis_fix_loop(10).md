@@ -504,6 +504,20 @@ scope-not-narrowing fires. Fix = F0.5 (persist answered requests across
 iterations). Run arc: run 1 wrong-confidently → run 2 half-right-confidently →
 run 3 honest abstention with the mechanism in its sights.
 
+## BENCHMARK RUN 4 — 2026-07-10 (corr `5179a2ea`; F0.5 live on v1.0.1103)
+**The first full-coverage CONFIRMED**: 2 iterations, ~8 min, citation + tier +
+closure guards all passed legitimately; five-entry `symptom_check` rendered in
+the conclusion. Blank-page chain correct and cited end-to-end (sections=[] →
+complete_error success terminal → unbuilt → blank; the step definition quoted
+via the F0.4b enrichment). Nav clause now visible in coverage but SHALLOW
+("the nav row exists") — the gate enforces declared coverage, not depth;
+must-claim 4 (`loadPagesForNav` on `status` not `build_status`) remains the
+one unreached mechanism across all four runs. Control clauses
+(gamesdesign/gaswholesalers) were marked explained while self-described as
+unverifiable → F0.6: a `context` disposition + citation-backed `explained`.
+Four-run arc: wrong-confidently → half-right-confidently → honest abstention →
+right-with-declared-coverage. F0 functionally complete bar F0.3.
+
 ## CURRENT POSITION — 2026-07-09
 F0/F1 design questions all decided (2026-07-07). The pilot bug is **fully
 diagnosed ahead of the loop** and has been reframed as a known-answer
