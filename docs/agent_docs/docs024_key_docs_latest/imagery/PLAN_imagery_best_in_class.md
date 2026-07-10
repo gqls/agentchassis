@@ -169,19 +169,62 @@ acceptance line:
   writer that originally saved rendered output as templates.
 The two remaining ⬜ items close out I0 alongside the start of I1.
 
-**⚠️ Cross-workstream finding (2026-07-10, from the leopardess rebuild —
-affects this testbed):** the asset-deployer's git-commit step fails on
-`agent-chassis` because `IMAGE_BUCKET` is not set in that deployment (storage
-client never builds) — platform-wide, 83 of 102 active assets are expiring
-presigned URLs; **robot-hands.com has 34 such assets and its logo 404s**. The
-16 verified heroes ARE committed to git (deployed via the image-build-handler
-→ spawned asset-deployer path, which injects storage env), so the I0 render
-acceptance stands — but the logo (B6/I1 work) needs the underlying deploy fix
-first. Fix + workaround are owned/documented by the leopardess workstream:
-`docs/leopardessconsulting/AUDIT_verified_facts.md` D8 (add
-IMAGE_BUCKET/S3_ENDPOINT/S3_REGION to the agent-chassis deployment) and
-`scripts/commit_brand_assets.sh`. Also from that workstream: a routing change
-(logo/illustration/infographic → Banana) is committed but not yet deployed.
+---
+
+## ⚠️ HOW IMAGE SERVING ACTUALLY WORKS — read before debugging any "broken image"
+
+*Added 2026-07-10 after the leopardess rebuild wasted a turn chasing a bug that did
+not exist. An earlier version of this very box asserted that box's mistake. Corrected.*
+
+There are **two different URLs** for every generated image, and confusing them is the
+trap:
+
+1. **`assets.url` — a 7-day presigned S3 URL. A throwaway source handle.**
+   It expires (SigV4 caps `X-Amz-Expires` at 604800s = 7 days; this is a hard protocol
+   ceiling, **not** a setting — you cannot make it permanent). It is **never** used to
+   render a page.
+2. **`/assets/images/<asset-key>.<ext>` — the durable, committed git path. This is what
+   pages actually serve.** `deploy_image_asset` commits the optimised bytes into the
+   `sites` repo; GitHub Actions publishes to Backblaze B2 (`portfolio-sites`); the
+   Cloudflare worker (`scripts/cloudflare/worker.js`) re-signs each GET server-side, so
+   the bucket stays private and the URL never expires.
+
+At render time, `plan_sections` (`plan_sections_action.go:193, 260, 290`) computes
+`storage.DeployedWebPath(asset_key, purpose)` and **never reads `assets.url`.** Verified:
+zero `X-Amz` URLs appear in any deployed page's HTML.
+
+**Therefore:** a presigned URL sitting in `assets.url` is cosmetic staleness, **not** a
+broken image. Most rows have one simply because they predate the in-code url-flip
+(`deploy_image_asset_action.go:250`, mirroring the one-shot `w9_04` backfill that
+idea.uk received). Do not "fix" it by chasing presigned URLs.
+
+**Debugging a genuinely missing image — do this, in order:**
+1. Get the asset's real `asset_key` and `purpose` from the DB. **Do not guess the path.**
+   (The wasted turn: curling `/assets/images/logo.png` on sites that have no `logo`
+   asset at all, then concluding the pipeline was broken. robot-hands' real paths —
+   `hero.jpg`, `hero-home.jpg`, `icon-*.jpg` — all return 200.)
+2. Curl `DeployedWebPath(asset_key, purpose)`. A 404 there means **the bytes were never
+   committed**, which is a generation/deploy failure or an asset that was never produced
+   — not a URL-expiry problem.
+
+**Where deploys run (by design, don't "fix" this):** `agent-chassis` carries the storage
+credentials but deliberately **no `IMAGE_BUCKET`**, so it builds no storage client
+(`agentbase/agent.go:294`) and `deploy_image_asset` fails there with *"storage client not
+available"*. That is intentional — see `107_image_build_handler.sql:725`. Deploys run in a
+**spawned** `asset-deployer`, into which `spawn_actions.go` injects `IMAGE_BUCKET` and the
+storage creds (`isStorageEnabledAgent`). **Do not add `IMAGE_BUCKET` to the agent-chassis
+deployment.** If you hand-trigger `asset-deployer` standalone it will fail, because it
+skipped that injection — that is a triggering mistake, not a platform bug.
+
+Injecting a *specific, pre-approved* image (e.g. an owner-chosen logo) has no generation
+step to spawn; send the optimised file straight to the git-adapter — see
+`docs/leopardessconsulting/scripts/commit_brand_assets.sh`.
+
+Full corrected write-up: `docs/leopardessconsulting/AUDIT_verified_facts.md` D8.
+Also from that workstream: a routing change (logo/illustration/infographic → Banana, so
+reference images are honoured) is committed in `dynamic_adapter.go` but **not yet deployed**.
+
+---
 
 **Status 2026-07-09 — build essentially DONE; imagery-render gap diagnosed.**
 Content build all but complete (31 page rerenders done, 14 needs_page queued);

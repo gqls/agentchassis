@@ -31,7 +31,7 @@ confirmed 2026-07-04): `build`, `content`, `design`, `maintenance`.
 
 ## 0. ROLLOUT TRACKER — YOU ARE HERE
 
-**Position as of 2026-07-10: TASK 3 PROVEN ✓ · TASK 4 PROVEN ✓ (two machine `fix` notes, `('pipeline','build')`, source=tool-recreation-handler) · TASK 5 CLOSED ✓ (economy-simulator live with both bugs fixed) · TASK 6 ACTIVE: deploy the chunkContent fix, then move+apply 141 and re-run the 085 proof (SPEC_FUNCTION=tool-drop-rate-tuner) for the first `tool_docs` KB rows**
+**Position as of 2026-07-10 (later): TASK 3 PROVEN ✓ · TASK 4 PROVEN ✓ · TASK 5 CLOSED ✓ · TASK 6 CLOSED ✓ — chunkContent fix deployed (v1.0.1104), 141 applied, proof run `05d1fc97` COMPLETED with 0 pod restarts: `index_plan` ran in ~5.5s and wrote the FIRST `knowledge_base` `tool_docs` rows (4 chunks, 4 embeddings); the crashed run's PLAN superseded cleanly (3,010 retired → 2,904 current, fence intact). Phase A is proven end-to-end INCLUDING the derived index. NEXT: Stage 5 (Tier-2 anchor checker) · Stage 6 (Tier-4 runner) · deploy the two `planned` tool pages.**
 Stamp facts: `('pipeline','build')`, categories `["diagnosis","unconfirmed-diagnosis"]`,
 `source='diagnosis-loop'`; the body records the loop's stop reason —
 **`scope-not-narrowing`** — answering the fast-run question from the note

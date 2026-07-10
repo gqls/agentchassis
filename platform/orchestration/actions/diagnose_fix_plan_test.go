@@ -59,3 +59,23 @@ func TestValidateFixPlan(t *testing.T) {
 		})
 	}
 }
+
+// The first live proposer run (ed164fed): proposal.result arrived as a raw
+// STRING (execute_llm_prompt stores the string when the model JSON is invalid)
+// and, separately, was truncated at max_tokens. Both shapes must be handled.
+func TestPlanBytes_StringAndMapShapes(t *testing.T) {
+	// map shape (happy path) round-trips
+	b, err := planBytes(map[string]interface{}{"summary": "s"})
+	if err != nil || !strings.Contains(string(b), `"summary"`) {
+		t.Fatalf("map shape: %v %s", err, b)
+	}
+	// string shape with fences is unwrapped
+	b, err = planBytes("```json\n{\"summary\":\"s\"}\n```")
+	if err != nil || string(b) != `{"summary":"s"}` {
+		t.Fatalf("fenced string shape: %v %q", err, b)
+	}
+	// bare string passes through
+	if b, _ = planBytes(`{"summary":"s"}`); string(b) != `{"summary":"s"}` {
+		t.Fatalf("bare string shape: %q", b)
+	}
+}

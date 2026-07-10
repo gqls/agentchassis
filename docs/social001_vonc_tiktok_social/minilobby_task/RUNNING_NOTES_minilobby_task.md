@@ -182,6 +182,68 @@ closed at this entry unless the thread reopens.
 
 ---
 
+## 2026-07-10 (evening) — v1.0.1104 deployed: ALL code from this thread is now in production
+
+Chassis `v1.0.1104` deployed. Learned in passing: **builds are from the local filesystem via the Makefile;
+commits are decoupled** (user's discretion; image tag now hand-recorded in commit messages) — so deployed
+contents were verified against the running pod, not git history:
+
+- binary strings: `page_component_status_drift` ×7, `repair_page_component_status` ×4, guard log line ×1 ✅
+- RUNBOOK §3 query 1: **0** components on deployed pages with an unknown status (regression guard quiet) ✅
+- RUNBOOK §3 query 2: vonc guard split 3 emit / 2 skip, unchanged ✅
+- template checks still enabled nowhere; 0 regeneration items against the shells ✅
+
+Every check, fixer, guard and writer-fix this thread produced is now live. The one remaining action is the
+PLAN §5 enable decision (which checks to switch on, in which discovery agent). The proposed `build_status`
+CHECK constraint (PLAN §4) also remains open.
+
+`Categories:` (milestone)
+
+---
+
+## 2026-07-10 (evening, cont.) — three checks ENABLED; first pass ran; a THIRD unguarded check caught live
+
+User approved enabling `page_component_status_drift`, `sectionless_pages` and `component_template_corrupted`.
+All three added to **completeness-discovery-agent**'s checks array (backup
+`_completeness_agentdef_backup_20260710`). Context: the `improvement-sweep` scheduled task (→ improvement-loop,
+180 s) has been **disabled since 2026-05-02**, so discovery only runs when triggered by hand
+(`scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh <domain> completeness`).
+
+**First pass on vonc.com** (correlation `e0207aad-…`), results by check:
+
+- `component_template_corrupted` — **the guard's first live firing, and it worked**: emitted exactly 3
+  regeneration items (archetype-grid, game-master-explanation, platform-comparison), refused both runtime-fill
+  shells.
+- `page_component_status_drift` — 0 emissions, as designed.
+- `sectionless_pages` — 0 (vonc has none).
+- **`empty_sections` — a THIRD unguarded check, caught in the act.** Enabled all along, it flagged
+  provocation-card and lobby-grid as `empty_heading` (`<h2 class="pc-headline"></h2>` is the shell) and raised
+  `empty_section` items routed to **page-build-handler** — a full LLM rebuild that would bake copy into the
+  shells. This check never fired on them before because until yesterday the shells' pages predated the check's
+  enablement/the sections carried enough incidental text… no: it simply had not been run against vonc since the
+  shells went in (discovery has been manual-only since May).
+
+**Containment, same hour:** the two shell `empty_section` items set to `rejected` with an explanatory `error`;
+the same runtime-fill guard (emission skip + finding, identical pattern) added to `check_empty_sections.go`;
+builds/vets clean. **Not yet in the deployed binary.**
+
+**Dedup caveat learned:** `idx_swi_dedup` is partial — it only covers non-terminal rows, and the two-strike
+rule only counts `complete`/`failed`. So a completeness pass on the current binary **will re-raise** the two
+rejected shell items. Do not re-run completeness discovery on vonc until the guarded build ships (or re-reject
+after).
+
+Legitimate items now open from the pass: 3 × `needs_component_regeneration` + 3 × `empty_section` (the three
+genuinely corrupted components, on their own pages) + 1 × `needs_rerender` (missing_structure; harmless —
+the rerender path is assemble-only and carries the runtime-fill exemption). Nothing dispatches them while the
+improvement loop stays off.
+
+Score for the day: the runtime-fill landmine existed in **three** checks; two were guarded pre-emptively by
+code reading, the third was caught by running the loop against the live site within minutes of enabling it.
+
+`Categories:` (milestone, root-cause, fix)
+
+---
+
 ## 2026-07-09 — the dropped trigger, for the record (verbatim from the session Q&A)
 
 `auto_lock_on_deploy` — a Postgres trigger on the `page_components` table (trigger name

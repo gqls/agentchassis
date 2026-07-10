@@ -26,18 +26,21 @@ kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d 
 | **H8** | Approve the data-sovereignty positioning (A8). | Pitched as a capability built *with* a client, never a standing guarantee. | **resolved 2026-07-10** — owner confirmed the framing ("I like your angle with that"). Drafted into `specs/portfolio.json` as a use_case. |
 | **H9** | Approve the startup/founder "faster start" angle as a client category. | Owner raised this new idea 2026-07-10 — a startup building its own agent product could start from this platform's already-solved operational layer. | **resolved 2026-07-10** — drafted into `specs/portfolio.json` as a use_case, honestly labelled not-yet-done-for-a-client. Owner explicitly deferred wording judgement to me. |
 
-| **H10** | Decide the fix for the platform-wide asset-deploy bug (AUDIT D8). | `deploy_image_asset` cannot run on `agent-chassis` (no `IMAGE_BUCKET`), so 83/102 assets platform-wide are expiring presigned URLs and most sites' logos 404 — including robot-hands.com, the imagery testbed. Options in D8. Bigger than this site; flagging for the imagery workstream. | **open — platform-level** |
+| **H10** | *(withdrawn 2026-07-10)* — there is no platform-wide asset-deploy emergency. See AUDIT D8 correction. The only real, low-priority nit is that `assets.url` is cosmetically stale (presigned) for 83 rows; render already ignores it. Optional cleanup: generalise the idea.uk `w9_04` url-flip backfill. | **not urgent** |
 
 ---
 
 ## Operator procedures
 
-> **O7 — Commit brand assets (logo/favicon/OG) without the broken deployer.**
+> **O7 — Commit a specific (pre-approved) brand asset via the git-adapter.**
 > `scripts/commit_brand_assets.sh <domain> <brand_dir>` sends optimised files
-> straight to the git-adapter (the same commit `deploy_image_asset` would send),
-> sidestepping the D8 storage-client bug. Assets must already be the right size —
-> the script does not optimise. Verify by artifact: `curl` each path for 200 and
-> diff the bytes. This is the path that put the leopardess logo live.
+> straight to the git-adapter (the same commit `deploy_image_asset` sends after
+> optimising). Use this when injecting a **specific approved image** (e.g. an
+> owner-chosen logo) rather than one the pipeline generates — there's no generation
+> step to spawn. Assets must already be the right size; the script does not optimise.
+> Verify by artifact: `curl` each path for 200 and diff the bytes. This put the
+> leopardess logo live. **Not** a workaround for a broken pipeline — the normal
+> generate→spawn asset-deployer→commit flow works (robot-hands, idea.uk serve fine).
 
 ### O1 — Inspect state
 ```bash

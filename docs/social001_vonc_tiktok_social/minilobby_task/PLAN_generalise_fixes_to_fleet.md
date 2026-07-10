@@ -56,6 +56,7 @@ A fifth, inherited and reconfirmed twice this session: **verify by artifact, nev
 | 11 | `js_snippets` has no `updated_at` column (the handoff's schema notes implied one) | schema doc drift | generic | n/a | n/a | documented |
 | 12 | `last_built_at` never written by build or rerender | dead column | generic | n/a | decide: write or drop | **OPEN** |
 | 13 | `provocations.json` still ships a dead `lobby` key | stale data | **site-specific (vonc)** | n/a | drop when Phase-3 emits the file | **OPEN, trivial** |
+| 14 | **`empty_sections` (enabled all along) flags runtime-fill shells as `empty_heading`** and routes them to page-build-handler — a full LLM rebuild of the shell. Caught live on the first enabled-checks pass, 2026-07-10 | same landmine, 3rd instance | **generic** — any runtime-fill site | the check itself; now runtime-fill-guarded (finding only) | items rejected by hand; guard ships next build | Guard **written**, needs build. The landmine existed in **three** checks: two guarded by code reading, this one caught by running the loop |
 
 **Read of the table:** of thirteen findings, exactly one (#13) is site-specific. The mini-lobby trim was a
 keyhole onto fleet-wide defects.
@@ -89,16 +90,19 @@ Same argument applies to `pages.build_status`. Not surveyed here.
 
 ## §5 Open decision: which registered-but-disabled checks to enable
 
-Eight checks exist in Go and run nowhere. Enabling is a one-line edit to a discovery agent's
-`{workflow,steps,run_checks,config,checks}` array. The ordering hazard is resolved: **the runtime-fill guards
-shipped in `v1.0.1103`**, so the two template checks can now be enabled without endangering vonc's shells.
+**DECIDED + APPLIED 2026-07-10:** `page_component_status_drift`, `sectionless_pages` and
+`component_template_corrupted` are enabled in **completeness-discovery-agent** (backup
+`_completeness_agentdef_backup_20260710`). First pass run manually on vonc.com — the runtime-fill guard fired
+correctly on its first live use (3 regenerations emitted, both shells refused, 0 drift emissions). It also
+exposed finding #14: the long-enabled `empty_sections` check carried the same landmine; guard written, ships
+next build. Note the improvement-sweep scheduler has been disabled since 2026-05-02, so discovery runs only by
+manual trigger (`075_trigger_discovery.sh <domain> completeness`) until it is re-enabled.
 
-| check | would emit today | recommendation |
-|---|---|---|
-| `component_template_corrupted` | 8 regenerations fleet-wide, 2 runtime-fill skipped | guard shipped — **safe to enable**; LLM-heavy, capped at 5/pass |
-| `sectionless_pages` | unknown — would have caught the ten `complete_error` builds | **enable** — highest value, self-healing loop |
-| `page_component_status_drift` (new) | **0 work items**, 19 findings | **commit + push first** (untracked), then enable — pure regression guard, zero churn |
-| `validate_component_standards` | several, incl. `broken_template_slots` | guard shipped — safe to enable |
+Remaining registered-but-disabled candidates:
+
+| check | notes |
+|---|---|
+| `validate_component_standards` | guard shipped — safe to enable; several sub-checks, survey emissions first |
 | `cross_site_contamination` | unknown | survey first |
 | `unrendered_templates` | unknown | survey first |
 | `phantom_internal_links` | unknown | survey first |
@@ -126,11 +130,15 @@ Confirmed safe on the running pod: `component_template_corrupted` and `validate_
 **still enabled in no agent**, and no `needs_component_regeneration` item has ever been raised against
 `provocation-card` or `lobby-grid`. The guard shipped before it was ever needed.
 
-**Written, NOT yet committed or pushed:**
+**Live now (chassis `v1.0.1104`):**
 
-- `discovery_checks/check_page_component_status_drift.go` — **new check** (untracked)
+- `discovery_checks/check_page_component_status_drift.go` — **new check**, string-verified in the running
+  binary 2026-07-10. RUNBOOK §3 verification passed (0 emissions, 3/2 guard split).
 
-Builds and vets clean; registered by `init()` but enabled nowhere, so the push is safe in isolation. Enabling
-is the separate step in §5.
+Everything this plan produced has shipped. The single remaining action is the §5 enable decision.
+
+Build practice note: images are built from the local filesystem via the Makefile; commits are decoupled and at
+the user's discretion (image tag now recorded in commit messages by hand). Verify deployed contents against the
+pod, not git history.
 
 `Categories:` (next-task)

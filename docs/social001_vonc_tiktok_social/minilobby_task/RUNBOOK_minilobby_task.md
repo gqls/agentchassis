@@ -13,16 +13,25 @@
 | provocation-card centring (820px) | **CLOSED** — live |
 | section-editor `approved` defect | **CLOSED** — fixed in chassis `v1.0.1102`, verified end-to-end 2026-07-10 |
 | `auto_lock_on_deploy` trigger | **CLOSED** — dropped, migration `009`, reversal saved |
-| Runtime-fill guards (2 checks) | **SHIPPED** in `v1.0.1103` (`49d67e82`) — landed before the check was ever enabled |
-| `repair_page_component_status` fixer | **SHIPPED** in `v1.0.1103` |
-| `page_component_status_drift` check | **WRITTEN, untracked** — needs commit + chassis push |
-| Enabling the 8 disabled checks | **OPEN — decision**, see PLAN §5 |
+| Runtime-fill guards (template checks ×2) | **SHIPPED** `v1.0.1103`, confirmed in the `v1.0.1104` binary |
+| `repair_page_component_status` fixer | **SHIPPED** `v1.0.1103`, confirmed in `v1.0.1104` |
+| `page_component_status_drift` check | **SHIPPED** `v1.0.1104`; §3 checks pass |
+| Enable decision | **DONE 2026-07-10** — `page_component_status_drift`, `sectionless_pages`, `component_template_corrupted` added to completeness-discovery-agent; first pass run on vonc; guard fired correctly (3 emit / 2 refuse) |
+| Runtime-fill guard #3 (`check_empty_sections`) | **WRITTEN, needs next chassis build** — the enabled-all-along check flagged the two shells as `empty_heading` on the first pass and routed them to page-build-handler; items rejected by hand, guard added |
+| 3 × `needs_component_regeneration` + 3 × `empty_section` (genuinely corrupted components) + 1 × `needs_rerender` | **OPEN, legitimate** — sit at `detected`; nothing dispatches while improvement-sweep stays disabled (off since 2026-05-02) |
 | `brief-explanation` `<img src="">` | **OPEN** → imagery workstream |
 | `provocations.json` dead `lobby` key | **OPEN**, trivial |
 
-**Next action:** commit + push `check_page_component_status_drift.go`, then §3 verification, then the §5 enable
-decision. Nothing is currently at risk: as of 2026-07-10 the two template checks are enabled in no agent, and
-no `needs_component_regeneration` item has ever been raised against `provocation-card` or `lobby-grid`.
+**Next action:** ship the `check_empty_sections` guard in the next chassis build.
+**CAUTION until then:** do **not** re-run completeness discovery on vonc — `idx_swi_dedup` is partial (covers
+only non-terminal rows) and the two-strike rule counts only `complete`/`failed`, so the current binary will
+re-raise the two rejected shell `empty_section` items. If it happens, re-reject them
+(`item_key` values in `RUNNING_NOTES`, entry of 2026-07-10 evening).
+
+**Build practice (2026-07-10):** images are built from the **local filesystem via the Makefile**; commits are
+at the user's discretion and unrelated to builds — the source of truth for code is local. The Makefile image
+tag is now being added to commit messages by hand. Do not infer a deployed binary's contents from git history;
+verify against the running pod (`kubectl exec <pod> -- grep -ac '<symbol>' /app/agent-chassis`).
 
 ---
 
@@ -63,12 +72,12 @@ not the main `agent-chassis` pod. `kubectl logs -l app=agent-chassis` shows only
 
 ---
 
-## §3 Verifying the new code
+## §3 Verifying the new code — PASSED against `v1.0.1104`, 2026-07-10
 
-Three of the four Go changes shipped in `v1.0.1103` (both runtime-fill guards + the
-`repair_page_component_status` fixer). The fourth — `check_page_component_status_drift.go` — is untracked;
-commit it and run this section again after its push. Everything here is inert until enabled, so this is a
-smoke test, not a gate.
+All four Go changes are in the running binary (string-verified in the pod: `page_component_status_drift` ×7,
+`repair_page_component_status` ×4, the guard's log line ×1). Query 1 returned 0 (regression guard quiet);
+query 2 returned the 3-emit/2-skip split. Everything remains inert until enabled. Re-run this section after
+any future chassis deploy.
 
 ```bash
 # 1. The drift check emits nothing today (regression guard) and reports 19 pending rows.
@@ -110,11 +119,9 @@ Then enable `page_component_status_drift` (§4), run the discovery agent for von
 ## §4 Enabling a discovery check
 
 Checks are registered in Go by `init()` but only run when named in a discovery agent's config array.
-The runtime-fill guards shipped in `v1.0.1103`, so `component_template_corrupted` and
-`validate_component_standards` are now safe to enable. (Before that build they would have handed vonc's two
-runtime-fill shells to `component-creator` / `component-template-fixer`.) `page_component_status_drift` cannot
-be enabled until its file is committed and pushed — the running binary does not contain it, and the runner
-would log "Unknown discovery check" each pass.
+As of `v1.0.1104` every check in this document is in the running binary and safe to enable, including
+`page_component_status_drift`. (Before `v1.0.1103`, the two template checks would have handed vonc's
+runtime-fill shells to `component-creator` / `component-template-fixer`.)
 
 ```sql
 -- Back up the row first; the name must match a Go Name(), else the runner

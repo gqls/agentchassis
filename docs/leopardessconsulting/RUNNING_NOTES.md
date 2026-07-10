@@ -16,6 +16,7 @@ Companions: `PLAN_leopardess_rebuild.md`, `RUNBOOK.md`, `AUDIT_verified_facts.md
 | A5 | Reusable chart component, Go + JS renderer; honour prior D1/D3/I4. | confirmed 2026-07-10 | owner |
 | A6 | Route `logo`/`illustration`/`infographic` to Banana, not SDXL. | proposed | turn 4 |
 | A7 | Go emits static SVG, data-first; JS is a separate consumer that adds colour/imagery/infographic treatment on top. Deviates from literal go-echarts to satisfy PLAN §6. | **confirmed 2026-07-10** | turn 6 |
+| A10 | Two-tone gold: bright #C8A951 on dark chrome only; bronze #836E32 for links on light reading surfaces (WCAG AA). Forced by contrast — bright gold on light fails AA (2.1). | decided 2026-07-10 (technical) | turn 10 |
 | A8 | Data-sovereignty positioning: pitch "steps that touch your data can run on infrastructure you control" as a capability built *with* a client (pilot-scoped), never as a standing isolation/residency guarantee. | confirmed 2026-07-10 | turn 6 |
 | A9 | worldsoccernews.com: publish the verifiable "15 million page impressions" figure, not the unsourced "third busiest" ordinal, unless owner recalls a citable source. | proposed — owner to confirm source or accept | turn 6 |
 
@@ -391,3 +392,90 @@ and set `sites.logo_url`. Backups first: `bak_assets_leopardess_20260710`.
 `<meta property=og:image>` — the files are live but not referenced. That wiring lands with
 the head-component work at re-render (L3/L9), so the site changes over as a coherent whole
 rather than piecemeal. H4 resolved. Next: L3, the palette fork.
+
+## Turn 10 — imagery re-investigated (I was wrong), and the palette forked with real WCAG validation
+
+Two owner asks: cogitate on the imagery/storage question, and do L3 but "look hard"
+because the palette has accessibility checks built in and if they're not being used
+we've drifted onto a different path.
+
+**Imagery — I retracted a scare.** Turn 9 I claimed asset-deploy was broken platform-
+wide, 83 assets on a 7-day timer, robot-hands' images 404. **Wrong on both counts, and
+I corrected AUDIT D8 + the imagery memory.** Two errors: (1) I curled
+`/assets/images/logo.png` on sites that have no `logo` asset — a meaningless test;
+robot-hands' real paths (hero.jpg, hero-home.jpg, icon-*.jpg) all serve 200. (2) The
+presigned URL in `assets.url` is a bypassed *source handle*, not a rendering input —
+`plan_sections` emits `storage.DeployedWebPath` (durable git path) and never reads
+`assets.url` (verified: zero X-Amz URLs in live HTML). The pipeline works; the normal
+flow spawns `asset-deployer` with storage env injected, which is why robot-hands/idea.uk
+serve. My standalone hand-trigger failed only because it skipped that injection.
+
+**Imagery cogitation, for the owner's three questions:**
+- *"agent-chassis must not have the creds / the S3 client should as per adapters"* —
+  half right. agent-chassis DOES carry AWS+B2 creds; what it lacks is `IMAGE_BUCKET`,
+  which is the intended design (`107_image_build_handler.sql:725`). Deploys run in a
+  spawned storage-enabled `asset-deployer` that gets the bucket injected. Nothing to fix.
+- *"images used to work without a presigned url — find that path"* — found. It's the
+  git-committed `/assets/images/...` path served by the **Cloudflare worker**
+  (`scripts/cloudflare/worker.js`), which re-signs each B2 GET server-side. That IS the
+  durable path, and it's the current correct design. idea.uk's 18 durable rows were a
+  one-shot `w9_04` backfill that flipped the stale `url` column to the git path the
+  deployer had already committed.
+- *"make the presigned URLs not expire — better control?"* — not possible. Presigned
+  URLs use SigV4, which caps expiry at 604800s (7 days) — that's why it's exactly 7 days,
+  it's the ceiling, not a setting. The bucket is private, so a bare public URL won't work
+  either. Durability must come from the git-commit + worker path, which already exists.
+  My recommendation: treat the presigned URL as a throwaway source handle (never stored
+  in HTML — it already isn't), and optionally generalise the `w9_04` url-flip so the
+  `assets.url` column stops looking alarming. Cosmetic, low priority.
+
+**Palette (L3) — looked hard, and the owner's memory was right AND wrong.** The WCAG
+code (`color_util.go`: relativeLuminance, wcagContrastRatio, pickReadableOnBackground)
+is real and correct. But it is wired into only two narrow places — section-text defaults
+(loose 3.0/2.0 thresholds) and stripping forced text colours from component HTML (AA 4.5)
+— and **neither ever checks the specialised palette slots** (card_bg, header_bg, cta_bg/
+cta_text). So the exact slots that leak (white cards, navy header, blue CTA) have never
+had a deterministic contrast gate; only the LLM `visual-design-auditor` ever "looked",
+and its fixers structurally can't rewrite a palette slot, so the leak survived every
+pass. The live path hasn't drifted — the check was never wired to specialised slots.
+Root cause of the leak (fully code+data verified): `buildPaletteMap` lets design_spec win
+the 8 core slots but the theme palette win every specialised slot, and leopardess shares
+the `professional-dark` seed palette (4 sites) with no fork of its own.
+
+**So I did the fork the platform way, but added the missing check by hand.** Designed a
+dark-chrome/light-reading palette (A4) and hit a real accessibility problem the owner was
+right to worry about: **bright gold #C8A951 as link text on the light reading surface
+fails AA badly (2.14 vs 4.5).** Solved it with a two-tone system (A10): bright gold stays
+on dark chrome (header/hero/CTA, 8.56), bronze #836E32 for links on light (4.67–4.95, AA).
+Ran ALL 15 reader-experienced pairs through the platform's own WCAG formula — including
+the nav/footer hover states where bronze lands on dark — **all pass.** Contrast table in
+`scripts/` alongside `L3_fork_palette.sql`.
+
+Applied the fork: new leopardess-owned `palettes` + `css_themes` + `style_collections`
+rows (cloning the seed's layout a9001f12, typography 31fc3a77, header e99b0dfa, footer
+09034086 — only the palette differs), repointed `sites.style_collection_id`. **Verified
+the 3 sites that shared the seed (finetuning.uk, gaswholesalers.com,
+ai-agent-orchestration.com) are untouched and the seed palette is byte-unchanged.**
+Backups: `bak_leo_stylecollection_20260710`. Two failed applies first (both rolled back
+cleanly, verified): a jsonb `dimensions` type earlier, and here a NOT-NULL `css_content`
+on css_themes — cloned the seed's as a placeholder (regenerated at render).
+
+**Deliberately did NOT re-render/deploy the CSS.** Per the plan, L3/L4/L5 are DB changes,
+then ONE coherent re-render at L9 — so the site doesn't flip to a half-done state. The
+fork is the source-of-truth change; it's invisible until L9. Also confirmed the render
+will be deterministic if triggered with no design_spec (specPalette empty → palette fully
+determines output).
+
+Gap flagged for the platform (not fixed here): **nothing stops a fork shipping an
+inaccessible palette** — the WCAG primitives exist but aren't called at generation/fork/
+install/render for specialised slots. Adding that gate is small (the math is already in
+`color_util.go`) and would have caught this class of bug automatically. Noted for the
+imagery/design workstream.
+
+Also noted from a new memory (chassis-build-deploy-practice): deploying the A6 routing
+change is a Makefile build-from-local-filesystem, verify against the pod not git — relevant
+when L6 imagery needs it.
+
+Next: H1 answered (keep "Founder and engineer", no name — already matches the spec). L4
+(layout: 3-per-row / no orphans) and L5 (content/copy), then L9 the coherent re-render
+that makes the palette, logo, favicon/OG, and content all go live together.

@@ -1055,6 +1055,42 @@ do not fire fix-proposer before the image lands). **Run 5** measures F0.6 +
 fair-share on the benchmark; then fix-proposer fires on run 4/5's CONFIRMED
 correlation for the first plan.
 
+### Turn 16 (2026-07-10) — ★ RUN 5 SCORED (F0.6 + fair-share all verified); fix-proposer's first run failed usefully
+
+**RUN 5** (`guides-nav-benchmark-r6`, corr `e08c5b01-01ef-42ad-80d0-b77c50ec9e84`,
+v1.0.1104): **CONFIRMED in 2 iterations (~9.5 min) under the strictest gate
+stack yet** — and run 4's verdict would not have survived it. Every F0.6
+objective observed in the output:
+- Both control clauses arrive **[context]** with honest "no data to verify"
+  text — the run-4 grade-inflation defect is gone.
+- **Fair-share worked end to end**: `loadPagesForNav` in iteration 1's sibling
+  list (per-file "+N more" markers present), the file pulled into scope by
+  iteration 2, and — first time in five runs — the verdict carries **static
+  citations from nav-generation code**: `classifyPagesForNav`'s child-page
+  skip and its `childPrefixes` list (which is why guide sub-pages are excluded
+  from nav). New evidence angle too: `page_components` = 0 rows for the page.
+- Coverage now six entries: four [explained] with cites, two [context].
+  Must-claim 4's precise line (`loadPagesForNav`'s `status`-not-`build_status`
+  filter) still not cited verbatim — right file, adjacent mechanism — scored
+  PARTIAL, honestly. Run arc: wrong → half → honest abstention → covered →
+  **covered under a stricter gate with nav code in evidence**.
+
+**FIX-PROPOSER first firing — refused its own plan, for the right reason,
+with two real defects found:**
+1. The propose step's `max_tokens: 4000` truncated the plan mid-JSON-string
+   (10 open braces, 9 closed; cut at "WHERE function LIKE"). Fixed live:
+   snapshot `f9d90a2d`, max_tokens → 8000.
+2. `diagnose_persist_fix_plan` assumed `proposal.result` is a parsed map;
+   `execute_llm_prompt` stores a raw STRING when the model's JSON does not
+   parse. Patched with the same map-or-string defence as decodeAnalysisOutput
+   (`planBytes`: fences stripped, string passed to the validator) plus a
+   truncation-specific error message; tests added; rides the next image.
+   With max_tokens fixed, valid JSON arrives as a map, which the DEPLOYED
+   binary already handles — so the retry needs no deploy.
+The failure chain itself is a good sign: a truncated plan was REFUSED by the
+validation gate rather than persisted — exactly the fail-closed behaviour
+F1.1a promised. Retry in flight on the same correlation.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

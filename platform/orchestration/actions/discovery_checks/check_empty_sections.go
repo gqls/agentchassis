@@ -8,6 +8,14 @@
 //   - SQL excludes blog/blog-index pages (handled by check_empty_blog.go)
 //   - Skips locked components (locked_at IS NULL filter)
 //     Human-locked components are intentionally managed — don't flag them.
+//   - Runtime-fill guard (2026-07-10): a section marked data-runtime-fill is
+//     DELIBERATELY empty at build time — a browser-side loader fills it (same
+//     exemption as sectionHasVisibleContent in rerender_single_page_action.go).
+//     Its empty <h2> etc. are the shell the loader populates; routing it to
+//     page-build-handler would bake build-time copy into the shell. First live
+//     catch: vonc.com's provocation-card and lobby-grid, flagged as
+//     'empty_heading' the first pass after enabling the new checks. Reported as
+//     findings, never emitted.
 //
 // Registration: automatic via init() → Register(&EmptySectionsCheck{})
 
@@ -45,6 +53,23 @@ func (c *EmptySectionsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, erro
 	}
 
 	for _, section := range sections {
+		// Runtime-fill shell: deliberately empty at build time; a loader fills it
+		// in the browser. Surface it, never send it to the writer.
+		if section.IsRuntimeFill {
+			dctx.Logger.Info("empty_sections: runtime-fill shell exempt from rebuild",
+				zap.String("page", section.PageName),
+				zap.String("slot", section.SlotName),
+				zap.String("pattern", section.EmptyPattern))
+			result.Findings = append(result.Findings, map[string]interface{}{
+				"check":     "empty_sections",
+				"page":      section.PageName,
+				"slot_name": section.SlotName,
+				"skipped":   true,
+				"reason":    "data-runtime-fill shell — empty by design, filled client-side",
+			})
+			continue
+		}
+
 		specJSON, _ := json.Marshal(map[string]interface{}{
 			"check":              "empty_sections",
 			"component_id":       section.ComponentID,
@@ -89,6 +114,7 @@ type emptySectionFinding struct {
 	ComponentFunction string `json:"component_function"`
 	HTMLLength        int    `json:"html_length"`
 	EmptyPattern      string `json:"empty_pattern"`
+	IsRuntimeFill     bool   `json:"is_runtime_fill"`
 }
 
 func findEmptySections(dctx DiscoveryCheckContext) ([]emptySectionFinding, error) {
@@ -103,7 +129,8 @@ func findEmptySections(dctx DiscoveryCheckContext) ([]emptySectionFinding, error
 		           WHEN pc.rendered_html ~* '<(h[1-6])[^>]*>\s*</\1>' THEN 'empty_heading'
 		           WHEN pc.rendered_html ~* 'class="section[^"]*">\s*</div>' THEN 'empty_container'
 		           ELSE 'near_empty'
-		       END
+		       END,
+		       COALESCE(pc.rendered_html, '') LIKE '%data-runtime-fill%'
 		FROM page_components pc
 		JOIN pages p ON pc.page_id = p.id
 		LEFT JOIN content_components cc ON pc.component_id = cc.id
@@ -132,7 +159,7 @@ func findEmptySections(dctx DiscoveryCheckContext) ([]emptySectionFinding, error
 	for rows.Next() {
 		var f emptySectionFinding
 		if err := rows.Scan(&f.ComponentID, &f.PageID, &f.PageName, &f.SlotName,
-			&f.ComponentFunction, &f.HTMLLength, &f.EmptyPattern); err != nil {
+			&f.ComponentFunction, &f.HTMLLength, &f.EmptyPattern, &f.IsRuntimeFill); err != nil {
 			dctx.Logger.Warn("Failed to scan empty section", zap.Error(err))
 			continue
 		}

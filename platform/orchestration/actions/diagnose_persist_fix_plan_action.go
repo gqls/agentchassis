@@ -92,7 +92,7 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 	if raw == nil {
 		return nil, fmt.Errorf("no plan found at %q", planField)
 	}
-	planJSON, err := json.Marshal(raw)
+	planJSON, err := planBytes(raw)
 	if err != nil {
 		return nil, fmt.Errorf("plan not serialisable: %w", err)
 	}
@@ -104,6 +104,12 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 
 	var plan fixPlan
 	if err := json.Unmarshal(planJSON, &plan); err != nil {
+		// The first live run (ed164fed, 2026-07-10) failed here twice over: the
+		// proposal hit max_tokens and arrived TRUNCATED, so execute_llm_prompt
+		// stored the raw string instead of a parsed map. Say which failure this is.
+		if !json.Valid(planJSON) {
+			return nil, fmt.Errorf("plan JSON is invalid — likely truncated at the propose step's max_tokens; raise it or shrink the plan: %w", err)
+		}
 		return nil, fmt.Errorf("plan does not match the fix-plan schema: %w", err)
 	}
 	if problems := validateFixPlan(plan, datahelpers.GetIntField(params.StepConfig.Config, "max_edits", 8)); len(problems) > 0 {
@@ -146,6 +152,25 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 		"files":      files,
 		"summary":    plan.Summary,
 	}, nil
+}
+
+// planBytes coerces the proposal to JSON bytes whichever shape it arrived in:
+// a parsed map (execute_llm_prompt's output_format=json happy path) or a raw
+// string (what it stores when the model's JSON did not parse — code fences or
+// truncation). Same map-or-string defence as decodeAnalysisOutput.
+func planBytes(raw interface{}) ([]byte, error) {
+	switch v := raw.(type) {
+	case string:
+		s := strings.TrimSpace(v)
+		s = strings.TrimPrefix(s, "```json")
+		s = strings.TrimPrefix(s, "```")
+		s = strings.TrimSuffix(s, "```")
+		return []byte(strings.TrimSpace(s)), nil
+	case []byte:
+		return v, nil
+	default:
+		return json.Marshal(raw)
+	}
 }
 
 // validateFixPlan is the structural gate between the LLM's output and the

@@ -2480,3 +2480,18 @@ Tasks 3 AND 4 both proven in production. Remaining: deploy the chunk fix →
 `tool_docs` KB rows. Then Stage 5 (Tier-2 anchor checker) and Stage 6
 (Tier-4 runner) — now with doubled evidence they are the missing layer.
 Categories: (position)
+
+### TASK 6 CLOSED — index_plan proven on the fixed binary (`05d1fc97`)
+v1.0.1104 verified carrying the chunkContent fix (commit `2654d0d1`; tests in
+`7813f3eb`) → 141 moved into sql_for_agents/ and applied via the runner
+(snapshot, UPDATE 1, pipeline note, guard, COMMIT) → 085 re-fired with
+SPEC_FUNCTION=tool-drop-rate-tuner (same-line env prefix; banner tell checked).
+COMPLETED at `complete`, empty err, **pod 0 restarts** (28Mi after). `index_plan`
+took ~5.5s (14:03:06.9 → 14:03:12.5Z) and wrote the **FIRST
+`knowledge_base` `collection='tool_docs'` rows: 4 chunks, 4 embeddings**
+(731–976 chars from the 2,904-char PLAN). The crashed run's 3,010-char PLAN
+superseded cleanly (write_doc_plan supersede tx, unattended). The step that
+killed two pods is a five-second no-event. **Phase A of travelling docs is
+proven end-to-end, including the derived index.** Next front: Stage 5 (Tier-2
+anchor checker), Stage 6 (Tier-4 runner), and the two `planned` tool pages.
+Categories: (proof, position)

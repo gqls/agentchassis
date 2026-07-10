@@ -65,41 +65,58 @@ project: **no claim ships unless it has a row in this table.**
 | D5 | **Near-total absence of imagery.** | `assets`: leopardess = **3** (all broken). robot-hands.com = **41**. No `site_plan_imagery` rows. No favicon, no OG cards, no card images, no infographics. |
 | D6 | **`design_intent` contradicts itself.** | `style_direction: "professional-dark"` and a `colour_mood` describing "deep charcoal and near-black backgrounds", but `color_scheme.background = "#ffffff"` and `text = "#333333"`. The rendered site follows the light `color_scheme`; the prose describes a dark site that does not exist. |
 | D7 | **`brand_assets`, `deploy_config`, `logo_url`, `github_repo` are all empty** on the site row. Two sibling sites (finetuning.uk, gaswholesalers.com) do set `logo_url = /assets/images/logo.png` — that is the working convention to follow. **RESOLVED 2026-07-10**: `logo_url` now set. |
-| **D8** | **PLATFORM-WIDE: image asset deployment is broken. `deploy_image_asset` can never succeed on `agent-chassis`.** | `platform/agentbase/agent.go:294` only builds a storage client when `IMAGE_BUCKET` is set, logging *"Storage client not configured (IMAGE_BUCKET not set)"*. The `agent-chassis` deployment has `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` but **no `IMAGE_BUCKET`, `S3_ENDPOINT` or `S3_REGION`** (those are literal env vars on `image-generator-adapter`, and live in the `storage-config` configmap + `personae-storage-secrets`, neither of which `agent-chassis` references). So `deploy_image_asset_action.go:147` returns `storage client not available`. **Verified by running it:** triggering `asset-deployer` for this site produced `orchestration_states.status = FAILED`, `error = "step deploy_asset failed: failed to execute action deploy_image_asset: storage client not available"`. |
+| **D8** | **CORRECTED 2026-07-10 — I overstated this. The image pipeline is NOT broken; images serve durably. My "83 assets on a 7-day timer / testbed logo 404s" claim was wrong.** | See the correction below. What is genuinely true is much narrower. |
 
-### D8's blast radius (measured, 2026-07-10)
+### D8 — the accurate version (after re-investigation)
 
-| Fact | Value |
-|---|---|
-| Active assets platform-wide | **102** |
-| …with a durable git path (`/assets/…`) | **19** (18 of them `idea.uk`, 1 the leopardess logo landed today) |
-| …with an **expiring presigned URL** | **83** |
-| …with a non-empty `storage_path` | 19 |
+I made two mistakes in the first version of D8 and want them on the record, because
+the whole project runs on "verify by artifact, never by report" and I violated it.
 
-`/assets/images/logo.png` returns **404 on five of six sites checked** (robot-hands.com,
-vonc.com, idea.uk, dartsonline.com, gaswholesalers.com); only finetuning.uk serves one,
-from an older deploy route.
+**Mistake 1 — a meaningless test.** I tested `/assets/images/logo.png` on six sites and
+saw 404s. But **those sites have no `logo` asset at all** (robot-hands' assets are
+`hero`, `hero_home`, `icon_*`, …; no `logo`). I was curling a path nothing was ever
+deployed to. When I test the paths that *do* exist — `hero.jpg`, `hero-home.jpg`,
+`icon-cycle-time.jpg` — **they all return HTTP 200.** Robot-hands' images work.
 
-**This directly contradicts the imagery programme's premise.**
-`PLAN_imagery_best_in_class.md` states the imagery pipeline is "verified end-to-end …
-`asset-deployer` commits optimised images to the site's git repo." It does not, and
-cannot, in this cluster. **robot-hands.com — the imagery testbed — has 34 active assets,
-every one of them a presigned URL that expires 7 days after signing, and its logo 404s.**
-The images on that site are on a timer. This is the same failure that killed the
-leopardess logo (D1); it was never a leopardess-specific problem.
+**Mistake 2 — I misread the presigned URL as a rendering bug.** It isn't. The
+render-time resolver `plan_sections` (`plan_sections_action.go:193, 260, 290`) emits
+`storage.DeployedWebPath(asset_key, purpose)` — the durable git path — and **never reads
+`assets.url`**. Verified against the live HTML: **zero `X-Amz` presigned URLs appear in
+robot-hands' or leopardess' rendered pages.** The presigned URL sitting in the
+`assets.url` column is a stale *source handle*; it is bypassed at render. The 83
+presigned rows make the table look alarming but do not break a single page.
 
-**The fix** is one of:
-1. Add `IMAGE_BUCKET`, `S3_ENDPOINT`, `S3_REGION` to the `agent-chassis` deployment
-   (it already has the AWS credentials) — e.g. `envFrom` the `storage-config` configmap,
-   noting its keys are `image_bucket` / `S3-ENDPOINT`, which do **not** match the env
-   names the Go code reads, so explicit `env:` entries are needed. Smallest correct fix.
-2. Or give `asset-deployer` a k8s config that schedules it on a pod that has storage.
+**What is actually true (the narrow, real findings):**
+1. **`deploy_image_asset` fails when run inline on the base `agent-chassis` pod**, which
+   has no `IMAGE_BUCKET` (`agentbase/agent.go:294`, "Storage client not configured").
+   I reproduced this by hand-triggering `asset-deployer` standalone. **But that is not
+   how the pipeline runs it.** `spawn_actions.go` injects `IMAGE_BUCKET` + storage creds
+   into spawned storage-enabled agents (`isStorageEnabledAgent`, incl. `asset-deployer`),
+   and `107_image_build_handler.sql:725` documents exactly this: the base chassis "by
+   design does NOT carry storage env vars," so deploys run in a **spawned** asset-deployer
+   that gets them injected. Proof it works: robot-hands (34 assets, 2026-07-09) and
+   idea.uk (18, 2026-06-21) were generated and committed this way and **serve 200 today.**
+   My standalone trigger failed only because it skipped the spawn-time injection.
+2. **`assets.url` is cosmetically stale for 83 rows** (presigned instead of git path).
+   Fixable by generalising the `w9_04` backfill flip (which idea.uk already got) to all
+   sites — `url = '/assets/images/'||replace(asset_key,'_','-')||'.<ext>'`. **Cosmetic,
+   not urgent**, since render already ignores `url`.
+3. **Leopardess DOES have five genuinely-broken images**, but for a *third* reason,
+   unrelated to both of the above: its homepage `case-studies-grid` references
+   `/assets/images/case-study-01.jpg … 05.jpg`, and those files were **never generated or
+   committed** (they 404). They are part of the fabricated case-studies content that L5
+   removes anyway. The three original brand assets (D1) were separately dead. So
+   leopardess's image problem is "assets never properly produced," a content problem, not
+   a platform pipeline bug.
 
-**Workaround used today** (`scripts/commit_brand_assets.sh`): `deploy_image_asset`'s only
-job after optimising is to publish a commit message to the git-adapter
-(`system.adapter.git.requests`). With correctly sized files already in hand, we send that
-same message directly. Same adapter, same repo, same contract — no storage client needed.
-This is a workaround for one site's brand assets, **not** a fix for the pipeline.
+**Net:** the imagery pipeline works. There is no platform-wide emergency. The imagery
+programme's "verified end-to-end" claim stands. I withdraw the alarm. The one true
+platform nit is the cosmetic `assets.url` staleness (finding 2).
+
+**Note on the logo I deployed today:** using `commit_brand_assets.sh` to send the commit
+straight to the git-adapter was still the *right* call — not because the pipeline is
+broken, but because I was injecting a **specific owner-approved image** rather than
+generating one, so there was no generation step to spawn. The result serves correctly.
 
 ---
 
