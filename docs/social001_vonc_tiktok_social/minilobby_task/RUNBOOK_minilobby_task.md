@@ -18,15 +18,23 @@
 | `page_component_status_drift` check | **SHIPPED** `v1.0.1104`; §3 checks pass |
 | Enable decision | **DONE 2026-07-10** — `page_component_status_drift`, `sectionless_pages`, `component_template_corrupted` added to completeness-discovery-agent; first pass run on vonc; guard fired correctly (3 emit / 2 refuse) |
 | Runtime-fill guard #3 (`check_empty_sections`) | **SHIPPED `v1.0.1105` + PROVEN** — re-ran discovery on vonc; the rejected shell items were NOT re-raised (they sit outside the partial dedup index, so absence is positive proof); both guards logged their exemptions by name in the spawned pod |
-| 3 × `needs_component_regeneration` + 3 × `empty_section` (genuinely corrupted components) + 1 × `needs_rerender` | **OPEN, legitimate** — sit at `detected`; nothing dispatches while improvement-sweep stays disabled (off since 2026-05-02) |
+| 3 × `needs_component_regeneration` + 3 × `empty_section` (genuinely corrupted components) + 1 × `needs_rerender` | **CLOSED 2026-07-10** — manually dispatched via `087` (improvement-sweep still off). All 3 components regenerated; all 3 pages rebuilt with real content; the 2 runtime-fill shells (`provocation-card`, `lobby-grid` on index) **correctly rejected** by the guard, not rebuilt; index reassembled. Live-verified: `/archetypes.html`, `/about.html`, `/index.html` all HTTP 200 with rebuilt sections present and shells intact (`data-runtime-fill="true"`). See RUNNING_NOTES for the dispatch mechanics. |
 | `brief-explanation` `<img src="">` | **OPEN** → imagery workstream |
 | `provocations.json` dead `lobby` key | **OPEN**, trivial |
 
 **This thread's engineering is COMPLETE as of `v1.0.1105` (2026-07-10).** Every check, guard, fixer and
 writer-fix is deployed and artifact-verified. The earlier caution about re-running completeness discovery on
-vonc is **lifted**. What remains is operational: dispatch of the open legitimate items (needs the
-improvement-sweep re-enabled, or manual dispatch), the imagery-workstream `<img src="">`, the dead `lobby`
-key, and the PLAN §4 CHECK-constraint proposal.
+vonc is **lifted**. The 7 legitimate work items were manually dispatched and **all reached terminal state
+2026-07-10** (5 complete, 2 shells correctly rejected) — live-verified. What remains is separate:
+the imagery-workstream `<img src="">`, the dead `lobby` key, and the PLAN §4 CHECK-constraint proposal.
+
+**Dispatch note (2026-07-10):** manual dispatch via `087` needed **five passes** because page-build handlers
+intermittently left items stuck at `claimed` without spawning (survived across the `v1.0.1107` deploy). The
+recovery each time was to reset the stuck row (`status='triaged', claimed_by=NULL, claimed_at=NULL`) and re-run
+`087`. Two `empty_section` items shared one page (`/about.html`, page `a28abcd7`); the first page rebuild
+regenerated **all** its sections, so the second item was redundant and was closed by artifact
+(`build_status='deployed'`, real `rendered_html`) rather than by a second handler run — a page rebuild is
+whole-page, so co-page `empty_section` items are duplicates.
 
 **Build practice (2026-07-10):** images are built from the **local filesystem via the Makefile**; commits are
 at the user's discretion and unrelated to builds — the source of truth for code is local. The Makefile image
