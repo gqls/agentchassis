@@ -1019,4 +1019,38 @@ re-queue) for a correctly-sized (400×400 png), style-guide-aware,
 best-in-class logo. Recommend fresh regen since B6/G1 is about a PERMANENT
 best-in-class mark. Eyeball URL: https://robot-hands.com/assets/images/logo.jpg
 
+## Turn 25 — 2026-07-11 — Favicon + OG card built (I1 tail); I1 now feature-complete pending deploy
+
+**Built (commit — needs next chassis deploy):**
+- `derive_brand_head_assets` action: fetches the locked logo bytes from S3,
+  resizes → `favicon.png` (64×64), composes the logo centred on a
+  brand-palette background → `og-card.png` (1200×630), commits both to the
+  site repo, records provenance asset rows (origin_model='derived-from-logo').
+  Deterministic image processing (nfnt/resize + image/draw) — no LLM. Must
+  run in a storage-enabled agent (asset-deployer). Registered.
+- `render_site_components` injects favicon + OG/Twitter-card `<head>` tags at
+  render time — fleet-wide, idempotent (skips if favicon/og already present),
+  graceful fallback to the logo before favicon.png exists, attrs escaped.
+  Closes the head-metadata gap (head templates had NO favicon/og markup).
+- `ImagePurposes`: favicon (64×64 png), og_card (1200×630 png).
+- Unit tests: parseHexColour (incl. gradient→neutral fallback) + injection
+  (tags present, before </head>, idempotent, escaped). Pass.
+
+**Design choices:** OG card = logo on a solid palette colour
+(header_bg→footer_bg→background→primary→dark default; gradients rejected —
+OG needs a solid). Favicon = square resize of the logo. Both literally
+"derived from the logo" per G8; the head injection is deterministic so no
+per-site head-template regeneration is needed.
+
+**I1 status:** with the style guide (Turn 17), logo lock (Turn 24), header
+logo resolution (Turn 23) and now favicon/OG, **Phase I1 is feature-complete
+pending deploy.** Post-deploy activation for robot-hands: (1) run
+`derive_brand_head_assets` (site_id+domain) via asset-deployer to commit
+favicon.png + og-card.png; (2) `rerender-pages` refresh_site_components=true
+so the head + header pick up the new tags and the locked logo.
+
+**Next:** post-deploy activation + eyeball; then Phase I2 (sprite-sheet
+bullets — design locked in CONTEXT_PACK_imagery_sprite_sheet.md) or I3 (card
+imagery / Lane B). Leaning I2 (smaller, self-contained, immediately visible).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

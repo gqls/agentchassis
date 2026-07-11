@@ -130,11 +130,21 @@ inert until then. After deploys: clear zombies, re-trigger interrupted loops.
 3. **B6 logo — ✅ APPROVED + LOCKED (Turn 24, user chose existing logo).**
    assets.logo (May-8, purpose='hero' — LEFT AS-IS so DeployedWebPath
    resolves to the deployed logo.jpg) is locked (locked_at,
-   lock_type=permanent, locked_by=user-b6-approval). REMAINING: (a) the
-   header fix (commit b00c150b) needs the NEXT CHASSIS DEPLOY, then
-   `rerender-pages` with refresh_site_components=true → logo shows in header;
-   (b) favicon + OG card derived from the locked logo (Phase I1 tail —
-   NOT YET BUILT).
+   lock_type=permanent, locked_by=user-b6-approval).
+4. **I1 is now FEATURE-COMPLETE pending deploy** — style guide, logo lock,
+   header logo resolution, and favicon/OG derivation all built. Two Go
+   commits await the NEXT CHASSIS DEPLOY: header logo (b00c150b) and
+   favicon/OG (derive_brand_head_assets + head injection). POST-DEPLOY
+   ACTIVATION for robot-hands, in order:
+   a. Trigger `derive_brand_head_assets` via a storage-enabled agent
+      (asset-deployer) with {site_id, domain} — commits favicon.png +
+      og-card.png. (kcat orchestrate → asset-deployer with an inline
+      workflow calling the action, OR add a step; see Turn-18 trigger
+      pattern.)
+   b. `rerender-pages` with refresh_site_components=true → head gets the
+      favicon/OG tags, header gets the locked logo.
+   c. Eyeball: logo in header, favicon in the tab, OG card on a link
+      preview (or view-source the injected <head>).
 4. Remaining I0 stragglers: wire the Lucide validator; orphan old-page
    cleanup (how-it-works, selection-guide, learning-center sprawl).
 5. Optionally trigger improvement-loop for finetuning.uk / vonc.com /
