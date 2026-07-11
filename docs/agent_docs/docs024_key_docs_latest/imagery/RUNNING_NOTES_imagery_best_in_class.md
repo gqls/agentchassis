@@ -981,4 +981,42 @@ header → logo live.
 falling); 3 needs_imagery + 36 rerenders still queued behind by priority —
 the I1 acceptance evidence arrives when those imagery items generate.
 
+## Turn 24 — 2026-07-11 — Drain done; I1 acceptance PROVEN (icons); logo reality clarified; B6 decision teed up
+
+**Auth note:** kubectl token expired overnight (A1 ritual); user re-authed.
+The "plateau at 43" from the prior watch was the watch's own queries
+degrading as auth lapsed — NOT a stall. The queue fully drained overnight.
+
+**✅ I1 GENERATION ACCEPTANCE — PROVEN.** Three section icons generated
+overnight (icon_vendor_neutral, icon_cross_technology, icon_integrated_tools)
+show textbook style-guide gating in `assets.origin_prompt`:
+- palette present ("charcoal") ✓, medium ABSENT ("industrial photography"
+  not prepended) ✓ — exactly `directionForKind`'s icon rule (palette-only),
+- routed to `banana/gemini-3-pro-image-preview` ✓ (kind routing).
+The style guide reaches the model and gates correctly per kind. (Full
+photographic-voice on a hero is the same default code path; a fresh hero/
+illustration would show medium+mood+palette — deferred, not required.)
+
+**Logo reality (corrected — I mis-tested the extension AGAIN):**
+- `robot-hands.com/assets/images/logo.jpg` serves **200** (I'd checked .png).
+  A real logo IS deployed.
+- BUT the header renders the text mark because it reads the empty
+  `sites.logo_url`; the Turn-23 header fix (resolve from plan imagery via
+  DeployedWebPath) closes this — and derives `logo.jpg` correctly because it
+  uses the asset's actual purpose. NEEDS NEXT CHASSIS DEPLOY.
+- The logo asset is the **May-8 generation** (origin_model banana, but
+  purpose='hero' — the old purpose-field bug; hero-dimensioned; predates the
+  style guide). My queued B6 item completed as a NO-OP (image-build-handler
+  skipped — asset already existed).
+
+**Cleanup:** closed 2 stale `failed` needs_imagery rows (hero_home,
+brand_hero_canonical) from 2026-05-17 — pre-SDXL-snap-fix residue; their
+assets exist and render.
+
+**B6 DECISION FOR USER (blocking the logo close-out):** approve the existing
+May-8 logo as-is, OR force a fresh regeneration (deactivate current asset →
+re-queue) for a correctly-sized (400×400 png), style-guide-aware,
+best-in-class logo. Recommend fresh regen since B6/G1 is about a PERMANENT
+best-in-class mark. Eyeball URL: https://robot-hands.com/assets/images/logo.jpg
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
