@@ -1436,6 +1436,54 @@ tx; step graph verified — 19 steps, defined == referenced):**
 the first unknown action; old workflow on the new binary is harmless. The §1
 constraint block alone is safe any time.
 
+### Turn 23 (2026-07-11) — v1.0.1108 deployed (second attempt); F2.3 PROVEN live; new defect: reviewers hallucinate schema
+
+**First "deploy" was a same-tag trap.** Owner reported the chassis deployed;
+pod-level verification said otherwise: pod restarted on tag v1.0.1107 with a
+binary dated Jul 10 16:03 — `grep -ac` on /proc/1/exe found 0 hits for
+diagnose_run_checks / should_reframe / the orchestration-scoped count (control
+string diagnose_council_decide: 5 hits, so the method is sound). Cause: the
+makefile's `IMAGE_TAG ?= v1.0.1107` was never bumped; `rollout restart` on an
+unchanged tag reuses the node's cached image. **Gotcha (reinforces the memory
+rule): verify deployed contents against the POD binary, never the tag, never
+git.** Rebuilt as v1.0.1108 → verified in-pod (all four strings present,
+binary Jul 11 17:13) → v4 seed applied (snapshot taken; router/verify/reframe/
+escalate live; kind CHECK includes escalation) → settle window honoured → fired.
+
+**Run `823b539f` (2026-07-11 20:13–20:20) — the v4 stack end-to-end:**
+- **Round-scoping fix PROVEN in production.** The 3 stale council reports were
+  deliberately LEFT on the correlation as a live regression test. The run went
+  the full 3 rounds (3 own plans, 3 own reports, exhausted at cap) — the old
+  per-correlation counting would have exhausted instantly at "round 4" with
+  zero repropose.
+- **Router took the designed path**: council_decide → check_approved →
+  check_rejected → check_revise → run_checks → repropose (×2 revise rounds) →
+  … → escalate → complete_escalated. `should_reframe` computed (false — no
+  veto this run; reframe path remains unit-tested only).
+- **Verify step ran 7 reviewer checks** under the containment. Two landed with
+  real evidence: the fleet-wide section-component enumeration (15 rows — the
+  exact blast-radius fact the guardian had demanded across THREE prior runs)
+  and a routine_name probe (0 rows, eliminating DB-registered action-name
+  variants). Failures returned as feedback lines, not crashes.
+- **Escalation package persisted** (kind=escalation): reason=exhausted,
+  decided_by, round=3, diagnosis conclusion, final plan, both reviews. The
+  dead-end is now a hand-off.
+- Terminal: COMPLETED at complete_escalated. The loop's honest outcome for
+  this bug remains "needs a human" — now with the evidence attached.
+
+**NEW DEFECT (the run earned its keep): 5 of 7 checks failed on hallucinated
+schema** — reviewers wrote SQL against columns/tables that don't exist
+(`p.domain`, `calling_context`, `agent_workflow_steps`). Root cause: reviewer
+prompts carry diagnosis+plan but NO schema section (the diagnosis loop's
+data_requests work precisely because the bundle carries Schema). One reviewer
+also knowingly asked a Go-source question SQL cannot answer ("how many times is
+defaultSectionsForPage called") — code-shaped checks need the code corpus, not
+the DB. **F2.3b candidates**: (a) compact schema hint (table:columns for the
+allowlisted tables) in reviewer prompts; (b) failed checks already flow back in
+results_text, so the NEXT round's reviewers can correct their SQL — verify this
+self-correction actually happens; (c) a tier-2 check type routed at
+lookup_code_symbols for code-shaped questions. Not built; recorded.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys
