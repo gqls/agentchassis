@@ -2631,3 +2631,32 @@ Exit test after deploy: §2.15 smoke — hand-produced run_checks against one li
 tool page → response with in_response_to_request_id + status=complete + results
 matching manual inspection. Then the tool-acceptance-agent orchestrator.
 Categories: (build, adapter)
+
+## Session log — 2026-07-11
+
+### Docker build 404 → dead CDN → v0.6100.0 via its declared path; Tier-4 core PROVEN live
+User's image build failed at the driver download: playwright.azureedge.net
+(and its akamai/verizon mirrors) are DECOMMISSIONED — every playwright-go tag
+through v0.6000.0 hardcodes them. The only tag with the fix (v0.6100.0,
+driver 1.61.1, installs from registry.npmjs.org + nodejs.org/dist instead) has
+a broken go.mod: it declares the project's PRE-RENAME path
+github.com/mxschmitt/playwright-go (upstream release accident; confirmed on
+the raw tag). A replace directive hits "used for two different module paths",
+so the clean route is requiring/importing the module under its DECLARED path:
+go.mod now requires github.com/mxschmitt/playwright-go v0.6100.0 and
+run_checks_action.go + the dockerfile CLI build line import that path (swap
+back when upstream ships a fixed tag — noted at both sites). Build + unit
+tests pass unchanged.
+
+Proof before the user rebuilds: (1) the exact image install command ran
+locally — driver via npm + Chrome Headless Shell 149 downloaded, exit 0;
+(2) NEW env-gated integration test (integration_test.go, BROWSER_RUNNER_IT=1)
+drove REAL headless Chromium against the live xp-curve page: status HTTP 200 ✓,
+boots ✓, **rows: 20 elements match #tableWrap tr in the live DOM ✓ — the
+JS-built assertion the whole tier ladder was argued from**, console clean ✓,
+negative control (#definitely-not-here) correctly fails ✓. 4.7s. The Tier-4
+core is proven against production reality before the image exists.
+Lesson banked: pin dependencies by their DECLARED module path, and when a
+download URL 404s, suspect a dead CDN before a wrong version — check what the
+newest tag does differently.
+Categories: (fix, gotcha, proof)
