@@ -1114,7 +1114,19 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	"diagnose_council_decide": {
 		Handler:     DiagnoseCouncilDecideAction,
 		Category:    "diagnose",
-		Description: "Deterministic council decision over the fix-plan reviewers' verdicts (veto→rejected, object→revise, else approved; hard_veto_from honored); persists kind=council_report",
+		Description: "Deterministic council decision over the fix-plan reviewers' verdicts (veto→rejected, object→revise, else approved; hard_veto_from honored); persists kind=council_report; sets should_revise/should_reframe for the decision router",
+		IsLocal:     true,
+	},
+	"diagnose_run_checks": {
+		Handler:     DiagnoseRunChecksAction,
+		Category:    "diagnose",
+		Description: "Run the council reviewers' read-only verification queries (checks: [{sql,why}]) under the data_request containment (lint, READ ONLY tx, EXPLAIN gate, capped rows) and hand results to the next repropose",
+		IsLocal:     true,
+	},
+	"diagnose_escalate": {
+		Handler:     DiagnoseEscalateAction,
+		Category:    "diagnose",
+		Description: "Persist the human hand-off package (kind=escalation: decision + diagnosis + final plan + reviews) when the council rejects or the revise budget exhausts; a first-class success terminal, not a failure",
 		IsLocal:     true,
 	},
 

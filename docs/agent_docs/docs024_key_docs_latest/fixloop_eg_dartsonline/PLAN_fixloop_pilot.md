@@ -323,6 +323,34 @@ rubber-stamped nor dead-ended. Full record: NOTES turn 19.
 Cap 2 terminates; a fresh plan each round converges. Verified closed; 5-case
 cap test.
 
+**F2.3 DECISION ROUTER + VERIFY + REFRAME + ESCALATION — ✅ CODE BUILT
+2026-07-10 (turn 22); rides the next image with the round-scoping fix; v4 seed
+ready, apply AFTER that image.** Motivated by the two clean benchmark runs:
+`8c770fd5` (guardian hard-veto → rejected at round 1 — correct, but a silent
+dead-end) and `aadd532a` (3 rounds, editquality converged to approve, guardian
+down to "containable by pre-deploy audit queries" — exhausted one verification
+short of approval). Four pieces:
+1. **Router** (thin conditionals in workflow v4): approved→complete;
+   revise(rounds left)→run_checks→repropose; rejected(first)→reframe;
+   rejected(again)/exhausted→escalate. Flags computed deterministically in Go
+   (`applyCouncilCaps`, extracted pure + tested, 8 cases).
+2. **Verify step** (`diagnose_run_checks`): reviewers attach
+   `checks:[{sql,why}]`; executed under the diagnosis data_request containment
+   (IsReadOnlySQL lint → READ ONLY tx → statement_timeout → EXPLAIN gate →
+   capped rows — pure reuse of `runDataRequests`); results feed the next
+   repropose so fact-shaped objections are settled with evidence.
+3. **Reframe-once** (`should_reframe`: first rejection with rounds left): a
+   veto means the SHAPE is wrong — reproposing it gets vetoed again. One
+   reframe: strictly narrower (site-scoped interim allowed IF risks names the
+   deferred structural fix) or an explicit needs-architecture-review plan.
+   Rejected-count sourced from council_report metadata; fails CLOSED to
+   escalate.
+4. **Escalation** (`diagnose_escalate`, kind='escalation'): rejected/exhausted
+   become a first-class SUCCESS terminal persisting the hand-off package
+   (decision + diagnosis + final plan + reviews, whose notes carry the
+   reviewer's recommended alternative). F1.1b(c)'s PR body will carry it.
+DEPLOY ORDER: chassis image (> v1.0.1107) → v4 seed → fire. v4 max_rounds=3.
+
 **Next — F1.1b(c): branch + PR behind the write token.** Now unblocked in
 principle (an approved plan is reachable once the revise loop runs on the next
 image). Design recap: separate `fix-implementer`, gated on

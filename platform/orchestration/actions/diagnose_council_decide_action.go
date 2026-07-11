@@ -20,6 +20,10 @@
 // returned so the workflow can route on it. Like the plan-persist action and
 // unlike the bundle write-through, a malformed reviewer verdict FAILS the
 // step: a council that cannot read its reviewers must not wave a plan through.
+//
+// F2.3 adds the routing flags for the decision router: should_revise (revise
+// with rounds left → repropose), should_reframe (first rejection with rounds
+// left → ONE narrower replan before escalating). See applyCouncilCaps.
 package actions
 
 import (
@@ -159,15 +163,26 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		logger.Warn("diagnose_council_decide: round count failed; treating as round 1", zap.Error(err))
 		round = 1
 	}
-	maxRounds := datahelpers.GetIntField(params.StepConfig.Config, "max_rounds", 2)
-	// Only a 'revise' decision with rounds left loops back; 'exhausted' is a
-	// revise that ran out of rounds — terminal, and named so the human sees the
-	// loop gave up rather than approved.
-	shouldRevise := decision == "revise" && round < maxRounds
-	if decision == "revise" && !shouldRevise {
-		decision = "exhausted"
-		decidedBy = fmt.Sprintf("%s — revise cap reached (%d rounds)", decidedBy, maxRounds)
+
+	// F2.3 reframe-once bookkeeping: how many of THIS RUN's reports (the one
+	// just written included) were REJECTED? The persisted metadata carries the
+	// raw decision, so 'rejected' is queryable directly. Fail CLOSED on a count
+	// error: a failure must not grant extra LLM rounds — the safe terminal is
+	// escalation (a human sees the package), not another reframe.
+	rejectedCount := 0
+	if decision == "rejected" {
+		if err := params.DB.QueryRowContext(ctx,
+			`SELECT count(*) FROM diagnosis_artifacts
+			 WHERE correlation_id = $1 AND kind = 'council_report'
+			   AND orchestration_id = $2 AND metadata->>'decision' = 'rejected'`,
+			corr, nullIfEmpty(params.ExecutionContext.OrchestrationID)).Scan(&rejectedCount); err != nil {
+			logger.Warn("diagnose_council_decide: rejected count failed; treating reframe as spent", zap.Error(err))
+			rejectedCount = 2
+		}
 	}
+
+	maxRounds := datahelpers.GetIntField(params.StepConfig.Config, "max_rounds", 2)
+	decision, decidedBy, shouldRevise, shouldReframe := applyCouncilCaps(decision, decidedBy, round, maxRounds, rejectedCount)
 
 	logger.Info("diagnose_council_decide: decided",
 		zap.String("correlation_id", corr),
@@ -175,15 +190,39 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		zap.String("decided_by", decidedBy),
 		zap.Int("reviewers", len(reviews)),
 		zap.Int("round", round),
-		zap.Bool("should_revise", shouldRevise))
+		zap.Bool("should_revise", shouldRevise),
+		zap.Bool("should_reframe", shouldReframe))
 
 	return map[string]interface{}{
-		"decision":      decision,
-		"decided_by":    decidedBy,
-		"reviewers":     len(reviews),
-		"round":         round,
-		"should_revise": shouldRevise,
+		"decision":       decision,
+		"decided_by":     decidedBy,
+		"reviewers":      len(reviews),
+		"round":          round,
+		"should_revise":  shouldRevise,
+		"should_reframe": shouldReframe,
 	}, nil
+}
+
+// applyCouncilCaps maps the raw council decision onto the loop's routing flags.
+// Extracted as a pure function so the tests exercise the real mapping.
+//   - revise with rounds left  → should_revise (repropose loop)
+//   - revise out of rounds     → 'exhausted' — terminal, named so a human sees
+//     the loop gave up rather than silently approved
+//   - rejected, FIRST time, rounds left → should_reframe: ONE narrower replan
+//     (F2.3 — benchmark run 8c770fd5's guardian veto was correct, and reproposing
+//     the same shape would be vetoed again; a reframe changes the shape)
+//   - rejected again, or out of rounds  → terminal (workflow escalates)
+//
+// max_rounds bounds TOTAL review cycles: a reframe consumes a round like any
+// other, so revise + reframe together can never exceed the cap.
+func applyCouncilCaps(decision, decidedBy string, round, maxRounds, rejectedCount int) (string, string, bool, bool) {
+	shouldRevise := decision == "revise" && round < maxRounds
+	if decision == "revise" && !shouldRevise {
+		decision = "exhausted"
+		decidedBy = fmt.Sprintf("%s — revise cap reached (%d rounds)", decidedBy, maxRounds)
+	}
+	shouldReframe := decision == "rejected" && rejectedCount <= 1 && round < maxRounds
+	return decision, decidedBy, shouldRevise, shouldReframe
 }
 
 // decideCouncil applies the ordered rules. decidedBy names the rule that fired

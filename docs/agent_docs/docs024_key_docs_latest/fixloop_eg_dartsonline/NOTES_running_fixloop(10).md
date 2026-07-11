@@ -1392,6 +1392,50 @@ plus the decision router turns both observed dead-ends (rejected, exhausted)
 into productive paths: veto→reframe-or-escalate; exhausted-on-verifiable-asks→
 verify-and-continue (or attach the checklist to the escalation package).
 
+### Turn 22 (cont.) — F2.3 BUILT (code + v4 seed; rides the next image)
+
+**Go (all in `platform/orchestration/actions/`, suites green, gofmt clean):**
+- `diagnose_council_decide_action.go`: cap mapping extracted to
+  `applyCouncilCaps` (pure, tested directly — the old test mirrored the logic;
+  now it exercises the real function, 8 cases). Adds `should_reframe` = first
+  rejection with rounds left; rejected-count from council_report metadata
+  (`metadata->>'decision'='rejected'`, orchestration-scoped); count failure
+  fails CLOSED (reframe spent → escalate) — a DB error must not grant extra
+  LLM rounds. `max_rounds` bounds TOTAL cycles: a reframe consumes a round.
+- `diagnose_run_checks_action.go` (NEW): the verify step. Pure reuse of the
+  diagnosis containment — `dataRequestsFromCollected` (same {sql,why} wire as
+  verdict data_requests) + `runDataRequests` (lint → READ ONLY tx →
+  statement_timeout → EXPLAIN gate → capped rows). `max_checks` cap (default 8)
+  with dropped checks NAMED in output. No checks → harmless note.
+- `diagnose_escalate_action.go` (NEW): persists kind='escalation' — reason +
+  decided_by + round + diagnosis conclusion + final plan + both reviews.
+  Council decision missing = hard error (an escalation needs its reason);
+  everything else best-effort with absences named. Persist failure FAILS the
+  step (loud, unlike the bundle write-through: here the artifact IS the
+  outcome).
+- Registry: both actions registered, `IsLocal: true`, category diagnose.
+
+**SQL (`0NN_fix_proposer.sql` → v4, dry-run PASSED on live DB in a rolled-back
+tx; step graph verified — 19 steps, defined == referenced):**
+- kind CHECK gains 'escalation'.
+- Router chain: council_decide → check_approved → check_rejected →
+  check_reframe → check_revise; `complete` is now reachable ONLY via approved.
+- run_checks between check_revise and repropose; repropose prompt gains the
+  verification-results section ("settle objections with these; do not argue
+  with the data").
+- reframe step (veto → narrower plan or explicit needs-architecture-review +
+  minimal interim; site-scoped interim allowed IF risks names the deferred
+  structural fix — constitution: note a knowingly deferred structural fix).
+- Both reviewer prompts: optional `checks:[{sql,why}]` field ("ask rather than
+  assume"); guardian additionally told a veto should name the safest contained
+  alternative in notes (it seeds the reframe).
+- escalate → complete_escalated success terminal; max_rounds 3.
+
+**DEPLOY ORDER (hard):** chassis image (> v1.0.1107, carries round-scoping fix
++ the two new actions) → apply v4 seed → fire. v4 on the old binary fails at
+the first unknown action; old workflow on the new binary is harmless. The §1
+constraint block alone is safe any time.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

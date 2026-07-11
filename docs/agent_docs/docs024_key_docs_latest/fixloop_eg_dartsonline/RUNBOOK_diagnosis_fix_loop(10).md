@@ -540,25 +540,34 @@ unverifiable → F0.6: a `context` disposition + citation-backed `explained`.
 Four-run arc: wrong-confidently → half-right-confidently → honest abstention →
 right-with-declared-coverage. F0 functionally complete bar F0.3.
 
-## CURRENT POSITION — 2026-07-10 (turn 20)
+## CURRENT POSITION — 2026-07-10 (turn 22)
 The read-only diagnosis loop is hardened and the diagnosis→fix chain exists end
 to end on the pilot correlation `e08c5b01`: symptom → 2 bundles → gated
-CONFIRMED (with symptom coverage) → 2 fix plans → council report, all in
+CONFIRMED (with symptom coverage) → fix plans → council reports, all in
 `diagnosis_artifacts`. BUILT: F0 (artifacts table + assemble write-through; 090
 intake trigger; diagnose-dispatch-loop, shipped disabled); F0.4 a/b/c/e (anchor,
 enrichment, siblings, tier guard); F0.4d + F0.6 (symptom-closure + context/cited
 coverage); F0.5 (data_request persistence); F1.1a (fix-proposer + constrained
 plan validation + no-op rejection); F2.1 (2-reviewer council + deterministic
-decision); F2.2 (revise loop, cap 2). OPEN: F0.3 (per-iteration iteration_note
-rows — the table carries the kind, nothing writes it yet); F1.1b(c) (branch+PR
-behind the write token); F3 (bug_records/learning). Q-E/Q-G/Q-H have v1 answers
-inside the council; Q-D hard-veto placement (config vs column) still open.
-Pilot blind spot: must-claim 4 (`loadPagesForNav` filters on `status` not
+decision); F2.2 (revise loop); F2.3 (decision router + verify step + reframe +
+escalation — CODE built turn 22, v4 seed ready; **deploy order: image → v4 seed
+→ fire**). Both clean benchmark runs are graded in NOTES turn 22: `8c770fd5`
+(guardian hard-veto → rejected — correct, exposed the silent dead-end F2.3's
+escalation fixes) and `aadd532a` (3 rounds, editquality converged to approve,
+guardian down to pre-deploy checks — exposed the missing verify step).
+DEPLOY GAP (open until next image): the v1.0.1107 binary counts council rounds
+per CORRELATION, not per orchestration — clear prior council_report rows before
+any fair proposer run (091_TRIGGER header documents this). OPEN: F0.3
+(iteration_note rows); F1.1b(c) (branch+PR behind the write token; escalation
+package feeds its PR body); F3 (bug_records/learning). Q-E/Q-G/Q-H have v1
+answers inside the council; Q-D hard-veto placement (config vs column) still
+open. Pilot blind spot: must-claim 4 (`loadPagesForNav` filters on `status` not
 `build_status`) reached as ADJACENT evidence, never cited verbatim.
 GOTCHAS earned live (all in the gotchas list above): settling-rollout rebalance
 window; `max_tokens` must live inside `ai_service`; `snapshot_agent` writes to
 `_backup`; no relay reader filters work items by pipeline; BST-vs-UTC +
-`last_activity` is `timestamp` not `timestamptz`.
+`last_activity` is `timestamp` not `timestamptz`; per-correlation round
+counting on the deployed binary (fixed in source).
 
 ## HISTORICAL POSITION — 2026-07-09
 F0/F1 design questions all decided (2026-07-07). The pilot bug is **fully

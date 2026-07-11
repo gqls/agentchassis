@@ -1,8 +1,15 @@
--- 0NN_fix_proposer.sql — F1.1a + F1.1b(b) + F2.1 of the diagnosis→fix loop.
--- 2026-07-10 (v3: council revise loop — objections fed back, capped 2 rounds). Renumber 0NN when filing. Applies to clients_db.
+-- 0NN_fix_proposer.sql — F1.1a + F1.1b(b) + F2.1/F2.2/F2.3 of the diagnosis→fix loop.
+-- 2026-07-10 (v4: decision router + verify step + reframe + escalation).
+-- Renumber 0NN when filing. Applies to clients_db.
+--
+-- ██ DEPLOY SEQUENCING (v4) ██ — apply this file ONLY AFTER the chassis image
+-- carrying diagnose_run_checks + diagnose_escalate + the should_reframe council
+-- action is live (> v1.0.1107). A v4 workflow on the old binary fails at the
+-- first unknown action; the old workflow on the new binary is harmless. Order:
+-- image → this file → fire. (The §1 constraint block alone is safe any time.)
 --
 -- Creates: (1) diagnosis_artifacts gains kind='fix_plan' (+ iteration 0 for
---              run-level artifacts);
+--              run-level artifacts) + kind='escalation' (v4);
 --          (2) agent_definitions row `fix-proposer` — a workflow that turns a
 --              CONFIRMED diagnosis into a CONSTRAINED EDIT PLAN, persisted as
 --              an artifact. It writes NO code: the git branch + PR is F1.1b,
@@ -14,13 +21,27 @@
 -- CONFIRMED trustworthy — runs 1 and 2 of the benchmark produced CONFIRMED
 -- verdicts a fixer must never have acted on. The workflow refuses anything
 -- whose diagnosis status is not CONFIRMED.
+--
+-- v4 (F2.3), from the 2026-07-10 benchmark evidence:
+--   * DECISION ROUTER — approved→complete; revise(rounds left)→run_checks→
+--     repropose; rejected(first)→reframe; rejected(again)/exhausted→escalate.
+--   * VERIFY STEP — reviewers attach checks:[{sql,why}] (SELECT/WITH only);
+--     diagnose_run_checks answers them under the data_request containment and
+--     feeds results to repropose. (Run aadd532a exhausted one verification
+--     short of approval; its guardian's blockers were all "containable by
+--     pre-deploy audit queries".)
+--   * REFRAME — a veto means "wrong shape", so reproposing the same shape just
+--     gets vetoed again (run 8c770fd5). One reframe: strictly narrower, or an
+--     explicit "needs architecture review" + minimal safe interim step.
+--   * ESCALATION — a first-class success terminal (kind='escalation'): the
+--     human hand-off package (decision + diagnosis + final plan + reviews).
 
 BEGIN;
 
 -- ── 1. artifacts table: new kind + run-level iteration 0 ─────────────────────
 ALTER TABLE diagnosis_artifacts DROP CONSTRAINT diagnosis_artifacts_kind_check;
 ALTER TABLE diagnosis_artifacts ADD CONSTRAINT diagnosis_artifacts_kind_check
-    CHECK (kind IN ('bundle', 'iteration_note', 'fix_plan', 'council_report'));
+    CHECK (kind IN ('bundle', 'iteration_note', 'fix_plan', 'council_report', 'escalation'));
 ALTER TABLE diagnosis_artifacts DROP CONSTRAINT diagnosis_artifacts_iteration_check;
 ALTER TABLE diagnosis_artifacts ADD CONSTRAINT diagnosis_artifacts_iteration_check
     CHECK (iteration >= 0);
@@ -29,7 +50,7 @@ COMMENT ON COLUMN diagnosis_artifacts.iteration IS
 
 -- ── 2. the fix-proposer agent ────────────────────────────────────────────────
 -- Snapshot first if a live row exists (idempotent re-apply path).
-SELECT snapshot_agent('fix-proposer', 'pre-update: F1.1a re-apply')
+SELECT snapshot_agent('fix-proposer', 'pre-update: v4 — F2.3 decision router + verify + reframe + escalation')
 WHERE EXISTS (SELECT 1 FROM agent_definitions
               WHERE type='fix-proposer' AND is_active
                 AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL);
@@ -43,7 +64,7 @@ INSERT INTO agent_definitions (
 SELECT
     'fix-proposer',
     'Fix Proposer (F1.1a)',
-    'Turns a CONFIRMED diagnosis (by correlation_id) into a constrained edit plan + a council review (edit-quality + guardian reviewers, deterministic decision, revise loop capped at 2 rounds), all persisted to diagnosis_artifacts. Writes no code; refuses non-CONFIRMED diagnoses.',
+    'Turns a CONFIRMED diagnosis (by correlation_id) into a constrained edit plan + a council review (edit-quality + guardian reviewers, deterministic decision). v4 router: approved completes; revise runs the reviewers'' verification checks then reproposes (cap 3 rounds); a first veto reframes once (narrower plan or explicit needs-architecture-review); rejected/exhausted escalate as a first-class hand-off artifact. Writes no code; refuses non-CONFIRMED diagnoses.',
     'diagnose', 'coordinator', 'experimental',
     true, 1, '["diagnose", "fix-planning"]'::jsonb,
     d.image_repository, d.image_tag, d.command, d.resources, d.topics, d.health_config, d.env_vars,
@@ -176,10 +197,11 @@ SELECT
 'You review a proposed fix plan against its diagnosis. You change nothing; you judge.' || chr(10) || chr(10) ||
 'Judge: (a) does every edit CHANGE something real (audits/comments are not edits); (b) does the plan address every mechanism the diagnosis cites — quote any cited mechanism with no covering edit into missing; (c) does each edit target the causal path the diagnosis established, not an adjacent one; (d) is the plan minimal.' || chr(10) || chr(10) ||
 'Verdicts: approve (sound), object (fixable problems — list them), veto (fundamentally wrong: fixes a different bug, or all edits are no-ops).' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (a column''s type, whether a name exists in a table, a fleet-wide count), put that query in checks as {"sql": "SELECT ...", "why": "what this settles"} — SELECT/WITH only, never writes. Checks are executed before any revision and the results are fed back, so ask rather than assume.' || chr(10) || chr(10) ||
 '## The diagnosis' || chr(10) || '{{.diagnosis_row.conclusion}}' || chr(10) || chr(10) ||
 '## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Output — ONLY this JSON' || chr(10) ||
-'{"reviewer": "editquality", "verdict": "approve|object|veto", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": ["cited mechanism with no covering edit"], "notes": "..."}'
+'{"reviewer": "editquality", "verdict": "approve|object|veto", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": ["cited mechanism with no covering edit"], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "..."}'
           )
         ),
 
@@ -203,35 +225,82 @@ SELECT
 '# Council reviewer: PIPELINE GUARDIAN (hard-veto holder)' || chr(10) || chr(10) ||
 'You protect the platform''s other pipelines from collateral damage. You change nothing; you judge.' || chr(10) || chr(10) ||
 'Judge: (a) blast radius — which pipelines/workflows consume each edited file or workflow step; does the plan acknowledge them; (b) architecture-change signals — edits to shared contracts, wire formats, message shapes, exported signatures, or MANY packages at once mean this is not a constrained fix: veto and say it needs an architecture review; (c) surface ownership — workflow-JSON edits must be operation config_change and name the owning pipeline.' || chr(10) || chr(10) ||
-'Verdicts: approve, object (containable concerns), veto (cross-pipeline damage or architecture change dressed as a fix). Your veto BLOCKS.' || chr(10) || chr(10) ||
+'Verdicts: approve, object (containable concerns), veto (cross-pipeline damage or architecture change dressed as a fix). Your veto BLOCKS. If you veto, name the safest contained alternative you can see in notes — it seeds the reframe.' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (a column''s type, whether a name exists in a table, a fleet-wide count), put that query in checks as {"sql": "SELECT ...", "why": "what this settles"} — SELECT/WITH only, never writes. Checks are executed before any revision and the results are fed back, so ask rather than assume.' || chr(10) || chr(10) ||
 '## The diagnosis' || chr(10) || '{{.diagnosis_row.conclusion}}' || chr(10) || chr(10) ||
 '## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Output — ONLY this JSON' || chr(10) ||
-'{"reviewer": "guardian", "verdict": "approve|object|veto", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": [], "notes": "..."}'
+'{"reviewer": "guardian", "verdict": "approve|object|veto", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "..."}'
           )
         ),
 
         'council_decide', jsonb_build_object(
           'action', 'diagnose_council_decide',
-          'description', 'Deterministic aggregation: veto→rejected, object→revise, else approved. Guardian holds the hard veto. Persists kind=council_report. Sets should_revise for the loop.',
+          'description', 'Deterministic aggregation: veto→rejected, object→revise, else approved. Guardian holds the hard veto. Persists kind=council_report. Sets should_revise + should_reframe for the router.',
           'output_field', 'council',
-          'next_step', 'check_revise',
+          'next_step', 'check_approved',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
             'fix_correlation_id', 'input_data.fix_correlation_id',
             'review_fields', jsonb_build_array('review_editquality.result', 'review_guardian.result'),
             'hard_veto_from', jsonb_build_array('guardian'),
-            'max_rounds', 2
+            'max_rounds', 3
+          )
+        ),
+
+        -- ── F2.3 DECISION ROUTER — a chain of thin conditionals; the logic
+        --    that computes the flags is deterministic Go (applyCouncilCaps).
+        'check_approved', jsonb_build_object(
+          'action', 'conditional',
+          'description', 'Router 1/3: approved is the ONLY path to the plain complete terminal.',
+          'config', jsonb_build_object(
+            'condition', 'council.decision == ''approved''',
+            'then_step', 'complete',
+            'else_step', 'check_rejected'
+          )
+        ),
+
+        'check_rejected', jsonb_build_object(
+          'action', 'conditional',
+          'description', 'Router 2/3: a rejection (veto) either reframes once or escalates — never reproposes the same shape.',
+          'config', jsonb_build_object(
+            'condition', 'council.decision == ''rejected''',
+            'then_step', 'check_reframe',
+            'else_step', 'check_revise'
+          )
+        ),
+
+        'check_reframe', jsonb_build_object(
+          'action', 'conditional',
+          'description', 'First rejection with rounds left → one reframe; a second veto (or spent cap) → escalate.',
+          'config', jsonb_build_object(
+            'condition', 'council.should_reframe == true',
+            'then_step', 'reframe',
+            'else_step', 'escalate'
           )
         ),
 
         'check_revise', jsonb_build_object(
           'action', 'conditional',
-          'description', 'A revise decision with rounds left loops back to repropose; approved/rejected/exhausted are terminal.',
+          'description', 'Router 3/3: revise with rounds left → answer the reviewers'' checks, then repropose; exhausted → escalate.',
           'config', jsonb_build_object(
             'condition', 'council.should_revise == true',
-            'then_step', 'repropose',
-            'else_step', 'complete'
+            'then_step', 'run_checks',
+            'else_step', 'escalate'
+          )
+        ),
+
+        -- ── F2.3 VERIFY STEP — answer the reviewers' read-only checks before
+        --    the next repropose, so a fact-shaped objection is settled with
+        --    evidence instead of another blind revision (run aadd532a).
+        'run_checks', jsonb_build_object(
+          'action', 'diagnose_run_checks',
+          'description', 'Run the reviewers'' checks ([{sql,why}], SELECT/WITH only) under the data_request containment; results feed repropose.',
+          'output_field', 'check_results',
+          'next_step', 'repropose',
+          'config', jsonb_build_object(
+            'error_step', 'complete_refused',
+            'check_fields', jsonb_build_array('review_editquality.result.checks', 'review_guardian.result.checks')
           )
         ),
 
@@ -249,7 +318,7 @@ SELECT
               'max_tokens', 8000
             ),
             'temperature', 0.0,
-            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted', 'review_editquality', 'review_guardian'),
+            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted', 'review_editquality', 'review_guardian', 'check_results'),
             'output_format', 'json',
             'prompt_template',
 '# PROMPT — REVISE the constrained fix plan' || chr(10) || chr(10) ||
@@ -259,13 +328,70 @@ SELECT
 '## Your previous plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Edit-quality reviewer said' || chr(10) || '{{.review_editquality.result}}' || chr(10) || chr(10) ||
 '## Guardian reviewer said (holds a hard veto)' || chr(10) || '{{.review_guardian.result}}' || chr(10) || chr(10) ||
+'## Verification results (the reviewers'' own read-only queries, now answered)' || chr(10) || '{{.check_results.results_text}}' || chr(10) || chr(10) ||
+'Use these results to SETTLE any objection that hinged on an unverified fact — cite them in grounded_in. If a result contradicts an edit, change or drop the edit; do not argue with the data.' || chr(10) || chr(10) ||
 '## Output — ONLY the plan JSON (summary, edits[], grounded_in[], risks). Address the objections; do not merely restate the old plan.'
+          )
+        ),
+
+        -- ── F2.3 REFRAME — a veto means the SHAPE is wrong (run 8c770fd5:
+        --    architecture change dressed as a point fix). One chance to change
+        --    shape; a second veto escalates.
+        'reframe', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'After a council VETO: produce a strictly narrower remediation, or an explicit needs-architecture-review declaration plus the minimal safe interim step. One attempt; then escalate.',
+          'output_field', 'proposal',
+          'next_step', 'persist_plan',
+          'config', jsonb_build_object(
+            'error_step', 'complete_refused',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 8000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted', 'review_editquality', 'review_guardian'),
+            'output_format', 'json',
+            'prompt_template',
+'# PROMPT — REFRAME after a council VETO' || chr(10) || chr(10) ||
+'The council REJECTED your plan outright — the guardian judged it an architecture-level change dressed as a contained fix. Do NOT resubmit the same shape: it will be vetoed again. Produce ONE of:' || chr(10) || chr(10) ||
+'(a) a STRICTLY NARROWER remediation the guardian could accept — prefer the reviewer''s own recommended alternative if its review names one; smallest possible blast radius; a site-scoped interim step is acceptable HERE (an exception to the platform rule) PROVIDED risks names the deferred structural fix explicitly ("interim only; the platform fix — <name it> — needs an architecture review"); or' || chr(10) || chr(10) ||
+'(b) if no contained remediation exists at all, a plan whose only edits are the minimal safe preparatory step, with risks stating plainly which decision the architecture review must take.' || chr(10) || chr(10) ||
+'Same JSON schema and remaining hard rules: grounded; no new deps/DDL; workflow-JSON edits are config_change naming the owning pipeline; every edit CHANGES something.' || chr(10) || chr(10) ||
+'## The confirmed diagnosis' || chr(10) || '{{.diagnosis_row.conclusion}}' || chr(10) || chr(10) ||
+'## Your VETOED plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Edit-quality review' || chr(10) || '{{.review_editquality.result}}' || chr(10) || chr(10) ||
+'## Guardian review (the veto — read its notes for the recommended alternative)' || chr(10) || '{{.review_guardian.result}}' || chr(10) || chr(10) ||
+'## Output — ONLY the plan JSON (summary, edits[], grounded_in[], risks).'
+          )
+        ),
+
+        -- ── F2.3 ESCALATION — a first-class success terminal: the hand-off
+        --    package a human needs to decide (kind=escalation).
+        'escalate', jsonb_build_object(
+          'action', 'diagnose_escalate',
+          'description', 'Persist the human hand-off package: decision + diagnosis + final plan + both reviews (their notes carry the recommended alternative / unrun checklist).',
+          'output_field', 'escalation',
+          'next_step', 'complete_escalated',
+          'config', jsonb_build_object(
+            'fix_correlation_id', 'input_data.fix_correlation_id',
+            'review_fields', jsonb_build_array('review_editquality.result', 'review_guardian.result')
+          )
+        ),
+
+        'complete_escalated', jsonb_build_object(
+          'action', 'complete_workflow',
+          'description', 'Escalated: no approvable constrained plan. The hand-off package is in diagnosis_artifacts kind=escalation.',
+          'config', jsonb_build_object(
+            'output_fields', jsonb_build_array('escalation', 'council', 'plan_persisted'),
+            'success_message', 'fix-proposer escalated: no approvable constrained plan; fetch the hand-off package from diagnosis_artifacts kind=escalation by correlation_id'
           )
         ),
 
         'complete', jsonb_build_object(
           'action', 'complete_workflow',
-          'description', 'Plan + council report persisted; fetch both from diagnosis_artifacts by correlation_id.',
+          'description', 'APPROVED (v4: the only route here). Plan + council report persisted; fetch both from diagnosis_artifacts by correlation_id. F1.1b(c) takes an approved plan to a branch + PR.',
           'config', jsonb_build_object('output_fields', jsonb_build_array('plan_persisted', 'council'))
         ),
 
@@ -290,8 +416,12 @@ ON CONFLICT (type, version) DO UPDATE
 COMMIT;
 
 -- Rollback (manual):
+--   v4 → v3: restore the pre-update snapshot from agent_definitions_backup
+--   (snapshot_agent wrote it on apply); or DELETE the row and re-apply the v3
+--   file from git history.
 --   DELETE FROM agent_definitions WHERE type='fix-proposer' AND version=1;
 --   ALTER TABLE diagnosis_artifacts DROP CONSTRAINT diagnosis_artifacts_kind_check;
 --   ALTER TABLE diagnosis_artifacts ADD CONSTRAINT diagnosis_artifacts_kind_check
 --       CHECK (kind IN ('bundle','iteration_note'));
---   (leave iteration_check at >= 0; 0-rows only exist if a fix_plan was written)
+--   (leave iteration_check at >= 0; 0-rows only exist if a fix_plan was written;
+--    drop 'escalation' from the kind list only after deleting any escalation rows)

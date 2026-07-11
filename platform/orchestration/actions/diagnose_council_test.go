@@ -35,35 +35,39 @@ func TestDecideCouncil(t *testing.T) {
 	}
 }
 
-// F2.2 revise loop: the round/cap mapping. shouldRevise = revise AND round<max;
-// a revise that runs out of rounds becomes 'exhausted' (terminal), not a
-// silent approve.
-func TestReviseCapMapping(t *testing.T) {
-	// mirror the action's post-decision logic
-	decide := func(decision string, round, maxRounds int) (string, bool) {
-		shouldRevise := decision == "revise" && round < maxRounds
-		if decision == "revise" && !shouldRevise {
-			return "exhausted", false
-		}
-		return decision, shouldRevise
-	}
+// F2.2 revise loop + F2.3 reframe: the round/cap mapping, exercised on the
+// REAL function (applyCouncilCaps), not a mirror. shouldRevise = revise AND
+// round<max; a revise out of rounds becomes 'exhausted' (terminal), not a
+// silent approve. shouldReframe = FIRST rejection with rounds left — one
+// narrower replan before escalation; a second rejection or a spent cap
+// escalates.
+func TestApplyCouncilCaps(t *testing.T) {
 	cases := []struct {
-		decision     string
-		round, max   int
-		wantDecision string
-		wantShould   bool
+		name          string
+		decision      string
+		round, max    int
+		rejectedCount int
+		wantDecision  string
+		wantRevise    bool
+		wantReframe   bool
 	}{
-		{"revise", 1, 2, "revise", true},     // round 1 of 2 → loop
-		{"revise", 2, 2, "exhausted", false}, // round 2 of 2 → give up, terminal
-		{"approved", 1, 2, "approved", false},
-		{"rejected", 1, 2, "rejected", false},
-		{"revise", 3, 2, "exhausted", false}, // defensive: past the cap
+		{"revise round 1 of 2 → loop", "revise", 1, 2, 0, "revise", true, false},
+		{"revise round 2 of 2 → exhausted", "revise", 2, 2, 0, "exhausted", false, false},
+		{"approved is terminal", "approved", 1, 2, 0, "approved", false, false},
+		{"revise past the cap (defensive)", "revise", 3, 2, 0, "exhausted", false, false},
+		{"first rejection with rounds left → reframe", "rejected", 1, 3, 1, "rejected", false, true},
+		{"second rejection → escalate", "rejected", 2, 3, 2, "rejected", false, false},
+		{"rejection at the cap → escalate", "rejected", 3, 3, 1, "rejected", false, false},
+		{"rejection, count failed closed (=2) → escalate", "rejected", 1, 3, 2, "rejected", false, false},
 	}
 	for _, c := range cases {
-		d, s := decide(c.decision, c.round, c.max)
-		if d != c.wantDecision || s != c.wantShould {
-			t.Fatalf("decide(%s,r%d,max%d) = (%s,%v), want (%s,%v)",
-				c.decision, c.round, c.max, d, s, c.wantDecision, c.wantShould)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			d, _, revise, reframe := applyCouncilCaps(c.decision, "by", c.round, c.max, c.rejectedCount)
+			if d != c.wantDecision || revise != c.wantRevise || reframe != c.wantReframe {
+				t.Fatalf("applyCouncilCaps(%s,r%d,max%d,rej%d) = (%s,revise=%v,reframe=%v), want (%s,%v,%v)",
+					c.decision, c.round, c.max, c.rejectedCount, d, revise, reframe,
+					c.wantDecision, c.wantRevise, c.wantReframe)
+			}
+		})
 	}
 }
