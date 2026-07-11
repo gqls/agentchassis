@@ -269,6 +269,41 @@ and artifact-verified. Remaining items are operational, tracked in `RUNBOOK_mini
 
 ---
 
+## 2026-07-10/11 — the 7 open items dispatched; then the last three loose ends closed
+
+**Dispatch (2026-07-10, evening→night).** The 7 legitimate work items ran via manual `087` passes
+(improvement-sweep still off). Five passes were needed: page-build handlers intermittently left items stuck at
+`claimed` without spawning — recovery each time was reset the row (`triaged`, NULL claim fields) and re-run.
+All terminal: 3 regenerations complete, 3 rebuilds complete, index rerender complete, and the 2 runtime-fill
+shells **correctly rejected** by the v1.0.1105 guard on its first dispatch-path exercise. A page rebuild is
+whole-page, so the two `empty_section` items sharing `/about.html` were duplicates — the second was closed by
+artifact, not by a second handler run. Live-verified: all three pages HTTP 200, rebuilt sections real, shells
+intact.
+
+**Loose ends (2026-07-11).** All three closed, each verified by artifact:
+
+1. **Dead `lobby` key** — dropped from `provocations.json` (sites repo commit `c244ddc`; git copy was
+   md5-identical to live, proving the repo is the file's source of truth). No loader read `data.lobby`
+   (checked against live snippets.js). Live keys now `generated_at/today/arena/archive`. There is no Phase-3
+   emitter yet; all prior commits to the file were hand-made.
+2. **`build_status` CHECK constraint** (PLAN §4) — migration `049`. Pre-flight: data held only
+   deployed/pending; Go writers emit only deployed/pending/approved (the one config-fed writer,
+   `update_page_components_status`, is used solely by content-reviewer with 'approved'). Applied and
+   negative-tested: a bogus value is loudly rejected.
+3. **`brief-explanation` `<img src="">`** — re-diagnosed. The assets were NOT undeployed (the imagery
+   workstream had already committed all 16 to `/assets/images/`, HTTP 200); the section's render simply
+   predated the section-imagery resolver. Schema source `site_assets.illustration` now resolves via
+   `site_plan_imagery` kind-alias (index:2 → `illustration_gauntlet_cta`). Fix: one `page_rerender` item with
+   `spec.reason='image_landed'` → the light `rerender_page_sections` path (stored content_data + fresh
+   resolver, **no LLM**) → src filled, both shells still md5-pristine. Why `undeployed_assets` never fired:
+   its host **design-discovery-agent has never run on vonc** — the check was enabled in an agent that never
+   visits. Residual check-fidelity finding: it infers deployment from rendered_html usage, so a committed but
+   unreferenced asset still flags.
+
+`Categories:` (milestone, root-cause)
+
+---
+
 ## 2026-07-09 — the dropped trigger, for the record (verbatim from the session Q&A)
 
 `auto_lock_on_deploy` — a Postgres trigger on the `page_components` table (trigger name

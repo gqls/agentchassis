@@ -867,7 +867,20 @@ without one gets a `needs_criteria` note, never a fake pass. **Failures →**
 an `acceptance-fail` note. **Precondition:** ≥1 tool PLAN with criteria (the
 pilot above, or Stage 4).
 
-### Stage 6 — Runner P0  ← **ADAPTER BUILT 2026-07-10, awaiting deploy**
+### Stage 6 — Runner P0  ← **LIVE 2026-07-11 ✓ — §2.15 SMOKE PASSED against production**
+> Adapter deployed (v1.0.1107, one pod; ~10 eviction husks from the big image
+> pull cleaned up; the requests-topic CR had to be applied — the classic
+> "context deadline exceeded on every fetch" signature). Smoke: hand-produced
+> `run_checks` with the xp-curve PLAN's real criteria → response with
+> `in_response_to_request_id` = the request id, `status=complete`, REAL bool
+> body headers, and results matching manual inspection (HTTP 200, boots,
+> console clean; mobile/interaction honestly skipped). **The ladder has a
+> working Tier 4.** Build-arc gotchas banked: playwright.azureedge.net CDN is
+> DEAD (≤v0.6000.0 unusable); v0.6100.0 must be required under its declared
+> path `github.com/mxschmitt/playwright-go` (upstream go.mod accident); its
+> driver dir is `$HOME/.cache` (IGNORES XDG_CACHE_HOME — set HOME in the
+> image). NEXT: the `tool-acceptance-agent` orchestrator, then P1 mobile, P2
+> interactions.
 > **Status:** the `browser-runner-adapter` is written, unit-tested, and builds
 > clean — code prep complete; only the image build + deploy + the §2.15 smoke
 > remain (both the user's, since deploys are user-driven and the image is a

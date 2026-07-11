@@ -2679,3 +2679,28 @@ moved out of the RUN continuation (parser gotcha). Lesson: when an env knob
 "works" locally, confirm WHICH component consumed it — two caches both
 answering to the same variable name masked the miss.
 Categories: (fix, gotcha)
+
+### Stage 6 P0 DEPLOYED + SMOKE PASSED — the Tier-4 adapter is live
+Third image build succeeded (v1.0.1107 tag via deploy-agents). Two deploy
+findings, both anticipated by the docs: (1) the requests topic CR had not been
+applied — the adapter showed the exact 035 §2.12 signature (`context deadline
+exceeded` on every fetch); applied
+system.adapter.browser-runner.requests, fixed. (2) ~10 Evicted pod husks from
+node pressure while pulling the ~1.2GB image — one healthy pod landed on
+another node; husks deleted.
+§2.15 smoke against production: produced a run_checks request (single-line
+envelope, real criteria_json from the tool's CURRENT PLAN fence) to the
+requests topic with a scratch response topic; response received and verified:
+in_response_to_request_id == the produced request_id (the load-bearing
+matcher), request_id reused, message_type=response, status=complete,
+sender_agent_type=browser-runner-adapter, body headers REAL JSON BOOLS
+(is_complete=true/is_error=false as bool — the thunder bool trap avoided),
+success=true, run_id echoed. Results (desktop, live xp-curve page): status
+HTTP 200 ✓, boots .tool-container in live DOM ✓, console clean ✓; mobile-fit
+and interaction honestly SKIPPED (P0 scope). Scratch topic deleted.
+**Stage 6 P0 is COMPLETE: the tool verification ladder has a working Tier 4.**
+Next: the tool-acceptance-agent orchestrator (criteria → URLs → adapter →
+judge → acceptance-run/fail notes + improve_tool items), then P1 (mobile +
+full interpreter), P2 (interactions — the tier that would have caught the
+economy-simulator bugs end-to-end).
+Categories: (deploy, proof, position)
