@@ -127,15 +127,14 @@ inert until then. After deploys: clear zombies, re-trigger interrupted loops.
    (origin_prompt fingerprints on the new assets) and eyeball two
    generations for shared brand voice.
 2. User A3 eyeball of tool-portal-dark on robot-hands.com.
-3. **B6 logo approve-and-lock — candidate QUEUED (Turn 23):**
-   `needs_imagery:site:-:logo` regenerates via Banana + deploys via the
-   spawned-deployer chain. When the asset lands: show the user →
-   on approval `UPDATE assets SET locked_at=now(), locked_by='user-b6'
-   WHERE site_id='00ff3af5…' AND asset_key='logo';` → the store-guard
-   enforces permanence. Header fix (commit b00c150b, resolves plan logo via
-   DeployedWebPath in loadSiteDataFull) NEEDS THE NEXT CHASSIS DEPLOY, then
-   re-render site components (rerender-pages with refresh_site_components).
-   Then favicon/OG derivation.
+3. **B6 logo — ✅ APPROVED + LOCKED (Turn 24, user chose existing logo).**
+   assets.logo (May-8, purpose='hero' — LEFT AS-IS so DeployedWebPath
+   resolves to the deployed logo.jpg) is locked (locked_at,
+   lock_type=permanent, locked_by=user-b6-approval). REMAINING: (a) the
+   header fix (commit b00c150b) needs the NEXT CHASSIS DEPLOY, then
+   `rerender-pages` with refresh_site_components=true → logo shows in header;
+   (b) favicon + OG card derived from the locked logo (Phase I1 tail —
+   NOT YET BUILT).
 4. Remaining I0 stragglers: wire the Lucide validator; orphan old-page
    cleanup (how-it-works, selection-guide, learning-center sprawl).
 5. Optionally trigger improvement-loop for finetuning.uk / vonc.com /

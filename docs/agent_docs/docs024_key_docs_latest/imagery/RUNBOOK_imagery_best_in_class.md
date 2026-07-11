@@ -127,16 +127,14 @@ I3/I5/I6 scale beyond the testbed, review expected volumes with the agent and
 set per-pass caps you're comfortable with (current default: ~20 generations
 per site per discovery pass).
 
-### B6. Logo approval for robot-hands.com (first exercise of A3)
-When Phase I1 lands, you'll be asked to approve robot-hands.com's logo — the
-first use of the approve-then-lock flow. Budget five minutes to compare the
-candidate against the site's brand direction.
-**Status 2026-07-10:** all rebuild imagery is generated and deployed. The
-active logo asset is still the May generation (2026-05-08) — the pipeline
-found it active and did not regenerate. When Phase I1 starts you'll be asked
-to either approve-and-lock this logo or request a regeneration first. (The
-separate logo-in-header render gap — the header doesn't yet resolve
-`site_assets.logo` — is agent-side work, also queued for I1/I0 close-out.)
+### B6. ~~Logo approval for robot-hands.com~~ ✅ DONE 2026-07-11
+You approved the existing (May-8) logo as-is. It is now **locked**
+(`assets.locked_at` set, lock_type=permanent) — the store guard refuses any
+future overwrite, making it the site's permanent mark. It already serves at
+`/assets/images/logo.jpg`. **It will appear IN THE HEADER after the next
+chassis deploy** (the header-resolves-logo fix, commit b00c150b, then a
+site-component re-render). Remaining logo work is agent-side: favicon + OG
+card derived from this locked logo (Phase I1 tail).
 
 ### B7. ~~Layout-gap decision for robot-hands.com~~ ✅ COMPLETED 2026-07-10
 Your decision: no brochure fallback. Root cause was missing `industry_tags`
