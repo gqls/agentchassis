@@ -1,6 +1,17 @@
 -- 0NN_fix_proposer.sql — F1.1a + F1.1b(b) + F2.1/F2.2/F2.3 of the diagnosis→fix loop.
+-- 2026-07-11 (v5: live schema hint for reviewer checks — F2.3b(a)).
 -- 2026-07-10 (v4: decision router + verify step + reframe + escalation).
 -- Renumber 0NN when filing. Applies to clients_db.
+--
+-- v5 (F2.3b(a)), from run 823b539f: 5 of 7 reviewer checks failed on
+-- HALLUCINATED SCHEMA (p.domain, calling_context, agent_workflow_steps) —
+-- reviewers write SQL blind because their prompts carry no schema. Fix: a thin
+-- load_schema_hint query_database step pulls the LIVE table/column list from
+-- information_schema at run time (no drift, no Go, no image dependency) and
+-- both reviewer prompts get it plus the two traps that actually bit: workflow
+-- steps live in agent_definitions.default_config (jsonb), not a steps table;
+-- domain lives on sites (join pages.site_id = sites.id). v5 needs no image
+-- beyond v4's (>= v1.0.1108).
 --
 -- ██ DEPLOY SEQUENCING (v4) ██ — apply this file ONLY AFTER the chassis image
 -- carrying diagnose_run_checks + diagnose_escalate + the should_reframe council
