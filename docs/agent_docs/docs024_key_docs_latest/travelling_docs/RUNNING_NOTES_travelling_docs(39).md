@@ -2660,3 +2660,22 @@ Lesson banked: pin dependencies by their DECLARED module path, and when a
 download URL 404s, suspect a dead CDN before a wrong version — check what the
 newest tag does differently.
 Categories: (fix, gotcha, proof)
+
+### Second image-build failure: the driver ignores XDG_CACHE_HOME
+Rebuild got much further (CDN fix good: deps installed, Chrome for Testing +
+headless shell + ffmpeg all downloaded to /pw-browsers) then failed at
+`chmod: cannot access '/pw-cache'`. Root cause read from the module source:
+v0.6100.0's getDefaultCacheDirectory() is `$HOME/.cache` on Linux — it IGNORES
+XDG_CACHE_HOME. The driver had gone to /root/.cache; /pw-cache never existed.
+(My earlier local "proof" that XDG_CACHE_HOME worked was a red herring — the
+116MB in the scratch pw-cache was Go's BUILD cache from `go run`, which does
+honour XDG_CACHE_HOME. The driver had quietly gone to ~/.cache both times,
+which is also why the integration test worked.) Fix: HOME is the knob —
+dockerfile now sets ENV HOME=/pw-home (persists across USER appuser, so
+install-as-root and runtime-as-appuser resolve the same
+/pw-home/.cache/ms-playwright-go path), appuser owns /pw-home (Chromium writes
+crashpad scratch under $HOME), browsers root-owned world-readable. Comment
+moved out of the RUN continuation (parser gotcha). Lesson: when an env knob
+"works" locally, confirm WHICH component consumed it — two caches both
+answering to the same variable name masked the miss.
+Categories: (fix, gotcha)
