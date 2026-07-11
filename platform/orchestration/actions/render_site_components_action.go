@@ -373,6 +373,59 @@ func loadSiteDataFull(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 	return &s, err
 }
 
+// injectBrandHeadTags adds favicon + Open Graph / Twitter-card markup to a
+// rendered <head>, once (idempotent — skips if a favicon link already
+// exists). The favicon points at the derived favicon.png but falls back to
+// the site logo when present; og:image points at the derived og-card.png.
+// Absolute URLs are built from the site domain for the social tags (OG
+// requires absolute), relative for the favicon link.
+func injectBrandHeadTags(headHTML string, ctx *RenderContext, logger *zap.Logger) string {
+	if strings.Contains(headHTML, "rel=\"icon\"") || strings.Contains(headHTML, "og:image") {
+		return headHTML // already has brand head tags
+	}
+	idx := strings.Index(headHTML, "</head>")
+	if idx == -1 {
+		return headHTML // not a well-formed head; leave untouched
+	}
+
+	origin := "https://" + ctx.Domain
+	title := htmlEscapeAttr(defaultString(ctx.CompanyName, ctx.Domain))
+	desc := htmlEscapeAttr(ctx.Tagline)
+
+	var b strings.Builder
+	// Primary favicon = the derived square PNG; if the site has a logo we
+	// also list it as a secondary icon so a mark always resolves even before
+	// derive_brand_head_assets commits favicon.png.
+	b.WriteString("  <link rel=\"icon\" href=\"/assets/images/favicon.png\">\n")
+	if ctx.LogoURL != "" {
+		b.WriteString("  <link rel=\"icon\" href=\"" + ctx.LogoURL + "\">\n")
+	}
+	b.WriteString("  <link rel=\"apple-touch-icon\" href=\"/assets/images/favicon.png\">\n")
+	b.WriteString("  <meta property=\"og:type\" content=\"website\">\n")
+	b.WriteString("  <meta property=\"og:site_name\" content=\"" + title + "\">\n")
+	b.WriteString("  <meta property=\"og:title\" content=\"" + title + "\">\n")
+	if desc != "" {
+		b.WriteString("  <meta property=\"og:description\" content=\"" + desc + "\">\n")
+	}
+	b.WriteString("  <meta property=\"og:image\" content=\"" + origin + "/assets/images/og-card.png\">\n")
+	b.WriteString("  <meta property=\"og:url\" content=\"" + origin + "/\">\n")
+	b.WriteString("  <meta name=\"twitter:card\" content=\"summary_large_image\">\n")
+	b.WriteString("  <meta name=\"twitter:image\" content=\"" + origin + "/assets/images/og-card.png\">\n")
+
+	logger.Info("injectBrandHeadTags: added favicon + OG tags", zap.String("domain", ctx.Domain))
+	return headHTML[:idx] + b.String() + headHTML[idx:]
+}
+
+// htmlEscapeAttr minimally escapes a string for use inside a double-quoted
+// HTML attribute.
+func htmlEscapeAttr(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
+}
+
 func renderAndStoreSiteComponent(
 	ctx context.Context,
 	db *sql.DB,
@@ -451,6 +504,17 @@ func renderAndStoreSiteComponent(
 		logger.Warn("Template rendered to empty string",
 			zap.String("slot", slot))
 		return false
+	}
+
+	// Phase I1 (G8): inject favicon + Open Graph tags into <head>. Head
+	// templates predate brand-head assets and carry no favicon/og markup, so
+	// we add it deterministically at render time — fleet-wide, no per-site
+	// template regeneration. References the derived files
+	// (/assets/images/favicon.png, /assets/images/og-card.png), which the
+	// derive_brand_head_assets action commits; harmless if they 404 until
+	// derivation runs, and the favicon degrades to the site logo.
+	if slot == "head" {
+		renderedHTML = injectBrandHeadTags(renderedHTML, renderCtx, logger)
 	}
 
 	// Store the rendered HTML

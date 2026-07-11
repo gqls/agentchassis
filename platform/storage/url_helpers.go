@@ -193,6 +193,13 @@ var ImagePurposes = map[string]struct {
 	"hero_services": {1600, 900, 85, "jpg"},
 	"logo":          {400, 400, 90, "png"},
 	"icon":          {240, 240, 85, "jpg"},
+	// Brand head assets derived from the logo (Phase I1): favicon is a small
+	// square PNG; og_card is the 1200×630 social card. The derivation action
+	// (derive_brand_head_assets) writes fixed filenames favicon.png /
+	// og-card.png directly, so these entries exist for GetImageConfig
+	// completeness and any future re-optimisation pass.
+	"favicon":       {64, 64, 90, "png"},
+	"og_card":       {1200, 630, 85, "png"},
 	"default":       {1200, 800, 85, "jpg"},
 }
 

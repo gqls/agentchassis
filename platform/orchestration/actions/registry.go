@@ -176,6 +176,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Download image from storage and commit to git as a site asset",
 		IsLocal:     true,
 	},
+	"derive_brand_head_assets": {
+		Handler:     DeriveBrandHeadAssetsAction,
+		Category:    "image",
+		Description: "Derive favicon + OG card from the site logo and commit to git",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// WEB — search, scraping, research
