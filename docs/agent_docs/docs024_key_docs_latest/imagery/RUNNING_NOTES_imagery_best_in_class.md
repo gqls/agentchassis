@@ -1053,4 +1053,32 @@ so the head + header pick up the new tags and the locked logo.
 bullets — design locked in CONTEXT_PACK_imagery_sprite_sheet.md) or I3 (card
 imagery / Lane B). Leaning I2 (smaller, self-contained, immediately visible).
 
+## Turn 26 — 2026-07-11 — I1 code deployed; favicon/OG activation wired through dispatch
+
+**Deploy confirmed:** v1.0.1107 pod started 18:27 UTC, AFTER both the header
+fix (b00c150b, 07-10) and favicon/OG (d3f73a72, 18:06) — both live. (Corrected
+an earlier pod-age miscalculation.)
+
+**Activation — how to run the derivation (learned the hard way, RECORD THIS):**
+`derive_brand_head_assets` needs a STORAGE-ENABLED (spawned) pod. Two attempts:
+1. ❌ Hand-rolled inline parent workflow (kcat, spawn_agent+call_agent to
+   asset-deployer): the spawned pod ran its workflow on INIT (no payload),
+   check_mode saw no mode, idled out; parent stuck AWAITING_RESPONSES at
+   spawn_ad — topic-wiring is finicky for hand-crafted spawn+call. Reset the
+   stuck orch to FAILED.
+2. ✅ **Route through build-dispatch-loop** (battle-tested spawn wiring).
+   asset-deployer is already a valid dispatch handler (undeployed_asset).
+   - Migration `SQL_2026-07-11_asset_deployer_brand_head_mode.sql`: added a
+     `check_mode` start conditional + `derive_head_assets` step. Condition
+     made robust to the DISPATCH input contract (handlers receive
+     `input_data.spec` + `input_data.site_id` + `input_data.domain`):
+     `input_data.spec.mode == "brand_head" OR input_data.mode == "brand_head"`.
+   - Work item `needs_brand_head_assets:robot-hands` (handler asset-deployer,
+     spec {mode:brand_head}) → dispatch spawns asset-deployer with storage env
+     → derive_head_assets runs. Monitoring for favicon.png/og-card.png (200).
+
+**Reusable outcome:** any site gets brand-head assets by queuing a
+`needs_brand_head_assets` item routed to asset-deployer. Good candidate to
+auto-emit after a logo locks (future discovery check).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
