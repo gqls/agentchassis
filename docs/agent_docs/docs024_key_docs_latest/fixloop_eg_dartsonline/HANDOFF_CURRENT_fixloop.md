@@ -58,15 +58,31 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
   {create_pr→complete | complete_gate_failed (NO PR, branch+log left)}.
 - Trigger: `092_TRIGGER_fix_implementer_v1.sh [fix_correlation_id]`.
 
-**DEPLOY CHECKLIST (owner) — in order:**
-1. Chassis image (new actions + spawn-gate entry) — bump tag, verify in-pod:
-   `grep -ac diagnose_build_gate /proc/1/exe` etc.
-2. git-adapter image — verify: `grep -ac create_pull_request /proc/1/exe`.
-3. `kubectl apply -f deployments/kustomize/services/agent-chassis/overlays/production/uk_001/rbac-job-spawner.yaml`
-4. Apply `0NN_fix_implementer.sql` (snapshots first).
-5. Smoke: one create_branch on a throwaway name proves the adapter token has
-   write scope on gqls/agentchassis.
-6. Seed the small bug (design pending) → diagnose → approve → 092 trigger.
+**DEPLOY CHECKLIST — ALL DONE 2026-07-12 (turn 27):**
+1. ✅ Chassis v1.0.1110 verified in-pod (binary Jul 12 18:11; all four new
+   action strings present).
+2. ✅ git-adapter rebuilt + verified in-pod (create_branch/create_pull_request).
+3. ✅ RBAC applied (pods/log on agent-job-spawner).
+4. ✅ 0NN_fix_implementer.sql applied — fix-implementer live, 15 steps,
+   v1.0.1110.
+5. ✅ Write-scope smoke PASSED: adapter created smoke/write-scope-test from
+   main (sha 4c2c172b) — token writes to gqls/agentchassis; branch deleted
+   after.
+6. ⏳ First end-to-end target — see "first-run design decision" below.
+
+**First-run design decision (owner input wanted):** literally PLANTING a bug
+can't honestly feed the diagnose loop — a planted bug that never ran has no
+agent_error_log/DB rows, so the tier guard would (correctly) refuse CONFIRMED;
+fabricating evidence rows is off the table. Recommended instead: pick a REAL,
+tiny, zero-risk defect (candidate: the raw `fmt.Printf("DEBUG: ...")` lines in
+ai_actions.go:722 / generate_image_actions.go:594 — the latter even logs the
+WRONG function name, a genuine copy-paste bug; violates the logging
+constitution; observable in pod stdout), HAND-AUTHOR its diagnosis (true,
+cited — the workstream's known-answer tradition) as a CONFIRMED
+orchestration_states row, then run the REAL proposer→council (should approve a
+minimal single-file fix) → REAL implementer → branch → gate → PR. Everything
+new gets exercised honestly; the planted-bug idea inverts to "real small bug
+first, planted bug never needed".
 
 ## Key artifacts & tools
 
