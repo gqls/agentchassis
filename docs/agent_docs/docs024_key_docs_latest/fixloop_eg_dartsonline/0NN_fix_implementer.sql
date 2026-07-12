@@ -144,7 +144,12 @@ SELECT
               'model', 'claude-sonnet-4-6',
               'provider', 'anthropic',
               'api_key_env_var', 'ANTHROPIC_API_KEY',
-              'max_tokens', 16000
+              -- Whole-file output: a 41KB file JSON-escapes to ~16.7k tokens,
+              -- so 16000 truncated mid-file (proven on the first live run). 32000
+              -- gives headroom for a single constrained file. LIMIT worth naming:
+              -- whole-file rewrite does not scale to very large files — a
+              -- diff/patch strategy is F1.2 if big files become targets.
+              'max_tokens', 32000
             ),
             'temperature', 0.0,
             'input_fields', jsonb_build_array('diagnosis_row', 'plan_row', 'current_files'),
