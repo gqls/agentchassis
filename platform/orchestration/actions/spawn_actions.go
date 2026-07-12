@@ -3030,6 +3030,10 @@ func isRepoCloningAgent(agentType string) bool {
 	repoCloningAgents := []string{
 		"diagnose-agent",
 		"code-indexer",
+		// F1.1b(c): reads current file bodies via the GitHub contents API
+		// (diagnose_read_repo_files) — READ token only; the write credential
+		// stays in the git-adapter (owner ruling 2026-07-12).
+		"fix-implementer",
 	}
 	for _, t := range repoCloningAgents {
 		if t == agentType {

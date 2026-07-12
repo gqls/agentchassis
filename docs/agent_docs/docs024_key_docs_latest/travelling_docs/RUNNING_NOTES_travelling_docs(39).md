@@ -2754,3 +2754,28 @@ improve_tool item) is unit-tested but not yet exercised live — the first
 genuinely-failing tool will demonstrate it. Next: wire trigger points
 (post-recreation, post-improve, periodic sweep) + P1 mobile / P2 interactions.
 Categories: (proof, position)
+
+### Fail path PROVEN live (controlled, reverted) + overview doc written
+Wrote OVERVIEW_self_verifying_tools.md — a plain-language explainer of the whole
+mechanism (travelling docs + the verification ladder + the autonomous loop) for
+talking about it.
+Then closed the other half of the Tier-4 loop with a controlled test (runbook
+Stage-1 smoke precedent — prove then clean up). Temporarily added ONE
+genuinely-failing criterion to drop-rate-tuner's current PLAN
+(selector_exists #zzz-failpath-proof, confirmed absent from the live page;
+in-place edit, exact-inverse revert, no supersede pollution), fired 087.
+Verdict: failed=1, failing_checks=[failpath-proof], improve_tool_created=true.
+Both artifacts correct: (1) acceptance-fail doc_note — "Tier-4 acceptance FAILED
+— 1 of 4 evaluated checks failed in headless Chromium: failpath-proof: no
+element matches #zzz-failpath-proof in the live DOM after settle"; (2)
+improve_tool item — status detected, handler tool-improver, severity medium,
+failing_checks ["failpath-proof"], acceptance_test = the criteria embedded,
+item_key acceptance_fail:tool-drop-rate-tuner:<site>. Cleanup: item cancelled
+(was still 'detected' — tool-improver never touched it); PLAN reverted exactly
+(len 3046, 5 checks, fence_has_asset_CHECK=false); test note deleted; zero
+orphan failpath references. **The full loop is now proven both ways:
+pass → acceptance-run note; fail → acceptance-fail note + fix ticket carrying
+the criteria. The ladder detects, documents, and hands off a repair with no
+human in the loop.** Remaining: let a REAL failure flow through to tool-improver
+and back (not manufactured); wire trigger points; P1 mobile / P2 interactions.
+Categories: (proof, position)

@@ -1159,6 +1159,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "F1.1b(c) build gate (owner: no PRs for broken code): run gofmt (changed files) + targeted go build for the fix branch in a golang k8s Job; returns passed/log as a RESULT the workflow routes on — red never becomes a PR",
 		IsLocal:     true,
 	},
+	"diagnose_read_repo_files": {
+		Handler:     DiagnoseReadRepoFilesAction,
+		Category:    "diagnose",
+		Description: "Fetch the CURRENT bodies of the approved plan's modify/add files via the GitHub contents API (read token from the spawn gate) so sketch_to_files rewrites real code; a modify file that 404s is a hard error",
+		IsLocal:     true,
+	},
+	"git_adapter_request": {
+		Handler:     GitAdapterRequestAction,
+		Category:    "site",
+		Description: "Generic git-adapter caller (allowlisted verbs: commit, create_branch, create_pull_request) with data assembled from config paths/literals; awaits the adapter response; the write credential never leaves the adapter",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline
