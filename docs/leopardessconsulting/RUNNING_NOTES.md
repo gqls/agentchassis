@@ -618,8 +618,10 @@ unchanged), but I should have backed up first. Standing rule reaffirmed: back up
 ANY change, including component forks.
 
 **Remaining (documented, not blocking):**
-- The footer (`footer-4-column`, shared) still hardcodes navy — same fix as the header
-  (fork) if wanted; it's a dark footer so it's subtle.
+- ~~The footer hardcodes navy~~ **CORRECTED turn 13: the footer is fine.** `footer-4-column`
+  hardcodes only `#fff` (text) and takes its background from `--color-footer-bg` (#0D0D0D),
+  links from `--color-footer-text`/`--color-accent`. No fork needed. The navy I'd worried
+  about was the head `theme-color` meta, not the footer.
 - The other ~15 pages (blog posts, guides, tools, legal) need re-assembly to pick up the
   new header/logo — their palette is already correct via the stylesheet link. Run
   `reassemble_pages.sh` for the rest.

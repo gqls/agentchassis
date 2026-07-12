@@ -57,6 +57,22 @@ the hype fest.
 
 ## 4. Phases
 
+> **PHASE STATUS (2026-07-12, turn 13).** For the authoritative current state and next
+> actions, read `HANDOFF.md`.
+>
+> | Phase | Status |
+> |---|---|
+> | L0 Evidence & setup | ✅ done |
+> | L1 Truth pass on specs | ✅ done — identity/voice/design_intent/portfolio rewritten, pinned |
+> | L2 Brand: one logo | ✅ done — logo/favicon/apple-touch/OG live & byte-verified; A6 routing committed but not deployed |
+> | L3 Palette fork + leaking slots | ✅ done — leopardess-owned palette/theme/collection; deployed CSS matches WCAG-validated palette; header forked to gold |
+> | L4 Three per row, no orphans | ✅ done (folded into L5) — grids are 3/6 cards; shared grid components untouched |
+> | L5 Content & copy | 🟡 partial — main pages + homepage + about + case-studies + who-we-help + services done; ~5 secondary pages (engagement-model, for-eng-*, how-it-works, our-approach, technical-architecture) still CTO-register |
+> | L6 Imagery that explains | ⬜ not started — needs A6 deployed first (Banana routing for reference images) |
+> | L7 Charts (Go SVG + JS) | ⬜ not started — the one genuinely-new build; see §5 |
+> | L8 Tools/guides/news/games/demos | ⬜ not started — reuse existing tool library; surface the live news feed |
+> | L9 Deploy & verify | 🟡 ongoing — main pages live & verified; remaining secondary pages being re-assembled for header uniformity; per-page title/OG meta still to polish |
+
 ### L0 — Evidence and setup *(done)*
 Audit complete. Docs directory established. Four owner decisions taken; one correction
 issued (the live site is dark, not light — see RUNNING_NOTES turn 3).

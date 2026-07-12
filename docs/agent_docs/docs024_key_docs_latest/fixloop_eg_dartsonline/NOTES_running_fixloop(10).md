@@ -1557,6 +1557,21 @@ bug honestly terminating at escalate (the write step needs an APPROVED plan to
 exercise). Answered in chat + position summary; handoff doc now maintained
 per-turn: `HANDOFF_CURRENT_fixloop.md`.
 
+### 2026-07-12 (turn 26) — four owner decisions close the design forks
+- **(a) Build gate = Option B** (pre-PR golang k8s Job): "I don't want to
+  approve PRs for broken code; good to have tested it in a container." Broken
+  implementations never become PRs. CI-on-PR not chosen; may still arrive
+  later as belt-and-braces but is not this slice.
+- **(b) First write-step run = a SEEDED small bug**, then a real bug after.
+  The benchmark bug keeps honestly escalating (architecture-level), so the
+  first end-to-end approval will be earned on a contained single-file defect.
+- **(c) Awareness surface = standing rule**: more awareness before wider
+  autonomy. The digest/push surface is the next slice AFTER F1.1b(c)
+  completes and BEFORE any council-widening or migration agents.
+- **(d) NO FORK.** Isolation model = branch + PR on THIS repo: every loop
+  write lands on a fix/* branch; the owner chooses what merges to main.
+  (This is exactly what the write step builds — the fork idea is dropped.)
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys
