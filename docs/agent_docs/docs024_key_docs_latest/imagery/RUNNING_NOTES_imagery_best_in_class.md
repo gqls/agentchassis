@@ -1142,4 +1142,36 @@ info,warning], style:"flat single-colour line glyphs, light grey on flat
 #1a1a2e, one glyph per cell, reading order"}) + queue needs_imagery →
 generate → EYEBALL GATE (assign real cell meanings after seeing the sheet).
 
+## Turn 29 — 2026-07-12 — Contamination gap caught pre-generation; sprite row seeded; ONE more deploy needed
+
+**Gap caught (would have wasted the eyeball gate):** the per-kind gating
+functions predate sprite_sheet, so it fell into the PHOTOGRAPHIC default —
+`directionAppliesToKind` would prepend the industrial-photography voice AND
+attach photographic reference anchors to a flat glyph grid: the 2026-05-20
+contamination failure, precisely. **Fixed (commit 4629aa17):** sprite_sheet
+joins the flat-vector class in both `directionAppliesToKind` (no free-text
+direction, no reference anchors) and `styleGuide.directionForKind`
+(palette-only). Test extended; green. **Generation MUST wait for the next
+chassis deploy** — the current image routes sprite_sheet→Banana (I2.0 ✓) but
+still carries the contaminating gating.
+
+**Seeded (live in DB):** `sprite_sheet_main` on robot-hands' current plan
+(SQL_2026-07-12_seed_robothands_sprite_sheet.sql) — 3×3 @ 768², the locked
+vocabulary (check, gauge, gripper, cog, chart, download, arrow, info,
+warning), flat light-grey line glyphs on #1a1a2e, `cell_names_verified:false`
+(true map assigned at the eyeball gate).
+
+**Flow verified for the new kind:** `check_unfulfilled_imagery_plan` will
+emit it (site scope → priority 75/high); `BuildSpec` sets purpose=kind →
+ImagePurposes 768×768 png → deploys as
+`/assets/images/sprite-sheet-main.png`. All untouched machinery.
+**Caveat:** if a discovery pass runs on robot-hands BEFORE the gating deploy,
+it would generate a contaminated sheet — low risk (loop idle unless
+triggered); if it happens, eyeball-reject + regenerate post-deploy.
+
+**Post-deploy runsheet (I2.1):** deploy → queue/let discovery emit the
+needs_imagery for sprite_sheet_main → generate → EYEBALL GATE with user
+(assign true cell meanings; write back to style_hints, set
+cell_names_verified:true) → then I2.2 (sprites.css emit action).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
