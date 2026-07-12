@@ -1153,6 +1153,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "F1.1b(c) safety core: validate the fix-implementer's whole-file outputs against the approved plan's HARD file allowlist (reject out-of-plan, incomplete, empty, no-op) and assemble the git-adapter commit + PR payloads",
 		IsLocal:     true,
 	},
+	"diagnose_build_gate": {
+		Handler:     DiagnoseBuildGateAction,
+		Category:    "diagnose",
+		Description: "F1.1b(c) build gate (owner: no PRs for broken code): run gofmt (changed files) + targeted go build for the fix branch in a golang k8s Job; returns passed/log as a RESULT the workflow routes on — red never becomes a PR",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline
