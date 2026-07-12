@@ -1108,4 +1108,38 @@ head-injection + git-commit patterns (the biggest reuse win). Build breakdown
 the key risk. Two decisions flagged for user: first surface (recommend list
 bullets) + 3×3 cell vocabulary for robot-hands.
 
+## Turn 28 — 2026-07-12 — I2 decisions locked; CSS delivery re-verified; I2.0 built + gated
+
+**User decisions:** first surface = LIST BULLETS; 3×3 starter vocabulary =
+check, gauge, gripper, cog, chart, download, arrow, info, warning.
+
+**CSS delivery re-check (user asked to be sure) — decision CONFIRMED,
+stronger than before:** css_snippets is definitively global (no site_id;
+matched by component overlap → site-specific CSS would leak fleet-wide).
+And the separate-committed-file shape is the HOUSE PATTERN: the live site
+already loads per-site bundles `/assets/css/styles.css` AND
+`/assets/js/snippets.js` (render_js_snippets_for_site commits the latter —
+the exact analogue). Rejected alternatives: append-into-styles.css (couples
+sprite refresh to a webdesign-agent LLM run and risks silent drops on
+theme re-render); inline <style> (duplicated bytes × 33 pages, full
+re-render on any grid change). `/assets/css/sprites.css` + head <link> stands.
+
+**I2.0 BUILT + GATE PASSED:**
+- `SQL_2026-07-12_add_sprite_sheet_kind.sql` applied: chk_kind now includes
+  sprite_sheet (idempotent, backed up).
+- Go (rides next deploy): validImageryKinds + sprite_sheet; dynamic_adapter
+  routes sprite_sheet → Banana; ImagePurposes sprite_sheet 768×768 png.
+- **Gate:** hand-inserted sprite_sheet plan row passes chk_kind (insert+
+  rollback proof). Bonus learning: `chk_source` allows only
+  llm|classifier|manual|adoption — seed rows must use source='manual'.
+- Parallel-session note: storage pkg gained exported `PresignedURLToS3URI`
+  (leopardess); no conflict with our private actions-pkg copy.
+
+**Next (I2.1, needs the deploy for the adapter route):** hand-seed the
+robot-hands sprite_sheet plan row (source='manual', style_hints
+{rows:3,cols:3,cell_names:[check,gauge,gripper,cog,chart,download,arrow,
+info,warning], style:"flat single-colour line glyphs, light grey on flat
+#1a1a2e, one glyph per cell, reading order"}) + queue needs_imagery →
+generate → EYEBALL GATE (assign real cell meanings after seeing the sheet).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
