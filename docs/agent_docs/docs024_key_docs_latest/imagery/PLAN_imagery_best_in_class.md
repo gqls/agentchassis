@@ -312,16 +312,19 @@ Blocks the I0 acceptance line ("logo/heroes render"). Two problems:
 - Logo lock policy (D5): approval flow + locked-asset respect in handlers/auditors; favicon + OG card derived from logo.
 - **Acceptance:** two consecutive generations of different kinds on robot-hands.com visibly share palette/mood; logo asset locked; regeneration attempt refuses to touch it.
 
-**Status 2026-07-10 — core BUILT and DEPLOYED (running notes Turns 17–18):**
-`imagery_style_guide.go` + generate_image integration (guide supersedes
-free-text direction; avoid→negative prompt; reference anchors as stable
-s3:// URIs) and the D5 lock guard (assets upsert refuses locked rows) are in
-production. robot-hands.com's guide is seeded from its design_intent.
-Remaining in I1: acceptance generations (3 needs_imagery items queued will be
-the first through the guide — check origin_prompt fingerprints); logo
-approve-and-lock flow — UNGATED per the IMAGE_BUCKET retraction below (the
-deploy chain works by design; regenerate the logo through the normal
-pipeline, approve, set locked_at); favicon/OG derivation.
+**✅ PHASE I1 COMPLETE — LIVE-VERIFIED 2026-07-11 (running notes Turns 17–27):**
+All four pieces built, deployed, and verified on the served robot-hands.com
+HTML: (1) per-site `imagery_style_guide` driving generation with per-kind
+gating — PROVEN on real output (overnight icons carried the palette but not
+the photographic medium, routed to Banana); (2) logo
+generate→approve→lock (D5): user approved the existing logo, `locked_at` set,
+the store guard refuses overwrites; (3) header resolves the locked logo from
+plan imagery (`logo-img` live in the served header); (4) favicon + OG card
+DERIVED from the locked logo (`derive_brand_head_assets` action +
+`injectBrandHeadTags` head injection; favicon.png/og-card.png serve 200;
+og:image/twitter:card live in the served head). Reusable pattern: brand-head
+assets for any site via a `needs_brand_head_assets` work item → asset-deployer
+`brand_head` mode.
 
 **B7 RESOLVED 2026-07-10 (user: no brochure fallback).** The
 needs_new_layout_candidate spec showed the true cause: "fallback — no
@@ -350,10 +353,29 @@ re-compose mode (site-design-planner re-resolve with theme lineage) if layout
 changes become routine.
 
 ### Phase I2 — Sprite sheets & list treatment (G4)
-Build the already-locked sprite plan: `kind='sprite_sheet'` (migration batch D3), one sheet per site (3×3 @ 768², 256px cells), Banana generation, CSS `background-position` classes emitted as a css_snippet, bullets/nav via `::before`.
+Build the already-locked sprite plan: `kind='sprite_sheet'` (migration batch D3), one sheet per site (3×3 @ 768², 256px cells), Banana generation, CSS `background-position` classes, bullets/nav via `::before`.
 - Add a fulfilment check beside `check_unfulfilled_imagery_plan`.
 - Main risk (cell-content alignment) handled per the context pack: ordered-grid prompt, then assign meanings after eyeballing; vision-verify comes with I8.
 - **Acceptance:** robot-hands.com lists render themed sprite bullets from one ≤80KB sheet; no per-bullet image requests.
+
+**Status 2026-07-12 — IN PROGRESS (scope: `SCOPE_I2_sprite_sheets.md`;
+notes Turns 28–29).** Decisions locked with user: first surface = list
+bullets; 3×3 vocabulary = check, gauge, gripper, cog, chart, download,
+arrow, info, warning. DELIVERY REVISION (verified twice): sprite CSS ships as
+a separate committed `/assets/css/sprites.css` + head `<link>` — NOT a
+css_snippet (that table is a global library, no site scoping; the per-site
+committed bundle is the house pattern, cf. /assets/js/snippets.js).
+- I2.0 ✅ groundwork: chk_kind + validImageryKinds gained `sprite_sheet`;
+  adapter routes it to Banana; ImagePurposes 768×768 png; insert-gate passed.
+- I2.1 ⏳ generation: `sprite_sheet_main` row SEEDED on robot-hands' plan
+  (cell_names_verified:false). **Blocked on the next chassis deploy** — a
+  contamination gap was caught pre-generation (sprite_sheet fell into the
+  photographic gating branch; fixed in commit 4629aa17: flat-vector class,
+  palette-only, no reference anchors). Generate after deploy → HUMAN EYEBALL
+  GATE (assign true cell meanings, write back, set verified:true).
+- I2.2 next: sprites.css emit action (pure string compute + git commit —
+  can be built while waiting); then I2.3 head `<link>` + bullet wiring on one
+  robot-hands section; then the fulfilment check.
 
 ### Phase I3 — Content-linked card imagery (G3; Lane B foundation)
 - Generalise the content-entity → asset link (D2/Lane B): entity image reference + `needs_content_image` work item + handler composing prompts from the content item + brand guide.

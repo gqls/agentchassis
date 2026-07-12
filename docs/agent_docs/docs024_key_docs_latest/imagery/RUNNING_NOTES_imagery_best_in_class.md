@@ -1174,4 +1174,20 @@ needs_imagery for sprite_sheet_main → generate → EYEBALL GATE with user
 (assign true cell meanings; write back to style_hints, set
 cell_names_verified:true) → then I2.2 (sprites.css emit action).
 
+## Turn 30 — 2026-07-12 — Full doc sync; handoff rewritten as the detailed fresh-chat entry point
+
+- PLAN: I1 status block replaced with the ✅ COMPLETE/live-verified record;
+  I2 gained a dated status block (decisions, delivery revision, I2.0 done,
+  I2.1 deploy-blocked, I2.2 next).
+- RUNBOOK: added **B10** (next deploy carries the sprite gating fix — tell
+  the agent) and **B11** (the sprite eyeball gate: verify clean grid, then
+  dictate the TRUE cell meanings in reading order).
+- HANDOFF: **rewritten in full** as the detailed cold-start document —
+  state per phase, the five-place new-kind checklist, dispatch input
+  contract, trigger patterns (incl. the do-NOT-hand-roll-spawn+call lesson),
+  zombie unstick, seeds/source constraint, open threads, ordered next
+  actions. Standing rule: update it EVERY turn alongside these notes.
+- Next work: I2.2 sprites.css emit action (buildable pre-deploy), then the
+  B10/B11 generation + gate.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

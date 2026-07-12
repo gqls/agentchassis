@@ -1,176 +1,168 @@
-# HANDOFF — Imagery best-in-class workstream (continue in a fresh chat)
+# HANDOFF — Imagery best-in-class workstream (start a new chat from here)
 
-**Last updated: 2026-07-10 evening (Turn 22). Keep this document updated at
-every working turn, alongside the running notes.**
+**Last updated: 2026-07-12 (Turn 30). UPDATE THIS DOCUMENT EVERY WORKING
+TURN, alongside the running notes — it is the single entry point for a fresh
+session.**
 
-**What this project is about (fresh-reader paragraph).** agentchassis is an
-autonomous agent platform that plans, builds, and operates a fleet of content
-websites (tools, guides, games, news feeds, articles). Sites are planned by
-LLM agents, content/imagery generated through a Kafka-orchestrated work-item
-pipeline (discovery checks → site_work_items → dispatch → handler agents),
-and assets committed to each site's git repo. The "imagery best-in-class"
-workstream (started 2026-07-08, branch 083_imagery then
-084_site_improvements_local_ai) raises the fleet's visual quality: brand
-consistency, data-accurate infographics, card imagery, sprite-sheet bullets,
-product sketches, news imagery, performance budgets, and an audit loop.
-**Testbed: robot-hands.com** (site_id `00ff3af5-dad8-4770-9f70-3edc267a3c92`).
+## What this project is (fresh-reader paragraph)
 
-## Read these first (all in this directory)
-1. `PLAN_imagery_best_in_class.md` — goals G1–G9, decisions D1–D8 (all
-   user-confirmed), phases I0–I8 with status blocks. THE map.
-2. `RUNNING_NOTES_imagery_best_in_class.md` — Turns 1–22, every decision and
-   diagnosis with evidence. Append a turn every session.
-3. `RUNBOOK_imagery_best_in_class.md` — the human's tasks (A-rituals,
-   B-queue). B1–B3, B7, B8 done; B4–B6, B9 open.
-4. SQL artifacts `SQL_2026-07-*.sql` beside these docs — every migration run,
-   with backups.
+agentchassis is an autonomous agent platform that plans, builds, and operates
+a fleet of content websites (tools, guides, games, news feeds, articles).
+One generic Go runtime executes declarative workflows stored as JSONB in
+Postgres (`agent_definitions`); agents cooperate over Kafka; all work flows
+through `site_work_items` (discovery checks find problems → dispatcher →
+handler agents → git-backed deploy). The **imagery best-in-class workstream**
+(started 2026-07-08) raises fleet visual quality: brand consistency,
+data-accurate infographics, card imagery, sprite-sheet bullets, product
+sketches, news imagery, performance budgets, audit loop.
+**Testbed: robot-hands.com**, site_id `00ff3af5-dad8-4770-9f70-3edc267a3c92`.
+Working branch: `084_site_improvements_local_ai` (user makes bulk commits
+that sweep in-progress edits — check `git log` before assuming anything is
+uncommitted; forward-only, never reset).
 
-## State of the world (2026-07-10 evening)
+## Document map (all in this directory)
+1. **THIS FILE** — state + mechanisms + next actions. Start here.
+2. `PLAN_imagery_best_in_class.md` — goals G1–G9, user-confirmed decisions
+   D1–D8, phases I0–I8 with dated status blocks. The map.
+3. `RUNNING_NOTES_imagery_best_in_class.md` — Turns 1–29, every diagnosis
+   with evidence. Append a turn each session.
+4. `RUNBOOK_imagery_best_in_class.md` — the human's task queue (A-rituals,
+   B-items). Open: B4 (data-source key, at I4), B5 (budget sign-off), B9
+   (reaper cadence), **B10 (next deploy carries the sprite gating fix)**,
+   **B11 (sprite eyeball gate, after B10)**.
+5. `SCOPE_I2_sprite_sheets.md` — current phase's implementation scope.
+6. `SHOWCASE_*.md` (3 files) — shareable summaries (one-pager / narrative /
+   technical w/ diagrams). Refresh stats before reuse.
+7. `SQL_2026-07-*.sql` — every migration/seed run, each with backup+verify.
 
-**Phase I0 (rebuild + render acceptance): SUBSTANTIALLY COMPLETE.**
-- robot-hands rebuilt fresh (33-page plan, news on index + news-index page,
-  9 news sources seeded/0 erroring, healthy content layer).
-- Per-page imagery renders VERIFIED at scale: 16 distinct git-path heroes
-  (`/assets/images/hero-<page>.jpg`), zero expiring S3 URLs, 1 empty image
-  slot site-wide (learning-center-index listing card = Phase I3 scope).
-- Still open from I0: logo-in-header render path (render_site_components
-  doesn't resolve site_assets.logo); Lucide validator unwired.
+## State of the world (2026-07-12, Turn 30)
 
-**Phase I1 (brand consistency): ✅ COMPLETE + LIVE (2026-07-11, Turn 27).**
-Style guide (per-kind gating proven on icons), logo generate/approve/lock
-(D5), header logo resolution, and favicon + OG card derived from the logo —
-all live and verified on robot-hands.com (served HTML has logo-img, favicon
-link, og:image, twitter:card). Reusable: brand-head assets via a
-`needs_brand_head_assets` work item → asset-deployer brand_head mode.
-Remaining I1 nicety (optional): none blocking — favicon/OG done.
+**Phase I0 (testbed rebuild + render acceptance): ✅ COMPLETE.**
+33-page rebuild w/ live news (9 sources, latest-news on index); 16 distinct
+per-page git-path heroes, zero expiring URLs; layout = tool-portal-dark
+(B7: classification industry_tags fix + 025-pattern `css_themes.layout_id`
+swap — there is NO runtime re-compose path, by design); corrupted-template
+class self-healing (bridge check live; 10/14 healed, 4 remaining fix
+themselves on other sites' discovery passes).
 
-**Phase I2 (sprite-sheet bullets): SCOPED, not built.** See
-`SCOPE_I2_sprite_sheets.md`. Design locked; delivery = separate
-/assets/css/sprites.css + head <link> (css_snippets is global, not per-site).
-Awaiting user decisions (first surface = list bullets; 3×3 cell vocabulary).
+**Phase I1 (brand consistency): ✅ COMPLETE, LIVE-VERIFIED on served HTML.**
+- `imagery_style_guide` site-spec drives every generation; per-kind gating
+  (photographic kinds: medium+mood+palette; icon/sprite_sheet: palette only;
+  logo: nothing) — PROVEN on real generations (icons carried palette, not
+  medium). `avoid` → negative prompt; `reference_asset_keys` → stable s3://
+  anchors for Banana.
+- Logo: user-approved, LOCKED (`assets.locked_at`, lock_type=permanent);
+  store-guard refuses overwrites (D5). Header resolves it from plan imagery
+  (`logo-img` live). Favicon + OG card DERIVED from the logo
+  (`derive_brand_head_assets`; favicon.png/og-card.png serve 200; og:image +
+  twitter:card injected into every head at render time).
 
-**Phase I1 (historical detail below): CODE LIVE, ACCEPTANCE IN FLIGHT.**
-- `imagery_style_guide` site-spec aspect + `imagery_style_guide.go`:
-  generate_image composes per-kind direction (photographic kinds get
-  medium+mood+palette; icons palette-only; logos nothing), avoid→negative
-  prompt, reference_asset_keys→stable s3:// anchors for Banana. Guide
-  SUPERSEDES free-text design_intent.imagery_direction. robot-hands' guide is
-  seeded (charcoal/electric-blue, industrial photography, anchors
-  hero_canonical+hero_home).
-- D5 lock guard live: assets upsert refuses rows with locked_at set.
-- ACCEPTANCE PENDING: 3 needs_imagery items queued on robot-hands will be the
-  first generations through the guide — check their assets.origin_prompt for
-  "industrial photography"/"charcoal" fingerprints. A background monitor was
-  watching; re-run the check by hand if the chat ended:
-  `SELECT asset_key, origin_prompt FROM assets WHERE site_id='00ff3af5-…' AND created_at > '2026-07-10 16:30';`
-- REMAINING I1: logo approve-and-lock flow (B6) + favicon/OG derivation —
-  GATED on the leopardess IMAGE_BUCKET fix (below).
+**Phase I2 (sprite-sheet bullets): ⏳ IN PROGRESS — the active phase.**
+- Decisions locked: first surface = LIST BULLETS; 3×3 vocabulary = check,
+  gauge, gripper, cog, chart, download, arrow, info, warning.
+- Delivery (verified twice): separate committed `/assets/css/sprites.css` +
+  head `<link>` — css_snippets is a GLOBAL library (no site_id), and the
+  per-site committed bundle is the house pattern (cf. /assets/js/snippets.js).
+- I2.0 ✅: chk_kind + validImageryKinds include `sprite_sheet`; adapter
+  routes it → Banana; ImagePurposes 768×768 png; insert-gate passed.
+- I2.1 ⏳ **BLOCKED ON NEXT DEPLOY (RUNBOOK B10)**: plan row
+  `sprite_sheet_main` is SEEDED live (source='manual', style_hints
+  {rows:3, cols:3, cell_names[…], style, cell_names_verified:false,
+  aspect_ratio:"1:1"}). Contamination gap caught pre-generation: sprite_sheet
+  fell into the photographic gating branch; FIXED in commit `4629aa17`
+  (flat-vector class: palette-only, no free-text direction, no reference
+  anchors) — the fix must deploy BEFORE generating or the sheet gets the
+  photographic voice. Caveat: a discovery pass on robot-hands before that
+  deploy would auto-generate a contaminated sheet (low risk; reject+regen).
+- I2.2 (NEXT BUILDABLE NOW): `sprites.css` emit — pure string compute from
+  style_hints grid + fixed 768² dims, committed via the git-adapter (mirror
+  the asset-deployer `brand_head` mode / needs_brand_head_assets pattern).
+  Rules per cell: `.sprite-<name>{background-image:url(/assets/images/
+  sprite-sheet-main.png);background-position:-<c*W>px -<r*H>px;width/height;
+  background-size}` + a `li::before` bullet helper. ONLY emit for cells with
+  verified names (cell_names_verified:true after the eyeball gate).
+- I2.3: head `<link rel="stylesheet" href="/assets/css/sprites.css">`
+  (extend `injectBrandHeadTags`, guard on sprite asset existing) + wire
+  bullets on ONE robot-hands section. I2.4+: fulfilment discovery check;
+  later per-section sheets / vision auto-verify.
 
-**B7 (layout): COMPLETED.** robot-hands moved brochure-formal →
-tool-portal-dark. Route: classification lacked industry_tags (fixed,
-supersede-row) + there is NO runtime re-compose path by design
-(install_site_composition refuses; fork install mode removed 2026-04-19) →
-targeted `css_themes.layout_id` swap (025 pattern) + webdesign-agent CSS
-deploy. 36 page_rerender items refresh the HTML side, draining behind the
-design-audit backlog. USER EYEBALL (A3) requested.
+**Phases I3–I8: not started.** I3 (card imagery / Lane B: generic
+entity_type+entity_id on assets — user-confirmed D2) is next after I2.
+I4 charts = go-echarts in-chassis, per-domain free data sources. All
+decisions D1–D8 user-confirmed (see PLAN §4/§8).
 
-**Self-healing guards built + registered (both live in production):**
-- `image_source_unsatisfiable` — component asks for a site_assets.<path>
-  nothing supplies → flag item (needs_human_review, no handler).
-- `component_template_corrupted` — baked/rendered-output templates (literal
-  `<no value>` or zero {{vars}} with schema fields) → auto-emits
-  needs_component_regeneration to component-creator. PROVEN end-to-end
-  (tool-guide-intro auto-detected → regenerated clean). 7 corrupted actives
-  remain fleet-wide (finetuning.uk, vonc.com, leopardessconsulting.co.uk) —
-  self-heal when their discovery cycles run; can be forced with the
-  improvement-loop trigger (below).
-- page-build-handler error routing fixed: real step errors now mark the work
-  item `failed` (mark_item_failed step) instead of silently completing.
+## Mechanisms a fresh session must know (hard-won)
 
-## Key mechanisms a fresh session needs
+- **DB access:** `kubectl exec -n ai-persona-system postgres-clients-0 --
+  psql -U clients_user -d clients_db`. A PreToolUse hook auto-approves
+  read-only SELECT/\d through this exact form; mutations prompt the user.
+  Auth expires ~daily → runbook A1 (user re-login), symptoms: "server has
+  asked for the client to provide credentials" on EVERY call.
+- **Manual agent trigger** (`system.intake` is STALE — do not use): kcat pod
+  → `system.agent.generic.requests`, header `action=orchestrate`, body
+  `{"headers":{...},"config":{"agent_type":"<type>"},"input_data":{...}}`.
+  Full working example: notes Turn 18; script precedent
+  `docs/agent_docs/sql_for_agents/033_rerender_pages_trigger.sh`. Known-good
+  for: improvement-loop (full discovery cycle), webdesign-agent (CSS
+  re-render+deploy), rerender-pages (+refresh_site_components:true).
+  **Do NOT hand-roll spawn_agent+call_agent inline workflows** — the spawned
+  child runs its workflow on INIT and idles before your call arrives
+  (Turn 26). Route work to spawned handlers via WORK ITEMS + dispatch.
+- **Dispatch input contract** (handlers invoked by build-dispatch-loop
+  receive): `input_data.spec` (the item's spec), `input_data.site_id`,
+  `input_data.domain`, `input_data.item_type`. Write step conditions against
+  these (e.g. asset-deployer's check_mode: `input_data.spec.mode ==
+  "brand_head" OR input_data.mode == "brand_head"`).
+- **Manually-inserted work items are NOT auto-triaged** — insert with
+  status='triaged', triaged_at=now(). Dedup: partial unique (site_id,
+  item_key) over non-terminal statuses. `site_plan_imagery.chk_source`
+  allows only llm|classifier|manual|adoption → seeds use 'manual'.
+- **Zombie claims:** a claimed item stuck >~10 min blocks its ENTIRE site
+  from dispatch. Standing unstick:
+  `UPDATE site_work_items SET status='triaged', claimed_by=NULL,
+  claimed_at=NULL, updated_at=now() WHERE status='claimed' AND claimed_at <
+  now() - interval '10 minutes';` Real fix = B9 (user's TODO 6/10/11).
+- **Component regeneration:** queue `needs_component_regeneration` →
+  component-creator; spec {function, component_id, section_type, ...,
+  description}. `description` renders into the creator prompt — use it to
+  DEMAND exact schema-field preservation if the pre-store guard rejects.
+- **Deploys:** user-driven (git → GitHub Actions → docker → k8s). Go changes
+  are inert until then. Post-deploy ritual: clear zombies; re-trigger any
+  loop the restart interrupted (improvement-loop items strand in 'detected'
+  if triage hadn't run — re-trigger the loop, don't hand-promote dozens).
+- **Paths/conventions:** deployed asset path = `storage.DeployedWebPath(
+  asset_key, purpose)` (NEVER assets.url — expiring presigned);
+  `imageryplan.ImageRoleForPath` = shared image-role aliases; kind→provider
+  routing in `dynamic_adapter.go` (flat kinds → Banana, photographic →
+  SDXL); per-kind prompt gating in `directionAppliesToKind` +
+  `styleGuide.directionForKind` — ANY NEW KIND must be added to BOTH gating
+  functions AND chk_kind AND validImageryKinds AND (usually) the adapter
+  switch + ImagePurposes. That five-place checklist is the I2.0 lesson.
 
-**DB access:** `kubectl exec -n ai-persona-system postgres-clients-0 -- psql
--U clients_user -d clients_db` (a PreToolUse hook auto-approves read-only
-SELECT/\d via this path; mutations prompt the user).
+## Open threads (parked, non-blocking)
+- 4 corrupted components remain (archetype-taster-quiz, lobby-grid,
+  provocation-card, tool-cta) — self-heal on their sites' next discovery
+  passes; forceable via improvement-loop trigger per site.
+- Kafka per-job response-topic partition race — transient; now surfaces as
+  failed items (mark_item_failed fix) instead of silent successes.
+- No runtime re-compose path (layout changes = 025 FK-swap pattern);
+  build a site-design-planner re-resolve mode if this becomes routine.
+- learning-center-index orphan component row (pre-rebuild residue) — clears
+  with I3 card imagery or a listing rebuild.
+- Old orphan pages (how-it-works, selection-guide, learning-center sprawl)
+  not in the current plan — cleanup pass someday.
+- image_source_unsatisfiable check live but has produced 0 flags (heroes all
+  resolve now) — expected.
 
-**Manual agent trigger (system.intake is STALE — do not use):** kcat pod →
-`system.agent.generic.requests` with header `action=orchestrate` and body
-`{"headers":{…},"config":{"agent_type":"<agent>"},"input_data":{"site_id":…,"domain":…}}`.
-Working example in running notes Turn 18 / script precedent
-`docs/agent_docs/sql_for_agents/033_rerender_pages_trigger.sh`. Used for:
-improvement-loop (full discovery cycle), webdesign-agent (CSS re-render+
-deploy), rerender-pages (+`"refresh_site_components":true`).
-
-**Manually-inserted work items are NOT auto-triaged** — insert with
-status='triaged', triaged_at=now(). Dedup index: (site_id, item_key) where
-status not terminal.
-
-**Zombie claims:** a claimed item >~10min with no progress blocks the WHOLE
-site from dispatch. Standing workaround (run when queues stall):
-`UPDATE site_work_items SET status='triaged', claimed_by=NULL, claimed_at=NULL, updated_at=now() WHERE status='claimed' AND claimed_at < now() - interval '10 minutes';`
-Real fix = reaper cadence bump (user's TODO 6/10/11, RUNBOOK B9).
-
-**Component regeneration:** queue `needs_component_regeneration` →
-component-creator (spec: function/component_id/section_type + optional
-`description` — the creator prompt renders it; USE IT to demand exact schema
-field preservation when the guard rejects a regen).
-
-**Deploys:** user deploys chassis via git → GitHub Actions. Go changes are
-inert until then. After deploys: clear zombies, re-trigger interrupted loops.
-
-## Cross-workstream notes (CORRECTED 2026-07-10 evening)
-- **The IMAGE_BUCKET scare was RETRACTED by the leopardess workstream**
-  (`docs/leopardessconsulting/AUDIT_verified_facts.md` D8): the deploy
-  pipeline WORKS by design — the base chassis intentionally carries no
-  storage vars; the real pipeline spawns asset-deployer with storage env
-  INJECTED (spawn_actions.go isStorageEnabledAgent). Live asset paths serve
-  HTTP 200; `assets.url` presigned staleness is cosmetic (83 rows; fix =
-  generalise the idea.uk w9_04 url-flip backfill). **B6 (logo flow) is
-  therefore NOT gated** — regenerating the logo through the normal
-  image-build-handler → asset-deployer chain deploys it correctly. (Verify
-  whether robot-hands' logo.png is committed; if not, one needs_imagery item
-  for the logo regenerates+deploys it, then approve → set locked_at → done.)
-- leopardess also committed a dynamic_adapter routing change
-  (logo/illustration/infographic → Banana, honours reference images) —
-  deployed with the 2026-07-10 builds; their workstream verifies.
-
-## Next actions (in order — updated Turn 23)
-1. Verify the in-flight drains: 36 page_rerenders + 3 needs_imagery + the
-   fresh logo item on robot-hands; then the I1 style-guide acceptance check
-   (origin_prompt fingerprints on the new assets) and eyeball two
-   generations for shared brand voice.
-2. User A3 eyeball of tool-portal-dark on robot-hands.com.
-3. **B6 logo — ✅ APPROVED + LOCKED (Turn 24, user chose existing logo).**
-   assets.logo (May-8, purpose='hero' — LEFT AS-IS so DeployedWebPath
-   resolves to the deployed logo.jpg) is locked (locked_at,
-   lock_type=permanent, locked_by=user-b6-approval).
-4. **I1 is now FEATURE-COMPLETE pending deploy** — style guide, logo lock,
-   header logo resolution, and favicon/OG derivation all built. Two Go
-   commits await the NEXT CHASSIS DEPLOY: header logo (b00c150b) and
-   favicon/OG (derive_brand_head_assets + head injection). POST-DEPLOY
-   ACTIVATION for robot-hands, in order:
-   a. Trigger `derive_brand_head_assets` via a storage-enabled agent
-      (asset-deployer) with {site_id, domain} — commits favicon.png +
-      og-card.png. (kcat orchestrate → asset-deployer with an inline
-      workflow calling the action, OR add a step; see Turn-18 trigger
-      pattern.)
-   b. `rerender-pages` with refresh_site_components=true → head gets the
-      favicon/OG tags, header gets the locked logo.
-   c. Eyeball: logo in header, favicon in the tab, OG card on a link
-      preview (or view-source the injected <head>).
-4. Remaining I0 stragglers: wire the Lucide validator; orphan old-page
-   cleanup (how-it-works, selection-guide, learning-center sprawl).
-5. Optionally trigger improvement-loop for finetuning.uk / vonc.com /
-   leopardessconsulting.co.uk to sweep the 4 remaining corrupted components
-   (archetype-taster-quiz, lobby-grid, provocation-card, tool-cta).
-6. Then Phase I2 (sprite sheets — design already locked in
-   CONTEXT_PACK_imagery_sprite_sheet.md) and I3 (card imagery / Lane B:
-   generic entity_type+entity_id columns on assets — user-confirmed D2).
-
-## Open investigation threads (parked, non-blocking)
-- Kafka per-job response-topic partition race ("topic partition not found") —
-  transient; now visible as failed items rather than swallowed.
-- Runtime re-compose path missing by design — build a site-design-planner
-  re-resolve mode if layout changes become routine.
-- learning-center-index orphan component row (component_id NULL, pre-rebuild
-  residue) — clears with I3 card imagery or a listing rebuild.
+## Next actions, in order
+1. **Build I2.2 now** (doesn't need the deploy): sprites.css emit action +
+   `needs_sprite_css`-style work-item route (mirror brand_head mode), gated
+   on cell_names_verified:true.
+2. **On the user's next deploy (B10):** let/queue the needs_imagery for
+   `sprite_sheet_main` → generate via Banana → **B11 eyeball gate with the
+   user** → write the TRUE cell→name map into style_hints, set
+   cell_names_verified:true.
+3. I2.2 emit runs → sprites.css committed → I2.3 head link + wire bullets on
+   one robot-hands section → live gate (readable at bullet size, one ≤80KB
+   download).
+4. I2.4 fulfilment discovery check; then Phase I3 (card imagery / Lane B).

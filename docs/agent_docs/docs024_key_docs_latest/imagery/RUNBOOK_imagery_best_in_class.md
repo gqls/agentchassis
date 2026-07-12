@@ -165,6 +165,20 @@ items 6/10/11 (reaper cadence bump, per-item-type circuit breaker) are now the
 highest-leverage infra fix for every future build. Recommended before the next
 site build.
 
+### B10. Next chassis deploy unblocks the sprite-sheet generation (I2.1)
+Commit `4629aa17` (sprite_sheet contamination-gating fix) must be in the
+image before the first sheet generates — the currently-deployed build would
+prepend the photographic brand voice to the glyph grid. No urgency; it rides
+your next routine deploy. Tell the agent when it's out.
+
+### B11. Sprite-sheet EYEBALL GATE (A3 ritual — after the B10 deploy + generation)
+You'll be shown the generated 3×3 sheet. Your job (≈5 min): (1) is it a
+clean, coherent grid of flat light-grey glyphs on dark charcoal — no
+photographic contamination, no text? If not: reject → regenerate. (2) If
+yes: say what each cell ACTUALLY depicts, reading order — the agent records
+the true cell→name map (requested: check, gauge, gripper, cog, chart,
+download, arrow, info, warning — but never assume the model obeyed).
+
 ---
 
 ## C. What you should expect the agent to do (so you don't have to)
