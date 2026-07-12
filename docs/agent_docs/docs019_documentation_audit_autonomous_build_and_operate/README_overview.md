@@ -51,3 +51,38 @@ ceiling finding). This runbook is how to RUN and TEST the parts that exist today
   this.
 
 ---
+
+
+● F1.1b(c) is code complete (b367a602). The full write step exists end to end — every action, the workflow seed, the trigger — validated as far as it can be without the deploys.
+
+What landed this turn
+
+Three final pieces, each shaped by a reuse-or-safety argument:
+
+1. diagnose_read_repo_files — fetches the plan's files via the GitHub contents API (no git binary needed, read token from the spawn gate). The rule that matters: a modify file that 404s is a hard error — whole-file
+   rewrites from files the model has never seen would be hallucination by construction, so it refuses.
+2. git_adapter_request — one generic adapter caller instead of three copies of the 200-line commit envelope. Verbs are allowlisted (commit, create_branch, create_pull_request) — delete_repo is structurally
+   unreachable from any workflow using it.
+3. fix-implementer seed (15 steps, graph verified, dry-run passed live):
+
+load plan/council/diagnosis → APPROVED gate (mirror of the CONFIRMED gate)
+→ read current file bodies → sketch_to_files (whole files, "no drive-by changes,
+the diff a human reviews must contain ONLY the plan")
+→ deterministic allowlist → create fix/* branch → commit
+→ build gate (golang Job) → green: PR into main │ red: NO PR — branch + build log left
+
+Plus fix-implementer on the read-token spawn gate, and 092_TRIGGER_fix_implementer_v1.sh.
+
+Your deploy checklist (also in the living handoff, in order)
+
+1. Chassis image (5 new actions + spawn-gate entry) — bump tag; I'll verify in-pod as before
+2. git-adapter image (branch/PR ops)
+3. kubectl apply the RBAC file (pods/log for build-gate failure reports)
+4. Apply 0NN_fix_implementer.sql
+5. Token smoke test — one create_branch on a throwaway name proves write scope on gqls/agentchassis
+
+Then the last piece before the first end-to-end run: seeding the small bug. My suggestion when you're ready: I plant a contained single-file defect on a low-stakes surface (e.g. a wrong constant or inverted condition
+in a leaf function with an obvious observable symptom), we run it through the full pipeline — diagnose → plan → council (which should genuinely approve) → implementer — and the system's first-ever PR will have
+earned every gate it passed. When the images are up, say the word and I'll verify the binaries and take it from there.
+
+
