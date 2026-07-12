@@ -108,8 +108,31 @@ SELECT
           'description', 'Refuse anything not CONFIRMED — the whole reason F1 waited for the verdict guards.',
           'config', jsonb_build_object(
             'condition', 'diagnosis_row.status == ''CONFIRMED''',
-            'then_step', 'load_last_bundle',
+            'then_step', 'load_schema_hint',
             'else_step', 'complete_refused'
+          )
+        ),
+
+        -- F2.3b(a): the LIVE schema the reviewers may write checks against.
+        -- Loaded once; survives in collected_data across every review round.
+        'load_schema_hint', jsonb_build_object(
+          'action', 'query_database',
+          'description', 'Live table/column list (information_schema) so reviewer checks stop hallucinating columns.',
+          'output_field', 'schema_hint',
+          'next_step', 'load_last_bundle',
+          'config', jsonb_build_object(
+            'output_format', 'object',
+            'params', jsonb_build_array(),
+            'query',
+              'SELECT string_agg(t.line, chr(10)) AS text FROM ( ' ||
+              '  SELECT table_name || ''('' || string_agg(column_name || '' '' || data_type, '', '' ORDER BY ordinal_position) || '')'' AS line ' ||
+              '  FROM information_schema.columns ' ||
+              '  WHERE table_schema = ''public'' AND table_name IN ' ||
+              '    (''pages'',''sites'',''site_plans'',''site_plan_pages'',''site_work_items'', ' ||
+              '     ''content_components'',''page_components'',''agent_definitions'', ' ||
+              '     ''diagnosis_artifacts'',''agent_error_log'') ' ||
+              '  GROUP BY table_name ORDER BY table_name ' ||
+              ') t'
           )
         ),
 
@@ -201,14 +224,15 @@ SELECT
               'max_tokens', 3000
             ),
             'temperature', 0.0,
-            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted'),
+            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted', 'schema_hint'),
             'output_format', 'json',
             'prompt_template',
 '# Council reviewer: EDIT QUALITY' || chr(10) || chr(10) ||
 'You review a proposed fix plan against its diagnosis. You change nothing; you judge.' || chr(10) || chr(10) ||
 'Judge: (a) does every edit CHANGE something real (audits/comments are not edits); (b) does the plan address every mechanism the diagnosis cites — quote any cited mechanism with no covering edit into missing; (c) does each edit target the causal path the diagnosis established, not an adjacent one; (d) is the plan minimal.' || chr(10) || chr(10) ||
 'Verdicts: approve (sound), object (fixable problems — list them), veto (fundamentally wrong: fixes a different bug, or all edits are no-ops).' || chr(10) || chr(10) ||
-'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (a column''s type, whether a name exists in a table, a fleet-wide count), put that query in checks as {"sql": "SELECT ...", "why": "what this settles"} — SELECT/WITH only, never writes. Checks are executed before any revision and the results are fed back, so ask rather than assume.' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (a column''s type, whether a name exists in a table, a fleet-wide count), put that query in checks as {"sql": "SELECT ...", "why": "what this settles"} — SELECT/WITH only, never writes. Checks are executed before any revision and the results are fed back, so ask rather than assume. Write checks ONLY against the tables/columns in the Schema section below — a check against anything else fails and wastes the round. Two traps: workflow step definitions live in agent_definitions.default_config (jsonb — query with jsonb operators), there is NO steps table; a site''s domain lives on sites (join pages.site_id = sites.id). SQL cannot read Go source — do not ask code-shaped questions in checks; put those in objections for a human.' || chr(10) || chr(10) ||
+'## Schema (the ONLY tables available to checks)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
 '## The diagnosis' || chr(10) || '{{.diagnosis_row.conclusion}}' || chr(10) || chr(10) ||
 '## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Output — ONLY this JSON' || chr(10) ||
@@ -230,14 +254,15 @@ SELECT
               'max_tokens', 3000
             ),
             'temperature', 0.0,
-            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted'),
+            'input_fields', jsonb_build_array('diagnosis_row', 'plan_persisted', 'schema_hint'),
             'output_format', 'json',
             'prompt_template',
 '# Council reviewer: PIPELINE GUARDIAN (hard-veto holder)' || chr(10) || chr(10) ||
 'You protect the platform''s other pipelines from collateral damage. You change nothing; you judge.' || chr(10) || chr(10) ||
 'Judge: (a) blast radius — which pipelines/workflows consume each edited file or workflow step; does the plan acknowledge them; (b) architecture-change signals — edits to shared contracts, wire formats, message shapes, exported signatures, or MANY packages at once mean this is not a constrained fix: veto and say it needs an architecture review; (c) surface ownership — workflow-JSON edits must be operation config_change and name the owning pipeline.' || chr(10) || chr(10) ||
 'Verdicts: approve, object (containable concerns), veto (cross-pipeline damage or architecture change dressed as a fix). Your veto BLOCKS. If you veto, name the safest contained alternative you can see in notes — it seeds the reframe.' || chr(10) || chr(10) ||
-'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (a column''s type, whether a name exists in a table, a fleet-wide count), put that query in checks as {"sql": "SELECT ...", "why": "what this settles"} — SELECT/WITH only, never writes. Checks are executed before any revision and the results are fed back, so ask rather than assume.' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (a column''s type, whether a name exists in a table, a fleet-wide count), put that query in checks as {"sql": "SELECT ...", "why": "what this settles"} — SELECT/WITH only, never writes. Checks are executed before any revision and the results are fed back, so ask rather than assume. Write checks ONLY against the tables/columns in the Schema section below — a check against anything else fails and wastes the round. Two traps: workflow step definitions live in agent_definitions.default_config (jsonb — query with jsonb operators), there is NO steps table; a site''s domain lives on sites (join pages.site_id = sites.id). SQL cannot read Go source — do not ask code-shaped questions in checks; put those in objections for a human.' || chr(10) || chr(10) ||
+'## Schema (the ONLY tables available to checks)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
 '## The diagnosis' || chr(10) || '{{.diagnosis_row.conclusion}}' || chr(10) || chr(10) ||
 '## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Output — ONLY this JSON' || chr(10) ||

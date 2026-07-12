@@ -1484,6 +1484,35 @@ results_text, so the NEXT round's reviewers can correct their SQL — verify thi
 self-correction actually happens; (c) a tier-2 check type routed at
 lookup_code_symbols for code-shaped questions. Not built; recorded.
 
+### Turn 24 (2026-07-11/12) — F2.3b(a) SHIPPED and verified: 5/7 failed → 8/8 answered
+
+**Built (v5 seed, config-only, no image):** a thin `load_schema_hint`
+query_database step pulls the LIVE table/column list (types included — the
+jsonb-vs-text question was a real blocking objection in aadd532a) from
+information_schema at run time; both reviewer prompts carry it plus the two
+traps that bit (default_config jsonb not a steps table; domain on sites) and
+"SQL cannot read Go source — code-shaped questions go in objections". Chose
+live-query over a static prompt block so the hint cannot drift. 20 steps,
+graph verified, applied with snapshot.
+
+**Verification run `1e221fb7`: 8 checks run, 0 failures** (prior run: 5 of 7
+failed on hallucinated schema). Check quality transformed — reviewers now
+extract page-build-handler step definitions from default_config WITH jsonb
+operators (the exact trap), verify component function names before approving
+edit 1, enumerate fleet-wide section-index pages for blast radius, and count
+gap_plan work items to quantify re-queue risk. The verify step is doing
+precisely what it was designed for: settling facts before approval.
+
+**Terminal: still exhausted→escalation (correct for this bug), but the failure
+mode MOVED UP a level:** round-3 objections no longer say "unverified fact" —
+they say the plan INVENTS structures (a `pipeline.json seed_work_items` array
+whose existence/consumption the reviewers question, a payload.sections override
+the handler may not accept). The proposer, cornered on facts, started
+speculating about mechanisms instead — and the council caught that too. This is
+the residual gap F2.3b(c) (code-tier checks via lookup_code_symbols) would
+address: the open questions are now about Go/handler behaviour, which SQL
+checks structurally cannot settle.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys
