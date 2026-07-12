@@ -629,3 +629,42 @@ ANY change, including component forks.
   mechanism), still partly stale — an SEO/social polish pass.
 - L4 CTO-register copy on engagement-model / for-engineering-* / how-it-works /
   our-approach / technical-architecture still to rewrite; near-duplicate pages to merge.
+
+## Turn 13 — docs brought current, handoff created, footer cleared, site-uniformity underway
+
+Owner asked to bring the running docs / plan / runbook current, create a HANDOFF doc for
+resuming in a fresh chat, then finish the footer + remaining pages for uniformity.
+
+**Docs.** Created `HANDOFF.md` (the resume-from-here doc: one-paragraph state, owner
+decisions, what's done, sharp edges, scripts, next actions, open questions). Added a phase
+status table to `PLAN` (L0–L4 done, L5 partial, L6–L8 not started, L9 ongoing). Added
+RUNBOOK procedures O8 (two rerender modes), O9 (reconcile-headers + the throughput note),
+O10 (safe per-site palette change), and landmines 13–19 (the rerender-pipeline traps).
+Updated the workstream memory to point new chats at HANDOFF first.
+
+**Footer: no fix needed.** My earlier note feared the footer hardcoded navy. It doesn't —
+`footer-4-column` hardcodes only `#fff` (text) and takes its background from
+`--color-footer-bg` (#0D0D0D) and links from `--color-footer-text`/`--color-accent`. The
+navy I'd seen was the head `theme-color` meta. Corrected the note.
+
+**Site uniformity (the header/logo on all pages): in progress, throttled by the platform.**
+The forked gold header lives in `site_components`; each page embeds a copy, so every active
+page must re-render to pick it up. This exposed a real throughput wall:
+- The prod `agent-chassis` runs **one replica** and consumes `page-rerender` messages
+  **serially** (~45–60s each), and it shares that single consumer with whatever else the
+  platform is doing (a `build-dispatch-loop` was competing throughout). So 30 pages is a
+  15–25 min drain, not parallel.
+- Two delivery traps cost time and are now documented: (1) **backgrounding `kubectl run`
+  drops messages** — fire kcat in the foreground; (2) **assemble-mode `page-rerender`
+  needs `page_id`** (not just `page_name`) or `rerender_single_page` fails "page_id not
+  found" — 24 fires failed this way before I added page_id. `reconcile_headers.sh` +ORCH
+  now fire with page_id + section_data_resolved.
+- Progress at end of turn: **12/30 pages** carry the gold header/logo (incl. 7 of 11 main
+  nav pages: index, about, services, how-we-work, use-cases, case-studies, who-we-help),
+  and climbing as the queue drains. **All 30 already have the correct palette** (it applies
+  via the stylesheet link, no per-page render needed). The remaining ~18 finish as the
+  queue drains, or via another `reconcile_headers.sh` run (idempotent).
+
+This is a platform constraint, not a defect I can force faster. Documented in RUNBOOK O9 +
+HANDOFF §4. Next chat: re-run `reconcile_headers.sh` to top out uniformity, then per-page
+title/OG meta, secondary-page copy, and the build-out (L6–L8).
