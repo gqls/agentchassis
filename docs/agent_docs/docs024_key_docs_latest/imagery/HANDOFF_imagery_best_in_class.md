@@ -36,7 +36,20 @@ product sketches, news imagery, performance budgets, and an audit loop.
 - Still open from I0: logo-in-header render path (render_site_components
   doesn't resolve site_assets.logo); Lucide validator unwired.
 
-**Phase I1 (brand consistency): CODE LIVE, ACCEPTANCE IN FLIGHT.**
+**Phase I1 (brand consistency): ✅ COMPLETE + LIVE (2026-07-11, Turn 27).**
+Style guide (per-kind gating proven on icons), logo generate/approve/lock
+(D5), header logo resolution, and favicon + OG card derived from the logo —
+all live and verified on robot-hands.com (served HTML has logo-img, favicon
+link, og:image, twitter:card). Reusable: brand-head assets via a
+`needs_brand_head_assets` work item → asset-deployer brand_head mode.
+Remaining I1 nicety (optional): none blocking — favicon/OG done.
+
+**Phase I2 (sprite-sheet bullets): SCOPED, not built.** See
+`SCOPE_I2_sprite_sheets.md`. Design locked; delivery = separate
+/assets/css/sprites.css + head <link> (css_snippets is global, not per-site).
+Awaiting user decisions (first surface = list bullets; 3×3 cell vocabulary).
+
+**Phase I1 (historical detail below): CODE LIVE, ACCEPTANCE IN FLIGHT.**
 - `imagery_style_guide` site-spec aspect + `imagery_style_guide.go`:
   generate_image composes per-kind direction (photographic kinds get
   medium+mood+palette; icons palette-only; logos nothing), avoid→negative

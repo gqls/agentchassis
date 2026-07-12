@@ -1081,4 +1081,31 @@ an earlier pod-age miscalculation.)
 `needs_brand_head_assets` item routed to asset-deployer. Good candidate to
 auto-emit after a logo locks (future discovery check).
 
+## Turn 27 — 2026-07-11 — ✅ I1 COMPLETE + LIVE-VERIFIED; I2 scoped
+
+**Favicon/OG derivation ran clean** (dispatch path): item complete first
+attempt, `favicon.png` + `og-card.png` both serve 200, provenance rows
+origin_model='derived-from-logo'.
+
+**I1 ACTIVATION VERIFIED LIVE on robot-hands.com** (curl of the served index +
+site_components rows): head re-rendered 20:22 with `og:image` + `rel="icon"`
++ `twitter:card`; header carries `logo-img` (the locked logo). So the full
+brand layer is live: locked logo in header, favicon in tab, OG card on link
+previews. (The background monitor's `head[og|icon]=` blanks were a query
+quoting bug, not a gap — direct check confirmed.) 34 page_rerenders still
+draining refresh page bodies with the updated head/header.
+
+**PHASE I1 DONE:** style guide (per-kind gating proven on icons) + logo
+generate/approve/lock (D5) + header logo resolution + favicon/OG derived from
+logo. The G1/G8 brand-consistency layer is complete end-to-end on the testbed.
+
+**PHASE I2 SCOPED** (`SCOPE_I2_sprite_sheets.md`). Confirmed the locked design
+against fresh schema; found + resolved ONE deviation: `css_snippets` is a
+GLOBAL library, not per-site, so the sprite stylesheet ships as a separate
+committed `/assets/css/sprites.css` + a head `<link>` — reusing the Turn-25/26
+head-injection + git-commit patterns (the biggest reuse win). Build breakdown
+(8 small pieces), phases I2.0–I2.4 with human eyeball gates, cell-alignment as
+the key risk. Two decisions flagged for user: first surface (recommend list
+bullets) + 3×3 cell vocabulary for robot-hands.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
