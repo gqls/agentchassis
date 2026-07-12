@@ -1147,6 +1147,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Persist the human hand-off package (kind=escalation: decision + diagnosis + final plan + reviews) when the council rejects or the revise budget exhausts; a first-class success terminal, not a failure",
 		IsLocal:     true,
 	},
+	"diagnose_prepare_fix_commit": {
+		Handler:     DiagnosePrepareFixCommitAction,
+		Category:    "diagnose",
+		Description: "F1.1b(c) safety core: validate the fix-implementer's whole-file outputs against the approved plan's HARD file allowlist (reject out-of-plan, incomplete, empty, no-op) and assemble the git-adapter commit + PR payloads",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline
