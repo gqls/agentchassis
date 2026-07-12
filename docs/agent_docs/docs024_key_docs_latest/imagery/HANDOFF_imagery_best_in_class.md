@@ -65,15 +65,23 @@ themselves on other sites' discovery passes).
   per-site committed bundle is the house pattern (cf. /assets/js/snippets.js).
 - I2.0 ✅: chk_kind + validImageryKinds include `sprite_sheet`; adapter
   routes it → Banana; ImagePurposes 768×768 png; insert-gate passed.
-- I2.1 ⏳ **BLOCKED ON NEXT DEPLOY (RUNBOOK B10)**: plan row
-  `sprite_sheet_main` is SEEDED live (source='manual', style_hints
-  {rows:3, cols:3, cell_names[…], style, cell_names_verified:false,
-  aspect_ratio:"1:1"}). Contamination gap caught pre-generation: sprite_sheet
-  fell into the photographic gating branch; FIXED in commit `4629aa17`
-  (flat-vector class: palette-only, no free-text direction, no reference
-  anchors) — the fix must deploy BEFORE generating or the sheet gets the
-  photographic voice. Caveat: a discovery pass on robot-hands before that
-  deploy would auto-generate a contaminated sheet (low risk; reject+regen).
+- I2.1 ⏳ REGEN IN FLIGHT (Turn 31). B10 deploy done; gating fix live and
+  PROVEN (first sheet's origin_prompt: palette-only, no photographic voice).
+  First generation was near-perfect (all 9 glyphs, exact reading order) but
+  its DEPLOY committed 900×900 sprite-sheet-main.JPG — hero config — because
+  `deploy_image_asset`'s ExtractActionInputs aggressive search matched a
+  stale `purpose` (child HAD received purpose='sprite_sheet'; verified via
+  initial_request_data). FIXED workflow-only:
+  `SQL_2026-07-12_asset_deployer_explicit_paths.sql` adds explicit
+  Strategy-0 `input_data.*` paths to deploy_asset. **Standing lesson: give
+  ExtractActionInputs actions explicit dot-paths; never trust the search.**
+  Item reset → full chain re-running; monitor expects item complete +
+  sprite-sheet-main.png 200 + 768×768 PNG; then the B11 eyeball gate
+  (user says true cell meanings → write back, cell_names_verified:true).
+  Latent gaps recorded: dispatch-shape inputs (`input_data.spec.*`) not
+  covered by the explicit paths; historical spawned deploys may have used
+  hero dims silently (check May icons' file dims someday); stale
+  sprite-sheet-main.jpg clutter in the site repo.
 - I2.2 (NEXT BUILDABLE NOW): `sprites.css` emit — pure string compute from
   style_hints grid + fixed 768² dims, committed via the git-adapter (mirror
   the asset-deployer `brand_head` mode / needs_brand_head_assets pattern).

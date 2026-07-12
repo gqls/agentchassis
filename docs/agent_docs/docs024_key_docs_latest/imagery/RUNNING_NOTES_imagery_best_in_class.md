@@ -1190,4 +1190,66 @@ cell_names_verified:true) → then I2.2 (sprites.css emit action).
 - Next work: I2.2 sprites.css emit action (buildable pre-deploy), then the
   B10/B11 generation + gate.
 
+## Turn 31 — 2026-07-12 — Sheet generated (near-perfect); deploy-purpose bug found + fixed; regen in flight
+
+**B10 deploy verified** (pod 18:18 UTC > gating commit 15:19). Queued
+`needs_imagery:site:-:sprite_sheet_main` (spec mirrored from the logo-item
+precedent + style_hints riding along).
+
+**GENERATION: excellent.** Complete on attempt 1 via
+banana/gemini-3-pro-image-preview. Contamination-gating fix PROVEN in
+`origin_prompt`: "Colour palette" present, "industrial photography" ABSENT.
+I downloaded and visually inspected the sheet (agents can Read PNGs — worth
+remembering as a pre-gate): **all NINE glyphs exactly as requested, in exact
+reading order** (check, gauge, gripper, cog, chart, download, arrow, info,
+warning), uniform stroke, light grey on charcoal, dividers visible, no text.
+The cell-alignment risk (the phase's headline risk) did not materialise.
+Saved copy: session scratchpad `sprite_sheet_main.png`.
+
+**ERROR 1 — user's eyeball gate blocked by a deploy failure.** The B11
+answer came back as a pasted B2 error: `objectKey robot-hands.com/assets/
+images/sprite-sheet-main.png → 404 NoSuchKey`. Investigation chain:
+1. Work-item result: deploy leg "success" — but committed
+   **sprite-sheet-main.JPG**, commit message "Deploy **hero** image".
+2. Live file: 200 at .jpg, **900×900 JPEG** = exactly hero config
+   (1600×900 thumbnail of a square source). So deploy ran with
+   purpose='hero' despite the store leg recording 'sprite_sheet'.
+3. Child forensics (`orchestration_states.initial_request_data`): the
+   asset-deployer child **RECEIVED input_data.purpose='sprite_sheet'** —
+   the call mapping was fine.
+4. Root cause in `deploy_image_asset`: `ExtractActionInputs` falls back to
+   the AGGRESSIVE recursive `ExtractFields` search per field name; for
+   `purpose` it matched a stale value elsewhere in collected_data (siblings
+   s3_uri/asset_key happened to resolve correctly) → empty/hero → the
+   action's `purpose="hero"` default (line ~85). This is the exact hazard
+   the extraction code's own Strategy-0 comment warns about.
+
+**SOLUTION (workflow-only, live immediately, no deploy):**
+`SQL_2026-07-12_asset_deployer_explicit_paths.sql` — asset-deployer's
+`deploy_asset` step config gains explicit Strategy-0 dot-paths
+(`s3_uri/purpose/domain/asset_key` → `input_data.*`); explicit paths are
+resolved FIRST and win over the aggressive search. Backup + snapshot +
+verify. **Standing lesson: any step feeding ExtractActionInputs-based
+actions should declare explicit dot-paths, never rely on the search.**
+
+**Recorded, not fixed (latent siblings):**
+- Dispatch-shape gap: items dispatched by build-dispatch-loop carry payload
+  under `input_data.spec.*` — the new explicit paths miss that shape and
+  Strategy-1 search still applies there (undeployed_asset flow). Fix when it
+  misbehaves or in a hardening pass.
+- Wider implication: EVERY spawned deploy may have silently used hero
+  dimensions (masked because heroes dominate) — e.g. the May icons' deployed
+  files are worth a dimensions check someday.
+- Clutter: the wrong `sprite-sheet-main.jpg` (900² hero-config) remains in
+  the site repo; nothing references it; remove in a cleanup pass.
+
+**CHOICE — regen rather than redeploy-only:** the eyeball gate never
+actually completed (the user's gate answer was the error paste), so a fresh
+generation costs one cheap Banana call and needs a gate either way; reset
+the item (status/result/error cleared) → full chain re-runs through the
+FIXED deploy path. Monitor watching: item complete + `/assets/images/
+sprite-sheet-main.png` 200 + file verifies as **768×768 PNG** (the geometry
+sprites.css slicing requires). Then B11 eyeball gate re-runs with a working
+deployed URL.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
