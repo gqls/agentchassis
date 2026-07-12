@@ -137,12 +137,37 @@ type ErrorInfo struct {
 // GIT-SPECIFIC STRUCTURES
 // ============================================================================
 
-// GitCommitData is the expected structure of the 'data' field for a 'commit' action
+// GitCommitData is the expected structure of the 'data' field for a 'commit' action.
+// Branch (optional) targets a non-default branch — F1.1b(c): the fix-implementer
+// commits plan edits to a fix branch, never to main. When Branch is set, Domain
+// may be empty and file paths are used repo-relative (no domain prefix): Domain
+// is a site-content concept; platform-repo commits are repo-relative.
 type GitCommitData struct {
 	RepoName      string                 `json:"repo_name"`
 	Domain        string                 `json:"domain"`
 	Files         map[string]interface{} `json:"files"`
 	CommitMessage string                 `json:"commit_message"`
+	Branch        string                 `json:"branch,omitempty"`
+}
+
+// GitCreateBranchData is the 'data' field for a 'create_branch' action.
+// FromBranch defaults to the repo's default branch.
+type GitCreateBranchData struct {
+	RepoName   string `json:"repo_name"`
+	Branch     string `json:"branch"`
+	FromBranch string `json:"from_branch,omitempty"`
+}
+
+// GitCreatePRData is the 'data' field for a 'create_pull_request' action.
+// Base defaults to the repo's default branch. The PR is the fix loop's human
+// terminal: created, never merged by the platform.
+type GitCreatePRData struct {
+	RepoName string `json:"repo_name"`
+	Title    string `json:"title"`
+	Body     string `json:"body"`
+	Head     string `json:"head"`
+	Base     string `json:"base,omitempty"`
+	Draft    bool   `json:"draft,omitempty"`
 }
 
 // FileContent represents a file with explicit encoding

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -60,16 +61,21 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		return "", fmt.Errorf("repo_name and files are required")
 	}
 
-	// Files now go to {domain}/{filename}
-	prefixedFiles := make(map[string]interface{})
-	for path, content := range data.Files {
-		prefixedPath := data.Domain + "/" + path
-		prefixedFiles[prefixedPath] = content
+	// Files go to {domain}/{filename} — a SITE-CONTENT convention. A branch-
+	// targeted commit with no domain (the fix-implementer writing platform
+	// code) uses paths repo-relative, unprefixed.
+	if data.Domain != "" {
+		prefixedFiles := make(map[string]interface{})
+		for path, content := range data.Files {
+			prefixedPath := data.Domain + "/" + path
+			prefixedFiles[prefixedPath] = content
+		}
+		data.Files = prefixedFiles
 	}
-	data.Files = prefixedFiles
 
 	c.log.Info("Committing to repo",
 		zap.String("repo_name", data.RepoName),
+		zap.String("branch", data.Branch),
 		zap.Any("DEBUGaa: data", data),
 	)
 
@@ -79,14 +85,20 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		return "", fmt.Errorf("failed to create/get repo: %w", err)
 	}
 
-	// 2. Get the latest commit SHA from the default branch
-	latestSHA, err := c.getLatestCommitSHA(ctx, repo.Owner.Login, repo.Name, repo.DefaultBranch)
+	// Target branch: explicit request or the repo default.
+	branch := data.Branch
+	if branch == "" {
+		branch = repo.DefaultBranch
+	}
+
+	// 2. Get the latest commit SHA from the target branch
+	latestSHA, err := c.getLatestCommitSHA(ctx, repo.Owner.Login, repo.Name, branch)
 	if err != nil {
 		// This might fail if the repo was *just* created and is empty
 		// Let's try to get the base tree SHA
-		latestSHA, err = c.getBaseTreeSHA(ctx, repo.Owner.Login, repo.Name, repo.DefaultBranch)
+		latestSHA, err = c.getBaseTreeSHA(ctx, repo.Owner.Login, repo.Name, branch)
 		if err != nil {
-			return "", fmt.Errorf("failed to get latest commit/base tree: %w", err)
+			return "", fmt.Errorf("failed to get latest commit/base tree for branch %q: %w", branch, err)
 		}
 	}
 
@@ -139,12 +151,130 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		return "", fmt.Errorf("failed to create commit: %w", err)
 	}
 
-	// 6. Update the "Ref" (e.g., move 'main' branch to point to the new commit)
-	if err := c.updateRef(ctx, repo.Owner.Login, repo.Name, repo.DefaultBranch, newCommitSHA); err != nil {
-		return "", fmt.Errorf("failed to update ref: %w", err)
+	// 6. Update the "Ref" (move the target branch to point to the new commit)
+	if err := c.updateRef(ctx, repo.Owner.Login, repo.Name, branch, newCommitSHA); err != nil {
+		return "", fmt.Errorf("failed to update ref for branch %q: %w", branch, err)
 	}
 
 	return repo.HTMLURL, nil
+}
+
+// CreateBranch creates a new branch from FromBranch's head (default: the
+// repo's default branch). F1.1b(c): the fix-implementer's first git step.
+// Idempotent on re-runs: if the branch already exists, its current head is
+// returned with created=false rather than an error — a re-fired implementer
+// run must not die on its own leftovers.
+func (c *GitHubClient) CreateBranch(ctx context.Context, data GitCreateBranchData) (sha string, created bool, err error) {
+	if data.RepoName == "" || data.Branch == "" {
+		return "", false, fmt.Errorf("repo_name and branch are required")
+	}
+
+	// getRepo, NOT createOrGetRepo: a typo'd repo name must fail loudly, not
+	// auto-create an empty repo (that behaviour belongs to the site-content flow).
+	repo, err := c.getRepo(ctx, data.RepoName)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to get repo: %w", err)
+	}
+
+	from := data.FromBranch
+	if from == "" {
+		from = repo.DefaultBranch
+	}
+	baseSHA, err := c.getLatestCommitSHA(ctx, repo.Owner.Login, repo.Name, from)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to resolve head of %q: %w", from, err)
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/git/refs", c.apiBase, repo.Owner.Login, repo.Name)
+	body := map[string]string{
+		"ref": "refs/heads/" + data.Branch,
+		"sha": baseSHA,
+	}
+	jsonBody, _ := json.Marshal(body)
+	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+
+	var ref struct {
+		Object struct {
+			SHA string `json:"sha"`
+		} `json:"object"`
+	}
+	if err := c.sendGitHubRequest(req, &ref); err != nil {
+		// 422 "Reference already exists" → return the existing head.
+		if strings.Contains(err.Error(), "already exists") {
+			existing, gerr := c.getLatestCommitSHA(ctx, repo.Owner.Login, repo.Name, data.Branch)
+			if gerr != nil {
+				return "", false, fmt.Errorf("branch exists but head unreadable: %w", gerr)
+			}
+			c.log.Info("Branch already exists, returning existing head",
+				zap.String("branch", data.Branch), zap.String("sha", existing))
+			return existing, false, nil
+		}
+		return "", false, fmt.Errorf("failed to create branch %q: %w", data.Branch, err)
+	}
+
+	c.log.Info("Branch created",
+		zap.String("branch", data.Branch),
+		zap.String("from", from),
+		zap.String("sha", ref.Object.SHA))
+	return ref.Object.SHA, true, nil
+}
+
+// CreatePullRequest opens a PR from Head into Base (default: the repo's
+// default branch). F1.1b(c): the fix loop's HUMAN TERMINAL — the platform
+// creates PRs and never merges them.
+func (c *GitHubClient) CreatePullRequest(ctx context.Context, data GitCreatePRData) (htmlURL string, number int, err error) {
+	if data.RepoName == "" || data.Title == "" || data.Head == "" {
+		return "", 0, fmt.Errorf("repo_name, title and head are required")
+	}
+
+	repo, err := c.getRepo(ctx, data.RepoName)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get repo: %w", err)
+	}
+
+	base := data.Base
+	if base == "" {
+		base = repo.DefaultBranch
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/pulls", c.apiBase, repo.Owner.Login, repo.Name)
+	body := map[string]interface{}{
+		"title": data.Title,
+		"body":  data.Body,
+		"head":  data.Head,
+		"base":  base,
+		"draft": data.Draft,
+	}
+	jsonBody, _ := json.Marshal(body)
+	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+
+	var pr struct {
+		HTMLURL string `json:"html_url"`
+		Number  int    `json:"number"`
+	}
+	if err := c.sendGitHubRequest(req, &pr); err != nil {
+		return "", 0, fmt.Errorf("failed to create pull request %q -> %q: %w", data.Head, base, err)
+	}
+
+	c.log.Info("Pull request created",
+		zap.String("url", pr.HTMLURL),
+		zap.Int("number", pr.Number),
+		zap.String("head", data.Head),
+		zap.String("base", base))
+	return pr.HTMLURL, pr.Number, nil
+}
+
+// getRepo fetches a repo WITHOUT creating it when absent — branch/PR
+// operations must fail loudly on a bad repo name.
+func (c *GitHubClient) getRepo(ctx context.Context, repoName string) (*GitHubRepo, error) {
+	owner := c.getRepoOwner()
+	url := fmt.Sprintf("%s/repos/%s/%s", c.apiBase, owner, repoName)
+	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	repo := &GitHubRepo{}
+	if err := c.sendGitHubRequest(req, repo); err != nil {
+		return nil, fmt.Errorf("repo %s/%s not accessible: %w", owner, repoName, err)
+	}
+	return repo, nil
 }
 
 // --- GitHub API Helper Functions ---

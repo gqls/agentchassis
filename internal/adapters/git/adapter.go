@@ -340,6 +340,10 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 		responsePayload = a.handleCreateRepoAction(req.Body.Data)
 	case "delete_repo":
 		responsePayload = a.handleDeleteRepoAction(req.Body.Data)
+	case "create_branch":
+		responsePayload = a.handleCreateBranchAction(req.Body.Data)
+	case "create_pull_request":
+		responsePayload = a.handleCreatePullRequestAction(req.Body.Data)
 	default:
 		a.logger.Error("Unknown action",
 			zap.String("action", req.Body.Action),
@@ -359,7 +363,7 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 		if success, ok := respMap["success"].(bool); ok && !success {
 			// It's an error response
 			if errMsg, ok := respMap["error"].(string); ok {
-				a.sendErrorResponse(responsesTopic, req.Headers, fmt.Errorf(errMsg))
+				a.sendErrorResponse(responsesTopic, req.Headers, fmt.Errorf("%s", errMsg))
 			} else {
 				a.sendErrorResponse(responsesTopic, req.Headers, fmt.Errorf("operation failed"))
 			}
@@ -394,8 +398,10 @@ func (a *GitAdapter) handleCommitAction(data json.RawMessage) interface{} {
 		zap.Any("commitData", commitData),
 	)
 
-	// Check for empty domain
-	if commitData.Domain == "" {
+	// Domain is required for the site-content flow (paths are domain-prefixed).
+	// A BRANCH-targeted commit (F1.1b(c) fix-implementer, repo-relative paths)
+	// legitimately has no domain — the branch field is its marker.
+	if commitData.Domain == "" && commitData.Branch == "" {
 		return map[string]interface{}{
 			"success": false,
 			"error":   "no domain in commit data",
@@ -436,6 +442,80 @@ func (a *GitAdapter) handleCommitAction(data json.RawMessage) interface{} {
 		"file_path":      getFirstFilePath(commitData.Files, commitData.Domain), // Convenient for single-file commits
 		"commit_message": commitData.CommitMessage,
 		"timestamp":      time.Now().UTC().Format(time.RFC3339),
+	}
+}
+
+// handleCreateBranchAction creates (or finds) a branch — F1.1b(c).
+func (a *GitAdapter) handleCreateBranchAction(data json.RawMessage) interface{} {
+	var branchData GitCreateBranchData
+	if err := json.Unmarshal(data, &branchData); err != nil {
+		a.logger.Error("Failed to parse create_branch data", zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   fmt.Sprintf("failed to parse create_branch data: %v", err),
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
+	defer cancel()
+
+	sha, created, err := a.githubClient.CreateBranch(ctx, branchData)
+	if err != nil {
+		a.logger.Error("Failed to create branch",
+			zap.Error(err),
+			zap.String("repo", branchData.RepoName),
+			zap.String("branch", branchData.Branch),
+		)
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success":   true,
+		"repo_name": branchData.RepoName,
+		"branch":    branchData.Branch,
+		"sha":       sha,
+		"created":   created, // false = pre-existing branch, head returned
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	}
+}
+
+// handleCreatePullRequestAction opens a PR — the fix loop's human terminal.
+func (a *GitAdapter) handleCreatePullRequestAction(data json.RawMessage) interface{} {
+	var prData GitCreatePRData
+	if err := json.Unmarshal(data, &prData); err != nil {
+		a.logger.Error("Failed to parse create_pull_request data", zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   fmt.Sprintf("failed to parse create_pull_request data: %v", err),
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
+	defer cancel()
+
+	htmlURL, number, err := a.githubClient.CreatePullRequest(ctx, prData)
+	if err != nil {
+		a.logger.Error("Failed to create pull request",
+			zap.Error(err),
+			zap.String("repo", prData.RepoName),
+			zap.String("head", prData.Head),
+		)
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success":   true,
+		"repo_name": prData.RepoName,
+		"pr_url":    htmlURL,
+		"pr_number": number,
+		"head":      prData.Head,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 }
 
