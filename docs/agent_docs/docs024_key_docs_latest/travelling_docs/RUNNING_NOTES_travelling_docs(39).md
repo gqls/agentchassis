@@ -2732,3 +2732,25 @@ fire 087 until the chassis image carrying tool_acceptance_actions.go deploys —
 unknown action fails the workflow.** After the first pass verdict lands, wire
 trigger points (post-recreation, post-improve, periodic) as the runbook lists.
 Categories: (build, migration)
+
+### Tier 4 SELF-DRIVING — first machine acceptance-run note (run bf330ac6)
+Chassis carrying tool_acceptance_actions.go deployed (v1.0.1108, pod started
+16:11 — the tag was rebuilt from HEAD; the commit-message ancestry was a
+tag-reuse red herring, settled by pod-start-time > actions-commit-time and
+then by the run itself). Fired 087 on tool-xp-curve-designer: COMPLETED at
+`complete` (not complete_error), and the FIRST machine-written acceptance-run
+note landed — ('tool','tool-xp-curve-designer'), ["acceptance-run"], source
+tool-acceptance, created_by tool-acceptance-agent: "Tier-4 acceptance PASSED —
+all 3 evaluated checks passed in headless Chromium (2 skipped: mobile-fit,
+curve-switch)". Verdict all_passed=true passed=3 failed=0; no improve_tool
+item (correct). Results identical to the hand-produced smoke → the orchestrator
+path is equivalent, with zero human in the loop:
+PLAN criteria → tool-acceptance-agent → request_browser_run (Kafka) →
+browser-runner-adapter (Chromium, live page) → reply → judge → doc_note.
+**Stage 6 P0 is COMPLETE and self-driving. The tool verification ladder is
+whole: Tier 0 (generation) · Tier 1 (structural) · Tier 2 (static anchor) ·
+Tier 4 (behavioural, headless).** The fail path (acceptance-fail note +
+improve_tool item) is unit-tested but not yet exercised live — the first
+genuinely-failing tool will demonstrate it. Next: wire trigger points
+(post-recreation, post-improve, periodic sweep) + P1 mobile / P2 interactions.
+Categories: (proof, position)

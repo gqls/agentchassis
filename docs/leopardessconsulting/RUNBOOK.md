@@ -130,7 +130,31 @@ done
 curl -s https://leopardessconsulting.co.uk/assets/css/styles.css \
   | grep -E -- '--color-(card-bg|header-bg|footer-bg|cta-bg)'
 ```
-Expect: all 200; no `#0f172a`, no `#1e40af`, no bare `#ffffff` card background.
+Expect: all 200; charcoal `#0D0D0D` chrome, gold `#C8A951` CTA, no `#0f172a`/`#1e40af`.
+
+### O8 — Re-render pages (two modes — pick the right one)
+`scripts/rerender_pages.sh <site> <domain> <page_name>…` — **regenerate section HTML from
+content_data** (`spec.reason=section_data_resolved`, `spec.page_name`). Use after editing
+a page's `content_data`.
+`scripts/reassemble_pages.sh <site> <domain> <page_name>…` — **re-assemble only** (embed
+current header/footer + deploy, no section regen). Use after a header/footer/palette change.
+`page_name` = the page `name`, NOT the url.
+
+### O9 — Make the whole site uniform after a header/footer change
+`scripts/reconcile_headers.sh <site> <domain>` — idempotent: each round re-fires
+page-rerender only for pages whose deployed HTML still shows the old header, waits, repeats.
+**Throughput note:** the prod `agent-chassis` runs ONE replica and processes page-rerenders
+serially (~45s each), so a full 30-page site takes ~15–20 min. Fire all, then let it churn;
+re-run the reconcile to mop up stragglers. This is a platform throughput limit, not a bug.
+
+### O10 — Change a site's palette (per-site, safe)
+Fork palette→theme→collection (see `scripts/L3_fork_palette.sql`), repoint
+`sites.style_collection_id`, then reconcile `design_intent`: **core** slots go in
+`design_intent.color_scheme` AND `palette.reference_values` (the `analyze_design` LLM reads
+the latter — give it prescriptive guidance or it invents a palette); **specialised** slots
+live on the forked palette row. Re-render CSS via `webdesign-agent`. NEVER edit the shared
+seed. Validate every text/bg pair with the WCAG formula in `color_util.go` first — the
+platform does NOT gate specialised-slot contrast.
 
 ---
 
@@ -163,6 +187,23 @@ Expect: all 200; no `#0f172a`, no `#1e40af`, no bare `#ffffff` card background.
     `openai` is a stubbed error in `createAIClient`; nothing else is wired for text.
     "Mistral" is a model name run through Ollama, not a separate provider. Don't let
     site copy imply more provider choice than this.
+13. **`page-rerender` needs `spec.reason='section_data_resolved'` + `spec.page_name`** to
+    regenerate sections; without the reason it only re-assembles stored HTML. `page_name`
+    is the page `name`, not the url. (`check_rerender_mode`.)
+14. **Section resolvers override `content_data` every render.** Hero `background_image`
+    auto-resolves to `/assets/images/hero.jpg` (change the FILE, not content_data).
+    `source:"static"` schema fields (e.g. system-stats suffixes) re-apply their `fallback`
+    from the schema and can't be overridden per-instance; the path is
+    `{fields,<field>,fallback}`. A *section* component fork does NOT survive rerender
+    (`save_page_sections` re-links to the canonical component by function); a *header/footer*
+    fork DOES (wired via the style_collection).
+15. **`rerender-site`'s page loop stalls** on a lost child response. Don't rely on it;
+    drive pages with O8/O9.
+16. **`analyze_design` invents a palette** unless `design_intent.palette.reference_values`
+    is set with prescriptive guidance (it does NOT read `color_scheme`).
+17. **Back up before ANY change, including component/theme forks.** Use `bak_*` tables.
+18. `kubectl exec … <<HEREDOC` silently no-ops without `-i`. Prefer `kubectl cp` + `psql -f`.
+19. **`dimensions` on `assets` is jsonb**, not text (`'{"width":1024,"height":1024}'`).
 
 ---
 

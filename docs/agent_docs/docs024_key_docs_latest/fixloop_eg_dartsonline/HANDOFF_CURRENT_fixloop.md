@@ -31,19 +31,24 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
 - chassis: diagnose_prepare_fix_commit allowlist safety core (commit a4c6cc63)
   — rides the **next chassis image**.
 
-**Open decisions (owner):**
-1. **Build gate** (A: CI-on-PR ~1h, softens Q-C to red-X-not-no-PR; B: pre-PR
-   golang k8s Job ~1day, ruling as written; C: A now + B next — recommended).
-2. **First end-to-end write-step target**: benchmark bug honestly escalates
-   (architecture-level), so either seed a small-blast-radius bug the council
-   can genuinely approve, or hand-approve a plan (weaker test).
-3. **Fork direction** (raised turn 25): owner intends the next phase in a
-   separate forked repo; wants wider councils (guidelines/reuse/historian/
-   compliance), legacy-migration agents, and an owner-awareness surface before
-   autonomy widens. Not yet designed.
+**Decisions CLOSED (owner, 2026-07-12 turn 26):**
+1. **Build gate = B**: pre-PR golang k8s Job (clone fix branch, gofmt changed
+   files + targeted go build); broken implementations never become PRs.
+2. **First write-step run = seeded small bug** (single-file, contained, a plan
+   the council can genuinely approve); a real bug after.
+3. **Awareness = standing rule**: more awareness BEFORE wider autonomy; the
+   digest surface is the slice after F1.1b(c), before council-widening.
+4. **NO FORK**: isolation = fix/* branches + owner-gated merges on this repo.
 
-**Blocked work:** fix-implementer seed (0NN_fix_implementer.sql) — blocked on
-the gate decision. Step sketch is in PLAN §F1.1b(c).
+**In flight:** the build-gate action (k8s Job spawn + wait) — task 9.
+**Then:** fix-implementer seed (task 10) → chassis + git-adapter image
+rebuilds → seed the small bug → first end-to-end run.
+
+**Build-gate implementation notes (earned this repo):** `go build ./...` at
+repo root FAILS today on pre-existing docs-dir package clashes, and gofmt -l
+repo-wide flags pre-existing unformatted files — the gate must build TARGETED
+paths (./platform/... ./internal/... ./pkg/... ./cmd/...) and gofmt ONLY the
+implementation's changed files, else every gate run fails on inherited mess.
 
 ## Key artifacts & tools
 

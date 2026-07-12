@@ -31,6 +31,8 @@ confirmed 2026-07-04): `build`, `content`, `design`, `maintenance`.
 
 ## 0. ROLLOUT TRACKER — YOU ARE HERE
 
+**Position as of 2026-07-12: TIER-4 SELF-DRIVING ✓** — `tool-acceptance-agent` (migration 145) drove tool-xp-curve-designer end-to-end (run `bf330ac6`) and wrote the first machine `acceptance-run` note (PASSED, 3/3, 2 skipped), zero human in the loop: PLAN criteria → agent → browser-runner-adapter (Chromium, live page) → judge → doc_note. **The verification ladder is whole (Tier 0/1/2/4).** Open: fail-path (improve_tool item) unit-tested but not live-exercised; wire trigger points (post-recreation/post-improve/periodic); P1 mobile, P2 interactions. Earlier milestones below.
+
 **Position as of 2026-07-10 (later): TASK 3 PROVEN ✓ · TASK 4 PROVEN ✓ · TASK 5 CLOSED ✓ · TASK 6 CLOSED ✓ — chunkContent fix deployed (v1.0.1104), 141 applied, proof run `05d1fc97` COMPLETED with 0 pod restarts: `index_plan` ran in ~5.5s and wrote the FIRST `knowledge_base` `tool_docs` rows (4 chunks, 4 embeddings); the crashed run's PLAN superseded cleanly (3,010 retired → 2,904 current, fence intact). Phase A is proven end-to-end INCLUDING the derived index. NEXT: Stage 5 (Tier-2 anchor checker) · Stage 6 (Tier-4 runner) · deploy the two `planned` tool pages.**
 Stamp facts: `('pipeline','build')`, categories `["diagnosis","unconfirmed-diagnosis"]`,
 `source='diagnosis-loop'`; the body records the loop's stop reason —
