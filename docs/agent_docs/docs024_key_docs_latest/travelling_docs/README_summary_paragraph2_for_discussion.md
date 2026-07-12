@@ -63,3 +63,34 @@ What's genuinely left
 All docs are current (overview written, RUNBOOK position line, running notes, handoff at T9, memory). Uncommitted for your next release remain the Tier-4 agent code, migration 145, the trigger, and now the overview
 doc.
 
+-----
+
+Continuous acceptance is built and wired — the top tier of the ladder no longer needs a hand on the trigger.
+
+What landed this turn
+
+The tool_acceptance_due discovery check — the periodic trigger that makes Tier 4 continuous. For every active tool with a deployed page and a current PLAN carrying criteria, it queues one acceptance_run work item for
+tool-acceptance-agent, with three guards: a 7-day cooldown after any verdict (a recent fail already has its fix ticket in flight — re-running would just duplicate the verdict), a skip when a run is already open, and
+the criteria-fence precondition (no criteria is Tier-2's needs_criteria concern).
+
+Three design calls worth knowing:
+- Post-creation/post-improve hooks deliberately not used. Both fire before the page actually redeploys — creation leaves the page planned, and the improver merely queues a rerender — so they'd test the old page. The
+  sweep only ever sees deployed pages, so the timing is right by construction. Event-driven hooks can come later, placed after deploy completes.
+- Items emit straight to triaged. We observed detected items sitting unswept on this site for days; acceptance needs no human judgment, and create_rerender_items set the precedent.
+- Priority 90 places acceptance after builds and rerenders in the queue, so it tests the new page, not the one about to be replaced.
+
+I also verified the dispatch loop's input_mapping passes spec whole — so the handler receives input_data.spec.function, exactly the 145 contract — and applied the recorded follow-up while in the file: the Tier-2
+checker's cooldown now excludes cancelled items (a cancelled item means the finding was resolved another way, so the tool is re-checkable immediately).
+
+Migration 146 applied through the runner (snapshot taken, checks list extended, pipeline note written). Safe pre-deploy as always — the running binary warn-skips the unknown check name.
+
+The one gate, and the proof that follows
+
+The check and the cooldown fix ride the next chassis image. Once it deploys, the full-autonomy proof is simply: trigger (or wait for) a design-discovery sweep on gamesdesign → an acceptance_run item appears → the
+dispatch loop drives tool-acceptance-agent → a fresh acceptance-run note lands in the travelling docs — with zero manual triggers anywhere in the chain. That will be the first completely unattended run of the whole
+mechanism, discovery to verdict.
+
+Docs current: running notes, handoff at T10 with the gate and proof recipe, memory updated. Uncommitted for your next release: the new check, the cooldown fix, and migration 146's file. Remaining open after this: a
+real failure flowing through tool-improver and back (waits for reality to break something), then P1 mobile / P2 interactions.
+
+

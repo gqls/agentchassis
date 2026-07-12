@@ -125,13 +125,17 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		return result, nil
 	}
 
-	// Shared cooldown with tool_health: components with a recent improve_tool item.
+	// Shared cooldown with tool_health: components with a recent improve_tool
+	// item. Cancelled items don't count — a cancelled item means the finding
+	// was resolved another way (e.g. PLAN-side, migrations 143/144), and the
+	// tool should be re-checkable immediately (recorded follow-up 2026-07-10).
 	recentItems := map[string]bool{}
 	itemRows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT spec->>'component_id'
 		FROM site_work_items
 		WHERE site_id = $1
 		  AND item_type = 'improve_tool'
+		  AND status <> 'cancelled'
 		  AND created_at > NOW() - INTERVAL '7 days'
 	`, dctx.SiteID)
 	if err == nil {

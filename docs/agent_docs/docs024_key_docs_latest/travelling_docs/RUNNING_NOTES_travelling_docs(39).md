@@ -2779,3 +2779,29 @@ the criteria. The ladder detects, documents, and hands off a repair with no
 human in the loop.** Remaining: let a REAL failure flow through to tool-improver
 and back (not manufactured); wire trigger points; P1 mobile / P2 interactions.
 Categories: (proof, position)
+
+### Tier 4 goes CONTINUOUS — tool_acceptance_due sweep (+ migration 146)
+The trigger-points item, taken the timing-clean way: post-creation/post-improve
+hooks would fire BEFORE the page redeploys (testing the old page — creation
+ends at 'planned' and improve queues a rerender), so the periodic discovery
+sweep is the correct first trigger: it only ever sees deployed pages. New
+check discovery_checks/check_tool_acceptance_due.go — for every active tool
+with a DEPLOYED page and a current PLAN criteria fence, emits ONE
+acceptance_run item (handler tool-acceptance-agent, spec {function,
+component_id, page_id}, item_key acceptance_run:<fn>:<site>) unless a verdict
+note (acceptance-run OR acceptance-fail — a fail already has its fix ticket in
+flight) landed within 7 days or a run is already open. Emitted at status
+'triaged' + pipeline 'build' directly (create_rerender_items precedent):
+acceptance needs no human judgment, and 'detected' items were observed sitting
+unswept on this site (the Tier-2 items sat two days). Priority 90 = after
+builds/rerenders, so acceptance tests the NEW page. Verified the dispatch
+loop's input_mapping passes spec whole → input_data.spec.function matches the
+145 contract exactly. Correct-while-touching (declared in 146):
+check_tool_acceptance's improve_tool cooldown now EXCLUDES cancelled items
+(the recorded 07-10 follow-up — a cancelled item means resolved another way).
+Migration 146 applied (snapshot b294bf7d; design-discovery-agent checks list
++= tool_acceptance_due; pipeline note). GATE: the check rides the next chassis
+image (warn-skip until then, the 142 precedent). Proof after deploy: a
+discovery sweep should produce an acceptance_run item → dispatch → a fresh
+acceptance-run note with NO manual trigger — full autonomy for the top tier.
+Categories: (build, migration)

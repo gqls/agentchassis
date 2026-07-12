@@ -23,6 +23,9 @@
 | `provocations.json` dead `lobby` key | **CLOSED 2026-07-11** — dropped in sites repo commit `c244ddc`, live-verified (keys: `generated_at/today/arena/archive`) |
 | `page_components.build_status` CHECK constraint (PLAN §4) | **CLOSED 2026-07-11** — migration `049_page_components_build_status_check.sql` applied + negative-tested; invented statuses now fail loudly at write time |
 | Stale loader comment | **OPEN, cosmetic** — provocation-card-loader's header in `js_snippets` (and the bundled snippets.js) still says "daily provocation + mini-lobby"; the mini-lobby fill is gone. Fix = update `js_snippets.description`/comment + re-run `083_trigger-asset-renderer-vonc.sh` |
+| Archetype hub (Approach A) | **CLOSED 2026-07-12** — 8 entity pages built + grid refilled; `088_archetype_entity_pages.sql` + running-notes 2026-07-12 entry. Grid is build-time **query-resolved** (`pages_where_type:entity-page`); the old `entity_page` source was kebab-unrepresentable. All 8 icons now consumed (page-scope hero imagery rows) |
+| Design-discovery survey findings (vonc) | **8 of 16 CLOSED** by the hub build (undeployed_asset ×8). Still at `detected`: deactivated chrome pointers ×3, stale-chrome rerenders ×3, hardcoded colours ×1, evaluate_tools ×1 |
+| `needs_page:provocation` trap | **STANDING** — `reconcile_site_plan` re-emits it (triaged, dispatchable!) every run while `blog/provocation.html` sits at `planned`. It belongs to the Spark pipeline. **Park it to `detected` after every reconcile of vonc**, or build/re-status the page |
 
 **This thread's engineering is COMPLETE as of `v1.0.1105` (2026-07-10).** Every check, guard, fixer and
 writer-fix is deployed and artifact-verified. The earlier caution about re-running completeness discovery on

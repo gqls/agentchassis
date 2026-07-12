@@ -304,6 +304,44 @@ intact.
 
 ---
 
+## 2026-07-12 — design-discovery survey on vonc; then Approach A: the archetype hub built for real
+
+**Survey (first design-discovery run on vonc ever).** 16 items, all held at `detected`. Headline: the 8
+`undeployed_asset` flags (archetype icons) were mislabelled but pointed at a real defect — **the archetypes page
+rendered zero archetypes**. `archetype-grid.items` sources `query.pages_where_type:entity_page`, which was
+doubly broken: the underscore form is forbidden by `chk_page_type_kebab_case` (unrepresentable), and no
+per-archetype pages existed anyway. The grid is neither static nor runtime-fill — it is **build-time
+query-resolved** — so no rerender or content pass could ever fill it. The icons were deployed (git + HTTP 200)
+but referenced nowhere; `undeployed_assets` infers deployment from rendered_html usage, hence the mislabel.
+
+**Approach A (user's choice), delivered same day with existing machinery only** — `088_archetype_entity_pages.sql`:
+
+- Canon: the spec's `content_context.archetypes` array (8: Surgeon, Wildcard, Oracle, Catalyst, Judge, Maker,
+  Scout, Mentor). The live archetype-combinations copy (Contrarian/Analyst/Sage…) is off-canon drift — noted,
+  not fixed here.
+- 8 `site_plan_pages` (role `entity-page`, parent `archetypes` → `/archetypes/<slug>.html`), 24
+  `site_plan_sections` (hero / content-block-about / call-to-action), 8 `pages` rows (page-build-handler
+  loads pages, never creates them — `check_page_found → complete_error`), 8 page-scope `site_plan_imagery`
+  hero rows keyed `icon_<slug>` — `content-block-about.image_src → site_assets.image → hero alias` gives each
+  page its own icon; consumes all 8 orphans, zero Go changes.
+- archetype-grid fixes: source → `query.pages_where_type:entity-page` (kebab), limit 6→8, card link
+  `{{.name}}` (raw slug) → `{{.title}}`.
+- Flow: `reconcile_site_plan` (proper trigger) emitted 8 `needs_page` + `needs_page:provocation` (**parked to
+  `detected` — Spark pipeline's page; reconcile will re-emit it every run while it sits at `planned`**) + the
+  terminal `reconcile_rerender`. Dispatched via 087; the known stuck-claim/zombie-handler noise recurred
+  (mentor/scout marked failed by late handler reports, wildcard stuck claimed) — every one closed **by
+  artifact** (deployed, 3 sections, live 200, icon resolved). Grid refilled via `page_rerender` with
+  `reason=section_data_resolved` (the light path's other gate, exactly its designed purpose).
+
+**End state, live-verified:** archetypes.html shows 8 cards, all 8 names, 8 links; all 8 detail pages HTTP 200,
+each with its icon; 16 deployed sections reference icons; the 8 `undeployed_asset` items closed by artifact.
+Still at `detected` for future triage: 3 deactivated chrome pointers, 3 stale-chrome rerenders, 1 hardcoded
+colours, 1 evaluate_tools.
+
+`Categories:` (milestone, root-cause, decision)
+
+---
+
 ## 2026-07-09 — the dropped trigger, for the record (verbatim from the session Q&A)
 
 `auto_lock_on_deploy` — a Postgres trigger on the `page_components` table (trigger name
