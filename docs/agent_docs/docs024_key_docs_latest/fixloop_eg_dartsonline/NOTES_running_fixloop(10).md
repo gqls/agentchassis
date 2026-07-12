@@ -1513,6 +1513,50 @@ the residual gap F2.3b(c) (code-tier checks via lookup_code_symbols) would
 address: the open questions are now about Go/handler behaviour, which SQL
 checks structurally cannot settle.
 
+### Turn 25 (2026-07-12) — F1.1b(c) parts 1+2a BUILT; build-gate decision put to owner; direction questions raised
+
+**Owner decision (write surface):** the GitHub write credential STAYS IN THE
+GIT-ADAPTER — the platform's existing single write surface. The fix-implementer
+never holds a token (stronger isolation than the original inject-token sketch;
+reuse over recreate). Q-C's token-scope question is thereby answered: no new
+token distribution at all.
+
+**Part 1 BUILT (git-adapter, commit 89175383):** `create_branch` (idempotent —
+an existing branch returns its head, a re-fired run must not die on its own
+leftovers; getRepo never auto-creates so a typo'd repo fails loudly),
+`create_pull_request` (base defaults to repo default branch; the loop's human
+terminal — created, never merged), commit gains optional `branch` +
+domain-prefixing skipped when domain empty (platform commits are
+repo-relative). 4-test httptest suite green. NOT LIVE until a git-adapter image
+rebuild. NOTE: commit also swept in two user-staged tool_acceptance files
+(owner rule affirmed: forward-only git, no resets — left in place).
+
+**Part 2a BUILT (chassis, commit a4c6cc63):** `diagnose_prepare_fix_commit` —
+the implementer's SAFETY CORE between the sketch_to_files LLM step and the git
+adapter. Deterministic: plan's modify/add files = HARD allowlist (out-of-plan
+file → reject; config_change edits target agent_definitions and a fabricated
+file for one → reject; missing file → INCOMPLETE, reject; empty/duplicate/no-op
+→ reject). Assembles branch (fix/<short-corr>), commit message, PR title/body
+(Q-H package). Validation core extracted pure (validateImplementation), 7-case
+suite exercises the real logic. Rides the next chassis image.
+
+**Build gate — decision PENDING with owner** (position doc:
+`SUMMARY_write_step_position_2026-07-12.md`): A = GitHub Actions CI on fix/**
+PRs (hour, PR exists before gate — red X not no-PR); B = spawned golang k8s Job
+pre-PR (day, the Q-C ruling as written, broken implementations never become
+PRs, needs a new run-container-and-wait primitive); C = A now + B next
+(recommended). Survey: no existing primitive fits (spawn machinery expects
+chassis-protocol agents; analyser-adapter doesn't build).
+
+**Owner raised direction questions (this turn):** what the framework is
+becoming (bug-fixing vs feature-building from specs/mission docs); widening the
+council (guidelines/reuse/historian/compliance reviewers — the F2 roster);
+legacy-migration agents; the owner-awareness problem as autonomy grows; doing
+the next phase in a SEPARATE FORKED REPO; and what to do about the benchmark
+bug honestly terminating at escalate (the write step needs an APPROVED plan to
+exercise). Answered in chat + position summary; handoff doc now maintained
+per-turn: `HANDOFF_CURRENT_fixloop.md`.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

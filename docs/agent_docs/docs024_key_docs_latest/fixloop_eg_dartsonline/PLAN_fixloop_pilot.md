@@ -351,14 +351,29 @@ short of approval). Four pieces:
    reviewer's recommended alternative). F1.1b(c)'s PR body will carry it.
 DEPLOY ORDER: chassis image (> v1.0.1107) → v4 seed → fire. v4 max_rounds=3.
 
-**Next — F1.1b(c): branch + PR behind the write token.** Now unblocked in
-principle (an approved plan is reachable once the revise loop runs on the next
-image). Design recap: separate `fix-implementer`, gated on
-`council.decision == 'approved'`; GITHUB_WRITE_TOKEN via a new spawn gate
-mirroring isRepoCloningAgent (never shared pods); sketches → diffs →
-plan-file-allowlisted editor → branch → gofmt+build in a spawned golang-image
-Job → PR carrying the Q-H package (diagnosis + coverage + plan + council
-report). Human review terminal.
+**F1.1b(c): branch + PR — IN PROGRESS (2026-07-12). Architecture CHANGED by
+owner decision: the write credential stays in the GIT-ADAPTER** (the platform's
+existing GitHub write surface) — the fix-implementer never holds a token. The
+original inject-GITHUB_WRITE_TOKEN-into-pods sketch is superseded.
+- **Part 1 ✅ (git-adapter, commit 89175383):** create_branch (idempotent),
+  create_pull_request (human terminal — created, never merged), branch-aware
+  commit with repo-relative paths (no domain prefix). httptest suite green.
+  Awaits a git-adapter image rebuild.
+- **Part 2a ✅ (chassis, commit a4c6cc63):** `diagnose_prepare_fix_commit` —
+  the HARD file-allowlist safety core (out-of-plan / incomplete / empty /
+  no-op all reject before anything reaches git) + branch/commit/PR payload
+  assembly carrying the Q-H package. 7-case pure-function test suite.
+- **Part 2b — build gate: OWNER DECISION PENDING** (see
+  SUMMARY_write_step_position_2026-07-12.md): CI-on-PR (A), pre-PR golang Job
+  (B, the Q-C ruling as written), or A-then-B (C, recommended).
+- **Part 2c — fix-implementer seed:** blocked on the gate decision; step
+  sketch: load plan+council (query_database) → gate decision=='approved' →
+  clone/read current bodies → sketch_to_files (LLM, whole files) →
+  diagnose_prepare_fix_commit → create_branch → commit(branch) → [gate] →
+  create_pull_request → persist result.
+- **First end-to-end run needs an APPROVED plan** — the benchmark bug honestly
+  escalates (architecture-level), so exercise the write step via a seeded
+  small-blast-radius bug or a hand-approved plan (owner decision).
 
 The dartsonline platform fix (mark_no_sections/fail_workflow + nav
 build_status) remains human-implementable any time, independent of all this.

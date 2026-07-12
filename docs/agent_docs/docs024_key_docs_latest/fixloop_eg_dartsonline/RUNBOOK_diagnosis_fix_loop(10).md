@@ -540,7 +540,24 @@ unverifiable → F0.6: a `context` disposition + citation-backed `explained`.
 Four-run arc: wrong-confidently → half-right-confidently → honest abstention →
 right-with-declared-coverage. F0 functionally complete bar F0.3.
 
-## CURRENT POSITION — 2026-07-10 (turn 22)
+## CURRENT POSITION — 2026-07-12 (turn 25)
+F2 is COMPLETE AND PROVEN LIVE on v1.0.1108 + workflow v5: decision router
+(approved | revise→verify→repropose | first-veto→reframe-once |
+rejected/exhausted→escalate), verify step (reviewers' read-only SQL checks run
+under the data_request containment — 8/8 answered after the v5 live schema
+hint; was 5/7 failed), escalation terminal (kind='escalation' hand-off
+package). Round counting orchestration-scoped, proven live. F1.1b(c) (write
+step) IN PROGRESS: owner ruled the write credential stays in the GIT-ADAPTER
+(implementer never holds a token); adapter create_branch/create_pull_request/
+branch-commit built+tested (needs adapter image rebuild); chassis-side
+diagnose_prepare_fix_commit allowlist safety core built+tested (rides next
+chassis image); build-gate decision pending with owner (CI-on-PR vs pre-PR
+golang Job vs both — SUMMARY_write_step_position_2026-07-12.md); implementer
+seed blocked on that. First end-to-end write run needs an APPROVED plan (the
+benchmark bug honestly escalates — seeded simple bug or hand-approved plan,
+owner to choose). Per-turn handoff now maintained: HANDOFF_CURRENT_fixloop.md.
+
+## PRIOR POSITION — 2026-07-10 (turn 22)
 The read-only diagnosis loop is hardened and the diagnosis→fix chain exists end
 to end on the pilot correlation `e08c5b01`: symptom → 2 bundles → gated
 CONFIRMED (with symptom coverage) → fix plans → council reports, all in
