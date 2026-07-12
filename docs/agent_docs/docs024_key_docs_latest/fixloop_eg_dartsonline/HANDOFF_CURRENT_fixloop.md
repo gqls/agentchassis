@@ -40,15 +40,33 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
    digest surface is the slice after F1.1b(c), before council-widening.
 4. **NO FORK**: isolation = fix/* branches + owner-gated merges on this repo.
 
-**In flight:** the build-gate action (k8s Job spawn + wait) — task 9.
-**Then:** fix-implementer seed (task 10) → chassis + git-adapter image
-rebuilds → seed the small bug → first end-to-end run.
+**F1.1b(c) CODE COMPLETE (turn 26, all committed, none deployed):**
+- `diagnose_build_gate` — golang k8s Job: gofmt CHANGED FILES ONLY + TARGETED
+  go build (repo-wide fails on pre-existing docs-dir clashes / unformatted
+  legacy — encoded in tests); red = result routed to no-PR terminal;
+  BackoffLimit 0; TTL 1h; RBAC pods/log added to rbac-job-spawner.yaml.
+- `diagnose_read_repo_files` — plan's modify/add files via GitHub contents API
+  (raw media type; read token from spawn gate; modify-404 = hard error).
+- `git_adapter_request` — ONE generic adapter caller (allowlisted verbs:
+  commit/create_branch/create_pull_request; delete_repo unreachable), data
+  from config paths/literals, awaits adapter response.
+- `fix-implementer` added to isRepoCloningAgent (read token only).
+- Seed `0NN_fix_implementer.sql` (15 steps, graph verified, dry-run passed):
+  load plan/council/diagnosis → check_approved gate → read_current_files →
+  sketch_to_files (whole files, no drive-bys) → prepare (allowlist) →
+  create_branch → commit_files → build_gate → check_gate →
+  {create_pr→complete | complete_gate_failed (NO PR, branch+log left)}.
+- Trigger: `092_TRIGGER_fix_implementer_v1.sh [fix_correlation_id]`.
 
-**Build-gate implementation notes (earned this repo):** `go build ./...` at
-repo root FAILS today on pre-existing docs-dir package clashes, and gofmt -l
-repo-wide flags pre-existing unformatted files — the gate must build TARGETED
-paths (./platform/... ./internal/... ./pkg/... ./cmd/...) and gofmt ONLY the
-implementation's changed files, else every gate run fails on inherited mess.
+**DEPLOY CHECKLIST (owner) — in order:**
+1. Chassis image (new actions + spawn-gate entry) — bump tag, verify in-pod:
+   `grep -ac diagnose_build_gate /proc/1/exe` etc.
+2. git-adapter image — verify: `grep -ac create_pull_request /proc/1/exe`.
+3. `kubectl apply -f deployments/kustomize/services/agent-chassis/overlays/production/uk_001/rbac-job-spawner.yaml`
+4. Apply `0NN_fix_implementer.sql` (snapshots first).
+5. Smoke: one create_branch on a throwaway name proves the adapter token has
+   write scope on gqls/agentchassis.
+6. Seed the small bug (design pending) → diagnose → approve → 092 trigger.
 
 ## Key artifacts & tools
 
