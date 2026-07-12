@@ -1072,6 +1072,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Ask the analyser adapter to parse a repo at ref; awaits the symbol output",
 		IsLocal:     true,
 	},
+	"request_browser_run": {
+		Handler:     RequestBrowserRunAction,
+		Category:    "tools",
+		Description: "Ask the browser-runner adapter to drive a tool's deployed page against its PLAN criteria; awaits the results (no-op skip when the PLAN has no criteria)",
+		IsLocal:     true,
+	},
+	"judge_acceptance_results": {
+		Handler:     JudgeAcceptanceResultsAction,
+		Category:    "tools",
+		Description: "Turn a browser run into acceptance-run/acceptance-fail doc_notes and an improve_tool item carrying the criteria as acceptance_test",
+		IsLocal:     true,
+	},
 	"analyse_repo_local": {
 		Handler:     AnalyseRepoLocalAction,
 		Category:    "code",

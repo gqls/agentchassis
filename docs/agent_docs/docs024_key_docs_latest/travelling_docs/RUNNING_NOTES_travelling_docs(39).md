@@ -2704,3 +2704,31 @@ judge → acceptance-run/fail notes + improve_tool items), then P1 (mobile +
 full interpreter), P2 (interactions — the tier that would have caught the
 economy-simulator bugs end-to-end).
 Categories: (deploy, proof, position)
+
+### tool-acceptance-agent BUILT + 145 applied — Tier 4 goes self-driving (gated on next chassis deploy)
+Two Go actions in platform/orchestration/actions/tool_acceptance_actions.go:
+- request_browser_run — mirrors the analyser/webscrape await pattern
+  (AwaitResponse=true; envelope per 035 §1.2; reply lands at output_field).
+  Complexity in Go, workflow flat: it resolves the tool's deployed URL from
+  pages itself (name == function for generator tools; url_field override
+  available) and NO-OP SKIPS without awaiting when the PLAN has no criteria —
+  Tier 2 owns needs_criteria; a browser run is never faked.
+- judge_acceptance_results — reads the awaited reply through a fallback chain
+  (.response.data.results / .response.results / .data.results / .results —
+  response shapes vary across the codebase; unit-tested on all three) and
+  recomputes the verdict from the results. All pass → acceptance-run doc_note.
+  Any fail → acceptance-fail doc_note + ONE improve_tool item (source
+  'acceptance', criteria embedded as acceptance_test, failing_checks listed,
+  item_key acceptance_fail:<fn>:<site>, handler tool-improver). Recreated/
+  adopted tools (no content_components row) get the note but NO item — logged
+  honestly for manual routing.
+Registry entries added beside request_repo_analysis. Migration 145 applied via
+the runner (INSERT new agent, idempotent WHERE NOT EXISTS, no snapshot needed
+for a new type; guard asserts the workflow shape; pipeline note per §3):
+ensure_site_record → load_docs → request_run (await) → judge → complete, all
+error_steps inside config → complete_error. Trigger 087 written (dry-run
+default, single-line body, prints the ancestry check first). **GATE: do NOT
+fire 087 until the chassis image carrying tool_acceptance_actions.go deploys —
+unknown action fails the workflow.** After the first pass verdict lands, wire
+trigger points (post-recreation, post-improve, periodic) as the runbook lists.
+Categories: (build, migration)

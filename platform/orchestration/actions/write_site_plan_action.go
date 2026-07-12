@@ -186,6 +186,7 @@ var validImageryKinds = map[string]bool{
 	"illustration": true,
 	"icon":         true,
 	"infographic":  true,
+	"sprite_sheet": true, // Phase I2 (SQL_2026-07-12_add_sprite_sheet_kind.sql)
 }
 
 // nullableJSONB coerces a byte slice into the value to pass to

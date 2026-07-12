@@ -532,7 +532,10 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 	// (decision A6) and AUDIT_verified_facts.md C5.
 	var p provider.Provider
 	switch data.Kind {
-	case "icon", "logo", "illustration", "infographic":
+	case "icon", "logo", "illustration", "infographic", "sprite_sheet":
+		// sprite_sheet (Phase I2): one coherent N×M grid of flat glyphs —
+		// Banana's gridded-composition tendency is the feature here, and the
+		// sheet may anchor to brand reference images.
 		p = a.bananaProvider
 	default:
 		p = a.stabilityProvider

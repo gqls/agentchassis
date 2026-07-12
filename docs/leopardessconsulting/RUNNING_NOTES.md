@@ -553,3 +553,77 @@ Lower-priority remainder: `features` grids on engagement-model / for-engineering
 how-it-works / our-approach / technical-architecture still carry CTO-register copy and
 un-checked card counts; and several near-duplicate pages should be merged rather than
 restyled.
+
+## Turn 12 — the coherent deploy (L9): palette live, content live, and a long fight with the render pipeline
+
+Owner: New Media Age is the publication that reported the 12M-uniques figure. Added it
+to the identity spec and the About page copy (now attributed, not just asserted).
+Reconciled `design_intent` core slots to the forked palette (accent=#836E32 bronze) so
+a re-render can't undo the WCAG fix.
+
+**The palette went live — but the LLM fought it first.** Triggered webdesign-agent to
+render CSS. First pass: the specialised slots came out right (charcoal header/footer,
+gold CTA — the leak is fixed) but the `analyze_design` LLM step INVENTED a dark core
+(#070F14 bg, bright-gold accent) instead of my light reading surface, producing white
+cards with light text. Root cause: `analyze_design` reads colours from
+`design_intent.palette.reference_values` (a structure my spec didn't use), so the LLM
+had no guidance and improvised from the mood text, with explicit "creative freedom."
+Fix: restructured design_intent into `palette.reference_values` + prescriptive guidance
+("these eight values are FIXED, output verbatim, background MUST be #FAF8F4 not a dark
+theme"), and de-darkened the colour_mood. Re-rendered → **all core + specialised slots
+now exactly match the WCAG-validated palette.** The LLM echoed it verbatim.
+
+**Content deploy — the rerender pipeline is a minefield (as the vonc notes warned).**
+- `rerender-site` runs a SEQUENTIAL page loop that STALLED on iteration 6 (a lost child
+  response) and never recovered — only ~1 of 30 pages actually re-rendered. Abandoned it.
+- Drove pages directly via `page-rerender`. Two gotchas cost real time: (1) it only
+  REGENERATES section HTML from content_data when `spec.reason='section_data_resolved'`
+  — without it, it just re-assembles stored HTML; (2) `rerender_page_sections` requires
+  `spec.page_name` (the page `name`, not url). Wrote `scripts/rerender_pages.sh` and
+  `reassemble_pages.sh` encoding both.
+- Drove the 6 content pages + main nav pages. **All live and verified:** new hero, real
+  figures, "What we have built" / "What we might build", honest About with New Media Age,
+  new footer tagline, and — swept across every section's content_data — **zero
+  fabrications.** Palette (light #FAF8F4, bronze links) live site-wide via the stylesheet.
+
+**Three defects the screenshot caught that text checks missed** (this is why you look):
+1. **A big AI-generated 3D leopard hero image** (`hero.jpg`) — the exact generic-AI
+   imagery the brief bans. It's auto-resolved onto the hero by the section resolver
+   (`plan_sections_action.go:1338`), so it can't be removed via content_data — the FILE
+   at `/assets/images/hero.jpg` has to change. Replaced it with a subtle on-brand dark
+   hero (faint leopardess watermark on charcoal), committed via git-adapter. Robust:
+   survives rerenders because the resolver keeps pointing at the same path.
+2. **`system-stats` rendered nonsense** — "2,767%", "4,672ms", "75,061x". The suffixes
+   are `source:"static"` schema fallbacks (`%/ms/+/x`) that the resolver re-applies every
+   render and can't be overridden by content_data; the component is shared (4 sites) and
+   re-links on rerender, so a fork won't stick either. Two of those units (ms, x) can
+   never be honest for counts. **Removed the section** — the figures already live in the
+   feature-card copy. (A suffix-free stats component would be a good platform addition —
+   noted for the design workstream.)
+3. **The header "Get Started" button was blue, header navy** — the shared
+   `header-professional-dark` component hardcodes `#1a1a2e`/`#0f3460` and uses ZERO CSS
+   variables (4 sites). Forked it (`header-leopardess`: charcoal bg, gold CTA with dark
+   text, gold hover — WCAG-checked), wired through the forked style_collection AND the
+   site_components slot, re-rendered. **Header is now charcoal + gold, verified in a
+   screenshot.** The residual `#0f3460` in the page is a DEAD CSS fallback
+   (`var(--color-accent,#0f3460)` — accent is defined, so never used).
+
+Backups this turn: `bak_site_specs_leopardess_20260710_v3`. Two component forks retired
+after the wrong-path attempt (I initially used `{stat1_suffix,fallback}` before finding
+the real path `{fields,stat1_suffix,fallback}`; the seed was never touched — verified).
+
+**Honest miss:** I did NOT back up `content_components` before forking the stats
+component, and briefly feared I'd corrupted the shared seed. I hadn't (its updated_at was
+unchanged), but I should have backed up first. Standing rule reaffirmed: back up before
+ANY change, including component forks.
+
+**Remaining (documented, not blocking):**
+- The footer (`footer-4-column`, shared) still hardcodes navy — same fix as the header
+  (fork) if wanted; it's a dark footer so it's subtle.
+- The other ~15 pages (blog posts, guides, tools, legal) need re-assembly to pick up the
+  new header/logo — their palette is already correct via the stylesheet link. Run
+  `reassemble_pages.sh` for the rest.
+- Per-page `<title>` and og:image meta come from page metadata (pages.title / a head
+  mechanism), still partly stale — an SEO/social polish pass.
+- L4 CTO-register copy on engagement-model / for-engineering-* / how-it-works /
+  our-approach / technical-architecture still to rewrite; near-duplicate pages to merge.

@@ -198,9 +198,13 @@ var ImagePurposes = map[string]struct {
 	// (derive_brand_head_assets) writes fixed filenames favicon.png /
 	// og-card.png directly, so these entries exist for GetImageConfig
 	// completeness and any future re-optimisation pass.
-	"favicon":       {64, 64, 90, "png"},
-	"og_card":       {1200, 630, 85, "png"},
-	"default":       {1200, 800, 85, "jpg"},
+	"favicon": {64, 64, 90, "png"},
+	"og_card": {1200, 630, 85, "png"},
+	// Sprite sheet (Phase I2): fixed 768×768 so a 3×3 grid gives known
+	// 256px cells — CSS background-position slicing needs exact geometry.
+	// PNG: thin line-art glyphs go muddy under jpg compression.
+	"sprite_sheet": {768, 768, 90, "png"},
+	"default":      {1200, 800, 85, "jpg"},
 }
 
 // GetImageConfig returns the configuration for an image purpose
