@@ -18,10 +18,12 @@ func TestStyleGuideDirectionForKind(t *testing.T) {
 		}
 	}
 
-	// Icons get palette only — photographic medium contaminates icon prompts
-	// (the 2026-05-20 lesson).
-	if d := g.directionForKind("icon"); d != "Colour palette: deep charcoal, electric blue" {
-		t.Errorf("directionForKind(icon) = %q", d)
+	// Flat-vector kinds get palette only — photographic medium contaminates
+	// glyph prompts (the 2026-05-20 lesson; sprite_sheet added Phase I2).
+	for _, kind := range []string{"icon", "sprite_sheet"} {
+		if d := g.directionForKind(kind); d != "Colour palette: deep charcoal, electric blue" {
+			t.Errorf("directionForKind(%s) = %q", kind, d)
+		}
 	}
 
 	// Logos get nothing: generated once, approved, locked.

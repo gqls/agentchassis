@@ -1078,7 +1078,11 @@ func getImageryDirectionForSite(ctx context.Context, db interface{}, siteID stri
 // must not receive the photographic direction.
 func directionAppliesToKind(kind string) bool {
 	switch kind {
-	case "icon", "logo":
+	case "icon", "logo", "sprite_sheet":
+		// sprite_sheet (Phase I2) joins the flat-vector class: prepending a
+		// photographic direction (or anchoring to photographic brand heroes)
+		// to a flat glyph grid reproduces the 2026-05-20 contamination
+		// failure. Palette-only styling comes via the style guide instead.
 		return false
 	default:
 		return true

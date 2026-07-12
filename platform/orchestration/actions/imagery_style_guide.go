@@ -108,7 +108,10 @@ func (g *imageryStyleGuide) directionForKind(kind string) string {
 	switch kind {
 	case "logo":
 		return ""
-	case "icon":
+	case "icon", "sprite_sheet":
+		// Flat-vector kinds take the brand palette only — a photographic
+		// medium prepended to a glyph prompt contaminates the output
+		// (2026-05-20 lesson; sprite_sheet added Phase I2).
 		if g.Palette == "" {
 			return ""
 		}
