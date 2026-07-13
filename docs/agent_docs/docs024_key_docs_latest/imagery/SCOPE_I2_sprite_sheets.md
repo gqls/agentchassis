@@ -25,7 +25,7 @@ one stylesheet.
 | `site_plan_imagery.kind` is `text`+CHECK, extensible | ✅ `chk_kind` = logo/hero/illustration/icon/infographic; mirrored in `validImageryKinds` (write_site_plan_action.go:183) | Add `sprite_sheet` in BOTH (migration + Go), together — the standing rule. |
 | Grid plan rides JSONB hint columns | ✅ `style_hints jsonb`, `constraints jsonb` exist | Put `{rows, cols, cell_names[], style}` in `style_hints`. |
 | Adapter routes by kind | ✅ `dynamic_adapter.go` switch (icon/logo/illustration/infographic → Banana; else Stability) | One-line: add `sprite_sheet` to the Banana case. |
-| `ImagePurposes` extensible | ✅ map in url_helpers.go | Add `sprite_sheet` (768×768 png). |
+| `ImagePurposes` extensible | ✅ map in url_helpers.go | Add `sprite_sheet` (768×768 **jpg** — revised from png 2026-07-13: png exceeds Kafka commit msg-size + 80KB budget). |
 | **Sprite CSS = a site `css_snippet`** | ❌ **`css_snippets` is a GLOBAL library** (name, css_content, `applies_to` matched to component lists) — NOT per-site. Site CSS is assembled by `render_css_from_spec` → deployed to `/assets/css/styles.css` → `<link>` in head. | **DEVIATION — resolved below:** deliver sprite CSS as a SEPARATE committed file `/assets/css/sprites.css` + a `<link>` injected into `<head>`, reusing the Turn-25/26 head-injection + git-commit patterns. Cleaner: site-specific, decoupled from theme CSS, no re-run of render_css_from_spec. |
 
 **Delivery decision (the one real design change):** the sprite stylesheet is
@@ -69,7 +69,7 @@ single biggest reuse win and removes the plan's only fuzzy piece.
 5. **Sprite-CSS emit action** (`emit_sprite_css` or reuse asset-deployer mode).
    Computes, from the stored sheet's grid plan + fixed dims:
    ```
-   .sprite-<name>{background-image:url(/assets/images/sprite-sheet-main.png);
+   .sprite-<name>{background-image:url(/assets/images/sprite-sheet-main.jpg);
      background-position:-<c*cellW>px -<r*cellH>px;
      width:<cellW>px;height:<cellH>px;
      background-size:<sheetW>px <sheetH>px;display:inline-block}

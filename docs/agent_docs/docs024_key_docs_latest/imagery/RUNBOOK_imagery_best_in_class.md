@@ -165,11 +165,14 @@ items 6/10/11 (reaper cadence bump, per-item-type circuit breaker) are now the
 highest-leverage infra fix for every future build. Recommended before the next
 site build.
 
-### B10. Next chassis deploy unblocks the sprite-sheet generation (I2.1)
-Commit `4629aa17` (sprite_sheet contamination-gating fix) must be in the
-image before the first sheet generates — the currently-deployed build would
-prepend the photographic brand voice to the glyph grid. No urgency; it rides
-your next routine deploy. Tell the agent when it's out.
+### B10. Next chassis deploy unblocks the sprite-sheet DEPLOY (I2, updated 2026-07-13)
+The gating fix (4629aa17) is already deployed and proven. The NEW pending Go
+change is `23fe6e81` (sprite_sheet → jpg): the sheet GENERATES fine but the
+DEPLOY leg failed "Message Size Too Large" — a lossless PNG of the glyph grid
+exceeds the Kafka git-commit message limit (and the ≤80KB budget). The jpg
+switch fixes it. No urgency; rides your next routine deploy — tell the agent
+when it's out and it re-drives the generation to a clean 768² jpg, then the
+B11 eyeball gate.
 
 ### B11. Sprite-sheet EYEBALL GATE (A3 ritual — after the B10 deploy + generation)
 You'll be shown the generated 3×3 sheet. Your job (≈5 min): (1) is it a

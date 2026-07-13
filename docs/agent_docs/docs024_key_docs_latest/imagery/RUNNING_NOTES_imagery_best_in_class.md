@@ -1275,4 +1275,34 @@ item, ALWAYS also reset `attempt_count=0` (and clear claim metadata); status
 alone is not enough.** Now dispatchable; monitor watching for a correct
 768×768 PNG deploy through the Strategy-0-fixed path.
 
+## Turn 33 — 2026-07-13 — REAL deploy root cause: Kafka message-size; sprite → jpg (revises the plan)
+
+**Chased the "completed but no PNG" through: (a) not a skip — the full chain
+DID run post-reset (image-generator COMPLETED, then asset-deployer FAILED —
+UTC/BST hid the timestamps); (b) the asset-deployer error:**
+`step deploy_asset failed: ... failed to write message to kafka: [10]
+Message Size Too Large`. The git-commit path base64-encodes the image into a
+Kafka message; a lossless 768² PNG of a detailed glyph grid exceeds the
+broker max.message.bytes. The FIRST deploy only "succeeded" because the
+purpose bug sent it as JPG (small).
+
+**This invalidates the plan's PNG choice on TWO grounds:** (1) Kafka msg
+limit; (2) a lossless PNG of this content can't meet the ≤80KB sprite budget
+(G7) — source was 439KB. **DECISION: sprite_sheet → JPG q88, 768×768**
+(commit 23fe6e81). Legibility at bullet display (16–24px) is unaffected.
+SCOPE_I2 + notes updated (png→jpg everywhere; deployed file is now
+`sprite-sheet-main.jpg`, which DeployedWebPath derives automatically).
+
+**So the full sprite deploy failure was a THREE-bug stack, now all fixed:**
+1. purpose→hero via aggressive input search → Strategy-0 explicit paths
+   (Turn 31, workflow-only, live).
+2. re-drive left attempt_count capped + state-machine re-stamp race
+   (Turn 32; reset attempt_count=0).
+3. lossless PNG > Kafka msg limit + > budget → jpg (this turn; needs deploy).
+
+**NEEDS ONE MORE CHASSIS DEPLOY** (the jpg ImagePurposes change is Go). Then:
+delete the stale 900² sprite-sheet-main.jpg + deactivate the sprite asset →
+re-drive the needs_imagery (attempt_count=0) → generate + deploy a clean 768²
+jpg → EYEBALL GATE. RUNBOOK B10 refreshed for this deploy.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
