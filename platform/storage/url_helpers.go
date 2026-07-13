@@ -202,8 +202,12 @@ var ImagePurposes = map[string]struct {
 	"og_card": {1200, 630, 85, "png"},
 	// Sprite sheet (Phase I2): fixed 768×768 so a 3×3 grid gives known
 	// 256px cells — CSS background-position slicing needs exact geometry.
-	// PNG: thin line-art glyphs go muddy under jpg compression.
-	"sprite_sheet": {768, 768, 90, "png"},
+	// JPG (revised from PNG 2026-07-13): a lossless PNG of a detailed glyph
+	// grid (a) exceeds the Kafka git-commit message-size limit — the deploy
+	// leg failed "Message Size Too Large" — and (b) blows the ≤80KB sprite
+	// budget (G7). At bullet display size the jpg-muddies-lines concern is
+	// imperceptible; quality 88 on a flat dark ground keeps the lines clean.
+	"sprite_sheet": {768, 768, 88, "jpg"},
 	"default":      {1200, 800, 85, "jpg"},
 }
 
