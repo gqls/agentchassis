@@ -159,6 +159,11 @@ falls short — while keeping a written record of every decision along the way.
 - **The browser tier is self-driving** — an agent drove a live tool in headless
   Chromium against its PLAN's criteria and wrote the first machine-authored
   acceptance verdict, with no human involved.
+- **The whole loop runs unattended** — a scheduled maintenance sweep found a
+  tool due for verification, drove it in a real browser, and recorded the
+  verdict, with no human triggering any step (2026-07-13). Both outcomes are
+  proven: a pass writes an acceptance-run note; a failure writes an
+  acceptance-fail note and files its own fix ticket.
 
 Along the way the same mechanism surfaced and fixed several of its own
 blind spots — an agent that trusted a page's visible label over a buried
@@ -186,12 +191,16 @@ leak. Each became a documented correction rather than lost tribal knowledge.
 
 ## Where it goes next
 
-- **Close the loop on failure, live** — demonstrate a genuine acceptance failure
-  flowing into a fix ticket and back through repair.
-- **Make it continuous** — fire acceptance automatically after every
-  tool creation, recreation, and repair, plus a periodic sweep.
 - **Deeper behavioural checks** — mobile profiles, and *interaction* tests that
-  assert a tool actually calculates the right answer, not just that it boots.
+  assert a tool actually calculates the right answer (move a slider, check the
+  output changed), not just that it boots. This is the tier that catches the
+  economy-simulator class of bug directly.
+- **Close the loop on a real failure** — the fail path is proven with a
+  manufactured failure; the next genuine break will exercise the full
+  fail → fix → re-verify cycle end to end.
+- *(Done since the first draft: the browser tier now self-drives, and the whole
+  loop runs continuously off the scheduled maintenance sweep — see the milestone
+  list above.)*
 
 ---
 

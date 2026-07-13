@@ -1,0 +1,191 @@
+https://chatgpt.com/g/g-690dc557ec5c8191a8c8bdd740a76672-ai-editor-from-ruben-hassid/
+https://notebooklm.google.com/notebook/b66cb498-8d2a-4816-b7fa-dbde1999f47e
+
+AI systems that do one defined job, and keep doing it.
+
+Most of what we build is unglamorous, and that is the point. A pipeline that checks scraped business records against Companies House, and stops to ask a person when it is genuinely unsure. A system that reads across news sources and scores what is worth trusting. A website that keeps itself current. Each one runs without anybody watching it, and every decision it made is written down where you can read it back afterwards.
+
+What we have built
+
+Three systems that are running now. Each one took over a job that used to need somebody watching it.
+
+Checking records against an official register
+
+The web version of a company name is rarely the registered one, so a list of businesses gathered from the open web cannot simply be trusted. Our pipeline discovers an area, collects the businesses in it, and then tries to match each one to a real Companies House record. It compares names, confirms them against geography, and reads registration numbers straight out of a website footer where one is published. When a match falls into the genuinely uncertain band, the system stops and asks for a decision instead of guessing. So far it has verified 2,767 records and enriched 937 of them with filed accounts.
+Reading widely, and judging what deserves trust
+
+Agents read across RSS feeds, news search APIs and live web search. A language model then scores two separate things for each item: how relevant it is to the subject, and how much weight the source deserves. It records why it gave the score it did, and it keeps the trail from the original publisher through whichever channel we happened to find the story on, because those are different facts and running them together is how a feed fills up with laundered rumour. It has collected 5,652 items and scored 4,672 of them.
+Websites that look after themselves
+
+The platform plans a site, researches and writes the content, generates the images, deploys it, and then keeps checking its own work. It notices stale pages, broken tools and missing images, and fixes the routine ones on its own. It decides which interactive tools would genuinely help a particular audience, builds them to run in the visitor’s browser, and writes a guide to sit alongside each one. Eight sites run this way today, and you are reading one of them.
+What we might build with you
+Reconciling your records against a register you do not control
+
+The Companies House pipeline is not really about Companies House. It is about the general problem of holding a messy internal list beside an authoritative external one, and working out row by row which things are the same thing. Charity registers, licensing bodies, professional accreditation lists, and your own CRM against your own billing system are all that same shape. We have built this once, against one register. Pointing it at another would be real work, and we would rather scope it honestly than promise it.
+Watching a subject, and telling you only what changed
+
+The reading and the scoring already exist. What we have not built is the part that stays quiet until something actually matters: a regulation moves, a competitor changes their pricing, a supplier turns up in a story they would rather not be in. Knowing when to interrupt somebody is a harder problem than collecting the material, and we would want to understand your threshold for that before building it.
+Taking a repetitive process off a person
+
+Somebody spends two days a month assembling a report from four systems. Somebody checks one list against another. Somebody reads an inbox and decides which of five things each message is. These are the jobs where an agent earns its keep, because the task is well defined, a mistake is visible, and a person can stay in the loop at exactly the step where judgement is needed. We would want to watch the process before saying whether it is worth automating. Sometimes the honest answer is that it is not, or that it needs a better form rather than a language model.
+Tell us what the job is
+
+The useful first conversation is a specific one. Describe the task you would like to hand over: the report somebody assembles by hand every month, the list that has to be checked against another list, the inbox that needs sorting before anyone can act on it. We will tell you what it would take, roughly what it would cost, and when the honest answer is that it is not worth automating.
+Start that conversation
+Read how we work
+
+----------------
+============ ruben ================
+AI systems that do one job, and keep doing it
+
+We build software that takes over well-defined jobs.
+
+Most of it is ordinary work, and that's exactly why it's useful: checking records, monitoring information, updating websites. The systems run on their own, stop when they aren't sure, and keep a record of every decision they make.
+
+What we've built
+Checking records against an official register
+
+Company names on websites rarely match the names filed at Companies House. That makes data collected from the open web messy.
+
+Our pipeline discovers businesses in a chosen area, then matches each one against Companies House. It compares names, checks locations, and extracts registration numbers from website footers where they're available. If the evidence isn't clear enough, it asks a person instead of guessing.
+
+So far it has verified 2,767 records and added filed accounts to 937 of them.
+
+Reading the news and scoring what matters
+
+This system collects articles from RSS feeds, news APIs and live web searches.
+
+For every item it scores two things: whether it's relevant to the subject, and how much weight the source deserves. It records the reason for every score and keeps the link between the original publisher and the channel that surfaced the story. Those are different sources, and treating them as the same is how rumours spread through news feeds.
+
+It has collected 5,652 items and scored 4,672 of them.
+
+Websites that maintain themselves
+
+This platform plans a website, researches and writes the content, creates images, deploys the site, and keeps checking its own work.
+
+It detects stale pages, broken tools and missing images, then fixes the routine problems automatically. It also decides which browser-based tools are worth adding for a particular audience, builds them, and writes the accompanying guide.
+
+Eight sites currently run this way. You're reading one of them.
+
+What we could build with you
+Matching your records against an external register
+
+The Companies House system solves a broader problem: matching an internal list against an external source you don't control.
+
+That could be a charity register, a licensing body, a professional register, or even your CRM against your billing system. We've built the approach once. Adapting it to another register takes work, and we'd rather estimate that honestly than promise an easy port.
+
+Monitoring a subject and telling you when something changes
+
+The collection and scoring already exist.
+
+What we haven't built is the layer that stays quiet until something worth acting on happens: a regulation changes, a competitor updates their pricing, or a supplier appears in a story you'd want to know about.
+
+Knowing when to interrupt someone is harder than collecting information, so we'd want to understand what actually matters to you before building it.
+
+Taking repetitive work off someone's desk
+
+Somebody spends two days each month assembling a report. Somebody compares one spreadsheet with another. Somebody sorts an inbox before anyone else can act.
+
+These are the jobs that suit software: the task is clear, mistakes are easy to spot, and a person only steps in where judgement is needed.
+
+Before suggesting anything, we'd want to watch the process. Sometimes the answer is to build a system. Sometimes it's to improve the process first.
+
+Tell us what the job is
+
+The best conversations start with a specific task.
+
+Tell us about the report someone builds every month, the lists that need comparing, or the inbox that has to be sorted before work can begin.
+
+We'll tell you what it would take, what it's likely to cost, and when we'd advise leaving it alone.
+
+Start that conversation
+
+Read how we work
+
+=============== gemini -----------------
+
+AI systems that do one defined job and keep doing it.
+
+Our systems run without supervision. A pipeline checks scraped business records against Companies House. A language model reads news sources and scores them for trust. A website updates itself. Each system logs every decision for later review.
+Built systems
+
+We currently operate 3 systems. Each replaces manual oversight.
+Checking records against an official register
+
+Web-scraped company names rarely match registered entities. Our pipeline collects regional businesses and matches them to Companies House records. It compares names, verifies geography, and extracts registration numbers from website footers. The system flags uncertain matches for human review. It has verified 2,767 records and added filed accounts to 937 of them.
+Scoring news and evaluating trust
+
+Agents scan RSS feeds, news APIs, and live web searches. A language model scores each item for relevance and source credibility. The system records the exact reasoning for each score. It separates the original publisher from the discovery channel to prevent rumor laundering. It has collected 5,652 items and scored 4,672.
+Automated website maintenance
+
+The platform plans a site, writes content, generates images, and deploys the code. It continuously checks for stale pages, broken tools, and missing images, fixing routine errors automatically. It builds interactive browser-based tools and writes accompanying guides. 8 sites operate this way today. You are reading one of them.
+Potential custom builds
+Reconciling messy data against authoritative lists
+
+Our pipeline solves the problem of matching a messy internal list against an authoritative external register. We can adapt this logic for charity registers, licensing bodies, professional accreditations, or CRM and billing systems. Adapting the system to a new register requires scoping and custom development.
+Targeted alerts for specific events
+
+Our reading and scoring systems are active. We can build an alert layer that triggers only when a specific event occurs, such as a regulation shift or a competitor pricing update. Setting the exact interruption threshold dictates the design.
+Automating repetitive workflows
+
+A person spends 2 days a month assembling a report from 4 systems. Another checks lists or categorizes inbox messages into 5 types. These defined tasks suit AI agents. We observe your process before recommending automation. If the task requires a simple form instead of a language model, we will tell you.
+Start a project
+
+Describe the task you want to automate. Provide details on the manual reports, list checks, or inbox sorting processes. We will provide requirements, cost estimates, or advise against automation if it lacks value.
+
+[Start that conversation]
+[Read how we work]
+
+===
+gemini with hassad prompt from email - better
+==============================================
+
+We build AI systems that do one defined job.
+
+They run continuously without supervision. Every decision is recorded for review. We currently run systems that match scraped business records to Companies House, score news sources for trust, and maintain live websites.
+What we have built
+
+Three systems are running now. Each automates a task that previously required human oversight.
+Checking records against an official register
+
+Web company names rarely match registered names. A scraped list requires verification.
+
+Our system discovers a geographic area and collects the businesses in it. It matches each business to a Companies House record by comparing names, confirming geography, and reading registration numbers from website footers.
+
+When a match is uncertain, the system stops and asks a person for a decision. It has verified 2,767 records and added filed accounts to 937 of them.
+Reading widely and judging trust
+
+Agents read RSS feeds, news search APIs, and live web searches. A language model scores each item for subject relevance and source reliability.
+
+The system records its scoring reasons. It saves the path from the original publisher to the discovery channel to prevent feeds from mixing facts with rumor. It has collected 5,652 items and scored 4,672 of them.
+Websites that maintain themselves
+
+The platform plans a site, researches content, writes text, generates images, and deploys the pages. It checks its own work.
+
+It finds and fixes stale pages, broken tools, and missing images. It builds interactive browser tools for specific audiences and writes a companion guide for each. Eight sites run this way today. You are reading one of them.
+What we might build with you
+Reconciling internal records against an external register
+
+The Companies House system solves the general problem of matching a messy internal list to an authoritative external one. It works row by row to find exact matches.
+
+This applies to charity registers, licensing bodies, professional accreditation lists, and matching a CRM to a billing system. We built this for one register. Adapting it for another requires new work. We will scope this directly.
+Watching a subject for specific changes
+
+The reading and scoring systems already exist. We can add a strict notification threshold.
+
+The system sends an alert when a regulation moves, a competitor changes pricing, or a supplier appears in the news. We need to define the exact alert threshold with you before building this feature.
+Automating repetitive processes
+
+A person spends 2 days a month assembling a report from 4 systems. Someone checks one list against another. A team member reads an inbox to categorize messages into 5 types.
+
+These jobs suit an automated agent. The task is defined, mistakes are visible, and a person stays in the loop for the final judgment.
+
+We observe the process before deciding to automate it. Sometimes the task needs a standard form. Sometimes it should remain manual.
+Tell us what the job is
+
+Describe the task you want to automate. Include specific details about the manual reports, lists, or inboxes involved.
+
+We will reply with the requirements and the estimated cost. If the task is better left manual, we will tell you.
+
+Start that conversation.
+Read how we work.

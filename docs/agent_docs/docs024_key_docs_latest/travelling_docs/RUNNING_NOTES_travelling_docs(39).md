@@ -2845,3 +2845,44 @@ future refinement; not urgent (coarse don't-spam guard is defensible).
 Remaining: a REAL failure flowing through tool-improver + back; P1 mobile / P2
 interactions.
 Categories: (proof, position)
+
+## Session log — 2026-07-13 (cont.) — status docs + P1/P2 runner + repo-completeness fix
+
+### Summary docs
+Wrote STATUS_2026-07-13_where_we_are.md (state-of-play snapshot: milestone
+ladder, architecture picture, what's live, what's next). Refreshed
+OVERVIEW_self_verifying_tools.md (T9 draft) to record full autonomy + reorder
+"next" to P1/P2.
+
+### P1 (mobile) + P2 (interactions) built + PROVEN LIVE
+Rewrote run_checks_action.go behind a testable browserPage interface
+(real=Playwright chromiumPage, fake=tests). Preserved every P0 behavior
+(honest skips, nav-fail=check-fail, -EDIT skip). Added: per-profile runs
+(desktop 1366x900; mobile 390x844 touch+mobileUA+DPR3 via
+BrowserNewContextOptions IsMobile/HasTouch); no_horizontal_overflow (Evaluate
+scrollWidth-clientWidth, 2px tol); interaction (fill/click/select steps via
+Locator, then expect selector-exists + text_matches regex). Console errors
+evaluated LAST so interaction-triggered errors count. 9 unit tests pass.
+LIVE PROOF on xp-curve (real browser): curve-switch interaction actually
+SELECTED 'exponential' in #curveType → JS rebuilt the table → #tableWrap tr
+present → PASS, on desktop AND mobile; mobile-fit no-overflow PASS at 390px;
+mobile-fit correctly SKIPPED on desktop. 9.3s desktop+mobile. This is the
+tier that asserts a tool DOES something — the economy-simulator bug class.
+Migration 147 sets tool-acceptance-agent.request_run profiles=["desktop",
+"mobile"] (safe with the P0 adapter — still desktop-only+skips; activates on
+the P1/P2 image).
+
+### Repo-completeness fix (important)
+git status exposed that the ENTIRE browser-runner-adapter package was NEVER
+git-tracked — prod images worked only because the Dockerfile does COPY . .
+(includes untracked working-tree files), so a fresh clone was missing the
+whole Tier-4 runner. Committed it complete (53a5b518): cmd, dispatcher,
+P0/P1/P2 runner + tests, dockerfile, config, kustomize base+overlay. Durable
+lesson (extends the ?? guard): Docker COPY . . masks untracked Go — the build
+succeeding is NOT proof the repo is complete; check `git status` for whole
+untracked packages, not just individual files.
+GATE: P1/P2 activate when a new browser-runner-adapter image (from 53a5b518+)
+deploys AND the chassis carrying 147's config is in effect (147 is DB-only,
+already applied). Both the adapter image and mobile/interaction criteria then
+go live together.
+Categories: (build, proof, gotcha)

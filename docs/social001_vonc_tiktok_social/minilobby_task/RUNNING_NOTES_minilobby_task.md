@@ -338,6 +338,27 @@ each with its icon; 16 deployed sections reference icons; the 8 `undeployed_asse
 Still at `detected` for future triage: 3 deactivated chrome pointers, 3 stale-chrome rerenders, 1 hardcoded
 colours, 1 evaluate_tools.
 
+**Copy pass (same session, after the user eyeballed catalyst).** The pages built but the copy was hollow — the
+content-writer treated each as a generic "about the site" page: body never named the archetype, CTAs pointed at
+/contact.html and /about. Fixed by authoring canon copy straight into content_data (`089_archetype_page_copy.sql`),
+since content_data is the source of truth — 8 archetypes voiced from the spec's strengths, CTAs re-pointed at the
+Gauntlet + quiz tools.
+
+**Then the deeper bug the copy pass exposed — `090`, FLEET-WIDE.** After 089 the bodies were right but the
+3-stat strip still read 'Longest / Clients Served'. Root cause: `content-block-about`'s `stat_1/2/3_label` +
+`cta_label` are `source='static'` on a **shared component (4e448d51, 13 pages / 5 sites)**, so every render
+re-applies the business defaults and no content_data patch can win. This is why the LLM had crammed the label
+into the VALUE on *every* site ('500+ Models / Clients Served' on robot-hands, '30 yrs / Awards Won' on
+ai-agent-orchestration). Flipped those 4 fields `static→llm` (fallbacks retained), re-authored vonc's 8 labels,
+rerendered. Business sites verified untouched — their labels are persisted in content_data and their live HTML
+is unchanged until they choose to rebuild (checked: ai-agent-orchestration about.html still '70+ / Clients
+Served', DB row dated 2026-07-10). Live sweep of all 8 archetype pages: zero old labels, unique archetype stat
+descriptors, CTA 'Find Your Archetype'.
+
+**Standing-rule reinforcement:** a `source='static'` schema field is a value no content_data edit or LLM pass
+can override — it re-applies on every render. When authored copy "won't stick," check the field source before
+assuming the write failed.
+
 `Categories:` (milestone, root-cause, decision)
 
 ---

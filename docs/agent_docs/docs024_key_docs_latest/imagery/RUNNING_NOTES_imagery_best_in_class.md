@@ -1305,4 +1305,34 @@ delete the stale 900² sprite-sheet-main.jpg + deactivate the sprite asset →
 re-drive the needs_imagery (attempt_count=0) → generate + deploy a clean 768²
 jpg → EYEBALL GATE. RUNBOOK B10 refreshed for this deploy.
 
+## Turn 34 — 2026-07-13 — Sheet deployed clean + gate PASSED; I2.2/I2.3 built
+
+**✅ Sprite sheet LIVE + gate confirmed.** Re-drive (all 3 fixes in) deployed
+a clean 768×768 JPEG, **75,745 bytes** (under the 80KB budget), serving 200 at
+`/assets/images/sprite-sheet-main.jpg`. Visual: perfect — nine flat light-grey
+glyphs on charcoal, exact reading order. **USER B11 GATE: confirmed as read**
+(check, gauge, gripper, cog, chart, download, arrow, info, warning). Wrote
+`cell_names_verified:true` + verified_by into the plan row's style_hints.
+
+**I2.2 + I2.3 BUILT (commit — Go rides next deploy; migration live now):**
+- `emit_sprite_css` action: pure CSS `background-position` slicing computed
+  from the verified grid (rows/cols/cell_names) at bullet display size
+  (T=20px → sheet drawn 60×60, cells at reading-order offsets). Emits
+  `.sprite` base + `.sprite-<name>` (inline/icon/nav) + themed
+  `ul.sprite-list li::before` bullets with default glyph (cell 0 = check) and
+  per-item `li.sprite-b-<name>` overrides. Commits `/assets/css/sprites.css`
+  (base64 via the proven git-adapter path). GUARD: only emits when
+  cell_names_verified=true. Geometry unit-tested.
+- `render_site_components`: injects `<link rel=stylesheet sprites.css>` into
+  `<head>`, GUARDED on an active sprite_sheet asset (no 404 link elsewhere).
+- asset-deployer `sprite_css` mode (migration LIVE): check_mode →
+  check_sprite_mode → emit_sprite_css_step. Alongside brand_head. Reusable
+  fleet-wide via a `needs_sprite_css` work item.
+
+**Next:** ONE deploy carries emit_sprite_css + the head-link Go. Then:
+dispatch `needs_sprite_css` (asset-deployer, spec.mode='sprite_css') →
+sprites.css commits → rerender-pages refresh_site_components (head gets the
+link) → I2.3 wire `class="sprite-list"` on ONE robot-hands section's <ul> →
+live gate (bullets readable, one ≤80KB download). Then I2.4 fulfilment check.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

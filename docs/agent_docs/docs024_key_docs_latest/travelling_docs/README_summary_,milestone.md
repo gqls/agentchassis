@@ -29,3 +29,38 @@ The verification ladder is whole, self-driving on both pass and fail, and now co
 and back through repair, and the deeper behavioural tiers (P1 mobile, P2 interactions — asserting a tool computes the right answer, not just that it boots). Docs are all current (RUNBOOK position line, running notes,
 handoff at T12, memory), and the check is committed. A clean, genuinely finished-feeling stopping point.
 
+--------------
+
+● Three things done this turn, plus one important catch.
+
+The summary docs
+
+- STATUS_2026-07-13_where_we_are.md — the state-of-play snapshot you asked for: the milestone ladder (all 7 proven), the architecture in one picture, what's live now, and what's next in a table.
+- OVERVIEW_self_verifying_tools.md — refreshed the T9 draft to record full autonomy and reorder "what's next" now that continuous operation is done.
+
+Continued: the interaction and mobile tiers (P1 + P2)
+
+This is the capability that closes the "deployed ≠ works" gap for real. I rewrote the runner behind a testable interface (preserving every P0 behavior) and added:
+- Interaction checks (P2) — fill/click/select a control, then assert the result changed. Proven live on xp-curve: it genuinely selected 'exponential' in the dropdown, the tool's JS rebuilt the table, and the runner
+  asserted the rows appeared. This is the exact class of check that would have caught the economy-simulator's dead slider directly.
+- Mobile profile + overflow (P1) — a real 390×844 touch viewport; no_horizontal_overflow passed at that width. Both the interaction and boot checks ran on desktop and mobile.
+
+Nine unit tests pass; the live run took 9.3s for the full desktop+mobile sweep. Migration 147 (applied) sets the agent to request both profiles — safe with the current adapter, and mobile/interaction criteria
+activate automatically once the new adapter image ships.
+
+The catch worth flagging
+
+While committing, git status revealed that the entire browser-runner adapter package had never been git-tracked — every production image worked only because the Dockerfile does COPY . ., which sweeps up untracked
+working-tree files. A fresh clone would have been missing the whole Tier-4 runner. I committed it complete (53a5b518): entrypoint, dispatcher, the P0/P1/P2 runner, tests, Dockerfile, config, and kustomize. The
+durable lesson (now in the notes) extends the untracked-file guard: a green Docker build is not proof the repo is complete — COPY . . masks untracked Go, so check git status for whole missing packages, not just stray
+files.
+
+Where this leaves us
+
+The verification ladder is whole, self-driving, continuous, and now — pending one adapter deploy — behavioural at the interaction level. To activate P1/P2: build and deploy a new browser-runner-adapter image from
+53a5b518 or later (147 is already applied). Then the mobile and interaction criteria that currently show as "skipped" will evaluate live, and I can verify the tools actually compute correctly, on both form factors,
+unattended.
+
+Remaining after that: a genuine failure flowing through tool-improver and back (waiting on reality), and the small cooldown-scoping refinement. Docs all current — STATUS + OVERVIEW written, running notes, handoff at
+T13, memory updated.
+
