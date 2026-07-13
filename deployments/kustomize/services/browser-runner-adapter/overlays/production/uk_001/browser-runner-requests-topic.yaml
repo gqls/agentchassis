@@ -1,0 +1,29 @@
+# FILE: browser-runner requests topic (Strimzi KafkaTopic CR).
+#
+# MUST exist before first deploy: Strimzi runs with
+# auto.create.topics.enable=false, so without this CR the adapter's consumer
+# hangs with `context deadline exceeded` on every fetch and no clear error
+# (035 §2.12; the analyser topic CR is the precedent).
+#
+# Deliberately NOT a resource of the kustomization: the overlay sets
+# `namespace: ai-persona-system`, which would override this topic's required
+# `kafka` namespace. Apply directly:
+#   kubectl apply -f deployments/kustomize/services/browser-runner-adapter/overlays/production/uk_001/browser-runner-requests-topic.yaml
+#   kubectl -n kafka get kafkatopic | grep browser-runner   # verify
+#
+# No responses topic is declared: the adapter replies to the CALLER's
+# responses topic (e.g. system.agent.generic.responses), which already exists.
+
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: system.adapter.browser-runner.requests
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: personae-kafka-cluster
+    app: browser-runner-adapter
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 604800000   # 7 days

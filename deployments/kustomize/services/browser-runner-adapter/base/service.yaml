@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: browser-runner-adapter
+  labels:
+    app: browser-runner-adapter
+spec:
+  type: ClusterIP
+  selector:
+    app: browser-runner-adapter
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http

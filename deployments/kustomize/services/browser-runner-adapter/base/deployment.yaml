@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: browser-runner-adapter
+  labels:
+    app: browser-runner-adapter
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # one runner at a time — avoids two adapters on one partition during rollout
+  selector:
+    matchLabels:
+      app: browser-runner-adapter
+  template:
+    metadata:
+      labels:
+        app: browser-runner-adapter
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: browser-runner-adapter
+          image: docker.io/aqls/browser-runner-adapter:latest  # tag pinned per environment in overlay
+          # command: with the full invocation, NOT args: alone — the Dockerfile
+          # uses CMD, and args: would replace the binary path (035 §2.12).
+          command: ["./browser-runner-adapter", "-config", "/app/configs/browser-runner-adapter.yaml"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            # Cluster-agnostic identity only; topic/consumer-group/AGENT_VERSION
+            # are injected by the overlay's deployment-env patch.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs/browser-runner-adapter.yaml
+              subPath: browser-runner-adapter.yaml
+              readOnly: true
+          # Chromium needs real headroom: each run launches a browser
+          # (~300-500Mi peak). Sequential handling bounds it to one browser
+          # at a time per pod.
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: config
+          configMap:
+            name: browser-runner-adapter-config

@@ -1,0 +1,36 @@
+# FILE: deployments/kustomize/services/browser-runner-adapter/overlays/production/uk_001/configs/browser-runner-adapter.yaml
+#
+# PRODUCTION/uk_001 config for the browser-runner adapter — the DEPLOYED source
+# of truth, generated into the browser-runner-adapter-config ConfigMap by this
+# overlay's configMapGenerator. Keep in sync with the repo-root
+# configs/browser-runner-adapter.yaml (local runs). Field names follow 035
+# §2.11 exactly (logging not logger, port as a quoted string).
+
+service_info:
+  name: "browser-runner-adapter"     # used as sender_agent_type in responses
+  version: "0.1.0"
+  environment: "production"
+
+server:
+  port: "8080"                       # STRING in quotes; reads as cfg.Server.Port
+
+logging:
+  level: "info"
+  format: "json"
+
+observability:
+  tracing_endpoint: "${SERVICE_OBSERVABILITY_TRACING_ENDPOINT:http://jaeger-collector:14268/api/traces}"
+
+infrastructure:
+  kafka_brokers:
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+  # No database, no object storage at P0 (screenshots are P3).
+  clients_database: {}
+  templates_database: {}
+  auth_database: {}
+
+custom:
+  adapter_settings:
+    consumer_group: "browser-runner.adapter.group"
+    main_topic: "system.adapter.browser-runner.requests"

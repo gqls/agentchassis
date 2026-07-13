@@ -1,0 +1,37 @@
+# FILE: configs/browser-runner-adapter.yaml
+#
+# LOCAL-RUN config for the browser-runner adapter (main.go's -config default).
+# The deployed source of truth is the overlay copy:
+#   deployments/kustomize/services/browser-runner-adapter/overlays/production/uk_001/configs/browser-runner-adapter.yaml
+# Keep the two in sync when editing. Field names follow 035 §2.11 exactly
+# (logging not logger, port as a quoted string).
+
+service_info:
+  name: "browser-runner-adapter"     # used as sender_agent_type in responses
+  version: "0.1.0"
+  environment: "development"
+
+server:
+  port: "8080"                       # STRING in quotes; reads as cfg.Server.Port
+
+logging:
+  level: "info"
+  format: "json"
+
+observability:
+  tracing_endpoint: "${SERVICE_OBSERVABILITY_TRACING_ENDPOINT:http://jaeger-collector:14268/api/traces}"
+
+infrastructure:
+  kafka_brokers:
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+  # The runner uses no database and no object storage at P0 (screenshots are
+  # P3 — they will add object_storage here when they land).
+  clients_database: {}
+  templates_database: {}
+  auth_database: {}
+
+custom:
+  adapter_settings:
+    consumer_group: "browser-runner.adapter.group"
+    main_topic: "system.adapter.browser-runner.requests"

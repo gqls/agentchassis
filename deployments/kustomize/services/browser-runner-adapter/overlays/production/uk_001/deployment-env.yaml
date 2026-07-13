@@ -1,0 +1,19 @@
+# Per-cluster environment for the browser-runner adapter (strategic-merge
+# patch, matched into the container by name). NewAdapter falls back to the
+# defaults if unset; set explicitly so a cluster can rename its topic.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: browser-runner-adapter
+spec:
+  template:
+    spec:
+      containers:
+        - name: browser-runner-adapter
+          env:
+            - name: REQUESTS_TOPIC
+              value: "system.adapter.browser-runner.requests"
+            - name: CONSUMER_GROUP
+              value: "browser-runner.adapter.group"
+            - name: AGENT_VERSION
+              value: "0.1.0"

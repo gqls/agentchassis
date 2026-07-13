@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ai-persona-system
+
+resources:
+  - ../../../base
+
+# Per-cluster environment (topic, consumer group, AGENT_VERSION) — patched in
+# here so the base stays cluster-agnostic (analyser-adapter precedent).
+patches:
+  - path: deployment-env.yaml
+
+# Pin the image tag for this cluster. Keep exactly one tag-pin line — the
+# release tooling seds it.
+images:
+  - name: docker.io/aqls/browser-runner-adapter
+    newTag: v1.0.1113
+
+# Per-cluster service config. The repo-root configs/browser-runner-adapter.yaml
+# is the local-run copy; THIS copy is the deployed source of truth. Kustomize
+# hash-suffixes the ConfigMap name, so config changes restart the pod.
+configMapGenerator:
+  - name: browser-runner-adapter-config
+    files:
+      - browser-runner-adapter.yaml=configs/browser-runner-adapter.yaml
