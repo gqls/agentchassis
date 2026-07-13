@@ -2821,3 +2821,27 @@ itself) — the durable guard is `git status` for `??` before every release, or
 committing new files as they're written rather than at release time. GATE:
 continuous acceptance activates on the next image built from 83ba9bd4+.
 Categories: (deploy, gotcha)
+
+### FULL AUTONOMY PROVEN — discovery → verdict, no human in the chain (v1.0.1112)
+v1.0.1112 (commit 83ba9bd4+, pod 11:25Z) carries tool_acceptance_due; verified
+in-binary via the sweep's checks_run list (not warn-skipped). First sweep
+emitted nothing — CORRECT: both tools had verdict notes inside the 7-day
+cooldown (my own testing this week). drop-rate's only blocker was a STALE
+Tier-2 acceptance-fail note (2026-07-10 16:25) describing asset+kebab-selector
+failures that migration 143 fixed 26 min later (16:51) — deleted as obsolete
+cleanup, which made drop-rate eligible. Re-sweep → acceptance_run item emitted
+(handler tool-acceptance-agent, priority 90) → dispatch loop CLAIMED it →
+tool-acceptance-agent loaded criteria → browser-runner-adapter drove Chromium
+on the live page → acceptance-run note "Tier-4 acceptance PASSED —
+tool-drop-rate-tuner — all 3 evaluated checks passed (2 skipped)" → item
+complete. ZERO manual triggers from the sweep onward (and the sweep itself is a
+scheduled maintenance tick in production). **The whole mechanism now runs
+unattended: discovery finds a due tool → drives it in a real browser against
+its own PLAN's criteria → writes the verdict into its travelling docs.**
+Follow-up noted: the cooldown counts Tier-2 acceptance-fail notes too, so a
+stale/independent Tier-2 verdict can suppress a Tier-4 run for 7 days — worth
+scoping the cooldown query to Tier-4 verdicts (source='tool-acceptance') in a
+future refinement; not urgent (coarse don't-spam guard is defensible).
+Remaining: a REAL failure flowing through tool-improver + back; P1 mobile / P2
+interactions.
+Categories: (proof, position)

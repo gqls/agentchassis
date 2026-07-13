@@ -668,3 +668,27 @@ page must re-render to pick it up. This exposed a real throughput wall:
 This is a platform constraint, not a defect I can force faster. Documented in RUNBOOK O9 +
 HANDOFF §4. Next chat: re-run `reconcile_headers.sh` to top out uniformity, then per-page
 title/OG meta, secondary-page copy, and the build-out (L6–L8).
+
+## Turn 14 — site uniformity finished (27/30), and the render-mode bug that caused the plateau
+
+Owner: the chassis restart was a **manual redeploy** of the chassis image, not a crash —
+so my "chassis is unstable/crashing" read was wrong. It was a one-off that dropped
+in-flight page-rerenders during the redeploy window; the consumer is stable.
+
+Ran the background reconcile loop (8 rounds); it climbed 13→24/30. The last 3 content
+pages (contact, how-it-works, tool-agent-complexity-estimator) stubbornly refused across
+every round. **Root cause found — and it explains the whole plateau:** the reconcile used
+`spec.reason=section_data_resolved`, which **SKIPS pages whose section content is unchanged**
+(content-hash match) — so for any page I hadn't edited, it re-rendered nothing and never
+re-embedded the new header. The pages that DID flip were the ones whose content I'd edited.
+**Assemble mode (page_id, NO spec.reason) deploys unconditionally** — that's the correct
+mode for a header/footer change. Switched to it and the holdouts flipped immediately.
+
+**Result: 27/30 active pages carry the gold header + logo.** The 3 remaining
+(`ai-readiness-quiz`, `for-engineering-leaders`, `guides/llm-cost-calculator-guide`) have
+**zero sections** — they're the known-empty pages (AUDIT D2); they need a content REBUILD,
+not a re-render, and that's already in the HANDOFF backlog. All 30 have the correct palette.
+
+Fixed `reassemble_pages.sh` to (1) look up and pass `page_id` and (2) use assemble mode —
+the two things that cost hours. Both are now documented in the script header, RUNBOOK
+landmine 13/O8-O9, and HANDOFF §4.

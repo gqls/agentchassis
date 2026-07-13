@@ -150,12 +150,12 @@ never trust orchestration status alone.
 
 ## 6. NEXT ACTIONS (in priority order)
 
-1. **[in progress] Finish site uniformity.** Re-assemble the remaining secondary pages so
-   they all carry the forked header/logo (palette already applies site-wide via the
-   stylesheet). Command: `reassemble_pages.sh` with the page names from
-   `SELECT name FROM pages WHERE site_id=… AND status='active'`. Zero-section pages
-   (`ai-readiness-quiz`, `for-engineering-leaders`) need a content rebuild, not just
-   re-assembly.
+1. **[✅ done — 27/30] Site uniformity.** All content pages carry the forked gold header/
+   logo; the palette applies site-wide via the stylesheet. The 3 not done
+   (`ai-readiness-quiz`, `for-engineering-leaders`, `guides/llm-cost-calculator-guide`)
+   have **zero sections** — they need a content REBUILD (see #5/L8), not a re-assembly.
+   KEY LESSON: use `reassemble_pages.sh` (ASSEMBLE mode + page_id) for header/footer
+   changes — `section_data_resolved` SKIPS unchanged pages and silently won't update them.
 2. **Per-page `<title>` + og:image meta.** Still partly stale (old marketing titles).
    Comes from page metadata / the head slot mechanism, not the section content. SEO/social
    polish.
