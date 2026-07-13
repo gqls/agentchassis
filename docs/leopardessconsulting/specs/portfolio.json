@@ -1,0 +1,66 @@
+{
+  "_disclosure": "We have no client engagements to describe and we will not invent any. Everything under `case_studies` is a system we built and run ourselves, and every figure in it can be checked against docs/leopardessconsulting/AUDIT_verified_facts.md. Everything under `use_cases` is something we have not done yet, described as a possibility and labelled as one. Presenting our own subsystems as client work, which this spec previously did, is the specific thing this rewrite exists to stop.",
+
+  "case_studies": [
+    {
+      "title": "Checking scraped business records against Companies House",
+      "client": "Our own platform",
+      "status": "Built and running",
+      "evidence": "AUDIT C1",
+      "summary": "We needed reliable information about UK veterinary businesses and found, as everyone does, that the web version of a company's name is rarely the registered one. So the pipeline discovers an area, collects the businesses in it, and then tries to match each one to a real Companies House record. Matching runs as a cascade: a close name match confirmed by geography, then a close name match that is unique in the register, then a postcode-prefix match scored on the name, and finally a fuzzy band where the system stops and asks for a decision instead of guessing. Where a website publishes its registration number in the footer, we read it, because that is worth more than any amount of name matching.",
+      "results": "2,767 business records verified. 937 enriched with filed accounts data. A local mirror of 5,798 companies. The pipeline currently only considers companies that are still active, so dissolved ones are excluded rather than reconciled, which is a limitation and not a feature."
+    },
+    {
+      "title": "Reading the news and deciding what is worth trusting",
+      "client": "Our own platform",
+      "status": "Built and running",
+      "evidence": "AUDIT C2",
+      "summary": "Agents pull from RSS feeds, news search APIs, live web search, and direct page scraping. Each item is then read by a language model that scores two separate things: how relevant it is to the subject, and how much weight the source deserves. It records why it gave the score it did, and it keeps the trail from the original publisher through whichever channel we happened to find it on, because those are different facts and conflating them is how feeds fill up with laundered rumours.",
+      "results": "5,652 items collected, 4,672 of them scored for credibility. Four kinds of source in live use. The whole set refreshes every six hours."
+    },
+    {
+      "title": "Building interactive tools without anyone writing them",
+      "client": "Our own platform",
+      "status": "Built and running",
+      "evidence": "AUDIT C3",
+      "summary": "A site's audience usually wants a calculator of some kind, and which calculator is a judgement call rather than something you can look up. So the platform asks a language model what would genuinely help this particular audience, generates the tool as a self-contained page that runs entirely in the visitor's browser, publishes it with a written guide beside it, and then goes back through the existing pages to link it from the places where someone would want it.",
+      "results": "The full chain runs unattended: deciding, generating, deploying, writing the companion guide, and cross-linking. The tools are deterministic calculators and assessments. They do not call a model from the browser, and we do not describe them as though they do."
+    },
+    {
+      "title": "The platform that built this website",
+      "client": "Our own platform",
+      "status": "Built and running",
+      "evidence": "AUDIT C4, C6",
+      "summary": "Agents are rows in a database, not classes in the code. Each one is a small workflow of steps, and the workflow is read fresh from the database every time a message arrives, which means behaviour can be changed while the system is running and nothing needs redeploying. Agents that need help spawn other agents. Every step writes what it did to Postgres, so a failure costs the step rather than the run, and afterwards there is a record you can read to find out what happened.",
+      "results": "143 agent definitions, 56 of them active. 40 of them spawn other agents. 75,061 orchestration state records. Eight live sites are built and maintained this way, and this one is among them. Those eight are ours. They are not clients, and we would rather say so than let the number do work it has not earned."
+    }
+  ],
+
+  "use_cases": [
+    {
+      "title": "Reconciling your records against a register you do not control",
+      "status": "Not yet done for a client. Adjacent to work we have built.",
+      "summary": "The Companies House pipeline is not really about Companies House. It is about the general problem of holding a messy internal list beside an authoritative external one and working out, row by row, which things are the same thing. Charity registers, licensing bodies, professional accreditation lists, and your own CRM against your own billing system are all the same shape. We have built this once, against one register. Pointing it at another would be real work, and we would rather scope it than promise it."
+    },
+    {
+      "title": "Watching a subject and telling you only what changed",
+      "status": "Not yet done for a client. Adjacent to work we have built.",
+      "summary": "The feed pipeline reads a great deal and scores what it finds. The obvious next thing, which we have not built, is the part that stays quiet until something actually matters: a regulation moves, a competitor changes their pricing, a supplier appears in a story they would rather not be in. The collecting and the scoring exist. The judgement about when to interrupt you does not, yet."
+    },
+    {
+      "title": "Taking a repetitive process off a person",
+      "status": "Not yet done for a client. This is the honest starting point.",
+      "summary": "Most of what we would build for a business is not exciting. Somebody spends two days a month assembling a report from four systems. Somebody checks a list against another list. Somebody reads an inbox and decides which of five things each message is. These are the jobs where an agent earns its keep, because the task is well defined, the failure is visible, and a person can stay in the loop at the step where judgement is actually required. We would want to see the process before saying whether it is worth automating, and sometimes the answer is that it is not, or that it needs a better form rather than a language model."
+    },
+    {
+      "title": "Keeping the parts that matter on infrastructure you control",
+      "status": "Not yet done for a client. The underlying mechanism is built and working.",
+      "summary": "Every step in one of our workflows can be pointed at a different model, including one that runs entirely inside our own infrastructure rather than calling out to a third party. If a piece of your work genuinely cannot leave the building — client records, anything under privilege, anything you are contractually bound to keep close — we can architect the workflow so that only that step runs that way, while the rest uses whatever model does the job best. For a client who needs real separation from our other work, the honest answer is a system built specifically for them rather than a shared one, and that is a conversation we would have upfront, not a box we tick afterwards."
+    },
+    {
+      "title": "A faster start for a new agent-driven product",
+      "status": "Not yet done for a client. Adjacent to work we have built.",
+      "summary": "Most new agent products spend their first months solving the same handful of problems before they reach the part that is actually theirs: how to keep state when a step fails, how to retry safely, how to let a person step in without stalling everything else, how to change a workflow without redeploying it. We already solved those, and the result already runs eight sites in production. A startup building its own agent-driven product could start from that layer instead of rebuilding it, and reach its first real milestone sooner. We have not done this for anyone yet, so the honest next step would be understanding what that milestone looks like for a specific team before promising a timeline."
+    }
+  ]
+}

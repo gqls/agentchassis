@@ -2805,3 +2805,19 @@ image (warn-skip until then, the 142 precedent). Proof after deploy: a
 discovery sweep should produce an acceptance_run item → dispatch → a fresh
 acceptance-run note with NO manual trigger — full autonomy for the top tier.
 Categories: (build, migration)
+
+### v1.0.1111 deploy: cooldown fix landed, continuous check MISSED (untracked-file trap, again)
+Verified the deploy by commit lineage (not tag): v1.0.1111 == commit f2fb87a,
+message "acceptance loop runs in scheduled tasks" — intent was to ship the
+continuous sweep. But check_tool_acceptance_due.go was UNTRACKED (??), so
+`git commit -a` (modified-tracked-only) caught its sibling cooldown fix in
+check_tool_acceptance.go — which IS in v1.0.1111 — while silently skipping the
+new file. Migration 146 added the check name to design-discovery-agent, so the
+deployed binary warn-skips it (unknown check; the 142-precedent safety holds —
+no error). Net: the cooldown fix is LIVE; the continuous sweep is NOT (the
+check isn't in the binary). Committed the file as 83ba9bd4; it needs one more
+chassis image. Second occurrence of this exact trap (T4 was the Tier-2 checker
+itself) — the durable guard is `git status` for `??` before every release, or
+committing new files as they're written rather than at release time. GATE:
+continuous acceptance activates on the next image built from 83ba9bd4+.
+Categories: (deploy, gotcha)

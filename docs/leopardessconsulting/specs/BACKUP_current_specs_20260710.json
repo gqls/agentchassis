@@ -1,0 +1,267 @@
+[
+    {
+        "id": "ca53ad87-1185-48aa-8b45-8ca2dfbc0d3b",
+        "data": {
+            "avoid": [
+                "Stock photography of any kind — no people in offices, no handshakes, no generic tech imagery",
+                "Bright or saturated colour palettes — no electric blues, neon greens, or startup-gradient aesthetics",
+                "Rounded, playful, or cartoon-style design elements",
+                "Literal leopard or animal imagery — the brand metaphor is applied through language, not visuals",
+                "Generic AI imagery — no glowing brains, robot faces, or neural network clichés",
+                "Cluttered layouts or dense information grids without breathing room",
+                "Decorative animations or parallax effects that slow page load",
+                "Testimonial carousels or social proof widgets without real attributed content",
+                "Cookie-cutter SaaS landing page patterns with floating screenshots",
+                "Any visual element that a generalist digital agency would produce for a non-technical audience"
+            ],
+            "typography": {
+                "base_size": "16px",
+                "font_family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                "line_height": "1.6",
+                "heading_font": "'Georgia', 'Times New Roman', serif"
+            },
+            "colour_mood": "Deep charcoal and near-black backgrounds with warm amber, gold, and copper accents. This palette signals premium technical authority — the dark foundation conveys engineering seriousness and production infrastructure depth, while the amber-gold accents reference the leopardess brand (speed, warmth, precision) without being literal. Secondary colours: muted warm greys for body text, subtle copper for hover states and interactive elements. Code blocks and technical references in a slightly lighter charcoal with amber syntax highlighting. The overall mood is: 'This is infrastructure you can trust, built by people who ship.'",
+            "color_scheme": {
+                "text": "#333333",
+                "accent": "#8b7355",
+                "border": "#e2e8f0",
+                "primary": "#1a1a2e",
+                "surface": "#f8f9fa",
+                "secondary": "#d4af37",
+                "background": "#ffffff",
+                "text_muted": "#666666"
+            },
+            "style_direction": "professional-dark",
+            "typography_mood": "Primary headings in a geometric sans-serif with medium weight and generous tracking — think Inter, Geist, or similar engineering-grade typefaces. Body text in a highly legible sans-serif at comfortable reading size (18px+) with relaxed line-height for technical content scanning. Monospace font for any code references, agent names, or infrastructure terms to signal technical authenticity. The typography should feel like developer documentation meets premium consultancy — precise, scannable, and never decorative.",
+            "imagery_direction": "All imagery should be abstract technical visualizations — no stock photography of people in offices, no handshakes, no generic AI brain imagery. Every image should suggest real infrastructure: distributed systems, orchestration flows, data pipelines, hierarchical agent coordination. The visual language should make a CTO feel they are looking at a company that builds actual systems. Subtle references to Kubernetes pod topology, Kafka partition layouts, and state machine workflows are welcome. Dark backgrounds throughout with amber-gold accent lighting.",
+            "layout_preference": "Clean, spacious layouts with generous whitespace and strong vertical rhythm. Content sections should breathe — no cramped grids. Technical content gets full-width treatment with clear visual hierarchy. Service cards and case study cards use consistent grid layouts (3-column on desktop, stacking cleanly on mobile). Hero sections are tall and impactful with a single clear message. CTAs are prominent but not aggressive — the audience responds to specificity, not urgency. Navigation is minimal and functional. The overall layout should feel like a well-architected system: everything has its place, nothing is redundant."
+        },
+        "aspect": "design_intent"
+    },
+    {
+        "id": "3250fe27-b658-4a5d-b0e4-536a3f1e4e10",
+        "data": {
+            "use_cases": [
+                {
+                    "title": "Production Agent Orchestration, Built and Delivered",
+                    "client": "Scale-ups with Agent Infrastructure Needs",
+                    "results": "Production agent infrastructure delivered on proven stack. Runs unattended for weeks, pauses for human input when configured to.",
+                    "summary": "You need agents that run reliably in production — not a framework that works in demos. I build the orchestration layer on Kubernetes, Kafka, and Postgres: workflow-driven agents with proper state management, timeout recovery, and horizontal scaling. Human review gates are configurable per workflow stage — fully autonomous where you're confident, human-in-the-loop where you're not. The system runs thousands of agent instances in production today."
+                },
+                {
+                    "title": "Multi-Stage Pipelines with Configurable Human Oversight",
+                    "client": "Teams Needing Automated Content or Data Pipelines",
+                    "results": "Autonomous pipelines that handle the volume while your team handles the judgment calls.",
+                    "summary": "You have a pipeline problem: collecting data from multiple sources, validating it against authoritative records, transforming it, and publishing — and right now too much of that is manual. I build agent pipelines where each stage runs independently with its own error handling and retry logic. Every stage can be set to autonomous or human-approval, independently. Your team reviews what matters and lets the rest flow."
+                },
+                {
+                    "title": "Problem-First Assessment and Implementation",
+                    "client": "Engineering Teams Evaluating AI for Their Operations",
+                    "results": "An honest technical assessment followed by delivery. No predetermined solution — the recommendation fits the problem.",
+                    "summary": "You describe the problem — whether that's operational bottlenecks, data quality issues, or scaling challenges. I research your domain, your constraints, and what's been tried. Then I propose something specific: sometimes that's an agent system, sometimes it's infrastructure, sometimes it's a workflow change that doesn't need AI at all. I build what we agree on, with your team having visibility and approval at every step."
+                },
+                {
+                    "title": "Continuous Quality Improvement Pipeline",
+                    "client": "Businesses with Deployed Systems That Need Ongoing Improvement",
+                    "results": "Systems that improve autonomously between human review cycles. Routine maintenance handled, significant issues escalated with full context.",
+                    "summary": "Your site or platform is live but quality degrades over time — content goes stale, tools break, new gaps appear. I build improvement loops that run continuously: content audits, tool health checks, structural analysis, and automated fixes. Each finding is classified by severity and routed appropriately — automated fixes for routine issues, human review for anything that needs judgment. The system gets smarter about your specific quality standards over time."
+                }
+            ],
+            "case_studies": [
+                {
+                    "title": "Hierarchical Agent Architecture for Autonomous Website Operations",
+                    "client": "Multi-Site Content Platform",
+                    "results": "Six production sites deployed and self-maintaining. Stateless agent pods scale horizontally with zero-downtime workflow updates via database configuration. Full observability through processing history, error routing, and orchestration audit trails.",
+                    "summary": "Designed and delivered a production agent orchestration platform running on Kubernetes, Kafka, and Postgres. Over 30 specialised agent types coordinate through hierarchical workflows — from domain research through content generation, design, tool deployment, and ongoing quality improvement. The system deploys complete websites from a domain name input and maintains them autonomously."
+                },
+                {
+                    "title": "Multi-Stage Data Pipeline with Companies House Verification",
+                    "client": "Veterinary Data Aggregator",
+                    "results": "Thousands of verified business records with financial enrichment. Automated matching cascade handles name variations, dissolved companies, and registration gaps without manual intervention.",
+                    "summary": "Built a structured data collection pipeline spanning area discovery, entity scraping, and automated business verification against Companies House. Each pipeline stage operates as independent agents with their own error handling and retry logic, coordinated through work items and Kafka messaging."
+                },
+                {
+                    "title": "Real-Time Multi-Source News Pipeline with Credibility Scoring",
+                    "client": "Industry News Aggregation",
+                    "results": "Four ingestion source types operational with automated credibility classification. Production deployment with six-hour refresh cycles and source health monitoring.",
+                    "summary": "Delivered a content feed system ingesting from RSS, news search APIs, and the xAI Responses API. An LLM-powered triage agent scores relevance and credibility per item, tracking provenance from original publisher through discovery channel. Rendered output commits via GitHub Actions to Cloudflare-hosted sites."
+                },
+                {
+                    "title": "LLM-Driven Tool Generation and Deployment Pipeline",
+                    "client": "Interactive Tool Platform",
+                    "results": "End-to-end autonomous tool lifecycle: evaluation, generation, deployment, content integration, and quality auditing. Tools deployed across multiple verticals with industry-appropriate suggestions and zero manual development.",
+                    "summary": "Engineered an autonomous pipeline where an LLM evaluates what interactive tools benefit a site's specific audience, generates self-contained HTML/CSS/JS tools, deploys them with navigation entries and companion guides, then creates cross-references from related content pages — closing the loop between tool creation and content integration."
+                }
+            ]
+        },
+        "aspect": "portfolio"
+    },
+    {
+        "id": "4a2cef91-5691-4a7b-a3c3-70c8bdd6f7ca",
+        "data": {
+            "tone": "Authoritative-technical throughout. All copy — including CTAs, hero text, about page, and microcopy — should address senior engineering and technical leadership directly. Language should reflect production credibility and system depth. Avoid casual phrases ('Work Smarter, Not Harder'), motivational filler, or SMB-oriented softening language. CTAs should be action-specific and technically grounded (e.g. 'Review the Architecture', 'See How We Deploy', 'Start a Technical Conversation') rather than generic or inspirational. The voice is that of a senior engineer who also understands business outcomes — precise, confident, and free of consultant clichés.",
+            "content_voice": "Content voice is anchored in the leopardess brand metaphor: precision, agility, speed, and stealth. These are not decorative — they map directly to engineering outcomes. Precision = deterministic agent behaviour, typed contracts, observable pipelines. Agility = iterative delivery cadence, composable architecture, fast feedback loops. Speed = time-to-production measured in days, not sprints. Stealth = low operational overhead, systems that run quietly without constant human intervention. Headlines and body copy should use this vocabulary to describe specific technical outcomes rather than generic transformation language. Banned phrases: 'digital transformation', 'production-ready' (unless followed by a specific stack qualifier), 'days not months' (unless paired with a concrete delivery example), 'AI-powered' (unqualified). Preferred framing: name the problem, name the system that solves it, name the outcome. Example rewrite — instead of 'production-ready AI systems delivered in days not months', prefer 'orchestrated agent pipelines on Kubernetes, scoped and deployed within a two-week engagement'. The primary audience evaluates vendors on specificity; vague benefit language signals low credibility to CTOs and engineering leads.",
+            "tone_and_register": "All copy must maintain a single consistent register: technically precise, direct, and credible. Brand language ('Grace and Precision', 'Leopardess') is permitted as a framing device but must always resolve into a concrete technical or delivery claim within the same sentence or paragraph. Brand metaphors must never stand alone or substitute for specificity. The pattern is: brand framing → technical substance, not brand framing → benefit language. Example: 'Grace and Precision means your orchestration layer handles failover without manual intervention — not that we care deeply about your outcomes.' Aspirational or poetic phrasing that is not immediately grounded in a system behaviour, stack component, or delivery outcome should be removed or rewritten. This applies to all pages including index, about, and services.",
+            "cta_copy_governance": "CTA copy must be differentiated by the visitor's likely intent stage. Index page CTAs address awareness-stage visitors: lead with the problem being solved (engineering teams wasting cycles on AI systems that never reach production), not the solution. Services page CTAs address evaluation-stage visitors: lead with what makes the delivery approach distinctive (specific infrastructure choices, hierarchical agent model, human oversight configurability, delivery speed without reliability trade-offs). The phrase 'actually ships' or 'AI agents that actually ship' is retired from all locations except one canonical placement — currently the about page H2 — and must not appear in CTA headlines, hero subheadings, or services page copy. Any new CTA written for any page must first identify the visitor's stage (awareness, evaluation, decision) and write to that stage exclusively. Repetition of motifs across pages signals content shallowness to a technical reader who visits more than one page; each CTA should be independently persuasive without relying on accumulated repetition.",
+            "tone_and_audience_targeting": "Primary audience is CTOs, engineering leads, and technical founders at UK scale-ups and B2B SaaS companies. All CTAs, hero copy, and section headlines must use technical-credibility language consistent with this audience. Phrases like 'Work Smarter, Not Harder', 'Get started in minutes', or other SMB-accessible idioms are out of scope and should be replaced with language that signals production depth, engineering rigour, and measurable outcomes (e.g. 'Deploy your first agent pipeline in a single sprint', 'Built on Kubernetes, Kafka, and Postgres — not wrappers'). Non-technical SMB buyers are explicitly out of scope and no page should contain copy that targets or accommodates them. Where a page currently mixes tones, the technical-enterprise register takes precedence and accessible language should be removed or rewritten."
+        },
+        "aspect": "voice"
+    },
+    {
+        "id": "84c5ab11-2ca0-4f5c-8c1c-1d9c9317cbb8",
+        "data": {
+            "team": [
+                {
+                    "bio": "Over 30 years of engineering experience. Built and operated worldsoccernews.com with sustained top search placement for competitive terms across a decade. Former senior engineer at Bumble. Strong financial systems background. Designed this multi-agent orchestration framework on Kubernetes and Kafka from first principles — workflow-driven state machines with Postgres persistence, coordinating 30+ specialised agent types across websites, data pipelines, news aggregation, and research systems. The architecture: each named agent here is itself an orchestrator managing teams of specialist agents, not a single prompt, and not just prompting.",
+                    "name": "Peter Grenfell",
+                    "photo": "",
+                    "title": "Principal Consultant"
+                },
+                {
+                    "bio": "AI managing agent. Orchestrates a team of specialist research agents across multiple data acquisition strategies: deep web search with source attribution, structured extraction from industry registries, Companies House verification cascades with financial enrichment, news aggregation with credibility scoring, and competitive analysis. The research layer runs before any content generation or data publication — every output is sourced and verifiable. The same research infrastructure that grounds website content also powers standalone data collection pipelines.",
+                    "name": "Archivist",
+                    "photo": "",
+                    "title": "Head of Research"
+                },
+                {
+                    "bio": "AI managing agent. Coordinates a team of specialist auditors across every deployed system — content quality, structural integrity, tool functionality, CSS consistency, data pipeline health, and deployment status. Each auditor runs independently with its own detection logic and severity classification. Findings route to specialist fix agents or escalate to human review based on confidence. Full audit trails with processing history on every finding, fix, and verification.",
+                    "name": "Sentinel",
+                    "photo": "",
+                    "title": "Head of Quality Assurance"
+                },
+                {
+                    "bio": "AI managing agent. Runs continuous improvement cycles across all deployed infrastructure. Coordinates specialist agents for content freshness, tool health, navigation integrity, news feed reliability, data quality monitoring, and deployment verification. Each cycle is fully observable — work items track every finding through triage, fix, and verification. Human review gates configurable per workflow stage. The system improves autonomously between human review cycles.",
+                    "name": "Quartermaster",
+                    "photo": "",
+                    "title": "Head of Operations"
+                }
+            ],
+            "tone": "professional yet approachable",
+            "email": "leopardess@contactforsales.com",
+            "phone": "+44 (0) 7934 524 911",
+            "contact": {
+                "email": "leopardess@contactforsales.com",
+                "phone": "+44 (0) 7934 524 911",
+                "address": null,
+                "location": "United Kingdom"
+            },
+            "tagline": "Production-Grade Multi-Agent Systems — Observability, Fault Isolation, and Cost Controls Built In from Day One. Deployed on Kubernetes and Kafka, Not Prototyped on Wishful Thinking.",
+            "industry": "Technology Consulting",
+            "services": [
+                {
+                    "name": "Hierarchical Multi-Agent Orchestration",
+                    "description": "Architect and deploy multi-agent systems with specialist agents operating under coordinating supervisors for complex parallel workflows."
+                },
+                {
+                    "name": "Automated Website Building & Management",
+                    "description": "AI-driven agents that research, structure, generate, and publish web content at scale with full auditability."
+                },
+                {
+                    "name": "Intelligent Reporting & Data Pipelines",
+                    "description": "Agent-driven pipelines replacing manual reporting cycles, integrated with Kafka and Postgres for durable queryable output."
+                },
+                {
+                    "name": "Internal Tooling & Workflow Automation",
+                    "description": "Bespoke AI-powered internal tools including triage systems and agent-assisted developer workflows."
+                },
+                {
+                    "name": "Kubernetes-Native Agent Deployment",
+                    "description": "Containerised agent systems deployed on Kubernetes from day one with horizontal scaling and namespace isolation."
+                },
+                {
+                    "name": "Enterprise Security & Compliance Architecture",
+                    "description": "Credential isolation, secrets management, audit logging, and least-privilege access patterns built into every deployment."
+                },
+                {
+                    "name": "Rapid Deployment Engagements",
+                    "description": "Agile delivery model structured to reach production-ready systems in significantly compressed timelines versus traditional AI projects."
+                },
+                {
+                    "name": "AI Strategy & Architecture Consulting",
+                    "description": "Structured advisory engagements for engineering leaders evaluating AI agent integration, producing prioritised implementation roadmaps."
+                }
+            ],
+            "key_people": [
+            ],
+            "site_brief": "Industry: AI consulting and agent orchestration (technology services). Primary audience: Three personas — (1) CTOs and engineering leads at UK scale-ups (50–500 employees) who need proof of production deployments and working code, not slide decks; (2) Founders of B2B SaaS or professional services firms who are technically literate, lack an internal AI/ML team, and need a delivery partner who can own end-to-end build; (3) Operations and transformation leads at mid-market UK businesses seeking practical automation of high-volume workflows without hiring a full data engineering team. All three personas are time-poor, results-driven, and respond to specificity, working demos, and clear ROI framing. Tone: Practical, direct, technically credible — the voice of engineers who build real systems, not consultants who produce reports. Conversion purpose: Generate qualified inbound leads and demo requests from UK businesses ready to commission AI agent or automation work, with a secondary goal of establishing technical authority through case studies, tools, and insights content.",
+            "departments": [
+                {
+                    "name": "Strategy",
+                    "agent_count": 8,
+                    "description": "Domain analysis, classification, competitive positioning, and project scoping. Every engagement starts with research agents mapping the landscape before recommendations are made."
+                },
+                {
+                    "name": "Research",
+                    "agent_count": 10,
+                    "description": "Multi-source investigation with source attribution, structured data extraction, Companies House verification, news monitoring, and competitive intelligence. Verified before anything gets built."
+                },
+                {
+                    "name": "Content",
+                    "agent_count": 12,
+                    "description": "Research-grounded content generation, editorial review, gap analysis, and tone enforcement. First drafts from AI, quality from human review at configurable checkpoints."
+                },
+                {
+                    "name": "Design",
+                    "agent_count": 8,
+                    "description": "Brand-appropriate design systems, CSS generation, visual auditing, and cross-page consistency. Industry-specific palettes, not generic templates."
+                },
+                {
+                    "name": "Development",
+                    "agent_count": 10,
+                    "description": "Component architecture, interactive tool generation, template systems, and the selector infrastructure that matches requirements to the right building blocks from a growing library."
+                },
+                {
+                    "name": "Quality",
+                    "agent_count": 8,
+                    "description": "Continuous auditing across content, tools, design, and data. Severity classification, automated routing, and full audit trails on every finding and resolution."
+                },
+                {
+                    "name": "Operations",
+                    "agent_count": 8,
+                    "description": "Orchestration, dispatch, deployment pipelines, scheduling, and the improvement cycles that keep deployed systems getting better between human review sessions."
+                },
+                {
+                    "name": "Data",
+                    "agent_count": 10,
+                    "description": "Structured data collection from any source — industry registries, regulatory databases, web scraping — with automated verification against authoritative records. Currently processing veterinary, farming, and financial datasets."
+                }
+            ],
+            "company_name": "Leopardess Consulting",
+            "sub_industry": "AI Agent Systems & Automation Engineering",
+            "about_summary": "Leopardess Consulting designs and deploys hierarchical multi-agent AI systems for UK B2B SaaS engineering teams, running on production-grade infrastructure including Kubernetes, Kafka, and Postgres. Their core specialisms are web automation, intelligent reporting pipelines, and internal tooling — delivered rapidly without sacrificing reliability or security. They engage directly with technical buyers such as CTOs and VPs of Engineering, starting with architecture conversations rather than sales pitches.",
+            "content_posture": "Primary audience: CTOs, VPs of Engineering, and Heads of Platform at UK B2B SaaS companies (50–500 employees, Series A–B) who have approved AI investment and are navigating the prototype-to-production gap. These readers are technically sophisticated, infrastructure-literate, and will immediately dismiss vague transformation language. The site voice is technical-authoritative and practitioner-led: declarative, specific, infrastructure-named, outcome-quantified. Transformation language is banned site-wide — replace with production outcomes and architectural specifics. The site tagline must be replaced: retire 'Agile AI Agents: Move Swiftly into Digital Transformation with Grace and Precision' (reads as generic martech copy, directly contradicts the anti-theatre positioning on the about page). Proposed replacement tagline: 'Production-Grade Multi-Agent AI Systems — Shipped on Kubernetes, Kafka, and Postgres, Not in Staging.' Every page headline, meta description, and hero copy must be audited against this posture before publication. Secondary metadata fields — og:description, meta description, page titles — should reflect the engineering audience and use infrastructure-specific language rather than category-generic AI consulting framing.",
+            "leadership_team": [
+                {
+                    "bio": "Peter is a technology strategist with strong enthusiasm for AI agent frameworks, modern web architecture, and automated systems. He leads our efforts in digital transformation, delivering agile innovation through effective multi-agent orchestration and quick deployments.",
+                    "name": "Peter Grenfell",
+                    "title": "Founder & Principal Consultant"
+                }
+            ],
+            "social_profiles": {
+                "twitter": null,
+                "linkedin": null
+            },
+            "target_audience": "Primary ICP: VP Engineering or CTO at a UK B2B SaaS company, Series A–C, 5–50 engineers, 50–500 employees total. They have an LLM integration running in staging or a PoC that impressed the board. They are now facing an imminent scaling decision and are acutely aware they lack the architecture to run it reliably: no observability, no fault isolation, no cost controls, no human oversight hooks. Their specific fear is not whether AI is worth doing — they have already decided it is — but whether their current team can close the gap between prototype and production before the window closes. They are technically sophisticated, will evaluate infrastructure specifics, and will dismiss vague transformation language instantly. All page headers, subheadlines, hero copy, and CTAs must speak directly to this person at this moment. The buyer moment is: 'your prototype works in staging — now you need to know if it will hold in production.' Secondary audience (engineering leads, senior engineers on that person's team) may read technical pages and case studies, but they are never the primary addressee of hero copy or CTAs. About, Services, How We Work, and all CTA blocks must be aligned to the same primary buyer and the same moment in their evaluation journey.",
+            "content_strategy": "Industry: AI consulting and agent orchestration. Target audience: VP Engineering, CTO, and engineering leads at UK B2B SaaS companies with 20–150 engineers who evaluate on production credibility, stack depth (Kubernetes, Kafka, Postgres), and delivery track record; secondary audience is technically-literate founders and heads of product who prioritise business outcomes. Tone: Technical-authoritative and direct — written by practitioners who build production systems, not generalist consultants. Non-technical SMB buyers are out of scope and must not influence vocabulary or framing. Purpose: Generate qualified inbound leads for AI agent deployment engagements by demonstrating working-system credibility, architectural depth, and measurable delivery outcomes.",
+            "competitors_found": [
+            ],
+            "has_existing_site": true,
+            "key_differentiators": "Our agile approach to AI orchestration\nFast deployments (minutes instead of weeks)\nSolid enterprise-level security and reliability\nProven stack with Kubernetes, Kafka, and Postgres\nStrong expertise in hierarchical multi-agent systems\nSpecial focus on web automation – with room to grow into other areas",
+            "capabilities_summary": "Over 70 specialised AI agents in 8 departments, each led by a managing agent coordinating teams of specialists. Built on Kubernetes and Kafka — production infrastructure, not a demo framework. Human oversight configurable per workflow stage. We deliver website operations, data collection pipelines, news aggregation, interactive tools, and continuous improvement — all from the same battle-tested orchestration platform.",
+            "existing_site_quality": "good",
+            "unique_selling_points": [
+                "Production-grade multi-agent systems on Kubernetes, Kafka, and Postgres — no proprietary lock-in",
+                "Deployments measured in days rather than months without sacrificing reliability",
+                "Deep specialism in web automation at scale across the open web",
+                "Engages technical buyers directly — architecture conversations, not sales decks",
+                "Enterprise security baked in from sprint one, not added as a phase",
+                "No black-box tooling — every architectural decision is interrogatable by the client's engineers"
+            ],
+            "brand_voice_guidelines": "The Leopardess name is a live brand asset and should be referenced naturally at least once per page through metaphor rather than explicit explanation. The leopardess archetype carries: speed (fast delivery, rapid iteration, no slow consulting cycles), precision (targeted solutions, no wasted motion, surgical automation), adaptability (hunts in complex terrain, works across stacks and sectors), and instinct (pattern recognition, knowing where to move before the client does). Apply these qualities to describe how the team works, how systems are built, and how problems are approached. Examples: 'We move fast because we've already mapped the terrain', 'precision-built agents, not broad-brush automation', 'we don't advise from the sidelines — we hunt the problem alongside you'. Avoid forced or literal animal references. The metaphor should feel like a natural extension of the practical-expert voice, not a mascot gimmick.",
+            "industry_audience_tone_purpose": "Industry: AI consulting and agent orchestration / technology services. Target Audience: CTOs and engineering leads at UK scale-ups (50–500 employees) who need proof of production deployments; founders of B2B SaaS or professional services companies evaluating build-vs-buy for agent orchestration; operations and transformation leads at mid-market UK businesses automating high-volume workflows. Tone: Direct, technically credible, evidence-led — the voice of practitioners who ship working systems, not consultants who produce decks. Purpose: Lead generation and service conversion, achieved by demonstrating technical depth, showing real production deployments, and giving time-poor technical buyers enough specificity to self-qualify and initiate contact.",
+            "positioning_and_tone_constraints": "Primary audience is VP Engineering or CTO at a UK B2B SaaS company, Series A–C, 5–50 engineers, at the moment their LLM prototype is ready for production and they are evaluating whether their team can close the architecture gap before the window closes. All hero headlines, taglines, subheadlines, and CTA copy must address this person at this moment. Approved register: technical-authoritative, declarative, practitioner-voiced. Retired language: 'digital transformation', 'grace and precision', 'rapidly evolving landscape', 'AI journey', 'unlock potential', and any other abstraction that a technically sophisticated engineering leader would dismiss on sight. Tagline must be technically grounded and speak to production credibility — for example: 'From staging prototype to production architecture.' or 'Production-grade multi-agent systems. Shipped.' Hero copy must reference the specific fear (reliability, observability, cost control, human oversight, team capability gap) not the general category (AI, transformation, innovation). Every top-of-page message must pass this test: would a CTO who has already decided AI is worth doing find this sentence useful, or would they scroll past it?",
+            "industry_target_audience_tone_purpose": "Industry: AI consulting and agent orchestration / technology services. Target Audience: Primary — CTOs, engineering leads, and technical founders at UK scale-ups and B2B SaaS companies who evaluate vendors on production credibility, stack depth, and delivery track record. Secondary — technically-literate business decision-makers capable of assessing system architecture and engineering quality. Non-technical SMB buyers are explicitly out of scope. Tone: Practical, direct, and technically specific. Written as engineers who build and ship production systems, not consultants who produce slide decks. Benefit-led or simplified language is only appropriate when used to frame a technical outcome, never as a substitute for technical specificity. Purpose: Establish Leopardess Consulting as a credible production-grade AI and agent orchestration partner for UK scale-ups — demonstrating stack depth (Kubernetes, Kafka, Postgres, LLM orchestration), delivery track record, and engineering rigour across all pages."
+        },
+        "aspect": "identity"
+    }
+]

@@ -70,6 +70,31 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
    after.
 6. ⏳ First end-to-end target — see "first-run design decision" below.
 
+**FIRST END-TO-END RUN — blocked at read_current_files (turn 27→28).**
+- Proposer APPROVED (round 1, both reviewers) a clean single-file plan for the
+  seeded defect — the council's FIRST approval. Correlation
+  `11111111-e2e2-4a1b-9c3d-000000000001`.
+- Implementer run `29bd92c8` reached read_current_files → complete_refused:
+  `GITHUB_READ_TOKEN not in env`. ROOT CAUSE: fix-implementer runs IN-CHASSIS
+  via the generic orchestrate path (sender pod agent-chassis, type generic),
+  NOT as a dedicated spawned pod — so isRepoCloningAgent (which injects the
+  read token at Job spawn) never fires for it. The write-isolation is fine
+  (adapter-only); it is the READ token that has nowhere to land, and an
+  explicit prior decision says "the chassis pod never holds the GitHub token".
+- DECISION PENDING (owner): how the implementer reads repo files —
+  (A) read via git-adapter [adapter owns all GitHub creds; implementer holds
+      none; +1 adapter action + rebuild — recommended, generalizes the
+      write-side decision];
+  (B) give fix-implementer an orchestrator wrapper that spawns it as a
+      dedicated pod (token via the existing gate, reaped after — mirrors
+      diagnose-orchestrator→diagnose-agent exactly; no rebuild, but an
+      orchestration change);
+  (C) inject read-only single-repo GITHUB_READ_TOKEN into the chassis
+      deployment [minimal, no rebuild, but revisits the "chassis never holds
+      the token" decision and widens the token to all in-chassis code].
+- Everything else in the write path is UNTESTED-BUT-READY downstream of the
+  read: allowlist, branch, commit, build gate, PR.
+
 **First-run design decision (owner input wanted):** literally PLANTING a bug
 can't honestly feed the diagnose loop — a planted bug that never ran has no
 agent_error_log/DB rows, so the tier guard would (correctly) refuse CONFIRMED;
