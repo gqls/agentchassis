@@ -182,6 +182,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Derive favicon + OG card from the site logo and commit to git",
 		IsLocal:     true,
 	},
+	"emit_sprite_css": {
+		Handler:     EmitSpriteCSSAction,
+		Category:    "site",
+		Description: "Generate and commit sprites.css from the verified sprite-sheet plan",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// WEB — search, scraping, research

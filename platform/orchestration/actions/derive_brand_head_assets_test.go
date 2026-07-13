@@ -33,7 +33,7 @@ func TestInjectBrandHeadTags(t *testing.T) {
 	ctx := &RenderContext{Domain: "robot-hands.com", CompanyName: "Robot-Hands", Tagline: "Grip intelligence", LogoURL: "/assets/images/logo.jpg"}
 
 	head := "<head>\n  <title>x</title>\n</head>"
-	out := injectBrandHeadTags(head, ctx, log)
+	out := injectBrandHeadTags(head, ctx, true, log)
 
 	for _, want := range []string{
 		`rel="icon" href="/assets/images/favicon.png"`,
@@ -41,6 +41,7 @@ func TestInjectBrandHeadTags(t *testing.T) {
 		`property="og:image" content="https://robot-hands.com/assets/images/og-card.png"`,
 		`property="og:title" content="Robot-Hands"`,
 		`name="twitter:card" content="summary_large_image"`,
+		`rel="stylesheet" href="/assets/css/sprites.css"`, // hasSpriteCSS=true
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("injected head missing %q\n---\n%s", want, out)
@@ -52,18 +53,18 @@ func TestInjectBrandHeadTags(t *testing.T) {
 
 	// Idempotent: a head that already has icon markup is left untouched.
 	already := `<head><link rel="icon" href="/x.png"></head>`
-	if got := injectBrandHeadTags(already, ctx, log); got != already {
+	if got := injectBrandHeadTags(already, ctx, false, log); got != already {
 		t.Errorf("expected no-op on head with existing favicon, got: %s", got)
 	}
 
 	// No </head> → returned unchanged (defensive).
-	if got := injectBrandHeadTags("no head here", ctx, log); got != "no head here" {
+	if got := injectBrandHeadTags("no head here", ctx, false, log); got != "no head here" {
 		t.Errorf("expected unchanged on malformed head, got: %s", got)
 	}
 
 	// Escaping: a company name with quotes/ampersand must not break the attr.
 	ctx2 := &RenderContext{Domain: "x.com", CompanyName: `A&B "Co"`, Tagline: ""}
-	out2 := injectBrandHeadTags("<head></head>", ctx2, log)
+	out2 := injectBrandHeadTags("<head></head>", ctx2, false, log)
 	if !strings.Contains(out2, `content="A&amp;B &quot;Co&quot;"`) {
 		t.Errorf("attr not escaped: %s", out2)
 	}

@@ -379,7 +379,7 @@ func loadSiteDataFull(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 // the site logo when present; og:image points at the derived og-card.png.
 // Absolute URLs are built from the site domain for the social tags (OG
 // requires absolute), relative for the favicon link.
-func injectBrandHeadTags(headHTML string, ctx *RenderContext, logger *zap.Logger) string {
+func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool, logger *zap.Logger) string {
 	if strings.Contains(headHTML, "rel=\"icon\"") || strings.Contains(headHTML, "og:image") {
 		return headHTML // already has brand head tags
 	}
@@ -411,8 +411,14 @@ func injectBrandHeadTags(headHTML string, ctx *RenderContext, logger *zap.Logger
 	b.WriteString("  <meta property=\"og:url\" content=\"" + origin + "/\">\n")
 	b.WriteString("  <meta name=\"twitter:card\" content=\"summary_large_image\">\n")
 	b.WriteString("  <meta name=\"twitter:image\" content=\"" + origin + "/assets/images/og-card.png\">\n")
+	// Phase I2: link the site's committed sprite stylesheet (styled bullets,
+	// nav accents) only when a sprite sheet exists.
+	if hasSpriteCSS {
+		b.WriteString("  <link rel=\"stylesheet\" href=\"/assets/css/sprites.css\">\n")
+	}
 
-	logger.Info("injectBrandHeadTags: added favicon + OG tags", zap.String("domain", ctx.Domain))
+	logger.Info("injectBrandHeadTags: added favicon + OG tags",
+		zap.String("domain", ctx.Domain), zap.Bool("sprite_css", hasSpriteCSS))
 	return headHTML[:idx] + b.String() + headHTML[idx:]
 }
 
@@ -514,7 +520,15 @@ func renderAndStoreSiteComponent(
 	// derive_brand_head_assets action commits; harmless if they 404 until
 	// derivation runs, and the favicon degrades to the site logo.
 	if slot == "head" {
-		renderedHTML = injectBrandHeadTags(renderedHTML, renderCtx, logger)
+		// Phase I2: only link sprites.css when the site actually has an active
+		// sprite-sheet asset — otherwise the <link> would 404 on sites without
+		// one.
+		var spriteCount int
+		_ = db.QueryRowContext(ctx, `
+			SELECT count(*) FROM assets
+			 WHERE site_id = $1 AND purpose = 'sprite_sheet' AND status = 'active'
+		`, siteID).Scan(&spriteCount)
+		renderedHTML = injectBrandHeadTags(renderedHTML, renderCtx, spriteCount > 0, logger)
 	}
 
 	// Store the rendered HTML
