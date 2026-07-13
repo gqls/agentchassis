@@ -1,6 +1,6 @@
 # HANDOFF — Imagery best-in-class workstream (start a new chat from here)
 
-**Last updated: 2026-07-12 (Turn 30). UPDATE THIS DOCUMENT EVERY WORKING
+**Last updated: 2026-07-13 (Turn 34). UPDATE THIS DOCUMENT EVERY WORKING
 TURN, alongside the running notes — it is the single entry point for a fresh
 session.**
 
@@ -24,18 +24,19 @@ uncommitted; forward-only, never reset).
 1. **THIS FILE** — state + mechanisms + next actions. Start here.
 2. `PLAN_imagery_best_in_class.md` — goals G1–G9, user-confirmed decisions
    D1–D8, phases I0–I8 with dated status blocks. The map.
-3. `RUNNING_NOTES_imagery_best_in_class.md` — Turns 1–29, every diagnosis
+3. `RUNNING_NOTES_imagery_best_in_class.md` — Turns 1–34, every diagnosis
    with evidence. Append a turn each session.
 4. `RUNBOOK_imagery_best_in_class.md` — the human's task queue (A-rituals,
-   B-items). Open: B4 (data-source key, at I4), B5 (budget sign-off), B9
-   (reaper cadence), **B10 (next deploy carries the sprite gating fix)**,
-   **B11 (sprite eyeball gate, after B10)**.
-5. `SCOPE_I2_sprite_sheets.md` — current phase's implementation scope.
+   B-items). Done: B1–B3, B6, B7, B8, B10, B11. Open: B4 (data-source key, at
+   I4), B5 (budget sign-off), B9 (reaper cadence — the one that keeps biting).
+   The next deploy carries the I2.2/I2.3 Go (emit_sprite_css + head link).
+5. `SCOPE_I2_sprite_sheets.md` — current phase's implementation scope
+   (png→jpg revised).
 6. `SHOWCASE_*.md` (3 files) — shareable summaries (one-pager / narrative /
    technical w/ diagrams). Refresh stats before reuse.
 7. `SQL_2026-07-*.sql` — every migration/seed run, each with backup+verify.
 
-## State of the world (2026-07-12, Turn 30)
+## State of the world (2026-07-13, Turn 34)
 
 **Phase I0 (testbed rebuild + render acceptance): ✅ COMPLETE.**
 33-page rebuild w/ live news (9 sources, latest-news on index); 16 distinct
@@ -57,42 +58,61 @@ themselves on other sites' discovery passes).
   (`derive_brand_head_assets`; favicon.png/og-card.png serve 200; og:image +
   twitter:card injected into every head at render time).
 
-**Phase I2 (sprite-sheet bullets): ⏳ IN PROGRESS — the active phase.**
+**Phase I2 (sprite-sheet bullets): ⏳ IN PROGRESS — code built, ONE deploy +
+finish sequence away from live. This is the active phase.**
 - Decisions locked: first surface = LIST BULLETS; 3×3 vocabulary = check,
   gauge, gripper, cog, chart, download, arrow, info, warning.
 - Delivery (verified twice): separate committed `/assets/css/sprites.css` +
   head `<link>` — css_snippets is a GLOBAL library (no site_id), and the
   per-site committed bundle is the house pattern (cf. /assets/js/snippets.js).
-- I2.0 ✅: chk_kind + validImageryKinds include `sprite_sheet`; adapter
-  routes it → Banana; ImagePurposes 768×768 png; insert-gate passed.
-- I2.1 ⏳ REGEN IN FLIGHT (Turn 31). B10 deploy done; gating fix live and
-  PROVEN (first sheet's origin_prompt: palette-only, no photographic voice).
-  First generation was near-perfect (all 9 glyphs, exact reading order) but
-  its DEPLOY committed 900×900 sprite-sheet-main.JPG — hero config — because
-  `deploy_image_asset`'s ExtractActionInputs aggressive search matched a
-  stale `purpose` (child HAD received purpose='sprite_sheet'; verified via
-  initial_request_data). FIXED workflow-only:
-  `SQL_2026-07-12_asset_deployer_explicit_paths.sql` adds explicit
-  Strategy-0 `input_data.*` paths to deploy_asset. **Standing lesson: give
-  ExtractActionInputs actions explicit dot-paths; never trust the search.**
-  Item reset → full chain re-running; monitor expects item complete +
-  sprite-sheet-main.png 200 + 768×768 PNG; then the B11 eyeball gate
-  (user says true cell meanings → write back, cell_names_verified:true).
-  Latent gaps recorded: dispatch-shape inputs (`input_data.spec.*`) not
-  covered by the explicit paths; historical spawned deploys may have used
-  hero dims silently (check May icons' file dims someday); stale
-  sprite-sheet-main.jpg clutter in the site repo.
-- I2.2 (NEXT BUILDABLE NOW): `sprites.css` emit — pure string compute from
-  style_hints grid + fixed 768² dims, committed via the git-adapter (mirror
-  the asset-deployer `brand_head` mode / needs_brand_head_assets pattern).
-  Rules per cell: `.sprite-<name>{background-image:url(/assets/images/
-  sprite-sheet-main.png);background-position:-<c*W>px -<r*H>px;width/height;
-  background-size}` + a `li::before` bullet helper. ONLY emit for cells with
-  verified names (cell_names_verified:true after the eyeball gate).
-- I2.3: head `<link rel="stylesheet" href="/assets/css/sprites.css">`
-  (extend `injectBrandHeadTags`, guard on sprite asset existing) + wire
-  bullets on ONE robot-hands section. I2.4+: fulfilment discovery check;
-  later per-section sheets / vision auto-verify.
+- I2.0 ✅ (live): chk_kind + validImageryKinds include `sprite_sheet`;
+  adapter routes it → Banana; ImagePurposes `sprite_sheet` = **768×768 JPG
+  q88** (revised from PNG — see the three-bug stack below); insert-gate passed.
+- I2.1 ✅ DONE + GATE PASSED (Turn 34): the sheet is LIVE at
+  `/assets/images/sprite-sheet-main.jpg` (768×768 JPEG, 75,745 bytes, under
+  the 80KB budget), the glyphs are perfect, and the USER CONFIRMED the cell
+  map at the B11 gate. `style_hints.cell_names_verified=true` written into the
+  plan row. **Getting a clean deploy took a THREE-BUG STACK, all now fixed —
+  the generation itself was flawless first try (cell-alignment risk never
+  materialised):**
+    1. purpose→hero via ExtractActionInputs' aggressive recursive search →
+       fixed workflow-only (`SQL_2026-07-12_asset_deployer_explicit_paths.sql`,
+       explicit Strategy-0 `input_data.*` paths on deploy_asset). LIVE.
+    2. re-drive left attempt_count capped (3/3 → item excluded from
+       find_dispatchable_site → sits triaged; looked like dead dispatch, was
+       correctly idle) + a state-machine completion race re-stamped a reset
+       item. Fixed by resetting attempt_count=0.
+    3. lossless 768² PNG exceeded the Kafka git-commit message-size limit
+       ("Message Size Too Large") AND the ≤80KB budget → switched to JPG q88
+       (Go, live). SCOPE_I2 revised png→jpg.
+- I2.2 ✅ BUILT (Go rides NEXT deploy): `emit_sprite_css` action — pure CSS
+  background-position slicing from the verified grid at bullet size (T=20px →
+  sheet drawn 60×60, cells at reading-order offsets). Emits `.sprite` base +
+  `.sprite-<name>` (inline/icon/nav) + themed `ul.sprite-list li::before`
+  bullets (default glyph = cell 0 = check) + per-item `li.sprite-b-<name>`
+  overrides. Commits `/assets/css/sprites.css` (base64 via sendGitCommitRequest).
+  GUARDED on cell_names_verified=true. Geometry unit-tested.
+- I2.3 ✅ BUILT (Go rides NEXT deploy): `injectBrandHeadTags` now adds
+  `<link rel=stylesheet href=/assets/css/sprites.css>`, GUARDED on an active
+  sprite_sheet asset existing. asset-deployer gained a `sprite_css` mode
+  (migration `SQL_2026-07-13_asset_deployer_sprite_css_mode.sql`, LIVE):
+  check_mode → check_sprite_mode → emit_sprite_css_step. Reusable fleet-wide
+  via a `needs_sprite_css` work item (spec.mode='sprite_css').
+- **FINISH SEQUENCE (after the next chassis deploy):** dispatch a
+  `needs_sprite_css` item (handler asset-deployer, spec {mode:'sprite_css'},
+  status triaged, attempt_count 0) → sprites.css commits → rerender-pages with
+  refresh_site_components=true (head gets the link) → wire
+  `class="sprite-list"` onto ONE robot-hands section's `<ul>` (section-editor
+  or a targeted content edit) → LIVE GATE (bullets readable at ~20px, one
+  ≤80KB download). Then I2.4: fulfilment discovery check (sheet planned but no
+  asset → needs_imagery; asset but no sprites.css → needs_sprite_css); later
+  per-section sheets / vision auto-verify.
+- Latent gaps recorded (parked): asset-deployer's explicit deploy paths cover
+  `input_data.*` (image-build-handler shape) but NOT `input_data.spec.*`
+  (dispatch shape) — fix if the undeployed_asset flow misbehaves; historical
+  spawned deploys may have silently used hero dims (check the May icons'
+  file dims someday); a stale 900² `sprite-sheet-main.jpg` was overwritten by
+  the correct one (no longer an issue).
 
 **Phases I3–I8: not started.** I3 (card imagery / Lane B: generic
 entity_type+entity_id on assets — user-confirmed D2) is next after I2.
@@ -154,6 +174,20 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
   `styleGuide.directionForKind` — ANY NEW KIND must be added to BOTH gating
   functions AND chk_kind AND validImageryKinds AND (usually) the adapter
   switch + ImagePurposes. That five-place checklist is the I2.0 lesson.
+- **git-commit path has a Kafka message-size limit** (Turn 33): images are
+  base64'd into a Kafka message. A lossless PNG of a detailed image can
+  exceed the broker max ("Message Size Too Large") — prefer JPG for anything
+  visually dense, which also serves the ≤80KB budgets. Text files (CSS/JS)
+  commit fine as base64.
+- **Committing a per-site TEXT file** (sprites.css, snippets.js): action
+  returns/commits a `files` map `{path: {content: base64(text),
+  encoding: "base64"}}` via `sendGitCommitRequest`; head `<link>`/`<script>`
+  is injected by render_site_components. No storage client needed (DB + Kafka
+  producer only).
+- **B11-style human gates on generated imagery:** agents can Read PNG/JPG
+  files directly — DOWNLOAD the asset (curl its assets.url, which is the live
+  presigned S3 URL) and inspect it yourself BEFORE asking the user, so the
+  gate question is precise. Give the user the deployed web URL to open.
 
 ## Open threads (parked, non-blocking)
 - 4 corrupted components remain (archetype-taster-quiz, lobby-grid,
@@ -170,15 +204,28 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
 - image_source_unsatisfiable check live but has produced 0 flags (heroes all
   resolve now) — expected.
 
-## Next actions, in order
-1. **Build I2.2 now** (doesn't need the deploy): sprites.css emit action +
-   `needs_sprite_css`-style work-item route (mirror brand_head mode), gated
-   on cell_names_verified:true.
-2. **On the user's next deploy (B10):** let/queue the needs_imagery for
-   `sprite_sheet_main` → generate via Banana → **B11 eyeball gate with the
-   user** → write the TRUE cell→name map into style_hints, set
-   cell_names_verified:true.
-3. I2.2 emit runs → sprites.css committed → I2.3 head link + wire bullets on
-   one robot-hands section → live gate (readable at bullet size, one ≤80KB
-   download).
-4. I2.4 fulfilment discovery check; then Phase I3 (card imagery / Lane B).
+## Next actions, in order (updated Turn 34)
+The sprite sheet is LIVE + gate-passed; emit_sprite_css + head-link Go are
+COMMITTED and await the next chassis deploy. When the user deploys:
+1. **Confirm the deploy carries emit_sprite_css** (grep pod build / check the
+   action is registered), then **dispatch the CSS emit**: insert a work item
+   `needs_sprite_css` (site robot-hands, handler_agent='asset-deployer', spec
+   `{"mode":"sprite_css"}`, status='triaged', attempt_count=0). The dispatch
+   loop spawns asset-deployer → check_mode → check_sprite_mode →
+   emit_sprite_css_step → commits `/assets/css/sprites.css`. Verify it serves
+   200 and the geometry/URLs look right (curl it).
+2. **Land the head link:** trigger rerender-pages with
+   `refresh_site_components:true` (kcat orchestrate) → the head re-renders and
+   gains `<link ... sprites.css>` (the asset now exists so the guard passes).
+   Verify via served HTML.
+3. **Wire ONE list:** add `class="sprite-list"` to a real robot-hands
+   section's `<ul>` (a features/benefits/spec list) — via the section-editor
+   agent or a targeted content edit — so bullets show themed glyphs. LIVE GATE
+   with the user: readable at ~20px, one ≤80KB download, on-brand.
+4. **I2.4 fulfilment check** (sibling of check_unfulfilled_imagery_plan):
+   sprite_sheet planned but no asset → needs_imagery; asset but no sprites.css
+   → needs_sprite_css. Register on design-discovery-agent. Closes I2.
+5. **Then Phase I3** (content-linked card imagery / Lane B): generic
+   `entity_type`+`entity_id` columns on `assets` (user-confirmed D2), a
+   `needs_content_image` work item + handler composing prompts from the
+   content item + style guide, card components resolving the entity's image.
