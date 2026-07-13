@@ -591,8 +591,6 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 // helper function to load agent definition
 func loadAgentDefinitionForImageAction(ctx context.Context, db interface{}, agentType string) (*AgentDefinition, error) {
 
-	fmt.Printf("DEBUG: loadAgentDefinitionForAction called with agentType=%s, db type=%T\n", agentType, db)
-
 	query := `
 		SELECT id, type, display_name, description, category,
 		       image_repository, image_tag, 
