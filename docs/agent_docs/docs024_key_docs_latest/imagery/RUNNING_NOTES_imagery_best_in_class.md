@@ -1335,4 +1335,29 @@ sprites.css commits → rerender-pages refresh_site_components (head gets the
 link) → I2.3 wire `class="sprite-list"` on ONE robot-hands section's <ul> →
 live gate (bullets readable, one ≤80KB download). Then I2.4 fulfilment check.
 
+## Turn 35 — 2026-07-13 — Deploy verified correct (functionally); I2.2 CSS LIVE; head-link re-render triggered
+
+**User asked to verify the deploy.** Source ancestry: emit_sprite_css
+(fe9f125c) IS an ancestor of the deployed v1.0.1114 (3406cd71) — but pod
+started only ~11 min after that commit (tight build window), so I did the
+DEFINITIVE functional test instead of trusting timing.
+
+**✅ DEPLOY CONFIRMED CORRECT (functional):** dispatched needs_sprite_css →
+asset-deployer ran the NEW `emit_sprite_css` action (COMPLETED:ok, item
+complete attempt 0 — not "unknown action"), proving v1.0.1114 carries the
+I2.2/I2.3 Go. `/assets/css/sprites.css` serves 200, **1,711 bytes**, content
+exactly correct: `.sprite` base + 9 `.sprite-<name>` classes + themed
+`ul.sprite-list` bullets (default cell 0 = check) + 9 `li.sprite-b-<name>`
+overrides; all background-position offsets match the verified 3×3 geometry.
+So **I2.2 is LIVE.**
+
+**I2.3 in flight:** triggered rerender-pages (refresh_site_components=true) to
+land the `<link rel=stylesheet sprites.css>` in the head — now that BOTH the
+sprite asset AND sprites.css exist, the injection guard passes. This also
+functionally tests the head-link half of the deploy. Monitoring.
+
+**Remaining for I2:** confirm the head link in served HTML → wire
+`class="sprite-list"` onto ONE robot-hands section's `<ul>` → live gate →
+I2.4 fulfilment check. Then Phase I3.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
