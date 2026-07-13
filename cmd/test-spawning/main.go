@@ -105,7 +105,9 @@ func testDirectSpawn(db *sql.DB, logger *zap.Logger, clientID string) {
 func testSpawnWithOrchestration(db *sql.DB, producer kafka.Producer, logger *zap.Logger, clientID string) {
 	fmt.Println("\n📌 Test 2: Spawn via Orchestration")
 
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	// nil storage client: this test utility exercises spawning, not storage;
+	// NewSagaCoordinator gained the storage.Client param after this was written.
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	workflow := models.WorkflowPlan{
 		StartStep: "spawn",
