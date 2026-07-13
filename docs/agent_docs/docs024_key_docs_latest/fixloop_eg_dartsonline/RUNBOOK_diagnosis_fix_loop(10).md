@@ -540,7 +540,25 @@ unverifiable → F0.6: a `context` disposition + citation-backed `explained`.
 Four-run arc: wrong-confidently → half-right-confidently → honest abstention →
 right-with-declared-coverage. F0 functionally complete bar F0.3.
 
-## CURRENT POSITION — 2026-07-12 (turn 25)
+## CURRENT POSITION — 2026-07-13 (turn 28): FIRST PR OPENED & MERGED
+The full loop ran end to end and opened **PR #1**
+(github.com/gqls/agentchassis/pull/1), which the owner approved and merged.
+F1.1b(c) (the write step) is COMPLETE AND PROVEN: a council-APPROVED plan →
+dedicated-pod fix-implementer (read token via the isRepoCloningAgent spawn
+gate; the git-adapter holds the write credential; the chassis holds no token)
+→ hard file allowlist → branch + commit via the adapter → gofmt+build gate in
+a golang k8s Job (green = PR, red = no PR + log) → PR carrying the Q-H package
+→ human merge. Deployed: chassis v1.0.1110, git-adapter rebuilt, RBAC pods/log
+applied, seeds live (fix-proposer v5, fix-implementer + orchestrator).
+Three live-earned gotchas from the first run (all in the gotchas list / handoff):
+fix-implementer MUST be fired via fix-implementer-orchestrator (direct = runs
+in-chassis = no read token); a stale fix/* branch must be deleted before a
+re-fire; ref/base are live-set to the active working branch because origin/main
+is stale (make ref a per-run input = F1.2). Plain-language state:
+`SUMMARY_where_we_are_2026-07-13.md`. NEXT (owner standing rule): the
+awareness/digest surface BEFORE widening the council or adding migration agents.
+
+## PRIOR POSITION — 2026-07-12 (turn 25)
 F2 is COMPLETE AND PROVEN LIVE on v1.0.1108 + workflow v5: decision router
 (approved | revise→verify→repropose | first-veto→reframe-once |
 rejected/exhausted→escalate), verify step (reviewers' read-only SQL checks run

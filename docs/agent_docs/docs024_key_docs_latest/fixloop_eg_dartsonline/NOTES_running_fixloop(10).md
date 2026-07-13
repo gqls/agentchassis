@@ -1557,6 +1557,50 @@ bug honestly terminating at escalate (the write step needs an APPROVED plan to
 exercise). Answered in chat + position summary; handoff doc now maintained
 per-turn: `HANDOFF_CURRENT_fixloop.md`.
 
+### Turns 26–28 (2026-07-12/13) — F1.1b(c) COMPLETE; the loop opened & merged PR #1
+
+**Built (all committed):** build gate (`diagnose_build_gate`, golang k8s Job —
+gofmt changed-files-only + TARGETED go build; red = a result routed to a
+no-PR terminal; RBAC pods/log added); `diagnose_read_repo_files` (plan's
+modify/add files via the GitHub contents API); `git_adapter_request` (one
+generic adapter caller, allowlisted verbs); `diagnose_prepare_fix_commit`
+(hard allowlist safety core, tested); the `fix-implementer` seed; and
+`fix-implementer-orchestrator` (spawn_agent→call_agent, so the implementer
+runs in a DEDICATED pod and the read-token gate fires). Deployed on v1.0.1110
++ git-adapter rebuild; adapter write-scope smoke passed (created a throwaway
+branch on gqls/agentchassis).
+
+**First end-to-end run — three real blockers found and fixed in order, then
+green:**
+1. `GITHUB_READ_TOKEN not in env` — fix-implementer ran IN-CHASSIS via the
+   generic orchestrate path, so isRepoCloningAgent never fired. FIX: the
+   orchestrator wrapper spawns it as a dedicated pod (owner decision:
+   "dedicated implementer pod that uses the git-adapter"). No rebuild.
+2. `generate_image_actions.go does not exist at gqls/agentchassis@main` — the
+   code lives on the working branch `084_site_improvements_local_ai`;
+   origin/main is stale. FIX: live jsonb_set of read ref / base_branch /
+   from_branch to the active branch (committed seed still says main — a real
+   generalization owed: ref/base should be a per-run INPUT, F1.2).
+3. Build gate RED — but the failure was PRE-EXISTING (`cmd/test-spawning`
+   stale 3-arg NewSagaCoordinator call, unrelated to our file). The gate did
+   its job: no PR for broken code. FIXED the real bug (commit 9f29efb9,
+   pushed) and re-fired. (Gotcha: delete a stale fix/* branch before
+   re-firing — create_branch is idempotent and reuses the old base.)
+
+**PR #1 — github.com/gqls/agentchassis/pull/1 — APPROVED & MERGED.** Full
+chain live: hand-authored CONFIRMED diagnosis of a real defect (misleading
+fmt.Printf naming the wrong function) → proposer plan → council APPROVED
+(round 1, both reviewers — first approval) → dedicated-pod implementer (read
+token via gate; writes via adapter only; chassis holds no token) → 41KB
+whole-file rewrite at the raised 32k budget → allowlist PASS → fix/11111111
+branch → commit → build gate GREEN → PR with the Q-H package. Diff: 1 file,
+2 deletions, ZERO drive-bys. Owner approved → merged (3ac87646); defect gone
+from origin/084. Human review terminal honoured end to end.
+
+**Shareable narrative:** `SUMMARY_where_we_are_2026-07-13.md` (gentle,
+plain-language, current). NEXT (owner standing rule): the awareness/digest
+surface BEFORE any council-widening or migration agents.
+
 ### 2026-07-12 (turn 26) — four owner decisions close the design forks
 - **(a) Build gate = Option B** (pre-PR golang k8s Job): "I don't want to
   approve PRs for broken code; good to have tested it in a container." Broken

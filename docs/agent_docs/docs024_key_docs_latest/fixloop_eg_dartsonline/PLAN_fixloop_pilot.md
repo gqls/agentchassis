@@ -351,29 +351,33 @@ short of approval). Four pieces:
    reviewer's recommended alternative). F1.1b(c)'s PR body will carry it.
 DEPLOY ORDER: chassis image (> v1.0.1107) → v4 seed → fire. v4 max_rounds=3.
 
-**F1.1b(c): branch + PR — IN PROGRESS (2026-07-12). Architecture CHANGED by
-owner decision: the write credential stays in the GIT-ADAPTER** (the platform's
-existing GitHub write surface) — the fix-implementer never holds a token. The
-original inject-GITHUB_WRITE_TOKEN-into-pods sketch is superseded.
-- **Part 1 ✅ (git-adapter, commit 89175383):** create_branch (idempotent),
-  create_pull_request (human terminal — created, never merged), branch-aware
-  commit with repo-relative paths (no domain prefix). httptest suite green.
-  Awaits a git-adapter image rebuild.
-- **Part 2a ✅ (chassis, commit a4c6cc63):** `diagnose_prepare_fix_commit` —
-  the HARD file-allowlist safety core (out-of-plan / incomplete / empty /
-  no-op all reject before anything reaches git) + branch/commit/PR payload
-  assembly carrying the Q-H package. 7-case pure-function test suite.
-- **Part 2b — build gate: OWNER DECISION PENDING** (see
-  SUMMARY_write_step_position_2026-07-12.md): CI-on-PR (A), pre-PR golang Job
-  (B, the Q-C ruling as written), or A-then-B (C, recommended).
-- **Part 2c — fix-implementer seed:** blocked on the gate decision; step
-  sketch: load plan+council (query_database) → gate decision=='approved' →
-  clone/read current bodies → sketch_to_files (LLM, whole files) →
-  diagnose_prepare_fix_commit → create_branch → commit(branch) → [gate] →
-  create_pull_request → persist result.
-- **First end-to-end run needs an APPROVED plan** — the benchmark bug honestly
-  escalates (architecture-level), so exercise the write step via a seeded
-  small-blast-radius bug or a hand-approved plan (owner decision).
+**F1.1b(c): branch + PR — ✅ COMPLETE & PROVEN 2026-07-13 (PR #1 opened &
+merged). Architecture (owner decision): the write credential stays in the
+GIT-ADAPTER; the fix-implementer never holds a write token; it runs as a
+DEDICATED pod that gets a read-only token via the isRepoCloningAgent spawn
+gate.**
+- **Part 1 ✅ (git-adapter):** create_branch (idempotent), create_pull_request
+  (human terminal — created, never merged), branch-aware commit with
+  repo-relative paths. Deployed (adapter rebuild); write-scope smoke passed.
+- **Part 2a ✅ (chassis):** `diagnose_prepare_fix_commit` — the HARD
+  file-allowlist safety core + branch/commit/PR payload assembly carrying the
+  Q-H package. 7-case test suite.
+- **Part 2b ✅ build gate = Option B (owner):** `diagnose_build_gate` — pre-PR
+  gofmt+build in a golang k8s Job; green→PR, red→no-PR+log. (Its first red
+  caught a real pre-existing breakage — cmd/test-spawning — fixed 9f29efb9.)
+- **Part 2c ✅ fix-implementer:** seed live; reads via `diagnose_read_repo_files`
+  (contents API, read token) at the correct ref; whole-file rewrite (32k
+  budget); allowlist; branch/commit/gate/PR via `git_adapter_request`.
+- **Part 2d ✅ dedicated pod:** `fix-implementer-orchestrator`
+  (spawn_agent→call_agent) so the read-token gate fires; fired via the 092
+  trigger, never directly.
+- **First end-to-end run ✅:** seeded a hand-authored CONFIRMED diagnosis of a
+  REAL tiny defect (misleading fmt.Printf); real proposer→council APPROVED
+  (first approval)→implementer→gate green→**PR #1**, owner-merged. Diff: 1
+  file, 2 deletions, zero drive-bys.
+- **Open (F1.2):** ref/base are live-set to the active working branch because
+  origin/main is stale — make them a per-run INPUT so the committed seed
+  needs no branch-specific edit.
 
 The dartsonline platform fix (mark_no_sections/fail_workflow + nav
 build_status) remains human-implementable any time, independent of all this.
