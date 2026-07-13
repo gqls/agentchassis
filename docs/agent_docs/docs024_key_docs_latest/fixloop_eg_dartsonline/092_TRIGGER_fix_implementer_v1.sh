@@ -26,7 +26,7 @@
 set -euo pipefail
 
 FIX_CORR="${1:-${FIX_CORR:-e08c5b01-01ef-42ad-80d0-b77c50ec9e84}}"
-TARGET_AGENT_TYPE='fix-implementer'
+TARGET_AGENT_TYPE='fix-implementer-orchestrator'
 CLIENT_ID='demo_client'
 
 INPUT_DATA="{\"fix_correlation_id\":\"$FIX_CORR\"}"

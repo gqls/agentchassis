@@ -81,17 +81,15 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
   read token at Job spawn) never fires for it. The write-isolation is fine
   (adapter-only); it is the READ token that has nowhere to land, and an
   explicit prior decision says "the chassis pod never holds the GitHub token".
-- DECISION PENDING (owner): how the implementer reads repo files —
-  (A) read via git-adapter [adapter owns all GitHub creds; implementer holds
-      none; +1 adapter action + rebuild — recommended, generalizes the
-      write-side decision];
-  (B) give fix-implementer an orchestrator wrapper that spawns it as a
-      dedicated pod (token via the existing gate, reaped after — mirrors
-      diagnose-orchestrator→diagnose-agent exactly; no rebuild, but an
-      orchestration change);
-  (C) inject read-only single-repo GITHUB_READ_TOKEN into the chassis
-      deployment [minimal, no rebuild, but revisits the "chassis never holds
-      the token" decision and widens the token to all in-chassis code].
+- RESOLVED (owner 2026-07-13: "dedicated implementer pod that uses the
+  git-adapter") = option B. Built `fix-implementer-orchestrator`
+  (0NN_fix_implementer_orchestrator.sql): spawn_agent(fix-implementer) →
+  call_agent(forward fix_correlation_id) → complete, mirroring
+  diagnose-orchestrator→diagnose-agent. The spawned implementer pod gets
+  GITHUB_READ_TOKEN via the already-deployed isRepoCloningAgent gate (reads
+  in-pod, reaped after); WRITES still via the git-adapter; the chassis holds
+  no token. NO image rebuild — SQL wrapper + retarget 092 to
+  fix-implementer-orchestrator.
 - Everything else in the write path is UNTESTED-BUT-READY downstream of the
   read: allowlist, branch, commit, build gate, PR.
 
