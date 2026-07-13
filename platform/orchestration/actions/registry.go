@@ -1171,6 +1171,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Generic git-adapter caller (allowlisted verbs: commit, create_branch, create_pull_request) with data assembled from config paths/literals; awaits the adapter response; the write credential never leaves the adapter",
 		IsLocal:     true,
 	},
+	"fixloop_digest": {
+		Handler:     FixloopDigestAction,
+		Category:    "diagnose",
+		Description: "The awareness surface: deterministic digest (no LLM) of fix-loop runs, council decisions, gate/PR outcomes, and agent-config snapshots in a window; persisted to doc_notes (pipeline/diagnose, categories digest+fixloop)",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline

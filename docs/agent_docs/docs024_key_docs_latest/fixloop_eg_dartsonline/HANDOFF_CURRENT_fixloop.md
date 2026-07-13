@@ -27,6 +27,25 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
 
 ---
 
+## IN FLIGHT (turn 29): the AWARENESS SURFACE (owner rule: before wider autonomy)
+
+Built + committed, awaiting the next chassis image:
+- `fixloop_digest` action — DETERMINISTIC digest (no LLM in the path): loop
+  runs (status/terminal/gate/PR), decisions per correlation (kinds + latest
+  council decision & why), and agent_definitions_backup snapshots in-window
+  (the "what changed about the machine itself" ledger). Persists to doc_notes
+  (pipeline/diagnose, categories ["digest","fixloop"]). Rendering pure +
+  tested (empty sections read as "no activity", never "not checked").
+- Seed `0NN_fixloop_digest.sql` (dry-run passed; apply AFTER the image) +
+  trigger `093_TRIGGER_fixloop_digest_v1.sh`. v1 = manual trigger; a daily
+  scheduled cadence is a deliberate later enablement once the owner likes the
+  content.
+- Read the latest digest:
+  `SELECT body FROM doc_notes WHERE categories ? 'digest' ORDER BY created_at DESC LIMIT 1;`
+- NEXT after image: apply seed → fire 093 → show the owner their first digest
+  (it should feature PR #1's whole story). Then: council-widening per the F2
+  roster, and the real-bug run.
+
 ## Read first (fresh chat bootstrap)
 
 1. This file, top to bottom.

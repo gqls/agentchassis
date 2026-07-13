@@ -1,0 +1,73 @@
+is in .github dir
+/home/ant/projects/agentchassis/.git/workflows/deploy-to-b2.yml
+
+docs/agent_docs/docs024_key_docs_latest/034_github_action.md
+
+
+name: Deploy to B2
+on:
+push:
+branches: [master]
+paths-ignore:
+- '.github/**'
+- 'README.md'
+jobs:
+deploy:
+runs-on: self-hosted
+steps:
+- uses: actions/checkout@v4
+with:
+fetch-depth: 2
+
+      - name: Get changed domains
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^[^/]+\.[^/]+/' | cut -d'/' -f1 | sort -u | tr '\n' ' ' || echo "")
+          if [ -z "$CHANGED" ]; then
+            CHANGED=$(ls -d */ 2>/dev/null | grep -E '^[^/]+\.[^/]+/$' | tr -d '/' | tr '\n' ' ' || echo "")
+          fi
+          echo "domains=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed domains: $CHANGED"
+
+      - name: Sync to B2
+        env:
+          B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+        run: |
+          if [ -z "$B2_APPLICATION_KEY_ID" ]; then
+            echo "ERROR: B2_APPLICATION_KEY_ID secret is not set!"
+            exit 1
+          fi
+          if [ -z "$B2_APPLICATION_KEY" ]; then
+            echo "ERROR: B2_APPLICATION_KEY secret is not set!"
+            exit 1
+          fi
+          echo "Secrets are configured"
+
+          b2 account authorize "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY"
+
+          for domain in ${{ steps.changed.outputs.domains }}; do
+            if [ -d "$domain" ]; then
+              echo "Syncing $domain to B2..."
+              b2 sync --delete --skip-newer "$domain" "b2://portfolio-sites/$domain"
+            fi
+          done
+
+      - name: Purge Cloudflare cache
+        if: ${{ steps.changed.outputs.domains != '' }}
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          for domain in ${{ steps.changed.outputs.domains }}; do
+            echo "Purging cache for $domain..."
+            ZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$domain" \
+              -H "Authorization: Bearer $CF_API_TOKEN" \
+              -H "Content-Type: application/json" | jq -r '.result[0].id')
+
+            if [ "$ZONE_ID" != "null" ] && [ -n "$ZONE_ID" ]; then
+              curl -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
+                -H "Authorization: Bearer $CF_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data '{"purge_everything":true}'
+            fi
+          done
