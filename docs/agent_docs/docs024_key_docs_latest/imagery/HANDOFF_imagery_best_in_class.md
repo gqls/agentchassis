@@ -125,6 +125,14 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
   status='triaged', triaged_at=now(). Dedup: partial unique (site_id,
   item_key) over non-terminal statuses. `site_plan_imagery.chk_source`
   allows only llm|classifier|manual|adoption → seeds use 'manual'.
+- **RE-DRIVING a work item (Turn 32 lesson):** ALWAYS reset
+  `attempt_count=0` alongside `status='triaged'` and clearing claim metadata.
+  At `attempt_count>=max_attempts` the item is EXCLUDED from
+  find_dispatchable_site → sits triaged forever, and if it's the site's only
+  candidate the trigger idles (looks like dead dispatch; it isn't). Also
+  beware a just-finished orchestration's tail re-stamping a freshly-reset
+  item back to complete (state-machine race) — verify no in-flight
+  orchestrations for the item before/after resetting.
 - **Zombie claims:** a claimed item stuck >~10 min blocks its ENTIRE site
   from dispatch. Standing unstick:
   `UPDATE site_work_items SET status='triaged', claimed_by=NULL,

@@ -1252,4 +1252,27 @@ sprite-sheet-main.png` 200 + file verifies as **768×768 PNG** (the geometry
 sprites.css slicing requires). Then B11 eyeball gate re-runs with a working
 deployed URL.
 
+## Turn 32 — 2026-07-13 — Two more reset/dispatch gotchas found before the sheet redeployed
+
+**ERROR 2 (state-machine race, a live TODO-item sighting):** my first
+post-fix reset of the sprite item got RE-STAMPED `complete` by the ORIGINAL
+run's late-arriving completion (the terminal orchestration's tail wrote
+status after my reset). Confirmed no in-flight image orchestrations, reset
+again. This is direct evidence for the user's reaper/state-machine TODO
+(6/10/11) — a finished run can overwrite a freshly-reset item.
+
+**ERROR 3 (the real blocker — RESET GOTCHA):** after resetting, the item sat
+`triaged` 24 min with ZERO claims — and it was the ONLY triaged item in the
+whole fleet, so not contention. Cause: **`attempt_count` had reached 3/3**
+(max_attempts) — my earlier resets cleared status/result/error but NOT
+attempt_count, so the accumulated attempts (bad-jpg run + re-stamped run +
+claim) capped it. A capped item is excluded from `find_dispatchable_site`,
+so the trigger found NO dispatchable work on robot-hands and never spawned
+build-dispatch-loop → zero dispatch orchestrations. **Dispatch was correctly
+IDLE, not broken** (I initially suspected dead infra — wrong). Fix: reset
+`attempt_count=0` alongside status. **STANDING LESSON: when re-driving a work
+item, ALWAYS also reset `attempt_count=0` (and clear claim metadata); status
+alone is not enough.** Now dispatchable; monitor watching for a correct
+768×768 PNG deploy through the Strategy-0-fixed path.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
