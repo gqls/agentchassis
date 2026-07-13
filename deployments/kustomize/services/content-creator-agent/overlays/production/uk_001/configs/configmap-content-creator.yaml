@@ -1,0 +1,50 @@
+# FILE: deployments/kustomize/services/content-creator-agent/overlays/production/uk_001/configs/configmap-content-creator.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: content-creator-agent-configmap # Matches volume name in deployment
+  namespace: ai-persona-system
+data:
+  content-creator-agent.yaml: | # This is the content of your configs/content-creator-agent.yaml
+    service_info:
+      name: "content-creator-agent"
+      version: "1.0.0"
+      environment: "production"
+
+    server:
+      port: "8088"
+    
+    logging:
+      level: "info"
+
+    observability:
+      tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
+
+    infrastructure:
+      kafka_brokers:
+        - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+      clients_database:
+        host: "pgbouncer.ai-persona-system.svc.cluster.local"
+        port: 6432
+        user: "clients_user"
+        password_env_var: "CLIENTS_DB_PASSWORD" # This will be set by a secret
+        db_name: "clients_db"
+        sslmode: "disable"
+
+      templates_database: {}
+      auth_database: {}
+      object_storage: {}
+
+    custom:
+      agent_type: "content-creator"
+      topic: "system.agent.content-creator.process"
+      kafka_consumer_group: "content-creator-agent-group"
+      ai_service:
+        provider: "anthropic"
+        model: "claude-3-5-sonnet-20241022"
+        api_key_env_var: "ANTHROPIC_API_KEY"
+      metrics:
+        enabled: true
+        fail_silently: true
+        detailed_errors: false

@@ -1,0 +1,91 @@
+clients_db=# -- 1. What does the blog-index page look like for finetuning.uk?
+SELECT p.id, p.name, p.url, p.page_type, p.build_status, p.sections
+FROM pages p
+JOIN sites s ON p.site_id = s.id
+WHERE s.domain = 'finetuning.uk'
+  AND (p.page_type = 'blog-index' OR p.name = 'blog')
+LIMIT 5;
+
+-- 2. Does the blog page have a listing component?
+SELECT pc.id, pc.slot_name, pc.build_status, 
+       LENGTH(pc.rendered_html) as html_len,
+       pc.content_data IS NOT NULL as has_content_data,
+       pc.updated_at
+FROM page_components pc
+JOIN pages p ON pc.page_id = p.id
+JOIN sites s ON p.site_id = s.id
+WHERE s.domain = 'finetuning.uk'
+  AND (p.page_type = 'blog-index' OR p.name = 'blog')
+ORDER BY pc.slot_name;
+
+-- 3. Is blog in the nav?
+SELECT sni.label, sni.url, sni.in_header, sni.in_footer
+FROM site_nav_items sni
+JOIN site_nav_groups sng ON sni.group_id = sng.id
+JOIN sites s ON sng.site_id = s.id
+WHERE s.domain = 'finetuning.uk'
+ORDER BY sni.position;
+
+-- 4. Anything stuck in claimed for finetuning.uk?
+SELECT swi.item_type, swi.status, swi.handler_agent, swi.claimed_at, swi.claimed_by
+FROM site_work_items swi
+JOIN sites s ON swi.site_id = s.id
+WHERE s.domain = 'finetuning.uk'
+  AND swi.status = 'claimed';
+
+-- 5. Current status of the orphan_blog_posts and nav_drift items
+SELECT swi.item_type, swi.status, swi.attempt_count, swi.max_attempts, swi.error, swi.updated_at
+FROM site_work_items swi
+ORDER BY swi.item_type, swi.updated_at DESC; 'nav_drift')
+                  id                  | name |    url     | page_type | build_status |                                               sections                                                
+--------------------------------------+------+------------+-----------+--------------+-------------------------------------------------------------------------------------------------------
+ 66a6103c-1961-45f3-a0d2-9228ad6a9188 | blog | /blog.html | content   | deployed     | ["hero", "featured_article", "category_section", "article_grid", "content_sidebar", "call_to_action"]
+(1 row)
+
+                  id                  |    slot_name     | build_status | html_len | has_content_data |          updated_at           
+--------------------------------------+------------------+--------------+----------+------------------+-------------------------------
+ 62ce955e-a7b1-43f3-b10d-6e8bab4763d3 | article-grid     | deployed     |      208 | f                | 2026-03-16 14:46:46.531904+00
+ b6d45c6e-d0d4-4010-ba5b-7fe2b405bf48 | call-to-action   | deployed     |     1593 | f                | 2026-04-08 09:27:18.108151+00
+ 3631bde6-32dc-45cb-835d-37a476b160f0 | category-section | deployed     |      208 | f                | 2026-03-16 14:46:46.527815+00
+ 7d031170-04f8-45b5-8ff7-c9606856ff68 | content-sidebar  | deployed     |      208 | f                | 2026-03-16 14:46:46.537602+00
+ eaef7ec0-5abf-47cd-a015-1eba9e8fd8db | featured-article | deployed     |      208 | f                | 2026-03-16 14:46:46.523784+00
+ 4d3c6c61-3575-4860-97ec-8f4da3057b0b | hero             | deployed     |     2009 | f                | 2026-04-08 09:27:18.108151+00
+(6 rows)
+
+ERROR:  column sni.in_header does not exist
+LINE 1: SELECT sni.label, sni.url, sni.in_header, sni.in_footer
+                                   ^
+ item_type | status | handler_agent | claimed_at | claimed_by 
+-----------+--------+---------------+------------+------------
+(0 rows)
+
+     item_type     |   status   | attempt_count | max_attempts |                error                 |          updated_at           
+-------------------+------------+---------------+--------------+--------------------------------------+-------------------------------
+ nav_drift         | unresolved |             0 |            3 |                                      | 2026-04-10 07:36:51.795605+00
+ nav_drift         | failed     |             3 |            3 | Claim timed out (attempts exhausted) | 2026-04-09 23:58:25.80904+00
+ nav_drift         | failed     |             3 |            3 | Claim timed out (attempts exhausted) | 2026-04-09 20:07:32.347125+00
+ orphan_blog_posts | unresolved |             0 |            3 |                                      | 2026-04-08 12:34:18.604442+00
+ orphan_blog_posts | complete   |             0 |            3 |                                      | 2026-04-08 09:27:17.913988+00
+ orphan_blog_posts | complete   |             0 |            3 |                                      | 2026-04-07 11:09:58.432564+00
+(6 rows)
+
+--
+
+
+-- Check the content governance settings
+SELECT data FROM site_specs
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND aspect = 'content_governance' AND is_current = true;
+
+-- Or check the global default
+SELECT * FROM content_governance_config LIMIT 1;
+
+-- How many pages were created this week?
+SELECT name, page_type, created_at
+FROM pages
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND created_at > date_trunc('week', NOW())
+ORDER BY created_at DESC;
+
+
+The news page was blocked by the growth budget.

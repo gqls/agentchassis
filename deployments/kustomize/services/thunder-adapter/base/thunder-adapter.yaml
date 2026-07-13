@@ -1,0 +1,71 @@
+# configs/thunder-adapter.yaml
+# Configuration for Thunder Compute Adapter (Phase 2 skeleton).
+# Field-name conventions match agent-chassis.yaml and web-scrape-adapter.yaml.
+# See FOCUS_adapter_design.md "Config YAML structure" for field-by-field reference.
+
+service_info:
+  name: "thunder-adapter"
+  version: "0.1.0"
+  environment: "production"
+
+server:
+  port: "8080"
+
+logging:
+  level: "info"
+  format: "json"
+
+observability:
+  tracing_endpoint: "${SERVICE_OBSERVABILITY_TRACING_ENDPOINT:http://jaeger-collector:14268/api/traces}"
+
+infrastructure:
+  kafka_brokers:
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+  # Clients database — holds thunder_instances, thunder_config, training_runs
+  clients_database:
+    host: "pgbouncer.ai-persona-system.svc.cluster.local"
+    port: 6432
+    user: "clients_user"
+    password_env_var: "CLIENTS_DB_PASSWORD"
+    db_name: "clients_db"
+    sslmode: "disable"
+
+  templates_database: {}
+  auth_database: {}
+
+  # Object storage — used from Phase 4 (presigned URL generation)
+  object_storage:
+    endpoint: "https://s3.us-east-005.backblazeb2.com"
+    region: "us-east-005"
+    bucket: "personae-model-training"
+    access_key_env_var: "B2_APPLICATION_KEY_ID"
+    secret_key_env_var: "B2_APPLICATION_KEY"
+    use_ssl: true
+    use_path_style: false
+
+# Custom configuration
+custom:
+  adapter_settings:
+    consumer_group: "thunder.adapter.group"
+    main_topic: "system.adapter.thunder.requests"
+
+  # Thunder Compute API connection (used from Phase 3 onward)
+  thunder_api:
+    url: "${THUNDER_API_URL:https://api.thundercompute.com/v1}"
+    key_env_var: "THUNDER_COMPUTE_API_KEY"
+
+  # SSH key management (used from Phase 3 onward)
+  ssh:
+    secret_namespace: "ai-persona-system"
+    secret_name_prefix: "thunder-ssh-"
+    key_algorithm: "ed25519"
+
+  # Circuit breaker — matches existing adapter pattern
+  circuit_breaker:
+    name: "thunder-api"
+    max_requests: 3
+    interval_seconds: 60
+    timeout_seconds: 60
+    consecutive_failures: 5
+    failure_ratio: 0.6

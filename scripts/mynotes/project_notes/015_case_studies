@@ -1,0 +1,31 @@
+These are the sites where you have genuine case studies from this framework build. The work is real and substantial:
+
+Agent orchestration at scale — thousands of agents coordinated via Kafka, stateless pods, workflow-driven with clean separation between SQL definitions and Go actions
+Autonomous site building — domain → strategy → plan → content → design → deploy, fully automated
+News collection pipeline — multi-source ingestion (RSS, news search, xAI/Grok API, scraping), LLM triage for relevance and credibility, attribution chain tracking, automated rendering to live sites
+Tool pipeline — LLM-evaluated tool suggestions, novel generation, cross-linking into existing content
+Vet practice data collection — area discovery, practice scraping, Companies House verification and enrichment, structured data pipeline
+Vet pricing collection — structured price extraction across practices
+Quality loops — improvement sweeps, content auditing, tool health checks, automated fixes
+
+
+Each of these is a genuine case study with real technical depth. For finetuning.uk specifically, the AI training and hosting angle gives additional case studies around model deployment, fine-tuning workflows, and inference infrastructure.
+The leadership team data for these sites is also real — it's your team. That's data you'd supply directly rather than generate.
+Pricing for these three sites is also a business decision. The system can't invent your rates, but it could generate a reasonable structure (e.g. "Discovery / Build / Operate" tiers for leopardess, or "Advisory / Implementation / Managed" for finetuning) with placeholder price ranges that you'd confirm or adjust.
+Tier 2: Domain-based authority sites (gaswholesalers.com, robot-hands.com, gamedesign.uk)
+These don't represent your consultancy — they're content/authority sites for their verticals. The approach here is different:
+
+Case studies don't apply in the traditional sense. A gas wholesaler authority site doesn't have "clients" — it has content that serves its audience. The case-studies-list section was probably a poor choice by the planner for these sites. It might be better to replace it with industry examples or remove it entirely.
+Use cases make more sense — for gaswholesalers, the use cases are the audiences themselves: forecourt operators managing supply contracts, fleet managers optimising fuel procurement, industrial buyers negotiating bulk rates. These aren't case studies about work you did — they're scenarios that demonstrate the site's relevance.
+Pricing sections don't belong on authority sites. gaswholesalers.com isn't selling consulting — it's providing information. The pricing section the planner created for how-pricing-works should be about fuel pricing structures in the industry, not service tiers.
+Leadership team — these sites don't need one. They're brand sites, not consultancy sites.
+
+Tier 3: Creative/niche sites (vonc.com)
+These need entirely different treatment. A gaming platform doesn't need case studies or pricing tiers — it needs its own content primitives (game listings, provocation feeds, lobby grids). Most of the vonc.com items are Category A (missing components) rather than missing data.
+What I'd suggest
+Rather than trying to generate data for all of these uniformly, the approach should be:
+
+For your three consultancy sites — write real case studies from the framework work, generate use cases from plausible projects, and mark pricing/team as needing your input. The case studies could be written by an LLM given a structured brief about each project (we have all the context in these conversations).
+For authority sites — audit which sections were inappropriate choices by the planner. A case-studies-list on gaswholesalers is a planner mistake. These should be either replaced with appropriate section types (industry examples, audience scenarios) or removed. The use-cases-list sections could work if reframed as "who this serves" scenarios rather than client work.
+For sections that genuinely need human data (leadership team, real pricing, contact details) — these should stay at needs_human_review or be converted to a simpler "provide your details" prompt in the admin dashboard. The system shouldn't invent your phone number or team members.
+For Category A items (missing components) — these are a separate problem. The planner asked for components that don't exist. These should be wont_fixed and the planner's section choices reconsidered.

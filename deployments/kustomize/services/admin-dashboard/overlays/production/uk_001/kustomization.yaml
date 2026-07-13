@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ai-persona-system
+
+resources:
+  - ../../../base
+
+images:
+  - name: docker.io/aqls/admin-dashboard
+    newTag: v1.0.1111

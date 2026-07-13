@@ -1,0 +1,76 @@
+--- platform/orchestration/actions/deploy_image_asset_action.go	(pre-Phase-2E)
++++ platform/orchestration/actions/deploy_image_asset_action.go	(post-Phase-2E)
+@@ -27,7 +27,7 @@
+ var DeployImageAssetInputSpec = datahelpers.ActionInputSpec{
+ 	Required: []string{"domain"},
+-	Optional: []string{"s3_uri", "deploy_path", "purpose", "asset_id"},
++	Optional: []string{"s3_uri", "deploy_path", "purpose", "asset_id", "asset_key"},
+ 	Defaults: map[string]interface{}{
+ 		"purpose": "hero",
+ 	},
+@@ -76,6 +76,17 @@
+ 		}
+ 	}
+ 
++	// Phase 2E: resolve asset_key (optional). When present and != purpose,
++	// it drives a per-variant deploy_path below so multi-image purposes
++	// don't overwrite each other (e.g. hero_about.jpg alongside hero.jpg).
++	// Pre-Phase-2E callers don't pass asset_key; the Phase 2E branch is
++	// skipped and existing logo/hero deploys keep their default paths.
++	//
++	// Resolution priority:
++	//   1. inputs.Get("asset_key")   — via input_fields config
++	//   2. config["asset_key"]       — literal string
++	//   3. config["asset_key_field"] — JSONPath into collected_data
++	assetKey := inputs.Get("asset_key")
++	if assetKey == "" {
++		if k, ok := config["asset_key"].(string); ok && k != "" {
++			assetKey = k
++		}
++	}
++	if assetKey == "" {
++		if kf, ok := config["asset_key_field"].(string); ok && kf != "" {
++			assetKey = datahelpers.ExtractNestedFieldString(params.CollectedData, kf)
++		}
++	}
++
+ 	// Resolve storage URI
+ 	// Priority: inputs.Get("s3_uri") (from input_fields) → findStorageURI (legacy lookup)
+ 	storageURI := inputs.Get("s3_uri")
+@@ -141,6 +152,32 @@
+ 		}, nil
+ 	}
+ 
++	// Phase 2E: derive per-variant deploy path from asset_key when distinct
++	// from purpose. The default path returned by DownloadOptimizeAndPrepare
++	// is purpose-keyed (e.g. assets/images/hero.jpg) — without this, every
++	// hero variant would overwrite the canonical hero file.
++	//
++	// Convention: lowercase asset_key with underscores → hyphens, in the
++	// same directory and with the same extension as the purpose-derived
++	// default.
++	// Examples:
++	//   asset_key=hero,       purpose=hero → no change (assets/images/hero.jpg)
++	//   asset_key=hero_about, purpose=hero → assets/images/hero-about.jpg
++	//   asset_key=logo,       purpose=logo → no change (assets/images/logo.png)
++	//
++	// The explicit deploy_path override below still wins if set.
++	if assetKey != "" && assetKey != purpose {
++		ext := filepath.Ext(processed.Paths.Filename)
++		pathDir := filepath.Dir(processed.Paths.FilePath)
++		derivedFilename := strings.ReplaceAll(assetKey, "_", "-") + ext
++		derivedPath := filepath.Join(pathDir, derivedFilename)
++		processed.Paths = storage.AssetPaths{
++			FilePath:    derivedPath,
++			RelativeURL: "/" + derivedPath,
++			Filename:    derivedFilename,
++		}
++		logger.Info("Phase 2E: derived variant deploy path",
++			zap.String("asset_key", assetKey),
++			zap.String("purpose", purpose),
++			zap.String("derived_path", derivedPath))
++	}
++
+ 	// Allow deploy_path to override the output path.
+ 	// Purpose still controls resize dimensions; deploy_path controls where the file goes.
+ 	// Priority: inputs.Get("deploy_path") (from input_fields) → config["deploy_path"] (static)

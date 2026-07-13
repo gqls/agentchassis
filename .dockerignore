@@ -1,0 +1,49 @@
+# .dockerignore
+# Development and CI
+.git/
+.github/
+.gitignore
+.idea/
+.vscode/
+*.md
+LICENSE
+Makefile
+
+# Build artifacts
+bin/
+dist/
+vendor/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Test artifacts
+coverage*.out
+test-results/
+*.log
+
+# Deployments and configs we don't need in test image
+deployments/
+build/docker/frontend/
+build/docker/backend/
+!build/docker/backend/github-actions-runner-entrypoint.sh
+frontends/
+docs/
+scripts/migration/
+scripts/deployment/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+.DS_Store
+
+# Large directories we definitely don't need
+node_modules/
+tests/  # The wrong directory if it exists

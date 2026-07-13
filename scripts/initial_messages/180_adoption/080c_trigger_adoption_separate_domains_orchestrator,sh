@@ -1,0 +1,438 @@
+#!/bin/bash
+# ============================================================================
+# trigger-adopt-separated.sh
+# ============================================================================
+# Adoption trigger with SOURCE ≠ DESTINATION support (Phase 1 of
+# FUTURE_adoption_source_destination_separation.md).
+#
+# Mirrors the envelope of your existing trigger-adopt-site.sh exactly
+# (same topic, same headers, same responses_topic, same kcat pod naming).
+# The only substantive difference is the input_data shape:
+#
+#   input_data.target_url          (the URL to crawl)
+#   input_data.destination_domain  (the domain to build)
+#
+# When the deployed Go patch sees these fields, it:
+#   - creates the site row for destination_domain
+#   - crawls target_url via firecrawl
+#   - writes identity.adopted_from = <host of target_url>
+#   - matches crawled page content using the source host (fixed the
+#     latent lookup bug where destination ≠ source)
+# ============================================================================
+
+set -euo pipefail
+
+# ── edit these two lines per run ────────────────────────────────────────
+SOURCE_URL='https://gamedesign.uk'
+DEST_DOMAIN='gamesdesign.co.uk'
+# ────────────────────────────────────────────────────────────────────────
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+CLIENT_ID="demo_client"
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+
+echo "========================================="
+echo "Separated Adoption Trigger"
+echo "========================================="
+echo "  Source (crawl):      $SOURCE_URL"
+echo "  Destination (build): $DEST_DOMAIN"
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  TIMESTAMP=$TIMESTAMP"
+echo "========================================="
+echo ""
+echo "SAVE THESE IDs:"
+echo "  CORRELATION_ID=$CORRELATION_ID"
+echo "  ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-adopt-$(date +%s) \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$CORRELATION_ID \
+  -H request_id=$REQUEST_ID \
+  -H message_id=$MESSAGE_ID \
+  -H orchestration_id=$ORCHESTRATION_ID \
+  -H orchestration_name=adopt-separated-$(date +%Y%m%d-%H%M%S) \
+  -H step_name=start \
+  -H client_id=$CLIENT_ID \
+  -H message_type=request \
+  -H action=orchestrate \
+  -H from_agent_type=user \
+  -H from_agent_id=cli \
+  -H responses_topic=system.agent.generic.responses <<JSON
+{"action":"orchestrate","config":{"agent_type":"site-adoption-orchestrator"},"input_data":{"target_url":"$SOURCE_URL","destination_domain":"$DEST_DOMAIN"}}
+JSON
+
+echo ""
+echo "========================================="
+echo "Separated adoption triggered (via orchestrator)"
+echo "  Crawl:  $SOURCE_URL"
+echo "  Build:  $DEST_DOMAIN"
+echo "========================================="
+echo ""
+echo "The orchestrator spawns a dedicated pod for site-adoption-agent."
+echo "Find the spawned adopter pod (usually 10-20s after trigger):"
+echo "  kubectl -n ai-persona-system get pods -l agent_type=site-adoption-agent --sort-by=.metadata.creationTimestamp | tail -3"
+echo ""
+echo "Once you have its pod name, tail its logs directly — clean, single-correlation stream:"
+echo "  kubectl -n ai-persona-system logs -f <adopter-pod-name>"
+echo ""
+echo "Monitor orchestrator (in agent-chassis, shorter-lived):"
+echo "  kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=100 | grep '$CORRELATION_ID'"
+echo ""
+echo "Verify the separation took effect (both should appear):"
+echo "  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=500 | grep '$CORRELATION_ID' | grep 'using destination domain override'"
+echo "  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=500 | grep '$CORRELATION_ID' | grep 'source differs from destination'"
+echo ""
+echo "Watch crawl step:"
+echo "  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=200 | grep '$CORRELATION_ID' | grep -E 'crawl|webscrape|firecrawl'"
+echo ""
+echo "Watch LLM analysis:"
+echo "  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=200 | grep '$CORRELATION_ID' | grep -E 'analyze|adoption_analysis|execute_llm'"
+echo ""
+echo "Watch plan application:"
+echo "  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=200 | grep '$CORRELATION_ID' | grep -E 'apply_adoption|specs_written|pages_created|items_created'"
+echo ""
+echo "Check orchestration state:"
+echo "  SELECT status, current_step, error FROM orchestration_states WHERE correlation_id = '$CORRELATION_ID'::uuid;"
+echo ""
+echo "Check destination site row exists:"
+echo "  SELECT id, domain, status, build_status FROM sites WHERE domain = '$DEST_DOMAIN';"
+echo ""
+echo "Check provenance (every adopted_from should be the SOURCE host):"
+echo "  SELECT aspect, data->>'adopted_from' AS adopted_from, notes"
+echo "  FROM site_specs"
+echo "  WHERE site_id = (SELECT id FROM sites WHERE domain = '$DEST_DOMAIN')"
+echo "    AND source = 'adoption' AND is_current = true"
+echo "  ORDER BY aspect;"
+echo ""
+echo "Check created pages (on the destination):"
+echo "  SELECT name, page_type, build_status FROM pages WHERE site_id = (SELECT id FROM sites WHERE domain = '$DEST_DOMAIN') ORDER BY name;"
+echo ""
+echo "Check work items:"
+echo "  SELECT item_type, status, handler_agent, summary FROM site_work_items WHERE site_id = (SELECT id FROM sites WHERE domain = '$DEST_DOMAIN') AND pipeline = 'build' ORDER BY priority;"
+
+
+SELECT id, created_at FROM sites WHERE domain='gamesdesign.co.uk';
+# Ordered delete:
+BEGIN;
+
+-- Confirm we're about to delete the right site
+-- e2538c-NoNoNo-dfg | gamesdesign.co.uk
+SELECT id, domain, created_at FROM sites WHERE id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+
+-- Clear the 4 NO ACTION blockers
+DELETE FROM site_work_items         WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+DELETE FROM maintenance_queue       WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+DELETE FROM content_feed_items      WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+DELETE FROM page_component_history  WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+
+-- link_registry.target_site_id — are any other sites linking TO gamesdesign?
+DELETE FROM link_registry
+WHERE target_site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+-- Safe to hard-delete — gamesdesign isn't up, no other site should depend on its URLs.
+-- If this DELETE removes >0 rows we'll see it in the output.
+
+-- Now the main delete — CASCADEs + SET NULLs handle the rest
+DELETE FROM sites WHERE id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+
+-- Orphan check — should be all zero
+SELECT 'site_work_items'        AS tbl, COUNT(*) FROM site_work_items        WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'maintenance_queue',       COUNT(*) FROM maintenance_queue       WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'content_feed_items',      COUNT(*) FROM content_feed_items      WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'page_component_history',  COUNT(*) FROM page_component_history  WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'pages',                   COUNT(*) FROM pages                   WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'site_specs',              COUNT(*) FROM site_specs              WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'site_components',         COUNT(*) FROM site_components         WHERE site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'link_registry_source',    COUNT(*) FROM link_registry           WHERE source_site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8'
+UNION ALL SELECT 'link_registry_target',    COUNT(*) FROM link_registry           WHERE target_site_id = 'e2538c48-1a74-437b-836a-d28b66e12db8';
+
+-- And the SET NULL tables — these rows should still exist but with NULL source_site_id
+SELECT 'css_themes_orphaned'       AS tbl, COUNT(*) FROM css_themes       WHERE source_site_id IS NULL AND source_domain = 'gamesdesign.co.uk'
+UNION ALL SELECT 'layouts_orphaned',       COUNT(*) FROM layouts          WHERE source_site_id IS NULL AND (source_domain = 'gamesdesign.co.uk' OR source_domain = 'gamedesign.uk')
+UNION ALL SELECT 'palettes_orphaned',      COUNT(*) FROM palettes         WHERE source_site_id IS NULL;
+
+-- If orphan counts are zero on the first block → COMMIT.
+-- If anything non-zero → ROLLBACK and we investigate.
+
+COMMIT;
+
+------------------------------------------------------------------------
+==========================================================================
+
+
+Adoption fired. Orchestrator will go:
+
+site-adoption-orchestrator
+  → spawn site-adoption-agent
+  → crawl gamedesign.uk (target_url)
+  → extract fingerprint
+  → fetch primary CSS
+  → enrich fingerprint
+  → analyze_site (LLM)
+  → classify_archetype (LLM)
+  → select_content + derive_content_direction (LLM)
+  → apply_adoption_plan  ← creates destination_domain site + work item
+  → populate_nav
+  → generate_design_intent (LLM)
+  → write design_intent spec
+  → complete
+
+
+  ---------------------------------------
+  =======================================
+
+  clients_db=# -- Where is the workflow?
+  SELECT
+      orchestration_name,
+      current_step,
+      status,
+      currently_executing,
+      error,
+      last_activity,
+      updated_at
+  FROM orchestration_states
+  WHERE orchestration_id = '8c0aba4e-f975-4885-9622-01d699f0207a';
+
+  -- What's it currently waiting on?
+  SELECT
+      step_name,
+      target_agent_type,
+      target_agent_id,
+      status,
+      sent_at,
+      timeout_at,
+      processing_pod
+  FROM awaited_requests
+  WHERE orchestration_id = '8c0aba4e-f975-4885-9622-01d699f0207a'
+  ORDER BY sent_at DESC
+  LIMIT 20;
+
+  -- Any errors logged for this run?
+  SELECT
+      occurred_at,
+      agent_type,
+      step_name,
+      action,
+      error_message,
+  ORDER BY created_at DESC;id FROM sites WHERE domain = 'gamesdesign.co.uk');
+
+
+  --------
+
+  -- progress report
+
+  clients_db=# -- 1. What work items are queued/in-progress for this site?
+  SELECT item_type, status, handler_agent, created_at, claimed_at, completed_at, item_key
+  FROM site_work_items
+  WHERE site_id = '345e15cf-2679-415e-8b11-6e36031ef82f'
+  ORDER BY created_at;
+
+  -- 2. Have any orchestrations beyond the adoption pair started?
+  SELECT correlation_id, agent_type, status, current_step, started_at, completed_at, error
+  FROM orchestration_states
+  WHERE input_data::text LIKE '%345e15cf-2679-415e-8b11-6e36031ef82f%'
+     OR input_data::text LIKE '%gamesdesign%'
+  ORDER BY started_at DESC
+  LIMIT 20;
+
+  -- 3. Is there a plan yet at all? (likely not, but confirms either way)
+  SELECT id, source_agent, is_current, created_at
+  FROM site_plans
+  WHERE site_id = '345e15cf-2679-415e-8b11-6e36031ef82f'
+  ORDER BY created_at DESC;
+
+  -- 4. What site_specs has the cascade written so far?
+  SELECT aspect, source_agent, created_at, is_current
+  FROM site_specs
+  WHERE site_id = '345e15cf-2679-415e-8b11-6e36031ef82f'
+  ORDER BY created_at;
+         item_type       |  status  |       handler_agent        |          created_at           |          claimed_at           |         completed_at          |                        item_key
+  -----------------------+----------+----------------------------+-------------------------------+-------------------------------+-------------------------------+--------------------------------------------------------
+   needs_rerender        | triaged  | rerender-pages             | 2026-05-05 14:37:42.268635+00 |                               |                               | adoption_rerender_345e15cf-2679-415e-8b11-6e36031ef82f
+   needs_domain_research | complete | domain-research-classifier | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:38:16.376483+00 | 2026-05-05 14:40:51.373151+00 | needs_domain_research
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:40:55.826066+00 | 2026-05-05 14:43:58.708945+00 | needs_page:index
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:44:19.025167+00 | 2026-05-05 14:47:11.463713+00 | needs_page:tools
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:45:57.141093+00 | 2026-05-05 14:49:00.094367+00 | needs_page:guides
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 14:49:18.139443+00 | 2026-05-05 15:04:49.54241+00  | needs_page:games
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:06:05.467718+00 | 2026-05-05 15:09:34.211265+00 | needs_page:tool-ttk-calculator
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:09:38.77757+00  | 2026-05-05 15:26:49.496224+00 | needs_page:tool-ehp-calculator
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:28:54.030071+00 | 2026-05-05 15:31:29.072842+00 | needs_page:tool-drop-rate-simulator
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:30:56.260505+00 | 2026-05-05 15:46:19.528078+00 | needs_page:tool-jump-physics
+   needs_content_page    | complete | page-build-handler         | 2026-05-05 14:37:42.268635+00 | 2026-05-05 15:31:58.771896+00 | 2026-05-05 15:48:49.528583+00 | needs_page:tool-progression-architect
+   needs_content_page    | triaged  | page-build-handler         | 2026-05-05 14:37:42.268635+00 |                               |                               | needs_page:tool-lanchester-sim
+   needs_content_page    | triaged  | page-build-handler         | 2026-05-05 14:37:42.268635+00 |                               |                               | needs_page:guide-p2p-architecture
+   needs_strategy        | complete | domain-strategist          | 2026-05-05 14:40:45.579609+00 | 2026-05-05 14:44:11.37703+00  | 2026-05-05 14:45:43.834417+00 | strategy_gamesdesign.co.uk
+   needs_briefing        | complete | build-briefing-agent       | 2026-05-05 14:45:37.913787+00 | 2026-05-05 15:05:10.683874+00 | 2026-05-05 15:05:59.75593+00  | briefing_gamesdesign.co.uk
+   needs_site_plan       | claimed  | build-site-planner         | 2026-05-05 15:05:53.046543+00 | 2026-05-05 15:49:10.36654+00  |                               | site_plan_gamesdesign.co.uk
+  (16 rows)
+
+  ERROR:  column "agent_type" does not exist
+  LINE 1: SELECT correlation_id, agent_type, status, current_step, sta...
+                                 ^
+   id | source_agent | is_current | created_at
+  ----+--------------+------------+------------
+  (0 rows)
+
+        aspect       |        source_agent        |          created_at           | is_current
+  -------------------+----------------------------+-------------------------------+------------
+   structure         | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | t
+   content_direction | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | f
+   design_reference  | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | t
+   identity          | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | f
+   site_archetype    | site-adoption-agent        | 2026-05-05 14:37:42.268635+00 | t
+   design_intent     | site-adoption-agent        | 2026-05-05 14:38:49.255403+00 | f
+   identity          | domain-research-classifier | 2026-05-05 14:40:38.570141+00 | t
+   classification    | domain-research-classifier | 2026-05-05 14:40:41.083648+00 | t
+   content_direction | domain-research-classifier | 2026-05-05 14:40:44.689484+00 | t
+   design_intent     | domain-research-classifier | 2026-05-05 14:40:45.105972+00 | t
+   strategy          | domain-strategist          | 2026-05-05 14:45:34.630151+00 | t
+   briefing          | build-briefing-agent       | 2026-05-05 15:05:51.550708+00 | t
+  (12 rows)
+
+-- (6) The build pipeline — work items showing build progress
+SELECT item_type, status, handler_agent, LEFT(summary, 60) AS summary, attempt_count, updated_at
+FROM site_work_items
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+  AND pipeline = 'build'
+ORDER BY updated_at DESC
+LIMIT 20;
+
+
+-- ============================================================================
+-- Site cleanup: gamesdesign.co.uk
+-- ============================================================================
+-- Removes the site, its pages/components/specs (via cascade), the work_items
+-- and feed/maintenance rows (no cascade, manual), and the design library rows
+-- attributed to this domain (style_collections, css_themes, palettes,
+-- typography_sets, layouts).
+--
+-- Preserves baseline layouts shared across sites.
+--
+-- Run inside a transaction so we can roll back if anything looks off.
+-- ============================================================================
+
+BEGIN;
+-- -> see 081e_cleanup_gamesdesign_by_site_id.sql and run that first <-
+-- RUN THAT FIRST ^
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 0: confirm what we're about to delete
+-- ──────────────────────────────────────────────────────────────────────
+SELECT id, domain, status, style_collection_id, created_at
+FROM sites
+WHERE domain = 'gamesdesign.co.uk';
+-- Expect 0 or 1 row. If 2+, abort (ROLLBACK).
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 1: break non-cascading FKs that would block the delete
+-- ──────────────────────────────────────────────────────────────────────
+
+-- sites → style_collections (no ON DELETE clause, blocks delete)
+UPDATE sites
+SET style_collection_id = NULL
+WHERE domain = 'gamesdesign.co.uk';
+
+-- style_collections → css_themes (no ON DELETE clause, blocks delete)
+-- Both linkage paths: by source_domain text AND by source_site_id
+UPDATE style_collections
+SET css_theme_id = NULL
+WHERE source_domain = 'gamesdesign.co.uk'
+   OR source_site_id IN (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk');
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 2: delete child tables that don't cascade
+-- ──────────────────────────────────────────────────────────────────────
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM site_work_items        WHERE site_id IN (SELECT id FROM s);
+
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM content_feed_items     WHERE site_id IN (SELECT id FROM s);
+
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM maintenance_queue      WHERE site_id IN (SELECT id FROM s);
+
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM page_component_history WHERE site_id IN (SELECT id FROM s);
+
+WITH s AS (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk')
+DELETE FROM link_registry          WHERE target_site_id IN (SELECT id FROM s);
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 3: delete the site row
+--   Cascades through: pages, site_specs, site_components, site_areas,
+--   site_nav_items, site_nav_groups, site_snapshots, site_flows,
+--   navigation_structures, research_results, redirects, products,
+--   content_items, content_sources, assets, affiliate_products,
+--   link_registry (via source_site_id).
+--   Sets NULL on: palettes, typography_sets, layouts, css_themes,
+--   style_collections via source_site_id (we delete these by
+--   source_domain in Step 4).
+-- ──────────────────────────────────────────────────────────────────────
+DELETE FROM sites WHERE domain = 'gamesdesign.co.uk';
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 4: delete library rows attributed to this domain
+--   Layouts excludes the baseline shared collection.
+-- ──────────────────────────────────────────────────────────────────────
+DELETE FROM style_collections WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM css_themes        WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM palettes          WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM typography_sets   WHERE source_domain = 'gamesdesign.co.uk';
+DELETE FROM layouts
+WHERE source_domain = 'gamesdesign.co.uk'
+  AND name NOT IN (
+    'tool-portal-dark', 'social-lobby', 'brochure-formal',
+    'brochure-bold', 'technical-precise', 'affiliate-hub'
+  );
+
+
+-- Optional pre-clean (only if you want to remove the suspicious placeholder pages)
+DELETE FROM pages
+WHERE site_id IN (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk');
+
+-- And their work items
+DELETE FROM site_work_items
+WHERE site_id IN (SELECT id FROM sites WHERE domain = 'gamesdesign.co.uk');
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Step 5: verify everything is gone
+-- ──────────────────────────────────────────────────────────────────────
+SELECT 'sites'             AS tbl, COUNT(*) AS remaining
+FROM sites             WHERE domain        = 'gamesdesign.co.uk'
+UNION ALL
+SELECT 'style_collections',     COUNT(*)
+FROM style_collections WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL
+SELECT 'css_themes',            COUNT(*)
+FROM css_themes        WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL
+SELECT 'palettes',              COUNT(*)
+FROM palettes          WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL
+SELECT 'typography_sets',       COUNT(*)
+FROM typography_sets   WHERE source_domain = 'gamesdesign.co.uk'
+UNION ALL
+SELECT 'layouts (non-baseline)', COUNT(*)
+FROM layouts           WHERE source_domain = 'gamesdesign.co.uk'
+                         AND name NOT IN ('tool-portal-dark','social-lobby','brochure-formal',
+                                          'brochure-bold','technical-precise','affiliate-hub');
+
+-- If all six remaining = 0, commit.
+COMMIT;
+
+-- If anything looks off:
+-- ROLLBACK;
+
+-- ──────────────────────────────────────────────────────────────────────
+-- Post-cleanup hygiene (optional, outside transaction)
+-- ──────────────────────────────────────────────────────────────────────
+-- VACUUM ANALYZE sites, pages, page_components, site_specs, site_work_items;

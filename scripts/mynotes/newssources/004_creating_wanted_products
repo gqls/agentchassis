@@ -1,0 +1,287 @@
+look at bass44.com creates full websites
+
+and this medium article looks ok
+https://aakashgupta.medium.com/how-solo-founders-are-building-1m-saas-businesses-using-only-ai-complete-playbook-3ab2f11fb6db
+
+How Solo Founders Are Building $1M+ SaaS Businesses Using Only AI (Complete Playbook)
+Aakash Gupta
+Aakash Gupta
+6 min read
+·
+Oct 28, 2025
+
+Press enter or click to view image in full size
+
+Maor Shlomo sold his company for $80 million.
+
+He built it solo. No co-founder. No employees. No VC funding.
+
+Just him, a laptop, and AI tools that didn’t exist three years ago.
+
+Five years ago, this was impossible. Building a SaaS required engineers, designers, marketers, salespeople. You needed capital, a team, and years of runway.
+
+Today, the entire playbook has changed.
+
+I’ve spent the last six months talking to solo founders building real businesses with AI. Studying their tools, their processes, their mistakes. Testing their systems myself.
+
+Here’s the complete playbook for building a $1M+ solo SaaS in 2025.
+Step 1: AI Discovery (Find Problems That Actually Matter)
+
+The #1 reason solo SaaS businesses fail: Solving problems nobody has.
+
+You can’t afford this mistake when it’s just you. You don’t have runway to pivot three times. You need to find a real problem fast.
+
+Here’s the system that works:
+Use Reddit to Find Pain Points
+
+Reddit is where people complain in brutal detail. No marketing spin. No politeness. Just raw frustration.
+
+Search subreddits related to your domain. Look for threads where people say:
+
+    “Why doesn’t X exist?”
+    “I’m so tired of Y”
+    “There has to be a better way to Z”
+
+When you see the same pain point mentioned 50+ times across multiple threads, you’ve found something real.
+Do Trend Analysis with Perplexity
+
+Once you have potential problems, validate them with trend data.
+
+Ask Perplexity to analyze:
+
+    Is this problem growing or shrinking?
+    What’s the market size?
+    Who else is trying to solve this?
+    What funding has gone into this space?
+
+If the trend is growing and underserved, keep digging.
+Use Claude for Market Research
+
+Feed Claude everything you’ve found:
+
+    Reddit threads
+    Competitor websites
+    Market reports
+    Customer reviews
+
+Ask it to synthesize patterns. What’s the core problem beneath all the symptoms? Who’s solving it poorly? Where are the gaps?
+
+Complete AI discovery guide
+
+The discipline: Don’t fall in love with your first idea. Validate ruthlessly before building anything.
+Step 2: Vibe Prototype (Validate in Days, Not Months)
+
+The old way: Write specs. Design mockups. Wait for development. Launch months later. Hope people care.
+
+The AI way: Build a working prototype in hours. Test it with real users. Know if it works before you commit.
+Use Bolt, Cursor, or v0
+
+These tools let you describe what you want and watch them generate functional interfaces in minutes.
+
+Not mockups. Not clickable prototypes. Real, working applications you can actually test.
+
+The process:
+
+Describe your solution in natural language. The tool generates the UI and basic functionality. You iterate in real-time, adjusting based on what you see.
+Test in Market Immediately
+
+Show your prototype to 10–15 people in your target market. Not friends. Real potential users.
+
+Watch them use it. Listen to what they say. More importantly, watch what they do.
+
+If 8 out of 10 people immediately see the value, you’ve validated the concept.
+
+If 8 out of 10 people are confused or unimpressed, pivot or move on.
+
+Complete prototyping tutorial
+
+The unlock: You can test 5 different approaches in the time it used to take to build one. Bad ideas fail in days. Good ideas get proven fast.
+Step 3: Build a Production Pipeline (The Real Work Begins)
+
+Here’s what nobody tells you: The prototype is only 20% of the work.
+
+Getting something working is easy. Getting something that works reliably, securely, and at scale is where most solo founders get stuck.
+
+You need three things:
+Build Your Database
+
+How will you store user data? How will queries scale? What’s your backup strategy? How do you handle migrations?
+
+These aren’t sexy questions. But getting them wrong means rebuilding from scratch later.
+Create Your Components
+
+Reusable, maintainable code that you can iterate on without breaking everything.
+
+This is where AI coding assistants shine. They help you architect systems that don’t become technical debt.
+Build With Scale and Security in Mind
+
+Even at zero users, you need:
+
+    Authentication that actually works
+    Data encryption
+    Rate limiting
+    Error handling
+    Logging and monitoring
+
+You can use AI to help with all of this.
+
+Complete production pipeline guide
+
+The reality: This step takes 80% of the time. Don’t skip it. A broken product at scale is worse than no product.
+Step 4: Create Your Operations OS (Automate Everything Repeatable)
+
+As a solo founder, you’re the CEO, CTO, product manager, customer support, and janitor.
+
+You will drown unless you systematize everything.
+Become a member
+
+The framework:
+
+    “If it repeats, automate it.”
+    “If it needs judgment, template it.”
+
+Your Tool Stack:
+
+Notion + AI for documentation — Every process, every decision, every piece of knowledge. Searchable and AI-queryable.
+
+Lindy for automations — Workflow automation that understands context.
+
+Cursor for code — AI-assisted development that maintains your velocity.
+
+Amplitude for experimentation — Test features, measure impact, iterate fast.
+
+The goal: Every recurring task is either automated or has a template you can execute in minutes.
+
+Your time should be spent on decisions and creation, not repetitive execution.
+Step 5: Create a Marketing Engine (That Runs Itself)
+
+Marketing is where most technical founders fail.
+
+Good news: AI is better at marketing than most marketers.
+
+The system:
+Planning
+
+Use AI to generate content strategies, identify channels, plan campaigns. Feed it your product, your audience, your goals. Get back a complete marketing plan.
+Community: Automatic Content
+
+Set up agents to create and schedule content automatically. Blog posts, social media, newsletters — systematized.
+
+AI can maintain your content calendar while you focus on product.
+Distribution: Automatic SEO and AEO
+
+Traditional SEO optimization plus AEO (AI Engine Optimization) to make sure both humans and AI systems can find you.
+
+AI can analyze your content, suggest optimizations, and even implement them.
+Conversion: AI-Powered Trial Engine
+
+Onboarding flows that adapt to user behavior. Automated nurture sequences. Conversion optimization without hiring a growth team.
+
+Watch: Building a 40-agent marketing team
+
+The beauty: This compounds. Every piece of content keeps working. Every automation keeps running. While you sleep, your marketing engine is generating leads.
+Step 6: $1M+ Sales Engine (Without a Sales Team)
+
+This is the hardest part for most solo founders.
+
+How do you scale sales when it’s just you?
+
+Traditional sales doesn’t work. You can’t hop on 50 demo calls per week. You can’t manage complex deal cycles. You can’t do enterprise sales solo.
+
+So don’t.
+Build Automated Demo Decks
+
+Interactive demos that show value without requiring your time. Prospects can explore on their own, at their own pace.
+
+AI can generate these, personalize them based on user behavior, and optimize them based on what converts.
+Create Agents to Push Through Your Funnel
+
+AI agents that:
+
+    Qualify leads
+    Answer common questions
+    Schedule demos
+    Nurture prospects
+    Follow up automatically
+
+Not chatbots. Actual agents that understand context and move deals forward.
+Make Everything Self-Service
+
+Remove every possible friction point. Users should be able to:
+
+    Sign up instantly
+    Onboard without help
+    Upgrade without talking to you
+    Get support without waiting
+
+The best solo SaaS businesses sell themselves.
+
+Complete sales engine guide
+
+The insight: Every sales touchpoint that requires your time is a bottleneck. Eliminate bottlenecks or automate them.
+The Reality Check
+
+Let me be honest about what this actually looks like.
+
+Building a solo SaaS isn’t easy. It’s still hard work. Long hours. Constant problem-solving. Moments of doubt.
+
+But it’s newly possible.
+
+Three years ago, you needed a team. You needed funding. You needed years of runway.
+
+Today, you need:
+
+    Clear judgment on what problems matter
+    Taste to make products people want
+    Execution discipline to ship consistently
+    Strategic thinking to build systems that scale
+
+The technical skills can be augmented with AI.
+
+You don’t need to be a world-class engineer. AI can code.
+You don’t need to be a design expert. AI can design.
+You don’t need to be a marketing genius. AI can market.
+
+    What you need is the strategic layer that AI can’t replicate.
+
+Choosing the right problem. Making hard product tradeoffs. Building systems that work. Maintaining craft. Staying focused.
+
+That’s where you add value as a solo founder.
+The Proof Points
+
+Maor Shlomo isn’t alone.
+
+I’ve talked to founders building:
+
+    $2M ARR project management tools
+    $1.5M ARR analytics platforms
+    $800K ARR automation services
+
+All solo. All using this playbook or variations of it.
+
+    These aren’t outliers anymore. They’re the leading edge of a new model.
+
+The solo SaaS wave is here. The tools exist. The playbook is proven.
+
+The only question is: will you build?
+
+Maor Shlomo was you a few years ago. Now he’s sold for $80M solo. Go be the next Maor.
+AI
+Ai Tools
+Product Management
+Business
+Startup
+
+Aakash Gupta
+Written by Aakash Gupta
+7.8K followers
+·
+30 following
+
+Helping PMs, product leaders, and product aspirants succeed
+Responses (14)
+Nyap
+Nyap
+
+
+

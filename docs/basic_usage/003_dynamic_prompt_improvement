@@ -1,0 +1,297 @@
+Our goal is to build a system that:
+
+    Starts with a fully functional, pre-configured website-builder team.
+
+    Has a clear, simple feedback loop for end-of-project review.
+
+    Includes a powerful, specialized "Prompt Agent" to handle the evolution of agents when flagged for improvement.
+
+    Follows your principle of creating new agent instances/definitions for any changes.
+
+Phase 1: The Foundation (Static Prompts & High-Level Feedback)
+
+In this phase, we'll get the core website-builder working perfectly using pre-defined prompts and add the simple, end-of-workflow human review step.
+
+Step 1.1: Create a Comprehensive Migration for Agent Definitions
+
+You are correct, we should fully populate the initial configurations so we have a solid V1 to evolve from.
+
+    Action: Create a new migration file (e.g., 009_seed_website_builder_definitions.sql).
+
+    Content: This script will contain an INSERT statement for every agent type used by the website builder (domain-analyst, site-architect, html-developer, visual-designer, site-publisher).
+
+    Pseudo-code (SQL Example for html-developer):
+    SQL
+
+    -- In 009_seed_website_builder_definitions.sql
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('html-developer', 'HTML Developer', 'Generates HTML/CSS/JS code', 'code-driven', '{
+        "ai_service": {
+            "provider": "anthropic",
+            "model": "claude-3-5-sonnet-20241022"
+        },
+        "prompt_template": "You are an expert front-end web developer. Your task is to generate a complete, responsive HTML file named index.html. Use vanilla HTML and CSS based on the following requirements: {{.input.requirements}}.",
+        "workflow": {
+            "start_step": "generate_code",
+            "steps": {
+                "generate_code": { "action": "execute_llm_prompt", "next_step": "complete" },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config;
+
+Step 1.2: Implement the Generic execute_llm_prompt Action
+
+This is the reusable "chef" that cooks the "recipes" from the agent definitions.
+
+    Action: Create a new Go file: platform/orchestration/actions/ai_actions.go and add the execute_llm_prompt function. Then, register it in the actionRegistry in coordinator.go.
+
+    Pseudo-code (Go):
+    Go
+
+    // in platform/orchestration/actions/ai_actions.go
+    func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
+        // 1. Get agent's own config (loaded by MessageProcessor and available in params.CollectedData).
+        // 2. Extract `prompt_template` and `ai_service` config from the agent's config.
+        // 3. Dynamically initialize the correct AI client (e.g., NewAnthropicClient, NewOpenAIClient) based on the "provider".
+        // 4. Create a data map for the template using the `params.CollectedData` from previous steps.
+        // 5. Use Go's `text/template` package to render the final prompt string, filling in the placeholders.
+        // 6. Call `aiClient.GenerateText(ctx, renderedPrompt, nil)`.
+        // 7. Return the raw text response from the LLM.
+    }
+
+Step 1.3: Add the High-Level Human Review Step
+
+Modify the main website-builder orchestrator's workflow to include your end-of-build review.
+
+    Action: Edit the orchestration_workflow JSON in 007_initial_website_builder_group.sql.
+
+    Pseudo-code (JSON Workflow Change):
+    JSON
+
+    // In the "steps" of the website-builder's workflow
+    "publish_site": {
+        "action": "call_agent",
+        "agent_type": "site-publisher",
+        "next_step": "final_human_review" // Change this from "complete"
+    },
+    "final_human_review": { // Add this new step
+        "action": "pause_for_human_input",
+        "config": {
+            "message": "Website build complete. Please review the output and metrics.",
+            "ui_actions": [
+                {"id": "approve", "label": "✅ Approve & Complete"},
+                {"id": "improve", "label": "⚠️ Flag for Improvement"}
+            ]
+        },
+        "next_step": "process_review"
+    },
+    "process_review": { // Add this step to handle the human's choice
+        "action": "process_final_review", // This is a new local action
+        "next_step": "complete"
+    },
+    "complete": {
+        "action": "complete_workflow"
+    }
+
+Step 1.4: Implement the process_final_review Action
+
+    Action: Create a new local action in Go that handles the human's decision.
+
+    Pseudo-code (Go):
+    Go
+
+    // in a new file, e.g., platform/orchestration/actions/review_actions.go
+    func ProcessFinalReviewAction(ctx context.Context, params ActionParams) (interface{}, error) {
+        // 1. Get the human's response from `params.CollectedData["human_feedback"]`.
+        // 2. Check which button was clicked (e.g., `feedback.action_id`).
+        // 3. If "improve", produce a new Kafka message to a topic like `system.prompt.improvement.request`.
+        //    The message payload should contain the `correlation_id` of the original workflow and any comments.
+        // 4. If "approve", simply do nothing and let the workflow complete.
+        // 5. Return a status message, e.g., {"review_processed": true, "action_taken": "improve"}.
+    }
+
+Phase 2: The Evolution Loop & Dynamic Prompt Creation
+
+This phase implements the specialized Prompt Agent, triggered by the "Flag for Improvement" action.
+
+Step 2.1: Define the "Prompt Improvement Agent"
+
+    Action: Add a new entry to your agent_definitions migration for this specialized agent.
+
+    Pseudo-code (SQL):
+    SQL
+
+    INSERT INTO agent_definitions (type, display_name, ..., default_config) VALUES
+    ('prompt-improvement-agent', 'Prompt Improvement Agent', ..., '{
+        "ai_service": { "provider": "anthropic", "model": "claude-3-opus-20240229" },
+        "prompt_template": "You are a Prompt Engineering expert. The provided prompt for an agent of type {{.input.agent_type}} has performed poorly... Analyze the prompt and the failure context, then generate an improved prompt. Failure Context: {{.input.failure_context}}. Old Prompt: {{.input.old_prompt}}",
+        "workflow": {
+            "start_step": "generate_new_prompt",
+            "steps": {
+                "generate_new_prompt": { "action": "execute_llm_prompt", "next_step": "human_approval" },
+                "human_approval": { "action": "pause_for_human_input", "config": {...}, "next_step": "save_new_version" },
+                "save_new_version": { "action": "save_new_agent_definition", "next_step": "complete" },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb);
+
+Step 2.2: Implement the save_new_agent_definition Action
+
+This is the key to making your system "learn." It's a powerful admin-level action that creates a new, versioned agent definition.
+
+    Action: Create a new local action in Go.
+
+    Pseudo-code (Go):
+    Go
+
+    // in a new file, e.g., platform/orchestration/actions/admin_actions.go
+    func SaveNewAgentDefinitionAction(ctx context.Context, params ActionParams) (interface{}, error) {
+        // 1. Get the approved prompt from `params.CollectedData["human_feedback"]`.
+        // 2. Get the original agent type (e.g., "html-developer") from the initial request data.
+        // 3. Determine the next version number (e.g., if "html-developer" exists, this becomes "html-developer-v2").
+        // 4. Read the full definition of the original agent from the `agent_definitions` table.
+        // 5. Create a new definition object, copying all fields but updating:
+        //    - The `type` name to the new versioned name.
+        //    - The `prompt_template` to the new, human-approved prompt.
+        // 6. INSERT this new object as a new row into the `agent_definitions` table.
+        // 7. Return the new agent type name (e.g., "html-developer-v2").
+    }
+
+Step 2.3: Bootstrapping New Agents Dynamically
+
+To address your idea of dynamically creating a first prompt for a brand-new agent type, you can create a special bootstrapping action.
+
+    Action: A bootstrap_prompt local action.
+
+    How it's used: When an admin creates a completely new agent type via a UI, the creation workflow would include this step before the human review.
+
+    Pseudo-code (Go):
+    Go
+
+func BootstrapPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
+    // 1. Get the new agent's `type` and `description` from the input.
+    // 2. Build a simple, hardcoded meta-prompt in Go, e.g.,
+    //    `fmt.Sprintf("Create a starting prompt for an AI agent whose job is '%s'.", description)`
+    // 3. Call the LLM with this meta-prompt.
+    // 4. The result is the initial `prompt_template` for the new agent definition.
+}
+--
+The first step is to get the website-builder fully configured with a solid V1 set of prompts and workflows. This gives us a reliable baseline to execute and evolve from.
+
+Here is the implementation plan, starting with the comprehensive migration script you need.
+
+Implementation Plan: Step 1 - Seed the V1 Agent Definitions
+
+Our goal is to create a single migration script that defines every specialist agent required by the website-builder. Each agent will be configured with its own prompt_template and a simple internal workflow that uses the new generic execute_llm_prompt action.
+
+Action: Create the Migration File
+
+    Create a new file named 009_seed_website_builder_definitions.sql in your platform/database/migrations/ directory.
+
+    Add the following SQL code to the new file. This script populates the agent_definitions table with the initial "brains" for each agent in the team.
+    SQL
+
+    -- 009_seed_website_builder_definitions.sql
+    -- This script inserts the version 1 definitions for all agents
+    -- used in the website-builder group.
+
+    -- 1. Domain Analyst Agent Definition
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('domain-analyst', 'Domain Analyst', 'Analyzes a domain to determine business type and suggest keywords.', 'data-driven', '{
+        "ai_service": { "provider": "anthropic", "model": "claude-3-5-sonnet-20241022" },
+        "prompt_template": "You are a business domain expert. Analyze the following business name: ''{{.input.business_name}}'' and domain: ''{{.input.domain}}''. Based on this information, provide a structured JSON output with the business ''type'' (e.g., ''e-commerce'', ''portfolio'', ''blog'') and a list of 5 relevant SEO ''keywords''.",
+        "workflow": {
+            "start_step": "analyze",
+            "steps": {
+                "analyze": { "action": "execute_llm_prompt", "next_step": "complete" },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+    -- 2. Site Architect Agent Definition
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('site-architect', 'Site Architect', 'Plans the website structure, pages, and navigation.', 'data-driven', '{
+        "ai_service": { "provider": "anthropic", "model": "claude-3-5-sonnet-20241022" },
+        "prompt_template": "You are a website architect. For a ''{{.input.business_type}}'' business named ''{{.input.business_name}}'', design a complete site structure. Provide a structured JSON output with a ''pages'' array. Each object in the array should have a ''name'' (e.g., ''Home'', ''About Us'') and a brief ''description'' of its purpose.",
+        "workflow": {
+            "start_step": "design_structure",
+            "steps": {
+                "design_structure": { "action": "execute_llm_prompt", "next_step": "complete" },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+    -- 3. HTML Developer Agent Definition
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('html-developer', 'HTML Developer', 'Generates HTML, CSS, and JS code for websites.', 'code-driven', '{
+        "ai_service": { "provider": "anthropic", "model": "claude-3-5-sonnet-20241022" },
+        "prompt_template": "You are an expert front-end web developer. Generate a single, complete, and responsive HTML file (including inline CSS in a <style> tag) for the ''{{.input.page.name}}'' page of a website for ''{{.input.business_name}}''. The page''s purpose is: {{.input.page.description}}. Use the following content: {{.input.page.content}}.",
+        "workflow": {
+            "start_step": "generate_code",
+            "steps": {
+                "generate_code": { "action": "execute_llm_prompt", "next_step": "complete" },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+    -- 4. Visual Designer Agent Definition (Adapter Agent)
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('visual-designer', 'Visual Designer', 'Orchestrates image generation and selection.', 'adapter', '{
+        "workflow": {
+            "start_step": "generate_logo",
+            "steps": {
+                "generate_logo": {
+                    "action": "call_agent",
+                    "config": { "agent_type": "image-generator" },
+                    "next_step": "complete"
+                },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+    -- 5. Site Publisher Agent Definition (Adapter Agent)
+    INSERT INTO agent_definitions (type, display_name, description, category, default_config) VALUES
+    ('site-publisher', 'Site Publisher', 'Publishes website files to a storage bucket.', 'adapter', '{
+        "workflow": {
+            "start_step": "upload_files",
+            "steps": {
+                "upload_files": {
+                    "action": "s3_upload",
+                    "next_step": "complete"
+                },
+                "complete": { "action": "complete_workflow" }
+            }
+        }
+    }'::jsonb)
+    ON CONFLICT (type) DO UPDATE SET default_config = EXCLUDED.default_config, updated_at = NOW();
+
+Key Concepts in This Script:
+
+    prompt_template: This is the V1 prompt for each agent. It's stored in the database and can be evolved later.
+
+    {{.input.variable}}: These are placeholders that our new Go function will use to dynamically insert data from previous steps into the prompt.
+
+    execute_llm_prompt: This is the new, generic action that tells the agent to render its template and call the LLM.
+
+    Adapter Agents: Notice the visual-designer and site-publisher do not have prompts. Their job is to orchestrate other services (call_agent) or perform direct actions (s3_upload), not talk to an LLM.
+
+Next Steps
+
+    Create the 009_seed_website_builder_definitions.sql file with the content above.
+
+    Add this new file to your ConfigMap in 070-database-schemas/main.tf so it gets included in your deployment.
+
+    Reset your database (delete the PVC and Pod) and run terraform apply on the 070... directory to get a clean, fully-seeded state.
+
+    With this foundation in place, our very next step will be to implement the execute_llm_prompt Go function that these new agent definitions rely on.

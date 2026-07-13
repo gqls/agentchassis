@@ -1,0 +1,52 @@
+@font-face {
+  font-family: 'Droid Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Droid Sans'), local('DroidSans'), url(https://web.archive.org/web/20160109032529im_/https://fonts.gstatic.com/s/droidsans/v6/s-BiyweUPV0v-yRb-cjciC3USBnSvpkopQaUR-2r7iU.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Droid Sans';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Droid Sans Bold'), local('DroidSans-Bold'), url(https://web.archive.org/web/20160109032529im_/https://fonts.gstatic.com/s/droidsans/v6/EFpQQyG9GqCrobXxL-KRMfEr6Hm6RMS0v1dtXsGir4g.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Droid Serif';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Droid Serif'), local('DroidSerif'), url(https://web.archive.org/web/20160109032529im_/https://fonts.gstatic.com/s/droidserif/v6/0AKsP294HTD-nvJgucYTaJ0EAVxt0G0biEntp43Qt6E.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Droid Serif';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Droid Serif Bold'), local('DroidSerif-Bold'), url(https://web.archive.org/web/20160109032529im_/https://fonts.gstatic.com/s/droidserif/v6/QQt14e8dY39u-eYBZmppwZ_TkvowlIOtbR7ePgFOpF4.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Droid Serif';
+  font-style: italic;
+  font-weight: 400;
+  src: local('Droid Serif Italic'), local('DroidSerif-Italic'), url(https://web.archive.org/web/20160109032529im_/https://fonts.gstatic.com/s/droidserif/v6/cj2hUnSRBhwmSPr9kS589-LrC4Du4e_yfTJ8Ol60xk0.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Droid Serif';
+  font-style: italic;
+  font-weight: 700;
+  src: local('Droid Serif Bold Italic'), local('DroidSerif-BoldItalic'), url(https://web.archive.org/web/20160109032529im_/https://fonts.gstatic.com/s/droidserif/v6/c92rD_x0V1LslSFt3-QEpmsGzsqhEorxQDpu60nfWEc.ttf) format('truetype');
+}
+
+/*
+     FILE ARCHIVED ON 03:25:29 Jan 09, 2016 AND RETRIEVED FROM THE
+     INTERNET ARCHIVE ON 10:54:51 Jun 10, 2026.
+     JAVASCRIPT APPENDED BY WAYBACK MACHINE, COPYRIGHT INTERNET ARCHIVE.
+
+     ALL OTHER CONTENT MAY ALSO BE PROTECTED BY COPYRIGHT (17 U.S.C.
+     SECTION 108(a)(3)).
+*/
+/*
+playback timings (ms):
+  capture_cache.get: 1.309
+  load_resource: 71.55
+  PetaboxLoader3.resolve: 42.971
+  PetaboxLoader3.datanode: 26.193
+*/

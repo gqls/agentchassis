@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thunder-adapter
+  labels:
+    app: thunder-adapter
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: thunder-adapter
+  template:
+    metadata:
+      labels:
+        app: thunder-adapter
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: thunder-adapter
+          image: docker.io/aqls/thunder-adapter:latest  # overridden per environment in overlay
+          command: ["./thunder-adapter", "-config", "/app/configs/thunder-adapter.yaml"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            # Downward API — used for Tier-3 response headers (sender_pod_name)
+            # and pod-level trace logging.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AGENT_VERSION
+              value: "0.1.0"
+            # Topic override — picked up by NewAdapter, falls back to
+            # "system.adapter.thunder.requests" if unset.
+            - name: REQUESTS_TOPIC
+              value: "system.adapter.thunder.requests"
+            - name: CONSUMER_GROUP
+              value: "thunder.adapter.group"
+            # Phase 4: object-storage (B2) for presigned dataset/artefact URLs.
+            # B2_APPLICATION_KEY_ID / B2_APPLICATION_KEY come from
+            # personae-storage-secrets via envFrom below (that's where the
+            # cluster actually keeps them — NOT personae-platform-secrets as an
+            # earlier comment claimed). These two set the bucket + endpoint.
+            - name: TRAINING_BUCKET
+              value: "personae-model-training"
+            - name: S3_ENDPOINT
+              value: "https://s3.us-east-005.backblazeb2.com"
+          envFrom:
+            # THUNDER_COMPUTE_API_KEY (used Phase 3+)
+            - secretRef:
+                name: personae-default-secrets
+            # CLIENTS_DB_PASSWORD (DB auth). NOTE: this secret does NOT carry the
+            # B2 keys despite an earlier comment — those live in
+            # personae-storage-secrets (below), verified against the cluster.
+            - secretRef:
+                name: personae-platform-secrets
+            # B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY — required by the
+            # Phase 4 storage client (prepare_dataset_url / prepare_artefact_url).
+            # Same secret the agent-chassis storage client reads from.
+            - secretRef:
+                name: personae-storage-secrets
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs/thunder-adapter.yaml
+              subPath: thunder-adapter.yaml
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: config
+          configMap:
+            name: thunder-adapter-config

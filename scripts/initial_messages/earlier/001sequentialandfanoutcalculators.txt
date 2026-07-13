@@ -1,0 +1,131 @@
+Option 2: Parallel Calculations (More Complex)
+Use a fan-out pattern to do both calculations simultaneously:
+
+{
+  "workflow": {
+    "start_step": "spawn_calculators",
+    "steps": {
+      "spawn_calculators": {
+        "action": "spawn_group",
+        "config": {
+          "agents": [
+            {"type": "calculator", "name": "calc1"},
+            {"type": "calculator", "name": "calc2"}
+          ]
+        },
+        "description": "Initialize calculator agents",
+        "next_step": "fan_out_calculations"
+      },
+      "fan_out_calculations": {
+        "action": "fan_out",
+        "sub_tasks": [
+          {
+            "step_name": "calc1",
+            "topic": "system.agent.calculator.requests",
+            "target_agent": "calc1",
+            "input_field": "first_calc_input"
+          },
+          {
+            "step_name": "calc2",
+            "topic": "system.agent.calculator.requests",
+            "target_agent": "calc2",
+            "input_field": "second_calc_input"
+          }
+        ],
+        "next_step": "aggregate_results"
+      },
+      "aggregate_results": {
+        "action": "aggregate_data",
+        "description": "Combine both calculation results",
+        "next_step": "complete"
+      },
+      "complete": {
+        "action": "complete_workflow",
+        "description": "Complete workflow"
+      }
+    }
+  }
+}
+
+
+Option 1: Sequential Calculations (Simpler)
+Modify the generic agent's workflow to call the calculator twice:
+{
+  "workflow": {
+    "start_step": "spawn_calculator",
+    "steps": {
+      "spawn_calculator": {
+        "action": "spawn_agent",
+        "config": {"agent_type": "calculator"},
+        "description": "Initialize calculator agent",
+        "next_step": "first_calculation"
+      },
+      "first_calculation": {
+        "action": "call_agent",
+        "config": {
+          "agent_type": "calculator",
+          "target_action": "process",
+          "input_field": "first_calc_input"
+        },
+        "description": "First calculation",
+        "next_step": "second_calculation"
+      },
+      "second_calculation": {
+        "action": "call_agent",
+        "config": {
+          "agent_type": "calculator",
+          "target_action": "process",
+          "input_field": "second_calc_input"
+        },
+        "description": "Second calculation",
+        "next_step": "complete"
+      },
+      "complete": {
+        "action": "complete_workflow",
+        "description": "Complete workflow"
+      }
+    }
+  }
+}
+
+
+Call Agents by Role
+{
+  "workflow": {
+    "steps": {
+      "spawn_calc_for_addition": {
+        "action": "spawn_agent",
+        "config": {
+          "agent_type": "calculator",
+          "role_name": "addition_calculator"
+        }
+      },
+      "spawn_calc_for_multiply": {
+        "action": "spawn_agent",
+        "config": {
+          "agent_type": "calculator",
+          "role_name": "multiplication_calculator"
+        }
+      },
+      "do_addition": {
+        "action": "call_agent_by_role",
+        "config": {
+          "role_name": "addition_calculator",
+          "input_field": "first_calc"
+        }
+      },
+      "do_multiplication": {
+        "action": "call_agent_by_role",
+        "config": {
+          "role_name": "multiplication_calculator",
+          "input_field": "second_calc"
+        }
+      }
+    }
+  }
+}
+
+==
+
+two calculators, different agents:
+

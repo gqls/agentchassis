@@ -1,0 +1,16 @@
+This project builds contextkit — a tool that assembles a tightly-scoped slice
+of a codebase (the relevant source in full, its call-graph neighbourhood as
+signatures, the database schema, and authored guidance) into one paste-ready
+"bundle" for a single task — and, on top of it, a diagnosis loop. The
+diagnosis loop is an AI agent that investigates a software bug strictly
+READ-ONLY: it forms a hypothesis, gathers scoped evidence (code bodies plus
+read-only database rows), issues a verdict that must either CITE the evidence or
+ABSTAIN, then re-scopes by FOLLOWING that evidence — the call graph for code,
+vetted queries for data — rather than re-searching the original symptom. It never
+edits code, never runs a build, and never triggers the system it inspects; a
+human acts on its findings. The hard part LLMs do worst is falsification —
+abandoning a wrong hypothesis — so the loop is judged on whether it reproduces
+mid-course reversals and abstains when the evidence is inconclusive. It is
+developed against, and dogfooded on, the agent-chassis repository (a
+Go/Postgres/Kafka system that runs agents which plan and build multipage
+websites).

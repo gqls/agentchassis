@@ -1,0 +1,47 @@
+I have a solution looking for problems.
+
+I am a solution looking for problems.
+
+I am a team of agents as a hierarchical tree or graph, not just a pipeline.
+
+I am a team of agents with a human being dragged along too.
+
+I am not a pipeline but a tree of agents, each of which can do pretty well anything that is running in a kubernetes container can do, not just llm related.
+
+so you reckon Grok is best for natural sounding content? then use Grok in the content agent
+example flow for website research and design
+
+decisions I made a year ago are proving the right ones
+can't quite keep up with the papers but so far they've affirmed my thinking
+and constantly giving me more ideas
+
+multilevel memory
+see google prompt engineering pdf https://drive.google.com/file/d/1JW6Q_wwvBjMz9xzOtTldFfPiF7BrdEeQ/view
+copied to local drive: /home/ant/projects/domains/context_engineer.uk/002_google_context_engineering_pdf
+
+without being too detailed
+to get an idea of the underlying architecture
+we've used:
+golang - separate play (python) from real (golang)
+kubernetes
+kafka
+cloud
+apis
+authentication
+multilevel agent memory
+postgres
+postgres vector storage and search
+hierarchical agents
+agent to agent communication
+saga pattern
+[evals, filters and error catching/correction]
+[languages]
+multiple agents incl, opensource, reasoning, rag,
+own trained agents - lora, rag, reasoning
+not all agents are llms
+handles images
+adapters for third party services
+[populated over 1000 domains]
+
+
+compete against the type of site that has the funders I want (e.g. Grok uses 18 agents, we use more than 30 - competes against Grok)

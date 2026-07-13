@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: business-intel
+  labels:
+    app: business-intel
+    component: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: business-intel
+  template:
+    metadata:
+      labels:
+        app: business-intel
+        component: agent
+    spec:
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: agent
+          image: docker.io/aqls/agent-chassis:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 500Mi
+            limits:
+              cpu: 500m
+              memory: 3Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10

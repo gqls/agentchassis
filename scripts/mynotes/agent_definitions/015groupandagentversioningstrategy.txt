@@ -1,0 +1,189 @@
+Great architectural question! Let's think through versioning strategy across the system.
+
+## Current State
+
+### Agent Definitions
+Looking at your earlier logs, I see agents are identified by `type`:
+```
+agent_type: "content-creator-hero"
+agent_type: "content-creator-features"
+```
+
+There's no built-in versioning for individual agents yet.
+
+### Agent Groups
+```sql
+agent_group_definitions (
+    group_type: "multi-section-website-builder",
+    version: 6
+)
+```
+
+Groups have explicit versions.
+
+## Proposed Versioning Strategy
+
+### Option A: Named Versions (Simpler, More Explicit)
+
+Different agent types for different implementations:
+
+```
+content-creator-hero-v1
+content-creator-hero-v2
+content-creator-hero-gpt4
+content-creator-hero-claude
+```
+
+**Workflow references:**
+```json
+{
+  "spawn_hero_writer": {
+    "action": "spawn_agent",
+    "config": {
+      "agent_type": "content-creator-hero-v2",  // Explicit version
+      "role": "hero_writer"
+    }
+  }
+}
+```
+
+**Pros:**
+- Crystal clear which version is being used
+- Easy to A/B test (run both v1 and v2 in parallel)
+- Simple rollback (just change group to reference v1)
+- No database schema changes needed
+
+**Cons:**
+- More agent definitions to manage
+- Name proliferation
+
+### Option B: Agent Definition Versioning (More Complex)
+
+Add version field to agent_definitions:
+
+```sql
+agent_definitions (
+    type: "content-creator-hero",
+    version: 2,
+    image_repository: "...",
+    image_tag: "v1.0.400"
+)
+```
+
+**Workflow references:**
+```json
+{
+  "spawn_hero_writer": {
+    "action": "spawn_agent",
+    "config": {
+      "agent_type": "content-creator-hero",
+      "agent_version": 2,  // Optional, defaults to latest
+      "role": "hero_writer"
+    }
+  }
+}
+```
+
+**Pros:**
+- Single namespace per agent concept
+- Version metadata in database
+- Can track metrics per version
+
+**Cons:**
+- Requires schema changes
+- More complex lookup logic
+- Harder to run parallel versions
+
+### Option C: Hybrid (Recommended)
+
+Use **named versions for major changes**, **image tags for minor updates**:
+
+```
+Agent Type: content-creator-hero-gpt4  (major: different model)
+Image Tag: v1.0.400                     (minor: bug fixes, improvements)
+```
+
+**Example:**
+```sql
+-- GPT-4 based hero writer
+INSERT INTO agent_definitions (type, image_tag, default_config) VALUES
+('content-creator-hero-gpt4', 'v1.0.400', '{"model": "gpt-4"}');
+
+-- Claude based hero writer
+INSERT INTO agent_definitions (type, image_tag, default_config) VALUES
+('content-creator-hero-claude', 'v1.0.400', '{"model": "claude-3-5-sonnet"}');
+```
+
+Then groups pick which implementation:
+
+```json
+// Group v6 uses Claude
+{
+  "config": {
+    "agent_type": "content-creator-hero-claude"
+  }
+}
+
+// Group v7 uses GPT-4
+{
+  "config": {
+    "agent_type": "content-creator-hero-gpt4"
+  }
+}
+```
+
+## My Recommendation
+
+**Start with Option A (Named Versions)** because:
+
+1. **No schema changes** - works with existing system
+2. **Explicit and clear** - workflow shows exactly which version
+3. **Easy rollback** - just change group definition
+4. **A/B testing ready** - run multiple versions simultaneously
+5. **Evolutionary** - can transition to Option C later
+
+## Implementation
+
+```sql
+-- Keep current agent
+-- (already exists: content-creator-hero)
+
+-- Add new version when you want to change implementation
+INSERT INTO agent_definitions (
+    type,
+    display_name,
+    description,
+    category,
+    image_repository,
+    image_tag,
+    default_config,
+    capabilities,
+    is_active
+) VALUES (
+    'content-creator-hero-v2',
+    'Hero Content Creator V2',
+    'Enhanced hero section generator with better prompts',
+    'content-creation',
+    'docker.io/aqls/agent-chassis',
+    'v1.0.400',
+    '{
+      "ai_service": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "api_key_env_var": "ANTHROPIC_API_KEY"
+      },
+      "prompt_template": "Enhanced prompt here...",
+      "temperature": 0.7,
+      "max_tokens": 2000
+    }'::jsonb,
+    ARRAY['content-generation', 'hero-section'],
+    true
+);
+```
+
+Then groups evolve:
+- Group v5 uses `content-creator-hero`
+- Group v6 uses `content-creator-hero-v2`
+- Both can run simultaneously
+
+Sound good? Want to stick with this approach?

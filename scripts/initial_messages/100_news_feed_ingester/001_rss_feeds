@@ -1,0 +1,30 @@
+
+
+
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c "
+    INSERT INTO content_sources (site_id, source_type, name, config, fetch_interval, next_fetch_at)
+    VALUES (
+      '5fe15466-4e2e-4ff2-981e-98c1b7074002',
+      'rss',
+      'OilPrice Energy News',
+      '{\"feed_url\": \"https://oilprice.com/rss/main\", \"max_items\": 5}'::jsonb,
+      '6 hours'::interval,
+      now()
+    ) RETURNING id, name;"
+
+
+    kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+      psql -U clients_user -d clients_db -c "
+        INSERT INTO content_sources (site_id, source_type, name, config, fetch_interval, next_fetch_at)
+        VALUES (
+          '<PASTE_SITE_ID_HERE>',
+          'rss',
+          'Test BBC Boxing RSS',
+          '{\"feed_url\": \"https://feeds.bbci.co.uk/sport/boxing/rss.xml\", \"max_items\": 5}'::jsonb,
+          '6 hours'::interval,
+          now()
+        ) RETURNING id, name;"
+
+
+

@@ -12,9 +12,7 @@ logging:
 
 infrastructure:
   kafka_brokers:
-    - "kafka-0.kafka-headless:9092"
-    - "kafka-1.kafka-headless:9092"
-    - "kafka-2.kafka-headless:9092"
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
   clients_database: {}
   templates_database: {}
@@ -22,6 +20,6 @@ infrastructure:
   object_storage: {}
 
 custom:
-  search_provider: "serpapi"
+  search_provider: "firecrawl"
   max_results_default: 10
   timeout_seconds: 30

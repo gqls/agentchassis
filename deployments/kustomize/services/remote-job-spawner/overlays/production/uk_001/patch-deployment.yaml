@@ -1,0 +1,59 @@
+# deployments/kustomize/services/remote-job-spawner/overlays/production/uk_001/patch-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remote-job-spawner
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: remote-job-spawner
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+              readOnly: true
+          env:
+            - name: CLUSTER_ID
+              value: "uk_001"
+            - name: NAMESPACE
+              value: "ai-persona-system"
+            - name: DISPATCH_TOPIC
+              value: "system.dispatch.requests"
+            - name: DISPATCH_RESPONSE_TOPIC
+              value: "system.dispatch.responses"
+            - name: KAFKA_BROKERS
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+            # Infrastructure overrides for agents spawned in THIS cluster.
+            # Uncomment when deploying to a remote cluster:
+            # - name: OVERRIDE_KAFKA_BROKERS
+            #   value: "kafka-external.example.com:9094"
+            # - name: OVERRIDE_DATABASE_HOST
+            #   value: "pgbouncer-clients.ai-persona-system.svc.cluster.local"
+            # - name: OVERRIDE_DATABASE_PORT
+            #   value: "6432"
+            # - name: OVERRIDE_CORE_MANAGER_URL
+            #   value: "http://core-manager.ai-persona-system.svc.cluster.local:8088"
+
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: TEMPLATES_DB_PASSWORD
+
+          envFrom:
+            - configMapRef:
+                name: personae-prod-config
+            - secretRef:
+                name: personae-default-secrets
+
+      volumes:
+        - name: config
+          configMap:
+            name: remote-job-spawner-config

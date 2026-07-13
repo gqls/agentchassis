@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base is cluster-agnostic: Deployment + Service only. No rbac.yaml — the
+# analyser manages no k8s resources (thunder's rbac was for SSH Secrets).
+#
+# DELIBERATE DIFFERENCE from thunder's base: the configMapGenerator for
+# analyser-adapter-config lives in each OVERLAY, not here. The service config
+# carries per-cluster values (kafka brokers, environment), so each overlay
+# supplies its own configs/analyser-adapter.yaml. Same pattern as the
+# auth-service / core-manager / content-creator-agent overlays, which keep a
+# configs/ dir inside overlays/production/uk_001/.
+resources:
+  - deployment.yaml
+  - service.yaml

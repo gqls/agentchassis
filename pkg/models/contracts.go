@@ -11,6 +11,15 @@ type AgentConfig struct {
 	CoreLogic    map[string]interface{} `json:"core_logic"`
 	Workflow     WorkflowPlan           `json:"workflow"`
 	MemoryConfig MemoryConfiguration    `json:"memory_config,omitempty"`
+	Actions      []ActionConfig         `json:"actions,omitempty"`
+}
+
+// ActionConfig represents a single action configuration
+type ActionConfig struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Handler     string                 `json:"handler,omitempty"`
+	Config      map[string]interface{} `json:"config,omitempty"`
 }
 
 // MemoryConfiguration controls how the agent uses long-term memory
@@ -34,19 +43,26 @@ type MemoryEntry struct {
 
 // WorkflowPlan defines the orchestration steps for an agent
 type WorkflowPlan struct {
-	StartStep string          `json:"start_step"`
-	Steps     map[string]Step `json:"steps"`
+	StartStep      string          `json:"start_step"`
+	Steps          map[string]Step `json:"steps"`
+	TimeoutSeconds int             `json:"timeout_seconds,omitempty"`
 }
 
 // Step represents a single action or sub-workflow within a plan
 type Step struct {
-	Action       string    `json:"action"`
-	Description  string    `json:"description"`
-	Topic        string    `json:"topic,omitempty"`
-	Dependencies []string  `json:"dependencies,omitempty"`
-	NextStep     string    `json:"next_step,omitempty"`
-	SubTasks     []SubTask `json:"sub_tasks,omitempty"`
-	StoreMemory  bool      `json:"store_memory,omitempty"` // New field
+	Action          string                 `json:"action"`
+	Name            string                 `json:"name"`
+	Description     string                 `json:"description"`
+	Topic           string                 `json:"topic,omitempty"`
+	TargetAgentType string                 `json:"target_agent_type"`
+	Dependencies    []string               `json:"dependencies,omitempty"`
+	NextStep        string                 `json:"next_step,omitempty"`
+	ErrorStep       string                 `json:"error_step,omitempty"`
+	OutputField     string                 `json:"output_field,omitempty"`
+	SubTasks        []SubTask              `json:"sub_tasks,omitempty"`
+	StoreMemory     bool                   `json:"store_memory,omitempty"`
+	Config          map[string]interface{} `json:"config,omitempty"`
+	Timeout         time.Duration          `json:"timeout,omitempty"`
 }
 
 // SubTask for fan-out operations

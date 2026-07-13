@@ -1,0 +1,16 @@
+consider all the agents in the flow and decide where best to put the decisions
+e.g. for a newsfeed flow it could be decided in the page planner or the classifier but because the agents check rendered state against the site specification which is decided in the classifier it is probably best originated by the classifier
+Where should "this site needs news" live?
+Both classifier and planner, but for different reasons. The classifier decides what kind of site this is — it already produces aspects like identity, classification, strategy. Whether a site benefits from news is a classification-level decision tied to the vertical, not a page-planning detail. The planner then acts on that decision by including the section.
+Concretely, the classifier would add to the classification aspect:
+{
+  "content_features": {
+    "news_feed": {
+      "recommended": true,
+      "reason": "Energy vertical benefits from price/supply news for SEO freshness",
+      "vertical_keywords": ["wholesale gas", "energy market", "oil prices", "LNG supply"],
+      "source_types": ["rss", "news_search", "api_news"]
+    }
+  }
+}
+The planner reads this and includes a latest-news section on the homepage in the site_plan aspect. The planner doesn't re-decide whether news is appropriate — it just places it.

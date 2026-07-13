@@ -1,0 +1,47 @@
+import re
+from pathlib import Path
+
+PROMPT_RE = re.compile(r"^[^=\n]+[=#>-]\s*")  # matches psql prompts like clients_db=#, clients_db->#
+
+def extract_selects(text):
+    statements = []
+    current = []
+    collecting = False
+
+    for line in text.splitlines():
+        # Strip psql prompt if present
+        line = PROMPT_RE.sub("", line)
+
+        if not collecting:
+            if re.match(r"^\s*SELECT\b", line, re.IGNORECASE):
+                collecting = True
+                current = [line]
+                if ";" in line:
+                    statements.append("\n".join(current))
+                    collecting = False
+            continue
+
+        current.append(line)
+
+        if ";" in line:
+            statements.append("\n".join(current))
+            collecting = False
+
+    return statements
+
+
+if __name__ == "__main__":
+    input_file = "input.txt"
+
+    text = Path(input_file).read_text(errors="ignore")
+
+    selects = extract_selects(text)
+
+    with open("selects.sql", "w") as f:
+        for stmt in selects:
+            f.write(stmt.strip())
+            f.write("\n\n")
+
+    print(f"Extracted {len(selects)} SELECT statements")
+
+

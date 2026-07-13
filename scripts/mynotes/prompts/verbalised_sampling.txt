@@ -1,0 +1,6 @@
+https://arxiv.org/pdf/2510.01171
+
+Verbalized Sampling (VS), a simple, training-free prompting strategy to circumvent
+mode collapse. VS prompts the model to verbalize a probability distribution over
+a set of responses (e.g., “Generate 5 jokes about coffee and their corresponding
+probabilities”).

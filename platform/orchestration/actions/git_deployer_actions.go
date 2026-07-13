@@ -1,0 +1,570 @@
+// git_deployer_actions_updated.go
+// Updates to GitCommitAction to support files_field extraction from CollectedData
+
+package actions
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"text/template"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"go.uber.org/zap"
+)
+
+// GitCommitResult represents the result of a Git commit operation.
+type GitCommitResult struct {
+	Success       bool                   `json:"success"`
+	RequestID     string                 `json:"request_id"`
+	TopicSentTo   string                 `json:"topic_sent_to"`
+	RequestsTopic string                 `json:"requests_topic"`
+	AwaitResponse bool                   `json:"await_response"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// GitCommitAction sends a commit request to the configured git-adapter
+// Supports both direct files in config and files_field path to extract from CollectedData
+func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	params.Logger.Info("Executing GitCommitAction",
+		zap.String("step_name", params.ExecutionContext.StepName),
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.Any("config_keys", datahelpers.GetMapKeys(params.StepConfig.Config)),
+	)
+
+	// 0. Check if upstream content generation/assembly was skipped
+	// This prevents trying to deploy when there's no content
+	if skipped, reason := checkUpstreamSkipped(params.CollectedData, params.StepConfig.Config, params.Logger); skipped {
+		params.Logger.Warn("Upstream step was skipped, not deploying",
+			zap.String("reason", reason))
+		return GitCommitResult{
+			Success:       true, // Not an error, just skipped
+			AwaitResponse: false,
+			Metadata: map[string]interface{}{
+				"status":      "skipped",
+				"skip_reason": reason,
+			},
+		}, nil
+	}
+
+	// 1. Extract configuration
+	config := params.StepConfig.Config
+
+	// Get client_id and response topic
+	// Get execution context values - fall back to CollectedData if params.ExecutionContext is empty
+	// This handles loop iterations where ExecutionContext may not be fully propagated
+	correlationID := getExecutionContextValue(params, "correlation_id", params.ExecutionContext.CorrelationID)
+	orchestrationID := getExecutionContextValue(params, "orchestration_id", params.ExecutionContext.OrchestrationID)
+	orchestrationName := getExecutionContextValue(params, "orchestration_name", params.ExecutionContext.OrchestrationName)
+	parentOrchestrationID := getExecutionContextValue(params, "parent_orchestration_id", params.ExecutionContext.ParentOrchestrationID)
+	clientID := getExecutionContextValue(params, "client_id", params.ExecutionContext.ClientID)
+	myResponsesTopic := getExecutionContextValue(params, "responses_topic", params.ExecutionContext.ResponsesTopic)
+
+	// Also check __my_responses_topic__ as alternative
+	if myResponsesTopic == "" {
+		if alt, ok := params.CollectedData["__my_responses_topic__"].(string); ok && alt != "" {
+			myResponsesTopic = alt
+		}
+	}
+
+	// Final fallback to parent responses topic
+	if myResponsesTopic == "" {
+		if parent, ok := params.CollectedData["__parent_responses_topic__"].(string); ok && parent != "" {
+			myResponsesTopic = parent
+			params.Logger.Info("Using __parent_responses_topic__ as responses_topic fallback")
+		}
+	}
+
+	if myResponsesTopic == "" {
+		params.Logger.Warn("ResponsesTopic not set - message may fail validation")
+	}
+
+	params.Logger.Info("Resolved execution context for git commit",
+		zap.String("correlation_id", correlationID),
+		zap.String("orchestration_id", orchestrationID),
+		zap.String("client_id", clientID),
+		zap.String("responses_topic_preview", datahelpers.TruncateString(myResponsesTopic, 60)))
+
+	// Adapter topic
+	adapterTopic := "system.adapter.git.requests"
+
+	// Extract repo name (can be from config or from CollectedData)
+	repoName, _ := config["repo_name"].(string)
+	if repoName == "" {
+		repoName = "sites" // default
+	}
+
+	// Extract domain - supports field path extraction
+	domain := extractDomainForGit(params.CollectedData, config, params.Logger)
+
+	// Extract files - supports files_field path
+	filesMap := extractFilesForGit(params.CollectedData, config, domain, params.Logger)
+
+	if len(filesMap) == 0 {
+		// No files - this could be due to upstream failure, treat as skip not error
+		params.Logger.Warn("No files to commit - treating as skipped page")
+		return GitCommitResult{
+			Success:       true,
+			AwaitResponse: false,
+			Metadata: map[string]interface{}{
+				"status":      "skipped",
+				"skip_reason": "no files to commit",
+				"repo_name":   repoName,
+				"domain":      domain,
+			},
+		}, nil
+	}
+
+	// Get the resolved filename for commit message (meaningful for single-file commits)
+	resolvedFilename := ""
+	if len(filesMap) == 1 {
+		for fn := range filesMap {
+			resolvedFilename = fn
+			break
+		}
+	}
+
+	// Build commit message with template support - now includes filename
+	commitMessage := buildCommitMessage(config, domain, len(filesMap), resolvedFilename)
+
+	params.Logger.Info("Git commit prepared",
+		zap.String("repo_name", repoName),
+		zap.String("domain", domain),
+		zap.Int("file_count", len(filesMap)),
+		zap.String("commit_message", commitMessage),
+		zap.Any("file_names", getFileNames(filesMap)),
+	)
+
+	// Build the git data payload
+	gitData := map[string]interface{}{
+		"repo_name":      repoName,
+		"domain":         domain,
+		"files":          filesMap,
+		"commit_message": commitMessage,
+	}
+
+	// Generate request ID
+	newRequestID := uuid.New().String()
+
+	// Build full adapter request
+	adapterRequest := map[string]interface{}{
+		"headers": map[string]interface{}{
+			"correlation_id":          correlationID,
+			"orchestration_id":        orchestrationID,
+			"orchestration_name":      orchestrationName,
+			"parent_orchestration_id": parentOrchestrationID,
+			"client_id":               clientID,
+			"step_name":               params.ExecutionContext.StepName,
+			"step_id":                 params.ExecutionContext.StepID,
+			"request_id":              newRequestID,
+			"message_type":            "request",
+			"sender_agent_type":       params.ExecutionContext.Sender.AgentType,
+			"sender_agent_id":         orchestrationID,
+			"sender_pod_name":         params.ExecutionContext.Sender.PodName,
+			"sender_agent_version":    params.ExecutionContext.Sender.AgentVersion,
+			"sender_role":             params.ExecutionContext.Sender.Role,
+			"responses_topic":         myResponsesTopic,
+			"parent_responses_topic":  myResponsesTopic,
+			"timestamp":               time.Now().UTC().Format(time.RFC3339),
+			"action":                  "commit",
+		},
+		"body": map[string]interface{}{
+			"action":                 "commit",
+			"data":                   gitData,
+			"reply_to_topic":         myResponsesTopic,
+			"parent_responses_topic": myResponsesTopic,
+			"metadata": map[string]interface{}{
+				"requesting_agent_id":   params.ExecutionContext.OrchestrationID,
+				"requesting_agent_type": params.ExecutionContext.Sender.AgentType,
+				"requesting_step":       params.ExecutionContext.StepName,
+				"client_id":             clientID,
+				"domain":                domain,
+				"file_count":            len(filesMap),
+			},
+			"request_context": map[string]interface{}{
+				"correlation_id":   params.ExecutionContext.CorrelationID,
+				"orchestration_id": params.ExecutionContext.OrchestrationID,
+				"request_id":       newRequestID,
+			},
+		},
+	}
+
+	// Marshal and send
+	messageBytes, err := json.Marshal(adapterRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal adapter request: %w", err)
+	}
+
+	rawHeaders := adapterRequest["headers"].(map[string]interface{})
+	headers := make(map[string]string)
+	for k, v := range rawHeaders {
+		if str, ok := v.(string); ok {
+			headers[k] = str
+		} else {
+			headers[k] = fmt.Sprintf("%v", v)
+		}
+	}
+
+	key := []byte(params.ExecutionContext.CorrelationID)
+
+	if err := params.Producer.ProduceWithValidation(ctx, adapterTopic, headers, key, messageBytes); err != nil {
+		params.Logger.Error("Failed to send to git-adapter", zap.Error(err))
+		return nil, fmt.Errorf("failed to send message to adapter: %w", err)
+	}
+
+	result := GitCommitResult{
+		Success:       true,
+		RequestID:     newRequestID,
+		TopicSentTo:   adapterTopic,
+		RequestsTopic: adapterTopic,
+		AwaitResponse: true,
+		Metadata: map[string]interface{}{
+			"repo_name":  repoName,
+			"domain":     domain,
+			"file_count": len(filesMap),
+			"files":      getFileNames(filesMap),
+		},
+	}
+
+	return result, nil
+}
+
+// getExecutionContextValue extracts a value from ExecutionContext,
+// falling back to CollectedData["__execution_context__"] if empty.
+// This handles loop iterations where params.ExecutionContext may not be fully populated.
+func getExecutionContextValue(params ActionParams, field string, directValue string) string {
+	// If direct value from params.ExecutionContext is present, use it
+	if directValue != "" {
+		return directValue
+	}
+
+	// Fall back to __execution_context__ in CollectedData
+	execCtx, ok := params.CollectedData["__execution_context__"].(map[string]interface{})
+	if !ok {
+		params.Logger.Debug("__execution_context__ not found in CollectedData",
+			zap.String("field", field))
+		return ""
+	}
+
+	if val, ok := execCtx[field].(string); ok {
+		params.Logger.Debug("Using execution context from CollectedData",
+			zap.String("field", field),
+			zap.String("value_preview", datahelpers.TruncateString(val, 50)))
+		return val
+	}
+
+	return ""
+}
+
+// extractDomainForGit extracts domain from CollectedData using unified extractor
+func extractDomainForGit(data map[string]interface{}, config map[string]interface{}, logger *zap.Logger) string {
+	// Get configured domain_field, default to "domain"
+	domainField, _ := config["domain_field"].(string)
+	if domainField == "" {
+		domainField = "domain"
+	}
+
+	logger.Info("Extracting domain using unified extractor",
+		zap.String("domain_field", domainField))
+
+	// Use the unified extractor for consistent field extraction
+	extracted := datahelpers.ExtractFields(data, []string{domainField}, logger)
+
+	// The extracted key will be the last part of the path
+	pathParts := strings.Split(domainField, ".")
+	extractedKey := pathParts[len(pathParts)-1]
+
+	if domainData, ok := extracted[extractedKey]; ok {
+		if domainStr, ok := domainData.(string); ok && domainStr != "" {
+			logger.Info("Successfully extracted domain",
+				zap.String("domain", domainStr))
+			return domainStr
+		}
+	}
+
+	logger.Warn("Failed to extract domain", zap.String("domain_field", domainField))
+	return "unknown-domain"
+}
+
+// extractFilesForGit extracts files map from CollectedData or config
+func extractFilesForGit(data map[string]interface{}, config map[string]interface{}, domain string, logger *zap.Logger) map[string]string {
+	filesMap := make(map[string]string)
+
+	// Method 1: Use files_field config with unified extractor (for multi-page support)
+	filesField, hasFilesField := config["files_field"].(string)
+
+	if !hasFilesField || filesField == "" {
+		filesField = "site_files.files"
+		logger.Debug("files_field not configured, using default multipage path",
+			zap.String("default_path", filesField))
+	}
+
+	logger.Debug("Extracting files",
+		zap.String("files_field", filesField))
+
+	extracted := datahelpers.ExtractFields(data, []string{filesField}, logger)
+
+	pathParts := strings.Split(filesField, ".")
+	extractedKey := pathParts[len(pathParts)-1]
+
+	if filesData, ok := extracted[extractedKey]; ok {
+		if files, ok := filesData.(map[string]interface{}); ok {
+			for filename, content := range files {
+				if contentStr, ok := content.(string); ok {
+					filesMap[filename] = contentStr
+				}
+			}
+			if len(filesMap) > 0 {
+				logger.Info("Extracted files from files_field",
+					zap.Int("count", len(filesMap)))
+				return filesMap
+			}
+		}
+	}
+
+	// Method 2: Check direct files in config (legacy support)
+	if filesRaw, ok := config["files"].(map[string]interface{}); ok {
+		for filename, content := range filesRaw {
+			if contentStr, ok := content.(string); ok {
+				filesMap[filename] = contentStr
+			}
+		}
+		if len(filesMap) > 0 {
+			logger.Info("Using direct files from config", zap.Int("count", len(filesMap)))
+			return filesMap
+		}
+	}
+
+	// Method 3: Check content_field for single file
+	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
+		extracted := datahelpers.ExtractFields(data, []string{contentField}, logger)
+
+		contentPathParts := strings.Split(contentField, ".")
+		contentKey := contentPathParts[len(contentPathParts)-1]
+
+		if content, ok := extracted[contentKey]; ok {
+			if contentStr, ok := content.(string); ok && contentStr != "" {
+				// Determine filename from page_field
+				filename := determinePageFilename(data, config, logger)
+				filesMap[filename] = contentStr
+				logger.Info("Using content_field for single file",
+					zap.String("filename", filename))
+				return filesMap
+			}
+		}
+	}
+
+	logger.Warn("No files found via any method",
+		zap.Any("config_keys", datahelpers.GetMapKeys(config)),
+		zap.String("files_field", filesField))
+
+	return filesMap
+}
+
+// determinePageFilename determines the filename for a single file commit
+// Priority:
+//  1. filename_field - extract filename from CollectedData path (e.g., "rendered_page.filename")
+//  2. file_path - static path from config (for CSS, JS, images)
+//  3. page_field - extract from page object's name/slug field
+//  4. Default to "index.html"
+func determinePageFilename(data map[string]interface{}, config map[string]interface{}, logger *zap.Logger) string {
+	// Priority 1: Check filename_field - extract filename from a path in CollectedData
+	// Uses ExtractNestedFieldString which handles dot-notation paths like "rendered_page.filename"
+	// and auto-unwraps .response wrappers
+	if filenameField, ok := config["filename_field"].(string); ok && filenameField != "" {
+		filename := datahelpers.ExtractNestedFieldString(data, filenameField)
+		if filename != "" {
+			logger.Debug("Using filename_field",
+				zap.String("filename_field", filenameField),
+				zap.String("filename", filename))
+			return filename
+		}
+		logger.Warn("filename_field specified but could not extract value",
+			zap.String("filename_field", filenameField))
+	}
+
+	// Priority 2: Direct file path override - for non-HTML files (CSS, JS, images)
+	if filePath, ok := config["file_path"].(string); ok && filePath != "" {
+		logger.Debug("Using direct file_path from config", zap.String("file_path", filePath))
+		return filePath
+	}
+
+	// Priority 3: Page field extraction - get filename from page object
+	pageField, ok := config["page_field"].(string)
+	if !ok || pageField == "" {
+		logger.Debug("No page_field configured, using default filename")
+		return "index.html"
+	}
+
+	// Extract page data using unified extractor
+	extracted := datahelpers.ExtractFields(data, []string{pageField}, logger)
+
+	// Get the last part of the page field path
+	pathParts := strings.Split(pageField, ".")
+	extractedKey := pathParts[len(pathParts)-1]
+
+	pageData, ok := extracted[extractedKey]
+	if !ok {
+		logger.Warn("page_field not found in data",
+			zap.String("page_field", pageField))
+		return "index.html"
+	}
+
+	// Handle different page data formats
+	switch p := pageData.(type) {
+	case map[string]interface{}:
+		// Try common field names for page identifier
+		if slug, ok := p["slug"].(string); ok && slug != "" {
+			return ensureHTMLExtension(slug)
+		}
+		if name, ok := p["name"].(string); ok && name != "" {
+			return ensureHTMLExtension(name)
+		}
+		if pageName, ok := p["page_name"].(string); ok && pageName != "" {
+			return ensureHTMLExtension(pageName)
+		}
+		if filename, ok := p["filename"].(string); ok && filename != "" {
+			return filename // already has extension
+		}
+		if id, ok := p["id"].(string); ok && id != "" {
+			return ensureHTMLExtension(id)
+		}
+		logger.Warn("page data found but no name/slug/id field",
+			zap.Any("page_keys", datahelpers.GetMapKeys(p)))
+	case string:
+		return ensureHTMLExtension(p)
+	default:
+		logger.Warn("Unexpected page data type",
+			zap.String("type", fmt.Sprintf("%T", pageData)))
+	}
+
+	return "index.html"
+}
+
+// ensureHTMLExtension ensures filename ends with .html
+func ensureHTMLExtension(name string) string {
+	if name == "" {
+		return "index.html"
+	}
+	// Handle "index" specially
+	if name == "index" || name == "home" {
+		return "index.html"
+	}
+	// Already has .html
+	if strings.HasSuffix(name, ".html") {
+		return name
+	}
+	// Already has other extension - replace
+	if idx := strings.LastIndex(name, "."); idx > 0 {
+		return name[:idx] + ".html"
+	}
+	// No extension - add .html
+	return name + ".html"
+}
+
+// buildCommitMessage creates commit message with template support
+// Available template variables: {{.domain}}, {{.file_count}}, {{.filename}}
+func buildCommitMessage(config map[string]interface{}, domain string, fileCount int, filename string) string {
+	messageTemplate, _ := config["commit_message"].(string)
+	if messageTemplate == "" {
+		messageTemplate = "Update site: {{.domain}}"
+	}
+
+	// Simple template replacement
+	tmpl, err := template.New("commit").Parse(messageTemplate)
+	if err != nil {
+		return fmt.Sprintf("Update site: %s", domain)
+	}
+
+	var buf strings.Builder
+	data := map[string]interface{}{
+		"domain":     domain,
+		"file_count": fileCount,
+		"filename":   filename, // NEW: include filename for commit message template
+	}
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return fmt.Sprintf("Update site: %s", domain)
+	}
+
+	return buf.String()
+}
+
+// getFileNames returns list of file names from files map
+func getFileNames(files map[string]string) []string {
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	return names
+}
+
+// checkUpstreamSkipped checks if upstream content generation or assembly was skipped
+// This allows the deploy step to skip gracefully instead of failing
+func checkUpstreamSkipped(collectedData map[string]interface{}, config map[string]interface{}, logger *zap.Logger) (bool, string) {
+	// Check assembled_page.skipped (from AssemblePageAction)
+	if assembled, ok := collectedData["assembled_page"].(map[string]interface{}); ok {
+		if skipped, ok := assembled["skipped"].(bool); ok && skipped {
+			reason := "page assembly was skipped"
+			if r, ok := assembled["skip_reason"].(string); ok && r != "" {
+				reason = r
+			}
+			logger.Info("Detected skipped flag in assembled_page",
+				zap.String("reason", reason))
+			return true, reason
+		}
+	}
+
+	// Check page_content.response for failed status
+	if pageContent, ok := collectedData["page_content"].(map[string]interface{}); ok {
+		if response, ok := pageContent["response"].(map[string]interface{}); ok {
+			// Check for failed status
+			if status, ok := response["status"].(string); ok && status == "failed" {
+				reason := "content generation failed"
+				if errMsg, ok := response["error"].(string); ok && errMsg != "" {
+					reason = errMsg
+				}
+				logger.Info("Detected failed status in page_content.response",
+					zap.String("reason", reason))
+				return true, reason
+			}
+		}
+	}
+
+	// Check reviewed_content for failure (content reviewer path)
+	if reviewed, ok := collectedData["reviewed_content"].(map[string]interface{}); ok {
+		if response, ok := reviewed["response"].(map[string]interface{}); ok {
+			if status, ok := response["status"].(string); ok && status == "failed" {
+				reason := "content review failed"
+				if errMsg, ok := response["error"].(string); ok && errMsg != "" {
+					reason = errMsg
+				}
+				logger.Info("Detected failed status in reviewed_content.response",
+					zap.String("reason", reason))
+				return true, reason
+			}
+		}
+	}
+
+	// Check content_field path from config if specified
+	if contentField, ok := config["content_field"].(string); ok && contentField != "" {
+		parts := strings.Split(contentField, ".")
+		if len(parts) >= 2 {
+			topKey := parts[0]
+			if topData, ok := collectedData[topKey].(map[string]interface{}); ok {
+				// Check for skipped flag
+				if skipped, ok := topData["skipped"].(bool); ok && skipped {
+					reason := "upstream step was skipped"
+					if r, ok := topData["skip_reason"].(string); ok && r != "" {
+						reason = r
+					}
+					return true, reason
+				}
+			}
+		}
+	}
+
+	return false, ""
+}

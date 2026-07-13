@@ -1,0 +1,45 @@
+python3 << 'PY'
+import json
+from collections import Counter
+counts = Counter()
+keysets = []
+with open('held_out_cases_v1.jsonl') as f:
+    for line in f:
+        try:
+            row = json.loads(line)
+            d = json.loads(row['messages'][1]['content'])
+            if not isinstance(d, dict):
+                counts['parse_error'] += 1
+                continue
+            keys = set(d.keys())
+            keysets.append(tuple(sorted(keys)))
+            if {'headline','primary_cta','primary_cta_url'}.issubset(keys):
+                counts['hero_with_cta'] += 1
+            elif keys <= {'headline','subheadline'}:
+                counts['minimal_hero'] += 1
+            elif 'menu_items' in keys or 'links' in keys:
+                counts['header_nav'] += 1
+            else:
+                counts['other'] += 1
+        except Exception as e:
+            counts['parse_error'] += 1
+print('Categories:', dict(counts))
+print('Distinct key sets:')
+for ks, n in Counter(keysets).most_common():
+    print(f'  {n}: {list(ks)}')
+PY
+
+
+-- using jq
+jq -r '
+  try (
+    .messages[1].content | fromjson |
+    if (.primary_cta and .primary_cta_url) then "hero_with_cta"
+    elif ([keys[]] | sort | inside(["headline","subheadline"])) then "minimal_hero"
+    elif (.menu_items or .links) then "header_nav"
+    else "other"
+    end
+  ) catch "parse_error"
+' held_out_cases_v1.jsonl | sort | uniq -c | sort -rn
+
+

@@ -1,0 +1,336 @@
+Summary: Agent-Centric Architecture
+Core Concept
+Agents are the primary abstraction, not workflows. Each agent:
+
+Contains its own workflow (6-12 steps max)
+Can call other agents (which have their own workflows)
+Handles its own error boundaries
+Manages its own state decisions
+
+Architecture Pattern
+Agent A (with workflow)
+  → calls → Agent B (with workflow)
+              → calls → Agent C (with workflow)
+              → returns to B
+  → returns to A
+
+Key Implementation Changes
+1. Agent as First-Class Citizen
+
+type Agent struct {
+    ID          string
+    Type        string
+    Workflow    WorkflowPlan      // Embedded, not referenced
+    ErrorPolicy ErrorHandlingPolicy
+    StateConfig StateConfiguration
+}
+
+2. Workflow Steps Call Agents, Not Actions
+# Current (action-based)
+step:
+  action: "transform_data"
+  topic: "some.topic"
+
+# New (agent-based)
+step:
+  action: "call_agent"
+  agent_type: "data_transformer"
+  agent_id: "optional_specific_instance"
+
+3. Agent Registry/Discovery
+type AgentRegistry struct {
+    // Find agents by capability
+    FindAgent(agentType string, capabilities []string) (Agent, error)
+    // Register agent availability
+    RegisterAgent(agent Agent) error
+}
+
+Impact on Recent Workflow Changes
+Your recent code already supports this well! Here's what needs adjustment:
+1. Modify executeRemoteAction
+// Current: Sends to topic
+func (s *SagaCoordinator) executeRemoteAction(...) {
+    // Send to step.Topic
+}
+
+// New: Sends to agent
+func (s *SagaCoordinator) executeRemoteAction(...) {
+    // Resolve agent from step config
+    targetAgent := s.resolveAgent(step.AgentType, step.AgentID)
+    topic := fmt.Sprintf("system.agent.%s.process", targetAgent.Type)
+    // Send to agent's topic
+}
+
+2. Step Definition Changes
+// Extend Step model
+type Step struct {
+    Action      string
+
+    // For agent calls
+    AgentType   string  // Which type of agent
+    AgentID     string  // Optional specific instance
+
+    // Deprecated for agent calls
+    Topic       string  // Only for backward compatibility
+}
+
+3. Local Actions Become Local Agents
+// Instead of action registry
+var actionRegistry = map[string]ActionHandler{...}
+
+// Have local agent registry
+var localAgents = map[string]LocalAgent{
+    "validator": ValidatorAgent{},
+    "transformer": TransformerAgent{},
+}
+
+Benefits for Your Use Cases
+Topic Analysis System
+# Topic Coordinator Agent
+type: topic_coordinator
+workflow:
+  analyze_topic:
+    action: call_agent
+    agent_type: data_collector
+
+  extract_entities:
+    action: call_agent
+    agent_type: entity_extractor
+
+  generate_report:
+    action: call_agent
+    agent_type: report_generator
+
+
+Each sub-agent can:
+
+Be upgraded independently
+Have its own error handling
+Scale separately
+Be reused by other coordinators
+
+Domain Development
+# Domain Analyzer Agent
+type: domain_analyzer
+workflow:
+  assess_domain:
+    action: local_analysis
+
+  deep_research:
+    action: call_agent
+    agent_type: research_coordinator
+
+  generate_strategy:
+    action: call_agent
+    agent_type: strategy_generator
+
+Migration Strategy
+
+Keep existing orchestrator - It works!
+Add agent resolution layer - Map agent types to topics
+Gradually convert - Start with new agents following this pattern
+Backward compatible - Old workflows still work
+
+Code Changes Needed
+1. Agent Resolution
+func (s *SagaCoordinator) resolveAgentTopic(step Step) (string, error) {
+    if step.AgentType != "" {
+        // New way: agent-based
+        return fmt.Sprintf("system.agent.%s.process", step.AgentType), nil
+    }
+    // Old way: direct topic
+    return step.Topic, nil
+}
+
+2. Workflow Validation Update
+func (v *WorkflowValidator) validateStep(name string, step Step, allSteps map[string]Step) error {
+    // If it's an agent call
+    if step.Action == "call_agent" {
+        if step.AgentType == "" {
+            return fmt.Errorf("call_agent requires agent_type")
+        }
+        return nil
+    }
+    // Existing validation...
+}
+
+This approach gives you:
+
+Modularity: Agents are self-contained
+Resilience: Error boundaries at agent level
+Scalability: Each agent type can scale independently
+Composability: Build complex systems from simple agents
+
+The beauty is your current code already does 90% of this - we just need to formalize the agent concept and add discovery/resolution!
+
+------
+
+The Case for Mandatory AgentID
+1. Complete Traceability
+# With mandatory IDs, we can trace:
+topic_coordinator[id: tc-001]
+  → data_collector[id: dc-prod-v2]
+    → news_api_agent[id: news-west-1]
+    → social_api_agent[id: social-east-2]
+  → entity_extractor[id: ee-gpu-cluster-3]
+
+# Every call is traceable to specific instances
+2. Version Management
+type AgentInstance struct {
+    ID          string  // "analyzer-prod-v3-instance-1"
+    Type        string  // "analyzer"
+    Version     string  // "3.0.1"
+    Deployed    time.Time
+    Workflow    WorkflowPlan
+}
+
+// Now we can:
+// - Route to specific versions
+// - A/B test workflows
+// - Gradual rollouts
+// - Track which version processed what
+
+3. Debugging & Monitoring
+Error occurred:
+  Workflow: correlation-123
+  Step: analyze_data
+  Called Agent: analyzer-prod-v2-instance-3
+  Error: timeout after 30s
+
+# We know EXACTLY which instance failed
+# Can check its logs, metrics, health
+
+4. Graph Integrity
+// With mandatory IDs, we can build reliable execution graphs
+type ExecutionNode struct {
+    AgentID      string
+    AgentType    string
+    AgentVersion string
+    InputHash    string
+    OutputHash   string
+    Duration     time.Duration
+}
+
+// Can answer:
+// - Which agents depend on which?
+// - What's the critical path?
+// - Where are the bottlenecks?
+
+The (Weak) Case for Optional
+1. "Load Balancing"
+# The argument: "Let Kafka/system choose any available instance"
+step:
+  agent_type: "analyzer"
+  # No ID specified, any analyzer can handle it
+
+Counter: Load balancing should happen at infrastructure level, not workflow level. The orchestrator should resolve to a specific instance.
+2. "Simplicity"
+Counter: It's not simpler - it's ambiguous. Debugging "some analyzer somewhere failed" is much harder than "analyzer-prod-v3-instance-2 failed".
+Why Mandatory Wins
+1. Deterministic Execution
+// At orchestration time, resolve to specific instance
+func (s *SagaCoordinator) resolveAgent(agentType string) (AgentInstance, error) {
+    // Even if using "round-robin" or "least-loaded"
+    // We resolve to a SPECIFIC instance
+    instance := s.loadBalancer.SelectInstance(agentType)
+
+    // Record this decision
+    s.recordAgentSelection(correlationID, stepName, instance.ID)
+
+    return instance, nil
+}
+
+2. Audit Trail
+-- Can query: "Show me all workflows that used the buggy analyzer v2.1"
+SELECT DISTINCT correlation_id
+FROM execution_history
+WHERE agent_id LIKE 'analyzer-%-v2.1-%'
+AND executed_at BETWEEN '2024-01-01' AND '2024-01-07';
+
+3. Canary Deployments
+# 10% of traffic to new version
+analyzer-prod-v3-canary-1: 10%
+analyzer-prod-v2-stable-1: 45%
+analyzer-prod-v2-stable-2: 45%
+
+# With mandatory IDs, we know exactly which workflows used canary
+
+Improved Design
+type Step struct {
+    Action      string
+
+    // For agent calls - BOTH mandatory
+    AgentType   string  // "analyzer"
+    AgentID     string  // "analyzer-prod-v3-instance-1"
+
+    // How to select if not specified in workflow
+    SelectionStrategy string // "latest", "stable", "canary", "specific"
+}
+
+type AgentSelector struct {
+    // Called during workflow execution
+    SelectAgent(agentType string, strategy string) (AgentInstance, error)
+}
+
+// Workflow can specify selection strategy
+step:
+  action: call_agent
+  agent_type: analyzer
+  selection_strategy: stable  # Orchestrator picks specific stable instance
+
+# Or explicit instance (for debugging/testing)
+step:
+  action: call_agent
+  agent_type: analyzer
+  agent_id: analyzer-test-v4-debug-1
+
+The Hybrid Approach (Best of Both)
+type Step struct {
+    Action       string
+    AgentType    string
+
+    // ONE of these must be set:
+    AgentID      string // Explicit instance
+    AgentSelector string // Selection strategy: "latest", "stable", "canary"
+}
+
+// At execution time:
+func (s *SagaCoordinator) executeAgentCall(step Step) error {
+    var agentID string
+
+    if step.AgentID != "" {
+        agentID = step.AgentID
+    } else {
+        // Resolve to specific instance using selector
+        instance, err := s.agentRegistry.Select(step.AgentType, step.AgentSelector)
+        if err != nil {
+            return err
+        }
+        agentID = instance.ID
+    }
+
+    // ALWAYS log the specific instance used
+    s.recordExecution(ExecutionRecord{
+        Step:     step.Name,
+        AgentID:  agentID,  // ALWAYS recorded
+        Timestamp: time.Now(),
+    })
+}
+
+Conclusion
+You're right - AgentID should not be optional at execution time. Even if the workflow doesn't specify a particular instance, the orchestrator should:
+
+Resolve to a specific instance
+Record that decision
+Execute with that specific instance
+
+This gives you:
+
+Complete observability
+Reliable debugging
+Version tracking
+Graph integrity
+Audit compliance
+
+The workflow can express "I don't care which analyzer" via selection strategy, but the execution MUST record "analyzer-prod-v3-instance-2 was used".
+

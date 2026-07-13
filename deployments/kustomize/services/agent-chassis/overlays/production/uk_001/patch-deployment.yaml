@@ -1,0 +1,110 @@
+# deployments/kustomize/services/agent-chassis/overlays/production/uk_001/patch-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-chassis
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: agent-chassis
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+              readOnly: true
+          env:
+            # Core agent configuration
+            - name: AGENT_TYPE
+              value: "generic"
+            - name: KAFKA_TOPIC
+              value: "system.agent.generic.requests"
+            - name: KAFKA_CONSUMER_GROUP
+              value: "generic-requests-group"
+            - name: MIGRATION_PHASE
+              value: "testing"
+
+            # For spawning agents
+            - name: AGENT_IMAGE_REPOSITORY
+              value: "docker.io/aqls"
+            - name: AGENT_IMAGE_TAG
+              value: "v1.0.82"  # Match your current version
+
+            # Storage configuration for spawned agents
+            - name: AGENT_STORAGE_SECRET
+              value: "personae-storage-secrets"
+            - name: AGENT_STORAGE_CONFIGMAP
+              value: "storage-config"
+
+            # Database URLs (if needed)
+            - name: CLIENTS_DATABASE_URL
+              value: "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable"
+            - name: TEMPLATES_DATABASE_URL
+              value: "postgresql://templates_user:$(TEMPLATES_DB_PASSWORD)@postgres-templates.ai-persona-system.svc.cluster.local:5432/templates_db?sslmode=disable"
+
+            # Unique AGENT_ID per pod
+            - name: AGENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid  # Each pod gets unique ID
+
+            # Add database passwords
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: TEMPLATES_DB_PASSWORD
+            - name: AUTH_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: AUTH_DB_PASSWORD
+
+            # Storage secrets
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+
+            # B2 storage credentials (for spawning agents that need S3-compatible storage)
+            - name: B2_APPLICATION_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY_ID
+            - name: B2_APPLICATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY
+
+            # default request and responses topics
+            - name: RESPONSES_TOPIC
+              value: "system.agent.generic.responses"
+            - name: PARENT_RESPONSES_TOPIC
+              value: "system.generic.responses"
+            - name: REQUESTS_TOPIC
+              value: "system.agent.generic.requests"
+
+          envFrom:
+            - configMapRef:
+                name: personae-prod-config
+            - secretRef:
+                name: personae-default-secrets
+
+      volumes:
+        - name: config
+          configMap:
+            name: agent-chassis-orchestrator-config

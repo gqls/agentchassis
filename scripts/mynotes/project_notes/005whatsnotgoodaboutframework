@@ -1,0 +1,65 @@
+This is a crucial question. Knowing what *not* to build is often more important than knowing what to build. Using a recursive, LLM-based agent swarm for the wrong problem is like using a team of expensive management consultants to screw in a lightbulb: they will hold meetings about it, produce a strategy document, and charge you a fortune, but the lightbulb might not actually get screwed in any faster.
+
+Here are the **"False Positive"** use cases—projects that look like a perfect fit for your "Fractal Workforce" but would actually be disasters.
+
+---
+
+### 1. The "High-Frequency" Trap (e.g., Algorithmic Crypto Trading)
+
+**The Pitch:** "We’ll use the framework to monitor 50 crypto exchanges, analyze sentiment on Twitter in real-time, and execute trades instantly to capture arbitrage opportunities."
+
+* **Why it looks like a fit:** It involves complex decision-making, data aggregation, and autonomous execution.
+* **Why it will fail:** **Latency & Overhead.**
+    * **The Architecture Problem:** Your system relies on Kafka message queues, database writes (Postgres), and LLM inference calls. Even with fast models like Haiku, a single "Thought $\rightarrow$ Action" loop might take 1–3 seconds. In high-frequency trading, you need *microseconds*.
+    * **The Outcome:** By the time your "Strategist Agent" decides to buy, the market has moved. You will be front-run by simple Python scripts running on bare metal.
+
+### 2. The "Deterministic Precision" Trap (e.g., Payroll & Core Accounting)
+
+**The Pitch:** "We’ll build an agent swarm to process the company payroll, calculate taxes for every employee based on their location, and file the returns."
+
+* **Why it looks like a fit:** It’s a complex, multi-step process with rules and regulations (perfect for an "Investigator" agent).
+* **Why it will fail:** **Probabilistic vs. Deterministic Logic.**
+    * **The Architecture Problem:** LLMs are probabilistic engines; they predict the next likely token. They are not calculators. Even with tool-calling, if an agent "hallucinates" a tax rule or misinterprets a bracket, you go to jail or get fined.
+    * **The Outcome:** You don't need an agent to "think" about $50,000 + $10,000. You need code that equals $60,000 every single time. Using agents here is introducing chaos into a system that requires 100.00% order.
+
+### 3. The "Simple ETL" Trap (e.g., Migrating a Database)
+
+**The Pitch:** "We need to move 1 million customer records from Salesforce to HubSpot. We'll spawn a 'Migration Agent' for every record to map the fields and move the data."
+
+* **Why it looks like a fit:** It’s a large-scale task that can be parallelized (perfect for your Kubernetes scaling).
+* **Why it will fail:** **Cost & Complexity.**
+    * **The Architecture Problem:** Spawning 1 million agents means 1 million LLM calls, 1 million Kafka messages, and massive DB I/O.
+    * **The Outcome:** A standard Python script using the Salesforce API could do this in 10 minutes for $0. Your agent framework would take days and cost thousands of dollars in API credits to do a job that required no "intelligence," just mapping `Column A` to `Column B`.
+
+### 4. The "Long-Form Coherence" Trap (e.g., Writing a Novel)
+
+**The Pitch:** "We’ll write the next Great American Novel. The 'Author Agent' outlines the chapters, and spawns 20 'Chapter Agents' to write them simultaneously."
+
+* **Why it looks like a fit:** Recursive decomposition. A book is just chapters, chapters are just scenes.
+* **Why it will fail:** **Contextual Fragmentation.**
+    * **The Architecture Problem:** Your strength is *abstraction*. Agent B doesn't need to know what Agent C is doing. But in a novel, Chapter 20 needs to know *exactly* what subtle foreshadowing happened in Chapter 3. When you split the work into isolated agents, you lose the "narrative thread."
+    * **The Outcome:** You get a book where the main character's eye color changes in Chapter 4, and the plot makes no sense because the agents didn't "talk" to each other about the subtle emotional arc.
+
+### 5. The "Safety-Critical" Trap (e.g., Medical Diagnosis or Industrial Control)
+
+**The Pitch:** "An agent swarm that monitors patient vitals in an ICU and automatically adjusts drug dosage."
+
+* **Why it looks like a fit:** It requires synthesizing data from many sources (heart rate, blood pressure, history) and making a complex decision.
+* **Why it will fail:** **Explainability & Liability.**
+    * **The Architecture Problem:** If an agent makes a mistake, debugging *why* is incredibly hard. "Why did Agent C increase the dosage?" "Because the Strategist Agent told it the patient was stable." "Why did the Strategist think that?" "Because the Vitals Agent hallucinated a blood pressure reading."
+    * **The Outcome:** In high-stakes physical environments, you need deterministic, audit-trail-heavy systems. A "black box" chain of agents is a liability nightmare.
+
+---
+
+### Summary: The "Anti-Patterns"
+
+Your framework is a **Reasoning Engine**, not a **Calculation Engine**.
+
+Avoid projects that require:
+1.  **Microsecond Speed** (Trading, Real-time gaming).
+2.  **Zero-Error Math/Logic** (Payroll, structural engineering calculations).
+3.  **Massive Rote Repetition** (Simple data entry, basic scraping without analysis).
+4.  **Deep Emotional Continuity** (Novels, screenplays).
+5.  **Life-or-Death reliability** (Medical dosing, autonomous driving).
+
+**Use your framework where the problem is messy, the data is unstructured, and the solution requires "judgment" rather than "calculation."**

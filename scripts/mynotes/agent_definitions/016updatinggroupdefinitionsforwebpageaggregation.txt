@@ -1,0 +1,117 @@
+INSERT INTO agent_group_definitions (
+    group_type,
+    group_name,
+    orchestration_workflow,
+    version,
+    created_at,
+    updated_at
+) VALUES (
+    'multi-section-website-builder',
+    'Multi-Section Website Builder',
+    '{
+      "start_step": "spawn_hero_writer",
+      "steps": {
+        "spawn_hero_writer": {
+          "action": "spawn_agent",
+          "config": {"role": "hero_writer", "agent_type": "content-creator-hero"},
+          "next_step": "generate_hero",
+          "description": "Spawn agent for hero section"
+        },
+        "generate_hero": {
+          "action": "call_agent",
+          "config": {
+            "prompt": "Write a compelling hero section for {{.business_name}}, a {{.business_type}}. Include a powerful headline and subheadline.",
+            "agent_type": "content-creator-hero",
+            "target_role": "hero_writer"
+          },
+          "next_step": "spawn_features_writer",
+          "description": "Generate hero section"
+        },
+        "spawn_features_writer": {
+          "action": "spawn_agent",
+          "config": {"role": "features_writer", "agent_type": "content-creator-features"},
+          "next_step": "generate_features",
+          "description": "Spawn agent for features section"
+        },
+        "generate_features": {
+          "action": "call_agent",
+          "config": {
+            "prompt": "List 3-4 key features or benefits of {{.business_name}}, a {{.business_type}}. Make each feature clear and customer-focused.",
+            "agent_type": "content-creator-features",
+            "target_role": "features_writer"
+          },
+          "next_step": "spawn_testimonials_writer",
+          "description": "Generate features section"
+        },
+        "spawn_testimonials_writer": {
+          "action": "spawn_agent",
+          "config": {"role": "testimonials_writer", "agent_type": "content-creator-testimonials"},
+          "next_step": "generate_testimonials",
+          "description": "Spawn agent for testimonials section"
+        },
+        "generate_testimonials": {
+          "action": "call_agent",
+          "config": {
+            "prompt": "Create 2 realistic customer testimonials for {{.business_name}}, a {{.business_type}}. Make them authentic and specific.",
+            "agent_type": "content-creator-testimonials",
+            "target_role": "testimonials_writer"
+          },
+          "next_step": "spawn_contact_writer",
+          "description": "Generate testimonials section"
+        },
+        "spawn_contact_writer": {
+          "action": "spawn_agent",
+          "config": {"role": "contact_writer", "agent_type": "content-creator-contact"},
+          "next_step": "generate_contact",
+          "description": "Spawn agent for contact section"
+        },
+        "generate_contact": {
+          "action": "call_agent",
+          "config": {
+            "prompt": "Write a contact section for {{.business_name}}. Include inviting text that encourages customers to reach out.",
+            "agent_type": "content-creator-contact",
+            "target_role": "contact_writer"
+          },
+          "next_step": "spawn_cta_writer",
+          "description": "Generate contact section"
+        },
+        "spawn_cta_writer": {
+          "action": "spawn_agent",
+          "config": {"role": "cta_writer", "agent_type": "content-creator-cta"},
+          "next_step": "generate_cta",
+          "description": "Spawn agent for call-to-action section"
+        },
+        "generate_cta": {
+          "action": "call_agent",
+          "config": {
+            "prompt": "Write a strong call-to-action section for {{.business_name}}. Include action text and a reason to act now.",
+            "agent_type": "content-creator-cta",
+            "target_role": "cta_writer"
+          },
+          "next_step": "aggregate_all_sections",
+          "description": "Generate CTA section"
+        },
+        "aggregate_all_sections": {
+          "action": "aggregate_webpage",
+          "config": {
+            "response_fields": ["generate_hero", "generate_features", "generate_testimonials", "generate_contact", "generate_cta"],
+            "section_order": ["generate_hero", "generate_features", "generate_testimonials", "generate_contact", "generate_cta"],
+            "add_section_tags": true,
+            "wrapper": {
+              "html_head": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Website</title>\n<style>\nbody { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 1200px; margin: 0 auto; padding: 20px; }\nsection { margin: 40px 0; padding: 20px; }\n.hero-section { background: #f5f5f5; }\n</style>\n</head>\n<body>",
+              "html_foot": "</body>\n</html>"
+            }
+          },
+          "next_step": "complete",
+          "description": "Combine all website sections into HTML"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Return complete website content"
+        }
+      }
+    }'::jsonb,
+    6,
+    NOW(),
+    NOW()
+);

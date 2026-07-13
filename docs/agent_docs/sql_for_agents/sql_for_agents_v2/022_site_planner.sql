@@ -1,0 +1,520 @@
+-- ===========================================================================
+-- SITE PLANNER AGENT
+-- File: 044_site_planner_agent.sql
+-- ===========================================================================
+-- Plans the site structure: which pages, which components, style choices.
+-- Uses LLM to analyze brief and match to available components.
+-- ===========================================================================
+
+BEGIN;
+
+INSERT INTO agent_definitions (
+    type,
+    display_name,
+    description,
+    category,
+    is_active,
+    status,
+    version,
+    capabilities,
+    image_repository,
+    image_tag,
+    resources,
+    topics,
+    health_config,
+    input_contract,
+    output_contract,
+    default_config
+) VALUES (
+             'site-planner',
+             'Site Planner',
+             'Analyzes brief and plans site structure: pages, components, style collection, asset needs. Single LLM call to create comprehensive plan.',
+             'specialist',
+             true,
+             'active',
+             1,
+             '["planning", "site-architecture", "component-selection"]'::jsonb,
+             'docker.io/aqls/agent-chassis',
+             'v1.0.575',
+             '{
+                 "requests": {"cpu": "100m", "memory": "256Mi"},
+                 "limits": {"cpu": "500m", "memory": "512Mi"}
+             }'::jsonb,
+             '{
+                 "error": "system.errors.{type}",
+                 "process": "system.agent.{type}.process",
+                 "response": "system.responses.{type}"
+             }'::jsonb,
+             '{
+                 "port": 8080,
+                 "liveness_path": "/health",
+                 "readiness_path": "/ready",
+                 "initial_delay_seconds": 15
+             }'::jsonb,
+             -- Input contract
+             '{
+                 "expects": {
+                     "input_data": {
+                         "domain": "string - the domain name",
+                         "objective": "string - what the site should achieve"
+                     },
+                     "reviewed_brief": "object with company_name, services, about_us, etc",
+                     "site_record": "object with site_id, domain"
+                 },
+                 "required": ["input_data.domain", "reviewed_brief"]
+             }'::jsonb,
+             -- Output contract
+             '{
+                 "produces": {
+                     "pages": "array of {name, title, nav_label, nav_order, sections[], in_header, in_footer}",
+                     "style_collection": "string - name of style collection to use",
+                     "needs_logo": "boolean - whether to generate a logo",
+                     "needs_images": "boolean - whether to generate hero/background images",
+                     "image_prompts": "object with prompts for each needed image"
+                 }
+             }'::jsonb,
+             -- Workflow
+             '{
+                 "processing_mode": "task",
+                 "timeout_seconds": 120,
+                 "workflow": {
+                     "start_step": "load_available_components",
+                     "steps": {
+                         "load_available_components": {
+                             "action": "query_database",
+                             "description": "Load available section components from database",
+                             "config": {
+                                 "query": "SELECT name, display_name, function, category, semantic_tags, description FROM content_components WHERE component_level IN (''section'', ''element'') AND is_active = true ORDER BY category, name",
+                                 "output_format": "array"
+                             },
+                             "next_step": "load_style_collections",
+                             "output_field": "available_components"
+                         },
+
+                         "load_style_collections": {
+                             "action": "query_database",
+                             "description": "Load available style collections",
+                             "config": {
+                                 "query": "SELECT name, display_name, category, description FROM style_collections WHERE is_active = true ORDER BY name",
+                                 "output_format": "array"
+                             },
+                             "next_step": "plan_site",
+                             "output_field": "available_styles"
+                         },
+
+                         "plan_site": {
+                             "action": "execute_llm_prompt",
+                             "description": "LLM creates comprehensive site plan",
+                             "config": {
+                                 "ai_service": {
+                                     "provider": "anthropic",
+                                     "model": "claude-sonnet-4-5-20250514",
+                                     "max_tokens": 4000,
+                                     "api_key_env_var": "ANTHROPIC_API_KEY"
+                                 },
+                                 "input_fields": ["input_data", "reviewed_brief", "available_components", "available_styles"],
+                                 "output_format": "json",
+                                 "prompt_template": "You are a website architect. Plan a website for {{input_data.domain}}.\n\n## Brief\nCompany: {{reviewed_brief.company_name}}\nTagline: {{reviewed_brief.tagline}}\nAbout: {{reviewed_brief.about_us}}\nServices: {{reviewed_brief.services}}\nLeadership Team: {{reviewed_brief.leadership_team}}\nCase Studies: {{reviewed_brief.case_studies}}\nContact Email: {{reviewed_brief.contact_email}}\nContact Phone: {{reviewed_brief.contact_phone}}\nHas Blog: {{reviewed_brief.has_blog}}\nHas Careers: {{reviewed_brief.has_careers}}\nTarget Audience: {{reviewed_brief.target_audience}}\nTone: {{reviewed_brief.tone}}\n\n## Available Section Components\n{{available_components}}\n\n## Available Style Collections\n{{available_styles}}\n\n## Task\nCreate a site plan. Return JSON:\n\n```json\n{\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Home | Company Name\",\n      \"nav_label\": \"Home\",\n      \"nav_order\": 1,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero-gradient\", \"services-grid\", \"testimonials-carousel\", \"cta-contact\"]\n    },\n    {\n      \"name\": \"about\",\n      \"title\": \"About Us | Company Name\",\n      \"nav_label\": \"About\",\n      \"nav_order\": 2,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero-simple\", \"about-content\", \"team-grid\", \"values-section\"]\n    }\n  ],\n  \"style_collection\": \"professional-dark\",\n  \"needs_logo\": true,\n  \"needs_images\": true,\n  \"image_prompts\": {\n    \"logo\": \"Modern minimalist logo for [industry] company, abstract geometric, professional\",\n    \"hero_home\": \"Professional [industry] imagery, modern office environment, abstract\",\n    \"hero_about\": \"Team collaboration, diverse professionals, warm lighting\"\n  }\n}\n```\n\nGuidelines:\n- Use exact component names from the available list where possible\n- If no matching component exists, use a generic name like \"content-block\" or \"custom-section\"\n- Match style to the industry (consulting = professional-dark, creative = minimal-light)\n- Keep navigation to 5-8 items in header\n- Always include: index, about, services/products, contact\n- Add blog/insights page if has_blog is true\n- Add careers page if has_careers is true\n- For image prompts, be specific to the industry and company"
+                             },
+                             "next_step": "validate_plan",
+                             "output_field": "llm_plan"
+                         },
+
+                         "validate_plan": {
+                             "action": "validate_site_plan",
+                             "description": "Validate and normalize the site plan",
+                             "config": {
+                                 "plan_field": "llm_plan",
+                                 "ensure_pages": ["index", "contact"],
+                                 "max_pages": 20,
+                                 "validate_components": true,
+                                 "default_style": "professional-dark"
+                             },
+                             "next_step": "complete",
+                             "output_field": "validated_plan"
+                         },
+
+                         "complete": {
+                             "action": "complete_workflow",
+                             "description": "Return the validated site plan",
+                             "config": {
+                                 "output_field": "validated_plan"
+                             }
+                         }
+                     }
+                 }
+             }'::jsonb
+         )
+    ON CONFLICT (type, version) DO UPDATE SET
+    display_name = EXCLUDED.display_name,
+                              description = EXCLUDED.description,
+                              version = EXCLUDED.version,
+                              default_config = EXCLUDED.default_config,
+                              input_contract = EXCLUDED.input_contract,
+                              output_contract = EXCLUDED.output_contract,
+                              updated_at = now();
+
+COMMIT;
+
+-- put dots in template vars
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        '"You are a website architect. Plan a website for {{.input_data.domain}}.\n\n## Brief\nCompany: {{.reviewed_brief.company_name}}\nTagline: {{.reviewed_brief.tagline}}\nAbout: {{.reviewed_brief.about_us}}\nServices: {{.reviewed_brief.services}}\nLeadership Team: {{.reviewed_brief.leadership_team}}\nCase Studies: {{.reviewed_brief.case_studies}}\nContact Email: {{.reviewed_brief.contact_email}}\nContact Phone: {{.reviewed_brief.contact_phone}}\nHas Blog: {{.reviewed_brief.has_blog}}\nHas Careers: {{.reviewed_brief.has_careers}}\nTarget Audience: {{.reviewed_brief.target_audience}}\nTone: {{.reviewed_brief.tone}}\n\n## Available Section Components\n{{.available_components}}\n\n## Available Style Collections\n{{.available_styles}}\n\n## Task\nCreate a site plan. Return JSON:\n\n```json\n{\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Home | Company Name\",\n      \"nav_label\": \"Home\",\n      \"nav_order\": 1,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero-gradient\", \"services-grid\", \"testimonials-carousel\", \"cta-contact\"]\n    },\n    {\n      \"name\": \"about\",\n      \"title\": \"About Us | Company Name\",\n      \"nav_label\": \"About\",\n      \"nav_order\": 2,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero-simple\", \"about-content\", \"team-grid\", \"values-section\"]\n    }\n  ],\n  \"style_collection\": \"professional-dark\",\n  \"needs_logo\": true,\n  \"needs_images\": true,\n  \"image_prompts\": {\n    \"logo\": \"Modern minimalist logo for [industry] company, abstract geometric, professional\",\n    \"hero_home\": \"Professional [industry] imagery, modern office environment, abstract\",\n    \"hero_about\": \"Team collaboration, diverse professionals, warm lighting\"\n  }\n}\n```\n\nGuidelines:\n- Use exact component names from the available list where possible\n- If no matching component exists, use a generic name like \"content-block\" or \"custom-section\"\n- Match style to the industry (consulting = professional-dark, creative = minimal-light)\n- Keep navigation to 5-8 items in header\n- Always include: index, about, services/products, contact\n- Add blog/insights page if has_blog is true\n- Add careers page if has_careers is true\n- For image prompts, be specific to the industry and company"'
+                     )
+WHERE type = 'site-planner';
+
+-- Fix output_format -> output_type in site-planner
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config}',
+        (default_config->'workflow'->'steps'->'plan_site'->'config') - 'output_format' || '{"output_type": "json"}'::jsonb
+                     )
+WHERE type = 'site-planner';
+
+---
+
+-- FIX: ValidateSitePlanAction needs to look at llm_plan.result, not llm_plan
+-- ============================================================================
+-- The execute_llm_prompt action wraps results as:
+--   {"result": <actual_content>, "type": "json|text"}
+--
+-- But validate_plan was configured with plan_field: "llm_plan"
+-- which extracts {"result":"...", "type":"..."} instead of the actual plan
+-- ============================================================================
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,validate_plan,config,plan_field}',
+        '"llm_plan.result"'
+                     )
+WHERE type = 'site-planner';
+
+-- Verify the fix
+SELECT type,
+       default_config->'workflow'->'steps'->'validate_plan'->'config'->>'plan_field' as plan_field
+FROM agent_definitions
+WHERE type = 'site-planner';
+
+--
+
+fix model and more data paths
+
+    -- Complete fix for site-planner
+-- 1. Fix model name (404 error)
+-- 2. Make template generic/questionnaire-driven
+-- 3. Update input_contract to reflect generic approach
+
+UPDATE agent_definitions
+SET
+    default_config = jsonb_set(
+            jsonb_set(
+                    default_config,
+                    '{workflow,steps,plan_site,config,ai_service,model}',
+                    '"claude-sonnet-4-5-20250929"'
+            ),
+            '{workflow,steps,plan_site,config,prompt_template}',
+            to_jsonb('You are a website architect. Plan a website for {{.input_data.domain}}.
+
+## Site Brief
+{{.reviewed_brief}}
+
+## Available Section Components
+{{.available_components}}
+
+## Available Style Collections
+{{.available_styles}}
+
+## Task
+Based on the brief above, create a comprehensive site plan. Analyze the brief to determine:
+- What pages are needed based on the content provided
+- Which style collection best matches the industry/tone
+- What sections each page should have
+
+Return JSON in this format:
+
+```json
+{
+  "pages": [
+    {
+      "name": "index",
+      "title": "Page Title | Site Name",
+      "nav_label": "Home",
+      "nav_order": 1,
+      "in_header": true,
+      "in_footer": true,
+      "sections": ["section-name-1", "section-name-2"]
+    }
+  ],
+  "style_collection": "style-name",
+  "needs_logo": true,
+  "needs_images": true,
+  "image_prompts": {
+    "logo": "Description for logo generation",
+    "hero_home": "Description for home hero image"
+  }
+}
+```
+
+Guidelines:
+- Use exact component names from the available list where possible
+- If no matching component exists, use descriptive names like "content-block" or "custom-section"
+- Choose style_collection based on industry and tone from the brief
+- Keep header navigation to 5-8 items maximum
+- Always include: index (home) and contact pages
+- Add additional pages based on what content is provided in the brief
+- For image prompts, be specific to the industry and content described'::text)
+                     ),
+    input_contract = '{
+        "required": ["input_data.domain", "reviewed_brief"],
+        "expects": {
+            "input_data": {
+                "domain": "string - the domain name",
+                "objective": "string - what the site should achieve"
+            },
+            "reviewed_brief": "object - questionnaire responses (structure varies by site type)"
+        }
+    }'::jsonb,
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+
+
+-- Verify
+SELECT type,
+       default_config->'workflow'->'steps'->'plan_site'->'config'->'ai_service'->>'model' as model,
+    input_contract
+FROM agent_definitions
+WHERE type = 'site-planner';
+
+---
+
+-- ============================================================================
+-- Update site-planner agent to use stricter component selection
+--
+-- The current prompt says "If no matching component exists, use descriptive
+-- names like 'content-block' or 'custom-section'" which causes the LLM to
+-- invent component names that don't exist in the database.
+--
+-- This update makes the prompt strictly require using existing component names.
+-- ============================================================================
+
+-- First, let's see the current configuration
+-- SELECT type, default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template'
+-- FROM agent_definitions
+-- WHERE type = 'site-planner';
+
+-- Update the site-planner prompt to be stricter
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        to_jsonb(
+                'Plan a website for {{.input_data.domain}}.
+
+                ## Site Brief
+                {{.reviewed_brief}}
+
+                ## Available Section Components
+                The following components are available in our component library. You MUST use ONLY these exact component names in the "sections" arrays:
+
+                {{range .available_components}}
+                - {{.name}} ({{.display_name}}): {{.function}} - {{.description}}
+                {{end}}
+
+                ## Available Style Collections
+                {{.available_styles}}
+
+                ## Task
+                Create a comprehensive site plan using ONLY the components listed above.
+
+                Return JSON in this format:
+                ```json
+                {
+                  "pages": [
+                    {
+                      "name": "index",
+                      "title": "Page Title | Site Name",
+                      "nav_label": "Home",
+                      "nav_order": 1,
+                      "in_header": true,
+                      "in_footer": true,
+                      "sections": ["hero", "features", "testimonials", "call_to_action"]
+                    }
+                  ],
+                  "style_collection": "style-name",
+                  "needs_logo": true,
+                  "needs_images": true,
+                  "image_prompts": {
+                    "logo": "Description for logo generation",
+                    "hero_home": "Description for home hero image"
+                  }
+                }
+                ```
+
+                STRICT RULES:
+                1. ONLY use component names from the "Available Section Components" list above
+                2. DO NOT invent new component names - if unsure, use "hero" for hero sections, "features" for feature lists, "call_to_action" for CTAs
+                3. Use these standard mappings:
+                   - For any hero/banner at page top: use "hero" or page-specific variants like "contact-hero", "services-hero", "about-hero"
+                   - For feature lists: use "features"
+                   - For service listings: use "services-grid"
+                   - For testimonials/quotes: use "testimonials" or "social_proof"
+                   - For calls to action: use "call_to_action"
+                   - For contact forms: use "contact-form"
+                   - For contact details: use "contact-info"
+                   - For team sections: use "leadership-team"
+                   - For case studies: use "case-studies-list"
+                   - For about content: use "about-content"
+                   - For differentiators/why-us: use "differentiators-section"
+
+                4. Choose style_collection based on industry and tone from the brief
+                5. Keep header navigation to 5-8 items maximum
+                6. Always include: index (home) and contact pages
+                7. For image prompts, be specific to the industry and content described'::text
+        )
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+-- Verify the update
+SELECT type,
+       substring(default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template', 1, 500) as prompt_preview
+FROM agent_definitions
+WHERE type = 'site-planner';
+
+-- ============================================================================
+-- Also update the component query to include more useful info for the LLM
+-- ============================================================================
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,load_available_components,config,query}',
+        '"SELECT name, display_name, \"function\", category, description FROM content_components WHERE component_level IN (''section'', ''element'') AND is_active = true ORDER BY category, name"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+-- Confirm changes
+SELECT
+    type,
+    default_config->'workflow'->'steps'->'load_available_components'->'config'->>'query' as component_query
+FROM agent_definitions
+WHERE type = 'site-planner';
+
+---------------
+
+-- always generate image prompts
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        '"Plan a website for {{.input_data.domain}}.\n\n## Site Brief\n{{.reviewed_brief}}\n\n## Available Section Components\nThe following components are available in our component library. You MUST use ONLY these exact component names in the \"sections\" arrays:\n\n{{range .available_components}}\n- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}\n{{end}}\n\n## Available Style Collections\n{{.available_styles}}\n\n## Task\nCreate a comprehensive site plan using ONLY the components listed above.\n\nReturn JSON in this format:\n```json\n{\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Page Title | Site Name\",\n      \"nav_label\": \"Home\",\n      \"nav_order\": 1,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero\", \"features\", \"testimonials\", \"call_to_action\"]\n    }\n  ],\n  \"style_collection\": \"style-name\",\n  \"needs_logo\": true,\n  \"needs_images\": true,\n  \"image_prompts\": {\n    \"logo\": \"Description for logo generation\",\n    \"hero_home\": \"Description for home hero image\"\n  }\n}\n```\n\nSTRICT RULES:\n1. ONLY use component names from the \"Available Section Components\" list above\n2. DO NOT invent new component names - if unsure, use \"hero\" for hero sections, \"features\" for feature lists, \"call_to_action\" for CTAs\n3. Use these standard mappings:\n   - For any hero/banner at page top: use \"hero\" or page-specific variants like \"contact-hero\", \"services-hero\", \"about-hero\"\n   - For feature lists: use \"features\"\n   - For service listings: use \"services-grid\"\n   - For testimonials/quotes: use \"testimonials\" or \"social_proof\"\n   - For calls to action: use \"call_to_action\"\n   - For contact forms: use \"contact-form\"\n   - For contact details: use \"contact-info\"\n   - For team sections: use \"leadership-team\"\n   - For case studies: use \"case-studies-list\"\n   - For about content: use \"about-content\"\n   - For differentiators/why-us: use \"differentiators-section\"\n\n4. Choose style_collection based on industry and tone from the brief\n5. Keep header navigation to 5-8 items maximum\n6. Always include: index (home) and contact pages\n\nIMAGE GENERATION (REQUIRED):\n- ALWAYS set needs_logo: true and needs_images: true\n- ALWAYS provide image_prompts with at minimum:\n  - \"logo\": A detailed prompt describing a professional logo for this business (include industry, style, colors)\n  - \"hero_home\": A detailed prompt for the homepage hero background image (include mood, imagery, style)\n- Image prompts should be 2-3 sentences describing the desired image in detail\n- Be specific about colors, mood, style, and any relevant imagery for the industry"'
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+--
+-- a bit more to image prompts
+-- Update site-planner to always generate image prompts
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        $prompt$"Plan a website for {{.input_data.domain}}.
+
+## Site Brief
+{{.reviewed_brief}}
+
+## Available Section Components
+The following components are available in our component library. You MUST use ONLY these exact component names in the \"sections\" arrays:
+
+{{range .available_components}}
+- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}
+{{end}}
+
+## Available Style Collections
+{{.available_styles}}
+
+## Task
+Create a comprehensive site plan using ONLY the components listed above.
+
+Return JSON in this format:
+```json
+{
+  \"pages\": [
+    {
+      \"name\": \"index\",
+      \"title\": \"Page Title | Site Name\",
+      \"nav_label\": \"Home\",
+      \"nav_order\": 1,
+      \"in_header\": true,
+      \"in_footer\": true,
+      \"sections\": [\"hero\", \"features\", \"testimonials\", \"call_to_action\"]
+    }
+  ],
+  \"style_collection\": \"style-name\",
+  \"needs_logo\": true,
+  \"needs_images\": true,
+  \"image_prompts\": {
+    \"logo\": \"Description for logo generation\",
+    \"hero_home\": \"Description for home hero image\"
+  }
+}
+```
+
+STRICT RULES:
+1. ONLY use component names from the \"Available Section Components\" list above
+2. DO NOT invent new component names - if unsure, use \"hero\" for hero sections, \"features\" for feature lists, \"call_to_action\" for CTAs
+3. Use these standard mappings:
+   - For any hero/banner at page top: use \"hero\" or page-specific variants like \"contact-hero\", \"services-hero\", \"about-hero\"
+   - For feature lists: use \"features\"
+   - For service listings: use \"services-grid\"
+   - For testimonials/quotes: use \"testimonials\" or \"social_proof\"
+   - For calls to action: use \"call_to_action\"
+   - For contact forms: use \"contact-form\"
+   - For contact details: use \"contact-info\"
+   - For team sections: use \"leadership-team\"
+   - For case studies: use \"case-studies-list\"
+   - For about content: use \"about-content\"
+   - For differentiators/why-us: use \"differentiators-section\"
+
+4. Choose style_collection based on industry and tone from the brief
+5. Keep header navigation to 5-8 items maximum
+6. Always include: index (home) and contact pages
+
+IMAGE GENERATION (REQUIRED - DO NOT SKIP):
+You MUST include needs_logo, needs_images, and image_prompts in your response.
+
+- Set needs_logo: true (always)
+- Set needs_images: true (always)
+- Provide image_prompts object with BOTH of these keys:
+  - \"logo\": A detailed 2-3 sentence prompt for logo generation. Describe the style (modern, classic, minimal), colors that match the brand, and any relevant imagery for the industry.
+  - \"hero_home\": A detailed 2-3 sentence prompt for the homepage hero background. Describe the mood (professional, energetic, calm), imagery type (abstract, photographic, geometric), and colors/atmosphere that fit the brand.
+
+Example image_prompts:
+{
+  \"logo\": \"A modern, minimal logo for a tech consulting company. Use clean geometric shapes with a navy blue and teal color palette. The design should convey innovation and trustworthiness.\",
+  \"hero_home\": \"A professional, abstract background with flowing gradients in deep navy and teal. Include subtle geometric patterns that suggest technology and connectivity. The mood should be confident and forward-thinking.\"
+}"$prompt$
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+
+-- same as above but fixed json
+
+-- Update site-planner to always generate image prompts (with escaped newlines)
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,plan_site,config,prompt_template}',
+        '"Plan a website for {{.input_data.domain}}.\n\n## Site Brief\n{{.reviewed_brief}}\n\n## Available Section Components\nThe following components are available in our component library. You MUST use ONLY these exact component names in the \"sections\" arrays:\n\n{{range .available_components}}\n- {{.name}} ({{.display_name}}): {{.function}} - {{.description}}\n{{end}}\n\n## Available Style Collections\n{{.available_styles}}\n\n## Task\nCreate a comprehensive site plan using ONLY the components listed above.\n\nReturn JSON in this format:\n```json\n{\n  \"pages\": [\n    {\n      \"name\": \"index\",\n      \"title\": \"Page Title | Site Name\",\n      \"nav_label\": \"Home\",\n      \"nav_order\": 1,\n      \"in_header\": true,\n      \"in_footer\": true,\n      \"sections\": [\"hero\", \"features\", \"testimonials\", \"call_to_action\"]\n    }\n  ],\n  \"style_collection\": \"style-name\",\n  \"needs_logo\": true,\n  \"needs_images\": true,\n  \"image_prompts\": {\n    \"logo\": \"Description for logo generation\",\n    \"hero_home\": \"Description for home hero image\"\n  }\n}\n```\n\nSTRICT RULES:\n1. ONLY use component names from the \"Available Section Components\" list above\n2. DO NOT invent new component names - if unsure, use \"hero\" for hero sections, \"features\" for feature lists, \"call_to_action\" for CTAs\n3. Use these standard mappings:\n   - For any hero/banner at page top: use \"hero\" or page-specific variants like \"contact-hero\", \"services-hero\", \"about-hero\"\n   - For feature lists: use \"features\"\n   - For service listings: use \"services-grid\"\n   - For testimonials/quotes: use \"testimonials\" or \"social_proof\"\n   - For calls to action: use \"call_to_action\"\n   - For contact forms: use \"contact-form\"\n   - For contact details: use \"contact-info\"\n   - For team sections: use \"leadership-team\"\n   - For case studies: use \"case-studies-list\"\n   - For about content: use \"about-content\"\n   - For differentiators/why-us: use \"differentiators-section\"\n\n4. Choose style_collection based on industry and tone from the brief\n5. Keep header navigation to 5-8 items maximum\n6. Always include: index (home) and contact pages\n\nIMAGE GENERATION (REQUIRED - DO NOT SKIP):\nYou MUST include needs_logo, needs_images, and image_prompts in your response.\n\n- Set needs_logo: true (always)\n- Set needs_images: true (always)\n- Provide image_prompts object with BOTH of these keys:\n  - \"logo\": A detailed 2-3 sentence prompt for logo generation. Describe the style (modern, classic, minimal), colors that match the brand, and any relevant imagery for the industry.\n  - \"hero_home\": A detailed 2-3 sentence prompt for the homepage hero background. Describe the mood (professional, energetic, calm), imagery type (abstract, photographic, geometric), and colors/atmosphere that fit the brand.\n\nExample image_prompts:\n{\n  \"logo\": \"A modern, minimal logo for a tech consulting company. Use clean geometric shapes with a navy blue and teal color palette. The design should convey innovation and trustworthiness.\",\n  \"hero_home\": \"A professional, abstract background with flowing gradients in deep navy and teal. Include subtle geometric patterns that suggest technology and connectivity. The mood should be confident and forward-thinking.\"\n}"'::jsonb
+                     ),
+    updated_at = NOW()
+WHERE type = 'site-planner';
+

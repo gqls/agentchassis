@@ -1,0 +1,181 @@
+{
+  "task": "T",
+  "method": "semantic",
+  "candidates": [
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/thin_slice_run/assembler.go",
+      "name": "typeSignature",
+      "kind": "func",
+      "score": 0.6572113788030605,
+      "rank": 1
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/thin_slice_run/assembler(2).go",
+      "name": "typeSignature",
+      "kind": "func",
+      "score": 0.6536318597874372,
+      "rank": 2
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files_old/go_files/assembler.go",
+      "name": "typeSignature",
+      "kind": "func",
+      "score": 0.6459051691747878,
+      "rank": 3
+    },
+    {
+      "path": "scripts/documentation_project/02/assembler.go",
+      "name": "typeSignature",
+      "kind": "func",
+      "score": 0.6452969656071079,
+      "rank": 4
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files_old/assembler(4).go",
+      "name": "typeSignature",
+      "kind": "func",
+      "score": 0.6426789383093827,
+      "rank": 5
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files_old/assembler(3).go",
+      "name": "typeSignature",
+      "kind": "func",
+      "score": 0.6424644810739312,
+      "rank": 6
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files_old/assembler(2).go",
+      "name": "typeSignature",
+      "kind": "func",
+      "score": 0.6419827132468264,
+      "rank": 7
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/contextkit/cmd/assembler/main.go",
+      "name": "typeSignature",
+      "kind": "func",
+      "score": 0.639735820662409,
+      "rank": 8
+    },
+    {
+      "path": "docs/agent_docs/docs024_key_docs_latest/adoption/docubundle/assembler(2).go",
+      "name": "typeSignature",
+      "kind": "func",
+      "score": 0.6352463800991747,
+      "rank": 9
+    },
+    {
+      "path": "internal/adapters/imagegenerator/stability/api/types.go",
+      "name": "TextPrompt",
+      "kind": "struct",
+      "score": 0.6177583035317851,
+      "rank": 10
+    },
+    {
+      "path": "platform/orchestration/actions/thunder_ssh_get_status_dispatch.go",
+      "name": "DispatchThunderSSHGetStatusAction",
+      "kind": "func",
+      "score": 0.6145109101048722,
+      "rank": 11
+    },
+    {
+      "path": "test/tools/log-analyzer/parse_test_logs.go",
+      "name": "parseTimestamp",
+      "kind": "func",
+      "score": 0.6118782639731107,
+      "rank": 12
+    },
+    {
+      "path": "platform/orchestration/actions/storage_actions.go",
+      "name": "getStringOrDefault",
+      "kind": "func",
+      "score": 0.6116190356766895,
+      "rank": 13
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/chassis-drafts/code_symbols_actions(1).go",
+      "name": "trigramSearchCodeSymbols",
+      "kind": "func",
+      "score": 0.6108979630497356,
+      "rank": 14
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/chassis-drafts/code_symbols_actions(4).go",
+      "name": "trigramSearchCodeSymbols",
+      "kind": "func",
+      "score": 0.608924943538104,
+      "rank": 15
+    },
+    {
+      "path": "platform/orchestration/actions/extract_design_fingerprint_action.go",
+      "name": "fpExtractFonts",
+      "kind": "func",
+      "score": 0.6087633703484799,
+      "rank": 16
+    },
+    {
+      "path": "internal/adapters/imagegenerator/stability/api/client.go",
+      "name": "TextToImage",
+      "kind": "func",
+      "score": 0.6086505204783046,
+      "rank": 17
+    },
+    {
+      "path": "platform/orchestration/actions/fetch_agent_questionnaire.go",
+      "name": "tryExtractFromStepResult",
+      "kind": "func",
+      "score": 0.6078161057729189,
+      "rank": 18
+    },
+    {
+      "path": "internal/auth-service/jwt/claims.go",
+      "name": "GetTokenFromString",
+      "kind": "func",
+      "score": 0.6076649447527763,
+      "rank": 19
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/thin_slice_run/analyser.go",
+      "name": "TypeDef",
+      "kind": "struct",
+      "score": 0.6073953638588164,
+      "rank": 20
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/thin_slice_run/analyser(2).go",
+      "name": "TypeDef",
+      "kind": "struct",
+      "score": 0.6070885642797784,
+      "rank": 21
+    },
+    {
+      "path": "internal/adapters/thunder/ssh_exec_actions.go",
+      "name": "handleSSHGetStatus",
+      "kind": "func",
+      "score": 0.6067057579780638,
+      "rank": 22
+    },
+    {
+      "path": "cmd/test-spawning/main.go",
+      "name": "testDirectSpawn",
+      "kind": "func",
+      "score": 0.606700913826894,
+      "rank": 23
+    },
+    {
+      "path": "docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files_old/resolve_targets.go",
+      "name": "taskTokens",
+      "kind": "func",
+      "score": 0.6065749685618308,
+      "rank": 24
+    },
+    {
+      "path": "internal/adapters/thunder/decommission_action.go",
+      "name": "zeroIfInvalid",
+      "kind": "func",
+      "score": 0.6062579017843367,
+      "rank": 25
+    }
+  ]
+}

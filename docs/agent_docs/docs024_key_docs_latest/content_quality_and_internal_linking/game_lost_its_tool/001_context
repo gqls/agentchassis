@@ -1,0 +1,26 @@
+https://claude.ai/chat/6f220af3-cf78-4fe3-b3a8-284e2883116f
+
+gamesdesign game-pathfinding lost its playable A* tool: link_resolution_rebuild is handled by page-build-handler, which runs the full page-content-writer; the writer plans sections from the page spec, the interactive tool is a page_component not in the spec, and save_page_sections' DELETE+INSERT drops it. The content-regression guard missed it because the loss is interactive markup/JS, not prose. Layer 1: extend that guard to block/escalate an interactive->non-interactive overwrite (reuse the <canvas / game-container / tool-page signal on rendered_html). Layer 2: preserve non-spec interactive sections through rebuild (in load_page_sections_from_spec / plan_sections). Also stamp source_item_id into page_component_history.
+
+cd docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/contextkit
+
+go run ./cmd/bundle \
+  -analysis /tmp/analysis_repo.json -root ~/projects/agentchassis \
+  -constitution thin_slice_constitution.md -step debug \
+  -task "gamesdesign game-pathfinding lost its playable A* tool: link_resolution_rebuild is handled by page-build-handler, which runs the full page-content-writer; the writer plans sections from the page spec, the interactive tool is a page_component not in the spec, and save_page_sections' DELETE+INSERT drops it. The content-regression guard missed it because the loss is interactive markup/JS, not prose. Layer 1: extend that guard to block/escalate an interactive->non-interactive overwrite (reuse the <canvas / game-container / tool-page signal on rendered_html). Layer 2: preserve non-spec interactive sections through rebuild (in load_page_sections_from_spec / plan_sections). Also stamp source_item_id into page_component_history." \
+  -scope platform/orchestration/actions/save_page_sections_action.go:SavePageSectionsAction \
+  -scope platform/orchestration/actions/plan_sections_action.go \
+  -scope platform/orchestration/actions/load_page_sections_from_spec_action.go \
+  -include platform/orchestration/actions/registry.go \
+  -doc docs/agent_docs/docs024_key_docs_latest/016_debugging_guide_v2_56.md \
+  -doc docs/agent_docs/docs024_key_docs_latest/026_component_regeneration_flow_1_.md \
+  -doc docs/agent_docs/docs024_key_docs_latest/003_contracts_and_standards_7_.md \
+  -doc docs/agent_docs/docs024_key_docs_latest/020_tool_lifecycle_2_.md \
+  -doc docs/agent_docs/docs024_key_docs_latest/019_tool_library_2_.md \
+  -psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db' \
+  -schema-tables page_components,pages,page_component_history,site_work_items \
+  -runtime-site gamesdesign.co.uk -runtime-page game-pathfinding \
+  -capabilities -df-filter snapshot \
+  -out /tmp/bundle_clobber.md
+
+  cp /tmp/bundle_clobber.md ~/projects/agentchassis

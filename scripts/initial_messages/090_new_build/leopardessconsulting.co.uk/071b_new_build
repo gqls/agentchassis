@@ -1,0 +1,1045 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+# Clean up any leftover kcat pods
+kubectl -n kafka delete pod kcat-producer-hitl-test --ignore-not-found=true 2>/dev/null || true
+kubectl -n kafka delete pod kcat-test --ignore-not-found=true 2>/dev/null || true
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests, orchestration_state_audit, awaited_requests CASCADE;"
+
+# 4. Delete ALL spawned agent jobs
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+# scale other agents down
+kubectl -n ai-persona-system scale deployment/reasoning-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
+
+kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=1
+
+# 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
+# List all job topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep "^job\."
+
+# Delete all job topics (be careful!)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash -c '
+for topic in $(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep "^job\."); do
+  echo "Deleting topic: $topic"
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic "$topic"
+done
+'
+
+# delete initial topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.requests
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.responses
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.generic.responses
+
+sleep 2
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh
+  --create --topic system.generic.responses
+  --bootstrap-server localhost:9092
+  --partitions 1
+  --replication-factor 1
+
+# reset all offsets
+echo 'resetting all offsets'
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+kubectl -n ai-persona-system delete pods -l agent-type=calculator
+
+# 6. Scale back up
+sleep 5
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
+kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
+kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
+
+# Instead of resetting offsets, DELETE the consumer group
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+
+# Delete the consumer group (forces fresh start)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --group generic-requests-group
+
+sleep 2
+
+# Now start the agent - it will create a fresh group with FirstOffset
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+# try creating it again
+# kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+#   /opt/kafka/bin/kafka-topics.sh
+#   --create --topic system.generic.responses
+#   --bootstrap-server localhost:9092
+#   --partitions 1
+#   --replication-factor 1
+
+
+kubectl -n kafka delete pod kcat-producer-brochure-confirm
+
+
+
+
+
+^^^^^^^^^^  ^^  ^^  ^^^^^^^^^^
+# =======
+#reset
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+sleep 5
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+#kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+
+#kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+#/opt/kafka/bin/kafka-consumer-groups.sh \
+#  --bootstrap-server localhost:9092 \
+ # --reset-offsets \
+#  --to-earliest \
+ # --all-groups   \
+#  --all-topics    \
+ # --execute
+
+#kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+# Check consumer group details
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --describe \
+  --group generic-requests-group
+
+========================================================================
+
+
+========================================================================
+unstick awaited requests
+UPDATE awaited_requests
+SET status = 'waiting',
+    processing_started_at = NULL,
+    processing_pod = NULL
+WHERE status = 'processing'
+  AND processing_started_at < NOW() - INTERVAL '5 minutes';
+
+========================================================================
+
+====--------------
+==================
+==================
+  listen on a topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-console-consumer.sh   --bootstrap-server localhost:9092   --topic system.agent.generic.requests   --from-beginning   --property print.headers=true
+==================
+==================
+===
+Aspect		Option 1 (Intake)		Option 2 (Direct)Group Type
+		intake-orchestrator    		landing-page-builder
+Classification 	Yes (site-classifier runs)	No (skipped)
+BriefingYes (	briefing-agent runs)		No (brief_data provided)
+HITL Points	2 (can skip with hitl_mode)	0
+Use Case	Production flow			Testing builder pipeline
+==================
+==================
+====--------------
+========================================================================
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-console-consumer.sh   --bootstrap-server localhost:9092   --topic job.c897233a-61536014-multipage-website-builder-spawn_builder.requests   --from-beginning   --property print.headers=true
+
+========================================================================
+
+
+
+BROCHURE Site Start - START 0
+- 0 -
+
+# Generate unique IDs
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+ORCHESTRATION_NAME="intake-brochure-test-$(date +%Y%m%d-%H%M%S)"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Starting BROCHURE Site Test Orchestration"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Time:             $TIMESTAMP"
+echo "========================================="
+echo ""
+echo "SAVE THIS FOR HITL RESPONSES:"
+echo "CORRELATION_ID=$CORRELATION_ID"
+echo "ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo "HITL_REQUEST_ID="
+echo ""
+echo ""
+echo "========================================="
+echo ""
+
+# Send orchestration start message
+kubectl -n kafka run -i --rm kcat-producer-hitl-test \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=$ORCHESTRATION_NAME \
+-H step_name=start \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=cli \
+-H responses_topic=system.generic.responses <<JSON
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a clean, welcoming, and professional corporate website for Leopardess Consulting that clearly communicates who we are and the real value we deliver. Position us as experts who build smart, collaborative AI agent teams that rapidly turn ideas into polished results — such as fully functional websites, custom calculators and tools, professional business plans and market research reports, personalised planners, mood boards, mind maps, stunning presentations, price comparisons, puzzle generators, and more — all delivered in minutes instead of weeks.\n\nKey values: sharp insight, quiet strength, agility, precision, reliability, and a friendly, human-centred approach.\n\nCore site sections:\n• Home page with strong hero section showing benefits and speed\n• About Us (who we are, our story, values)\n• Services (cards for Automated Website Solutions, Custom Tools & Calculators, Reports & Business Plans, Creative & Personalised Generators)\n• Case Studies / Examples\n• Insights / Blog\n• Careers\n• Contact\n\nInclude a dedicated Why Multi-Agent AI? or Single LLM vs Our Multi-Agent Framework section (ideally on the home page or in About Us) that compares our approach with prompting a single large language model. Highlight key advantages:\n• Much higher reliability and lower error rate through structured planning, review, and verification agents\n• Handles large, complex projects (full multi-page websites, detailed reports, integrated calculators) that single LLMs often struggle with due to token limits or lack of oversight\n• True end-to-end automation: planning → design → content → images → testing → secure deployment (vs. single LLM just suggesting code/text)\n• Built-in quality control, brand consistency, and self-correction via specialised agents\n• Better specialisation (dedicated agents for UX, finance, visuals, verification, deployment)\n• Production-ready results instead of drafts that need heavy manual fixing\n\nUse the AIDA model (Attention, Interest, Desire, Action) for persuasive, benefit-focused copy throughout. Emphasise differentiators: speed, end-to-end automation, impressive quality, and no-maintenance deployments.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites","target_audience":"Small business owners, startup founders, freelancers, consultants, marketers, solopreneurs, and busy teams who want high-quality websites, tools, reports, planners, and visuals quickly — without hiring expensive design/development teams or waiting weeks for results."}}
+JSON
+
+echo ""
+echo "========================================="
+echo "Orchestration started!"
+echo "========================================="
+echo ""
+echo "NEXT STEPS:"
+echo ""
+echo "1. Wait 5-10 seconds for processing"
+echo ""
+echo "2. Find the orchestration_id:"
+echo "   kubectl logs -n ai-persona-system -l app=agent-chassis --tail=100 | grep \"$CORRELATION_ID\" | grep orchestration_id"
+echo ""
+echo "3. Find the first HITL request_id (hitl_confirm_type):"
+echo "   kubectl logs -n ai-persona-system -l app=agent-chassis --tail=200 | grep \"$CORRELATION_ID\" | grep hitl_confirm_type | grep 'Action requires waiting'"
+echo ""
+echo "4. Extract the request_id from that log line"
+echo ""
+echo "5. Run: ./send_brochure_confirm_FIXED.sh <CORRELATION_ID> <ORCH_ID> <HITL_REQUEST_ID>"
+echo ""
+echo "IDs TO SAVE:"
+echo "  CORRELATION_ID=$CORRELATION_ID"
+echo ""
+
+
+
+^^
+backup leopardess too formal too high executive
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain": "leopardessconsulting.co.uk","objective":"Build a welcoming, straightforward corporate website for Leopardess Consulting; a hands-on web and digital transformation consultancy with a knack for turning ideas into real results. The site should give a clear picture of who we are, our guiding values (like sharp insight and quiet strength), and our services in strategy, operations, and digital transformation. We'd love to highlight exciting possibilities for AI agents in areas like product development, finance, marketing, management, and HR. Include an insights blog for sharing practical thoughts, a careers section to attract great people, and simple ways to get in touch. Target audience: C-suite leaders, HR directors, and senior managers at mid-to-large businesses looking for thoughtful, effective consulting partners.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites"}}
+backup didn't have llm comparison
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"},"input_data":{"domain":"leopardessconsulting.co.uk","objective":"Create a clean, welcoming, and professional corporate website for Leopardess Consulting that clearly communicates who we are and the real value we deliver. Position us as experts who build smart, collaborative AI agent teams that rapidly turn ideas into polished results — such as fully functional websites, custom calculators and tools, professional business plans and market research reports, personalised planners (travel, fitness, etc.), mood boards, mind maps, stunning presentations, price comparisons, puzzle generators, and more — all delivered in minutes instead of weeks.\n\nKey values to highlight: sharp insight, quiet strength, agility, precision, reliability, and a friendly, human-centred approach.\n\nCore site sections to include:\n• Home page with a strong hero section showing benefits and speed\n• About Us (who we are, our story, values)\n• Services (clear cards for Automated Website Solutions, Custom Tools & Calculators, Reports & Business Plans, Creative & Personalised Generators)\n• Case Studies / Examples\n• Insights / Blog (practical AI and digital tips)\n• Careers (attracting talent)\n• Contact / Get in Touch (simple form + email)\n\nUse the AIDA model (Attention, Interest, Desire, Action) for persuasive, benefit-focused copy throughout. Emphasise our key differentiators: speed, end-to-end automation, impressive quality, and no-maintenance deployments.","model":"AIDA","hitl_mode":"interactive","repo_name":"sites","target_audience":"Small business owners, startup founders, freelancers, consultants, marketers, solopreneurs, and busy teams who want high-quality websites, tools, reports, planners, and visuals quickly — without hiring expensive design/development teams or waiting weeks for results."}}
+
+===
+==========================
+==========================
+==========================
+
+
+BROCHURE (FIRST) Confirm Type
+----------------------
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+===========================
+
+-- 1 ----
+
+CORRELATION_ID=9e08ffee-c8af-479f-81c4-1823e8c4cd5d
+ORCHESTRATION_ID=c1004c61-c6f8-47dd-b949-83e8ec110512
+HITL_REQUEST_ID=266367e5-6ac7-4011-a5e4-e50ca65a52d4
+
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Sending HITL First Response: Confirm BROCHURE Type"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  HITL Request ID:     $HITL_REQUEST_ID"
+echo "  Message ID:          $MESSAGE_ID"
+echo "  Step:                hitl_confirm_type"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-brochure-confirm \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.responses \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=response \
+-H client_id=demo_client \
+-H in_response_to_request_id=$HITL_REQUEST_ID \
+-H in_response_to_step_name=hitl_confirm_type \
+-H status=complete \
+-H sender_agent_type=human \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"pageflow-builder","status":"confirmed","message":"Site type confirmed by user"}}
+JSON
+
+echo ""
+echo "========================================="
+echo "HITL Response sent!"
+echo "========================================="
+echo ""
+echo "Check if workflow continued:"
+echo "  kubectl logs -n ai-persona-system -l app=agent-chassis --tail=50 | grep \"$CORRELATION_ID\" | grep -E 'Found awaited|fetch_questionnaire'"
+echo ""
+echo "Find next HITL request_id (hitl_review_brief):"
+echo "  kubectl logs -n ai-persona-system -l app=agent-chassis --tail=200 | grep \"$CORRELATION_ID\" | grep hitl_review_brief | grep 'Action requires waiting' | grep -o '\"request_id\":\"[^\"]*\"'"
+echo ""
+
+
+
+
+** ^^ **
+finding request id:
+Execution paused - waiting for responses
+Action requires waiting - pausing execution
+in processActionResult was ok creating resultMap
+a few line earlier has request_token in result map
+
+kubectl logs -n default -l app=agent-chassis --tail=200 | \
+  grep "<CORRELATION_ID>" | \
+  grep "hitl_confirm_type" | \
+  grep "Action requires waiting"
+
+
+this one made it into a content-site-builder
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"content-site-builder","status":"confirmed","message":"Site type confirmed by user"}}
+this one was multipage-website-builder
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_confirm_type","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"human_response":true,"site_type":"brochure","recommended_builder":"multipage-website-builder","status":"confirmed","message":"Site type confirmed by user"}}
+
+====================
+====================
+====================
+
+
+
+SEND BROCHURE REVIEW BRIEF (SECOND fill - actual filled hitl review brief)
+------------------------------------
+
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+--- 2 2 ---
+
+CORRELATION_ID=9e08ffee-c8af-479f-81c4-1823e8c4cd5d
+ORCHESTRATION_ID=c1004c61-c6f8-47dd-b949-83e8ec110512
+HITL_REQUEST_ID=e9b548b4-7ebb-4fcf-a283-a7d22e2285df
+
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Sending HITL 2nd Response: BROCHURE Questionnaire"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  HITL Request ID:     $HITL_REQUEST_ID"
+echo "  Message ID:          $MESSAGE_ID"
+echo "  Step:                hitl_review_brief"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-brochure-brief \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.responses \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=response \
+-H client_id=demo_client \
+-H in_response_to_request_id=$HITL_REQUEST_ID \
+-H in_response_to_step_name=hitl_review_brief \
+-H status=complete \
+-H sender_agent_type=human \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Smart AI Teams That Build Websites, Tools & Reports in Minutes","about_us":"At Leopardess Consulting, we create friendly AI agent teams that work together like a well-organised group of experts. They handle everything from planning and design to writing content, creating images, and launching finished work. Whether you need a complete website, a professional business plan, a mortgage calculator, market research report, or a personalised travel planner – we turn your idea into a polished, ready-to-use result in just minutes.","services":[{"name":"Automated Website Solutions","description":"Get a beautiful, fully working website launched in minutes. Our AI agents handle planning, design, content, images, SEO, and secure deployment on Cloudflare – perfect for business sites, tool pages, calculators, or portfolio showcases."},{"name":"Custom AI Tools & Calculators","description":"Instantly create practical web tools such as mortgage calculators, tiling calculators, price comparison tools, network speed estimators, or any specialised calculator you need. Fully functional, mobile-friendly, and ready to use or embed on your site."},{"name":"Reports, Plans & Research","description":"Receive professional business plans, market research reports, price comparisons, sustainability assessments, or visually stunning presentations pulled from research papers – all complete with charts, mind maps, and clear recommendations."},{"name":"Creative & Personalised Generators","description":"Quickly generate mood boards, mind maps, personalised travel or fitness planners, puzzle and game creators, fun maps from LinkedIn profiles, custom quizzes, or eye-catching imagery packs."}],"target_audience":"Small business owners, startups, consultants, marketers, and busy teams who want impressive digital results without spending weeks or hiring multiple specialists","tone":"professional yet approachable","key_differentiators":"Results in minutes instead of weeks\nEnd-to-end automation: planning, design, writing, images, testing & launch\nWide range of outputs: websites, calculators, reports, planners, mood boards & more\nReliable, secure delivery with no ongoing maintenance headaches\nClear, human-friendly results that feel hand-crafted","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"Peter is a technology strategist passionate about building practical AI agent teams that deliver real value fast. He specialises in helping businesses create websites, tools, reports and planners that save time and impress clients."}],"case_studies":[{"title":"Rapid Business Plan + Marketing Website for a Startup","summary":"A founder preparing for investor meetings needed a professional business plan and a clean marketing site. Our AI agents produced a full plan with financials and visuals, then built and launched a polished website on Cloudflare in under an hour."},{"title":"Custom Mortgage Calculator Tool for a Property Advisor","summary":"A financial advisor wanted a branded mortgage calculator tool. We created a fully functional web calculator with affordability maps, comparison charts, and professional styling, then deployed it as a ready-to-share page."},{"title":"Market Research Report & Presentation for a Small Company","summary":"A local business needed quick insights on competitors and trends. Our agents delivered a clear report with charts, price comparisons, and a visually stunning slide presentation ready for their team meeting."}],"contact_email":"leopardess@contactforsales.com"}}
+JSON
+
+echo ""
+echo "========================================="
+echo "HITL Response sent!"
+echo "========================================="
+echo ""
+echo "Check if workflow continued:"
+echo "  kubectl logs -n ai-persona-system -l app=agent-chassis --tail=50 | grep \"$CORRELATION_ID\" | grep -E 'Found awaited|spawn_builder|call_builder'"
+echo ""
+echo "Monitor builder progress:"
+echo "  kubectl logs -n ai-persona-system -l app=agent-chassis --tail=100 | grep \"$CORRELATION_ID\""
+echo ""
+
+
+
+
+old:
+leopardess consulting
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Agile AI Agents: Move Swiftly into Digital Transformation with Grace and Precision","about_us":"At Leopardess Consulting, we like building smart, hierarchical AI agent systems that help businesses adapt quickly and effectively. Using tools like Kubernetes for orchestration, Kafka for smooth messaging, and Postgres for reliable storage, we create solutions that automate complex workflows – think spinning up and launching full multipage websites on Cloudflare in no time. We're here to help you make the most of AI with practical, dependable approaches that suit your team.","services":[{"name":"Automated Website Solutions","description":"Get production-ready websites up and running in minutes with our AI-powered multi-agent systems. We handle secure, scalable hosting on Cloudflare, including automated builds, testing, and launches – removing the usual hurdles so you can focus on what matters."},{"name":"Multi-Agent Systems","description":"We design custom hierarchical agent setups to address your business challenges. Supporting a range of LLMs and models, these systems delegate tasks sensibly, collaborate in real time, and scale smoothly for effective automation."},{"name":"Digital Transformation Strategy","description":"Clear guidance to integrate AI and modern technology into your everyday operations. We work with you to build straightforward roadmaps for AI adoption, streamlining workflows, and staying agile in a fast-changing world."},{"name":"Web Consultancy","description":"Practical advice on modern web architectures, smart deployment, and useful AI integrations. We help your team build solid, forward-thinking web applications that focus on speed, security, and real innovation."}],"target_audience":"Technology leaders, CTOs, and forward-thinking businesses looking for practical web solutions and AI-driven automation","tone":"professional yet approachable","key_differentiators":"Our agile approach to AI orchestration\nFast deployments (minutes instead of weeks)\nSolid enterprise-level security and reliability\nProven stack with Kubernetes, Kafka, and Postgres\nStrong expertise in hierarchical multi-agent systems\nSpecial focus on web automation – with room to grow into other areas","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"Peter is a technology strategist with strong enthusiasm for AI agent frameworks, modern web architecture, and automated systems. He leads our efforts in digital transformation, delivering agile innovation through effective multi-agent orchestration and quick deployments."}],"case_studies":[{"title":"Potential Use Case: Fresh Marketing Site for a Scaling Startup","summary":"Imagine a growing startup that might need a fresh, compliant marketing website ahead of a funding round. With our automated website solution, we could take their design assets and content, then deliver a fully tested, SEO-optimized site on Cloudflare in under an hour – giving the team space to focus on product and growth while moving with quiet confidence."},{"title":"Potential Use Case: Streamlining Deployment Workflows for a Tech Team","summary":"Picture a busy technology team that could benefit from less time on repetitive deployment and monitoring tasks. A custom hierarchical multi-agent system might handle provisioning, testing, and alerts across Kubernetes clusters – freeing them up for higher-value work and helping the whole operation stay nimble and precise."},{"title":"Potential Use Case: Modernising a Corporate Intranet","summary":"A mid-sized company might want to refresh an outdated intranet to improve internal communication and knowledge sharing. Using our multi-agent orchestration, we could rapidly prototype and deploy a secure, searchable platform on Cloudflare Pages – delivering a clean, modern experience that adapts smoothly as needs evolve."}],"contact_email":"leopardess@contactforsales.com"}}
+
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"hitl_review_brief","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"company_name":"Leopardess Consulting","tagline":"Agile AI Agents: Pounce on Digital Transformation with Speed and Precision","about_us":"Leopardess Consulting harnesses the power of hierarchical AI agent frameworks to deliver swift, adaptive digital solutions. Our Kubernetes-orchestrated systems with Kafka messaging and Postgres storage enable businesses to automate complex workflows—like building and launching multipage websites via Cloudflare—empowering you to thrive amid the AI surge with rapid, reliable innovation.","services":[{"name":"Automated Website Solutions","description":"Deploy production-ready websites in minutes using AI-driven multi-agent orchestration. Enjoy secure, scalable hosting on Cloudflare with automated builds, testing, and launches that eliminate traditional development bottlenecks."},{"name":"Multi-Agent Systems","description":"Build custom hierarchical agent frameworks for tackling multifaceted business challenges. With support for diverse LLMs and models, our systems enable intelligent task delegation, real-time collaboration, and seamless scalability for advanced automation."},{"name":"Digital Transformation Strategy","description":"Expert guidance to integrate AI and modern tech into your operations. We craft tailored roadmaps for AI adoption, workflow optimization, and digital agility, helping businesses leap ahead in competitive landscapes."},{"name":"Web Consultancy","description":"Specialized advice on cutting-edge web architectures, deployment strategies, and AI integrations. Our consultants empower your team to create robust, future-proof web applications with a focus on speed, security, and innovation."}],"target_audience":"Technology leaders, CTOs, and businesses seeking modern web solutions and AI-powered automation","tone":"professional","key_differentiators":"Leopardess agility in AI orchestration\nUltra-rapid deployment (minutes, not weeks)\nEnterprise-grade security and reliability\nAdvanced Kubernetes, Kafka, and Postgres infrastructure\nExpertise in hierarchical multi-agent systems\nVertical focus on web automation and beyond","leadership_team":[{"name":"Peter Grenfell","title":"Founder & Principal Consultant","bio":"A visionary technology strategist specializing in AI agent frameworks, web architecture, and automated systems. With a passion for agile innovation, Peter drives digital transformation through sophisticated multi-agent orchestration and rapid deployment solutions."}],"case_studies":[],"contact_email":"leopardess@contactforsales.com","contact_phone":"07934 524 911","headquarters":"West Surrey, UK","has_blog":true,"has_careers":false,"primary_cta":"Get Started","primary_cta_url":"/contact"}}
+now:
+{
+  "headers": {
+    "correlation_id": "${CORRELATION_ID}",
+    "orchestration_id": "${ORCHESTRATION_ID}",
+    "message_id": "${MESSAGE_ID}",
+    "message_type": "response",
+    "client_id": "demo_client",
+    "in_response_to_request_id": "${HITL_REQUEST_ID}",
+    "in_response_to_step_name": "hitl_review_brief",
+    "in_response_to_action": "request_human_input",
+    "status": "complete",
+    "is_complete": true,
+    "is_error": false,
+    "sender": {
+      "agent_id": "cli-user",
+      "agent_type": "human",
+      "pod_name": "cli"
+    },
+    "timestamp": "${TIMESTAMP}"
+  },
+  "body": {
+    "success": true,
+    "company_name": "Leopardess Consulting",
+    "tagline": "Agile AI Agents: Move Swiftly into Digital Transformation with Grace and Precision",
+    "about_us": "At Leopardess Consulting, we like building smart, hierarchical AI agent systems that help businesses adapt quickly and effectively. Using tools like Kubernetes for orchestration, Kafka for smooth messaging, and Postgres for reliable storage, we create solutions that automate complex workflows – think spinning up and launching full multipage websites on Cloudflare in no time. We're here to help you make the most of AI with practical, dependable approaches that suit your team.",
+    "services": [
+      {
+        "name": "Automated Website Solutions",
+        "description": "Get production-ready websites up and running in minutes with our AI-powered multi-agent systems. We handle secure, scalable hosting on Cloudflare, including automated builds, testing, and launches – removing the usual hurdles so you can focus on what matters."
+      },
+      {
+        "name": "Multi-Agent Systems",
+        "description": "We design custom hierarchical agent setups to address your business challenges. Supporting a range of LLMs and models, these systems delegate tasks sensibly, collaborate in real time, and scale smoothly for effective automation."
+      },
+      {
+        "name": "Digital Transformation Strategy",
+        "description": "Clear guidance to integrate AI and modern technology into your everyday operations. We work with you to build straightforward roadmaps for AI adoption, streamlining workflows, and staying agile in a fast-changing world."
+      },
+      {
+        "name": "Web Consultancy",
+        "description": "Practical advice on modern web architectures, smart deployment, and useful AI integrations. We help your team build solid, forward-thinking web applications that focus on speed, security, and real innovation."
+      }
+    ],
+    "target_audience": "Technology leaders, CTOs, and forward-thinking businesses looking for practical web solutions and AI-driven automation",
+    "tone": "professional yet approachable",
+    "key_differentiators": "Our agile approach to AI orchestration\nFast deployments (minutes instead of weeks)\nSolid enterprise-level security and reliability\nProven stack with Kubernetes, Kafka, and Postgres\nStrong expertise in hierarchical multi-agent systems\nSpecial focus on web automation – with room to grow into other areas",
+    "leadership_team": [
+      {
+        "name": "Peter Grenfell",
+        "title": "Founder & Principal Consultant",
+        "bio": "Peter is a technology strategist with strong enthusiasm for AI agent frameworks, modern web architecture, and automated systems. He leads our efforts in digital transformation, delivering agile innovation through effective multi-agent orchestration and quick deployments."
+      }
+    ],
+    "case_studies": [
+      {
+        "title": "Potential Use Case: Fresh Marketing Site for a Scaling Startup",
+        "summary": "Imagine a growing startup that might need a fresh, compliant marketing website ahead of a funding round. With our automated website solution, we could take their design assets and content, then deliver a fully tested, SEO-optimized site on Cloudflare in under an hour – giving the team space to focus on product and growth while moving with quiet confidence."
+      },
+      {
+        "title": "Potential Use Case: Streamlining Deployment Workflows for a Tech Team",
+        "summary": "Picture a busy technology team that could benefit from less time on repetitive deployment and monitoring tasks. A custom hierarchical multi-agent system might handle provisioning, testing, and alerts across Kubernetes clusters – freeing them up for higher-value work and helping the whole operation stay nimble and precise."
+      },
+      {
+        "title": "Potential Use Case: Modernising a Corporate Intranet or Documentation Library",
+        "summary": "A mid-sized company might want to refresh an outdated intranet to improve internal communication and knowledge sharing. Using our multi-agent orchestration, we could rapidly prototype and deploy a secure, searchable web-based platform on Cloudflare Pages – delivering a clean, modern experience that adapts smoothly as needs evolve."
+      }
+    ],
+    "contact_email": "leopardess@contactforsales.com"
+  }
+}
+
+
+
+========================================
+
+response to review hitl
+--- - REVIEW STEP -- (THIRD RESPONSE)
+#!/bin/bash
+# SEND CONTENT REVIEW HITL RESPONSE (escalate_to_human step) -- THIRD RESPONSE
+# ------------------------------------
+# TEMPLATE - Fill in the values from your awaited_requests query:
+#
+# SELECT request_id, orchestration_id, correlation_id, responses_topic
+# FROM awaited_requests
+# WHERE step_name = 'escalate_to_human' AND status = 'waiting'
+# ORDER BY sent_at DESC LIMIT 1;
+#
+# --------------- 3 ---------------------
+
+# ===== FILL IN THESE VALUES =====
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
+# ================================
+
+# ------- 3 3 3 --------------------
+
+CORRELATION_ID=9e08ffee-c8af-479f-81c4-1823e8c4cd5d
+ORCHESTRATION_ID=2a5e1b1c-a380-462d-bb38-2445448773de
+HITL_REQUEST_ID=caa97638-a138-49a4-b3d7-3e1466f58e4e
+RESPONSES_TOPIC=job.9e08ffee-2ac62844-content-reviewer-spawn_reviewer.responses
+
+# Auto-generated values
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+# Validate required fields
+if [ -z "$CORRELATION_ID" ] || [ -z "$ORCHESTRATION_ID" ] || [ -z "$HITL_REQUEST_ID" ] || [ -z "$RESPONSES_TOPIC" ]; then
+    echo "ERROR: Please fill in all required values at the top of the script"
+    echo ""
+    echo "Run this query to find them:"
+    echo "  SELECT request_id, orchestration_id, correlation_id, responses_topic"
+    echo "  FROM awaited_requests"
+    echo "  WHERE step_name = 'escalate_to_human' AND status = 'waiting'"
+    echo "  ORDER BY sent_at DESC LIMIT 1;"
+    exit 1
+fi
+
+echo "========================================="
+echo "Sending HITL Response: 3 Content Review Approval"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  HITL Request ID:     $HITL_REQUEST_ID"
+echo "  Message ID:          $MESSAGE_ID"
+echo "  Step:                escalate_to_human"
+echo "  Topic:               $RESPONSES_TOPIC"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-content-review-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t $RESPONSES_TOPIC \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=response \
+-H client_id=demo_client \
+-H in_response_to_request_id=$HITL_REQUEST_ID \
+-H in_response_to_step_name=escalate_to_human \
+-H status=complete \
+-H is_complete=true \
+-H sender_agent_type=human \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"escalate_to_human","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"approved":true,"status":"approved","responded_by":"cli-user@example.com","responded_at":"${TIMESTAMP}","review_mode":"escalated","edits":{},"comments":"Content reviewed and approved via CLI. Auto-eval issues have been addressed."}}
+JSON
+
+
+echo ""
+echo "========================================="
+echo "HITL Response sent!"
+echo "========================================="
+echo ""
+echo "Check if workflow continued:"
+echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=50 | grep \"$CORRELATION_ID\" | grep -E 'process_escalation|finalize|complete'"
+echo ""
+echo "Monitor content-reviewer progress:"
+echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=100 | grep \"$CORRELATION_ID\""
+echo ""
+echo "Check pageflow-builder (parent) progress:"
+echo "  kubectl logs -n ai-persona-system -l app=pageflow-builder --tail=100 | grep \"$CORRELATION_ID\""
+echo ""
+
+
+
+
+
+
+expanded:
+{
+  "headers": {
+    "correlation_id": "${CORRELATION_ID}",
+    "orchestration_id": "${ORCHESTRATION_ID}",
+    "message_id": "${MESSAGE_ID}",
+    "message_type": "response",
+    "client_id": "demo_client",
+    "in_response_to_request_id": "${HITL_REQUEST_ID}",
+    "in_response_to_step_name": "escalate_to_human",
+    "in_response_to_action": "request_human_input",
+    "status": "complete",
+    "is_complete": true,
+    "is_error": false,
+    "sender": {
+      "agent_id": "cli-user",
+      "agent_type": "human",
+      "pod_name": "cli"
+    },
+    "timestamp": "${TIMESTAMP}"
+  },
+  "body": {
+    "success": true,
+    "approved": true,
+    "status": "approved",
+    "responded_by": "cli-user@example.com",
+    "responded_at": "${TIMESTAMP}",
+    "review_mode": "escalated",
+    "edits": {},
+    "comments": "Content reviewed and approved via CLI. Auto-eval issues have been addressed."
+  }
+}
+JSON
+
+
+--
+
+kubectl -n ai-persona-system logs --tail=3000 -l app=agent-chassis  -f | tee logs-agent-chassis.json
+kubectl -n ai-persona-system logs --tail=300 -l app=image-generator-adapter -f | tee logs-image-generator-adapter.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=research-agent -f | tee logs-research-agent.json
+kubectl -n ai-persona-system logs -l app=image-generator-adapter -f --tail=300 |  tee logs-image-generator.json
+kubectl -n ai-persona-system logs --tail=600 -l agent-type=deployer-agent -f | tee logs-deployer-agent.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=content-reviewer -f | tee logs-content-reviewer.json
+kubectl -n ai-persona-system logs --tail=3000 -l agent-type=page-content-writer -f | tee logs-page-content-writer.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-planner -f | tee logs-site-planner.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=pageflow-builder -f | tee logs-pageflow-builder.json
+kubectl -n ai-persona-system logs --tail=500 -l app=web-search-adapter -f | tee logs-web-search-adapter.json
+kubectl -n ai-persona-system logs --tail=500 -l app=web-scrape-adapter -f | tee logs-web-scrape-adapter.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=site-classifier -f | tee logs-site-classifier.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=briefing-agent  -f | tee logs-briefing-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l app=git-adapter -f | tee logs-git-adapter.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=webdesign-agent -f | tee logs-webdesign-agent.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=section-editor -f | tee logs-section-editor.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=page-rebuild -f | tee logs-page-rebuild.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=area-sweep-orchestrator -f | tee logs-area-sweep-orchestrator.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=area-sweep-discoverer -f | tee logs-area-sweep-discoverer.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=maintenance-triage -f | tee logs-maintenance-triage.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=nav-updater -f | tee logs-nav-updater.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=page-rerender -f | tee logs-page-rerender.json
+kubectl -n ai-persona-system logs --tail=300 -l agent-type=vet-practice-verifier -f | tee logs-vet-practice-verifier.json
+kubectl -n ai-persona-system logs --tail=500 -l agent-type=asset-deployer -f | tee logs-asset-deployer.json
+
+make build-backend push-backend deploy-core deploy-agents redeploy-agents ENVIRONMENT=production REGION=uk001
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > agent_definitions_backup.sql
+
+
+=======================================================================================================
+=======================================================================================================
+=======================================================================================================
+=======================================================================================================
+=======================================================================================================
+=======================================================================================================
+-------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------
+
+run webdesign agent only:
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+echo "========================================="
+echo "Triggering webdesign-agent via agent-chassis"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  Site ID:             $SITE_ID"
+echo "  Domain:              $DOMAIN"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-webdesign-trigger \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_webdesign_agent","steps":{"spawn_webdesign_agent":{"action":"spawn_agent","config":{"role":"webdesigner","agent_type":"webdesign-agent"},"description":"Spawn webdesign agent","next_step":"call_webdesign_agent","output_field":"webdesign_agent_info"},"call_webdesign_agent":{"action":"call_agent","config":{"agent_type":"webdesign-agent","target_role":"webdesigner","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain"},"timeout_seconds":240},"description":"Call webdesign agent to generate CSS","next_step":"complete","output_field":"webdesign_result"},"complete":{"action":"complete_workflow","config":{"output_fields":["webdesign_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+
+
+========================
+-----------------------
+
+rerender site - all pages
+Re-assembles all deployed pages with current components without regenerating content. Use when:
+Component templates are updated (head, header, footer)
+CSS stylesheet links are added/changed
+Navigation structure changes
+Branding updates across all pages
+
+--------------
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+echo "========================================="
+echo "Triggering rerender-pages agent"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  Site ID:             $SITE_ID"
+echo "  Domain:              $DOMAIN"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-rerender-agent \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rerender_agent","steps":{"spawn_rerender_agent":{"action":"spawn_agent","config":{"role":"rerenderer","agent_type":"rerender-pages"},"description":"Spawn rerender-pages agent","next_step":"call_rerender_agent","output_field":"rerender_agent_info"},"call_rerender_agent":{"action":"call_agent","config":{"agent_type":"rerender-pages","target_role":"rerenderer","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain"},"timeout_seconds":300},"description":"Call rerender-pages agent","next_step":"complete","output_field":"rerender_result"},"complete":{"action":"complete_workflow","config":{"output_fields":["rerender_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "Message sent. Monitor with:"
+echo "  kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=100"
+
+
+================
+rerender single page
+
+#!/bin/bash
+# Trigger rerender-pages agent for a SINGLE PAGE
+# Change PAGE_NAME to target a specific page
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+# Single page filter - use one of these:
+PAGE_NAME="Home"  # Match by page name in DB
+# PAGE_ID="uuid-of-page"  # Or match by page ID
+
+echo "========================================="
+echo "Triggering rerender-pages agent (SINGLE PAGE)"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  Site ID:             $SITE_ID"
+echo "  Domain:              $DOMAIN"
+echo "  Page Name:           $PAGE_NAME"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-rerender-single \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rerender_agent","steps":{"spawn_rerender_agent":{"action":"spawn_agent","config":{"role":"rerenderer","agent_type":"rerender-pages"},"description":"Spawn rerender-pages agent","next_step":"call_rerender_agent","output_field":"rerender_agent_info"},"call_rerender_agent":{"action":"call_agent","config":{"agent_type":"rerender-pages","target_role":"rerenderer","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain","page_name":"input_data.page_name"},"timeout_seconds":300},"description":"Call rerender-pages agent for single page","next_step":"complete","output_field":"rerender_result"},"complete":{"action":"complete_workflow","config":{"output_fields":["rerender_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}","page_name":"${PAGE_NAME}"}}
+JSON
+
+echo ""
+echo "Message sent. Monitor with:"
+echo "  kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=100"
+
+
+
+=====
+
+trigger just pageflow-builder for pages that need rebuild only
+
+
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+--
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+kubectl -n kafka run -i --rm kcat-pageflow-rebuild \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"load_site","steps":{"load_site":{"action":"ensure_site_record","config":{},"description":"Load site record with content_data from database","output_field":"site_record","next_step":"spawn_builder"},"spawn_builder":{"action":"spawn_agent","config":{"role":"builder","agent_type":"pageflow-builder"},"output_field":"builder_agent","next_step":"call_builder"},"call_builder":{"action":"call_agent","config":{"agent_type":"pageflow-builder","target_role":"builder","input_mapping":{"site_id":"site_record.site_id","domain":"site_record.domain","repo_name":"input_data.repo_name","reviewed_brief":"site_record.content_data","input_data":"input_data"},"timeout_seconds":1800},"output_field":"build_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["build_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}","repo_name":"sites"}}
+JSON
+
+
+=============================================================
+
+--------
+independent rerender call without sub workflow - uses page rerender agent - doesn't use pageflow builder
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+echo "========================================="
+echo "Triggering rerender-pages agent"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  Site ID:             $SITE_ID"
+echo "  Domain:              $DOMAIN"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-rerender \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rerender","steps":{"spawn_rerender":{"action":"spawn_agent","config":{"role":"rerenderer","agent_type":"rerender-pages"},"output_field":"rerender_agent","next_step":"call_rerender"},"call_rerender":{"action":"call_agent","config":{"agent_type":"rerender-pages","target_role":"rerenderer","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain"},"timeout_seconds":1800},"output_field":"rerender_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["rerender_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+
+----
+
+refreshed rerenderer
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+SITE_ID="4851f6fc-71cf-4160-a270-e03d6d3e0732"
+DOMAIN="leopardessconsulting.co.uk"
+
+echo "========================================="
+echo "Triggering rerender-pages agent"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  Site ID:             $SITE_ID"
+echo "  Domain:              $DOMAIN"
+echo "  Refresh components:  true"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-rerender \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rerender","steps":{"spawn_rerender":{"action":"spawn_agent","config":{"role":"rerenderer","agent_type":"rerender-pages"},"output_field":"rerender_agent","next_step":"call_rerender"},"call_rerender":{"action":"call_agent","config":{"agent_type":"rerender-pages","target_role":"rerenderer","input_mapping":{"site_id":"input_data.site_id","domain":"input_data.domain","refresh_site_components":"input_data.refresh_site_components"},"timeout_seconds":1800},"output_field":"rerender_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["rerender_result"]}}}}},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}","refresh_site_components":true}}
+JSON
+
+
+---------------
+PAGE REBUILDER
+-- aa -- needs agent orchestrator, this injected workflow is too big
+
+# trigger_page_rebuild.sh
+# Triggers the page-rebuild agent via the generic orchestrator.
+#
+# Prerequisites:
+#   1. Pages flagged: UPDATE pages SET build_status = 'needs_rebuild' WHERE name IN (...) AND site_id = '...';
+#   2. page-rebuild agent definition inserted into agent_definitions
+#   3. load_site_for_rebuild action registered and deployed
+#
+# Usage:
+#   ./trigger_page_rebuild.sh <DOMAIN>
+#   ./trigger_page_rebuild.sh leopardessconsulting.co.uk
+
+DOMAIN="${1:?Usage: $0 <domain>}"
+
+
+DOMAIN="leopardessconsulting.co.uk"
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Starting Page Rebuild"
+echo "========================================="
+echo "  Domain:           $DOMAIN"
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Time:             $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-page-rebuild \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=request \
+-H client_id=$CLIENT_ID \
+-H action=process \
+-H sender_agent_type=cli \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rebuilder","steps":{"spawn_rebuilder":{"action":"spawn_agent","config":{"role":"rebuilder","agent_type":"page-rebuild"},"output_field":"rebuilder_agent","next_step":"call_rebuilder"},"call_rebuilder":{"action":"call_agent","config":{"agent_type":"page-rebuild","target_role":"rebuilder","input_mapping":{"domain":"input_data.domain"},"timeout_seconds":900},"output_field":"rebuild_result","next_step":"complete"},"complete":{"action":"complete_workflow","config":{"output_fields":["rebuild_result"]}}}}},"input_data":{"domain":"${DOMAIN}"}}
+JSON
+
+echo ""
+echo "========================================="
+echo "Page rebuild triggered!"
+echo "========================================="
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system logs -f -l app=page-rebuild --tail=50"
+echo "  kubectl -n ai-persona-system logs -l app=generic-agent --tail=100 | grep $CORRELATION_ID"
+echo ""
+echo "IDs:"
+echo "  CORRELATION_ID=$CORRELATION_ID"
+echo "  ORCHESTRATION_ID=$ORCHESTRATION_ID"
+echo ""

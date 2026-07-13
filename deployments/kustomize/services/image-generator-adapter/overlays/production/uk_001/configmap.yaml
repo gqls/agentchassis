@@ -1,0 +1,35 @@
+# deployments/kustomize/services/image-generator-adapter/overlays/production/uk_001/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: image-adapter-config
+data:
+  image-adapter.yaml: |
+    server:
+      http_port: 8080
+      grpc_port: 9090
+    
+    logger:
+      level: "info"
+      format: "json"
+      
+    custom:
+      adapter:
+        requests_topic: "system.adapter.git.requests"
+        responses_topic: "system.adapter.git.responses"
+        consumer_group: "git-adapter-group"
+        max_retries: 5
+        timeout: 180s
+        max_concurrent_requests: 10
+    
+    infrastructure:
+      kafka_brokers:
+        - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+      object_storage:
+        endpoint: "https://s3.us-east-005.backblazeb2.com"
+        region: "us-east-005"
+        bucket: "personae-prod-uk001-images"
+        access_key_env_var: "B2_APPLICATION_KEY_ID"
+        secret_key_env_var: "B2_APPLICATION_KEY"
+        use_ssl: true
+        use_path_style: false  # B2 doesn't use path-style

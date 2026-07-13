@@ -1,0 +1,407 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests CASCADE;"
+
+# 4. Delete ALL spawned agent jobs
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+# scale other agents down
+kubectl -n ai-persona-system scale deployment/reasoning-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=0
+kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
+
+# 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
+# List all job topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep "^job\."
+
+# Delete all job topics (be careful!)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash -c '
+for topic in $(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep "^job\."); do
+  echo "Deleting topic: $topic"
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic "$topic"
+done
+'
+
+# delete initial topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.requests
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.responses
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.generic.responses
+
+
+kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh
+  --create --topic system.generic.responses
+  --bootstrap-server localhost:9092
+  --partitions 1
+  --replication-factor 1
+
+# reset all offsets
+echo 'resetting all offsets'
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+kubectl -n ai-persona-system delete pods -l agent-type=calculator
+
+# 6. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+# =======
+
+sleep 5
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+
+
+
+========================================================================
+
+
+
+
+========================================================================
+
+
+
+
+========================================================================
+
+
+
+
+
+BROCHURE Site
+
+# Generate unique IDs
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+ORCHESTRATION_NAME="intake-brochure-test-$(date +%Y%m%d-%H%M%S)"
+
+echo "========================================="
+echo "Starting BROCHURE Site Test Orchestration"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration:    $ORCHESTRATION_NAME"
+echo "  Time:             $TIMESTAMP"
+echo "========================================="
+echo ""
+echo "SAVE THESE FOR HITL RESPONSES:"
+echo "  CORRELATION_ID=$CORRELATION_ID"
+echo ""
+echo "After this starts, run this to find orchestration_id:"
+echo "  kubectl logs -n default -l app=agent-chassis --tail=100 | grep \"$CORRELATION_ID\" | grep '\"orchestration_id\"' | head -1"
+echo ""
+echo "========================================="
+echo ""
+
+# Send orchestration start message
+kubectl -n kafka run -i --rm kcat-producer-brochure-start \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H message_id=$MESSAGE_ID \
+-H request_id=$REQUEST_ID \
+-H message_type=request \
+-H client_id=demo_client \
+-H from_agent_type=user \
+-H from_agent_id=cli \
+-H to_agent_type=generic \
+-H timestamp=$TIMESTAMP \
+-H orchestration_name=$ORCHESTRATION_NAME <<'EOF'
+{
+  "action": "orchestrate",
+  "config": {
+    "agent_type": "intake-orchestrator"
+  },
+  "input_data": {
+    "domain": "acme-consulting.com",
+    "objective": "Create a comprehensive corporate website for ACME Consulting, a management consulting firm. The site should showcase our company overview, leadership team bios, detailed service offerings across strategy, operations, and digital transformation, case studies from Fortune 500 clients, insights blog, careers section, and contact information. Target audience: C-suite executives and senior managers at mid-to-large enterprises seeking strategic consulting services.",
+    "model": "AIDA",
+    "hitl_mode": "interactive",
+    "repo_name": "sites"
+  }
+}
+EOF
+
+echo ""
+echo "========================================="
+echo "Orchestration started!"
+echo "========================================="
+echo ""
+echo "NEXT STEPS:"
+echo ""
+echo "1. Wait 5-10 seconds for processing"
+echo ""
+echo "2. Find the orchestration_id:"
+echo "   kubectl logs -n default -l app=agent-chassis --tail=100 | grep \"$CORRELATION_ID\" | grep '\"orchestration_id\"' | head -1"
+echo ""
+echo "3. Find the first HITL request_id (hitl_confirm_type):"
+echo "   kubectl logs -n default -l app=agent-chassis --tail=200 | grep \"$CORRELATION_ID\" | grep 'hitl_confirm_type' | grep 'Action requires waiting'"
+echo ""
+echo "4. Extract the request_id from that log line"
+echo ""
+echo "5. Send HITL response confirming 'brochure' site type"
+echo ""
+echo "IDs TO SAVE:"
+echo "  CORRELATION_ID=$CORRELATION_ID"
+echo ""
+
+
+==========================
+==========================
+==========================
+
+BROCHURE Confirm
+
+==========================
+
+#!/bin/bash
+
+# Usage: ./send_brochure_confirm.sh <correlation_id> <orchestration_id> <hitl_request_id>
+
+if [ $# -ne 3 ]; then
+    echo "Error: Missing required arguments"
+    echo ""
+    echo "Usage: $0 <correlation_id> <orchestration_id> <hitl_request_id>"
+    echo ""
+    echo "Example:"
+    echo "  $0 b0f7d16a-8538-45ff-9bde-c43ba128c5c2 d7da4ca5-f7e8-477f-9b0b-7e6779d3a3f1 161ca63f-42dc-43a0-b50d-f39ade00882f"
+    echo ""
+    echo "To find these IDs:"
+    echo "  1. correlation_id: From start script output"
+    echo "  2. orchestration_id: kubectl logs -n default -l app=agent-chassis --tail=100 | grep \"<correlation_id>\" | grep orchestration_id"
+    echo "  3. hitl_request_id: kubectl logs -n default -l app=agent-chassis --tail=200 | grep \"<correlation_id>\" | grep hitl_confirm_type | grep 'Action requires waiting'"
+    exit 1
+fi
+
+CORRELATION_ID=$1
+ORCHESTRATION_ID=$2
+HITL_REQUEST_ID=$3
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+echo "========================================="
+echo "Sending HITL Response: Confirm BROCHURE Type"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  HITL Request ID:  $HITL_REQUEST_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Step:             hitl_confirm_type"
+echo "  Time:             $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-brochure-confirm \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.responses \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=response \
+-H client_id=demo_client \
+-H in_response_to_request_id=$HITL_REQUEST_ID \
+-H in_response_to_step_name=hitl_confirm_type \
+-H status=complete \
+-H sender_agent_type=human \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<'EOF'
+{
+  "site_type": "brochure",
+  "recommended_builder": "content-site-builder",
+  "message": "Site type confirmed by user as brochure",
+  "human_response": true
+}
+EOF
+
+echo ""
+echo "========================================="
+echo "HITL Response sent!"
+echo "========================================="
+echo ""
+echo "Check if workflow continued:"
+echo "  kubectl logs -n default -l app=agent-chassis --tail=50 | grep \"$CORRELATION_ID\" | grep -E 'Found awaited|fetch_questionnaire'"
+echo ""
+echo "Find next HITL request_id (hitl_review_brief):"
+echo "  kubectl logs -n default -l app=agent-chassis --tail=200 | grep \"$CORRELATION_ID\" | grep hitl_review_brief | grep 'Action requires waiting'"
+echo ""
+
+
+====================
+====================
+====================
+
+SEND BROCHURE BRIEF (second confirm)
+
+#!/bin/bash
+
+# Usage: ./send_brochure_brief.sh <correlation_id> <orchestration_id> <hitl_request_id>
+
+if [ $# -ne 3 ]; then
+    echo "Error: Missing required arguments"
+    echo ""
+    echo "Usage: $0 <correlation_id> <orchestration_id> <hitl_request_id>"
+    echo ""
+    echo "Example:"
+    echo "  $0 b0f7d16a-8538-45ff-9bde-c43ba128c5c2 d7da4ca5-f7e8-477f-9b0b-7e6779d3a3f1 3976d0c6-511d-4895-ab6a-983a9452c132"
+    echo ""
+    echo "To find these IDs:"
+    echo "  1. correlation_id: From start script output"
+    echo "  2. orchestration_id: kubectl logs -n default -l app=agent-chassis --tail=100 | grep \"<correlation_id>\" | grep orchestration_id"
+    echo "  3. hitl_request_id: kubectl logs -n default -l app=agent-chassis --tail=200 | grep \"<correlation_id>\" | grep hitl_review_brief | grep 'Action requires waiting'"
+    exit 1
+fi
+
+CORRELATION_ID=$1
+ORCHESTRATION_ID=$2
+HITL_REQUEST_ID=$3
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+echo "========================================="
+echo "Sending HITL Response: BROCHURE Questionnaire"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  HITL Request ID:  $HITL_REQUEST_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Step:             hitl_review_brief"
+echo "  Time:             $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-brochure-brief \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.responses \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=response \
+-H client_id=demo_client \
+-H in_response_to_request_id=$HITL_REQUEST_ID \
+-H in_response_to_step_name=hitl_review_brief \
+-H status=complete \
+-H sender_agent_type=human \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<'EOF'
+{
+  "company_name": "ACME Consulting Group",
+  "tagline": "Transforming Strategy Into Results",
+  "about_us": "For over 25 years, ACME Consulting has partnered with Fortune 500 companies to solve their most complex business challenges. Our team of 200+ consultants brings deep expertise across strategy, operations, and digital transformation.",
+  "services": [
+    {
+      "name": "Strategy Consulting",
+      "description": "Corporate strategy, M&A advisory, and growth planning for market leaders"
+    },
+    {
+      "name": "Operations Excellence",
+      "description": "Process optimization, supply chain transformation, and operational efficiency programs"
+    },
+    {
+      "name": "Digital Transformation",
+      "description": "Technology strategy, digital operating models, and enterprise-wide change management"
+    }
+  ],
+  "target_audience": "C-suite executives and senior managers at Fortune 500 and mid-market enterprises",
+  "tone": "professional",
+  "key_differentiators": "25+ years experience\n200+ expert consultants\nProven Fortune 500 track record\nIndustry-specific expertise\nEnd-to-end implementation support",
+  "leadership_team": [
+    {
+      "name": "Sarah Chen",
+      "title": "Managing Partner",
+      "bio": "Former McKinsey principal with 20 years in strategy consulting"
+    },
+    {
+      "name": "Michael Rodriguez",
+      "title": "Partner, Operations",
+      "bio": "Ex-COO of Global Manufacturing, led $2B operational transformations"
+    }
+  ],
+  "case_studies": [
+    {
+      "client": "Global Retailer",
+      "challenge": "Supply chain inefficiencies",
+      "result": "Reduced costs by 23%, improved delivery times by 40%"
+    },
+    {
+      "client": "Financial Services Firm",
+      "challenge": "Digital transformation",
+      "result": "Launched new platform, increased customer engagement 65%"
+    }
+  ],
+  "contact_email": "info@acme-consulting.com",
+  "contact_phone": "+1 (555) 123-4567",
+  "headquarters": "New York, NY",
+  "has_blog": true,
+  "has_careers": true,
+  "primary_cta": "Schedule Consultation",
+  "primary_cta_url": "/contact"
+}
+EOF
+
+echo ""
+echo "========================================="
+echo "HITL Response sent!"
+echo "========================================="
+echo ""
+echo "Check if workflow continued:"
+echo "  kubectl logs -n default -l app=agent-chassis --tail=50 | grep \"$CORRELATION_ID\" | grep -E 'Found awaited|spawn_builder|call_builder'"
+echo ""
+echo "Monitor builder progress:"
+echo "  kubectl logs -n default -l app=agent-chassis --tail=100 | grep \"$CORRELATION_ID\""
+echo ""
+

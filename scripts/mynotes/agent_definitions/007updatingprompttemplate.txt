@@ -1,0 +1,43 @@
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    COALESCE(default_config, '{}'::jsonb),
+    '{prompt_template}',
+    '"Generate a warm and welcoming message for a {{business_type}} called {{business_name}}. The message should be friendly, professional, and invite customers to visit. Keep it under 3 paragraphs."'::jsonb
+)
+WHERE type = 'content-creator';
+
+
+You should also ensure the AI service configuration is present:
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{prompt_template}',
+    '"Generate a warm and welcoming message for a {{.business_type}} called {{.business_name}}. The message should be friendly, professional, and invite customers to visit. Keep it under 3 paragraphs."'::jsonb
+)
+WHERE type = 'content-creator';
+
+To check what's currently in the config:
+SELECT type, default_config
+FROM agent_definitions
+WHERE type = 'content-creator';
+
+The issue is that your ai_service configuration in the database is missing the api_key_env_var field. Update the content-creator's config:
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{ai_service}',
+    '{
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "api_key_env_var": "ANTHROPIC_API_KEY"
+    }'::jsonb
+)
+WHERE type = 'content-creator';
+
+To verify the current configuration:
+
+SELECT default_config->'ai_service' as ai_service_config
+FROM agent_definitions
+WHERE type = 'content-creator';

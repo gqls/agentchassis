@@ -1,0 +1,78 @@
+# NOTES — running synthesis v4 (started 2026-07-02)
+
+Continues from `NOTES_running_synthesis_v3.md` (archived — do not append there).
+Older transcripts are catalogued in `journal.txt` alongside the transcripts.
+
+## STATE OF THE WORLD (as of 2026-07-02, chassis replicaset 5786cffbd4)
+
+- **Diagnosis loop (§6): DONE.** §6A–§6G all passed; §6G accepted on run `51f95cda`
+  (refute-and-confirm-a-grounded-cause bar). Engine (pkg/diagnose) + diagnose-agent
+  workflow live. Deployed + verified: data_request-as-progress (SeenRequests),
+  verdict_wire.go DataRequests sync, ## Schema bundle section (denylist +
+  schema_full toggle) + EXPLAIN size-guard, sqlguard stripQuoted (literal
+  false-positive fix), composing repo label (resolveCodeRepoLabel in lookup+index;
+  workaround REVERTED; composition verified live: lookup logged
+  repo="gqls/agentchassis").
+- **Diagnoses are carried entirely by the runtime/DB channel.** The code-retrieval
+  channel contributes nothing (measured: flat similarity band 0.547–0.574 across
+  all 12 seed hits; zero code citations in four full runs). Current route (§7, new
+  runbook `RUNBOOK_code_retrieval_route.md`) is to make it earn its keep.
+- Open, parked: trigger sends site_id intermittently empty; two verdict-quality
+  wrinkles (stale text carried into a CONFIRMED conclusion that its own citation
+  contradicts; data_requests emitted in a terminal verdict never run); non-manual
+  triggering deferred until the above.
+
+## 2026-07-02 — corpus check result: the index is the blocker (route §7 opened)
+
+- User ran the corpus verification (columns taken from code_symbols_actions.go's
+  own INSERT/SELECT). Result: **0 rows** for any path/symbol ILIKE %page% /
+  %section% / %result_spec% / %resolveResultSpec% in `code_symbols` for
+  gqls/agentchassis; 436 total rows, 67 with empty doc.
+- 0-rows discipline applied BEFORE concluding: ILIKE is case-insensitive (receiver
+  forms like `(*SagaCoordinator).resolveResultSpec` still substring-match), the OR
+  block is parenthesised, and the 436-count query proves the repo literal matches.
+  The query is sound; the absence is real.
+- **Analyser cleared as the cause** (read /mnt/project/analyse.go in full):
+  AnalyseWithExclude has NO size caps and NO directory skips beyond
+  vendor/testdata/hidden-dirs/*_test.go/dup-suffix `(N).go`, plus caller-supplied
+  substring excludes. A walk of the chassis tree with this code includes
+  result_spec.go and the page/section action files. One sharp edge noted: a
+  mid-walk error returns a PARTIAL Output alongside the error (analyse.go:103), so
+  a caller that ignores the error keeps a truncated tree.
+- **Inference chain (premises stated):**
+  1. The tree at 4c2c172 contains the missing files — the deployed binary logs
+     from `orchestration/result_spec.go:185`, and production executed the
+     `save_page_sections` action (error-log rows), so those sources exist in the
+     repo the image was built from.
+  2. The analyser has no rule that would drop them (read this turn).
+  3. The index has zero of them (user's query).
+  4. The §6D writer — the `code-indexer` agent, workflow
+     `request_repo_analysis → await analyser → index_code_symbols` (old RUNBOOK
+     §6D) — is the ONE path between analyser and index that differs from the
+     verified-good local path: it crosses Kafka via the analyser ADAPTER (its own
+     fetch, possible excludes, message-size exposure, or an ignored partial-walk
+     error).
+  ⇒ The fault lives in the §6D adapter path. WHICH mechanism is not yet known —
+  the §7A census discriminates (whole directories absent ⇒ adapter excludes or a
+  subset fetch; scattered/alphabetical cut ⇒ truncation or ignored partial walk;
+  commit anomalies ⇒ wrong ref/prune interplay). Do not pre-commit to a mechanism.
+- **Consequence for the retrieval design:** the evidence-fed resolver
+  (resolve-before-Advance in diagnose_route) stays the right architecture move but
+  is pointless until the corpus contains the code the loop needs — no query
+  improvement can retrieve absent rows. So the route is corpus first, resolver
+  second. Full plan in `RUNBOOK_code_retrieval_route.md` (§7A–§7F).
+
+## DECISIONS (with rationale)
+
+- **Corpus before resolver (2026-07-02).** The 0-rows result shows the
+  cause-relevant symbols are not indexed at all; retrieval quality work on top of
+  a missing corpus optimises the wrong layer. Verified the query itself before
+  accepting the 0 rows (standing rule).
+- **Fix direction: migrate code-indexer's analysis step to analyse_repo_local
+  (pending §7A census confirmation).** Reuse over recreate: analyse_repo_local is
+  already built, already proven in the diagnose workflow at this very commit
+  (fresh tarball + in-process analyse.go, no transport), and index_code_symbols
+  was aligned to the same repo-label convention via resolveCodeRepoLabel. Swapping
+  the step removes the suspect component (adapter round-trip) in every candidate
+  mechanism, rather than patching whichever one the census names. Migration will
+  be written against the REAL dumped code-indexer default_config, not from memory.

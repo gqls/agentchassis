@@ -1,0 +1,43 @@
+Please create a detailed handoff for this chat so I can begin a new chat with all the relevant information.
+
+We will also need all the relevant code and docs which we can mostly gather from creating a bundle, the code for bundling is attached so you can see what it does.
+I can run it manually and provide the bundle in the next chat.
+Please create a one sentence summary of the task we are trying to solve.
+Please fill in the go run request for the bundle for this task - example below
+
+-- example --
+An agent that diagnoses chassis bugs READ-ONLY. It automates the debugging motion: hypothesise → gather scoped read-only evidence → cite-or-abstain verdict → re-scope by FOLLOWING evidence (the call graph for code; queries for data), NOT by re-searching the symptom. Read-only, human-gated, never a fix, never triggers a run. Falsification (abandoning a wrong hypothesis) is the valuable move LLMs do worst - the eval fixture.)
+
+
+
+```
+
+d docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/contextkit
+
+go run ./cmd/bundle \
+
+-analysis /tmp/analysis_repo.json -root ~/projects/agentchassis \
+
+-constitution thin_slice_constitution.md -step debug \
+
+-task "..." \
+
+-scope platform/orchestration/actions/save_page_sections_action.go:SavePageSectionsAction \
+
+-scope platform/orchestration/actions/plan_sections_action.go \
+
+-include platform/orchestration/actions/registry.go \
+
+-doc docs/.../016_debugging_guide_v2_45.md \
+
+-psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db' \
+
+-schema-tables page_components,pages,site_work_items \
+
+-runtime-site gamesdesign.co.uk -runtime-page index \
+
+-capabilities -df-filter snapshot \
+
+-out /tmp/bundle_gamesdesign.md
+
+```

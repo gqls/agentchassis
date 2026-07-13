@@ -1,0 +1,1891 @@
+to disable later
+UPDATE scheduled_tasks SET enabled = false WHERE name LIKE 'vet-%';
+
+-- Migration: 066_kafka_scheduler.sql
+-- Creates the scheduled_tasks table and seeds initial schedules.
+-- The kafka-scheduler service reads this table and publishes trigger
+-- messages to Kafka on the configured intervals.
+
+-- ============================================================================
+-- TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                                               id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name              TEXT NOT NULL UNIQUE,
+    description       TEXT,
+
+    -- Schedule: interval-based (cron support can be added later)
+    interval_seconds  INT NOT NULL DEFAULT 300,
+
+    -- Target: where to send the Kafka trigger message
+    target_agent_type TEXT NOT NULL,
+    target_topic      TEXT NOT NULL DEFAULT 'system.agent.generic.requests',
+    input_data        JSONB DEFAULT '{}',
+
+    -- Concurrency control
+    -- Tasks in the same group respect max_concurrent across the group.
+    -- NULL group = no concurrency constraints.
+    concurrency_group TEXT,
+    max_concurrent    INT DEFAULT 1,
+
+    -- Optional: SQL query that returns a single JSON row to merge into input_data.
+    -- Evaluated before each trigger. If it returns no rows, the task is skipped
+    -- for this tick (nothing to do). Column names become input_data keys.
+    -- Example: SELECT site_id::text, domain FROM sites WHERE ... LIMIT 1
+    pre_query         TEXT,
+
+    -- Lifecycle
+    enabled           BOOLEAN DEFAULT true,
+    last_triggered_at TIMESTAMPTZ,
+    last_completed_at TIMESTAMPTZ,
+    timeout_seconds   INT DEFAULT 600,
+
+    -- Metadata
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW()
+    );
+
+CREATE INDEX IF NOT EXISTS idx_st_enabled ON scheduled_tasks (enabled)
+    WHERE enabled = true;
+CREATE INDEX IF NOT EXISTS idx_st_group ON scheduled_tasks (concurrency_group)
+    WHERE concurrency_group IS NOT NULL;
+
+-- ============================================================================
+-- SEED DATA
+-- ============================================================================
+
+-- Build pipeline trigger: finds sites with triaged work items and dispatches
+-- Runs every 2 minutes. Concurrency group 'dispatch' prevents overlapping
+-- dispatch loops from piling up.
+INSERT INTO scheduled_tasks (name, description, interval_seconds, target_agent_type, input_data, concurrency_group, max_concurrent, timeout_seconds)
+VALUES (
+           'build-pipeline-trigger',
+           'Finds sites with pending triaged/approved work items and triggers the build-dispatch-loop for each. Seeds build_queue entries first.',
+           120,
+           'build-pipeline-trigger',
+           '{}',
+           'dispatch',
+           2,
+           900
+       ) ON CONFLICT (name) DO NOTHING;
+
+-- Improvement loop: runs discovery checks and dispatches fixes
+-- Runs every 10 minutes per site. The trigger finds the next site needing checks.
+-- Same concurrency group as dispatch — they share the pipeline.
+INSERT INTO scheduled_tasks (name, description, interval_seconds, target_agent_type, input_data, concurrency_group, max_concurrent, timeout_seconds, pre_query)
+VALUES (
+           'improvement-sweep',
+           'Triggers improvement-loop for the next site that has not been checked recently. Discovery agents find issues, triage promotes them, dispatch fixes them.',
+           600,
+           'improvement-loop',
+           '{}',
+           'dispatch',
+           2,
+           1800,
+           'SELECT s.id::text as site_id, s.domain
+            FROM sites s
+            WHERE s.status IN (''active'', ''deployed'')
+              AND NOT EXISTS (
+                SELECT 1 FROM site_work_items wi
+                WHERE wi.site_id = s.id
+                  AND wi.status = ''claimed''
+              )
+            ORDER BY s.last_built_at ASC NULLS FIRST
+            LIMIT 1'
+       ) ON CONFLICT (name) DO NOTHING;
+
+
+---
+
+
+-- work items - lifecycle
+
+-- ============================================================================
+-- Migration: Work item lifecycle improvements
+--
+-- 1. Add 'blocked' status to site_work_items
+-- 2. Add scheduled task for claimed item timeout
+-- 3. Add scheduled task for feasibility re-check (blocked → triaged)
+-- ============================================================================
+
+-- 1. Add 'blocked' to allowed statuses
+-- The check constraint on status (if one exists) needs updating.
+-- Check current constraint:
+
+-- First, see if there's a check constraint on status
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = 'site_work_items'::regclass
+  AND conname LIKE '%status%';
+
+-- If a constraint exists, drop and recreate with 'blocked' added.
+-- If no constraint exists, this is safe to skip.
+-- Most implementations use application-level validation, so this may return 0 rows.
+
+-- Add an index for blocked items (for the feasibility re-check query)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_work_items_blocked
+    ON site_work_items (handler_agent)
+    WHERE status = 'blocked';
+
+-- ============================================================================
+-- 2. Claimed item timeout — scheduled task
+--
+-- Runs every 2 minutes. Resets items stuck in 'claimed' for >10 minutes.
+-- Items that hit max_attempts go to 'failed'.
+-- Items whose handler_agent doesn't exist in agent_definitions go to 'blocked'.
+-- ============================================================================
+
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds,
+    target_agent_type, target_topic,
+    input_data, concurrency_group, max_concurrent,
+    enabled, timeout_seconds
+) VALUES (
+             'claimed-item-timeout',
+             'Resets work items stuck in claimed status. Items exceeding max_attempts go to failed. Items with non-existent handlers go to blocked.',
+             120,
+             'generic',
+             'system.agent.generic.requests',
+             '{}'::jsonb,
+             'maintenance',
+             1,
+             true,
+             60
+         ) ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    interval_seconds = EXCLUDED.interval_seconds;
+
+-- The pre_query runs the cleanup directly and returns a summary.
+-- If no items need cleanup, returns 0 rows → task is skipped.
+UPDATE scheduled_tasks
+SET pre_query = $PQ$
+    WITH timeout_items AS (
+    UPDATE site_work_items wi
+    SET
+        status = CASE
+            WHEN wi.attempt_count >= wi.max_attempts THEN 'failed'
+            WHEN NOT EXISTS (
+                SELECT 1 FROM agent_definitions ad
+                WHERE ad.type = wi.handler_agent AND ad.deleted_at IS NULL
+            ) THEN 'blocked'
+            ELSE 'triaged'
+        END,
+        claimed_at = NULL,
+        claimed_by = NULL,
+        error = CASE
+            WHEN wi.attempt_count >= wi.max_attempts THEN 'Max attempts reached'
+            WHEN NOT EXISTS (
+                SELECT 1 FROM agent_definitions ad
+                WHERE ad.type = wi.handler_agent AND ad.deleted_at IS NULL
+            ) THEN 'Handler agent ''' || wi.handler_agent || ''' not registered'
+            ELSE 'Claimed timeout — released for retry'
+        END,
+        updated_at = NOW()
+    WHERE wi.status = 'claimed'
+      AND wi.claimed_at < NOW() - INTERVAL '10 minutes'
+    RETURNING wi.id, wi.item_type, wi.status as new_status
+),
+summary AS (
+    SELECT
+        COUNT(*) FILTER (WHERE new_status = 'triaged') as released,
+        COUNT(*) FILTER (WHERE new_status = 'failed') as failed,
+        COUNT(*) FILTER (WHERE new_status = 'blocked') as blocked
+    FROM timeout_items
+)
+SELECT released::text as released, failed::text as failed, blocked::text as blocked
+FROM summary
+WHERE released > 0 OR failed > 0 OR blocked > 0
+    $PQ$
+WHERE name = 'claimed-item-timeout';
+
+-- NOTE: This pre_query does the work directly in SQL. The scheduled task
+-- still triggers the generic agent, but the pre_query has already done the
+-- cleanup. The agent just runs and completes with the summary in input_data.
+-- If no items needed cleanup, pre_query returns 0 rows and the task is skipped.
+
+
+-- ============================================================================
+-- 3. Feasibility re-check — scheduled task
+--
+-- Runs every 10 minutes. Checks blocked items whose handler_agent now exists
+-- in agent_definitions. Promotes them back to 'triaged'.
+-- ============================================================================
+
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds,
+    target_agent_type, target_topic,
+    input_data, concurrency_group, max_concurrent,
+    enabled, timeout_seconds
+) VALUES (
+             'feasibility-recheck',
+             'Promotes blocked work items back to triaged when their handler agent becomes available.',
+             600,
+             'generic',
+             'system.agent.generic.requests',
+             '{}'::jsonb,
+             'maintenance',
+             1,
+             true,
+             60
+         ) ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    interval_seconds = EXCLUDED.interval_seconds;
+
+UPDATE scheduled_tasks
+SET pre_query = $PQ$
+    WITH promoted AS (
+    UPDATE site_work_items wi
+    SET status = 'triaged',
+        error = NULL,
+        updated_at = NOW()
+    WHERE wi.status = 'blocked'
+      AND EXISTS (
+        SELECT 1 FROM agent_definitions ad
+        WHERE ad.type = wi.handler_agent
+          AND ad.deleted_at IS NULL
+      )
+    RETURNING wi.id, wi.item_type, wi.handler_agent
+)
+SELECT COUNT(*)::text as promoted,
+    string_agg(DISTINCT handler_agent, ', ') as agents
+FROM promoted
+WHERE (SELECT COUNT(*) FROM promoted) > 0
+    $PQ$
+WHERE name = 'feasibility-recheck';
+
+-- ============================================================================
+-- Verify
+-- ============================================================================
+SELECT name, interval_seconds, enabled, LEFT(pre_query, 80) as pre_query_preview
+FROM scheduled_tasks
+WHERE name IN ('claimed-item-timeout', 'feasibility-recheck');
+
+---
+
+-- added system user
+-- Check if the function exists
+SELECT proname FROM pg_proc WHERE proname = 'create_client_schema';
+
+-- If it exists, use it
+SELECT create_client_schema('system');
+
+-- Insert the client record
+INSERT INTO clients (external_id, name, settings)
+VALUES ('system', 'System Scheduler', '{"type": "internal", "description": "Used by kafka-scheduler for automated triggers"}'::jsonb)
+    ON CONFLICT DO NOTHING;
+
+-- Verify both
+SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'client_system';
+SELECT * FROM clients WHERE external_id = 'system';
+
+--
+
+
+--The scheduler already skips fireTrigger when the pre_query returns no rows (dynamicData == nil → continue). The problem is: when the pre_query DOES find items to reset/promote, it returns a row (the count), and the scheduler fires a message to generic, which runs the calculator.
+--The pre_query already does all the work in the CTE's UPDATE. We just need to prevent it from returning rows to the scheduler:
+
+-- claimed-item-timeout: do the work, never trigger a message
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH reset AS (
+    UPDATE site_work_items
+    SET status = ''triaged'',
+        claimed_by = NULL,
+        claimed_at = NULL,
+        attempt_count = attempt_count + 1
+    WHERE status = ''claimed''
+      AND claimed_at < NOW() - INTERVAL ''10 minutes''
+      AND attempt_count < max_attempts
+    RETURNING id, item_type, handler_agent
+)
+SELECT COUNT(*)::text as reset_count,
+       string_agg(DISTINCT handler_agent, '', '') as agents
+FROM reset
+WHERE 1 = 0
+'
+WHERE name = 'claimed-item-timeout';
+
+-- feasibility-recheck: same pattern
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH promoted AS (
+    UPDATE site_work_items wi
+    SET status = ''triaged'',
+        error = NULL
+    WHERE wi.status = ''blocked''
+      AND EXISTS (
+        SELECT 1 FROM agent_definitions ad
+        WHERE ad.type = wi.handler_agent
+          AND ad.deleted_at IS NULL
+      )
+    RETURNING wi.id, wi.item_type, wi.handler_agent
+)
+SELECT COUNT(*)::text as promoted,
+       string_agg(DISTINCT handler_agent, '', '') as agents
+FROM promoted
+WHERE 1 = 0
+'
+WHERE name = 'feasibility-recheck';
+
+
+--
+
+-- Fix claimed-item-timeout: use HAVING to suppress zero-result rows
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH reset AS (
+    UPDATE site_work_items
+    SET status = ''triaged'',
+        claimed_by = NULL,
+        claimed_at = NULL,
+        attempt_count = attempt_count + 1
+    WHERE status = ''claimed''
+      AND claimed_at < NOW() - INTERVAL ''10 minutes''
+      AND attempt_count < max_attempts
+    RETURNING id, item_type, handler_agent
+)
+SELECT COUNT(*)::text as reset_count,
+       string_agg(DISTINCT handler_agent, '', '') as agents
+FROM reset
+HAVING COUNT(*) > 0
+'
+WHERE name = 'claimed-item-timeout';
+
+-- Fix feasibility-recheck: same HAVING pattern
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH promoted AS (
+    UPDATE site_work_items wi
+    SET status = ''triaged'',
+        error = NULL
+    WHERE wi.status = ''blocked''
+      AND EXISTS (
+        SELECT 1 FROM agent_definitions ad
+        WHERE ad.type = wi.handler_agent
+          AND ad.deleted_at IS NULL
+      )
+    RETURNING wi.id, wi.item_type, wi.handler_agent
+)
+SELECT COUNT(*)::text as promoted,
+       string_agg(DISTINCT handler_agent, '', '') as agents
+FROM promoted
+HAVING COUNT(*) > 0
+'
+WHERE name = 'feasibility-recheck';
+
+--
+
+
+-- Add a pre_query to improvement-sweep that only fires when queue is small
+UPDATE scheduled_tasks
+SET pre_query = '
+SELECT COUNT(*)::text as pending_items
+FROM site_work_items
+WHERE status IN (''triaged'', ''claimed'', ''detected'')
+  AND domain = ''build''
+HAVING COUNT(*) < 20
+'
+WHERE name = 'improvement-sweep';
+
+--
+
+-- added vet to scheduled tasks
+-- vet_scheduled_tasks.sql
+--
+-- Three scheduled tasks for automated vet pipeline operation.
+-- Disable or delete after the initial data collection campaign.
+--
+-- 1. vet-batch-verify:  Triggers batch processor every 15 min if pending tasks exist
+-- 2. vet-task-reset:    Resets stuck in_progress tasks every 5 min (prevents orphans)
+-- 3. vet-sweep-continue: Triggers sweep for unswept areas every 30 min
+--
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 1. VET BATCH VERIFY — claims and verifies pending collection tasks
+-- ═══════════════════════════════════════════════════════════════════
+-- Pre-query: only fires if there are pending tasks and no batch processor
+-- currently running (no in_progress tasks = nothing active)
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'vet-batch-verify',
+             'Triggers vet-batch-processor to verify pending businesses. Runs every 15 minutes if pending tasks exist and no batch is currently active.',
+             900,  -- 15 minutes
+             'vet-batch-processor',
+             'system.agent.generic.requests',
+             '{"batch_size": 100, "task_type": "initial_verification", "vertical_slug": "veterinary"}',
+             'vet-verify',
+             1,     -- only 1 batch processor at a time
+             1800,  -- 30 min timeout (in-flight window)
+             '
+         SELECT COUNT(*)::text as pending_tasks
+         FROM business_intel.collection_tasks
+         WHERE status = ''pending''
+           AND vertical_id = (SELECT id FROM business_intel.business_verticals WHERE slug = ''veterinary'')
+         HAVING COUNT(*) > 0
+         ',
+             true
+         );
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 2. VET TASK RESET — resets orphaned in_progress tasks
+-- ═══════════════════════════════════════════════════════════════════
+-- Pure maintenance SQL via pre_query. The UPDATE runs in the pre_query.
+-- If nothing was reset, returns no rows → task skipped (no message sent).
+-- Uses the generic agent as a no-op target.
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'vet-task-reset',
+             'Resets collection_tasks stuck in in_progress for over 30 minutes. Prevents orphaned tasks from blocking the queue.',
+             300,  -- every 5 minutes
+             'generic',
+             'system.agent.generic.requests',
+             '{}',
+             'maintenance',
+             1,
+             60,
+             '
+         WITH reset AS (
+             UPDATE business_intel.collection_tasks
+             SET status = ''pending'',
+                 started_at = NULL,
+                 orchestration_id = NULL
+             WHERE status = ''in_progress''
+               AND started_at < NOW() - INTERVAL ''30 minutes''
+             RETURNING id
+         )
+         SELECT COUNT(*)::text as reset_count
+         FROM reset
+         HAVING COUNT(*) > 0
+         ',
+             true
+         );
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 3. VET SWEEP CONTINUE — sweeps unswept areas in batches
+-- ═══════════════════════════════════════════════════════════════════
+-- Pre-query: only fires if there are unswept areas remaining.
+-- Sends limit=200 so each run does a manageable batch.
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'vet-sweep-continue',
+             'Triggers area-sweep-orchestrator to sweep the next batch of unswept areas. Runs every 30 minutes if unswept areas remain.',
+             1800,  -- 30 minutes
+             'vet-pipeline-orchestrator',
+             'system.agent.generic.requests',
+             '{"limit": 200, "promote_limit": 500, "verify_limit": 0, "delay_ms": 5000, "country": "GB", "business_type": "veterinary practice", "vertical_slug": "veterinary"}',
+             'vet-sweep',
+             1,     -- only 1 sweep at a time
+             3600,  -- 1 hour timeout window
+             '
+         SELECT COUNT(*)::text as unswept_areas
+         FROM business_intel.search_areas
+         WHERE last_swept_at IS NULL
+         HAVING COUNT(*) > 0
+         ',
+             true
+         );
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Verification: check all three were created
+-- ═══════════════════════════════════════════════════════════════════
+SELECT name, interval_seconds, target_agent_type, enabled,
+       CASE WHEN pre_query IS NOT NULL THEN 'yes' ELSE 'no' END as has_pre_query
+FROM scheduled_tasks
+WHERE name LIKE 'vet-%'
+ORDER BY name;
+
+-- to disable later:
+UPDATE scheduled_tasks SET enabled = false WHERE name LIKE 'vet-%';
+
+
+
+---
+
+
+-- adding a pre query that checks that there are items to be dispatched
+UPDATE scheduled_tasks
+SET pre_query = '
+SELECT s.id::text as site_id, s.domain
+FROM sites s
+WHERE EXISTS (
+    SELECT 1 FROM site_work_items wi
+    WHERE wi.site_id = s.id
+      AND wi.status = ''triaged''
+      AND wi.domain = ''build''
+)
+ORDER BY s.domain
+LIMIT 1
+HAVING COUNT(*) > 0
+'
+WHERE name = 'build-pipeline-trigger';
+
+
+---
+-- stop the scheduler sending messages to generic agent when it's finished - add a 'whether to send message' column
+
+these three tasks (claimed-item-timeout, feasibility-recheck, vet-task-reset) are cron SQL jobs, not agent triggers. Their pre_query CTEs do all the work. The message sent afterward is meaningless — it exists only because the scheduler assumes every task triggers an agent.
+The proper fix is a fire_message column on scheduled_tasks. When false, the scheduler runs the pre_query and stops. No Kafka message, no agent spawned.
+
+-- vet cleanup
+
+                                                                                                                                                                                                     -- vet_self_healing.sql
+--
+-- Replaces vet-task-reset with a broader self-healing task that:
+--   1. Fails orchestrations stuck in AWAITING_RESPONSES for >20 min
+--   2. Resets collection_tasks stuck in in_progress for >20 min
+--   3. Only fires if it actually found something to fix
+--
+-- This breaks the stall chain:
+--   stuck verifier → failed (by this task)
+--   → batch processor's continue_on_error skips it (or batch processor
+--     itself gets failed on next cycle)
+--   → orphaned tasks reset to pending
+--   → scheduler fires a new batch processor
+--
+-- Runs every 3 minutes in its own concurrency group.
+
+-- Remove the old narrow task
+DELETE FROM scheduled_tasks WHERE name = 'vet-task-reset';
+
+-- Create the broader self-healing task
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'stale-orchestration-reaper',
+             'Fails stuck AWAITING_RESPONSES orchestrations and resets orphaned in_progress tasks. Self-healing loop that prevents pipeline stalls.',
+             180,  -- every 3 minutes
+             'generic',
+             'system.agent.generic.requests',
+             '{}',
+             'reaper',
+             1,
+             60,
+             '
+         WITH failed_orchs AS (
+             UPDATE orchestration_states
+             SET status = ''FAILED'',
+                 error = ''reaper: stale AWAITING_RESPONSES for >20 min'',
+                 updated_at = NOW()
+             WHERE status = ''AWAITING_RESPONSES''
+               AND last_activity < NOW() - INTERVAL ''20 minutes''
+             RETURNING orchestration_id, owner_agent_type, current_step
+         ),
+         reset_tasks AS (
+             UPDATE business_intel.collection_tasks
+             SET status = ''pending'',
+                 started_at = NULL,
+                 orchestration_id = NULL
+             WHERE status = ''in_progress''
+               AND started_at < NOW() - INTERVAL ''20 minutes''
+             RETURNING id
+         ),
+         expired_awaited AS (
+             UPDATE awaited_requests
+             SET status = ''expired'',
+                 processed_at = NOW()
+             WHERE status = ''waiting''
+               AND timeout_at < NOW() - INTERVAL ''5 minutes''
+             RETURNING request_id
+         )
+         SELECT
+             (SELECT COUNT(*) FROM failed_orchs)::text as orchs_failed,
+             (SELECT COUNT(*) FROM reset_tasks)::text as tasks_reset,
+             (SELECT COUNT(*) FROM expired_awaited)::text as awaited_expired
+         HAVING
+             (SELECT COUNT(*) FROM failed_orchs) > 0
+             OR (SELECT COUNT(*) FROM reset_tasks) > 0
+             OR (SELECT COUNT(*) FROM expired_awaited) > 0
+         ',
+             true
+         );
+
+-- Also fix the concurrency timeout issue on vet-batch-verify.
+-- The scheduler considers a task "in flight" until last_completed_at > last_triggered_at
+-- or timeout_seconds elapses. But nobody sets last_completed_at for fire-and-forget tasks.
+--
+-- The reaper now handles cleanup, so we can reduce the timeout windows.
+-- This means the scheduler will consider previous runs as timed out sooner,
+-- allowing re-firing.
+UPDATE scheduled_tasks
+SET timeout_seconds = 900  -- 15 min (was 1800)
+WHERE name = 'vet-batch-verify';
+
+UPDATE scheduled_tasks
+SET timeout_seconds = 1800  -- 30 min (was 3600)
+WHERE name = 'vet-sweep-continue';
+
+-- Verify
+SELECT name, interval_seconds, timeout_seconds, concurrency_group, enabled,
+       CASE WHEN pre_query IS NOT NULL AND pre_query != '' THEN 'yes' ELSE 'no' END as has_pre_query
+FROM scheduled_tasks
+WHERE name IN ('stale-orchestration-reaper', 'vet-batch-verify', 'vet-sweep-continue', 'vet-task-reset')
+ORDER BY name;
+
+--
+
+-- vet permanent pod
+
+-- vet_intel_setup.sql
+--
+-- Point scheduled tasks at the dedicated vet-intel agent instead of generic.
+-- The vet-intel agent listens on system.agent.vet-intel.requests.
+
+-- 1. Update batch verify to target vet-intel
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.vet-intel.requests',
+    target_agent_type = 'vet-batch-processor'
+WHERE name = 'vet-batch-verify';
+
+-- 2. Update sweep to target vet-intel
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.vet-intel.requests',
+    target_agent_type = 'vet-pipeline-orchestrator'
+WHERE name = 'vet-sweep-continue';
+
+-- 3. Verify
+SELECT name, target_agent_type, target_topic
+FROM scheduled_tasks
+WHERE name LIKE 'vet-%'
+ORDER BY name;
+
+---
+
+-- database cleanup
+
+-- ============================================================================
+-- Database cleanup scheduled task
+--
+-- Cleans up accumulated data from:
+--   1. agent_error_log         — resolved errors > 14 days, unresolved > 30 days
+--   2. orchestration_state_audit — keeps last 100k rows
+--   3. orchestration_states    — completed/failed > 7 days, stuck > 24 hours
+--   4. orchestration_requests  — cascades from orchestration_states deletion
+--
+-- Runs as a fire_message=false scheduled task (CTE-only, no Kafka).
+-- ============================================================================
+
+-- First, fix the orchestration_requests FK to add CASCADE
+-- (currently the only FK without it, which blocks orchestration cleanup)
+ALTER TABLE orchestration_requests
+DROP CONSTRAINT IF EXISTS fk_orch,
+    ADD CONSTRAINT fk_orch
+        FOREIGN KEY (orchestration_id)
+        REFERENCES orchestration_states(orchestration_id)
+        ON DELETE CASCADE;
+
+-- ============================================================================
+-- The cleanup task
+-- ============================================================================
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds, target_agent_type,
+    target_topic, enabled, fire_message, timeout_seconds,
+    concurrency_group, max_concurrent,
+    pre_query
+) VALUES (
+             'database-cleanup',
+             'Purges old errors, completed orchestrations, audit trails, and spawned agent records. Keeps recent data for debugging.',
+             21600,  -- every 6 hours
+             'database-cleanup',
+             'system.agent.generic.requests',
+             true,
+             false,  -- CTE-only, no Kafka message
+             120,
+             'maintenance',
+             1,
+             '
+             -- 1. Clean agent_error_log (resolved errors > 14 days, unresolved > 30 days)
+             WITH deleted_errors AS (
+                 DELETE FROM agent_error_log
+                 WHERE (resolved = true AND occurred_at < NOW() - INTERVAL ''14 days'')
+                    OR (resolved = false AND occurred_at < NOW() - INTERVAL ''30 days'')
+                 RETURNING id
+             ),
+
+             -- 2. Clean orchestration_state_audit (keep last 100k rows)
+             -- The audit tables timestamp column name varies by installation.
+    -- Using sequence-based cleanup which is always safe.
+    deleted_audit AS (
+        DELETE FROM orchestration_state_audit
+        WHERE id < (
+            SELECT COALESCE(MAX(id) - 100000, 0)
+            FROM orchestration_state_audit
+        )
+        RETURNING id
+    ),
+
+             -- 3. Clean completed/failed orchestration_states (> 7 days)
+             -- CASCADE will clean orchestration_requests, input_requests, pending_requests
+             deleted_orchestrations AS (
+        DELETE FROM orchestration_states
+        WHERE status IN (''COMPLETED'', ''FAILED'')
+          AND updated_at < NOW() - INTERVAL ''7 days''
+        RETURNING orchestration_id
+    ),
+
+             -- 4. Clean stale orchestrations stuck in EXECUTING_STEP (> 24 hours)
+             -- These are leftovers from pod restarts that never completed
+             deleted_stale AS (
+        DELETE FROM orchestration_states
+        WHERE status IN (''EXECUTING_STEP'', ''WAITING_FOR_RESPONSE'')
+          AND updated_at < NOW() - INTERVAL ''24 hours''
+        RETURNING orchestration_id
+    )
+
+    SELECT
+        (SELECT COUNT(*) FROM deleted_errors)::text as errors_deleted,
+             (SELECT COUNT(*) FROM deleted_audit)::text as audit_deleted,
+             (SELECT COUNT(*) FROM deleted_orchestrations)::text as orchestrations_deleted,
+             (SELECT COUNT(*) FROM deleted_stale)::text as stale_deleted
+                 HAVING
+                 (SELECT COUNT(*) FROM deleted_errors) > 0
+                 OR (SELECT COUNT(*) FROM deleted_audit) > 0
+                 OR (SELECT COUNT(*) FROM deleted_orchestrations) > 0
+                 OR (SELECT COUNT(*) FROM deleted_stale) > 0
+                 '
+             ) ON CONFLICT (name) DO UPDATE SET
+                 pre_query = EXCLUDED.pre_query,
+                 interval_seconds = EXCLUDED.interval_seconds,
+                 description = EXCLUDED.description,
+                 updated_at = NOW();
+
+             -- ============================================================================
+             -- Retention policy summary
+             --
+             -- | Table                      | Retention    | Condition                    |
+             -- |---------------------------|-------------|------------------------------|
+             -- | agent_error_log           | 14d resolved | Resolved errors              |
+             -- | agent_error_log           | 30d          | Unresolved errors            |
+             -- | orchestration_state_audit | 100k rows    | Keep last 100k by sequence   |
+             -- | orchestration_states      | 7d           | COMPLETED or FAILED          |
+             -- | orchestration_states      | 24h          | Stuck EXECUTING/WAITING      |
+             -- | orchestration_requests    | cascades     | Deleted with parent state    |
+             -- | input_requests            | cascades     | Deleted with parent state    |
+             -- | pending_requests          | cascades     | Deleted with parent state    |
+             -- | site_work_items           | not cleaned  | Kept for analytics/history   |
+             --
+             -- site_work_items are NOT cleaned automatically. Completed items are
+             -- small (no collected_data blob) and useful for tracking what was done.
+             -- If this table grows too large, add a separate archival step that
+             -- moves completed items to a site_work_items_archive table.
+             -- ============================================================================
+
+             -- ============================================================================
+             -- Verify the task was created
+             -- ============================================================================
+             SELECT name, enabled, fire_message, interval_seconds,
+                    timeout_seconds, last_triggered_at
+             FROM scheduled_tasks
+             WHERE name = 'database-cleanup';
+
+
+---
+
+-- vet-intel setup
+
+-- vet_intel_setup.sql
+--
+-- Point all vet scheduled tasks at the dedicated vet-intel pod.
+-- The vet-intel pod listens on system.agent.vet-intel.requests.
+
+-- 1. Update batch verify
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.vet-intel.requests'
+WHERE name = 'vet-batch-verify';
+
+-- 2. Update sweep
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.vet-intel.requests'
+WHERE name = 'vet-sweep-continue';
+
+-- 3. Verify all vet tasks
+SELECT name, target_agent_type, target_topic, enabled
+FROM scheduled_tasks
+WHERE name LIKE 'vet-%'
+ORDER BY name;
+
+---
+
+-- companies house
+-- =========================================================================
+-- 3. SCHEDULED TASK
+-- =========================================================================
+-- Runs every 20 minutes. Pre-query checks if there are verified businesses
+-- without CH data. Processes 20 per run at ~30s each = ~10 min per batch.
+-- Targets the vet-intel pod.
+
+INSERT INTO scheduled_tasks (
+    id, name, description, interval_seconds,
+    target_agent_type, target_topic, input_data,
+    concurrency_group, max_concurrent, timeout_seconds,
+    pre_query, enabled
+) VALUES (
+             gen_random_uuid(),
+             'ch-enrichment',
+             'Enriches verified businesses with Companies House data (financials, officers, ownership). Very gentle rate limiting.',
+             1200,  -- every 20 minutes
+             'ch-enricher',
+             'system.agent.vet-intel.requests',
+             '{"batch_size": 20, "vertical_slug": "veterinary"}',
+             'ch-enrichment',
+             1,      -- only 1 enricher at a time
+             900,    -- 15 min timeout window
+             '
+         SELECT COUNT(*)::text as unenriched
+         FROM business_intel.businesses b
+         JOIN business_intel.business_verticals bv ON bv.id = b.vertical_id
+         LEFT JOIN business_intel.companies_house_data ch ON ch.business_id = b.id
+         WHERE bv.slug = ''veterinary''
+           AND b.verification_status = ''verified''
+           AND ch.business_id IS NULL
+         HAVING COUNT(*) > 0
+         ',
+             false  -- disabled until Go actions are built
+         );
+
+
+-- =========================================================================
+-- 4. VERIFY
+-- =========================================================================
+
+SELECT name, target_agent_type, target_topic, enabled,
+       interval_seconds, timeout_seconds
+FROM scheduled_tasks
+WHERE name = 'ch-enrichment';
+
+SELECT COUNT(*) as table_exists
+FROM information_schema.tables
+WHERE table_schema = 'business_intel'
+  AND table_name = 'companies_house_data';
+
+
+--
+
+-- timeouts
+
+UPDATE scheduled_tasks
+SET pre_query = '
+WITH reset AS (
+    UPDATE site_work_items
+    SET status = CASE
+            WHEN attempt_count + 1 >= max_attempts THEN ''failed''
+            ELSE ''triaged''
+        END,
+        claimed_by = NULL,
+        claimed_at = NULL,
+        attempt_count = attempt_count + 1,
+        error = CASE
+            WHEN attempt_count + 1 >= max_attempts THEN ''Claim timed out (attempts exhausted)''
+            ELSE ''Claim timed out — handler pod likely died''
+        END
+    WHERE status = ''claimed''
+      AND claimed_at < NOW() - INTERVAL ''10 minutes''
+    RETURNING id, item_type, handler_agent, status
+)
+SELECT COALESCE(COUNT(*)::text, ''0'') as reset_count
+FROM reset
+'
+WHERE name = 'claimed-item-timeout';
+
+-- Also verify the interval is reasonable
+SELECT name, interval_seconds, timeout_seconds
+FROM scheduled_tasks
+WHERE name = 'claimed-item-timeout';
+
+-- same prob
+-- Set last_completed_at so the no-refire guard doesn't block
+UPDATE scheduled_tasks
+SET last_triggered_at = NOW() - INTERVAL '3 minutes',
+    last_completed_at = NOW() - INTERVAL '3 minutes'
+WHERE name = 'claimed-item-timeout';
+
+-- Also fix the database-cleanup task's HAVING clause while we're at it
+UPDATE scheduled_tasks
+SET pre_query = REPLACE(
+        pre_query,
+        '    HAVING
+            (SELECT COUNT(*) FROM deleted_errors) > 0
+            OR (SELECT COUNT(*) FROM deleted_audit) > 0
+            OR (SELECT COUNT(*) FROM deleted_orchestrations) > 0
+            OR (SELECT COUNT(*) FROM deleted_stale) > 0',
+        '    -- Always returns a row so scheduler marks task as executed'
+                )
+WHERE name = 'database-cleanup';
+
+--
+-- fix - couldn't find domain
+-- Fixed: finds the next site to run discovery on
+-- Skips sites that already have many open items (> 20)
+-- Round-robins by picking the site least recently checked
+UPDATE scheduled_tasks
+SET pre_query = '
+SELECT s.id::text as site_id, s.domain
+FROM sites s
+WHERE s.status IN (''active'', ''deployed'')
+  AND NOT EXISTS (
+    SELECT 1 FROM site_work_items wi
+    WHERE wi.site_id = s.id
+      AND wi.status = ''claimed''
+      AND wi.domain = ''build''
+  )
+  AND (
+    SELECT COUNT(*) FROM site_work_items wi
+    WHERE wi.site_id = s.id
+      AND wi.status IN (''triaged'', ''detected'')
+      AND wi.domain = ''build''
+  ) < 20
+ORDER BY s.updated_at ASC NULLS FIRST
+LIMIT 1
+'
+WHERE name = 'improvement-sweep';
+
+
+---
+
+-- prequery to unstick scheduled tasks so the unsticker can work
+
+INSERT INTO scheduled_tasks (
+    name, description, target_topic, target_agent_type,
+    interval_seconds, concurrency_group, max_concurrent,
+    enabled, fire_message, pre_query
+) VALUES (
+             'stuck-task-reaper',
+             'Auto-reset scheduled tasks stuck for over 1 hour',
+             'system.internal.noop',
+             'maintenance',
+             300,
+             'claim-management',
+             1,
+             true,
+             false,
+             $PRE$
+                 WITH stuck AS (
+        UPDATE scheduled_tasks
+        SET last_completed_at = NOW()
+        WHERE enabled = true
+          AND last_triggered_at IS NOT NULL
+          AND (
+              last_completed_at IS NULL
+              OR last_completed_at < last_triggered_at
+          )
+          AND last_triggered_at < NOW() - INTERVAL '3 hours'
+          AND name != 'stuck-task-reaper'
+        RETURNING name, last_triggered_at
+    )
+    SELECT COALESCE(COUNT(*)::text, '0') AS reset_count,
+             COALESCE(string_agg(name, ', '), 'none') AS reset_tasks
+    FROM stuck
+    $PRE$
+         );
+
+---
+-- site lock
+
+UPDATE scheduled_tasks
+SET pre_query = replace(
+    pre_query,
+    'WHERE s.status IN',
+    'WHERE s.locked_at IS NULL AND s.status IN'
+)
+WHERE name = 'build-pipeline-trigger'
+  AND pre_query NOT LIKE '%s.locked_at IS NULL%';
+
+---
+-- fixed site lock
+UPDATE scheduled_tasks
+SET pre_query = '
+SELECT COUNT(*)::text as pending_sites
+FROM sites s
+WHERE s.locked_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM site_work_items wi
+    WHERE wi.site_id = s.id
+      AND wi.status = ''triaged''
+      AND wi.domain = ''build''
+      AND wi.attempt_count < wi.max_attempts
+)
+HAVING COUNT(*) > 0
+'
+WHERE name = 'build-pipeline-trigger';
+
+--
+
+UPDATE scheduled_tasks
+SET pre_query = REPLACE(pre_query, 'WAITING_FOR_RESPONSE', 'AWAITING_RESPONSES')
+WHERE name = 'database-cleanup';
+
+-- Register the health check scheduled task
+INSERT INTO scheduled_tasks (
+    name, target_agent_type, target_topic, input_data,
+    interval_seconds, timeout_seconds, enabled, fire_message,
+    concurrency_group, max_concurrent
+) VALUES (
+             'ai-endpoint-health-check',
+             'build-dispatch-loop',          -- runs on the dispatch loop agent (always running)
+             'system.agent.build-dispatch-loop.process',
+             '{"action": "check_endpoint_health"}'::jsonb,
+             30,                              -- check every 30 seconds
+             15,                              -- timeout after 15 seconds
+             true,
+             true,
+             'health-checks',
+             1
+         ) ON CONFLICT (name) DO NOTHING;
+
+
+---
+
+-- adjust reaping times
+
+-- Add a shorter idle threshold for dispatch loops specifically
+UPDATE scheduled_tasks
+SET pre_query = $pq$
+    WITH failed_dispatch AS (
+    UPDATE orchestration_states
+    SET status = 'FAILED',
+        error = 'reaper: dispatch loop idle for >30 min',
+        updated_at = NOW()
+    WHERE status = 'AWAITING_RESPONSES'
+      AND owner_agent_type = 'build-dispatch-loop'
+      AND last_activity < NOW() - INTERVAL '30 minutes'
+    RETURNING orchestration_id, owner_agent_type, current_step
+),
+failed_orchs AS (
+    UPDATE orchestration_states
+    SET status = 'FAILED',
+        error = 'reaper: stale AWAITING_RESPONSES for >90 min',
+        updated_at = NOW()
+    WHERE status = 'AWAITING_RESPONSES'
+      AND last_activity < NOW() - INTERVAL '90 minutes'
+      AND orchestration_id NOT IN (SELECT orchestration_id FROM failed_dispatch)
+    RETURNING orchestration_id, owner_agent_type, current_step
+),
+reset_tasks AS (
+    UPDATE business_intel.collection_tasks
+    SET status = 'pending',
+        started_at = NULL,
+        orchestration_id = NULL
+    WHERE status = 'in_progress'
+      AND started_at < NOW() - INTERVAL '20 minutes'
+    RETURNING id
+),
+expired_awaited AS (
+    UPDATE awaited_requests
+    SET status = 'expired',
+        processed_at = NOW()
+    WHERE status = 'waiting'
+      AND timeout_at < NOW() - INTERVAL '5 minutes'
+    RETURNING request_id
+)
+SELECT
+    (SELECT COUNT(*) FROM failed_dispatch)::text as dispatch_failed,
+    (SELECT COUNT(*) FROM failed_orchs)::text as orchs_failed,
+    (SELECT COUNT(*) FROM reset_tasks)::text as tasks_reset,
+    (SELECT COUNT(*) FROM expired_awaited)::text as awaited_expired
+    HAVING
+    (SELECT COUNT(*) FROM failed_dispatch) > 0
+    OR (SELECT COUNT(*) FROM failed_orchs) > 0
+    OR (SELECT COUNT(*) FROM reset_tasks) > 0
+    OR (SELECT COUNT(*) FROM expired_awaited) > 0
+$pq$
+WHERE name = 'stale-orchestration-reaper'
+    RETURNING name;
+
+
+---
+--Stale triaged items reaper — agreed, separate from database-cleanup. A new scheduled task that marks items unresolved if they've been sitting in triaged for 48h without being claimed:' ||
+                           '' ||
+                           '
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds, target_agent_type,
+    target_topic, enabled, fire_message, timeout_seconds,
+    concurrency_group, max_concurrent, pre_query
+) VALUES (
+             'stale-work-item-reaper',
+             'Marks triaged work items as unresolved if they have been waiting 48h+ without being claimed. Prevents queue deadlocks.',
+             3600,
+             'stale-work-item-reaper',
+             'system.agent.generic.requests',
+             true,
+             false,
+             120,
+             'maintenance',
+             1,
+             '
+             WITH stale AS (
+                 UPDATE site_work_items
+                 SET status = ''unresolved'',
+                     summary = ''[stale: triaged 48h+] '' || summary,
+                     updated_at = NOW()
+                 WHERE status = ''triaged''
+                   AND pipeline = ''build''
+                   AND created_at < NOW() - INTERVAL ''48 hours''
+                   AND claimed_at IS NULL
+                 RETURNING id
+             )
+             SELECT COUNT(*)::text as affected_count FROM stale
+             '
+         )
+    ON CONFLICT (name) DO UPDATE SET
+    pre_query = EXCLUDED.pre_query,
+                              description = EXCLUDED.description,
+                              enabled = EXCLUDED.enabled;                            '
+---
+-- add site_work_items to archive table regularly
+
+-- ============================================================================
+-- Work Item Archiver: function + agent + scheduled task
+-- ============================================================================
+-- Archives terminal work items (complete, failed, wont_fix) older than
+-- a configurable age. Handles FK constraints (parent_item_id self-ref,
+-- content_feed_items).
+--
+-- Column mapping: site_work_items has approval_mode, updated_at, pipeline
+-- that archive doesn't. Archive has domain that live table doesn't.
+-- We add the missing columns to archive below.
+-- ============================================================================
+
+-- 0. Sync archive schema with live table (idempotent)
+ALTER TABLE site_work_items_archive ADD COLUMN IF NOT EXISTS pipeline text DEFAULT 'build';
+ALTER TABLE site_work_items_archive ADD COLUMN IF NOT EXISTS approval_mode text DEFAULT 'auto';
+ALTER TABLE site_work_items_archive ADD COLUMN IF NOT EXISTS updated_at timestamptz;
+
+-- 1. The archive function
+CREATE OR REPLACE FUNCTION archive_completed_work_items(
+    min_age_days INTEGER DEFAULT 7,
+    batch_limit INTEGER DEFAULT 1000
+)
+RETURNS jsonb AS $$
+DECLARE
+archived_count INTEGER;
+    feed_items_deleted INTEGER;
+    parents_nullified INTEGER;
+BEGIN
+    -- Create temp table of items to archive
+    CREATE TEMP TABLE _items_to_archive ON COMMIT DROP AS
+SELECT wi.id, wi.site_id, s.domain
+FROM site_work_items wi
+         JOIN sites s ON s.id = wi.site_id
+WHERE wi.status IN ('complete', 'failed', 'wont_fix')
+  AND COALESCE(wi.completed_at, wi.updated_at, wi.created_at)
+    < NOW() - (min_age_days || ' days')::interval
+    LIMIT batch_limit;
+
+-- Nothing to do
+IF NOT EXISTS (SELECT 1 FROM _items_to_archive) THEN
+        RETURN jsonb_build_object(
+            'archived', 0,
+            'feed_items_deleted', 0,
+            'parents_nullified', 0
+        );
+END IF;
+
+    -- Nullify parent_item_id references from items NOT being archived
+    -- that point to items being archived
+UPDATE site_work_items
+SET parent_item_id = NULL
+WHERE parent_item_id IN (SELECT id FROM _items_to_archive)
+  AND id NOT IN (SELECT id FROM _items_to_archive);
+GET DIAGNOSTICS parents_nullified = ROW_COUNT;
+
+-- Delete content_feed_items references
+DELETE FROM content_feed_items
+WHERE work_item_id IN (SELECT id FROM _items_to_archive);
+GET DIAGNOSTICS feed_items_deleted = ROW_COUNT;
+
+-- Insert into archive (explicit column list, joining for domain)
+INSERT INTO site_work_items_archive (
+    id, site_id, source, domain, item_type, severity, summary, spec,
+    page_id, component_id, entity_id, affected_url, impact,
+    resolution_path, suggested_action, priority, handler_agent,
+    status, created_by, handled_by, approved_by, claimed_by,
+    depends_on, parent_item_id, related_item_ids, batch_id,
+    attempt_count, max_attempts, result, error, item_key,
+    created_at, triaged_at, claimed_at, completed_at,
+    pipeline, approval_mode, updated_at
+)
+SELECT
+    wi.id, wi.site_id, wi.source, a.domain, wi.item_type, wi.severity,
+    wi.summary, wi.spec, wi.page_id, wi.component_id, wi.entity_id,
+    wi.affected_url, wi.impact, wi.resolution_path, wi.suggested_action,
+    wi.priority, wi.handler_agent, wi.status, wi.created_by,
+    wi.handled_by, wi.approved_by, wi.claimed_by, wi.depends_on,
+    wi.parent_item_id, wi.related_item_ids, wi.batch_id,
+    wi.attempt_count, wi.max_attempts, wi.result, wi.error,
+    wi.item_key, wi.created_at, wi.triaged_at, wi.claimed_at,
+    wi.completed_at,
+    wi.pipeline, wi.approval_mode, wi.updated_at
+FROM site_work_items wi
+         JOIN _items_to_archive a ON a.id = wi.id
+    ON CONFLICT (id) DO NOTHING;
+
+-- Delete from live table
+DELETE FROM site_work_items
+WHERE id IN (SELECT id FROM _items_to_archive);
+GET DIAGNOSTICS archived_count = ROW_COUNT;
+
+RETURN jsonb_build_object(
+        'archived', archived_count,
+        'feed_items_deleted', feed_items_deleted,
+        'parents_nullified', parents_nullified
+       );
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- 2. Agent definition for the archiver
+INSERT INTO agent_definitions (
+    type, display_name, description, category,
+    default_config, is_active,
+    image_repository, image_tag,
+    resources, topics, health_config,
+    domain_tags, delegation_preferences,
+    agent_category, status
+) VALUES (
+             'work-item-archiver',
+             'Work Item Archiver',
+             'Archives terminal work items (complete, failed, wont_fix) older than 7 days to site_work_items_archive',
+             'code-driven',
+             jsonb_build_object(
+                     'processing_mode', 'orchestrator',
+                     'timeout_seconds', 120,
+                     'workflow', jsonb_build_object(
+                             'start_step', 'run_archive',
+                             'steps', jsonb_build_object(
+                                     'run_archive', jsonb_build_object(
+                                     'action', 'query_database',
+                                     'config', jsonb_build_object(
+                                             'query', 'SELECT archive_completed_work_items(7, 1000) as result',
+                                             'output_format', 'object'
+                                               ),
+                                     'description', 'Archive terminal work items older than 7 days',
+                                     'output_field', 'archive_result',
+                                     'next_step', 'notify_scheduler'
+                                                    ),
+                                     'notify_scheduler', jsonb_build_object(
+                                             'action', 'query_database',
+                                             'config', jsonb_build_object(
+                                                     'query', 'UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''work-item-archiver''',
+                                                     'output_format', 'object'
+                                                       ),
+                                             'description', 'Tell scheduler this execution finished',
+                                             'output_field', 'scheduler_notified',
+                                             'next_step', 'complete'
+                                                         ),
+                                     'complete', jsonb_build_object(
+                                             'action', 'complete_workflow',
+                                             'config', jsonb_build_object(
+                                                     'output_fields', ARRAY['archive_result']
+                                                       ),
+                                             'description', 'Archive cycle complete'
+                                                 )
+                                      )
+                                 )
+             ),
+             true,
+             'docker.io/aqls/agent-chassis', 'v1.0.954',
+             '{"limits": {"cpu": "200m", "memory": "256Mi"}, "requests": {"cpu": "50m", "memory": "64Mi"}}'::jsonb,
+             '{"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"}'::jsonb,
+             '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 15}'::jsonb,
+             '["maintenance", "housekeeping"]'::jsonb,
+             '{"prefer_delegation": false, "fallback_to_self": true}'::jsonb,
+             'coordinator',
+             'experimental'
+         )
+    ON CONFLICT (type, version) DO UPDATE SET
+    default_config = EXCLUDED.default_config,
+                                       description = EXCLUDED.description;
+
+
+-- 3. Scheduled task — runs daily
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds,
+    target_agent_type, concurrency_group,
+    max_concurrent, timeout_seconds, enabled
+) VALUES (
+             'work-item-archiver',
+             'Archives terminal work items older than 7 days to site_work_items_archive',
+             86400,
+             'work-item-archiver',
+             'maintenance',
+             1,
+             120,
+             true
+         )
+    ON CONFLICT (name) DO UPDATE SET
+    interval_seconds = EXCLUDED.interval_seconds,
+                              description = EXCLUDED.description,
+                              enabled = EXCLUDED.enabled;
+
+
+-- ============================================================================
+-- To test manually:
+--   SELECT archive_completed_work_items(7, 1000);
+--
+-- To archive everything older than 0 days (immediate cleanup):
+--   SELECT archive_completed_work_items(0, 5000);
+--
+-- To check what's been archived:
+--   SELECT site_id, count(*), min(completed_at), max(completed_at)
+--   FROM site_work_items_archive
+--   GROUP BY site_id;
+-- ============================================================================
+
+--
+
+-- fix ai-health check
+
+UPDATE scheduled_tasks
+SET target_topic = 'system.agent.endpoint-health-checker.process'
+WHERE name = 'ai-endpoint-health-check';
+
+---
+-- update database cleanup to clear up typography, palette etc orphans
+
+-- =====================================================================
+-- Deliverable 6.5: Extend database-cleanup task with composition
+--                  orphan cleanup
+-- =====================================================================
+--
+-- Context:
+--   The existing `database-cleanup` scheduled task (interval 3600s,
+--   concurrency group 'maintenance', target_agent_type
+--   'database-cleanup') runs a pre_query with four DELETE CTEs:
+--     1. agent_error_log
+--     2. orchestration_state_audit
+--     3. orchestration_states (completed/failed, > 24h)
+--     4. orchestration_states (stuck in EXECUTING/AWAITING, > 4h)
+--
+--   site-design-planner's palette + typography resolvers commit their
+--   inserts before install_site_composition wires them into css_themes.
+--   If install fails OR the reset-sweep (008) deactivates css_themes
+--   ahead of the adopted palette/typography rows, those rows become
+--   orphans — adopted origin, no css_themes row references them.
+--
+--   This patch adds two more CTEs (5, 6) to the existing pre_query,
+--   extending the cleanup to composition orphans. No change to interval,
+--   target agent, concurrency, or enabled state.
+--
+-- Safety constraints:
+--   - origin = 'adopted' — seed library rows are NEVER touched
+--   - source_site_id IS NOT NULL — defensive row-level sanity
+--   - forked_at < NOW() - INTERVAL '24 hours' — grace period keeps us
+--     from racing in-flight installs
+--   - NOT EXISTS against css_themes only — that's the only FK column
+--     referencing palettes/typography_sets in the current schema.
+--     (draft_composition_orphan_cleanup.sql had a defensive
+--     style_collections check, but that column doesn't exist in the
+--     current schema. Dropped. If a future migration adds
+--     style_collections.palette_id or .typography_set_id, this
+--     cleanup needs an update.)
+--
+-- Idempotency:
+--   Re-running this UPDATE is safe — it sets pre_query to the same
+--   text. The row-count assertion catches missing or duplicate rows.
+--
+-- Rollback:
+--   Revert to the prior 4-CTE pre_query by running this file's
+--   ROLLBACK section (at the bottom, in a comment).
+--
+-- Prerequisite ordering:
+--   This SQL is safe to run ANY time after install_site_composition
+--   is deployed, since the cleanup only deletes adopted rows with no
+--   active references. Running it before composition exists is a
+--   harmless no-op (no adopted palettes / typography_sets rows exist
+--   yet, so both new CTEs return zero rows).
+-- =====================================================================
+
+BEGIN;
+
+-- Preflight: show the current pre_query length and the two counts of
+-- rows the new CTEs WOULD remove right now (dry-run preview).
+DO $$
+DECLARE
+v_current_length   int;
+    v_would_palettes   int;
+    v_would_typo       int;
+BEGIN
+SELECT length(pre_query) INTO v_current_length
+FROM scheduled_tasks WHERE name = 'database-cleanup';
+
+SELECT COUNT(*) INTO v_would_palettes
+FROM palettes p
+WHERE p.origin = 'adopted'
+  AND p.source_site_id IS NOT NULL
+  AND p.forked_at < NOW() - INTERVAL '24 hours'
+  AND NOT EXISTS (SELECT 1 FROM css_themes t WHERE t.palette_id = p.id);
+
+SELECT COUNT(*) INTO v_would_typo
+FROM typography_sets ts
+WHERE ts.origin = 'adopted'
+  AND ts.source_site_id IS NOT NULL
+  AND ts.forked_at < NOW() - INTERVAL '24 hours'
+  AND NOT EXISTS (SELECT 1 FROM css_themes t WHERE t.typography_set_id = ts.id);
+
+RAISE NOTICE 'database-cleanup pre_query length BEFORE: % chars', v_current_length;
+    RAISE NOTICE 'Dry-run: palettes orphan count = %', v_would_palettes;
+    RAISE NOTICE 'Dry-run: typography orphan count = %', v_would_typo;
+END $$;
+
+-- The replacement pre_query. Includes the existing four CTEs verbatim
+-- (per the live row you showed), plus two new CTEs (5, 6), plus two
+-- new columns in the final SELECT.
+UPDATE scheduled_tasks
+SET pre_query = $PREQUERY$
+    -- 1. Clean agent_error_log (resolved errors > 14 days, unresolved > 30 days)
+    WITH deleted_errors AS (
+        DELETE FROM agent_error_log
+        WHERE (resolved = true AND occurred_at < NOW() - INTERVAL '14 days')
+           OR (resolved = false AND occurred_at < NOW() - INTERVAL '30 days')
+        RETURNING id
+    ),
+
+    -- 2. Clean orchestration_state_audit (keep last 100k rows)
+    deleted_audit AS (
+        DELETE FROM orchestration_state_audit
+        WHERE id < (
+            SELECT COALESCE(MAX(id) - 100000, 0)
+            FROM orchestration_state_audit
+        )
+        RETURNING id
+    ),
+
+    -- 3. Clean completed/failed orchestration_states (> 24 hours)
+    -- CASCADE will clean orchestration_requests, input_requests, pending_requests
+    deleted_orchestrations AS (
+        DELETE FROM orchestration_states
+        WHERE status IN ('COMPLETED', 'FAILED')
+          AND updated_at < NOW() - INTERVAL '24 hours'
+        RETURNING orchestration_id
+    ),
+
+    -- 4. Clean stale orchestrations stuck in EXECUTING_STEP (> 4 hours)
+    -- These are leftovers from pod restarts that never completed
+    deleted_stale AS (
+        DELETE FROM orchestration_states
+        WHERE status IN ('EXECUTING_STEP', 'AWAITING_RESPONSES')
+          AND updated_at < NOW() - INTERVAL '4 hours'
+        RETURNING orchestration_id
+    ),
+
+    -- 5. Clean orphan composition palettes
+    --    Adopted palettes not referenced by any css_themes row, with a
+    --    24h grace period to avoid racing in-flight installs. Seed
+    --    palettes are NEVER touched (origin filter).
+    deleted_orphan_palettes AS (
+        DELETE FROM palettes p
+        WHERE p.origin = 'adopted'
+          AND p.source_site_id IS NOT NULL
+          AND p.forked_at < NOW() - INTERVAL '24 hours'
+          AND NOT EXISTS (
+              SELECT 1 FROM css_themes t WHERE t.palette_id = p.id
+          )
+        RETURNING id
+    ),
+
+    -- 6. Clean orphan composition typography_sets
+    --    Same shape as palettes. Seed typography_sets (sans-modern,
+    --    serif-editorial, etc.) stay even when no active theme currently
+    --    references them — they're library resources for future forks.
+    deleted_orphan_typography AS (
+        DELETE FROM typography_sets ts
+        WHERE ts.origin = 'adopted'
+          AND ts.source_site_id IS NOT NULL
+          AND ts.forked_at < NOW() - INTERVAL '24 hours'
+          AND NOT EXISTS (
+              SELECT 1 FROM css_themes t WHERE t.typography_set_id = ts.id
+          )
+        RETURNING id
+    )
+
+SELECT
+    (SELECT COUNT(*) FROM deleted_errors)::text as errors_deleted,
+    (SELECT COUNT(*) FROM deleted_audit)::text as audit_deleted,
+    (SELECT COUNT(*) FROM deleted_orchestrations)::text as orchestrations_deleted,
+    (SELECT COUNT(*) FROM deleted_stale)::text as stale_deleted,
+    (SELECT COUNT(*) FROM deleted_orphan_palettes)::text as orphan_palettes_deleted,
+    (SELECT COUNT(*) FROM deleted_orphan_typography)::text as orphan_typography_deleted
+    -- Always returns a row so scheduler marks task as executed
+$PREQUERY$,
+    updated_at = NOW()
+    WHERE name = 'database-cleanup';
+
+-- Confirm exactly one row was touched
+DO $$
+DECLARE
+v_updated int;
+BEGIN
+GET DIAGNOSTICS v_updated = ROW_COUNT;
+IF v_updated = 0 THEN
+        RAISE EXCEPTION 'database-cleanup scheduled_task row not found';
+    ELSIF v_updated > 1 THEN
+        RAISE EXCEPTION 'Matched % rows for database-cleanup — expected 1', v_updated;
+END IF;
+END $$;
+
+-- Post-update checks: pre_query includes the new CTE names, length
+-- increased, task still enabled at the same interval.
+DO $$
+DECLARE
+v_after_length    int;
+    v_has_palette_cte boolean;
+    v_has_typo_cte    boolean;
+    v_enabled         boolean;
+    v_interval        int;
+    v_target_agent    text;
+BEGIN
+SELECT length(pre_query),
+       pre_query LIKE '%deleted_orphan_palettes%',
+       pre_query LIKE '%deleted_orphan_typography%',
+       enabled,
+       interval_seconds,
+       target_agent_type
+INTO v_after_length, v_has_palette_cte, v_has_typo_cte,
+    v_enabled, v_interval, v_target_agent
+FROM scheduled_tasks
+WHERE name = 'database-cleanup';
+
+RAISE NOTICE 'database-cleanup pre_query length AFTER: % chars', v_after_length;
+    RAISE NOTICE 'database-cleanup has palette CTE: %', v_has_palette_cte;
+    RAISE NOTICE 'database-cleanup has typography CTE: %', v_has_typo_cte;
+    RAISE NOTICE 'database-cleanup enabled=%, interval=%s, target=%',
+        v_enabled, v_interval, v_target_agent;
+
+    IF NOT v_has_palette_cte THEN
+        RAISE EXCEPTION 'deleted_orphan_palettes CTE missing after update';
+END IF;
+    IF NOT v_has_typo_cte THEN
+        RAISE EXCEPTION 'deleted_orphan_typography CTE missing after update';
+END IF;
+    -- Sanity: we didn't accidentally change the other fields
+    IF v_target_agent != 'database-cleanup' THEN
+        RAISE EXCEPTION
+            'target_agent_type changed to % (expected database-cleanup)',
+            v_target_agent;
+END IF;
+    IF v_interval != 3600 THEN
+        RAISE EXCEPTION
+            'interval_seconds changed to % (expected 3600)', v_interval;
+END IF;
+END $$;
+
+COMMIT;
+
+-- =====================================================================
+-- Post-deployment verification
+-- =====================================================================
+-- View the full updated pre_query:
+--
+--     SELECT pre_query FROM scheduled_tasks WHERE name = 'database-cleanup';
+--
+-- Watch the task trigger on its next cycle (up to 3600s wait) and
+-- inspect the logs:
+--
+--     kubectl -n ai-persona-system logs -l app=kafka-scheduler | grep database-cleanup
+--
+-- You should see the scheduler log all six counts:
+--     errors_deleted, audit_deleted, orchestrations_deleted, stale_deleted,
+--     orphan_palettes_deleted, orphan_typography_deleted
+--
+-- Force an immediate trigger (useful for testing) — reset
+-- last_triggered_at so the scheduler considers it due on the next tick:
+--
+--     UPDATE scheduled_tasks
+--        SET last_triggered_at = NOW() - INTERVAL '2 hours'
+--      WHERE name = 'database-cleanup';
+-- =====================================================================
+
+
+-- =====================================================================
+-- ROLLBACK (manual — uncomment and run if needed)
+-- =====================================================================
+-- BEGIN;
+-- UPDATE scheduled_tasks
+--    SET pre_query = $ROLLBACK$
+--     -- 1. Clean agent_error_log (resolved errors > 14 days, unresolved > 30 days)
+--     WITH deleted_errors AS (
+--         DELETE FROM agent_error_log
+--         WHERE (resolved = true AND occurred_at < NOW() - INTERVAL '14 days')
+--            OR (resolved = false AND occurred_at < NOW() - INTERVAL '30 days')
+--         RETURNING id
+--     ),
+--
+--     -- 2. Clean orchestration_state_audit (keep last 100k rows)
+--     deleted_audit AS (
+--         DELETE FROM orchestration_state_audit
+--         WHERE id < (
+--             SELECT COALESCE(MAX(id) - 100000, 0)
+--             FROM orchestration_state_audit
+--         )
+--         RETURNING id
+--     ),
+--
+--     -- 3. Clean completed/failed orchestration_states (> 24 hours)
+--     -- CASCADE will clean orchestration_requests, input_requests, pending_requests
+--     deleted_orchestrations AS (
+--         DELETE FROM orchestration_states
+--         WHERE status IN ('COMPLETED', 'FAILED')
+--           AND updated_at < NOW() - INTERVAL '24 hours'
+--         RETURNING orchestration_id
+--     ),
+--
+--     -- 4. Clean stale orchestrations stuck in EXECUTING_STEP (> 4 hours)
+--     -- These are leftovers from pod restarts that never completed
+--     deleted_stale AS (
+--         DELETE FROM orchestration_states
+--         WHERE status IN ('EXECUTING_STEP', 'AWAITING_RESPONSES')
+--           AND updated_at < NOW() - INTERVAL '4 hours'
+--         RETURNING orchestration_id
+--     )
+--
+--     SELECT
+--         (SELECT COUNT(*) FROM deleted_errors)::text as errors_deleted,
+--         (SELECT COUNT(*) FROM deleted_audit)::text as audit_deleted,
+--         (SELECT COUNT(*) FROM deleted_orchestrations)::text as orchestrations_deleted,
+--         (SELECT COUNT(*) FROM deleted_stale)::text as stale_deleted
+--     -- Always returns a row so scheduler marks task as executed
+-- $ROLLBACK$,
+--        updated_at = NOW()
+--  WHERE name = 'database-cleanup';
+-- COMMIT;
+
+---
+
+-- 108_thunder_training_monitor_orchestrator.sql
+-- DB: clients_db   (agent_definitions + scheduled_tasks both live in clients_db)
+--
+-- Completes the thunder-training-monitor (4b): the ORCHESTRATOR agent definition
+-- that finds every running training instance and dispatches a per-instance worker
+-- (107) for each, plus the scheduled_tasks row that fires it periodically.
+--
+-- WHY orchestrator-with-loop and NOT the reaper's scheduler-pre_query shape:
+-- the scheduler merges only the FIRST pre_query row into input_data and fires once
+-- per tick (010 §Pre-Queries). The reaper can use that because it decommissions
+-- its target, so the next-oldest rotates to the top each tick. The monitor must
+-- check EVERY running instance each tick (ALIVE ones stay running and would
+-- otherwise sit at the top of the ordering forever, starving newer instances that
+-- may have finished). So the orchestrator does the find+fan-out; the scheduler
+-- just triggers it (gated so it skips when nothing is training).
+--
+-- Trigger path (no new deployment/topic wiring needed — 001 §Topics): the
+-- scheduler posts to system.agent.generic.requests with config.agent_type =
+-- 'thunder-training-monitor'; the orchestrator runs in the existing generic
+-- chassis pods (pure coordination: find + spawn/call). Each worker is spawned as
+-- its own Job pod with a per-spawn job.<id>.requests topic. Workers reply to the
+-- orchestrator (their parent), per 001 §Agents respond to caller's topic.
+--
+-- Loop is SEQUENTIAL (call_agent awaits by default): same-step spawns reuse one
+-- topic safely only because the prior worker Job has completed before the next is
+-- spawned (001 §Topics). Do NOT make the worker call fire-and-forget.
+--
+-- DEPLOY ORDER (important): (1) build+deploy the 5 new chassis actions
+-- (dispatch_thunder_ssh_get_status, classify_training_probe, record_probe_streak,
+-- mark_training_run_terminal, find_active_training_instances) and register them;
+-- (2) apply 106 (counter) and 107 (worker); (3) apply this 108; (4) manually test
+-- the worker against a live instance; (5) ENABLE the schedule (it is inserted
+-- DISABLED so it cannot fire workers before the actions exist). Enable with:
+--   UPDATE scheduled_tasks SET enabled = true WHERE name = 'thunder-training-monitor';
+--
+-- Idempotent: ON CONFLICT DO UPDATE on both rows. category/image copied from
+-- model-trainer (matches the Phase 5 family).
+
+BEGIN;
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- 1. thunder-training-monitor orchestrator definition.
+--    find_active_training_instances -> loop(spawn_worker + call_worker) -> done
+-- ───────────────────────────────────────────────────────────────────────────
+INSERT INTO agent_definitions (
+    type, version, display_name, description, category, status,
+    default_config, input_contract, output_contract,
+    image_repository, image_tag, is_active
+)
+VALUES (
+           'thunder-training-monitor',
+           1,
+           'Thunder Training Monitor (orchestrator)',
+           'Periodic orchestrator: finds every running Thunder instance with a training_run_id and, per instance, spawns a thunder-training-monitor-worker that probes the box and reconciles/decommissions on completion or failure. Fired by the scheduler; pure coordination (find + spawn/call), substantive per-instance work runs in the worker Job pods.',
+           'training',
+           'active',
+           '{
+             "workflow": {
+               "processing_mode": "task",
+               "timeout_seconds": 600,
+               "start_step": "find_instances",
+               "steps": {
+                 "find_instances": {
+                   "action": "find_active_training_instances",
+                   "description": "Load all running Thunder instances with a training_run_id and no decommission pending from clients_db; returns instances plus count.",
+                   "config": {},
+                   "output_field": "find_instances",
+                   "next_step": "monitor_loop"
+                 },
+                 "monitor_loop": {
+                   "action": "loop",
+                   "description": "For each running training instance, spawn a per-instance worker and call it. Sequential: a same-step spawn topic is reused safely only after the prior worker Job completes. continue_on_error so one failing instance does not abort the tick.",
+                   "config": {
+                     "items_field": "find_instances.instances",
+                     "item_variable": "current_instance",
+                     "max_iterations": 25,
+                     "continue_on_error": true,
+                     "sub_workflow": {
+                       "start_step": "spawn_worker",
+                       "steps": {
+                         "spawn_worker": {
+                           "action": "spawn_agent",
+                           "description": "Spawn a per-instance worker Job (role monitor_worker).",
+                           "config": { "role": "monitor_worker", "agent_type": "thunder-training-monitor-worker" },
+                           "output_field": "spawn_worker",
+                           "next_step": "call_worker"
+                         },
+                         "call_worker": {
+                           "action": "call_agent",
+                           "description": "Call the just-spawned worker with this instance ids and await its terminal result before the next iteration.",
+                           "config": {
+                             "agent_type": "thunder-training-monitor-worker",
+                             "target_role": "monitor_worker",
+                             "input_mapping": {
+                               "provisioning_id": "current_instance.provisioning_id",
+                               "training_run_id": "current_instance.training_run_id"
+                             }
+                           },
+                           "output_field": "call_worker"
+                         }
+                       }
+                     }
+                   },
+                   "output_field": "monitor_loop",
+                   "next_step": "done"
+                 },
+                 "done": {
+                   "action": "complete_workflow",
+                   "description": "Terminal. Surface the loop summary.",
+                   "config": { "output_fields": ["monitor_loop"] }
+                 }
+               }
+             }
+           }'::jsonb,
+           jsonb_build_object(
+                   'required', jsonb_build_array(),
+                   'optional', jsonb_build_array('pending')
+           ),
+           jsonb_build_object(
+                   'produces', jsonb_build_array('monitor_loop')
+           ),
+           COALESCE((SELECT image_repository FROM agent_definitions
+                     WHERE type = 'model-trainer' AND (is_snapshot IS NULL OR is_snapshot = false) AND deleted_at IS NULL
+                     ORDER BY version DESC LIMIT 1), 'docker.io/aqls/agent-chassis'),
+           COALESCE((SELECT image_tag FROM agent_definitions
+                     WHERE type = 'model-trainer' AND (is_snapshot IS NULL OR is_snapshot = false) AND deleted_at IS NULL
+                     ORDER BY version DESC LIMIT 1), 'latest'),
+           true
+       )
+    ON CONFLICT (type, version) DO UPDATE SET
+    display_name    = EXCLUDED.display_name,
+                                       description     = EXCLUDED.description,
+                                       category        = EXCLUDED.category,
+                                       status          = EXCLUDED.status,
+                                       default_config  = EXCLUDED.default_config,
+                                       input_contract  = EXCLUDED.input_contract,
+                                       output_contract = EXCLUDED.output_contract,
+                                       image_repository = EXCLUDED.image_repository,
+                                       image_tag       = EXCLUDED.image_tag,
+                                       is_active       = EXCLUDED.is_active,
+                                       updated_at      = NOW();
+
+-- Validate the orchestrator workflow parsed and key steps + the loop sub_workflow exist.
+DO $$
+DECLARE
+steps jsonb;
+BEGIN
+SELECT default_config->'workflow'->'steps' INTO steps
+FROM agent_definitions
+WHERE type = 'thunder-training-monitor'
+  AND (is_snapshot IS NULL OR is_snapshot = false) AND deleted_at IS NULL
+ORDER BY version DESC LIMIT 1;
+
+IF steps IS NULL
+       OR steps->'find_instances' IS NULL
+       OR steps->'monitor_loop' IS NULL
+       OR steps->'done' IS NULL
+       OR steps#>'{monitor_loop,config,sub_workflow,steps,spawn_worker}' IS NULL
+       OR steps#>'{monitor_loop,config,sub_workflow,steps,call_worker}' IS NULL THEN
+        RAISE EXCEPTION 'migration 108: orchestrator workflow steps / loop sub_workflow missing or unparsed';
+END IF;
+END $$;
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- 2. scheduled_tasks row — fire the orchestrator every 5 min, gated so it skips
+--    when nothing is training. Inserted DISABLED; enable after the deploy steps
+--    above. concurrency_group keeps a single monitor tick in flight; the gating
+--    pre_query also serves as dynamic input (harmless 'pending' column merged
+--    into input_data — the orchestrator self-discovers and ignores it).
+-- ───────────────────────────────────────────────────────────────────────────
+INSERT INTO scheduled_tasks (
+    name, description, interval_seconds, target_agent_type, target_topic,
+    concurrency_group, max_concurrent, timeout_seconds, pre_query, enabled
+)
+VALUES (
+           'thunder-training-monitor',
+           'Every 5 min: fire the thunder-training-monitor orchestrator to probe running training instances, reconcile finished/failed runs and decommission their boxes. Gated: skipped when no running training instance exists. INSERTED DISABLED — enable after the 5 monitor actions are deployed and 106/107/108 applied.',
+           300,
+           'thunder-training-monitor',
+           'system.agent.generic.requests',
+           'thunder-training-monitor',
+           1,
+           600,
+           'SELECT 1 AS pending FROM public.thunder_instances WHERE status = ''running'' AND training_run_id IS NOT NULL AND decommission_requested_at IS NULL LIMIT 1',
+           false
+       )
+    ON CONFLICT (name) DO UPDATE SET
+    description       = EXCLUDED.description,
+                              interval_seconds  = EXCLUDED.interval_seconds,
+                              target_agent_type = EXCLUDED.target_agent_type,
+                              target_topic      = EXCLUDED.target_topic,
+                              concurrency_group = EXCLUDED.concurrency_group,
+                              max_concurrent    = EXCLUDED.max_concurrent,
+                              timeout_seconds   = EXCLUDED.timeout_seconds,
+                              pre_query         = EXCLUDED.pre_query,
+                              -- NOTE: deliberately NOT overwriting `enabled` on re-run, so a manual enable
+                              -- is not silently reverted by re-applying the migration.
+                              updated_at        = NOW();
+
+COMMIT;
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- Post-apply verification (run manually):
+-- ───────────────────────────────────────────────────────────────────────────
+-- \echo orchestrator workflow:
+-- SELECT jsonb_pretty(default_config) FROM agent_definitions
+--  WHERE type='thunder-training-monitor' AND (is_snapshot IS NULL OR is_snapshot=false) AND deleted_at IS NULL;
+-- \echo schedule row (enabled should be false until you flip it):
+-- SELECT name, interval_seconds, target_agent_type, enabled, concurrency_group, max_concurrent, pre_query
+--   FROM scheduled_tasks WHERE name='thunder-training-monitor';
+--
+-- ENABLE once actions are deployed + 106/107 applied + a manual worker test passes:
+--   UPDATE scheduled_tasks SET enabled = true WHERE name = 'thunder-training-monitor';
+--
+-- Manual one-off worker test (no schedule needed) — fire one worker at a known instance
+-- by posting to the generic entry point with input_data {provisioning_id, training_run_id}:
+--   (use your trigger-*.sh / kcat against system.agent.generic.requests with
+--    config.agent_type='thunder-training-monitor-worker'); expect STATUS=ALIVE -> reset_streak -> done
+--   on a still-training box, or complete/fail + decommission on a finished one.

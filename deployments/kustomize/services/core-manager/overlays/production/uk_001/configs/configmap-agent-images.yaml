@@ -1,0 +1,14 @@
+# deployments/kustomize/services/core-manager/overlays/production/uk_001/configs/configmap-agent-images.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-images-config
+  namespace: ai-persona-system
+data:
+  # Agent-specific images
+  content-creator: "docker.io/aqls/content-creator-agent:v1.0.48"
+  reasoning: "docker.io/aqls/reasoning-agent:v1.0.48"
+  web-search: "docker.io/aqls/web-search-adapter:v1.0.48"
+  image-generator: "docker.io/aqls/image-generator-adapter:v1.0.48"
+  # Default fallback
+  default: "docker.io/aqls/agent-chassis:v1.0.48"

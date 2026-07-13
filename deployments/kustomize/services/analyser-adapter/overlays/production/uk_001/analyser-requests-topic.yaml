@@ -1,0 +1,32 @@
+# FILE: deployments/kafka/analyser-requests-topic.yaml (suggested home — place
+# wherever the thunder-adapter / provisioner topic CRDs were applied from)
+#
+# Requests topic for the analyser adapter. MUST exist before first deploy:
+# Strimzi runs with auto.create.topics.enable=false, so without this CRD the
+# adapter's consumer hangs with `context deadline exceeded` on every fetch and
+# no clear error (035 §2.12).
+#
+# Deliberately NOT a resource of the analyser-adapter kustomization: the
+# overlay sets `namespace: ai-persona-system`, which would override this
+# topic's required `kafka` namespace. Apply directly, as the thunder topics
+# were:
+#   kubectl apply -f deployments/kafka/analyser-requests-topic.yaml
+#   kubectl -n kafka get kafkatopic | grep analyser   # verify
+#
+# No responses topic is declared here: the adapter replies to the CALLER's
+# responses topic (system.responses.<type> / reply_to_topic), which already
+# exists for any agent that can call it.
+
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: system.adapter.analyser.requests
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: personae-kafka-cluster
+    app: analyser-adapter
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 604800000   # 7 days

@@ -1,0 +1,28 @@
+---
+# Allow the cleanup CronJob to exec into Kafka pods for topic deletion
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kafka-topic-cleanup
+  namespace: kafka
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cleanup-kafka-access
+  namespace: kafka
+subjects:
+  - kind: ServiceAccount
+    name: ai-persona-app
+    namespace: ai-persona-system
+roleRef:
+  kind: Role
+  name: kafka-topic-cleanup
+  apiGroup: rbac.authorization.k8s.io

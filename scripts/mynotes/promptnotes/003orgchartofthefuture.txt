@@ -1,0 +1,54 @@
+The careers that will dominate 2026 are being built today.
+
+88% of execs plan to increase AI budgets.
+So, 81% of Tech professionals want to use AI.
+But, only 12% have the skills to do so effectively.
+
+Here are the AI roles & skills that will define the next era:
+
+🔹 Head of AI: Leads the organization's overall AI strategy and teams. Skills: Strategic Planning, Leadership, Business Acumen
+
+🔹 AI Architect: Designs the end-to-end blueprint for enterprise AI. Skills: System Design, Cloud Platforms, MLOps
+
+🔹 AI Product Manager: Manages the AI product vision and lifecycle. Skills: Product Strategy, GenAI Understanding, Market Research
+
+🔹 Data Engineer: Builds and manages large-scale data pipelines for AI. Skills: Data Pipelines, Python, SQL
+
+🔹 ML Engineer: Builds and deploys production-grade machine learning models. Skills: Python, ML Algorithms, MLOps
+
+🔹 Data Scientist: Extracts insights and builds predictive model prototypes. Skills: Statistical Analysis, Python, ML Algorithms
+
+🔹 LLM Engineer: Specializes in building systems using Language Models. Skills: LLMs, RAG, Vector Databases
+
+🔹 Forward Deployed Engineer: Deploys custom AI solutions directly with clients. Skills: Customer-Facing, Python, System Design
+
+🔹 AI Risk & Governance Specialist: Ensures AI is compliant, ethical, and safe. Skills: AI Ethics, Risk Assessment, Compliance
+
+🔹 Prompt Engineer: Optimizes inputs for Generative AI model performance. Skills: Prompt Engineering, LLMs, Python
+
+🔹 Decision Engineer: Designs and builds automated decision-making systems. Skills: Decision Modeling, Business Rules, ML
+
+🔹 Model Validator: Independently assesses AI model accuracy and reliability. Skills: Statistical Analysis, ML Algorithms, Risk
+
+🔹 Analytics Engineer: Transforms raw data into clean, analysis-ready datasets. Skills: SQL, dbt, Data Modeling
+
+🔹 AI Engineer: Generalist role building and integrating AI systems. Skills: Python, ML/DL Frameworks, Software Engineering
+
+🔹 Knowledge Engineer: Structures human expertise for knowledge-based AI systems. Skills: Ontology Design, Logic, Data Modeling
+
+🔹 AI Ethicist: Provides expert guidance on AI's ethical implications. Skills: Ethical Frameworks, Policy, AI Principles
+
+🔹 UX Designer (for AI): Designs human-centered experiences for AI applications. Skills: User Research, Prototyping, Interaction Design
+
+🔹 Model Manager: Oversees the entire AI model lifecycle and strategy. Skills: Leadership, MLOps, AI Governance
+
+This is a quick list of roles and skills based on the Gartner report and my general observations.
+
+What new roles and skills do you see emerging?
+
+----
+
+🎯 Follow for Agentic AI, Gen AI & RPA trends: https://lnkd.in/gFwv7QiX
+
+Repost if this helped you see the shift ♻️
+

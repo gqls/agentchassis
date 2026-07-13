@@ -1,0 +1,570 @@
+clients_db=# -- A. What the build actually reported (sections found / ready / any skip reason)
+SELECT jsonb_pretty(result)
+FROM site_work_items
+WHERE item_key = 'manual-build-provocations-448ee097-6748-4cc8-8f31-542170e6fde0';
+
+-- B. Precedence evidence: does the INDEX page (which builds fine) also carry pages.sections?
+SELECT name, sections FROM pages
+WHERE id IN ('b4d24f8e-fccd-49df-9dad-aa56a0b20a68',   -- index (plan-built, 6 sections)
+             'e4b3b195-919f-45ad-854e-201d9e846a8'::uuid); -- ← correction below
+jsonb_pretty
+{
+    "response": {
+        "site_record": {
+            "email": "",
+            "phone": "",
+            "domain": "vonc.com",
+            "status": "deployed",
+            "created": "2026-06-22T17:02:55Z",
+            "site_id": "9ec3b9ee-5b08-461b-b4f8-9e1e03579c74",
+            "tagline": "",
+            "logo_text": "",
+            "network_id": "00000000-0000-0000-0000-000000000002",
+            "company_name": "",
+            "content_data": {
+                "domain": "vonc.com",
+                "mission": {
+                    "mission": "AI-driven social platform where the world is the content and your take is the game",
+                    "tagline": "TikTok is where you watch. Twitter is where you shout. Spark is where you play.",
+                    "positioning": "Not another social app. A daily game powered by what is happening in the world. You don't post. You don't scroll. You play.",
+                    "content_tone": {
+                        "is": [
+                            "interesting",
+                            "slightly adult",
+                            "competitive",
+                            "aspirational",
+                            "playful",
+                            "game-like",
+                            "energetic"
+                        ],
+                        "is_not": [
+                            "dark",
+                            "gruesome",
+                            "violent",
+                            "xxx",
+                            "newspaper news",
+                            "corporate",
+                            "generic social media",
+                            "AI slop"
+                        ],
+                        "ai_role": "Producer not performer. AI frames, scores, curates, synthesises. Never does humour, hot takes, sarcasm."
+                    },
+                    "target_users": {
+                        "primary": "People with opinions on current trends but no platform that asks for them",
+                        "tertiary": "Curators and tastemakers — people who find things, not make things",
+                        "secondary": "Creators wanting skill showcase with built-in audience and niche discovery"
+                    },
+                    "core_concepts": {
+                        "cold_start": "Solo mode fully functional for 1 person. AI sparring partner fills the room transparently.",
+                        "engage_first": "No signup walls, no explanations. A provocation card and a text input. Engage first, understand second, commit third.",
+                        "archetype_system": "Profile emerges from behaviour. Daily Gauntlet produces shareable archetype cards.",
+                        "ai_slop_awareness": "AI restricted to genuine strengths. Deliberately bad AI takes as challenge seeds.",
+                        "the_game_metaphor": "Everything is framed as a game. Challenges have timers, rules, scores, winners."
+                    },
+                    "key_differentiators": [
+                        "AI as game master and producer, never the performer",
+                        "Opinion-first entry point — you need a take, not an idea",
+                        "Ephemeral challenges with permanent emergent reputation",
+                        "Rooms not feeds — enter a space with energy, don't scroll a stream",
+                        "Arena (competitive takes) + Stage (creative showcase) dual modes",
+                        "Archetypes earned from behaviour, not self-reported"
+                    ],
+                    "measurable_objectives": [
+                        {
+                            "id": "obj_dau_50",
+                            "metric": "daily_active_users",
+                            "target": 50,
+                            "objective": "50 DAU within 4 weeks"
+                        },
+                        {
+                            "id": "obj_gauntlet_rate",
+                            "metric": "gauntlet_completion_rate",
+                            "target": 0.15,
+                            "objective": "Gauntlet completion >15% of visitors"
+                        },
+                        {
+                            "id": "obj_session_duration",
+                            "metric": "avg_session_duration_seconds",
+                            "target": 180,
+                            "objective": "Avg session >3 minutes"
+                        },
+                        {
+                            "id": "obj_share_rate",
+                            "metric": "gauntlet_share_rate",
+                            "target": 0.05,
+                            "objective": ">5% Gauntlet completions shared"
+                        }
+                    ]
+                },
+                "roadmap": {
+                    "phases": {
+                        "v4_and_beyond": {
+                            "status": "speculative",
+                            "description": "Stage mode. Multi-format. Niche discovery. Monetisation."
+                        },
+                        "v1_content_first": {
+                            "pages": [
+                                {
+                                    "slug": "index",
+                                    "purpose": "The product IS the landing page. Single provocation card filling screen. Text input beneath. Timer. No signup wall.",
+                                    "priority": 1,
+                                    "section_types": [
+                                        "provocation-card",
+                                        "lobby-grid",
+                                        "brief-explanation",
+                                        "gauntlet-cta"
+                                    ]
+                                },
+                                {
+                                    "slug": "provocations",
+                                    "purpose": "Today's active provocations with AI takes. Each has shareable URL. SEO content. Card-based layout.",
+                                    "priority": 2,
+                                    "section_types": [
+                                        "provocation-feed"
+                                    ]
+                                },
+                                {
+                                    "slug": "gauntlet",
+                                    "purpose": "Daily Gauntlet — 5 provocations, 5 minutes, discover your archetype. Client-side JS.",
+                                    "priority": 3,
+                                    "section_types": [
+                                        "gauntlet-interface",
+                                        "archetype-result-card"
+                                    ],
+                                    "content_context": {
+                                        "archetypes": [
+                                            {
+                                                "name": "The Surgeon",
+                                                "tagline": "Precise, analytical, cuts to the core",
+                                                "strengths": "Analytical speed, structural clarity, finding hidden flaws",
+                                                "description": "Strips arguments to essential structure. Fast on logical frameworks."
+                                            },
+                                            {
+                                                "name": "The Wildcard",
+                                                "tagline": "Unpredictable, highest remix rate",
+                                                "strengths": "Creative leaps, remix ability, cross-domain thinking",
+                                                "description": "Takes ideas in unexpected directions. Crosses domains freely."
+                                            },
+                                            {
+                                                "name": "The Oracle",
+                                                "tagline": "Quiet but accurate, rare but impactful",
+                                                "strengths": "Prediction accuracy, timing, selective engagement",
+                                                "description": "Does not respond often but when they do it lands. Best prediction accuracy."
+                                            },
+                                            {
+                                                "name": "The Catalyst",
+                                                "tagline": "Responses generate longest chains",
+                                                "strengths": "Provocation, opening angles, generating momentum",
+                                                "description": "Individual responses might not be best, but they spark others."
+                                            },
+                                            {
+                                                "name": "The Judge",
+                                                "tagline": "Spectates, but reactions predict outcomes",
+                                                "strengths": "Pattern recognition, taste, predictive judgement",
+                                                "description": "Lives in the Gallery. Reaction pattern most predictive of final outcomes."
+                                            },
+                                            {
+                                                "name": "The Maker",
+                                                "tagline": "Stage-dominant, consistent showcaser",
+                                                "strengths": "Creative output, consistency, skill demonstration",
+                                                "description": "Shows up with creations not opinions. Demonstrates skill."
+                                            },
+                                            {
+                                                "name": "The Scout",
+                                                "tagline": "Identifies breakout creators early",
+                                                "strengths": "Early identification, taste, discovery",
+                                                "description": "The curator. Finds things others miss."
+                                            },
+                                            {
+                                                "name": "The Mentor",
+                                                "tagline": "Breakdowns among most saved content",
+                                                "strengths": "Teaching, explanation, knowledge sharing",
+                                                "description": "Explanations are teaching material. Turns admiration into learning."
+                                            }
+                                        ],
+                                        "gauntlet_mechanics": "5 provocations mixing opinion and creation prompts. Scored on response speed, originality, consistency, topic preferences. Produces primary archetype with secondary tendencies. Shareable visual card."
+                                    }
+                                },
+                                {
+                                    "slug": "about",
+                                    "purpose": "What Spark is. Quick, energetic explanation. Game metaphor. Arena vs Stage. AI game master concept.",
+                                    "priority": 4,
+                                    "section_types": [
+                                        "hero",
+                                        "platform-comparison",
+                                        "game-master-explanation",
+                                        "gauntlet-cta"
+                                    ],
+                                    "content_context": {
+                                        "key_comparisons": {
+                                            "vs_reddit": "Reddit: permanent, karma-hierarchical, dominated by early commenters. Spark: ephemeral, anonymised during play, scored on quality not timing.",
+                                            "vs_tiktok": "TikTok: passive consumption, massive creator/consumer divide. Spark: opinion entry point, Gauntlet proves anyone can participate in 5 minutes.",
+                                            "vs_twitter": "Twitter: shouting into a void. Spark: put in a room where engagement is guaranteed."
+                                        },
+                                        "game_master_explanation": "AI does not try to be funny or clever. AI runs the game: finds what is interesting (scraping), frames it sharply (provocation), keeps score (reputation, archetypes), synthesises results (recaps). Humans bring wit and creativity. AI builds the arena."
+                                    }
+                                },
+                                {
+                                    "slug": "archetypes",
+                                    "purpose": "Archetype system explained. Each gets section with name, tagline, description, strengths. Shareable individual cards.",
+                                    "priority": 5,
+                                    "section_types": [
+                                        "hero",
+                                        "archetype-grid",
+                                        "archetype-combinations"
+                                    ],
+                                    "content_context": {
+                                        "combination_examples": [
+                                            "Surgeon-Oracle: Rarely speaks, but precisely targeted insight that predicts outcomes",
+                                            "Wildcard-Catalyst: Unexpected ideas everyone wants to riff on",
+                                            "Maker-Mentor: Creates consistently and teaches others to improve",
+                                            "Scout-Judge: Does not create or opine, but most trusted taste on the platform"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "status": "active",
+                            "hosting": "s3_static",
+                            "features": [
+                                "daily_provocation_generation_from_scraping",
+                                "ai_take_per_provocation",
+                                "shareable_provocation_cards",
+                                "daily_gauntlet_client_side",
+                                "archetype_generation_and_share_cards",
+                                "daily_static_regeneration"
+                            ],
+                            "description": "Static S3 site. Provocations as SEO content. Daily Gauntlet as viral archetype quiz.",
+                            "design_direction": "Game energy, not corporate. Dark theme with vibrant accents. Cards, timers, energy indicators. Arena lobby feel. Mobile-first.",
+                            "success_criteria": {
+                                "daily_visitors": 50,
+                                "avg_session_seconds": 180,
+                                "gauntlet_completion_rate": 0.15
+                            }
+                        },
+                        "v3_rooms_and_community": {
+                            "status": "speculative",
+                            "description": "Live challenge rooms. Arena mode. Chains. Duels. Reputation."
+                        },
+                        "v2_sparring_and_interaction": {
+                            "status": "directional",
+                            "description": "AI sparring on provocations. User accounts. Live reactions."
+                        }
+                    },
+                    "current_phase": "v1_content_first"
+                },
+                "spacing": {
+                    "section_padding": "96px 24px",
+                    "container_max_width": "1140px"
+                },
+                "hero_uri": "s3://personae-prod-uk001-images/images/system/20260623/7548d9b4-58f3-405d-9724-e23c013cc003.png",
+                "hero_url": "/assets/images/hero.jpg",
+                "icon_uri": "s3://personae-prod-uk001-images/images/system/20260623/124b21d8-4d02-4cb6-93cb-c43f7e222551.png",
+                "icon_url": "/assets/images/icon.jpg",
+                "objective": "Build a content-first launch site for Spark, an AI-driven social platform where the world is the content and your take is the game. V1 is static S3 with daily provocation generation and a viral archetype quiz. The landing page IS the product.",
+                "typography": {
+                    "base_size": "16px",
+                    "font_family": "'DM Sans', 'Inter', system-ui, sans-serif",
+                    "line_height": "1.6",
+                    "heading_font": "'Syne', 'Space Grotesk', system-ui, sans-serif"
+                },
+                "color_scheme": {
+                    "text": "#f0eeff",
+                    "accent": "#fc5c7d",
+                    "border": "#261f45",
+                    "primary": "#7c3cff",
+                    "surface": "#111019",
+                    "secondary": "#2d1b69",
+                    "background": "#08080e",
+                    "text_muted": "#8b85b0"
+                },
+                "design_notes": "PRIMARY (#7c3cff — electric violet): Spark's core mechanic is competitive intellectual energy. Violet occupies the precise psychological space between the analytical cool of blue and the aggressive heat of red — it signals that this is a thinking person's arena, not a reaction machine. It reads as algorithmic and a little dangerous, which is exactly the register a platform called The Gauntlet needs. It avoids the generic startup blue entirely. SECONDARY (#2d1b69 — deep ink violet): Used for depth layers, card backs, and gradient anchors. This is the colour of the arena before the lights come on — it creates spatial depth and makes the primary electric violet feel like it's being projected forward out of darkness. It reinforces the platform's theatricality without feeling like a game UI cliché. ACCENT (#fc5c7d — plasma pink): The provocation colour. This is the shade of a notification you actually want to see — it carries urgency and heat without tipping into aggression. It's used for CTA elements, streak indicators, archetype badges, and the daily provocation card highlight. On the near-black background it has a neon-poster quality that reads as culturally current to the 18-40 audience who has been visually trained by everything from Letterboxd to Night Owl creative studios. It also creates an immediately readable tension with the violet — complementary enough to vibrate, different enough to separate hierarchy. BACKGROUND (#08080e — near-void black): Pushed slightly darker than the reference to maximise contrast ratios and to heighten the sense of entering a space. This is not a website background — it's the darkness before the provocation drops. The slight blue-purple undertone keeps it from being a flat neutral and ties it to the violet system. SURFACE (#111019 — elevated dark): Cards and containers need just enough lift to be legible as interactive objects without the background reading as grey. The violet undertone here is deliberate — it stops the surface from looking like a default dark mode component and makes it feel like part of Spark's specific world. TEXT (#f0eeff — cool near-white): The faint violet cast in the white means body copy never feels like it was dropped in from a generic dark theme. It harmonises with the violet primary at the perception level — everything in the palette is reading from the same light source, which creates visual coherence. TEXT_MUTED (#8b85b0 — slate violet): Secondary information — timestamps, archetype labels, archive metadata — needs to recede without disappearing. This mid-violet-grey reads as interface-native, which suits the gamified context. It would feel wrong against a warmer or more neutral background; here it belongs. BORDER (#261f45 — deep violet edge): Borders in dark UIs are an opportunity to reinforce the palette rather than defaulting to grey strokes. This deep violet border makes every card edge, divider, and rule feel like part of the arena architecture rather than a layout utility. SYNE (headings): Syne's geometric construction and wide tracking at display sizes creates the sense of a statement being made — not a heading being written. It has the quality of something stencilled or stamped, which suits a platform built around daily declarations and competitive takes. Its personality is assertive without being aggressive, which matches the intellectual but combative audience. DM SANS (body): High legibility, neutral enough to carry argument text without editorialising it, but with enough character to avoid the sterility of Inter in isolation. The pairing of Syne's drama with DM Sans's clarity creates the right editorial voice: big claims, plainly stated. SECTION PADDING (96px 24px): Generous vertical rhythm signals that each section is a distinct arena — the space between The Gauntlet and the Archetype Quiz is intentional breathing room that creates anticipation. Tighter padding would make the page feel like a scrolling feed, which is exactly what Spark is positioned against. CONTAINER (1140px): Wide enough to accommodate the comparison and differentiator components with impact, but not so wide that the daily provocation card loses centred focus on large screens. The audience is desktop-comfortable but mobile-native; this width works across both without forced compression.",
+                "mission_brief": "Spark is an AI-driven social platform where the world is the content and your take is the game.\n\nPositioning: Not another social app. A daily game powered by what is happening in the world. You don't post. You don't scroll. You play.\n\nTagline: TikTok is where you watch. Twitter is where you shout. Spark is where you play.\n\nKey differentiators:\n- AI as game master and producer, never the performer — when something is funny or impressive, a human did it\n- Opinion-first entry point — you need a take, not an idea\n- Ephemeral challenges with permanent emergent reputation — disposable content, lasting identity\n- Rooms not feeds — enter a space with energy, don't scroll a stream\n- Arena (competitive takes) + Stage (creative showcase) dual modes\n- Archetypes earned from behaviour, not self-reported — your profile emerges from how you engage\n\nTarget users:\n- Primary: People with opinions on current trends but no platform that asks for them\n- Secondary: Creators wanting skill showcase with built-in audience and niche discovery\n- Tertiary: Curators and tastemakers — people who find things, not make things\n\nContent tone: interesting, slightly adult, competitive, aspirational, playful, game-like, energetic\nNot: dark, gruesome, violent, corporate, generic social media, AI slop\nAI role: Producer not performer. AI frames, scores, curates, synthesises. Never does humour, hot takes, sarcasm.",
+                "roadmap_brief": "Current phase: v1_content_first\nStatic S3 site. Provocations as SEO content. Daily Gauntlet as viral archetype quiz.\nDesign: Game energy, not corporate. Dark theme with vibrant accents. Cards, timers, energy indicators. Arena lobby feel. Mobile-first.\n\nPages for this phase:\n- index: The product IS the landing page. Single provocation card filling screen. Text input beneath. Timer. No signup wall.\n Sections: provocation-card, lobby-grid, brief-explanation, gauntlet-cta\n- provocations: Today's active provocations with AI takes. Each has shareable URL. SEO content. Card-based layout.\n Sections: provocation-feed\n- gauntlet: Daily Gauntlet — 5 provocations, 5 minutes, discover your archetype. Client-side JS. Produces shareable archetype card.\n Sections: gauntlet-interface, archetype-result-card\n- about: What Spark is. Quick, energetic explanation. Game metaphor. Arena vs Stage. AI game master concept. How archetypes work.\n Sections: hero, platform-comparison, game-master-explanation, gauntlet-cta\n- archetypes: Archetype system explained. Each gets section with name, tagline, description, strengths. Shareable individual cards.\n Sections: hero, archetype-grid, archetype-combinations\n\nFuture phases (not for building now):\n- v2: AI sparring on provocations, user accounts, live reactions\n- v3: Live challenge rooms, arena mode, chains, duels, reputation\n- v4: Stage mode, monetisation, vertical integration",
+                "illustration_uri": "s3://personae-prod-uk001-images/images/system/20260623/463c2a11-7317-447f-8346-4d849508edc5.png",
+                "illustration_url": "/assets/images/illustration.jpg"
+            }
+        }
+    },
+    "response_status": "complete",
+    "response_received_at": "2026-07-06T14:01:55Z"
+}
+(1 row)
+ERROR:  invalid input syntax for type uuid: "e4b3b195-919f-45ad-854e-201d9e846a8"
+LINE 3:              'e4b3b195-919f-45ad-854e-201d9e846a8'::uuid);
+                     ^
+
+
+---
+clients_db=# SELECT f.key, f.value->>'source' AS source, f.value->>'fallback' AS fallback
+FROM content_components cc, LATERAL jsonb_each(cc.input_schema->'fields') f
+WHERE cc.id = '70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37' ORDER BY f.key;
+
+SELECT html_template FROM content_components
+WHERE id = '70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37';
+key|source|fallback
+cta_label|llm|
+cta_url|static|/index.html
+empty_state_label|llm|
+eyebrow|llm|
+subtitle|llm|
+title_after_em|llm|
+title_before_em|llm|
+title_em|llm|
+(8 rows)
+html_template
+<style>
+  .provocations-archive-list-section {
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+    background-color: var(--color-background);
+    color: var(--section-text);
+    padding: var(--spacing-section, 5rem 2rem);
+  }
+
+  .provocations-archive-list-section .provocations-archive__inner {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+  }
+
+  .provocations-archive-list-section .provocations-archive__header {
+    margin-bottom: 3.5rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__eyebrow {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: 1rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__title {
+    font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--section-heading);
+    margin: 0 0 1.25rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__title em {
+    font-style: normal;
+    color: var(--color-accent);
+  }
+
+  .provocations-archive-list-section .provocations-archive__subtitle {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    color: var(--section-text-muted);
+    max-width: 52ch;
+    margin: 0;
+  }
+
+  .provocations-archive-list-section .provocations-archive__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-top: 1px solid var(--section-border);
+    margin-bottom: 2.5rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item {
+    display: grid;
+    grid-template-columns: 9rem 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 2rem;
+    align-items: center;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--section-border);
+    text-decoration: none;
+    color: var(--section-text);
+    transition: background-color 0.18s ease;
+    cursor: pointer;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item:hover {
+    background-color: var(--section-surface);
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--border-radius, 4px);
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-date {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--section-text-muted);
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-title {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--section-heading);
+    line-height: 1.3;
+    margin: 0;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-teaser {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 0.875rem;
+    color: var(--section-text-muted);
+    margin: 0.2rem 0 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 55ch;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-stat {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    color: var(--section-text-muted);
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  .provocations-archive-list-section .provocations-archive__empty {
+    font-size: 0.9375rem;
+    color: var(--section-text-muted);
+    padding: 2rem 0 1rem;
+    text-align: center;
+  }
+
+  .provocations-archive-list-section .provocations-archive__cta-wrap {
+    display: flex;
+    justify-content: center;
+    margin-top: 3rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__cta {
+    display: inline-block;
+    padding: 0.875rem 2.25rem;
+    min-height: 44px;
+    background-color: var(--color-primary);
+    color: var(--color-primary-text, #ffffff);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    border-radius: var(--border-radius, 4px);
+    transition: background-color 0.18s ease;
+    border: none;
+    cursor: pointer;
+  }
+
+  .provocations-archive-list-section .provocations-archive__cta:hover {
+    background-color: var(--color-primary-hover);
+  }
+
+  .provocations-archive-list-section .provocations-archive__cta:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 768px) {
+    .provocations-archive-list-section .provocations-archive__item {
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto auto;
+      column-gap: 1rem;
+      padding: 1rem 0;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item:hover {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+      margin-left: -0.5rem;
+      margin-right: -0.5rem;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item-date {
+      grid-column: 1;
+      grid-row: 1;
+      align-self: auto;
+      margin-bottom: 0.2rem;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item-title {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item-teaser {
+      grid-column: 1;
+      grid-row: 3;
+      max-width: 100%;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item-stat {
+      grid-column: 2;
+      grid-row: 1 / 4;
+    }
+
+    .provocations-archive-list-section .provocations-archive__title {
+      font-size: clamp(1.5rem, 5vw, 2rem);
+    }
+  }
+</style>
+
+<section class="provocations-archive-list-section provocations-archive" data-component="provocations-archive-list" data-runtime-fill="true">
+  <div class="provocations-archive__inner">
+    <header class="provocations-archive__header">
+      <span class="provocations-archive__eyebrow">{{.eyebrow}}</span>
+      <h1 class="provocations-archive__title">{{.title_before_em}} <em>{{.title_em}}</em> {{.title_after_em}}</h1>
+      <p class="provocations-archive__subtitle">{{.subtitle}}</p>
+    </header>
+
+    <div class="provocations-archive__list">
+      <a class="provocations-archive__item" data-archive-template hidden href="#">
+        <time class="provocations-archive__item-date"></time>
+        <span class="provocations-archive__item-title"></span>
+        <span class="provocations-archive__item-teaser"></span>
+        <span class="provocations-archive__item-stat">
+          <span class="provocations-archive__item-dot"></span>
+          <span class="provocations-archive__item-stat-value"></span>
+        </span>
+      </a>
+    </div>
+
+    <p class="provocations-archive__empty">{{.empty_state_label}}</p>
+
+    <div class="provocations-archive__cta-wrap">
+      <a class="provocations-archive__cta" href="{{.cta_url}}">{{.cta_label}}</a>
+    </div>
+  </div>
+</section>
+(1 row)
+clients_db=#
+
+---
+

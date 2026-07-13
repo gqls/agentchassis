@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core-manager
+  labels:
+    app: core-manager
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: core-manager
+  template:
+    metadata:
+      labels:
+        app: core-manager
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: core-manager
+          image: docker.io/aqls/core-manager:latest # Patched by overlays
+          ports:
+            - containerPort: 8088
+              name: http
+            - containerPort: 9091
+              name: grpc
+          env:
+            # Inject the new bootstrap key from the platform secrets
+            - name: AGENT_BOOTSTRAP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: agent-bootstrap-key
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "150m"
+              memory: "256Mi"
+            limits:
+              cpu: "750m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10

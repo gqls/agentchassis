@@ -1,0 +1,20 @@
+basePath: /api/v1
+host: localhost:8081
+info:
+  contact:
+    email: support@persona-platform.com
+    name: AI Persona Support
+  description: Authentication and authorization service for the AI Persona Platform
+  license:
+    name: Proprietary
+  termsOfService: http://swagger.io/terms/
+  title: Auth Service API
+  version: "1.0"
+paths: {}
+securityDefinitions:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

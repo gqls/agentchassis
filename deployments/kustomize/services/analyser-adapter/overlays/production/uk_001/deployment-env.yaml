@@ -1,0 +1,37 @@
+# Per-cluster environment for the analyser adapter. These are the values most
+# likely to differ between deployments, kept OUT of the base so a new cluster
+# edits only its overlay. Strategic-merge patch: matched into the container by
+# name, appended/overridden by env name.
+#
+#   REQUESTS_TOPIC   — the adapter's requests topic (NewAdapter falls back to
+#                      system.adapter.analyser.requests if unset; set explicitly
+#                      so a cluster can run a differently-named topic).
+#   CONSUMER_GROUP   — Kafka consumer group.
+#   GITHUB_API_BASE  — github.com by default; point at an enterprise endpoint
+#                      per cluster if ever needed (empty = https://api.github.com).
+#   AGENT_VERSION    — tracks THIS cluster's release tag; keep in step with the
+#                      overlay's image newTag on each release (manual today —
+#                      deploy-agents seds newTag but not this value).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analyser-adapter
+spec:
+  template:
+    spec:
+      containers:
+        - name: analyser-adapter
+          env:
+            - name: REQUESTS_TOPIC
+              value: "system.adapter.analyser.requests"
+            - name: CONSUMER_GROUP
+              value: "analyser.adapter.group"
+            - name: GITHUB_API_BASE
+              value: "https://api.github.com"
+            - name: AGENT_VERSION
+              value: "v1.0.1060"
+            - name: GITHUB_READ_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: GITHUB_READ_TOKEN

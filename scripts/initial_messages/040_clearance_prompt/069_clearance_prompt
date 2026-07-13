@@ -1,0 +1,207 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+# Clean up any leftover kcat pods
+kubectl -n kafka delete pod kcat-producer-hitl-test --ignore-not-found=true 2>/dev/null || true
+kubectl -n kafka delete pod kcat-test --ignore-not-found=true 2>/dev/null || true
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests, orchestration_state_audit, awaited_requests CASCADE;"
+
+# 4. Delete ALL spawned agent jobs
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+# scale other agents down
+kubectl -n ai-persona-system scale deployment/reasoning-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
+kubectl -n ai-persona-system scale deployment/business-intel --replicas=0
+# kubectl -n ai-persona-system scale deployment/ollama-adapter --replicas=0
+
+kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=1
+
+# adapters
+# kubectl -n ai-persona-system rollout restart deployment git-adapter
+
+# 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
+# List all job topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep "^job\."
+
+# Delete all job topics (be careful!)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash -c '
+for topic in $(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep "^job\."); do
+  echo "Deleting topic: $topic"
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic "$topic"
+done
+'
+
+# delete initial topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.requests
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.responses
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.generic.responses
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.business-intel.responses
+
+# delete replica sets
+# Delete all failed/pending pods
+kubectl -n ai-persona-system delete pods --field-selector=status.phase=Failed
+
+# Scale auth-service to 0 (stop the crash loop waste)
+# kubectl -n ai-persona-system scale deployment/auth-service --replicas=0
+
+# Clean old ReplicaSets — keep only the active ones
+# Agent chassis
+kubectl -n ai-persona-system get rs -l app=agent-chassis --no-headers | \
+  awk '$2==0 {print $1}' | xargs -I{} kubectl -n ai-persona-system delete rs {}
+
+# Auth service (44 old RS)
+kubectl -n ai-persona-system get rs -l app=auth-service --no-headers | \
+  awk '$2==0 {print $1}' | xargs -I{} kubectl -n ai-persona-system delete rs {}
+
+# Content creator
+kubectl -n ai-persona-system get rs -l app=content-creator-agent --no-headers | \
+  awk '$2==0 {print $1}' | xargs -I{} kubectl -n ai-persona-system delete rs {}
+
+# add topics back
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh
+  --create --topic system.generic.responses
+  --bootstrap-server localhost:9092
+  --partitions 1
+  --replication-factor 1
+
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --create \
+  --topic system.agent.business-intel.responses \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 3 \
+  --config retention.ms=3600000
+
+# reset all offsets
+# echo 'resetting all offsets'
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+kubectl -n ai-persona-system delete pods -l agent-type=calculator
+
+# Instead of resetting offsets, DELETE the consumer group
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+
+# Delete the consumer group (forces fresh start)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --group generic-requests-group
+
+# Now start the agent - it will create a fresh group with FirstOffset
+# try creating it again
+# kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+#   /opt/kafka/bin/kafka-topics.sh
+#   --create --topic system.generic.responses
+#   --bootstrap-server localhost:9092
+#   --partitions 1
+#   --replication-factor 1
+
+# -- create job topic for remote-job-spawner - keep as "dispatch"
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --create --topic system.dispatch.requests \
+  --partitions 2 --replication-factor 1
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --create --topic system.dispatch.responses \
+  --partitions 2 --replication-factor 1
+
+# -- create job topic for kafka-scheduler
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --create --topic system.scheduler.responses \
+  --partitions 2 --replication-factor 1
+
+  kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+    bin/kafka-topics.sh --create \
+    --topic system.generic.responses \
+    --bootstrap-server localhost:9092 \
+    --partitions 3 --replication-factor 1
+
+# remove container status unknown and evicted
+kubectl -n ai-persona-system get pods | grep ContainerStatusUnknown | awk '{print $1}' | xargs kubectl -n ai-persona-system delete pod --force --grace-period=0
+
+# check for topics
+# kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh   --bootstrap-server localhost:9092   --list | grep dispatch
+
+# auth
+# get password kubectl -n ai-persona-system exec -it auth-service-656db99bb6-lcsvm -- env | grep -i "jwt\|secret\|port\|auth"
+# kubectl -n ai-persona-system run mysql-check --rm -it --image=postgres:16-alpine -- /bin/sh
+# apk add --no-cache mysql-client
+
+
+# 6. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+kubectl -n ai-persona-system scale deployment/image-generator-adapter --replicas=2
+kubectl -n ai-persona-system scale deployment/auth-service --replicas=2
+kubectl -n ai-persona-system scale deployment/core-manager --replicas=2
+kubectl -n ai-persona-system scale deployment/business-intel --replicas=1
+# kubectl -n ai-persona-system scale deployment/ollama-adapter --replicas=1
+
+# Check consumer group
+# kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+#   /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+#   --describe --group generic-requests-group
+#
+# # If LAG shows 0 but message wasn't processed, reset offsets:
+# kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# sleep 10
+# kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+#   /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+#   --group generic-requests-group \
+#   --topic system.agent.generic.requests \
+#   --reset-offsets --to-latest --execute
+# kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=3
+# kubectl -n ai-persona-system rollout status deployment/agent-chassis
+
+
+
+# force delete stuck containers with containerstatusunknown
+# kubectl -n ai-persona-system get pods | grep ContainerStatusUnknown | awk '{print $1}' | xargs kubectl -n ai-persona-system delete pod --force --grace-period=0
+# make build-backend push-backend deploy-core deploy-agents redeploy-agents deploy-agent-cleanup build-dashboard push-dashboard deploy-dashboard ENVIRONMENT=production REGION=uk001
+# make release redeploy-agents pgbouncer-restart ENVIRONMENT=production REGION=uk001
+# make release-dashboard release-backend  redeploy-agents ENVIRONMENT=production REGION=uk001
+# kubectl get nodes -o custom-columns="NAME:.metadata.name,DISK_PRESSURE:.status.conditions[?(@.type=='DiskPressure')].status,EPHEMERAL:.status.conditions[?(@.type=='EphemeralStoragePressure')].status"
+# kubectl -n ai-persona-system get pods --field-selector=status.phase=Failed -o name | xargs kubectl -n ai-persona-system delete
+# kubectl -n ai-persona-system exec -it deploy/pgbouncer -- pg_isready -h localhost -p 6432
+# date; make release redeploy-agents  ENVIRONMENT=production REGION=uk001; date

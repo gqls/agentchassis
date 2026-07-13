@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>idea.uk — AI product ideas for your business, tested before we recommend them</title>
+  <meta name="description" content="Tell us about your business. We find AI product ideas worth building, test each one against the free alternative, verify with web research, and rank them. Free 30-second audience check. £29 full report with refund if not useful." />
+
+  <!--
+    Deployment notes
+    ────────────────
+    Static HTML. Drops into your existing git → GitHub Actions → B2 pipeline.
+
+    Phase 1 — INTENT CAPTURE ONLY (current). No payment is taken; visitors
+    request a report via the form and we follow up manually within 24h to
+    confirm a slot and arrange payment. This limits manual fulfilment to
+    what we can actually deliver and avoids refund overhead.
+
+    Wire-up before going live:
+      1. Replace REQUEST_FORM_ACTION with a Formspree / Netlify Forms /
+         Cloudflare Pages forms endpoint that accepts the fields below
+         (name, email, business, audience, notes).
+      2. Replace UPDATES_FORM_ACTION (lower-commitment email capture) with
+         the same / a list-management endpoint.
+      3. Replace CONTACT_EMAIL with the real address.
+      4. Set MONTH_SLOTS in the throttle indicator to your actual capacity.
+
+    Phase 2 — when demand validates: add Stripe Checkout for those who
+    skip the form, swap "Request a report" → "Order a report".
+
+    Price (£29) is set in the .price-tag below and on the request form's
+    fineprint. £29 with a free audience-check taster + refund-if-not-useful
+    is the decided early-access pricing (PLAN_idea_uk.md §7).
+  -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --ink:       #1A1816;
+      --ink-soft:  #4A4540;
+      --ink-mute:  #837C72;
+      --paper:     #EFE7D6;
+      --paper-2:   #E8DFCC;
+      --rust:      #A8391A;
+      --rust-deep: #7D2A12;
+      --rule:      #1A1816;
+
+      --serif: "Fraunces", "Times New Roman", Georgia, serif;
+      --sans:  "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { background: var(--paper); }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--paper);
+      /* faint paper grain */
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.10 0 0 0 0 0.09 0 0 0 0 0.09 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    /* HEADER ─────────────────────────────────────────────── */
+    header {
+      padding-top: 36px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--rule);
+    }
+    header .wrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 24px;
+    }
+    .wordmark {
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: 28px;
+      letter-spacing: -0.02em;
+      font-variation-settings: "opsz" 144, "SOFT" 0;
+      color: var(--ink);
+    }
+    .wordmark .dot { color: var(--rust); }
+    .label {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+    .label::before {
+      content: "● ";
+      color: var(--rust);
+      font-size: 8px;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+
+    /* HERO ───────────────────────────────────────────────── */
+    .hero {
+      padding: 80px 0 64px;
+      display: grid;
+      grid-template-columns: 7fr 5fr;
+      gap: 64px;
+      align-items: end;
+    }
+    .eyebrow {
+      font-family: var(--sans);
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--rust);
+      font-weight: 500;
+      margin: 0 0 24px;
+    }
+    .hero h1 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-variation-settings: "opsz" 144, "SOFT" 30;
+      font-size: clamp(46px, 7vw, 96px);
+      line-height: 0.95;
+      letter-spacing: -0.025em;
+      margin: 0;
+      color: var(--ink);
+    }
+    .hero h1 em {
+      font-style: italic;
+      font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 1;
+      color: var(--rust-deep);
+    }
+    .hero .lede {
+      font-family: var(--sans);
+      font-weight: 300;
+      font-size: 19px;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      max-width: 38ch;
+    }
+    .hero .lede strong {
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    /* RULE ───────────────────────────────────────────────── */
+    .rule {
+      border-top: 1px solid var(--rule);
+      margin: 0;
+    }
+    .rule-thick {
+      border-top: 3px solid var(--rule);
+      margin: 0;
+    }
+
+    /* SECTION SHARED ─────────────────────────────────────── */
+    section { padding: 80px 0; }
+    .section-label {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      font-weight: 500;
+      margin: 0 0 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .section-label::before {
+      content: "";
+      width: 32px;
+      height: 1px;
+      background: var(--ink-mute);
+    }
+    .h2 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-variation-settings: "opsz" 60, "SOFT" 20;
+      font-size: clamp(34px, 4.5vw, 56px);
+      line-height: 1.05;
+      letter-spacing: -0.018em;
+      margin: 0 0 48px;
+      color: var(--ink);
+      max-width: 22ch;
+    }
+
+    /* WHAT YOU GET — report mock ─────────────────────────── */
+    .what-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 80px;
+      align-items: start;
+    }
+    .what-text p {
+      margin: 0 0 18px;
+      color: var(--ink-soft);
+    }
+    .what-text p strong { color: var(--ink); }
+
+    .report-mock {
+      background: var(--paper-2);
+      border: 1px solid var(--ink);
+      padding: 32px 36px;
+      position: relative;
+    }
+    .report-mock::before {
+      content: "SPECIMEN";
+      position: absolute;
+      top: 18px;
+      right: 22px;
+      font-family: var(--sans);
+      font-size: 10px;
+      letter-spacing: 0.25em;
+      color: var(--rust);
+      font-weight: 600;
+    }
+    .report-header {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 8px;
+    }
+    .report-title {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      line-height: 1.2;
+      margin: 0 0 24px;
+    }
+    .report-candidate {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 16px;
+      padding: 18px 0;
+      border-top: 1px solid var(--ink);
+    }
+    .report-candidate:last-child { border-bottom: 1px solid var(--ink); }
+    .report-num {
+      font-family: var(--serif);
+      font-weight: 300;
+      font-variation-settings: "opsz" 144, "SOFT" 0;
+      font-size: 44px;
+      line-height: 0.9;
+      color: var(--rust);
+      letter-spacing: -0.04em;
+    }
+    .report-cand-title {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 17px;
+      line-height: 1.25;
+      margin: 0 0 6px;
+      color: var(--ink);
+    }
+    .report-cand-meta {
+      font-family: var(--sans);
+      font-size: 12.5px;
+      color: var(--ink-mute);
+      line-height: 1.5;
+    }
+    .report-cand-meta .sep {
+      color: var(--rust);
+      margin: 0 6px;
+    }
+    .report-scores {
+      font-family: var(--sans);
+      font-size: 11.5px;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      margin-top: 6px;
+    }
+    .report-scores .score-strong { color: var(--rust); font-weight: 500; }
+
+    /* METHOD ─────────────────────────────────────────────── */
+    .method-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 48px 64px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .step-num {
+      font-family: var(--serif);
+      font-weight: 300;
+      font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 0;
+      font-size: 88px;
+      line-height: 0.85;
+      letter-spacing: -0.05em;
+      color: var(--rust);
+    }
+    .step-title {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      line-height: 1.2;
+      margin: 0 0 8px;
+      color: var(--ink);
+    }
+    .step-body {
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+
+    /* WHY IT'S DIFFERENT — callout ────────────────────────── */
+    .callout {
+      background: var(--ink);
+      color: var(--paper);
+      padding: 64px 0;
+    }
+    .callout .h2 { color: var(--paper); }
+    .callout .section-label { color: var(--paper-2); }
+    .callout .section-label::before { background: var(--paper-2); }
+    .callout p {
+      font-family: var(--serif);
+      font-weight: 300;
+      font-variation-settings: "opsz" 144, "SOFT" 30;
+      font-size: clamp(22px, 2.4vw, 28px);
+      line-height: 1.35;
+      color: var(--paper);
+      max-width: 32ch;
+      margin: 0;
+    }
+    .callout p em {
+      font-style: italic;
+      color: #E89B7C;
+      font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 1;
+    }
+    .callout-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 64px;
+      align-items: end;
+    }
+    .callout-fine {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--paper-2);
+      line-height: 1.65;
+      max-width: 40ch;
+    }
+    .callout-fine strong { color: var(--paper); font-weight: 500; }
+
+    /* PRICE ──────────────────────────────────────────────── */
+    .price-section { padding: 96px 0; }
+    .price-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 64px;
+      align-items: start;
+    }
+    .price-card {
+      border: 1px solid var(--ink);
+      padding: 40px 36px;
+      background: var(--paper-2);
+    }
+    .price-sku {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin: 0 0 12px;
+    }
+    .price-tag {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-variation-settings: "opsz" 144, "SOFT" 0;
+      font-size: 92px;
+      line-height: 0.9;
+      letter-spacing: -0.035em;
+      color: var(--ink);
+      margin: 0 0 6px;
+    }
+    .price-tag sup {
+      font-size: 36px;
+      line-height: 1;
+      vertical-align: top;
+      color: var(--rust);
+      font-weight: 400;
+      margin-right: 4px;
+    }
+    .price-unit {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink-mute);
+      margin: 0 0 32px;
+    }
+    .cta {
+      display: inline-block;
+      background: var(--rust);
+      color: var(--paper);
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 16px;
+      letter-spacing: 0.02em;
+      padding: 18px 28px;
+      text-decoration: none;
+      border: none;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .cta:hover {
+      background: var(--rust-deep);
+      transform: translateY(-1px);
+    }
+    .cta-secondary {
+      display: inline-block;
+      background: transparent;
+      color: var(--ink);
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 14px;
+      letter-spacing: 0.02em;
+      padding: 14px 0;
+      margin-left: 24px;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      text-decoration-thickness: 1.5px;
+      text-decoration-color: var(--rust);
+    }
+    .price-includes {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .price-includes li {
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      padding: 12px 0;
+      border-bottom: 1px solid var(--paper-2);
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 12px;
+    }
+    .price-includes li:last-child { border-bottom: none; }
+    .price-includes li::before {
+      content: "→";
+      color: var(--rust);
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 18px;
+    }
+    .price-includes li strong { color: var(--ink); font-weight: 500; }
+
+    /* DISCLOSURE / EARLY ACCESS ──────────────────────────── */
+    .disclosure {
+      padding: 64px 0 96px;
+      border-top: 1px solid var(--rule);
+    }
+    .disclosure-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 64px;
+    }
+    .disclosure p {
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--ink-soft);
+      margin: 0 0 16px;
+    }
+    .disclosure p strong { color: var(--ink); font-weight: 500; }
+
+    /* INTEREST FORM ──────────────────────────────────────── */
+    .interest {
+      background: var(--paper-2);
+      padding: 72px 0;
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+    }
+    .interest-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 64px;
+      align-items: center;
+    }
+    .interest h3 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(28px, 3.4vw, 40px);
+      line-height: 1.05;
+      letter-spacing: -0.015em;
+      margin: 0 0 12px;
+      color: var(--ink);
+    }
+    .interest h3 em {
+      font-style: italic;
+      font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 1;
+      color: var(--rust-deep);
+    }
+    .interest .sub {
+      font-family: var(--sans);
+      font-size: 15px;
+      color: var(--ink-soft);
+      max-width: 32ch;
+      margin: 0;
+    }
+    .interest form {
+      display: flex;
+      gap: 12px;
+    }
+    .interest input[type="email"] {
+      flex: 1;
+      font-family: var(--sans);
+      font-size: 16px;
+      padding: 18px 22px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .interest input[type="email"]:focus { border-color: var(--rust); }
+    .interest button {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 15px;
+      padding: 18px 28px;
+      background: var(--ink);
+      color: var(--paper);
+      border: 1px solid var(--ink);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .interest button:hover {
+      background: var(--rust);
+      border-color: var(--rust);
+    }
+
+    /* REQUEST FORM — structured override ─────────────────── */
+    .request-form { flex-direction: column; gap: 18px; display: flex; }
+    .request-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .request-form .field-label {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      font-weight: 500;
+    }
+    .request-form input[type="text"],
+    .request-form input[type="email"],
+    .request-form textarea {
+      font-family: var(--sans);
+      font-size: 16px;
+      padding: 14px 18px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s ease;
+      width: 100%;
+      resize: vertical;
+    }
+    .request-form input:focus,
+    .request-form textarea:focus { border-color: var(--rust); }
+    .request-form .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .request-form .form-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .request-form .accept-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: start;
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      margin-top: 4px;
+    }
+    .request-form .accept-row input[type="checkbox"] {
+      margin-top: 4px;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--rust);
+    }
+    .request-form .accept-row a {
+      color: var(--ink);
+      text-decoration-color: var(--rust);
+      text-underline-offset: 3px;
+    }
+    .request-form button {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 15px;
+      padding: 18px 28px;
+      background: var(--rust);
+      color: var(--paper);
+      border: 1px solid var(--rust);
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .request-form button:hover {
+      background: var(--rust-deep);
+      border-color: var(--rust-deep);
+    }
+    .request-form .form-meta {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink-mute);
+      margin: 0;
+    }
+    /* override default .interest form flex-row layout for the structured request form */
+    .interest form.request-form { display: flex; }
+
+    /* UPDATES STRIP ──────────────────────────────────────── */
+    .updates-strip {
+      padding: 32px 0;
+      background: var(--paper);
+      border-bottom: 1px solid var(--rule);
+    }
+    .updates-strip-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .updates-strip p {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 18px;
+      color: var(--ink-soft);
+      margin: 0;
+      line-height: 1.3;
+    }
+    .updates-strip p em {
+      font-style: italic;
+      font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 1;
+      color: var(--rust-deep);
+    }
+    .updates-strip form {
+      display: flex;
+      gap: 10px;
+      flex: 0 1 auto;
+    }
+    .updates-strip input[type="email"] {
+      font-family: var(--sans);
+      font-size: 14px;
+      padding: 12px 16px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      color: var(--ink);
+      min-width: 220px;
+      outline: none;
+    }
+    .updates-strip input[type="email"]:focus { border-color: var(--rust); }
+    .updates-strip button {
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 14px;
+      padding: 12px 20px;
+      background: var(--ink);
+      color: var(--paper);
+      border: 1px solid var(--ink);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .updates-strip button:hover { background: var(--rust); border-color: var(--rust); }
+
+    /* FOOTER ─────────────────────────────────────────────── */
+    footer {
+      padding: 48px 0;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink-mute);
+    }
+    footer .wrap {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    footer a {
+      color: var(--ink);
+      text-decoration-color: var(--rust);
+      text-underline-offset: 3px;
+    }
+
+    /* PAGE LOAD STAGGER ─────────────────────────────────── */
+    .stagger > * { opacity: 0; transform: translateY(8px); animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+    .stagger > *:nth-child(1) { animation-delay: 0.05s; }
+    .stagger > *:nth-child(2) { animation-delay: 0.20s; }
+    .stagger > *:nth-child(3) { animation-delay: 0.35s; }
+    .stagger > *:nth-child(4) { animation-delay: 0.50s; }
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* RESPONSIVE ──────────────────────────────────────────── */
+    @media (max-width: 880px) {
+      .wrap { padding: 0 22px; }
+      .hero { grid-template-columns: 1fr; gap: 32px; padding: 56px 0 48px; }
+      .hero h1 { font-size: clamp(40px, 11vw, 72px); }
+      .what-grid, .method-grid, .callout-grid, .price-grid, .disclosure-grid, .interest-grid {
+        grid-template-columns: 1fr; gap: 40px;
+      }
+      .interest form { flex-direction: column; }
+      .request-form .form-row { grid-template-columns: 1fr; gap: 18px; }
+      .request-form .form-actions { flex-direction: column; align-items: flex-start; }
+      .request-form button { width: 100%; }
+      .updates-strip-inner { flex-direction: column; align-items: stretch; gap: 16px; }
+      .updates-strip form { flex-direction: column; }
+      .updates-strip input[type="email"] { min-width: 0; }
+      .step-num { font-size: 64px; }
+      section { padding: 56px 0; }
+      .price-section { padding: 64px 0; }
+      .price-tag { font-size: 72px; }
+      .price-tag sup { font-size: 28px; }
+      .cta-secondary { margin-left: 0; display: block; margin-top: 16px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="wrap">
+      <div class="wordmark">idea<span class="dot">.</span>uk</div>
+      <span class="label">Early access · accepting MONTH_SLOTS requests this month</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- HERO ─────────────────────────────────────────── -->
+    <section class="hero wrap stagger">
+      <div>
+        <p class="eyebrow">AI product ideas, tested before we recommend them</p>
+        <h1>Ideas for an AI product in your business. <em>Tested. Verified. Ranked.</em></h1>
+      </div>
+      <p class="lede">
+        Tell us about your business. We use a structured method to find ideas
+        worth building, <strong>test each one against the free thing your
+        customer would use instead</strong>, check the survivors with web
+        research, and rank them. You get a written report and a specific test
+        to run for each idea. <strong>£29.</strong> Refund if it doesn't
+        find anything worth acting on.
+      </p>
+    </section>
+
+    <hr class="rule-thick" />
+
+    <!-- FREE AUDIENCE CHECK TASTER ─────────────────── -->
+    <section id="taster">
+      <div class="wrap">
+        <p class="section-label">Try free first</p>
+        <h2 class="h2">A 30-second audience check, on the house.</h2>
+
+        <div class="taster-grid">
+          <p class="taster-intro">
+            Tell us about your business in one line, and who you think your
+            customers are. We'll take a look at that audience and suggest
+            others worth selling to — often the most useful part of the whole
+            report. It costs nothing and takes about ten seconds. If it helps,
+            the full report is £29.
+          </p>
+
+          <form id="taster-form" class="taster-form" onsubmit="return runTaster(event)">
+            <label>
+              Your business <span class="hint">(domain, or one line)</span>
+              <input type="text" name="business" required
+                     placeholder="agritec.uk  —  or  'small farm consultancy in Devon'" />
+            </label>
+            <label>
+              Who you think your audience is
+              <input type="text" name="audience" required
+                     placeholder="UK small farmers, 3–50ha" />
+            </label>
+            <button type="submit" id="taster-btn">Get the free audience check</button>
+            <p class="taster-fineprint">
+              No email needed. No sign-up. We don't store this unless you tell us to.
+            </p>
+          </form>
+
+          <div id="taster-result" class="taster-result" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <style>
+      .taster-grid { display: grid; gap: 32px; max-width: 880px; }
+      .taster-intro { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0; }
+      .taster-form { display: grid; gap: 18px; background: var(--paper-2); padding: 32px 28px; border: 1px solid var(--ink); }
+      .taster-form label { font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--ink); display: grid; gap: 8px; }
+      .taster-form .hint { font-weight: 400; color: var(--ink-mute); }
+      .taster-form input { font-family: var(--sans); font-size: 16px; padding: 14px 16px; border: 1px solid var(--ink); background: var(--paper); color: var(--ink); outline: none; }
+      .taster-form input:focus { border-color: var(--rust); }
+      .taster-form button { font-family: var(--sans); font-weight: 500; font-size: 16px; padding: 16px 24px; background: var(--rust); color: var(--paper); border: 0; cursor: pointer; transition: background 0.15s ease; }
+      .taster-form button:hover:not(:disabled) { background: var(--rust-deep); }
+      .taster-form button:disabled { background: var(--ink-mute); cursor: progress; }
+      .taster-fineprint { font-size: 13px; color: var(--ink-mute); margin: 0; }
+      .taster-result { background: var(--paper); border-left: 3px solid var(--rust); padding: 28px 28px; font-family: var(--serif); font-size: 17px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
+      .taster-result.error { border-left-color: var(--ink-mute); color: var(--ink-soft); font-family: var(--sans); font-size: 15px; }
+      .taster-result h4 { font-family: var(--sans); font-weight: 500; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--rust); margin: 0 0 8px; }
+      .taster-result p { margin: 0 0 14px; }
+      .taster-upsell { white-space: normal; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--ink-mute); font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); }
+      .taster-upsell strong { color: var(--ink); }
+      .taster-upsell p { margin: 0 0 14px; }
+      .taster-cta { display: inline-block; margin-top: 6px; background: var(--rust); color: var(--paper); padding: 13px 22px; font-family: var(--sans); font-weight: 500; text-decoration: none; }
+      .taster-cta:hover { background: var(--rust-deep); }
+    </style>
+
+    <script>
+      async function runTaster(e) {
+        e.preventDefault();
+        const form = document.getElementById('taster-form');
+        const btn = document.getElementById('taster-btn');
+        const out = document.getElementById('taster-result');
+        const business = form.business.value.trim();
+        const audience = form.audience.value.trim();
+        if (!business || !audience) return false;
+        btn.disabled = true;
+        btn.textContent = 'Thinking… (about 10 seconds)';
+        out.hidden = false;
+        out.className = 'taster-result';
+        out.textContent = '';
+        try {
+          const body = new URLSearchParams({ business, audience });
+          const r = await fetch('/audience-check', { method: 'POST', body });
+          if (!r.ok) throw new Error('Service returned ' + r.status);
+          out.innerHTML = await r.text();
+        } catch (err) {
+          out.className = 'taster-result error';
+          out.textContent = "We couldn't run the check just now — try again in a minute, or skip straight to requesting the full report below.";
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Get the free audience check';
+        }
+        return false;
+      }
+    </script>
+
+    <hr class="rule" />
+
+    <!-- WHAT YOU GET ─────────────────────────────────── -->
+    <section>
+      <div class="wrap">
+        <p class="section-label">01 · What you get</p>
+        <h2 class="h2">A report you can act on.</h2>
+
+        <div class="what-grid">
+          <div class="what-text">
+            <p>
+              <strong>3–6 ranked ideas</strong>, each one showing what it would
+              use from your business — your data, your customers, your know-how
+              — what the AI actually does in it, and the one reason it beats
+              what a free chatbot would give you.
+            </p>
+            <p>
+              <strong>Facts we've checked on the web</strong> for each idea —
+              competitors, prices, what's going on in the market, the rules
+              that apply. If an idea doesn't hold up when we check it, we drop
+              it.
+            </p>
+            <p>
+              <strong>A score for each idea</strong> on five things: how hard
+              it would be to copy, whether people will pay, how easy it is to
+              build, how much you can reuse elsewhere, and how long the
+              advantage lasts. With the cheapest way to test demand for each
+              idea that makes it through.
+            </p>
+            <p>
+              <strong>A straight answer.</strong> If there's nothing worth
+              building in your area right now, we say so and explain why — then
+              point you to a better audience or a different angle. The method
+              tells people "don't build this yet" about as often as "go and
+              test this one."
+            </p>
+          </div>
+
+          <article class="report-mock" aria-label="Specimen of a report">
+            <p class="report-header">Idea report — specimen layout</p>
+            <p class="report-title">Audience: mid-market energy procurement managers</p>
+
+            <div class="report-candidate">
+              <div class="report-num">01</div>
+              <div>
+                <p class="report-cand-title">Aligned-incentive procurement advisor</p>
+                <p class="report-cand-meta">
+                  Relies on: curated procurement-context reasoning
+                  <span class="sep">·</span>
+                  Uses: live-data + persistent profile
+                </p>
+                <p class="report-scores">
+                  Def <span class="score-strong">4</span> ·
+                  Will <span class="score-strong">4</span> ·
+                  Build 2 · Reuse 3 · Dur 3
+                  <span class="sep">|</span>
+                  Sum 16 · ADVANCES
+                </p>
+              </div>
+            </div>
+
+            <div class="report-candidate">
+              <div class="report-num">02</div>
+              <div>
+                <p class="report-cand-title">RFQ agent: agentic supplier comparison</p>
+                <p class="report-cand-meta">
+                  Relies on: structured normalisation
+                  <span class="sep">·</span>
+                  Uses: agentic browsing
+                </p>
+                <p class="report-scores">
+                  Def <span class="score-strong">4</span> ·
+                  Will <span class="score-strong">4</span> ·
+                  Build 2 · Reuse 3 · Dur 3
+                  <span class="sep">|</span>
+                  Sum 16 · ADVANCES
+                </p>
+              </div>
+            </div>
+
+            <div class="report-candidate">
+              <div class="report-num">03</div>
+              <div>
+                <p class="report-cand-title">Hedge strategy assistant</p>
+                <p class="report-cand-meta">
+                  Relies on: verified financial computation
+                  <span class="sep">·</span>
+                  Uses: reasoning model
+                </p>
+                <p class="report-scores">
+                  Def 3 · Will 3 · Build 3 · Reuse 2 · Dur 2
+                  <span class="sep">|</span>
+                  Sum 13 · ADVANCES <em>(low durability)</em>
+                </p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- HOW IT WORKS ─────────────────────────────────── -->
+    <section>
+      <div class="wrap">
+        <p class="section-label">02 · How the method works</p>
+        <h2 class="h2">Ideas from four angles. Most get cut. The rest get checked.</h2>
+
+        <div class="method-grid">
+          <div class="step">
+            <div class="step-num">01</div>
+            <div>
+              <h3 class="step-title">We check your audience first</h3>
+              <p class="step-body">
+                Sometimes the best audience isn't the one you'd have picked.
+                The first step checks whether the audience you named is really
+                the best one to sell to.
+              </p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">02</div>
+            <div>
+              <h3 class="step-title">We come up with ideas from four angles</h3>
+              <p class="step-body">
+                Four goes at it, from four different angles: what your
+                customers actually want, where free AI tools let them down,
+                what's become possible in just the last few months, and what a
+                finished result looks like for them. Twelve to twenty-four
+                ideas in all.
+              </p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">03</div>
+            <div>
+              <h3 class="step-title">We cut the weak ideas</h3>
+              <p class="step-body">
+                Each idea has to beat the free option your customer would
+                otherwise use. The judging is done by a different AI model,
+                from a different company — so the method isn't marking its own
+                homework. Most ideas don't make it past this step. That's the
+                point.
+              </p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">04</div>
+            <div>
+              <h3 class="step-title">We check what's left and rank it</h3>
+              <p class="step-body">
+                Web research, with sources you can click through. Then a score
+                on five things — how hard it is to copy, whether people will
+                pay, how easy it is to build, how much you can reuse, and how
+                long the advantage lasts — and the cheapest test you can run
+                for each one.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHY DIFFERENT — callout ──────────────────────── -->
+    <section class="callout">
+      <div class="wrap">
+        <p class="section-label">03 · How this differs from an AI brainstorm</p>
+        <div class="callout-grid">
+          <p>
+            A free chatbot will happily hand you a list of ideas that sound
+            plausible. We keep only the ones that get past a second AI model's
+            criticism and real checking — so what you end up with reads more
+            like a piece of research than a brainstorm.
+          </p>
+          <div class="callout-fine">
+            <p><strong>Different AI models.</strong> Coming up with the ideas, criticising them, and checking them are each done by AI from a different company — so the method can't simply agree with itself.</p>
+            <p><strong>Kept up to date.</strong> One of the four angles is "what's just become possible". That runs against a list we keep current by hand, not whatever the AI happened to learn months ago.</p>
+            <p><strong>Straight answers.</strong> We've sent reports that said nothing was worth building yet. If that's true for your area, we'll tell you — and explain what would have to change.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRICE ────────────────────────────────────────── -->
+    <section class="price-section">
+      <div class="wrap">
+        <p class="section-label">04 · Request a report</p>
+        <h2 class="h2">One price. One report. No payment until we confirm.</h2>
+
+        <div class="price-grid">
+          <div class="price-card">
+            <p class="price-sku">Single report</p>
+            <p class="price-tag"><sup>£</sup>29</p>
+            <p class="price-unit">per report · delivered within 5 days of confirmation</p>
+
+            <a class="cta" href="#request" id="request-cta">Request a report</a>
+            <a class="cta-secondary" href="#disclosure">How this works ↓</a>
+          </div>
+
+          <ul class="price-includes">
+            <li>
+              <span><strong>3–6 ranked ideas</strong> for your specific business and audience, with sources you can check.</span>
+            </li>
+            <li>
+              <span><strong>A sharper audience</strong> — often the most useful single thing in the report.</span>
+            </li>
+            <li>
+              <span><strong>Ideas built from four different angles.</strong></span>
+            </li>
+            <li>
+              <span><strong>Facts we've checked</strong> behind every claim — competitors, prices, regulations, with links.</span>
+            </li>
+            <li>
+              <span><strong>A clear score</strong>, and a specific test you can run for each idea this week.</span>
+            </li>
+            <li>
+              <span><strong>No payment</strong> until we confirm a slot and a delivery date in writing.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- DISCLOSURE ───────────────────────────────────── -->
+    <section class="disclosure" id="disclosure">
+      <div class="wrap">
+        <p class="section-label">05 · How this works · what it is, and isn't</p>
+        <div class="disclosure-grid">
+          <div>
+            <h2 class="h2" style="margin: 0;">Request first. Payment only on confirmation.</h2>
+          </div>
+          <div>
+            <p>
+              <strong>You submit a request first.</strong> We reply within 24
+              hours with either a confirmed slot, a delivery date, and a
+              Stripe payment link — or a polite decline if we're full this
+              month, with a chance to be first in the next batch.
+            </p>
+            <p>
+              <strong>No payment is taken until we confirm.</strong> Once you
+              pay, the report is produced by our analysis engine and reviewed
+              by a human before it's sent to you. Delivery typically within
+              72 hours. If, after reading it, you don't think it turns up
+              anything worth acting on — email us within 14 days and we
+              refund you. No quibble.
+            </p>
+            <p>
+              <strong>What this is, in plain English.</strong> A research and
+              analysis report. We use AI to generate, test, and verify ideas;
+              a person reviews the output. It's an information service, not
+              professional advice — we're not your accountant, solicitor,
+              or business consultant. Every factual claim in the report is
+              cited so you can check it. Before you spend money or commit
+              based on anything in the report, please check the sources for
+              yourself.
+              See <a href="/terms" style="color: var(--ink); text-decoration-color: var(--rust);">our terms</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REQUEST FORM ─────────────────────────────────── -->
+    <section class="interest" id="request">
+      <div class="wrap">
+        <div class="interest-grid">
+          <div>
+            <h3>Request a report. <em>We reply within 24 hours.</em></h3>
+            <p class="sub">Tell us briefly about your business and the audience you're trying to reach. Enough detail that we know whether we can do a useful job — we'll come back to you with a confirmed slot or a polite decline.</p>
+          </div>
+          <form action="/request" method="POST" class="request-form">
+            <div class="form-row">
+              <label>
+                <span class="field-label">Your name</span>
+                <input type="text" name="name" required aria-label="Your name" />
+              </label>
+              <label>
+                <span class="field-label">Email</span>
+                <input type="email" name="email" placeholder="you@example.com" required aria-label="Email" />
+              </label>
+            </div>
+            <label>
+              <span class="field-label">Business · domain or short description</span>
+              <input type="text" name="business" placeholder="e.g. acme.co.uk — small accountancy for trades" required aria-label="Business" />
+            </label>
+            <label>
+              <span class="field-label">Audience · who you're trying to reach</span>
+              <textarea name="audience" rows="2" placeholder="e.g. sole-trader builders and plumbers in the South West, turnover £80k–£300k" required aria-label="Audience"></textarea>
+            </label>
+            <label>
+              <span class="field-label">Anything specific you want covered (optional)</span>
+              <textarea name="notes" rows="2" placeholder="e.g. we already have a customer database; AI capabilities we're curious about" aria-label="Notes"></textarea>
+            </label>
+            <label class="accept-row">
+              <input type="checkbox" name="accept_terms" value="yes" required />
+              <span>I've read the <a href="/terms" target="_blank">terms</a> and understand this is an information service, not professional advice. £29 is only charged after we confirm; refund if the report doesn't turn up anything worth acting on.</span>
+            </label>
+            <div class="form-actions">
+              <button type="submit">Send request — no payment yet</button>
+              <p class="form-meta">£29 per report · payment only on confirmation · refund if not useful</p>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOWER-COMMITMENT UPDATES STRIP ──────────────────── -->
+    <section class="updates-strip">
+      <div class="wrap">
+        <div class="updates-strip-inner">
+          <p>Not ready to request? <em>Get the next worked example by email instead.</em></p>
+          <form action="/subscribe" method="POST">
+            <input type="email" name="email" placeholder="you@example.com" required aria-label="Email for updates" />
+            <button type="submit">Send me the next run</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER ───────────────────────────────────────── -->
+    <footer>
+      <div class="wrap">
+        <span>idea.uk · early access · operated from the UK</span>
+        <span>
+          <a href="/terms">Terms</a> ·
+          <a href="/refund-policy">Refund policy</a> ·
+          Questions? <a href="mailto:CONTACT_EMAIL">CONTACT_EMAIL</a>
+        </span>
+      </div>
+    </footer>
+
+  </main>
+
+</body>
+</html>

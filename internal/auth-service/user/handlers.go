@@ -16,6 +16,13 @@ func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
 }
 
+// DeleteAccountRequest for account deletion
+type DeleteAccountRequest struct {
+	Password     string `json:"password" binding:"required" example:"SecurePassword123!"`
+	Confirmation string `json:"confirmation" binding:"required" example:"DELETE MY ACCOUNT"`
+	Reason       string `json:"reason,omitempty" example:"No longer need the service"`
+}
+
 // HandleGetCurrentUser returns the current user's details
 func (h *Handlers) HandleGetCurrentUser(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -70,6 +77,32 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 // HandleDeleteAccount deletes the user's account
 func (h *Handlers) HandleDeleteAccount(c *gin.Context) {
 	userID := c.GetString("user_id")
+
+	var req DeleteAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate confirmation
+	if req.Confirmation != "DELETE MY ACCOUNT" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid confirmation text"})
+		return
+	}
+
+	// Verify password
+	user, err := h.service.GetUser(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify account"})
+		return
+	}
+
+	// Validate password through login service
+	_, err = h.service.Login(c.Request.Context(), user.Email, req.Password)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect password"})
+		return
+	}
 
 	if err := h.service.DeleteUser(c.Request.Context(), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete account"})

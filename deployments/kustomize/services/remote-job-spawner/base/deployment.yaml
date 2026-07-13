@@ -1,0 +1,39 @@
+# deployments/kustomize/services/remote-job-spawner/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remote-job-spawner
+  labels:
+    app: remote-job-spawner
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: remote-job-spawner
+  template:
+    metadata:
+      labels:
+        app: remote-job-spawner
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: remote-job-spawner
+          image: docker.io/aqls/remote-job-spawner:latest # Patched by overlays
+          env:
+            - name: AGENT_BOOTSTRAP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: agent-bootstrap-key
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"

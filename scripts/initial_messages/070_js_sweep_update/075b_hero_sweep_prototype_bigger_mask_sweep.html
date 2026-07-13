@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hero Sweep v3 — CSS Mask Reveal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #111; font-family: -apple-system, sans-serif; }
+
+        .hero {
+            min-height: 70vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            background: url('https://leopardessconsulting.co.uk/assets/images/hero.jpg') center/cover no-repeat;
+        }
+
+        .hero-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: linear-gradient(135deg, rgba(26,26,46,0.85) 0%, rgba(22,33,62,0.8) 50%, rgba(15,52,96,0.75) 100%);
+        }
+
+        /* Mask sweep: transparent band in the mask hides the overlay, revealing the image */
+        @keyframes maskSweep {
+            0%   { -webkit-mask-position: 0% 0%; mask-position: 0% 0%; }
+            100% { -webkit-mask-position: 100% 100%; mask-position: 100% 100%; }
+        }
+
+        .hero-overlay.sweeping {
+            -webkit-mask-image: linear-gradient(
+                    115deg,
+                    black 0%, black 30%,
+                    rgba(0,0,0,0.5) 36%,
+                    rgba(0,0,0,0.1) 42%,
+                    transparent 46%,
+                    transparent 54%,
+                    rgba(0,0,0,0.1) 58%,
+                    rgba(0,0,0,0.5) 64%,
+                    black 70%, black 100%
+            );
+            mask-image: linear-gradient(
+                    115deg,
+                    black 0%, black 30%,
+                    rgba(0,0,0,0.5) 36%,
+                    rgba(0,0,0,0.1) 42%,
+                    transparent 46%,
+                    transparent 54%,
+                    rgba(0,0,0,0.1) 58%,
+                    rgba(0,0,0,0.5) 64%,
+                    black 70%, black 100%
+            );
+            -webkit-mask-size: 300% 300%;
+            mask-size: 300% 300%;
+            -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+            animation: maskSweep 2.6s cubic-bezier(0.22, 0.1, 0.25, 1) forwards;
+        }
+
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+            color: #fff;
+            z-index: 3;
+            position: relative;
+        }
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .hero-subheadline {
+            font-size: clamp(1rem, 2vw, 1.35rem);
+            margin-bottom: 2rem;
+            opacity: 0.95;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.95);
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.875rem 2rem;
+            margin: 0.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+        .btn-primary { background: #0f3460; color: #fff; border: 2px solid #0f3460; }
+        .btn-secondary { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,0.8); }
+        .hint {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.5);
+            font-size: 0.9rem;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+<section class="hero" data-component="hero">
+    <div class="hero-overlay" id="heroOverlay"></div>
+    <div class="hero-content">
+        <h1>Smart AI Teams That Build Websites, Tools &amp; Reports in Minutes</h1>
+        <p class="hero-subheadline">Leopardess Consulting harnesses collaborative AI agent teams to deliver professional websites, custom calculators, business plans, and creative tools — in minutes, not weeks.</p>
+        <a href="#" class="btn btn-primary">Get Started</a>
+        <a href="#" class="btn btn-secondary">Our Services</a>
+    </div>
+</section>
+
+<p class="hint" id="hint">Click the hero to trigger the mask sweep reveal</p>
+
+<script>
+    (function() {
+        var hero = document.querySelector('.hero[data-component="hero"]');
+        if (!hero) return;
+        var overlay = document.getElementById('heroOverlay');
+        var hint = document.getElementById('hint');
+        var triggered = false;
+
+        hero.addEventListener('click', function() {
+            if (triggered) return;
+            triggered = true;
+            overlay.classList.add('sweeping');
+            if (hint) hint.style.opacity = '0';
+        });
+    })();
+</script>
+
+</body>
+</html>

@@ -26,22 +26,22 @@ func NewService(userService *user.Service, jwtService *jwt.Service, logger *zap.
 
 // TokenResponse represents the auth response
 type TokenResponse struct {
-	AccessToken  string    `json:"access_token"`
-	RefreshToken string    `json:"refresh_token"`
-	TokenType    string    `json:"token_type"`
-	ExpiresIn    int       `json:"expires_in"`
+	AccessToken  string    `json:"access_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	RefreshToken string    `json:"refresh_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	TokenType    string    `json:"token_type" example:"Bearer"`
+	ExpiresIn    int       `json:"expires_in" example:"3600"`
 	User         *UserInfo `json:"user"`
 }
 
 // UserInfo in token response
 type UserInfo struct {
-	ID            string   `json:"id"`
-	Email         string   `json:"email"`
-	ClientID      string   `json:"client_id"`
-	Role          string   `json:"role"`
-	Tier          string   `json:"tier"`
-	EmailVerified bool     `json:"email_verified"`
-	Permissions   []string `json:"permissions"`
+	ID            string   `json:"id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Email         string   `json:"email" example:"john.doe@example.com"`
+	ClientID      string   `json:"client_id" example:"client-123"`
+	Role          string   `json:"role" example:"user"`
+	Tier          string   `json:"tier" example:"premium"`
+	EmailVerified bool     `json:"email_verified" example:"true"`
+	Permissions   []string `json:"permissions" example:"read:agents,write:agents,read:workflows"`
 }
 
 // Register handles user registration

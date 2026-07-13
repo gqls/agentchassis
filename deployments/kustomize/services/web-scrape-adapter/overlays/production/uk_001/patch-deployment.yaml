@@ -1,0 +1,32 @@
+- op: replace
+  path: /spec/replicas
+  value: 3
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-prod-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-default-secrets
+- op: add
+  path: /spec/template/spec/affinity
+  value:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - web-scrape-adapter
+            topologyKey: kubernetes.io/hostname
+- op: replace
+  path: /spec/template/spec/containers/0/resources
+  value:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"

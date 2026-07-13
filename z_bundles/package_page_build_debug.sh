@@ -1,0 +1,427 @@
+#!/bin/bash
+#
+# package_page_build_debug.sh
+#   Self-contained packager for the PAGE-BUILD DEBUG context.
+#   Bundles the page-build / section-resolution / render-deploy / dispatch
+#   subsystem of agent-chassis into one context file for an AI assistant,
+#   and (optionally) appends a read-only live capture: schema, the decisive
+#   skinner-box queries, the agent-definition workflows, and runtime state.
+#
+#   Standalone extract of package_module.sh: carries its own wrapper
+#   (self-locating, helpers, arg parsing) and one hardcoded module.
+#
+# Usage:  ./package_page_build_debug.sh [-o output_dir] [-e env] [-d domain] [--no-live]
+# Example: ./package_page_build_debug.sh
+#          ./package_page_build_debug.sh -d gamesdesign.co.uk
+#          ./package_page_build_debug.sh --no-live          # code only, no cluster
+#
+# Output:  <output_dir>/<environment>_page-build-debug_context.txt
+#
+# ---------------------------------------------------------------------
+# SCOPE (the blast radius of the open threads):
+#   - guide-skinner-box won't build  (load_page_sections_from_spec /
+#     plan_sections readiness; complete_error == complete_workflow success-exit)
+#   - index render short-circuit on build_status='deployed'  (rerender path)
+#   - silent-completion modes  (claim-timeout / validate / reaper)
+#
+# REUSE-DISCOVERY (so we don't reinvent existing code): keeps the catalogue
+#   and shared layers — registry.go (every registered action), types.go,
+#   helpers.go, datahelpers/, input_contracts/, types/.
+#
+# PATHS (verified against package_module.sh CURRENT_ACTION_FILES + the repo):
+#   - queryresolve is a subpackage:  actions/queryresolve/queryresolve.go
+#   - reconcile file is reconcile_site_plan_action.go (no reconcile_section_data)
+#   - create_rerender_items_action.go / load_existing_content_action.go /
+#     work_items_common.go are separate files (added)
+#   - page_canonical.go and safe_unmarshal.go live in datahelpers/ and are
+#     therefore already captured by the datahelpers/ directory entry
+#
+# LIVE CAPTURE (read-only) is appended by default when kubectl is present:
+#   \d schema, skinner-box trio, current plan, queue health, render state,
+#   cta_url flags, recent errors, the page-build-handler/page-rerender/
+#   page-content-writer workflows (agent_definitions), and pod/cronjob state.
+#   Disable with --no-live. Override the site with -d <domain>.
+# ---------------------------------------------------------------------
+
+set -e
+
+# --- Self-locating logic ---------------------------------------------
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PROJECT_ROOT="${PROJECT_ROOT:-$(realpath "$SCRIPT_DIR/../../")}"
+if [ ! -f "$PROJECT_ROOT/go.mod" ] && [ -f "$PWD/go.mod" ]; then
+  PROJECT_ROOT="$PWD"
+fi
+cd "$PROJECT_ROOT"
+
+# --- Configuration ---------------------------------------------------
+DEFAULT_OUTPUT_DIR="$SCRIPT_DIR/docs/agent_docs/docs024_key_docs_latest/adoption/docubundle/package_module/output_contexts"
+ENVIRONMENT="production"          # only affects the output filename
+COMPONENT_NAME="page-build-debug" # fixed; this script packages one module
+DOMAIN="gamesdesign.co.uk"        # site for the live capture
+WITH_LIVE=true                    # append read-only live capture if kubectl present
+# Prune cruft the directory walks (datahelpers/, types/, …) would otherwise
+# sweep in. Test files are dropped globally via the find filter below; these
+# are the datahelpers utilities unrelated to the page-build path, plus a doc.
+EXCLUDE_FILES=(
+  "platform/orchestration/datahelpers/content_search.go"
+  "platform/orchestration/datahelpers/deep_search.go"
+  "platform/orchestration/datahelpers/file_extractor.go"
+  "platform/orchestration/datahelpers/web_architecture_helpers.go"
+  "platform/orchestration/datahelpers/debug_collected_data.go"
+  "platform/orchestration/datahelpers/duplicate_logger.go"
+  "platform/orchestration/datahelpers/format_content_direction.go"
+  "platform/orchestration/datahelpers/nav_labels.go"
+  "platform/orchestration/datahelpers/sql_helpers.go"
+  "platform/orchestration/datahelpers/action_inputs_example.md"
+)
+
+# --- Argument parsing ------------------------------------------------
+OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -o | --output)      shift; OUTPUT_DIR="$1" ;;
+    -e | --environment) shift; ENVIRONMENT="$1" ;;
+    -d | --domain)      shift; DOMAIN="$1" ;;
+    --no-live)          WITH_LIVE=false ;;
+    -h | --help)
+      echo "Usage: $0 [-o output_dir] [-e environment] [-d domain] [--no-live]"
+      echo "Packages the page-build-debug code context, plus a read-only live"
+      echo "capture (schema/data/workflows/runtime) unless --no-live is given."
+      exit 0
+      ;;
+  esac
+  shift
+done
+
+# --- Helper functions (verbatim from package_module.sh) --------------
+
+# Write a single file's content (or just its path, if list_only=true).
+function write_file() {
+  local file_path=$1
+  local output_file=$2
+  local list_only=$3
+
+  if [ -f "$file_path" ]; then
+    echo "filepath = ./$file_path" >> "$output_file"
+    if [ "$list_only" = "true" ]; then
+      echo "[File listed only - content not included]" >> "$output_file"
+    else
+      cat "$file_path" >> "$output_file"
+    fi
+    echo "-------------------------------------------------" >> "$output_file"
+  fi
+}
+
+# True if a project-relative path is in EXCLUDE_FILES (leading ./ normalised).
+function is_excluded() {
+  local f="${1#./}"
+  local ex
+  for ex in "${EXCLUDE_FILES[@]}"; do
+    ex="${ex#./}"
+    if [ "$f" = "$ex" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Write every (non-excluded, non-binary) file under a directory tree.
+function write_directory() {
+  local dir_path=$1
+  local output_file=$2
+
+  if [ ! -d "$dir_path" ]; then
+    echo "Warning: Directory '$dir_path' not found in '$PWD'. Skipping." >&2
+    return
+  fi
+
+  dir_path="${dir_path%/}"
+
+  while IFS= read -r -d $'\0' file; do
+    if [ "$(realpath "$file" 2>/dev/null)" = "$(realpath "$output_file" 2>/dev/null)" ]; then
+      continue
+    fi
+    if is_excluded "$file"; then
+      continue
+    fi
+    if [[ "$file" =~ strimzi-yaml[^/]*/[^/]+$ ]]; then
+      write_file "$file" "$output_file" "true"
+    else
+      write_file "$file" "$output_file" "false"
+    fi
+  done < <(find "$dir_path" -type f \
+    -not -path '*/.git/*' \
+    -not -path '*/.terraform/*' \
+    -not -path '*/.terraform.lock.hcl' \
+    -not -path '*/node_modules/*' \
+    -not -path '*/dist/*' \
+    -not -path '*/build/*' \
+    -not -path '*/target/*' \
+    -not -path '*/vendor/*' \
+    -not -path '*/.idea/*' \
+    -not -path '*/.vscode/*' \
+    -not -path '*/output_contexts/*' \
+    -not -name '*.tfstate' \
+    -not -name '*.tfstate.backup' \
+    -not -name '*.log' \
+    -not -name '*.zip' \
+    -not -name '*.tar' \
+    -not -name '*.gz' \
+    -not -name '*.jar' \
+    -not -name '*.war' \
+    -not -name '*.exe' \
+    -not -name '*.dll' \
+    -not -name '*.so' \
+    -not -name '*.dylib' \
+    -not -name '*.pyc' \
+    -not -name '*.pyo' \
+    -not -name '__pycache__' \
+    -not -name '*.class' \
+    -not -name 'go.sum' \
+    -not -name '*_test.go' \
+    -not -name 'package-lock.json' \
+    -not -name 'yarn.lock' \
+    -not -name '*.secret' \
+    -not -name '.DS_Store' \
+    -not -name 'Thumbs.db' \
+    -print0)
+}
+
+# A MODULE_FILES entry may be a file or a directory.
+function process_module_files() {
+  local item=$1
+  local output_file=$2
+
+  if [ -f "$item" ]; then
+    write_file "$item" "$output_file" "false"
+  elif [ -d "$item" ]; then
+    write_directory "$item" "$output_file"
+  fi
+}
+
+# --- Module definition: page-build-debug -----------------------------
+MODULE_DIRS=(
+  # Shared types + contracts + helpers (reuse-discovery; keeps workflow
+  # variable names in sync with what actions expect).
+  # NOTE: datahelpers/ also contains page_canonical.go and safe_unmarshal.go,
+  # so those are captured here (no separate entry needed).
+  "platform/orchestration/types/"
+  "platform/orchestration/input_contracts/"
+  "platform/orchestration/actioncheck/"
+  "platform/orchestration/datahelpers/"
+
+  # Audit/health check implementations (context pack: "check_*.go set",
+  # for the structural-debt work).
+  "platform/orchestration/actions/discovery_checks/"
+)
+
+MODULE_FILES=(
+  # --- Orchestration engine: how steps/workflows actually run ---
+  "platform/orchestration/coordinator.go"
+  "platform/orchestration/state.go"
+  "platform/orchestration/helpers.go"
+  "platform/orchestration/agent_error_log.go"
+  "platform/orchestration/loop_expansion_handler.go"
+  "platform/orchestration/loop_error_handler.go"
+
+  # --- Action catalogue + shared (REUSE-DISCOVERY: what already exists) ---
+  "platform/orchestration/actions/registry.go"        # full list of every registered action
+  "platform/orchestration/actions/types.go"
+  "platform/orchestration/actions/helpers.go"
+
+  # --- Control flow + terminal status ---
+  "platform/orchestration/actions/workflow_actions.go"          # complete_workflow (and the complete_error == success mislabel)
+  "platform/orchestration/actions/conditional_branch_action.go" # check_has_ready_sections (ready_count gate)
+  "platform/orchestration/actions/basic_actions.go"
+  "platform/orchestration/actions/generic_actions.go"
+  "platform/orchestration/actions/spawn_actions.go"             # spawn content_writer / rerender
+  "platform/orchestration/actions/call_agent.go"                # call_content_writer / deploy_page
+  "platform/orchestration/actions/await_response.go"
+
+  # --- Page-build pipeline (the skinner-box + index core) ---
+  "platform/orchestration/actions/load_page_record_action.go"
+  "platform/orchestration/actions/load_existing_content_action.go"        # mode:recreate content load (separate file)
+  "platform/orchestration/actions/load_page_sections_from_spec_action.go" # KEY next-root (focused module OMITS this)
+  "platform/orchestration/actions/plan_sections_action.go"                # KEY: how section_plan.ready_count is computed
+  "platform/orchestration/actions/save_page_sections_action.go"
+  "platform/orchestration/actions/validate_page_content.go"
+  "platform/orchestration/actions/v3_site_actions.go"                     # update_page_status; ValidateSitePlanAction; reconcilePlanWithRealised
+  "platform/orchestration/actions/site_db_actions.go"                     # ensure_site_record; upsertPage
+  "platform/orchestration/actions/site_spec_actions.go"                   # site_specs read/write
+  "platform/orchestration/actions/maintenance_actions.go"
+  "platform/orchestration/actions/reconcile_site_plan_action.go"          # plan reconcile (NOT reconcile_section_data — that file doesn't exist)
+  "platform/orchestration/actions/queryresolve/queryresolve.go"           # resolvePagesWhereType for list items (subpackage)
+
+  # --- Render + deploy (the build_status='deployed' render short-circuit) ---
+  "platform/orchestration/actions/render_site_components_action.go"
+  "platform/orchestration/actions/rerender_pages_actions.go"
+  "platform/orchestration/actions/rerender_single_page_action.go"
+  "platform/orchestration/actions/create_rerender_items_action.go"        # separate file (focused module folds it away)
+  "platform/orchestration/actions/render_css_from_spec_action.go"
+  "platform/orchestration/actions/get_pages_for_rerender_action.go"
+  "platform/orchestration/actions/get_pages_to_build_actions.go"
+  "platform/orchestration/actions/git_deployer_actions.go"
+
+  # --- Work item + dispatch + lifecycle (silent-completion path) ---
+  "platform/orchestration/actions/load_work_item_actions.go"              # load_work_items, fail_work_item
+  "platform/orchestration/actions/claim_work_item_action.go"
+  "platform/orchestration/actions/create_work_item_action.go"
+  "platform/orchestration/actions/work_items_common.go"                   # shared work-item logic (separate file)
+  "platform/orchestration/actions/dispatch_actions.go"
+  "platform/orchestration/actions/triage_detect_items_action.go"
+  "platform/orchestration/actions/seed_build_queue_action.go"
+
+  # --- Audit/health check actions (context pack: "check_*.go set") ---
+  "platform/orchestration/actions/discovery_checks.go"
+  "platform/orchestration/actions/check_endpoint_health_action.go"
+  "platform/orchestration/actions/check_tool_completeness_action.go"
+  "platform/orchestration/actions/checkpoint_for_review_action.go"
+
+  # --- Plan reference (convergence resolved; kept for plan/section reuse) ---
+  "platform/orchestration/actions/write_site_plan_action.go"
+
+  # --- DB ---
+  "platform/database/postgres.go"
+
+  # --- Agent implementation (page-content-writer behaviour) ---
+  "internal/agents/contentcreator/"
+
+  # --- Entry point ---
+  "cmd/agent-chassis/main.go"
+
+  # --- Configs / deployment (runtime context, incl. resource limits) ---
+  "configs/agent-chassis.yaml"
+  "configs/core-manager.yaml"
+  "deployments/kustomize/services/agent-chassis/overlays/production/uk_001/patch-deployment.yaml"
+  "deployments/kustomize/services/agent-chassis/base/deployment.yaml"
+)
+
+# --- Package the code ------------------------------------------------
+mkdir -p "$OUTPUT_DIR"
+OUTPUT_FILE="${OUTPUT_DIR}/${ENVIRONMENT}_${COMPONENT_NAME}_context.txt"
+> "$OUTPUT_FILE"
+
+echo "Packaging '$COMPONENT_NAME' for environment '$ENVIRONMENT'"
+echo "  project root: $PROJECT_ROOT"
+echo "  output file:  $OUTPUT_FILE"
+
+for dir in "${MODULE_DIRS[@]}"; do
+  write_directory "$dir" "$OUTPUT_FILE"
+done
+for item in "${MODULE_FILES[@]}"; do
+  process_module_files "$item" "$OUTPUT_FILE"
+done
+
+# --- Optional live capture (read-only: schema + data + workflows + runtime) ---
+if [ "$WITH_LIVE" = true ] && command -v kubectl >/dev/null 2>&1; then
+  echo "Capturing live data (read-only; disable with --no-live)…"
+  set +e
+  PG="kubectl exec -i -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db"
+
+  {
+    echo ""
+    echo "================================================================="
+    echo "LIVE CAPTURE — $(date -u +%Y-%m-%dT%H:%M:%SZ)  domain=$DOMAIN"
+    echo "read-only: \\d schema, SELECTs, kubectl get"
+    echo "================================================================="
+  } >> "$OUTPUT_FILE"
+
+  # 1) SCHEMA (\d)
+  { echo ""; echo "----- SCHEMA (\\d) -----"; } >> "$OUTPUT_FILE"
+  $PG >> "$OUTPUT_FILE" 2>&1 <<'SQL'
+\d site_work_items
+\d site_plan_sections
+\d site_plan_pages
+\d site_plans
+\d pages
+\d page_components
+\d site_specs
+\d content_components
+\d agent_definitions
+\d agent_error_log
+SQL
+
+  # 2) LIVE DATA (the decisive trio + health) — site_id resolved inline
+  { echo ""; echo "----- LIVE DATA (domain=$DOMAIN) -----"; } >> "$OUTPUT_FILE"
+  $PG >> "$OUTPUT_FILE" 2>&1 <<SQL
+\echo '== site id =='
+SELECT id, domain FROM sites WHERE domain='$DOMAIN';
+
+\echo '== skinner-box: plan sections + pages.sections (did the fix take?) =='
+SELECT page_name, ordering, component_name
+FROM site_plan_sections
+WHERE plan_id=(SELECT id FROM site_plans WHERE site_id=(SELECT id FROM sites WHERE domain='$DOMAIN') AND is_current=true)
+  AND page_name='guide-skinner-box' ORDER BY ordering;
+SELECT name, page_type, status, build_status, sections
+FROM pages WHERE site_id=(SELECT id FROM sites WHERE domain='$DOMAIN') AND name='guide-skinner-box';
+
+\echo '== skinner-box: work items =='
+SELECT created_at, item_type, status, claimed_by, attempt_count||'/'||max_attempts AS attempts,
+       left(coalesce(error,''),90) AS error, item_key
+FROM site_work_items
+WHERE site_id=(SELECT id FROM sites WHERE domain='$DOMAIN') AND (spec->>'page_name')='guide-skinner-box'
+ORDER BY created_at DESC;
+
+\echo '== skinner-box: page_components (any rendered yet?) =='
+SELECT slot_name, length(rendered_html) AS html_len, updated_at
+FROM page_components
+WHERE page_id=(SELECT id FROM pages WHERE site_id=(SELECT id FROM sites WHERE domain='$DOMAIN') AND name='guide-skinner-box')
+ORDER BY slot_name;
+
+\echo '== current plan layout (page -> ordering -> component) =='
+SELECT spp.name AS page, sps.ordering, sps.component_name
+FROM site_plans sp
+JOIN site_plan_pages spp ON spp.plan_id=sp.id
+LEFT JOIN site_plan_sections sps ON sps.plan_id=sp.id AND sps.page_name=spp.name
+WHERE sp.site_id=(SELECT id FROM sites WHERE domain='$DOMAIN') AND sp.is_current=true
+ORDER BY spp.name, sps.ordering;
+
+\echo '== work-item queue health =='
+SELECT item_type, status, count(*) AS n
+FROM site_work_items
+WHERE site_id=(SELECT id FROM sites WHERE domain='$DOMAIN')
+GROUP BY item_type, status ORDER BY status, item_type;
+
+\echo '== rendered state: index + hubs =='
+SELECT p.name, pc.slot_name, length(pc.rendered_html) AS html_len, pc.updated_at
+FROM pages p JOIN page_components pc ON pc.page_id=p.id
+WHERE p.site_id=(SELECT id FROM sites WHERE domain='$DOMAIN')
+  AND p.name IN ('index','guides-index','tools-index','games-index')
+ORDER BY p.name, pc.slot_name;
+
+\echo '== cta_url required flags (guide-list fix persisted?) =='
+SELECT name, input_schema->'fields'->'cta_url'->>'required' AS cta_required
+FROM content_components WHERE name ILIKE '%-list%' ORDER BY name;
+
+\echo '== recent agent_error_log (last 40) =='
+SELECT occurred_at, agent_type, step_name, action, left(error_message,160) AS error, pod_name
+FROM agent_error_log
+WHERE site_id=(SELECT id FROM sites WHERE domain='$DOMAIN')
+ORDER BY occurred_at DESC LIMIT 40;
+SQL
+
+  # 3) AGENT WORKFLOWS (DB-only: the page-build-handler / rerender / content-writer defs)
+  { echo ""; echo "----- AGENT WORKFLOWS (agent_definitions.default_config) -----"; } >> "$OUTPUT_FILE"
+  $PG -A -t >> "$OUTPUT_FILE" 2>&1 <<'SQL'
+SELECT type, default_config
+FROM agent_definitions
+WHERE type IN ('page-build-handler','page-rerender','page-content-writer')
+ORDER BY type;
+SQL
+
+  # 4) RUNTIME (is the pipeline alive to claim work items?)
+  { echo ""; echo "----- RUNTIME (kubectl) -----"; } >> "$OUTPUT_FILE"
+  echo "\$ kubectl -n ai-persona-system get pods | grep -iE 'dispatch|build|rerender|content|pipeline|sweep'" >> "$OUTPUT_FILE"
+  kubectl -n ai-persona-system get pods 2>&1 | grep -iE 'dispatch|build|rerender|content|pipeline|sweep' >> "$OUTPUT_FILE" 2>&1
+  { echo ""; echo "\$ kubectl -n ai-persona-system get cronjobs"; } >> "$OUTPUT_FILE"
+  kubectl -n ai-persona-system get cronjobs >> "$OUTPUT_FILE" 2>&1
+
+  set -e
+  echo "  live capture appended."
+elif [ "$WITH_LIVE" = true ]; then
+  echo "Skipping live capture: kubectl not found on PATH (run with --no-live to silence)."
+fi
+
+echo "✅ Done. Context saved to $OUTPUT_FILE"
+FILE_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
+echo "📦 File size: $FILE_SIZE"

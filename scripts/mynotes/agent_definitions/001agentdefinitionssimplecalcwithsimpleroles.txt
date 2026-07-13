@@ -1,0 +1,99 @@
+[053a_rolebased_for_single_calculation 419baec]
+
+{
+  "workflow": {
+    "start_step": "spawn_calculator",
+    "steps": {
+      "spawn_calculator": {
+        "action": "spawn_agent",
+        "config": {
+          "agent_type": "calculator",
+          "role": "main_calculator"
+        },
+        "description": "Initialize calculator agent",
+        "next_step": "perform_calculation"
+      },
+      "perform_calculation": {
+        "action": "call_agent",
+        "config": {
+          "agent_type": "calculator",
+          "input_field": "calculation"
+        },
+        "description": "Perform the calculation",
+        "next_step": "complete"
+      },
+      "complete": {
+        "action": "complete_workflow",
+        "description": "Complete workflow"
+      }
+    }
+  }
+}
+
+--
+
+UPDATE agent_definitions
+SET default_config = '{
+"workflow": {
+"start_step": "spawn_calculator",
+"steps": {
+"spawn_calculator": {
+"action": "spawn_agent",
+"config": {
+"agent_type": "calculator",
+"role": "main_calculator"
+},
+"description": "Initialize calculator agent",
+"next_step": "perform_calculation"
+},
+"perform_calculation": {
+"action": "call_agent",
+"config": {
+"agent_type": "calculator",
+"input_field": "calculation"
+},
+"description": "Perform the calculation",
+"next_step": "complete"
+},
+"complete": {
+"action": "complete_workflow",
+"description": "Complete workflow"
+}
+}
+}
+}'::jsonb
+WHERE type = 'generic' AND is_active = true;
+
+--
+
+
+with this test message
+# Send single calculation request
+echo '{
+  "action": "calculate",
+  "calculation": {
+    "operands": [100, 50],
+    "operation": "add"
+  }
+}' | kafka-console-producer.sh \
+  --broker-list localhost:9092 \
+  --topic system.agent.generic.requests \
+  --property "parse.headers=true" \
+  --property "headers.separator=|" \
+  --property 'headers.key.separator=:' \
+  --property "headers=correlation_id:test-single-calc-$(date +%s)|client_id:demo_client|message_id:msg-$(uuidgen)|request_id:req-$(uuidgen)|message_type:request|responses_topic:system.responses.generic"
+
+
+
+  3. Check logs for:
+
+  Spawn message includes "role": "main_calculator" in body
+  Spawned calculator stores role when initialized
+  Calculator's response includes sender_role: main_calculator in headers
+  Final response shows which role performed the calculation
+
+  Key things to verify:
+
+  Role flows from spawn config → spawn message → agent initialization → response headers
+  The orchestration state includes owner_agent_role
+  Response headers contain sender_role

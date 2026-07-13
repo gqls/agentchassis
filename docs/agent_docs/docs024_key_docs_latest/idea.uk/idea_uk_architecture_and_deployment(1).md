@@ -1,0 +1,405 @@
+# idea.uk — architecture, hosting, and deployment guide
+
+Plain-language map of what we built, how it runs, how it connects to Stripe, and
+how to deploy it — on idea.uk, on other sites, and inside the agent chassis.
+
+Read top to bottom once; after that, the section you need is self-contained.
+
+---
+
+## 1. What we built (the pieces)
+
+Five things, in one folder (`idea-go/`):
+
+| File | Plain English |
+|---|---|
+| `engine.go` + `prompts.go` | **The brain.** Runs the ideation method: challenge the audience → generate ideas across four lenses → cut them against the free alternative → verify survivors with web search → score → rank. Talks to Anthropic (and optionally OpenAI) directly over HTTP. |
+| `store.go` | **The memory.** Saves orders, paid/unpaid state, and which Stripe events we've already handled. Currently a JSON file; swappable for Postgres. |
+| `billing.go` | **The till.** Creates Stripe payment links and verifies Stripe's payment confirmations. |
+| `service.go` | **The front desk.** A small web server: takes report requests, lets you confirm or decline them, takes the Stripe payment confirmation, runs the brain, delivers the report. |
+| `main.go` | **The switch.** Starts the web server, or runs the brain once from the command line with no server and no billing. |
+
+Plus the customer-facing page (`idea_uk_fakedoor.html`) and the test
+(`service_test.go`).
+
+There is **one engine**, used two ways:
+
+- **Internal** — you run the brain for your own domains, no payment. (`idea internal …`)
+- **External** — a stranger requests a report on idea.uk, pays, and gets it.
+
+The engine takes the business details as input data, so the *same* engine serves
+your domains and a paying stranger. That's deliberate — it keeps idea.uk a
+self-contained thing you could sell later.
+
+---
+
+## 2. The shape of it (diagram)
+
+```
+                                  ┌─────────────────────────────────────────┐
+   visitor's browser              │            idea.uk SERVICE                │
+   ┌───────────────┐  POST /request │  (small always-on container)            │
+   │ idea.uk page  │───────────────▶│                                         │
+   │ (static, on   │                │  service.go ── front desk               │
+   │  Backblaze B2)│◀───────────────│     │                                   │
+   └───────────────┘  "we'll reply" │     ├─ store.go    (orders, JSON/PG)     │
+          │                         │     ├─ billing.go  (Stripe)              │
+          │ pay on Stripe page      │     └─ engine.go   ── the brain          │
+          ▼                         │            │                            │
+   ┌───────────────┐                │            ├─▶ Anthropic API (generate,  │
+   │ Stripe Checkout│  webhook       │            │   verify, score)           │
+   │ (hosted by    │───────────────▶│  /stripe/webhook  (← source of truth)   │
+   │  Stripe)      │                │            └─▶ OpenAI API (the "cut",    │
+   └───────────────┘                │                only if key is set)       │
+                                    │                                         │
+                                    │  delivers report by email (or holds     │
+                                    │  it for you to review first)            │
+                                    └─────────────────────────────────────────┘
+```
+
+Two halves with very different hosting needs — which is the next section.
+
+---
+
+## 3. Hosting: what is "serverless" and what isn't
+
+This matters because the word "serverless" only applies to one half.
+
+**The page is serverless.** `idea_uk_fakedoor.html` is a static file. It deploys
+exactly like all your other sites: git → GitHub Actions → Backblaze B2 (S3).
+No server, nothing to keep running, no per-request cost. Same pipeline you
+already operate.
+
+**The service is NOT serverless — and can't really be.** The engine is a
+*minutes-long* job: it makes several large LLM calls and live web searches per
+report. That rules out the usual "serverless function" (those are built for
+sub-second to a few-minutes bursts, and billing webhooks need a stable address
+that's always listening). So the service is a **small always-on container** —
+one cheap box that's always up. Options, cheapest-first:
+
+- A small VM (Hetzner/DigitalOcean/Fly.io/Railway) running the container.
+- A single pod in your existing `ai-persona-system` Kubernetes namespace.
+
+It needs: ~256–512MB RAM, outbound HTTPS (to Anthropic/OpenAI/Stripe), one
+inbound HTTPS port (for the page's form posts and Stripe's webhook), and a small
+disk for the JSON store (or a Postgres connection).
+
+So the honest one-liner: **static page on B2 (serverless) + one small persistent
+service (not serverless)**. idea.uk is "static front + small back end," unlike
+your pure-static content sites.
+
+---
+
+## 4. The Stripe connection (step by step)
+
+The rule that keeps this safe: **the browser is never trusted about payment —
+only Stripe's signed webhook is.** Someone hitting the "success" URL by hand
+proves nothing; the money is real only when Stripe tells the service so, with a
+signature we verify.
+
+The sequence:
+
+```
+1. Visitor fills the request form        → POST /request        (no money yet)
+2. You review it, then confirm           → POST /confirm        (operator action)
+3. Service asks Stripe for a pay link     → Stripe API (secret key)
+   and emails it to the customer
+4. Customer pays on Stripe's own page     → (Stripe hosts this; we never see cards)
+5. Stripe sends a signed "paid" event     → POST /stripe/webhook (SOURCE OF TRUTH)
+6. Service verifies the signature,
+   marks the order paid, runs the engine,
+   delivers the report (or holds for review)
+```
+
+What you set up in Stripe, once:
+
+- Get your **secret key** (`sk_live_…`) → service env `STRIPE_SECRET_KEY`.
+- Create a **webhook endpoint** in the Stripe dashboard pointing at
+  `https://idea.uk/stripe/webhook`, subscribed to `checkout.session.completed`.
+  Stripe gives you a **signing secret** (`whsec_…`) → env `STRIPE_WEBHOOK_SECRET`.
+
+That's it. The service builds the checkout, Stripe handles the card form and PCI,
+the webhook confirms it. No card data ever touches your box. If both Stripe env
+vars are missing, the service quietly uses a **Fake** payment provider for local
+testing (no real money, no keys).
+
+---
+
+## 5. The safety gate you should know about
+
+`AUTO_DELIVER` defaults to **off**. When off, a paid report is generated and then
+**held for you to review** before it's emailed — you get the draft, you send it.
+This honours the page's "we reply / refund if it's not useful" promise during the
+early phase. Turn it on (`AUTO_DELIVER=true`) only once you trust the output.
+
+There's also a **capacity limit** (`MAX_ACTIVE_ORDERS`, default 8): once that many
+orders are in flight, `/confirm` refuses new ones, so you can't oversell what you
+can deliver in 72 hours. `/capacity` reports the current state.
+
+---
+
+## 6. How to deploy idea.uk (the checklist)
+
+1. **Build the container:** `docker build -t idea-svc .` (the Dockerfile is a Go
+   multi-stage build; the binary is tiny).
+2. **Run it** on your small box, with environment from `.env` (see `.env.example`):
+   `ANTHROPIC_API_KEY`, `INTERNAL_API_KEY` (a random secret you choose),
+   `OPERATOR_EMAIL`, `PUBLIC_BASE_URL=https://idea.uk`, and SMTP\_\* if you want
+   real emails (without SMTP it writes reports to files so you can test).
+   Mount a volume for the JSON store.
+3. **Stripe:** set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, and point a
+   Stripe webhook at `https://idea.uk/stripe/webhook` (section 4).
+4. **Optional, stronger:** set `OPENAI_API_KEY` (+ `OPENAI_CRITIQUE_MODEL`) to run
+   the "cut" step on a different vendor (section 9 explains why).
+5. **Deploy the page:** put `idea_uk_fakedoor.html` through your normal git →
+   Actions → B2 pipeline. Make sure its form can reach the service — either serve
+   the service under the same domain at `/request`, `/stripe/webhook` (a path
+   proxy), or set `ALLOWED_ORIGINS` to the page's origin for cross-origin posts.
+6. **Keep `AUTO_DELIVER=false`** until you've reviewed a few real reports.
+
+Day-to-day after that: a request emails you; you run `/confirm` or `/decline`;
+on payment the draft lands in your inbox; you read it and send it.
+
+---
+
+## 7. How to apply it to OTHER domains
+
+Two genuinely different shapes — pick per domain.
+
+**Shape A — the site IS the service (like idea.uk).** The domain is a thin static
+page fronting the engine. To stand up another one (say `ideas-for-vets.uk`):
+deploy its own static page through the normal pipeline, and either run a second
+service instance or — better — point its page at the **one** idea.uk service.
+Many pages, one engine. This is the cheap way to test the same product for
+different audiences.
+
+**Shape B — a "request a report" panel on an ordinary content site.** A normal
+site you build gets a static page (like the fakedoor's request form) that posts
+to the central service. The heavy engine stays central; the site just collects
+the request. This is the only sensible way to put the ideation product on a
+content site, because (next paragraph) it can't be a normal embedded tool.
+
+**Why it can't be a normal "tool".** Your existing tools (`deploy_tool_to_site`)
+are self-contained HTML/JS widgets forked into a site and rendered statically — a
+VAT calculator runs entirely in the visitor's browser. The ideation engine is the
+opposite: server-side, minutes long, costs real money per run, and needs payment.
+So it does **not** go into `content_components` as a forked tool. It lives in the
+central service; sites only ever *link to* it. Worth keeping that line clear so
+nobody tries to fork it like a calculator.
+
+---
+
+## 8. Setting it up inside the chassis (workflows + actions)
+
+Right now the Go service is **standalone** (its own server, its own engine). That
+was the right MVP and it's sale-ready. The framework-native version is a
+*second* way to run the same method — as an orchestrator agent — and you mostly
+**reuse actions you already have** rather than porting `engine.go`.
+
+Looking at the action registry, the method maps almost entirely onto existing
+actions:
+
+| Method step | Existing action(s) to reuse |
+|---|---|
+| Frame + challenge audience | `execute_llm_prompt` |
+| Generate across four lenses | `execute_llm_prompt` |
+| Cut (different model) | `execute_llm_prompt` (with a different model/provider configured for the step) |
+| Verify with web search | `web_search` (and/or `scrape_web`, `firecrawl_*`) |
+| Score + rank | `execute_llm_prompt` |
+| Operator confirm / review gate | `request_human_input` / `create_approval_request` / `await_approval` / `process_approval_decision` (your HITL actions) |
+| Notify operator | `send_notification` |
+| Persist run + result | `store_result` / `write_my_state` / `store_memory` |
+| Read/declare on a site | `read_site_spec` / `write_site_spec` |
+
+So the chassis version is: **one new agent definition** (an
+`idea-orchestrator`, every agent is an orchestrator) **+ one workflow** that
+sequences the steps above, **+ at most a thin new action or two** only where an
+existing one doesn't fit. Per your conventions: keep the workflow simple, put any
+real logic in Go action code, keep workflow variable names matching what the
+actions expect, and where a step needs heavier work (e.g. the four-lens
+generation) **spawn a sub-agent with its own workflow** (`spawn_agent` /
+`spawn_group`) rather than nesting subworkflows in SQL — children reply on the
+parent's responses topic.
+
+The billing half (Stripe, request-then-confirm, the customer-facing flow) is
+**not** a natural fit for an internal agent workflow — that's a product/payment
+concern. Keep that in the standalone service. The chassis agent is for running
+the **method** internally across your own domains (the "internal" path), on a
+schedule or on demand, writing results back to `site_specs` or a results table.
+
+> I have **not** written this agent/workflow SQL yet, on purpose: it needs a pass
+> over the real `agent_definitions` / workflow schema and the exact
+> `execute_llm_prompt` / HITL action contracts first (check schema before SQL,
+> reuse before rebuild). When you want it, we read those together and wire it to
+> match — it should be a small amount of SQL plus maybe one or two Go actions.
+
+### What "apply it via a site spec" looks like
+
+Your `site_specs` model already has the mechanism. A domain that should offer the
+ideation product would carry it as an item in its spec — most naturally in
+`site_plan` (a page/feature) with a `status`:
+
+- `blocked` — if the capability/agent isn't deployed yet (your `feasibility-recheck`
+  task promotes it to `planned` once it is).
+- `planned` → built — the build pipeline creates the static "request a report"
+  page (Shape B above) and links it to the central service.
+
+So "apply this tool to a new domain" = the classifier/planner writes an ideation
+feature into that site's spec; because the engine is central, the per-site build
+is just the request page + link, not a forked component. For an idea.uk-style
+domain (Shape A), the spec's `classification`/`identity` says "this domain *is*
+the ideation service," and the page it builds is the landing/intake page.
+
+---
+
+## 9. Running it — and the OpenAI question
+
+### Running the engine once (no server, no billing)
+
+You already did this:
+
+```bash
+cd idea-go
+go run . internal "agritec.uk" "UK small farmers" "curate scheme docs"
+```
+
+That runs the real brain against the real Anthropic API and prints the report.
+It cost real API tokens. (Your agritec run worked — advisor audience, scheme-diff
+alerts, BNG cross-check — so the Go engine is producing real reports.)
+
+### Did that use OpenAI? How to be sure.
+
+The **cut** step (step 3, the ruthless filter) uses OpenAI **only if
+`OPENAI_API_KEY` is set in the same shell**; otherwise it uses Anthropic
+(Claude Sonnet). Nothing else in the pipeline uses OpenAI.
+
+I just added a line so it tells you. You'll now see, on stderr, one of:
+
+```
+[cut] cross-vendor: OpenAI (gpt-4o)
+[cut] same-vendor: Anthropic (claude-sonnet-4-6)
+```
+
+To check whether your key is set: `echo $OPENAI_API_KEY` (blank = not set).
+To use OpenAI for the cut:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export OPENAI_CRITIQUE_MODEL=gpt-4o      # or whatever current model you prefer
+go run . internal "agritec.uk" "UK small farmers" "curate scheme docs"
+# watch for: [cut] cross-vendor: OpenAI (gpt-4o)
+```
+
+So: if the key was already exported when you ran it, you **already** used OpenAI
+for the cut — the new log line will confirm it on the next run. If it wasn't, the
+cut ran on Claude Sonnet, which is still a *different model* from the generator,
+just the same vendor.
+
+**Why bother with OpenAI here?** The whole point of the cut is to have something
+*other than the generator* judge the ideas, so the method doesn't rubber-stamp
+its own output. A different vendor is the strongest version of that. Running the
+same domain once with the key and once without, and comparing, is the cleanest
+test of whether cross-vendor critique actually changes the verdicts.
+
+### Running the test (this is separate from the engine)
+
+The test checks the **plumbing** — the request → confirm → pay → deliver state
+machine, the auth gates, idempotency, the capacity limit. It uses a **fake**
+payment provider and a **stubbed** engine, so it makes **no API calls, costs
+nothing, and needs no keys**:
+
+```bash
+cd idea-go
+GOPROXY=off GOTOOLCHAIN=local go test ./...
+# expect: ok  idea  (PASS)
+```
+
+Add `-v` to see each check:
+
+```bash
+GOPROXY=off GOTOOLCHAIN=local go test -v ./...
+```
+
+Key point that resolves the confusion: **the test does not touch OpenAI or
+Anthropic at all.** It deliberately swaps the real engine for a stub so it can
+test the money/flow logic fast and free. OpenAI only ever comes in when you run
+the *real* engine (`go run . internal …`, or a real paid order through the
+service). The two are independent.
+
+`GOPROXY=off GOTOOLCHAIN=local` just tells Go "don't go to the internet" — the
+code is stdlib-only so it builds offline. On a normal networked machine you can
+drop those and plain `go test ./...` / `go run .` work too.
+
+---
+
+## 10. Status — what's real today vs what's next
+
+Real and working now:
+- The Go engine produces real reports against live APIs (your agritec run).
+- The service plumbing is built and passes its test (flow, billing logic,
+  idempotency, capacity, auth).
+- Stripe code is written (checkout + signed webhook); not yet pointed at a real
+  account.
+- The page exists; not yet deployed.
+
+Not built yet (and deliberately so):
+- The chassis-native agent + workflow (section 8) — needs a schema pass first.
+- Live deployment (container hosted, Stripe keys in, page on B2).
+- `AUTO_DELIVER` stays off until real reports are reviewed.
+
+Smallest useful next steps, any order:
+1. Run agritec once with `OPENAI_API_KEY` set and compare to without — settles the
+   cross-vendor question and you'll see the new `[cut]` log line.
+2. Stand up the container on one small box with Stripe test keys and walk one
+   request → confirm → pay → deliver through end-to-end with real (test-mode)
+   Stripe.
+3. When you want it inside the chassis, we read the `agent_definitions` /
+   workflow schema and the `execute_llm_prompt` + HITL action contracts together,
+   and wire the `idea-orchestrator` agent to reuse them.
+
+---
+
+## Update — 2026-06-05 (decisions since first deploy)
+
+The service is now **live on a Hetzner box** (CX-class x86, Nuremberg) behind nginx
++ Let's Encrypt, on FakeProvider (no Stripe keys yet). Decisions and changes since
+this doc was first written:
+
+**Page serving — embedded in the binary, not hosted separately.** The landing page
+lives in the module as `page.html` and is compiled in with `//go:embed`; the service
+serves it at `/`. The earlier "page on B2" idea is dropped for the single-box product:
+one self-contained artefact matches the chassis "ship the binary" model, keeps nginx
+to just TLS + proxy, and means the deployer ships one thing. nginx proxies everything
+to the Go service; there is no separate static host. Editing the page means a rebuild.
+
+**Server-rendered pages share one wrapper.** `a.page(title, body)` produces a full
+brand-styled document (cream/ink/rust, Fraunces + IBM Plex, header bar, footer with
+the contact email). The post-submit pages (request received, newsletter, order
+success/cancel) and the policy pages all render through it. `writeHTML` is reserved
+for fragments injected into an already-styled page (the taster result). See debug
+guide §11 for the missing-page / missing-design failure modes this caused.
+
+**Policy pages.** `/terms`, `/refund-policy`, and `/privacy` are served from string
+constants (`termsBody` / `refundBody` / `privacyBody`) through the wrapper, with a
+`{{EMAIL}}` token filled at serve time. Plain-language drafts; **a UK solicitor must
+review before taking real payments** (runbook A6). Trading name is **idea.uk, no
+address**. The terms now state plainly that reports are **AI-generated and can be
+wrong (hallucination, invented facts/figures/sources, staleness)**, that the customer
+must verify everything and take their own advice, and that use of the report is the
+customer's responsibility, not ours. Privacy policy is UK-GDPR-shaped, names Stripe
+and Anthropic as processors, flags the international transfer (Anthropic, US), states
+no cookies/tracking, gives ICO recourse, and keeps security wording measured (low
+risk appetite). Open items left as bracketed placeholders: hosting/email provider
+names, transfer safeguards, and the data-retention period.
+
+**Config.** `CONTACT_EMAIL` (public support address; falls back to `OPERATOR_EMAIL`)
+and `MONTH_SLOTS` (header capacity phrase; falls back to "a limited number of") are
+read from the env and templated into the page at startup. `REPORT_PRICE_GBP=29`.
+
+**Copy.** Landing page and all server-rendered pages rewritten into plain,
+matter-of-fact language — no LLM-ish vocabulary (honest/gate/deck/asset), no "X, not
+Y" framing, and the method is described in user terms, not AI terms. The taster footer
+spells out free-audience-check vs the £29 report in plain benefits.
+
+**Redeploy** (any of the above, since the page is embedded): rebuild amd64, scp to
+`/opt/idea/idea.new`, `mv -f` over `/opt/idea/idea`, `systemctl restart idea`.

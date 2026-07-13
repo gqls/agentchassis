@@ -1,0 +1,1528 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests CASCADE;"
+
+# 4. Delete ALL spawned agent jobs
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+# scale other agents down
+kubectl -n ai-persona-system scale deployment/reasoning-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/web-search-adapter --replicas=0
+kubectl -n ai-persona-system scale deployment/content-creator-agent --replicas=0
+kubectl -n ai-persona-system scale deployment/web-scrape-adapter --replicas=0
+
+# 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
+# List all job topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep "^job\."
+
+# Delete all job topics (be careful!)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash -c '
+for topic in $(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep "^job\."); do
+  echo "Deleting topic: $topic"
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic "$topic"
+done
+'
+
+# delete initial topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.requests
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.responses
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.generic.responses
+
+
+kubectl -n ai-persona-system exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh
+  --create --topic system.generic.responses
+  --bootstrap-server localhost:9092
+  --partitions 1
+  --replication-factor 1
+
+# reset all offsets
+echo 'resetting all offsets'
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+kubectl -n ai-persona-system delete pods -l agent-type=calculator
+
+# 6. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+# =======
+
+sleep 5
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+
+
+====
+==================
+==================
+  listen on a topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-console-consumer.sh   --bootstrap-server localhost:9092   --topic system.agent.generic.requests   --from-beginning   --property print.headers=true
+==================
+==================
+===
+
+PAS Strategic Website Creation
+
+# Set the message variables
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="firecrawl-$(date +%Y%m%d-%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_firecrawl_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "HITL Content Approval for EBORG"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Client:           $CLIENT_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Agent ID:         $AGENT_ID"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+echo "Sending message..."
+echo ""
+
+
+kubectl -n kafka run -i --rm kcat-producer-mvp \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=mvp-site-build \
+-H step_name=start \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=cli \
+-H responses_topic=system.responses.generic <<JSON
+{"action":"orchestrate","config":{"group_type":"mvp-site-builder"},"input_data":{"domain":"boxing-tickets.com","objective":"ticketsales","model":"PAS","reponame":boxing-tickets-com"}}
+JSON
+
+{
+  "action": "orchestrate",
+  "config": {
+    "group_type": "mvp-site-builder"
+  },
+  "input_data": {
+    "domain": "boxing-tickets.com",
+    "objective": "affiliate-sales",
+    "model": "PAS"
+  }
+}
+
+
+
+====
+=====
+=====
+====
+test message for the deploy agent - not working - needs topic (at least)
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="firecrawl-$(date +%Y%m%d-%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="test deploy agent"
+CLIENT_ID="demo_client"
+
+kubectl -n kafka run -i --rm kcat-producer-mvp \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=mvp-site-build \
+-H step_name=start \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=cli \
+-H responses_topic=system.responses.generic <<DEPLOY
+{"action":"process","input_data":{"final_site_data":{"generate_content":{"result":"<html><head><title>Test Site</title></head><body><h1>Hello Boxing Fans!</h1></body></html>","type":"text"}},"input_data":{"domain":"test-boxing-fenced.com","model":"PAS","objective":"ticketsales"}},"parent_responses_topic":"system.responses.test"}
+DEPLOY
+
+{
+  "headers": {
+    "action": "process",
+    "message_type": "request",
+    "client_id": "demo_client",
+    "correlation_id": $(cat /proc/sys/kernel/random/uuid),
+    "orchestration_id": $(cat /proc/sys/kernel/random/uuid),
+    "request_id": $(cat /proc/sys/kernel/random/uuid),
+    "sender_agent_type": "test",
+    "timestamp": "2025-11-22T17:00:00Z"
+  },
+  "body": {
+    "action": "process",
+    "input_data": {
+      "final_site_data": {
+        "generate_content": {
+          "result": "```html\n<html><head><title>Test Site</title></head><body><h1>Hello Boxing Fans!</h1></body></html>\n```",
+          "type": "text"
+        }
+      },
+      "input_data": {
+        "domain": "test-boxing-fenced.com",
+        "model": "PAS",
+        "objective": "ticketsales"
+      }
+    },
+    "parent_responses_topic": "system.responses.test"
+  }
+}
+====
+=====
+====
+====
+
+
+
+
+
+===
+
+=====================
+=====================
+---------------------
+=====================
+
+Test Smart Analyzer with Basic Scraping:
+
+# Generate IDs
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="firecrawl-$(date +%Y%m%d-%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_firecrawl_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "HITL Content Approval for EBORG"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Client:           $CLIENT_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Agent ID:         $AGENT_ID"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+echo "Sending message..."
+echo ""
+
+
+kubectl -n kafka run -i --rm kcat-producer-analyzer \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=$ORCHESTRATION_NAME \
+-H step_name=$STEP_NAME \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=$AGENT_ID \
+-H responses_topic=system.responses.generic <<EOF
+{"action":"orchestrate","config":{"group_type":"website-analyzer"},"input_data":{"target_url":"boxing-tickets.com"}}
+EOF
+
+{"action":"orchestrate","config":{"group_type":"website-analyzer"},"input_data":{"target_url":"boxing-tickets.com","extract_structured":false,"crawl_pages":false}}
+
+or with structured extraction and crawling:
+{"action":"orchestrate","config":{"group_type":"website-analyzer"},"input_data":{"target_url":"boxing-tickets.com","target_url_extracted":"websitedesign.com", "extract_structured":true,"crawl_pages":true,"crawl_limit":3,"crawl_depth":1}}
+
+{
+  "headers": {
+    "action": "orchestrate",
+    "message_type": "request",
+    "correlation_id": "test-group-001",
+    "client_id": "demo_client",
+    "to_agent_type": "generic"
+  },
+  "body": {
+    "action": "orchestrate",
+    "config": {
+      "group_type": "website-analyzer"
+    },
+    "input_data": {
+      "target_url": "https://example.com"
+    }
+  }
+}
+
+this is with:
+UPDATE agent_group_definitions
+SET orchestration_workflow = '{
+  "start_step": "spawn_basic_scraper",
+  "steps": {
+    "spawn_basic_scraper": {
+      "action": "spawn_agent",
+      "description": "Spawn basic scraping agent",
+      "config": {
+        "role": "basic_scraper",
+        "agent_type": "website-capture-firecrawl"
+      },
+      "next_step": "spawn_extractor"
+    },
+    "spawn_extractor": {
+      "action": "spawn_agent",
+      "description": "Spawn structured extraction agent",
+      "config": {
+        "role": "structure_extractor",
+        "agent_type": "website-extract-structured"
+      },
+      "next_step": "execute_basic_scrape"
+    },
+    "execute_basic_scrape": {
+      "action": "call_agent",
+      "description": "Execute basic website scraping",
+      "config": {
+        "agent_type": "website-capture-firecrawl",
+        "target_role": "basic_scraper",
+        "timeout_seconds": 180
+      },
+      "next_step": "execute_extraction"
+    },
+    "execute_extraction": {
+      "action": "call_agent",
+      "description": "Execute structured data extraction",
+      "config": {
+        "agent_type": "website-extract-structured",
+        "target_role": "structure_extractor",
+        "timeout_seconds": 240
+      },
+      "next_step": "complete"
+    },
+    "complete": {
+      "action": "complete_workflow",
+      "description": "Return all scraping results"
+    }
+  }
+}'::jsonb
+WHERE group_type = 'website-analyzer';
+===================================
+===================================
+-----------------------------------
+===================================
+
+
+# HITL Content Approval Workflow Starter
+# This script triggers a simple content generation workflow with human-in-the-loop approval
+
+#!/bin/bash
+
+# HITL Content Approval Workflow for EBORG
+# This script triggers a content generation workflow with human approval for EBORG
+
+# Generate IDs
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="eborg-content-approval-$(date +%Y%m%d-%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_eborg_content_request"
+CLIENT_ID="demo_client"
+
+# EBORG business details
+BUSINESS_NAME="EBORG"
+BUSINESS_TYPE="Evidence-Based Organisational Planning"
+BUSINESS_DESCRIPTION="EBORG helps organisations evolve intelligently by mapping every role, responsibility, and objective, then pairing each with a framework of AI agents designed to augment human capability. These agents don't just automate routine work — they gather and analyse research, assess strategic options, and provide evidence-based reasoning to guide decision-making at every level. The result is a human-centered, continuously learning organisation where people lead with vision, and AI supports with insight. Eborg aims to empower every employee, from CEO downwards, with intelligent, evidence-based support — combining human insight with AI reasoning to create an organisation that thinks, learns, and performs better together. Not a futuristic AI revolution, but a necessary, structured evolution — a calm, practical, intelligent step forward in how modern organisations operate."
+
+echo "========================================="
+echo "HITL Content Approval for EBORG"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Client:           $CLIENT_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Agent ID:         $AGENT_ID"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+echo ""
+echo "Business: $BUSINESS_NAME"
+echo "Type: $BUSINESS_TYPE"
+echo ""
+echo "This workflow will:"
+echo "  1. Generate organisational description content"
+echo "  2. Send approval request to system.notifications.ui"
+echo "  3. Wait for human approval"
+echo "  4. Return approved content with metadata"
+echo ""
+echo "Sending message..."
+echo ""
+
+# Send message to generic agent requests topic
+kubectl -n kafka run -i --rm kcat-producer-eborg \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=$ORCHESTRATION_NAME \
+-H step_name=$STEP_NAME \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=$AGENT_ID \
+-H responses_topic=system.generic.responses <<EOF
+{"action":"orchestrate","config":{"group_type":"content-approval-hitl"},"input_data":{"business_name":"$BUSINESS_NAME","business_type":"$BUSINESS_TYPE","business_description":"$BUSINESS_DESCRIPTION"}}
+EOF
+
+echo ""
+echo "========================================="
+echo "Message sent successfully!"
+echo "========================================="
+echo ""
+echo "Next steps:"
+echo "1. Monitor the approval queue in Terminal 1:"
+echo "   kubectl -n kafka run -i --rm kcat-consumer-hitl \\"
+echo "     --image=edenhill/kcat:1.7.1 --restart=Never -- \\"
+echo "     kcat -C -b personae-kafka-cluster-kafka-bootstrap:9092 -t system.notifications.ui -o end"
+echo ""
+echo "2. When you see the approval request, note:"
+echo "   - correlation_id: $CORRELATION_ID"
+echo "   - request_id (the approval token from the notification)"
+echo ""
+echo "3. Send approval response in Terminal 2:"
+echo "   ./send_approval_eborg.sh $CORRELATION_ID <APPROVAL_TOKEN>"
+echo ""
+echo "4. Monitor workflow status in Terminal 3:"
+echo "   ./monitor_workflow.sh $CORRELATION_ID"
+echo ""
+echo "========================================="
+
+
+
+===================================
+# ALTERNATIVE 1
+# HITL Content Approval Workflow for EBORG
+# This script triggers a content generation workflow with human approval for EBORG
+
+# Generate IDs
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="eborg-content-approval-$(date +%Y%m%d-%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_eborg_content_request"
+CLIENT_ID="demo_client"
+
+# EBORG business details
+BUSINESS_NAME="EBORG"
+BUSINESS_TYPE="Evidence-Based Organisational Planning"
+BUSINESS_DESCRIPTION="EBORG helps organisations evolve intelligently by mapping every role, responsibility, and objective, then pairing each with a framework of AI agents designed to augment human capability. These agents don't just automate routine work — they gather and analyse research, assess strategic options, and provide evidence-based reasoning to guide decision-making at every level. The result is a human-centered, continuously learning organisation where people lead with vision, and AI supports with insight. Eborg aims to empower every employee, from CEO downwards, with intelligent, evidence-based support — combining human insight with AI reasoning to create an organisation that thinks, learns, and performs better together. Not a futuristic AI revolution, but a necessary, structured evolution — a calm, practical, intelligent step forward in how modern organisations operate."
+
+echo "========================================="
+echo "HITL Content Approval for EBORG"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Client:           $CLIENT_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Agent ID:         $AGENT_ID"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+echo ""
+echo "Business: $BUSINESS_NAME"
+echo "Type: $BUSINESS_TYPE"
+echo ""
+echo "This workflow will:"
+echo "  1. Generate organisational description content"
+echo "  2. Send approval request to system.notifications.ui"
+echo "  3. Wait for human approval"
+echo "  4. Return approved content with metadata"
+echo ""
+echo "Sending message..."
+echo ""
+
+# Send message to generic agent requests topic
+kubectl -n kafka run -i --rm kcat-producer-eborg \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=$ORCHESTRATION_NAME \
+-H step_name=$STEP_NAME \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=$AGENT_ID \
+-H responses_topic=system.generic.responses <<EOF
+{"action":"orchestrate","config":{"workflow":{"start_step":"generate","steps":{"generate":{"action":"execute_llm_prompt","config":{"prompt_template":"Write a short greeting for {{name}}","input_fields":["name"],"ai_service": {"provider": "anthropic","model": "claude-haiku-4-5-20251001","api_key_env_var": "ANTHROPIC_API_KEY"}},"next_step":"await_approval","description":"Generate content"},"await_approval":{"action":"await_approval","config":{"approval_fields":["generate"],"approval_type":"content_review","ui_config":{"title":"Content Approval Required","description":"Please approve the generated greeting"}},"next_step":"process_approval","description":"Wait for approval"},"process_approval":{"action":"process_approval_decision","next_step":"complete","description":"Process the decision"},"complete":{"action":"complete_workflow","description":"Complete"}}}},"input_data":{"name":"Test User"}}
+EOF
+
+echo ""
+echo "========================================="
+echo "Message sent successfully!"
+echo "========================================="
+echo ""
+echo "Next steps:"
+echo "1. Monitor the approval queue in Terminal 1:"
+
+kubectl -n kafka run -i --rm kcat-consumer-hitl
+ --image=edenhill/kcat:1.7.1 --restart=Never --
+ kcat -C -b personae-kafka-cluster-kafka-bootstrap:9092 -t system.notifications.ui -o end
+
+kcat -C -b personae-kafka-cluster-kafka-bootstrap:9092 -t system.notifications.ui -o json
+
+echo "2. When you see the approval request, note:"
+echo "   - correlation_id: $CORRELATION_ID"
+echo "   - request_id (the approval token from the notification)"
+echo ""
+echo "3. Send approval response in Terminal 2:"
+echo "   kubectl -n kafka run -i --rm kcat-producer-approve \
+echo "  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+echo "  kcat -P -b personae-kafka-cluster-kafka-bootstrap:9092 \
+echo "  -t system.commands.workflow.resume \
+echo "  -H correlation_id=$CORRELATION_ID \
+echo "  -H in_response_to_request_id=$APPROVAL_TOKEN \
+echo "  -H message_type=response \
+echo "  -H status=complete \
+echo "  <<JSON
+kubectl -n kafka run -i --rm kcat-producer-approve \
+  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.commands.workflow.resume \
+  -H correlation_id=$CORRELATION_ID \
+  -H in_response_to_request_id=$APPROVAL_TOKEN \
+  -H message_type=response \
+  -H status=complete \
+  <<JSON
+{"success":true,"body":{"approved":true,"comments":"Looks good, approved!","approved_by":"test-user@example.com","modified_data":{}}}
+JSON
+
+or
+kcat -P -b kafka:9092 -t system.commands.workflow.resume \
+     -H in_response_to_request_id=$APPROVAL_TOKEN \
+     -H correlation_id=$CORRELATION_ID
+
+
+echo ""
+echo "4. Monitor workflow status in Terminal 3:"
+echo "   ./monitor_workflow.sh $CORRELATION_ID"
+echo ""
+echo "========================================="
+
+
+# Step 3: Get the approval token
+echo ""
+echo "STEP 3: Extract the approval token"
+echo "-----------------------------------"
+echo "Look at Terminal 1 (notification listener) and find the message with:"
+echo "  - 'type': 'approval_request'"
+echo "  - 'request_id': '<APPROVAL_TOKEN>'"
+echo "  - 'orchestration_id': '<ORCHESTRATION_ID>'"
+echo ""
+echo "Copy these values for the next step."
+
+# Step 4: Send approval response
+echo ""
+echo "STEP 4: Send the approval response"
+echo "-----------------------------------"
+echo "In Terminal 3, approve the request using the tokens from Step 3:"
+cat << 'EOF'
+# Replace these with actual values from Step 3
+CORRELATION_ID="<FROM_NOTIFICATION>"
+APPROVAL_TOKEN="<FROM_NOTIFICATION>"
+
+# To APPROVE:
+kubectl -n kafka run -i --rm kcat-producer-approve \
+  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.commands.workflow.resume \
+  -H correlation_id=$CORRELATION_ID \
+  -H in_response_to_request_id=$APPROVAL_TOKEN \
+  -H message_type=response \
+  -H status=complete \
+  <<JSON
+{"success":true,"body":{"approved":true,"comments":"Looks good, approved!","approved_by":"test-user@example.com","modified_data":{}}}
+JSON
+
+# To REJECT:
+kubectl -n kafka run -i --rm kcat-producer-reject \
+  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.commands.workflow.resume \
+  -H correlation_id=$CORRELATION_ID \
+  -H in_response_to_request_id=$APPROVAL_TOKEN \
+  -H message_type=response \
+  -H status=complete \
+  <<JSON
+{"success":true,"body":{"approved":false,"comments":"Content needs revision - too informal","approved_by":"test-user@example.com"}}
+JSON
+
+
+================== ALTERNATIVE 2 SIMPLE test HITL =====================
+
+# Simple workflow without LLM (fastest to test)
+echo ""
+echo "Simple Test Without LLM"
+echo "---------------------------------"
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="eborg-content-approval-$(date +%Y%m%d-%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_eborg_content_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "HITL Content Approval for Simple workflow without LLM"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Client:           $CLIENT_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Agent ID:         $AGENT_ID"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+echo ""
+echo "Business: $BUSINESS_NAME"
+echo "Type: $BUSINESS_TYPE"
+echo ""
+echo "This workflow will:"
+echo "  1. Generate organisational description content"
+echo "  2. Send approval request to system.notifications.ui"
+echo "  3. Wait for human approval"
+echo "  4. Return approved content with metadata"
+echo ""
+echo "Sending message..."
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-eborg \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=$ORCHESTRATION_NAME \
+-H step_name=$STEP_NAME \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=$AGENT_ID \
+-H responses_topic=system.generic.responses <<JSON
+{"action":"orchestrate","config":{"workflow":{"start_step":"transform","steps":{"transform":{"action":"transform_data","config":{"transformation":"uppercase"},"next_step":"wait"},"wait":{"action":"await_approval","next_step":"process_approval"},"process_approval":{"action":"process_approval_decision","config":{"stop_on_reject":true},"next_step":"done"},"done":{"action":"complete_workflow"}}}},"input_data":{"message":"test"}}
+JSON
+
+
+
+====================================================
+
+kubectl -n kafka run -i --rm kcat-producer-reject \
+  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.commands.workflow.resume \
+  -H correlation_id=0c142ce5-dc89-402f-b239-fe2a4c39b185 \
+  -H in_response_to_request_id=858909e3-467c-4c2e-9488-77e7072f98b0 \
+  -H message_type=response \
+  -H status=complete \
+  <<JSON
+{"success":true,"body":{"approved":false,"comments":"Content needs revision - too informal","approved_by":"test-user@example.com"}}
+JSON
+
+kubectl -n kafka run -i --rm kcat-producer-eborg-approval \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.responses \
+-H correlation_id=0c142ce5-dc89-402f-b239-fe2a4c39b185 \
+-H request_id=$(cat /proc/sys/kernel/random/uuid) \
+-H message_id=$(cat /proc/sys/kernel/random/uuid) \
+-H orchestration_id=3101ce68-2c8d-4f27-857e-743f2d124662 \
+-H request_id=858909e3-467c-4c2e-9488-77e7072f98b0 \
+-H approval_token=858909e3-467c-4c2e-9488-77e7072f98b0 \
+-H step_name="wait" \
+-H message_type=response \
+-H action=approved \
+-H from_agent_type=human \
+-H from_agent_id="hitl_system" \
+-H responses_topic=system.generic.responses \
+-H client_id=demo_client \
+<<JSON
+{"success":true,"body":{"approved":false,"comments":"Content needs revision - too informal","approved_by":"test-user@example.com"}}
+JSON
+
+
+
+
+
+
+
+
+
+
+
+
+gemini
+==========================================
+{
+  "action": "orchestrate",
+  "config": {
+    "workflow": {
+      "start_step": "transform",
+      "steps": {
+        "transform": {
+          "action": "transform_data",
+          "config": {
+            "transformation": "uppercase"
+          },
+          "next_step": "wait_for_approval"
+        },
+        "wait_for_approval": {
+          "action": "await_approval",
+          "config": {
+            "approval_fields": ["transform"]
+          },
+          "next_step": "process_approval"
+        },
+        "process_approval": {
+          "action": "process_approval_decision",
+          "next_step": "done"
+        },
+        "done": {
+          "action": "complete_workflow"
+        }
+      }
+    }
+  },
+  "input_data": {
+    "message": "test that this is transformed to uppercase."
+  }
+}
+
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="eborg-content-approval-$(date +%Y%m%d-%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_eborg_content_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "HITL Content Approval for Simple workflow without LLM"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Client:           $CLIENT_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Agent ID:         $AGENT_ID"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+echo ""
+echo "Business: $BUSINESS_NAME"
+echo "Type: $BUSINESS_TYPE"
+echo ""
+echo "This workflow will:"
+echo "  1. Generate organisational description content"
+echo "  2. Send approval request to system.notifications.ui"
+echo "  3. Wait for human approval"
+echo "  4. Return approved content with metadata"
+echo ""
+echo "Sending message..."
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-eborg \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=$ORCHESTRATION_NAME \
+-H step_name=$STEP_NAME \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=$AGENT_ID \
+-H responses_topic=system.generic.responses <<JSON
+{"action":"orchestrate","config":{"workflow":{"start_step":"transform","steps":{"transform":{"action":"transform_data","config":{"transformation":"uppercase"},"next_step":"await_approval"},"await_approval":{"action":"await_approval","config":{"approval_fields":["transform"]},"next_step":"process_approval"},"process_approval":{"action":"process_approval_decision","next_step":"done"},"done":{"action":"complete_workflow"}}}},"input_data":{"message":"test that this is transformed to uppercase."}}
+JSON
+
+
+# This command simulates the HITL service sending an approval
+# It targets the CHILD AGENT'S RESPONSES TOPIC
+CHILD_RESPONSES_TOPIC=system.agent.generic.responses
+CORRELATION_ID=6301033f-bf11-4d26-9b7e-87de77478677
+CHILD_ORCHESTRATION_ID=47b25921-2a9b-4ffd-9724-be2f779d75ab
+APPROVAL_TOKEN=a0a75bd8-262c-4f55-91eb-19398f73458e
+
+kubectl -n kafka run -i --rm kcat-producer-eborg-approval \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t $CHILD_RESPONSES_TOPIC \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$CHILD_ORCHESTRATION_ID \
+-H in_response_to_request_id=$APPROVAL_TOKEN \
+-H client_id=demo_client \
+-H message_type=response \
+-H action=approval_response \
+-H from_agent_type=human \
+-H status=complete \
+-H from_agent_id="hitl_system" \
+<<JSON
+{"success":true,"status": "completed","body":{"approved":true,"comments":"Content doesnt need revision - in simple test","approved_by":"test-user@example.com"}}
+JSON
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+==================== eborg workflow description ======================
+
+Workflow Description:
+The workflow generates a professional description for EBORG focusing on how it helps organisations evolve intelligently through AI-augmented decision-making. The content pauses for human approval before completion, demonstrating the HITL pattern that can be extended to more complex multi-agent workflows.
+The EBORG description emphasizes:
+
+Evidence-based organisational planning
+AI agents augmenting human capability
+Strategic decision support at every level
+Human-centered, continuously learning organisations
+Practical evolution rather than revolution
+
+This provides a working foundation for HITL functionality that you can test immediately with the existing await_approval action in your system.
+
+======================================================================
+
+
+
+
+-- ============================================================================
+-- HITL Content Approval Agent Group Definition
+-- For EBORG - Evidence-Based Organisational Planning
+-- ============================================================================
+
+INSERT INTO agent_group_definitions (
+    id,
+    name,
+    group_type,
+    agent_configs,
+    orchestration_workflow,
+    version,
+    created_at,
+    updated_at
+) VALUES (
+    gen_random_uuid(),
+    'Content Approval with HITL',
+    'content-approval-hitl',
+    jsonb_build_array(
+        jsonb_build_object('role', 'content_writer', 'agent_type', 'simple-content-writer-with-approval')
+    ),
+    jsonb_build_object(
+        'start_step', 'spawn_content_writer',
+        'steps', jsonb_build_object(
+            'spawn_content_writer', jsonb_build_object(
+                'action', 'spawn_agent',
+                'config', jsonb_build_object(
+                    'role', 'content_writer',
+                    'agent_type', 'simple-content-writer-with-approval'
+                ),
+                'description', 'Spawn content writer agent with approval workflow',
+                'next_step', 'generate_content'
+            ),
+            'generate_content', jsonb_build_object(
+                'action', 'call_agent',
+                'config', jsonb_build_object(
+                    'agent_type', 'simple-content-writer-with-approval',
+                    'target_role', 'content_writer',
+                    'input_data', jsonb_build_object(
+                        'business_name', '{{.input_data.business_name}}',
+                        'business_type', '{{.input_data.business_type}}',
+                        'business_description', '{{.input_data.business_description}}'
+                    )
+                ),
+                'description', 'Generate content and await approval',
+                'next_step', 'aggregate_results'
+            ),
+            'aggregate_results', jsonb_build_object(
+                'action', 'aggregate_data',
+                'config', jsonb_build_object(
+                    'response_fields', jsonb_build_array('generate_content'),
+                    'strategy', 'merge_responses'
+                ),
+                'description', 'Collect approved content',
+                'next_step', 'complete'
+            ),
+            'complete', jsonb_build_object(
+                'action', 'complete_workflow',
+                'description', 'Return approved content'
+            )
+        )
+    ),
+    1,  -- version
+    now(),
+    now()
+) ON CONFLICT (group_type)
+DO UPDATE SET
+    name = EXCLUDED.name,
+    agent_configs = EXCLUDED.agent_configs,
+    orchestration_workflow = EXCLUDED.orchestration_workflow,
+    version = EXCLUDED.version,
+    updated_at = now()
+RETURNING id, name, group_type, version;
+
+-- Verify the group was created
+SELECT
+    group_type,
+    name,
+    version,
+    jsonb_object_keys(orchestration_workflow->'steps') as steps
+FROM agent_group_definitions
+WHERE group_type = 'content-approval-hitl';
+
+
+====
+
+
+-- ============================================================================
+-- Simple Content Writer with HITL Approval Agent Definition
+-- For EBORG - Evidence-Based Organisational Planning
+-- ============================================================================
+
+INSERT INTO agent_definitions (
+    id,
+    type,
+    display_name,
+    description,
+    category,
+    default_config,
+    is_active,
+    created_at,
+    updated_at,
+    deleted_at,
+    capabilities,
+    image_repository,
+    image_tag,
+    resources,
+    topics,
+    health_config,
+    env_vars,
+    version,
+    previous_version_id,
+    task_workflow,
+    orchestrator_workflow,
+    delegation_preferences
+) VALUES (
+    gen_random_uuid(),
+    'simple-content-writer-with-approval',
+    'Simple Content Writer with HITL Approval',
+    'Generates content for organisations and waits for human approval before completion',
+    'hitl-demo',
+
+    -- default_config
+    '{
+        "processing_mode": "task",
+        "ai_service": {
+            "provider": "anthropic",
+            "model": "claude-3-5-sonnet-20241022",
+            "api_key_env_var": "ANTHROPIC_API_KEY"
+        },
+        "max_tokens": 500,
+        "temperature": 0.7,
+        "workflow": {
+            "start_step": "generate_draft",
+            "steps": {
+                "generate_draft": {
+                    "action": "execute_llm_prompt",
+                    "config": {
+                        "prompt_template": "Write a brief, professional description for {{.input_data.business_name}}. Context: {{.input_data.business_description}}. Focus on how they help organisations with {{.input_data.business_type}}. Keep it to 3-4 sentences that capture the essence of their value proposition.",
+                        "input_fields": ["input_data"]
+                    },
+                    "description": "Generate initial content draft",
+                    "next_step": "await_human_approval"
+                },
+                "await_human_approval": {
+                    "action": "await_approval",
+                    "config": {
+                        "notification_data": {
+                            "type": "content_approval",
+                            "title": "Content Approval Required for {{.input_data.business_name}}",
+                            "description": "Please review and approve the generated organisational description",
+                            "content_field": "generate_draft",
+                            "metadata": {
+                                "business_name": "{{.input_data.business_name}}",
+                                "business_type": "{{.input_data.business_type}}"
+                            }
+                        },
+                        "timeout_seconds": 300,
+                        "include_generated_content": true
+                    },
+                    "description": "Wait for human approval of generated content",
+                    "next_step": "process_approval"
+                },
+                "process_approval": {
+                    "action": "process_data",
+                    "config": {
+                        "input_fields": ["generate_draft", "await_human_approval"],
+                        "output_format": {
+                            "content": "{{.generate_draft.result}}",
+                            "approval_status": "{{.await_human_approval.approved}}",
+                            "approval_comments": "{{.await_human_approval.comments}}",
+                            "approved_by": "{{.await_human_approval.approved_by}}",
+                            "approved_at": "{{.await_human_approval.timestamp}}"
+                        }
+                    },
+                    "description": "Process approval response and prepare final output",
+                    "next_step": "complete"
+                },
+                "complete": {
+                    "action": "complete_workflow",
+                    "description": "Return approved content with metadata"
+                }
+            }
+        }
+    }'::jsonb,
+
+    true,              -- is_active
+    now(),
+    now(),
+    null,              -- deleted_at
+
+    '["content-generation", "human-approval", "hitl", "organisational"]'::jsonb,
+
+    'docker.io/aqls/agent-chassis',
+    'v1.0.407',
+
+    -- resources
+    '{
+        "requests": {"cpu": "100m", "memory": "256Mi"},
+        "limits": {"cpu": "500m", "memory": "512Mi"}
+    }'::jsonb,
+
+    -- topics
+    '{
+        "dlq": "system.agent.simple-content-writer-with-approval.dlq",
+        "errors": "system.agent.simple-content-writer-with-approval.errors",
+        "requests": "system.agent.simple-content-writer-with-approval.requests",
+        "responses": "system.agent.simple-content-writer-with-approval.responses"
+    }'::jsonb,
+
+    -- health_config
+    '{
+        "port": 8080,
+        "liveness_path": "/health",
+        "readiness_path": "/ready",
+        "initial_delay_seconds": 30
+    }'::jsonb,
+
+    -- env_vars
+    '[
+        {"name": "ANTHROPIC_API_KEY", "valueFrom": {"secretKeyRef": {"name": "anthropic-api-key", "key": "api-key"}}}
+    ]'::jsonb,
+
+    1,             -- version
+    null,          -- previous_version_id
+
+    -- task_workflow (same as in default_config)
+    '{
+        "start_step": "generate_draft",
+        "steps": {
+            "generate_draft": {
+                "action": "execute_llm_prompt",
+                "config": {
+                    "prompt_template": "Write a brief, professional description for {{.input_data.business_name}}. Context: {{.input_data.business_description}}. Focus on how they help organisations with {{.input_data.business_type}}. Keep it to 3-4 sentences that capture the essence of their value proposition.",
+                    "input_fields": ["input_data"]
+                },
+                "description": "Generate initial content draft",
+                "next_step": "await_human_approval"
+            },
+            "await_human_approval": {
+                "action": "await_approval",
+                "config": {
+                    "notification_data": {
+                        "type": "content_approval",
+                        "title": "Content Approval Required",
+                        "description": "Please review and approve the generated organisational description"
+                    },
+                    "timeout_seconds": 300,
+                    "include_generated_content": true
+                },
+                "description": "Wait for human approval",
+                "next_step": "process_approval"
+            },
+            "process_approval": {
+                "action": "process_data",
+                "config": {
+                    "input_fields": ["generate_draft", "await_human_approval"]
+                },
+                "description": "Process approval response",
+                "next_step": "complete"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Return approved content"
+            }
+        }
+    }'::jsonb,
+
+    null,          -- orchestrator_workflow (using task mode)
+
+    -- delegation_preferences
+    '{"prefer_delegation": false, "fallback_to_self": true}'::jsonb
+) ON CONFLICT (type, version)
+DO UPDATE SET
+    display_name = EXCLUDED.display_name,
+    description = EXCLUDED.description,
+    default_config = EXCLUDED.default_config,
+    task_workflow = EXCLUDED.task_workflow,
+    updated_at = now()
+RETURNING id, type, display_name, version;
+
+
+
+  make quick-agent-update ENVIRONMENT=production REGION=uk001
+  make build-backend push-backend deploy-core deploy-agents redeploy-agents ENVIRONMENT=production REGION=uk001
+
+  listen on a topic
+  kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-console-consumer.sh   --bootstrap-server localhost:9092   --topic system.responses.generic   --from-beginning   --property print.headers=true
+
+  test message:
+TIMESTAMP=$(date +%s)
+ISOTIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="multi-site-$(date +%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_step_website_request"
+CLIENT_ID="demo_client"
+TEST_MESSAGE='{"headers":{"correlation_id":"test-'${TIMESTAMP}'","client_id":"demo_client","message_id":"test-msg-'${TIMESTAMP}'","message_type":"request","action":"generate","timestamp":"'${ISOTIME}'","fuel_budget":1000},"body":{"action":"generate","input_data":{"prompt":"A beautiful sunset over mountains, photorealistic, 4k","width":1024,"height":1024,"style":""},"parent_responses_topic":"test.responses","reply_to_topic":"test.responses"}}'
+echo "$TEST_MESSAGE" | kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic system.adapter.image-generator.requests
+
+
+all on one line
+TIMESTAMP=$(date +%s); ISOTIME=$(date -u +%Y-%m-%dT%H:%M:%SZ); CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid); REQUEST_ID=$(cat /proc/sys/kernel/random/uuid); MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid); ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid); AGENT_ID=$(cat /proc/sys/kernel/random/uuid); ORCHESTRATION_NAME="multi-site-${TIMESTAMP}"; STEP_NAME="client_step_image_request"; CLIENT_ID="demo_client"; TEST_MESSAGE='{"headers":{"correlation_id":"'"${CORRELATION_ID}"'","request_id":"'"${REQUEST_ID}"'","message_id":"'"${MESSAGE_ID}"'","orchestration_id":"'"${ORCHESTRATION_ID}"'","orchestration_name":"'"${ORCHESTRATION_NAME}"'","step_name":"'"${STEP_NAME}"'","client_id":"'"${CLIENT_ID}"'","message_type":"request","action":"generate","timestamp":"'"${ISOTIME}"'","fuel_budget":1000,"from_agent_type":"user","from_agent_id":"user-001","from_agent_version":"1.0","to_agent_type":"image-generator","responses_topic":"test.responses","requests_topic":"system.adapter.image-generator.requests","status":"ok","retry_count":0,"is_error":"false"},"body":{"action":"generate","input_data":{"prompt":"A beautiful sunset over mountains, photorealistic, 4k","width":1024,"height":1024,"style":""},"parent_responses_topic":"test.responses","reply_to_topic":"test.responses"}}'; echo "$TEST_MESSAGE" | kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic system.adapter.image-generator.requests
+
+
+SELECT * FROM agent_group_definitions WHERE group_type='robot-hands-website';
+
+
+jq -r '."DEBUGaa: result".result.assemble_homepage.assembled_html' robothands.json > index.html
+jq -r '."DEBUGaa: result".result.assemble_about_page.assembled_html' robothands.json > about.html
+jq -r '."DEBUGaa: result".result.assemble_contact_page.assembled_html' robothands.json > contact.html
+
+
+make build-backend push-backend deploy-core deploy-agents redeploy-agents ENVIRONMENT=production REGION=uk001
+
+
+
+
+
+=============
+-------------
+=============
+
+
+This is a great topic. Based on the code you've provided, you're right: a solid foundation for Human-in-the-Loop (HITL) already exists. The system is designed to pause an orchestration and wait for an external message to resume it.
+
+The key components I've identified in the codebase are:
+
+  * [cite\_start]**`await_approval` Action:** An action explicitly for this purpose exists in `platform/orchestration/actions/registry.go`[cite: 1].
+  * [cite\_start]**`StatusAwaitingResponses`:** The `SagaCoordinator` already has a state for pausing an orchestration to wait for a message, which is what `await_approval` uses[cite: 1].
+  * **`system.notifications.ui` Topic:** The `await_approval` action sends a notification message to this topic. [cite\_start]This is the "human out" part[cite: 1].
+  * **`system.commands.workflow.resume` Topic:** The `SagaCoordinator` listens on this topic for the approval message. [cite\_start]This is the "human in" part[cite: 1].
+
+Here is a step-by-step plan to implement HITL, starting with a simple "manual" test and then moving toward the full API integration.
+
+### Step 1: Understand the Existing HITL Flow
+
+[cite\_start]When an agent's workflow executes a step with the `action: "await_approval"`, the following sequence happens (based on `platform/orchestration/actions/workflow_actions.go` [cite: 1]):
+
+1.  **Pause:** The `AwaitApprovalAction` function is triggered.
+2.  **Generate Token:** It generates a new, unique `request_id` (let's call this the "approval token").
+3.  **Notify:** It sends a notification message to the `system.notifications.ui` topic. This message contains:
+      * The orchestration ID.
+      * The approval token (as `request_id`).
+      * The `reply_to_topic` (which is `system.commands.workflow.resume`).
+      * Any data to be approved (e.g., the text generated by a content agent).
+4.  **Wait:** The action returns `AwaitResponse: true`. This tells the `SagaCoordinator` to set the orchestration status to `AWAITING_RESPONSE` and store the "approval token" in its `AwaitedRequests` map. The workflow is now paused.
+
+### Step 2: Resume the Workflow
+
+The orchestration remains paused until a message is sent to the `system.commands.workflow.resume` topic. To resume, a message must have:
+
+1.  **Header:** The `in_response_to_request_id` header **must** match the "approval token" that was sent out in Step 1.
+2.  **Body:** The body of this message should contain the approval data (e.g., `{"approved": true, "comments": "Looks good."}`).
+3.  **Resume:** The `SagaCoordinator`'s `ProcessResponse` function will receive this message, find the orchestration that is waiting for that token, load the approval data into the state, and continue the workflow.
+
+### Step 3: A Simple, Manual Implementation (No API)
+
+To test this flow without building the UI or API first, we can use `kcat` (which you're already using) to act as the human.
+
+1.  **Add the Step:** Modify an agent's workflow to include the approval step. For example, in the `image-generator`'s workflow, you could add it after the `generate` step.
+
+    ```json
+    "generate": {
+      "action": "generate_image",
+      "next_step": "await_human_approval"
+    },
+    "await_human_approval": {
+      "action": "await_approval",
+      "next_step": "complete"
+    }
+    ```
+
+2.  **Listen for the Approval Request:** In one terminal, run a `kcat` consumer to listen for the notification. This is "you" (the human) watching your to-do list.
+
+    ```bash
+    kubectl -n kafka run -i --rm kcat-consumer \
+      --image=edenhill/kcat:1.7.1 --restart=Never -- \
+      kcat -C -b personae-kafka-cluster-kafka-bootstrap:9092 -t system.notifications.ui -o json
+    ```
+
+3.  **Run the Workflow:** Trigger your main orchestration as usual.
+
+4.  **Get the Token:** The workflow will run until it hits the `await_approval` step. You will see a JSON message appear in your `kcat-consumer` terminal. From this message, copy two values:
+
+      * The `correlation_id`.
+      * The `request_id` (this is your unique "approval token").
+
+5.  **Send the Approval:** In a second terminal, send the "resume" message. This is "you" clicking the "Approve" button.
+
+    ```bash
+    # Replace with the values from your consumer
+    CORRELATION_ID="f3817fd2-d97b-44c0-b145-908d7b3e8123"
+    APPROVAL_TOKEN="fffa7445-b36f-4454-8dda-88f458f4f8c5"
+
+    kubectl -n kafka run -i --rm kcat-producer \
+      --image=edenhill/kcat:1.7.1 \
+      --restart=Never -- \
+      kcat -P -b personae-kafka-cluster-kafka-bootstrap:9092 \
+      -t system.commands.workflow.resume \
+      -H correlation_id=$CORRELATION_ID \
+      -H in_response_to_request_id=$APPROVAL_TOKEN \
+      -H message_type=response \
+      -H status=complete \
+      <<EOF
+    {"success": true, "body": {"approved": true, "comments": "Manual approval from kcat."}}
+    EOF
+    ```
+
+6.  **Observe:** The `SagaCoordinator` for the paused agent will receive this message, match the `in_response_to_request_id`, and resume the workflow, proceeding to the `complete` step.
+
+This manual process proves the entire end-to-end orchestration logic for HITL is working before you write any API or UI code.
+
+
+===========
+
+===========
+
+{
+  "action": "orchestrate",
+  "config": {
+    "workflow": {
+      "start_step": "generate",
+      "steps": {
+        "generate": {
+          "action": "execute_llm_prompt",
+          "config": {
+            "prompt_template": "Write a short greeting for {{name}}",
+            "input_fields": [
+              "input_data"
+            ]
+          },
+          "agent_config": {
+	      "ai_service": {
+	      "provider": "anthropic",
+	      "model": "claude-haiku-4-5-20251001",
+	      "api_key_env_var": "ANTHROPIC_API_KEY"
+	    }
+          },
+          "next_step": "await_approval",
+          "description": "Generate content"
+        },
+        "await_approval": {
+          "action": "await_approval",
+          "config": {
+            "approval_fields": [
+              "generate"
+            ],
+            "approval_type": "content_review",
+            "ui_config": {
+              "title": "Content Approval Required",
+              "description": "Please approve the generated greeting"
+            },
+            "timeout_seconds": 86400
+          },
+          "next_step": "process_approval"
+        },
+        "process_approval": {
+          "action": "process_approval_decision",
+          "next_step": "done"
+        },
+        "done": {
+          "action": "complete_workflow"
+        }
+      }
+    }
+  },
+  "input_data": {
+    "name": "Test User"
+  }
+}
+
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="eborg-content-approval-$(date +%Y%m%d-%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_eborg_content_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "HITL Content Approval for Simple workflow without LLM"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Client:           $CLIENT_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Agent ID:         $AGENT_ID"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+echo ""
+echo "Business: $BUSINESS_NAME"
+echo "Type: $BUSINESS_TYPE"
+echo ""
+echo "This workflow will:"
+echo "  1. Generate organisational description content"
+echo "  2. Send approval request to system.notifications.ui"
+echo "  3. Wait for human approval"
+echo "  4. Return approved content with metadata"
+echo ""
+echo "Sending message..."
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-eborg \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=$ORCHESTRATION_NAME \
+-H step_name=$STEP_NAME \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=$AGENT_ID \
+-H responses_topic=system.generic.responses <<JSON
+{"action":"orchestrate","config":{"workflow":{"start_step":"generate","steps":{"generate":{"action":"execute_llm_prompt","config":{"prompt_template":"Write a short greeting for {{.name}}","input_fields":["input_data", "name"]},"ai_service":{"provider":"anthropic","model":"claude-haiku-4-5-20251001","api_key_env_var":"ANTHROPIC_API_KEY"},"next_step":"await_approval","description":"Generate content"},"await_approval":{"action":"await_approval","config":{"approval_fields":["generate"],"approval_type":"content_review","ui_config":{"title":"Content Approval Required","description":"Please approve the generated greeting"},"timeout_seconds":86400},"next_step":"process_approval"},"process_approval":{"action":"process_approval_decision","next_step":"done"},"done":{"action":"complete_workflow"}}}},"input_data":{"name":"Test User"}}
+JSON
+
+
+
+
+---
+
+# This command simulates the HITL service sending an approval
+# It targets the CHILD AGENT'S RESPONSES TOPIC
+CHILD_RESPONSES_TOPIC=system.agent.generic.responses
+CORRELATION_ID=338c8645-44d6-45e4-8ab7-6653a1a91964
+CHILD_ORCHESTRATION_ID=308008c1-f99c-4716-bda7-c9a6285aea17
+APPROVAL_TOKEN=ac4ca791-c1d9-4f32-9c86-283c7cb3ecad
+
+kubectl -n kafka run -i --rm kcat-producer-eborg-approval \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t $CHILD_RESPONSES_TOPIC \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$CHILD_ORCHESTRATION_ID \
+-H in_response_to_request_id=$APPROVAL_TOKEN \
+-H client_id=demo_client \
+-H message_type=response \
+-H action=approval_response \
+-H from_agent_type=human \
+-H status=complete \
+-H from_agent_id="hitl_system" \
+<<JSON
+{"success":true,"status": "completed","body":{"approved":true,"comments":"Content doesnt need revision - in simple test","approved_by":"test-user@example.com"}}
+JSON
+
+
+--==--==-
+{
+  "action": "orchestrate",
+  "config": {
+    "workflow": {
+      "start_step": "generate_content",
+      "steps": {
+        "generate_content": {
+          "action": "transform_data",
+          "config": {
+            "transformation": "generate_description",
+            "input_fields": [
+              "business_name",
+              "business_type",
+              "business_description"
+            ]
+          },
+          "next_step": "await_approval"
+        },
+        "await_approval": {
+          "action": "await_approval",
+          "config": {
+            "approval_fields": [
+              "generate_content"
+            ],
+            "timeout_seconds": 86400
+          },
+          "next_step": "process_approval"
+        },
+        "process_approval": {
+          "action": "process_approval_decision",
+          "next_step": "done"
+        },
+        "done": {
+          "action": "complete_workflow"
+        }
+      }
+    }
+  },
+  "input_data": {
+    "business_name": "$BUSINESS_NAME",
+    "business_type": "$BUSINESS_TYPE",
+    "business_description": "$BUSINESS_DESCRIPTION"
+  }
+}
+

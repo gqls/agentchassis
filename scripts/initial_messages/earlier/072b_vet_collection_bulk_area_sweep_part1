@@ -1,0 +1,253 @@
+#!/bin/bash
+# start_area_sweep.sh - Kick off the area sweep orchestrator
+#
+# Usage:
+#   ./start_area_sweep.sh            # sweep 50 districts (default)
+#   ./start_area_sweep.sh 10         # sweep 10 districts
+#   ./start_area_sweep.sh 100 BT     # sweep 100 districts, Belfast area only
+
+LIMIT=${1:-50}
+AREA_CODE=${2:-}
+
+
+LIMIT=0
+AREA_CODE='BT'
+ORCH_ID=$(uuidgen)
+REQ_ID=$(uuidgen)
+CORR_ID=$(uuidgen)
+MSG_ID=$(uuidgen)
+ORCH_NAME="area-sweep-$(date +%Y%m%d-%H%M%S)"
+
+BOOTSTRAP="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+TOPIC="system.agent.generic.requests"
+
+# Build input_data
+if [ -n "$AREA_CODE" ]; then
+    INPUT="\"limit\":${LIMIT},\"country\":\"GB\",\"area_code\":\"${AREA_CODE}\""
+else
+    INPUT="\"limit\":${LIMIT},\"country\":\"GB\""
+fi
+
+BODY="{\"action\":\"orchestrate\",\"config\":{\"agent_type\":\"area-sweep-orchestrator\"},\"input_data\":{${INPUT}}}"
+
+echo "Sending area sweep request:"
+echo "  Limit: $LIMIT"
+echo "  Area:  ${AREA_CODE:-all}"
+echo "  Orch:  $ORCH_NAME"
+echo ""
+
+kubectl -n kafka run kcat-sweep-$$ \
+    --image=edenhill/kcat:1.7.1 \
+    --restart=Never \
+    --rm -i \
+    --command -- kcat -P \
+    -b "$BOOTSTRAP" \
+    -t "$TOPIC" \
+    -H "correlation_id=$CORR_ID" \
+    -H "request_id=$REQ_ID" \
+    -H "message_id=$MSG_ID" \
+    -H "orchestration_id=$ORCH_ID" \
+    -H "orchestration_name=$ORCH_NAME" \
+    -H "step_name=start" \
+    -H "client_id=00000000-0000-0000-0000-000000000001" \
+    -H "message_type=request" \
+    -H "action=orchestrate" \
+    -H "from_agent_type=user" \
+    -H "from_agent_id=cli-sweep" \
+    -H "responses_topic=system.generic.responses" \
+    <<< "$BODY"
+
+echo ""
+echo "Sent. The orchestrator will load ${LIMIT} un-swept districts and dispatch discoverers."
+echo ""
+echo "Monitor:"
+echo "  kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "    \"SELECT status, COUNT(*) FROM orchestration_states WHERE orchestration_name LIKE '${ORCH_NAME}%' GROUP BY status;\""
+
+
+-----
+======
+-----
+
+full uk sweep
+-----
+
+
+#!/bin/bash
+# full_uk_sweep.sh - Sweep all UK postcode areas for vet practices
+#
+# Sends one area-sweep-orchestrator message per area code.
+# Each orchestrator loads all districts for its area and dispatches discoverers.
+#
+# Usage:
+#   bash full_uk_sweep.sh              # all 121 area codes
+#   bash full_uk_sweep.sh 10           # first 10 area codes only
+#   bash full_uk_sweep.sh 0 5          # all areas, 5s delay between
+#   bash full_uk_sweep.sh 0 2 EH       # start from EH (Edinburgh)
+#
+# This can run for hours. Each area code dispatches 10-97 discoverers,
+# each discoverer uses 1 search credit. Total: ~3,402 credits.
+#
+# The adapter's REQUEST_THROTTLE_MS handles rate limiting for web searches.
+
+set -e
+
+LIMIT=${1:-0}       # 0 = all area codes
+DELAY=${2:-3}        # seconds between orchestrator messages
+START_FROM=${3:-}    # optional: skip area codes before this one
+CLIENT_ID="00000000-0000-0000-0000-000000000001"
+KAFKA_BOOTSTRAP="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+TOPIC="system.agent.generic.requests"
+BATCH_NAME="full-sweep-$(date +%Y%m%d-%H%M%S)"
+
+echo "========================================="
+echo "Full UK Area Sweep"
+echo "========================================="
+echo "  Batch:      ${BATCH_NAME}"
+echo "  Limit:      ${LIMIT} (0=all)"
+echo "  Delay:      ${DELAY}s between areas"
+echo "  Start from: ${START_FROM:-beginning}"
+echo "========================================="
+echo ""
+
+# Step 1: Get area codes from database (sorted, with district counts)
+echo "Querying area codes with unswept districts..."
+AREA_DATA=$(kubectl exec -n ai-persona-system postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -t -A -c "
+        SELECT area_code, COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE sweep_count = 0) AS unswept
+        FROM business_intel.search_areas
+        WHERE country = 'GB'
+        GROUP BY area_code
+        HAVING COUNT(*) FILTER (WHERE sweep_count = 0) > 0
+        ORDER BY area_code
+    ")
+
+if [ -z "$AREA_DATA" ]; then
+    echo "No unswept area codes found. Full sweep may already be complete."
+    echo ""
+    echo "Check status:"
+    echo "  kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+    echo "    \"SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE sweep_count > 0) AS swept,"
+    echo "     COUNT(*) FILTER (WHERE sweep_count = 0) AS unswept FROM business_intel.search_areas WHERE country = 'GB';\""
+    exit 0
+fi
+
+TOTAL_AREAS=$(echo "$AREA_DATA" | wc -l | tr -d ' ')
+echo "Found $TOTAL_AREAS area codes with unswept districts."
+echo ""
+
+# Step 2: Start persistent kcat pod for sending
+POD_NAME="sweep-sender-$$"
+echo "Starting sender pod..."
+kubectl -n kafka run "$POD_NAME" \
+    --image=edenhill/kcat:1.7.1 \
+    --restart=Never \
+    --command -- sleep 86400 &
+
+echo "Waiting for pod..."
+kubectl -n kafka wait --for=condition=Ready pod/"$POD_NAME" --timeout=30s
+echo ""
+
+# Step 3: Send one orchestrator message per area code
+COUNT=0
+SKIPPING=true
+if [ -z "$START_FROM" ]; then
+    SKIPPING=false
+fi
+
+for ROW in $AREA_DATA; do
+    AREA_CODE=$(echo "$ROW" | cut -d'|' -f1)
+    TOTAL_DISTRICTS=$(echo "$ROW" | cut -d'|' -f2)
+    UNSWEPT=$(echo "$ROW" | cut -d'|' -f3)
+
+    # Handle start-from
+    if [ "$SKIPPING" = true ]; then
+        if [ "$AREA_CODE" = "$START_FROM" ]; then
+            SKIPPING=false
+        else
+            continue
+        fi
+    fi
+
+    COUNT=$((COUNT + 1))
+
+    # Apply limit
+    if [ "$LIMIT" -gt 0 ] && [ "$COUNT" -gt "$LIMIT" ]; then
+        echo "Limit of $LIMIT reached."
+        break
+    fi
+
+    ORCH_ID=$(cat /proc/sys/kernel/random/uuid)
+    REQ_ID=$(cat /proc/sys/kernel/random/uuid)
+    CORR_ID=$(cat /proc/sys/kernel/random/uuid)
+    MSG_ID=$(cat /proc/sys/kernel/random/uuid)
+    ORCH_NAME="${BATCH_NAME}-${AREA_CODE}"
+
+    BODY="{\"action\":\"orchestrate\",\"config\":{\"agent_type\":\"area-sweep-orchestrator\"},\"input_data\":{\"limit\":100,\"country\":\"GB\",\"area_code\":\"${AREA_CODE}\"}}"
+
+    echo "[$COUNT/$TOTAL_AREAS] ${AREA_CODE}: ${UNSWEPT}/${TOTAL_DISTRICTS} unswept districts"
+
+    echo "$BODY" | kubectl exec -n kafka -i "$POD_NAME" -- kcat -P \
+        -b "$KAFKA_BOOTSTRAP" \
+        -t "$TOPIC" \
+        -H "correlation_id=$CORR_ID" \
+        -H "request_id=$REQ_ID" \
+        -H "message_id=$MSG_ID" \
+        -H "orchestration_id=$ORCH_ID" \
+        -H "orchestration_name=$ORCH_NAME" \
+        -H "step_name=start" \
+        -H "client_id=$CLIENT_ID" \
+        -H "message_type=request" \
+        -H "action=orchestrate" \
+        -H "from_agent_type=user" \
+        -H "from_agent_id=cli-full-sweep" \
+        -H "responses_topic=system.generic.responses"
+
+    echo "  -> $ORCH_NAME"
+
+    if [ "$COUNT" -lt "$TOTAL_AREAS" ]; then
+        sleep "$DELAY"
+    fi
+done
+
+echo ""
+echo "========================================="
+echo "Dispatched $COUNT area orchestrators."
+echo "Each will dispatch discoverers for its unswept districts."
+echo "========================================="
+
+# Step 4: Cleanup
+echo ""
+echo "Cleaning up sender pod..."
+kubectl -n kafka delete pod "$POD_NAME" --force 2>/dev/null || true
+
+echo ""
+echo "MONITORING:"
+echo ""
+echo "1. Sweep progress by area:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT area_code, COUNT(*) AS total,"
+echo "      COUNT(*) FILTER (WHERE sweep_count > 0) AS swept,"
+echo "      COUNT(*) FILTER (WHERE sweep_count = 0) AS remaining,"
+echo "      SUM(candidates_found) AS candidates"
+echo "      FROM business_intel.search_areas WHERE country = 'GB'"
+echo "      GROUP BY area_code ORDER BY area_code;\""
+echo ""
+echo "2. Overall progress:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT COUNT(*) AS total_districts,"
+echo "      COUNT(*) FILTER (WHERE sweep_count > 0) AS swept,"
+echo "      COUNT(*) FILTER (WHERE sweep_count = 0) AS remaining,"
+echo "      SUM(candidates_found) AS total_candidates"
+echo "      FROM business_intel.search_areas WHERE country = 'GB';\""
+echo ""
+echo "3. Discovery candidates:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT status, COUNT(*), COUNT(*) FILTER (WHERE website_url IS NOT NULL) AS have_url"
+echo "      FROM business_intel.discovery_candidates GROUP BY status;\""
+echo ""
+echo "4. Errors:"
+echo "   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c \\"
+echo "     \"SELECT orchestration_name, error FROM orchestration_states"
+echo "      WHERE orchestration_name LIKE '${BATCH_NAME}%' AND status = 'ERROR';\""

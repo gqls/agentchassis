@@ -1,0 +1,63 @@
+clients_db=# -- 0NN_fix_agents_note_writing.sql — Task 4: every fix appends a NOTES entry.
+-- DRAFT 2026-07-07. Renumber 0NN. Requires: doc tables + append_doc_note live
+-- (they are). DB-only; effective immediately.
+--
+-- Grounded in the three workflows fetched 2026-07-07 (403-line paste).
+-- Insertions (SUCCESS paths only — a note records a change, not an attempt):
+--   component-template-fixer: create_rerender -> [compose_note -> append_note] -> complete
+--                             AND check_needs_rerender.else_step -> compose_note
+--                             (both branches reach the note; a no-op pass is
+--                             still a recorded pass). Subject: pipeline/build +
+--                             note_site_id (site-scoped template work).
+--   tool-improver:            create_rerender_item -> [compose_note -> append_note] -> complete.
+--                             Subject: tool / tool_data.function (the REAL
+--                             function, straight from the loaded component).
+--   tool-recreation-handler:  deploy_page -> [compose_note -> append_note] -> complete.
+--                             Subject: tool / input_data.spec.function —
+--                             recreation items are page-scoped and may lack it;
+--                             append then errors and routes to complete (note
+--                             skipped, run unharmed). REFINEMENT ON RECORD:
+--                             add function to recreation item specs at creation.
+--   complete_not_found / complete_error paths: untouched — no change, no note.
+--
+-- Note body: LLM-drafted uniform entry ("## <title>" + Observed/Root cause/
+-- Fix/Verified/Categories lines). The entry heading carries NO date — the
+-- row's created_at is the timestamp (deviation from persist_diagnosis_note,
+-- which embeds one; accepted). Machine categories v1 = ["fix"] (operational
+-- tag); failure-class tags live in the body Categories line until a parser
+-- justifies more.
+--
+-- Declared deliberate changes:
+--   * component-template-fixer timeout 120 -> 240; tool-improver 300 -> 480
+--     (each gains a Sonnet call). tool-recreation-handler stays 2400.
+--   * correct-while-touching (001 §16): ALL TEN inert step-LEVEL error_steps
+--     in tool-recreation-handler move INTO config with their ORIGINAL targets;
+--     dead step-level keys are DELETED. (The other two agents carry none.)
+--
+--   The ten error_step corrections can be kept — strictly corrective. 480->300.plete";"complete";_step_level_error;ete (note skipped, run unharmed). Refi
+BEGIN
+NOTICE:  Snapshot captured: type=component-template-fixer, source_version=1, source_id=076455bf-c5a5-477c-9af1-d84c290751d9, reason=0NN_fix_agents_note_writing.sql: pre-update
+            snapshot_agent
+--------------------------------------
+ 076455bf-c5a5-477c-9af1-d84c290751d9
+(1 row)
+
+NOTICE:  Snapshot captured: type=tool-improver, source_version=1, source_id=1f3ebb4a-d041-409a-9781-f58f56b236fa, reason=0NN_fix_agents_note_writing.sql: pre-update
+            snapshot_agent
+--------------------------------------
+ 1f3ebb4a-d041-409a-9781-f58f56b236fa
+(1 row)
+
+NOTICE:  Snapshot captured: type=tool-recreation-handler, source_version=1, source_id=8701375f-81f7-4d92-ba39-c85f8489dada, reason=0NN_fix_agents_note_writing.sql: pre-update
+            snapshot_agent
+--------------------------------------
+ 8701375f-81f7-4d92-ba39-c85f8489dada
+(1 row)
+
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+DO
+COMMIT

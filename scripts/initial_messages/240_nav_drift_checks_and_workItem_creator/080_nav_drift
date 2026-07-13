@@ -1,0 +1,109 @@
+-- Step 1: Check which sites have nav drift (pages with nav flags missing from nav)
+-- Run this first to see what we're working with
+
+SELECT s.id as site_id, s.domain, p.name as page_name, p.url,
+       p.in_header, p.in_footer
+FROM pages p
+JOIN sites s ON p.site_id = s.id
+WHERE s.domain IN ('robot-hands.com', 'finetuning.uk', 'leopardessconsulting.co.uk', 'gaswholesalers.com')
+  AND s.status = 'active'
+  AND p.build_status = 'deployed'
+  AND (p.in_header = true OR p.in_footer = true)
+  AND NOT EXISTS (
+      SELECT 1 FROM site_nav_items sni
+      WHERE sni.site_id = p.site_id
+        AND (sni.url = p.url OR sni.page_id = p.id)
+        AND sni.status = 'active'
+  )
+ORDER BY s.domain, p.name;
+
+--
+
+               site_id                |       domain       |        page_name         |                 url                  | in_header | in_footer
+--------------------------------------+--------------------+--------------------------+--------------------------------------+-----------+-----------
+ 5fe15466-4e2e-4ff2-981e-98c1b7074002 | gaswholesalers.com | fuel-industry-insights   | /fuel-industry-insights.html         | t         | t
+ 5fe15466-4e2e-4ff2-981e-98c1b7074002 | gaswholesalers.com | fuel-supply-by-industry  | /fuel-supply-by-industry.html        | t         | t
+ 5fe15466-4e2e-4ff2-981e-98c1b7074002 | gaswholesalers.com | tool-fuel-cost-estimator | /tools/tool-fuel-cost-estimator.html | t         | t
+ 5fe15466-4e2e-4ff2-981e-98c1b7074002 | gaswholesalers.com | tool-gas-unit-converter  | /tools/tool-gas-unit-converter.html  | t         | t
+(4 rows)
+
+ ---
+
+
+ -- Step 2: Create nav_drift work items for sites that need nav rebuilding
+ -- Run after confirming step 1 shows the expected pages
+
+ INSERT INTO site_work_items (
+     site_id, source, pipeline, item_type, severity, summary,
+     priority, handler_agent, status, created_by,
+     spec, item_key
+ )
+ SELECT DISTINCT
+     s.id,
+     'manual',
+     'build',
+     'nav_drift',
+     'high',
+     'Manual trigger: rebuild nav tables for pages with nav flags missing from navigation',
+     20,
+     'nav-updater',
+     'triaged',
+     'manual-script',
+     jsonb_build_object(
+         'check', 'orphan_pages',
+         'orphan_type', 'nav_drift',
+         'fix', 'Nav tables need rebuilding'
+     ),
+     'nav_drift:' || s.id::text
+ FROM sites s
+ WHERE s.domain IN ('robot-hands.com', 'finetuning.uk', 'leopardessconsulting.co.uk', 'gaswholesalers.com')
+   AND s.status = 'active'
+   AND NOT EXISTS (
+       SELECT 1 FROM site_work_items swi
+       WHERE swi.site_id = s.id
+         AND swi.item_type = 'nav_drift'
+         AND swi.status IN ('triaged', 'claimed', 'detected')
+   );
+
+
+   ---
+
+   -- Step 3: Monitor progress
+   -- Run periodically after step 2
+
+   SELECT swi.item_type, swi.status, s.domain, swi.updated_at
+   FROM site_work_items swi
+   JOIN sites s ON swi.site_id = s.id
+   WHERE swi.item_type = 'nav_drift'
+   ORDER BY swi.updated_at DESC;
+
+
+ update nav position
+ UPDATE pages
+ SET in_header  = true,
+     nav_order  = 3,      -- places Tools between Services(2) and About(4)
+     updated_at = NOW()
+ WHERE id = '8d977dcf-a7fd-4fea-822d-b160071581fe';  -- tools, finetuning.uk
+
+ -- Sanity: two rows if we also want to see how-we-work's unchanged state
+ SELECT name, in_header, in_footer, nav_order
+ FROM pages
+ WHERE site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+   AND name IN ('tools', 'how-we-work');
+
+ COMMIT;
+ BEGIN
+    name   | nav_order
+ ----------+-----------
+  index    |         1
+  services |         2
+  about    |         4
+  contact  |         6
+  tools    |       100
+ (5 rows)
+
+ UPDATE 1
+     name     | in_header | in_footer | nav_order
+ -------------+-----------+-----------+-----------
+  how-we-work | t         | t         |       100
+  tools       | t         | t         |         3

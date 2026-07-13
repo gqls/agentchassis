@@ -1,0 +1,38 @@
+# FILE: deployments/kustomize/services/content-creator-agent/overlays/production/uk_001/patch-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: content-creator-agent
+spec:
+  replicas: 1 # Example: 3 replicas for production
+  template:
+    spec:
+      containers:
+        - name: content-creator-agent
+          env:
+            # API Key from default secrets
+            - name: ANTHROPIC_API_KEY # Matches api_key_env_var in custom config
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: ANTHROPIC_API_KEY
+
+            # Database Password from platform secrets
+            - name: CLIENTS_DB_PASSWORD # Matches password_env_var in custom config
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+          # Override envFrom to use specific ConfigMap
+          envFrom: [] # Clear previous envFrom
+          volumeMounts:
+            - name: agent-config
+              mountPath: /app/configs
+          # Production resource limits
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"

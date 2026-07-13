@@ -1,0 +1,142 @@
+ask gpt to create an outline
+then get it to produce content using that outline as a reference
+
+
+e.g.
+topic: ...
+target keywords: ...
+the outline should include:
+An engaging introduction ( 1-2 short paragraphs)
+- briefly introduce the dish (what makes it great, when to make it)
+- mention any unique ingredients or flavours
+....
+
+e.g. again
+Generate a structured outline based on the following details:
+Topic:
+Target Keywords: ...
+the outline should include:
+An engaging introduction ( 1-2 short paragraphs)
+- briefly introduce the dish (what makes it great, when to make it)
+- mention any unique ingredients or flavours
+- relate it to a specific audience (e.g. busy professionals, health-conscious eaters)
+
+Key Recipe details
+- Prep time: xx minutes
+- Cook time: xx minutes
+- Servings: xx servings
+- Difficulty: Easy/Medium/Hard
+
+Ingredients List
+- Clearly formatted list of ingredients
+- include specific measurements
+- suggest possible substitutions if relevant
+
+Step by Step instructions
+- Numbered steps for clarity
+- Keep steps concise and beginner friendly
+- Add extra tips (e.g. "For extra crispiness, back at 425%F instead of 400%F.")
+
+Storage and Serving Suggestions
+- How to store leftovers
+- Best ways to serve the dish
+
+Nutritional Information (if applicable)
+- Calories per serving
+- Key nutrients (protein, carbs, fats)
+
+Final tips and Variations
+- Ideas for ingredient swaps
+- Ways to customise the recipe
+
+Make sure the outline is clear, engaging, and easy to follow.
+
+
+
+-----
+
+
+Write a complete, well-formatted recipe page based on the following structured outline:
+^ outline above
+
+Requirements:
+- Tone: Friendly and informative, but not too informal
+- Use the following keywords naturally throughout the page: [target keywords]
+- Format with H2 for main sections (e.g. Ingredients, Instructions, Storage etc)
+- Use bullet points for ingredients and numbered steps for instructions
+- Make sure each step is clear, concise, and easy to follow
+- Provide useful tips and variations to make the recipe versatile and unique
+
+Formatting Example:
+[icon] Recipe Name
+[icon] Prep Time: xx mins | [icon] Servings: x | [icon] Cook Time xx mins
+
+Ingredients
+
+- Ingredient 1 (measurement)
+- Ingredient 2 (measurement)
+- Ingredient 3 (measurement)
+
+Instructions
+
+1. Step one...
+2. Step two...
+3. Step three...
+
+Tips & Variations
+
+- Optional customisation ideas...
+- How to make it vegetarian, gluten-free, etc.
+
+Make the content structured, engaging and SEO friendly.
+
+
+=====
+
+Generate and SEO-optimised page title based on the given webpage url and primary keyword
+
+Guidelines:
+
+The title should be between 50-60 characters
+THe title should be compelling and include the primary keyword naturally
+Priorize clarity, relevance, and clickability while maintaining a professional tone.
+If the page suggests a specific intent (e.g. informational, transactional), tailor the title accordingly.
+Just generate the title, do not put it in quotation marks or prefix it with any other information like "Title:".
+
+Inputs:
+
+URL: ...
+Primary Keywords: ...
+
+---
+
+Generate an SEO-optimised meta description based on a given webpage URL, primary keyword, page title and H1 heading.
+
+Guidelines:
+
+The description should be 150-160 characters long
+The description should be compelling and naturally include the primary keyword along with 1-2 relevant secondary keywords.
+Make it descriptive, engaging, and encourage clicks by highlighting key benefits or unique selling points.
+Just generate the description, do not put it in quotation marks or prefix it with any other information like "Meta description:"
+
+Inputs:
+URL: ...
+Primary Keywords: ...
+Page Title: ...
+H1 Heading: ...
+
+---
+Please write a blogger outreach pitch for [domain] with the goal of writing and publishing a guest post for their site. Please include an engaging subject line.
+My website is [domain], and I [describe what you do, i.e. sell clothes, provide social media marketing services etc].
+
+The author that I'm reaching out to is [first name] [last name]
+
+Guidelines:
+
+The subject line should be brief, stand out while encouraging a click. Bonus points for using a pun related to their website's topic. It need not give away that we're looking to guest post.
+Use Humour and Have Fun in the first sentence, break the ice with some topic-related humour.
+Focus on what's in it for them.
+Offer 3 different topic titles to offer to write for their site. Highlight why you'll be able to add unique value to each of these content pieces.
+Be brief, 200 words maximum.
+Make sure the email is addressed to [first name]
+Avoid using emojis

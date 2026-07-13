@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama-eval
+  labels:
+    app: ollama-eval
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ollama-eval
+  template:
+    metadata:
+      labels:
+        app: ollama-eval
+    spec:
+      initContainers:
+        - name: model-pull
+          image: ollama/ollama:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              ollama serve &
+              SERVER_PID=$!
+              for i in $(seq 1 30); do
+                ollama list > /dev/null 2>&1 && break
+                sleep 1
+              done
+              echo "Ollama server ready, checking models..."
+
+              # Only pull models not already present.
+              # Eval pod only needs mistral-small3.1 for now.
+              for model in mistral-small3.1; do
+                if ollama list | grep -q "$model"; then
+                  echo "$model already present, skipping"
+                else
+                  echo "Pulling $model..."
+                  ollama pull $model
+                  echo "$model pulled"
+                fi
+              done
+
+              echo "All models ready"
+              kill $SERVER_PID
+              wait $SERVER_PID 2>/dev/null
+              echo "Init complete"
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "1"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "20Gi"
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          env:
+            - name: OLLAMA_MAX_LOADED_MODELS
+              value: "1"
+            - name: OLLAMA_LOAD_TIMEOUT
+              value: "10m"
+            - name: OLLAMA_KEEP_ALIVE
+              value: "60m"
+          ports:
+            - containerPort: 11434
+              name: http
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "2"
+              memory: "24Gi"
+            limits:
+              cpu: "8"
+              memory: "28Gi"
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 5
+      volumes:
+        - name: ollama-models
+          persistentVolumeClaim:
+            claimName: ollama-eval-models-pvc

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reasoning-agent
+  labels:
+    app: reasoning-agent
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: reasoning-agent
+  template:
+    metadata:
+      labels:
+        app: reasoning-agent
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: reasoning-agent
+          image: docker.io/aqls/reasoning-agent:latest # Patched by overlays
+          command: ["./reasoning-agent", "-config", "configs/reasoning-agent.yaml"]
+          env: []
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"

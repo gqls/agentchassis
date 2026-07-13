@@ -1,0 +1,13 @@
+Summary of Agent Group Behavior
+
+Your system is designed around a powerful concept of versioned, discoverable agent teams.
+
+    Triggered by Type: A workflow is initiated not by sending the workflow itself, but by sending a message with an action of spawn_group and specifying a group_type like "website-builder".
+
+    Discovery of the Best Version: The GroupDiscovery service receives this group_type. It then queries the agent_groups table to find the best-performing and most recent version of that group to execute the task.
+
+    Execution of Stored Workflow: Once the best group is selected, the system retrieves its associated orchestration_workflow directly from the database and begins executing it.
+
+    Evolution and Versioning: The EvolutionService is designed to create new versions of these groups. When a group is "mutated" (e.g., a new agent is added to the team), it creates a new row in the database with an incremented version and a parent_id linking to the old version. This provides a complete and auditable history of how your workflows change over time.
+
+

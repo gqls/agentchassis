@@ -1,0 +1,51 @@
+# FILE: deployments/kustomize/services/analyser-adapter/overlays/production/uk_001/configs/analyser-adapter.yaml
+#
+# PRODUCTION/uk_001 service config for the analyser adapter — the DEPLOYED
+# source of truth, generated into the analyser-adapter-config ConfigMap by
+# this overlay's configMapGenerator. Per-cluster values (kafka brokers,
+# environment) live here so other clusters/overlays can carry their own copy.
+# Keep in sync with the repo-root configs/analyser-adapter.yaml (local runs).
+# Field names follow 035 §2.11 exactly — the Go struct tags are picky
+# (logging not logger, port as a quoted string, sslmode one word).
+
+service_info:
+  name: "analyser-adapter"           # used as sender_agent_type in responses
+  version: "0.1.0"
+  environment: "production"
+
+server:
+  port: "8080"                       # STRING in quotes; reads as cfg.Server.Port
+
+logging:
+  level: "info"                      # debug | info | warn | error
+  format: "json"
+
+observability:
+  tracing_endpoint: "${SERVICE_OBSERVABILITY_TRACING_ENDPOINT:http://jaeger-collector:14268/api/traces}"
+
+infrastructure:
+  kafka_brokers:
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+  # The analyser uses no database — symbols are written by the consumer-side
+  # index_code_symbols action, not by this adapter.
+  clients_database: {}
+  templates_database: {}
+  auth_database: {}
+
+custom:
+  adapter_settings:
+    # Documentary, matching the thunder pattern: the code resolves these from
+    # the REQUESTS_TOPIC / CONSUMER_GROUP env vars or falls back to the same
+    # defaults compiled into adapter.go. Keep the three in sync.
+    consumer_group: "analyser.adapter.group"
+    main_topic: "system.adapter.analyser.requests"
+
+  github:
+    # Documentary, matching the thunder pattern (direct env reads in code):
+    # the adapter reads GITHUB_READ_TOKEN and GITHUB_API_BASE from the pod
+    # env. The token is a fine-grained, repo-scoped, READ-ONLY credential
+    # is a secretKeyRef to personae-platform-secrets/GITHUB_READ_TOKEN — never put the
+    # value here (035 §2.13).
+    read_token_env_var: "GITHUB_READ_TOKEN"
+    api_base_env_var: "GITHUB_API_BASE"   # empty env = https://api.github.com

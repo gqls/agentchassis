@@ -1,0 +1,1171 @@
+openapi: 3.0.3
+info:
+  title: AI Persona Platform API
+  description: |
+    The AI Persona Platform provides APIs for managing AI personas, authentication, and content generation.
+    
+    ## Authentication
+    All API endpoints (except auth endpoints) require a valid JWT token in the Authorization header:
+    ```
+    Authorization: Bearer <token>
+    ```
+    
+    ## Rate Limiting
+    API calls are rate-limited based on your subscription tier:
+    - Free: 100 requests/hour
+    - Basic: 1000 requests/hour
+    - Premium: 10000 requests/hour
+    - Enterprise: Unlimited
+  version: 1.0.0
+  contact:
+    name: AI Persona Support
+    email: support@persona-platform.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.persona-platform.com
+    description: Production server
+  - url: https://staging-api.persona-platform.com
+    description: Staging server
+  - url: http://localhost:8081
+    description: Local development
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Users
+    description: User profile management
+  - name: Projects
+    description: Project management
+  - name: Subscriptions
+    description: Subscription and billing management
+  - name: Templates
+    description: Persona template management (Admin only)
+  - name: Instances
+    description: Persona instance management
+  - name: Admin
+    description: Administrative operations
+
+paths:
+  # Health Check
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the service
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+      security: []
+
+  # Authentication Endpoints
+  /api/v1/auth/register:
+    post:
+      summary: Register a new user
+      description: Creates a new user account with the provided credentials
+      operationId: registerUser
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security: []
+
+  /api/v1/auth/login:
+    post:
+      summary: User login
+      description: Authenticates a user and returns access tokens
+      operationId: loginUser
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security: []
+
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh access token
+      description: Uses a refresh token to obtain a new access token
+      operationId: refreshToken
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security: []
+
+  /api/v1/auth/validate:
+    post:
+      summary: Validate token
+      description: Validates an access token and returns user information
+      operationId: validateToken
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+  /api/v1/auth/logout:
+    post:
+      summary: Logout user
+      description: Invalidates the current session
+      operationId: logoutUser
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+  # User Management Endpoints
+  /api/v1/user/profile:
+    get:
+      summary: Get current user profile
+      description: Returns the profile information of the authenticated user
+      operationId: getCurrentUserProfile
+      tags:
+        - Users
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      security:
+        - bearerAuth: []
+
+    put:
+      summary: Update current user profile
+      description: Updates the profile information of the authenticated user
+      operationId: updateCurrentUserProfile
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+  /api/v1/user/password:
+    post:
+      summary: Change password
+      description: Changes the user's password
+      operationId: changePassword
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+  /api/v1/user/delete:
+    delete:
+      summary: Delete user account
+      description: Permanently deletes the user's account
+      operationId: deleteUserAccount
+      tags:
+        - Users
+      responses:
+        '200':
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+  # Project Management Endpoints
+  /api/v1/projects:
+    get:
+      summary: List user projects
+      description: Returns all projects owned by the authenticated user
+      operationId: listProjects
+      tags:
+        - Projects
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+    post:
+      summary: Create project
+      description: Creates a new project
+      operationId: createProject
+      tags:
+        - Projects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+  /api/v1/projects/{id}:
+    get:
+      summary: Get project details
+      description: Returns details of a specific project
+      operationId: getProject
+      tags:
+        - Projects
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Project retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      security:
+        - bearerAuth: []
+
+    put:
+      summary: Update project
+      description: Updates a project's information
+      operationId: updateProject
+      tags:
+        - Projects
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      security:
+        - bearerAuth: []
+
+    delete:
+      summary: Delete project
+      description: Deletes a project
+      operationId: deleteProject
+      tags:
+        - Projects
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '204':
+          description: Project deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      security:
+        - bearerAuth: []
+
+  # Subscription Endpoints
+  /api/v1/subscription:
+    get:
+      summary: Get current subscription
+      description: Returns the current user's subscription details
+      operationId: getSubscription
+      tags:
+        - Subscriptions
+      responses:
+        '200':
+          description: Subscription retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      security:
+        - bearerAuth: []
+
+  /api/v1/subscription/usage:
+    get:
+      summary: Get usage statistics
+      description: Returns usage statistics for the current billing period
+      operationId: getUsageStats
+      tags:
+        - Subscriptions
+      responses:
+        '200':
+          description: Usage statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+  /api/v1/subscription/check-quota:
+    get:
+      summary: Check resource quota
+      description: Checks if the user has quota for a specific resource
+      operationId: checkQuota
+      tags:
+        - Subscriptions
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          description: Resource type to check (personas, projects, content)
+          schema:
+            type: string
+            enum: [personas, projects, content]
+      responses:
+        '200':
+          description: Quota check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaCheckResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+  # Persona Template Endpoints (Admin Only)
+  /api/v1/templates:
+    get:
+      summary: List persona templates
+      description: Returns all available persona templates
+      operationId: listTemplates
+      tags:
+        - Templates
+      responses:
+        '200':
+          description: Templates retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      security:
+        - bearerAuth: []
+        - adminRole: []
+
+  # Persona Instance Endpoints
+  /api/v1/personas/instances:
+    get:
+      summary: List persona instances
+      description: Returns all persona instances for the authenticated user
+      operationId: listPersonaInstances
+      tags:
+        - Instances
+      parameters:
+        - name: project_id
+          in: query
+          description: Filter by project ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Instances retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+    post:
+      summary: Create persona instance
+      description: Creates a new persona instance from a template
+      operationId: createPersonaInstance
+      tags:
+        - Instances
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceRequest'
+      responses:
+        '201':
+          description: Instance created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaInstance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+
+  # WebSocket Endpoint
+  /ws:
+    get:
+      summary: WebSocket connection
+      description: Establishes a WebSocket connection for real-time communication
+      operationId: connectWebSocket
+      tags:
+        - WebSocket
+      responses:
+        '101':
+          description: Switching Protocols
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login endpoint
+
+    adminRole:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token with admin role
+
+  parameters:
+    ProjectId:
+      name: id
+      in: path
+      required: true
+      description: Project ID
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    # System Schemas
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - version
+      properties:
+        status:
+          type: string
+          example: healthy
+        service:
+          type: string
+          example: personae-auth-service
+        version:
+          type: string
+          example: 1.1.0
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Invalid request
+        details:
+          type: object
+          description: Additional error details
+
+    MessageResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          example: Operation successful
+
+    # Authentication Schemas
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - client_id
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecurePassword123!
+        client_id:
+          type: string
+          example: demo_client
+        first_name:
+          type: string
+          example: John
+        last_name:
+          type: string
+          example: Doe
+        company:
+          type: string
+          example: Acme Corp
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: SecurePassword123!
+
+    RefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token obtained from login
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+        - expires_in
+        - user
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refresh_token:
+          type: string
+          description: JWT refresh token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Token expiry time in seconds
+          example: 3600
+        user:
+          $ref: '#/components/schemas/UserInfo'
+
+    ValidateResponse:
+      type: object
+      required:
+        - valid
+        - user
+      properties:
+        valid:
+          type: boolean
+          example: true
+        user:
+          $ref: '#/components/schemas/UserInfo'
+
+    UserInfo:
+      type: object
+      required:
+        - id
+        - email
+        - client_id
+        - role
+        - tier
+        - email_verified
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        client_id:
+          type: string
+          example: demo_client
+        role:
+          type: string
+          enum: [user, admin, moderator]
+          example: user
+        tier:
+          type: string
+          enum: [free, basic, premium, enterprise]
+          example: free
+        email_verified:
+          type: boolean
+          example: false
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["personas.create", "projects.manage"]
+
+    # User Schemas
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - role
+        - client_id
+        - subscription_tier
+        - is_active
+        - email_verified
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [user, admin, moderator]
+        client_id:
+          type: string
+        subscription_tier:
+          type: string
+          enum: [free, basic, premium, enterprise]
+        is_active:
+          type: boolean
+        email_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+        permissions:
+          type: array
+          items:
+            type: string
+
+    UserProfile:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        company:
+          type: string
+        phone:
+          type: string
+        avatar_url:
+          type: string
+          format: uri
+        preferences:
+          type: object
+          additionalProperties: true
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          example: John
+        last_name:
+          type: string
+          example: Doe
+        company:
+          type: string
+          example: Acme Corp
+        phone:
+          type: string
+          example: +1234567890
+        preferences:
+          type: object
+          additionalProperties: true
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - current_password
+        - new_password
+      properties:
+        current_password:
+          type: string
+          format: password
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+
+    # Project Schemas
+    Project:
+      type: object
+      required:
+        - id
+        - client_id
+        - name
+        - owner_id
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+        name:
+          type: string
+          example: Marketing Campaign Q1
+        description:
+          type: string
+          example: Q1 2024 marketing campaign personas
+        owner_id:
+          type: string
+          format: uuid
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ProjectListResponse:
+      type: object
+      required:
+        - projects
+        - count
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        count:
+          type: integer
+          example: 5
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Marketing Campaign Q1
+        description:
+          type: string
+          example: Q1 2024 marketing campaign personas
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    # Subscription Schemas
+    Subscription:
+      type: object
+      required:
+        - id
+        - user_id
+        - tier
+        - status
+        - start_date
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        tier:
+          type: string
+          enum: [free, basic, premium, enterprise]
+        status:
+          type: string
+          enum: [active, trialing, past_due, canceled, expired]
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+        trial_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+        payment_method:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UsageStats:
+      type: object
+      required:
+        - user_id
+        - personas_count
+        - projects_count
+        - content_count
+        - last_updated
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        personas_count:
+          type: integer
+          example: 3
+        projects_count:
+          type: integer
+          example: 2
+        content_count:
+          type: integer
+          example: 25
+        last_updated:
+          type: string
+          format: date-time
+
+    QuotaCheckResponse:
+      type: object
+      required:
+        - has_quota
+        - resource
+      properties:
+        has_quota:
+          type: boolean
+          example: true
+        resource:
+          type: string
+          example: personas
+
+    # Template Schemas
+    TemplateListResponse:
+      type: object
+      required:
+        - templates
+        - count
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonaTemplate'
+        count:
+          type: integer
+
+    PersonaTemplate:
+      type: object
+      required:
+        - id
+        - name
+        - category
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Copywriter
+        description:
+          type: string
+          example: Creates compelling marketing and content copy
+        category:
+          type: string
+          example: data-driven
+        config:
+          type: object
+          additionalProperties: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # Instance Schemas
+    InstanceListResponse:
+      type: object
+      required:
+        - instances
+        - count
+      properties:
+        instances:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonaInstance'
+        count:
+          type: integer
+
+    PersonaInstance:
+      type: object
+      required:
+        - id
+        - template_id
+        - name
+        - owner_user_id
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Marketing Copy Expert
+        owner_user_id:
+          type: string
+          format: uuid
+        config:
+          type: object
+          additionalProperties: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateInstanceRequest:
+      type: object
+      required:
+        - template_id
+        - name
+      properties:
+        template_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Marketing Copy Expert
+        project_id:
+          type: string
+          format: uuid
+        config:
+          type: object
+          additionalProperties: true

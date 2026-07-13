@@ -1,0 +1,71 @@
+{
+  "company_name": "Leopardess Consulting",
+  "industry": "Technology Consulting",
+  "sub_industry": "AI Agent Systems & Automation Engineering",
+  "location": "United Kingdom",
+  "tagline": "AI systems that do a defined job, run without supervision, and keep a record of every decision they make.",
+  "about_summary": "Leopardess Consulting builds AI systems that carry out a specific, agreed job and then keep doing it without someone watching. The work is ordinary in the best sense: collecting data and checking it against an authoritative source, reading a lot of published material and sorting what matters from what does not, building and maintaining websites, and putting useful interactive tools in front of the people who need them. Everything is built on the same platform we run for ourselves, so we can show you a system that is actually working rather than a diagram of one that might.",
+  "email": "leopardess@contactforsales.com",
+  "phone": "+44 (0) 7934 524 911",
+  "contact": {
+    "email": "leopardess@contactforsales.com",
+    "phone": "+44 (0) 7934 524 911",
+    "address": null,
+    "location": "United Kingdom"
+  },
+  "social_profiles": {
+    "twitter": null,
+    "linkedin": null
+  },
+  "has_existing_site": true,
+  "key_people": [],
+  "leadership_team": [],
+  "team": [
+    {
+      "role": "Founder and engineer",
+      "bio": "Thirty years of building software, most of it on systems that had to keep running whether or not anyone was awake. Built and ran worldsoccernews.com, which reached around twelve million unique users a month at its peak — reported at the time in the trade magazine New Media Age, and referenced in Microsoft's own advertising material — while holding strong search placement for competitive terms across a decade. For a period it may have been among the three busiest sports sites there were; that specific ranking was never independently measured, so it is offered as recollection rather than fact: bigger than the BBC's sports coverage at the time, smaller than ESPN's Soccernet. A long background in financial systems, where being approximately right is the same as being wrong. Designed and built the multi-agent orchestration platform that this site and seven others run on: workflow-driven agents on Kubernetes and Kafka, with state kept in Postgres so that when something fails it can be picked up where it stopped rather than started again.",
+      "photo": null
+    }
+  ],
+  "services": [
+    {
+      "name": "Data collection, checked against a source of record",
+      "description": "We gather information at volume and then verify it against something authoritative rather than trusting the source it came from. Our own pipeline reconciles scraped UK business records against Companies House, using a tiered matching cascade that copes with name variations and missing registration numbers, and escalates the genuinely ambiguous cases for review instead of guessing."
+    },
+    {
+      "name": "Monitoring what is published about a subject",
+      "description": "Agents read across RSS feeds, news search APIs and live web search, then score each item for how relevant it is and how much the source can be trusted, keeping a note of where it came from and why it was scored that way. Useful when you need to know what is being said about a market, a competitor, or a regulation, and you do not have anyone whose job that is."
+    },
+    {
+      "name": "Websites that maintain themselves",
+      "description": "The platform plans a site, writes and reviews the content, generates the images, deploys it, and then keeps checking its own work: finding stale pages, broken tools and missing images, and fixing the routine ones. This site was built that way, and so were seven others."
+    },
+    {
+      "name": "Interactive tools for your visitors",
+      "description": "Calculators, estimators and assessments that run entirely in the visitor's browser. The platform works out which tools would genuinely help a particular audience, builds them, publishes them with a written guide alongside, and links them from the pages where someone would want them."
+    },
+    {
+      "name": "Agent orchestration on infrastructure you own",
+      "description": "If you would rather run this yourself, the same architecture can be built on your own Kubernetes cluster. Agent behaviour is stored as data rather than compiled in, so a workflow can be changed while the system is running. Where you want a person to approve a step before it proceeds, that is a configuration choice, made per stage."
+    }
+  ],
+  "capabilities_summary": "One platform, running in production, that plans and operates websites, collects and verifies data, monitors published information, and builds interactive tools. It holds 143 agent definitions, of which 56 are active, coordinated by workflows stored in the database rather than compiled into the code. Agents that need to can spawn other agents; 40 of them do. Because every step writes its state to Postgres, work resumes after a failure rather than restarting, and there is a record of what happened. It currently runs eight live sites, including this one.",
+  "key_differentiators": [
+    "We run the platform on our own sites first, so what we show you is working rather than proposed.",
+    "Every decision a system makes is written down and can be read back later.",
+    "Where a step needs human judgement, a person approves it. That is set per stage, not all-or-nothing.",
+    "Data gets checked against an authoritative source before it is trusted.",
+    "Built on Kubernetes, Kafka and Postgres, which are ordinary, well-understood tools you can hire for."
+  ],
+  "unique_selling_points": [
+    "Eight sites are live on this platform today, and it built and maintains them.",
+    "Agent behaviour is stored as data, so a workflow can be changed without redeploying anything.",
+    "Work is resumable: state lives in Postgres, so a failure costs you the step, not the run.",
+    "Human approval gates are configurable per stage, so you can be cautious where it matters and hands-off where it does not.",
+    "There is no proprietary runtime to be locked into."
+  ],
+  "target_audience": "Someone who runs a business or a function within one, is commercially sharp, and is not an AI specialist. They have heard a great deal about what AI is supposed to do and have seen very little of it working. They are not hostile to the idea, they are simply waiting for someone to show them something real, with a cost attached and a boundary around it. They will respond to a specific job being done well, and they will lose interest the moment the language stops being concrete. Engineering leaders are welcome and will find the technical detail one click away, but they are not who the main pages are written for.",
+  "content_posture": "Write for an intelligent reader who is not a specialist. Explain things in the order someone would need to learn them. Prefer a clear extra clause to a compressed clever one. Make claims that are small enough to be true and specific enough to be checked. Where a number exists, use it, and say where it came from. Never describe a capability that does not exist yet as though it does; if it is a plan, say it is a plan. Do not sell against anyone else.",
+  "brand_voice_guidelines": "Leopardess is the name of the practice, not a theme to be worked into every paragraph. If the metaphor earns a sentence, let it, and then get back to the substance. Precision and quiet persistence are the qualities worth borrowing: a system that keeps working when nobody is watching. Do not write about hunting, prowling, pouncing, or the savannah. The word 'leopardess' should be able to appear on a page without being explained.",
+  "evidence_base": "docs/leopardessconsulting/AUDIT_verified_facts.md. No factual claim may appear on this site without a corresponding evidence row. Claims removed for being unsupported: an eight-department agent taxonomy; a 70-plus running agent fleet; four case studies attributed to invented clients; a named leadership team; Playwright-based scraping; proxy-pool routing and anti-bot navigation."
+}

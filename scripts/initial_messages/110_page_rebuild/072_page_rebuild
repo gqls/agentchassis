@@ -1,0 +1,235 @@
+#!/bin/bash
+# Trigger page-rebuild for a specific domain.
+# Prerequisites: pages must be flagged as build_status='needs_rebuild' in the DB.
+#
+# Flag a page first:
+#   kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user -d clients_db -c \
+#     "UPDATE pages SET build_status = 'needs_rebuild', updated_at = NOW() WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'faq' AND status = 'active';"
+
+
+DOMAIN="leopardessconsulting.co.uk"
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+INPUT_DATA="{\"domain\":\"${DOMAIN}\"}"
+
+echo "========================================="
+echo "Page Rebuild"
+echo "========================================="
+echo "  Domain:         $DOMAIN"
+echo "  Input data:     $INPUT_DATA"
+echo "  Correlation ID: $CORRELATION_ID"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-page-rebuild-$(date +%s) \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$CORRELATION_ID \
+  -H orchestration_id=$ORCHESTRATION_ID \
+  -H request_id=$REQUEST_ID \
+  -H message_id=$MESSAGE_ID \
+  -H message_type=request \
+  -H client_id=$CLIENT_ID \
+  -H action=process \
+  -H sender_agent_type=cli \
+  -H sender_agent_id=cli-user \
+  -H responses_topic=system.agent.generic.responses \
+  -H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","request_id":"${REQUEST_ID}","message_id":"${MESSAGE_ID}","message_type":"request","client_id":"${CLIENT_ID}","action":"process","sender":{"agent_id":"cli-user","agent_type":"cli","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"config":{"workflow":{"start_step":"spawn_rebuilder","processing_mode":"orchestrator","timeout_seconds":1200,"steps":{"spawn_rebuilder":{"action":"spawn_agent","config":{"role":"rebuilder","agent_type":"page-rebuild"},"output_field":"rebuilder_agent","next_step":"call_rebuilder","description":"Spawn page-rebuild agent"},"call_rebuilder":{"action":"call_agent","config":{"agent_type":"page-rebuild","target_role":"rebuilder","input_mapping":{"domain":"input_data.domain"},"timeout_seconds":900},"output_field":"rebuild_result","next_step":"complete","description":"Run page rebuild"},"complete":{"action":"complete_workflow","config":{"output_fields":["rebuild_result"]},"description":"Page rebuild complete"}}}},"input_data":${INPUT_DATA}}
+JSON
+
+echo ""
+echo "========================================="
+echo "Page rebuild triggered"
+echo "========================================="
+echo ""
+echo "Monitor with:"
+echo "  kubectl -n ai-persona-system logs -f -l app=agent-chassis --tail=50 | grep '$CORRELATION_ID'"
+echo ""
+echo "Check page status:"
+echo "  kubectl -n ai-persona-system exec -it deploy/api-server -- psql -U clients_user -d clients_db -c \\"
+echo "    \"SELECT name, build_status, updated_at FROM pages WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' ORDER BY name;\""
+echo ""
+echo "CORRELATION_ID=$CORRELATION_ID"
+
+
+
+
+
+---------------------------------------------------
+
+# --------------- 3 ---------------------
+
+# ===== FILL IN THESE VALUES =====
+CORRELATION_ID=
+ORCHESTRATION_ID=
+HITL_REQUEST_ID=
+RESPONSES_TOPIC=
+# ================================
+
+# ------- 3 3 3 --------------------
+
+CORRELATION_ID=2ab2256b-36bb-43de-a43a-7cccc859acae
+ORCHESTRATION_ID=701d4f38-4089-4485-ae78-b7f617f18ebb
+HITL_REQUEST_ID=7ab2cbc8-13ca-46f8-85b6-127d94bb216a
+RESPONSES_TOPIC=job.2ab2256b-ee609241-content-reviewer-spawn_reviewer.responses
+
+# Auto-generated values
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+CLIENT_ID="demo_client"
+
+# Validate required fields
+if [ -z "$CORRELATION_ID" ] || [ -z "$ORCHESTRATION_ID" ] || [ -z "$HITL_REQUEST_ID" ] || [ -z "$RESPONSES_TOPIC" ]; then
+    echo "ERROR: Please fill in all required values at the top of the script"
+    echo ""
+    echo "Run this query to find them:"
+    echo "  SELECT request_id, orchestration_id, correlation_id, responses_topic"
+    echo "  FROM awaited_requests"
+    echo "  WHERE step_name = 'escalate_to_human' AND status = 'waiting'"
+    echo "  ORDER BY sent_at DESC LIMIT 1;"
+    exit 1
+fi
+
+echo "========================================="
+echo "Sending HITL Response: 3 Content Review Approval"
+echo "========================================="
+echo "  Correlation ID:      $CORRELATION_ID"
+echo "  Orchestration ID:    $ORCHESTRATION_ID"
+echo "  HITL Request ID:     $HITL_REQUEST_ID"
+echo "  Message ID:          $MESSAGE_ID"
+echo "  Step:                escalate_to_human"
+echo "  Topic:               $RESPONSES_TOPIC"
+echo "  Time:                $TIMESTAMP"
+echo "========================================="
+echo ""
+
+kubectl -n kafka run -i --rm kcat-producer-content-review-$(date +%s) \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t $RESPONSES_TOPIC \
+-H correlation_id=$CORRELATION_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H message_id=$MESSAGE_ID \
+-H message_type=response \
+-H client_id=demo_client \
+-H in_response_to_request_id=$HITL_REQUEST_ID \
+-H in_response_to_step_name=escalate_to_human \
+-H status=complete \
+-H is_complete=true \
+-H sender_agent_type=human \
+-H sender_agent_id=cli-user \
+-H timestamp=$TIMESTAMP <<JSON
+{"headers":{"correlation_id":"${CORRELATION_ID}","orchestration_id":"${ORCHESTRATION_ID}","message_id":"${MESSAGE_ID}","message_type":"response","client_id":"demo_client","in_response_to_request_id":"${HITL_REQUEST_ID}","in_response_to_step_name":"escalate_to_human","in_response_to_action":"request_human_input","status":"complete","is_complete":true,"is_error":false,"sender":{"agent_id":"cli-user","agent_type":"human","pod_name":"cli"},"timestamp":"${TIMESTAMP}"},"body":{"success":true,"approved":true,"status":"approved","responded_by":"cli-user@example.com","responded_at":"${TIMESTAMP}","review_mode":"escalated","edits":{},"comments":"Content reviewed and approved via CLI. Auto-eval issues have been addressed."}}
+JSON
+
+
+echo ""
+echo "========================================="
+echo "HITL Response sent!"
+echo "========================================="
+echo ""
+echo "Check if workflow continued:"
+echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=50 | grep \"$CORRELATION_ID\" | grep -E 'process_escalation|finalize|complete'"
+echo ""
+echo "Monitor content-reviewer progress:"
+echo "  kubectl logs -n ai-persona-system -l app=content-reviewer --tail=100 | grep \"$CORRELATION_ID\""
+echo ""
+echo "Check pageflow-builder (parent) progress:"
+echo "  kubectl logs -n ai-persona-system -l app=pageflow-builder --tail=100 | grep \"$CORRELATION_ID\""
+echo ""
+
+
+
+------------------------------------------
+
+
+# site id is leopardess consulting
+UPDATE pages SET build_status = 'needs_rebuild', updated_at = NOW() WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'faq' AND status = 'active';
+UPDATE pages SET build_status = 'needs_rebuild', updated_at = NOW() WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'index' AND status = 'active';
+
+
+clients_db=# -- Check the component templates for sections used on the index page
+SELECT cc.name, cc.function,
+       CASE WHEN cc.html_template LIKE '%<style>%' THEN 'YES' ELSE 'NO' END as has_inline_css,
+       length(cc.html_template) as template_len
+FROM content_components cc
+WHERE cc.function IN ('hero', 'differentiators', 'services-grid', 'social-proof', 'case-studies-list', 'call-to-action')
+ORDER BY cc.function, cc.name;
+
+-- Also check: are the page_components on index linked to content_components?
+SELECT pc.slot_name, pc.position, pc.component_id,
+       cc.name as component_name,
+       CASE WHEN pc.rendered_html LIKE '%<style>%' THEN 'YES' ELSE 'NO' END as has_inline_css,
+       length(pc.rendered_html) as html_len
+FROM page_components pc
+LEFT JOIN content_components cc ON pc.component_id = cc.id
+WHERE pc.page_id = (
+    SELECT id FROM pages
+    WHERE site_id = '4851f6fc-71cf-4160-a270-e03d6d3e0732' AND name = 'index'
+)
+ORDER BY pc.position;
+          name           |     function      | has_inline_css | template_len
+-------------------------+-------------------+----------------+--------------
+ case-studies-list       | case-studies-list | YES            |         1848
+ differentiators-section | differentiators   | YES            |         1547
+ about-hero              | hero              | YES            |          866
+ case-studies-hero       | hero              | YES            |          908
+ contact-hero            | hero              | YES            |          878
+ hero                    | hero              | YES            |         2365
+ Hero Section            | hero              | YES            |         2259
+ services-hero           | hero              | YES            |          884
+ services-grid           | services-grid     | YES            |         1471
+(9 rows)
+
+     slot_name     | position | component_id | component_name | has_inline_css | html_len
+-------------------+----------+--------------+----------------+----------------+----------
+ hero              |        1 |              |                | NO             |      806
+ differentiators   |        2 |              |                | NO             |     2599
+ services-grid     |        3 |              |                | NO             |     1769
+ social-proof      |        4 |              |                | NO             |     2194
+ case-studies-list |        5 |              |                | NO             |     4882
+ call-to-action    |        6 |              |                | NO             |      641
+(6 rows)
+
+
+
+-- where things stopped
+
+-- 1. Parent orchestration - what step is it on NOW?
+SELECT orchestration_id, status, current_step, error,
+       updated_at, version
+FROM orchestration_states
+WHERE orchestration_id = '1321c57c-96ac-410f-bbac-6efa2bab5b38';
+
+-- 2. Did the awaited_request for spawn get processed?
+SELECT request_id, step_name, target_agent_type, status,
+       sent_at, timeout_at, processed_at
+FROM awaited_requests
+WHERE orchestration_id = '1321c57c-96ac-410f-bbac-6efa2bab5b38'
+ORDER BY sent_at;
+
+-- 3. Any child orchestration created for section-editor?
+SELECT orchestration_id, owner_agent_type, status, current_step, error,
+       requests_topic, responses_topic, created_at
+FROM orchestration_states
+WHERE parent_orchestration_id = '1321c57c-96ac-410f-bbac-6efa2bab5b38'
+   OR correlation_id = '944ccee2-b50a-44b4-920b-e4df7c4f06b7'::uuid;
+
+-- 4. Check the section-editor's own orchestration
+SELECT orchestration_id, status, current_step, error,
+       jsonb_pretty(collected_data) as data
+FROM orchestration_states
+WHERE orchestration_id = 'b0d165b3-3bd2-4b19-8d3a-5a78cefdf54b';
+
+

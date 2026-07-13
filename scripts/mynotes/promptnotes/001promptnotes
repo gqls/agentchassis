@@ -1,0 +1,152 @@
+architecture is a recursive orchestrator model
+try not to use unsafe type assertions in the golang code
+
+Agent Orchestration Architecture
+Problem Statement
+
+I would like to closely log and track the creation of agents, the messages (with headers and body) that are passed between agents.
+
+Image creation is now working, as is the website creation flow (to a limited extent but that is ok for now).
+
+I'd like to now start creating human in the loop functionality including developing the api.
+
+To begin with we can keep it really simple with perhaps just one agent and an hitl approval - without any images or anything complicated.
+
+We'll need an agent group definition in the database with a workflow that can create something, perhaps a website but with approval steps for each piece of content.
+
+We'll need agent definitions for each agent we use or create with their own workflows.
+
+We can use the image adapter to create presigned urls of images using GenerateImageAction as we have been doing. To begin with we don't need this step.
+
+I'd like to break it down into several sections, with separate agents concentrating on each section. We can do detailed prompts for each section and we can, if we want to, spawn sub agents for e.g. research before writing the content. To begin with we don't need more than one example agent.
+
+We're using groups of workflows for the tasks. Agents should always respond to the responses topic of the caller and not to their own responses topic.
+
+Please always work small steps at a time and think hard.
+
+Please keep in mind the flow of work at all times and phrase your responses in this context including the function calls that lead up to the problem sometimes, so I can understand what's going on.
+
+Please don't jump to conclusions.
+
+Please don't create summary documents unless asked for, instead, moderately brief summaries at the end as you usually do will suffice.
+
+Please don't say that any fixes are the final or last fixes. Don't use the words perfect, critical or excellent.
+
+Please don't congratulate me but keep everything pragmatic and focused on the continuous debugging tasks we have ahead of us.
+
+Every agent is an orchestrator.
+
+Always look through existing code and see if we have similar functions or structs that already exist and that can be improved before creating new code.
+
+Let's reuse (and alter if necessary) the functions and architecture that we already have before recreating similar structures. Please think hard about this every time.
+
+don't use wrapper functions if you can reasonably change the underlying function - if the underlying function is not widely used
+
+
+
+[parse all ai responses for confusions and restated bugs and reasoning steps]
+produce detailed sequence diagram with all function calls using trace
+follow particular struct throughout lifespan
+look at each page separately perhaps so we miss less
+try not to rely on missing values to determine that we are at the start of a chain of agents for example
+keep things simple
+prioritise comprehensiveness
+prioritise what we can add at the end once we've determined basic flow
+set up proper logging so we can turn off parts of it easily
+maybe create tree/diagram of all code and flows
+maybe create life cycle of all variables, structs and values
+represent overall objectives time and time again like each agent is an orchestrator, agents are dynamic, etc etc
+step names must always be unique in a workflow - first_calculation, second_calculation. process?, complete? etc as they act as keys, maybe should have compound keys
+get where params are initiated throughout the code
+track executivecontext throughout agent to agent and messaging
+agents are dynamic
+every agent is an orchestrator
+messages contain full context, state is preserved in db in case of container failure
+kafka - principle of unidirectional message flow
+agent versioning and agent groups, evolution
+
+keep your answers brief, to the point and use my existing code as a base wherever possible and don't over engineer things for now please claude.
+If you think that parts of my code might be missing in your context, ask first before rewriting it.
+
+if we have a structure in place like for instance a validation package, then don't suggest hardcoded inline validation as option 1 - this is hacky.
+I understand sometimes it is necessary or shortcuts very longwinded solutions and it can be suggested but not without considering the "proper" flow.
+
+Please always think things through such that you look for simpler solutions in preference to complicated ones.
+
+to just detect if a function exists, don't call it.
+
+/tmp directory was full - errors showed when reading topics
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+  --topic job.42eab5fa-7fe55079-calculator-spawn_adder.requests \
+  --from-beginning --property print.headers=true --max-messages 5
+java.io.IOException: No space left on device ...
+
+do I have the latest code and initial messages and database contents and schema available to me?
+
+help me look at this step by step, function by function to see where it is failing.
+
+lets create a sequence diagram with each function and agent included to determine what is happening and what should be happening
+
+the calculator _should_ commence it's own workflow.
+
+It should have received the parameters from the request (which numbers to add. 12345, 1234) and then should initialize, complete it's own workflow and complete.
+
+consolidate structs and don't introduce new ones until necessary across the code base
+
+when looking at fresh logs, first take a look at the first date of the new logs and don't analyse old logs (that will have dates prior to this)
+
+let's always try and make things robust and not go for quick fixes. Let's always try and build on what we have already and not restructure unnecessarily.
+
+don't use emojis - actually do use emojis, I can find and replace later
+don't make up urls, don't make up addresses and phone numbers
+
+IMPORTANT: You must respond with ONLY a valid JSON object, nothing else. Do not include any explanatory text before or after the JSON. Do not wrap the JSON in markdown code blocks.
+
+don't make up db schemas, column names/field names, enums, column types, indices - always ask
+
+don't just give quick fixes, we are in it for the long term
+
+modular
+
+all agents are orchestrators and all agents have two topics (per orchestration but at the moment it's just one orchestration per agent) a requests topic and a responses topic. The topics are specific to the parent step so that if an agent fails the workflow can resume on another.
+
+In this current architecture, all agents are orchestrators and all agents have two topics (per orchestration but at the moment it's just one orchestration per agent) a requests topic and a responses topic. The topics are specific to the parent step so that if an agent fails the workflow can resume on another.
+
+The other point is that agents can spawn other agents in a hierarchical/graph fashion, so the awaitApproval agent could spawn another agent that handles the response or it could have in its own workflow a ProcessApprovalDecision action.
+
+Currently the orchestration for the agents is working ok and it doesn't want changing unless completely necessary - it does it's job.
+
+So how about this design:
+
+the awaitApproval agent workflow has a ProcessApprovalDecision action and it waits for responses on its own responses topic.
+
+another possibility given that this topic might be unintentionally ephemeral, is that the approval responses go to a central topic and are then forwarded to this agent's own responses topic, so there is a central store of responses in that central topic. I'd need to think further about that though. Please think about a modular design that doesn't involve every agent (i.e. the orchestrator) having to handle every possible action response (in the orchestrator code) and that follows our existing multi agent, potentially hierarchical agent, pattern.
+
+I would want all major work, including transformations, to happen in a child agent of generic agent (or child's child etc), as the generic agent is mentally a sort of initial orchestrator fanning out work to agents and shouldn't really do much work itself except for managing requests, spawning agents, and keeping track of responses etc. Technically it should remain the same as any other agent though, i.e. the orchestration code is shared with all agents.
+
+However, it should be able to work as part of the generic agent's own workflow of course.
+
+architecture is a recursive orchestrator model
+
+it would be good to have the ability to run parallel tasks in the workflow, so the whole generic agent workflow for instance won't stall waiting for a human response.
+
+data flow
+
+We use the image adapter to create presigned urls of images
+
+I'd like to break it down into several sections, with separate agents concentrating on each section. We can do detailed prompts for each section and we can, if we want to, spawn sub agents for e.g. research before writing the content.
+
+make sure we use the correct db fields e.g. there was confusion between status and build_status presumably because AI thought that status was the more "reasonable" or probably choice, when it wasn't.
+
+I want to use the git adapter for all git commits, in case one day I change the git destination.
+
+agents are dynamically spawned usually
+
+the initial messages should be simple kafka messages without sql and bash functions because potentially these might be sent by another agent
+
+try and collect my prompts and responses
+
+You said: rather than or aswell as dropping, should we introduce a loud validation step?
+
+rather than or aswell as dropping, should we introduce a loud validation step? We should rather fix the error at source than just paper over it too. Should it be part algorithmic and not completely rely on the llm for the bits that it is not so good at? Should we use a better llm model for this step? what else can we do here to make it a bit more robust, simple, observable and reliable.

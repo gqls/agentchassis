@@ -20,14 +20,42 @@ type AnthropicClient struct {
 
 // NewAnthropicClient creates a new Anthropic client
 func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*AnthropicClient, error) {
-	apiKeyEnvVar := config["api_key_env_var"].(string)
-	apiKey := os.Getenv(apiKeyEnvVar)
-	if apiKey == "" {
-		return nil, fmt.Errorf("API key not found in environment variable %s", apiKeyEnvVar)
+	// Validate config exists
+	if config == nil {
+		return nil, fmt.Errorf("ai_service config is nil - ensure 'ai_service' block exists in step config")
 	}
 
-	model := config["model"].(string)
+	// Safely extract api_key_env_var with helpful error message
+	apiKeyEnvVarRaw, exists := config["api_key_env_var"]
+	if !exists || apiKeyEnvVarRaw == nil {
+		return nil, fmt.Errorf("ai_service.api_key_env_var not configured - add 'api_key_env_var: \"ANTHROPIC_API_KEY\"' to ai_service config")
+	}
+	apiKeyEnvVar, ok := apiKeyEnvVarRaw.(string)
+	if !ok || apiKeyEnvVar == "" {
+		return nil, fmt.Errorf("ai_service.api_key_env_var must be a non-empty string, got: %T", apiKeyEnvVarRaw)
+	}
 
+	// Get API key from environment
+	apiKey := os.Getenv(apiKeyEnvVar)
+	if apiKey == "" {
+		return nil, fmt.Errorf("API key environment variable '%s' is not set or empty", apiKeyEnvVar)
+	}
+
+	// Safely extract model with default fallback
+	model := "claude-sonnet-4-6" // sensible default
+	// model := "claude-haiku-4-5-20251001"
+	if modelRaw, exists := config["model"]; exists && modelRaw != nil {
+		if modelStr, ok := modelRaw.(string); ok && modelStr != "" {
+			model = modelStr
+		}
+	}
+
+	// Resolve alias to actual model name
+	model = ResolveModelAlias(model, nil) // or pass a logger if available
+
+	/*if model == "" {
+		return nil, fmt.Errorf("no AI model selected")
+	}*/
 	return &AnthropicClient{
 		apiKey:     apiKey,
 		model:      model,
@@ -39,9 +67,8 @@ func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*An
 func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, options map[string]interface{}) (string, error) {
 	// Build request
 	requestBody := map[string]interface{}{
-		"model":       c.model,
-		"max_tokens":  2048,
-		"temperature": 0.7,
+		"model":      c.model,
+		"max_tokens": 2048,
 		"messages": []map[string]string{
 			{
 				"role":    "user",
@@ -50,13 +77,46 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 		},
 	}
 
-	// Override with provided options
+	// Check if extended thinking is requested
 	if options != nil {
+		if budgetTokens, ok := options["budget_tokens"]; ok {
+			switch bt := budgetTokens.(type) {
+			case float64:
+				if bt > 0 {
+					requestBody["thinking"] = map[string]interface{}{
+						"type":          "enabled",
+						"budget_tokens": int(bt),
+					}
+				}
+			case int:
+				if bt > 0 {
+					requestBody["thinking"] = map[string]interface{}{
+						"type":          "enabled",
+						"budget_tokens": bt,
+					}
+				}
+			}
+		}
+	}
+
+	// Temperature is intentionally NOT sent to Anthropic.
+	// Claude Opus 4.7+ returns a 400 for any non-default temperature, and
+	// extended thinking is incompatible with temperature on any model.
+	// Temperature stays in the generic options contract for other providers
+	// (e.g. ollama); the Anthropic client simply ignores it.
+	if options != nil {
+		// Override max_tokens from provided options
 		if maxTokens, ok := options["max_tokens"]; ok {
 			requestBody["max_tokens"] = maxTokens
 		}
-		if temperature, ok := options["temperature"]; ok {
-			requestBody["temperature"] = temperature
+		// Record what was actually sent, for llm_call_log (mirrors the
+		// __usage_* write-back below). No temperature is sent, so
+		// __sent_temperature is deliberately left unset.
+		switch mt := requestBody["max_tokens"].(type) {
+		case int:
+			options["__sent_max_tokens"] = mt
+		case float64:
+			options["__sent_max_tokens"] = int(mt)
 		}
 	}
 
@@ -92,25 +152,60 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// Parse response
+	// Parse response — handle both standard and extended thinking formats
+	// With thinking enabled, content array has {type:"thinking"} blocks
+	// followed by {type:"text"} blocks. We want the text block.
 	var response struct {
 		Content []struct {
+			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
+		Usage struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// Write usage tokens back to options so the caller can log them
+	if options != nil {
+		options["__usage_input_tokens"] = response.Usage.InputTokens
+		options["__usage_output_tokens"] = response.Usage.OutputTokens
+	}
+
 	if len(response.Content) == 0 {
 		return "", fmt.Errorf("no content in response")
 	}
 
-	return response.Content[0].Text, nil
+	// Find the text block (skip thinking blocks)
+	for _, block := range response.Content {
+		if block.Type == "text" || block.Type == "" {
+			return block.Text, nil
+		}
+	}
+
+	// Fallback: return first block with any text
+	for _, block := range response.Content {
+		if block.Text != "" {
+			return block.Text, nil
+		}
+	}
+
+	return "", fmt.Errorf("no text content in response (had %d blocks)", len(response.Content))
 }
 
 // GenerateEmbedding generates embeddings (not implemented for Anthropic)
 func (c *AnthropicClient) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
 	return nil, fmt.Errorf("embedding generation not supported by Anthropic")
+}
+
+func (c *AnthropicClient) Model() string {
+	return c.model
+}
+
+func (c *AnthropicClient) Provider() string {
+	return "anthropic"
 }

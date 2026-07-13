@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-scrape-adapter-config
+data:
+  web-scrape-adapter.yaml: |
+    server:
+      metrics_port: 9090
+      shutdown_timeout: 5s
+    
+    logger:
+      level: "debug"
+      format: "json"
+    
+    infrastructure:
+      kafka_brokers:
+        - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+    
+    adapter:
+      request_topic: "system.adapter.webscrape.requests"
+      consumer_group: "webscrape-adapter-group"
+      max_retries: 3
+      timeout: 120s
+    
+    providers:
+      firecrawl:
+        enabled: true
+        api_url: "https://api.firecrawl.dev/v2"
+        timeout: 60s
+      # Can add other providers later
+      # playwright:
+      #   enabled: false

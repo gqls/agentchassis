@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-search-adapter
+spec:
+  template:
+    spec:
+      containers:
+        - name: web-search-adapter
+          env:
+            - name: REQUEST_THROTTLE_MS
+              value: "5000"     # 5 seconds between requests
+            - name: SCRAPING_BEE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: SCRAPING_BEE_API_KEY
+            - name: FIRECRAWL_API_KEY
+              valueFrom:
+               secretKeyRef:
+                 name: personae-default-secrets
+                 key: FIRECRAWL_API_KEY
+            - name: PRIMARY_SEARCH_PROVIDER
+              value: "firecrawl"
+            - name: GO_ENV
+              value: "production"

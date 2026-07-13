@@ -1,0 +1,304 @@
+-- Hero Writer Agent Definition
+INSERT INTO agent_definitions (
+    id,
+    type,
+    display_name,
+    description,
+    category,
+    image_repository,
+    image_tag,
+    resources,
+    default_config,
+    capabilities,
+    topics,
+    health_config,
+    env_vars,
+    is_active,
+    version
+) VALUES (
+    gen_random_uuid(),
+    'content-creator-hero',
+    'Hero Section Writer',
+    'Specialized in writing compelling hero sections with powerful headlines and engaging subheadlines',
+    'data-driven',
+    'docker.io/gqls/agent-chassis',
+    'latest',
+    '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}',
+    '{
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "processing_mode": "task",
+        "prompt_template": "Write a compelling hero section for {{.business_name}}, a {{.business_type}}. Include a powerful headline and engaging subheadline that captures attention and communicates the core value proposition.",
+        "ai_service": {
+            "provider": "anthropic",
+            "api_key_env_var": "ANTHROPIC_API_KEY",
+            "model": "claude-3-5-sonnet-20241022"
+        },
+        "workflow": {
+            "start_step": "generate_content",
+            "steps": {
+                "generate_content": {
+                    "action": "execute_llm_prompt",
+                    "next_step": "complete"
+                },
+                "complete": {
+                    "action": "complete_workflow"
+                }
+            }
+        }
+    }',
+    '["content", "hero", "headlines", "value-proposition"]',
+    '{"error": "system.errors.content-creator-hero", "process": "system.agent.content-creator-hero.process", "response": "system.responses.content-creator-hero"}',
+    '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}',
+    '[]',
+    true,
+    1
+);
+
+-- CTA Writer Agent Definition
+INSERT INTO agent_definitions (
+    id,
+    type,
+    display_name,
+    description,
+    category,
+    image_repository,
+    image_tag,
+    resources,
+    default_config,
+    capabilities,
+    topics,
+    health_config,
+    env_vars,
+    is_active,
+    version
+) VALUES (
+    gen_random_uuid(),
+    'content-creator-cta',
+    'Call-to-Action Writer',
+    'Specialized in writing persuasive call-to-action sections with urgency and clear value',
+    'data-driven',
+    'docker.io/gqls/agent-chassis',
+    'latest',
+    '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}',
+    '{
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.8,
+        "max_tokens": 2000,
+        "processing_mode": "task",
+        "prompt_template": "Write a strong call-to-action section for {{.business_name}}. Include compelling action text and a clear reason to act now. Make it urgent, persuasive, and action-oriented.",
+        "ai_service": {
+            "provider": "anthropic",
+            "api_key_env_var": "ANTHROPIC_API_KEY",
+            "model": "claude-3-5-sonnet-20241022"
+        },
+        "workflow": {
+            "start_step": "generate_content",
+            "steps": {
+                "generate_content": {
+                    "action": "execute_llm_prompt",
+                    "next_step": "complete"
+                },
+                "complete": {
+                    "action": "complete_workflow"
+                }
+            }
+        }
+    }',
+    '["content", "cta", "conversion", "persuasion"]',
+    '{"error": "system.errors.content-creator-cta", "process": "system.agent.content-creator-cta.process", "response": "system.responses.content-creator-cta"}',
+    '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}',
+    '[]',
+    true,
+    1
+);
+
+-- Testimonials Writer Agent Definition
+INSERT INTO agent_definitions (
+    id,
+    type,
+    display_name,
+    description,
+    category,
+    image_repository,
+    image_tag,
+    resources,
+    default_config,
+    capabilities,
+    topics,
+    health_config,
+    env_vars,
+    is_active,
+    version
+) VALUES (
+    gen_random_uuid(),
+    'content-creator-testimonials',
+    'Testimonials Writer',
+    'Specialized in writing authentic, emotionally resonant customer testimonials',
+    'data-driven',
+    'docker.io/gqls/agent-chassis',
+    'latest',
+    '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}',
+    '{
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "processing_mode": "task",
+        "prompt_template": "Create 2-3 realistic customer testimonials for {{.business_name}}, a {{.business_type}}. Make them authentic, specific, and emotionally resonant. Include customer names, contexts, and specific benefits they experienced.",
+        "ai_service": {
+            "provider": "anthropic",
+            "api_key_env_var": "ANTHROPIC_API_KEY",
+            "model": "claude-3-5-sonnet-20241022"
+        },
+        "workflow": {
+            "start_step": "generate_content",
+            "steps": {
+                "generate_content": {
+                    "action": "execute_llm_prompt",
+                    "next_step": "complete"
+                },
+                "complete": {
+                    "action": "complete_workflow"
+                }
+            }
+        }
+    }',
+    '["content", "testimonials", "social-proof", "trust"]',
+    '{"error": "system.errors.content-creator-testimonials", "process": "system.agent.content-creator-testimonials.process", "response": "system.responses.content-creator-testimonials"}',
+    '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}',
+    '[]',
+    true,
+    1
+);
+
+-- Features Writer Agent Definition
+INSERT INTO agent_definitions (
+    id,
+    type,
+    display_name,
+    description,
+    category,
+    image_repository,
+    image_tag,
+    resources,
+    default_config,
+    capabilities,
+    topics,
+    health_config,
+    env_vars,
+    is_active,
+    version
+) VALUES (
+    gen_random_uuid(),
+    'content-creator-features',
+    'Features Writer',
+    'Specialized in writing clear, customer-focused feature descriptions',
+    'data-driven',
+    'docker.io/gqls/agent-chassis',
+    'latest',
+    '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}',
+    '{
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.6,
+        "max_tokens": 2000,
+        "processing_mode": "task",
+        "prompt_template": "List 3-4 key features or benefits of {{.business_name}}, a {{.business_type}}. Make each feature clear, customer-focused, and emphasize the value proposition. Focus on how each feature solves customer problems.",
+        "ai_service": {
+            "provider": "anthropic",
+            "api_key_env_var": "ANTHROPIC_API_KEY",
+            "model": "claude-3-5-sonnet-20241022"
+        },
+        "workflow": {
+            "start_step": "generate_content",
+            "steps": {
+                "generate_content": {
+                    "action": "execute_llm_prompt",
+                    "next_step": "complete"
+                },
+                "complete": {
+                    "action": "complete_workflow"
+                }
+            }
+        }
+    }',
+    '["content", "features", "benefits", "value-proposition"]',
+    '{"error": "system.errors.content-creator-features", "process": "system.agent.content-creator-features.process", "response": "system.responses.content-creator-features"}',
+    '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}',
+    '[]',
+    true,
+    1
+);
+
+-- Contact Writer Agent Definition
+INSERT INTO agent_definitions (
+    id,
+    type,
+    display_name,
+    description,
+    category,
+    image_repository,
+    image_tag,
+    resources,
+    default_config,
+    capabilities,
+    topics,
+    health_config,
+    env_vars,
+    is_active,
+    version
+) VALUES (
+    gen_random_uuid(),
+    'content-creator-contact',
+    'Contact Section Writer',
+    'Specialized in writing warm, inviting contact sections',
+    'data-driven',
+    'docker.io/gqls/agent-chassis',
+    'latest',
+    '{"limits": {"cpu": "500m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "256Mi"}}',
+    '{
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "processing_mode": "task",
+        "prompt_template": "Write a contact section for {{.business_name}}. Include warm, inviting text that encourages customers to reach out. Make it approachable, helpful, and emphasize accessibility.",
+        "ai_service": {
+            "provider": "anthropic",
+            "api_key_env_var": "ANTHROPIC_API_KEY",
+            "model": "claude-3-5-sonnet-20241022"
+        },
+        "workflow": {
+            "start_step": "generate_content",
+            "steps": {
+                "generate_content": {
+                    "action": "execute_llm_prompt",
+                    "next_step": "complete"
+                },
+                "complete": {
+                    "action": "complete_workflow"
+                }
+            }
+        }
+    }',
+    '["content", "contact", "engagement", "accessibility"]',
+    '{"error": "system.errors.content-creator-contact", "process": "system.agent.content-creator-contact.process", "response": "system.responses.content-creator-contact"}',
+    '{"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 30}',
+    '[]',
+    true,
+    1
+);
+
+
+-- Update Agent Group Definition
+UPDATE agent_group_definitions
+SET
+    agent_configs = '[
+        {"role": "hero_writer", "agent_type": "content-creator-hero"},
+        {"role": "features_writer", "agent_type": "content-creator-features"},
+        {"role": "testimonials_writer", "agent_type": "content-creator-testimonials"},
+        {"role": "contact_writer", "agent_type": "content-creator-contact"},
+        {"role": "cta_writer", "agent_type": "content-creator-cta"}
+    ]'::jsonb,
+    version = version + 1,
+    updated_at = NOW()
+WHERE group_type = 'multi-section-website-builder';

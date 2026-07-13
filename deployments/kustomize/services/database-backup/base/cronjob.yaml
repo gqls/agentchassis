@@ -1,0 +1,194 @@
+# deployments/kustomize/services/database-backup/base/cronjob.yaml
+#
+# Backs up all three databases, uploads to S3 (Backblaze B2), cleans up old local copies.
+# Uses a single container with sequential steps to avoid parallel execution issues.
+# Connects to Postgres directly (not via pgbouncer — transaction mode breaks pg_dump).
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: database-backup
+  labels:
+    app: database-backup
+    component: backup
+spec:
+  schedule: "0 2 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: database-backup
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: ai-persona-app
+          imagePullSecrets:
+            - name: docker-hub-creds
+
+          containers:
+            - name: backup
+              image: postgres:16-alpine
+              env:
+                # PostgreSQL passwords
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+                - name: TEMPLATES_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: TEMPLATES_DB_PASSWORD
+
+                # MySQL auth DB password
+                - name: AUTH_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: AUTH_DB_PASSWORD
+
+                # S3 credentials (Backblaze B2)
+                # These use the same secret keys as git-adapter and image-generator
+                - name: B2_APPLICATION_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-storage-secrets
+                      key: B2_APPLICATION_KEY_ID
+                - name: B2_APPLICATION_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-storage-secrets
+                      key: B2_APPLICATION_KEY
+                - name: S3_ENDPOINT
+                  value: "https://s3.us-east-005.backblazeb2.com"
+                - name: S3_BUCKET
+                  value: "personae-prod-uk001-backups"
+
+                # Connection details (overridable in overlay)
+                - name: PG_CLIENTS_HOST
+                  value: "postgres-clients"
+                - name: PG_TEMPLATES_HOST
+                  value: "postgres-templates"
+                - name: MYSQL_AUTH_HOST
+                  value: "rs17.uk-noc.com"
+                - name: MYSQL_AUTH_USER
+                  value: "catalogu_personae"
+                - name: MYSQL_AUTH_DB
+                  value: "catalogu_vectordb_chassis"
+
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_DIR="/backup/${TIMESTAMP}"
+                  mkdir -p "${BACKUP_DIR}"
+
+                  echo "=== Database backup starting: ${TIMESTAMP} ==="
+
+                  # ── 1. Backup clients_db (PostgreSQL) ──
+                  echo "[1/3] Backing up clients_db..."
+                  PGPASSWORD="${CLIENTS_DB_PASSWORD}" pg_dump \
+                    -h "${PG_CLIENTS_HOST}" -p 5432 \
+                    -U clients_user -d clients_db \
+                    --no-owner --no-acl \
+                    | gzip > "${BACKUP_DIR}/clients_db.sql.gz"
+                  echo "  clients_db: $(du -h ${BACKUP_DIR}/clients_db.sql.gz | cut -f1)"
+
+                  # ── 2. Backup templates_db (PostgreSQL) ──
+                  echo "[2/3] Backing up templates_db..."
+                  PGPASSWORD="${TEMPLATES_DB_PASSWORD}" pg_dump \
+                    -h "${PG_TEMPLATES_HOST}" -p 5432 \
+                    -U templates_user -d templates_db \
+                    --no-owner --no-acl \
+                    | gzip > "${BACKUP_DIR}/templates_db.sql.gz"
+                  echo "  templates_db: $(du -h ${BACKUP_DIR}/templates_db.sql.gz | cut -f1)"
+
+                  # ── 3. Backup auth_db (MySQL — external) ──
+                  echo "[3/3] Backing up auth_db (MySQL)..."
+                  # Install MySQL client (not in postgres image)
+                  apk add --no-cache mysql-client > /dev/null 2>&1 || true
+                  if command -v mysqldump >/dev/null 2>&1; then
+                    mysqldump \
+                      -h "${MYSQL_AUTH_HOST}" -P 3306 \
+                      -u "${MYSQL_AUTH_USER}" -p"${AUTH_DB_PASSWORD}" \
+                      --skip-ssl \
+                      --routines --triggers --single-transaction \
+                      "${MYSQL_AUTH_DB}" \
+                      | gzip > "${BACKUP_DIR}/auth_db.sql.gz"
+                    echo "  auth_db: $(du -h ${BACKUP_DIR}/auth_db.sql.gz | cut -f1)"
+                  else
+                    echo "  WARNING: mysqldump not available, skipping auth_db"
+                  fi
+
+                  echo ""
+                  echo "=== Local backups complete ==="
+                  ls -lh "${BACKUP_DIR}/"
+
+                  # ── 4. Upload to S3 (Backblaze B2) ──
+                  echo ""
+                  echo "=== Uploading to S3 ==="
+
+                  # Install AWS CLI (minimal, for S3 compatible uploads)
+                  apk add --no-cache aws-cli > /dev/null 2>&1 || \
+                    apk add --no-cache python3 py3-pip > /dev/null 2>&1 && \
+                    pip3 install --quiet awscli 2>/dev/null || true
+
+                  if command -v aws >/dev/null 2>&1; then
+                    export AWS_ACCESS_KEY_ID="${B2_APPLICATION_KEY_ID}"
+                    export AWS_SECRET_ACCESS_KEY="${B2_APPLICATION_KEY}"
+
+                    for f in "${BACKUP_DIR}"/*.sql.gz; do
+                      FILENAME=$(basename "$f")
+                      S3_PATH="s3://${S3_BUCKET}/db-backups/${TIMESTAMP}/${FILENAME}"
+                      echo "  Uploading ${FILENAME} → ${S3_PATH}"
+                      aws s3 cp "$f" "${S3_PATH}" \
+                        --endpoint-url "${S3_ENDPOINT}" \
+                        --quiet
+                    done
+
+                    echo ""
+                    echo "=== S3 upload complete ==="
+
+                    # List recent backups in S3
+                    aws s3 ls "s3://${S3_BUCKET}/db-backups/" \
+                      --endpoint-url "${S3_ENDPOINT}" \
+                      | tail -5
+                  else
+                    echo "  WARNING: aws CLI not available, backups stored locally only"
+                  fi
+
+                  # ── 5. Clean up old local backups (keep 3 days) ──
+                  echo ""
+                  echo "=== Cleaning old local backups ==="
+                  find /backup -maxdepth 1 -type d -mtime +3 -exec rm -rf {} + 2>/dev/null || true
+                  echo "Local backup dirs remaining: $(ls /backup | wc -l)"
+
+                  echo ""
+                  echo "=== Backup job complete: ${TIMESTAMP} ==="
+
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backup
+
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+
+          volumes:
+            - name: backup-storage
+              emptyDir:
+                sizeLimit: 5Gi

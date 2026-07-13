@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-06-25T06:00:00Z",
+  "today": {
+    "eyebrow": "Today's Provocation",
+    "headline": "AI will <em>never</em> be funny on purpose.",
+    "body": "The machine can recombine a million jokes and still not know why any of them land. Humour needs a victim, a risk, and a shared flinch — three things a model is built to avoid. So when an AI makes you laugh, ask who actually wrote the punchline.",
+    "primary_cta": { "label": "File Your Position", "url": "/tools/gauntlet/index.html" },
+    "secondary_cta": { "label": "See All Provocations", "url": "/provocations/index.html" },
+    "stats": [
+      { "value": "1,284", "label": "Positions Filed" },
+      { "value": "3h 12m", "label": "Until Close" },
+      { "value": "62%", "label": "Disagree" }
+    ]
+  },
+  "lobby": [
+    {
+      "icon": "\ud83d\udd25",
+      "title": "Remote work killed mentorship",
+      "desc": "You can't absorb judgement over a video call. A generation is flying blind.",
+      "url": "/provocations/index.html"
+    },
+    {
+      "icon": "\u26a1",
+      "title": "Privacy is already over",
+      "desc": "You traded it years ago. The fight now is who profits, not whether it's gone.",
+      "url": "/provocations/index.html"
+    },
+    {
+      "icon": "\ud83e\udde0",
+      "title": "Reading fiction makes you worse at facts",
+      "desc": "Narrative trains you to want a tidy arc. Reality doesn't have one.",
+      "url": "/provocations/index.html"
+    },
+    {
+      "icon": "\ud83c\udfaf",
+      "title": "Most 'data-driven' decisions aren't",
+      "desc": "The numbers get picked after the gut already chose. Dashboards are theatre.",
+      "url": "/provocations/index.html"
+    }
+  ]
+}

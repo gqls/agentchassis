@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  labels:
+    app: auth-service
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      imagePullSecrets:
+        - name: docker-hub-creds
+      serviceAccountName: ai-persona-app
+      containers:
+        - name: auth-service
+          image: docker.io/aqls/auth-service:latest # This will be patched by overlays
+          ports:
+            - containerPort: 8081
+              name: http
+            - containerPort: 9090
+              name: grpc
+          envFrom:
+            - configMapRef:
+                # Patched by overlays
+                name: placeholder-config
+            - secretRef:
+                # Patched by overlays
+                name: placeholder-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10

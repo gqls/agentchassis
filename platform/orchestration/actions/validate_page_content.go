@@ -1,0 +1,785 @@
+// FILE: platform/orchestration/actions/validate_page_content.go
+//
+// ValidatePageContentAction checks generated page content for issues
+// before it gets saved and deployed.
+//
+// Checks performed:
+//   1. Placeholder text — "To be added", "Lorem ipsum", "[insert", etc.
+//   2. Unrendered templates — {{.field}}, {{range}}, {{if}}
+//   3. Cross-site contamination — wrong domain/company name in content
+//   4. Broken internal links — hrefs pointing to non-existent pages
+//   5. Hallucinated emails — email addresses that don't match site's contact
+//   6. Content length — suspiciously short content
+//
+// Returns:
+//   - valid: bool (false if any blockers found)
+//   - clean_html: HTML with stray comments stripped (for save_sections)
+//   - issues: array of issues with category, severity, detail
+//   - blocker/warning/error counts
+//
+// Blockers (prevent deployment): placeholder, template, contamination
+// Errors (prevent deployment): broken_link, invalid_email
+// Warnings (logged only): short_content
+//
+// Registration:
+//   "validate_page_content": {
+//       Handler:     ValidatePageContentAction,
+//       Category:    "site",
+//       Description: "Validate page content before deployment",
+//       IsLocal:     true,
+//   },
+
+package actions
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"regexp"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"go.uber.org/zap"
+)
+
+// ValidationIssue represents a single validation problem
+type ValidationIssue struct {
+	Type        string `json:"type"`
+	Category    string `json:"category"` // "placeholder", "template", "contamination", "link", "email", "short_content"
+	Severity    string `json:"severity"` // "blocker", "error", "warning"
+	Location    string `json:"location"`
+	Value       string `json:"value"`
+	Expected    string `json:"expected"`
+	Description string `json:"description"`
+}
+
+// ============================================================================
+// Placeholder patterns
+// ============================================================================
+
+var placeholderPatterns = []struct {
+	Pattern string
+	Label   string
+}{
+	{"needs human review", "human review marker"},
+	{"needs_human_review", "human review marker"},
+	{"needs review", "review marker"},
+	{"to be added", "placeholder name/content"},
+	{"to be confirmed", "unconfirmed content"},
+	{"to be updated", "incomplete content"},
+	{"lorem ipsum", "lorem ipsum placeholder"},
+	{"dolor sit amet", "lorem ipsum placeholder"},
+	{"[insert", "template bracket placeholder"},
+	{"[your ", "template bracket placeholder"},
+	{"[company", "template bracket placeholder"},
+	{"[name", "template bracket placeholder"},
+	{"[client", "template bracket placeholder"},
+	{"[add ", "template bracket placeholder"},
+	{"[replace", "template bracket placeholder"},
+	{"[todo", "todo marker"},
+	{"[tbd", "to be determined"},
+	// Note: bare "placeholder" was previously in this list but produced
+	// false positives on legitimate HTML attributes (e.g.
+	// <input placeholder="...">) and CSS class names. The bracketed
+	// markers above and the labelled placeholder phrases below remain;
+	// they're unambiguous.
+	{"sample text", "sample text"},
+	{"example text", "example text"},
+	{"john doe", "placeholder name"},
+	{"jane doe", "placeholder name"},
+	{"test@test", "test email"},
+	{"test@example", "test email"},
+	{"user@example", "example email"},
+	{"name@example", "example email"},
+	{"123 main st", "placeholder address"},
+	{"your name here", "placeholder prompt"},
+	{"your company", "placeholder prompt"},
+	{"acme corp", "placeholder company"},
+	{"todo:", "todo marker"},
+	{"fixme:", "fixme marker"},
+	{"coming soon", "coming soon placeholder"},
+	{"<no value>", "unrendered template variable"},
+	{"human review required", "human review marker"},
+	{"review required", "review marker"},
+	{"name needed", "placeholder prompt"},
+	{"title needed", "placeholder prompt"},
+	{"photo needed", "placeholder prompt"},
+	{"name needed", "generic placeholder"},
+	{"content needed", "placeholder prompt"},
+	{"bio needed", "placeholder prompt"},
+	{"details needed", "placeholder prompt"},
+	{"image needed", "placeholder prompt"},
+	{"tbd", "to be determined"}, // without bracket prefix
+	{"not provided", "missing data marker"},
+	{"not yet available", "placeholder"},
+	{"details pending", "placeholder"},
+	{"human review required", "human review marker"},
+	{"description needed", "placeholder prompt"},
+	{"information needed", "placeholder prompt"},
+	{"text needed", "placeholder prompt"},
+}
+
+var templateVarRegex = regexp.MustCompile(`\{\{[\s]*[\.\w]+[\s]*\}\}`)
+var templateBlockRegex = regexp.MustCompile(`\{\{[\s]*(range|if|with|end|else|template|block|define)[\s]`)
+
+// ============================================================================
+// Main action
+// ============================================================================
+
+func ValidatePageContentAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	logger := params.Logger.With(zap.String("action", "validate_page_content"))
+
+	if params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	config := params.StepConfig.Config
+
+	// ── Extract HTML ──
+	htmlField := "page_content.response.page_html"
+	if hf, ok := config["html_field"].(string); ok && hf != "" {
+		htmlField = hf
+	}
+
+	htmlRaw := datahelpers.ExtractNestedField(params.CollectedData, htmlField)
+	if htmlRaw == nil {
+		for _, alt := range []string{
+			"page_content.response.page_body",
+			"page_content.response.html",
+		} {
+			htmlRaw = datahelpers.ExtractNestedField(params.CollectedData, alt)
+			if htmlRaw != nil {
+				break
+			}
+		}
+	}
+
+	htmlStr, _ := htmlRaw.(string)
+	if htmlStr == "" {
+		return map[string]interface{}{
+			"valid":      true,
+			"clean_html": "",
+			"reason":     "no content to validate",
+		}, nil
+	}
+
+	// ── Extract site context ──
+	domain := resolveConfigString(config, "domain", params.CollectedData, logger)
+	companyName := resolveConfigString(config, "company_name", params.CollectedData, logger)
+
+	siteIDStr := resolveConfigString(config, "site_id", params.CollectedData, logger)
+	if siteIDStr == "" {
+		// Try site_record.site_id
+		siteIDStr = extractNestedString(params.CollectedData, "site_record.site_id")
+	}
+
+	// Config toggles (all default to true)
+	checkLinks := configBoolOrDefault(config, "check_internal_links", true)
+	checkEmails := configBoolOrDefault(config, "check_emails", true)
+
+	// ── Run all checks ──
+	var issues []ValidationIssue
+
+	// 1. Placeholder text
+	issues = append(issues, checkPlaceholderPatterns(htmlStr)...)
+
+	// 2. Unrendered templates
+	issues = append(issues, checkUnrenderedTemplates(htmlStr)...)
+
+	// 3. Cross-site contamination
+	if domain != "" {
+		issues = append(issues, checkDomainContamination(htmlStr, domain, companyName)...)
+	}
+
+	// 4. Broken internal links
+	if checkLinks && params.DB != nil && siteIDStr != "" {
+		if siteID, err := uuid.Parse(siteIDStr); err == nil {
+			issues = append(issues, validateInternalLinks(ctx, params.DB, htmlStr, siteID, logger)...)
+		}
+	}
+
+	// 5. Hallucinated emails
+	if checkEmails && params.DB != nil && siteIDStr != "" {
+		if siteID, err := uuid.Parse(siteIDStr); err == nil {
+			issues = append(issues, validateEmails(ctx, params.DB, htmlStr, siteID, logger)...)
+		}
+	}
+
+	// 6. Content length
+	issues = append(issues, checkTextLength(htmlStr)...)
+
+	// ── Categorise results ──
+	blockerCount := 0
+	errorCount := 0
+	warningCount := 0
+
+	for _, issue := range issues {
+		switch issue.Severity {
+		case "blocker":
+			blockerCount++
+		case "error":
+			errorCount++
+		case "warning":
+			warningCount++
+		}
+	}
+
+	valid := blockerCount == 0 && errorCount == 0
+
+	// Build issues list for output
+	issuesMaps := make([]map[string]string, len(issues))
+	for i, issue := range issues {
+		issuesMaps[i] = map[string]string{
+			"type":        issue.Type,
+			"category":    issue.Category,
+			"severity":    issue.Severity,
+			"location":    issue.Location,
+			"value":       issue.Value,
+			"expected":    issue.Expected,
+			"description": issue.Description,
+		}
+	}
+
+	logger.Info("ValidatePageContentAction: complete",
+		zap.Bool("valid", valid),
+		zap.Int("blockers", blockerCount),
+		zap.Int("errors", errorCount),
+		zap.Int("warnings", warningCount),
+		zap.String("domain", domain))
+
+	if !valid {
+		for _, issue := range issues {
+			if issue.Severity == "blocker" || issue.Severity == "error" {
+				logger.Warn("ValidatePageContentAction: issue",
+					zap.String("category", issue.Category),
+					zap.String("severity", issue.Severity),
+					zap.String("detail", issue.Description),
+					zap.String("value", issue.Value))
+			}
+		}
+
+		// Persist the structured issue list to agent_error_log so post-mortem
+		// debugging doesn't require pod-log access. The chassis will write its
+		// own generic "step failed" row after this action returns; this insert
+		// adds the concrete blocker/error details that the chassis row lacks.
+		// Failure to write the log is itself only a Warn — we never want
+		// logging-failure to mask the actual validation failure.
+		writeValidationFailureLog(ctx, params, siteIDStr, domain,
+			issues, blockerCount, errorCount, logger)
+
+		return nil, fmt.Errorf("content validation failed: %d blockers, %d errors", blockerCount, errorCount)
+	}
+
+	// ── Clean HTML — strip stray comments ──
+	commentRegex := regexp.MustCompile(`<!--[\s\S]*?-->`)
+	cleanHTML := commentRegex.ReplaceAllString(htmlStr, "")
+	doubleNewline := regexp.MustCompile(`\n\s*\n\s*\n`)
+	cleanHTML = doubleNewline.ReplaceAllString(cleanHTML, "\n\n")
+
+	return map[string]interface{}{
+		"valid":          valid,
+		"clean_html":     cleanHTML,
+		"blockers":       blockerCount,
+		"errors":         errorCount,
+		"warnings":       warningCount,
+		"issue_count":    len(issues),
+		"issues":         issuesMaps,
+		"checked_links":  countInternalLinks(htmlStr),
+		"checked_emails": countEmailAddresses(htmlStr),
+	}, nil
+}
+
+// ============================================================================
+// Structured failure logging — agent_error_log
+// ============================================================================
+//
+// When validation produces blockers, the action returns a generic error
+// message. The chassis catches that and writes a row to agent_error_log,
+// but with no detail beyond "1 blockers, 0 errors". For post-mortem
+// debugging we want the actual blocker descriptions in the database —
+// not just in pod logs that may have rotated by the time we look.
+//
+// writeValidationFailureLog inserts a sibling row before the action
+// returns its error. The row's severity is 'warning' (the chassis row
+// is the canonical 'error') and its error_code is dedicated to this
+// detail-write so queries can join on it. The context JSONB carries the
+// full structured issue list.
+//
+// This is best-effort: if the insert fails, we log the secondary error
+// at Warn and proceed. Never let logging-failure mask the validation
+// failure itself.
+
+const validationDetailErrorCode = "CONTENT_VALIDATION_BLOCKER_DETAIL"
+
+func writeValidationFailureLog(
+	ctx context.Context,
+	params ActionParams,
+	siteIDStr string,
+	domain string,
+	issues []ValidationIssue,
+	blockerCount, errorCount int,
+	logger *zap.Logger,
+) {
+	if params.DB == nil {
+		return
+	}
+
+	// Build the issues payload — only blockers and errors. Warnings are
+	// not why the validation failed, so they don't belong in the failure
+	// detail row. (They're still in the action's return map on success.)
+	failureIssues := make([]map[string]string, 0, blockerCount+errorCount)
+	for _, issue := range issues {
+		if issue.Severity != "blocker" && issue.Severity != "error" {
+			continue
+		}
+		failureIssues = append(failureIssues, map[string]string{
+			"type":        issue.Type,
+			"category":    issue.Category,
+			"severity":    issue.Severity,
+			"location":    issue.Location,
+			"value":       issue.Value,
+			"description": issue.Description,
+		})
+	}
+
+	contextData := map[string]interface{}{
+		"blocker_count": blockerCount,
+		"error_count":   errorCount,
+		"issues":        failureIssues,
+		"page_name":     datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name"),
+	}
+	contextJSON, err := json.Marshal(contextData)
+	if err != nil {
+		logger.Warn("ValidatePageContentAction: failed to marshal failure context", zap.Error(err))
+		return
+	}
+
+	// site_id is uuid; only include if parseable.
+	var siteIDArg interface{}
+	if siteIDStr != "" {
+		if id, err := uuid.Parse(siteIDStr); err == nil {
+			siteIDArg = id
+		}
+	}
+
+	_, err = params.DB.ExecContext(ctx, `
+		INSERT INTO agent_error_log
+		    (site_id, domain, agent_type, step_name, action,
+		     error_message, error_code, severity, context)
+		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, 'warning', $8::jsonb)
+	`,
+		siteIDArg,
+		domain,
+		"page-build-handler", // best-effort; the action runs under this agent
+		"validate_content",
+		"validate_page_content",
+		fmt.Sprintf("Validation produced %d blocker(s) and %d error(s); see context.issues for detail",
+			blockerCount, errorCount),
+		validationDetailErrorCode,
+		string(contextJSON),
+	)
+	if err != nil {
+		logger.Warn("ValidatePageContentAction: failed to write structured failure log",
+			zap.Error(err))
+		return
+	}
+
+	logger.Info("ValidatePageContentAction: wrote structured failure log",
+		zap.Int("blocker_count", blockerCount),
+		zap.Int("error_count", errorCount))
+}
+
+// ============================================================================
+// Check 1: Placeholder text
+// ============================================================================
+
+func checkPlaceholderPatterns(html string) []ValidationIssue {
+	lower := strings.ToLower(html)
+	var issues []ValidationIssue
+
+	for _, p := range placeholderPatterns {
+		idx := strings.Index(lower, p.Pattern)
+		if idx >= 0 {
+			issues = append(issues, ValidationIssue{
+				Type:        "placeholder_text",
+				Category:    "placeholder",
+				Severity:    "blocker",
+				Location:    extractSnippet(html, idx, 80),
+				Value:       p.Pattern,
+				Description: fmt.Sprintf("Found placeholder text '%s' (%s)", p.Pattern, p.Label),
+			})
+		}
+	}
+	return issues
+}
+
+// ============================================================================
+// Check 2: Unrendered templates
+// ============================================================================
+
+func checkUnrenderedTemplates(html string) []ValidationIssue {
+	var issues []ValidationIssue
+
+	matches := templateVarRegex.FindAllString(html, 10)
+	for _, match := range matches {
+		issues = append(issues, ValidationIssue{
+			Type:        "unrendered_template",
+			Category:    "template",
+			Severity:    "blocker",
+			Value:       match,
+			Description: fmt.Sprintf("Unrendered template variable: %s", match),
+		})
+	}
+
+	blockMatches := templateBlockRegex.FindAllString(html, 10)
+	for _, match := range blockMatches {
+		issues = append(issues, ValidationIssue{
+			Type:        "unrendered_template_block",
+			Category:    "template",
+			Severity:    "blocker",
+			Value:       match,
+			Description: fmt.Sprintf("Unrendered template block: %s", match),
+		})
+	}
+	return issues
+}
+
+// ============================================================================
+// Check 3: Cross-site contamination
+// ============================================================================
+
+func checkDomainContamination(html string, expectedDomain string, expectedCompany string) []ValidationIssue {
+	var issues []ValidationIssue
+
+	knownSites := []struct {
+		Domain  string
+		Company string
+	}{
+		{"finetuning.uk", "FineTuning"},
+		{"gaswholesalers.com", "Gas Wholesalers"},
+		{"ai-agent-orchestration.com", "AI Agent Orchestration"},
+		{"leopardessconsulting.co.uk", "Leopardess Consulting"},
+		{"dartsonline.com", "Darts Online"},
+	}
+
+	lower := strings.ToLower(html)
+	expectedLower := strings.ToLower(expectedDomain)
+
+	for _, known := range knownSites {
+		if strings.ToLower(known.Domain) == expectedLower {
+			continue
+		}
+
+		if strings.Contains(lower, strings.ToLower(known.Domain)) {
+			idx := strings.Index(lower, strings.ToLower(known.Domain))
+			issues = append(issues, ValidationIssue{
+				Type:        "cross_site_domain",
+				Category:    "contamination",
+				Severity:    "blocker",
+				Location:    extractSnippet(html, idx, 80),
+				Value:       known.Domain,
+				Expected:    expectedDomain,
+				Description: fmt.Sprintf("Found domain '%s' in content for '%s'", known.Domain, expectedDomain),
+			})
+		}
+
+		if known.Company != "" && expectedCompany != "" &&
+			strings.ToLower(known.Company) != strings.ToLower(expectedCompany) {
+			companyLower := strings.ToLower(known.Company)
+			if strings.Contains(lower, companyLower) {
+				idx := strings.Index(lower, companyLower)
+				issues = append(issues, ValidationIssue{
+					Type:        "cross_site_company",
+					Category:    "contamination",
+					Severity:    "blocker",
+					Location:    extractSnippet(html, idx, 80),
+					Value:       known.Company,
+					Expected:    expectedCompany,
+					Description: fmt.Sprintf("Found company '%s' in content for '%s'", known.Company, expectedCompany),
+				})
+			}
+		}
+	}
+	return issues
+}
+
+// ============================================================================
+// Check 4: Broken internal links (from existing code)
+// ============================================================================
+
+func validateInternalLinks(ctx context.Context, db *sql.DB, html string, siteID uuid.UUID, logger *zap.Logger) []ValidationIssue {
+	var issues []ValidationIssue
+
+	validPages := loadValidPagePaths(ctx, db, siteID, logger)
+
+	// Href extraction, scope classification and page-path normalisation are the
+	// shared datahelpers definitions — the same ones the post-deploy audit
+	// (check_phantom_internal_links) uses, so the gate and the audit agree on
+	// what counts as an internal page link and what resolves to a real page.
+	for _, href := range datahelpers.ExtractHrefs(html) {
+		switch datahelpers.ClassifyLinkScope(href) {
+		case datahelpers.LinkScopeEmpty:
+			// An empty href renders as a dead link/button (e.g. an unpopulated
+			// "Browse All X" CTA). Loud but non-blocking.
+			issues = append(issues, ValidationIssue{
+				Type:        "empty_internal_href",
+				Category:    "link",
+				Severity:    "warning",
+				Location:    `href=""`,
+				Description: "Empty href — link/button has no destination",
+			})
+		case datahelpers.LinkScopePage:
+			// Policy: a missing internal target is loud but NON-blocking — the
+			// improvement loop resolves it; a missing link is not a deploy
+			// stopper. We flag only true phantoms: an href with no pages row at
+			// all. Planned-but-unbuilt pages have a row (status not
+			// deleted/archived) and are tolerated silently.
+			if !validPages.Contains(href) {
+				issues = append(issues, ValidationIssue{
+					Type:        "phantom_link",
+					Category:    "link",
+					Severity:    "warning",
+					Location:    fmt.Sprintf("href=%q", href),
+					Value:       href,
+					Description: fmt.Sprintf("Link target has no matching page: %s", href),
+				})
+			}
+		}
+		// external / anchor / mailto / asset scopes are not page links — skip.
+	}
+
+	return issues
+}
+
+// isAssetPath / normalizePagePath / isValidPage now live in datahelpers
+// (links.go) as IsAssetPath / NormalizePagePath / PageURLSet.Contains, shared
+// with the post-deploy phantom-link audit so both agree on classification.
+
+// ============================================================================
+// Check 5: Hallucinated emails (from existing code)
+// ============================================================================
+
+func validateEmails(ctx context.Context, db *sql.DB, html string, siteID uuid.UUID, logger *zap.Logger) []ValidationIssue {
+	var issues []ValidationIssue
+
+	officialEmail := loadSiteContactEmail(ctx, db, siteID, logger)
+
+	emailRe := regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+	emails := emailRe.FindAllString(html, -1)
+
+	seen := make(map[string]bool)
+	for _, email := range emails {
+		email = strings.ToLower(email)
+		if seen[email] {
+			continue
+		}
+		seen[email] = true
+
+		if officialEmail != "" && email == strings.ToLower(officialEmail) {
+			continue
+		}
+
+		if isPlaceholderEmail(email) {
+			issues = append(issues, ValidationIssue{
+				Type:        "placeholder_email",
+				Category:    "placeholder",
+				Severity:    "blocker",
+				Value:       email,
+				Description: fmt.Sprintf("Placeholder email address: %s", email),
+			})
+			continue
+		}
+
+		if officialEmail != "" {
+			issues = append(issues, ValidationIssue{
+				Type:        "invalid_email",
+				Category:    "email",
+				Severity:    "error",
+				Location:    "email address",
+				Value:       email,
+				Expected:    officialEmail,
+				Description: fmt.Sprintf("Email '%s' doesn't match site contact '%s'", email, officialEmail),
+			})
+		}
+	}
+
+	return issues
+}
+
+// ============================================================================
+// Check 6: Content length
+// ============================================================================
+
+func checkTextLength(html string) []ValidationIssue {
+	var issues []ValidationIssue
+
+	tagRegex := regexp.MustCompile(`<[^>]*>`)
+	stripped := tagRegex.ReplaceAllString(html, " ")
+	textLen := len(strings.TrimSpace(stripped))
+
+	if textLen < 50 {
+		issues = append(issues, ValidationIssue{
+			Type:        "short_content",
+			Category:    "short_content",
+			Severity:    "warning",
+			Value:       fmt.Sprintf("%d characters", textLen),
+			Description: fmt.Sprintf("Content is very short (%d characters of text)", textLen),
+		})
+	}
+	return issues
+}
+
+// ============================================================================
+// DB helpers (from existing code)
+// ============================================================================
+
+// loadValidPagePaths returns the set of real page targets for the site.
+// Return type is datahelpers.PageURLSet (was map[string]bool): membership is now
+// tested via the shared NormalizePagePath, so the many hand-built url variants
+// the old map carried are no longer needed — one normal form covers them.
+func loadValidPagePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) datahelpers.PageURLSet {
+	rows, err := db.QueryContext(ctx, `
+		SELECT url FROM pages
+		WHERE site_id = $1 AND status NOT IN ('deleted', 'archived')
+	`, siteID)
+	if err != nil {
+		logger.Warn("Failed to load pages for validation", zap.Error(err))
+		return datahelpers.NewPageURLSet(nil)
+	}
+	defer rows.Close()
+
+	var urls []string
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			continue
+		}
+		urls = append(urls, url)
+	}
+	urls = append(urls, "/", "/index.html") // site root is always valid
+
+	logger.Info("ValidatePageContentAction: loaded valid pages",
+		zap.Int("page_count", len(urls)))
+
+	return datahelpers.NewPageURLSet(urls)
+}
+
+func loadSiteContactEmail(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) string {
+	var email sql.NullString
+	err := db.QueryRowContext(ctx, `
+		SELECT COALESCE(
+			NULLIF(s.email, ''),
+			NULLIF(s.content_data->>'contact_email', ''),
+			NULLIF(s.content_data->'reviewed_brief'->>'contact_email', ''),
+			(SELECT NULLIF(ss.data->>'email', '')
+			 FROM site_specs ss
+			 WHERE ss.site_id = $1 AND ss.aspect = 'identity' AND ss.is_current = true
+			 LIMIT 1),
+			(SELECT NULLIF(ss.data->>'contact_email', '')
+			 FROM site_specs ss
+			 WHERE ss.site_id = $1 AND ss.aspect = 'identity' AND ss.is_current = true
+			 LIMIT 1),
+			''
+		) FROM sites s WHERE s.id = $1
+	`, siteID).Scan(&email)
+
+	if err != nil {
+		logger.Warn("Failed to load site contact email", zap.Error(err))
+		return ""
+	}
+	return email.String
+}
+
+func isPlaceholderEmail(email string) bool {
+	placeholders := []string{
+		"example.com", "test.com", "placeholder",
+		"your@email", "email@email", "name@company",
+	}
+	email = strings.ToLower(email)
+	for _, p := range placeholders {
+		if strings.Contains(email, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func countInternalLinks(html string) int {
+	hrefRe := regexp.MustCompile(`href=["']([^"']+)["']`)
+	matches := hrefRe.FindAllString(html, -1)
+	count := 0
+	for _, m := range matches {
+		if !strings.Contains(m, "http://") && !strings.Contains(m, "https://") &&
+			!strings.Contains(m, "mailto:") && !strings.Contains(m, "tel:") {
+			count++
+		}
+	}
+	return count
+}
+
+func countEmailAddresses(html string) int {
+	emailRe := regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+	return len(emailRe.FindAllString(html, -1))
+}
+
+// ============================================================================
+// String helpers
+// ============================================================================
+
+func extractSnippet(s string, idx int, maxLen int) string {
+	start := idx - 20
+	if start < 0 {
+		start = 0
+	}
+	end := idx + maxLen
+	if end > len(s) {
+		end = len(s)
+	}
+	snippet := s[start:end]
+	snippet = strings.ReplaceAll(snippet, "\n", " ")
+	snippet = strings.ReplaceAll(snippet, "\r", "")
+	spaceRegex := regexp.MustCompile(`\s+`)
+	snippet = spaceRegex.ReplaceAllString(snippet, " ")
+	return strings.TrimSpace(snippet)
+}
+
+func resolveConfigString(config map[string]interface{}, key string, collectedData map[string]interface{}, logger *zap.Logger) string {
+	if val, ok := config[key].(string); ok && val != "" {
+		// Check if it's a dot-path reference
+		if strings.Contains(val, ".") {
+			if resolved := extractNestedString(collectedData, val); resolved != "" {
+				return resolved
+			}
+		}
+		return val
+	}
+	return ""
+}
+
+func extractNestedString(data map[string]interface{}, dotPath string) string {
+	parts := strings.Split(dotPath, ".")
+	var current interface{} = data
+	for _, part := range parts {
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			return ""
+		}
+		current, ok = m[part]
+		if !ok {
+			return ""
+		}
+	}
+	if s, ok := current.(string); ok {
+		return s
+	}
+	return ""
+}
+
+func configBoolOrDefault(config map[string]interface{}, key string, defaultVal bool) bool {
+	if v, ok := config[key].(bool); ok {
+		return v
+	}
+	return defaultVal
+}

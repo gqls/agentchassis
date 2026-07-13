@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-chassis
+  labels:
+    app: agent-chassis
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: agent-chassis
+  template:
+    metadata:
+      labels:
+        app: agent-chassis
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: agent-chassis
+          image: docker.io/aqls/agent-chassis:latest # Patched by overlays
+          ports:
+            - containerPort: 8080
+          env:
+            # Inject the new bootstrap key from the platform secrets
+            - name: AGENT_BOOTSTRAP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: agent-bootstrap-key
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"

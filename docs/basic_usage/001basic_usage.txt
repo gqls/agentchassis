@@ -1,0 +1,359 @@
+stop system:
+for dep in agent-chassis auth-service content-creator-agent core-manager image-generator-adapter reasoning-agent web-search-adapter; do
+  kubectl scale deployment/$dep --replicas=0 -n ai-persona-system
+done
+
+start system
+for dep in agent-chassis auth-service content-creator-agent core-manager image-generator-adapter reasoning-agent web-search-adapter; do
+  kubectl scale deployment/$dep --replicas=3 -n ai-persona-system
+
+  KCAT
+kubectl exec -it kafkacat-test-pod -n ai-persona-system -- /bin/sh
+// need full kafka url because it is across namespaces
+CID=$(cat /proc/sys/kernel/random/uuid) && echo '{"action":"spawn_group","data":{"group_type":"website-builder", "message":"Start website builder workflow"}}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.process -H "correlation_id=$CID" -H "request_id=$(cat /proc/sys/kernel/random/uuid)" -H "client_id=demo_client" -H "agent_instance_id=00000000-0000-0000-0000-000000000001" -H "fuel_budget=1000"
+CID=$(cat /proc/sys/kernel/random/uuid) && echo '{"action":"spawn_group","data":{"group_type":"website-builder", "message":"Start website builder workflow"}}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.process -H "correlation_id=$CID" -H "request_id=$(cat /proc/sys/kernel/random/uuid)" -H "client_id=demo_client" -H "agent_instance_id=00000000-0000-0000-0000-000000000001" -H "fuel_budget=1000"
+
+
+# what it means
+CID=$(cat /proc/sys/kernel/random/uuid): Creates a unique UUID correlation ID for this run.
+echo '...': Provides our JSON payload, same as before.
+kcat -P ...: Sends the payload to Kafka.
+-H "key=value": attaching each required header to the message.
+
+
+// get the correlation id from orchestrator_state table
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+
+
+--
+
+
+MONITORING:
+get the latest id
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+e.g.
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+            correlation_id
+--------------------------------------
+ 369ba7f6-769d-4fd3-8db8-72d2ec8a410f
+
+port forward to db
+kubectl port-forward svc/postgres-clients 5432:5432 -n ai-persona-system
+
+Step 1.3: Run the DB Inspector
+replace password
+mysql -ucatalogu_personae -p -hrs17.uk-noc.com catalogu_vectordb_chassis
+external_mysql_password = "PpC47410423123!"
+
+# note need correlation id
+./tools/db-inspector/check_state \
+  -db="postgres://clients_user:<YOUR_PASSWORD>@localhost:5432/clients_db?sslmode=disable" \
+  -correlation="<ID_FROM_STEP_1>" \
+  -watch
+
+./tools/db-inspector/check_state.go \
+  -db="postgres://clients_user:PpC47410423123!@localhost:5432/clients_db?sslmode=disable" \
+  -correlation="369ba7f6-769d-4fd3-8db8-72d2ec8a410f" \
+  -watch
+
+  # Run this from your project root - note single quotes because of password
+ ./bin/db-inspector \
+   -db='postgres://clients_user:PpC47410423123!@localhost:5433/clients_db?sslmode=disable' \
+   -correlation="369ba7f6-769d-4fd3-8db8-72d2ec8a410f" \
+   -watch
+
+Part 2: Watching the Individual Agents at Work 🕵️
+
+A Crucial Concept
+
+The agents in the website builder team (like site-architect) don't run in their own dedicated pods. Instead, their tasks are picked up by one of the generic agent-chassis pods you have running. We need to find the unique IDs of your newly spawned agents and then look for those IDs in the agent-chassis logs.
+
+Step 2.1: Find Your Newly Spawned Agent IDs
+
+The spawn_group action creates new rows in the agent_instances table. Let's find the IDs for the agents in your new team.
+
+    Command:
+    Bash
+
+    kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT name, id, config->>'agent_type' as type FROM client_demo_client.agent_instances ORDER BY created_at DESC LIMIT 10;"
+
+    Action: Look for the new agents like site-architect, html-developer, etc., and note their UUIDs.
+
+Step 2.2: Watch the agent-chassis Logs
+
+Now, stream the logs from all agent-chassis pods and look for activity related to your new agent IDs.
+
+    Command: (Run this in another new terminal)
+    Bash
+
+    kubectl logs -f -n ai-persona-system deployment/agent-chassis
+
+What You'll See:
+
+As the workflow progresses, you'll see log entries from the agent-chassis pods that are tagged with the specific agent_instance_id you found in the previous step. This is how you can trace the work of each individual agent as it executes its part of the plan.
+
+
+
+
+
+
+--
+./bin/tools/db-inspector -db="<your-db-connection-string>" -correlation="<the-new-correlation-id>" -watch
+kubectl logs -f deployment/reasoning-agent -n ai-persona-system
+kubectl logs -f deployment/core-manager -n ai-persona-system
+
+--
+
+errors:
+ kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "SELECT correlation_id FROM orchestrator_state ORDER BY created_at DESC LIMIT 1;"
+ correlation_id
+----------------
+(0 rows)
+
+workflow was never created in the database. gent-chassis pod failed.
+
+
+==
+
+Quick Guide: Running the Website Build
+
+This guide covers the core concept and the three essential commands to start the workflow from within your Kubernetes cluster.
+
+What's Happening (The Concept)
+
+Your agent pods (e.g., content-creator-agent) act as generic engines waiting for work. The command below doesn't create new pods; instead, it creates a new
+
+task in the database by spawning an "agent group". An available engine then picks up this task and executes the specific workflow.
+
+How to Run It (The Commands)
+
+    Get a Shell in the Kafka Pod This command places you inside the cluster, ready to send the message.
+    Bash
+
+kubectl exec -it kafka-test-pod -n ai-persona-system -- /bin/bash
+
+Send the 'Spawn Group' Message Run the following command inside the pod's shell. This tells an agent to create the
+
+website-builder team and start the workflow .
+
+Bash
+
+produce-message system.agent.generic.process '{"action":"spawn_group","data":{"group_type":"website-builder"}}'
+
+Exit and Watch Type exit to leave the pod. You can then use your local
+
+db-inspector tool to watch the workflow progress in real-time.
+
+--
+
+
+Use your db-inspector tool. The -watch flag is perfect for seeing progress in real-time.
+
+Command:
+Bash
+
+    # You'll need to find the new correlation ID from the producer output first
+    ./bin/tools/db-inspector -db="<your-db-connection-string>" -correlation="<the-new-correlation-id>" -watch
+
+Check the Logs of the Failing Agent: If the workflow gets stuck on a step (e.g., architect_site), the issue is likely with the corresponding agent (site-architect).
+
+    How: Find the agent's deployment name and stream its logs.
+
+    Command:
+    Bash
+
+# The agent name is in the DB, e.g., 'site-architect'
+# The deployment name is often similar, e.g., 'site-architect-deployment-xyz'
+kubectl logs -f deployment/reasoning-agent -n ai-persona-system
+
+
+--
+
+Step-by-Step Guide to Your First Website Build 🚀
+
+Running the website builder is the perfect way to see the whole system collaborate. It's a fantastic example of a complex task being broken down and executed by a specialized team of agents.
+
+Based on my analysis of your code, here’s a step-by-step guide to how it works and how you can run it.
+
+High-Level Overview
+
+The process begins when a request is made to spawn an agent group of type website-builder. An orchestrator agent takes over and directs a team of specialized agents to perform the necessary tasks: planning the site structure, designing visuals, developing the code, and finally publishing the result.
+
+Step 1: The Trigger - Spawning the Team
+
+Everything starts with a spawn_group action for the website-builder group type. This is the starting pistol for the entire operation.
+
+    What happens? The SagaCoordinator receives this request and looks up the website-builder definition in the agent_groups table of your database.
+
+    Key Files:
+
+        platform/orchestration/actions/spawn_actions.go: Contains the SpawnGroupAction logic.
+
+        platform/database/migrations/007_initial_website_builder_group.sql: Defines the initial team composition and workflow.
+
+Step 2: The Orchestrator Takes Charge
+
+Once the group is spawned, the website-builder agent itself acts as the orchestrator. It follows a predefined workflow to manage the project from start to finish.
+
+    What happens? The orchestrator follows the orchestration_workflow defined for its group. It calls other agents in a specific sequence to build the website.
+
+    The Workflow Plan:
+
+        analyze_domain: Calls the domain-analyst agent to research the business type.
+
+        architect_site: Calls the site-architect to plan the website's structure and pages.
+
+        gather_content: A fan_out step that runs two agents in parallel: the content-researcher (a content-creator agent) and the visual-designer to gather text and images.
+
+        develop_site: Calls the html-developer to write the actual HTML, CSS, and JS code.
+
+        publish_site: Calls the site-publisher to deploy the finished website.
+
+    Key File: platform/database/migrations/005_website_builder_agents.sql is crucial as it defines the entire orchestration logic and the capabilities of each agent involved.
+
+Step 3: The Specialist Agents Do the Work
+
+Each agent in the group has its own specialized workflow.
+
+    What happens? The orchestrator sends tasks to specific Kafka topics, and the corresponding agents pick them up.
+
+        The domain-analyst uses the web-search adapter to research the industry.
+
+        The site-architect pauses for human approval after creating the site structure, showing how you've integrated human-in-the-loop actions.
+
+        The visual-designer calls the image-generator adapter to create a logo and other visuals.
+
+        The html-developer uses a fan_out to generate code for multiple pages in parallel.
+
+    Key Files:
+
+        internal/agents/*: The implementation for each agent type resides here.
+
+        internal/adapters/*: The logic for external-facing agents like web search and image generation.
+
+How to Run Your First Website Build
+
+The easiest way to trigger this entire process is to send a Kafka message that kicks off the workflow. You have a handy tool for this in tools/kafka-producer/send_test_message.go.
+
+Step-by-Step Command Guide:
+
+    Ensure your services are running, especially the core-manager and all the necessary agents (domain-analyst, site-architect, etc.).
+
+    Build the Kafka producer tool (if you haven't already):
+
+    go build -o ./bin/tools/kafka-producer ./tools/kafka-producer/send_test_message.go
+
+Craft the initial message. The workflow starts by spawning the website-builder group. We'll send a message to a generic agent whose job is to kick off this process.
+
+Send the Kafka Message:
+Execute the following command from your project root. This command sends a message to the system.agent.generic.process topic, which will be picked up by a generic agent that then executes the spawn_group action.
+
+./bin/tools/kafka-producer \
+  -agent="generic" \
+  -payload='{
+    "action": "spawn_group",
+    "data": {
+      "group_type": "website-builder"
+    }
+  }' \
+  -wait
+
+
+After running this, you can use your database inspection tool (tools/db-inspector/check_state.go) to watch the orchestrator_state table and see the workflow progress from step to step!
+
+------------
+
+pods are running.
+1. First, verify the agents are listening to the correct topics:
+# Check what topics the agents are consuming from
+kubectl logs -n ai-persona-system agent-domain-analyst-c1c7e6e8-bv2h7 | grep -E "Kafka consumer created|Starting agent"
+
+2. Check the orchestration state to see where workflows are stuck:
+kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c "
+SELECT
+  correlation_id,
+  current_step,
+  status,
+  jsonb_array_length(awaited_steps) as awaited,
+  jsonb_object_keys(collected_data) as completed_steps,
+  updated_at
+FROM orchestrator_state
+WHERE status IN ('RUNNING', 'AWAITING_RESPONSES')
+ORDER BY updated_at DESC
+LIMIT 3;"
+
+3. Check if there are messages waiting in the agent topics:
+# Check message lag for each agent topic
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-consumer-groups \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --list | grep -E "domain-analyst|site-architect|content-creator"
+
+# For each group found, check the lag
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-consumer-groups \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --describe --group domain-analyst-group-c1c7e6e8
+
+  4. Check if agents are actually processing (look for recent activity):
+  # Check logs from all dynamic agents
+  kubectl logs -n ai-persona-system -l app=dynamic-agent --since=1m --prefix=true | grep -E "Processing message|Received task|Sending response"
+
+5. If agents are NOT listening to the right topics, restart them with the fixed image:
+# Make sure you've built and pushed v1.0.42 with the environment variable fixes
+make build-agent-chassis push-agent-chassis IMAGE_TAG=v1.0.42
+
+# Update the deployment to use v1.0.42
+kubectl set image deployment/agent-chassis agent-chassis=docker.io/aqls/agent-chassis:v1.0.42 -n ai-persona-system
+
+# Wait for rollout
+kubectl rollout status deployment/agent-chassis -n ai-persona-system
+
+# Delete the dynamically spawned jobs to recreate them
+kubectl delete jobs -n ai-persona-system -l spawned-by=orchestrator
+
+# The orchestrator should recreate them automatically
+kubectl get jobs -n ai-persona-system -w
+
+6. Send a test message directly to an agent to verify it's working:
+# Send a test message to the domain-analyst
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-console-producer \
+  --broker-list personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --topic system.agent.domain-analyst.process \
+  --property "parse.headers=true" \
+  --property "headers.separator=|" << EOF
+correlation_id:test-$(date +%s)|request_id:test-req-$(date +%s)|client_id:demo_client
+{"action":"test","data":{"message":"Testing domain analyst"}}
+EOF
+
+# Check if it processed the message
+kubectl logs -n ai-persona-system agent-domain-analyst-c1c7e6e8-bv2h7 --tail=20
+
+7. Check the orchestrator logs for any errors:
+kubectl logs -n ai-persona-system -l app=agent-chassis --tail=50 | grep -E "ERROR|WARN|Failed"
+
+8. If the workflow is stuck waiting for responses, check the response topics:
+# Check if responses are being sent
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-console-consumer \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --topic system.responses \
+  --from-beginning \
+  --max-messages 5 \
+  --timeout-ms 5000
+
+9. Trigger a fresh workflow to test the full system:
+# Create a new workflow request
+kubectl exec -it kafka-test-pod -n ai-persona-system -- kafka-console-producer \
+  --broker-list personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  --topic system.requests \
+  --property "parse.headers=true" \
+  --property "headers.separator=|" << EOF
+correlation_id:$(uuidgen)|request_id:$(uuidgen)|client_id:demo_client|user_id:test-user
+{"action":"build_website","data":{"domain":"test-site.com","industry":"technology","requirements":"Modern tech company website"}}
+EOF
+
+# Monitor the workflow progress
+watch "kubectl exec -it postgres-clients-0 -n ai-persona-system -- psql -U clients_user -d clients_db -c \"
+SELECT correlation_id, current_step, status, updated_at
+FROM orchestrator_state
+WHERE created_at > NOW() - INTERVAL '5 minutes'
+ORDER BY updated_at DESC LIMIT 5;\""
+

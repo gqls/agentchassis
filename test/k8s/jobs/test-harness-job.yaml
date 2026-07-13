@@ -1,0 +1,108 @@
+# test/k8s/jobs/test-harness-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-harness
+  namespace: ai-persona-system
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: test-harness
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: docker-hub-creds
+      initContainers:
+        - name: wait-for-deps
+          image: busybox:1.35
+          command: ['sh', '-c']
+          args:
+            - |
+              echo "Waiting for dependencies..."
+              until nc -z postgres-clients 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+              echo "PostgreSQL is ready"
+      containers:
+        - name: test-harness
+          image: docker.io/aqls/test-harness:latest
+          # NO ARGS - the CMD in Dockerfile will run
+          env:
+            - name: TEST_SUITE
+              value: "e2e"  # This will be replaced by sed
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: DB_HOST
+              value: "postgres-clients"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "clients_db"
+            - name: DB_USER
+              value: "clients_user"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+            - name: KAFKA_BROKERS
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+            - name: CLIENT_ID
+              value: "demo_client"
+          resources:
+            limits:
+              memory: "4Gi"
+              cpu: "4"
+            requests:
+              memory: "1Gi"
+              cpu: "1"
+          volumeMounts:
+            - name: test-results
+              mountPath: /results
+      volumes:
+        - name: test-results
+          emptyDir: {}
+
+---
+# ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: test-runner
+  namespace: ai-persona-system
+
+---
+# Role for test runner
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: test-runner
+  namespace: ai-persona-system
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: test-runner
+  namespace: ai-persona-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: test-runner
+subjects:
+  - kind: ServiceAccount
+    name: test-runner
+    namespace: ai-persona-system

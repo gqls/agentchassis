@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-generator-adapter
+  labels:
+    app: image-generator-adapter
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: image-generator-adapter
+  template:
+    metadata:
+      labels:
+        app: image-generator-adapter
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: image-generator-adapter
+          image: docker.io/aqls/image-generator-adapter:latest # Patched by overlays
+          command: ["./image-generator-adapter", "-config", "/app/configs/image-adapter.yaml"]
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: config
+          configMap:
+            name: image-adapter-config

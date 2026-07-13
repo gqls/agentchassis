@@ -7,6 +7,8 @@ import "context"
 type AIService interface {
 	GenerateText(ctx context.Context, prompt string, options map[string]interface{}) (string, error)
 	GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
+	Provider() string
+	Model() string
 }
 
 // TextGenerationOptions contains common options for text generation

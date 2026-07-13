@@ -1,0 +1,22 @@
+it's a progression pattern:
+
+Authority phase - content site establishing expertise and SEO presence
+Monetization phase - integrating affiliate product feeds once trust is built
+
+The self-describing architecture helps here. When you're ready, you could add something like affiliate-content-builder or commerce-authority-builder to agent_definitions, and it would automatically become an option for the classifier without touching the intake workflow.
+The interesting part would be the product feed integration - parsing affiliate feeds (Amazon, ShareASale, etc.), matching products to content topics, generating comparison tables and review sections. That could be its own agent or set of agents that the builder calls.
+Worth thinking about whether it's a distinct site type from the start, or an "upgrade path" where a content site gains affiliate capabilities later. The entity_state_log we discussed could track that evolution - site starts as content, later gets monetization.affiliate state added.
+
+ So alongside landing, content, portfolio, brochure you'd have something like affiliate-content or authority-commerce.
+The builder for that type would need agents for:
+
+Content structure (authority articles, guides)
+Feed parsing (Amazon, ShareASale, etc.)
+Product matching (linking products to content topics)
+Comparison/review components (tables, pros/cons, ratings)
+
+When you're ready to add it, it's just an INSERT into agent_definitions with type affiliate-content-builder, plus the worker agents it calls. The intake flow picks it up automatically.
+For now, shall we get the current fixes deployed and test the intake → landing-page-builder flow end to end?
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-console-consumer.sh   --bootstrap-server localhost:9092   --topic job.88856264-4acf37c4-domain-analyst-spawn_domain_analyst.requests   --from-beginning   --property print.headers=true
+

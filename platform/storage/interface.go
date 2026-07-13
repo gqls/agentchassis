@@ -24,8 +24,12 @@ type Client interface {
 	// ListObjects lists objects with a given prefix
 	ListObjects(ctx context.Context, prefix string) ([]ObjectInfo, error)
 
-	// GetPresignedURL generates a temporary access URL
+	// GetPresignedURL generates a temporary access URL for GET (download)
 	GetPresignedURL(ctx context.Context, key string, expiry int) (string, error)
+
+	// GetPresignedPutURL generates a temporary upload URL for PUT.
+	// expiry is in minutes (same convention as GetPresignedURL).
+	GetPresignedPutURL(ctx context.Context, key string, expiry int) (string, error)
 }
 
 // ObjectInfo contains metadata about a stored object

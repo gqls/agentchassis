@@ -1,0 +1,151 @@
+clients_db=# SELECT item_type, severity, handler_agent, status, LEFT(summary, 80)
+  FROM site_work_items
+  WHERE created_at > NOW() - INTERVAL '1 hour'
+  ORDER BY priority;
+        item_type         | severity |      handler_agent       |  status  |                                       left
+--------------------------+----------+--------------------------+----------+----------------------------------------------------------------------------------
+ hardcoded_section_colors | high     | color-variable-fixer     | detected | Header uses site-header--dark class but relies on --color-header-bg (#0f172a) wh
+ needs_design_review      | high     | webdesign-agent          | detected | CSS theme defines --color-primary as #1e40af (blue) but colour palette specifies
+ needs_content_page       | high     | page-build-handler       | detected | Only hero sections are visible - no body content showing services details, prici
+ needs_content_page       | high     | page-build-handler       | detected | Critical trust-building content missing: no safety information, certifications,
+ hardcoded_section_colors | high     | color-variable-fixer     | detected | Hero section uses dark overlay but doesn't define --section-text or --section-bg
+ needs_design_review      | high     | webdesign-agent          | detected | CSS theme defines --color-primary as #1e40af but colour palette specifies primar
+ needs_content_page       | high     | page-build-handler       | detected | Site metadata is incomplete - Industry, Target audience, Tone, and Purpose field
+ content_rewrite          | high     | page-build-handler       | detected | Hero messaging is extremely generic with phrases like 'Trusted Partner', 'Reliab
+ tone_shift               | high     | component-template-fixer | detected | Target audience is undefined in site metadata, and content speaks generically to
+ content_rewrite          | high     | page-build-handler       | detected | Homepage and service pages use extremely generic language ('Trusted Partner', 'R
+ hardcoded_section_colors | high     | color-variable-fixer     | detected | Hero section has dark overlay background but doesn't define --section-bg, --sect
+ needs_content_page       | high     | page-build-handler       | detected | No pricing or engagement model information visible. Potential clients have no se
+ needs_content_page       | high     | page-build-handler       | detected | No case studies, portfolio, or proof points visible. The site makes claims about
+ responsive_fix           | medium   | component-template-fixer | detected | Container padding is fixed at 1rem which may be insufficient on very small mobil
+ content_rewrite          | medium   | page-build-handler       | detected | Services page mentions 'industrial, commercial, and specialty gas customers' but
+ cta_improvement          | medium   | component-template-fixer | detected | Homepage has only one CTA ('Our Services') which is informational rather than co
+ needs_content_page       | medium   | page-build-handler       | detected | No pricing transparency or business model explanation - wholesale buyers need to
+ content_rewrite          | medium   | page-build-handler       | detected | About page focuses on generic 'customer satisfaction' without explaining company
+ cta_improvement          | medium   | component-template-fixer | detected | Contact page has soft CTA ('Let's Talk') but no clear next steps, response time
+ content_rewrite          | medium   | page-build-handler       | detected | Services section mentions 'Custom AI Model Fine-Tuning' and 'Agentic Systems Dev
+ cta_improvement          | medium   | component-template-fixer | detected | No visible CTA on services page to move from 'what we do' to 'let's work togethe
+ content_rewrite          | medium   | page-build-handler       | detected | Homepage mentions 'fuel and natural gas' but other pages only reference 'gas' -
+ cta_improvement          | medium   | component-template-fixer | detected | Homepage CTA only offers 'Our Services' link - no direct conversion path for quo
+ needs_content_page       | medium   | page-build-handler       | detected | Contact page lacks critical B2B information: service territory, hours, emergency
+ needs_design_review      | medium   | webdesign-agent          | detected | Hero title color uses --color-hero-title: #1e40af (blue) which conflicts with pr
+ hardcoded_section_colors | medium   | color-variable-fixer     | detected | Site header with dark background (site-header--dark) lacks --section-bg and --se
+ spacing_fix              | medium   | component-template-fixer | detected | Grid gap set to 2rem but no consistent spacing scale defined for sections, margi
+ responsive_fix           | medium   | component-template-fixer | detected | Grid system uses 'repeat(auto' which appears truncated in the CSS excerpt, sugge
+ needs_design_review      | medium   | webdesign-agent          | detected | CTA gradient uses hardcoded blues (#1e40af, #1e3a8a) that don't match the specif
+ spacing_fix              | medium   | component-template-fixer | detected | Grid gap is hardcoded to 2rem across all grid components without responsive cons
+ needs_content_page       | medium   | page-build-handler       | detected | No trust signals present - lacking customer logos, testimonials, years in busine
+ tone_shift               | low      | page-build-handler       | detected | Tone is appropriately professional but overly safe - lacks confidence and author
+ content_rewrite          | low      | page-build-handler       | detected | The tone is consistently casual, direct, and anti-corporate which works well for
+ content_rewrite          | low      | page-build-handler       | detected | Contact page says 'no sales pitch, no jargon' but doesn't explain what the first
+ needs_content_page       | low      | page-build-handler       | detected | No FAQ or resources section to address common objections or questions (data secu
+ content_rewrite          | low      | page-build-handler       | detected | Strong differentiation through 'No AI theatre' and 'Built for British business'
+ cta_improvement          | low      | component-template-fixer | detected | Contact page headline is conversational ('Let's Talk') which may not convey urge
+(37 rows)
+
+
+-- example of it working but not as we expect it to
+
+SELECT data->>'target_audience' as target_audience
+FROM site_specs
+WHERE site_id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND aspect = 'identity' AND is_current = true;
+                                                                        target_audience
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gas station owners, fuel retailers, commercial fleet operators, industrial facilities, convenience store chains, and businesses requiring bulk fuel purchases
+(1 row)
+
+The data is there. The finding is actually correct in substance — it's saying the rendered site content speaks generically to "businesses" without addressing the specific audience (gas station owners, fleet operators, industrial facilities) that the spec defines. The wording "undefined in site metadata" is slightly misleading — it should say something like "spec defines a specific audience but content doesn't address them." That's a prompt refinement for the LLM, not a data issue.
+The audit is doing what we wanted: comparing spec intent against rendered reality. The spec says target audience is gas station owners and fleet operators. The site content says "your business." That's a valid tone_shift finding.
+
+
+clients_db=# -- All pending items across all sites
+SELECT s.domain, wi.item_type, wi.severity, wi.status, wi.handler_agent,
+       LEFT(wi.summary, 70) as summary
+FROM site_work_items wi
+JOIN sites s ON s.id = wi.site_id
+WHERE wi.status IN ('detected', 'triaged')
+ORDER BY s.domain, wi.priority;
+       domain       |        item_type         | severity |  status  |      handler_agent       |                                summary
+--------------------+--------------------------+----------+----------+--------------------------+------------------------------------------------------------------------
+ finetuning.uk      | needs_design_review      | high     | triaged  | webdesign-agent          | CSS theme defines --color-primary as #1e40af but colour palette specif
+ finetuning.uk      | needs_content_page       | high     | triaged  | page-build-handler       | No FAQ section visible, which is critical for a technical service wher
+ finetuning.uk      | needs_content_page       | high     | triaged  | page-build-handler       | No information about Industry, Target audience, or formal Tone is spec
+ finetuning.uk      | needs_content_page       | high     | triaged  | page-build-handler       | No case studies, portfolio, or proof points visible. The site makes cl
+ finetuning.uk      | needs_content_page       | high     | triaged  | page-build-handler       | No pricing or engagement model information visible. Potential clients
+ finetuning.uk      | hardcoded_section_colors | high     | triaged  | color-variable-fixer     | Hero section uses dark overlay but doesn't define --section-text or --
+ finetuning.uk      | hardcoded_section_colors | high     | triaged  | color-variable-fixer     | Header uses site-header--dark class but relies on --color-header-bg (#
+ finetuning.uk      | content_rewrite          | medium   | triaged  | page-build-handler       | Services section mentions 'Custom AI Model Fine-Tuning' and 'Agentic S
+ finetuning.uk      | cta_improvement          | medium   | triaged  | component-template-fixer | Contact page has soft CTA ('Let's Talk') but no clear next steps, resp
+ finetuning.uk      | spacing_fix              | medium   | triaged  | component-template-fixer | Grid gap is hardcoded to 2rem across all grid components without respo
+ finetuning.uk      | needs_content_page       | medium   | triaged  | page-build-handler       | No visible content about the company's process, timeline expectations,
+ finetuning.uk      | needs_content_page       | medium   | triaged  | page-build-handler       | No pricing information, case studies, or portfolio examples are visibl
+ finetuning.uk      | needs_design_review      | medium   | triaged  | webdesign-agent          | CTA gradient uses hardcoded blues (#1e40af, #1e3a8a) that don't match
+ finetuning.uk      | responsive_fix           | medium   | triaged  | component-template-fixer | Container padding is fixed at 1rem which may be insufficient on very s
+ finetuning.uk      | cta_improvement          | medium   | triaged  | component-template-fixer | No visible CTA on services page to move from 'what we do' to 'let's wo
+ finetuning.uk      | content_rewrite          | low      | triaged  | page-build-handler       | The London-based positioning is mentioned but not leveraged. For a UK-
+ finetuning.uk      | tone_shift               | low      | triaged  | page-build-handler       | The tone is consistently casual, direct, and anti-corporate which work
+ finetuning.uk      | content_rewrite          | low      | triaged  | page-build-handler       | The tone is consistently casual, direct, and anti-corporate which work
+ finetuning.uk      | content_rewrite          | low      | triaged  | page-build-handler       | Strong differentiation through 'No AI theatre' and 'Built for British
+ finetuning.uk      | needs_content_page       | low      | triaged  | page-build-handler       | No FAQ or resources section to address common objections or questions
+ finetuning.uk      | content_rewrite          | low      | triaged  | page-build-handler       | Contact page says 'no sales pitch, no jargon' but doesn't explain what
+ gaswholesalers.com | content_rewrite          | high     | detected | page-build-handler       | Homepage and service pages use extremely generic language ('Trusted Pa
+ gaswholesalers.com | tone_shift               | high     | detected | component-template-fixer | Target audience is undefined in site metadata, and content speaks gene
+ gaswholesalers.com | needs_design_review      | high     | detected | webdesign-agent          | CSS theme defines --color-primary as #1e40af (blue) but colour palette
+ gaswholesalers.com | hardcoded_section_colors | high     | triaged  | color-variable-fixer     | Hero section has dark overlay background but doesn't define --section-
+ gaswholesalers.com | hardcoded_section_colors | high     | detected | color-variable-fixer     | Hero section has dark background (rgba overlay) but doesn't define --s
+ gaswholesalers.com | hardcoded_section_colors | high     | detected | color-variable-fixer     | Header uses --color-header-bg: #0f172a (dark) and --color-header-text:
+ gaswholesalers.com | content_rewrite          | high     | detected | component-template-fixer | Content speaks in broad generalities without addressing specific indus
+ gaswholesalers.com | needs_design_review      | high     | triaged  | webdesign-agent          | CSS theme defines --color-primary as #1e40af (blue) but colour palette
+ gaswholesalers.com | needs_content_page       | high     | detected | page-build-handler       | Only hero sections are visible - no body content showing services deta
+ gaswholesalers.com | needs_content_page       | high     | detected | page-build-handler       | Site metadata is incomplete - Industry, Target audience, Tone, and Pur
+ gaswholesalers.com | needs_content_page       | high     | detected | page-build-handler       | Critical trust-building content missing: no safety information, certif
+ gaswholesalers.com | content_rewrite          | high     | detected | page-build-handler       | Hero messaging is extremely generic with phrases like 'Trusted Partner
+ gaswholesalers.com | content_rewrite          | high     | detected | page-build-handler       | Content is extremely generic with no unique value propositions. Phrase
+ gaswholesalers.com | needs_content_page       | medium   | detected | page-build-handler       | Contact page lacks critical B2B information: service territory, hours,
+ gaswholesalers.com | content_rewrite          | medium   | detected | page-build-handler       | Homepage mentions 'fuel and natural gas' but other pages only referenc
+ gaswholesalers.com | needs_design_review      | medium   | triaged  | webdesign-agent          | Hero title color uses --color-hero-title: #1e40af (blue) which conflic
+ gaswholesalers.com | hardcoded_section_colors | medium   | triaged  | color-variable-fixer     | Site header with dark background (site-header--dark) lacks --section-b
+ gaswholesalers.com | cta_improvement          | medium   | detected | component-template-fixer | Only one CTA visible ('Our Services' button on homepage). Contact page
+ gaswholesalers.com | content_rewrite          | medium   | detected | page-build-handler       | Safety and compliance mentioned but not detailed. For gas distribution
+ gaswholesalers.com | needs_content_page       | medium   | detected | page-build-handler       | No service area information visible. Geographic coverage is critical f
+ gaswholesalers.com | needs_content_page       | medium   | detected | page-build-handler       | No customer testimonials, case studies, or proof points visible to est
+ gaswholesalers.com | needs_design_review      | medium   | detected | webdesign-agent          | Hero section uses hardcoded rgba(0,0,0,0.5) and rgba(0,0,0,0.6) for gr
+ gaswholesalers.com | spacing_fix              | medium   | detected | component-template-fixer | Grid gap is hardcoded to 2rem across all .grid instances. Different se
+ gaswholesalers.com | responsive_fix           | medium   | detected | component-template-fixer | Grid system uses repeat(auto...) which is incomplete in the excerpt. N
+ gaswholesalers.com | content_rewrite          | medium   | detected | page-build-handler       | About page focuses on generic 'customer satisfaction' without explaini
+ gaswholesalers.com | content_rewrite          | medium   | detected | page-build-handler       | Services page mentions 'industrial, commercial, and specialty gas cust
+ gaswholesalers.com | needs_content_page       | medium   | detected | page-build-handler       | No trust signals present - lacking customer logos, testimonials, years
+ gaswholesalers.com | spacing_fix              | medium   | detected | component-template-fixer | Grid gap set to 2rem but no consistent spacing scale defined for secti
+ gaswholesalers.com | responsive_fix           | medium   | detected | component-template-fixer | Grid system uses 'repeat(auto' which appears truncated in the CSS exce
+ gaswholesalers.com | cta_improvement          | medium   | detected | component-template-fixer | Homepage CTA only offers 'Our Services' link - no direct conversion pa
+ gaswholesalers.com | needs_content_page       | medium   | detected | page-build-handler       | No pricing transparency or business model explanation - wholesale buye
+ gaswholesalers.com | cta_improvement          | medium   | detected | component-template-fixer | Homepage has only one CTA ('Our Services') which is informational rath
+ gaswholesalers.com | cta_improvement          | low      | detected | component-template-fixer | Contact page headline is conversational ('Let's Talk') which may not c
+ gaswholesalers.com | tone_shift               | low      | detected | page-build-handler       | Tone is appropriately professional but overly safe - lacks confidence
+ gaswholesalers.com | tone_shift               | low      | detected | page-build-handler       | Tone is appropriately professional but lacks urgency and authority exp
+ gaswholesalers.com | needs_rerender           | high     | triaged  | rerender-pages           | Reassemble and deploy all pages after human change requests
+(57 rows)
+
+Triage what you want — selectively:
+-- Triage all CSS/structural fixes (safe, mechanical)
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected'
+  AND item_type IN ('hardcoded_section_colors', 'needs_design_review');
+
+-- Or triage everything for a specific site
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected'
+  AND site_id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc';
+
+-- Or triage by severity
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected' AND severity = 'high';
+
+(ALL)
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = NOW()
+WHERE status = 'detected';

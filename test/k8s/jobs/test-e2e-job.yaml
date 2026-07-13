@@ -1,0 +1,201 @@
+# test/k8s/jobs/test-e2e-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-e2e-suite
+  namespace: ai-persona-system
+  labels:
+    app: test
+    test-type: e2e
+    test-suite: complete
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 3600  # 1 hour timeout
+  template:
+    metadata:
+      labels:
+        app: test
+        test-type: e2e
+    spec:
+      restartPolicy: Never
+      serviceAccountName: test-runner  # If RBAC is needed
+      imagePullSecrets:
+        - name: docker-hub-creds
+
+      initContainers:
+        # Wait for dependencies
+        - name: wait-for-postgres
+          image: busybox:1.35
+          command: ['sh', '-c', 'until nc -z postgres-clients.ai-persona-system.svc.cluster.local 5432; do echo waiting for postgres; sleep 2; done']
+
+        - name: wait-for-kafka
+          image: busybox:1.35
+          command: ['sh', '-c', 'until nc -z kafka-cluster-kafka-bootstrap.ai-persona-system.svc.cluster.local 9092; do echo waiting for kafka; sleep 2; done']
+
+        # Setup test data
+        - name: setup-test-data
+          image: postgres:13-alpine
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+          command:
+            - sh
+            - -c
+            - |
+              psql -h postgres-clients.ai-persona-system.svc.cluster.local \
+                   -U clients_user -d clients_db \
+                   -f /migrations/001_test_schema.sql
+              psql -h postgres-clients.ai-persona-system.svc.cluster.local \
+                   -U clients_user -d clients_db \
+                   -f /migrations/002_test_data.sql
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+
+      containers:
+        # Main test runner
+        - name: e2e-test-runner
+          image: $(REGISTRY)/test-runner:$(IMAGE_TAG)
+          imagePullPolicy: Always
+          command: ["/test-runner"]
+          args:
+            - "--test-suite=e2e"
+            - "--timeout=45m"
+            - "--parallel=3"
+            - "-v"
+          env:
+            # Database configuration
+            - name: DB_HOST
+              value: "postgres-clients.ai-persona-system.svc.cluster.local"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "clients_db"
+            - name: DB_USER
+              value: "clients_user"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+
+            # Kafka configuration
+            - name: KAFKA_BROKERS
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+            - name: KAFKA_CONSUMER_GROUP
+              value: "e2e-test-runner"
+
+            # Test configuration
+            - name: CLIENT_ID
+              value: "demo_client"
+            - name: TEST_USER_ID
+              value: "e2e_test_user"
+            - name: LOG_LEVEL
+              value: "debug"
+
+            # API Keys for agent testing
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: ANTHROPIC_API_KEY
+            - name: SERP_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: SERP_API_KEY
+
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+
+          volumeMounts:
+            - name: test-fixtures
+              mountPath: /fixtures
+            - name: test-results
+              mountPath: /results
+
+        # Sidecar for monitoring
+        - name: test-monitor
+          image: $(REGISTRY)/test-monitor:$(IMAGE_TAG)
+          command: ["/monitor"]
+          args:
+            - "--dashboard-port=8090"
+            - "--metrics-port=9090"
+          env:
+            - name: DB_HOST
+              value: "postgres-clients.ai-persona-system.svc.cluster.local"
+            - name: DB_NAME
+              value: "clients_db"
+            - name: DB_USER
+              value: "clients_user"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+          ports:
+            - containerPort: 8090
+              name: dashboard
+            - containerPort: 9090
+              name: metrics
+
+      volumes:
+        - name: migrations
+          configMap:
+            name: test-migrations
+        - name: test-fixtures
+          configMap:
+            name: test-fixtures
+        - name: test-results
+          emptyDir: {}
+
+---
+# ConfigMap for test migrations
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-migrations
+  namespace: ai-persona-system
+data:
+  001_test_schema.sql: |
+    -- Test schema creation
+    CREATE SCHEMA IF NOT EXISTS client_test_client;
+    CREATE SCHEMA IF NOT EXISTS client_demo_client;
+    -- ... (full schema from earlier)
+
+  002_test_data.sql: |
+    -- Test data insertion
+    INSERT INTO agent_groups (id, name, group_type, agent_configs, orchestration_workflow)
+    VALUES (...);
+    -- ... (full test data from earlier)
+
+---
+# Service for test monitoring dashboard
+apiVersion: v1
+kind: Service
+metadata:
+  name: e2e-test-monitor
+  namespace: ai-persona-system
+  labels:
+    app: test
+    component: monitor
+spec:
+  selector:
+    app: test
+    test-type: e2e
+  ports:
+    - name: dashboard
+      port: 8090
+      targetPort: 8090
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+  type: ClusterIP

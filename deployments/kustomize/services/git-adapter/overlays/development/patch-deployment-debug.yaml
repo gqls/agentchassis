@@ -1,0 +1,26 @@
+- op: replace
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets
+- op: add
+  path: /spec/template/spec/serviceAccountName
+  value: ai-persona-app
+- op: add
+  path: /spec/template/spec/containers/0/command
+  value:
+    - /bin/sh
+    - -c
+    - |
+      echo "=== Checking mounted config ==="
+      ls -la /app/configs/
+      echo "=== Content of mounted config ==="
+      cat /app/configs/git-adapter.yaml || echo "Config file not found"
+      echo "=== Original config location ==="
+      ls -la /app/
+      echo "=== Sleeping to keep container running ==="
+      sleep 3600

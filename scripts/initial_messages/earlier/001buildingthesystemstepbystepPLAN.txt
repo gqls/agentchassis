@@ -1,0 +1,1582 @@
+# Agent Communication Flow - Stateless-First Go Implementation
+
+## Architecture Philosophy: Stateless Agents with Database-Backed Orchestrations
+
+**Core Principle**: Agents are stateless executors. State lives in the database. Any replica can process any message for its agent type.
+
+```go
+// The REAL identity and state holder
+Orchestration (in DB) + Step + Request = "Agent Instance"
+
+// The executor (stateless, ephemeral)
+Agent Container (any replica) = Processes messages, updates DB
+```
+
+## Complete Message Flow: Core Manager → Agent-Chassis → Test-One-v1
+
+### 1. Stateless Agent Architecture (Go Structures)
+
+```go
+// Agent represents a stateless executor
+type Agent struct {
+    // Type configuration (same for all replicas)
+    AgentType    string `json:"agent_type"`     // "agent-chassis", "website-builder"
+    AgentVersion string `json:"agent_version"`  // "v1.2.3"
+    WorkflowType string `json:"workflow_type"`  // Type of workflows this agent handles
+    
+    // Instance identification (unique per pod, for debugging only)
+    PodName     string `json:"pod_name"`      // This IS the AgentID
+    Namespace   string `json:"namespace"`     // Kubernetes namespace
+    NodeName    string `json:"node_name"`     // Which K8s node it's running on
+    
+    // Shared resources (all replicas use same topics)
+    RequestsTopic  string `json:"requests_topic"`   // e.g., "system.agent-chassis.requests"
+    ResponsesTopic string `json:"responses_topic"`  // e.g., "system.agent-chassis.responses"
+    
+    // NO internal orchestration state! It's all in DB
+    db    *DatabaseClient
+    kafka *KafkaClient
+}
+
+// OrchestrationState is the REAL stateful entity (stored in DB)
+type OrchestrationState struct {
+    // Identity
+    OrchestrationID   string `json:"orchestration_id"`    // UUID
+    OrchestrationName string `json:"orchestration_name"`  // Human-readable
+    AgentType        string `json:"agent_type"`          // Which agent type handles this
+    
+    // Hierarchy
+    ParentOrchestrationID   string `json:"parent_orchestration_id"`
+    ParentOrchestrationName string `json:"parent_orchestration_name"`
+    ParentRequestID        string `json:"parent_request_id"`
+    CorrelationID          string `json:"correlation_id"`
+    CorrelationName        string `json:"correlation_name"`
+    
+    // State
+    CurrentStep      int                `json:"current_step"`
+    TotalSteps      int                `json:"total_steps"`
+    Status          string             `json:"status"` // pending|processing|complete|failed
+    AwaitedRequests map[string]bool    `json:"awaited_requests"` // RequestID -> awaiting
+    
+    // Optimistic locking
+    Version int `json:"version"` // Incremented on each update
+    
+    // Audit trail (for debugging)
+    ProcessingHistory []ProcessingRecord `json:"processing_history"`
+    CreatedAt        time.Time          `json:"created_at"`
+    UpdatedAt        time.Time          `json:"updated_at"`
+}
+
+type ProcessingRecord struct {
+    PodName   string    `json:"pod_name"`   // Which pod processed this
+    StepID    string    `json:"step_id"`
+    StepName  string    `json:"step_name"`
+    Action    string    `json:"action"`     // "sent_request", "received_response", etc.
+    Timestamp time.Time `json:"timestamp"`
+    Details   string    `json:"details"`    // Any relevant debug info
+}
+
+// AgentIdentity for message headers (lightweight)
+type AgentIdentity struct {
+    AgentType   string `json:"agent_type"`    // "agent-chassis"
+    AgentID     string `json:"agent_id"`      // Pod name (for debugging)
+    PodName     string `json:"pod_name"`      // Same as AgentID
+    AgentVersion string `json:"agent_version"` // "v1.2.3"
+}
+
+// Request Message Structure
+type RequestMessage struct {
+    Headers RequestHeaders `json:"headers"`
+    Body    interface{}    `json:"body"`
+}
+
+type RequestHeaders struct {
+    // Who Am I (Sender Identity)
+    Sender AgentIdentity `json:"sender"`
+    
+    // Identity
+    CorrelationID     string `json:"correlation_id"`      // UUID
+    CorrelationName   string `json:"correlation_name"`    // "website-build-agrivisionary"
+    ClientID          string `json:"client_id"`
+    
+    // Orchestration Context
+    OrchestrationID       string `json:"orchestration_id"`        // UUID
+    OrchestrationName     string `json:"orchestration_name"`      // "core-mgr-website-flow"
+    StepID               string `json:"step_id"`                  // UUID
+    StepName             string `json:"step_name"`                // "spawn-website-builder"
+    RequestID            string `json:"request_id"`               // UUID
+    RetryVersion         int    `json:"retry_version"`            // 0, 1, 2 for retries
+    ParentOrchestrationID string `json:"parent_orchestration_id"`  // UUID if spawned
+    ParentOrchestrationName string `json:"parent_orchestration_name"` // Parent's readable name
+    ParentRequestID      string `json:"parent_request_id"`        // UUID if spawned
+    
+    // Message Metadata
+    MessageID       string    `json:"message_id"`         // UUID
+    MessageType     string    `json:"message_type"`       // "request"
+    FromAgent       string    `json:"from_agent"`         // Legacy - use Sender.AgentID
+    ToAgent         string    `json:"to_agent"`
+    ToAgentType     string    `json:"to_agent_type"`      // Expected recipient type
+    Action          string    `json:"action"`
+    Timestamp       time.Time `json:"timestamp"`
+    
+    // Resource Management
+    FuelBudget          int `json:"fuel_budget"`
+    TimeoutSeconds      int `json:"timeout_seconds"`
+    
+    // Routing
+    RequestsTopic  string `json:"requests_topic"`
+    ResponsesTopic string `json:"responses_topic"`
+}
+
+// Response Message Structure - Highly Transparent Format
+type ResponseMessage struct {
+    Headers ResponseHeaders `json:"headers"`
+    Body    ResponseBody    `json:"body"`
+}
+
+type ResponseHeaders struct {
+    // Who Am I (Sender Identity)
+    Sender AgentIdentity `json:"sender"`
+    
+    // Response Tracking
+    InResponseToRequestID         string `json:"in_response_to_request_id"`
+    InResponseToStepID           string `json:"in_response_to_step_id"`
+    InResponseToStepName         string `json:"in_response_to_step_name"`
+    InResponseToParentOrchID     string `json:"in_response_to_parent_orchestration_id"`
+    InResponseToParentOrchName   string `json:"in_response_to_parent_orchestration_name"`
+    InResponseToMessageID        string `json:"in_response_to_message_id"`
+    InResponseToAction           string `json:"in_response_to_action"`
+    RetryCount                   int    `json:"retry_count"`
+    
+    // My Context
+    MyOrchestrationID    string `json:"my_orchestration_id"`     // UUID
+    MyOrchestrationName  string `json:"my_orchestration_name"`   // "test-agent-calc-flow"
+    MyRequestsTopic      string `json:"my_requests_topic"`
+    MyResponsesTopic     string `json:"my_responses_topic"`
+    
+    // Identity
+    CorrelationID   string `json:"correlation_id"`    // UUID
+    CorrelationName string `json:"correlation_name"`  // Human-readable
+    ClientID        string `json:"client_id"`
+    MessageType     string `json:"message_type"`  // "response"
+    FromAgent       string `json:"from_agent"`    // Legacy - use Sender.AgentID
+    ToAgent         string `json:"to_agent"`
+    
+    // Status Flags
+    IsComplete           bool   `json:"is_complete"`
+    IsError             bool   `json:"is_error"`
+    IsMultipartResponse bool   `json:"is_multipart_response"`
+    PartCount           int    `json:"part_count"`
+    Status              string `json:"status"` // awaiting|processing|complete|error_recoverable|error_unrecoverable
+    
+    // Timing & Resources
+    TimeSent                   time.Time     `json:"time_sent"`
+    TimeSpent                  time.Duration `json:"time_spent"`
+    OverallTimeBudgetRemaining int          `json:"overall_time_budget_remaining"`
+    TopicSentTo                string       `json:"topic_sent_to"`
+    FuelUsed                   int          `json:"fuel_used"`
+    RemainingFuelBudget        int          `json:"remaining_fuel_budget"`
+}
+
+type ResponseBody struct {
+    Success bool                   `json:"success"`
+    Headers map[string]interface{} `json:"headers,omitempty"`
+    Body    struct {
+        Result      interface{} `json:"result"`
+        Calculation interface{} `json:"calculation,omitempty"`
+        Error       *ErrorInfo  `json:"error,omitempty"`
+    } `json:"body"`
+}
+
+type ErrorInfo struct {
+    Code        string `json:"code"`
+    Message     string `json:"message"`
+    Recoverable bool   `json:"recoverable"`
+    RetryAfter  int    `json:"retry_after_seconds,omitempty"`
+}
+```
+
+### 2. Stateless Agent Initialization (Go)
+
+```go
+// GetAgentIdentity for stateless agents - AgentID = PodName
+func GetAgentIdentity(agentType string) *AgentIdentity {
+    podName := os.Getenv("HOSTNAME") // In K8s, hostname = pod name
+    if podName == "" {
+        podName = fmt.Sprintf("%s-local-%d", agentType, os.Getpid())
+    }
+    
+    return &AgentIdentity{
+        AgentType:    agentType,
+        AgentID:      podName,  // AgentID = PodName for stateless design
+        PodName:      podName,
+        AgentVersion: os.Getenv("AGENT_VERSION"),
+    }
+}
+
+// NewStatelessAgent creates an agent that processes messages without internal state
+func NewStatelessAgent(agentType string, db *DatabaseClient, kafka *KafkaClient) *Agent {
+    return &Agent{
+        AgentType:    agentType,
+        AgentVersion: os.Getenv("AGENT_VERSION"),
+        WorkflowType: os.Getenv("WORKFLOW_TYPE"),
+        PodName:      os.Getenv("HOSTNAME"),
+        Namespace:    os.Getenv("POD_NAMESPACE"),
+        NodeName:     os.Getenv("NODE_NAME"),
+        
+        // Shared topics for all replicas of this agent type
+        RequestsTopic:  fmt.Sprintf("system.%s.requests", agentType),
+        ResponsesTopic: fmt.Sprintf("system.%s.responses", agentType),
+        
+        db:    db,
+        kafka: kafka,
+    }
+}
+
+// ProcessMessage handles any message for this agent type
+func (a *Agent) ProcessMessage(ctx context.Context) error {
+    // Any replica can process any message
+    msg, err := a.kafka.ConsumeNext(a.RequestsTopic)
+    if err != nil {
+        return err
+    }
+    
+    // Load orchestration state from DB (not from memory!)
+    state, err := a.loadOrUpdateOrchestration(msg)
+    if err != nil {
+        return err
+    }
+    
+    // Process based on current state
+    return a.executeStep(ctx, state, msg)
+}
+```
+
+### 3. Database-Backed State Management (Go)
+
+```go
+// loadOrUpdateOrchestration loads state from DB or creates new orchestration
+func (a *Agent) loadOrUpdateOrchestration(msg RequestMessage) (*OrchestrationState, error) {
+    // Try to load existing orchestration for responses
+    if msg.Headers.MessageType == "response" {
+        orchID := msg.Headers.InResponseToOrchID
+        return a.db.LoadOrchestrationWithLock(orchID)
+    }
+    
+    // For new requests, create orchestration
+    orch := &OrchestrationState{
+        OrchestrationID:         uuid.New().String(),
+        OrchestrationName:       GenerateReadableName(a.AgentType, msg.Headers.Action),
+        AgentType:              a.AgentType,
+        ParentOrchestrationID:   msg.Headers.OrchestrationID,
+        ParentOrchestrationName: msg.Headers.OrchestrationName,
+        ParentRequestID:        msg.Headers.RequestID,
+        CorrelationID:          msg.Headers.CorrelationID,
+        CorrelationName:        msg.Headers.CorrelationName,
+        CurrentStep:            1,
+        Status:                 "processing",
+        AwaitedRequests:        make(map[string]bool),
+        Version:                1,
+        ProcessingHistory:      []ProcessingRecord{},
+        CreatedAt:             time.Now(),
+        UpdatedAt:             time.Now(),
+    }
+    
+    // Add processing record
+    orch.ProcessingHistory = append(orch.ProcessingHistory, ProcessingRecord{
+        PodName:   a.PodName,
+        StepID:    msg.Headers.StepID,
+        StepName:  msg.Headers.StepName,
+        Action:    "orchestration_created",
+        Timestamp: time.Now(),
+        Details:   fmt.Sprintf("Created by %s for action %s", a.PodName, msg.Headers.Action),
+    })
+    
+    return orch, a.db.SaveOrchestration(orch)
+}
+
+// executeStepWithOptimisticLocking ensures only one replica processes a step
+func (a *Agent) executeStepWithOptimisticLocking(
+    ctx context.Context,
+    orchID string,
+    stepFunc func(*OrchestrationState) error,
+) error {
+    maxRetries := 3
+    for i := 0; i < maxRetries; i++ {
+        // Load current state with version
+        state, err := a.db.LoadOrchestrationWithVersion(orchID)
+        if err != nil {
+            return err
+        }
+        
+        currentVersion := state.Version
+        
+        // Execute the step
+        if err := stepFunc(state); err != nil {
+            return err
+        }
+        
+        // Update processing history
+        state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
+            PodName:   a.PodName,
+            Action:    "step_executed",
+            Timestamp: time.Now(),
+            Details:   fmt.Sprintf("Processed by %s", a.PodName),
+        })
+        
+        // Try to save with version check
+        state.Version = currentVersion + 1
+        state.UpdatedAt = time.Now()
+        
+        err = a.db.SaveOrchestrationIfVersion(state, currentVersion)
+        if err == nil {
+            // Success!
+            return nil
+        }
+        
+        if err == ErrVersionMismatch {
+            // Another replica processed it, retry
+            log.Printf("Version mismatch for %s, retrying... (attempt %d)", orchID, i+1)
+            time.Sleep(time.Millisecond * 100 * time.Duration(i+1))
+            continue
+        }
+        
+        return err
+    }
+    
+    return fmt.Errorf("max retries exceeded for orchestration %s", orchID)
+}
+```
+
+### 4. Core Manager Request (Stateless)
+```
+
+```go
+func (cm *CoreManager) SendInitialRequest() error {
+    myIdentity := GetAgentIdentity("core-manager")
+    
+    // Create orchestration in DB first
+    orch := &OrchestrationState{
+        OrchestrationID:   uuid.New().String(),
+        OrchestrationName: GenerateReadableName("core-manager", "website-flow"),
+        AgentType:        "core-manager",
+        CorrelationID:    uuid.New().String(),
+        CorrelationName:  "website-build-agrivisionary",
+        CurrentStep:      1,
+        TotalSteps:      1,
+        Status:          "processing",
+        AwaitedRequests: map[string]bool{},
+        Version:         1,
+        CreatedAt:       time.Now(),
+    }
+    
+    stepID := uuid.New().String()
+    requestID := uuid.New().String()
+    
+    // Track what we're waiting for IN THE DATABASE
+    orch.AwaitedRequests[requestID] = true
+    
+    if err := cm.db.SaveOrchestration(orch); err != nil {
+        return err
+    }
+    
+    request := RequestMessage{
+        Headers: RequestHeaders{
+            // Sender identity (for debugging)
+            Sender: *myIdentity,
+            
+            // Orchestration context
+            CorrelationID:     orch.CorrelationID,
+            CorrelationName:   orch.CorrelationName,
+            OrchestrationID:   orch.OrchestrationID,
+            OrchestrationName: orch.OrchestrationName,
+            StepID:           stepID,
+            StepName:         "spawn-website-builder",
+            RequestID:        requestID,
+            RetryVersion:     0,
+            
+            // Message metadata
+            MessageID:   uuid.New().String(),
+            MessageType: "request",
+            ToAgentType: "agent-chassis",  // Any agent-chassis replica can handle this
+            Action:      "spawn_agent",
+            Timestamp:   time.Now(),
+            
+            // Resources
+            FuelBudget:     50000,
+            TimeoutSeconds: 60,
+            
+            // Routing to shared topics
+            ResponsesTopic: "system.core-manager.responses",
+        },
+        Body: map[string]interface{}{
+            "agent_spec": map[string]interface{}{
+                "type":    "test-one-v1",
+                "version": "v1",
+                "config": map[string]interface{}{
+                    "operation": "add",
+                    "operands":  []int{2, 2},
+                },
+            },
+        },
+    }
+    
+    // Send to shared agent-chassis topic (any replica can process)
+    return cm.kafka.PublishWithKey(
+        "system.agent-chassis.requests",
+        orch.OrchestrationID,  // Use orchestration as partition key for ordering
+        request,
+    )
+}
+```
+
+### 5. Agent-Chassis Processing (Any Replica)
+
+```go
+// HandleRequest can be processed by ANY agent-chassis replica
+func (ac *Agent) HandleRequest(msg RequestMessage) error {
+    myIdentity := GetAgentIdentity("agent-chassis")
+    
+    log.Printf("Agent-Chassis replica [%s] handling request from [%s]",
+        myIdentity.PodName, msg.Headers.Sender.PodName)
+    
+    // Create orchestration in DB with optimistic locking
+    return ac.executeStepWithOptimisticLocking(
+        context.Background(),
+        msg.Headers.OrchestrationID,
+        func(parentState *OrchestrationState) error {
+            // Create MY orchestration for this task
+            myOrch := &OrchestrationState{
+                OrchestrationID:         uuid.New().String(),
+                OrchestrationName:       GenerateReadableName("agent-chassis", "spawn-test"),
+                AgentType:              "agent-chassis",
+                ParentOrchestrationID:   msg.Headers.OrchestrationID,
+                ParentOrchestrationName: msg.Headers.OrchestrationName,
+                ParentRequestID:        msg.Headers.RequestID,
+                CorrelationID:          msg.Headers.CorrelationID,
+                CorrelationName:        msg.Headers.CorrelationName,
+                CurrentStep:            1,
+                TotalSteps:            1,
+                Status:                "processing",
+                AwaitedRequests:       map[string]bool{},
+                Version:               1,
+                ProcessingHistory: []ProcessingRecord{{
+                    PodName:   myIdentity.PodName,
+                    StepID:    msg.Headers.StepID,
+                    StepName:  "spawn-test-agent",
+                    Action:    "received_request",
+                    Timestamp: time.Now(),
+                    Details:   fmt.Sprintf("Received by %s", myIdentity.PodName),
+                }},
+                CreatedAt: time.Now(),
+                UpdatedAt: time.Now(),
+            }
+            
+            // Save my orchestration
+            if err := ac.db.SaveOrchestration(myOrch); err != nil {
+                return err
+            }
+            
+            // Create request to test agent
+            testRequestID := uuid.New().String()
+            myOrch.AwaitedRequests[testRequestID] = true
+            
+            spawnRequest := RequestMessage{
+                Headers: RequestHeaders{
+                    Sender:                  *myIdentity,
+                    CorrelationID:           msg.Headers.CorrelationID,
+                    CorrelationName:         msg.Headers.CorrelationName,
+                    OrchestrationID:         myOrch.OrchestrationID,
+                    OrchestrationName:       myOrch.OrchestrationName,
+                    StepID:                 uuid.New().String(),
+                    StepName:               "calculate",
+                    RequestID:              testRequestID,
+                    RetryVersion:           0,
+                    ParentOrchestrationID:   msg.Headers.OrchestrationID,
+                    ParentOrchestrationName: msg.Headers.OrchestrationName,
+                    ParentRequestID:        msg.Headers.RequestID,
+                    MessageID:              uuid.New().String(),
+                    MessageType:            "request",
+                    ToAgentType:            "test-one-v1",
+                    Action:                 "calculate",
+                    Timestamp:              time.Now(),
+                    FuelBudget:            msg.Headers.FuelBudget - 100,
+                    TimeoutSeconds:        30,
+                    ResponsesTopic:        "system.agent-chassis.responses",
+                },
+                Body: map[string]interface{}{
+                    "operation": "add",
+                    "operands":  []int{2, 2},
+                },
+            }
+            
+            // Update orchestration state in DB
+            if err := ac.db.UpdateOrchestrationAwaited(myOrch.OrchestrationID, testRequestID); err != nil {
+                return err
+            }
+            
+            // Send to test agent topic (any test-one-v1 replica can handle)
+            return ac.kafka.PublishWithKey(
+                "system.test-one-v1.requests",
+                myOrch.OrchestrationID,  // Partition by my orchestration
+                spawnRequest,
+            )
+        },
+    )
+}
+```
+
+### 6. Response Handler (Any Replica)
+```
+
+```go
+// HandleResponse can be processed by ANY agent-chassis replica
+func (ac *Agent) HandleResponse(resp ResponseMessage) error {
+    myIdentity := GetAgentIdentity("agent-chassis")
+    orchID := resp.Headers.InResponseToOrchID
+    requestID := resp.Headers.InResponseToRequestID
+    
+    log.Printf("Agent-Chassis replica [%s] handling response for request %s",
+        myIdentity.PodName, requestID)
+    
+    // Use optimistic locking to handle response
+    return ac.executeStepWithOptimisticLocking(
+        context.Background(),
+        orchID,
+        func(state *OrchestrationState) error {
+            // Check if we're waiting for this
+            if !state.AwaitedRequests[requestID] {
+                return fmt.Errorf("not awaiting request %s", requestID)
+            }
+            
+            // Add processing record
+            state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
+                PodName:   myIdentity.PodName,
+                StepID:    resp.Headers.InResponseToStepID,
+                StepName:  resp.Headers.InResponseToStepName,
+                Action:    fmt.Sprintf("received_%s_response", resp.Headers.Status),
+                Timestamp: time.Now(),
+                Details:   fmt.Sprintf("Handled by %s", myIdentity.PodName),
+            })
+            
+            // Handle based on status
+            switch resp.Headers.Status {
+            case "awaiting", "processing":
+                // Progress update - don't propagate, just log
+                log.Printf("Progress for %s: %s", requestID, resp.Headers.Status)
+                return nil
+                
+            case "complete":
+                // Remove from awaited
+                delete(state.AwaitedRequests, requestID)
+                
+                // If all requests complete, mark orchestration complete
+                if len(state.AwaitedRequests) == 0 {
+                    state.Status = "complete"
+                }
+                
+                // Send response to parent
+                parentResponse := ResponseMessage{
+                    Headers: ResponseHeaders{
+                        Sender:                      *myIdentity,
+                        InResponseToRequestID:       state.ParentRequestID,
+                        InResponseToOrchID:         state.ParentOrchestrationID,
+                        InResponseToOrchName:       state.ParentOrchestrationName,
+                        MyOrchestrationID:          state.OrchestrationID,
+                        MyOrchestrationName:        state.OrchestrationName,
+                        Status:                     "complete",
+                        IsComplete:                 true,
+                        CorrelationID:              state.CorrelationID,
+                        CorrelationName:            state.CorrelationName,
+                        FuelUsed:                   resp.Headers.FuelUsed + 100,
+                        RemainingFuelBudget:        resp.Headers.RemainingFuelBudget - 100,
+                    },
+                    Body: resp.Body,
+                }
+                
+                // Determine parent's response topic based on agent type
+                parentTopic := fmt.Sprintf("system.%s.responses", 
+                    extractAgentType(state.ParentOrchestrationName))
+                
+                return ac.kafka.PublishWithKey(
+                    parentTopic,
+                    state.ParentOrchestrationID,  // Partition by parent orchestration
+                    parentResponse,
+                )
+                
+            case "error_recoverable":
+                // Implement retry logic
+                if state.RetryCount < 3 {
+                    state.RetryCount++
+                    return ac.retryRequest(state, requestID)
+                }
+                // Max retries exceeded
+                fallthrough
+                
+            case "error_unrecoverable":
+                delete(state.AwaitedRequests, requestID)
+                state.Status = "failed"
+                return ac.sendErrorToParent(state, resp)
+            }
+            
+            return nil
+        },
+    )
+}
+```
+
+### 7. Kafka Configuration for Stateless Design
+
+```go
+func (ta *TestAgent) ProcessCalculation(msg RequestMessage) error {
+    startTime := time.Now()
+    
+    // Get my identity
+    myIdentity, err := GetAgentIdentity("test-one-v1")
+    if err != nil {
+        return err
+    }
+    
+    log.Printf("Test Agent [%s/%s] received calc request from [%s/%s]",
+        myIdentity.AgentType, myIdentity.PodName,
+        msg.Headers.Sender.AgentType, msg.Headers.Sender.PodName)
+    
+    // Simple calculation
+    result := 2 + 2
+    
+    // Create my own orchestration for this task (even single step)
+    myOrchID := uuid.New().String()
+    myOrchName := GenerateReadableName("test-agent", "calculation")
+    
+    // Build transparent response
+    response := ResponseMessage{
+        Headers: ResponseHeaders{
+            // Who Am I
+            Sender: *myIdentity,
+            
+            // Response tracking - all the context
+            InResponseToRequestID:       msg.Headers.RequestID,
+            InResponseToStepID:         msg.Headers.StepID,
+            InResponseToStepName:       msg.Headers.StepName,
+            InResponseToParentOrchID:   msg.Headers.ParentOrchestrationID,
+            InResponseToParentOrchName: msg.Headers.ParentOrchestrationName,
+            InResponseToMessageID:      msg.Headers.MessageID,
+            InResponseToAction:         msg.Headers.Action,
+            RetryCount:                 msg.Headers.RetryVersion,
+            
+            // My context
+            MyOrchestrationID:   myOrchID,
+            MyOrchestrationName: myOrchName,
+            MyRequestsTopic:     "system.agent.test.requests",
+            MyResponsesTopic:    "system.agent.test.responses",
+            
+            // Identity
+            CorrelationID:   msg.Headers.CorrelationID,
+            CorrelationName: msg.Headers.CorrelationName,
+            ClientID:        msg.Headers.ClientID,
+            MessageType:     "response",
+            FromAgent:       myIdentity.AgentID,
+            ToAgent:         msg.Headers.FromAgent,
+            
+            // Status
+            IsComplete:          true,
+            IsError:            false,
+            IsMultipartResponse: false,
+            PartCount:          1,
+            Status:             "complete",
+            
+            // Timing & Resources
+            TimeSent:                   time.Now(),
+            TimeSpent:                  time.Since(startTime),
+            OverallTimeBudgetRemaining: msg.Headers.TimeoutSeconds - int(time.Since(startTime).Seconds()),
+            TopicSentTo:                msg.Headers.ResponsesTopic,
+            FuelUsed:                   50,
+            RemainingFuelBudget:        msg.Headers.FuelBudget - 50,
+        },
+        Body: ResponseBody{
+            Success: true,
+            Body: struct {
+                Result      interface{} `json:"result"`
+                Calculation interface{} `json:"calculation,omitempty"`
+                Error       *ErrorInfo  `json:"error,omitempty"`
+            }{
+                Result:      result,
+                Calculation: "2 + 2 = 4",
+            },
+        },
+    }
+    
+    log.Printf("Test Agent [%s/%s] sending response for orchestration [%s/%s]",
+        myIdentity.AgentType, myIdentity.PodName,
+        myOrchName, myOrchID)
+    
+    return ta.kafka.Publish(msg.Headers.ResponsesTopic, response)
+}
+```
+
+### 5. Agent-Chassis Response Handler (Go)
+
+```go
+func (ac *AgentChassis) HandleTestAgentResponse(resp ResponseMessage) error {
+    requestID := resp.Headers.InResponseToRequestID
+    
+    // Check if we're waiting for this
+    awaited, exists := ac.awaitedRequests[requestID]
+    if !exists {
+        log.Printf("ERROR: Not waiting for request %s", requestID)
+        log.Printf("Awaited requests: %v", ac.awaitedRequests)
+        return fmt.Errorf("unexpected response for request %s", requestID)
+    }
+    
+    // Handle based on status
+    switch resp.Headers.Status {
+    case "awaiting", "processing":
+        // Progress update - don't propagate up
+        log.Printf("Progress update for %s: %s", requestID, resp.Headers.Status)
+        return nil
+        
+    case "complete":
+        // Remove from awaited
+        delete(ac.awaitedRequests, requestID)
+        
+        // Send response to Core Manager
+        finalResponse := ResponseMessage{
+            Headers: ResponseHeaders{
+                // Original request context
+                InResponseToRequestID:    awaited.ParentRequestID,
+                InResponseToStepID:      awaited.ParentStepID,
+                InResponseToParentOrchID: awaited.ParentOrchestrationID,
+                RetryCount:              awaited.RetryVersion,
+                
+                // My context
+                MyOrchestrationID: ac.orchestrationID,
+                
+                // Status
+                Status:     "complete",
+                IsComplete: true,
+                
+                // Pass through correlation
+                CorrelationID: resp.Headers.CorrelationID,
+                
+                // Resources
+                FuelUsed:            resp.Headers.FuelUsed + 100,
+                RemainingFuelBudget: resp.Headers.RemainingFuelBudget - 100,
+            },
+            Body: resp.Body, // Pass through the result
+        }
+        
+        return ac.kafka.Publish("system.agent.core.responses", finalResponse)
+        
+    case "error_recoverable":
+        // Retry with same request ID, increment retry version
+        if awaited.RetryVersion < 3 {
+            return ac.retryRequest(awaited)
+        }
+        // Max retries exceeded, treat as unrecoverable
+        fallthrough
+        
+    case "error_unrecoverable":
+        // Remove from awaited and propagate error
+        delete(ac.awaitedRequests, requestID)
+        return ac.sendErrorToParent(awaited, resp)
+    }
+    
+    return nil
+}
+```
+
+### 6. Retry Logic with Same Request ID (Go)
+
+```go
+func (ac *AgentChassis) retryRequest(awaited *AwaitedRequest) error {
+    // Keep same request ID, increment retry version
+    retryRequest := RequestMessage{
+        Headers: RequestHeaders{
+            RequestID:    awaited.RequestID,  // SAME request ID
+            RetryVersion: awaited.RetryVersion + 1,  // INCREMENT retry version
+            StepID:       awaited.StepID,  // SAME step ID
+            // ... other headers remain same
+        },
+        // ... body remains same
+    }
+    
+    // Update our tracking
+    awaited.RetryVersion++
+    awaited.SentAt = time.Now()
+    
+    log.Printf("Retrying request %s (attempt %d)", awaited.RequestID, awaited.RetryVersion)
+    
+    return ac.kafka.Publish("system.agent.test.requests", retryRequest)
+}
+```
+
+### 7. Deduplication Handler (Go)
+
+```go
+type MessageDeduplicator struct {
+    processedMessages map[string]*ProcessedMessage
+    mu                sync.RWMutex
+}
+
+type ProcessedMessage struct {
+    MessageID    string
+    RequestID    string
+    RetryVersion int
+    Status       string
+    ProcessedAt  time.Time
+}
+
+func (md *MessageDeduplicator) ShouldProcess(resp ResponseMessage) bool {
+    md.mu.Lock()
+    defer md.mu.Unlock()
+    
+    // Key for deduplication
+    key := fmt.Sprintf("%s:%d:%s", 
+        resp.Headers.InResponseToRequestID,
+        resp.Headers.RetryCount,
+        resp.Headers.Status)
+    
+    if existing, exists := md.processedMessages[key]; exists {
+        log.Printf("Duplicate response ignored: %s (already processed at %v)", 
+            key, existing.ProcessedAt)
+        return false
+    }
+    
+    // For terminal states, check if we've already processed ANY terminal state for this request
+    if resp.Headers.Status == "complete" || resp.Headers.Status == "error_unrecoverable" {
+        baseKey := fmt.Sprintf("%s:*:terminal", resp.Headers.InResponseToRequestID)
+        if _, exists := md.processedMessages[baseKey]; exists {
+            log.Printf("Terminal state already processed for request %s", 
+                resp.Headers.InResponseToRequestID)
+            return false
+        }
+        // Mark as terminal
+        md.processedMessages[baseKey] = &ProcessedMessage{
+            RequestID:   resp.Headers.InResponseToRequestID,
+            Status:      "terminal",
+            ProcessedAt: time.Now(),
+        }
+    }
+    
+    // Mark as processed
+    md.processedMessages[key] = &ProcessedMessage{
+        MessageID:    resp.Headers.InResponseToMessageID,
+        RequestID:    resp.Headers.InResponseToRequestID,
+        RetryVersion: resp.Headers.RetryCount,
+        Status:       resp.Headers.Status,
+        ProcessedAt:  time.Now(),
+    }
+    
+    return true
+}
+```
+
+### 8. Database Schema (PostgreSQL)
+
+```sql
+-- Orchestration states table
+CREATE TABLE orchestration_states (
+    orchestration_id UUID PRIMARY KEY,
+    parent_orchestration_id UUID,
+    parent_request_id UUID,
+    correlation_id UUID NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    current_step INTEGER DEFAULT 1,
+    total_steps INTEGER,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Step to request mapping
+CREATE TABLE step_request_mapping (
+    step_id UUID PRIMARY KEY,
+    orchestration_id UUID NOT NULL REFERENCES orchestration_states(orchestration_id),
+    request_id UUID NOT NULL,
+    retry_version INTEGER DEFAULT 0,
+    expected_responses INTEGER DEFAULT 1,
+    received_responses INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    status VARCHAR(50),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(request_id, retry_version)
+);
+
+-- Awaited requests tracking
+CREATE TABLE awaited_requests (
+    request_id UUID,
+    retry_version INTEGER,
+    orchestration_id UUID NOT NULL,
+    step_id UUID NOT NULL,
+    parent_orchestration_id UUID,
+    parent_request_id UUID,
+    sent_at TIMESTAMP NOT NULL,
+    timeout_at TIMESTAMP NOT NULL,
+    status VARCHAR(50) DEFAULT 'awaiting',
+    PRIMARY KEY (request_id, retry_version)
+);
+
+-- Message log for debugging
+CREATE TABLE message_log (
+    message_id UUID PRIMARY KEY,
+    correlation_id UUID NOT NULL,
+    request_id UUID,
+    orchestration_id UUID,
+    message_type VARCHAR(20),
+    status VARCHAR(50),
+    from_agent VARCHAR(255),
+    to_agent VARCHAR(255),
+    headers JSONB,
+    body JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for performance
+CREATE INDEX idx_correlation ON message_log(correlation_id);
+CREATE INDEX idx_orchestration ON orchestration_states(parent_orchestration_id);
+CREATE INDEX idx_awaited_timeout ON awaited_requests(timeout_at) WHERE status = 'awaiting';
+```
+
+```go
+// Kafka topic configuration for stateless agents
+type KafkaConfig struct {
+    // Topics are per agent TYPE, not per instance
+    // All replicas of an agent type share the same topics
+    Topics map[string]TopicConfig
+}
+
+type TopicConfig struct {
+    Name              string
+    Partitions        int
+    ReplicationFactor int
+    RetentionHours    int
+}
+
+func GetKafkaConfig() KafkaConfig {
+    return KafkaConfig{
+        Topics: map[string]TopicConfig{
+            // Shared topics for all agent-chassis replicas
+            "system.agent-chassis.requests": {
+                Name:              "system.agent-chassis.requests",
+                Partitions:        10,  // Multiple partitions for parallelism
+                ReplicationFactor: 3,
+                RetentionHours:    24,
+            },
+            "system.agent-chassis.responses": {
+                Name:              "system.agent-chassis.responses",
+                Partitions:        10,
+                ReplicationFactor: 3,
+                RetentionHours:    24,
+            },
+            // Shared topics for all test-one-v1 replicas
+            "system.test-one-v1.requests": {
+                Name:              "system.test-one-v1.requests",
+                Partitions:        5,
+                ReplicationFactor: 3,
+                RetentionHours:    24,
+            },
+        },
+    }
+}
+
+// PublishWithKey ensures messages for same orchestration go to same partition
+func (k *KafkaClient) PublishWithKey(topic string, key string, msg interface{}) error {
+    // Use orchestration ID as partition key
+    // This ensures all messages for one orchestration are ordered
+    return k.producer.Send(&sarama.ProducerMessage{
+        Topic: topic,
+        Key:   sarama.StringEncoder(key),  // Orchestration ID
+        Value: msg,
+    })
+}
+
+// Consumer group ensures each message processed once across replicas
+func (k *KafkaClient) CreateConsumerGroup(groupID string, topics []string) error {
+    config := sarama.NewConfig()
+    config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
+    config.Consumer.Offsets.Initial = sarama.OffsetNewest
+    
+    // Consumer group ID is per agent TYPE
+    // e.g., "agent-chassis-consumers", "test-one-v1-consumers"
+    consumerGroup, err := sarama.NewConsumerGroup(k.brokers, groupID, config)
+    if err != nil {
+        return err
+    }
+    
+    // All replicas join the same consumer group
+    // Kafka automatically distributes partitions among replicas
+    return nil
+}
+```
+
+### 8. Kubernetes Deployment for Stateless Agents
+
+```yaml
+# Stateless agent deployment - can scale horizontally
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-chassis
+  namespace: ai-persona-system
+spec:
+  replicas: 3  # Can scale up/down anytime
+  selector:
+    matchLabels:
+      app: agent-chassis
+  template:
+    metadata:
+      labels:
+        app: agent-chassis
+        agent-type: agent-chassis
+        version: v1.2.3
+    spec:
+      containers:
+      - name: agent-chassis
+        image: agent-chassis:v1.2.3
+        env:
+        - name: AGENT_TYPE
+          value: "agent-chassis"
+        - name: AGENT_VERSION
+          value: "v1.2.3"
+        - name: WORKFLOW_TYPE
+          value: "spawn-coordinator"
+        
+        # Pod identity (for debugging only)
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        
+        # Kafka configuration
+        - name: KAFKA_BROKERS
+          value: "kafka-broker-1:9092,kafka-broker-2:9092"
+        - name: CONSUMER_GROUP_ID
+          value: "agent-chassis-consumers"  # Same for all replicas
+        
+        # Database configuration
+        - name: DB_CONNECTION
+          value: "postgres://user:pass@postgres:5432/orchestrations"
+        
+        # No persistent volumes needed - all state in DB
+        
+---
+# HPA for automatic scaling based on load
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: agent-chassis-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: agent-chassis
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: External
+    external:
+      metric:
+        name: kafka_consumer_lag
+        selector:
+          matchLabels:
+            topic: "system.agent-chassis.requests"
+      target:
+        type: Value
+        value: "100"  # Scale up if lag > 100 messages
+```
+
+### 9. Database Schema for Stateless Operation
+
+```sql
+-- Orchestration states table with optimistic locking
+CREATE TABLE orchestration_states (
+    orchestration_id UUID PRIMARY KEY,
+    orchestration_name VARCHAR(255) NOT NULL,
+    agent_type VARCHAR(100) NOT NULL,  -- Which agent type handles this
+    
+    -- Hierarchy
+    parent_orchestration_id UUID,
+    parent_orchestration_name VARCHAR(255),
+    parent_request_id UUID,
+    correlation_id UUID NOT NULL,
+    correlation_name VARCHAR(255),
+    
+    -- State
+    current_step INTEGER DEFAULT 1,
+    total_steps INTEGER,
+    status VARCHAR(50) NOT NULL,  -- pending|processing|complete|failed
+    retry_count INTEGER DEFAULT 0,
+    
+    -- Optimistic locking
+    version INTEGER NOT NULL DEFAULT 1,
+    
+    -- Awaited requests (stored as JSONB for flexibility)
+    awaited_requests JSONB DEFAULT '{}',  -- {request_id: true/false}
+    
+    -- Processing history for debugging
+    processing_history JSONB DEFAULT '[]',
+    
+    -- Timestamps
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    -- Indexes
+    INDEX idx_parent_orch (parent_orchestration_id),
+    INDEX idx_correlation (correlation_id),
+    INDEX idx_agent_type_status (agent_type, status),
+    INDEX idx_updated (updated_at)
+);
+
+-- Function for optimistic locking update
+CREATE OR REPLACE FUNCTION update_orchestration_if_version(
+    p_orchestration_id UUID,
+    p_new_state JSONB,
+    p_expected_version INTEGER
+) RETURNS BOOLEAN AS $
+DECLARE
+    rows_updated INTEGER;
+BEGIN
+    UPDATE orchestration_states
+    SET 
+        status = p_new_state->>'status',
+        current_step = (p_new_state->>'current_step')::INTEGER,
+        awaited_requests = p_new_state->'awaited_requests',
+        processing_history = p_new_state->'processing_history',
+        version = version + 1,
+        updated_at = NOW()
+    WHERE 
+        orchestration_id = p_orchestration_id
+        AND version = p_expected_version;
+    
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+    RETURN rows_updated > 0;
+END;
+$ LANGUAGE plpgsql;
+
+-- Message deduplication table
+CREATE TABLE processed_messages (
+    message_key VARCHAR(500) PRIMARY KEY,  -- request_id:retry_version:status
+    message_id UUID NOT NULL,
+    request_id UUID NOT NULL,
+    retry_version INTEGER,
+    status VARCHAR(50),
+    processed_at TIMESTAMP DEFAULT NOW(),
+    processed_by_pod VARCHAR(255),
+    
+    -- Auto-cleanup old entries
+    INDEX idx_processed_at (processed_at)
+);
+
+-- Cleanup old processed messages (run periodically)
+CREATE OR REPLACE FUNCTION cleanup_old_messages() RETURNS void AS $
+BEGIN
+    DELETE FROM processed_messages 
+    WHERE processed_at < NOW() - INTERVAL '24 hours';
+END;
+$ LANGUAGE plpgsql;
+```
+
+### 10. Stateless Agent Main Loop
+```
+
+```go
+func TestHappyPath(t *testing.T) {
+    // Setup
+    cm := NewCoreManager()
+    ac := NewAgentChassis()
+    ta := NewTestAgent()
+    
+    // 1. Core Manager sends request
+    err := cm.SendInitialRequest()
+    require.NoError(t, err)
+    
+    // 2. Agent-Chassis receives and spawns
+    msg := <-ac.requestsChan
+    err = ac.HandleCoreManagerRequest(msg)
+    require.NoError(t, err)
+    
+    // 3. Test agent calculates
+    testMsg := <-ta.requestsChan
+    err = ta.ProcessCalculation(testMsg)
+    require.NoError(t, err)
+    
+    // 4. Agent-Chassis receives result
+    resp := <-ac.responsesChan
+    err = ac.HandleTestAgentResponse(resp)
+    require.NoError(t, err)
+    
+    // 5. Core Manager receives final result
+    finalResp := <-cm.responsesChan
+    assert.Equal(t, "complete", finalResp.Headers.Status)
+    assert.Equal(t, 4, finalResp.Body.Body.Result)
+}
+
+func TestRetryOnError(t *testing.T) {
+    // Test that same request_id with incremented retry_version works correctly
+    ac := NewAgentChassis()
+    
+    // Initial request
+    awaited := &AwaitedRequest{
+        RequestID:    "REQ-001",
+        RetryVersion: 0,
+        StepID:       "STEP-001",
+    }
+    ac.awaitedRequests["REQ-001"] = awaited
+    
+    // First response - error recoverable
+    resp := ResponseMessage{
+        Headers: ResponseHeaders{
+            InResponseToRequestID: "REQ-001",
+            Status:               "error_recoverable",
+            RetryCount:           0,
+        },
+    }
+    
+    err := ac.HandleTestAgentResponse(resp)
+    require.NoError(t, err)
+    
+    // Check retry was sent with same request_id, incremented retry_version
+    assert.Equal(t, 1, awaited.RetryVersion)
+    assert.Equal(t, "REQ-001", awaited.RequestID)
+}
+```
+
+## Key Implementation Notes
+
+1. **Request IDs are unique per step task** - not per message
+2. **Retry uses same request_id with incremented retry_version**
+3. **Track awaited_requests by request_id**, not step_id
+4. **Each agent creates its own orchestration_id**
+5. **Progress updates (awaiting/processing) don't propagate up**
+6. **Terminal states (complete/error) process once**
+7. **Full context preserved in response headers for debugging**
+
+```go
+// Main execution loop for stateless agent
+func (a *Agent) Run(ctx context.Context) error {
+    // Join consumer group (Kafka handles partition assignment)
+    consumerGroup := fmt.Sprintf("%s-consumers", a.AgentType)
+    consumer, err := a.kafka.JoinConsumerGroup(consumerGroup, []string{a.RequestsTopic})
+    if err != nil {
+        return err
+    }
+    
+    log.Printf("[%s/%s] Started, consuming from %s", 
+        a.AgentType, a.PodName, a.RequestsTopic)
+    
+    for {
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+            
+        case msg := <-consumer.Messages():
+            // Any replica can process any message
+            if err := a.processMessage(msg); err != nil {
+                log.Printf("[%s/%s] Error processing message: %v", 
+                    a.AgentType, a.PodName, err)
+                // Message will be retried by Kafka
+                continue
+            }
+            
+            // Commit offset only after successful processing
+            consumer.MarkOffset(msg, "")
+        }
+    }
+}
+
+func (a *Agent) processMessage(kafkaMsg *sarama.ConsumerMessage) error {
+    var msg Message
+    if err := json.Unmarshal(kafkaMsg.Value, &msg); err != nil {
+        return err
+    }
+    
+    // Deduplication check
+    if a.isDuplicate(msg) {
+        log.Printf("[%s/%s] Skipping duplicate message %s", 
+            a.AgentType, a.PodName, msg.Headers.MessageID)
+        return nil
+    }
+    
+    switch msg.Headers.MessageType {
+    case "request":
+        return a.HandleRequest(msg.(RequestMessage))
+    case "response":
+        return a.HandleResponse(msg.(ResponseMessage))
+    default:
+        return fmt.Errorf("unknown message type: %s", msg.Headers.MessageType)
+    }
+}
+
+func (a *Agent) isDuplicate(msg Message) bool {
+    // Create deduplication key
+    var key string
+    if msg.Headers.MessageType == "response" {
+        resp := msg.(ResponseMessage)
+        key = fmt.Sprintf("%s:%d:%s",
+            resp.Headers.InResponseToRequestID,
+            resp.Headers.RetryCount,
+            resp.Headers.Status)
+    } else {
+        req := msg.(RequestMessage)
+        key = fmt.Sprintf("%s:%d",
+            req.Headers.RequestID,
+            req.Headers.RetryVersion)
+    }
+    
+    // Check if already processed
+    exists, err := a.db.MessageExists(key)
+    if err != nil {
+        log.Printf("Dedup check error: %v", err)
+        return false  // Process anyway on error
+    }
+    
+    if exists {
+        return true
+    }
+    
+    // Mark as processed
+    a.db.MarkMessageProcessed(key, msg.Headers.MessageID, a.PodName)
+    return false
+}
+```
+
+## Benefits of Stateless-First Design
+
+### 1. **Resilience**
+- Pod crashes don't lose orchestration state
+- Any replica can pick up where another left off
+- No single point of failure
+
+### 2. **Scalability**
+- Horizontal scaling with HPA
+- Kafka consumer groups automatically rebalance
+- Database handles concurrency with optimistic locking
+
+### 3. **Simplicity**
+- No complex state synchronization
+- No leader election needed
+- Pod name as Agent ID is sufficient
+
+### 4. **Observability**
+- Processing history shows which pods handled what
+- Easy to trace issues to specific pods
+- Clear audit trail in database
+
+## Key Architectural Decisions
+
+### 1. **State Location**
+```
+Database: Orchestration state, awaited requests, processing history
+Kafka: Message queues, ordering guarantees
+Agents: Stateless processors only
+```
+
+### 2. **Identity Model**
+```
+AgentID = PodName (changes on restart, but that's OK)
+Orchestration = Persistent identity in database
+```
+
+### 3. **Concurrency Control**
+```
+Optimistic locking: Prevents duplicate processing
+Kafka partitioning: Ensures message ordering per orchestration
+Consumer groups: Automatic work distribution
+```
+
+### 4. **Topic Structure**
+```
+Per agent TYPE, not per instance:
+- system.agent-chassis.requests (all replicas consume)
+- system.agent-chassis.responses (all replicas consume)
+```
+
+## Monitoring Queries for Stateless Agents
+
+```sql
+-- See which pods are processing orchestrations
+SELECT 
+    o.orchestration_name,
+    o.status,
+    o.agent_type,
+    ph.pod_name,
+    ph.action,
+    ph.timestamp
+FROM orchestration_states o
+CROSS JOIN LATERAL (
+    SELECT * FROM jsonb_to_recordset(o.processing_history) 
+    AS (pod_name text, action text, timestamp timestamp)
+    ORDER BY timestamp DESC
+    LIMIT 5
+) ph
+WHERE o.updated_at > NOW() - INTERVAL '1 hour'
+ORDER BY o.updated_at DESC;
+
+-- Find load distribution across pods
+SELECT 
+    pod_name,
+    COUNT(*) as messages_processed,
+    MIN(timestamp) as first_message,
+    MAX(timestamp) as last_message,
+    EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) as active_seconds
+FROM (
+    SELECT 
+        jsonb_array_elements(processing_history)->>'pod_name' as pod_name,
+        (jsonb_array_elements(processing_history)->>'timestamp')::timestamp as timestamp
+    FROM orchestration_states
+    WHERE updated_at > NOW() - INTERVAL '1 hour'
+) as pod_activity
+GROUP BY pod_name
+ORDER BY messages_processed DESC;
+
+-- Check for stuck orchestrations (no updates)
+SELECT 
+    orchestration_id,
+    orchestration_name,
+    agent_type,
+    status,
+    jsonb_object_keys(awaited_requests) as awaited_request,
+    EXTRACT(EPOCH FROM (NOW() - updated_at)) as seconds_since_update
+FROM orchestration_states
+WHERE 
+    status = 'processing'
+    AND updated_at < NOW() - INTERVAL '5 minutes'
+    AND awaited_requests != '{}'::jsonb;
+
+-- Optimistic locking conflicts (retries)
+SELECT 
+    orchestration_id,
+    COUNT(*) as processing_attempts,
+    array_agg(DISTINCT jsonb_array_elements(processing_history)->>'pod_name') as pods_involved
+FROM orchestration_states
+WHERE 
+    jsonb_array_length(processing_history) > 5  -- Many attempts
+GROUP BY orchestration_id
+HAVING COUNT(DISTINCT jsonb_array_elements(processing_history)->>'pod_name') > 1;
+```
+
+## Example Message Flow with Stateless Agents
+
+```json
+// Request from Core Manager (can be handled by any agent-chassis replica)
+{
+  "headers": {
+    "sender": {
+      "agent_type": "core-manager",
+      "agent_id": "core-manager-7d9f8c6b5-abc123",  // Pod name
+      "pod_name": "core-manager-7d9f8c6b5-abc123",
+      "agent_version": "v1.0.0"
+    },
+    "orchestration_id": "cm-orch-001",
+    "orchestration_name": "core-mgr-website-flow-0902-1030",
+    "request_id": "req-001",
+    "to_agent_type": "agent-chassis",  // Any agent-chassis replica
+    // ... other headers
+  }
+}
+
+// Response from agent-chassis-64f4f9cb67-s7n5p (replica 1)
+{
+  "headers": {
+    "sender": {
+      "agent_type": "agent-chassis",
+      "agent_id": "agent-chassis-64f4f9cb67-s7n5p",  // Specific pod
+      "pod_name": "agent-chassis-64f4f9cb67-s7n5p"
+    },
+    "in_response_to_request_id": "req-001",
+    "my_orchestration_id": "ac-orch-001",
+    // ... response continues
+  }
+}
+
+// Later, if pod crashes, agent-chassis-64f4f9cb67-xyz99 (replica 2) can continue
+// by loading orchestration ac-orch-001 from database
+```
+
+## Critical Implementation Notes
+
+1. **Always use orchestration_id as Kafka partition key** - ensures ordering
+2. **Check version before updating orchestration state** - prevents conflicts
+3. **Store awaited_requests in database, not memory** - survives restarts
+4. **Use consumer groups with same group ID** - automatic work distribution
+5. **Include pod name in processing history** - debugging aid
+6. **Implement idempotency** - same request processed multiple times = same result
+
+## Testing Stateless Behavior
+
+```go
+func TestStatelessProcessing(t *testing.T) {
+    // Start 3 agent-chassis replicas
+    replicas := []*Agent{
+        NewStatelessAgent("agent-chassis", db, kafka),
+        NewStatelessAgent("agent-chassis", db, kafka),
+        NewStatelessAgent("agent-chassis", db, kafka),
+    }
+    
+    // Send 10 requests
+    for i := 0; i < 10; i++ {
+        sendRequest(t, fmt.Sprintf("request-%d", i))
+    }
+    
+    // Verify all processed (by any replica)
+    time.Sleep(5 * time.Second)
+    
+    // Check database for completed orchestrations
+    completed := db.Query("SELECT COUNT(*) FROM orchestration_states WHERE status = 'complete'")
+    assert.Equal(t, 10, completed)
+    
+    // Verify load distributed across replicas
+    history := db.Query(`
+        SELECT pod_name, COUNT(*) as processed 
+        FROM (SELECT jsonb_array_elements(processing_history)->>'pod_name' as pod_name 
+              FROM orchestration_states) t 
+        GROUP BY pod_name
+    `)
+    
+    // Each replica should have processed some messages
+    assert.True(t, len(history) > 1, "Work should be distributed")
+}
+
+func TestPodCrashRecovery(t *testing.T) {
+    // Start one replica
+    replica1 := NewStatelessAgent("agent-chassis", db, kafka)
+    go replica1.Run(context.Background())
+    
+    // Send request
+    sendRequest(t, "crash-test-request")
+    
+    // Wait for processing to start
+    time.Sleep(1 * time.Second)
+    
+    // "Crash" replica1
+    replica1.Stop()
+    
+    // Start new replica
+    replica2 := NewStatelessAgent("agent-chassis", db, kafka)
+    go replica2.Run(context.Background())
+    
+    // Verify replica2 completes the orchestration
+    time.Sleep(5 * time.Second)
+    
+    orch := db.QueryOne("SELECT * FROM orchestration_states WHERE correlation_name = 'crash-test'")
+    assert.Equal(t, "complete", orch.Status)
+    
+    // Check both pods in history
+    assert.Contains(t, orch.ProcessingHistory, replica1.PodName)
+    assert.Contains(t, orch.ProcessingHistory, replica2.PodName)
+}
+```

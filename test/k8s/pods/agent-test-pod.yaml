@@ -1,0 +1,202 @@
+# test/k8s/pods/agent-test-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: agent-test-pod
+  namespace: ai-persona-system
+  labels:
+    app: test
+    component: agent-tester
+spec:
+  containers:
+    - name: test-environment
+      image: golang:1.21-alpine
+      command:
+        - sh
+        - -c
+        - |
+          # Install required tools
+          apk add --no-cache git vim curl jq postgresql-client kafka
+          
+          # Set up Go workspace
+          mkdir -p /workspace/test
+          cd /workspace/test
+          
+          # Create test script template
+          cat > test-agent.go << 'EOF'
+          package main
+          
+          import (
+              "context"
+              "encoding/json"
+              "flag"
+              "fmt"
+              "log"
+              "time"
+          
+              "github.com/google/uuid"
+              "github.com/segmentio/kafka-go"
+          )
+          
+          var (
+              agent = flag.String("agent", "generic", "Agent type to test")
+              action = flag.String("action", "test", "Action to perform")
+              timeout = flag.Duration("timeout", 30*time.Second, "Timeout for response")
+          )
+          
+          func main() {
+              flag.Parse()
+          
+              brokers := []string{"kafka-cluster-kafka-bootstrap:9092"}
+              topic := fmt.Sprintf("system.agent.%s.requests", *agent)
+              responsesTopic := fmt.Sprintf("system.agent.%s.responses", *agent)
+          
+              // Create writer
+              writer := kafka.NewWriter(kafka.WriterConfig{
+                  Brokers: brokers,
+                  Topic:   topic,
+              })
+              defer writer.Close()
+          
+              // Create reader
+              reader := kafka.NewReader(kafka.ReaderConfig{
+                  Brokers:   brokers,
+                  Topic:     responsesTopic,
+                  Partition: 0,
+                  MinBytes:  1,
+                  MaxBytes:  10e6,
+              })
+              defer reader.Close()
+          
+              // Send test message
+              correlationID := uuid.New().String()
+              payload := map[string]interface{}{
+                  "action": *action,
+                  "data": map[string]interface{}{
+                      "test": true,
+                      "message": "Test from agent-test-pod",
+                      "timestamp": time.Now().Unix(),
+                  },
+              }
+          
+              payloadBytes, _ := json.Marshal(payload)
+          
+              fmt.Printf("Testing %s agent\n", *agent)
+              fmt.Printf("Correlation ID: %s\n", correlationID)
+              fmt.Printf("Topic: %s\n", topic)
+              fmt.Printf("Payload: %s\n", string(payloadBytes))
+          
+              err := writer.WriteMessages(context.Background(), kafka.Message{
+                  Key:   []byte(correlationID),
+                  Value: payloadBytes,
+                  Headers: []kafka.Header{
+                      {Key: "correlation_id", Value: []byte(correlationID)},
+                      {Key: "request_id", Value: []byte(uuid.New().String())},
+                      {Key: "client_id", Value: []byte("demo_client")},
+                      {Key: "agent_instance_id", Value: []byte("test-instance")},
+                      {Key: "fuel_budget", Value: []byte("1000")},
+                  },
+              })
+          
+              if err != nil {
+                  log.Fatal("Failed to send message:", err)
+              }
+          
+              fmt.Println("Message sent, waiting for response...")
+          
+              // Wait for response
+              ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+              defer cancel()
+          
+              for {
+                  msg, err := reader.FetchMessage(ctx)
+                  if err != nil {
+                      if err == context.DeadlineExceeded {
+                          fmt.Println("Timeout waiting for response")
+                          return
+                      }
+                      continue
+                  }
+          
+                  // Check correlation ID
+                  for _, h := range msg.Headers {
+                      if h.Key == "correlation_id" && string(h.Value) == correlationID {
+                          fmt.Println("\nReceived response:")
+                          var response map[string]interface{}
+                          json.Unmarshal(msg.Value, &response)
+                          pretty, _ := json.MarshalIndent(response, "", "  ")
+                          fmt.Println(string(pretty))
+                          reader.CommitMessages(context.Background(), msg)
+                          return
+                      }
+                  }
+                  reader.CommitMessages(context.Background(), msg)
+              }
+          }
+          EOF
+          
+          # Initialize Go module
+          go mod init test
+          go get github.com/segmentio/kafka-go@v0.4.47
+          go get github.com/google/uuid@v1.3.0
+          
+          echo ""
+          echo "=== Agent Test Pod Ready ==="
+          echo ""
+          echo "Example commands:"
+          echo "  go run test-agent.go -agent=content-creator -action=generate_content"
+          echo "  go run test-agent.go -agent=reasoning -action=analyze"
+          echo "  go run test-agent.go -agent=web-search -action=search"
+          echo ""
+          echo "Database access:"
+          echo "  psql -h postgres-clients -U clients_user -d clients_db"
+          echo ""
+          echo "Kafka tools:"
+          echo "  kafka-topics --bootstrap-server kafka-cluster-kafka-bootstrap:9092 --list"
+          echo "  kafka-console-consumer --bootstrap-server kafka-cluster-kafka-bootstrap:9092 --topic system.responses.generic --from-beginning"
+          echo ""
+          
+          # Keep pod running
+          tail -f /dev/null
+
+      env:
+        # Kafka configuration
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-cluster-kafka-bootstrap.ai-persona-system.svc.cluster.local:9092"
+
+        # Database configuration
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: personae-platform-secrets
+              key: CLIENTS_DB_PASSWORD
+        - name: DB_HOST
+          value: "postgres-clients"
+        - name: DB_USER
+          value: "clients_user"
+        - name: DB_NAME
+          value: "clients_db"
+
+        # API Keys
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: personae-platform-secrets
+              key: ANTHROPIC_API_KEY
+              optional: true
+
+      resources:
+        requests:
+          memory: "256Mi"
+          cpu: "100m"
+        limits:
+          memory: "1Gi"
+          cpu: "500m"
+
+      volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+
+  volumes:
+    - name: workspace
+      emptyDir: {}

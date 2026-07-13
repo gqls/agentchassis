@@ -1,0 +1,483 @@
+ok the initial request. 
+I think the request will most likely come from the core-manager and the first step will often be setting the scene for the job. e.g. set up a website build with (a versioned) website builder workflow. 
+
+So the request will have an orchestration id from the core manager's orchestration.
+It will have a correlation id which we can make up for this starter message
+It will have the sender agent id (core manager or user) which we can make up for this starter message
+It will have a request_id from core manager (made up for now)
+It might have a step id from the core manager's orchestration so that core manager can correlate the requests to the steps, although the request id will probably take care of this, but somewhere there should be a correlation between a step id which might have multiple requests and responses attached to it. So a step id might be a useful label or it might just be confusing. 
+
+so we need a step to request ids relation in the database.
+
+The agent-chassis will have a simple orchestration which is to spawn the website builder group which is just one agent.
+
+The agent-chassis agent should take the request from core manager/user, spawn the website builder, await responses - deal with a variety of responses e.g. awaiting response, error recoverable, error unrecoverable, correct response with data. It should then present that data back to core manager. It might at other times have a second step in it's orchestration to filter the responses and make sure they make sense for instance. It will then send a response back to core manager, the website might already have been saved in s3 so it may not contain the website data (or it might in another plan). So every agent needs to be able to handle these different types of response. They can record they have received them, or can record the ones that they correctly received and processed.
+
+If they receive a response like awaiting response then they shouldn't necessarily pass that back up the chain in a message.
+
+If they receive two or more identical messages with the same in_response_to id and the same step_id then they should deal with it properly e.g. just get rid of that message and ignore it. If the first message is garbled or not what is expected then a rerequest could happen but that would be the same step id with a different request id and a limited number of retries. hmm maybe we need a different id for this or it will get confusing as we won't know which retry they are responding to, or maybe it doesn't matter - they just respond to the first good one.
+
+If another agent-chassis agent instance sends a message for the same step by accident which I guess might happen, it shouldn't have a different request id, it should have the same request id and the same step id, so the receiver of the response should know how many requests it expects from a step.
+
+
+  The agent-chassis will receive the request to build a website-builder with a particular version and maybe have a second discovery requirement to e.g. latest if that version no longer exists.
+  
+  
+  To start with we should set this up and test it. Instead of website-builder we can call a test-one-v1 agent that just adds 2 + 2 locally and sends back the result.
+  
+  ==
+  #!/bin/bash
+
+# Core Manager -> Agent-Chassis -> Test-One-v1 Agent Flow
+# This script simulates the Core Manager sending an initial request
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash <<'EOF'
+
+# Core Manager's IDs
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)  # Job-wide tracking
+CORE_MANAGER_ORCH_ID=$(cat /proc/sys/kernel/random/uuid)  # Core Manager's orchestration
+CORE_MANAGER_STEP_ID=$(cat /proc/sys/kernel/random/uuid)  # Core Manager's current step
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)  # Unique request ID for this message
+CORE_MANAGER_AGENT_ID="core-manager-00000001"  # Core Manager's agent ID
+
+echo "==============================================="
+echo "CORE MANAGER -> AGENT-CHASSIS REQUEST"
+echo "==============================================="
+echo "Correlation ID:         $CORRELATION_ID"
+echo "Core Manager Orch ID:   $CORE_MANAGER_ORCH_ID"
+echo "Core Manager Step ID:   $CORE_MANAGER_STEP_ID"
+echo "Request ID:             $REQUEST_ID"
+echo "Core Manager Agent ID:  $CORE_MANAGER_AGENT_ID"
+echo "==============================================="
+
+# Create the message from Core Manager
+# This requests Agent-Chassis to spawn a test agent that adds 2+2
+MESSAGE_BODY=$(cat <<JSON
+{
+  "orchestration_context": {
+    "sender_orchestration_id": "$CORE_MANAGER_ORCH_ID",
+    "sender_step_id": "$CORE_MANAGER_STEP_ID",
+    "sender_step_number": 1,
+    "sender_total_steps": 3,
+    "sender_step_description": "Initialize test calculation service"
+  },
+  "action": "spawn_agent",
+  "agent_spec": {
+    "type": "test-one-v1",
+    "version": "v1",
+    "fallback_version": "latest",
+    "configuration": {
+      "operation": "add",
+      "operands": [2, 2],
+      "response_format": "detailed"
+    }
+  },
+  "response_handling": {
+    "expected_response_types": ["awaiting", "processing", "complete", "error"],
+    "timeout_seconds": 60,
+    "retry_policy": {
+      "max_retries": 3,
+      "backoff_multiplier": 2,
+      "initial_delay_seconds": 1
+    }
+  },
+  "metadata": {
+    "priority": "normal",
+    "environment": "test",
+    "trace_level": "detailed"
+  }
+}
+JSON
+)
+
+# Send the message with comprehensive headers
+printf "correlation_id:$CORRELATION_ID,orchestration_id:$CORE_MANAGER_ORCH_ID,step_id:$CORE_MANAGER_STEP_ID,request_id:$REQUEST_ID,sender_agent_id:$CORE_MANAGER_AGENT_ID,client_id:core_manager,fuel_budget:50000,timestamp:$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ),message_type:request\t$MESSAGE_BODY\n" | /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic system.agent.generic.requests \
+  --property parse.headers=true \
+  --property headers.delimiter=$'\t'
+
+echo ""
+echo "==============================================="
+echo "MESSAGE SENT TO: system.agent.generic.requests"
+echo "==============================================="
+echo ""
+echo "EXPECTED FLOW:"
+echo "1. Agent-Chassis receives this request"
+echo "2. Agent-Chassis creates its OWN orchestration:"
+echo "   - orchestration_id: <new_uuid>"
+echo "   - parent_orchestration_id: $CORE_MANAGER_ORCH_ID"
+echo "   - parent_request_id: $REQUEST_ID"
+echo "   - steps: [spawn_test_agent]"
+echo ""
+echo "3. Agent-Chassis spawns test-one-v1 agent"
+echo "4. Test agent calculates 2+2=4"
+echo "5. Test agent responds to Agent-Chassis"
+echo "6. Agent-Chassis responds to Core Manager"
+echo ""
+echo "==============================================="
+echo "MONITORING COMMANDS:"
+echo "==============================================="
+echo ""
+echo "# Check Core Manager's orchestration state:"
+echo "kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c \"SELECT * FROM orchestration_states WHERE orchestration_id='$CORE_MANAGER_ORCH_ID';\""
+echo ""
+echo "# Check Agent-Chassis's orchestration (once created):"
+echo "kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c \"SELECT * FROM orchestration_states WHERE parent_orchestration_id='$CORE_MANAGER_ORCH_ID';\""
+echo ""
+echo "# Check step-to-request mapping:"
+echo "kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c \"SELECT * FROM step_request_mapping WHERE step_id='$CORE_MANAGER_STEP_ID';\""
+echo ""
+echo "# Monitor responses topic for correlation_id:"
+echo "kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic system.agent.generic.responses --property print.headers=true | grep $CORRELATION_ID"
+echo ""
+echo "# Check all messages with this correlation_id:"
+echo "kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c \"SELECT * FROM message_log WHERE correlation_id='$CORRELATION_ID' ORDER BY timestamp;\""
+
+EOF
+
+
+======================
+
+# Agent Communication Flow - Critical Design Analysis
+
+## Complete Message Flow: Core Manager → Agent-Chassis → Test-One-v1
+
+### 1. Core Manager Sends Initial Request
+
+**Message Structure:**
+```yaml
+Headers:
+  correlation_id: <uuid>           # Job-wide tracking
+  orchestration_id: CM_ORCH_001    # Core Manager's orchestration
+  step_id: CM_STEP_001             # Core Manager's current step
+  request_id: REQ_001               # Unique request identifier
+  sender_agent_id: core-manager-01
+  client_id: core_manager
+  fuel_budget: 50000
+  timestamp: 2025-09-02T10:00:00Z
+  message_type: request
+
+Body:
+  orchestration_context:           # Sender's context
+    sender_orchestration_id: CM_ORCH_001
+    sender_step_id: CM_STEP_001
+    sender_step_number: 1
+    sender_total_steps: 3
+  action: spawn_agent
+  agent_spec:
+    type: test-one-v1
+    version: v1
+```
+
+### 2. Agent-Chassis Receives and Processes
+
+**What Agent-Chassis Should Do:**
+
+```python
+def handle_core_manager_request(message):
+    # 1. Extract parent context
+    parent_orch_id = message.headers['orchestration_id']
+    parent_request_id = message.headers['request_id']
+    parent_step_id = message.headers['step_id']
+    
+    # 2. Create OWN orchestration
+    my_orchestration = {
+        'orchestration_id': 'AC_ORCH_001',  # Agent-Chassis orchestration
+        'parent_orchestration_id': parent_orch_id,
+        'parent_request_id': parent_request_id,
+        'correlation_id': message.headers['correlation_id'],
+        'steps': [
+            {
+                'step_id': 'AC_STEP_001',
+                'action': 'spawn_test_agent',
+                'status': 'pending'
+            }
+        ]
+    }
+    
+    # 3. Create step-to-request mapping
+    step_request_mapping = {
+        'step_id': 'AC_STEP_001',
+        'request_ids': ['AC_REQ_001'],  # Can have multiple requests per step
+        'expected_responses': 1,
+        'received_responses': 0
+    }
+    
+    # 4. Send spawn request to test agent
+    spawn_request = {
+        'headers': {
+            'correlation_id': message.headers['correlation_id'],
+            'orchestration_id': 'AC_ORCH_001',  # MY orchestration
+            'step_id': 'AC_STEP_001',           # MY step
+            'request_id': 'AC_REQ_001',         # NEW request ID
+            'parent_orchestration_id': parent_orch_id,
+            'parent_request_id': parent_request_id
+        },
+        'body': {
+            'action': 'calculate',
+            'data': {'operation': 'add', 'operands': [2, 2]}
+        }
+    }
+    
+    # 5. Track what we're waiting for
+    awaited_requests = ['AC_REQ_001']  # Track request IDs, not step IDs!
+```
+
+### 3. Test-One-v1 Agent Processes
+
+```python
+def test_agent_process(message):
+    # Simple calculation
+    result = 2 + 2
+    
+    # Send response
+    response = {
+        'headers': {
+            'correlation_id': message.headers['correlation_id'],
+            'orchestration_id': message.headers['orchestration_id'],  # AC_ORCH_001
+            'in_response_to': message.headers['request_id'],  # AC_REQ_001
+            'message_type': 'response',
+            'status': 'complete'
+        },
+        'body': {
+            'result': 4,
+            'calculation': '2 + 2 = 4'
+        }
+    }
+```
+
+### 4. Agent-Chassis Handles Response
+
+```python
+def handle_test_agent_response(response):
+    # 1. Verify we're waiting for this
+    if response.headers['in_response_to'] not in awaited_requests:
+        log.error("Unexpected response", response.headers['in_response_to'])
+        return
+    
+    # 2. Update tracking
+    awaited_requests.remove(response.headers['in_response_to'])
+    step_request_mapping['received_responses'] += 1
+    
+    # 3. Send response to Core Manager
+    final_response = {
+        'headers': {
+            'correlation_id': response.headers['correlation_id'],
+            'orchestration_id': parent_orch_id,  # Core Manager's orchestration
+            'in_response_to': parent_request_id,  # Core Manager's request
+            'message_type': 'response',
+            'status': 'complete'
+        },
+        'body': {
+            'result': response.body['result'],
+            'agent_chassis_orchestration_id': 'AC_ORCH_001',
+            'processing_time_ms': 150
+        }
+    }
+```
+
+## Critical Design Decisions
+
+### 1. Step-to-Request Mapping Table
+
+**Database Schema:**
+```sql
+CREATE TABLE step_request_mapping (
+    step_id UUID PRIMARY KEY,
+    orchestration_id UUID NOT NULL,
+    request_ids UUID[] NOT NULL,  -- Array of request IDs for this step
+    expected_responses INTEGER DEFAULT 1,
+    received_responses INTEGER DEFAULT 0,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    FOREIGN KEY (orchestration_id) REFERENCES orchestration_states(orchestration_id)
+);
+```
+
+### 2. Response Types and Handling
+
+```python
+RESPONSE_HANDLERS = {
+    'awaiting': lambda r: log_progress(r),  # Don't propagate up
+    'processing': lambda r: log_progress(r),  # Don't propagate up
+    'complete': lambda r: propagate_and_complete(r),
+    'error_recoverable': lambda r: retry_with_backoff(r),
+    'error_unrecoverable': lambda r: propagate_error(r)
+}
+```
+
+### 3. Deduplication Strategy
+
+```python
+def handle_response(response):
+    # Create response key for deduplication
+    response_key = f"{response.in_response_to}:{response.status}:{hash(response.body)}"
+    
+    if response_key in processed_responses:
+        log.info("Duplicate response ignored", response_key)
+        return
+    
+    # For status updates, only keep latest
+    if response.status in ['awaiting', 'processing']:
+        # These can be received multiple times
+        update_progress(response)
+    elif response.status in ['complete', 'error_unrecoverable']:
+        # Terminal states - only process once
+        if is_step_complete(response.in_response_to):
+            log.warn("Step already complete", response.in_response_to)
+            return
+        mark_step_complete(response.in_response_to)
+        process_terminal_response(response)
+```
+
+### 4. Retry Logic with Same Step, Different Request
+
+```python
+def retry_step(step_id, attempt_number):
+    # Same step, new request ID for retry
+    new_request_id = uuid()
+    
+    # Update mapping
+    step_request_mapping[step_id].request_ids.append(new_request_id)
+    step_request_mapping[step_id].retry_count = attempt_number
+    
+    # Track both old and new request IDs
+    awaited_requests.add(new_request_id)
+    
+    # Send retry with new request ID but same step context
+    retry_message = {
+        'headers': {
+            'step_id': step_id,  # SAME step
+            'request_id': new_request_id,  # NEW request
+            'retry_attempt': attempt_number
+        }
+    }
+```
+
+## Test Scenarios
+
+### Scenario 1: Happy Path
+```
+1. Core Manager → Agent-Chassis (spawn test agent)
+2. Agent-Chassis → Test-One-v1 (calculate 2+2)
+3. Test-One-v1 → Agent-Chassis (result: 4)
+4. Agent-Chassis → Core Manager (complete: 4)
+```
+
+### Scenario 2: Duplicate Messages
+```
+1. Core Manager → Agent-Chassis (spawn test agent)
+2. Agent-Chassis → Test-One-v1 (calculate 2+2)
+3. Test-One-v1 → Agent-Chassis (result: 4)
+4. Test-One-v1 → Agent-Chassis (result: 4) [DUPLICATE]
+5. Agent-Chassis detects duplicate, ignores
+6. Agent-Chassis → Core Manager (complete: 4) [ONCE]
+```
+
+### Scenario 3: Retry on Error
+```
+1. Core Manager → Agent-Chassis (spawn test agent)
+2. Agent-Chassis → Test-One-v1 (calculate 2+2) [REQ_001]
+3. Test-One-v1 → Agent-Chassis (error_recoverable)
+4. Agent-Chassis → Test-One-v1 (retry with REQ_002, same step)
+5. Test-One-v1 → Agent-Chassis (result: 4)
+6. Agent-Chassis → Core Manager (complete: 4)
+```
+
+## Implementation Checklist
+
+- [ ] Implement step_request_mapping table
+- [ ] Add request_id generation separate from step_id
+- [ ] Track awaited_requests instead of awaited_steps
+- [ ] Implement response type handlers
+- [ ] Add deduplication logic
+- [ ] Create retry mechanism with new request IDs
+- [ ] Add comprehensive logging at each stage
+- [ ] Implement timeout handling
+- [ ] Add progress reporting without propagation
+- [ ] Create test-one-v1 agent for testing
+
+## Key Invariants to Maintain
+
+1. **Each agent creates its OWN orchestration_id**
+2. **Request IDs are unique per message, step IDs per orchestration step**
+3. **Track request_ids in awaited lists, not step_ids**
+4. **Response's in_response_to must match a tracked request_id**
+5. **Terminal responses processed only once per step**
+6. **Progress updates don't propagate up the chain**
+7. **Parent context preserved but not used as own identity**
+
+
+============================================
+
+Please note that we are in Golang and not python. Please give all examples and code samples in Go.
+  
+
+Maybe we have a highly transparent response format key aswell - e.g. "expected_response_format"? that will be the same for every agent but I don't think it harmful that we send it every time. that is some template like the following where every value is filled in:
+  in_response_to_request_id
+  in_response_to_step_id
+  in_response_to_parent_orchestration_id
+  in_response_to_message_id
+  in_response_to_action
+  retry_count
+  my_orchestration_id
+  my_requests_topic
+  my_responses_topic
+  correlation_id
+  client_id
+  message_type
+  from_agent
+  to_agent
+  is_complete
+  is_error
+  is_multipart_response
+  part_count
+  status: {'awaiting','processing','complete','error_recoverable','error_unrecoverable'}
+  time_sent
+  time_spent
+  overall_time_budget_remaining
+  topic_sent_to
+  fuel_used
+  remaining_fuel_budget
+  
+  other wanted headers ...
+  result_data = {response: { 'success': bool, 'headers': {}, 'body': {'result': {}, 'calculation': {}}
+  
+  
+----
+
+def retry_step(step_id, attempt_number):
+    # Same step, new request ID for retry
+    new_request_id = uuid()
+    
+    # Update mapping
+    step_request_mapping[step_id].request_ids.append(new_request_id)
+    step_request_mapping[step_id].retry_count = attempt_number
+    
+    # Track both old and new request IDs
+    awaited_requests.add(new_request_id)
+    
+    # Send retry with new request ID but same step context
+    retry_message = {
+        'headers': {
+            'step_id': step_id,  # SAME step
+            'request_id': new_request_id,  # NEW request
+            'retry_attempt': attempt_number
+        }
+    }
+    
+    
+I think we should have same request id but have retry_version: 0  1, 2 etc
+so that the recipient can match straight against the first good request id (in_response_to and step_id and parent_orchestration_id) and ignore all others.
+message ids are unique per message, request ids are unique per task request
+
+otherwise these I think are good:
+Each agent creates its OWN orchestration_id
+Request IDs are unique per step task, step IDs per orchestration step
+Response's in_response_to must match a tracked request_id
+Terminal responses processed only once per step
+Progress updates don't propagate up the chain
+Parent context preserved but not used as own identity

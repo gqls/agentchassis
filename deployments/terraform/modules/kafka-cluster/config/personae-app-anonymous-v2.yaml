@@ -1,0 +1,54 @@
+# personae-app-anonymous-V2.yaml
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: personae-app-anonymous
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: personae-kafka-cluster
+spec:
+  authorization:
+    type: simple
+    acls:
+      # For init containers & tools to describe specific topics
+      - resource:
+          type: topic
+          name: personae-core-requests # Be very specific for the test topic
+          patternType: literal
+        operations: [ Describe ]
+        host: "*"
+      # For init containers & tools to list/describe all topics (if needed)
+      - resource:
+          type: topic
+          name: "*" # All topics
+          patternType: literal
+        operations: [ Describe ]
+        host: "*"
+      # For applications to Read/Write their topics
+      - resource:
+          type: topic
+          name: personae- # Topics starting with "personae-"
+          patternType: prefix
+        operations: [ Read, Write, Create, Describe ] # Describe is good for apps too
+        host: "*"
+
+      # For applications and tools to describe the cluster (often needed for metadata)
+      - resource:
+          type: cluster
+        operations: [ Describe ]
+        host: "*"
+
+      # For personae-core-manager consumer group (explicit literal match)
+      - resource:
+          type: group
+          name: personae-core-manager # Explicit name
+          patternType: literal
+        operations: [ Read, Describe ] # Read is for consuming offsets, Describe for FindCoordinator etc.
+        host: "*"
+      # General describe for any other group (e.g., if other agents use different group names)
+      - resource:
+          type: group
+          name: "*"
+          patternType: literal
+        operations: [ Describe ]
+        host: "*"

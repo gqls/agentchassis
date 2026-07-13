@@ -1,0 +1,91 @@
+<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTK Calculator - GameDesign.uk</title>
+    <link rel="stylesheet" href="https://gamedesign.uk/css/global.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<header>
+    <div class="brand"><a href="https://gamedesign.uk/index.html">GameDesign<span>.uk</span></a></div>
+    <nav>
+        <a href="https://gamedesign.uk/index.html" style="color: var(--text-dim); text-decoration: none;">← Back to Tools</a>
+    </nav>
+</header>
+
+<main>
+    <h1>Time-To-Kill (TTK) Calculator</h1>
+
+    <div class="intro-text">
+        <p><strong>TTK is the heartbeat of your combat loop.</strong> A low TTK (e.g., 200ms in <em>Call of Duty</em>) emphasizes positioning and reflexes. A high TTK (e.g., 1.2s in <em>Apex Legends</em>) emphasizes tracking aim and team coordination.</p>
+        <p>Use this tool to find <strong>"Breakpoints"</strong>. For example, if a weapon does 33 damage, it kills a 100HP target in 4 shots. Buffing it to 34 damage drops it to 3 shots—a massive power spike. Buffing it to 35 damage changes nothing. Know the difference.</p>
+    </div>
+
+    <div class="tool-grid">
+        <div class="control-panel">
+            <h3>Weapon Stats</h3>
+
+            <div class="input-group">
+                <label>Target Health (HP)</label>
+                <input type="number" id="health" value="100">
+            </div>
+
+            <div class="input-group">
+                <label>Damage Per Shot</label>
+                <input type="number" id="damage" value="34">
+            </div>
+
+            <div class="input-group">
+                <label>Rate of Fire (RPM)</label>
+                <input type="number" id="rpm" value="600">
+            </div>
+
+            <div class="input-group">
+                <label>Headshot Multiplier (x)</label>
+                <input type="number" id="hsMult" value="1.5" step="0.1">
+            </div>
+
+            <button class="btn">Calculate</button>
+        </div>
+
+        <div class="viz-panel">
+            <div class="stat-box-container">
+                <div class="stat-box">
+                    <h4>Body TTK</h4>
+                    <div class="value highlight" id="bodyTtk">0.20s</div>
+                </div>
+                <div class="stat-box">
+                    <h4>Shots to Kill</h4>
+                    <div class="value" id="bodyShots">3</div>
+                </div>
+                <div class="stat-box">
+                    <h4>DPS (Raw)</h4>
+                    <div class="value" id="dps">340</div>
+                </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%;">
+
+            <div class="stat-box-container">
+                <div class="stat-box" style="border-color: #ff9800;">
+                    <h4 style="color: #ff9800;">Headshot TTK</h4>
+                    <div class="value highlight" id="headTtk" style="color: #ff9800;">0.10s</div>
+                </div>
+                <div class="stat-box" style="border-color: #ff9800;">
+                    <h4 style="color: #ff9800;">HS Shots to Kill</h4>
+                    <div class="value" id="headShots" style="color: #ff9800;">2</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 1rem;">
+                <canvas id="ttkChart" width="1904" height="150" style="display: block; box-sizing: border-box; height: 150px; width: 1904px;"></canvas>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="https://gamedesign.uk/tools/ttk-calculator/script.js"></script>
+<script defer="" src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;762803018ae84507b1d6610281fee1f5&quot;,&quot;r&quot;:1,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
+
+</body></html>

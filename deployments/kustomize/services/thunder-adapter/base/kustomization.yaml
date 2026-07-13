@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - rbac.yaml
+
+# Generates a ConfigMap from the local thunder-adapter.yaml. Kustomize appends
+# a hash to the ConfigMap name (e.g. thunder-adapter-config-abc123) so any
+# change to the config file triggers a rolling restart of the Deployment.
+#
+# NOTE: thunder-adapter.yaml in this directory is the source of truth for
+# the kustomize build. If you maintain a master copy at configs/thunder-adapter.yaml
+# at the repo root, keep the two in sync (Makefile target or symlink).
+configMapGenerator:
+  - name: thunder-adapter-config
+    files:
+      - thunder-adapter.yaml

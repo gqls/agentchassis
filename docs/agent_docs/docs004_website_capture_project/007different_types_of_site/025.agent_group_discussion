@@ -1,0 +1,552 @@
+A group isn't "agents that work together" - it's a project recipe:
+
+Good question. Let me think through when assembly logic genuinely diverges and how groups should handle this.
+
+## When Architects Diverge
+
+**Single-page vs Multi-page:**
+- Landing page: One `index.html`, everything inline
+- Content site: `index.html` + `article.html` template + `category-{slug}.html` pages + shared partials
+- Different output structure entirely - not just different components
+
+**Static vs Dynamic:**
+- Landing page: Pure HTML, maybe a form endpoint
+- Content site with comments: Needs backend, database, API
+- E-commerce: Product catalog, cart state, checkout flow
+
+**Build pipeline differences:**
+- Simple: Inline CSS/JS, direct to git
+- Complex: SCSS compilation, JS bundling, image optimization, static site generator (11ty, Hugo)
+
+**Deployment differences:**
+- Static HTML → git → B2 CDN
+- Multi-file static → git → B2 with routing rules
+- Dynamic app → Kubernetes, database provisioning, secrets
+
+These aren't component choices - they're fundamentally different *kinds* of output.
+
+---
+
+## Groups as Project Types
+
+You're right that `agent_group_definitions` should own this. A group isn't "agents that work together" - it's a **project recipe**:
+
+```
+group: landing-page-builder
+  → briefer → strategist → landing-architect → content-creator → assembler → git-deployer
+  → outputs: single index.html
+
+group: content-site-builder
+  → briefer → strategist → content-architect → content-creator → multi-page-assembler → git-deployer
+  → outputs: index.html, article-template.html, category pages, shared partials
+
+group: static-blog-builder (future)
+  → briefer → strategist → 11ty-architect → content-creator → build-runner → git-deployer
+  → outputs: 11ty project structure, builds to static files
+
+group: ecommerce-builder (future)
+  → briefer → strategist → storefront-architect → product-creator → cart-assembler → k8s-deployer
+  → outputs: frontend + backend + database schema
+```
+
+Shared agents: `briefer`, `content-creator` (writes copy regardless of output format)
+Specialized agents: architects, assemblers, deployers vary by group
+
+---
+
+## Group Selection
+
+Who picks the group?
+
+**Option A: User chooses explicitly**
+UI has "Create Landing Page" vs "Create Content Site" buttons. Simple, clear.
+
+**Option B: Briefing agent recommends**
+User provides domain + objective. Briefing agent returns:
+```json
+{
+  "site_type": "content",
+  "recommended_group": "content-site-builder",
+  "confidence": 0.85,
+  "reasoning": "Domain suggests news/publishing, objective mentions 'articles'"
+}
+```
+User confirms or overrides.
+
+**Option C: Meta-orchestrator**
+A lightweight "intake" agent that:
+1. Runs briefing
+2. Looks up group mapping: `content → content-site-builder`
+3. Spawns that group's orchestrator
+4. Hands off
+
+This is essentially a two-stage orchestration:
+```
+intake-orchestrator
+  → call briefing-agent
+  → spawn appropriate group based on site_type
+```
+
+---
+
+## What This Means Now
+
+For the current work, I'd suggest:
+
+1. **Keep one architect for now** (Option 4 from before) - differentiation through build plan sections
+2. **But structure the groups for future split** - `mvp-site-builder` becomes `landing-page-builder`
+3. **Briefing agent outputs `site_type`** - even if we don't route on it yet, it's captured
+4. **When we hit a real divergence** (e.g., multi-page sites), create a new group with a specialized architect
+
+The groups table becomes the registry of "what kinds of sites can we build?" - and adding a new type means adding a new group definition, not modifying routing logic.
+
+---
+
+## Concrete Suggestion
+
+Keep the current approach simple:
+- One `landing-page-builder` group (rename from `mvp-site-builder`)
+- One architect that assembles based on build plan sections
+- Briefing detects and records `site_type` for analytics/future use
+
+When you need content sites:
+- Create `content-site-builder` group
+- Create `content-site-architect` agent
+- Group definition specifies the different workflow
+
+No conditional routing. Each group is a complete recipe. The question "which architect?" becomes "which group?" - and that's either user choice or a simple lookup from `site_type`.
+
+Should I revise the SQL to reflect this simpler structure?
+
+--
+
+Let me work through the threads you've raised.
+
+## Two-Stage Classification + Briefing
+
+```
+Domain + Objective
+       ↓
+┌──────────────────────────────────────┐
+│ STAGE 1: Project Classification      │
+│                                      │
+│ • Analyze domain name                │
+│ • Parse objective                    │
+│ • Maybe check existing site          │
+│ • Determine site_type                │
+│ • Recommend group                    │
+│                                      │
+│ Output: site_type, recommended_group │
+└──────────────────────────────────────┘
+       ↓
+[HITL 1: Confirm site type + group selection]
+       ↓
+┌──────────────────────────────────────┐
+│ STAGE 2: Group-Specific Briefing     │
+│                                      │
+│ • Detailed questions for this type   │
+│ • Landing: CTAs, value prop, urgency │
+│ • Content: categories, tone, ad strategy │
+│                                      │
+│ Output: structured_brief             │
+└──────────────────────────────────────┘
+       ↓
+[HITL 2: Review brief, add info]
+       ↓
+Execute chosen group workflow
+```
+
+---
+
+## Where Should Classification Research Happen?
+
+Options:
+
+**A. Lightweight classifier action (no LLM)**
+- Pattern matching on domain name
+- Keyword detection in objective
+- Fast, cheap, deterministic
+- Limited intelligence
+
+**B. LLM-based classifier agent**
+- Understands nuance ("kommunikatif" → publishing)
+- Can explain reasoning
+- Costs tokens
+
+**C. Research-enhanced classifier**
+- Check if domain already has a site (scrape it)
+- WHOIS lookup (age, registrar patterns)
+- Industry databases
+- Most accurate, but slower and more complex
+
+I'd suggest **B for now, with hooks for C later**. The classification doesn't need deep research - it needs linguistic understanding of what the domain/objective implies. That's LLM territory.
+
+This could be a dedicated `site-classifier` agent or just the first step of a generic intake process.
+
+---
+
+## Decoupling Briefing from Groups
+
+The concern: if each group needs a custom briefer, we have tight coupling.
+
+**Solution: Briefing as questionnaire execution**
+
+The briefing agent is generic - it runs questionnaires. The questionnaire comes from the group definition:
+
+```sql
+-- In agent_group_definitions
+{
+  "group_type": "landing-page-builder",
+  "briefing_questionnaire": {
+    "sections": [
+      {
+        "name": "value_proposition",
+        "questions": [
+          {"field": "primary_benefit", "prompt": "What's the main benefit for visitors?"},
+          {"field": "urgency_factor", "prompt": "Is there time-sensitivity? (sale ending, limited spots)"}
+        ]
+      },
+      {
+        "name": "conversion_goals",
+        "questions": [
+          {"field": "primary_cta", "prompt": "What action should visitors take?"},
+          {"field": "secondary_cta", "prompt": "Alternative action if not ready for primary?"}
+        ]
+      }
+    ]
+  }
+}
+```
+
+The briefing agent:
+1. Receives the questionnaire config
+2. Either asks the human (HITL) or uses LLM to infer answers from domain/objective
+3. Outputs structured brief matching those fields
+
+Same agent code, different questions per group. No coupling.
+
+---
+
+## Versioning Model
+
+**Group versions are immutable snapshots:**
+
+```sql
+agent_group_definitions:
+  id: uuid
+  group_type: "landing-page-builder"
+  version: 3
+  agent_configs: [...]  -- includes agent_type + optional version/image_tag
+  orchestration_workflow: {...}
+  briefing_questionnaire: {...}
+  created_at: timestamp
+
+-- v1, v2 still exist as separate rows
+-- New sites get latest version (or specific if requested)
+-- Existing sites reference specific version
+```
+
+**Site manifest records what built it:**
+
+```sql
+site_manifest:
+  id: uuid
+  domain: "boxing-tickets.com"
+  group_type: "landing-page-builder"
+  group_version: 2  -- Pinned to the version that built it
+  brief_data: {...}
+  build_plan: {...}
+  last_built: timestamp
+
+-- Rebuild uses same group_version unless explicitly upgraded
+```
+
+**Agent pinning within groups:**
+
+```json
+{
+  "agent_configs": [
+    {"role": "strategist", "agent_type": "chief-strategist"},  -- uses current
+    {"role": "architect", "agent_type": "landing-architect", "image_tag": "v1.0.450"}  -- pinned
+  ]
+}
+```
+
+Groups can pin specific agent versions where stability matters, or float to current where improvements are wanted.
+
+---
+
+## Similar Groups Are Fine
+
+You said: "Different groups having almost identical agent selections is fine"
+
+Agreed. Duplication is acceptable when it buys clarity:
+
+```
+landing-page-builder-v1:
+  strategist → landing-architect → content-creator → assembler → deployer
+
+landing-page-builder-v2:
+  strategist → landing-architect-v2 → content-creator → assembler → deployer
+  (new architect with better component selection)
+
+content-site-builder-v1:
+  strategist → content-architect → article-creator → multi-page-assembler → deployer
+  (different architect, different writer, different assembler)
+```
+
+Each group is a self-contained recipe. Some share ingredients, some don't. Easy to reason about.
+
+---
+
+## The Intake Orchestrator
+
+Putting it together:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     INTAKE ORCHESTRATOR                         │
+│                     (a simple group itself)                     │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │ site-classifier │
+                    │                 │
+                    │ Input: domain,  │
+                    │        objective│
+                    │                 │
+                    │ Output:         │
+                    │  site_type,     │
+                    │  recommended_   │
+                    │  group,         │
+                    │  confidence,    │
+                    │  reasoning      │
+                    └─────────────────┘
+                              │
+                              ▼
+                    [HITL 1: Confirm group]
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │ briefing-agent  │
+                    │                 │
+                    │ Input:          │
+                    │  questionnaire  │
+                    │  (from group),  │
+                    │  domain,        │
+                    │  objective      │
+                    │                 │
+                    │ Output:         │
+                    │  structured_    │
+                    │  brief          │
+                    └─────────────────┘
+                              │
+                              ▼
+                    [HITL 2: Review brief]
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │ Spawn chosen    │
+                    │ group workflow  │
+                    │ with brief_data │
+                    └─────────────────┘
+```
+
+The intake orchestrator is itself a simple group. It:
+1. Runs classifier
+2. Waits for HITL confirmation
+3. Fetches the chosen group's briefing questionnaire
+4. Runs briefing with that questionnaire
+5. Waits for HITL review
+6. Spawns the chosen group's orchestrator with the brief
+
+---
+
+## Open Questions
+
+**1. How does HITL work mechanically?**
+- Kafka message to a "human tasks" topic?
+- Webhook to external system?
+- Polling from UI?
+- This affects intake design but not the conceptual flow.
+
+**2. Should classifier be LLM or rule-based?**
+- Start with LLM, can add rules/research later.
+
+**3. Where do we store group → questionnaire mapping?**
+- In `agent_group_definitions.briefing_questionnaire` seems natural.
+
+**4. What if user wants to skip HITL?**
+- "Auto mode" - classifier picks group, LLM fills brief from domain/objective, workflow runs.
+- Config flag per run: `hitl_mode: "full" | "confirm_only" | "auto"`
+
+---
+
+## Summary of Where I Am
+
+- **Group-level branching** via intake orchestrator
+- **Classification** as first step (LLM-based, can enhance later)
+- **Briefing decoupled** from groups via questionnaire pattern
+- **Versioning** at group level, sites pinned to version that built them
+- **Two HITL points**: confirm group, review brief
+- **Similar groups are fine** - clarity over DRY
+
+Does this feel like it's converging on something workable? What aspects need more thought?
+
+--
+
+===
+===
+decision
+========
+
+Key components needed:
+
+SpawnGroupAction - new action to spawn an agent group workflow
+Site Classifier Agent - determines site_type from domain/objective
+Intake Orchestrator Group - the workflow that classifies, briefs, dispatches
+Briefing Questionnaire Pattern - questionnaires stored in group definitions
+Updated Briefing Agent - executes questionnaires
+Group Definitions - landing-page-builder, content-site-builder, etc.
+HITL integration points - already have Kafka mechanism
+
+Let me work through each carefully.
+Current state:
+
+We have spawn_agent action
+We have agent_group_definitions table
+We have briefing-agent (but needs questionnaire pattern)
+We have HITL via Kafka
+
+Need to create:
+
+spawn_group action (Go code)
+site-classifier agent definition (SQL)
+intake-orchestrator group definition (SQL)
+Update briefing agent to use questionnaire pattern
+Update agent_group_definitions to include briefing_questionnaire
+landing-page-builder group (rename from mvp-site-builder)
+content-site-builder group (new)
+
+I should be methodical and create clean, well-organized files.
+
+User Input (domain, objective)
+           │
+           ▼
+┌─────────────────────────────────────────────────────┐
+│           INTAKE-ORCHESTRATOR (group)               │
+│                                                     │
+│  1. spawn_agent: site-classifier                    │
+│  2. spawn_agent: briefing-agent                     │
+│  3. call_agent: site-classifier                     │
+│        → outputs: site_type, recommended_group      │
+│  4. request_human_input: confirm type    [HITL 1]   │
+│  5. fetch_group_questionnaire                       │
+│        → gets questionnaire from target group       │
+│  6. call_agent: briefing-agent                      │
+│        → executes questionnaire (LLM or HITL)       │
+│  7. request_human_input: review brief    [HITL 2]   │
+│  8. spawn_group: {confirmed_type.recommended_group} │
+│        → dynamically spawns the right builder       │
+└─────────────────────────────────────────────────────┘
+           │
+           ├─────────────────┬─────────────────┐
+           ▼                 ▼                 ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ landing-page-   │ │ content-site-   │ │ portfolio-      │
+│ builder         │ │ builder         │ │ builder         │
+│                 │ │                 │ │ (future)        │
+│ Own workflow    │ │ Own workflow    │ │                 │
+│ Own questionnaire│ │ Own questionnaire│ │                 │
+│ Own agents      │ │ Own agents      │ │                 │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+
+
+---------------------------
+Let me work through this systematically.
+
+## Components Needed
+
+1. **`spawn_group` action** - spawns a group workflow, supports dynamic group_type from collected_data
+2. **`site-classifier` agent** - determines site_type from domain/objective
+3. **`intake-orchestrator` group** - classifies → HITL → briefs → HITL → spawns target group
+4. **Briefing questionnaire schema** - add to agent_group_definitions
+5. **Updated briefing agent** - executes questionnaire (LLM-inferred or HITL-answered)
+6. **`landing-page-builder` group** - renamed from mvp-site-builder
+7. **`content-site-builder` group** - new
+
+---
+
+Let me start with the core action:Now the SQL for the schema updates, agents, and groups:Now the supporting actions:Now let me copy everything to outputs:Here's the complete picture:
+
+## Architecture Summary
+
+```
+User Input (domain, objective)
+           │
+           ▼
+┌─────────────────────────────────────────────────────┐
+│           INTAKE-ORCHESTRATOR (group)               │
+│                                                     │
+│  1. spawn_agent: site-classifier                    │
+│  2. spawn_agent: briefing-agent                     │
+│  3. call_agent: site-classifier                     │
+│        → outputs: site_type, recommended_group      │
+│  4. request_human_input: confirm type    [HITL 1]   │
+│  5. fetch_group_questionnaire                       │
+│        → gets questionnaire from target group       │
+│  6. call_agent: briefing-agent                      │
+│        → executes questionnaire (LLM or HITL)       │
+│  7. request_human_input: review brief    [HITL 2]   │
+│  8. spawn_group: {confirmed_type.recommended_group} │
+│        → dynamically spawns the right builder       │
+└─────────────────────────────────────────────────────┘
+           │
+           ├─────────────────┬─────────────────┐
+           ▼                 ▼                 ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ landing-page-   │ │ content-site-   │ │ portfolio-      │
+│ builder         │ │ builder         │ │ builder         │
+│                 │ │                 │ │ (future)        │
+│ Own workflow    │ │ Own workflow    │ │                 │
+│ Own questionnaire│ │ Own questionnaire│ │                 │
+│ Own agents      │ │ Own agents      │ │                 │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+```
+
+---
+
+## Files Created
+
+**Go Actions:**
+| File | Action | Purpose |
+|------|--------|---------|
+| [spawn_group.go](computer:///mnt/user-data/outputs/spawn_group.go) | `spawn_group` | Spawns an agent group, supports dynamic group_type |
+| [fetch_group_questionnaire.go](computer:///mnt/user-data/outputs/fetch_group_questionnaire.go) | `fetch_group_questionnaire` | Fetches briefing questionnaire from target group |
+| [request_human_input.go](computer:///mnt/user-data/outputs/request_human_input.go) | `request_human_input` | HITL via Kafka, with skip conditions |
+| [assemble_full_page.go](computer:///mnt/user-data/outputs/assemble_full_page.go) | `assemble_full_page` | Assembles HTML with CSS/JS |
+
+**SQL:**
+| File | Contents |
+|------|----------|
+| [intake_and_groups.sql](computer:///mnt/user-data/outputs/intake_and_groups.sql) | Schema update, site-classifier agent, briefing-agent update, intake-orchestrator group, landing-page-builder group, content-site-builder group |
+| [css_js_schema.sql](computer:///mnt/user-data/outputs/css_js_schema.sql) | CSS/JS snippets, themes, semantic tags |
+
+**Registry additions needed:**
+```go
+"spawn_group":               SpawnGroupAction,
+"fetch_group_questionnaire": FetchGroupQuestionnaireAction,
+"request_human_input":       RequestHumanInputAction,
+"assemble_full_page":        AssembleFullPageAction,
+```
+
+---
+
+## Key Design Points
+
+1. **Branching at group level** - `spawn_group` with dynamic `group_type_field`
+2. **Questionnaires stored in group definitions** - briefing agent is generic, questions vary per group
+3. **HITL points have skip conditions** - `skip_if: "input_data.hitl_mode == auto"` for automated runs
+4. **Groups are self-contained** - each has its own agent list, workflow, questionnaire
+5. **Versioning ready** - groups have version numbers, sites can pin to specific versions

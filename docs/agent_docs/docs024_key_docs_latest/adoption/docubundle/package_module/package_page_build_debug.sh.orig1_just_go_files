@@ -1,0 +1,290 @@
+#!/bin/bash
+#
+# package_page_build_debug.sh
+#   Self-contained packager for the PAGE-BUILD DEBUG context.
+#   Bundles the page-build / section-resolution / render-deploy / dispatch
+#   subsystem of agent-chassis into one context file for an AI assistant.
+#
+#   This is a standalone extract of package_module.sh: it carries its own
+#   wrapper (self-locating, helpers, arg parsing) and a single hardcoded
+#   module, so there is no case statement and no component argument.
+#
+# Usage:  ./package_page_build_debug.sh [-o /path/to/output_dir] [-e environment]
+# Example: ./package_page_build_debug.sh
+#          ./package_page_build_debug.sh -o /tmp/ctx -e production
+#
+# Output:  <output_dir>/<environment>_page-build-debug_context.txt
+#
+# ---------------------------------------------------------------------
+# SCOPE (the blast radius of the open threads):
+#   - guide-skinner-box won't build  (load_page_sections_from_spec /
+#     plan_sections readiness; complete_error == complete_workflow success-exit)
+#   - index render short-circuit on build_status='deployed'  (rerender path)
+#   - silent-completion modes  (claim-timeout / validate / reaper)
+#
+# REUSE-DISCOVERY (so we don't reinvent existing code): keeps the catalogue
+#   and shared layers — registry.go (every registered action), types.go,
+#   helpers.go, datahelpers/, input_contracts/, types/ — even though most of
+#   their content is outside the immediate fix.
+#
+# PATHS corrected against package_module.sh's CURRENT_ACTION_FILES (authoritative):
+#   - queryresolve is a subpackage:  actions/queryresolve/queryresolve.go
+#   - reconcile file is reconcile_site_plan_action.go (no reconcile_section_data)
+#   - create_rerender_items_action.go / load_existing_content_action.go /
+#     work_items_common.go are separate files (added)
+#   - page_canonical.go is NOT in the actions tree (CanonicalisePage lives
+#     elsewhere) — omitted
+#
+# NOTE: agent *workflows* (page-build-handler, page-rerender, page-content-writer)
+#   live in agent_definitions (DB), not in these Go files — capture them from
+#   the DB. Missing paths are skipped silently, so trim/extend freely.
+# ---------------------------------------------------------------------
+
+set -e
+
+# --- Self-locating logic ---------------------------------------------
+# Original lived at scripts/utils/, so project root = SCRIPT_DIR/../../.
+# We keep that default but (a) honour an exported PROJECT_ROOT and
+# (b) fall back to $PWD if the derived root has no go.mod — so this script
+# works whether you drop it in scripts/utils/ or run it from the repo root.
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PROJECT_ROOT="${PROJECT_ROOT:-$(realpath "$SCRIPT_DIR/../../")}"
+if [ ! -f "$PROJECT_ROOT/go.mod" ] && [ -f "$PWD/go.mod" ]; then
+  PROJECT_ROOT="$PWD"
+fi
+cd "$PROJECT_ROOT"
+
+# --- Configuration ---------------------------------------------------
+DEFAULT_OUTPUT_DIR="$SCRIPT_DIR/output_contexts"
+ENVIRONMENT="production"          # only affects the output filename
+COMPONENT_NAME="page-build-debug" # fixed; this script packages one module
+EXCLUDE_FILES=()                  # no exclusions for this module
+
+# --- Argument parsing (-o output dir, -e environment) ----------------
+OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -o | --output)      shift; OUTPUT_DIR="$1" ;;
+    -e | --environment) shift; ENVIRONMENT="$1" ;;
+    -h | --help)
+      echo "Usage: $0 [-o /path/to/output_dir] [-e environment]"
+      echo "Packages the page-build-debug context into a single file."
+      exit 0
+      ;;
+  esac
+  shift
+done
+
+# --- Helper functions (verbatim from package_module.sh) --------------
+
+# Write a single file's content (or just its path, if list_only=true).
+function write_file() {
+  local file_path=$1
+  local output_file=$2
+  local list_only=$3
+
+  if [ -f "$file_path" ]; then
+    echo "filepath = ./$file_path" >> "$output_file"
+    if [ "$list_only" = "true" ]; then
+      echo "[File listed only - content not included]" >> "$output_file"
+    else
+      cat "$file_path" >> "$output_file"
+    fi
+    echo "-------------------------------------------------" >> "$output_file"
+  fi
+}
+
+# True if a project-relative path is in EXCLUDE_FILES (leading ./ normalised).
+function is_excluded() {
+  local f="${1#./}"
+  local ex
+  for ex in "${EXCLUDE_FILES[@]}"; do
+    ex="${ex#./}"
+    if [ "$f" = "$ex" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Write every (non-excluded, non-binary) file under a directory tree.
+function write_directory() {
+  local dir_path=$1
+  local output_file=$2
+
+  if [ ! -d "$dir_path" ]; then
+    echo "Warning: Directory '$dir_path' not found in '$PWD'. Skipping." >&2
+    return
+  fi
+
+  dir_path="${dir_path%/}"
+
+  while IFS= read -r -d $'\0' file; do
+    # Skip the output file itself.
+    if [ "$(realpath "$file" 2>/dev/null)" = "$(realpath "$output_file" 2>/dev/null)" ]; then
+      continue
+    fi
+    # Skip explicitly excluded files.
+    if is_excluded "$file"; then
+      continue
+    fi
+    # strimzi-yaml* dirs: list path only.
+    if [[ "$file" =~ strimzi-yaml[^/]*/[^/]+$ ]]; then
+      write_file "$file" "$output_file" "true"
+    else
+      write_file "$file" "$output_file" "false"
+    fi
+  done < <(find "$dir_path" -type f \
+    -not -path '*/.git/*' \
+    -not -path '*/.terraform/*' \
+    -not -path '*/.terraform.lock.hcl' \
+    -not -path '*/node_modules/*' \
+    -not -path '*/dist/*' \
+    -not -path '*/build/*' \
+    -not -path '*/target/*' \
+    -not -path '*/vendor/*' \
+    -not -path '*/.idea/*' \
+    -not -path '*/.vscode/*' \
+    -not -path '*/output_contexts/*' \
+    -not -name '*.tfstate' \
+    -not -name '*.tfstate.backup' \
+    -not -name '*.log' \
+    -not -name '*.zip' \
+    -not -name '*.tar' \
+    -not -name '*.gz' \
+    -not -name '*.jar' \
+    -not -name '*.war' \
+    -not -name '*.exe' \
+    -not -name '*.dll' \
+    -not -name '*.so' \
+    -not -name '*.dylib' \
+    -not -name '*.pyc' \
+    -not -name '*.pyo' \
+    -not -name '__pycache__' \
+    -not -name '*.class' \
+    -not -name 'go.sum' \
+    -not -name 'package-lock.json' \
+    -not -name 'yarn.lock' \
+    -not -name '*.secret' \
+    -not -name '.DS_Store' \
+    -not -name 'Thumbs.db' \
+    -print0)
+}
+
+# A MODULE_FILES entry may be a file or a directory.
+function process_module_files() {
+  local item=$1
+  local output_file=$2
+
+  if [ -f "$item" ]; then
+    write_file "$item" "$output_file" "false"
+  elif [ -d "$item" ]; then
+    write_directory "$item" "$output_file"
+  fi
+}
+
+# --- Module definition: page-build-debug -----------------------------
+MODULE_DIRS=(
+  # Shared types + contracts + helpers (reuse-discovery; keeps workflow
+  # variable names in sync with what actions expect)
+  "platform/orchestration/types/"
+  "platform/orchestration/input_contracts/"
+  "platform/orchestration/actioncheck/"
+  "platform/orchestration/datahelpers/"
+)
+
+MODULE_FILES=(
+  # --- Orchestration engine: how steps/workflows actually run ---
+  "platform/orchestration/coordinator.go"
+  "platform/orchestration/state.go"
+  "platform/orchestration/helpers.go"
+  "platform/orchestration/agent_error_log.go"
+  "platform/orchestration/loop_expansion_handler.go"
+  "platform/orchestration/loop_error_handler.go"
+
+  # --- Action catalogue + shared (REUSE-DISCOVERY: what already exists) ---
+  "platform/orchestration/actions/registry.go"        # full list of every registered action
+  "platform/orchestration/actions/types.go"
+  "platform/orchestration/actions/helpers.go"
+
+  # --- Control flow + terminal status ---
+  "platform/orchestration/actions/workflow_actions.go"          # complete_workflow (and the complete_error == success mislabel)
+  "platform/orchestration/actions/conditional_branch_action.go" # check_has_ready_sections (ready_count gate)
+  "platform/orchestration/actions/basic_actions.go"
+  "platform/orchestration/actions/generic_actions.go"
+  "platform/orchestration/actions/spawn_actions.go"             # spawn content_writer / rerender
+  "platform/orchestration/actions/call_agent.go"                # call_content_writer / deploy_page
+  "platform/orchestration/actions/await_response.go"
+
+  # --- Page-build pipeline (the skinner-box + index core) ---
+  "platform/orchestration/actions/load_page_record_action.go"
+  "platform/orchestration/actions/load_existing_content_action.go"        # mode:recreate content load (separate file)
+  "platform/orchestration/actions/load_page_sections_from_spec_action.go" # KEY next-root (focused module OMITS this)
+  "platform/orchestration/actions/plan_sections_action.go"                # KEY: how section_plan.ready_count is computed
+  "platform/orchestration/actions/save_page_sections_action.go"
+  "platform/orchestration/actions/validate_page_content.go"
+  "platform/orchestration/actions/v3_site_actions.go"                     # update_page_status; ValidateSitePlanAction; reconcilePlanWithRealised
+  "platform/orchestration/actions/site_db_actions.go"                     # ensure_site_record; upsertPage
+  "platform/orchestration/actions/site_spec_actions.go"                   # site_specs read/write
+  "platform/orchestration/actions/maintenance_actions.go"
+  "platform/orchestration/actions/reconcile_site_plan_action.go"          # plan reconcile (NOT reconcile_section_data — that file doesn't exist)
+  "platform/orchestration/actions/queryresolve/queryresolve.go"           # resolvePagesWhereType for list items (subpackage)
+
+  # --- Render + deploy (the build_status='deployed' render short-circuit) ---
+  "platform/orchestration/actions/render_site_components_action.go"
+  "platform/orchestration/actions/rerender_pages_actions.go"
+  "platform/orchestration/actions/rerender_single_page_action.go"
+  "platform/orchestration/actions/create_rerender_items_action.go"        # separate file (focused module folds it away)
+  "platform/orchestration/actions/render_css_from_spec_action.go"
+  "platform/orchestration/actions/get_pages_for_rerender_action.go"
+  "platform/orchestration/actions/get_pages_to_build_actions.go"
+  "platform/orchestration/actions/git_deployer_actions.go"
+
+  # --- Work item + dispatch + lifecycle (silent-completion path) ---
+  "platform/orchestration/actions/load_work_item_actions.go"              # load_work_items, fail_work_item
+  "platform/orchestration/actions/claim_work_item_action.go"
+  "platform/orchestration/actions/create_work_item_action.go"
+  "platform/orchestration/actions/work_items_common.go"                   # shared work-item logic (separate file)
+  "platform/orchestration/actions/dispatch_actions.go"
+  "platform/orchestration/actions/triage_detect_items_action.go"
+  "platform/orchestration/actions/seed_build_queue_action.go"
+
+  # --- Plan reference (convergence resolved; kept for plan/section reuse) ---
+  "platform/orchestration/actions/write_site_plan_action.go"
+
+  # --- DB ---
+  "platform/database/postgres.go"
+
+  # --- Agent implementation (page-content-writer behaviour) ---
+  "internal/agents/contentcreator/"
+
+  # --- Entry point ---
+  "cmd/agent-chassis/main.go"
+
+  # --- Configs / deployment (runtime context, incl. resource limits) ---
+  "configs/agent-chassis.yaml"
+  "configs/core-manager.yaml"
+  "deployments/kustomize/services/agent-chassis/overlays/production/uk_001/patch-deployment.yaml"
+  "deployments/kustomize/services/agent-chassis/base/deployment.yaml"
+)
+
+# --- Run -------------------------------------------------------------
+mkdir -p "$OUTPUT_DIR"
+OUTPUT_FILE="${OUTPUT_DIR}/${ENVIRONMENT}_${COMPONENT_NAME}_context.txt"
+> "$OUTPUT_FILE"
+
+echo "Packaging '$COMPONENT_NAME' for environment '$ENVIRONMENT'"
+echo "  project root: $PROJECT_ROOT"
+echo "  output file:  $OUTPUT_FILE"
+
+# Directories first, then loose files (matches package_module.sh ordering).
+for dir in "${MODULE_DIRS[@]}"; do
+  write_directory "$dir" "$OUTPUT_FILE"
+done
+for item in "${MODULE_FILES[@]}"; do
+  process_module_files "$item" "$OUTPUT_FILE"
+done
+
+echo "✅ Done. Context saved to $OUTPUT_FILE"
+FILE_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
+echo "📦 File size: $FILE_SIZE"

@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analyser-adapter
+  labels:
+    app: analyser-adapter
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: analyser-adapter
+  template:
+    metadata:
+      labels:
+        app: analyser-adapter
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: analyser-adapter
+          image: docker.io/aqls/analyser-adapter:latest  # tag overridden per environment in overlay
+          command: ["./analyser-adapter", "-config", "/app/configs/analyser-adapter.yaml"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            # CLUSTER-AGNOSTIC identity only. Everything that can vary per
+            # deployment (topic, consumer group, GitHub endpoint, AGENT_VERSION)
+            # is injected by the overlay's deployment-env patch — keep this
+            # block minimal so a new cluster only edits its overlay, never the
+            # base.
+            # Downward API — Tier-3 response headers (sender_pod_name) + traces.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # GITHUB_READ_TOKEN: a SEPARATE fine-grained repo-scoped contents:read
+            # credential (least privilege; the git adapter holds the write one).
+            # The Secret NAME can still be overlay-patched if a cluster names it
+            # differently; the reference lives here because every deployment
+            # needs the token.
+            - name: GITHUB_READ_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: analyser-github-read
+                  key: token
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs/analyser-adapter.yaml
+              subPath: analyser-adapter.yaml
+              readOnly: true
+          # Higher memory than thunder's idle profile: the analyser extracts a
+          # repo tarball and AST-walks it in the pod.
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: config
+          configMap:
+            name: analyser-adapter-config

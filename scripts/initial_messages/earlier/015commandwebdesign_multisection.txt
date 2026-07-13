@@ -1,0 +1,734 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests CASCADE;"
+
+# 4. Delete ALL spawned agent jobs (not just calculator)
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+# 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
+# List all job topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep "^job\."
+
+# Delete all job topics (be careful!)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash -c '
+for topic in $(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep "^job\."); do
+  echo "Deleting topic: $topic"
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic "$topic"
+done
+'
+
+# delete initial topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.requests
+  
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.responses
+  
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.responses.generic
+  
+# reset all offsets
+echo 'resetting all offsets'
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+  
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+kubectl -n ai-persona-system delete pods -l agent-type=calculator
+
+# 6. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+
+===
+
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+  
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+  
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+====
+
+
+
+
+=== run === multi section website builder =====
+
+#!/bin/bash
+# multi-section-website-test.sh
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="multi-site-$(date +%H%M%S)"
+STEP_NAME="client_step_website_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Multi-Section Website Builder Test"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-producer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b personae-kafka-cluster-kafka-bootstrap:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_id=$MESSAGE_ID \
+    -H orchestration_id=$ORCHESTRATION_ID \
+    -H orchestration_name=$ORCHESTRATION_NAME \
+    -H step_name=$STEP_NAME \
+    -H client_id=$CLIENT_ID \
+    -H message_type=request \
+    -H action=orchestrate \
+    -H from_agent_type=user \
+    -H from_agent_id=user-001 \
+    -H responses_topic=system.responses.generic <<EOF
+{"action":"orchestrate","config":{"group_type":"multi-section-website-builder"},"input_data":{"business_type":"artisanal bakery","business_name":"Golden Crust Bakery"}}
+EOF
+
+echo ""
+echo "Message sent. Waiting 20 seconds for processing..."
+sleep 20
+
+echo ""
+echo "========================================="
+echo "Checking Spawned Jobs"
+echo "========================================="
+kubectl -n ai-persona-system get jobs | grep content-creator | tail -10
+
+echo ""
+echo "========================================="
+echo "Checking Spawned Pods"
+echo "========================================="
+kubectl -n ai-persona-system get pods | grep content-creator | tail -10
+
+echo ""
+echo "========================================="
+echo "Checking Orchestration State in Database"
+echo "========================================="
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c \
+  "SELECT 
+     orchestration_id,
+     status,
+     current_step,
+     owner_agent_type,
+     to_char(created_at, 'HH24:MI:SS') as created,
+     to_char(updated_at, 'HH24:MI:SS') as updated
+   FROM orchestration_states 
+   WHERE correlation_id = '$CORRELATION_ID'
+   ORDER BY created_at DESC
+   LIMIT 10;"
+
+echo ""
+echo "========================================="
+echo "Checking for Any Errors in Orchestration"
+echo "========================================="
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c \
+  "SELECT 
+     orchestration_id,
+     status,
+     error
+   FROM orchestration_states 
+   WHERE correlation_id = '$CORRELATION_ID'
+     AND (status = 'FAILED' OR error IS NOT NULL);"
+
+echo ""
+echo "========================================="
+echo "Monitoring Response Topic"
+echo "========================================="
+echo "Listening for final response on system.responses.generic..."
+echo "Will show correlation_id header and message body"
+echo "Press Ctrl+C when you see the final response"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-consumer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -C \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.responses.generic \
+  -o end \
+  -e \
+  -f 'CORRELATION: %h{correlation_id}\nBODY: %s\n\n========================================\n\n'
+  
+  
+  
+  
+  
+  
+  
+  =======================
+==
+# ==== simple website builder 001 =====
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="website-build-$(date +%H%M%S)"
+STEP_NAME="client_step_website_request"
+CLIENT_ID="demo_client"
+
+echo "Website builder test:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+echo "  Time: $(date '+%Y-%m-%d %H:%M:%S')"
+
+kubectl -n kafka run -i --rm kcat-producer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b personae-kafka-cluster-kafka-bootstrap:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_id=$MESSAGE_ID \
+    -H orchestration_id=$ORCHESTRATION_ID \
+    -H orchestration_name=$ORCHESTRATION_NAME \
+    -H step_name=$STEP_NAME \
+    -H client_id=$CLIENT_ID \
+    -H message_type=request \
+    -H action=orchestrate \
+    -H from_agent_type=user \
+    -H from_agent_id=user-001 \
+    -H responses_topic=system.responses.generic <<EOF
+{"action":"orchestrate","config":{"group_type":"simple-website-builder-contact"},"input_data":{"business_type":"boutique coffee shop","business_name":"The Daily Grind"}}
+EOF
+
+# Monitor the progress
+sleep 15
+echo "=== Checking spawned agents ==="
+kubectl -n ai-persona-system get jobs | grep content-creator
+kubectl -n ai-persona-system get pods | grep content-creator
+
+# Check for orchestration state
+echo "=== Checking orchestration state in database ==="
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c \
+  "SELECT orchestration_id, status, current_step, created_at
+   FROM orchestration_states
+   WHERE orchestration_id = '$ORCHESTRATION_ID';"
+
+# Monitor responses
+kubectl -n kafka run -i --rm kcat-consumer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -C \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.responses.generic \
+  -o end \
+  -f '%h\n%s\n'
+  
+  
+  
+# ====== trying even newer json - single string ===
+# Set up variables
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+STEP_NAME="client_step_welcome_request"
+CLIENT_ID="demo_client"
+
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+echo "  Step Name: $STEP_NAME"
+echo "  Client ID: $CLIENT_ID"
+echo "  Time now: $(date '+%Y-%m-%d %H:%M:%S')"
+
+kubectl -n kafka run -i --rm kcat-producer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b personae-kafka-cluster-kafka-bootstrap:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_id=$MESSAGE_ID \
+    -H orchestration_id=$ORCHESTRATION_ID \
+    -H orchestration_name=$ORCHESTRATION_NAME \
+    -H step_name=$STEP_NAME \
+    -H client_id=$CLIENT_ID \
+    -H message_type=request \
+    -H action=orchestrate \
+    -H from_agent_type=user \
+    -H from_agent_id=user-001 \
+    -H responses_topic=system.responses.generic <<EOF
+{"action":"orchestrate","config":{"group_type":"welcome-message-generator"},"input_data":{"business_type":"pizza restaurant","business_name":"Test Pizza"}}
+EOF
+
+
+
+# Check for spawned agents and their topics
+sleep 10
+echo "=== Spawned Jobs ==="
+kubectl -n ai-persona-system get jobs | grep -E "calculator|agent"
+
+echo "=== Running Pods ==="
+kubectl -n ai-persona-system get pods | grep -E "calculator|agent"
+
+# Check Kafka topics created
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 | grep "job\."
+
+# Monitor responses
+kubectl -n kafka run -i --rm kcat-consumer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -C \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.responses \
+  -o json \
+  -f '%h\n%s\n'
+  
+
+
+
+
+
+
+
+
+
+# ids
+welcome-gen-001
+website-builder-001
+
+
+Test Message Examples:
+
+// Use latest/best version:
+{
+"action": "orchestrate",
+"config": {
+"group_type": "welcome-message-generator"
+},
+"input_data": {
+"business_type": "pizza restaurant",
+"business_name": "Test Pizza"
+}
+}
+
+// Use specific version or newer:
+{
+"action": "orchestrate",
+"config": {
+"group_type": "welcome-message-generator",
+"group_version": "1.0.0"
+},
+"input_data": {
+"business_type": "pizza restaurant",
+"business_name": "Test Pizza"
+}
+}
+
+
+
+
+# slow implementation
+Step 1: Test Individual Agent Actions
+Before orchestrating the full workflow, verify each agent's core action works:
+
+Test execute_llm_prompt action - ensure it can call the LLM API
+Test upload_to_s3 action - verify S3 connectivity and permissions
+Test agent spawning - confirm agents can be dynamically created
+
+Step 2: Simplify the Website Builder Workflow
+Start with a minimal workflow that uses fewer agents:
+
+workflow:
+  start_step: "analyze_domain"
+  steps:
+    analyze_domain:
+      action: "call_agent"
+      config:
+        agent_type: "domain-analyst"
+        input_field: "business_info"
+      next_step: "create_content"
+    
+    create_content:
+      action: "call_agent"
+      config:
+        agent_type: "content-creator"
+        input_field: "content_requirements"
+      next_step: "develop_html"
+    
+    develop_html:
+      action: "call_agent"
+      config:
+        agent_type: "html-developer"
+        input_field: "site_content"
+      next_step: "complete"
+    
+    complete:
+      action: "complete_workflow"
+
+Phase 2: Core Actions Implementation
+Step 3: Implement execute_llm_prompt Action
+
+Step 4: Implement upload_to_s3 Action
+
+Phase 3: Data Flow Management
+Step 5: Structure Data Between Agents
+Define clear data contracts between agents:
+// Input to domain-analyst
+{
+  "business_type": "restaurant",
+  "business_name": "Joe's Pizza"
+}
+
+// Output from domain-analyst → Input to content-creator
+{
+  "target_audience": "families, local community",
+  "key_features": ["online ordering", "menu display", "location info"],
+  "content_tone": "friendly, casual"
+}
+
+// Output from content-creator → Input to html-developer
+{
+  "page_content": {
+    "home": "Welcome to Joe's Pizza...",
+    "about": "Family-owned since 1985..."
+  },
+  "meta_descriptions": {...}
+}
+
+// Output from html-developer
+{
+  "html_code": "<!DOCTYPE html>...",
+  "css_code": "body { ... }",
+  "js_code": "function init() { ... }"
+}
+
+
+Step 6: Implement Data Extraction in CallAgentAction
+Ensure CallAgentAction properly extracts and passes data:
+
+Phase 4: Testing Strategy
+Step 7: Test with Simple Input
+Start with minimal input:
+
+{
+  "action": "process",
+  "input_data": {
+    "business_type": "pizza restaurant",
+    "business_name": "Test Pizza"
+  }
+}
+
+
+Step 8: Monitor Each Step
+Add comprehensive logging at each stage:
+
+Log when each agent is spawned
+Log input/output for each agent
+Track orchestration state transitions
+
+Phase 5: Progressive Enhancement
+Step 9: Add More Agents
+Once basic flow works, add:
+
+site-architect - for navigation structure
+visual-designer - for styling
+site-publisher - for deployment
+
+Step 10: Add Error Handling
+
+Implement retry logic for failed agents
+Add fallback strategies
+Create error aggregation
+
+Phase 6: Final Integration
+Step 11: Complete Website Builder Workflow
+workflow:
+  start_step: "spawn_team"
+  steps:
+    spawn_team:
+      action: "spawn_group"
+      config:
+        agents:
+          analyst: { type: "domain-analyst" }
+          architect: { type: "site-architect" }
+          content: { type: "content-creator" }
+          developer: { type: "html-developer" }
+      next_step: "analyze_domain"
+    
+    # ... rest of the workflow
+
+Step 12: Production Readiness
+
+Add timeout handling
+Implement cleanup for failed workflows
+Add monitoring/metrics
+Create deployment pipeline
+
+Implementation Priority
+
+Week 1: Steps 1-4 (Foundation and core actions)
+Week 2: Steps 5-8 (Data flow and basic testing)
+Week 3: Steps 9-10 (Enhancement and error handling)
+Week 4: Steps 11-12 (Full integration and production)
+
+Key Success Factors
+
+Start small - Get domain-analyst → content-creator working first
+Mock LLM responses initially - Test orchestration without API calls
+Use structured logging - Track data flow at every step
+Test incrementally - Verify each agent before adding the next
+Monitor resource usage - Ensure K8s pods have sufficient resources
+
+This plan builds on your successful calculator orchestration, applying the same patterns to a more complex, real-world use case. The key is maintaining clear data contracts between agents and ensuring each agent knows exactly what data structure to expect and produce.
+
+
+do we have agents like html_developer in the correct format?
+
+can you provide all those agents in the correct format for me please:
+
+html_developer, domain_analyst, content_creator, site_architect, html_coder, visual_designer, site_publisher, storage agents etc
+
+
+
+====
+# what's in the topic
+kubectl -n kafka exec -it pod/personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-console-consumer.sh   --bootstrap-server localhost:9092   --topic system.agent.generic.requests   --from-beginning   --max-messages 5   --property print.headers=true   --property print.key=true   --timeout-ms 5000
+
+# lag
+kubectl -n kafka exec -it pod/personae-kafka-cluster-combined-pool-prod-0 --   /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --describe \
+  --group generic-requests-group
+  
+  ==
+  
+  # 2. Reset consumer group offsets for standard topics (long-lived agents)
+# Generic agent topics
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-request-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.requests \
+  --to-latest \
+  --execute
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-response-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.responses \
+  --to-latest \
+  --execute
+  
+  
+  
+===
+  -- First, let's create the agent group definition
+-- Multi-Section Website Builder with Contact Section
+-- This creates a more complex workflow with 5 content sections
+
+INSERT INTO agent_group_definitions (
+    name,
+    group_type,
+    agent_configs,
+    orchestration_workflow,
+    usage_count,
+    version
+) VALUES (
+    'Multi-Section Website Builder',
+    'multi-section-website-builder',
+    '[
+        {"role": "hero_writer", "agent_type": "content-creator"},
+        {"role": "features_writer", "agent_type": "content-creator"},
+        {"role": "testimonials_writer", "agent_type": "content-creator"},
+        {"role": "contact_writer", "agent_type": "content-creator"},
+        {"role": "cta_writer", "agent_type": "content-creator"}
+    ]'::jsonb,
+    '{
+        "start_step": "spawn_hero_writer",
+        "steps": {
+            "spawn_hero_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "hero_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_features_writer",
+                "description": "Spawn agent for hero section"
+            },
+            "spawn_features_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "features_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_testimonials_writer",
+                "description": "Spawn agent for features section"
+            },
+            "spawn_testimonials_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "testimonials_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_contact_writer",
+                "description": "Spawn agent for testimonials section"
+            },
+            "spawn_contact_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "contact_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "spawn_cta_writer",
+                "description": "Spawn agent for contact section"
+            },
+            "spawn_cta_writer": {
+                "action": "spawn_agent",
+                "config": {
+                    "role": "cta_writer",
+                    "agent_type": "content-creator"
+                },
+                "next_step": "generate_hero",
+                "description": "Spawn agent for call-to-action section"
+            },
+            "generate_hero": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "hero_writer",
+                    "prompt": "Write a compelling hero section for {{business_name}}, a {{business_type}}. Include a powerful headline and subheadline."
+                },
+                "next_step": "generate_features",
+                "description": "Generate hero section"
+            },
+            "generate_features": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "features_writer",
+                    "prompt": "List 3-4 key features or benefits of {{business_name}}, a {{business_type}}. Make each feature clear and customer-focused."
+                },
+                "next_step": "generate_testimonials",
+                "description": "Generate features section"
+            },
+            "generate_testimonials": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "testimonials_writer",
+                    "prompt": "Create 2 realistic customer testimonials for {{business_name}}, a {{business_type}}. Make them authentic and specific."
+                },
+                "next_step": "generate_contact",
+                "description": "Generate testimonials section"
+            },
+            "generate_contact": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "contact_writer",
+                    "prompt": "Write a contact section for {{business_name}}. Include inviting text that encourages customers to reach out."
+                },
+                "next_step": "generate_cta",
+                "description": "Generate contact section"
+            },
+            "generate_cta": {
+                "action": "call_agent",
+                "config": {
+                    "agent_type": "content-creator",
+                    "target_role": "cta_writer",
+                    "prompt": "Write a strong call-to-action section for {{business_name}}. Include action text and a reason to act now."
+                },
+                "next_step": "aggregate_all_sections",
+                "description": "Generate CTA section"
+            },
+            "aggregate_all_sections": {
+                "action": "aggregate_data",
+                "config": {
+                    "strategy": "group_responses",
+                    "response_fields": [
+                        "generate_hero",
+                        "generate_features",
+                        "generate_testimonials",
+                        "generate_contact",
+                        "generate_cta"
+                    ]
+                },
+                "next_step": "complete",
+                "description": "Combine all website sections"
+            },
+            "complete": {
+                "action": "complete_workflow",
+                "description": "Return complete website content"
+            }
+        }
+    }'::jsonb,
+    0,
+    1
+)
+RETURNING id, group_type, name;
+  
+  
+  
+===
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+  
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --reset-offsets \
+  --to-earliest \
+  --all-groups   \
+  --all-topics    \
+  --execute
+  
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1

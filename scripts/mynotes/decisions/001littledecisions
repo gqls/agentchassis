@@ -1,0 +1,20 @@
+I want no messages to be sent that don't have client id, correlation id, orchestration id, agent type and step id.
+
+please help me work through the code to ensure that this is enforced. We can treat error messages differently, and as long as we can identify them then we can add placeholders for missing data. We don't want loops where error messages failing mean more error messages being sent.
+
+func (v *Validator) ValidateOutgoingMessage(headers map[string]string) bool {
+    if headers["client_id"] == "" || headers["correlation_id"] == "" || headers["orchestration_id"] == "" || headers["agent_type"] == "" || headers["step_name"] == "" {
+       return false
+    }
+    return true
+}
+
+ and not worry about the format of the error messages, just send them as is, but with a header that says it's error. We should then just check for that flag and let each agent pass it back up the chain, or deal with it themselves and carry on. We can determine the algo for dealing with it per agent, but for now we can just pass it up the line.
+
+ each agent handles just one workflow at a time
+
+ the child agent sends responses to the parent agent's responses topic, not it's own.
+
+ as the hierachical agents get deeper i.e one agent spawns another which in its workflow spawns another, so the data gets buried deeper in CollectedData
+we could probably find a better way around this
+

@@ -1,0 +1,133 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: agent-job-cleanup
+  namespace: ai-persona-system
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 300
+      template:
+        spec:
+          serviceAccountName: ai-persona-app
+          restartPolicy: Never
+          containers:
+            - name: cleanup
+              image: docker.io/bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "=== Agent Job Cleanup $(date) ==="
+
+                  # 1. Delete Failed pods (OutOfcpu, etc.)
+                  FAILED=$(kubectl get pods -n ai-persona-system --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)
+                  if [ "$FAILED" -gt 0 ]; then
+                    echo "Deleting $FAILED failed pods"
+                    kubectl delete pods -n ai-persona-system --field-selector=status.phase=Failed
+                  fi
+
+                  # 2. Delete completed Jobs (status.succeeded > 0)
+                  SUCCEEDED=$(kubectl get jobs -n ai-persona-system -l spawned-by=orchestrator --field-selector=status.successful=1 --no-headers 2>/dev/null | wc -l)
+                  if [ "$SUCCEEDED" -gt 0 ]; then
+                    echo "Deleting $SUCCEEDED completed jobs"
+                    kubectl delete jobs -n ai-persona-system -l spawned-by=orchestrator --field-selector=status.successful=1
+                  fi
+
+                  # 3. Delete spawned Jobs whose pods have been running > 2 hours
+                  for AGENT_TYPE in vet-practice-verifier vet-batch-processor area-sweep-orchestrator area-sweep-discoverer; do
+                    OLD_JOBS=$(kubectl get jobs -n ai-persona-system \
+                      -l "spawned-by=orchestrator,agent-type=$AGENT_TYPE" \
+                      -o jsonpath='{range .items[?(@.status.active==1)]}{.metadata.name} {.metadata.creationTimestamp}{"\n"}{end}' 2>/dev/null)
+
+                    if [ -n "$OLD_JOBS" ]; then
+                      CUTOFF=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-2H +%Y-%m-%dT%H:%M:%SZ)
+                      echo "$OLD_JOBS" | while read JOB_NAME CREATED; do
+                        if [ -n "$JOB_NAME" ] && [ "$CREATED" \< "$CUTOFF" ]; then
+                          echo "Deleting stale job: $JOB_NAME (created $CREATED)"
+                          kubectl delete job -n ai-persona-system "$JOB_NAME" --grace-period=30
+                        fi
+                      done
+                    fi
+                  done
+
+                  # 4. Clean up orphaned Kafka topics
+                  #
+                  # Topic format: job.{corrID[:8]}-{orchID[:8]}-{agentType}-{step}.{requests|responses}
+                  #
+                  # Strategy: collect all orchestration IDs from running spawned pods
+                  # (via ORCHESTRATION_ID env var) and keep topics that match.
+                  # Delete everything else that's older than 1 hour.
+                  # If no running pods, delete all job.* topics.
+
+                  KAFKA_POD=$(kubectl get pods -n kafka \
+                    -l strimzi.io/name=personae-kafka-cluster-kafka \
+                    --field-selector=status.phase=Running \
+                    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+                  if [ -n "$KAFKA_POD" ]; then
+                    # Get all job.* topics
+                    ALL_JOB_TOPICS=$(kubectl exec -n kafka "$KAFKA_POD" -- \
+                      bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null \
+                      | grep '^job\.')
+
+                    TOPIC_COUNT=$(echo "$ALL_JOB_TOPICS" | grep -c '^job\.' 2>/dev/null || echo 0)
+                    echo "Found $TOPIC_COUNT job topics"
+
+                    if [ "$TOPIC_COUNT" -gt 0 ]; then
+                      # Check if any spawned agent pods are running
+                      RUNNING_COUNT=$(kubectl get pods -n ai-persona-system \
+                        -l spawned-by=orchestrator \
+                        --field-selector=status.phase=Running \
+                        --no-headers 2>/dev/null | wc -l)
+
+                      if [ "$RUNNING_COUNT" -eq 0 ]; then
+                        # No running spawned pods — safe to delete all job.* topics
+                        echo "No running spawned pods — deleting all $TOPIC_COUNT job topics"
+                        DELETED=0
+                        echo "$ALL_JOB_TOPICS" | while read TOPIC; do
+                          [ -z "$TOPIC" ] && continue
+                          kubectl exec -n kafka "$KAFKA_POD" -- \
+                            bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+                            --delete --topic "$TOPIC" 2>/dev/null && \
+                          DELETED=$((DELETED + 1))
+                        done
+                        echo "Deleted job topics"
+
+                      else
+                        echo "$RUNNING_COUNT spawned pods running — conservative cleanup"
+                        # Get creation timestamps of running jobs to identify which
+                        # correlation IDs are active. Job names contain the agent-id
+                        # but not the correlation-id, so we can't map precisely.
+                        #
+                        # Conservative strategy: keep ALL topics created in the last 2 hours
+                        # by skipping topics whose correlation prefix appears in any
+                        # recent orchestration. Without DB access, use a time heuristic:
+                        # only delete topics in batches, leaving some headroom.
+                        #
+                        # Get the oldest running job's creation time
+                        OLDEST_JOB=$(kubectl get jobs -n ai-persona-system \
+                          -l spawned-by=orchestrator \
+                          -o jsonpath='{range .items[?(@.status.active==1)]}{.metadata.creationTimestamp}{"\n"}{end}' 2>/dev/null \
+                          | sort | head -1)
+
+                        if [ -n "$OLDEST_JOB" ]; then
+                          echo "Oldest running job: $OLDEST_JOB — keeping all topics for safety"
+                          echo "Topics will be cleaned on next run when no pods are active"
+                        fi
+                      fi
+                    fi
+                  else
+                    echo "Warning: No running Kafka pod found, skipping topic cleanup"
+                  fi
+
+                  # 5. Summary
+                  TOTAL_JOBS=$(kubectl get jobs -n ai-persona-system -l spawned-by=orchestrator --no-headers 2>/dev/null | wc -l)
+                  TOTAL_PODS=$(kubectl get pods -n ai-persona-system -l agent-type --no-headers 2>/dev/null | wc -l)
+                  echo "Remaining: $TOTAL_JOBS spawned jobs, $TOTAL_PODS agent pods"
+                  echo "=== Cleanup complete ==="
+                  

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Wayfaring Londoner — travel writing about London &amp; beyond</title>
+<style>
+  :root{--ink:#22201d;--soft:#4a463f;--mute:#8a847a;--line:#e0dccf;--paper:#fcfbf7;--accent:#9a6a3a}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);font-family:Georgia,"Times New Roman",serif}
+  main{max-width:660px;margin:0 auto;padding:13vh 24px 64px}
+  h1{font-size:30px;font-weight:normal;letter-spacing:.01em;margin:0 0 6px}
+  .sub{font-style:italic;color:var(--mute);margin:0 0 28px}
+  .tagline{font-size:17px;line-height:1.6;color:var(--soft);margin:0 0 30px}
+  label{display:block;font-size:16px;font-weight:bold;margin:0 0 10px;font-family:-apple-system,Helvetica,Arial,sans-serif}
+  input[type=text]{width:100%;font-size:17px;font-family:inherit;padding:13px 15px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  button{margin-top:14px;font-size:15px;font-family:-apple-system,Helvetica,Arial,sans-serif;padding:12px 22px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  .privacy{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;line-height:1.6;color:var(--mute);font-family:-apple-system,Helvetica,Arial,sans-serif}
+  @media (max-width:768px){main{padding-top:9vh}button{width:100%}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Wayfaring Londoner</h1>
+  <p class="sub">doesn't bite</p>
+  <p class="tagline">For years this was a travel blog — life in London (Richmond Park, riverboats, the odd cat café) and journeys further afield, from Bangkok to Transylvania. It's quiet now, and under new ownership, but if a search or an old link sent you here, tell us what you hoped to find.</p>
+  <form method="post" action="/intent">
+    <input type="hidden" name="kind" value="search">
+    <label for="q">What were you looking for? (a destination, a London spot, a particular story…)</label>
+    <input type="text" id="q" name="value" autocomplete="off" maxlength="500" placeholder="e.g. Richmond Park deer, Bangkok temples, things to do in London">
+    <button type="submit">Tell us</button>
+  </form>
+  <p class="privacy">This page is kept by the domain's owner. When you use the box above we record only what you type, a rough country, and the site you came from — no names, no cookies, no third-party tracking, and no IP addresses. We keep it only long enough to understand what visitors are looking for.</p>
+  <img src="/api/hit" width="1" height="1" alt="" aria-hidden="true">
+</main>
+</body>
+</html>

@@ -1,0 +1,643 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+# 2. Reset consumer group offsets for standard topics (long-lived agents)
+# Generic agent topics
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-request-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.requests \
+  --to-latest \
+  --execute
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-response-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.responses \
+  --to-latest \
+  --execute
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests CASCADE;"
+
+# 4. Delete ALL spawned agent jobs (not just calculator)
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+# 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
+# List all job topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep "^job\."
+
+# Delete all job topics (be careful!)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash -c '
+for topic in $(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep "^job\."); do
+  echo "Deleting topic: $topic"
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic "$topic"
+done
+'
+
+# delete initial topic
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --delete \
+  --topic system.agent.generic.requests
+  
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+kubectl -n ai-persona-system delete pods -l agent-type=calculator
+
+# 6. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+
+
+
+
+
+
+
+==
+# ====== trying even newer json - single string ===
+# Set up variables
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+STEP_NAME="client_step_initial_request"
+CLIENT_ID="demo_client"
+
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+echo "  Step Name: $STEP_NAME"
+echo "  Client ID: $CLIENT_ID"
+
+kubectl -n kafka run -i --rm kcat-producer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  kcat -P \
+    -b personae-kafka-cluster-kafka-bootstrap:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORRELATION_ID \
+    -H request_id=$REQUEST_ID \
+    -H message_id=$MESSAGE_ID \
+    -H orchestration_id=$ORCHESTRATION_ID \
+    -H orchestration_name=$ORCHESTRATION_NAME \
+    -H step_name=$STEP_NAME \
+    -H client_id=$CLIENT_ID \
+    -H message_type=request \
+    -H action=orchestrate \
+    -H from_agent_type=user \
+    -H from_agent_id=user-001 \
+    -H responses_topic=system.responses.generic <<EOF
+{"action":"process","input_data":{"first_calc":{"operation":"add","operands":[12345,1234]},"second_calc":{"operation":"multiply","operands":[100,50]}}}
+EOF
+
+
+# Check for spawned agents and their topics
+sleep 10
+echo "=== Spawned Jobs ==="
+kubectl -n ai-persona-system get jobs | grep -E "calculator|agent"
+
+echo "=== Running Pods ==="
+kubectl -n ai-persona-system get pods | grep -E "calculator|agent"
+
+# Check Kafka topics created
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 | grep "job\."
+
+# Monitor responses
+kubectl -n kafka run -i --rm kcat-consumer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -C \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.responses \
+  -o json \
+  -f '%h\n%s\n'
+  
+  
+  
+  
+  
+  
+# ====== old trying new json ====
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+
+kubectl -n kafka run -i --rm kcat \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -P \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.requests \
+  -H "correlation_id=$CORRELATION_ID" \
+  -H "request_id=$REQUEST_ID" \
+  -H "message_id=$MESSAGE_ID" \
+  -H "orchestration_id=$ORCHESTRATION_ID" \
+  -H "orchestration_name=$ORCHESTRATION_NAME" \
+  -H "client_id=demo_client" \
+  -H "message_type=request" \
+  -H "action=orchestrate" \
+  -H "from_agent_type=user" \
+  -H "from_agent_id=user-001" \
+  -H "responses_topic=system.agent.generic.responses" <<EOF
+{"action":"process","input_data":{"first_calc":{"operation":"add","operands":[12345,1234]},"second_calc":{"operation":"multiply","operands":[100,50]}}}
+EOF
+
+
+# Check for spawned agents and their topics
+sleep 10
+echo "=== Spawned Jobs ==="
+kubectl -n ai-persona-system get jobs | grep -E "calculator|agent"
+
+echo "=== Running Pods ==="
+kubectl -n ai-persona-system get pods | grep -E "calculator|agent"
+
+# Check Kafka topics created
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 | grep "job\."
+
+# Monitor responses
+kubectl -n kafka run -i --rm kcat-consumer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -C \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.responses \
+  -o json \
+  -f '%h\n%s\n'
+
+
+
+#=== new with new topic structure (correlation id, orchestration id, unique step id)
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+
+kubectl -n kafka run -i --rm kcat \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -P \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.requests \
+  -H "correlation_id=$CORRELATION_ID" \
+  -H "request_id=$REQUEST_ID" \
+  -H "message_id=$MESSAGE_ID" \
+  -H "orchestration_id=$ORCHESTRATION_ID" \
+  -H "orchestration_name=$ORCHESTRATION_NAME" \
+  -H "client_id=demo_client" \
+  -H "message_type=request" \
+  -H "action=orchestrate" \
+  -H "from_agent_type=user" \
+  -H "from_agent_id=user-001" \
+  -H "responses_topic=system.agent.generic.responses" <<EOF
+{
+  "action": "orchestrate",
+  "data": {
+    "first_calc": {
+      "operation": "add",
+      "operands": [12345, 1234]
+    },
+    "second_calc": {
+      "operation": "multiply", 
+      "operands": [100, 50]
+    }
+  }
+}
+EOF
+
+
+# Check for spawned agents and their topics
+sleep 10
+echo "=== Spawned Jobs ==="
+kubectl -n ai-persona-system get jobs | grep -E "calculator|agent"
+
+echo "=== Running Pods ==="
+kubectl -n ai-persona-system get pods | grep -E "calculator|agent"
+
+# Check Kafka topics created
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 | grep "job\."
+
+# Monitor responses
+kubectl -n kafka run -i --rm kcat-consumer \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -C \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.responses \
+  -o json \
+  -f '%h\n%s\n'
+  
+# check initial request topic - system.agent.generic.requests
+  kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic system.agent.generic.requests --from-beginning --property print.headers=true
+  
+========= with =====
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow}',
+    '{
+      "start_step": "spawn_adder",
+      "steps": {
+        "spawn_adder": {
+          "action": "spawn_agent",
+          "config": {
+            "agent_type": "calculator",
+            "role": "adder"
+          },
+          "description": "Spawn addition calculator",
+          "next_step": "spawn_multiplier"
+        },
+        "spawn_multiplier": {
+          "action": "spawn_agent",
+          "config": {
+            "agent_type": "calculator",
+            "role": "multiplier"
+          },
+          "description": "Spawn multiplication calculator",
+          "next_step": "perform_addition"
+        },
+        "perform_addition": {
+          "action": "call_agent",
+          "config": {
+            "agent_type": "calculator",
+            "target_role": "adder",
+            "input_field": "first_calc"
+          },
+          "description": "Addition calculation",
+          "next_step": "perform_multiplication"
+        },
+        "perform_multiplication": {
+          "action": "call_agent",
+          "config": {
+            "agent_type": "calculator",
+            "target_role": "multiplier",
+            "input_field": "second_calc"
+          },
+          "description": "Multiplication calculation",
+          "next_step": "aggregate_results"
+        },
+        "aggregate_results": {
+          "action": "aggregate_data",
+          "config": {
+            "strategy": "group_responses",
+            "response_fields": ["perform_addition", "perform_multiplication"]
+          },
+          "description": "Aggregate calculation results",
+          "next_step": "complete"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Complete workflow"
+        }
+      }
+    }'::jsonb
+)
+WHERE type = 'generic';===
+
+===========================================================================================
+
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+# 2. Reset consumer group offsets for standard topics (long-lived agents)
+# Generic agent topics
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-request-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.requests \
+  --to-latest \
+  --execute
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-response-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.responses \
+  --to-latest \
+  --execute
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests CASCADE;"
+
+# 4. Delete ALL spawned agent jobs (not just calculator)
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+# 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
+# List all job topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep "^job\."
+
+# Delete all job topics (be careful!)
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep "^job\." | while read topic; do \
+    echo "Deleting topic: $topic"; \
+    bin/kafka-topics.sh \
+      --bootstrap-server localhost:9092 \
+      --delete \
+      --topic "$topic"; \
+  done
+
+# 6. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+# === MONITORING COMMANDS ===
+
+# List all topics (to see job topics)
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --list
+
+# Monitor standard response topic (for orchestrator)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic system.agent.generic.responses \
+  --from-beginning \
+  --property print.headers=true
+
+# Monitor a specific job topic (replace with actual topic name)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic job.CORRELATION_ID.ORCHESTRATION_ID.STEP_NAME \
+  --from-beginning \
+  --property print.headers=true
+
+# === CLEANUP SPECIFIC JOB TOPIC ===
+
+# Purge specific job topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter --topic job.CORRELATION_ID.ORCHESTRATION_ID.STEP_NAME \
+  --add-config retention.ms=0
+
+# Wait a bit, then restore retention
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter --topic job.CORRELATION_ID.ORCHESTRATION_ID.STEP_NAME \
+  --delete-config retention.ms
+  
+# === PURGE ALL TOPICS ===
+# FIRST VERIFY RETENTION
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --describe \
+  --entity-type topics
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-default \
+  --add-config retention.ms=0
+  
+# RESET 604800000 is seven days, 7200000 is 2 hours
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-default \
+  --add-config retention.ms=604800000
+
+  
+# === PER TOPIC ===
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-name system.agent.generic.requests \
+  --add-config retention.ms=0
+  
+  kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-name system.agent.generic.responses \
+  --add-config retention.ms=0
+  
+  kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-name system.agent.calculator.requests \
+  --add-config retention.ms=0
+  
+  kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-name system.agent.calculator.responses \
+  --add-config retention.ms=0
+
+# === BACK AGAIN ===
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-name system.agent.generic.requests \
+  --add-config retention.ms=7200000
+  
+  kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-name system.agent.generic.responses \
+  --add-config retention.ms=7200000
+  
+  kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-name system.agent.calculator.requests \
+  --add-config retention.ms=7200000
+  
+  kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter \
+  --entity-type topics \
+  --entity-name system.agent.calculator.responses \
+  --add-config retention.ms=7200000
+
+# === DEBUGGING COMMANDS ===
+
+# Check consumer groups for job topics
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --list | grep -E "^(agent-|calculator-)"
+
+# Check lag for a specific consumer group
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group CONSUMER_GROUP_NAME \
+  --describe
+
+# Get logs from spawned agent pods
+kubectl -n ai-persona-system get pods -l spawned-by=orchestrator
+kubectl -n ai-persona-system logs -l agent-type=calculator --tail=50
+
+# === FULL RESET SCRIPT ===
+# Save as reset-agents.sh
+#!/bin/bash
+echo "Stopping all agents..."
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+echo "Deleting spawned jobs..."
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+echo "Cleaning up job topics..."
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | \
+  grep "^job\." | while read topic; do
+    echo "Deleting topic: $topic"
+    kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+      bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic "$topic"
+  done
+
+echo "Clearing database..."
+kubectl -n ai-persona-system exec postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests CASCADE;"
+
+echo "Resetting consumer offsets..."
+for group in generic-request-consumers generic-response-consumers; do
+  kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+    /opt/kafka/bin/kafka-consumer-groups.sh \
+    --bootstrap-server localhost:9092 \
+    --group $group \
+    --reset-offsets \
+    --all-topics \
+    --to-latest \
+    --execute
+done
+
+echo "Starting agents..."
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+echo "Reset complete!"
+
+
+
+====
+old clearance setup
+====
+
+
+# 2. NOW reset the consumer group offsets (consumers are stopped)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-request-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.requests \
+  --to-latest \
+  --execute
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-response-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.responses \
+  --to-latest \
+  --execute
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states CASCADE;"
+
+# 4. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+# 5. Delete old calculator jobs
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+
+# 6. delete the topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-topics.sh \
+--bootstrap-server localhost:9092 \
+--delete \
+--topic system.agent.generic.responses
+
+# list all topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- bin/kafka-topics.sh \
+  --bootstrap-server personae-kafka-cluster-kafka-bootstrap:9092 \
+  --list
+
+# consume new topic in separate terminal
+ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-console-consumer.sh \
+--bootstrap-server localhost:9092 \
+--topic system.responses.generic \
+--from-beginning \
+--property print.headers=true
+
+# purge topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+  --alter --topic system.responses.generic \
+  --add-config retention.ms=0
+
+# restore retention period for topic
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 \
+--alter --topic system.responses.generic \
+--delete-config retention.ms

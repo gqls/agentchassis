@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	platform_config "github.com/gqls/agentchassis/platform/config"
+	"go.uber.org/zap"
 )
 
 // S3Client implements the Client interface for S3-compatible services
@@ -22,24 +23,57 @@ type S3Client struct {
 	bucket string
 }
 
-// NewS3Client creates a new client for interacting with S3 or MinIO
-func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig) (*S3Client, error) {
+func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig, logger zap.Logger) (*S3Client, error) {
+	// Use the env vars specified in config
 	accessKey := os.Getenv(cfg.AccessKeyEnvVar)
 	secretKey := os.Getenv(cfg.SecretKeyEnvVar)
+
+	// Add debug logging
+	logger.Info("NewS3Client",
+		zap.String("DEBUG: AccessKeyEnvVar=%s", cfg.AccessKeyEnvVar),
+		zap.String("DEBUG: cfg.SecretKeyEnvVar", cfg.AccessKeyEnvVar),
+		// zap.String("DEBUG: AccessKey", accessKey),
+		zap.String("DEBUGaa: B2_APPLICATION_KEY_ID from env", os.Getenv("B2_APPLICATION_KEY_ID")),
+		zap.String("DEBUGaa: B2_APPLICATION_KEY from env", os.Getenv("B2_APPLICATION_KEY")),
+		zap.String("DEBUG: Endpoint", cfg.Endpoint),
+		zap.String("DEBUG: Bucket", cfg.Bucket),
+	)
 
 	if accessKey == "" || secretKey == "" {
 		return nil, fmt.Errorf("object storage credentials not found in environment variables (%s, %s)",
 			cfg.AccessKeyEnvVar, cfg.SecretKeyEnvVar)
 	}
 
+	// Get endpoint from config or environment
+	endpoint := cfg.Endpoint
+	if endpoint == "" {
+		endpoint = os.Getenv("S3_ENDPOINT")
+		if endpoint == "" {
+			endpoint = "https://s3.us-east-005.backblazeb2.com" // B2 default
+		}
+	}
+
+	// Get region from environment (since it might not be in your struct)
+	region := os.Getenv("S3_REGION")
+	if region == "" {
+		region = "us-east-005" // B2 default region
+	}
+
+	// Custom resolver for B2
 	resolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			URL:           cfg.Endpoint,
-			SigningRegion: "us-east-1", // This can be anything for MinIO
-		}, nil
+		if service == s3.ServiceID && endpoint != "" {
+			return aws.Endpoint{
+				URL:               endpoint,
+				SigningRegion:     region,
+				HostnameImmutable: true, // Important for B2
+				SigningName:       "s3",
+			}, nil
+		}
+		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 	})
 
 	awsCfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(region),
 		config.WithEndpointResolverWithOptions(resolver),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
 	)
@@ -47,14 +81,32 @@ func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig) (
 		return nil, fmt.Errorf("failed to load s3 config: %w", err)
 	}
 
-	// For MinIO, you must use path-style addressing
+	// Determine path style - B2 doesn't use path-style
+	usePathStyle := false
+	if os.Getenv("S3_USE_PATH_STYLE") == "true" {
+		usePathStyle = true
+	}
+	// Override for MinIO
+	if strings.Contains(endpoint, "minio") || strings.Contains(endpoint, "localhost") {
+		usePathStyle = true
+	}
+
 	s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
-		o.UsePathStyle = true
+		o.UsePathStyle = usePathStyle
 	})
+
+	// Get bucket from config or environment
+	bucket := cfg.Bucket
+	if bucket == "" {
+		bucket = os.Getenv("IMAGE_BUCKET")
+		if bucket == "" {
+			return nil, fmt.Errorf("no bucket specified in config or IMAGE_BUCKET env var")
+		}
+	}
 
 	return &S3Client{
 		client: s3Client,
-		bucket: cfg.Bucket,
+		bucket: bucket,
 	}, nil
 }
 
@@ -153,6 +205,27 @@ func (c *S3Client) GetPresignedURL(ctx context.Context, key string, expiryMinute
 
 	if err != nil {
 		return "", fmt.Errorf("failed to create presigned URL: %w", err)
+	}
+
+	return request.URL, nil
+}
+
+// GetPresignedPutURL generates a temporary upload (PUT) URL.
+// expiryMinutes matches GetPresignedURL's convention (minutes).
+// Used by the thunder-adapter's prepare_artefact_url action so a training VM
+// can upload its trained adapter to B2 with a time-limited, credential-free URL.
+func (c *S3Client) GetPresignedPutURL(ctx context.Context, key string, expiryMinutes int) (string, error) {
+	presignClient := s3.NewPresignClient(c.client)
+
+	request, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(key),
+	}, func(opts *s3.PresignOptions) {
+		opts.Expires = time.Duration(expiryMinutes) * time.Minute
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create presigned PUT URL: %w", err)
 	}
 
 	return request.URL, nil

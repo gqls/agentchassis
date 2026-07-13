@@ -1,0 +1,45 @@
+# deployments/kustomize/services/kafka-scheduler/overlays/production/uk_001/patch-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-scheduler
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: kafka-scheduler
+          envFrom: []
+          env:
+            # Password MUST come first — CLIENTS_DATABASE_URL references it via $(...)
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+
+            # Database — now $(CLIENTS_DB_PASSWORD) resolves correctly
+            - name: CLIENTS_DATABASE_URL
+              value: "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable&default_query_exec_mode=cache_describe"            # Kafka
+            - name: KAFKA_BROKERS
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+            # Scheduler config
+            - name: TICK_INTERVAL_SECONDS
+              value: "30"
+            - name: LOG_LEVEL
+              value: "info"
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

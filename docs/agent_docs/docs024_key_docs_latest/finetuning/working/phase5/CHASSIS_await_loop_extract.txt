@@ -1,0 +1,1991 @@
+// ============================================================================
+// CHASSIS await/loop extract — targeted slice of production_agent-chassis-actions-current_context.txt
+// Purpose: the async-await + loop machinery for the checkpoint-upload loop-await race.
+// Covers: response entry (ProcessResponse) -> claim (ClaimAwaitedRequest) -> register
+//         (processAwaitResponse, createAwaitedRequest) -> resume (handleCompleteResponse,
+//         continueExecution) -> timeout/retry (handleRequestTimeout) ; the awaited_requests
+//         repo methods ; loop functions (setLoopVariable / LoopCompleteAction / skip) ;
+//         and preRegisterAwaitedRequest (the helper the fix reuses).
+// Line numbers in each header are the ORIGINAL lines in the full dump (for cross-ref).
+// THE FIX: in thunder_prepare_object_url_dispatch.go, call preRegisterAwaitedRequest
+//          (below) just before ProduceWithValidation, guarded by params.DB != nil,
+//          mirroring the spawn call site shown at the end of this file.
+// ============================================================================
+
+
+// ===== ProcessResponse — response entry point; claims + routes to handleCompleteResponse
+// ===== original lines L167-L303 =====
+func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
+	s.logger.Info("ProcessResponse in coordinator.go",
+		zap.Any("response", response),
+		zap.Any("DEBUGaa: incoming execCtx", execCtx),
+	)
+
+	// Prepare values for tracing
+	var inResponseToParentOrchestrationID string
+	var inResponseToRequest string
+
+	if execCtx.InResponseTo != nil {
+		inResponseToParentOrchestrationID = execCtx.InResponseTo.ParentOrchestrationID
+		inResponseToRequest = execCtx.InResponseTo.RequestID
+	}
+
+	s.tracer.TraceMessage(execCtx, "RECEIVE_RESPONSE", execCtx.ResponsesTopic,
+		map[string]interface{}{
+			"consuming_agent_type":       os.Getenv("AGENT_TYPE"),
+			"consuming_agent_id":         os.Getenv("AGENT_ID"),
+			"response_orch_id":           execCtx.OrchestrationID,
+			"in_response_to_parent_orch": inResponseToParentOrchestrationID,
+			"in_response_to_request":     inResponseToRequest,
+		})
+
+	// Extract request ID from InResponseTo
+	var requestID string
+	if execCtx.InResponseTo != nil {
+		requestID = execCtx.InResponseTo.RequestID
+	}
+	if requestID == "" {
+		requestID = execCtx.RequestID
+	}
+	if requestID == "" {
+		return fmt.Errorf("no request ID in response")
+	}
+
+	// Create response preview safely
+	responsePreview := createResponsePreview(response.Body.Body)
+
+	s.logger.Info("RESPONSE_RECEIVED: Processing response in coordinator")
+	contextLogger := s.logger.With(
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", execCtx.OrchestrationID),
+		zap.String("execCtx.InResponseTo.ParentOrchestrationID", execCtx.InResponseTo.ParentOrchestrationID),
+		zap.String("from_agent", execCtx.FromAgentID),
+		zap.String("status", execCtx.Status),
+		zap.Int("retry_version", execCtx.RetryVersion),
+		zap.String("response_preview", responsePreview),
+	)
+
+	current, caller := getFuncInfo(1)
+
+	contextLogger.Info("In file coordinator.go ProcessResponse",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
+	repo := NewStateRepository(s.db, s.logger)
+
+	// =========================================================================
+	// ATOMIC CLAIM - This single operation prevents duplicate processing
+	// =========================================================================
+	contextLogger.Info("Attempting atomic claim for request",
+		zap.String("request_id", requestID),
+		zap.String("claiming_pod", s.podName))
+
+	// For progress updates, DON'T claim - just update state
+	if execCtx.Status == "awaiting" || execCtx.Status == "processing" {
+		// Get the awaited request without claiming
+		awaitedReq, err := repo.GetAwaitedRequest(ctx, requestID)
+		if err != nil || awaitedReq == nil {
+			return nil
+		}
+		state, err := repo.GetState(ctx, awaitedReq.OrchestrationID)
+		if err != nil || state == nil {
+			return nil
+		}
+		return s.handleProgressUpdate(ctx, state, execCtx)
+	}
+
+	awaitedReq, err := processResponseClaimWithRetry(ctx, repo, requestID, s.podName, contextLogger)
+	if err != nil {
+		return err
+	}
+	if awaitedReq == nil {
+		return nil // Duplicate or orphaned - already logged
+	}
+
+	contextLogger.Info("CLAIM_SUCCESS: exclusively claimed request",
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", awaitedReq.OrchestrationID),
+		zap.String("step_name", awaitedReq.StepName))
+
+	// Load the orchestration state
+	state, err := repo.GetState(ctx, awaitedReq.OrchestrationID)
+	if err != nil {
+		return fmt.Errorf("failed to load orchestration state: %w", err)
+	}
+
+	if state == nil {
+		return fmt.Errorf("no state found for orchestration_id=%s", awaitedReq.OrchestrationID)
+	}
+
+	// Additional check: verify this orchestrator owns this orchestration
+	if state.ProcessingNode != "" && state.ProcessingNode != s.podName {
+		contextLogger.Info("Response for orchestration owned by different pod, ignoring",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("owner_pod", state.ProcessingNode),
+			zap.String("my_pod", s.podName))
+		return nil
+	}
+
+	contextLogger.Info("RESPONSE_MATCHED: Found orchestration for response",
+		zap.String("state_orch_id", state.OrchestrationID),
+		zap.String("state_status", string(state.Status)),
+		zap.Int("awaited_requests", len(state.AwaitedRequests)))
+
+	// Handle based on response status
+	switch execCtx.Status {
+	case "awaiting", "processing":
+		return s.handleProgressUpdate(ctx, state, execCtx)
+	case "complete", "success":
+		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response, awaitedReq)
+	case "error_recoverable":
+		return s.handleRecoverableError(ctx, state, requestID, execCtx, response)
+	case "error_unrecoverable", "failed", "error":
+		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
+	default:
+		contextLogger.Warn("Unknown response status, treating as unrecoverable error",
+			zap.String("status", execCtx.Status),
+			zap.String("request_id", requestID),
+			zap.String("step_name", awaitedReq.StepName))
+		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
+	}
+}
+
+
+
+// ===== ClaimAwaitedRequest — UPDATE waiting->processing WHERE status='waiting' (the drop happens here on a miss)
+// ===== original lines L396-L472 =====
+func (r *StateRepository) ClaimAwaitedRequest(ctx context.Context, requestID string, claimerPodName string) (*AwaitedRequest, error) {
+	// DEBUG BEFORE claim: check current status
+	var beforeStatus string
+	checkQuery := `SELECT status FROM awaited_requests WHERE request_id = $1`
+	r.db.QueryRowContext(ctx, checkQuery, requestID).Scan(&beforeStatus)
+	r.logger.Info("ClaimAwaitedRequest: status before claim attempt",
+		zap.String("request_id", requestID),
+		zap.String("status_before", beforeStatus),
+		zap.String("claimer", claimerPodName))
+
+	query := `
+    UPDATE awaited_requests
+    SET status = 'processing',
+        processing_started_at = NOW(),
+        processing_pod = $2
+    WHERE request_id = $1
+      AND status = 'waiting'
+    RETURNING 
+        request_id, orchestration_id, correlation_id, step_id, step_name,
+        retry_version, target_agent_id, target_agent_type,
+        responses_topic, requests_topic, sent_at, timeout_at,
+        reply_to_request_id, status, processed_at
+`
+
+	record := &AwaitedRequest{}
+	var processedAt sql.NullTime
+
+	err := r.db.QueryRowContext(ctx, query, requestID, claimerPodName).Scan(
+		&record.RequestID,
+		&record.OrchestrationID,
+		&record.CorrelationID,
+		&record.StepID,
+		&record.StepName,
+		&record.RetryVersion,
+		&record.TargetAgentID,
+		&record.TargetAgentType,
+		&record.ResponsesTopic,
+		&record.RequestsTopic,
+		&record.SentAt,
+		&record.TimeoutAt,
+		&record.ReplyToRequestID,
+		&record.Status,
+		&processedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		// Not found OR already claimed by another worker - both cases return nil
+		r.logger.Debug("ClaimAwaitedRequest: not claimed (already processed or not found)",
+			zap.String("request_id", requestID),
+		)
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to claim awaited request: %w", err)
+	}
+
+	if processedAt.Valid {
+		record.ProcessedAt = &processedAt.Time
+	}
+
+	// DEBUG AFTER claim: log result
+	r.logger.Info("ClaimAwaitedRequest: claim result",
+		zap.String("request_id", requestID),
+		zap.String("status_before", beforeStatus),
+		zap.Bool("claimed", record != nil),
+		zap.String("claimer", claimerPodName))
+
+	// back to normal logs
+	r.logger.Info("ClaimAwaitedRequest: successfully claimed",
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", record.OrchestrationID),
+	)
+
+	return record, nil
+}
+
+// HandleResponse processes responses using headers (compatibility method)
+
+
+// ===== continueExecution — drives workflow + loop advancement
+// ===== original lines L753-L948 =====
+func (s *SagaCoordinator) continueExecution(ctx context.Context, state *OrchestrationState, execCtx *types.ExecutionContext) error {
+	s.logger.Info("in continueExecution",
+		zap.Any("DEBUGaa: orchestration state", state),
+		//zap.Any("Exec context", execCtx),
+	)
+
+	repo := NewStateRepository(s.db, s.logger)
+
+	// check for loop
+	if err := s.checkCircuitBreaker(state, s.logger); err != nil {
+		state.Status = "FAILED"
+		state.Error = err.Error()
+		if saveErr := repo.UpdateState(ctx, state); saveErr != nil {
+			s.logger.Error("Failed to save circuit breaker state", zap.Error(saveErr))
+		}
+		return err
+	}
+
+	// This initial check remains outside the loop. If the function is called
+	// on a state that's already waiting, we should exit immediately.
+	if state.Status == StatusAwaitingResponses {
+		s.logger.Info("Already in waiting state", zap.String("orchestration_id", state.OrchestrationID))
+		return nil
+	}
+
+	// Fail orchestrations that have been running far longer than their timeout.
+	// After a pod restart, the CronJob may have cleaned up job.* Kafka topics.
+	// Resuming these orchestrations just wastes cycles on "Unknown Topic" errors.
+	// Uses the workflow's own timeout (3x multiplier for safety) or a 60-minute
+	// fallback for workflows with no timeout configured.
+	if !state.CreatedAt.IsZero() {
+		age := time.Since(state.CreatedAt)
+		var maxAge time.Duration
+		if state.WorkflowPlan.TimeoutSeconds > 0 {
+			maxAge = time.Duration(state.WorkflowPlan.TimeoutSeconds) * time.Second * 3
+		} else {
+			maxAge = 60 * time.Minute // fallback for workflows without timeout_seconds
+		}
+		if age > maxAge {
+			s.logger.Warn("Orchestration exceeded max age — likely stale after pod restart",
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.String("owner_agent_type", state.OwnerAgentType),
+				zap.Duration("age", age),
+				zap.Duration("max_age", maxAge),
+				zap.Int("workflow_timeout_seconds", state.WorkflowPlan.TimeoutSeconds),
+				zap.String("current_step", state.CurrentStep))
+			return s.failWorkflow(ctx, state,
+				fmt.Sprintf("Orchestration stale — running for %s (workflow timeout: %ds, max age: %s)",
+					age.Round(time.Second), state.WorkflowPlan.TimeoutSeconds, maxAge))
+		}
+	}
+
+	// Main execution loop. It will run for each step in the workflow
+	// until a 'return' statement is hit.
+	for {
+		l := s.logger.With(
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("current_step", state.CurrentStep),
+			zap.String("exec_ctx_sender_type", execCtx.Sender.AgentType),
+			zap.String("exec_ctx_message_type", execCtx.MessageType),
+			zap.Any("exec_ctx_in_response_to", execCtx.InResponseTo),
+			zap.Any("state.Status", state.Status),
+		)
+
+		l.Info("Continuing workflow execution continueExecution coordinator.go",
+			zap.Int("total_steps", len(state.WorkflowPlan.Steps)))
+
+		// Mark the current step as executing for this iteration
+		if err := repo.SetExecutingStep(ctx, state.OrchestrationID, state.CurrentStep); err != nil {
+			return err
+		}
+
+		// Reload the state to ensure we have the latest version for this step
+		reloadedState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to reload state: %w", err)
+		}
+		state = reloadedState
+		currentStepName := state.CurrentStep
+
+		l = s.logger.With(
+			zap.Any("state loaded from repo - in continueExecution", state),
+			zap.String("current_step", state.CurrentStep),
+			zap.Any("state.Status", state.Status),
+			zap.Any("currentStepConfig", state.WorkflowPlan.Steps[state.CurrentStep]),
+		)
+
+		currentStepConfig, exists := state.WorkflowPlan.Steps[state.CurrentStep]
+		if !exists {
+			l.Error("Current step doesnt exist in the plan", zap.Any("state.WorkflowPlan", state.WorkflowPlan))
+			return s.failWorkflow(ctx, state, fmt.Sprintf("step '%s' not found", state.CurrentStep))
+		}
+
+		if !s.dependenciesMet(currentStepConfig.Dependencies, state) {
+			return s.skipStep(ctx, state, "dependencies not met")
+		}
+
+		// Execute the single step for this iteration
+		// NOTE: This stores result in state.CollectedData IN MEMORY
+		err = s.executeStep(ctx, state, currentStepConfig, execCtx)
+		if err != nil {
+			// Loop expansion recursed into continueExecution and took ownership.
+			// The outer for-loop must not continue or transition — return cleanly.
+			if errors.Is(err, ErrLoopExpansionHandled) {
+				l.Info("Loop expansion handled — outer continueExecution exiting",
+					zap.String("loop_step", state.CurrentStep),
+				)
+				return nil
+			}
+			// Check if this is a loop iteration with continue_on_error
+			if shouldContinueLoopOnError(state, l) {
+				if skipErr := s.skipToNextLoopIteration(ctx, state, err.Error(), l); skipErr != nil {
+					l.Error("Failed to skip loop iteration", zap.Error(skipErr))
+					return s.failWorkflow(ctx, state, fmt.Sprintf("step %s failed: %v (loop skip also failed: %v)", state.CurrentStep, err, skipErr))
+				}
+				return nil // Loop continues from next iteration
+			}
+			// Check if the failed step has an error_step to route to
+			return s.routeToErrorStepOrFail(ctx, state, state.CurrentStep, fmt.Sprintf("step %s failed: %v", state.CurrentStep, err))
+		}
+
+		// Check if a recursive call (from loop expansion) set the status to AWAITING_RESPONSES
+		// We need to check the DATABASE status, not our in-memory state, because recursive
+		// continueExecution calls operate on their own loaded state objects.
+		// However, we must NOT reload the entire state because that would lose the step result
+		// that was stored in memory by executeStep.
+		dbState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to check state status after step execution: %w", err)
+		}
+		if dbState.Status == StatusAwaitingResponses {
+			// A recursive call set the status - workflow is now waiting
+			l.Info("Execution paused - waiting for responses (set by recursive call)",
+				zap.String("current_step", dbState.CurrentStep),
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.Int("awaited_count", len(dbState.AwaitedRequests)),
+			)
+			return nil
+		}
+
+		// If awaiting responses, state was already persisted in processAwaitResponse
+		// Just return - don't save again
+		if state.Status == StatusAwaitingResponses {
+			l.Info("Execution paused - waiting for responses (state already persisted)",
+				zap.String("current_step", state.CurrentStep),
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.Int("awaited_count", len(state.AwaitedRequests)),
+			)
+			return nil
+		}
+
+		// For non-awaiting steps, save step result with retry
+		if err := s.saveStepResultWithRetry(ctx, state, currentStepName, l); err != nil {
+			l.Error("Failed to save step result after retries",
+				zap.String("step", currentStepName),
+				zap.Error(err))
+			return fmt.Errorf("failed to persist step result for '%s': %w", currentStepName, err)
+		}
+
+		// --- This is the core step-transition logic ---
+
+		// First, check if the action result specified a next_step override
+		nextStep := currentStepConfig.NextStep
+		if overrideStep, found := getNextStepFromResult(state.CollectedData, state.CurrentStep); found {
+			l.Info("Action result specified next_step override",
+				zap.String("configured_next_step", currentStepConfig.NextStep),
+				zap.String("override_next_step", overrideStep))
+			nextStep = overrideStep
+		}
+
+		if nextStep != "" {
+			l.Info("Transitioning to next step", zap.String("next_step", nextStep))
+			state.CurrentStep = nextStep
+
+			// Advance to next step with retry
+			if err := s.advanceToNextStepWithRetry(ctx, state.OrchestrationID, nextStep, l); err != nil {
+				return err
+			}
+
+			// Reload state for next iteration
+			state, err = repo.GetState(ctx, state.OrchestrationID)
+			if err != nil {
+				return fmt.Errorf("failed to reload state after advancing: %w", err)
+			}
+
+			// Go to the top of the for loop to run the next step
+			continue
+		} else {
+			l.Info("No next step defined, completing workflow.")
+			// No next step, so complete the workflow and exit the loop
+			return s.completeWorkflow(ctx, state)
+		}
+	}
+}
+
+// advanceToNextStepWithRetry updates CurrentStep with optimistic lock retry
+
+
+// ===== processAwaitResponse — POST-return await registration (send-before-register); persist then InsertAwaitedRequest; 'already exists' no-op
+// ===== original lines L1678-L1830 =====
+func processAwaitResponse(state *OrchestrationState, result map[string]interface{},
+	execCtx *types.ExecutionContext, step models.Step, coordinator *SagaCoordinator, logger *zap.Logger) bool {
+
+	logger.Info("in processAwaitResponse",
+		zap.String("step_name", step.Name),
+		zap.Any("what type was await response - it is true but being seen as false perhaps?", result["await_response"]),
+		zap.Any("how deep is the await response key - keyed by action I think. result is:", result),
+		zap.String("result[await_response]_type in processAwaitResponse", fmt.Sprintf("%T", result["await_response"])),
+	)
+
+	// Check if action requires waiting
+	awaitResponse, ok := result["await_response"].(bool)
+	logger.Info("in processAwaitResponse",
+		zap.Any("what is await response is it true or false", result["await_response"]),
+	)
+
+	// extra checking
+	awaitVal, ok := result["await_response"]
+	if !ok {
+		return false // Key doesn't exist
+	}
+
+	switch v := awaitVal.(type) {
+	case bool:
+		logger.Info("in processAwaitResponse all good? recognised as bool",
+			zap.Any("what is await response", awaitResponse),
+		)
+		awaitResponse = v
+	case string:
+		logger.Info("in processAwaitResponse all good? recognised as string",
+			zap.Any("what is await response", awaitResponse),
+		)
+		awaitResponse = (v == "true" || v == "True")
+	default:
+		// Don't know how to handle this type, assume false
+		logger.Warn("Unknown type for 'await_response' in action result",
+			zap.String("step_name", step.Name),
+			zap.Any("value", awaitVal))
+		return false
+	}
+
+	if !awaitResponse {
+		return false // Value was false or not "true"
+	}
+
+	// Extract request ID
+	requestID := extractRequestID(result, execCtx)
+	if requestID == "" {
+		logger.Error("No request ID for awaited response")
+		return false
+	}
+
+	// Determine response topic
+	responsesTopic := determineResponsesTopic(result, execCtx, logger)
+	if responsesTopic == "" {
+		logger.Error("No responses topic available for awaited request",
+			zap.String("request_id", requestID))
+		return false
+	}
+
+	// Determine requests topic (where to send the request)
+	requestsTopic := determineRequestsTopic(result, execCtx, logger)
+	if requestsTopic == "" {
+		logger.Warn("No requests topic available for awaited request - retry will fail",
+			zap.String("request_id", requestID))
+	}
+
+	// Create awaited request entry
+	awaitedReq := createAwaitedRequest(requestID, execCtx, state, step, result, responsesTopic, requestsTopic)
+
+	// Add to state FIRST (in memory)
+	if state.AwaitedRequests == nil {
+		state.AwaitedRequests = make(map[string]*AwaitedRequest)
+	}
+	state.AwaitedRequests[requestID] = awaitedReq
+
+	// Set status to awaiting (must happen before persist)
+	state.Status = StatusAwaitingResponses
+
+	// PERSIST STATE BEFORE TABLE INSERT to prevent race condition
+	// The JSONB must be persisted before the table insert, otherwise:
+	// 1. Response arrives after table insert but before JSONB persist
+	// 2. Response handler loads state with empty AwaitedRequests
+	// 3. Workflow incorrectly thinks all responses are in
+	ctx := context.Background()
+	repo := NewStateRepository(coordinator.db, logger)
+	if err := persistAwaitingStateWithRetry(ctx, state, repo, logger); err != nil {
+		logger.Error("Failed to persist state before table insert",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+		// Remove from in-memory state since we failed
+		delete(state.AwaitedRequests, requestID)
+		state.Status = "" // Reset status
+		return false
+	}
+
+	// NOW insert into database table (JSONB is already persisted)
+	err := repo.InsertAwaitedRequest(ctx, awaitedReq)
+	alreadyExisted := false
+	if err != nil {
+		// Check if this is an "already exists" error - this is actually OK
+		// It means a previous attempt (optimistic lock retry) already inserted the row
+		if strings.Contains(err.Error(), "already exists") {
+			logger.Info("Awaited request already exists in table (previous attempt succeeded)",
+				zap.String("request_id", requestID),
+				zap.String("orchestration_id", state.OrchestrationID))
+			alreadyExisted = true
+			// Continue as success - state is persisted, timeout handler was started by previous attempt
+		} else {
+			logger.Error("Failed to insert awaited request into database",
+				zap.String("request_id", requestID),
+				zap.Error(err))
+			// State is already persisted with the awaited request, which is fine
+			// The request will eventually timeout if table insert keeps failing
+			// But we should try a few times
+			for retry := 0; retry < 3; retry++ {
+				time.Sleep(50 * time.Millisecond)
+				if err = repo.InsertAwaitedRequest(ctx, awaitedReq); err == nil {
+					break
+				}
+				if strings.Contains(err.Error(), "already exists") {
+					// Another goroutine succeeded
+					logger.Info("Awaited request already exists (concurrent insert succeeded)",
+						zap.String("request_id", requestID))
+					alreadyExisted = true
+					err = nil
+					break
+				}
+			}
+			if err != nil {
+				return false
+			}
+		}
+	}
+
+	logger.Info("Action requires waiting for response - Added awaited request (state persisted first)",
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("target_agent_type", awaitedReq.TargetAgentType),
+		zap.String("target_agent_id", awaitedReq.TargetAgentID),
+		zap.String("responses_topic", responsesTopic),
+		zap.Int("total_awaited", len(state.AwaitedRequests)))
+
+	// Setup timeout handler only if we actually created the row (not if it already existed)
+	if !alreadyExisted {
+		go coordinator.handleRequestTimeout(context.Background(), state.OrchestrationID, requestID, awaitedReq.TimeoutAt)
+	}
+
+	return true
+}
+
+// persistAwaitingStateWithRetry saves state with awaited request before table insert
+// This prevents the race condition where responses arrive before JSONB is persisted
+
+
+// ===== persistAwaitingStateWithRetry
+// ===== original lines L1831-L1898 =====
+func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationState, repo *StateRepository, logger *zap.Logger) error {
+	maxRetries := 10
+	baseDelay := 50 * time.Millisecond
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Load fresh state
+		freshState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to load state: %w", err)
+		}
+
+		// Check if response already arrived (in case of retry loops)
+		for reqID := range state.AwaitedRequests {
+			if existingData, exists := freshState.CollectedData[state.AwaitedRequests[reqID].StepName].(map[string]interface{}); exists {
+				if _, hasResponse := existingData["response"]; hasResponse {
+					logger.Info("Response already arrived during state persist - continuing",
+						zap.String("request_id", reqID))
+					return nil
+				}
+			}
+		}
+
+		// Apply awaited requests to fresh state
+		if freshState.AwaitedRequests == nil {
+			freshState.AwaitedRequests = make(map[string]*AwaitedRequest)
+		}
+		for k, v := range state.AwaitedRequests {
+			freshState.AwaitedRequests[k] = v
+		}
+
+		// Apply status
+		freshState.Status = StatusAwaitingResponses
+		freshState.LastActivity = time.Now()
+
+		// Try to save
+		err = repo.UpdateState(ctx, freshState)
+		if err == nil {
+			if attempt > 1 {
+				logger.Info("Awaiting state persisted after retry",
+					zap.Int("attempts", attempt),
+					zap.Int("awaited_count", len(freshState.AwaitedRequests)))
+			}
+			// Update in-memory version
+			state.Version = freshState.Version
+			return nil
+		}
+
+		// Check if optimistic lock error
+		if !IsOptimisticLockError(err) {
+			return fmt.Errorf("failed to persist awaiting state: %w", err)
+		}
+
+		if attempt >= maxRetries {
+			return fmt.Errorf("failed to persist awaiting state after %d attempts: %w", attempt, err)
+		}
+
+		// Backoff
+		delay := backoffWithJitter(baseDelay, attempt)
+		logger.Warn("Optimistic lock failure persisting awaiting state, retrying",
+			zap.Int("attempt", attempt),
+			zap.Duration("backoff", delay))
+		time.Sleep(delay)
+	}
+
+	return nil
+}
+
+// Extract request ID from result or context
+
+
+// ===== extractRequestID
+// ===== original lines L1899-L1908 =====
+func extractRequestID(result map[string]interface{}, execCtx *types.ExecutionContext) string {
+	// Try to get from result first
+	if reqID, ok := result["request_id"].(string); ok && reqID != "" {
+		return reqID
+	}
+	// Fall back to execution context
+	return execCtx.RequestID
+}
+
+// Determine the responses topic for waiting
+
+
+// ===== determineResponsesTopic
+// ===== original lines L1909-L1934 =====
+func determineResponsesTopic(result map[string]interface{}, execCtx *types.ExecutionContext, logger *zap.Logger) string {
+	// Priority order:
+	// 1. Environment variable (most reliable)
+	if topic := os.Getenv("RESPONSES_TOPIC"); topic != "" {
+		logger.Info("Using RESPONSES_TOPIC from environment",
+			zap.String("topic", topic))
+		return topic
+	}
+
+	// 2. Result from action
+	if topic, ok := result["responses_topic"].(string); ok && topic != "" {
+		logger.Info("Using responses_topic from action result",
+			zap.String("topic", topic))
+		return topic
+	}
+
+	// 3. Execution context
+	if execCtx.ResponsesTopic != "" {
+		logger.Info("Using ResponsesTopic from execution context",
+			zap.String("topic", execCtx.ResponsesTopic))
+		return execCtx.ResponsesTopic
+	}
+
+	return ""
+}
+
+
+
+// ===== determineRequestsTopic
+// ===== original lines L1935-L1970 =====
+func determineRequestsTopic(result map[string]interface{}, execCtx *types.ExecutionContext, logger *zap.Logger) string {
+	// Priority order:
+	// 1. Result from action (spawn returns this)
+	if topic, ok := result["requests_topic"].(string); ok && topic != "" {
+		logger.Info("Using requests_topic from action result",
+			zap.String("topic", topic))
+		return topic
+	}
+
+	// 2. Check if result has topics map (from spawn)
+	if topics, ok := result["topics"].(map[string]interface{}); ok {
+		if topic, ok := topics["requests"].(string); ok && topic != "" {
+			logger.Info("Using requests topic from result.topics",
+				zap.String("topic", topic))
+			return topic
+		}
+	}
+
+	// 3. Environment variable (fallback)
+	if topic := os.Getenv("REQUESTS_TOPIC"); topic != "" {
+		logger.Info("Using REQUESTS_TOPIC from environment",
+			zap.String("topic", topic))
+		return topic
+	}
+
+	// 4. Execution context
+	if execCtx.RequestsTopic != "" {
+		logger.Info("Using RequestsTopic from execution context",
+			zap.String("topic", execCtx.RequestsTopic))
+		return execCtx.RequestsTopic
+	}
+
+	return ""
+}
+
+// Create an awaited request entry
+
+
+// ===== createAwaitedRequest — keys awaited row by request_id; StepName=state.CurrentStep
+// ===== original lines L1971-L1990 =====
+func createAwaitedRequest(requestID string, execCtx *types.ExecutionContext, state *OrchestrationState,
+	step models.Step, result map[string]interface{}, responsesTopic string, requestsTopic string) *AwaitedRequest {
+
+	return &AwaitedRequest{
+		RequestID:       requestID,
+		OrchestrationID: state.OrchestrationID,
+		CorrelationID:   state.CorrelationID,
+		StepID:          execCtx.StepID,
+		StepName:        state.CurrentStep,
+		RetryVersion:    0,
+		TargetAgentType: extractTargetAgentType(step, result),
+		TargetAgentID:   extractTargetAgentID(result),
+		ResponsesTopic:  responsesTopic,
+		RequestsTopic:   requestsTopic,
+		SentAt:          time.Now(),
+		TimeoutAt:       time.Now().Add(getTimeout(step)),
+	}
+}
+
+// Extract target agent type from step or result
+
+
+// ===== extractTargetAgentType
+// ===== original lines L1991-L2003 =====
+func extractTargetAgentType(step models.Step, result map[string]interface{}) string {
+	// Try result first
+	if agentType, ok := result["target_agent_type"].(string); ok && agentType != "" {
+		return agentType
+	}
+	// Try step config
+	if agentType, ok := step.Config["agent_type"].(string); ok && agentType != "" {
+		return agentType
+	}
+	return "unknown"
+}
+
+// Extract target agent ID from result
+
+
+// ===== extractTargetAgentID
+// ===== original lines L2004-L2015 =====
+func extractTargetAgentID(result map[string]interface{}) string {
+	// Try multiple possible keys
+	keys := []string{"agent_id", "target_agent_id", "agent_called"}
+	for _, key := range keys {
+		if id, ok := result[key].(string); ok && id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
+// Record the action execution in processing history
+
+
+// ===== handleCompleteResponse — resume the awaiting step
+// ===== original lines L2246-L2337 =====
+func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage, awaitedReq *AwaitedRequest) error {
+	s.logger.Info("Processing complete response",
+		zap.String("step_name", awaitedReq.StepName),
+		zap.String("request_id", requestID))
+
+	// 1. Parse response body
+	normalisedData, err := s.parseResponseBody(response)
+	if err != nil {
+		return err
+	}
+
+	stepName := awaitedReq.StepName
+	step, stepExists := state.WorkflowPlan.Steps[stepName]
+
+	// 2. Create repo (but DON'T mark complete yet - wait for successful state save)
+	repo := NewStateRepository(s.db, s.logger)
+
+	// 3. Save response data with retry loop (with exponential backoff)
+	maxRetries := 15
+	baseDelay := 50 * time.Millisecond
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		freshState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err != nil {
+			return fmt.Errorf("failed to load state: %w", err)
+		}
+
+		// Apply response to collected data
+		s.applyResponseToState(freshState, stepName, step, stepExists, normalisedData, awaitedReq)
+
+		// Remove from awaited requests
+		delete(freshState.AwaitedRequests, requestID)
+
+		// Check if this was the last awaited response
+		allDone := len(freshState.AwaitedRequests) == 0
+		if allDone {
+			// Advance to next step
+			if currentStep, exists := freshState.WorkflowPlan.Steps[freshState.CurrentStep]; exists && currentStep.NextStep != "" {
+				freshState.CurrentStep = currentStep.NextStep
+			}
+			freshState.Status = StatusExecutingStep
+			freshState.LastActivity = time.Now()
+		}
+
+		// Save state
+		err = repo.UpdateState(ctx, freshState)
+		if err == nil {
+			// SUCCESS - NOW mark the awaited request as complete
+			// This is the key fix: only mark complete AFTER state is saved
+			if markErr := repo.MarkAwaitedRequestComplete(ctx, requestID); markErr != nil {
+				s.logger.Warn("Failed to mark awaited request complete", zap.Error(markErr))
+				// Don't fail the whole operation - state was saved successfully
+			}
+
+			if attempt > 1 {
+				s.logger.Info("Response saved after retry",
+					zap.Int("attempts", attempt))
+			}
+			if allDone {
+				s.logger.Info("All responses received, continuing workflow")
+				freshExecCtx := s.createContinuationContext(freshState)
+				return s.continueExecution(ctx, freshState, freshExecCtx)
+			}
+			s.logger.Info("Response saved, still awaiting more responses",
+				zap.Int("remaining", len(freshState.AwaitedRequests)))
+			return nil
+		}
+
+		// Check if it's an optimistic lock error
+		if !IsOptimisticLockError(err) {
+			return fmt.Errorf("failed to save response data: %w", err)
+		}
+
+		// Max retries exceeded
+		if attempt >= maxRetries {
+			return fmt.Errorf("failed to save response after %d attempts (optimistic lock): %w", attempt, err)
+		}
+
+		// Exponential backoff with jitter to prevent thundering herd
+		delay := backoffWithJitter(baseDelay, attempt)
+		s.logger.Warn("Optimistic lock failure in response processing, retrying",
+			zap.Int("attempt", attempt),
+			zap.Int("max_attempts", maxRetries),
+			zap.Duration("backoff_with_jitter", delay))
+		time.Sleep(delay)
+	}
+
+	return nil
+}
+
+// retryStateUpdate retries a state update operation when optimistic lock failures occur.
+// This is used during response processing which can race with loop execution.
+
+
+// ===== handleRequestTimeout (SagaCoordinator) — the ~3min retry; RetryVersion>=3 branch
+// ===== original lines L2969-L3104 =====
+func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestrationID, requestID string, timeoutAt time.Time) {
+	time.Sleep(time.Until(timeoutAt))
+
+	repo := NewStateRepository(s.db, s.logger)
+
+	// Get fresh awaited request from DB (not from state which may be stale)
+	awaited, err := repo.GetAwaitedRequest(ctx, requestID)
+	if err != nil || awaited == nil {
+		return // Already completed or doesn't exist
+	}
+
+	// Check retry count from DB
+	if awaited.RetryVersion >= 3 {
+		s.logger.Error("Max retries exceeded",
+			zap.String("request_id", requestID),
+			zap.Int("retry_version", awaited.RetryVersion))
+		state, _ := repo.GetState(ctx, orchestrationID)
+		if state != nil {
+			// Check if this is a loop iteration with continue_on_error
+			if shouldContinueLoopOnError(state, s.logger) {
+				timeoutMsg := fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion)
+				if err := s.skipToNextLoopIterationForAsync(ctx, state, requestID, timeoutMsg, s.logger); err != nil {
+					s.logger.Error("Failed to skip loop iteration on timeout", zap.Error(err))
+					s.failWorkflow(ctx, state, timeoutMsg)
+				}
+				return
+			}
+			s.routeToErrorStepOrFail(ctx, state, awaited.StepName, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
+		}
+		return
+	}
+
+	state, err := repo.GetState(ctx, orchestrationID)
+	if err != nil {
+		return
+	}
+
+	// Check if still waiting
+	if awaited, exists := state.AwaitedRequests[requestID]; exists {
+		s.logger.Error("Request timed out",
+			zap.String("request_id", requestID),
+			zap.String("awaited step id", awaited.StepID),
+			zap.String("awaited step name", awaited.StepName),
+			zap.Int("retry_version", awaited.RetryVersion),
+		)
+
+		// Retry or fail
+		if awaited.RetryVersion < 3 {
+			// Create full ExecutionContext for retry - pull values from state and CollectedData
+			// Try to get responses topic from various sources
+			responsesTopic := ""
+			if myResponses, ok := state.CollectedData["__my_responses_topic__"].(string); ok && myResponses != "" {
+				responsesTopic = myResponses
+			} else if parentResponses, ok := state.CollectedData["__parent_responses_topic__"].(string); ok && parentResponses != "" {
+				responsesTopic = parentResponses
+			} else if os.Getenv("RESPONSES_TOPIC") != "" {
+				responsesTopic = os.Getenv("RESPONSES_TOPIC")
+			} else if os.Getenv("PARENT_RESPONSES_TOPIC") != "" {
+				responsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+			}
+
+			execCtx := &types.ExecutionContext{
+				// Identity
+				CorrelationID:         state.CorrelationID,
+				OrchestrationID:       orchestrationID,
+				OrchestrationName:     state.OrchestrationName,
+				ParentOrchestrationID: state.ParentOrchestrationID,
+				ClientID:              state.ClientID,
+
+				// Request info
+				RequestID:   requestID,
+				MessageType: "request",
+				Status:      "error_recoverable",
+
+				// Topics
+				ResponsesTopic: responsesTopic,
+				ReplyToTopic:   responsesTopic,
+
+				// Sender
+				Sender: types.AgentIdentity{
+					AgentType:    state.OwnerAgentType,
+					AgentID:      state.OwnerAgentID,
+					PodName:      s.podName,
+					AgentVersion: os.Getenv("AGENT_VERSION"),
+					Role:         state.OwnerAgentRole,
+				},
+
+				// Resources
+				FuelBudget:     state.FuelBudget,
+				TimeoutSeconds: 30,
+				Timestamp:      time.Now(),
+				Version:        "2.0",
+			}
+
+			s.logger.Info("Created ExecutionContext for timeout retry",
+				zap.String("correlation_id", execCtx.CorrelationID),
+				zap.String("orchestration_id", execCtx.OrchestrationID),
+				zap.String("client_id", execCtx.ClientID),
+				zap.String("responses_topic", execCtx.ResponsesTopic))
+
+			// Create a timeout response message instead of raw bytes
+			timeoutResponse := types.ResponseMessage{
+				Headers: types.ResponseHeaders{
+					InResponseToRequestID: requestID,
+					InResponseToStepID:    awaited.StepID,
+					InResponseToStepName:  awaited.StepName,
+					InResponseToAction:    "unknown",
+					Status:                "error_recoverable",
+					IsError:               true,
+					MessageType:           "response",
+					TimeSent:              time.Now(),
+					OrchestrationID:       orchestrationID,
+					CorrelationID:         state.CorrelationID,
+				},
+				Body: types.ResponseBody{
+					Success: false,
+					Error: &types.ErrorInfo{
+						Code:        "TIMEOUT",
+						Message:     "Request timed out",
+						Recoverable: true,
+						Details: map[string]interface{}{
+							"timeout_after": timeoutAt.Sub(awaited.TimeoutAt).String(),
+							"retry_count":   awaited.RetryVersion,
+						},
+					},
+				},
+			}
+
+			s.handleRecoverableError(ctx, state, requestID, execCtx, timeoutResponse)
+		} else {
+			s.routeToErrorStepOrFail(ctx, state, awaited.StepName, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
+		}
+	}
+}
+
+// Helper methods
+
+
+// ===== routeToErrorStepOrFail
+// ===== original lines L3159-L3190 =====
+func (s *SagaCoordinator) routeToErrorStepOrFail(ctx context.Context, state *OrchestrationState, failedStepName string, errorMsg string) error {
+	if failedStepName != "" {
+		if step, exists := state.WorkflowPlan.Steps[failedStepName]; exists {
+			// Check step-level first (parallel to NextStep) — preferred location
+			if step.ErrorStep != "" {
+				return s.routeToErrorStep(ctx, state, failedStepName, step.ErrorStep, errorMsg)
+			}
+			// Fallback to config-level for backward compatibility
+			if errorStep, ok := step.Config["error_step"].(string); ok && errorStep != "" {
+				return s.routeToErrorStep(ctx, state, failedStepName, errorStep, errorMsg)
+			}
+		}
+	}
+	return s.failWorkflow(ctx, state, errorMsg)
+}
+
+// routeToErrorStep routes the workflow to the given error step, storing error
+// context in collected_data["__step_error"]. The workflow continues from errorStep
+// instead of failing. This allows workflows to handle errors gracefully — e.g. the
+// dispatch loop can mark a work item as failed and continue to the next item.
+//
+// Workflow config usage:
+//
+//	"call_handler": {
+//	    "action": "call_agent",
+//	    "config": {
+//	        "target_role": "handler",
+//	        "error_step": "mark_failed",
+//	        ...
+//	    },
+//	    "next_step": "mark_complete"
+//	}
+
+
+// ===== failWorkflow
+// ===== original lines L3233-L3296 =====
+func (s *SagaCoordinator) failWorkflow(ctx context.Context, state *OrchestrationState, errorMsg string) error {
+	// Check if this is an optimistic lock failure - these are recoverable
+	if strings.Contains(errorMsg, "optimistic lock failure") {
+		s.logger.Info("Optimistic lock failure detected - checking if workflow recovered",
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("error", errorMsg))
+
+		// Reload fresh state to see if another process already recovered
+		repo := NewStateRepository(s.db, s.logger)
+		freshState, err := repo.GetState(ctx, state.OrchestrationID)
+		if err == nil && freshState != nil {
+			// If workflow is still running or completed, don't fail it
+			if freshState.Status == StatusRunning ||
+				freshState.Status == StatusAwaitingResponses ||
+				freshState.Status == StatusCompleted {
+				s.logger.Info("Workflow recovered by another process - not sending error",
+					zap.String("orchestration_id", state.OrchestrationID),
+					zap.String("fresh_status", string(freshState.Status)),
+					zap.String("fresh_step", freshState.CurrentStep))
+				// Return error locally but don't notify parent
+				return fmt.Errorf("workflow recovered: %s", errorMsg)
+			}
+
+			// If workflow already failed, check if error was already sent
+			if freshState.Status == StatusFailed && freshState.Error != "" {
+				s.logger.Info("Workflow already failed - not sending duplicate error",
+					zap.String("orchestration_id", state.OrchestrationID),
+					zap.String("existing_error", freshState.Error))
+				return fmt.Errorf("workflow already failed: %s", freshState.Error)
+			}
+		}
+	}
+
+	// Proceed with normal failure handling
+	state.Status = StatusFailed
+	state.Error = errorMsg
+
+	state.ProcessingHistory = append(state.ProcessingHistory, ProcessingRecord{
+		PodName:   s.podName,
+		Action:    "workflow_failed",
+		Timestamp: time.Now(),
+		Details:   errorMsg,
+	})
+
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		// If we can't save the failed state, check if it's because workflow already completed
+		if strings.Contains(err.Error(), "optimistic lock") {
+			freshState, loadErr := repo.GetState(ctx, state.OrchestrationID)
+			if loadErr == nil && freshState.Status == StatusCompleted {
+				s.logger.Info("Workflow completed while we tried to fail it - not sending error",
+					zap.String("orchestration_id", state.OrchestrationID))
+				return fmt.Errorf("workflow completed concurrently: %s", errorMsg)
+			}
+		}
+		s.logger.Error("Failed to save failed state", zap.Error(err))
+	}
+
+	// Notify parent of failure
+	s.notifyParentOfFailure(ctx, state, errorMsg)
+
+	return fmt.Errorf("workflow failed: %s", errorMsg)
+}
+
+
+
+// ===== getTimeout
+// ===== original lines L3594-L3597 =====
+func getTimeout(step models.Step) time.Duration {
+	return datahelpers.GetStepTimeout(step)
+}
+
+
+
+// ===== GetAwaitedRequestStatus
+// ===== original lines L3721-L3745 =====
+func (r *StateRepository) GetAwaitedRequestStatus(ctx context.Context, requestID string) (status string, processedAt *time.Time, err error) {
+	query := `SELECT status, processed_at FROM awaited_requests WHERE request_id = $1`
+
+	var statusVal string
+	var processedAtVal sql.NullTime
+
+	err = r.db.QueryRowContext(ctx, query, requestID).Scan(&statusVal, &processedAtVal)
+	if err == sql.ErrNoRows {
+		return "", nil, nil // Not found
+	}
+	if err != nil {
+		return "", nil, err
+	}
+
+	if processedAtVal.Valid {
+		return statusVal, &processedAtVal.Time, nil
+	}
+	return statusVal, nil, nil
+}
+
+// resolveIterationNextStep determines the correct next_step for a loop substep
+// Priority:
+// 1. If substep.NextStep defined AND is a valid substep name → prefix with iteration
+// 2. If substep.NextStep defined but NOT a substep → leave as-is (external step)
+// 3. If substep.NextStep is empty → terminal step, go to next iteration start or loop_complete
+
+
+// ===== InsertAwaitedRequest
+// ===== original lines L5300-L5349 =====
+func (r *StateRepository) InsertAwaitedRequest(ctx context.Context, req *AwaitedRequest) error {
+	query := `
+		INSERT INTO awaited_requests (
+			request_id, orchestration_id, correlation_id, step_id, step_name,
+			retry_version, target_agent_id, target_agent_type,
+			responses_topic, requests_topic, sent_at, timeout_at,
+			reply_to_request_id, status
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'waiting')
+		ON CONFLICT (request_id) DO NOTHING
+	`
+
+	result, err := r.db.ExecContext(ctx, query,
+		req.RequestID,
+		req.OrchestrationID,
+		req.CorrelationID,
+		req.StepID,
+		req.StepName,
+		req.RetryVersion,
+		req.TargetAgentID,
+		req.TargetAgentType,
+		req.ResponsesTopic,
+		req.RequestsTopic,
+		req.SentAt,
+		req.TimeoutAt,
+		req.ReplyToRequestID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert awaited request: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check insert result: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("awaited request already exists: %s", req.RequestID)
+	}
+
+	r.logger.Info("Inserted awaited request into database",
+		zap.String("request_id", req.RequestID),
+		zap.String("orchestration_id", req.OrchestrationID),
+	)
+
+	return nil
+}
+
+// GetAwaitedRequest retrieves an awaited request by request_id
+// Returns nil if not found or already processed
+
+
+// ===== GetAwaitedRequest
+// ===== original lines L5350-L5398 =====
+func (r *StateRepository) GetAwaitedRequest(ctx context.Context, requestID string) (*AwaitedRequest, error) {
+	query := `
+		SELECT 
+			request_id, orchestration_id, correlation_id, step_id, step_name,
+			retry_version, target_agent_id, target_agent_type,
+			responses_topic, requests_topic, sent_at, timeout_at,
+			reply_to_request_id, status, processed_at
+		FROM awaited_requests
+		WHERE request_id = $1
+		  AND status = 'waiting'
+	`
+
+	record := &AwaitedRequest{}
+	var processedAt sql.NullTime
+
+	err := r.db.QueryRowContext(ctx, query, requestID).Scan(
+		&record.RequestID,
+		&record.OrchestrationID,
+		&record.CorrelationID,
+		&record.StepID,
+		&record.StepName,
+		&record.RetryVersion,
+		&record.TargetAgentID,
+		&record.TargetAgentType,
+		&record.ResponsesTopic,
+		&record.RequestsTopic,
+		&record.SentAt,
+		&record.TimeoutAt,
+		&record.ReplyToRequestID,
+		&record.Status,
+		&processedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get awaited request: %w", err)
+	}
+
+	if processedAt.Valid {
+		record.ProcessedAt = &processedAt.Time
+	}
+
+	return record, nil
+}
+
+// GetAwaitedRequestWithRetry tries multiple times to find an awaited request
+// Handles race condition where INSERT may not be visible yet
+
+
+// ===== GetAwaitedRequestWithRetry
+// ===== original lines L5399-L5436 =====
+func (r *StateRepository) GetAwaitedRequestWithRetry(ctx context.Context, requestID string, maxRetries int) (*AwaitedRequest, error) {
+	retryDelay := 50 * time.Millisecond
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		record, err := r.GetAwaitedRequest(ctx, requestID)
+		if err != nil {
+			return nil, err
+		}
+
+		if record != nil {
+			if attempt > 0 {
+				r.logger.Info("Found awaited request after retry",
+					zap.String("request_id", requestID),
+					zap.Int("attempts", attempt+1),
+				)
+			}
+			return record, nil
+		}
+
+		// Not found, retry if not last attempt
+		if attempt < maxRetries-1 {
+			r.logger.Debug("Awaited request not found, retrying",
+				zap.String("request_id", requestID),
+				zap.Int("attempt", attempt+1),
+				zap.Duration("delay", retryDelay),
+			)
+			time.Sleep(retryDelay)
+		}
+	}
+
+	r.logger.Warn("Awaited request not found after all retries",
+		zap.String("request_id", requestID),
+		zap.Int("max_retries", maxRetries),
+	)
+	return nil, nil
+}
+
+// CompleteAwaitedRequest marks a claimed request as fully processed
+
+
+// ===== setLoopVariable — stores loop item at CollectedData[loop_var_name] before substep
+// ===== original lines L6700-L6828 =====
+func (s *SagaCoordinator) setLoopVariable(
+	ctx context.Context,
+	state *OrchestrationState,
+	stepConfig models.Step,
+	logger *zap.Logger,
+) {
+	// Check if this is a loop iteration step
+	loopIteration, hasIteration := stepConfig.Config["loop_iteration"]
+	loopVarName, hasVarName := stepConfig.Config["loop_var_name"].(string)
+
+	// Add logging for early return cases
+	if !hasIteration {
+		logger.Debug("setLoopVariable: not a loop step (no loop_iteration in config)",
+			zap.String("step", state.CurrentStep),
+			zap.Any("config_keys", getConfigKeys(stepConfig.Config)),
+		)
+		return
+	}
+	if !hasVarName {
+		logger.Warn("setLoopVariable: loop_var_name missing or not a string",
+			zap.String("step", state.CurrentStep),
+			zap.Any("loop_var_name_raw", stepConfig.Config["loop_var_name"]),
+		)
+		return
+	}
+
+	iterIdx, ok := loopIteration.(int)
+	if !ok {
+		if f, ok := loopIteration.(float64); ok {
+			iterIdx = int(f)
+		} else {
+			logger.Error("setLoopVariable: loop_iteration is not int or float64",
+				zap.String("step", state.CurrentStep),
+				zap.Any("loop_iteration", loopIteration),
+			)
+			return
+		}
+	}
+
+	// Get loop metadata
+	loopMetadata, ok := state.CollectedData["loop_metadata"].(map[string]interface{})
+	if !ok {
+		logger.Warn("setLoopVariable: loop_metadata not found in CollectedData")
+		return
+	}
+
+	loopName, _ := loopMetadata["loop_name"].(string)
+
+	// Get the item for this iteration
+	itemKey := fmt.Sprintf("%s_item_%d", loopName, iterIdx)
+	item, exists := state.CollectedData[itemKey]
+	if !exists {
+		logger.Error("setLoopVariable: loop item not found",
+			zap.String("item_key", itemKey),
+			zap.Int("iteration", iterIdx),
+			zap.Strings("available_keys", getTopLevelKeys(state.CollectedData)),
+		)
+		return
+	}
+
+	// Set the loop variable
+	// Handle case where item was serialized as JSON string during state persistence
+	if itemStr, ok := item.(string); ok {
+		// Try to parse as JSON - this happens when state is saved/loaded from DB
+		var parsed map[string]interface{}
+		if err := json.Unmarshal([]byte(itemStr), &parsed); err == nil {
+			state.CollectedData[loopVarName] = parsed
+			logger.Info("setLoopVariable: parsed loop item from JSON string",
+				zap.String("loop_var", loopVarName),
+				zap.Int("iteration", iterIdx),
+				zap.Strings("parsed_keys", getTopLevelKeys(parsed)),
+			)
+		} else {
+			// Not valid JSON, store as-is
+			state.CollectedData[loopVarName] = item
+			logger.Debug("setLoopVariable: item is string but not JSON, storing as-is",
+				zap.String("loop_var", loopVarName),
+				zap.Int("string_length", len(itemStr)),
+			)
+		}
+	} else {
+		state.CollectedData[loopVarName] = item
+	}
+
+	// Update current iteration in metadata
+	loopMetadata["current_iteration"] = iterIdx
+
+	logger.Info("setLoopVariable: set loop variable successfully",
+		zap.String("loop_var", loopVarName),
+		zap.Int("iteration", iterIdx),
+		zap.String("item_key", itemKey),
+	)
+
+	// Also store the item key so conditional can use it as fallback
+	state.CollectedData["__current_loop_item_key__"] = itemKey
+
+	// Propagate previous substep outputs from iteration-suffixed names to original names
+	propagateIterationOutputs(state, iterIdx, logger)
+
+	// =========================================================================
+	// persist loop variables to database
+	// Without this save, the optimistic locking in saveStepResultWithRetry will
+	// load fresh state from DB (without loop vars) and only copy step results,
+	// causing loop variables like current_section to be lost
+	// =========================================================================
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.UpdateState(ctx, state); err != nil {
+		logger.Error("setLoopVariable: failed to persist loop variables to database",
+			zap.String("loop_var", loopVarName),
+			zap.Int("iteration", iterIdx),
+			zap.Error(err),
+		)
+		// Don't return error - execution can still proceed with in-memory state
+		// The action might still work, but subsequent steps may have issues
+	} else {
+		logger.Info("setLoopVariable: persisted loop variables to database",
+			zap.String("loop_var", loopVarName),
+			zap.Int("iteration", iterIdx),
+		)
+	}
+
+	datahelpers.LogCollectedDataStructure(
+		state.CollectedData,
+		s.logger,
+		fmt.Sprintf("loop_iter_%d_setup", iterIdx),
+	)
+}
+
+// Helper to get config keys for logging
+
+
+// ===== propagateIterationOutputs
+// ===== original lines L6849-L6935 =====
+func propagateIterationOutputs(state *OrchestrationState, iterIdx int, logger *zap.Logger) {
+	suffix := fmt.Sprintf("_%d", iterIdx)
+
+	// List of common output field base names that need propagation
+	// These are the output_field names from substep configs before iteration suffix is added
+	// Note: The auto-propagation scan below catches others, but explicitly listing
+	// ensures these are propagated first (before the check for "alreadySet")
+	commonOutputFields := []string{
+		// Page building outputs
+		"page_content",
+		"page_html",
+		"reviewed_content",
+		"assembled_page",
+		"page_deployed",
+
+		// Content outputs
+		"content_result",
+		"html_result",
+
+		// Site-level outputs
+		"site_content",
+		"site_architecture",
+
+		// Research outputs
+		"search_results",
+		"scrape_results",
+		"research_content",
+		"synthesis",
+	}
+
+	propagatedCount := 0
+	alreadyPropagatedByCommon := make(map[string]bool)
+	for _, baseName := range commonOutputFields {
+		iterationKey := baseName + suffix // e.g., "page_content_0"
+
+		if data, exists := state.CollectedData[iterationKey]; exists {
+			// Copy to original field name for this iteration's scope
+			state.CollectedData[baseName] = data
+			alreadyPropagatedByCommon[baseName] = true
+			propagatedCount++
+			logger.Debug("Propagated iteration output to original field name",
+				zap.String("from", iterationKey),
+				zap.String("to", baseName),
+				zap.Int("iteration", iterIdx),
+			)
+		}
+	}
+
+	// Also scan for any other iteration-suffixed keys and propagate them.
+	// This catches output fields not in the hardcoded list above.
+	// We overwrite unconditionally — the suffix ensures we only find keys
+	// from the CURRENT iteration (e.g. claim_result_2 when iterIdx=2),
+	// so there is no risk of cross-iteration contamination within this scan.
+	// Previous iterations' base-name values MUST be overwritten so that
+	// actions using the base name (e.g. claim_result.work_item_id) see
+	// the current iteration's data, not iteration 0's stale data.
+	for key, value := range state.CollectedData {
+		if strings.HasSuffix(key, suffix) {
+			baseName := strings.TrimSuffix(key, suffix)
+			// Skip if already propagated by the commonOutputFields block above
+			// (which runs first and is more explicit)
+			if alreadyPropagatedByCommon[baseName] {
+				continue
+			}
+			// Only propagate if baseName looks like an output field (not internal keys)
+			if !strings.HasPrefix(baseName, "__") && !strings.Contains(baseName, "_item_") && !strings.Contains(baseName, "_iter_") {
+				state.CollectedData[baseName] = value
+				propagatedCount++
+				logger.Debug("Auto-propagated iteration output",
+					zap.String("from", key),
+					zap.String("to", baseName),
+					zap.Int("iteration", iterIdx),
+				)
+			}
+		}
+	}
+
+	if propagatedCount > 0 {
+		logger.Info("propagateIterationOutputs completed",
+			zap.Int("iteration", iterIdx),
+			zap.Int("fields_propagated", propagatedCount),
+		)
+	}
+}
+
+// prefixStepReferencesInConfig updates step references in config to use iteration prefix
+// This handles then_step, else_step in conditionals, and any other step references
+
+
+// ===== shouldContinueLoopOnError
+// ===== original lines L7090-L7121 =====
+func shouldContinueLoopOnError(state *OrchestrationState, logger *zap.Logger) bool {
+	step, exists := state.WorkflowPlan.Steps[state.CurrentStep]
+	if !exists {
+		return false
+	}
+
+	// Check if this is a loop iteration step
+	_, hasLoopIter := step.Config["loop_iteration"]
+	if !hasLoopIter {
+		return false
+	}
+
+	// Check the flag on this step's config (propagated during expansion)
+	if cont, ok := step.Config["continue_on_error"].(bool); ok && cont {
+		logger.Info("continue_on_error is true for this loop iteration step",
+			zap.String("step", state.CurrentStep))
+		return true
+	}
+
+	return false
+}
+
+// skipToNextLoopIteration records the error for this iteration and advances
+// the orchestration to the next iteration's first step (or loop_complete if
+// this was the last iteration).
+//
+// It modifies state in place and persists to the database.
+//
+// Instead of relying on the shared "loop_metadata" key (which gets
+// overwritten when a second loop expands in the same orchestration),
+// we derive total_iterations and first_substep from the workflow plan.
+// The injected steps and the {loop}_complete step are always present.
+
+
+// ===== skipToNextLoopIterationForAsync
+// ===== original lines L7263-L7320 =====
+func (s *SagaCoordinator) skipToNextLoopIterationForAsync(
+	ctx context.Context,
+	state *OrchestrationState,
+	requestID string,
+	errorMsg string,
+	logger *zap.Logger,
+) error {
+	// Clean up the failed awaited request
+	repo := NewStateRepository(s.db, s.logger)
+	if err := repo.MarkAwaitedRequestComplete(ctx, requestID); err != nil {
+		logger.Warn("Failed to mark awaited request complete during loop skip",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+	}
+	delete(state.AwaitedRequests, requestID)
+
+	return s.skipToNextLoopIteration(ctx, state, errorMsg, logger)
+}
+-------------------------------------------------
+filepath = ./platform/orchestration/datahelpers/data_helpers.go
+// internal/backend/agent-chassis/platform/orchestration/data_helpers.go
+package datahelpers
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+	"text/template"
+	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
+	"github.com/tdewolff/minify/v2"
+	"github.com/tdewolff/minify/v2/css"
+	"github.com/tdewolff/minify/v2/html"
+	"github.com/tdewolff/minify/v2/js"
+	"go.uber.org/zap"
+)
+
+// ReplyToMetadata contains everything needed to send a response back to the requester
+type ReplyToMetadata struct {
+	RequestID string // The request_id we're responding to
+	Topic     string // Where to send the response
+	Requester string // Who asked us (for logging)
+	StepID    string // Which step in the requester's workflow
+	StepName  string // Name of that step
+}
+
+// ============================================================================
+// EXTRACTION FUNCTIONS - Get clean data from any message format
+// ============================================================================
+
+// ExtractDataFromMessage extracts clean data from ANY message format
+// Works with types.RequestMessage, types.ResponseMessage, or raw maps
+
+
+// ===== LoopCompleteAction — Strategy 1 substep_output_fields aggregation (fallback context)
+// ===== original lines L39489-L39717 =====
+func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	logger := params.Logger.With(
+		zap.String("action", "loop_complete"),
+		zap.String("step_name", params.ExecutionContext.StepName),
+	)
+
+	logger.Info("Starting loop completion")
+
+	// DIAGNOSTIC: Log ALL available keys
+	allKeys := make([]string, 0, len(params.CollectedData))
+	for k := range params.CollectedData {
+		allKeys = append(allKeys, k)
+	}
+	logger.Info("LoopComplete: Available CollectedData keys",
+		zap.Strings("all_keys", allKeys))
+
+	// Get loop metadata — try step config first (set by handleLoopExpansion),
+	// fall back to shared loop_metadata in CollectedData.
+	var totalIterations int
+	var loopName string
+
+	// The _complete step always has loop_name and total_iterations in its config
+	// (set by handleLoopExpansion). These are per-loop so they're reliable even
+	// when multiple loops exist in the same orchestration.
+	if ln, ok := params.StepConfig.Config["loop_name"].(string); ok {
+		loopName = ln
+	}
+	if ti, ok := params.StepConfig.Config["total_iterations"].(float64); ok {
+		totalIterations = int(ti)
+	} else if ti, ok := params.StepConfig.Config["total_iterations"].(int); ok {
+		totalIterations = ti
+	}
+
+	// Fallback to shared loop_metadata (backward compat, pre-expansion fix)
+	if totalIterations == 0 {
+		if loopMetadata, ok := params.CollectedData["loop_metadata"].(map[string]interface{}); ok {
+			if f, ok := loopMetadata["total_iterations"].(float64); ok {
+				totalIterations = int(f)
+			} else if i, ok := loopMetadata["total_iterations"].(int); ok {
+				totalIterations = i
+			}
+			if loopName == "" {
+				loopName, _ = loopMetadata["loop_name"].(string)
+			}
+		}
+	}
+
+	if totalIterations == 0 {
+		return nil, fmt.Errorf("total_iterations not found in step config or loop_metadata")
+	}
+
+	logger.Info("Aggregating loop results",
+		zap.String("loop_name", loopName),
+		zap.Int("total_iterations", totalIterations),
+	)
+
+	// === PRIMARY PATH: Use substep_output_fields from config ===
+	// These are set by the Part A fix in handleLoopExpansion.
+	// Each field becomes {field}_{N} in CollectedData after makeIterationOutputField.
+	var substepFields []string
+	if fields, ok := params.StepConfig.Config["substep_output_fields"].([]interface{}); ok {
+		for _, f := range fields {
+			if s, ok := f.(string); ok && s != "" {
+				substepFields = append(substepFields, s)
+			}
+		}
+	}
+
+	// Also check output_field_base from config (legacy mechanism, still useful)
+	outputFieldBase := ""
+	if base, ok := params.StepConfig.Config["output_field_base"].(string); ok && base != "" {
+		outputFieldBase = base
+	}
+
+	iterationResults := make([]interface{}, 0, totalIterations)
+
+	for i := 0; i < totalIterations; i++ {
+		result := map[string]interface{}{
+			"iteration": i,
+		}
+		foundAny := false
+
+		// --- Strategy 1: Collect ALL substep outputs for this iteration ---
+		if len(substepFields) > 0 {
+			for _, field := range substepFields {
+				key := fmt.Sprintf("%s_%d", field, i)
+				if val, exists := params.CollectedData[key]; exists {
+					result[field] = val
+					foundAny = true
+
+					// If this substep output contains HTML, also set page_html
+					// for backward compatibility with deployer-agent and other consumers.
+					if html := extractHTMLFromResult(val, logger); html != "" {
+						result["page_html"] = html
+						result["rendered_html"] = html
+						result["source_key"] = key
+					}
+				}
+			}
+
+			if foundAny {
+				logger.Debug("Collected iteration via substep_output_fields",
+					zap.Int("iteration", i),
+					zap.Int("fields_found", countNonMeta(result)))
+			}
+		}
+
+		// --- Strategy 2: Legacy HTML patterns (backward compat) ---
+		// Only used when substep_output_fields didn't find anything.
+		// This covers old orchestrations expanded before Part A was deployed.
+		if !foundAny {
+			legacyPatterns := buildLegacyPatterns(outputFieldBase, loopName)
+
+			for _, pattern := range legacyPatterns {
+				var outputKey string
+				if strings.Contains(pattern, "%d") {
+					outputKey = fmt.Sprintf(pattern, i)
+				} else {
+					outputKey = fmt.Sprintf("%s_%d", pattern, i)
+				}
+
+				if val, exists := params.CollectedData[outputKey]; exists {
+					html := extractHTMLFromResult(val, logger)
+					if html != "" {
+						result["page_html"] = html
+						result["rendered_html"] = html
+						result["source_key"] = outputKey
+						foundAny = true
+
+						// Also include component info if available
+						if resultMap, ok := val.(map[string]interface{}); ok {
+							for _, metaKey := range []string{"component_id", "component_name", "component_function"} {
+								if v, ok := resultMap[metaKey]; ok {
+									result[metaKey] = v
+								}
+							}
+						}
+						break
+					}
+				}
+			}
+		}
+
+		// --- Strategy 3: Generic fallback — scan ALL keys matching this iteration ---
+		// Collects any key with _{i} suffix, regardless of whether it contains HTML.
+		if !foundAny {
+			iterSuffix := fmt.Sprintf("_%d", i)
+			iterPrefix := fmt.Sprintf("%s_iter_%d_", loopName, i)
+
+			for k, v := range params.CollectedData {
+				if strings.HasSuffix(k, iterSuffix) || strings.HasPrefix(k, iterPrefix) {
+					// Derive the base field name by stripping the suffix
+					baseName := k
+					if strings.HasSuffix(k, iterSuffix) {
+						baseName = strings.TrimSuffix(k, iterSuffix)
+					} else if strings.HasPrefix(k, iterPrefix) {
+						baseName = strings.TrimPrefix(k, iterPrefix)
+					}
+					result[baseName] = v
+					foundAny = true
+
+					// Check for HTML in this result too
+					if html := extractHTMLFromResult(v, logger); html != "" && result["page_html"] == nil {
+						result["page_html"] = html
+						result["rendered_html"] = html
+						result["source_key"] = k
+					}
+				}
+			}
+
+			if foundAny {
+				logger.Info("LoopComplete: Found results via generic fallback scan",
+					zap.Int("iteration", i),
+					zap.Int("fields_found", countNonMeta(result)))
+			}
+		}
+
+		// Check for error results (from continue_on_error iterations)
+		errorKey := fmt.Sprintf("%s_iter_%d_error", loopName, i)
+		if errResult, exists := params.CollectedData[errorKey]; exists {
+			result["error"] = errResult
+			result["status"] = "error"
+			foundAny = true
+		}
+
+		if !foundAny {
+			logger.Warn("No results found for iteration",
+				zap.Int("iteration", i))
+			result["status"] = "missing"
+		}
+
+		// Get page/section name from loop item
+		itemKey := fmt.Sprintf("%s_item_%d", loopName, i)
+		item := params.CollectedData[itemKey]
+		pageName := extractPageNameFromItem(item)
+		if pageName == "" {
+			pageName = fmt.Sprintf("item_%d", i)
+		}
+		result["name"] = pageName
+
+		// Also include the original item for reference
+		if item != nil {
+			result["original_item"] = item
+		}
+
+		iterationResults = append(iterationResults, result)
+
+		logger.Info("Collected iteration result",
+			zap.String("name", pageName),
+			zap.Int("iteration", i),
+			zap.Bool("has_html", result["page_html"] != nil),
+			zap.String("status", fmt.Sprintf("%v", result["status"])))
+	}
+
+	logger.Info("Loop completion finished",
+		zap.Int("results_collected", len(iterationResults)),
+		zap.Int("total_iterations", totalIterations),
+	)
+
+	return map[string]interface{}{
+		"iterations": totalIterations,
+		"results":    iterationResults,
+		"count":      len(iterationResults),
+	}, nil
+}
+
+// buildLegacyPatterns returns the hardcoded HTML-specific key patterns.
+// Used as fallback for orchestrations expanded before the substep_output_fields
+// fix was deployed.
+
+
+// ===== preRegisterAwaitedRequest — THE helper the fix reuses (register-BEFORE-send; spawn/call use it)
+// ===== original lines L57855-L57900 =====
+func preRegisterAwaitedRequest(ctx context.Context, params ActionParams, requestID, targetAgentID, targetAgentType,
+	requestsTopic, responsesTopic string) error {
+
+	query := `
+		INSERT INTO awaited_requests (
+			request_id, orchestration_id, correlation_id, step_id, step_name,
+			retry_version, target_agent_id, target_agent_type,
+			responses_topic, requests_topic, sent_at, timeout_at,
+			reply_to_request_id, status
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'waiting')
+		ON CONFLICT (request_id) DO NOTHING
+	`
+
+	now := time.Now()
+	timeoutAt := now.Add(120 * time.Second) // 2 minute timeout for spawn initialization
+
+	_, err := params.DB.ExecContext(ctx, query,
+		requestID,                               // $1 request_id
+		params.ExecutionContext.OrchestrationID, // $2 orchestration_id
+		params.ExecutionContext.CorrelationID,   // $3 correlation_id
+		params.ExecutionContext.StepID,          // $4 step_id
+		params.CurrentStep,                      // $5 step_name
+		0,                                       // $6 retry_version
+		targetAgentID,                           // $7 target_agent_id
+		targetAgentType,                         // $8 target_agent_type
+		responsesTopic,                          // $9 responses_topic
+		requestsTopic,                           // $10 requests_topic
+		now,                                     // $11 sent_at
+		timeoutAt,                               // $12 timeout_at
+		requestID,                               // $13 reply_to_request_id (same as request_id for init)
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert awaited request: %w", err)
+	}
+
+	params.Logger.Info("Pre-registered awaited request in database",
+		zap.String("request_id", requestID),
+		zap.String("orchestration_id", params.ExecutionContext.OrchestrationID),
+		zap.String("target_agent_type", targetAgentType),
+		zap.String("responses_topic", responsesTopic))
+
+	return nil
+}
+
+// Configuration extraction - using existing structs, no new types
+
+
+// ===== PATTERN TO MIRROR: spawn's pre-register call site (context, original L24985-L25035) =====
+	}
+
+	dispatchJSON, err := json.Marshal(dispatchReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal dispatch request: %w", err)
+	}
+
+	headers := map[string]string{
+		"correlation_id":   params.ExecutionContext.CorrelationID,
+		"orchestration_id": params.ExecutionContext.OrchestrationID,
+		"agent_id":         agentID,
+		"agent_type":       agentType,
+		"target_cluster":   targetCluster,
+		"message_type":     "dispatch_request",
+	}
+
+	params.Producer.Produce(ctx, DispatchRequestsTopic, headers,
+		[]byte(agentID), dispatchJSON)
+
+	params.Logger.Info("Dispatched agent to remote cluster",
+		zap.String("agent_id", agentID),
+		zap.String("agent_type", agentType),
+		zap.String("target_cluster", targetCluster),
+		zap.String("dispatch_topic", DispatchRequestsTopic),
+		zap.String("requests_topic", childRequestsTopic),
+		zap.String("responses_topic", childResponsesTopic),
+		zap.String("parent_responses_topic", parentResponsesTopic))
+
+	// --- Steps 8-11: identical to SpawnAgentAction (with longer waits) ---
+
+	// 8. Generate the initialization request ID
+	initRequestID := uuid.New().String()
+
+	// 9. Pre-register the awaited request
+	if params.DB != nil {
+		if err := preRegisterAwaitedRequest(ctx, params, initRequestID, agentID, agentType,
+			childRequestsTopic, parentResponsesTopic); err != nil {
+			params.Logger.Warn("Failed to pre-register awaited request - response matching may fail",
+				zap.String("request_id", initRequestID),
+				zap.Error(err))
+		} else {
+			params.Logger.Info("Pre-registered awaited request before sending init message",
+				zap.String("request_id", initRequestID),
+				zap.String("orchestration_id", params.ExecutionContext.OrchestrationID))
+		}
+	}
+
+	// 10. Wait for remote pod startup
+	// Longer than local (5s) because: Kafka cross-cluster latency + dispatcher
+	// processing + remote K8s scheduling + image pull (if not cached)
+	startupWait := DefaultRemoteStartupWait
+

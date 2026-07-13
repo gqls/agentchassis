@@ -1,0 +1,198 @@
+053b_two_separate_calculator_agents_with_simple_roles
+
+1. Update the Generic Agent's Workflow
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow}',
+    '{
+      "start_step": "spawn_adder",
+      "steps": {
+        "spawn_adder": {
+          "action": "spawn_agent",
+          "config": {
+            "agent_type": "calculator",
+            "role": "adder"
+          },
+          "description": "Spawn addition calculator",
+          "next_step": "spawn_multiplier"
+        },
+        "spawn_multiplier": {
+          "action": "spawn_agent",
+          "config": {
+            "agent_type": "calculator",
+            "role": "multiplier"
+          },
+          "description": "Spawn multiplication calculator",
+          "next_step": "perform_addition"
+        },
+        "perform_addition": {
+          "action": "call_agent",
+          "config": {
+            "agent_type": "calculator",
+            "target_role": "adder",
+            "input_field": "first_calc"
+          },
+          "description": "Addition calculation",
+          "next_step": "perform_multiplication"
+        },
+        "perform_multiplication": {
+          "action": "call_agent",
+          "config": {
+            "agent_type": "calculator",
+            "target_role": "multiplier",
+            "input_field": "second_calc"
+          },
+          "description": "Multiplication calculation",
+          "next_step": "aggregate_results"
+        },
+        "aggregate_results": {
+          "action": "aggregate_results",
+          "config": {
+            "result_keys": ["perform_addition", "perform_multiplication"]
+          },
+          "description": "Combine results",
+          "next_step": "complete"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Complete workflow"
+        }
+      }
+    }'::jsonb
+)
+WHERE type = 'generic';
+
+
+2. Test Message with Two Calculations
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="dual-calc-$(date +%H%M%S)"
+RESPONSES_TOPIC="system.responses.generic"
+
+echo "Dual calculation test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Message: $MESSAGE_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+echo "  Responses Topic: $RESPONSES_TOPIC"
+
+kubectl -n kafka run -i --rm kcat \
+  --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- \
+  -P \
+  -b personae-kafka-cluster-kafka-bootstrap:9092 \
+  -t system.agent.generic.requests \
+  -H "correlation_id=$CORRELATION_ID" \
+  -H "request_id=$REQUEST_ID" \
+  -H "message_id=$MESSAGE_ID" \
+  -H "client_id=demo_client" \
+  -H "message_type=request" \
+  -H "responses_topic=$RESPONSES_TOPIC" <<EOF
+{"action":"calculate","first_calc":{"operation":"add","operands":[12345,1234]},"second_calc":{"operation":"multiply","operands":[100,50]}}
+EOF
+
+# Check for spawned calculators
+sleep 15
+kubectl -n ai-persona-system get jobs | grep calculator
+kubectl -n ai-persona-system get pods | grep calculator
+
+
+3. Expected Behavior
+
+Spawn two calculators:
+
+Calculator 1 with role="adder"
+Calculator 2 with role="multiplier"
+
+
+Route by role:
+
+Addition request → adder calculator
+Multiplication request → multiplier calculator
+
+
+Parallel execution:
+
+Both calculations happen concurrently
+Results are aggregated
+
+
+Response includes roles:
+
+Each response shows which role handled it
+Makes debugging easier
+
+
+
+4. What to Watch in Logs
+
+# Watch generic agent logs
+kubectl -n ai-persona-system logs -f deployment/agent-chassis | grep -E "(spawn_adder|spawn_multiplier|role)"
+
+# Watch calculator logs
+kubectl -n ai-persona-system logs -l app=agent-calculator -f | grep -E "(role|sender_role)"
+
+You should see:
+
+role: "adder" in first spawn
+role: "multiplier" in second spawn
+sender_role: "adder" in addition response
+sender_role: "multiplier" in multiplication response
+
+
+
+== aggregate data didn't work so simpler workflow without aggregate data:
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow}',
+    '{
+      "start_step": "spawn_adder",
+      "steps": {
+        "spawn_adder": {
+          "action": "spawn_agent",
+          "config": {
+            "agent_type": "calculator",
+            "role": "adder"
+          },
+          "description": "Spawn addition calculator",
+          "next_step": "spawn_multiplier"
+        },
+        "spawn_multiplier": {
+          "action": "spawn_agent",
+          "config": {
+            "agent_type": "calculator",
+            "role": "multiplier"
+          },
+          "description": "Spawn multiplication calculator",
+          "next_step": "perform_addition"
+        },
+        "perform_addition": {
+          "action": "call_agent",
+          "config": {
+            "agent_type": "calculator",
+            "input_field": "first_calc"
+          },
+          "description": "Addition calculation",
+          "next_step": "perform_multiplication"
+        },
+        "perform_multiplication": {
+          "action": "call_agent",
+          "config": {
+            "agent_type": "calculator",
+            "input_field": "second_calc"
+          },
+          "description": "Multiplication calculation",
+          "next_step": "complete"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Complete workflow"
+        }
+      }
+    }'::jsonb
+)
+WHERE type = 'generic';

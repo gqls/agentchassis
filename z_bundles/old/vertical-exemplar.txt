@@ -1,0 +1,118 @@
+clients_db=# SELECT jsonb_pretty(data) FROM site_specs ss JOIN sites s ON s.id=ss.site_id WHERE s.domain='dartsonline.com' AND ss.aspect='vertical_landscape' AND ss.is_current=true;
+jsonb_pretty
+{
+    "lessons": {
+        "adapt": [
+            "Take Darts Corner's spec completeness discipline and go further at the product page level by structuring specs into scannable grouped attributes (barrel specs, shaft specs, flight specs as distinct blocks) rather than a single undifferentiated list — experienced players compare across these component dimensions separately",
+            "Take Mission's player endorsement model and adapt it for a retailer context: instead of manufacturer-direct player collections, create curated 'played by professionals' or 'tour-level setups' collections that group third-party brands by the style of player who uses them — weight range, grip type, playing style — creating aspirational navigation without needing exclusive player deals",
+            "Take Darts Corner's community fan content model and make it more active and interactive — a structured 'Your Setup' submission mechanic with filtering by playing level (pub, league, county, pro) turns passive community content into a useful reference tool that doubles as social proof",
+            "Take Darts.com's combo-set entry point and build it out with genuine editorial framing that explains what components are bundled and why that combination suits a particular player type — not just a collection of pre-packaged deals, but a guided entry point that teaches while it sells",
+            "Take Mission's content ecosystem approach (YouTube, podcast) and adapt it to the retailer context: a structured buying guide library with video walkthroughs of barrel profiles, flight shapes, and board setup creates the same habitual engagement without requiring original product development content",
+            "Adapt the loyalty mechanics of Darts Corner's rewards programme to explicitly reward darts-culture engagement — points for reviewing with a setup photo, points for sharing a league result — not just transactional purchases"
+        ],
+        "adopt": [
+            "Embed tungsten percentage and tip type into every product title and listing card — this is how darts players scan and filter; omitting it forces extra clicks and signals inexperience",
+            "Surface free shipping threshold in the global header from day one — it is a category-wide expectation and its absence creates unnecessary purchase anxiety",
+            "Structure collection architecture around the player's actual decision sequence: tip type first, then weight range or brand, then specific model — mirror the mental model, not a retail taxonomy",
+            "Display in-stock availability filtering on all collection pages — prevent dead-end browsing that kills conversion momentum in catalogue-heavy stores",
+            "Use volume-based social proof early: aggregate review counts with third-party verification signals create credibility that editorial claims cannot replace",
+            "Provide a phone or expert-assistance channel with its number visible in the header — it converts specification-paralysed buyers and gift purchasers who would otherwise abandon",
+            "Build brand collection pages that tell players why a brand matters to darts specifically — players are brand-loyal for informed reasons and reward stores that understand those reasons",
+            "Use player-voice product reviews that reference real-world use contexts: league nights, pub tournaments, practice setups — not generic star ratings with no specificity",
+            "Name product series and collections meaningfully rather than by SKU code alone — named ranges build brand identity and support repeat purchase from players who found a series they trust"
+        ],
+        "avoid": [
+            "Do not position as a general sporting goods retailer that happens to carry darts — every signal from logo to copy to collection naming must signal exclusive darts specialism within three seconds of landing",
+            "Do not hide or soften product specifications to make listings more accessible — dumbing down spec data loses experienced players immediately and does not meaningfully help beginners who can be served by buying guides separately",
+            "Do not rely on vague brand descriptor copy on brand pages ('premium quality', 'trusted by players') — players know these brands independently and will judge brand page credibility by whether the store demonstrates genuine knowledge of what makes each brand distinct",
+            "Do not treat the combo-set and gift-buyer segment as the primary homepage audience — the majority of darts e-commerce revenue comes from repeat players upgrading components, and the homepage must signal to them first",
+            "Do not use stock photography of people playing darts casually — the visual language of the category is product-close, detail-focused, and venue-authentic; stock imagery immediately signals non-specialist status",
+            "Do not launch without a structured buying guide section — the specification complexity of darts (barrel weight, tungsten density, shaft length, flight shape interactions) means that buyers without guidance abandon rather than guess, and guides are a proven category conversion tool",
+            "Do not cross-promote unrelated leisure categories (as Darts.com does with pool tables and billiards) in a way that dilutes the specialist signal — dartsonline.com's advantage is that its name and domain commit entirely to darts, and that specialism must be honoured throughout the experience"
+        ]
+    },
+    "patterns": {
+        "tools": "Wishlist or save-for-later functionality appears as a baseline browsing tool to accommodate the research-heavy decision pattern of darts players who compare across sessions. Availability filtering on collection pages is used to eliminate dead-end browsing. Cart confirmation feedback is immediate and persistent. Third-party review integration is preferred over on-site-only reviews for credibility. Loyalty and rewards mechanics appear at the highest-traffic site (Darts Corner) as a retention layer above baseline conversion tools. Multi-channel content (video, audio) appears as a differentiator at the brand-investment level.",
+        "design": "Dark or neutral backgrounds dominate, avoiding the bright-white generic retail aesthetic — Mission in particular uses dark hero imagery that evokes the atmosphere of competitive darts venues. Product imagery is close-up and product-focused rather than lifestyle-generic. Collection card layouts with strong imagery and clear typography are universal, enabling fast visual scanning of large catalogues. Header navigation consistently exposes top-level category splits (steel-tip, soft-tip, boards, accessories) as the primary orientation layer. Player photography where used is action-adjacent and aspirational rather than stock-generic. Visual hierarchy prioritises product name, key specs, and price — in that order — across all three.",
+        "content": "All three sites embed tungsten percentage and tip type (steel/soft) directly into product titles and listing headers — this is the category's primary information architecture decision, not a secondary detail. All three open category or collection pages with the product type surfaced immediately rather than with introductory editorial copy, confirming that experienced players want fast access to the grid, not a preamble. Buying guides and collection segmentation consistently mirror the actual decision sequence a darts player follows: tip type first, then weight or brand, then specific model. Social proof appears in volume across all three but takes different forms — aggregate review counts (Darts Corner), domain authority (Darts.com), and player endorsements (Mission) — confirming that credibility signalling is essential but can be executed through multiple mechanisms. Free shipping thresholds are surfaced at the header level universally, confirming it is a category conversion expectation rather than a promotional choice. Community content (fan photos, YouTube, podcasts) appears where brand investment is deepest, signalling that the highest-trust darts retailers extend their relationship with players beyond the transaction."
+    },
+    "confidence": 0.82,
+    "exemplars_analyzed": [
+        {
+            "url": "https://www.dartscorner.com",
+            "positioning": "The specialist's specialist — a deep-catalogue darts authority that wins on completeness. Players trust it because every spec is present, every variant is listed, and the sheer breadth signals that this is the definitive darts store, not a curated selection. It positions itself as the place where serious players come to find exactly what they need, not to be guided toward a limited range.",
+            "notable_tools": [
+                "Wishlist functionality integrated into the browsing experience — allows players to curate and return to shortlists across sessions, reducing drop-off from indecision",
+                "Multi-sitemap product architecture — suggests faceted filtering and deep collection segmentation that allows players to navigate thousands of SKUs without overwhelm",
+                "Shopper Approved review integration — third-party verification of review volume adds credibility that on-site-only reviews cannot match",
+                "Rewards points system — behavioural loyalty tool that incentivises repeat purchase and account creation without aggressive discounting"
+            ],
+            "trust_signals": [
+                "345,000+ independently verified reviews — the scale alone is a trust signal; it implies years of genuine transactions",
+                "Transparent shipping threshold displayed in header — honesty about costs before cart stage reduces abandonment anxiety",
+                "Brand-accurate product naming conventions — using correct tungsten percentages and model codes in titles signals that the people running the store actually know the products",
+                "Fan Pics community page — real customers, real boards, real throws; impossible to fake at scale and signals genuine community engagement rather than manufactured social proof"
+            ],
+            "success_factors": [
+                "Exhaustive product depth — the catalogue breadth (multiple sitemaps, thousands of SKUs) communicates that if it exists in darts, Darts Corner stocks it, which eliminates the need to shop elsewhere",
+                "Spec completeness as trust — product titles consistently include tungsten percentage, tip type, and model codes, meaning experienced players can scan listings and immediately know if a product matches their requirements without clicking through",
+                "Volume of social proof at scale — 345,000+ verified reviews creates an almost unchallengeable credibility floor; the sheer number signals longevity and genuine customer volume rather than curated testimonials",
+                "Loyalty and rewards mechanics — a visible rewards programme converts one-time buyers into repeat customers and signals long-term commitment to the community rather than transactional retail",
+                "Community-building through fan content — a dedicated Fan Pics page transforms customers into participants, creating social proof that is emotionally resonant rather than just statistical",
+                "Threshold-based free shipping communicated upfront — placing the free shipping threshold in the header bar immediately removes a purchase friction point and encourages basket-building",
+                "Collection architecture that mirrors how darts players think — collections organised by brand, tip type, and product category match real shopping mental models rather than retail taxonomy"
+            ]
+        },
+        {
+            "url": "https://www.darts.com",
+            "positioning": "The established US market incumbent with a premium domain and broad accessibility positioning. It captures the widest possible audience by covering the full spectrum from casual combo-set buyers to competitive steel-tip players, and leverages its premium domain name as an implicit authority signal. Its cross-brand network (Pool Tables, Billiards) positions it as a specialist leisure retailer with category depth rather than a pure darts-only destination.",
+            "notable_tools": [
+                "Availability filter on collection pages — functional UX tool that prevents dead-end browsing and improves conversion by surfacing only purchasable products",
+                "Combo sets collection — a curated entry point that reduces decision complexity for new players who do not yet know how to spec individual components",
+                "Phone-based ordering support — human assistance channel that converts browsers who are paralysed by specification complexity, especially valuable for gift buyers and new players"
+            ],
+            "trust_signals": [
+                "Premium exact-match domain (darts.com) — implicit authority; users infer market leadership from domain ownership",
+                "Prominently displayed phone number for expert assistance — signals that real, knowledgeable humans are behind the store",
+                "Free shipping threshold displayed in header — consistent with category best practice, signals transparency",
+                "Cross-brand leisure specialist network — being associated with established parallel brands (pool tables, billiards) suggests genuine trade relationships and supply chain credibility"
+            ],
+            "success_factors": [
+                "Premium domain authority — darts.com functions as an implicit trust signal before a single word of copy is read; users assume authority based on domain alone, reducing acquisition friction",
+                "Phone number prominently displayed for ordering assistance — immediately differentiates from anonymous e-commerce by signalling human expertise is available, which is especially valuable for buyers uncertain about specifications",
+                "Segmented collection architecture — separate collections for steel-tip, soft-tip, and combo sets mirror the actual first decision a darts buyer makes, reducing cognitive load at the top of the funnel",
+                "Free shipping threshold communicated early — same mechanism as Darts Corner, confirming this is a category-wide best practice that reduces purchase anxiety",
+                "Availability filtering on collection pages — showing only in-stock items prevents the frustration of browsing to a product only to find it unavailable, improving the browsing-to-purchase path",
+                "Cross-brand network creates category credibility — being part of a family of leisure sport specialist sites signals genuine industry expertise rather than a generic dropshipper"
+            ]
+        },
+        {
+            "url": "https://missiondarts.com",
+            "positioning": "A manufacturer-direct brand store that wins through cultural authenticity and player-community integration rather than catalogue breadth. Mission positions itself as part of the darts world, not just a seller to it — using player endorsements, YouTube content, a podcast, and community-fluent copy to earn trust from competitive players who value brand identity and insider knowledge over price comparison.",
+            "notable_tools": [
+                "YouTube channel integration — embeds ongoing content relationship into the store experience, keeping players returning beyond purchase intent",
+                "Podcast integration — audio content channel that deepens brand relationship with competitive players during commutes and practice sessions",
+                "Player-organised collection pages — shopping by professional player is a navigation model unique to manufacturer-direct stores and taps directly into fan and aspirational identity",
+                "Cart feedback with item confirmation — immediate add-to-cart confirmation ('Item added to your cart') reduces checkout anxiety and keeps browsing momentum"
+            ],
+            "trust_signals": [
+                "Professional player endorsements with named athletes — specific, named players with photograph associations are verifiable and signal genuine sport-world relationships rather than paid placements",
+                "Manufacturing and design language on contact page — 'innovation, creativity and uncompromising attention to detail' backed by product naming depth signals a company that makes things rather than just resells them",
+                "Consistent spec naming discipline (90% tungsten, Steel Tip in titles) — demonstrates product knowledge that players use to verify whether a brand knows its own products",
+                "Community content channels (YouTube, Podcast) — publicly accessible content with trackable history creates accountability and signals genuine long-term investment in the darts community"
+            ],
+            "success_factors": [
+                "Authentic player-community voice — the copy reads like it was written by someone who throws darts, not someone who sells them; this immediately signals credibility to competitive players who are highly attuned to inauthenticity",
+                "Player endorsement collections — organising darts by professional player associations (Adam Warner, etc.) taps into the aspirational identity dimension of darts culture; players want to throw what their favourite players throw",
+                "Multi-channel community content — YouTube presence and a podcast extend the brand relationship beyond the transaction, creating habitual engagement that competitors cannot easily replicate with product listings alone",
+                "Product photography as visual language — using player portraits alongside product shots connects the physical object to competitive identity, not just specification",
+                "Tungsten percentage and tip type consistently embedded in product titles — same spec-naming discipline as Darts Corner, confirming this is non-negotiable in the category for earning player trust",
+                "Contact page copy that leads with passion — opening the contact experience with a statement of genuine love for the sport transforms a functional page into a brand moment",
+                "Series and collection naming that carries meaning — named product lines (Kaleidos, Kinsuji, Archon) create a product world with personality rather than anonymous SKUs, supporting brand loyalty and repeat purchase"
+            ]
+        }
+    ],
+    "differentiation_opportunity": "None of the three exemplars does all of the following at once: (1) combines deep spec data with genuinely player-voiced editorial that speaks to both casual and competitive players without condescension, (2) builds structured setup-builder tooling that lets a player configure barrel, shaft, and flight as a system rather than three separate purchases, and (3) creates an honest, preference-first buying guide experience that explicitly tells players 'this depends on your throw' rather than pushing a single answer. Darts Corner wins on depth but the copy is catalogue-dry. Darts.com wins on accessibility but lacks community soul. Mission wins on brand voice but only sells its own products. Dartsonline.com's differentiation opportunity is to be the specialist retailer that plays across all three dimensions simultaneously: a catalogue as deep as Darts Corner, copy as culturally fluent as Mission, and a setup-configuration tool that no pure catalogue site has built — letting players spec a complete setup by weight, grip style, and playing scenario in a single guided flow. The setup builder in particular is a structural gap in the market: every player eventually needs to combine barrel, shaft, and flight, but no major darts retailer makes that a first-class purchase journey rather than three separate category visits. Combined with honest, preference-led buying guides and a tone that treats players as adults who know their sport, this would give dartsonline.com a defensible position that is not simply a catalogue race it would lose to established incumbents on day one."
+}
+(1 row)
+clients_db=#

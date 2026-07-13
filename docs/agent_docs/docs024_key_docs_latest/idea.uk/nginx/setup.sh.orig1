@@ -1,0 +1,324 @@
+#!/usr/bin/env bash
+#
+# setup.sh — provision (or rebuild, or update) a VM to host the idea.uk engine.
+#
+# Design goals (so this serves both the manual path NOW and the chassis path LATER):
+#   - NON-INTERACTIVE: every input is an env var with a default; no prompts.
+#   - IDEMPOTENT: safe to re-run. Re-running IS the "rebuild" path — it converges
+#     the box to the desired state. certbot is only invoked when needed.
+#   - PARAMETERISED: nothing host-specific is hard-coded.
+#   - SELF-CONTAINED: writes the systemd unit + nginx conf inline, so the chassis
+#     service-deployer can ship this one file and `ssh_exec bash setup.sh`.
+#
+# Run as root on a fresh Ubuntu 22.04/24.04 VM:
+#   DOMAIN=idea.uk LETSENCRYPT_EMAIL=you@example.com \
+#   IDEA_BINARY_URL=https://.../idea \
+#   bash setup.sh
+#
+# Modes:
+#   MODE=full   (default) — full provision/rebuild: packages, user, nginx, TLS,
+#               firewall, fail2ban, systemd, start.
+#   MODE=update — only replace the binary and restart the service. For redeploys
+#               of a new engine build without touching nginx/certs/firewall.
+#
+# The env file with SECRETS (/etc/idea/idea.env) is NOT written by this script —
+# copy idea.env.example there and fill it in (or, in the chassis path, have the
+# deployer drop it over SSH). This keeps secrets out of the provisioning script.
+
+set -euo pipefail
+
+# ── parameters ────────────────────────────────────────────────────────────────
+DOMAIN="${DOMAIN:?set DOMAIN, e.g. idea.uk}"
+LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:?set LETSENCRYPT_EMAIL for cert registration}"
+MODE="${MODE:-full}"
+
+SERVICE_USER="${SERVICE_USER:-idea}"
+SERVICE_PORT="${SERVICE_PORT:-8080}"          # must match PORT in the env file
+APP_DIR="${APP_DIR:-/opt/idea}"
+DATA_DIR="${DATA_DIR:-/var/lib/idea}"
+ENV_DIR="${ENV_DIR:-/etc/idea}"
+ENV_FILE="${ENV_FILE:-$ENV_DIR/idea.env}"
+ACME_WEBROOT="${ACME_WEBROOT:-/var/www/letsencrypt}"
+
+# Binary source — exactly one applies. URL takes precedence (this is the chassis
+# path: a presigned B2 URL, the same mechanism the Thunder adapter already uses
+# via prepare_artefact_url). Otherwise a local path already on the box (the
+# manual path: scp the binary up first).
+IDEA_BINARY_URL="${IDEA_BINARY_URL:-}"
+IDEA_BINARY_PATH="${IDEA_BINARY_PATH:-/tmp/idea}"
+
+HARDEN_SSH="${HARDEN_SSH:-true}"              # disable password auth IF key auth is in place
+
+log() { echo "[setup] $*"; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# ── binary install (used by both full and update) ──────────────────────────────
+install_binary() {
+  install -d -o root -g root -m 0755 "$APP_DIR"
+  local tmp="/tmp/idea.new"
+  if [[ -n "$IDEA_BINARY_URL" ]]; then
+    log "fetching binary from URL"
+    curl -fsSL "$IDEA_BINARY_URL" -o "$tmp"
+  elif [[ -f "$IDEA_BINARY_PATH" ]]; then
+    log "using local binary at $IDEA_BINARY_PATH"
+    cp "$IDEA_BINARY_PATH" "$tmp"
+  else
+    echo "[setup] ERROR: no binary. Set IDEA_BINARY_URL or place one at $IDEA_BINARY_PATH" >&2
+    exit 1
+  fi
+  chmod 0755 "$tmp"
+  # Atomic swap so a running service isn't reading a half-written file.
+  mv -f "$tmp" "$APP_DIR/idea"
+  chown root:root "$APP_DIR/idea"
+  log "binary installed at $APP_DIR/idea"
+}
+
+if [[ "$MODE" == "update" ]]; then
+  log "MODE=update — replacing binary and restarting only"
+  install_binary
+  systemctl restart idea
+  systemctl --no-pager status idea | head -n 5 || true
+  log "update complete"
+  exit 0
+fi
+
+# ── full provision / rebuild ────────────────────────────────────────────────────
+export DEBIAN_FRONTEND=noninteractive
+
+log "installing packages"
+apt-get update -y
+apt-get install -y --no-install-recommends \
+  nginx certbot python3-certbot-nginx fail2ban ufw curl ca-certificates \
+  unattended-upgrades
+
+# service user (system account, no login shell, no home login)
+if ! id "$SERVICE_USER" >/dev/null 2>&1; then
+  log "creating service user $SERVICE_USER"
+  useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+fi
+
+# directories
+install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0750 "$DATA_DIR"
+install -d -o root -g "$SERVICE_USER" -m 0750 "$ENV_DIR"
+install -d -o www-data -g www-data -m 0755 "$ACME_WEBROOT"
+
+install_binary
+
+# env file: do not overwrite if present (it holds secrets). Warn if missing.
+if [[ ! -f "$ENV_FILE" ]]; then
+  log "WARNING: $ENV_FILE not found. Writing a placeholder; FILL IT IN before the service will work."
+  cat >"$ENV_FILE" <<EOF
+# Copy from idea.env.example and fill in. Service will fail to do useful work
+# until ANTHROPIC_API_KEY (and, for live billing, the STRIPE_* keys) are set.
+PORT=$SERVICE_PORT
+PUBLIC_BASE_URL=https://$DOMAIN
+IDEA_DB_PATH=$DATA_DIR/orders.json
+AUTO_DELIVER=false
+REPORT_PRICE_GBP=29
+ANTHROPIC_API_KEY=
+EOF
+  chown root:"$SERVICE_USER" "$ENV_FILE"
+  chmod 0640 "$ENV_FILE"
+fi
+
+# ── systemd unit ────────────────────────────────────────────────────────────────
+log "writing systemd unit"
+cat >/etc/systemd/system/idea.service <<EOF
+[Unit]
+Description=idea.uk engine service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+Group=$SERVICE_USER
+EnvironmentFile=$ENV_FILE
+WorkingDirectory=$DATA_DIR
+ExecStart=$APP_DIR/idea
+Restart=on-failure
+RestartSec=5
+
+# hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=$DATA_DIR
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable idea >/dev/null 2>&1 || true
+
+# ── nginx, stage 1: HTTP-only so we can serve the ACME challenge and start ───────
+# We OWN the conf (rather than letting `certbot --nginx` rewrite it), so re-runs
+# are idempotent. Stage 1 = port 80 with ACME webroot + proxy. Then certbot
+# certonly. Then stage 2 rewrites with the 443 block.
+log "writing nginx conf (stage 1: http)"
+NGINX_CONF="/etc/nginx/sites-available/idea.conf"
+write_nginx_http_only() {
+  cat >"$NGINX_CONF" <<EOF
+# managed by setup.sh — do not edit by hand; re-run setup.sh to change.
+limit_req_zone \$binary_remote_addr zone=idea_rl:10m rate=10r/s;
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMAIN;
+
+    # ACME http-01 challenge
+    location ^~ /.well-known/acme-challenge/ {
+        root $ACME_WEBROOT;
+        default_type "text/plain";
+    }
+
+    location / {
+        limit_req zone=idea_rl burst=20 nodelay;
+        proxy_pass http://127.0.0.1:$SERVICE_PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # Stripe webhook: no rate limit (don't drop legitimate retries).
+    location = /stripe/webhook {
+        proxy_pass http://127.0.0.1:$SERVICE_PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+}
+write_nginx_http_only
+ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/idea.conf
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+systemctl reload nginx
+
+# ── TLS: obtain cert via webroot (idempotent — skips if a live cert exists) ──────
+if [[ ! -d "/etc/letsencrypt/live/$DOMAIN" ]]; then
+  log "obtaining TLS certificate for $DOMAIN"
+  certbot certonly --webroot -w "$ACME_WEBROOT" -d "$DOMAIN" \
+    --non-interactive --agree-tos -m "$LETSENCRYPT_EMAIL"
+else
+  log "TLS certificate already present for $DOMAIN — skipping issuance"
+fi
+
+# ── nginx, stage 2: full conf with 443 ──────────────────────────────────────────
+if [[ -d "/etc/letsencrypt/live/$DOMAIN" ]]; then
+  log "writing nginx conf (stage 2: https)"
+  cat >"$NGINX_CONF" <<EOF
+# managed by setup.sh — do not edit by hand; re-run setup.sh to change.
+limit_req_zone \$binary_remote_addr zone=idea_rl:10m rate=10r/s;
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMAIN;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root $ACME_WEBROOT;
+        default_type "text/plain";
+    }
+    location / { return 301 https://\$host\$request_uri; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name $DOMAIN;
+
+    ssl_certificate     /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    # modest body cap — the engine takes small form posts and JSON, not uploads
+    client_max_body_size 1m;
+
+    location / {
+        limit_req zone=idea_rl burst=20 nodelay;
+        proxy_pass http://127.0.0.1:$SERVICE_PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        # the engine can take minutes; allow long upstream reads
+        proxy_read_timeout 930s;
+        proxy_send_timeout 930s;
+    }
+
+    location = /stripe/webhook {
+        proxy_pass http://127.0.0.1:$SERVICE_PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+  nginx -t
+  systemctl reload nginx
+fi
+
+# ── firewall ─────────────────────────────────────────────────────────────────────
+log "configuring ufw"
+ufw --force reset >/dev/null
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw --force enable
+
+# ── fail2ban (ssh brute-force protection) ────────────────────────────────────────
+log "configuring fail2ban"
+cat >/etc/fail2ban/jail.local <<'EOF'
+[sshd]
+enabled = true
+maxretry = 5
+bantime = 1h
+findtime = 10m
+EOF
+systemctl enable fail2ban >/dev/null 2>&1 || true
+systemctl restart fail2ban
+
+# ── unattended security upgrades ──────────────────────────────────────────────────
+log "enabling unattended security upgrades"
+echo 'Unattended-Upgrade::Automatic-Reboot "false";' >/etc/apt/apt.conf.d/51-idea-noreboot
+dpkg-reconfigure -f noninteractive unattended-upgrades >/dev/null 2>&1 || true
+
+# ── optional SSH hardening (guarded against lockout) ────────────────────────────
+if [[ "$HARDEN_SSH" == "true" ]]; then
+  # Only disable password auth if key-based auth is actually in place for some
+  # account, otherwise we'd lock ourselves out.
+  if grep -rqsE '.' /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys 2>/dev/null; then
+    log "hardening sshd (key auth detected — disabling password auth)"
+    cat >/etc/ssh/sshd_config.d/99-idea-hardening.conf <<'EOF'
+PasswordAuthentication no
+PermitRootLogin prohibit-password
+EOF
+    systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
+  else
+    log "SKIPPING sshd hardening — no authorized_keys found, would risk lockout"
+  fi
+fi
+
+# ── start ──────────────────────────────────────────────────────────────────────
+log "starting service"
+systemctl restart idea
+sleep 2
+systemctl --no-pager status idea | head -n 6 || true
+
+log "done. Checks:"
+log "  systemctl status idea"
+log "  journalctl -u idea -f"
+log "  curl -sS https://$DOMAIN/health"
+log "If the service is unhealthy, the usual cause is an unset/empty $ENV_FILE."

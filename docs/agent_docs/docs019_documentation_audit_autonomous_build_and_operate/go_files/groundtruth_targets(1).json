@@ -1,0 +1,18 @@
+{
+  "_comment": "Ground truth for B4a recall measurement. RULE: 'expect' must be the symbols you would ACTUALLY edit/read to resolve the task, decided from knowing the real answer — NOT from what any retriever returned (that would be circular). Match is on name + path-suffix, so entries may be 'path:Name' or just 'Name'. Grow this file one task per genuinely-understood case; a handful of decisive symbols each beats many vague ones. Small truth sets are noisy — treat narrow lex/sem/fused margins as 'no difference'.",
+  "tasks": [
+    {
+      "id": "silent_norebuild",
+      "task": "When a deployed page is rebuilt the pipeline reports success but re-deploys the old content unchanged: the regenerated sections are far smaller than the existing content, the content-regression guard blocks the overwrite, yet the work item completes. Find where the regeneration is produced, where it is blocked, and why a blocked save still completes.",
+      "expect": [
+        "save_page_sections_action.go:SavePageSectionsAction"
+      ],
+      "also_useful": [
+        "plan_sections_action.go:PlanSectionsAction",
+        "save_page_sections_action.go:saveSectionsExtractFromHTML",
+        "save_page_sections_action.go:saveSectionsLookupPageID",
+        "rerender_single_page_action.go:RerenderSinglePageAction"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama-adapter
+  labels:
+    app: ollama-adapter
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ollama-adapter
+  template:
+    metadata:
+      labels:
+        app: ollama-adapter
+    spec:
+      initContainers:
+        - name: model-pull
+          image: ollama/ollama:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              ollama serve &
+              SERVER_PID=$!
+              for i in $(seq 1 30); do
+                ollama list > /dev/null 2>&1 && break
+                sleep 1
+              done
+              echo "Ollama server ready, checking models..."
+
+              # Only pull models not already present
+              for model in nomic-embed-text mistral-small3.1; do
+                if ollama list | grep -q "$model"; then
+                  echo "$model already present, skipping"
+                else
+                  echo "Pulling $model..."
+                  ollama pull $model
+                  echo "$model pulled"
+                fi
+              done
+
+              echo "All models ready"
+              kill $SERVER_PID
+              wait $SERVER_PID 2>/dev/null
+              echo "Init complete"
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "1"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "20Gi"
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          env:
+            - name: OLLAMA_MAX_LOADED_MODELS
+              value: "1"
+            # NEW: generous model load timeout — 5 min instead of default 60s
+            - name: OLLAMA_LOAD_TIMEOUT
+              value: "10m"
+            # NEW: keep models resident indefinitely between calls
+            # (default is 5 minutes; this avoids cold-reload mid-eval)
+            - name: OLLAMA_KEEP_ALIVE
+              value: "60m"
+          ports:
+            - containerPort: 11434
+              name: http
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "2"
+              memory: "20Gi"
+            limits:
+              cpu: "8"
+              memory: "20Gi"
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 30          # was 10 — less probe pressure during inference
+            timeoutSeconds: 5          # was default 1 — headroom if Ollama is busy
+            failureThreshold: 5        # was default 3 — tolerate a few slow responses
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 60    # was 30 — let model loading finish first
+            periodSeconds: 60          # was 30
+            timeoutSeconds: 10         # was default 1 — don't restart for a busy server
+            failureThreshold: 5        # was default 3
+      volumes:
+        - name: ollama-models
+          persistentVolumeClaim:
+            claimName: ollama-models-pvc

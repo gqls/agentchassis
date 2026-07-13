@@ -1,0 +1,387 @@
+// FINAL — ready to integrate into platform/orchestration/coordinator.go.
+// Replaces the body of extractWorkflowResult (same signature) and adds
+// resolveResultSpec + fallbackDumpInto + the small helpers below.
+//
+// THIS IS A PURE CHASSIS CHANGE — NO agent-config edits are required for it to
+// work: the writer's `output_field`, the ~90 plural `output_fields`, and the
+// four `output` mappings are all READ as deprecated aliases. Deploy = rebuild
+// the chassis image + bump image_tag on the agents (or roll to the new tag).
+// "Both places" here = coordinator.go + the image; not the SQL.
+// The rename to result_from / multiple_output_fields / result_mapping is a
+// SEPARATE, optional, transitional migration — nothing breaks if configs are
+// never migrated, because the old names keep resolving.
+//
+// Purpose: replace the inline "if output_fields ... else skipPatterns dump"
+// branch with one centralised, loud, testable resolver, removing the foot-gun
+// where the result contract depended on which of three near-identical keys was
+// present.
+//
+// Decisions (settled, see NOTES):
+//
+//  1. SINGULAR MEANS FLATTEN. `output_field` / `result_from` -> "this field's
+//     CONTENTS become the body". Verified against the live consumers: the writer
+//     feeds page-build-handler / page-rebuild / site-work-orchestrator, all of
+//     which read page_content.response.{page_html,sections_metadata,skipped}
+//     FLAT; site-work-orchestrator reads the planner's flattened sub-fields
+//     (site_plan.response.needs_images, .image_prompts, .style_collection);
+//     model-trainer reads preparation_result.dataset_uri FLAT. A-nest (nested)
+//     would leave site-work-orchestrator AND model-trainer broken — rejected.
+//
+//  2. PLURAL MEANS NEST. `multiple_output_fields` / `output_fields` -> each named
+//     field under its own key. Unchanged behaviour for the ~90 plural agents.
+//
+//  3. MAPPING HONOURED. `result_mapping` / `output` -> apply target<-source.path.
+//     Was silently dumped before; now applied. Changes the result shape of the
+//     four mapping agents (content-reviewer, internal-link-resolver,
+//     research-agent, site-architect) from dump -> mapped. content-reviewer is
+//     verified safe (its consumers gate on `reviewed_content.approved`, a mapped
+//     target). The other three consumers are NOT yet traced — see ROLLOUT GATE
+//     at the bottom; trace them (or deploy flatten-first, mapping-second).
+//
+//  4. NAMING fragility is fixed by the rename (singular vs plural are no longer
+//     one edit-distance apart), NOT by forcing singular==plural.
+//
+//  5. METADATA is appended only-if-absent, so a flattened/mapped field carrying
+//     orchestration_id etc. cannot be clobbered.
+//
+//  6. CONFLICT: if more than one result key is set (config error), precedence is
+//     the candidates order below (preferred names before deprecated; flatten,
+//     then fields, then mapping) and the conflict is logged via Warn.
+
+package orchestration
+
+import (
+	"encoding/json"
+	"strings"
+	"time"
+
+	"github.com/gqls/agentchassis/pkg/datahelpers"
+	"go.uber.org/zap"
+)
+
+// ResultMode is how a completed workflow's payload is shaped before return.
+// Exactly one mode is selected per workflow by resolveResultSpec.
+type ResultMode int
+
+const (
+	// ResultModeFallback: no contract declared -> legacy skipPatterns dump.
+	// Discouraged: large and unbounded; risks the Kafka ceiling.
+	ResultModeFallback ResultMode = iota
+	// ResultModeFields: nest each named field under its own key.
+	//   result = {"a": collected.a, "b": collected.b}
+	// Keys: multiple_output_fields (preferred), output_fields (deprecated).
+	ResultModeFields
+	// ResultModeFlatten: the single named field's CONTENTS become the body.
+	//   collected.page_content = {page_html, sections_metadata}
+	//   -> result = {page_html, sections_metadata}
+	// Keys: result_from (preferred), output_field (deprecated).
+	ResultModeFlatten
+	// ResultModeMapping: build result from explicit target<-source.path pairs.
+	// Keys: result_mapping (preferred), output (deprecated).
+	ResultModeMapping
+)
+
+func (m ResultMode) String() string {
+	switch m {
+	case ResultModeFields:
+		return "fields"
+	case ResultModeFlatten:
+		return "flatten"
+	case ResultModeMapping:
+		return "mapping"
+	default:
+		return "fallback"
+	}
+}
+
+// ResultSpec is the normalised result contract for a `complete` step.
+// It is the single source of truth extractWorkflowResult consumes.
+type ResultSpec struct {
+	Mode       ResultMode
+	Fields     []string          // ResultModeFields
+	From       string            // ResultModeFlatten
+	Mapping    map[string]string // ResultModeMapping
+	MatchedKey string            // which config key selected this (for logs)
+}
+
+// resolveResultSpec inspects the `complete` step config and returns the
+// normalised contract. Precedence is the order of the candidates slice: when
+// (against guidance) more than one key is present, the highest-precedence one
+// wins and the conflict is logged loudly. Deprecated keys are accepted with a
+// migration Warn. No logger.Debug — it does not surface in our logs.
+func resolveResultSpec(completeConfig map[string]interface{}, logger *zap.Logger) ResultSpec {
+	if completeConfig == nil {
+		return ResultSpec{Mode: ResultModeFallback}
+	}
+
+	type candidate struct {
+		key        string
+		deprecated string // preferred replacement name, "" if not deprecated
+		build      func() (ResultSpec, bool)
+	}
+
+	candidates := []candidate{
+		{key: "result_from", build: func() (ResultSpec, bool) {
+			s, ok := completeConfig["result_from"].(string)
+			if !ok || s == "" {
+				return ResultSpec{}, false
+			}
+			return ResultSpec{Mode: ResultModeFlatten, From: s, MatchedKey: "result_from"}, true
+		}},
+		{key: "output_field", deprecated: "result_from", build: func() (ResultSpec, bool) {
+			s, ok := completeConfig["output_field"].(string)
+			if !ok || s == "" {
+				return ResultSpec{}, false
+			}
+			return ResultSpec{Mode: ResultModeFlatten, From: s, MatchedKey: "output_field"}, true
+		}},
+		{key: "multiple_output_fields", build: func() (ResultSpec, bool) {
+			f, ok := toStringSlice(completeConfig["multiple_output_fields"])
+			if !ok {
+				return ResultSpec{}, false
+			}
+			return ResultSpec{Mode: ResultModeFields, Fields: f, MatchedKey: "multiple_output_fields"}, true
+		}},
+		{key: "output_fields", deprecated: "multiple_output_fields", build: func() (ResultSpec, bool) {
+			f, ok := toStringSlice(completeConfig["output_fields"])
+			if !ok {
+				return ResultSpec{}, false
+			}
+			return ResultSpec{Mode: ResultModeFields, Fields: f, MatchedKey: "output_fields"}, true
+		}},
+		{key: "result_mapping", build: func() (ResultSpec, bool) {
+			m, ok := toStringMap(completeConfig["result_mapping"])
+			if !ok {
+				return ResultSpec{}, false
+			}
+			return ResultSpec{Mode: ResultModeMapping, Mapping: m, MatchedKey: "result_mapping"}, true
+		}},
+		{key: "output", deprecated: "result_mapping", build: func() (ResultSpec, bool) {
+			m, ok := toStringMap(completeConfig["output"])
+			if !ok {
+				return ResultSpec{}, false
+			}
+			return ResultSpec{Mode: ResultModeMapping, Mapping: m, MatchedKey: "output"}, true
+		}},
+	}
+
+	var chosen *ResultSpec
+	var chosenDeprecated string
+	var present []string
+
+	for i := range candidates {
+		c := candidates[i]
+		spec, ok := c.build()
+		if !ok {
+			continue
+		}
+		present = append(present, c.key)
+		if chosen == nil {
+			s := spec
+			chosen = &s
+			chosenDeprecated = c.deprecated
+		}
+	}
+
+	if chosen == nil {
+		logger.Info("resolveResultSpec: no result contract on complete step; using fallback dump")
+		return ResultSpec{Mode: ResultModeFallback}
+	}
+
+	if chosenDeprecated != "" {
+		logger.Warn("resolveResultSpec: deprecated complete-step key in use; migrate to preferred name",
+			zap.String("deprecated_key", chosen.MatchedKey),
+			zap.String("preferred", chosenDeprecated))
+	}
+
+	if len(present) > 1 {
+		logger.Warn("resolveResultSpec: multiple result-contract keys present; using highest precedence",
+			zap.Strings("present_keys", present),
+			zap.String("using", chosen.MatchedKey))
+	}
+
+	logger.Info("resolveResultSpec: resolved result contract",
+		zap.String("mode", chosen.Mode.String()),
+		zap.String("matched_key", chosen.MatchedKey),
+		zap.Int("field_count", len(chosen.Fields)),
+		zap.Int("mapping_count", len(chosen.Mapping)))
+
+	return *chosen
+}
+
+// --- revised extractWorkflowResult: same signature, body now spec-driven ----
+
+func (s *SagaCoordinator) extractWorkflowResult(state *OrchestrationState) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	var completeConfig map[string]interface{}
+	if state.WorkflowPlan.Steps != nil {
+		if completeStep, ok := state.WorkflowPlan.Steps["complete"]; ok {
+			completeConfig = completeStep.Config
+		}
+	}
+
+	spec := resolveResultSpec(completeConfig, s.logger)
+
+	switch spec.Mode {
+	case ResultModeFields:
+		for _, fieldName := range spec.Fields {
+			if value := datahelpers.ExtractNestedField(state.CollectedData, fieldName); value != nil {
+				result[fieldName] = datahelpers.ExtractStepData(value)
+			}
+		}
+
+	case ResultModeFlatten:
+		value := datahelpers.ExtractNestedField(state.CollectedData, spec.From)
+		unwrapped := datahelpers.ExtractStepData(value)
+		switch v := unwrapped.(type) {
+		case map[string]interface{}:
+			for k, val := range v {
+				result[k] = val
+			}
+		case nil:
+			s.logger.Warn("extractWorkflowResult: result_from field not found in collected data",
+				zap.String("field", spec.From))
+		default:
+			// Non-map single field: nothing to flatten. Preserve under its name
+			// rather than discard, and log (flatten was requested on a scalar).
+			result[spec.From] = unwrapped
+			s.logger.Warn("extractWorkflowResult: result_from field is not a map; stored under its name",
+				zap.String("field", spec.From))
+		}
+
+	case ResultModeMapping:
+		for target, sourcePath := range spec.Mapping {
+			if value := datahelpers.ExtractNestedField(state.CollectedData, sourcePath); value != nil {
+				result[target] = value
+			}
+		}
+
+	default: // ResultModeFallback
+		s.fallbackDumpInto(result, state)
+	}
+
+	// Completion metadata — only if absent (a flattened field must not be clobbered).
+	setIfAbsent(result, "orchestration_id", state.OrchestrationID)
+	setIfAbsent(result, "completed_steps", state.ExecutionMetadata.CompletedSteps)
+	setIfAbsent(result, "completed_at", time.Now().Format(time.RFC3339))
+
+	if resultBytes, err := json.Marshal(result); err == nil {
+		s.logger.Info("extractWorkflowResult: result built",
+			zap.String("mode", spec.Mode.String()),
+			zap.Int("size_bytes", len(resultBytes)),
+			zap.Int("field_count", len(result)))
+	}
+	return result
+}
+
+// fallbackDumpInto is the previous default behaviour, extracted verbatim so the
+// switch above stays readable. Unchanged skipPatterns.
+func (s *SagaCoordinator) fallbackDumpInto(result map[string]interface{}, state *OrchestrationState) {
+	skipPatterns := []string{
+		"page_content_",     // Individual page content (can be large)
+		"reviewed_content_", // Reviewed versions
+		"build_pages_loop_", // Loop iteration data
+		"assembled_page",    // Full HTML
+		"page_deployed_",    // Deployment results per page
+	}
+	for key, value := range state.CollectedData {
+		if strings.HasPrefix(key, "__") {
+			continue
+		}
+		if key == "loop_metadata" {
+			continue
+		}
+		skip := false
+		for _, pattern := range skipPatterns {
+			if strings.HasPrefix(key, pattern) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+		result[key] = datahelpers.ExtractStepData(value)
+	}
+}
+
+// --- small helpers ---------------------------------------------------------
+//
+// REUSE CHECK before integrating: grep pkg/datahelpers and the orchestration
+// package for existing equivalents of toStringSlice / toStringMap / setIfAbsent
+// (e.g. CleanDataMap, getMapKeys already exist) and reuse them rather than
+// adding duplicates. These are included so the draft compiles standalone.
+
+func toStringSlice(v interface{}) ([]string, bool) {
+	raw, ok := v.([]interface{})
+	if !ok {
+		return nil, false
+	}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		if s, ok := item.(string); ok && s != "" {
+			out = append(out, s)
+		}
+	}
+	if len(out) == 0 {
+		return nil, false
+	}
+	return out, true
+}
+
+func toStringMap(v interface{}) (map[string]string, bool) {
+	raw, ok := v.(map[string]interface{})
+	if !ok || len(raw) == 0 {
+		return nil, false
+	}
+	out := make(map[string]string, len(raw))
+	for k, val := range raw {
+		if s, ok := val.(string); ok {
+			out[k] = s
+		}
+	}
+	if len(out) == 0 {
+		return nil, false
+	}
+	return out, true
+}
+
+func setIfAbsent(m map[string]interface{}, key string, value interface{}) {
+	if _, exists := m[key]; !exists {
+		m[key] = value
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ROLLOUT GATE (mapping)
+//
+// Flatten + fields are zero-risk: they restore the contract the live consumers
+// already read, and the ~90 plural agents are byte-identical. Enabling MAPPING,
+// however, changes four agents' result shape from dump -> only-the-mapped-keys.
+// That breaks any consumer that reads a dump-only key off one of them. Status:
+//
+//   - content-reviewer  -> consumers (page-rebuild, site-work-orchestrator,
+//                          pageflow-builder) gate on reviewed_content.approved,
+//                          a mapped target. SAFE (verified).
+//   - research-agent    -> consumed by page-content-writer. Mapping exposes
+//                          `summary` (good) but OMITS `sources`, which the
+//                          writer's prompt iterates (research_result.response.
+//                          sources). Already effectively empty under the dump,
+//                          so not a regression — but consider ADDING `sources`
+//                          to the mapping so citations work. TRACE then decide.
+//   - internal-link-resolver -> consumed by page-content-writer. Confirm the
+//                          writer reads only sections_ready / unresolved
+//                          (mapped targets), not a dump-only key. TRACE.
+//   - site-architect    -> consumed by website-builder (status unknown).
+//                          Confirm website-builder reads only mapped targets.
+//                          TRACE (low priority if website-builder is legacy).
+//
+// Decision options:
+//   (a) Trace the three above (one query: who-reads-what off each agent's
+//       response), confirm mapped-targets-only, then ship flatten+fields+mapping
+//       together; OR
+//   (b) Ship flatten+fields now (fixes the incident, zero risk) and enable
+//       mapping in a second commit after the trace. The code supports either —
+//       for (b), comment out the result_mapping/output candidates in
+//       resolveResultSpec so those four stay on the fallback dump until ready.

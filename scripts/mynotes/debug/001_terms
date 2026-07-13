@@ -1,0 +1,21 @@
+"generated_content":{"result"
+claude-sonnet-4-5-20250929
+duplicate
+sql
+not found
+no value
+error
+warn
+fail
+LLM response received
+
+
+SELECT orchestration_id, status, current_step, error, owner_agent_type
+FROM orchestration_states
+WHERE orchestration_id = '6147ecbe-06e5-4a30-9c76-ff274701fe2c';
+
+-- Look at the collected_data for the pageflow-builder to see what paths exist
+SELECT
+    jsonb_pretty(collected_data->'page_content') as page_content_structure
+FROM orchestration_states
+WHERE orchestration_id = '6147ecbe-06e5-4a30-9c76-ff274701fe2c';

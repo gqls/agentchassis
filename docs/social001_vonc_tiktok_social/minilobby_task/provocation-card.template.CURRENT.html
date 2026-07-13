@@ -1,0 +1,367 @@
+<style>
+  .provocation-card-section {
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+    background: var(--color-primary, #1a1a2e);
+    color: var(--section-text);
+    padding: var(--spacing-section, 5rem 2rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .provocation-card-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 50%, var(--section-surface) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .provocation-card-section .pc-container {
+    max-width: var(--container-max-width, 1200px);
+    width: 100%;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .provocation-card-section .pc-eyebrow {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-accent, var(--color-secondary));
+    margin-bottom: 1rem;
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--color-accent, var(--section-border));
+    border-radius: calc(var(--border-radius, 0.5rem) * 2);
+  }
+
+  .provocation-card-section .pc-headline {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--section-heading);
+    margin: 0 0 1.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .provocation-card-section .pc-headline em {
+    font-style: normal;
+    color: var(--color-accent, var(--color-secondary));
+  }
+
+  .provocation-card-section .pc-body {
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--section-text-muted);
+    max-width: 52ch;
+    margin: 0 0 2rem;
+  }
+
+  .provocation-card-section .pc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .provocation-card-section .pc-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 2rem;
+    background: var(--color-accent, var(--color-primary));
+    color: var(--color-primary-text, #fff);
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: var(--border-radius, 0.5rem);
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    min-height: 44px;
+  }
+
+  .provocation-card-section .pc-btn-primary:hover,
+  .provocation-card-section .pc-btn-primary:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    opacity: 0.92;
+  }
+
+  .provocation-card-section .pc-btn-primary:focus-visible {
+    outline: 3px solid var(--color-accent, #fff);
+    outline-offset: 3px;
+  }
+
+  .provocation-card-section .pc-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    background: transparent;
+    color: var(--section-text);
+    font-size: 1rem;
+    font-weight: 600;
+    border: 1px solid var(--section-border);
+    border-radius: var(--border-radius, 0.5rem);
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    min-height: 44px;
+  }
+
+  .provocation-card-section .pc-btn-secondary:hover,
+  .provocation-card-section .pc-btn-secondary:focus-visible {
+    background: var(--section-surface);
+    border-color: var(--section-text);
+  }
+
+  .provocation-card-section .pc-btn-secondary:focus-visible {
+    outline: 3px solid var(--section-text);
+    outline-offset: 3px;
+  }
+
+  .provocation-card-section .pc-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .provocation-card-section .pc-card {
+    background: var(--section-surface);
+    border: 1px solid var(--section-border);
+    border-radius: var(--border-radius, 0.5rem);
+    padding: 1.5rem;
+    transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .provocation-card-section .pc-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--color-accent, var(--color-secondary));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+
+  .provocation-card-section .pc-card:hover::after,
+  .provocation-card-section .pc-card.is-active::after {
+    transform: scaleX(1);
+  }
+
+  .provocation-card-section .pc-card:hover,
+  .provocation-card-section .pc-card.is-active {
+    transform: translateY(-4px);
+    background: rgba(255,255,255,0.08);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+  }
+
+  .provocation-card-section .pc-card-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    display: block;
+    line-height: 1;
+  }
+
+  .provocation-card-section .pc-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--section-heading);
+    margin: 0 0 0.5rem;
+  }
+
+  .provocation-card-section .pc-card-desc {
+    font-size: 0.875rem;
+    color: var(--section-text-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .provocation-card-section .pc-stat-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--section-border);
+    margin-top: 1rem;
+  }
+
+  .provocation-card-section .pc-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .provocation-card-section .pc-stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--color-accent, var(--section-heading));
+    line-height: 1;
+  }
+
+  .provocation-card-section .pc-stat-label {
+    font-size: 0.8rem;
+    color: var(--section-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  @media (min-width: 900px) {
+    .provocation-card-section .pc-container {
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .provocation-card-section {
+      min-height: auto;
+    }
+
+    .provocation-card-section .pc-headline {
+      font-size: clamp(1.75rem, 7vw, 2.5rem);
+    }
+
+    .provocation-card-section .pc-body {
+      font-size: 1rem;
+    }
+
+    .provocation-card-section .pc-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .provocation-card-section .pc-btn-primary,
+    .provocation-card-section .pc-btn-secondary {
+      justify-content: center;
+      width: 100%;
+    }
+
+    .provocation-card-section .pc-stat-strip {
+      gap: 1.25rem;
+    }
+
+    .provocation-card-section .pc-card-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .provocation-card-section .pc-card,
+    .provocation-card-section .pc-btn-primary,
+    .provocation-card-section .pc-btn-secondary {
+      transition: none;
+    }
+  }
+</style>
+
+<section class="provocation-card-section" data-component="provocation-card" data-runtime-fill="true" aria-labelledby="pc-headline">
+  <div class="pc-container">
+    <div class="pc-content">
+      <span class="pc-eyebrow"><no value></span>
+      <h2 class="pc-headline" id="pc-headline"><no value></h2>
+      <p class="pc-body"><no value></p>
+      <div class="pc-actions">
+        <a href="<no value>" class="pc-btn-primary" role="button">
+          <no value>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a href="<no value>" class="pc-btn-secondary" role="button">
+          <no value>
+        </a>
+      </div>
+      <div class="pc-stat-strip" aria-label="Key statistics">
+        <div class="pc-stat">
+          <span class="pc-stat-value"><no value></span>
+          <span class="pc-stat-label"><no value></span>
+        </div>
+        <div class="pc-stat">
+          <span class="pc-stat-value"><no value></span>
+          <span class="pc-stat-label"><no value></span>
+        </div>
+        <div class="pc-stat">
+          <span class="pc-stat-value"><no value></span>
+          <span class="pc-stat-label"><no value></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pc-card-grid" role="list" aria-label="<no value>">
+      <article class="pc-card" role="listitem" tabindex="0">
+        <span class="pc-card-icon" aria-hidden="true"><no value></span>
+        <h3 class="pc-card-title"><no value></h3>
+        <p class="pc-card-desc"><no value></p>
+      </article>
+      <article class="pc-card" role="listitem" tabindex="0">
+        <span class="pc-card-icon" aria-hidden="true"><no value></span>
+        <h3 class="pc-card-title"><no value></h3>
+        <p class="pc-card-desc"><no value></p>
+      </article>
+      <article class="pc-card" role="listitem" tabindex="0">
+        <span class="pc-card-icon" aria-hidden="true"><no value></span>
+        <h3 class="pc-card-title"><no value></h3>
+        <p class="pc-card-desc"><no value></p>
+      </article>
+      <article class="pc-card" role="listitem" tabindex="0">
+        <span class="pc-card-icon" aria-hidden="true"><no value></span>
+        <h3 class="pc-card-title"><no value></h3>
+        <p class="pc-card-desc"><no value></p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  var section = document.querySelector('[data-component="provocation-card"]');
+  if (!section) return;
+
+  var cards = section.querySelectorAll('.pc-card');
+
+  function activateCard(card) {
+    cards.forEach(function(c) { c.classList.remove('is-active'); });
+    card.classList.add('is-active');
+  }
+
+  cards.forEach(function(card) {
+    card.addEventListener('mouseenter', function() {
+      activateCard(card);
+    });
+
+    card.addEventListener('mouseleave', function() {
+      card.classList.remove('is-active');
+    });
+
+    card.addEventListener('focus', function() {
+      activateCard(card);
+    });
+
+    card.addEventListener('blur', function() {
+      card.classList.remove('is-active');
+    });
+  });
+})();
+</script>

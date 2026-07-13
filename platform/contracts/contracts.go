@@ -24,8 +24,9 @@ type CoreLogicConfig map[string]interface{}
 // WorkflowPlan defines the orchestration logic for an agent.
 // It is a declarative, directed graph of steps.
 type WorkflowPlan struct {
-	StartStep string          `json:"start_step"`
-	Steps     map[string]Step `json:"steps"`
+	StartStep      string          `json:"start_step"`
+	Steps          map[string]Step `json:"steps"`
+	TimeoutSeconds int             `json:"timeout_seconds,omitempty"`
 }
 
 // Step represents a single node in the workflow graph. It can be either

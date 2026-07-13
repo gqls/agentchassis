@@ -1,0 +1,29 @@
+{
+  "tone": "Plain, warm, and exact. Write the way a competent person explains their work to a smart friend who does not share their speciality. Assume intelligence, do not assume vocabulary. The reader has heard a lot of confident noise about AI and is waiting to see whether we are going to add to it.",
+
+  "reader": "An intelligent future buyer of AI for their business. They may not know much about what AI can actually do for them. They have heard the hype and are not convinced. Our job is to keep the promises small and deliverable, and to stay out of the hype fest.",
+
+  "positive_framing": "State what a thing is and what it does. Do not define it by what it is not, and do not build a strawman in order to knock it down. Never write 'not a demo', 'not a prototype', 'not just another', 'unlike other agencies', or any sentence whose energy comes from someone else being wrong. If a competitor comparison is genuinely useful, describe our approach and let the reader draw it. Nothing on this site should sound like it is arguing with somebody.",
+
+  "claim_discipline": "Prefer the smaller claim that is exactly true to the larger one that is roughly true. 'We ran 2,767 business records through Companies House verification' is better than 'thousands of verified records', which is much better than 'enterprise-scale data enrichment'. Every number must be traceable to the evidence base, and should carry its source and its date where the page has room. If we might be able to do something but have not done it, say so in those words: it costs nothing and it is the reason the reader will believe the rest.",
+
+  "plain_language": "Clarity beats compression. It is better to use three or four more words and be understood than to find the one perfect word the reader has to stop and parse. Where a technical term is genuinely the clearest option, use it and explain it once, in the same sentence, without apologising for it. Where a technical term is decoration, cut it.",
+
+  "banned_language": [
+    "digital transformation, AI journey, unlock, leverage (as a verb), harness, empower, seamless, cutting-edge, robust (as filler), game-changing, revolutionise, transform (unqualified)",
+    "grace and precision, and any other retired brand slogan",
+    "production-ready, unless immediately followed by the specific stack it is ready on",
+    "AI-powered, unqualified",
+    "days not months, unless a concrete delivery is named in the same sentence",
+    "actually ships, actually works, and every other construction that implies others do not",
+    "in today's rapidly evolving landscape, and every sentence of that shape"
+  ],
+
+  "llm_tells_to_avoid": "Do not open a paragraph with the conclusion and then justify it in three parallel clauses. Do not write in triads by reflex; two examples are usually enough and four is fine when four is what there are. Vary sentence length, and let some sentences be short. Avoid the em-dash aside as a default rhythm. Do not start sentences with 'Whether you're...' or 'From X to Y'. Do not end a section with a summarising flourish that adds nothing. Above all, do not write a sentence whose only function is to sound like the kind of sentence that belongs there.",
+
+  "cta_governance": "A call to action should name the next thing that happens, not perform enthusiasm. 'Tell us what the job is and we will tell you whether it is worth automating' is a CTA. 'Start your AI journey today' is not. Vary them by page: the index addresses someone deciding whether to keep reading; a guide addresses someone who now understands something and wants to try it; the contact page addresses someone who has already decided. Repetition of the same CTA across pages tells an attentive reader that nobody was paying attention.",
+
+  "on_uncertainty": "We are allowed to say what we might be able to do, provided it is not pie in the sky and provided the sentence makes clear it is a possibility rather than a track record. The honest form is: here is the thing we have built, here is the adjacent thing it could plainly be pointed at, and we have not done that one yet. That sentence builds more trust than any case study we could invent, which is fortunate, because we have no clients to name.",
+
+  "technical_depth": "Depth is offered, not imposed. Main pages carry the plain explanation. Anyone who wants the architecture, the failure modes, or the actual numbers should find them one click away, written for someone who will check them. Never make a non-specialist read a Kafka topology to learn what we do, and never make an engineer read marketing copy to find out whether we know what we are talking about."
+}

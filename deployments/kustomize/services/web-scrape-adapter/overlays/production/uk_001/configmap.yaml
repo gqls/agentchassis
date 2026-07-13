@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-scrape-adapter-config
+data:
+  web-scrape-adapter.yaml: |
+    server:
+      metrics_port: 9090
+      shutdown_timeout: 30s
+    
+    logger:
+      level: "info"
+      format: "json"
+    
+    infrastructure:
+      kafka_brokers:
+        - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+      object_storage:
+        endpoint: "https://s3.us-east-005.backblazeb2.com"
+        region: "us-east-005"
+        bucket: "personae-prod-uk001-webscrape"
+        access_key_env_var: "B2_APPLICATION_KEY_ID"
+        secret_key_env_var: "B2_APPLICATION_KEY"
+        use_ssl: true
+        use_path_style: false
+    
+    adapter:
+      request_topic: "system.adapter.webscrape.requests"
+      consumer_group: "webscrape-adapter-group"
+      max_retries: 5
+      timeout: 180s
+      max_concurrent_requests: 10
+    
+    providers:
+      firecrawl:
+        enabled: true
+        api_url: "https://api.firecrawl.dev/v2"
+        timeout: 120s
+        max_pages_per_crawl: 50
+      scrapingbee:
+        enabled: true
+        api_url: "https://app.scrapingbee.com/api/v1"
+        timeout: 60s
+    
+    cache:
+      enabled: true
+      ttl: 3600
+      max_size: 1000
+      
+    storage:
+      upload_enabled: true
+      presigned_url_expiry: 10080  # 7 days in minutes
+      max_upload_size: 52428800     # 50MB
+      allowed_content_types:
+        - "text/html"
+        - "text/markdown"
+        - "text/plain"
+        - "application/json"
+        - "image/png"
+        - "image/jpeg"
+      
+      paths:
+        webscrape_prefix: "webscrape"
+        organize_by_client: true
+        organize_by_date: true
+      
+      retention:
+        enabled: true
+        days: 30  # Auto-delete after 30 days

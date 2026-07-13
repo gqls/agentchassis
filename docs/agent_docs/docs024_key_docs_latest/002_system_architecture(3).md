@@ -1,0 +1,1280 @@
+# 002 — System Architecture
+
+> **Consolidation note.** Canonical `002 — System Architecture`. The
+> `002_system_architecture_patch.diff` (area-organised "Active agents" tables +
+> revised "Active workflows" table) is **already fully incorporated** here and
+> must **not** be re-applied — `patch` reports it as "previously applied", and a
+> forced re-apply would duplicate the entire Active-agents expansion. All 100
+> added lines are present and the superseded flat-table rows are correctly gone;
+> unlike the 001 patch, nothing here was corrected after application, so the doc
+> matches the patch target exactly.
+
+
+Complete reference for the agent orchestration system. Covers the design system, all agent families, the unified build/maintenance pipeline, and implementation phases.
+
+---
+
+## Design System Layers
+
+The design system has three independent layers that vary separately.
+
+### Layer 1: HTML Components (structure and layout)
+
+**Table:** `content_components`
+
+Self-contained HTML blocks — a hero section, a testimonial grid, a FAQ accordion, a services card layout. Each has its own inline `<style>` for layout (grid, flexbox, spacing) and dark section overrides.
+
+Multiple components exist for the same function (e.g. `hero-split`, `hero-fullwidth`, `hero-minimal`). What varies is structure. Components reference CSS variables with fallbacks: `var(--color-primary, #1a1a2e)`. They never hardcode brand colours. Dark sections set `color: #fff` on their container element, and all children inherit light text automatically.
+
+### Layer 2: CSS Theme (appearance)
+
+**Table:** `css_themes`
+
+A complete base stylesheet setting `:root` variables (colours, fonts, spacing), base resets, typography scale, button styles, responsive breakpoints, and accessibility focus states.
+
+Deployed as `/assets/css/styles.css` — one per site, committed to git by the webdesign agent.
+
+The colour inheritance model (see 003_contracts_and_standards for full rules): `body` sets `color: var(--color-text)` as the base default. Text elements reference `--section-*` variables with light-theme fallbacks (e.g. `h1-h6 { color: var(--section-heading, var(--color-primary)); }`). Dark-section components override `--section-*` on their container and all children adapt automatically.
+
+### Layer 3: Style Collection (the bridge)
+
+**Table:** `style_collections`
+
+A named grouping that ties together header component + footer component + CSS theme + colour palette. Think of it as a "design kit."
+
+| Field | References | Purpose |
+|---|---|---|
+| `header_component_id` | `content_components` | Which header HTML to use |
+| `header_home_component_id` | `content_components` | Alternate header for homepage (optional) |
+| `footer_component_id` | `content_components` | Which footer HTML to use |
+| `css_theme_id` | `css_themes` | Which CSS theme to use |
+| `color_palette` | JSONB | Primary, secondary, accent, background, text |
+| `typography` | JSONB | Font family, base size, line height, heading font |
+
+### How they connect
+
+```
+site (leopardessconsulting.co.uk)
+  └── style_collection_id → style_collections (professional-dark)
+        ├── header_component_id → content_components (header-professional-dark)
+        ├── footer_component_id → content_components (footer-4-column)
+        ├── css_theme_id → css_themes (→ /assets/css/styles.css)
+        └── color_palette → {primary: "#1a1a2e", accent: "#0f3460", ...}
+  └── pages (from site plan)
+        ├── index.html → hero, differentiators, testimonials, cta components
+        ├── about.html → different body components
+        └── services.html → different body components
+  All pages share same header, footer, CSS, and :root variables.
+```
+
+### Theme library growth
+
+1. Build site → webdesign agent generates CSS → stored as new `css_themes` row
+2. Tag with industry, style category, colour characteristics
+3. Next similar brief → search existing themes → reuse if match, adjust `:root` values
+4. Webdesign agent goes from "always generate" to "search → maybe reuse → maybe generate → always store"
+
+---
+
+## Current System
+
+### Active agents
+
+Organised by area. Not exhaustive — this lists the agents that play a distinct role in a current pipeline or illustrate a pattern worth knowing. The source of truth is `agent_definitions` in `templates_db`; a full live list is:
+
+```sql
+SELECT type, category, description
+FROM agent_definitions
+WHERE is_active = true AND deleted_at IS NULL
+ORDER BY type;
+```
+
+**Intake and site build**
+
+| Agent | Type | Role |
+|---|---|---|
+| `intake-orchestrator` | orchestrator | Entry point — classifies, briefs, spawns builder |
+| `site-classifier` | specialist | Classifies site type from domain/objective |
+| `briefing-agent` | specialist | Runs questionnaire, collects brief data |
+| `site-work-orchestrator` | orchestrator | Unified build/maintenance — builds sites from work items, dispatches handlers |
+| `pageflow-builder` | orchestrator | Component-based website builder — spawns planner, content writer, reviewer in sequence |
+| `site-planner` | specialist | Plans pages, selects components and style |
+| `page-content-writer` | specialist | Writes content per page, section by section |
+| `content-reviewer` | specialist | HITL or auto-eval content review |
+| `research-agent` | specialist | Web research for content backing |
+| `page-build-handler` | specialist | Wraps content writer with section planning, validation, deploy |
+| `page-rerender` | specialist | Assembles a single page from stored components. With a re-render reason (`image_landed` / `section_data_resolved`) it first re-resolves fields and re-renders all sections from stored `content_data` — no LLM — via `rerender_page_sections`, then assembles + deploys |
+| `rerender-pages` | orchestrator | Batch rerender across all site pages |
+| `rerender-site` | orchestrator | Full rerender including site-level components (header/footer/head) |
+| `section-editor` | specialist | Granular edits to individual page sections |
+
+**Design and assets**
+
+| Agent | Type | Role |
+|---|---|---|
+| `site-design-planner` | specialist | Resolves composition (palette, layout, typography) before CSS render |
+| `webdesign-agent` | specialist | Generates design spec and CSS |
+| `image-generator` | specialist | Generates logos and hero images |
+| `image-build-handler` | orchestrator | Self-contained handler for image work items |
+| `asset-deployer` | specialist | Downloads S3 image, optimises, commits to git |
+| `deployer-agent` | specialist | Git commit and Cloudflare deployment |
+
+**Adoption (takeover of existing sites)**
+
+| Agent | Type | Role |
+|---|---|---|
+| `site-adoption-orchestrator` | orchestrator | Wrapper — spawns `site-adoption-agent` as a Job so adoption runs in its own pod |
+| `site-adoption-agent` | specialist | Crawls source URL, classifies, writes specs and work items for the destination |
+| `tool-recreation-handler` | specialist | Recreates interactive tools from crawled source during adoption |
+
+**Improvement loop (post-build quality)**
+
+| Agent | Type | Role |
+|---|---|---|
+| `improvement-loop` | orchestrator | Post-build cycle: discovery → audit → triage → fix → rerender |
+| `build-pipeline-trigger` | orchestrator | Heartbeat: seeds queue, dispatches one site per tick |
+| `build-dispatch-loop` | specialist | Processes one work item per invocation |
+| `design-discovery-agent` | specialist | Scans for design-domain issues (undeployed assets, missing CSS, palette) |
+| `quality-discovery-agent` | specialist | Scans for quality issues (broken nav, placeholder contact, generic theme) |
+| `completeness-discovery-agent` | specialist | Scans for empty sections, cross-site contamination |
+| `design-audit-agent` | orchestrator | Top-level design audit — spawns visual and content auditors |
+| `visual-design-auditor` | analyst | Visual design quality findings |
+| `content-quality-auditor` | analyst | Content quality findings |
+| `site-review-agent` | analyst | Strategic alignment review vs brief and dream spec |
+| `content-gap-planner` | specialist | Plans how to fill audit-discovered content gaps |
+| `spec-updater` | specialist | Mechanical spec field updates from audit findings |
+| `css-patch-agent` | specialist | Applies targeted CSS fixes from audit findings |
+| `component-template-fixer` | specialist | Targeted fixes to site/page components |
+| `component-quality-auditor` | maintenance | Scores existing components, creates regen items for low-quality |
+| `nav-link-fixer` | orchestrator | Fixes broken navigation links in header/footer |
+| `nav-updater` | specialist | Refreshes navigation tables and re-renders header/footer |
+
+**News feed and content freshness**
+
+| Agent | Type | Role |
+|---|---|---|
+| `content-feed-trigger` | orchestrator | Heartbeat: finds sites recommended for news feeds |
+| `content-feed-orchestrator` | orchestrator | Per-site — dispatches feed-ingesters, produces latest-news |
+| `feed-ingester` | specialist | Fetches from one source (RSS, news search, LLM, scrape) |
+| `feed-triage` | specialist | Scores ingested items for relevance to site spec |
+| `blog-content-planner` | specialist | Plans initial blog posts from industry, services, audience |
+
+**Tool pipeline**
+
+| Agent | Type | Role |
+|---|---|---|
+| `tool-suggester` | specialist | Evaluates what tools would benefit a site |
+| `tool-generator` | specialist | Creates a new interactive tool via LLM |
+| `tool-deployer` | specialist | Forks a library tool to a site |
+| `tool-improver` | specialist | Incrementally improves deployed tools |
+| `tool-auditor` | specialist | LLM-based code review of deployed tools |
+
+**Business intelligence: veterinary medicine prices**
+
+| Agent | Type | Role |
+|---|---|---|
+| `med-url-map-orchestrator` | orchestrator | Wrapper — spawns `med-url-mapper` for URL discovery via Firecrawl |
+| `med-url-discover-orchestrator` | orchestrator | Wrapper — spawns `med-url-discoverer` for category-page URL discovery |
+| `med-price-scrape-orchestrator` | orchestrator | Wrapper — spawns `med-price-collector` for price scraping |
+| `med-export-orchestrator` | orchestrator | Wrapper — spawns `med-json-exporter` for JSON export to a site |
+| `med-url-mapper` | specialist | URL discovery via Firecrawl /map |
+| `med-url-discoverer` | specialist | URL discovery via category page scraping |
+| `med-price-collector` | specialist | Scrapes medicine prices from pharmacies |
+| `med-json-exporter` | specialist | Exports current prices as JSON, commits to site git |
+
+**Business intelligence: veterinary practice discovery**
+
+| Agent | Type | Role |
+|---|---|---|
+| `vet-pipeline-orchestrator` | orchestrator | Full pipeline: sweep → promote → verify |
+| `area-sweep-orchestrator` | orchestrator | Loads postcodes, dispatches area-sweep-discoverer |
+| `area-sweep-discoverer` | specialist | Searches for practices within one UK postcode district |
+| `vet-batch-processor` | orchestrator | Sequentially processes verification tasks |
+| `vet-practice-verifier` | specialist | Verifies and enriches a single practice |
+| `ch-collector` | specialist | Bulk collects Companies House vet SIC companies |
+| `ch-matcher` | specialist | Matches verified businesses against CH mirror |
+| `ch-detail-fetcher` | specialist | Fetches profile/officers/PSC for matched companies |
+| `ch-accounts-fetcher` | specialist | Fetches filed accounts (iXBRL), extracts financials |
+| `ch-llm-reviewer` | specialist | LLM-reviews ambiguous CH matches |
+
+**Infrastructure and utility**
+
+| Agent | Type | Role |
+|---|---|---|
+| `generic` | code-driven | No-op. Scheduled tasks that do work in pre_query CTEs send here |
+| `endpoint-health-checker` | system | Periodic health check for Ollama and Claude endpoints |
+| `work-item-archiver` | specialist | Archives terminal work items older than 7 days |
+| `maintenance-triage` | orchestrator | Scans deployed sites for maintenance issues |
+| `page-rebuild` | specialist | Rebuilds pages flagged as needs_rebuild |
+| `site-component-linker` | specialist | Links site_components to content_components from style collection |
+
+The `med-*` and adoption wrappers illustrate the "wrapper orchestrator" pattern described in doc 001 — each pairs a one-step orchestrator (spawn → call → complete) with the real worker it delegates to. That's the current canonical shape when an agent needs its own pod but has no parent-spawn relationship.
+
+### Active workflows
+
+| Workflow | Entry Point | Function |
+|---|---|---|
+| `intake-orchestrator` | Generic entry point, new domain + objective | Full pipeline: classify → brief → build |
+| `site-work-orchestrator` / `pageflow-builder` | Spawned by intake, or from build-pipeline-trigger | Plan → generate assets → build pages → deploy |
+| `site-adoption-orchestrator` | Generic entry point, `target_url` + `destination_domain` | Spawns `site-adoption-agent` as a Job; adoption runs in its own pod |
+| `improvement-loop` | Heartbeat (scheduler) or manual | Discovery → audit → triage → dispatch fixes → rerender |
+| `content-feed-trigger` | Heartbeat (scheduler, 6-hourly) | Finds news-feed sites, dispatches `content-feed-orchestrator` per site |
+| `build-pipeline-trigger` | Heartbeat (scheduler, 30-second) | Seeds queue, dispatches one site per tick |
+| `rerender-pages` / `rerender-site` | Manual or post-build | Re-assemble pages from stored components |
+
+### Implemented actions (not yet separate agents)
+
+| Action | Runs In | Function |
+|---|---|---|
+| `populate_nav_tables` | pageflow-builder | Classifies pages into nav groups |
+| `GetNavItems()` | component_library.go | Shared query — reads nav tables with pages-table fallback |
+
+### Infrastructure
+
+- **Auth Service**: JWT-based authentication, user management, project scoping
+- **API Gateway**: Gin-based HTTP, proxies to core manager
+- **Kafka**: Inter-agent messaging via request/response topics
+- **PostgreSQL**: Sites, pages, content_components, page_components, style_collections, css_themes, site_nav_groups, site_nav_items, assets, link_registry, orchestration_states, site_entities, site_entity_relationships
+- **Kubernetes**: ai-persona-system namespace, Docker images, Terraform/Kustomize
+- **Deployment**: Git commit → GitHub Actions → Backblaze S3. Cloudflare is DNS only.
+
+note:
+broker pods are personae-kafka-cluster-combined-pool-prod-0
+kubectl -n kafka get pods
+NAME                                                      READY   STATUS    RESTARTS       AGE
+personae-kafka-cluster-combined-pool-prod-0               1/1     Running   0              23h
+personae-kafka-cluster-combined-pool-prod-1               1/1     Running   0              23h
+personae-kafka-cluster-combined-pool-prod-2               1/1     Running   0              23h
+personae-kafka-cluster-entity-operator-5dfd87f6f4-7kpv4   2/2     Running   12 (23h ago)   23h
+
+---
+
+## Unified Build and Maintenance
+
+Build and maintenance are the same process. A new site is a set of work items that need doing. An existing site generates work items through discovery. Both go through the same queue, processed by the same orchestrator, handled by the same agents.
+
+### Coexistence with existing pipeline
+
+The existing `pageflow-builder`, `site-classifier`, `site-planner`, and `intake-orchestrator` continue to work unchanged. The new system uses separate agent definitions:
+
+| Existing (keeps working) | New (parallel system) |
+|---|---|
+| `intake-orchestrator` | `intake-orchestrator-v2` |
+| `site-classifier` | `site-classifier-v2` |
+| `site-planner` | `site-planner-v2` |
+| `pageflow-builder` | `site-work-orchestrator` |
+| `maintenance-triage` + `page-rebuild` | `maintenance-batch-scheduler` + `site-work-orchestrator` |
+
+### site_work_items table
+
+Every piece of work — building a new page, fixing stale content, adding a tool, publishing a news article — is a work item.
+
+Key fields:
+- `source`: 'planner', 'discovery', 'content_feed', 'manual', 'improvement', 'side_effect'
+- `domain`: 'build', 'content', 'links', 'seo', 'compliance', 'structural', 'design', 'navigation', 'entity', 'tools'
+- `item_type`: 'needs_content_page', 'needs_tool_page', 'stale_date_reference', 'broken_link', etc.
+- `severity`: 'info', 'low', 'medium', 'high', 'urgent'
+- `spec`: JSONB — work-specific structured data (page_spec, tool_spec, finding detail)
+- `handler_agent`: which agent processes this
+- `status`: 'detected', 'triaged', 'approved', 'claimed', 'in_progress', 'complete', 'pending_verify', 'verified', 'failed', 'rejected', 'wont_fix', 'needs_human_review'
+- `priority`: computed from severity + impact. Lower = higher priority.
+- `depends_on`: UUID array — items that must complete first
+- `item_key`: deterministic key for deduplication, UNIQUE per site
+- `result`: JSONB — includes commit_sha for git tracking
+
+### Work-item routing: content rebuild vs re-render
+
+Route by `item_type`, never by `item_key`. Several build item_types share the
+page-build / page-rerender handlers; the distinction is **whether copy is
+regenerated**:
+
+| item_type | handler_agent | regenerates copy? | what it does |
+|---|---|---|---|
+| `needs_page` / `needs_content_page` | `page-build-handler` | Yes (LLM) | Full content rebuild: `plan_sections` → page-content-writer (LLM) → `save_page_sections` → assemble → deploy. Use when the page's copy must be (re)written. |
+| `page_rerender` | `page-rerender` | No | With `spec.reason` ∈ {`image_landed`, `section_data_resolved`}: re-resolve fields (queryresolve + page-aware hero) and re-render every section from stored `content_data` via `rerender_page_sections` (no LLM), then assemble + deploy. Without a reason: assemble stored `rendered_html` only. |
+| `needs_rerender` | `rerender-pages` | No | Batch re-assemble of stored HTML across pages. |
+| `link_resolution_rebuild` | `page-build-handler` | **Yes (LLM) — see hazard** | *Intended* as links-only maintenance ("preserve the copy; re-resolve internal links"), but it has no dedicated route and runs the SAME full pipeline as `needs_page` — `plan_sections` → page-content-writer → save → deploy — so it regenerates the page from the plan. On a tool/game page this drops the interactive component (see hazard below). Confirmed 2026-06-22, gamesdesign `game-pathfinding`. |
+
+`flag_page_image_rebuild` (a hero/section image landed) and
+`reconcile_section_data` (deferred query data became resolvable) emit
+**`page_rerender`**, not `needs_page`: the copy is unchanged and only resolved
+fields (asset URLs, query-backed lists) need refreshing, so regenerating via the
+writer would waste LLM spend and expose an asset swap to the content-regression
+guard. Their `item_key` is `page_rerender:<page>` — the prefix matches the
+item_type, and the two collapse to a single re-render per page through the dedup
+index. A `page_rerender` whose page has any section with NULL `content_data` (a
+legacy page predating structured-content capture) escalates that page to a
+`needs_page` full rebuild — which backfills `content_data` — so subsequent
+re-renders are light.
+
+**Interactive-page hazard (CONFIRMED 2026-06-22, fix pending).** Any full content
+rebuild — `needs_page`, `needs_content_page`, or `link_resolution_rebuild` —
+regenerates a page from `plan_sections` via page-content-writer. An interactive
+tool/game is stored as a section's `rendered_html` (often the hero slot, ~18 KB of
+`tool-page` markup), NOT as a planned content section, so the writer has no
+knowledge of it and silently replaces it with generated content (falling back to
+`generic-text-block`). The Part-1 content-regression guard does not catch this (the
+loss is markup/JS, not prose). Until link maintenance is routed through a
+preserve-sections re-render path, a content rebuild against a tool/game page is
+destructive. Fixes: route link maintenance through the `page_rerender` machinery;
+stamp `source_item_id` into `page_component_history`; add an interactivity-aware
+save guard. See 016b debugging guide ("interactive page rebuilt as content"), 005
+Tool Pipeline, 020 Tool Lifecycle, 026 Component Regeneration Flow.
+
+### The site lifecycle
+
+```
+Phase 1: Initial Build
+  1. Classify + brief (human involved)
+  2. Planner writes work items (source: 'planner')
+  3. Site work orchestrator processes items → handler agents build pages
+  4. Individual git commits per page → each goes live via GitHub Action → S3
+  5. Basic site is live
+
+Phase 2+: Incremental Improvement
+  6. Planner or improvement agent writes more items
+  7. Orchestrator processes → site grows
+  8. Each batch leaves site in working state
+
+Ongoing: Maintenance
+  9. Discovery agents scan → write items (source: 'discovery')
+  10. Triage enriches items
+  11. Fix agents process → site stays fresh
+  12. Feed orchestrator writes article items (source: 'content_feed')
+  13. Article writers publish → site gains content
+  14. Goto 9
+```
+
+Steps 3, 7, and 11 are the same code.
+
+### The orchestrator
+
+**site-work-orchestrator** replaces both the build orchestrator and the site-maintenance-orchestrator:
+
+```
+Workflow:
+  1. load_site_context        → site record, maintenance profile, work items summary
+  2. process_pending_items    → items WHERE status IN ('triaged', 'approved')
+                                AND dependencies satisfied, ORDER BY priority
+                              → for each: route to handler_agent → do work → git commit → mark complete
+  3. verify_previous_work     → items with status = 'pending_verify' → re-check → mark verified/failed
+  4. run_discovery            → for each domain in maintenance profile that is due:
+                                spawn discovery agent → collect findings
+                                (skipped on first build — nothing to discover on empty site)
+  5. triage_new_items         → items with status = 'detected' → cross-reference impact →
+                                classify resolution_path → assign handler → score priority → update to 'triaged'
+  6. update_last_run          → update maintenance profile timestamps
+  7. complete
+```
+
+Order is deliberate: process existing work first, verify previous work, then discover new work, then triage.
+
+### Dispatch pattern: spawn→call per work item
+
+The orchestrator processes work items in a loop. Each iteration spawns the handler agent dynamically and calls it with raw identifiers. The handler loads its own context.
+
+```
+fix_items_loop:
+  for each work item:
+    spawn_handler   → role: "fix_handler", agent_type_field: "current_fix_item.handler_agent"
+    call_handler    → target_role: "fix_handler", input_mapping: { site_id, domain, spec fields? }
+    mark_complete   → complete_work_item
+```
+
+The agent type comes from the work item's `handler_agent` field. The spawn resolves it dynamically via `agent_type_field`. The call finds the just-spawned agent via `target_role: "fix_handler"`. Standard spawn→call, same as everywhere else in the system.
+
+**What the orchestrator passes:**
+
+```json
+{
+    "site_id": "site_record.site_id",
+    "domain": "site_record.domain",
+    "asset_id?": "current_fix_item.spec.asset_id",
+    "purpose?": "current_fix_item.spec.purpose",
+    "check?": "current_fix_item.spec.check",
+    "page_id?": "current_fix_item.page_id"
+}
+```
+
+Optional fields (`?` suffix) are silently skipped if absent in the work item spec. This means the same dispatch loop handles `missing_css` items (webdesign-agent needs `site_id`, `domain`), `undeployed_asset` items (asset-deployer needs `asset_id`, `purpose`), and future handler types — without the orchestrator knowing what each handler needs.
+
+**What the orchestrator does NOT do:**
+- Pre-spawn handler agents in a static chain. Agent types aren't known until work items are loaded.
+- Build derived data for handlers (e.g. resolving s3:// URIs from asset IDs). That's the handler's job.
+- Pass work item IDs or work item awareness to handlers. Handlers don't know about the work item system.
+
+**Handlers are self-contained.** The webdesign-agent receives `site_id` and `domain`, does `check_site_context → load_site_for_design → generate_css → deploy`. The asset-deployer receives `asset_id`, `purpose`, `domain`, resolves the storage URI itself from the assets/sites tables. Both can be called directly from CLI with the same inputs — no orchestrator required.
+
+Status tracking (marking items in_progress/complete) is the orchestrator's concern, handled in the loop before and after the handler call.
+
+### Batch scheduler
+
+```
+K8s CronJob (every 8 hours)
+  └── agent-chassis → maintenance-batch-scheduler
+        1. populate_work_queue  → query sites with due maintenance OR pending build items
+        2. claim_batch          → FOR UPDATE SKIP LOCKED, batch_size sites
+        3. process_batch        → spawn site-work-orchestrator per site
+        4. complete
+```
+
+For initial builds, the intake-orchestrator triggers the site-work-orchestrator directly.
+
+### The planner as discovery agent
+
+The planner writes work items to DB instead of returning JSON:
+
+```
+For a simple brochure site:
+  needs_content_page  | index    | priority 10 | handler: page-content-writer
+  needs_content_page  | about    | priority 10 | handler: page-content-writer
+  needs_content_page  | services | priority 10 | handler: page-content-writer
+  needs_logo          | site     | priority 5  | handler: image-generator
+  needs_design        | site     | priority 8  | handler: webdesign-agent
+
+For a mixed site (wykefarm):
+  -- Tier 1: core content pages (priority 10-12)
+  -- Tier 1: site infrastructure (priority 5-8)
+  -- Tier 2: tools (priority 30, built after core site is live)
+  -- Tier 3: entity directory (priority 50+, depends_on entity setup)
+```
+
+Priority numbers control ordering. The orchestrator processes lowest-priority-number-first, respecting dependencies.
+
+### The classifier (v2 output)
+
+```json
+{
+  "build_approach": "page-assembled | application | hybrid",
+  "primary_archetype": "descriptive label",
+  "page_types": ["content", "tool", "commerce", "entity-directory", "news"],
+  "entity_types": [],
+  "hosting_trajectory": "static_only | static_now_api_later | needs_server",
+  "detected_industry": "industry name",
+  "recommended_builder": "pageflow-builder"
+}
+```
+
+HITL reviews and can adjust build approach, page types, entity types, industry detection.
+
+### Git commit strategy
+
+Individual commits per work item. Each commit is atomic and reversible. Commit message includes what changed, why (source + item_type), and the work item ID.
+
+**Commit IS deploy.** GitHub Actions fires on each commit, writes changed files to S3 (Backblaze B2). No separate deploy step, no batching, no gap between commit and live.
+
+### Post-processing (the assembly step)
+
+After any handler produces HTML for a page:
+
+```
+handler returns page HTML
+  → assemble_page (inject head, header, footer from stored site chrome)
+  → git_commit (individual commit with item reference)
+  → save_page_sections (store rendered sections in page_components)
+  → update work item status → 'complete'
+  → update page build_status → 'deployed'
+```
+
+Same existing actions for all handlers. For site-wide items (design, nav), different post-processing path.
+
+### Page Build Handler Pipeline
+
+The `page-build-handler` wraps the content writer with data triage, validation, and deployment. It processes one page at a time as a dispatched work item. This pipeline runs regardless of `item_type` — there is no links-only branch — so a `link_resolution_rebuild` regenerates the whole page through the writer (see the interactive-page hazard under Work-item routing).
+
+```
+ensure_site_record
+  → load_page_record
+    → check_page_found
+      → plan_sections              (Go action — resolve data per section)
+        → check_has_ready_sections (conditional — skip if nothing to build)
+          → spawn_content_writer
+            → call_content_writer  (only receives ready sections)
+              → check_content_produced
+                → validate_content (Go action — catch LLM mistakes)
+                  → save_sections  (reads validated clean_html)
+                    → update_status
+                      → spawn_rerender → deploy_page → complete
+```
+
+**plan_sections** reads each section's component `input_schema` (v2 format — see 003_contracts_and_standards), resolves data sources against `site_specs`, `pages`, and `site_assets`, and returns three lists:
+
+| List | Meaning | What happens |
+|------|---------|-------------|
+| `sections_ready` | All required data available | Sent to content writer |
+| `sections_deferred` | Required data missing, `on_missing: needs_human_review` | Work item created, section omitted |
+| `sections_skipped` | No data, `on_missing: skip_section` | Silently omitted |
+
+The page deploys with whatever sections are ready. Deferred sections become `needs_human_review` work items. When a human provides the data, the section is regenerated and the page rerenders with it added.
+
+**validate_content** catches problems in what the LLM produced:
+
+| Check | Severity | Examples |
+|-------|----------|---------|
+| Placeholder text | blocker | "To be added", "Lorem ipsum", "[insert name]" |
+| Unrendered templates | blocker | `{{.field}}`, `{{range .items}}` |
+| Cross-site contamination | blocker | Wrong domain or company name |
+| Broken internal links | error | Href to non-existent page |
+| Hallucinated emails | error | Email that doesn't match site contact |
+| Short content | warning | Under 50 characters of text |
+
+Blockers and errors prevent deployment → route to `mark_needs_review` → `fail_work_item` with `status_override: needs_human_review`.
+
+### Dispatch Loop and Pipeline Trigger
+
+The build-pipeline-trigger fires every 30 seconds via the kafka-scheduler. It spawns a `build-dispatch-loop` for one site at a time. The dispatch loop processes one work item per orchestration and completes.
+
+```
+build-pipeline-trigger (every 30s):
+  seed_queue → find_dispatchable_site → spawn_dispatch → call_dispatch → complete
+                                                              ↑
+                                                  await_response: false
+                                                  (fire-and-forget)
+```
+
+The trigger uses `call_agent` with `await_response: false` — it sends the process message and immediately completes. The dispatch loop runs independently. The trigger is free to dispatch another site on the next tick.
+
+The `find_dispatchable_site` query skips sites with claimed items, preventing duplicate dispatch loops:
+
+```sql
+NOT EXISTS (SELECT 1 FROM site_work_items WHERE site_id = wi.site_id AND status = 'claimed')
+```
+
+Result: up to N sites processing in parallel (one item each), 30 seconds between dispatch cycles, no memory accumulation.
+
+---
+
+## Agent Families
+
+### 1. Navigation Agent Family
+
+Owner: `nav-agent` (currently `populate_nav_tables` action within pageflow-builder).
+
+Navigation is a first-class entity. Tables: `site_nav_groups` (semantic categories), `site_nav_items` (individual nav entries).
+
+**Group types:** primary, subsection, content, legal, utility, external. Contextual groups (per-entity, per-category) planned for entity-driven sites.
+
+**Three-tier authority model:**
+- **Tier 1 — Strategist Authority:** New builds and major restructure. Planner plans full nav, nav agent validates and persists.
+- **Tier 2 — Nav Agent Authority:** Maintenance, minor additions. Autonomous incremental decisions.
+- **Tier 3 — Drift Detection:** Periodic comparison of current nav against original plan.
+
+### 2. Links Agent Family
+
+Owner: `links-orchestrator` (algorithmic, no LLM).
+
+Sub-agents: link-crawler, link-validator, link-registry-sync, redirect-manager, affiliate-link-manager (phase 2).
+
+**Does:** Extract links from HTML, classify types, resolve internals, HTTP HEAD checks, detect broken/orphaned, generate redirects, track link counts. **Does not:** Decide where to place links (content writer), navigate structure (nav agent), SEO strategy (SEO agent).
+
+### 3. Design Agent Family
+
+Maps to the three design system layers.
+
+| Agent | Layer | Responsibility | LLM? | Status |
+|---|---|---|---|---|
+| `webdesign-agent` | 2 (theme) | Analyses brand, generates design spec, produces CSS | Yes | Exists |
+| `brand-designer` | 2 (theme) | Colour, typography, spacing, visual tone | Yes | Future split |
+| `layout-architect` | 1 (components) | Page type skeletons, nav group placements | Yes | Planned |
+| `style-generator` | 2 (theme) | CSS production from brand spec + layout | Yes | Future split |
+
+Current: webdesign-agent handles both brand analysis and CSS generation. The split happens when the theme library is large enough that "search and adapt" beats "generate from scratch."
+
+### 4. Content Agent Family
+
+Split by what they write because different content types require different approaches.
+
+| Agent | Responsibility | LLM? | Status |
+|---|---|---|---|
+| `page-content-writer` | Marketing/editorial page content | Yes | Exists |
+| `legal-content-agent` | Privacy, terms, disclaimers | Template + minimal LLM | Planned |
+| `seo-content-agent` | Meta titles, descriptions, structured data | LLM + algorithmic | Planned |
+| `product-content-writer` | Product reviews from structured data | Yes | Phase 2 |
+| `research-agent` | Web research for content backing | Yes | Exists |
+| `content-reviewer` | HITL or auto-eval review | Yes | Exists |
+
+### 5. Entity Data Agent Family
+
+Owner: `entity-data-agent`. Manages structured data that generates pages — products, events, people, venues, ticket tiers.
+
+**Tables:** `site_entities`, `site_entity_relationships` (exist), `entity_sources`, `entity_sync_log` (planned).
+
+**Two modes:**
+- **Setup mode (work items):** Configure source → fetch initial data → render pages → build directory. Dependency chain.
+- **Discovery mode (scheduled):** Check sources for changes → write work items for drifted/new/removed entities.
+
+**Entity lifecycle is state-based, not time-based:** Events go through announced → on_sale → selling_fast → sold_out → event_day → past → historical based on real-world status. Different from news which decays by age.
+
+**Entity types for boxing/events:** event, performer, venue, ticket_tier with relationships (features, held_at, has_tickets, on_same_card).
+
+**Real-time data** (prices, availability, live scores) is NOT handled through the work queue. Entity pages include client-side JS that fetches from a data API at view time.
+
+### 6. News and Content Feed Agent Family
+
+Owner: `content-feed-orchestrator`.
+
+**Tables:** `content_sources` (config per site), `content_feed_items` (raw ingested items).
+
+**Pipeline:** Sources → Ingestion → Deduplication → Triage → Rewriting → Entity linking → Publication → Lifecycle.
+
+| Agent | Role | LLM? |
+|---|---|---|
+| `feed-ingester` | Fetch from configured sources | No |
+| `feed-deduplicator` | Near-duplicate detection | Minimal |
+| `feed-triage` | Relevance, urgency, angle | Yes |
+| `article-rewriter` | Rewrite in site voice with entity cross-links | Yes |
+| `feed-publisher` | Create page, deploy | No |
+| `feed-lifecycle` | Age, archive, prune | No |
+
+**Lifecycle timing varies:** News site: 24h featured, 7d current. Blog: 7d featured, 30d current. Events: tied to event calendar.
+
+**Connection to entities:** Entity state changes can trigger news articles via `entity_sources.news_triggers`. Not every change — only configured significant changes (status transitions, large price changes, low availability).
+
+**News display is a design concern, not a feed concern.** The feed pipeline handles content supply. Visual presentation (card layouts, article templates) is part of the design system.
+
+### 7. Tool Builder Agent (phase 2)
+
+For interactive components — calculators, configurators, simple tools.
+
+| Tier | Description | Creation |
+|---|---|---|
+| Static | HTML templates with CSS | Existing component library |
+| Dynamic | Self-contained JS applications | LLM-generated or pre-built |
+| Application | Full web apps with API | Engineer-built only |
+
+### 8. Maintenance Agent Family
+
+**Discovery agents** find problems. **Triage** classifies them. **Fix agents** resolve them. All coordinated through `site_work_items` table.
+
+**Discovery agents:**
+
+| Agent | Domain | Checks | Schedule |
+|---|---|---|---|
+| `content-discovery-agent` | content | date refs, entity drift, thin content, stale stats | weekly |
+| `links-discovery-agent` | links | internal/external links, orphans, redirects | 8 hours |
+| `seo-discovery-agent` | seo | sitemap sync, schema, meta freshness | weekly |
+| `compliance-discovery-agent` | compliance | disclaimers, legal templates | monthly |
+| `structural-discovery-agent` | structural | nav complexity, redundant content, competitors | monthly |
+
+Discovery agents write items. They do not fix anything. They do not call other agents.
+
+**Fix agents (handler agents):**
+
+Called via the dispatch loop (spawn→call per work item). Each receives raw identifiers, loads its own context. No work-item-specific code in handlers.
+
+Existing agents adapted as handlers:
+
+| Agent | Handles | Notes |
+|---|---|---|
+| `page-content-writer` | `needs_content_page` | Receives page spec from item.spec |
+| `image-generator` | `needs_logo`, `needs_hero_image` | Receives prompt from item.spec |
+| `asset-deployer` | `undeployed_asset` | Downloads S3, optimizes, commits to git |
+| `webdesign-agent` | `needs_design`, `missing_css` | Generates/updates CSS theme |
+
+New fix agents:
+
+| Agent | Handles | Phase |
+|---|---|---|
+| `section-rewriter` | stale_date_reference, entity_data_drift | Phase 2 |
+| `redirect-manager` | redirect_chain, broken_internal_link | Phase 1 |
+| `sitemap-regenerator` | sitemap_out_of_sync | Phase 1 |
+| `nav-updater` | nav_item_orphaned | Phase 1 |
+| `tool-builder` | needs_tool_page | Phase 2 |
+| `article-writer` | publish_article | Feed Phase 1 |
+
+**Triage** runs as a step within the site-work-orchestrator. For build items from the planner, triage is pre-done — items arrive as 'triaged'.
+
+**Cross-domain coordination:** Agents communicate through the work items table, not by calling each other. When a fix creates a side-effect, it writes a new work item with `source: 'side_effect'` and `parent_item_id`.
+
+---
+
+## Section Editor
+
+Performs granular edits to individual page sections without re-running the full content generation pipeline.
+
+### Source-of-truth principle
+
+Every section has two representations: `content_data` (structured JSON) and `rendered_html` (final HTML). **content_data is always the source of truth.** Every edit updates content_data first, then re-renders the template. Edits survive all future re-renders.
+
+### Edit types
+
+**content_edit:** Two modes — `field_updates` (merge into existing content_data) or full `content_data` replacement.
+
+**component_swap:** Replace the component template while keeping existing content_data.
+
+### buildRenderContextFromDB
+
+Key function that constructs `RenderContext` entirely from database state (no collected_data needed):
+1. `loadSiteDataFull()` → company name, domain, email, phone, logo
+2. `GetStyleCollectionForSite()` → colour palette
+3. `getThemeByID()` → CSS theme
+4. `GetNavItems()` → header and footer navigation
+5. Page metadata → title, description
+6. Section content_data → merged as RenderContext.ContentData
+
+---
+
+## JavaScript Management
+
+### JS Snippets Library (`js_snippets` table)
+
+Pre-built, reusable JS for standard interactivity (mobile nav, smooth scroll, form validation). Selected during planning, injected via head component. Site-level, not per-page.
+
+### Custom JS for Tools
+
+Tool pages generate custom JS as part of their build. Self-contained, lives inline in page HTML or as page-specific script file. Managed through `page_components` content_data.
+
+### JS and Components
+
+Component templates declare JS dependencies. Assembly step ensures required JS is included when a component is used on a page.
+
+---
+
+## Per-Site Configuration
+
+Stored in `sites.settings.maintenance_profile`:
+
+```json
+{
+  "maintenance_profile": {
+    "build": { "current_tier": 2, "auto_advance_tiers": true },
+    "content": { "enabled": true, "every": "7d", "auto_fix_enabled": false },
+    "links": { "enabled": true, "every": "8h" },
+    "seo": { "enabled": true, "every": "7d" },
+    "compliance": { "enabled": true, "every": "30d" },
+    "content_feed": { "enabled": false, "every": "24h", "max_articles_per_cycle": 3 },
+    "entity": { "enabled": false, "types": [], "sources": [] },
+    "budget": { "llm_calls_per_cycle": 20, "max_auto_fixes_per_cycle": 5 }
+  }
+}
+```
+
+---
+
+## Site Type Stress Tests
+
+**Brochure Site** — primary + utility + legal nav. No entity data. Standard templates. Optional news for SEO freshness.
+
+**E-commerce / Product Review** — categories in nav. Products as entities. Commercial outbound links. Fast feed lifecycle.
+
+**Finance / Tools** — tools + content + extensive legal nav. Pervasive disclaimers. LLM-generated calculators. Legal constraints on rewritten news. Feed sources: FT, Reuters, FCA.
+
+**Events / Tickets (first target: boxing, then football)** — primary + content (news) + contextual (per-event, per-performer) nav. Dense entity relationships. State-based lifecycle. Entity changes trigger news via `news_triggers`. API sources: Ticketmaster, SeatGeek, BoxRec.
+
+**Interactive Platform** — Marketing pages via standard pipeline. Engineer-built Tier 3 components. Agent-as-API pattern. User IS the HITL.
+
+---
+
+## Data Ownership
+
+| Data | Owner Agent | Tables |
+|---|---|---|
+| Site record, brand_assets, content_data | site-planner / brand-designer | `sites` |
+| Page records, sections | site-planner | `pages` |
+| Navigation structure | nav-agent | `site_nav_groups`, `site_nav_items` |
+| Link registry | links-orchestrator | `link_registry` |
+| Redirects | redirect-manager | `site_redirects` |
+| Page component HTML | page-content-writer / page-rerender | `page_components` |
+| Site-level components | render_site_components action | `site_components` |
+| Style collection | webdesign-agent | `style_collections` |
+| Content components | library (manually maintained) | `content_components` |
+| Section data requirements | plan_sections action | `content_components.input_schema` |
+| Content validation | validate_page_content action | Pre-deployment quality gate |
+| Entity data | entity-data-agent | `site_entities`, `site_entity_relationships` |
+| Layout definitions | layout-architect | `sites.content_data.layout_definitions` |
+| Brand spec | brand-designer | `sites.content_data.brand_spec` |
+| Legal rules | legal-content-agent | `sites.content_data.legal_rules` |
+| SEO metadata | seo-content-agent | `pages` meta fields |
+| Content sources | content-feed-orchestrator | `content_sources` |
+| Raw feed items | feed-ingester | `content_feed_items` |
+
+---
+
+## Design Consistency (how fix agents don't break sites)
+
+1. **Site chrome is stored in DB** via `page_components` site-level slots. No agent regenerates chrome unless explicitly told to.
+2. **CSS theme is a single file** (`/assets/css/styles.css`). Components use CSS variables. Changing content doesn't change styling.
+3. **Section reassembly** loads ALL sections for the page, replaces only the changed section, re-assembles with current chrome.
+4. **Design changes are explicit work items.** No other agent modifies CSS.
+5. **The render pipeline** is shared infrastructure. Build and maintenance use the same functions.
+
+---
+
+## Implementation Phases
+
+### Phase 0 — Foundation
+
+1. `site_work_items` table
+2. `content_feed_items` table
+3. Planner action: write work items to DB
+4. `site-work-orchestrator` agent
+5. Intake orchestrator: updated flow
+6. Existing `page-content-writer` adapted for work item input
+
+### Phase 1 — Maintenance Discovery + Simple Fixes
+
+7. `maintenance-batch-scheduler`
+8. Content, links, SEO discovery agents
+9. Triage step in orchestrator
+10. redirect-manager, sitemap-regenerator, nav-updater fix agents
+11. maintenance-catch-all (daily cron)
+12. K8s CronJob manifests
+
+### Phase 2 — Tools + LLM Fixes
+
+13. tool-builder, directory-builder agents
+14. section-rewriter, legal-updater, schema-fixer, image-optimiser
+15. LLM-based discovery checks
+16. compliance-discovery-agent
+
+### Phase 3 — Entities + Feeds
+
+17. entity-data-agent (setup + sync)
+18. entity-page-builder
+19. content-feed-orchestrator and sub-agents
+20. Entity source integrations (boxing APIs → football → finance)
+
+### Phase 4 — Application Sites + Advanced
+
+21. app-builder agent
+22. structural-discovery-agent
+23. css-patcher, analytics integration
+24. Agent-as-API layer, multi-tenant scoping
+
+---
+
+## Resolved Decisions
+
+1. Nav agent during build: runs after planner, before content loop. Currently `populate_nav` action.
+2. Heartbeat trigger: K8s CronJob → agent-chassis → spawns maintenance-batch-scheduler.
+3. Layout definitions: JSONB on `sites.content_data` under `layout_definitions`.
+4. Legal rules: per-site on `sites.content_data.legal_rules`. Templates seed common rules.
+5. Entity data sourcing: API-first. Manual/HITL for initial seeding. Both write to `site_entities`.
+6. CSS colour inheritance: base stylesheet sets `color: var(--color-text)` on `body`. Text elements use `--section-*` variables with light-theme fallbacks. Dark-section components override `--section-*` on their container.
+7. Theme reuse vs generation: currently generates per site. Plan: store, search before generating.
+8. Maintenance profile: `sites.settings`.
+9. Fix vs build agents: separate. Build = create from nothing (broad). Fix = change specific thing (narrow, finding-driven). Share underlying actions.
+10. Discovery agents as spawned K8s jobs: cleaner logs, failure isolation.
+11. Site independence: each site gets its own orchestrator instance.
+12. Entity lifecycle: state-based, not time-based.
+13. Entity state changes trigger news via feed pipeline: `news_triggers` config controls significance.
+14. Entity sources and content sources: separate tables, separate ownership.
+15. Commit IS deploy: GitHub Actions fires on each commit → S3 → live. No separate deploy step needed in new system.
+16. Dispatch loop uses standard spawn→call: `spawn_agent` supports `agent_type_field` for dynamic type resolution. Combined with a fixed `role` and `target_role` lookup, this gives dynamic dispatch with no special Go code. Do not bypass spawn with direct topic construction — agents must be spawned to get proper orchestration tracking, topic setup, and DB registration.
+17. Handlers don't know about work items: The orchestrator maps spec fields to handler input_data via `input_mapping`. Handlers receive raw identifiers (`site_id`, `domain`, `asset_id`, etc.) and load their own context. The work item system is the orchestrator's concern, not the handler's.
+18. **Section-level data triage.** Components declare data requirements in `input_schema` (v2 format). The `plan_sections` action resolves sources before the content writer runs. Sections with missing required data are deferred to human review, not fabricated. Pages deploy with whatever sections are ready.
+19. **Content validation is algorithmic, not LLM.** Placeholder detection, template rendering checks, and cross-site contamination checks are pattern matching — cheap and deterministic. The content writer's prompt prevents fabrication upstream; validation is the safety net.
+20. **Dispatch is fire-and-forget.** The pipeline trigger uses `call_agent` with `await_response: false`. The dispatch loop runs independently after receiving the process message. This allows parallel site processing without the trigger blocking.
+21. **One item per dispatch orchestration.** The dispatch loop loads one item, processes it, and completes. No batch accumulation, no OOM risk. The pipeline trigger fires every 30 seconds and dispatches the next item.-e 
+
+---
+
+The document covers:
+The three-layer QA pipeline — structural checks (algorithmic), design/content audit (LLM-assisted), strategic review (LLM-required). Each produces work items processed by the same dispatch loop.
+The agent hierarchy — why group agents rather than individual check agents or a registry of mini-actions. The key argument: grouping by shared context avoids redundant LLM calls, while keeping each group as a full orchestrator preserves the "every agent is an orchestrator" principle.
+The promotion pattern — how a check goes from a query_database action step to a standalone agent with its own workflow. One line changes in the calling workflow, nothing downstream breaks. This is the practical answer to "when does an action become an agent?"
+Algorithmic vs LLM-assisted vs LLM-required — how group agents run algorithmic checks first, include the results in the LLM prompt, and make one holistic LLM call per group. Some checks have both components.
+Site-type-specific configurations — different sites enable different audit groups via maintenance_profile.audit. Adding new groups is creating an agent definition, not changing Go code.
+Responsibility boundaries — the chain from classifier → planner → design agent → audit agent. The audit agent enforces the upstream decisions, it doesn't override them. Exception: adopted sites with no classifier output get "propose" mode.
+Dream spec — aspirational spec from the classifier, feasibility annotations, gap analysis by the review agent, and how the backlog refills as capabilities grow.
+
+
+# 002d — Quality Assurance Agent Architecture
+
+Extension to 002 System Architecture. Covers the audit/review agent hierarchy, the relationship between structural checks and subjective assessment, the agent promotion pattern, and the dream spec concept.
+
+---
+
+## The Quality Assurance Pipeline
+
+Three layers of quality assurance, each operating at a different level of abstraction.
+
+```
+Layer 1: Structural Checks (algorithmic, no LLM)
+  → "Is component_id NULL?" "Does slot_name match data-component?"
+  → Discovery checks in run_discovery_checks (existing pattern)
+  → Binary right/wrong, cheap to run, run every cycle
+
+Layer 2: Design & Content Audit (LLM-assisted, contextual)
+  → "Is the colour palette cohesive?" "Is the typography hierarchy clear?"
+  → Group auditor agents that combine algorithmic checks with one LLM call
+  → Subjective assessment, moderate cost, run periodically
+
+Layer 3: Strategic Review (LLM-required, holistic)
+  → "Is this site achieving its purpose?" "What's the biggest gap?"
+  → Top-level review agents that load full site context
+  → Business-level judgement, higher cost, run on demand or infrequently
+```
+
+Each layer produces `site_work_items`. The dispatch loop processes them identically regardless of which layer created them.
+
+### Layer 0: Pre-Generation Data Triage (plan_sections)
+
+Quality assurance begins before content is generated, not after. The `plan_sections` action in the page-build-handler checks data availability per section BEFORE the content writer runs.
+
+```
+Layer 0: Data Availability (algorithmic, no LLM, per-section)
+  → "Does the leadership-team component need team_members data?"
+  → "Is site_specs.identity.team populated for this site?"
+  → Binary available/unavailable, free to run, runs every page build
+```
+
+This prevents the class of problems where the content writer fabricates data it doesn't have (team names, testimonials, pricing, case studies). Components declare their data requirements in `input_schema` (v2 format — see 003_contracts_and_standards). plan_sections resolves each source and triages sections into ready / deferred / skipped.
+
+Deferred sections create `needs_human_review` work items. The page deploys with ready sections only. When a human provides the missing data, the section is regenerated.
+
+This creates a feedback loop with the audit pipeline:
+
+```
+Audit finds: "about page has no team section"
+  → work item: needs_content_planning
+  → dispatch loop picks it up
+  → page-build-handler → plan_sections
+  → team_members missing → needs_human_review
+  → human provides team data
+  → work item retriggered
+  → plan_sections → ready
+  → content writer generates with real data
+  → validate_content → passes
+  → deploy
+```
+
+---
+
+## Agent Hierarchy
+
+```
+design-audit-agent (top-level orchestrator)
+  ├── visual-design-auditor (group agent)
+  │     Steps: load context → algorithmic checks → LLM visual assessment → write findings
+  │     Checks: colour consistency, spacing, typography, dark sections, responsive
+  │
+  └── content-quality-auditor (group agent, reusable)
+        Steps: load brief → load page samples → detect empty pages → LLM content review → write findings
+        Checks: tone alignment, content gaps, CTA effectiveness, differentiation
+
+site-review-agent (top-level orchestrator)
+  ├── content-quality-auditor (same agent, reused via spawn+call)
+  └── strategic alignment review (own LLM call)
+        Checks: purpose alignment, page structure, dream spec gaps, conversion path
+```
+
+### Why group agents instead of individual check agents
+
+Individual checks that need LLM assessment would each need to load the same context (CSS theme, colour palette, rendered HTML). Sending 2000 tokens of context with every small question is wasteful. Grouping checks by shared context means one context load and one LLM call per group.
+
+However, each group agent IS a full orchestrator. If a specific check grows complex enough to need its own workflow (e.g. calling a vision AI for screenshot analysis, or spawning a research agent for competitor comparison), it can be promoted from an action step to a spawned sub-agent. The group agent's workflow changes one line — see "The Promotion Pattern" below.
+
+### Why not a registry of mini-actions
+
+The existing discovery check registry (`DiscoveryCheck` interface in `discovery_checks/`) works well for structural checks — SQL queries that return binary results. But LLM-assisted checks have different characteristics: they share context, they need prompt composition, and they may grow into multi-step workflows.
+
+Making them a second class of object (registered functions that aren't agents) breaks the principle that every agent is an orchestrator. It creates something that can't be spawned, can't have workflows, and can't be extended independently.
+
+The group-agent approach keeps one consistent pattern. Checks start as action steps within a group agent's workflow. If they need independence, they become agents. The calling pattern is the same either way.
+
+---
+
+## The Promotion Pattern
+
+A check starts as an action step in a group agent's workflow:
+
+```json
+"check_colour_consistency": {
+    "action": "query_database",
+    "config": {
+        "query": "SELECT ... hardcoded hex values ...",
+        "params": ["site_record.site_id"]
+    },
+    "next_step": "check_typography",
+    "output_field": "colour_findings"
+}
+```
+
+When it needs more capability (e.g. calling a vision AI), promote it to an agent:
+
+```json
+"spawn_colour_checker": {
+    "action": "spawn_agent",
+    "config": { "role": "colour_checker", "agent_type": "check-colour-consistency" },
+    "next_step": "call_colour_checker"
+},
+"call_colour_checker": {
+    "action": "call_agent",
+    "config": {
+        "target_role": "colour_checker",
+        "input_mapping": { "site_id": "site_record.site_id", "domain": "site_record.domain" }
+    },
+    "next_step": "check_typography",
+    "output_field": "colour_findings"
+}
+```
+
+The `colour_findings` output field stays the same. Nothing downstream changes. The check now owns its own workflow, can call external services, can be versioned and tested independently.
+
+**Rule: Start as an action. Promote to an agent when the action needs multiple steps, external calls, or independent scaling.**
+
+---
+
+## Algorithmic vs LLM-Assisted vs LLM-Required
+
+Each check falls into one of three categories:
+
+| Category | Cost | Example | Implementation |
+|----------|------|---------|----------------|
+| Algorithmic | Free | "Is component_id NULL?" | SQL query or Go string operation |
+| LLM-assisted | Moderate | "Is the colour palette cohesive?" | Could be algorithmic (compare hex values) but benefits from LLM judgement for edge cases |
+| LLM-required | Higher | "Does the tone match the brief?" | Cannot be done algorithmically — needs language understanding |
+
+Group agents run algorithmic checks first (via `query_database` steps), then make ONE LLM call that covers all LLM-assisted and LLM-required checks in the group. The algorithmic results are included in the LLM prompt as context — so the LLM doesn't re-check things already found algorithmically, but can use them to inform its assessment.
+
+This means some checks have both an algorithmic and LLM component. The algorithmic part catches the obvious cases (hardcoded hex `#1a1a2e` that should be `var(--color-primary)`). The LLM catches subtle cases ("this shade of blue doesn't match the overall warm tone of the palette").
+
+---
+
+## Site-Type-Specific Audit Configurations
+
+Different site types need different audit groups. A brochure site doesn't need feed quality checks. A news site doesn't need pricing page audits.
+
+The site's `maintenance_profile` (in `sites.settings`) controls which audit groups run:
+
+```json
+{
+    "maintenance_profile": {
+        "audit": {
+            "visual_design": { "enabled": true, "every": "7d" },
+            "content_quality": { "enabled": true, "every": "7d" },
+            "strategic_review": { "enabled": true, "every": "30d" },
+            "feed_quality": { "enabled": false },
+            "entity_accuracy": { "enabled": false }
+        }
+    }
+}
+```
+
+As new site types are built, new group auditor agents are created:
+
+| Site Type | Audit Groups |
+|-----------|-------------|
+| Brochure | visual_design, content_quality, strategic_review |
+| News | visual_design, content_quality, feed_quality, freshness |
+| E-commerce | visual_design, content_quality, product_accuracy, pricing |
+| Events | visual_design, content_quality, entity_accuracy, event_lifecycle |
+
+Each group is an agent with its own workflow. The top-level audit orchestrator spawns only the groups enabled for that site type. Adding a new group is creating an agent definition — no Go code changes to the orchestrator.
+
+---
+
+## Responsibility Boundaries
+
+### Classifier → Planner → Design Agent → Audit Agent
+
+The pipeline has a clear chain of authority:
+
+| Stage | Agent | Decides | Stores in |
+|-------|-------|---------|-----------|
+| Classification | site-classifier | Industry, site type, build approach, archetype | `site_specs` |
+| Planning | site-planner | Pages, sections, components, tone, audience | `site_specs`, `content_data` |
+| Design | webdesign-agent | Colour palette, typography, spacing, CSS | `style_collections`, `css_themes` |
+| Build | page-content-writer et al | Actual content, rendered HTML | `page_components` |
+| Audit | design-audit-agent | Whether the build matches the plan | `site_work_items` |
+
+**The audit agent is a consultant, not a dictator.** It reads the classifier's design intent and the planner's specifications, then checks whether the current implementation matches. It doesn't override design decisions — it enforces them.
+
+```
+Classifier decides: "professional-dark, blue/orange palette, serif headings"
+  → stored in site_specs
+
+Design agent creates: CSS theme with those colours and fonts
+  → stored in css_themes
+
+Audit agent checks: "The classifier said blue/orange but I see green in 3 sections"
+  → creates work item: colour_fix, change green to var(--color-accent)
+```
+
+**Exception: no design intent exists.** For adopted sites (imported without running the classifier), the audit agent can propose a design direction. This is a different mode — "propose" vs "enforce" — and should be flagged in the work item for HITL review.
+
+### Fix Agent Independence
+
+Fix agents (handlers) don't know they were triggered by an audit. They receive `site_id`, `domain`, and spec fields. They load their own context. They could be called from CLI with the same inputs.
+
+This means audit findings route to the same handlers used by the build pipeline and the improvement loop. There's one webdesign-agent, not separate ones for build vs audit vs manual request.
+
+---
+
+### Storage
+
+```json
+// In sites.content_data.dream_spec
+{
+    "ideal_pages": ["index", "about", "services", "case-studies", "blog",
+                    "pricing", "faq", "testimonials", "team", "resources"],
+    "ideal_features": ["live chat", "booking form", "portfolio gallery",
+                      "newsletter signup", "client testimonials with photos"],
+    "ideal_content_depth": "6-8 detailed service pages with case studies each",
+    "ideal_design": "custom photography, animated hero, micro-interactions",
+    "ideal_seo": "local SEO optimized, schema markup, blog with 2x/week posts",
+    "feasibility": {
+        "live_chat": { "possible": false, "reason": "no chat agent yet" },
+        "booking_form": { "possible": true, "agent": "tool-deployer" },
+        "newsletter_signup": { "possible": true, "agent": "tool-deployer" },
+        "blog_posts": { "possible": true, "agent": "page-build-handler" },
+        "custom_photography": { "possible": false, "reason": "only AI-generated images" }
+    }
+}
+```
+
+### Gap Analysis
+
+The `site-review-agent` compares `dream_spec` against current state:
+
+```
+dream_spec says: 10 pages
+current state: 7 pages
+gap: 3 pages (pricing, faq, resources)
+feasibility: all possible via page-build-handler
+→ work items: needs_content_page × 3
+```
+
+The `feasibility` field prevents creating work items for things we can't build yet. As new agents come online, feasibility changes and previously blocked items become actionable.
+
+### Updating the Dream Spec
+
+see the classifier architecture doc for this - currently: 015_consolidated_site_spec_classifier_architecture.md
+---
+
+## Audit vs Fix: Same Checks, Different Modes
+
+A design check can operate in two modes:
+
+| Mode | Trigger | Action | Output |
+|------|---------|--------|--------|
+| **Audit** | Improvement loop, periodic schedule | Scan all components, find problems | Work items (`status: detected`) |
+| **Fix** | Dispatch loop, work item handler | Fix a specific problem identified by audit | Updated component, needs_rerender item |
+
+The check logic is the same code. What differs is scope (scan everything vs fix one thing) and authority (detect vs modify).
+
+For algorithmic checks, the audit and fix functions can share Go code. For LLM-assisted checks, the audit prompt asks "what's wrong?" and the fix prompt asks "here's what's wrong, fix it."
+
+This means we don't need separate "audit agent" and "fix agent" for each concern. The group auditor detects problems. The existing handler agents (webdesign-agent, component-template-fixer, page-build-handler) fix them. The handler doesn't know whether it was triggered by a human, an audit, or the build pipeline.
+
+### Content Validation as a Third Mode
+
+In addition to audit mode and fix mode, content validation runs inline during every page build:
+
+| Mode | Trigger | Scope | Output |
+|------|---------|-------|--------|
+| **Audit** | Improvement loop | Scan all pages/components | Work items (`status: detected`) |
+| **Fix** | Dispatch loop | Fix one specific problem | Updated component, needs_rerender |
+| **Validate** | Every page build | Check one page's generated content | Pass (deploy) or fail (needs_human_review) |
+
+Validation catches problems that audit would eventually find, but catches them before deployment instead of after. The placeholder checks, template checks, and contamination checks in `validate_page_content` overlap with what the content-quality-auditor would flag — but validation prevents the problem from going live in the first place.
+
+---
+
+## Resolved Decisions
+
+18. **Every agent is an orchestrator.** Quality checks start as actions within group agents. They are promoted to standalone agents when they need multi-step workflows or external calls. The promotion path is clean: one line changes in the calling workflow.
+
+19. **Group agents own shared context.** Checks that need the same data (CSS theme, colour palette, page samples) are grouped into one agent that loads context once and runs checks in sequence. One LLM call per group, not per check.
+
+20. **Audit agents enforce, not override.** They read the classifier/planner's intent and check whether the build matches. They don't make design decisions — they flag deviations from the stated intent.
+
+21. **Dream spec drives the improvement backlog.** The gap between the aspirational spec and current reality generates work items. Feasibility annotations prevent creating impossible items. As capabilities grow, the backlog refills automatically.
+
+22. **Site type determines audit configuration.** Different site types enable different audit groups via `maintenance_profile.audit`. New groups are new agents, not code changes to existing ones.
+
+23. **Handlers don't know their trigger.** The same webdesign-agent handles `needs_design` from the build pipeline, `needs_design_review` from the audit, and manual design requests. It receives `site_id` + `domain` and does its job.
+
+24. **Quality gates before generation, not just after.** `plan_sections` prevents fabrication by checking data availability before the content writer runs. `validate_page_content` catches LLM mistakes after generation. Audit agents catch problems that slip through both. Three layers, each catching a different class of problem.
+
+25. **needs_human_review is a first-class status.** Work items that cannot be resolved automatically (missing team data, pricing, case studies) enter `needs_human_review` status. They are not retried, not picked up by the dispatch loop, and not aged out. A human must provide data or reject the item.
+
+---
+
+## Dispatch Loop: Dynamic Work Item Routing (from 004_site_work_orchestrator)
+
+### Standard spawn→call, not custom routing
+
+The dispatch loop uses the same spawn→call pattern as everywhere else. Each loop iteration spawns the handler dynamically and finds it by a fixed role: `spawn_handler` with `agent_type_field: "current_fix_item.handler_agent"`, then `call_handler` with `target_role: "fix_handler"`.
+
+### Handlers don't know about work items
+
+The orchestrator maps spec fields to handler input_data via `input_mapping` with `?` suffixes for optional fields. Handlers receive raw identifiers and load their own context. Status tracking stays in the orchestrator loop.
+
+### Adding New Handler Agents
+
+The dispatch loop is generic. Adding a new handler requires no changes to the orchestrator:
+
+1. Create the agent definition with its own workflow
+2. Discovery agents write items with `handler_agent: "your-new-agent"`
+3. The dispatch loop spawns and calls it automatically
+
+---
+
+## Idle Timeout for Spawned Agents (from 010_idle_timeout_guide)
+
+### Problem
+
+Every spawned agent creates a K8s Job pod. After workflow completion, the pod sits in its Kafka consumer loop forever. K8s TTL only fires after the Job completes, but the pod never exits. Result: pod accumulation until cluster resource exhaustion.
+
+### Solution
+
+An idle monitor goroutine that shuts down the process after configurable inactivity.
+
+**Configuration:** `agent_definitions.idle_timeout_seconds` column. Value 0 = run forever (deployment agents). Value 120 = exit after 2 minutes idle (all Job-spawned agents). Flows through: DB column → Job spawner reads it → `IDLE_TIMEOUT_SECONDS` env var → agent process starts monitor.
+
+**Shutdown safety:** `sync.Once` protects against double-close of shutdownChan (both idle monitor and SIGTERM use it).
+
+**main.go fix:** `errCh` must always receive from `Run()`, not just on error. Clean idle shutdown returns nil.
+
+### Topic Lifecycle
+
+Currently: `EPHEMERAL_TOPICS=true` — unique topics per spawn, cleaned up on shutdown. Future (shared topics): stop setting `EPHEMERAL_TOPICS`, agents use pre-existing shared topics, no cleanup needed.
+
+### Tuning
+
+```sql
+-- Increase timeout for slow agents
+UPDATE agent_definitions SET idle_timeout_seconds = 300 WHERE type = 'research-agent';
+-- Disable (run forever)
+UPDATE agent_definitions SET idle_timeout_seconds = 0 WHERE type = 'some-long-running-agent';
+```
+
+Changes take effect on next spawn — no binary redeploy needed.
+
+---
+
+## Future: Shared Topic Strategy (from 011_shared_topics)
+
+When we move to shared topics:
+
+1. Pre-create long-lived topics per agent type (e.g. `system.work.page-build-handler`)
+2. Each spawned agent uses a unique consumer group ID (already set)
+3. Message routing uses headers (`orchestration_id`, `reply_to_request_id`)
+4. Changes: `setupAgentTopics()` returns shared names, stop setting `EPHEMERAL_TOPICS`, use `orchestration_id` as Kafka key for partition ordering, static group membership (`group.instance.id`) to avoid rebalancing churn
+
+The current `EPHEMERAL_TOPICS` flag makes this transition clean — agent code doesn't change, it reads topics from env vars either way.
+
+## Topic Cleanup Design (from 014_cleanup)
+
+Key design points:
+- **Agents never clean up topics** — not on shutdown, not on idle timeout, not on error
+- **External cleanup is conservative** — CronJob runs every 10 min, only deletes topics with no matching running pod. Kafka 7-day retention is the backstop
+- **Topic accumulation is bounded** — with idle timeout, agents exit in minutes. At peak: ~50-100 orphan topics between cleanup cycles (~few KB each)
+- **Future shared topics eliminate the problem** — the CronJob becomes a no-op
+
+---
+
+## Site Rollback Pattern (from 003_random_notes)
+
+To rollback a design change:
+
+1. Supersede the current `design_intent` spec: `UPDATE site_specs SET is_current = false WHERE aspect = 'design_intent' AND is_current = true`
+2. Restore the previous version: `UPDATE site_specs SET is_current = true WHERE id = '<previous_id>'`
+3. Create work items to rebuild from restored spec
+4. Dispatch loop picks them up, agents read restored specs, rebuild accordingly
+
+Same pattern for content rollback (restore `content_direction`, create `content_rewrite` items) or full site rollback (restore all aspects, create items for every page). Git history provides additional safety — deployed HTML has commit-per-work-item for immediate git revert while spec-driven rebuild catches up.
+
+For full point-in-time revert, see 014 — Site Snapshots & Revert.

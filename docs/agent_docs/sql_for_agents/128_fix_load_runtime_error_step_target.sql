@@ -1,0 +1,29 @@
+-- 128_fix_load_runtime_error_step_target.sql
+-- ============================================================================
+-- RECONSTRUCTION — the original file was applied 2026-07-06 from the old chat
+-- workspace (/mnt/user-data/outputs) and never landed in the repo. This stub
+-- records what it did; its row in schema_migrations is backfilled by 124, so
+-- the runner will never execute this file. DO NOT run it by hand.
+-- ============================================================================
+--
+-- WHAT IT DID: diagnosis run-2's error routing on diagnose-agent fired but
+-- targeted a NON-EXISTENT step name, failing the whole workflow ("step 'X' not
+-- found" — the coordinator fails on unknown routing targets). The fix set
+-- load_runtime's config error_step to the DERIVED target 'assemble_bundle'
+-- (the step's own next_step, converging the success and failure paths), i.e.:
+--
+--   UPDATE agent_definitions
+--   SET default_config = jsonb_set(default_config,
+--         '{workflow,steps,load_runtime,config,error_step}',
+--         '"assemble_bundle"'::jsonb)
+--   WHERE type = 'diagnose-agent' AND deleted_at IS NULL;
+--
+-- EFFECT VERIFIED LIVE 2026-07-10:
+--   default_config->'workflow'->'steps'->'load_runtime'->'config' =
+--     { "error_step": "assemble_bundle", ... }
+-- and the routed degrade fired ×5 in run-3 (normal for anchorless runs) —
+-- see RUNBOOK_travelling_docs Stage 3.
+--
+-- Durable rules this incident banked (016b): error_step lives INSIDE
+-- step.Config and must name an EXISTING step; derive convergence targets from
+-- the step's own next_step, never guess.

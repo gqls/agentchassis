@@ -1,0 +1,25 @@
+- op: replace
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets
+- op: add
+  path: /spec/template/spec/containers/0/command
+  value:
+    - /bin/sh
+    - -c
+    - |
+      echo "=== Checking mounted config ==="
+      ls -la /app/configs/
+      echo "=== Content of mounted config ==="
+      cat /app/configs/web-scrape-adapter.yaml || echo "Config file not found"
+      echo "=== Environment Variables ==="
+      env | grep -E "(KAFKA|FIRECRAWL|SCRAPING)" || echo "No relevant env vars"
+      echo "=== Testing Kafka connectivity ==="
+      nc -zv personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local 9092 || echo "Cannot reach Kafka"
+      echo "=== Sleeping to keep container running for debugging ==="
+      sleep 3600

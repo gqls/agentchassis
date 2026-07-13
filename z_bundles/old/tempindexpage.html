@@ -1,0 +1,1480 @@
+
+        /* Sections */
+        .section { padding: 4rem 1rem; }
+        .section__title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--color-heading);
+        }
+        .section__title--center { text-align: center; }
+        .section__content { font-size: 1.125rem; }
+
+        /* Cards */
+        .card {
+            padding: 2rem;
+            background: var(--color-card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+
+        /* Buttons */
+        .button {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .button--primary {
+            background: var(--color-primary);
+            color: var(--color-primary-text);
+        }
+        .button--primary:hover {
+            background: var(--color-primary-hover);
+        }
+        .button--secondary {
+            background: var(--color-secondary);
+            color: var(--color-secondary-text);
+        }
+        .button--secondary:hover {
+            background: var(--color-secondary-hover);
+        }
+        .button--primary-inverse {
+            background: var(--color-background);
+            color: var(--color-primary);
+        }
+        .button--secondary-inverse {
+            background: transparent;
+            color: var(--color-background);
+            border: 2px solid var(--color-background);
+        }
+        .button--large {
+            padding: 1rem 2rem;
+            font-size: 1.125rem;
+        }
+        .button--small {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+        .button--full-width {
+            display: block;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* Header */
+        .site-header {
+            background: var(--color-header-bg);
+            color: var(--color-header-text);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+        }
+        .site-header__nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+        }
+        .site-header__brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .site-header__menu {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        .site-header__link {
+            color: var(--color-header-text);
+            text-decoration: none;
+        }
+        .site-header__link:hover {
+            opacity: 0.8;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 4rem 1rem;
+        }
+        .hero__title {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            color: var(--color-hero-title);
+        }
+        .hero__subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            color: var(--color-hero-subtitle);
+        }
+        .hero__actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Features */
+        .feature {
+            text-align: center;
+        }
+        .feature__icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .feature__title {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--color-heading);
+        }
+        .feature__description {
+            color: var(--color-text-muted);
+        }
+
+        /* Pricing */
+        .pricing-tier {
+            position: relative;
+        }
+        .pricing-tier--featured {
+            border: 3px solid var(--color-primary);
+            transform: scale(1.05);
+        }
+        .pricing-tier__badge {
+            position: absolute;
+            top: -1rem;
+            right: 1rem;
+            background: var(--color-primary);
+            color: var(--color-primary-text);
+            padding: 0.25rem 1rem;
+            border-radius: var(--border-radius);
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+        .pricing-tier__name {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .pricing-tier__price {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 1.5rem;
+            color: var(--color-primary);
+        }
+        .pricing-tier__features {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+        .pricing-tier__feature {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        /* Testimonials */
+        .stat-highlight {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .stat-highlight__number {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--color-primary);
+        }
+        .stat-highlight__label {
+            font-size: 1.25rem;
+            color: var(--color-text-muted);
+        }
+        .testimonial {
+            text-align: center;
+        }
+        .testimonial__rating {
+            color: var(--color-accent);
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .testimonial__text {
+            font-style: italic;
+            margin-bottom: 1rem;
+        }
+        .testimonial__author {
+            font-weight: bold;
+            color: var(--color-text-muted);
+        }
+
+        /* FAQ */
+        .faq-item {
+            padding: 1.5rem;
+            background: var(--color-card-bg);
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+            cursor: pointer;
+        }
+        .faq-item__question {
+            font-size: 1.125rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .faq-item__answer {
+            margin-top: 1rem;
+            color: var(--color-text-muted);
+        }
+
+        /* CTA Section */
+        .section--cta {
+            background: var(--color-cta-bg);
+            color: var(--color-cta-text);
+        }
+        .cta {
+            text-align: center;
+        }
+        .cta__title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--color-cta-text);
+        }
+        .cta__subtitle {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        .cta__actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Footer */
+        .site-footer {
+            background: var(--color-footer-bg);
+            color: var(--color-footer-text);
+            padding: 3rem 1rem 1rem;
+        }
+        .site-footer__brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .site-footer__tagline {
+            opacity: 0.8;
+        }
+        .site-footer__heading {
+            font-size: 1.125rem;
+            margin-bottom: 1rem;
+        }
+        .site-footer__links {
+            list-style: none;
+        }
+        .site-footer__links li {
+            margin-bottom: 0.5rem;
+        }
+        .site-footer__link {
+            color: var(--color-footer-text);
+            text-decoration: none;
+            opacity: 0.8;
+        }
+        .site-footer__link:hover {
+            opacity: 1;
+        }
+        .site-footer__bottom {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--color-border);
+            text-align: center;
+            opacity: 0.6;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .site-header__menu { display: none; }
+            .hero__title { font-size: 2rem; }
+            .hero__subtitle { font-size: 1.25rem; }
+            .section__title { font-size: 2rem; }
+            .grid--4 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        }
+    </style>
+    <style>
+        /* Theme-specific styles injected here:  */
+
+    </style>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <script src="/assets/js/snippets.js"></script>
+</head>
+<body>
+<header class="site-header site-header--gradient">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            <span class="logo-icon">◆</span>
+            <span class="logo-text">robot-hands.com</span>
+        </a>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/services.html">Services</a></li>
+                <li><a href="/gripper-catalog.html">Gripper Catalog</a></li>
+                <li><a href="/gripper-catalog/index.html">Gripper Catalog</a></li>
+                <li><a href="/matchmatrix.html">MatchMatrix</a></li>
+                <li><a href="/selection-guide.html">Selection Guide</a></li>
+                <li><a href="/learning-center.html">Learning Center</a></li>
+                <li><a href="/tools/tool-grip-force-friction-calculator.html">Grip Force & Friction Coefficient Calculator</a></li>
+            </ul>
+        </nav>
+        <a href="/contact.html" class="header-cta">Get Started</a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</header>
+<style>
+    .site-header--gradient {
+        background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+        padding: 1rem 0;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+    .site-header--gradient .header-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+    .site-header--gradient .logo {
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: white;
+    }
+    .site-header--gradient .logo-icon {
+        color: #16a085;
+        font-size: 1.5rem;
+    }
+    .site-header--gradient .main-nav {
+        flex: 1;
+    }
+    .site-header--gradient .main-nav ul {
+        display: flex;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        gap: 2rem;
+        justify-content: center;
+    }
+    .site-header--gradient .main-nav a {
+        color: rgba(255,255,255,0.9);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+    .site-header--gradient .main-nav a:hover,
+    .site-header--gradient .main-nav a.active { color: #16a085; }
+    .site-header--gradient .header-cta {
+        background: #16a085;
+        color: white;
+        padding: 0.6rem 1.25rem;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .site-header--gradient .header-cta:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .site-header--gradient .logo-img {
+        max-height: 40px;
+        width: auto;
+        display: block;
+    }
+    .mobile-menu-toggle {
+        display: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.5rem;
+    }
+    .site-header--gradient .mobile-menu-toggle span {
+        display: block;
+        width: 24px;
+        height: 2px;
+        background: white;
+        margin: 5px 0;
+    }
+    @media (max-width: 768px) {
+        .site-header--gradient .logo-img {
+            max-height: 40px;
+            width: auto;
+            display: block;
+        }
+        .mobile-menu-toggle { display: block; }
+        .site-header--gradient .main-nav, .site-header--gradient .header-cta { display: none; }
+        .site-header--gradient .main-nav.active {
+            display: block;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1a1a2e;
+            padding: 1rem;
+        }
+        .site-header--gradient .main-nav ul { flex-direction: column; }
+        .site-header--gradient .main-nav a { display: block; padding: 0.75rem 0; }
+    }
+</style>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var toggle = document.querySelector(".mobile-menu-toggle");
+        var nav = document.querySelector(".main-nav");
+        if (toggle && nav) {
+            toggle.addEventListener("click", function() {
+                nav.classList.toggle("active");
+            });
+        }
+    });
+</script>
+<main>
+    <section class="hero" data-component="hero" style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url('/assets/images/hero.jpg'); background-size: cover; background-position: center; --hero-ink: #fff;">
+        <div class="hero-content">
+            <h1>Specify the Right Gripper. First Time.</h1>
+            <p class="hero-subheadline">Robot-Hands.com indexes gripper models across pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive technologies — all benchmarked against consistent parameters so you can compare across actuation types, run payload and stroke calculations, and generate a scored shortlist using the documented MatchMatrix methodology. Filter by force (N), stroke (mm), cycle time (ms), IP rating, and mounting interface. No black-box scoring. No vendor bias.</p>
+            <a href="/contact.html" class="btn btn-primary">Search the Gripper Catalog</a>
+            <a href="/services.html" class="btn btn-secondary">Read the MatchMatrix Methodology</a>
+        </div>
+    </section>
+    <style>
+        .hero {
+            min-height: 70vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            position: relative;
+
+            /* Dark section context */
+            --section-text: color-mix(in srgb, var(--hero-ink) 95%, transparent);
+            --section-text-muted: color-mix(in srgb, var(--hero-ink) 80%, transparent);
+            --section-heading: var(--hero-ink);
+            --section-surface: color-mix(in srgb, var(--hero-ink) 10%, transparent);
+            --section-border: color-mix(in srgb, var(--hero-ink) 30%, transparent);
+        }
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+            color: var(--hero-ink);
+            z-index: 1;
+        }
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .hero-subheadline {
+            font-size: clamp(1rem, 2vw, 1.35rem);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        .hero .btn {
+            display: inline-block;
+            padding: 0.875rem 2rem;
+            margin: 0.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+        .hero .btn-primary {
+            background: var(--hero-ink);
+            color: var(--color-primary);
+            border: 2px solid var(--hero-ink);
+        }
+        .hero .btn-primary:hover {
+            background: transparent;
+            color: var(--hero-ink);
+        }
+        .hero .btn-secondary {
+            background: transparent;
+            color: var(--hero-ink);
+            border: 2px solid color-mix(in srgb, var(--hero-ink) 80%, transparent);
+        }
+        .hero .btn-secondary:hover {
+            background: color-mix(in srgb, var(--hero-ink) 10%, transparent);
+        }
+        @media (max-width: 768px) {
+            .hero {
+                min-height: 60vh;
+                padding: 3rem 1.5rem;
+            }
+            .hero .btn {
+                display: block;
+                width: 100%;
+                max-width: 280px;
+                margin: 0.5rem auto;
+            }
+        }
+    </style>
+    <style>
+        .system-stats-section {
+            --section-text: rgba(255,255,255,0.9);
+            --section-text-muted: rgba(255,255,255,0.7);
+            --section-heading: #ffffff;
+            --section-surface: rgba(255,255,255,0.05);
+            --section-border: rgba(255,255,255,0.2);
+            background: var(--color-primary, #1a1a2e);
+            color: var(--section-text);
+            padding: var(--spacing-section, 5rem 2rem);
+            position: relative;
+            overflow: hidden;
+        }
+        .system-stats-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 60% 40%, rgba(255,255,255,0.04) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .system-stats-section .stats-inner {
+            max-width: var(--container-max-width, 1200px);
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        .system-stats-section .stats-header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+        }
+        .system-stats-section .stats-eyebrow {
+            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--color-accent, #7dd3fc);
+            margin-bottom: 1rem;
+            padding: 0.25rem 0.85rem;
+            border: 1px solid var(--section-border);
+            border-radius: var(--border-radius, 4px);
+            background: var(--section-surface);
+        }
+        .system-stats-section .stats-headline {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 800;
+            color: var(--section-heading);
+            margin: 0 0 1rem;
+            line-height: 1.15;
+        }
+        .system-stats-section .stats-intro {
+            font-size: 1.05rem;
+            color: var(--section-text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+        .system-stats-section .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        .system-stats-section .stat-card {
+            background: var(--section-surface);
+            border: 1px solid var(--section-border);
+            border-radius: var(--border-radius, 8px);
+            padding: 2rem 1.5rem;
+            text-align: center;
+            transition: transform 0.2s ease, background 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .system-stats-section .stat-card:hover {
+            transform: translateY(-3px);
+            background: rgba(255,255,255,0.08);
+        }
+        .system-stats-section .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--color-accent, #7dd3fc);
+            opacity: 0.6;
+        }
+        .system-stats-section .stat-value {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 900;
+            color: var(--section-heading);
+            line-height: 1;
+            margin-bottom: 0.4rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .system-stats-section .stat-value .stat-suffix {
+            font-size: 0.5em;
+            font-weight: 600;
+            color: var(--color-accent, #7dd3fc);
+            vertical-align: super;
+        }
+        .system-stats-section .stat-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--section-text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .system-stats-section .stat-description {
+            font-size: 0.8rem;
+            color: var(--section-text-muted);
+            line-height: 1.5;
+            opacity: 0.8;
+        }
+        .system-stats-section .stats-footer {
+            text-align: center;
+        }
+        .system-stats-section .stats-footnote {
+            font-size: 0.8rem;
+            color: var(--section-text-muted);
+            opacity: 0.7;
+            margin-bottom: 1.5rem;
+        }
+        .system-stats-section .stats-cta {
+            display: inline-block;
+            background: var(--color-accent, #7dd3fc);
+            color: var(--color-primary, #1a1a2e);
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 0.85rem 2.2rem;
+            border-radius: var(--border-radius, 6px);
+            text-decoration: none;
+            min-height: 44px;
+            line-height: 1.4;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .system-stats-section .stats-cta:hover {
+            opacity: 0.88;
+            transform: translateY(-1px);
+        }
+        .system-stats-section .stats-cta:focus {
+            outline: 3px solid var(--color-accent, #7dd3fc);
+            outline-offset: 3px;
+        }
+        @media (max-width: 768px) {
+            .system-stats-section {
+                padding: 3rem 1.25rem;
+            }
+            .system-stats-section .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+            .system-stats-section .stat-card {
+                padding: 1.5rem 1rem;
+            }
+            .system-stats-section .stats-header {
+                margin-bottom: 2.5rem;
+            }
+        }
+        @media (max-width: 480px) {
+            .system-stats-section .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <section class="system-stats-section" data-component="system-stats">
+        <div class="stats-inner">
+            <header class="stats-header">
+                <span class="stats-eyebrow">By the Numbers</span>
+                <h2 class="stats-headline">The catalog depth your specification decisions require</h2>
+                <p class="stats-intro">Every number below reflects indexed, verified data — gripper models with documented specifications, actuation technologies benchmarked on consistent criteria, and MatchMatrix queries run against real engineering parameters.</p>
+            </header>
+            <div class="stats-grid">
+                <article class="stat-card">
+                    <div class="stat-value">2400<span class="stat-suffix">%</span></div>
+                    <div class="stat-label">Gripper Models Indexed</div>
+                    <p class="stat-description">Pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive end-effectors cataloged with verified specification data.</p>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-value">120<span class="stat-suffix">ms</span></div>
+                    <div class="stat-label">Manufacturers Covered</div>
+                    <p class="stat-description">Cross-vendor coverage across all major actuation technologies, benchmarked on consistent criteria — not manufacturer-supplied marketing data.</p>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-value">6<span class="stat-suffix">+</span></div>
+                    <div class="stat-label">Actuation Technologies</div>
+                    <p class="stat-description">Pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive — all in one platform with a common comparison framework.</p>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-value">18500<span class="stat-suffix">x</span></div>
+                    <div class="stat-label">MatchMatrix Queries Run</div>
+                    <p class="stat-description">Specification queries processed through MatchMatrix, each scored against documented, auditable criteria — not a black-box algorithm.</p>
+                </article>
+            </div>
+            <footer class="stats-footer">
+                <p class="stats-footnote">Catalog metrics updated monthly. Gripper model count reflects entries with at least one verified specification parameter on record. MatchMatrix query count is a cumulative platform total.</p>
+                <a href="/contact.html" class="stats-cta">View full report</a>
+            </footer>
+        </div>
+    </section>
+    <section class="features-section" data-component="features">
+        <div class="features-container">
+            <h2>Everything You Need to Specify the Right Gripper. Nothing You Don't.</h2>
+            <p class="features-subtitle">A structured specification workflow built for engineers who need to compare actuation technologies, validate parameters, and produce a defensible shortlist — without wading through vendor datasheets one at a time.</p>
+            <div class="features-grid">
+
+                <div class="feature-item">
+
+                    <h3></h3>
+                    <p>Pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive grippers indexed in a single searchable catalog with consistent specification fields across all actuation types. Filter by payload (N), stroke (mm), IP rating, operating temperature, cycle time (ms), and mounting interface — using the same criteria regardless of technology. No switching between manufacturer microsites to compare apples with oranges.</p>
+                </div>
+
+                <div class="feature-item">
+
+                    <h3></h3>
+                    <p>Define your application constraints — workpiece geometry, surface condition, payload, cycle rate, environmental exposure, robot interface — and MatchMatrix scores the catalog against your requirements using a documented, auditable methodology. Every score is traceable to a specific criterion weighting. The methodology documentation is publicly available so you can verify the logic before you rely on the output.</p>
+                </div>
+
+                <div class="feature-item">
+
+                    <h3></h3>
+                    <p>Calculate required gripping force from part mass, acceleration profile, and safety factor. Estimate vacuum flow demand from cup diameter and cycle rate. Size pneumatic actuator bore from required jaw force and supply pressure. Calculators are embedded in the specification workflow — run them inline before passing results to MatchMatrix, so your inputs reflect real operating conditions rather than datasheet maximums.</p>
+                </div>
+
+                <div class="feature-item">
+
+                    <h3></h3>
+                    <p>Catalog entries distinguish between manufacturer-rated performance and independently documented operating conditions where data is available. Grip force figures are flagged by test configuration. Cycle time ratings are annotated with stroke distance and load assumptions. Where manufacturer data is the only available source, that is stated explicitly, along with the last-verified date.</p>
+                </div>
+
+                <div class="feature-item">
+
+                    <h3></h3>
+                    <p>Head-to-head comparison views let you place two or more grippers — across different actuation technologies — on the same specification matrix. Trade-offs are presented as data, not conclusions: where pneumatic outperforms electric on cycle time but electric outperforms pneumatic on positional repeatability, both figures are shown with their test conditions so you can weight them against your application's actual priorities.</p>
+                </div>
+
+                <div class="feature-item">
+
+                    <h3></h3>
+                    <p>Export your filtered shortlist as a structured specification document — including the MatchMatrix scores, the parameter inputs used, and the filter criteria applied. The output is formatted to attach to an internal design review or RFQ package. Every shortlist is reproducible: the same inputs will produce the same scores, so colleagues can verify or challenge the selection logic.</p>
+                </div>
+
+                <div class="feature-item">
+
+                    <h3></h3>
+                    <p>Structured technical content organised by actuation technology and industry vertical — automotive assembly, electronics handling, food and beverage packaging, logistics sortation. Technology deep-dives cover operating principles, specification parameters, advantages, limitations, and failure modes. Every article is written to advance a specification decision, not to introduce a concept. Articles link forward into the catalog and calculators at the point where the decision criterion appears.</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+    <style>
+        /* Layout only - colors inherited from global CSS */
+        .features-section {
+            padding: var(--spacing-section, 5rem 2rem);
+        }
+        .features-container {
+            max-width: var(--container-max-width, 1200px);
+            margin: 0 auto;
+        }
+        .features-section h2 {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .features-subtitle {
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto 3rem;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+        .feature-item {
+            text-align: center;
+            padding: 2rem;
+        }
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 1rem;
+            color: var(--color-accent, #0f3460);
+        }
+        .feature-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+        .feature-item h3 {
+            margin-bottom: 1rem;
+        }
+        .feature-item p {
+            margin: 0;
+        }
+        @media (max-width: 768px) {
+            .features-section { padding: 3rem 1.5rem; }
+            .features-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+        }
+    </style>
+    <style>
+        .brief-explanation-section {
+            --section-text: var(--color-text);
+            --section-text-muted: var(--color-text-muted);
+            --section-heading: var(--color-heading, var(--color-text));
+            --section-surface: var(--color-surface);
+            --section-border: var(--color-border);
+            background: var(--color-background, #0d0d0d);
+            color: var(--section-text);
+            padding: var(--spacing-section, 5rem 2rem);
+            position: relative;
+            overflow: hidden;
+        }
+        .brief-explanation-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 60% 40%, color-mix(in srgb, var(--color-primary) 12%, transparent) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .brief-explanation__container {
+            max-width: var(--container-max-width, 1200px);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+        .brief-explanation__eyebrow {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--color-accent, #f59e0b);
+            margin-bottom: 1rem;
+        }
+        .brief-explanation__heading {
+            font-size: clamp(1.75rem, 3vw, 2.75rem);
+            font-weight: 800;
+            line-height: 1.15;
+            color: var(--section-heading);
+            margin: 0 0 1.25rem;
+        }
+        .brief-explanation__heading em {
+            font-style: normal;
+            color: var(--color-accent, #f59e0b);
+        }
+        .brief-explanation__description {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--section-text-muted);
+            margin: 0 0 2.5rem;
+            max-width: 48ch;
+        }
+        .brief-explanation__steps {
+            list-style: none;
+            margin: 0 0 2.75rem;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .brief-explanation__step {
+            display: grid;
+            grid-template-columns: 2.5rem 1fr;
+            gap: 1rem;
+            align-items: start;
+        }
+        .brief-explanation__step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            background: var(--color-primary, #7c3aed);
+            color: var(--color-primary-text, #ffffff);
+            font-size: 0.85rem;
+            font-weight: 800;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+        }
+        .brief-explanation__step-body {
+            padding-top: 0.35rem;
+        }
+        .brief-explanation__step-title {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--section-heading);
+            margin-bottom: 0.25rem;
+        }
+        .brief-explanation__step-sentence {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--section-text-muted);
+            margin: 0;
+        }
+        .brief-explanation__stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+            padding: 1.25rem 1.5rem;
+            background: var(--section-surface);
+            border: 1px solid var(--section-border);
+            border-radius: var(--border-radius, 0.75rem);
+        }
+        .brief-explanation__stat {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+        .brief-explanation__stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--color-accent, #f59e0b);
+            line-height: 1;
+        }
+        .brief-explanation__stat-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--section-text-muted);
+        }
+        .brief-explanation__stat-divider {
+            width: 1px;
+            background: var(--section-border);
+            align-self: stretch;
+        }
+        .brief-explanation__ctas {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .brief-explanation__cta-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.85rem 2rem;
+            background: var(--color-primary, #7c3aed);
+            color: var(--color-primary-text, #ffffff);
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: var(--border-radius, 0.75rem);
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            min-height: 44px;
+            transition: background 0.2s ease, transform 0.15s ease;
+        }
+        .brief-explanation__cta-primary:hover {
+            background: var(--color-primary-hover, #6d28d9);
+            transform: translateY(-1px);
+        }
+        .brief-explanation__cta-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.85rem 2rem;
+            background: transparent;
+            color: var(--section-text);
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: var(--border-radius, 0.75rem);
+            text-decoration: none;
+            border: 1.5px solid var(--section-border);
+            cursor: pointer;
+            min-height: 44px;
+            transition: border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+        }
+        .brief-explanation__cta-secondary:hover {
+            border-color: var(--color-accent, #f59e0b);
+            color: var(--color-accent, #f59e0b);
+            transform: translateY(-1px);
+        }
+        .brief-explanation__image-col {
+            position: relative;
+        }
+        .brief-explanation__image-wrapper {
+            position: relative;
+            border-radius: var(--border-radius, 0.75rem);
+            overflow: hidden;
+            border: 1px solid var(--section-border);
+            box-shadow: var(--shadow, 0 20px 60px rgba(0,0,0,0.4));
+        }
+        .brief-explanation__image {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 4/3;
+            object-fit: cover;
+        }
+        .brief-explanation__badge {
+            position: absolute;
+            bottom: 1.25rem;
+            left: 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--color-primary, #7c3aed);
+            color: var(--color-primary-text, #ffffff);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            border-radius: calc(var(--border-radius, 0.75rem) * 0.6);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+        .brief-explanation__badge-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+            background: var(--color-accent, #f59e0b);
+            animation: be-pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes be-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.75); }
+        }
+        @media (max-width: 900px) {
+            .brief-explanation__container {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+            }
+            .brief-explanation__image-col {
+                order: -1;
+            }
+            .brief-explanation__description {
+                max-width: 100%;
+            }
+        }
+        @media (max-width: 768px) {
+            .brief-explanation__stats {
+                gap: 1.25rem;
+                padding: 1rem;
+            }
+            .brief-explanation__stat-value {
+                font-size: 1.25rem;
+            }
+            .brief-explanation__ctas {
+                flex-direction: column;
+            }
+            .brief-explanation__cta-primary,
+            .brief-explanation__cta-secondary {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+
+    <section class="brief-explanation-section" data-component="brief-explanation">
+        <div class="brief-explanation__container">
+            <div class="brief-explanation__text-col">
+                <span class="brief-explanation__eyebrow"></span>
+                <h2 class="brief-explanation__heading"></h2>
+                <p class="brief-explanation__description"></p>
+
+                <ol class="brief-explanation__steps">
+                    <li class="brief-explanation__step">
+                        <span class="brief-explanation__step-number">1</span>
+                        <div class="brief-explanation__step-body">
+                            <strong class="brief-explanation__step-title"></strong>
+                            <p class="brief-explanation__step-sentence"></p>
+                        </div>
+                    </li>
+                    <li class="brief-explanation__step">
+                        <span class="brief-explanation__step-number">2</span>
+                        <div class="brief-explanation__step-body">
+                            <strong class="brief-explanation__step-title"></strong>
+                            <p class="brief-explanation__step-sentence"></p>
+                        </div>
+                    </li>
+                    <li class="brief-explanation__step">
+                        <span class="brief-explanation__step-number">3</span>
+                        <div class="brief-explanation__step-body">
+                            <strong class="brief-explanation__step-title"></strong>
+                            <p class="brief-explanation__step-sentence"></p>
+                        </div>
+                    </li>
+                </ol>
+
+                <div class="brief-explanation__stats">
+                    <div class="brief-explanation__stat">
+                        <span class="brief-explanation__stat-value">24hrs</span>
+                        <span class="brief-explanation__stat-label">New Gauntlet Daily</span>
+                    </div>
+                    <div class="brief-explanation__stat-divider"></div>
+                    <div class="brief-explanation__stat">
+                        <span class="brief-explanation__stat-value">10K+</span>
+                        <span class="brief-explanation__stat-label">Players Scored</span>
+                    </div>
+                    <div class="brief-explanation__stat-divider"></div>
+                    <div class="brief-explanation__stat">
+                        <span class="brief-explanation__stat-value">100%</span>
+                        <span class="brief-explanation__stat-label">Free to Play</span>
+                    </div>
+                </div>
+
+                <div class="brief-explanation__ctas">
+                    <a href="#" class="brief-explanation__cta-primary">Play Today's Gauntlet</a>
+                    <a href="#" class="brief-explanation__cta-secondary">See Past Results</a>
+                </div>
+            </div>
+
+            <div class="brief-explanation__image-col">
+                <div class="brief-explanation__image-wrapper">
+                    <img
+                            class="brief-explanation__image"
+                            src=""
+                            alt=""
+                            loading="lazy"
+                    />
+                    <span class="brief-explanation__badge">
+          <span class="brief-explanation__badge-dot"></span>
+
+        </span>
+                </div>
+            </div>
+        </div>
+    </section>
+    <style>
+        .tool-list-section { padding: var(--spacing-section, 5rem 2rem); background: var(--color-background); color: var(--color-text); }
+        .tool-list-section .tl-inner { max-width: var(--container-max-width, 1200px); margin: 0 auto; }
+        .tool-list-section .tl-header { text-align: center; margin-bottom: 3rem; }
+        .tool-list-section .tl-eyebrow { display: inline-block; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-primary); margin-bottom: 0.75rem; }
+        .tool-list-section .tl-heading { font-size: clamp(1.75rem, 4vw, 2.75rem); font-weight: 800; color: var(--color-heading); margin: 0 0 1rem; line-height: 1.2; }
+        .tool-list-section .tl-intro { font-size: 1.1rem; color: var(--color-text-muted); max-width: 640px; margin: 0 auto; line-height: 1.7; }
+        .tool-list-section .tl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 3rem; }
+        .tool-list-section .tl-card { background: var(--color-card-bg, var(--color-surface)); border: 1px solid var(--color-border); border-radius: var(--border-radius, 0.5rem); padding: 1.75rem; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: var(--shadow, 0 2px 8px rgba(0,0,0,0.06)); transition: box-shadow 0.2s ease, transform 0.2s ease; }
+        .tool-list-section .tl-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.12); transform: translateY(-2px); }
+        .tool-list-section .tl-card-icon { width: 2.5rem; height: 2.5rem; background: var(--color-primary); border-radius: calc(var(--border-radius, 0.5rem) * 0.75); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .tool-list-section .tl-card-icon svg { width: 1.25rem; height: 1.25rem; fill: var(--color-primary-text, #fff); }
+        .tool-list-section .tl-card-title { font-size: 1.1rem; font-weight: 700; color: var(--color-heading); margin: 0; line-height: 1.3; }
+        .tool-list-section .tl-card-desc { font-size: 0.92rem; color: var(--color-text-muted); margin: 0; line-height: 1.6; flex: 1; }
+        .tool-list-section .tl-card-link { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 600; color: var(--color-primary); text-decoration: none; margin-top: 0.5rem; min-height: 44px; padding: 0.5rem 0; transition: color 0.15s ease; }
+        .tool-list-section .tl-card-link:hover { color: var(--color-primary-hover, var(--color-primary)); text-decoration: underline; }
+        .tool-list-section .tl-card-link svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+        .tool-list-section .tl-cta { text-align: center; }
+        .tool-list-section .tl-cta-text { font-size: 1rem; color: var(--color-text-muted); margin: 0 0 1.25rem; }
+        .tool-list-section .tl-cta-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0.75rem 2rem; background: var(--color-primary); color: var(--color-primary-text, #fff); font-size: 1rem; font-weight: 700; border-radius: var(--border-radius, 0.5rem); text-decoration: none; transition: background 0.2s ease; }
+        .tool-list-section .tl-cta-btn:hover { background: var(--color-primary-hover, var(--color-primary)); }
+        @media (max-width: 768px) {
+            .tool-list-section .tl-grid { grid-template-columns: 1fr; }
+            .tool-list-section .tl-header { margin-bottom: 2rem; }
+        }
+    </style>
+
+    <section class="tool-list-section" data-component="tool-list">
+        <div class="tl-inner">
+            <header class="tl-header">
+                <span class="tl-eyebrow">Our Tools</span>
+                <h2 class="tl-heading">Calculation and Selection Tools for Gripper Specification</h2>
+                <p class="tl-intro">Parametric calculators and structured selection aids covering payload, force, cycle time, and technology trade-offs — built for specification decisions, not product discovery.</p>
+            </header>
+
+            <div class="tl-grid">
+
+                <article class="tl-card">
+                    <div class="tl-card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    </div>
+                    <h3 class="tl-card-title">MatchMatrix — Gripper-to-Application Matching Tool | Robot-Hands.com</h3>
+                    <p class="tl-card-desc"></p>
+                    <a class="tl-card-link" href="/tools/matchmatrix/index.html">
+                        Open tool
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </a>
+                </article>
+
+                <article class="tl-card">
+                    <div class="tl-card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    </div>
+                    <h3 class="tl-card-title">Gripper Payload Calculator — Safety Factor & Dynamic Load | Robot-Hands.com</h3>
+                    <p class="tl-card-desc"></p>
+                    <a class="tl-card-link" href="/tools/gripper-payload-calculator/index.html">
+                        Open tool
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </a>
+                </article>
+
+                <article class="tl-card">
+                    <div class="tl-card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    </div>
+                    <h3 class="tl-card-title">Gripper Cycle Time Estimator — Throughput Validation Tool | Robot-Hands.com</h3>
+                    <p class="tl-card-desc"></p>
+                    <a class="tl-card-link" href="/tools/gripper-cycle-time-estimator/index.html">
+                        Open tool
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </a>
+                </article>
+
+                <article class="tl-card">
+                    <div class="tl-card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    </div>
+                    <h3 class="tl-card-title">Grip Force & Friction Coefficient Calculator | Tools</h3>
+                    <p class="tl-card-desc">Calculates the minimum required grip force given part weight, coefficient of friction for the contact material, safety factor, and acceleration profile. Engineers frequently need to verify that a gripper's rated force is sufficient for their specific part material and motion profile. This fills a critical gap between payload capacity (already covered) and actual grip security.</p>
+                    <a class="tl-card-link" href="/tools/tool-grip-force-friction-calculator.html">
+                        Open tool
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </a>
+                </article>
+
+            </div>
+
+            <div class="tl-cta">
+                <p class="tl-cta-text">View the full tool suite to support every stage of your gripper specification workflow.</p>
+                <a class="tl-cta-btn" href="/contact.html">Browse All Tools</a>
+            </div>
+        </div>
+    </section>
+    <section class="cta-section" data-component="call-to-action">
+        <div class="cta-container">
+            <h2>Your Next Gripper Selection Starts Here</h2>
+            <p class="cta-subtitle">Filter the full catalog by payload, stroke, actuation type, and IP rating. Run a MatchMatrix comparison across pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive technologies — all benchmarked against the same documented criteria.</p>
+            <div class="cta-buttons">
+
+                <a href="/contact.html" class="cta-btn cta-btn-primary">Open the Gripper Catalog</a>
+
+
+                <a href="/services.html" class="cta-btn cta-btn-secondary">Read the MatchMatrix Methodology</a>
+
+            </div>
+        </div>
+    </section>
+    <style>
+        .cta-section {
+            padding: var(--spacing-section, 5rem 2rem);
+            background: var(--color-cta-bg, var(--color-primary));
+            color: var(--color-cta-text, var(--color-primary-text));
+            text-align: center;
+
+            /* Dark section context */
+            --section-text: color-mix(in srgb, var(--color-cta-text, var(--color-primary-text)) 90%, transparent);
+            --section-text-muted: color-mix(in srgb, var(--color-cta-text, var(--color-primary-text)) 85%, transparent);
+            --section-heading: var(--color-cta-text, var(--color-primary-text));
+            --section-surface: color-mix(in srgb, var(--color-cta-text, var(--color-primary-text)) 5%, transparent);
+            --section-border: color-mix(in srgb, var(--color-cta-text, var(--color-primary-text)) 20%, transparent);
+        }
+        .cta-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .cta-section h2 {
+            margin-bottom: 1rem;
+        }
+        .cta-subtitle {
+            margin-bottom: 2rem;
+        }
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .cta-btn {
+            display: inline-block;
+            padding: 1rem 2rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .cta-btn:hover {
+            transform: translateY(-2px);
+        }
+        .cta-btn-primary {
+            background: var(--color-cta-text, var(--color-primary-text));
+            color: var(--color-cta-bg, var(--color-primary));
+        }
+        .cta-btn-secondary {
+            background: transparent;
+            border: 2px solid var(--color-cta-text, var(--color-primary-text));
+            color: var(--color-cta-text, var(--color-primary-text));
+        }
+        @media (max-width: 768px) {
+            .cta-section { padding: 3rem 1.5rem; }
+            .cta-buttons { flex-direction: column; align-items: center; }
+            .cta-btn { width: 100%; max-width: 280px; text-align: center; }
+        }
+    </style>
+
+</main>
+<!-- FOOTER SOURCE: component-db:footer-4-column -->
+<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <h3>robot-hands.com</h3>
+            <p></p>
+        </div>
+        <div class="footer-links">
+            <h4>Quick Links</h4>
+            <ul>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/services.html">Services</a></li>
+                <li><a href="/gripper-catalog.html">Gripper Catalog</a></li>
+                <li><a href="/gripper-catalog/index.html">Gripper Catalog</a></li>
+                <li><a href="/matchmatrix.html">MatchMatrix</a></li>
+                <li><a href="/selection-guide.html">Selection Guide</a></li>
+                <li><a href="/learning-center.html">Learning Center</a></li>
+                <li><a href="/learning-center/index.html">Learning Center</a></li>
+                <li><a href="/gripper-selection-guide.html">Selection Guide</a></li>
+                <li><a href="/learning-center-hub.html">Learning Center</a></li>
+                <li><a href="/index.html">Home</a></li>
+                <li><a href="/contact.html">Contact</a></li>
+                <li><a href="/gripper-payload-calculator.html">Gripper Payload Calculator</a></li>
+                <li><a href="/gripper-cycle-time-estimator.html">Gripper Cycle Time Estimator</a></li>
+                <li><a href="/pneumatic-vs-electric-grippers.html">Pneumatic vs Electric</a></li>
+                <li><a href="/how-to-specify-a-gripper.html">Learning Center</a></li>
+                <li><a href="/how-it-works.html">How It Works</a></li>
+                <li><a href="/matchmatrix-methodology.html">MatchMatrix Method</a></li>
+                <li><a href="/tools/tool-grip-force-friction-calculator.html">Grip Force & Friction Coefficient Calculator</a></li>
+            </ul>
+        </div>
+        <div class="footer-services">
+            <h4>Our Services</h4>
+            <ul>
+                <li><a href="/gripper-catalog.html">Gripper Catalog</a></li>
+                <li><a href="/gripper-catalog/index.html">Gripper Catalog</a></li>
+                <li><a href="/matchmatrix.html">MatchMatrix</a></li>
+                <li><a href="/tools/matchmatrix/index.html">MatchMatrix</a></li>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/selection-guide.html">Selection Guide</a></li>
+            </ul>
+        </div>
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            <p><a href="mailto:"></a></p>
+            <p></p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <div class="footer-bottom-container">
+            <p>&copy; 2026 robot-hands.com. All rights reserved.</p>
+            <div class="footer-legal">
+                <a href="/privacy.html">Privacy Policy</a>
+                <a href="/terms.html">Terms of Service</a>
+            </div>
+        </div>
+    </div>
+</footer>
+<style>
+    .site-footer {
+        background: #1a1a2e;
+        color: rgba(255,255,255,0.9);
+        padding: 4rem 0 0;
+        margin-top: auto;
+    }
+    .footer-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        gap: 3rem;
+    }
+    .footer-brand h3 {
+        color: #fff;
+        margin: 0 0 0.75rem;
+        font-size: 1.25rem;
+    }
+    .footer-brand p {
+        color: rgba(255,255,255,0.7);
+        margin: 0 0 1.5rem;
+        line-height: 1.6;
+    }
+    .footer-links h4,
+    .footer-services h4,
+    .footer-contact h4 {
+        color: #fff;
+        margin: 0 0 1rem;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    .footer-links ul,
+    .footer-services ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .footer-links li,
+    .footer-services li {
+        margin-bottom: 0.5rem;
+    }
+    .footer-links a,
+    .footer-services a,
+    .footer-contact a {
+        color: rgba(255,255,255,0.7);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .footer-links a:hover,
+    .footer-services a:hover,
+    .footer-contact a:hover {
+        color: #fff;
+    }
+    .footer-contact p {
+        margin: 0 0 0.5rem;
+        color: rgba(255,255,255,0.7);
+    }
+    .footer-bottom {
+        margin-top: 3rem;
+        padding: 1.5rem 0;
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .footer-bottom-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .footer-bottom p {
+        margin: 0;
+        color: rgba(255,255,255,0.5);
+        font-size: 0.9rem;
+    }
+    .footer-legal {
+        display: flex;
+        gap: 2rem;
+    }
+    .footer-legal a {
+        color: rgba(255,255,255,0.5);
+        text-decoration: none;
+        font-size: 0.9rem;
+    }
+    .footer-legal a:hover {
+        color: rgba(255,255,255,0.8);
+    }
+    @media (max-width: 768px) {
+        .footer-container {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+        .footer-bottom-container {
+            flex-direction: column;
+            gap: 1rem;
+            text-align: center;
+        }
+    }
+</style>
+</body>
+</html>

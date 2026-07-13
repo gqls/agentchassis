@@ -1,0 +1,7 @@
+Before returning, verify: count the {{.variable}} references in your html_template
+and count the keys in input_schema.fields. If the template count is less than the schema
+count, you have fields in the schema with no matching placeholder — revise the template
+to include them before returning. Tier B fields with fallbacks still need their placeholders.
+
+This is a chain-of-thought cue. We've had good results with "count X and count Y, reconcile if different" as an LLM self-check — works for tiered taxonomies like this where the LLM can drift between the declaration and the use.
+

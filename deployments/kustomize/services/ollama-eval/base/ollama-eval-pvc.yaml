@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-eval-models-pvc
+  labels:
+    app: ollama-eval
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: sata
+  resources:
+    requests:
+      storage: 20Gi

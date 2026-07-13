@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-search-adapter
+spec:
+  template:
+    spec:
+      containers:
+        - name: web-search-adapter
+          env:
+            - name: FIRECRAWL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-dev-secrets
+                  key: FIRECRAWL_API_KEY

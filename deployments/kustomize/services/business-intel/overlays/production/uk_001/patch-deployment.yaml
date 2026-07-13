@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: business-intel
+spec:
+  replicas: 1
+  template:
+    spec:
+      serviceAccountName: ai-persona-app
+      containers:
+        - name: agent
+          env:
+            # === Identity ===
+            - name: AGENT_TYPE
+              value: "business-intel"
+
+            # === Kafka topics ===
+            # Listens on its own topic — scheduler sends directly here
+            - name: KAFKA_TOPIC
+              value: "system.agent.business-intel.requests"
+            - name: KAFKA_TOPICS
+              value: "system.agent.business-intel.requests"
+            - name: KAFKA_CONSUMER_GROUP
+              value: "business-intel-group"
+            - name: REQUESTS_TOPIC
+              value: "system.agent.business-intel.requests"
+            - name: RESPONSES_TOPIC
+              value: "system.agent.business-intel.responses"
+            - name: PARENT_RESPONSES_TOPIC
+              value: "system.agent.business-intel.responses"
+
+            # === Agent spawning ===
+            - name: AGENT_IMAGE_REPOSITORY
+              value: "docker.io/aqls"
+            - name: AGENT_IMAGE_TAG
+              value: "v1.0.877"
+            - name: AGENT_STORAGE_SECRET
+              value: "personae-storage-secrets"
+            - name: AGENT_STORAGE_CONFIGMAP
+              value: "storage-config"
+
+            # Companies House API
+            - name: COMPANIES_HOUSE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: COMPANIES_HOUSE_API_KEY
+
+            # Firecrawl — used by med price scraper for direct API calls
+            - name: FIRECRAWL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: FIRECRAWL_API_KEY
+
+            # Firecrawl api version v2
+            - name: FIRECRAWL_API_URL
+              value: "https://api.firecrawl.dev/v2"
+
+            # === Storage — needed by chassis to create StorageClient ===
+            # The agent init code reads IMAGE_BUCKET from env to decide
+            # whether to create a StorageClient. Without it, params.StorageClient is nil.
+            - name: IMAGE_BUCKET
+              value: "personae-prod-uk001-webscrape"
+            - name: S3_ENDPOINT
+              value: "https://s3.us-east-005.backblazeb2.com"
+            - name: S3_REGION
+              value: "us-east-005"
+
+            # === Unique pod ID ===
+            - name: AGENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+
+            # === Database passwords (must come before URLs) ===
+            - name: CLIENTS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+            - name: TEMPLATES_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: TEMPLATES_DB_PASSWORD
+            - name: AUTH_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: AUTH_DB_PASSWORD
+
+            # === Database URLs ===
+            - name: CLIENTS_DATABASE_URL
+              value: "postgresql://clients_user:$(CLIENTS_DB_PASSWORD)@pgbouncer.ai-persona-system.svc.cluster.local:6432/clients_db?sslmode=disable&default_query_exec_mode=cache_describe"
+            - name: TEMPLATES_DATABASE_URL
+              value: "postgresql://templates_user:$(TEMPLATES_DB_PASSWORD)@postgres-templates.ai-persona-system.svc.cluster.local:5432/templates_db?sslmode=disable"
+
+            # === Storage secrets ===
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: B2_APPLICATION_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY_ID
+            - name: B2_APPLICATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY
+
+          # Also pull from shared configmaps/secrets
+          envFrom:
+            - configMapRef:
+                name: personae-prod-config
+            - secretRef:
+                name: personae-default-secrets

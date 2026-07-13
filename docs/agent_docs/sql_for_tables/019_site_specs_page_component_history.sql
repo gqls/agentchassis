@@ -1,0 +1,518 @@
+-- ============================================================================
+-- BLOCK A: DB migrations for the work-item build pipeline (Phase 0)
+--
+-- No Go changes needed. Can be applied immediately.
+-- Run against clients_db.
+--
+-- Contents:
+--   1. site_specs table
+--   2. build_queue table
+--   3. page_component_history table
+--   4. approval_mode column on site_work_items
+--   5. page_spec column on pages
+--   6. Drop content_snapshot / schema_snapshot from page_components
+--
+-- NOTE on item 6: The Go struct PageComponentInstance has a SchemaSnapshot
+-- field (omitempty). After applying this migration, remove that struct field
+-- from the Go code. It's not actively used by any action — just a leftover
+-- from an earlier design that this migration replaces.
+-- ============================================================================
+
+BEGIN;
+
+-- ============================================================================
+-- 1. site_specs
+--
+-- Stores all site specification data (identity, strategy, tone, visual_direction,
+-- design, image_guidance, structure, marketing, adoption_source).
+-- Each row is a complete record for one aspect. write_site_spec deep-merges
+-- partial updates before inserting, so every row is self-contained.
+-- History via is_current flag — old versions remain for rollback/audit.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS site_specs (
+                                          id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    site_id         uuid NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    aspect          text NOT NULL,
+    data            jsonb NOT NULL,
+
+    -- Provenance
+    source          text NOT NULL,       -- 'classifier', 'adoption', 'hitl',
+-- 'planner', 'improvement', 'seed', 'manual',
+-- 'rollback', 'fork', 'recovery'
+    source_agent    text,                -- agent type that wrote this
+    source_item_id  uuid,                -- work item that caused this write
+    notes           text,                -- human-readable reason
+
+-- Currency
+    is_current      boolean NOT NULL DEFAULT true,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    superseded_at   timestamptz,
+    created_by      text NOT NULL
+    );
+
+-- One current spec per site per aspect (enforced)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_site_specs_current
+    ON site_specs (site_id, aspect)
+    WHERE is_current = true;
+
+-- Fast lookup: all current specs for a site
+CREATE INDEX IF NOT EXISTS idx_site_specs_lookup
+    ON site_specs (site_id)
+    WHERE is_current = true;
+
+-- History queries: all versions of a given aspect, newest first
+CREATE INDEX IF NOT EXISTS idx_site_specs_history
+    ON site_specs (site_id, aspect, created_at DESC);
+
+-- Find specs written by a particular work item
+CREATE INDEX IF NOT EXISTS idx_site_specs_source_item
+    ON site_specs (source_item_id)
+    WHERE source_item_id IS NOT NULL;
+
+
+-- ============================================================================
+-- 2. build_queue
+--
+-- Domain queue for seeding new sites into the work-item pipeline.
+-- seed_build_queue action reads from here, creates site records and
+-- initial work items based on the direction field.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS build_queue (
+                                           id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    domain          text UNIQUE NOT NULL,
+    direction       jsonb,               -- null, {objective}, {adopt_from}, {fork_from}, {brief_complete: true, ...}
+    status          text NOT NULL DEFAULT 'queued',
+    batch_id        uuid,
+    priority        integer DEFAULT 100,
+    created_at      timestamptz DEFAULT now(),
+    updated_at      timestamptz DEFAULT now()
+    );
+
+CREATE INDEX IF NOT EXISTS idx_build_queue_status
+    ON build_queue (status, priority)
+    WHERE status = 'queued';
+
+
+-- ============================================================================
+-- 3. page_component_history
+--
+-- Tracks previous content_data values for page_components.
+-- Before any content_data write, the current value is copied here.
+-- Each row is a complete snapshot (not a diff).
+-- Replaces the unused content_snapshot/schema_snapshot columns.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS page_component_history (
+                                                      id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    component_id    uuid REFERENCES page_components(id) ON DELETE SET NULL,
+    page_id         uuid NOT NULL REFERENCES pages(id),
+    site_id         uuid NOT NULL REFERENCES sites(id),
+    content_data    jsonb NOT NULL,
+
+    source          text NOT NULL,       -- 'content-writer', 'section-editor', 'rollback', etc.
+    source_item_id  uuid,                -- work item that triggered the change
+    created_at      timestamptz NOT NULL DEFAULT now()
+    );
+
+-- Recent history per component (for rollback)
+CREATE INDEX IF NOT EXISTS idx_pch_component
+    ON page_component_history (component_id, created_at DESC);
+
+-- Recent history per site (for site-wide audit)
+CREATE INDEX IF NOT EXISTS idx_pch_site
+    ON page_component_history (site_id, created_at DESC);
+
+-- Find history entries from a specific work item
+CREATE INDEX IF NOT EXISTS idx_pch_source_item
+    ON page_component_history (source_item_id)
+    WHERE source_item_id IS NOT NULL;
+
+
+-- ============================================================================
+-- 4. approval_mode on site_work_items
+--
+-- Controls whether items auto-dispatch or require human/eval approval.
+-- Values: 'auto' (default), 'hitl', 'eval'
+-- ============================================================================
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'site_work_items' AND column_name = 'approval_mode'
+    ) THEN
+ALTER TABLE site_work_items ADD COLUMN approval_mode text DEFAULT 'auto';
+END IF;
+END $$;
+
+
+-- ============================================================================
+-- 5. page_spec on pages
+--
+-- JSONB column for page-level specification data: content hints, existing
+-- content (for adoption), content_direction for rewrites. Nullable — most
+-- pages won't have one until adoption or improvement agents write specs.
+-- ============================================================================
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'pages' AND column_name = 'page_spec'
+    ) THEN
+ALTER TABLE pages ADD COLUMN page_spec jsonb;
+END IF;
+END $$;
+
+
+-- ============================================================================
+-- 6. Drop content_snapshot / schema_snapshot from page_components
+--
+-- These are unused. page_component_history replaces them.
+-- The Go struct has SchemaSnapshot (omitempty) — remove it after this runs.
+--
+-- v_section_schema_status references both columns. Not used in Go code
+-- but useful as a diagnostic view, so recreate it without the snapshot columns.
+-- ============================================================================
+
+DROP VIEW IF EXISTS v_section_schema_status;
+ALTER TABLE page_components DROP COLUMN IF EXISTS content_snapshot;
+ALTER TABLE page_components DROP COLUMN IF EXISTS schema_snapshot;
+
+CREATE VIEW v_section_schema_status AS
+SELECT pc.id AS page_component_id,
+       pc.page_id,
+       p.name AS page_name,
+       s.domain,
+       cc.name AS component_name,
+       cc.function AS component_function,
+       COALESCE(pc.schema_mode, s.schema_mode, 'flexible'::text) AS effective_schema_mode,
+       pc.locked_at,
+       pc.locked_by,
+       pc.build_status,
+       pc.reviewed_at
+FROM page_components pc
+         JOIN pages p ON pc.page_id = p.id
+         JOIN sites s ON p.site_id = s.id
+         LEFT JOIN content_components cc ON pc.component_id = cc.id;
+
+
+COMMIT;
+
+-- ============================================================================
+-- Verification queries (run after migration to confirm)
+-- ============================================================================
+
+-- SELECT count(*) FROM information_schema.tables WHERE table_name IN ('site_specs', 'build_queue', 'page_component_history');
+-- Expected: 3
+
+-- SELECT column_name FROM information_schema.columns WHERE table_name = 'site_work_items' AND column_name = 'approval_mode';
+-- Expected: 1 row
+
+-- SELECT column_name FROM information_schema.columns WHERE table_name = 'pages' AND column_name = 'page_spec';
+-- Expected: 1 row
+
+-- SELECT column_name FROM information_schema.columns WHERE table_name = 'page_components' AND column_name IN ('content_snapshot', 'schema_snapshot');
+-- Expected: 0 rows
+
+--
+
+----
+
+-- ============================================================================
+-- Backfill site_specs for finetuning.uk from content_data
+-- ============================================================================
+
+-- Identity aspect
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+SELECT s.id, 'identity', jsonb_build_object(
+        'company_name', COALESCE(s.company_name, 'FineTuning'),
+        'tagline', COALESCE(s.tagline, 'AI for the Rest of Us'),
+        'email', COALESCE(s.email, ''),
+        'phone', COALESCE(s.phone, ''),
+        'tone', COALESCE(s.content_data->'response'->>'tone', 'conversational, direct, anti-corporate'),
+        'target_audience', COALESCE(s.content_data->'response'->>'target_audience', 'UK SMEs looking for practical AI solutions'),
+        'industry', 'AI consulting / technology services'
+                         ), 'backfill', 'migration'
+FROM sites s
+WHERE s.id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss WHERE ss.site_id = s.id AND ss.aspect = 'identity' AND ss.is_current = true
+);
+
+-- Design intent aspect
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+SELECT s.id, 'design_intent', jsonb_build_object(
+        'style_direction', 'professional-dark',
+        'colour_mood', 'dark navy with blue accents — tech, trust, sophistication',
+        'typography_mood', 'serif headings (Merriweather) with clean body — authoritative but approachable',
+        'layout_preference', 'spacious sections, clear hierarchy, prominent CTAs'
+                              ), 'backfill', 'migration'
+FROM sites s
+WHERE s.id = '1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss WHERE ss.site_id = s.id AND ss.aspect = 'design_intent' AND ss.is_current = true
+);
+
+-- Content direction aspect
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+VALUES (
+           '1368e337-dd1d-4799-bbb3-8221a1b79bcc', 'content_direction',
+           '{"voice": "Experienced practitioners who cut through AI hype — no buzzwords, no nonsense", "emphasis": "practical results, honest advice, UK SME focus", "avoid_phrases": ["synergy", "cutting-edge", "world-class", "leverage", "disrupt"], "social_proof_style": "company commitments and philosophy, not fabricated testimonials"}'::jsonb,
+           'backfill', 'migration'
+       );
+
+-- ============================================================================
+-- Backfill site_specs for gaswholesalers.com
+-- ============================================================================
+
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+SELECT s.id, 'identity', jsonb_build_object(
+        'company_name', COALESCE(s.company_name, 'Gas Wholesalers'),
+        'tagline', COALESCE(s.tagline, 'Wholesale Gas Supply Solutions'),
+        'email', COALESCE(s.email, ''),
+        'phone', COALESCE(s.phone, ''),
+        'tone', 'professional, direct, trustworthy',
+        'target_audience', 'commercial fuel buyers, fleet managers, facility managers, energy procurement managers',
+        'industry', 'energy / wholesale fuel distribution'
+                         ), 'backfill', 'migration'
+FROM sites s
+WHERE s.id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss WHERE ss.site_id = s.id AND ss.aspect = 'identity' AND ss.is_current = true
+);
+
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+SELECT s.id, 'design_intent', jsonb_build_object(
+        'style_direction', 'professional-dark',
+        'colour_mood', 'dark blue and orange — energy, petroleum, industrial strength',
+        'typography_mood', 'clean sans-serif — modern corporate, not stuffy',
+        'imagery_direction', 'industrial facilities, fuel infrastructure, fleet vehicles',
+        'layout_preference', 'spacious sections, clear hierarchy, prominent CTAs'
+                              ), 'backfill', 'migration'
+FROM sites s
+WHERE s.id = '5fe15466-4e2e-4ff2-981e-98c1b7074002'
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss WHERE ss.site_id = s.id AND ss.aspect = 'design_intent' AND ss.is_current = true
+);
+
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+VALUES (
+           '5fe15466-4e2e-4ff2-981e-98c1b7074002', 'content_direction',
+           '{"voice": "Experienced industry insiders, not salespeople", "emphasis": "reliability, transparency, no-nonsense service", "avoid_phrases": ["synergy", "cutting-edge", "world-class", "solutions provider"], "social_proof_style": "company commitments rather than fabricated testimonials"}'::jsonb,
+           'backfill', 'migration'
+       );
+
+-- Strategy aspect for gaswholesalers (from the content strategy framework)
+INSERT INTO site_specs (site_id, aspect, data, source, created_by)
+VALUES (
+           '5fe15466-4e2e-4ff2-981e-98c1b7074002', 'strategy',
+           '{"visitor_type": "B2B buyers — facility managers, business owners, energy procurement managers", "primary_intent": "find and compare wholesale gas suppliers, understand pricing, negotiate better contracts", "satisfaction_condition": "identified 2-3 suppliers to contact, understand current market pricing, know what to look for in a contract", "monetisation": "lead generation — quote request forms to energy brokers, lead value £10-60 depending on qualification", "recurring_value": "updated pricing page with wholesale market rates, supplier directory", "trust_threshold": "high — commercial energy contracts are high-value B2B decisions"}'::jsonb,
+           'backfill', 'migration'
+       );
+
+-- Verify
+SELECT site_id, aspect, source, LEFT(data::text, 80) as preview
+FROM site_specs
+WHERE site_id IN ('1368e337-dd1d-4799-bbb3-8221a1b79bcc', '5fe15466-4e2e-4ff2-981e-98c1b7074002')
+  AND is_current = true
+ORDER BY site_id, aspect;
+
+---
+
+--
+
+-- ============================================================================
+-- fix_normalise_services.sql
+--
+-- Converts plain-string services arrays to {name, description} objects.
+-- Run once to fix existing data. Future writes are handled by the Go code.
+-- ============================================================================
+
+-- Preview: which site_specs have string services?
+SELECT s.domain, ss.aspect,
+       jsonb_array_length(ss.data->'services') as service_count,
+       ss.data->'services'->0 as first_element,
+       jsonb_typeof(ss.data->'services'->0) as element_type
+FROM site_specs ss
+         JOIN sites s ON s.id = ss.site_id
+WHERE ss.aspect = 'identity'
+  AND ss.is_current = true
+  AND ss.data ? 'services'
+  AND jsonb_array_length(ss.data->'services') > 0;
+
+-- Fix site_specs: convert string arrays to object arrays
+UPDATE site_specs
+SET data = jsonb_set(
+        data,
+        '{services}',
+        (
+            SELECT jsonb_agg(
+                           CASE
+                               WHEN jsonb_typeof(elem) = 'string'
+                                   THEN jsonb_build_object('name', elem #>> '{}', 'description', '')
+                               ELSE elem
+                               END
+                   )
+            FROM jsonb_array_elements(data->'services') AS elem
+        )
+           )
+WHERE aspect = 'identity'
+  AND is_current = true
+  AND data ? 'services'
+  AND jsonb_array_length(data->'services') > 0
+  AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements(data->'services') AS e
+      WHERE jsonb_typeof(e) = 'string'
+  );
+
+-- Fix sites.content_data: same conversion
+UPDATE sites
+SET content_data = jsonb_set(
+        content_data,
+        '{services}',
+        (
+            SELECT jsonb_agg(
+                           CASE
+                               WHEN jsonb_typeof(elem) = 'string'
+                                   THEN jsonb_build_object('name', elem #>> '{}', 'description', '')
+                               ELSE elem
+                               END
+                   )
+            FROM jsonb_array_elements(content_data->'services') AS elem
+        )
+                   ),
+    updated_at = NOW()
+WHERE content_data ? 'services'
+  AND jsonb_array_length(content_data->'services') > 0
+  AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements(content_data->'services') AS e
+      WHERE jsonb_typeof(e) = 'string'
+  );
+
+-- Verify: all services should now be objects
+SELECT s.domain,
+       jsonb_typeof(ss.data->'services'->0) as element_type,
+       ss.data->'services'->0 as first_element
+FROM site_specs ss
+         JOIN sites s ON s.id = ss.site_id
+WHERE ss.aspect = 'identity'
+  AND ss.is_current = true
+  AND ss.data ? 'services'
+  AND jsonb_array_length(ss.data->'services') > 0;
+
+
+---
+
+
+-- Phase 4: Spec pinning — prevents agents from overriding human-set specs.
+ALTER TABLE site_specs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT false;
+
+
+---
+
+-- Seed default growth_config spec for existing sites that don't have one.
+-- New sites will get this automatically via the briefing agent or site setup.
+-- Admins can override via the Direction tab in the dashboard.
+
+INSERT INTO site_specs (site_id, aspect, data, source, is_current, created_by)
+SELECT s.id, 'growth_config',
+       '{"initial_target": 12, "weekly_content_pages_max": 3, "weekly_blog_posts_max": 2, "absolute_max": 60}'::jsonb,
+    'system-default', true, 'admin'
+FROM sites s
+WHERE s.status IN ('active', 'deployed')
+  AND NOT EXISTS (
+    SELECT 1 FROM site_specs ss
+    WHERE ss.site_id = s.id AND ss.aspect = 'growth_config' AND ss.is_current = true
+);
+
+
+-- ============================================================================
+-- 076: Enrich identity specs with capabilities/departments
+-- The content writer reads these when generating features/differentiators
+-- ============================================================================
+
+-- ai-agent-orchestration.com — add departments and capabilities
+UPDATE site_specs
+SET data = jsonb_set(data, '{departments}', '[
+    {"name": "Strategy", "agent_count": 8, "description": "Domain analysis, market classification, site planning, revenue model assessment, and competitive positioning. Every project starts with strategy agents researching the landscape before a single page is planned."},
+    {"name": "Research", "agent_count": 10, "description": "Deep web search with source attribution, structured data extraction from industry registries, Companies House verification cascades, news aggregation with credibility scoring, and competitive analysis. Multi-source, multi-method, always verified."},
+    {"name": "Content", "agent_count": 12, "description": "Content writing with research-grounded briefs, editorial review, gap analysis, blog planning, tone alignment, and content direction enforcement. AI handles research and first drafts, human review gates at every stage."},
+    {"name": "Design", "agent_count": 8, "description": "CSS generation, brand-appropriate colour palettes, typography selection, visual auditing, image generation, and design consistency checks across all pages."},
+    {"name": "Development", "agent_count": 10, "description": "Component creation, interactive tool generation, HTML assembly, template rendering, and the component selector that matches section types to the right building blocks."},
+    {"name": "Quality", "agent_count": 8, "description": "Content audits, tool health checks, design consistency verification, factual accuracy, and compliance. Findings classified by severity, routed to specialists or escalated to human review."},
+    {"name": "Operations", "agent_count": 8, "description": "Dispatch loops, improvement sweeps, scheduling, deployment via GitHub Actions to Cloudflare, site monitoring, and the maintenance cycles that keep every system improving over time."},
+    {"name": "Data", "agent_count": 10, "description": "Veterinary practice pipelines, Companies House matching, price collection, news feed ingestion, and structured data extraction. Any industry, any data source, verified against authoritative records."}
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'ai-agent-orchestration.com')
+  AND aspect = 'identity' AND is_current = true;
+
+-- Also add a capabilities summary the content writer can reference
+UPDATE site_specs
+SET data = jsonb_set(data, '{capabilities_summary}',
+                     '"Over 70 specialised AI agents organised into 8 departments — Strategy, Research, Content, Design, Development, Quality, Operations, and Data — coordinating on Kubernetes via Kafka messaging with Postgres state management. Each department is led by a managing agent that coordinates teams of specialists. Human review gates configurable at every stage. The framework handles website generation, data collection pipelines, news aggregation, interactive tool creation, and continuous quality improvement — all from the same production infrastructure."'::jsonb
+           )
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'ai-agent-orchestration.com')
+  AND aspect = 'identity' AND is_current = true;
+
+-- leopardessconsulting.co.uk — same departments, delivery-focused framing
+UPDATE site_specs
+SET data = jsonb_set(data, '{departments}', '[
+    {"name": "Strategy", "agent_count": 8, "description": "Domain analysis, classification, competitive positioning, and project scoping. Every engagement starts with research agents mapping the landscape before recommendations are made."},
+    {"name": "Research", "agent_count": 10, "description": "Multi-source investigation with source attribution, structured data extraction, Companies House verification, news monitoring, and competitive intelligence. Verified before anything gets built."},
+    {"name": "Content", "agent_count": 12, "description": "Research-grounded content generation, editorial review, gap analysis, and tone enforcement. First drafts from AI, quality from human review at configurable checkpoints."},
+    {"name": "Design", "agent_count": 8, "description": "Brand-appropriate design systems, CSS generation, visual auditing, and cross-page consistency. Industry-specific palettes, not generic templates."},
+    {"name": "Development", "agent_count": 10, "description": "Component architecture, interactive tool generation, template systems, and the selector infrastructure that matches requirements to the right building blocks from a growing library."},
+    {"name": "Quality", "agent_count": 8, "description": "Continuous auditing across content, tools, design, and data. Severity classification, automated routing, and full audit trails on every finding and resolution."},
+    {"name": "Operations", "agent_count": 8, "description": "Orchestration, dispatch, deployment pipelines, scheduling, and the improvement cycles that keep deployed systems getting better between human review sessions."},
+    {"name": "Data", "agent_count": 10, "description": "Structured data collection from any source — industry registries, regulatory databases, web scraping — with automated verification against authoritative records. Currently processing veterinary, farming, and financial datasets."}
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+UPDATE site_specs
+SET data = jsonb_set(data, '{capabilities_summary}',
+                     '"Over 70 specialised AI agents in 8 departments, each led by a managing agent coordinating teams of specialists. Built on Kubernetes and Kafka — production infrastructure, not a demo framework. Human oversight configurable per workflow stage. We deliver website operations, data collection pipelines, news aggregation, interactive tools, and continuous improvement — all from the same battle-tested orchestration platform."'::jsonb
+           )
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'leopardessconsulting.co.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+-- ============================================================================
+-- finetuning.uk — LLM training and privacy focus
+-- ============================================================================
+
+UPDATE site_specs
+SET data = jsonb_set(data, '{services}', '[
+    {"name": "AI-Powered Website Creation and Maintenance", "description": "We research your industry, write targeted content, generate useful tools, and keep everything updated. Your site gets better over time through continuous improvement cycles. Review and approve changes, or let routine maintenance run automatically."},
+    {"name": "Private LLM Training and Hosting", "description": "Fine-tune open-weight models like Llama, Mistral, and Phi on your own data using LoRA adapters. Your training data stays private — hosted on your infrastructure or in a private cloud. No data sent to third-party APIs. Models trained specifically on your industry, your terminology, your processes."},
+    {"name": "RAG and Knowledge Base Systems", "description": "Retrieval-Augmented Generation that connects AI to your actual documents, policies, and data. We build custom embedding pipelines using the best open-source models for your domain — not one-size-fits-all. Your knowledge base, your AI, your control."},
+    {"name": "In-Browser AI Tools", "description": "Lightweight language models that run entirely in the user''s browser — no server calls, complete privacy. We''ve deployed this on websitedesign.com where users create HTML pages using a local model. Early stage but demonstrates the principle: useful AI that never touches your data."},
+    {"name": "Automated Data Collection and Verification", "description": "AI agents that collect, verify, and structure data from any industry — competitor prices, supplier directories, regulatory records. Checked against official sources like Companies House. You review exceptions, the system handles the volume."},
+    {"name": "Industry News Monitoring", "description": "Multi-source news collection with credibility scoring. AI checks whether each item is from Reuters or an unverified social post before anything reaches your site. First drafts from AI, final quality from human review."}
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+UPDATE site_specs
+SET data = jsonb_set(data, '{key_differentiators}', '[
+    "Multi-model approach: we use the best AI model for each task, not just one provider. Text, images, code, and reasoning — each handled by the model that does it best.",
+    "Privacy-first: private LLM hosting, LoRA fine-tuning on your data, in-browser models that never send data to servers. Your data stays yours.",
+    "Open-weight models: Llama, Mistral, Phi, and others — fine-tuned for your specific domain with custom embeddings. Not locked into any single AI vendor.",
+    "Human oversight at every stage: configurable review gates mean you approve what matters and automate what doesn''t. No black boxes.",
+    "Continuous improvement: our systems get better over time through automated quality sweeps, not just at launch. Sites, data, and tools all improve between human review cycles.",
+    "Verified, not hallucinated: research agents check facts against official sources before anything gets published. Source attribution and credibility scoring built in."
+]'::jsonb)
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk')
+  AND aspect = 'identity' AND is_current = true;
+
+-- ============================================================================
+-- Trigger rebuilds for services/index/about pages to pick up new context
+-- ============================================================================
+
+UPDATE pages SET build_status = 'needs_rebuild'
+WHERE site_id IN (SELECT id FROM sites WHERE domain IN ('ai-agent-orchestration.com', 'finetuning.uk', 'leopardessconsulting.co.uk'))
+  AND name IN ('index', 'services', 'our-approach', 'technical-architecture', 'for-engineering-teams', 'approach', 'our-position-on-ai', 'ai-for-uk-small-business')
+  AND status = 'active'
+  AND build_status = 'deployed';

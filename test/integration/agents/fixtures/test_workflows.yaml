@@ -1,0 +1,270 @@
+# test/fixtures/workflows/test_workflows.yaml
+test_workflows:
+  # Basic single-agent workflow
+  - id: test-workflow-001
+    name: Simple Agent Call
+    description: Basic workflow to test single agent invocation
+    workflow:
+      start_step: call_agent
+      steps:
+        call_agent:
+          action: call_agent
+          topic: system.agent.generic.process
+          config:
+            action: process_data
+            data:
+              message: "Test message"
+          timeout: 30s
+          next_step: complete
+        complete:
+          action: complete_workflow
+
+  # Multi-agent sequential workflow
+  - id: test-workflow-002
+    name: Sequential Multi-Agent
+    description: Test sequential execution of multiple agents
+    workflow:
+      start_step: research
+      steps:
+        research:
+          action: call_agent
+          topic: system.agent.web-search.process
+          config:
+            action: search
+            data:
+              query: "kubernetes best practices"
+              max_results: 5
+          next_step: analyze
+        analyze:
+          action: call_agent
+          topic: system.agent.reasoning.process
+          config:
+            action: analyze
+            data:
+              content_to_review: "{{collected_data.research.results}}"
+              review_criteria: ["relevance", "accuracy"]
+          next_step: create_content
+        create_content:
+          action: call_agent
+          topic: system.agent.content-creator.process
+          config:
+            action: generate_content
+            data:
+              topic: "Kubernetes Best Practices Summary"
+              research_data: "{{collected_data.research}}"
+              analysis: "{{collected_data.analyze}}"
+          next_step: complete
+        complete:
+          action: complete_workflow
+
+  # Parallel execution workflow
+  - id: test-workflow-003
+    name: Parallel Agent Execution
+    description: Test fan-out to multiple agents in parallel
+    workflow:
+      start_step: validate
+      steps:
+        validate:
+          action: validate_input
+          next_step: fan_out_agents
+        fan_out_agents:
+          action: fan_out
+          sub_tasks:
+            - step_name: search_task
+              topic: system.agent.web-search.process
+              timeout: 30s
+            - step_name: reasoning_task
+              topic: system.agent.reasoning.process
+              timeout: 45s
+            - step_name: content_task
+              topic: system.agent.content-creator.process
+              timeout: 60s
+          wait_for_all: true
+          next_step: aggregate
+        aggregate:
+          action: aggregate_results
+          config:
+            merge_strategy: combine_all
+          next_step: complete
+        complete:
+          action: complete_workflow
+
+  # Agent spawning workflow
+  - id: test-workflow-004
+    name: Dynamic Agent Spawning
+    description: Test spawning agents dynamically
+    workflow:
+      start_step: check_requirements
+      steps:
+        check_requirements:
+          action: validate_input
+          next_step: spawn_agent
+        spawn_agent:
+          action: spawn_agent
+          config:
+            agent_type: researcher
+            capabilities: ["web_search", "data_extraction"]
+          next_step: use_spawned_agent
+        use_spawned_agent:
+          action: call_agent
+          config:
+            use_spawned: true
+            action: perform_research
+            data:
+              topic: "AI trends 2024"
+          next_step: cleanup
+        cleanup:
+          action: deactivate_agent
+          config:
+            agent_id: "{{collected_data.spawn_agent.agent_id}}"
+          next_step: complete
+        complete:
+          action: complete_workflow
+
+  # Group spawning workflow
+  - id: test-workflow-005
+    name: Agent Group Spawning
+    description: Test spawning and using agent groups
+    workflow:
+      start_step: spawn_group
+      steps:
+        spawn_group:
+          action: spawn_group
+          config:
+            group_type: website-builder
+          next_step: distribute_work
+        distribute_work:
+          action: fan_out_to_group
+          config:
+            tasks:
+              - role: architect
+                action: create_site_plan
+                data:
+                  domain: "test-site.com"
+              - role: designer
+                action: create_design
+                data:
+                  style: "modern"
+              - role: developer
+                action: build_html
+          next_step: complete
+        complete:
+          action: complete_workflow
+
+  # Conditional workflow
+  - id: test-workflow-006
+    name: Conditional Execution
+    description: Test conditional branching in workflows
+    workflow:
+      start_step: analyze_input
+      steps:
+        analyze_input:
+          action: call_agent
+          topic: system.agent.reasoning.process
+          config:
+            action: classify_request
+            data:
+              input: "{{initial_data}}"
+          next_step: evaluate_condition
+        evaluate_condition:
+          action: conditional
+          config:
+            condition: "{{collected_data.analyze_input.classification}} == 'complex'"
+            true_step: complex_processing
+            false_step: simple_processing
+        complex_processing:
+          action: spawn_group
+          config:
+            group_type: research-team
+          next_step: complete
+        simple_processing:
+          action: call_agent
+          topic: system.agent.generic.process
+          config:
+            action: quick_process
+          next_step: complete
+        complete:
+          action: complete_workflow
+
+  # Error handling workflow
+  - id: test-workflow-007
+    name: Error Handling Test
+    description: Test error handling and retry mechanisms
+    workflow:
+      start_step: risky_operation
+      steps:
+        risky_operation:
+          action: call_agent
+          topic: system.agent.generic.process
+          config:
+            action: unstable_operation
+            simulate_failure_rate: 0.5
+          retry:
+            max_attempts: 3
+            backoff_seconds: [1, 2, 4]
+          on_error: error_handler
+          next_step: complete
+        error_handler:
+          action: call_agent
+          topic: system.agent.reasoning.process
+          config:
+            action: analyze_error
+            data:
+              error: "{{error_details}}"
+          next_step: fallback
+        fallback:
+          action: call_agent
+          topic: system.agent.generic.process
+          config:
+            action: safe_fallback
+          next_step: complete
+        complete:
+          action: complete_workflow
+
+  # Long-running workflow
+  - id: test-workflow-008
+    name: Long Running Process
+    description: Test handling of long-running workflows
+    workflow:
+      start_step: initiate
+      steps:
+        initiate:
+          action: call_agent
+          topic: system.agent.generic.process
+          config:
+            action: start_long_process
+          next_step: checkpoint_1
+        checkpoint_1:
+          action: save_checkpoint
+          config:
+            checkpoint_name: "25_percent"
+          next_step: continue_1
+        continue_1:
+          action: call_agent
+          topic: system.agent.generic.process
+          config:
+            action: continue_process
+            checkpoint: "25_percent"
+          timeout: 5m
+          next_step: checkpoint_2
+        checkpoint_2:
+          action: save_checkpoint
+          config:
+            checkpoint_name: "50_percent"
+          next_step: continue_2
+        continue_2:
+          action: call_agent
+          topic: system.agent.generic.process
+          config:
+            action: continue_process
+            checkpoint: "50_percent"
+          timeout: 5m
+          next_step: finalize
+        finalize:
+          action: call_agent
+          topic: system.agent.generic.process
+          config:
+            action: finalize_process
+          next_step: complete
+        complete:
+          action: complete_workflow

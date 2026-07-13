@@ -2,7 +2,9 @@
 package subscription
 
 import (
+	"go.uber.org/zap"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +17,15 @@ type Handlers struct {
 // NewHandlers creates new subscription handlers
 func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
+}
+
+// QuotaCheckResponse for quota verification results
+type QuotaCheckResponse struct {
+	HasQuota     bool   `json:"has_quota" example:"true"`
+	Resource     string `json:"resource" example:"personas"`
+	CurrentUsage int    `json:"current_usage,omitempty" example:"12"`
+	MaxAllowed   int    `json:"max_allowed,omitempty" example:"50"`
+	Remaining    int    `json:"remaining,omitempty" example:"38"`
 }
 
 // HandleGetSubscription returns the current user's subscription
@@ -59,20 +70,32 @@ func (h *Handlers) HandleCheckQuota(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"has_quota": hasQuota,
-		"resource":  resource,
-	})
+	response := QuotaCheckResponse{
+		HasQuota: hasQuota,
+		Resource: resource,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // AdminHandlers for admin operations
 type AdminHandlers struct {
 	service *Service
+	logger  *zap.Logger
 }
 
 // NewAdminHandlers creates admin handlers
-func NewAdminHandlers(service *Service) *AdminHandlers {
-	return &AdminHandlers{service: service}
+func NewAdminHandlers(service *Service, logger *zap.Logger) *AdminHandlers {
+	return &AdminHandlers{service: service, logger: logger}
+}
+
+// SubscriptionListResponse for paginated subscription lists
+type SubscriptionListResponse struct {
+	Subscriptions []Subscription `json:"subscriptions"`
+	TotalCount    int            `json:"total_count" example:"156"`
+	Page          int            `json:"page" example:"1"`
+	Limit         int            `json:"limit" example:"50"`
+	TotalPages    int            `json:"total_pages,omitempty" example:"4"`
 }
 
 // HandleCreateSubscription creates a subscription (admin only)
@@ -109,4 +132,42 @@ func (h *AdminHandlers) HandleUpdateSubscription(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, subscription)
+}
+
+// HandleListSubscriptions lists all subscriptions with filtering (admin only)
+func (h *AdminHandlers) HandleListSubscriptions(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if limit > 200 {
+		limit = 200
+	}
+	if page < 1 {
+		page = 1
+	}
+
+	params := ListSubscriptionsParams{
+		Limit:  limit,
+		Offset: (page - 1) * limit,
+		Status: c.Query("status"),
+		Tier:   c.Query("tier"),
+	}
+
+	subscriptions, total, err := h.service.repo.ListAll(c.Request.Context(), params)
+	if err != nil {
+		h.logger.Error("Failed to list subscriptions", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve subscriptions"})
+		return
+	}
+
+	totalPages := (total + limit - 1) / limit
+
+	response := SubscriptionListResponse{
+		Subscriptions: subscriptions,
+		TotalCount:    total,
+		Page:          page,
+		Limit:         limit,
+		TotalPages:    totalPages,
+	}
+
+	c.JSON(http.StatusOK, response)
 }

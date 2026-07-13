@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: analyser-adapter
+  labels:
+    app: analyser-adapter
+spec:
+  type: ClusterIP
+  selector:
+    app: analyser-adapter
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http

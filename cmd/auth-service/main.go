@@ -1,4 +1,23 @@
 // FILE: cmd/auth-service/main.go
+
+// @title Auth Service API
+// @version 1.0
+// @description Authentication and authorization service for the AI Persona Platform
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name AI Persona Support
+// @contact.email support@persona-platform.com
+
+// @license.name Proprietary
+
+// @host localhost:8081
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
 package main
 
 import (
@@ -12,6 +31,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/gqls/agentchassis/internal/auth-service/admin"
 	"github.com/gqls/agentchassis/internal/auth-service/auth"
 	"github.com/gqls/agentchassis/internal/auth-service/gateway"
 	"github.com/gqls/agentchassis/internal/auth-service/jwt"
@@ -19,16 +40,15 @@ import (
 	"github.com/gqls/agentchassis/internal/auth-service/project"
 	"github.com/gqls/agentchassis/internal/auth-service/subscription"
 	"github.com/gqls/agentchassis/internal/auth-service/user"
-
-	// Platform packages
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/database"
 	"github.com/gqls/agentchassis/platform/logger"
-
-	// External packages
-	"github.com/gin-gonic/gin"
 	"github.com/rs/cors"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
+
+	_ "github.com/gqls/agentchassis/cmd/auth-service/docs"
 )
 
 func main() {
@@ -101,8 +121,9 @@ func main() {
 	userHandlers := user.NewHandlers(userSvc)
 	projectHandler := project.NewHTTPHandler(projectRepo, appLogger)
 	subscriptionHandlers := subscription.NewHandlers(subscriptionSvc)
-	subscriptionAdminHandlers := subscription.NewAdminHandlers(subscriptionSvc)
+	subscriptionAdminHandlers := subscription.NewAdminHandlers(subscriptionSvc, appLogger)
 	gatewayHandler := gateway.NewHTTPHandler(gatewaySvc, appLogger)
+	adminHandlers := admin.NewHandlers(userRepo, appLogger)
 
 	// --- Step 5: Setup Routing and Middleware ---
 	// Using Gin router for consistency with handlers
@@ -163,8 +184,52 @@ func main() {
 	adminGroup.Use(middleware.RequireAuth(jwtSvc, appLogger))
 	adminGroup.Use(middleware.RequireRole("admin"))
 	{
+		// User management (handled by auth-service)
+		adminGroup.GET("/users", adminHandlers.HandleListUsers)
+		adminGroup.GET("/users/:user_id", adminHandlers.HandleGetUser)
+		adminGroup.PUT("/users/:user_id", adminHandlers.HandleUpdateUser)
+		adminGroup.DELETE("/users/:user_id", adminHandlers.HandleDeleteUser)
+		adminGroup.GET("/users/:user_id/activity", adminHandlers.HandleGetUserActivity)
+		adminGroup.POST("/users/:user_id/permissions", adminHandlers.HandleGrantPermission)
+		adminGroup.DELETE("/users/:user_id/permissions/:permission_name", adminHandlers.HandleRevokePermission)
+
+		// Subscription management (handled by auth-service)
+		adminGroup.GET("/subscriptions", subscriptionAdminHandlers.HandleListSubscriptions)
 		adminGroup.POST("/subscriptions", subscriptionAdminHandlers.HandleCreateSubscription)
 		adminGroup.PUT("/subscriptions/:user_id", wrapAdminSubscriptionHandler(subscriptionAdminHandlers.HandleUpdateSubscription))
+
+		// Routes to be proxied to core-manager
+		adminGroup.Any("/clients", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/clients/*path", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/system/*path", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/workflows/*path", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/agent-definitions/*path", gatewayHandler.HandleAdminRoutes)
+
+		// Site domain admin endpoints (Block E from 008 plan)
+		adminGroup.Any("/sites", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/sites/*path", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/work-items", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/work-items/*path", gatewayHandler.HandleAdminRoutes)
+
+		adminGroup.Any("/pipelines", gatewayHandler.HandleAdminRoutes)
+		adminGroup.Any("/pipelines/*path", gatewayHandler.HandleAdminRoutes)
+
+		// ============================================================================
+		// ENDPOINTS SUMMARY
+		// ============================================================================
+		//
+		// | Method | Path                                    | Purpose                          |
+		// |--------|-----------------------------------------|----------------------------------|
+		// | GET    | /api/v1/admin/sites                     | List sites with work item counts |
+		// | GET    | /api/v1/admin/sites/:site_id            | Site detail with specs            |
+		// | PATCH  | /api/v1/admin/sites/:site_id/specs/:asp | Update a site spec               |
+		// | GET    | /api/v1/admin/work-items                | List work items (filterable)      |
+		// | GET    | /api/v1/admin/work-items/:item_id       | Single work item detail           |
+		// | PATCH  | /api/v1/admin/work-items/:item_id       | Update work item fields           |
+		// | POST   | /api/v1/admin/work-items/:item_id/retry | Re-trigger as content_rewrite     |
+		// | POST   | /api/v1/admin/work-items/:item_id/resolve | Mark as resolved/dismissed     |
+		//
+		// All endpoints require admin JWT auth (via RequireAuth + RequireRole("admin")).
 	}
 
 	// Gateway proxy endpoints (protected)
@@ -186,6 +251,8 @@ func main() {
 
 	// WebSocket endpoint
 	router.GET("/ws", middleware.RequireAuth(jwtSvc, appLogger), gatewayHandler.HandleWebSocket)
+
+	setupSwaggerRoutes(router)
 
 	// Apply CORS middleware
 	allowedOrigins := []string{"*"} // default
@@ -227,7 +294,7 @@ func main() {
 	appLogger.Info("Shutdown signal received, shutting down auth server...")
 
 	// Graceful shutdown with timeout
-	ctxShutdown, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctxShutdown); err != nil {
@@ -258,4 +325,14 @@ func wrapAdminSubscriptionHandler(fn func(*gin.Context)) gin.HandlerFunc {
 		c.Set("param_user_id", c.Param("user_id"))
 		fn(c)
 	}
+}
+
+func setupSwaggerRoutes(router *gin.Engine) {
+	// Swagger documentation route
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Redirect /api/docs to swagger UI
+	router.GET("/api/docs", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
+	})
 }

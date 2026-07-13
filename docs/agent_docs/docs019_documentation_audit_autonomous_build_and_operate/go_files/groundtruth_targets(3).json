@@ -1,0 +1,34 @@
+{
+  "_note": "Ground truth for target-resolution evaluation. 'expect' = decisive symbols a resolver must surface; 'also_useful' = helpful neighbours. Paths may be basenames or full relative paths \u2014 eval_targets matches the path part by suffix, so this file works whether the analyser ran on the flat adoption dir or the full chassis tree. Add a task entry per known case to grow the set.",
+  "tasks": [
+    {
+      "id": "skinner-box",
+      "task": "guide-skinner-box completes empty: what source does plan_sections read for readiness and how is ready_count computed",
+      "expect": [
+        "plan_sections_action.go:PlanSectionsAction",
+        "load_page_sections_from_spec_action.go:LoadPageSectionsFromSpecAction"
+      ],
+      "also_useful": [
+        "plan_sections_action.go:planSection",
+        "plan_sections_action.go:createDeferredItems",
+        "plan_sections_action.go:loadComponentSchemas",
+        "plan_sections_action.go:resolveSectionComponent",
+        "plan_sections_action.go:loadOpenSectionDataRequests"
+      ]
+    },
+    {
+      "id": "silent-norebuild-resultspec",
+      "task": "When a deployed page is rebuilt the pipeline reports success but re-deploys the old content unchanged: the page-content-writer's compiled page is silently dropped and the work item completes as a stub. Find where a completed workflow's result is extracted and why the writer's declared output key is ignored.",
+      "expect": [
+        "result_spec.go:resolveResultSpec",
+        "coordinator.go:extractWorkflowResult"
+      ],
+      "also_useful": [
+        "result_spec.go:ResultSpec",
+        "result_spec.go:fallbackDumpInto",
+        "result_spec.go:ResultMode"
+      ],
+      "_note": "REAL fix (2026-01 chassis regression): coordinator honoured only plural output_fields; writer declares singular output_field; compiled page collapsed into the skipPatterns dump -> 'completed' stub -> stale page. Fix = resolveResultSpec treats singular as flatten. NEITHER lexical nor semantic surfaced these symbols for the SYMPTOM task (page stale / sections not persisting) \u2014 the decisive code is generic result-contract plumbing named nothing like the symptom. The extreme symptom-vs-mechanism vocabulary gap case."
+    }
+  ]
+}

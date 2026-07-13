@@ -1,0 +1,41 @@
+# FILE: configs/content-creator-agent.yaml
+service_info:
+  name: "content-creator-agent"
+  version: "1.0.0"
+  environment: "development"
+
+server:
+  port: "8088" # This is unused by the agent, but required by config loader
+
+logging:
+  level: "info"
+
+observability:
+  tracing_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
+
+infrastructure:
+  kafka_brokers:
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+  clients_database: # Agents need access to clients DB for agent config/memory
+    host: "pgbouncer.ai-persona-system.svc.cluster.local" # Adjust if different in your setup
+    port: 6432
+    user: "clients_user"
+    password_env_var: "CLIENTS_DB_PASSWORD" # Ensure this env var is set
+    db_name: "clients_db"
+    sslmode: "disable"
+
+  # Templates database is not directly needed by agents, but InfrastructureConfig expects it
+  templates_database: {}
+
+  auth_database: {} # Not needed by agent
+  object_storage: {} # Not directly needed by content creator for now
+
+custom:
+  agent_type: "content-creator"
+  topic: "system.agent.content-creator.requests"
+  kafka_consumer_group: "content-creator-agent-group"
+  ai_service:
+    provider: "anthropic"
+    model: "claude-3-5-sonnet-20241022" # Specific model name from Anthropic
+    api_key_env_var: "ANTHROPIC_API_KEY" # Ensure this env var is set

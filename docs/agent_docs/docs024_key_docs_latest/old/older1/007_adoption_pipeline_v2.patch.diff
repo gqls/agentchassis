@@ -1,0 +1,98 @@
+--- /mnt/project/007_adoption_pipeline_v2.md	2026-04-20 14:28:33.000000000 +0000
++++ /mnt/user-data/outputs/007_adoption_pipeline_v2.md	2026-04-21 11:36:50.713879552 +0000
+@@ -264,31 +264,56 @@
+ 
+ ### The adoption agent
+ 
+-A dedicated `site-adoption-agent` triggered with a domain and URL. Runs its own workflow, not through the classifier pipeline. The adoption flow has a different starting point from a new build — it starts with a crawl, not a brief.
++Two agents, one thin wrapper:
++
++- `site-adoption-orchestrator` — the trigger target. Tiny workflow: `spawn → call → complete`. Runs briefly in a chassis pod. Its only job is to spawn `site-adoption-agent` as its own Kubernetes Job and forward the result back to the caller. This gives each adoption a dedicated pod with clean per-lifetime logs. See doc 001 "Every pod-running agent needs a parent that spawned it" for why.
++
++- `site-adoption-agent` — the adoption work itself. Runs in the spawned pod. Crawls the source URL, classifies, extracts content, writes specs and work items for the destination site.
+ 
+ ```
+-./trigger-adopt-site.sh gamedesign.uk
++./trigger-adopt-site.sh
+ 
+-site-adoption-agent workflow:
+-  1. ensure_site_record
+-  2. firecrawl_crawl (all pages, async via webscrape adapter)
+-  3. format_crawl_for_analysis (produce lightweight summaries for LLM)
+-  4. check_crawl_content (conditional: proceed or fail)
+-  5. extract_design_fingerprint (Go: parse <style> blocks, inline styles, <link> tags from rawHTML)
+-  6. check_has_external_css (conditional: fetch CSS or skip)
+-  7. fetch_primary_css (firecrawl_scrape via webscrape adapter — only if external CSS found)
+-  8. enrich_fingerprint_with_css (Go: merge fetched CSS into fingerprint)
+-  9. analyze_site (LLM: classify site structure from summaries — output_format: json)
+-  10. classify_archetype (LLM: site character, design patterns, purpose, constraints)
++Trigger payload:
++  config.agent_type = "site-adoption-orchestrator"
++  input_data.target_url         = "https://source-to-crawl.com"
++  input_data.destination_domain = "destination-to-build.co.uk"
++
++(Legacy input_data shape — input_data.url and input_data.domain — is still
++accepted and routes both to the same domain, preserving the original
++single-domain adoption behaviour.)
++
++site-adoption-orchestrator workflow:
++  spawn_adopter → call_adopter → complete
++
++site-adoption-agent workflow (runs in the spawned pod):
++  1. ensure_site_record           (uses destination_domain via domain_override_field)
++  2. firecrawl_crawl              (uses target_url via url_field)
++  3. format_crawl_for_analysis
++  4. check_crawl_content          (conditional: proceed or fail)
++  5. extract_design_fingerprint   (Go: parse <style> blocks, inline styles, <link> tags from rawHTML)
++  6. check_has_external_css       (conditional: fetch CSS or skip)
++  7. fetch_primary_css            (firecrawl_scrape — only if external CSS found)
++  8. enrich_fingerprint_with_css
++  9. analyze_site                 (LLM: classify site structure — output_format: json)
++  10. classify_archetype          (LLM: site character, design patterns, purpose, constraints)
+   11. select_representative_content (Go: pick 2-3 prose-heavy pages)
+-  12. derive_content_direction (LLM: writing style guide from actual content)
+-  13. apply_adoption_plan (Go: write specs, pages, work items, extract content)
+-  14. generate_design_intent (LLM: semantic design brief from fingerprint + identity)
+-  15. write_design_intent (write_site_spec: persist design_intent to site_specs)
++  12. derive_content_direction    (LLM: writing style guide from actual content)
++  13. apply_adoption_plan         (Go: write specs, pages, work items; source-vs-destination aware)
++  14. generate_design_intent      (LLM: semantic design brief from fingerprint + identity)
++  15. write_design_intent
+   16. complete
+ ```
+ 
+-After completion, the dispatch loop picks up work items (`needs_design`, `needs_content_page × N`, `needs_rerender`) and builds the site through the normal pipeline.
++Source vs destination. The adoption flow separates two things that used to be one:
++
++- **target_url** — the site being crawled for reference
++- **destination_domain** — the site being built
++
++`ensure_site_record` creates the record for `destination_domain`. `firecrawl_crawl` hits `target_url`. `apply_adoption_plan` writes provenance (`identity.adopted_from`, `site_specs.notes`, per-page `contentData.adopted_from`, and the `needs_composition` / `needs_design` work item specs) with the source host extracted from `target_url`, while the site row, pages, and work items belong to the destination. The source host is also what keys the crawl-content lookup table inside `apply_adoption_plan` — mismatching source and destination there would silently drop all adopted page content.
++
++If only `url` / `domain` are supplied, source and destination are the same and behaviour matches the original single-domain adoption.
++
++After completion, the dispatch loop picks up work items (`needs_design`, `needs_content_page × N`, `needs_rerender`) on the destination site and builds the site through the normal pipeline.
+ 
+ ### Three-stage processing: Go extracts design, LLM classifies, Go extracts content
+ 
+@@ -373,13 +398,14 @@
+ 
+ ### Adoption modes
+ 
+-| Mode | Trigger | What happens |
+-|------|---------|-------------|
+-| Take over domain | `./trigger-adopt-site.sh mortgagecalculator.co.uk` | Adoption agent: crawl → classify → recreate → improve |
+-| Build inspired by | `{"domain": "loancalculator.co.uk", "reference_sites": ["https://mortgagecalculator.co.uk"]}` | Classifier uses reference in research, strategist takes what's useful, content is fresh |
+-| Normal build | `{"domain": "newsite.co.uk"}` | Classifier researches the vertical, finds competitors organically |
++| Mode | Input_data | What happens |
++|------|-----------|--------------|
++| Mirror existing domain (source = destination) | `{"url": "https://site.co.uk", "domain": "site.co.uk"}` or equivalently `{"target_url": "https://site.co.uk", "destination_domain": "site.co.uk"}` | Adoption crawls the URL and builds a site record on the same domain. Legacy single-domain flow. |
++| Separated source/destination | `{"target_url": "https://source-site.uk", "destination_domain": "my-new-site.co.uk"}` | Adoption crawls `target_url` for reference, writes the destination site record as `destination_domain`. `adopted_from` provenance records the source host; pages, work items and specs belong to the destination. |
++| Build inspired by | `{"domain": "loancalculator.co.uk", "reference_sites": ["https://mortgagecalculator.co.uk"]}` | Not the adoption agent — goes through the classifier/planner pipeline. Classifier uses reference in research, strategist takes what's useful, content is fresh. |
++| Normal build | `{"domain": "newsite.co.uk"}` | Not the adoption agent — classifier researches the vertical, finds competitors organically. |
+ 
+-The adoption agent handles "take over domain." The other modes go through the existing classifier/planner pipeline with richer input_data.
++The adoption agent handles the first two rows; `site-adoption-orchestrator` is the entry point for both (`config.agent_type: "site-adoption-orchestrator"`). The other modes go through the existing classifier/planner pipeline with richer input_data.
+ 
+ ### Post-adoption: the strategist writes aspirational direction
+ 

@@ -1,0 +1,51 @@
+# FILE: deployments/kustomize/services/content-creator-agent/base/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: content-creator-agent # Unique name for this agent
+  labels:
+    app: content-creator-agent
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: content-creator-agent
+  template:
+    metadata:
+      labels:
+        app: content-creator-agent
+    spec:
+      serviceAccountName: ai-persona-app # Use the shared service account
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: content-creator-agent
+          image: docker.io/aqls/content-creator-agent:latest # This will be patched by overlays
+          ports:
+            - containerPort: 9090 # For the agent's health server
+          env: [] # Start with an empty env block
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          resources:
+            requests:
+              cpu: "250m" # Adjust based on expected LLM load
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          # Command to run the agent with its config file
+          command: ["./content-creator-agent"]
+          args: ["-config", "configs/content-creator-agent.yaml"]
+          volumeMounts:
+            - name: agent-config
+              mountPath: /app/configs
+      volumes:
+        - name: agent-config
+          configMap:
+            name: content-creator-agent-configmap # ConfigMap for its specific yaml config
+            items:
+              - key: content-creator-agent.yaml
+                path: content-creator-agent.yaml

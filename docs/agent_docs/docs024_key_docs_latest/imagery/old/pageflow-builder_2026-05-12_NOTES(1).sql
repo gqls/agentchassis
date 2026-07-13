@@ -1,0 +1,75 @@
+-- SNAPSHOT — pageflow-builder agent_definition as of 2026-05-12
+--
+-- Created because Phase 2G locks in a decision to NOT extend pageflow-builder
+-- with the new imagery_plan shape. The architecture is converging on
+-- triaged work items + image-build-handler for image work and
+-- build-site-planner / plan-builder + reconciler for page work.
+--
+-- If at some point we discover pageflow-builder is still being used (or
+-- needs to be) for image generation, this is the snapshot to revert to /
+-- reference against to understand what its current behaviour was.
+--
+-- Source: /mnt/project/bk_agent_definitions_backup.sql, row for
+-- agent_type='pageflow-builder', captured 2026-05-12.
+--
+-- Restore instructions if needed:
+-- 1. Load the row into a temp table or paste the JSON workflow into a
+--    new agent_definition row.
+-- 2. Run a snapshot via snapshot_agent() FIRST (so the active row gets
+--    captured at whatever post-decision shape it has).
+-- 3. Then revert.
+--
+-- Notes on what makes pageflow-builder legacy-shape:
+--
+-- - Inline deploy_image_asset calls (rather than spawning asset-deployer)
+--   in deploy_hero_image and deploy_logo_image steps. Same architecture
+--   mismatch that motivated Phase 2F refactor of image-build-handler.
+--
+-- - Hardcoded generate_logo and generate_hero_image steps reading from
+--   site_plan.response.image_prompts.{logo,hero_home}. No support for
+--   variants, illustrations, icons, or any imagery beyond canonical
+--   hero+logo.
+--
+-- - Sequential build_pages_loop iterating one page at a time, max 20
+--   iterations. Doesn't use the triaged-work-item dispatch loop pattern.
+--
+-- - Writes site_plan to site_specs.aspect='site_plan' directly (via
+--   sync_plan_to_specs), bypassing the four new plan-domain tables
+--   (site_plans, site_plan_pages, site_plan_sections,
+--   site_plan_directives).
+--
+-- - Triggers a single big deploy via deployer-agent after all pages
+--   built. The page-build-handler model spreads deploys across
+--   per-page work items.
+--
+-- pageflow-builder is the path that built sites pre-Phase-1. Sites
+-- built via this path read image_prompts from
+-- site_specs.aspect=site_plan and use the legacy discovery check
+-- check_unfulfilled_image_prompt. They continue to work but won't
+-- benefit from the new imagery_plan shape unless they replan via the
+-- build-site-planner / plan-builder cascade.
+
+-- =====================================================================
+-- The actual row (one line, tab-separated, full workflow JSON inlined)
+-- =====================================================================
+-- See /home/claude/backups/pageflow-builder_2026-05-12.txt for the raw
+-- pg_dump-formatted row. It's a single line of text. To restore:
+--
+--   psql -d clients_db
+--   \copy agent_definitions FROM '/path/to/pageflow-builder_2026-05-12.txt'
+--
+-- or equivalent. Adjust columns to match current schema.
+--
+-- Tagged here in case it gets lost: id is
+-- 427aa3e5-5ea2-4917-8d24-d751ebd283b2
+-- created_at = 2025-12-22 17:46:51.419068+00
+-- updated_at as of snapshot = 2026-05-10 13:16:33.22747+00
+-- image = docker.io/aqls/agent-chassis
+-- version = v1.0.1002
+-- status = active
+-- replicas = 20
+
+-- Decision marker: 2026-05-12 — user agreed pageflow-builder is being
+-- left behind in the architecture shift to triaged work items +
+-- image-build-handler + plan-builder + reconciler. This snapshot
+-- captures what was current at the divergence point.

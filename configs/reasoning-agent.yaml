@@ -2,7 +2,7 @@
 service_info:
   name: "reasoning-agent"
   version: "1.0.0"
-  environment: "development"
+  environment: "production"
 
 server:
   port: "8082"
@@ -12,9 +12,7 @@ logging:
 
 infrastructure:
   kafka_brokers:
-    - "kafka-0.kafka-headless:9092"
-    - "kafka-1.kafka-headless:9092"
-    - "kafka-2.kafka-headless:9092"
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
   clients_database: {}
   templates_database: {}

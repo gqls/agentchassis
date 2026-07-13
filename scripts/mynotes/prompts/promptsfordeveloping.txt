@@ -1,0 +1,5 @@
+every agent is an orchestrator even if it just has one step
+we need to keep the versions in the database, you can specify different versions of agent in the messages.
+
+I'd like it to remain a fixed agent because I think some of these adapters - encapsulating various different third party services of all shapes and sizes - may get arbitrarily complicated and it might be necessary to have them running permanently sometimes rather than trying to make them dynamic. I may be making the wrong choice here but I think it doesn't harm our architecture to allow for it. So option 1 please.
+

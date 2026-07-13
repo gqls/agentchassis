@@ -1,0 +1,17 @@
+kubectl -n ai-persona-system exec postgres-clients-0 -- \
+    psql -U clients_user -d clients_db < held_out_cases_v1.sql \
+    > held_out_cases_v1.jsonl
+
+# Local sanity
+wc -l held_out_cases_v1.jsonl                    # expect 50
+head -1 held_out_cases_v1.jsonl | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print('keys:', list(d.keys()), 'msgs:', len(d['messages']))"
+jq -r '.metadata.source_log_id' held_out_cases_v1.jsonl | sort -u | wc -l   # expect 50 (no dupes)
+
+diversity check
+
+Diversity check. With 943 sources to sample from, an ORDER BY on source_log_id might cluster cases by some hidden ordering (e.g. by orchestration timing). Quick diversity look:
+
+jq -r '.messages[0].content' held_out_cases_v1.jsonl \
+  | grep -oE 'content for the [a-z]+ section of [^\\]+' \
+  | sort | uniq -c | sort -rn
+

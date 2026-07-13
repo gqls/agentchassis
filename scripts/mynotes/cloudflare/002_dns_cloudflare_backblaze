@@ -1,0 +1,39 @@
+alexis.ns.cloudflare.com
+leah.ns.cloudflare.com
+betty.ns.cloudflare.com
+ivan.ns.cloudflare.com
+https://dash.cloudflare.com/13044f178ae0b156961065f55c8fada8/ai-agent-orchestration.com/dns/records
+aaa@designconsultancy.co.uk
+
+
+
+onboard a domain under domains domain management
+https://dash.cloudflare.com/13044f178ae0b156961065f55c8fada8/domains/overview
+select plan
+wants other nameservers
+betty.ns.cloudflare.com
+ivan.ns.cloudflare.com
+
+
+workers routes
+new route
+ai-agent-orchestration.com/*
+and separately for www
+ *.tilingcalculators.com/*
+
+A record
+199.59.243.228
+proxied
+
+MX for porkbun
+fwd1.porkbun.com
+fwd2.porkbun.com
+DNS only
+
+tracking script
+search web analytics
+find url like:
+https://dash.cloudflare.com/13044f178ae0b156961065f55c8fada8/web-analytics/sites
+add site
+find js snippet
+add to page

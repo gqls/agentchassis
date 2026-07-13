@@ -1,0 +1,80 @@
+{
+  "test_agents": [
+    {
+      "id": "test-researcher-001",
+      "type": "researcher",
+      "name": "Test Research Agent",
+      "config": {
+        "capabilities": ["web_search", "data_extraction", "summarization"],
+        "max_search_results": 10,
+        "search_depth": "comprehensive",
+        "output_format": "structured",
+        "workflow": {
+          "start_step": "search",
+          "steps": {
+            "search": {
+              "action": "perform_search",
+              "next_step": "extract"
+            },
+            "extract": {
+              "action": "extract_data",
+              "next_step": "summarize"
+            },
+            "summarize": {
+              "action": "create_summary",
+              "next_step": "complete"
+            },
+            "complete": {
+              "action": "complete_workflow"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "test-analyzer-001",
+      "type": "analyzer",
+      "name": "Test Analysis Agent",
+      "config": {
+        "capabilities": ["data_analysis", "pattern_recognition", "reporting"],
+        "analysis_types": ["statistical", "trend", "anomaly"],
+        "confidence_threshold": 0.8,
+        "workflow": {
+          "start_step": "validate_data",
+          "steps": {
+            "validate_data": {
+              "action": "validate_input",
+              "next_step": "analyze"
+            },
+            "analyze": {
+              "action": "perform_analysis",
+              "next_step": "generate_insights"
+            },
+            "generate_insights": {
+              "action": "extract_insights",
+              "next_step": "complete"
+            },
+            "complete": {
+              "action": "complete_workflow"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "test-orchestrator-001",
+      "type": "orchestrator",
+      "name": "Test Orchestration Agent",
+      "config": {
+        "capabilities": ["workflow_management", "agent_coordination", "resource_allocation"],
+        "max_concurrent_agents": 5,
+        "timeout_minutes": 30,
+        "retry_policy": {
+          "max_retries": 3,
+          "backoff_multiplier": 2,
+          "initial_delay_seconds": 5
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,273 @@
+clients_db=# -- the 8 fields + their sources (what content-writer filled vs what's tunable)
+SELECT f.key, f.value->>'source' AS source, f.value->>'fallback' AS fallback
+FROM content_components cc, LATERAL jsonb_each(cc.input_schema->'fields') f
+WHERE cc.id = '70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37'
+ORDER BY f.key;
+
+-- the full template (paste or upload as a file, as with lobby-grid)
+SELECT html_template FROM content_components
+WHERE id = '70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37';
+key|source|fallback
+cta_label|llm|
+cta_url|static|/index.html
+empty_state_label|llm|
+eyebrow|llm|
+subtitle|llm|
+title_after_em|llm|
+title_before_em|llm|
+title_em|llm|
+(8 rows)
+html_template
+<style>
+  .provocations-archive-list-section {
+    --section-text: rgba(255,255,255,0.9);
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: #ffffff;
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: rgba(255,255,255,0.2);
+    background-color: var(--color-background);
+    color: var(--section-text);
+    padding: var(--spacing-section, 5rem 2rem);
+  }
+
+  .provocations-archive-list-section .provocations-archive__inner {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+  }
+
+  .provocations-archive-list-section .provocations-archive__header {
+    margin-bottom: 3.5rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__eyebrow {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: 1rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__title {
+    font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--section-heading);
+    margin: 0 0 1.25rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__title em {
+    font-style: normal;
+    color: var(--color-accent);
+  }
+
+  .provocations-archive-list-section .provocations-archive__subtitle {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    color: var(--section-text-muted);
+    max-width: 52ch;
+    margin: 0;
+  }
+
+  .provocations-archive-list-section .provocations-archive__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-top: 1px solid var(--section-border);
+    margin-bottom: 2.5rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item {
+    display: grid;
+    grid-template-columns: 9rem 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 2rem;
+    align-items: center;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--section-border);
+    text-decoration: none;
+    color: var(--section-text);
+    transition: background-color 0.18s ease;
+    cursor: pointer;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item:hover {
+    background-color: var(--section-surface);
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--border-radius, 4px);
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-date {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--section-text-muted);
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-title {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--section-heading);
+    line-height: 1.3;
+    margin: 0;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-teaser {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 0.875rem;
+    color: var(--section-text-muted);
+    margin: 0.2rem 0 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 55ch;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-stat {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    color: var(--section-text-muted);
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  .provocations-archive-list-section .provocations-archive__item-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  .provocations-archive-list-section .provocations-archive__empty {
+    font-size: 0.9375rem;
+    color: var(--section-text-muted);
+    padding: 2rem 0 1rem;
+    text-align: center;
+  }
+
+  .provocations-archive-list-section .provocations-archive__cta-wrap {
+    display: flex;
+    justify-content: center;
+    margin-top: 3rem;
+  }
+
+  .provocations-archive-list-section .provocations-archive__cta {
+    display: inline-block;
+    padding: 0.875rem 2.25rem;
+    min-height: 44px;
+    background-color: var(--color-primary);
+    color: var(--color-primary-text, #ffffff);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    border-radius: var(--border-radius, 4px);
+    transition: background-color 0.18s ease;
+    border: none;
+    cursor: pointer;
+  }
+
+  .provocations-archive-list-section .provocations-archive__cta:hover {
+    background-color: var(--color-primary-hover);
+  }
+
+  .provocations-archive-list-section .provocations-archive__cta:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 768px) {
+    .provocations-archive-list-section .provocations-archive__item {
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto auto;
+      column-gap: 1rem;
+      padding: 1rem 0;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item:hover {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+      margin-left: -0.5rem;
+      margin-right: -0.5rem;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item-date {
+      grid-column: 1;
+      grid-row: 1;
+      align-self: auto;
+      margin-bottom: 0.2rem;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item-title {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item-teaser {
+      grid-column: 1;
+      grid-row: 3;
+      max-width: 100%;
+    }
+
+    .provocations-archive-list-section .provocations-archive__item-stat {
+      grid-column: 2;
+      grid-row: 1 / 4;
+    }
+
+    .provocations-archive-list-section .provocations-archive__title {
+      font-size: clamp(1.5rem, 5vw, 2rem);
+    }
+  }
+</style>
+
+<section class="provocations-archive-list-section provocations-archive" data-component="provocations-archive-list" data-runtime-fill="true">
+  <div class="provocations-archive__inner">
+    <header class="provocations-archive__header">
+      <span class="provocations-archive__eyebrow">{{.eyebrow}}</span>
+      <h1 class="provocations-archive__title">{{.title_before_em}} <em>{{.title_em}}</em> {{.title_after_em}}</h1>
+      <p class="provocations-archive__subtitle">{{.subtitle}}</p>
+    </header>
+
+    <div class="provocations-archive__list">
+      <a class="provocations-archive__item" data-archive-template hidden href="#">
+        <time class="provocations-archive__item-date"></time>
+        <span class="provocations-archive__item-title"></span>
+        <span class="provocations-archive__item-teaser"></span>
+        <span class="provocations-archive__item-stat">
+          <span class="provocations-archive__item-dot"></span>
+          <span class="provocations-archive__item-stat-value"></span>
+        </span>
+      </a>
+    </div>
+
+    <p class="provocations-archive__empty">{{.empty_state_label}}</p>
+
+    <div class="provocations-archive__cta-wrap">
+      <a class="provocations-archive__cta" href="{{.cta_url}}">{{.cta_label}}</a>
+    </div>
+  </div>
+</section>
+(1 row)
+clients_db=#

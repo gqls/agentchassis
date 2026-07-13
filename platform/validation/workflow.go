@@ -3,106 +3,138 @@ package validation
 
 import (
 	"fmt"
+
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/actioncheck"
+	"go.uber.org/zap"
 )
 
 // WorkflowValidator provides validation for workflow plans
-type WorkflowValidator struct{}
-
-// NewWorkflowValidator creates a new workflow validator
-func NewWorkflowValidator() *WorkflowValidator {
-	return &WorkflowValidator{}
+type WorkflowValidator struct {
+	logger *zap.Logger
 }
 
-// ValidateWorkflowPlan validates a workflow plan for correctness
-func (v *WorkflowValidator) ValidateWorkflowPlan(plan models.WorkflowPlan) error {
-	if plan.StartStep == "" {
-		return fmt.Errorf("workflow plan must have a start step")
+func NewWorkflowValidator(logger *zap.Logger) *WorkflowValidator {
+	return &WorkflowValidator{
+		logger: logger.Named("workflow_validator"),
+	}
+}
+
+// ValidateWorkflow validates a workflow configuration
+func (v *WorkflowValidator) ValidateWorkflow(workflow models.WorkflowPlan) error {
+	v.logger.Info(" in ValidateWorkflow workflow.go",
+		zap.Any("workflow", workflow),
+	)
+
+	if workflow.StartStep == "" {
+		return fmt.Errorf("workflow must have a start_step")
 	}
 
-	if len(plan.Steps) == 0 {
-		return fmt.Errorf("workflow plan must have at least one step")
+	if len(workflow.Steps) == 0 {
+		return fmt.Errorf("workflow must have at least one step")
 	}
 
-	// Check start step exists
-	if _, ok := plan.Steps[plan.StartStep]; !ok {
-		return fmt.Errorf("start step '%s' not found in steps", plan.StartStep)
+	// Check if start step exists
+	if _, exists := workflow.Steps[workflow.StartStep]; !exists {
+		return fmt.Errorf("start_step '%s' not found in steps", workflow.StartStep)
 	}
 
 	// Validate each step
-	for stepName, step := range plan.Steps {
-		if err := v.validateStep(stepName, step, plan); err != nil {
+	for stepName, step := range workflow.Steps {
+		if err := v.validateStep(stepName, step, workflow.Steps); err != nil {
 			return err
 		}
 	}
 
 	// Check for cycles
-	if err := v.checkForCycles(plan); err != nil {
+	if err := v.checkForCycles(workflow); err != nil {
 		return err
 	}
 
-	// Check all dependencies exist
-	if err := v.validateDependencies(plan); err != nil {
+	// Check all dependencies exist (though validateStep already does this)
+	if err := v.validateDependencies(workflow); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// validateStep validates an individual step
-func (v *WorkflowValidator) validateStep(name string, step models.Step, plan models.WorkflowPlan) error {
+func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps map[string]models.Step) error {
+	// Validate action
 	if step.Action == "" {
 		return fmt.Errorf("step '%s' must have an action", name)
 	}
 
-	// Validate based on action type
-	switch step.Action {
-	case "fan_out":
-		if len(step.SubTasks) == 0 {
-			return fmt.Errorf("fan_out step '%s' must have at least one sub-task", name)
-		}
-		for i, subTask := range step.SubTasks {
-			if subTask.StepName == "" {
-				return fmt.Errorf("sub-task %d in step '%s' must have a step name", i, name)
-			}
-			if subTask.Topic == "" {
-				return fmt.Errorf("sub-task %d in step '%s' must have a topic", i, name)
-			}
-		}
-	case "complete_workflow":
-		if step.NextStep != "" {
-			return fmt.Errorf("complete_workflow step '%s' should not have a next step", name)
-		}
-	default:
-		// For standard actions, ensure topic is set if not internal actions
-		if step.Topic == "" && !v.isInternalAction(step.Action) {
-			return fmt.Errorf("step '%s' with action '%s' requires a topic", name, step.Action)
+	// Use the global registry to check if it's a local action
+	isLocal := actioncheck.IsLocalAction(step.Action)
+
+	v.logger.Info("Validating step, workflow.go",
+		zap.String("step", name),
+		zap.String("action", step.Action),
+		zap.Bool("is_local", isLocal),
+		zap.Bool("has_topic", step.Topic != ""),
+	)
+
+	// Remote actions need a topic unless they're local
+	if !isLocal && step.Topic == "" {
+		return fmt.Errorf("step '%s' with action '%s' requires a topic", name, step.Action)
+	}
+
+	// Validate next step exists (unless it's empty, which means end of workflow)
+	if step.NextStep != "" {
+		if _, exists := allSteps[step.NextStep]; !exists {
+			return fmt.Errorf("step '%s' references non-existent next_step '%s'", name, step.NextStep)
 		}
 	}
 
-	// Validate next step exists
-	if step.NextStep != "" {
-		if _, ok := plan.Steps[step.NextStep]; !ok {
-			return fmt.Errorf("step '%s' references non-existent next step '%s'", name, step.NextStep)
+	// Validate dependencies exist
+	for _, dep := range step.Dependencies {
+		if _, exists := allSteps[dep]; !exists {
+			return fmt.Errorf("step '%s' has dependency on non-existent step '%s'", name, dep)
+		}
+	}
+
+	// Validate fan-out sub-tasks
+	if step.Action == "fan_out" {
+		if len(step.SubTasks) == 0 {
+			return fmt.Errorf("fan_out step '%s' must have at least one sub-task", name)
+		}
+		for _, subTask := range step.SubTasks {
+			if subTask.Topic == "" {
+				return fmt.Errorf("fan_out sub-task '%s' must have a topic", subTask.StepName)
+			}
 		}
 	}
 
 	return nil
 }
 
-// isInternalAction checks if an action is handled internally
-func (v *WorkflowValidator) isInternalAction(action string) bool {
-	internalActions := map[string]bool{
-		"complete_workflow":     true,
-		"pause_for_human_input": true,
-		"store_memory":          true,
-		"retrieve_memory":       true,
-	}
-	return internalActions[action]
+// IsLocalAction checks if an action is executed locally
+func (v *WorkflowValidator) IsLocalAction(action string) bool {
+
+	v.logger.Debug(" in IsLocalAction workflow.go",
+		zap.Any("action", action),
+	)
+
+	return actioncheck.IsLocalAction(action)
+}
+
+// RequiresTopic checks if action needs a Kafka topic
+func (v *WorkflowValidator) RequiresTopic(action string) bool {
+	// Local and built-in actions don't need topics
+	v.logger.Debug(" in RequiresTopic workflow.go",
+		zap.Any("action", action),
+	)
+
+	return actioncheck.IsLocalAction(action)
 }
 
 // validateDependencies ensures all dependencies exist
 func (v *WorkflowValidator) validateDependencies(plan models.WorkflowPlan) error {
+	v.logger.Debug(" in ValidateDependencies workflow.go",
+		zap.Any("plan", plan),
+	)
+
 	for stepName, step := range plan.Steps {
 		for _, dep := range step.Dependencies {
 			if _, ok := plan.Steps[dep]; !ok {
@@ -117,44 +149,77 @@ func (v *WorkflowValidator) validateDependencies(plan models.WorkflowPlan) error
 func (v *WorkflowValidator) checkForCycles(plan models.WorkflowPlan) error {
 	visited := make(map[string]bool)
 	recStack := make(map[string]bool)
+	path := []string{} // Track the path for debugging
 
 	var hasCycle func(string) bool
 	hasCycle = func(stepName string) bool {
 		visited[stepName] = true
 		recStack[stepName] = true
+		path = append(path, stepName) // Add to path
+
+		// Log current path
+		v.logger.Debug("Checking step for cycle",
+			zap.String("step_name", stepName),
+			zap.Strings("path", path),
+		)
 
 		step, ok := plan.Steps[stepName]
 		if !ok {
+			path = path[:len(path)-1] // Remove from path
+			recStack[stepName] = false
 			return false
 		}
 
 		// Check next step
 		if step.NextStep != "" {
+			v.logger.Debug("Following next_step",
+				zap.String("from", stepName),
+				zap.String("to next_step", step.NextStep),
+			)
 			if !visited[step.NextStep] {
 				if hasCycle(step.NextStep) {
 					return true
 				}
 			} else if recStack[step.NextStep] {
+				v.logger.Error("CYCLE DETECTED in workflow via next_step",
+					zap.String("from", stepName),
+					zap.String("to", step.NextStep),
+					zap.Strings("cycle_path", append(path, step.NextStep)),
+				)
 				return true
 			}
 		}
 
 		// Check dependencies
 		for _, dep := range step.Dependencies {
+			v.logger.Debug(" Step depends on",
+				zap.String("Step", stepName),
+				zap.String("depends on", dep),
+			)
 			if !visited[dep] {
 				if hasCycle(dep) {
 					return true
 				}
 			} else if recStack[dep] {
+				v.logger.Error("CYCLE DETECTED in workflow - step dependencies",
+					zap.String("from", stepName),
+					zap.String("depends on", dep),
+					zap.Strings("cycle_path", append(path, dep)),
+				)
 				return true
 			}
 		}
 
+		path = path[:len(path)-1] // Remove from path when backtracking
 		recStack[stepName] = false
 		return false
 	}
 
 	// Start from the start step
+	v.logger.Debug("Starting cycle check",
+		zap.String("start_step", plan.StartStep),
+	)
+
 	if hasCycle(plan.StartStep) {
 		return fmt.Errorf("workflow contains a cycle")
 	}
@@ -162,12 +227,14 @@ func (v *WorkflowValidator) checkForCycles(plan models.WorkflowPlan) error {
 	// Check any unvisited steps (disconnected components)
 	for stepName := range plan.Steps {
 		if !visited[stepName] {
+			fmt.Printf("Checking disconnected step: %s\n", stepName)
 			if hasCycle(stepName) {
 				return fmt.Errorf("workflow contains a cycle")
 			}
 		}
 	}
 
+	v.logger.Debug("No cycles detected")
 	return nil
 }
 
@@ -198,17 +265,29 @@ func (v *WorkflowValidator) GetWorkflowMetrics(plan models.WorkflowPlan) map[str
 // calculateMaxDepth calculates the maximum depth of the workflow
 func (v *WorkflowValidator) calculateMaxDepth(plan models.WorkflowPlan) int {
 	depths := make(map[string]int)
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
 
 	var calculateDepth func(string) int
 	calculateDepth = func(stepName string) int {
+		// If already calculated, return cached result
 		if depth, ok := depths[stepName]; ok {
 			return depth
+		}
+
+		// Cycle detection - if we're already calculating this step
+		if recStack[stepName] {
+			return 0 // Return 0 to break the cycle
 		}
 
 		step, ok := plan.Steps[stepName]
 		if !ok {
 			return 0
 		}
+
+		// Mark as being calculated
+		visited[stepName] = true
+		recStack[stepName] = true
 
 		maxDepth := 0
 
@@ -221,14 +300,19 @@ func (v *WorkflowValidator) calculateMaxDepth(plan models.WorkflowPlan) int {
 		}
 
 		// Check next step
-		if step.NextStep != "" {
+		if step.NextStep != "" && step.NextStep != stepName {
 			nextDepth := calculateDepth(step.NextStep)
 			if nextDepth > maxDepth {
 				maxDepth = nextDepth
 			}
 		}
 
+		// Unmark from recursion stack
+		recStack[stepName] = false
+
+		// Cache the result
 		depths[stepName] = maxDepth + 1
+
 		return maxDepth + 1
 	}
 

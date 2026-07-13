@@ -1,0 +1,1 @@
+# No variables needed for this layer as all values are derived from remote state.

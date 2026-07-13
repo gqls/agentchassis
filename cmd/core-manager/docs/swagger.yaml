@@ -1,0 +1,22 @@
+basePath: /api/v1
+host: localhost:8081
+info:
+  contact:
+    email: support@personae.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Central orchestration service for the Personae System. Manages persona
+    templates, instances, and coordinates agent workflows.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Core Manager API
+  version: 1.0.0
+paths: {}
+securityDefinitions:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

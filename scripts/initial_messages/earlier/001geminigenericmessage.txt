@@ -1,0 +1,31 @@
+I would like to spawn a simple agent that does a simple thing like has a single step in its workflow that calculates 2+2 and that sends the response back.
+
+If I send something like this, what is missing - it should be sending a step or an orchestration with a step that spawns an agent that has it's own orchestration that calls an action such as 2+2.
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash << 'EOF'
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+
+echo "Starting a custom workflow to spawn and call a calculator agent"
+echo "Correlation ID: $CORRELATION_ID"
+echo "Orchestration ID: $ORCHESTRATION_ID"
+
+# Note the corrected topic and the new JSON payload
+# The payload now contains a "workflow" and the "data" for that workflow to use.
+printf "correlation_id:$CORRELATION_ID,orchestration_id:$ORCHESTRATION_ID,message_id:$MESSAGE_ID,client_id:demo_client,agent_type:generic,message_type:request,fuel_budget:5000\t{\"workflow\":{\"start_step\":\"spawn_calculator\",\"steps\":{\"spawn_calculator\":{\"action\":\"spawn_agent\",\"config\":{\"agent_type\":\"calculator\"},\"next_step\":\"call_calculator\"},\"call_calculator\":{\"action\":\"call_agent\",\"config\":{\"agent_type\":\"calculator\"},\"next_step\":\"complete\"},\"complete\":{\"action\":\"complete_workflow\"}}},\"data\":{\"operation\":\"add\",\"operands\":[2,2]}}\n" | /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic system.agent.generic.requests \
+  --property parse.headers=true \
+  --property headers.delimiter=$'\t'
+
+echo ""
+echo "✅ Message sent!"
+echo ""
+echo "To check the orchestration status, run:"
+echo "kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c \"SELECT orchestration_id, correlation_id, status, current_step, awaited_requests FROM orchestration_states WHERE orchestration_id='$ORCHESTRATION_ID';\""
+
+echo ""
+echo "To watch for the final response, run:"
+echo "kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic system.agent.generic.responses --from-beginning --max-messages 10 --timeout-ms 30000 --property print.headers=true | grep $CORRELATION_ID"
+EOF

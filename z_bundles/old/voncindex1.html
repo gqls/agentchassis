@@ -1,0 +1,2373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <title>Spark | Where You Play</title>
+    <style>
+        /* CSS Reset & Base Styles */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--color-text);
+            background-color: var(--color-background);
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        .container--narrow { max-width: 800px; }
+
+        /* Grid System */
+        .grid {
+            display: grid;
+            gap: 2rem;
+        }
+        .grid--2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        .grid--3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+        .grid--4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+        /* Sections */
+        .section { padding: 4rem 1rem; }
+        .section__title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--color-heading);
+        }
+        .section__title--center { text-align: center; }
+        .section__content { font-size: 1.125rem; }
+
+        /* Cards */
+        .card {
+            padding: 2rem;
+            background: var(--color-card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+
+        /* Buttons */
+        .button {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .button--primary {
+            background: var(--color-primary);
+            color: var(--color-primary-text);
+        }
+        .button--primary:hover {
+            background: var(--color-primary-hover);
+        }
+        .button--secondary {
+            background: var(--color-secondary);
+            color: var(--color-secondary-text);
+        }
+        .button--secondary:hover {
+            background: var(--color-secondary-hover);
+        }
+        .button--primary-inverse {
+            background: var(--color-background);
+            color: var(--color-primary);
+        }
+        .button--secondary-inverse {
+            background: transparent;
+            color: var(--color-background);
+            border: 2px solid var(--color-background);
+        }
+        .button--large {
+            padding: 1rem 2rem;
+            font-size: 1.125rem;
+        }
+        .button--small {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+        .button--full-width {
+            display: block;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* Header */
+        .site-header {
+            background: var(--color-header-bg);
+            color: var(--color-header-text);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+        }
+        .site-header__nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+        }
+        .site-header__brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .site-header__menu {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        .site-header__link {
+            color: var(--color-header-text);
+            text-decoration: none;
+        }
+        .site-header__link:hover {
+            opacity: 0.8;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 4rem 1rem;
+        }
+        .hero__title {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            color: var(--color-hero-title);
+        }
+        .hero__subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            color: var(--color-hero-subtitle);
+        }
+        .hero__actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Features */
+        .feature {
+            text-align: center;
+        }
+        .feature__icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .feature__title {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--color-heading);
+        }
+        .feature__description {
+            color: var(--color-text-muted);
+        }
+
+        /* Pricing */
+        .pricing-tier {
+            position: relative;
+        }
+        .pricing-tier--featured {
+            border: 3px solid var(--color-primary);
+            transform: scale(1.05);
+        }
+        .pricing-tier__badge {
+            position: absolute;
+            top: -1rem;
+            right: 1rem;
+            background: var(--color-primary);
+            color: var(--color-primary-text);
+            padding: 0.25rem 1rem;
+            border-radius: var(--border-radius);
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+        .pricing-tier__name {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .pricing-tier__price {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 1.5rem;
+            color: var(--color-primary);
+        }
+        .pricing-tier__features {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+        .pricing-tier__feature {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        /* Testimonials */
+        .stat-highlight {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .stat-highlight__number {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--color-primary);
+        }
+        .stat-highlight__label {
+            font-size: 1.25rem;
+            color: var(--color-text-muted);
+        }
+        .testimonial {
+            text-align: center;
+        }
+        .testimonial__rating {
+            color: var(--color-accent);
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .testimonial__text {
+            font-style: italic;
+            margin-bottom: 1rem;
+        }
+        .testimonial__author {
+            font-weight: bold;
+            color: var(--color-text-muted);
+        }
+
+        /* FAQ */
+        .faq-item {
+            padding: 1.5rem;
+            background: var(--color-card-bg);
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+            cursor: pointer;
+        }
+        .faq-item__question {
+            font-size: 1.125rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .faq-item__answer {
+            margin-top: 1rem;
+            color: var(--color-text-muted);
+        }
+
+        /* CTA Section */
+        .section--cta {
+            background: var(--color-cta-bg);
+            color: var(--color-cta-text);
+        }
+        .cta {
+            text-align: center;
+        }
+        .cta__title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--color-cta-text);
+        }
+        .cta__subtitle {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        .cta__actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Footer */
+        .site-footer {
+            background: var(--color-footer-bg);
+            color: var(--color-footer-text);
+            padding: 3rem 1rem 1rem;
+        }
+        .site-footer__brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .site-footer__tagline {
+            opacity: 0.8;
+        }
+        .site-footer__heading {
+            font-size: 1.125rem;
+            margin-bottom: 1rem;
+        }
+        .site-footer__links {
+            list-style: none;
+        }
+        .site-footer__links li {
+            margin-bottom: 0.5rem;
+        }
+        .site-footer__link {
+            color: var(--color-footer-text);
+            text-decoration: none;
+            opacity: 0.8;
+        }
+        .site-footer__link:hover {
+            opacity: 1;
+        }
+        .site-footer__bottom {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--color-border);
+            text-align: center;
+            opacity: 0.6;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .site-header__menu { display: none; }
+            .hero__title { font-size: 2rem; }
+            .hero__subtitle { font-size: 1.25rem; }
+            .section__title { font-size: 2rem; }
+            .grid--4 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        }
+    </style>
+    <style>
+        /* Theme-specific styles injected here:  */
+
+    </style>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <script src="/assets/js/snippets.js"></script>
+</head>
+<body>
+<header class="site-header site-header--gradient">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            <span class="logo-icon">◆</span>
+            <span class="logo-text">vonc.com</span>
+        </a>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="/index.html">Home</a></li>
+                <li><a href="/about.html">How It Works</a></li>
+                <li><a href="/provocations/index.html">Provocations</a></li>
+                <li><a href="/archetypes.html">Archetypes</a></li>
+            </ul>
+        </nav>
+        <a href="/contact.html" class="header-cta">Get Started</a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</header>
+<style>
+    .site-header--gradient {
+        background: linear-gradient(135deg, #7c3cff 0%, #2d1b69 100%);
+        padding: 1rem 0;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+    .site-header--gradient .header-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+    .site-header--gradient .logo {
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: white;
+    }
+    .site-header--gradient .logo-icon {
+        color: #fc5c7d;
+        font-size: 1.5rem;
+    }
+    .site-header--gradient .main-nav {
+        flex: 1;
+    }
+    .site-header--gradient .main-nav ul {
+        display: flex;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        gap: 2rem;
+        justify-content: center;
+    }
+    .site-header--gradient .main-nav a {
+        color: rgba(255,255,255,0.9);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+    .site-header--gradient .main-nav a:hover,
+    .site-header--gradient .main-nav a.active { color: #fc5c7d; }
+    .site-header--gradient .header-cta {
+        background: #fc5c7d;
+        color: white;
+        padding: 0.6rem 1.25rem;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .site-header--gradient .header-cta:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .site-header--gradient .logo-img {
+        max-height: 40px;
+        width: auto;
+        display: block;
+    }
+    .mobile-menu-toggle {
+        display: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.5rem;
+    }
+    .site-header--gradient .mobile-menu-toggle span {
+        display: block;
+        width: 24px;
+        height: 2px;
+        background: white;
+        margin: 5px 0;
+    }
+    @media (max-width: 768px) {
+        .site-header--gradient .logo-img {
+            max-height: 40px;
+            width: auto;
+            display: block;
+        }
+        .mobile-menu-toggle { display: block; }
+        .site-header--gradient .main-nav, .site-header--gradient .header-cta { display: none; }
+        .site-header--gradient .main-nav.active {
+            display: block;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #7c3cff;
+            padding: 1rem;
+        }
+        .site-header--gradient .main-nav ul { flex-direction: column; }
+        .site-header--gradient .main-nav a { display: block; padding: 0.75rem 0; }
+    }
+</style>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var toggle = document.querySelector(".mobile-menu-toggle");
+        var nav = document.querySelector(".main-nav");
+        if (toggle && nav) {
+            toggle.addEventListener("click", function() {
+                nav.classList.toggle("active");
+            });
+        }
+    });
+</script>
+<main>
+    <section class="hero" data-component="hero" style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url('/assets/images/hero.jpg'); background-size: cover; background-position: center; --hero-ink: #fff;">
+        <div class="hero-content">
+            <h1>The World Happened Today. Defend Your Take.</h1>
+            <p class="hero-subheadline">One Provocation. Four hours. Zero neutral ground. The Gauntlet is already running — and the Contrarians are winning.</p>
+            <a href="/provocations/index.html" class="btn btn-primary">Enter the Gauntlet</a>
+
+        </div>
+    </section>
+    <style>
+        .hero {
+            min-height: 70vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            position: relative;
+
+            /* Dark section context */
+            --section-text: color-mix(in srgb, var(--hero-ink) 95%, transparent);
+            --section-text-muted: color-mix(in srgb, var(--hero-ink) 80%, transparent);
+            --section-heading: var(--hero-ink);
+            --section-surface: color-mix(in srgb, var(--hero-ink) 10%, transparent);
+            --section-border: color-mix(in srgb, var(--hero-ink) 30%, transparent);
+        }
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+            color: var(--hero-ink);
+            z-index: 1;
+        }
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .hero-subheadline {
+            font-size: clamp(1rem, 2vw, 1.35rem);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        .hero .btn {
+            display: inline-block;
+            padding: 0.875rem 2rem;
+            margin: 0.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+        .hero .btn-primary {
+            background: var(--hero-ink);
+            color: var(--color-primary);
+            border: 2px solid var(--hero-ink);
+        }
+        .hero .btn-primary:hover {
+            background: transparent;
+            color: var(--hero-ink);
+        }
+        .hero .btn-secondary {
+            background: transparent;
+            color: var(--hero-ink);
+            border: 2px solid color-mix(in srgb, var(--hero-ink) 80%, transparent);
+        }
+        .hero .btn-secondary:hover {
+            background: color-mix(in srgb, var(--hero-ink) 10%, transparent);
+        }
+        @media (max-width: 768px) {
+            .hero {
+                min-height: 60vh;
+                padding: 3rem 1.5rem;
+            }
+            .hero .btn {
+                display: block;
+                width: 100%;
+                max-width: 280px;
+                margin: 0.5rem auto;
+            }
+        }
+    </style>
+    <style>
+        .provocation-card-section {
+            --section-text: rgba(255,255,255,0.9);
+            --section-text-muted: rgba(255,255,255,0.7);
+            --section-heading: #ffffff;
+            --section-surface: rgba(255,255,255,0.05);
+            --section-border: rgba(255,255,255,0.2);
+            background: var(--color-primary, #1a1a2e);
+            color: var(--section-text);
+            padding: var(--spacing-section, 5rem 2rem);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .provocation-card-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 30% 50%, var(--section-surface) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .provocation-card-section .pc-container {
+            max-width: var(--container-max-width, 1200px);
+            width: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 3rem;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .provocation-card-section .pc-eyebrow {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--color-accent, var(--color-secondary));
+            margin-bottom: 1rem;
+            padding: 0.35rem 0.85rem;
+            border: 1px solid var(--color-accent, var(--section-border));
+            border-radius: calc(var(--border-radius, 0.5rem) * 2);
+        }
+
+        .provocation-card-section .pc-headline {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--section-heading);
+            margin: 0 0 1.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .provocation-card-section .pc-headline em {
+            font-style: normal;
+            color: var(--color-accent, var(--color-secondary));
+        }
+
+        .provocation-card-section .pc-body {
+            font-size: 1.125rem;
+            line-height: 1.7;
+            color: var(--section-text-muted);
+            max-width: 52ch;
+            margin: 0 0 2rem;
+        }
+
+        .provocation-card-section .pc-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .provocation-card-section .pc-btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 2rem;
+            background: var(--color-accent, var(--color-primary));
+            color: var(--color-primary-text, #fff);
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: var(--border-radius, 0.5rem);
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+            min-height: 44px;
+        }
+
+        .provocation-card-section .pc-btn-primary:hover,
+        .provocation-card-section .pc-btn-primary:focus-visible {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            opacity: 0.92;
+        }
+
+        .provocation-card-section .pc-btn-primary:focus-visible {
+            outline: 3px solid var(--color-accent, #fff);
+            outline-offset: 3px;
+        }
+
+        .provocation-card-section .pc-btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.75rem;
+            background: transparent;
+            color: var(--section-text);
+            font-size: 1rem;
+            font-weight: 600;
+            border: 1px solid var(--section-border);
+            border-radius: var(--border-radius, 0.5rem);
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s ease, border-color 0.2s ease;
+            min-height: 44px;
+        }
+
+        .provocation-card-section .pc-btn-secondary:hover,
+        .provocation-card-section .pc-btn-secondary:focus-visible {
+            background: var(--section-surface);
+            border-color: var(--section-text);
+        }
+
+        .provocation-card-section .pc-btn-secondary:focus-visible {
+            outline: 3px solid var(--section-text);
+            outline-offset: 3px;
+        }
+
+        .provocation-card-section .pc-card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .provocation-card-section .pc-card {
+            background: var(--section-surface);
+            border: 1px solid var(--section-border);
+            border-radius: var(--border-radius, 0.5rem);
+            padding: 1.5rem;
+            transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+            cursor: default;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .provocation-card-section .pc-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--color-accent, var(--color-secondary));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+
+        .provocation-card-section .pc-card:hover::after,
+        .provocation-card-section .pc-card.is-active::after {
+            transform: scaleX(1);
+        }
+
+        .provocation-card-section .pc-card:hover,
+        .provocation-card-section .pc-card.is-active {
+            transform: translateY(-4px);
+            background: rgba(255,255,255,0.08);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+        }
+
+        .provocation-card-section .pc-card-icon {
+            font-size: 2rem;
+            margin-bottom: 0.75rem;
+            display: block;
+            line-height: 1;
+        }
+
+        .provocation-card-section .pc-card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--section-heading);
+            margin: 0 0 0.5rem;
+        }
+
+        .provocation-card-section .pc-card-desc {
+            font-size: 0.875rem;
+            color: var(--section-text-muted);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .provocation-card-section .pc-stat-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--section-border);
+            margin-top: 1rem;
+        }
+
+        .provocation-card-section .pc-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .provocation-card-section .pc-stat-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--color-accent, var(--section-heading));
+            line-height: 1;
+        }
+
+        .provocation-card-section .pc-stat-label {
+            font-size: 0.8rem;
+            color: var(--section-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        @media (min-width: 900px) {
+            .provocation-card-section .pc-container {
+                grid-template-columns: 1fr 1fr;
+                gap: 4rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .provocation-card-section {
+                min-height: auto;
+            }
+
+            .provocation-card-section .pc-headline {
+                font-size: clamp(1.75rem, 7vw, 2.5rem);
+            }
+
+            .provocation-card-section .pc-body {
+                font-size: 1rem;
+            }
+
+            .provocation-card-section .pc-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .provocation-card-section .pc-btn-primary,
+            .provocation-card-section .pc-btn-secondary {
+                justify-content: center;
+                width: 100%;
+            }
+
+            .provocation-card-section .pc-stat-strip {
+                gap: 1.25rem;
+            }
+
+            .provocation-card-section .pc-card-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .provocation-card-section .pc-card,
+            .provocation-card-section .pc-btn-primary,
+            .provocation-card-section .pc-btn-secondary {
+                transition: none;
+            }
+        }
+    </style>
+
+    <section class="provocation-card-section" data-component="provocation-card" data-runtime-fill="true" aria-labelledby="pc-headline">
+        <div class="pc-container">
+            <div class="pc-content">
+                <span class="pc-eyebrow"></span>
+                <h2 class="pc-headline" id="pc-headline"></h2>
+                <p class="pc-body"></p>
+                <div class="pc-actions">
+                    <a href="" class="pc-btn-primary" role="button">
+
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
+                            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </a>
+                    <a href="" class="pc-btn-secondary" role="button">
+
+                    </a>
+                </div>
+                <div class="pc-stat-strip" aria-label="Key statistics">
+                    <div class="pc-stat">
+                        <span class="pc-stat-value"></span>
+                        <span class="pc-stat-label"></span>
+                    </div>
+                    <div class="pc-stat">
+                        <span class="pc-stat-value"></span>
+                        <span class="pc-stat-label"></span>
+                    </div>
+                    <div class="pc-stat">
+                        <span class="pc-stat-value"></span>
+                        <span class="pc-stat-label"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pc-card-grid" role="list" aria-label="">
+                <article class="pc-card" role="listitem" tabindex="0">
+                    <span class="pc-card-icon" aria-hidden="true"></span>
+                    <h3 class="pc-card-title"></h3>
+                    <p class="pc-card-desc"></p>
+                </article>
+                <article class="pc-card" role="listitem" tabindex="0">
+                    <span class="pc-card-icon" aria-hidden="true"></span>
+                    <h3 class="pc-card-title"></h3>
+                    <p class="pc-card-desc"></p>
+                </article>
+                <article class="pc-card" role="listitem" tabindex="0">
+                    <span class="pc-card-icon" aria-hidden="true"></span>
+                    <h3 class="pc-card-title"></h3>
+                    <p class="pc-card-desc"></p>
+                </article>
+                <article class="pc-card" role="listitem" tabindex="0">
+                    <span class="pc-card-icon" aria-hidden="true"></span>
+                    <h3 class="pc-card-title"></h3>
+                    <p class="pc-card-desc"></p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        (function() {
+            var section = document.querySelector('[data-component="provocation-card" data-runtime-fill="true"]');
+            if (!section) return;
+
+            var cards = section.querySelectorAll('.pc-card');
+
+            function activateCard(card) {
+                cards.forEach(function(c) { c.classList.remove('is-active'); });
+                card.classList.add('is-active');
+            }
+
+            cards.forEach(function(card) {
+                card.addEventListener('mouseenter', function() {
+                    activateCard(card);
+                });
+
+                card.addEventListener('mouseleave', function() {
+                    card.classList.remove('is-active');
+                });
+
+                card.addEventListener('focus', function() {
+                    activateCard(card);
+                });
+
+                card.addEventListener('blur', function() {
+                    card.classList.remove('is-active');
+                });
+            });
+        })();
+    </script>
+    <style>
+        .gauntlet-cta-section {
+            --section-text: rgba(255,255,255,0.9);
+            --section-text-muted: rgba(255,255,255,0.7);
+            --section-heading: #ffffff;
+            --section-surface: rgba(255,255,255,0.05);
+            --section-border: rgba(255,255,255,0.2);
+            position: relative;
+            background: var(--color-primary, #1a1a2e);
+            padding: var(--spacing-section, 5rem 2rem);
+            overflow: hidden;
+            color: var(--section-text);
+        }
+        .gauntlet-cta-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 60% 50%, rgba(255,255,255,0.07) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .gauntlet-cta-section .gauntlet-inner {
+            position: relative;
+            max-width: var(--container-max-width, 1200px);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+        .gauntlet-cta-section .gauntlet-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+        .gauntlet-cta-section .gauntlet-eyebrow {
+            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--color-accent, var(--section-text-muted));
+            background: var(--section-surface);
+            border: 1px solid var(--section-border);
+            border-radius: calc(var(--border-radius, 6px) * 2);
+            padding: 0.3rem 0.9rem;
+            align-self: flex-start;
+        }
+        .gauntlet-cta-section .gauntlet-headline {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--section-heading);
+            margin: 0;
+        }
+        .gauntlet-cta-section .gauntlet-subheadline {
+            font-size: 1.15rem;
+            line-height: 1.6;
+            color: var(--section-text-muted);
+            margin: 0;
+        }
+        .gauntlet-cta-section .gauntlet-proof-list {
+            list-style: none;
+            padding: 0;
+            margin: 0.5rem 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+        .gauntlet-cta-section .gauntlet-proof-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            font-size: 0.95rem;
+            color: var(--section-text);
+        }
+        .gauntlet-cta-section .gauntlet-proof-list li::before {
+            content: '';
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            min-width: 18px;
+            border-radius: 50%;
+            background: var(--color-accent, rgba(255,255,255,0.3));
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6l3 3 5-5' stroke='%23fff' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-size: 12px;
+            background-repeat: no-repeat;
+            background-position: center;
+            margin-top: 1px;
+        }
+        .gauntlet-cta-section .gauntlet-panel {
+            background: var(--section-surface);
+            border: 1px solid var(--section-border);
+            border-radius: calc(var(--border-radius, 6px) * 2);
+            padding: 2.5rem 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            backdrop-filter: blur(8px);
+        }
+        .gauntlet-cta-section .gauntlet-panel-heading {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--section-heading);
+            margin: 0;
+            line-height: 1.2;
+        }
+        .gauntlet-cta-section .gauntlet-panel-body {
+            font-size: 0.95rem;
+            color: var(--section-text-muted);
+            line-height: 1.6;
+            margin: 0;
+        }
+        .gauntlet-cta-section .gauntlet-urgency {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: rgba(255,255,255,0.08);
+            border-radius: var(--border-radius, 6px);
+            padding: 0.6rem 1rem;
+            font-size: 0.85rem;
+            color: var(--section-text);
+            font-weight: 600;
+        }
+        .gauntlet-cta-section .gauntlet-urgency-dot {
+            width: 8px;
+            height: 8px;
+            min-width: 8px;
+            border-radius: 50%;
+            background: var(--color-accent, #ff6b6b);
+            animation: gauntlet-pulse 1.5s infinite;
+        }
+        @keyframes gauntlet-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+        .gauntlet-cta-section .gauntlet-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .gauntlet-cta-section .gauntlet-btn-primary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 52px;
+            padding: 0.9rem 1.75rem;
+            background: var(--color-accent, #ffffff);
+            color: var(--color-primary, #1a1a2e);
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: var(--border-radius, 6px);
+            cursor: pointer;
+            text-decoration: none;
+            transition: opacity 0.2s, transform 0.15s;
+            text-align: center;
+        }
+        .gauntlet-cta-section .gauntlet-btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .gauntlet-cta-section .gauntlet-btn-secondary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            padding: 0.8rem 1.75rem;
+            background: transparent;
+            color: var(--section-text);
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: 1px solid var(--section-border);
+            border-radius: var(--border-radius, 6px);
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s, border-color 0.2s;
+            text-align: center;
+        }
+        .gauntlet-cta-section .gauntlet-btn-secondary:hover {
+            background: var(--section-surface);
+            border-color: rgba(255,255,255,0.4);
+        }
+        .gauntlet-cta-section .gauntlet-micro {
+            font-size: 0.8rem;
+            color: var(--section-text-muted);
+            text-align: center;
+        }
+        .gauntlet-cta-section .gauntlet-stats {
+            display: flex;
+            gap: 1.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--section-border);
+        }
+        .gauntlet-cta-section .gauntlet-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+        .gauntlet-cta-section .gauntlet-stat-value {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--section-heading);
+            line-height: 1;
+        }
+        .gauntlet-cta-section .gauntlet-stat-label {
+            font-size: 0.75rem;
+            color: var(--section-text-muted);
+            letter-spacing: 0.05em;
+        }
+        @media (max-width: 768px) {
+            .gauntlet-cta-section .gauntlet-inner {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            .gauntlet-cta-section .gauntlet-stats {
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+            .gauntlet-cta-section .gauntlet-panel {
+                padding: 1.75rem 1.25rem;
+            }
+        }
+    </style>
+    <section class="gauntlet-cta-section" data-component="gauntlet-cta">
+        <div class="gauntlet-inner">
+            <div class="gauntlet-content">
+                <span class="gauntlet-eyebrow">Limited Offer</span>
+                <h2 class="gauntlet-headline">The Gauntlet Is Open. Your Position Isn't Filed.</h2>
+                <p class="gauntlet-subheadline">Every day, one Provocation. Thousands of takes. Zero neutral ground. Find your Archetype, file your position, and find out where you actually stand when it counts.</p>
+                <ul class="gauntlet-proof-list">
+                    <li>One Provocation. One Daily. No catch — just the question and your take.</li>
+                    <li>Your Archetype is assigned on your first take. The Arena knows where you belong.</li>
+                    <li>Your Archetype is waiting. Every position you take sharpens the profile — and the ranking.</li>
+                </ul>
+                <div class="gauntlet-stats">
+                    <div class="gauntlet-stat">
+                        <span class="gauntlet-stat-value">14,203</span>
+                        <span class="gauntlet-stat-label">Happy Customers</span>
+                    </div>
+                    <div class="gauntlet-stat">
+                        <span class="gauntlet-stat-value">6 Archetypes</span>
+                        <span class="gauntlet-stat-label">Avg. Rating</span>
+                    </div>
+                    <div class="gauntlet-stat">
+                        <span class="gauntlet-stat-value">4h 12m</span>
+                        <span class="gauntlet-stat-label">Setup Time</span>
+                    </div>
+                </div>
+            </div>
+            <div class="gauntlet-panel">
+                <h3 class="gauntlet-panel-heading">Enter the Gauntlet. The Provocation is Live.</h3>
+                <p class="gauntlet-panel-body">You click in, the Provocation is already waiting. File your position, watch the split happen in real time, and find out whether you're the Contrarian, the Realist, or something the room didn't expect. The clock is live. The takes are stacking. Step in.</p>
+                <div class="gauntlet-urgency">
+                    <span class="gauntlet-urgency-dot" aria-hidden="true"></span>
+                    <span>Gauntlet closes in 4h 12m — positions still being filed.</span>
+                </div>
+                <div class="gauntlet-actions">
+                    <a href="/provocations/index.html" class="gauntlet-btn-primary">Get Started Now</a>
+                    <a href="/tools/archetype-taster-quiz/index.html" class="gauntlet-btn-secondary">See How It Works</a>
+                </div>
+                <p class="gauntlet-micro">No credit card required. Cancel anytime.</p>
+            </div>
+        </div>
+    </section>
+    <style>
+        .brief-explanation-section {
+            --section-text: var(--color-text);
+            --section-text-muted: var(--color-text-muted);
+            --section-heading: var(--color-heading, var(--color-text));
+            --section-surface: var(--color-surface);
+            --section-border: var(--color-border);
+            background: var(--color-background, #0d0d0d);
+            color: var(--section-text);
+            padding: var(--spacing-section, 5rem 2rem);
+            position: relative;
+            overflow: hidden;
+        }
+        .brief-explanation-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 60% 40%, color-mix(in srgb, var(--color-primary) 12%, transparent) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .brief-explanation__container {
+            max-width: var(--container-max-width, 1200px);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+        .brief-explanation__eyebrow {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--color-accent, #f59e0b);
+            margin-bottom: 1rem;
+        }
+        .brief-explanation__heading {
+            font-size: clamp(1.75rem, 3vw, 2.75rem);
+            font-weight: 800;
+            line-height: 1.15;
+            color: var(--section-heading);
+            margin: 0 0 1.25rem;
+        }
+        .brief-explanation__heading em {
+            font-style: normal;
+            color: var(--color-accent, #f59e0b);
+        }
+        .brief-explanation__description {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--section-text-muted);
+            margin: 0 0 2.5rem;
+            max-width: 48ch;
+        }
+        .brief-explanation__steps {
+            list-style: none;
+            margin: 0 0 2.75rem;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .brief-explanation__step {
+            display: grid;
+            grid-template-columns: 2.5rem 1fr;
+            gap: 1rem;
+            align-items: start;
+        }
+        .brief-explanation__step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            background: var(--color-primary, #7c3aed);
+            color: var(--color-primary-text, #ffffff);
+            font-size: 0.85rem;
+            font-weight: 800;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+        }
+        .brief-explanation__step-body {
+            padding-top: 0.35rem;
+        }
+        .brief-explanation__step-title {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--section-heading);
+            margin-bottom: 0.25rem;
+        }
+        .brief-explanation__step-sentence {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--section-text-muted);
+            margin: 0;
+        }
+        .brief-explanation__stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+            padding: 1.25rem 1.5rem;
+            background: var(--section-surface);
+            border: 1px solid var(--section-border);
+            border-radius: var(--border-radius, 0.75rem);
+        }
+        .brief-explanation__stat {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+        .brief-explanation__stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--color-accent, #f59e0b);
+            line-height: 1;
+        }
+        .brief-explanation__stat-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--section-text-muted);
+        }
+        .brief-explanation__stat-divider {
+            width: 1px;
+            background: var(--section-border);
+            align-self: stretch;
+        }
+        .brief-explanation__ctas {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .brief-explanation__cta-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.85rem 2rem;
+            background: var(--color-primary, #7c3aed);
+            color: var(--color-primary-text, #ffffff);
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: var(--border-radius, 0.75rem);
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            min-height: 44px;
+            transition: background 0.2s ease, transform 0.15s ease;
+        }
+        .brief-explanation__cta-primary:hover {
+            background: var(--color-primary-hover, #6d28d9);
+            transform: translateY(-1px);
+        }
+        .brief-explanation__cta-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.85rem 2rem;
+            background: transparent;
+            color: var(--section-text);
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: var(--border-radius, 0.75rem);
+            text-decoration: none;
+            border: 1.5px solid var(--section-border);
+            cursor: pointer;
+            min-height: 44px;
+            transition: border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+        }
+        .brief-explanation__cta-secondary:hover {
+            border-color: var(--color-accent, #f59e0b);
+            color: var(--color-accent, #f59e0b);
+            transform: translateY(-1px);
+        }
+        .brief-explanation__image-col {
+            position: relative;
+        }
+        .brief-explanation__image-wrapper {
+            position: relative;
+            border-radius: var(--border-radius, 0.75rem);
+            overflow: hidden;
+            border: 1px solid var(--section-border);
+            box-shadow: var(--shadow, 0 20px 60px rgba(0,0,0,0.4));
+        }
+        .brief-explanation__image {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 4/3;
+            object-fit: cover;
+        }
+        .brief-explanation__badge {
+            position: absolute;
+            bottom: 1.25rem;
+            left: 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--color-primary, #7c3aed);
+            color: var(--color-primary-text, #ffffff);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            border-radius: calc(var(--border-radius, 0.75rem) * 0.6);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+        .brief-explanation__badge-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+            background: var(--color-accent, #f59e0b);
+            animation: be-pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes be-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.75); }
+        }
+        @media (max-width: 900px) {
+            .brief-explanation__container {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+            }
+            .brief-explanation__image-col {
+                order: -1;
+            }
+            .brief-explanation__description {
+                max-width: 100%;
+            }
+        }
+        @media (max-width: 768px) {
+            .brief-explanation__stats {
+                gap: 1.25rem;
+                padding: 1rem;
+            }
+            .brief-explanation__stat-value {
+                font-size: 1.25rem;
+            }
+            .brief-explanation__ctas {
+                flex-direction: column;
+            }
+            .brief-explanation__cta-primary,
+            .brief-explanation__cta-secondary {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+
+    <section class="brief-explanation-section" data-component="brief-explanation">
+        <div class="brief-explanation__container">
+            <div class="brief-explanation__text-col">
+                <span class="brief-explanation__eyebrow">The Daily Game</span>
+                <h2 class="brief-explanation__heading">One Provocation. Every day. <em>The Gauntlet</em> awaits.</h2>
+                <p class="brief-explanation__description">A Provocation drops. You stake a position. The Gauntlet scores everyone. One daily game, real stakes, zero consensus guaranteed.</p>
+
+                <ol class="brief-explanation__steps">
+                    <li class="brief-explanation__step">
+                        <span class="brief-explanation__step-number">1</span>
+                        <div class="brief-explanation__step-body">
+                            <strong class="brief-explanation__step-title">The Provocation Drops</strong>
+                            <p class="brief-explanation__step-sentence">Every day, a fresh Provocation goes live — charged, arguable, and on the clock from the start.</p>
+                        </div>
+                    </li>
+                    <li class="brief-explanation__step">
+                        <span class="brief-explanation__step-number">2</span>
+                        <div class="brief-explanation__step-body">
+                            <strong class="brief-explanation__step-title">Stake Your Position</strong>
+                            <p class="brief-explanation__step-sentence">You read it, you pick a side, and you file your take — no hedging, no both-sidesing.</p>
+                        </div>
+                    </li>
+                    <li class="brief-explanation__step">
+                        <span class="brief-explanation__step-number">3</span>
+                        <div class="brief-explanation__step-body">
+                            <strong class="brief-explanation__step-title">The Gauntlet Scores the Room</strong>
+                            <p class="brief-explanation__step-sentence">Time's up: the Gauntlet reveals exactly how the room split and ranks every position filed.</p>
+                        </div>
+                    </li>
+                </ol>
+
+                <div class="brief-explanation__stats">
+                    <div class="brief-explanation__stat">
+                        <span class="brief-explanation__stat-value">24hrs</span>
+                        <span class="brief-explanation__stat-label">New Gauntlet Daily</span>
+                    </div>
+                    <div class="brief-explanation__stat-divider"></div>
+                    <div class="brief-explanation__stat">
+                        <span class="brief-explanation__stat-value">10K+</span>
+                        <span class="brief-explanation__stat-label">Players Scored</span>
+                    </div>
+                    <div class="brief-explanation__stat-divider"></div>
+                    <div class="brief-explanation__stat">
+                        <span class="brief-explanation__stat-value">100%</span>
+                        <span class="brief-explanation__stat-label">Free to Play</span>
+                    </div>
+                </div>
+
+                <div class="brief-explanation__ctas">
+                    <a href="#" class="brief-explanation__cta-primary">Play Today's Gauntlet</a>
+                    <a href="#" class="brief-explanation__cta-secondary">See Past Results</a>
+                </div>
+            </div>
+
+            <div class="brief-explanation__image-col">
+                <div class="brief-explanation__image-wrapper">
+                    <img
+                            class="brief-explanation__image"
+                            src=""
+                            alt="Abstract data visualisation showing opinion splits across a contested daily Provocation in the Arena"
+                            loading="lazy"
+                    />
+                    <span class="brief-explanation__badge">
+          <span class="brief-explanation__badge-dot"></span>
+          Gauntlet Closes Soon
+        </span>
+                </div>
+            </div>
+        </div>
+    </section>
+    <style>
+        .lobby-grid-section {
+            --section-text: rgba(255,255,255,0.9);
+            --section-text-muted: rgba(255,255,255,0.7);
+            --section-heading: #ffffff;
+            --section-surface: rgba(255,255,255,0.05);
+            --section-border: rgba(255,255,255,0.15);
+            background: var(--color-background, #0a0a0f);
+            color: var(--section-text);
+            padding: var(--spacing-section, 5rem 2rem);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .lobby-grid-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                    linear-gradient(135deg, rgba(var(--color-primary-rgb, 120,60,255), 0.06) 0%, transparent 50%),
+                    repeating-linear-gradient(0deg, transparent, transparent 60px, rgba(255,255,255,0.02) 60px, rgba(255,255,255,0.02) 61px),
+                    repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(255,255,255,0.02) 60px, rgba(255,255,255,0.02) 61px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .lobby-grid-section__inner {
+            position: relative;
+            z-index: 1;
+            max-width: var(--container-max-width, 1200px);
+            margin: 0 auto;
+        }
+
+        .lobby-grid-section__header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+        }
+
+        .lobby-grid-section__eyebrow {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--color-primary, #7c3cff);
+            border: 1px solid rgba(var(--color-primary-rgb, 120,60,255), 0.4);
+            background: rgba(var(--color-primary-rgb, 120,60,255), 0.08);
+            padding: 0.35rem 0.9rem;
+            border-radius: 2px;
+            margin-bottom: 1.25rem;
+        }
+
+        .lobby-grid-section__title {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 800;
+            color: var(--section-heading);
+            line-height: 1.15;
+            margin: 0 0 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .lobby-grid-section__title em {
+            font-style: normal;
+            color: var(--color-primary, #7c3cff);
+        }
+
+        .lobby-grid-section__subtitle {
+            font-size: 1rem;
+            color: var(--section-text-muted);
+            max-width: 520px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .lobby-grid-section__grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 3rem;
+        }
+
+        .lobby-grid-section__card {
+            position: relative;
+            background: var(--section-surface);
+            border: 1px solid var(--section-border);
+            border-radius: calc(var(--border-radius, 8px) * 1.5);
+            padding: 2rem 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow: hidden;
+            transition: border-color 0.25s ease, transform 0.25s ease, background 0.25s ease;
+            cursor: default;
+        }
+
+        .lobby-grid-section__card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--card-accent, var(--color-primary, #7c3cff)), transparent);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .lobby-grid-section__card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at top left, rgba(var(--color-primary-rgb, 120,60,255), 0.07) 0%, transparent 65%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .lobby-grid-section__card:hover {
+            border-color: rgba(var(--color-primary-rgb, 120,60,255), 0.5);
+            transform: translateY(-3px);
+            background: rgba(255,255,255,0.07);
+        }
+
+        .lobby-grid-section__card:hover::before,
+        .lobby-grid-section__card:hover::after {
+            opacity: 1;
+        }
+
+        .lobby-grid-section__card--featured {
+            grid-column: span 2;
+            background: linear-gradient(135deg, rgba(var(--color-primary-rgb, 120,60,255), 0.12) 0%, rgba(255,255,255,0.04) 100%);
+            border-color: rgba(var(--color-primary-rgb, 120,60,255), 0.3);
+        }
+
+        .lobby-grid-section__card--featured::before {
+            opacity: 0.6;
+        }
+
+        .lobby-grid-section__card--wide {
+            grid-column: span 3;
+            flex-direction: row;
+            align-items: center;
+            gap: 2.5rem;
+            padding: 2rem 2.5rem;
+        }
+
+        .lobby-grid-section__card-icon {
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(var(--color-primary-rgb, 120,60,255), 0.12);
+            border: 1px solid rgba(var(--color-primary-rgb, 120,60,255), 0.25);
+            border-radius: calc(var(--border-radius, 8px));
+            color: var(--color-primary, #7c3cff);
+        }
+
+        .lobby-grid-section__card-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.75;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .lobby-grid-section__card-body {
+            flex: 1;
+        }
+
+        .lobby-grid-section__card-tag {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--color-accent, #ff6b35);
+            margin-bottom: 0.5rem;
+        }
+
+        .lobby-grid-section__card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--section-heading);
+            margin: 0 0 0.5rem;
+            line-height: 1.3;
+            letter-spacing: -0.01em;
+        }
+
+        .lobby-grid-section__card--featured .lobby-grid-section__card-title {
+            font-size: 1.3rem;
+        }
+
+        .lobby-grid-section__card--wide .lobby-grid-section__card-title {
+            font-size: 1.15rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .lobby-grid-section__card-desc {
+            font-size: 0.875rem;
+            color: var(--section-text-muted);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .lobby-grid-section__card-stat {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--section-border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--section-text-muted);
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .lobby-grid-section__card-stat-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--color-primary, #7c3cff);
+            flex-shrink: 0;
+            animation: lobby-pulse 2s ease-in-out infinite;
+        }
+
+        .lobby-grid-section__card-stat-dot--accent {
+            background: var(--color-accent, #ff6b35);
+        }
+
+        @keyframes lobby-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.75); }
+        }
+
+        .lobby-grid-section__card--wide .lobby-grid-section__card-stat {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+            flex-shrink: 0;
+        }
+
+        .lobby-grid-section__cta {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .lobby-grid-section__cta-label {
+            font-size: 0.75rem;
+            color: var(--section-text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .lobby-grid-section__cta-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: var(--color-primary, #7c3cff);
+            color: var(--color-primary-text, #ffffff);
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 0.9rem 2.25rem;
+            border-radius: var(--border-radius, 8px);
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            min-height: 48px;
+            box-shadow: 0 0 24px rgba(var(--color-primary-rgb, 120,60,255), 0.35);
+        }
+
+        .lobby-grid-section__cta-btn:hover {
+            background: var(--color-primary-hover, #6a2ee0);
+            transform: translateY(-2px);
+            box-shadow: 0 0 36px rgba(var(--color-primary-rgb, 120,60,255), 0.55);
+        }
+
+        .lobby-grid-section__cta-btn:focus-visible {
+            outline: 2px solid var(--color-primary, #7c3cff);
+            outline-offset: 3px;
+        }
+
+        .lobby-grid-section__cta-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        @media (max-width: 900px) {
+            .lobby-grid-section__grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .lobby-grid-section__card--featured {
+                grid-column: span 2;
+            }
+            .lobby-grid-section__card--wide {
+                grid-column: span 2;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1.25rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .lobby-grid-section {
+                padding: 3.5rem 1.25rem;
+            }
+            .lobby-grid-section__grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .lobby-grid-section__card--featured,
+            .lobby-grid-section__card--wide {
+                grid-column: span 1;
+            }
+            .lobby-grid-section__card--wide {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .lobby-grid-section__header {
+                margin-bottom: 2.5rem;
+            }
+        }
+    </style>
+
+    <section class="lobby-grid-section" data-component="lobby-grid" data-runtime-fill="true" aria-label="">
+        <div class="lobby-grid-section__inner">
+
+            <header class="lobby-grid-section__header">
+                <span class="lobby-grid-section__eyebrow"></span>
+                <h2 class="lobby-grid-section__title"></h2>
+                <p class="lobby-grid-section__subtitle"></p>
+            </header>
+
+            <div class="lobby-grid-section__grid" role="list">
+
+                <!-- Featured card (spans 2 cols) -->
+                <article class="lobby-grid-section__card lobby-grid-section__card--featured" role="listitem">
+                    <div class="lobby-grid-section__card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"></svg>
+                    </div>
+                    <div class="lobby-grid-section__card-body">
+                        <span class="lobby-grid-section__card-tag"></span>
+                        <h3 class="lobby-grid-section__card-title"></h3>
+                        <p class="lobby-grid-section__card-desc"></p>
+                    </div>
+                    <div class="lobby-grid-section__card-stat">
+                        <span class="lobby-grid-section__card-stat-dot" aria-hidden="true"></span>
+                        <span></span>
+                    </div>
+                </article>
+
+                <!-- Standard card 1 -->
+                <article class="lobby-grid-section__card" role="listitem">
+                    <div class="lobby-grid-section__card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"></svg>
+                    </div>
+                    <div class="lobby-grid-section__card-body">
+                        <span class="lobby-grid-section__card-tag"></span>
+                        <h3 class="lobby-grid-section__card-title"></h3>
+                        <p class="lobby-grid-section__card-desc"></p>
+                    </div>
+                    <div class="lobby-grid-section__card-stat">
+                        <span class="lobby-grid-section__card-stat-dot" aria-hidden="true"></span>
+                        <span></span>
+                    </div>
+                </article>
+
+                <!-- Standard card 2 -->
+                <article class="lobby-grid-section__card" role="listitem">
+                    <div class="lobby-grid-section__card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"></svg>
+                    </div>
+                    <div class="lobby-grid-section__card-body">
+                        <span class="lobby-grid-section__card-tag"></span>
+                        <h3 class="lobby-grid-section__card-title"></h3>
+                        <p class="lobby-grid-section__card-desc"></p>
+                    </div>
+                    <div class="lobby-grid-section__card-stat">
+                        <span class="lobby-grid-section__card-stat-dot" aria-hidden="true"></span>
+                        <span></span>
+                    </div>
+                </article>
+
+                <!-- Standard card 3 -->
+                <article class="lobby-grid-section__card" role="listitem">
+                    <div class="lobby-grid-section__card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"></svg>
+                    </div>
+                    <div class="lobby-grid-section__card-body">
+                        <span class="lobby-grid-section__card-tag"></span>
+                        <h3 class="lobby-grid-section__card-title"></h3>
+                        <p class="lobby-grid-section__card-desc"></p>
+                    </div>
+                    <div class="lobby-grid-section__card-stat">
+                        <span class="lobby-grid-section__card-stat-dot" aria-hidden="true"></span>
+                        <span></span>
+                    </div>
+                </article>
+
+                <!-- Standard card 4 -->
+                <article class="lobby-grid-section__card" role="listitem">
+                    <div class="lobby-grid-section__card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"></svg>
+                    </div>
+                    <div class="lobby-grid-section__card-body">
+                        <span class="lobby-grid-section__card-tag"></span>
+                        <h3 class="lobby-grid-section__card-title"></h3>
+                        <p class="lobby-grid-section__card-desc"></p>
+                    </div>
+                    <div class="lobby-grid-section__card-stat">
+                        <span class="lobby-grid-section__card-stat-dot lobby-grid-section__card-stat-dot--accent" aria-hidden="true"></span>
+                        <span></span>
+                    </div>
+                </article>
+
+                <!-- Wide card (spans full row) -->
+                <article class="lobby-grid-section__card lobby-grid-section__card--wide" role="listitem">
+                    <div class="lobby-grid-section__card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"></svg>
+                    </div>
+                    <div class="lobby-grid-section__card-body">
+                        <span class="lobby-grid-section__card-tag"></span>
+                        <h3 class="lobby-grid-section__card-title"></h3>
+                        <p class="lobby-grid-section__card-desc"></p>
+                    </div>
+                    <div class="lobby-grid-section__card-stat">
+                        <span class="lobby-grid-section__card-stat-dot lobby-grid-section__card-stat-dot--accent" aria-hidden="true"></span>
+                        <span></span>
+                    </div>
+                </article>
+
+            </div>
+
+            <div class="lobby-grid-section__cta">
+                <p class="lobby-grid-section__cta-label"></p>
+                <a href="" class="lobby-grid-section__cta-btn" role="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="5,3 19,12 5,21"/></svg>
+
+                </a>
+            </div>
+
+        </div>
+    </section>
+
+    <script>
+        (function() {
+            var section = document.querySelector('[data-component="lobby-grid" data-runtime-fill="true"]');
+            if (!section) return;
+
+            var cards = section.querySelectorAll('.lobby-grid-section__card');
+
+            cards.forEach(function(card) {
+                card.addEventListener('mouseenter', function() {
+                    cards.forEach(function(other) {
+                        if (other !== card) {
+                            other.style.opacity = '0.65';
+                        }
+                    });
+                });
+                card.addEventListener('mouseleave', function() {
+                    cards.forEach(function(other) {
+                        other.style.opacity = '';
+                    });
+                });
+                card.addEventListener('focusin', function() {
+                    card.style.borderColor = 'rgba(var(--color-primary-rgb, 120,60,255), 0.7)';
+                });
+                card.addEventListener('focusout', function() {
+                    card.style.borderColor = '';
+                });
+            });
+
+            // Staggered entrance animation
+            if ('IntersectionObserver' in window) {
+                var observer = new IntersectionObserver(function(entries) {
+                    entries.forEach(function(entry) {
+                        if (entry.isIntersecting) {
+                            var visibleCards = section.querySelectorAll('.lobby-grid-section__card');
+                            visibleCards.forEach(function(card, i) {
+                                card.style.opacity = '0';
+                                card.style.transform = 'translateY(16px)';
+                                card.style.transition = 'opacity 0.4s ease ' + (i * 0.07) + 's, transform 0.4s ease ' + (i * 0.07) + 's, border-color 0.25s ease, background 0.25s ease';
+                                setTimeout(function() {
+                                    card.style.opacity = '';
+                                    card.style.transform = '';
+                                }, 50 + i * 70);
+                            });
+                            observer.disconnect();
+                        }
+                    });
+                }, { threshold: 0.15 });
+                observer.observe(section);
+            }
+        })();
+    </script>
+    <style>
+        .system-stats-section {
+            --section-text: rgba(255,255,255,0.9);
+            --section-text-muted: rgba(255,255,255,0.7);
+            --section-heading: #ffffff;
+            --section-surface: rgba(255,255,255,0.05);
+            --section-border: rgba(255,255,255,0.2);
+            background: var(--color-primary, #1a1a2e);
+            color: var(--section-text);
+            padding: var(--spacing-section, 5rem 2rem);
+            position: relative;
+            overflow: hidden;
+        }
+        .system-stats-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 60% 40%, rgba(255,255,255,0.04) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .system-stats-section .stats-inner {
+            max-width: var(--container-max-width, 1200px);
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        .system-stats-section .stats-header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+        }
+        .system-stats-section .stats-eyebrow {
+            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--color-accent, #7dd3fc);
+            margin-bottom: 1rem;
+            padding: 0.25rem 0.85rem;
+            border: 1px solid var(--section-border);
+            border-radius: var(--border-radius, 4px);
+            background: var(--section-surface);
+        }
+        .system-stats-section .stats-headline {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 800;
+            color: var(--section-heading);
+            margin: 0 0 1rem;
+            line-height: 1.15;
+        }
+        .system-stats-section .stats-intro {
+            font-size: 1.05rem;
+            color: var(--section-text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+        .system-stats-section .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        .system-stats-section .stat-card {
+            background: var(--section-surface);
+            border: 1px solid var(--section-border);
+            border-radius: var(--border-radius, 8px);
+            padding: 2rem 1.5rem;
+            text-align: center;
+            transition: transform 0.2s ease, background 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .system-stats-section .stat-card:hover {
+            transform: translateY(-3px);
+            background: rgba(255,255,255,0.08);
+        }
+        .system-stats-section .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--color-accent, #7dd3fc);
+            opacity: 0.6;
+        }
+        .system-stats-section .stat-value {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 900;
+            color: var(--section-heading);
+            line-height: 1;
+            margin-bottom: 0.4rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .system-stats-section .stat-value .stat-suffix {
+            font-size: 0.5em;
+            font-weight: 600;
+            color: var(--color-accent, #7dd3fc);
+            vertical-align: super;
+        }
+        .system-stats-section .stat-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--section-text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .system-stats-section .stat-description {
+            font-size: 0.8rem;
+            color: var(--section-text-muted);
+            line-height: 1.5;
+            opacity: 0.8;
+        }
+        .system-stats-section .stats-footer {
+            text-align: center;
+        }
+        .system-stats-section .stats-footnote {
+            font-size: 0.8rem;
+            color: var(--section-text-muted);
+            opacity: 0.7;
+            margin-bottom: 1.5rem;
+        }
+        .system-stats-section .stats-cta {
+            display: inline-block;
+            background: var(--color-accent, #7dd3fc);
+            color: var(--color-primary, #1a1a2e);
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 0.85rem 2.2rem;
+            border-radius: var(--border-radius, 6px);
+            text-decoration: none;
+            min-height: 44px;
+            line-height: 1.4;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .system-stats-section .stats-cta:hover {
+            opacity: 0.88;
+            transform: translateY(-1px);
+        }
+        .system-stats-section .stats-cta:focus {
+            outline: 3px solid var(--color-accent, #7dd3fc);
+            outline-offset: 3px;
+        }
+        @media (max-width: 768px) {
+            .system-stats-section {
+                padding: 3rem 1.25rem;
+            }
+            .system-stats-section .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+            .system-stats-section .stat-card {
+                padding: 1.5rem 1rem;
+            }
+            .system-stats-section .stats-header {
+                margin-bottom: 2.5rem;
+            }
+        }
+        @media (max-width: 480px) {
+            .system-stats-section .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <section class="system-stats-section" data-component="system-stats">
+        <div class="stats-inner">
+            <header class="stats-header">
+                <span class="stats-eyebrow">By the Numbers</span>
+                <h2 class="stats-headline">Zero Consensus. Every Single Day.</h2>
+                <p class="stats-intro">The Arena is running right now. These numbers aren't projections — they're the scoreboard.</p>
+            </header>
+            <div class="stats-grid">
+                <article class="stat-card">
+                    <div class="stat-value">14,203<span class="stat-suffix">%</span></div>
+                    <div class="stat-label">Takes Filed Today</div>
+                    <p class="stat-description">Positions taken, defended, and contested since midnight. The Gauntlet doesn't wait.</p>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-value">61<span class="stat-suffix">ms</span></div>
+                    <div class="stat-label">Avg. Split %</div>
+                    <p class="stat-description">The split holds — The Gauntlet hasn't produced a majority verdict in over two months of Dailies.</p>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-value">9<span class="stat-suffix">+</span></div>
+                    <div class="stat-label">Active Gauntlets</div>
+                    <p class="stat-description">Nine Provocations live simultaneously — each one splitting the room, each one closing at a different hour.</p>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-value">9<span class="stat-suffix">x</span></div>
+                    <div class="stat-label">Archetypes in Play</div>
+                    <p class="stat-description">Every Archetype is represented in today's arena. The Contrarian is currently winning. That could change in an hour.</p>
+                </article>
+            </div>
+            <footer class="stats-footer">
+                <p class="stats-footnote">Figures reflect live arena activity. Updated every 15 minutes during active Gauntlet windows.</p>
+                <a href="/provocations/index.html" class="stats-cta">View full report</a>
+            </footer>
+        </div>
+    </section>
+
+</main>
+<!-- FOOTER SOURCE: component-db:footer-4-column -->
+<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <h3>vonc.com</h3>
+            <p></p>
+        </div>
+        <div class="footer-links">
+            <h4>Quick Links</h4>
+            <ul>
+                <li><a href="/index.html">Home</a></li>
+                <li><a href="/about.html">How It Works</a></li>
+                <li><a href="/provocations/index.html">Provocations</a></li>
+                <li><a href="/archetypes.html">Archetypes</a></li>
+                <li><a href="/contact.html">Contact</a></li>
+            </ul>
+        </div>
+        <div class="footer-services">
+            <h4>Our Services</h4>
+            <ul>
+                <li><a href="/tools/gauntlet/index.html">Gauntlet</a></li>
+                <li><a href="/archetypes.html">Archetypes</a></li>
+                <li><a href="/tools/archetype-taster-quiz/index.html">Take The Quiz</a></li>
+                <li><a href="/provocations/index.html">Provocations</a></li>
+            </ul>
+        </div>
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            <p><a href="mailto:"></a></p>
+            <p></p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <div class="footer-bottom-container">
+            <p>&copy; 2026 vonc.com. All rights reserved.</p>
+            <div class="footer-legal">
+                <a href="/tools/gauntlet/index.html">Gauntlet</a><a href="/archetypes.html">Archetypes</a><a href="/tools/archetype-taster-quiz/index.html">Take the Quiz</a><a href="/provocations/index.html">Provocations</a><a href="/about.html">How It Works</a><a href="/contact.html">Contact</a>
+
+            </div>
+        </div>
+    </div>
+</footer>
+<style>
+    .site-footer {
+        background: #7c3cff;
+        color: rgba(255,255,255,0.9);
+        padding: 4rem 0 0;
+        margin-top: auto;
+    }
+    .footer-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        gap: 3rem;
+    }
+    .footer-brand h3 {
+        color: #fff;
+        margin: 0 0 0.75rem;
+        font-size: 1.25rem;
+    }
+    .footer-brand p {
+        color: rgba(255,255,255,0.7);
+        margin: 0 0 1.5rem;
+        line-height: 1.6;
+    }
+    .footer-links h4,
+    .footer-services h4,
+    .footer-contact h4 {
+        color: #fff;
+        margin: 0 0 1rem;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    .footer-links ul,
+    .footer-services ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .footer-links li,
+    .footer-services li {
+        margin-bottom: 0.5rem;
+    }
+    .footer-links a,
+    .footer-services a,
+    .footer-contact a {
+        color: rgba(255,255,255,0.7);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .footer-links a:hover,
+    .footer-services a:hover,
+    .footer-contact a:hover {
+        color: #fff;
+    }
+    .footer-contact p {
+        margin: 0 0 0.5rem;
+        color: rgba(255,255,255,0.7);
+    }
+    .footer-bottom {
+        margin-top: 3rem;
+        padding: 1.5rem 0;
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .footer-bottom-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .footer-bottom p {
+        margin: 0;
+        color: rgba(255,255,255,0.5);
+        font-size: 0.9rem;
+    }
+    .footer-legal {
+        display: flex;
+        gap: 2rem;
+    }
+    .footer-legal a {
+        color: rgba(255,255,255,0.5);
+        text-decoration: none;
+        font-size: 0.9rem;
+    }
+    .footer-legal a:hover {
+        color: rgba(255,255,255,0.8);
+    }
+    @media (max-width: 768px) {
+        .footer-container {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+        .footer-bottom-container {
+            flex-direction: column;
+            gap: 1rem;
+            text-align: center;
+        }
+    }
+</style>
+</body>
+</html>

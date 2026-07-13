@@ -1,0 +1,440 @@
+package main
+
+// service.go — the idea.uk service. Two front doors, one engine:
+//   external: request → operator confirm/decline → pay → run → deliver
+//   internal: /internal/run (auth, no billing)
+// Webhook is the source of truth; webhooks are idempotent; AUTO_DELIVER off by
+// default holds paid runs for operator review (honours the 72h/refund promise).
+
+import (
+	_ "embed"
+	"encoding/json"
+	"fmt"
+	"html"
+	"io"
+	"log"
+	"net/http"
+	"net/smtp"
+	"os"
+	"strings"
+	"time"
+)
+
+// pageHTML is the idea.uk landing page (the taster + request/subscribe forms),
+// embedded into the binary so the service is a single self-contained artefact:
+// nginx just terminates TLS and proxies, and when the deployer ships the binary
+// the page travels with it. Edit page.html and rebuild to change the page.
+//
+//go:embed page.html
+var pageHTML []byte
+
+type Config struct {
+	PriceGBP       int
+	AutoDeliver    bool
+	PublicBaseURL  string
+	InternalAPIKey string
+	OperatorEmail  string
+	ContactEmail   string // public-facing support address shown on pages
+	Slots          string // header capacity phrase, e.g. "a limited number of" or "5"
+	MaxActive      int
+	AllowedOrigins []string
+}
+
+type App struct {
+	cfg      Config
+	store    *Store
+	provider Provider
+	engine   EngineFunc
+	audience func(business, audience, assets string) (audienceResult, error) // step 1 only; reused by /audience-check
+	deliver  func(to, subject, body string)
+	dispatch func(func()) // how background work runs (goroutine in prod, inline in tests)
+	taster   *rateLimiter // per-IP rate limiter for the public /audience-check endpoint
+	landingHTML    []byte       // the landing page with CONTACT_EMAIL / MONTH_SLOTS placeholders filled
+}
+
+func NewApp(cfg Config, store *Store, p Provider) *App {
+	contact := cfg.ContactEmail
+	if contact == "" {
+		contact = cfg.OperatorEmail
+	}
+	slots := cfg.Slots
+	if slots == "" {
+		slots = "a limited number of"
+	}
+	rendered := strings.NewReplacer(
+		"CONTACT_EMAIL", contact,
+		"MONTH_SLOTS", slots,
+	).Replace(string(pageHTML))
+	return &App{
+		cfg:      cfg,
+		store:    store,
+		provider: p,
+		engine:   RunMethod,
+		audience: runAudience,
+		deliver:  makeDeliver(cfg.OperatorEmail),
+		dispatch: func(f func()) { go f() },
+		taster:   newRateLimiter(),
+		landingHTML:    []byte(rendered),
+	}
+}
+
+func newID() string {
+	return "ord_" + fmt.Sprintf("%d", time.Now().UnixNano())
+}
+
+func (a *App) operatorOK(r *http.Request) bool {
+	k := r.Header.Get("X-Internal-Key")
+	return a.cfg.InternalAPIKey != "" && k == a.cfg.InternalAPIKey
+}
+
+// ── fulfilment ───────────────────────────────────────────────────────────────
+func (a *App) fulfil(id string) {
+	o, ok := a.store.Get(id)
+	if !ok || (o.Status != "paid" && o.Status != "running") {
+		log.Printf("fulfil: %s not fulfillable", id)
+		return
+	}
+	a.store.Update(id, func(o *Order) { o.Status = "running" })
+	report, err := a.engine(o.Domain, o.Audience, o.Assets)
+	if err != nil {
+		a.store.Update(id, func(o *Order) { o.Status = "failed" })
+		a.deliver(a.cfg.OperatorEmail, "[idea.uk] RUN FAILED "+id,
+			fmt.Sprintf("Order %s engine error: %v\nReview & refund per the 72h promise.", id, err))
+		return
+	}
+	if a.cfg.AutoDeliver {
+		a.store.Update(id, func(o *Order) { o.Status = "delivered"; o.Report = report })
+		a.deliver(o.Email, "Your idea.uk report", report)
+	} else {
+		a.store.Update(id, func(o *Order) { o.Status = "awaiting_review"; o.Report = report })
+		a.deliver(a.cfg.OperatorEmail, fmt.Sprintf("[idea.uk] REVIEW %s (%s)", id, o.Domain),
+			fmt.Sprintf("Paid order ready for review before sending to %s.\n\n--- DRAFT REPORT ---\n\n%s", o.Email, report))
+	}
+}
+
+// ── handlers ─────────────────────────────────────────────────────────────────
+func (a *App) health(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, 200, map[string]any{"ok": true, "auto_deliver": a.cfg.AutoDeliver,
+		"price_gbp": a.cfg.PriceGBP, "provider": fmt.Sprintf("%T", a.provider)})
+}
+
+func (a *App) capacity(w http.ResponseWriter, r *http.Request) {
+	n := a.store.ActiveCount()
+	writeJSON(w, 200, map[string]any{"open": n < a.cfg.MaxActive, "active": n, "max": a.cfg.MaxActive})
+}
+
+func (a *App) subscribe(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	email := r.FormValue("email")
+	if email == "" {
+		http.Error(w, "missing email", 400)
+		return
+	}
+	a.store.AddSubscriber(email)
+	writeHTML(w, a.page("You're on the list",
+		`<h1>You're on the list.</h1>
+<p>Thanks. The next time we run the method on a real business, we'll email you the write-up — so you can see exactly what the £29 report looks like before you ever pay for one.</p>
+<p>That's all we'll send, and you can unsubscribe from any email at any time.</p>
+<a class="back" href="/">← Back to idea.uk</a>`))
+}
+
+func (a *App) handleRequest(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	name, email := r.FormValue("name"), r.FormValue("email")
+	business, audience := r.FormValue("business"), r.FormValue("audience")
+	notes := r.FormValue("notes")
+	if name == "" || email == "" || business == "" || audience == "" {
+		http.Error(w, "missing required field", 400)
+		return
+	}
+	id := newID()
+	now := time.Now().UTC()
+	a.store.Save(&Order{ID: id, Name: name, Email: email, Domain: business,
+		Audience: audience, Assets: notes, Status: "requested",
+		CreatedAt: now, UpdatedAt: now})
+	a.deliver(a.cfg.OperatorEmail, fmt.Sprintf("[idea.uk] NEW REQUEST %s (%s)", id, business),
+		fmt.Sprintf("From: %s <%s>\nBusiness: %s\nAudience: %s\nNotes: %s\n\n"+
+			"Confirm: POST /confirm {\"order_id\":\"%s\"}\nDecline: POST /decline {\"order_id\":\"%s\"}",
+			name, email, business, audience, notes, id, id))
+	writeHTML(w, a.page("Request received",
+		`<h1>Thanks, `+html.EscapeString(firstName(name))+` — we've got your request.</h1>
+<div class="accent">
+<p>We'll read it properly and reply by email within 24 hours — either to confirm a place and a delivery date with a link to pay, or to let you know if we're full this month and offer you the next one.</p>
+<p><strong>Nothing is charged until you've seen that and said yes.</strong> Once you go ahead, the report arrives by email within a few days. If it doesn't turn up anything worth acting on, you get your money back.</p>
+</div>
+<a class="back" href="/">← Back to idea.uk</a>`))
+}
+
+func (a *App) confirm(w http.ResponseWriter, r *http.Request) {
+	if !a.operatorOK(r) {
+		http.Error(w, "unauthorised", 401)
+		return
+	}
+	var body struct {
+		OrderID string `json:"order_id"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+	o, ok := a.store.Get(body.OrderID)
+	if !ok {
+		http.Error(w, "no such order", 404)
+		return
+	}
+	if o.Status != "requested" {
+		http.Error(w, "order is "+o.Status+", not 'requested'", 409)
+		return
+	}
+	if a.store.ActiveCount() >= a.cfg.MaxActive {
+		writeJSON(w, 409, map[string]any{"error": "at_capacity",
+			"active": a.store.ActiveCount(), "max": a.cfg.MaxActive,
+			"hint": "wait for a slot to free, or raise MaxActive"})
+		return
+	}
+	sessID, checkoutURL, err := a.provider.CreateCheckout(o.ID, o.Email)
+	if err != nil {
+		http.Error(w, "checkout error: "+err.Error(), 502)
+		return
+	}
+	a.store.Update(o.ID, func(o *Order) { o.Status = "awaiting_payment"; o.ProviderSessionID = sessID })
+	a.deliver(o.Email, "Your idea.uk report — confirmed, ready to pay",
+		fmt.Sprintf("Hi %s,\n\nWe can do a useful job on this. To start your report (£%d), pay here:\n\n%s\n\n"+
+			"Delivered within 72 hours of payment. Full refund if we can't find anything worth acting on.",
+			o.Name, a.cfg.PriceGBP, checkoutURL))
+	writeJSON(w, 200, map[string]any{"status": "awaiting_payment", "checkout_url": checkoutURL})
+}
+
+func (a *App) decline(w http.ResponseWriter, r *http.Request) {
+	if !a.operatorOK(r) {
+		http.Error(w, "unauthorised", 401)
+		return
+	}
+	var body struct {
+		OrderID string `json:"order_id"`
+		Reason  string `json:"reason"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+	o, ok := a.store.Get(body.OrderID)
+	if !ok {
+		http.Error(w, "no such order", 404)
+		return
+	}
+	reason := body.Reason
+	if reason == "" {
+		reason = "the differentiator is not strong enough yet"
+	}
+	a.store.Update(o.ID, func(o *Order) { o.Status = "declined" })
+	a.deliver(o.Email, "About your idea.uk request",
+		fmt.Sprintf("Hi %s,\n\nThanks for the request. Honestly, we don't think we'd produce something "+
+			"worth £%d for this right now — %s. No charge, and we'd rather say so than sell you a weak report.",
+			o.Name, a.cfg.PriceGBP, reason))
+	writeJSON(w, 200, map[string]any{"status": "declined"})
+}
+
+func (a *App) webhook(w http.ResponseWriter, r *http.Request) {
+	payload := readBody(r)
+	evt, err := a.provider.ParseWebhook(payload, r.Header.Get("Stripe-Signature"))
+	if err != nil {
+		http.Error(w, "bad webhook: "+err.Error(), 400)
+		return
+	}
+	if a.store.MarkEventSeen(evt.EventID) {
+		writeJSON(w, 200, map[string]any{"status": "duplicate_ignored"})
+		return
+	}
+	if !evt.Paid || evt.OrderID == "" {
+		writeJSON(w, 200, map[string]any{"status": "ignored", "type": evt.Type})
+		return
+	}
+	o, ok := a.store.Get(evt.OrderID)
+	if !ok {
+		writeJSON(w, 200, map[string]any{"status": "unknown_order"})
+		return
+	}
+	switch o.Status {
+	case "paid", "running", "awaiting_review", "delivered":
+		writeJSON(w, 200, map[string]any{"status": "already_processed"})
+		return
+	case "awaiting_payment":
+		a.store.Update(evt.OrderID, func(o *Order) { o.Status = "paid" })
+		a.dispatch(func() { a.fulfil(evt.OrderID) })
+		writeJSON(w, 200, map[string]any{"status": "accepted"})
+	default:
+		writeJSON(w, 200, map[string]any{"status": "unexpected_state:" + o.Status})
+	}
+}
+
+func (a *App) internalRun(w http.ResponseWriter, r *http.Request) {
+	if !a.operatorOK(r) {
+		http.Error(w, "unauthorised", 401)
+		return
+	}
+	var d struct{ Domain, Audience, Assets string }
+	json.NewDecoder(r.Body).Decode(&d)
+	if d.Domain == "" || d.Audience == "" || d.Assets == "" {
+		http.Error(w, "missing field", 400)
+		return
+	}
+	report, err := a.engine(d.Domain, d.Audience, d.Assets)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, 200, map[string]any{"report": report})
+}
+
+func (a *App) orderSuccess(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("fake") != "" { // FakeProvider local-test shortcut
+		id := r.URL.Query().Get("o")
+		if o, ok := a.store.Get(id); ok && o.Status == "awaiting_payment" {
+			a.store.Update(id, func(o *Order) { o.Status = "paid" })
+			a.fulfil(id)
+		}
+	}
+	writeHTML(w, a.page("Payment received",
+		`<h1>Payment received — thank you.</h1>
+<div class="accent">
+<p>We're putting your report together now. It'll arrive by email within 72 hours, and usually sooner. A person reads it before it goes out.</p>
+<p>If, after reading it, you don't think it turns up anything worth acting on, just email us within 14 days and we'll refund you in full.</p>
+</div>
+<a class="back" href="/">← Back to idea.uk</a>`))
+}
+
+func (a *App) orderCancel(w http.ResponseWriter, r *http.Request) {
+	writeHTML(w, a.page("Nothing was charged",
+		`<h1>No problem — nothing was charged.</h1>
+<p>Your card hasn't been billed. If you cancelled by mistake, you can start again whenever you're ready.</p>
+<a class="back" href="/">← Back to idea.uk</a>`))
+}
+
+// ── routing + CORS ───────────────────────────────────────────────────────────
+func (a *App) routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", a.health)
+	mux.HandleFunc("/capacity", a.capacity)
+	mux.HandleFunc("/audience-check", a.audienceCheck) // free public taster — Step 1 only
+	mux.HandleFunc("/subscribe", a.subscribe)
+	mux.HandleFunc("/request", a.handleRequest)
+	mux.HandleFunc("/confirm", a.confirm)
+	mux.HandleFunc("/decline", a.decline)
+	mux.HandleFunc("/stripe/webhook", a.webhook)
+	mux.HandleFunc("/internal/run", a.internalRun)
+	mux.HandleFunc("/order/success", a.orderSuccess)
+	mux.HandleFunc("/order/cancel", a.orderCancel)
+	mux.HandleFunc("/", a.home) // landing page at "/"; 404 for anything else unmatched
+	return a.cors(mux)
+}
+
+// home serves the embedded landing page at "/" only. ServeMux routes every
+// otherwise-unmatched path here, so anything that isn't exactly "/" gets a 404
+// rather than the page.
+func (a *App) home(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(a.landingHTML)
+}
+
+func (a *App) cors(next http.Handler) http.Handler {
+	allowed := map[string]bool{}
+	for _, o := range a.cfg.AllowedOrigins {
+		allowed[o] = true
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" && (allowed["*"] || allowed[origin]) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
+			w.Header().Set("Access-Control-Allow-Headers", "*")
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(204)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ── small helpers ────────────────────────────────────────────────────────────
+func writeJSON(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(v)
+}
+
+func writeHTML(w http.ResponseWriter, s string) {
+	w.Header().Set("content-type", "text/html; charset=utf-8")
+	w.Write([]byte(s))
+}
+
+// firstName returns the first word of a name for a friendly greeting.
+func firstName(full string) string {
+	if f := strings.Fields(full); len(f) > 0 {
+		return f[0]
+	}
+	return "there"
+}
+
+// page wraps body HTML in a full, brand-styled document so the post-submit and
+// order pages look like idea.uk instead of bare unstyled text. Body is trusted
+// (we build it ourselves); any user input interpolated into it must be escaped
+// by the caller.
+func (a *App) page(title, body string) string {
+	contact := a.cfg.ContactEmail
+	if contact == "" {
+		contact = a.cfg.OperatorEmail
+	}
+	return `<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>` + html.EscapeString(title) + ` · idea.uk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1A1816;--ink-soft:#4A4540;--ink-mute:#837C72;--paper:#EFE7D6;--rust:#A8391A;--rust-deep:#7D2A12;--serif:"Fraunces","Times New Roman",Georgia,serif;--sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans)}
+.bar{border-bottom:1px solid var(--ink);padding:20px 24px}
+.wordmark{font-family:var(--serif);font-weight:600;font-size:22px}
+.wordmark .dot{color:var(--rust)}
+main{max-width:600px;margin:0 auto;padding:72px 24px}
+h1{font-family:var(--serif);font-weight:600;font-size:32px;line-height:1.15;margin:0 0 20px}
+p{font-size:17px;line-height:1.6;color:var(--ink-soft);margin:0 0 16px}
+strong{color:var(--ink)}
+a{color:var(--ink);text-decoration-color:var(--rust)}
+.accent{border-left:3px solid var(--rust);padding-left:20px;margin:24px 0}
+.back{display:inline-block;margin-top:20px;font-size:15px}
+.foot{margin-top:44px;padding-top:20px;border-top:1px solid var(--ink-mute);font-size:14px;color:var(--ink-mute)}
+</style></head><body>
+<div class="bar"><span class="wordmark">idea<span class="dot">.</span>uk</span></div>
+<main>` + body + `
+<p class="foot">Questions? Email <a href="mailto:` + contact + `">` + contact + `</a> &nbsp;·&nbsp; <a href="/">idea.uk</a> &nbsp;·&nbsp; <a href="/terms">Terms</a></p>
+</main></body></html>`
+}
+
+func readBody(r *http.Request) []byte {
+	b, _ := io.ReadAll(r.Body)
+	return b
+}
+
+func makeDeliver(operatorEmail string) func(to, subject, body string) {
+	return func(to, subject, body string) {
+		host := os.Getenv("SMTP_HOST")
+		if host == "" {
+			fn := fmt.Sprintf("delivered_%s_%d.md",
+				strings.NewReplacer("@", "_at_", "/", "_").Replace(to), time.Now().Unix())
+			_ = os.WriteFile(fn, []byte(body), 0o600)
+			log.Printf("SMTP not configured — wrote %s", fn)
+			return
+		}
+		from := env("SMTP_FROM", operatorEmail)
+		msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", from, to, subject, body)
+		var auth smtp.Auth
+		if u := os.Getenv("SMTP_USER"); u != "" {
+			auth = smtp.PlainAuth("", u, os.Getenv("SMTP_PASS"), host)
+		}
+		addr := host + ":" + env("SMTP_PORT", "587")
+		if err := smtp.SendMail(addr, auth, from, []string{to}, []byte(msg)); err != nil {
+			log.Printf("email to %s failed: %v", to, err)
+		}
+	}
+}

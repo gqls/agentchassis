@@ -1,0 +1,28 @@
+RAG
+LoRA
+
+benefits to user of above too
+
+kubernetes
+spot containers
+
+benefits to user of above
+
+fractal agents
+large message size limits ?
+multiple AI agent types, not just llm
+e.g. cat images
+e.g. calculators
+e.g. webscrape data parsing
+
+
+website builder
+website maintainer
+
+1,000,000 agents
+
+The achievements we have made are that we can build this leopardconsulting site - evolving it over say a couple of days, when we have the content editing agents we can be more confident of it. We have started a veterinary price comparison site, a sophisticated (veterinary) web search, scrape and data collection service. We are creating a farm's site (wykefarm.co.uk) selling meat and advertising their incredible biodiversity credentials with pages of wildlife detail. We created a mortgage calculator site very quickly but it doesn't yet look too good so we can't really say it does. None of our sites get leads at the moment so we can't say they do. We created a website-design.com site too that has alot of functional tools like paste boards, mind maps, colour tools and so forth but again, it doesn't look that great at the moment. We created this agent framework itself with the kubernetes and kafka base that should be able to scale to several thousand agents. We can optimise AI with RAG and LoRA. But, yes we'd rather sell the sites achievement at the moment.
+
+We can't, unfortunately, put names to them either as we're just starting out and only have a couple of clients - the veterinary work ( a comparison site vetcomparison.uk, data collection of all the veterinary practices and prices for a vet, and a farm site wykefarm.co.uk, a mortgagecalculator site mortgagecalculator.co.uk (which is ours and not a client's and we don't get any leads from it at the moment although traffic is slowly increasing from a low level) and a couple of other websites, though not yet from this agent framework)
+
+

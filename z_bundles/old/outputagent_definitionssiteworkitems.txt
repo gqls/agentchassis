@@ -1,0 +1,60 @@
+clients_db=# \d site_work_items
+                             Table "public.site_work_items"
+      Column      |           Type           | Collation | Nullable |      Default
+------------------+--------------------------+-----------+----------+-------------------
+ id               | uuid                     |           | not null | gen_random_uuid()
+ site_id          | uuid                     |           | not null |
+ source           | text                     |           | not null |
+ item_type        | text                     |           | not null |
+ severity         | text                     |           | not null | 'medium'::text
+ summary          | text                     |           | not null |
+ spec             | jsonb                    |           |          | '{}'::jsonb
+ page_id          | uuid                     |           |          |
+ component_id     | uuid                     |           |          |
+ entity_id        | uuid                     |           |          |
+ affected_url     | text                     |           |          |
+ impact           | jsonb                    |           |          |
+ resolution_path  | text                     |           |          |
+ suggested_action | text                     |           |          |
+ priority         | integer                  |           |          | 100
+ handler_agent    | text                     |           |          |
+ status           | text                     |           | not null | 'detected'::text
+ created_by       | text                     |           | not null |
+ handled_by       | text                     |           |          |
+ approved_by      | text                     |           |          |
+ claimed_by       | text                     |           |          |
+ depends_on       | uuid[]                   |           |          |
+ parent_item_id   | uuid                     |           |          |
+ related_item_ids | uuid[]                   |           |          |
+ batch_id         | uuid                     |           |          |
+ attempt_count    | integer                  |           |          | 0
+ max_attempts     | integer                  |           |          | 3
+ result           | jsonb                    |           |          | '{}'::jsonb
+ error            | text                     |           |          |
+ item_key         | text                     |           |          |
+ created_at       | timestamp with time zone |           |          | now()
+ triaged_at       | timestamp with time zone |           |          |
+ claimed_at       | timestamp with time zone |           |          |
+ completed_at     | timestamp with time zone |           |          |
+ approval_mode    | text                     |           |          | 'auto'::text
+ updated_at       | timestamp with time zone |           |          | now()
+ pipeline         | text                     |           | not null | 'build'::text
+Indexes:
+    "site_work_items_pkey" PRIMARY KEY, btree (id)
+    "idx_swi_batch" btree (batch_id) WHERE batch_id IS NOT NULL
+    "idx_swi_claimed" btree (status, claimed_at) WHERE status = 'claimed'::text
+    "idx_swi_completed" btree (completed_at) WHERE status = ANY (ARRAY['complete'::text, 'verified'::text, 'rejected'::text, 'wont_fix'::text])
+    "idx_swi_dedup" UNIQUE, btree (site_id, item_key) WHERE item_key IS NOT NULL AND (status <> ALL (ARRAY['complete'::text, 'verified'::text, 'rejected'::text, 'wont_fix'::text, 'failed'::text, 'unresolved'::text]))
+    "idx_swi_deps" gin (depends_on) WHERE depends_on IS NOT NULL
+    "idx_swi_handler" btree (handler_agent, status) WHERE status = ANY (ARRAY['triaged'::text, 'approved'::text])
+    "idx_swi_page" btree (page_id) WHERE page_id IS NOT NULL
+    "idx_swi_pipeline" btree (pipeline, status)
+    "idx_swi_site_pending" btree (site_id, priority) WHERE status = ANY (ARRAY['triaged'::text, 'approved'::text])
+    "idx_swi_site_status" btree (site_id, status)
+    "idx_work_items_blocked" btree (handler_agent) WHERE status = 'blocked'::text
+Foreign-key constraints:
+    "site_work_items_parent_item_id_fkey" FOREIGN KEY (parent_item_id) REFERENCES site_work_items(id)
+    "site_work_items_site_id_fkey" FOREIGN KEY (site_id) REFERENCES sites(id)
+Referenced by:
+    TABLE "content_feed_items" CONSTRAINT "content_feed_items_work_item_id_fkey" FOREIGN KEY (work_item_id) REFERENCES site_work_items(id)
+    TABLE "site_work_items" CONSTRAINT "site_work_items_parent_item_id_fkey" FOREIGN KEY (parent_item_id) REFERENCES site_work_items(id)

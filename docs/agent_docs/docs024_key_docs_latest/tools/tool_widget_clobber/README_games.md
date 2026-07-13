@@ -1,0 +1,1 @@
+add tamagochi style addiction tricks to every game

@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai-persona-system
+
+resources:
+  - ../../base
+
+images:
+  - name: docker.io/aqls/core-manager
+    newTag: v1.0.2  # This will be dynamically updated
+
+patches:
+  - path: patch-env.yaml
+    target:
+      kind: Deployment
+      name: core-manager
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: core-manager

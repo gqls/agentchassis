@@ -1,0 +1,11 @@
+# test/fixtures/workflows/simple.yaml
+name: Simple Test Workflow
+start_step: validate
+steps:
+  validate:
+    action: validate_input
+    description: Validate the input data
+    next_step: complete
+  complete:
+    action: complete_workflow
+    description: Complete the workflow

@@ -1,0 +1,105 @@
+# test/e2e/configs/test_agents.yaml
+test_agents:
+  - id: e2e-researcher-001
+    name: E2E Test Researcher
+    type: researcher
+    config:
+      topic: system.agent.researcher.requests
+      capabilities:
+        - web_search
+        - data_extraction
+        - summarization
+      search_config:
+        max_results: 10
+        timeout_seconds: 30
+        retry_attempts: 3
+      response_format: structured
+
+  - id: e2e-content-creator-001
+    name: E2E Test Content Creator
+    type: content-creator
+    config:
+      topic: system.agent.content-creator.process
+      capabilities:
+        - blog_writing
+        - technical_documentation
+        - social_media_content
+      generation_config:
+        min_length: 100
+        max_length: 5000
+        supported_formats:
+          - markdown
+          - html
+          - plain_text
+
+  - id: e2e-reasoning-001
+    name: E2E Test Reasoning Agent
+    type: reasoning
+    config:
+      topic: system.agent.reasoning.process
+      capabilities:
+        - analysis
+        - review
+        - critique
+      reasoning_config:
+        model: claude-3
+        temperature: 0.7
+        max_tokens: 4000
+
+  - id: e2e-orchestrator-001
+    name: E2E Test Orchestrator
+    type: orchestrator
+    config:
+      capabilities:
+        - workflow_management
+        - agent_coordination
+        - parallel_execution
+      orchestration_config:
+        max_parallel_tasks: 5
+        default_timeout_minutes: 30
+        retry_policy:
+          max_attempts: 3
+          backoff_seconds: [5, 10, 30]
+
+test_workflows:
+  - name: simple_content_creation
+    description: Basic content creation workflow
+    steps:
+      - action: generate_content
+        agent: e2e-content-creator-001
+        config:
+          topic: "Test Topic"
+          format: markdown
+          length: medium
+
+  - name: research_and_write
+    description: Research topic then create content
+    steps:
+      - action: research
+        agent: e2e-researcher-001
+        config:
+          query: "Latest AI trends"
+          depth: comprehensive
+      - action: analyze
+        agent: e2e-reasoning-001
+        config:
+          review_research: true
+      - action: create_content
+        agent: e2e-content-creator-001
+        config:
+          use_research: true
+          format: blog_post
+
+  - name: parallel_processing
+    description: Test parallel agent execution
+    steps:
+      - action: fan_out
+        parallel_tasks:
+          - agent: e2e-researcher-001
+            action: research_topic_a
+          - agent: e2e-researcher-001
+            action: research_topic_b
+          - agent: e2e-content-creator-001
+            action: draft_outline
+      - action: consolidate
+        agent: e2e-orchestrator-001

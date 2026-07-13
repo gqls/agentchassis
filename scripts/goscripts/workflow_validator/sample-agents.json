@@ -1,0 +1,124 @@
+[
+  {
+    "id": "test-pageflow",
+    "type": "pageflow-builder-broken",
+    "display_name": "PageFlow Builder (with bug)",
+    "default_config": {
+      "workflow": {
+        "start_step": "call_site_planner",
+        "steps": {
+          "call_site_planner": {
+            "action": "call_agent",
+            "config": {
+              "agent_type": "site-planner",
+              "target_role": "planner",
+              "input_fields": ["input_data", "reviewed_brief"],
+              "timeout_seconds": 120
+            },
+            "next_step": "check_assets_needed",
+            "description": "Call site planner to create plan",
+            "output_field": "site_plan"
+          },
+          "check_assets_needed": {
+            "action": "conditional",
+            "config": {
+              "condition": "site_plan.validated_plan.needs_logo == true OR site_plan.validated_plan.needs_images == true",
+              "then_step": "generate_assets",
+              "else_step": "select_style"
+            },
+            "description": "Check if assets needed - THIS PATH IS WRONG (missing .response)"
+          },
+          "generate_assets": {
+            "action": "call_agent",
+            "config": {
+              "agent_type": "image-generator",
+              "target_role": "image_generator",
+              "prompt": "{{site_plan.image_prompts.logo}}",
+              "input_fields": ["site_plan"],
+              "timeout_seconds": 120
+            },
+            "next_step": "select_style",
+            "description": "Generate assets - prompt path is wrong",
+            "output_field": "asset_result"
+          },
+          "select_style": {
+            "action": "select_style_collection",
+            "config": {
+              "style_from": "site_plan.style_collection",
+              "site_id_field": "site_record.site_id"
+            },
+            "next_step": "complete",
+            "description": "Select style - path is wrong",
+            "output_field": "style_collection"
+          },
+          "complete": {
+            "action": "complete_workflow",
+            "config": {},
+            "description": "Done"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "test-pageflow-fixed",
+    "type": "pageflow-builder-fixed",
+    "display_name": "PageFlow Builder (fixed)",
+    "default_config": {
+      "workflow": {
+        "start_step": "call_site_planner",
+        "steps": {
+          "call_site_planner": {
+            "action": "call_agent",
+            "config": {
+              "agent_type": "site-planner",
+              "target_role": "planner",
+              "input_fields": ["input_data", "reviewed_brief"],
+              "timeout_seconds": 120
+            },
+            "next_step": "check_assets_needed",
+            "description": "Call site planner to create plan",
+            "output_field": "site_plan"
+          },
+          "check_assets_needed": {
+            "action": "conditional",
+            "config": {
+              "condition": "site_plan.response.validated_plan.needs_logo == true OR site_plan.response.validated_plan.needs_images == true",
+              "then_step": "generate_assets",
+              "else_step": "select_style"
+            },
+            "description": "Check if assets needed - FIXED with .response"
+          },
+          "generate_assets": {
+            "action": "call_agent",
+            "config": {
+              "agent_type": "image-generator",
+              "target_role": "image_generator",
+              "prompt": "{{site_plan.response.image_prompts.logo}}",
+              "input_fields": ["site_plan"],
+              "timeout_seconds": 120
+            },
+            "next_step": "select_style",
+            "description": "Generate assets - FIXED",
+            "output_field": "asset_result"
+          },
+          "select_style": {
+            "action": "select_style_collection",
+            "config": {
+              "style_from": "site_plan.response.style_collection",
+              "site_id_field": "site_record.site_id"
+            },
+            "next_step": "complete",
+            "description": "Select style - FIXED",
+            "output_field": "style_collection"
+          },
+          "complete": {
+            "action": "complete_workflow",
+            "config": {},
+            "description": "Done"
+          }
+        }
+      }
+    }
+  }
+]

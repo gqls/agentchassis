@@ -1,0 +1,24 @@
+- op: replace
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+  value: personae-dev-config
+- op: replace
+  path: /spec/template/spec/containers/0/envFrom/1/secretRef/name
+  value: personae-dev-secrets
+- op: add
+  path: /spec/template/spec/serviceAccountName
+  value: ai-persona-app
+- op: add
+  path: /spec/template/spec/containers/0/command
+  value:
+    - /bin/sh
+    - -c
+    - |
+      echo "=== Environment Variables ==="
+      env | grep -i kafka || echo "No KAFKA env vars"
+      echo "=== Config file ==="
+      cat configs/image-adapter.yaml
+      echo "=== Running application ==="
+      cd /app && ./image-generator-adapter -config /app/configs/image-adapter.yaml

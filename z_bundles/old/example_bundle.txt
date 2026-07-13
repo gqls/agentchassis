@@ -1,0 +1,26 @@
+go run ./cmd/bundle \
+  -analysis /tmp/analysis_repo.json -root ~/projects/agentchassis \
+  -constitution thin_slice_constitution.md -step debug \
+  -task "Settle the section-contrast model (E) and header/footer scheme wiring (F): where a per-section dark/contrast intent is stored and how is_dark_section is set; whether buildSectionDefaults should set each dark section's background as well as its --section-* text; and how the header/footer component is chosen across the overlapping stores (style_collections, site_components, sites.default_components, layouts.default_*) so a light site gets light chrome." \
+  -scope platform/orchestration/actions/color_util.go \
+  -scope platform/orchestration/actions/render_css_from_spec_action.go:RenderCSSFromSpecAction \
+  -scope platform/orchestration/actions/plan_sections_action.go \
+  -scope platform/orchestration/actions/write_site_plan_action.go \
+  -scope platform/orchestration/actions/install_site_composition_action.go:InstallSiteCompositionAction \
+  -scope platform/orchestration/actions/v3_site_actions.go:UpdateSiteDefaultsAction \
+  -scope platform/orchestration/actions/v3_site_actions.go:CompilePageSectionsAction \
+  -scope platform/orchestration/actions/component_library.go:RenderHeader \
+  -scope platform/orchestration/actions/component_library.go:RenderFooter \
+  -scope platform/orchestration/actions/component_library.go:RenderFallbackHeader \
+  -scope platform/orchestration/actions/component_library.go:RenderFallbackFooter \
+  -scope platform/orchestration/actions/component_library.go:InjectHeader \
+  -scope platform/orchestration/actions/component_library.go:InjectHead \
+  -scope platform/orchestration/actions/component_library.go:GetStyleCollectionForSite \
+  -scope platform/orchestration/actions/component_library.go:GetComponentByFunction \
+  -include platform/orchestration/actions/registry.go \
+  -doc docs/agent_docs/docs024_key_docs_latest/003_contracts_and_standards_7_.md \
+  -doc docs/agent_docs/docs024_key_docs_latest/002_system_architecture_4_.md \
+  -psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db' \
+  -schema-tables content_components,site_components,style_collections,sites,layouts,css_themes,site_specs \
+  -runtime-site idea.uk -runtime-page index \
+  -out /tmp/bundle_e_f.md

@@ -4,6 +4,9 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -27,19 +30,37 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 		return nil, fmt.Errorf("kafka groupID cannot be empty")
 	}
 
+	logger.Info("consumer.go setting up NewConsumer")
+
+	sessionTimeout := envDurationOrDefault("KAFKA_SESSION_TIMEOUT", 60*time.Second)
+	rebalanceTimeout := envDurationOrDefault("KAFKA_REBALANCE_TIMEOUT", 60*time.Second)
+	heartbeatInterval := sessionTimeout / 3 // Kafka requires heartbeat < session timeout
+
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        brokers,
 		GroupID:        groupID,
 		Topic:          topic,
-		MinBytes:       10e3, // 10KB
-		MaxBytes:       10e6, // 10MB
-		CommitInterval: 0,    // Manual commit
+		MinBytes:       1,                 // 1 byte
+		MaxBytes:       10e6,              // 10MB
+		CommitInterval: 0,                 // Manual commit
+		StartOffset:    kafka.FirstOffset, // Start from beginning if no offset stored
+		Dialer: &kafka.Dialer{
+			Timeout:   10 * time.Second,
+			DualStack: true,
+		},
+		SessionTimeout:    sessionTimeout,
+		RebalanceTimeout:  rebalanceTimeout,
+		HeartbeatInterval: heartbeatInterval,
+		MaxWait:           1 * time.Second,
 	})
 
 	logger.Info("Kafka consumer created",
 		zap.Strings("brokers", brokers),
 		zap.String("topic", topic),
 		zap.String("groupID", groupID),
+		zap.Duration("session_timeout", sessionTimeout),
+		zap.Duration("rebalance_timeout", rebalanceTimeout),
+		zap.Duration("heartbeat_interval", heartbeatInterval),
 	)
 
 	return &Consumer{
@@ -48,17 +69,63 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 	}, nil
 }
 
+// Consume fetches the next message from the topic
+func (c *Consumer) Consume(ctx context.Context) (Message, error) {
+	c.logger.Debug("Consume() called, attempting to fetch message")
+
+	// Use a timeout context to prevent infinite blocking
+	fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	msg, err := c.reader.FetchMessage(fetchCtx)
+	if err != nil {
+		if err == context.DeadlineExceeded {
+			// Timeout is normal when no messages available
+			c.logger.Debug("No messages available within timeout")
+			return Message{}, context.DeadlineExceeded
+		}
+		if err != context.Canceled {
+			c.logger.Error("Failed to fetch message",
+				zap.Error(err),
+				zap.String("topic", c.reader.Config().Topic))
+		}
+		return Message{}, err
+	}
+
+	c.logger.Info("Message fetched successfully",
+		zap.String("topic", msg.Topic),
+		zap.Int("partition", msg.Partition),
+		zap.Int64("offset", msg.Offset),
+		zap.Int("size", len(msg.Value)))
+
+	// After successful processing, commit the offset
+	if err := c.reader.CommitMessages(ctx, msg); err != nil {
+		c.logger.Error("Failed to commit message", zap.Error(err))
+	}
+
+	return msg, nil
+}
+
 // FetchMessage fetches the next message from the topic
 // Returns the native kafka.Message type
 func (c *Consumer) FetchMessage(ctx context.Context) (Message, error) {
+	c.logger.Debug("FetchMessage called") // ADD THIS
+
 	msg, err := c.reader.FetchMessage(ctx)
 	if err != nil {
 		if err == context.Canceled {
 			return Message{}, err
 		}
-		c.logger.Error("Failed to fetch message from Kafka", zap.Error(err))
+		c.logger.Error("Failed to fetch message from Kafka",
+			zap.Error(err),
+			zap.String("topic", c.reader.Config().Topic)) // ADD topic info
 		return Message{}, err
 	}
+
+	c.logger.Debug("Message fetched", // ADD THIS
+		zap.Int("partition", msg.Partition),
+		zap.Int64("offset", msg.Offset))
+
 	return msg, nil
 }
 
@@ -75,4 +142,16 @@ func (c *Consumer) CommitMessages(ctx context.Context, msgs ...Message) error {
 func (c *Consumer) Close() error {
 	c.logger.Info("Closing Kafka consumer...")
 	return c.reader.Close()
+}
+
+func envDurationOrDefault(key string, defaultVal time.Duration) time.Duration {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+	seconds, err := strconv.Atoi(val)
+	if err != nil {
+		return defaultVal
+	}
+	return time.Duration(seconds) * time.Second
 }

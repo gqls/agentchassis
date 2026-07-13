@@ -1,0 +1,1 @@
+kubeconfig_path = "/home/ant/.kube/config_production_uk001"

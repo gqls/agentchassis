@@ -1,0 +1,60 @@
+name: Deploy Engine to VM
+# Lives in the engine repo (site-engine). Builds the capture engine and ships it to
+# the box, where a narrow sudo hook (installed by setup.sh when DEPLOY_USER is
+# set) atomically swaps the binary and restarts the service. Separate from the
+# content deploy (VM-sites repo) so content changes never rebuild the engine and
+# an engine change never touches per-domain content.
+#
+# Required repo secrets (same deploy identity as the content Action):
+#   VM_HOST    — box hostname or IP
+#   VM_USER    — the DEPLOY_USER from setup.sh (may run the engine hook via sudo)
+#   VM_SSH_KEY — that user's private key (ed25519)
+#
+# Single-box for now. Multi-box (relocation) would loop over a target list /
+# read the domain->VM registry; deferred until traffic forces it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.go'
+      - 'go.mod'
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build (linux/amd64, static, stripped)
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath -ldflags="-s -w" -o site-engine .
+          file site-engine || true
+
+      - name: Set up SSH
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+        run: |
+          if [ -z "$VM_SSH_KEY" ]; then echo "ERROR: VM_SSH_KEY secret is not set!"; exit 1; fi
+          if [ -z "$VM_HOST" ]; then echo "ERROR: VM_HOST secret is not set!"; exit 1; fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Ship and swap engine
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+        run: |
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes \
+            site-engine "$VM_USER@$VM_HOST:/tmp/site-engine.new"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes \
+            "$VM_USER@$VM_HOST" sudo /usr/local/sbin/site-engine-deploy /tmp/site-engine.new

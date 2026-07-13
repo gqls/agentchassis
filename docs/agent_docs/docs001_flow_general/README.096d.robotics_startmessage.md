@@ -1,0 +1,261 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states, pending_requests CASCADE;"
+
+# 4. Delete ALL spawned agent jobs (not just calculator)
+kubectl -n ai-persona-system delete jobs -l spawned-by=orchestrator
+
+# 5. List and clean up job topics (they follow pattern: job.<correlation>.<orchestration>.<step>)
+# List all job topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-topics.sh \
+--bootstrap-server localhost:9092 \
+--list | grep "^job\."
+
+# Delete all job topics (be careful!)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash -c '
+for topic in $(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep "^job\."); do
+echo "Deleting topic: $topic"
+/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic "$topic"
+done
+'
+
+# delete initial topics
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-topics.sh \
+--bootstrap-server localhost:9092 \
+--delete \
+--topic system.agent.generic.requests
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-topics.sh \
+--bootstrap-server localhost:9092 \
+--delete \
+--topic system.agent.generic.responses
+
+kubectl -n kafka exec -it personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-topics.sh \
+--bootstrap-server localhost:9092 \
+--delete \
+--topic system.responses.generic
+
+# reset all offsets
+echo 'resetting all offsets'
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+--bootstrap-server localhost:9092 \
+--reset-offsets \
+--to-earliest \
+--all-groups   \
+--all-topics    \
+--execute
+
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+kubectl -n ai-persona-system delete pods -l agent-type=calculator
+
+# 6. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+# =======
+
+sleep 5
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-consumer-groups.sh \
+--bootstrap-server localhost:9092 \
+--reset-offsets \
+--to-earliest \
+--all-groups   \
+--all-topics    \
+--execute
+
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+
+
+
+====
+=========
+
+
+
+
+=== run === robot hands website =====
+
+# Generate IDs
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="robot-site-$(date +%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_step_website_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Robot Hands Website Test"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Client            $CLIENT_ID"
+echo "  Message ID:       $MESSAGE_ID"
+echo "  Agent ID:         $AGENT_ID"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+
+# Send message
+
+kubectl -n kafka run -i --rm kcat-producer \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=$ORCHESTRATION_NAME \
+-H step_name=$STEP_NAME \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=$AGENT_ID \
+-H responses_topic=system.responses.generic <<EOF
+{"action":"orchestrate","config":{"group_type":"robot-hands-website"},"input_data":{"business_type":"robotics automation company","business_name":"PrecisionBot Systems"}}
+EOF
+
+echo ""
+echo "Message sent!"
+echo ""
+echo "Monitor:"
+echo "  Orchestrator: kubectl logs -f deployment/agent-chassis -n agent-system | grep '$ORCHESTRATION_ID'"
+echo "  Database: psql ... -c \"SELECT status, current_step FROM orchestration_states WHERE orchestration_id = '$ORCHESTRATION_ID';\""
+echo ""
+
+
+=== run === multi section website builder =====
+
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="multi-site-$(date +%H%M%S)"
+AGENT_ID=$(cat /proc/sys/kernel/random/uuid)
+STEP_NAME="client_step_website_request"
+CLIENT_ID="demo_client"
+
+echo "========================================="
+echo "Multi-Section Website Builder Test"
+echo "========================================="
+echo "  Correlation ID:   $CORRELATION_ID"
+echo "  Request ID:       $REQUEST_ID"
+echo "  Orchestration ID: $ORCHESTRATION_ID"
+echo "  Name:             $ORCHESTRATION_NAME"
+echo "  Time:             $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================="
+
+kubectl -n kafka run -i --rm kcat-producer \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -P \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.agent.generic.requests \
+-H correlation_id=$CORRELATION_ID \
+-H request_id=$REQUEST_ID \
+-H message_id=$MESSAGE_ID \
+-H orchestration_id=$ORCHESTRATION_ID \
+-H orchestration_name=$ORCHESTRATION_NAME \
+-H step_name=$STEP_NAME \
+-H client_id=$CLIENT_ID \
+-H message_type=request \
+-H action=orchestrate \
+-H from_agent_type=user \
+-H from_agent_id=$AGENT_ID \
+-H responses_topic=system.responses.generic <<EOF
+{"action":"orchestrate","config":{"group_type":"multi-section-website-builder"},"input_data":{"business_type":"artisanal bakery","business_name":"Golden Crust Bakery"}}
+EOF
+
+echo ""
+echo "Message sent. Waiting 20 seconds for processing..."
+sleep 20
+
+echo ""
+echo "========================================="
+echo "Checking Spawned Jobs"
+echo "========================================="
+kubectl -n ai-persona-system get jobs | grep content-creator | tail -10
+
+echo ""
+echo "========================================="
+echo "Checking Spawned Pods"
+echo "========================================="
+kubectl -n ai-persona-system get pods | grep content-creator | tail -10
+
+echo ""
+echo "========================================="
+echo "Checking Orchestration State in Database"
+echo "========================================="
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- \
+psql -U clients_user -d clients_db -c \
+"SELECT
+orchestration_id,
+status,
+current_step,
+owner_agent_type,
+to_char(created_at, 'HH24:MI:SS') as created,
+to_char(updated_at, 'HH24:MI:SS') as updated
+FROM orchestration_states
+WHERE correlation_id = '$CORRELATION_ID'
+ORDER BY created_at DESC
+LIMIT 10;"
+
+echo ""
+echo "========================================="
+echo "Checking for Any Errors in Orchestration"
+echo "========================================="
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- \
+psql -U clients_user -d clients_db -c \
+"SELECT
+orchestration_id,
+status,
+error
+FROM orchestration_states
+WHERE correlation_id = '$CORRELATION_ID'
+AND (status = 'FAILED' OR error IS NOT NULL);"
+
+echo ""
+echo "========================================="
+echo "Monitoring Response Topic"
+echo "========================================="
+echo "Listening for final response on system.responses.generic..."
+echo "Will show correlation_id header and message body"
+echo "Press Ctrl+C when you see the final response"
+echo ""
+
+kubectl -n kafka run -i --rm kcat-consumer \
+--image=edenhill/kcat:1.7.1 \
+--restart=Never -- \
+kcat -C \
+-b personae-kafka-cluster-kafka-bootstrap:9092 \
+-t system.responses.generic \
+-o end \
+-e \
+-f 'CORRELATION: %h{correlation_id}\nBODY: %s\n\n========================================\n\n'
+
+
+
+
+
+make quick-agent-update ENVIRONMENT=production REGION=uk001
+  
+  

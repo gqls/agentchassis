@@ -1,0 +1,83 @@
+# test/fixtures/workflows/group_human_workflow.yaml
+name: Group Collaboration with Human Approval
+workflow:
+  start_step: spawn_team
+  steps:
+    spawn_team:
+      action: spawn_group
+      config:
+        group_type: content-team
+      next_step: research_phase
+
+    research_phase:
+      action: fan_out_to_group
+      config:
+        tasks:
+          - role: researcher
+            action: comprehensive_research
+            timeout: 10m
+          - role: analyst
+            action: market_analysis
+            timeout: 15m
+      next_step: draft_creation
+
+    draft_creation:
+      action: call_agent
+      config:
+        use_group_agent: true
+        role: writer
+        action: create_draft
+        data:
+          research: "{{collected_data.research_phase}}"
+      next_step: internal_review
+
+    internal_review:
+      action: call_agent
+      config:
+        use_group_agent: true
+        role: editor
+        action: review_draft
+      next_step: human_approval
+
+    human_approval:
+      action: pause_for_human
+      config:
+        approval_type: content_approval
+        required_approvers: 2
+        roles: ["content_manager", "legal_reviewer"]
+        timeout: 72h
+        escalation:
+          after: 24h
+          to: "senior_manager"
+        data_to_review:
+          draft: "{{collected_data.draft_creation}}"
+          editor_notes: "{{collected_data.internal_review}}"
+      next_step: approval_decision
+
+    approval_decision:
+      action: conditional
+      config:
+        condition: "{{human_response.approval_count}} >= 2"
+        true_step: finalize
+        false_step: revision_loop
+
+    revision_loop:
+      action: call_agent
+      config:
+        use_group_agent: true
+        role: writer
+        action: revise_content
+        data:
+          feedback: "{{human_response.feedback}}"
+      next_step: internal_review
+
+    finalize:
+      action: call_agent
+      config:
+        use_group_agent: true
+        role: publisher
+        action: publish_content
+      next_step: complete
+
+    complete:
+      action: complete_workflow

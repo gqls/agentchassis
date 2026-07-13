@@ -1,0 +1,25 @@
+# test/fixtures/workflows/multi_agent.yaml
+name: Multi-Agent Test Workflow
+start_step: prepare
+steps:
+  prepare:
+    action: validate_input
+    next_step: spawn_agents
+  spawn_agents:
+    action: spawn_group
+    config:
+      group_type: content-team
+    next_step: distribute
+  distribute:
+    action: fan_out
+    sub_tasks:
+      - step_name: research
+        topic: system.agent.researcher.process
+      - step_name: create
+        topic: system.agent.content-creator.process
+    next_step: collect
+  collect:
+    action: wait_for_responses
+    next_step: complete
+  complete:
+    action: complete_workflow

@@ -1,0 +1,46 @@
+# Create this as a separate file or add to your Kustomize
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-chassis-orchestrator-config
+  namespace: ai-persona-system
+data:
+  agent-chassis.yaml: |
+    service_info:
+      name: generic-orchestrator
+      version: "1.0.0"
+      environment: production
+    
+    server:
+      port: "8080"
+    
+    logging:
+      level: info
+    
+    infrastructure:
+      kafka_brokers:
+        - personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+      
+      clients_database:
+        host: pgbouncer.ai-persona-system.svc.cluster.local
+        port: 6432
+        db_name: clients_db
+        user: clients_user
+        password_env_var: CLIENTS_DB_PASSWORD
+        sslmode: disable
+      
+      templates_database:
+        host: postgres-templates.ai-persona-system.svc.cluster.local
+        port: 5432
+        db_name: templates_db
+        user: templates_user
+        password_env_var: TEMPLATES_DB_PASSWORD
+        sslmode: disable
+    
+    custom:
+      agent_type: generic
+      mode: orchestrator
+      processing:
+        mode: orchestrator
+        spawn_method: kubernetes_job
+        namespace: ai-persona-system

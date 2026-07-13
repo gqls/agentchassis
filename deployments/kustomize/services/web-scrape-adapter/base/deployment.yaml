@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-scrape-adapter
+  labels:
+    app: web-scrape-adapter
+    component: adapter
+    type: webscraping
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: web-scrape-adapter
+  template:
+    metadata:
+      labels:
+        app: web-scrape-adapter
+        component: adapter
+        type: webscraping
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: web-scrape-adapter
+          image: docker.io/aqls/web-scrape-adapter:latest
+          command: ["./web-scrape-adapter"]
+          envFrom:
+            - configMapRef:
+                name: placeholder-config # Patched by overlays
+            - secretRef:
+                name: placeholder-secrets # Patched by overlays
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+              readOnly: true
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: config
+          configMap:
+            name: web-scrape-adapter-config

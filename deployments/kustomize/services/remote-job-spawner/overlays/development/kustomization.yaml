@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai-persona-system
+resources:
+  - ../../base
+
+labels:
+  - pairs:
+      environment: development
+
+images:
+  - name: docker.io/aqls/remote-job-spawner
+    newTag: v1.0.0
+
+patches:
+  - path: patch-deployment-dev.yaml
+    target:
+      kind: Deployment
+      name: remote-job-spawner

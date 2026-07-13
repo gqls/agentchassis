@@ -1,0 +1,36 @@
+# test/k8s/jobs/test-spawning-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-agent-spawning
+  namespace: ai-persona-system
+  labels:
+    app: test
+    test-type: spawning
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: test-runner
+          image: $(REGISTRY)/test-runner:$(IMAGE_TAG)
+          command: ["/test-runner"]
+          args: ["--test-suite=spawning"]
+          env:
+            - name: DB_HOST
+              value: "postgres-clients"
+            - name: DB_NAME
+              value: "clients_db"
+            - name: DB_USER
+              value: "clients_user"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: personae-platform-secrets
+                  key: CLIENTS_DB_PASSWORD
+            - name: KAFKA_BROKERS
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+            - name: CLIENT_ID
+              value: "demo_client"

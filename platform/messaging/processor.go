@@ -3,171 +3,1972 @@ package messaging
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
+	"runtime"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/discovery"
 	"github.com/gqls/agentchassis/platform/errors"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/platform/validation"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
-// MessageProcessor handles processing of Kafka messages for agents
+// MessageProcessor handles all message processing
 type MessageProcessor struct {
 	agentType    string
-	db           *pgxpool.Pool
+	agentID      string
+	agentRole    string
+	db           *sql.DB
+	sqlDB        *sql.DB
 	producer     kafka.Producer
 	orchestrator *orchestration.SagaCoordinator
-	validator    *validation.WorkflowValidator
+	validator    *validation.Validator
 	configLoader *config.AgentConfigLoader
 	logger       *zap.Logger
+	tracer       *types.TraceLogger
+	initializer  Initializer
+
+	// For stateless operation
+	isStateless bool
+	podName     string
+	stateRepo   *orchestration.StateRepository
 }
 
 // NewMessageProcessor creates a new message processor
 func NewMessageProcessor(
 	agentType string,
-	db *pgxpool.Pool,
+	agentID string,
+	agentRole string,
+	db *sql.DB,
 	producer kafka.Producer,
 	orchestrator *orchestration.SagaCoordinator,
-	validator *validation.WorkflowValidator,
+	validator *validation.Validator,
 	logger *zap.Logger,
+	initializer Initializer,
 ) *MessageProcessor {
+	// Simplified DB connection
+	var sqlDB *sql.DB
+	if connStr := os.Getenv("DATABASE_URL"); connStr != "" {
+		sqlDB, _ = sql.Open("pgx", connStr)
+	}
+	// Set a low, fixed number of max connections per pod
+	db.SetMaxOpenConns(4)
+
+	// Only keep one idle connection open per pod
+	db.SetMaxIdleConns(1)
+
+	// Close connections after a while to force recycling
+	db.SetConnMaxLifetime(time.Minute * 10)
+
+	// Keep tracer for debugging
+	var tracer *types.TraceLogger
+	if os.Getenv("ENABLE_MESSAGE_TRACING") == "true" {
+		tracer = types.NewTraceLogger(logger)
+	}
+
+	podName := os.Getenv("HOSTNAME")
+	if podName == "" {
+		podName = fmt.Sprintf("%s-local-%d", agentType, os.Getpid())
+	}
+
 	return &MessageProcessor{
 		agentType:    agentType,
+		agentID:      agentID,
+		agentRole:    agentRole,
 		db:           db,
+		sqlDB:        sqlDB,
 		producer:     producer,
 		orchestrator: orchestrator,
 		validator:    validator,
 		configLoader: config.NewAgentConfigLoader(logger),
 		logger:       logger,
+		tracer:       tracer,
+		initializer:  initializer,
+		isStateless:  true, // Always stateless now
+		podName:      podName,
+		stateRepo:    orchestration.NewStateRepository(sqlDB, logger),
 	}
 }
 
-// ProcessMessage handles a single message
-func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
-	startTime := time.Now()
-	headers := kafka.HeadersToMap(msg.Headers)
-
-	// Create a message context for this specific message
-	msgCtx := &MessageContext{
-		Message:   msg,
-		Headers:   headers,
-		StartTime: startTime,
-		Logger: p.logger.With(
-			zap.String("correlation_id", headers["correlation_id"]),
-			zap.String("request_id", headers["request_id"]),
-			zap.String("client_id", headers["client_id"]),
-			zap.String("agent_instance_id", headers["agent_instance_id"]),
-		),
-	}
-
-	// Extract action
-	if err := msgCtx.ExtractAction(); err != nil {
-		return p.handleError(ctx, msgCtx, err, "invalid_payload")
-	}
-
-	// Record metrics
-	observability.AgentTasksReceived.WithLabelValues(p.agentType, msgCtx.Action).Inc()
-	defer func() {
-		observability.AgentProcessingDuration.WithLabelValues(p.agentType, msgCtx.Action).
-			Observe(time.Since(startTime).Seconds())
-	}()
-
-	// Process the message
-	if err := p.process(ctx, msgCtx); err != nil {
-		return p.handleError(ctx, msgCtx, err, "processing_failed")
-	}
-
-	// Success
-	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.Action, "success").Inc()
-	return nil
-}
-
+// process determines how to handle the message based on agent configuration
 func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) error {
-	// Validate headers
-	if err := msgCtx.ValidateHeaders(); err != nil {
-		return errors.ValidationError("headers", err.Error())
-	}
-
-	// Load agent configuration
-	agentConfig, err := p.configLoader.LoadFromDatabase(
-		ctx,
-		p.db,
-		msgCtx.Headers["client_id"],
-		msgCtx.Headers["agent_instance_id"],
-		p.agentType,
+	// Keep stack trace for debugging
+	current, caller := getFuncInfo(1)
+	p.logger.Info("process() in processor.go starting",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("action", msgCtx.ExecutionContext.Action),
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.Any("execution context in process", msgCtx.ExecutionContext),
 	)
-	if err != nil {
-		return errors.InternalError("Failed to load configuration", err)
+
+	// Initialize CollectedData if nil
+	if msgCtx.CollectedData == nil {
+		msgCtx.CollectedData = make(map[string]interface{})
 	}
 
-	// Validate workflow
-	if err := p.validator.ValidateWorkflowPlan(agentConfig.Workflow); err != nil {
+	// Ensure ExecutionContext has required fields
+	if msgCtx.ExecutionContext.OrchestrationID == "" {
+		msgCtx.ExecutionContext.OrchestrationID = uuid.New().String()
+		msgCtx.Logger.Info("Generated new orchestration_id",
+			zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID))
+	}
+
+	// Set up MY topics for this orchestration
+	myRequestsTopic := os.Getenv("REQUESTS_TOPIC")
+	myResponsesTopic := os.Getenv("RESPONSES_TOPIC")
+	parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
+
+	if myRequestsTopic == "" {
+		// I wasn't spawned with specific topics, create my own
+		stableIdentity := kafka.CreateStableIdentity(
+			msgCtx.ExecutionContext.CorrelationID,
+			msgCtx.ExecutionContext.OrchestrationID,
+			p.agentType,
+			msgCtx.ExecutionContext.StepName)
+
+		myRequestsTopic = fmt.Sprintf("job.%s.requests", stableIdentity)
+		myResponsesTopic = fmt.Sprintf("job.%s.responses", stableIdentity)
+
+		// Store for use when spawning children
+		msgCtx.ExecutionContext.RequestsTopic = myRequestsTopic
+		msgCtx.ExecutionContext.ResponsesTopic = myResponsesTopic
+		msgCtx.ExecutionContext.ReplyToTopic = parentResponsesTopic
+
+		// Get Kafka brokers with fallback
+		kafkaBrokersEnv := os.Getenv("SERVICE_INFRASTRUCTURE_KAFKA_BROKERS")
+		if kafkaBrokersEnv == "" {
+			// Try alternative env var
+			kafkaBrokersEnv = os.Getenv("KAFKA_BROKERS")
+		}
+		var kafkaBrokers []string
+		if kafkaBrokersEnv != "" {
+			kafkaBrokers = strings.Split(kafkaBrokersEnv, ",")
+		} else {
+			// Use default Kafka service names as fallback
+			msgCtx.Logger.Warn("No Kafka brokers configured, using defaults")
+			kafkaBrokers = []string{
+				"personae-kafka-cluster-kafka-bootstrap.kafka:9092",
+			}
+		}
+
+		// Create topics - now with valid brokers
+		if err := kafka.CreateJobTopic(kafkaBrokers, myRequestsTopic, 2); err != nil {
+			msgCtx.Logger.Warn("Failed to create requests topic",
+				zap.Error(err),
+				zap.Strings("brokers", kafkaBrokers))
+		}
+		if err := kafka.CreateJobTopic(kafkaBrokers, myResponsesTopic, 2); err != nil {
+			msgCtx.Logger.Warn("Failed to create responses topic",
+				zap.Error(err),
+				zap.Strings("brokers", kafkaBrokers))
+		}
+
+		msgCtx.Logger.Info("Created my orchestration topics",
+			zap.String("my_requests", myRequestsTopic),
+			zap.String("my_responses", myResponsesTopic),
+			zap.String("parentresponses topic", parentResponsesTopic),
+			zap.String("stable_identity", stableIdentity),
+			zap.Strings("kafka_brokers", kafkaBrokers))
+	} else {
+		msgCtx.Logger.Info("Using spawned topics",
+			zap.String("my_requests", myRequestsTopic),
+			zap.String("my_responses", myResponsesTopic),
+		)
+	}
+
+	// Store MY topics in MY context
+	msgCtx.ExecutionContext.RequestsTopic = myRequestsTopic
+	msgCtx.ExecutionContext.ResponsesTopic = myResponsesTopic
+
+	msgCtx.Logger.Info("Will respond to parent on",
+		zap.String("parent_responses_topic", parentResponsesTopic))
+	msgCtx.ExecutionContext.ReplyToTopic = parentResponsesTopic
+
+	msgCtx.Logger.Info("Topic configuration complete",
+		zap.String("action", msgCtx.ExecutionContext.Action),
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.String("my_requests_topic", myRequestsTopic),
+		zap.String("my_responses_topic", msgCtx.ExecutionContext.ResponsesTopic),
+		zap.String("reply to _topic", msgCtx.ExecutionContext.ReplyToTopic),
+		zap.String("request_id", msgCtx.ExecutionContext.RequestID))
+
+	// Sync headers from context for backward compatibility - KEEP
+	msgCtx.SyncHeadersFromContext()
+
+	// Load agent definition from DB to put into config - agentDef.DefaultConfig["workflow"]
+	agentDef, err := p.loadAgentDefinition(ctx, p.agentType)
+	if err != nil {
+		msgCtx.Logger.Warn("Failed to load agent definition, creating dynamic workflow",
+			zap.String("agent_type", p.agentType),
+			zap.Error(err))
+		workflow := p.createWorkflowForAction(msgCtx.ExecutionContext.Action)
+		agentDef = &actions.AgentDefinition{
+			Type:          p.agentType,
+			DefaultConfig: make(map[string]interface{}),
+		}
+		agentDef.DefaultConfig["workflow"] = workflow
+	}
+
+	msgCtx.Logger.Info("in processor process Agent definition loaded",
+		zap.String("display_name", agentDef.DisplayName),
+		zap.String("category", agentDef.Category),
+		//zap.Any("DEBUGaa: about to select Workflow", agentDef),
+		//zap.Any("DEBUGaa: agentType from which database workflow is loaded", p.agentType),
+	)
+
+	// Select the appropriate workflow based on context
+	workflow, err := p.selectWorkflow(ctx, agentDef, msgCtx)
+	if err != nil {
+		msgCtx.Logger.Error("Failed to select workflow", zap.Error(err))
+		return err
+	}
+
+	msgCtx.Logger.Info("Message value in msgCtx",
+		zap.ByteString("msgCtx.Message.Value", msgCtx.Message.Value))
+
+	// Store parent context if this is a child
+	if msgCtx.IsChildOrchestration() {
+		msgCtx.CollectedData["__execution_context__"] = msgCtx.ExecutionContext
+		msgCtx.Logger.Debug("Stored execution context as child",
+			zap.String("parent_orch_id", msgCtx.ExecutionContext.ParentOrchestrationID))
+	}
+
+	// Store the agent configuration for actions to use
+	msgCtx.CollectedData["agent_config"] = agentDef.DefaultConfig
+
+	msgCtx.Logger.Info("DEBUGaa: What have I done with CollectedData",
+		zap.Any("DEBUGaa: CollectedData in processor process is - look for input data etc", msgCtx.CollectedData))
+
+	// Store the input data
+	/*var inputPayload map[string]interface{}
+	if err := json.Unmarshal(msgCtx.Message.Value, &inputPayload); err == nil {
+		// Store the entire payload as input_data
+		msgCtx.CollectedData["input_data"] = inputPayload
+		if action, ok := inputPayload["action"]; ok {
+			msgCtx.CollectedData["input_action"] = action
+		}
+
+		msgCtx.Logger.Info("Input data stored",
+			zap.Any("input_data", inputPayload))
+	}*/
+
+	// Create agent config with the workflow - KEEP AS IS
+	agentConfig := &models.AgentConfig{
+		CoreLogic: agentDef.DefaultConfig,
+		Workflow:  workflow,
+	}
+
+	// Validate workflow - KEEP AS IS
+	if err := p.validator.ValidateWorkflow(agentConfig.Workflow); err != nil {
+		msgCtx.Logger.Error("Invalid workflow configuration",
+			zap.Error(err),
+			zap.String("agent_type", p.agentType))
 		return errors.New(errors.ErrWorkflowInvalid, "Invalid workflow configuration").
 			WithCause(err).
-			WithDetail("workflow_metrics", p.validator.GetWorkflowMetrics(agentConfig.Workflow)).
 			Build()
 	}
 
-	// Execute workflow
-	return p.executeWorkflow(ctx, msgCtx, agentConfig)
+	msgCtx.Logger.Info("Workflow validated successfully, executing workflow")
+
+	// Execute the workflow - KEEP AS IS
+	err = p.executeWorkflow(ctx, msgCtx, agentConfig)
+
+	// Handle workflow execution result - KEEP AS IS
+	if err != nil {
+		if err == orchestration.ErrWaitingForResponse {
+			msgCtx.Logger.Info("Workflow started and is now waiting for a response")
+			return nil
+		}
+		msgCtx.Logger.Error("Failed to start workflow execution", zap.Error(err))
+		return p.sendWorkflowFailureResponse(ctx, msgCtx, err)
+	}
+
+	// Check if this is a child workflow that completed
+	if msgCtx.IsChildOrchestration() {
+		if p.sqlDB != nil {
+			repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+			state, _ := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
+			if state != nil && state.Status == orchestration.StatusCompleted {
+				msgCtx.Logger.Info("Child workflow completed, sending response to parent")
+				return nil
+			}
+		}
+	}
+
+	msgCtx.Logger.Info("Workflow successfully handed off to the orchestrator")
+	return nil
 }
 
-func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
-	// Start workflow timer
-	workflowTimer := observability.StartWorkflowTimer(p.agentType, config.Workflow.StartStep)
-	defer workflowTimer.Complete("success")
+func (p *MessageProcessor) createWorkflowForAction(action string) map[string]interface{} {
+	return map[string]interface{}{
+		"start_step": action,
+		"steps": map[string]interface{}{
+			action: map[string]interface{}{
+				"action":      action,
+				"description": fmt.Sprintf("Execute %s", action),
+				"next_step":   "complete",
+			},
+			"complete": map[string]interface{}{
+				"action":      "complete_workflow",
+				"description": "Complete workflow",
+			},
+		},
+	}
+}
 
-	// Update metrics
-	observability.WorkflowsStarted.WithLabelValues(p.agentType, config.Workflow.StartStep, msgCtx.Headers["client_id"]).Inc()
-	observability.ActiveWorkflows.WithLabelValues(p.agentType).Inc()
-	defer observability.ActiveWorkflows.WithLabelValues(p.agentType).Dec()
+func (p *MessageProcessor) validateNoSelfRecursion(workflow models.WorkflowPlan, agentType string) error {
+	for stepName, step := range workflow.Steps {
+		if step.Action == "call_agent" {
+			if targetType, ok := step.Config["agent_type"].(string); ok && targetType == agentType {
+				return fmt.Errorf("workflow step '%s' would cause self-recursion: agent type '%s' cannot call itself", stepName, agentType)
+			}
+		}
+	}
+	return nil
+}
 
-	// Execute through orchestrator
-	return p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, msgCtx.Headers, msgCtx.Message.Value)
+// loadAgentDefinition loads the agent definition from the database
+func (p *MessageProcessor) loadAgentDefinition(ctx context.Context, agentType string) (*actions.AgentDefinition, error) {
+	p.logger.Debug("Loading agent definition", zap.String("agent_type", agentType))
+
+	// Filter:
+	//   is_active = true               → pick the live row, not a deactivated one
+	//   deleted_at IS NULL             → respect soft-deletes
+	//   is_snapshot guard              → snapshots are stored with version+1000 (021_model_swap_and_rollback.sql)
+	//                                    which would otherwise sort ahead of the active row
+	//   ORDER BY version DESC LIMIT 1  → defensive against transient multi-active during deploys
+	query := `
+        SELECT type, display_name, description, category, default_config, capabilities
+        FROM agent_definitions
+        WHERE type = $1
+		  AND is_active = true
+		  AND deleted_at IS NULL
+		  AND (is_snapshot IS NULL OR is_snapshot = false)
+		ORDER BY version DESC
+		LIMIT 1
+    `
+
+	var def actions.AgentDefinition
+	var configJSON json.RawMessage // Read as RawMessage first
+	var capabilitiesJSON json.RawMessage
+
+	err := p.db.QueryRowContext(ctx, query, agentType).Scan(
+		&def.Type,
+		&def.DisplayName,
+		&def.Description,
+		&def.Category,
+		&configJSON,
+		&capabilitiesJSON,
+	)
+
+	if err != nil {
+		p.logger.Error("Failed to query agent definition",
+			zap.String("agent_type", agentType),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to load agent definition: %w", err)
+	}
+
+	p.logger.Info("Agent definition loaded from DB",
+		zap.String("type", def.Type),
+		zap.String("display_name", def.DisplayName),
+		zap.String("category", def.Category),
+		zap.String("raw_config", string(configJSON)))
+
+	// Parse the JSON config into map
+	if err := json.Unmarshal(configJSON, &def.DefaultConfig); err != nil {
+		p.logger.Error("Failed to parse agent config JSON", zap.Error(err))
+		return nil, fmt.Errorf("failed to parse agent config: %w", err)
+	}
+
+	// Parse capabilities if present
+	if capabilitiesJSON != nil {
+		json.Unmarshal(capabilitiesJSON, &def.Capabilities)
+	}
+
+	p.logger.Info("Agent definition loaded successfully",
+		zap.String("type", def.Type),
+		zap.String("display_name", def.DisplayName),
+		zap.String("category", def.Category))
+
+	return &def, nil
+}
+
+// convertToWorkflowPlan converts the workflow config from DB to WorkflowPlan
+func (p *MessageProcessor) convertToWorkflowPlan(workflowConfig map[string]interface{}) models.WorkflowPlan {
+	plan := models.WorkflowPlan{
+		Steps: make(map[string]models.Step),
+	}
+
+	// Get start step
+	if startStep, ok := workflowConfig["start_step"].(string); ok {
+		plan.StartStep = startStep
+	}
+
+	// Convert steps
+	if steps, ok := workflowConfig["steps"].(map[string]interface{}); ok {
+		for stepName, stepData := range steps {
+			if stepMap, ok := stepData.(map[string]interface{}); ok {
+				step := models.Step{
+					Action:      p.getStringValue(stepMap, "action"),
+					Description: p.getStringValue(stepMap, "description"),
+					NextStep:    p.getStringValue(stepMap, "next_step"),
+					OutputField: p.getStringValue(stepMap, "output_field"),
+					Topic:       p.getStringValue(stepMap, "topic"),
+				}
+
+				// Get config if present
+				if config, ok := stepMap["config"].(map[string]interface{}); ok {
+					step.Config = config
+				}
+
+				// Get dependencies if present
+				if deps, ok := stepMap["dependencies"].([]interface{}); ok {
+					for _, dep := range deps {
+						if depStr, ok := dep.(string); ok {
+							step.Dependencies = append(step.Dependencies, depStr)
+						}
+					}
+				}
+
+				plan.Steps[stepName] = step
+				p.logger.Debug("Converted workflow step",
+					zap.String("step_name", stepName),
+					zap.String("action", step.Action),
+					zap.String("next_step", step.NextStep),
+					zap.String("output_field outputField", step.OutputField),
+				)
+			}
+		}
+	}
+
+	return plan
+}
+
+// getStringValue safely extracts a string value from a map
+func (p *MessageProcessor) getStringValue(m map[string]interface{}, key string) string {
+	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return ""
+}
+
+// getDefaultWorkflow returns a simple default workflow
+func (p *MessageProcessor) getDefaultWorkflow() models.WorkflowPlan {
+	return models.WorkflowPlan{
+		StartStep: "process",
+		Steps: map[string]models.Step{
+			"process": {
+				Action:      "execute_llm_prompt",
+				Description: "Process the task",
+				NextStep:    "respond",
+			},
+			"respond": {
+				Action:      "send_notification",
+				Description: "Send response",
+				NextStep:    "complete",
+			},
+			"complete": {
+				Action:      "complete_workflow",
+				Description: "Complete the workflow",
+			},
+		},
+	}
+}
+
+// New response methods using ExecutionContext
+func (p *MessageProcessor) sendWorkflowSuccessResponse(ctx context.Context, msgCtx *MessageContext) error {
+
+	current, caller := getFuncInfo(1)
+	caller, caller_called_by := getFuncInfo(2)
+
+	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go sendWorkflowSuccessResponse",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("caller_called_by", caller_called_by),
+		zap.String("container", os.Getenv("HOSTNAME")),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
+	// Get final state if available
+	var finalResult interface{}
+	if p.sqlDB != nil {
+		repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+		state, err := repo.GetState(ctx, msgCtx.ExecutionContext.OrchestrationID)
+		if err == nil && state != nil {
+			finalResult = state.CollectedData
+		}
+	}
+
+	if finalResult == nil {
+		finalResult = map[string]interface{}{"status": "completed"}
+	}
+
+	return p.sendWorkflowResponse(ctx, msgCtx, finalResult)
+}
+
+func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgCtx *MessageContext, err error) error {
+	current, caller := getFuncInfo(1)
+	caller, caller_called_by := getFuncInfo(2)
+
+	msgCtx.Logger.With(msgCtx.ExecutionContext.LogContext()...).Info("In file processor.go ",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("caller_called_by", caller_called_by),
+		zap.String("container", os.Getenv("HOSTNAME")),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
+	return p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
+		"error":  err.Error(),
+		"status": "failed",
+	})
 }
 
 func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageContext, err error, errorType string) error {
 	msgCtx.Logger.Error("Processing failed", zap.Error(err))
-	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.Action, errorType).Inc()
+	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, errorType).Inc()
 
+	// CRITICAL: Check if this is a validation error - DO NOT RETRY THESE
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "is required") ||
+		strings.Contains(errMsg, "validation") ||
+		strings.Contains(errMsg, "invalid") ||
+		strings.Contains(errMsg, "missing") {
+
+		msgCtx.Logger.Warn("Validation error detected - NOT retrying to prevent infinite loop",
+			zap.Error(err),
+			zap.String("message_type", msgCtx.ExecutionContext.MessageType),
+			zap.String("correlation_id", msgCtx.ExecutionContext.CorrelationID))
+
+		// For validation errors, send an error response but DON'T return the error
+		if domainErr, ok := err.(*errors.DomainError); ok {
+			p.sendErrorResponse(ctx, msgCtx, domainErr)
+		} else {
+			p.sendErrorResponse(ctx, msgCtx, errors.InternalError("VAlidation failed", err))
+		}
+
+		// IMPORTANT: Return nil to prevent retry/requeue
+		return nil
+	}
 	// Check for specific error types
 	if domainErr, ok := err.(*errors.DomainError); ok {
 		if domainErr.Code == errors.ErrInsufficientFuel {
-			observability.FuelExhausted.WithLabelValues(p.agentType, msgCtx.Action, msgCtx.Headers["client_id"]).Inc()
+			observability.FuelExhausted.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, msgCtx.Headers["client_id"]).Inc()
 		}
 		p.sendErrorResponse(ctx, msgCtx, domainErr)
 	} else {
 		p.sendErrorResponse(ctx, msgCtx, errors.InternalError("Processing failed", err))
 	}
 
+	return err // Only return error for non-validation cases
+}
+
+// ProcessResponse handles response messages for orchestrated workflows
+func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Message) error {
+	current, caller := getFuncInfo(1)
+
+	p.logger.Info("In file processor.go ",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("container", os.Getenv("HOSTNAME")),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
+	headers := kafka.HeadersToMap(msg.Headers)
+
+	p.logger.Info("Processing orchestration response",
+		zap.String("DEBUG_PROCESSOR_3: correlation_id", headers["correlation_id"]),
+		zap.String("DEBUG_PROCESSOR_3: orchestration_id", headers["orchestration_id"]),
+		zap.String("DEBUG_PROCESSOR_3: causation_id", headers["causation_id"]),
+	)
+
+	var responseMsg types.ResponseMessage
+	if err := json.Unmarshal(msg.Value, &responseMsg); err != nil {
+		p.logger.Error("Failed to unmarshal response message in ProcessResponse (processor.go)", zap.Error(err))
+		return err
+	}
+	// Route to orchestrator
+	return p.orchestrator.HandleResponse(ctx, headers, responseMsg)
+}
+
+func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+	// Keep stack trace for debugging
+	current, caller := getFuncInfo(1)
+	p.logger.Debug("sendWorkflowResponse",
+		zap.String("function", current),
+		zap.String("called_by", caller))
+
+	// Create response context
+	responseCtx := msgCtx.CreateResponseContext()
+	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
+
+	// Check if waiting for response (suppress premature responses)
+	if allData, ok := result.(map[string]interface{}); ok {
+		var lastActionResult map[string]interface{}
+		for _, value := range allData {
+			if resultMap, isMap := value.(map[string]interface{}); isMap {
+				if _, found := resultMap["await_response"]; found {
+					lastActionResult = resultMap
+					break
+				}
+			}
+		}
+
+		if lastActionResult != nil {
+			if await, ok := lastActionResult["await_response"].(bool); ok && await {
+				contextLogger.Info("Suppressing response - workflow waiting")
+				return nil
+			}
+
+			// Handle specific request_id
+			if requestID, ok := lastActionResult["request_id"].(string); ok && requestID != "" {
+				if responseCtx.InResponseTo != nil {
+					responseCtx.InResponseTo.RequestID = requestID
+				} else {
+					responseCtx.InResponseTo = &types.ResponseContext{
+						RequestID:               requestID,
+						StepID:                  msgCtx.ExecutionContext.StepID,
+						StepName:                msgCtx.ExecutionContext.StepName,
+						MessageID:               msgCtx.ExecutionContext.MessageID,
+						Action:                  msgCtx.ExecutionContext.Action,
+						ParentOrchestrationID:   msgCtx.ExecutionContext.ParentOrchestrationID,
+						ParentOrchestrationName: msgCtx.ExecutionContext.ParentOrchestrationName,
+					}
+				}
+				responseCtx.RequestID = requestID
+			}
+		}
+	}
+
+	// ResponsesTopic must be set
+	parentResponsesTopic := msgCtx.ExecutionContext.ReplyToTopic
+	contextLogger.Info("parent response topic from exectx or from environment, are they the same?",
+		zap.String("parentResponsesTopic from the execCtx", parentResponsesTopic),
+		zap.String("parentResponsesTopic from the env", os.Getenv("PARENT_RESPONSES_TOPIC")),
+	)
+
+	if parentResponsesTopic == "" {
+		parentResponsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+		if parentResponsesTopic == "" {
+			return fmt.Errorf("no responses topic configured on the agent")
+		}
+	}
+
+	// Use ToResponseHeaders to get properly routed headers
+	responseHeaders := responseCtx.ToResponseHeaders()
+
+	response := &types.ResponseMessage{
+		Headers: responseHeaders,
+		Body: types.ResponseBody{
+			Success: true,
+			Body:    result,
+			Error:   nil,
+		},
+	}
+
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	// Convert headers to map for Kafka
+	headersMap := response.Headers.ToMap()
+
+	// Use correlation ID as key for partitioning
+	key := []byte(responseCtx.CorrelationID)
+	if responseCtx.CorrelationID == "" {
+		return fmt.Errorf("failed to find correlation id in response context: %w", err)
+	}
+
+	contextLogger.Info("Sending response",
+		zap.String("to resply totopic", parentResponsesTopic),
+		zap.String("key", string(key)),
+		zap.String("routing_to_orch", responseHeaders.OrchestrationID),
+		zap.String("from_my_orch", responseHeaders.MyOrchestrationID),
+		zap.Any("the responses context in sendWorkflowResponse", responseCtx))
+
+	return p.producer.Produce(ctx,
+		parentResponsesTopic,
+		headersMap,
+		key,
+		responseBytes)
+}
+
+func (p *MessageProcessor) determineResponsesTopic(ctx context.Context, msgCtx *MessageContext, isChildResponse bool, parentContext map[string]interface{}) string {
+	// Priority 1: Child responding to parent's specified topic
+	if isChildResponse {
+		if responsesTopic, ok := parentContext["responses_topic"].(string); ok && responsesTopic != "" {
+			p.logger.Info("Using parent's responses_topic",
+				zap.String("responses_topic", responsesTopic))
+			return responsesTopic
+		}
+	}
+
+	// Priority 2: Explicit responses_topic in headers
+	if responsesTopic := msgCtx.Headers["responses_topic"]; responsesTopic != "" {
+		p.logger.Info("Using responses_topic from headers",
+			zap.String("responses_topic", responsesTopic))
+		return responsesTopic
+	}
+
+	// Priority 3: Construct from parent agent type
+	if parentAgentType := msgCtx.Headers["parent_agent_type"]; parentAgentType != "" {
+		topic := fmt.Sprintf("system.agent.%s.responses", parentAgentType)
+		p.logger.Info("Constructed topic from parent_agent_type",
+			zap.String("parent_agent_type", parentAgentType),
+			zap.String("responses_topic", topic))
+		return topic
+	}
+
+	// Priority 4: Look up parent agent type from ID
+	if parentAgentID := msgCtx.Headers["parent_agent_id"]; parentAgentID != "" {
+		if parentType := p.getAgentTypeFromID(ctx, parentAgentID); parentType != "" {
+			topic := fmt.Sprintf("system.agent.%s.responses", parentType)
+			p.logger.Info("Constructed topic from parent_agent_id lookup",
+				zap.String("parent_agent_id", parentAgentID),
+				zap.String("parent_type", parentType),
+				zap.String("responses_topic", topic))
+			return topic
+		}
+	}
+
+	// Fallback
+	p.logger.Warn("Using fallback response topic")
+	return "system.agent.generic.responses"
+}
+
+func (p *MessageProcessor) normalizeResponseData(result interface{}) map[string]interface{} {
+	switch v := result.(type) {
+	case map[string]interface{}:
+		return v
+	case string:
+		return map[string]interface{}{"message": v}
+	case error:
+		return map[string]interface{}{"error": v.Error()}
+	default:
+		return map[string]interface{}{"result": result}
+	}
+}
+
+func createSQLDB() (*sql.DB, error) {
+	host := os.Getenv("CLIENTS_DB_HOST")
+	port := os.Getenv("CLIENTS_DB_PORT")
+	user := os.Getenv("CLIENTS_DB_USER")
+	password := os.Getenv("CLIENTS_DB_PASSWORD")
+	dbname := os.Getenv("DATABASE_DB_NAME")
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
+
+	return sql.Open("pgx", connStr)
+}
+
+// getAgentTypeFromID retrieves the agent type from the database using the agent ID
+func (p *MessageProcessor) getAgentTypeFromID(ctx context.Context, agentID string) string {
+	current, caller := getFuncInfo(1)
+
+	p.logger.Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
+	// First, try to get from the agent_instances table in the client schema
+	clientID := os.Getenv("CLIENT_ID")
+	if clientID == "" {
+		clientID = "demo_client"
+	}
+
+	// Try to get agent type from agent instance config
+	query := fmt.Sprintf(`
+        SELECT config->>'agent_type' 
+        FROM client_%s.agent_instances 
+        WHERE id = $1 AND is_active = true
+        LIMIT 1
+    `, clientID)
+
+	var agentType string
+	err := p.db.QueryRowContext(ctx, query, agentID).Scan(&agentType)
+	if err == nil && agentType != "" {
+		p.logger.Debug("Found agent type from instance",
+			zap.String("agent_id", agentID),
+			zap.String("agent_type", agentType))
+		return agentType
+	}
+
+	// If not found in instances, try to extract from the agent ID pattern
+	if strings.Contains(agentID, "-") {
+		parts := strings.Split(agentID, "-")
+		if len(parts) >= 2 {
+			possibleType := parts[1]
+			if p.isKnownAgentType(ctx, possibleType) {
+				p.logger.Debug("Extracted agent type from ID pattern",
+					zap.String("agent_id", agentID),
+					zap.String("agent_type", possibleType))
+				return possibleType
+			}
+		}
+	}
+
+	p.logger.Warn("Could not determine agent type from ID",
+		zap.String("agent_id", agentID))
+
+	return "generic"
+}
+
+// isKnownAgentType checks if a given type exists in agent_definitions
+func (p *MessageProcessor) isKnownAgentType(ctx context.Context, agentType string) bool {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM agent_definitions 
+			WHERE type = $1 AND is_active = true
+			ORDER BY version DESC
+		)
+	`
+
+	var exists bool
+	err := p.db.QueryRowContext(ctx, query, agentType).Scan(&exists)
+	if err != nil {
+		p.logger.Debug("Error checking agent type existence",
+			zap.String("agent_type", agentType),
+			zap.Error(err))
+		return false
+	}
+
+	return exists
+}
+
+// getAgentTypeAndIDFromHeaders extracts both agent type and ID from message headers
+// This is a helper function to ensure we always have both pieces of information
+func (p *MessageProcessor) getAgentTypeAndIDFromHeaders(headers map[string]string) (agentType string, agentID string) {
+	// Try to get from explicit headers first
+	agentType = headers["parent_agent_type"]
+	agentID = headers["parent_agent_id"]
+
+	// If we have ID but not type, look it up
+	if agentID != "" && agentType == "" {
+		agentType = p.getAgentTypeFromID(context.Background(), agentID)
+	}
+
+	// If we still don't have the type, try from_agent headers
+	if agentType == "" {
+		agentType = headers["from_agent_type"]
+		if agentType == "" && headers["from_agent_id"] != "" {
+			agentType = p.getAgentTypeFromID(context.Background(), headers["from_agent_id"])
+		}
+	}
+
+	return agentType, agentID
+}
+
+func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions.AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
+	p.logger.Info("DEBUGaa: selectWorkflow entry",
+		zap.Any("default_config_keys", agentDef.DefaultConfig),
+		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
+		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
+		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil),
+		//zap.Any("DEBUGaa: msgbody look for config.workflow from message - look for headers.action or another time, msgCtx.message.value.config.workflow", msgCtx),
+		//zap.Any("DEBUGaa: agentDef, looking to remove default calculator and replace with current workflow", agentDef),
+	)
+
+	// Parse message body
+	var msgBody map[string]interface{}
+	if err := json.Unmarshal(msgCtx.Message.Value, &msgBody); err == nil {
+		p.logger.Info("DEBUGaa: trying to find inline workflow override from message") //zap.Any("workflow_override from unmarshalled msgCtx.message.value", msgBody),
+
+		// Priority 1: Inline workflow override (for testing)
+		if config, ok := msgBody["config"].(map[string]interface{}); ok {
+			if workflow, ok := config["workflow"].(map[string]interface{}); ok {
+				p.logger.Info("Using inline workflow override from message")
+				return p.convertToWorkflowPlan(workflow), nil
+			}
+		}
+
+		// Priority 2: Group-based workflow
+		action := msgCtx.Headers["action"]
+		if action == "" && msgCtx.ExecutionContext != nil {
+			action = msgCtx.ExecutionContext.Action
+		}
+
+		if isOrchestrationAction(action) {
+			groupOrAgentType, version := p.extractGroupInfo(msgBody)
+
+			if groupOrAgentType != "" {
+				p.logger.Info("Looking for agent group",
+					zap.String("group_type", groupOrAgentType),
+					zap.String("version", version),
+					zap.Any("action is:", msgCtx.Headers["action"]),
+					zap.Any("or action might be:", msgCtx.ExecutionContext.Action),
+				)
+
+				// Use the updated GroupDiscovery with sql.DB
+				db := p.db
+				if db == nil {
+					db = p.sqlDB
+				}
+
+				if db != nil {
+
+					p.logger.Info("DEBUGaa: Database connection available: ",
+						zap.Bool("using_db", db != nil),
+						zap.Bool("using_sqlDB", p.sqlDB != nil))
+
+					discovered := discovery.NewAgentDefinitionDiscovery(db)
+					group, err := discovered.FindBestGroup(ctx, groupOrAgentType, version, *p.logger)
+					if err == nil && group != nil {
+						var workflowConfig map[string]interface{}
+						if err := json.Unmarshal(group.Workflow, &workflowConfig); err == nil {
+							p.logger.Info("Using group-based workflow",
+								zap.String("group_or_agent_type", groupOrAgentType),
+								zap.String("group_id", group.ID),
+								zap.String("group_name", group.Name),
+								zap.String("version", group.Version))
+
+							// Store group info for downstream actions
+							if msgCtx.CollectedData == nil {
+								msgCtx.CollectedData = make(map[string]interface{})
+							}
+							// Store both agent type and group type for compatibility (deprecated agent_group_definitions)
+							agentInfo := map[string]interface{}{
+								"id":           group.ID,
+								"type":         group.GroupType,
+								"name":         group.Name,
+								"display_name": group.Name,
+								"version":      group.Version,
+							}
+							msgCtx.CollectedData["agent_group"] = agentInfo // legacy from agent_group_definitions
+							msgCtx.CollectedData["agent_definition"] = agentInfo
+
+							return p.convertToWorkflowPlan(workflowConfig), nil
+						}
+					} else {
+						p.logger.Info("DEBUGaa: Discovery and Group after finding FindBestGroup or Agent - didnt find it basically",
+							zap.Any("discovery", discovered),
+							zap.Any("group:", group),
+							zap.String("group_or_agent_type", groupOrAgentType),
+							zap.String("version", version),
+							zap.Error(err),
+						)
+					}
+				} else {
+					p.logger.Error("No database connection available for group lookup. In selectWorkflow in processor.go")
+				}
+			}
+		}
+	}
+
+	// Priority 3: Agent's default workflow from DB
+	if wf, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
+		return p.convertToWorkflowPlan(wf), nil
+	}
+
+	// Fallback: Default orchestration workflow
+	return p.getDefaultOrchestrationWorkflow(), nil
+}
+
+func isOrchestrationAction(action string) bool {
+	return action == "orchestrate" ||
+		action == "spawn_agent" ||
+		action == "spawn_group" || // Keep for backward compat
+		action == "start_orchestration"
+}
+
+// Extract agent type (or group type) and optional version from message
+func (p *MessageProcessor) extractGroupInfo(msgBody map[string]interface{}) (groupType, version string) {
+	// Check in config - try agent_type first, fall back to group_type
+	if config, ok := msgBody["config"].(map[string]interface{}); ok {
+		// New: agent_type
+		if at, ok := config["agent_type"].(string); ok && at != "" {
+			groupType = at
+		}
+		// Legacy: group_type
+		if groupType == "" {
+			groupType, _ = config["group_type"].(string)
+		}
+		// Version
+		version, _ = config["group_version"].(string)
+		if version == "" {
+			version, _ = config["agent_version"].(string)
+		}
+		if version == "" {
+			if v, ok := config["version"].(float64); ok {
+				version = fmt.Sprintf("%d", int(v))
+			}
+		}
+	}
+
+	// Check directly in body
+	if groupType == "" {
+		if at, _ := msgBody["agent_type"].(string); at != "" {
+			groupType = at
+		}
+	}
+	if groupType == "" {
+		groupType, _ = msgBody["group_type"].(string)
+	}
+	if version == "" {
+		version, _ = msgBody["group_version"].(string)
+	}
+
+	// Check in data field
+	if data, ok := msgBody["data"].(map[string]interface{}); ok {
+		if groupType == "" {
+			if at, _ := data["agent_type"].(string); at != "" {
+				groupType = at
+			}
+		}
+		if groupType == "" {
+			groupType, _ = data["group_type"].(string)
+		}
+		if version == "" {
+			version, _ = data["group_version"].(string)
+		}
+	}
+
+	// Check in input_data
+	if inputData, ok := msgBody["input_data"].(map[string]interface{}); ok {
+		if groupType == "" {
+			if at, _ := inputData["agent_type"].(string); at != "" {
+				groupType = at
+			}
+		}
+		if groupType == "" {
+			groupType, _ = inputData["group_type"].(string)
+		}
+		if version == "" {
+			version, _ = inputData["group_version"].(string)
+		}
+	}
+
+	return groupType, version
+}
+
+func (p *MessageProcessor) selectWorkflowOLD(ctx context.Context, agentDef *actions.AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
+	p.logger.Info("DEBUG: selectWorkflow entry",
+		zap.Any("default_config_keys", agentDef.DefaultConfig),
+		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
+		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
+		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil))
+
+	// Log the actual workflow content
+	if wf, ok := agentDef.DefaultConfig["workflow"]; ok {
+		wfMap, _ := wf.(map[string]interface{})
+		if wfMap != nil {
+			p.logger.Info("DEBUG: Found workflow",
+				zap.String("start_step", fmt.Sprintf("%v", wfMap["start_step"])))
+		}
+	}
+
+	// Check if explicit workflow mode is requested
+	workflowMode := msgCtx.Headers["workflow_mode"]
+	if workflowMode == "" {
+		// Determine based on context
+		workflowMode = p.determineWorkflowMode(msgCtx, agentDef)
+	}
+
+	p.logger.Info("Selecting workflow",
+		zap.String("agent_type", p.agentType),
+		zap.String("workflow_mode", workflowMode),
+		zap.String("from_agent", msgCtx.Headers["from_agent_id"]))
+
+	var workflowConfig map[string]interface{}
+
+	// Always check for the main workflow field first
+	if wf, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
+		workflowConfig = wf
+	}
+
+	// Only override if specific mode workflows exist
+	switch workflowMode {
+	case "task":
+		if taskWf, ok := agentDef.DefaultConfig["task_workflow"].(map[string]interface{}); ok {
+			workflowConfig = taskWf
+		}
+	case "orchestration":
+		if orchWf, ok := agentDef.DefaultConfig["orchestration_workflow"].(map[string]interface{}); ok {
+			workflowConfig = orchWf
+		}
+	}
+
+	// If no workflow found, create a default based on mode
+	if workflowConfig == nil {
+		if workflowMode == "task" {
+			return p.getDefaultTaskWorkflow(), nil
+		}
+		return p.getDefaultOrchestrationWorkflow(), nil
+	}
+
+	return p.convertToWorkflowPlan(workflowConfig), nil
+}
+
+func (p *MessageProcessor) determineWorkflowModeOLD(msgCtx *MessageContext, agentDef *actions.AgentDefinition) string {
+	// Safe type checking
+	if delegationPrefs, ok := agentDef.DefaultConfig["delegation_preferences"].(map[string]interface{}); ok {
+		if preferDelegation, ok := delegationPrefs["prefer_delegation"].(bool); ok && preferDelegation {
+			if p.isComplexRequest(msgCtx) {
+				return "orchestration"
+			}
+		}
+	}
+
+	// Check if called by another agent (subordinate call)
+	if msgCtx.Headers["from_agent_id"] != "" &&
+		msgCtx.Headers["from_agent_id"] != "00000000-0000-0000-0000-000000000001" {
+		return "task"
+	}
+
+	// Default based on action
+	if action := msgCtx.Headers["action"]; action == "process" || action == "execute" {
+		return "task"
+	}
+
+	return "orchestration"
+}
+
+func (p *MessageProcessor) isComplexRequest(msgCtx *MessageContext) bool {
+	// Analyze the request to determine complexity
+	// This could look at:
+	// - Size of input data
+	// - Multiple subtasks mentioned
+	// - Keywords indicating complexity
+	// - Historical performance data
+
+	// For now, simple heuristic
+	if inputData, ok := msgCtx.CollectedData["input_data"].(map[string]interface{}); ok {
+		// Check for multiple requirements or complex structure
+		if len(inputData) > 5 {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (p *MessageProcessor) getDefaultTaskWorkflow() models.WorkflowPlan {
+	return models.WorkflowPlan{
+		StartStep: "execute",
+		Steps: map[string]models.Step{
+			"execute": {
+				Action:      "execute_llm_prompt",
+				Description: "Execute the task",
+				NextStep:    "complete",
+			},
+			"complete": {
+				Action:      "complete_workflow",
+				Description: "Complete the task",
+			},
+		},
+	}
+}
+
+func (p *MessageProcessor) getDefaultOrchestrationWorkflow() models.WorkflowPlan {
+	p.logger.Info("In file processor.go ",
+		zap.String("Function: ", "getDefaultOrchestrationWorkflow"),
+		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
+	)
+
+	return models.WorkflowPlan{
+		StartStep: "analyze",
+		Steps: map[string]models.Step{
+			"analyze": {
+				Action:      "evaluate_task",
+				Description: "Analyze task complexity",
+				NextStep:    "decide",
+			},
+			"decide": {
+				Action:      "conditional_route",
+				Description: "Decide execution strategy",
+				Config: map[string]interface{}{
+					"condition_field": "complexity",
+					"routes": map[string]interface{}{
+						"simple":  "execute",
+						"complex": "delegate",
+					},
+				},
+			},
+			"delegate": {
+				Action:      "call_agent",
+				Description: "Delegate to specialized agent",
+				NextStep:    "complete",
+			},
+			"execute": {
+				Action:      "execute_llm_prompt",
+				Description: "Execute locally",
+				NextStep:    "complete",
+			},
+			"complete": {
+				Action:      "complete_workflow",
+				Description: "Complete orchestration",
+			},
+		},
+	}
+}
+
+func (p *MessageProcessor) isIntentionalOrchestration(msgCtx *MessageContext) bool {
+	// Check if this is an explicit orchestration request
+	if mode := msgCtx.Headers["workflow_mode"]; mode == "orchestration" {
+		return true
+	}
+
+	// Check if the action indicates orchestration
+	action := msgCtx.ExecutionContext.Action
+	return action == "spawn_group" || action == "start_orchestration" || action == "orchestrate"
+}
+
+// Add the helper function to extract action from message
+func extractAction(msgValue []byte) string {
+	var payload struct {
+		Action string `json:"action"`
+	}
+	if err := json.Unmarshal(msgValue, &payload); err != nil {
+		return "unknown"
+	}
+	return payload.Action
+}
+
+func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
+	var callstack []string
+	if p.tracer != nil {
+		callstack = p.tracer.GetCallStack(12)
+	}
+
+	current, caller := getFuncInfo(1)
+	p.logger.Info("In processor.go ProcessMessage start",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+		zap.Strings("call stack for processor ProcessMessage", callstack),
+	)
+
+	p.logger.Info("In processor.go just into ProcessMessage 1195",
+		//zap.Any("incoming message is (base64):", msg),
+		zap.String("topic", msg.Topic),
+		zap.Int("partition", msg.Partition),
+		zap.Int64("offset", msg.Offset),
+		zap.ByteString("key", msg.Key),
+		zap.ByteString("value", msg.Value),
+		zap.Any("headers", msg.Headers),
+	)
+
+	startTime := time.Now()
+	headers := kafka.HeadersToMap(msg.Headers)
+
+	// Create ExecutionContext for consistent logging
+	execCtx, err := types.FromHeaders(headers)
+	if err == nil {
+		p.logger.Info("DEBUG returntopic: ExecutionContext created",
+			zap.String("responses_topic", execCtx.ResponsesTopic),
+			zap.Any("all_headers", headers))
+	}
+	if err != nil {
+		p.logger.Error("FAILED TO CREATE EXECUTION CONTEXT: Failed to create ExecutionContext",
+			zap.Error(err),
+			zap.Any("headers", headers))
+		// Continue with basic processing
+		return p.processWithoutContext(ctx, msg, headers)
+	}
+
+	contextLogger := p.logger.With(execCtx.LogContext()...)
+	contextLogger.Info("In processor.go 1072 ProcessMessage",
+		zap.Bool("is p.sqlDB exists (or is it different driver):", p.sqlDB != nil),
+	)
+
+	if p.sqlDB != nil {
+		contextLogger.Info("In processor.go 1072 ProcessMessage. p.sqlDB is not nil")
+
+		// Use request_id for deduplication, not message_id
+		if execCtx.RequestID != "" {
+			repo := orchestration.NewStateRepository(p.sqlDB, p.logger)
+			isDuplicate, checkErr := repo.HasProcessedMessage(ctx,
+				execCtx.CorrelationID,
+				execCtx.RequestID,
+				execCtx.ToAgentID,
+				execCtx.RetryVersion,
+			)
+
+			if checkErr != nil {
+				contextLogger.Error("Failed to check for duplicate request",
+					zap.String("request_id", execCtx.RequestID),
+					zap.Error(checkErr))
+			} else if isDuplicate {
+				contextLogger.Warn("Duplicate request detected and ignored",
+					zap.String("request_id", execCtx.RequestID),
+					zap.String("correlation_id", execCtx.CorrelationID),
+					zap.String("orchestration_id", execCtx.OrchestrationID),
+				)
+				return nil
+			}
+
+			// Record this request as processed
+			if err := repo.RecordMessageProcessing(ctx, execCtx, execCtx.ToAgentID); err != nil {
+				contextLogger.Error("Failed to record request processing -", zap.Error(err))
+			}
+		}
+	}
+
+	contextLogger.Info("TRACE: processor.go ProcessMessage entry",
+		zap.String("agent_type", p.agentType),
+		zap.String("processing_orch", execCtx.OrchestrationID),
+		zap.Int("fuel_received", execCtx.FuelBudget),
+		zap.Any("headers before headersToMap", msg.Headers),
+		zap.Any("headers after headersToMap", headers),
+		zap.String("action", extractAction(msg.Value)))
+
+	// Trace incoming message if enabled in env vars
+	if p.tracer != nil {
+		p.tracer.TraceMessage(execCtx, "received", msg.Topic, len(msg.Value))
+		defer func() {
+			if execCtx.MessageType == "response" ||
+				execCtx.MessageType == "error" {
+				// Dump trace on completion
+				p.tracer.DumpTrace(execCtx.CorrelationID)
+			}
+		}()
+	}
+
+	// NewMessageContext (also) produces empty CollectedData
+	msgCtx, err := NewMessageContext(msg, headers, p.agentType, p.agentRole, p.logger)
+	if err != nil {
+		contextLogger.Error("Failed to create message context", zap.Error(err))
+		return err
+	}
+
+	msgCtx.Logger = contextLogger
+
+	// Validate context
+	if err := msgCtx.ValidateContext(); err != nil {
+		contextLogger.Error("Context validation failed", zap.Error(err))
+		return p.handleError(ctx, msgCtx, err, "invalid_context")
+	}
+
+	// Record metrics
+	observability.AgentTasksReceived.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action).Inc()
+	defer func() {
+		observability.AgentProcessingDuration.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action).
+			Observe(time.Since(startTime).Seconds())
+	}()
+
+	// initialise response
+	var requestData map[string]interface{}
+	json.Unmarshal(msg.Value, &requestData)
+
+	p.logger.Info("processor.go 1146 ProcessMessage",
+		zap.String("Action from ExecutionContext", msgCtx.ExecutionContext.Action),
+		zap.Any("DEBUGaa: This is where I think we sort out CollectedData input_data", "too big msg"), //msg is still compressed
+		//zap.Any("DEBUGaa: msgCtx is - why is input_data nil look at message.value too", msgCtx),
+		zap.Any("DEBUGaa: request data from unmarshalled msg.value", requestData),
+		/*
+		  "DEBUGaa: request data from an unmarshalled msg.value": {
+		    "action": "orchestrate",
+		    "config": {
+		      "group_type": "multi-section-website-builder"
+		    },
+		    "input_data": {
+		      "business_name": "Golden Crust Bakery",
+		      "business_type": "artisanal bakery"
+		    }
+		  },
+		*/
+		//zap.Any("DEBUGaa: execCtx from headersToMap", execCtx),
+	)
+
+	msgCtx.CollectedData = datahelpers.BuildCollectedData(requestData, msgCtx.ExecutionContext, msgCtx.Logger)
+
+	p.logger.Info("processor.go 1327 ProcessMessage after BuildCollectedData") //zap.Any("DEBUGaa: msgCtx.CollectedData", msgCtx.CollectedData),
+
+	// new stuff - __work_request__ key
+	// If this is a WORK request (not initialization), store reply-to metadata
+	if msgCtx.ExecutionContext.Action != "initialize" && msgCtx.ExecutionContext.Action != "" {
+		p.logger.Info("ProcessMessage: storing work request metadata",
+			zap.String("action", execCtx.Action),
+			zap.String("request_id", execCtx.RequestID),
+			zap.String("reply_to_topic", execCtx.ReplyToTopic))
+
+		workRequestMetadata := map[string]interface{}{
+			"request_id":             msgCtx.ExecutionContext.RequestID,        // The request we need to reply to
+			"parent_responses_topic": msgCtx.ExecutionContext.ReplyToTopic,     // Where to send response
+			"requester_agent_id":     msgCtx.ExecutionContext.Sender.AgentID,   // Who asked us
+			"requester_agent_type":   msgCtx.ExecutionContext.Sender.AgentType, // What type
+			"step_id":                msgCtx.ExecutionContext.StepID,           // Step in their workflow
+			"step_name":              msgCtx.ExecutionContext.StepName,         // Step name
+			"action":                 msgCtx.ExecutionContext.Action,           // What they asked us to do
+			"timestamp":              time.Now().Format(time.RFC3339),
+		}
+
+		msgCtx.CollectedData["__work_request__"] = workRequestMetadata
+
+		p.logger.Info("ProcessMessage: work request metadata stored",
+			zap.Any("metadata", workRequestMetadata))
+	}
+	// end new stuff - __work_request__ key
+
+	// Always use the action from the ExecutionContext (derived from the header)
+	// for protocol-level decisions like initialization.
+	// this could reasonably be the child agent starting it's stuff.
+	if msgCtx.ExecutionContext.Action == "initialize" {
+		contextLogger.Info("Handling protocol action: initialize")
+
+		// parse intialisation request
+		var spawnRequest types.RequestMessage
+		if err := json.Unmarshal(msg.Value, &spawnRequest); err != nil {
+			contextLogger.Error("Failed to unmarshal spawn request during initialization", zap.Error(err))
+			return err
+		}
+
+		// Extract role from the message body
+		if body, ok := spawnRequest.Body.(map[string]interface{}); ok {
+			if role, ok := body["role"].(string); ok && role != "" {
+				// Store the role in the processor
+				p.agentRole = role
+				contextLogger.Info("Agent role set from initialization",
+					zap.String("role", role))
+			}
+		}
+
+		spawnRequest.Headers.ParentResponsesTopic = os.Getenv("PARENT_RESPONSES_TOPIC")
+
+		p.logger.Info("DEBUGaa: processor.go 1156 ProcessMessage spawnRequest sent to SendInitializationResponse",
+			zap.Any("WHats in spawnRequest:", spawnRequest),
+			zap.Any("We now have a headers.parent_responses_topic:", spawnRequest.Headers.ParentResponsesTopic),
+		)
+
+		// This will now be called correctly, sending the confirmation response.
+		p.initializer.SendInitializationResponse(&spawnRequest)
+
+		// After setting the role and sending the response:
+		p.logger.Info("Probably child agent. Initialization complete, now starting agent's own workflow")
+
+		// it's initialisation, we don't want to continue to process the child's workflow at this step
+		return nil
+	}
+
+	p.logger.Info("processor.go 1161 ProcessMessage",
+		zap.String("MessageType from ExecutionContext", msgCtx.ExecutionContext.MessageType),
+	)
+
+	// Route responses to orchestrator
+	if msgCtx.ExecutionContext.MessageType == "response" {
+
+		// Parse as ResponseMessage now
+		var responseMsg types.ResponseMessage
+		if err := json.Unmarshal(msg.Value, &responseMsg); err != nil {
+			contextLogger.Error("Failed to unmarshal response message in Process Message (ResponseMessage)", zap.Error(err))
+			return err
+		}
+
+		contextLogger.Info("Routing response to orchestrator",
+			zap.String("orchestration_id", responseMsg.Headers.OrchestrationID),
+			zap.String("status", responseMsg.Headers.Status),
+			zap.Bool("has_orchestrator", p.orchestrator != nil),
+			zap.Any("DEBUGaa: response msg", responseMsg),
+			zap.Any("DEBUGaa: responseMsg.Body.Body is it nil? null is yes", responseMsg.Body.Body),
+		)
+
+		// Manually extract body if unmarshal didn't populate it
+		if responseMsg.Body.Body == nil {
+			p.logger.Warn("Body.Body is nil - manually extracting from raw JSON",
+				zap.Any("DEBUGaa: and that raw JSON is msg.Value: ", msg.Value),
+			)
+
+			var rawMsg map[string]interface{}
+			if err := json.Unmarshal(msg.Value, &rawMsg); err == nil {
+				if bodyMap, ok := rawMsg["body"].(map[string]interface{}); ok {
+					// Extract actual data (skip meta fields)
+					bodyData := make(map[string]interface{})
+					for k, v := range bodyMap {
+						if k != "success" && k != "status" && k != "error" {
+							bodyData[k] = v
+						}
+					}
+
+					if len(bodyData) > 0 {
+						responseMsg.Body.Body = bodyData
+						p.logger.Info("Extracted body", zap.Int("fields", len(bodyData)))
+					}
+				}
+			}
+		}
+
+		// The orchestrator needs to handle this response
+		if p.orchestrator != nil {
+			return p.orchestrator.ProcessResponse(ctx, msgCtx.ExecutionContext, responseMsg)
+		}
+
+		// If no orchestrator, log and return
+		contextLogger.Warn("No orchestrator available to handle response")
+		return nil
+	}
+
+	/*	// For ALL request messages, extract the body properly
+		// This is generic for any agent type and any action
+		var requestPayload map[string]interface{}
+		if err := json.Unmarshal(msg.Value, &requestPayload); err == nil {
+			// Handle both RequestMessage and AgentMessage formats
+
+			contextLogger.Info("p.ProcessMessage Handle both RequestMessage and AgentMessage formats 1380",
+				zap.Any("DEBUGaa: what is in request payload, is there body and what is that and where should we put it", requestPayload),
+			)
+
+			// Format 1: RequestMessage with headers and body
+			if body, ok := requestPayload["body"].(map[string]interface{}); ok {
+				// Merge body contents into CollectedData - except for input_data which is already there
+				for key, value := range body {
+					if key == "input_data" {
+						key = "input_data_from_message_body"
+					}
+					msgCtx.CollectedData[key] = value
+				}
+			}
+
+			contextLogger.Info("p.ProcessMessage Handle both RequestMessage and AgentMessage formats 1396",
+				zap.Any("DEBUGaa: what is in request payload, what did we just do", requestPayload),
+			)
+
+			// Format 2: AgentMessage with data field
+			if data, ok := requestPayload["data"].(map[string]interface{}); ok {
+				// If no body was found, use data directly
+				if _, hasBody := requestPayload["body"]; !hasBody {
+					msgCtx.CollectedData["input_data"] = data
+				}
+			}
+
+			// Store the action if present
+			if action, ok := requestPayload["action"].(string); ok && action != "" {
+				msgCtx.CollectedData["requested_action"] = action
+			}
+		}*/
+
+	// Process the message
+	if err := p.process(ctx, msgCtx); err != nil {
+		contextLogger.Error("Processing failed", zap.Error(err))
+		return p.handleError(ctx, msgCtx, err, "processing_failed")
+	}
+
+	// Success
+	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, "success").Inc()
+	contextLogger.Info("ProcessMessage (processor.go) completed successfully")
+
+	// Trace outgoing response if one was sent
+	if p.tracer != nil && msgCtx.ExecutionContext.MessageType == "request" {
+		// The response would have been sent in process()
+		// We could track it there too
+		p.tracer.TraceMessage(execCtx, "received", msg.Topic, msg.Value)
+	}
+
+	return nil
+}
+
+// Add fallback for when ExecutionContext creation fails
+func (p *MessageProcessor) processWithoutContext(ctx context.Context, msg kafka.Message, headers map[string]string) error {
+	// Basic processing without ExecutionContext
+	// This ensures the system doesn't break if context is malformed
+
+	current, caller := getFuncInfo(1)
+
+	p.logger.Info("In file processor.go",
+		zap.String("function", current),
+		zap.String("called_by", caller),
+		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
+	)
+
+	action := extractAction(msg.Value)
+	p.logger.Warn("Processing without ExecutionContext",
+		zap.String("action", action),
+		zap.String("correlation_id", headers["correlation_id"]))
+
+	// Create a minimal message context
+	msgCtx := &MessageContext{
+		Message:       msg,
+		Headers:       headers,
+		StartTime:     time.Now(),
+		Logger:        p.logger,
+		CollectedData: make(map[string]interface{}),
+	}
+
+	// Try to process anyway
+	if err := p.process(ctx, msgCtx); err != nil {
+		p.logger.Error("Processing failed without context",
+			zap.Error(err),
+			zap.String("action", action))
+		return err
+	}
+
+	return nil
+}
+
+// Helper to get current and caller function names
+func getFuncInfo(skip int) (current, caller string) {
+	// skip=0 => this func, skip=1 => its caller, skip=2 => caller's caller, etc.
+	if pc, _, _, ok := runtime.Caller(skip); ok {
+		current = runtime.FuncForPC(pc).Name()
+	}
+	if pc, _, _, ok := runtime.Caller(skip + 1); ok {
+		caller = runtime.FuncForPC(pc).Name()
+	}
+	return
+}
+
+func (p *MessageProcessor) processRequest(ctx context.Context, msgCtx *MessageContext) error {
+	p.logger.Info("Processing request processRequest processor.go 1295",
+		zap.String("action", msgCtx.ExecutionContext.Action),
+		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
+		zap.String("request_id", msgCtx.ExecutionContext.RequestID),
+		zap.Bool("stateless", msgCtx.IsStateless))
+
+	// Set our agent information
+	msgCtx.ExecutionContext.FromAgentType = p.agentType
+	msgCtx.ExecutionContext.FromAgentID = p.podName
+	msgCtx.ExecutionContext.ProcessingNode = p.podName
+
+	// Load agent configuration
+	agentConfig, err := p.configLoader.LoadAgentConfig(p.agentType)
+	if err != nil {
+		p.logger.Error("Failed to load agent config", zap.Error(err))
+		return p.sendErrorResponse(ctx, msgCtx, fmt.Errorf("configuration error: %w", err))
+	}
+
+	// Everything goes through workflow execution now
+	return p.executeWorkflow(ctx, msgCtx, agentConfig)
+}
+
+// processResponse handles incoming responses
+func (p *MessageProcessor) processResponse(ctx context.Context, msgCtx *MessageContext) error {
+	execCtx := msgCtx.ExecutionContext
+
+	// Check if we have InResponseTo context
+	if execCtx.InResponseTo == nil {
+		p.logger.Error("Response missing InResponseTo context",
+			zap.String("message_id", execCtx.MessageID))
+		return fmt.Errorf("response missing InResponseTo context")
+	}
+
+	p.logger.Info("Processing response",
+		zap.String("request_id", execCtx.InResponseTo.RequestID),
+		zap.String("status", execCtx.Status),
+		zap.String("from_agent", execCtx.FromAgentID),
+		zap.Bool("stateless", msgCtx.IsStateless))
+
+	// Handle response through orchestrator
+	if p.orchestrator != nil {
+		// Create orchestrator context from InResponseTo
+		orchestratorCtx := &types.ExecutionContext{
+			// Use the parent orchestration ID if available, otherwise use current
+			OrchestrationID: execCtx.InResponseTo.ParentOrchestrationID,
+			RequestID:       execCtx.InResponseTo.RequestID,
+			StepID:          execCtx.InResponseTo.StepID,
+			StepName:        execCtx.InResponseTo.StepName,
+			Status:          execCtx.Status,
+			RetryVersion:    execCtx.RetryVersion, // Use RetryVersion
+		}
+
+		// If no parent orchestration ID, use the current orchestration ID
+		if orchestratorCtx.OrchestrationID == "" {
+			orchestratorCtx.OrchestrationID = execCtx.OrchestrationID
+		}
+
+		var responseMsg types.ResponseMessage
+		if err := json.Unmarshal(msgCtx.Message.Value, &responseMsg); err != nil {
+			p.logger.Error("Failed to unmarshal response message in Process Message (ResponseMessage)", zap.Error(err))
+			return err
+		}
+
+		return p.orchestrator.ProcessResponse(ctx, orchestratorCtx, responseMsg)
+	}
+
+	// Direct response handling for non-orchestrated agents
+	return p.handleDirectResponse(ctx, msgCtx)
+}
+
+// executeWorkflow executes a workflow through the orchestrator
+func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageContext, config *models.AgentConfig) error {
+
+	p.logger.Info("Executing workflow executeWorkflow processor.go 1361",
+		zap.String("start_step", config.Workflow.StartStep),
+		zap.Int("total_steps", len(config.Workflow.Steps)),
+		zap.String("agent_type", p.agentType),
+		zap.Bool("stateless", msgCtx.IsStateless),
+		//zap.Any("processor 1364 executeWorkflow - does msgCtx have initial data?", msgCtx),
+	)
+
+	// Ensure ExecutionContext has agent type
+	if msgCtx.ExecutionContext.FromAgentType == "" {
+		msgCtx.ExecutionContext.FromAgentType = p.agentType
+	}
+
+	// Convert ExecutionContext to headers for orchestrator
+	headers := msgCtx.ExecutionContext.ToHeaders()
+	// fmt.Fprintf(os.Stderr, "DEBUG uuid: processor.executeWorkflow small e printf - headers: %+v\n", headers)
+
+	// Update metrics
+	observability.WorkflowsStarted.WithLabelValues(p.agentType, config.Workflow.StartStep, msgCtx.ExecutionContext.ClientID).Inc()
+	observability.ActiveWorkflows.WithLabelValues(p.agentType).Inc()
+	defer observability.ActiveWorkflows.WithLabelValues(p.agentType).Dec()
+
+	// Include raw message in CollectedData if not already there
+	if _, exists := msgCtx.CollectedData["__raw_message__"]; !exists {
+		var rawMsg interface{}
+		if err := json.Unmarshal(msgCtx.Message.Value, &rawMsg); err == nil {
+			msgCtx.CollectedData["__raw_message__"] = rawMsg
+		}
+	}
+
+	// Marshal CollectedData (which now includes everything)
+	initialDataBytes, err := json.Marshal(msgCtx.CollectedData)
+	if err != nil {
+		p.logger.Error("Failed to marshal collected data", zap.Error(err))
+		// Fallback to raw message if marshaling fails
+		initialDataBytes = msgCtx.Message.Value
+	}
+
+	// Execute through orchestrator (use existing ExecuteWorkflow method)
+	return p.orchestrator.ExecuteWorkflow(ctx, config.Workflow, headers, initialDataBytes)
+}
+
+// sendSuccessResponse sends a successful response
+func (p *MessageProcessor) sendSuccessResponseOLD(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+	response := &types.ResponseMessage{
+		Headers: types.ResponseHeaders{
+			Sender: types.AgentIdentity{
+				AgentType:    p.agentType,
+				AgentID:      p.podName,
+				PodName:      p.podName,
+				AgentVersion: os.Getenv("AGENT_VERSION"),
+				Role:         p.agentRole,
+			},
+
+			// Response tracking - individual fields, not InResponseTo struct
+			InResponseToRequestID:      msgCtx.ExecutionContext.RequestID,
+			InResponseToStepID:         msgCtx.ExecutionContext.StepID,
+			InResponseToStepName:       msgCtx.ExecutionContext.StepName,
+			InResponseToParentOrchID:   msgCtx.ExecutionContext.ParentOrchestrationID,
+			InResponseToParentOrchName: msgCtx.ExecutionContext.ParentOrchestrationName,
+			InResponseToMessageID:      msgCtx.ExecutionContext.MessageID,
+			InResponseToAction:         msgCtx.ExecutionContext.Action,
+			RetryCount:                 msgCtx.ExecutionContext.RetryVersion,
+
+			// My context
+			MyOrchestrationID:   msgCtx.ExecutionContext.OrchestrationID,
+			MyOrchestrationName: msgCtx.ExecutionContext.OrchestrationName,
+			MyRequestsTopic:     fmt.Sprintf("system.agent.%s.requests", p.agentType),
+			MyResponsesTopic:    fmt.Sprintf("system.agent.%s.responses", p.agentType),
+
+			// Identity
+			CorrelationID:   msgCtx.ExecutionContext.CorrelationID,
+			CorrelationName: msgCtx.ExecutionContext.CorrelationName,
+			ClientID:        msgCtx.ExecutionContext.ClientID,
+			MessageType:     "response",
+			FromAgent:       p.podName,
+			ToAgent:         msgCtx.ExecutionContext.FromAgentID,
+			ToAgentType:     msgCtx.ExecutionContext.FromAgentType,
+
+			// Status flags
+			Status:              "complete",
+			IsComplete:          true,
+			IsError:             false,
+			IsMultipartResponse: false,
+			PartCount:           1,
+
+			// Timing & Resources
+			TimeSent:                   time.Now(),
+			TimeSpent:                  time.Since(msgCtx.StartTime),
+			OverallTimeBudgetRemaining: msgCtx.ExecutionContext.TimeoutSeconds - int(time.Since(msgCtx.StartTime).Seconds()),
+			TopicSentTo:                "",  // Will be set below
+			FuelUsed:                   100, // Calculate actual fuel usage
+			RemainingFuelBudget:        msgCtx.ExecutionContext.FuelBudget - 100,
+		},
+		Body: types.ResponseBody{
+			Success: true,
+			Headers: nil,
+			Body:    result, // Direct assignment
+			Error:   nil,
+		},
+	}
+
+	// Determine response topic
+	responsesTopic := msgCtx.ExecutionContext.ResponsesTopic
+	if responsesTopic == "" {
+		// Use sender's response topic
+		if msgCtx.ExecutionContext.FromAgentType != "" {
+			responsesTopic = fmt.Sprintf("system.agent.%s.responses", msgCtx.ExecutionContext.FromAgentType)
+		} else {
+			responsesTopic = "system.agent.generic.responses"
+		}
+	}
+
+	// Update the topic in headers
+	response.Headers.TopicSentTo = responsesTopic
+
+	// Send response
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	// Convert headers to map for Kafka
+	headers := response.Headers.ToMap()
+
+	// Use correlation ID as key
+	key := []byte(msgCtx.ExecutionContext.CorrelationID)
+	if msgCtx.ExecutionContext.CorrelationID == "" {
+		key = []byte(msgCtx.ExecutionContext.MessageID)
+	}
+
+	// Producer.Produce signature: (ctx, topic, headers, key, value)
+	return p.producer.Produce(ctx, responsesTopic, headers, key, responseBytes)
+}
+
+func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *MessageContext, err error) error {
+	responseCtx := msgCtx.CreateResponseContext()
+
+	// NO FALLBACK - must have ResponsesTopic
+	if responseCtx.ResponsesTopic == "" {
+		return fmt.Errorf("no responses topic for error response")
+	}
+
+	errorResponse := map[string]interface{}{
+		"error":  err.Error(),
+		"status": "failed",
+	}
+
+	return p.sendWorkflowResponse(ctx, msgCtx, errorResponse)
+}
+
+// sendErrorResponse sends an error response
+func (p *MessageProcessor) sendErrorResponseOLD(ctx context.Context, msgCtx *MessageContext, err error) error {
+	p.logger.Error("Sending error response",
+		zap.Error(err),
+		zap.String("request_id", msgCtx.ExecutionContext.RequestID))
+
+	response := &types.ResponseMessage{
+		Headers: types.ResponseHeaders{
+			Sender: types.AgentIdentity{
+				AgentType:    p.agentType,
+				AgentID:      p.podName,
+				PodName:      p.podName,
+				AgentVersion: os.Getenv("AGENT_VERSION"),
+				Role:         p.agentRole,
+			},
+
+			// Response tracking
+			InResponseToRequestID:    msgCtx.ExecutionContext.RequestID,
+			InResponseToStepID:       msgCtx.ExecutionContext.StepID,
+			InResponseToParentOrchID: msgCtx.ExecutionContext.ParentOrchestrationID,
+			InResponseToMessageID:    msgCtx.ExecutionContext.MessageID,
+			InResponseToAction:       msgCtx.ExecutionContext.Action,
+
+			// My context
+			MyOrchestrationID: msgCtx.ExecutionContext.OrchestrationID,
+
+			// Identity
+			CorrelationID: msgCtx.ExecutionContext.CorrelationID,
+			ClientID:      msgCtx.ExecutionContext.ClientID,
+			MessageType:   "response",
+
+			// Status flags
+			Status:     "error_unrecoverable",
+			IsError:    true,
+			IsComplete: true,
+
+			// Timing
+			TimeSent: time.Now(),
+		},
+		Body: types.ResponseBody{
+			Success: false,
+			Headers: nil,
+			Body:    nil, // No result for error
+			Error: &types.ErrorInfo{
+				Code:        "PROCESSING_ERROR",
+				Message:     err.Error(),
+				Recoverable: false,
+			},
+		},
+	}
+
+	// Determine response topic
+	responsesTopic := msgCtx.ExecutionContext.ResponsesTopic
+	if responsesTopic == "" && msgCtx.ExecutionContext.FromAgentType != "" {
+		responsesTopic = fmt.Sprintf("system.agent.%s.responses", msgCtx.ExecutionContext.FromAgentType)
+	}
+	if responsesTopic == "" {
+		responsesTopic = "system.agent.generic.errors"
+	}
+
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal error response: %w", err)
+	}
+
+	headers := response.Headers.ToMap()
+	key := []byte(msgCtx.ExecutionContext.CorrelationID)
+
+	err = p.producer.Produce(ctx, responsesTopic, headers, key, responseBytes)
+	if err != nil {
+		p.logger.Error("KAFKA_SEND_ERROR: Failed to send message",
+			zap.String("topic", responsesTopic),
+			zap.Error(err))
+	} else {
+		p.logger.Info("KAFKA_SENT: Message sent successfully",
+			zap.String("topic", responsesTopic),
+			zap.String("key", string(key)),
+			zap.Any("headers", headers))
+	}
+
 	return err
 }
 
-func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *MessageContext, domainErr *errors.DomainError) {
-	responseHeaders := msgCtx.CreateResponseHeaders(p.agentType)
-	domainErr.TraceID = msgCtx.Headers["correlation_id"]
+// handleDirectResponse handles responses for non-orchestrated flows
+func (p *MessageProcessor) handleDirectResponse(ctx context.Context, msgCtx *MessageContext) error {
+	// For simple agents that don't use orchestration
+	p.logger.Info("Handling direct response",
+		zap.String("request_id", msgCtx.ExecutionContext.InResponseTo.RequestID),
+		zap.String("status", msgCtx.ExecutionContext.Status))
 
-	errorResponse := map[string]interface{}{
-		"success": false,
-		"error":   domainErr,
-		"agent":   p.agentType,
+	// Update metrics
+	if msgCtx.ExecutionContext.Status == "complete" {
+		observability.ResponsesCompleted.WithLabelValues(p.agentType, "success").Inc()
+	} else if strings.Contains(msgCtx.ExecutionContext.Status, "error") {
+		observability.ResponsesCompleted.WithLabelValues(p.agentType, "error").Inc()
 	}
 
-	responseBytes, _ := json.Marshal(errorResponse)
-	errorTopic := fmt.Sprintf("system.errors.%s", p.agentType)
+	return nil
+}
 
-	if err := p.producer.Produce(ctx, errorTopic, responseHeaders,
-		[]byte(msgCtx.Headers["correlation_id"]), responseBytes); err != nil {
-		msgCtx.Logger.Error("Failed to send error response", zap.Error(err))
-		observability.SystemErrors.WithLabelValues(p.agentType, "produce_error").Inc()
-	} else {
-		observability.KafkaMessagesProduced.WithLabelValues(errorTopic).Inc()
+// Add these methods to processor.go (they were in the original but not in the updated version)
+
+func (p *MessageProcessor) determineWorkflowMode(msgCtx *MessageContext, agentDef *actions.AgentDefinition) string {
+	// Safe type checking
+	if delegationPrefs, ok := agentDef.DefaultConfig["delegation_preferences"].(map[string]interface{}); ok {
+		if preferDelegation, ok := delegationPrefs["prefer_delegation"].(bool); ok && preferDelegation {
+			if p.isComplexRequest(msgCtx) {
+				return "orchestration"
+			}
+		}
 	}
+
+	// Check if called by another agent (subordinate call)
+	if msgCtx.Headers["from_agent_id"] != "" &&
+		msgCtx.Headers["from_agent_id"] != "00000000-0000-0000-0000-000000000001" {
+		return "task"
+	}
+
+	// Default based on action
+	if action := msgCtx.Headers["action"]; action == "process" || action == "execute" {
+		return "task"
+	}
+
+	return "orchestration"
 }

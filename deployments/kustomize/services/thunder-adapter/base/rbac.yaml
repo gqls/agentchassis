@@ -1,0 +1,48 @@
+# RBAC for thunder-adapter SSH Secret management (Phase 3+).
+#
+# Grants the ai-persona-app ServiceAccount (used by thunder-adapter and
+# all other adapters in this cluster) the ability to create / read /
+# delete k8s Secrets in the ai-persona-system namespace.
+#
+# Why this is scoped the way it is:
+#   - verbs limited to "create", "get", "delete" — no list, watch, or update.
+#     The adapter knows the deterministic Secret name (thunder-ssh-<uuid>)
+#     for every operation; it never enumerates or modifies existing secrets.
+#   - resourceNames not used — k8s RBAC doesn't support glob patterns,
+#     and we can't enumerate every future instance UUID in advance.
+#     Practical exposure is limited because the adapter's Go code only
+#     creates Secrets with the thunder-ssh- prefix.
+#
+# Structural note: this Role is bound to ai-persona-app, which other
+# adapters also use. They inherit the same Secret permissions even
+# though they don't need them. Acceptable for now (all our adapters
+# are trusted first-party code). If we later want stricter isolation,
+# split into per-adapter ServiceAccounts.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: thunder-adapter-secret-manager
+  namespace: ai-persona-system
+  labels:
+    app: thunder-adapter
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: thunder-adapter-secret-manager
+  namespace: ai-persona-system
+  labels:
+    app: thunder-adapter
+subjects:
+  - kind: ServiceAccount
+    name: ai-persona-app
+    namespace: ai-persona-system
+roleRef:
+  kind: Role
+  name: thunder-adapter-secret-manager
+  apiGroup: rbac.authorization.k8s.io

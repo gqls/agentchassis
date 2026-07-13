@@ -1,0 +1,70 @@
+ Hey there 👋
+
+Laxman Papineni grew up without a computer at home, and the first time he connected to the internet was when he got to college.
+
+Within three years, he’d built a scrappy “blogger ad network” out of a Google Sheet, pulling in $400,000 while he was still a student in India.
+
+Years later, he launched a sales engagement platform called Outplay on AppSumo. Outplay sold 3,000 licenses in under a month and brought in $80K+ in revenue—before being acquired in 2024.
+
+In the next 7 minutes, you’ll learn:
+
+    How to turn a simple spreadsheet into a real business
+
+    Why customer conversations beat coding early on
+
+    Why successful founders do things that don't scale
+
+Let’s dive in.
+
+The $400,000 spreadsheet
+
+One of the first things Laxman did on the internet was tinker with Google’s blogger platform. He posted tutorials like “how to pair two routers at home,” grew his blog traffic, and earned a bit of cash through AdSense.
+
+The real money came when advertisers started asking to pay for backlinks. Instead of just taking those payments and moving on, Laxman noticed a bigger pattern: Advertisers wanted more sites in more niches than any one blogger could provide. Meanwhile, bloggers wanted more advertisers but had no central place to connect.
+
+So he hacked together a solution: a single Google Sheet listing hundreds of blogs with traffic data, page rank, and categories.
+
+When advertisers reached out, he’d use Gmail and Facebook chat to broker deals. They’d pick blogs from the sheet; he’d message those bloggers directly, confirm interest, and take a cut. He called it “The World’s Largest Blog Network” on WordPress.
+
+This wasn’t fancy by any means. At that stage, Laxman did everything manually. But over three years, he earned $400,000, which was enough to give himself a ten-year runway to experiment with more businesses.
+
+Laxman's backlink marketplace worked in 2007, but it’s still a solid strategy in 2025. He spotted two groups who needed each other, made himself the middleman with zero infrastructure, and captured value before building anything.
+
+That pattern works everywhere today: AI consultants 🤝 small businesses in need of guidance. Freelance video editors 🤝 YouTube creators. Fractional CFOs 🤝 startups that can't afford full-time.
+BYOB (Build Your Own Brokerage)
+
+Here’s an opportunity to create your own marketplace/brokerage business:
+
+    Spot the inefficiency: Find two groups struggling to connect. Lurk in online communities, Slack groups, or LinkedIn where they hang out. Watch for repeated "Does anyone know..." or "Can someone recommend..." posts. That's your bat signal.
+
+    Build your "spreadsheet": Use Airtable, Notion, or a Google Sheet to organize one side of the market. If it's service providers, list their skills, rates, and availability. If it's products or resources, track what's available and relevant details. Keep it scannable.
+
+    Broker 5-10 deals manually: Reach out to people asking for help. "Hey, saw you were looking for X. I know someone who does exactly that." Make the intro, facilitate the connection. Try charging a small finder's fee or percentage. If you can't close 5 deals this way, the market gap isn't real enough yet.
+
+    Look for patterns: After 10-20 connections, you'll see which requests repeat, who gets picked most, and where the friction lives. Maybe people need better vetting. Maybe they need faster responses. Maybe they'd pay for a curated list. That's your product.
+
+Power play
+
+Like we mentioned earlier, Laxman’s Google Sheet blogging network was profitable but completely manual.
+
+Every deal needed one-on-one outreach and had no automation or structured customer validation. So when he later co-founded Outplay, he wanted to do things differently.
+
+Instead of building in isolation or guessing what users wanted, he went straight to the source. Laxman spoke with over 200 sales leaders, offering $100 Amazon gift cards in exchange for 15-minute calls. He used those conversations to dig into what they liked, hated, and wished for in existing tools.
+
+He also made sure competitors already existed—big, funded players solving a similar problem. A little competition didn’t scare Laxman. In fact, it validated that real demand was there.
+
+Armed with that research, Laxman launched Outplay on AppSumo.
+
+Within about 20 days, the team sold 3,000 licenses, bringing in roughly $80–90K in revenue and attracting over 1,000 active users giving real-time feedback.
+
+But the biggest surprise came after launch: recruiters—not just sales teams—started adopting the product, asking for integrations with applicant tracking systems. Soon, Outplay’s reach was extending far beyond its original audience.
+
+Here’s how you can use early distribution to test your product and market fit.
+
+    Talk before building. You don’t need to make 200 calls like Laxman did. Start with 10–20 real conversations to see what people like and what they hate. (Our CEO Noah’s learning from launching Sumo Jerky is big here: ask prospects why they wouldn’t buy. Usually, that answer uncovers what they really want.)
+
+    Launch somewhere with traffic. Platforms like AppSumo, Product Hunt, or niche communities get you hundreds of early users quickly.
+
+    Listen for surprise users. Pay close attention to “edge cases” (like recruiters using a sales tool). Sometimes your biggest future market isn’t the one you originally built for.
+
+    Iterate publicly. Fix issues visibly and announce updates—it builds trust and keeps momentum rolling.

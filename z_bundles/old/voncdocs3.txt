@@ -1,0 +1,542 @@
+clients_db=# -- B (decisive): does the index carry populated pages.sections while provocations has []?
+SELECT name, sections FROM pages
+WHERE id IN ('b4d24f8e-fccd-49df-9dad-aa56a0b20a68',
+             'e4b3b195-919f-45ad-854e-201d3e846ea8');
+
+-- the in-flight/completed attempt #10
+SELECT item_key, status, completed_at, substring(COALESCE(error,''),1,200) AS err
+FROM site_work_items WHERE item_key LIKE 'manual-build-provocations-986c106f%';
+
+-- the branch itself (which step keys on the page record's sections, and that path's output_fields)
+SELECT jsonb_pretty(default_config->'workflow')
+FROM agent_definitions WHERE type = 'page-build-handler' AND is_active = true;
+        name        |                                            sections
+--------------------+-------------------------------------------------------------------------------------------------
+ provocations-index | []
+ index              | ["hero", "provocation-card", "gauntlet-cta", "brief-explanation", "lobby-grid", "system-stats"]
+(2 rows)
+
+                            item_key                            |  status  |         completed_at          | err
+----------------------------------------------------------------+----------+-------------------------------+-----
+ manual-build-provocations-986c106f-b26a-41ba-8c3b-eec6463e9c79 | complete | 2026-07-06 15:42:51.947524+00 |
+(1 row)
+
+                                                    jsonb_pretty
+--------------------------------------------------------------------------------------------------------------------
+ {                                                                                                                 +
+     "steps": {                                                                                                    +
+         "complete": {                                                                                             +
+             "action": "complete_workflow",                                                                        +
+             "config": {                                                                                           +
+                 "output_fields": [                                                                                +
+                     "sections_saved",                                                                             +
+                     "deploy_result"                                                                               +
+                 ]                                                                                                 +
+             },                                                                                                    +
+             "description": "Page build complete"                                                                  +
+         },                                                                                                        +
+         "deploy_page": {                                                                                          +
+             "action": "call_agent",                                                                               +
+             "config": {                                                                                           +
+                 "error_step": "complete_error",                                                                   +
+                 "target_role": "page_renderer",                                                                   +
+                 "input_mapping": {                                                                                +
+                     "domain": "site_record.domain",                                                               +
+                     "page_id": "page_record.id",                                                                  +
+                     "site_id": "site_record.site_id"                                                              +
+                 },                                                                                                +
+                 "timeout_seconds": 120                                                                            +
+             },                                                                                                    +
+             "next_step": "complete",                                                                              +
+             "error_step": "complete_error",                                                                       +
+             "description": "Assemble page from stored components and deploy to git",                              +
+             "output_field": "deploy_result"                                                                       +
+         },                                                                                                        +
+         "plan_sections": {                                                                                        +
+             "action": "plan_sections",                                                                            +
+             "config": {                                                                                           +
+                 "domain": "site_record.domain",                                                                   +
+                 "site_id": "site_record.site_id",                                                                 +
+                 "sections": "spec_sections.sections",                                                             +
+                 "page_name": "page_record.name",                                                                  +
+                 "error_step": "complete_error",                                                                   +
+                 "work_item_id": "input_data.work_item_id"                                                         +
+             },                                                                                                    +
+             "next_step": "check_has_ready_sections",                                                              +
+             "error_step": "complete_error",                                                                       +
+             "description": "Check data availability for each section, triage readiness",                          +
+             "output_field": "section_plan"                                                                        +
+         },                                                                                                        +
+         "save_sections": {                                                                                        +
+             "action": "save_page_sections",                                                                       +
+             "config": {                                                                                           +
+                 "error_step": "complete_error",                                                                   +
+                 "html_field": "validation_result.clean_html",                                                     +
+                 "site_id_field": "site_record.site_id",                                                           +
+                 "page_name_field": "input_data.spec.page_name",                                                   +
+                 "sections_metadata_field": "page_content.response.sections_metadata"                              +
+             },                                                                                                    +
+             "next_step": "update_status",                                                                         +
+             "error_step": "complete_error",                                                                       +
+             "description": "Persist generated sections to page_components",                                       +
+             "output_field": "sections_saved"                                                                      +
+         },                                                                                                        +
+         "update_status": {                                                                                        +
+             "action": "update_page_status",                                                                       +
+             "config": {                                                                                           +
+                 "status": "deployed",                                                                             +
+                 "site_id_field": "site_record.site_id",                                                           +
+                 "page_name_field": "input_data.spec.page_name"                                                    +
+             },                                                                                                    +
+             "next_step": "spawn_rerender_agent",                                                                  +
+             "description": "Mark page as deployed",                                                               +
+             "output_field": "status_updated"                                                                      +
+         },                                                                                                        +
+         "complete_error": {                                                                                       +
+             "action": "complete_workflow",                                                                        +
+             "config": {                                                                                           +
+                 "output_fields": [                                                                                +
+                     "page_content",                                                                               +
+                     "site_record"                                                                                 +
+                 ],                                                                                                +
+                 "success_message": "Content writer skipped — page has no sections defined"                        +
+             },                                                                                                    +
+             "description": "Page build completed with errors"                                                     +
+         },                                                                                                        +
+         "check_page_found": {                                                                                     +
+             "action": "conditional",                                                                              +
+             "config": {                                                                                           +
+                 "condition": "page_record.found == true",                                                         +
+                 "else_step": "complete_error",                                                                    +
+                 "then_step": "load_existing_content"                                                              +
+             },                                                                                                    +
+             "description": "Check if page exists in DB — audit findings for new pages will skip here"             +
+         },                                                                                                        +
+         "load_page_record": {                                                                                     +
+             "action": "load_page_record",                                                                         +
+             "config": {                                                                                           +
+                 "page_id": "input_data.spec.page_id",                                                             +
+                 "site_id": "site_record.site_id",                                                                 +
+                 "page_name": "input_data.spec.page_name"                                                          +
+             },                                                                                                    +
+             "next_step": "check_page_found",                                                                      +
+             "description": "Load page record from DB — sections, title, page_type",                               +
+             "output_field": "page_record"                                                                         +
+         },                                                                                                        +
+         "validate_content": {                                                                                     +
+             "action": "validate_page_content",                                                                    +
+             "config": {                                                                                           +
+                 "domain": "site_record.domain",                                                                   +
+                 "error_step": "mark_needs_review",                                                                +
+                 "html_field": "page_content.response.page_html"                                                   +
+             },                                                                                                    +
+             "next_step": "save_sections",                                                                         +
+             "error_step": "mark_needs_review",                                                                    +
+             "description": "Check for placeholders, unrendered templates, cross-site contamination",              +
+             "output_field": "validation_result"                                                                   +
+         },                                                                                                        +
+         "mark_needs_review": {                                                                                    +
+             "action": "fail_work_item",                                                                           +
+             "config": {                                                                                           +
+                 "work_item_id": "input_data.work_item_id",                                                        +
+                 "error_message": "Content validation failed — needs human review",                                +
+                 "status_override": "needs_human_review"                                                           +
+             },                                                                                                    +
+             "next_step": "complete_error",                                                                        +
+             "description": "Mark work item for human review when content has placeholder or contamination issues",+
+             "output_field": "review_result"                                                                       +
+         },                                                                                                        +
+         "ensure_site_record": {                                                                                   +
+             "action": "ensure_site_record",                                                                       +
+             "config": {                                                                                           +
+                 "store_brief_in_content_data": false                                                              +
+             },                                                                                                    +
+             "next_step": "load_page_record",                                                                      +
+             "description": "Load site record for context",                                                        +
+             "output_field": "site_record"                                                                         +
+         },                                                                                                        +
+         "load_spec_sections": {                                                                                   +
+             "action": "load_page_sections_from_spec",                                                             +
+             "config": {                                                                                           +
+                 "site_id": "site_record.site_id",                                                                 +
+                 "page_name": "page_record.name",                                                                  +
+                 "error_step": "plan_sections",                                                                    +
+                 "page_sections_fallback": "page_record.sections"                                                  +
+             },                                                                                                    +
+             "next_step": "plan_sections",                                                                         +
+             "error_step": "plan_sections",                                                                        +
+             "description": "Load sections from site_specs.site_plan (authoritative), fall back to pages.sections",+
+             "output_field": "spec_sections"                                                                       +
+         },                                                                                                        +
+         "call_content_writer": {                                                                                  +
+             "action": "call_agent",                                                                               +
+             "config": {                                                                                           +
+                 "error_step": "complete_error",                                                                   +
+                 "target_role": "content_writer",                                                                  +
+                 "input_mapping": {                                                                                +
+                     "domain": "site_record.domain",                                                               +
+                     "site_id": "site_record.site_id",                                                             +
+                     "site_plan": "site_record.content_data",                                                      +
+                     "build_mode?": "input_data.spec.mode",                                                        +
+                     "site_record": "site_record",                                                                 +
+                     "current_page": "page_record",                                                                +
+                     "section_plan": "section_plan",                                                               +
+                     "reviewed_brief?": "site_record.content_data.reviewed_brief",                                 +
+                     "existing_content?": "existing_content",                                                      +
+                     "rewrite_guidance?": "input_data.spec.suggestion"                                             +
+                 },                                                                                                +
+                 "timeout_seconds": 1200                                                                           +
+             },                                                                                                    +
+             "next_step": "check_content_produced",                                                                +
+             "error_step": "complete_error",                                                                       +
+             "description": "Call page-content-writer to generate content",                                        +
+             "output_field": "page_content"                                                                        +
+         },                                                                                                        +
+         "spawn_content_writer": {                                                                                 +
+             "action": "spawn_agent",                                                                              +
+             "config": {                                                                                           +
+                 "role": "content_writer",                                                                         +
+                 "agent_type": "page-content-writer"                                                               +
+             },                                                                                                    +
+             "next_step": "call_content_writer",                                                                   +
+             "description": "Spawn page-content-writer specialist",                                                +
+             "output_field": "writer_agent"                                                                        +
+         },                                                                                                        +
+         "spawn_rerender_agent": {                                                                                 +
+             "action": "spawn_agent",                                                                              +
+             "config": {                                                                                           +
+                 "role": "page_renderer",                                                                          +
+                 "agent_type": "page-rerender"                                                                     +
+             },                                                                                                    +
+             "next_step": "deploy_page",                                                                           +
+             "description": "Spawn page-rerender for assembly and deploy",                                         +
+             "output_field": "rerender_agent"                                                                      +
+         },                                                                                                        +
+         "load_existing_content": {                                                                                +
+             "action": "load_existing_content",                                                                    +
+             "config": {                                                                                           +
+                 "mode": "input_data.spec.mode",                                                                   +
+                 "page_id": "page_record.id",                                                                      +
+                 "site_id": "site_record.site_id",                                                                 +
+                 "page_name": "page_record.name",                                                                  +
+                 "error_step": "load_spec_sections"                                                                +
+             },                                                                                                    +
+             "next_step": "load_spec_sections",                                                                    +
+             "error_step": "load_spec_sections",                                                                   +
+             "description": "Load existing page content from adoption crawl if mode is recreate",                  +
+             "output_field": "existing_content"                                                                    +
+         },                                                                                                        +
+         "check_content_produced": {                                                                               +
+             "action": "conditional",                                                                              +
+             "config": {                                                                                           +
+                 "condition": "page_content.response.skipped != true",                                             +
+                 "else_step": "complete_error",                                                                    +
+                 "then_step": "validate_content"                                                                   +
+             },                                                                                                    +
+             "description": "Check if content writer produced content or skipped"                                  +
+         },                                                                                                        +
+         "check_has_ready_sections": {                                                                             +
+             "action": "conditional",                                                                              +
+             "config": {                                                                                           +
+                 "condition": "section_plan.ready_count > 0",                                                      +
+                 "else_step": "complete_error",                                                                    +
+                 "then_step": "spawn_content_writer"                                                               +
+             },                                                                                                    +
+             "description": "If no sections are ready (all deferred or skipped), skip content generation"          +
+         }                                                                                                         +
+     },                                                                                                            +
+     "start_step": "ensure_site_record",                                                                           +
+     "processing_mode": "orchestrator",                                                                            +
+     "timeout_seconds": 1800                                                                                       +
+ }
+(1 row)
+
+---
+
+clients_db=# UPDATE pages
+SET sections = '["provocations-archive-list"]'::jsonb, updated_at = NOW()
+WHERE id = 'e4b3b195-919f-45ad-854e-201d3e846ea8'
+  AND sections = '[]'::jsonb
+RETURNING name, sections;
+        name        |           sections
+--------------------+-------------------------------
+ provocations-index | ["provocations-archive-list"]
+(1 row)
+
+UPDATE 1
+
+--
+
+clients_db=# SELECT f.key, f.value->>'source' AS source, f.value->>'fallback' AS fallback
+FROM content_components cc, LATERAL jsonb_each(cc.input_schema->'fields') f
+WHERE cc.id = '70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37' ORDER BY f.key;
+
+SELECT html_template FROM content_components
+WHERE id = '70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37';
+        key        | source |  fallback
+-------------------+--------+-------------
+ cta_label         | llm    |
+ cta_url           | static | /index.html
+ empty_state_label | llm    |
+ eyebrow           | llm    |
+ subtitle          | llm    |
+ title_after_em    | llm    |
+ title_before_em   | llm    |
+ title_em          | llm    |
+(8 rows)
+
+                                                                html_template
+----------------------------------------------------------------------------------------------------------------------------------------------
+ <style>                                                                                                                                     +
+   .provocations-archive-list-section {                                                                                                      +
+     --section-text: rgba(255,255,255,0.9);                                                                                                  +
+     --section-text-muted: rgba(255,255,255,0.7);                                                                                            +
+     --section-heading: #ffffff;                                                                                                             +
+     --section-surface: rgba(255,255,255,0.05);                                                                                              +
+     --section-border: rgba(255,255,255,0.2);                                                                                                +
+     background-color: var(--color-background);                                                                                              +
+     color: var(--section-text);                                                                                                             +
+     padding: var(--spacing-section, 5rem 2rem);                                                                                             +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__inner {                                                                         +
+     max-width: var(--container-max-width, 1200px);                                                                                          +
+     margin: 0 auto;                                                                                                                         +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__header {                                                                        +
+     margin-bottom: 3.5rem;                                                                                                                  +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__eyebrow {                                                                       +
+     display: inline-block;                                                                                                                  +
+     font-size: 0.75rem;                                                                                                                     +
+     font-weight: 600;                                                                                                                       +
+     letter-spacing: 0.12em;                                                                                                                 +
+     text-transform: uppercase;                                                                                                              +
+     color: var(--color-accent);                                                                                                             +
+     margin-bottom: 1rem;                                                                                                                    +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__title {                                                                         +
+     font-size: clamp(1.75rem, 3.5vw, 2.75rem);                                                                                              +
+     font-weight: 700;                                                                                                                       +
+     line-height: 1.15;                                                                                                                      +
+     color: var(--section-heading);                                                                                                          +
+     margin: 0 0 1.25rem;                                                                                                                    +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__title em {                                                                      +
+     font-style: normal;                                                                                                                     +
+     color: var(--color-accent);                                                                                                             +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__subtitle {                                                                      +
+     font-size: 1.0625rem;                                                                                                                   +
+     line-height: 1.65;                                                                                                                      +
+     color: var(--section-text-muted);                                                                                                       +
+     max-width: 52ch;                                                                                                                        +
+     margin: 0;                                                                                                                              +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__list {                                                                          +
+     display: flex;                                                                                                                          +
+     flex-direction: column;                                                                                                                 +
+     gap: 0;                                                                                                                                 +
+     border-top: 1px solid var(--section-border);                                                                                            +
+     margin-bottom: 2.5rem;                                                                                                                  +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__item {                                                                          +
+     display: grid;                                                                                                                          +
+     grid-template-columns: 9rem 1fr auto;                                                                                                   +
+     grid-template-rows: auto auto;                                                                                                          +
+     column-gap: 2rem;                                                                                                                       +
+     align-items: center;                                                                                                                    +
+     padding: 1.25rem 0;                                                                                                                     +
+     border-bottom: 1px solid var(--section-border);                                                                                         +
+     text-decoration: none;                                                                                                                  +
+     color: var(--section-text);                                                                                                             +
+     transition: background-color 0.18s ease;                                                                                                +
+     cursor: pointer;                                                                                                                        +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__item:hover {                                                                    +
+     background-color: var(--section-surface);                                                                                               +
+     padding-left: 0.75rem;                                                                                                                  +
+     padding-right: 0.75rem;                                                                                                                 +
+     margin-left: -0.75rem;                                                                                                                  +
+     margin-right: -0.75rem;                                                                                                                 +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__item:focus-visible {                                                            +
+     outline: 2px solid var(--color-accent);                                                                                                 +
+     outline-offset: 2px;                                                                                                                    +
+     border-radius: var(--border-radius, 4px);                                                                                               +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__item-date {                                                                     +
+     grid-column: 1;                                                                                                                         +
+     grid-row: 1 / 3;                                                                                                                        +
+     font-size: 0.8125rem;                                                                                                                   +
+     font-weight: 500;                                                                                                                       +
+     letter-spacing: 0.04em;                                                                                                                 +
+     color: var(--section-text-muted);                                                                                                       +
+     white-space: nowrap;                                                                                                                    +
+     align-self: center;                                                                                                                     +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__item-title {                                                                    +
+     grid-column: 2;                                                                                                                         +
+     grid-row: 1;                                                                                                                            +
+     font-size: 1rem;                                                                                                                        +
+     font-weight: 600;                                                                                                                       +
+     color: var(--section-heading);                                                                                                          +
+     line-height: 1.3;                                                                                                                       +
+     margin: 0;                                                                                                                              +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__item-teaser {                                                                   +
+     grid-column: 2;                                                                                                                         +
+     grid-row: 2;                                                                                                                            +
+     font-size: 0.875rem;                                                                                                                    +
+     color: var(--section-text-muted);                                                                                                       +
+     margin: 0.2rem 0 0;                                                                                                                     +
+     white-space: nowrap;                                                                                                                    +
+     overflow: hidden;                                                                                                                       +
+     text-overflow: ellipsis;                                                                                                                +
+     max-width: 55ch;                                                                                                                        +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__item-stat {                                                                     +
+     grid-column: 3;                                                                                                                         +
+     grid-row: 1 / 3;                                                                                                                        +
+     display: flex;                                                                                                                          +
+     align-items: center;                                                                                                                    +
+     gap: 0.4rem;                                                                                                                            +
+     font-size: 0.8125rem;                                                                                                                   +
+     color: var(--section-text-muted);                                                                                                       +
+     white-space: nowrap;                                                                                                                    +
+     align-self: center;                                                                                                                     +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__item-dot {                                                                      +
+     display: inline-block;                                                                                                                  +
+     width: 6px;                                                                                                                             +
+     height: 6px;                                                                                                                            +
+     border-radius: 50%;                                                                                                                     +
+     background-color: var(--color-accent);                                                                                                  +
+     flex-shrink: 0;                                                                                                                         +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__empty {                                                                         +
+     font-size: 0.9375rem;                                                                                                                   +
+     color: var(--section-text-muted);                                                                                                       +
+     padding: 2rem 0 1rem;                                                                                                                   +
+     text-align: center;                                                                                                                     +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__cta-wrap {                                                                      +
+     display: flex;                                                                                                                          +
+     justify-content: center;                                                                                                                +
+     margin-top: 3rem;                                                                                                                       +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__cta {                                                                           +
+     display: inline-block;                                                                                                                  +
+     padding: 0.875rem 2.25rem;                                                                                                              +
+     min-height: 44px;                                                                                                                       +
+     background-color: var(--color-primary);                                                                                                 +
+     color: var(--color-primary-text, #ffffff);                                                                                              +
+     font-size: 0.9375rem;                                                                                                                   +
+     font-weight: 600;                                                                                                                       +
+     letter-spacing: 0.03em;                                                                                                                 +
+     text-decoration: none;                                                                                                                  +
+     border-radius: var(--border-radius, 4px);                                                                                               +
+     transition: background-color 0.18s ease;                                                                                                +
+     border: none;                                                                                                                           +
+     cursor: pointer;                                                                                                                        +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__cta:hover {                                                                     +
+     background-color: var(--color-primary-hover);                                                                                           +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   .provocations-archive-list-section .provocations-archive__cta:focus-visible {                                                             +
+     outline: 2px solid var(--color-accent);                                                                                                 +
+     outline-offset: 3px;                                                                                                                    +
+   }                                                                                                                                         +
+                                                                                                                                             +
+   @media (max-width: 768px) {                                                                                                               +
+     .provocations-archive-list-section .provocations-archive__item {                                                                        +
+       grid-template-columns: 1fr auto;                                                                                                      +
+       grid-template-rows: auto auto auto;                                                                                                   +
+       column-gap: 1rem;                                                                                                                     +
+       padding: 1rem 0;                                                                                                                      +
+     }                                                                                                                                       +
+                                                                                                                                             +
+     .provocations-archive-list-section .provocations-archive__item:hover {                                                                  +
+       padding-left: 0.5rem;                                                                                                                 +
+       padding-right: 0.5rem;                                                                                                                +
+       margin-left: -0.5rem;                                                                                                                 +
+       margin-right: -0.5rem;                                                                                                                +
+     }                                                                                                                                       +
+                                                                                                                                             +
+     .provocations-archive-list-section .provocations-archive__item-date {                                                                   +
+       grid-column: 1;                                                                                                                       +
+       grid-row: 1;                                                                                                                          +
+       align-self: auto;                                                                                                                     +
+       margin-bottom: 0.2rem;                                                                                                                +
+     }                                                                                                                                       +
+                                                                                                                                             +
+     .provocations-archive-list-section .provocations-archive__item-title {                                                                  +
+       grid-column: 1;                                                                                                                       +
+       grid-row: 2;                                                                                                                          +
+     }                                                                                                                                       +
+                                                                                                                                             +
+     .provocations-archive-list-section .provocations-archive__item-teaser {                                                                 +
+       grid-column: 1;                                                                                                                       +
+       grid-row: 3;                                                                                                                          +
+       max-width: 100%;                                                                                                                      +
+     }                                                                                                                                       +
+                                                                                                                                             +
+     .provocations-archive-list-section .provocations-archive__item-stat {                                                                   +
+       grid-column: 2;                                                                                                                       +
+       grid-row: 1 / 4;                                                                                                                      +
+     }                                                                                                                                       +
+                                                                                                                                             +
+     .provocations-archive-list-section .provocations-archive__title {                                                                       +
+       font-size: clamp(1.5rem, 5vw, 2rem);                                                                                                  +
+     }                                                                                                                                       +
+   }                                                                                                                                         +
+ </style>                                                                                                                                    +
+                                                                                                                                             +
+ <section class="provocations-archive-list-section provocations-archive" data-component="provocations-archive-list" data-runtime-fill="true">+
+   <div class="provocations-archive__inner">                                                                                                 +
+     <header class="provocations-archive__header">                                                                                           +
+       <span class="provocations-archive__eyebrow">{{.eyebrow}}</span>                                                                       +
+       <h1 class="provocations-archive__title">{{.title_before_em}} <em>{{.title_em}}</em> {{.title_after_em}}</h1>                          +
+       <p class="provocations-archive__subtitle">{{.subtitle}}</p>                                                                           +
+     </header>                                                                                                                               +
+                                                                                                                                             +
+     <div class="provocations-archive__list">                                                                                                +
+       <a class="provocations-archive__item" data-archive-template hidden href="#">                                                          +
+         <time class="provocations-archive__item-date"></time>                                                                               +
+         <span class="provocations-archive__item-title"></span>                                                                              +
+         <span class="provocations-archive__item-teaser"></span>                                                                             +
+         <span class="provocations-archive__item-stat">                                                                                      +
+           <span class="provocations-archive__item-dot"></span>                                                                              +
+           <span class="provocations-archive__item-stat-value"></span>                                                                       +
+         </span>                                                                                                                             +
+       </a>                                                                                                                                  +
+     </div>                                                                                                                                  +
+                                                                                                                                             +
+     <p class="provocations-archive__empty">{{.empty_state_label}}</p>                                                                       +
+                                                                                                                                             +
+     <div class="provocations-archive__cta-wrap">                                                                                            +
+       <a class="provocations-archive__cta" href="{{.cta_url}}">{{.cta_label}}</a>                                                           +
+     </div>                                                                                                                                  +
+   </div>                                                                                                                                    +
+ </section>
+(1 row)
+

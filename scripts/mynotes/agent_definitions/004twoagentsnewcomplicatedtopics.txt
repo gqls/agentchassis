@@ -1,0 +1,62 @@
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+    default_config,
+    '{workflow}',
+    '{
+      "start_step": "spawn_adder",
+      "steps": {
+        "spawn_adder": {
+          "action": "spawn_agent",
+          "config": {
+            "agent_type": "calculator",
+            "role": "adder"
+          },
+          "description": "Spawn addition calculator",
+          "next_step": "spawn_multiplier"
+        },
+        "spawn_multiplier": {
+          "action": "spawn_agent",
+          "config": {
+            "agent_type": "calculator",
+            "role": "multiplier"
+          },
+          "description": "Spawn multiplication calculator",
+          "next_step": "perform_addition"
+        },
+        "perform_addition": {
+          "action": "call_agent",
+          "config": {
+            "agent_type": "calculator",
+            "target_role": "adder",
+            "input_field": "first_calc"
+          },
+          "description": "Addition calculation",
+          "next_step": "perform_multiplication"
+        },
+        "perform_multiplication": {
+          "action": "call_agent",
+          "config": {
+            "agent_type": "calculator",
+            "target_role": "multiplier",
+            "input_field": "second_calc"
+          },
+          "description": "Multiplication calculation",
+          "next_step": "aggregate_results"
+        },
+        "aggregate_results": {
+          "action": "aggregate_data",
+          "config": {
+            "strategy": "group_responses",
+            "response_fields": ["perform_addition", "perform_multiplication"]
+          },
+          "description": "Aggregate calculation results",
+          "next_step": "complete"
+        },
+        "complete": {
+          "action": "complete_workflow",
+          "description": "Complete workflow"
+        }
+      }
+    }'::jsonb
+)
+WHERE type = 'generic';

@@ -1,0 +1,380 @@
+# 012 — Tool Lifecycle Guide
+
+How interactive tools are suggested, deployed, improved, and quality-checked across sites.
+
+---
+
+## Overview
+
+Tools are self-contained interactive HTML components (calculators, converters, estimators, etc.) stored in `content_components` with `component_level = 'tool'`. The system manages them through five agents and two discovery checks, connected by the standard work item pipeline.
+
+**Key design decisions:**
+
+1. **Tool selection is an LLM judgment call, not a catalogue lookup.** The system evaluates what would genuinely help a site's visitors given the industry, audience, and services. If no tools are appropriate, it suggests none. A gas wholesaler gets a unit converter; a photographer gets a booking calculator; neither gets a password checker.
+
+2. **Tool quality is checked in three tiers.** Structural checks (fast, cheap) catch broken tools. LLM code review (Sonnet-tier) catches logic bugs, mobile issues, and UX problems. Headless browser testing (future) catches rendering issues the LLM can't see. The first two tiers are automated; the third is planned.
+
+3. **Tool removal is a human decision.** The system can identify that a tool is broken and fix it, but whether a tool belongs on a site is an admin judgment. The admin dashboard provides removal controls.
+
+---
+
+## Components
+
+### Discovery Check: `missing_tools`
+
+**File:** `discovery_checks/check_missing_tools.go`
+
+A structural check, not an evaluator. It asks two questions:
+
+1. Does this site have any tools deployed? (COUNT on `content_components` via `page_components`)
+2. Has a tool evaluation happened in the last 7 days? (checks `site_work_items` for `item_type = 'evaluate_tools'`)
+
+If both are no, it creates a single `evaluate_tools` work item with `handler_agent: tool-suggester`. It does not look at the library, does not try to match by affinity, and does not decide which tools are appropriate.
+
+**Work item created:** `evaluate_tools` → `tool-suggester`
+
+### Discovery Check: `tool_health`
+
+**File:** `discovery_checks/check_tool_health.go`
+
+Runs on every improvement sweep for sites that have deployed tools. Two-tier check:
+
+**Tier 1 — Structural checks (in Go, no LLM cost):**
+- Page deployed — `build_status` is `deployed` or `active` (blocker if not)
+- HTML present — `page_component.rendered_html` is non-empty (blocker)
+- Template present — fork `html_template` is non-empty (blocker)
+- Has `<script>` block — tool is interactive (error if missing)
+- Has `<style>` block — tool has layout (warning)
+- Has `@media` breakpoint — tool is mobile-responsive (warning)
+- No hardcoded hex colours outside `var()` fallbacks (warning, >3 instances)
+- No external `fetch()`, CDN references, or external `src=` (warning)
+
+Structural blockers create `improve_tool` items directly — tool-improver can fix these without LLM review of the code.
+
+**Tier 2 — LLM audit queue:**
+Tools that pass structural checks (no blockers) are queued for LLM code review by creating `audit_tool` items for tool-auditor. 30-day cooldown per tool to avoid repeated audits.
+
+**Work items created:**
+- `improve_tool` → `tool-improver` (structural blockers)
+- `audit_tool` → `tool-auditor` (LLM code review)
+
+### Agent: `tool-suggester`
+
+**Migration:** 062  
+**Category:** specialist  
+**Handles:** `evaluate_tools` work items  
+**Input contract:** `site_id`, `domain`
+
+Evaluates what tools would benefit a site using LLM judgment. Workflow steps:
+
+1. **read_specs** — `read_site_spec` loads all aspects (identity, classification, brand_dna)
+2. **load_pages** — `query_database` gets active pages with names, URLs, titles
+3. **load_existing_tools** — `query_database` checks what tools are already on the site (avoids duplicates)
+4. **load_library_tools** — `query_database` loads the library catalogue (up to 30 tools with templates) for reference
+5. **suggest_tools** — `execute_llm_prompt` evaluates what tools would help, considering industry and audience
+
+The LLM prompt includes concrete examples per industry and explicitly instructs against irrelevant suggestions. It can return 0-5 suggestions. Returning zero is correct when no tools are appropriate — the prompt includes examples of bad suggestions (e.g. "password checker for a gas wholesaler"). Each suggestion includes:
+
+- `name` and `function` (kebab-case)
+- `description` of what it does and why it helps
+- `priority` (1–5)
+- `target_page` — which existing page to add it to, or `new` for a dedicated tools page
+- `library_source` — function name from library if forkable, or null if it needs building from scratch
+- `complexity` — simple / moderate / complex
+
+6. **create_items_loop** — loops over suggestions, creating an `add_tool` work item per suggestion with the full suggestion object in `spec_data`
+
+**Work items created:** N × `add_tool` → `tool-deployer`
+
+### Agent: `tool-deployer`
+
+**Migration:** 061  
+**Category:** executor / specialist  
+**Handles:** `add_tool` work items  
+**Input contract:** `site_id`
+
+Deploys a tool from the library to a site using the fork-on-deploy model. Workflow steps:
+
+1. **load_item** — `load_work_items` gets the next `add_tool` item for this site
+2. **check_has_item** — conditional guard
+3. **deploy_tool** — `deploy_tool_to_site` action does the heavy lifting:
+    - Loads the library tool by `tool_component_id` from the work item spec
+    - Checks if already deployed (fork exists for this site) — returns early if so
+    - Forks the tool — INSERT into `content_components` with `forked_from` pointing to the library original
+    - Creates a tool page at `/tools/{function}.html`
+    - Creates a `page_component` linking fork to page
+4. **complete_item** — marks work item complete
+
+After completion, the improvement loop's next sweep picks up the new page via `needs_rerender` and deploys it through the normal render/git/deploy pipeline.
+
+**Go action:** `deploy_tool_to_site` in `deploy_tool_action.go`
+
+**Fork model:** The site owns its copy. Changes to the library tool do not cascade to existing forks. This means each site's tools can diverge independently — which is what tool-improver relies on.
+
+### Agent: `tool-improver`
+
+**Migration:** 062  
+**Category:** specialist  
+**Handles:** `improve_tool` work items  
+**Input contract:** `site_id`, `component_id`, `issue`
+
+Incrementally improves a deployed tool based on an issue description. Workflow steps:
+
+1. **load_tool** — `query_database` loads the tool's current HTML, CSS, JS from `content_components`, plus its page context (slug, page_id, page_name)
+2. **check_tool_found** — conditional guard, completes with `skipped` status if not found
+3. **load_brand_context** — `read_site_spec` loads all aspects so improvements match site style
+4. **improve_tool** — `execute_llm_prompt` rewrites the HTML to fix the specific issue. The prompt enforces: CSS variable usage (no hardcoded hex), mobile compatibility, self-contained output, no external dependencies
+5. **update_component** — `update_component_html` action saves the improved HTML. Optionally snapshots the previous version to `component_versions` first
+6. **create_rerender_item** — creates a `needs_rerender` work item so the page gets rebuilt and deployed
+
+**Go action:** `update_component_html` in `update_component_html_action.go`
+
+The action also marks associated `page_components` as `build_status = 'pending'` so the rerender pipeline picks them up.
+
+**Work item created:** `needs_rerender` → `rerender-pages`
+
+### Agent: `tool-auditor`
+
+**Migration:** 063  
+**Category:** specialist  
+**Handles:** `audit_tool` work items  
+**Input contract:** `site_id`, `domain`, `component_id`
+
+LLM-based code review of deployed tools. This is Tier 2 quality checking — the structural checks in `tool_health` (Tier 1) catch broken tools cheaply; tool-auditor catches logic bugs, mobile issues, and UX problems that require reasoning through the code.
+
+Workflow steps:
+
+1. **ensure_site_record** — standard site context loading
+2. **load_tool** — `query_database` loads the tool's full HTML/CSS/JS, rendered HTML, page context
+3. **load_site_context** — `read_site_spec` loads industry/audience context for relevant review
+4. **llm_audit** — `execute_llm_prompt` sends the full source to Sonnet for code review
+
+The LLM prompt checks six categories:
+- **JS logic bugs** — uninitialised variables, missing event listeners, division by zero, DOM reference mismatches
+- **Mobile & touch** — layout at 375px, touch targets ≥44px, clipped/overflowing elements, hover-only interactions
+- **UX & interaction** — clear first action, feedback on interaction, visible labels, working copy/download
+- **CSS & styling** — hardcoded colours, missing CSS variable usage, `!important` conflicts
+- **Accessibility** — input labels, alt text, keyboard operability
+- **Self-containment** — external APIs, CDN dependencies, ID collisions
+
+Each finding has a confidence level:
+- `certain` — the bug is traceable in the code → creates `improve_tool` item for automatic fix
+- `likely` — strong evidence → creates `improve_tool` item
+- `possible` — worth checking but uncertain → creates `needs_human_review` item for HITL
+
+5. **create_items_loop** — loops over findings, routes to `improve_tool` or `needs_human_review` based on confidence
+
+The LLM also returns a `quality_score` (1-10) which is stored in the work item result for tracking tool quality over time.
+
+**Work items created:**
+- `improve_tool` → `tool-improver` (certain/likely findings)
+- `needs_human_review` → HITL (possible findings)
+
+### Agent: `tool-generator`
+
+**Migration:** 062b  
+**Category:** specialist  
+**Handles:** `add_tool` items where `tool_component_id` is null (no library tool to fork)  
+**Input contract:** `site_id`, `domain`, `spec` (with function, name, description)
+
+Creates a new tool from scratch via LLM when no suitable library tool exists. Workflow steps:
+
+1. **ensure_site_record** — standard site context
+2. **load_brand_context** — `read_site_spec` loads brand/identity for matching site style
+3. **generate_tool_html** — `execute_llm_prompt` generates the full HTML/CSS/JS
+4. **save_tool** — `create_tool_component` action creates the content_component, page, and page_component link
+
+The generated tool follows the same template structure as library tools: `<style>` + `<main>` + `<script>`, CSS variables for colours, self-contained with no external dependencies.
+
+**Note:** Routing from tool-suggester to tool-generator (for novel tools) vs tool-deployer (for library forks) is not yet automated. Currently all suggestions go to tool-deployer. Novel tool suggestions without a `tool_component_id` will fail at tool-deployer and need manual creation or a routing action.
+
+---
+
+## Work Item Flow
+
+```
+Improvement sweep (scheduler, every 10 minutes)
+│
+├─ discovery check: missing_tools
+│  └─ evaluate_tools                handler: tool-suggester
+│     ├─ add_tool (×N, library)     handler: tool-deployer
+│     │  └─ [needs_rerender]        handler: rerender-pages
+│     └─ add_tool (×N, novel)       handler: tool-generator (future routing)
+│        └─ [needs_rerender]        handler: rerender-pages
+│
+├─ discovery check: tool_health
+│  ├─ improve_tool (structural)     handler: tool-improver
+│  │  └─ needs_rerender             handler: rerender-pages
+│  └─ audit_tool (LLM review)      handler: tool-auditor
+│     ├─ improve_tool (fixable)     handler: tool-improver
+│     │  └─ needs_rerender          handler: rerender-pages
+│     └─ needs_human_review         handler: hitl-review
+│
+└─ admin dashboard
+   ├─ deploy tool (library)         handler: tool-deployer
+   ├─ remove tool                   direct (DELETE endpoint)
+   └─ improve_tool (manual)         handler: tool-improver
+      └─ needs_rerender             handler: rerender-pages
+```
+
+---
+
+## Work Item Types
+
+| item_type | handler_agent | spec fields | created by |
+|---|---|---|---|
+| `evaluate_tools` | `tool-suggester` | `check`, `reason` | discovery check (missing_tools) |
+| `add_tool` | `tool-deployer` | `tool_component_id`, `name`, `function`, `description`, `library_source`, `target_page`, `complexity` | tool-suggester |
+| `improve_tool` | `tool-improver` | `component_id`, `issue`, `check` (optional), `fix_suggestion` (optional) | tool_health check, tool-auditor, or manual |
+| `audit_tool` | `tool-auditor` | `component_id`, `check`, `page_id`, `page_name` | tool_health check |
+| `needs_human_review` | hitl-review | `component_id`, `tool_function`, `issue`, `fix_suggestion`, `confidence`, `category` | tool-auditor (low-confidence findings) |
+
+---
+
+## Go Actions
+
+| Action | File | Purpose |
+|---|---|---|
+| `deploy_tool_to_site` | `deploy_tool_action.go` | Fork library tool, create page, link component |
+| `create_tool_component` | `create_tool_component_action.go` | Create new tool from generated HTML, create page, link component |
+| `update_component_html` | `update_component_html_action.go` | Update `html_template` with optional version snapshot |
+
+## Discovery Checks
+
+| Check | File | Purpose |
+|---|---|---|
+| `missing_tools` | `check_missing_tools.go` | Trigger tool evaluation when site has no tools |
+| `tool_health` | `check_tool_health.go` | Structural quality checks + queue LLM audit |
+
+---
+
+## Content Components Model
+
+Library tools live in `content_components` with:
+- `component_level = 'tool'`
+- `forked_from IS NULL` (these are the originals)
+- Unique index on `function` within active, unforked tools
+
+Site forks are also in `content_components` with:
+- `forked_from = <library tool UUID>`
+- `name` suffixed with domain slug (e.g. `tool-vat-calculator-gaswholesalers-co-uk`)
+- Owned by the site — can diverge independently
+
+Tool pages:
+- `page_type = 'tool'`
+- URL pattern: `/tools/{function}.html`
+- Nav label follows pattern: `Tools / {display_name}`
+
+---
+
+## Limitations and Future Work
+
+### Three-tier quality plan
+
+| Tier | Agent/Check | What it catches | Cost | Status |
+|---|---|---|---|---|
+| 1 — Structural | `tool_health` discovery check | Broken: no HTML, no script, not deployed, empty template | Zero (Go regex) | Built |
+| 2 — LLM review | `tool-auditor` agent | Logic bugs, mobile issues, UX problems, accessibility gaps | ~1 Sonnet call per tool | Built |
+| 3 — Visual | `tool-visual-tester` agent (future) | Rendering failures, layout breakage at specific viewports, canvas issues | Headless browser pod | Planned |
+
+Tier 3 requires its own container (Puppeteer/Playwright) running as a separate agent. It would receive a page URL and viewport list, render the page, take screenshots, and optionally run basic interaction scripts (click buttons, fill inputs, check for JS errors in console). The headless browser container should be isolated — it's a resource-heavy, potentially unsafe environment (rendering arbitrary HTML). Design notes:
+- Separate Kubernetes deployment with its own resource limits (CPU/memory for Chromium)
+- Receives work items of type `visual_test_tool` with `page_url` and `viewports`
+- Returns screenshots (stored in S3) and pass/fail results per viewport
+- tool-auditor or tool_health could create visual_test_tool items for tools that pass LLM review
+- Screenshots could be sent to an LLM for visual interpretation (Tier 2.5)
+
+### Not yet implemented
+- **Novel tool routing** — tool-suggester sends all suggestions to tool-deployer. Tools with `library_source: null` (need building from scratch) should route to `tool-generator` instead. Needs either a conditional in the loop sub_workflow or a Go routing action.
+- **Tool visual testing** (Tier 3) — headless browser rendering checks. See three-tier plan above.
+- **Tool removal automation** — currently admin-only via dashboard. No automated removal of inappropriate tools (by design — relevance is a human judgment).
+
+### Implemented (was previously listed as future)
+- `tool_health` discovery check — structural quality checks + LLM audit queue. Replaces the old `check_tool_rendering` placeholder.
+- `tool-generator` agent — creates tools from scratch via LLM when no library tool exists.
+- `tool-auditor` agent — LLM code review of deployed tools.
+- Admin tool management endpoints — list, deploy, remove tools via dashboard.
+
+### Design decisions
+- Tools are a post-build concern. The site planner doesn't think about tools — the first improvement sweep after build handles them. This keeps the initial build fast and tool decisions informed by the actual deployed site.
+- Each site owns its tool forks. No cascading updates from library changes. This is intentional — a tool that's been improved for a specific site shouldn't be overwritten by a library update.
+- The 7-day cooldown on `evaluate_tools` prevents repeated evaluation spam. If a site genuinely has no tools after evaluation, it won't be re-evaluated for a week.
+- The 30-day cooldown on `audit_tool` prevents repeated LLM audits of the same tool. If tool-improver fixes an issue, the next audit happens after 30 days.
+- Tool relevance (whether a tool belongs on a site) is an admin decision, not an automated one. The system can identify broken tools and fix them, but removing a working tool requires human judgment.
+
+### Bug history
+- **Missing_tools discovery check used universal tags** — the `matchToolToSite` function classified `security`/`password`/`privacy` as universal, deploying a password checker to every site (including gas wholesalers). Fixed by removing tag-based matching entirely — the discovery check now creates `evaluate_tools` items for LLM evaluation instead of `add_tool` items for direct deployment.
+- **tool-suggester SQL bugs** — queried `p.slug` (doesn't exist, should be `p.url`), `p.purpose` (doesn't exist), `p.sort_order` (should be `p.nav_order`). Used template interpolation instead of parameterised queries. site_specs paths missing `.specs.` prefix. All fixed in the agent definition.
+- **create_tool_component_action.go** — INSERT referenced `pages.slug`, `pages.sort_order`, `pages.purpose` which don't exist. Fixed to use `url`, `nav_order`, `meta_description`.
+
+
+## Trigger Flows
+
+### Tool suggestion flow
+
+```
+kafka-scheduler (every 120s)
+→ build-pipeline-trigger (orchestrate action)
+→ design-discovery-agent (runs checks including missing_tools)
+→ missing_tools check sees: zero tools deployed + no evaluation in 7 days
+→ creates evaluate_tools work item, handler_agent = 'tool-suggester'
+→ triage_detected_items promotes it to 'triaged'
+→ build-dispatch-loop
+→ spawns tool-suggester with site_id and domain
+→ tool-suggester runs its workflow (LLM evaluates, may return 0 suggestions)
+→ creates N × add_tool items → tool-deployer (for library forks)
+```
+
+### Tool quality flow
+
+```
+kafka-scheduler (every 120s)
+→ design-discovery-agent (runs checks including tool_health)
+→ tool_health check:
+  ├─ Tier 1: structural checks on each deployed tool
+  │  → creates improve_tool items for blockers (tool-improver fixes directly)
+  └─ Tier 2: queues audit_tool for tools passing structural checks
+     → build-dispatch-loop spawns tool-auditor
+     → tool-auditor sends full HTML to LLM for code review
+     → creates improve_tool items (certain/likely) or needs_human_review (possible)
+```
+
+### Manual triggers
+
+```sql
+-- Trigger tool evaluation for a site
+INSERT INTO site_work_items (
+    site_id, source, pipeline, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+) VALUES (
+    '<site_uuid>', 'admin', 'build', 'evaluate_tools', 'low',
+    'Evaluate tool needs',
+    '{"reason": "manual"}'::jsonb,
+    130, 'tool-suggester', 'triaged', 'admin',
+    'evaluate_tools:<site_uuid>'
+);
+
+-- Request improvement of a specific tool
+INSERT INTO site_work_items (
+    site_id, source, pipeline, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+) VALUES (
+    '<site_uuid>', 'admin', 'build', 'improve_tool', 'medium',
+    'Fix mobile rendering on unit converter',
+    '{"component_id": "<component_uuid>", "issue": "Tool overflows on screens narrower than 400px, inputs stack but submit button is clipped"}'::jsonb,
+    60, 'tool-improver', 'triaged', 'admin',
+    'improve_tool_<component_uuid_prefix>'
+);
+
+-- Request LLM audit of a specific tool
+INSERT INTO site_work_items (
+    site_id, source, pipeline, item_type, severity, summary,
+    spec, priority, handler_agent, status, created_by, item_key
+) VALUES (
+    '<site_uuid>', 'admin', 'build', 'audit_tool', 'low',
+    'LLM code review: <tool display name>',
+    '{"component_id": "<component_uuid>", "check": "manual"}'::jsonb,
+    140, 'tool-auditor', 'triaged', 'admin',
+    'audit_tool:<tool_function>:<site_uuid>'
+);
+```

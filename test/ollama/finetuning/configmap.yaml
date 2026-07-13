@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finetune-script
+data:
+  train.py: |
+    #!/usr/bin/env python3
+    from datasets import load_dataset
+    from transformers import AutoTokenizer, AutoModelForCausalLM, Trainer, TrainingArguments, DataCollatorForSeq2Seq
+    import json, os
+    MODEL_NAME = "sshleifer/tiny-gpt2"
+    OUTPUT_DIR = "/workspace/output"
+    dataset = load_dataset("ag_news", split="train[:0.1%]")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+    def preprocess(batch):
+        enc = tokenizer(batch["text"], truncation=True, padding="max_length", max_length=128)
+        enc["labels"] = enc["input_ids"].copy()
+        return enc
+    tokenized = dataset.map(preprocess, batched=True, remove_columns=dataset.column_names)
+    collator = DataCollatorForSeq2Seq(tokenizer, return_tensors="pt")
+    args = TrainingArguments(output_dir=OUTPUT_DIR, num_train_epochs=1, per_device_train_batch_size=1, logging_steps=10, save_strategy="no")
+    trainer = Trainer(model=model, args=args, train_dataset=tokenized, data_collator=collator)
+    trainer.train()
+    trainer.save_model(OUTPUT_DIR)
+    print("✅ Done! Saved model to", OUTPUT_DIR)

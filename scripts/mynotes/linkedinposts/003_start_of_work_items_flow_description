@@ -1,0 +1,11 @@
+This platform builds and maintains multi-page websites with a system of autonomous
+agents — rows in the agent_definitions table that run as Kubernetes pods in the
+ai-persona-system namespace, talk to each other over Kafka, and persist run state in
+the clients_db Postgres database. Every unit of work (build a page, swap a hero
+image, fix a broken link) is a row in site_work_items, claimed off a dispatch loop
+and routed to a handler agent. Deployment is image-tag based: code ships via
+GitHub → Backblaze into a new chassis image, then each agent's image_tag is bumped to
+adopt it; workflow (default_config) changes are DB-only and take effect immediately.
+
+This runbook tracks a connected series of fixes to the page build/re-render pipeline,
+all of the same shape

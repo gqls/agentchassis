@@ -1,0 +1,83 @@
+# 1. FIRST - Stop all consumers by scaling down deployments
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=0
+
+
+# Wait for pods to terminate
+kubectl -n ai-persona-system wait --for=delete pod -l app=agent-chassis --timeout=60s
+
+
+# 2. NOW reset the consumer group offsets (consumers are stopped)
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-request-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.requests \
+  --to-latest \
+  --execute
+
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --group generic-response-consumers \
+  --reset-offsets \
+  --topic system.agent.generic.responses \
+  --to-latest \
+  --execute
+
+# 3. Clear database tables
+kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c "TRUNCATE TABLE processed_messages, orchestration_states CASCADE;"
+
+# 4. Scale back up
+kubectl -n ai-persona-system scale deployment/agent-chassis --replicas=1
+
+# 5. Delete old calculator jobs
+kubectl -n ai-persona-system delete jobs -l agent-type=calculator
+
+# consume new topic in separate terminal
+ kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- \
+/opt/kafka/bin/kafka-console-consumer.sh \
+--bootstrap-server localhost:9092 \
+--topic system.agent.generic.responses \
+--from-beginning \
+--property print.headers=true
+
+# send normal
+kubectl -n kafka exec -i personae-kafka-cluster-combined-pool-prod-0 -- bash << 'EOF'
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_NAME="test-ping-$(date +%H%M%S)"
+
+echo "Fresh test message:"
+echo "  Correlation: $CORRELATION_ID"
+echo "  Request: $REQUEST_ID"
+echo "  Orchestration: $ORCHESTRATION_ID"
+echo "  Name: $ORCHESTRATION_NAME"
+
+printf "correlation_id:$CORRELATION_ID,orchestration_id:$ORCHESTRATION_ID,request_id:$REQUEST_ID,message_id:$MESSAGE_ID,client_id:demo_client,message_type:request,responses_topic:system.agent.generic.responses\t{\"action\":\"calculate\",\"data\":{\"operation\":\"add\",\"operands\":[2,2]}}\n" | \
+  /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic system.agent.generic.requests \
+  --property parse.headers=true \
+  --property headers.delimiter=$'\t'
+EOF
+
+
+# Wait and check for calculator job
+sleep 10
+kubectl -n ai-persona-system get jobs | grep calculator
+kubectl -n ai-persona-system get pods | grep calculator
+
+
+
+
+
+
+
+
+===
+
+
+

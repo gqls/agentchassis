@@ -1,0 +1,614 @@
+// FILE: platform/orchestration/actions/diagnose_load_runtime_action.go
+//
+// DRAFT for the agent-chassis repo. Does NOT compile in the contextkit
+// container — built in your env. SQL written against the REAL schema (\d output
+// for agent_error_log, site_work_items, orchestration_states — verified, not
+// assumed). Modelled on the params.DB + QueryContext pattern in
+// maintenance_actions.go (LoadSiteForRebuildAction / ScanSitesForMaintenanceAction).
+//
+// diagnose_load_runtime reads the runtime tier of the diagnosis bundle — the
+// evidence that NAMES the failing layer the symptom words cannot reach (DESIGN
+// §1a). It is the source of the "runtime_evidence" field that
+// diagnose_assemble_bundle later folds into the bundle. READ-ONLY: three SELECTs,
+// no writes, no triggered runs.
+//
+// Resolves the target from collected_data (set from the trigger's input_data):
+//   site_id        (uuid)   — optional; filters all three tables
+//   correlation_id (uuid)   — optional; filters orchestration_states precisely
+//   domain         (text)   — optional fallback for agent_error_log
+// At least one of site_id / correlation_id / domain is required.
+
+package actions
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/gqls/agentchassis/pkg/diagnose"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"go.uber.org/zap"
+)
+
+var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
+	Optional: []string{
+		"site_id_field", "correlation_id_field", "domain_field",
+		"error_limit", "work_item_limit", "data_requests_field",
+		"schema_exclude_patterns", "schema_include_patterns", "schema_full", "schema_table_cap",
+		"explain_max_rows", "explain_max_cost", "row_cap", "cell_chars",
+	},
+	Defaults: map[string]interface{}{
+		"site_id_field":        "input_data.site_id",
+		"correlation_id_field": "input_data.correlation_id",
+		"domain_field":         "input_data.runtime_site",
+		"error_limit":          20,
+		"work_item_limit":      20,
+		// The prior verdict's data_requests are forwarded by diagnose_route into
+		// route.data_requests, and the loop RETURNS to this step (the workflow's
+		// gather_step = load_runtime), so each iteration runs them. Empty on the
+		// first iteration (route has not run yet).
+		"data_requests_field": "route.data_requests",
+		// Schema section: denylist so new tables appear automatically; relevance
+		// include (used unless schema_full) keeps it to the build/content domain.
+		"schema_exclude_patterns": []interface{}{"%backup%", "%bak%", "%archive%", "%supersede%"},
+		"schema_include_patterns": []interface{}{"site%", "page%", "content%", "flow%"},
+		"schema_full":             false,
+		"schema_table_cap":        120,
+		// data_request size guards (EXPLAIN-estimate caps + rendered-output caps).
+		"explain_max_rows": 50000,
+		"explain_max_cost": 0,
+		"row_cap":          200,
+		"cell_chars":       600,
+	},
+}
+
+func init() {
+	datahelpers.RegisterActionInputSpec("diagnose_load_runtime", DiagnoseLoadRuntimeInputSpec)
+}
+
+func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	config := params.StepConfig.Config
+	logger := params.Logger
+
+	if params.ExecutionContext != nil && params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+	if params.DB == nil {
+		return nil, fmt.Errorf("diagnose_load_runtime: no DB handle")
+	}
+
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData,
+		datahelpers.GetStringField(config, "site_id_field", "input_data.site_id"))
+	correlationID := datahelpers.ExtractNestedFieldString(params.CollectedData,
+		datahelpers.GetStringField(config, "correlation_id_field", "input_data.correlation_id"))
+	domain := datahelpers.ExtractNestedFieldString(params.CollectedData,
+		datahelpers.GetStringField(config, "domain_field", "input_data.runtime_site"))
+	if siteID == "" && correlationID == "" && domain == "" {
+		return nil, fmt.Errorf("diagnose_load_runtime: need at least one of site_id / correlation_id / domain in collected_data")
+	}
+	errLimit := datahelpers.GetIntField(config, "error_limit", 20)
+	wiLimit := datahelpers.GetIntField(config, "work_item_limit", 20)
+
+	// Size guards for the model-written data_requests (see runDataRequests): an
+	// EXPLAIN estimate rejects a query BEFORE running it; row/cell caps bound the
+	// rendered output. All tunable from step config without a rebuild.
+	maxRows := datahelpers.GetIntField(config, "explain_max_rows", 50000)
+	maxCost := datahelpers.GetIntField(config, "explain_max_cost", 0) // 0 = cost guard off
+	rowCap := datahelpers.GetIntField(config, "row_cap", 200)
+	cellChars := datahelpers.GetIntField(config, "cell_chars", 600)
+
+	var b strings.Builder
+
+	// Diagnosis target up top so a model-written data_request can scope itself
+	// (e.g. WHERE site_id = …) instead of scanning every site in the database.
+	fmt.Fprintf(&b, "### diagnosis target\n\nsite_id=%s  domain=%s  correlation_id=%s\n\n",
+		dashIfEmpty(siteID), dashIfEmpty(domain), dashIfEmpty(correlationID))
+
+	// ── agent_error_log ──────────────────────────────────────────────────────
+	// Real columns: occurred_at, agent_type, step_name, action, error_message,
+	// error_code, severity, site_id, domain, orchestration_id, work_item_id.
+	// Filter by site_id OR domain; newest first (idx_error_log_site / _time).
+	b.WriteString("### agent_error_log (most recent)\n\n")
+	errRows, err := params.DB.QueryContext(ctx, `
+		SELECT occurred_at, agent_type, COALESCE(step_name,''), COALESCE(action,''),
+		       error_message, COALESCE(error_code,''), severity
+		FROM agent_error_log
+		WHERE ($1::uuid IS NULL OR site_id = $1::uuid)
+		  AND ($2::text IS NULL OR domain = $2::text)
+		ORDER BY occurred_at DESC
+		LIMIT $3`,
+		nullUUID(siteID), nullText(domain), errLimit)
+	if err != nil {
+		return nil, fmt.Errorf("diagnose_load_runtime: query agent_error_log: %w", err)
+	}
+	errCount := 0
+	for errRows.Next() {
+		var occ, agent, step, action, msg, code, sev string
+		if err := errRows.Scan(&occ, &agent, &step, &action, &msg, &code, &sev); err != nil {
+			errRows.Close()
+			return nil, fmt.Errorf("diagnose_load_runtime: scan agent_error_log: %w", err)
+		}
+		fmt.Fprintf(&b, "- [%s] %s/%s (%s) %s: %s\n", occ, agent, step, action, sev, msg)
+		errCount++
+	}
+	errRows.Close()
+	if errCount == 0 {
+		b.WriteString("(no error rows for this site/domain)\n")
+	}
+
+	// ── site_work_items ──────────────────────────────────────────────────────
+	// Real columns: item_type, status, handler_agent, summary, attempt_count,
+	// error, result, completed_at, updated_at, pipeline. The "completed but no-op"
+	// signal (the gamesdesign symptom) shows as status='complete' with a thin
+	// result / advanced timestamps — surface status+result+error so the verdict
+	// can judge it. Filter by site_id; newest first (idx_swi_site_status).
+	if siteID != "" {
+		b.WriteString("\n### site_work_items (most recent)\n\n")
+		wiRows, err := params.DB.QueryContext(ctx, `
+			SELECT item_type, status, COALESCE(handler_agent,''), COALESCE(summary,''),
+			       attempt_count, COALESCE(error,''), updated_at, pipeline
+			FROM site_work_items
+			WHERE site_id = $1::uuid
+			ORDER BY updated_at DESC
+			LIMIT $2`,
+			siteID, wiLimit)
+		if err != nil {
+			return nil, fmt.Errorf("diagnose_load_runtime: query site_work_items: %w", err)
+		}
+		wiCount := 0
+		for wiRows.Next() {
+			var itype, status, handler, summary, errtxt, pipeline string
+			var attempts int
+			var updated string
+			if err := wiRows.Scan(&itype, &status, &handler, &summary, &attempts, &errtxt, &updated, &pipeline); err != nil {
+				wiRows.Close()
+				return nil, fmt.Errorf("diagnose_load_runtime: scan site_work_items: %w", err)
+			}
+			fmt.Fprintf(&b, "- [%s] %s/%s status=%s attempts=%d%s — %s\n",
+				updated, pipeline, itype, status, attempts, errSuffix(errtxt), summary)
+			wiCount++
+		}
+		wiRows.Close()
+		if wiCount == 0 {
+			b.WriteString("(no work items for this site)\n")
+		}
+	}
+
+	// ── orchestration_states ─────────────────────────────────────────────────
+	// Real columns: status, current_step, error, currently_executing,
+	// updated_at, correlation_id, site_id. Filter by correlation_id (precise) or
+	// site_id; surface status + current_step + error (where a run stalled/failed).
+	b.WriteString("\n### orchestration_states\n\n")
+	osRows, err := params.DB.QueryContext(ctx, `
+		SELECT orchestration_name, status, current_step,
+		       COALESCE(error,''), COALESCE(currently_executing,''), updated_at
+		FROM orchestration_states
+		WHERE ($1::uuid IS NULL OR correlation_id = $1::uuid)
+		  AND ($2::uuid IS NULL OR site_id = $2::uuid)
+		ORDER BY updated_at DESC
+		LIMIT 20`,
+		nullUUID(correlationID), nullUUID(siteID))
+	if err != nil {
+		return nil, fmt.Errorf("diagnose_load_runtime: query orchestration_states: %w", err)
+	}
+	osCount := 0
+	for osRows.Next() {
+		var name, status, step, errtxt, executing, updated string
+		if err := osRows.Scan(&name, &status, &step, &errtxt, &executing, &updated); err != nil {
+			osRows.Close()
+			return nil, fmt.Errorf("diagnose_load_runtime: scan orchestration_states: %w", err)
+		}
+		fmt.Fprintf(&b, "- [%s] %s status=%s step=%s exec=%s%s\n",
+			updated, name, status, step, executing, errSuffix(errtxt))
+		osCount++
+	}
+	osRows.Close()
+	if osCount == 0 {
+		b.WriteString("(no orchestration rows for this correlation/site)\n")
+	}
+
+	// ── model-written data requests (read-only, the §1a DB-following channel) ──
+	// On loop-back the previous verdict's data_requests are forwarded by
+	// diagnose_route into route.data_requests, and the loop returns HERE (the
+	// workflow's gather_step = load_runtime). Each is run under a READ ONLY
+	// transaction with a statement_timeout and appended.
+	//
+	// SELECT-only is enforced at THREE layers (defence in depth):
+	//   1. the verdict prompt instructs a single read-only SELECT/WITH … SELECT only;
+	//   2. the model's text is FILTERED twice through diagnose.IsReadOnlySQL — first at
+	//      the route layer (diagnose_route reads data_requests from the verdict wire and
+	//      drops non-read-only ones) and again here in runDataRequests before execution;
+	//   3. the read-only transaction (BeginTx ReadOnly) is the REAL guarantee — it
+	//      rejects any write (incl. data-modifying CTEs) regardless of the lint.
+	// Empty on the first iteration.
+	dataReqField := datahelpers.GetStringField(config, "data_requests_field", "route.data_requests")
+	dataReqs := dataRequestsFromCollected(params.CollectedData, dataReqField)
+	if len(dataReqs) > 0 {
+		b.WriteString("\n### data_requests (model-written, read-only)\n")
+		runDataRequests(ctx, params.DB, dataReqs, &b, maxRows, maxCost, rowCap, cellChars)
+	}
+
+	// ── schema (live tables) ──────────────────────────────────────────────────
+	// So the verdict names REAL tables/columns instead of guessing (the gamesdesign
+	// loop burned iterations on a non-existent "page_sections"). DENYLIST-driven, so
+	// tables added later appear automatically; an optional relevance include keeps
+	// the listing focused unless schema_full is set. Its OWN field; the assembler
+	// renders it as a "## Schema" section.
+	schemaExclude := configStringSlice(config, "schema_exclude_patterns", defaultSchemaExclude)
+	schemaInclude := configStringSlice(config, "schema_include_patterns", defaultSchemaInclude)
+	schemaFull, _ := config["schema_full"].(bool)
+	schemaTableCap := datahelpers.GetIntField(config, "schema_table_cap", 120)
+	schemaText, schErr := gatherSchema(ctx, params.DB, schemaExclude, schemaInclude, schemaFull, schemaTableCap)
+	if schErr != nil {
+		// Non-fatal: a missing schema section must not abort the diagnosis. Surface
+		// it in-band so the trail shows the section was attempted.
+		schemaText = fmt.Sprintf("(schema introspection failed: %v)\n", schErr)
+		logger.Warn("diagnose_load_runtime: schema introspection failed", zap.Error(schErr))
+	}
+
+	logger.Info("diagnose_load_runtime: gathered runtime evidence",
+		zap.String("site_id", siteID),
+		zap.String("correlation_id", correlationID),
+		zap.String("domain", domain),
+		zap.Int("error_rows", errCount),
+		zap.Int("data_requests", len(dataReqs)),
+		zap.Bool("schema_full", schemaFull))
+
+	// Returned under "runtime_evidence" + "schema" — both read by diagnose_assemble_bundle.
+	return map[string]interface{}{
+		"runtime_evidence": b.String(),
+		"schema":           schemaText,
+		"error_rows":       errCount,
+	}, nil
+}
+
+// nullUUID / nullText pass a typed NULL when the value is empty, so the
+// "($1 IS NULL OR col = $1)" filters degrade cleanly to "no filter".
+//
+// PRE-MERGE (dev guide: grep before adding helpers): nullUUID / nullText /
+// errSuffix are generic names that may ALREADY exist in package actions or in
+// datahelpers. Before merging, run:
+//
+//	grep -rn "func nullUUID\|func nullText\|func errSuffix" platform/orchestration/actions/
+//	grep -rn "NullUUID\|NullText" platform/orchestration/actions/datahelpers/
+//
+// If an equivalent exists, delete these and use it (or move these to helpers.go).
+// Do NOT introduce a second copy.
+func nullUUID(s string) interface{} {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return s
+}
+func nullText(s string) interface{} {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return s
+}
+func errSuffix(e string) string {
+	if e == "" {
+		return ""
+	}
+	return " error=" + e
+}
+
+// dataReq is a single model-written read query and the reason the verdict wants
+// it. The verdict step already linted these (Guard 2 at toVerdict) and dropped
+// the unsafe ones; we re-lint here as defence in depth and run them read-only.
+type dataReq struct{ SQL, Why string }
+
+// dataRequestsFromCollected pulls the verdict's data_requests out of
+// collected_data at `field` ([]{sql,why}). PRE-MERGE: confirm the wire keys
+// against docs/PROMPT_diagnosis_verdict.md and VerdictWire's json tags — they are
+// "sql"/"why" here; adjust if the prompt schema differs.
+func dataRequestsFromCollected(collected map[string]interface{}, field string) []dataReq {
+	raw := datahelpers.ExtractNestedField(collected, field)
+	arr, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	var out []dataReq
+	for _, it := range arr {
+		m, ok := it.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		q, _ := m["sql"].(string)
+		why, _ := m["why"].(string)
+		if strings.TrimSpace(q) != "" {
+			out = append(out, dataReq{SQL: q, Why: why})
+		}
+	}
+	return out
+}
+
+// runDataRequests runs each request in a READ ONLY transaction with a
+// statement_timeout, appending the rows to `into`. params.DB is *sql.DB;
+// pgbouncer pool_mode = transaction. Reads only; defer Rollback; never commits.
+// (Guard 3 is the real guarantee; the IsReadOnlySQL lint is Guard 2 in depth.)
+func runDataRequests(ctx context.Context, db *sql.DB, reqs []dataReq, into *strings.Builder, maxRows, maxCost, rowCap, cellChars int) {
+	for _, r := range reqs {
+		if err := diagnose.IsReadOnlySQL(r.SQL); err != nil {
+			fmt.Fprintf(into, "\n> data_request skipped (lint): %v\n> %s\n", err, r.Why)
+			continue
+		}
+		tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+		if err != nil {
+			fmt.Fprintf(into, "\n> data_request tx error: %v\n", err)
+			continue
+		}
+		func() {
+			defer tx.Rollback() // this path never commits
+			if _, err := tx.ExecContext(ctx, "SET LOCAL statement_timeout = '15s'"); err != nil {
+				fmt.Fprintf(into, "\n> statement_timeout error: %v\n", err)
+				return
+			}
+			// Pre-flight size guard: EXPLAIN (no ANALYZE) PLANS but does not run the
+			// query. Reject one the planner estimates will be huge or need a heavy
+			// (often unindexed) scan BEFORE executing it. A skip is feedback — the
+			// model narrows the query next iteration (a NEW data_request = progress).
+			estRows, cost, perr := explainEstimate(ctx, tx, r.SQL)
+			if perr != nil {
+				fmt.Fprintf(into, "\n> data_request EXPLAIN error: %v\n> %s\n", perr, r.Why)
+				return
+			}
+			if (maxRows > 0 && estRows > float64(maxRows)) || (maxCost > 0 && cost > float64(maxCost)) {
+				fmt.Fprintf(into, "\n> data_request skipped (planner estimate ~%.0f rows, cost %.0f; budget rows=%d cost=%d). Narrow it with a tighter WHERE or add a LIMIT.\n> %s\n",
+					estRows, cost, maxRows, maxCost, r.Why)
+				return
+			}
+			rows, err := tx.QueryContext(ctx, r.SQL)
+			if err != nil {
+				fmt.Fprintf(into, "\n> data_request error: %v\n> %s\n", err, r.Why)
+				return
+			}
+			defer rows.Close()
+			text, capped, err := formatRowsText(rows, rowCap, cellChars)
+			if err != nil {
+				fmt.Fprintf(into, "\n> data_request scan error: %v\n", err)
+				return
+			}
+			capNote := ""
+			if capped {
+				capNote = fmt.Sprintf(" (output capped: <=%d rows, <=%d chars/cell)", rowCap, cellChars)
+			}
+			fmt.Fprintf(into, "\n#### %s%s\n\n```\n%s```\n", r.Why, capNote, text)
+		}()
+	}
+}
+
+// formatRowsText renders arbitrary result rows (unknown columns) as a header +
+// pipe-separated rows. PRE-MERGE: grep the actions/maintenance code for an
+// existing generic row->text helper before keeping this:
+//
+//	grep -rn "func formatRows\|rows.Columns()" platform/orchestration/actions/
+//
+// If one exists, use it and delete this; do NOT add a second copy.
+func formatRowsText(rows *sql.Rows, rowCap, cellChars int) (text string, capped bool, err error) {
+	cols, err := rows.Columns()
+	if err != nil {
+		return "", false, err
+	}
+	var sb strings.Builder
+	sb.WriteString(strings.Join(cols, " | "))
+	sb.WriteString("\n")
+	vals := make([]interface{}, len(cols))
+	ptrs := make([]interface{}, len(cols))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	n := 0
+	for rows.Next() {
+		if rowCap > 0 && n >= rowCap {
+			capped = true
+			break
+		}
+		if err := rows.Scan(ptrs...); err != nil {
+			return "", capped, err
+		}
+		cells := make([]string, len(cols))
+		for i, v := range vals {
+			cells[i] = truncateCell(cellToString(v), cellChars)
+		}
+		sb.WriteString(strings.Join(cells, " | "))
+		sb.WriteString("\n")
+		n++
+	}
+	if n == 0 {
+		sb.WriteString("(0 rows)\n")
+	}
+	if capped {
+		fmt.Fprintf(&sb, "… (capped at %d rows)\n", rowCap)
+	}
+	return sb.String(), capped, rows.Err()
+}
+
+func cellToString(v interface{}) string {
+	switch t := v.(type) {
+	case nil:
+		return "NULL"
+	case []byte:
+		return string(t)
+	default:
+		return fmt.Sprintf("%v", t)
+	}
+}
+
+// ── schema-section + data_request size-guard helpers ─────────────────────────
+// PRE-MERGE (dev guide: grep before adding helpers): dashIfEmpty, compactType,
+// truncateCell, configStringSlice, gatherSchema, explainEstimate are generic
+// names — grep package actions + datahelpers and delete any that already exist:
+//   grep -rn "func dashIfEmpty\|func compactType\|func truncateCell\|func configStringSlice" platform/orchestration/actions/
+
+// dashIfEmpty renders "-" for an empty identifier in the target header.
+func dashIfEmpty(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
+
+// defaultSchema{Exclude,Include} back the schema_{exclude,include}_patterns config
+// keys. Denylist so tables added later appear automatically; the include keeps the
+// listing to the build/content domain unless schema_full is set.
+var defaultSchemaExclude = []string{"%backup%", "%bak%", "%archive%", "%supersede%"}
+var defaultSchemaInclude = []string{"site%", "page%", "content%", "flow%"}
+
+// configStringSlice reads a []string from config[key] (a JSON array of strings in
+// the step config), returning def if absent/empty/wrong-typed.
+func configStringSlice(config map[string]interface{}, key string, def []string) []string {
+	raw, ok := config[key]
+	if !ok {
+		return def
+	}
+	arr, ok := raw.([]interface{})
+	if !ok {
+		return def
+	}
+	out := make([]string, 0, len(arr))
+	for _, v := range arr {
+		if str, ok := v.(string); ok && strings.TrimSpace(str) != "" {
+			out = append(out, str)
+		}
+	}
+	if len(out) == 0 {
+		return def
+	}
+	return out
+}
+
+// gatherSchema returns a compact "table(col type, …)" listing of the LIVE public
+// tables, so the verdict names real tables/columns instead of guessing. READ-ONLY
+// (information_schema only). DENYLIST-driven via `exclude` (NOT ILIKE, patterns
+// bound as parameters — injection-safe), so newly-added tables appear without
+// editing a list. When !full an `include` relevance filter (ILIKE ANY) keeps the
+// listing focused. Capped at tableCap tables.
+func gatherSchema(ctx context.Context, db *sql.DB, exclude, include []string, full bool, tableCap int) (string, error) {
+	conds := []string{"table_schema = 'public'"}
+	args := []interface{}{}
+	n := 1
+	for _, p := range exclude {
+		if strings.TrimSpace(p) == "" {
+			continue
+		}
+		conds = append(conds, fmt.Sprintf("table_name NOT ILIKE $%d", n))
+		args = append(args, p)
+		n++
+	}
+	if !full && len(include) > 0 {
+		var ors []string
+		for _, p := range include {
+			if strings.TrimSpace(p) == "" {
+				continue
+			}
+			ors = append(ors, fmt.Sprintf("table_name ILIKE $%d", n))
+			args = append(args, p)
+			n++
+		}
+		if len(ors) > 0 {
+			conds = append(conds, "("+strings.Join(ors, " OR ")+")")
+		}
+	}
+	query := "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE " +
+		strings.Join(conds, " AND ") + " ORDER BY table_name, ordinal_position"
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var sb strings.Builder
+	cur := ""
+	var cols []string
+	tables := 0
+	flush := func() {
+		if cur == "" {
+			return
+		}
+		fmt.Fprintf(&sb, "%s(%s)\n", cur, strings.Join(cols, ", "))
+	}
+	for rows.Next() {
+		var t, c, dt string
+		if err := rows.Scan(&t, &c, &dt); err != nil {
+			return "", err
+		}
+		if t != cur {
+			flush()
+			if tableCap > 0 && tables >= tableCap {
+				sb.WriteString("… (schema truncated; raise schema_table_cap or narrow the relevance include)\n")
+				cur = ""
+				break
+			}
+			cur = t
+			cols = cols[:0]
+			tables++
+		}
+		cols = append(cols, c+" "+compactType(dt))
+	}
+	flush()
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	if tables == 0 {
+		return "(no tables matched the schema filter)\n", nil
+	}
+	return sb.String(), nil
+}
+
+// compactType shortens the verbose information_schema data_type names.
+func compactType(dt string) string {
+	switch dt {
+	case "character varying":
+		return "varchar"
+	case "timestamp with time zone":
+		return "timestamptz"
+	case "timestamp without time zone":
+		return "timestamp"
+	case "double precision":
+		return "float8"
+	default:
+		return dt
+	}
+}
+
+// explainEstimate returns the planner's estimated row count and total cost for a
+// SELECT via EXPLAIN (FORMAT JSON) — which PLANS but does NOT execute the query.
+// A high estimate (or cost, which a missing index inflates) lets runDataRequests
+// reject a query before it runs, rather than waiting on statement_timeout.
+func explainEstimate(ctx context.Context, tx *sql.Tx, query string) (estRows, cost float64, err error) {
+	q := strings.TrimSuffix(strings.TrimSpace(query), ";")
+	var planJSON string
+	if err = tx.QueryRowContext(ctx, "EXPLAIN (FORMAT JSON) "+q).Scan(&planJSON); err != nil {
+		return 0, 0, err
+	}
+	var plans []struct {
+		Plan struct {
+			PlanRows  float64 `json:"Plan Rows"`
+			TotalCost float64 `json:"Total Cost"`
+		} `json:"Plan"`
+	}
+	if err = json.Unmarshal([]byte(planJSON), &plans); err != nil {
+		return 0, 0, fmt.Errorf("parse EXPLAIN json: %w", err)
+	}
+	if len(plans) == 0 {
+		return 0, 0, fmt.Errorf("empty EXPLAIN plan")
+	}
+	return plans[0].Plan.PlanRows, plans[0].Plan.TotalCost, nil
+}
+
+// truncateCell caps s to max runes (rune-safe, so the bundle never carries a
+// split UTF-8 sequence), appending an ellipsis when it trims.
+func truncateCell(s string, max int) string {
+	if max <= 0 {
+		return s
+	}
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max]) + "…"
+}

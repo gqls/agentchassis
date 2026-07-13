@@ -15,20 +15,18 @@ observability:
 
 infrastructure:
   kafka_brokers:
-    - "kafka-0.kafka-headless:9092"
-    - "kafka-1.kafka-headless:9092"
-    - "kafka-2.kafka-headless:9092"
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
   
   clients_database:
-    host: "postgres-clients.database.svc.cluster.local"
-    port: 5432
+    host: "pgbouncer.ai-persona-system.svc.cluster.local"
+    port: 6432
     user: "clients_user"
     password_env_var: "CLIENTS_DB_PASSWORD"
     db_name: "clients_db"
     sslmode: "disable"
   
   templates_database:
-    host: "postgres-templates.database.svc.cluster.local"
+    host: "postgres-templates.ai-persona-system.svc.cluster.local"
     port: 5432
     user: "templates_user"
     password_env_var: "TEMPLATES_DB_PASSWORD"

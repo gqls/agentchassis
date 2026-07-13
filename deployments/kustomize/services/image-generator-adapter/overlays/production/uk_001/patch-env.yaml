@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-generator-adapter
+spec:
+  template:
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: image-generator-adapter
+          env:
+            - name: KAFKA_BROKERS
+              value: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+            - name: STABILITY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: STABILITY_API_KEY
+            - name: STABILITY_API_ENDPOINT
+              value: "https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image"
+
+            # Phase 2I — Banana (Gemini Image) provider for icon routing.
+            # BANANA_API_KEY must exist in personae-default-secrets; add via:
+            #   kubectl -n ai-persona-system patch secret personae-default-secrets \
+            #     --patch='{"stringData":{"BANANA_API_KEY":"AIza..."}}'
+            # Get the key from https://aistudio.google.com/app/apikey
+            - name: BANANA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: BANANA_API_KEY
+            # Model tier — Pro recommended for icons (best instruction-following).
+            # Alternatives: gemini-2.5-flash-image, gemini-3.1-flash-image-preview
+            - name: BANANA_DEFAULT_MODEL
+              value: "gemini-3-pro-image-preview"
+
+            - name: S3_ENDPOINT
+              value: "https://s3.us-east-005.backblazeb2.com"
+            - name: S3_REGION
+              value: "us-east-005"
+            - name: IMAGE_BUCKET
+              value: "personae-prod-uk001-images"
+            - name: S3_USE_PATH_STYLE
+              value: "false"
+            - name: B2_APPLICATION_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY_ID
+            - name: B2_APPLICATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY
+
+          envFrom:
+            # B2/S3 credentials
+            - secretRef:
+                name: personae-storage-secrets
+            # Load storage config
+            - configMapRef:
+                name: storage-config
+            # Keep existing configmap
+            - configMapRef:
+                name: personae-prod-config

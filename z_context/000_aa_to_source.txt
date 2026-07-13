@@ -1,0 +1,94 @@
+\pset pager off
+
+SELECT count(*), source, status FROM site_work_items GROUP BY source, status;
+SELECT * FROM site_work_items LIMIT 1;
+SELECT * FROM maintenance_queue LIMIT 1;
+
+
+include some initial messages
+
+and the registry (again)
+
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t agent_definitions > bk_agent_definitions_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t site_assets > bk_site_assets_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t site_work_items > bk_site_work_items_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t page_components > bk_page_components_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t assets > bk_assets_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t pages > bk_pages_backup.sql
+kubectl -n ai-persona-system exec -it postgres-clients-0 -- pg_dump -U clients_user -d clients_db -t site_components > bk_site_components_backup.sql
+
+
+Agent Orchestration Architecture
+Problem Statement
+
+
+The current objective/problem is to develop a tool that can build a sophisticated website with appropriate and targeted design and content that is most appropriate for the industry and objectives of the site. The site build might be initiated with a domain name from which the ultimate website and content would be created. Eventually it will find and parse the best examples of the industry vertical with the same objectives, interrogate these sites and use the various successful elements including content, design, positioning, and so on - not necessarily by direct copy but by understanding the reasons for the success and building on those. It will add pertinent tools, blog posts, news and features from parsing, interpreting, reasoning with and concluding from what's happening in the wider world for that vertical. It will show interactive useful graphs and infographics. All the while looking to do what is interesting and what is best for the users of the site.
+
+We are trying to get our system to intelligently plan and build multipage websites given domain names
+
+
+I would like to closely log and track the creation of agents, the messages (with headers and body) that are passed between agents. We try to follow the agent creation guidelines which is in a document in the repository.
+
+
+I'd like to break it down into several sections, with separate agents concentrating on each section. We'd like agents to have distinct responsibilities overlapping as little as possible. We can do detailed prompts for each section and we can, if we want to, spawn sub agents for e.g. research before writing the content.
+
+We're using groups of workflows for the tasks. Agents should always respond to the responses topic of the caller (their parent) and not to their own responses topic.
+
+Please always work in reasonable step sizes at a time and think hard.
+
+Please always check the schema of databases before writing sql.
+
+Please prioritise fixing structural issues above quick fixes.
+
+Please keep in mind the flow of work at all times and phrase your responses in this context including the function calls that lead up to the problem sometimes, so I can understand what's going on.
+
+Please don't jump to conclusions.
+
+Please don't create summary documents unless asked for, instead, moderately brief summaries at the end as you usually do will suffice.
+
+Please don't say that any fixes are the final or last fixes. Don't use the words perfect, critical or excellent.
+
+Please don't congratulate me but keep everything pragmatic and focused on the continuous debugging tasks we have ahead of us. Please don't keep saying excellent choice when it probably isn't.
+
+Every agent is an orchestrator.
+
+Always look through existing code and see if we have similar functions or structs that already exist and that can be improved before creating new code.
+
+Always look at the database schemas before creating sql
+
+Let's reuse (and alter if necessary) the functions and architecture that we already have before recreating similar structures. Please think hard about this every time.
+
+Don't create summary documents unless asked
+Keep responses pragmatic, avoid "excellent choice" etc.
+Every agent is an orchestrator
+Reuse existing functions before creating new ones
+
+mainly keep workflows simple and put complexities in golang action code
+keep workflow variable names in sync with what the actions expect
+try not to create subworkflows in the sql, rather, spawn sub agents with their own workflows. This keeps logs clear, maintenance easier and responsibilities separate.
+
+double check that you haven't changed any variable names from the current code, except for where you explicitly mean to and even then make a note that you have.
+
+don't use logger.Debug as this won't show in the logs.
+
+the kubernetes main namespace is -n ai-persona-system
+e.g. kubectl -n ai-persona-system get pods
+or
+kubectl -n kafka get pods
+
+e.g.
+kubectl -n kafka get pods
+NAME                                                      READY   STATUS    RESTARTS         AGE
+personae-kafka-cluster-combined-pool-prod-0               1/1     Running   0                5d17h
+personae-kafka-cluster-combined-pool-prod-1               1/1     Running   0                5d17h
+personae-kafka-cluster-combined-pool-prod-2               1/1     Running   0                5d17h
+personae-kafka-cluster-entity-operator-5dfd87f6f4-7kpv4   2/2     Running   12 (5d17h ago)   5d18h
+
+note the cluster names.
+
+
+the deployment is to github (or other future adapter) and github actions triggers a write to backblaze s3.
+
+please read and follow the guidelines documents
+
+

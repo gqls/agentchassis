@@ -1,0 +1,290 @@
+clients_db=# -- 1. The in-flight attempt (986c106f) — did it complete, and did IT do anything?
+SELECT item_key, status, completed_at, substring(COALESCE(error,''),1,200) AS err
+FROM site_work_items
+WHERE item_key LIKE 'manual-build-provocations-986c106f%';
+
+SELECT build_status, last_built_at FROM pages
+WHERE id = 'e4b3b195-919f-45ad-854e-201d3e846ea8';
+SELECT COUNT(*) AS pc_rows FROM page_components
+WHERE page_id = 'e4b3b195-919f-45ad-854e-201d3e846ea8';
+
+-- 2. DECISIVE — where the workflow stopped: response keys, healthy vs no-op, side by side
+SELECT 'healthy_index' AS run, jsonb_object_keys(result->'response') AS key
+FROM site_work_items
+WHERE item_key = 'manual-rebuild-index-05251582-0043-4d61-a7a4-ee0ba7d9ffff'
+UNION ALL
+SELECT 'noop_provocations', jsonb_object_keys(result->'response')
+FROM site_work_items
+WHERE item_key = 'manual-build-provocations-448ee097-6748-4cc8-8f31-542170e6fde0';
+
+-- 3. The workflow's branch config (what does load_page_record's not-found path do,
+--    and which fields does complete_workflow emit?)
+SELECT jsonb_pretty(default_config->'workflow')
+FROM agent_definitions
+WHERE type = 'page-build-handler' AND is_active = true;
+
+-- 4. The B query that errored on my typo, now with the correct id
+SELECT name, sections FROM pages
+WHERE id IN ('b4d24f8e-fccd-49df-9dad-aa56a0b20a68',
+             'e4b3b195-919f-45ad-854e-201d3e846ea8');
+                            item_key                            |  status  |         completed_at          | err
+----------------------------------------------------------------+----------+-------------------------------+-----
+ manual-build-provocations-986c106f-b26a-41ba-8c3b-eec6463e9c79 | complete | 2026-07-06 15:42:51.947524+00 |
+(1 row)
+
+ build_status | last_built_at
+--------------+---------------
+ planned      |
+(1 row)
+
+ pc_rows
+---------
+       0
+(1 row)
+
+        run        |       key
+-------------------+------------------
+ healthy_index     | completed_at
+ healthy_index     | deploy_result
+ healthy_index     | sections_saved
+ healthy_index     | completed_steps
+ healthy_index     | orchestration_id
+ noop_provocations | site_record
+(6 rows)
+
+                                                    jsonb_pretty
+--------------------------------------------------------------------------------------------------------------------
+ {                                                                                                                 +
+     "steps": {                                                                                                    +
+         "complete": {                                                                                             +
+             "action": "complete_workflow",                                                                        +
+             "config": {                                                                                           +
+                 "output_fields": [                                                                                +
+                     "sections_saved",                                                                             +
+                     "deploy_result"                                                                               +
+                 ]                                                                                                 +
+             },                                                                                                    +
+             "description": "Page build complete"                                                                  +
+         },                                                                                                        +
+         "deploy_page": {                                                                                          +
+             "action": "call_agent",                                                                               +
+             "config": {                                                                                           +
+                 "error_step": "complete_error",                                                                   +
+                 "target_role": "page_renderer",                                                                   +
+                 "input_mapping": {                                                                                +
+                     "domain": "site_record.domain",                                                               +
+                     "page_id": "page_record.id",                                                                  +
+                     "site_id": "site_record.site_id"                                                              +
+                 },                                                                                                +
+                 "timeout_seconds": 120                                                                            +
+             },                                                                                                    +
+             "next_step": "complete",                                                                              +
+             "error_step": "complete_error",                                                                       +
+             "description": "Assemble page from stored components and deploy to git",                              +
+             "output_field": "deploy_result"                                                                       +
+         },                                                                                                        +
+         "plan_sections": {                                                                                        +
+             "action": "plan_sections",                                                                            +
+             "config": {                                                                                           +
+                 "domain": "site_record.domain",                                                                   +
+                 "site_id": "site_record.site_id",                                                                 +
+                 "sections": "spec_sections.sections",                                                             +
+                 "page_name": "page_record.name",                                                                  +
+                 "error_step": "complete_error",                                                                   +
+                 "work_item_id": "input_data.work_item_id"                                                         +
+             },                                                                                                    +
+             "next_step": "check_has_ready_sections",                                                              +
+             "error_step": "complete_error",                                                                       +
+             "description": "Check data availability for each section, triage readiness",                          +
+             "output_field": "section_plan"                                                                        +
+         },                                                                                                        +
+         "save_sections": {                                                                                        +
+             "action": "save_page_sections",                                                                       +
+             "config": {                                                                                           +
+                 "error_step": "complete_error",                                                                   +
+                 "html_field": "validation_result.clean_html",                                                     +
+                 "site_id_field": "site_record.site_id",                                                           +
+                 "page_name_field": "input_data.spec.page_name",                                                   +
+                 "sections_metadata_field": "page_content.response.sections_metadata"                              +
+             },                                                                                                    +
+             "next_step": "update_status",                                                                         +
+             "error_step": "complete_error",                                                                       +
+             "description": "Persist generated sections to page_components",                                       +
+             "output_field": "sections_saved"                                                                      +
+         },                                                                                                        +
+         "update_status": {                                                                                        +
+             "action": "update_page_status",                                                                       +
+             "config": {                                                                                           +
+                 "status": "deployed",                                                                             +
+                 "site_id_field": "site_record.site_id",                                                           +
+                 "page_name_field": "input_data.spec.page_name"                                                    +
+             },                                                                                                    +
+             "next_step": "spawn_rerender_agent",                                                                  +
+             "description": "Mark page as deployed",                                                               +
+             "output_field": "status_updated"                                                                      +
+         },                                                                                                        +
+         "complete_error": {                                                                                       +
+             "action": "complete_workflow",                                                                        +
+             "config": {                                                                                           +
+                 "output_fields": [                                                                                +
+                     "page_content",                                                                               +
+                     "site_record"                                                                                 +
+                 ],                                                                                                +
+                 "success_message": "Content writer skipped — page has no sections defined"                        +
+             },                                                                                                    +
+             "description": "Page build completed with errors"                                                     +
+         },                                                                                                        +
+         "check_page_found": {                                                                                     +
+             "action": "conditional",                                                                              +
+             "config": {                                                                                           +
+                 "condition": "page_record.found == true",                                                         +
+                 "else_step": "complete_error",                                                                    +
+                 "then_step": "load_existing_content"                                                              +
+             },                                                                                                    +
+             "description": "Check if page exists in DB — audit findings for new pages will skip here"             +
+         },                                                                                                        +
+         "load_page_record": {                                                                                     +
+             "action": "load_page_record",                                                                         +
+             "config": {                                                                                           +
+                 "page_id": "input_data.spec.page_id",                                                             +
+                 "site_id": "site_record.site_id",                                                                 +
+                 "page_name": "input_data.spec.page_name"                                                          +
+             },                                                                                                    +
+             "next_step": "check_page_found",                                                                      +
+             "description": "Load page record from DB — sections, title, page_type",                               +
+             "output_field": "page_record"                                                                         +
+         },                                                                                                        +
+         "validate_content": {                                                                                     +
+             "action": "validate_page_content",                                                                    +
+             "config": {                                                                                           +
+                 "domain": "site_record.domain",                                                                   +
+                 "error_step": "mark_needs_review",                                                                +
+                 "html_field": "page_content.response.page_html"                                                   +
+             },                                                                                                    +
+             "next_step": "save_sections",                                                                         +
+             "error_step": "mark_needs_review",                                                                    +
+             "description": "Check for placeholders, unrendered templates, cross-site contamination",              +
+             "output_field": "validation_result"                                                                   +
+         },                                                                                                        +
+         "mark_needs_review": {                                                                                    +
+             "action": "fail_work_item",                                                                           +
+             "config": {                                                                                           +
+                 "work_item_id": "input_data.work_item_id",                                                        +
+                 "error_message": "Content validation failed — needs human review",                                +
+                 "status_override": "needs_human_review"                                                           +
+             },                                                                                                    +
+             "next_step": "complete_error",                                                                        +
+             "description": "Mark work item for human review when content has placeholder or contamination issues",+
+             "output_field": "review_result"                                                                       +
+         },                                                                                                        +
+         "ensure_site_record": {                                                                                   +
+             "action": "ensure_site_record",                                                                       +
+             "config": {                                                                                           +
+                 "store_brief_in_content_data": false                                                              +
+             },                                                                                                    +
+             "next_step": "load_page_record",                                                                      +
+             "description": "Load site record for context",                                                        +
+             "output_field": "site_record"                                                                         +
+         },                                                                                                        +
+         "load_spec_sections": {                                                                                   +
+             "action": "load_page_sections_from_spec",                                                             +
+             "config": {                                                                                           +
+                 "site_id": "site_record.site_id",                                                                 +
+                 "page_name": "page_record.name",                                                                  +
+                 "error_step": "plan_sections",                                                                    +
+                 "page_sections_fallback": "page_record.sections"                                                  +
+             },                                                                                                    +
+             "next_step": "plan_sections",                                                                         +
+             "error_step": "plan_sections",                                                                        +
+             "description": "Load sections from site_specs.site_plan (authoritative), fall back to pages.sections",+
+             "output_field": "spec_sections"                                                                       +
+         },                                                                                                        +
+         "call_content_writer": {                                                                                  +
+             "action": "call_agent",                                                                               +
+             "config": {                                                                                           +
+                 "error_step": "complete_error",                                                                   +
+                 "target_role": "content_writer",                                                                  +
+                 "input_mapping": {                                                                                +
+                     "domain": "site_record.domain",                                                               +
+                     "site_id": "site_record.site_id",                                                             +
+                     "site_plan": "site_record.content_data",                                                      +
+                     "build_mode?": "input_data.spec.mode",                                                        +
+                     "site_record": "site_record",                                                                 +
+                     "current_page": "page_record",                                                                +
+                     "section_plan": "section_plan",                                                               +
+                     "reviewed_brief?": "site_record.content_data.reviewed_brief",                                 +
+                     "existing_content?": "existing_content",                                                      +
+                     "rewrite_guidance?": "input_data.spec.suggestion"                                             +
+                 },                                                                                                +
+                 "timeout_seconds": 1200                                                                           +
+             },                                                                                                    +
+             "next_step": "check_content_produced",                                                                +
+             "error_step": "complete_error",                                                                       +
+             "description": "Call page-content-writer to generate content",                                        +
+             "output_field": "page_content"                                                                        +
+         },                                                                                                        +
+         "spawn_content_writer": {                                                                                 +
+             "action": "spawn_agent",                                                                              +
+             "config": {                                                                                           +
+                 "role": "content_writer",                                                                         +
+                 "agent_type": "page-content-writer"                                                               +
+             },                                                                                                    +
+             "next_step": "call_content_writer",                                                                   +
+             "description": "Spawn page-content-writer specialist",                                                +
+             "output_field": "writer_agent"                                                                        +
+         },                                                                                                        +
+         "spawn_rerender_agent": {                                                                                 +
+             "action": "spawn_agent",                                                                              +
+             "config": {                                                                                           +
+                 "role": "page_renderer",                                                                          +
+                 "agent_type": "page-rerender"                                                                     +
+             },                                                                                                    +
+             "next_step": "deploy_page",                                                                           +
+             "description": "Spawn page-rerender for assembly and deploy",                                         +
+             "output_field": "rerender_agent"                                                                      +
+         },                                                                                                        +
+         "load_existing_content": {                                                                                +
+             "action": "load_existing_content",                                                                    +
+             "config": {                                                                                           +
+                 "mode": "input_data.spec.mode",                                                                   +
+                 "page_id": "page_record.id",                                                                      +
+                 "site_id": "site_record.site_id",                                                                 +
+                 "page_name": "page_record.name",                                                                  +
+                 "error_step": "load_spec_sections"                                                                +
+             },                                                                                                    +
+             "next_step": "load_spec_sections",                                                                    +
+             "error_step": "load_spec_sections",                                                                   +
+             "description": "Load existing page content from adoption crawl if mode is recreate",                  +
+             "output_field": "existing_content"                                                                    +
+         },                                                                                                        +
+         "check_content_produced": {                                                                               +
+             "action": "conditional",                                                                              +
+             "config": {                                                                                           +
+                 "condition": "page_content.response.skipped != true",                                             +
+                 "else_step": "complete_error",                                                                    +
+                 "then_step": "validate_content"                                                                   +
+             },                                                                                                    +
+             "description": "Check if content writer produced content or skipped"                                  +
+         },                                                                                                        +
+         "check_has_ready_sections": {                                                                             +
+             "action": "conditional",                                                                              +
+             "config": {                                                                                           +
+                 "condition": "section_plan.ready_count > 0",                                                      +
+                 "else_step": "complete_error",                                                                    +
+                 "then_step": "spawn_content_writer"                                                               +
+             },                                                                                                    +
+             "description": "If no sections are ready (all deferred or skipped), skip content generation"          +
+         }                                                                                                         +
+     },                                                                                                            +
+     "start_step": "ensure_site_record",                                                                           +
+     "processing_mode": "orchestrator",                                                                            +
+     "timeout_seconds": 1800                                                                                       +
+ }
+(1 row)
+
+        name        |                                            sections
+--------------------+-------------------------------------------------------------------------------------------------
+ provocations-index | []
+ index              | ["hero", "provocation-card", "gauntlet-cta", "brief-explanation", "lobby-grid", "system-stats"]
+(2 rows)
+

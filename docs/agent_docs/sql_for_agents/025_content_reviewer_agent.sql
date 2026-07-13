@@ -1,0 +1,468 @@
+-- ============================================================================
+-- Add Input Contracts to Existing Agents
+-- ============================================================================
+-- These contracts define what each agent expects to receive.
+-- Contract validation will fail fast with clear error messages when required
+-- fields are missing.
+-- ============================================================================
+
+-- content-reviewer
+-- Reviews content, may involve HITL
+UPDATE agent_definitions
+SET input_contract = '{
+    "required": ["current_page", "page_content"],
+    "optional": ["reviewed_brief"]
+}'::jsonb,
+    output_contract = '{
+    "produces": ["review_result", "approved", "feedback"]
+}'::jsonb
+WHERE type = 'content-reviewer';
+
+----
+
+-- add review code
+
+-- Update Content-Reviewer to validate links and emails
+--
+-- Adds a validation step that runs BEFORE review mode determination.
+-- Validation issues are passed to both auto-eval and HITL review.
+--
+-- Flow:
+--   validate_content → determine_review_mode → (auto-eval OR hitl) → complete
+--
+-- Validation checks:
+--   1. Internal links - must point to existing pages in the site
+--   2. Email addresses - must match site's contact_email (warns on mismatch)
+
+-- First, add the new validate_content step
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,validate_content}',
+        '{
+            "action": "validate_page_content",
+            "config": {
+                "html_field": "page_content.response.page_html",
+                "site_id_field": "input_data.site_record.site_id",
+                "check_internal_links": true,
+                "check_emails": true,
+                "pages_from": "input_data.site_plan.pages"
+            },
+            "description": "Check for broken links and incorrect contact info",
+            "next_step": "determine_review_mode",
+            "output_field": "validation_result"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'content-reviewer';
+
+-- Update start_step to validate_content
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,start_step}',
+        '"validate_content"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- Update auto_eval_content to include validation issues in its prompt
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,auto_eval_content,config,input_fields}',
+        '["current_page", "page_content", "reviewed_brief", "validation_result"]'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- Update prepare_hitl_review to include validation issues
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,prepare_hitl_review,config,include_fields}',
+        '["current_page", "page_content", "reviewed_brief", "validation_result"]'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- Update escalate_to_human to show validation issues
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,escalate_to_human,config}',
+        '{
+            "message": "Content review needed for {{current_page.name}}. Please review and fix.",
+            "show_issues": true,
+            "issues_field": "eval_result.issues",
+            "validation_issues_field": "validation_result.issues",
+            "request_type": "review",
+            "timeout_seconds": 3600,
+            "notification_topic": "system.notifications.ui"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- Add conditional to check validation before auto-eval approval
+-- If validation has errors, always escalate to human
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_auto_approval,config,condition}',
+        '"eval_result.approved == true AND eval_result.overall_score >= 0.7 AND (validation_result.error_count == 0 OR validation_result.error_count == null)"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- Verify the changes
+SELECT type, version,
+       default_config->'workflow'->'start_step' as start_step,
+       jsonb_object_keys(default_config->'workflow'->'steps') as step_names
+FROM agent_definitions
+WHERE type = 'content-reviewer';
+
+-- Show the new validation step
+SELECT type,
+       jsonb_pretty(default_config->'workflow'->'steps'->'validate_content') as validate_step
+FROM agent_definitions
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- Also update the auto_eval_content LLM prompt to mention validation
+-- ============================================================
+-- Note: This assumes auto_eval_content uses execute_llm_prompt
+-- The prompt should tell the LLM about any validation issues found
+
+-- Check current auto_eval step config
+SELECT jsonb_pretty(default_config->'workflow'->'steps'->'auto_eval_content')
+FROM agent_definitions WHERE type = 'content-reviewer';
+
+--
+
+-- current backup
+clients_db=# SELECT * FROM agent_definitions WHERE type = 'content-reviewer';
+id                  |       type       |   display_name   |                                                                               description                                                                                |  category  |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       default_config                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | is_active |          created_at           |          updated_at           | deleted_at |                         capabilities                         |       image_repository       | image_tag | command |                                           resources                                            |                                                       topics                                                       |                                            health_config                                            | env_vars | version | previous_version_id | task_workflow | orchestrator_workflow | orchestration_workflow |                delegation_preferences                 | agent_category | status | domain_tags | briefing_questionnaire | usage_count | is_snapshot |                                 input_contract                                 |                     output_contract
+--------------------------------------+------------------+------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------+-------------------------------+-------------------------------+------------+--------------------------------------------------------------+------------------------------+-----------+---------+------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------+----------+---------+---------------------+---------------+-----------------------+------------------------+-------------------------------------------------------+----------------+--------+-------------+------------------------+-------------+-------------+--------------------------------------------------------------------------------+---------------------------------------------------------
+ 0a58cf02-4a9e-4900-9c7e-207622f12247 | content-reviewer | Content Reviewer | Reviews page content for quality, accuracy, and brand alignment. Supports HITL mode (human review with edits) and auto-eval mode (LLM review with auto-approve or flag). | specialist | {"workflow": {"steps": {"complete": {"action": "complete_workflow", "config": {"output": {"edits": "review_result.edits", "issues": "review_result.issues", "content": "review_result.content", "approved": "review_result.approved", "review_mode": "review_result.review_mode", "reviewed_at": "review_result.reviewed_at", "reviewed_by": "review_result.reviewed_by"}}}, "validate_content": {"action": "validate_page_content", "config": {"html_field": "page_content.response.page_html", "pages_from": "input_data.site_plan.pages", "check_emails": true, "site_id_field": "input_data.site_record.site_id", "check_internal_links": true}, "next_step": "determine_review_mode", "description": "Check for broken links and incorrect contact info", "output_field": "validation_result"}, "auto_eval_content": {"action": "execute_llm_prompt", "config": {"ai_service": {"model": "claude-sonnet-4-5", "provider": "anthropic", "max_tokens": 1500, "api_key_env_var": "ANTHROPIC_API_KEY"}, "input_fields": ["current_page", "page_content", "reviewed_brief", "validation_result"], "output_format": "json", "prompt_template": "Review this page content for quality and accuracy.\n\n## Page\nName: {{.current_page.name}}\nTitle: {{.current_page.title}}\n\n## Company Brief\nCompany: {{.reviewed_brief.company_name}}\nIndustry: {{.reviewed_brief.industry}}\nTone: {{.reviewed_brief.tone}}\nServices: {{.reviewed_brief.services}}\n\n## Content to Review\n{{if .page_content.sections}}{{range .page_content.sections}}\n### Section: {{.component_name}}\n{{.rendered_html}}\n{{end}}{{else if .page_content.process_sections_loop_complete}}{{range .page_content.process_sections_loop_complete.results}}\n### Section: {{.component_name}}\n{{.rendered_html}}\n{{end}}{{else if .page_content.processed_sections}}{{range .page_content.processed_sections.results}}\n### Section: {{.component_name}}\n{{.rendered_html}}\n{{end}}{{else}}\n### Full Page HTML\n{{.page_content.compile_page.page_html}}\n{{end}}\n\n## Evaluation Criteria\n1. Accuracy: Does content match the brief? No invented claims?\n2. Completeness: Are all sections filled in properly?\n3. Quality: Professional tone? No placeholder text?\n4. Brand Alignment: Matches company voice and values?\n5. Technical: Valid HTML? Proper structure?\n\n## Return JSON:\n```json\n{\n  \"approved\": true/false,\n  \"overall_score\": 0.0-1.0,\n  \"issues\": [\n    {\n      \"section\": \"hero\",\n      \"severity\": \"error|warning|info\",\n      \"issue\": \"Description of the issue\",\n      \"suggestion\": \"How to fix it\"\n    }\n  ],\n  \"strengths\": [\"Good point 1\", \"Good point 2\"],\n  \"summary\": \"Brief overall assessment\"\n}\n```\n\nApprove if:\n- No errors (warnings are OK)\n- Score >= 0.7\n- No placeholder text detected\n- Content matches brief"}, "next_step": "check_auto_approval", "description": "LLM evaluates content quality and accuracy", "output_field": "eval_result"}, "escalate_to_human": {"action": "request_human_input", "config": {"message": "Content review needed for {{current_page.name}}. Please review and fix.", "show_issues": true, "issues_field": "eval_result.issues", "request_type": "review", "timeout_seconds": 3600, "notification_topic": "system.notifications.ui", "validation_issues_field": "validation_result.issues"}, "next_step": "process_escalation_response", "description": "Escalate to human - auto-eval found issues", "output_field": "escalation_response"}, "check_auto_approval": {"action": "conditional", "config": {"condition": "eval_result.approved == true AND eval_result.overall_score >= 0.7 AND (validation_result.error_count == 0 OR validation_result.error_count == null)", "else_step": "escalate_to_human", "then_step": "finalize_auto_result"}, "description": "Check if auto-eval passed or needs human review"}, "prepare_hitl_review": {"action": "prepare_review_data", "config": {"include_fields": ["current_page", "page_content", "reviewed_brief", "validation_result"], "format_for_display": true}, "next_step": "request_human_review", "description": "Prepare content for human review interface", "output_field": "review_data"}, "finalize_auto_result": {"action": "build_review_result", "config": {"approved": true, "reviewer": "eval-agent", "eval_score": "eval_result.overall_score", "review_mode": "auto-eval"}, "next_step": "update_component_status", "description": "Build result from successful auto-eval", "output_field": "review_result"}, "finalize_hitl_result": {"action": "build_review_result", "config": {"edits_field": "processed_response.edits", "review_mode": "hitl", "approved_field": "processed_response.approved", "reviewer_field": "processed_response.responded_by"}, "next_step": "update_component_status", "description": "Build final result from HITL review", "output_field": "review_result"}, "request_human_review": {"action": "request_human_input", "config": {"message": "Review page content for {{current_page.name}}", "editable": true, "ui_config": {"title": "Content Review", "show_diff": true, "description": "Review and edit page content before publishing", "allow_comments": true}, "data_field": "review_data", "request_type": "review", "stop_on_cancel": false, "timeout_seconds": 3600, "notification_topic": "system.notifications.ui"}, "next_step": "process_human_response", "description": "Send to HITL for human review and editing", "output_field": "human_response"}, "determine_review_mode": {"action": "conditional", "config": {"condition": "(input_data.review_mode == 'hitl' OR review_mode == 'hitl') OR (input_data.require_human_review == true OR require_human_review == true)", "else_step": "auto_eval_content", "then_step": "prepare_hitl_review"}, "description": "Check whether to use HITL or auto-eval"}, "process_human_response": {"action": "process_human_input_response", "config": {"extract_edits": true}, "next_step": "finalize_hitl_result", "description": "Process the human reviewer's response", "output_field": "processed_response"}, "update_component_status": {"action": "update_page_components_status", "config": {"status": "approved", "page_from": "current_page", "reviewed_at_field": "review_result.reviewed_at", "reviewed_by_field": "review_result.reviewed_by"}, "next_step": "complete", "description": "Update page_components build_status and review info", "output_field": "status_updated"}, "finalize_escalation_result": {"action": "build_review_result", "config": {"review_mode": "escalated", "auto_eval_issues": "eval_result.issues"}, "next_step": "update_component_status", "description": "Build result from escalated HITL review", "output_field": "review_result"}, "process_escalation_response": {"action": "process_human_input_response", "config": {"extract_edits": true}, "next_step": "finalize_escalation_result", "description": "Process response from escalated review", "output_field": "escalation_processed"}}, "start_step": "validate_content"}, "processing_mode": "task", "timeout_seconds": 600} | t         | 2025-12-22 17:47:42.958031+00 | 2026-01-30 10:35:35.036532+00 |            | ["content-review", "quality-assurance", "hitl", "auto-eval"] | docker.io/aqls/agent-chassis | v1.0.732  |         | {"limits": {"cpu": "500m", "memory": "512Mi"}, "requests": {"cpu": "100m", "memory": "256Mi"}} | {"error": "system.errors.{type}", "process": "system.agent.{type}.process", "response": "system.responses.{type}"} | {"port": 8080, "liveness_path": "/health", "readiness_path": "/ready", "initial_delay_seconds": 15} | []       |       2 |                     |               |                       |                        | {"fallback_to_self": true, "prefer_delegation": true} |                | active | []          | {}                     |           0 | f           | {"optional": ["reviewed_brief"], "required": ["current_page", "page_content"]} | {"produces": ["review_result", "approved", "feedback"]}
+(1 row)
+
+
+
+-- Update Content-Reviewer to validate links and emails
+--
+-- Adds a validation step that runs BEFORE review mode determination.
+-- Validation issues are passed to both auto-eval and HITL review.
+-- Human can edit HTML to fix issues. Rejection marks page for maintenance.
+--
+-- Flow:
+--   validate_content → determine_review_mode → (auto-eval OR hitl) → check_approval → complete/reject
+--
+-- Validation checks:
+--   1. Internal links - must point to existing pages in the site
+--   2. Email addresses - must match site's contact_email (warns on mismatch)
+
+-- ============================================================
+-- 1. Add validate_content step (runs first)
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,validate_content}',
+        '{
+            "action": "validate_page_content",
+            "config": {
+                "input_fields": ["page_content", "site_record"],
+                "check_internal_links": true,
+                "check_emails": true
+            },
+            "description": "Check for broken links and incorrect contact info",
+            "next_step": "determine_review_mode",
+            "output_field": "validation_result"
+        }'::jsonb
+                     ),
+    version = version + 1,
+    updated_at = NOW()
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 2. Update start_step to validate_content
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,start_step}',
+        '"validate_content"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 3. Update prepare_hitl_review to format issues for display
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,prepare_hitl_review}',
+        '{
+            "action": "prepare_review_data",
+            "config": {
+                "include_fields": ["current_page", "page_content", "reviewed_brief", "validation_result"],
+                "format_for_display": true,
+                "highlight_issues": true,
+                "html_field": "page_content.response.page_html",
+                "issues_field": "validation_result.issues"
+            },
+            "description": "Prepare content for human review with issues highlighted",
+            "next_step": "request_human_review",
+            "output_field": "review_data"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 4. Update request_human_review to allow HTML editing
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,request_human_review}',
+        '{
+            "action": "request_human_input",
+            "config": {
+                "message": "Review page content for {{current_page.name}}",
+                "editable": true,
+                "editable_field": "review_data.html",
+                "request_type": "review",
+                "timeout_seconds": 3600,
+                "stop_on_cancel": false,
+                "notification_topic": "system.notifications.ui",
+                "ui_config": {
+                    "title": "Content Review",
+                    "description": "Review and edit page content before publishing",
+                    "show_diff": true,
+                    "allow_comments": true,
+                    "allow_html_edit": true,
+                    "show_validation_issues": true,
+                    "issues_field": "validation_result.issues",
+                    "actions": ["approve", "approve_with_edits", "reject"]
+                }
+            },
+            "description": "Send to HITL for human review - can edit HTML to fix issues",
+            "next_step": "process_human_response",
+            "output_field": "human_response"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 5. Update process_human_response to extract edits
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,process_human_response}',
+        '{
+            "action": "process_human_input_response",
+            "config": {
+                "extract_edits": true,
+                "edited_html_field": "edited_content",
+                "approval_field": "approved",
+                "rejection_reason_field": "rejection_reason"
+            },
+            "description": "Process human response - extract any HTML edits",
+            "next_step": "check_hitl_approved",
+            "output_field": "processed_response"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 6. Add check_hitl_approved conditional
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_hitl_approved}',
+        '{
+            "action": "conditional",
+            "config": {
+                "condition": "processed_response.approved == true",
+                "then_step": "finalize_hitl_result",
+                "else_step": "handle_rejection"
+            },
+            "description": "Check if human approved or rejected"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 7. Update finalize_hitl_result to use edited content
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,finalize_hitl_result}',
+        '{
+            "action": "build_review_result",
+            "config": {
+                "approved": true,
+                "review_mode": "hitl",
+                "approved_field": "processed_response.approved",
+                "reviewer_field": "processed_response.responded_by",
+                "edits_field": "processed_response.edits",
+                "edited_html_field": "processed_response.edited_content",
+                "original_html_field": "page_content.response.page_html",
+                "use_edited_if_present": true
+            },
+            "description": "Build result using edited content if provided",
+            "next_step": "update_component_status",
+            "output_field": "review_result"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 8. Add handle_rejection step
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,handle_rejection}',
+        '{
+            "action": "build_review_result",
+            "config": {
+                "approved": false,
+                "review_mode": "hitl",
+                "reviewer_field": "processed_response.responded_by",
+                "rejection_reason_field": "processed_response.rejection_reason",
+                "page_status": "review_rejected"
+            },
+            "description": "Handle rejection - page will be picked up by maintenance",
+            "next_step": "mark_page_needs_attention",
+            "output_field": "review_result"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 9. Add mark_page_needs_attention step
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,mark_page_needs_attention}',
+        '{
+            "action": "update_page_status",
+            "config": {
+                "status": "needs_attention",
+                "page_id_field": "input_data.current_page.id",
+                "notes_field": "processed_response.rejection_reason",
+                "validation_issues_field": "validation_result.issues"
+            },
+            "description": "Mark page for maintenance workflow to handle",
+            "next_step": "complete_rejected",
+            "output_field": "page_status_updated"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 10. Add complete_rejected step (returns non-failure result)
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,complete_rejected}',
+        '{
+            "action": "complete_workflow",
+            "config": {
+                "output_fields": ["review_result", "validation_result"],
+                "status": "rejected",
+                "continue_parent": true
+            },
+            "description": "Complete with rejection - parent workflow continues with next page"
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 11. Update auto-eval to include validation in prompt
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,auto_eval_content,config,input_fields}',
+        '["current_page", "page_content", "reviewed_brief", "validation_result"]'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 12. Update check_auto_approval - validation errors force HITL
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,check_auto_approval,config,condition}',
+        '"eval_result.approved == true AND eval_result.overall_score >= 0.7 AND (validation_result.error_count == 0 OR validation_result.error_count == null)"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- 13. Update escalate_to_human to show validation issues
+-- ============================================================
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,escalate_to_human,config}',
+        '{
+            "message": "Content needs review for {{current_page.name}}",
+            "editable": true,
+            "editable_field": "page_content.response.page_html",
+            "show_issues": true,
+            "eval_issues_field": "eval_result.issues",
+            "validation_issues_field": "validation_result.issues",
+            "request_type": "review",
+            "timeout_seconds": 3600,
+            "notification_topic": "system.notifications.ui",
+            "ui_config": {
+                "title": "Content Review Required",
+                "description": "Auto-evaluation flagged issues. Please review.",
+                "show_validation_issues": true,
+                "allow_html_edit": true,
+                "actions": ["approve", "approve_with_edits", "reject"]
+            }
+        }'::jsonb
+                     )
+WHERE type = 'content-reviewer';
+
+-- Update escalate_to_human next_step to use check_hitl_approved
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,escalate_to_human,next_step}',
+        '"process_human_response"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- Also update output_field
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        default_config,
+        '{workflow,steps,escalate_to_human,output_field}',
+        '"human_response"'
+                     )
+WHERE type = 'content-reviewer';
+
+-- ============================================================
+-- VERIFY
+-- ============================================================
+SELECT type, version,
+       default_config->'workflow'->'start_step' as start_step
+FROM agent_definitions
+WHERE type = 'content-reviewer';
+
+-- Show key steps
+SELECT
+    step_name,
+    step_config->>'action' as action,
+    step_config->>'next_step' as next_step
+FROM agent_definitions,
+    jsonb_each(default_config->'workflow'->'steps') as steps(step_name, step_config)
+WHERE type = 'content-reviewer'
+ORDER BY step_name;

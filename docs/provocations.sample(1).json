@@ -1,0 +1,116 @@
+{
+  "generated_at": "2026-06-25T06:00:00Z",
+  "today": {
+    "eyebrow": "Today's Provocation",
+    "headline": "AI will <em>never</em> be funny on purpose.",
+    "body": "The machine can recombine a million jokes and still not know why any of them land. Humour needs a victim, a risk, and a shared flinch — three things a model is built to avoid. So when an AI makes you laugh, ask who actually wrote the punchline.",
+    "primary_cta": {
+      "label": "File Your Position",
+      "url": "/tools/gauntlet/index.html"
+    },
+    "secondary_cta": {
+      "label": "See All Provocations",
+      "url": "/provocations/index.html"
+    },
+    "stats": [
+      {
+        "value": "1,284",
+        "label": "Positions Filed"
+      },
+      {
+        "value": "3h 12m",
+        "label": "Until Close"
+      },
+      {
+        "value": "62%",
+        "label": "Disagree"
+      }
+    ]
+  },
+  "lobby": [
+    {
+      "icon": "🔥",
+      "title": "Remote work killed mentorship",
+      "desc": "You can't absorb judgement over a video call. A generation is flying blind.",
+      "url": "/provocations/index.html"
+    },
+    {
+      "icon": "⚡",
+      "title": "Privacy is already over",
+      "desc": "You traded it years ago. The fight now is who profits, not whether it's gone.",
+      "url": "/provocations/index.html"
+    },
+    {
+      "icon": "🧠",
+      "title": "Reading fiction makes you worse at facts",
+      "desc": "Narrative trains you to want a tidy arc. Reality doesn't have one.",
+      "url": "/provocations/index.html"
+    },
+    {
+      "icon": "🎯",
+      "title": "Most 'data-driven' decisions aren't",
+      "desc": "The numbers get picked after the gut already chose. Dashboards are theatre.",
+      "url": "/provocations/index.html"
+    }
+  ],
+  "arena": {
+    "eyebrow": "The Arena",
+    "title": "Six rooms are <em>live</em> right now.",
+    "subtitle": "Every room is one Provocation with its own clock. Pick a door, file a take, and see where the room splits.",
+    "cta_label": "Can't pick? Start with today's headline Provocation.",
+    "cta": {
+      "label": "Enter the Arena",
+      "url": "/provocations/index.html"
+    },
+    "cards": [
+      {
+        "icon": "<path d=\"M12 2L2 7l10 5 10-5-10-5zm0 9L2 16l10 5 10-5-10-5z\"/>",
+        "tag": "Featured · Closes 18:00",
+        "title": "AI will never be funny on purpose",
+        "desc": "The machine can recombine a million jokes and still not know why any of them land. Defend the punchline — or the premise.",
+        "stat": "1,284 positions filed",
+        "url": "/provocations/index.html"
+      },
+      {
+        "icon": "<path d=\"M13 2L3 14h7v8l10-12h-7l0-8z\"/>",
+        "tag": "Closes 20:30",
+        "title": "Remote work killed mentorship",
+        "desc": "You can't absorb judgement over a video call. A generation is flying blind.",
+        "stat": "312 in the room",
+        "url": "/provocations/index.html"
+      },
+      {
+        "icon": "<path d=\"M12 4a8 8 0 100 16 8 8 0 000-16zm0 3v5l4 2\"/>",
+        "tag": "Closes 21:00",
+        "title": "Privacy is already over",
+        "desc": "You traded it years ago. The fight now is who profits, not whether it's gone.",
+        "stat": "58% disagree",
+        "url": "/provocations/index.html"
+      },
+      {
+        "icon": "<path d=\"M4 19h16M6 16l4-8 3 5 2-3 3 6\"/>",
+        "tag": "Closes 22:15",
+        "title": "Most 'data-driven' decisions aren't",
+        "desc": "The numbers get picked after the gut already chose. Dashboards are theatre.",
+        "stat": "204 in the room",
+        "url": "/provocations/index.html"
+      },
+      {
+        "icon": "<path d=\"M12 3l2.5 6H21l-5 4 2 7-6-4.5L6 20l2-7-5-4h6.5z\"/>",
+        "tag": "Closes 23:00",
+        "title": "Reading fiction makes you worse at facts",
+        "desc": "Narrative trains you to want a tidy arc. Reality doesn't have one.",
+        "stat": "71% split",
+        "url": "/provocations/index.html"
+      },
+      {
+        "icon": "<path d=\"M3 12h4l3-8 4 16 3-8h4\"/>",
+        "tag": "Overnight room · Closes 08:00",
+        "title": "The four-day week is a productivity myth",
+        "desc": "The pilots that 'prove' it were self-selected true believers. Run it on a sceptical workforce and report back.",
+        "stat": "Opens the overnight Gauntlet",
+        "url": "/provocations/index.html"
+      }
+    ]
+  }
+}

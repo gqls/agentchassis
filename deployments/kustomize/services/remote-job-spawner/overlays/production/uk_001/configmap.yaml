@@ -1,0 +1,25 @@
+# deployments/kustomize/services/remote-job-spawner/overlays/production/uk_001/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: remote-job-spawner-config
+  namespace: ai-persona-system
+data:
+  remote-job-spawner.yaml: |
+    service_info:
+      name: remote-job-spawner
+      version: "1.0.0"
+      environment: production
+
+    logging:
+      level: info
+
+    spawner:
+      cluster_id: uk_001
+      namespace: ai-persona-system
+      dispatch_topic: system.dispatch.requests
+      dispatch_response_topic: system.dispatch.responses
+
+    infrastructure:
+      kafka_brokers:
+        - personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092

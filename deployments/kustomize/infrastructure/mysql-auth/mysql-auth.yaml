@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-auth
+  namespace: ai-persona-system
+  labels:
+    app: mysql-auth
+spec:
+  ports:
+    - port: 3306
+      targetPort: 3306
+      name: mysql
+  selector:
+    app: mysql-auth
+  type: ClusterIP
+  clusterIP: None
+######################### eXAMPLE ONLY ###############
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-auth
+  namespace: ai-persona-system
+spec:
+  serviceName: mysql-auth
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-auth
+  template:
+    metadata:
+      labels:
+        app: mysql-auth
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_DATABASE
+              value: "catalogu_vectordb_chassis"
+            - name: MYSQL_USER
+              value: "catalogu_personae"
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: AUTH_DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: MYSQL_ROOT_PASSWORD
+          volumeMounts:
+            - name: mysql-storage
+              mountPath: /var/lib/mysql
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - localhost
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "standard"
+        resources:
+          requests:
+            storage: 5Gi
