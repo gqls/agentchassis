@@ -1,5 +1,26 @@
 # HANDOFF — Diagnosis→Fix Loop (LIVING DOCUMENT — update every turn)
 
+## ★ MILESTONE 2026-07-13: THE LOOP OPENED ITS FIRST PULL REQUEST ★
+
+**https://github.com/gqls/agentchassis/pull/1** — end-to-end, every gate live:
+hand-authored CONFIRMED diagnosis of a REAL defect (generate_image_actions.go
+raw fmt.Printf naming the wrong function) → proposer plan → council APPROVED
+(round 1, both reviewers — the council's first approval) → implementer in a
+DEDICATED pod (read token via spawn gate; writes via git-adapter only) → read
+file at the correct ref → 41KB whole-file rewrite → deterministic allowlist
+PASS → fix/11111111 branch → commit → golang-Job build gate GREEN → PR #1
+with the Q-H package in its body. **The diff: 1 file, 2 deletions, zero
+drive-bys — exactly the plan.** Human review terminal: the PR awaits the owner.
+
+Also earned en route: the gate's FIRST RED correctly blocked a PR when
+./cmd/... carried pre-existing breakage (cmd/test-spawning stale 3-arg
+NewSagaCoordinator call — real bug, fixed + pushed 9f29efb9, found by the
+gate). Gotcha recorded: a stale fix/* branch from a failed run must be deleted
+before re-firing (create_branch is idempotent and would reuse the old base).
+Pilot config note: implementer ref/base/from_branch point at
+084_site_improvements_local_ai via live jsonb_set (origin/main is stale; the
+committed seed still says main — align when main catches up).
+
 *Convention: this file is rewritten/amended at the end of every working turn so
 a fresh chat can resume from exactly here. Superseded point-in-time handoffs:
 HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
