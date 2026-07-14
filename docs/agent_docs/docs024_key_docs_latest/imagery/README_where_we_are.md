@@ -102,3 +102,45 @@ Once you've eyeballed the gate, I2.5 (the D10 container opt-in) closes the phase
 
 ---------
 
+I stopped before firing the re-render — and that turned out to be the whole story of this turn.
+
+The gate passed, and I2.5 is built
+
+I2.2 and I2.3 are done. The I2.5 code is written, unit-proven, and now in HEAD (commit 72bcd6330 swept it in): the emitter produces both opt-ins from a single selector list so they can't drift, overrides
+stay specificity-safe inside the new container scope, and I added a CSS format version to the stamp. That last one matters more than it sounds — without it, the I2.4 check would have compared an unchanged
+grid signature, concluded the committed stylesheet was still current, and no site would ever have picked up the new rules. The signature tracks the sheet; the format tracks the stylesheet.
+
+Why I2.5 didn't land — and what it uncovered
+
+You chose "try the system re-render." I did — as an offline probe first, rendering the real template against the real stored data in a throwaway test. It produced <div
+class="article-body__content"></div>: completely empty. Firing that re-render at the live page would have destroyed the guide's article body.
+
+Pulling that thread exposed a serious pre-existing bug:
+
+The content writer never parses the LLM's JSON envelope. content_data.result is a string containing {"content": "<h2>…"}. The template needs {{.content}} — which is buried inside that string. Because Go
+templates run with missingkey=zero, the missing field renders as empty, silently. So:
+
+- 9 article bodies have already been silently blanked across 5 sites. The re-render writes an empty body, overwrites the good HTML, and the assembler then drops the empty section — so the article simply
+  vanishes from the live page, with no error anywhere.
+- 5 more leak raw JSON, where readers literally see { "content": " above the first heading — including the very page you just gated.
+- Only 2 of 16 article bodies are healthy. The other 14 are one re-render away from the same fate.
+
+The part I have to own: the trigger is image_landed — scoped re-renders fire automatically when an image asset lands. This workstream lands images. Phase I0's per-page heroes are the most likely cause of
+those 9 blanked pages. The latent bug is upstream in the writer/renderer, but we probably pulled the trigger.
+
+All the words are recoverable — every one of the 14 still has its article HTML sitting in content_data. The full write-up, with the affected page list, the recovery recipe, and the upstream fix, is at
+docs024_key_docs_latest/HANDOFF_2026-07-14_article_body_json_envelope.md.
+
+I've put a standing warning at the top of the imagery handoff: don't land an image or fire a scoped re-render on those pages until this is fixed.
+
+Where that leaves I2
+
+I2.4 and I2.5's Go both ride your next deploy, and I2.4's registration SQL is already applied. I2.5's class is blocked — the wrapper it needs to attach to doesn't exist in the deployed markup on 14 of 16
+article pages. Once the article-body repair runs (that's a good candidate for the same chat as the product-page fix — they're the same class of bug: a required field missing, rendering empty instead of
+failing loudly), the wrapper appears and I2.5 lands in one step, closing I2.
+
+Given the content loss is live on five sites, my recommendation is to prioritise that repair over finishing I2.
+
+
+----
+
