@@ -202,6 +202,10 @@ func EnsureSiteRecordAction(ctx context.Context, params ActionParams) (interface
 		"email":        siteRecord.Email,
 		"phone":        siteRecord.Phone,
 		"logo_text":    siteRecord.LogoText,
+		// Empty for the overwhelming majority of sites, which deploy to the default
+		// "sites" repo (→ B2). Set only on VM-hosted sites; resolveGitRepoName reads it
+		// from site_record.github_repo to pick the deploy target.
+		"github_repo": siteRecord.GithubRepo,
 	}, nil
 }
 
@@ -1017,7 +1021,7 @@ func upsertSite(ctx context.Context, db interface{}, domain string, networkID uu
 				  COALESCE(content_data, '{}'::jsonb),
 				  COALESCE(company_name, ''), COALESCE(tagline, ''),
 				  COALESCE(email, ''), COALESCE(phone, ''),
-				  COALESCE(logo_text, '')
+				  COALESCE(logo_text, ''), COALESCE(github_repo, '')
 	`
 
 	var site SiteRecord
@@ -1029,6 +1033,7 @@ func upsertSite(ctx context.Context, db interface{}, domain string, networkID uu
 			&site.ID, &site.NetworkID, &site.Domain, &site.Name, &site.Status, &site.CreatedAt,
 			&contentDataJSON,
 			&site.CompanyName, &site.Tagline, &site.Email, &site.Phone, &site.LogoText,
+			&site.GithubRepo,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upsert site: %w", err)
@@ -1038,6 +1043,7 @@ func upsertSite(ctx context.Context, db interface{}, domain string, networkID uu
 			&site.ID, &site.NetworkID, &site.Domain, &site.Name, &site.Status, &site.CreatedAt,
 			&contentDataJSON,
 			&site.CompanyName, &site.Tagline, &site.Email, &site.Phone, &site.LogoText,
+			&site.GithubRepo,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upsert site: %w", err)

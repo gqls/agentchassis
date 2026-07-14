@@ -6,8 +6,9 @@ Absorbed categories: new:site-build-pipeline, new:site-build-orchestration-gener
 and is folded in below rather than kept as separate near-empty register files).
 
 ### BLD-001 — Builder route method: map what exists before building (§B0 census)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** builder_route(21) "Rule honoured: map what EXISTS against what the problem statement wants BEFORE creating anything. Sources: the 147-row agent_definitions census (2026-07-03)."
+- **stage2-verified (2026-07-14):** deployed → convention — This is a documented methodology/finding (census route method), not a built artifact claim; no code to check — status-evidence is a doc citation of a one-off analysis, correctly re-classed as process not code-deployed.
 - **what:** The builder route's opening method: an inventory matrix of problem-statement capabilities (intake, research, planning, design, content, tools, feeds, infographics, build/deploy, improvement, observability) against the ~147 existing agent types. Findings: every section except infographics has agents; the real defect is ~8 overlapping top-tier "build the site" orchestrators; the per-section content family is already prototyped; genuine gaps are the infographics owner and a success-factor synthesis step. Liveness is judged from pump + handler references, not the status column.
 - **sources:** docs019/RUNBOOK_builder_route(21).md#B0, #B0-findings
 - **relations:** three builder generations + work-item relay spine (BLD-002); vertical-exemplar researcher (the gap filled)
@@ -118,8 +119,9 @@ and is folded in below rather than kept as separate near-empty register files).
 - **verify-later:** get_pages_to_build action; build_status usage today
 
 ### BLD-015 — page-rebuild (rebuild pages without re-planning)
-- **status:** unknown
+- **status:** deployed
 - **status-evidence:** 039 full definition with detailed reuse/skip lists; no later references found in the source unit.
+- **stage2-verified (2026-07-14):** unknown → deployed — page-rebuild is actively wired post-dispatch-loop-refactor: maintenance-triage agent (k8s/bk_agent_definitions_backup.sql:183, status='active') workflow calls agent_type 'page-rebuild' via call_agent in a rebuild_loop step; live Go actions back this end-to-end — platform/orchestration/actions/maintenance_actions.go ...
 - **what:** Rebuilds specific pages (build_status='needs_rebuild') on an existing site, loading all context from DB given a domain, explicitly skipping planner, sync_pages_to_db, asset generation, component rendering, CSS and nav (all already done) while reusing the standard build-loop agents. Documents design principles: agent owns its domain; spawnable not standalone; reuse before creating; complexity in Go.
 - **sources:** 039_page_rebuild_agent.sql
 - **relations:** pageflow-builder (BLD-007, same loop, different input_mapping via rebuild_context); selective rebuild via build_status (BLD-014)

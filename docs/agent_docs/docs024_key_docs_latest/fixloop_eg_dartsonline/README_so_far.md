@@ -454,6 +454,31 @@ Next up: Phase 2 — the silent-failure verification checker with its newly narr
 escalations are also sitting ready whenever you want to dispatch the loop on them.
 
 
+----
+
+● Phase 2 is built, deployed, and proven end to end — the silent-failure verification checker is live on v1.0.1118, and the darts-class defect now travels the whole channel (checker → triage → parked
+escalation) without human hands.
+
+What was built. diagnose_silent_check, a deterministic (no LLM) verification sweep for the one defect class the reconciled design left this thread: structural invariants violated in observable state while
+site_work_items stays completely silent. Two checks: nav_linked_never_built (a page in the site's navigation, never built, no work item anywhere — the darts guides-index signature) emits findings;
+deployed_zero_components is report-only in v1, because a deployed zero-component page can be a deliberate removal (some leopardess case-study pages look like audit gutting) — you can promote it later via
+emit_checks. Findings are written as inert silent_failure items, one per check-and-site, which the existing live triage sweep routes under its own cap.
+
+Two implementation subtleties worth knowing. The dedup index on site_work_items excludes failed rows, so the checker dedupes with an explicit NOT EXISTS rather than ON CONFLICT. And the items' error text
+leads with a fixed 140+ character signature so triage's pattern grouping collapses every affected site into one platform-level pattern — fix the cause once, not per site. That property is unit-tested.
+
+The live proof, all this afternoon. Dry-run found 6 never-built nav pages (dartsonline 4, idea.uk 2) plus 5 report-only findings, with the coverage filter demonstrably excluding pages other work items
+already reference. Flipped live: 2 items emitted. Triage then grouped them into one pattern and escalated triage-diag:silent_failure:fd86fec2c4da (its two earlier escalations correctly deduped — there are
+now 3 parked, inert). Best of all, an unplanned validation: between my two sweeps, another workstream created needs_page items for idea.uk's missing pages, and the next sweep honestly closed its idea.uk
+finding because those pages were no longer silent, while dartsonline's persisted. Coverage, dedup, and close-out all exercised in production within twenty minutes.
+
+Along the way I also fixed the dry-run "capped" counter mislabel found this morning and gave silent_failure patterns their own triage symptom so diagnoses aren't misattributed to a handler. Everything
+remains manual-trigger (095 and 096); nothing dispatches itself. Commits: 72bcd633 (code, seed, trigger, v1.0.1118) and b2736a457 (docs); memory updated.
+
+Where this leaves the roadmap: Phase 3 (re-verify after a fix deploys, close escalations honestly) and Phase 4 (fold escalations into the digest) are next; dispatching the three parked escalations into
+the diagnosis loop is your call whenever you want to spend the model credits.
+
+
 
 
 

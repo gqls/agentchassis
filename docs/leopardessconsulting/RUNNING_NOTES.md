@@ -852,3 +852,52 @@ site_plan_imagery rows (scope='page') → page-rerender `image_landed` on those 
 **Stale handoff items corrected:** NEXT ACTIONS #4 (theme-color) is already `#0D0D0D` live —
 done at turn 15, remove. The 19 content_data_backfill items are all terminal (14 complete,
 4 failed, 1 needs_human_review=contact) — none pending, no clobber threat from that batch.
+
+### Turn 17 addendum — imagery blocked by infra; hero generated but NOT wired (deliberately)
+
+**The Route A-safe mechanism is PROVEN end-to-end** (first time on this site): a scope-less
+`needs_imagery` spec → image-build-handler → image-generator → asset-deployer → git, with NO
+`needs_page` emitted and NO content touched. Artifact: `assets.asset_key='hero_who_we_help'`,
+status active, `origin_model=stability/stable-diffusion-xl-1024-v1-0`, live 200 at
+`/assets/images/hero-who-we-help.jpg`. **Deploy filename convention:** `AssetKeyFilename()`
+maps `_`→`-`, so asset_key `hero_who_we_help` deploys to `hero-who-we-help.jpg` (not the
+underscore form — cost 3 wasted 404 checks).
+
+**But the image itself is unusable and is deliberately NOT wired.** SDXL rendered a beige
+faux-technical-diagram with garbled pseudo-text and chart-like panels — it violates
+design_intent `avoid` on two counts ("Charts produced by an image generator, under any
+circumstances"; imagery_direction bans photographic/decorative filler) and the prompt's own
+"no text". Root cause is routing, and it is a REAL design gap, not a prompt miss:
+`dynamic_adapter.go:534` routes `kind='hero'` → **stability/SDXL**, and only
+icon/logo/illustration/infographic/sprite_sheet → **Banana**. leopardess's whole imagery
+direction is "flat gold-on-charcoal diagrams drawn in the same hand as the logo" — i.e. its
+heroes are ILLUSTRATIONS. Under the current routing a leopardess hero can never be on-brand:
+it is sent to the photographic provider by definition. Retried as `kind='illustration'`
+(Banana) with an explicit constraints block; that run is stuck (below).
+
+Because there are still **no `site_plan_imagery` rows**, the bad asset resolves to nothing and
+is invisible on the site. `scripts/`-ready SQL to wire heroes when a GOOD asset exists is
+saved at (scratchpad) `wire_heroes.sql` — guarded by `EXISTS(... status='active')`. Do not run
+it against the current SDXL asset.
+
+**INFRA BLOCKER (not this site's bug):** spawned `image-generator` pods repeatedly fail to
+consume their job topic — `failed to dial ... personae-kafka-cluster-combined-pool-prod-2 ...
+10.20.99.93:9092: i/o timeout` — while the broker pod is Running and other agents work. The
+parent orchestration then sits in `AWAITING_RESPONSES` at `spawn_image_gen_imagery` forever
+(the workflow's `timeout_seconds: 300` does not fire). Hit 5+ pods across the session; deleting
+the pods and re-firing works sometimes. **Imagery on this site is blocked on that flake**, not
+on the pipeline. Two things to raise: (a) node→broker-2 network path, (b) a spawn-timeout that
+actually terminates the parent.
+
+**Also lost ~40 min to a cluster auth expiry:** `kubectl` returned `Unauthorized`, and because
+the kcat trigger scripts end in `>/dev/null 2>&1`, three fires (footer refresh #2, quiz take-3,
+hero retry) silently published nothing. Lesson: do NOT swallow kcat stderr; check for the
+"deleted from kafka namespace" line, or assert an orchestration row appears.
+
+**Footer: the real mechanism.** `pages.in_footer` is **NOT** what builds the footer — that
+query (`loadFooterNavItems`) is DEPRECATED. `render_site_components_action.go:98` builds the
+footer from `GetNavItems(primary + utility + legal)` i.e. the **site_nav_items** table. So
+setting `in_footer=false` on for-engineering-leaders did nothing; the fix was DELETING its
+`utility`-group nav row (bak_navitem_fel_20260714), then `rerender-pages` with
+`refresh_site_components:true`. Ai Readiness Quiz is also a utility nav item — it stays,
+because the page is being rebuilt.

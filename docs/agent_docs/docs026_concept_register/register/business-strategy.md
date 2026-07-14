@@ -99,8 +99,9 @@
 - **verify-later:** orchestration_states.parent_orchestration_id chain query; agent_spawn_history
 
 ### BIZ-013 — Honest-delta disclosure discipline (built vs admitted-not-built table)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** A fully filled-in comparison table ("Honest Delta — What's Built vs What the Architecture Admits") described as "the load-bearing piece... what protects you from over-claiming".
+- **stage2-verified (2026-07-14):** deployed → convention — Honest-delta disclosure is a pitch-writing/documentation discipline (a comparison table in a doc), not a code/infra artifact; stage1 itself lists verify-later: n/a.
 - **what:** A pitch-integrity practice: pair every ambitious architectural claim with an explicit, honest ledger of what's actually proven in production versus merely structurally possible versus not built at all. Extends into a parallel "Honest Weak Points" section (solo development, documentation drift, schema drift, race conditions, incomplete migrations, no formal test suite) each with a pre-written honest-framing answer.
 - **sources:** pitch/framework_pitch_substrate_framing.md#§7,§6.4; pitch/framework_pitch_reference.md#§10
 - **relations:** BIZ-011 Substrate-vs-application pitch framing; BIZ-012 Fractal agent architecture claim

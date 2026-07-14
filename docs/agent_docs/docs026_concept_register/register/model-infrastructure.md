@@ -31,8 +31,9 @@ rag-knowledge-base register and are cross-referenced rather than re-described.
 - **verify-later:** current model distribution across agent_definitions
 
 ### MDL-003 — Ollama adapter (CPU embeddings + local classification)
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** "Ollama adapter on CPU cluster (2 replicas, mistral-small3.1 + nomic-embed-text)" checked done in one doc; a RAG-deploy handoff elsewhere still lists "Deploy Ollama adapter" as a not-yet-done next step — conflicting claims across sessions/dates.
+- **stage2-verified (2026-07-14):** partial → deployed — platform/aiservice/ollama.go exists; createAIClient in platform/orchestration/actions/ai_actions.go:821 has a live 'case "ollama"'; deployments/kustomize/services/ollama-adapter/base/{deployment,service,ollama-pvc,kustomization}.yaml + overlays/production/uk_001 all exist, deployment.yaml:8 replicas:1 (single replic...
 - **what:** A permanent CPU adapter serving nomic-embed-text embeddings (~50-100ms) and quantized small models for classification (10-30s acceptable per-build), implemented as an `ollama.go` provider (AIService interface: GenerateText via /api/chat, GenerateEmbedding via /api/embeddings) plus an `ollama-adapter` kustomize deployment (third-party `ollama/ollama` image, PVC for model persistence, init container pulling nomic-embed-text, single replica, ClusterIP 11434). Same AIService interface as Anthropic, including token-usage write-backs. Not for content generation or sub-2s latency.
 - **sources:** 001_development_guide(5).md#Ollama adapter; 009#Implementation Status; docs020.../008_README.md; docs020.../009_023_session_handoff_vertical_architecture(1).md; docs021.../026_implementation_todo_vertical_architecture(2).md#0.3
 - **relations:** RAG actions (rag-knowledge-base); endpoint health (MDL-005); fine-tuning path (finetuning-flywheel); Self-hosted LLM inference (MDL-026); Ollama CPU adapter operational envelope (MDL-008)

@@ -59,8 +59,9 @@
 - **verify-later:** internal/auth-service/subscription/{models,repository,service,handlers}.go; presence/absence of a Stripe webhook handler
 
 ### PAY-008 — REVIEW_BEFORE_PAY billing flow supersedes charge-first flow (idea.uk)
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** `RUNBOOK_idea_uk(10).md` "Status & operating update (2026-06-11)": "Supersedes the older Flow/Email/AUTO_DELIVER notes above where they differ... `REVIEW_BEFORE_PAY` (default on)."
+- **stage2-verified (2026-07-14):** partial → deployed — docs/agent_docs/docs024_key_docs_latest/idea.uk/golang_files/main.go:27 'ReviewBeforePay: strings.ToLower(env("REVIEW_BEFORE_PAY", "true")) == "true"' confirms default-on config flag; service.go references cfg.ReviewBeforePay at 6 call sites (lines 191,198,348,454,489) driving confirm/pay-link/delivery branching, ma...
 - **what:** idea.uk's original flow charged the customer first (Stripe Checkout), then ran the engine, then optionally held for operator review before emailing (`AUTO_DELIVER`). This was replaced by a `REVIEW_BEFORE_PAY` switch (default on): the operator's `/confirm` now runs the engine first and holds the draft for review; only after the operator approves does the buyer get a pay link — no money is taken until a human has seen the actual output. The original charge-first flow is kept as a fallback (`REVIEW_BEFORE_PAY=false`) "if engine cost ever spikes." A click-through token-based approve/decline UI (HMAC per order) was added on top to remove the need for curl+API-key.
 - **sources:** `RUNBOOK_idea_uk(10).md` "Status & operating update (2026-06-11)"
 - **relations:** IDEA-006 idea.uk service request-then-confirm flow (the order-state-machine angle on this same change); PAY-001 Stripe webhook-as-truth pattern; IDEA-008 click-through operator approval links

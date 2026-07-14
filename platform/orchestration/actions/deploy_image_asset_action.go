@@ -477,6 +477,11 @@ func sendGitCommitRequest(ctx context.Context, params ActionParams, domain strin
 
 	newRequestID := uuid.New().String()
 
+	// Same deploy-target resolution as GitCommitAction. Without this the images would
+	// still go to "sites" while the pages went to the site's own repo — a split brain
+	// where a VM-hosted site's pages land on the box but its hero/logo do not.
+	repoName := resolveGitRepoName(params.StepConfig.Config, params.CollectedData)
+
 	adapterRequest := map[string]interface{}{
 		"headers": map[string]interface{}{
 			"correlation_id":    correlationID,
@@ -493,7 +498,7 @@ func sendGitCommitRequest(ctx context.Context, params ActionParams, domain strin
 		"body": map[string]interface{}{
 			"action": "commit",
 			"data": map[string]interface{}{
-				"repo_name":      "sites",
+				"repo_name":      repoName,
 				"domain":         domain,
 				"files":          filesMap,
 				"commit_message": fmt.Sprintf("Deploy %s image for %s", purpose, domain),

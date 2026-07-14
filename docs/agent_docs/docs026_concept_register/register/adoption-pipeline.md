@@ -71,8 +71,9 @@ U14, U15, U16, U17a, U18, U20, U21, U24d, U24f.
 - **verify-later:** firecrawl adapter capabilities actually used today
 
 ### ADO-009 — Duplicate sites-row on re-adoption (open investigation)
-- **status:** unknown
+- **status:** deployed
 - **status-evidence:** "Couldn't confirm … worth checking on next adoption run" (HANDOFF_2026-04-23, item 20; never revisited in later units seen).
+- **stage2-verified (2026-07-14):** unknown → deployed — EnsureSiteRecordAction (site_db_actions.go:102) calls upsertSite() which does 'INSERT INTO sites ... ON CONFLICT (domain) DO UPDATE SET updated_at=NOW()' (site_db_actions.go:1011-1021); sites.domain has UNIQUE constraint 'sites_domain_key' (docs/agent_docs/sql_for_components/006_old_summary_table_descriptions.sql:49...
 - **what:** Suspicion that adopting a destination_domain that already has a sites row creates a second row, leaving orphan work items pointing at the stale row while a new cascade runs against the other. The needed decision — refuse when destination exists vs reuse as refresh — was never made; duplicate-creation is agreed to be the worst outcome.
 - **sources:** HANDOFF_2026-04-23_dispatch_reliability_and_008_validated(1).md item 20
 - **relations:** source/destination separation (ADO-004); library-row cleanup

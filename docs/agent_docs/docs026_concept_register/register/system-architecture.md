@@ -34,8 +34,9 @@ duplication; two of them — QA Agent Architecture and site_work_items domain→
 - **verify-later:** orchestration_states schema; coordinator.go continueExecution
 
 ### SYS-004 — Stale orchestration sweeper (DB sweep replacing lossy timeout goroutines)
-- **status:** deployed
+- **status:** partial
 - **status-evidence:** docs024's 001(5) documents it live ("the #1 cause of pipeline stalls") with a concrete A/B/C classification; an earlier docs018 design doc described the same mechanism without deployment confirmation — superseded by the later, deployed description.
+- **stage2-verified (2026-07-14):** deployed → partial — no file named sweeper.go / no 'StaleOrchestrationSweeper' hit in .go; only tangential hits (thunder_decommission_dispatch.go, hitl_actions.go) — sweeper mechanism not confirmed present in code, only in docs prose
 - **what:** Timeout goroutines die with the pod, leaving AWAITING_RESPONSES orchestrations stuck. A periodic ~60s DB sweep on every chassis pod (`FOR UPDATE SKIP LOCKED`, ~30s grace, LIMIT 20) classifies expired awaited_requests: child COMPLETED → synthesize a completion response from the child's final_result; child FAILED → forward the failure; none/running → retry up to retry_version 3, then fail the parent orchestration. Handles cascading stalls oldest-first and dead job topics by directly advancing parent state.
 - **sources:** 001_development_guide(5).md#Stale Orchestration Sweeper; docs018_rerendering/009_stale_orchestration_sweeper_design.md
 - **relations:** spawn-handler hang (timeout_at not enforced); claimed-item-timeout; awaited_requests registry
@@ -98,8 +99,9 @@ duplication; two of them — QA Agent Architecture and site_work_items domain→
 - **verify-later:** ExtractActionInputs nested-source loop behaviour for undeclared fields
 
 ### SYS-012 — Response-topic consumer group race (per-pod groups fan out every response)
-- **status:** unknown
+- **status:** partial
 - **status-evidence:** "Discovery, not yet remediated" (2026-05-10); ~85 consumer groups on system.agent.generic.responses, only 3 live; two pods ran ProcessResponse on the same message 215ms apart.
+- **stage2-verified (2026-07-14):** unknown → partial — platform/agentbase/agent.go:341-343 generates consumerGroup+AgentID[0:8] passed into client.go:39/48 which appends '-responses', confirming the per-pod-unique responses-group design described; platform/orchestration/coordinator.go has ExecuteWithOptimisticLocking/CAS retry (maxOptimisticLockRetries=15) which mitigat...
 - **what:** The requests topic uses a shared stable consumer group but each chassis pod joins the responses topic under its own per-pod UUID group, so every response is delivered to every pod; each independently advances orchestration state, and the loser of the version race can flip a step to FAILED (observed on call_logo_gen). Mostly silent (idempotent writes) but structurally wrong — the system relies on shared-pool semantics it doesn't have. Open questions: intended model, per-spawn job.* topic groups, CAS hardening in ProcessResponse, 82 stale groups cleanup.
 - **sources:** ANALYSIS_chassis_response_consumer_group_race.md (whole)
 - **relations:** dispatcher stall Bug 1; duplicate collected_data keys; Kafka empty partition assignment
@@ -484,8 +486,9 @@ duplication; two of them — QA Agent Architecture and site_work_items domain→
 - **verify-later:** continueExecution fresh-context construction
 
 ### SYS-060 — Fuel budget resource management
-- **status:** unknown
+- **status:** partial
 - **status-evidence:** Fully plumbed (FuelBudget field, fuel_budget=1000 header in live kcat commands, FuelUsed/RemainingFuelBudget response headers) but no doc claims it is actually enforced — "calculate properly in production" left as a TODO in the code path.
+- **stage2-verified (2026-07-14):** unknown → partial — platform/governance/fuel.go CostTable/HasEnoughFuel/DeductFuel actually called in internal/agents/contentcreator/agent.go:234,244,590 (real rejection path on insufficient fuel) — genuine enforcement in one agent. coordinator.go:78 holds a fuelManager field but never calls HasEnoughFuel/DeductFuel (grep 0 hits) — not...
 - **what:** A per-orchestration computational budget carried in the ExecutionContext, intended to bound resource consumption of agent trees (sub-invocations pass a reduced budget down and report fuel used back up the chain). Appears plumbed end-to-end but never confirmed as an enforced mechanism; current status in the 2026 platform is unverified.
 - **sources:** docs/architecture/002-agent-chassis-docs.md#key-features; docs/plans/stateless-first-agents-001; docs001_flow_general/README.002.agent_orchestration1.philosophy.md; README.061.groupagents2.md
 - **relations:** message header contract; long-term resource optimisation objectives
@@ -652,16 +655,18 @@ duplication; two of them — QA Agent Architecture and site_work_items domain→
 - **verify-later:** whether processing_history with pod_name exists in current orchestrations table
 
 ### SYS-081 — Optimistic locking on orchestration state
-- **status:** unknown
+- **status:** deployed
 - **status-evidence:** Fully specified (version column, update_orchestration_if_version() SQL function, retry loop with backoff) but no later doc in this cluster confirms it shipped.
+- **stage2-verified (2026-07-14):** unknown → deployed — state.go:789 'WHERE orchestration_id = $21 AND version = $22' (CAS update), state.go:826 optimistic-lock-failure error, state.go:834-872 UpdateStateWithRetry with maxRetries loop, coordinator.go:43-50 maxOptimisticLockRetries=15/ErrVersionMismatch. Resolves unknown -> deployed.
 - **what:** Each orchestration row carries a version integer; replicas load state, apply a step, and save only if the version is unchanged (compare-and-swap), retrying on mismatch. Prevents two replicas from double-processing the same step. Paired with processing_history JSONB as the audit trail of which pod did what.
 - **sources:** docs/plans/stateless-first-agents-001#3-database-backed-state-management, #9-database-schema
 - **relations:** stateless-first principle; message deduplication
 - **verify-later:** version column and update function in current schema; conflict-retry code
 
 ### SYS-082 — Retry semantics: same request_id, incremented retry_version
-- **status:** unknown
+- **status:** deployed
 - **status-evidence:** "Key Implementation Notes: Retry uses same request_id with incremented retry_version"; error_recoverable responses trigger up to 3 retries. No later confirmation found in this cluster.
+- **stage2-verified (2026-07-14):** unknown → deployed — platform/orchestration/helpers.go:204 'if awaited.RetryVersion < 3' and :237 RetryVersion++ implement exactly the documented max-3-retries-with-incremented-retry_version scheme; state.go:167-221 uses retry_version in processed_messages idempotency key (ON CONFLICT (correlation_id, request_id, agent_id, retry_version...
 - **what:** Failed remote calls are retried with the identical request_id and retry_version+1 so responses remain matchable and duplicates detectable. Recoverable errors retry (max 3), then fall through to unrecoverable which fails the orchestration and propagates an error to the parent. Progress statuses (awaiting/processing) are logged but never propagated upward; terminal states are processed exactly once.
 - **sources:** docs/plans/stateless-first-agents-001#6-retry-logic, #key-implementation-notes
 - **relations:** message header contract; message deduplication

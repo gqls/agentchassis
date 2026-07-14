@@ -29,8 +29,9 @@ U19, U21, U23.
 - **verify-later:** provider keys in personae-default-secrets
 
 ### NEWS-004 — Render source-diversity interleaving
-- **status:** deployed
+- **status:** aspirational
 - **status-evidence:** 006 status table ✅; decision recorded after single-source domination.
+- **stage2-verified (2026-07-14):** deployed → aspirational — render_news_section_action.go:loadNewsItems (line 338+) has no ROW_NUMBER()/PARTITION BY source_id anywhere in file (grep 0 hits); actual query is a plain ORDER BY status/relevance_score/published_at with LIMIT — no per-source cap/interleaving logic exists. Present-tense-plan false positive.
 - **what:** loadNewsItems uses ROW_NUMBER() OVER (PARTITION BY source_id) ordered by source_rank then recency so each source contributes at most ~2 of 6 display slots; with topic-focused sources this also yields topical diversity.
 - **sources:** 006#Render action source diversity, #Content Diversity §6
 - **relations:** topic-focused source splitting (planned, NEWS-005); pipeline architecture (NEWS-001)
@@ -133,8 +134,9 @@ U19, U21, U23.
 - **verify-later:** grep/inspect `rerender-pages`; `site_work_items`; `page-rerender`
 
 ### NEWS-017 — Blog-listing / orphan-page routing session handoff
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** 102_blog_handoff header "Session Handoff — April 10 2026"; "Ready to Deploy (files generated, not yet applied)".
+- **stage2-verified (2026-07-14):** partial → deployed — check_orphan_pages.go:12-155 implements exactly the 3-route classification (blog-post rerender via companion action; nav_drift->HandlerAgent nav-updater at line 125; needs_internal_links->HandlerAgent internal-linker at line 155). rebuild_blog_listing_action.go and check_orphan_pages.go both have commit histories (e...
 - **what:** A dated operational handoff fixing blog-listing rendering (slot-name mismatch, empty-schema CSS-only template, missing article links) and reclassifying orphan pages into three routes (blog-post→rerender, nav-flags→nav-drift→nav-updater, no-nav→needs_internal_links→internal-linker). Documents self-hosted GitHub Actions runner deploy, the page-build-handler `error_step`-placement fix (46 validation crashes), the dedup pattern, and a future Mistral-Small-on-CPU internal-linker.
 - **sources:** ED/102_blog_handoff-2026-04-10.md#completed-this-session, #ready-to-deploy-files-generated-not-yet-applied, #remaining-unresolved-groups-not-yet-addressed
 - **relations:** work item lifecycle/unresolved; deployment-github; nav sync; link management

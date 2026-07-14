@@ -35,8 +35,9 @@
 - **verify-later:** agent_definitions page-content-writer prompt_template markers; plan_sections_action.go ItemFields population
 
 ### PBP-005 — Render-time item-key reconciler (schema-sourced, non-fatal)
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** Checkpoint: "Three artefacts now final in outputs … code awaits a chassis image bump" (2026-06-21); no later doc in this unit confirms the image bump.
+- **stage2-verified (2026-07-14):** partial → deployed — reconcileGeneratedItemKeys defined platform/orchestration/actions/v3_site_actions.go:4775 and called at line 1570 inside RenderComponentAction, gated on comp.InputSchema (matches the 'hardened to source from input_schema' description exactly), with expectedItemFieldsFromComponentSchema at line 4747. Code is live in ...
 - **what:** A belt-and-braces safety net in `RenderComponentAction`: before the merge, `reconcileGeneratedItemKeys` remaps LLM-drifted array item keys onto the expected ones using case/separator-insensitive matching plus a synonym table, never moving a synonym onto a key that is itself expected. A later decision hardened it to source expected keys from the component's own `input_schema` (fields with source:"llm" only) instead of the section plan — removing plan-freshness coupling and making the prompt change (PBP-004) an optimisation, not a correctness requirement. Unrecoverable misses ERROR-and-continue (a missing sub-field is cosmetic; failing a page build is higher blast-radius). Corrected content lands in both rendered HTML and persisted content_data.
 - **sources:** running_notes_checkpoint_uu.md; running_notes_checkpoint_ss(1).md#Fix-delivered
 - **relations:** array item-fields contract (PBP-004); content_data ⊕ resolved_data model (PBP-014); needs_llm routing (PBP-006)

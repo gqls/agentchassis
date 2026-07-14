@@ -33,12 +33,18 @@ back an expert council agent, not conformance to the existing index.
 
 ```
 README.md                  — this file: method + format specs
+PLAN_concept_register.md   — the living 3-stage plan, current status, backlog
+RUNBOOK_concept_register.md — human-operator tasks (rotations, judgment calls, resumes)
+RUNNING_NOTES_concept_register.md — turn-by-turn discussion log, updated every turn
 001_PROMPT_charter.md      — the rewritten task charter
-002_PLAN_extraction.md     — work-unit ledger (26 units), updated as units complete
+002_PLAN_extraction.md     — stage-1 work-unit ledger (26 units), extraction-specific
 003_TAXONOMY_seed.md       — starting categories + tagging rules (open-ended)
+005_TAXONOMY_final.md      — final taxonomy note (stage 1)
+006_VERIFICATION_stage2.md — stage-2 method + full findings (105 corrections)
 extractions/UNN_<slug>.md  — raw per-unit harvest (one file per work unit)
 register/<category>.md     — consolidated concept entries, one file per category
 register/000_concept_index.md — master index: every concept, one line, by category
+stage2_workflow.js         — the stage-2 verification workflow script (reusable for superseded/abandoned sweep)
 ```
 
 ## What counts as a concept
@@ -101,6 +107,12 @@ Extracted 2026-07-13. Files in scope: <n>. Concepts found: <m>.
 - **superseded** — an explicit replacement exists (name it in `relations`).
 - **abandoned** — idea appears in older docs/versions and silently vanishes.
 - **unknown** — cannot tell from documents alone.
+- **convention** *(added in stage 2, 2026-07-14)* — a design doctrine, methodology,
+  or one-off analysis, not a code/DB/infra artifact. Stage 1 extraction had no way
+  to express this and defaulted such concepts to `deployed` (the docs describe them
+  as current/established practice); stage 2 verification found ~48 cases where this
+  produced a misleading "deployed" tag with nothing to point to in the codebase. See
+  `006_VERIFICATION_stage2.md`.
 
 ## Consolidation format (register/)
 

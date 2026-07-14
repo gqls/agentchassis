@@ -2,8 +2,18 @@
 
 1,627 concepts across 107 category register files, consolidated from 2,185 raw
 extraction blocks (32 extraction-unit files, ~4,111 source documents under `docs/`).
-Built 2026-07-13. Status tags are documentary signals from the source material,
-not verified ground truth — stage 2 (code/DB verification) is next.
+Built 2026-07-13. Status tags were documentary signals from the source material.
+
+**Stage 2 (code/DB verification) ran 2026-07-14** — see
+`006_VERIFICATION_stage2.md` for method and full findings. All 314 partial/unknown
+concepts plus a false-positive sweep of all 871 deployed concepts were checked
+against the live codebase; 105 corrections were confirmed (each independently
+adversarially re-checked before acceptance) and applied below. A 7th status,
+**convention**, was added for design doctrines/methodologies that were tagged
+`deployed` but are not code artifacts at all (see status vocabulary in
+`README.md`). Status column below now reflects verified ground truth for the
+105 corrected rows; all other rows remain the stage-1 documentary signal,
+unverified.
 
 Sorted by register file, then by ID. Use your editor's search for a concept name,
 an ID prefix, or a status word.
@@ -27,7 +37,7 @@ an ID prefix, or a status word.
 | DEV-063 | Role-based agent pools / atomic work-claim queue (proposal, superseded) | superseded | 2025 proposal for role-queue atomic work-claiming; ancestor of today's work-item pipeline. | development-guide.md |
 | DEV-055 | v1 monolithic LLM-chain site builders | superseded | 2025-era chain of one-LLM-call specialists producing free-form HTML; no component library. | development-guide.md |
 | IMG-003 | Imagery best-in-class programme (I0–I8) | partial | 2026-07-08 successor programme; I0/I1 complete, I2 in progress, I3-I8 not started. | imagery.md |
-| FIX-034 | fixloop-digest / awareness surface | partial | 24h activity digest built, awaiting chassis image | fix-loop.md |
+| FIX-034 | fixloop-digest / awareness surface | deployed | 24h activity digest built, awaiting chassis image | fix-loop.md |
 | ADM-006 | WireGuard VPN admin-access implementation detail | superseded | 3 access options (WireGuard-in-cluster, VM bastion, port-forward); configs dropped from live doc | admin-dashboard-and-api.md |
 | CHAT-004 | site-chat-installer orchestration (install_chat maintenance task) | aspirational | 3 sub-agents: chat-context-builder, chat-widget-installer, chat-route-registrar | site-chatbot.md |
 | BIZ-023 | Domain content strategy framework (15-question) | aspirational | 3-layer, 15-question method for deciding what content a domain needs | business-strategy.md |
@@ -64,12 +74,12 @@ an ID prefix, or a status word.
 | TL-004 | Post-adoption tool-recreation detection check (T2) + tool-recreation-handler workflow | deployed | A discovery_checks package check finds page_type IN ('tool','game'), status='active' pages with no widget,... | tool-lifecycle.md |
 | IMP-021 | backend_unreachable discovery check | partial | A discovery_checks/ check giving the improvement loop eyes on the VM-hosted class: per-site, NOOPs unless... | improvement-loop.md |
 | REB-002 | Assemble-only vs section re-render distinction (the `reason` gate) | deployed | A dropped reason anywhere in the chain silently downgrades a fix to assemble-only | rebuild-cascade.md |
-| TLIB-005 | system-stats component key-contract break (regen renames fields, dependents empty) | partial | A durable cross-site platform bug found via gamesdesign's empty stats band: component-creator regenerated the... | tool-library.md |
+| TLIB-005 | system-stats component key-contract break (regen renames fields, dependents empty) | deployed | A durable cross-site platform bug found via gamesdesign's empty stats band: component-creator regenerated the... | tool-library.md |
 | IMP-042 | build-dispatch-loop self-chaining removal | deployed | A fix (migration 063) removing the build-dispatch-loop's self-respawn pattern (spawn_next_dispatch →... | improvement-loop.md |
 | TP-006 | Reuse-checking retrieval architecture | partial | A framing that reuse-checking (for code or components) should be almost entirely algorithmic: a maintained... | tool-pipeline.md |
 | IMP-014 | Fixes-land-at-initial-render principle (loop fixers backstop only) | deployed | A governing platform principle carried into every artefact of the scheme-to-components work: correctness must... | improvement-loop.md |
 | DEV-036 | psql read-only PreToolUse gate | deployed | A hook auto-approves read-only SELECT/\d psql while mutations still prompt the human. | development-guide.md |
-| DEV-030 | Correct-while-touching norm (bounded repair of adjacent inert bugs) | deployed | A migration touching a workflow also fixes known-inert bugs in that same workflow, declared explicitly. | development-guide.md |
+| DEV-030 | Correct-while-touching norm (bounded repair of adjacent inert bugs) | convention | A migration touching a workflow also fixes known-inert bugs in that same workflow, declared explicitly. | development-guide.md |
 | DES-078 | Spec ownership / silent-override failure-mode principle (doc 028) | deployed | A named failure-mode taxonomy governing all spec-writing agents in the design-composition pipeline: an agent... | design-composition.md |
 | DIAG-005 | SeenRequests / data_request progress-counting mechanism | deployed | A new unseen read-only data_request counts as loop progress so guards don't stop one iteration too early | diagnosis-loop.md |
 | TL-002 | Adoption interactivity misroute (canonical prefix desync, "M2") | deployed | A page_type='tool' page rendering description-only prose but no widget can have two distinct causes needing... | tool-lifecycle.md |
@@ -82,7 +92,7 @@ an ID prefix, or a status word.
 | DES-068 | Seed-driver transactional load pattern | deployed | A psql driver script wrapping all 15 numbered layout `\ir` includes in a single transaction with `\set... | design-composition.md |
 | DEV-085 | workflow field-path audit query (jsonb_path_query over agent_definitions) | unknown | A recursive jsonb_path_query sweep extracting every field-path value referenced across all workflows. | development-guide.md |
 | DEV-039 | Development-guide gotcha: max_tokens must live inside ai_service | deployed | A root-level step-config max_tokens is silently ignored; Anthropic client defaults to 2048 tokens. | development-guide.md |
-| DEV-040 | Development-guide gotcha: verify deployed contents against the pod, never tag/git | deployed | A same-tag deploy can silently ship a stale binary; only the running pod binary is reliable proof. | development-guide.md |
+| DEV-040 | Development-guide gotcha: verify deployed contents against the pod, never tag/git | convention | A same-tag deploy can silently ship a stale binary; only the running pod binary is reliable proof. | development-guide.md |
 | DES-074 | Parallel legacy HTML-assembly render path (getThemeByID / GetThemeByName) | partial | A second, older render path reads `css_themes.css_content` directly into assembled HTML, independent of the... | design-composition.md |
 | CLC-001 | Shared content-component reuse model (one content_components row, N page_components instances) | deployed | A section component is a single shared content_components row (keyed by `function`, with section_type,... | component-lifecycle.md |
 | DES-009 | Semantic CSS theme and snippet system (theme_tags, css_themes, css_snippets, js_snippets) — superseded | superseded | A semantic tagging vocabulary (mood/style/industry/audience/functional/colour, with related_tags pairing)... | design-composition.md |
@@ -92,10 +102,10 @@ an ID prefix, or a status word.
 | TL-019 | Behavioural QA loop for tools & games (planned Tier 3+ headless-browser testing) | aspirational | A standalone, slower-cadence QA loop motivated by real defects (Jelly Invaders degrading over time, P2P host... | tool-lifecycle.md |
 | TLIB-013 | Known-good solution library (proposed) | aspirational | A store of proven solutions as reusable parameterised templates, indexed by capability/domain, versioned,... | tool-library.md |
 | CTXP-003 | Adoption context pack (skinner-box) as a worked fresh-thread starter | deployed | A structured resume pack demonstrating the pack contract, including its own inherited staleness | context-pack-tooling.md |
-| DES-047 | Computed-styles extraction via browser JS injection | partial | A supplementary fingerprint step: scrape a homepage with injected JS calling `getComputedStyle()`, write the... | design-composition.md |
+| DES-047 | Computed-styles extraction via browser JS injection | aspirational | A supplementary fingerprint step: scrape a homepage with injected JS calling `getComputedStyle()`, write the... | design-composition.md |
 | TLIB-018 | system.internal canonical library site | deployed | A synthetic site record that owns library-level work (component regeneration, library maintenance) so the... | tool-library.md |
 | PLAN-039 | Plan storage authority: 029 Q1 and the withdrawn table-first alteration | superseded | A table-first fix was tried and reverted same-day pending the still-open Q1 decision | site-plan-and-reconciler.md |
-| TL-001 | Tool widget clobber hazard (interactive content silently destroyed by content rebuild) | partial | A tool/game lives as a section's rendered_html, not a planned section, so any full rebuild (needs_page,... | tool-lifecycle.md |
+| TL-001 | Tool widget clobber hazard (interactive content silently destroyed by content rebuild) | deployed | A tool/game lives as a section's rendered_html, not a planned section, so any full rebuild (needs_page,... | tool-lifecycle.md |
 | WFA-001 | Workflow Builder & Validator (YAML DSL) | abandoned | A validation-first YAML-to-workflow-JSON authoring system; no later doc references it as ever used. | workflow-authoring.md |
 | IMP-044 | Defect-cataloguing discipline (enumerate-before-fixing) | deployed | A working method for a real adoption-run defect sweep: group symptoms into lettered families by shared mechanism... | improvement-loop.md |
 | DBG-059 | orchestration_state_audit: temporary attachable trigger for state races | deployed | AFTER UPDATE trigger capturing every transition; explicitly removed after use | debugging.md |
@@ -121,10 +131,10 @@ an ID prefix, or a status word.
 | SYS-037 | Workflow default_config location convention | deployed | Agent workflow lives in default_config, never the separate *_workflow columns | system-architecture.md |
 | HITL-002 | Confirm-not-initiate governance/HITL model (decision package) | aspirational | Agent-led reasoning + decision package, human confirms; new version deprecates old | hitl.md |
 | SYS-053 | Stateless-first agent principle + DB-backed orchestration state | deployed | Agents are ephemeral executors; all workflow state persists in the database | system-architecture.md |
-| IMG-063 | Human taste-gate operating model (runbook rituals) | deployed | Agents author/deploy; humans hold credentials, budget sign-off, and visual approval gates. | imagery.md |
+| IMG-063 | Human taste-gate operating model (runbook rituals) | convention | Agents author/deploy; humans hold credentials, budget sign-off, and visual approval gates. | imagery.md |
 | DEV-035 | ExtractActionInputs Strategy-0 explicit dot-paths lesson | partial | Aggressive recursive field search can mis-match; explicit Strategy-0 dot-paths resolve first and win. | development-guide.md |
 | DES-024 | Layout: high-energy | deployed | Aggressive, kinetic layout — uppercase headings, 80vh dark hero, diagonal clip-path section separators, zero... | design-composition.md |
-| DOC-025 | Framing: plan = enforced desired state; pipeline = compiled runbook; NOTES = reasoning log | deployed | Agreed 2026-07-04 framing across site_plans/pipeline/NOTES/contracts | documentation-system.md |
+| DOC-025 | Framing: plan = enforced desired state; pipeline = compiled runbook; NOTES = reasoning log | convention | Agreed 2026-07-04 framing across site_plans/pipeline/NOTES/contracts | documentation-system.md |
 | MDL-014 | Orphan-sweep for stale thunder_instances rows | aspirational | Agreed but unbuilt design to reconcile DB rows against Thunder's live list | model-infrastructure.md |
 | NAV-009 | Navigation maintenance: nav-updater and nav-link-fixer | deployed | Algorithmic, no-LLM agents refreshing nav tables and fixing anchor-slug templates | navigation.md |
 | DEV-003 | Actions are the unit of work — no wrapper+core split | deployed | All action logic lives in the XxxAction func; no exported "core logic" duplicate API surface. | development-guide.md |
@@ -185,16 +195,16 @@ an ID prefix, or a status word.
 | STY-039 | Batched multipage generation (assemble_multipage_site) | superseded | Batch-of-3-5 generation strategy, replaced by sequential loop-based generation | styling-render-pipeline.md |
 | SYS-005 | Work-item relay spine / dispatch-loop pattern | deployed | Baton = site_work_items row; 30s pump seeds queue; dispatch loop claims and spawns handlers | system-architecture.md |
 | DES-033 | webdesign-agent install/render ordering bug ("first render wrong layout") | partial | Before site-design-planner existed, webdesign-agent ran `generate_css → deploy_css → ... | design-composition.md |
-| PBP-005 | Render-time item-key reconciler (schema-sourced, non-fatal) | partial | Belt-and-braces remap of LLM-drifted array item keys onto schema-expected keys | page-build-pipeline.md |
+| PBP-005 | Render-time item-key reconciler (schema-sourced, non-fatal) | deployed | Belt-and-braces remap of LLM-drifted array item keys onto schema-expected keys | page-build-pipeline.md |
 | MDL-028 | Model quality assessment & per-agent model assignment | partial | Benchmark data behind the Claude/Llama70B/Mistral per-agent routing table | model-infrastructure.md |
 | FTW-033 | CheckpointUploader trainer callback | deployed | Best-effort checkpoint upload, hard-gated final adapter upload | finetuning-flywheel.md |
 | ADM-004 | Work-item HITL model: approve/reject endpoints on pending_review status | superseded | Binary approval gate replaced by needs_human_review + PATCH /specs retry flow | admin-dashboard-and-api.md |
 | DBG-032 | Code-ahead-of-DB schema drift (SQLSTATE 42703, latent until first caller) | deployed | Binary referenced columns before migration ran; migration file was mis-parked | debugging.md |
 | AGOV-005 | Capabilities catalog: ceiling on the capability | aspirational | Blast-radius-capped trust ceiling, never full autonomy for chassis edits | autonomy-governance.md |
-| FIX-007 | Known-answer benchmark methodology | deployed | Blind reruns scored against pre-registered rubric | fix-loop.md |
+| FIX-007 | Known-answer benchmark methodology | convention | Blind reruns scored against pre-registered rubric | fix-loop.md |
 | CQ-002 | validate_page_content gate (pre-deploy content validator) | deployed | Blocker validator (placeholder/contamination/links/email) routing failures to human review | content-quality.md |
 | DBI-023 | VM sizing / Hetzner box selection | deployed | Boxes sized by disk/log headroom; EU-only Hetzner, x86-only build caveat | database-and-infrastructure.md |
-| CQ-007 | Adoption content-quality defect families (polish batch) | unknown | Brand-suffix titles, empty footer contact, duplicated H1s, empty meta descriptions | content-quality.md |
+| CQ-007 | Adoption content-quality defect families (polish batch) | partial | Brand-suffix titles, empty footer contact, duplicated H1s, empty meta descriptions | content-quality.md |
 | CGV-021 | Page-content-writer + admin content brief regeneration flow | partial | Bridge doc: admin edits brief -> Regenerate -> content_rewrite item with brief in prompt | content-governance.md |
 | NAV-007 | Hardcoded fallback nav/header defaults inventing structure | partial | Brochure-default fallbacks fabricate URLs; later found not the live-path cause for one incident | navigation.md |
 | IMG-009 | asset_key multi-image model (Phase 2B–2D) | deployed | Broke one-asset-per-purpose constraint; enables N heroes/icons per site via asset_key. | imagery.md |
@@ -206,7 +216,7 @@ an ID prefix, or a status word.
 | LNK-011 | internal-link-resolver agent | deployed | Build-time sub-agent resolving hero/CTA destinations to real pages, not a patcher | link-management.md |
 | BIZ-030 | AI-native orchestration positioning (vs Temporal/Airflow) | abandoned | Build-vs-buy rationale for a purpose-built orchestrator; adapters never built | business-strategy.md |
 | CTXK-004 | assembler (cmd/assembler) | deployed | Builds one paste-ready bundle: constitution + task + full in-scope code + signature neighbourhood + schema | contextkit-toolchain.md |
-| PLAN-038 | Three section sources for a page build + plan storage triple shape (029 Q1) | partial | Builds read site_specs blob then pages.sections then sibling synthesis; plan table unread | site-plan-and-reconciler.md |
+| PLAN-038 | Three section sources for a page build + plan storage triple shape (029 Q1) | superseded | Builds read site_specs blob then pages.sections then sibling synthesis; plan table unread | site-plan-and-reconciler.md |
 | CTXK-007 | embed (cmd/embed) | partial | Builds/queries a semantic vector index over symbols; Ollama for real recall, local stand-in for pipeline-proving | contextkit-toolchain.md |
 | DIAG-024 | Symptom anchor (F0.4a) | deployed | Bundle always renders the original symptom above the current hypothesis so drift stays visible | diagnosis-loop.md |
 | CTXA-009 | Codebase-conditional capabilities (degrade, don't break) | aspirational | Bundle capabilities rest on structural facts that may not hold elsewhere; degrade gracefully, don't break | context-assembly.md |
@@ -220,7 +230,7 @@ an ID prefix, or a status word.
 | DIAG-012 | Tier-coverage guard (F0.4e) | deployed | CONFIRMED verdict must carry both a static AND a state/runtime citation or degrades to Unverifiable | diagnosis-loop.md |
 | DIAG-011 | Symptom-coverage gate family (symptom_check → context disposition) | deployed | CONFIRMED verdicts must map every symptom observation to explained/unexplained with citations | diagnosis-loop.md |
 | FTW-039 | LLM fallback extraction doubling as training data (med pricing) | deployed | CPU Mistral price-extraction fallback incidentally accrues fine-tune data | finetuning-flywheel.md |
-| MDL-003 | Ollama adapter (CPU embeddings + local classification) | partial | CPU provider for embeddings + small-model classification, same AIService interface | model-infrastructure.md |
+| MDL-003 | Ollama adapter (CPU embeddings + local classification) | deployed | CPU provider for embeddings + small-model classification, same AIService interface | model-infrastructure.md |
 | CTS-038 | Call metadata vs response-data convention (output_field.response) | deployed | Call metadata at output_field; called agent's payload at output_field.response | contracts-and-standards.md |
 | BIZ-021 | Early portfolio inventory (honest capability notes) | unknown | Candid Feb-2026 snapshot: no site had generated a real lead yet | business-strategy.md |
 | FTW-020 | Held-out eval set v1 | deployed | Canonical 20-case (of 50) comparison set reused across all iterations | finetuning-flywheel.md |
@@ -250,13 +260,13 @@ an ID prefix, or a status word.
 | SYS-036 | Parent/child result key = step-name convention | deployed | Child response is stored under the calling step's own name, never a synthetic key | system-architecture.md |
 | STY-011 | Chrome selection path and the dead header_component_id column | deployed | Chrome resolution chain always falls through a NULL-forever column to fallbacks | styling-render-pipeline.md |
 | RAGK-003 | rag_index action (chunk, embed, dedup, store) | partial | Chunks + SHA256 dedup + embed + insert; stores even if embedding fails | rag-knowledge-base.md |
-| BIP-006 | vet-batch-processor agent | partial | Claims and processes a batch of verification tasks sequentially; reworked in production | business-intelligence-platform.md |
-| DOC-008 | Epistemic tagging and handoff-correction discipline | deployed | Claims tagged verified/assumed/gap; correction log vs stale handoffs | documentation-system.md |
+| BIP-006 | vet-batch-processor agent | deployed | Claims and processes a batch of verification tasks sequentially; reworked in production | business-intelligence-platform.md |
+| DOC-008 | Epistemic tagging and handoff-correction discipline | convention | Claims tagged verified/assumed/gap; correction log vs stale handoffs | documentation-system.md |
 | CTS-019 | {function}-section class contract + data-component naming | partial | Class convention honoured unevenly; data-component attribute is the reliable escape hatch | contracts-and-standards.md |
 | SPEC-011 | Classifier as strategic brain (always runs full) | partial | Classifier decides site destiny on every site; blocked items await feasibility | site-spec-and-classifier.md |
 | RES-007 | Deep-research domain insight agent | abandoned | Classifier deciding when multi-platform social research pays off; domain-flipping era | research-agents.md |
 | WDS-012 | needs_section_data: resolvable-by-query vs genuinely-human classification | partial | Classifies deferred section data into mechanically-resolvable vs permanently-HITL | work-dispatch.md |
-| MCL-010 | RTT-based agent-type viability classification | partial | Classifies which agent types tolerate cross-cluster DB latency | multicluster.md |
+| MCL-010 | RTT-based agent-type viability classification | aspirational | Classifies which agent types tolerate cross-cluster DB latency | multicluster.md |
 | ONB-021 | Intake orchestrator with two HITL gates and per-group briefing questionnaires | partial | Classify→HITL confirm→group questionnaire→HITL review brief→spawn builder | onboarding-config.md |
 | CASE-007 | relojistas.com go-live + bot verdict | deployed | Clean negative probe result: access log showed ~0 human intent | site-case-studies.md |
 | VMB-009 | Pull-not-push off-cluster data return | partial | Cluster pulls over key-gated HTTPS on a schedule; box never holds credentials | vm-backend-sites.md |
@@ -265,7 +275,7 @@ an ID prefix, or a status word.
 | PEV-001 | Pragmatic Evolution model (explore/exploit portfolio cohorts) | abandoned | Cohort-based site mutation/evaluation; chaos confined to a "loser" cohort | portfolio-evolution.md |
 | LCO-001 | Temperature/max_tokens logging gap in llm_call_log | partial | Columns exist but the Go writer never populates them from the actual API call | llm-call-observability.md |
 | TLIB-016 | Component selector metadata and scoring (schema) | deployed | Columns that let a selector score components for a slot: section_type (kebab), suitable_site_types /... | tool-library.md |
-| DOC-037 | verify_before_migration pre-flight convention | deployed | Companion pre-flight SQL script before any hand-applied migration | documentation-system.md |
+| DOC-037 | verify_before_migration pre-flight convention | convention | Companion pre-flight SQL script before any hand-applied migration | documentation-system.md |
 | SOC-003 | Arena + Stage dual modes and their mechanic families | aspirational | Competitive Arena vs showcase Stage, feeding each other in a content flywheel | social-media.md |
 | FIX-030 | Whole-file rewrite strategy | deployed | Complete file bodies only, no diffs; caps near ~41KB | fix-loop.md |
 | MDL-037 | llama3.3:70b trained but never used for inference | partial | Completed training run never wired to any agent's production ai_service | model-infrastructure.md |
@@ -282,7 +292,7 @@ an ID prefix, or a status word.
 | DOC-026 | load_doc_context fix-time retrieval | deployed | Composes current PLAN + latest NOTES + criteria_json into one block | documentation-system.md |
 | IMG-025 | Image generation as parameter shaping (deferred composer step) | aspirational | Composition-by-parameter design for images deferred; partially realised by per-kind gating. | imagery.md |
 | CASE-003 | idea.uk chassis-site build state (two site rows; gated go-live) | partial | Concrete build history across two site_ids with catalogued page defects | site-case-studies.md |
-| DOC-053 | Three parallel threads with hard boundaries | deployed | Concurrent chat threads own non-overlapping territories | documentation-system.md |
+| DOC-053 | Three parallel threads with hard boundaries | convention | Concurrent chat threads own non-overlapping territories | documentation-system.md |
 | AGOV-007 | Two gated paths: config changes vs deliverables | aspirational | Config confirmer and ledger ratchet are two distinct gates | autonomy-governance.md |
 | DOC-030 | Provenance stamps the chassis, not the logical agent | deployed | Config-declared source fields are the reliable provenance, not agent headers | documentation-system.md |
 | FIX-040 | config_change edit operation type | deployed | Config-only edits labelled but left for a human to apply | fix-loop.md |
@@ -304,7 +314,7 @@ an ID prefix, or a status word.
 | BIZ-019 | WordPress export/handoff idea (XML export, shortcodes, subscription plugin) | abandoned | Convert generated sites to WordPress for client handoff; killed by competitive analysis | business-strategy.md |
 | ONB-015 | Onboarding orchestrator (dependency-graph flow; active-with-pending) | aspirational | Coordinates three layer agents by dependency; terminal state active-with-pending | onboarding-config.md |
 | CTS-048 | Local-step input resolution: input_mapping dead, key_path for loops | deployed | Coordinator doesn't resolve input_mapping for local action/loop substeps; use key_path | contracts-and-standards.md |
-| DEV-045 | Cross-module port / copy-drift discipline | deployed | Copy the WHOLE package as a unit and diff file lists; grep real helper APIs before authoring. | development-guide.md |
+| DEV-045 | Cross-module port / copy-drift discipline | convention | Copy the WHOLE package as a unit and diff file lists; grep real helper APIs before authoring. | development-guide.md |
 | DEV-081 | Specialist agent design doctrine (agents own their domain) | deployed | Core agent-design rulebook: self-contained, raw-identifier callers, declarative workflows, spawn-before-call. | development-guide.md |
 | SYS-068 | Layer-1 / Layer-2 hack-resistance model | deployed | Core cluster never serves inbound traffic; Layer 2 is static-on-S3 with nothing to compromise | system-architecture.md |
 | HITL-012 | await_approval / HITL pause-resume mechanism (AwaitedRequests, token matching) | deployed | Core pause/resume primitive: token-based approval request, matched Kafka resume | hitl.md |
@@ -312,10 +322,10 @@ an ID prefix, or a status word.
 | ADP-013 | Thunder consecutive-unreachable probe streak | deployed | Counter-based durability so one transient SSH blip doesn't kill a training run | adapters.md |
 | ADO-002 | Adoption is a one-off capture, not a ceiling (specs separation) | deployed | Crawl data goes to research_results, never site_specs; strategist extends beyond baseline | adoption-pipeline.md |
 | DOC-064 | Deploy-from-context-packs guide — six deploy mechanisms (A–F) — dropped from the live tree | abandoned | Cross-cutting deploy-mechanism guide, absent from the live idea.uk tree | documentation-system.md |
-| DEV-019 | Standing session/working-contract rules (house rules) | deployed | Cross-thread working contract: Go not Python, British English, schema-first, no summary docs. | development-guide.md |
+| DEV-019 | Standing session/working-contract rules (house rules) | convention | Cross-thread working contract: Go not Python, British English, schema-first, no summary docs. | development-guide.md |
 | CTXA-008 | Diagnostic playbooks / failure fingerprints as authored knowledge | aspirational | Curated failure signature + confirm commands + fix pattern, surfaced into debug bundles like standards | context-assembly.md |
 | NEWS-006 | News publishing gap (curation -> deployed posts) | aspirational | Curated news items never become deployed blog posts; Path B design to close the gap | news-feed-pipeline.md |
-| ASG-006 | Controlled group evolution (observed mutation with rules) | partial | Curated seeds + metrics-triggered mutations; platform/evolution/ confirmed real | agent-spawning-and-groups.md |
+| ASG-006 | Controlled group evolution (observed mutation with rules) | aspirational | Curated seeds + metrics-triggered mutations; platform/evolution/ confirmed real | agent-spawning-and-groups.md |
 | PLAN-035 | build-site-planner + roadmap-overrides-components rule | deployed | Current needs_site_plan handler; roadmap overrides the component list when present | site-plan-and-reconciler.md |
 | CASE-014 | Cross-vendor critique (multi-model critique step) | deployed | Cut step runs on a different model vendor than generate, logged explicitly | site-case-studies.md |
 | ABO-006 | autonomous-system building-block hardening checklist | aspirational | Cycle guards, outbox transactions, bulk confirmation, no self-recovering rollback | autonomous-build-operate.md |
@@ -327,12 +337,12 @@ an ID prefix, or a status word.
 | DES-030 | Layout: tool-portal-dark | partial | Dark developer-utility portal layout supporting three page shapes in one template — portal/index, tool pages,... | design-composition.md |
 | STY-033 | Section-contrast model (is_dark_section + --section-* variables) | deployed | Dark-background components must define the --section-* contract on container | styling-render-pipeline.md |
 | DEV-072 | Dynamic agent routing (route_by_field / conditional_call_agent) | deployed | Data-driven agent selection inside workflows via a dot-path value → agent-type mapping. | development-guide.md |
-| NEWS-017 | Blog-listing / orphan-page routing session handoff | partial | Dated fix package for blog-listing rendering and three-way orphan-page reclassification | news-feed-pipeline.md |
+| NEWS-017 | Blog-listing / orphan-page routing session handoff | deployed | Dated fix package for blog-listing rendering and three-way orphan-page reclassification | news-feed-pipeline.md |
 | DOC-060 | Handoff document convention (stand-alone dated brief for a fresh chat) — vonc thread | deployed | Dated self-contained handoff with orientation, DONE state, backlog | documentation-system.md |
-| DOC-044 | Date/version as triage, not truth | deployed | Dates order the verification queue; never override a code check | documentation-system.md |
+| DOC-044 | Date/version as triage, not truth | convention | Dates order the verification queue; never override a code check | documentation-system.md |
 | DOC-056 | Published reasoning as substrate + drift detection | aspirational | Decisions publish their premise, enabling drift detection | documentation-system.md |
 | DEV-052 | Confirmed chassis workflow model (group agents, promotion pattern, wrapper orchestrator) | deployed | Declarative JSON workflows, generic action library reused first, promote to spawned sub-agent later. | development-guide.md |
-| OPD-002 | Parallel-thread boundary and handoff convention | deployed | Declared ownership boundaries and handoff docs across concurrent threads | operating-doctrine.md |
+| OPD-002 | Parallel-thread boundary and handoff convention | convention | Declared ownership boundaries and handoff docs across concurrent threads | operating-doctrine.md |
 | ADO-004 | Source vs destination separation (target_url / destination_domain) | deployed | Decouples crawled site from built site; mismatch used to silently drop content | adoption-pipeline.md |
 | VMB-013 | VM launch plan (idea.uk): dedicated hardened box | deployed | Dedicated VM chosen over reusing the shared OVH multi-domain reverse proxy | vm-backend-sites.md |
 | IMG-017 | Legacy image_prompts age-out check — retired (Phase 2G.6) | superseded | Dedicated migration check retired; reframed as operational deregistration decision. | imagery.md |
@@ -340,7 +350,7 @@ an ID prefix, or a status word.
 | IMP-048 | Work-item dedup and two-strike semantics (partial index behaviour) | deployed | Dedup semantics that shape operations: the partial unique index suppresses a new work item only while an open one... | improvement-loop.md |
 | STY-044 | Head-inside-body bug and positional injection fixes | deployed | Dedup-by-size heuristic kept the wrong misplaced head; fixed to dedup by position | styling-render-pipeline.md |
 | ADO-030 | Playwright capture adapter + website-capture agent | superseded | Deep browser capture deferred in favour of managed Firecrawl | adoption-pipeline.md |
-| DBI-008 | sites.build_status vestigial column | unknown | Defaults to pending and is never advanced by any code path | database-and-infrastructure.md |
+| DBI-008 | sites.build_status vestigial column | aspirational | Defaults to pending and is never advanced by any code path | database-and-infrastructure.md |
 | DIAG-009 | Three-guard read-only SQL enforcement model | deployed | Defence in depth for model SQL: prompt constraint, lint, and the real guarantee — read-only transaction | diagnosis-loop.md |
 | RAGK-006 | Concept-document RAG for content writers (v2+) | aspirational | Deferred design to ingest full concept docs into knowledge_base for v2+ | rag-knowledge-base.md |
 | FTW-041 | Text LoRA — veterinary knowledge extractor | aspirational | Deferred recipe to fine-tune a local 7-8B knowledge-extractor model | finetuning-flywheel.md |
@@ -356,7 +366,7 @@ an ID prefix, or a status word.
 | CASE-018 | Reuse-not-rebuild site build-out with honest "simulation" labelling | aspirational | Deploy existing tool library, label deterministic widgets as simulations | site-case-studies.md |
 | PBP-024 | Deploy-observability bookkeeping gap | partial | Deploy path never writes deploy_commit/last_built_at, weakening change-detection evidence | page-build-pipeline.md |
 | PLAN-004 | built_from_plan_version drift stamp + removal of deployed→needs_rebuild flip (Option B) | deployed | Deploy-time plan-version stamp replaces the blunt sync-time rebuild flip | site-plan-and-reconciler.md |
-| STY-046 | CSS generation bug (webdesign-agent design_spec not applied) | partial | Deployed CSS reverts to default blue template despite a correct design_spec | styling-render-pipeline.md |
+| STY-046 | CSS generation bug (webdesign-agent design_spec not applied) | superseded | Deployed CSS reverts to default blue template despite a correct design_spec | styling-render-pipeline.md |
 | DEV-017 | Agent re-registration vs re-seed risk (DB row authoritative) | deployed | Deploys bump updated_at but don't overwrite default_config; DB-edited prompts survive deploys. | development-guide.md |
 | PLAN-006 | Architectural Tension #1: infer-and-repair vs deterministic structure derivation | partial | Derive page structure from LLM naming signal, not vertical-hardcoded repair heuristics | site-plan-and-reconciler.md |
 | ONB-005 | Config as a maintained artifact (wizard is first pass; lifecycle is deliverable) | aspirational | Derived config gets periodic re-derivation, drift flagging, provenance | onboarding-config.md |
@@ -374,12 +384,12 @@ an ID prefix, or a status word.
 | FIX-013 | Plan validation / hard allowlist for edit plans | deployed | Deterministic validator fails closed on malformed plans | fix-loop.md |
 | ONB-009 | Three checking tiers + three-bucket audit output (coverage honesty) | aspirational | Deterministic/heuristic/judgement-only tiers; audit reports three numbers | onboarding-config.md |
 | BIZ-028 | Domain value maximisation pipeline (domain flipping) | abandoned | Develop parked domains to multiply resale value; platform pivoted to operating own sites | business-strategy.md |
-| FIX-009 | Blinding discipline for benchmark runs | deployed | Diagnose-agent can't read docs; symptom string is the only leak | fix-loop.md |
+| FIX-009 | Blinding discipline for benchmark runs | convention | Diagnose-agent can't read docs; symptom string is the only leak | fix-loop.md |
 | DIAG-002 | Chassis workflow architecture (diagnose_route, next_step override) | deployed | Diagnose-agent workflow: analyse→lookup→runtime→bundle→verdict→route loop-back via next_step override | diagnosis-loop.md |
 | STY-010 | Hazard-class vs band-class declarer taxonomy (library blast radius) | partial | Diagnostic split sizing every scheme-fix decision; non-idea.uk tail still open | styling-render-pipeline.md |
 | CTXA-007 | Run signatures: expected-vs-actual sequence diff | aspirational | Diff a live run against a captured healthy-run signature to surface the divergence point directly | context-assembly.md |
-| DOC-036 | Full heading+content-line diff across all forked copies before consolidating | deployed | Diff-before-promote methodology for travelling/forked docs | documentation-system.md |
-| FIX-049 | Fix-loop value proposition: unattended, cited, consistent | deployed | Differentiator is auditable consistency, not superhuman insight | fix-loop.md |
+| DOC-036 | Full heading+content-line diff across all forked copies before consolidating | convention | Diff-before-promote methodology for travelling/forked docs | documentation-system.md |
+| FIX-049 | Fix-loop value proposition: unattended, cited, consistent | convention | Differentiator is auditable consistency, not superhuman insight | fix-loop.md |
 | SYS-050 | Orchestration ↔ site linkage (orchestration_states.site_id) | deployed | Direct nullable site_id column replaces JSONB spelunking for per-site orchestrations | system-architecture.md |
 | IMG-062 | Components declare imagery contracts / many-images-per-page | aspirational | Direction for components to own typed imagery contracts instead of hero_image-only. | imagery.md |
 | IMP-007 | Discovery agents on dead/stub sites (noise at scale) | unknown | Discovery agents keep generating remediation items for sites that are deleted, stubs, or mid-adoption. Proposed... | improvement-loop.md |
@@ -387,7 +397,7 @@ an ID prefix, or a status word.
 | DBG-047 | Pipeline field as a soft routing label (needs_imagery excluded by pipeline='design') | deployed | Discovery checks inherited wrong pipeline label; dispatcher filter also loosened | debugging.md |
 | NAV-004 | Nav discovery checks and fix agents | deployed | Discovery/fixer pairs for anchor-slug links, stacked nav, unlinked components, orphans | navigation.md |
 | DEV-061 | Loop-action dispatch (build-dispatch-loop, migration 071) | deployed | Dispatch loop claims/spawns/calls one work item per iteration via claim→spawn→call→mark_complete. | development-guide.md |
-| WDS-005 | Dispatcher response-stall and missing claim/orchestration timeout cleanup | unknown | Dispatch orchestrations stall despite handler response arriving; no sweeper existed | work-dispatch.md |
+| WDS-005 | Dispatcher response-stall and missing claim/orchestration timeout cleanup | partial | Dispatch orchestrations stall despite handler response arriving; no sweeper existed | work-dispatch.md |
 | SCH-011 | Pipeline-blind dispatch surfaces (discovered platform defect) | deployed | Dispatch queries lack pipeline filters; any item on a claimable site gets dispatched | scheduler-and-tasks.md |
 | SCH-005 | Dispatch throughput bottleneck (Family J): one-site-per-tick, NOT-EXISTS-blocked | unknown | Dispatcher processes one site per tick and blocks entire site on any claimed item | scheduler-and-tasks.md |
 | DEV-013 | Authoring rules pack (20-rule bundle) | deployed | Distilled 20-rule authoring discipline (schema-check, parameterised SQL, code-fence stripping...). | development-guide.md |
@@ -400,11 +410,11 @@ an ID prefix, or a status word.
 | SPEC-020 | Catch-all email forwarding, abandoned for per-site forwarders | abandoned | Domain-level catch-all repeatedly bounced; specific forwarders chosen instead | site-spec-and-classifier.md |
 | DEV-060 | build_queue site seeding | deployed | Domain-level intake queue for new sites; seed_build_queue is the entry point into the work-item pipeline. | development-guide.md |
 | DBG-016 | SQL/DB template-and-data surgery method (needle-gate + Postgres pitfalls) | deployed | Dominant safe method for mutating production templates/prompts/configs by SQL | debugging.md |
-| INVD-002 | Verify-before-acting investigation discipline | deployed | Don't act on a theory until code-search verifies it | investigation-discipline.md |
-| DGH-003 | sites.github_repo deploy-target selector / resolveGitRepoName patch | partial | Dormant deploy-target column; 3-touch patch to actually wire it up | deployment-github.md |
+| INVD-002 | Verify-before-acting investigation discipline | convention | Don't act on a theory until code-search verifies it | investigation-discipline.md |
+| DGH-003 | sites.github_repo deploy-target selector / resolveGitRepoName patch | aspirational | Dormant deploy-target column; 3-touch patch to actually wire it up | deployment-github.md |
 | STG-005 | asset-deployer (S3 → optimize-by-purpose → git) | deployed | Downloads S3 asset, optimizes by purpose (logo/hero), commits to git | storage-architecture.md |
 | BIZ-026 | Data-sovereignty / pilot-first / startup fast-start positioning | aspirational | Drafted client-engagement angles; explicitly "not yet done for a client" | business-strategy.md |
-| DOC-035 | Single-source relocation with pointer / canonical-doc-home discipline | deployed | Duplicated topics consolidated into one numbered doc + pointer sentence | documentation-system.md |
+| DOC-035 | Single-source relocation with pointer / canonical-doc-home discipline | convention | Duplicated topics consolidated into one numbered doc + pointer sentence | documentation-system.md |
 | STY-018 | Stored⊕resolved merge writes resolved values back into content_data | deployed | Durable recoveries, but also a contamination carrier for bad fallbacks | styling-render-pipeline.md |
 | FIX-003 | needs_diagnosis intake route (F0.1c) | deployed | Durable site_work_items intake joined to loop by correlation_id | fix-loop.md |
 | MDL-024 | Static vs dynamic agent deployment + GPU cost strategy | aspirational | Dynamic spawned GPU workers claimed as 95% cheaper than static GPU deployment | model-infrastructure.md |
@@ -438,17 +448,17 @@ an ID prefix, or a status word.
 | SYS-066 | Agent families architecture | partial | Eight specialist-agent families each owning a data domain, mixed completion | system-architecture.md |
 | DES-057 | Colour Inheritance Model (two-tier `var(--section-*, var(--color-*))` fallback) | deployed | Element-level colour rules (headings, body text, links) resolve via a two-tier CSS custom-property fallback... | design-composition.md |
 | CTXA-016 | Text-vs-code embeddings: share the mechanism, separate the policy (B4b) | deployed | Embedder/pgvector/hybrid pattern shared with prose RAG; model, tuning, and evaluation kept separate per domain | context-assembly.md |
-| RAGK-002 | rag_lookup action (vector search + trigram fallback) | partial | Embeds query, cosine search within collection, trigram fallback when Ollama down | rag-knowledge-base.md |
+| RAGK-002 | rag_lookup action (vector search + trigram fallback) | deployed | Embeds query, cosine search within collection, trigram fallback when Ollama down | rag-knowledge-base.md |
 | IMG-015 | check_unfulfilled_imagery_plan discovery check (Phase 2G.4) | deployed | Emits needs_imagery per unfulfilled site_plan_imagery row, priority-banded by scope. | imagery.md |
 | REB-007 | page-build-handler writes only planned sections (sections=0 → silent no-op rebuild) | deployed | Empty planned-section list makes a rebuild complete having written nothing | rebuild-cascade.md |
 | DYN-007 | Runtime-fill mechanism (data-runtime-fill shells + client loaders) | deployed | Empty shells filled client-side from a JSON feed, proven three times over | dynamic-applications.md |
 | IMG-055 | Section-scope imagery pipeline — idea.uk verification | deployed | End-to-end plan→emit→generate→deploy→rebuild chain exercised live on idea.uk. | imagery.md |
 | FIX-001 | Diagnosis→fix loop programme / council loop (F0–F3) | deployed | End-to-end symptom-to-PR pipeline; PR #1 merged 2026-07-13 | fix-loop.md |
 | TRF-009 | Access-log passive harvest and /access-digest | deployed | Engine reads its own nginx log for referer/404/UA signals the event stream can't see | traffic-analytics.md |
-| PAY-008 | REVIEW_BEFORE_PAY billing flow supersedes charge-first flow (idea.uk) | partial | Engine runs and operator reviews before any pay link is sent; charge-first kept as fallback | payments.md |
+| PAY-008 | REVIEW_BEFORE_PAY billing flow supersedes charge-first flow (idea.uk) | deployed | Engine runs and operator reviews before any pay link is sent; charge-first kept as fallback | payments.md |
 | TRF-007 | Capture-side input sanitisation with deferred normalisation | deployed | Engine strips Cc/Cf and collapses whitespace; NFC/lowercasing deferred to the collector | traffic-analytics.md |
 | CQ-013 | Input sanitisation (sanitizeValue, Cc/Cf stripping, NFD survives) | deployed | Engine strips control/format chars, collapses whitespace correctly, defers NFC to collector | content-quality.md |
-| DEV-073 | spawn_group action with DB group lookup and dynamic group_type | partial | Enhanced version resolves the whole agent group (agents+workflow+questionnaire) from the database. | development-guide.md |
+| DEV-073 | spawn_group action with DB group lookup and dynamic group_type | aspirational | Enhanced version resolves the whole agent group (agents+workflow+questionnaire) from the database. | development-guide.md |
 | CTXE-003 | Corpus enrichment policy: measure first, mechanical before authored | aspirational | Enrich retrieval with rot-free mechanical signals (string literals) before hand-authored docs or tags | context-engineering-principles.md |
 | FTW-040 | Thunder adapter (credential-boundary GPU provisioning) | deployed | Ephemeral credential-free VMs, spend/uptime/concurrency caps, 15-min reaper | finetuning-flywheel.md |
 | ONB-013 | Sandboxed probing — the tenant-code security envelope | aspirational | Ephemeral read-only sandbox gates the first agent allowed to run tenant code | onboarding-config.md |
@@ -494,7 +504,7 @@ an ID prefix, or a status word.
 | DOC-028 | EDIT-marker / -EDIT check-id convention | deployed | Fill-later blanks in seeded docs; -EDIT checks skipped until real selectors land | documentation-system.md |
 | RAGK-004 | RAG best practices — filter-first, quality gating, token budget | aspirational | Filter by metadata before ranking; 20-30% context budget; nomic task prefixes | rag-knowledge-base.md |
 | MCL-004 | Dispatch confirmation observability gap (Gap B / agent_dispatch_log) | aspirational | Fire-and-forget dispatch has no near-real-time failure signal; table proposed, not built | multicluster.md |
-| DEV-041 | Development-guide gotcha: rebalance window after chassis restart | deployed | Firing an orchestration within ~300s of a chassis restart risks a Kafka rebalance-window death. | development-guide.md |
+| DEV-041 | Development-guide gotcha: rebalance window after chassis restart | convention | Firing an orchestration within ~300s of a chassis restart risks a Kafka rebalance-window death. | development-guide.md |
 | DEV-071 | MVP site builder pipeline (strategist → architect → content-creator → deployer) | superseded | First end-to-end production pipeline (boxing-tickets.com); superseded by the work-item pipeline. | development-guide.md |
 | DOC-029 | Pilot PLAN seeding by SQL (dogfooding the format) | deployed | First tool PLAN hand-seeded before workflow wiring existed | documentation-system.md |
 | DOC-063 | 2026-05-24 launcher build handoff (superseded Option A) | superseded | First training-launcher build handoff, carries two disproven claims | documentation-system.md |
@@ -536,7 +546,7 @@ an ID prefix, or a status word.
 | STY-034 | JS delivery paths & the js_snippets loader gap (historical) | partial | Four coexisting JS paths catalogued; loader gap later closed by STY-028 | styling-render-pipeline.md |
 | DES-062 | Chrome linkage tangle: four overlapping header/footer default stores and the hardcoded dark fallback | partial | Four coexisting default stores for site chrome: `style_collections.header/footer_component_id` (the store... | design-composition.md |
 | BIZ-010 | Audience-tuned elevator pitch variants (V1-V4 method) | deployed | Four ~30s pitches tuned per audience plus 10-second openers | business-strategy.md |
-| DOC-009 | Cold-start documentation bundle practice (BUNDLE/HANDOFF/PLAN/RUNBOOK + cmd/bundle) | deployed | Four-doc travelling set per investigation via cmd/bundle | documentation-system.md |
+| DOC-009 | Cold-start documentation bundle practice (BUNDLE/HANDOFF/PLAN/RUNBOOK + cmd/bundle) | convention | Four-doc travelling set per investigation via cmd/bundle | documentation-system.md |
 | IDEA-001 | Ideation method v0→v3 (staged, multi-model, web-verified pipeline) | deployed | Frame→generate→cut→verify→score→rank method behind idea.uk's paid reports | idea-product.md |
 | RSN-006 | Step-type-aware prompt composition (altitude-aware) | aspirational | Framing gets full why-chain; generation collapses to a tether | reasoning.md |
 | CTXA-004 | Altitude: step type decides what the bundle emphasises | deployed | Framing/implementation/debug steps get different mixes of intent, code, and runtime evidence | context-assembly.md |
@@ -592,7 +602,7 @@ an ID prefix, or a status word.
 | DIAG-037 | Stale-corpus class: HEAD pinning, explicit refs, CI-triggered indexing doctrine | partial | HEAD/latest pins silently track ancient artefacts; doctrine adopted for explicit refs, CI-indexing still queued | diagnosis-loop.md |
 | CGV-023 | Content review flow with rejection -> needs_attention | deployed | HITL/auto-eval gate; rejected pages marked needs_attention and queued for maintenance | content-governance.md |
 | FIX-045 | SEED_first_writestep_diagnosis / seeded-bug strategy | deployed | Hand-authored CONFIRMED row exercised the real write chain | fix-loop.md |
-| DEV-018 | Work-item manual-crafting discipline (real shapes, truthful provenance, never-guess) | deployed | Hand-inserted site_work_items must mirror real rows; never guess specs, URLs, or paths. | development-guide.md |
+| DEV-018 | Work-item manual-crafting discipline (real shapes, truthful provenance, never-guess) | convention | Hand-inserted site_work_items must mirror real rows; never guess specs, URLs, or paths. | development-guide.md |
 | DBI-016 | Auth database provisioning | deployed | Hand-provisioned auth_db/auth_user; file preserves a live credential (hygiene finding) | database-and-infrastructure.md |
 | ONB-019 | build-briefing-agent (spec-reading briefing) | deployed | Handler answers briefing questionnaire autonomously from site_specs, no human | onboarding-config.md |
 | DEV-010 | Specialist vs handler: the persistence boundary | deployed | Handlers must persist their own outputs; specialists-as-handlers need a save/deploy wrapper. | development-guide.md |
@@ -616,7 +626,7 @@ an ID prefix, or a status word.
 | DIAG-036 | code_symbols retrieval as used by the diagnosis loop | deployed | How the loop seeds iteration-1 scope from the code_symbols index via lookup_code_symbols | diagnosis-loop.md |
 | FTW-025 | Eval gate before promotion | partial | Human deployment_decision required; also the integrity boundary for uploads | finetuning-flywheel.md |
 | HITL-008 | Human change-request work items | deployed | Human-submitted edits enter the same priority-ordered work queue as agent items | hitl.md |
-| SQ-002 | Site-chrome gap hypothesis (relay path lacks chrome rendering) | unknown | Hypothesis: relay build path never renders nav/header/footer chrome | site-quality.md |
+| SQ-002 | Site-chrome gap hypothesis (relay path lacks chrome rendering) | partial | Hypothesis: relay build path never renders nav/header/footer chrome | site-quality.md |
 | TRF-018 | Global bot-IP blocklist (Thread D) | aspirational | Idea to block illegitimate-crawler IPs globally across all boxes from the access-digest rollup | traffic-analytics.md |
 | ADP-007 | git-adapter new actions (create_branch, create_pull_request) | deployed | Idempotent branch creation and PR-as-human-review-terminal actions | adapters.md |
 | SYS-051 | Sites contact-identity denormalisation | deployed | Identity/contact fields promoted from content_data JSONB to first-class columns | system-architecture.md |
@@ -628,21 +638,21 @@ an ID prefix, or a status word.
 | DYN-006 | Tool builder tiers (static / dynamic / application) | partial | Interactive functionality classified by creation risk; matured to tool-pipeline | dynamic-applications.md |
 | DEV-025 | Reply-topic derivation rules (own topic vs parent topic) | deployed | Intermediate calls await on the child's own responses topic; only the final notify uses the parent's. | development-guide.md |
 | DBG-069 | Launcher reply-topic own-vs-parent derivation (Decision D4) | deployed | Intermediate replies must use own ResponsesTopic, never parent's | debugging.md |
-| SPEC-005 | Superseding a spec doesn't undo installed artefacts (re-queue rule) | deployed | Invalidating a spec must also queue the re-run work item | site-spec-and-classifier.md |
-| BLD-001 | Builder route method: map what exists before building (§B0 census) | deployed | Inventory of ~147 agent types against problem-statement capabilities before building anything | build-pipeline.md |
+| SPEC-005 | Superseding a spec doesn't undo installed artefacts (re-queue rule) | convention | Invalidating a spec must also queue the re-run work item | site-spec-and-classifier.md |
+| BLD-001 | Builder route method: map what exists before building (§B0 census) | convention | Inventory of ~147 agent types against problem-statement capabilities before building anything | build-pipeline.md |
 | WDS-007 | Two-strike rule for work items (dedup/anti-churn) | deployed | Item_key with 2+ terminal attempts in 7 days inserts as unresolved rather than re-dispatching | work-dispatch.md |
 | BATCH-002 | Work item lifecycle (blocking, unblocking, unresolved) | deployed | Items blocked three ways; unresolved mechanism suppresses rapid re-emission | batch-processing.md |
 | DIAG-004 | Four convergence guards plus engine-level failsafes | deployed | Iteration cap, scope-not-narrowing, evidence-not-growing, hypothesis-thrash guards plus timeout/fuel caps | diagnosis-loop.md |
 | NEWS-011 | News rendering three-layer architecture (data/behaviour/structure+style) | deployed | JSON data, component JS, and template/CSS deploy independently, joining only in-browser | news-feed-pipeline.md |
 | SNAP-001 | Site snapshots: point-in-time capture and revert | deployed | JSONB full-site-state snapshot/revert functions, migration 085, used in production | site-snapshots-and-revert.md |
 | FTW-021 | Claude-as-judge anonymised A/B + self-recognition bias | deployed | Judge design controls for position and self-recognition bias, empirically observed | finetuning-flywheel.md |
-| LNK-019 | Links agent family (algorithmic, no-LLM link health) | partial | Judgment-free crawler/validator/redirect-manager family, still unimplemented | link-management.md |
+| LNK-019 | Links agent family (algorithmic, no-LLM link health) | aspirational | Judgment-free crawler/validator/redirect-manager family, still unimplemented | link-management.md |
 | IMG-058 | Image-role alias resolver + authoritative overlay (I0 rewrite) | deployed | July rewrite unifying 3 incompatible hero-resolution patterns via a shared alias table. | imagery.md |
 | CGV-022 | Legal content agent + legal constraint rules | aspirational | Jurisdiction-aware legal pages and machine-readable disclaimer/forbidden-phrase rules | content-governance.md |
 | ADP-015 | Firecrawl scraping adapter and actions | deployed | Kafka adapter exposing scrape/crawl/extract; v2 owns screenshot/image S3 copies | adapters.md |
 | CTXA-013 | Analyser adapter: in-cluster polyglot parsing service | deployed | Kafka adapter fetching a repo tarball read-only and parsing it via a pluggable per-language Analyser seam | context-assembly.md |
 | MDL-011 | Thunder Compute adapter (provision/decommission lifecycle) | deployed | Kafka adapter wrapping Thunder API; provision/decommission mechanics + API gotchas | model-infrastructure.md |
-| CTXE-005 | Bundle size doctrine: "a large bundle is a smell, not a goal" | deployed | Keep working bundles under ~200K tokens; fix oversized bundles with narrower selection, not a bigger window | context-engineering-principles.md |
+| CTXE-005 | Bundle size doctrine: "a large bundle is a smell, not a goal" | convention | Keep working bundles under ~200K tokens; fix oversized bundles with narrower selection, not a bigger window | context-engineering-principles.md |
 | DOC-048 | thin_versions (cmd/thin_versions) | deployed | Keeps newest N versions per document subject, archives the rest | documentation-system.md |
 | SCH-018 | P4 off-box collection (intent_events + CollectIntentEventsAction) | partial | Key-gated HTTPS intent pull with structural idempotency via engine_event_id | scheduler-and-tasks.md |
 | CTS-052 | /events export endpoint (P4 collector interface) | deployed | Key-gated NDJSON event stream with since/host/limit params, lock-free by design | contracts-and-standards.md |
@@ -659,7 +669,7 @@ an ID prefix, or a status word.
 | SOC-009 | Content-first launch strategy for Spark (vonc.com as destination) | partial | Launch a content destination, not a social platform; provocations as SEO pages | social-media.md |
 | ADO-001 | Infrastructure three layers (core/client delivery/framework builder) | partial | Layer 1 (factory) built, Layer 2 (client delivery) planned, Layer 3 future | adoption-pipeline.md |
 | IMP-001 | QA three-layer architecture + concrete audit agent hierarchy | deployed | Layer 1 = structural checks (algorithmic, every cycle); Layer 2 = group LLM audits (shared context, ONE LLM call... | improvement-loop.md |
-| CTXE-006 | Reuse-check retrieval pipeline design | partial | Layered catalog→lexical/structural→embeddings→rerank design tuned for recall over precision | context-engineering-principles.md |
+| CTXE-006 | Reuse-check retrieval pipeline design | aspirational | Layered catalog→lexical/structural→embeddings→rerank design tuned for recall over precision | context-engineering-principles.md |
 | DES-058 | Dark Section Variable Contract / buildSectionDefaults renderer behaviour | partial | Layout templates must NOT declare `--section-*` defaults on section containers themselves; a Go renderer... | design-composition.md |
 | DES-038 | Theme/layout library growth: fork-with-review gate + design-asset lineage columns | partial | Layouts are a curated shared grammar — no auto-generated bespoke layout per site. | design-composition.md |
 | ADO-032 | Adopting existing external sites ("Adopt" workflow), legacy precursor | superseded | Learn loop against existing sites with component-match confidence scores | adoption-pipeline.md |
@@ -670,7 +680,7 @@ an ID prefix, or a status word.
 | IMG-041 | Manual brand-asset commit workaround (derivation gap) | partial | Leopardess site hand-derived favicon/OG and committed via a standalone shell script. | imagery.md |
 | TLIB-001 | Fork-on-deploy tool ownership model | deployed | Library tools are canonical rows (component_level='tool', forked_from IS NULL) — blueprints never referenced... | tool-library.md |
 | DYN-009 | js_snippets library + render_js_snippets_for_site + site-asset-renderer | deployed | Library-wide JS behaviours bundled per site by applies_to overlap | dynamic-applications.md |
-| DES-060 | Hazard-class vs band-class self-declarer split; is_dark_section demoted to metadata | deployed | Library-wide diagnosis, generation-4 of the section-contrast arc: of 84 active section components, 37... | design-composition.md |
+| DES-060 | Hazard-class vs band-class self-declarer split; is_dark_section demoted to metadata | convention | Library-wide diagnosis, generation-4 of the section-contrast arc: of 84 active section components, 37... | design-composition.md |
 | DES-031 | Layout: social-lobby | partial | Light, colour-forward social-platform layout built around a room/lobby metaphor. | design-composition.md |
 | CTS-041 | Query-resolver list components (pages_where_type) | deployed | List components resolve items dynamically by page_type; no template change on page add | contracts-and-standards.md |
 | FIX-038 | Guardian veto surfacing an architecture-level fix | deployed | Live instance: guardian caught a disguised architecture change | fix-loop.md |
@@ -688,7 +698,7 @@ an ID prefix, or a status word.
 | DEV-016 | pgbouncer per-batch transaction discipline | deployed | Long transactions through pgbouncer are fragile; bulk work must commit per small batch. | development-guide.md |
 | MCL-015 | Worker pool architecture (replace per-agent Jobs) | aspirational | Long-running pods run many agent workflows as goroutines instead of per-agent Jobs | multicluster.md |
 | DES-040 | Visual identity library and effects library (composable design assets) — aspirational | aspirational | Longer-term plan for two accumulating libraries: a visual identity library of palettes/typography/effects... | design-composition.md |
-| CTXA-017 | code_symbols repo-label symmetry (shared owner/repo resolver) | partial | Lookup queried a bare repo name against composed owner/repo rows and found nothing; fixed with one shared resolver | context-assembly.md |
+| CTXA-017 | code_symbols repo-label symmetry (shared owner/repo resolver) | deployed | Lookup queried a bare repo name against composed owner/repo rows and found nothing; fixed with one shared resolver | context-assembly.md |
 | DIAG-017 | Deterministic scaffold / model-only-verdict split | deployed | Loop control/guards are pure tested Go; only the verdict judgement is model-dependent, its own workflow step | diagnosis-loop.md |
 | DIAG-018 | Falsification-first evaluation gate (scaffold correct ≠ reasons well) | deployed | Loop must reproduce reversals and abstain on known bugs before being trusted, not just pass scaffold tests | diagnosis-loop.md |
 | FIX-010 | Standing hypothesis refuted (reconcile_site_plan routing table) | superseded | Loop refused to confirm the wrong-file hypothesis | fix-loop.md |
@@ -700,7 +710,7 @@ an ID prefix, or a status word.
 | IMG-010 | Hero-variant routing through image-build-handler (Phase 2E) | deployed | Made hero_<page> variants routable via a new classification and deploy-path branch. | imagery.md |
 | CQ-001 | Content-quality defect catalogue (gamesdesign.co.uk) | partial | Maintained catalogue of hero-CTA, brand-suffix, empty-footer/description defects | content-quality.md |
 | IDEA-003 | Capability watchlist + real-world event-window watchlist | aspirational | Maintained lists of AI capabilities and scheme deadlines feeding re-runs; unbuilt as workflow | idea-product.md |
-| DEV-001 | STEP ZERO — reuse-before-create discipline | deployed | Mandatory pre-flight search of agent_definitions/registry/code before creating anything new. | development-guide.md |
+| DEV-001 | STEP ZERO — reuse-before-create discipline | convention | Mandatory pre-flight search of agent_definitions/registry/code before creating anything new. | development-guide.md |
 | FTW-011 | Flywheel C training pipeline (scripts 00-03) | deployed | Manual Unsloth QLoRA scripts with a smoke-gates-full discipline | finetuning-flywheel.md |
 | MCL-007 | Cross-cluster KafkaUser + secret replication pattern | aspirational | Manual kubectl-copied KafkaUser secret authenticates a remote cluster's agents | multicluster.md |
 | DEV-080 | Data-flow verification matrix practice | deployed | Manual per-step config-vs-implementation trace practice; ancestor of automated contract validation. | development-guide.md |
@@ -711,10 +721,10 @@ an ID prefix, or a status word.
 | MDL-033 | run.sh RUN_SH markers + set -e durability hard-gate | deployed | Marker protocol lets DONE imply "trained AND uploaded" | model-infrastructure.md |
 | BIZ-016 | Portfolio/use-case spec seeds (ai-agent-orchestration.com) | deployed | Marketing case-study data doubling as a platform capability inventory | business-strategy.md |
 | LOCK-003 | Site-level lock (sites.locked_at) | deployed | Master switch stopping all automated agent activity on a site | locks.md |
-| FTW-022 | iter_0 verdict: shippable for low-stakes | deployed | Matches Claude on JSON/schema; voice fidelity is the main iter_1 lever | finetuning-flywheel.md |
+| FTW-022 | iter_0 verdict: shippable for low-stakes | convention | Matches Claude on JSON/schema; voice fidelity is the main iter_1 lever | finetuning-flywheel.md |
 | CH-002 | Vertical profile registry (generic-words/keywords/suffixes per industry) | deployed | Matching heuristics live in a Go registry keyed by vertical_slug — verticals are config | companies-house-enrichment.md |
-| DOC-004 | Running-notes checkpoint journal + distilled HANDOFF discipline (idea.uk) | deployed | Memory-off journal + HANDOFF pattern, run on main + sub-thread | documentation-system.md |
-| FIX-031 | PR as human terminal / nothing merges itself | deployed | Merge is permanently human across the whole fix-loop | fix-loop.md |
+| DOC-004 | Running-notes checkpoint journal + distilled HANDOFF discipline (idea.uk) | convention | Memory-off journal + HANDOFF pattern, run on main + sub-thread | documentation-system.md |
+| FIX-031 | PR as human terminal / nothing merges itself | convention | Merge is permanently human across the whole fix-loop | fix-loop.md |
 | ONB-006 | Inference quality scales with codebase quality — surface uncertainty | aspirational | Messy repos yield confident-but-bad convention inference; surface as questions | onboarding-config.md |
 | TRF-017 | Traffic-claim verification and the bot-vs-human verdict method | deployed | Method for testing marketplace visit claims against beacon and access-log ground truth | traffic-analytics.md |
 | ADO-017 | Adoption resume logic (never built) | abandoned | Mid-workflow resume plumbing exists but no subscriber; re-crawl is the answer | adoption-pipeline.md |
@@ -753,7 +763,7 @@ an ID prefix, or a status word.
 | DIAG-006 | Named-scope guard vs capped call-graph expansion | deployed | Narrowing guard compares model-named scope only; call-graph expansion capped at 18 for the gather | diagnosis-loop.md |
 | CASE-005 | Dartsonline guides defect (benchmark bug, causes A/B/C) | deployed | Nav link to a blank page kept live deliberately as a fixloop benchmark | site-case-studies.md |
 | NAV-012 | Header nav from pages.in_header + nav-label hygiene | deployed | Nav membership is a data flag; label hygiene is a companion defect | navigation.md |
-| DES-055 | Three-per-row no-orphan grid rule as a content fix | deployed | Neither a global `repeat(3,1fr)` nor a per-component `auto-fit,minmax()` avoids orphan/stretched last cards in... | design-composition.md |
+| DES-055 | Three-per-row no-orphan grid rule as a content fix | convention | Neither a global `repeat(3,1fr)` nor a per-component `auto-fit,minmax()` avoids orphan/stretched last cards in... | design-composition.md |
 | DOC-066 | docs019 working/main snapshot bundle (duplicate early-draft staging copy) | superseded | Nested archive-of-archive with zero unique content vs live docs | documentation-system.md |
 | DBG-051 | Assumed-status-values trap | deployed | Never assume a status column's vocabulary; always SELECT DISTINCT first | debugging.md |
 | MIGG-001 | Proposed migration runner/ledger for hand-applied agent-def changes | aspirational | Never built; only manual "2d state check" stands in; responds to DBG-010's incident | migration-governance.md |
@@ -786,7 +796,7 @@ an ID prefix, or a status word.
 | PLAN-033 | Roadmap-phases scope decision gap (nav grounded in built reality) | partial | No submission path produces a phased roadmap; planner has no ELSE branch without one | site-plan-and-reconciler.md |
 | TRF-006 | Visit beacon and events-per-1k metric | deployed | No-JS 1x1 beacon counts human visits as denominator for the core intent-rate metric | traffic-analytics.md |
 | IMG-007 | Algorithmic imagery discovery checks (Phase 1 trio) | deployed | No-LLM checks: unfulfilled_image_prompt, placeholder_image_in_use, image_url_404. | imagery.md |
-| SPEC-013 | spec-updater (mechanical site_specs merge from findings) | unknown | No-LLM handler applying suggested_value patches to site_specs | site-spec-and-classifier.md |
+| SPEC-013 | spec-updater (mechanical site_specs merge from findings) | deployed | No-LLM handler applying suggested_value patches to site_specs | site-spec-and-classifier.md |
 | DIAG-030 | Anchorless (code-only) diagnosis degrade at load_runtime + error_step lesson | partial | No-anchor runs hard-errored until a config-level error_step fix degraded them to code+schema bundles | diagnosis-loop.md |
 | SOC-006 | Cold-start design: AI sparring partner and solo-first completeness | aspirational | No-signup provocation+AI-sparring first 10 seconds; complete for a lone user | social-media.md |
 | CVP-004 | Strategic fallback stubs for non-replicable components | abandoned | Non-replicable components get a working fallback plus a HITL developer task for v2 | conversion-playbooks.md |
@@ -826,17 +836,17 @@ an ID prefix, or a status word.
 | ADO-011 | Adoption fidelity dial (locked/high/medium/low; phases 1-4) | partial | Only Phase 1 implicit-high exists; real per-item dial unbuilt | adoption-pipeline.md |
 | SPEC-003 | Fidelity dial (locked/high/medium/low + no-adoption confidence mode) | partial | Only Phase 1 implicit-high fidelity exists at the platform level | site-spec-and-classifier.md |
 | NAV-001 | Nav agent family and the three-tier authority model | partial | Only Tier 1 (strategist, new-build) is fully implemented of the three tiers | navigation.md |
-| DEV-049 | Schema-before-SQL discipline | deployed | Only a live \d schema dump gives real column names and persistence; code names tables, not columns. | development-guide.md |
+| DEV-049 | Schema-before-SQL discipline | convention | Only a live \d schema dump gives real column names and persistence; code names tables, not columns. | development-guide.md |
 | PAY-001 | Stripe webhook-as-truth payments pattern (idea.uk implementation) | deployed | Only a verified webhook grants entitlement; live £29 payments proven end-to-end | payments.md |
 | DIAG-022 | Repo-cloning token gate (isRepoCloningAgent) | deployed | Only allowlisted repo-cloning agent types get the GitHub read token injected at spawn time | diagnosis-loop.md |
 | DBG-031 | R6c artifact-forensics method: cache-busted, metric-consistent comparisons | deployed | Only compare artefacts with identical metrics; md5 before concluding stale-cache | debugging.md |
 | LNK-012 | unresolved_cta build-time HITL signal | deployed | Only place a correctly-dropped CTA button's absence is detectable pre-deploy | link-management.md |
 | WDS-008 | Discovery auto-triage and scheduled-audit open questions | aspirational | Open questions on whether discovery emissions should auto-triage and audits should schedule | work-dispatch.md |
 | IDEA-015 | idea.uk standalone service page-serving and deploy gotchas | deployed | Operational failure catalogue for the single-binary Go service, each tied to a live incident | idea-product.md |
-| HITL-010 | Manual HITL continuation runbook | deployed | Operational procedure for un-sticking HITL flows via awaited_requests + kcat | hitl.md |
+| HITL-010 | Manual HITL continuation runbook | convention | Operational procedure for un-sticking HITL flows via awaited_requests + kcat | hitl.md |
 | PBP-010 | Re-render vs rebuild distinction (which path fixes what) | deployed | Operational rule: re-render fixes header/footer; only rebuild re-resolves schema CTAs | page-build-pipeline.md |
 | MDL-034 | iter0 pre-trigger + Phase B/C/D deploy runbooks | deployed | Operational runbooks staging the launcher and checkpoint-upload rollout | model-infrastructure.md |
-| DEV-083 | Basic operations reference (kcat spawn, scale, monitoring) | deployed | Operator layer: scale deployments, post spawn_group/orchestrate via kcat, monitor by correlation_id. | development-guide.md |
+| DEV-083 | Basic operations reference (kcat spawn, scale, monitoring) | convention | Operator layer: scale deployments, post spawn_group/orchestrate via kcat, monitor by correlation_id. | development-guide.md |
 | AGOV-011 | Morality review as configured, layered standard | aspirational | Operator-chosen base standard, not a baked-in moral view | autonomy-governance.md |
 | BIZ-014 | Operator-vs-vendor business model fork / SaaS commercial model | aspirational | Operator-primary, vendor-optional; five cheap-now seams for future separability | business-strategy.md |
 | SCR-001 | Polite-scraping throttle (REQUEST_THROTTLE_MS) | aspirational | Optional per-adapter delay env var for polite bulk scraping | adopting-and-scraping.md |
@@ -863,16 +873,16 @@ an ID prefix, or a status word.
 | FIX-039 | Platform-not-site-data fix philosophy | deployed | Owner ruling: fixes must target platform, not one site's data | fix-loop.md |
 | ONB-011 | Stack-discovery agent (inspect → interpret → probe → confirm) | aspirational | Owns mechanical layer: facts, interpreted proposals, declared probe plan | onboarding-config.md |
 | IMP-008 | April 2026 pipeline triage fix set (P1–P5) | deployed | P1: component_id plumbed through create_work_item into site_work_items (unblocking tool-improver's load_tool).... | improvement-loop.md |
-| DOC-024 | Deliberate-decisions sections + the graduation rule (prose → structured → enforced) | deployed | PLAN carries do-not-re-fix prose; enforcement deferred until recurrence | documentation-system.md |
+| DOC-024 | Deliberate-decisions sections + the graduation rule (prose → structured → enforced) | convention | PLAN carries do-not-re-fix prose; enforcement deferred until recurrence | documentation-system.md |
 | FIX-044 | Q-H human-facing result package | deployed | PR body carries diagnosis + plan + council decision together | fix-loop.md |
 | DOC-034 | Traffic-probe context packaging (docubundle) | deployed | Packager bundles task brief, domain list, deploy docs for cold start | documentation-system.md |
-| DOC-007 | Packaged canonical-doc copies as debug context (003 contracts copy) | deployed | Packaging workflow drops canonical docs + code dump alongside notes | documentation-system.md |
+| DOC-007 | Packaged canonical-doc copies as debug context (003 contracts copy) | convention | Packaging workflow drops canonical docs + code dump alongside notes | documentation-system.md |
 | SYS-021 | pages.sections is the build-read field | deployed | Page build resolves sections via site_specs.site_plan then falls back to pages.sections | system-architecture.md |
 | PBP-021 | load_page_record lookup semantics (name-first, page_id fallback) | deployed | Page lookup resolves by name first, page_id fallback; returns sections+count that gates builds | page-build-pipeline.md |
 | DBG-013 | Zero-planned-sections silent no-op success (planning gap) | partial | Page with 0 sections routes to complete_error, a success-labelled step | debugging.md |
 | PLAN-012 | Planned-but-uncomposed pages gap (catalogued, never composed) | aspirational | Pages exist with nav intent but no sections/plan rows; two-phase re-plan-then-build needed | site-plan-and-reconciler.md |
 | CASE-010 | idea.uk - AI ideation-as-a-service product | deployed | Paid £29-report tool running the internal ideation method, live and earning | site-case-studies.md |
-| BIZ-013 | Honest-delta disclosure discipline (built vs admitted-not-built table) | deployed | Pairs every ambitious claim with an honest ledger of proven vs possible vs unbuilt | business-strategy.md |
+| BIZ-013 | Honest-delta disclosure discipline (built vs admitted-not-built table) | convention | Pairs every ambitious claim with an honest ledger of proven vs possible vs unbuilt | business-strategy.md |
 | MCL-001 | Multi-cluster dispatch contract (dispatch_agent + remote-job-spawner) | partial | Parent action publishes to Kafka; remote spawner creates the K8s Job on the target cluster | multicluster.md |
 | DBG-063 | Parent-timeout vs child-HITL race | deployed | Parent call_agent timeout fires before child HITL answered, losing the pause | debugging.md |
 | TRF-001 | Traffic-probe mission/program (residual-traffic intent capture) | deployed | Parked domains get a probe page inviting one action to rank real rebuild demand | traffic-analytics.md |
@@ -887,9 +897,9 @@ an ID prefix, or a status word.
 | DIAG-027 | diagnose_assemble_bundle action | deployed | Per-iteration action composing hypothesis + code + runtime into the bundle the verdict step reads | diagnosis-loop.md |
 | IMG-048 | Image performance budgets (Phase I7 / D8) | aspirational | Per-kind byte/dimension ceilings enforced at deploy with a weight-over-budget check. | imagery.md |
 | IMG-045 | News imagery (Phase I5) | aspirational | Per-news-item chart/illustration/none classification with a grace-interval fallback image. | imagery.md |
-| SYS-060 | Fuel budget resource management | unknown | Per-orchestration compute budget plumbed through headers, enforcement unconfirmed | system-architecture.md |
+| SYS-060 | Fuel budget resource management | partial | Per-orchestration compute budget plumbed through headers, enforcement unconfirmed | system-architecture.md |
 | PBP-008 | page-build-handler build path | deployed | Per-page orchestrator: load, plan_sections, write, validate, save, deploy, one commit per page | page-build-pipeline.md |
-| SYS-012 | Response-topic consumer group race | unknown | Per-pod consumer groups fan every response out to every pod, causing version races | system-architecture.md |
+| SYS-012 | Response-topic consumer group race | partial | Per-pod consumer groups fan every response out to every pod, causing version races | system-architecture.md |
 | MDL-015 | Adapter-managed SSH access (ed25519 in k8s Secrets) | deployed | Per-provision keypair, deterministic Secret naming, ubuntu not root login | model-infrastructure.md |
 | CTS-017 | Legal rules schema and content_direction | aspirational | Per-site legal_rules + page-level content_direction; legal-content-agent still planned | contracts-and-standards.md |
 | IMG-038 | imagery_style_guide — per-site brand guide as data (Phase I1) | deployed | Per-site palette/medium/mood/avoid/reference guide driving generation with per-kind gating. | imagery.md |
@@ -897,7 +907,7 @@ an ID prefix, or a status word.
 | NAV-008 | Tool nav integration | partial | Per-tool nav entries work but grouping/label-length design remains open | navigation.md |
 | CHAT-001 | site_chat_turns table (per-domain chatbot turn logging) | aspirational | Per-turn PII log, separate from llm_call_log; migration number disputed (046 vs 086) | site-chatbot.md |
 | SCH-014 | Stale orchestration sweeper/reaper | deployed | Periodic DB sweep classifies expired awaited requests after goroutine death on restart | scheduler-and-tasks.md |
-| SYS-004 | Stale orchestration sweeper | deployed | Periodic DB sweep classifies/repairs expired awaited_requests instead of in-memory timeouts | system-architecture.md |
+| SYS-004 | Stale orchestration sweeper | partial | Periodic DB sweep classifies/repairs expired awaited_requests instead of in-memory timeouts | system-architecture.md |
 | SCH-016 | thunder-training-monitor + worker (probe/classify/reconcile/decommission) | partial | Periodic orchestrator probing training boxes; terminal/decommission branch unverified live | scheduler-and-tasks.md |
 | TLIB-014 | component-quality-auditor (library health scoring) | deployed | Periodically scores content_components via compute_component_quality and creates needs_component_regeneration... | tool-library.md |
 | HITL-009 | input_requests HITL persistence | deployed | Persisted human input requests with pending view, expiry, and Kafka reply routing | hitl.md |
@@ -907,13 +917,13 @@ an ID prefix, or a status word.
 | ADO-033 | Site interrogation & pattern library | aspirational | Persistent unfulfilled idea: learn patterns from successful sites | adoption-pipeline.md |
 | PERS-002 | Persona cognitive architecture (swappable cognitive components) | abandoned | Personas as cognitive entities with swappable memory/reasoning subsystems | persona-architecture.md |
 | DEV-057 | Remove-loops plan: input_mapping, contract validation, sequential_fan_out | partial | Phase 1 (input_mapping/contracts) landed; phases 2-4 superseded by the dispatch-loop architecture. | development-guide.md |
-| PLAN-032 | Design/composition work-item emission gap (planner reorg unclosed seam) | unknown | Phase-1 planner emits only needs_page+needs_rerender, dropping needs_design/composition | site-plan-and-reconciler.md |
+| PLAN-032 | Design/composition work-item emission gap (planner reorg unclosed seam) | deployed | Phase-1 planner emits only needs_page+needs_rerender, dropping needs_design/composition | site-plan-and-reconciler.md |
 | VET-003 | business_prices deprecation migration pattern | aspirational | Phased table retirement: COMMENT ON TABLE deprecated, drop only after Go cutover | vet-med-pricing.md |
 | IMG-031 | Per-kind prompt gating and five-place new-kind checklist | deployed | Photographic brand direction gated off icons/logos; standing checklist for new kinds. | imagery.md |
 | SYS-067 | "Database is source of truth, Git is the deployment artifact" | deployed | Pivotal data-ownership doctrine enabling rerendering and granular editing | system-architecture.md |
 | CQ-010 | Placeholder-content suppression sweep | deployed | Placeholder text hidden behind HTML comment + needs_human_review item + rerender | content-quality.md |
 | DBI-009 | layouts.updated_at trigger and reuse-before-create gate | deployed | Plain CREATE FUNCTION collision gate routed the trigger onto a shared function | database-and-infrastructure.md |
-| FIX-048 | Hard deterministic gates between every LLM step | deployed | Plain Go gates decide what proceeds; models only propose | fix-loop.md |
+| FIX-048 | Hard deterministic gates between every LLM step | convention | Plain Go gates decide what proceeds; models only propose | fix-loop.md |
 | IDEA-010 | Deliverable quality standards for reports and product emails | deployed | Plain-English, professionally-designed deliverables; base64-encode all HTML emails | idea-product.md |
 | PLAN-041 | Autonomous section composition: per-section descriptor {role, kind, data_feed} | aspirational | Plan should declare each section's static/dynamic kind and data feed for the pipeline | site-plan-and-reconciler.md |
 | ADM-007 | Public REST API for the site-building pipeline | aspirational | Plan to expose sites/pages/work-items/specs over /api/v1/sites/*; never built | admin-dashboard-and-api.md |
@@ -921,7 +931,7 @@ an ID prefix, or a status word.
 | MDL-026 | Self-hosted LLM inference (vLLM/GPU at scale) | aspirational | Plan to serve 7B models via vLLM continuous batching to escape API cost | model-infrastructure.md |
 | CQ-014 | component-template-fixer CTA reuse assumption — corrected | superseded | Plan wrongly assumed CTA-fix reuse existed; agent actually punts CTAs to needs_review | content-quality.md |
 | IMG-020 | Build-time imagery trigger: emit_imagery_items + imageryplan.go | deployed | Plan-time emission of needs_imagery sharing selection logic with the discovery check. | imagery.md |
-| HITL-017 | HITL API for approvals (REST endpoint replacing manual Kafka messages) | partial | Planned /api/v1/hitl/respond endpoint; guide written, "For Future Implementation" | hitl.md |
+| HITL-017 | HITL API for approvals (REST endpoint replacing manual Kafka messages) | aspirational | Planned /api/v1/hitl/respond endpoint; guide written, "For Future Implementation" | hitl.md |
 | DYN-002 | Interactive fingerprint parse stage (C1-C6) | partial | Planned Go extractor for canvas/script/library signals feeding intent LLM | dynamic-applications.md |
 | NEWS-010 | "Insights section" as the Tier-2 news-feed expansion target | superseded | Planned curated-articles tier was displaced by the archive-first news-index page | news-feed-pipeline.md |
 | ENT-002 | Events/tickets vertical (boxing first target) | abandoned | Planned first entity-driven site type (event/performer/venue/ticket); never shipped | entity-data.md |
@@ -933,7 +943,7 @@ an ID prefix, or a status word.
 | IMG-033 | Planner key stability across replans | aspirational | Planner freely renames imagery keys across replans, causing spurious regenerations. | imagery.md |
 | PLAN-015 | Planner ignores adopted state (generic-skeleton overlay) | superseded | Planner invented parallel pages ignoring realised state; fixed by convergence work | site-plan-and-reconciler.md |
 | WDS-009 | Terminal work items: every pipeline ends with assembly + deployment | deployed | Planner must emit needs_rerender terminal items or the pipeline produces no website | work-dispatch.md |
-| IMG-006 | Planner ignores site_archetype imagery constraints (Bug 4) | unknown | Planner produced lavish hero prompts despite archetype saying minimal/no photography. | imagery.md |
+| IMG-006 | Planner ignores site_archetype imagery constraints (Bug 4) | aspirational | Planner produced lavish hero prompts despite archetype saying minimal/no photography. | imagery.md |
 | IMG-032 | One-entry-one-image decomposition rule (planner prompt patch) | deployed | Planner prompt bans multi-image prompts like "a set of six icons". | imagery.md |
 | ADO-034 | Bare-guide / spurious duplicate pages from planner ignoring adopted state | deployed | Planner re-invents differently-slugged sibling pages; cleanup applied | adoption-pipeline.md |
 | PLAN-001 | Plan as declarative artefact + reconciler (Kubernetes-style desired-vs-realised) | partial | Planner writes desired state; deterministic Go reconciler diffs vs realised, emits needs_page | site-plan-and-reconciler.md |
@@ -951,7 +961,7 @@ an ID prefix, or a status word.
 | DOC-013 | DB-as-truth storage decision (knowledge_base = derived index; git = mirror) | deployed | Postgres is truth; KB is derived RAG index; git optional mirror | documentation-system.md |
 | SQAM-002 | Baseline mechanical quality measurement methodology | deployed | Pre-LLM deterministic HTML metric pass to form falsifiable hypotheses | site-quality-audit-methodology.md |
 | CTXA-020 | Reuse search before generation (code AND definition rows) | aspirational | Pre-generation reuse check should cover jsonb workflow/agent definitions, not just Go functions | context-assembly.md |
-| FIX-047 | Loop-worthiness test doctrine (five-criteria) | deployed | Pre-registered intake test applied three times in founding thread | fix-loop.md |
+| FIX-047 | Loop-worthiness test doctrine (five-criteria) | convention | Pre-registered intake test applied three times in founding thread | fix-loop.md |
 | PLAN-034 | site-planner (v2, single-LLM-call site plan) | superseded | Predecessor single-call planner; superseded by build-site-planner for work-item builds | site-plan-and-reconciler.md |
 | SOC-001 | The Forge — AI-seeded community knowledge platform | abandoned | Predecessor to Spark: AI drafts, humans validate/fork/improve; parked concept | social-media.md |
 | IMG-005 | imagery_direction prepend + origin_model/origin_prompt provenance | deployed | Prepends site style direction to prompts; fixed provenance columns being silently dropped. | imagery.md |
@@ -982,7 +992,7 @@ an ID prefix, or a status word.
 | MCL-005 | Same-cluster loopback test requirement (Gap C) | aspirational | Prove dispatch round-trip locally before adding a real second cluster | multicluster.md |
 | SPEC-008 | Build-standard classifier migration (best-in-class quality/fit) | partial | Proven-correct prompt migration for quality standard, not yet applied | site-spec-and-classifier.md |
 | PAY-005 | Pluggable billing provider abstraction (Stripe as implementation #1) | aspirational | Provider interface sketch normalising webhook payloads; zero retrofit cost claimed | payments.md |
-| BATCH-001 | Universal LLM batch-processing architecture (queue, three-gate control, callback contract) | partial | Provider-agnostic batch queue, three-gate control, context-free callbacks | batch-processing.md |
+| BATCH-001 | Universal LLM batch-processing architecture (queue, three-gate control, callback contract) | aspirational | Provider-agnostic batch queue, three-gate control, context-free callbacks | batch-processing.md |
 | DES-018 | Layout: magazine-grid | deployed | Publication-feel layout: top-level 2/3 main + 1/3 sidebar grid, article cards, featured-article variant,... | design-composition.md |
 | FIX-015 | Deterministic council decision + hard veto | deployed | Pure Go aggregation of reviewer verdicts | fix-loop.md |
 | STY-045 | Slot-based modular page assembly (proposal, partially adopted) | partial | Pure-concatenation assembly proposal; site_components shipped, JSON-first landed differently | styling-render-pipeline.md |
@@ -998,12 +1008,12 @@ an ID prefix, or a status word.
 | BLD-004 | Two front doors and duplicate classifiers (Q5) | partial | Queue-door and HITL intake-orchestrator both classify sites; consolidation undecided | build-pipeline.md |
 | BIZ-002 | finetuning.uk RAG platform product strategy & business plan | aspirational | RAG platform for SMEs, data curation as differentiator; tiers £199-1,499/mo | business-strategy.md |
 | FTW-002 | Three compounding improvement channels | partial | RAG, LoRA, and prompt-variant A/B as three independent compounding quality levers | finetuning-flywheel.md |
-| CANB-002 | Canine-biology per-vertical knowledge + LoRA project | partial | RAG-seeding (chunks→Ollama embed) plus text/image LoRA fine-tuning for vet vertical | canine-biology.md |
-| NEWS-004 | Render source-diversity interleaving | deployed | ROW_NUMBER partition by source caps any one source at ~2 of 6 display slots | news-feed-pipeline.md |
+| CANB-002 | Canine-biology per-vertical knowledge + LoRA project | aspirational | RAG-seeding (chunks→Ollama embed) plus text/image LoRA fine-tuning for vet vertical | canine-biology.md |
+| NEWS-004 | Render source-diversity interleaving | aspirational | ROW_NUMBER partition by source caps any one source at ~2 of 6 display slots | news-feed-pipeline.md |
 | SYS-087 | Workflow status state machine | deployed | RUNNING/AWAITING_RESPONSES/COMPLETED/FAILED vocabulary, minor drift across eras | system-architecture.md |
 | TL-009 | Canonical tool-page section-shape design question and fix options | aspirational | Raises and answers (as a design decision, not yet built) whether a tool page even wants generic... | tool-lifecycle.md |
 | TRF-020 | Domain shortlist and selection policy | deployed | Ranked parked-domain export and a policy for choosing which domains to probe first | traffic-analytics.md |
-| STY-041 | Assembly action consolidation (3 clear actions) | partial | Rationalising 6 overlapping assembly actions down to assemble_page and siblings | styling-render-pipeline.md |
+| STY-041 | Assembly action consolidation (3 clear actions) | deployed | Rationalising 6 overlapping assembly actions down to assemble_page and siblings | styling-render-pipeline.md |
 | PLAN-011 | Planner re-plan union safety (normaliseRealisedToPlanPage) | deployed | Re-plans union in realised pages with sections so a re-plan can't clobber built pages | site-plan-and-reconciler.md |
 | PBP-013 | No-LLM re-render path (rerender_page_sections, Part 2 / Option Y) | partial | Re-renders all sections from stored content_data + fresh resolved_data, no LLM spend | page-build-pipeline.md |
 | DIAG-007 | Call-graph re-scope mechanism (evidence-follows re-scoping) | deployed | Re-scope follows evidence-named symbols + call graph, dropping ubiquitous names, not the symptom text | diagnosis-loop.md |
@@ -1018,23 +1028,23 @@ an ID prefix, or a status word.
 | MDL-031 | Phase 5 training-launcher + model-trainer chain | deployed | Real launcher (migration 102) driven by the model-trainer orchestrator | model-infrastructure.md |
 | MDL-010 | Monitor/reaper responsibility split | deployed | Reaper is a dependency-free cost backstop; monitor depends on adapter+SSH | model-infrastructure.md |
 | WII-002 | Evidence-gated claimed-item-timeout reaper (positive-evidence completion + stale-claim reset) | deployed | Reaper only auto-completes with positive per-item-type artifact evidence, else resets the claim | work-item-integrity.md |
-| SCH-013 | Reaper mechanisms, the work-item-claim reaper gap, and the reaper-location correction | partial | Reapers are SQL pre_query entries, not Go code; no sweep for stuck claimed items | scheduler-and-tasks.md |
+| SCH-013 | Reaper mechanisms, the work-item-claim reaper gap, and the reaper-location correction | superseded | Reapers are SQL pre_query entries, not Go code; no sweep for stuck claimed items | scheduler-and-tasks.md |
 | IMG-057 | flag_page_image_rebuild section-scope mapping (Edit H) | partial | Rebuild flag no-op'd for section scope; prefix-split fix pending code apply. | imagery.md |
 | CASE-016 | Leopardess rebuild programme (phases L0-L9) | partial | Rebuild of the platform's own consulting site to be honest and useful | site-case-studies.md |
 | PBP-012 | Interactive/deferred-section clobber on plan-driven rebuild + carry-forward fix | deployed | Rebuilds plan-drive and DELETE+INSERT, dropping tools/deferred sections absent from the plan | page-build-pipeline.md |
 | STY-027 | Render-off-build_status debt (planned-vs-rendered diff) | partial | Rebuilds skip planned-but-missing sections on already-deployed pages | styling-render-pipeline.md |
-| BLD-015 | page-rebuild (rebuild pages without re-planning) | unknown | Rebuilds specific pages skipping planner/assets/nav, reusing standard build-loop agents | build-pipeline.md |
+| BLD-015 | page-rebuild (rebuild pages without re-planning) | deployed | Rebuilds specific pages skipping planner/assets/nav, reusing standard build-loop agents | build-pipeline.md |
 | SYS-058 | Perspective transformation | deployed | Receiver's own orchestration becomes primary; sender is responsible for headers | system-architecture.md |
 | CTXK-009 | fuse (cmd/fuse) | deployed | Reciprocal-rank fusion (k=60) merging lexical and semantic candidate lists by rank, not raw score | contextkit-toolchain.md |
 | MDL-008 | Ollama CPU adapter operational envelope | deployed | Recreate strategy, load timeouts, memory headroom rule, measured throughput | model-infrastructure.md |
-| DEV-084 | Guidelines audit (001/002/003 compliance) | deployed | Recurring audits confirming an engine/collector honours the dev-guide/architecture/contracts house rules. | development-guide.md |
+| DEV-084 | Guidelines audit (001/002/003 compliance) | convention | Recurring audits confirming an engine/collector honours the dev-guide/architecture/contracts house rules. | development-guide.md |
 | STY-040 | Asset bubble-up deduplication (proposal, never shipped) | abandoned | Recursive per-component asset merge proposal; barrier model shipped instead | styling-render-pipeline.md |
 | DYN-003 | Four-stage interactive-content pattern (parse/assess/generate/integrate) | aspirational | Reference shape for building any interactive content type | dynamic-applications.md |
 | DES-021 | Layout: docs-sidebar | deployed | Reference-grade documentation layout — 3-zone CSS grid (fixed sidebar nav, main reading column, collapsing... | design-composition.md |
 | BIZ-011 | Substrate-vs-application pitch framing | aspirational | Reframe from "website builder" to "domain-agnostic orchestration substrate" | business-strategy.md |
 | PBP-023 | UpdatePageStatusAction zero-component deploy guard (Option B) | deployed | Refuses to mark a page deployed with zero rendered components | page-build-pipeline.md |
 | CQ-003 | Shared-component regen clobber failure mode | deployed | Regenerating a shared component silently emptied every dependent page using old field names | content-quality.md |
-| ASG-003 | Agent and group discovery by capability and performance | partial | Registry service matching capability/performance; platform/discovery/ confirmed real | agent-spawning-and-groups.md |
+| ASG-003 | Agent and group discovery by capability and performance | deployed | Registry service matching capability/performance; platform/discovery/ confirmed real | agent-spawning-and-groups.md |
 | LNK-001 | link_registry as first-class link index + planned links-orchestrator family | partial | Registry/extraction/validation shipped; the agent family on top remains unbuilt | link-management.md |
 | PLAN-021 | site_plan_partials: single JSONB-blob partial storage (abandoned) | abandoned | Rejected JSONB blob storage in favour of row-per-thing tables for HITL locking at scale | site-plan-and-reconciler.md |
 | PLAN-023 | Separate BuildPageURL path-resolver helper (abandoned) | abandoned | Rejected a new helper in favour of extending CanonicalisePage with ParentSection | site-plan-and-reconciler.md |
@@ -1065,7 +1075,7 @@ an ID prefix, or a status word.
 | PAY-007 | Existing but non-functional auth-service subscription scaffold | partial | Reusable subscription package verified as unwired: no SDK, mock usage stats, no webhook | payments.md |
 | CQ-017 | Anti-hype voice and claim-discipline spec | deployed | Reusable voice contract: banned hype language, smallest-true-claim, CTA governance | content-quality.md |
 | ASG-004 | Workflow template library, lineage and marketplace | abandoned | Reusable workflow templates with lineage, ratings, monetised marketplace idea | agent-spawning-and-groups.md |
-| CGV-025 | maintenance_queue as generic install/uninstall trigger surface | partial | Reused maintenance_queue as a generic per-site add-on trigger, first for chatbot install | content-governance.md |
+| CGV-025 | maintenance_queue as generic install/uninstall trigger surface | aspirational | Reused maintenance_queue as a generic per-site add-on trigger, first for chatbot install | content-governance.md |
 | DOC-014 | Abandoned: flat-file docs-repo as truth + docselect catalogue retrieval | superseded | Rev-1 design reversed to DB-as-truth within a day | documentation-system.md |
 | CASE-001 | idea.uk live-VM / chassis-staging duality | deployed | Revenue VM untouched while chassis builds deploy invisibly to B2 staging | site-case-studies.md |
 | FIX-019 | Verify step (diagnose_run_checks) | deployed | Reviewer SQL checks run under read-only containment | fix-loop.md |
@@ -1078,7 +1088,7 @@ an ID prefix, or a status word.
 | DBI-020 | clients_db vs templates_db agent_definitions source-of-truth | deployed | Rich-schema agent_definitions load from clients_db, not templates_db | database-and-infrastructure.md |
 | NEWS-005 | Content diversity & original research pipeline | aspirational | Roadmap: topic splitting, readership-segment writers, timelines, scenario analysis | news-feed-pipeline.md |
 | AGOV-010 | External rollback + recursive self-improvement risk | aspirational | Rollback must not depend on the agents it rolls back | autonomy-governance.md |
-| BIP-009 | vet-pipeline-orchestrator (rolling pipeline) | partial | Rolling coordinator advancing sweep→promote→verify each run; reworked multiple times | business-intelligence-platform.md |
+| BIP-009 | vet-pipeline-orchestrator (rolling pipeline) | deployed | Rolling coordinator advancing sweep→promote→verify each run; reworked multiple times | business-intelligence-platform.md |
 | IMP-015 | Supervised fixer first-run protocol (disposable specimen site) | aspirational | Rollout protocol for a re-aimed automated fixer: confirm the deployed pod carries it; capture the specimen's... | improvement-loop.md |
 | LNK-004 | sourceResolver `pages` fabrication bug — the phantom generator | deployed | Root cause of hero phantoms; also corrected an earlier wrong-cause diagnosis | link-management.md |
 | RSN-004 | Why-chain (objective-tree traversal) | aspirational | Root-to-node purpose path used as an anti-drift question | reasoning.md |
@@ -1086,7 +1096,7 @@ an ID prefix, or a status word.
 | WDS-011 | Work-item routing: content rebuild vs re-render (needs_page/page_rerender/needs_rerender/link_resolution_rebuild) | deployed | Route by item_type on whether copy is regenerated; link_resolution_rebuild hazard noted | work-dispatch.md |
 | VKA-001 | Vertical knowledge architecture (overview) | aspirational | Route domains to specialised verticals with own KB/research/monetisation; Phase 0 only | vertical-knowledge-architecture.md |
 | ADO-024 | Tool routing fix deployment status (T1+T2 deployed, symptom unconfirmed) | partial | Routing + detection fix live; widget-deploy acceptance criteria unverified | adoption-pipeline.md |
-| BATCH-004 | Work item processing_tier (standard / batch_gpu) | unknown | Routing column for holding items until a GPU batch window opens | batch-processing.md |
+| BATCH-004 | Work item processing_tier (standard / batch_gpu) | aspirational | Routing column for holding items until a GPU batch window opens | batch-processing.md |
 | CGV-002 | Granular editing spectrum & three edit paths | deployed | Routing model: direct edit / brief regenerate / page regenerate / direction propagate | content-governance.md |
 | FTW-007 | ChatML export format with metadata sidecar | deployed | Row shape: chat messages + metadata JSONB back-linking to llm_call_log | finetuning-flywheel.md |
 | CTS-036 | Atomic standard (generated-views doc tree) | aspirational | Rule-atoms as smallest unit; docs are generated views. Same exploratory track as CTS-035 | contracts-and-standards.md |
@@ -1109,9 +1119,9 @@ an ID prefix, or a status word.
 | ATM-002 | Requirement-mediation model ("right" as balance) | aspirational | Same balance framing as ABO-004, from the shared preamble | autonomy-trust-model.md |
 | FIX-050 | Transferable machinery: legacy-migration and feature intakes | aspirational | Same gate/council scaffolding proposed for other intake types | fix-loop.md |
 | SOC-013 | Vertical integration of Spark mechanics into domain sites | aspirational | Same mechanics re-flavoured per vertical (vet, finance, fashion, food) | social-media.md |
-| SQLC-001 | SQL needle-gate surgery pattern (guarded, idempotent, reversible DB edits) | deployed | Same method as DBG-016, extracted independently under this proposed category | sql-change-management.md |
+| SQLC-001 | SQL needle-gate surgery pattern (guarded, idempotent, reversible DB edits) | convention | Same method as DBG-016, extracted independently under this proposed category | sql-change-management.md |
 | DBG-070 | gpu-provisioner output-shape flattening (output_fields plural vs singular) | deployed | Same output_field/output_fields bug class as DBG-050 on a different agent | debugging.md |
-| SYS-082 | Retry semantics | unknown | Same request_id with incremented retry_version, unconfirmed as shipped | system-architecture.md |
+| SYS-082 | Retry semantics | deployed | Same request_id with incremented retry_version, unconfirmed as shipped | system-architecture.md |
 | SAAS-001 | Isolated chat/satellite architecture ("Y-copy") for SaaS build isolation | aspirational | Same satellite architecture as CHAT-007, escalated to a build-as-a-service framing | saas-isolation-architecture.md |
 | STY-024 | Ambient pass-through pattern for surface painters | deployed | Sanctioned --section-x: var(--color-x) pass-through for fallback-less consumers | styling-render-pipeline.md |
 | CHAT-007 | Isolated chat environment (satellite; load/hack/bug vectors) | aspirational | Satellite infra severing load/hack/bug vectors from core; Option X vs Y undecided | site-chatbot.md |
@@ -1127,7 +1137,7 @@ an ID prefix, or a status word.
 | PEV-002 | Hypothesis priority list (learn loop as idea generator, not fact finder) | abandoned | Scraped data treated as correlation; Librarian emits a prioritised testable-hypothesis backlog | portfolio-evolution.md |
 | DOC-033 | Context-bundle seeding for fresh agent threads (imagery) | deployed | Script assembles imagery workstream's cold-start context bundle | documentation-system.md |
 | DES-025 | Layout: comparison-aggregator | deployed | Search-first, data-dense, trust-oriented layout — hero IS a search input, sticky filter bar, dense horizontal... | design-composition.md |
-| MCL-002 | Adjacent-cluster Phase 4a rollout: va001 second cluster | deployed | Second Rackspace Spot cluster shares primary's Kafka/Postgres for trusted dispatch | multicluster.md |
+| MCL-002 | Adjacent-cluster Phase 4a rollout: va001 second cluster | aspirational | Second Rackspace Spot cluster shares primary's Kafka/Postgres for trusted dispatch | multicluster.md |
 | CASE-008 | wayfaringlondoner.com page + THANKS_PATH-is-engine-wide | partial | Second probe page surfaced a shared-box thanks-filename constraint | site-case-studies.md |
 | IDEA-011 | Chassis-native idea engine (Phase D idea-orchestrator) | aspirational | Second way to run the method as a chassis agent/workflow; not started, needs schema pass | idea-product.md |
 | PBP-014 | content_data ⊕ resolved_data persistence model | deployed | Section content_data merges LLM copy with resolved_data, enabling no-LLM re-render | page-build-pipeline.md |
@@ -1140,7 +1150,7 @@ an ID prefix, or a status word.
 | CTXP-002 | Docubundle / package_*.sh context-packaging practice | deployed | Self-contained package_<subject>_debug.sh scripts + dbcontext + a deploy-mechanisms taxonomy (A-F) | context-pack-tooling.md |
 | CTXK-017 | Dogfooding bundle for building the diagnosis loop itself | aspirational | Self-referential bundle recipe scoping the diagnosis loop's own code for its own continued development | contextkit-toolchain.md |
 | DBG-068 | Adapter-vs-chassis deployment drift | partial | Separate K8s resources; chassis rebuild doesn't refresh the adapter binary | debugging.md |
-| BIP-001 | business_intel schema (multi-vertical business intelligence platform) | partial | Separate schema modelling businesses for data-collection verticals; ~3,500 vet practices loaded | business-intelligence-platform.md |
+| BIP-001 | business_intel schema (multi-vertical business intelligence platform) | deployed | Separate schema modelling businesses for data-collection verticals; ~3,500 vet practices loaded | business-intelligence-platform.md |
 | IMG-001 | Imagery loop-closure master plan (Phases 0–6) | partial | Sequenced plan closing spec-to-delivery imagery gaps; Phase 2G/2H verified, 3-6 pending. | imagery.md |
 | CTS-050 | Class-level rename (probe → site-engine) and env-var churn | superseded | Service/paths/env-vars renamed from probe-specific to class-generic site-engine naming | contracts-and-standards.md |
 | SYS-075 | Pull architecture / no collector VM | deployed | Serving boxes buffer JSONL; the cluster pulls over key-gated HTTPS, no push | system-architecture.md |
@@ -1191,10 +1201,10 @@ an ID prefix, or a status word.
 | HITL-021 | HITL kcat test harness | deployed | Six shell scripts for manually testing the HITL approval loop end-to-end | hitl.md |
 | DOC-002 | Anthropic product-knowledge skill (verify, don't recall) | deployed | Skill instructs consulting official Anthropic docs over memory for Claude facts | documentation-system.md |
 | CTS-043 | Recursive component tree ("everything is a component") | abandoned | Slot-placeholder recursive RenderNode design; shipped system uses flat sections instead | contracts-and-standards.md |
-| FTW-016 | GPU training performance model | deployed | Smoke rate ≠ steady state; FA2 lever; O(N²) attention cost of seq length | finetuning-flywheel.md |
+| FTW-016 | GPU training performance model | convention | Smoke rate ≠ steady state; FA2 lever; O(N²) attention cost of seq length | finetuning-flywheel.md |
 | DBG-022 | Operator/assistant division-of-labour + DB-change safety conventions | deployed | Snapshot-before-change, verified replace(), workflow-vs-Go deploy distinction | debugging.md |
 | DYN-010 | js-bundle-stale gap (site-asset-renderer not wired into ongoing builds) | aspirational | Snippet bundle only rebuilt at initial design/full rerender, not on change | dynamic-applications.md |
-| DEV-009 | Agent vs infrastructure boundary test | deployed | Something is an agent only if it owns a domain and needs independent spawn/debug. | development-guide.md |
+| DEV-009 | Agent vs infrastructure boundary test | convention | Something is an agent only if it owns a domain and needs independent spawn/debug. | development-guide.md |
 | SYS-055 | Two-phase agent lifecycle (spawn + initialize handshake) | deployed | Spawn creates the pod; a separate initialize handshake precedes real work | system-architecture.md |
 | DEV-069 | Spawn/step naming conventions | deployed | Spawn steps must start spawn_<descriptor>; step names must be unique within a workflow. | development-guide.md |
 | DIAG-021 | Abandoned design: diagnostician per-iteration re-invocation | abandoned | Spawn-a-fresh-child-per-iteration design considered and dropped once next_step loop-back was confirmed to work | diagnosis-loop.md |
@@ -1211,7 +1221,7 @@ an ID prefix, or a status word.
 | HITL-003 | User-representative advocate (intent + conflict triage) | aspirational | Standing advocate triaging claimed conflicts before they reach the user | hitl.md |
 | BLD-006 | Coverage baseline: guides, tools, news, curated top-N on most sites | aspirational | Standing content-coverage policy; curated top-N list mechanism is the one genuine new build | build-pipeline.md |
 | DGH-001 | Commit-is-deploy: git → Actions → Backblaze B2 (+ chassis image-tag deploys) | deployed | Standing deploy mechanism: commit triggers B2 sync; chassis code ships via image tag | deployment-github.md |
-| DOC-043 | Classify, do NOT merge (the human consolidates) | deployed | Standing rule: LLM finds/cites, human decides/writes canonical docs | documentation-system.md |
+| DOC-043 | Classify, do NOT merge (the human consolidates) | convention | Standing rule: LLM finds/cites, human decides/writes canonical docs | documentation-system.md |
 | SYS-006 | Entity data model | aspirational | State-based lifecycle entities driving pages, news triggers, client-side real-time data | system-architecture.md |
 | DBG-039 | 0-rows rule: zero rows decisive only after query AND run completion ruled in | deployed | State-dump substitute for evidence past the idle-reaper's 3600s capture window | debugging.md |
 | SYS-020 | Aspiration: agent-creation & message logging workstream | aspirational | Stated desire to log agent creation/inter-agent messages as its own workstream; never built | system-architecture.md |
@@ -1240,8 +1250,8 @@ an ID prefix, or a status word.
 | DOC-011 | doc_plans supersede versioning (one current row, never edit history) | deployed | Supersede tx + partial unique index enforce one current PLAN row | documentation-system.md |
 | BIP-010 | prepare_extraction_context / scan_discovery_candidates actions | partial | Supporting Go actions formatting LLM context and scanning for unknown practices | business-intelligence-platform.md |
 | CQ-006 | Neutralize-in-place remediation pattern | deployed | Surgical jsonb patch to strip contamination when no clean component restore point exists | content-quality.md |
-| CTXE-004 | Instrument-skepticism doctrine | deployed | Suspect your own inputs (bundle, query, ground truth) before suspecting the system under test | context-engineering-principles.md |
-| ADO-009 | Duplicate sites-row on re-adoption (open investigation) | unknown | Suspected duplicate site row on re-adopting an existing destination domain | adoption-pipeline.md |
+| CTXE-004 | Instrument-skepticism doctrine | convention | Suspect your own inputs (bundle, query, ground truth) before suspecting the system under test | context-engineering-principles.md |
+| ADO-009 | Duplicate sites-row on re-adoption (open investigation) | deployed | Suspected duplicate site row on re-adopting an existing destination domain | adoption-pipeline.md |
 | BIP-007 | Geographic area-sweep discovery system | partial | Sweeps every UK postcode district for new vet practices via Firecrawl search | business-intelligence-platform.md |
 | CTXE-002 | B4a: the symptom-vs-mechanism retrieval ceiling | deployed | Symptom-based retrieval (lexical or semantic) has a hard ceiling when the cause lives in function-named infra | context-engineering-principles.md |
 | PLAN-003 | Two canonicalisation-surfaces divergence (WriteSitePlanAction vs SyncPagesToDBAction) + fix | deployed | Sync ran CanonicalisePage without ValidateRoles, flattening hubs; fixed by unifying pipeline | site-plan-and-reconciler.md |
@@ -1255,7 +1265,7 @@ an ID prefix, or a status word.
 | DMR-001 | Chassis deploy-mechanism reference (targets A–F) | deployed | Taxonomy of 6 deploy mechanisms across chassis/sites/idea.uk targets | deploy-mechanics-reference.md |
 | DES-014 | Layout archetype library (15/17/18 named layouts) — overview | deployed | Taxonomy of named structural/visual archetypes (brochure-formal, portfolio-kinetic, utility-tool, media-grid,... | design-composition.md |
 | LNK-018 | Semantic linking domain decomposition (5 link types) | partial | Taxonomy splitting link work by lifecycle/complexity; most agents unbuilt | link-management.md |
-| FIX-042 | F3 learning layer: bug_records + guideline side-tasks | unknown | Taxonomy/amendment mechanism designed, build status unconfirmed | fix-loop.md |
+| FIX-042 | F3 learning layer: bug_records + guideline side-tasks | aspirational | Taxonomy/amendment mechanism designed, build status unconfirmed | fix-loop.md |
 | ADO-012 | Readopt-as-acceptance-test pattern | aspirational | Tear down and re-adopt as the from-scratch acceptance test after a fix batch | adoption-pipeline.md |
 | DBG-053 | rendered_html is a snapshot, not a live view | deployed | Template migrations don't retroactively affect already-built pages' frozen renders | debugging.md |
 | AGOV-002 | config_work_items contract | aspirational | Tenant-scoped mirror of site_work_items for config proposals | autonomy-governance.md |
@@ -1285,13 +1295,13 @@ an ID prefix, or a status word.
 | DES-013 | Composable theme migration 025 (palettes / layouts / typography_sets split from css_themes) | partial | The foundational data-model migration: `css_themes.css_template` conflated palette, typography, and layout... | design-composition.md |
 | IMP-037 | Improvement-sweep and build-pipeline-trigger scheduling | deployed | The improvement loop's cadence lives in scheduled_tasks: build-pipeline-trigger (2 min) finds sites with... | improvement-loop.md |
 | IMP-047 | Runtime-fill guards & discovery-check wiring gaps (registered-not-enabled / enabled-not-implemented / sweep off) | deployed | The improvement loop's configuration surface has three drift modes: checks registered in Go but named in no... | improvement-loop.md |
-| IMP-010 | Improvement-sweep site starvation | unknown | The improvement sweep's site selection starves some sites the same way find_dispatchable_site's arbitrary... | improvement-loop.md |
+| IMP-010 | Improvement-sweep site starvation | deployed | The improvement sweep's site selection starves some sites the same way find_dispatchable_site's arbitrary... | improvement-loop.md |
 | IMP-016 | improvement-sweep pause + gated re-enable sequencing | partial | The improvement-loop's triage sweep is deliberately off during core build; the detect→fix loop depends on it, and... | improvement-loop.md |
 | CLC-007 | F5 — regen-added required fallback-less fields strand renderability | aspirational | The incident's second facet: a regen also ADDED a required field (Tier-C source, no fallback) that no affected... | component-lifecycle.md |
 | CLC-011 | Superseded hypothesis: update_component_html re-renders dependents inline | superseded | The initial working theory held that update_component_html performed an inline dependent re-render (inferred from... | component-lifecycle.md |
 | TLIB-006 | Tier-D list components: queryresolve + items-array contract (vs numbered-flat fabrication) | deployed | The list-component contract: a Tier-D component sources an `items` array field with `source: query.<name>` (e.g.... | tool-library.md |
 | DEV-051 | Workflow lives in default_config, not the workflow columns | deployed | The loader reads default_config; task_workflow/orchestrator_workflow columns are dead for working agents. | development-guide.md |
-| TL-015 | Criteria contract v0 (check-type vocabulary + profiles) + browser-runner-adapter design | partial | The machine-readable criteria schema consumed by Tier 4: `profiles: [desktop, mobile]`; check types... | tool-lifecycle.md |
+| TL-015 | Criteria contract v0 (check-type vocabulary + profiles) + browser-runner-adapter design | deployed | The machine-readable criteria schema consumed by Tier 4: `profiles: [desktop, mobile]`; check types... | tool-lifecycle.md |
 | SYS-080 | Orchestration-as-identity model (AgentID = PodName) | deployed | The orchestration record, not the pod, is the persistent "agent doing a task" | system-architecture.md |
 | DEV-078 | Website build overall plan v0 (first multi-agent website roadmap) | superseded | The original 6-phase/12-step "build a website with agents" plan; origin of the site-building programme. | development-guide.md |
 | DES-046 | fpExtractCSSVars regex-based CSS variable extraction (superseded internal bug fix) | superseded | The original design-fingerprint CSS-variable extractor used one whole-stylesheet regex, producing false... | design-composition.md |
@@ -1314,7 +1324,7 @@ an ID prefix, or a status word.
 | DES-053 | Per-site style fork chain (palette → css_theme → style_collection) | deployed | The safe pattern for restyling one site without affecting others sharing the same seed collection: clone... | design-composition.md |
 | TLIB-020 | Intelligent fallback component matching (P1/P2/P3) — historical | deployed | The site architect resolves each build-plan section against the component library in tiers: P1 perfect function... | tool-library.md |
 | DES-036 | Layout-resolution-by-tags gap (classifier not emitting industry_tags) and its migration-008 fix | deployed | The site-design-planner's original layout picker (`resolveLayoutByTags`) intersected a site's classification... | design-composition.md |
-| TL-012 | "Completeness + validation passed" ≠ working — twice demonstrated | deployed | The standing empirical argument for the behavioural tier: structural/validation checks measure output integrity,... | tool-lifecycle.md |
+| TL-012 | "Completeness + validation passed" ≠ working — twice demonstrated | convention | The standing empirical argument for the behavioural tier: structural/validation checks measure output integrity,... | tool-lifecycle.md |
 | TP-003 | Inline-JS extraction ("Path 1" /tools/assets/<fn>.js) — designed, partly real, never on the live deploy path | partial | The store path's separateInlineJS extracts a bare inline `<script>` into js_content, nominally replaced by a... | tool-pipeline.md |
 | IMG-064 | Imagery work-item economy end-to-end chain | deployed | The umbrella planner→build→deploy→rebuild chain every imagery phase concept composes into. | imagery.md |
 | DES-011 | chief-strategist (build-plan LLM) + component placement dedup rules — superseded | superseded | The v1/v2 planning agent that produced sections/component_details build plans before build-site-planner existed. | design-composition.md |
@@ -1332,7 +1342,7 @@ an ID prefix, or a status word.
 | DES-056 | Section-contrast / dark-section model: the four-generation evolution arc | partial | This is a dedicated lineage entry, not a single mechanism — it exists because the same underlying problem (how... | design-composition.md |
 | SNAP-002 | component_versions population and change_source provenance | deployed | Three best-effort writers populate version history; lesson on silent best-effort | site-snapshots-and-revert.md |
 | DOC-042 | Claim taxonomy: code-checkable / superseded-but-not-wrong / code-invisible | aspirational | Three buckets of doc claims by checkability | documentation-system.md |
-| FIX-008 | Dartsonline guides pilot selection history | deployed | Three candidates dropped before confirmed differential pilot | fix-loop.md |
+| FIX-008 | Dartsonline guides pilot selection history | convention | Three candidates dropped before confirmed differential pilot | fix-loop.md |
 | IDEA-005 | Engine implementations: single-shot prompt → Python runner → Go engine | deployed | Three coexisting method implementations; shipped Go engine is stdlib-only, offline-buildable | idea-product.md |
 | IMP-023 | Per-site, per-audit-type cadence configuration (maintenance_profile.audit.{type}) — abandoned | abandoned | Three consecutive doc versions carried a designed-but-never-built configuration surface: per-site JSON config... | improvement-loop.md |
 | CLC-004 | F1-prompt generation-time field-name preservation (loader + dormant rule + function pin) | deployed | Three coupled pieces so regens preserve names instead of being rejected by CLC-003: (1) load_existing_component... | component-lifecycle.md |
@@ -1342,13 +1352,13 @@ an ID prefix, or a status word.
 | FTW-026 | Flywheel C phase-2 automation architecture (evolution) | superseded | Three generations: HTTP job server → SSH-exec → adapter dispatch | finetuning-flywheel.md |
 | HITL-005 | Human direction channels + lock lifecycle + audit-pass cap | partial | Three human-steering channels, content locks, 3-pass audit cap | hitl.md |
 | STY-004 | Pre-store component validation gates + planning deferrals + empty-section filter | deployed | Three layers stop broken components/sections reaching pages | styling-render-pipeline.md |
-| WDS-004 | Silent completion pathology and the positive-evidence rule | partial | Three modes marked work complete without evidence it succeeded; fix is positive-evidence-only | work-dispatch.md |
+| WDS-004 | Silent completion pathology and the positive-evidence rule | deployed | Three modes marked work complete without evidence it succeeded; fix is positive-evidence-only | work-dispatch.md |
 | DBG-004 | Timeout chain ordering contract (claim > call_handler > workflow) | deployed | Three nested timeouts must strictly decrease or duplicate/orphaned handling results | debugging.md |
 | NEWS-007 | Feed triage scoring repair (config reads + wrapper unwrap) | deployed | Three stacked bugs left 200+ items unscored; truncation/config/wrapper-unwrap fixes | news-feed-pipeline.md |
 | DES-051 | Design/composition flow gaps A–B–C and the plan-time trigger fixes | partial | Three stacked gaps behind themeless/off-palette built sites, investigated as one thread. | design-composition.md |
 | SCH-015 | claimed-item-timeout & timeout chain | partial | Three timeouts must stay ordered; two-phase evidence-based/blind reset | scheduler-and-tasks.md |
 | STY-038 | HTML action architecture (generate → process → validate) | superseded | Three-action LLM page pipeline, replaced by component-template rendering | styling-render-pipeline.md |
-| DOC-031 | Handoff-document discipline (updated-every-turn, supersede chain, turn log) — travelling_docs thread | deployed | Three-generation HANDOFF chain with newest-first turn log | documentation-system.md |
+| DOC-031 | Handoff-document discipline (updated-every-turn, supersede chain, turn log) — travelling_docs thread | convention | Three-generation HANDOFF chain with newest-first turn log | documentation-system.md |
 | DBI-017 | Database password rotation runbook | deployed | Three-holder password chain rotated in a safe PG→secret→PgBouncer order | database-and-infrastructure.md |
 | SYS-025 | Quality Assurance Agent Architecture | superseded | Three-layer QA model folded into the main system-architecture doc, not abandoned | system-architecture.md |
 | PBP-017 | Sectionless-page durability stack (2b sibling fallback + S1 check + S2 flag) | partial | Three-layer defence against a planned page reaching build with empty sections | page-build-pipeline.md |
@@ -1357,7 +1367,7 @@ an ID prefix, or a status word.
 | MDL-035 | Per-workflow-step model routing (data-sovereignty) | deployed | Three-tier ai_service resolution lets any step stay in-cluster | model-infrastructure.md |
 | CANB-003 | Interactive Biological Explorer + experiment engine (aspirational vision) | abandoned | Three.js/Neo4j explorer + ODE experiment engine; dropped for the practical RAG plan | canine-biology.md |
 | DES-020 | Layout: media-grid | deployed | Thumbnail-dominant, continuous-scroll discovery layout — auto-fill fluid grid, optional featured/pinned item,... | design-composition.md |
-| FTW-015 | Snapshot economics: setup script beats VM snapshots | deployed | Thunder snapshots uneconomic below ~18 runs/month; use idempotent setup script | finetuning-flywheel.md |
+| FTW-015 | Snapshot economics: setup script beats VM snapshots | convention | Thunder snapshots uneconomic below ~18 runs/month; use idempotent setup script | finetuning-flywheel.md |
 | DOC-006 | Interactive HTML runbook checklist | deployed | Tickable HTML companion mirroring markdown runbook steps | documentation-system.md |
 | DBG-030 | F2 tiered guard-verification methodology (unit→integration→live fixtures) | deployed | Tier 1/2/3 verification with KEEP/REJECT fixtures; evidence discriminator ordering | debugging.md |
 | ADP-002 | Adapter response-header tier taxonomy and validator-coverage gap | partial | Tier-2 routing fields aren't validator-enforced; unfiled tracking issue | adapters.md |
@@ -1371,7 +1381,7 @@ an ID prefix, or a status word.
 | SYS-072 | Layer-4-build + thin-Layer-5-VM-deploy framing | deployed | Traffic probe reuses the existing build+deploy pipeline, swapping only the target | system-architecture.md |
 | MDL-032 | setsid detached launch command | deployed | Training launch backgrounded via setsid so ssh_exec returns immediately | model-infrastructure.md |
 | MDL-029 | Flywheel C — LoRA fine-tuning path & iter0 adapter output | deployed | Training pipeline + the first closed-out adapter artefact (828MB) | model-infrastructure.md |
-| MCL-012 | Multi-cluster environment re-discovery handoff practice | unknown | Treat prior FOCUS docs' IPs/names as illustrative; re-derive live facts each session | multicluster.md |
+| MCL-012 | Multi-cluster environment re-discovery handoff practice | convention | Treat prior FOCUS docs' IPs/names as illustrative; re-derive live facts each session | multicluster.md |
 | SQAM-001 | Three-way split quality-gap diagnostic method (stuck / poor / out-of-scope) | aspirational | Triage method: dispatched-but-stuck vs delivered-but-poor vs never-in-scope | site-quality-audit-methodology.md |
 | SPEC-010 | site_type taxonomy drift between classifier and strategist | partial | Two canonical vocabularies for the same concept in one spec chain | site-spec-and-classifier.md |
 | ADM-005 | Admin work-item reassign + force-complete override endpoints | superseded | Two narrow overrides replaced by generic PATCH + shared retry/resolve pair | admin-dashboard-and-api.md |
@@ -1387,8 +1397,8 @@ an ID prefix, or a status word.
 | DOC-061 | API documentation system (OpenAPI external + per-service internal API.md) | unknown | Two-tier API doc practice, predates vonc corpus, unverified currency | documentation-system.md |
 | CTS-046 | API documentation convention (OpenAPI + internal API.md) | deployed | Two-tier docs: external OpenAPI spec + internal per-service API.md with CI lint | contracts-and-standards.md |
 | DBG-041 | Convergence inertness: []map[string]interface{} vs []interface{} assertion | deployed | Type assertion always failed; whole convergence feature silently dead since deploy | debugging.md |
-| ENT-001 | Entity data agent family (structured data drives pages) | partial | Typed JSONB entities with state-based lifecycle drive template-rendered pages | entity-data.md |
-| CGV-018 | content_items reusable content layer | unknown | Typed reusable content rows (headline/tagline/faq) built but apparently never written to | content-governance.md |
+| ENT-001 | Entity data agent family (structured data drives pages) | aspirational | Typed JSONB entities with state-based lifecycle drive template-rendered pages | entity-data.md |
+| CGV-018 | content_items reusable content layer | aspirational | Typed reusable content rows (headline/tagline/faq) built but apparently never written to | content-governance.md |
 | NEWS-018 | News feed pipeline: content_sources and feed-item lifecycle schema | deployed | Typed source configs and the ingested->published/expired/duplicate item lifecycle | news-feed-pipeline.md |
 | AGOV-006 | Change-layer integration (change_events, in_band) | aspirational | Typed triggers fan out from a change-event table; in_band closes self-mod loop | autonomy-governance.md |
 | CTS-033 | Adapter response envelope contract (single-sourced) | deployed | Typed-struct Kafka envelope resolved empirically; now single-sourced in 035_adapter_guide | contracts-and-standards.md |
@@ -1411,11 +1421,11 @@ an ID prefix, or a status word.
 | CTXA-019 | cmd/bundle robustness contract (validate early, fail loud, manifest input) | partial | Validate cheap inputs before slow gathers; fail loud on a missing path rather than silently omitting context | context-assembly.md |
 | ADO-025 | Adoption faithfulness - WriteSitePlanAction identity strip | partial | ValidateRoles/CanonicalisePage interaction strips identity on some page types | adoption-pipeline.md |
 | DBI-018 | sites.status vocabulary and the blast-radius filter trap | deployed | Validated status vocabulary; heuristic against scoping blast-radius queries on 'active' | database-and-infrastructure.md |
-| DEV-034 | call_agent contract validation vs input_data.spec.* convention (dual-placement) | partial | Validator checks only top-level required keys while handlers read input_data.spec.*; needs both. | development-guide.md |
+| DEV-034 | call_agent contract validation vs input_data.spec.* convention (dual-placement) | deployed | Validator checks only top-level required keys while handlers read input_data.spec.*; needs both. | development-guide.md |
 | ONB-004 | Progressive onboarding — a ramp, never "done" | aspirational | Value from mechanical layer first; onboarding never terminates | onboarding-config.md |
 | CTXA-011 | code_symbols: the per-repo code index (pgvector sibling table) | deployed | Vector+trigram code index keyed (repo,path,symbol), SHA-versioned, HNSW, pruned hard on reindex | context-assembly.md |
 | DIAG-010 | data_requests channel: model-authored read-only SQL gather | deployed | Verdict emits read-only SELECTs; diagnose_route/load_runtime execute them in a READ ONLY transaction | diagnosis-loop.md |
-| SYS-081 | Optimistic locking on orchestration state | unknown | Version-column CAS design specified but unconfirmed as shipped | system-architecture.md |
+| SYS-081 | Optimistic locking on orchestration state | deployed | Version-column CAS design specified but unconfirmed as shipped | system-architecture.md |
 | DBI-019 | training_exports Postgres schema | deployed | Versioned ChatML dataset snapshots in Postgres TOAST instead of S3 | database-and-infrastructure.md |
 | VONC-003 | provocations.json data contract (today / lobby / arena / archive) | deployed | Versioned JSON feed contract for Spark's runtime-fill sections; v3 live | vonc.md |
 | TL-025 | Component versioning (component_versions table) — schema-mode origin | deployed | Versioned snapshots of component templates (html_template, css_template, input_schema per version_number),... | tool-lifecycle.md |
@@ -1432,7 +1442,7 @@ an ID prefix, or a status word.
 | DEV-050 | Real-rows-beat-prose-or-assumption discipline | deployed | When doc prose is ambiguous, a real live row/file is the source of truth, not inference. | development-guide.md |
 | CLC-006 | F4 — regen-vs-create keyed on the LLM-chosen function (silent fork) | partial | Whether a store is a regeneration or a creation depends on whether the LLM happened to choose the existing... | component-lifecycle.md |
 | ORG-001 | Organizational framework (roles, listeners, policy-as-filters) | abandoned | Whole-company modelling thought experiment: roles, listeners, policy filters | org-framework.md |
-| CTXK-011 | diagnose (cmd/diagnose): the CLI dev/test harness | partial | Wires the scaffold to real gatherer/call-graph adapters with a stubbed (non-model) verdict step | contextkit-toolchain.md |
+| CTXK-011 | diagnose (cmd/diagnose): the CLI dev/test harness | deployed | Wires the scaffold to real gatherer/call-graph adapters with a stubbed (non-model) verdict step | contextkit-toolchain.md |
 | CGV-005 | Human direction channels and the pinned direction spec | partial | Work-item / direction-update / reference-suggestion channels; direction resets audit pass | content-governance.md |
 | LNK-017 | prepare_link_context available_pages gap on the work-item path | partial | Work-item rebuild path leaves the LLM's link-context constraint empty | link-management.md |
 | SYS-026 | site_work_items domain → pipeline column rename | superseded | Work-routing column renamed to eliminate collision with the site's own domain name | system-architecture.md |
@@ -1452,7 +1462,7 @@ an ID prefix, or a status word.
 | DBG-011 | CrashLoop exec "./X" — image lacks the binary | deployed | Wrong/stale Docker image content; "no guard between built and running" recurred 3x | debugging.md |
 | PBP-020 | complete_error silent-success family (page build completes having built nothing) | partial | Zero-ready-sections routes to a step literally named complete_error, masking failure as success | page-build-pipeline.md |
 | SCH-007 | CTE-only scheduled tasks pattern ("Always Return a Row" rule) | abandoned | Zero-row pre_query silently stalls last_triggered_at/last_completed_at | scheduler-and-tasks.md |
-| DOC-040 | Doc claim-verification / dated-claim convention | deployed | [checked YYYY-MM-DD] tags on falsifiable claims; whole-doc stamps banned | documentation-system.md |
+| DOC-040 | Doc claim-verification / dated-claim convention | convention | [checked YYYY-MM-DD] tags on falsifiable claims; whole-doc stamps banned | documentation-system.md |
 | MDL-020 | agent_definitions backup naming convention | superseded | _preNNN suffix ties a backup to its guarding migration; never-drop rule | model-infrastructure.md |
 | DES-034 | Phased belt-and-braces removal plan for webdesign-agent install_theme (abandoned same-day) | superseded | `026_design_and_site_planner_v1.md` proposed a cautious two-phase removal of webdesign-agent's defensive... | design-composition.md |
 | STY-016 | Exact-field-name template binding with silent empty on miss (RenderTemplate) | deployed | `<no value>` strip is why renamed/missing fields fail silently | styling-render-pipeline.md |
@@ -1548,7 +1558,7 @@ an ID prefix, or a status word.
 | CTS-002 | Component input-schema source vocabulary (Tier A-D + renderer, proposed E) | partial | llm/static/site-data/query source tiers for component fields; feed.* Tier E undecided | contracts-and-standards.md |
 | LOCK-004 | Timed lock-expiry project and lock-model coherence plan | partial | lock_type/lock_expires_at added via migration 115 (schema only); Go predicate sweep pending | locks.md |
 | LOCK-001 | Pattern A (locked_at/locked_by) canonical; Pattern B (pinned) dead | deployed | locked_at/locked_by is the uniform lock mechanism; pinned boolean never wired | locks.md |
-| CTXK-012 | internal/diagnose scaffold package (file-level map) | partial | loop.go/step.go/advance.go/callgraph.go/verdict_wire.go/sqlguard.go implementing the tested loop scaffold | contextkit-toolchain.md |
+| CTXK-012 | internal/diagnose scaffold package (file-level map) | deployed | loop.go/step.go/advance.go/callgraph.go/verdict_wire.go/sqlguard.go implementing the tested loop scaffold | contextkit-toolchain.md |
 | ATN-001 | Agent hierarchy tree navigation (ltree paths + subtree summaries + live viewer) | aspirational | ltree tree_path + subtree summaries + REST/WebSocket viewer for massive trees | agent-tree-navigation.md |
 | DGH-004 | Site manifest + external-edit desynchronisation detection | aspirational | manifest.json + git webhook would flag human edits and halt agent overwrites | deployment-github.md |
 | SYS-022 | Chassis config location bugs | partial | max_tokens shadowing, dead step-level temperature, dropped error_step field | system-architecture.md |
@@ -1584,7 +1594,7 @@ an ID prefix, or a status word.
 | DBI-002 | Migrations ledger system | deployed | schema_migrations table + guarded run-migrations.sh runner, live since 2026-07-10 | database-and-infrastructure.md |
 | DBG-037 | Two failure envelopes: COMPLETED parent ≠ child succeeded | deployed | sendWorkflowResponse hides failure in body; notifyParentOfFailure is the other shape | debugging.md |
 | STY-047 | http2 deprecation fix at the nginx conf generator | deployed | setup.sh now emits version-neutral listen directives | styling-render-pipeline.md |
-| ADM-009 | React admin dashboard for build review | partial | site-admin-dashboard.jsx: Dashboard/Review Queue/Review Detail views on mock data | admin-dashboard-and-api.md |
+| ADM-009 | React admin dashboard for build review | deployed | site-admin-dashboard.jsx: Dashboard/Review Queue/Review Detail views on mock data | admin-dashboard-and-api.md |
 | DES-006 | site-design-planner scope: "Choice B" (composition-only) and its declared spec aspects | deployed | site-design-planner was scoped to write exactly one spec aspect, `resolved_composition`... | design-composition.md |
 | STG-007 | JSON store scaling evolution (whole-file → daily JSONL) | deployed | site-engine's store evolved from write-cliff whole-file to bounded daily JSONL | storage-architecture.md |
 | CTS-023 | Image fields optional-with-gate contract | deployed | site_assets.* fields must be required:false + skip_field + template-gated | contracts-and-standards.md |
@@ -1593,7 +1603,7 @@ an ID prefix, or a status word.
 | PLAN-005 | Strategic vs plan-time guidance split + directive cascade + brief renderer + HITL lock transfer | partial | site_plan_directives cascade site->page->section; locks transfer across plan rebuilds | site-plan-and-reconciler.md |
 | HITL-001 | Work item approval_mode (auto / hitl / eval) | partial | site_work_items.approval_mode column; auto/hitl live, eval defined but unused | hitl.md |
 | WDS-003 | pipeline column as soft routing namespace/label | partial | site_work_items.pipeline is a mostly-unused routing label distinct from handler_agent | work-dispatch.md |
-| CGV-006 | Two sources of truth for site contact email | unknown | sites.email vs site_specs.identity.email can drift; COALESCE band-aid, no consolidation | content-governance.md |
+| CGV-006 | Two sources of truth for site contact email | partial | sites.email vs site_specs.identity.email can drift; COALESCE band-aid, no consolidation | content-governance.md |
 | SYS-007 | Maintenance profile per-site configuration | deployed | sites.settings.maintenance_profile controls per-domain cadence, budgets, audit config | system-architecture.md |
 | LNK-006 | Step 1 / Layer 1a hero+CTA schema/template hardening | deployed | skip_field + gated buttons so an unresolved CTA renders nothing | link-management.md |
 | ADP-014 | Thunder Compute API specifics (field/casing/template traps) | deployed | snake_case create vs camelCase status, real template names, ubuntu login user | adapters.md |

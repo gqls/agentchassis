@@ -324,8 +324,9 @@
 - **verify-later:** js_dependencies column existence
 
 ### STY-041 — Assembly action consolidation (3 clear actions)
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** "You have [6 overlapping assembly actions]... Too much overlap. Proposed: 3 clear actions (assemble_page ...)"; later flows use assemble_page.
+- **stage2-verified (2026-07-14):** partial → deployed — registry.go:505-528 now has exactly assemble_from_library, assemble_page, assemble_multipage_site (3 actions matching the proposal); grep for assemble_full_page/AssembleHTMLParts/WrapMultipage/html_actions in registry.go returns 0 hits — consolidation is complete, not merely proposed/partial.
 - **what:** Rationalizing the accumulated assembly actions (assemble_from_library, assemble_full_page, AssembleHTMLParts, AssembleMultipageSite, WrapMultipage, html_actions) into a minimal set: assemble_page (one page from structure+styles+content), plus multipage and library assembly sharing code. A recurring theme in this codebase: action proliferation followed by consolidation.
 - **sources:** docs010_multitrack_flows_persona_architecture/020_revised_consolidated_action_plan.md; docs012_site_maps_and_components/009_assemble_from_library_vs_component_library.md
 - **relations:** STY-042 (component library unification); STY-045 (slot-based assembly proposal)
@@ -364,8 +365,9 @@
 - **verify-later:** site_components table + render_site_components action; page_sections existence
 
 ### STY-046 — CSS generation bug (webdesign-agent design_spec not applied)
-- **status:** partial
+- **status:** superseded
 - **status-evidence:** "the webdesign-agent reported css_deployed: success:true ... But the deployed styles.css in git still contains the default blue template — the design_spec colors were never applied" (unsolved, 2026-03-02).
+- **stage2-verified (2026-07-14):** partial → superseded — 031_webdesign_agent.sql line ~2105/3005: generate_css step's action was changed from execute_llm_prompt to render_css_from_spec (deterministic Go, 'no LLM') — the exact class of bug (LLM CSS not applying design_spec colours) is structurally closed by removing the LLM CSS-generation step; agent row status='active', v...
 - **what:** A documented production defect: the webdesign-agent generates a correct design_spec (industry colours/fonts) but the generated/deployed CSS reverts to the default blue template. Three suspected causes: design_spec not reaching the template in structured form, an over-long prompt reproducing literal template CSS, or content_field resolution losing the CSS in the response envelope. Flagged for stage-2 debugging.
 - **sources:** docs021.../024_handoff_summary_2026_03_02.md#the-css-bug
 - **relations:** webdesign-agent; git_commit content_field resolution

@@ -21,6 +21,7 @@ package queryresolve
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -84,6 +85,9 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 
 	case "section_index_for":
 		return resolveSectionIndexForType(ctx, db, req.SiteID, arg, logger)
+
+	case "products":
+		return resolveProducts(ctx, db, req.SiteID, arg, req.Limit, logger)
 
 	default:
 		return nil, fmt.Errorf("queryresolve.Resolve: unknown query name %q (base %q)", req.Name, base)
@@ -272,6 +276,107 @@ func resolvePagesUnderSection(
 
 	logger.Info("queryresolve: resolved pages_under_section",
 		zap.String("section", area),
+		zap.String("site_id", siteID.String()),
+		zap.Int("count", len(items)),
+		zap.Int("limit", limit),
+	)
+
+	return items, nil
+}
+
+// resolveProducts returns active products for the site, optionally filtered
+// by category (`query.products:gripper` → category "gripper"). Only
+// `status = 'active'` rows are returned — a row can exist (e.g. pending
+// verification) without being render-eligible yet.
+//
+// The `specifications` jsonb column is flattened into the returned map
+// alongside the fixed fields, so a component's html_template can reference
+// any spec key directly (e.g. {{.stroke}}, {{.gripping_force}}) without a
+// nested lookup — the schema's `items` block documents which keys a given
+// category's rows are expected to carry, but this resolver doesn't enforce
+// that shape; it returns whatever specifications each row has.
+//
+// Provenance (source_url, verified_date) lives in content_data rather than
+// dedicated columns — no migration needed, and it travels with the row
+// exactly like every other per-product fact a template might show.
+func resolveProducts(
+	ctx context.Context,
+	db *sql.DB,
+	siteID uuid.UUID,
+	category string,
+	limit int,
+	logger *zap.Logger,
+) (interface{}, error) {
+	const hardCap = 24
+	if limit <= 0 {
+		limit = 12
+	}
+	if limit > hardCap {
+		limit = hardCap
+	}
+
+	query := `
+		SELECT
+		    id::text, name, COALESCE(sku, ''), COALESCE(subcategory, ''),
+		    COALESCE(specifications, '{}'::jsonb),
+		    COALESCE(price_display, ''),
+		    COALESCE(content_data->>'source_url', ''),
+		    COALESCE(content_data->>'verified_date', '')
+		FROM products
+		WHERE site_id = $1
+		  AND status = 'active'
+	`
+	args := []interface{}{siteID}
+	if category != "" {
+		query += ` AND category = $2 ORDER BY name LIMIT $3`
+		args = append(args, category, limit)
+	} else {
+		query += ` ORDER BY name LIMIT $2`
+		args = append(args, limit)
+	}
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("resolveProducts query failed: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]map[string]interface{}, 0)
+	for rows.Next() {
+		var id, name, sku, subcategory, priceDisplay, sourceURL, verifiedDate string
+		var specsJSON []byte
+		if err := rows.Scan(&id, &name, &sku, &subcategory, &specsJSON, &priceDisplay, &sourceURL, &verifiedDate); err != nil {
+			logger.Warn("resolveProducts: scan failed", zap.Error(err))
+			continue
+		}
+
+		item := map[string]interface{}{
+			"id":            id,
+			"name":          name,
+			"sku":           sku,
+			"subcategory":   subcategory,
+			"price_display": priceDisplay,
+			"source_url":    sourceURL,
+			"verified_date": verifiedDate,
+		}
+
+		var specs map[string]interface{}
+		if len(specsJSON) > 0 {
+			if err := json.Unmarshal(specsJSON, &specs); err == nil {
+				for k, v := range specs {
+					item[k] = v
+				}
+			}
+		}
+
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("resolveProducts rows iter failed: %w", err)
+	}
+
+	logger.Info("queryresolve: resolved products",
+		zap.String("category", category),
 		zap.String("site_id", siteID.String()),
 		zap.Int("count", len(items)),
 		zap.Int("limit", limit),

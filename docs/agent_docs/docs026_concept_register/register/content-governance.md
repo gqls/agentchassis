@@ -45,8 +45,9 @@ U17b, U18, U19, U20, U21, U22, U24a, U24c, U25.
 - **verify-later:** direction aspect reads in auditor prompts
 
 ### CGV-006 — Two sources of truth for site contact email
-- **status:** unknown
+- **status:** partial
 - **status-evidence:** "sites.email vs site_specs.identity.email can drift. loadSiteContactEmail uses COALESCE across both. Content writers may use either. Needs consolidation." (April 2026)
+- **stage2-verified (2026-07-14):** unknown → partial — Dual-source pattern confirmed live via COALESCE(email,...) in site_db_actions.go:1019, maintenance_actions.go:160, render_site_components_action.go:328. A consolidation action exists — sync_site_identity_action.go (registered registry.go:740) copies site_specs.identity into sites columns — but its header states 'Sho...
 - **what:** Contact email lives in two places with no single owner; drift produces placeholder/incorrect contact details on pages — a recurring audit finding and false-positive source.
 - **sources:** HANDOFF-pipeline-triage-april-2026.md#patterns-1
 - **relations:** identity-advisor specialist; content quality catalogue (empty footer contact)
@@ -141,8 +142,9 @@ U17b, U18, U19, U20, U21, U22, U24a, U24c, U25.
 - **verify-later:** absence of trigger; orphan columns schema_mode/strict_mode_trigger still present
 
 ### CGV-018 — content_items reusable content layer
-- **status:** unknown
+- **status:** aspirational
 - **status-evidence:** Full DDL + helper get_component_content + v_content_usage view exist and page_components.content_item_id survives into the live dump, but no later file shows content_items being written.
+- **stage2-verified (2026-07-14):** unknown → aspirational — grep -rn "content_item_id|content_items" platform/orchestration/actions/*.go: only one unrelated hit (storage_actions.go:49, log field name). 0 Go writers/readers of content_items/content_item_id. DDL exists (004_content_items.sql) but nothing in the live action layer uses it.
 - **what:** Separates "what to say" from "how to show it": typed reusable content rows (headline, tagline, service_description, testimonial, bio, cta, faq...) with semantic content_key, plain_text search, library sharing (site_id NULL + is_library + industry_vertical + library_tags), assets-style origin tracking, and status workflow. page_components reference a content_item with content_data acting as shallow-merge override (get_component_content). Would let one tagline appear in hero, footer and meta without duplication and let library content seed new sites.
 - **sources:** docs/agent_docs/sql_for_tables/004_content_items.sql; docs/agent_docs/sql_for_tables/004b_content_items.md; docs/agent_docs/sql_for_tables/005c_bk_page_components.sql#content_item_id
 - **relations:** pages/page_components split; assets origin pattern
@@ -197,8 +199,9 @@ U17b, U18, U19, U20, U21, U22, U24a, U24c, U25.
 - **verify-later:** maintenance_queue table + claim/complete/fail functions
 
 ### CGV-025 — maintenance_queue as generic install/uninstall trigger surface
-- **status:** partial
+- **status:** aspirational
 - **status-evidence:** Chatbot design reuses it: "Installation is requested by enqueuing a maintenance task — task_type='install_chat' on the existing maintenance_queue (which already has site_id, payload, status, retries)."
+- **stage2-verified (2026-07-14):** partial → aspirational — grep -rn "install_chat" across platform/ returns 0 hits (only in docs025 FOCUS design doc and the register). No Go code or agent SQL def enqueues/handles an install_chat/uninstall task_type — generic-trigger-surface reuse for chat is unimplemented.
 - **what:** The recognition that the existing `maintenance_queue` (built for page rebuilds) is a reusable, generic trigger surface for opt-in site add-ons — chat install/uninstall being the first — without touching the build pipeline. Establishes a pattern: new per-site capabilities enqueue a maintenance task rather than becoming a build-pipeline stage.
 - **sources:** docs025.../FOCUS_site_chatbot_edge_worker_and_context_pack(1).md#install-path, docs019_business/016_maintenance_queue_table.sql
 - **relations:** maintenance_queue (CGV-024), site-chat-installer, maintenance-triage

@@ -77,8 +77,9 @@ units U01, U15, U17a, U18, U19, U20, U21, U24a, U26.
 - **verify-later:** UI consumption; expire_input_requests scheduling
 
 ### HITL-010 — Manual HITL continuation runbook
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** Working queries against awaited_requests for stuck escalate_to_human steps, plus the documented hitl_respond.sh Kafka invocation with real ids/topics.
+- **stage2-verified (2026-07-14):** deployed → convention — hitl_respond.sh: 0 hits anywhere in repo; documented operational runbook, not a built artifact — underlying awaited_requests mechanism is real (state.go, coordinator.go) but named script unverifiable
 - **what:** Operational procedure for un-sticking HITL flows: locate the awaited request (step_name LIKE %human%/%hitl%/%approval%), optionally reset an expired one, then publish the human response directly to the reply_to_topic via hitl_respond.sh — including Kafka topic existence checks and consuming system.notifications.ui.
 - **sources:** docs/agent_docs/sql_for_hitl/001_hitl_requests.sql
 - **relations:** awaited_requests registry; input_requests; debugging
@@ -133,8 +134,9 @@ units U01, U15, U17a, U18, U19, U20, U21, U24a, U26.
 - **verify-later:** actions registry entries process_approval_decision, conditional_route
 
 ### HITL-017 — HITL API for approvals (REST endpoint replacing manual Kafka messages)
-- **status:** partial
+- **status:** aspirational
 - **status-evidence:** docs011/001 recommended "quick fix now, API endpoint later (2-3 hours)"; docs011/002 is a complete handler implementation guide explicitly marked "For Future Implementation" (unit U21) — a plan/guide, not confirmed shipped code; the originating idea (docs/humanintheloop HITL_README#api-integration-future, unit U26) frames it as future work over the same tokens/topics and explicitly names docs011_api_hitl as its likely successor; the admin dashboard later exposes a HITL response UI (docs024 012-era), suggesting the capability matured via a different concrete surface rather than exactly this endpoint.
+- **stage2-verified (2026-07-14):** partial → aspirational — 0 hits for hitl_handler.go or any file matching *hitl_handler* anywhere in repo (find). 0 hits for 'api/v1/hitl' or 'hitl/respond' across .go files. Admin dashboard's only HITL-labeled code (frontends/admin-dashboard/src/App.tsx:781) resolves site_work_items 'needs_human_review' items (a different mechanism, HITL-01...
 - **what:** A planned HTTP gateway endpoint (`/api/v1/hitl/respond`) that would accept a JSON HITL response (correlation_id, orchestration_id, request_id, step_name, data) and construct the correctly-headed Kafka response message, replacing fragile hand-built kcat commands (whose immediate bug was unsubstituted `${VAR}` template strings inside single-quoted heredocs). Conceived as a REST endpoint to fetch pending approvals, a web UI, and an API call to approve/reject using the approval token — the same underlying mechanism and topics as await_approval, just fronted by REST instead of manual Kafka messages. The implementation guide was written but marked as future work; the admin dashboard's HITL surface appears to be where this capability actually landed.
 - **sources:** docs011_api_hitl/001_hitl_api_analysis.md; docs011_api_hitl/002_implementation.md (unit U21); docs/humanintheloop/HITL_README.md#api-integration-future (unit U26)
 - **relations:** await_approval / HITL pause-resume mechanism; admin-dashboard-and-api; system.notifications.ui consumer gap

@@ -1,24 +1,39 @@
--- Spam read (read-only, schema-first): find the table holding contact-form / report-request
--- submissions for idea.uk, and whether it captures an IP address (needed for a block list).
--- The sample spam: order id like 'ord_1783948426211007948', requester test@test.com, and a
--- report-request shape (Requester/Business/Audience/Notes) — so search by those columns/values.
-
--- 1. Candidate tables: anything whose name suggests submissions/orders/leads/contacts:
-SELECT table_name
-FROM information_schema.tables
-WHERE table_schema = 'public'
-  AND (table_name ILIKE '%order%' OR table_name ILIKE '%submission%'
-       OR table_name ILIKE '%lead%'   OR table_name ILIKE '%contact%'
-       OR table_name ILIKE '%request%' OR table_name ILIKE '%form%'
-       OR table_name ILIKE '%report%')
-ORDER BY table_name;
-
--- 2. Which table actually contains that order id string? (Adjust the table name in the
---    UNION list below to the candidates from query 1 if they differ. This checks the two
---    most likely names; extend as needed.)
---    Run per-candidate rather than guessing — replace <t> with each candidate:
---      SELECT '<t>' AS tbl, count(*) FROM <t> WHERE (to_jsonb(<t>.*)::text) LIKE '%ord_1783948426211007948%';
-
--- 3. Once the table is known, inspect its schema for an IP/user-agent column and the
---    spam-identifying fields (email, created_at). Replace <t>:
---      \d <t>
+-- VOID — DO NOT RUN. Superseded 2026-07-14.
+--
+-- This file searches Postgres (clients_db) for idea.uk's report-request submissions.
+-- They are not there and never were. idea.uk has NO DATABASE: orders live in a JSON
+-- file, /var/lib/idea/orders.json, on the Hetzner box 116.203.204.115
+-- (store.go:3-5, setup.sh:150, HANDOFF(13).md:8).
+--
+-- The earlier '0 rows' result that the handoff dismissed as 'a search miss' was the
+-- CORRECT ANSWER. Running this will find the same orchestration-plumbing tables and
+-- locate ord_1783948426211007948 in none of them.
+--
+-- See HANDOFF_spam_and_ip_blocklist.md (corrected) for the real read, which is over SSH.
+--
+-- Original content preserved below, commented out.
+--
+-- -- Spam read (read-only, schema-first): find the table holding contact-form / report-request
+-- -- submissions for idea.uk, and whether it captures an IP address (needed for a block list).
+-- -- The sample spam: order id like 'ord_1783948426211007948', requester test@test.com, and a
+-- -- report-request shape (Requester/Business/Audience/Notes) — so search by those columns/values.
+-- 
+-- -- 1. Candidate tables: anything whose name suggests submissions/orders/leads/contacts:
+-- SELECT table_name
+-- FROM information_schema.tables
+-- WHERE table_schema = 'public'
+--   AND (table_name ILIKE '%order%' OR table_name ILIKE '%submission%'
+--        OR table_name ILIKE '%lead%'   OR table_name ILIKE '%contact%'
+--        OR table_name ILIKE '%request%' OR table_name ILIKE '%form%'
+--        OR table_name ILIKE '%report%')
+-- ORDER BY table_name;
+-- 
+-- -- 2. Which table actually contains that order id string? (Adjust the table name in the
+-- --    UNION list below to the candidates from query 1 if they differ. This checks the two
+-- --    most likely names; extend as needed.)
+-- --    Run per-candidate rather than guessing — replace <t> with each candidate:
+-- --      SELECT '<t>' AS tbl, count(*) FROM <t> WHERE (to_jsonb(<t>.*)::text) LIKE '%ord_1783948426211007948%';
+-- 
+-- -- 3. Once the table is known, inspect its schema for an IP/user-agent column and the
+-- --    spam-identifying fields (email, created_at). Replace <t>:
+-- --      \d <t>

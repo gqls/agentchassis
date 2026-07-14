@@ -75,8 +75,9 @@
 - **verify-later:** save_page_sections_action.go enrichment order; compile_page_sections metadata shape
 
 ### IMP-010 — Improvement-sweep site starvation
-- **status:** unknown
+- **status:** deployed
 - **status-evidence:** "Oldest updated_at site always wins; sites with frequent rebuilds dominate" — carried across 04-17 → 04-20 handoffs, never picked up.
+- **stage2-verified (2026-07-14):** unknown → deployed — docs/agent_docs/sql_for_tables/020_scheduled_tasks.sql:939-959 (git blame: commit 481176b4a, 2026-03-14 — predates the 04-17/04-20 handoffs citing the bug) is the live improvement-sweep pre_query at HEAD: 'ORDER BY s.updated_at ASC NULLS FIRST LIMIT 1' unchanged, only mitigation is a <20-open-items cap (no fairness ...
 - **what:** The improvement sweep's site selection starves some sites the same way find_dispatchable_site's arbitrary ordering does — scheduling fairness is an unowned concern across both loops.
 - **sources:** HANDOFF_2026-04-17_triage_and_component_linking.md#known-issues; HANDOFF_2026-04-20…(2).md#5
 - **relations:** dispatch chain fairness ORDER BY

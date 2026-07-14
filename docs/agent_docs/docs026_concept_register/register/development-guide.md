@@ -14,8 +14,9 @@ different units) and were merged into single entries; those merges are the
 main source of the 113→87 reduction.
 
 ### DEV-001 — STEP ZERO — reuse-before-create discipline
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** 001(5) opens with it as "the most important step" (asset-deploy-agent 3-hours-wasted example); restated verbatim in the archived docs019/WM 001(0) doc and re-exercised as a live practice throughout the finetuning-flywheel workstream (NOTES(45) 2026-06-04 reuse audit).
+- **stage2-verified (2026-07-14):** deployed → convention — reuse-before-create discipline (STEP ZERO), a working practice not a single artifact
 - **what:** Before creating any agent/action/function, search agent_definitions, the action registry, Go code, gate functions, and workflows for existing equivalents; document findings; never create without demonstrating no existing coverage. Extends to documentation claims (verify at point of use, date what you verify `[checked YYYY-MM-DD]`) and to functions generally (fetch-first applies to DB functions too, e.g. `\df` before drafting backup machinery). Repeatedly exercised in practice: reused ssh_get_status as a monitor probe, ListObjects for resume, datahelpers.GetIntField over a custom helper, snapshot_agent() instead of a new side-table migration.
 - **sources:** 001_development_guide(5).md#Pre-Flight, #API Verification Reference, #Reuse Before Creating; WM/001_development_guide(0).md#pre-flight-does-this-already-exist-step-zero; NOTES_phase5_training_launcher_running(45).md#3(D3),#reuse-audit
 - **relations:** canonical field-path helpers; assumed-helper build failures; guidelines audit (001/002/003 compliance)
@@ -78,8 +79,9 @@ main source of the 113→87 reduction.
 - **verify-later:** rag_actions.go registered?; knowledge_base row counts
 
 ### DEV-009 — Agent vs infrastructure boundary test
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** 001(5) table (LLM logger no, Ollama provider no, rag actions no, knowledge-indexer future yes).
+- **stage2-verified (2026-07-14):** deployed → convention — agent-vs-infrastructure design test/heuristic, not an artifact
 - **what:** Something becomes an agent only if it owns a domain, needs its own workflow, and benefits from independent spawn/debug. Otherwise it is an action or cross-cutting infrastructure.
 - **sources:** 001_development_guide(5).md#Agent vs infrastructure
 - **relations:** RAG actions and knowledge_base; promotion pattern
@@ -150,16 +152,18 @@ main source of the 113→87 reduction.
 - **verify-later:** run the Step C grep; agent registration code path (upsert semantics on default_config)
 
 ### DEV-018 — Work-item manual-crafting discipline (real shapes, truthful provenance, never-guess)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** w4b_04: "crafted from the real rows … with truthful deviations noted: source 'manual' and created_by 'w4b_chrome_refresh' … lying in provenance columns costs later debugging" — pattern repeated across every W6/W7/W8/W9 insert; independently restated as "NEVER guess a needs_page spec" and as the schema captured 2026-07-01 for manual rerender/needs_page recipes.
+- **stage2-verified (2026-07-14):** deployed → convention — manual work-item crafting discipline, a process not a code artifact
 - **what:** A cluster of verify-at-point-of-use rules for hand-inserting `site_work_items`: copy the metadata of real rows produced by the owning code path (pipeline/severity/priority/handler_agent/status), deviate only truthfully in provenance columns (source=manual, created_by=<script name>), carry only spec fields the consuming workflow actually reads, and dedup check-first with a NOT EXISTS that mirrors `idx_swi_dedup` exactly (non-terminal statuses only, including 'unresolved'). URLs/paths come from `pages.url`, never invented (the phantom-CTA bug was an invented `/contact.html`). Manual page items require the FULL spec — page_id as a real UUID inline, domain, filename, page_name; placeholder strings get claimed and fail ("invalid UUID length"), and any fix must filter on the PLACEHOLDER string, not the intended value. Item_key families are stable conventions: `page_rerender:<page>`, `chrome_refresh_rerender:<site_id>`, `needs_imagery:section:<scope_ref>:<key>`, `component_regen_rerender:<uuid>`, `section_data_*`. Trigger flows through the real producer path where one exists, rather than a manual insert.
 - **sources:** w4b_04_trigger_item.sql; w7b_01_imagery.sql; w8_01_post_deploy_rebuild.sql; NOTES(43).md §9l, §9ae, §9w–§9y; docs/RUNBOOK_vonc_migrations(14).md#reference-manual-rerender; docs/RUNNING_NOTES_vonc(36).md#work-item-fix-2026-06-24
 - **relations:** work-item dedup mechanics; item_key canonicalization; F2 discriminators; link-management (phantom links)
 - **verify-later:** idx_swi_dedup definition; site_work_items status vocabulary; \d site_work_items
 
 ### DEV-019 — Standing session/working-contract rules (house rules)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** Repeated verbatim at the top of multiple running-notes journals ("Standing preferences (STRICT)") and restated independently in a different workstream as "Standing instruction from the user, in force."
+- **stage2-verified (2026-07-14):** deployed → convention — file itself notes verify-later 'n/a (convention, not code)'
 - **what:** The user's cross-thread working contract, treated as binding by every agent session regardless of workstream: Go not Python; British English; plain language, no hype/flattery, banned words "perfect/critical/excellent", no congratulation; confirm live schema/data before asserting or writing SQL (`\d` before SELECT/UPDATE); structural framework fixes over one-off patches; low risk appetite, reasonable step sizes, ≤1 question per reply; no summary documents unless asked; don't call fixes final; no `*-light`/`*-dark` component variants; keep runbook + journal current; never treat 0 rows as decisive; verify against deployed artifacts not pod logs; flag variable/signature changes; honest caveats including correcting one's own reads.
 - **sources:** running_notes_scheme_to_components(55).md#Standing-preferences; HANDOFF_idea_uk_differentiators_section_data.md#House-rules; docs/RUNNING_NOTES_vonc_v2(28).md#standing-rules; docs/HANDOFF_2026-07-09_vonc_spark_minilobby_trim(2).md#§1
 - **relations:** running-notes journal discipline; guidelines audit (001/002/003 compliance); schema-before-SQL discipline
@@ -246,8 +250,9 @@ main source of the 113→87 reduction.
 - **verify-later:** snapshot_agent/revert_agent function definitions; agent_definitions_backup table; component-creator prompt state
 
 ### DEV-030 — Correct-while-touching norm (bounded repair of adjacent inert bugs)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** Defined in a RUNBOOK mini-glossary as "Norm adopted in this chat, 2026-07-06"; exercised across migrations 125–146.
+- **stage2-verified (2026-07-14):** deployed → convention — a norm/discipline, not a code artifact
 - **what:** When a migration already modifies a workflow, it also fixes known-inert bugs in that SAME workflow (e.g. step-level `error_step` moved into config with original targets preserved, dead keys deleted), declared explicitly in the migration file — bounded repair, no separate campaign, and never copying the broken shape into new steps.
 - **sources:** RUNBOOK_travelling_docs(38).md#mini-glossary; RUNNING_NOTES_travelling_docs(39).md#rev23,#rev26,#tier-4-continuous
 - **relations:** error_step mechanics; snapshot-first migration convention
@@ -278,8 +283,9 @@ main source of the 113→87 reduction.
 - **verify-later:** whether the trigger scripts were promoted anywhere canonical (they live in drafts/); system.intake topic absence; scripts/initial_messages/210_vonc_trigger/ contents
 
 ### DEV-034 — call_agent contract validation vs input_data.spec.* convention (dual-placement requirement)
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** Mechanism confirmed directly in code (2026-07-01): ValidateInputContract checks only top-level keys; a patch (PATCH_validate_input_contract.go) was "WRITTEN, deploy PENDING" and still listed as a backlog item over a week later.
+- **stage2-verified (2026-07-14):** partial → deployed — input_mapping.go:245 ValidateInputContract now checks BOTH top-level (line 265 comment '1) top-level') AND input_data.spec.* (line 269 '2) input_data.spec.* — the path handlers actually read (doc 003)'), with hint text at line 289 confirming dual-placement acceptance. git log shows commit ca2b89a79 'patch input cont...
 - **what:** `call_agent` resolves input_mapping then validates the target's `input_contract.required` against TOP-LEVEL keys only, while handler workflows for work-item-driven agents read spec fields at `input_data.spec.*` (the work-item convention) — the validator and the workflow read different places. A required field like `section_type` can therefore be satisfied by neither pure-top-level (empty-context generic generation) nor pure-nested (contract violation); the working manual-trigger shape provides the field BOTH top-level and inside spec. The generic build-dispatch-loop mapping flattens no such field, so the designed work-item path would hit the same violation if exercised (predicted, unconfirmed at the time). The proposed framework fix: the validator should accept a required field top-level OR at `input_data.spec.X`, not enshrine the duplication or patch per-handler loop mappings.
 - **sources:** docs/RUNNING_NOTES_vonc(36).md#2026-07-01-~10:10 + #2026-07-01-~12:46 + #2026-07-01-~13:10; docs/PATCH_validate_input_contract.go.txt; docs/RUNBOOK_phase2_provocation_js(29).md#appendix-e; 016b_debugging_guide_7_3_(7).md#spawn-call-entry
 - **relations:** manual agent trigger via kcat orchestrate; build-dispatch-loop genericity; component regeneration
@@ -326,16 +332,18 @@ main source of the 113→87 reduction.
 - **verify-later:** grep/inspect `execute_llm_prompt`; `max_tokens`; `ai_service`
 
 ### DEV-040 — Development-guide gotcha: verify deployed contents against the pod, never tag/git
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "verify deployed contents against the POD binary, never the tag, never git."
+- **stage2-verified (2026-07-14):** deployed → convention — deploy-verification discipline, not a built artifact
 - **what:** A same-tag deploy trap: bumping source without bumping `IMAGE_TAG` means `rollout restart` reuses the cached image, so a reported "deploy" can silently ship a stale binary. The only reliable verification is grepping the running pod's binary for control strings. Caught a first-deploy that was actually a no-op.
 - **sources:** fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 23; fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#Live gotchas
 - **relations:** rebalance-window gotcha
 - **verify-later:** grep/inspect `IMAGE_TAG`; `rollout restart`
 
 ### DEV-041 — Development-guide gotcha: rebalance window after chassis restart
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "after make release redeploy-agents, wait for the chassis deployment to settle before firing a diagnosis" — cost 8 hours of debugging the first time it bit.
+- **stage2-verified (2026-07-14):** deployed → convention — operational workaround/timing rule, not a code artifact; file itself says 'n/a — process/design record'
 - **what:** Firing an orchestration within roughly 300 seconds of a chassis pod restart risks the spawn's init response falling into a Kafka consumer-rebalance window and dying silently. Standing workaround: wait ~300s after any deploy before firing a run.
 - **sources:** fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 9; fixloop_eg_dartsonline/HANDOFF_turn21_2026-07-10.md#Gotchas
 - **relations:** same-tag deploy trap
@@ -366,8 +374,9 @@ main source of the 113→87 reduction.
 - **verify-later:** needs_section_data work-item creation path; wont_fix auto-resolution pattern
 
 ### DEV-045 — Cross-module port / copy-drift discipline
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** Both the validated port procedure ("surfaced FOUR build errors in the first real make build-core-manager … None of these four were logic bugs") and an independent later incident ("This is the 5th instance of the same root pattern… import path, missing file, stale sibling, assumed helper API, now stale CLI") converge on the same prevention.
+- **stage2-verified (2026-07-14):** deployed → convention — port/copy-drift procedure, not a code artifact itself
 - **what:** The validated sequence for moving a package between Go modules (e.g. contextkit's internal/diagnose → chassis's pkg/diagnose): (1) copy the WHOLE package as a unit and diff file lists — cherry-picking individual files across versions silently drops or staleifies siblings; (2) rewrite the moved-package import path everywhere; (3) build+test the package alone before the binary; (4) grep every shared-package call the new code makes against the REAL helper surface rather than assuming an API exists (`datahelpers.ExtractStringSlice` didn't exist; compose `ExtractStringListHelper(ExtractNestedField(...))`). A real incident surfaced five distinct failure classes this way in sequence (wrong import path, an entire file silently omitted, a stale pre-refactor sibling, an assumed-but-nonexistent helper API, a stale CLI binary predating a library change) — all passed silently in the source module and surfaced only on first build/run in the target.
 - **sources:** docs019/RUNBOOK_design_diagnosis_loop(7).md#4c; docs019/RUNBOOK(31)_diagnosis_loop.md#current-position; NOTES_running_synthesis_v2(36).md 2026-06-17; 016_additions_assumed_helper_and_cross_module.md
 - **relations:** ReadSymbolBody dual placement; canonical field-path resolution helpers; untested-code/behaviour-testing discipline
@@ -398,8 +407,9 @@ main source of the 113→87 reduction.
 - **verify-later:** —
 
 ### DEV-049 — Schema-before-SQL discipline
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "Schema: bundle CODE names tables; only \d gives columns AND persistence (hit 4×: page_id, no status column, file_count, the 3-NULL workflow columns)."
+- **stage2-verified (2026-07-14):** deployed → convention — schema-before-SQL discipline; verify-later explicitly '—'
 - **what:** A recurring, explicitly named discipline that code reliably names which DB tables are involved, but only a live `\d` (schema dump) gives real column names and reveals whether a field is persisted at all vs. computed at runtime — hit repeatedly (a wrong `page_id` column, an assumed-but-nonexistent `status` column on `site_plan_sections`, a wrong `fileCount` vs `file_count` JSON key, and a workflow-column misassumption) and eventually generalised into "real rows/examples beat prose/inference" as its own standing lesson.
 - **sources:** NOTES_running_synthesis_v2(36).md STATE DIGEST "Standing lessons"; NOTES_running_synthesis_principles(59) multiple 2026-06-14 gamesdesign-diagnosis entries
 - **relations:** workflow lives in default_config; real-rows-beat-prose discipline; house rules
@@ -590,8 +600,9 @@ main source of the 113→87 reduction.
 - **verify-later:** registry entries conditional_call_agent, route_by_field
 
 ### DEV-073 — spawn_group action with DB group lookup and dynamic group_type
-- **status:** partial
+- **status:** aspirational
 - **status-evidence:** Discovers an existing SpawnGroupAction (config-provided agents) and revises the new version to align — DB lookup of agent_group_definitions, dynamic group_type_field from collected_data, questionnaire fetch.
+- **stage2-verified (2026-07-14):** partial → aspirational — registry.go:89 only maps "spawn_group": SpawnGroupAction (spawn_group.go:31, the config-provided-agents version). The DB-lookup version (doc-commented 'SpawnGroupFromDBAction', actually implemented as func SpawnGroupActionNewerOld at spawn_group.go:163) is never registered — the 'Add to GlobalActionRegistry' instruc...
 - **what:** Spawning an entire agent group as a unit: the original action spawned each configured agent and returned subtree info; the enhanced version resolves the group definition (agents + workflow + questionnaire) from the database, with group_type optionally taken dynamically from a prior step's output — enabling the intake orchestrator's dispatch.
 - **sources:** docs004_website_capture_project/007different_types_of_site/028.agent_group_selection_and_workflow.md; docs004_website_capture_project/007different_types_of_site/025.agent_group_discussion
 - **relations:** intake orchestrator; agent groups
@@ -670,16 +681,18 @@ main source of the 113→87 reduction.
 - **verify-later:** work_items_common.go workItemKey applied?; adoption creator key prefixes
 
 ### DEV-083 — Basic operations reference (kcat spawn, scale, monitoring)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** A concatenation of basic_usage docs actively describing the current operating procedure (spawn_group message shape, headers, monitoring queries).
+- **stage2-verified (2026-07-14):** deployed → convention — ops reference/procedure description, not a single artifact
 - **what:** The operator's basic-usage layer: scale the deployment set up/down (agent-chassis, auth-service, content-creator-agent, core-manager, image-generator-adapter, reasoning-agent, web-search-adapter); post spawn_group/orchestrate messages via kcat from a test pod to the cross-namespace Kafka bootstrap with required headers (correlation_id, request_id, client_id, agent_instance_id, fuel_budget); monitor via orchestrator_state/orchestration_states by correlation_id. The fuel_budget header and the fixed header set are part of the platform's message contract.
 - **sources:** docs/summary.txt; docs/HANDOFF_2026-07-09_vonc_spark_minilobby_trim(2).md#§6
 - **relations:** manual agent trigger via kcat orchestrate; system-architecture (topics)
 - **verify-later:** docs/basic_usage originals; current deployment list
 
 ### DEV-084 — Guidelines audit (001/002/003 compliance)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "Read the dev guide, architecture, and contracts. Existing code: no violations"; a later audit action states "audited against 001/002/003 — code is COMPLIANT."
+- **stage2-verified (2026-07-14):** deployed → convention — recurring compliance-audit practice, not a code artifact
 - **what:** Recurring audits confirming a given engine/collector honours the house rules: standalone package main where required; JS content separation where applicable; parameterised SQL only; no logger.Debug; kebab-case/snake_case names; private same-file helpers allowed; sensitive keys never logged.
 - **sources:** traffic_probe_running_notes(27).md#2026-06-10-guidelines-audit, #2026-06-13-d
 - **relations:** STEP ZERO; house rules; wrapper-orchestrator finding this audit produced

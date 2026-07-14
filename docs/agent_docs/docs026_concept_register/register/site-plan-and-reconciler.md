@@ -252,8 +252,9 @@ U09, U10, U12, U13, U14, U15, U17a, U18, U19, U20, U23, U24a, U24d, U25, U26.
 - **verify-later:** live SELECT type, status, image_tag FROM agent_definitions for the named stages
 
 ### PLAN-032 — Design/composition work-item emission gap (planner reorg unclosed seam)
-- **status:** unknown
+- **status:** deployed
 - **status-evidence:** "So nothing in the build path appears to emit a needs_design/needs_composition trigger for a fresh domain... consistent with this being an unclosed seam from the planner reorg."
+- **stage2-verified (2026-07-14):** unknown → deployed — platform/orchestration/actions/emit_design_items_action.go now exists, explicitly built to close this exact gap (header comment: 'build-site-planner (Phase 1) moved its terminal step to write_site_plan + reconcile_site_plan, neither of which emits the design trigger. This action restores it'). Registered as 'emit_de...
 - **what:** A discovered structural risk: the legacy `WriteBuildItemsAction` emitted the full item set for a new build (`needs_page`, `needs_logo`/`needs_hero_image`, `needs_composition`, `needs_design`), but the Phase-1 replacement (`build-site-planner` → `write_site_plan` + `reconcile_site_plan`) emits only `needs_page` + `needs_rerender`. The only fallback is the improvement-loop's `design-discovery-agent` catching `missing_css` later — meaning a new site could deploy pages referencing a stylesheet that doesn't exist yet.
 - **sources:** plainjanedomain/README.md
 - **relations:** new-domain build pipeline stage chain (PLAN-031); site-chrome rendering gap (dartsonline), same class of defect
@@ -300,8 +301,9 @@ U09, U10, U12, U13, U14, U15, U17a, U18, U19, U20, U23, U24a, U24d, U25, U26.
 - **verify-later:** wrap_multipage in registry
 
 ### PLAN-038 — Three section sources for a page build + plan storage triple shape (029 Q1)
-- **status:** partial
+- **status:** superseded
 - **status-evidence:** Workflow dump + code read 2026-07-06: "load_spec_sections... reads site_specs aspect site_plan (AUTHORITATIVE) → fallback page_record.sections. The site_plan_sections TABLE is NOT read by this path." Design doc 029's Q1 ("site_specs aspects vs new table") remains its own open question as of the same date.
+- **stage2-verified (2026-07-14):** partial → superseded — load_page_sections_from_spec_action.go (current tree, last touched by commit 9255620 on 2026-07-07, present on HEAD of branch 085_debug_and_feature_loops) now reads site_plan_sections FIRST as 'authoritative' (header comment + code lines 109-130), contradicting the doc's central claim 'The site_plan_sections TABLE i...
 - **what:** Page builds resolve their section list, in order, from: the `site_specs` aspect `site_plan` (legacy blob, ~5 sites carry one), `pages.sections` (jsonb fallback — what actually serves most sites; the newer planner dual-writes plan tables → pages.sections), and same-role sibling synthesis; the `site_plan_sections` table (written by the newer planner generation) is NOT read by this build path at all. Three peer stores with unclear precedence caused ten silent no-op builds and two fixes landing in the wrong store before the pages.sections UPDATE that finally unblocked. Operational corollary: `reconcile_site_plan` re-emits `needs_page` for any planned-but-unbuilt page every run (a standing trap for pages parked pending a decision).
 - **sources:** docs/RUNNING_NOTES_vonc_v2(28).md#2026-07-06-mechanism-fully-confirmed; docs/HANDOFF_2026-07-09_vonc_spark_minilobby_trim(2).md#§3/§9.7; docs/social001_vonc_tiktok_social/minilobby_task/HANDOFF_2026-07-09_vonc_spark_minilobby_trim(2).md
 - **relations:** plan storage authority (PLAN-039); complete_error silent no-ops (page-build-pipeline register); site_plan as authoritative build source (PLAN-029)

@@ -30,8 +30,9 @@ U17b, U18, U23, U24a, U24b, U24c, U24e, U24f, U25.
 - **verify-later:** TOOL_DOCS_convention.md canonical location; whether any tool_docs/tool_doc_notes DB table exists (expect none — superseded by doc_plans/doc_notes)
 
 ### DOC-004 — Running-notes checkpoint journal + distilled HANDOFF discipline (idea.uk, memory-off)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** Main journal header: "Memory is OFF; this doc is the journal. Present this file at the END OF EVERY TURN."; running_notes.md grew to ~5,690 lines (checkpoints a…kkk) before archival into running_notes_2.md; the scheme_to_components sub-thread independently ran the same discipline (55 versions, lettered checkpoints Sa…Un).
+- **stage2-verified (2026-07-14):** deployed → convention — idea.uk running-notes journal discipline; verify-later itself says 'n/a — documentary practice'.
 - **what:** The idea.uk project's working method for coherent long multi-session threads without model memory: an append-only running-notes journal presented every turn, dated/lettered checkpoints, a carry-over state block (preferences, architecture conventions, project facts, "the fix in one line"), explicit AWAITING/NEXT lines, and CORRECTION entries that supersede earlier readings in place. Paired with a distilled HANDOFF kept fresh (current state, strict user preferences, schemas, backlog, marked "canonical cold-start doc") and companion PLAN (forward map) / RUNBOOK (commands + results, superseding "WHERE WE ARE" position blocks) / SPEC (decision record) documents, each with a defined role. The same discipline was run independently both on the main idea.uk thread and on its scheme_to_components sub-thread. Operational lore: attachments arrived unreadable repeatedly; pasted text and file uploads are the working channels.
 - **sources:** idea.uk/running_notes_2(6).md (header); idea.uk/HANDOFF(13).md (header); running_notes_scheme_to_components(55).md; HANDOFF_scheme_to_components_for_claude_code(1).md
 - **relations:** house rules; docs026's own charter (this journal family is a model input for the council); docs037 travelling-docs conventions; bundle packagers (DOC-005)
@@ -54,24 +55,27 @@ U17b, U18, U23, U24a, U24b, U24c, U24e, U24f, U25.
 - **verify-later:** n/a (documentation artefact)
 
 ### DOC-007 — Packaged canonical-doc copies as debug context (003 contracts copy)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** package_module/output_contexts/ contains a consolidated 003 copy ("Canonical 003 — Contracts & Standards, superseding v8–v10") plus the 4.3MB production code dump the packager emitted.
+- **stage2-verified (2026-07-14):** deployed → convention — Packaging workflow provenance note; verify-later says 'n/a', concept records a practice not a build claim.
 - **what:** The packaging workflow drops canonical guideline docs and a generated whole-slice code dump alongside the running notes so a fresh chat starts with ground truth. Registered here purely as provenance: the 003 contracts content and the production code dump are owned by their home units — this unit only evidences the packaging practice.
 - **sources:** package_module/output_contexts/003_contracts_and_standards.md; package_module/output_contexts/production_content-and-linking-debug_context.txt
 - **relations:** context packaging tooling; contracts-and-standards unit
 - **verify-later:** n/a
 
 ### DOC-008 — Epistemic tagging and handoff-correction discipline
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** NOTES(45) header: "Epistemic tags used below: [verified-source]… [verified-db]… [deployed?]… [assumed]… [gap]"; §10 "Handoff-correction log (institutional memory)… Pattern: verify against code, not the handoff."
+- **stage2-verified (2026-07-14):** deployed → convention — Epistemic tagging discipline is a documentation practice, not a code artifact; verify-later says 'n/a (convention)'.
 - **what:** The phase-5 notes operate a working epistemology: every claim carries a tag distinguishing read-from-source, confirmed-by-production-query, assumed, or known-gap; a dedicated correction log records where inherited handoffs contradicted deployed reality (reply-topic direction, prepare_object_url existence, the "list-keys gap" that already existed as ListObjects). Multiple bugs in this unit trace to trusting a doc over code (templates_db pin, backup-vs-live def divergence, runbook "safe to re-run"). A documentation-system convention worth institutionalising: docs are claims; code and DB state are evidence.
 - **sources:** working/phase5/NOTES_phase5_training_launcher_running(45).md#header,#10; working/phase5/PLAN_checkpoint_and_artefact_upload_b2(7).md
 - **relations:** docs026 programme itself (stage-2 verification mirrors this); hand-applied migrations lesson
 - **verify-later:** n/a (convention)
 
 ### DOC-009 — Cold-start documentation bundle practice (BUNDLE/HANDOFF/PLAN/RUNBOOK + cmd/bundle)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "Decision: produce a cmd/bundle invocation + cold-start docs (BUNDLE/HANDOFF/PLAN/RUNBOOK) so a fresh chat could pick it up" (NOTES §2 Start); HANDOFF(7) explicitly "the cold-start entry point".
+- **stage2-verified (2026-07-14):** deployed → convention — BUNDLE/HANDOFF/PLAN/RUNBOOK cold-start doc practice; a documentary working practice, not a claimed chassis code build.
 - **what:** A four-document travelling set per investigation — BUNDLE (a `cmd/bundle` invocation composing constitution + task + scoped code symbols + schemas + runtime evidence into one context file; `-step debug` for bodies, verified doc paths), HANDOFF (cold-start entry with operating model + status), PLAN (phased with gates/done-whens), RUNBOOK (live action document with YOU-ARE-HERE banner, per-step SQL + expected + CHECK blocks, ticked progress) — plus NOTES as the append-only journal owning every correction. Operational gotchas: pasted attachments extract empty (capture via `kubectl … psql -c > file`, not `\o`); runbooks rewritten wholesale when history outgrows action (old kept as `*_pre_cleanup_backup`).
 - **sources:** BUNDLE(3).md; HANDOFF(7).md; NOTES(43).md §2, §9av, §9bc; RUNBOOK(49).md
 - **relations:** documentation-system conventions (037, DOC-003); F2 discriminator discipline; bundle-first handoff practice (DOC-046 [see U16 entry below])
@@ -190,16 +194,18 @@ U17b, U18, U23, U24a, U24b, U24c, U24e, U24f, U25.
 - **verify-later:** live distinct categories in doc_notes
 
 ### DOC-024 — Deliberate-decisions sections + the graduation rule (prose → structured → enforced)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** PLAN(6) "Graduation rule: prose → structured → enforced, only when recurrence proves the need. (Locks stay deferred; criteria live as a fenced block, not a column, until a checker consumes them at volume.)"
+- **stage2-verified (2026-07-14):** deployed → convention — Prose→structured→enforced graduation rule is a design/philosophy statement; verify-later asks whether any lock mechanism 'has since appeared' — none found, and none claimed as built now.
 - **what:** A PLAN carries a "Deliberate decisions — do not re-fix" prose section, protective because it is loaded at fix time; no lock mechanism yet. Knowledge graduates from prose to structure to enforcement only on demonstrated recurrence — the reason criteria are a fenced block rather than a column, and locks are deferred. Runbook prose is "un-compiled residue" that retires as it is compiled into guards/fixes.
 - **sources:** PLAN_travelling_docs(6).md#framing,#deliberate-decisions; RUNNING_NOTES_travelling_docs(39).md#rev3-framing
 - **relations:** framing concept (DOC-025); locks category (031)
 - **verify-later:** whether any lock/enforcement mechanism for deliberate decisions has since appeared
 
 ### DOC-025 — Framing: plan = enforced desired state; pipeline = compiled runbook; NOTES = the reasoning log
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "Framing (agreed 2026-07-04)" section, stable across PLAN revs 3–6.
+- **stage2-verified (2026-07-14):** deployed → convention — Purely a conceptual framing (plan=enforced/pipeline=compiled/notes=log); verify-later itself says 'n/a (conceptual framing)'.
 - **what:** Where each artifact sits within the Postgres travelling-docs system: `site_plans`+specs are the ENFORCED plan (reconciler drives realised state toward it — "the plan table is ground truth; the rest is weather"); the build pipeline is the compiled happy-path runbook; written runbooks are the un-compiled residue (exception knowledge); NOTES is the reasoning log nothing machine-side captures; contracts/constitution sit above as admission rules.
 - **sources:** PLAN_travelling_docs(6).md#framing; RUNNING_NOTES_travelling_docs(39).md#rev3
 - **relations:** site-plan-and-reconciler (030); graduation rule (DOC-024); contracts-and-standards
@@ -246,8 +252,9 @@ U17b, U18, U23, U24a, U24b, U24c, U24e, U24f, U25.
 - **verify-later:** source vs source_agent population on live doc_plans/doc_notes rows
 
 ### DOC-031 — Handoff-document discipline (updated-every-turn, supersede chain, turn log) — travelling_docs thread
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** Three-generation chain in this unit (07-08 → 07-09 → 07-10, each "supersedes" the prior); 07-10 handoff carries an 11-entry turn log through 2026-07-13.
+- **stage2-verified (2026-07-14):** deployed → convention — Handoff-document discipline (travelling_docs thread); verify-later says 'n/a (working practice)'.
 - **what:** Long-running work travels between chat sessions via a standing HANDOFF doc: first-actions list, state-of-play with dates and snapshot ids, blocker sections with ranked hypotheses and data-to-collect checklists, durable rules, key identifiers, file inventory, and a newest-first turn log updated EVERY turn. Companions pattern: RUNBOOK (position tracker) + RUNNING_NOTES (chronology) + PLAN (spec) + 016b (durable patterns) — the travelling-docs idea applied to the work itself. Includes the cross-workstream "collision rule" courtesy FYI when another chat touches a shared surface.
 - **sources:** HANDOFF_2026-07-08…md; HANDOFF_2026-07-09…_1_.md; HANDOFF_2026-07-10…md#turn-log; FYI_from_fixloop…md
 - **relations:** doc traveller / docs037 conventions (DOC-003); bundle command; the general travelling-docs pattern (DOC-052); vonc's own HANDOFF convention (DOC-060)
@@ -278,24 +285,27 @@ U17b, U18, U23, U24a, U24b, U24c, U24e, U24f, U25.
 - **verify-later:** n/a (tooling snapshot)
 
 ### DOC-035 — Single-source relocation with pointer / canonical-doc-home discipline
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** Two independent content areas (adapter deployment mechanics, adapter response envelope shape) were both removed from their original host docs and consolidated into `035_adapter_guide.md`, with the live contracts doc leaving a one-line "Moved to X, now the single source for it" pointer; concretely dated 2026-06-11: "FOCUS_adapter_design merged into 035 — FOCUS retired".
+- **stage2-verified (2026-07-14):** deployed → convention — Single-source-of-truth doc relocation practice; no code artifact, verify-later checks whether it's formalized (still open).
 - **what:** A recurring documentation practice: when a topic is found duplicated across docs (a debugging guide and a contracts doc; or 003 vs FOCUS_adapter_design — the "003 vs FOCUS contradiction" root-caused as duplication-then-drift, not a genuine disagreement), maintainers consolidate it into ONE canonical numbered doc and replace the other locations with a short pointer sentence, rather than letting copies drift out of sync. Numbered docs (001/002/003/019/020…) are canonical/permanent; `FOCUS_*` docs are transient design notes meant to be retired once their content graduates. A validator to enforce this mechanically was proposed but not built.
 - **sources:** docs024_key_docs_latest/003_contracts_and_standards(8).md; docs024_key_docs_latest/035_adapter_guide.md; debugging_old/016_debugging_guide_v2(1).md; NOTES_running_synthesis_principles(59) "Doc restructure: adapter docs + 003"
 - **relations:** adapters; documentation-system; 000_documentation_index (DOC-001); doc claim-verification convention (DOC-040)
 - **verify-later:** check 000_documentation_index.md/travelling_docs conventions for whether this is a formal rule
 
 ### DOC-036 — Full heading+content-line diff across all forked copies before consolidating a travelling doc
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** Used explicitly twice: v2_58 ("A full heading-level AND content-line diff across all 14 files confirmed these were the ONLY entries missing") and the 016b consolidation ("Verified against ALL forked copies... proved this copy already contains every one of the 9 distinct §9 entries").
+- **stage2-verified (2026-07-14):** deployed → convention — Documentation-consolidation methodology; verify-later says 'none code-related — a documentation-process note'.
 - **what:** A consolidation methodology: before promoting one copy of a travelling/forked doc to canonical, diff it against every other known fork at both heading and content-line granularity, explicitly asserting "no content was removed," and recover anything found missing.
 - **sources:** docs024_key_docs_latest/016_debugging_guide_v2_58_consolidated.md; docs024_key_docs_latest/016b_debugging_guide_8_consolidated.md
 - **relations:** the method's completeness claim does not always hold in practice — see the diagnosis-loop fork, which the 016b audit's own "verified against ALL forks" claim did not actually catch
 - **verify-later:** none code-related — a documentation-process note for docs026 itself
 
 ### DOC-037 — verify_before_migration pre-flight convention
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "Follows the travelling-docs precedent (verify_before_migration.sql)" (verify_before_migration_diagnosis_artifacts.sql header).
+- **stage2-verified (2026-07-14):** deployed → convention — House convention of pre-flight SQL scripts; verify-later says 'n/a — process/design record'.
 - **what:** A house convention (shared with the travelling-docs workstream) of writing a companion pre-flight SQL script before any hand-applied migration, checking for table/index name collisions and confirming assumptions about existing constraints, with results pasted back into the running notes doc.
 - **sources:** fixloop_eg_dartsonline/verify_before_migration_diagnosis_artifacts.sql; fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 2
 - **relations:** diagnosis_artifacts table
@@ -318,8 +328,9 @@ U17b, U18, U23, U24a, U24b, U24c, U24e, U24f, U25.
 - **verify-later:** n/a — process/design record
 
 ### DOC-040 — Doc claim-verification / dated-claim convention
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "DONE 2026-06-11: claim-verification discipline CODIFIED (016 v2_34 item 24 + 001 pointer + dated-claim convention)" (principles(59)).
+- **stage2-verified (2026-07-14):** deployed → convention — Doc claim-verification/dated-claim convention; verify-later says 'n/a', a documentation-authoring rule not a code artifact.
 - **what:** Falsifiable, load-bearing doc claims carry a `[checked YYYY-MM-DD: <evidence>]` tag (one date = last checked, updated in place); negative claims ("X isn't built") carry their falsifying command; whole-document "verified" stamps are explicitly banned (verification attaches to claims, never documents); docs update in the same change as the decision that makes them true. Motivated by a real incident where a stale negative claim in doc 019 nearly caused a reuse-before-recreate violation, and the team's own freshly-written docs went stale within hours — "staleness is a coupling property, not an age property."
 - **sources:** NOTES_running_synthesis_principles(59) 2026-06-11 "DISCUSSED... doc up-to-dateness" and "CODIFIED" entries
 - **relations:** doc-drift claim classifier (DOC-041); canonical-doc-home discipline (DOC-035)
@@ -342,16 +353,18 @@ U17b, U18, U23, U24a, U24b, U24c, U24e, U24f, U25.
 - **verify-later:** n/a (design)
 
 ### DOC-043 — Classify, do NOT merge (the human consolidates)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** DESIGN_doc_drift_classifier §5 "the line held firmest"; echoed as working practice in engines_tree_proposal ("selective-carry-with-the-LLM-as-assistant, never a generative merge").
+- **stage2-verified (2026-07-14):** deployed → convention — Classify-don't-merge principle; verify-later says 'n/a (principle)', purely a working-practice rule not a code artifact.
 - **what:** Grounding makes checking tractable but does not make generative merging safe: an LLM rewriting N docs into one fails silently (a dropped caveat reads as clean prose; no code-check catches an omission). The tool finds and cites; the human decides and writes; every canonical doc stays human-authored. Applied as a standing rule across the doc work — including, per this project's own instructions, the docs026 consolidation stage itself.
 - **sources:** DESIGN_doc_drift_classifier.md#5; engines_tree_proposal.md
 - **relations:** doc-drift classifier (DOC-041); engines tree migration (DOC-051)
 - **verify-later:** n/a (principle)
 
 ### DOC-044 — Date/version as triage, not truth
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** DESIGN_doc_drift_classifier §4.1 — stated as a settled refinement.
+- **stage2-verified (2026-07-14):** deployed → convention — Design principle from DESIGN_doc_drift_classifier (itself unbuilt, DOC-041); 'n/a (principle)' per its own verify-later.
 - **what:** A recent file is more likely current; an old file is not more likely wrong — it is more likely unchecked. Dates order the queue and break ties; they never override a code check (recent docs went stale within hours in observed cases). Code decides; date orders.
 - **sources:** DESIGN_doc_drift_classifier.md#4.1
 - **relations:** doc-drift classifier (DOC-041); misattribution asymmetry
@@ -422,8 +435,9 @@ U17b, U18, U23, U24a, U24b, U24c, U24e, U24f, U25.
 - **verify-later:** n/a (practice)
 
 ### DOC-053 — Three parallel threads with hard boundaries
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** HANDOFF_builder_thread §1: "THREE PARALLEL THREADS with hard boundaries" (builder/spine, tools, site-quality), with joint decisions marked ON HOLD.
+- **stage2-verified (2026-07-14):** deployed → convention — Multi-thread working-practice description; no code artifact claimed, verify-later says 'n/a (practice)'.
 - **what:** Concurrent chat threads own non-overlapping territories (relay spine + coordination; tool-pipeline internals; page-facing quality), each with its own runbook/notes; cross-territory scope changes route back through the owning thread; joint seams (e.g. the planned-tool-page seam §B5) are explicitly flagged as joint decisions and parked. Boundary files ride in each thread's manifest read-only.
 - **sources:** HANDOFF_builder_thread.md#1,#4; HANDOFF_fixloop_thread(8).md
 - **relations:** travelling docs (DOC-052); classifier-consolidation queue

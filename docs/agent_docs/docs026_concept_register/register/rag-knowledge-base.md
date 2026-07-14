@@ -22,8 +22,9 @@ infrastructure.
 - **verify-later:** knowledge_base table + idx_kb_embedding (ivfflat) + idx_kb_content_trgm; knowledge_base_stats view; platform/orchestration/actions/rag_actions.go; deployments/kustomize/services/ollama-adapter/
 
 ### RAGK-002 — rag_lookup action (vector search + trigram fallback)
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** action code written and a registry patch documented ("NEEDS PATCH — add 2 rag entries") in the vertical-architecture handoff; not confirmed applied at time of extraction.
+- **stage2-verified (2026-07-14):** partial → deployed — RAGLookupAction implemented in platform/orchestration/actions/rag_actions.go:40-128 (vector search + trigram fallback via trigramSearchKB at :308, search_method field :56/:122); registered in registry.go:1041 as "rag_lookup". Live use: sql_for_agents/105_rag_test_agent.sql:32 exercises it against a real agent, 131_t...
 - **what:** An action that embeds the query via Ollama, runs pgvector cosine similarity within a collection, and returns both structured `rag_results` and a combined `rag_context` string for prompt injection; falls back to Postgres trigram text search when Ollama is down (reported in `search_method`). Best practice: filter by metadata (vertical/component/quality) before ranking, and prepend the `search_query:` task prefix.
 - **sources:** docs020_llm_training_rag/010_simple_explanation.md#rag_lookup; docs020_llm_training_rag/012b_rag_best_practices_v2.md; docs020_llm_training_rag/005_PATCHES.md#patch-03
 - **relations:** rag_index (RAGK-003), knowledge_base (RAGK-001), content-writer RAG injection, nomic task-prefix bug (finetuning-flywheel)

@@ -53,8 +53,9 @@ U20, U21, U24a, U24c, U24d, U25.
 - **verify-later:** the CTE jsonb_object_agg patch shape in RUNBOOK(49) Step 7 as reusable SQL
 
 ### CQ-007 — Adoption content-quality defect families (polish batch)
-- **status:** unknown
+- **status:** partial
 - **status-evidence:** Open Groups 3 items as of HANDOFF_2026-06-09: "GameDesign.uk brand-suffix in card titles; footer mailto/tagline empty; one empty tool description; guide tables render poorly; guides should cross-link to tools"; hero H1 reuse and empty meta descriptions from the catalogue remain untracked-as-fixed.
+- **stage2-verified (2026-07-14):** unknown → partial — RUNBOOK_linking_phantom_fixes(5).md:176 (content_quality_and_internal_linking/) explicitly lists these exact defects (brand-suffix titles, tool-flavoured guide copy, empty tool descriptions, footer metadata) as 'EXPECTED recurrences (adopt-path, untouched) ... next package's input' as of a later runbook than the sta...
 - **what:** The residual content-quality class after build mechanics were fixed: source-brand `<title>` suffixes used as display names (preserving the source brand, not the destination), empty footer contact/tagline (no graceful no-data path — components render empty structure instead of hiding), hero H1 duplicated across hubs, meta_description populated in DB but emitted empty, tool-flavoured guide copy (user open to real embedded interactive demos in guides), guide→tool cross-linking as enhancement.
 - **sources:** CATALOGUE(9)#family-e, HANDOFF_2026-06-09#next-task, running_notes_14(25)#part-14n
 - **relations:** silent-fallback link family (content-governance CGV-010); page-content-writer prompts; internal linking

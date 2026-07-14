@@ -21,8 +21,9 @@ all from unit U26.
 - **verify-later:** agent_groups vs agent_group_definitions tables; SpawnGroupAction code
 
 ### ASG-003 — Agent and group discovery by capability and performance
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** 024-agent-discovery-framework.md reads as pure proposal ("Yes! Let's design this") with an unconfirmed agent_metrics/heartbeat table, BUT a live repo check (not just docs) found `platform/discovery/` actually exists — `agent_discovery.go` plus `README.001.agentdefinitions.md` and `README.002.dbtables.md` — confirming a real, if unknown-scope, implementation landed. Upgraded from aspirational on that direct code evidence; the sophistication of the shipped version (whether performance-ranking/heartbeats made it in) is still stage-2 work.
+- **stage2-verified (2026-07-14):** partial → deployed — platform/discovery/agent_discovery.go exists (AgentDiscovery, AgentDefinitionDiscovery, GroupDiscovery, DiscoverAgents, DiscoverAgentsByCapability, FindBestGroup). Imported by platform/orchestration/actions/discovery_actions.go, spawn_actions.go, and platform/messaging/processor.go. registry.go:107 and :119 register...
 - **what:** A registry service that finds the best existing agent (or group) for a task by required capabilities (JSONB containment), success rate, response time, availability (heartbeat) and fuel cost — spawning a new one only when nothing matches. The "self-organizing system" goal: agents discover each other, learn which perform best, optimise over time.
 - **sources:** docs/architecture/024-agent-discovery-framework.md; docs/architecture/027-create-website-creation-system#phase-3; docs/architecture/025-reusable-evolvable-agent-teams#group-discovery-service
 - **relations:** agent spawning; agent groups; template classification
@@ -45,8 +46,9 @@ all from unit U26.
 - **verify-later:** n/a (idea only) — check nothing similar exists under another name
 
 ### ASG-006 — Controlled group evolution (observed mutation with rules)
-- **status:** partial
+- **status:** aspirational
 - **status-evidence:** 026 reads as pure future-tense recommendation ("Start with curated base templates that can dynamically evolve", MutationRules, sandbox testing, 10%-improvement gates) with nothing downstream in this unit confirming it. BUT a live repo check found `platform/evolution/` actually exists — `evolution.go`, `performance.go`, and a README stating in the present tense: "Evolution Service: Evaluates groups for potential improvements / Applies mutations (parallel agents, specialists, validators) / Tracks evolution history / Version management" and "Performance Analysis: Records and analyzes execution metrics / Identifies bottlenecks and failures / Generates improvement suggestions". Upgraded from abandoned on that direct code evidence — this idea did get built, just not confirmed anywhere in the docs sampled for this unit.
+- **stage2-verified (2026-07-14):** partial → aspirational — platform/evolution/evolution.go and performance.go exist with full EvolutionService (EvaluateGroup, ApplyMutation, addParallelAgent/addSpecialistAgent/addValidatorAgent, createNewGroupVersion, GetEvolutionHistory) and performance-analysis functions. grep -rln 'platform/evolution' --include=*.go across the repo retur...
 - **what:** Hybrid manual/dynamic strategy: hand-curated base agent and group templates act as "genetic seeds"; a metrics observer detects bottlenecks/missing capabilities after ≥5 uses and proposes constrained mutations (add parallel agent, add specialist, replace, adjust workflow, fork) which must beat a performance baseline in sandbox before becoming a new version with parent lineage. Human-in-the-loop approval tiers for major changes.
 - **sources:** docs/architecture/026-manual-vs-dynamic-templates; docs/architecture/025-reusable-evolvable-agent-teams#usage-example
 - **relations:** agent groups; dynamic prompt improvement loop; workflow template library

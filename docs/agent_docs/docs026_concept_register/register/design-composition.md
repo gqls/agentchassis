@@ -384,8 +384,9 @@ deduplication begins; the "raw extractions" count above and the per-concept
 - **verify-later:** extract_design_fingerprint_action.go — confirm regex-based extractor removed
 
 ### DES-047 — Computed-styles extraction via browser JS injection
-- **status:** partial
+- **status:** aspirational
 - **status-evidence:** "Computed styles (Phase 2) deferred... Spec written but not implemented" in one record, vs. a complete Go action + workflow SQL described in the Phase 2 doc itself — an unresolved discrepancy in the archive.
+- **stage2-verified (2026-07-14):** partial → aspirational — grep -rn 'extract_computed_styles|getComputedStyle|ExtractComputedStyles' --include=*.go . → 0 hits repo-wide; the Go action described as 'fully spec'd' does not exist in the codebase, resolving the archive's ambiguity toward not-implemented.
 - **what:** A supplementary fingerprint step: scrape a homepage with injected JS calling `getComputedStyle()`, write the resolved values for a Go action to parse and merge as "ground truth," overriding source-CSS guesses when the two disagree. Fully spec'd but recorded elsewhere as deferred/not implemented — status genuinely unclear from the archive.
 - **sources:** old_design_and_styling/FOCUS_design_and_styling_computed_styles_extraction_phase2.md; HANDOFF_2026-04-16_v2(1).md#"Fixes Ready But Not Deployed" (both U12)
 - **relations:** DES-045 (design fingerprint extraction pipeline)
@@ -448,8 +449,9 @@ deduplication begins; the "raw extractions" count above and the per-concept
 - **verify-later:** color_util.go call sites; whether any generation/fork path calls wcagContrastRatio on specialised slots
 
 ### DES-055 — Three-per-row no-orphan grid rule as a content fix
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "card grids are 3-up (no orphan row), per the brief. That is a CONTENT fix, not a CSS one — the grid components are shared across 5 sites" (2026-07-10).
+- **stage2-verified (2026-07-14):** deployed → convention — Three-per-row grid rule is a content-authoring convention encoded in design_intent.layout_preference prose, not a standalone code/db artifact — reclassified as convention.
 - **what:** Neither a global `repeat(3,1fr)` nor a per-component `auto-fit,minmax()` avoids orphan/stretched last cards in a shared grid component; the durable fix is a content rule (card counts divisible by three), enforced because the grid CSS itself is shared across sites and untouchable per-site. Some components (e.g. case-studies-grid, hard-wired to five cards) simply cannot be made 3-up. Encoded directly into `design_intent.layout_preference`.
 - **sources:** docs/leopardessconsulting/PLAN_leopardess_rebuild.md#L4; L5_homepage.sql, L5_pages.sql headers; design_intent.json#layout_preference (all U25)
 - **relations:** DES-002 (style collections / shared component semantics)
@@ -493,8 +495,9 @@ deduplication begins; the "raw extractions" count above and the per-concept
 - **verify-later:** deriveSchemeFromDesignIntent, resolveLayoutByTags, buildResolvedCompositionSpec; layouts.scheme column + values; RenderContext struct
 
 ### DES-060 — Hazard-class vs band-class self-declarer split; is_dark_section demoted to metadata
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "the 37 self-declarers split into two classes" with named components (audit run 2026-07-02); "6 declarers have is_dark_section=f... never key styling on the LLM-authored flag."
+- **stage2-verified (2026-07-14):** deployed → convention — Hazard/band-class split is an audit classification report from a specific run, not a standing code/db object to verify by grep — reclassified as convention/process.
 - **what:** Library-wide diagnosis, generation-4 of the section-contrast arc: of 84 active section components, 37 self-declare `--section-*` — roughly 18 "hazard-class" (declare dark context while painting surface vars or nothing, producing white-on-light bugs) vs 19 "band-class" (paint palette bands + white text — internally coherent, but block a site from ever being "fully light"); 15 carry raw hex backgrounds. `is_dark_section` is an LLM-authored component boolean contradicted by 6 of its own declarers and consumed by nothing that actually styles — demoted to selection/imagery metadata only; styling must never key on it. This classification sized every subsequent fix batch in the arc.
 - **sources:** RUNBOOK_scheme_to_components(18).md CHECK 2/3 RESULTS; running_notes(22).md Sn, Sh (both U07)
 - **relations:** DES-056 (arc); DES-058 (the contract this audit stress-tests); DES-061 (paired-variable direction, the fix)

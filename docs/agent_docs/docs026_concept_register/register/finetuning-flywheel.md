@@ -124,16 +124,18 @@ duplicated in full.
 - **verify-later:** working/scripts/00_vm_setup.sh pin lines
 
 ### FTW-015 — Snapshot economics: setup script beats VM snapshots
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "Created `unsloth-trainer-base-01` then deleted it… Break-even: ~18 training runs/month. Reality: 1-4."
+- **stage2-verified (2026-07-14):** deployed → convention — Economic decision (no snapshots); verify-later explicitly says 'none (economic decision)' — not a code claim
 - **what:** Thunder snapshots bill the full provisioned 100GB (~$15/month) regardless of used bytes, saving only ~25min/$0.85 per cold start — uneconomic below ~18 runs/month. Decision: no snapshots; the version-pinned idempotent `00_vm_setup.sh` is the canonical, version-controlled "snapshot" instead. Phase-2 automation therefore provisions a fresh instance every run.
 - **sources:** HANDOFF_2026-05-07_flywheel_C_phase1_complete.md#snapshot-decision
 - **relations:** version pinning (FTW-014); phase-2 automation architecture (FTW-026)
 - **verify-later:** none (economic decision); revisit if run tempo exceeds ~15/month
 
 ### FTW-016 — GPU training performance model (smoke ≠ steady state; FA2; seq-length cost)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "The smoke rate (116 s/step) predicted this — nobody extrapolated it" (2026-06-04).
+- **stage2-verified (2026-07-14):** deployed → convention — Mental/performance model narrative, not a built artifact; verify-later asks 'whether cap-sizing-from-smoke was ever built' (unresolved) — reclassified as an idea/observation, not deployed code
 - **what:** A captured mental model of training performance: smoke-test speed is unrepresentative (one-time kernel autotune/CUDA-graph costs amortised over too few steps); steady-state emerges after 5-20 steps; FA2 vs xformers/SDPA is a 2-4x attention-speed lever; attention scales O(N²), so max_seq 4096 quadruples 2048's attention work relative to linear cost elsewhere. Operationally: extrapolate full-run wall time from smoke s/step — the 18h uptime-cap overrun (FTW documented under thunder-reaper in model-infrastructure) happened because nobody did this the first time.
 - **sources:** working/flywheel_docs/terminology.md; NOTES_phase5_training_launcher_running(45).md#update-2026-06-04-1150
 - **relations:** iter_0 baseline run (FTW-013); thunder-reaper per-instance uptime deadline (model-infrastructure)
@@ -180,8 +182,9 @@ duplicated in full.
 - **verify-later:** level2.py anonymisation logic
 
 ### FTW-022 — iter_0 verdict: shippable for low-stakes; voice fidelity is the iter_1 lever
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** "iter_0 is shippable for low-stakes use… Not for client-facing where Δ-0.20 on voice would be visible"; "Add improve voice fidelity" to iter_1 priorities.
+- **stage2-verified (2026-07-14):** deployed → convention — This is an evaluative verdict/judgment call, not a built artifact — no code/infra claim to verify
 - **what:** The evaluated position on the first adapter: iter_0 matches Claude on JSON validity (20/20 vs 19/20) and schema, comparable length, with only tiny dimension gaps (relevance -0.25, voice -0.20, integrity -0.10) and 4 substantive wins. Verdict: usable for internal tooling and low-stakes sites; voice is the largest gap and the main iter_1 lever (more epochs? lora_r 32? stricter voice-compliant training rows). "Address verbosity" was explicitly dropped from iter_1 priorities (data showed no gap). Fabrication was judged a both-models problem to solve with prompt-time guardrails or post-hoc verification, not adapter training.
 - **sources:** HANDOFF_2026-05-08_flywheel_D_iter0_evaluated.md; iter0_evaluation_report.md#tldr; working/eval/001_test_comparison_with_claude.txt
 - **relations:** eval gate (FTW-025); Fine-tuning candidate selection (FTW-023)

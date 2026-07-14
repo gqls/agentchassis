@@ -12,8 +12,9 @@ an input-file duplication artifact) across unit U14.
 - **verify-later:** §B6 query set results; /assets/css/styles.css existence in the sites repo
 
 ### SQ-002 — Site-chrome gap hypothesis (relay path lacks chrome rendering)
-- **status:** unknown
+- **status:** partial
 - **status-evidence:** site_quality(1) "Zero <nav> on every page ⇒ hypothesis: the RELAY build path lacks the site-chrome rendering step (pageflow-builder has render_site_components …; build-site-planner … has populate_nav_tables — nav DATA — but no chrome-render step was observed)."
+- **stage2-verified (2026-07-14):** unknown → partial — render_site_components action EXISTS (platform/orchestration/actions/render_site_components_action.go, registered registry.go:770) and IS wired into site-work-orchestrator's main build workflow (docs/agent_docs/sql_for_agents/045_site_work_orchestrator.sql: step 'render_site_components' called via set_default_compon...
 - **what:** Open hypothesis from the measured baseline: relay-built pages ship without header/footer/nav because the relay path never runs an equivalent of pageflow-builder's render_site_components; nav DATA exists (populate_nav) but chrome is never rendered/injected at assembly. Was briefly the F0 pilot before being reassigned; remains LEG 1's core question.
 - **sources:** docs019/RUNBOOK_site_quality(1).md#measured-baseline; docs019/RUNBOOK_diagnosis_fix_loop(9).md#f0-pilot-original
 - **relations:** site quality programme (SQ-001); work-item relay spine; F0 pilot history

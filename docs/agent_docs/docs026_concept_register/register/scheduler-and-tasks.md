@@ -101,8 +101,9 @@ units U01, U02, U03, U05, U11, U12, U13, U17a, U19, U24b, U24c, U24d.
 - **verify-later:** `scheduled_tasks.enabled` for name='diagnose-pipeline-trigger' (should still be false unless deliberately turned on)
 
 ### SCH-013 — Reaper mechanisms, the work-item-claim reaper gap, and the reaper-location correction
-- **status:** partial
+- **status:** superseded
 - **status-evidence:** Explicit dated self-correction within the same source: "Correction (2026-05-21). An earlier draft of this section assumed the reapers were Go code in the coordinator. They are not: the reapers are SQL pre_query entries in the scheduled_tasks table."
+- **stage2-verified (2026-07-14):** partial → superseded — FOCUS_platform_reliability_oom_and_reapers.md (2026-05-19) documents 'no work-item-level reaper... idx_swi_claimed... sits unused' as an open gap with only a recommended (not-yet-built) fix. But docs/agent_docs/sql_for_tables/018_site_work_items.sql:88 shows idx_swi_claimed btree(status,claimed_at) and 020_scheduled...
 - **what:** Three/four reaper-like mechanisms recover stuck state at different layers: the stuck-orchestration reaper (backed by scheduled_tasks SQL pre_query entries, not Go code as an earlier draft mistakenly assumed), FailWorkItemAction's three retry paths, and the agent-job-cleanup CronJob (k8s housekeeping only). The confirmed gap: no periodic sweep exists for work items stuck at `status='claimed'` when a pod dies uncleanly — an `idx_swi_claimed` index exists for exactly this query but nothing uses it.
 - **sources:** js_snippets_news_gaswholesalers/FOCUS_platform_reliability_oom_and_reapers.md#Part-2, #"Known Issues & Future Work"; js_snippets_news_gaswholesalers/old/reapers_and_stuck_state_recovery.md; js_snippets_news_gaswholesalers/old/TODO_remaining_work_2026-05-21.md
 - **relations:** collected_data/OOM bloat; two rerender trigger paths; claimed-item-timeout & timeout chain; stale orchestration sweeper

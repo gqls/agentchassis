@@ -69,8 +69,9 @@ across units U01, U09, U12, U24a, U26.
 - **verify-later:** grep for site_ownership in migrations and core-manager
 
 ### ADM-009 — React admin dashboard for build review
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** 007b: `site-admin-dashboard.jsx` "Written — uses mock data until API connected (toggle `useMock=false`)", Tailwind utility classes; three views (Dashboard, Review Queue, Review Detail).
+- **stage2-verified (2026-07-14):** partial → deployed — No literal site-admin-dashboard.jsx file exists (0 hits via find), but frontends/admin-dashboard/src/App.tsx (2439 lines, TS not mock JSX) implements the same Review Queue/needs_human_review/editable-spec/retry-dismiss UI described in the doc, fetching live data via API_BASE='/api/v1/admin' fetch() calls (App.tsx:4,...
 - **what:** A React frontend rendering site cards with progress bars, a `needs_human_review` queue with Review/Retry/Dismiss, and a review-detail view with an editable identity-spec JSON + "Save Spec & Retry". Runs on mock data pending API wiring.
 - **sources:** archive_april_26/007b_public_api_plan_v2.md#react-admin-dashboard; 008b#files-summary
 - **relations:** Admin API Block E (ADM-002); HITL review flow

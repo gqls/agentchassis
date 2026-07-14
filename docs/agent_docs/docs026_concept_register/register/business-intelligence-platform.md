@@ -3,8 +3,9 @@
 10 concepts, consolidated from 20 raw extractions across unit U22. (The cluster input file contained this category's raw blocks twice, back-to-back and byte-identical; each pair is merged into one entry below. No cross-unit duplication found — all raw blocks for this category came from U22_recent_small_docs.md.)
 
 ### BIP-001 — business_intel schema (multi-vertical business intelligence platform)
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** Agent definitions seeded with `status = 'experimental'`; verification_progress/discovery_stats views described as "used by bulk script monitoring"; ~3,500 vet practices already loaded.
+- **stage2-verified (2026-07-14):** partial → deployed — business_intel schema + tables (businesses, business_verticals, vet_practice_details, business_prices, products, product_prices, data_observations, collection_tasks, people) all CREATE TABLE'd in docs019_business/001_business_intel_schema.sql; k8s/bk_agent_definitions_backup.sql is a live prod DB dump (updated 2026-...
 - **what:** A separate `business_intel` schema inside `clients_db` (distinct from the public website-builder schema) that models businesses for data-collection verticals. Layered design: universal `businesses` table + `business_verticals` registry, with 1:1 vertical detail tables (`vet_practice_details`), pricing, products, people, and provenance. Seeded verticals: veterinary, online-pharmacy, seaweed-farming.
 - **sources:** docs019_business/001_business_intel_schema.sql#layers, docs019_business/002_business_intel_actions.md#load_business_record
 - **relations:** BIP-005 vet-practice-verifier, BIP-007 area-sweep discovery, vet-med-pricing (business_prices/product_prices)
@@ -43,8 +44,9 @@
 - **verify-later:** agent_definitions type='vet-practice-verifier'; actions load_business_record/store_business_verification
 
 ### BIP-006 — vet-batch-processor agent
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** Three documented fix rounds (spawn verifier first; continue_on_error; "remove loop — loop steps can't re-expand", max_iterations 50→250) show it broke and was reworked in production.
+- **stage2-verified (2026-07-14):** partial → deployed — k8s/bk_agent_definitions_backup.sql:170 live agent_definitions row for type='vet-batch-processor' with full workflow (spawn_verifier->load_batch->loop over batch calling vet-practice-verifier, max_iterations 1700, continue_on_error true), updated_at 2026-03-12. Action load_business_batch registered registry.go:405. ...
 - **what:** Single-pod orchestrator that claims a batch of pending verification tasks and processes them sequentially, spawning one reusable `vet-practice-verifier` and calling it per business. Designed for polite, low-throughput collection; drains the queue by re-running.
 - **sources:** docs019_business/003_vet_batch_processor.sql, docs019_business/005_initial_messaging.md, docs019_business/006_initial_messaging.sh
 - **relations:** BIP-005 vet-practice-verifier, BIP-004 collection_tasks, BIP-009 vet-pipeline-orchestrator
@@ -67,8 +69,9 @@
 - **verify-later:** business_intel.discovery_candidates; promote_candidates action; discovery_summary/discovery_stats views
 
 ### BIP-009 — vet-pipeline-orchestrator (rolling pipeline)
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** Multiple reworks: fire-and-forget → spawn+loop coordinator → thin coordinator calling child orchestrators; timeouts bumped to 12h sweep / 6h verify.
+- **stage2-verified (2026-07-14):** partial → deployed — k8s/bk_agent_definitions_backup.sql:253 live agent_definitions row for type='vet-pipeline-orchestrator' with full deployed workflow JSON (spawn_sweep_orch->run_sweeps->promote_candidates->ensure_tasks->spawn_batch_processor->run_verification), timeout_seconds tuned (43200s sweep call, 21600s verify call matching '12...
 - **what:** A rolling coordinator that advances work from previous runs each time it runs: load unswept areas → sweep → promote discovery_candidates → ensure_collection_tasks → run batch verification. Evolved from firing Kafka messages to spawning/awaiting child orchestrators (area-sweep + batch-processor) with promotion between.
 - **sources:** docs019_business/014_vet_pipeline_orchestrator.sql
 - **relations:** BIP-007 area-sweep discovery, BIP-006 vet-batch-processor, BIP-008 promote_candidates

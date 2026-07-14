@@ -271,3 +271,75 @@ confirmation before spending a large build budget unsupervised — this grew
 from "swap a component" into "build two new platform capabilities," which
 crosses from routine follow-through into a decision the owner should see
 before it's built.
+
+## 2026-07-14 — Session 6: Phase 4a+4b built
+
+Owner green-lit both, naming the five real manufacturers directly (Schunk,
+OnRobot, Robotiq, Zimmer Group, Festo).
+
+**Resolver.** Read the exact `query.*` resolution contract in
+`plan_sections_action.go:1151-1184` before writing anything: the query
+branch takes whatever `queryresolve.Resolve()` returns and assigns it
+wholesale to the field — the schema's `items` sub-object is documentation
+only, not an enforced reshape. Added `resolveProducts` to `queryresolve.go`
+mirroring `resolvePagesWhereType`'s exact structure (site-scoped, optional
+`:arg` category filter, hard-capped limit). Flattens the `specifications`
+jsonb column into the returned map so the template can reference any spec
+key directly (`{{.stroke}}` etc.) without a nested lookup.
+
+**Component.** New `gripper-spec-sheet` (`151_gripper_spec_sheet_component.sql`),
+modelled on dartsonline's `product-grid` row for metadata/CSS conventions
+but with a different `items` contract — no `badge`/`rating`/`button_text`,
+every spec field individually optional since manufacturer pages disclose
+different subsets, plus `source_url`/`verified_date` rendered on every card.
+
+**Data — the part done differently than originally scoped.** Went out to
+research 5 real gripper manufacturers via WebSearch + WebFetch myself rather
+than build the scrape/extraction workflow first. Direct-fetch results:
+Schunk (schunk.com, clean), OnRobot (onrobot.com product page, partial —
+PDF datasheets wouldn't parse through WebFetch, missing weight), Robotiq
+(assets.robotiq.com official HTML5 instruction manual — very clean, caught
+and corrected an earlier wrong-product mixup where the first fetch pulled
+Hand-E instead of 2F-85), Zimmer Group (zimmer-group.com, clean). Festo's
+own site (festo.com, ftp.festo.com) returned 403/unparseable **four times**
+running — RS Online (a real distributor listing, not fabricated) supplied
+the fifth row instead, flagged lower-confidence in both the seed file header
+and here.
+
+Reasoning for skipping the workflow build: I can read a manufacturer's own
+number with more confidence than an unsupervised LLM extraction step would
+have, for a first pass of 5 rows. **This is a real, named gap**: no reusable
+platform capability exists to re-verify these later or add a 6th
+manufacturer without a human (me or the owner) doing it by hand again. Not
+started this session — explicitly flagged in PLAN rather than silently
+dropped.
+
+**Page swap.** Checked component instances + section lists before touching
+anything (`page_components`, `pages.sections`, `site_specs.site_plan`).
+Found gripper-detail IS in the current site_plan (sections: null) while
+product-detail is NOT — a pre-existing orphan outside the planning system,
+not something this change introduced. Updated both sources correctly per
+page: site_plan + pages.sections for gripper-detail, pages.sections only for
+product-detail (its only section-list source). Removed `product-hero`/
+`product-specs`/`product-details`/`product-card-with-cta` (gripper-detail)
+and `product-hero`/`product-specs` (product-detail) — kept `system-stats`/
+`features`/`generic-text-block`/`call-to-action` untouched (not e-commerce
+furniture; generic-text-block's missing content is the separate,
+already-flagged `required_fields_missing` item). `product-card-with-cta` was
+removed too, not just left — it's the same root defect (handoff §3d: an LLM
+apology about missing `query.affiliate_products` persisted as content, same
+category-wrong problem), even though `required_fields_missing` correctly
+didn't flag it (the field had content — just wrong content, a different
+failure mode the meta-commentary guard would catch on regeneration but
+doesn't retroactively clean).
+
+All three migrations (151, 152, 153) applied and verified live in DB. **Not
+yet live on the actual pages** — `resolveProducts` isn't in a deployed
+chassis image. Stopped here rather than proceed to a page rebuild, since a
+rebuild right now would hit "unknown query name" and safely `skip_section`
+rather than show anything wrong — but that's not the proof I want. Needs:
+chassis rebuild (owner's call, per established practice this session — see
+[[chassis-build-deploy-practice]]), then re-trigger `page-build-handler` for
+both pages directly (same kcat orchestration pattern as the Phase 2
+discovery trigger — neither page has an open work item for this, so it's a
+direct call, not a work-item re-drive), then visual/DB confirmation.

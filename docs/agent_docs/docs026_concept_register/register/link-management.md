@@ -146,8 +146,9 @@
 - **verify-later:** which of the six proposed agents exist; page relationships in relationships table
 
 ### LNK-019 — Links agent family (algorithmic, no-LLM link health)
-- **status:** partial
+- **status:** aspirational
 - **status-evidence:** Family table (link-crawler, link-validator, link-registry-sync, redirect-manager, affiliate-link-manager phase 2 — all "LLM? No") with heartbeat workflow and explicit non-goals; still "planned but not implemented" per the current doc 024 (LNK-001).
+- **stage2-verified (2026-07-14):** partial → aspirational — grep across .go/.sql for link-crawler, link-validator, link-registry-sync, redirect-manager, affiliate-link-manager, links-orchestrator: 0 hits outside docs/ (all references are in docs024/docs026 notes only). grep for site_redirects table: 0 hits in any .go/.sql. Entire proposed agent family has zero code footprint...
 - **what:** Deliberately judgment-free link maintenance: crawl modified pages' HTML, classify by URL pattern, resolve internals to page records, HEAD-check externals rate-limited, detect broken links and orphan pages, generate redirects on URL changes, track per-page link counts and empty anchors. Explicitly excluded: link placement, nav decisions, SEO strategy, related-content suggestions (LLM territory).
 - **sources:** docs017_legacy_agent_rules_images_design_keydocs/019b_agent_architecture_v5_with_tickets_news.md#2-Links-Agent-Family
 - **relations:** LNK-001 (link_registry, planned family); LNK-018 (semantic decomposition, the LLM parts deferred); redirect-manager

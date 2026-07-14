@@ -39,8 +39,9 @@ U19, U20, U21, U22, U23, U24e, U25.
 - **verify-later:** confirm build-site-planner no longer writes design_intent/content_direction post-030
 
 ### SPEC-005 — Superseding a spec doesn't undo installed artefacts (re-queue rule)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** 028: gamesdesign remediation hit it in practice (fresh specs written but a stale installed theme remained pinned at sites.style_collection_id).
+- **stage2-verified (2026-07-14):** deployed → convention — This is a design rule/heuristic ('agents with install side-effects must queue re-run work item'), not a single built artifact; its own verify-later asks 'whether supersession-emits-item was ever built' (unresolved) — status should reflect the rule is documented doctrine, not a confirmed deployed mechanism
 - **what:** Agents with install side-effects (composition, nav, pages, assets) write beyond site_specs and leave live pointers in long-lived tables; invalidating their spec must also queue the re-run work item (needs_composition etc.), and long-term the supersession itself should emit the recovery item automatically. Test for whether a writer needs this: does the agent write other tables AND does a live pointer reference the write?
 - **sources:** 028#Failure modes (last)
 - **relations:** install_site_composition; composition trigger matrix (doc 027)
@@ -103,8 +104,9 @@ U19, U20, U21, U22, U23, U24e, U25.
 - **verify-later:** live site-classifier definition vs domain-research-classifier; who consumes domain_profile today; current next-item wiring (strategy vs briefing)
 
 ### SPEC-013 — spec-updater (mechanical site_specs merge from findings)
-- **status:** unknown
+- **status:** deployed
 - **status-evidence:** 072 definition; no later patches confirming live behaviour appear in this unit.
+- **stage2-verified (2026-07-14):** unknown → deployed — 072_spec_updater_agent.sql defines spec-updater agent_definition with workflow step 'apply_update'->action 'update_site_spec_from_item'; matching Go action exists at platform/orchestration/actions/update_site_spec_from_item_action.go (226 lines) and is registered in registry.go:650. Resolved from unknown to deployed...
 - **what:** Handler for needs_spec_update items: applies {aspect, field, suggested_value} to site_specs with the WriteSiteSpecAction versioning pattern, with no LLM involved. Description-only items complete as "needs human review" — "the complexity is in the Go action, not in the workflow."
 - **sources:** 072_spec_updater_agent.sql
 - **relations:** content-gap-planner and audits emit its items; site_specs supersede-versioning (SPEC-002)

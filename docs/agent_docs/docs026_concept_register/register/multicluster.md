@@ -16,8 +16,9 @@ there (merged with "Cloudflare-proxied-in-front option") — see register/vm-bac
 - **verify-later:** platform/orchestration/actions/dispatch_actions.go; cmd/remote-job-spawner/main.go; registry.go ~lines 95-100 (GlobalActionRegistry dispatch_agent entry); system.dispatch.requests/responses topics; presence of any agent_definitions row / workflow actually using dispatch_agent
 
 ### MCL-002 — Adjacent-cluster Phase 4a rollout: va001 second cluster (Rackspace Spot, US-East)
-- **status:** deployed
+- **status:** aspirational
 - **status-evidence:** Earlier FOCUS/HANDOFF docs describe this as entirely aspirational ("Nothing in this plan has been deployed or applied yet. This work happens on a new branch (multi-chassis)… every concrete IP, cluster name, and region key… is illustrative and must be re-discovered"). A later document (PLAN_isolated_chat_environment(5), Appendix) states in present tense that "A second K8s cluster (va001, Rackspace Spot, US-East) runs remote-job-spawner and dispatched agents that connect back to the primary cluster's Kafka … and primary Postgres" — treated here as the more recent, more specific evidence that the rollout completed.
+- **stage2-verified (2026-07-14):** deployed → aspirational — va001 / config_production_va001 / va001-data-collector: 0 hits in .go/.yaml/.tf; found only in docs/ prose (FOCUS_adjacent_cluster_phase4a docs). Present-tense plan doc language misread as completion; matches the confirmed false-positive pattern.
 - **what:** The concrete first-execution plan and (per later evidence) eventual reality: bring up a second Rackspace Spot cluster (`va001-data-collector`, US-East) as a pure dispatch target for `remote-job-spawner`, sharing cluster A's Kafka and primary Postgres by design ("no federation needed") to borrow trusted compute while keeping one brain. Deliberately identified elsewhere as the WRONG template to reuse for chat isolation, since chat's whole point is removing exactly that shared, synchronous, write-capable channel.
 - **sources:** multicluster/FOCUS_adjacent_cluster_phase4a(2).md#§1.5,§5, multicluster/HANDOFF_multi_cluster_dispatch.md#§4,§5, tools/tool_widget_clobber/PLAN_isolated_chat_environment(5).md#3,Appendix
 - **relations:** Multi-cluster dispatch contract (MCL-001); Multi-cluster environment re-discovery handoff practice (MCL-012); RTT-based agent-type viability classification (MCL-010); Isolated chat/satellite architecture (Y-copy, the concept this is explicitly contrasted against)
@@ -80,8 +81,9 @@ there (merged with "Cloudflare-proxied-in-front option") — see register/vm-bac
 - **verify-later:** platform/config DatabaseConfig struct; per-cluster PgBouncer pool_size sizing
 
 ### MCL-010 — RTT-based agent-type viability classification for remote dispatch
-- **status:** partial
+- **status:** aspirational
 - **status-evidence:** phase4a(2) §2.2 gives a projected numbers table explicitly labelled "Numbers above are projections. The smoke test produces actual numbers."
+- **stage2-verified (2026-07-14):** partial → aspirational — 0 Go-code hits for viability/RTT classification logic (grep '.go' for viability|RTT found only an unrelated file). The RTT numbers are explicitly labelled projections pending a smoke test that requires the va001 second cluster; per MCL-002 (verified in prior stage-2 batch: 006_VERIFICATION_stage2.md) va001 was never...
 - **what:** A cost model classifying which agent types are safe to dispatch cross-cluster based on projected/measured Postgres RTT (UK↔Ashburn ~75-85ms one-way): LLM-bound agents and adapters are "basically free" to dispatch remotely (~1.05x slowdown); composition agents doing many small DB lookups suffer ~25-60x slowdown and are judged not viable without query batching; tight DB-polling inner loops should be avoided entirely.
 - **sources:** multicluster/FOCUS_adjacent_cluster_phase4a(2).md#§2.2,§5
 - **relations:** Cross-cluster Postgres reachability strategy (MCL-009); Adjacent-cluster Phase 4a rollout (MCL-002)
@@ -96,8 +98,9 @@ there (merged with "Cloudflare-proxied-in-front option") — see register/vm-bac
 - **verify-later:** terraform-aws-modules/eks/aws, terraform-google-modules/kubernetes-engine/google usage (not present)
 
 ### MCL-012 — Multi-cluster environment re-discovery handoff practice
-- **status:** unknown
+- **status:** convention
 - **status-evidence:** HANDOFF §6 "First moves in the new chat" prescribes re-running discovery rather than trusting the planning-chat's recorded facts.
+- **stage2-verified (2026-07-14):** unknown → convention — This is a documented operational discipline (re-derive facts each session), not a testable code artifact. Its cited example facts do check out: pgbouncer Service is actually named 'pgbouncer' (deployments/kustomize/services/pgbouncer/pgbouncer-deployment.yaml:5,67), not 'pgbouncer-clients', and the Kafka cluster is ...
 - **what:** A documented discipline for picking up multi-cluster work in a fresh session against a different concrete cluster set: treat all IPs, cluster names, region keys in prior FOCUS docs as illustrative only, and re-derive live facts before proceeding. Includes corrected environment facts already found to differ from plan-time assumptions (e.g. PgBouncer service actually named `pgbouncer`, not `pgbouncer-clients`).
 - **sources:** multicluster/HANDOFF_multi_cluster_dispatch.md#§4,§6,§8
 - **relations:** Adjacent-cluster Phase 4a rollout (MCL-002)

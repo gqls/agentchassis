@@ -13,8 +13,9 @@ one extraction, not independent corroboration).
 - **verify-later:** confirm tool-recreation-handler agent_definition remains registered/active
 
 ### INVD-002 — Verify-before-acting investigation discipline (diagnosis methodology)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** NOTES_running_tool_widget_investigation.md, whole document, esp. "the diagnosis changed three times, and each change came from refusing to act on the current theory until it was checked".
+- **stage2-verified (2026-07-14):** deployed → convention — verify-later explicitly says 'n/a — process/design record, no separate code artifact'; what: describes working principles/methodology (verify before acting, prefer structural fixes), not a built artifact. 'deployed' is the wrong status label for a process doctrine; reclassified as convention/process, not a false-pos...
 - **what:** A recorded set of working principles used through the tool-widget investigation: don't jump to conclusions, verify architectural claims by code search before turning them into tasks, prefer structural fixes over quick hacks, reuse existing helpers rather than building parallel ones, check the schema before writing SQL, make falsifiable predictions rather than declarative claims. Framed as reusable guidance and as raw material for a fix-loop council member.
 - **sources:** tools/tool_widget_clobber/NOTES_running_tool_widget_investigation.md#How-the-diagnosis-evolved,#Principles-that-actually-drove-the-work
 - **relations:** Abandoned "no owner" claim; fix-loop / diagnosis-loop council concept (fix-loop register)

@@ -108,40 +108,57 @@ infrastructure, not just swapping a component.
 
 Split into two sub-phases:
 
-**4a — Structural (buildable now, no external dependency, reversible):**
-- [ ] New content_component: gripper spec-sheet (stroke, payload, force, IP
-      rating, interface, price-if-known) — NO cart/Add-to-Cart/Buy-Now
-      fields. `on_missing: skip_section` on every field.
-- [ ] Live `query.products` resolver added to `queryresolve.go` (site-scoped,
-      category-filtered) — the missing piece that makes this NOT go stale
-      like dartsonline's did.
-- [ ] `products` table: add provenance (`source_url`, `verified_at` — new
-      columns, or carried in `content_data` to avoid a migration; lean
-      toward `content_data` unless the owner wants queryable provenance).
-- [ ] Swap `product-hero`/`product-specs`/`product-details`/
-      `product-card-with-cta` on gripper-detail (and `product-detail`'s
-      instance) for the new component.
+**4a — Structural: ✅ DONE 2026-07-14, pending chassis rebuild to go live.**
+- [x] New content_component `gripper-spec-sheet` (stroke, gripping_force,
+      payload, weight, ip_rating, interface, voltage — each field
+      conditionally rendered, no field forced). NO cart/Add-to-Cart/Buy-Now
+      furniture. `on_missing: skip_section` on the `products` field.
+      `sql_for_agents/151_gripper_spec_sheet_component.sql`.
+- [x] Live `query.products` resolver added to `queryresolve.go`
+      (`resolveProducts`, site-scoped, `category` arg — `query.products:gripper`).
+      Same fix incidentally makes dartsonline's product-grid render-safe
+      again (same query name, same mechanism, no longer stale-only).
+- [x] Provenance (`source_url`, `verified_date`) stored in `products.content_data`
+      — no migration; rendered on every spec-sheet card ("Source: … · Verified …").
+- [x] Swapped `product-hero`/`product-specs`/`product-details`/
+      `product-card-with-cta` on gripper-detail, and `product-hero`/
+      `product-specs` on product-detail, for `gripper-spec-sheet`.
+      `sql_for_agents/153_gripper_detail_page_swap.sql`. Verified live in DB:
+      both pages now list `gripper-spec-sheet` as their first section;
+      `site_specs.site_plan` (authoritative for gripper-detail) and
+      `pages.sections` (product-detail's only source, since it isn't in the
+      current site_plan at all — a pre-existing orphan, not something this
+      migration introduced) both updated.
+- [ ] **Blocked on chassis rebuild** — `resolveProducts` isn't in a deployed
+      image yet. Until then, any rebuild of these pages will find
+      `query.products` unresolvable and correctly `skip_section` (safe
+      failure, not broken) rather than render real specs.
 
-**4b — Data acquisition (needs a source-scope decision before building):**
-- [ ] Workflow: web-search real gripper manufacturers → firecrawl-scrape spec
-      pages → LLM-assisted **structured, grounded** extraction (numbers only;
-      refuse-if-absent, no inference) → write `products` rows with
-      `source_url` + `verified_at`.
-- [ ] Closest existing precedent is `med_price_scrape_action.go`
-      (`vet-intel`) — but that RE-CHECKS known retailer URLs; it does not
-      DISCOVER products. No existing platform code does product discovery —
-      this is genuinely new.
-- [ ] Scope decision needed: which manufacturers (real candidates: Schunk,
-      OnRobot, Robotiq, Zimmer Group, Festo — all have public spec pages),
-      rate/politeness limits, and how to keep scraped copy factual-only
-      (specs, not verbatim marketing prose) given copyright — echoes the
-      imagery workstream's "copyright-safe product sketches" concern, same
-      logic applies to scraped text.
+**4b — Data acquisition: ✅ DONE 2026-07-14 (manual, not a recurring workflow).**
+- [x] Real specs for 5 manufacturers (Schunk, OnRobot, Robotiq, Zimmer Group,
+      Festo) — fetched directly via WebFetch, not LLM recall. 4/5 from the
+      manufacturer's own site; Festo's own site blocked automated fetch 4
+      times running, so its row is sourced to a distributor listing
+      (RS Online) instead — flagged in the seed file's header for
+      transparency. Every field is either a number literally read off the
+      fetched page, or absent (never inferred) — manufacturers disclose
+      different subsets, so row completeness varies honestly.
+      `sql_for_agents/152_gripper_products_seed.sql`. Verified live: 5 rows,
+      category='gripper', all with source_url + verified_date.
+- [x] Decided NOT to build the originally-scoped scrape/discovery workflow
+      (web-search-adapter → firecrawl → LLM-extraction → products) this
+      session — did the discovery + extraction directly instead, since I can
+      read a manufacturer's own numbers with more confidence than an
+      unsupervised extraction step, and it's faster for a 5-row first pass.
+      **A reusable platform workflow for future re-verification/expansion is
+      NOT built** — this is a real gap if the owner wants specs kept fresh
+      or the catalog grown beyond 5 rows. Flagged as follow-up, not started.
 
-4a is safe to start without further sign-off (structural, no fabrication, no
-external footprint). 4b needs an explicit go-ahead on source scope before
-building, given it's a new external-scraping capability whose output lands as
-sourced-fact claims on a live public page.
+Both closed for this pass. Remaining before this is actually live: chassis
+rebuild, then re-trigger `page-build-handler` for gripper-detail and
+product-detail (both currently outside the empty_section item queue for this
+change — a direct orchestration, same pattern as the Phase 2 discovery
+trigger), then visually confirm the rendered cards.
 
 ### Phase 5 — Later / spun out
 - `sectionHasVisibleContent` should measure **resolved data**, not text

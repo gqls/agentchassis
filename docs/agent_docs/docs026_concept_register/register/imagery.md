@@ -45,8 +45,9 @@
 - **verify-later:** `getImageryDirectionForSite`/`composeImagePromptWithDirection` in generate_image_actions.go; `SELECT origin_model, origin_prompt FROM assets` distribution
 
 ### IMG-006 — Planner ignores site_archetype imagery constraints (Bug 4)
-- **status:** unknown
+- **status:** aspirational
 - **status-evidence:** "site_archetype.design.imagery … says 'minimal icons/diagrams, no decorative photography'. The planner's site_plan still produced lavish hero prompts" (2026-04-23); no fix-verification recorded in scope since.
+- **stage2-verified (2026-07-14):** unknown → aspirational — Current planner prompt (docs/agent_docs/sql_for_agents/053_build_site_planner.sql, plan_site step ~line 855+) has 0 hits for 'site_archetype'/'archetype' anywhere in the prompt_template, and always sets needs_images:true, needs_logo:true per RULE 7 — confirms the Bug-4 fix (read site_archetype.design.imagery, suppre...
 - **what:** The planner invents hero image prompts that contradict the adopted archetype's imagery stance. The proposed fix shape is for the planner prompt to read `site_archetype.design.imagery` and set `needs_images=false` when it says none/minimal. Phase 0.1's imagery_direction prepend (IMG-005) only partially mitigates the symptom (it steers style, it doesn't suppress unwanted images).
 - **sources:** HANDOFF_2026-04-23(1).md Bug 4; ASSESSMENT_imagery_phase_0_1…md#Bug-4
 - **relations:** IMG-005 (partial mitigation); adoption faithfulness (broader category)
@@ -501,8 +502,9 @@
 - **verify-later:** any component beyond hero_image with resolved image declarations
 
 ### IMG-063 — Human taste-gate operating model (runbook rituals)
-- **status:** deployed
+- **status:** convention
 - **status-evidence:** RUNBOOK structure in active use: standing rituals A1-A5 + a one-off queue B1-B11, most B-items closed with dates; "Humans only at the taste layer" (showcase doc).
+- **stage2-verified (2026-07-14):** deployed → convention — Runbook operating model / division-of-labour doctrine (humans-at-taste-layer), no built artifact claimed; author's own verify-later says 'process concept'.
 - **what:** The imagery workstream's division of labour: agents do all authoring/migrations/deploy-prep; humans do credentials, backups approval, budget sign-off, and visual approval gates specifically — logo approval (IMG-039, once, then locked), sprite-sheet cell verification (IMG-043, assigning true meanings after generation), and sampled page eyeballs at each phase's acceptance gate. These gates are deliberately the most expensive part of each phase; generation is never trusted to self-judge taste.
 - **sources:** RUNBOOK_imagery_best_in_class.md; SHOWCASE_imagery_workstream.md#Why-it's-interesting; SCOPE_I2_sprite_sheets.md#Phasing
 - **relations:** IMG-039 (logo approval gate); IMG-043 (sprite eyeball gate B11); hitl category (broader HITL machinery, cross-category)

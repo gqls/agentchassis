@@ -35,8 +35,9 @@
 - **verify-later:** component-creator workflow; store_generated regen path today
 
 ### TLIB-005 — system-stats component key-contract break (regen renames fields, dependents empty)
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** "concluded for gamesdesign (closed-by-removal); shared-component fix OUT OF SCOPE — flag the platform bug to its owners."
+- **stage2-verified (2026-07-14):** partial → deployed — Incident itself is historical/closed (status-evidence: 'concluded... closed-by-removal'). The fix it motivated (CLC-003 F1 field-contract guard) is deployed and wired: store_generated_component_action.go:308-340 blocks regeneration when isRegeneration strands old schema fields (the exact stat_1_number->stat1_value c...
 - **what:** A durable cross-site platform bug found via gamesdesign's empty stats band: component-creator regenerated the shared system-stats component renaming its schema fields (stat_1_number → stat1_value etc.), then re-rendered every dependent from its EXISTING un-migrated content_data — all 5 live instances (across multiple sites) went text-empty in one 16ms batch. The regen mechanism exists but doesn't migrate dependents' content_data on a field rename (this is exactly the class the later F1 field-contract guard, component-lifecycle CLC-003, was built to reject). Side findings: usage_count is a stale counter (claimed 22, live 5); component_versions is now populated by component-creator; a concurrent-chat co-management protocol was applied (freshness probes before any shared-component write).
 - **sources:** NOTES(44) 2026-06-24 system-stats sessions; RUNBOOK_gamesdesign_index_rebuild(29).md#part-5; HANDOFF_page_pipeline(11).md#2
 - **relations:** sectionHasVisibleContent filter (correctly hid the empty shell); writer↔component-schema binding; F1 field-contract guard (component-lifecycle CLC-003, the fix this incident motivated)

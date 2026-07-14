@@ -31,16 +31,18 @@ separate register files).
 - **verify-later:** current unfulfilled_imagery_plan INSERT; build-dispatch-loop load_items item_pipeline config
 
 ### WDS-004 — Silent completion pathology and the positive-evidence rule
-- **status:** partial
+- **status:** deployed
 - **status-evidence:** "observed and characterised; not yet fixed" (captured 2026-04-19); one mode later "already confirmed fixed" (2026-06-09); the other two modes ran at 66x/47x per week as of 2026-04-20.
+- **stage2-verified (2026-07-14):** partial → deployed — All 3 modes now confirmed fixed in code: (1) validate_page_content.go:71 routes failures to needs_human_review (not silent complete); (2) scheduled_tasks 'claimed-item-timeout' pre_query (docs/agent_docs/sql_for_agents/052_build_pipeline_trigger.sql:560-586) resets stale claims to triaged / fails at max_attempts ins...
 - **what:** Three modes mark work complete that isn't: reaper auto-completion on lost responses; validate_content failures inconsistently routed to complete instead of needs_human_review; a 40-minute blind reaper marking claim-timeouts complete instead of resetting to triaged. Root flaw: "we're done trying" treated as "the work is done." Fix rule: complete only on explicit success response OR positive DB evidence (page_components rows, build_status='deployed', git commit). Symptoms attempt_count=0-on-success and updated_at<claimed_at belong to the same semantic muddle. This is the work-dispatch-side statement of the same defect family documented in full in the work-item-integrity register's silent-completion entries.
 - **sources:** FOCUS_page_build_handler_silent_completion.md; HANDOFF_2026-04-20_error_investigations.md#2, #3; HANDOFF_2026-04-20_composition_deployed_design_stuck.md#C
 - **relations:** silent-completion failure family (work-item-integrity register); claim-timeout mechanism (work-item-integrity register); two-strike rule (WDS-007)
 - **verify-later:** reaper code paths setting status='complete'; whether the two unresolved modes were fixed
 
 ### WDS-005 — Dispatcher response-stall and missing claim/orchestration timeout cleanup
-- **status:** unknown
+- **status:** partial
 - **status-evidence:** "Bug 1 … Blocker for autonomous cascade completion" and "Bug 2 — No claim-timeout / orchestration-timeout cleanup" (2026-04-23); every cascade needed "manual dispatcher pokes."
+- **stage2-verified (2026-07-14):** unknown → partial — Bug 2 (no claim/orchestration-timeout cleanup) resolved: coordinator.go:777-800 force-fails orchestrations exceeding 3x workflow timeout / 60min fallback (git blame 8c60e8f46 'timeout rationalisation'), plus the claimed-item-timeout reaper (WII-002) resets stuck claims. Bug 1 root cause (Kafka consumer reconnect fai...
 - **what:** `build-dispatch-loop` orchestrations stall at `process_item_iter_N_call_handler` even when the handler response arrived (suspects: Kafka consumer reconnect failure; mark_complete not firing); with no sweeper, claimed items and AWAITING_RESPONSES orchestrations accumulate forever and block sites (compounding the NOT EXISTS blocker, WDS-002). Fix shapes: consumer reconnect detection, periodic claim-release sweeper, force-fail of timed-out orchestrations.
 - **sources:** HANDOFF_2026-04-23_dispatch_reliability_and_008_validated(1).md Bugs 1-2
 - **relations:** NOT EXISTS blocker (WDS-002); consumer group race; silent completion (WDS-004)

@@ -65,8 +65,9 @@ raw blocks after collapsing that duplication.)
 - **verify-later:** networks/clients tables — created and populated?; confirm which columns/tables here are still live vs superseded by site_plans/site_work_items
 
 ### DBI-008 — sites.build_status vestigial column
-- **status:** unknown
+- **status:** aspirational
 - **status-evidence:** "defaulted to 'pending' at insert, never advanced by any code path … Decide whether to maintain or drop the column" (2026-05-26).
+- **stage2-verified (2026-07-14):** unknown → aspirational — sql_for_tables/005_content_components.sql:9921-9931 INSERT INTO sites sets build_status='pending' at insert (matches doc). grep -rn for sites.build_status writers across .go/.sql: 0 hits of any UPDATE/SET on sites.build_status — only site_db_actions.go:1012 INSERT INTO sites(domain,name,network_id,status) which omit...
 - **what:** Site-level build_status is dead; real build state lives in last_built_at/last_deployed_at/last_reconciled_at and per-page/per-component build_status. A schema-hygiene decision left open.
 - **sources:** HANDOFF_2026-05-26…md#other-open-items
 - **relations:** mark_site_deployed (which flips sites.status, not build_status); work-site-orchestrator vs build-site-planner (system-architecture)
