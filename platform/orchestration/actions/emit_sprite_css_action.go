@@ -33,9 +33,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/imageryplan"
 	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
@@ -76,18 +78,19 @@ func EmitSpriteCSSAction(ctx context.Context, params ActionParams) (interface{},
 	domain := inputs.Get("domain")
 
 	// ── Load the verified sprite-sheet plan row (+ domain fallback) ──
+	var planRowID string
 	var key string
 	var styleHints []byte
 	var domainDB string
 	err = params.DB.QueryRowContext(ctx, `
-		SELECT spi.key, spi.style_hints, COALESCE(si.domain, '')
+		SELECT spi.id, spi.key, spi.style_hints, COALESCE(si.domain, '')
 		  FROM site_plan_imagery spi
 		  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
 		  JOIN sites si ON si.id = sp.site_id
 		 WHERE sp.site_id = $1 AND spi.kind = 'sprite_sheet' AND spi.scope = 'site'
 		 ORDER BY spi.ordering
 		 LIMIT 1
-	`, siteID).Scan(&key, &styleHints, &domainDB)
+	`, siteID).Scan(&planRowID, &key, &styleHints, &domainDB)
 	if err != nil {
 		return map[string]interface{}{"emitted": false, "reason": "no sprite_sheet plan row"}, nil
 	}
@@ -134,6 +137,29 @@ func EmitSpriteCSSAction(ctx context.Context, params ActionParams) (interface{},
 	}
 	if _, err := sendGitCommitRequest(ctx, params, domain, files, "sprite-css", logger); err != nil {
 		return nil, fmt.Errorf("git commit sprites.css: %w", err)
+	}
+
+	// Stamp fulfilment state onto the plan row. The sprite_css_missing discovery
+	// check is DB-only (house convention — see check_image_url_404), so without
+	// this stamp it cannot tell "already emitted" from "never emitted" and would
+	// re-emit on every discovery pass. Recording the grid signature alongside the
+	// timestamp also makes STALENESS detectable: regenerate the sheet or change
+	// the cell names, and the signature no longer matches, so the check re-emits.
+	// Best-effort: the CSS is already committed, so a stamp failure must not fail
+	// the action — it degrades to a re-emit on the next pass, which is idempotent.
+	stamp := map[string]interface{}{
+		"emitted_at": time.Now().UTC().Format(time.RFC3339),
+		"sheet_path": sheetPath,
+		"signature":  imageryplan.SpriteGridSignature(hints.Rows, hints.Cols, hints.CellNames),
+	}
+	stampJSON, _ := json.Marshal(stamp)
+	if _, err := params.DB.ExecContext(ctx, `
+		UPDATE site_plan_imagery
+		   SET style_hints = jsonb_set(COALESCE(style_hints, '{}'::jsonb), '{sprites_css}', $2::jsonb, true)
+		 WHERE id = $1
+	`, planRowID, string(stampJSON)); err != nil {
+		logger.Warn("emit_sprite_css: fulfilment stamp failed (CSS committed; check will re-emit next pass)",
+			zap.Error(err))
 	}
 
 	logger.Info("emit_sprite_css: committed sprites.css",

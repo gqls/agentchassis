@@ -4,17 +4,22 @@
 TURN, alongside the running notes — it is the single entry point for a fresh
 session.**
 
-## READ FIRST (Turn 36): I2 is one deploy from done
-Sprite bullets are LIVE on a real list
-(`/guides/tool-grip-force-friction-calculator-guide.html`, the Safety Factor
-list). Sheet + sprites.css + head `<link>` + markup all verified on served HTML.
-**The live gate caught a CSS specificity bug**: per-item overrides
-(`li.sprite-b-<n>::before`, (0,1,2)) LOSE to the default bullet rule
-(`ul.sprite-list>li::before`, (0,1,3)), so every bullet rendered the default
-check glyph. **Fixed in Go (scoped overrides → (0,2,3)), tests added, fix proven
-by headless render — but it is INERT until the next chassis deploy.**
-→ On the next deploy: re-dispatch `needs_sprite_css` (attempt_count 0) to
-regenerate sprites.css. No markup change needed; the four glyphs then appear.
+## READ FIRST (Turn 38): I2.2 + I2.3 are DONE AND CORRECT ON THE LIVE SITE
+Sprite bullets render **four distinct glyphs** (ⓘ info / ✓ check / gauge / ⚠
+warning) on a real list — `/guides/tool-grip-force-friction-calculator-guide.html`,
+the "Safety Factor Selection Guidance" list. The Turn 36 CSS-specificity bug is
+fixed, deployed (verified by grepping the running POD's binary, not git), and
+sprites.css re-emitted with scoped overrides. One 75,745B sheet; ≤80KB budget met.
+**Hard-refresh before eyeballing — sprites.css is cached `max-age=3600`.**
+
+**Open:** the user's live gate on those four glyphs.
+**Built, awaiting the next deploy:** I2.4 (`sprite_css_missing` check + the
+`emit_sprite_css` fulfilment stamp). Its registration SQL is ALREADY applied — an
+unregistered check name is just a warn+skip, so it activates by itself on deploy.
+Expect exactly ONE self-healing re-emit then (the live CSS predates the stamp, so
+the row has `sprites_css = null` → check fires once → identical CSS re-committed →
+row stamped → quiet). That cycle IS the live proof of I2.4 — watch for it.
+**Then:** I2.5 (D10 container opt-in) closes I2.
 
 ## What this project is (fresh-reader paragraph)
 
@@ -233,30 +238,30 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
 - image_source_unsatisfiable check live but has produced 0 flags (heroes all
   resolve now) — expected.
 
-## Next actions, in order (updated Turn 36)
-Steps 1–3 of the old list are DONE: sprites.css emitted + live, head `<link>`
-live, and one real list wired (Safety Factor list on the friction-calculator
-guide; classes present in served HTML). Remaining:
-1. **ON THE NEXT CHASSIS DEPLOY — re-emit sprites.css** so the specificity fix
-   lands: insert `needs_sprite_css` (site robot-hands,
-   handler_agent='asset-deployer', spec `{"mode":"sprite_css"}`,
-   status='triaged', attempt_count=0). asset-deployer re-runs emit_sprite_css →
-   commits the corrected `/assets/css/sprites.css`. NO markup/page re-render
-   needed — the wired classes are already live. Verify: the served CSS contains
-   `ul.sprite-list>li.sprite-b-gauge::before` (scoped), then **LIVE GATE** the
-   guide page: four DISTINCT glyphs (info / check / gauge / warning), legible at
-   ~20px, one ≤80KB download, on-brand.
-2. **I2.4 fulfilment check** (sibling of check_unfulfilled_imagery_plan):
-   sprite_sheet planned but no asset → needs_imagery; asset but no sprites.css
-   → needs_sprite_css. Register on design-discovery-agent.
-3. **I2.5 — container opt-in (USER-APPROVED 2026-07-14 = D10; do it AFTER the
-   live gate and I2.4).** Make sprite bullets a house style instead of a
-   per-list opt-in: `emit_sprite_css` also emits a container rule
-   (`.sprite-bullets ul>li::before`, same geometry, specificity-safe), and the
-   `sprite-bullets` class goes on a **component wrapper** — article-body's
-   `.article-body__content` is the natural first target. Then every content list
-   inside themes itself. Re-emit CSS + re-render; the Turn 36 hand-wired classes
-   become redundant (harmless). Closes I2.
+## Next actions, in order (updated Turn 38)
+I2.2 + I2.3 are DONE and live-correct (four distinct glyphs on the guide page).
+I2.4 is BUILT and its SQL is applied; it activates on the next deploy. Remaining:
+1. **USER LIVE GATE** on the four glyphs:
+   `/guides/tool-grip-force-friction-calculator-guide.html` → "Safety Factor
+   Selection Guidance". Hard-refresh (CSS is cached 1h). Criteria: readable at
+   ~20px, one ≤80KB download, on-brand. (D9 already accepted the faint charcoal
+   tile behind each glyph — that is expected, not a defect.)
+2. **On the next deploy — WATCH I2.4 prove itself** (don't assume): the
+   `sprite_css_missing` check should fire ONCE on robot-hands (the plan row has
+   no `sprites_css` stamp yet), emit `needs_sprite_css`, asset-deployer re-commits
+   an identical sprites.css, and the row gets stamped — then it must go SILENT on
+   subsequent passes. If it keeps emitting every pass, the stamp write is broken
+   (that is the idempotence bug the tests guard against). Verify:
+   `SELECT style_hints->'sprites_css' FROM site_plan_imagery …` is non-null.
+3. **I2.5 — container opt-in (D10, user-approved).** Make sprite bullets a house
+   style instead of a per-list opt-in: `emit_sprite_css` also emits
+   `.sprite-bullets ul>li::before` (same geometry; keep it specificity-safe — the
+   Turn 36 lesson), and the `sprite-bullets` class goes on a **component wrapper**,
+   starting with article-body's `.article-body__content`. Then every content list
+   themes itself. Re-emit CSS + re-render; the Turn 36 hand-wired classes become
+   redundant (harmless). NOTE: `article-body` is a GLOBAL component (other sites
+   use it) — the class is inert on sites with no sprites.css, so it is safe
+   fleet-wide, but say so in the change. Closes I2.
    **WHY (the durability finding):** `ul.sprite-list` needs the class ON the
    `<ul>`, but article bodies are LLM-generated HTML dropped into `{{.content}}`
    — **content `<ul>`s never carry classes.** The Turn 36 wiring is a targeted

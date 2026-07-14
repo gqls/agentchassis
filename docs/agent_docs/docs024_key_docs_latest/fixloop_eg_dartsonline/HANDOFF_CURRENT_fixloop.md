@@ -27,6 +27,24 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
 
 ---
 
+## TRIAGE LIVE in DRY-RUN (turn 34, v1.0.1116) — first sweep reveals a needed filter
+
+First dry-run sweep (6ae98f10) COMPLETED cleanly, 0 work items written
+(confirmed), report in doc_notes (categories triage). Found 9 real loud-failure
+patterns. THE DRY RUN EARNED ITS KEEP: several patterns are OPERATIONAL, not
+code bugs — "Claim timed out (attempts exhausted)", "Claim timed out — handler
+pod likely died" (dispatch/infra failures), and "(no error text)" (no signal).
+Only some are genuine code bugs (component-creator "store_component failed:
+new row violates ..." constraint; template "rejected by pre-store validation").
+With cap=3 ordered by count, flipping dry_run→false NOW would escalate 2
+operational patterns + 1 real bug — sending the loop to diagnose "pod died",
+which has no code fix. So: DO NOT flip to live yet. NEXT = Phase 1.1: a
+loop-worthiness FILTER (the design already names it) — deny transient/infra
+signatures (claim timed out / pod died / timeout) → route to re-queue not loop;
+require a real error signature to escalate; "(no error text)" → hold/human.
+Owner decision pending: build the filter first (recommended), or accept some
+operational noise, or keep triage as a read-only "what's failing" view.
+
 ## TRIAGE ROUTER (Phase 1) BUILT (turn 33) — awaiting next image; PR #1 fix now on main
 
 **`main` fixed:** cherry-picked the stranded PR #1 fix commit (670d6dd2) onto

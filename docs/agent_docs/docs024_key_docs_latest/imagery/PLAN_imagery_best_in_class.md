@@ -403,6 +403,22 @@ committed bundle is the house pattern, cf. /assets/js/snippets.js).
   makes bullets regen-proof on LLM-generated content lists. D9: the baked-in
   charcoal cell background behind each glyph is ACCEPTED as-is.
 
+**Status 2026-07-14 (Turn 38) — I2.2/I2.3 ✅ DONE + LIVE-CORRECT; I2.4 ✅ BUILT.**
+- Specificity fix deployed (verified against the running POD's binary, not git);
+  sprites.css re-emitted with scoped overrides; the guide page renders **four
+  distinct glyphs** (info / check / gauge / warning). Acceptance met: themed
+  bullets from ONE 75,745B sheet, no per-bullet requests. Awaiting the user gate.
+- **I2.4 built:** `sprite_css_missing` discovery check + a fulfilment **stamp**
+  written by `emit_sprite_css` (`style_hints.sprites_css = {emitted_at, sheet_path,
+  signature}`). Discovery checks are DB-only by house convention, so the stamp is
+  what makes the check idempotent; the grid `signature`
+  (`imageryplan.SpriteGridSignature`, shared so the two sides cannot drift) also
+  makes STALENESS detectable — a regenerated sheet or re-verified cell names leave
+  the committed CSS slicing the *wrong* glyphs, and the check re-emits. Registered
+  on design-discovery-agent (`SQL_2026-07-14_register_sprite_css_missing.sql`).
+  Rides the next deploy; expect one self-healing re-emit, then silence.
+- **Next: I2.5** (D10) closes the phase.
+
 ### Phase I3 — Content-linked card imagery (G3; Lane B foundation)
 - Generalise the content-entity → asset link (D2/Lane B): entity image reference + `needs_content_image` work item + handler composing prompts from the content item + brand guide.
 - `card` kind/purpose with its own size profile (e.g. 800×450 WebP); card components resolve the entity's image. **Confirmed 2026-07-08: the card image is the article's asset re-cropped** (purpose-specific crops of one generation), not a sibling generation — one source image yields article hero, card crop, and OG crop.

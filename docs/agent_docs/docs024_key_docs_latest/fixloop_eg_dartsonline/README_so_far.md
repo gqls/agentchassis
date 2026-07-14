@@ -317,6 +317,42 @@ call: shall I do the clean one-commit merge to put PR #1's fix onto main?
 
 -----
 
+● Both done. Summary of this turn:
+
+1. PR #1's fix is now on main
+
+Cherry-picked the stranded fix commit (670d6dd2) onto main in a throwaway worktree — surgical, brought only the two-line fix, nothing incidental — and pushed (218e3b52..998c0b31). Verified: main no longer
+carries the DEBUG defect. Your active 085 tree was never touched. The PR-ordering wrinkle is closed.
+
+2. The triage router (Phase 1) is built
+
+diagnose_triage — deterministic, no LLM (triage routes, it never diagnoses). Each sweep:
+
+- Loud failures (status='failed') → deduped by pattern (item_type, handler, error-signature) → escalates the pattern to needs_diagnosis using the exact 090 contract (system.internal anchor,
+  pipeline='diagnose', parked at awaiting_diagnosis — inert until dispatched), with ON CONFLICT dedup on a stable item_key and a hard cap of 3 per sweep. Fifty pages failing the same way become one
+  escalation.
+- Capability gaps (capability_gap / deferred) → surfaced to the roadmap in the report, never sent to the loop.
+- One doc_note per sweep (categories triage+fixloop) is the readable artifact — and it always writes, so even a dry run leaves you something to read.
+
+Two safety choices baked in, matching your decisions:
+- Ships dry_run=true — the first run previews exactly what it would escalate and writes the report, but creates zero work items. You flip dry_run→false (a one-line jsonb_set in the seed footer) once the
+  preview looks right.
+- Manual only, cap 3, 14-day window — consistent with "hourly-later when trusted" and keeping model calls off the table while Fable credits are low.
+
+It has real work to do: the live query already finds ~8 genuine failure patterns — e.g. needs_new_component failing via component-creator ("store_component failed", 4 items), needs_page "Claim timed out"
+(6 items). Those are exactly the recurring, remedy-resistant patterns that smell like code bugs.
+
+Verified: 5 pure-helper tests green, full package builds, seed dry-run-validated on the live DB with the step graph checked. Seed 0NN_diagnosis_triage.sql + trigger 095_… are ready.
+
+Docs
+
+Design doc already carried the three flavours + your decisions; the living handoff now records the main fix, the triage build, and the exact deploy checklist. All committed.
+
+To bring triage live (whenever an image ships): deploy → grep -ac diagnose_triage /proc/1/exe → apply seed → fire 095 (dry-run) → read the report → flip dry_run→false → fire again to escalate for real.
+I'll drive that the moment you have an image up.
+
+
+-----
 
 
 

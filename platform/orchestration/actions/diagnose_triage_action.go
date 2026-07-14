@@ -40,11 +40,44 @@ import (
 // site under diagnosis travels in the spec (090 contract).
 const triageSystemSiteID = "eac60db8-b032-432b-b36d-76f37632045d"
 
+// defaultTransientSignatures — the LOOP-WORTHINESS FILTER's denylist (Phase
+// 1.1, from the first live dry-run: half the "failures" were the claim/dispatch
+// layer timing out, which has NO code fix). A failure whose error contains one
+// of these is OPERATIONAL — route to re-queue, never to the loop. Deliberately
+// precise to the dispatch/pod/infra layer, so a genuine handler-logic error
+// that merely mentions time is NOT swallowed. Tunable via config.
+var defaultTransientSignatures = []string{
+	"claim timed out",
+	"pod likely died",
+	"handler pod",
+	"consumer rebalance",
+	"rebalance in progress",
+}
+
+// triageRoute classifies one failure pattern by its error signature — the
+// loop-worthiness filter. Pure and tested.
+//
+//	""              → "hold"    (no signal: nothing to diagnose — a human looks)
+//	transient match → "requeue" (operational/infra: not a code bug)
+//	else            → "loop"    (a real handler error worth diagnosing)
+func triageRoute(errSig string, transient []string) string {
+	s := strings.ToLower(strings.TrimSpace(errSig))
+	if s == "" {
+		return "hold"
+	}
+	for _, t := range transient {
+		if t = strings.ToLower(strings.TrimSpace(t)); t != "" && strings.Contains(s, t) {
+			return "requeue"
+		}
+	}
+	return "loop"
+}
+
 var DiagnoseTriageInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{},
 	Optional: []string{
 		"window_hours", "max_escalations", "diagnose_handler",
-		"repo_owner", "repo_name", "ref", "dry_run",
+		"repo_owner", "repo_name", "ref", "dry_run", "transient_signatures",
 	},
 	Defaults: map[string]interface{}{
 		"window_hours":     336, // 14 days — failed items linger; a wide look is fine, dedup bounds output
@@ -103,6 +136,8 @@ func DiagnoseTriageAction(ctx context.Context, params ActionParams) (interface{}
 		dryRun = d
 	}
 
+	transient := configStringSlice(config, "transient_signatures", defaultTransientSignatures)
+
 	patterns, err := triageGatherFailures(ctx, params.DB, window)
 	if err != nil {
 		return nil, fmt.Errorf("gather loud failures: %w", err)
@@ -110,6 +145,21 @@ func DiagnoseTriageAction(ctx context.Context, params ActionParams) (interface{}
 	gaps, err := triageGatherCapabilityGaps(ctx, params.DB, window)
 	if err != nil {
 		return nil, fmt.Errorf("gather capability gaps: %w", err)
+	}
+
+	// LOOP-WORTHINESS FILTER: classify each pattern, and escalate ONLY the ones
+	// that look like real code bugs. Transient/infra failures and no-signal
+	// ones are surfaced in the report but never sent to the loop.
+	var loopPatterns, requeuePatterns, holdPatterns []failurePattern
+	for _, p := range patterns {
+		switch triageRoute(p.ErrSig, transient) {
+		case "loop":
+			loopPatterns = append(loopPatterns, p)
+		case "requeue":
+			requeuePatterns = append(requeuePatterns, p)
+		default:
+			holdPatterns = append(holdPatterns, p)
+		}
 	}
 
 	// Escalate up to the cap. ON CONFLICT DO NOTHING (dedup on the system-site
@@ -120,7 +170,7 @@ func DiagnoseTriageAction(ctx context.Context, params ActionParams) (interface{}
 	created, deduped := 0, 0
 	var escalated []string
 	if !dryRun {
-		for _, p := range patterns {
+		for _, p := range loopPatterns {
 			if created >= maxEsc {
 				break
 			}
@@ -141,11 +191,11 @@ func DiagnoseTriageAction(ctx context.Context, params ActionParams) (interface{}
 		}
 	}
 
-	capped := len(patterns) - created - deduped
+	capped := len(loopPatterns) - created - deduped
 	if capped < 0 {
 		capped = 0
 	}
-	report := renderTriage(hours, time.Now().UTC(), patterns, gaps, created, deduped, capped, maxEsc, dryRun)
+	report := renderTriage(hours, time.Now().UTC(), loopPatterns, requeuePatterns, holdPatterns, gaps, created, deduped, capped, maxEsc, dryRun)
 
 	// The report note ALWAYS writes — it is the visibility artifact, harmless,
 	// and the whole point in dry-run. Only the escalation writes are gated.
@@ -157,6 +207,9 @@ func DiagnoseTriageAction(ctx context.Context, params ActionParams) (interface{}
 
 	logger.Info("diagnose_triage: swept",
 		zap.Int("failure_patterns", len(patterns)),
+		zap.Int("loop_patterns", len(loopPatterns)),
+		zap.Int("requeue_patterns", len(requeuePatterns)),
+		zap.Int("hold_patterns", len(holdPatterns)),
 		zap.Int("escalated", created),
 		zap.Int("deduped", deduped),
 		zap.Int("capped", capped),
@@ -165,13 +218,15 @@ func DiagnoseTriageAction(ctx context.Context, params ActionParams) (interface{}
 		zap.String("orchestration_id", orchIDForLog(params)))
 
 	return map[string]interface{}{
-		"report":          report,
-		"escalated":       created,
-		"deduped":         deduped,
-		"capped":          capped,
-		"capability_gaps": len(gaps),
-		"escalated_keys":  escalated,
-		"note_id":         noteID,
+		"report":           report,
+		"escalated":        created,
+		"deduped":          deduped,
+		"capped":           capped,
+		"requeue_patterns": len(requeuePatterns),
+		"hold_patterns":    len(holdPatterns),
+		"capability_gaps":  len(gaps),
+		"escalated_keys":   escalated,
+		"note_id":          noteID,
 	}, nil
 }
 
@@ -284,24 +339,29 @@ func triageSpecJSON(symptom, owner, repo, ref, handler string) string {
 
 // renderTriage is pure — tested. Names what was escalated, what was deduped/
 // capped (never silently dropped), and the open capability gaps.
-func renderTriage(hours int, now time.Time, patterns []failurePattern, gaps []capabilityGap, created, deduped, capped, maxEsc int, dryRun bool) string {
+func renderTriage(hours int, now time.Time, loop, requeue, hold []failurePattern, gaps []capabilityGap, created, deduped, capped, maxEsc int, dryRun bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Triage sweep — last %dh (generated %s UTC)\n\n", hours, now.Format("2006-01-02 15:04"))
 	if dryRun {
-		b.WriteString("_DRY RUN — patterns below would be escalated, but NO needs_diagnosis items were written._\n\n")
+		b.WriteString("_DRY RUN — the code-bug patterns below WOULD be escalated, but NO needs_diagnosis items were written._\n\n")
 	}
 
-	fmt.Fprintf(&b, "## Loud failures → fix loop (%d pattern(s); escalated %d, deduped %d, capped %d; cap=%d)\n\n",
-		len(patterns), created, deduped, capped, maxEsc)
-	if len(patterns) == 0 {
-		b.WriteString("No failed work items in this window.\n\n")
+	patLine := func(p failurePattern) {
+		errSig := strings.TrimSpace(p.ErrSig)
+		if errSig == "" {
+			errSig = "(no error text)"
+		}
+		fmt.Fprintf(&b, "- `%s` via `%s` — %d item(s), %d site(s): %s\n", p.ItemType, p.Handler, p.Count, p.Sites, errSig)
+	}
+
+	// → FIX LOOP: real code bugs (the only group that escalates).
+	fmt.Fprintf(&b, "## Code bugs → fix loop (%d pattern(s); escalated %d, deduped %d, capped %d; cap=%d)\n\n",
+		len(loop), created, deduped, capped, maxEsc)
+	if len(loop) == 0 {
+		b.WriteString("No code-bug failure patterns in this window.\n\n")
 	} else {
-		for _, p := range patterns {
-			errSig := strings.TrimSpace(p.ErrSig)
-			if errSig == "" {
-				errSig = "(no error text)"
-			}
-			fmt.Fprintf(&b, "- `%s` via `%s` — %d item(s), %d site(s): %s\n", p.ItemType, p.Handler, p.Count, p.Sites, errSig)
+		for _, p := range loop {
+			patLine(p)
 		}
 		if capped > 0 {
 			fmt.Fprintf(&b, "\n> %d pattern(s) NOT escalated this sweep (cap=%d) — coverage was capped, not complete.\n", capped, maxEsc)
@@ -309,7 +369,30 @@ func renderTriage(hours int, now time.Time, patterns []failurePattern, gaps []ca
 		b.WriteString("\n")
 	}
 
-	fmt.Fprintf(&b, "## Capability gaps → roadmap (%d; NOT sent to the loop) (%d)\n\n", len(gaps), len(gaps))
+	// → RE-QUEUE: transient/infra — surfaced, NOT escalated (no code fix).
+	fmt.Fprintf(&b, "## Transient / infra → re-queue, NOT the loop (%d pattern(s))\n\n", len(requeue))
+	if len(requeue) == 0 {
+		b.WriteString("None.\n\n")
+	} else {
+		b.WriteString("Operational failures (claim timeouts, dead pods) — no code fix; surfaced for the operational layer, not escalated:\n\n")
+		for _, p := range requeue {
+			patLine(p)
+		}
+		b.WriteString("\n")
+	}
+
+	// → HOLD: no error signal — a human looks.
+	if len(hold) > 0 {
+		fmt.Fprintf(&b, "## No error signal → hold for a human (%d pattern(s))\n\n", len(hold))
+		b.WriteString("Failed, but with no recorded error to diagnose — nothing for the loop to work from:\n\n")
+		for _, p := range hold {
+			patLine(p)
+		}
+		b.WriteString("\n")
+	}
+
+	// → ROADMAP: capability gaps (no handler yet).
+	fmt.Fprintf(&b, "## Capability gaps → roadmap, NOT the loop (%d)\n\n", len(gaps))
 	if len(gaps) == 0 {
 		b.WriteString("No capability_gap / deferred items in this window.\n\n")
 	} else {
@@ -320,6 +403,6 @@ func renderTriage(hours int, now time.Time, patterns []failurePattern, gaps []ca
 		b.WriteString("\n")
 	}
 
-	b.WriteString("---\n_Deterministic router: SQL-gathered, Go-rendered, no model. Escalations park at `awaiting_diagnosis` (inert until dispatched). Failure patterns deduped by (item_type, handler, error signature)._\n")
+	b.WriteString("---\n_Deterministic router: SQL-gathered, Go-rendered, no model. Only code-bug patterns escalate (loop-worthiness filter); they park at `awaiting_diagnosis` (inert until dispatched). Patterns deduped by (item_type, handler, error signature)._\n")
 	return b.String()
 }

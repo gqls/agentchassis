@@ -1459,4 +1459,65 @@ renders `<li></li><li></li>`). Findings, all evidence-backed:
   mechanism is generic, so it recurs on any site missing a required data source.
 → Full write-up: **`docs024_key_docs_latest/HANDOFF_2026-07-14_empty_product_sections.md`**
 
+## Turn 38 — 2026-07-14 — Specificity fix deployed + VERIFIED LIVE (four glyphs); I2.4 fulfilment check BUILT
+
+**✅ THE BULLETS ARE RIGHT ON THE LIVE SITE.** Re-dispatched `needs_sprite_css`
+(attempt_count 0; prior item was `complete`, so the dedup partial-unique index
+freed the canonical item_key for reuse). asset-deployer completed first attempt,
+re-emitting `/assets/css/sprites.css` with the **scoped** overrides
+(`ul.sprite-list>li.sprite-b-gauge::before,ol…` — 9 of them). Headless render of
+the guide page now shows **four DISTINCT glyphs**: ⓘ info / ✓ check (the unclassed
+item — the default) / gauge dial / ⚠ warning. Legible at 20px, one 75,745B sheet.
+I2.2 + I2.3 are now COMPLETE and correct.
+
+**Two verification gotchas worth keeping:**
+1. **CDN cache raced me.** My first post-emit `curl` of sprites.css returned the
+   OLD unscoped CSS and briefly looked like a failed deploy. A cache-busted fetch
+   (`?cb=<ts>`) returned the new file (9 scoped selectors), and the canonical URL
+   caught up seconds later (`last-modified` matched the item's completion time).
+   `cache-control: public, max-age=3600` — **so hard-refresh before eyeballing.**
+2. **Verified the deploy against the POD, not git** (per the standing practice):
+   `grep -a "sprite-list>li.sprite-b-"` on `/app/agent-chassis` inside the running
+   pod → present. Definitive; timing/commit-ancestry is not.
+
+**I2.4 BUILT (Go rides the NEXT deploy; registration SQL already applied):**
+- Realisation: HALF of I2.4 needs no new code — `unfulfilled_imagery_plan` already
+  emits `needs_imagery` for ANY unfulfilled plan row regardless of kind, so
+  "sprite_sheet planned but no asset" is covered. The genuinely missing half is
+  "asset exists but sprites.css doesn't".
+- New `check_sprite_css_missing` (`sprite_css_missing`) emits `needs_sprite_css`
+  → asset-deployer. **DB-only, per house convention** (check_image_url_404's header
+  states discovery checks make no HTTP calls), which forced a real design question:
+  *how does a DB-only check know the CSS was emitted?* It couldn't — so
+  `emit_sprite_css` now **stamps** the plan row after committing:
+  `style_hints.sprites_css = {emitted_at, sheet_path, signature}`.
+- The stamp buys **staleness detection**, not just presence: the signature is
+  `imageryplan.SpriteGridSignature(rows, cols, cell_names)` (e.g.
+  `3x3:check,gauge,…`), so re-verifying cell names or regenerating the sheet at a
+  new geometry makes the committed CSS *stale* — which is worse than missing (it
+  slices the WRONG glyphs) — and the check re-emits. Also re-emits if the sheet
+  asset's `updated_at` is newer than the stamp.
+- **Signature lives in `imageryplan`** (not duplicated per side): `actions` imports
+  `discovery_checks`, so the check cannot import back — the shared package is the
+  only drift-free home. Same reasoning the package already applies to
+  Classify/ItemKey/BuildSpec. Stamp failure is non-fatal (CSS is already committed;
+  worst case the check re-emits next pass — idempotent).
+- Registered on design-discovery-agent via
+  `SQL_2026-07-14_register_sprite_css_missing.sql` (backup + verify; 20 checks,
+  idempotent append). Safe to apply BEFORE the Go deploys: an unregistered check
+  name is a `logger.Warn` + `continue` (discovery_checks.go:123), not a failure.
+- Tests: `TestSpriteCSSStaleness` covers missing / fulfilled-so-don't-re-emit
+  (the idempotence case that stops an infinite re-commit loop) / cell names changed
+  / geometry changed / sheet regenerated / unparseable timestamp.
+
+**Expect one self-healing re-emit after the next deploy:** the live CSS was
+emitted by the pre-stamp binary, so the plan row has `sprites_css = null`. The
+check will fire once (reason `missing`), asset-deployer re-commits identical CSS,
+the row gets stamped, and it goes quiet. That one cycle doubles as the live
+functional proof of I2.4 — watch for it rather than assuming it.
+
+**Next:** user's live gate on the four glyphs → then **I2.5** (D10 container
+opt-in: `.sprite-bullets ul>li::before` + the class on article-body's
+`.article-body__content` wrapper) closes I2 → then Phase I3.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

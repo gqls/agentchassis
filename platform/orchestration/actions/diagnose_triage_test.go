@@ -44,10 +44,29 @@ func TestTriageSpecJSONShape(t *testing.T) {
 	}
 }
 
+func TestTriageRouteLoopWorthiness(t *testing.T) {
+	cases := map[string]string{
+		"":                                     "hold",
+		"   ":                                  "hold",
+		"Claim timed out (attempts exhausted)": "requeue",
+		"Claim timed out — handler pod likely died":                        "requeue",
+		"CONSUMER REBALANCE in progress":                                   "requeue",
+		"step store_component failed: new row for relation violates check": "loop",
+		"template rejected by pre-store validation":                        "loop",
+		"kafka write error":                                                "loop",
+	}
+	for errSig, want := range cases {
+		if got := triageRoute(errSig, defaultTransientSignatures); got != want {
+			t.Fatalf("triageRoute(%q) = %q, want %q", errSig, got, want)
+		}
+	}
+}
+
 func TestRenderTriageEmptyIsExplicit(t *testing.T) {
-	out := renderTriage(336, time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC), nil, nil, 0, 0, 0, 3, false)
+	out := renderTriage(336, time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC), nil, nil, nil, nil, 0, 0, 0, 3, false)
 	for _, want := range []string{
-		"No failed work items in this window.",
+		"No code-bug failure patterns in this window.",
+		"Transient / infra → re-queue, NOT the loop (0 pattern(s))",
 		"No capability_gap / deferred items in this window.",
 		"no model",
 	} {
@@ -57,17 +76,26 @@ func TestRenderTriageEmptyIsExplicit(t *testing.T) {
 	}
 }
 
-func TestRenderTriageReportsCapAndGaps(t *testing.T) {
-	patterns := []failurePattern{
+func TestRenderTriageGroupsCapAndGaps(t *testing.T) {
+	loop := []failurePattern{
 		{ItemType: "needs_content_page", Handler: "page-build-handler", ErrSig: "kafka write error", Count: 12, Sites: 4},
-		{ItemType: "page_rerender", Handler: "page-rerender", ErrSig: "timeout", Count: 3, Sites: 1},
+	}
+	requeue := []failurePattern{
+		{ItemType: "needs_page", Handler: "page-build-handler", ErrSig: "Claim timed out", Count: 6, Sites: 2},
+	}
+	hold := []failurePattern{
+		{ItemType: "content_rewrite", Handler: "page-build-handler", ErrSig: "", Count: 1, Sites: 1},
 	}
 	gaps := []capabilityGap{{Builder: "tool-builder", Count: 5, Sites: 2}}
-	out := renderTriage(336, time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC), patterns, gaps, 1, 0, 1, 1, true)
+	out := renderTriage(336, time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC), loop, requeue, hold, gaps, 0, 0, 1, 1, true)
 
 	for _, want := range []string{
+		"Code bugs → fix loop (1 pattern(s)",
 		"needs_content_page` via `page-build-handler` — 12 item(s), 4 site(s): kafka write error",
-		"1 pattern(s) NOT escalated this sweep (cap=1)", // capped, named — never silently dropped
+		"1 pattern(s) NOT escalated this sweep (cap=1)",
+		"Transient / infra → re-queue, NOT the loop (1 pattern(s))",
+		"Claim timed out",
+		"No error signal → hold for a human (1 pattern(s))",
 		"tool-builder** needed — 5 page(s) across 2 site(s)",
 	} {
 		if !strings.Contains(out, want) {

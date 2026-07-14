@@ -55,3 +55,50 @@ instead of failing safe. That's in the handoff so the next chat doesn't start by
 Worth deciding early in that chat: robot-hands is a spec/comparison site, so Add-to-Cart furniture is category-wrong for it regardless of whether the data gets filled.
 
 ----
+
+Done — the bullets are correct on the live site, and I2.4 is built and registered.
+
+The bullets are right
+
+The re-emit ran first attempt and the guide page now renders four distinct glyphs: ⓘ info, ✓ check (the unclassed item — proving the default still works), the gauge dial, and the ⚠ warning triangle.
+Legible at 20px, one 75,745-byte sheet for all of them.
+
+Your gate: https://robot-hands.com/guides/tool-grip-force-friction-calculator-guide.html → "Safety Factor Selection Guidance". Hard-refresh — sprites.css is cached for an hour. The faint charcoal tile
+behind each glyph is the D9 thing you already accepted, not a defect.
+
+Two verification notes worth keeping. My first check of the CSS after the emit returned the old file and briefly looked like a failed deploy — it was CDN cache; a cache-busted fetch showed the new one,
+and the canonical URL caught up seconds later. And I confirmed the deploy by grepping the running pod's binary for the scoped selector rather than trusting git, per the standing practice.
+
+I2.4 — the fulfilment check
+
+Building it surfaced a design question worth flagging, because it changed the shape of the work.
+
+Half of I2.4 turned out to need no code: unfulfilled_imagery_plan already emits needs_imagery for any unfulfilled plan row regardless of kind, so "sheet planned but no asset" is covered. The real gap is
+"asset exists but sprites.css doesn't".
+
+The catch: discovery checks in this codebase are DB-only by convention (check_image_url_404's header says so explicitly — no HTTP). So a check has no way to know whether the CSS was ever emitted. It
+couldn't — so emit_sprite_css now stamps the plan row after committing (style_hints.sprites_css = {emitted_at, sheet_path, signature}), and the check reads that.
+
+That stamp buys more than presence. The signature encodes the grid and cell vocabulary (3x3:check,gauge,…), so if the sheet is regenerated at a new geometry or the cell names are re-verified in a
+different order, the committed CSS is stale — slicing the wrong glyphs, which is worse than missing — and the check re-emits. It also re-emits if the sheet asset is newer than the stamp. I put the
+signature function in imageryplan rather than duplicating it, since actions imports discovery_checks and can't be imported back — the same anti-drift argument that package already makes for
+Classify/ItemKey.
+
+Tests cover missing, stale-by-grid, stale-by-regeneration, bad timestamp, and — the one that matters most — fulfilled-so-don't-re-emit, which is what stops the check re-committing an identical stylesheet
+on every discovery pass.
+
+Registration SQL is already applied (backup + verify, 20 checks). It was safe to apply before the Go ships because an unregistered check name is just a warn-and-skip, not a failed pass — so it activates
+by itself on your next deploy.
+
+One thing to watch on that deploy, rather than assume: the live CSS was emitted by the pre-stamp binary, so the plan row has no stamp. The check should fire exactly once (reason missing), re-commit
+identical CSS, stamp the row, then go silent. If it keeps emitting every pass, the stamp write is broken. That single cycle is the live proof I2.4 works.
+
+Build and all three test packages are green. Incidentally, I noticed check_required_fields_missing.go and complete_work_item_verification.go have appeared in the working tree — looks like the product-page
+handoff is already being acted on in your other chat; my build passes alongside them.
+
+Once you've eyeballed the gate, I2.5 (the D10 container opt-in) closes the phase. Worth knowing before I start it: article-body is a global component, so the wrapper class lands on every site that uses it
+— harmless, since the class is inert without a sprites.css, but I'll call it out in the change rather than let it surprise anyone.
+
+
+---------
+

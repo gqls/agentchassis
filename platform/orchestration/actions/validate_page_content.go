@@ -10,6 +10,10 @@
 //   4. Broken internal links — hrefs pointing to non-existent pages
 //   5. Hallucinated emails — email addresses that don't match site's contact
 //   6. Content length — suspiciously short content
+//   7. LLM meta-commentary — model prose about its own task/inability
+//      persisted as page content (robot-hands 2026-07-14: a section stored
+//      "The data schema for this section requires product array data…"
+//      as its rendered copy)
 //
 // Returns:
 //   - valid: bool (false if any blockers found)
@@ -209,6 +213,9 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 
 	// 6. Content length
 	issues = append(issues, checkTextLength(htmlStr)...)
+
+	// 7. LLM meta-commentary persisted as content
+	issues = append(issues, checkMetaCommentary(htmlStr)...)
 
 	// ── Categorise results ──
 	blockerCount := 0
@@ -605,6 +612,65 @@ func validateEmails(ctx context.Context, db *sql.DB, html string, siteID uuid.UU
 		}
 	}
 
+	return issues
+}
+
+// ============================================================================
+// Check 7: LLM meta-commentary persisted as content
+// ============================================================================
+//
+// A model that cannot fulfil a section brief sometimes writes ABOUT the task
+// instead of doing it — and that prose then ships as page copy. Live catch
+// (robot-hands, 2026-07-14): product-card-with-cta stored "The data schema
+// for this section requires product array data sourced from
+// query.affiliate_products. Per the schema definition, this field is marked
+// required: true with on_missing: skip_section…" as its rendered content.
+// The declared skip_section never fired, and the apology deployed.
+//
+// Patterns are deliberately narrow: schema/pipeline vocabulary and
+// first-person refusals never belong in page copy, whereas broader phrases
+// ("this section requires…") risk false-positiving legitimate content. A
+// false positive here routes to needs_human_review, not silent breakage —
+// but keep the list unambiguous anyway.
+
+var metaCommentaryPatterns = []struct {
+	Pattern string
+	Label   string
+}{
+	{"as an ai", "first-person AI disclosure"},
+	{"as a language model", "first-person AI disclosure"},
+	{"i cannot generate", "refusal prose"},
+	{"i can't generate", "refusal prose"},
+	{"i am unable to generate", "refusal prose"},
+	{"i'm unable to generate", "refusal prose"},
+	{"i don't have access to", "refusal prose"},
+	{"i do not have access to", "refusal prose"},
+	{"the data schema", "schema vocabulary in copy"},
+	{"per the schema definition", "schema vocabulary in copy"},
+	{"input_schema", "schema vocabulary in copy"},
+	{"on_missing", "pipeline vocabulary in copy"},
+	{"skip_section", "pipeline vocabulary in copy"},
+	{"required: true", "schema vocabulary in copy"},
+	{"marked `required", "schema vocabulary in copy"},
+}
+
+func checkMetaCommentary(html string) []ValidationIssue {
+	lower := strings.ToLower(html)
+	var issues []ValidationIssue
+
+	for _, p := range metaCommentaryPatterns {
+		idx := strings.Index(lower, p.Pattern)
+		if idx >= 0 {
+			issues = append(issues, ValidationIssue{
+				Type:        "meta_commentary",
+				Category:    "meta_commentary",
+				Severity:    "blocker",
+				Location:    extractSnippet(html, idx, 80),
+				Value:       p.Pattern,
+				Description: fmt.Sprintf("LLM meta-commentary in content: '%s' (%s) — the model wrote about its task instead of doing it", p.Pattern, p.Label),
+			})
+		}
+	}
 	return issues
 }
 

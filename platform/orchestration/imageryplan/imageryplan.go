@@ -18,6 +18,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // MaxPerPass caps how many needs_imagery items either emitter queues in one
@@ -156,6 +157,20 @@ func ItemKey(r Row) string {
 func Summary(r Row) string {
 	return fmt.Sprintf("Imagery %s/%s (kind=%s) requested but no asset for %s",
 		r.Scope, r.Key, r.Kind, AssetKey(r))
+}
+
+// SpriteGridSignature identifies the geometry + cell vocabulary that a sprite
+// stylesheet was built from, e.g. "3x3:check,gauge,gripper,...".
+//
+// It lives here because BOTH sides of the sprite-CSS loop depend on it and must
+// not drift: the build side (actions.EmitSpriteCSSAction) stamps it into the
+// plan row's style_hints.sprites_css after committing sprites.css, and the loop
+// side (discovery_checks.SpriteCSSMissingCheck) recomputes it from the current
+// plan to decide whether the committed CSS is stale. If the two ever disagreed,
+// the check would either re-emit forever or never notice a regenerated sheet.
+// (Same reasoning as Classify/ItemKey/BuildSpec above.)
+func SpriteGridSignature(rows, cols int, names []string) string {
+	return fmt.Sprintf("%dx%d:%s", rows, cols, strings.Join(names, ","))
 }
 
 // BuildSpec returns the JSON spec body image-build-handler reads. checkName
