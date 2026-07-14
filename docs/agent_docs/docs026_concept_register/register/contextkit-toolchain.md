@@ -1,0 +1,144 @@
+# Register — contextkit-toolchain
+17 concepts, consolidated from 39 raw extractions across units U03, U08, U13, U14,
+U15, U17b, U23, U24f, U25. Only 2 raw blocks were natively tagged
+NEW:contextkit-toolchain at extraction time; the rest were reassigned here from
+the diagnosis-loop bucket because they describe the standalone `contextkit` Go
+module's individual CLI tools and internal packages rather than the deployed
+diagnose-agent's behaviour (which stays in register/diagnosis-loop.md, with
+cross-references back to the relevant entries here).
+
+### CTXK-001 — contextkit CLI toolchain (module overview)
+- **status:** deployed
+- **status-evidence:** "go build ./...  # compiles all seven commands" (contextkit/README.md); v2(36) STATE DIGEST lists all built tools; RUNBOOK(31) header "This project builds contextkit... developed against, and dogfooded on, the agent-chassis repository" (2026-06-24).
+- **what:** A standalone Go module (`module contextkit`, go 1.22) of report-first, behaviour-tested CLIs for building LLM context bundles from a repo without a live cluster: `analyser`, `assembler`, `dbcontext`, `bundle`, `embed`, `resolve_targets`, `fuse`, `eval_targets`, `diagnose`, plus docs-archiving helpers (`dedup`, `thin_versions`). Compiles and runs independently of the agentchassis repo; two packages (`internal/analysis`, `internal/candidates`) are defined once and shared verbatim across tools instead of being re-declared per command. The deployed chassis diagnosis agent (register/diagnosis-loop.md) is its production descendant; the CLI module remains the dev/eval harness and measurement scaffold.
+- **sources:** contextkit/README.md, contextkit/README(2).md, contextkit/go.mod; docs019/RUNBOOK_thin_slice(27).md#the-pipeline; docs019/RUNBOOK(31)_diagnosis_loop.md#what-this-is; docs019/NOTES_running_synthesis_principles(59) (tool-building entries); docs archive/.../contextkit target-resolution & bundle-assembly toolchain writeup (U24f)
+- **relations:** diagnosis loop (register/diagnosis-loop.md DIAG-001); contextkit module packaging/graduation seam (register/context-assembly.md CTXA-022); analyser adapter (its in-cluster descendant, register/context-assembly.md CTXA-013)
+- **verify-later:** whether `internal/analysis` in this tree still matches the agentchassis repo root copy byte-for-byte (flagged as a manual sync obligation, not automated)
+
+### CTXK-002 — internal/analysis package + ReadSymbolBody symbol-body slicer
+- **status:** deployed
+- **status-evidence:** "Package analysis defines the contract the analyser emits and the assembler, embed, and resolve_targets consume... defined only here" (types.go header); RUNBOOK(31) §3 "the merged assembler diffed against the pre-collapse binary — byte-identical"; §1 "ReadSymbolBody written + unit-tested."
+- **what:** The single-source-of-truth `Output`/`FileInfo`/`FuncDef`/`TypeDef` contract for repo structural analysis, plus `Analyse`/`AnalyseWithExclude` (the layer-1 AST walk) and `ReadSymbolBody` — the one shared implementation of symbol-body slicing, placed in BOTH module copies of `internal/analysis` (contextkit and chassis): body = file lines [StartLine, EndLine] inclusive, 1-indexed, exactly as the analyser recorded them; resolves bare names and receiver-qualified `Type.Method`; whole-file for a path with no `:Symbol`. `cmd/assembler`'s prior duplicate slicing (splitScope/locateSymbol/readLines) was collapsed onto it and proven byte-identical — "two copies of one convention is the drift this project keeps getting bitten by." Intentionally Go-only; a non-Go producer would fill the same contract behind the analyser adapter.
+- **sources:** contextkit/internal/analysis/types.go#header; contextkit/internal/analysis/analyse.go#header; contextkit/internal/analysis/symbolbody.go#header; docs019/RUNBOOK(31)_diagnosis_loop.md#1,#3; docs019/NOTES_running_synthesis_v3(32).md STATE DIGEST + DECISIONS
+- **relations:** analyser (CTXK-003); assembler (CTXK-004); diagnose_assemble_bundle (register/diagnosis-loop.md DIAG-027); Go analyser + call-graph neighbourhood (register/context-assembly.md CTXA-010)
+- **verify-later:** whether the chassis's diagnose_assemble_bundle action's old inline readSymbolBody stub has actually been replaced by a call to ReadSymbolBody; `internal/analysis/symbolbody.go` in both modules; `symbolbody_test.go`
+
+### CTXK-003 — analyser (cmd/analyser)
+- **status:** deployed
+- **status-evidence:** "thin CLI wrapper over analysis.AnalyseWithExclude — the same parsing primitive the in-cluster analyser adapter imports."
+- **what:** Walks a Go source tree and emits a structural-summary JSON (files, packages, imports, function/method signatures with callee names, struct/interface declarations with line ranges). Always skips vendor/, testdata/, hidden dirs, `*_test.go`, and `*(N).go` download-duplicates; takes an `-exclude` list for repos (like this one) that store archived copies of their own code under docs/.
+- **sources:** contextkit/cmd/analyser/main.go#header; contextkit/README.md
+- **relations:** internal/analysis (CTXK-002); code-indexer agent (register/context-assembly.md CTXA-015, the chassis-side counterpart); embed/resolve_targets (consume analyser JSON)
+- **verify-later:** confirm the in-cluster analyser adapter still calls `analysis.Analyse` (no-exclude) as documented
+
+### CTXK-004 — assembler (cmd/assembler)
+- **status:** deployed
+- **status-evidence:** "That's the whole thin slice working: analyser, constitution, assembler." (README_how_to_run_analyser.md)
+- **what:** Builds one paste-ready markdown bundle for a single task: consumes the analyser JSON, the repo (to pull full bodies by line range), the flat constitution, and a task+scope spec; renders constitution, task, in-scope code in full, neighbourhood signatures (same-package, capped ~60/package), schema (hand-fed), and a pointers note of what was omitted. `-step` (framing/implementation/debug) controls altitude — see register/context-assembly.md CTXA-004 for the design rationale behind that split.
+- **sources:** contextkit/cmd/assembler/main.go#header; contextkit/README_how_to_run_analyser.md; contextkit/001_more_potential_thin_slice_prompt.md
+- **relations:** internal/analysis symbol slicing (CTXK-002); bundle (CTXK-006, wraps it); altitude design (register/context-assembly.md CTXA-004); docselect/queryselect (CTXK-013, the chassis analogues for automatic doc/query selection instead of hand-specified scope)
+- **verify-later:** confirm the neighbourhood-signature cap and package-scoping behaviour match the design notes in 001_more_potential_thin_slice_prompt.md
+
+### CTXK-005 — dbcontext (cmd/dbcontext)
+- **status:** deployed
+- **status-evidence:** used directly in cmd/bundle/README.md's worked example (`-psql 'kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db'`); thin_slice(27) pipeline step 2 with worked flags.
+- **what:** Fetches DB context for a bundle by shelling out to a configurable `psql` — schema (`\d <table>`, complete and bounded), rows (multipass-sized SELECT: full if within cap, else sample + pointer query, never an unbounded dump), capabilities (`\dx`, `\df`), and runtime evidence (`-runtime-site`/`-runtime-page`: recent agent_error_log rows + site_work_items lifecycle). No Go DB driver; psql does the talking, so it inherits whatever connection role/permissions the operator supplies; queries are appended as `-c` args, not shell-interpolated.
+- **sources:** contextkit/cmd/dbcontext/main.go#header; docs019/RUNBOOK_thin_slice(27).md#dbcontext-flags
+- **relations:** bundle (CTXK-006, wraps it); sqlguard (part of CTXK-012, lints model-written queries elsewhere in the pipeline); multipass fetch design (register/context-assembly.md CTXA-005); diagnose_ro role (register/diagnosis-loop.md DIAG-014)
+- **verify-later:** whether the psql connection used in production is provisioned as a read-only role (the lint alone is not the safety boundary — the read-only transaction/role is)
+
+### CTXK-006 — bundle (cmd/bundle): orchestration wrapper and the pure-composer boundary
+- **status:** deployed
+- **status-evidence:** concrete real invocation against `gamesdesign.co.uk` in cmd/bundle/README.md; used by bundle_diagnosis_loop.sh, bundle_minilobby_trim2/3.sh, bundle_recreation_v1.sh; thin_slice(27) Done list "the cmd/bundle orchestration wrapper (gather via dbcontext → assemble, composer stays read-only)."
+- **what:** A thin orchestration wrapper around dbcontext + assembler: gathers read-only DB context (schema/capabilities/runtime evidence), writes each to a temp file, then invokes the assembler with those files wired in. The assembler itself is a PURE COMPOSER — it never runs SQL or chooses tables; `cmd/bundle` "triggers NOTHING — no builds, no spawns, no writes," keeping query execution inside the bounded read-only tool while offering "one command including the SQL." Automatic table-selection was deliberately deferred (must propose-then-confirm). `BundleGatherer` (`gatherer.go`) is the diagnosis loop's Gatherer adapter that shells out to this exact binary per iteration, translating a `Scope` into bundle flags — it adds no capability beyond what cmd/bundle already does.
+- **sources:** contextkit/cmd/bundle/main.go#header; contextkit/cmd/bundle/README.md; docs019/RUNBOOK_thin_slice(27).md#one-command,#assembler-boundary; contextkit/internal/diagnose/gatherer.go#header
+- **relations:** dbcontext (CTXK-005); assembler (CTXK-004); cmd/bundle usage-lore across workstreams (CTXK-015); diagnosis loop gatherer wiring (register/diagnosis-loop.md)
+- **verify-later:** `BundleGatherer.buildArgs` — confirm the flag set it constructs still matches this binary's real flags
+
+### CTXK-007 — embed (cmd/embed)
+- **status:** partial
+- **status-evidence:** "-local ... proves the pipeline (index → cosine → rank) WITHOUT a model, but is NOT semantic — use -ollama for real recall" (header).
+- **what:** Builds/queries a semantic vector index over the analyser's symbols — the recall layer for target resolution sitting above the lexical baseline (resolve_targets). Model-agnostic via an embedder interface: `-ollama` (real embeddings, e.g. nomic-embed-text) or `-local` (deterministic offline token-hashing stand-in for pipeline-proving only). Index and query must use the same embedder/vector space.
+- **sources:** contextkit/cmd/embed/main.go#header
+- **relations:** resolve_targets (CTXK-008); fuse (CTXK-009, RRF-merges embed's output with resolve_targets'); eval_targets (CTXK-010); code-indexer's ollama/nomic-embed-text pairing (register/context-assembly.md CTXA-015)
+- **verify-later:** whether production bundle-building actually runs `embed` with `-ollama` or still relies on the `-local` stand-in
+
+### CTXK-008 — resolve_targets (cmd/resolve_targets)
+- **status:** deployed
+- **status-evidence:** "the deterministic baseline — the layer that runs before any embeddings" (header); thin_slice(27) B4a decision "lexical (trigram + resolve_targets) carries the spine and embeddings are the tie-breaker."
+- **what:** A first-cut, lexical-overlap target resolver: given a task string and the analyser JSON, proposes ranked candidate symbols/files to `-scope` by matching the task's distinctive words against each symbol's name, path, and docstring. Does not decide — proposes a ranked candidate set for a human or the assembler to confirm. Built to answer "does semantic beat lexical for code" together with embed/fuse — the measured answer was no for this corpus (see register/context-engineering-principles.md CTXE-002).
+- **sources:** contextkit/cmd/resolve_targets/main.go#header; docs019/RUNBOOK_thin_slice(27).md#the-pipeline,#B4a-task-1
+- **relations:** embed (CTXK-007, semantic counterpart); fuse (CTXK-009); internal/candidates (CTXK-014, shared output contract); B4a ceiling (register/context-engineering-principles.md CTXE-002)
+- **verify-later:** —
+
+### CTXK-009 — fuse (cmd/fuse)
+- **status:** deployed
+- **status-evidence:** "score(item) = sum over lists of 1/(k + rank_in_list), k=60 (standard)" (header).
+- **what:** Merges ranked candidate lists (resolve_targets' lexical output + embed's semantic output) into one ranking via reciprocal-rank fusion (RRF), combining by RANK not score specifically because the lexical integer scores and semantic cosine scores aren't on a comparable scale. In production this in-Go tool never graduated — the hybrid fusion moved into SQL (constant k=60) as part of `lookup_code_symbols` (register/context-assembly.md CTXA-012).
+- **sources:** contextkit/cmd/fuse/main.go#header
+- **relations:** resolve_targets (CTXK-008); embed (CTXK-007); eval_targets (CTXK-010, scores fuse's output too); hybrid code retrieval in SQL (register/context-assembly.md CTXA-012)
+- **verify-later:** —
+
+### CTXK-010 — eval_targets (cmd/eval_targets) + ground-truth eval set + measurement-trap discipline
+- **status:** deployed
+- **status-evidence:** the ground-truth file contains a task tied to a "REAL fix (2026-01 chassis regression)" already applied, showing the harness is exercised against real cases; thin_slice(27) "THE TRAP (hit 2026-06-14): resolve_targets was run with a DIFFERENT task... eval then scored... a meaningless 0/2."
+- **what:** `eval_targets` scores a resolver's candidate list (`-json` output of resolve_targets/embed/fuse) against `groundtruth_targets.json`, a hand-authored map of tasks to the "expect" (decisive) and "also_useful" symbols a resolver must surface — turning "the fused list looks better" into numbers: recall@N over decisive symbols, and MRR contribution (rank of first decisive hit). Match is on `path:name`. The harness encodes hard-won measurement discipline: every eval binds the task string once, guards it against the truth file, uses ONE matched index for lexical and semantic, and forbids answer-vocabulary leaks in task wording (a leaked symbol name once contaminated the ceiling test) — three prior B4a attempts had failed on METHOD, not result, before these guards existed. The ground-truth file grew across versions: the `.orig` predecessor holds only the `skinner-box` task; the current file adds `silent-norebuild-resultspec`, drawn from a real, already-fixed chassis regression (result-spec singular vs plural output_field handling — see register/diagnosis-loop.md DIAG-025, the gamesdesign fixture).
+- **sources:** contextkit/cmd/eval_targets/main.go#header; contextkit/groundtruth_targets.json; contextkit/groundtruth_targets.json.orig; docs019/RUNBOOK_thin_slice(27).md#B4a-task-1,#B4a-task-2
+- **relations:** resolve_targets/embed/fuse (all scored by this, CTXK-007/008/009); instrument-skepticism doctrine (register/context-engineering-principles.md CTXE-004); B4a ceiling (register/context-engineering-principles.md CTXE-002); gamesdesign resolveResultSpec fixture (register/diagnosis-loop.md DIAG-025)
+- **verify-later:** platform code for `result_spec.go:resolveResultSpec` / `coordinator.go:extractWorkflowResult` — confirm the fix described is actually live
+
+### CTXK-011 — diagnose (cmd/diagnose): the CLI dev/test harness
+- **status:** partial
+- **status-evidence:** "THE VERDICT STEP IS NOT THE REAL MODEL HERE... a chassis-side follow-on (needs a model). This entrypoint ships two stand-ins" (header); HANDOFF_vonc_write_site_spec gives a full re-run command with -seed-hypothesis/-dry-bundle.
+- **what:** Wires the diagnosis-loop scaffold (`internal/diagnose`, CTXK-012) to real adapters — `BundleGatherer` (shells to cmd/bundle, read-only) and `AnalysisCallGraph` (follows the analyser's `calls` for re-scope). The verdict step is stubbed (either a scripted JSON array of verdicts for testing, or a trivial always-UNVERIFIABLE default) since the real cite-or-abstain LLM verdicter needs a model and lives chassis-side. Flags: `-analysis` (callgraph json), `-constitution`, `-psql` (read-only runtime gather: agent_error_log, site_work_items), `-seed-hypothesis`/`-seed-scope`, `-runtime-site`/`-page`, `-verdict-script`, producing per-iteration bundles (`/tmp/diag_bundle_N.md`, `bundle-<id>/runtime.md`). Explicitly read-only and human-gated: emits a diagnosis + evidence trail, never a fix, never a triggered run. A typical intended workflow: the CLI harness gathers evidence, and a fresh session re-scopes and reads the real code from it.
+- **sources:** contextkit/cmd/diagnose/main.go#header; docs/HANDOFF_vonc_write_site_spec_spec_data.md#how-to-get-the-evidence
+- **relations:** internal/diagnose scaffold (CTXK-012); fix-loop workstream (the diagnose→fix pipeline this scaffold feeds, register/diagnosis-loop.md); cmd/bundle (CTXK-006)
+- **verify-later:** docs024_key_docs_latest/fixloop_eg_dartsonline/ for whether/how a real LLM verdicter has since been wired in chassis-side; cmd/diagnose flags vs docs019 contextkit docs
+
+### CTXK-012 — internal/diagnose scaffold package (loop.go, step.go, advance.go, callgraph.go, verdict_wire.go, sqlguard.go)
+- **status:** partial
+- **status-evidence:** "WHAT LIVES HERE (deterministic, testable without a model): loop control, the guards..., the evidence trail, and the re-scope mechanism. WHAT DOES NOT... the Verdict step" (loop.go header); backed by loop_test.go, loop_datarequest_test.go, loop_scopeguard_test.go, step_test.go, advance_test.go.
+- **what:** The Go implementation files behind the diagnosis loop's tested scaffold (the BEHAVIOURAL contracts these implement are catalogued in register/diagnosis-loop.md; this entry is the file-level map). `loop.go` wraps a read-only gather step around a pluggable verdict step and enforces the convergence guards (register/diagnosis-loop.md DIAG-004). `step.go`'s `DecideStep` extracts the per-iteration decision (given iteration state, a verdict, the call graph, and guard memory) as one pure function shared by the standalone `Run()` loop and the chassis-facing wrapper — one source of truth instead of two logic copies that could drift. `advance.go`'s `LoopState`/`Advance()` is that chassis-facing wrapper: since the production loop is `gather → verdict step → diagnose_route → back | emit` rather than an in-process loop, LoopState threads memory across workflow steps via `collected_data`, with `EncodeLoopState`/`DecodeLoopState` for the JSON round-trip (register/diagnosis-loop.md DIAG-017, DIAG-026). `callgraph.go`'s `AnalysisCallGraph` follows the analyser's name-based `calls` field for re-scope, deliberately dropping ubiquitous names (register/diagnosis-loop.md DIAG-007). `verdict_wire.go` is the JSON wire format seam between the model prompt and the domain Verdict type (register/diagnosis-loop.md DIAG-003) — "if the prompt's output schema and this struct ever drift, the loop breaks at this join," so it is tested against example model outputs. `sqlguard.go`'s `IsReadOnlySQL` is a cheap pre-flight lint, explicitly documented as NOT the safety boundary (register/diagnosis-loop.md DIAG-009/DIAG-013) — the real guarantee is the execution substrate (read-only transaction/role) plus statement_timeout.
+- **sources:** contextkit/internal/diagnose/loop.go#header; contextkit/internal/diagnose/step.go#header + step_test.go; contextkit/internal/diagnose/advance.go#header + advance_test.go; contextkit/internal/diagnose/callgraph.go#header; contextkit/internal/diagnose/verdict_wire.go#header + verdict_wire_test.go; contextkit/internal/diagnose/sqlguard.go#header + sqlguard_literal_test.go; contextkit/internal/diagnose/loop_scopeguard_test.go#header; contextkit/internal/diagnose/loop_datarequest_test.go#header
+- **relations:** the full behavioural catalogue lives in register/diagnosis-loop.md (DIAG-001 through DIAG-018 especially); docselect/queryselect (CTXK-013); diagnose (cmd/diagnose, CTXK-011, the harness that wires this in)
+- **verify-later:** whether the guard-vs-expansion bugfix (run 17933a83) and the data_request evidence-growth fix (loop_datarequest_test.go, "truncated the live gamesdesign runs at iteration 3") are reflected in the currently-deployed chassis diagnose_route action; confirm the chassis diagnose_run/step path actually calls this shared Step()/DecideStep rather than a re-implementation
+
+### CTXK-013 — docselect / queryselect: per-hypothesis doc and query selection
+- **status:** deployed
+- **status-evidence:** "Selection is DETERMINISTIC and testable... so it can be exercised without a model. It is a HEURISTIC (keyword/path substring)" (docselect.go header); "the queries are HAND-WRITTEN, parameterised, and \d-verified ONCE; the loop only SELECTS among them by hypothesis. The model never writes SQL." (queryselect.go header); docselect_test.go and queryselect_test.go both exercise keyword/always/path-glob rules.
+- **what:** A pure, tested, per-iteration selector pair (`SelectDocs`/`SelectQueries`, sharing helpers) that pulls task-specific reference documents (`docselect.go`: the 003 contract sections, 016 §9 entries, dev-guide sections) or vetted read-only SQL query templates (`queryselect.go`, the data analogue — presented as THE safety boundary for runtime evidence at the time it was the only DB-evidence path, distinct from sqlguard's lint-only role) into the CURRENT iteration's bundle only when their keywords/path-globs/`Always` flag match the current hypothesis/scope — rather than dumping every doc into every bundle, the "irrelevant context buries the signal" failure mode. Queries bind to context already in input_data/seed (site_id, domain, page, correlation_id), so no wire-format change or model-supplied SQL parameters were needed for this layer. A future extension is floated but not built: letting the verdict NAME a needed doc via a `needed_docs` field mirroring `needed_evidence`/`next_scope`.
+- **sources:** contextkit/internal/diagnose/docselect.go#header + docselect_test.go; contextkit/internal/diagnose/queryselect.go#header + queryselect_test.go; docs019/NOTES_running_synthesis_v2(36).md 2026-06-17 "per-hypothesis -doc selection wired into the loop"
+- **relations:** thin_slice_constitution.md (the always-on layer this supplements); data_requests channel (register/diagnosis-loop.md DIAG-010, the model-written-SQL layer that came later); context substrate/anti-bloat principle (register/context-engineering-principles.md CTXE-001)
+- **verify-later:** —
+
+### CTXK-014 — ranked-candidate contract (internal/candidates)
+- **status:** deployed
+- **status-evidence:** "Defined once here so the shape isn't re-declared as `candFile`/`jc` in each tool." (header)
+- **what:** The shared `Candidate`/`File` JSON contract (`path`, `name`, `kind`, `score` as float64, `rank`, `task`, `method`) that resolve_targets, embed, and fuse all emit with `-json`, and that fuse and eval_targets read — replacing what used to be duplicated per-tool struct definitions.
+- **sources:** contextkit/internal/candidates/types.go#header
+- **relations:** resolve_targets (CTXK-008); embed (CTXK-007); fuse (CTXK-009); eval_targets (CTXK-010)
+- **verify-later:** —
+
+### CTXK-015 — cmd/bundle operational usage lore across workstreams
+- **status:** deployed
+- **status-evidence:** Used for bundles across at least six independent workstreams (idea.uk section-data, content-quality/phantom-CTA, travelling-docs toolgen bug + recreation, vonc/leopardess mini-lobby verdict), each recording its own hard-won operational notes.
+- **what:** The accumulated field lore of actually running `cmd/bundle`/`contextkit` day to day, repeated near-identically across many unrelated bug threads (the single most-duplicated raw material in this cluster): resolve an action's file from the REGISTRY (key → Handler: symbol → function definition) via `resolve_action`, never from filename convention — `execute_llm_prompt` lives in `ai_actions.go`; `validate_page_content.go` lacks the `_action` suffix; a naive grep once missed paths by excluding the one file (registry.go) where the authoritative name→type mapping lives, so `bundle_recreation_v1.sh`'s `resolve_action` helper falls back through constructor-name CamelCasing and a last-resort whole-tree search, printing grep candidates on a miss rather than failing hard. Scope a dedicated `<key>_action.go` file WHOLE but a shared file BY SYMBOL, to avoid attention dilution. Run from inside contextkit with absolute `-analysis`/`-constitution`/`-doc`/`-out` paths and root-relative `-scope`; prefer an authored runbook's invocation over an example's shorthand. `-step framing` yields signatures only and can surprise a reader expecting source (use `-step debug`); `-doc` paths silently fail if wrong, so must be ls-verified first; bundles can arrive as thin slices with runtime data excluded, so live queries still need running separately; the bundle includes an `agent_error_log` "Recent errors" section that has settled more than one diagnosis by itself. The pattern is used both for ordinary bug investigation and as a gate before any edit whose supported method is unclear — "that is a code question → a bundle" — producing a written VERDICT of the deciding questions before anything is touched.
+- **sources:** 001_bundling_context.md; RUNBOOK_scheme_to_components(50).md#Bundle-command; running_notes_scheme_to_components(55).md#Sa,#Sh; game_lost_its_tool/001_context; phantom_hero_ctas/001_context; HANDOFF_page_pipeline(11).md#11; bundle_recreation_v1(1).sh#header,#resolve_action; RUNNING_NOTES_travelling_docs(39).md#rev44; HANDOFF_2026-07-08...md#§6; docs/RUNNING_NOTES_vonc_v2(28).md#2026-07-09-bundle-v1→v4; docs/social001_vonc_tiktok_social/minilobby_task/VERDICT_minilobby_trim_method.md
+- **relations:** bundle (cmd/bundle, CTXK-006); cmd/bundle robustness contract (register/context-assembly.md CTXA-019); docubundle/package_*.sh alternative practice (register/context-pack-tooling.md)
+- **verify-later:** contextkit_bundle_issues.md; whether the runtime-errors section is a standard bundle feature
+
+### CTXK-016 — contextkit bundle regeneration procedure
+- **status:** deployed
+- **status-evidence:** "verified end-to-end 2026-07-09... 306,897 B, 468 files analysed, all three gathers succeeded" (fixloop RUNBOOK(10)#REGENERATING THE CONTEXT BUNDLE).
+- **what:** The documented, tested procedure for regenerating a human/chat-facing evidence bundle via the `contextkit` CLI (a separate Go module, not the live loop's in-cluster assembler): run the analyser with excludes, then `bundle` with `-psql` passed as ONE quoted argument and `-schema-tables` including the tables relevant to the bug at hand. This bundle is for HUMANS reviewing a fix-loop run; the live loop's own retrieval is a separate, in-process mechanism (register/diagnosis-loop.md).
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#REGENERATING THE CONTEXT BUNDLE; fixloop_eg_dartsonline/HANDOFF_fixloop_thread(8).md#CODE CONTEXT
+- **relations:** bundle (cmd/bundle, CTXK-006); blinding discipline; fix-loop F0 hardening family (register/diagnosis-loop.md)
+- **verify-later:** grep/inspect `contextkit`; `-psql`; `-schema-tables`
+
+### CTXK-017 — Dogfooding bundle for building the diagnosis loop itself (bundle_diagnosis_loop.sh)
+- **status:** aspirational
+- **status-evidence:** "CONFIRM BEFORE RUNNING (flagged — I could not verify these from the mounted files; only the contextkit engine .go files were available)... the four diagnose actions are DRAFTS (chassis-drafts/). If they are not yet committed to ~/projects/agentchassis AND re-analysed into chassis_clean.json, cmd/bundle will SKIP those -scope entries" (header).
+- **what:** A read-only bundle recipe whose SUBJECT is the diagnosis loop's own code (its decisive symbols + the four diagnose actions + governing docs + the constitution), for continuing the loop's own gated build in a fresh chat/sub-agent without re-reading the whole tree — a self-referential use of the tool it is building context about. Self-flags an unverified assumption: the four action files may only exist as drafts not yet analysed into the chassis index.
+- **sources:** contextkit/bundle_diagnosis_loop.sh#header
+- **relations:** internal/diagnose scaffold (CTXK-012); bundle (CTXK-006); diagnose (cmd/diagnose, CTXK-011)
+- **verify-later:** whether the "four diagnose actions" referenced are now committed to agentchassis proper (outside chassis-drafts/)

@@ -1,0 +1,67 @@
+# Register — payments
+
+8 concepts, consolidated from 24 raw extractions across units U04, U13, U22, U24e. (The cluster input file contained this category's raw blocks twice, back-to-back and byte-identical, in addition to genuine cross-unit duplication — both kinds are merged below. Several pairs of raw concepts describing the same underlying Stripe/billing design from different units were merged into single entries: idea.uk's proven Stripe implementation was independently extracted by U04 and U24e; the chassis-wide "client_entitlements cache" plan was independently extracted by U04 and U24e; and the standalone "webhook-as-only-source-of-truth" design principle (U13) was folded into the chassis-wide plan entry it motivates. A "Commercial model + entitlement seams" synthesis from U22 that restated the entitlement-gate design was folded into PAY-003 as an additional detail rather than kept as a separate entry.)
+
+### PAY-001 — Stripe webhook-as-truth payments pattern (idea.uk implementation)
+- **status:** deployed
+- **status-evidence:** Live £29 payments proven end-to-end 2026-06-14 (incl. resolving a stray-character webhook-secret incident, recovered by resending the event); full setup documented from the real Stripe dashboards; independently confirmed by a second extraction unit describing the same live incident and account IDs.
+- **what:** The reference payments pattern proven by idea.uk: entitlement/fulfilment granted only on a signature-verified `checkout.session.completed` event (browser redirects prove nothing); webhook handling idempotent via an event-dedup table (deduped by event id); a restricted API key scoped to Checkout Sessions:Write only (least privilege — no refunds, no customer/product read access needed since Checkout uses inline `price_data`); test and live are separate accounts with separate webhook destinations and secrets ("a sandbox webhook does not cover live"); the signing secret must be byte-exact (one pasted stray character 400'd every event and stalled a paid order); Stripe keeps its fee on refunds; refunds are manual-only in the dashboard (no `/refund` endpoint exists); no SDK — raw HTTP + HMAC-SHA256 verify (constant-time compare) over timestamp+body. Presented explicitly as the lightweight, one-off-payment realisation of the same principles as the full chassis-wide Stripe plan (PAY-002), with a FakeProvider swap for local testing.
+- **sources:** idea.uk/RUNBOOK_idea_uk(9).md (Stripe billing — setup + troubleshooting); idea.uk/RUNBOOK_idea_uk(10).md §"Stripe billing — setup" (webhook destination IDs, account IDs `acct_1RNfPY08YuzM2cqf` test / `acct_1RNfPL02nQ76FNif` live); idea.uk/PLAN_stripe_billing_integration(3).md (idea.uk reference block); idea.uk/golang_files/billing.go (header)
+- **relations:** PAY-002 chassis-wide Stripe billing integration plan (generalizes this pattern); IDEA-006 request-then-confirm flow; PAY-008 REVIEW_BEFORE_PAY billing flow
+- **verify-later:** billing.go webhook verify (HMAC-SHA256 over timestamp+body, constant-time compare)
+
+### PAY-002 — Chassis-wide Stripe billing integration plan (auth-service truth + client_entitlements cache)
+- **status:** aspirational
+- **status-evidence:** Every DDL in the plan is explicitly marked PROPOSED; doc self-describes "Schema caveat: this plan is written from the auth subscription Go models, not the auth DB migrations". Independently extracted twice (once from the live doc, once from a packaged docubundle context-pack snapshot), with no claim of implementation for the chassis-wide version — idea.uk shipped only its own lighter variant (PAY-001) instead.
+- **what:** The designed-not-built chassis-wide billing architecture for the build/host/chat product: truth lives in the auth DB, mutated only by signature-verified webhooks (client-side success redirects must never grant entitlement — directly motivated by the audited finding that today `status = active` merely means "a row exists" with zero payment verification, see PAY-007); the chassis gates reads through a one-directionally-fed `client_entitlements` cache table (an entitlement-changed Kafka event plus a reconciliation sweep backstop), because the maintenance heartbeat must join across thousands of sites per tick and can't call auth synchronously. Two charge shapes: a recurring tier subscription per client, and a one-off $5 build credit (Checkout mode=payment, consumed via the atomic-claim idiom — see PAY-006). Build-submission gate reuses the `approval_mode` hold (see PAY-003); provider interface from day one (see PAY-005). idea.uk (PAY-001) is the cited working reference for the one-off path.
+- **sources:** idea.uk/PLAN_stripe_billing_integration(3).md; idea.uk/RUNBOOK_idea_uk(9).md (reference implementation); stripe/PLAN_stripe_billing_integration.md#§2,#§3,#Appendix; docubundle_idea_golive/package_module/output_contexts/PLAN_stripe_billing_integration.md (packaged context-pack snapshot)
+- **relations:** PAY-001 Stripe webhook-as-truth pattern (idea.uk's realisation of these principles); PAY-003 Entitlement gate architecture; PAY-005 Pluggable billing provider abstraction; PAY-007 Existing but non-functional auth-service subscription scaffold; admin-dashboard-and-api (auth service); scheduler heartbeats
+- **verify-later:** auth service repo subscriptions tables; any client_entitlements table (expect absent); entitlement-changed Kafka event/consumer (not built)
+
+### PAY-003 — Entitlement gate architecture (build-submission + maintenance-run gates)
+- **status:** aspirational
+- **status-evidence:** PLAN doc §8 describes both gates in the future tense as design; build order (§10) lists them as unbuilt steps; a separate synthesis of the same design (from a different unit) frames it as part of the platform's saleability model, confirming "live checkout-session creation and webhooks were not evident ... verify before relying."
+- **what:** Two entitlement checkpoints reusing existing chassis mechanisms: (1) build-submission gate — a new `pending_entitlement` hold state on `site_work_items.approval_mode` (mirroring the existing hitl/pending_review pattern), parking the first expensive work item until a billing check clears, with atomic credit consumption via the same UPDATE...RETURNING idiom as `claim_work_item`; (2) maintenance-run gate — a join-filter added to the three heartbeat selection queries requiring `maintenance_active`, valuable even before any domain is sold. A related synthesis frames ownership itself as reusing the existing clients→networks→sites hierarchy (re-parent network_id to sell) rather than needing a new owner_id column.
+- **sources:** stripe/PLAN_stripe_billing_integration.md#§8; stripe/001commentary.md#final turns; docs025.../PLAN_isolated_chat_environment(4).md#13; docs025.../PLAN_simple_paid_multidomain_chat(1).md#2
+- **relations:** PAY-004 Two-plane billing architecture; BIZ-014 Ownership hierarchy reuse for entitlement scoping; PAY-006 One-off credit vs recurring subscription billing model; BIZ-009 Building-and-hosting as a service via chat
+- **verify-later:** site_work_items.approval_mode values; build-pipeline-trigger/improvement-loop/content-feed-trigger selection SQL; heartbeat site-selection queries
+
+### PAY-004 — Two-plane billing architecture (auth-service truth + chassis entitlement cache)
+- **status:** aspirational
+- **status-evidence:** PLAN §3: "Truth = auth DB, mutated only by webhooks... Gate reads = chassis client_entitlements cache, fed one-directionally from auth" — all proposed, table marked PROPOSED.
+- **what:** Splits billing across two databases/services with one directional bridge: the auth service owns billing truth (subscriptions, credits, webhook-driven events); the chassis reads a local `client_entitlements` cache table fed by an entitlement-changed Kafka event plus a reconciliation sweep backstop — required because the maintenance heartbeat must join across thousands of sites per tick.
+- **sources:** stripe/PLAN_stripe_billing_integration.md#§3,§5
+- **relations:** PAY-003 Entitlement gate architecture; Isolated chat/satellite architecture (Y-copy); PAY-005 Pluggable billing provider abstraction
+- **verify-later:** proposed table client_entitlements; entitlement-changed Kafka event/consumer (not built)
+
+### PAY-005 — Pluggable billing provider abstraction (Stripe as implementation #1)
+- **status:** aspirational
+- **status-evidence:** PLAN §4 gives a full Go interface sketch explicitly labelled "Sketch, not final"; current code has "no Stripe SDK" imported at all.
+- **what:** A `Provider` interface (`EnsureCustomer`, `CreateSubscriptionCheckout`, `CreateOneOffCheckout`, `CreatePortalSession`, `CancelSubscription`, `ParseWebhook`) behind which Stripe is the first implementation, normalising provider-specific webhook payloads into a provider-agnostic `Event` type. Justified as "zero retrofit cost" specifically because no Stripe integration exists yet.
+- **sources:** stripe/PLAN_stripe_billing_integration.md#§4,#TL;DR
+- **relations:** PAY-004 Two-plane billing architecture; PAY-007 Existing but non-functional auth-service subscription scaffold; BIZ-005 Sale-readiness/separability discipline (idea.uk)
+- **verify-later:** internal/auth-service/subscription/{models,repository,service,handlers}.go
+
+### PAY-006 — One-off credit vs recurring subscription billing model
+- **status:** aspirational
+- **status-evidence:** PLAN §7 and §5 `billing_credits` DDL are both marked PROPOSED; no credit ledger exists in code.
+- **what:** Two distinct charge shapes: recurring (maintenance/tier subscription, reusing the existing but non-functional subscription scaffold) and one-off (the $5-per-site build and first-site-free grant, modelled as a `billing_credits` ledger — granted/consumed counts per client). Build proceeds only once a credit is atomically consumed via the entitlement gate.
+- **sources:** stripe/PLAN_stripe_billing_integration.md#§5,§7; stripe/001commentary.md#pricing discussion turn
+- **relations:** PAY-003 Entitlement gate architecture; PAY-007 Existing but non-functional auth-service subscription scaffold
+- **verify-later:** proposed billing_credits, billing_events tables (auth DB)
+
+### PAY-007 — Existing but non-functional auth-service subscription scaffold
+- **status:** partial
+- **status-evidence:** "GetUsageStats returns hardcoded zeros with the comment 'returning mock data,' which makes CheckQuota always pass... repository.go mixes ? (MySQL-style) placeholders... with $1 (Postgres-style)... a strong sign this module has never actually been exercised" — confirmed by direct code read; independently corroborated from the tools-workstream side ("Billing is scaffolded, not wired," correcting that same document's own earlier "billing largely exists" assumption).
+- **what:** A pre-existing `subscription` package in the auth service (models, repository, service, handlers) with a `subscriptions` table, tier constants (free/basic/premium/enterprise), `stripe_customer_id`/`stripe_subscription_id` columns, a `CheckoutSession` type, and JWT claims already carrying `client_id`+`tier` — all reusable — but verified as not wired: no Stripe SDK import anywhere, `CreateSubscription` is a bare insert with no payment step, no webhook handler exists, `CheckUsage`/`GetUsageStats` returns hardcoded zeros so quota checks always pass, and a placeholder-dialect inconsistency in `repository.go` is a strong sign the module has never run against a live database. Security consequence: any entitlement gate trusting `subscription.status` today only reflects "a row exists," not "payment cleared."
+- **sources:** stripe/PLAN_stripe_billing_integration.md#§1,§Appendix; stripe/001commentary.md#Stripe audit turn; tools/tool_widget_clobber/PLAN_isolated_chat_environment(5).md#13
+- **relations:** PAY-002 chassis-wide Stripe billing integration plan; PAY-005 Pluggable billing provider abstraction; BIZ-014 Ownership hierarchy reuse for entitlement scoping; PAY-003 Entitlement gate architecture
+- **verify-later:** internal/auth-service/subscription/{models,repository,service,handlers}.go; presence/absence of a Stripe webhook handler
+
+### PAY-008 — REVIEW_BEFORE_PAY billing flow supersedes charge-first flow (idea.uk)
+- **status:** partial
+- **status-evidence:** `RUNBOOK_idea_uk(10).md` "Status & operating update (2026-06-11)": "Supersedes the older Flow/Email/AUTO_DELIVER notes above where they differ... `REVIEW_BEFORE_PAY` (default on)."
+- **what:** idea.uk's original flow charged the customer first (Stripe Checkout), then ran the engine, then optionally held for operator review before emailing (`AUTO_DELIVER`). This was replaced by a `REVIEW_BEFORE_PAY` switch (default on): the operator's `/confirm` now runs the engine first and holds the draft for review; only after the operator approves does the buyer get a pay link — no money is taken until a human has seen the actual output. The original charge-first flow is kept as a fallback (`REVIEW_BEFORE_PAY=false`) "if engine cost ever spikes." A click-through token-based approve/decline UI (HMAC per order) was added on top to remove the need for curl+API-key.
+- **sources:** `RUNBOOK_idea_uk(10).md` "Status & operating update (2026-06-11)"
+- **relations:** IDEA-006 idea.uk service request-then-confirm flow (the order-state-machine angle on this same change); PAY-001 Stripe webhook-as-truth pattern; IDEA-008 click-through operator approval links
+- **verify-later:** `idea-go/service.go` `REVIEW_BEFORE_PAY` branch

@@ -1,0 +1,406 @@
+# Register — fix-loop
+
+50 concepts, consolidated from 123 raw extractions across units U08, U13, U14, U15, U16
+(note: U13's ~47 blocks and U16's autonomy-governance-tagged blocks appeared byte-identically
+twice within the cluster input file — treated as duplicate copies of the same extraction, not
+independent corroboration, and collapsed accordingly).
+
+### FIX-001 — Diagnosis→fix loop programme / council loop (F0–F3)
+- **status:** deployed
+- **status-evidence:** Originally a design proposal (2026-07-06/07, "DISCUSSION COMPLETE for F0/F1... CUTOVER-READY", no build claimed); by 2026-07-13 "PR #1 — github.com/gqls/agentchassis/pull/1 — APPROVED & MERGED" and "Today it did the whole thing, end to end, for the first time" (SUMMARY_where_we_are_2026-07-13.md).
+- **what:** The overarching workstream and its shipped end-to-end system: turning a plain-English bug symptom into a human-reviewed pull request via intake → read-only diagnosis (cite-or-abstain, three evidence tiers) → constrained fix plan → two-reviewer council with deterministic decision → dedicated-pod implementer behind a hard file allowlist → containerized build gate → PR. Phased as F0 (intake/observability/egress) → F1 (write step) → F2 (council + decision-maker) → F3 (learning, never built). Every stage writes to diagnosis_artifacts/orchestration_states keyed on one correlation_id so the whole run is auditable; human review is the terminal, nothing merges itself. Documented across multiple founding-to-milestone snapshots spanning the 2026-07-06 founding notes through the 2026-07-13 first fully proven end-to-end run.
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#THE TASK, fixloop_eg_dartsonline/SUMMARY_where_we_are_2026-07-13.md, fixloop_eg_dartsonline/README_so_far.md, docs019/RUNBOOK_diagnosis_fix_loop(9).md#the-task, NOTES_running_fixloop(9).md, HANDOFF_fixloop_thread(8).md
+- **relations:** all other fix-loop concepts in this register are sub-scopes of this one; docs026 concept-register's own consumer (council-agents stage)
+- **verify-later:** PR #1 on github.com/gqls/agentchassis; diagnosis_artifacts table contents on clients_db
+
+### FIX-002 — fix-proposer agent / constrained edit plan (F1.1a)
+- **status:** deployed
+- **status-evidence:** "F1.1a — ✅ BUILT 2026-07-10" (PLAN_fixloop_pilot.md); live agent seeded in 0NN_fix_proposer.sql; FYI addendum 2026-07-10 "a fix-proposer agent (F1.1a) now exists."
+- **what:** An agent_definitions workflow that loads a diagnosis by fix_correlation_id, refuses anything not CONFIRMED, and drafts a constrained edit plan (summary, ≤8 allowlisted edits with file/symbol/operation/rationale/sketch, grounded_in quotes required, risks) persisted to diagnosis_artifacts (kind='fix_plan'). It reads only orchestration_states/diagnosis_artifacts and writes no code — no git token needed.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#propose step, fixloop_eg_dartsonline/PLAN_fixloop_pilot.md §3b F1.1a, FYI_from_fixloop_2026-07-10_verdict_prompt_symptom_check.md#addendum
+- **relations:** diagnose_persist_fix_plan validator; two-reviewer council; CONFIRMED gate
+- **verify-later:** fix-proposer agent_definitions row, workflow version
+
+### FIX-003 — needs_diagnosis intake route (F0.1c)
+- **status:** deployed
+- **status-evidence:** "F0.1c — ✅ LANDED 2026-07-09" (PLAN_fixloop_pilot.md §1); earlier design decision "Q-B needs_diagnosis item in a NEW pipeline='diagnose' namespace" from 2026-07-07.
+- **what:** The one documented way a bug enters the loop: 090_TRIGGER_needs_diagnosis_v1.sh writes a durable site_work_items row (pipeline='diagnose', item_type='needs_diagnosis', status='awaiting_diagnosis') and fires the diagnose-orchestrator Kafka envelope on the same correlation_id, so the intake record, diagnosis_artifacts bundles, and terminal doc_notes row all join on one key. DISPATCH=0 records without firing; the older 084_TRIGGER_diagnose_v1.sh remains for ad-hoc runs with no intake record. item_key (needs_diagnosis:<slug>) plus idx_swi_dedup makes re-running the same slug idempotent while an intake is open. Rides the existing work-item dispatch + immune system, with anchorless (site-less) runs surviving via load_runtime error-routing (~26 min / 5 iterations observed).
+- **sources:** fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh, fixloop_eg_dartsonline/PLAN_fixloop_pilot.md#F0.1c, fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#Q-B CORRECTION, docs019/RUNBOOK_diagnosis_fix_loop(9).md#questions (Q-B)
+- **relations:** system.internal pseudo-site anchor pattern; private inert pipeline statuses pattern; diagnose-dispatch-loop; superseded null-site-allowed intake design
+- **verify-later:** site_work_items rows with pipeline='diagnose'; idx_swi_dedup index definition
+
+### FIX-004 — Superseded: null-site-allowed intake design
+- **status:** superseded
+- **status-evidence:** "Q-B CORRECTION (2026-07-09... 'Null-site allowed' is impossible" (RUNBOOK(10)#Q-B CORRECTION); original design in RUNBOOK(9)#QUESTIONS "null-site allowed".
+- **what:** The 2026-07-07 owner decision originally specified that site-less code bugs would "ride null-site" in the new diagnose pipeline namespace. Reading the live schema on 2026-07-09 showed this was structurally impossible twice over (NOT NULL column; site-anchored loader query), and it was replaced by the system.internal pseudo-site anchor pattern.
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(9).md#QUESTIONS, fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#Q-B CORRECTION, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 4
+- **relations:** system.internal pseudo-site anchor pattern; needs_diagnosis intake route
+- **verify-later:** n/a — superseded, no live code to check
+
+### FIX-005 — diagnosis_artifacts table (unified egress store)
+- **status:** deployed
+- **status-evidence:** "F0.1a — ✅ LANDED 2026-07-09" (PLAN_fixloop_pilot.md); kind list extended live via ALTER in 0NN_fix_proposer.sql v4/v5; originally decided 2026-07-07 as "Q-A diagnosis_artifacts table, written through inside assemble."
+- **what:** The durable, correlation_id-keyed egress table for the whole loop, with kind growing over time: bundle and iteration_note (F0.1a) → fix_plan (F1.1a) → council_report (F2.1) → escalation (F2.3). correlation_id is deliberately text not uuid (ExecutionContext.CorrelationID has no guaranteed form). A partial unique index on (correlation_id, iteration) WHERE kind='bundle' gives retry-safe upsert for bundles while allowing multiple iteration_note rows per iteration. doc_notes was considered and set aside for this purpose (notes are prose for humans; bundles are machine-replayable evidence with different retention). Carries a retention knob (expires_at/pinned) that is defined but has no sweep implemented yet.
+- **sources:** fixloop_eg_dartsonline/0NN_diagnosis_artifacts.sql, fixloop_eg_dartsonline/0NN_fix_proposer.sql#§1, fixloop_eg_dartsonline/PLAN_fixloop_pilot.md §F0.1a, docs019/RUNBOOK_diagnosis_fix_loop(9).md#questions (Q-A)
+- **relations:** bundle write-through; fix-proposer's fix_plan artifacts; council_report; escalation artifact; retention sweep (unbuilt)
+- **verify-later:** table DDL and CHECK constraints on clients_db; whether a retention sweep job exists
+
+### FIX-006 — Retention/expiry knob on diagnosis_artifacts
+- **status:** aspirational
+- **status-evidence:** "Retention knob. NULL = keep indefinitely. Sweep deletes WHERE expires_at < now() AND NOT pinned" (0NN_diagnosis_artifacts.sql comment) — no sweep job found in scope.
+- **what:** expires_at/pinned columns exist on diagnosis_artifacts (bundles configured to expire sooner than notes; NULL = keep forever), and a partial index exists to support a future deletion sweep, but no sweep job/scheduled task was found anywhere in this extraction's file set. The mechanism is designed but not built.
+- **sources:** fixloop_eg_dartsonline/0NN_diagnosis_artifacts.sql#idx_diagnosis_artifacts_expiry
+- **relations:** diagnosis_artifacts table
+- **verify-later:** search codebase/scheduled_tasks for any retention-sweep job referencing diagnosis_artifacts
+
+### FIX-007 — Known-answer benchmark methodology
+- **status:** deployed
+- **status-evidence:** "Benchmark method validated end-to-end: same symptom, one variable cluster, measurable delta" (NOTES(10)#Turn 10).
+- **what:** When a candidate bug's mechanism is dissolved by the mandatory cheap pre-check (three candidates in a row were), the pilot is promoted from a "discovery run" to a "known-answer benchmark": the loop is run blind on the original symptom string and scored against a pre-registered rubric of must/should/bonus claims fixed before the run, including a "refutation credit" penalizing confirmation of a known-false standing hypothesis. Produced a repeatable, gradable evaluation across five runs, each of which found and fixed a real engine defect.
+- **sources:** fixloop_eg_dartsonline/PLAN_fixloop_pilot.md §0, §3, fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#AMENDMENT 2026-07-09, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 1
+- **relations:** loop-worthiness test doctrine; blinding discipline; dartsonline guides pilot selection history
+- **verify-later:** rubric table in PLAN_fixloop_pilot.md §3
+
+### FIX-008 — Dartsonline guides pilot selection history (three candidates + confirmed pilot)
+- **status:** deployed
+- **status-evidence:** "★ THE PILOT IS CONFIRMED (2026-07-07)... Two earlier candidates were rejected... that triage history is itself the worthiness test working" (HANDOFF_fixloop_thread(8).md); "Chrome pilot EVAPORATED (fixed live)" (RUNBOOK(9)).
+- **what:** Three earlier pilot candidates were considered and dropped before the dartsonline guides bug was chosen as the F0 pilot: (1) dartsonline pages lacking site chrome, fixed live before the loop ran (a perishability lesson); (2) a "no submission path produces a roadmap" gap, reclassified as a known platform gap and routed to the builder queue since a human found it by reading two files; (3) a blank guides-index fork where the guide-writing mechanism's existence was unverified. The confirmed pilot: dartsonline published a Guides nav link and blank /guides/index.html while gamesdesign (same platform) has working guides — a two-site differential, the strongest evidence shape — with a standing hypothesis that reconcile_site_plan's routing table has no "guide" entry so planner-emitted guide pages were silently dropped while nav (generated from the plan, not the built set) still published the link.
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(9).md#F0 PILOT ORIGINAL RECORD, #SUPERSEDED CANDIDATE 2, #PREVIOUS F0 PILOT #1, docs019/RUNBOOK_diagnosis_fix_loop(9).md#f0-pilot, HANDOFF_fixloop_thread(8).md, HANDOFF_fixloop_thread(3)-(5).md
+- **relations:** loop-worthiness test doctrine; standing hypothesis refuted; roadmap/phases mechanism
+- **verify-later:** load_work_item_actions.go routing table; the pilot's run artifacts
+
+### FIX-009 — Blinding discipline for benchmark runs
+- **status:** deployed
+- **status-evidence:** "BLINDING IS MANDATORY... Exclude .../fixloop_eg_dartsonline/ from the loop's corpus" (RUNBOOK(10)#★ F0 PILOT).
+- **what:** Established that the diagnose-agent workflow structurally cannot read this docs directory (it walks Go source and DB rows only), so blinding is largely automatic; the only two leak vectors are the symptom string (must describe only observable behaviour) and seed_scope (must be omitted entirely for a benchmark run).
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#REGENERATING THE CONTEXT BUNDLE §BLINDING, fixloop_eg_dartsonline/PLAN_fixloop_pilot.md §3
+- **relations:** known-answer benchmark methodology
+- **verify-later:** diagnose-agent workflow JSON — confirm no doc-reading step was later added
+
+### FIX-010 — Standing hypothesis refuted (reconcile_site_plan routing table)
+- **status:** superseded
+- **status-evidence:** "THE STANDING HYPOTHESIS IS REFUTED — and it named the wrong file" (NOTES(10)#Turn 1).
+- **what:** The original hypothesis blamed reconcile_site_plan's routing table for silently dropping "guide" pages. Hand-diagnosis on 2026-07-09 showed the routing table is real but lives in WriteBuildItemsAction, and absence from it does not drop a page (it defaults to page-build-handler); the actual drop mechanism is a separate unavailableBuilders map, and reconcile_site_plan_action.go has no type switch at all. Retained specifically because a hypothesis a loop should refuse to confirm is exactly the kind of "superseded" idea the register wants captured.
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(9).md#★ F0 PILOT, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 1
+- **relations:** dartsonline guides pilot selection history; two intake paths disagreement
+- **verify-later:** grep/inspect reconcile_site_plan; WriteBuildItemsAction; unavailableBuilders
+
+### FIX-011 — Two intake paths disagreement (WriteBuildItemsAction vs reconcile_site_plan)
+- **status:** deployed (documented finding, not fixed — routed to builder thread)
+- **status-evidence:** "Fourth finding (unlooked-for): the two intake paths disagree" (NOTES(10)#Turn 1).
+- **what:** WriteBuildItemsAction deliberately skips tool/entity-directory/entity-page page types via an unavailableBuilders guard, while reconcile_site_plan_action.go hardcodes handler_agent='page-build-handler' for every plan page with no type switch at all, so it re-emits build items for the very types the other path skips. Flagged as a builder-thread decision, not fixed here.
+- **sources:** fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 1, fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#★ F0 PILOT
+- **relations:** dartsonline guides pilot selection history; pipeline-blind dispatch surfaces
+- **verify-later:** grep/inspect WriteBuildItemsAction; tool; entity-directory
+
+### FIX-012 — mark_no_sections — referenced-but-never-built step
+- **status:** abandoned
+- **status-evidence:** "mark_no_sections does not exist... appears nowhere in the repo but that one comment" (NOTES(10)#Turn 1).
+- **what:** A code comment at load_work_item_actions.go:750-756 names a remedy step mark_no_sections that would flag a sectionless page's work item needs_human_review — but the step was never implemented; it appears nowhere else in the repo. The completion guard that would consume its flag faithfully preserves a flag nothing ever sets.
+- **sources:** fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 1, fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#★ F0 PILOT
+- **relations:** dartsonline guides pilot selection history
+- **verify-later:** grep for mark_no_sections in current repo
+
+### FIX-013 — Plan validation / hard allowlist for edit plans (diagnose_persist_fix_plan)
+- **status:** deployed
+- **status-evidence:** "structural validation... UNLIKE the bundle write-through this FAILS the step on bad input" (NOTES(10)#Turn 15).
+- **what:** A deterministic Go action validating a proposer's plan before persisting it: non-empty summary/edits/rationale/sketch, operations restricted to modify|add|remove|config_change, repo-relative paths only, ≤8 edits, grounded_in quotes required, 32KB cap — plus (F1.1b(a)) rejection of explicit no-op phrases so edits that change nothing cannot pass as real edits. Fails closed; fired correctly on the first two real fix-proposer runs (max_tokens truncation).
+- **sources:** fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 15, #Turn 16, #Turn 18
+- **relations:** fix-proposer agent; hard file allowlist (implementer's analogous gate)
+- **verify-later:** grep/inspect modify|add|remove|config_change; grounded_in
+
+### FIX-014 — Two-reviewer council (F2.1)
+- **status:** deployed
+- **status-evidence:** "F2.1 — ✅ PROVEN LIVE 2026-07-10" (PLAN_fixloop_pilot.md).
+- **what:** Two sequential LLM reviewer steps plus a deterministic Go decision — not a third model opinion about two model opinions. review_editquality judges whether every edit changes something real and targets the actual causal path; review_guardian judges blast radius, architecture-change signals, and surface ownership, and alone holds the hard veto. Both attach optional checks:[{sql,why}]. First live run judged real objections correctly rather than rubber-stamping.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#review_editquality, #review_guardian, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 18-19
+- **relations:** deterministic council decision + hard veto; verify step; schema hint for reviewers; council roster expansion vision
+- **verify-later:** grep/inspect review_editquality; review_guardian; checks:[{sql,why}]
+
+### FIX-015 — Deterministic council decision + hard veto (diagnose_council_decide)
+- **status:** deployed
+- **status-evidence:** "diagnose_council_decide: ordered rules (hard veto → rejected; any veto → rejected; any objection → revise; all approve → approved)" (NOTES(10)#Turn 18).
+- **what:** A pure Go action aggregates the two reviewers' verdicts deterministically, auditable and reproducible. hard_veto_from is currently a flag in the workflow step config naming the guardian reviewer as sole veto-holder; whether it should instead live on a reviewer/pipeline definition column remains an open sub-question (Q-D). Malformed reviewer output fails closed.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#council_decide, fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#STILL OPEN Q-D
+- **relations:** two-reviewer council; hard-veto flag at multiple scopes (superseded early design); decision router (F2.3)
+- **verify-later:** grep/inspect hard_veto_from
+
+### FIX-016 — Hard-veto flag at multiple scopes — early design (superseded)
+- **status:** superseded
+- **status-evidence:** owner decision 2026-07-07: "hard_veto flag, attachable at multiple scopes (a reviewer agent, a pipeline, a specific tool/component)" (RUNBOOK(9)#Q-D) — actual shipped implementation (F2.1, 2026-07-10) is a single hard_veto_from list in one workflow step's config.
+- **what:** The original council design envisioned a hard_veto flag placeable at reviewer, pipeline, tool, or component scope — parallel reviewers feed a decision-maker by default (advisory) except where the flag converts a negative verdict into a block — motivated by accessibility/legal review cases. What was actually built (F2.1) is narrower: a single hard_veto_from: ["guardian"] array in the fix-proposer's council_decide step config. A guidelines-reviewer "the guideline itself fell short" finding was designed to lean side-task (gap, not violation), not block. The broader multi-scope placement remains an open sub-question of Q-D.
+- **sources:** docs019/RUNBOOK_diagnosis_fix_loop(9).md#questions (Q-D), NOTES_running_fixloop(9).md "Q-D veto semantics decided", fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(9).md#Q-D, fixloop_eg_dartsonline/0NN_fix_proposer.sql#council_decide config
+- **relations:** deterministic council decision + hard veto; council roster expansion vision; learning layer (guideline-gap side-task)
+- **verify-later:** grep/inspect hard_veto_from: ["guardian"]; council_decide
+
+### FIX-017 — Revise loop (F2.2)
+- **status:** deployed
+- **status-evidence:** "F2.2 REVISE LOOP — ✅ BUILT 2026-07-10" (PLAN_fixloop_pilot.md).
+- **what:** On a revise decision with rounds remaining, feeds the diagnosis, prior plan, and both reviewers' objections back into a repropose step, then re-validates and re-reviews (capped, default 2, later 3). Exhausting the cap becomes a distinct terminal state exhausted. Round counting is scoped per orchestration_id (proposer run), not per correlation_id — an earlier per-correlation design flaw was caught mid-implementation and fixed, then found still live on the deployed binary for one further round (see round-counting scope bug).
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#council_decide/check_revise, fixloop_eg_dartsonline/HANDOFF_turn21_2026-07-10.md#Session 20 Summary
+- **relations:** decision router (F2.3); round-counting scope bug
+- **verify-later:** grep/inspect revise; repropose; exhausted
+
+### FIX-018 — Decision router (F2.3)
+- **status:** deployed
+- **status-evidence:** "F2.3 DECISION ROUTER + VERIFY + REFRAME + ESCALATION — ✅ CODE BUILT 2026-07-10... PROVEN live" v1.0.1108 (PLAN_fixloop_pilot.md).
+- **what:** Replaces the single revise/complete branch with a full router: approved→complete; revise with rounds left→verify checks→repropose; rejected first time with rounds left→reframe-once; rejected again or exhausted→escalate. Motivated by two clean benchmark runs exposing two dead-ends. Flags are computed by a pure, directly-tested Go function applyCouncilCaps.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#check_approved/check_rejected/check_reframe/check_revise, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 22
+- **relations:** revise loop; verify step; reframe step; escalation artifact
+- **verify-later:** grep/inspect approved; revise; rejected
+
+### FIX-019 — Verify step (diagnose_run_checks)
+- **status:** deployed
+- **status-evidence:** "Verify step ran 7 reviewer checks under the containment" (NOTES(10)#Turn 23).
+- **what:** Reviewers attach checks:[{sql,why}] (SELECT/WITH only) to their verdicts; this action executes them under the same read-only containment the diagnosis loop's data_requests use (lint → READ ONLY transaction → statement_timeout → EXPLAIN gate → capped rows), and feeds results into the next repropose so fact-shaped objections are settled with evidence instead of another blind revision round. Capped at 8 checks by default.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#run_checks, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 22, #Turn 23
+- **relations:** decision router; schema hint for reviewers
+- **verify-later:** grep/inspect checks:[{sql,why}]
+
+### FIX-020 — Schema hint for reviewers (F2.3b(a))
+- **status:** deployed
+- **status-evidence:** "Verification run 1e221fb7: 8 checks run, 0 failures (prior run: 5 of 7 failed on hallucinated schema)" (NOTES(10)#Turn 24).
+- **what:** A load_schema_hint query_database step pulls the live table/column list from information_schema at run time, and both reviewer prompts get this hint plus two named traps (workflow steps live in agent_definitions.default_config jsonb, not a steps table; a site's domain lives on sites joined via pages.site_id). Fixes a discovered defect where 5 of 7 reviewer-written verification SQL checks failed on hallucinated columns/tables.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#load_schema_hint, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 23, #Turn 24
+- **relations:** verify step; two-reviewer council
+- **verify-later:** grep/inspect load_schema_hint; information_schema; agent_definitions.default_config
+
+### FIX-021 — Reframe step (post-veto)
+- **status:** partial
+- **status-evidence:** "Reframe path is unit-tested but has never fired live (no veto since v4)" (HANDOFF_CURRENT_fixloop.md#State snapshot).
+- **what:** After a guardian veto with rounds remaining, makes one attempt to reframe rather than reproposing the same shape: either a strictly narrower remediation (site-scoped interim fix allowed only if risks names the deferred structural fix) or an explicit "needs architecture review" declaration plus a minimal safe interim step. Capped at one attempt; built and unit-tested but has not fired live since v4 shipped.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#reframe, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 22, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md
+- **relations:** decision router; escalation artifact; guardian veto surfacing architecture-level fix
+- **verify-later:** n/a — process/design record, no separate code artifact beyond what is already cited in sources
+
+### FIX-022 — Escalation as first-class success terminal (diagnose_escalate)
+- **status:** deployed
+- **status-evidence:** "Escalation package persisted (kind=escalation)... The dead-end is now a hand-off" (NOTES(10)#Turn 23); design principle stated earlier: "'this is beyond my mandate' is a correct output, packaged for you" (README_02).
+- **what:** When a plan is rejected-again or a revise budget is exhausted, the run persists a kind='escalation' artifact (decision, reason, round, diagnosis conclusion, final plan, both reviews) and completes via a distinct complete_escalated success terminal. Explicitly designed so "needs a human/architecture review" is a correct, successful output rather than a failure — the organisational analogue of UNVERIFIABLE-beats-guessing. The council produced exactly this on the test bug three times before the design was formalised.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#escalate/complete_escalated, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 22, README_02_evidence_backed_proposals.md
+- **relations:** decision router; reframe step; dartsonline guides pilot selection history
+- **verify-later:** grep/inspect kind='escalation'; complete_escalated
+
+### FIX-023 — Write step / fix-implementer agent (F1.1b(c))
+- **status:** deployed
+- **status-evidence:** "F1.1b(c): branch + PR — ✅ COMPLETE & PROVEN 2026-07-13 (PR #1 opened & merged)" (PLAN_fixloop_pilot.md); originally decided 2026-07-07 as "Q-C separate fixer agent (isolated write token; constrained edit plan; gofmt+build in a spawned job pre-PR)"; by 2026-07-12 "F1.1b(c) is code complete (b367a602)... validated as far as it can be without the deploys" (README_overview.md).
+- **what:** The loop's write organ, evolved from design (Q-C, 2026-07-07) through code-complete-pending-deploy (2026-07-12) to proven live (2026-07-13). Given a fix_correlation_id, refuses anything whose latest council decision is not approved; reads current file bodies via the GitHub contents API (a modify-file 404 is a hard error — a hallucination-by-construction guard); runs an LLM step (sketch_to_files) to turn the approved plan's sketches into complete new file bodies for ONLY the plan's named files; passes those through a deterministic hard allowlist; creates a fix/<short-corr> branch and commits via the git-adapter; gates on a build check; and on green opens a PR. config_change edits are deliberately NOT implemented by this agent — left for a human.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_implementer.sql, fixloop_eg_dartsonline/PLAN_fixloop_pilot.md §3b F1.1b(c), fixloop_eg_dartsonline/README_so_far.md, README_overview.md, docs019/RUNBOOK_diagnosis_fix_loop(9).md#questions (Q-C)
+- **relations:** hard file allowlist; build gate; git-adapter write isolation; fix-implementer-orchestrator; PR as human terminal
+- **verify-later:** grep/inspect fix_correlation_id; approved; sketch_to_files
+
+### FIX-024 — Hard file allowlist (diagnose_prepare_fix_commit)
+- **status:** deployed
+- **status-evidence:** "Part 2a BUILT (chassis, commit a4c6cc63)... 7-case suite exercises the real logic" (NOTES(10)#Turn 25).
+- **what:** A deterministic action sitting between the implementer's LLM step and the git-adapter: the approved plan's modify/add file list is a hard allowlist — a produced file outside the plan, a plan file the implementation is missing, or an empty/duplicate/no-op file all reject the whole implementation before anything touches git. Also assembles the branch name, commit message, and PR title/body (the "Q-H package"). This is the safety core that made the first live PR's diff exactly the approved plan.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_implementer.sql#prepare step, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 25, fixloop_eg_dartsonline/README_so_far.md
+- **relations:** write step; build gate; plan validation
+- **verify-later:** validateImplementation function; 7-case test suite
+
+### FIX-025 — Build gate (diagnose_build_gate)
+- **status:** deployed
+- **status-evidence:** "Build gate (golang Job): GREEN — === build gate: PASS ===" (README_so_far.md); "its first red correctly blocked a PR" (NOTES(10)#Turn 26-28).
+- **what:** Before any PR is opened, changes must be built in a clean container (gofmt + targeted go build) in a short-lived golang-image k8s Job. Green routes to PR creation; red routes to a no-PR terminal with build log attached, branch left for human inspection — "no PRs for broken code." Chosen over GitHub Actions CI on the PR (Option B: broken implementations must never even become a visible PR). Its first live red catch was a genuine pre-existing bug, then fixed for real.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_implementer.sql#build_gate/check_gate, fixloop_eg_dartsonline/SUMMARY_write_step_position_2026-07-12.md#Option A/B/C, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 26-28
+- **relations:** write step; hard file allowlist; PR as human terminal; hard deterministic gates between every LLM step
+- **verify-later:** diagnose_build_gate action; RBAC rbac-job-spawner.yaml pods/log grant
+
+### FIX-026 — git_adapter_request generic adapter caller
+- **status:** deployed
+- **status-evidence:** "git_adapter_request — ONE generic adapter caller (allowlisted verbs...)" (HANDOFF_CURRENT_fixloop.md#F1.1b(c) CODE COMPLETE).
+- **what:** A single generic workflow action used for all git-adapter calls from the write step, with the adapter action name and data fields/literals supplied per-step from config, and an explicit note that delete_repo is unreachable through this path — verbs are allowlisted to commit/create_branch/create_pull_request.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_implementer.sql#create_branch/commit_files/create_pr config, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md
+- **relations:** git-adapter new actions; write step
+- **verify-later:** grep/inspect delete_repo
+
+### FIX-027 — isRepoCloningAgent spawn gate / GITHUB_READ_TOKEN injection
+- **status:** deployed
+- **status-evidence:** "the spawned implementer pod gets GITHUB_READ_TOKEN via the already-deployed isRepoCloningAgent gate" (HANDOFF_CURRENT_fixloop.md).
+- **what:** An existing spawn-gate mechanism (already used for diagnose-agent) that injects a read-only GitHub token into a dedicated, ephemeral pod when the spawned agent type is listed in isRepoCloningAgent. fix-implementer was added to this list. Only works when the agent runs as a dedicated spawned pod — the generic in-chassis orchestrate path bypasses the gate entirely.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_implementer.sql#header point 1, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#FIRST END-TO-END RUN blocked
+- **relations:** fix-implementer-orchestrator; write step; diagnose_read_repo_files action
+- **verify-later:** grep/inspect isRepoCloningAgent; fix-implementer
+
+### FIX-028 — diagnose_read_repo_files action
+- **status:** deployed
+- **status-evidence:** "diagnose_read_repo_files — plan's modify/add files via GitHub contents API (raw media type; read token from spawn gate; modify-404 = hard error)" (HANDOFF_CURRENT_fixloop.md).
+- **what:** Fetches the current bodies of the approved plan's modify/add files via the GitHub contents API at an explicit ref, using the token from the spawn gate. A missing file for a "modify" operation is a hard error.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_implementer.sql#read_current_files, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md
+- **relations:** isRepoCloningAgent spawn gate; write step
+- **verify-later:** n/a — process/design record, no separate code artifact beyond what is already cited in sources
+
+### FIX-029 — fix-implementer-orchestrator (dedicated-pod wrapper)
+- **status:** deployed
+- **status-evidence:** "0NN_fix_implementer_orchestrator.sql — F1.1b(c) fix: run the implementer as a DEDICATED POD" (header).
+- **what:** A thin wrapper agent (spawn_agent(fix-implementer) → call_agent → complete) built to fix a real first-run failure: firing fix-implementer via the generic orchestrate path ran it IN the shared chassis pod, so the isRepoCloningAgent gate never fired. Mirrors the existing diagnose-orchestrator→diagnose-agent pattern exactly. Needed no image rebuild.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_implementer_orchestrator.sql, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#FIRST END-TO-END RUN, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 26-28
+- **relations:** isRepoCloningAgent spawn gate; write step
+- **verify-later:** 092_TRIGGER_fix_implementer_v1.sh target agent type
+
+### FIX-030 — Whole-file rewrite strategy (implementer's LLM step)
+- **status:** deployed
+- **status-evidence:** "41KB whole-file rewrite → allowlist PASS" (README_so_far.md).
+- **what:** The implementer's sketch_to_files LLM step outputs the COMPLETE new body of every plan-named file, never a diff/patch, with hard rules forbidding drive-by changes ("the diff a human reviews must contain ONLY the plan"). Explicitly named as not scaling to very large files (32000 max_tokens gives headroom for one ~41KB file but not much more) — a diff/patch strategy is logged as future work (F1.2).
+- **sources:** fixloop_eg_dartsonline/0NN_fix_implementer.sql#sketch_to_files, fixloop_eg_dartsonline/README_so_far.md, README_overview.md
+- **relations:** write step; hard file allowlist; F1.2 deferred work items
+- **verify-later:** grep/inspect sketch_to_files
+
+### FIX-031 — PR as human terminal / nothing merges itself
+- **status:** deployed
+- **status-evidence:** "PR — waits for you. Nothing merges itself." (README_so_far.md); "one structural commitment: the human gate never moves. More autonomy upstream … never past the PR." (README_02_evidence_backed_proposals.md).
+- **what:** A governing design principle running through the whole fix-loop: autonomy may widen upstream (diagnose, plan, revise, commit-to-branch), but the merge is permanently human — the PR is the fixed boundary of machine authority, simpler and harder than the graduated trust machinery elsewhere, and orthogonal to it. Isolation model (2026-07-12): fix/* branches live on the same repo (no fork); the owner alone chooses what merges to main. This is why "escalation" is treated as a success, not a failure.
+- **sources:** fixloop_eg_dartsonline/README_so_far.md, fixloop_eg_dartsonline/0NN_fix_implementer.sql#header, fixloop_eg_dartsonline/SUMMARY_where_we_are_2026-07-13.md, README_02_evidence_backed_proposals.md#2, README_overview.md
+- **relations:** write step; fork isolation / NO FORK decision; escalation as first-class success terminal
+- **verify-later:** absence of any auto-merge path in the write step
+
+### FIX-032 — Fork isolation / NO FORK decision (superseded)
+- **status:** superseded
+- **status-evidence:** "Decisions CLOSED... 4. NO FORK: isolation = fix/* branches + owner-gated merges on this repo" (HANDOFF_CURRENT_fixloop.md, 2026-07-12) — closes a proposal raised earlier the same week: "the strongest isolation is that the write surface points only at the fork" (README_02_evidence_backed_proposals.md#5).
+- **what:** A design proposal considered pointing the loop's git-adapter credential, intake defaults and corpus indexing at a fork of the repo, making the main repo physically unwritable by the loop rather than protected by review discipline (with the fork's constitution/mission docs becoming the councils' curated context). The owner raised, then explicitly closed this idea; the decision landed instead on branch+PR isolation on the same repo, which is what was actually built.
+- **sources:** fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 25, #Turn 26, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#Decisions CLOSED, README_02_evidence_backed_proposals.md#5
+- **relations:** PR as human terminal; write step; external rollback (residual risk framing, autonomy-governance)
+- **verify-later:** n/a — process/design record, no separate code artifact beyond what is already cited in sources
+
+### FIX-033 — Round-counting scope bug (correlation vs orchestration)
+- **status:** superseded (fixed in source; deploy gap tracked separately)
+- **status-evidence:** "the deployed v1.0.1107 binary counts council rounds per correlation... does NOT carry the orchestration_id-scoping fix" (NOTES(10)#Turn 22).
+- **what:** Council-round counting was originally scoped per correlation_id, accumulating council_report rows across every proposer re-run — so a fresh proposer run on a correlation with review history would start mid-count and exhaust its revise budget without ever reproposing. Fixed in source to count per orchestration_id, but a same-tag deploy trap meant the fix did not reach the running binary for one further benchmark cycle.
+- **sources:** fixloop_eg_dartsonline/HANDOFF_turn21_2026-07-10.md#Key accomplishments, fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 22
+- **relations:** revise loop; same-tag deploy trap gotcha
+- **verify-later:** grep/inspect correlation_id; orchestration_id
+
+### FIX-034 — fixloop-digest / awareness surface
+- **status:** partial
+- **status-evidence:** "IN FLIGHT (turn 29): the AWARENESS SURFACE... Built + committed, awaiting the next chassis image" (HANDOFF_CURRENT_fixloop.md) — realizing an earlier proposal: "the missing organ is a push surface: a periodic digest … before autonomy widens … the awareness surface gets built first" (README_02_evidence_backed_proposals.md#4).
+- **what:** A deterministic (no-LLM-in-path) digest agent composing a window (default 24h) summary of fix-loop activity — status/terminal/gate/PR outcomes, decisions per correlation, and agent_definitions_backup snapshots — persisted to doc_notes (categories ["digest","fixloop"]). Built to satisfy the owner's standing rule "more awareness before wider autonomy" and to be the grown-up form of the parked F0.3 per-iteration notes. v1 is manual-trigger only; a daily cadence is deliberately deferred; as of the source snapshot it awaits the next chassis image before going live.
+- **sources:** fixloop_eg_dartsonline/0NN_fixloop_digest.sql, fixloop_eg_dartsonline/093_TRIGGER_fixloop_digest_v1.sh, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#IN FLIGHT, README_02_evidence_backed_proposals.md#4
+- **relations:** owner standing rule: awareness before autonomy; diagnosis_artifacts table; council roster expansion vision; F0.3 per-iteration notes
+- **verify-later:** whether the chassis image carrying fixloop_digest action has shipped; doc_notes rows with categories ? 'digest'
+
+### FIX-035 — Owner standing rule: awareness before autonomy
+- **status:** deployed
+- **status-evidence:** "Owner standing rule (2026-07-12): 'more awareness BEFORE wider autonomy.'" (0NN_fixloop_digest.sql header).
+- **what:** An explicit governance principle: before the council is widened with more reviewer perspectives or migration/feature-building agents, the owner must first have a reliable way to see what the loop has been doing and deciding. Directly produced the fixloop-digest slice being scheduled ahead of the F2 roster expansion. Named risk: not wrong action but unknown action — drift compounding silently while trails exist only pull-side.
+- **sources:** fixloop_eg_dartsonline/0NN_fixloop_digest.sql#header, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#Decisions CLOSED, fixloop_eg_dartsonline/SUMMARY_where_we_are_2026-07-13.md, README_02_evidence_backed_proposals.md#4
+- **relations:** fixloop-digest / awareness surface; council roster expansion vision (deferred by this rule)
+- **verify-later:** n/a — process/design record, no separate code artifact beyond what is already cited in sources
+
+### FIX-036 — Council roster expansion vision (guidelines/reuse/bug-historian/compliance/pipeline-guardians)
+- **status:** aspirational
+- **status-evidence:** "Initial roster: a guidelines agent... a reuse agent... a bug-historian... a compliance/legal eye; pipeline guardians... specialist knowledge agents" (RUNBOOK(9)#THE TASK) — none beyond the guardian/edit-quality pair were built; "the roster of 2 (edit-quality, guardian) is explicitly a skeleton... Adding a reviewer is a seed change + prompt + curated context" (README_02).
+- **what:** The original council vision named a much wider roster than what was built: a guidelines agent (adherence to 000-0xx, or did the guideline fall short), a reuse agent (code and docs), a bug-historian (has this class recurred), a compliance/legal eye, one pipeline-guardian per master workflow (seeded from the builder relay map), and specialist knowledge agents — motivated by a real incident where a chat reinvented a trigger+triage SQL pair that already existed. Only a generic edit-quality reviewer and a single cross-pipeline guardian shipped (see two-reviewer council); reviewer areas are expected to correlate with the docs024 documentation categories, the direct bridge to this concept register's own council-agent goal.
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(9).md#THE TASK, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#Direction, docs019/RUNBOOK_diagnosis_fix_loop(9).md#the-task (item 3), README_02_evidence_backed_proposals.md#3, README_comprehensive_documentation_categorisation.md
+- **relations:** two-reviewer council; owner standing rule: awareness before autonomy; architecture-change visibility; hard-veto flag at multiple scopes
+- **verify-later:** whether any bench agents beyond edit-quality/guardian were seeded
+
+### FIX-037 — Architecture-change visibility (Q-E signals / detector)
+- **status:** partial
+- **status-evidence:** "Q-E architecture-change signals: ... STILL OPEN" (RUNBOOK(10)#STILL OPEN); originally "packages touched breadth; platform/ vs actions/; exported-signature diffs vs the corpus; message/topic/schema/contract changes; migration presence. Which are load-bearing?" (docs019 Q-E, open, F2-phase).
+- **what:** A standalone goal from the original task charter — make it loud when a proposed change is accidentally fundamental (touching platform contracts, message shapes, many packages, exported signatures) before it ships, running as one council reviewer. Never built as a dedicated formal detector; what exists in practice is the pipeline-guardian reviewer's informal judgement, which has correctly identified architecture-level changes dressed as contained fixes (see the concrete dartsonline instance).
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(9).md#THE TASK, fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#STILL OPEN Q-E, docs019/RUNBOOK_diagnosis_fix_loop(9).md#questions (Q-E)
+- **relations:** two-reviewer council; guardian veto surfacing architecture-level fix; council roster expansion vision
+- **verify-later:** n/a — process/design record, no separate code artifact beyond what is already cited in sources
+
+### FIX-038 — Guardian veto surfacing an architecture-level fix (dartsonline)
+- **status:** deployed
+- **status-evidence:** "the guardian vetoed all three edits as 'an architecture change dressed as a contained fix'" (NOTES(10)#Turn 22, orch 8c770fd5).
+- **what:** A concrete, live-observed instance of the guardian reviewer correctly recognizing that a minimal-looking three-edit plan was actually architecture-level, vetoing it and proposing a safer alternative in its notes — deliberately NOT auto-applied since it fixes only one site while leaving the platform-wide cause live everywhere.
+- **sources:** fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 22
+- **relations:** architecture-change visibility; reframe step; platform-not-site-data fix philosophy; dartsonline guides pilot selection history
+- **verify-later:** n/a — process/design record, no separate code artifact beyond what is already cited in sources
+
+### FIX-039 — Platform-not-site-data fix philosophy
+- **status:** deployed
+- **status-evidence:** "Owner ruled: the F1 edit plan targets the PLATFORM, not dartsonline's data." (NOTES(10)#Turn 2).
+- **what:** An owner ruling that any fix plan must target the platform mechanism rather than a single site's data rows — because the causes of the benchmark bug are relay-level and a data-only fix would fix one site while leaving every other site exposed. Directly shapes the proposer's prompt rules and the guardian's refusal to accept a scoped data-only remediation as a final answer.
+- **sources:** fixloop_eg_dartsonline/NOTES_running_fixloop(10).md#Turn 2, fixloop_eg_dartsonline/0NN_fix_proposer.sql#propose prompt rule 1
+- **relations:** dartsonline guides pilot selection history; guardian veto surfacing architecture-level fix; reframe step
+- **verify-later:** n/a — process/design record, no separate code artifact beyond what is already cited in sources
+
+### FIX-040 — config_change edit operation type
+- **status:** deployed
+- **status-evidence:** "config_change edits in a plan are NOT implemented by this agent... the PR body carries them for the human" (0NN_fix_implementer.sql header).
+- **what:** A plan-edit operation type reserved for edits that target agent_definitions workflow-JSON configuration rather than repo files. The proposer's prompt requires such edits be explicitly labelled, but the fix-implementer deliberately does not apply them — they are left in the PR body for a human to apply by hand.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_proposer.sql#propose prompt rule 5, fixloop_eg_dartsonline/0NN_fix_implementer.sql#header
+- **relations:** write step; hard file allowlist; plan validation
+- **verify-later:** grep/inspect agent_definitions
+
+### FIX-041 — F1.2 deferred work items (ref/base as input; fix_pr artifact; diff strategy)
+- **status:** aspirational
+- **status-evidence:** "Open (F1.2): ref/base are live-set to the active working branch because origin/main is stale — make them a per-run INPUT" (PLAN_fixloop_pilot.md).
+- **what:** A cluster of known-but-deferred improvements: the implementer's git ref/base/from_branch are hardcoded via a live jsonb_set patch rather than a per-run input field; a dedicated kind='fix_pr' diagnosis_artifacts row for the PR result is deferred; a diff/patch implementation strategy for large files (the whole-file rewrite strategy doesn't scale beyond ~41KB).
+- **sources:** fixloop_eg_dartsonline/PLAN_fixloop_pilot.md#F1.1b(c), fixloop_eg_dartsonline/0NN_fix_implementer.sql#header
+- **relations:** whole-file rewrite strategy; write step
+- **verify-later:** grep/inspect kind='fix_pr'
+
+### FIX-042 — F3 learning layer: bug_records taxonomy + guideline-amendment side-tasks (never built)
+- **status:** unknown
+- **status-evidence:** "F3 — Learning... bug_records (category taxonomy, recurrence checks feeding the historian)" (RUNBOOK(10)#Phased plan) — no bug_records table or historian agent found; the guideline-gap side-task specifically: "Q-D completion — guideline-gap = SIDE-TASK... a work item carrying the evidence; handler drafts a concrete amendment and opens a PR against the GUIDELINE DOCS" (NOTES(9)#DECISIONS) — no implementation of this side-task handler was found in the files read, so whether any piece of F3 was built remains genuinely unconfirmed rather than definitively absent.
+- **what:** The original phased plan's final stage: categorize confirmed bugs into a taxonomy (bug_records) so recurring classes are caught earlier and feed the bug-historian reviewer, feed guideline-amendment proposals to the human as a side-task that doesn't block the fix (human-terminal PR against the guideline docs), and enrich the corpus from what the loop learns. Decided in outline on 2026-07-07 (Q-D) but never designed in detail or built as far as any of the source documents show.
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#Phased plan F3, fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(9).md#Phased plan F3, fixloop_eg_dartsonline/NOTES_running_fixloop(9).md#DECISIONS, docs019/RUNBOOK_diagnosis_fix_loop(9).md#phased-plan (F3)
+- **relations:** council roster expansion vision (bug-historian); hard-veto flag at multiple scopes
+- **verify-later:** search for a guideline-amendment work item type / handler agent in agent_definitions; bug_records table (absent)
+
+### FIX-043 — Q-G reviewer context (open design question, v1 answered narrowly)
+- **status:** partial
+- **status-evidence:** "Q-G v1 = role prompts + plan + diagnosis (no per-reviewer corpora yet)" (PLAN_fixloop_pilot.md).
+- **what:** The open question of how much context each council reviewer should see. What shipped is the narrowest option: both reviewers get the same role prompt, the persisted plan, the diagnosis conclusion, and (from F2.3b) a live schema hint — no per-reviewer curated corpus exists yet.
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#STILL OPEN Q-G, fixloop_eg_dartsonline/PLAN_fixloop_pilot.md §F2.1
+- **relations:** two-reviewer council; schema hint for reviewers; council roster expansion vision
+- **verify-later:** n/a — process/design record, no separate code artifact beyond what is already cited in sources
+
+### FIX-044 — Q-H human-facing result package
+- **status:** deployed (v1)
+- **status-evidence:** "PR carrying the Q-H package" appears repeatedly as delivered (HANDOFF_CURRENT_fixloop.md).
+- **what:** The decided shape of what a human ultimately sees: the PR body carries the diagnosis conclusion, the approved plan, and the council's decision/reviews together, so a human reviewing a fix-loop PR never has to go hunting through diagnosis_artifacts. The equivalent package for an escalated run is the escalation artifact.
+- **sources:** fixloop_eg_dartsonline/0NN_fix_implementer.sql#prepare/create_pr, fixloop_eg_dartsonline/README_so_far.md
+- **relations:** write step; escalation as first-class success terminal
+- **verify-later:** n/a — process/design record, no separate code artifact beyond what is already cited in sources
+
+### FIX-045 — SEED_first_writestep_diagnosis pattern / seeded-bug strategy
+- **status:** deployed
+- **status-evidence:** "the diagnosis is hand-written (the diagnosis LOOP is separately proven); proposer, council, and implementer that consume it all run for real" (SEED_first_writestep_diagnosis.sql header) — executing an earlier recommendation: "the system's first-ever PR will have earned every gate it passed" (README_02 §6).
+- **what:** A reusable technique for exercising downstream stages honestly without waiting for a live CONFIRMED diagnosis on a suitable bug: hand-author a CONFIRMED orchestration_states row for a real, tiny, zero-risk defect, then run the real proposer→council→implementer chain against it for real. Fabricating evidence rows was explicitly rejected as an option, as was hand-approving a known-flawed plan (contradicts the reviewers) or waiting for an organic small bug (unbounded).
+- **sources:** fixloop_eg_dartsonline/SEED_first_writestep_diagnosis.sql, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#First-run design decision, README_02_evidence_backed_proposals.md#6, README_overview.md
+- **relations:** write step; tier-coverage guard
+- **verify-later:** grep/inspect orchestration_states
+
+### FIX-046 — F0.3 per-iteration notes / per-task running notes via doc_notes
+- **status:** partial
+- **status-evidence:** "Per-iteration notes — NOT MET, because F0.3 does not exist yet" (RUNBOOK(10)#F0 plumbing criteria) — following an earlier direction-setting decision: "Q-F DIRECTION SET (2026-07-07): REUSE doc_notes... the diagnose-agent workflow is ALREADY rewired by them: emit → persist_note → complete" (docs019 Q-F).
+- **what:** One of F0's four original acceptance criteria — writing the loop's per-iteration/per-step reasoning into task-specific running notes — was designed (reuse the tools chat's doc_plans/doc_notes infrastructure, category convention diagnosis) but never fully implemented: the terminal-diagnosis note is wired via persist_note with a strict no-guessing subject gate, but per-iteration rows remained pending the owning thread's sign-off and were still NOT MET as of the later docs024 dossier. The diagnosis_artifacts.kind='iteration_note' column value exists specifically to carry this, unused.
+- **sources:** fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#Phased plan F0.3, fixloop_eg_dartsonline/PLAN_fixloop_pilot.md, docs019/RUNBOOK_diagnosis_fix_loop(9).md#questions (Q-F)
+- **relations:** doc_notes/travelling-docs integration boundary; diagnosis_artifacts table; fixloop-digest / awareness surface
+- **verify-later:** grep/inspect diagnosis_artifacts.kind='iteration_note'; doc_notes rows with category diagnosis
+
+### FIX-047 — Loop-worthiness test doctrine (five-criteria intake test)
+- **status:** deployed
+- **status-evidence:** "LOOP-WORTHINESS TEST (doctrine — apply before every intake)" — applied three times in the same file (pilot #1 downgraded, candidate 2 forked, guides pilot confirmed) (docs019 RUNBOOK(9)); "Owner asked whether the loop fits the dartsonline quality problem. Answer: decomposed via the new LOOP-WORTHINESS TEST" (NOTES_running_fixloop(9).md).
+- **what:** A pre-registered five-criterion test for whether a candidate bug is worth running the diagnosis/fix loop on: (1) a genuine SYMPTOM about system behaviour, not a disguised feature request; (2) a causal mechanism plausibly exists in code+data+runtime; (3) not answerable by one or two direct queries (mandatory cheap pre-check first); (4) bounded to a single coherent symptom; (5) verified CURRENT at intake, since symptoms are perishable (added after a pilot candidate "evaporated," fixed live before the loop ran — this happened twice in the founding thread alone). Feature absences route to build queues; quality judgements to council/auditors; one-query questions to the query itself.
+- **sources:** docs019/RUNBOOK_diagnosis_fix_loop(9).md#loop-worthiness, docs019/RUNBOOK_diagnosis_fix_loop(9).md#previous-pilot-1, NOTES_running_fixloop(9).md multiple 2026-07-07 pilot-selection entries
+- **relations:** dartsonline guides pilot selection history; known-answer benchmark methodology
+- **verify-later:** n/a (doctrine)
+
+### FIX-048 — Hard deterministic gates between every LLM step
+- **status:** deployed
+- **status-evidence:** README_02 lists them as built pattern: "CONFIRMED gate, plan validator, file allowlist. The models propose; plain Go code decides what proceeds."
+- **what:** No LLM output passes into consequence unchecked: the diagnosis must be CONFIRMED (gate), the plan must validate, the files must be on a deterministic allowlist, the build must pass, before anything advances. Complexity and authority live in plain Go; the models only propose. The same shape as keeping convergence guards in the engine rather than in workflow conditionals.
+- **sources:** README_02_evidence_backed_proposals.md#1, README_overview.md
+- **relations:** deterministic council decision + hard veto; write step; hard file allowlist; build gate
+- **verify-later:** the gate implementations in the fixloop actions
+
+### FIX-049 — Fix-loop value proposition: unattended, cited, consistent
+- **status:** deployed
+- **status-evidence:** README_02: "The value proposition (decided 2026-07-09): not 'the loop finds what humans can't' … The proposition is unattended, cited, consistent — the 3am diagnosis with a paper trail."
+- **what:** A recorded decision reframing what the loop is for: on this platform bugs are legible to anyone with schema access and patience, so the differentiation is not superhuman insight but unattended operation with citations and consistency — a package instead of a hunch, reconstructible after the fact by one correlation id. Every design choice flows from it.
+- **sources:** README_02_evidence_backed_proposals.md#2
+- **relations:** escalation as first-class success terminal; fixloop-digest / awareness surface; diagnosis_artifacts table
+- **verify-later:** decision record in NOTES_running_fixloop
+
+### FIX-050 — Transferable machinery: legacy-migration and feature intakes
+- **status:** aspirational
+- **status-evidence:** README_02 §3: migration agents "not built, but it's the same machinery with a different intake"; features from specs "honestly furthest away … plausible; not designed".
+- **what:** The allowlist/gate/council scaffolding is intake-agnostic: a legacy migration is "pattern X supersedes pattern Y" (scanner finds Y-shaped code, proposer writes constrained plans, council reviews, PRs flow); feature-building from mission docs needs a new grounding tier ("cite the spec clause this serves") — same shape as causal citation but not designed.
+- **sources:** README_02_evidence_backed_proposals.md#3
+- **relations:** council roster expansion vision; hard deterministic gates between every LLM step
+- **verify-later:** n/a (unbuilt)

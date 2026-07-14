@@ -27,6 +27,37 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
 
 ---
 
+## TRIAGE + ESCALATION DESIGNED (turn 32) — next build; owner choices recorded
+
+`DESIGN_triage_and_escalation.md` is the next slice (NOT yet built). Core idea:
+the fix loop is fed by a handler FAILING, not a checker DETECTING. THREE failure
+flavours, all already in the data:
+- **loud** (`status='failed'`, attempts exhausted) → fix loop if code cause;
+- **silent** (handler "completed" but problem persists — the darts bug) → needs
+  a verification checker (THIS thread owns it) → fix loop;
+- **no handler yet** (`item_type='capability_gap'`, `status='deferred'`,
+  `builder_needed` — ALREADY emitted by load_work_item_actions.go:245-280) →
+  roadmap/builder queue, NEVER the fix loop.
+`diagnosis-triage` = thin router: scan site_work_items → loop-worthiness filter
+→ DEDUPE by pattern (50 same-cause failures = 1 escalation) → route to
+needs_diagnosis / roadmap / re-queue / human. Closed feedback: re-verify after a
+fix deploys.
+OWNER DECISIONS (2026-07-14): cadence hourly-for-now (slower later); this thread
+owns verification checkers; MANUAL enablement for now. Phase 1 = loud failures +
+capability gaps (both already in data). Not implemented yet.
+
+**OPERATING-CONTEXT (2026-07-14): Fable credits running low.** Keep everything
+MANUAL (no unattended auto-cadence consuming model calls). Docs are written to
+be self-sufficient so the workstream survives a model change — the design is
+gates + deterministic routing + human decisions, not model-dependent.
+
+**GIT (turn 32): merge error fixed.** It was a dirty working tree (6 uncommitted
+multi-session files), not a content conflict — checkpointed them (commit;
+forward-only), `git merge origin/main` now clean. WRINKLE: `main` is missing PR
+#1's fix — PR #2 merged 084→main at 13:44, PR #1 merged the fix→084 at 13:49
+(5 min later), so main is 1 commit behind 084's fix. Clean 1-commit merge to
+put it on main; awaiting owner okay to push to main.
+
 ## AWARENESS SURFACE: LIVE (turn 30, v1.0.1114) — first digest delivered
 
 First digest ran 2026-07-13 21:00 (doc_notes, categories digest+fixloop) and

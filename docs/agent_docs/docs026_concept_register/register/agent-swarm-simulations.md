@@ -1,0 +1,13 @@
+# Register — agent-swarm-simulations
+
+1 concept, consolidated from 2 raw extractions (1 unique block, present twice
+in the source cluster file due to mechanical duplication in the input), from
+unit U22.
+
+### ASS-001 — Agent swarm simulation ideas (never built — hierarchical/fractal use-case brainstorm)
+- **status:** aspirational
+- **status-evidence:** Pure ideation inside a raw chat transcript; closing exchange asks to "report all your ideas into a document... I'd like to use the document as a web page of use-cases... to try and get people interested in triggering their own project ideas" — recorded as marketing/pitch material, not a build plan.
+- **what:** A large brainstormed catalogue of speculative applications for the platform's hierarchical spawn/call architecture at extreme scale (up to 1M agents), produced across two rounds. Flat-swarm ideas: an LLM-agent economy simulation (the author's top pick — emergent price equilibrium/monopolies, visually renderable), collaborative Wikipedia cross-fact-checking, a million-agent code-review swarm auditing a large codebase, emergent-language formation between agents with no shared vocabulary, distributed collaborative micro-fiction, adversarial red-team-vs-blue-team war-gaming. Hierarchy-specific ideas exploiting the platform's distinguishing trait (every parent/child stores its result independently, decomposition is semantically meaningful): recursive market-research report trees, organisational/corporate-directive-cascade simulation, fractal ecological modelling (e.g. the Amazon basin), legislation-impact analysis trees, a hierarchical self-debugging swarm for the platform's own Kafka/K8s/Postgres stack, scientific-literature mapping into a queryable tree, supply-chain stress testing, evolutionary/genetic idea-generation trees, plus a further batch: historical counterfactual simulation, language-family evolution trees, musical composition by fractal decomposition, personal health-trajectory modelling, adversarial peer-review simulation, M&A due-diligence trees, climate-migration modelling, argument/debate mapping, ecosystem-succession modelling, judicial case-reasoning trees, disaster-response command-structure coordination, and personal knowledge management. None were built or scoped into a plan.
+- **sources:** docs021_multiclustering/021_2026-02-27-18-19-36-million-agent-scaling-plan.txt (the exchanges following "what other impressive things could we do with 1M vaguely intelligent agents?" and "...for the hierarchical/fractal model that I currently have")
+- **relations:** Agent hierarchy tree navigation (agent-tree-navigation register); Multi-cluster scaling tiers (10K/100K/1M); Worker pool architecture
+- **verify-later:** n/a (pure ideation, no code or schema artefact)

@@ -1,0 +1,29 @@
+# Register — canine-biology
+
+3 concepts, consolidated from 8 raw extractions (4 unique blocks, each appearing
+twice due to exact whole-block duplication in the cluster input file) across units
+U21, U22, U24a.
+
+### CANB-001 — Canine biology knowledge tree (1M-agent demo)
+- **status:** aspirational
+- **status-evidence:** docs016/003c dated 2026-03-02, "Status: Working draft for further iteration"; docs016/004 (2026-03-03) demotes it: "best treated as marketing spend, not as a product... Build one branch (cardiovascular) as a polished showcase."
+- **what:** A hierarchical agent swarm building a citable Labrador-reference knowledge tree: 7 levels of decomposition (root → body systems → aspects → subtopics → specific topics → mechanisms → molecular detail, branching 8–12), ~800K–1M agents across nine roles (Opus decomposers/synthesisers at top levels; BioMistral 7B research and finding-synthesis; non-LLM paper fetchers hitting PubMed; SciSpacy NER entity extractors; embedded-3B relevance filters; mermaid/FLUX diagram agents; 7B validators flagging cross-branch contradictions). Design priorities: accuracy over completeness; no reader-visible text from 3B models; phased rollout (125K live agents on five priority branches, background fill, then continuous PubMed-monitoring updates ~500-1000 agents/week); every node auditable (agent, prompt, sources, model); correction/discussion layer with versioning; pathway/mechanism cross-layer. Honest-risk section: credibility vs Plumb's/Merck, theatrical agent count, hallucination persistence, front-end decisive, costs 2-3x estimates ($2.2K-8.5K full run).
+- **sources:** docs016_dogs_medicine_pathways/003c_canine_biology_project_baseline_v3.md; docs016_dogs_medicine_pathways/002_project_outline.md; docs016_dogs_medicine_pathways/004_medical_business_reality_assessment.md
+- **relations:** Canine-biology per-vertical knowledge + LoRA project (CANB-002, the practical successor); Interactive Biological Explorer (CANB-003, a separate later "big vision" precursor also superseded by CANB-002); multicluster worker pools; model-tiering; business strategy demotion
+- **verify-later:** any decomposer/leaf agent definitions; knowledge tree tables (expected absent)
+
+### CANB-002 — Canine-biology per-vertical knowledge + LoRA project
+- **status:** partial
+- **status-evidence:** "The canine biology project stops being aspirational and becomes the working proof..." (future tense; "knowledge base is empty" in the RAG explainer) reconciled against the more recent 018_canine_biology.md (identical to live docs023): §5 RAG in content generation "Authoritative Domain Knowledge"; §6 Text LoRA (4-bit QLoRA→GGUF Q4_K_M→Ollama); §7 Image LoRA (SDXL, ~£35-95 first pass); FOCUS_imagery_assessment §8 "Status: planned, not started" for the image-LoRA stage specifically.
+- **what:** The reference per-vertical knowledge/fine-tuning pipeline and the first real RAG content/proof-of-concept for the veterinary vertical: structured LLM extraction (breed health profiles for the top 20 UK breeds, 30-40 procedures, top 30 conditions, nutrition/vaccination/behaviour) into ~300-500 self-contained 200-500-word chunks with confidence markers (not prose), validated (self-consistency, cross-reference, structural checks), embedded via Ollama and indexed into `knowledge_base` `collection: "veterinary"`. Extends beyond RAG into fine-tuning: a text LoRA (Unsloth QLoRA, deployed via an Ollama Modelfile) and an image LoRA (60-90 curated images, SDXL/PixArt) for consistent per-vertical visual style. The image LoRA presupposes an adapter accepting a `model:"vet-diagram-v1"` field, which the current Stability-only image adapter cannot do — blocked on the provider-router work.
+- **sources:** docs023.../018_canine_biology.md#6-text-lora-fine-tuning,#7-image-lora-fine-tuning; docs023.../001_canine_biology_grok_plan.md; FOCUS_imagery_assessment(1).md#8-per-vertical-training-infrastructure
+- **relations:** RAG knowledge_base; vertical knowledge architecture; text LoRA (vet extractor); deep research domain authority; quality flywheel; RAG best practices; image provider router; vision auditor; canine biology knowledge tree (CANB-001, the abandoned-scale precursor); Interactive Biological Explorer (CANB-003, the dropped UI/graph layer)
+- **verify-later:** knowledge_base pgvector rows collection='veterinary'; knowledge-extractor agent; training_runs; Ollama LoRA Modelfiles
+
+### CANB-003 — Interactive Biological Explorer + experiment engine (aspirational vision)
+- **status:** abandoned
+- **status-evidence:** The grandiose Grok "Final Consolidated Plan" (multi-scale explorer, knowledge graph, experiment engine, 14-week timeline) is explicitly downgraded in the later doc: "The original 1M-agent design was aspirational. This plan is practical."
+- **what:** An early, much larger vision: a public Next.js/Three.js/Cytoscape web app allowing drill-down from a pseudo-photographic Labrador image → organ systems → cells → biochemical pathways → genes, backed by a PostgreSQL/Neo4j knowledge graph (Gene/Protein/Metabolite/Reaction/Organ nodes), plus an agent-driven "theoretical experiment engine" running SciPy ODE simulations. Superseded by the practical RAG-seeding plan; the explorer/graph/experiment layers were dropped.
+- **sources:** docs023.../001_canine_biology_grok_plan.md; docs023.../018_canine_biology.md#1
+- **relations:** Canine-biology per-vertical knowledge + LoRA project (CANB-002, the practical replacement); Canine biology knowledge tree (CANB-001, a separate earlier "big vision" also superseded); image LoRA
+- **verify-later:** n/a (not built; abandoned scope)

@@ -1,0 +1,20 @@
+
+<!-- SOURCE: U09_adoption.md -->
+### Dispatch throughput: one-site-per-tick + absolute NOT-EXISTS exclusion
+- **category:** NEW:dispatch-pipeline
+- **status-signal:** partial
+- **status-evidence:** "Investigation complete; Lever C… effectively already implemented; the remaining actions are… the guardrails (timeout alignment, fairness ORDER BY, git-adapter retry), which are the real remaining dispatch work" (FOCUS_dispatch(3), revised 2026-06-04).
+- **what:** `find_dispatchable_site` selects `DISTINCT ON (site_id) … LIMIT 1` with a `NOT EXISTS` clause excluding a site entirely while any item is `claimed` — so tools dispatch serially within a site (~5-min Opus builds; 11 tools ≈ an hour minimum), a dead handler freezes the whole site until the reaper resets the claim (observed 47–67 min gaps), and lowest-UUID sites can starve others (no fairness ordering; 8 concurrent triggers converge on one site). Levers: A multi-site decoupling (lower priority — cadence is already 30s/8, corrected from stale doc values), B bounded per-site concurrency (K=2–3, gated on OOM guardrails), C claim watchdog (already exists). Scheduler timeout mismatch (300s task vs 900/1200/4200s work) is a latent over-spawn/OOM risk; guardrails: accurate handler memory requests (Pending is the safe failure mode vs Evicted), timeout alignment, fairness ORDER BY. Claim mechanics: claim is an atomic conditional UPDATE; `claimed_by` is the agent type, not an orchestration id — the orchestration-liveness fast path needs a schema addition (follow-up).
+- **sources:** FOCUS_dispatch_throughput_and_claim_watchdog(3).md, CATALOGUE(9)#family-j, running_notes_14(25)#part-9
+- **relations:** claimed-item-timeout reset; git-adapter race (gates Lever A); build-pipeline-trigger scheduled task; stale agent-definition descriptions mislead (build-dispatch-loop described as self-spawning single-item, actually a 5-iteration loop)
+- **verify-later:** find_dispatchable_site SQL (line ~276 NOT EXISTS); scheduled_tasks build-pipeline-trigger row; handler pod requests/limits
+
+<!-- SOURCE: U09_adoption.md -->
+### Dispatch throughput: one-site-per-tick + absolute NOT-EXISTS exclusion
+- **category:** NEW:dispatch-pipeline
+- **status-signal:** partial
+- **status-evidence:** "Investigation complete; Lever C… effectively already implemented; the remaining actions are… the guardrails (timeout alignment, fairness ORDER BY, git-adapter retry), which are the real remaining dispatch work" (FOCUS_dispatch(3), revised 2026-06-04).
+- **what:** `find_dispatchable_site` selects `DISTINCT ON (site_id) … LIMIT 1` with a `NOT EXISTS` clause excluding a site entirely while any item is `claimed` — so tools dispatch serially within a site (~5-min Opus builds; 11 tools ≈ an hour minimum), a dead handler freezes the whole site until the reaper resets the claim (observed 47–67 min gaps), and lowest-UUID sites can starve others (no fairness ordering; 8 concurrent triggers converge on one site). Levers: A multi-site decoupling (lower priority — cadence is already 30s/8, corrected from stale doc values), B bounded per-site concurrency (K=2–3, gated on OOM guardrails), C claim watchdog (already exists). Scheduler timeout mismatch (300s task vs 900/1200/4200s work) is a latent over-spawn/OOM risk; guardrails: accurate handler memory requests (Pending is the safe failure mode vs Evicted), timeout alignment, fairness ORDER BY. Claim mechanics: claim is an atomic conditional UPDATE; `claimed_by` is the agent type, not an orchestration id — the orchestration-liveness fast path needs a schema addition (follow-up).
+- **sources:** FOCUS_dispatch_throughput_and_claim_watchdog(3).md, CATALOGUE(9)#family-j, running_notes_14(25)#part-9
+- **relations:** claimed-item-timeout reset; git-adapter race (gates Lever A); build-pipeline-trigger scheduled task; stale agent-definition descriptions mislead (build-dispatch-loop described as self-spawning single-item, actually a 5-iteration loop)
+- **verify-later:** find_dispatchable_site SQL (line ~276 NOT EXISTS); scheduled_tasks build-pipeline-trigger row; handler pod requests/limits
