@@ -205,8 +205,9 @@ duplication; two of them — QA Agent Architecture and site_work_items domain→
 
 ### SYS-025 — Quality Assurance Agent Architecture — folded into system-architecture, not abandoned
 *(merged from 2 independent findings, upstream)*
-- **status:** superseded (as a standalone numbered doc; the architecture itself is deployed/partial)
+- **status:** partial
 - **status-evidence:** The standalone `002d_quality_assurance_architecture.md` and its later revision both appear verbatim as a "002d — Quality Assurance Agent Architecture" section inside live `002_system_architecture(4).md` (from line 897), continuing the main doc's Resolved-Decisions numbering and extending it with a new "Layer 0: Pre-Generation Data Triage (plan_sections)" section and two further resolved decisions.
+- **stage2-verified (2026-07-14):** superseded → partial — stage1 itself flagged a mixed classification ("superseded as standalone doc; architecture itself deployed/partial"). Confirmed `086_visual_design_auditor.sql` and `084_site_review_agents.sql` are live agent definitions matching the three-layer QA model; the doc-merge is real but the underlying architecture lives on as deployed/partial, so a blanket "superseded" undersold it.
 - **what:** A three-layer QA model: Layer 1 structural/algorithmic checks (free, no LLM), Layer 2 LLM-assisted design/content audit (grouped agents sharing context, one LLM call per group), Layer 3 LLM-required strategic review (dream-spec gap analysis); plus a later-added Layer 0 pre-generation data triage (`plan_sections`). Includes the "promotion pattern" (a check starts as a `query_database` action step and is promoted to a spawned sub-agent only once it needs multi-step workflows or external calls) and the rule that audit agents "enforce, not override" the classifier/planner's stated intent. Never genuinely dropped — consolidated into the numbered `002_system_architecture` doc and then actively extended.
 - **sources:** old/older1/002d_quality_assurance_architecture.md; archive_april_26/002de_quality_assurance_architecture_v2.md; docs024_key_docs_latest/002_system_architecture(4).md#"002d"
 - **relations:** design agent responsibility split; improvement-loop; site-spec-and-classifier; triage drain loop
@@ -214,8 +215,9 @@ duplication; two of them — QA Agent Architecture and site_work_items domain→
 
 ### SYS-026 — site_work_items work-routing column renamed domain → pipeline
 *(merged from 2 independent findings, upstream)*
-- **status:** superseded
+- **status:** deployed
 - **status-evidence:** Live bug-log entry #18 in `001_development_guide(5).md`: "The `domain` column on site_work_items was renamed to `pipeline` in a migration."
+- **stage2-verified (2026-07-14):** superseded → deployed — `platform/orchestration/actions/load_work_item_actions.go:642` sets `"pipeline": pipeline` (current code uses `pipeline`, not `domain`); `docs/agent_docs/sql_for_agents/125_doc_plans_and_notes.sql:10,43` references `site_work_items.pipeline`. Migration is complete and wired into live action code, not a pending/aspirational rename.
 - **what:** `site_work_items.domain` was an internal work-routing namespace ("build"/"maintenance"/"marketing") that collided confusingly with the website's actual domain (e.g. "gaswholesalers.com"), causing real bugs (a dispatch-loop filter mismatch, a CSS-generation item never dispatching because it was written `domain:"design"` instead of `domain:"build"`). Rather than rely on documentation warnings, the column was renamed to `pipeline` at the schema level, eliminating the ambiguity outright.
 - **sources:** old/older1/001h_development_guide_new_agents_v8.md; docs024_key_docs_latest/001_development_guide(5).md#18; old_design_and_styling/016_debugging_guide_v2.md
 - **relations:** dispatch-loop input_mapping; site_work_items table

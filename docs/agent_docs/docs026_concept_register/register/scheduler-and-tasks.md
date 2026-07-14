@@ -53,24 +53,27 @@ units U01, U02, U03, U05, U11, U12, U13, U17a, U19, U24b, U24c, U24d.
 - **verify-later:** kafka-scheduler dispatch code path (confirm one fire per tick); scheduler's pre_query evaluation code; fire_message flag
 
 ### SCH-007 — CTE-only scheduled tasks pattern ("Always Return a Row" rule)
-- **status:** abandoned
+- **status:** deployed
 - **status-evidence:** Archive `011b_scheduler_and_tasks_guide.md` (a later revision than `011_kafka_scheduler_guide.md`, which is byte-identical to live) has a full section on this; none of it appears in live `010_scheduler_and_tasks.md`.
+- **stage2-verified (2026-07-14):** abandoned → deployed — cmd/scheduler/main.go:208-220 explicitly handles CTE-only (fire_message=false) tasks: skips Kafka fire but still sets last_triggered_at/last_completed_at, so cadence never silently breaks. loadDueTasks query line 265 'fire_message = false OR ...' directly implements the 'always return a row'/never-stall guard the ar...
 - **what:** Some scheduled tasks do their real work directly inside the pre_query's CTEs rather than triggering an agent — but the scheduler still requires the SELECT to return at least one row, or `last_triggered_at`/`last_completed_at` never advance, silently breaking firing cadence and concurrency-group accounting. This is a documented, previously-hit production bug pattern completely absent from the current live scheduler doc.
 - **sources:** archive_april_26/011b_scheduler_and_tasks_guide.md#"Pre-Queries", #"The fire_message Column"; docs024_key_docs_latest/010_scheduler_and_tasks.md (confirmed absent)
 - **relations:** concurrency-group starvation; last_completed_at ownership
 - **verify-later:** `SELECT name, pre_query FROM scheduled_tasks WHERE fire_message = false` for current CTE-only tasks
 
 ### SCH-008 — Concurrency group starvation problem and prevention rules
-- **status:** abandoned
+- **status:** deployed
 - **status-evidence:** Archive documents a real incident ("the original maintenance group had both claimed-item-timeout and database-cleanup. When database-cleanup stalled, it blocked claim resets, which blocked the entire pipeline") and gives four prevention rules; entirely absent from live doc.
+- **stage2-verified (2026-07-14):** abandoned → deployed — cmd/scheduler/main.go:294-320 countInFlight() groups by concurrency_group and excludes tasks past timeout_seconds (line 305), i.e. the exact starvation-prevention logic (timeout escape hatch) the archive doc proposed. Wired into main loop before firing (called each tick).
 - **what:** Tasks sharing a `concurrency_group` can starve each other if one never updates `last_completed_at`, permanently occupying the group's `max_concurrent` slot. Prevention: set `timeout_seconds < interval_seconds`, never group unrelated tasks together, ensure every completion path updates `last_completed_at`.
 - **sources:** archive_april_26/011b_scheduler_and_tasks_guide.md#"The Group Starvation Problem", #"Known Issues & Future Work"
 - **relations:** CTE-only scheduled tasks pattern; last_completed_at ownership
 - **verify-later:** query current `scheduled_tasks` group assignments against the archive's "Recommended Group Assignments" table
 
 ### SCH-009 — last_completed_at ownership contract and fire_message known-gap
-- **status:** abandoned
+- **status:** deployed
 - **status-evidence:** Archive explicitly documents: "The scheduler Go code does not currently read this column [fire_message]. It always sends a Kafka message"; none of these operational caveats appear in live doc.
+- **stage2-verified (2026-07-14):** abandoned → deployed — Archive claimed 'scheduler Go code does not currently read fire_message; always sends Kafka message' — now false: main.go:255,284 selects/scans fire_message and main.go:209 branches on task.FireMessage to skip firing. last_completed_at is set by the scheduler itself on both paths (lines 211,233), closing the ownersh...
 - **what:** Agent-triggered scheduled tasks must include an explicit `notify_scheduler` step on every completion path to set `last_completed_at`; the scheduler itself never sets this column and never reads `fire_message`, flagged as a known low-priority gap.
 - **sources:** archive_april_26/011b_scheduler_and_tasks_guide.md#"last_completed_at — Who Updates It?", #"Known Issues & Future Work"
 - **relations:** CTE-only scheduled tasks pattern; concurrency group starvation

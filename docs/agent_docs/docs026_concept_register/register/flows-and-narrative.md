@@ -21,8 +21,9 @@ all from unit U21.
 - **verify-later:** site_brand_dna table vs sites.content_data.brand_spec usage
 
 ### FLW-003 — Voice parameters (numeric stage-tuned voice)
-- **status:** superseded
+- **status:** abandoned
 - **status-evidence:** docs010/019 Week 2 plan (get_voice_for_page SQL, formality 0.5 home / 0.7 elsewhere); docs010/007: "Instead of trying to tune voice parameters numerically (formality 0.7 → 0.8), we select the right copywriter persona."
+- **stage2-verified (2026-07-14):** superseded → abandoned — Old mechanism (get_voice_for_page, numeric voice dials) only in docs010/019 planning docs, zero hits in platform/ code. Claimed replacement PERS-001 (copywriter persona roster) is itself classified 'abandoned' in register/persona-architecture.md:8 ('no later builder references personas'; personas/specialized_agents/...
 - **what:** Continuous voice dials (formality, technical_depth, sales_pressure, urgency, data_density, emotional_appeal 0–1) attached to flow stages and page context_overrides, injected into content prompts so voice progresses through the journey (awareness casual → conversion formal). Explicitly superseded within its own directory by persona selection, which embodies the parameters naturally.
 - **sources:** docs010_multitrack_flows_persona_architecture/019_start_here_document.md#Week-2; docs010_multitrack_flows_persona_architecture/007_personas_discussion.md#The-Key-Insight
 - **relations:** copywriter persona roster (successor, persona-architecture register); multi-track flows

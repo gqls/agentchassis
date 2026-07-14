@@ -45,8 +45,9 @@ units U01, U15, U17a, U18, U19, U20, U21, U24a, U26.
 - **verify-later:** site_specs direction aspect; lock_type/lock_expires_at; last_audit_reset_at
 
 ### HITL-006 — intake-orchestrator (classify → brief → HITL confirm → spawn builder → rerender)
-- **status:** superseded
+- **status:** partial
 - **status-evidence:** 068_domain_submitter_agent.sql creates a new entry point ("Entry point for new domain submissions... creates needs_domain_research work item"); intake files stop being patched after 030-era; 002 header shows HITL steps with `skip_if: input_data.hitl_mode == auto`.
+- **stage2-verified (2026-07-14):** superseded → partial — Replacement domain-submitter (068_domain_submitter_agent.sql) is real & wired: is_active=true, creates needs_domain_research items consumed by domain-research-classifier (grep hits lines 258-499). But old intake-orchestrator (002_intake_orchestrator.sql, agent_definitions row 175ec7ca) has NO deactivation anywhere i...
 - **what:** The v1/v2 entry pipeline: discovers available `%-builder` agents, spawns site-classifier and briefing-agent, runs two human-in-the-loop gates (confirm site type; review brief), spawns the recommended builder, then (added later) a rerender pass for nav consistency. Notable mechanisms: `dynamic_select` HITL fields fed from a live agent query; `skip_if` auto mode making HITL optional per run. Likely the same underlying agent concept documented elsewhere via a different source file as "Intake orchestrator with two HITL gates and per-group briefing questionnaires" (see register/onboarding-config.md ONB-021) — kept as a separate entry here because the two extraction units cite different SQL files (002_intake_orchestrator.sql vs 029.intake_and_groups.sql) and it is not certain they are the exact same migration generation.
 - **sources:** 002_intake_orchestrator.sql; sql_for_agents_v1/001_agent_definitions_etc.sql; sql_for_agents_v2/002_intake_orchestrator.sql
 - **relations:** superseded by domain-submitter + build-dispatch-loop; HITL gate pattern survives in content-reviewer HITL mode; ONB-021 (onboarding-config, likely same agent, different source doc)

@@ -320,11 +320,85 @@ line updated, `stage2-verified` provenance note added inline) and to
 their stage-1 documentary status, now implicitly higher-confidence since batch 2's sweep
 found no further errors among them beyond what's listed above.
 
-### Stage 2 status: substantially complete
+---
 
-Both priority items from the original handoff (multi-cluster dispatch, LoRA/Thunder) and all
-three suspected duplicates are resolved (see batch 1). All 314 partial/unknown concepts have
-been checked. All 871 deployed concepts have been swept for false positives. Remaining stage-2
-scope, if wanted: the 99 superseded + 72 abandoned buckets were not swept (batch 1's spot
-checks of a few held up; not exhaustively verified at scale). Otherwise, the register is now
-ready for **stage 3** (expert council agents per concept area).
+## Batch 3 — superseded/abandoned sweep, closing out stage 2 (2026-07-14)
+
+Extended `stage2_workflow.js` with two more prompt modes and ran the last unswept portion of
+the register: all 102 `superseded` + 72 `abandoned` concepts (174 total, 73 work units, 100
+agents, 2.7M tokens, ~7.6 minutes). Same verify → adversarial-recheck pipeline as batch 2.
+
+- **`superseded` mode** hunts for the failure where a claimed replacement doesn't actually
+  exist — meaning the "old" mechanism is quietly still the live one.
+- **`abandoned` mode** hunts for ideas quietly resurrected since the abandonment note was
+  written.
+
+**Result: 18 corrections confirmed, 9 overturned by the adversarial pass.** ~10.3% error
+rate — consistent with batch 2's ~9% (105/1,185), suggesting the register's error rate is
+fairly uniform across status buckets once you look past the `deployed`-bucket present-tense
+problem batch 1 found.
+
+| ID | Category | Was | Now | Why |
+|---|---|---|---|---|
+| ADM-010 | admin-dashboard-and-api | superseded | partial | Auth/Projects/Subscriptions routes are genuinely gone (proxied externally), but Templates and Instances routes are still live with full CRUD handlers — the bundled "v1 persona REST surface" concept is only half-superseded. |
+| AME-002 | agent-memory-and-evolution | abandoned | partial | `agent_variants` table was never built, but the sibling `is_snapshot` mechanism from the same design is fully live (5 call sites, migration 021) — one half survived, one didn't. |
+| DES-009 | design-composition | superseded | partial | `theme_tags` is genuinely gone, but `css_snippets`/`js_snippets` are still actively wired and queried — the claimed successor only replaced one of four bundled components. |
+| DOC-064 | documentation-system | abandoned | partial | The doc survives byte-identical under a sibling live project folder (`adoption/docubundle/`) that stage 1's search never reached — a **search-scope gap**, not a genuine abandonment. |
+| FLW-003 | flows-and-narrative | superseded | abandoned | Neither the old mechanism nor its claimed replacement (PERS-001, itself abandoned) was ever built — a pivot between two unbuilt designs, not a live supersession. |
+| HITL-006 | hitl | superseded | partial | The claimed replacement (domain-submitter) is real and wired, but the old intake-orchestrator was never deactivated anywhere in the repo — a new parallel entry point, not a proven decommission. |
+| IMP-026 | improvement-loop | abandoned | deployed | The exact three-step algorithm the docs said vanished is fully implemented and wired (`write_audit_findings_action.go:583-687`) — only the documentation of it lapsed, not the code. |
+| ONB-020 | onboarding-config | superseded | partial | Claimed successor has zero code implementation; the era-2 descendant mechanisms it was meant to replace are still live and wired. |
+| ONB-022 | onboarding-config | superseded | deployed | `briefing_questionnaire`/`fetch_agent_questionnaire` are fully live (registry + 3 call sites); the claimed successor has no matching implementation at all. |
+| SCH-007 | scheduler-and-tasks | abandoned | deployed | The exact ownership-gap fix the docs said was never built (`last_completed_at` set by the scheduler on both paths) is implemented in `cmd/scheduler/main.go`. |
+| SCH-008 | scheduler-and-tasks | abandoned | deployed | The exact starvation-prevention logic (timeout escape hatch, `countInFlight`) is implemented and wired into the main scheduler loop. |
+| SCH-009 | scheduler-and-tasks | abandoned | deployed | The docs' claim "scheduler does not currently read fire_message" is now false — the code reads and branches on it directly. |
+| SNAP-003 | site-snapshots-and-revert | superseded | partial | The old snapshot function is genuinely gone, but the claimed `needs_snapshot`→snapshot-agent replacement has zero Go implementation — live code instead uses a simpler `is_current`/`superseded_at` flag pattern not described in either the old or claimed-new design. |
+| SPEC-015 | site-spec-and-classifier | superseded | partial | Claimed replacement `intake-orchestrator-v2` was never built (0 SQL hits; its own proposal doc says the old one "must not be disrupted" and still routes builds); the original intake-orchestrator remains the live mechanism. |
+| STY-036 | styling-render-pipeline | superseded | partial | `aggregate_webpage` is still registered and enabled (registry.go:371), used in a non-backup SQL file modified after the claimed supersession — and its claimed successor is itself dead code, so nothing was cleanly replaced. |
+| STY-039 | styling-render-pipeline | superseded | partial | `assemble_multipage_site` is still registered, enabled, and used live in non-backup SQL — the old batch-assembly path coexists with the newer per-page loop rather than having been removed. |
+| SYS-025 | system-architecture | superseded | partial | Stage 1 itself flagged a mixed classification; the QA architecture doc was merged (not dropped) and the underlying three-layer mechanism is confirmed live via two agent-definition SQL files. |
+| SYS-026 | system-architecture | superseded | deployed | The `domain`→`pipeline` column rename is confirmed complete and wired into live action code, not a pending migration. |
+
+**A new failure-mode class, distinct from batch 2's present-tense-plan finding: search-scope
+gaps.** DOC-064 was tagged `abandoned` because extraction's search for its file was scoped to
+one doc subtree (`idea.uk/`) and never reached a sibling live project folder
+(`adoption/docubundle/`) holding a byte-identical copy. Present-tense-plan errors (batch 1/2)
+come from *misreading* evidence that was found; this is a different mechanism — evidence that
+was simply never *found* because the search boundary was too narrow. Worth keeping in mind for
+any future extraction pass: single-subtree searches can miss cross-cutting duplicates.
+
+**Cluster observation:** SCH-007/008/009 — all three scheduler-and-tasks concepts corrected in
+this batch — are the same shape: a documented gap, a real fix landing in `cmd/scheduler/main.go`,
+and the docs simply never being updated to reflect it. Three independent confirmations of the
+same underlying drift (code moved on, docs didn't) rather than three unrelated findings.
+
+All 18 corrections applied directly to their register entries and the master index (two —
+SYS-025/026 — needed a manual patch after the apply script's block-capture regex missed an
+edge case: an italic "merged from N findings" annotation line immediately after the header
+broke the bullet-only capture pattern).
+
+### Final status distribution (stage 2 complete)
+
+| status | stage 1 | after batch 2 | after batch 3 (final) |
+|---|---|---|---|
+| deployed | 871 | 847 | 853 |
+| partial | 274 | 246 | 257 |
+| aspirational | 271 | 290 | 290 |
+| superseded | 99 | 102 | 90 |
+| abandoned | 72 | 72 | 67 |
+| unknown | 40 | 21 | 21 |
+| convention | 0 | 49 | 49 |
+
+Total corrections across all three batches: **1 (MCL-002, batch 1, hand-verified) + 105
+(batch 2) + 18 (batch 3) = 124 corrections** out of 1,627 concepts (~7.6%), plus one duplicate
+resolved (PUB-001 → pointer entry, not a status change).
+
+### Stage 2 status: COMPLETE
+
+Every concept in the register (1,627) has now been checked against the live codebase at least
+once — all 314 originally-scoped partial/unknown, all 871 deployed (added after batch 1's
+scope finding), and all 174 superseded/abandoned (this batch). Both priority items from the
+original handoff (multi-cluster dispatch, LoRA/Thunder) and all three suspected duplicates are
+resolved. The register is ready for **stage 3** (expert council agents per concept area) — see
+`PLAN_concept_register.md` §Stage 3 for the design, which is now grounded in the live fix-loop
+mechanism.

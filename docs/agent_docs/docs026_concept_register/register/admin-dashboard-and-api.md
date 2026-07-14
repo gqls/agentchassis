@@ -78,8 +78,9 @@ across units U01, U09, U12, U24a, U26.
 - **verify-later:** site-admin-dashboard.jsx location
 
 ### ADM-010 — AI Persona Platform public API
-- **status:** superseded
+- **status:** partial
 - **status-evidence:** docs/api/reference.html is a generated Redoc bundle titled "AI Persona Platform API" covering the persona-era surface; the current API surface is the admin dashboard/nginx gateway (spine 012) and the persona-instance concepts do not appear in current docs.
+- **stage2-verified (2026-07-14):** superseded → partial — Auth/Users/Projects/Subscriptions portions of persona-era API fully gone: 0 grep hits for /auth/, /projects, /subscription routes in internal/core-manager/api/server.go; comment at server.go:100-101 confirms auth now proxied by api-gateway/nginx. BUT Templates and Instances portions still live: /templates group (ser...
 - **what:** The v1 REST surface of the persona era: JWT auth (register/login/refresh/validate/logout), user profile/password/delete, projects CRUD, subscription with usage stats and quota checks, persona template listing, persona instance list/create, health check, and a WebSocket connection endpoint. Documents the original productisation of the platform as "AI personas" for end users.
 - **sources:** docs/api/reference.html (tags: Authentication, Users, Projects, Subscriptions, Templates, Instances, System, WebSocket; paths /api/v1/auth/*, /api/v1/projects, /api/v1/subscription/*, /api/v1/personas/instances)
 - **relations:** three-database architecture (auth DB backs these endpoints); superseded by current admin-dashboard-and-api (ADM-001)

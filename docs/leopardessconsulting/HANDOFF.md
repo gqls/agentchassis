@@ -4,32 +4,32 @@
 the single source of truth for state. The deeper detail lives in the four companion
 docs, but this file is enough to resume without them.
 
-**Last updated:** 2026-07-14 (turn 15)
-**Branch:** `083_imagery`
+**Last updated:** 2026-07-14 (turn 17)
+**Branch:** `085_debug_and_feature_loops`
 **Site:** `leopardessconsulting.co.uk` · `site_id = 4851f6fc-71cf-4160-a270-e03d6d3e0732`
 
 ---
 
 ## ⚡ CURRENT PUNCH-LIST (owner site review, 2026-07-14) — start here
 
-The owner reviewed the live site and raised the items below. Root causes and prior-art
-fixes are from two research passes (see RUNNING_NOTES turn 15). Status as of turn 15:
+The owner reviewed the live site and raised the items below. Status as of **turn 17**.
 
 | # | Issue | Status | Fix / root cause |
 |---|---|---|---|
-| 1 | Nav sometimes blue, sometimes black; footer navy | **FIXED & verified** | Header/footer baked into each page at assemble time; header slot was empty; footer navy = collection `color_palette.primary=#1a1a2e`. Set primary→`#0D0D0D`; triggered `rerender-pages` (`refresh_site_components:true, force_rerender:true`) — re-rendered all 3 slots + re-assembled every page. 27/30 gold header (3 empty pages excepted). NOTE: leftover `#1a1a2e`/`#0f3460` in page HTML are **dead CSS fallbacks** `var(--color-primary,#1a1a2e)` — the variable is defined, so they never render. Don't chase them. |
-| 2 | Nav cluttered / blank "For Leaders" in nav | **FIXED** | Header nav reads `site_nav_items` (primary group), NOT `pages.in_header`. Rebuilt to 9 items. |
-| 3 | Card links 404 (how-we-work, who-we-help, use-cases) | **FIXED** | `info-card-grid` rendered `<a href>` ungated. Gated template `{{if .link_url}}`; stripped 6 phantom links; repointed use-cases quiz link. Backstop: enable `phantom_internal_links` + `broken_nav_links` discovery checks (currently OFF). |
-| 4 | About invented stats (30 Clients Served / 2,767 Awards Won) | **FIXED (made true, not removed)** | Labels were LLM-fallbacks. Set to honest+true (30 yrs / 8 sites / 2,767 records). Clean *removal* needs gating the shared `content-block-about` template. |
-| 5 | **Missing images site-wide** | **OPEN — biggest item; NOT blocked** | **A6 Banana routing IS deployed** (running `image-generator-adapter v1.0.1114`; the turn-8 "not deployed" note was stale). Root cause: **leopardess has NO `site_plan` and 0 `site_plan_imagery` rows.** Two routes — see §9 below. Per-card/section images need **Phase I3 (content-imagery lane), which is NOT built** — that's a structural limit, not a config miss. |
-| 6 | blog.html broken (empty "min read/Read more", no posts/images) | **OPEN (less broken than it looks)** | Listing already renders 5 posts with working links. Real defects: card `image=""` (Phase I3 gap, `rebuild_blog_listing_action.go:186` hardcodes `""`) + empty excerpts (blog posts have empty `pages.meta_description`) + blank read_time. Fix excerpts: populate `meta_description`, re-run `rebuild_blog_listing`, reassemble `/blog.html`. Copy robot-hands' blog. |
-| 7 | use-cases claims we do things we don't (LinkedIn enrichment, doc-watching agents, Slack/PagerDuty) | **OPEN** | Reframe as "could do", per the AUDIT rule. Not yet edited. Content in the `use-cases-list` rendered_html (content_data NULL — LLM-authored into rendered_html). |
-| 8 | favicon.png 404 at `/assets/images/favicon.png` | **FIXED** | The head (`render_site_components_action.go:399,403`) hardcodes `/assets/images/favicon.png`; we'd only committed `.ico`. Committed `brand/favicon.png` (=favicon-180) to that path via git-adapter → now 200. (`derive_brand_head_assets` can't self-serve it: it needs the logo `url` to be an S3 handle, but ours is a git path.) |
-| 9 | 3 zero-section pages (ai-readiness-quiz, for-engineering-leaders, llm-cost-calculator-guide) | **OPEN** | Blank pages; need content rebuild or removal. |
-| 10 | **Voice still reads LLM-written** | **PROMPT WRITTEN** | Owner: "think hard about a prompt." → `specs/VOICE_REWRITE_PROMPT.md`. Apply it page-by-page (substance rewrite, not repolish). |
+| 1 | Nav sometimes blue, sometimes black; footer navy | **FIXED & verified** | Header/footer baked into each page at assemble time; footer navy = collection `color_palette.primary=#1a1a2e`. Set primary→`#0D0D0D`; `rerender-pages` (`refresh_site_components:true`). NOTE: leftover `#1a1a2e`/`#0f3460` in page HTML are usually **dead CSS fallbacks** `var(--color-primary,#1a1a2e)` — BUT turn 17 found a *live* navy gradient hardcoded in **stale rendered_html** on use-cases (no `var()`, it really rendered). Distinguish: `var(...)` = dead; bare hex in a `background:` = real, fix by re-rendering the section from its current template. |
+| 2 | Nav cluttered / blank "For Leaders" in nav | **FIXED (header + footer)** | Header nav reads `site_nav_items` **primary** group. Turn 17: the FOOTER reads `site_nav_items` **primary+utility+legal** (`render_site_components_action.go:98`) — `pages.in_footer` is DEPRECATED and does nothing. "For Leaders" survived in the footer of every page until its `utility` nav row was DELETED (`bak_navitem_fel_20260714`). |
+| 3 | Card links 404 (how-we-work, who-we-help, use-cases) | **FIXED** | `info-card-grid` rendered `<a href>` ungated → gated `{{if .link_url}}`. Turn 17 found 2 MORE phantom `/tools/tool-ai-readiness-quiz.html` links (use-cases hero + CTA) that turn 15 missed; gone now. Backstop: enable `phantom_internal_links` + `broken_nav_links` discovery checks (still OFF). |
+| 4 | About invented stats (30 Clients Served / 2,767 Awards Won) | **FIXED (made true, not removed)** | Labels were LLM-fallbacks. Set to honest+true (30 yrs / 8 sites / 2,767 records). |
+| 5 | **Missing images site-wide** | **OPEN — mechanism PROVEN, blocked on infra** | Route A-safe works end-to-end (see §9): generated + git-deployed a hero with NO content clobber. **But** (a) the cluster keeps stalling spawned `image-generator` pods on Kafka dial timeouts to broker `10.20.99.93`, and (b) **`kind:'hero'` routes to SDXL, not Banana** (`dynamic_adapter.go:534`) — so a leopardess hero can never be on-brand, because its house style *is* flat illustration. Use `kind:'illustration'` for heroes here. Per-card/section images still need **Phase I3 — NOT built**. |
+| 6 | blog.html broken (empty "min read/Read more", no posts/images) | **FIXED (excerpts + read times live)** | Root cause was empty `pages.meta_description` on the 2 `/blog/` posts. Populated → `rerender-pages` → `rebuild_blog_listing`. Live: 5 cards, real excerpts, real read times. Card **thumbnails** remain blank (Phase I3 gap, `rebuild_blog_listing_action.go:186` hardcodes `image:""`). |
+| 7 | use-cases claims we do things we don't | **FIXED & verified live** | Was worse than reported: 5 fabricated case studies with invented clients + invented results. The rewritten `portfolio` spec already held 5 honest "Not yet done for a client" use_cases — made the spec the source of truth (mirrored `status`→`client`), backfilled content_data on all 3 slots, re-rendered. Live: 0 fabrications, 0 phantom links, 0 navy. |
+| 8 | favicon.png 404 | **FIXED** | Head hardcodes `/assets/images/favicon.png`; only `.ico` was committed. Committed the png → 200. |
+| 9 | Empty pages | **PARTLY FIXED** | The "3 zero-section pages" was wrong twice over. Truth (via `page_components` count, NOT `pages.sections` — that's just a type-name plan): **llm-cost-calculator-guide** REBUILT & live (linked from the blog listing — never reported); **for-engineering-leaders** ARCHIVED + de-navved (duplicate of for-engineering-teams); **ai-readiness-quiz** rebuild blocked → see §8 `contact-block` bug (now fixed fleet-wide; rebuild re-fired). 7 further empty case-study pages are `status='archived'`, unlinked, no sitemap → harmless. |
+| 10 | **Voice still reads LLM-written** | **PROMPT WRITTEN — not yet applied** | `specs/VOICE_REWRITE_PROMPT.md`. Apply page-by-page (substance rewrite). **Note the mechanism:** page-content-writer reads a `rewrite_guidance` field, so the prompt can be fed through the pipeline rather than hand-edited — but see §9's clobber warning first. `contact` is the one page with empty content_data and CTO-register copy — do it there first (nothing to lose). |
 
-Backups made this turn: `bak_stylecoll_leo_20260713`, `bak_site_nav_items_leo_20260713`,
-`bak_infocardgrid_20260713`, `bak_pages_leopardess_20260713`.
+Backups (turn 17): `bak_pages_contentdata_leo_20260714`, `bak_usecases_leo_20260714`,
+`bak_portfolio_spec_leo_20260714`, `bak_blogmeta_leo_20260714`, `bak_fel_page_leo_20260714`,
+`bak_navitem_fel_20260714`, `bak_contactblock_20260714`.
 
 ---
 
@@ -174,26 +174,37 @@ never trust orchestration status alone.
 
 ## 6. NEXT ACTIONS (in priority order)
 
-1. **[✅ done — 27/30] Site uniformity.** All content pages carry the forked gold header/
-   logo; the palette applies site-wide via the stylesheet. The 3 not done
-   (`ai-readiness-quiz`, `for-engineering-leaders`, `guides/llm-cost-calculator-guide`)
-   have **zero sections** — they need a content REBUILD (see #5/L8), not a re-assembly.
-   KEY LESSON: use `reassemble_pages.sh` (ASSEMBLE mode + page_id) for header/footer
-   changes — `section_data_resolved` SKIPS unchanged pages and silently won't update them.
-2. **Per-page `<title>` + og:image meta.** Still partly stale (old marketing titles).
-   Comes from page metadata / the head slot mechanism, not the section content. SEO/social
-   polish.
-3. **Secondary-page copy (L5 cont.).** engagement-model, for-engineering-teams,
-   for-engineering-leaders, how-it-works, our-approach, technical-architecture still carry
-   CTO-register copy; rewrite for A2. Merge near-duplicate pages rather than restyle each.
-4. **Head `theme-color` meta** is still `#1a1a2e` — set to `#0D0D0D`.
-5. **The build-out the brief actually asks for** (beyond fixing what's broken): tools,
-   illustrated guides, news surface, games, "AI working frontend" demos (label simulations
-   honestly), infographics. Tool library already has reusable interactive components
-   (`tool-ai-agent-roi-estimator`, quizzes, calculators) — deploy/adopt rather than
-   rebuild. News feed pipeline is real and running — surface it.
+**FIRST, resume the two things left in flight at end of turn 17** (verify, don't assume):
+- `ai-readiness-quiz` rebuild (take 4, fired after the `contact-block` fix). Check:
+  `SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.name='ai-readiness-quiz' AND p.site_id='…';`
+  If still 0, read `agent_error_log` (context.issues has the real reason). It is linked from
+  the footer AND the use-cases CTA, so it must not stay blank.
+- The footer reassembly batch (~17 `page_rerender` items when turn 17 ended). Verify no live
+  page still links `for-engineering-leaders`:
+  `for p in index about services …; do curl -s https://leopardessconsulting.co.uk/$p.html | grep -c for-engineering-leaders; done`
+  Stale items sometimes stick in `claimed` — reset to `triaged` to unblock.
+
+1. **[✅ done] Site uniformity / header + footer.** KEY LESSON: use `reassemble_pages.sh`
+   (ASSEMBLE mode + page_id) for header/footer changes — `section_data_resolved` SKIPS
+   unchanged pages and silently won't update them. For a NAV change you must also re-render
+   the slot first: `rerender-pages` with `spec.refresh_site_components:true`.
+2. **VOICE REWRITE (punch #10) — the biggest remaining content job.** Start with `contact`
+   (empty content_data, CTO-register copy, nothing to lose), then engagement-model,
+   how-it-works, our-approach, technical-architecture, for-engineering-teams. Note
+   page-content-writer accepts `rewrite_guidance` — but read §9's clobber warning first.
+3. **Per-page `<title>` + og:image meta.** Still partly stale (old marketing titles). Also
+   **there is no `sitemap.xml` at all** (0 URLs) — worth generating.
+4. **Imagery (punch #5).** Blocked on the infra flake + the hero→SDXL routing gap, both in
+   §8/§9. The safe wiring SQL is written; only run it against an asset you have *looked at*.
+5. **The build-out the brief actually asks for**: tools, illustrated guides, news surface,
+   "AI working frontend" demos (label simulations honestly), infographics. Tool library
+   already has reusable interactive components — deploy/adopt rather than rebuild. News feed
+   pipeline is real and running — surface it.
 6. **L7 — the chart component** (A5/A7). The one genuinely-new build. Start from real DB
    numbers (2,767 / 4,672 / 8 / 75,061), Go emits static SVG, JS enhances. See PLAN §5.
+
+**Done in turn 17, don't redo:** theme-color is already `#0D0D0D` live. `for-engineering-leaders`
+is archived (do not "fix" it — it was a deliberate merge-duplicate removal).
 
 ## 7. Open owner questions (RUNBOOK H-items)
 

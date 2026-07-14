@@ -13,8 +13,9 @@ all from unit U21.
 - **verify-later:** entity_state_log table existence in clients_db; entity_state_actions.go in repo
 
 ### AME-002 — Agent variants + snapshot versioning
-- **status:** abandoned
+- **status:** partial
 - **status-evidence:** docs006/004: "Snapshot model (preferred): variants explicitly reference a snapshot version"; is_snapshot column added in docs006/007 migration; agent_variants table proposed but never seen again.
+- **stage2-verified (2026-07-14):** abandoned → partial — agent_variants table itself: 0 CREATE TABLE hits (never built, discovery_actions.go:671 comment 'if exists'). But is_snapshot flag from the same design is live and wired: platform/messaging/processor.go:351,360; platform/discovery/agent_discovery.go:99,118,188; platform/orchestration/actions/spawn_actions.go:2124,21...
 - **what:** A controlled-evolution model for agent definitions: base agents are versioned and can be frozen as snapshots (is_snapshot flag); task variants (agent_variants) reference a specific base version with config_overrides, metrics, and lineage, so the base can evolve without breaking variants. Three evolution types (bug fix / improvement / innovation) with escalating oversight; promotion of successful variants to new bases left as an open question.
 - **sources:** docs006_workflow_builder/004_agent_groups_or_not.md#The-Fragility-Problem; docs006_workflow_builder/006b_evolution_design_discussion.md; docs006_workflow_builder/007_new_tables_entity_state_log.sql
 - **relations:** improvement_proposals; four-level learnings model; agent_definitions versioning today; Agent definition snapshot/revert via backup table (agent-definition-registry register — a later, differently-shaped snapshot mechanism)

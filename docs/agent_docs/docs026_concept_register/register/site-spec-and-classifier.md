@@ -121,8 +121,9 @@ U19, U20, U21, U22, U23, U24e, U25.
 - **verify-later:** the three architect rows; content-site component rows
 
 ### SPEC-015 — Intake orchestrator workflow (classify → brief → spawn builder) — legacy
-- **status:** superseded
+- **status:** partial
 - **status-evidence:** docs006/011: "✅ WORKING SYSTEM: HITL Orchestration with Multi-Agent Workflow" listing the 11-step intake workflow; docs017/023 later introduces intake-orchestrator-v2 routing.
+- **stage2-verified (2026-07-14):** superseded → partial — OLD: agent_definitions row 'intake-orchestrator' (uuid 175ec7ca) fully defined w/ 10-step workflow, version v1.0.737, tags 'orchestration','intake' — found in docs/agent_docs/sql_for_agents/002_intake_orchestrator.sql. NEW/claimed replacement 'intake-orchestrator-v2': 0 hits in any .sql file repo-wide; only named in...
 - **what:** The entry-point orchestration: spawn/call site-classifier → fetch_available_builders from DB → HITL confirm site type (human can override classifier and builder choice) → fetch builder questionnaire → briefing agent fills it → HITL review brief → spawn and call the chosen builder. Established the pattern of human quality-gates before expensive generation, ancestor of the current relay/work-item pipeline.
 - **sources:** docs006_workflow_builder/011_working_landing_page_builder.md#Working-Agents; docs017_legacy_agent_rules_images_design_keydocs/023_maintenance_architecture_unified_v6.md#Naming-and-Coexistence
 - **relations:** classifier lineage (SPEC-012); briefing agent; HITL protocol

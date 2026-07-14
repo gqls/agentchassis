@@ -94,10 +94,39 @@ For EACH id:
 
 Bias: confirm when the artifact exists; correct ONLY on clear absence-from-code of a concretely-claimed artifact. Do NOT modify any file. Return the schema object.`
 
+const supersededPrompt = (u) => `You are a Stage-2 verifier for a concept register. Repo root: ${REPO}
+
+Your work unit: category file ${REG}/${u.cat}, SUPERSEDED-bucket verification of these concept IDs (all tagged 'superseded' in stage 1 — a replacement mechanism is claimed):
+${u.ids.join(', ')}
+
+For EACH id:
+1. Read its \`### <id>\` block in ${REG}/${u.cat}. Note the OLD mechanism being replaced and the claimed REPLACEMENT (usually named in status-evidence or relations).
+2. Check the REPLACEMENT actually exists and is live: grep/find for it under ${REPO}, confirm it's wired (registry/workflow/deployment), not just present as a file.
+3. Check the OLD mechanism's actual fate: is it fully gone (removed/dead code), or does it still run alongside the replacement (parallel/partial migration), or — the failure mode to hunt for — does the "replacement" not actually exist, meaning the old mechanism is still the live one (status should be 'deployed' or 'partial', not 'superseded')?
+4. Classify \`kind\` (code-artifact/infra/db vs convention/idea/process — a "superseded methodology" claim needs a different test than a superseded code path).
+5. Set verified_status. is_correction=true only if the claimed replacement doesn't hold up (e.g. replacement doesn't exist → old thing is actually still deployed/partial) or the supersession itself didn't happen as described.
+
+Evidence must be concrete: cite file:line or a grep hit-count for BOTH the old mechanism and the claimed replacement. Be terse. Do NOT modify any file. Return the schema object.`
+
+const abandonedPrompt = (u) => `You are a Stage-2 verifier for a concept register. Repo root: ${REPO}
+
+Your work unit: category file ${REG}/${u.cat}, ABANDONED-bucket verification of these concept IDs (all tagged 'abandoned' in stage 1 — the docs claim the idea was dropped and never built, or built then removed):
+${u.ids.join(', ')}
+
+For EACH id:
+1. Read its \`### <id>\` block in ${REG}/${u.cat}. Note what was supposedly abandoned and any named artifact.
+2. Hunt for resurrection: grep/find under ${REPO} for the named mechanism, table, or file — across .go/.sql/.yaml/.tf, not just docs. The failure mode you hunt: the idea was quietly revived or built later under a different doc thread that the original abandonment note never saw.
+3. Classify \`kind\` (code-artifact/infra/db vs convention/idea/process).
+4. Set verified_status. is_correction=true only if you find it's actually live now (deployed/partial) or that a later doc shows it was never truly abandoned (aspirational, still-planned).
+
+Evidence must be concrete: cite file:line or a grep hit-count. "0 hits across .go/.sql" confirms abandonment; any hit needs a wired-vs-dead-code judgment same as the sweep mode. Be terse. Do NOT modify any file. Return the schema object.`
+
+const PROMPTS = { deep: deepPrompt, sweep: sweepPrompt, superseded: supersededPrompt, abandoned: abandonedPrompt }
+
 phase('Verify')
 const results = await pipeline(
   units,
-  (u) => agent(u.mode === 'deep' ? deepPrompt(u) : sweepPrompt(u), {
+  (u) => agent(PROMPTS[u.mode](u), {
     label: `${u.mode}:${u.cat.replace('.md', '')}`,
     phase: 'Verify',
     schema: VERDICT_SCHEMA,

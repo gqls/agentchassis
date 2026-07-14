@@ -284,8 +284,9 @@
 - **verify-later:** store_generated_component_action.go separateInlineJS (~line 105); rerender_single_page_action.go collectJSAssets
 
 ### STY-036 — aggregate_webpage HTML assembly action (first-gen renderer)
-- **status:** superseded
+- **status:** partial
 - **status-evidence:** Used in robot-hands-complete-website workflows; replaced within docs004 by assemble_full_page/html-assembler and later by the current render pipeline.
+- **stage2-verified (2026-07-14):** superseded → partial — aggregate_webpage is still registered live: registry.go:371 (Handler: AggregateWebpageAction, IsLocal:true), local_actions.go:124 enabled=true, and used in docs004_website_capture_project/playwright/website_builder_orchestration_agent.sql (not a backup file, modified Nov 2025) — the claimed successor (STY-037/assemb...
 - **what:** First-generation page renderer: wraps LLM-generated section content in a hard-coded HTML head (embedded CSS, nav) and footer, stitching named step outputs in a declared order into a complete page file. One action call per page.
 - **sources:** docs002_hitl_parallel/README.0100b.updated_state_of_play_for_creating_website.md; docs002_hitl_parallel/README.0100c.workflow_diagram.md
 - **relations:** successor: STY-037 (assemble_full_page + html-assembler), then STY-001 (current render pipeline)
@@ -308,8 +309,9 @@
 - **verify-later:** html_actions.go survival/usage in current action registry
 
 ### STY-039 — Batched multipage generation (assemble_multipage_site)
-- **status:** superseded
+- **status:** partial
 - **status-evidence:** "for 20+ pages you need assemble_multipage_site... 5 batches × 4 pages = 80k tokens = WORKS"; later replaced: "Current (broken): spawn_multiple_writers ❌ Spawns 4 at once → New: loop."
+- **stage2-verified (2026-07-14):** superseded → partial — registry.go:525 assemble_multipage_site still registered (Handler: AssembleMultipageSiteAction, IsLocal:true), local_actions.go:57 enabled=true, and used live in sql_for_agents_v1/v2 017_multipage_website_builder.sql (non-backup). loop action also registered (registry.go:47) and used in generate_pages_loop in 000_ba...
 - **what:** Handling 6–200+ page sites within LLM output limits by generating pages in batches of 3–5 per call, generating shared CSS once, injecting navigation with active states, and streaming files to S3 (auto_store threshold pattern). Superseded by sequential per-page generation with the loop action after race conditions and quality problems.
 - **sources:** docs006_workflow_builder/009_massive_multipage_sites.md#Quick-Decision-Tree; docs010_multitrack_flows_persona_architecture/019_start_here_document.md#Week-1
 - **relations:** loop action; Kafka message size limits; stream_to_s3/auto_store

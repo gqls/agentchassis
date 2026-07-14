@@ -25,8 +25,9 @@ agent-snapshot invocation detail folds into SNAP-004.
 - **verify-later:** component_versions row counts by changed_by
 
 ### SNAP-003 — Milestone-tagged site-spec history with inline git-snapshot function (superseded design)
-- **status:** superseded
+- **status:** partial
 - **status-evidence:** The archive `site_specs` schema carries `milestone`/`superseded_by` columns and a `CommitSpecSnapshot` Go function called inline; the live doc drops both columns entirely and replaces inline snapshotting with a work-item-triggered `snapshot-agent`.
+- **stage2-verified (2026-07-14):** superseded → partial — Old CommitSpecSnapshot fn / milestone,superseded_by columns: 0 grep hits anywhere in repo (archive-only) — confirmed gone. Replacement claim is split: page_component_history IS real+wired (platform/orchestration/actions/save_component_history_action.go:142, save_page_sections_action.go:437, registry.go:592). But the...
 - **what:** The original design kept unbounded site-spec history in the DB, labelled key rows with a `milestone` string (`initial_research`, `post_build`, `rebrand_q2`...), and relied on a bare Go function invoked directly by completing actions to write a `.site-spec.json` git checkpoint. Content-level rollback used `content_snapshot` on `page_components`. This whole history/rollback substrate was replaced by a decoupled model: `site_specs` now prunes to last-5-per-aspect, `page_component_history` is a dedicated append-only table for component rollback, and snapshotting became an ordinary dispatched work item (`needs_snapshot` → `snapshot-agent`) rather than an inline side-effect call. The legacy `page_components.content_snapshot`/`schema_snapshot` columns were also dropped.
 - **sources:** old/older1/005_build_expand_plan.md#"Table: site_specs",#"Git Spec Snapshots"; docs024_key_docs_latest/P1_build_expand_plan.md#"Removing legacy columns",#"Snapshots"
 - **relations:** superseded by Site snapshots (SNAP-001) + page_component_history; content-governance locking model

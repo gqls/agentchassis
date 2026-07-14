@@ -478,7 +478,26 @@ remains manual-trigger (095 and 096); nothing dispatches itself. Commits: 72bcd6
 Where this leaves the roadmap: Phase 3 (re-verify after a fix deploys, close escalations honestly) and Phase 4 (fold escalations into the digest) are next; dispatching the three parked escalations into
 the diagnosis loop is your call whenever you want to spend the model credits.
 
+----
 
+Done. The docs are current and the read-aloud summary is written.
+
+The summary doc: docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/SUMMARY_where_we_are_2026-07-14.md — plain language, no code, written to be read start to finish. It follows the tone of the
+07-13 one and covers: the short version (the repair shop existed; today the platform learned to notice — triage and silent-check both live), the three-tier picture, how the doorkeeper sorts failures into
+four bins with dedup and a hard cap, the silent-failure inspector and why "no record anywhere" is the point, the reconciliation with the empty-sections thread's completion gate, the afternoon's best
+moment (the finding that closed itself when another team picked up the pages), why you're still in control, honest caveats (three cases found, none fixed yet; the blank-pages check stays report-only
+pending your review), and the roadmap (close the loop honestly → one page for everything → wider council).
+
+Doc updates alongside it:
+- PLAN_fixloop_pilot.md now carries a status banner marking it complete and historical, pointing to the handoff/runbook as the living state — its body is kept unedited so the pre-registered benchmark
+  rubric can't drift.
+- HANDOFF_diagnosis_fixloop_2.md §8 now names the new summary as the human-readable companion, superseding the 07-13 one.
+- The NOTES, RUNBOOK current-position, DESIGN, and handoff sections were already brought current last turn (commit b2736a457); README_so_far.md already carries the latest turn account so I left it
+  untouched.
+
+Committed as 07dc5048. One note: the commit again swept in a file another concurrent session had staged (vetcomparison/README_vet_legal.md) — forward-only rule, left as is, nothing lost.
+
+----
 
 
 

@@ -901,3 +901,40 @@ setting `in_footer=false` on for-engineering-leaders did nothing; the fix was DE
 `utility`-group nav row (bak_navitem_fel_20260714), then `rerender-pages` with
 `refresh_site_components:true`. Ai Readiness Quiz is also a utility nav item — it stays,
 because the page is being rebuilt.
+
+### Turn 17 final — verified live (curl, end of session)
+
+| Check | Result |
+|---|---|
+| Dead `for-engineering-leaders` link, 17 pages | **0 refs** (was on every page's footer) |
+| use-cases fabrications (LinkedIn / PagerDuty / "Revenue Operations" / "days, not quarters") | **0** |
+| use-cases phantom `tool-ai-readiness-quiz` links | **0** (was 3: prose + hero + CTA) |
+| use-cases honest "Not yet done for a client" labels | **5** |
+| use-cases live navy gradient | **0** |
+| blog cards with excerpts / read-times | **5 / 5** |
+| `/guides/llm-cost-calculator-guide.html` | **26,995b** (was a 12,439b empty shell) |
+| `/ai-readiness-quiz.html` | **still 12,425b — STILL BLANK, see below** |
+
+**The queue does not drain reliably today — bypass it.** The `page_rerender` work items from
+`rerender-pages` sat at 17 `triaged` for >2h with `complete` frozen at 34 (build-dispatch-loop
+pods churning but not consuming). Re-firing `rerender-pages` just adds more items. What
+actually worked: **`scripts/reassemble_pages.sh` drives `page-rerender` directly, one page per
+call, bypassing site_work_items entirely** — all 10 stale pages went clean in minutes. This is
+sharp-edge #2 in practice; reach for the script, not the queue.
+
+**ai-readiness-quiz — still blank, and the remaining blocker is infra, not content.**
+Take 3 and take 4 both got past the `contact-block` email bug (fixed fleet-wide: the shared
+schema's `email_placeholder` `fallback:"jane@company.com"` is only ever an HTML `placeholder=`
+attribute, but `validate_page_content`'s email check read it as a hallucinated contact address
+and failed EVERY build of any page carrying contact-block → now `"Enter your email address"`,
+bak_contactblock_20260714). Take 4 produced **no validation error at all** — but the parent
+orchestration is stuck `AWAITING_RESPONSES` at `call_content_writer` while its child
+orchestrations show COMPLETED. Same lost-child-response class as the image-generator stalls.
+To resume: re-fire page-build-handler for `ai-readiness-quiz` when the cluster is healthy; the
+content path itself is now believed clean. Its `sections` are `["hero","ai-readiness-quiz",
+"contact-block"]` and the interactive quiz component exists and is active.
+
+**Not done this turn (be honest about it):** the voice rewrite (punch #10) was not started —
+the session went into root-causing the honesty defects, the empty pages, the footer mechanism,
+and the imagery-clobber trap instead. `contact` is still empty-content_data CTO-register copy
+and is the right place to start.

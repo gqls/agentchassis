@@ -80,8 +80,9 @@ deduplication begins; the "raw extractions" count above and the per-concept
 - **verify-later:** brand-designer agent_definitions row
 
 ### DES-009 — Semantic CSS theme and snippet system (theme_tags, css_themes, css_snippets, js_snippets) — superseded
-- **status:** superseded
+- **status:** partial
 - **status-evidence:** Full DDL + seed data across two iterations (text[] then jsonb tags); the design-composition palette/typography system is the taxonomy-named successor.
+- **stage2-verified (2026-07-14):** superseded → partial — theme_tags: 0 hits in .go — genuinely gone. But css_snippets/js_snippets NOT superseded: registry.go:734 registers render_js_snippets_for_site (wired), render_js_snippets_for_site_action.go:153 queries js_snippets, render_css_from_spec_action.go:481 queries css_snippets, invoked by 031_webdesign_agent.sql/113_site_a...
 - **what:** A semantic tagging vocabulary (mood/style/industry/audience/functional/colour, with related_tags pairing) applied to css_themes (complete `:root` CSS-variable palettes: calm-minimal, bold-conversion, warm-friendly, dark-modern, premium-elegant...), css_snippets (hover/animation/effect/pattern/utility fragments), and js_snippets (nav, scroll, accordion, clipboard, form interaction fragments with trigger metadata). Content-creator recommended theme+tags; the assembler matched snippets by tag. All-CSS-variable theming here is the direct ancestor of the platform's current CSS-variable contract.
 - **sources:** docs004_website_capture_project/006semantic_themes/README.020/021 (U20); 007different_types_of_site/027_css_js_schema.sql
 - **relations:** DES-008 (brand designer agent, predecessor); DES-001 (three-layer system, successor taxonomy)

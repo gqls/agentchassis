@@ -204,8 +204,9 @@
 - **verify-later:** confirm page-content-writer inject flags remain false; check for reappearance of baked-in header/footer components
 
 ### IMP-026 — Audit finding dedup + blocked-item filtering algorithm (write_audit_findings)
-- **status:** abandoned
+- **status:** deployed
 - **status-evidence:** Full three-step algorithm documented in v3/v4; not present in v5/live (mentioned only in passing, then dropped even from the summary line).
+- **stage2-verified (2026-07-14):** abandoned → deployed — write_audit_findings_action.go:583-687 implements exactly the three-step algorithm described as dropped-from-docs: bulk-preload blocked item_keys (583-596), broader item_type/page blocked match (624-629), item_key dedup against pending/detected/triaged/claimed/blocked items (645-646), used in registry.go/lock_helper...
 - **what:** `write_audit_findings` was documented as implementing three dedup/safety layers: bulk-preloading blocked item keys, a broader item_type+page match against existing blocked items, and item-key-based dedup against pending items. This mechanism-level detail disappears from the documentation surface after v4 — though a related, empirically-observed dedup mechanism is confirmed live in IMP-048 (Work-item dedup and two-strike semantics).
 - **sources:** old/older1/009d_improvement_loop_v4.md#"Finding Dedup and Blocked Item Filtering"; docs024_key_docs_latest/004_improvement_loop.md
 - **relations:** Finding Cap; Triage Drain Controls; Work-item dedup and two-strike semantics (IMP-048)

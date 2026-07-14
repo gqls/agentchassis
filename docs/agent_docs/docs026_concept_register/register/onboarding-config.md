@@ -157,8 +157,9 @@ units U01, U15, U16, U17a, U18, U20, U21.
 - **verify-later:** briefing aspect shape
 
 ### ONB-020 — Briefing agent (early industry-brief / clarifying-question stage, pre-questionnaire)
-- **status:** superseded
+- **status:** partial
 - **status-evidence:** docs004 SQL (README.021/023, unit U20) shows it live as the first pipeline stage generating a brief JSON; docs005/006 (unit U21) shows a later revision that "sits before chief-strategist" with a human-approval pause, then evolving into the briefing-agent + per-builder briefing_questionnaire architecture — both eras superseded by the current onboarding-config/config-derivation direction.
+- **stage2-verified (2026-07-14):** superseded → partial — Claimed successor 'onboarding-config PLAN_onboarding' has zero non-doc Go/SQL hits (grep -rln onboarding --include=*.go only matches unrelated companies_house_vertical_profiles.go). Meanwhile the era-2 descendant mechanisms are live: request_human_input wired in platform/orchestration/actions/registry.go and hitl_re...
 - **what:** The original briefing-agent concept, documented across two eras before being superseded. Era 1 (docs004): an LLM turns domain+objective into a comprehensive structured brief JSON — industry inference with confidence, audience demographics/psychographics, brand tone/personality/voice examples, value proposition/key messages/USPs, recommended sections, theme recommendation with semantic tags, content guidelines, monetisation model and ad zones. Era 2 (docs005/006): an agent inserted before the strategist takes raw user input (domain, rough objective), asks clarifying questions, and outputs a structured brief (audience, tone, USPs, competitors, key messages) with a human-approval pause — this era evolved into the briefing-agent plus per-builder briefing_questionnaire with interactive (HITL) and auto (LLM-infer) modes.
 - **sources:** docs004_website_capture_project/006semantic_themes/README.021.semantic_themes_agent_definitions.md, #README.023.specialist_site_architects.md (unit U20); docs005_briefing_agent_domain_authority/README.0130.briefing_agent.md, docs006_workflow_builder/011_working_landing_page_builder.md#Briefing-Agent, #003_current_state_of_agents.sql#3-BRIEFING-AGENT (unit U21)
 - **relations:** site classifier; questionnaire pattern; per-builder briefing questionnaires (ONB-022, direct successor); build-briefing-agent (ONB-019, later spec-reading successor); intake orchestrator; successor: onboarding-config PLAN_onboarding docs
@@ -173,8 +174,9 @@ units U01, U15, U16, U17a, U18, U20, U21.
 - **verify-later:** intake-orchestrator group row; request_human_input/fetch_group_questionnaire in registry; briefing_questionnaire column
 
 ### ONB-022 — Per-builder briefing questionnaires
-- **status:** superseded
+- **status:** deployed
 - **status-evidence:** docs006/002 full questionnaire JSON on landing-page-builder and content-site-builder definitions; docs007/001 contrasts landing (10 conversion fields) vs brochure (15+ corporate fields).
+- **stage2-verified (2026-07-14):** superseded → deployed — briefing_questionnaire column and fetch_agent_questionnaire action are live: platform/orchestration/actions/fetch_agent_questionnaire.go:141,236 selects briefing_questionnaire; registered in registry.go:543 and actioncheck/local_actions.go; also read in spawn_group.go:349,449,458,494. Claimed successor 'onboarding-c...
 - **what:** Each builder agent definition carries a `briefing_questionnaire` JSONB (sections of typed questions — brand, value proposition, conversion, social proof for landing; company, services, leadership, case studies for brochure). `fetch_agent_questionnaire` retrieves the correct questionnaire for the chosen builder, and the briefing agent fills it via HITL or LLM inference.
 - **sources:** docs006_workflow_builder/002_removing_agent_group_definitions.md#Step-2; docs007_brochure_builder/001_brochure_builder_plan.md#Questionnaire-Differences; docs006_workflow_builder/003_current_state_of_agents.sql
 - **relations:** briefing agent (ONB-020); site classifier; reviewed_brief; intake orchestrator (ONB-021, group-level variant of questionnaire storage)
