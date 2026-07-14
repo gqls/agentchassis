@@ -122,3 +122,165 @@ To bring it live
 
 Say the word when an image is up, or if you'd like the digest content adjusted first (more sections, different window, different reading surface) — it's your reading material, after all.
 
+---
+
+Awareness
+
+Please explain again the awareness surface, where would I see this on production? Also explain to me gently the full significance of the daily cadence check and what it will bring.
+
+I checked, and the honest answer shapes everything, so let me be straight with you: right now there is no screen. The scheduler that could run it daily is alive and ready — but the digest currently lives
+only as a row in a database table, and nothing yet puts it in front of your eyes. Let me explain gently what exists, what that means, and what the daily cadence would really bring.
+
+What the awareness surface is
+
+Think of the fix loop as a workshop that runs whether or not you're watching. It diagnoses, plans, argues in council, writes code, opens PRs. All of that is recorded — but recorded in many tables, joined
+by IDs, the way an engine leaves telemetry. To know what happened, someone has to go and read it.
+
+The awareness surface is a small, honest narrator. Once a day (once it's scheduled), it will walk through that telemetry and write a plain-language page: here are the runs that happened, here's what the
+council decided and why, here's which PRs opened, and — importantly — here is every change that was made to the machine itself, with the reason given. It uses no AI to do this: it only reports facts it
+can point to, so it can never flatter or hallucinate what the system did. A quiet day reads as "no activity," never as silence.
+
+Where you'd see it in production — the honest picture
+
+Today: it's a single entry in a database table called doc_notes. The only way to read it is a query — which, in practice, means you ask me and I fetch it, or someone runs one line of SQL. That's real, and
+it's durable, but it is not yet "you see it." I don't want to dress that up.
+
+There is no admin-dashboard card, no email, no Slack message carrying it — I checked, and doc_notes isn't wired into any screen. So the surface as it stands is a well-organised note sitting in a drawer
+that opens correctly every time you pull it. The composing half is built and working; the delivering-it-to-your-attention half is the piece still open.
+
+What the daily cadence really brings — the gentle version
+
+Here is the significance, and it's bigger than "it runs automatically."
+
+Right now, awareness is still something you have to remember to want. You have to think "I should check what the loop's been up to" and ask. The moment you're busy, or away, or simply not thinking about
+it, the workshop keeps running and you fall behind on what it did. That's exactly the worry you named a few turns ago — the framework may develop in directions I don't know about.
+
+The daily cadence flips that. Instead of awareness depending on your vigilance, a fresh, complete account arrives on its own, every day, forever, without anyone remembering to make it. You never have to
+ask "what did it do this week?" — the answer is already written, day by day, waiting. Miss a few days and you can read them in order and catch up completely. The burden of staying informed moves off your
+shoulders and onto the machine.
+
+And there's a deeper reason it matters, tied to the whole philosophy of this project. We agreed on a rule: more awareness before more autonomy. The cadence is what makes that rule real rather than a good
+intention. It becomes the trust instrument — the thing that lets the loop safely do more (wider councils, migrating old code, eventually feature work) precisely because you can always see what it's doing
+without effort. Autonomy grows; your visibility grows in lockstep. The day the digest is unattended and reliable is the day you can let the workshop take on bigger jobs and still sleep well.
+
+That third section — the ledger of changes to the machine itself — is the heart of it. Its very first run already caught two changes made by other pieces of work you weren't tracking. A daily version of
+that is, quietly, your early-warning system: if anything anywhere starts changing the platform in a direction you didn't intend, it shows up in tomorrow morning's page, in plain words, with the reason
+attached.
+
+The one decision that's really yours
+
+Cadence and delivery are two different things, and only you can say what "in front of me" means for you. Once the digest composes daily, it still needs somewhere you'll actually encounter it. The natural
+options:
+
+- A committed file in the repo (e.g. docs/.../DIGEST_latest.md) — you'd see it in your normal git activity, and its history becomes a diary.
+- An email or Slack message — it arrives where you already look each morning.
+- A card on the admin dashboard — a "what the loop did" panel, if you'd like it there.
+- Left in doc_notes with the daily schedule, and I fetch it for you on request — the lightest option.
+
+My gentle recommendation: the committed-file route, because it needs no new infrastructure, it puts the digest exactly where you already review changes, and its git history gives you the day-by-day diary
+for free. But this is genuinely your call — it's your reading habit we're designing around.
+
+Would you like me to (a) show you the current digest right now, (b) wire the daily cadence on the scheduler, and/or (c) add one of those delivery channels so it becomes something you truly see rather than
+something you fetch?
+
+
+-----
+
+● Both concrete tasks are done. Here's the current digest, then the architecture question — which is the important one.
+
+Your current digest
+
+# Fix-loop digest — last 24h (generated 2026-07-13 21:00 UTC)
+
+## Runs (4)
+- 11:42  fix-implementer-orchestrator  COMPLETED → complete (15f8d534)
+- 12:07  fix-implementer-orchestrator  COMPLETED → complete (da7b6dc6)
+- 12:22  fix-implementer-orchestrator  COMPLETED → complete (dd766f68)
+- 21:00  fixloop-digest                (this digest itself)
+
+## Decisions by correlation (0)
+No diagnosis artifacts written in this window.
+
+## Agent config changes (3)
+- 12:06  fix-implementer:       point ref/base at active branch (origin/main is stale)
+- 13:00  tool-acceptance-agent: 147_acceptance_agent_mobile_profile.sql
+- 19:57  asset-deployer:        add sprite_css mode branch
+
+Now committed at docs/fixloop_digests/DIGEST_latest.md (+ a dated archive and a README). The refresh script 094_pull_digest_to_file.sh reads the latest from doc_notes into that file — run it on demand, or
+via a local cron with --commit for the automatic daily delivery. (Reminder: the deployed binary still shows only 4 runs; the fix that also captures the spawned implementer pods — and PR #1's URL — rides
+your next image.)
+
+  ---
+
+What the digest is looking for — the honest scope
+
+It reads three things, all about the loop's own activity: its runs, the diagnosis/plan/council artifacts it produced, and changes to the platform's agents.
+
+It is a rear-view mirror, not a smoke detector. It does not crawl sites, and it would never notice a missing page. You're exactly right that missing pages are not its department.
+
+The architecture question — I think there's a clean answer
+
+Let me think this through properly, because it's the right question to be asking now.
+
+The key fact that decides everything: the fix loop's output is a code pull request. So it is the correct tool only for problems whose root cause lives in code or workflow structure. A missing page usually
+isn't that — it's a build-state problem (the page was planned but not built, or a build step failed). The right remedy is to re-queue the build, not to change code. If you routed every missing page into
+the fix loop, it would dutifully propose code fixes for problems that mostly need a re-run — a category error.
+
+    But — and this is the subtle part the darts benchmark taught us — the same symptom can have either cause. Most missing pages are operational (re-run fixes them). A few are a genuine code bug (the darts
+"silent success" terminal). So the system needs to tell those apart cheaply, and only escalate the second kind.
+
+That points to a three-tier immune system, which you're most of the way to already:
+
+┌────────────────────────┬──────────────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────────────────────┬───────────────────────┐
+│          Tier          │                           Who                            │                                     Job                                      │        Output         │
+├────────────────────────┼──────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────┼───────────────────────┤
+│ 1. Prevention          │ the build workflow                                       │ do the work correctly first time                                             │ built pages           │
+├────────────────────────┼──────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────┼───────────────────────┤
+│ 2. Operational healing │ audit/checker agents, doc traveller, build immune system │ detect problems and apply known remedies (re-queue a build, re-render, flag) │ fixed state / re-runs │
+├────────────────────────┼──────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────┼───────────────────────┤
+│ 3. Structural repair   │ the fix loop                                             │ for problems whose cause is in code, produce a reviewed PR                   │ pull request          │
+└────────────────────────┴──────────────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────────────┴───────────────────────┘
+
+The connective tissue between tier 2 and tier 3 already exists in the platform: the fix loop's intake is a needs_diagnosis work item (the 090 trigger / the diagnose-dispatch-loop, currently shipped
+disabled). So an audit agent or the doc traveller that finds a problem it can't resolve simply files one — a plain-English symptom — and the loop picks it up.
+
+So my recommendation is: escalation, not a firehose. The detectors should not send every error to the loop. They send a needs_diagnosis symptom only when:
+
+1. The problem isn't a known-remedy operational issue (their own domain fix doesn't apply), or
+2. It recurs despite remediation — because a problem that survives the cheap fix is precisely the signature of a code/structural bug.
+
+And there's already a filter written for exactly this, in the loop's own runbook — the "loop-worthiness doctrine": only symptoms about system behaviour, with a plausible code cause, that a cheap pre-check
+can't resolve, bounded to one thing. That doctrine is the rule a detector (or a small triage step) applies before filing. It's what keeps the loop focused and un-swamped.
+
+Why this is better than the alternatives:
+
+- Not one monolith that both scans sites and fixes code — those are different skills, different outputs (re-queue vs PR), and different risk profiles. Keep them separate.
+- Not every detector wired directly and eagerly into the loop — that floods a slow, expensive, PR-producing service with cheap operational noise.
+- Instead: a federation of specialised detectors and first-line fixers (the doc traveller keeps fixing tools; audit agents keep re-queueing builds) plus one generalist root-cause-to-PR service (the loop),
+  joined by a single escalation channel with a loop-worthiness filter.
+
+So concretely, on your examples:
+- Missing pages: the build workflow should prevent them; an audit/checker agent should detect and first try the operational remedy (re-queue). Only if that fails or it recurs does it file needs_diagnosis
+  → the loop investigates whether a code bug is the cause (as it was for darts) and, if so, opens a PR.
+- The doc traveller: keeps fixing what it knows how to fix in its domain. When it hits a failure whose cause is in the platform code, it files needs_diagnosis → the loop.
+
+One optional refinement worth flagging: a small triage agent sitting on the needs_diagnosis queue — it dedupes escalations, applies loop-worthiness in one place, and routes (loop / re-queue / human). That
+centralises the routing logic instead of duplicating it in every detector. I'd treat it as a later nicety, not a prerequisite — detectors can apply the filter themselves for now.
+
+And a lovely consequence for your awareness: once detectors escalate through needs_diagnosis, the digest can grow a fourth section — "escalations in / operational remedies applied" — and become a single
+oversight surface across the whole immune system, not just the loop. That's a natural next step once the escalation channel carries real traffic.
+
+Where I'd land: don't build a new architecture — you already have the right bones. The move is to (1) keep specialised fixers owning their domains, (2) turn on needs_diagnosis as the shared escalation
+channel, and (3) put the loop-worthiness filter at the point of escalation so only genuinely code-caused, non-trivial, recurring problems reach the loop. Would you like me to sketch that escalation path
+concretely — what an audit agent's "file a needs_diagnosis" step looks like, and the small triage option — as the next design doc?
+
+recap: Goal: a self-fixing loop that diagnoses bugs and opens reviewed PRs, with a daily awareness digest so you stay informed. Just delivered the digest as a committed file and recommended escalating
+detected errors into the loop via needs_diagnosis. Next: sketch that escalation path if you want it.
+
+
+
+
+
+
+
+

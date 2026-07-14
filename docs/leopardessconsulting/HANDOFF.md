@@ -4,9 +4,32 @@
 the single source of truth for state. The deeper detail lives in the four companion
 docs, but this file is enough to resume without them.
 
-**Last updated:** 2026-07-12 (turn 13)
+**Last updated:** 2026-07-14 (turn 15)
 **Branch:** `083_imagery`
 **Site:** `leopardessconsulting.co.uk` · `site_id = 4851f6fc-71cf-4160-a270-e03d6d3e0732`
+
+---
+
+## ⚡ CURRENT PUNCH-LIST (owner site review, 2026-07-14) — start here
+
+The owner reviewed the live site and raised the items below. Root causes and prior-art
+fixes are from two research passes (see RUNNING_NOTES turn 15). Status as of turn 15:
+
+| # | Issue | Status | Fix / root cause |
+|---|---|---|---|
+| 1 | Nav sometimes blue, sometimes black; footer navy | **FIXED & verified** | Header/footer baked into each page at assemble time; header slot was empty; footer navy = collection `color_palette.primary=#1a1a2e`. Set primary→`#0D0D0D`; triggered `rerender-pages` (`refresh_site_components:true, force_rerender:true`) — re-rendered all 3 slots + re-assembled every page. 27/30 gold header (3 empty pages excepted). NOTE: leftover `#1a1a2e`/`#0f3460` in page HTML are **dead CSS fallbacks** `var(--color-primary,#1a1a2e)` — the variable is defined, so they never render. Don't chase them. |
+| 2 | Nav cluttered / blank "For Leaders" in nav | **FIXED** | Header nav reads `site_nav_items` (primary group), NOT `pages.in_header`. Rebuilt to 9 items. |
+| 3 | Card links 404 (how-we-work, who-we-help, use-cases) | **FIXED** | `info-card-grid` rendered `<a href>` ungated. Gated template `{{if .link_url}}`; stripped 6 phantom links; repointed use-cases quiz link. Backstop: enable `phantom_internal_links` + `broken_nav_links` discovery checks (currently OFF). |
+| 4 | About invented stats (30 Clients Served / 2,767 Awards Won) | **FIXED (made true, not removed)** | Labels were LLM-fallbacks. Set to honest+true (30 yrs / 8 sites / 2,767 records). Clean *removal* needs gating the shared `content-block-about` template. |
+| 5 | **Missing images site-wide** | **OPEN — biggest item** | Needs the A6 Banana routing DEPLOYED (committed, not deployed) + `site_plan_imagery` populated + image-build-handler run. See imagery research + `PLAN_imagery_best_in_class.md`. |
+| 6 | blog.html broken (empty "min read/Read more", no posts/images) | **OPEN** | blog-listing has no real posts. Needs blog-content-planner / create_blog_posts. |
+| 7 | use-cases claims we do things we don't (LinkedIn enrichment, doc-watching agents, Slack/PagerDuty) | **OPEN** | Reframe as "could do", per the AUDIT rule. Not yet edited. |
+| 8 | favicon.png 404 at `/assets/images/favicon.png` | **OPEN** | We deployed `/favicon.ico` + `favicon-*.png`; a template references `/assets/images/favicon.png`. Commit that file / fix the head ref. |
+| 9 | 3 zero-section pages (ai-readiness-quiz, for-engineering-leaders, llm-cost-calculator-guide) | **OPEN** | Blank pages; need content rebuild or removal. |
+| 10 | **Voice still reads LLM-written** | **PROMPT WRITTEN** | Owner: "think hard about a prompt." → `specs/VOICE_REWRITE_PROMPT.md`. Apply it page-by-page (substance rewrite, not repolish). |
+
+Backups made this turn: `bak_stylecoll_leo_20260713`, `bak_site_nav_items_leo_20260713`,
+`bak_infocardgrid_20260713`, `bak_pages_leopardess_20260713`.
 
 ---
 

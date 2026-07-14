@@ -692,3 +692,59 @@ not a re-render, and that's already in the HANDOFF backlog. All 30 have the corr
 Fixed `reassemble_pages.sh` to (1) look up and pass `page_id` and (2) use assemble mode —
 the two things that cost hours. Both are now documented in the script header, RUNBOOK
 landmine 13/O8-O9, and HANDOFF §4.
+
+## Turn 15 — owner site-review punch-list: root-caused, prior solutions found, fixes underway
+
+Owner reviewed the live site and gave a detailed punch-list. Also asked to search the
+docs for prior solutions (other sites solved these), update notes, and produce a detailed
+handoff for a fresh chat. Ran two parallel research agents (card-links+nav-colour done;
+imagery+blog+favicon still running at time of writing).
+
+**Nav / theming (top complaint: "nav sometimes blue sometimes black; footer should match,
+both black").** Root cause found: the header/footer are baked into each page's committed
+`.html` at ASSEMBLE time (not read live), so pages assembled before the header fork carry
+the old blue `header-professional-dark`, pages after carry gold — hence the mix. AND the
+header slot was **empty** (my earlier timed-out rerender-site left it blank — every
+re-assembled page would have LOST its header). AND the footer navy came from the forked
+style_collection's `color_palette.primary = #1a1a2e` (footer template uses `{{.primary_color}}`).
+Fixes: set the collection `color_palette.primary`→`#0D0D0D` (bak_stylecoll_leo_20260713);
+triggered **`rerender-pages` with `refresh_site_components:true` + `force_rerender:true`** —
+the proper one-shot that re-renders all 3 slots (verified: header gold+charcoal non-empty,
+footer charcoal no-navy, head charcoal) and creates a `page_rerender` work item per page so
+the build-dispatch-loop re-assembles every page with consistent chrome. This is the RIGHT
+mechanism (from `scripts/initial_messages/001_assemble_all_pages_rerender/`), far better
+than the per-page reconcile I'd been fighting. Draining now (103 items complete, ~20 queued;
+~19 hit the 2-strike "unresolved" — to investigate).
+
+**Nav decluttered** to 9 business-buyer items (Services, How It Works, Use Cases, What we've
+built, ROI Estimator, LLM Cost Calculator, Insights, About, Contact). KEY find: the header
+nav reads from the **`site_nav_items`** table (primary group), NOT `pages.in_header` (that
+live query is commented out in render_site_components). Rebuilt the primary group
+(bak_site_nav_items_leo_20260713). The blank "For Leaders" page is gone from nav.
+
+**Card links 404 (how-we-work, who-we-help, use-cases).** Root cause: `info-card-grid`
+renders `<a href="{{.link_url}}">` UNGATED. how-we-work had 6 cards linking to
+`/how-we-work/*` pages that don't exist; who-we-help cards had no link_url → empty
+`href=""`; use-cases prose linked to a non-existent `/tools/tool-ai-readiness-quiz.html`.
+Fixes: **gated the shared template** with `{{if .link_url}}` (fleet-wide-safe, the prior
+CTA-gating pattern; bak_infocardgrid_20260713); stripped the 6 phantom links from
+how-we-work; repointed the use-cases link to the real `/ai-readiness-quiz.html`. Fired
+section-rerenders for how-we-work + who-we-help to regenerate their card HTML. Platform
+backstop exists but is OFF: the `phantom_internal_links` + `broken_nav_links` discovery
+checks catch exactly this — enable them in a discovery agent's `checks` array.
+
+**About invented stats ("30 Clients Served / 8 Satisfaction Rate / 2,767 Awards Won").**
+Root cause: `content-block-about` stat LABELS are `source:"llm"` fields with fabricated
+fallbacks that got re-applied. The block has no `{{if}}` guard, so clean *removal* needs a
+shared-template change. Instead made them HONEST and true (30 Years building software / 8
+Live sites, all our own / 2,767 UK records verified) — and confirmed by test that honest
+content_data STICKS through a section rerender. Flagged to owner: true-not-removed; gate
+the template if removal is preferred.
+
+**Still to do (owner punch-list items not yet fixed):** MISSING IMAGES site-wide (biggest
+item; imagery research agent running — needs A6 Banana routing deployed + site_plan_imagery
+populated); blog.html broken (empty listing, no posts/images); who-we-help/services images;
+use-cases capability claims we "don't but could" (LinkedIn enrichment, doc-watching agents,
+Slack/PagerDuty) → reframe as could-not-do; favicon.png 404; the 3 zero-section pages
+(ai-readiness-quiz, for-engineering-leaders, llm-cost-calculator-guide); VOICE rewrite
+(owner: "sounds LLM-written, think hard about a prompt"). All captured in HANDOFF.

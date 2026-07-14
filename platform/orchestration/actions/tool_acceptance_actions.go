@@ -244,13 +244,41 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 // ── judge_acceptance_results ────────────────────────────────────────────────
 
 // acceptanceVerdict is what extractRunResults distils from the adapter reply.
+//
+// A check runs once PER PROFILE, so a bare check id is NOT a unique result:
+// mobile-fit passes on mobile and is (correctly) skipped on desktop. Passed /
+// Failed / SkipList therefore hold "id@profile" LABELS — a note that said
+// "skipped: mobile-fit" while mobile-fit passed on mobile read as "mobile was
+// never checked", the opposite of the truth. FailedIDs keeps the bare, deduped
+// ids for the improve_tool spec, whose contract is criteria ids (as Tier 2's).
 type acceptanceVerdict struct {
-	Skipped  bool
-	Results  []map[string]interface{}
-	Passed   []string
-	Failed   []string
-	Details  []string // "id: detail" for each failed check
-	SkipList []string
+	Skipped   bool
+	Results   []map[string]interface{}
+	Profiles  []string
+	Passed    []string
+	Failed    []string
+	FailedIDs []string
+	Details   []string // "id@profile: detail" for each failed check
+	SkipList  []string
+}
+
+// checkLabel names one result instance: "curve-switch@mobile" (bare id when the
+// adapter reports no profile, e.g. a pre-P1 runner).
+func checkLabel(id, profile string) string {
+	if profile == "" {
+		return id
+	}
+	return id + "@" + profile
+}
+
+// appendUnique keeps first-seen order (ids repeat once per profile).
+func appendUnique(ss []string, s string) []string {
+	for _, existing := range ss {
+		if existing == s {
+			return ss
+		}
+	}
+	return append(ss, s)
 }
 
 // extractRunResults reads the awaited adapter reply through a fallback chain
@@ -283,13 +311,19 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 		}
 		v.Results = append(v.Results, m)
 		id, _ := m["check_id"].(string)
+		profile, _ := m["profile"].(string)
 		pass, _ := m["pass"].(bool)
 		detail, _ := m["detail"].(string)
+		label := checkLabel(id, profile)
+		if profile != "" {
+			v.Profiles = appendUnique(v.Profiles, profile)
+		}
 		if pass {
-			v.Passed = append(v.Passed, id)
+			v.Passed = append(v.Passed, label)
 		} else {
-			v.Failed = append(v.Failed, id)
-			v.Details = append(v.Details, id+": "+detail)
+			v.Failed = append(v.Failed, label)
+			v.FailedIDs = appendUnique(v.FailedIDs, id)
+			v.Details = append(v.Details, label+": "+detail)
 		}
 	}
 
@@ -308,7 +342,8 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 		for _, it := range skipItems {
 			if m, ok := it.(map[string]interface{}); ok {
 				if id, _ := m["check_id"].(string); id != "" {
-					v.SkipList = append(v.SkipList, id)
+					profile, _ := m["profile"].(string)
+					v.SkipList = append(v.SkipList, checkLabel(id, profile))
 				}
 			}
 		}
@@ -351,12 +386,13 @@ func JudgeAcceptanceResultsAction(ctx context.Context, params ActionParams) (int
 	allPassed := len(v.Failed) == 0
 	if allPassed {
 		body := fmt.Sprintf(`## Tier-4 acceptance PASSED — %s
-Observed: all %d evaluated checks passed in headless Chromium (%s skipped at this phase: %s).
+Observed: all %d evaluated checks passed in headless Chromium%s (%d skipped: %s).
 Root cause: not-applicable
 Fix: none required
-Verified: browser-runner-adapter run; checks: %s
+Verified: browser-runner-adapter run; checks (id@profile): %s
 Categories: acceptance-run`,
-			function, len(v.Passed), plural(len(v.SkipList)), strings.Join(orNone(v.SkipList), ", "),
+			function, len(v.Passed), profilesPhrase(v.Profiles),
+			len(v.SkipList), strings.Join(orNone(v.SkipList), ", "),
 			strings.Join(v.Passed, ", "))
 		if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
 			`["acceptance-run"]`, "tool-acceptance", sourceAgent, "", "tool-acceptance-agent"); err != nil {
@@ -374,12 +410,12 @@ Categories: acceptance-run`,
 	// max_fix_attempts convention).
 	issue := strings.Join(v.Details, "; ")
 	body := fmt.Sprintf(`## Tier-4 acceptance FAILED — %s
-Observed: %d of %d evaluated checks failed in headless Chromium: %s
+Observed: %d of %d evaluated checks failed in headless Chromium%s: %s
 Root cause: not diagnosed at this tier (behavioural run; the fixer loads PLAN+NOTES first)
 Fix: improve_tool item created carrying the criteria as acceptance_test
 Verified: n/a — failing run recorded
 Categories: acceptance-fail`,
-		function, len(v.Failed), len(v.Results), issue)
+		function, len(v.Failed), len(v.Results), profilesPhrase(v.Profiles), issue)
 	if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
 		`["acceptance-fail"]`, "tool-acceptance", sourceAgent, "", "tool-acceptance-agent"); err != nil {
 		logger.Warn("judge: acceptance-fail note insert failed", zap.Error(err))
@@ -403,11 +439,15 @@ Categories: acceptance-fail`,
 
 		if componentID != "" {
 			spec := map[string]interface{}{
-				"component_id":    componentID,
-				"check":           "tool_acceptance_tier4",
-				"issue":           issue,
-				"failing_checks":  v.Failed,
-				"acceptance_test": json.RawMessage(criteriaOrNull(criteria)),
+				"component_id": componentID,
+				"check":        "tool_acceptance_tier4",
+				"issue":        issue,
+				// Bare criteria ids — the fixer matches these against the PLAN's
+				// checks (same shape Tier 2 emits). failing_instances keeps the
+				// profile detail: a check that fails ONLY on mobile is a mobile bug.
+				"failing_checks":    v.FailedIDs,
+				"failing_instances": v.Failed,
+				"acceptance_test":   json.RawMessage(criteriaOrNull(criteria)),
 			}
 			if pageID != "" {
 				spec["page_id"] = pageID
@@ -444,11 +484,19 @@ Categories: acceptance-fail`,
 		zap.Bool("improve_tool_created", itemCreated))
 	return map[string]interface{}{
 		"all_passed": false, "passed": len(v.Passed), "failed": len(v.Failed),
-		"failing_checks": v.Failed, "improve_tool_created": itemCreated,
+		"failing_checks": v.FailedIDs, "failing_instances": v.Failed,
+		"improve_tool_created": itemCreated,
 	}, nil
 }
 
-func plural(n int) string { return fmt.Sprintf("%d", n) }
+// profilesPhrase renders " across profiles: desktop, mobile" (empty when the
+// adapter reported none — a pre-P1 runner).
+func profilesPhrase(profiles []string) string {
+	if len(profiles) == 0 {
+		return ""
+	}
+	return " across profiles: " + strings.Join(profiles, ", ")
+}
 
 func orNone(ss []string) []string {
 	if len(ss) == 0 {
