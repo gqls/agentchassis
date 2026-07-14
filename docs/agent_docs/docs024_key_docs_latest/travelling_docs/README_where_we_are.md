@@ -66,3 +66,35 @@ every tool on the site, re-created on every run. I've fixed the visible half —
 your call:
 
 -----
+
+Everything landed, and it's all live and mutually confirming.
+
+What you asked for — the composer fix — is done and proven in production. The note now reads id@profile throughout, so the skip line says mobile-fit@desktop while mobile-fit@mobile shows as passed.
+failing_checks still carries bare criteria ids for the fixer; the new failing_instances carries the profile detail. I also landed the queued cooldown scoping (Tier-2's static fails no longer suppress a
+behavioural run — that had it backwards).
+
+Then "carry on" found the first real failure, and it was more interesting than a bug. The only never-verified tool with criteria was the vonc.com quiz. It failed 3 of 7 checks, and the failures were of
+two completely different kinds:
+
+- boots was a false failure — the PLAN asserted .tool-container (the gamesdesign convention) on a page that ships .tool-archetype-taster-quiz-section. Stale criteria, third sighting of that class.
+- mobile-fit was genuine — but when I drove real Chromium at it, the culprit was div.footer-legal in vonc's site footer, overflowing every page on the site including the homepage. Not the tool's bug at
+  all.
+
+I parked the ticket rather than let the fixer chase it, because it bundled both — it would have sent tool-improver to "fix" a quiz by injecting a bogus div, and it could never have reached the footer.
+
+That exposed a real design defect, which you chose the fix for: a document-level check was producing tool-scoped accusations. One overflowing footer would have raised an unfixable ticket for every tool on
+the site, on every run. Now the adapter locates the tool's container, names the widest offender, and stamps each result tool / chrome / unknown (unknown never routes to chrome — it falls back to the tool
+rather than guessing). The judge routes chrome to responsive_fix → component-template-fixer, the route that already exists and already dispatches, deduped as one site ticket rather than one per tool.
+
+Migration 148 superseded the quiz PLAN on the 143 precedent. Its quiz-flow-EDIT placeholder had never been filled in, so the quiz's actual behaviour was untested — I probed a candidate interaction in real
+Chromium first and only wrote it into the PLAN once I'd watched it pass.
+
+You built v1.0.1116 mid-turn, which (verified against the pods' symbol tables, not git) picked all of this up — so I ran the proof: the quiz now PASSES all 8 of its own checks on both profiles, quiz-flow
+included, the footer overflow is attributed to site-footer and routed to component-template-fixer, and no improve_tool ticket was raised against the tool.
+
+Two things for you:
+- A live bug on vonc.com: every page scrolls sideways on mobile — div.footer-legal is ~500px in a 390px viewport. The responsive_fix ticket is queued at detected; if you let it flow, that's the
+  real-failure-through-a-fixer loop closing on its own, and I'd re-run acceptance afterwards to watch mobile-fit@mobile go green.
+- platform/orchestration/actions/diagnose_triage_action.go is untracked — not mine (fixloop), but it's precisely the trap that bit T11 and T13, so git add it before your next release commit.
+
+---
