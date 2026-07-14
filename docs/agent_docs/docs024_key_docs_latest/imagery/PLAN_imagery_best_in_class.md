@@ -132,6 +132,13 @@ carries the same theme" requirement.
 | D7 | **Product sketch styling is a constraint, not a knob**: stylised medium chosen per product category (technical → CAD-like line drawing; lifestyle → watercolour/pencil), viewpoint altered from source, in-context setting, "no brand markings/logos/text" hard-coded. Img2img from the cached photo is v2, only with the derivative-work framing. | Copyright safety by construction; matches the existing product illustration plan. |
 | D8 | **Budgets enforced at deploy, policed by discovery.** Extend `ImagePurposes` with per-kind byte ceilings and WebP output where safe; add `image_weight_over_budget` discovery check; sprite sheet counts as one download for N glyphs. | Sizing was explicitly in the brief; enforcement beats intention. |
 
+### D9–D10 confirmed with user 2026-07-14 (Turn 36)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D9 | **Accept the sprite bullet's baked-in cell background.** Each bullet paints its sheet cell *including* the charcoal background, so a faint square tile sits behind every glyph. ACCEPTED as-is — no format change. | JPG has no alpha; that was the deliberate Turn 33 trade (a lossless PNG blew both the Kafka git-commit message-size limit and the ≤80KB budget). The tile reads as a subtle box on the dark theme and is on-brand. Revisit only if a transparent format ever fits the budget. |
+| D10 | **Sprite bullets become a container opt-in, not a per-list opt-in.** `emit_sprite_css` will also emit a container rule (e.g. `.sprite-bullets ul>li::before`), and the class goes on a *component wrapper* (e.g. article-body's `.article-body__content`) — so every content list inside themes itself. Sequenced as **I2.5, AFTER the live gate and I2.4.** | `ul.sprite-list` requires a class ON the `<ul>`, but article bodies are LLM-generated HTML dropped into `{{.content}}` — **content `<ul>`s never carry classes**, so a per-list opt-in is a hand-edit that the next content regeneration wipes. A container opt-in is regen-proof, needs no content edits, and is reusable fleet-wide. |
+
 ---
 
 ## 5. Phases
@@ -376,6 +383,25 @@ committed bundle is the house pattern, cf. /assets/js/snippets.js).
 - I2.2 next: sprites.css emit action (pure string compute + git commit —
   can be built while waiting); then I2.3 head `<link>` + bullet wiring on one
   robot-hands section; then the fulfilment check.
+
+**Status 2026-07-14 (Turn 36) — I2 is ONE DEPLOY from done.**
+- I2.0 ✅ · I2.1 ✅ (sheet live, 768² JPEG 75,745B, user gate passed)
+- I2.2 ✅ LIVE — `/assets/css/sprites.css` serves 200 (1,711B).
+- I2.3 ✅ LIVE — head `<link>` on served HTML; `class="sprite-list"` wired onto a
+  real list (Safety Factor list, friction-calculator guide) with per-item glyph
+  overrides (info / default-check / gauge / warning).
+- 🐞 **The live gate caught a CSS specificity bug**: the emitted per-item override
+  `li.sprite-b-<n>::before` (0,1,2) LOSES to the default `ul.sprite-list>li::before`
+  (0,1,3), so every bullet rendered the default check glyph. Fixed in Go (overrides
+  now scoped under the list class → (0,2,3)), regression test added, fix proven by
+  headless render — **inert until the next chassis deploy**, then re-dispatch
+  `needs_sprite_css` to re-emit the CSS. Lesson: **a CSS emitter needs a
+  specificity assertion, not just a geometry one.**
+- **Remaining:** deploy → re-emit CSS → LIVE GATE (four distinct glyphs) →
+  **I2.4** fulfilment check → **I2.5** container opt-in per **D10** (`.sprite-bullets
+  ul>li::before` emitted by emit_sprite_css + class on a component wrapper), which
+  makes bullets regen-proof on LLM-generated content lists. D9: the baked-in
+  charcoal cell background behind each glyph is ACCEPTED as-is.
 
 ### Phase I3 — Content-linked card imagery (G3; Lane B foundation)
 - Generalise the content-entity → asset link (D2/Lane B): entity image reference + `needs_content_image` work item + handler composing prompts from the content item + brand guide.

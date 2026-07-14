@@ -77,14 +77,21 @@ func (c *ToolAcceptanceDueCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, 
 			continue
 		}
 
-		// Cooldown: recently verified (either verdict counts — a fail already
-		// has its improve_tool item in flight; re-running before the fix lands
-		// would just duplicate the verdict).
+		// Cooldown: recently verified BY THIS TIER (either Tier-4 verdict counts —
+		// a fail already has its improve_tool item in flight; re-running before
+		// the fix lands would just duplicate the verdict).
+		//
+		// Scoped to source='tool-acceptance' (the Tier-4 judge). Tier 2 writes
+		// acceptance-fail notes under 'tool-acceptance-tier2', and letting those
+		// suppress a browser run had it exactly backwards: a STATIC failure is
+		// when you most want the behavioural tier to look. Observed 2026-07-13 —
+		// a stale Tier-2 fail note kept drop-rate-tuner out of the sweep.
 		var recentVerdict bool
 		_ = dctx.DB.QueryRowContext(dctx.Ctx, `
 			SELECT EXISTS (
 				SELECT 1 FROM doc_notes
 				WHERE subject_type = 'tool' AND subject_key = $1
+				  AND source = 'tool-acceptance'
 				  AND (categories ? 'acceptance-run' OR categories ? 'acceptance-fail')
 				  AND created_at > NOW() - INTERVAL '7 days')
 		`, tool.Function).Scan(&recentVerdict)

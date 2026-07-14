@@ -1360,4 +1360,103 @@ functionally tests the head-link half of the deploy. Monitoring.
 `class="sprite-list"` onto ONE robot-hands section's `<ul>` → live gate →
 I2.4 fulfilment check. Then Phase I3.
 
+## Turn 36 — 2026-07-14 — Bullets wired on a real list; LIVE GATE caught a CSS specificity bug in emit_sprite_css
+
+**Wired I2.3's list (handoff step 3).** Surface chosen: the **Safety Factor
+Selection Guidance** list on `/guides/tool-grip-force-friction-calculator-
+guide.html` (4 items, reader-facing, glyphs semantically apt):
+SF=1.5 → `sprite-b-info`, SF=2.0 → **no class (exercises the default)**,
+SF=2.5–3.0 → `sprite-b-gauge`, SF>3.0 → `sprite-b-warning`.
+
+**MECHANISM (new, important): page assembly reads `page_components.rendered_html`
+DIRECTLY** (`rerender_single_page_action.go:383` getPageSections) — it does NOT
+re-render from `content_data` + template. So a markup change must land in
+`rendered_html` (the artifact that deploys); I wrote `content_data.result` too,
+to keep source and artifact consistent. Backup: `bak_pc_sprite_20260714`.
+Re-render dispatched as a `page_rerender` work item mirroring
+CreateRerenderItemsAction's exact shape (no `spec.reason` ⇒ unscoped ⇒ plain
+assemble). Completed first attempt; classes live in served HTML.
+
+**LIVE GATE FOUND A REAL BUG (the whole point of the gate).** Rendered the live
+page headless (chromium → PDF → 300dpi crop) and looked: **all four bullets
+showed the SAME `check` glyph.** The overrides never applied. Cause is pure CSS
+specificity in `buildSpriteCSS`:
+- default `ul.sprite-list>li::before` = **(0,1,3)**
+- override `li.sprite-b-gauge::before` = **(0,1,2)** ← always loses, and source
+  order cannot rescue it.
+So `background-position:0 0` (cell 0 = check) won on every item. The I2.2
+geometry unit test passed throughout — it asserted the offsets, never that an
+override could WIN the cascade. **Lesson: a CSS emitter needs a specificity
+assertion, not just a geometry assertion.**
+
+**FIX (Go, rides next deploy):** overrides now emit scoped under the list class —
+`ul.sprite-list>li.sprite-b-<n>::before,ol.sprite-list>li.sprite-b-<n>::before`
+= (0,2,3) > (0,1,3). Added `TestBuildSpriteCSS_overridesOutspecifyDefault`
+(asserts scoped form present AND the bare losing form absent). Both tests pass.
+**Fix PROVEN pre-deploy:** rebuilt sprites.css exactly as the corrected emitter
+will produce it, rendered the real served list markup against it headless →
+**four distinct glyphs (info, check, gauge, warning), legible at 20px.**
+
+**Live state right now:** sheet + sprites.css + head `<link>` + the wired markup
+are ALL live and correct; bullets render, `list-style` is suppressed, one 75,745B
+sheet download. Only the per-item glyph *variety* awaits the deploy — every
+bullet currently shows the default check.
+
+**Cosmetic note for the gate:** each bullet paints its sheet cell *including the
+charcoal cell background*, so a faint square tile sits behind each glyph (JPG has
+no alpha — that was the Kafka-message-size/budget tradeoff of Turn 33). Reads as
+a subtle box on the dark theme. Worth a user call: accept, or revisit with a
+transparent-capable format under the size budget.
+
+**Next:** on the next chassis deploy → re-dispatch `needs_sprite_css`
+(attempt_count 0) to regenerate sprites.css → the four glyphs appear with no
+markup change → user LIVE GATE. Then I2.4 fulfilment check closes I2.
+
+## Turn 37 — 2026-07-14 — User choices recorded (D9, D10); empty product pages spun out to their own handoff
+
+**USER DECISIONS (both now in PLAN §4 as D9/D10):**
+- **D9 — cosmetic: ACCEPT the baked-in cell background.** Each bullet paints its
+  sheet cell including the charcoal backdrop, so a faint square tile sits behind
+  every glyph. Accepted as-is; no format change. (JPG has no alpha — the Turn 33
+  trade: a lossless PNG blew both the Kafka commit message-size limit AND the
+  ≤80KB budget.) Revisit only if a transparent format ever fits the budget.
+- **D10 — durability: BUILD the container opt-in, sequenced AFTER the live gate
+  and I2.4** (now phase **I2.5**). `emit_sprite_css` will also emit
+  `.sprite-bullets ul>li::before` (same geometry, specificity-safe per the Turn 36
+  bug), and the class goes on a component wrapper (article-body's
+  `.article-body__content` first). Content lists then theme themselves — no markup
+  edits, regen-proof, fleet-reusable. The Turn 36 hand-wired classes become
+  redundant but harmless.
+
+**SPUN OUT — empty product pages (NOT an imagery bug; user will fix in another
+chat).** Investigated the `/entities/gripper-detail.html` product-details
+component (rejected as a bullet surface because its `<ul class="pd-features">`
+renders `<li></li><li></li>`). Findings, all evidence-backed:
+- The page is **planned, active, deployed** — and hollow: empty `<h1 class=
+  "pd-title">`, empty price, empty SKU, four empty feature bullets — while still
+  rendering Add to Cart / Buy Now / size + colour swatches / star ratings on a
+  site that sells nothing. Same on `/product-detail.html`. Not orphans: both are
+  in the current site plan (roles entity_page / content).
+- `content_data` has 49 keys but they are ALL chrome (`sku_label`,
+  `add_to_cart_label`, `size_option_*`, site boilerplate). **Every value field is
+  absent** (`product_name`, `product_price`, `feature_1..4`, `product_sku`, …),
+  though `input_schema` declares them `required:true, source:llm`. NOTE:
+  input_schema uses a **`fields`** wrapper, not JSON-Schema `properties` — a
+  `properties` query returns nothing and will mislead you.
+- `product-card-with-cta` stored the **LLM's prose apology** ("this section
+  requires product array data sourced from `query.affiliate_products` … marked
+  `on_missing: skip_section`") AS CONTENT. skip_section never fired.
+- **THE BIG ONE:** `empty_section` work items for exactly these sections exist and
+  `page-build-handler` marked them **`complete`** on 2026-07-10 — the sections are
+  still empty on 2026-07-14. **A fix loop that closes without fixing.** (~36
+  empty_section items on robot-hands, many `unresolved` / stale.) Overlaps the
+  fixloop workstream's "bug dissolves but isn't fixed" benchmark case.
+- Why the shell survives assembly: `sectionHasVisibleContent` keeps anything with
+  >10 chars of text, and the template is full of static labels ("SKU:", "Add to
+  Cart") — **the filter measures text, not resolved data.**
+- Scope: robot-hands 6 product component instances (broken); dartsonline 2 (FINE —
+  renders 14 real cards, proving the pipeline works when a data source exists). The
+  mechanism is generic, so it recurs on any site missing a required data source.
+→ Full write-up: **`docs024_key_docs_latest/HANDOFF_2026-07-14_empty_product_sections.md`**
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

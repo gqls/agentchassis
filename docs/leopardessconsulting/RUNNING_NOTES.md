@@ -748,3 +748,32 @@ use-cases capability claims we "don't but could" (LinkedIn enrichment, doc-watch
 Slack/PagerDuty) → reframe as could-not-do; favicon.png 404; the 3 zero-section pages
 (ai-readiness-quiz, for-engineering-leaders, llm-cost-calculator-guide); VOICE rewrite
 (owner: "sounds LLM-written, think hard about a prompt"). All captured in HANDOFF.
+
+## Turn 16 — imagery/blog/favicon research back; favicon fixed; stale A6 fact corrected
+
+The imagery research agent returned. Key corrections and quick wins:
+
+- **A6 IS DEPLOYED (correcting turn 8).** Running `image-generator-adapter v1.0.1114`
+  (commit 49d67e82 / v1.0.1103, 2026-07-10) already routes logo/illustration/infographic/
+  icon/sprite_sheet → Banana. Proof: robot-hands icon/logo/sprite assets carry
+  `origin_model=banana/…`. So imagery is NOT blocked by a deploy. Fixed the stale note in
+  HANDOFF §2 A6.
+- **Why leopardess has no images: it has NO `site_plan` and 0 `site_plan_imagery` rows.**
+  Nothing has emitted imagery work items for it. Two routes documented in HANDOFF §9:
+  Route A (per-image inline-spec kcat to image-build-handler — safe, immediate, how
+  robot-hands heroes were made) and Route B (build-site-planner re-plan — systematic but
+  RISKY, may re-run content generation and clobber the fixed copy; not the default).
+- **Per-card/section images = Phase I3 (content-imagery lane), NOT built.** Cards fall back
+  to the page hero or empty. This is the structural reason blog thumbnails and info-card
+  images are blank — a config can't fix it; I3 is real new work.
+- **FAVICON FIXED.** The head (`render_site_components_action.go:399,403`) hardcodes
+  `/assets/images/favicon.png`; we'd only committed `.ico`. Committed `brand/favicon.png`
+  (=favicon-180) to that path via the git-adapter → verified **200**. (`derive_brand_head_assets`
+  can't self-serve it — it needs the logo `url` to be an S3 handle, but ours is a git path.)
+- **BLOG less broken than it looked:** the listing already renders 5 posts with working
+  links; the defects are card `image=""` (I3 gap, hardcoded in `rebuild_blog_listing_action.go:186`)
+  + empty excerpts (blog posts have empty `pages.meta_description`) + blank read_time.
+  Excerpts are a quick win (populate meta_description → re-run rebuild_blog_listing).
+
+HANDOFF now has a full §9 imagery playbook + the corrected punch-list. This is the clean
+resume point.

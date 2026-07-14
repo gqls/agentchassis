@@ -1,8 +1,20 @@
 # HANDOFF — Imagery best-in-class workstream (start a new chat from here)
 
-**Last updated: 2026-07-13 (Turn 34). UPDATE THIS DOCUMENT EVERY WORKING
+**Last updated: 2026-07-14 (Turn 36). UPDATE THIS DOCUMENT EVERY WORKING
 TURN, alongside the running notes — it is the single entry point for a fresh
 session.**
+
+## READ FIRST (Turn 36): I2 is one deploy from done
+Sprite bullets are LIVE on a real list
+(`/guides/tool-grip-force-friction-calculator-guide.html`, the Safety Factor
+list). Sheet + sprites.css + head `<link>` + markup all verified on served HTML.
+**The live gate caught a CSS specificity bug**: per-item overrides
+(`li.sprite-b-<n>::before`, (0,1,2)) LOSE to the default bullet rule
+(`ul.sprite-list>li::before`, (0,1,3)), so every bullet rendered the default
+check glyph. **Fixed in Go (scoped overrides → (0,2,3)), tests added, fix proven
+by headless render — but it is INERT until the next chassis deploy.**
+→ On the next deploy: re-dispatch `needs_sprite_css` (attempt_count 0) to
+regenerate sprites.css. No markup change needed; the four glyphs then appear.
 
 ## What this project is (fresh-reader paragraph)
 
@@ -85,14 +97,17 @@ finish sequence away from live. This is the active phase.**
     3. lossless 768² PNG exceeded the Kafka git-commit message-size limit
        ("Message Size Too Large") AND the ≤80KB budget → switched to JPG q88
        (Go, live). SCOPE_I2 revised png→jpg.
-- I2.2 ✅ BUILT (Go rides NEXT deploy): `emit_sprite_css` action — pure CSS
+- I2.2 ✅ LIVE (deployed v1.0.1114; sprites.css serves 200, 1,711B. NOTE: the
+  per-item override selectors it emits are specificity-broken until the next
+  deploy carries the Turn 36 fix — see READ FIRST): `emit_sprite_css` — pure CSS
   background-position slicing from the verified grid at bullet size (T=20px →
   sheet drawn 60×60, cells at reading-order offsets). Emits `.sprite` base +
   `.sprite-<name>` (inline/icon/nav) + themed `ul.sprite-list li::before`
   bullets (default glyph = cell 0 = check) + per-item `li.sprite-b-<name>`
   overrides. Commits `/assets/css/sprites.css` (base64 via sendGitCommitRequest).
   GUARDED on cell_names_verified=true. Geometry unit-tested.
-- I2.3 ✅ BUILT (Go rides NEXT deploy): `injectBrandHeadTags` now adds
+- I2.3 ✅ LIVE (head `<link>` verified on served HTML; one real list wired —
+  Turn 36): `injectBrandHeadTags` now adds
   `<link rel=stylesheet href=/assets/css/sprites.css>`, GUARDED on an active
   sprite_sheet asset existing. asset-deployer gained a `sprite_css` mode
   (migration `SQL_2026-07-13_asset_deployer_sprite_css_mode.sql`, LIVE):
@@ -158,6 +173,20 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
   `UPDATE site_work_items SET status='triaged', claimed_by=NULL,
   claimed_at=NULL, updated_at=now() WHERE status='claimed' AND claimed_at <
   now() - interval '10 minutes';` Real fix = B9 (user's TODO 6/10/11).
+- **Page assembly reads `page_components.rendered_html` DIRECTLY** (Turn 36,
+  `rerender_single_page_action.go:383` getPageSections) — it does NOT re-render
+  from `content_data` + template. To change a section's markup you must write
+  `rendered_html` (the artifact that deploys); write `content_data` too so
+  source and artifact stay consistent. Re-render by inserting a `page_rerender`
+  work item shaped exactly like CreateRerenderItemsAction
+  (`create_rerender_items_action.go:192`: handler 'page-rerender', priority 80,
+  spec {page_id,page_name,filename,domain}; filename = url minus leading '/').
+  Omit `spec.reason` ⇒ unscoped ⇒ plain assemble (no section regeneration).
+- **A CSS emitter needs a SPECIFICITY assertion, not just a geometry one**
+  (Turn 36): emit_sprite_css's offsets were all correct and unit-tested, yet
+  every bullet rendered the default glyph because the override selector was less
+  specific than the default rule. Geometry tests can't see a cascade loss —
+  only a live render (or a specificity test) can.
 - **Component regeneration:** queue `needs_component_regeneration` →
   component-creator; spec {function, component_id, section_type, ...,
   description}. `description` renders into the creator prompt — use it to
@@ -204,28 +233,48 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
 - image_source_unsatisfiable check live but has produced 0 flags (heroes all
   resolve now) — expected.
 
-## Next actions, in order (updated Turn 34)
-The sprite sheet is LIVE + gate-passed; emit_sprite_css + head-link Go are
-COMMITTED and await the next chassis deploy. When the user deploys:
-1. **Confirm the deploy carries emit_sprite_css** (grep pod build / check the
-   action is registered), then **dispatch the CSS emit**: insert a work item
-   `needs_sprite_css` (site robot-hands, handler_agent='asset-deployer', spec
-   `{"mode":"sprite_css"}`, status='triaged', attempt_count=0). The dispatch
-   loop spawns asset-deployer → check_mode → check_sprite_mode →
-   emit_sprite_css_step → commits `/assets/css/sprites.css`. Verify it serves
-   200 and the geometry/URLs look right (curl it).
-2. **Land the head link:** trigger rerender-pages with
-   `refresh_site_components:true` (kcat orchestrate) → the head re-renders and
-   gains `<link ... sprites.css>` (the asset now exists so the guard passes).
-   Verify via served HTML.
-3. **Wire ONE list:** add `class="sprite-list"` to a real robot-hands
-   section's `<ul>` (a features/benefits/spec list) — via the section-editor
-   agent or a targeted content edit — so bullets show themed glyphs. LIVE GATE
-   with the user: readable at ~20px, one ≤80KB download, on-brand.
-4. **I2.4 fulfilment check** (sibling of check_unfulfilled_imagery_plan):
+## Next actions, in order (updated Turn 36)
+Steps 1–3 of the old list are DONE: sprites.css emitted + live, head `<link>`
+live, and one real list wired (Safety Factor list on the friction-calculator
+guide; classes present in served HTML). Remaining:
+1. **ON THE NEXT CHASSIS DEPLOY — re-emit sprites.css** so the specificity fix
+   lands: insert `needs_sprite_css` (site robot-hands,
+   handler_agent='asset-deployer', spec `{"mode":"sprite_css"}`,
+   status='triaged', attempt_count=0). asset-deployer re-runs emit_sprite_css →
+   commits the corrected `/assets/css/sprites.css`. NO markup/page re-render
+   needed — the wired classes are already live. Verify: the served CSS contains
+   `ul.sprite-list>li.sprite-b-gauge::before` (scoped), then **LIVE GATE** the
+   guide page: four DISTINCT glyphs (info / check / gauge / warning), legible at
+   ~20px, one ≤80KB download, on-brand.
+2. **I2.4 fulfilment check** (sibling of check_unfulfilled_imagery_plan):
    sprite_sheet planned but no asset → needs_imagery; asset but no sprites.css
-   → needs_sprite_css. Register on design-discovery-agent. Closes I2.
-5. **Then Phase I3** (content-linked card imagery / Lane B): generic
+   → needs_sprite_css. Register on design-discovery-agent.
+3. **I2.5 — container opt-in (USER-APPROVED 2026-07-14 = D10; do it AFTER the
+   live gate and I2.4).** Make sprite bullets a house style instead of a
+   per-list opt-in: `emit_sprite_css` also emits a container rule
+   (`.sprite-bullets ul>li::before`, same geometry, specificity-safe), and the
+   `sprite-bullets` class goes on a **component wrapper** — article-body's
+   `.article-body__content` is the natural first target. Then every content list
+   inside themes itself. Re-emit CSS + re-render; the Turn 36 hand-wired classes
+   become redundant (harmless). Closes I2.
+   **WHY (the durability finding):** `ul.sprite-list` needs the class ON the
+   `<ul>`, but article bodies are LLM-generated HTML dropped into `{{.content}}`
+   — **content `<ul>`s never carry classes.** The Turn 36 wiring is a targeted
+   edit to `rendered_html` + `content_data.result` that a content regeneration
+   would wipe. robot-hands' only template-owned `<ul>`s are `pd-features`
+   (renders EMPTY — see the product-page handoff below) and a JS-filled
+   `formula-steps`. A container opt-in is regen-proof and fleet-reusable.
+4. **Then Phase I3** (content-linked card imagery / Lane B): generic
    `entity_type`+`entity_id` columns on `assets` (user-confirmed D2), a
    `needs_content_image` work item + handler composing prompts from the
    content item + style guide, card components resolving the entity's image.
+
+## Spun out of this workstream (Turn 36) — not ours to fix
+While choosing a list to wire, the `/entities/gripper-detail.html` product page
+turned out to be a **hollow shell**: planned, live, `deployed` — and every product
+value (name, price, SKU, features) empty, behind full Add-to-Cart furniture on a
+site that sells nothing. Worse, the `empty_section` check DID fire and
+`page-build-handler` marked the items **`complete`** while the sections stayed
+empty (a fix loop closing without fixing). Written up in full, with evidence and
+a plan, at **`docs024_key_docs_latest/HANDOFF_2026-07-14_empty_product_sections.md`**
+— the user will start that fix in a separate chat. Do not chase it here.

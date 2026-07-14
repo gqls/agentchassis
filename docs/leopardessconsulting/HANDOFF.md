@@ -21,10 +21,10 @@ fixes are from two research passes (see RUNNING_NOTES turn 15). Status as of tur
 | 2 | Nav cluttered / blank "For Leaders" in nav | **FIXED** | Header nav reads `site_nav_items` (primary group), NOT `pages.in_header`. Rebuilt to 9 items. |
 | 3 | Card links 404 (how-we-work, who-we-help, use-cases) | **FIXED** | `info-card-grid` rendered `<a href>` ungated. Gated template `{{if .link_url}}`; stripped 6 phantom links; repointed use-cases quiz link. Backstop: enable `phantom_internal_links` + `broken_nav_links` discovery checks (currently OFF). |
 | 4 | About invented stats (30 Clients Served / 2,767 Awards Won) | **FIXED (made true, not removed)** | Labels were LLM-fallbacks. Set to honest+true (30 yrs / 8 sites / 2,767 records). Clean *removal* needs gating the shared `content-block-about` template. |
-| 5 | **Missing images site-wide** | **OPEN — biggest item** | Needs the A6 Banana routing DEPLOYED (committed, not deployed) + `site_plan_imagery` populated + image-build-handler run. See imagery research + `PLAN_imagery_best_in_class.md`. |
-| 6 | blog.html broken (empty "min read/Read more", no posts/images) | **OPEN** | blog-listing has no real posts. Needs blog-content-planner / create_blog_posts. |
-| 7 | use-cases claims we do things we don't (LinkedIn enrichment, doc-watching agents, Slack/PagerDuty) | **OPEN** | Reframe as "could do", per the AUDIT rule. Not yet edited. |
-| 8 | favicon.png 404 at `/assets/images/favicon.png` | **OPEN** | We deployed `/favicon.ico` + `favicon-*.png`; a template references `/assets/images/favicon.png`. Commit that file / fix the head ref. |
+| 5 | **Missing images site-wide** | **OPEN — biggest item; NOT blocked** | **A6 Banana routing IS deployed** (running `image-generator-adapter v1.0.1114`; the turn-8 "not deployed" note was stale). Root cause: **leopardess has NO `site_plan` and 0 `site_plan_imagery` rows.** Two routes — see §9 below. Per-card/section images need **Phase I3 (content-imagery lane), which is NOT built** — that's a structural limit, not a config miss. |
+| 6 | blog.html broken (empty "min read/Read more", no posts/images) | **OPEN (less broken than it looks)** | Listing already renders 5 posts with working links. Real defects: card `image=""` (Phase I3 gap, `rebuild_blog_listing_action.go:186` hardcodes `""`) + empty excerpts (blog posts have empty `pages.meta_description`) + blank read_time. Fix excerpts: populate `meta_description`, re-run `rebuild_blog_listing`, reassemble `/blog.html`. Copy robot-hands' blog. |
+| 7 | use-cases claims we do things we don't (LinkedIn enrichment, doc-watching agents, Slack/PagerDuty) | **OPEN** | Reframe as "could do", per the AUDIT rule. Not yet edited. Content in the `use-cases-list` rendered_html (content_data NULL — LLM-authored into rendered_html). |
+| 8 | favicon.png 404 at `/assets/images/favicon.png` | **FIXED** | The head (`render_site_components_action.go:399,403`) hardcodes `/assets/images/favicon.png`; we'd only committed `.ico`. Committed `brand/favicon.png` (=favicon-180) to that path via git-adapter → now 200. (`derive_brand_head_assets` can't self-serve it: it needs the logo `url` to be an S3 handle, but ours is a git path.) |
 | 9 | 3 zero-section pages (ai-readiness-quiz, for-engineering-leaders, llm-cost-calculator-guide) | **OPEN** | Blank pages; need content rebuild or removal. |
 | 10 | **Voice still reads LLM-written** | **PROMPT WRITTEN** | Owner: "think hard about a prompt." → `specs/VOICE_REWRITE_PROMPT.md`. Apply it page-by-page (substance rewrite, not repolish). |
 
@@ -81,8 +81,9 @@ artifact (curl/DB/screenshot), never by a "complete" status.
   touches values) and D3 (chart is a Lane-B asset, not a site_plan_imagery kind). **Not
   started** — this is L7.
 - **A6** Route logo/illustration/infographic → Banana (honours reference images).
-  Committed in `dynamic_adapter.go`; **NOT deployed to cluster** (needs a Makefile
-  build-from-local-filesystem — see the chassis-build-deploy-practice memory).
+  **DEPLOYED** — running `image-generator-adapter v1.0.1114` (commit `49d67e82`, v1.0.1103,
+  2026-07-10). Verified: robot-hands icon/logo/sprite assets show `origin_model=banana/…`.
+  The earlier "not deployed" note (turn 8) was stale.
 - **A8** Data-sovereignty pitch = a capability built *with* a client (pilot-scoped),
   never a standing isolation/residency guarantee.
 - **A10** Two-tone gold: bright `#C8A951` on dark chrome only; bronze `#836E32` for links
@@ -209,3 +210,49 @@ never trust orchestration status alone.
   `system-stats` forces `%/ms/+/x`).
 - `system-stats` and other section components can't be per-site customised (rerender
   re-links to the canonical component).
+
+## 9. IMAGERY playbook (from research 2026-07-14) — how to give leopardess images
+
+**A6 Banana routing is DEPLOYED** (`image-generator-adapter v1.0.1114`; commit `49d67e82`,
+v1.0.1103). logo/illustration/infographic/icon/sprite_sheet → Banana (honours reference
+images); hero → SDXL. No deploy needed. **Root problem: leopardess has NO `site_plan` and
+0 `site_plan_imagery` rows** — nothing has ever emitted imagery work items for it.
+
+**Route A — per image, works immediately (how robot-hands heroes were made).**
+`image-build-handler` accepts an INLINE spec, no plan row needed. Pattern:
+`scripts/initial_messages/280_image_build_hander/081_image_buid_handler_robot_hands.sh`.
+Fire to `system.agent.generic.requests`:
+```json
+{"action":"orchestrate","config":{"agent_type":"image-build-handler"},
+ "input_data":{"site_id":"4851f6fc-71cf-4160-a270-e03d6d3e0732",
+   "domain":"leopardessconsulting.co.uk","item_type":"needs_imagery",
+   "spec":{"key":"hero_home","kind":"hero","prompt":"<prompt>","purpose":"hero",
+           "scope":"page","scope_ref":"index","brand_update":true}}}
+```
+image-build-handler generates → asset-deployer commits to `/assets/images/<asset_key>.<ext>`.
+**Verify `assets.url` is `/assets/images/…`, NOT a presigned `s3…?X-Amz-…` URL.**
+For brand consistency, pass the logo as a reference image (Banana kinds only).
+
+**Route B — systematic (build-site-planner re-plan).** Writes the plan + imagery rows +
+auto-emits `needs_imagery`. BUT ⚠️ **a full re-plan may re-run content generation and could
+overwrite the carefully-fixed copy** — do NOT fire `build-site-planner` blind on this site.
+If used, scope it and verify content isn't clobbered. Route A is the safe default.
+
+**Per-card / per-section images = Phase I3 (content-imagery lane) — NOT built.** Cards get
+the page-hero fallback (`imageRoleAliases`) or empty. A section image is wired via a
+`site_plan_imagery` row `scope='section'`, `scope_ref='<page>:<ordering>'` joined to an asset
+by kind (`plan_sections_action.go:231-260`). Building I3 is real new work.
+
+**Recommended order for a session on imagery:** (1) hero images per page via Route A
+(safe, immediate, big visual win); (2) the blog card images + the info-card-grid card images
+need I3 — defer or build I3; (3) fix `design_intent.avoid` first if it still bans leopard
+imagery (RUNBOOK O5 landmine — value unconfirmed, check it).
+
+**Blog quick win (no I3 needed):** populate `pages.meta_description` on the blog-post pages,
+re-run `rebuild_blog_listing` for the site, reassemble `/blog.html` → excerpts fill in.
+Card thumbnails still need I3.
+
+Key files: `internal/adapters/imagegenerator/dynamic_adapter.go`,
+`platform/orchestration/actions/{write_site_plan_action.go, emit_imagery_items_action.go,
+plan_sections_action.go, image build/deploy actions}`, `imageryplan/imageryplan.go`,
+`discovery_checks/{check_unfulfilled_imagery_plan.go, check_empty_blog.go}`.

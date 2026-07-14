@@ -182,12 +182,16 @@ func buildSpriteCSS(sheetPath string, rows, cols int, names []string, domain str
 	fmt.Fprint(&b, "ul.sprite-list>li,ol.sprite-list>li{position:relative;padding-left:1.9em;margin-bottom:.4em}\n")
 	fmt.Fprintf(&b, "ul.sprite-list>li::before,ol.sprite-list>li::before{content:\"\";position:absolute;left:0;top:.15em;width:%dpx;height:%dpx;background-image:url(%s);background-repeat:no-repeat;background-size:%dpx %dpx;background-position:%s}\n",
 		T, T, sheetPath, sheetW, sheetH, pos(0))
+	// Overrides MUST be scoped under the list class. A bare `li.sprite-b-x::before`
+	// is specificity (0,1,2) and loses to the default `ul.sprite-list>li::before`
+	// (0,1,3), so every bullet silently rendered the default glyph. Scoping makes
+	// the override (0,2,3), which wins.
 	for i, name := range names {
 		n := sanitiseSpriteName(name)
 		if n == "" {
 			continue
 		}
-		fmt.Fprintf(&b, "li.sprite-b-%s::before{background-position:%s}\n", n, pos(i))
+		fmt.Fprintf(&b, "ul.sprite-list>li.sprite-b-%s::before,ol.sprite-list>li.sprite-b-%s::before{background-position:%s}\n", n, n, pos(i))
 	}
 	return b.String()
 }
