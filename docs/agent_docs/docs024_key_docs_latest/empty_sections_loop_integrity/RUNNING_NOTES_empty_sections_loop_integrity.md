@@ -112,3 +112,83 @@ started 13:48Z; all 155 agent_definitions rows → v1.0.1116). Binary grep resul
    `triaged/failed`, never `complete`.
 4. Phase 4 decision: robot-hands product pages (recommend B/C).
 5. Triage the existing zombie backlog once the loop is honest.
+
+## 2026-07-14 — Session 2: coordination with fixloop workstream
+
+The other active thread (`fixloop_eg_dartsonline/`) is one layer up: a
+`diagnosis-triage` router escalating loud/silent/no-handler failures into a
+diagnose→plan→council→PR loop. Its Phase 2 ("silent-failure verification
+checker," per `DESIGN_triage_and_escalation.md`) is explicitly the SAME
+problem class this workstream's completion gate addresses. Read their design
+doc in full before either thread adds more verification machinery — full
+reconciliation written into `PLAN_empty_sections_loop_integrity.md`'s new
+"Coordination" section. Short version: my gate is a pre-completion block for
+item types with a registered verifier (converts silent failure → loud failure
+for free, which triage's existing Phase-1 loud-failure path already catches);
+their Phase 2 is a post-hoc scanner for defect classes with no work-item
+predicate to hook. Not duplicative once the layering is explicit. Their
+existing two-strike/`insertWorkItem` mechanism already IS a recurrence-based
+silent-failure detector for anything a discovery check re-emits — worth them
+knowing before building a new one. No code changed this session; awareness +
+documentation only.
+
+## 2026-07-14 — Session 3: rollout complete, live re-drive PROVEN
+
+Owner deployed chassis `v1.0.1117`. Pod binary verified (`grep -ac` on
+`/app/agent-chassis`): all four changes present, including the
+meta-commentary guard that missed v1.0.1116 — confirmed 1 match each on
+the completion-gate message, the `required_fields_missing` log line, the
+`update_work_item_status` status-vocabulary extension, and the
+meta-commentary check message.
+
+SQL 149 and 150 were **already applied** (found live in the DB, not applied
+by me this session — likely done by the owner alongside the deploy).
+Verified both:
+- 149: `check_has_ready_sections`/`check_content_produced` else_steps now
+  point to `mark_no_ready_sections`/`mark_writer_skipped`; both step bodies
+  present and correctly shaped (`update_work_item_status`,
+  `needs_human_review`, `skip_if_missing: true`, the intended
+  `error_message`).
+- 150: `completeness-discovery-agent`'s `run_checks.config.checks` array
+  ends with `"required_fields_missing"`.
+
+**Live re-drive — the actual proof.** Re-drove item `4e37b25b-bea1-4422-a16b-
+00018d61a8da` (the ORIGINAL falsely-completed `product-details` empty_section
+item from the 2026-07-10 handoff evidence): `status='triaged'`,
+`attempt_count=0`, claim cleared, `error=NULL`. The platform's own
+`build-pipeline-trigger` scheduled task (30s interval, already enabled — no
+manual trigger needed) picked it up within one cycle. Result:
+
+```
+status:        needs_human_review   (was: complete, falsely, on 2026-07-10)
+attempt_count: 1
+handled_by:    build-dispatch-loop
+error:         page-build-handler no-op: no sections ready to build (empty
+               spec sections, or all sections deferred for missing data) —
+               the target section was NOT rebuilt
+```
+
+Two layers fired together, exactly as designed: SQL 149's
+`mark_no_ready_sections` step caught the no-op and flagged it BEFORE
+completion was attempted; the **pre-existing** guard in
+`CompleteWorkItemAction` (found during the original investigation, not
+written by this workstream — see `load_work_item_actions.go:751-759`) then
+refused to let `build-dispatch-loop`'s routine `mark_complete` step
+overwrite the flag back to `complete`. The new verification gate
+(`result._verification`) never needed to fire here, because 149 caught it
+one step earlier — exactly the intended defence-in-depth layering (149 =
+handler self-reports; the gate = backstop for handlers that don't).
+
+**This closes Phase 1.** The exact item that was the origin evidence for
+this whole workstream can no longer reach `complete` while its defect is
+unaddressed. Rebuild ✅, SQL 149+150 ✅ (found pre-applied), live re-drive ✅.
+
+### Still open
+
+- Phase 2 first discovery pass (`required_fields_missing` on robot-hands) —
+  not yet triggered/observed this session.
+- Phase 3's meta-commentary guard is deployed but has not been exercised by
+  a real case yet — confirmed only by unit test + binary presence.
+- Phase 4: robot-hands product-page category decision — still an owner call.
+- Zombie backlog triage (~36 items) — deferred until Phase 4 resolves the
+  6 product instances (RUNBOOK §7).

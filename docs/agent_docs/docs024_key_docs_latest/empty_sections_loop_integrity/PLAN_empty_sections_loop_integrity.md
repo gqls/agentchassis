@@ -35,7 +35,7 @@ Three stacked holes:
 
 ## Phases
 
-### Phase 1 — Loop integrity: verification-gated completion  ✅ code, 🔶 rollout
+### Phase 1 — Loop integrity: verification-gated completion  ✅ DONE, PROVEN LIVE
 The fleet-wide win. `CompleteWorkItemAction` now consults a per-item-type
 verifier registry before stamping `complete`; the `empty_section` verifier
 re-runs the exact detection predicate against `spec.component_id`. Defect
@@ -49,14 +49,16 @@ under `result._verification` for forensics. Fail-open on verifier error
       (`check_empty_sections.go`), unit tests
 - [x] Completion gate (`complete_work_item_verification.go`, wired in
       `load_work_item_actions.go`)
-- [x] Deployed in chassis `v1.0.1116` (verified against pod binary)
-- [ ] Apply `sql_for_agents/149_page_build_handler_noop_flags.sql`
+- [x] Deployed in chassis `v1.0.1117` (verified against pod binary)
+- [x] Applied `sql_for_agents/149_page_build_handler_noop_flags.sql`
       (handler no-op exits park item at `needs_human_review` — defence in depth)
-- [ ] **Live re-drive** of one gripper-detail `empty_section` item; expected:
-      item ends `needs_human_review` (149 applied) or `triaged/failed` with
-      "completion blocked: post-fix verification…" (gate) — NOT `complete`
+- [x] **Live re-drive PROVEN 2026-07-14**: re-drove the ORIGINAL falsely-
+      completed item (`4e37b25b-bea1-4422-a16b-00018d61a8da`, product-details
+      on gripper-detail). Result: `needs_human_review`, attempt_count=1 — SQL
+      149's flag fired, the pre-existing completion guard held it there. Never
+      reached `complete`. See RUNNING_NOTES Session 3.
 
-### Phase 2 — Detection: required_fields_missing check  ✅ code, 🔶 rollout
+### Phase 2 — Detection: required_fields_missing check  ✅ DONE, 🔶 first pass pending
 New discovery check: deployed component instances whose schema-required,
 LLM-sourced value fields are absent/empty in `content_data`. Flag-only at
 `needs_human_review` (no automated handler can fix these honestly), capped 25
@@ -64,19 +66,22 @@ per pass. Scope deliberately excludes `query.*`/`site_assets.*`/`pages.*`
 sources (render-time; dartsonline's working product grid must not flag) and
 image fields (owned by `image_source_unsatisfiable`).
 
-- [x] `check_required_fields_missing.go` + unit tests; in `v1.0.1116`
-- [ ] Apply `sql_for_agents/150_enable_required_fields_missing_check.sql`
-      (adds check to completeness-discovery-agent)
-- [ ] First discovery pass on robot-hands: expect ~6 product-component flags
+- [x] `check_required_fields_missing.go` + unit tests; in `v1.0.1117`
+- [x] Applied `sql_for_agents/150_enable_required_fields_missing_check.sql`
+      (confirmed in DB: `run_checks.config.checks` array includes it)
+- [ ] First discovery pass on robot-hands not yet observed: expect ~6
+      product-component flags, 0 on dartsonline (see RUNBOOK §5)
 
-### Phase 3 — Fail-safe content: meta-commentary guard  ✅ code, ❌ not deployed
+### Phase 3 — Fail-safe content: meta-commentary guard  ✅ DONE
 `validate_page_content` check 7: blocks LLM prose-about-the-task shipping as
 page copy (live case: product-card-with-cta stored a schema apology as
-content). **Missed the v1.0.1116 build by ~2 minutes** — needs a rebuild.
+content). Missed the v1.0.1116 build by ~2 minutes; present in v1.0.1117.
 
 - [x] `checkMetaCommentary` + unit tests (narrow, unambiguous patterns)
-- [ ] Rebuild + redeploy chassis (v1.0.1117 or rebuilt 1116)
-- [ ] Verify against pod: `grep -ac "LLM meta-commentary in content" /app/agent-chassis` → 1
+- [x] Deployed in v1.0.1117 (verified: `grep -ac "LLM meta-commentary in
+      content" /app/agent-chassis` → 1)
+- [ ] Not yet exercised by a real case — confirmed by unit test + binary
+      presence only, no live meta-commentary has occurred since deploy
 
 ### Phase 4 — robot-hands product pages: category decision  ⬜ owner decision
 robot-hands is a spec/comparison site; Add-to-Cart furniture is category-wrong
@@ -100,6 +105,48 @@ Destructive → owner call. Prepared SQL can be drafted once decided.
   registry is there; each is ~40 lines + test.
 - Export the false-completion case to `fixloop_eg_dartsonline/` as a graded
   benchmark ("bug dissolves but isn't fixed").
+
+## Coordination with the fixloop workstream (read 2026-07-14)
+
+`docs024_key_docs_latest/fixloop_eg_dartsonline/DESIGN_triage_and_escalation.md`
+designs the same problem class one layer up: a `diagnosis-triage` router that
+turns a handler's loud failure, silent failure, or missing-capability into an
+escalation to the diagnose→plan→council→PR loop (Tier 3). Its Phase 2 is
+explicitly "a silent-failure verification checker... owned by THIS thread" —
+overlapping territory with the gate here. Reconciled as follows (not a
+duplication once you see the layers):
+
+- **This gate operates INSIDE completion**, for the specific item being
+  completed, re-using the detecting check's own predicate. **Their Phase 2
+  operates AFTER completion**, scanning observable state independent of which
+  item touched it (their example: section-index pages `active` with zero
+  components).
+- **Consequence: for any item_type with a registered verifier here, silent
+  failure cannot occur** — a blocked completion routes into the existing
+  attempt machinery (`attempt_count+1` → `triaged` → `failed` once exhausted).
+  That is already triage's Phase-1 candidate (`status='failed' AND
+  attempt_count >= max_attempts`). **No Phase-2 checker is needed for
+  `empty_section`, or any future item_type registered here, once triage ships
+  live.** Their Phase 2 remains necessary for defect classes with no work-item
+  predicate to hook (e.g. structural checks with no registered verifier).
+- **Recurrence detection (DESIGN's option b) already exists platform-wide** —
+  `insertWorkItem`'s two-strike rule (`work_items_common.go`) marks an item
+  `[unresolved after N attempts]` on repeat terminal completion within 7 days.
+  Not something Phase 2 needs to build; every discovery check already gets it.
+- **`result._verification`** (this gate's structured verdict: `status`,
+  `detail`) is available on every blocked/verified completion — cheaper for
+  their tooling to read than re-deriving a check, if a future Phase-2 checker
+  ever wants to ask "did this specific completion work."
+- **Ownership stays as DESIGN decided**: fixloop thread owns silent-failure
+  verification checkers for classes without a registered verifier here; this
+  thread owns the completion gate + registry + the underlying
+  `site_work_items` machinery for classes it does register. Before either
+  thread adds a new verifier/checker for the SAME item_type, check the other's
+  running notes first.
+- The robot-hands false-completion case (this workstream's origin) is
+  structurally the SAME class as DESIGN's darts benchmark (§"the hard case").
+  Worth folding into the fixloop benchmark suite once both threads agree on
+  the write-up — flagged, not yet done.
 
 ## Success criteria
 

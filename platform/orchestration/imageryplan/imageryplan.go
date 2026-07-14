@@ -159,6 +159,21 @@ func Summary(r Row) string {
 		r.Scope, r.Key, r.Kind, AssetKey(r))
 }
 
+// SpriteCSSFormat is the shape-version of the stylesheet emit_sprite_css
+// produces. The grid signature below tracks the sheet's geometry/vocabulary, but
+// the emitter can change the CSS itself without the grid moving — I2.5 added the
+// `.sprite-bullets` container opt-in, for example. Without a version, the
+// sprite_css_missing check would compare an unchanged signature and conclude the
+// committed stylesheet was still current, so sites would keep serving the old CSS
+// forever.
+//
+// BUMP THIS whenever buildSpriteCSS changes what it emits. Every site's next
+// discovery pass then re-emits once and re-stamps.
+//
+//	1 = base + .sprite-<glyph> + ul.sprite-list bullets (scoped per-item overrides)
+//	2 = adds the .sprite-bullets container opt-in (themes lists in generated content)
+const SpriteCSSFormat = 2
+
 // SpriteGridSignature identifies the geometry + cell vocabulary that a sprite
 // stylesheet was built from, e.g. "3x3:check,gauge,gripper,...".
 //

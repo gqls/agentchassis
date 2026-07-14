@@ -47,6 +47,11 @@ the snapshot silently miss the image — always run the greps above after deploy
 
 ## 2. Apply the workflow SQL (149, 150)
 
+**Status: both confirmed applied 2026-07-14** against the live DB (found
+already applied, presumably alongside the v1.0.1117 deploy). Re-run the
+verify queries below any time to reconfirm; the apply commands are idempotent
+if you ever need to re-run them (e.g. after a snapshot restore).
+
 ```bash
 kubectl exec -i -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db \
   < docs/agent_docs/sql_for_agents/149_page_build_handler_noop_flags.sql

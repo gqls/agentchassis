@@ -777,3 +777,78 @@ The imagery research agent returned. Key corrections and quick wins:
 
 HANDOFF now has a full §9 imagery playbook + the corrected punch-list. This is the clean
 resume point.
+
+## Turn 17 (2026-07-14, session leopardess2) — use-cases honest + blog excerpts live; Route A safety correction
+
+**⚠️ HANDOFF §9 CORRECTION — Route A as written is NOT content-safe on this site.**
+Traced in code (deployed agent_definitions read from the live DB, not git):
+- image-build-handler's terminal step `flag_page_image_rebuild` fires for **page/section-scoped**
+  specs and emits `needs_page` → page-build-handler.
+- page-build-handler has **no skip-content branch**: if `plan_sections` reports
+  `ready_count > 0` it ALWAYS calls page-content-writer, and every `source:"llm"` field is
+  regenerated unconditionally (`plan_sections_action.go:1124` "LLM fields — always available").
+  It was safe on robot-hands only because that copy was LLM-authored anyway.
+- **Safe variant used instead**: fire image-build-handler with NO `scope` in the spec
+  (flag step no-ops; asset still generated+stored+git-deployed), then wire assets via
+  manually-inserted `site_plans`/`site_plan_imagery` rows, then `page-rerender` with
+  `spec.reason='image_landed'` — the `rerender_page_sections` path is no-LLM by design.
+- **Second landmine (rerender_page_sections_action.go:169):** an `image_landed`/`
+  section_data_resolved` rerender **escalates the WHOLE page to the content writer if ANY
+  section has empty content_data** (`content_data_backfill` needs_page). That is what the 19
+  needs_page items of 2026-07-13 07:33 were. Before any section rerender, check every slot
+  has non-empty content_data. Only `contact` remains empty-cd (protected today only by the
+  writer failing validation → needs_human_review; rewrite it via the voice pass and backfill).
+- Insert imagery plan rows only AFTER assets are active: design-discovery-agent carries
+  `unfulfilled_imagery_plan`; a fulfilled plan emits nothing.
+
+**Use-cases page — DONE and verified live (punch item 7 + more).**
+The page was worse than the punch-list said: 5 fabricated case studies with invented clients
+("Revenue Operations at a Growth-Stage SaaS Company") and results; the hero and the CTA each
+carried ANOTHER phantom `/tools/tool-ai-readiness-quiz.html` link (turn 15 only fixed the
+list prose); the hero's stale rendered_html hardcoded the navy gradient (`#1a1a2e→#0f3460`,
+no var() — it RENDERED, unlike the dead fallbacks). Fix: the rewritten portfolio spec already
+held 5 honest "Not yet done for a client" use_cases — so the spec stayed source of truth:
+patched each item to mirror `status` into `client` (the template renders `.client`), backfilled
+content_data on all 3 slots (honest hero/list/CTA copy, CTA now → /contact + /case-studies),
+fired page-rerender `section_data_resolved` → current templates re-rendered (navy gone —
+current component templates are var()-based and clean; the navy lived only in stale HTML).
+Verified live: 5 patterns, 5 honest labels, 0 phantom links, 0 fabrications, 0 navy.
+Backups: bak_usecases_leo_20260714 (3 slots), bak_portfolio_spec_leo_20260714.
+NOTE: an interim hand-written 3-pattern version was deployed first, then replaced by the
+spec-driven 5-pattern render ~30 min later. Both honest; final state is the spec render.
+
+**Blog (punch item 6) — excerpts + read times live.** Set `pages.meta_description` on the 2
+`/blog/` posts (bak_blogmeta_leo_20260714), fired rerender-pages (no refresh flag) →
+`rebuild_blog_listing` + 30 assemble-mode page_rerender items. Verified live: 5 cards with
+excerpts, read times ("7 min read" etc). Card thumbnails remain Phase I3 (not built).
+llm-cost-calculator-guide card has empty read_time because the PAGE was an empty shell (below).
+
+**Empty-shell inventory (punch item 9) — was wrong in two directions.** The "3 zero-section
+pages" actually: 10 pages with 0 page_components, but 7 are archived case studies (unlinked,
+no sitemap exists — harmless). The 3 live ones: ai-readiness-quiz + for-engineering-leaders
+(both linked from the FOOTER of every page — worse than reported) and llm-cost-calculator-guide
+(linked from the blog listing — not reported). `pages.sections` is just the type-name plan;
+the truth is page_components counts.
+- ai-readiness-quiz + llm-cost-calculator-guide: fired page-build-handler rebuilds (empty
+  pages = nothing to clobber; the `ai-readiness-quiz` interactive component EXISTS, active,
+  24KB). In flight at time of writing.
+- for-engineering-leaders: archived + de-navved/de-footered (bak_fel_page_leo_20260714),
+  per the standing "merge near-duplicates" decision (it duplicates for-engineering-teams;
+  its section list includes fabrication-prone system-stats, so a rebuild was the wrong call).
+  Fired rerender-pages WITH refresh_site_components:true → footer slot re-rendered without
+  it + full reassembly (dedup collapses with the in-flight batch). Early-deployed pages may
+  carry the old footer → final sweep needed.
+
+**Imagery (punch item 5) — 2 per-page heroes in flight via the SAFE variant.** Only 3 of the
+5 main pages can even take a hero image: index/who-we-help/how-we-work use the `hero`
+component (has `background_image`); about/services use hero-about/hero-services which have
+NO image-typed field (component work → deferred, noted in HANDOFF). Index already has its
+hand-chosen hero.jpg. Fired image-build-handler (scope-less specs, asset_key
+hero_who_we_help / hero_how_we_work, kind hero → SDXL; design_intent.imagery_direction is
+auto-prepended by generate_image_actions). Next: verify assets active → insert site_plans +
+site_plan_imagery rows (scope='page') → page-rerender `image_landed` on those two pages
+(their slots all have content_data — verified safe from the :169 escalation).
+
+**Stale handoff items corrected:** NEXT ACTIONS #4 (theme-color) is already `#0D0D0D` live —
+done at turn 15, remove. The 19 content_data_backfill items are all terminal (14 complete,
+4 failed, 1 needs_human_review=contact) — none pending, no clobber threat from that batch.

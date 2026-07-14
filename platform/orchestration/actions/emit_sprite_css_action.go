@@ -151,6 +151,10 @@ func EmitSpriteCSSAction(ctx context.Context, params ActionParams) (interface{},
 		"emitted_at": time.Now().UTC().Format(time.RFC3339),
 		"sheet_path": sheetPath,
 		"signature":  imageryplan.SpriteGridSignature(hints.Rows, hints.Cols, hints.CellNames),
+		// The signature tracks the SHEET; format tracks the STYLESHEET's shape. An
+		// emitter change (e.g. adding the .sprite-bullets opt-in) moves the format
+		// without moving the signature, and the check must still re-emit.
+		"format": imageryplan.SpriteCSSFormat,
 	}
 	stampJSON, _ := json.Marshal(stamp)
 	if _, err := params.DB.ExecContext(ctx, `
@@ -202,24 +206,48 @@ func buildSpriteCSS(sheetPath string, rows, cols int, names []string, domain str
 		fmt.Fprintf(&b, ".sprite-%s{background-position:%s}\n", n, pos(i))
 	}
 
-	// Themed list bullets: default glyph = first cell; per-item overrides via
-	// li.sprite-b-<name>.
-	fmt.Fprint(&b, "ul.sprite-list,ol.sprite-list{list-style:none;padding-left:0}\n")
-	fmt.Fprint(&b, "ul.sprite-list>li,ol.sprite-list>li{position:relative;padding-left:1.9em;margin-bottom:.4em}\n")
-	fmt.Fprintf(&b, "ul.sprite-list>li::before,ol.sprite-list>li::before{content:\"\";position:absolute;left:0;top:.15em;width:%dpx;height:%dpx;background-image:url(%s);background-repeat:no-repeat;background-size:%dpx %dpx;background-position:%s}\n",
-		T, T, sheetPath, sheetW, sheetH, pos(0))
-	// Overrides MUST be scoped under the list class. A bare `li.sprite-b-x::before`
-	// is specificity (0,1,2) and loses to the default `ul.sprite-list>li::before`
-	// (0,1,3), so every bullet silently rendered the default glyph. Scoping makes
-	// the override (0,2,3), which wins.
+	// Themed list bullets, offered as TWO opt-ins over identical geometry:
+	//
+	//   ul.sprite-list      — the class sits ON the list. Precise, but only usable
+	//                         where we author the markup.
+	//   .sprite-bullets ul  — the class sits on a CONTAINER (e.g. a component
+	//                         wrapper) and themes every list inside it. This is the
+	//                         one that works for generated content: article bodies
+	//                         are LLM-written HTML dropped into a template, so their
+	//                         <ul>s never carry classes and never can.
+	//
+	// Both scopes are emitted from the same selector list so the two can't drift.
+	listScopes := []string{"ul.sprite-list", "ol.sprite-list", ".sprite-bullets ul", ".sprite-bullets ol"}
+
+	fmt.Fprintf(&b, "%s{list-style:none;padding-left:0}\n", strings.Join(listScopes, ","))
+	fmt.Fprintf(&b, "%s{position:relative;padding-left:1.9em;margin-bottom:.4em}\n", joinScoped(listScopes, ">li"))
+	fmt.Fprintf(&b, "%s{content:\"\";position:absolute;left:0;top:.15em;width:%dpx;height:%dpx;background-image:url(%s);background-repeat:no-repeat;background-size:%dpx %dpx;background-position:%s}\n",
+		joinScoped(listScopes, ">li::before"), T, T, sheetPath, sheetW, sheetH, pos(0))
+
+	// Per-item overrides MUST stay scoped under the list/container class. A bare
+	// `li.sprite-b-x::before` is specificity (0,1,2) and LOSES to the default rule
+	// above (0,1,3), so every bullet silently rendered the default glyph — this
+	// shipped once and was only caught by looking at the live page. Scoped, the
+	// override is (0,2,3) and wins in both opt-ins.
 	for i, name := range names {
 		n := sanitiseSpriteName(name)
 		if n == "" {
 			continue
 		}
-		fmt.Fprintf(&b, "ul.sprite-list>li.sprite-b-%s::before,ol.sprite-list>li.sprite-b-%s::before{background-position:%s}\n", n, n, pos(i))
+		fmt.Fprintf(&b, "%s{background-position:%s}\n",
+			joinScoped(listScopes, ">li.sprite-b-"+n+"::before"), pos(i))
 	}
 	return b.String()
+}
+
+// joinScoped suffixes every list scope and joins them into one selector list,
+// e.g. suffix ">li::before" → "ul.sprite-list>li::before,ol.sprite-list>li::before,…".
+func joinScoped(scopes []string, suffix string) string {
+	out := make([]string, len(scopes))
+	for i, s := range scopes {
+		out[i] = s + suffix
+	}
+	return strings.Join(out, ",")
 }
 
 // sanitiseSpriteName lowercases and keeps only [a-z0-9-] so a cell name is a

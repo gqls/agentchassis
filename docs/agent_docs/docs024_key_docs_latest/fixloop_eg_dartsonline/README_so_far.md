@@ -354,6 +354,107 @@ I'll drive that the moment you have an image up.
 
 -----
 
+● Done — Phase 1.1, the loop-worthiness filter, is built and committed.
+
+What it does
+
+The first dry run showed that "escalate the top failures by count" would send the loop after dead pods. The filter fixes that by classifying every failure pattern by its error signature into one of four
+routes, and escalating only genuine code bugs:
+
+┌────────────┬─────────────────────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────┐
+│   Route    │                                           Signal                                            │                           Action                            │
+├────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
+│ → fix loop │ a real handler error (store_component failed: … violates, rejected by pre-store validation) │ escalate to needs_diagnosis (capped)                        │
+├────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
+│ → re-queue │ transient/infra (claim timed out, pod likely died, consumer rebalance)                      │ surfaced only — never sent to the loop (no code fix exists) │
+├────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
+│ → hold     │ (no error text) — nothing to diagnose                                                       │ surfaced for a human                                        │
+├────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
+│ → roadmap  │ capability_gap (no handler yet)                                                             │ a capability decision, not a bug                            │
+└────────────┴─────────────────────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────────────────────────────┘
+
+The transient denylist is deliberately precise to the dispatch/pod layer, so a genuine handler-logic error that merely mentions time isn't swallowed — and it's tunable via transient_signatures. On the
+exact live data from your first sweep, this would now escalate the component-creator constraint bug and drop the claim-timeout and no-signal noise — which is exactly what you'd want. Six tests green,
+including the classifier itself.
+
+Where it stands
+
+It's Go-only (seed and trigger unchanged), so it needs the next chassis image. The moment one's up, the sequence is short and I'll drive it:
+
+1. Verify in-pod (grep -ac triageRoute /proc/1/exe)
+2. Re-run the dry-run (095)
+3. Confirm the "code bugs → fix loop" group contains only real bugs (the transient noise should now sit under re-queue/hold)
+4. Flip dry_run→false (one-line jsonb_set) and fire again to escalate for real
+
+At that point the escalated needs_diagnosis items are queued for the diagnosis loop — the immune system and the fix loop, connected. All recorded in the handoff, and everything stays manual per your call
+while Fable credits are low.
+
+Whenever an image ships, say the word. And a genuinely good stopping point if you'd like one — the escalation channel is designed, built, and one dry-run-confirmation away from live.
+
+----
+
+Everything's captured and the handoff is ready. Here's the state I'm handing over.
+
+The handoff to "diagnosis fixloop 2"
+
+HANDOFF_diagnosis_fixloop_2.md is the clean, self-sufficient cold-start — written model-agnostic since Fable credits are low and the next chat may be a different model. It opens with the one thing that
+matters: the immediate next action.
+
+The immediate next action (for the new chat)
+
+The chassis image was building at handoff. When it lands:
+1. Verify in the pod — grep -ac triageRoute /proc/1/exe (never trust the tag)
+2. Settle 300s, re-run the triage dry-run (095)
+3. Confirm the filter — real code bugs in "→ fix loop", claim-timeouts/no-signal moved to "→ re-queue"/"→ hold"
+4. Flip dry_run→false and fire again to escalate for real → the immune-system→fix-loop channel is live
+
+What the new chat inherits
+
+- Live & proven: the full loop (diagnose → plan → council → caged implement → build gate → PR #1, merged), the deterministic awareness digest (committed-file delivery under docs/fixloop_digests/), and
+  main now carrying PR #1's fix.
+- Built, riding the shipping image: the triage router + its loop-worthiness filter — one dry-run-confirmation from live.
+- The roadmap: Phase 2 (silent-failure verification checker — this thread owns it), Phase 3 (feedback close-out), Phase 4 (digest escalation section), then the wider council.
+
+Docs brought current
+
+- New cold-start handoff written; the living handoff now points fresh chats to it.
+- Memory updated (auto-loads next chat): MEMORY.md index + fixloop-workstream.md both flag the continuation and the next action.
+- RUNBOOK CURRENT POSITION → turn 34; NOTES/PLAN/DESIGN already current from prior turns.
+
+One thing I noticed while updating memory, worth the new chat's attention: another workstream (empty-sections-loop-integrity) shipped a "completion-verification gate in v1.0.1116" — that overlaps directly
+with our Phase 2 silent-failure verification checker. Worth coordinating rather than duplicating when Phase 2 begins; I've left the pointer in the memory index.
+
+The workstream is in a genuinely clean state to pause and resume: the escalation channel is designed, built, filtered, and one flip from live — with the operating posture (manual, human-gated,
+deterministic where it counts) intact so a fresh chat, on any model, can continue safely.
+
+-----
+
+Done — triage is live and the escalation channel from the immune system into the fix loop is now closed. Summary of the turn:
+
+Go-live sequence (handoff §1) — complete:
+1. v1.0.1117 verified in the pod — triageRoute present in the running binary (count 2); pod was past the 300s rebalance window.
+2. Dry-run confirmed the loop-worthiness filter works on real data. The "code bugs" group contained only two genuine handler-error patterns (both component-creator: an insert constraint violation on
+   needs_new_component, and a pre-store template rejection on needs_component_regeneration). All claim-timeouts routed to "re-queue" and no-error-text items to "hold" — exactly the sorting the handoff asked
+   me to confirm.
+3. Flipped dry_run=false and fired live: 2 patterns escalated, written as needs_diagnosis items parked at awaiting_diagnosis — inert until someone deliberately dispatches them (everything stays manual per
+   the operating posture).
+4. Dedup proven: a third sweep reported escalated 0, deduped 2 and wrote nothing — the ON CONFLICT path works in production.
+
+One small defect found: in dry-run mode the report counters mislabel would-be escalations as "capped" (escalated 0, deduped 0, capped 2 plus a spurious cap warning). Live counters are correct. Logged in
+the notes as low-priority, fix when next touching diagnose_triage.
+
+The empty-sections thread's message is picked up and recorded on our side (DESIGN §silent-failure, handoff §5, running notes turn 29): their v1.0.1116 completion gate already de-silences
+empty_section-class failures (now-live Phase-1 triage catches them as loud failures), Phase 2 should reuse insertWorkItem's two-strike rule for recurrence rather than rebuild it, and Phase 2's remaining
+target is defects that never touch a work-item completion at all — the darts guides-index class.
+
+Docs committed (f95004aa); memory updated. One note: the commit swept in a idea_uk_section_data_missing/README_where_we_are.md file another concurrent session had staged — per the forward-only rule I left
+it, nothing lost.
+
+Next up: Phase 2 — the silent-failure verification checker with its newly narrowed scope (starting check: section-index pages active with zero components and no failed work item). The two parked
+escalations are also sitting ready whenever you want to dispatch the loop on them.
+
+
+
 
 
 

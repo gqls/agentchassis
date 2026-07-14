@@ -218,17 +218,40 @@ v1.0.1103). logo/illustration/infographic/icon/sprite_sheet → Banana (honours 
 images); hero → SDXL. No deploy needed. **Root problem: leopardess has NO `site_plan` and
 0 `site_plan_imagery` rows** — nothing has ever emitted imagery work items for it.
 
-**Route A — per image, works immediately (how robot-hands heroes were made).**
-`image-build-handler` accepts an INLINE spec, no plan row needed. Pattern:
-`scripts/initial_messages/280_image_build_hander/081_image_buid_handler_robot_hands.sh`.
-Fire to `system.agent.generic.requests`:
+**⚠️ Route A as originally written is NOT content-safe on this site (turn 17 code trace).**
+With `"scope":"page"`, image-build-handler's terminal `flag_page_image_rebuild` step emits
+`needs_page` → page-build-handler, which has **no skip-content branch** — it ALWAYS calls
+page-content-writer when sections are ready, and every `source:"llm"` field is regenerated
+(`plan_sections_action.go:1124`). On robot-hands that was fine (LLM copy anyway); here it
+would clobber the hand-fixed copy.
+
+**Route A-safe (used turn 17): generate scope-less, wire manually, rerender no-LLM.**
+1. Fire the inline spec **without `scope`** (flag step no-ops; asset still generated,
+   stored, git-deployed). Omit `brand_update` unless you want `sites.content_data.hero_url`
+   (a SITE-WIDE fallback) overwritten:
 ```json
 {"action":"orchestrate","config":{"agent_type":"image-build-handler"},
  "input_data":{"site_id":"4851f6fc-71cf-4160-a270-e03d6d3e0732",
    "domain":"leopardessconsulting.co.uk","item_type":"needs_imagery",
-   "spec":{"key":"hero_home","kind":"hero","prompt":"<prompt>","purpose":"hero",
-           "scope":"page","scope_ref":"index","brand_update":true}}}
+   "spec":{"key":"hero_<page>","kind":"hero","prompt":"<prompt>","purpose":"hero",
+           "asset_key":"hero_<page>","scope_ref":"<page>"}}}
 ```
+2. AFTER the asset row is `active` (never before — design-discovery-agent runs
+   `unfulfilled_imagery_plan`; a fulfilled plan emits nothing), insert `site_plans`
+   (is_current) + `site_plan_imagery` rows (`scope='page'`, `scope_ref=<page name>`,
+   `kind='hero'`, `key=<asset_key>`).
+3. Fire `page-rerender` with `spec.reason='image_landed'`, `spec.page_name`, top-level
+   `page_id` — `rerender_page_sections` is no-LLM by design; the hero resolves from the
+   plan rows.
+**PRECONDITION for step 3 (`rerender_page_sections_action.go:169`):** every
+page_component on that page must have non-empty `content_data`, or the WHOLE page is
+escalated to the content writer (`content_data_backfill`) and rewritten. Only `contact`
+still has empty content_data (use-cases was backfilled turn 17). Check first:
+`SELECT slot_name FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.name='<page>' AND p.site_id='…' AND (pc.content_data IS NULL OR pc.content_data::text IN ('{}','null'));`
+
+Also: only pages whose hero component declares an image field can show a hero at all —
+`index`, `who-we-help`, `how-we-work` use `hero` (`background_image` ✓); `about`/`services`
+use `hero-about`/`hero-services` (NO image field — needs component work first).
 image-build-handler generates → asset-deployer commits to `/assets/images/<asset_key>.<ext>`.
 **Verify `assets.url` is `/assets/images/…`, NOT a presigned `s3…?X-Amz-…` URL.**
 For brand consistency, pass the logo as a reference image (Banana kinds only).
