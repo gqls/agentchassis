@@ -15,7 +15,10 @@
 //  1. Loop runs        — orchestrations by fix-loop agent types: status + terminal step
 //  2. Decisions        — per correlation: artifact counts, latest council decision & why
 //  3. Write outcomes   — build-gate verdicts and any PRs opened (url/number)
-//  4. Config changes   — agent_definitions_backup snapshots in-window (type + reason):
+//  4. Escalation channel (Phase 4, 2026-07-14) — the immune system on the same
+//     page: sweep counts, the open diagnosis queue (new vs parked), open/closed
+//     silent-failure findings, and standing capability gaps.
+//  5. Config changes   — agent_definitions_backup snapshots in-window (type + reason):
 //     every seeded/updated agent leaves one, so this is the
 //     "what changed about the machine itself" ledger.
 package actions
@@ -53,6 +56,7 @@ var fixloopAgentTypes = []string{
 	"diagnose-orchestrator", "diagnose-agent",
 	"fix-proposer", "fix-implementer", "fix-implementer-orchestrator",
 	"fixloop-digest",
+	"diagnosis-triage", "diagnosis-silent-check",
 }
 
 type digestRun struct {
@@ -76,6 +80,30 @@ type digestSnapshot struct {
 	AgentType string
 	Reason    string
 	TakenAt   string
+}
+
+type digestEscalation struct {
+	ItemKey   string
+	Status    string
+	Summary   string
+	CreatedAt string
+	New       bool // created inside this digest's window
+}
+
+type digestSilentFinding struct {
+	ItemKey string
+	Summary string
+}
+
+// digestImmune is the escalation channel's state for the digest — the immune
+// system and the loop on one page (Phase 4 of the triage design).
+type digestImmune struct {
+	TriageSweeps int
+	SilentSweeps int
+	Escalations  []digestEscalation    // the OPEN diagnosis queue (new + parked)
+	SilentOpen   []digestSilentFinding // silent-check findings still standing
+	SilentClosed []digestSilentFinding // findings honestly closed in-window
+	Gaps         []capabilityGap       // standing capability gaps (roadmap)
 }
 
 // FixloopDigestAction gathers and persists the digest.
@@ -107,8 +135,12 @@ func FixloopDigestAction(ctx context.Context, params ActionParams) (interface{},
 	if err != nil {
 		return nil, fmt.Errorf("gather config changes: %w", err)
 	}
+	immune, err := digestGatherImmune(ctx, params.DB, window)
+	if err != nil {
+		return nil, fmt.Errorf("gather escalation channel: %w", err)
+	}
 
-	body := renderDigest(hours, time.Now().UTC(), runs, corrs, snaps)
+	body := renderDigest(hours, time.Now().UTC(), runs, corrs, immune, snaps)
 
 	noteID := ""
 	if persist, ok := config["persist"].(bool); !ok || persist {
@@ -251,9 +283,99 @@ func digestGatherSnapshots(ctx context.Context, db *sql.DB, window string) ([]di
 	return out, rows.Err()
 }
 
+// digestGatherImmune assembles the escalation channel's state: sweep counts
+// in-window, the whole OPEN diagnosis queue (parked items must stay visible
+// every digest until resolved — they are decisions waiting on the owner, not
+// activity), silent-check findings open + closed-in-window, and standing
+// capability gaps.
+func digestGatherImmune(ctx context.Context, db *sql.DB, window string) (digestImmune, error) {
+	var im digestImmune
+
+	if err := db.QueryRowContext(ctx, `
+		SELECT count(*) FILTER (WHERE categories ? 'triage'),
+		       count(*) FILTER (WHERE categories ? 'silent-check')
+		FROM doc_notes WHERE created_at > now() - $1::interval`, window).
+		Scan(&im.TriageSweeps, &im.SilentSweeps); err != nil {
+		return im, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT item_key, status, left(COALESCE(summary,''),110),
+		       to_char(created_at, 'YYYY-MM-DD HH24:MI'),
+		       created_at > now() - $1::interval
+		FROM site_work_items
+		WHERE item_type = 'needs_diagnosis'
+		  AND status IN ('awaiting_diagnosis','diagnosing')
+		ORDER BY created_at DESC`, window)
+	if err != nil {
+		return im, err
+	}
+	for rows.Next() {
+		var e digestEscalation
+		if err := rows.Scan(&e.ItemKey, &e.Status, &e.Summary, &e.CreatedAt, &e.New); err != nil {
+			rows.Close()
+			return im, err
+		}
+		im.Escalations = append(im.Escalations, e)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return im, err
+	}
+
+	rows, err = db.QueryContext(ctx, `
+		SELECT item_key, left(COALESCE(summary,''),110), status
+		FROM site_work_items
+		WHERE created_by = 'silent-check'
+		  AND (status = 'failed'
+		       OR (status = 'complete' AND updated_at > now() - $1::interval))
+		ORDER BY created_at DESC`, window)
+	if err != nil {
+		return im, err
+	}
+	for rows.Next() {
+		var f digestSilentFinding
+		var status string
+		if err := rows.Scan(&f.ItemKey, &f.Summary, &status); err != nil {
+			rows.Close()
+			return im, err
+		}
+		if status == "failed" {
+			im.SilentOpen = append(im.SilentOpen, f)
+		} else {
+			im.SilentClosed = append(im.SilentClosed, f)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return im, err
+	}
+
+	rows, err = db.QueryContext(ctx, `
+		SELECT COALESCE(spec->>'builder_needed', COALESCE(handler_agent,'?')) AS builder,
+		       count(*) AS n, count(DISTINCT site_id) AS sites
+		FROM site_work_items
+		WHERE (item_type = 'capability_gap' OR status = 'deferred')
+		  AND status NOT IN ('complete','cancelled','wont_fix','rejected')
+		GROUP BY 1 ORDER BY n DESC`)
+	if err != nil {
+		return im, err
+	}
+	for rows.Next() {
+		var g capabilityGap
+		if err := rows.Scan(&g.Builder, &g.Count, &g.Sites); err != nil {
+			rows.Close()
+			return im, err
+		}
+		im.Gaps = append(im.Gaps, g)
+	}
+	rows.Close()
+	return im, rows.Err()
+}
+
 // renderDigest is pure — tested directly. Every section states its window so
 // an empty section reads as "no activity", never as "not checked".
-func renderDigest(hours int, now time.Time, runs []digestRun, corrs []digestCorrelation, snaps []digestSnapshot) string {
+func renderDigest(hours int, now time.Time, runs []digestRun, corrs []digestCorrelation, immune digestImmune, snaps []digestSnapshot) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Fix-loop digest — last %dh (generated %s UTC)\n\n", hours, now.Format("2006-01-02 15:04"))
 
@@ -284,6 +406,58 @@ func renderDigest(hours int, now time.Time, runs []digestRun, corrs []digestCorr
 				line += fmt.Sprintf(" — latest council: **%s** (%s)", c.Decision, c.DecidedBy)
 			}
 			b.WriteString(line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	// Escalation channel — the immune system on the same page. The diagnosis
+	// queue always shows EVERY open item: a parked escalation is a decision
+	// waiting on the owner and must not fade out of the digest with time.
+	newCount := 0
+	for _, e := range immune.Escalations {
+		if e.New {
+			newCount++
+		}
+	}
+	fmt.Fprintf(&b, "## Escalation channel — immune system → loop (%d open, %d new)\n\n",
+		len(immune.Escalations), newCount)
+	fmt.Fprintf(&b, "Sweeps this window: %d triage, %d silent-check (full reports: doc_notes categories `triage` / `silent-check`).\n\n",
+		immune.TriageSweeps, immune.SilentSweeps)
+
+	if len(immune.Escalations) == 0 {
+		b.WriteString("Diagnosis queue empty — nothing is waiting on a dispatch decision.\n\n")
+	} else {
+		b.WriteString("**Diagnosis queue** (parked inert; dispatching is the owner's call):\n\n")
+		for _, e := range immune.Escalations {
+			marker := ""
+			if e.New {
+				marker = "NEW "
+			}
+			fmt.Fprintf(&b, "- %s%s  `%s` [%s] — %s\n", marker, e.CreatedAt, e.ItemKey, e.Status, e.Summary)
+		}
+		b.WriteString("\n")
+	}
+
+	if len(immune.SilentOpen) == 0 && len(immune.SilentClosed) == 0 {
+		b.WriteString("No silent-failure findings open or closed in this window.\n\n")
+	} else {
+		fmt.Fprintf(&b, "**Silent-failure findings** (%d open, %d closed this window):\n\n",
+			len(immune.SilentOpen), len(immune.SilentClosed))
+		for _, f := range immune.SilentOpen {
+			fmt.Fprintf(&b, "- OPEN `%s` — %s\n", f.ItemKey, f.Summary)
+		}
+		for _, f := range immune.SilentClosed {
+			fmt.Fprintf(&b, "- CLOSED `%s` — %s\n", f.ItemKey, f.Summary)
+		}
+		b.WriteString("\n")
+	}
+
+	if len(immune.Gaps) == 0 {
+		b.WriteString("No standing capability gaps.\n\n")
+	} else {
+		b.WriteString("**Capability gaps** (roadmap decisions, never the loop):\n\n")
+		for _, g := range immune.Gaps {
+			fmt.Fprintf(&b, "- **%s** needed — %d item(s) across %d site(s).\n", g.Builder, g.Count, g.Sites)
 		}
 		b.WriteString("\n")
 	}
