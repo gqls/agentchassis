@@ -1520,4 +1520,55 @@ functional proof of I2.4 — watch for it rather than assuming it.
 opt-in: `.sprite-bullets ul>li::before` + the class on article-body's
 `.article-body__content` wrapper) closes I2 → then Phase I3.
 
+## Turn 39 — 2026-07-14 — USER GATE PASSED ✅; I2.5 built but BLOCKED by a content-destroying bug it uncovered
+
+**✅ LIVE GATE PASSED.** User confirmed the four glyphs are present and correctly
+placed on the guide page. **I2.2 + I2.3 are DONE.** (They needed a "where to look"
+artifact first — the bullets are 20px, deliberately quiet, and sit at the very end
+of a long article. Worth remembering for future gates: *say where to look.*)
+
+**I2.5 BUILT (D10 container opt-in) — Go done, unit-proven, NOT landed:**
+- `buildSpriteCSS` now emits BOTH opt-ins from ONE selector list (`listScopes`), so
+  they cannot drift: `ul.sprite-list` (class on the list) and `.sprite-bullets ul`
+  (class on a CONTAINER — the one that works for generated content). Overrides stay
+  scoped in both, so the Turn 36 specificity trap can't reappear in the new scope.
+- **`imageryplan.SpriteCSSFormat` (=2) added, and stamped.** Without it the I2.4
+  check would compare an UNCHANGED grid signature, conclude the committed CSS was
+  current, and no site would ever pick up the new rules. The signature tracks the
+  SHEET; the format tracks the STYLESHEET. Bump the const whenever buildSpriteCSS
+  changes shape. Tests cover the bump.
+
+**🛑 BLOCKED — and the reason is a serious pre-existing defect (spun out):**
+I2.5 needs the `sprite-bullets` class on article-body's `.article-body__content`
+wrapper. That wrapper **is not in the deployed markup** — which led to:
+- **The content writer never parses the LLM's JSON envelope.** `content_data.result`
+  is a STRING containing `{"content": "<h2>…"}`. The template wants `{{.content}}`,
+  which is buried inside that string.
+- **9 article bodies have been SILENTLY BLANKED** across 5 sites: the light
+  re-render path renders the missing `{{.content}}` as EMPTY (Go template
+  `missingkey=zero`), overwrites the good rendered_html, and assembly then DROPS the
+  empty section — the article just vanishes from the live page. **5 more leak raw
+  JSON** (readers literally see `{ "content": "` — including our own sprite gate
+  page). Only **2 of 16** article-bodies are healthy.
+- **The trigger is `image_landed`** — scoped rerenders fire automatically when an
+  image asset lands. **This workstream lands images.** Phase I0's per-page heroes
+  are the most likely cause of the 9 blanked pages. The latent bug is upstream, but
+  we probably pulled the trigger. Own it.
+- **⚠️ STANDING WARNING: do NOT land an image or fire a scoped rerender on those
+  pages until it's fixed — it blanks the article.** Assemble-only rerenders are safe.
+
+**WHAT SAVED US:** the user chose "try the system re-render". Before firing it at a
+live page I ran an OFFLINE PROBE — rendered the real template against the real
+stored content_data in a throwaway Go test. It produced an EMPTY
+`.article-body__content`. Firing the "fix" would have destroyed the guide's article.
+**Standing lesson: when a repair path renders from stored data, probe the render
+offline first — the cost is one throwaway test; the alternative is a blanked page.**
+
+Full write-up (root cause, all 14 affected pages, recovery recipe — the words are
+ALL still recoverable from content_data, and the upstream fix):
+**`docs024_key_docs_latest/HANDOFF_2026-07-14_article_body_json_envelope.md`**
+
+**I2 status:** I2.2 ✅ I2.3 ✅ (gated) · I2.4 ✅ built (rides next deploy) ·
+I2.5 ✅ built, ⛔ landing blocked on the article-body fix. I2 closes when I2.5 lands.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

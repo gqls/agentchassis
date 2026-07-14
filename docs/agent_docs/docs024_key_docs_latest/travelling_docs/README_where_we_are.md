@@ -98,3 +98,35 @@ Two things for you:
 - platform/orchestration/actions/diagnose_triage_action.go is untracked — not mine (fixloop), but it's precisely the trap that bit T11 and T13, so git add it before your next release commit.
 
 ---
+
+The fixer was the broken link — and the behavioural tier caught it lying.
+
+I promoted just the one routed ticket (a full vonc triage would have released 10 unrelated items onto a live site). It dispatched to component-template-fixer, which returned "fixed": true — and had
+changed nothing. I re-measured the live page: the same 506px div.footer-legal overflow, untouched. "Complete" ≠ fixed, which is the exact illusion this whole ladder exists to puncture.
+
+The root cause is a silent default. fixInjectResponsiveCSS reads spec.slot_name and, when it's absent, falls back to slotName := "header" — then injects a hardcoded header-nav CSS block. My ticket named
+the target in affected_component (copying the shape of the existing design-audit items), never slot_name. So it patched vonc's header for a footer defect and declared victory.
+
+And it isn't just my ticket. All 54 responsive_fix items ever raised have no slot_name — every one of them defaulted to the header. The first on a site injects the canned block; the rest return "already
+has responsive CSS", fixed: false, and are marked complete anyway. So the page-section responsive findings (the container/grid-column ones) were never fixed, only closed. Per your call I left that path
+untouched — it's another workstream's backlog — but it's flagged in the handoff for you to schedule.
+
+I reverted the collateral damage: the unrequested header injection is stripped from vonc's site_components (4170 → 3640 chars). It hadn't gone live, but a queued needs_rerender would have carried it.
+
+Then I diagnosed the real bug by asking the browser rather than guessing: .footer-legal is display:flex with the default flex-wrap:nowrap and gap:2rem, holding six links — intrinsically 506px in a 390px
+viewport. The rule lives in the footer slot's own <style>, not in styles.css (which has no .footer-legal rule at all).
+
+chrome_overflow_fix is built — your option: a new targeted fix type, legacy path untouched so no mass edits fire elsewhere. The adapter now emits machine-usable handles (culprit_selector:
+div.footer-legal, slot: footer via closest('footer')), the judge puts them in the spec, and the fixer refuses to run without them rather than guess. The selector is regex-validated before it reaches a
+  <style> block (it crosses a browser→HTML boundary), and the patch is idempotent per selector.
+
+  Most importantly, I proved the fix on the live page before shipping it — injecting the exact CSS the fixer will write, into vonc.com in real Chromium:
+
+  BEFORE:  footer-legal 506px   overflow 58px
+  AFTER:   footer-legal 326px   overflow  0px   flex-wrap: wrap
+
+  This needs one more build — chassis and browser-runner-adapter (the judge/fixer are chassis; culprit_selector/slot are adapter). When it lands, re-running 087 on the quiz should raise a ticket the fixer
+  can actually act on, patch the footer, and after a rerender mobile-fit@mobile goes green — the real-failure loop closing autonomously on a bug the system found by itself.
+
+  Also worth a git add before your next release commit: my fix_component_template_chrome_overflow_test.go, plus several untracked files from other workstreams (complete_work_item_verification.go,
+  verifiers.go, check_required_fields_missing.go) — the same trap that bit T11 and T13.

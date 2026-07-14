@@ -214,3 +214,8 @@ deployments/terraform/**/terraform.tfstate.d/
 /leopardessconsulting.co.uk/large57/logs-web-search-adapter.json
 .secrets/
 *.tfvars.secret
+
+# real service env files — secrets live on the box, never in git
+idea.env
+*/idea.env
+.env.local

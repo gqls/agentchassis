@@ -179,8 +179,15 @@ func FixComponentTemplateAction(ctx context.Context, params ActionParams) (inter
 		return fixAlignSlotName(ctx, params, logger)
 	case "repair_page_component_status":
 		return fixPageComponentStatus(ctx, params, logger)
+	case "chrome_overflow_fix":
+		// Targeted overflow repair from Tier-4 acceptance: slot + offending
+		// selector come from the browser that measured it. Never guesses.
+		return fixChromeOverflow(ctx, params, siteID, logger)
 	case "responsive_fix", "responsive":
-		// "responsive" is a raw category value from SQL-patched items
+		// "responsive" is a raw category value from SQL-patched items.
+		// NOTE: this path defaults to the HEADER slot and injects canned
+		// header-nav CSS — it is not a general responsive fixer. See
+		// chrome_overflow_fix above for the targeted version.
 		return fixInjectResponsiveCSS(ctx, params, siteID, logger)
 	case "cta_improvement", "cta", "nav_restructure":
 		// "cta" is a raw category value from SQL-patched items.
@@ -284,6 +291,121 @@ func fixInjectNavFlexCSS(ctx context.Context, params ActionParams, siteID uuid.U
 
 // ---------------------------------------------------------------------------
 // responsive_fix: adds responsive CSS media queries for mobile layout
+// ---------------------------------------------------------------------------
+// chrome_overflow_fix — a TARGETED overflow repair, driven by Tier-4 acceptance.
+//
+// Deliberately NOT part of the legacy responsive_fix path, which defaults to the
+// header slot and injects a canned header-nav CSS block regardless of what is
+// actually broken. On 2026-07-14 that path was handed a FOOTER overflow, patched
+// the HEADER, and returned fixed=true — the failure mode this one exists to
+// avoid. Here, the slot and the offending selector both come from the browser
+// that measured the defect, and the fix REFUSES to run without them rather than
+// guess at a target.
+
+// safeCSSSelector limits what can be interpolated into a stylesheet: a tag,
+// id and/or class chain, e.g. "div.footer-legal", "#legal", ".a.b". Anything
+// else (braces, angle brackets, at-rules, whitespace) is rejected — the value
+// crosses a process boundary from a browser into an HTML <style> block.
+var safeCSSSelector = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*(?:[.#][A-Za-z_-][A-Za-z0-9_-]*)*$|^[.#][A-Za-z_-][A-Za-z0-9_-]*(?:[.#][A-Za-z_-][A-Za-z0-9_-]*)*$`)
+
+// buildOverflowCSS writes the media query that constrains the offender. Appended
+// AFTER the slot's existing <style>, so it wins ties on document order without
+// resorting to !important. flex-wrap is the fix for the common cause (a nowrap
+// flex row); max-width is a harmless belt-and-braces for the non-flex case.
+func buildOverflowCSS(selector, marker string) string {
+	return "\n<style>\n" + marker + "\n" +
+		"@media (max-width: 768px) {\n" +
+		"    " + selector + " {\n" +
+		"        flex-wrap: wrap;\n" +
+		"        justify-content: center;\n" +
+		"        max-width: 100%;\n" +
+		"    }\n" +
+		"    " + selector + " > * {\n" +
+		"        max-width: 100%;\n" +
+		"    }\n" +
+		"}\n</style>\n"
+}
+
+func overflowMarker(selector string) string {
+	return "/* Overflow fix (Tier-4 acceptance) — " + selector + " */"
+}
+
+func fixChromeOverflow(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) (interface{}, error) {
+	slot := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.slot_name")
+	selector := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.overflow_selector")
+
+	// No silent defaults. A fix aimed at a guessed target is worse than no fix:
+	// it reports success and closes the finding.
+	switch slot {
+	case "header", "footer", "head":
+	case "":
+		logger.Warn("chrome_overflow_fix: no slot_name in spec — refusing to guess a slot")
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "chrome_overflow_fix",
+			"reason": "spec.slot_name is required (header|footer|head) — refusing to guess; the legacy path's header default is exactly how a footer defect got 'fixed' in the header",
+			"action": "needs_review",
+		}, nil
+	default:
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "chrome_overflow_fix",
+			"reason": fmt.Sprintf("slot_name %q is not a site_components slot (header|footer|head)", slot),
+			"action": "needs_review",
+		}, nil
+	}
+
+	if selector == "" || !safeCSSSelector.MatchString(selector) {
+		logger.Warn("chrome_overflow_fix: missing or unsafe overflow_selector",
+			zap.String("selector", selector))
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "chrome_overflow_fix",
+			"reason": fmt.Sprintf("spec.overflow_selector missing or not a simple tag/id/class selector: %q", selector),
+			"action": "needs_review",
+		}, nil
+	}
+
+	var html string
+	err := params.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(rendered_html, '') FROM site_components
+		WHERE site_id = $1 AND slot_name = $2
+	`, siteID, slot).Scan(&html)
+	if err != nil {
+		return nil, fmt.Errorf("chrome_overflow_fix: load %s slot: %w", slot, err)
+	}
+	if html == "" {
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "chrome_overflow_fix",
+			"slot_name": slot, "reason": "no rendered HTML in that slot",
+		}, nil
+	}
+
+	marker := overflowMarker(selector)
+	if strings.Contains(html, marker) {
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "chrome_overflow_fix",
+			"slot_name": slot, "overflow_selector": selector,
+			"reason": "already patched for this selector",
+		}, nil
+	}
+
+	newHTML := html + buildOverflowCSS(selector, marker)
+	if _, err := params.DB.ExecContext(ctx, `
+		UPDATE site_components SET rendered_html = $3, updated_at = now()
+		WHERE site_id = $1 AND slot_name = $2
+	`, siteID, slot, newHTML); err != nil {
+		return nil, fmt.Errorf("chrome_overflow_fix: update %s slot: %w", slot, err)
+	}
+
+	logger.Info("chrome_overflow_fix: constrained the offending element",
+		zap.String("slot", slot), zap.String("selector", selector),
+		zap.Int("html_before", len(html)), zap.Int("html_after", len(newHTML)))
+
+	return map[string]interface{}{
+		"fixed": true, "fix_type": "chrome_overflow_fix",
+		"slot_name": slot, "overflow_selector": selector,
+		"detail": "injected a mobile media query allowing " + selector + " to wrap; a rerender must deploy it",
+	}, nil
+}
+
 // ---------------------------------------------------------------------------
 
 func fixInjectResponsiveCSS(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) (interface{}, error) {

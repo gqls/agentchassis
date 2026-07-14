@@ -185,10 +185,89 @@ unaddressed. Rebuild ✅, SQL 149+150 ✅ (found pre-applied), live re-drive ✅
 
 ### Still open
 
-- Phase 2 first discovery pass (`required_fields_missing` on robot-hands) —
-  not yet triggered/observed this session.
 - Phase 3's meta-commentary guard is deployed but has not been exercised by
   a real case yet — confirmed only by unit test + binary presence.
 - Phase 4: robot-hands product-page category decision — still an owner call.
 - Zombie backlog triage (~36 items) — deferred until Phase 4 resolves the
   6 product instances (RUNBOOK §7).
+
+## 2026-07-14 — Session 4: Phase 2 first discovery pass PROVEN
+
+`improvement-sweep` (the scheduled task that would normally run discovery
+fleet-wide) is disabled — didn't flip it on; that's a fleet-wide blast-radius
+decision outside this workstream's scope. Found precedent instead: the
+imagery workstream's `phase_1_5_smoke_test_v2.sql` documents firing a single
+`processing_mode: task` discovery agent directly via kcat for one site.
+`completeness-discovery-agent`'s workflow confirmed the same shape
+(`start_step: ensure_site_record`, accepts `{site_id, domain}`, `task` mode)
+— directly orchestratable, no scheduler needed. Reused the working kcat
+envelope from `idea.uk/reresolve_idea_uk_05_render.sh` (same
+`system.agent.generic.requests` topic/header contract).
+
+Fired for robot-hands (`00ff3af5-dad8-4770-9f70-3edc267a3c92`):
+`orchestration_states` → `COMPLETED`. Result: **8** `required_fields_missing`
+items, all `needs_human_review` — the 4 expected product-family components
+(`product-hero`, `product-specs`, `product-details`, `generic-text-block` on
+gripper-detail) plus 4 unexpected: `tool-guide-intro` on
+gripper-cycle-time-estimator (12 missing fields) and `article-body` on three
+guide pages (1 missing field each — all just `content`). The check
+generalises beyond the product family that motivated it, which is the
+intended behaviour, not scope creep — same predicate, different components.
+
+Fired again for dartsonline (`5fe8785b-223d-41a3-88ee-c07187622381`) as the
+negative control from the PLAN: **0** `required_fields_missing` items. The
+`query.*`/`site_assets.*` source exclusion holds — the working 14-card
+product grid is correctly left alone.
+
+**Phase 2 fully proven end-to-end.** No manual trigger script was added to
+the repo — the kcat command is recorded here and in RUNBOOK §5 for re-use.
+
+## 2026-07-14 — Session 5: Phase 4 decision + feasibility research
+
+Owner chose **Option C** (spec-sheet component, no cart furniture) for the
+robot-hands product pages, then — when asked how to source data, since no
+comparison dataset was found — chose to build a real discovery/scrape
+workflow rather than fabricate content or fall back to removal.
+
+Feasibility research before committing to a build plan:
+
+- **`products` table:** exists, schema is reasonable (name, sku, features
+  jsonb, specifications jsonb, price, category, content_data), but **zero
+  rows for ANY site on the platform** — no usage precedent anywhere, and no
+  `source_url`/`verified_at` columns (provenance would need a migration or
+  to live in `content_data`).
+- **`affiliate_products` table:** has the provenance shape I was looking for
+  (`external_url`, `cached_at`, `last_checked_at`) but is affiliate-program-
+  specific machinery (`program_id` → `affiliate_programs`) — wrong tool for
+  a non-affiliate spec/comparison site.
+- **dartsonline's "14 real product cards" (the original handoff's proof the
+  pipeline is sound) do not prove what they were cited for.** Checked its
+  `product-grid` component: `source: "query.products"`, `content_data` only
+  27-34 bytes (clearly not holding product data), `rendered_html` ~3KB (the
+  real cards). But `queryresolve.go`'s `Resolve()` only implements
+  `pages_where_type` and `pages_under_section` — **there is no live resolver
+  for `query.products` or `query.affiliate_products` anywhere in the
+  codebase.** dartsonline's cards are frozen `rendered_html` from whenever
+  they were last actually built by some mechanism that may no longer exist
+  or run. If that page were rebuilt today, it would likely go hollow exactly
+  like gripper-detail did. **Corrected the PLAN's Phase 4 text and the
+  handoff's "counter-example" framing accordingly** — this doesn't change
+  anything about the shipped Phase 1-3 work (required_fields_missing
+  correctly excludes non-LLM sources regardless of whether they're live), but
+  it does change what Phase 4 actually requires.
+- **No product-discovery-from-web precedent exists.** Closest analog,
+  `vet_med_price_scrape_action.go` (vet-intel workstream): re-scrapes PRICE
+  from already-known retailer URLs (`med_retailer_listings`), doesn't
+  discover new products. Confirms the acquisition workflow is genuinely new
+  platform capability, not a reuse job.
+
+**Conclusion: split into 4a (structural — component, live `query.products`
+resolver, component swap; safe to build now, no external footprint, fully
+reversible) and 4b (data acquisition — real scrape/search workflow; needs an
+explicit source-scope decision first, since it's a new external-facing
+capability and its output becomes sourced-fact claims on a live page).**
+Written into PLAN. Stopped here to report findings and get a scope
+confirmation before spending a large build budget unsupervised — this grew
+from "swap a component" into "build two new platform capabilities," which
+crosses from routine follow-through into a decision the owner should see
+before it's built.

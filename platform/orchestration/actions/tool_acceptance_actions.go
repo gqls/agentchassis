@@ -270,7 +270,9 @@ type chromeFailure struct {
 	CheckID   string
 	Profile   string
 	Component string // e.g. "site-footer" — what a fixer would edit
-	Culprit   string // e.g. "div.footer-legal (506px)"
+	Culprit   string // human: "div.footer-legal (506px)"
+	Selector  string // machine: "div.footer-legal" — the fixer patches THIS
+	Slot      string // header | footer | head — which site_components row owns it
 	Detail    string
 	URL       string
 }
@@ -341,10 +343,13 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 		if scope, _ := m["scope"].(string); scope == "chrome" {
 			component, _ := m["component"].(string)
 			culprit, _ := m["culprit"].(string)
+			selector, _ := m["culprit_selector"].(string)
+			slot, _ := m["slot"].(string)
 			url, _ := m["url"].(string)
 			v.Chrome = append(v.Chrome, chromeFailure{
 				CheckID: id, Profile: profile, Component: component,
-				Culprit: culprit, Detail: detail, URL: url,
+				Culprit: culprit, Selector: selector, Slot: slot,
+				Detail: detail, URL: url,
 			})
 			continue
 		}
@@ -571,16 +576,24 @@ func routeChromeFailures(ctx context.Context, params ActionParams, logger *zap.L
 		}
 		itemKey := fmt.Sprintf("chrome_overflow:%s:%s", component, cf.Profile)
 
+		// fix_type MUST be chrome_overflow_fix, not the legacy responsive_fix:
+		// that path defaults to the header slot and injects canned header-nav CSS,
+		// so it "fixes" the wrong thing and reports success (observed 2026-07-14 —
+		// it patched vonc's HEADER for a FOOTER defect and returned fixed=true).
+		// slot_name and overflow_selector are what make the fix targeted; the
+		// fixer refuses to guess without them.
 		spec := map[string]interface{}{
 			"category":     "responsive",
-			"fix_type":     "responsive_fix",
+			"fix_type":     "chrome_overflow_fix",
+			"slot_name":    cf.Slot,
 			"audit_source": "tool-acceptance-tier4",
 			"description": fmt.Sprintf(
 				"The page overflows horizontally on %s. The widest offending element is %s, inside %s — OUTSIDE the tool's container, so this is a site-template defect, not a tool defect. Found while running Tier-4 acceptance for %s (%s), but it affects every page that renders this chrome.",
 				cf.Profile, cf.Culprit, component, function, cf.URL),
 			"suggestion": fmt.Sprintf(
-				"Constrain %s to the viewport: allow the content to wrap or shrink (e.g. flex-wrap, max-width:100%%, or a mobile breakpoint) so no descendant is wider than the viewport at 390px.",
-				component),
+				"Constrain %s to the viewport at mobile widths: let it wrap or shrink (flex-wrap / max-width:100%%) so no descendant exceeds the viewport at 390px.",
+				cf.Selector),
+			"overflow_selector":  cf.Selector,
 			"current_value":      cf.Culprit,
 			"acceptance_test":    fmt.Sprintf("At 390px viewport width, %s document.scrollWidth <= document.clientWidth (no horizontal overflow)", cf.URL),
 			"affected_component": component,

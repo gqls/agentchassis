@@ -123,23 +123,60 @@ ORDER BY updated_at DESC LIMIT 10;
 `defect_persists` (completion blocked), `error` (verifier couldn't run —
 completion allowed, fail-open; investigate if recurring).
 
-## 5. First required_fields_missing pass (after SQL 150 + image with the check)
+## 5. Triggering a discovery pass on one site (PROVEN 2026-07-14)
 
-Trigger or await completeness discovery for robot-hands, then:
+`improvement-sweep` (the scheduled task that runs discovery fleet-wide) ships
+**disabled** — don't flip it on for a single-site test, that's a fleet-wide
+decision outside this workstream. `completeness-discovery-agent` is
+`processing_mode: task`, `start_step: ensure_site_record`, and accepts
+`{site_id, domain}` directly — orchestratable standalone via kcat, same
+envelope contract as `idea.uk/reresolve_idea_uk_05_render.sh`:
+
+```bash
+SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"   # robot-hands
+DOMAIN="robot-hands.com"
+AGENT="completeness-discovery-agent"
+INPUT_DATA="{\"site_id\":\"${SITE_ID}\",\"domain\":\"${DOMAIN}\"}"
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+
+kubectl -n kafka run -i --rm kcat-discovery-$(date +%s) \
+  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$CORRELATION_ID -H request_id=$REQUEST_ID \
+  -H message_id=$MESSAGE_ID -H orchestration_id=$ORCHESTRATION_ID \
+  -H orchestration_name=discovery-$(date +%Y%m%d-%H%M%S) -H step_name=start \
+  -H client_id=demo_client -H message_type=request -H action=orchestrate \
+  -H from_agent_type=user -H from_agent_id=cli \
+  -H responses_topic=system.agent.generic.responses <<JSON
+{"action":"orchestrate","config":{"agent_type":"$AGENT"},"input_data":$INPUT_DATA}
+JSON
+```
+
+Watch: `SELECT status FROM orchestration_states WHERE correlation_id='<CID>'::uuid;`
+→ expect `COMPLETED` within ~30s (120s workflow timeout).
+
+Then:
 ```sql
 SELECT summary, status, spec->'missing_fields' FROM site_work_items
 WHERE site_id='00ff3af5-dad8-4770-9f70-3edc267a3c92'
   AND item_type='required_fields_missing' ORDER BY created_at DESC;
 ```
-Expect ~6 flags (product components), all `needs_human_review`, no handler.
-Cross-check dartsonline produces **zero** (query-sourced product grid must not
-flag):
+**Proven result (2026-07-14): 8 flags**, all `needs_human_review`, no handler
+— the 4 expected product-family components plus `tool-guide-intro` and 3
+`article-body` instances (missing just `content` each). Cross-check on
+dartsonline (site_id `5fe8785b-223d-41a3-88ee-c07187622381`, same trigger
+with that site/domain) **proven: 0 flags** — the query-sourced 14-card
+product grid correctly does not flag:
 ```sql
 SELECT count(*) FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
 WHERE s.domain='dartsonline.com' AND swi.item_type='required_fields_missing';
 ```
 
-## 6. Meta-commentary guard smoke test (after rebuild)
+## 6. Meta-commentary guard smoke test (deployed in v1.0.1117)
 
 The guard runs inside `validate_page_content` during handler sagas. Cheap
 verification: unit test locally

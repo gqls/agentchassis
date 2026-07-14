@@ -210,6 +210,20 @@ never trust orchestration status alone.
   `system-stats` forces `%/ms/+/x`).
 - `system-stats` and other section components can't be per-site customised (rerender
   re-links to the canonical component).
+- **`contact-block` can never pass its own validation** (turn 17): its schema has
+  `email_placeholder` `source:"static"` `fallback:"jane@company.com"`; static fallbacks
+  re-apply on every render, and `validate_page_content`'s email check rejects any email
+  that isn't the site contact → every page-build containing contact-block fails
+  (`0 blockers, 1 errors`). This killed the quiz rebuild twice and likely yesterday's 4
+  failed `content_data_backfill` items. Fleet-wide fix = change the shared fallback to `""`
+  (+ gate in template) or teach the validator that placeholder-attribute emails aren't
+  contact claims. Per-page workaround: drop contact-block from `pages.sections`.
+- **spawn→call stall, node-local Kafka dial timeouts** (turn 17): two spawned
+  image-generator pods initialised, sent their init response, then their consumers looped
+  on `dial tcp 10.20.99.93:9092: i/o timeout` (broker healthy, other nodes fine) — the
+  orchestrations sat AWAITING_RESPONSES at the spawn step forever (the workflow's
+  `timeout_seconds: 300` did not fire). Remedy: delete the idle pods, re-fire; consider a
+  liveness bail-out when the request consumer can't dial for N minutes.
 
 ## 9. IMAGERY playbook (from research 2026-07-14) — how to give leopardess images
 

@@ -69,8 +69,12 @@ image fields (owned by `image_source_unsatisfiable`).
 - [x] `check_required_fields_missing.go` + unit tests; in `v1.0.1117`
 - [x] Applied `sql_for_agents/150_enable_required_fields_missing_check.sql`
       (confirmed in DB: `run_checks.config.checks` array includes it)
-- [ ] First discovery pass on robot-hands not yet observed: expect ~6
-      product-component flags, 0 on dartsonline (see RUNBOOK §5)
+- [x] **First discovery pass PROVEN 2026-07-14**: fired
+      `completeness-discovery-agent` directly via kcat for robot-hands — 8
+      flags (broader than the ~6 estimate: also caught `tool-guide-intro` and
+      3 `article-body` instances beyond the product family). Cross-check on
+      dartsonline: **0 flags** — confirms the `query.*` exclusion holds and
+      the working 14-card product grid is correctly left alone.
 
 ### Phase 3 — Fail-safe content: meta-commentary guard  ✅ DONE
 `validate_page_content` check 7: blocks LLM prose-about-the-task shipping as
@@ -83,17 +87,61 @@ content). Missed the v1.0.1116 build by ~2 minutes; present in v1.0.1117.
 - [ ] Not yet exercised by a real case — confirmed by unit test + binary
       presence only, no live meta-commentary has occurred since deploy
 
-### Phase 4 — robot-hands product pages: category decision  ⬜ owner decision
+### Phase 4 — robot-hands product pages: category decision  🔶 IN PROGRESS
 robot-hands is a spec/comparison site; Add-to-Cart furniture is category-wrong
-regardless of data. Options:
+regardless of data. Owner decided 2026-07-14: **Option C** (spec-sheet
+component, no cart furniture) — with real data sourced by a new
+discovery/scrape workflow, NOT fabricated. See RUNNING_NOTES Session 5 for
+the feasibility research behind the split below.
 
-| | Option | Effort | Note |
-|---|---|---|---|
-| A | Wire a real gripper catalog (`query.*` source) and keep product pages | High | Only if a catalog data source is actually wanted |
-| B | Remove product components + delete/unpublish the two pages (`gripper-detail`, `product-detail`) | Low | **Recommended.** Pages are unlinked (`in_header/footer=false`) but live + indexable |
-| C | Replace with a spec-sheet component (no cart furniture), data from the comparison dataset | Medium | Fits the site's actual category |
+**Correction to the original handoff's premise:** "wire a real gripper
+catalog" assumed a comparison dataset already existed (MatchMatrix / gripper-
+catalog). It doesn't — those pages are pure marketing copy, `products` and
+`affiliate_products` have zero rows platform-wide for ANY site, and
+dartsonline's "14 real product cards" (the handoff's proof the pipeline is
+sound) are **frozen `rendered_html`, not a live mechanism** —
+`query.products`/`query.affiliate_products` is not implemented in
+`queryresolve.go` (only `pages_where_type`/`pages_under_section` are). If
+dartsonline's product-grid were rebuilt today it would very likely go hollow
+the same way gripper-detail did. This means Option C requires building real
+infrastructure, not just swapping a component.
 
-Destructive → owner call. Prepared SQL can be drafted once decided.
+Split into two sub-phases:
+
+**4a — Structural (buildable now, no external dependency, reversible):**
+- [ ] New content_component: gripper spec-sheet (stroke, payload, force, IP
+      rating, interface, price-if-known) — NO cart/Add-to-Cart/Buy-Now
+      fields. `on_missing: skip_section` on every field.
+- [ ] Live `query.products` resolver added to `queryresolve.go` (site-scoped,
+      category-filtered) — the missing piece that makes this NOT go stale
+      like dartsonline's did.
+- [ ] `products` table: add provenance (`source_url`, `verified_at` — new
+      columns, or carried in `content_data` to avoid a migration; lean
+      toward `content_data` unless the owner wants queryable provenance).
+- [ ] Swap `product-hero`/`product-specs`/`product-details`/
+      `product-card-with-cta` on gripper-detail (and `product-detail`'s
+      instance) for the new component.
+
+**4b — Data acquisition (needs a source-scope decision before building):**
+- [ ] Workflow: web-search real gripper manufacturers → firecrawl-scrape spec
+      pages → LLM-assisted **structured, grounded** extraction (numbers only;
+      refuse-if-absent, no inference) → write `products` rows with
+      `source_url` + `verified_at`.
+- [ ] Closest existing precedent is `med_price_scrape_action.go`
+      (`vet-intel`) — but that RE-CHECKS known retailer URLs; it does not
+      DISCOVER products. No existing platform code does product discovery —
+      this is genuinely new.
+- [ ] Scope decision needed: which manufacturers (real candidates: Schunk,
+      OnRobot, Robotiq, Zimmer Group, Festo — all have public spec pages),
+      rate/politeness limits, and how to keep scraped copy factual-only
+      (specs, not verbatim marketing prose) given copyright — echoes the
+      imagery workstream's "copyright-safe product sketches" concern, same
+      logic applies to scraped text.
+
+4a is safe to start without further sign-off (structural, no fabrication, no
+external footprint). 4b needs an explicit go-ahead on source scope before
+building, given it's a new external-scraping capability whose output lands as
+sourced-fact claims on a live public page.
 
 ### Phase 5 — Later / spun out
 - `sectionHasVisibleContent` should measure **resolved data**, not text

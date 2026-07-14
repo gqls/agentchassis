@@ -68,8 +68,14 @@ type CheckResult struct {
 	Detail  string `json:"detail"`
 
 	Scope     string `json:"scope,omitempty"`     // tool | chrome | unknown
-	Culprit   string `json:"culprit,omitempty"`   // e.g. "div.footer-legal (506px)"
+	Culprit   string `json:"culprit,omitempty"`   // human: "div.footer-legal (506px)"
 	Component string `json:"component,omitempty"` // nearest structural ancestor, e.g. "site-footer"
+	// Machine-usable repair handles: the culprit as a CSS selector, and which
+	// site_components slot owns it. A fixer needs BOTH — a description cannot be
+	// fed to a stylesheet, and without the slot the fixer must guess (the live
+	// one defaulted to "header" and "fixed" the wrong thing).
+	CulpritSelector string `json:"culprit_selector,omitempty"` // e.g. "div.footer-legal"
+	Slot            string `json:"slot,omitempty"`             // header | footer | head | ""
 }
 
 // Result scopes. "unknown" means the tool's container could not be located, so
@@ -82,8 +88,10 @@ const (
 
 // overflowInfo is what the page reports about a horizontal overflow.
 type overflowInfo struct {
-	Culprit   string // widest element crossing the viewport edge
+	Culprit   string // widest element crossing the viewport edge, with its width
+	Selector  string // the same element as a CSS selector a fixer can act on
 	Component string // its nearest structural ancestor (header/footer/section)
+	Slot      string // the site_components slot that owns it: header | footer | head
 	InTool    bool   // culprit lies inside the tool's container
 	Located   bool   // the tool's container was found at all
 }
@@ -363,6 +371,7 @@ func evaluateOnPage(page browserPage, doc criteriaDoc, checks []criteriaCheck, p
 				}
 				addScoped(ch.ID, false, detail, CheckResult{
 					Scope: scope, Culprit: info.Culprit, Component: info.Component,
+					CulpritSelector: info.Selector, Slot: info.Slot,
 				})
 			} else {
 				add(ch.ID, true, "no horizontal overflow on "+profile)
@@ -569,10 +578,18 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 				? structural.className.trim().split(/\s+/)[0] : '') || structural.tagName.toLowerCase();
 		}
 
+		// Which site_components slot owns the offender? The fixer edits ONE slot's
+		// rendered_html, so this must be derived, never defaulted.
+		let slot = '';
+		if (bestEl.closest('footer')) slot = 'footer';
+		else if (bestEl.closest('header')) slot = 'header';
+
 		return {
 			over: over,
 			culprit: describe(bestEl) + ' (' + best.width + 'px)',
+			selector: describe(bestEl),
 			component: component,
+			slot: slot,
 			located: !!tool,
 			inTool: !!(tool && tool.contains(bestEl)),
 		};
@@ -586,7 +603,9 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 	}
 	info := overflowInfo{}
 	info.Culprit, _ = m["culprit"].(string)
+	info.Selector, _ = m["selector"].(string)
 	info.Component, _ = m["component"].(string)
+	info.Slot, _ = m["slot"].(string)
 	info.InTool, _ = m["inTool"].(bool)
 	info.Located, _ = m["located"].(bool)
 	// JS numbers come back as float64/int; tolerate 2px of rounding.

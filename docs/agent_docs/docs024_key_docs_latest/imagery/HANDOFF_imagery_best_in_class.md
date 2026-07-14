@@ -4,7 +4,19 @@
 TURN, alongside the running notes — it is the single entry point for a fresh
 session.**
 
-## READ FIRST (Turn 38): I2.2 + I2.3 are DONE AND CORRECT ON THE LIVE SITE
+## ⚠️ READ FIRST (Turn 39): a STANDING SAFETY WARNING for this workstream
+**Landing an image on a page fires a SCOPED RERENDER (`image_landed`), and on 14 of
+16 article-body pages that BLANKS THE ARTICLE** — the light re-render path renders
+the missing `{{.content}}` as empty (the writer never parsed the LLM's JSON
+envelope), overwrites the good HTML, and assembly drops the now-empty section. **9
+pages across 5 sites have ALREADY silently lost their article body this way, and
+this workstream's per-page heroes are the likely trigger.** The words are all still
+recoverable from `content_data`. Do NOT land images or fire scoped rerenders on
+those pages until it's fixed. Assemble-only rerenders (no `spec.reason`) are safe.
+→ **`docs024_key_docs_latest/HANDOFF_2026-07-14_article_body_json_envelope.md`**
+(This also BLOCKS I2.5 — the wrapper it needs isn't in the deployed markup.)
+
+## Turn 38–39: I2.2 + I2.3 are DONE, LIVE AND USER-GATED
 Sprite bullets render **four distinct glyphs** (ⓘ info / ✓ check / gauge / ⚠
 warning) on a real list — `/guides/tool-grip-force-friction-calculator-guide.html`,
 the "Safety Factor Selection Guidance" list. The Turn 36 CSS-specificity bug is
@@ -12,14 +24,15 @@ fixed, deployed (verified by grepping the running POD's binary, not git), and
 sprites.css re-emitted with scoped overrides. One 75,745B sheet; ≤80KB budget met.
 **Hard-refresh before eyeballing — sprites.css is cached `max-age=3600`.**
 
-**Open:** the user's live gate on those four glyphs.
+**GATE PASSED** (Turn 39): the user confirmed the four glyphs, correctly placed.
 **Built, awaiting the next deploy:** I2.4 (`sprite_css_missing` check + the
-`emit_sprite_css` fulfilment stamp). Its registration SQL is ALREADY applied — an
+`emit_sprite_css` fulfilment stamp) and I2.5 (the container opt-in + the
+`SpriteCSSFormat` version). I2.4's registration SQL is ALREADY applied — an
 unregistered check name is just a warn+skip, so it activates by itself on deploy.
-Expect exactly ONE self-healing re-emit then (the live CSS predates the stamp, so
-the row has `sprites_css = null` → check fires once → identical CSS re-committed →
-row stamped → quiet). That cycle IS the live proof of I2.4 — watch for it.
-**Then:** I2.5 (D10 container opt-in) closes I2.
+On that deploy the check fires once per site (no stamp yet / format bumped),
+re-emits sprites.css with the container rules, stamps the row, and goes quiet. That
+cycle IS the live proof of I2.4 — watch for it rather than assuming it.
+**I2.5's CLASS cannot land yet** — blocked on the article-body defect above.
 
 ## What this project is (fresh-reader paragraph)
 
@@ -253,15 +266,20 @@ I2.4 is BUILT and its SQL is applied; it activates on the next deploy. Remaining
    subsequent passes. If it keeps emitting every pass, the stamp write is broken
    (that is the idempotence bug the tests guard against). Verify:
    `SELECT style_hints->'sprites_css' FROM site_plan_imagery …` is non-null.
-3. **I2.5 — container opt-in (D10, user-approved).** Make sprite bullets a house
-   style instead of a per-list opt-in: `emit_sprite_css` also emits
-   `.sprite-bullets ul>li::before` (same geometry; keep it specificity-safe — the
-   Turn 36 lesson), and the `sprite-bullets` class goes on a **component wrapper**,
-   starting with article-body's `.article-body__content`. Then every content list
-   themes itself. Re-emit CSS + re-render; the Turn 36 hand-wired classes become
-   redundant (harmless). NOTE: `article-body` is a GLOBAL component (other sites
-   use it) — the class is inert on sites with no sprites.css, so it is safe
-   fleet-wide, but say so in the change. Closes I2.
+3. **I2.5 — container opt-in (D10). Go is DONE; only the CLASS is blocked.**
+   `emit_sprite_css` already emits `.sprite-bullets ul>li::before` (built Turn 39,
+   specificity-safe, rides the next deploy). What remains is adding the
+   `sprite-bullets` class to article-body's `.article-body__content` wrapper — and
+   **that wrapper is not in the deployed markup on 14 of 16 article pages** (see the
+   READ FIRST warning). So:
+   - **BLOCKED until the article-body JSON-envelope defect is fixed**
+     (`HANDOFF_2026-07-14_article_body_json_envelope.md`, being fixed in another
+     chat). Once those rows are repaired and re-rendered, the wrapper exists.
+   - THEN: add the class to the template (NOTE: `article-body` is a GLOBAL
+     component — the class is inert on sites without sprites.css, so it is safe
+     fleet-wide, but say so in the change), re-render, verify on a page whose lists
+     carry NO classes of their own. That is the whole point: it proves generated
+     content themes itself. Closes I2.
    **WHY (the durability finding):** `ul.sprite-list` needs the class ON the
    `<ul>`, but article bodies are LLM-generated HTML dropped into `{{.content}}`
    — **content `<ul>`s never carry classes.** The Turn 36 wiring is a targeted
