@@ -540,7 +540,24 @@ unverifiable → F0.6: a `context` disposition + citation-backed `explained`.
 Four-run arc: wrong-confidently → half-right-confidently → honest abstention →
 right-with-declared-coverage. F0 functionally complete bar F0.3.
 
-## CURRENT POSITION — 2026-07-13 (turn 28): FIRST PR OPENED & MERGED
+## CURRENT POSITION — 2026-07-14 (turn 34): TRIAGE built; escalation channel one step from live
+Fresh-chat entry point is now **`HANDOFF_diagnosis_fixloop_2.md`**. Since the
+first-PR milestone: the **awareness digest** (`fixloop_digest`, deterministic,
+no LLM) is live and delivered as a committed file under `docs/fixloop_digests/`;
+**PR #1's fix was cherry-picked onto `main`** (998c0b31, resolving the PR-order
+wrinkle); the **triage router** (`diagnose_triage`) + its **loop-worthiness
+filter** (`triageRoute`) are built and committed — the bridge from the
+operational immune system to the fix loop. Triage ships `dry_run=true`; its first
+dry-run found 9 real failure patterns and revealed that ~half are operational
+(claim timeouts / dead pods) with no code fix — the filter now routes only
+genuine code bugs to the loop (transient→re-queue, no-signal→hold, capability
+gaps→roadmap). IMMEDIATE NEXT (a chassis image was shipping at handoff): verify
+`grep -ac triageRoute /proc/1/exe` → re-run 095 dry-run → confirm the filter →
+flip `dry_run→false` → escalate for real. Then Phase 2 = the silent-failure
+verification checker (this thread owns it). All MANUAL (Fable credits low). Full
+architecture: `DESIGN_triage_and_escalation.md`.
+
+## PRIOR POSITION — 2026-07-13 (turn 28): FIRST PR OPENED & MERGED
 The full loop ran end to end and opened **PR #1**
 (github.com/gqls/agentchassis/pull/1), which the owner approved and merged.
 F1.1b(c) (the write step) is COMPLETE AND PROVEN: a council-APPROVED plan →

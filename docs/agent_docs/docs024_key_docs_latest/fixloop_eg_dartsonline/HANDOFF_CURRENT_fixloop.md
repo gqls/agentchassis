@@ -1,5 +1,10 @@
 # HANDOFF — Diagnosis→Fix Loop (LIVING DOCUMENT — update every turn)
 
+> ➡️ **FRESH CHAT ("diagnosis fixloop 2")? Read `HANDOFF_diagnosis_fixloop_2.md`
+> FIRST** — it is the clean, self-sufficient cold-start (immediate next action =
+> take triage live once the shipping chassis image lands). This file below is the
+> turn-by-turn running history that fed it.
+
 ## ★ MILESTONE 2026-07-13: THE LOOP OPENED ITS FIRST PULL REQUEST ★
 
 **https://github.com/gqls/agentchassis/pull/1** — end-to-end, every gate live:
