@@ -1183,6 +1183,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "The awareness surface: deterministic digest (no LLM) of fix-loop runs, council decisions, gate/PR outcomes, and agent-config snapshots in a window; persisted to doc_notes (pipeline/diagnose, categories digest+fixloop)",
 		IsLocal:     true,
 	},
+	"diagnose_triage": {
+		Handler:     DiagnoseTriageAction,
+		Category:    "diagnose",
+		Description: "Deterministic router (no LLM) from the operational immune system into the fix loop: escalates loud-failure PATTERNS (deduped, capped) to needs_diagnosis and surfaces capability_gap (no-handler-yet) items to the roadmap; one doc_note per sweep",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline

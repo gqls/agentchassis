@@ -64,6 +64,7 @@ func init() {
 
 type contentHub struct {
 	Name     string
+	Title    string
 	URL      string
 	Area     string
 	NavOrder int
@@ -115,8 +116,12 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 	if err != nil {
 		return nil, err
 	}
+	interactive, err := loadInteractivePages(ctx, params, siteID, logger)
+	if err != nil {
+		return nil, err
+	}
 	validPages := loadResolverPageSet(ctx, params, siteID, logger)
-	primary, secondary := chooseCTATargets(pageType, pageName, hubs)
+	primary, secondary := chooseCTATargets(pageType, pageName, interactive, hubs)
 
 	var unresolved []map[string]interface{}
 	for _, raw := range sections {
@@ -141,6 +146,7 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 		zap.String("page_name", pageName),
 		zap.Int("section_count", len(sections)),
 		zap.Int("hub_count", len(hubs)),
+		zap.Int("interactive_count", len(interactive)),
 		zap.Int("unresolved", len(unresolved)))
 
 	// Build-time detectability: a correctly-dropped CTA leaves no fingerprint in
@@ -229,11 +235,18 @@ func emitUnresolvedCTAItems(ctx context.Context, params ActionParams, siteID uui
 	}
 }
 
-// setCTAField writes a validated url into resolved_data, or records it unresolved.
-func setCTAField(resolved map[string]interface{}, field, url string, validPages datahelpers.PageURLSet,
+// setCTAField writes a validated url into resolved_data, or records it
+// unresolved. Alongside the url it writes the target's title under
+// "<field-minus-_url>_target_title" (cta_url -> cta_target_title,
+// primary_cta_url -> primary_cta_target_title) so the content writer can
+// write CTA copy FOR the actual destination instead of guessing one.
+func setCTAField(resolved map[string]interface{}, field string, target contentHub, validPages datahelpers.PageURLSet,
 	function, sectionName, slot string, unresolved *[]map[string]interface{}) {
-	if url != "" && validPages.Contains(url) {
-		resolved[field] = url
+	if target.URL != "" && validPages.Contains(target.URL) {
+		resolved[field] = target.URL
+		if title := targetTitle(target); title != "" {
+			resolved[ctaTargetTitleField(field)] = title
+		}
 		return
 	}
 	*unresolved = append(*unresolved, map[string]interface{}{
@@ -244,36 +257,69 @@ func setCTAField(resolved map[string]interface{}, field, url string, validPages 
 	})
 }
 
-// chooseCTATargets — v1: top two content hubs by nav_order, excluding the page's
-// own hub (by name) and utility/legal areas. Empty string => no sensible target.
-// pageType is carried for a future intent-aware (LLM) upgrade; v1 does not branch
-// on it.
-func chooseCTATargets(pageType, pageName string, hubs []contentHub) (string, string) {
-	ordered := make([]contentHub, 0, len(hubs))
-	for _, h := range hubs {
-		if areasExcludedFromCTA[h.Area] {
-			continue
-		}
-		if pageName != "" && h.Name == pageName { // don't point a page's hero at itself
-			continue
-		}
-		ordered = append(ordered, h)
-	}
-	sort.SliceStable(ordered, func(i, j int) bool {
-		if ordered[i].NavOrder != ordered[j].NavOrder {
-			return ordered[i].NavOrder < ordered[j].NavOrder
-		}
-		return ordered[i].Name < ordered[j].Name
-	})
+// ctaTargetTitleField derives the companion title field for a CTA url field.
+func ctaTargetTitleField(urlField string) string {
+	return strings.TrimSuffix(urlField, "_url") + "_target_title"
+}
 
-	var primary, secondary string
+// targetTitle prefers the page's human title over its internal name.
+func targetTitle(t contentHub) string {
+	if t.Title != "" {
+		return t.Title
+	}
+	return t.Name
+}
+
+// chooseCTATargets — v2: interactive pages (tool/game) first, then content
+// hubs, each group by nav_order; excluding the page itself (by name) and
+// utility/legal destinations. Zero-value contentHub => no sensible target.
+// pageType is carried for a future intent-aware (LLM) upgrade; v2 does not
+// branch on it. Sites with no interactive pages behave exactly as v1.
+func chooseCTATargets(pageType, pageName string, interactive, hubs []contentHub) (contentHub, contentHub) {
+	rank := func(candidates []contentHub) []contentHub {
+		ordered := make([]contentHub, 0, len(candidates))
+		for _, h := range candidates {
+			if areasExcludedFromCTA[h.Area] || ctaExcludedDestination(h.URL) {
+				continue
+			}
+			if pageName != "" && h.Name == pageName { // don't point a page's hero at itself
+				continue
+			}
+			ordered = append(ordered, h)
+		}
+		sort.SliceStable(ordered, func(i, j int) bool {
+			if ordered[i].NavOrder != ordered[j].NavOrder {
+				return ordered[i].NavOrder < ordered[j].NavOrder
+			}
+			return ordered[i].Name < ordered[j].Name
+		})
+		return ordered
+	}
+
+	ordered := append(rank(interactive), rank(hubs)...)
+
+	var primary, secondary contentHub
 	if len(ordered) > 0 {
-		primary = ordered[0].URL
+		primary = ordered[0]
 	}
 	if len(ordered) > 1 {
-		secondary = ordered[1].URL
+		secondary = ordered[1]
 	}
 	return primary, secondary
+}
+
+// ctaExcludedDestination reports whether a URL lands in an area a CTA should
+// never point at (contact, legal, about...). firstPathSegment cannot express
+// this for top-level pages ("/contact.html" has no second slash), so the test
+// normalises first and strips the .html suffix: "/contact.html" -> "contact",
+// "/legal/privacy.html" -> "legal".
+func ctaExcludedDestination(url string) bool {
+	p := strings.TrimPrefix(datahelpers.NormalizePagePath(url), "/")
+	if i := strings.IndexByte(p, '/'); i >= 0 {
+		p = p[:i]
+	}
+	p = strings.TrimSuffix(p, ".html")
+	return areasExcludedFromCTA[p]
 }
 
 func sectionComponentFunction(section map[string]interface{}) string {
@@ -297,30 +343,47 @@ func sectionResolvedData(section map[string]interface{}) map[string]interface{} 
 }
 
 func loadContentHubs(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) ([]contentHub, error) {
-	rows, err := params.DB.QueryContext(ctx, `
-		SELECT name, url, COALESCE(nav_order, 100)
+	return loadCTACandidatePages(ctx, params, siteID, logger, "loadContentHubs", `
+		SELECT name, COALESCE(title, name), url, COALESCE(nav_order, 100)
 		FROM pages
 		WHERE site_id = $1
 		  AND page_type = 'section-index'
 		  AND status IN ('active', 'deployed')
-	`, siteID)
+	`)
+}
+
+// loadInteractivePages returns the site's tool/game pages — the destinations a
+// CTA should prefer over a content hub when both exist ("Enter the Gauntlet"
+// should land on the Gauntlet, not a section index).
+func loadInteractivePages(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) ([]contentHub, error) {
+	return loadCTACandidatePages(ctx, params, siteID, logger, "loadInteractivePages", `
+		SELECT name, COALESCE(title, name), url, COALESCE(nav_order, 100)
+		FROM pages
+		WHERE site_id = $1
+		  AND page_type IN ('tool', 'game')
+		  AND status IN ('active', 'deployed')
+	`)
+}
+
+func loadCTACandidatePages(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger, caller, query string) ([]contentHub, error) {
+	rows, err := params.DB.QueryContext(ctx, query, siteID)
 	if err != nil {
-		return nil, fmt.Errorf("loadContentHubs query failed: %w", err)
+		return nil, fmt.Errorf("%s query failed: %w", caller, err)
 	}
 	defer rows.Close()
 
 	var hubs []contentHub
 	for rows.Next() {
 		var h contentHub
-		if err := rows.Scan(&h.Name, &h.URL, &h.NavOrder); err != nil {
-			logger.Warn("loadContentHubs: scan error", zap.Error(err))
+		if err := rows.Scan(&h.Name, &h.Title, &h.URL, &h.NavOrder); err != nil {
+			logger.Warn(caller+": scan error", zap.Error(err))
 			continue
 		}
 		h.Area = firstPathSegment(h.URL)
 		hubs = append(hubs, h)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("loadContentHubs iteration failed: %w", err)
+		return nil, fmt.Errorf("%s iteration failed: %w", caller, err)
 	}
 	return hubs, nil
 }

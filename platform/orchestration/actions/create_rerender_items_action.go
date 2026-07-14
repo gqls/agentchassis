@@ -87,6 +87,10 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 	componentIDStr := inputs.Get("component_id")
 	// Reasons page-rerender gates the section re-render on.
 	scoped := (reason == "section_data_resolved" || reason == "image_landed") && componentIDStr != ""
+	// cta_links_stale is stamped WITHOUT component scoping: the CTA recompute
+	// in rerender_page_sections is cheap and page-scoped, and a site-wide CTA
+	// repair has no single triggering component to scope by.
+	stampReason := scoped || reason == "cta_links_stale"
 
 	var dependentPages map[string]bool
 	if scoped {
@@ -181,7 +185,7 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 			"filename":  filename,
 			"domain":    domain,
 		}
-		if scoped {
+		if stampReason {
 			// page-rerender gates the section re-render on this reason.
 			spec["reason"] = reason
 		}

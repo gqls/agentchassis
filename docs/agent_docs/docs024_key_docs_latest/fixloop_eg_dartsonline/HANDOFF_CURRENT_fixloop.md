@@ -27,6 +27,35 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
 
 ---
 
+## TRIAGE ROUTER (Phase 1) BUILT (turn 33) — awaiting next image; PR #1 fix now on main
+
+**`main` fixed:** cherry-picked the stranded PR #1 fix commit (670d6dd2) onto
+main via a throwaway worktree and pushed (218e3b52..998c0b31). Verified: main no
+longer has the DEBUG defect. The PR-ordering wrinkle is resolved.
+
+**Triage Phase 1 built + committed (NOT deployed — needs next chassis image):**
+- `diagnose_triage` action — deterministic (no LLM). Scans site_work_items:
+  LOUD failures (`status='failed'`) → deduped by (item_type, handler, error
+  signature) → escalate PATTERN to needs_diagnosis (090 contract:
+  system.internal anchor eac60db8, pipeline='diagnose', awaiting_diagnosis,
+  ON CONFLICT dedup on item_key, capped at max_escalations=3); CAPABILITY GAPS
+  (`capability_gap`/`deferred`) → surfaced to the roadmap in the report, NEVER
+  escalated. One doc_note per sweep (categories triage+fixloop) — always writes
+  (the visibility artifact). Pure helpers (item_key/symptom/spec/report) tested,
+  5 cases green.
+- **SHIPS dry_run=true** — previews escalations + writes the report, creates NO
+  work items until the owner flips dry_run→false (jsonb_set in the seed footer).
+- Seed `0NN_diagnosis_triage.sql` (dry-run validated on live DB, graph checked);
+  trigger `095_TRIGGER_diagnosis_triage_v1.sh`.
+- LIVE DATA CONFIRMS REAL WORK: the loud-failure query already finds ~8 genuine
+  patterns (e.g. needs_new_component via component-creator, "store_component
+  failed", 4 items; needs_page "Claim timed out", 6 items).
+- **Deploy checklist:** next chassis image (verify `grep -ac diagnose_triage
+  /proc/1/exe`) → apply seed → fire 095 (dry_run) → read the report
+  (`SELECT body FROM doc_notes WHERE categories ? 'triage' ORDER BY created_at
+  DESC LIMIT 1;`) → if good, flip dry_run→false → fire again to escalate for
+  real. All manual (Fable credits low).
+
 ## TRIAGE + ESCALATION DESIGNED (turn 32) — next build; owner choices recorded
 
 `DESIGN_triage_and_escalation.md` is the next slice (NOT yet built). Core idea:

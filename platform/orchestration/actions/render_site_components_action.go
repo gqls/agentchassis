@@ -157,6 +157,29 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		}
 	}
 
+	// Validate the header CTA against real pages; when there is no contact
+	// nav item (or it points at a phantom), fall back to the same ranking the
+	// internal-link resolver uses (interactive pages first, then hubs) rather
+	// than rendering no button at all. Loader errors degrade to empty lists —
+	// ctaURL then stays empty and the gated template renders no CTA.
+	headerPages := loadResolverPageSet(ctx, params, siteID, params.Logger)
+	if ctaURL == "" || !headerPages.Contains(ctaURL) {
+		hubs, err := loadContentHubs(ctx, params, siteID, params.Logger)
+		if err != nil {
+			params.Logger.Warn("RenderSiteComponentsAction: loadContentHubs failed for header CTA fallback", zap.Error(err))
+		}
+		interactive, err := loadInteractivePages(ctx, params, siteID, params.Logger)
+		if err != nil {
+			params.Logger.Warn("RenderSiteComponentsAction: loadInteractivePages failed for header CTA fallback", zap.Error(err))
+		}
+		primary, _ := chooseCTATargets("", "", interactive, hubs)
+		if primary.URL != "" && headerPages.Contains(primary.URL) {
+			ctaURL = primary.URL
+		} else {
+			ctaURL = ""
+		}
+	}
+
 	// Build legal links from real pages classified into the legal nav group.
 	// Was a hardcoded {/privacy.html, /terms.html} slice — those pages do not
 	// necessarily exist, so it produced phantom links. Now: only pages that

@@ -47,6 +47,35 @@ func ExtractHrefs(html string) []string {
 	return hrefs
 }
 
+// Anchor is one <a> element: its href and its visible text.
+type Anchor struct {
+	Href string
+	Text string
+}
+
+var (
+	anchorRe   = regexp.MustCompile(`(?is)<a\s[^>]*href=["']([^"']*)["'][^>]*>(.*?)</a>`)
+	innerTagRe = regexp.MustCompile(`(?s)<[^>]*>`)
+	multiWSRe  = regexp.MustCompile(`\s+`)
+)
+
+// ExtractAnchors returns every <a href=...>text</a> pair in document order,
+// with inner markup stripped and whitespace collapsed from the text.
+// ExtractHrefs drops the anchor text; checks that compare what a link SAYS
+// against where it GOES (misdirected CTAs) need both halves. Same
+// dependency-free regex approach as ExtractHrefs — nested <a> elements are
+// invalid HTML and not handled.
+func ExtractAnchors(html string) []Anchor {
+	matches := anchorRe.FindAllStringSubmatch(html, -1)
+	anchors := make([]Anchor, 0, len(matches))
+	for _, m := range matches {
+		text := innerTagRe.ReplaceAllString(m[2], " ")
+		text = strings.TrimSpace(multiWSRe.ReplaceAllString(text, " "))
+		anchors = append(anchors, Anchor{Href: m[1], Text: text})
+	}
+	return anchors
+}
+
 // ClassifyLinkScope is the single definition of what an href "is". Order
 // matters: empty, then anchor/external/mailto, then asset, then page.
 func ClassifyLinkScope(href string) string {

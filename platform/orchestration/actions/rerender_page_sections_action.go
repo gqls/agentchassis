@@ -123,15 +123,16 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	reason := inputs.Get("reason")
 
 	// ── Resolve page_id + domain (also surfaced for the downstream render_page,
-	//    which finds them via ExtractFields' recursive search) ────────────────
+	//    which finds them via ExtractFields' recursive search); page url feeds
+	//    the CTA recompute's self-link test ────────────────────────────────────
 	var pageID uuid.UUID
-	var domain string
+	var domain, pageURL string
 	err = params.DB.QueryRowContext(ctx, `
-		SELECT p.id, s.domain
+		SELECT p.id, s.domain, COALESCE(p.url, '')
 		FROM pages p
 		JOIN sites s ON s.id = p.site_id
 		WHERE p.site_id = $1 AND p.name = $2
-	`, siteID, pageName).Scan(&pageID, &domain)
+	`, siteID, pageName).Scan(&pageID, &domain, &pageURL)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("page %q not found for site %s", pageName, siteID)
@@ -199,6 +200,9 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	reRendered := 0
 	carried := 0
 
+	// CTA targets for reason=cta_links_stale, loaded once on first CTA section.
+	var cta *rerenderCTAState
+
 	for _, s := range stored {
 		comp, haveComp := schemas[s.slotName]
 
@@ -231,6 +235,28 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 			sectionsMetadata = append(sectionsMetadata, carryStoredSection(s))
 			carried++
 			continue
+		}
+
+		// CTA recompute — ONLY for reason=cta_links_stale, so image_landed /
+		// section_data_resolved rerenders behave byte-identically to before.
+		// After migration 091 the schema no longer sources CTA urls, so a stale
+		// url survives in stored content_data; writing the recomputed target
+		// into plan.ResolvedData wins the merge below (resolved_data last).
+		if reason == "cta_links_stale" {
+			fn := comp.Function
+			if fn == "" {
+				fn = s.slotName
+			}
+			if fields, isCTA := ctaFieldNames[fn]; isCTA {
+				if cta == nil {
+					cta = loadRerenderCTAState(ctx, params, siteID, pageName, logger)
+				}
+				if plan.ResolvedData == nil {
+					plan.ResolvedData = map[string]interface{}{}
+				}
+				applyCTARecompute(plan.ResolvedData, s.contentData, fields[0], cta.primary, cta.validPages, pageURL)
+				applyCTARecompute(plan.ResolvedData, s.contentData, fields[1], cta.secondary, cta.validPages, pageURL)
+			}
 		}
 
 		// Render context: base ⊕ stored content_data ⊕ fresh resolved_data
@@ -287,6 +313,59 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		zap.Int("carried", carried))
 
 	return out, nil
+}
+
+// rerenderCTAState holds the per-page CTA targets for a cta_links_stale
+// recompute — computed once, shared by every CTA section on the page.
+type rerenderCTAState struct {
+	primary, secondary contentHub
+	validPages         datahelpers.PageURLSet
+}
+
+// loadRerenderCTAState reuses the internal-link-resolver's loaders and ranking
+// (interactive pages first, then hubs). Loader failures degrade to empty
+// candidate lists: applyCTARecompute then leaves fields untouched rather than
+// aborting the rerender.
+func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.UUID, pageName string, logger *zap.Logger) *rerenderCTAState {
+	hubs, err := loadContentHubs(ctx, params, siteID, logger)
+	if err != nil {
+		logger.Warn("rerender_page_sections: loadContentHubs failed for CTA recompute", zap.Error(err))
+	}
+	interactive, err := loadInteractivePages(ctx, params, siteID, logger)
+	if err != nil {
+		logger.Warn("rerender_page_sections: loadInteractivePages failed for CTA recompute", zap.Error(err))
+	}
+	primary, secondary := chooseCTATargets("", pageName, interactive, hubs)
+	return &rerenderCTAState{
+		primary:    primary,
+		secondary:  secondary,
+		validPages: loadResolverPageSet(ctx, params, siteID, logger),
+	}
+}
+
+// applyCTARecompute writes the recomputed CTA target into resolved (which the
+// caller merges LAST, beating stale stored content_data) — unless the stored
+// value is an explicitly authored link worth keeping. Keep = resolves to a
+// real page AND is not an excluded destination (contact/legal/about) AND is
+// not the page linking to itself. Everything else — phantom, empty, circular,
+// or excluded — is replaced, provided a valid target exists.
+func applyCTARecompute(resolved, stored map[string]interface{}, field string, target contentHub,
+	validPages datahelpers.PageURLSet, pageURL string) {
+
+	if current, ok := stored[field].(string); ok && current != "" &&
+		validPages.Contains(current) &&
+		!ctaExcludedDestination(current) &&
+		datahelpers.NormalizePagePath(current) != datahelpers.NormalizePagePath(pageURL) {
+		return // authored link to a real, sensible destination — keep it
+	}
+
+	if target.URL == "" || !validPages.Contains(target.URL) {
+		return // nothing valid to write — leave the field as stored
+	}
+	resolved[field] = target.URL
+	if title := targetTitle(target); title != "" {
+		resolved[ctaTargetTitleField(field)] = title
+	}
 }
 
 // loadStoredSections reads the page's current page_components rows in order.

@@ -188,7 +188,10 @@ func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
 	// Exclusions:
 	// - index/home page (always reachable as /)
 	// - blog-index page (in nav, the listing is the entry point)
-	// - tool pages (may be linked externally or from JS)
+	// - tool pages WITHOUT nav flags (may be linked externally or from JS).
+	//   A tool page WITH in_header/in_footer set has declared it belongs in
+	//   nav — its absence from site_nav_items is nav_drift like any other
+	//   page's, so nav-flagged pages are always considered.
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT p.id::text, p.name, p.url, COALESCE(p.page_type, 'content'),
 		       COALESCE(p.in_header, false), COALESCE(p.in_footer, false)
@@ -198,7 +201,8 @@ func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
 		  AND p.url IS NOT NULL
 		  AND p.url != ''
 		  AND p.name NOT IN ('index', 'home')
-		  AND COALESCE(p.page_type, 'content') NOT IN ('blog-index', 'tool')
+		  AND (COALESCE(p.page_type, 'content') NOT IN ('blog-index', 'tool')
+		       OR COALESCE(p.in_header, false) OR COALESCE(p.in_footer, false))
 		  -- Not linked from nav (by URL)
 		  AND NOT EXISTS (
 		      SELECT 1 FROM site_nav_items sni

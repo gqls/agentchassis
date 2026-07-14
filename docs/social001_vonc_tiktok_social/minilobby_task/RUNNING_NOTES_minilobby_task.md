@@ -403,3 +403,54 @@ What I deliberately *didn't* drop: the orphaned `lock_section_to_strict` /
 harmless, and column drops are a bigger decision than a trigger drop.
 
 `Categories:` (decision, fix, root-cause)
+
+---
+
+## 2026-07-14 — link/flow integrity: root cause shipped, vonc repair + Arena authored
+
+Owner-approved plan (checks + root cause + vonc repair + Arena as a real tool) implemented on
+`085_debug_and_feature_loops`. Authoring session only — nothing below is live until the RUNBOOK
+(`RUNBOOK_link_integrity_task.md`, this directory) is executed against the cluster.
+
+1. **Root cause confirmed and removed at the writer.** The four CTA url fields on `hero` /
+   `call-to-action` carried `"source": "pages.contact"` / `"pages.services"` — a literal name→URL
+   lookup written into `resolved_data` unconditionally on every render, and `resolved_data` merges
+   LAST (this is why 089's Gauntlet retargets silently reverted). Migration `091` flips those
+   sources to `"renderer"` (field-loop verified: resolves nil → `on_missing: skip_field` → authored
+   `content_data` + the resolver become the only writers).
+2. **Resolver broadened (Go).** `chooseCTATargets` v2: interactive pages (`tool`/`game`) rank ahead
+   of section-index hubs; returns full targets so `setCTAField` also writes
+   `cta_target_title` / `*_cta_target_title` — and `092` adds writer guidance so CTA copy is
+   authored FOR the destination. New `ctaExcludedDestination` fixes the `firstPathSegment` blind
+   spot (`/contact.html` → area `""`, never matched the excluded set).
+3. **Repair path for deployed pages (Go).** `rerender_page_sections` recomputes CTA targets — gated
+   strictly on `spec.reason == "cta_links_stale"` (a plain `image_landed` rerender is byte-identical
+   to before). Exception rule: an authored URL that is real, non-excluded and non-circular is KEPT;
+   phantom/excluded/circular/empty values are replaced. So vonc's 19 `/contact.html` CTAs are fixed
+   by the GENERIC path — 093 hand-fixes only the two `/how-it-works*` phantoms living in prose
+   components the recompute deliberately doesn't touch.
+4. **Detection (Go).** New checks `misdirected_cta` (anchor text token-matches a real page, href
+   goes elsewhere → one `page_rerender`/`cta_links_stale` item per page; distinctive text naming NO
+   page with an empty/phantom/circular/excluded/homepage href → `cta_names_unknown_destination`,
+   needs_human_review — the Arena case) and `incomplete_page_group` (plan-promised siblings
+   part-deployed; tool/game gaps → human review per TP-004; content gaps co-dedup with reconcile's
+   `needs_page:<name>` keys). `orphan_pages` fixed: it excluded `page_type='tool'` outright (query
+   line ~201), so vonc's `in_header=true` tools could NEVER produce `nav_drift`; nav-flagged pages
+   are now always considered. New shared `datahelpers.ExtractAnchors` (href + visible text).
+   `092` enables `phantom_internal_links` + both new checks on completeness-discovery-agent and adds
+   `cta_links_stale` to page-rerender's conditional.
+5. **Arena.** `094` plans `tool-arena` on the current vonc plan (the resulting
+   `incomplete_page_group` finding is the check's live proof), queues
+   `add_tool_novel:tool-arena-interface` → tool-generator (v1 spec from 002e §Arena Mechanics:
+   daily provocation, localStorage take-filing, the five Arena Reactions, remix-chain visual;
+   self-contained per generator invariants), and records the PLAN doc. `095` (pre-flight: page
+   deployed) retargets the arena-naming CTAs off their Gauntlet interim.
+6. **Tests**: `go test` green for actions / discovery_checks / datahelpers (new tests for
+   ExtractAnchors, ctaTokens/bestPageMatch, chooseCTATargets v2, ctaExcludedDestination,
+   applyCTARecompute). Pre-existing unrelated failure: `orchestration_test.go` NewSagaCoordinator
+   signature drift.
+7. **Standing landmines honoured**: provocation-card / lobby-grid untouched; park
+   `needs_page:provocation` after any reconcile; **TL-001: `/tools/arena/index.html` must never
+   receive a generic full rebuild** — section-editor targeted path only.
+
+`Categories:` (root-cause, fix, feature, next-task)
