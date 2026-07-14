@@ -27,7 +27,24 @@ HANDOFF_turn21_2026-07-10.md (historical). Last updated: 2026-07-12, turn 25.*
 
 ---
 
-## IN FLIGHT (turn 29): the AWARENESS SURFACE (owner rule: before wider autonomy)
+## AWARENESS SURFACE: LIVE (turn 30, v1.0.1114) — first digest delivered
+
+First digest ran 2026-07-13 21:00 (doc_notes, categories digest+fixloop) and
+immediately earned its keep BOTH ways: the config-change ledger caught two
+changes from OTHER workstreams (tool-acceptance-agent, asset-deployer) —
+exactly the "machine changing without me knowing" coverage — AND its own first
+output exposed its own gap: spawned children (the dedicated implementer pods,
+carrying gate verdicts + the PR url) were missing from Runs because their type
+lives at __execution_context__.sender.agent_type, not agent_group. FIXED
+(commit 17b81535, COALESCE both locations; verified live, all 9 runs match) —
+rides the NEXT chassis image; the deployed v1.0.1114 digest still misses
+spawned children until then. Decisions(0) in the first digest was honest: the
+council approval sat 25h back, outside the 24h window.
+NOTE: working branch moved to 085_debug_and_feature_loops (owner); commits now
+land there. NEXT: owner feedback on digest content → scheduled cadence
+enablement → council-widening per the F2 roster → the real-bug run.
+
+## PRIOR: IN FLIGHT (turn 29): the AWARENESS SURFACE (owner rule: before wider autonomy)
 
 Built + committed, awaiting the next chassis image:
 - `fixloop_digest` action — DETERMINISTIC digest (no LLM in the path): loop
