@@ -36,14 +36,24 @@ code bugs — "Claim timed out (attempts exhausted)", "Claim timed out — handl
 pod likely died" (dispatch/infra failures), and "(no error text)" (no signal).
 Only some are genuine code bugs (component-creator "store_component failed:
 new row violates ..." constraint; template "rejected by pre-store validation").
-With cap=3 ordered by count, flipping dry_run→false NOW would escalate 2
-operational patterns + 1 real bug — sending the loop to diagnose "pod died",
-which has no code fix. So: DO NOT flip to live yet. NEXT = Phase 1.1: a
-loop-worthiness FILTER (the design already names it) — deny transient/infra
-signatures (claim timed out / pod died / timeout) → route to re-queue not loop;
-require a real error signature to escalate; "(no error text)" → hold/human.
-Owner decision pending: build the filter first (recommended), or accept some
-operational noise, or keep triage as a read-only "what's failing" view.
+With cap=3 ordered by count, flipping dry_run→false then would have escalated 2
+operational patterns + 1 real bug — sending the loop to diagnose "pod died".
+
+**Phase 1.1 loop-worthiness FILTER BUILT (owner chose (a)); committed, needs
+next image.** `triageRoute` classifier (pure, 6 tests green): "" → hold(human);
+transient/infra signature (claim timed out / pod likely died / handler pod /
+consumer rebalance — precise to the dispatch/pod layer, tunable via
+transient_signatures) → requeue (surfaced, NOT escalated); real error → loop.
+ONLY code-bug patterns escalate (capped). Report now has 4 routes: code bugs→
+loop | transient→re-queue | no-signal→hold | capability gaps→roadmap. On the
+same live data, this would escalate the component-creator "store_component
+failed" constraint bug and drop the claim-timeout/no-signal noise. (Code landed
+in concurrent commit ab5dee1dc; verified in HEAD.)
+**NEXT:** next chassis image (verify `grep -ac triageRoute /proc/1/exe`) →
+re-run dry-run (095) → confirm only real bugs in the "code bugs → fix loop"
+group → flip dry_run→false (jsonb_set in seed footer) → fire again to escalate
+for real → then the escalated needs_diagnosis items are ready for the diagnose
+loop (manual dispatch; the dispatch loop is shipped-disabled).
 
 ## TRIAGE ROUTER (Phase 1) BUILT (turn 33) — awaiting next image; PR #1 fix now on main
 
