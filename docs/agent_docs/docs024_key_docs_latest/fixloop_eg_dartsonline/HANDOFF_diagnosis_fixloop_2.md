@@ -9,6 +9,20 @@ companion docs named at the end. A different model may be running this chat
 
 ## 1. The immediate next action (this is why you're here)
 
+> **DONE 2026-07-14 (chat "diagnosis fixloop 2", turn 29).** v1.0.1117 verified
+> in the pod (triageRoute grep=2); dry-run confirmed the filter (only real
+> code bugs in the loop group; timeouts → re-queue; no-signal → hold);
+> `dry_run` flipped to false; live sweep escalated 2 patterns
+> (`triage-diag:needs_new_component:c4ad0be8a0f2`,
+> `triage-diag:needs_component_regeneration:171f7b9c1d60`), parked at
+> `awaiting_diagnosis` (inert); a third sweep proved dedup (deduped 2, wrote
+> nothing). Known cosmetic defect: dry-run counters mislabel would-be
+> escalations as "capped". **TRIAGE IS LIVE — the tier-2→tier-3 channel is
+> closed. Next = §5 Phase 2**, after reading the reconciliation note in
+> DESIGN_triage_and_escalation.md §silent-failure (the empty-sections thread's
+> completion gate + two-strike rule change Phase 2's scope). The steps below
+> are kept for the record.
+
 A new chassis image is shipping (was building at handoff; expected **v1.0.1117**
 or later). The moment it's live, finish bringing **triage** online:
 
@@ -85,7 +99,7 @@ through.
 - **`main` is fixed**: PR #1's fix (stranded on 084 by PR ordering) was
   cherry-picked onto main (commit 998c0b31).
 
-## 4. What is BUILT but NOT yet deployed (rides the shipping image)
+## 4. What is BUILT and — since 2026-07-14 — LIVE (shipped in v1.0.1117)
 
 - **`diagnose_triage`** — the router. Scans `site_work_items`:
   - LOUD failures (`status='failed'`) → **loop-worthiness filter** (`triageRoute`)
@@ -98,7 +112,9 @@ through.
     NEVER escalated (a missing handler is a capability decision, not a bug —
     already emitted by `load_work_item_actions.go:245-280`).
   - One doc_note per sweep (categories `triage+fixloop`) — the readable artifact.
-  - **Ships `dry_run=true`** (seed sets it). Section 1 is how you take it live.
+  - **Now runs `dry_run=false`** (flipped live 2026-07-14 after the dry-run
+    preview verified the routing; the seed still ships `dry_run=true`, correct
+    for any re-seed).
 - Seed `0NN_diagnosis_triage.sql`, trigger `095_TRIGGER_diagnosis_triage_v1.sh`.
 
 ## 5. The roadmap after triage goes live (design in DESIGN_triage_and_escalation.md)
@@ -108,6 +124,12 @@ through.
   checker that re-verifies after a handler run (e.g. section-index pages that are
   `active` but have zero components) and feeds triage. Highest value — it's the
   class the loop was built for.
+  **Scope narrowed 2026-07-14** by the empty-sections thread's reconciliation
+  (see DESIGN §silent-failure): their completion gate (v1.0.1116) already makes
+  `empty_section`-style silent failures loud (Phase-1 triage catches them), and
+  recurrence detection already exists as `insertWorkItem`'s two-strike rule —
+  reuse it. What remains for Phase 2: defects **no work-item completion ever
+  touches** (the darts guides-index class).
 - **Phase 3 — feedback close-out.** After a fix deploys, re-verify the original
   items; fixed → close the escalation, still failing → back to triage.
 - **Phase 4 — digest escalation section.** Fold escalations + capability gaps +

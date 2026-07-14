@@ -176,6 +176,18 @@ case — a verification checker noticing guides-index is still blank after a
 "successful" build would escalate exactly the bug the loop already diagnoses
 correctly.
 
+**Reconciliation with the empty-sections/loop-integrity thread (2026-07-14):**
+their completion-verification gate (v1.0.1116) already converts silent failure
+into loud failure for `empty_section` — and for any item_type they register a
+verifier for — so that slice needs no new checker; Phase-1 triage (now live)
+catches it as ordinary `status='failed'`. And option (b)'s recurrence signal
+already exists platform-wide as `insertWorkItem`'s two-strike rule — Phase 2
+should consume that mechanism, not rebuild it. What Phase 2 still owes is the
+class **no completion ever touches**: defects where no work item fails at all
+(the darts guides-index class — a section-index page `active` with zero
+components and no failed item anywhere). Their full reconciliation:
+`empty_sections_loop_integrity/` PLAN + RUNNING_NOTES.
+
 ## The feedback loop (closing it honestly)
 
 An escalation is not resolved when the PR merges — it's resolved when the

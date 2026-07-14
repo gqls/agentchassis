@@ -1616,6 +1616,56 @@ surface BEFORE any council-widening or migration agents.
   write lands on a fix/* branch; the owner chooses what merges to main.
   (This is exactly what the write step builds — the fork idea is dropped.)
 
+### Turn 29 (2026-07-14, chat "diagnosis fixloop 2") — ★ TRIAGE WENT LIVE; the tier-2→tier-3 channel is closed
+
+- **v1.0.1117 verified in the pod** (`grep -ac triageRoute /proc/1/exe` = 2);
+  fired after the 300s settle window.
+- **Dry-run confirmed the loop-worthiness filter works on real data.** The
+  "Code bugs → fix loop" group contained ONLY genuine handler errors (both via
+  `component-creator`: a `store_generated_component` insert constraint
+  violation on `needs_new_component`, and a pre-store template rejection on
+  `needs_component_regeneration`). All claim-timeout patterns routed to
+  re-queue; all no-error-text patterns routed to hold. Zero capability gaps in
+  the window.
+- **Cosmetic defect found (dry-run only):** the dry-run counters mislabel
+  would-be escalations as capped — header read `escalated 0, deduped 0,
+  capped 2; cap=3` plus a spurious "2 pattern(s) NOT escalated (cap=3)" note.
+  Live counters are correct. Low priority; fix when next touching
+  `diagnose_triage`.
+- **Flipped `dry_run=false` and fired live:** `escalated 2, deduped 0,
+  capped 0`. Two `needs_diagnosis` items written, parked at
+  `awaiting_diagnosis` (inert until dispatched):
+  `triage-diag:needs_new_component:c4ad0be8a0f2` (4 items, 2 sites) and
+  `triage-diag:needs_component_regeneration:171f7b9c1d60` (1 item, 1 site).
+- **Dedup proven live:** a third sweep reported `escalated 0, deduped 2`;
+  triage-sourced item count stayed at 2. The ON CONFLICT path works in
+  production.
+- Posture unchanged: manual trigger only, no cadence; the parked items do NOT
+  dispatch themselves.
+
+### Turn 29 (cont.) — Phase 2 reconciliation received from the empty-sections/loop-integrity thread
+
+The product-data thread (owner-relayed) reconciled its completion-verification
+work against our Phase 2 plan; recorded here because the design assigns
+verification-checker ownership to THIS thread:
+
+1. **Their completion gate (v1.0.1116) already de-silences `empty_section`** —
+   and any future item_type they register a verifier for. Those defects now
+   surface as ordinary loud failures (`status='failed'`, attempts exhausted),
+   which the now-live Phase-1 triage catches. No new checker needed for that
+   slice.
+2. **Recurrence detection already exists platform-wide** via `insertWorkItem`'s
+   two-strike rule. Phase 2's recurrence flavour (design §silent-failure
+   option (b)) should point at that mechanism, not rebuild it.
+3. **Phase 2 is still genuinely needed** for defect classes that never touch a
+   `site_work_items` completion at all — the darts guides-index class (a page
+   `active`/blank with no work item ever failing). That is the checker this
+   thread still owes.
+
+Their full reconciliation lives in the empty-sections workstream's PLAN and
+RUNNING_NOTES (docs024_key_docs_latest/empty_sections_loop_integrity/); they
+deliberately did not edit our docs.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys
