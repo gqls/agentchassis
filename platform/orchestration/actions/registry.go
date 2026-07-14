@@ -1189,6 +1189,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Deterministic router (no LLM) from the operational immune system into the fix loop: escalates loud-failure PATTERNS (deduped, capped) to needs_diagnosis and surfaces capability_gap (no-handler-yet) items to the roadmap; one doc_note per sweep",
 		IsLocal:     true,
 	},
+	"diagnose_silent_check": {
+		Handler:     DiagnoseSilentCheckAction,
+		Category:    "diagnose",
+		Description: "Deterministic verification checker (no LLM) for silent failures: structural invariants violated in observable state with NO covering work item (the darts class); emits INERT silent_failure items for triage to route, closes them when resolved; one doc_note per sweep",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline

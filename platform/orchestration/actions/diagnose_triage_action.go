@@ -192,7 +192,9 @@ func DiagnoseTriageAction(ctx context.Context, params ActionParams) (interface{}
 	}
 
 	capped := len(loopPatterns) - created - deduped
-	if capped < 0 {
+	if capped < 0 || dryRun {
+		// dry-run writes nothing at all — reporting the whole group as
+		// "capped" would mislabel a preview as a coverage gap.
 		capped = 0
 	}
 	report := renderTriage(hours, time.Now().UTC(), loopPatterns, requeuePatterns, holdPatterns, gaps, created, deduped, capped, maxEsc, dryRun)
@@ -315,10 +317,18 @@ func triageItemKey(itemType, handler, errSig string) string {
 }
 
 // triageSymptom renders the human-and-loop-readable symptom string.
+// silent_failure items come from the silent-check verification checker, not a
+// failing handler — attributing them to a handler would misdirect the
+// diagnosis, so they get their own rendering (page-level detail lives in the
+// items' spec, item_key prefix 'silent:').
 func triageSymptom(p failurePattern) string {
 	errSig := strings.TrimSpace(p.ErrSig)
 	if errSig == "" {
 		errSig = "(no error text recorded)"
+	}
+	if p.ItemType == "silent_failure" {
+		return fmt.Sprintf("silent failure on %d site(s) (structural invariant, no covering work item; detail in site_work_items item_key 'silent:%%'): %s",
+			p.Sites, errSig)
 	}
 	return fmt.Sprintf("handler %q fails item_type %q on %d work item(s) across %d site(s); error: %s",
 		p.Handler, p.ItemType, p.Count, p.Sites, errSig)
@@ -350,6 +360,10 @@ func renderTriage(hours int, now time.Time, loop, requeue, hold []failurePattern
 		errSig := strings.TrimSpace(p.ErrSig)
 		if errSig == "" {
 			errSig = "(no error text)"
+		}
+		if p.Handler == "" {
+			fmt.Fprintf(&b, "- `%s` — %d item(s), %d site(s): %s\n", p.ItemType, p.Count, p.Sites, errSig)
+			return
 		}
 		fmt.Fprintf(&b, "- `%s` via `%s` — %d item(s), %d site(s): %s\n", p.ItemType, p.Handler, p.Count, p.Sites, errSig)
 	}
