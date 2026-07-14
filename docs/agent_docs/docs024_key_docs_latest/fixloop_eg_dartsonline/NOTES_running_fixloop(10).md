@@ -1666,6 +1666,55 @@ Their full reconciliation lives in the empty-sections workstream's PLAN and
 RUNNING_NOTES (docs024_key_docs_latest/empty_sections_loop_integrity/); they
 deliberately did not edit our docs.
 
+### Turn 30 (2026-07-14) — ★ PHASE 2 BUILT AND LIVE: the silent-failure verification checker (v1.0.1118)
+
+The class the loop was built for is now detected. `diagnose_silent_check`
+(deterministic, no LLM; `diagnose_silent_check_action.go`) verifies structural
+invariants in observable state and reports/emits ONLY what no work item
+references — the reconciled Phase-2 scope (defects the completion gate and
+two-strike rule can never see, because no work item exists at all).
+
+- **Two checks.** `nav_linked_never_built` (EMITS — the darts signature: page
+  in the site's nav, `build_status='planned'` beyond a 48h grace, no covering
+  work item) and `deployed_zero_components` (REPORT-ONLY in v1 — a deployed
+  zero-component page can be a deliberate removal, e.g. audited-out content;
+  owner promotes it via `emit_checks` when its report has been reviewed).
+- **Emission shape.** One INERT `silent_failure` item per (check, site):
+  `status='failed'` (terminal, unclaimable), real site anchor, page detail in
+  spec, item_key `silent:<check>:<site8>`. The error text leads with a fixed
+  ≥140-char signature so triage's `left(error,140)` grouping collapses ALL
+  sites into ONE platform-level pattern (unit-tested — a shorter prefix would
+  split the pattern per site and burn the escalation cap). Dedup is an explicit
+  NOT EXISTS (`idx_swi_dedup` EXCLUDES failed rows — ON CONFLICT cannot work
+  here); persisting violations get `updated_at` touched so they never age out
+  of triage's window; resolved ones are closed `complete` (the minimal honest
+  slice of Phase 3).
+- **Triage learned to render them**: `silent_failure` patterns get their own
+  symptom (no handler misattribution) — plus the dry-run "capped" counter
+  mislabel from turn 29 is fixed.
+- **LIVE EVIDENCE (all same-day):** dry-run found 6 nav-never-built pages
+  (darts 4, idea.uk 2) and 5 report-only zero-component pages (coverage filter
+  demonstrably excluded 3 more that work items already reference). Flipped
+  live → 2 items emitted. Triage sweep → the two items grouped into ONE
+  pattern, escalated as `triage-diag:silent_failure:fd86fec2c4da` (parked
+  inert; prior 2 escalations deduped). **Unplanned cross-thread validation:**
+  between sweeps, another workstream created `needs_page` items for idea.uk's
+  missing pages at 16:01 UTC — the next silent-check sweep saw those pages
+  were no longer SILENT (now covered) and honestly closed its idea.uk finding
+  (`[silent-check: invariant no longer violated; closed]`) while dartsonline's
+  persisted and deduped. Coverage filter, dedup, and close-out all exercised
+  in production within 20 minutes.
+- The darts benchmark bug is now surfaced by the immune system itself: the
+  escalated silent_failure pattern IS the guides-index class, arriving through
+  the channel end to end (checker → triage → needs_diagnosis) instead of by
+  hand. Posture unchanged: both agents manual-trigger, nothing dispatches
+  itself; seeds ship dry_run=true (both currently flipped live in
+  agent_definitions).
+- Files: `diagnose_silent_check_action.go` (+tests), registry entry, seed
+  `0NN_diagnosis_silent_check.sql`, trigger `096_TRIGGER_diagnosis_silent_check_v1.sh`.
+  Image v1.0.1118 (verified in-pod: `grep -ac diagnose_silent_check /proc/1/exe` = 4).
+  Commit 72bcd633.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

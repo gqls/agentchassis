@@ -233,6 +233,9 @@ spirit as the council's "escalate rather than pretend."
 2. **Verification checker for the darts class.** One high-signal silent-failure
    check, feeding triage. This is where the loop starts catching the bugs it was
    actually built for. Owned by this thread.
+   **IMPLEMENTED + LIVE 2026-07-14 (v1.0.1118, `diagnose_silent_check`):**
+   `nav_linked_never_built` emits; `deployed_zero_components` report-only until
+   the owner promotes it; proven end to end same day (notes turn 30).
 3. **Feedback close-out** — re-verify after a fix deploys; open/close
    escalations honestly.
 4. **Digest section** for escalations + capability gaps — fold the whole immune

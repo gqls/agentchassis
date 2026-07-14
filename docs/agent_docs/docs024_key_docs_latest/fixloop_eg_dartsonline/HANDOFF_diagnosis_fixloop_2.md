@@ -17,11 +17,12 @@ companion docs named at the end. A different model may be running this chat
 > `triage-diag:needs_component_regeneration:171f7b9c1d60`), parked at
 > `awaiting_diagnosis` (inert); a third sweep proved dedup (deduped 2, wrote
 > nothing). Known cosmetic defect: dry-run counters mislabel would-be
-> escalations as "capped". **TRIAGE IS LIVE — the tier-2→tier-3 channel is
-> closed. Next = §5 Phase 2**, after reading the reconciliation note in
-> DESIGN_triage_and_escalation.md §silent-failure (the empty-sections thread's
-> completion gate + two-strike rule change Phase 2's scope). The steps below
-> are kept for the record.
+> escalations as "capped" (fixed in v1.0.1118). **TRIAGE IS LIVE — the
+> tier-2→tier-3 channel is closed.** Same day (turn 30): **Phase 2 built and
+> LIVE too** (v1.0.1118, `diagnose_silent_check` — see §4/§5). Next = Phase 3
+> (feedback close-out) / Phase 4 (digest escalation section); dispatching the
+> parked escalations into the loop is the owner's call. The steps below are
+> kept for the record.
 
 A new chassis image is shipping (was building at handoff; expected **v1.0.1117**
 or later). The moment it's live, finish bringing **triage** online:
@@ -99,7 +100,14 @@ through.
 - **`main` is fixed**: PR #1's fix (stranded on 084 by PR ordering) was
   cherry-picked onto main (commit 998c0b31).
 
-## 4. What is BUILT and — since 2026-07-14 — LIVE (shipped in v1.0.1117)
+## 4. What is BUILT and — since 2026-07-14 — LIVE (v1.0.1117 triage; v1.0.1118 adds silent-check)
+
+- **`diagnose_silent_check`** (Phase 2, v1.0.1118): the verification checker
+  for silent failures — structural invariants violated with NO covering work
+  item. Emits inert `silent_failure` items for triage to route; closes them
+  when the violation (or its silence) ends. Live, `dry_run` flipped false;
+  manual trigger `096_TRIGGER_diagnosis_silent_check_v1.sh`. §5 Phase 2 has
+  the detail.
 
 - **`diagnose_triage`** — the router. Scans `site_work_items`:
   - LOUD failures (`status='failed'`) → **loop-worthiness filter** (`triageRoute`)
@@ -119,17 +127,19 @@ through.
 
 ## 5. The roadmap after triage goes live (design in DESIGN_triage_and_escalation.md)
 
-- **Phase 2 — silent-failure verification checker (THIS thread owns it).** The
-  darts bug's class: a handler "completes" but the problem persists. Needs a
-  checker that re-verifies after a handler run (e.g. section-index pages that are
-  `active` but have zero components) and feeds triage. Highest value — it's the
-  class the loop was built for.
-  **Scope narrowed 2026-07-14** by the empty-sections thread's reconciliation
-  (see DESIGN §silent-failure): their completion gate (v1.0.1116) already makes
-  `empty_section`-style silent failures loud (Phase-1 triage catches them), and
-  recurrence detection already exists as `insertWorkItem`'s two-strike rule —
-  reuse it. What remains for Phase 2: defects **no work-item completion ever
-  touches** (the darts guides-index class).
+- **Phase 2 — silent-failure verification checker: DONE, LIVE 2026-07-14
+  (v1.0.1118, turn 30).** Scope was narrowed by the empty-sections thread's
+  reconciliation (DESIGN §silent-failure): their completion gate de-silences
+  registered item_types, recurrence rides `insertWorkItem`'s two-strike rule,
+  so the checker owns only defects **no work item ever touches**.
+  `diagnose_silent_check` (deterministic, no LLM): `nav_linked_never_built`
+  emits (the darts class — found it on 2 sites), `deployed_zero_components`
+  report-only pending owner review (`emit_checks` promotes it). Findings =
+  INERT `silent_failure` items, ONE platform pattern via a ≥140-char error
+  prefix; proven end to end (checker → triage → needs_diagnosis
+  `triage-diag:silent_failure:fd86fec2c4da`) including live dedup and honest
+  close-out. Seed `0NN_diagnosis_silent_check.sql`, trigger `096_…`, notes
+  turn 30.
 - **Phase 3 — feedback close-out.** After a fix deploys, re-verify the original
   items; fixed → close the escalation, still failing → back to triage.
 - **Phase 4 — digest escalation section.** Fold escalations + capability gaps +

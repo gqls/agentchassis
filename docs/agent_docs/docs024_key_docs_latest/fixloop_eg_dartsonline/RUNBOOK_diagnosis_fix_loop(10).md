@@ -540,7 +540,29 @@ unverifiable → F0.6: a `context` disposition + citation-backed `explained`.
 Four-run arc: wrong-confidently → half-right-confidently → honest abstention →
 right-with-declared-coverage. F0 functionally complete bar F0.3.
 
-## CURRENT POSITION — 2026-07-14 (turn 34): TRIAGE built; escalation channel one step from live
+## CURRENT POSITION — 2026-07-14 (chat "diagnosis fixloop 2", turn 30): TRIAGE LIVE + PHASE 2 (silent-check) LIVE on v1.0.1118
+
+The escalation channel is CLOSED and the silent-failure class is DETECTED.
+**Triage live** (v1.0.1117, turn 29): dry-run verified the loop-worthiness
+filter on real data, flipped `dry_run=false`, 2 component-creator patterns
+escalated (parked `awaiting_diagnosis`, inert), dedup proven by a re-sweep.
+**Phase 2 live** (v1.0.1118, turn 30): `diagnose_silent_check` — the
+verification checker for defects NO work item ever touches (scope reconciled
+with the empty-sections thread: their completion gate de-silences registered
+item_types; recurrence rides insertWorkItem's two-strike rule; this checker
+owns the remainder). Check `nav_linked_never_built` emits (found the darts
+guides-index class on 2 sites — 6 pages); `deployed_zero_components` is
+report-only pending owner review. Findings emit as INERT `silent_failure`
+items grouped by a ≥140-char error prefix into ONE platform pattern; triage
+escalated it end to end (`triage-diag:silent_failure:fd86fec2c4da`). The
+close-out path proved itself live when another thread's `needs_page` items
+covered idea.uk's pages and the checker closed its finding honestly.
+Triggers: 095 (triage), 096 (silent-check) — both MANUAL. NEXT: Phase 3
+(feedback close-out after fix deploys) and Phase 4 (digest escalation
+section); dispatching the parked escalations into the loop is the owner's
+call. Fresh-chat entry point remains **`HANDOFF_diagnosis_fixloop_2.md`**.
+
+## PRIOR POSITION — 2026-07-14 (turn 34 of chat 1): TRIAGE built; escalation channel one step from live
 Fresh-chat entry point is now **`HANDOFF_diagnosis_fixloop_2.md`**. Since the
 first-PR milestone: the **awareness digest** (`fixloop_digest`, deterministic,
 no LLM) is live and delivered as a committed file under `docs/fixloop_digests/`;
