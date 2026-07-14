@@ -149,8 +149,14 @@ func nullSafeAgentType(params ActionParams) string {
 // digestGatherRuns lists in-window orchestrations for the loop's agent types,
 // with gate/PR outcomes where the run recorded them.
 func digestGatherRuns(ctx context.Context, db *sql.DB, window string) ([]digestRun, error) {
+	// Agent type lives in TWO places depending on how the run started:
+	// agent_group.type on directly-fired runs; __execution_context__.sender
+	// .agent_type on SPAWNED children (found by the digest's own first run,
+	// which missed the dedicated implementer pods — and with them the gate
+	// verdicts and the PR url).
 	rows, err := db.QueryContext(ctx, `
-		SELECT COALESCE(collected_data->'agent_group'->>'type',''),
+		SELECT COALESCE(collected_data->'agent_group'->>'type',
+		                collected_data->'__execution_context__'->'sender'->>'agent_type', ''),
 		       orchestration_id::text, status, current_step,
 		       to_char(created_at, 'YYYY-MM-DD HH24:MI'),
 		       COALESCE(collected_data->'gate'->>'passed',''),
@@ -158,7 +164,8 @@ func digestGatherRuns(ctx context.Context, db *sql.DB, window string) ([]digestR
 		                collected_data->'pr_result'->'data'->>'pr_url', '')
 		FROM orchestration_states
 		WHERE created_at > now() - $1::interval
-		  AND collected_data->'agent_group'->>'type' = ANY($2)
+		  AND COALESCE(collected_data->'agent_group'->>'type',
+		               collected_data->'__execution_context__'->'sender'->>'agent_type') = ANY($2)
 		ORDER BY created_at`, window, pqStringArray(fixloopAgentTypes))
 	if err != nil {
 		return nil, err
