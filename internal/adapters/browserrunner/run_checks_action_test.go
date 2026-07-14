@@ -16,9 +16,10 @@ type fakePage struct {
 	navErr   string
 	console  []string
 	counts   map[string]int
-	overflow bool
-	culprit  string // widest element crossing the viewport edge
-	ovErr    error
+	overflow       bool
+	ovInfo         overflowInfo // culprit + attribution
+	ovErr          error
+	containerAsked string // the container selector the check resolved to
 	texts    map[string]string
 	stepErr  map[string]error // selector -> error to return from Do
 	steps    []criteriaStep   // recorded
@@ -28,8 +29,9 @@ func (f *fakePage) Status() int            { return f.status }
 func (f *fakePage) NavError() string       { return f.navErr }
 func (f *fakePage) ConsoleErrors() []string { return f.console }
 func (f *fakePage) Count(sel string) int   { return f.counts[sel] }
-func (f *fakePage) HorizontalOverflow() (bool, string, error) {
-	return f.overflow, f.culprit, f.ovErr
+func (f *fakePage) HorizontalOverflow(container string) (bool, overflowInfo, error) {
+	f.containerAsked = container
+	return f.overflow, f.ovInfo, f.ovErr
 }
 func (f *fakePage) Text(sel string) (string, error)   { return f.texts[sel], nil }
 func (f *fakePage) Close()                            {}
@@ -139,29 +141,83 @@ func TestP1MobileOverflowFails(t *testing.T) {
 	}
 }
 
-// The overflow is measured on the DOCUMENT, so the failure must name the widest
-// offender — that is what tells a reader (and the fixer) whether the tool broke
-// or the site template did. Live case 2026-07-14: vonc.com's div.footer-legal
-// overflowed every page, failing a QUIZ's mobile-fit check. Without the culprit
-// in the detail, the ticket is indistinguishable from a real tool bug.
-func TestP1OverflowDetailNamesTheCulprit(t *testing.T) {
-	mobile := &fakePage{
-		status:   200,
-		counts:   map[string]int{".tool-container": 1, "#tableWrap tr": 1, "#result": 1},
-		overflow: true,
-		culprit:  "div.site-footer.footer-legal (506px)",
-		texts:    map[string]string{"#result": "1"},
+// The overflow is measured on the DOCUMENT, but the run is scoped to ONE tool.
+// Each failure must therefore say WHERE the offender lives, or a site footer
+// raises an unfixable tool ticket for every tool on the site — the live vonc.com
+// case (div.footer-legal, 506px at 390px, on every page).
+func TestP1OverflowAttributesTheCulprit(t *testing.T) {
+	cases := []struct {
+		name      string
+		info      overflowInfo
+		wantScope string
+		wantIn    string // substring the detail must carry
+	}{
+		{
+			name:      "site chrome — must NOT be blamed on the tool",
+			info:      overflowInfo{Culprit: "div.footer-legal (506px)", Component: "site-footer", Located: true, InTool: false},
+			wantScope: ScopeChrome,
+			wantIn:    "OUTSIDE the tool container",
+		},
+		{
+			name:      "the tool's own element — a real tool bug",
+			info:      overflowInfo{Culprit: "div.quiz-option-btn (420px)", Component: "tool-quiz-section", Located: true, InTool: true},
+			wantScope: ScopeTool,
+			wantIn:    "inside the tool",
+		},
+		{
+			name:      "container not found — never guess 'chrome'",
+			info:      overflowInfo{Culprit: "div.mystery (500px)", Located: false},
+			wantScope: ScopeUnknown,
+			wantIn:    "attribution unknown",
+		},
 	}
-	a := actionWith(map[string]*fakePage{"mobile": mobile})
-	out, _ := a.Execute(context.Background(), RunChecksRequest{
-		RunID: "m", URLs: []string{"u"}, Profiles: []string{"mobile"}, CriteriaJSON: criteriaDesktopMobile,
-	})
-	r := resultByID(out.Results, "mobile-fit", "mobile")
-	if r == nil || r.Pass {
-		t.Fatalf("mobile-fit should FAIL, got %+v", r)
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mobile := &fakePage{
+				status:   200,
+				counts:   map[string]int{".tool-container": 1, "#tableWrap tr": 1, "#result": 1},
+				overflow: true,
+				ovInfo:   tc.info,
+				texts:    map[string]string{"#result": "1"},
+			}
+			a := actionWith(map[string]*fakePage{"mobile": mobile})
+			out, _ := a.Execute(context.Background(), RunChecksRequest{
+				RunID: "m", URLs: []string{"u"}, Profiles: []string{"mobile"}, CriteriaJSON: criteriaDesktopMobile,
+			})
+			r := resultByID(out.Results, "mobile-fit", "mobile")
+			if r == nil || r.Pass {
+				t.Fatalf("mobile-fit should FAIL, got %+v", r)
+			}
+			if r.Scope != tc.wantScope {
+				t.Errorf("scope = %q, want %q (detail: %s)", r.Scope, tc.wantScope, r.Detail)
+			}
+			if !strings.Contains(r.Detail, tc.info.Culprit) {
+				t.Errorf("detail must name the offender %q; got %q", tc.info.Culprit, r.Detail)
+			}
+			if !strings.Contains(r.Detail, tc.wantIn) {
+				t.Errorf("detail must say %q; got %q", tc.wantIn, r.Detail)
+			}
+			if r.Culprit != tc.info.Culprit {
+				t.Errorf("culprit not carried to the judge: %q", r.Culprit)
+			}
+		})
 	}
-	if !strings.Contains(r.Detail, "div.site-footer.footer-legal (506px)") {
-		t.Errorf("the failure must name the offending element so the bug can be attributed; got %q", r.Detail)
+}
+
+// The container selector is resolved per-check → per-document → convention. The
+// convention must match BOTH delivery paths, since PLANs predate attribution.
+func TestToolContainerResolution(t *testing.T) {
+	doc := criteriaDoc{Container: ".doc-level"}
+	if got := toolContainer(doc, criteriaCheck{Container: ".per-check"}); got != ".per-check" {
+		t.Errorf("per-check container must win, got %q", got)
+	}
+	if got := toolContainer(doc, criteriaCheck{}); got != ".doc-level" {
+		t.Errorf("document container must apply, got %q", got)
+	}
+	got := toolContainer(criteriaDoc{}, criteriaCheck{})
+	if !strings.Contains(got, ".tool-container") || !strings.Contains(got, "-section") {
+		t.Errorf("the fallback must cover both the generator (.tool-container) and page-section conventions, got %q", got)
 	}
 }
 

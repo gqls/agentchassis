@@ -1,6 +1,9 @@
 package actions
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // The awaited-reply shapes vary across the codebase; extractRunResults must
 // find results through every fallback and recompute the verdict itself.
@@ -110,6 +113,69 @@ func TestExtractRunResultsFailedIDsStayBare(t *testing.T) {
 	// rows passed on desktop — a mobile-only failure, and the note must say so.
 	if !contains(v.Passed, "rows@desktop") {
 		t.Errorf("rows passed on desktop; that must survive into the note: %v", v.Passed)
+	}
+}
+
+// A document-level failure the adapter attributed to SITE CHROME must never be
+// counted against the tool: it belongs to the site template (routed to
+// component-template-fixer). Live case: vonc.com's div.footer-legal overflowed
+// every page — blaming the quiz would have sent the fixer to edit a component
+// that cannot reach the footer.
+func TestExtractRunResultsSeparatesSiteChromeFromToolFailures(t *testing.T) {
+	results := []interface{}{
+		map[string]interface{}{"check_id": "boots", "profile": "mobile", "pass": true, "detail": "ok"},
+		map[string]interface{}{
+			"check_id": "mobile-fit", "profile": "mobile", "pass": false,
+			"scope": "chrome", "component": "site-footer",
+			"culprit": "div.footer-legal (506px)",
+			"url":     "https://vonc.com/tools/x.html",
+			"detail":  "page overflows horizontally on mobile; widest offending element: div.footer-legal (506px) — OUTSIDE the tool container: site chrome (site-footer)",
+		},
+		map[string]interface{}{
+			"check_id": "rows", "profile": "mobile", "pass": false,
+			"scope": "tool", "detail": "no element matches #tableWrap tr",
+		},
+	}
+	collected := map[string]interface{}{"browser_run": map[string]interface{}{"results": results}}
+
+	v := extractRunResults(collected, "browser_run")
+
+	// The chrome failure must NOT appear among the tool's failures.
+	if len(v.Failed) != 1 || v.Failed[0] != "rows@mobile" {
+		t.Errorf("only the tool-scoped failure may be blamed on the tool; got %v", v.Failed)
+	}
+	if contains(v.FailedIDs, "mobile-fit") {
+		t.Error("a site-chrome overflow must never reach the improve_tool spec's failing_checks")
+	}
+	if len(v.Chrome) != 1 {
+		t.Fatalf("expected 1 site-chrome failure, got %d", len(v.Chrome))
+	}
+	c := v.Chrome[0]
+	if c.Component != "site-footer" || c.Culprit != "div.footer-legal (506px)" {
+		t.Errorf("chrome failure lost its attribution: %+v", c)
+	}
+	if !strings.Contains(chromeSummary(v.Chrome), "mobile-fit@mobile") {
+		t.Errorf("chrome summary must label the instance: %q", chromeSummary(v.Chrome))
+	}
+}
+
+// An UNATTRIBUTED failure (container not found) must fall back to the tool —
+// never be silently written off as somebody else's chrome.
+func TestUnattributedOverflowStaysWithTheTool(t *testing.T) {
+	results := []interface{}{
+		map[string]interface{}{
+			"check_id": "mobile-fit", "profile": "mobile", "pass": false,
+			"scope": "unknown", "detail": "overflows; attribution unknown",
+		},
+	}
+	collected := map[string]interface{}{"browser_run": map[string]interface{}{"results": results}}
+
+	v := extractRunResults(collected, "browser_run")
+	if len(v.Chrome) != 0 {
+		t.Error("an unattributed failure must NOT be routed to site chrome on a guess")
+	}
+	if len(v.Failed) != 1 || v.Failed[0] != "mobile-fit@mobile" {
+		t.Errorf("unattributed failure must stay with the tool; got %v", v.Failed)
 	}
 }
 

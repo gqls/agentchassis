@@ -39,3 +39,30 @@ recap: Goal: prove the tool verification ladder catches real behavioural bugs. M
 acceptance note's misleading skip labelling. (disable recaps in /config)
 
 ---
+
+Done — and the "carry on" turned up something much more interesting than a clean pass.
+
+The composer fix is in (both chassis-side changes ride your next image):
+- Results are now labelled id@profile, so the note says mobile-fit@desktop skipped while mobile-fit@mobile passed. failing_checks keeps bare criteria ids (the fixer matches PLAN ids, as Tier 2 does); a
+  new failing_instances carries the profile detail. The stale "skipped at this phase" wording is gone. Six unit tests, including regressions pinned to the real payloads.
+- I also landed the queued cooldown scoping while I was in there: Tier-2 writes source='tool-acceptance-tier2', and letting its static fails suppress a browser run had it backwards — a static failure is
+  exactly when you most want the behavioural tier to look.
+
+Then I went hunting for a real failure and found one — on the first try. There was exactly one tool with criteria and a live page that had never been behaviourally verified: tool-archetype-taster-quiz on
+vonc.com. It failed 3 of 7 checks, and the two failures are of opposite kinds:
+
+- boots — a false failure. The PLAN asserts .tool-container (the gamesdesign generator convention). vonc's page-section render path delivers .tool-archetype-taster-quiz-section; .tool-container appears
+  zero times on the page. Pure Option-B/143 class: stale criteria.
+- mobile-fit — a genuine failure. The page really does overflow at 390px.
+
+I parked the improve_tool ticket rather than let it dispatch, because it bundled both: the fixer would have chased the .tool-container ghost and quite possibly "fixed" the tool by injecting a bogus div to
+satisfy a criterion that was never true.
+
+And then the real bug turned out not to be the tool's bug at all. Driving real Chromium, the offending element is div.footer-legal — 506px wide in a 390px viewport — vonc's site footer, and the homepage
+overflows identically. It's site-wide chrome. (That's a live bug for the vonc/Spark workstream: every vonc page scrolls sideways on mobile.)
+
+That exposes a genuine design defect: no_horizontal_overflow measures the whole document, but the ticket it raises is tool-scoped. One overflowing footer would spawn an unfixable improve_tool ticket for
+every tool on the site, re-created on every run. I've fixed the visible half — the failure now names its culprit (verified live: widest offending element: div.footer-legal (506px)) — but the routing is
+your call:
+
+-----

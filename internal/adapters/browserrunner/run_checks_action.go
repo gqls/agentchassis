@@ -53,12 +53,39 @@ type RunChecksRequest struct {
 }
 
 // CheckResult is one evaluated check on one URL under one profile.
+//
+// Scope/Culprit/Component are set by document-level checks (currently
+// no_horizontal_overflow) so the judge can ATTRIBUTE the failure. The overflow
+// is measured on the whole document, but the acceptance run is scoped to ONE
+// tool: without attribution, a site footer that overflows raises an identical,
+// unfixable tool ticket for every tool on the site (observed on vonc.com,
+// 2026-07-14 — div.footer-legal, 506px at a 390px viewport, on every page).
 type CheckResult struct {
 	CheckID string `json:"check_id"`
 	Profile string `json:"profile"`
 	URL     string `json:"url"`
 	Pass    bool   `json:"pass"`
 	Detail  string `json:"detail"`
+
+	Scope     string `json:"scope,omitempty"`     // tool | chrome | unknown
+	Culprit   string `json:"culprit,omitempty"`   // e.g. "div.footer-legal (506px)"
+	Component string `json:"component,omitempty"` // nearest structural ancestor, e.g. "site-footer"
+}
+
+// Result scopes. "unknown" means the tool's container could not be located, so
+// the failure must NOT be blamed on site chrome — it falls back to the tool.
+const (
+	ScopeTool    = "tool"
+	ScopeChrome  = "chrome"
+	ScopeUnknown = "unknown"
+)
+
+// overflowInfo is what the page reports about a horizontal overflow.
+type overflowInfo struct {
+	Culprit   string // widest element crossing the viewport edge
+	Component string // its nearest structural ancestor (header/footer/section)
+	InTool    bool   // culprit lies inside the tool's container
+	Located   bool   // the tool's container was found at all
 }
 
 // RunChecksResult is the response body.data.
@@ -78,16 +105,38 @@ type RunChecksResult struct {
 type criteriaDoc struct {
 	Profiles []string        `json:"profiles"`
 	Checks   []criteriaCheck `json:"checks"`
+	// Container is the tool's root element in the page. Optional: PLANs written
+	// before attribution existed omit it, and defaultToolContainer covers the
+	// two conventions in the wild. A per-check container overrides it.
+	Container string `json:"container"`
 }
 
 type criteriaCheck struct {
-	ID       string         `json:"id"`
-	Type     string         `json:"type"`
-	Selector string         `json:"selector"`
-	Path     string         `json:"path"`
-	Profiles []string       `json:"profiles"`
-	Steps    []criteriaStep `json:"steps"`
-	Expect   criteriaExpect `json:"expect"`
+	ID        string         `json:"id"`
+	Type      string         `json:"type"`
+	Selector  string         `json:"selector"`
+	Path      string         `json:"path"`
+	Profiles  []string       `json:"profiles"`
+	Steps     []criteriaStep `json:"steps"`
+	Expect    criteriaExpect `json:"expect"`
+	Container string         `json:"container"`
+}
+
+// defaultToolContainer matches the tool root under BOTH delivery conventions:
+// the generator's `.tool-container`, and the page-section path's
+// `.tool-<function>-section` (vonc.com). Used when the PLAN names no container.
+const defaultToolContainer = `.tool-container, [class*="tool-"][class*="-section"]`
+
+// toolContainer resolves the container selector for a check: per-check, else
+// document-level, else the convention.
+func toolContainer(doc criteriaDoc, ch criteriaCheck) string {
+	if s := strings.TrimSpace(ch.Container); s != "" {
+		return s
+	}
+	if s := strings.TrimSpace(doc.Container); s != "" {
+		return s
+	}
+	return defaultToolContainer
 }
 
 type criteriaStep struct {
@@ -121,9 +170,11 @@ type browserPage interface {
 	Status() int           // navigation response status (0 = nav failed)
 	NavError() string      // non-empty when navigation itself failed
 	ConsoleErrors() []string
-	Count(selector string) int         // matches in the live DOM
-	HorizontalOverflow() (bool, string, error) // scrollWidth > clientWidth; names the widest offender
-	Do(step criteriaStep) error        // one interaction step
+	Count(selector string) int  // matches in the live DOM
+	// HorizontalOverflow reports scrollWidth > clientWidth, names the widest
+	// offender, and says whether it sits inside the given tool container.
+	HorizontalOverflow(container string) (bool, overflowInfo, error)
+	Do(step criteriaStep) error // one interaction step
 	Text(selector string) (string, error)
 	Close()
 }
@@ -175,7 +226,7 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 				// run fails; a navigation failure is NOT this path.
 				return nil, fmt.Errorf("run_checks: browser open failed for %s [%s]: %w", url, profile, err)
 			}
-			res := evaluateOnPage(page, applicable, profile, url)
+			res := evaluateOnPage(page, crit, applicable, profile, url)
 			page.Close()
 			out.Results = append(out.Results, res...)
 		}
@@ -248,10 +299,14 @@ func splitByProfile(crit criteriaDoc, profile, url string) ([]criteriaCheck, []C
 
 // evaluateOnPage evaluates the applicable checks against a live page. Console
 // errors are checked LAST so they capture anything an interaction triggered.
-func evaluateOnPage(page browserPage, checks []criteriaCheck, profile, url string) []CheckResult {
+func evaluateOnPage(page browserPage, doc criteriaDoc, checks []criteriaCheck, profile, url string) []CheckResult {
 	var results []CheckResult
 	add := func(id string, pass bool, detail string) {
 		results = append(results, CheckResult{CheckID: id, Profile: profile, URL: url, Pass: pass, Detail: detail})
+	}
+	addScoped := func(id string, pass bool, detail string, r CheckResult) {
+		r.CheckID, r.Profile, r.URL, r.Pass, r.Detail = id, profile, url, pass, detail
+		results = append(results, r)
 	}
 	navigated := page.NavError() == ""
 
@@ -281,17 +336,34 @@ func evaluateOnPage(page browserPage, checks []criteriaCheck, profile, url strin
 				add(ch.ID, false, "no element matches "+ch.Selector+" in the live DOM after settle")
 			}
 		case "no_horizontal_overflow":
-			over, culprit, err := page.HorizontalOverflow()
+			over, info, err := page.HorizontalOverflow(toolContainer(doc, ch))
 			if err != nil {
 				add(ch.ID, false, "could not measure overflow: "+err.Error())
 			} else if over {
-				// Name the offender: it decides whether this is the tool's bug or
-				// the site template's (see HorizontalOverflow).
+				// ATTRIBUTE the offender: this decides whether the judge raises a
+				// tool ticket or a site-chrome one (see HorizontalOverflow).
 				detail := "page overflows horizontally (scrollWidth > clientWidth) on " + profile
-				if culprit != "" {
-					detail += "; widest offending element: " + culprit
+				if info.Culprit != "" {
+					detail += "; widest offending element: " + info.Culprit
 				}
-				add(ch.ID, false, detail)
+				scope := ScopeUnknown
+				switch {
+				case !info.Located || info.Culprit == "":
+					// Tool container not found: do NOT blame site chrome on a guess.
+					detail += " (tool container not found — attribution unknown)"
+				case info.InTool:
+					scope = ScopeTool
+					detail += " — inside the tool"
+				default:
+					scope = ScopeChrome
+					detail += " — OUTSIDE the tool container: site chrome"
+					if info.Component != "" {
+						detail += " (" + info.Component + ")"
+					}
+				}
+				addScoped(ch.ID, false, detail, CheckResult{
+					Scope: scope, Culprit: info.Culprit, Component: info.Component,
+				})
 			} else {
 				add(ch.ID, true, "no horizontal overflow on "+profile)
 			}
@@ -450,55 +522,81 @@ func (c *chromiumPage) Count(selector string) int {
 
 // HorizontalOverflow measures the DOCUMENT, so a failure may be caused by site
 // chrome (header/footer) rather than the tool. It therefore also names the
-// widest offending element: without that, one overflowing site footer raises an
-// identical, unactionable improve_tool ticket for EVERY tool on the site — the
-// fixer edits a tool that cannot possibly fix a template footer. Observed
-// 2026-07-14: vonc.com's div.footer-legal (506px at a 390px viewport) failed
-// the quiz's mobile-fit check on every page of the site.
-func (c *chromiumPage) HorizontalOverflow() (bool, string, error) {
-	v, err := c.page.Evaluate(`() => {
+// widest offending element AND says whether that element lies inside the tool's
+// container — without which one overflowing site footer raises an identical,
+// unactionable improve_tool ticket for EVERY tool on the site, and the fixer
+// edits a tool that cannot possibly fix a template footer. Observed 2026-07-14:
+// vonc.com's div.footer-legal (506px at a 390px viewport) failed the quiz's
+// mobile-fit check, on every page of the site.
+func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo, error) {
+	v, err := c.page.Evaluate(`(containerSel) => {
 		const vw = document.documentElement.clientWidth;
 		const over = document.documentElement.scrollWidth - vw;
-		if (over <= 2) return {over: over, culprit: ""};
+		if (over <= 2) return {over: over};
+
+		const describe = (el) => el.tagName.toLowerCase()
+			+ (el.id ? '#' + el.id : '')
+			+ (el.className && typeof el.className === 'string' && el.className.trim()
+			   ? '.' + el.className.trim().split(/\s+/).join('.')
+			   : '');
+
 		// Widest element crossing the viewport edge; deepest wins ties, since an
 		// ancestor is usually just inheriting an overflowing child's width.
-		let best = null;
+		let best = null, bestEl = null;
 		for (const el of document.querySelectorAll('*')) {
 			const r = el.getBoundingClientRect();
 			if (r.width === 0 && r.height === 0) continue;
 			if (r.right > vw + 1 || r.left < -1) {
-				const depth = (function(n){ let d = 0; while (n.parentElement) { d++; n = n.parentElement; } return d; })(el);
+				let depth = 0;
+				for (let n = el; n.parentElement; n = n.parentElement) depth++;
 				if (!best || r.width > best.width || (r.width === best.width && depth > best.depth)) {
-					best = {
-						width: Math.round(r.width),
-						depth: depth,
-						desc: el.tagName.toLowerCase()
-						      + (el.id ? '#' + el.id : '')
-						      + (el.className && el.className.toString().trim()
-						         ? '.' + el.className.toString().trim().split(/\s+/).join('.')
-						         : ''),
-					};
+					best = {width: Math.round(r.width), depth: depth};
+					bestEl = el;
 				}
 			}
 		}
-		return {over: over, culprit: best ? best.desc + ' (' + best.width + 'px)' : ""};
-	}`)
+		if (!bestEl) return {over: over};
+
+		// Attribution: is the offender inside the tool, or is it site chrome?
+		let tool = null;
+		try { tool = containerSel ? document.querySelector(containerSel) : null; } catch (e) { tool = null; }
+
+		// Nearest structural ancestor names the component a fixer would edit.
+		const structural = bestEl.closest('header, footer, nav, main, section, [class*="-section"]');
+		let component = '';
+		if (structural) {
+			component = (structural.className && typeof structural.className === 'string'
+				? structural.className.trim().split(/\s+/)[0] : '') || structural.tagName.toLowerCase();
+		}
+
+		return {
+			over: over,
+			culprit: describe(bestEl) + ' (' + best.width + 'px)',
+			component: component,
+			located: !!tool,
+			inTool: !!(tool && tool.contains(bestEl)),
+		};
+	}`, container)
 	if err != nil {
-		return false, "", err
+		return false, overflowInfo{}, err
 	}
 	m, ok := v.(map[string]interface{})
 	if !ok {
-		return false, "", nil
+		return false, overflowInfo{}, nil
 	}
-	culprit, _ := m["culprit"].(string)
+	info := overflowInfo{}
+	info.Culprit, _ = m["culprit"].(string)
+	info.Component, _ = m["component"].(string)
+	info.InTool, _ = m["inTool"].(bool)
+	info.Located, _ = m["located"].(bool)
 	// JS numbers come back as float64/int; tolerate 2px of rounding.
 	switch n := m["over"].(type) {
 	case float64:
-		return n > 2, culprit, nil
+		return n > 2, info, nil
 	case int:
-		return n > 2, culprit, nil
+		return n > 2, info, nil
 	default:
-		return false, "", nil
+		return false, info, nil
 	}
 }
 

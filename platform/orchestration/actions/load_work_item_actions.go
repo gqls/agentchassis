@@ -738,14 +738,29 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 		resultData["commit_sha"] = sha
 	}
 
+	agentType := "unknown"
+	if params.ExecutionContext.Sender.AgentType != "" {
+		agentType = params.ExecutionContext.Sender.AgentType
+	}
+
+	// Completion gate: for item types with a registered verifier, confirm the
+	// defect is actually gone before stamping 'complete'. A handler saga can
+	// return success without touching the defect (no-op paths exit through
+	// success-labelled complete_workflow steps) — see
+	// complete_work_item_verification.go for the policy.
+	verification, mayComplete := verifyBeforeComplete(ctx, params.DB, itemID, logger)
+	if verification != nil {
+		resultData["_verification"] = verification
+	}
+
 	resultJSON, err := json.Marshal(resultData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal result: %w", err)
 	}
 
-	agentType := "unknown"
-	if params.ExecutionContext.Sender.AgentType != "" {
-		agentType = params.ExecutionContext.Sender.AgentType
+	if !mayComplete {
+		detail, _ := verification["detail"].(string)
+		return failUnverifiedCompletion(ctx, params.DB, itemID, agentType, string(resultJSON), detail, logger)
 	}
 
 	// Guard: do NOT overwrite a status a handler deliberately set to a flagged

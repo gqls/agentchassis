@@ -256,10 +256,23 @@ type acceptanceVerdict struct {
 	Results   []map[string]interface{}
 	Profiles  []string
 	Passed    []string
-	Failed    []string
+	Failed    []string // tool-scoped failures (incl. unattributed) — the tool's problem
 	FailedIDs []string
-	Details   []string // "id@profile: detail" for each failed check
+	Details   []string // "id@profile: detail" for each tool-scoped failure
 	SkipList  []string
+	Chrome    []chromeFailure // failures the adapter attributed to SITE CHROME
+}
+
+// chromeFailure is a document-level failure the adapter proved lies OUTSIDE the
+// tool's container (e.g. an overflowing site footer). It is real and must be
+// fixed — but by the template fixer, not by editing a tool that cannot reach it.
+type chromeFailure struct {
+	CheckID   string
+	Profile   string
+	Component string // e.g. "site-footer" — what a fixer would edit
+	Culprit   string // e.g. "div.footer-legal (506px)"
+	Detail    string
+	URL       string
 }
 
 // checkLabel names one result instance: "curve-switch@mobile" (bare id when the
@@ -320,11 +333,24 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 		}
 		if pass {
 			v.Passed = append(v.Passed, label)
-		} else {
-			v.Failed = append(v.Failed, label)
-			v.FailedIDs = appendUnique(v.FailedIDs, id)
-			v.Details = append(v.Details, label+": "+detail)
+			continue
 		}
+		// A failure the adapter attributed to site chrome is NOT the tool's bug:
+		// route it, never blame the tool for a footer it cannot reach. Anything
+		// else (tool-scoped or unattributed) stays the tool's problem.
+		if scope, _ := m["scope"].(string); scope == "chrome" {
+			component, _ := m["component"].(string)
+			culprit, _ := m["culprit"].(string)
+			url, _ := m["url"].(string)
+			v.Chrome = append(v.Chrome, chromeFailure{
+				CheckID: id, Profile: profile, Component: component,
+				Culprit: culprit, Detail: detail, URL: url,
+			})
+			continue
+		}
+		v.Failed = append(v.Failed, label)
+		v.FailedIDs = appendUnique(v.FailedIDs, id)
+		v.Details = append(v.Details, label+": "+detail)
 	}
 
 	var rawSkip interface{}
@@ -383,25 +409,40 @@ func JudgeAcceptanceResultsAction(ctx context.Context, params ActionParams) (int
 		sourceAgent = params.Headers["agent_type"]
 	}
 
+	// Site-chrome failures are routed FIRST and independently of the tool's own
+	// verdict: they are real, user-visible defects that no tool edit can fix.
+	chromeRouted := routeChromeFailures(ctx, params, logger, v.Chrome, function, siteID, sourceAgent)
+
 	allPassed := len(v.Failed) == 0
 	if allPassed {
+		// The TOOL passed. The page may still carry a site-chrome defect — say so
+		// plainly rather than let "PASSED" imply the page is clean.
+		rootCause := "not-applicable"
+		fix := "none required"
+		if len(v.Chrome) > 0 {
+			rootCause = "site chrome, not this tool: " + chromeSummary(v.Chrome)
+			fix = fmt.Sprintf("%d responsive_fix item(s) raised for the site template (handler component-template-fixer); the tool itself needs no change", chromeRouted)
+		}
 		body := fmt.Sprintf(`## Tier-4 acceptance PASSED — %s
-Observed: all %d evaluated checks passed in headless Chromium%s (%d skipped: %s).
-Root cause: not-applicable
-Fix: none required
+Observed: all %d of the tool's own checks passed in headless Chromium%s (%d skipped: %s).
+Root cause: %s
+Fix: %s
 Verified: browser-runner-adapter run; checks (id@profile): %s
 Categories: acceptance-run`,
 			function, len(v.Passed), profilesPhrase(v.Profiles),
 			len(v.SkipList), strings.Join(orNone(v.SkipList), ", "),
+			rootCause, fix,
 			strings.Join(v.Passed, ", "))
 		if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
 			`["acceptance-run"]`, "tool-acceptance", sourceAgent, "", "tool-acceptance-agent"); err != nil {
 			logger.Warn("judge: acceptance-run note insert failed", zap.Error(err))
 		}
 		logger.Info("judge: acceptance PASSED",
-			zap.String("function", function), zap.Int("passed", len(v.Passed)))
+			zap.String("function", function), zap.Int("passed", len(v.Passed)),
+			zap.Int("site_chrome_items", chromeRouted))
 		return map[string]interface{}{
 			"all_passed": true, "passed": len(v.Passed), "failed": 0, "skipped_checks": v.SkipList,
+			"site_chrome_failures": len(v.Chrome), "site_chrome_items_created": chromeRouted,
 		}, nil
 	}
 
@@ -409,13 +450,18 @@ Categories: acceptance-run`,
 	// criteria as acceptance_test (findings pattern; bounded by the fixer's
 	// max_fix_attempts convention).
 	issue := strings.Join(v.Details, "; ")
+	chromeLine := ""
+	if len(v.Chrome) > 0 {
+		chromeLine = fmt.Sprintf("\nSite chrome (NOT this tool, routed separately as %d responsive_fix item(s)): %s",
+			chromeRouted, chromeSummary(v.Chrome))
+	}
 	body := fmt.Sprintf(`## Tier-4 acceptance FAILED — %s
-Observed: %d of %d evaluated checks failed in headless Chromium%s: %s
+Observed: %d of %d evaluated checks failed in headless Chromium%s: %s%s
 Root cause: not diagnosed at this tier (behavioural run; the fixer loads PLAN+NOTES first)
 Fix: improve_tool item created carrying the criteria as acceptance_test
 Verified: n/a — failing run recorded
 Categories: acceptance-fail`,
-		function, len(v.Failed), len(v.Results), profilesPhrase(v.Profiles), issue)
+		function, len(v.Failed), len(v.Results), profilesPhrase(v.Profiles), issue, chromeLine)
 	if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
 		`["acceptance-fail"]`, "tool-acceptance", sourceAgent, "", "tool-acceptance-agent"); err != nil {
 		logger.Warn("judge: acceptance-fail note insert failed", zap.Error(err))
@@ -487,6 +533,90 @@ Categories: acceptance-fail`,
 		"failing_checks": v.FailedIDs, "failing_instances": v.Failed,
 		"improve_tool_created": itemCreated,
 	}, nil
+}
+
+// chromeSummary renders site-chrome failures for a note line.
+func chromeSummary(cf []chromeFailure) string {
+	parts := make([]string, 0, len(cf))
+	for _, c := range cf {
+		part := checkLabel(c.CheckID, c.Profile) + " — " + c.Culprit
+		if c.Component != "" {
+			part += " in " + c.Component
+		}
+		parts = append(parts, part)
+	}
+	return strings.Join(parts, "; ")
+}
+
+// routeChromeFailures raises ONE responsive_fix item per (component, profile)
+// for defects the adapter proved lie outside the tool — the site template's
+// problem, handled by component-template-fixer (the established route for
+// responsive defects), NOT by tool-improver.
+//
+// The dedup key deliberately excludes the tool: an overflowing site footer is
+// ONE site defect, not one per tool that happens to sit on the page. idx_swi_dedup
+// (site_id, item_key) collapses repeat reports while the item is open, and lets
+// it be raised afresh if the defect returns after a fix.
+func routeChromeFailures(ctx context.Context, params ActionParams, logger *zap.Logger,
+	failures []chromeFailure, function, siteID, sourceAgent string) int {
+
+	if len(failures) == 0 || params.DB == nil || siteID == "" {
+		return 0
+	}
+	created := 0
+	for _, cf := range failures {
+		component := cf.Component
+		if component == "" {
+			component = "site-chrome"
+		}
+		itemKey := fmt.Sprintf("chrome_overflow:%s:%s", component, cf.Profile)
+
+		spec := map[string]interface{}{
+			"category":     "responsive",
+			"fix_type":     "responsive_fix",
+			"audit_source": "tool-acceptance-tier4",
+			"description": fmt.Sprintf(
+				"The page overflows horizontally on %s. The widest offending element is %s, inside %s — OUTSIDE the tool's container, so this is a site-template defect, not a tool defect. Found while running Tier-4 acceptance for %s (%s), but it affects every page that renders this chrome.",
+				cf.Profile, cf.Culprit, component, function, cf.URL),
+			"suggestion": fmt.Sprintf(
+				"Constrain %s to the viewport: allow the content to wrap or shrink (e.g. flex-wrap, max-width:100%%, or a mobile breakpoint) so no descendant is wider than the viewport at 390px.",
+				component),
+			"current_value":      cf.Culprit,
+			"acceptance_test":    fmt.Sprintf("At 390px viewport width, %s document.scrollWidth <= document.clientWidth (no horizontal overflow)", cf.URL),
+			"affected_component": component,
+			"page_name":          "global",
+			"max_fix_attempts":   2,
+			"original_pipeline":  "build",
+			"original_domain":    "build",
+			"found_via":          map[string]interface{}{"tool": function, "check": cf.CheckID, "profile": cf.Profile},
+		}
+		specJSON, _ := json.Marshal(spec)
+
+		_, err := params.DB.ExecContext(ctx, `
+			INSERT INTO site_work_items (
+				site_id, source, pipeline, item_type, severity, summary,
+				priority, handler_agent, status, created_by, spec, item_key, batch_id
+			) VALUES ($1::uuid, 'acceptance', 'build', 'responsive_fix',
+			          'medium', $2, 40, 'component-template-fixer', 'detected',
+			          'tool-acceptance-agent', $3::jsonb, $4, $5::uuid)
+			ON CONFLICT DO NOTHING`,
+			siteID,
+			fmt.Sprintf("Horizontal overflow on %s from site chrome: %s in %s", cf.Profile, cf.Culprit, component),
+			string(specJSON),
+			itemKey,
+			uuid.NewString(),
+		)
+		if err != nil {
+			logger.Warn("judge: responsive_fix (site chrome) insert failed",
+				zap.String("component", component), zap.Error(err))
+			continue
+		}
+		created++
+		logger.Info("judge: site-chrome defect routed to component-template-fixer (NOT the tool)",
+			zap.String("component", component), zap.String("culprit", cf.Culprit),
+			zap.String("profile", cf.Profile), zap.String("item_key", itemKey))
+	}
+	return created
 }
 
 // profilesPhrase renders " across profiles: desktop, mobile" (empty when the

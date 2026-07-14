@@ -22,14 +22,21 @@
 package discovery_checks
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
-func init() { Register(&EmptySectionsCheck{}) }
+func init() {
+	Register(&EmptySectionsCheck{})
+	RegisterVerifier("empty_section", VerifyEmptySectionResolved)
+}
 
 type EmptySectionsCheck struct{}
 
@@ -166,4 +173,61 @@ func findEmptySections(dctx DiscoveryCheckContext) ([]emptySectionFinding, error
 		findings = append(findings, f)
 	}
 	return findings, nil
+}
+
+// ============================================================================
+// Completion-time verifier (item_type "empty_section")
+// ============================================================================
+
+// emptyHeadingRe mirrors the SQL detection pattern '<(h[1-6])[^>]*>\s*</\1>'
+// in findEmptySections. Go's RE2 has no backreferences, so the closing tag
+// matches any h1-h6 — marginally broader than the SQL, and anything the
+// broader form catches is still an empty heading shell.
+var emptyHeadingRe = regexp.MustCompile(`(?i)<h[1-6][^>]*>\s*</h[1-6]>`)
+
+// VerifyEmptySectionResolved re-runs the empty-section predicate for the
+// single component named in the item spec. Registered for item_type
+// "empty_section" so CompleteWorkItemAction can refuse to stamp 'complete'
+// while the section still renders empty.
+func VerifyEmptySectionResolved(ctx context.Context, db *sql.DB, spec map[string]interface{}, logger *zap.Logger) (VerifyResult, error) {
+	componentID, _ := spec["component_id"].(string)
+	if componentID == "" {
+		return VerifyResult{}, fmt.Errorf("empty_section spec has no component_id")
+	}
+	if _, err := uuid.Parse(componentID); err != nil {
+		return VerifyResult{}, fmt.Errorf("empty_section spec component_id %q: %w", componentID, err)
+	}
+
+	var html sql.NullString
+	err := db.QueryRowContext(ctx,
+		`SELECT rendered_html FROM page_components WHERE id = $1`, componentID,
+	).Scan(&html)
+	if err == sql.ErrNoRows {
+		// Component removed — nothing left to be empty.
+		return VerifyResult{Resolved: true, Detail: "component no longer exists"}, nil
+	}
+	if err != nil {
+		return VerifyResult{}, err
+	}
+
+	return emptySectionVerdict(html.String), nil
+}
+
+// emptySectionVerdict classifies rendered HTML with the same patterns as
+// findEmptySections' SQL WHERE clause (null/empty, minimal, empty-heading)
+// plus the data-runtime-fill exemption. Pure — unit tested.
+func emptySectionVerdict(html string) VerifyResult {
+	if strings.TrimSpace(html) == "" {
+		return VerifyResult{Resolved: false, Detail: "rendered_html is still null/empty"}
+	}
+	if strings.Contains(html, "data-runtime-fill") {
+		return VerifyResult{Resolved: true, Detail: "runtime-fill shell — empty by design, filled client-side"}
+	}
+	if len(html) < 50 {
+		return VerifyResult{Resolved: false, Detail: "rendered_html still minimal (<50 chars)"}
+	}
+	if emptyHeadingRe.MatchString(html) {
+		return VerifyResult{Resolved: false, Detail: "empty heading shell still present in rendered_html"}
+	}
+	return VerifyResult{Resolved: true, Detail: "section has rendered content"}
 }

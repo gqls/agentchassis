@@ -4228,9 +4228,11 @@ func detectNeedsLLMContent(htmlTemplate, inputSchema string) bool {
 //     (default: "input_data.work_item_id")
 //   - status:             new status — default "complete"
 //     (valid: complete, failed, claimed, executing,
-//     detected, wont_fix)
+//     detected, wont_fix, needs_human_review, unresolved)
 //   - skip_if_missing:    bool — when true (default), gracefully no-op if
 //     work_item_id absent. When false, error.
+//   - error_message:      optional literal recorded in the error column so
+//     triage can see why a handler parked the item.
 //   - result_fields:      optional map of extra fields to merge into the
 //     row's result JSONB. Values are literals; the
 //     action always adds orchestration_id and step
@@ -4287,10 +4289,21 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 		"executing": true,
 		"detected":  true,
 		"wont_fix":  true,
+		// Handler no-op flags: a handler that cannot address its work item
+		// (no ready sections, writer skipped) parks the item visibly here.
+		// Without a flagged status the dispatch loop would stamp the item
+		// complete on saga success — the false-completion bug caught on
+		// robot-hands' gripper-detail (2026-07-10).
+		"needs_human_review": true,
+		"unresolved":         true,
 	}
 	if !validStatuses[newStatus] {
-		return nil, fmt.Errorf("invalid work item status: %s (valid: complete, failed, claimed, executing, detected, wont_fix)", newStatus)
+		return nil, fmt.Errorf("invalid work item status: %s (valid: complete, failed, claimed, executing, detected, wont_fix, needs_human_review, unresolved)", newStatus)
 	}
+
+	// Optional error message — recorded in the error column so triage can see
+	// why a handler parked the item.
+	errorMessage, _ := config["error_message"].(string)
 
 	if params.DB == nil {
 		params.Logger.Warn("UpdateWorkItemStatusAction: No database")
@@ -4323,18 +4336,20 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 		                completed_at = NOW(),
 		                updated_at = NOW(),
 		                attempt_count = attempt_count + 1,
-		                result = COALESCE(result, '{}'::jsonb) || $3::jsonb
+		                result = COALESCE(result, '{}'::jsonb) || $3::jsonb,
+		                error = COALESCE(NULLIF($4, ''), error)
 		          WHERE id = $1`
 	} else {
 		query = `UPDATE site_work_items
 		            SET status = $2,
 		                updated_at = NOW(),
 		                attempt_count = attempt_count + 1,
-		                result = COALESCE(result, '{}'::jsonb) || $3::jsonb
+		                result = COALESCE(result, '{}'::jsonb) || $3::jsonb,
+		                error = COALESCE(NULLIF($4, ''), error)
 		          WHERE id = $1`
 	}
 
-	if err := execDB(ctx, params.DB, query, workItemID, newStatus, resultJSON); err != nil {
+	if err := execDB(ctx, params.DB, query, workItemID, newStatus, resultJSON, errorMessage); err != nil {
 		return nil, fmt.Errorf("failed to update work item status: %w", err)
 	}
 
