@@ -198,7 +198,8 @@ through.
 
 ## 8. Companion docs
 
-- `SUMMARY_where_we_are_2026-07-13.md` — gentle plain-language state (for humans).
+- `SUMMARY_where_we_are_2026-07-14.md` — gentle plain-language state (for
+  humans; supersedes the 07-13 one — covers triage + silent-check going live).
 - `DESIGN_triage_and_escalation.md` — the triage + escalation architecture (three
   flavours, routing, phasing, decisions).
 - `RUNBOOK_diagnosis_fix_loop(10).md` — task, phases, every gotcha.
