@@ -122,7 +122,7 @@ type browserPage interface {
 	NavError() string      // non-empty when navigation itself failed
 	ConsoleErrors() []string
 	Count(selector string) int         // matches in the live DOM
-	HorizontalOverflow() (bool, error) // scrollWidth > clientWidth
+	HorizontalOverflow() (bool, string, error) // scrollWidth > clientWidth; names the widest offender
 	Do(step criteriaStep) error        // one interaction step
 	Text(selector string) (string, error)
 	Close()
@@ -281,11 +281,17 @@ func evaluateOnPage(page browserPage, checks []criteriaCheck, profile, url strin
 				add(ch.ID, false, "no element matches "+ch.Selector+" in the live DOM after settle")
 			}
 		case "no_horizontal_overflow":
-			over, err := page.HorizontalOverflow()
+			over, culprit, err := page.HorizontalOverflow()
 			if err != nil {
 				add(ch.ID, false, "could not measure overflow: "+err.Error())
 			} else if over {
-				add(ch.ID, false, "page overflows horizontally (scrollWidth > clientWidth) on "+profile)
+				// Name the offender: it decides whether this is the tool's bug or
+				// the site template's (see HorizontalOverflow).
+				detail := "page overflows horizontally (scrollWidth > clientWidth) on " + profile
+				if culprit != "" {
+					detail += "; widest offending element: " + culprit
+				}
+				add(ch.ID, false, detail)
 			} else {
 				add(ch.ID, true, "no horizontal overflow on "+profile)
 			}
@@ -442,19 +448,57 @@ func (c *chromiumPage) Count(selector string) int {
 	return n
 }
 
-func (c *chromiumPage) HorizontalOverflow() (bool, error) {
-	v, err := c.page.Evaluate(`() => document.documentElement.scrollWidth - document.documentElement.clientWidth`)
+// HorizontalOverflow measures the DOCUMENT, so a failure may be caused by site
+// chrome (header/footer) rather than the tool. It therefore also names the
+// widest offending element: without that, one overflowing site footer raises an
+// identical, unactionable improve_tool ticket for EVERY tool on the site — the
+// fixer edits a tool that cannot possibly fix a template footer. Observed
+// 2026-07-14: vonc.com's div.footer-legal (506px at a 390px viewport) failed
+// the quiz's mobile-fit check on every page of the site.
+func (c *chromiumPage) HorizontalOverflow() (bool, string, error) {
+	v, err := c.page.Evaluate(`() => {
+		const vw = document.documentElement.clientWidth;
+		const over = document.documentElement.scrollWidth - vw;
+		if (over <= 2) return {over: over, culprit: ""};
+		// Widest element crossing the viewport edge; deepest wins ties, since an
+		// ancestor is usually just inheriting an overflowing child's width.
+		let best = null;
+		for (const el of document.querySelectorAll('*')) {
+			const r = el.getBoundingClientRect();
+			if (r.width === 0 && r.height === 0) continue;
+			if (r.right > vw + 1 || r.left < -1) {
+				const depth = (function(n){ let d = 0; while (n.parentElement) { d++; n = n.parentElement; } return d; })(el);
+				if (!best || r.width > best.width || (r.width === best.width && depth > best.depth)) {
+					best = {
+						width: Math.round(r.width),
+						depth: depth,
+						desc: el.tagName.toLowerCase()
+						      + (el.id ? '#' + el.id : '')
+						      + (el.className && el.className.toString().trim()
+						         ? '.' + el.className.toString().trim().split(/\s+/).join('.')
+						         : ''),
+					};
+				}
+			}
+		}
+		return {over: over, culprit: best ? best.desc + ' (' + best.width + 'px)' : ""};
+	}`)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
+	m, ok := v.(map[string]interface{})
+	if !ok {
+		return false, "", nil
+	}
+	culprit, _ := m["culprit"].(string)
 	// JS numbers come back as float64/int; tolerate 2px of rounding.
-	switch n := v.(type) {
+	switch n := m["over"].(type) {
 	case float64:
-		return n > 2, nil
+		return n > 2, culprit, nil
 	case int:
-		return n > 2, nil
+		return n > 2, culprit, nil
 	default:
-		return false, nil
+		return false, "", nil
 	}
 }
 

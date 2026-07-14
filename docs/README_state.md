@@ -28,4 +28,31 @@ Two things I'd still flag for your call, neither blocking:
 
 Worth an eyeball on the refreshed Catalyst page when you have a moment to confirm the voice is right.
 
---
+-----
+
+Done. Everything in the approved plan that can be produced in an authoring session is implemented, tested, and committed as `0f301cc75` on `085_debug_and_feature_loops` (18 files, +1894/−41). One caveat: **this repo has no git remote configured and no `gh` CLI, so I could not push or open a PR** — the commit is local, which matches this project's documented practice ("images are built from the local filesystem via the Makefile; commits are decoupled").
+
+**What shipped in Go** (one chassis image, all builds green, new unit tests passing):
+
+- **Root-cause repair path** — `chooseCTATargets` v2 in `resolve_internal_links_action.go` now ranks tool/game pages ahead of content hubs and returns full targets, so `setCTAField` writes `cta_target_title` alongside every URL (copy can be authored *for* the real destination). A new `ctaExcludedDestination` helper fixes the blind spot where `/contact.html` never matched the excluded-area set.
+- **`rerender_page_sections`** gained a CTA recompute gated strictly on `reason == "cta_links_stale"` — plain `image_landed` rerenders are byte-identical to before. Its exception rule keeps authored links that are real, non-excluded, and non-circular; everything else (phantom, `/contact.html`, self-links, empty) gets the recomputed target. This means vonc's 19 misdirected CTAs repair through the **generic** path — no hand SQL.
+- **Two new discovery checks**: `misdirected_cta` (anchor text names page X, href goes to page Y → one `cta_links_stale` rerender item per page; distinctive copy naming *no* page with a bad href → `cta_names_unknown_destination` for human review — the Arena case) and `incomplete_page_group` (plan-promised siblings half-deployed; tool/game gaps go to review per TP-004). Plus the definite `orphan_pages` fix: nav-flagged tool pages are no longer excluded, so vonc's missing Gauntlet/Quiz nav entries will finally surface as `nav_drift`.
+- **Header CTA validation** in `render_site_components` — falls back to the resolver's ranking instead of an absent contact page.
+
+**SQL migrations** (091–095 in `minilobby_task/`, all with backups + hard-failing verification blocks): 091 flips the four `pages.*` CTA schema sources to `renderer` fleet-wide; 092 enables the three checks and wires `cta_links_stale` into page-rerender plus the writer guidance; 093 fixes only the two `/how-it-works*` prose phantoms; 094 plans `tool-arena`, queues the tool-generator item with the full v1 spec (daily provocation, localStorage takes, the five Arena Reactions, remix-chain visual), and records the PLAN doc; 095 retargets the Arena CTAs with a pre-flight that refuses to run before the page is deployed.
+
+**`RUNBOOK_link_integrity_task.md`** sequences the live rollout — image → symbol verification in the pod → 091/092 → fleet-safety gate → pre-repair discovery (which must reproduce all four finding classes on vonc, proving detection) → repair → Arena → the closing discovery pass that must come back clean. Running notes are updated with the session log, including the standing TL-001 note that the Arena page must never receive a generic full rebuild.
+Done. Everything in the approved plan that can be produced in an authoring session is implemented, tested, and committed as `0f301cc75` on `085_debug_and_feature_loops` (18 files, +1894/−41). One caveat: **this repo has no git remote configured and no `gh` CLI, so I could not push or open a PR** — the commit is local, which matches this project's documented practice ("images are built from the local filesystem via the Makefile; commits are decoupled").
+
+**What shipped in Go** (one chassis image, all builds green, new unit tests passing):
+
+- **Root-cause repair path** — `chooseCTATargets` v2 in `resolve_internal_links_action.go` now ranks tool/game pages ahead of content hubs and returns full targets, so `setCTAField` writes `cta_target_title` alongside every URL (copy can be authored *for* the real destination). A new `ctaExcludedDestination` helper fixes the blind spot where `/contact.html` never matched the excluded-area set.
+- **`rerender_page_sections`** gained a CTA recompute gated strictly on `reason == "cta_links_stale"` — plain `image_landed` rerenders are byte-identical to before. Its exception rule keeps authored links that are real, non-excluded, and non-circular; everything else (phantom, `/contact.html`, self-links, empty) gets the recomputed target. This means vonc's 19 misdirected CTAs repair through the **generic** path — no hand SQL.
+- **Two new discovery checks**: `misdirected_cta` (anchor text names page X, href goes to page Y → one `cta_links_stale` rerender item per page; distinctive copy naming *no* page with a bad href → `cta_names_unknown_destination` for human review — the Arena case) and `incomplete_page_group` (plan-promised siblings half-deployed; tool/game gaps go to review per TP-004). Plus the definite `orphan_pages` fix: nav-flagged tool pages are no longer excluded, so vonc's missing Gauntlet/Quiz nav entries will finally surface as `nav_drift`.
+- **Header CTA validation** in `render_site_components` — falls back to the resolver's ranking instead of an absent contact page.
+
+**SQL migrations** (091–095 in `minilobby_task/`, all with backups + hard-failing verification blocks): 091 flips the four `pages.*` CTA schema sources to `renderer` fleet-wide; 092 enables the three checks and wires `cta_links_stale` into page-rerender plus the writer guidance; 093 fixes only the two `/how-it-works*` prose phantoms; 094 plans `tool-arena`, queues the tool-generator item with the full v1 spec (daily provocation, localStorage takes, the five Arena Reactions, remix-chain visual), and records the PLAN doc; 095 retargets the Arena CTAs with a pre-flight that refuses to run before the page is deployed.
+
+**`RUNBOOK_link_integrity_task.md`** sequences the live rollout — image → symbol verification in the pod → 091/092 → fleet-safety gate → pre-repair discovery (which must reproduce all four finding classes on vonc, proving detection) → repair → Arena → the closing discovery pass that must come back clean. Running notes are updated with the session log, including the standing TL-001 note that the Arena page must never receive a generic full rebuild.
+
+----

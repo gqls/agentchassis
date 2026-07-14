@@ -277,6 +277,45 @@ concretely — what an audit agent's "file a needs_diagnosis" step looks like, a
 recap: Goal: a self-fixing loop that diagnoses bugs and opens reviewed PRs, with a daily awareness digest so you stay informed. Just delivered the digest as a committed file and recommended escalating
 detected errors into the loop via needs_diagnosis. Next: sketch that escalation path if you want it.
 
+-----
+
+
+Your third flavour was right — and the platform already models it
+
+You intuited something the code already does. When a checker/planner hits work whose handler doesn't exist yet, WriteBuildItemsAction (load_work_item_actions.go:245–280) doesn't fail or silently skip — it
+records a first-class capability_gap item: status='deferred', handler_agent = the needed builder, spec naming builder_needed. Today tool, entity-directory, and entity-page are the known-but-unbuilt
+types. The docs' standing intent is that these become roadmap/builder items — a human capability decision. Nothing currently surfaces them; triage will.
+
+So there are now three failure flavours, and each routes to a different place:
+
+┌────────────────┬──────────────────────────────────────────────────┬───────────────────────────┬──────────────────────────────────────────┐
+│    Flavour     │             Signal (already in data)             │          Remedy           │                Routes to                 │
+├────────────────┼──────────────────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────┤
+│ Loud           │ status='failed', attempts exhausted              │ fix the handler (if code) │ fix loop                                 │
+├────────────────┼──────────────────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────┤
+│ Silent         │ "completed" but problem persists (the darts bug) │ fix the handler (if code) │ fix loop (via a verification checker)    │
+├────────────────┼──────────────────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────┤
+│ No handler yet │ capability_gap / deferred                        │ build a new handler       │ roadmap / builder queue — never the loop │
+└────────────────┴──────────────────────────────────────────────────┴───────────────────────────┴──────────────────────────────────────────┘
+
+That third row matters because it draws a firm boundary: the fix loop makes constrained repairs to existing code; it must never be handed "invent a whole new handler." That's a capability decision for you
+(and, one day, a dedicated capability-builder — the "features from specs" direction you mentioned earlier, deliberately left as a future, human-gated thing).
+
+Your choices, all recorded in the design doc
+
+- Cadence: hourly for now, slower later, with a hard per-sweep cap.
+- Verification checkers: this thread owns them (starting with the darts signature — section-index pages that are active but have zero components).
+- Enablement: manual, shipped disabled — Phase 1 is loud failures + capability gaps (both already in the data, so it's pure routing, lowest risk).
+- Fable-credits context: noted prominently — everything stays manual (no unattended cadence burning model calls), and I've deliberately written all these docs to be self-sufficient so the workstream
+  survives a model change. The whole design is gates + deterministic routing + human decisions, so its correctness doesn't depend on any one model.
+
+(Housekeeping: this commit again swept in a stray file another session staged — a leopardess favicon — left in place per forward-only.)
+
+The design is complete and the decisions are locked in. Whenever you're ready, Phase 1 is a small, safe build (thin triage router over data that already exists). And the one loose thread remains your
+call: shall I do the clean one-commit merge to put PR #1's fix onto main?
+
+
+-----
 
 
 

@@ -2,6 +2,7 @@ package browserrunner
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -16,6 +17,7 @@ type fakePage struct {
 	console  []string
 	counts   map[string]int
 	overflow bool
+	culprit  string // widest element crossing the viewport edge
 	ovErr    error
 	texts    map[string]string
 	stepErr  map[string]error // selector -> error to return from Do
@@ -26,7 +28,9 @@ func (f *fakePage) Status() int            { return f.status }
 func (f *fakePage) NavError() string       { return f.navErr }
 func (f *fakePage) ConsoleErrors() []string { return f.console }
 func (f *fakePage) Count(sel string) int   { return f.counts[sel] }
-func (f *fakePage) HorizontalOverflow() (bool, error) { return f.overflow, f.ovErr }
+func (f *fakePage) HorizontalOverflow() (bool, string, error) {
+	return f.overflow, f.culprit, f.ovErr
+}
 func (f *fakePage) Text(sel string) (string, error)   { return f.texts[sel], nil }
 func (f *fakePage) Close()                            {}
 func (f *fakePage) Do(step criteriaStep) error {
@@ -132,6 +136,32 @@ func TestP1MobileOverflowFails(t *testing.T) {
 	})
 	if r := resultByID(out.Results, "mobile-fit", "mobile"); r == nil || r.Pass {
 		t.Errorf("mobile-fit should FAIL when the page overflows, got %+v", r)
+	}
+}
+
+// The overflow is measured on the DOCUMENT, so the failure must name the widest
+// offender — that is what tells a reader (and the fixer) whether the tool broke
+// or the site template did. Live case 2026-07-14: vonc.com's div.footer-legal
+// overflowed every page, failing a QUIZ's mobile-fit check. Without the culprit
+// in the detail, the ticket is indistinguishable from a real tool bug.
+func TestP1OverflowDetailNamesTheCulprit(t *testing.T) {
+	mobile := &fakePage{
+		status:   200,
+		counts:   map[string]int{".tool-container": 1, "#tableWrap tr": 1, "#result": 1},
+		overflow: true,
+		culprit:  "div.site-footer.footer-legal (506px)",
+		texts:    map[string]string{"#result": "1"},
+	}
+	a := actionWith(map[string]*fakePage{"mobile": mobile})
+	out, _ := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "m", URLs: []string{"u"}, Profiles: []string{"mobile"}, CriteriaJSON: criteriaDesktopMobile,
+	})
+	r := resultByID(out.Results, "mobile-fit", "mobile")
+	if r == nil || r.Pass {
+		t.Fatalf("mobile-fit should FAIL, got %+v", r)
+	}
+	if !strings.Contains(r.Detail, "div.site-footer.footer-legal (506px)") {
+		t.Errorf("the failure must name the offending element so the bug can be attributed; got %q", r.Detail)
 	}
 }
 

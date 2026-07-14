@@ -1,0 +1,2271 @@
+From 0f301cc750612847896a10feb4ee1da0f437d09f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 14 Jul 2026 11:29:27 +0000
+Subject: [PATCH] link integrity: fix CTA misdirection at the writer, add
+ generic detection, plan the Arena
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Root cause (fleet): hero/call-to-action URL fields carried schema source
+pages.contact / pages.services — a literal name lookup written into
+resolved_data unconditionally on every render, silently reverting any
+authored retarget (75/75 + 68/69 CTA instances across 8/10 sites ->
+/contact.html).
+
+Go (one chassis image):
+- resolve_internal_links: chooseCTATargets v2 ranks interactive (tool/game)
+  pages ahead of section-index hubs; setCTAField also writes
+  *_target_title so copy can be authored for the actual destination;
+  ctaExcludedDestination fixes the firstPathSegment blind spot for
+  top-level pages like /contact.html
+- rerender_page_sections: CTA recompute gated strictly on
+  reason=cta_links_stale, with an exception rule that keeps authored
+  real/non-excluded/non-circular links — the no-LLM repair path for
+  already-deployed pages
+- create_rerender_items: stamp spec.reason for cta_links_stale without
+  component scoping
+- render_site_components: validate the header CTA against real pages,
+  fall back to chooseCTATargets instead of rendering a phantom
+- new checks: misdirected_cta (anchor text names page X, href goes to Y ->
+  page_rerender/cta_links_stale; distinctive text naming no page with a
+  bad href -> cta_names_unknown_destination, human review) and
+  incomplete_page_group (plan-promised siblings part-deployed; tool/game
+  gaps to human review per TP-004)
+- orphan_pages: nav-flagged tool pages are no longer excluded, so missing
+  nav entries for tools surface as nav_drift
+- datahelpers: ExtractAnchors (href + visible text), shared by the checks
+
+SQL (docs/social001_vonc_tiktok_social/minilobby_task, apply per RUNBOOK):
+- 091 flip the four CTA url sources pages.* -> renderer (fleet, backed up,
+  verified)
+- 092 enable phantom_internal_links + the two new checks on
+  completeness-discovery-agent; accept cta_links_stale in page-rerender;
+  append *_target_title writer guidance
+- 093 vonc: fix the two /how-it-works* phantoms in prose components (the
+  19 misdirected CTAs repair through the generic cta_links_stale path)
+- 094 vonc: plan tool-arena + queue tool-generator item + PLAN doc
+- 095 vonc: retarget arena-naming CTAs once the Arena page is deployed
+  (pre-flight enforced)
+
+Tests: unit coverage for the anchor extractor, token matcher, ranking,
+exclusion helper and recompute exception rule; actions/discovery_checks/
+datahelpers suites green. Pre-existing unrelated failure in
+orchestration_test.go (NewSagaCoordinator signature drift) untouched.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Bpbm91nJC7bYze7QLnZTAv
+---
+ .../091_cta_url_schema_source_flip.sql        |  90 ++++
+ ...92_enable_link_checks_and_cta_rerender.sql | 123 +++++
+ .../093_vonc_prose_link_404_fixes.sql         |  83 ++++
+ .../minilobby_task/094_vonc_arena_tool.sql    | 124 ++++++
+ .../095_vonc_arena_cta_retarget.sql           | 107 +++++
+ .../RUNBOOK_link_integrity_task.md            | 123 +++++
+ .../RUNNING_NOTES_minilobby_task.md           |  51 +++
+ .../actions/create_rerender_items_action.go   |   6 +-
+ .../check_incomplete_page_group.go            | 277 ++++++++++++
+ .../discovery_checks/check_misdirected_cta.go | 420 ++++++++++++++++++
+ .../check_misdirected_cta_test.go             |  68 +++
+ .../discovery_checks/check_orphan_pages.go    |   8 +-
+ .../actions/render_site_components_action.go  |  23 +
+ .../actions/rerender_page_sections_action.go  |  87 +++-
+ .../actions/resolve_internal_links_action.go  | 131 ++++--
+ .../actions/resolve_internal_links_test.go    | 134 ++++++
+ platform/orchestration/datahelpers/links.go   |  29 ++
+ .../datahelpers/links_anchor_test.go          |  51 +++
+ 18 files changed, 1894 insertions(+), 41 deletions(-)
+ create mode 100644 docs/social001_vonc_tiktok_social/minilobby_task/091_cta_url_schema_source_flip.sql
+ create mode 100644 docs/social001_vonc_tiktok_social/minilobby_task/092_enable_link_checks_and_cta_rerender.sql
+ create mode 100644 docs/social001_vonc_tiktok_social/minilobby_task/093_vonc_prose_link_404_fixes.sql
+ create mode 100644 docs/social001_vonc_tiktok_social/minilobby_task/094_vonc_arena_tool.sql
+ create mode 100644 docs/social001_vonc_tiktok_social/minilobby_task/095_vonc_arena_cta_retarget.sql
+ create mode 100644 docs/social001_vonc_tiktok_social/minilobby_task/RUNBOOK_link_integrity_task.md
+ create mode 100644 platform/orchestration/actions/discovery_checks/check_incomplete_page_group.go
+ create mode 100644 platform/orchestration/actions/discovery_checks/check_misdirected_cta.go
+ create mode 100644 platform/orchestration/actions/discovery_checks/check_misdirected_cta_test.go
+ create mode 100644 platform/orchestration/actions/resolve_internal_links_test.go
+ create mode 100644 platform/orchestration/datahelpers/links_anchor_test.go
+
+diff --git a/docs/social001_vonc_tiktok_social/minilobby_task/091_cta_url_schema_source_flip.sql b/docs/social001_vonc_tiktok_social/minilobby_task/091_cta_url_schema_source_flip.sql
+new file mode 100644
+index 000000000..3337628f5
+--- /dev/null
++++ b/docs/social001_vonc_tiktok_social/minilobby_task/091_cta_url_schema_source_flip.sql
+@@ -0,0 +1,90 @@
++-- 091_cta_url_schema_source_flip.sql — remove the fleet-wide CTA misdirection writer
++-- Created 2026-07-14.
++--
++-- ROOT CAUSE: hero.cta_url / hero.secondary_cta_url and
++-- call-to-action.primary_cta_url / secondary_cta_url carry
++-- "source": "pages.contact" / "pages.services" in content_components
++-- .input_schema. The source resolver (plan_sections_action.go, case "pages")
++-- is a literal page-name -> URL lookup with zero copy-awareness, and the
++-- resolved value is written into resolved_data UNCONDITIONALLY on every
++-- render — resolved_data merges LAST, so no content_data edit can ever win
++-- (this is why migration 089's Gauntlet retargets silently reverted).
++-- Blast radius at investigation time: 75/75 call-to-action + 68/69 hero CTA
++-- instances across 8/10 sites all pointing at /contact.html.
++--
++-- FIX: flip those four fields' source to "renderer" wherever it is currently
++-- a pages.* lookup. Verified against the field loop (plan_sections_action.go
++-- ~1186-1201): a "renderer" source resolves to nil at plan time, on_missing
++-- (default skip_field) omits the field, and the only remaining writers are
++-- the internal-link-resolver (build time) and rerender_page_sections'
++-- cta_links_stale recompute — both of which only ever write REAL, validated,
++-- non-excluded pages. Existing authored content_data values keep rendering.
++-- type / on_missing / llm_guidance / fallback are untouched.
++--
++-- SAFE: nothing changes in deployed HTML until a page's next render. Sites
++-- whose stored content_data holds /contact.html keep serving it until a
++-- cta_links_stale rerender or full rebuild recomputes it (chassis image with
++-- the recompute must be live BEFORE dispatching those rerenders).
++--
++-- Reversal: _fleet_cta_backup_20260714_components holds the full prior rows.
++
++BEGIN;
++
++CREATE TABLE _fleet_cta_backup_20260714_components AS
++  SELECT * FROM content_components
++  WHERE is_active = true
++    AND function IN ('hero', 'call-to-action');
++
++-- ── Flip each URL field's pages.* source -> "renderer" ─────────────────────
++UPDATE content_components
++SET input_schema = jsonb_set(input_schema, '{fields,cta_url,source}', '"renderer"'),
++    updated_at = NOW()
++WHERE is_active = true AND function = 'hero'
++  AND input_schema->'fields'->'cta_url'->>'source' LIKE 'pages.%';
++
++UPDATE content_components
++SET input_schema = jsonb_set(input_schema, '{fields,secondary_cta_url,source}', '"renderer"'),
++    updated_at = NOW()
++WHERE is_active = true AND function = 'hero'
++  AND input_schema->'fields'->'secondary_cta_url'->>'source' LIKE 'pages.%';
++
++UPDATE content_components
++SET input_schema = jsonb_set(input_schema, '{fields,primary_cta_url,source}', '"renderer"'),
++    updated_at = NOW()
++WHERE is_active = true AND function = 'call-to-action'
++  AND input_schema->'fields'->'primary_cta_url'->>'source' LIKE 'pages.%';
++
++UPDATE content_components
++SET input_schema = jsonb_set(input_schema, '{fields,secondary_cta_url,source}', '"renderer"'),
++    updated_at = NOW()
++WHERE is_active = true AND function = 'call-to-action'
++  AND input_schema->'fields'->'secondary_cta_url'->>'source' LIKE 'pages.%';
++
++-- ── Verify: no active hero/call-to-action URL field still page-name-sourced ─
++DO $$
++DECLARE remaining INT; flipped INT;
++BEGIN
++  SELECT COUNT(*) INTO remaining
++  FROM content_components cc, jsonb_each(cc.input_schema->'fields') f
++  WHERE cc.is_active = true
++    AND cc.function IN ('hero', 'call-to-action')
++    AND f.key IN ('cta_url', 'secondary_cta_url', 'primary_cta_url')
++    AND f.value->>'source' LIKE 'pages.%';
++
++  SELECT COUNT(*) INTO flipped
++  FROM content_components cc, jsonb_each(cc.input_schema->'fields') f
++  WHERE cc.is_active = true
++    AND cc.function IN ('hero', 'call-to-action')
++    AND f.key IN ('cta_url', 'secondary_cta_url', 'primary_cta_url')
++    AND f.value->>'source' = 'renderer';
++
++  IF remaining <> 0 THEN
++    RAISE EXCEPTION 'verify failed: % active CTA url fields still pages.*-sourced (want 0)', remaining;
++  END IF;
++  IF flipped = 0 THEN
++    RAISE EXCEPTION 'verify failed: 0 fields flipped to renderer — wrong function names or schema shape?';
++  END IF;
++  RAISE NOTICE 'verified: 0 pages.*-sourced CTA url fields remain; % fields now renderer-sourced', flipped;
++END $$;
++
++COMMIT;
+diff --git a/docs/social001_vonc_tiktok_social/minilobby_task/092_enable_link_checks_and_cta_rerender.sql b/docs/social001_vonc_tiktok_social/minilobby_task/092_enable_link_checks_and_cta_rerender.sql
+new file mode 100644
+index 000000000..8f1340aa3
+--- /dev/null
++++ b/docs/social001_vonc_tiktok_social/minilobby_task/092_enable_link_checks_and_cta_rerender.sql
+@@ -0,0 +1,123 @@
++-- 092_enable_link_checks_and_cta_rerender.sql — wire the link-integrity loop
++-- Created 2026-07-14. Requires the chassis image carrying misdirected_cta /
++-- incomplete_page_group / the cta_links_stale recompute (registered-but-absent
++-- check names only warn+skip, so this SQL is safe to land first — the checks
++-- simply do nothing until the image is live).
++--
++-- Three independent wirings:
++--   1. completeness-discovery-agent: enable phantom_internal_links (written
++--      long ago, enabled nowhere), misdirected_cta, incomplete_page_group.
++--   2. page-rerender: accept spec.reason == 'cta_links_stale' into the
++--      section re-render path (rerender_page_sections), which gates the CTA
++--      recompute on exactly that reason.
++--   3. hero / call-to-action CTA text fields: llm_guidance addition so the
++--      writer authors CTA copy FOR the destination the resolver chose
++--      (resolved_data.cta_target_title / *_cta_target_title), instead of
++--      inventing a destination the link doesn't go to.
++--
++-- All three are idempotent (guarded by NOT-already-present tests).
++-- Reversal: _fleet_092_backup_20260714_agentdefs + the 091 component backup
++-- (091 must run first; its backup predates this file's component edits).
++
++BEGIN;
++
++CREATE TABLE _fleet_092_backup_20260714_agentdefs AS
++  SELECT * FROM agent_definitions
++  WHERE type IN ('completeness-discovery-agent', 'page-rerender');
++
++-- ── 1. Enable the three checks (append missing names, preserve order) ──────
++UPDATE agent_definitions ad
++SET default_config = jsonb_set(
++      ad.default_config,
++      '{workflow,steps,run_checks,config,checks}',
++      (ad.default_config #> '{workflow,steps,run_checks,config,checks}')
++      || COALESCE((
++           SELECT jsonb_agg(to_jsonb(newcheck))
++           FROM unnest(ARRAY['phantom_internal_links',
++                             'misdirected_cta',
++                             'incomplete_page_group']) AS newcheck
++           WHERE NOT (ad.default_config #> '{workflow,steps,run_checks,config,checks}') ? newcheck
++         ), '[]'::jsonb)
++    ),
++    updated_at = NOW()
++WHERE ad.type = 'completeness-discovery-agent'
++  AND jsonb_typeof(ad.default_config #> '{workflow,steps,run_checks,config,checks}') = 'array';
++
++-- ── 2. page-rerender: gate the section re-render on cta_links_stale too ────
++UPDATE agent_definitions
++SET default_config = jsonb_set(
++      default_config,
++      '{workflow,steps,check_rerender_mode,config,condition}',
++      to_jsonb(
++        (default_config #>> '{workflow,steps,check_rerender_mode,config,condition}')
++        || ' OR input_data.spec.reason == ''cta_links_stale'''
++      )
++    ),
++    updated_at = NOW()
++WHERE type = 'page-rerender'
++  AND default_config #>> '{workflow,steps,check_rerender_mode,config,condition}'
++      NOT LIKE '%cta_links_stale%';
++
++-- ── 3. CTA text guidance: copy follows the resolved destination ────────────
++-- Appends to llm_guidance on whichever CTA text fields each active hero /
++-- call-to-action component actually declares (field naming varies across
++-- component generations).
++DO $$
++DECLARE
++  comp RECORD;
++  fld TEXT;
++  guidance_add CONSTANT TEXT :=
++    ' When resolved_data provides a companion *_target_title (e.g. '
++    || 'cta_target_title for cta_url), the link destination is already fixed: '
++    || 'write this CTA text FOR that destination — name it or clearly promise '
++    || 'it. Never write copy promising a page the URL does not point to.';
++  updated INT := 0;
++BEGIN
++  FOR comp IN
++    SELECT id, input_schema FROM content_components
++    WHERE is_active = true AND function IN ('hero', 'call-to-action')
++  LOOP
++    FOREACH fld IN ARRAY ARRAY['cta_text', 'primary_cta_text', 'secondary_cta_text', 'secondary_cta']
++    LOOP
++      IF comp.input_schema->'fields' ? fld
++         AND COALESCE(comp.input_schema->'fields'->fld->>'llm_guidance', '') NOT LIKE '%_target_title%'
++      THEN
++        UPDATE content_components
++        SET input_schema = jsonb_set(
++              input_schema,
++              ARRAY['fields', fld, 'llm_guidance'],
++              to_jsonb(COALESCE(input_schema->'fields'->fld->>'llm_guidance', '') || guidance_add)
++            ),
++            updated_at = NOW()
++        WHERE id = comp.id;
++        updated := updated + 1;
++      END IF;
++    END LOOP;
++  END LOOP;
++  RAISE NOTICE '092: CTA text guidance appended to % field instances', updated;
++END $$;
++
++-- ── Verify ──────────────────────────────────────────────────────────────────
++DO $$
++DECLARE checks JSONB; cond TEXT;
++BEGIN
++  SELECT default_config #> '{workflow,steps,run_checks,config,checks}' INTO checks
++  FROM agent_definitions WHERE type = 'completeness-discovery-agent';
++  IF checks IS NULL
++     OR NOT (checks ? 'phantom_internal_links'
++             AND checks ? 'misdirected_cta'
++             AND checks ? 'incomplete_page_group') THEN
++    RAISE EXCEPTION 'verify failed: completeness checks array = %', checks;
++  END IF;
++
++  SELECT default_config #>> '{workflow,steps,check_rerender_mode,config,condition}' INTO cond
++  FROM agent_definitions WHERE type = 'page-rerender';
++  IF cond IS NULL OR cond NOT LIKE '%cta_links_stale%'
++     OR cond NOT LIKE '%image_landed%' OR cond NOT LIKE '%section_data_resolved%' THEN
++    RAISE EXCEPTION 'verify failed: page-rerender condition = %', cond;
++  END IF;
++
++  RAISE NOTICE 'verified: 3 checks enabled; page-rerender accepts cta_links_stale';
++END $$;
++
++COMMIT;
+diff --git a/docs/social001_vonc_tiktok_social/minilobby_task/093_vonc_prose_link_404_fixes.sql b/docs/social001_vonc_tiktok_social/minilobby_task/093_vonc_prose_link_404_fixes.sql
+new file mode 100644
+index 000000000..e27a9564b
+--- /dev/null
++++ b/docs/social001_vonc_tiktok_social/minilobby_task/093_vonc_prose_link_404_fixes.sql
+@@ -0,0 +1,83 @@
++-- 093_vonc_prose_link_404_fixes.sql — vonc.com: fix the two true-404 prose links
++-- Created 2026-07-14. Run AFTER 091 (schema source flip) and 092 (wiring), with
++-- the chassis image carrying the cta_links_stale recompute live.
++--
++-- SCOPE — deliberately small. Of vonc's owner-flagged link defects:
++--   - the 19 misdirected hero/call-to-action CTAs (-> /contact.html) are NOT
++--     hand-fixed here: /contact.html is an excluded destination, so the
++--     generic cta_links_stale rerender recompute replaces them with the real
++--     interactive targets (primary -> /tools/gauntlet/index.html, secondary
++--     -> /tools/quiz/index.html). Dispatch per the runbook, don't hand-edit —
++--     "fix the writer, not the row".
++--   - the 2 Arena CTAs get the Gauntlet via the same recompute (circular
++--     /index.html is replaced); they are retargeted to the Arena in 094 once
++--     the Arena page is deployed.
++--   - nav (Gauntlet/Quiz missing from site_nav_items) is repaired by the
++--     nav_drift -> nav-updater path, now that orphan_pages considers
++--     nav-flagged tool pages.
++-- What remains for SQL is exactly the two phantom links living in PROSE
++-- components (content-block-about, platform-comparison) — outside
++-- ctaFieldNames, so the recompute leaves them alone by design:
++--   /about.html content-block-about.cta_url:   /how-it-works           -> /archetypes.html
++--   /about.html platform-comparison.cta_url:   /how-it-works/the-gauntlet -> /tools/gauntlet/index.html
++--
++-- The WHEREs match on the phantom VALUE (any vonc component carrying it),
++-- not on a hardcoded component id — if the same phantom leaked elsewhere on
++-- the site it is fixed too; if a value is already fixed the UPDATE is a no-op.
++--
++-- LANDMINE: provocation-card / lobby-grid blank content_data is deliberate
++-- (runtime-fill shells) — nothing here touches them (cta_url equality only).
++--
++-- Reversal: _vonc_093_backup_20260714_content.
++
++BEGIN;
++
++CREATE TABLE _vonc_093_backup_20260714_content AS
++  SELECT pc.id, pc.page_id, pc.slot_name, pc.content_data
++  FROM page_components pc
++  JOIN pages p ON p.id = pc.page_id
++  WHERE p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++    AND pc.content_data->>'cta_url' IN ('/how-it-works', '/how-it-works/the-gauntlet');
++
++UPDATE page_components pc
++SET content_data = jsonb_set(pc.content_data, '{cta_url}', '"/archetypes.html"'),
++    updated_at = NOW()
++FROM pages p
++WHERE p.id = pc.page_id
++  AND p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++  AND pc.content_data->>'cta_url' = '/how-it-works';
++
++UPDATE page_components pc
++SET content_data = jsonb_set(pc.content_data, '{cta_url}', '"/tools/gauntlet/index.html"'),
++    updated_at = NOW()
++FROM pages p
++WHERE p.id = pc.page_id
++  AND p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++  AND pc.content_data->>'cta_url' = '/how-it-works/the-gauntlet';
++
++-- ── Verify: the two phantom values are gone from vonc content_data ─────────
++DO $$
++DECLARE remaining INT; backed_up INT;
++BEGIN
++  SELECT COUNT(*) INTO backed_up FROM _vonc_093_backup_20260714_content;
++  IF backed_up = 0 THEN
++    RAISE NOTICE '093: nothing matched — links already fixed (idempotent re-run?)';
++  END IF;
++
++  SELECT COUNT(*) INTO remaining
++  FROM page_components pc
++  JOIN pages p ON p.id = pc.page_id
++  WHERE p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++    AND pc.content_data->>'cta_url' IN ('/how-it-works', '/how-it-works/the-gauntlet');
++  IF remaining <> 0 THEN
++    RAISE EXCEPTION 'verify failed: % vonc components still carry a /how-it-works phantom', remaining;
++  END IF;
++  RAISE NOTICE 'verified: 0 /how-it-works phantoms remain (% rows retargeted)', backed_up;
++END $$;
++
++COMMIT;
++
++-- NOTE: /about.html serves stored rendered_html until re-rendered. The runbook
++-- dispatches a cta_links_stale rerender for the affected pages (which also
++-- re-renders these sections from the updated content_data); alternatively the
++-- misdirected_cta discovery items cover the same pages.
+diff --git a/docs/social001_vonc_tiktok_social/minilobby_task/094_vonc_arena_tool.sql b/docs/social001_vonc_tiktok_social/minilobby_task/094_vonc_arena_tool.sql
+new file mode 100644
+index 000000000..aee890965
+--- /dev/null
++++ b/docs/social001_vonc_tiktok_social/minilobby_task/094_vonc_arena_tool.sql
+@@ -0,0 +1,124 @@
++-- 094_vonc_arena_tool.sql — vonc.com: make the Arena a real destination
++-- Created 2026-07-14. Run AFTER 091-093. Owner decision 2026-07-14: build the
++-- Arena as a real page/tool (it existed only as copy — CTAs sold "the Arena"
++-- with no page anywhere; a previous session parked the retarget "until the
++-- real arena exists").
++--
++-- Platform constraint: no backend / user accounts. Arena v1 is a CLIENT-SIDE
++-- tool page like the Gauntlet — the only pattern the platform supports.
++-- Community features (rooms, duels, live votes) stay v3. v1 spec drawn from
++-- 002e_concept_spark(6).md §Arena Mechanics.
++--
++-- What this migration does:
++--   1. site_plan_pages row  tool-arena (role tool, in_header) on the current
++--      vonc plan — the page is now PROMISED, so incomplete_page_group flags
++--      it (needs_human_review) until it deploys: that finding is expected and
++--      is the live proof the new check works.
++--   2. add_tool work item -> tool-generator (the Gauntlet-class zero-Go path:
++--      generate_tool_html LLM step -> create_tool_component, which inserts
++--      the pages row itself and enforces the tool-doc sentinel header).
++--   3. doc_plans PLAN row for the tool (130-pilot format) so acceptance
++--      checkers have a contract.
++--
++-- Known gaps to work around (runbook):
++--   TP-002 — tool-generator never enqueues the final render/deploy: dispatch
++--            it manually after save_tool completes.
++--   TP-004 — reconcile_site_plan's tool route is commented out: do NOT let a
++--            needs_page item route tool-arena to page-build-handler.
++--   TL-001 — a generic full page rebuild clobbers the widget row: future
++--            edits via the section-editor targeted path ONLY.
++--   After any vonc reconcile_site_plan, park the re-emitted
++--   needs_page:provocation item back to 'detected'.
++--
++-- Reversal: DELETE the three inserts by the literal keys below (no existing
++-- rows are modified, so no backup tables).
++
++BEGIN;
++
++-- ── 1. Plan page (current vonc plan; url matches the tool page convention) ──
++INSERT INTO site_plan_pages (plan_id, name, role, slug, url, parent_section,
++                             in_header, in_footer, nav_order, title, nav_label, meta_description)
++VALUES
++ ('77493277-f510-47ea-aa27-8fca415743d6', 'tool-arena', 'tool', 'arena',
++  '/tools/arena/index.html', 'tools',
++  true, false, 45, 'The Arena', 'Arena',
++  'The competitive mode: today''s provocation, file your take, react to the takes on the floor — Genius, Delusional, Suspicious, Based or Cursed — and watch remix chains form.');
++
++-- ── 2. Tool generation work item (novel path -> tool-generator) ─────────────
++-- Spec fields are the ones tool-generator's generate_tool_html prompt reads:
++-- name / function / description / complexity.
++INSERT INTO site_work_items (
++    site_id, source, pipeline, item_type, severity, summary,
++    spec, priority, handler_agent, status, created_by, item_key
++) VALUES (
++    '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74', 'human', 'build', 'add_tool',
++    'medium', 'Build the Arena — competitive provocation/take/reaction tool (v1, client-side)',
++    '{
++      "name": "The Arena",
++      "function": "tool-arena-interface",
++      "complexity": "medium",
++      "description": "The Arena is Spark''s competitive mode, v1 as a fully self-contained client-side experience (no fetch calls, no backend). Four elements, in order: (1) TODAY''S PROVOCATION — a bold prompt displayed prominently at the top (embed 5 sample provocations in JS and pick one by day-of-date so the page changes daily, e.g. \"AI art is just expensive plagiarism — defend or destroy\"). (2) FILE YOUR TAKE — a textarea + submit button; store the visitor''s take in localStorage keyed by the provocation, show it back with a ''Your take is on the floor'' state, allow re-filing. (3) THE FLOOR — 4-6 embedded sample takes for today''s provocation, each with the five Arena Reactions as tappable chips: Genius / Delusional / Suspicious / Based / Cursed. Tapping increments a visible count (persist counts in localStorage); one reaction per take, switchable. (4) REMIX CHAIN — a simple visual (nested/indented cards or a connected line) showing one take remixed twice, illustrating chain reactions with shared credit. Tone: combative, analytical — ''sharpest response wins''. Include a short footer note that duels and live rooms are coming, linking the words ''the Gauntlet'' to /tools/gauntlet/index.html for the full daily game."
++    }'::jsonb,
++    100, 'tool-generator', 'triaged', 'human', 'add_tool_novel:tool-arena-interface'
++);
++
++-- ── 3. Tool PLAN doc (130-pilot format; -EDIT checks are skipped by checkers) ──
++INSERT INTO doc_plans (subject_type, subject_key, body, source, created_by, notes)
++VALUES ('tool', 'tool-arena-interface', $plan$# PLAN — tool-arena-interface
++
++## Aim
++Make "the Arena" — sold by site copy since launch — a real destination: the
++competitive provocation/take/reaction loop as a v1 client-side page, funnelling
++into the Daily Gauntlet. Source: 002e_concept_spark(6).md §Arena Mechanics.
++
++## Behaviour contract
++Daily provocation (5 embedded samples, picked by date) at top; take-filing via
++textarea persisted to localStorage (re-filing allowed); 4-6 sample takes each
++carrying the five Arena Reactions (Genius/Delusional/Suspicious/Based/Cursed)
++as chips with localStorage-persisted counts, one switchable reaction per take;
++a static remix-chain visual (one take remixed twice). All client-side, no
++fetch. Footer links "the Gauntlet" -> /tools/gauntlet/index.html.
++
++## Acceptance criteria
++```criteria
++{ "profiles": ["desktop", "mobile"],
++  "note": "reaction-flow-EDIT uses PLACEHOLDER selectors — set them from the generated component html before Tier-3/4 consume this block; checkers skip checks whose id ends in -EDIT",
++  "checks": [
++    {"id": "boots",      "type": "selector_exists",        "selector": ".tool-container"},
++    {"id": "console",    "type": "no_console_errors"},
++    {"id": "status",     "type": "page_status_ok"},
++    {"id": "mobile-fit", "type": "no_horizontal_overflow", "profiles": ["mobile"]},
++    {"id": "reaction-flow-EDIT", "type": "interaction",
++      "steps": [{"action": "click", "selector": "EDIT-first-reaction-chip"}],
++      "expect": {"selector": "EDIT-reaction-count", "text_matches": "[1-9]"}}
++  ] }
++```
++
++## Deliberate decisions — do not re-fix
++- Sample provocations/takes are EMBEDDED, not fetched from provocations.json —
++  generator invariant (no fetch); wiring to the live provocations feed (which
++  already carries an `arena` key) is a v2 task, not a defect.
++- No usernames anywhere (Radical Anonymity is an Arena founding rule).
++- Duels / rooms / live voting deliberately absent — v3 community features.
++- TL-001: this page must NEVER receive a generic full page rebuild (it would
++  clobber the widget row); edits go through the section-editor targeted path.
++$plan$, 'human', '094_vonc_arena_tool', 'Arena v1 — owner decision 2026-07-14');
++
++-- ── Verify ──────────────────────────────────────────────────────────────────
++DO $$
++DECLARE planrow INT; item INT; plandoc INT;
++BEGIN
++  SELECT COUNT(*) INTO planrow FROM site_plan_pages
++  WHERE plan_id = '77493277-f510-47ea-aa27-8fca415743d6' AND name = 'tool-arena';
++  SELECT COUNT(*) INTO item FROM site_work_items
++  WHERE item_key = 'add_tool_novel:tool-arena-interface'
++    AND status IN ('triaged', 'claimed', 'complete');
++  SELECT COUNT(*) INTO plandoc FROM doc_plans
++  WHERE subject_type = 'tool' AND subject_key = 'tool-arena-interface' AND is_current;
++  IF planrow <> 1 OR item < 1 OR plandoc <> 1 THEN
++    RAISE EXCEPTION 'verify failed: planrow=% item=% plandoc=% (want 1/1+/1)', planrow, item, plandoc;
++  END IF;
++  RAISE NOTICE 'verified: tool-arena planned, add_tool item queued, PLAN doc current';
++END $$;
++
++COMMIT;
+diff --git a/docs/social001_vonc_tiktok_social/minilobby_task/095_vonc_arena_cta_retarget.sql b/docs/social001_vonc_tiktok_social/minilobby_task/095_vonc_arena_cta_retarget.sql
+new file mode 100644
+index 000000000..04d13fdc6
+--- /dev/null
++++ b/docs/social001_vonc_tiktok_social/minilobby_task/095_vonc_arena_cta_retarget.sql
+@@ -0,0 +1,107 @@
++-- 095_vonc_arena_cta_retarget.sql — point the Arena CTAs at the real Arena
++-- Created 2026-07-14. Run ONLY AFTER the Arena page from 094 is DEPLOYED
++-- (the pre-flight block below hard-fails otherwise).
++--
++-- Context: the two Arena-naming CTAs ("Enter the Arena" / "Enter today's
++-- Arena") were misdirected (circular -> /index.html). The cta_links_stale
++-- rerender pass gave them the Gauntlet as an interim REAL destination; that
++-- interim value is valid and non-excluded, so the recompute's exception rule
++-- correctly refuses to change it again. Pointing copy that names the Arena AT
++-- the Arena is therefore a hand retarget — matched by the copy itself (any
++-- vonc hero/call-to-action CTA whose text says "arena"), not by row ids.
++--
++-- After this: dispatch a cta_links_stale rerender for the affected pages —
++-- the exception rule keeps /tools/arena/index.html (real, non-excluded), and
++-- the re-run misdirected_cta check goes quiet ("arena" now token-matches the
++-- Arena page, and the href agrees).
++--
++-- Reversal: _vonc_095_backup_20260714_content.
++
++BEGIN;
++
++-- ── Pre-flight: the Arena page must be deployed ─────────────────────────────
++DO $$
++DECLARE ok INT;
++BEGIN
++  SELECT COUNT(*) INTO ok FROM pages
++  WHERE site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++    AND url = '/tools/arena/index.html'
++    AND build_status = 'deployed';
++  IF ok <> 1 THEN
++    RAISE EXCEPTION 'pre-flight failed: /tools/arena/index.html not deployed yet — run 094''s pipeline first';
++  END IF;
++END $$;
++
++CREATE TABLE _vonc_095_backup_20260714_content AS
++  SELECT pc.id, pc.page_id, pc.slot_name, pc.content_data
++  FROM page_components pc
++  JOIN pages p ON p.id = pc.page_id
++  JOIN content_components cc ON cc.id = pc.component_id
++  WHERE p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++    AND cc.function IN ('hero', 'call-to-action')
++    AND (pc.content_data->>'cta_text' ILIKE '%arena%'
++      OR pc.content_data->>'primary_cta_text' ILIKE '%arena%'
++      OR pc.content_data->>'secondary_cta_text' ILIKE '%arena%'
++      OR pc.content_data->>'secondary_cta' ILIKE '%arena%');
++
++-- ── Retarget each URL slot whose companion text names the Arena ─────────────
++UPDATE page_components pc
++SET content_data = jsonb_set(pc.content_data, '{cta_url}', '"/tools/arena/index.html"'),
++    updated_at = NOW()
++FROM pages p, content_components cc
++WHERE p.id = pc.page_id AND cc.id = pc.component_id
++  AND p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++  AND cc.function = 'hero'
++  AND pc.content_data->>'cta_text' ILIKE '%arena%';
++
++UPDATE page_components pc
++SET content_data = jsonb_set(pc.content_data, '{primary_cta_url}', '"/tools/arena/index.html"'),
++    updated_at = NOW()
++FROM pages p, content_components cc
++WHERE p.id = pc.page_id AND cc.id = pc.component_id
++  AND p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++  AND cc.function = 'call-to-action'
++  AND pc.content_data->>'primary_cta_text' ILIKE '%arena%';
++
++UPDATE page_components pc
++SET content_data = jsonb_set(pc.content_data, '{secondary_cta_url}', '"/tools/arena/index.html"'),
++    updated_at = NOW()
++FROM pages p, content_components cc
++WHERE p.id = pc.page_id AND cc.id = pc.component_id
++  AND p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++  AND cc.function IN ('hero', 'call-to-action')
++  AND (pc.content_data->>'secondary_cta_text' ILIKE '%arena%'
++    OR pc.content_data->>'secondary_cta' ILIKE '%arena%');
++
++-- ── Verify: every arena-naming CTA slot now points at the Arena ─────────────
++DO $$
++DECLARE mismatched INT; retargeted INT;
++BEGIN
++  SELECT COUNT(*) INTO mismatched
++  FROM page_components pc
++  JOIN pages p ON p.id = pc.page_id
++  JOIN content_components cc ON cc.id = pc.component_id
++  WHERE p.site_id = '9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++    AND cc.function IN ('hero', 'call-to-action')
++    AND ((pc.content_data->>'cta_text' ILIKE '%arena%'
++          AND pc.content_data->>'cta_url' IS DISTINCT FROM '/tools/arena/index.html')
++      OR (pc.content_data->>'primary_cta_text' ILIKE '%arena%'
++          AND pc.content_data->>'primary_cta_url' IS DISTINCT FROM '/tools/arena/index.html')
++      OR ((pc.content_data->>'secondary_cta_text' ILIKE '%arena%'
++           OR pc.content_data->>'secondary_cta' ILIKE '%arena%')
++          AND pc.content_data->>'secondary_cta_url' IS DISTINCT FROM '/tools/arena/index.html'));
++  SELECT COUNT(*) INTO retargeted FROM _vonc_095_backup_20260714_content;
++  IF mismatched <> 0 THEN
++    RAISE EXCEPTION 'verify failed: % arena-naming CTA slots still point elsewhere', mismatched;
++  END IF;
++  IF retargeted = 0 THEN
++    RAISE NOTICE '095: no arena-naming CTAs found in content_data — check cta text field names against live rows';
++  ELSE
++    RAISE NOTICE 'verified: % component rows retargeted to /tools/arena/index.html', retargeted;
++  END IF;
++END $$;
++
++COMMIT;
++
++-- NOTE: follow with a cta_links_stale page_rerender for the affected pages,
++-- then re-run discovery — misdirected_cta must report zero arena findings.
+diff --git a/docs/social001_vonc_tiktok_social/minilobby_task/RUNBOOK_link_integrity_task.md b/docs/social001_vonc_tiktok_social/minilobby_task/RUNBOOK_link_integrity_task.md
+new file mode 100644
+index 000000000..bf94036e9
+--- /dev/null
++++ b/docs/social001_vonc_tiktok_social/minilobby_task/RUNBOOK_link_integrity_task.md
+@@ -0,0 +1,123 @@
++# RUNBOOK — fleet link/flow integrity + vonc repair + Arena (2026-07-14)
++
++Operational sequence for the work shipped on branch `085_debug_and_feature_loops`
++(plan: owner-approved 2026-07-14). Everything below runs against the live
++cluster/DB — none of it happened in the authoring session. **Order is
++load-bearing**; each step's gate is stated.
++
++Companion migrations (this directory): `091` … `095`.
++Go changes (one chassis image): `resolve_internal_links_action.go` (interactive-
++first `chooseCTATargets`, `cta_target_title`, `ctaExcludedDestination`),
++`rerender_page_sections_action.go` (`applyCTARecompute`, gated on
++`reason == "cta_links_stale"`), `create_rerender_items_action.go` (reason
++stamp), `render_site_components_action.go` (header CTA validation + fallback),
++`discovery_checks/check_misdirected_cta.go` + `check_incomplete_page_group.go`
++(new), `check_orphan_pages.go` (nav-flagged tool pages now considered),
++`datahelpers/links.go` (`ExtractAnchors`).
++
++## 1. Chassis image
++
++1. Bump `IMAGE_TAG` (makefile line 16, currently `v1.0.1114` → next).
++2. Build + roll the pod. Image BEFORE seeds; no orchestration fires within
++   ~5 min of pod start.
++3. Verify symbols in the running binary (verify by artifact, not deploy logs):
++   ```
++   kubectl -n ai-persona-system exec <pod> -- sh -c \
++     'for s in loadInteractivePages applyCTARecompute misdirected_cta incomplete_page_group ExtractAnchors; do
++        echo -n "$s: "; grep -ac $s /proc/1/exe; done'
++   ```
++   Every count must be ≥ 1.
++
++## 2. Migrations 091 + 092 (fleet)
++
++Gate: image live (091 is safe earlier — it only bites on next render — but
++keep it simple: image first, then SQL).
++
++1. `091_cta_url_schema_source_flip.sql` — hard-fails if 0 fields flip or any
++   `pages.*` CTA source remains.
++2. `092_enable_link_checks_and_cta_rerender.sql` — enables
++   `phantom_internal_links` / `misdirected_cta` / `incomplete_page_group` on
++   completeness-discovery-agent, adds `cta_links_stale` to page-rerender's
++   `check_rerender_mode`, appends the `*_target_title` writer guidance.
++   * 1b follow-up check: after the next content-writer run on any site,
++     confirm the guidance text actually reached the section prompt (the known
++     "prompt seams dropping spec intent" trap) — look for `_target_title` in
++     the writer's prompt log.
++
++**Fleet safety gate** (the 090 pattern) before touching vonc: on an untouched
++business site (ai-agent-orchestration), `curl /about.html` — persisted CTAs
++unchanged, DB rows unchanged. Then dispatch one plain `image_landed` rerender
++anywhere and diff CTA hrefs before/after: must be byte-identical (proves the
++1c gate).
++
++## 3. vonc discovery — BEFORE repair (proves generic detection)
++
++```
++scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh vonc.com completeness
++```
++Expected findings on the broken site (investigation figures, 2026-07-14):
++- `misdirected_cta`: ~10 page items covering the 19 `/contact.html` CTAs
++- `phantom_internal_links`: 2 (`/how-it-works`, `/how-it-works/the-gauntlet`)
++- `cta_names_unknown_destination`: the Arena CTAs (circular/homepage)
++- `nav_drift`: 1 site item covering the 2 nav-flagged tool pages
++
++If any class is missing, STOP and diagnose before repairing — the point is
++that the generic loop catches all of it.
++
++Park rule: if any pass re-emits `needs_page:provocation`, set it back to
++`'detected'` (deliberate — Spark pipeline's page).
++
++## 4. vonc repair
++
++1. `093_vonc_prose_link_404_fixes.sql` (the two /how-it-works phantoms; the
++   19 CTA misdirections are deliberately NOT hand-fixed — see file header).
++2. Dispatch the `nav_drift` item → nav-updater (adds Gauntlet + Quiz to
++   `site_nav_items`, re-renders site components — the new header-CTA
++   validation also runs here).
++3. Promote + dispatch the `misdirected_cta` → `page_rerender` items
++   (status `detected` → `triaged`, then a dispatch pass, e.g.
++   `087_dispatch_work_items_vonc.sh`):
++   ```sql
++   UPDATE site_work_items SET status='triaged'
++   WHERE site_id='9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
++     AND item_key LIKE 'misdirected_cta:%' AND status='detected';
++   ```
++   The `cta_links_stale` rerender recomputes hero/call-to-action targets:
++   primary → `/tools/gauntlet/index.html`, secondary → `/tools/quiz/index.html`
++   (interim Gauntlet for the Arena CTAs). Also rerender `/about.html` if it is
++   not in the misdirected set, so 093's content_data lands in HTML.
++4. `curl` every previously-broken CTA target → 200, and each lands on the
++   page its copy names. Do NOT touch `provocation-card` / `lobby-grid` blank
++   fields (runtime-fill shells).
++
++## 5. Arena (WS4)
++
++1. `094_vonc_arena_tool.sql` — plan row + `add_tool` item + PLAN doc. The
++   `incomplete_page_group` finding for `tool-arena` that appears at the next
++   discovery pass is EXPECTED (live proof of the check); it clears when the
++   page deploys.
++2. Dispatch the `add_tool_novel:tool-arena-interface` item → tool-generator.
++3. **TP-002**: manually dispatch the render/deploy for the new page (the
++   generator does not enqueue it). 083/084-style scripts in
++   `scripts/initial_messages/210_vonc_trigger/` are the template.
++4. **TP-004**: if anything routes `tool-arena` to page-build-handler, kill it.
++5. `095_vonc_arena_cta_retarget.sql` (pre-flight enforces the page is
++   deployed), then a `cta_links_stale` rerender for the affected pages.
++6. **TL-001** (standing): `/tools/arena/index.html` must never receive a
++   generic full rebuild — section-editor targeted path only.
++7. Owner eyeball of the page before calling it done.
++
++## 6. Close the loop
++
++1. Re-trigger vonc completeness discovery → expect ZERO of: misdirected_cta,
++   phantom_internal_links, cta_names_unknown_destination, nav_drift,
++   incomplete_page_group. (Park `needs_page:provocation` if re-emitted.)
++2. Browser: Gauntlet/Quiz/Arena in rendered nav; Arena interactive (JS
++   present, tool-doc sentinel header in the component, not a prose page).
++3. Regression guard: run the same discovery on robot-hands.com — after its
++   own CTA retarget items are reviewed, the new checks must run clean (no
++   false-positive storm fleet-wide).
++4. Unit tests (already green in the authoring session):
++   `go test ./platform/orchestration/...` — pre-existing failure in
++   `platform/orchestration/orchestration_test.go` (`NewSagaCoordinator`
++   signature drift) is unrelated and predates this work.
+diff --git a/docs/social001_vonc_tiktok_social/minilobby_task/RUNNING_NOTES_minilobby_task.md b/docs/social001_vonc_tiktok_social/minilobby_task/RUNNING_NOTES_minilobby_task.md
+index eb8cdad02..c29cab4fe 100644
+--- a/docs/social001_vonc_tiktok_social/minilobby_task/RUNNING_NOTES_minilobby_task.md
++++ b/docs/social001_vonc_tiktok_social/minilobby_task/RUNNING_NOTES_minilobby_task.md
+@@ -403,3 +403,54 @@ What I deliberately *didn't* drop: the orphaned `lock_section_to_strict` /
+ harmless, and column drops are a bigger decision than a trigger drop.
+ 
+ `Categories:` (decision, fix, root-cause)
++
++---
++
++## 2026-07-14 — link/flow integrity: root cause shipped, vonc repair + Arena authored
++
++Owner-approved plan (checks + root cause + vonc repair + Arena as a real tool) implemented on
++`085_debug_and_feature_loops`. Authoring session only — nothing below is live until the RUNBOOK
++(`RUNBOOK_link_integrity_task.md`, this directory) is executed against the cluster.
++
++1. **Root cause confirmed and removed at the writer.** The four CTA url fields on `hero` /
++   `call-to-action` carried `"source": "pages.contact"` / `"pages.services"` — a literal name→URL
++   lookup written into `resolved_data` unconditionally on every render, and `resolved_data` merges
++   LAST (this is why 089's Gauntlet retargets silently reverted). Migration `091` flips those
++   sources to `"renderer"` (field-loop verified: resolves nil → `on_missing: skip_field` → authored
++   `content_data` + the resolver become the only writers).
++2. **Resolver broadened (Go).** `chooseCTATargets` v2: interactive pages (`tool`/`game`) rank ahead
++   of section-index hubs; returns full targets so `setCTAField` also writes
++   `cta_target_title` / `*_cta_target_title` — and `092` adds writer guidance so CTA copy is
++   authored FOR the destination. New `ctaExcludedDestination` fixes the `firstPathSegment` blind
++   spot (`/contact.html` → area `""`, never matched the excluded set).
++3. **Repair path for deployed pages (Go).** `rerender_page_sections` recomputes CTA targets — gated
++   strictly on `spec.reason == "cta_links_stale"` (a plain `image_landed` rerender is byte-identical
++   to before). Exception rule: an authored URL that is real, non-excluded and non-circular is KEPT;
++   phantom/excluded/circular/empty values are replaced. So vonc's 19 `/contact.html` CTAs are fixed
++   by the GENERIC path — 093 hand-fixes only the two `/how-it-works*` phantoms living in prose
++   components the recompute deliberately doesn't touch.
++4. **Detection (Go).** New checks `misdirected_cta` (anchor text token-matches a real page, href
++   goes elsewhere → one `page_rerender`/`cta_links_stale` item per page; distinctive text naming NO
++   page with an empty/phantom/circular/excluded/homepage href → `cta_names_unknown_destination`,
++   needs_human_review — the Arena case) and `incomplete_page_group` (plan-promised siblings
++   part-deployed; tool/game gaps → human review per TP-004; content gaps co-dedup with reconcile's
++   `needs_page:<name>` keys). `orphan_pages` fixed: it excluded `page_type='tool'` outright (query
++   line ~201), so vonc's `in_header=true` tools could NEVER produce `nav_drift`; nav-flagged pages
++   are now always considered. New shared `datahelpers.ExtractAnchors` (href + visible text).
++   `092` enables `phantom_internal_links` + both new checks on completeness-discovery-agent and adds
++   `cta_links_stale` to page-rerender's conditional.
++5. **Arena.** `094` plans `tool-arena` on the current vonc plan (the resulting
++   `incomplete_page_group` finding is the check's live proof), queues
++   `add_tool_novel:tool-arena-interface` → tool-generator (v1 spec from 002e §Arena Mechanics:
++   daily provocation, localStorage take-filing, the five Arena Reactions, remix-chain visual;
++   self-contained per generator invariants), and records the PLAN doc. `095` (pre-flight: page
++   deployed) retargets the arena-naming CTAs off their Gauntlet interim.
++6. **Tests**: `go test` green for actions / discovery_checks / datahelpers (new tests for
++   ExtractAnchors, ctaTokens/bestPageMatch, chooseCTATargets v2, ctaExcludedDestination,
++   applyCTARecompute). Pre-existing unrelated failure: `orchestration_test.go` NewSagaCoordinator
++   signature drift.
++7. **Standing landmines honoured**: provocation-card / lobby-grid untouched; park
++   `needs_page:provocation` after any reconcile; **TL-001: `/tools/arena/index.html` must never
++   receive a generic full rebuild** — section-editor targeted path only.
++
++`Categories:` (root-cause, fix, feature, next-task)
+diff --git a/platform/orchestration/actions/create_rerender_items_action.go b/platform/orchestration/actions/create_rerender_items_action.go
+index 26f308830..08e0f1bc9 100644
+--- a/platform/orchestration/actions/create_rerender_items_action.go
++++ b/platform/orchestration/actions/create_rerender_items_action.go
+@@ -87,6 +87,10 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
+ 	componentIDStr := inputs.Get("component_id")
+ 	// Reasons page-rerender gates the section re-render on.
+ 	scoped := (reason == "section_data_resolved" || reason == "image_landed") && componentIDStr != ""
++	// cta_links_stale is stamped WITHOUT component scoping: the CTA recompute
++	// in rerender_page_sections is cheap and page-scoped, and a site-wide CTA
++	// repair has no single triggering component to scope by.
++	stampReason := scoped || reason == "cta_links_stale"
+ 
+ 	var dependentPages map[string]bool
+ 	if scoped {
+@@ -181,7 +185,7 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
+ 			"filename":  filename,
+ 			"domain":    domain,
+ 		}
+-		if scoped {
++		if stampReason {
+ 			// page-rerender gates the section re-render on this reason.
+ 			spec["reason"] = reason
+ 		}
+diff --git a/platform/orchestration/actions/discovery_checks/check_incomplete_page_group.go b/platform/orchestration/actions/discovery_checks/check_incomplete_page_group.go
+new file mode 100644
+index 000000000..1d6ac91e5
+--- /dev/null
++++ b/platform/orchestration/actions/discovery_checks/check_incomplete_page_group.go
+@@ -0,0 +1,277 @@
++// FILE: platform/orchestration/actions/discovery_checks/check_incomplete_page_group.go
++//
++// Detects PARTIALLY-BUILT page groups: the current site plan promises a set
++// of sibling pages (same parent_section, or the implicit "interactive" group
++// of tool/game roles) and some siblings are deployed while others were never
++// built. A half-built group is worse than an unbuilt one — the deployed
++// siblings link to and promise the missing ones (the vonc case: two tools
++// deployed, copy selling a third that has no page anywhere).
++//
++// Group rule: a group is INCOMPLETE when >= 1 sibling is deployed AND >= 1
++// sibling has no pages row or is not deployed. Classification mirrors
++// reconcile_site_plan's decideEmit (reimplemented here — package actions
++// imports this package, so importing it back would cycle):
++//   missing   — no pages row
++//   not_built — row exists, build_status != deployed
++//   stale     — deployed but built_from_plan_version missing/older
++// Stale pages count as REALISED (the destination exists for a visitor) and
++// are surfaced as findings only: reconcile_site_plan owns stale rebuilds, and
++// emitting needs_page here too would double-queue every page on a plan bump.
++//
++// Routing per gap:
++//   - ordinary content roles -> needs_page / page-build-handler, the same
++//     item_key ("needs_page:<name>") and spec shape reconcile_site_plan
++//     emits, so the two sources co-dedup via (site_id, item_key).
++//   - tool/game roles -> needs_human_review, NO handler. Known gap TP-004:
++//     the generic page builder would produce a widget-less prose page where
++//     an interactive tool belongs; building a tool is a tool-generator task
++//     a human must dispatch.
++//
++// Registration: automatic via init() -> Register(&IncompletePageGroupCheck{}).
++// Enable by adding "incomplete_page_group" to a discovery agent's checks array.
++
++package discovery_checks
++
++import (
++	"database/sql"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"sort"
++
++	"github.com/google/uuid"
++	"go.uber.org/zap"
++)
++
++func init() { Register(&IncompletePageGroupCheck{}) }
++
++type IncompletePageGroupCheck struct{}
++
++func (c *IncompletePageGroupCheck) Name() string { return "incomplete_page_group" }
++
++type groupPlanPage struct {
++	Name          string
++	Role          string
++	Title         string
++	ParentSection string
++}
++
++func (c *IncompletePageGroupCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
++	// Current plan — a site without one has nothing promised, nothing to check.
++	var planID uuid.UUID
++	err := dctx.DB.QueryRowContext(dctx.Ctx, `
++		SELECT id FROM site_plans WHERE site_id = $1 AND is_current = true
++	`, dctx.SiteID).Scan(&planID)
++	if errors.Is(err, sql.ErrNoRows) {
++		dctx.Logger.Info("incomplete_page_group: no current site plan, skipping",
++			zap.String("site_id", dctx.SiteID.String()))
++		return &CheckResult{}, nil
++	}
++	if err != nil {
++		return nil, fmt.Errorf("incomplete_page_group plan lookup failed: %w", err)
++	}
++
++	planPages, err := loadGroupPlanPages(dctx, planID)
++	if err != nil {
++		return nil, err
++	}
++
++	// Realised state per plan page name.
++	status, err := loadRealisedStatus(dctx, planID)
++	if err != nil {
++		return nil, err
++	}
++
++	// Build groups: explicit parent_section groups + the implicit interactive
++	// group (tool/game roles). A page may appear in both; gaps are emitted
++	// once (dedup by name below).
++	groups := map[string][]groupPlanPage{}
++	for _, p := range planPages {
++		if p.ParentSection != "" {
++			groups["section:"+p.ParentSection] = append(groups["section:"+p.ParentSection], p)
++		}
++		if p.Role == "tool" || p.Role == "game" {
++			groups["interactive"] = append(groups["interactive"], p)
++		}
++	}
++
++	result := &CheckResult{}
++	emittedGap := map[string]bool{}
++
++	groupNames := make([]string, 0, len(groups))
++	for g := range groups {
++		groupNames = append(groupNames, g)
++	}
++	sort.Strings(groupNames)
++
++	for _, groupName := range groupNames {
++		members := groups[groupName]
++		if len(members) < 2 {
++			continue // a group of one cannot be "partially" built
++		}
++
++		deployed := 0
++		var gaps []groupPlanPage
++		var staleNames []string
++		for _, m := range members {
++			switch status[m.Name] {
++			case "deployed":
++				deployed++
++			case "stale":
++				deployed++ // realised for a visitor; reconcile owns the rebuild
++				staleNames = append(staleNames, m.Name)
++			default: // "missing" or "not_built"
++				gaps = append(gaps, m)
++			}
++		}
++		if deployed == 0 || len(gaps) == 0 {
++			continue // fully unbuilt or fully built — not this check's problem
++		}
++
++		result.Findings = append(result.Findings, map[string]interface{}{
++			"check":    "incomplete_page_group",
++			"group":    groupName,
++			"members":  len(members),
++			"deployed": deployed,
++			"gaps":     pageNames(gaps),
++			"stale":    staleNames,
++		})
++
++		for _, gap := range gaps {
++			if emittedGap[gap.Name] {
++				continue
++			}
++			emittedGap[gap.Name] = true
++
++			gapState := status[gap.Name]
++			if gapState == "" {
++				gapState = "missing"
++			}
++
++			if gap.Role == "tool" || gap.Role == "game" {
++				// TP-004: generic builder makes prose pages, not tools.
++				specJSON, _ := json.Marshal(map[string]interface{}{
++					"check":     "incomplete_page_group",
++					"group":     groupName,
++					"page_name": gap.Name,
++					"page_role": gap.Role,
++					"plan_id":   planID.String(),
++					"state":     gapState,
++					"fix": "Planned interactive page missing while siblings are live. " +
++						"Do NOT route to the generic page builder (it produces a widget-less " +
++						"prose page). Build via tool-generator/create_tool_component, or " +
++						"remove the page from the plan.",
++				})
++				result.WorkItems = append(result.WorkItems, WorkItemSpec{
++					SiteID:    dctx.SiteID,
++					Source:    "discovery",
++					Pipeline:  "build",
++					ItemType:  "incomplete_page_group",
++					Severity:  "high",
++					Summary:   fmt.Sprintf("Planned %s page %q is %s while sibling pages are deployed (%s)", gap.Role, gap.Name, gapState, groupName),
++					SpecJSON:  string(specJSON),
++					Priority:  30,
++					Status:    "needs_human_review",
++					CreatedBy: dctx.AgentType,
++					ItemKey:   fmt.Sprintf("incomplete_group_tool:%s", gap.Name),
++					BatchID:   dctx.BatchID,
++				})
++				continue
++			}
++
++			// Ordinary content page: same key + spec shape as reconcile's
++			// needs_page items, so the two sources co-dedup.
++			specJSON, _ := json.Marshal(map[string]interface{}{
++				"page_name": gap.Name,
++				"page_role": gap.Role,
++				"plan_id":   planID.String(),
++				"reason":    "incomplete_page_group",
++			})
++			result.WorkItems = append(result.WorkItems, WorkItemSpec{
++				SiteID:       dctx.SiteID,
++				Source:       "discovery",
++				Pipeline:     "build",
++				ItemType:     "needs_page",
++				Severity:     "medium",
++				Summary:      fmt.Sprintf("Build %s page (%s sibling gap in %s)", gap.Name, gapState, groupName),
++				SpecJSON:     string(specJSON),
++				Priority:     50,
++				HandlerAgent: "page-build-handler",
++				Status:       "detected",
++				CreatedBy:    dctx.AgentType,
++				ItemKey:      "needs_page:" + gap.Name,
++				BatchID:      dctx.BatchID,
++			})
++		}
++	}
++
++	if len(result.WorkItems) > 0 {
++		dctx.Logger.Warn("incomplete_page_group: found partially-built page groups",
++			zap.Int("gaps", len(result.WorkItems)),
++			zap.String("site_id", dctx.SiteID.String()))
++	}
++
++	return result, nil
++}
++
++func pageNames(pages []groupPlanPage) []string {
++	names := make([]string, len(pages))
++	for i, p := range pages {
++		names[i] = p.Name
++	}
++	return names
++}
++
++func loadGroupPlanPages(dctx DiscoveryCheckContext, planID uuid.UUID) ([]groupPlanPage, error) {
++	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
++		SELECT name, role, COALESCE(title, ''), COALESCE(parent_section, '')
++		FROM site_plan_pages
++		WHERE plan_id = $1
++	`, planID)
++	if err != nil {
++		return nil, fmt.Errorf("incomplete_page_group plan pages query failed: %w", err)
++	}
++	defer rows.Close()
++
++	var out []groupPlanPage
++	for rows.Next() {
++		var p groupPlanPage
++		if err := rows.Scan(&p.Name, &p.Role, &p.Title, &p.ParentSection); err != nil {
++			continue
++		}
++		out = append(out, p)
++	}
++	return out, rows.Err()
++}
++
++// loadRealisedStatus classifies every realised page: deployed | not_built |
++// stale (name absent => missing). Mirrors reconcile_site_plan's decideEmit.
++func loadRealisedStatus(dctx DiscoveryCheckContext, planID uuid.UUID) (map[string]string, error) {
++	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
++		SELECT name, COALESCE(build_status, ''), built_from_plan_version
++		FROM pages
++		WHERE site_id = $1 AND status NOT IN ('deleted', 'archived')
++	`, dctx.SiteID)
++	if err != nil {
++		return nil, fmt.Errorf("incomplete_page_group pages query failed: %w", err)
++	}
++	defer rows.Close()
++
++	out := map[string]string{}
++	for rows.Next() {
++		var name, buildStatus string
++		var builtFrom uuid.NullUUID
++		if err := rows.Scan(&name, &buildStatus, &builtFrom); err != nil {
++			continue
++		}
++		switch {
++		case buildStatus != "deployed":
++			out[name] = "not_built"
++		case !builtFrom.Valid || builtFrom.UUID != planID:
++			out[name] = "stale"
++		default:
++			out[name] = "deployed"
++		}
++	}
++	return out, rows.Err()
++}
+diff --git a/platform/orchestration/actions/discovery_checks/check_misdirected_cta.go b/platform/orchestration/actions/discovery_checks/check_misdirected_cta.go
+new file mode 100644
+index 000000000..8d89780fe
+--- /dev/null
++++ b/platform/orchestration/actions/discovery_checks/check_misdirected_cta.go
+@@ -0,0 +1,420 @@
++// FILE: platform/orchestration/actions/discovery_checks/check_misdirected_cta.go
++//
++// Detects CTAs/links in DEPLOYED rendered HTML whose visible text names one
++// real page while the href points at a different one — the failure mode the
++// phantom check cannot see, because the wrong destination is still a real
++// page ("Enter the Gauntlet" → /contact.html passes phantom_internal_links).
++//
++// Two deterministic findings, both from page_components.rendered_html:
++//
++//   - misdirected_cta: anchor text token-matches a real page's name/title/
++//     nav_label (tool/game pages preferred) but the href normalises to a
++//     different page. Emits ONE page_rerender work item per affected page
++//     (not per anchor — multiple CTAs on a page need one rerender) with
++//     spec.reason = "cta_links_stale", which page-rerender's section
++//     re-render path uses to recompute CTA targets (rerender_page_sections'
++//     applyCTARecompute). Note the recompute only rewrites hero /
++//     call-to-action fields; a misdirected link inside a prose component is
++//     re-detected on the next discovery pass and escalates via the two-strike
++//     rule to human review — loud, not silent.
++//
++//   - cta_names_unknown_destination: anchor text names NO real page AND the
++//     href is empty, phantom, self-referential, or lands in an excluded area
++//     (contact/legal/about). Copy promising a destination that does not exist
++//     is a product decision (build the page? rewrite the copy?), so this goes
++//     to needs_human_review with no handler.
++//
++// Guard against false positives: anchor text is reduced to distinctive tokens
++// (stopwords + generic CTA words removed); generic texts ("Learn More",
++// "Get Started") match nothing and are skipped entirely. Index/home pages are
++// excluded as match candidates — link text rarely "names" the homepage.
++//
++// Extraction/normalisation are the SHARED datahelpers definitions
++// (ExtractAnchors / ClassifyLinkScope / PageURLSet) so this check, the deploy
++// gate and the phantom audit agree on what an internal page link is.
++//
++// Registration: automatic via init() -> Register(&MisdirectedCTACheck{}).
++// Enable by adding "misdirected_cta" to a discovery agent's checks array.
++
++package discovery_checks
++
++import (
++	"encoding/json"
++	"fmt"
++	"sort"
++	"strings"
++
++	"github.com/google/uuid"
++	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
++	"go.uber.org/zap"
++)
++
++func init() { Register(&MisdirectedCTACheck{}) }
++
++type MisdirectedCTACheck struct{}
++
++func (c *MisdirectedCTACheck) Name() string { return "misdirected_cta" }
++
++// ctaStopwords: words that carry no destination meaning in link text. One
++// combined set — grammatical stopwords plus generic CTA verbs/nouns. A text
++// whose every token is in here is "generic" and is never matched.
++var ctaStopwords = map[string]bool{
++	"a": true, "an": true, "and": true, "as": true, "at": true, "be": true,
++	"by": true, "for": true, "from": true, "in": true, "into": true,
++	"is": true, "it": true, "its": true, "of": true, "on": true, "or": true,
++	"our": true, "s": true, "the": true, "their": true, "this": true,
++	"to": true, "with": true, "your": true, "you": true, "yours": true,
++	"we": true, "us": true,
++	// generic CTA vocabulary
++	"all": true, "click": true, "discover": true, "enter": true,
++	"explore": true, "get": true, "go": true, "here": true, "learn": true,
++	"meet": true, "more": true, "now": true, "read": true, "see": true,
++	"start": true, "started": true, "take": true, "today": true,
++	"todays": true, "try": true, "view": true, "visit": true, "join": true,
++}
++
++// ctaExcludedAreas mirrors resolve_internal_links' areasExcludedFromCTA —
++// destinations that link copy never "names" and CTAs should not target.
++// Duplicated (not imported) because actions imports this package.
++var ctaExcludedAreas = map[string]bool{
++	"about": true, "contact": true, "privacy": true, "terms": true, "legal": true,
++}
++
++// ctaTokens reduces text to its distinctive lowercase tokens.
++func ctaTokens(text string) []string {
++	var tokens []string
++	var cur strings.Builder
++	flush := func() {
++		if cur.Len() > 0 {
++			t := cur.String()
++			if !ctaStopwords[t] {
++				tokens = append(tokens, t)
++			}
++			cur.Reset()
++		}
++	}
++	for _, r := range strings.ToLower(text) {
++		switch {
++		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
++			cur.WriteRune(r)
++		default:
++			flush()
++		}
++	}
++	flush()
++	return tokens
++}
++
++// ctaMatchPage is one real page as a match candidate.
++type ctaMatchPage struct {
++	ID          string
++	Name        string
++	Title       string
++	URL         string
++	Interactive bool // page_type tool/game — preferred CTA destinations
++	tokens      map[string]bool
++}
++
++// bestPageMatch returns the candidate page whose tokens best overlap the
++// anchor's, or nil. Ranking: interactive pages beat content pages, then
++// higher overlap, then name (deterministic). Requires >= 1 token overlap.
++func bestPageMatch(anchorTokens []string, pages []ctaMatchPage) *ctaMatchPage {
++	var best *ctaMatchPage
++	bestOverlap := 0
++	for i := range pages {
++		p := &pages[i]
++		overlap := 0
++		for _, t := range anchorTokens {
++			if p.tokens[t] {
++				overlap++
++			}
++		}
++		if overlap == 0 {
++			continue
++		}
++		if best == nil ||
++			(p.Interactive && !best.Interactive) ||
++			(p.Interactive == best.Interactive && overlap > bestOverlap) ||
++			(p.Interactive == best.Interactive && overlap == bestOverlap && p.Name < best.Name) {
++			best = p
++			bestOverlap = overlap
++		}
++	}
++	return best
++}
++
++// misdirectedAnchor is one flagged anchor on a page.
++type misdirectedAnchor struct {
++	SlotName             string `json:"slot_name"`
++	Text                 string `json:"text"`
++	Href                 string `json:"href"`
++	SuggestedTarget      string `json:"suggested_target"`
++	SuggestedTargetTitle string `json:"suggested_target_title"`
++}
++
++func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
++	pages, validPages, err := loadCTAMatchIndex(dctx)
++	if err != nil {
++		return nil, err
++	}
++
++	type pageAgg struct {
++		pageID     string
++		misdirects []misdirectedAnchor
++	}
++	misdirectedByPage := map[string]*pageAgg{}
++	var misdirectedOrder []string
++
++	type unknownDest struct {
++		pageName, pageID, slotName, text, href, why string
++	}
++	var unknowns []unknownDest
++
++	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
++		SELECT p.name, p.url, pc.page_id::text, COALESCE(pc.slot_name, ''), pc.rendered_html
++		FROM page_components pc
++		JOIN pages p ON p.id = pc.page_id
++		WHERE p.site_id = $1
++		  AND pc.rendered_html IS NOT NULL AND pc.rendered_html <> ''
++		ORDER BY p.name, pc.position
++	`, dctx.SiteID)
++	if err != nil {
++		return nil, fmt.Errorf("misdirected_cta page query failed: %w", err)
++	}
++	defer rows.Close()
++
++	for rows.Next() {
++		var pageName, pageURL, pageID, slotName, html string
++		if err := rows.Scan(&pageName, &pageURL, &pageID, &slotName, &html); err != nil {
++			dctx.Logger.Warn("misdirected_cta: scan error", zap.Error(err))
++			continue
++		}
++
++		for _, a := range datahelpers.ExtractAnchors(html) {
++			scope := datahelpers.ClassifyLinkScope(a.Href)
++			if scope != datahelpers.LinkScopePage && scope != datahelpers.LinkScopeEmpty {
++				continue // external/mailto/asset/anchor — not internal page links
++			}
++			tokens := ctaTokens(a.Text)
++			if len(tokens) == 0 {
++				continue // generic text ("Learn More") names nothing — skip
++			}
++
++			best := bestPageMatch(tokens, pages)
++			hrefNorm := datahelpers.NormalizePagePath(a.Href)
++
++			if best != nil {
++				if datahelpers.NormalizePagePath(best.URL) == hrefNorm {
++					continue // copy and destination agree
++				}
++				agg, seen := misdirectedByPage[pageName]
++				if !seen {
++					agg = &pageAgg{pageID: pageID}
++					misdirectedByPage[pageName] = agg
++					misdirectedOrder = append(misdirectedOrder, pageName)
++				}
++				agg.misdirects = append(agg.misdirects, misdirectedAnchor{
++					SlotName:             slotName,
++					Text:                 a.Text,
++					Href:                 a.Href,
++					SuggestedTarget:      best.URL,
++					SuggestedTargetTitle: best.Title,
++				})
++				continue
++			}
++
++			// Distinctive text matching NO page: only a problem when the href
++			// is itself wrong — empty, phantom, circular, an excluded area, or
++			// the homepage (copy naming something specific that dumps the
++			// visitor back at the start: the "Enter the Arena" -> /index.html
++			// case). All review-only; none of these auto-fix.
++			why := ""
++			switch {
++			case scope == datahelpers.LinkScopeEmpty:
++				why = "empty href"
++			case !validPages.Contains(a.Href):
++				why = "phantom destination"
++			case hrefNorm == datahelpers.NormalizePagePath(pageURL):
++				why = "links back to its own page"
++			case ctaAreaExcluded(a.Href):
++				why = "lands in an excluded area (contact/legal/about)"
++			case hrefNorm == "/":
++				why = "names a specific destination but points at the homepage"
++			}
++			if why != "" {
++				unknowns = append(unknowns, unknownDest{
++					pageName: pageName, pageID: pageID, slotName: slotName,
++					text: a.Text, href: a.Href, why: why,
++				})
++			}
++		}
++	}
++	if err := rows.Err(); err != nil {
++		return nil, fmt.Errorf("misdirected_cta iteration failed: %w", err)
++	}
++
++	result := &CheckResult{}
++	sort.Strings(misdirectedOrder)
++
++	for _, pageName := range misdirectedOrder {
++		agg := misdirectedByPage[pageName]
++
++		result.Findings = append(result.Findings, map[string]interface{}{
++			"check":     "misdirected_cta",
++			"page_name": pageName,
++			"count":     len(agg.misdirects),
++			"findings":  agg.misdirects,
++		})
++
++		specJSON, _ := json.Marshal(map[string]interface{}{
++			"check":     "misdirected_cta",
++			"reason":    "cta_links_stale", // page-rerender gates its CTA recompute on this
++			"page_name": pageName,
++			"page_id":   agg.pageID,
++			"findings":  agg.misdirects,
++			"fix": "Link copy names a real page but the href points elsewhere. " +
++				"A cta_links_stale rerender recomputes hero/call-to-action targets " +
++				"from real pages (interactive pages first).",
++		})
++
++		var pageIDPtr *uuid.UUID
++		if parsed, perr := uuid.Parse(agg.pageID); perr == nil {
++			pageIDPtr = &parsed
++		}
++
++		result.WorkItems = append(result.WorkItems, WorkItemSpec{
++			SiteID:       dctx.SiteID,
++			PageID:       pageIDPtr,
++			Source:       "discovery",
++			Pipeline:     "build",
++			ItemType:     "page_rerender",
++			Severity:     "high",
++			Summary:      fmt.Sprintf("%d misdirected CTA(s) on %s — copy names a different page than the link target", len(agg.misdirects), pageName),
++			SpecJSON:     string(specJSON),
++			Priority:     35,
++			HandlerAgent: "page-rerender",
++			Status:       "detected",
++			CreatedBy:    dctx.AgentType,
++			ItemKey:      fmt.Sprintf("misdirected_cta:%s:%s", pageName, dctx.SiteID),
++			BatchID:      dctx.BatchID,
++		})
++	}
++
++	for _, u := range unknowns {
++		result.Findings = append(result.Findings, map[string]interface{}{
++			"check":     "cta_names_unknown_destination",
++			"page_name": u.pageName,
++			"slot_name": u.slotName,
++			"text":      u.text,
++			"href":      u.href,
++			"why":       u.why,
++		})
++
++		specJSON, _ := json.Marshal(map[string]interface{}{
++			"check":     "cta_names_unknown_destination",
++			"page_name": u.pageName,
++			"page_id":   u.pageID,
++			"slot_name": u.slotName,
++			"text":      u.text,
++			"href":      u.href,
++			"why":       u.why,
++			"fix": "Link copy names a destination no real page provides (" + u.why + "). " +
++				"Product decision: build the promised page, or rewrite the copy/link.",
++		})
++
++		var pageIDPtr *uuid.UUID
++		if parsed, perr := uuid.Parse(u.pageID); perr == nil {
++			pageIDPtr = &parsed
++		}
++
++		result.WorkItems = append(result.WorkItems, WorkItemSpec{
++			SiteID:    dctx.SiteID,
++			PageID:    pageIDPtr,
++			Source:    "discovery",
++			Pipeline:  "content",
++			ItemType:  "cta_names_unknown_destination",
++			Severity:  "medium",
++			Summary:   fmt.Sprintf("CTA %q on %s (%s): %s — no real page matches the copy", u.text, u.pageName, u.slotName, u.why),
++			SpecJSON:  string(specJSON),
++			Priority:  40,
++			Status:    "needs_human_review",
++			CreatedBy: dctx.AgentType,
++			ItemKey:   fmt.Sprintf("cta_unknown_dest:%s:%s:%s", u.pageName, u.href, u.text),
++			BatchID:   dctx.BatchID,
++		})
++	}
++
++	if len(result.WorkItems) > 0 {
++		dctx.Logger.Warn("misdirected_cta: found copy/destination mismatches",
++			zap.Int("misdirected_pages", len(misdirectedOrder)),
++			zap.Int("unknown_destinations", len(unknowns)),
++			zap.String("site_id", dctx.SiteID.String()))
++	}
++
++	return result, nil
++}
++
++// ctaAreaExcluded — first meaningful path segment against the excluded set,
++// handling top-level pages ("/contact.html" -> "contact").
++func ctaAreaExcluded(href string) bool {
++	p := strings.TrimPrefix(datahelpers.NormalizePagePath(href), "/")
++	if i := strings.IndexByte(p, '/'); i >= 0 {
++		p = p[:i]
++	}
++	p = strings.TrimSuffix(p, ".html")
++	return ctaExcludedAreas[p]
++}
++
++// loadCTAMatchIndex loads the real pages as match candidates (index/home
++// excluded — link text rarely "names" the homepage) plus the full validity
++// set (which DOES include the homepage) for phantom tests.
++func loadCTAMatchIndex(dctx DiscoveryCheckContext) ([]ctaMatchPage, datahelpers.PageURLSet, error) {
++	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
++		SELECT p.id::text, p.name, COALESCE(p.title, p.name),
++		       COALESCE(p.nav_label, ''), p.url,
++		       COALESCE(p.page_type, 'content')
++		FROM pages p
++		WHERE p.site_id = $1
++		  AND p.status NOT IN ('deleted', 'archived')
++		  AND p.url IS NOT NULL AND p.url <> ''
++	`, dctx.SiteID)
++	if err != nil {
++		return nil, nil, fmt.Errorf("misdirected_cta pages query failed: %w", err)
++	}
++	defer rows.Close()
++
++	var pages []ctaMatchPage
++	var urls []string
++	for rows.Next() {
++		var id, name, title, navLabel, url, pageType string
++		if err := rows.Scan(&id, &name, &title, &navLabel, &url, &pageType); err != nil {
++			continue
++		}
++		urls = append(urls, url)
++		if name == "index" || name == "home" {
++			continue
++		}
++		tokens := map[string]bool{}
++		for _, src := range []string{name, title, navLabel} {
++			for _, t := range ctaTokens(src) {
++				tokens[t] = true
++			}
++		}
++		if len(tokens) == 0 {
++			continue
++		}
++		pages = append(pages, ctaMatchPage{
++			ID:          id,
++			Name:        name,
++			Title:       title,
++			URL:         url,
++			Interactive: pageType == "tool" || pageType == "game",
++			tokens:      tokens,
++		})
++	}
++	if err := rows.Err(); err != nil {
++		return nil, nil, fmt.Errorf("misdirected_cta pages iteration failed: %w", err)
++	}
++	urls = append(urls, "/", "/index.html")
++	return pages, datahelpers.NewPageURLSet(urls), nil
++}
+diff --git a/platform/orchestration/actions/discovery_checks/check_misdirected_cta_test.go b/platform/orchestration/actions/discovery_checks/check_misdirected_cta_test.go
+new file mode 100644
+index 000000000..0ecfa9474
+--- /dev/null
++++ b/platform/orchestration/actions/discovery_checks/check_misdirected_cta_test.go
+@@ -0,0 +1,68 @@
++package discovery_checks
++
++import (
++	"reflect"
++	"testing"
++)
++
++func TestCTATokens(t *testing.T) {
++	cases := map[string][]string{
++		"Enter the Gauntlet":  {"gauntlet"},
++		"Take the Quiz":       {"quiz"},
++		"Enter today's Arena": {"arena"},
++		"Learn More":          nil, // fully generic — names nothing
++		"Get Started":         nil,
++		"Meet the Archetypes": {"archetypes"},
++		"  ":                  nil,
++		"Read our FAQ now":    {"faq"},
++	}
++	for text, want := range cases {
++		got := ctaTokens(text)
++		if !reflect.DeepEqual(got, want) {
++			t.Errorf("ctaTokens(%q) = %v, want %v", text, got, want)
++		}
++	}
++}
++
++func TestBestPageMatch(t *testing.T) {
++	pages := []ctaMatchPage{
++		{Name: "tool-gauntlet", Title: "The Gauntlet", URL: "/tools/gauntlet/index.html",
++			Interactive: true, tokens: map[string]bool{"tool": true, "gauntlet": true}},
++		{Name: "tool-quiz", Title: "Archetype Quiz", URL: "/tools/quiz/index.html",
++			Interactive: true, tokens: map[string]bool{"tool": true, "quiz": true, "archetype": true}},
++		{Name: "archetypes", Title: "The Archetypes", URL: "/archetypes.html",
++			tokens: map[string]bool{"archetypes": true}},
++	}
++
++	if got := bestPageMatch([]string{"gauntlet"}, pages); got == nil || got.Name != "tool-gauntlet" {
++		t.Errorf("gauntlet: got %+v, want tool-gauntlet", got)
++	}
++	// Interactive pages beat content pages on equal-strength matches:
++	// "archetype" hits the quiz (interactive), "archetypes" hits the hub.
++	if got := bestPageMatch([]string{"archetype"}, pages); got == nil || got.Name != "tool-quiz" {
++		t.Errorf("archetype: got %+v, want tool-quiz", got)
++	}
++	if got := bestPageMatch([]string{"archetypes"}, pages); got == nil || got.Name != "archetypes" {
++		t.Errorf("archetypes: got %+v, want archetypes hub", got)
++	}
++	if got := bestPageMatch([]string{"arena"}, pages); got != nil {
++		t.Errorf("arena: got %+v, want nil (no page names it)", got)
++	}
++}
++
++func TestCTAAreaExcluded(t *testing.T) {
++	cases := map[string]bool{
++		"/contact.html":       true, // top-level page — the firstPathSegment blind spot
++		"/contact/index.html": true,
++		"/legal/privacy.html": true,
++		"/about.html":         true,
++		"/tools/gauntlet/index.html": false,
++		"/archetypes.html":           false,
++		"/":                          false,
++	}
++	for url, want := range cases {
++		if got := ctaAreaExcluded(url); got != want {
++			t.Errorf("ctaAreaExcluded(%q) = %v, want %v", url, got, want)
++		}
++	}
++}
+diff --git a/platform/orchestration/actions/discovery_checks/check_orphan_pages.go b/platform/orchestration/actions/discovery_checks/check_orphan_pages.go
+index e604548b4..e0d759500 100644
+--- a/platform/orchestration/actions/discovery_checks/check_orphan_pages.go
++++ b/platform/orchestration/actions/discovery_checks/check_orphan_pages.go
+@@ -188,7 +188,10 @@ func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
+ 	// Exclusions:
+ 	// - index/home page (always reachable as /)
+ 	// - blog-index page (in nav, the listing is the entry point)
+-	// - tool pages (may be linked externally or from JS)
++	// - tool pages WITHOUT nav flags (may be linked externally or from JS).
++	//   A tool page WITH in_header/in_footer set has declared it belongs in
++	//   nav — its absence from site_nav_items is nav_drift like any other
++	//   page's, so nav-flagged pages are always considered.
+ 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
+ 		SELECT p.id::text, p.name, p.url, COALESCE(p.page_type, 'content'),
+ 		       COALESCE(p.in_header, false), COALESCE(p.in_footer, false)
+@@ -198,7 +201,8 @@ func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
+ 		  AND p.url IS NOT NULL
+ 		  AND p.url != ''
+ 		  AND p.name NOT IN ('index', 'home')
+-		  AND COALESCE(p.page_type, 'content') NOT IN ('blog-index', 'tool')
++		  AND (COALESCE(p.page_type, 'content') NOT IN ('blog-index', 'tool')
++		       OR COALESCE(p.in_header, false) OR COALESCE(p.in_footer, false))
+ 		  -- Not linked from nav (by URL)
+ 		  AND NOT EXISTS (
+ 		      SELECT 1 FROM site_nav_items sni
+diff --git a/platform/orchestration/actions/render_site_components_action.go b/platform/orchestration/actions/render_site_components_action.go
+index 814d4b6e3..cfefc0bcb 100644
+--- a/platform/orchestration/actions/render_site_components_action.go
++++ b/platform/orchestration/actions/render_site_components_action.go
+@@ -157,6 +157,29 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
+ 		}
+ 	}
+ 
++	// Validate the header CTA against real pages; when there is no contact
++	// nav item (or it points at a phantom), fall back to the same ranking the
++	// internal-link resolver uses (interactive pages first, then hubs) rather
++	// than rendering no button at all. Loader errors degrade to empty lists —
++	// ctaURL then stays empty and the gated template renders no CTA.
++	headerPages := loadResolverPageSet(ctx, params, siteID, params.Logger)
++	if ctaURL == "" || !headerPages.Contains(ctaURL) {
++		hubs, err := loadContentHubs(ctx, params, siteID, params.Logger)
++		if err != nil {
++			params.Logger.Warn("RenderSiteComponentsAction: loadContentHubs failed for header CTA fallback", zap.Error(err))
++		}
++		interactive, err := loadInteractivePages(ctx, params, siteID, params.Logger)
++		if err != nil {
++			params.Logger.Warn("RenderSiteComponentsAction: loadInteractivePages failed for header CTA fallback", zap.Error(err))
++		}
++		primary, _ := chooseCTATargets("", "", interactive, hubs)
++		if primary.URL != "" && headerPages.Contains(primary.URL) {
++			ctaURL = primary.URL
++		} else {
++			ctaURL = ""
++		}
++	}
++
+ 	// Build legal links from real pages classified into the legal nav group.
+ 	// Was a hardcoded {/privacy.html, /terms.html} slice — those pages do not
+ 	// necessarily exist, so it produced phantom links. Now: only pages that
+diff --git a/platform/orchestration/actions/rerender_page_sections_action.go b/platform/orchestration/actions/rerender_page_sections_action.go
+index 0496cec37..77bf3f074 100644
+--- a/platform/orchestration/actions/rerender_page_sections_action.go
++++ b/platform/orchestration/actions/rerender_page_sections_action.go
+@@ -123,15 +123,16 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
+ 	reason := inputs.Get("reason")
+ 
+ 	// ── Resolve page_id + domain (also surfaced for the downstream render_page,
+-	//    which finds them via ExtractFields' recursive search) ────────────────
++	//    which finds them via ExtractFields' recursive search); page url feeds
++	//    the CTA recompute's self-link test ────────────────────────────────────
+ 	var pageID uuid.UUID
+-	var domain string
++	var domain, pageURL string
+ 	err = params.DB.QueryRowContext(ctx, `
+-		SELECT p.id, s.domain
++		SELECT p.id, s.domain, COALESCE(p.url, '')
+ 		FROM pages p
+ 		JOIN sites s ON s.id = p.site_id
+ 		WHERE p.site_id = $1 AND p.name = $2
+-	`, siteID, pageName).Scan(&pageID, &domain)
++	`, siteID, pageName).Scan(&pageID, &domain, &pageURL)
+ 	if err != nil {
+ 		if err == sql.ErrNoRows {
+ 			return nil, fmt.Errorf("page %q not found for site %s", pageName, siteID)
+@@ -199,6 +200,9 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
+ 	reRendered := 0
+ 	carried := 0
+ 
++	// CTA targets for reason=cta_links_stale, loaded once on first CTA section.
++	var cta *rerenderCTAState
++
+ 	for _, s := range stored {
+ 		comp, haveComp := schemas[s.slotName]
+ 
+@@ -233,6 +237,28 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
+ 			continue
+ 		}
+ 
++		// CTA recompute — ONLY for reason=cta_links_stale, so image_landed /
++		// section_data_resolved rerenders behave byte-identically to before.
++		// After migration 091 the schema no longer sources CTA urls, so a stale
++		// url survives in stored content_data; writing the recomputed target
++		// into plan.ResolvedData wins the merge below (resolved_data last).
++		if reason == "cta_links_stale" {
++			fn := comp.Function
++			if fn == "" {
++				fn = s.slotName
++			}
++			if fields, isCTA := ctaFieldNames[fn]; isCTA {
++				if cta == nil {
++					cta = loadRerenderCTAState(ctx, params, siteID, pageName, logger)
++				}
++				if plan.ResolvedData == nil {
++					plan.ResolvedData = map[string]interface{}{}
++				}
++				applyCTARecompute(plan.ResolvedData, s.contentData, fields[0], cta.primary, cta.validPages, pageURL)
++				applyCTARecompute(plan.ResolvedData, s.contentData, fields[1], cta.secondary, cta.validPages, pageURL)
++			}
++		}
++
+ 		// Render context: base ⊕ stored content_data ⊕ fresh resolved_data
+ 		// (resolved_data merged last so it overrides stale values — matching
+ 		// RenderComponentAction's content_from-then-merge_with ordering).
+@@ -289,6 +315,59 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
+ 	return out, nil
+ }
+ 
++// rerenderCTAState holds the per-page CTA targets for a cta_links_stale
++// recompute — computed once, shared by every CTA section on the page.
++type rerenderCTAState struct {
++	primary, secondary contentHub
++	validPages         datahelpers.PageURLSet
++}
++
++// loadRerenderCTAState reuses the internal-link-resolver's loaders and ranking
++// (interactive pages first, then hubs). Loader failures degrade to empty
++// candidate lists: applyCTARecompute then leaves fields untouched rather than
++// aborting the rerender.
++func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.UUID, pageName string, logger *zap.Logger) *rerenderCTAState {
++	hubs, err := loadContentHubs(ctx, params, siteID, logger)
++	if err != nil {
++		logger.Warn("rerender_page_sections: loadContentHubs failed for CTA recompute", zap.Error(err))
++	}
++	interactive, err := loadInteractivePages(ctx, params, siteID, logger)
++	if err != nil {
++		logger.Warn("rerender_page_sections: loadInteractivePages failed for CTA recompute", zap.Error(err))
++	}
++	primary, secondary := chooseCTATargets("", pageName, interactive, hubs)
++	return &rerenderCTAState{
++		primary:    primary,
++		secondary:  secondary,
++		validPages: loadResolverPageSet(ctx, params, siteID, logger),
++	}
++}
++
++// applyCTARecompute writes the recomputed CTA target into resolved (which the
++// caller merges LAST, beating stale stored content_data) — unless the stored
++// value is an explicitly authored link worth keeping. Keep = resolves to a
++// real page AND is not an excluded destination (contact/legal/about) AND is
++// not the page linking to itself. Everything else — phantom, empty, circular,
++// or excluded — is replaced, provided a valid target exists.
++func applyCTARecompute(resolved, stored map[string]interface{}, field string, target contentHub,
++	validPages datahelpers.PageURLSet, pageURL string) {
++
++	if current, ok := stored[field].(string); ok && current != "" &&
++		validPages.Contains(current) &&
++		!ctaExcludedDestination(current) &&
++		datahelpers.NormalizePagePath(current) != datahelpers.NormalizePagePath(pageURL) {
++		return // authored link to a real, sensible destination — keep it
++	}
++
++	if target.URL == "" || !validPages.Contains(target.URL) {
++		return // nothing valid to write — leave the field as stored
++	}
++	resolved[field] = target.URL
++	if title := targetTitle(target); title != "" {
++		resolved[ctaTargetTitleField(field)] = title
++	}
++}
++
+ // loadStoredSections reads the page's current page_components rows in order.
+ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) ([]storedSection, error) {
+ 	rows, err := db.QueryContext(ctx, `
+diff --git a/platform/orchestration/actions/resolve_internal_links_action.go b/platform/orchestration/actions/resolve_internal_links_action.go
+index d1e0e1f18..6b071bec5 100644
+--- a/platform/orchestration/actions/resolve_internal_links_action.go
++++ b/platform/orchestration/actions/resolve_internal_links_action.go
+@@ -64,6 +64,7 @@ func init() {
+ 
+ type contentHub struct {
+ 	Name     string
++	Title    string
+ 	URL      string
+ 	Area     string
+ 	NavOrder int
+@@ -115,8 +116,12 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	interactive, err := loadInteractivePages(ctx, params, siteID, logger)
++	if err != nil {
++		return nil, err
++	}
+ 	validPages := loadResolverPageSet(ctx, params, siteID, logger)
+-	primary, secondary := chooseCTATargets(pageType, pageName, hubs)
++	primary, secondary := chooseCTATargets(pageType, pageName, interactive, hubs)
+ 
+ 	var unresolved []map[string]interface{}
+ 	for _, raw := range sections {
+@@ -141,6 +146,7 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
+ 		zap.String("page_name", pageName),
+ 		zap.Int("section_count", len(sections)),
+ 		zap.Int("hub_count", len(hubs)),
++		zap.Int("interactive_count", len(interactive)),
+ 		zap.Int("unresolved", len(unresolved)))
+ 
+ 	// Build-time detectability: a correctly-dropped CTA leaves no fingerprint in
+@@ -229,11 +235,18 @@ func emitUnresolvedCTAItems(ctx context.Context, params ActionParams, siteID uui
+ 	}
+ }
+ 
+-// setCTAField writes a validated url into resolved_data, or records it unresolved.
+-func setCTAField(resolved map[string]interface{}, field, url string, validPages datahelpers.PageURLSet,
++// setCTAField writes a validated url into resolved_data, or records it
++// unresolved. Alongside the url it writes the target's title under
++// "<field-minus-_url>_target_title" (cta_url -> cta_target_title,
++// primary_cta_url -> primary_cta_target_title) so the content writer can
++// write CTA copy FOR the actual destination instead of guessing one.
++func setCTAField(resolved map[string]interface{}, field string, target contentHub, validPages datahelpers.PageURLSet,
+ 	function, sectionName, slot string, unresolved *[]map[string]interface{}) {
+-	if url != "" && validPages.Contains(url) {
+-		resolved[field] = url
++	if target.URL != "" && validPages.Contains(target.URL) {
++		resolved[field] = target.URL
++		if title := targetTitle(target); title != "" {
++			resolved[ctaTargetTitleField(field)] = title
++		}
+ 		return
+ 	}
+ 	*unresolved = append(*unresolved, map[string]interface{}{
+@@ -244,38 +257,71 @@ func setCTAField(resolved map[string]interface{}, field, url string, validPages
+ 	})
+ }
+ 
+-// chooseCTATargets — v1: top two content hubs by nav_order, excluding the page's
+-// own hub (by name) and utility/legal areas. Empty string => no sensible target.
+-// pageType is carried for a future intent-aware (LLM) upgrade; v1 does not branch
+-// on it.
+-func chooseCTATargets(pageType, pageName string, hubs []contentHub) (string, string) {
+-	ordered := make([]contentHub, 0, len(hubs))
+-	for _, h := range hubs {
+-		if areasExcludedFromCTA[h.Area] {
+-			continue
+-		}
+-		if pageName != "" && h.Name == pageName { // don't point a page's hero at itself
+-			continue
+-		}
+-		ordered = append(ordered, h)
++// ctaTargetTitleField derives the companion title field for a CTA url field.
++func ctaTargetTitleField(urlField string) string {
++	return strings.TrimSuffix(urlField, "_url") + "_target_title"
++}
++
++// targetTitle prefers the page's human title over its internal name.
++func targetTitle(t contentHub) string {
++	if t.Title != "" {
++		return t.Title
+ 	}
+-	sort.SliceStable(ordered, func(i, j int) bool {
+-		if ordered[i].NavOrder != ordered[j].NavOrder {
+-			return ordered[i].NavOrder < ordered[j].NavOrder
++	return t.Name
++}
++
++// chooseCTATargets — v2: interactive pages (tool/game) first, then content
++// hubs, each group by nav_order; excluding the page itself (by name) and
++// utility/legal destinations. Zero-value contentHub => no sensible target.
++// pageType is carried for a future intent-aware (LLM) upgrade; v2 does not
++// branch on it. Sites with no interactive pages behave exactly as v1.
++func chooseCTATargets(pageType, pageName string, interactive, hubs []contentHub) (contentHub, contentHub) {
++	rank := func(candidates []contentHub) []contentHub {
++		ordered := make([]contentHub, 0, len(candidates))
++		for _, h := range candidates {
++			if areasExcludedFromCTA[h.Area] || ctaExcludedDestination(h.URL) {
++				continue
++			}
++			if pageName != "" && h.Name == pageName { // don't point a page's hero at itself
++				continue
++			}
++			ordered = append(ordered, h)
+ 		}
+-		return ordered[i].Name < ordered[j].Name
+-	})
++		sort.SliceStable(ordered, func(i, j int) bool {
++			if ordered[i].NavOrder != ordered[j].NavOrder {
++				return ordered[i].NavOrder < ordered[j].NavOrder
++			}
++			return ordered[i].Name < ordered[j].Name
++		})
++		return ordered
++	}
+ 
+-	var primary, secondary string
++	ordered := append(rank(interactive), rank(hubs)...)
++
++	var primary, secondary contentHub
+ 	if len(ordered) > 0 {
+-		primary = ordered[0].URL
++		primary = ordered[0]
+ 	}
+ 	if len(ordered) > 1 {
+-		secondary = ordered[1].URL
++		secondary = ordered[1]
+ 	}
+ 	return primary, secondary
+ }
+ 
++// ctaExcludedDestination reports whether a URL lands in an area a CTA should
++// never point at (contact, legal, about...). firstPathSegment cannot express
++// this for top-level pages ("/contact.html" has no second slash), so the test
++// normalises first and strips the .html suffix: "/contact.html" -> "contact",
++// "/legal/privacy.html" -> "legal".
++func ctaExcludedDestination(url string) bool {
++	p := strings.TrimPrefix(datahelpers.NormalizePagePath(url), "/")
++	if i := strings.IndexByte(p, '/'); i >= 0 {
++		p = p[:i]
++	}
++	p = strings.TrimSuffix(p, ".html")
++	return areasExcludedFromCTA[p]
++}
++
+ func sectionComponentFunction(section map[string]interface{}) string {
+ 	if comp, ok := section["component"].(map[string]interface{}); ok {
+ 		if fn := stringOrEmpty(comp["function"]); fn != "" {
+@@ -297,30 +343,47 @@ func sectionResolvedData(section map[string]interface{}) map[string]interface{}
+ }
+ 
+ func loadContentHubs(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) ([]contentHub, error) {
+-	rows, err := params.DB.QueryContext(ctx, `
+-		SELECT name, url, COALESCE(nav_order, 100)
++	return loadCTACandidatePages(ctx, params, siteID, logger, "loadContentHubs", `
++		SELECT name, COALESCE(title, name), url, COALESCE(nav_order, 100)
+ 		FROM pages
+ 		WHERE site_id = $1
+ 		  AND page_type = 'section-index'
+ 		  AND status IN ('active', 'deployed')
+-	`, siteID)
++	`)
++}
++
++// loadInteractivePages returns the site's tool/game pages — the destinations a
++// CTA should prefer over a content hub when both exist ("Enter the Gauntlet"
++// should land on the Gauntlet, not a section index).
++func loadInteractivePages(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) ([]contentHub, error) {
++	return loadCTACandidatePages(ctx, params, siteID, logger, "loadInteractivePages", `
++		SELECT name, COALESCE(title, name), url, COALESCE(nav_order, 100)
++		FROM pages
++		WHERE site_id = $1
++		  AND page_type IN ('tool', 'game')
++		  AND status IN ('active', 'deployed')
++	`)
++}
++
++func loadCTACandidatePages(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger, caller, query string) ([]contentHub, error) {
++	rows, err := params.DB.QueryContext(ctx, query, siteID)
+ 	if err != nil {
+-		return nil, fmt.Errorf("loadContentHubs query failed: %w", err)
++		return nil, fmt.Errorf("%s query failed: %w", caller, err)
+ 	}
+ 	defer rows.Close()
+ 
+ 	var hubs []contentHub
+ 	for rows.Next() {
+ 		var h contentHub
+-		if err := rows.Scan(&h.Name, &h.URL, &h.NavOrder); err != nil {
+-			logger.Warn("loadContentHubs: scan error", zap.Error(err))
++		if err := rows.Scan(&h.Name, &h.Title, &h.URL, &h.NavOrder); err != nil {
++			logger.Warn(caller+": scan error", zap.Error(err))
+ 			continue
+ 		}
+ 		h.Area = firstPathSegment(h.URL)
+ 		hubs = append(hubs, h)
+ 	}
+ 	if err := rows.Err(); err != nil {
+-		return nil, fmt.Errorf("loadContentHubs iteration failed: %w", err)
++		return nil, fmt.Errorf("%s iteration failed: %w", caller, err)
+ 	}
+ 	return hubs, nil
+ }
+diff --git a/platform/orchestration/actions/resolve_internal_links_test.go b/platform/orchestration/actions/resolve_internal_links_test.go
+new file mode 100644
+index 000000000..d456e37bf
+--- /dev/null
++++ b/platform/orchestration/actions/resolve_internal_links_test.go
+@@ -0,0 +1,134 @@
++package actions
++
++import (
++	"testing"
++
++	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
++)
++
++func TestChooseCTATargetsInteractiveFirst(t *testing.T) {
++	hubs := []contentHub{
++		{Name: "archetypes", Title: "The Archetypes", URL: "/archetypes.html", NavOrder: 10},
++		{Name: "provocations", Title: "Provocations", URL: "/provocations.html", NavOrder: 20},
++	}
++	interactive := []contentHub{
++		{Name: "tool-quiz", Title: "Archetype Quiz", URL: "/tools/quiz/index.html", Area: "tools", NavOrder: 40},
++		{Name: "tool-gauntlet", Title: "The Gauntlet", URL: "/tools/gauntlet/index.html", Area: "tools", NavOrder: 30},
++	}
++
++	primary, secondary := chooseCTATargets("", "index", interactive, hubs)
++	if primary.URL != "/tools/gauntlet/index.html" {
++		t.Errorf("primary = %q, want the gauntlet (interactive, lowest nav_order)", primary.URL)
++	}
++	if secondary.URL != "/tools/quiz/index.html" {
++		t.Errorf("secondary = %q, want the quiz (interactive beats hubs)", secondary.URL)
++	}
++
++	// v1 behaviour preserved: no interactive pages -> hubs by nav_order.
++	primary, secondary = chooseCTATargets("", "index", nil, hubs)
++	if primary.URL != "/archetypes.html" || secondary.URL != "/provocations.html" {
++		t.Errorf("hubs-only = (%q, %q), want archetypes/provocations", primary.URL, secondary.URL)
++	}
++
++	// Self-exclusion: a page's own name never becomes its CTA target.
++	primary, _ = chooseCTATargets("", "tool-gauntlet", interactive, hubs)
++	if primary.URL != "/tools/quiz/index.html" {
++		t.Errorf("self-exclusion: primary = %q, want the quiz", primary.URL)
++	}
++
++	// No candidates at all -> zero values (gated templates render no button).
++	primary, secondary = chooseCTATargets("", "index", nil, nil)
++	if primary.URL != "" || secondary.URL != "" {
++		t.Errorf("empty = (%q, %q), want empty", primary.URL, secondary.URL)
++	}
++}
++
++func TestChooseCTATargetsExcludesUtilityAreas(t *testing.T) {
++	hubs := []contentHub{
++		{Name: "contact-hub", Title: "Contact", URL: "/contact/index.html", Area: "contact", NavOrder: 1},
++		{Name: "guides", Title: "Guides", URL: "/guides/index.html", Area: "guides", NavOrder: 2},
++	}
++	primary, _ := chooseCTATargets("", "index", nil, hubs)
++	if primary.URL != "/guides/index.html" {
++		t.Errorf("primary = %q, want guides (contact excluded)", primary.URL)
++	}
++}
++
++func TestCTAExcludedDestination(t *testing.T) {
++	cases := map[string]bool{
++		"/contact.html":              true, // top-level page — firstPathSegment blind spot
++		"/contact/index.html":        true,
++		"/about.html":                true,
++		"/legal/terms.html":          true,
++		"/tools/gauntlet/index.html": false,
++		"/guides/index.html":         false,
++		"/":                          false,
++	}
++	for url, want := range cases {
++		if got := ctaExcludedDestination(url); got != want {
++			t.Errorf("ctaExcludedDestination(%q) = %v, want %v", url, got, want)
++		}
++	}
++}
++
++func TestCTATargetTitleField(t *testing.T) {
++	cases := map[string]string{
++		"cta_url":           "cta_target_title",
++		"primary_cta_url":   "primary_cta_target_title",
++		"secondary_cta_url": "secondary_cta_target_title",
++	}
++	for field, want := range cases {
++		if got := ctaTargetTitleField(field); got != want {
++			t.Errorf("ctaTargetTitleField(%q) = %q, want %q", field, got, want)
++		}
++	}
++}
++
++func TestApplyCTARecompute(t *testing.T) {
++	valid := datahelpers.NewPageURLSet([]string{
++		"/index.html", "/contact.html", "/archetypes.html",
++		"/tools/gauntlet/index.html", "/tools/quiz/index.html",
++	})
++	gauntlet := contentHub{Name: "tool-gauntlet", Title: "The Gauntlet", URL: "/tools/gauntlet/index.html"}
++	pageURL := "/index.html"
++
++	run := func(storedURL string) map[string]interface{} {
++		resolved := map[string]interface{}{}
++		stored := map[string]interface{}{}
++		if storedURL != "" {
++			stored["cta_url"] = storedURL
++		}
++		applyCTARecompute(resolved, stored, "cta_url", gauntlet, valid, pageURL)
++		return resolved
++	}
++
++	// Authored link to a real, sensible page: KEPT (nothing written).
++	if got := run("/archetypes.html"); len(got) != 0 {
++		t.Errorf("authored valid link overwritten: %v", got)
++	}
++	// Excluded destination (/contact.html): REPLACED.
++	if got := run("/contact.html"); got["cta_url"] != gauntlet.URL {
++		t.Errorf("excluded destination not replaced: %v", got)
++	}
++	// Phantom: REPLACED.
++	if got := run("/services.html"); got["cta_url"] != gauntlet.URL {
++		t.Errorf("phantom not replaced: %v", got)
++	}
++	// Circular (links back to its own page): REPLACED.
++	if got := run("/index.html"); got["cta_url"] != gauntlet.URL {
++		t.Errorf("circular link not replaced: %v", got)
++	}
++	// Missing entirely: WRITTEN, with the companion target title.
++	got := run("")
++	if got["cta_url"] != gauntlet.URL || got["cta_target_title"] != "The Gauntlet" {
++		t.Errorf("missing field not filled with url+title: %v", got)
++	}
++
++	// No valid target to offer: stored value left alone even when bad.
++	resolved := map[string]interface{}{}
++	applyCTARecompute(resolved, map[string]interface{}{"cta_url": "/services.html"},
++		"cta_url", contentHub{}, valid, pageURL)
++	if len(resolved) != 0 {
++		t.Errorf("wrote a value with no valid target: %v", resolved)
++	}
++}
+diff --git a/platform/orchestration/datahelpers/links.go b/platform/orchestration/datahelpers/links.go
+index 94a4011bb..0eb115bfa 100644
+--- a/platform/orchestration/datahelpers/links.go
++++ b/platform/orchestration/datahelpers/links.go
+@@ -47,6 +47,35 @@ func ExtractHrefs(html string) []string {
+ 	return hrefs
+ }
+ 
++// Anchor is one <a> element: its href and its visible text.
++type Anchor struct {
++	Href string
++	Text string
++}
++
++var (
++	anchorRe   = regexp.MustCompile(`(?is)<a\s[^>]*href=["']([^"']*)["'][^>]*>(.*?)</a>`)
++	innerTagRe = regexp.MustCompile(`(?s)<[^>]*>`)
++	multiWSRe  = regexp.MustCompile(`\s+`)
++)
++
++// ExtractAnchors returns every <a href=...>text</a> pair in document order,
++// with inner markup stripped and whitespace collapsed from the text.
++// ExtractHrefs drops the anchor text; checks that compare what a link SAYS
++// against where it GOES (misdirected CTAs) need both halves. Same
++// dependency-free regex approach as ExtractHrefs — nested <a> elements are
++// invalid HTML and not handled.
++func ExtractAnchors(html string) []Anchor {
++	matches := anchorRe.FindAllStringSubmatch(html, -1)
++	anchors := make([]Anchor, 0, len(matches))
++	for _, m := range matches {
++		text := innerTagRe.ReplaceAllString(m[2], " ")
++		text = strings.TrimSpace(multiWSRe.ReplaceAllString(text, " "))
++		anchors = append(anchors, Anchor{Href: m[1], Text: text})
++	}
++	return anchors
++}
++
+ // ClassifyLinkScope is the single definition of what an href "is". Order
+ // matters: empty, then anchor/external/mailto, then asset, then page.
+ func ClassifyLinkScope(href string) string {
+diff --git a/platform/orchestration/datahelpers/links_anchor_test.go b/platform/orchestration/datahelpers/links_anchor_test.go
+new file mode 100644
+index 000000000..c8281db4b
+--- /dev/null
++++ b/platform/orchestration/datahelpers/links_anchor_test.go
+@@ -0,0 +1,51 @@
++package datahelpers
++
++import "testing"
++
++func TestExtractAnchors(t *testing.T) {
++	html := `
++	<section class="hero">
++	  <h1>Spark</h1>
++	  <a href="/tools/gauntlet/index.html" class="btn">Enter <strong>the Gauntlet</strong></a>
++	  <a class="btn secondary" href="/contact.html">
++	     Get
++	     Started
++	  </a>
++	  <a href="">Browse All</a>
++	  <img src="/assets/x.png">
++	  <a href="mailto:hi@example.com">Email us</a>
++	</section>`
++
++	anchors := ExtractAnchors(html)
++	if len(anchors) != 4 {
++		t.Fatalf("expected 4 anchors, got %d: %+v", len(anchors), anchors)
++	}
++
++	want := []Anchor{
++		{Href: "/tools/gauntlet/index.html", Text: "Enter the Gauntlet"},
++		{Href: "/contact.html", Text: "Get Started"},
++		{Href: "", Text: "Browse All"},
++		{Href: "mailto:hi@example.com", Text: "Email us"},
++	}
++	for i, w := range want {
++		if anchors[i] != w {
++			t.Errorf("anchor %d = %+v, want %+v", i, anchors[i], w)
++		}
++	}
++}
++
++func TestExtractAnchorsAgreesWithExtractHrefs(t *testing.T) {
++	// Every anchor ExtractAnchors sees must carry a href ExtractHrefs also
++	// sees — the two views of the same HTML must not diverge on hrefs.
++	html := `<a href="/a.html">A</a><p><a data-x="1" href='/b.html'><span>B</span></a></p>`
++	anchors := ExtractAnchors(html)
++	hrefs := ExtractHrefs(html)
++	if len(anchors) != len(hrefs) {
++		t.Fatalf("anchors %d vs hrefs %d", len(anchors), len(hrefs))
++	}
++	for i := range anchors {
++		if anchors[i].Href != hrefs[i] {
++			t.Errorf("href %d: anchors=%q hrefs=%q", i, anchors[i].Href, hrefs[i])
++		}
++	}
++}
+-- 
+2.43.0
+
