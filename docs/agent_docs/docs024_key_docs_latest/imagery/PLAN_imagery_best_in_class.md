@@ -419,6 +419,18 @@ committed bundle is the house pattern, cf. /assets/js/snippets.js).
   Rides the next deploy; expect one self-healing re-emit, then silence.
 - **Next: I2.5** (D10) closes the phase.
 
+**Status 2026-07-14 (Turn 40) — I2.0–I2.4 ✅ COMPLETE AND LIVE.**
+`sprite_css_missing` proven end-to-end on the live fleet: fired once (reason
+`missing`) → `needs_sprite_css` → asset-deployer re-emitted sprites.css → plan row
+stamped `{format:2, signature:"3x3:…"}` → **went SILENT on the next discovery pass**
+(idempotence — the failure mode would have been re-committing an identical stylesheet
+forever). Acceptance for I2 is MET on the live site: themed bullets, four distinct
+glyphs, from ONE 75,745B sheet, no per-bullet requests.
+**I2.5:** its CSS is LIVE (12 `.sprite-bullets` container rules in the served
+stylesheet); only the wrapper CLASS remains, blocked on the article-body JSON-envelope
+repair (`HANDOFF_2026-07-14_article_body_json_envelope.md`). That repair is also
+prerequisite reading: **landing an image on those pages BLANKS the article.**
+
 ### Phase I3 — Content-linked card imagery (G3; Lane B foundation)
 - Generalise the content-entity → asset link (D2/Lane B): entity image reference + `needs_content_image` work item + handler composing prompts from the content item + brand guide.
 - `card` kind/purpose with its own size profile (e.g. 800×450 WebP); card components resolve the entity's image. **Confirmed 2026-07-08: the card image is the article's asset re-cropped** (purpose-specific crops of one generation), not a sibling generation — one source image yields article hero, card crop, and OG crop.

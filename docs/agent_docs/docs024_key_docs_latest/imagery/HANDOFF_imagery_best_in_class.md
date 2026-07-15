@@ -25,14 +25,16 @@ sprites.css re-emitted with scoped overrides. One 75,745B sheet; ≤80KB budget 
 **Hard-refresh before eyeballing — sprites.css is cached `max-age=3600`.**
 
 **GATE PASSED** (Turn 39): the user confirmed the four glyphs, correctly placed.
-**Built, awaiting the next deploy:** I2.4 (`sprite_css_missing` check + the
-`emit_sprite_css` fulfilment stamp) and I2.5 (the container opt-in + the
-`SpriteCSSFormat` version). I2.4's registration SQL is ALREADY applied — an
-unregistered check name is just a warn+skip, so it activates by itself on deploy.
-On that deploy the check fires once per site (no stamp yet / format bumped),
-re-emits sprites.css with the container rules, stamps the row, and goes quiet. That
-cycle IS the live proof of I2.4 — watch for it rather than assuming it.
-**I2.5's CLASS cannot land yet** — blocked on the article-body defect above.
+**I2.0–I2.4 are COMPLETE AND LIVE (Turn 40).** `sprite_css_missing` was proven on the
+live fleet: it fired once, emitted `needs_sprite_css`, asset-deployer re-emitted
+sprites.css (now carrying I2.5's 12 `.sprite-bullets` container rules), stamped the
+plan row `{format:2, signature:"3x3:…"}`, and then went SILENT on a second discovery
+run — idempotence confirmed, zero duplicate items, no regression on the gate page.
+**Only I2.5's CLASS remains**, and it is ⛔ BLOCKED on the article-body defect above:
+the `.article-body__content` wrapper it attaches to is missing from the deployed
+markup on 14/16 article pages. **I2 closes the moment that repair lands** — then add
+the class to the article-body template, re-render, and verify on a page whose lists
+carry no classes of their own.
 
 ## What this project is (fresh-reader paragraph)
 

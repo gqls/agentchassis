@@ -1,0 +1,214 @@
+# RUNNING NOTES — idea.uk VM site
+
+Chronological record of the conversation, what was discovered, and what was decided.
+Append; do not rewrite history. Companions: `PLAN_idea_uk_vm_site.md`, `RUNBOOK_idea_uk_vm_site.md`.
+
+---
+
+## A — 2026-07-14 · Opening brief
+
+Owner asked for two threads:
+1. Publish idea.uk's chassis-built static pages to the **Hetzner VM** instead of S3/B2, so it is one
+   complete site that still includes the paid idea tool.
+2. Continue `HANDOFF_claude_code_continue.md` (three uncomposed pages; the re-aimed CSS fixer; a
+   slice-4a re-seed check; contact-form spam).
+
+Later in the session the owner added a third: record the conversation and choices in a fresh
+directory (this one), and gave two constraints that shaped everything:
+- **"There will be several thousand domain names so individual repos will be ungainly."**
+- The sites repo already holds **domains as subdirectories**, with a **locally hosted GitHub Action**
+  posting to S3.
+
+---
+
+## B — What the codebase actually does (established by reading, not assumption)
+
+**Deploy pipeline.** Chassis action `git_commit` → Kafka `system.adapter.git.requests` → git-adapter →
+GitHub Git Data API → `gqls/sites`, domain folders at the repo root → self-hosted Actions runner →
+`b2 sync --delete` → `b2://portfolio-sites/<domain>` → Cloudflare purge. **"Commit is deploy."** The
+B2 step lives in the *external* repo's workflow, not in this codebase.
+
+**The two halves of idea.uk have never met.** DNS (Cloudflare) points at the VM; nginx there proxies
+**everything** to the Go tool on `127.0.0.1:8080`, so the tool's single embedded `page.html` is the
+live homepage. The chassis's nine-page build goes to B2, **where nobody sees it** — an elaborate
+staging copy. This is why "publish to the VM" is the whole ask.
+
+**The tool is not part of the chassis.** It is a standalone stdlib-only Go module (`module idea`, zero
+dependencies) parked at `docs/agent_docs/docs024_key_docs_latest/idea.uk/golang_files/`. It calls
+`api.anthropic.com` directly (`engine.go:198`), hand-rolls Stripe with no SDK (`billing.go:41`), and
+stores orders in a **JSON file** — `/var/lib/idea/orders.json`, **no database**. It has no CI: it ships
+by building a linux/amd64 binary locally, `scp`-ing it, and restarting systemd.
+
+**The per-site deploy target was designed, written, and never wired.** `sites.github_repo` exists as a
+column. `resolveGitRepoName` (`helpers.go:206`) has exactly the right logic — explicit config → the
+site's own repo → default `"sites"`. **Nothing calls it.** Four wires are missing (RUNBOOK §2a).
+The concept register already framed the intent: *"`sites.github_repo` selects the target."*
+
+---
+
+## C — 🔴 Unplanned finding: live credentials on a public repo
+
+Not part of either thread; found while mapping the tool. `gqls/agentchassis` is **public**, and
+`idea.env.example` has been on `origin/main` since **2026-06-04** (~6 weeks).
+
+The `.example` name is misleading, so the keys were judged **by length, not by name**:
+
+| Key | Length | Real length | Verdict |
+|---|---|---|---|
+| `SMTP_USER` (AWS SES) | 20 | 20 (`AKIA`+16) | 🔴 **REAL** |
+| `SMTP_PASS` (AWS SES) | 44 | 44 | 🔴 **REAL** |
+| `INTERNAL_API_KEY` | 64 | 64 (`rand -hex 32`) | 🔴 **REAL** |
+| `ANTHROPIC_API_KEY` | 25 | ≈108 | ✅ truncated placeholder |
+| `STRIPE_SECRET_KEY` | 16 | ≈107 | ✅ truncated placeholder |
+| `STRIPE_WEBHOOK_SECRET` | 14 | ≈38 | ✅ truncated placeholder |
+
+**The money path is safe** — Stripe and Anthropic were never exposed. What *is* exposed: the ability
+to send email as idea.uk (SES reputation, phishing, the AWS bill), and `INTERNAL_API_KEY`, which gates
+`/confirm` `/decline` `/approve` `/internal/run` — order approval and Claude-billing runs on the live
+earning service.
+
+**DECISION:** scrub the repo now; **owner rotates**. Rotation is what actually closes it — the values
+are in pushed history, so deleting the file is necessary but not sufficient.
+
+---
+
+## D — DECISION: keep the static build; the VM is a second *sink*, not a second renderer
+
+Owner asked directly: *"Do we need a static site for the dynamic sites — would it be better or worse to
+host the whole site behind the VM nginx?"* Two questions, answered separately.
+
+**Rendering: keep it static. Rejected dynamic rendering on the box.** The chassis *is* a static-site
+generator — rendering happens in Kubernetes out of `clients_db`, and the artefact is HTML. The VM has
+no route to that database and the tool binary has no DB driver at all. Serving pages dynamically from
+the box would mean either giving every box a path into the cluster database (across a fleet: a coupling
+and security problem) or re-implementing rendering locally against a copy of the data — which is the
+static artefact with extra steps. It would also throw away three free properties:
+- **Availability** — static files survive a tool crash. *Today a tool crash takes the whole site down*,
+  because nginx proxies everything to `:8080`. The cutover is a strict improvement here.
+- **Cacheability** — static is Cloudflare-cacheable; dynamic bypasses.
+- **Fleet uniformity** — one artefact, two sinks. Two rendering paths would drift.
+
+**Origin: yes, put the whole site behind the VM nginx.** Same-origin means the funnel, forms and
+cookies simply work (the tool carries an `ALLOWED_ORIGINS` CORS setting precisely because it
+anticipated a split — we get to not need it). One cert, one DNS record, no Cloudflare Worker stitching
+two origins by path. The box is already running and already paid for.
+
+**The cost, recorded honestly.** idea.uk's marketing pages now depend on one Hetzner box rather than on
+B2's effectively-infinite availability, and the box carries an ops burden. Acceptable *because* nginx
+serves the files with no application in the request path — the box must be genuinely down, not merely
+the tool. And it is precisely why **this stays the exception**: B2-static remains the default class for
+the thousands. Do not scale a box-per-site.
+
+Resulting fleet model:
+
+| Class | Shape | For |
+|---|---|---|
+| **A — static → B2** *(default)* | serverless, no box | the thousands |
+| **B — static → VM + backend** | same artefact, one nginx, backend paths proxied | the handful that sell something |
+| **C — dynamic rendering on the box** | ❌ rejected | nobody |
+
+---
+
+## E — DECISION: pull, not push
+
+How the built files reach the box. Owner chose **pull: each box syncs itself** — a systemd timer that
+sparse-checkouts its own domain folder from the shared repo into `/var/www/<domain>`.
+
+Rejected the alternative (extend the existing `vm-sites` rsync Action with a domain→host map): it holds
+**one SSH deploy key on the self-hosted runner, authorised on every box** — compromise the runner and
+you reach the fleet. Pull inverts the blast radius: a compromised box holds a **read-only** repo deploy
+key and cannot reach its siblings. A `--filter=blob:none` + sparse checkout keeps a
+thousands-of-domains repo cheap, since each box fetches only its own folder.
+
+Accepted cost: deploy latency = the timer interval, not instant-on-commit; and it is a new mechanism
+rather than the one already proven for relojistas.com.
+
+**⚠️ Hazard this created, caught before it bit.** `gqls/vm-sites`'s existing Action rsyncs *every*
+changed domain folder to a single `VM_HOST` secret — **relojistas' box, `167.233.33.159`**. The moment
+idea.uk lands in that repo, that Action would push idea.uk onto the **wrong machine**. Before pointing
+`sites.github_repo` at `vm-sites`, the Action must gain an explicit allowlist (`deploy-targets.json`,
+hosts as data not secrets) from which idea.uk is simply absent. RUNBOOK §2b.
+
+---
+
+## F — The site's real state (read from the DB, not assumed)
+
+Nine pages. Six deployed; three `planned` with **zero sections** — exactly the trio the handoff
+described, and the reason their nav links 404:
+
+```
+/index.html                       landing        deployed   6 sections
+/tools.html                       content        deployed   3
+/report.html                      landing        deployed   4
+/guides/index.html                section-index  planned    0   ← 404
+/news/index.html                  section-index  planned    0   ← 404
+/about.html                       content        deployed   4
+/contact.html                     content        deployed   3
+/tools/audience-check/index.html  tool           planned    0   ← 404
+/privacy.html                     content        deployed   1
+```
+
+This settles the path-collision question the cutover depends on:
+- **`/privacy` collides.** Static generates `/privacy.html`; the tool serves `/privacy`. `try_files
+  $uri $uri.html` hands it to the static page unless a `location = /privacy` block wins. **Open
+  decision** (RUNBOOK §3b); default is that the tool keeps it, alongside its other legal pages.
+- **`/terms` and `/refund-policy` do not collide** — the static build has no such pages. Tool keeps them.
+- **`/tools/audience-check/` does not collide** with the tool's `/audience-check` endpoint. Different
+  paths.
+
+**The cutover's real risk, quantified.** The tool serves **16 routes** (`service.go:527-543`). The
+pre-existing cutover runbook warns that "reserved-path completeness is the whole risk" — and then its
+own example nginx block lists **7**. A missing `/audience-check` kills the free taster; missing `/op`
+`/confirm` `/approve` `/decline` kills the operator flow. The full list is in RUNBOOK §3b.
+
+---
+
+## G — The spam handoff is built on a false premise
+
+`HANDOFF_spam_and_ip_blocklist.md` is wrong on three counts, and following it would burn a session:
+
+1. It says the `/request` handler is **"the chassis Go process"**. It is not — it is the standalone
+   `idea` binary, unrelated to the chassis.
+2. It says the submissions are *"almost certainly into a store we can query"*, and instructs the next
+   session to hunt harder in `clients_db`, explicitly dismissing an earlier 0-row result as *"a search
+   miss, not a 'no data' result."* **The 0 rows were correct.** idea.uk has no database; orders are a
+   JSON file (`store.go:3-5`, `setup.sh:150`). `spam_read.sql` is therefore **void** — it should be
+   discarded, not extended with more `ILIKE` needles.
+3. It describes nginx as already serving static pages and proxying reserved paths. That is the *future*
+   state — the cutover has not happened.
+
+What it gets right: *"a honeypot + timing check usually outperforms an IP list"* — spammers rotate IPs.
+
+**Two facts that constrain any fix.**
+- The `Order` struct (`store.go:17-30`) has **no IP field**. The existing spam rows therefore **cannot
+  seed a blocklist retroactively**. The only historical IP source is the nginx access log.
+- idea.uk sits behind Cloudflare, but `setup.sh` never sets `set_real_ip_from` / `real_ip_header
+  CF-Connecting-IP`. So nginx sees a **Cloudflare edge IP**: the existing `limit_req` zone buckets all
+  Cloudflare traffic as one, and any nginx `geo` deny or fail2ban jail would ban **Cloudflare, not the
+  spammer**. This exact trap is documented in the traffic_probe runbook for the *other* box and was
+  never back-ported. It gates every IP-blocking approach.
+
+The ingredients already exist, merely unwired: a per-IP sliding-window `rateLimiter` (3/hr + 20/day) and
+a `clientIP()` extractor, both in `audience_check.go`, both used **only** by the free taster.
+`handleRequest` calls neither, and discards `ParseForm`'s error.
+
+---
+
+## H — Out of scope, but found: the fleet's contact forms post into a void
+
+`apply_gap_plan_action.go:465` emits a `contact-form` section whose stored HTML is
+`<form class="contact-form" action="/contact" method="POST">`. The generated sites are **static**, so
+`POST /contact` resolves to nothing and **every submission is silently lost, fleet-wide**. idea.uk has a
+deployed `/contact.html`. This is a *dead form* problem, not a spam problem. It wants its own thread.
+Whatever contact backend is eventually built should be born with the honeypot and rate limit that
+Phase 4 retrofits onto `/request`.
+
+---
+
+## Open decisions
+
+- **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)
+- **Cloudflare proxied (orange) or DNS-only (grey)?** Unverifiable from the repo; decides whether the
+  real-IP problem is live and whether Cloudflare WAF/Turnstile is reachable as the blocking layer.
+- **Does relojistas.com migrate from push to pull too**, or do the two mechanisms coexist? (Coexist is
+  fine and is what §2b's allowlist enables.)

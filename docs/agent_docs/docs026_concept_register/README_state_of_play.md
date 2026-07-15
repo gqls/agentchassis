@@ -29,3 +29,23 @@ Loose ends worth your attention
 Stage 2 (verifying each concept against real code/DB) and stage 3 (building council agents per concept area) are next, whenever you want to pick them up.
 
 --
+
+● Stage 2 is now fully complete. Summary of what landed:
+
+The final sweep (100 agents, 174 concepts checked): 18 corrections confirmed, 9 overturned.
+
+- A scheduler cluster (SCH-007/008/009): three concepts, same shape — real fixes landed in cmd/scheduler/main.go (ownership gap, starvation prevention, fire_message handling) but the docs never caught up.
+  Three independent confirmations of the same drift.
+- A new failure-mode class: DOC-064 was tagged abandoned because extraction's search was scoped to one doc subtree and never reached a sibling folder holding a byte-identical live copy — evidence that was
+  never found, distinct from the present-tense-plan misreading batches 1-2 found.
+- Several "bundled" concepts were half-superseded — a claimed clean replacement, but part of the old mechanism was still live and wired.
+
+Stage 2 grand total, all 1,627 concepts now checked at least once: 124 corrections confirmed, 106 overturned by the adversarial pass (~7.6% error rate). Final distribution: 853 deployed / 257 partial /
+290 aspirational / 90 superseded / 67 abandoned / 21 unknown / 49 convention.
+
+All three running docs, the master index, and memory are updated to reflect completion. Two items remain, both explicitly yours to call: credential rotation (RUNBOOK B1) and whether/when to implement the
+stage-3 council design against the live fix-loop workflow (RUNBOOK B4) — that's a cross-workstream production change I've deliberately left for your sign-off rather than proceeding on unilaterally.
+
+
+---
+

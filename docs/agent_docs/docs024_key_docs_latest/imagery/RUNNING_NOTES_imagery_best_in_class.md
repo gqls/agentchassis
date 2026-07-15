@@ -1571,4 +1571,42 @@ ALL still recoverable from content_data, and the upstream fix):
 **I2 status:** I2.2 ✅ I2.3 ✅ (gated) · I2.4 ✅ built (rides next deploy) ·
 I2.5 ✅ built, ⛔ landing blocked on the article-body fix. I2 closes when I2.5 lands.
 
+## Turn 40 — 2026-07-14 — I2.4 LIVE and PROVEN end-to-end (incl. idempotence); I2.5's CSS live
+
+**The deploy already carried I2.4 + I2.5** — verified by grepping the RUNNING POD's
+binary, not git (v1.0.1118 was built from the local filesystem AFTER the bulk commit
+swept the code in). Note the grep gotcha: `sprite-list>li.sprite-b-` is ABSENT from
+the binary and that is CORRECT — I2.5 composes that selector at runtime via
+`joinScoped`, so only the fragments (`ul.sprite-list`, `.sprite-bullets ul`,
+`>li.sprite-b-`) exist as literals. Grep for what the code actually contains.
+
+**SAFETY FIRST (the standing warning):** before triggering any discovery I checked
+that all 30 robot-hands imagery plan rows already have assets → `unfulfilled_imagery_plan`
+can emit no `needs_imagery` → no image lands → **no `image_landed` scoped rerender →
+no article bodies blanked.** I also ran design-discovery-agent (checks only) rather
+than the full improvement-loop, so none of the loop's other machinery could fire a
+scoped rerender. Verify this before ANY discovery run until the article-body fix lands.
+
+**I2.4 PROVEN, the full chain, in order:**
+1. Discovery pass → `sprite_css_missing` FIRED, finding + work item with
+   `reason: "missing"` (no stamp on the plan row), handler asset-deployer, attempt 0.
+2. Item sat at `detected` — discovery items are NOT auto-triaged (standalone check run
+   has no triage step). Promoted to `triaged`, attempt_count 0.
+3. Dispatch → asset-deployer → `emit_sprite_css` → COMPLETE first attempt.
+4. `/assets/css/sprites.css` re-emitted: **12 `.sprite-bullets` container rules live**
+   (I2.5's CSS), per-list scope intact, 3,179 bytes.
+5. Plan row STAMPED: `{format: 2, signature: "3x3:check,gauge,…", emitted_at, sheet_path}`.
+6. **IDEMPOTENCE PROVEN (the one that mattered):** re-ran discovery → the other three
+   checks reported findings, `sprite_css_missing` did NOT, and **zero** new items. It
+   fires once, fixes the gap, stamps, goes silent. Had the stamp write failed, it would
+   have re-committed an identical stylesheet on every pass forever.
+7. No regression on the gate page — the four distinct glyphs still render.
+Also observed: a second discovery run while the item was still open created NO
+duplicate — the `(site_id, item_key)` partial-unique dedup held.
+
+**I2 status:** I2.0–I2.4 ✅ COMPLETE AND LIVE. I2.5 = CSS live; only the
+`sprite-bullets` class on article-body's wrapper remains, still ⛔ BLOCKED on
+`HANDOFF_2026-07-14_article_body_json_envelope.md` (the wrapper isn't in the deployed
+markup on 14/16 article pages). I2 closes the moment that repair lands.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

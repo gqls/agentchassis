@@ -56,3 +56,34 @@ Done. Everything in the approved plan that can be produced in an authoring sessi
 **`RUNBOOK_link_integrity_task.md`** sequences the live rollout — image → symbol verification in the pod → 091/092 → fleet-safety gate → pre-repair discovery (which must reproduce all four finding classes on vonc, proving detection) → repair → Arena → the closing discovery pass that must come back clean. Running notes are updated with the session log, including the standing TL-001 note that the Arena page must never receive a generic full rebuild.
 
 ----
+
+That's a wrap on WS1–WS3. Here's the full, verified state:
+
+WS1 (Go) — live and confirmed across two deploys. Your two chassis builds (v1.0.1116, then v1.0.1117) both carry the code; I re-verified symbols in-pod after the second one flipped over mid-task.
+
+WS2 (migrations 091+092) — applied, verified. 4 CTA URL fields flipped off the pages.contact/pages.services root cause; 3 checks enabled; cta_links_stale wired into page-rerender. Fleet safety gate
+passed: an untouched business site's CTA is byte-identical (DB row and live HTML), and a plain image_landed rerender proved genuinely no-op on CTAs (confirmed by hash, not by trusting the work-item's
+misleading stale-error status).
+
+WS3 (vonc repair) — done, verified by artifact and by curl on the live site.
+- Discovery run before repair proved the generic loop actually works: it independently found the misdirected CTAs, the 2 true 404s, and both Arena CTAs — without me telling it where to look.
+- 093 fixed the two /about.html 404s.
+- All 9 archetype pages + archetypes.html: primary CTA → Gauntlet, secondary → Quiz, confirmed both in the database and in the live served HTML (the leftover /contact.html links I see now are legitimate —
+  header button and footer nav, not the bug).
+- index.html is still mid-queue (not stuck, just slow — the dispatcher stalled repeatedly on zombie claims during this run; I used the documented reset-and-retry recovery each time). Worth a curl check on
+  your end in a few minutes.
+
+Three things the generic loop surfaced that weren't in the original plan — none touched, all deliberately parked:
+1. check_phantom_internal_links.go has no data-runtime-fill guard (unlike the other checks), so it misfires on vonc's deliberate empty-shell provocation-card/lobby-grid components. Real gap, low urgency
+   (items sit inert at detected) — worth a follow-up patch.
+2. The quiz's result card has a static href="" "Get Your Full Report" CTA with no runtime-fill marker — genuinely undetermined whether that's a planned feature or dead promise. Routed to human review,
+   untouched.
+3. about.html's gauntlet-cta component uses its own field names (cta_primary_url/cta_secondary_url), so it's invisible to our fix — and it has both a misdirected secondary CTA and the same generic
+   stat-label bug (090's pattern: "Happy Customers"/"Avg. Rating") on a component 090 never touched. Needs its own small migration.
+4. nav_drift correctly never fired — turns out Gauntlet and Quiz are already linked from the site footer, just not in the formal site_nav_items table. Less broken than originally assessed; no action
+   needed.
+
+Not started: WS4 (Arena). Want me to move on to that next, or knock out the three residual findings above first?
+
+
+---
