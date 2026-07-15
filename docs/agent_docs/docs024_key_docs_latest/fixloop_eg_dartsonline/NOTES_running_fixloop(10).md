@@ -1715,6 +1715,33 @@ two-strike rule can never see, because no work item exists at all).
   Image v1.0.1118 (verified in-pod: `grep -ac diagnose_silent_check /proc/1/exe` = 4).
   Commit 72bcd633.
 
+### Turn 31 (2026-07-15) — ★ PHASE 4 LIVE: the digest carries the whole immune system (v1.0.1120/1121)
+
+- `fixloop_digest` gained the **escalation channel** section (`digestImmune`):
+  sweep counts in-window; the OPEN diagnosis queue — every parked item, every
+  digest, NEW-flagged when in-window (a parked escalation is a decision
+  waiting on the owner and must never fade out with time); silent-check
+  findings open + closed-in-window (closures shown, never dropped); standing
+  capability gaps. `diagnosis-triage` + `diagnosis-silent-check` joined the
+  run roster. Unit tests extended (empty-state honesty + section rendering).
+- **Deploy coordination, worth recording:** my build of the tag then in the
+  makefile would have COLLIDED with a concurrent session's v1.0.1119 (the
+  same-tag landmine — owner interrupted in time); verified 1119's pod binary
+  did NOT carry the digest code (`grep -ac digestGatherImmune` = 0), bumped to
+  v1.0.1120, and **held the rollout behind a cluster-quiet watcher** because
+  live page-builds were mid-flight (`spawn_dispatch`/`deploy_page`
+  AWAITING_RESPONSES — a rollout would have killed them, the turn-9 failure
+  mode). Deployed 1120 clean; the owner rolled v1.0.1121 over it minutes
+  later — re-verified all three symbols in the 1121 binary (2/4/2).
+- **First delivered digest with the section** (2026-07-15 14:44 UTC, pulled
+  via 094 to `docs/fixloop_digests/DIGEST_latest.md` + archive): 8 runs incl.
+  all 7 triage/silent-check sweeps; 3 open escalations all NEW; 1 open + 1
+  CLOSED silent finding; no standing capability gaps. Known cosmetic quirk:
+  the digest run lists itself mid-flight (pre-existing).
+- Phases 1, 2, 4 of the triage design are now LIVE. Remaining: Phase 3
+  (feedback close-out after a fix deploys — silent-check already does the
+  minimal slice for its own findings) and the later council-widening.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

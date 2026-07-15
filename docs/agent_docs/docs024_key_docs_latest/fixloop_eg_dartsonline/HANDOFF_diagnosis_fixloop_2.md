@@ -142,9 +142,16 @@ through.
   turn 30.
 - **Phase 3 — feedback close-out.** After a fix deploys, re-verify the original
   items; fixed → close the escalation, still failing → back to triage.
-- **Phase 4 — digest escalation section.** Fold escalations + capability gaps +
-  verifications into the awareness digest, so the owner sees the whole immune
-  system on one page.
+  (Silent-check already does the minimal slice for its OWN findings — closes
+  them when the violation/silence ends; the full phase covers triage
+  escalations after a fix ships. Nothing to close yet: no fix has shipped for
+  the parked escalations.)
+- **Phase 4 — digest escalation section: DONE, LIVE 2026-07-15 (v1.0.1120,
+  turn 31).** The digest's "Escalation channel" section shows sweep counts,
+  the WHOLE open diagnosis queue every digest (NEW-flagged in-window), silent
+  findings open/CLOSED, and standing capability gaps; triage + silent-check
+  are in the run roster. First delivery: `docs/fixloop_digests/DIGEST_latest.md`
+  (2026-07-15).
 - **Later — wider council** (guidelines / reuse / bug-historian reviewers — the
   F2 roster in the runbook); **capability-builder** (features from specs — the
   ambitious, human-gated direction).

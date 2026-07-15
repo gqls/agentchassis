@@ -557,10 +557,15 @@ items grouped by a ≥140-char error prefix into ONE platform pattern; triage
 escalated it end to end (`triage-diag:silent_failure:fd86fec2c4da`). The
 close-out path proved itself live when another thread's `needs_page` items
 covered idea.uk's pages and the checker closed its finding honestly.
-Triggers: 095 (triage), 096 (silent-check) — both MANUAL. NEXT: Phase 3
-(feedback close-out after fix deploys) and Phase 4 (digest escalation
-section); dispatching the parked escalations into the loop is the owner's
-call. Fresh-chat entry point remains **`HANDOFF_diagnosis_fixloop_2.md`**.
+Triggers: 095 (triage), 096 (silent-check) — both MANUAL. **Phase 4 went live
+2026-07-15 (v1.0.1120/1121, turn 31):** the digest's "Escalation channel"
+section carries the whole immune system — open diagnosis queue (NEW-flagged),
+silent findings open/CLOSED, capability gaps, sweep counts; triage +
+silent-check joined the digest's run roster; first delivery pulled to
+`docs/fixloop_digests/DIGEST_latest.md`. NEXT: Phase 3 (feedback close-out
+after a fix deploys); dispatching the 3 parked escalations into the loop is
+the owner's call. Fresh-chat entry point remains
+**`HANDOFF_diagnosis_fixloop_2.md`**.
 
 ## PRIOR POSITION — 2026-07-14 (turn 34 of chat 1): TRIAGE built; escalation channel one step from live
 Fresh-chat entry point is now **`HANDOFF_diagnosis_fixloop_2.md`**. Since the
