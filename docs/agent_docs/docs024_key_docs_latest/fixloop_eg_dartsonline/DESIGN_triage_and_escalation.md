@@ -238,8 +238,17 @@ spirit as the council's "escalate rather than pretend."
    the owner promotes it; proven end to end same day (notes turn 30).
 3. **Feedback close-out** — re-verify after a fix deploys; open/close
    escalations honestly.
+   **IMPLEMENTED + LIVE 2026-07-15 (v1.0.1122, `triageCloseResolved`):** each
+   sweep closes parked escalations whose failure pattern has vanished (all-time
+   check; re-escalation automatic). Re-driving originals after a fix ships
+   stays a human action. Notes turn 32.
 4. **Digest section** for escalations + capability gaps — fold the whole immune
    system into the owner's one awareness surface.
+   **IMPLEMENTED + LIVE 2026-07-15 (v1.0.1120, digest "Escalation channel").**
+
+> **STATUS 2026-07-15: all four phases LIVE.** Remaining fixloop work is the
+> separate later track — council-widening (F2 roster) and the owner-gated
+> real-case queue (`aaa_fails_to_mend/`).
 
 Each phase is independently useful and independently reversible. Nothing here
 lets the loop act without the same gates it already has — triage only decides

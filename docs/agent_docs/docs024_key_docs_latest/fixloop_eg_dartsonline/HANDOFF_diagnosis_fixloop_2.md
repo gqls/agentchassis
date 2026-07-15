@@ -140,12 +140,15 @@ through.
   `triage-diag:silent_failure:fd86fec2c4da`) including live dedup and honest
   close-out. Seed `0NN_diagnosis_silent_check.sql`, trigger `096_…`, notes
   turn 30.
-- **Phase 3 — feedback close-out.** After a fix deploys, re-verify the original
-  items; fixed → close the escalation, still failing → back to triage.
-  (Silent-check already does the minimal slice for its OWN findings — closes
-  them when the violation/silence ends; the full phase covers triage
-  escalations after a fix ships. Nothing to close yet: no fix has shipped for
-  the parked escalations.)
+- **Phase 3 — feedback close-out: DONE, LIVE 2026-07-15 (v1.0.1122, turn 32).**
+  Each triage sweep recomputes failure-pattern keys over ALL failed items (no
+  window) and closes any parked escalation whose pattern has vanished
+  (`triageCloseResolved`); re-escalation is automatic via the dedup index.
+  Re-driving original items after a fix ships stays a HUMAN action. Proven
+  both ways: real sweep closed nothing (all 3 patterns still exist); a
+  synthetic probe closed itself while the 3 real ones stayed open. Silent-check
+  already does the equivalent for its own findings. **The whole
+  triage/escalation design (Phases 1–4) is now live.**
 - **Phase 4 — digest escalation section: DONE, LIVE 2026-07-15 (v1.0.1120,
   turn 31).** The digest's "Escalation channel" section shows sweep counts,
   the WHOLE open diagnosis queue every digest (NEW-flagged in-window), silent

@@ -1742,6 +1742,37 @@ two-strike rule can never see, because no work item exists at all).
   (feedback close-out after a fix deploys — silent-check already does the
   minimal slice for its own findings) and the later council-widening.
 
+### Turn 32 (2026-07-15) — ★ PHASE 3 LIVE: triage close-out (v1.0.1122) — the design is now complete end to end
+
+- Triage gained `triageCloseResolved`: after each sweep it recomputes failure
+  pattern keys over **ALL failed items (no window — `100 years`)**, then
+  closes any triage-created `needs_diagnosis` still at `awaiting_diagnosis`
+  whose key no longer exists. Windowing here would be a bug: an item aging out
+  of the sweep window is NOT resolution, so the check is deliberately
+  all-time. `diagnosing` items are never touched (a run may be in flight).
+  Re-escalation is automatic — closed rows leave `idx_swi_dedup`, so a pattern
+  that returns is re-created next sweep. **Re-driving the original items after
+  a fix ships stays a human action** (ownership split); this pass only
+  observes the result. `dry_run` and `close_out=false` both suppress it. New
+  report section names every closed key; pure `triageResolvedKeys` unit-tested
+  (closes only vanished patterns; empty-open → none; all-gone → all).
+- **PROVEN BOTH WAYS in production:**
+  1. *Negative path* (real sweep): "Close-out — escalations resolved (0) — No
+     parked escalation's pattern has resolved — all remain open." All three
+     real escalations genuinely still exist → nothing closed. No spurious
+     closures.
+  2. *Positive path* (controlled probe): inserted a synthetic parked
+     escalation `triage-diag:__closeout_probe__:deadbeef01` whose item_type
+     matches no live failure; next sweep closed it (`complete`, honest error
+     note) while all three REAL escalations stayed `awaiting_diagnosis`. The
+     discrimination is exact. Probe self-closed — no cleanup.
+- **The triage-and-escalation design (DESIGN_triage_and_escalation.md) is now
+  fully implemented:** Phase 1 (loud-failure routing + capability gaps),
+  Phase 2 (silent-failure verification checker), Phase 3 (feedback close-out),
+  Phase 4 (digest escalation section) all LIVE. Remaining work is the later,
+  separate track: council-widening (F2 roster) + the real-case queue in
+  `aaa_fails_to_mend/` (owner-gated, credits).
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

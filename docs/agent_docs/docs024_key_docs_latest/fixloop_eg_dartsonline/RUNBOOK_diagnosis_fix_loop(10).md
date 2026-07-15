@@ -562,10 +562,16 @@ Triggers: 095 (triage), 096 (silent-check) — both MANUAL. **Phase 4 went live
 section carries the whole immune system — open diagnosis queue (NEW-flagged),
 silent findings open/CLOSED, capability gaps, sweep counts; triage +
 silent-check joined the digest's run roster; first delivery pulled to
-`docs/fixloop_digests/DIGEST_latest.md`. NEXT: Phase 3 (feedback close-out
-after a fix deploys); dispatching the 3 parked escalations into the loop is
-the owner's call. Fresh-chat entry point remains
-**`HANDOFF_diagnosis_fixloop_2.md`**.
+`docs/fixloop_digests/DIGEST_latest.md`. **Phase 3 (feedback close-out) went
+live 2026-07-15 (v1.0.1122, turn 32):** each triage sweep closes parked
+escalations whose failure pattern has vanished (all-time check, not window
+aging; re-escalation automatic via the dedup index) — proven both ways
+(real sweep closed nothing; a synthetic probe self-closed while the 3 real
+ones stayed open). **ALL FOUR PHASES of the triage/escalation design are now
+LIVE.** NEXT is the separate later track: council-widening (F2 roster) and
+the owner-gated real-case queue in `aaa_fails_to_mend/`; dispatching the 3
+parked escalations into the loop is the owner's call. Fresh-chat entry point
+remains **`HANDOFF_diagnosis_fixloop_2.md`**.
 
 ## PRIOR POSITION — 2026-07-14 (turn 34 of chat 1): TRIAGE built; escalation channel one step from live
 Fresh-chat entry point is now **`HANDOFF_diagnosis_fixloop_2.md`**. Since the
