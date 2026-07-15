@@ -155,6 +155,13 @@ through.
 - **Later — wider council** (guidelines / reuse / bug-historian reviewers — the
   F2 roster in the runbook); **capability-builder** (features from specs — the
   ambitious, human-gated direction).
+- **The real-case queue (owner, 2026-07-15):**
+  `docs/agent_docs/docs024_key_docs_latest/aaa_fails_to_mend/` holds handoffs
+  of real errors to diagnose **once we're happy with the tool** (001 replan
+  clobbers built pages; 002 errors-to-fix list; 003 spawn lost child
+  response). They enter via the loop's normal intake (090 needs_diagnosis
+  contract, or as triage patterns where they surface as failures). Owner
+  gives the go — each diagnosis run spends credits.
 
 ## 6. Gotchas that cost hours — do not relearn
 

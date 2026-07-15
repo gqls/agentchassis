@@ -950,3 +950,12 @@ lost-child-response / Kafka-dial-timeout class. This is not something re-firing 
 **Stopping.** Resume when the cluster is healthy AND you can watch the spawn land its child
 response (or after the platform adds a spawn-timeout that fails fast instead of reaping at 90
 min). The content path is believed clean; the `contact-block` validator blocker is fixed.
+
+### Turn 17 — infra bug written up separately
+
+The spawn/lost-child-response flake that blocked the quiz (and imagery) is characterised as a
+standalone, fleet-wide platform bug in **`docs/HANDOFF_spawn_lost_child_response.md`** — start a
+separate thread from there. Root cause: certain worker nodes can't dial Kafka broker-2
+(`10.20.99.93:9092`); child agent pods on those nodes retry-loop forever and never publish their
+response, so parents hang until the SQL reaper fails them at 30/90 min. Fleet-wide evidence
+(38 `spawn_dispatch` failures in 2 days), not a leopardess problem.

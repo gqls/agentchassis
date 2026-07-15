@@ -468,21 +468,45 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// Strip markdown code blocks from response before processing
 	cleanedResult := stripMarkdownFromResponse(result)
 
-	// Try to parse as JSON, if it fails return as plain text
-	var parsedResult interface{}
-	if err := json.Unmarshal([]byte(cleanedResult), &parsedResult); err != nil {
-		// Not valid JSON, return as plain text (use cleaned result)
+	// Parse as JSON, repairing the escaping-only malformations models emit
+	// constantly (raw newlines / unescaped quotes inside string values). A
+	// TRUNCATED response — the model hit its output-token ceiling mid-object —
+	// is genuinely incomplete and stays unparseable: it falls through to the
+	// text path here, and the renderer's required-field check then refuses to
+	// ship a blank section rather than silently emptying it. See
+	// json_envelope.go and HANDOFF_2026-07-14_article_body_json_envelope.md.
+	parsedResult, repaired, parseErr := ParseLLMJSON(cleanedResult)
+	if parseErr != nil {
+		params.Logger.Warn("LLM response is not parseable JSON — returning as text (a required-content step will fail loud downstream)",
+			zap.Error(parseErr),
+			zap.Int("response_len", len(cleanedResult)),
+			zap.String("response_tail", datahelpers.TruncateString(lastRunes(cleanedResult, 80), 80)),
+		)
 		return map[string]interface{}{
 			"result": cleanedResult,
 			"type":   "text",
 		}, nil
 	}
+	if repaired {
+		params.Logger.Info("LLM response required JSON repair (unescaped control characters in string values)",
+			zap.String("step_name", params.ExecutionContext.StepName),
+		)
+	}
 
-	// Valid JSON, return parsed result
 	return map[string]interface{}{
 		"result": parsedResult,
 		"type":   "json",
 	}, nil
+}
+
+// lastRunes returns up to n trailing runes of s, for logging a response tail
+// without splitting a multi-byte rune.
+func lastRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[len(r)-n:])
 }
 
 // stripMarkdownFromResponse removes markdown code fences from LLM responses

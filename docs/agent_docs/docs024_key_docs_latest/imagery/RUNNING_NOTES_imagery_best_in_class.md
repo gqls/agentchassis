@@ -1609,4 +1609,52 @@ duplicate — the `(site_id, item_key)` partial-unique dedup held.
 `HANDOFF_2026-07-14_article_body_json_envelope.md` (the wrapper isn't in the deployed
 markup on 14/16 article pages). I2 closes the moment that repair lands.
 
+## Turn 41 — 2026-07-15 — I2.5 LANDED + PROVEN on the gate page → I2 COMPLETE
+
+**Container opt-in proven end-to-end on the live site.** To land I2.5's class I had
+to repair ONE article-body page (robot-hands has no healthy article page — all are
+leak/blanked). Chose the sprite gate page itself (friction-calculator guide), which
+was ALSO a JSON-leak page — so this both closes I2 AND removes a visible leak.
+
+**What I did (scoped pilot; fleet-wide repair stays in the article-body handoff):**
+1. Extracted the article HTML from the never-parsed envelope in
+   `content_data.result`. NOTE the envelope is NOT valid JSON — HTML attribute
+   quotes are BARE (`class="sprite-list"`, not `\"`), so the writer stored a naive
+   concatenation. Extraction = string surgery (substring after `"content": "`), not
+   a JSON parse. **The envelope is also TRUNCATED mid-word ("…it is a sympt")** —
+   pre-existing (the live page already showed it cut off); recovery from these rows
+   is therefore PARTIAL. Added that to the article-body handoff.
+2. Set `content_data.content` (the schema/template field) from the extracted HTML;
+   kept result/type as evidence.
+3. **I2.5:** added `sprite-bullets` to the GLOBAL article-body template's
+   `.article-body__content` wrapper (one row, all sites; inert without sprites.css
+   → only robot-hands themes). Backup `bak_cc_articlebody_20260715`.
+4. Set the component's `rendered_html` to the template-rendered HTML (removes the
+   leak, adds the wrapper). Backup `bak_pc_gate_articlebody_20260715`.
+5. Assemble-ONLY page_rerender (no `spec.reason`) — the SAFE path (no section
+   re-render, no re-resolve, hero/CTA untouched). Verified hero+CTA healthy first.
+
+**PROVEN on the served page (headless render):**
+- The "Coefficient of Friction" factors list — plain LLM content, **NO class of its
+  own** — now shows sprite glyphs on every item, themed purely by the wrapper. That
+  IS the container opt-in working: generated content themes itself, zero markup.
+- The Safety Factor list keeps its explicit info/gauge/warning glyphs — per-item
+  overrides (0,2,3) still beat the container default (0,1,3). Both scopes coexist.
+- JSON leak GONE (article starts clean at its h2); all 5 h2s intact; nav/footer
+  `<ul>`s correctly NOT themed (they're outside the wrapper).
+
+**I2 STATUS: ✅ COMPLETE.** I2.0–I2.5 all done and live. Sprite sheets, bullets,
+fulfilment check, container house-style — the whole phase. Acceptance met.
+
+**OPEN DESIGN NOTE (raised to user):** with the container opt-in, EVERY content list
+gets the DEFAULT glyph = check (cell 0). On a factors/checklist it reads fine; on a
+neutral/reference list a check is a touch assertive. Question for the user: keep
+check as the universal default, or make the container default a more neutral glyph
+(e.g. arrow, cell 6) and reserve check for explicit `sprite-b-check`? Not a blocker.
+
+**Fleet reminder unchanged:** the article-body JSON-envelope defect still affects
+13 other pages (9 blanked, 4 leaking) — `HANDOFF_2026-07-14_article_body_json_envelope.md`.
+This turn repaired ONLY the gate page. And landing an image on the unrepaired pages
+still blanks them.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

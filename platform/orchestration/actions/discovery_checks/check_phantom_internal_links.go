@@ -45,6 +45,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -253,10 +254,22 @@ func findPhantomInternalLinks(dctx DiscoveryCheckContext) ([]phantomLinkFinding,
 
 // accumulateLinkIssues extracts hrefs from one rendered component and records
 // empty hrefs and phantom page links into counts.
+//
+// Runtime-fill guard: a data-runtime-fill section is DELIBERATELY empty at build
+// time — its hrefs are placeholders filled client-side (vonc's provocation-card /
+// lobby-grid shells), so an empty href there is by-design, not a defect. Empty
+// hrefs are exempted for such shells (matching check_empty_sections' exemption).
+// A NON-empty href that resolves to no real page is still flagged even in a
+// shell: a phantom target baked into the template is a genuine bug, not a
+// placeholder.
 func accumulateLinkIssues(counts map[plKey]int, surface, pageName, pageID, slotName, html string, validPages datahelpers.PageURLSet) {
+	isRuntimeFill := strings.Contains(html, "data-runtime-fill")
 	for _, href := range datahelpers.ExtractHrefs(html) {
 		switch datahelpers.ClassifyLinkScope(href) {
 		case datahelpers.LinkScopeEmpty:
+			if isRuntimeFill {
+				continue // empty href is intended in a client-hydrated shell
+			}
 			counts[plKey{surface, pageName, pageID, slotName, href, "empty_internal_href"}]++
 		case datahelpers.LinkScopePage:
 			if !validPages.Contains(href) {

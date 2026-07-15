@@ -162,14 +162,41 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		return out, nil
 	}
 
-	// ── NULL pre-check: re-render-all needs every section to have content. If
-	//    any is missing, escalate the WHOLE page to the writer (regenerate +
-	//    backfill content_data) and do NOT re-render here. ────────────────────
+	// One component-schema load for all sections (loadComponentSchemas keys by
+	// both name and function — slot_name matches either). Loaded before the
+	// pre-check so the check can consult each section's required-field contract.
+	names := make([]string, 0, len(stored))
 	for _, s := range stored {
+		names = append(names, s.slotName)
+	}
+	schemas := loadComponentSchemas(ctx, params.DB, names, logger)
+
+	// ── Content pre-check: re-render-all renders each section from its STORED
+	//    content_data, so every section must actually carry its content. Two
+	//    ways it can fail, both of which would render an empty section and
+	//    OVERWRITE good HTML with a blank shell (the exact defect that silently
+	//    blanked live article bodies):
+	//      (a) content_data is entirely absent (older pages predating capture);
+	//      (b) content_data is present but MISSING a schema-required source:"llm"
+	//          field — e.g. the stored {type,result} envelope that was never
+	//          unwrapped, so it has no `content` key the article-body template
+	//          needs.
+	//    In either case escalate the WHOLE page to the writer (regenerate +
+	//    backfill) and do NOT re-render here, leaving the existing HTML intact. ─
+	for _, s := range stored {
+		reason := ""
 		if len(s.contentData) == 0 {
-			logger.Warn("rerender_page_sections: section has no stored content_data — escalating page to writer",
+			reason = "no stored content_data"
+		} else if comp, ok := schemas[s.slotName]; ok && len(comp.InputSchema) > 0 {
+			if missing := missingRequiredLLMFields(comp.InputSchema, s.contentData); len(missing) > 0 {
+				reason = fmt.Sprintf("stored content_data missing required field(s) %v", missing)
+			}
+		}
+		if reason != "" {
+			logger.Warn("rerender_page_sections: section content incomplete — escalating page to writer instead of blanking it",
 				zap.String("page", pageName),
-				zap.String("section", s.slotName))
+				zap.String("section", s.slotName),
+				zap.String("reason", reason))
 			if err := escalateRerenderToWriter(ctx, params.DB, siteID, pageName, logger); err != nil {
 				return nil, fmt.Errorf("escalate to writer: %w", err)
 			}
@@ -181,14 +208,6 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 
 	// ── Re-resolve + re-render each section (no LLM) ────────────────────────
 	resolver := newSourceResolver(siteID, params.DB, logger, pageName)
-
-	// One component-schema load for all sections (loadComponentSchemas keys by
-	// both name and function — slot_name matches either).
-	names := make([]string, 0, len(stored))
-	for _, s := range stored {
-		names = append(names, s.slotName)
-	}
-	schemas := loadComponentSchemas(ctx, params.DB, names, logger)
 
 	// Minimal render-context base from sites.content_data (company/contact/etc).
 	// Section templates take colours from CSS vars and copy from content_data,

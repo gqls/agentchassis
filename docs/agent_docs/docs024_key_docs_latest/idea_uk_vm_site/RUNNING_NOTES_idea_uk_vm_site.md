@@ -277,11 +277,55 @@ decision):
   interaction. Cost: a page that structurally can't auto-compose, so it needs a driven build or a
   role change to give it a sibling.
 
+## K — 2026-07-15 · Decisions taken; Phase 1 essentially done
+
+**`tool-audience-check` → option A (retarget + retire).** Owner chose: the tool-list card links
+straight to the live tool; no interstitial. Implemented as a **pointer page** pattern (worth reusing
+for any VM-hosted tool surfaced in a chassis tool-list):
+- The card href is `tool-audience-check.url` (tool-list resolves `query.pages_where_type:tool` →
+  `resolvePagesWhereType`, `queryresolve.go:155`, which uses each tool page's `url`). Repointed
+  `url` → `/audience-check`.
+- "Retire the static page" = never emit an artefact + stop reconcile churn. Set
+  `build_status='deployed'` pinned to the current plan (`built_from_plan_version`), which is the exact
+  condition `decideEmit` (`reconcile_site_plan_action.go:293`) needs to return `skip_built`. Truthful:
+  the tool it points to IS deployed (on the box). No sections → nothing assembles a file. Even a stray
+  file would lose to nginx's exact-match `/audience-check` proxy.
+- Re-rendered `index` + `tools` so their baked-in card href updates from the old static path.
+- `sql/p1_04_audience_check_pointer.sql`.
+
+**Phase 1 outcome:** all three original targets resolved. `guides-index` + `news-index` composed and
+deployed; `tool-audience-check` resolved as a pointer to the live tool; the 4 regressed pages restored
+(`about` + `contact` rebuilt with their correct heroes, verified via `page_components`). Site is back
+to a coherent 9 pages, no invented pages, nothing live-visible touched.
+
+**Residual (pre-existing, not caused here):** `contact` still lacks `contact-info` — a
+`needs_section_data` / `needs_human_review` for a missing *business contact email*. Owner decision:
+what public contact email should the static `/contact.html` show? (The tool uses
+`idea-uk@leopardess.uk`.) Separately, `/contact.html`'s form posts to `/contact`, which is a **dead
+form** after cutover (the tool serves no `/contact`); see the out-of-scope note in §H — the static
+contact page needs either a working backend or its form replaced with a mailto/CTA to the tool's
+`/request`.
+
+## L — 2026-07-15 · Infra observations while watching the card re-render
+
+- **Build path is churny but self-healing.** The `index` re-render hit "Claim timed out — handler pod
+  likely died" (attempt 1/3) and reverted to `triaged`; `page-build-handler` pods are short-lived and
+  one died mid-build. The dispatch loop (4 replicas, healthy) retries. This is the known claim-timeout
+  hygiene item, not a hard failure — the card flip completes via retry.
+- **Self-hosted GitHub Actions runner: 1 of 2 replicas crash-looping (`lhg9l`, 4906 restarts/18d).**
+  Failure is a node container-runtime bug (`runc`: `expected cgroupsPath to be of format
+  "slice:prefix:name" for systemd cgroups`), exitCode 128 StartError — the container never starts.
+  The other replica (`5pqdv`) is healthy, so **B2 sync still works** (sites have been deploying). Net:
+  **lost redundancy + constant restart noise**, and a latent single point of failure — if `5pqdv`
+  dies, `lhg9l` cannot take over and fleet B2 deploys stop. Reschedule `lhg9l` off the bad node / fix
+  that node's cgroup driver. Tangential to this workstream, but it **reinforces the migration
+  rationale**: idea.uk moving to VM-pull leaves this fragile B2-via-crashy-runner path entirely.
+
 ## Open decisions
 
-- **`tool-audience-check`** — retarget the tool card to the live tool and retire the static page (A),
-  or compose a chassis-styled interstitial landing page (B)? (§J)
 - **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)
+- **`/contact.html`** — what business email should it show, and its form posts to a dead `/contact`;
+  replace with a link to the tool's `/request`? (§K)
 - **Cloudflare proxied (orange) or DNS-only (grey)?** Unverifiable from the repo; decides whether the
   real-IP problem is live and whether Cloudflare WAF/Turnstile is reachable as the blocking layer.
 - **Does relojistas.com migrate from push to pull too**, or do the two mechanisms coexist? (Coexist is

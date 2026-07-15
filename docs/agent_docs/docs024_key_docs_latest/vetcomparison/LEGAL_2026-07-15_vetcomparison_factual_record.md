@@ -88,7 +88,7 @@ Sixteen practice records whose existence was never independently verified are ta
 | 15 Jul 2026 | Directory regenerated from our verified dataset: 2,579 practices confirmed by our verification pipeline (each with website and postcode), replacing the prototype list of uncertain provenance | Same commit; export query against `business_intel.businesses` (`verification_status='verified'`) |
 | 15 Jul 2026 | Database quarantine: all 997 fabricated price rows set `is_current=false` (retained, not deleted, for audit); verified afterwards — 0 fabricated rows remain current; the 803 genuine, source-attributed rows are unaffected | Production `UPDATE`, verified counts 997→0 |
 | 15 Jul 2026 | Confirmed no automated process can republish price data: all med/vet export and collection scheduled tasks are disabled; no site-builder record exists for the domain | `scheduled_tasks` query; `sites` table query |
-| **Pending at time of writing** | Deployment of the stripped site to the live domain (a git push of `strip-vetcomparison` to `master`, which triggers the deploy workflow). Until this runs, the fabricated data remains publicly served. This record should be updated with the deployment date when completed. | — |
+| 15 Jul 2026 | **Deployed to the live domain.** The strip was pushed to `master` (commit `92526ccd`) and the deploy workflow published it. Verified live: the public directory JSON now serves only factual fields with no prices; the removed medicine calculator, medicine data and guide pages return HTTP 404. The fabricated dataset is no longer publicly accessible. | Repo `gqls/sites` commit `92526ccd`; live checks of `vetcomparison.uk` (directory JSON, `/assets/js/calc.js`, `/data/medicine-index.json`, `/guides/cma-compliance.html`) |
 
 The replacement page states plainly that prices were removed because they could not be traced
 to a source, and that price comparison will return only on the basis of sourced, dated,
@@ -139,10 +139,12 @@ Verified directly against the CMA case page and CMA guidance on 15 July 2026:
 
 ## 8. Open items
 
-- Deploy the stripped site (git push — see §5) and update this record with the date. **Until
-  then the fabricated dataset remains publicly accessible.**
 - Update this record if the substantive draft Order consultation opens (expected July 2026);
   the final Order may adjust the 36-item list, weight bands and caveat wording.
+- Data-quality (not a liability item): a small number of verified practice records hold a
+  scraped page title in the name field rather than a clean practice name (e.g. an entry reading
+  "26 Vets in Birmingham - Compare Prices & …"). These are real records with a cosmetic
+  capture flaw, to be cleaned in the rebuild; they carry no fabricated prices.
 - Obtain a solicitor's review of (a) this record, (b) the database-right position on
   republishing practice price lists at scale (not addressed by the CMA report; genuinely
   untested), before per-practice price publication resumes at scale.

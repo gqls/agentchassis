@@ -79,11 +79,12 @@ sources now (rights-safe; also seeds "traffic back" later).
 - **Exit:** measurable reactivation (subscriber 200s), news refreshing on the 6h cycle.
 
 ## Open items / risks
-- No fabricated source URLs (verify RSS before seeding; api_news is fabrication-safe).
+- ✅ Framing confirmed (news portal); ✅ clever-engine A+B chosen; ✅ 5 Spanish RSS feeds
+  verified live (Grok api_news primary, Gemini later) — see runbook P2 / running notes.
 - Rights: link-out + summary only.
 - forumid→category map is best-effort (v1 master-to-all).
-- Framing (news-portal) to confirm.
 - render_rss_feed is the only new Go action — keep it a thin variant of render_news_section.
+- P0 (CF real-ip setup.sh re-run) is a production-box change the operator runs before P1+.
 
 ## Sequencing note
 P2 must precede P3 (don't build pages against an empty feed). P4/P5 can follow P3 in

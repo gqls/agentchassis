@@ -419,3 +419,98 @@ measure resolved data not text — handoff §5.4). Not started; lower priority
 now that the required_fields_missing check catches the underlying
 missing-data condition directly. Also unbuilt: the reusable scrape/discovery
 workflow for refreshing product specs (named gap, Session 6).
+
+## 2026-07-15 — Session 8: fixing the landmines & gaps
+
+### Landmine 1 (direct-kcat handshake) — investigated, DOCUMENTED not fixed
+Root-caused: `action=orchestrate` wraps an orchestrator-mode agent in a
+generic-orchestrate context; the internal spawn_agent→call_agent handshake's
+awaited-request correlation doesn't match the child's init response (child
+replies to the wrapper orch id). Lives in coordinator.go + messaging/
+processor.go — 100% of agent traffic. Manifests ONLY on manual direct
+invocation, never production (121 orchestrations COMPLETED vs my 2 direct
+hung in the same window). Blast radius >> benefit, clean workaround exists →
+left as a known platform limitation for a future focused effort, precise
+root cause in RUNBOOK §5b. This is a deliberate blast-radius call, not a punt.
+
+### Landmine 2 (section-source drift) — FIXED structurally: new discovery check
+Built `section_source_drift` (`check_section_source_drift.go` + test),
+enabled via SQL 155. Per page it computes the effective authoritative section
+list (site_plan_sections table > site_specs aspect) and flags when it
+disagrees with pages.sections — the exact latent condition that reverted the
+product-detail swap. Validated against live robot-hands data (ran the check's
+own queries manually, since it needs the next image to register): flags
+exactly ONE page — **contact** (table `contact-info` vs deployed
+`contact-block`, a real pre-existing drift I didn't create) — and correctly
+reports product-detail and gripper-detail CLEAN (my 153/154 fixes aligned
+them). No false positives. Activates on the next chassis build; the contact
+drift will then surface as a needs_human_review flag for a human to resolve.
+
+### Gap 1 (no reusable scrape/refresh capability) — BUILT
+`refresh_product_specs` action + `product-spec-refresher` agent (SQL 156) +
+trigger (RUNBOOK §5d). Modelled on `vet_med_price_scrape_action.go`: Firecrawl
+scrape → grounded Ollama extraction → merge non-empty known fields → stamp
+verified_date. Safety built in: closed key set (LLM can't add keys), absent
+fields never overwrite good data, a blocked scrape leaves the row untouched
+and doesn't bump verified_date. REFRESH-only by design — discovery (finding
+the URL) stays human because that's the fabrication-risk step (the manual
+Robotiq→Hand-E mixup during my own research proved it). Compiles; the
+product-load query validated live (returns the 5 real gripper rows); pod infra
+confirmed (FIRECRAWL_API_KEY + OLLAMA present). NOT yet exercised end-to-end —
+needs the next image to register `refresh_product_specs`, then the §5d
+trigger. Honest status: capability built, awaiting a rebuild to prove, same
+posture as the drift check.
+
+Pre-existing test note: `TestParseLLMJSON_RepairsLiveEnvelopes` (actions pkg)
+fails on ~12 saved fixtures — pre-existing LLM-JSON-repair test debt, touches
+none of this workstream's code; my own tests (meta-commentary, empty-section
+verdict, required-fields, ordered-lists) all pass. Not introduced here.
+
+### §5.4 (sectionHasVisibleContent) — EVALUATED, recommend NOT changing
+Informed decision, not a punt. The function only sees rendered HTML (no
+content_data/schema), so "measure resolved data" needs invasive fleet-wide
+plumbing; `required_fields_missing` already measures it at the right layer as
+a LOUD flag; and making a SILENT-drop filter drop more sections contradicts
+this workstream's fail-loud thesis. Rationale in PLAN Phase 5.
+
+### RUNBOOK §7 backlog triage — DONE, and it proved the loop was the culprit
+Instead of blindly re-driving zombies, checked each against CURRENT rendered
+state. Every one of the 23 unresolved/needs_human_review zombies was stale:
+15 `component_gone` (site replanned since April), 8 `now_has_content` (later
+rebuilds fixed them) — ZERO still empty. Closed them honestly: `wont_fix`
+(component gone) / `verified` (has content). Same check on the detected/failed
+set: 3 more stale (closed), leaving **6 genuinely-empty current defects**:
+- news-listing on gripper-catalog-index / news / news-index — a news-FEED
+  data gap (empty because no news source populated), owned by the news
+  subsystem (check_news_feed / empty_blog), NOT this workstream.
+- tool-guide-intro on gripper-cycle-time-estimator — an LLM-content gap,
+  already flagged by required_fields_missing; re-drivable via RUNBOOK §3 if
+  wanted (left for the normal now-honest pipeline / a human, as it's a
+  tool-guide, tangential to the product-sections workstream).
+The backlog going from "36 items, 19 zombie unresolved" to "6 genuine current
+defects, all correctly attributed" is itself the proof: the old backlog was an
+artifact of the false-completion + two-strike interaction (real detections
+parked as unresolved and never cleaned up even after resolving). With the loop
+now honest, the backlog reflects reality.
+
+## Session 8 close — all landmines & gaps addressed
+- Landmine 1 (direct-kcat handshake): root-caused, documented, deliberately
+  not fixed (blast radius). Landmine 2 (section-source drift): FIXED via new
+  discovery check (SQL 155). Gap 1 (no refresh capability): BUILT
+  (refresh_product_specs + product-spec-refresher agent, SQL 156). §5.4:
+  evaluated, recommend-not-change. RUNBOOK §7: triaged clean.
+- New this session, awaiting the NEXT chassis image to activate:
+  section_source_drift check (registers on build), refresh_product_specs
+  action + product-spec-refresher agent (registers on build). SQL 155 + 156
+  applied. All code compiles + gofmt-clean; own tests pass.
+
+### Errors handed off (2026-07-15) → `../HANDOFF_2026-07-15_errors_to_fix.md`
+Fixable errors this workstream surfaced but deliberately did not fix, each
+self-contained for a separate chat: **A** direct `action=orchestrate`
+spawn/call handshake hang (platform bug, root-caused, blast-radius deferral);
+**B** `TestParseLLMJSON_RepairsLiveEnvelopes` 14 fixtures failing (pre-existing
+test debt); **C** contact-page section-source drift (one migration, template
+= 154); **D** 6 genuine live empty sections (news-feed data gap + one
+tool-guide LLM-content gap, re-drivable); **E** dartsonline product-grids will
+skip/vanish on next rebuild (0 product rows behind `query.products`). Priority
+order A>B>C>D>E in the handoff.

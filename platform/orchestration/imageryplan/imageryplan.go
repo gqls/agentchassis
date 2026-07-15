@@ -172,7 +172,8 @@ func Summary(r Row) string {
 //
 //	1 = base + .sprite-<glyph> + ul.sprite-list bullets (scoped per-item overrides)
 //	2 = adds the .sprite-bullets container opt-in (themes lists in generated content)
-const SpriteCSSFormat = 2
+//	3 = default list bullet = arrow (was check); check now explicit-only
+const SpriteCSSFormat = 3
 
 // SpriteGridSignature identifies the geometry + cell vocabulary that a sprite
 // stylesheet was built from, e.g. "3x3:check,gauge,gripper,...".

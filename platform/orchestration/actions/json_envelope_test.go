@@ -8,12 +8,15 @@ import (
 	"testing"
 )
 
-// TestParseLLMJSON_RepairsLiveEnvelopes runs the repair against the 14 real
+// TestParseLLMJSON_LiveEnvelopeDistribution runs the parser against the 14 real
 // LLM responses that blanked or leaked live article bodies (captured from
-// page_components.content_data->>'result' on 2026-07-14). Every one of them is
-// invalid JSON as sent — literal newlines inside the "content" string — and
-// every one must come back as an object carrying usable article HTML.
-func TestParseLLMJSON_RepairsLiveEnvelopes(t *testing.T) {
+// page_components.content_data->>'result' on 2026-07-14) and asserts the actual
+// failure distribution: the dominant cause is TRUNCATION (the writer's
+// generate_content step was capped at max_tokens=2000), which is genuinely
+// incomplete JSON and must stay unparseable so the forward path fails loud
+// rather than salvaging half an article. Only escaping-only malformations
+// (unescaped newlines) are repaired in place.
+func TestParseLLMJSON_LiveEnvelopeDistribution(t *testing.T) {
 	paths, err := filepath.Glob("testdata/envelopes/*.json")
 	if err != nil {
 		t.Fatal(err)
@@ -22,47 +25,49 @@ func TestParseLLMJSON_RepairsLiveEnvelopes(t *testing.T) {
 		t.Fatalf("expected 14 captured envelopes, found %d", len(paths))
 	}
 
+	var repairedCount, unparseableCount int
 	for _, p := range paths {
-		t.Run(filepath.Base(p), func(t *testing.T) {
-			raw, err := os.ReadFile(p)
-			if err != nil {
-				t.Fatal(err)
-			}
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-			// Precondition: this is the malformed shape. If encoding/json ever
-			// accepts it, the fixture no longer represents the defect.
-			var probe interface{}
-			if json.Unmarshal(raw, &probe) == nil {
-				t.Fatal("fixture parses as valid JSON — it no longer reproduces the defect")
-			}
+		// Precondition: every fixture is invalid JSON as sent. If encoding/json
+		// ever accepts one, it no longer reproduces the defect.
+		var probe interface{}
+		if json.Unmarshal(raw, &probe) == nil {
+			t.Fatalf("%s parses as valid JSON — no longer reproduces the defect", filepath.Base(p))
+		}
 
-			value, repaired, err := ParseLLMJSON(string(raw))
-			if err != nil {
-				t.Fatalf("repair failed: %v", err)
-			}
-			if !repaired {
-				t.Fatal("expected repaired=true for a malformed envelope")
-			}
-
+		value, repaired, err := ParseLLMJSON(string(raw))
+		switch {
+		case err != nil:
+			unparseableCount++ // truncated / embedded-quote — correctly left for the loud-failure path
+		case repaired:
+			repairedCount++
+			// A repaired envelope must yield the object the model meant.
 			obj, ok := value.(map[string]interface{})
 			if !ok {
-				t.Fatalf("expected a JSON object, got %T", value)
+				t.Fatalf("%s: repaired value is %T, want object", filepath.Base(p), value)
 			}
+			if c, _ := obj["content"].(string); !strings.Contains(c, "<") {
+				t.Fatalf("%s: repaired content carries no HTML", filepath.Base(p))
+			}
+		default:
+			t.Fatalf("%s: parsed clean but fixture was invalid JSON", filepath.Base(p))
+		}
+	}
 
-			content, ok := obj["content"].(string)
-			if !ok {
-				t.Fatalf("no string `content` key; keys = %v", keysOf(obj))
-			}
-			if !strings.Contains(content, "<p>") && !strings.Contains(content, "<h2>") {
-				t.Fatalf("recovered content carries no article HTML (len=%d)", len(content))
-			}
-			t.Logf("recovered %d bytes of article HTML", len(content))
-		})
+	// The captured set: 1 escaping-only (repairable), 13 truncated/embedded-quote
+	// (correctly unparseable). Locks in that we never silently accept a truncated
+	// article as if it were complete.
+	if repairedCount != 1 || unparseableCount != 13 {
+		t.Fatalf("distribution changed: repaired=%d unparseable=%d (want 1 / 13)", repairedCount, unparseableCount)
 	}
 }
 
 // TestParseLLMJSON_LeavesValidJSONAlone guards the healthy path: a well-formed
-// response must parse without being flagged as repaired.
+// response parses without being flagged as repaired.
 func TestParseLLMJSON_LeavesValidJSONAlone(t *testing.T) {
 	v, repaired, err := ParseLLMJSON(`{"content":"<p>Already escaped\nfine</p>"}`)
 	if err != nil {
@@ -76,8 +81,24 @@ func TestParseLLMJSON_LeavesValidJSONAlone(t *testing.T) {
 	}
 }
 
-// TestParseLLMJSON_RejectsProse ensures genuine prose still fails, so the
-// text fallback in ExecuteLLMPromptAction keeps working.
+// TestParseLLMJSON_RepairsUnescapedNewlines proves the escaping-only repair: a
+// document whose only fault is raw newlines inside a string parses after repair.
+func TestParseLLMJSON_RepairsUnescapedNewlines(t *testing.T) {
+	in := "{\n  \"content\": \"<h2>Title</h2>\nreal newline in the value\"\n}"
+	v, repaired, err := ParseLLMJSON(in)
+	if err != nil {
+		t.Fatalf("repair failed: %v", err)
+	}
+	if !repaired {
+		t.Fatal("expected repaired=true")
+	}
+	if c := v.(map[string]interface{})["content"].(string); c != "<h2>Title</h2>\nreal newline in the value" {
+		t.Fatalf("content = %q", c)
+	}
+}
+
+// TestParseLLMJSON_RejectsProse ensures genuine prose still fails, so the text
+// fallback in ExecuteLLMPromptAction keeps working.
 func TestParseLLMJSON_RejectsProse(t *testing.T) {
 	for _, s := range []string{
 		"Here is the content you asked for.",
@@ -110,65 +131,59 @@ func TestEscapeControlChars_PreservesStructure(t *testing.T) {
 	}
 }
 
-// TestUnwrapLLMEnvelope covers the shapes RenderComponentAction must handle:
-// a plain content map, a {type,result} envelope holding a parsed object, and
-// the defect shape — an envelope whose result is a malformed JSON string.
-func TestUnwrapLLMEnvelope(t *testing.T) {
-	t.Run("plain content map passes through", func(t *testing.T) {
-		in := map[string]interface{}{"content": "<p>hi</p>", "headline": "x"}
-		got := UnwrapLLMEnvelope(in)
-		if got["content"] != "<p>hi</p>" || got["headline"] != "x" {
-			t.Fatalf("content map altered: %v", got)
-		}
-	})
-
-	t.Run("envelope with parsed result is unwrapped", func(t *testing.T) {
-		in := map[string]interface{}{
-			"type":   "json",
-			"result": map[string]interface{}{"content": "<p>hi</p>"},
-		}
-		if got := UnwrapLLMEnvelope(in); got["content"] != "<p>hi</p>" {
-			t.Fatalf("got %v", got)
-		}
-	})
-
-	t.Run("envelope with malformed JSON string is repaired and unwrapped", func(t *testing.T) {
-		in := map[string]interface{}{
-			"type":   "text",
-			"result": "{\n  \"content\": \"<h2>Title</h2>\nreal newline here\"\n}",
-		}
-		got := UnwrapLLMEnvelope(in)
-		if got == nil {
-			t.Fatal("envelope not unwrapped — this is the live defect")
-		}
-		if _, isEnvelope := got["result"]; isEnvelope {
-			t.Fatal("returned the envelope itself as content_data — the defect")
-		}
-		if !strings.Contains(got["content"].(string), "<h2>Title</h2>") {
-			t.Fatalf("content not recovered: %v", got)
-		}
-	})
-
-	t.Run("envelope wrapping prose yields no content map", func(t *testing.T) {
-		in := map[string]interface{}{"type": "text", "result": "just prose"}
-		if got := UnwrapLLMEnvelope(in); got != nil {
-			t.Fatalf("prose must not become content_data, got %v", got)
-		}
-	})
-
-	t.Run("content map that legitimately has a result field is not mistaken for an envelope", func(t *testing.T) {
-		in := map[string]interface{}{"result": "the outcome", "headline": "h"}
-		got := UnwrapLLMEnvelope(in)
-		if got["headline"] != "h" {
-			t.Fatalf("real content map was unwrapped as an envelope: %v", got)
-		}
-	})
-}
-
-func keysOf(m map[string]interface{}) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
+// TestMissingRequiredLLMFields covers the schema-required-field check that makes
+// the renderer refuse to ship a blank section.
+func TestMissingRequiredLLMFields(t *testing.T) {
+	// The real article-body schema: one required, source:llm field.
+	articleBody := map[string]interface{}{
+		"fields": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "text", "source": "llm", "required": true,
+			},
+		},
 	}
-	return out
+
+	t.Run("present content passes", func(t *testing.T) {
+		if m := missingRequiredLLMFields(articleBody, map[string]interface{}{"content": "<p>hi</p>"}); len(m) != 0 {
+			t.Fatalf("unexpected missing: %v", m)
+		}
+	})
+
+	t.Run("absent content is flagged — the blanking case", func(t *testing.T) {
+		// This is exactly the broken envelope: {type,result} present, no content.
+		cd := map[string]interface{}{"type": "text", "result": "{...raw...}"}
+		if m := missingRequiredLLMFields(articleBody, cd); len(m) != 1 || m[0] != "content" {
+			t.Fatalf("want [content], got %v", m)
+		}
+	})
+
+	t.Run("empty-string content is flagged", func(t *testing.T) {
+		if m := missingRequiredLLMFields(articleBody, map[string]interface{}{"content": "   "}); len(m) != 1 {
+			t.Fatalf("blank string should be missing, got %v", m)
+		}
+	})
+
+	t.Run("non-llm required field is ignored", func(t *testing.T) {
+		schema := map[string]interface{}{"fields": map[string]interface{}{
+			"items": map[string]interface{}{"source": "query.products", "required": true},
+		}}
+		if m := missingRequiredLLMFields(schema, map[string]interface{}{}); len(m) != 0 {
+			t.Fatalf("query-sourced field must not be checked, got %v", m)
+		}
+	})
+
+	t.Run("optional llm field absent is fine", func(t *testing.T) {
+		schema := map[string]interface{}{"fields": map[string]interface{}{
+			"subheadline": map[string]interface{}{"source": "llm", "required": false},
+		}}
+		if m := missingRequiredLLMFields(schema, map[string]interface{}{}); len(m) != 0 {
+			t.Fatalf("optional field must not be flagged, got %v", m)
+		}
+	})
+
+	t.Run("no v2 schema is a no-op", func(t *testing.T) {
+		if m := missingRequiredLLMFields(map[string]interface{}{}, map[string]interface{}{}); m != nil {
+			t.Fatalf("empty schema should return nil, got %v", m)
+		}
+	})
 }

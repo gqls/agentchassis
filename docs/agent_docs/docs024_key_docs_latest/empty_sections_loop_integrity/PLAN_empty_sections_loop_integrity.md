@@ -145,14 +145,22 @@ Split into two sub-phases:
       different subsets, so row completeness varies honestly.
       `sql_for_agents/152_gripper_products_seed.sql`. Verified live: 5 rows,
       category='gripper', all with source_url + verified_date.
-- [x] Decided NOT to build the originally-scoped scrape/discovery workflow
-      (web-search-adapter → firecrawl → LLM-extraction → products) this
-      session — did the discovery + extraction directly instead, since I can
-      read a manufacturer's own numbers with more confidence than an
-      unsupervised extraction step, and it's faster for a 5-row first pass.
-      **A reusable platform workflow for future re-verification/expansion is
-      NOT built** — this is a real gap if the owner wants specs kept fresh
-      or the catalog grown beyond 5 rows. Flagged as follow-up, not started.
+- [x] **Reusable refresh capability BUILT (Session 8, closes the Session-6
+      gap).** `refresh_product_specs` action (`refresh_product_specs_action.go`)
+      + `product-spec-refresher` agent (SQL 156) + trigger (RUNBOOK §5d).
+      Re-scrapes each product's own `source_url` via Firecrawl, ground-extracts
+      specs with a strict "only what is literally stated, never infer" LLM
+      prompt (closed key set, refuse-if-absent), and refreshes the row +
+      `verified_date`. A failed scrape leaves existing specs intact; an absent
+      field is never invented. Compiles; unit-adjacent validation done (the
+      product-load query returns the 5 real rows); infra confirmed on the pod
+      (FIRECRAWL_API_KEY, OLLAMA both present). **Not yet exercised
+      end-to-end** — needs the next chassis image to register the action, then
+      the RUNBOOK §5d trigger. Deliberately REFRESH-only, not discovery:
+      finding the right product page stays a human judgement (that's where
+      wrong-product data creeps in — the manual Robotiq/Hand-E mixup proved
+      it); a human adds a manufacturer by inserting a stub row, the agent
+      fills the specs.
 
 **4 — LIVE AND PROVEN on gripper-detail (2026-07-15).** Chassis v1.0.1120
 carries `resolveProducts`. gripper-detail rebuilt via the real dispatch path
@@ -193,9 +201,18 @@ agree (`site_plan_sections`, `pages.sections`), gripper-detail unaffected.
   (migration 154).
 
 ### Phase 5 — Later / spun out
-- `sectionHasVisibleContent` should measure **resolved data**, not text
-  (`rerender_single_page_action.go:436`) — static labels currently keep hollow
-  sections alive at assembly.
+- ~~`sectionHasVisibleContent` should measure **resolved data**, not text~~
+  **EVALUATED 2026-07-15 — recommend NOT changing (§5.4 superseded).** Three
+  reasons: (1) wrong layer — the function only sees rendered HTML, no access
+  to content_data/input_schema; measuring resolved data would need schema+data
+  threaded through the fleet-wide assembly path (invasive, risky). (2) The
+  `required_fields_missing` check already measures "schema-required value
+  fields empty" at the correct layer, upstream, as a LOUD flag. (3) It
+  contradicts this workstream's thesis: `sectionHasVisibleContent` SILENTLY
+  drops sections; making it drop more (data-empty ones) adds silent failures.
+  A data-empty section should be flagged or explicitly `skip_section`-ed at
+  plan time, never silently filtered at assembly. The handoff's §5.4 idea was
+  right about the problem, but the better fix landed at a better layer.
 - `skip_section` ownership for components outside the spec-sections pipeline
   (entity pages) — who enforces `on_missing` when plan_sections never runs?
 - Verifiers for more item types (`unresolved_cta`, `image_url_404`, …) — the

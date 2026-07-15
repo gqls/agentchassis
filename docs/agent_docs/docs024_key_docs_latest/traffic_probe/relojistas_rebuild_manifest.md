@@ -44,12 +44,10 @@ reactivates the domain's still-live subscribers.
 - **Domain:** relojistas.com · **Language:** Spanish (`es`) · **Audience:** Spanish-speaking
   watch enthusiasts (ES/CL/MX evidenced) · **Vertical:** relojería — brands, repair,
   collecting, marketplace-heritage, news.
-- **Framing (proposed):** a **Spanish-language watch NEWS portal built on the forum's
-  heritage** — it acknowledges the old *Foro de relojes*, honours the old feed
-  subscriptions at the same URL, and gives returning visitors current watch news +
-  a search that now answers. (Alternatives if you prefer: pure info/guide site with a
-  news strip, or an explicit "the foro moved" landing. News-portal is the best fit for
-  the RSS-out ask and the "direct traffic back" goal — flag if you want a different tilt.)
+- **Framing (CONFIRMED 2026-07-15):** a **Spanish-language watch NEWS portal built on the
+  forum's heritage** — it acknowledges the old *Foro de relojes*, honours the old feed
+  subscriptions at the same URL, and gives returning visitors current watch news + a search
+  that now answers.
 - **`sites` row:** `github_repo='vm-sites'`, `deploy_config.target='vm'`,
   `deploy_config.engine.{base_url,stats_key}` set (onboarding UPDATE already designed in
   P4), capabilities include `backend` (engine retained).
@@ -82,10 +80,12 @@ Chain is live and proven elsewhere (gaswholesalers, robot-hands, vonc):
   Spanish watch-news prompt (últimas 24–72h; marcas, novedades, ferias, subastas,
   reparación). **No URL fabrication risk** — real-time search, and triage already rejects
   fabricated URLs.
-- **Supplement — `rss`** from known watch media (candidates to **verify feed URLs before
-  seeding**, do not assert blind: Europa Star, Monochrome-Watches, Fratello, Hodinkee,
-  Revolution, plus Spanish-language outlets). Triage's source-diversity interleaving caps
-  any one source at ~2 of 6 slots.
+- **Second `api_news` provider — Gemini**, added later (operator request) alongside Grok.
+- **Supplement — `rss`** — 5 feeds **VERIFIED live + on-vertical Spanish (2026-07-15):**
+  Debajo del Reloj, Tiempo de Relojes, TR Magazine, Máquinas del Tiempo, Relojes y Estilo
+  (URLs in the runbook P2 / running notes). Monochrome Watches (EN) optional for a v2
+  "internacional" category. Triage's source-diversity interleaving caps any one source at
+  ~2 of 6 slots — 5 independent magazines + Grok is an ideal spread.
 - **Optional — `news_search`** (web-search adapter) as a third angle.
 - **Cadence:** existing 6h heartbeat. **Rights posture:** items carry the **source URL**;
   we store title + short summary + link-out only — never full-text republication. This is
@@ -129,8 +129,9 @@ curated feed data (no new data source):
   as social proof + evergreen content. Needs a moderation gate (raw searches can be junk/PII)
   — hold as v2.
 
-**Recommendation: A + B.** A honours the RSS-out ask at subscriber granularity; B turns the
-retained intent probe from a silent sensor into a visible feature. Both reuse existing data.
+**CHOSEN: A + B** (operator-confirmed 2026-07-15). A honours the RSS-out ask at subscriber
+granularity; B turns the retained intent probe from a silent sensor into a visible feature.
+Both reuse existing data. (C — recent-searches wall — stays v2.)
 
 ## 7. Hosting / deploy mechanics
 
@@ -160,9 +161,10 @@ retained intent probe from a silent sensor into a visible feature. Both reuse ex
 
 ## 9. Open items / risks
 
-- **No fabricated source URLs** — verify RSS feed URLs before seeding; lean on `api_news`
-  (real-time search) as primary. Triage rejects fabricated/uncorroborated items anyway.
+- ✅ **Framing** confirmed (news portal); ✅ **clever-engine** A+B chosen; ✅ **RSS sources**
+  verified (5 live Spanish feeds; Grok primary + Gemini later).
 - **Rights:** link-out + short summary only; never full-text republication.
 - **forumid→category map** is best-effort; v1 master-feed-to-all is the safe default.
-- **CF real-ip** re-run is a prerequisite for accurate country/logs.
-- **Framing** (§2) — confirm news-portal tilt, or redirect.
+- **CF real-ip** re-run (P0) is a prerequisite for accurate country/logs — a production-box
+  change the operator runs before the build proper.
+- Re-check feed liveness at seed time; keep leaning on `api_news` (fabrication-safe).

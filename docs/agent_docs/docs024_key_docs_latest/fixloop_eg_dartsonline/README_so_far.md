@@ -499,6 +499,31 @@ Committed as 07dc5048. One note: the commit again swept in a file another concur
 
 ----
 
+● Phase 4 is live and delivered — the digest now carries the whole immune system on one page, and the first copy is committed to your file surface.
+
+What shipped (v1.0.1120 code, verified running in your v1.0.1121 binary): the digest gained an "Escalation channel" section showing the sweep counts, the entire open diagnosis queue on every digest (a
+parked escalation is a decision waiting on you, so it never fades out with time — new ones are flagged NEW), silent-check findings with closures shown as CLOSED rather than silently dropped, and standing
+capability gaps. The triage and silent-check agents also joined the digest's run roster, so their sweeps appear in the Runs section alongside the loop's own activity.
+
+The delivered digest (docs/fixloop_digests/DIGEST_latest.md, archived as DIGEST_2026-07-15.md) reads exactly as designed: 8 runs including all seven of yesterday's triage/silent-check sweeps, 3 open
+escalations awaiting your dispatch decision, the dartsonline silent finding open, the idea.uk one visibly closed, no standing capability gaps.
+
+Deploy coordination this turn, for the record: your interrupt was well-timed — my build would have collided with the concurrent session's v1.0.1119 tag. I verified 1119's pod binary lacked the digest
+code, bumped to 1120, and held the rollout behind a cluster-quiet watcher because live page-builds were mid-flight through the chassis (a rollout would have killed them — the turn-9 failure mode). After
+your 1121 rolled over mine, I re-verified all three feature symbols in the new binary before firing anything. These lessons are written into the notes and memory.
+
+Two housekeeping notes: the docs commit (2887247b2) again swept in files other sessions had staged (traffic_probe, vetcomparison, idea_uk_vm_site, and others) — forward-only rule, nothing lost. And the
+digest run lists itself mid-flight in its own Runs section — a pre-existing cosmetic quirk, logged.
+
+Where this leaves the design: Phases 1, 2, and 4 are live. What remains is Phase 3 — feedback close-out for triage escalations after a fix ships — which currently has nothing to act on since no fix has
+shipped for the parked three; and the wider reviewer council later. The next real decision is yours: dispatch the diagnosis loop on any of the three parked escalations whenever you're ready to spend the
+credits.
+
+
+---
+
+
+
 
 
 

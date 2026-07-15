@@ -66,3 +66,26 @@ cluster flake. It needs a re-fire when the cluster is healthy. It's linked from 
 Both handoff docs are updated with the corrected punch-list, the clobber warning, the queue-bypass lesson (reassemble_pages.sh works when the work queue won't drain), and the two platform bugs.
 
 ---
+
+Recorded. I'm stopping the quiz re-fires — five attempts, all killed by the same lost-child-response infra flake (take-5's error was literally reaper: stale AWAITING_RESPONSES for >90 min), never by
+anything in the content or validation path.
+
+Final session status
+
+Fixed and verified live:
+- use-cases page — five fabricated case studies replaced with honest, spec-driven "could build" patterns; 0 fabrications, 0 phantom links, 0 rendered navy
+- Blog — 5 cards with real excerpts and read times
+- Footer — dead "For Leaders" link gone from all 17 pages
+- llm-cost-calculator-guide — rebuilt from a blank shell to a real 27KB page
+- contact-block validator bug — fixed fleet-wide (was making every page using that component unbuildable)
+
+Documented, not shipped (correctly):
+- The Route A imagery clobber trap, with a proven safe variant and the hero→SDXL routing gap — no image wired, because the one that generated was unusable
+- The queue-bypass lesson (reassemble_pages.sh when the work queue won't drain)
+
+Left open for next session, cleanly handed off:
+- Voice rewrite — the biggest remaining content job, not started; contact is the place to begin
+- ai-readiness-quiz — content path is clean; blocked only on the cluster's lost-child-response flake. Re-fire when the cluster is healthy enough to complete a spawn→child→response cycle, ideally watching
+  it land rather than firing blind.
+
+Both handoff docs are current. Nothing is in a half-broken state on the live site — every change either landed and verified, or was deliberately not wired.

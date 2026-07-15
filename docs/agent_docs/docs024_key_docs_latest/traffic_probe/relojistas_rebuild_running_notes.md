@@ -61,3 +61,59 @@ P5 engine legacy handler + search-answers → P6 verify subscriber 404→200 fli
 
 **Open.** Confirm framing (§ manifest 2); pick clever-engine option(s) (A+B recommended);
 verify real RSS source URLs before seeding (prefer api_news); CF real-ip is a P0 prereq.
+
+## 2026-07-15 (b) — operator ACCEPTED all three open items
+
+- **Framing CONFIRMED:** news portal on forum heritage (D5 locked).
+- **Clever-engine CONFIRMED:** build **A + B** — (A) dynamic per-category legacy feeds
+  mapping old `forumids`/`cat` → our topic feeds; (B) search that answers from curated news
+  while still capturing intent. (C "búsquedas recientes" wall stays v2.)
+- **Sourcing CONFIRMED:** verify real RSS source URLs before seeding; **Grok `api_news`
+  primary**, and **Gemini as an additional `api_news` provider later** (operator: "maybe
+  later also via Gemini"). No blind/fabricated feed URLs.
+- All open items cleared → path to P0 is open. P0 (CF real-ip setup.sh re-run) is a
+  production-box change the operator runs; the safe unblocked prep is RSS-source
+  verification (below) + drafting the P2 seed artifact.
+
+### RSS source verification (for P2 seed) — done 2026-07-15
+Each candidate feed fetched + inspected (format, language, recency). **Verified live +
+on-vertical Spanish (seed these):**
+
+| Source | Feed URL | Format | Last item (checked 07-15) |
+|--------|----------|--------|---------------------------|
+| Debajo del Reloj | https://www.debajodelreloj.com/feed/ | RSS 2.0 es | 15 Jul 2026 (today) |
+| Tiempo de Relojes | https://tiempoderelojes.com/feed/ | RSS 2.0 es | 13 Jul 2026 |
+| TR Magazine | https://trmagazine.es/feed/ | RSS 2.0 es | 13 Jul 2026 |
+| Máquinas del Tiempo | https://www.maquinasdeltiempo.com/feed/ | RSS 2.0 es | 08 Jul 2026 |
+| Relojes y Estilo | https://relojesyestilo.es/feed/ | RSS 2.0 es | 23 Jun 2026 |
+
+**International (English, optional — v2 with translation / an "internacional" category):**
+Monochrome Watches `https://monochrome-watches.com/feed/` (RSS 2.0, updated today).
+
+**Rejected:** El Cronómetro (`elcronometro.com/feed/` — stale, last Jul 2025; likely a
+retailer blog), Relojesmanía (`relojesmania.com/feed/` — stale 2024-25 + smartwatch/
+off-vertical), Hora Latina / Europa Star ES (`horalatina.com/feed/` → 404, no feed there).
+
+**Primary generative source:** Grok `api_news` (grok-4-1-fast Responses API, web_search+
+x_search) with a Spanish watch-news prompt — fabrication-safe. **Gemini** to be added as a
+second `api_news` provider later (operator). 5 verified RSS + Grok gives strong source
+diversity (triage caps each source at ~2 of 6 slots). Re-check feed liveness at seed time.
+
+### P1/P2 SQL artifacts drafted — `relojistas_rebuild_seed.sql`
+Schema verified against the repo before writing (`content_sources` DDL 027; `site_specs`
+versioning + `content_features.news_feed` structure from `feed_news_recommendation_action.go`
+/ `seed_content_sources_action.go`; onboarding UPDATE from `intent_events_migration(1).sql`).
+Contents: **P1a** onboarding UPDATE (github_repo=vm-sites, deploy_config target=vm +
+capabilities=[backend] + engine.{base_url,stats_key}); **P1b** `relojistas_set_news_feed()`
+(versioned site_specs merge, `recommended=true`, `source_types=[rss,api_news,news_search]`,
+Spanish `vertical_keywords`); **P2** `seed_relojistas_sources()` (the 5 verified RSS rows +
+the Spanish Grok row).
+- **Key design finding:** `SeedContentSourcesAction` **skips `rss`/`scrape`** ("requires
+  manual URL config") — only auto-seeds `news_search` (per keyword) + one generic
+  `api_news` named `LLM News: <domain>`. So (a) the 5 RSS rows MUST be inserted explicitly,
+  and (b) our Grok row is pre-inserted under that exact canonical name with a **Spanish**
+  prompt, so the auto-seeder's `ON CONFLICT DO NOTHING` no-ops and our config wins.
+- **Gemini** left as a commented row — BLOCKED until the ingester's api_news provider
+  routing supports it (today: xai/openai/perplexity). Flagged in the SQL.
+- All non-destructive to prepare; applied by the operator once the `sites` row exists.
+  **Still pending operator:** P0 CF real-ip box re-run; confirm/create the `sites` row.

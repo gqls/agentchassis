@@ -24,17 +24,22 @@ fixed, deployed (verified by grepping the running POD's binary, not git), and
 sprites.css re-emitted with scoped overrides. One 75,745B sheet; ≤80KB budget met.
 **Hard-refresh before eyeballing — sprites.css is cached `max-age=3600`.**
 
-**GATE PASSED** (Turn 39): the user confirmed the four glyphs, correctly placed.
-**I2.0–I2.4 are COMPLETE AND LIVE (Turn 40).** `sprite_css_missing` was proven on the
-live fleet: it fired once, emitted `needs_sprite_css`, asset-deployer re-emitted
-sprites.css (now carrying I2.5's 12 `.sprite-bullets` container rules), stamped the
-plan row `{format:2, signature:"3x3:…"}`, and then went SILENT on a second discovery
-run — idempotence confirmed, zero duplicate items, no regression on the gate page.
-**Only I2.5's CLASS remains**, and it is ⛔ BLOCKED on the article-body defect above:
-the `.article-body__content` wrapper it attaches to is missing from the deployed
-markup on 14/16 article pages. **I2 closes the moment that repair lands** — then add
-the class to the article-body template, re-render, and verify on a page whose lists
-carry no classes of their own.
+## ✅ I2 IS COMPLETE (Turn 41)
+I2.0–I2.5 all done and live. Sprite sheet, per-page glyph bullets (`ul.sprite-list`),
+the `sprite_css_missing` fulfilment check (proven idempotent on the live fleet), and
+the D10 **container house-style** (`.sprite-bullets` on the article-body wrapper —
+content lists theme themselves with no markup). Proven on the friction-calculator
+guide: an unclassed LLM-content list now shows sprite glyphs, the Safety Factor list
+keeps its explicit info/gauge/warning, and the old JSON leak on that page is gone.
+
+**One design note left with the user:** the container default glyph is `check` (cell
+0) for EVERY content list — fine on a checklist, a touch assertive on a neutral list.
+Open question: keep check, or make the container default more neutral (arrow) and
+reserve check for explicit opt-in. Not blocking.
+
+**Next phase: I3** (content-linked card imagery / Lane B). See the ordered actions
+at the bottom. First, though, the highest-value open item is NOT imagery — it's the
+article-body content loss (below), which this workstream's image-landings trigger.
 
 ## What this project is (fresh-reader paragraph)
 

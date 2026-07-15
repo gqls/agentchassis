@@ -68,3 +68,33 @@ follow-up work if you want the catalog to stay fresh or grow. And the meta-comme
 Full detail is in the PLAN/RUNNING_NOTES/RUNBOOK trio under docs024_key_docs_latest/empty_sections_loop_integrity/, and persistent memory is updated.
 
 ---
+
+All done. Everything builds, my tests pass, and the docs and memory are current.
+
+Session 8 complete — landmines and gaps addressed, then the runbook continued
+
+The two landmines:
+
+1. Direct-kcat content-writer handshake — I investigated it properly rather than assuming. Root cause: action=orchestrate wraps an orchestrator-mode agent in a generic wrapper whose context breaks the
+   internal spawn→call correlation. It lives in coordinator.go/processor.go — the path 100% of agent traffic flows through — and only manifests on manual direct invocation, never in production (121
+   orchestrations completed fine while my 2 direct ones hung). I made a deliberate blast-radius call to document, not fix: patching core correlation logic as a side-effect of a product-data workstream would
+   be reckless, and there's a clean workaround. The precise mechanism is now in the RUNBOOK for a future focused effort.
+2. Section-source drift — this one I fixed structurally. Built a new section_source_drift discovery check that flags any page whose authoritative section source disagrees with the deployed cache — exactly
+   the latent condition that reverted my product-detail swap. Validated against live data: it flags one real pre-existing drift (the contact page) and correctly reports the pages I aligned as clean. No
+   false positives.
+
+The gaps:
+
+3. No reusable refresh capability — built it: a refresh_product_specs action + product-spec-refresher agent that re-scrapes each product's source URL via Firecrawl and refreshes specs with a
+   strictly-grounded LLM extraction (factual-only, refuse-if-absent, never wipes good data). Deliberately refresh-only — discovery stays a human judgement because that's where wrong-product data creeps in.
+   Compiles, infrastructure confirmed on the pod, product-load query validated live; it needs the next image to run end-to-end.
+4. sectionHasVisibleContent (§5.4) — evaluated, recommend not changing, with reasons: it's the wrong layer, required_fields_missing already does this better and louder, and making a silent-drop filter
+   drop more contradicts this workstream's whole fail-loud thesis.
+
+Continuing the runbook (§7 backlog triage): Rather than blindly re-drive 36 stale items, I checked each against current rendered state. Every one of the 23 unresolved/needs_human_review zombies was stale
+— 15 reference deleted components, 8 already have content, zero still empty — so I closed them honestly (wont_fix/verified). The backlog went from 36 items with 19 zombie-unresolved to 6 genuine current
+defects, all correctly attributed (a news-feed data gap owned by other machinery, and one tool-guide LLM-content gap already flagged elsewhere). That collapse is itself the proof: the old backlog was an
+artifact of the false-completion + two-strike interaction this workstream fixed.
+
+Applied and pending: SQL 154 (product-detail fix, live), 155 and 156 (drift check + refresher agent, applied — they register on the next chassis build). All code is committed via the build process; my
+three doc files and the migrations are the working-tree changes.

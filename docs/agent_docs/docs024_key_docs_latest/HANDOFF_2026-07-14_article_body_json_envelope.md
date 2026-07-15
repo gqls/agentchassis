@@ -92,11 +92,27 @@ gamesdesign.co.uk `/guides/tool-drop-rate-tuner-guide.html`.
 These are the SEO content pages — guides and blog posts. Losing their body copy
 is the worst possible page to lose it on.
 
-## 5. Recovery — the words are all still there
+## 5. Recovery — the words are (mostly) still there
 
 Every one of the 14 has a recoverable envelope (`result` matches
-`^\s*\{\s*"content"` and contains real `<h2>`/`<p>` HTML). The repair per
-component:
+`^\s*\{\s*"content"` and contains real `<h2>`/`<p>` HTML).
+
+**Two findings from repairing one page by hand (imagery Turn 41, the gate page
+`/guides/tool-grip-force-friction-calculator-guide.html`):**
+- **The envelope is NOT valid JSON — do not try to parse it as JSON.** HTML
+  attribute quotes are stored BARE (`class="sprite-list"`, not `\"`), so a `::jsonb`
+  cast fails and even a lenient JSON parser will choke. Extraction that WORKED:
+  string surgery — take the substring after `"content": "`, then strip a trailing
+  `"}`/`"` if present. (This is *why* nothing ever parsed it: it was never JSON, just
+  a concatenated string that happens to open with `{ "content": "`.)
+- **Some envelopes are TRUNCATED mid-word** (the gate page ends "…it is a sympt").
+  Recovery from those rows is PARTIAL — the tail is simply not in storage. Check each
+  row's `result` for a clean closing before assuming full recovery; where truncated,
+  the missing text is gone unless a fuller copy exists in `component_versions` or a
+  `content_items` row (not checked). The live page already showed the truncation, so
+  repairing to the same text is not a regression — but flag these for regeneration.
+
+The repair per component:
 
 1. **Parse tolerantly.** A strict `::jsonb` cast FAILS on all 14 (literal
    newlines). Extract with a lenient parser — Go's `json.Unmarshal` after

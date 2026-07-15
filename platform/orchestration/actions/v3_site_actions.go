@@ -1619,6 +1619,29 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	// Before calling RenderTemplate, set ComponentID in context
 	renderCtx.ContentData["ComponentID"] = comp.ID
 
+	// Fail loud rather than ship a silently-empty section. If the component's
+	// schema marks a content field required (source:"llm") and it never arrived
+	// — the LLM was truncated, or its response was unparseable and fell back to
+	// a raw-text envelope that carries no such field — then missingkey=zero
+	// would render {{.field}} as empty, page assembly would drop the visually
+	// empty section, and the article would silently vanish. That is exactly the
+	// mechanism that blanked 9 live article bodies. Refuse the render instead so
+	// the step fails and the good content is left in place (the content
+	// regression guard in save_page_sections blocks the overwrite).
+	if len(comp.InputSchema) > 0 {
+		if missing := missingRequiredLLMFields(comp.InputSchema, renderCtx.ContentData); len(missing) > 0 {
+			params.Logger.Error("RenderComponentAction: required content field(s) missing — refusing to render an empty section",
+				zap.String("component_function", comp.Function),
+				zap.String("component_name", comp.Name),
+				zap.Strings("missing_fields", missing),
+			)
+			return nil, fmt.Errorf(
+				"component %q is missing required content field(s) %v — refusing to render an empty section "+
+					"(likely LLM truncation or an unparseable response); leaving existing content untouched",
+				comp.Function, missing)
+		}
+	}
+
 	// Render template
 	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, params.Logger)
 

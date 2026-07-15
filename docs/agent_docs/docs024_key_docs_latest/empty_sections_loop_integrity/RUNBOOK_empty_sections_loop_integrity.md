@@ -199,6 +199,31 @@ it hung. The handler is page-scoped, so re-driving ANY one of a page's
 you want after a component swap. Dispatch pickup can lag ~5-7 min (the
 trigger loads a small batch per tick); be patient before assuming a stall.
 
+**Root cause (investigated 2026-07-15, deliberately NOT fixed here).** Firing
+`{action: orchestrate, config.agent_type: page-build-handler}` via kcat wraps
+the handler's workflow in a **generic-orchestrate** context
+(`processor.go:~1355`, a top-level orchestration owned by `generic`). The
+handler's internal `spawn_content_writer` (spawn_agent) → `call_content_writer`
+(call_agent) handshake registers its awaited-request correlation relative to
+that wrapper, but the spawned child replies with `parent_orchestration_id` =
+the wrapper id on `system.agent.generic.responses`, and the init response
+never matches the waiting spawn step's awaited request — so the parent hangs
+at `spawn_content_writer` (not even at `call_content_writer`) until the
+90-min reaper. Via dispatch, `page-build-handler` is itself a properly-nested
+child of `build-dispatch-loop`, so the correlation lines up.
+
+This is core coordinator/messaging behaviour (`coordinator.go` +
+`messaging/processor.go`) exercised by 100% of agent traffic. It manifests
+ONLY on manual direct `action=orchestrate` of an orchestrator-mode agent that
+spawns children — never on a production path (production always dispatches).
+Evidence it's invocation-shaped, not a product bug: in the same window 121
+orchestrations COMPLETED while only the 2 direct invocations hung. Given the
+blast radius and a clean workaround, this is left as a **known platform
+limitation for a future focused effort**, not patched from this workstream.
+The fix belongs where the generic-orchestrate wrapper propagates orchestration
+identity into nested spawns — a targeted change with its own test surface and
+the platform owner in the loop, not a side edit here.
+
 ## 5c. Section lists have THREE sources with a priority order — update ALL of them
 
 When you change a page's section layout (a component swap, a removal), the
@@ -234,6 +259,50 @@ SELECT sections FROM pages WHERE site_id=:site AND name=:page;
 ```
 Update every source that lists the page, plus `page_components`, in one
 migration.
+
+## 5d. Refresh / add product specs (product-spec-refresher agent)
+
+Reusable capability (built Session 8, needs the image that registers
+`refresh_product_specs`). Re-scrapes each product's own `source_url` via
+Firecrawl and refreshes `products.specifications` with a strictly-grounded LLM
+extraction (factual-only, refuse-if-absent, closed key set: manufacturer,
+stroke, gripping_force, payload, weight, ip_rating, interface, voltage).
+Stamps `content_data.verified_date`. A failed/blocked scrape leaves existing
+specs untouched (never wipes good data, never invents an absent field).
+
+**It refreshes, it does not discover.** To ADD a manufacturer, insert a stub
+first, then run the refresher:
+```sql
+INSERT INTO products (site_id, name, slug, category, content_data, status)
+VALUES ('<site>', 'Maker Model X', 'maker-model-x', 'gripper',
+        '{"source_url":"https://maker.example/model-x"}'::jsonb, 'active');
+```
+Discovery (finding the right product page) stays a human judgement — that's
+where wrong-product data creeps in.
+
+Trigger (processing_mode task, direct kcat — this agent has NO internal
+spawn/call handshake, so direct invocation is fine here, unlike §5b):
+```bash
+SITE_ID="00ff3af5-dad8-4770-9f70-3edc267a3c92"; DOMAIN="robot-hands.com"
+INPUT_DATA="{\"site_id\":\"${SITE_ID}\",\"domain\":\"${DOMAIN}\",\"category\":\"gripper\"}"
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+kubectl -n kafka run -i --rm kcat-refresh-$(date +%s) --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$CORRELATION_ID -H request_id=$(cat /proc/sys/kernel/random/uuid) \
+  -H message_id=$(cat /proc/sys/kernel/random/uuid) -H orchestration_id=$(cat /proc/sys/kernel/random/uuid) \
+  -H orchestration_name=refresh-$(date +%Y%m%d-%H%M%S) -H step_name=start \
+  -H client_id=demo_client -H message_type=request -H action=orchestrate \
+  -H from_agent_type=user -H from_agent_id=cli \
+  -H responses_topic=system.agent.generic.responses <<JSON
+{"action":"orchestrate","config":{"agent_type":"product-spec-refresher"},"input_data":$INPUT_DATA}
+JSON
+```
+Verify: `SELECT name, content_data->>'verified_date', specifications FROM
+products WHERE site_id=:site AND category='gripper';` — verified_date should
+advance to today for rows whose page still served specs. Then re-drive the
+gripper-detail / product-detail builds (§3) so the pages pick up refreshed
+data.
 
 ## 6. Meta-commentary guard smoke test (deployed in v1.0.1117)
 

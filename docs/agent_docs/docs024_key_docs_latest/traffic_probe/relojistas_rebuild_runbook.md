@@ -45,29 +45,47 @@ CLOUDFLARE=true DOMAINS="relojistas.com" WWW_ALIAS=true \
 ssh root@$BOX 'tail -5 /var/log/nginx/access.log'   # real IPs, not 172.x CF ranges
 ```
 
-## P1. Site record + classification (fill against live schema)
+## P1. Site record + classification — artifact: `relojistas_rebuild_seed.sql`
 
-```sql
--- sites row: VM target + engine wiring (mirror the P4 onboarding UPDATE shape)
-UPDATE sites SET
-  github_repo   = 'vm-sites',
-  deploy_config = jsonb_set(jsonb_set(coalesce(deploy_config,'{}'),
-                    '{target}', '"vm"'),
-                    '{engine}', '{"base_url":"https://relojistas.com","stats_key":"<INTERNAL_API_KEY>"}')
-WHERE domain = 'relojistas.com';
--- classification: recommend a news feed (what content-feed-trigger keys on)
--- set content_features.news_feed.recommended = true in the site's classification spec.
+Concrete, schema-verified SQL is in **`relojistas_rebuild_seed.sql`** (P1a onboarding
+UPDATE + P1b `relojistas_set_news_feed()`). Apply order:
+```bash
+# 0. Confirm the site row exists (create via the normal path first if not):
+psql -c "SELECT id, domain, status, github_repo FROM sites WHERE domain='relojistas.com';"
+# 1. Load the functions + run the onboarding UPDATE (edit <INTERNAL_API_KEY> first —
+#    read it from the box: /etc/site-engine/site-engine.env, never echo $KEY):
+psql -f relojistas_rebuild_seed.sql
+# 2. Set the news_feed recommendation on the classification spec:
+psql -c "SELECT relojistas_set_news_feed('<site-uuid>');"
 ```
+`content_features.news_feed.recommended=true` is what the 6-hourly `content-feed-trigger`
+keys on; `source_types=[rss,api_news,news_search]` drives the auto-seeder (rss skipped by
+it — P2 inserts those explicitly).
 
 ## P2. Seed news sources + first ingest
 
 ```sql
 -- content_sources rows (types: api_news / rss / news_search). api_news = fabrication-safe.
--- api_news (Grok-4-1-fast Responses API, web_search+x_search), Spanish watch prompt:
+--
+-- (1) api_news PRIMARY — Grok-4-1-fast Responses API (web_search + x_search), prompt:
 --   "Noticias de relojería en español, últimas 24-72h: novedades de marcas, ferias,
 --    subastas, lanzamientos, reparación. Devuelve título, URL de la fuente, resumen breve."
--- rss: ONLY after verifying each feed URL resolves (curl -sI). Do NOT seed blind URLs.
-INSERT INTO content_sources (site_id, source_type, config, fetch_interval, ...) VALUES (...);
+--   Add a SECOND api_news row for Gemini as an alternate provider later (operator request).
+--
+-- (2) rss SUPPLEMENTS — VERIFIED live + on-vertical Spanish (checked 2026-07-15; re-check
+--     liveness at seed time). Diversity: 5 independent magazines + Grok = ideal spread.
+--       https://www.debajodelreloj.com/feed/   (Debajo del Reloj)   -- updated daily
+--       https://tiempoderelojes.com/feed/       (Tiempo de Relojes)
+--       https://trmagazine.es/feed/             (TR Magazine)
+--       https://www.maquinasdeltiempo.com/feed/ (Máquinas del Tiempo)
+--       https://relojesyestilo.es/feed/         (Relojes y Estilo)
+--   Optional intl (English; needs translation or an "internacional" category, v2):
+--       https://monochrome-watches.com/feed/    (Monochrome Watches)
+--   REJECTED (do NOT seed): elcronometro.com/feed (stale 2025), relojesmania.com/feed
+--     (stale 2024-25, smartwatch/off-vertical), horalatina.com/feed (404 — no feed there).
+--
+-- Concrete seed = seed_relojistas_sources() in relojistas_rebuild_seed.sql (P2):
+--   SELECT seed_relojistas_sources('<site-uuid>');   -- 5 verified RSS + Spanish Grok
 ```
 ```bash
 # Kick one pipeline pass, then confirm items landed + were triaged:

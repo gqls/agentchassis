@@ -39,6 +39,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
@@ -363,46 +364,102 @@ func fixChromeOverflow(ctx context.Context, params ActionParams, siteID uuid.UUI
 		}, nil
 	}
 
-	var html string
+	marker := overflowMarker(selector)
+	overflowCSS := buildOverflowCSS(selector, marker)
+
+	// The DURABLE source is the content_component template, NOT the site_component's
+	// rendered_html: refresh_site_components regenerates rendered_html FROM the
+	// template, so a patch to the artifact is wiped by the next refresh (observed
+	// on vonc.com 2026-07-15 — a footer fix survived exactly until the refresh
+	// that deployed it). Resolve the slot's backing component and patch there.
+	var componentID sql.NullString
+	var renderedHTML string
 	err := params.DB.QueryRowContext(ctx, `
-		SELECT COALESCE(rendered_html, '') FROM site_components
-		WHERE site_id = $1 AND slot_name = $2
-	`, siteID, slot).Scan(&html)
+		SELECT component_id::text, COALESCE(rendered_html, '')
+		FROM site_components WHERE site_id = $1 AND slot_name = $2
+	`, siteID, slot).Scan(&componentID, &renderedHTML)
+	if err == sql.ErrNoRows {
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "chrome_overflow_fix",
+			"slot_name": slot, "reason": "no site_component in that slot",
+		}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("chrome_overflow_fix: load %s slot: %w", slot, err)
 	}
-	if html == "" {
+
+	if componentID.Valid && componentID.String != "" {
+		var template string
+		if err := params.DB.QueryRowContext(ctx, `
+			SELECT COALESCE(html_template, '') FROM content_components WHERE id = $1
+		`, componentID.String).Scan(&template); err != nil {
+			return nil, fmt.Errorf("chrome_overflow_fix: load component %s: %w", componentID.String, err)
+		}
+		if strings.Contains(template, marker) {
+			return map[string]interface{}{
+				"fixed": false, "fix_type": "chrome_overflow_fix", "slot_name": slot,
+				"overflow_selector": selector, "layer": "content_component",
+				"component_id": componentID.String, "reason": "template already patched for this selector",
+			}, nil
+		}
+
+		// Blast radius: this template is shared — the fix reaches every site that
+		// uses it. That is correct for a genuine template CSS defect (a shared bug
+		// gets a shared fix), and recorded so it is never a surprise. Other sites'
+		// rendered_html self-heals on their next refresh; only THIS site is
+		// rerendered by the item that triggered us.
+		var sharedSites int
+		_ = params.DB.QueryRowContext(ctx, `
+			SELECT COUNT(DISTINCT site_id) FROM site_components WHERE component_id = $1
+		`, componentID.String).Scan(&sharedSites)
+
+		if _, err := params.DB.ExecContext(ctx, `
+			UPDATE content_components SET html_template = html_template || $2, updated_at = now()
+			WHERE id = $1
+		`, componentID.String, overflowCSS); err != nil {
+			return nil, fmt.Errorf("chrome_overflow_fix: patch component %s: %w", componentID.String, err)
+		}
+
+		logger.Info("chrome_overflow_fix: patched the DURABLE content_component template",
+			zap.String("slot", slot), zap.String("selector", selector),
+			zap.String("component_id", componentID.String), zap.Int("shared_sites", sharedSites))
+
 		return map[string]interface{}{
-			"fixed": false, "fix_type": "chrome_overflow_fix",
-			"slot_name": slot, "reason": "no rendered HTML in that slot",
+			"fixed": true, "fix_type": "chrome_overflow_fix", "slot_name": slot,
+			"overflow_selector": selector, "layer": "content_component",
+			"component_id": componentID.String, "shared_sites": sharedSites,
+			"detail": fmt.Sprintf("injected a mobile media query into the %s template (shared by %d site(s)) so %s wraps; a rerender deploys it and survives refresh", slot, sharedSites, selector),
 		}, nil
 	}
 
-	marker := overflowMarker(selector)
-	if strings.Contains(html, marker) {
+	// No backing component (inline/legacy slot): patch rendered_html as the only
+	// available layer, and say plainly that it is transient — a refresh_site_components
+	// would wipe it, so a durable fix needs the slot to be component-backed.
+	if renderedHTML == "" {
 		return map[string]interface{}{
 			"fixed": false, "fix_type": "chrome_overflow_fix",
-			"slot_name": slot, "overflow_selector": selector,
+			"slot_name": slot, "reason": "no component_id and no rendered HTML in that slot",
+		}, nil
+	}
+	if strings.Contains(renderedHTML, marker) {
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "chrome_overflow_fix", "slot_name": slot,
+			"overflow_selector": selector, "layer": "rendered_html",
 			"reason": "already patched for this selector",
 		}, nil
 	}
-
-	newHTML := html + buildOverflowCSS(selector, marker)
 	if _, err := params.DB.ExecContext(ctx, `
-		UPDATE site_components SET rendered_html = $3, updated_at = now()
+		UPDATE site_components SET rendered_html = rendered_html || $3, updated_at = now()
 		WHERE site_id = $1 AND slot_name = $2
-	`, siteID, slot, newHTML); err != nil {
-		return nil, fmt.Errorf("chrome_overflow_fix: update %s slot: %w", slot, err)
+	`, siteID, slot, overflowCSS); err != nil {
+		return nil, fmt.Errorf("chrome_overflow_fix: update %s rendered_html: %w", slot, err)
 	}
-
-	logger.Info("chrome_overflow_fix: constrained the offending element",
-		zap.String("slot", slot), zap.String("selector", selector),
-		zap.Int("html_before", len(html)), zap.Int("html_after", len(newHTML)))
-
+	logger.Warn("chrome_overflow_fix: no backing component — patched rendered_html (TRANSIENT; a refresh will wipe it)",
+		zap.String("slot", slot), zap.String("selector", selector))
 	return map[string]interface{}{
-		"fixed": true, "fix_type": "chrome_overflow_fix",
-		"slot_name": slot, "overflow_selector": selector,
-		"detail": "injected a mobile media query allowing " + selector + " to wrap; a rerender must deploy it",
+		"fixed": true, "fix_type": "chrome_overflow_fix", "slot_name": slot,
+		"overflow_selector": selector, "layer": "rendered_html", "durable": false,
+		"detail": "patched rendered_html only (slot has no backing component); TRANSIENT — a refresh_site_components will wipe it",
 	}, nil
 }
 
