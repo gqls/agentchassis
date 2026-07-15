@@ -959,3 +959,55 @@ separate thread from there. Root cause: certain worker nodes can't dial Kafka br
 (`10.20.99.93:9092`); child agent pods on those nodes retry-loop forever and never publish their
 response, so parents hang until the SQL reaper fails them at 30/90 min. Fleet-wide evidence
 (38 `spawn_dispatch` failures in 2 days), not a leopardess problem.
+
+### Turn 17 — voice rewrite (punch #10) STARTED, safe hand-edit path
+
+The voice rewrite's intended mechanism (page-content-writer + `rewrite_guidance`) is exactly
+the spawn→child path broken by the infra flake right now, so I did it the reliable way:
+hand-rewrite the affected `content_data` fields, then a **no-LLM `section_data_resolved`
+rerender** (same safe path as use-cases). All content lives in structured content_data fields
+(headline/subheadline/content/features), so this is a clean surface.
+
+**First, a triage correction:** most pages the handoff called "CTO-register" were already
+rewritten in earlier turns and are in good voice — how-it-works, engagement-model
+("Fixed scope. Fixed price."), who-we-help ("Work worth handing to a machine"),
+for-engineering-teams, and services' MIDDLE two sections (services-grid, info-card-grid) are
+all fine. Do not redo them.
+
+**services — DONE & verified live.** Its hero and CTA were the two worst LLM-tell offenders on
+the whole site: BOTH repeated the exact banned triad the voice prompt cites as example #1
+("observability, fault isolation, and cost controls"), both were title-case CTO-register
+("From Prototype to Production-Grade…", "Your Prototype Works. Now Make It Production-Ready."),
+and the CTA's secondary link pointed at /services.html (itself, circular). Rewrote both to the
+A2 register in the no-contraction plain voice the good sections on that page already use; fixed
+the secondary link → /case-studies.html. Verified live: 0 triad, 0 "Production-Grade", new
+hero+CTA present, secondary link now /case-studies.html (the content_data URL edit STUCK
+through the rerender — this call-to-action instance is not hit by the CTA-revert landmine).
+bak_services_leo_20260715.
+
+**how-it-works — DONE & verified live.** Not a register problem; it had a real
+design_intent.avoid violation: TWO generic-text-blocks both titled "How a system gets built"
+saying the same thing (Kubernetes/Kafka/Postgres + verification + approval gates + "run on our
+own sites first"). Repurposed the 2nd (position 4, after the features grid) into an honest
+limits section "What it does not do" — the "admit the edge" quality the prompt asks for, using
+only already-true site facts. Verified live: "How a system gets built" now appears once,
+"What it does not do" present. bak_howitworks_leo_20260715.
+
+**our-approach — DONE (deploying at write time).** Hero carried the same balanced triad
+("Architecture decisions, infrastructure choices, and the oversight model") + a title-case
+"How We Build" heading. Surgical jsonb_set on headline/subheadline/heading (preserves cta/image
+fields); body left as-is. bak_ourapproach_leo_20260715.
+
+**Flag for the owner — near-duplicate pages (handoff NEXT ACTIONS #3):** how-it-works,
+our-approach, technical-architecture, and for-engineering-teams all rehearse the SAME body
+material (~80% overlap: Kubernetes/Kafka/Postgres + hierarchical agents + per-step logging +
+configurable approval + verify-against-source + "we run it on our own sites first"). This is a
+MERGE decision, not a voice fix — I did not merge (owner's call). Polishing each to sound
+distinct would entrench the duplication. Recommend collapsing to one "how it works" page + one
+short "for engineering teams" technical cut, and dropping the rest.
+
+**Still CTO-register but arguably correct:** technical-architecture keeps a technical headline
+("Technical Architecture for Multi-Agent Systems…") — that page IS the "one click down"
+technical depth A2 allows, so its register is defensible; left it. contact still has empty
+content_data (its rendered_html is generic) — best done when the spawn pipeline is healthy, or
+hand-authored next.

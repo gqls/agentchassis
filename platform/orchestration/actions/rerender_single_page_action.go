@@ -380,10 +380,10 @@ func getAreaComponents(ctx context.Context, db *sql.DB, areaID uuid.UUID) (map[s
 // catches the visually-empty case as well.
 func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) (string, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT COALESCE(rendered_html, '') 
-		FROM page_components 
-		WHERE page_id = $1 
-		  AND rendered_html IS NOT NULL 
+		SELECT COALESCE(rendered_html, ''), COALESCE(slot_name, '')
+		FROM page_components
+		WHERE page_id = $1
+		  AND rendered_html IS NOT NULL
 		  AND rendered_html != ''
 		ORDER BY position ASC
 	`, pageID)
@@ -395,17 +395,26 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 	var sections strings.Builder
 	sectionIdx := 0
 	skipped := 0
+	var droppedSlots []string
 	for rows.Next() {
-		var html string
-		if err := rows.Scan(&html); err != nil {
+		var html, slotName string
+		if err := rows.Scan(&html, &slotName); err != nil {
 			continue
 		}
 		if !sectionHasVisibleContent(html) {
-			logger.Warn("getPageSections: skipping section with no visible content",
+			// Dropping a blank section from the assembled page is correct — it
+			// would only render as empty space — but doing it silently is how 9
+			// blanked article bodies vanished unnoticed. Name the section so the
+			// drop is attributable; the durable owner of this signal is the
+			// empty_sections / required_fields_missing discovery checks, which
+			// emit the work item.
+			logger.Warn("getPageSections: dropping section with no visible content from assembled page",
 				zap.String("page_id", pageID.String()),
+				zap.String("slot_name", slotName),
 				zap.Int("section_index", sectionIdx),
 				zap.Int("html_length", len(html)),
 			)
+			droppedSlots = append(droppedSlots, slotName)
 			skipped++
 			sectionIdx++
 			continue
@@ -416,10 +425,11 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 	}
 
 	if skipped > 0 {
-		logger.Info("getPageSections: filtered empty sections",
+		logger.Warn("getPageSections: filtered empty sections from assembled page",
 			zap.String("page_id", pageID.String()),
 			zap.Int("skipped", skipped),
 			zap.Int("kept", sectionIdx-skipped),
+			zap.Strings("dropped_slots", droppedSlots),
 		)
 	}
 

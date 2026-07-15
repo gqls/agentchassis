@@ -32,10 +32,13 @@ content lists theme themselves with no markup). Proven on the friction-calculato
 guide: an unclassed LLM-content list now shows sprite glyphs, the Safety Factor list
 keeps its explicit info/gauge/warning, and the old JSON leak on that page is gone.
 
-**One design note left with the user:** the container default glyph is `check` (cell
-0) for EVERY content list — fine on a checklist, a touch assertive on a neutral list.
-Open question: keep check, or make the container default more neutral (arrow) and
-reserve check for explicit opt-in. Not blocking.
+**Default glyph = arrow (user chose it 2026-07-15).** The container default is a
+neutral `arrow`, not `check`; check is explicit-only (`sprite-b-check`). Implemented
+in `buildSpriteCSS` (const `spriteDefaultBulletGlyph`), `SpriteCSSFormat` bumped 2→3.
+It rides the next deploy and self-heals: `sprite_css_missing` sees the format
+mismatch, re-emits, re-stamps. **On the next deploy, verify the gate page's content
+lists flipped check→arrow** (CSS-only, no page edit) — that doubles as live proof of
+the format-version half of I2.4.
 
 **Next phase: I3** (content-linked card imagery / Lane B). See the ordered actions
 at the bottom. First, though, the highest-value open item is NOT imagery — it's the

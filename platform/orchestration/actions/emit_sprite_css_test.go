@@ -31,10 +31,16 @@ func TestBuildSpriteCSS_geometry(t *testing.T) {
 			t.Errorf("sprite CSS missing %q\n---\n%s", m, css)
 		}
 	}
-	// Default bullet = first cell (check @ 0 0).
-	if !strings.Contains(css, "background-position:0px 0px}\nli.sprite-b-check") &&
-		!strings.Contains(css, "top:.15em;width:20px;height:20px;background-image:url(/assets/images/sprite-sheet-main.jpg);background-repeat:no-repeat;background-size:60px 60px;background-position:0px 0px}") {
-		t.Errorf("default bullet should be cell 0 (0 0):\n%s", css)
+	// Default list bullet = arrow (cell 6 = 0,-40px), NOT check — user decision
+	// 2026-07-15: the container opt-in themes every content list, so the fallback
+	// glyph is a neutral marker; check is explicit-only. The default lives on the
+	// `>li::before` rule (no sprite-b- class); the per-item check override keeps 0 0.
+	if !strings.Contains(css, ">li::before,.sprite-bullets ul>li::before,.sprite-bullets ol>li::before{content:\"\";position:absolute;left:0;top:.15em;width:20px;height:20px;background-image:url(/assets/images/sprite-sheet-main.jpg);background-repeat:no-repeat;background-size:60px 60px;background-position:0px -40px}") {
+		t.Errorf("default list bullet should be arrow (0px -40px):\n%s", css)
+	}
+	// check must still be reachable as an explicit override at cell 0.
+	if !strings.Contains(css, "sprite-b-check::before,ol.sprite-list>li.sprite-b-check::before,.sprite-bullets ul>li.sprite-b-check::before,.sprite-bullets ol>li.sprite-b-check::before{background-position:0px 0px}") {
+		t.Errorf("explicit sprite-b-check override (cell 0) missing:\n%s", css)
 	}
 }
 

@@ -188,41 +188,27 @@ until the 90-min reaper fails it. Proven twice on 2026-07-15; the direct
 envelope lacks the parent-orchestration context the sub-spawn needs to route
 `call_content_writer` to the child's job topic.
 
-**Use the real dispatch path instead** — re-drive the page's `empty_section`
-work item (RUNBOOK §3). `build-dispatch-loop` claims it and calls
-`page-build-handler` with the correct envelope; the content-writer then
-receives its request and renders. Confirmed working 2026-07-15: same page,
-same handler, same content-writer — via dispatch it reached
-`process_sections_loop_iter_0_render_section` and rendered; via direct kcat
-it hung. The handler is page-scoped, so re-driving ANY one of a page's
-`empty_section` items rebuilds the whole page (all sections), which is what
-you want after a component swap. Dispatch pickup can lag ~5-7 min (the
-trigger loads a small batch per tick); be patient before assuming a stall.
+**Prefer the dispatch path, and RETRY on a hang** — re-drive the page's
+`empty_section` work item (RUNBOOK §3). `build-dispatch-loop` claims it and
+calls `page-build-handler`; when the content-writer child lands on a healthy
+node it receives its request and renders. Dispatch pickup can lag ~5-7 min;
+be patient before assuming a stall.
 
-**Root cause (investigated 2026-07-15, deliberately NOT fixed here).** Firing
-`{action: orchestrate, config.agent_type: page-build-handler}` via kcat wraps
-the handler's workflow in a **generic-orchestrate** context
-(`processor.go:~1355`, a top-level orchestration owned by `generic`). The
-handler's internal `spawn_content_writer` (spawn_agent) → `call_content_writer`
-(call_agent) handshake registers its awaited-request correlation relative to
-that wrapper, but the spawned child replies with `parent_orchestration_id` =
-the wrapper id on `system.agent.generic.responses`, and the init response
-never matches the waiting spawn step's awaited request — so the parent hangs
-at `spawn_content_writer` (not even at `call_content_writer`) until the
-90-min reaper. Via dispatch, `page-build-handler` is itself a properly-nested
-child of `build-dispatch-loop`, so the correlation lines up.
-
-This is core coordinator/messaging behaviour (`coordinator.go` +
-`messaging/processor.go`) exercised by 100% of agent traffic. It manifests
-ONLY on manual direct `action=orchestrate` of an orchestrator-mode agent that
-spawns children — never on a production path (production always dispatches).
-Evidence it's invocation-shaped, not a product bug: in the same window 121
-orchestrations COMPLETED while only the 2 direct invocations hung. Given the
-blast radius and a clean workaround, this is left as a **known platform
-limitation for a future focused effort**, not patched from this workstream.
-The fix belongs where the generic-orchestrate wrapper propagates orchestration
-identity into nested spawns — a targeted change with its own test surface and
-the platform owner in the loop, not a side edit here.
+**⚠️ CORRECTED ROOT CAUSE (2026-07-15) — see
+`../aaa_fails_to_mend/003_HANDOFF_spawn_lost_child_response.md`.** My earlier
+entry here blamed an `action=orchestrate`/generic-orchestrate correlation
+mismatch and claimed it "never happens in production." **Both were wrong.**
+003, with node-level evidence, shows the real cause is a **Kafka broker-2
+network path failure from certain worker nodes**: a spawned child that lands on
+a bad node hits `dial tcp 10.20.99.93:9092: i/o timeout`, processes its
+`initialize` message (the init response you see) but can never dial the broker
+to consume its job topic or publish back — so the parent hangs until the
+reaper. It is **FLEET-WIDE**, not manual-only; my "121 completed vs 2 hung" was
+survivorship (children landing on good nodes). So **dispatch is NOT a reliable
+workaround** — 003 shows dispatch paths hang too when the child lands badly.
+The real mitigation until the infra fix is **retry** (a re-driven item
+eventually lands its child on a healthy node). All fix work lives in 003; do
+NOT pursue the retracted `action=orchestrate` theory.
 
 ## 5c. Section lists have THREE sources with a priority order — update ALL of them
 

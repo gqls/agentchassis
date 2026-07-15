@@ -1657,4 +1657,28 @@ check as the universal default, or make the container default a more neutral gly
 This turn repaired ONLY the gate page. And landing an image on the unrepaired pages
 still blanks them.
 
+## Turn 42 — 2026-07-15 — USER CHOSE arrow default; implemented (Go), rides next deploy & self-heals
+
+**Design decision (shown a live side-by-side, chose arrow):** the container opt-in's
+DEFAULT list bullet = **arrow** (neutral marker), not check. `check` stays reachable
+as an explicit `sprite-b-check`. Rationale: the container themes EVERY content list,
+so the fallback should be neutral; a check reads as affirmation.
+
+**Implemented in `buildSpriteCSS`:** default resolved by NAME via new const
+`spriteDefaultBulletGlyph = "arrow"` (falls back to cell 0 if the sheet lacks it —
+robust to per-site vocabularies), used for the `>li::before` default rule. Per-glyph
+overrides unchanged. `imageryplan.SpriteCSSFormat` bumped **2→3**; tests updated
+(default now asserts arrow `0px -40px`; added an assert that explicit `sprite-b-check`
+still maps to cell 0). Build + all sprite tests green.
+
+**No live action now, by design:** the deployed binary is format 2 (check) and the
+plan row is stamped format 2, so `sprite_css_missing` sees no mismatch → no churn.
+On the NEXT deploy (format 3), the check finds stamped-2 ≠ code-3 → re-emits the
+arrow CSS → re-stamps format 3. The gate page's content lists flip check→arrow with
+no page edit (CSS-only); the Safety Factor list keeps info/gauge/warning. This is the
+same self-healing cycle I2.4 already proved — so the arrow rollout IS the next live
+confirmation of the format-version mechanism. Watch for it.
+
+**I2 remains COMPLETE** — this is a house-style refinement within it, not new scope.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

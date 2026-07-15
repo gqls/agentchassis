@@ -19,65 +19,55 @@ the NEXT chassis image and are waiting, not broken — the
 `product-spec-refresher` agent. SQL 155 + 156 are already applied. They are
 inert until an image rebuild, by design.
 
+**Sibling handoffs in this dir:** `001_…replan_clobbers_built_pages_FIX.md`
+(the planner discarding built pages' composition) and error **C** below are the
+SAME class — the `site_plan_sections` authoritative store diverging from what's
+deployed. The `section_source_drift` check built this session (activates next
+image) is a **detector** for that class: whoever fixes 001 can use it to verify
+sources stay aligned after a re-plan. `003_…spawn_lost_child_response.md`
+supersedes error **A** below.
+
 ---
 
-## A. PLATFORM BUG — `action=orchestrate` of an orchestrator-mode agent hangs its child handshake  ★ highest value
+## A. Spawned child response lost, parent hangs — SUPERSEDED BY `003_HANDOFF_spawn_lost_child_response.md`
 
-**Severity: real bug, core messaging layer. Deliberately not fixed here
-(blast radius). This is the one worth a focused effort.**
+**⚠️ 2026-07-15 CORRECTION — my root cause here was WRONG. Read 003 instead;
+it is the authoritative diagnosis with far stronger evidence.** I am leaving
+this entry as a record of a retracted diagnosis, not a live task.
 
-### Symptom
-Invoking an orchestrator-mode agent (one whose workflow does
-`spawn_agent` → `call_agent` internally) DIRECTLY via a kcat
-`{action: orchestrate, config.agent_type: <agent>}` envelope hangs forever at
-the spawn step. Concretely, firing `page-build-handler` this way:
-- runs `plan_sections` fine,
-- spawns the `page-content-writer` child (child logs init OK, sends its init
-  response to `system.agent.generic.responses`, logs "starting agent's own
-  workflow"),
-- then the child idles 180s with `awaiting_count: 0` and shuts down — it NEVER
-  receives the `call_content_writer` work request,
-- the parent sits at `spawn_content_writer` / `AWAITING_RESPONSES` until the
-  stale-orchestration reaper fails it at 90 min
-  (`error: "reaper: stale AWAITING_RESPONSES for >90 min"`).
+### What I got right
+The symptom: firing an orchestrator-mode agent (one that internally does
+`spawn_agent`→`call_agent`, e.g. `page-build-handler`) hangs. It runs
+`plan_sections`, spawns `page-content-writer` (child logs init OK and sends its
+init response), then the child idles 180s with `awaiting_count: 0` and shuts
+down without receiving `call_content_writer`; the parent sits at
+`spawn_content_writer`/`AWAITING_RESPONSES` until the reaper fails it at 90 min.
 
-### Root cause (investigated, not guessed)
-`action=orchestrate` wraps the target agent's workflow in a
-**generic-orchestrate** context (see `platform/messaging/processor.go` ~L1355+,
-`isOrchestrateAction`/ProcessMessage). The wrapper is a top-level orchestration
-owned by `generic`. The handler's internal `spawn_agent`→`call_agent`
-handshake registers its awaited-request correlation relative to that wrapper,
-but the spawned child replies with `parent_orchestration_id` = the wrapper's
-id, and the init response never matches the waiting spawn step's awaited
-request. So the parent never advances from `spawn_content_writer` to
-`call_content_writer`. Via the normal dispatch path
-(`build-dispatch-loop` → `page-build-handler`), the handler is itself a
-correctly-nested child and the correlation lines up — so it works there.
+### What I got WRONG (retracted)
+I diagnosed this as an `action=orchestrate` generic-orchestrate wrapper
+**correlation** mismatch, and claimed it "manifests only on manual invocation,
+never production." **003 disproves both.** The real cause (003, with node-level
+evidence) is a **Kafka broker-2 network path failure from certain worker
+nodes** — child pods that land on a bad node hit
+`dial tcp 10.20.99.93:9092: i/o timeout`, so they process their `initialize`
+message (hence the init response I saw) but their request/response consumers
+can never dial the broker to pick up the work or publish back. It is
+**FLEET-WIDE** across production paths (`spawn_dispatch`, `call_content_writer`,
+`process_item_iter_*_spawn_handler`, image gen, …), not manual-only.
 
-### Evidence it is invocation-shaped, not a product bug
-In the same window, 121 orchestrations reached `COMPLETED` while only the 2
-direct `action=orchestrate` invocations hung. Production never invokes
-`page-build-handler` directly — it always dispatches. So this bites operators
-doing manual rebuilds, not the fleet.
+Where my reasoning failed: my "121 completed vs 2 hung" was survivorship —
+those children happened to land on good nodes. My two direct invocations landed
+children on bad nodes, and I over-fit a correlation theory onto a 2-sample
+observation instead of reading pod logs (which would have shown the dial
+timeout, as 003 did). The `action=orchestrate` wrapper is almost certainly a
+red herring.
 
-### Where to look
-- `platform/orchestration/coordinator.go` — response correlation / awaited-request
-  matching (search `awaitedReq`, `spawn_agent`, `TargetAgentType`, ~L2400-2500
-  handles the spawn/call response wrapping).
-- `platform/messaging/processor.go` ~L1355-1410 — the orchestrate wrapper and
-  `__work_request__`/reply-to metadata handling.
-- Reproduce: RUNBOOK §5b of the parent workstream has the exact kcat command
-  and the working (dispatch) alternative.
-
-### Suggested direction (for the fixer to confirm)
-Make the generic-orchestrate wrapper propagate orchestration identity into
-nested spawns so a child's init/response correlates to the step that is
-actually awaiting it — OR detect orchestrator-mode agents at the
-`action=orchestrate` entry and run them with the same nesting the dispatch
-path gives them. This is core-coordinator work: it needs its own test surface
-(a direct-invoke integration test of a spawn+call agent) and the platform
-owner in the loop. Do NOT patch it as a side edit — every agent interaction
-flows through this code.
+### Consequence for the workaround (also corrected — see §RUNBOOK note below)
+"Use the dispatch path" is NOT a reliable fix — 003 shows dispatch paths hang
+too (`spawn_dispatch` had 38, `process_item_iter_*_spawn_handler` ~19). My
+dispatch rebuilds succeeded by node-landing luck. The practical mitigation is
+**retry** (a re-driven item eventually lands its child on a healthy node) until
+the infra/platform fix in 003 lands. → **All fix work for this belongs in 003.**
 
 ### Workaround already in place
 Rebuild pages via the dispatch path (re-drive an `empty_section` work item),
@@ -168,19 +158,31 @@ subsystem (`check_news_feed` / `check_empty_blog` / news feed population), NOT
 page-build-handler. Fixing = give the site a news source, or remove the
 news-listing sections. Out of the parent workstream's scope.
 
-### tool-guide-intro on gripper-cycle-time-estimator
-An LLM-content gap — `required_fields_missing` also flags it (12 missing
-`source: llm` fields: headline, lead_paragraph, step_1..3_title/desc, etc.).
-Because the fields are LLM-sourced, a normal rebuild SHOULD fill them: re-drive
-via the parent RUNBOOK §3 (reset one of its `empty_section` items to
-`triaged`, `attempt_count=0`, and let build-dispatch-loop run it). This is the
-cleanest test of the now-honest loop genuinely FIXING (not just honestly
-escalating). If it fills, close the duplicate; if it can't, it will honestly
-land at `needs_human_review`.
+### tool-guide-intro on gripper-cycle-time-estimator — attempted, hit a guard
+Live section renders `<h1 class="tgi-headline"></h1>` (empty heading);
+`required_fields_missing` flags 12 missing `source: llm` fields. **I re-drove
+it 2026-07-15 via dispatch and it FAILED — the failure is the finding.**
+`save_page_sections` has a **content-regression guard**
+(`save_page_sections_action.go:335-371`): it blocks the save when the newly
+generated page text is `< existingTextLen/4`. This rebuild produced 6911 chars
+vs 31001 existing (threshold 7750) → blocked → handler `complete_error` → item
+`failed` (attempt 1/3). The stale duplicate item was retired (`wont_fix`).
+
+**So this is NOT a quick re-drive — it's a genuine tension.** A page-scoped
+rebuild regenerates the WHOLE page; on a content-rich page (this one has a
+calculator tool + a large FAQ) the regenerated text comes out thinner and
+trips the regression guard. The guard is correct (it stops LLM failures wiping
+good content), but it also means **an empty section on an otherwise-rich page
+can't be repaired by the page-scoped handler.** Fix needs one of: a TARGETED
+single-section repair (fill only the empty fields, no whole-page re-save);
+understanding why whole-page regen is thinner (is the tool/FAQ content not
+preserved on rebuild?); or richer content-writer output. A real architectural
+gap (guard vs. repair), its own small investigation — not the 10-minute job an
+earlier draft implied.
 
 ### Dedup debt
-`news-index` and `tool-guide-intro` each carry a `failed` + a `detected` item
-for the same slot. Harmless but messy; a fixer may want to collapse each pair.
+`news-index` still carries a `failed` + a `detected` item for the same slot
+(tool-guide-intro's duplicate was already retired). Harmless but messy.
 
 ---
 
@@ -219,10 +221,13 @@ dartsonline ships. Worth deciding before a rebuild surprises someone.
 ---
 
 ## Priorities (suggested)
-1. **A** — the real platform bug; highest leverage (fixes manual invocation of
-   every spawn+call agent). Its own focused chat + platform owner.
+1. **A** — SUPERSEDED; all work is in `003_HANDOFF_spawn_lost_child_response.md`
+   (Kafka broker-2 node network path + two platform gaps). Highest leverage —
+   it hurts the whole fleet. Do NOT chase my retracted action=orchestrate
+   theory.
 2. **B** — red test; quick to triage, unblocks a clean `go test`.
 3. **C** — one migration, low risk, template exists (154).
-4. **D** — mostly other-subsystem; the tool-guide-intro re-drive is a 10-min
-   win.
+4. **D** — news-listing is another subsystem (news feed). tool-guide-intro is
+   NOT a quick fix: it hits the content-regression guard (see its entry) — a
+   real guard-vs-repair gap needing a targeted-repair approach.
 5. **E** — dartsonline decision; not urgent but do before its next rebuild.

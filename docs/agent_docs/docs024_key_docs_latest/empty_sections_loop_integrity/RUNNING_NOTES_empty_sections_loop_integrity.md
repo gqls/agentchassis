@@ -422,16 +422,20 @@ workflow for refreshing product specs (named gap, Session 6).
 
 ## 2026-07-15 — Session 8: fixing the landmines & gaps
 
-### Landmine 1 (direct-kcat handshake) — investigated, DOCUMENTED not fixed
-Root-caused: `action=orchestrate` wraps an orchestrator-mode agent in a
-generic-orchestrate context; the internal spawn_agent→call_agent handshake's
-awaited-request correlation doesn't match the child's init response (child
-replies to the wrapper orch id). Lives in coordinator.go + messaging/
-processor.go — 100% of agent traffic. Manifests ONLY on manual direct
-invocation, never production (121 orchestrations COMPLETED vs my 2 direct
-hung in the same window). Blast radius >> benefit, clean workaround exists →
-left as a known platform limitation for a future focused effort, precise
-root cause in RUNBOOK §5b. This is a deliberate blast-radius call, not a punt.
+### Landmine 1 (direct-kcat handshake) — my diagnosis was WRONG, corrected 2026-07-15
+I originally root-caused this as an `action=orchestrate`/generic-orchestrate
+correlation mismatch that "manifests only on manual invocation." **Both wrong.**
+A separate fleet-wide investigation (`../aaa_fails_to_mend/003_HANDOFF_spawn_
+lost_child_response.md`) found the real cause with node-level evidence: a
+**Kafka broker-2 network path failure from certain worker nodes** — a spawned
+child on a bad node hits `dial tcp 10.20.99.93:9092: i/o timeout`, processes
+init (the init response I saw) but can't dial the broker to consume its job
+topic or publish back. It's fleet-wide (spawn_dispatch 38, call_content_writer,
+image gen, dispatch handlers), NOT manual-only; my "121 completed vs 2 hung"
+was survivorship / node-landing luck. I over-fit a correlation theory onto 2
+samples instead of reading the child pod logs (which show the dial timeout).
+Retracted in RUNBOOK §5b and handoff 002. Lesson: read the failing pod's logs
+before theorising about correlation. All fix work belongs in 003.
 
 ### Landmine 2 (section-source drift) — FIXED structurally: new discovery check
 Built `section_source_drift` (`check_section_source_drift.go` + test),
@@ -494,23 +498,43 @@ parked as unresolved and never cleaned up even after resolving). With the loop
 now honest, the backlog reflects reality.
 
 ## Session 8 close — all landmines & gaps addressed
-- Landmine 1 (direct-kcat handshake): root-caused, documented, deliberately
-  not fixed (blast radius). Landmine 2 (section-source drift): FIXED via new
-  discovery check (SQL 155). Gap 1 (no refresh capability): BUILT
-  (refresh_product_specs + product-spec-refresher agent, SQL 156). §5.4:
-  evaluated, recommend-not-change. RUNBOOK §7: triaged clean.
+- Landmine 1 (direct-kcat handshake): my diagnosis RETRACTED — real cause is
+  the Kafka broker-2 node network issue (handoff 003), fleet-wide. Landmine 2
+  (section-source drift): FIXED via new discovery check (SQL 155). Gap 1 (no
+  refresh capability): BUILT (refresh_product_specs + product-spec-refresher
+  agent, SQL 156). §5.4: evaluated, recommend-not-change. RUNBOOK §7: triaged
+  clean.
 - New this session, awaiting the NEXT chassis image to activate:
   section_source_drift check (registers on build), refresh_product_specs
   action + product-spec-refresher agent (registers on build). SQL 155 + 156
   applied. All code compiles + gofmt-clean; own tests pass.
 
-### Errors handed off (2026-07-15) → `../HANDOFF_2026-07-15_errors_to_fix.md`
-Fixable errors this workstream surfaced but deliberately did not fix, each
-self-contained for a separate chat: **A** direct `action=orchestrate`
-spawn/call handshake hang (platform bug, root-caused, blast-radius deferral);
-**B** `TestParseLLMJSON_RepairsLiveEnvelopes` 14 fixtures failing (pre-existing
-test debt); **C** contact-page section-source drift (one migration, template
-= 154); **D** 6 genuine live empty sections (news-feed data gap + one
-tool-guide LLM-content gap, re-drivable); **E** dartsonline product-grids will
-skip/vanish on next rebuild (0 product rows behind `query.products`). Priority
-order A>B>C>D>E in the handoff.
+### Errors handed off → `../aaa_fails_to_mend/002_HANDOFF_2026-07-15_errors_to_fix.md`
+(Owner filed it into `aaa_fails_to_mend/` and reorganised; my original
+standalone handoff was moved there as `002_`.) Fixable errors this workstream
+surfaced: **A** spawn/child-response-lost hang — **SUPERSEDED by
+`003_HANDOFF_spawn_lost_child_response.md`** (Kafka broker-2 node network,
+fleet-wide; my action=orchestrate theory retracted); **B**
+`TestParseLLMJSON_RepairsLiveEnvelopes` 14 fixtures failing (pre-existing test
+debt); **C** contact-page section-source drift (one migration, template =
+154); **D** genuine live empty sections — news-feed data gap (other subsystem)
++ tool-guide-intro (see next entry, hits the content-regression guard); **E**
+dartsonline product-grids will skip/vanish on next rebuild (0 product rows
+behind `query.products`). Related owner-filed handoffs in the same dir: **001**
+replan-clobbers-built-pages (the section-source-clobber class), **003** the
+spawn bug.
+
+### tool-guide-intro (Error D) — attempted the fix, hit the content-regression guard
+"Carrying on," I re-drove the live tool-guide-intro empty-heading item
+(`0485cc63…`) on gripper-cycle-time-estimator via dispatch to actually FIX it
+(retired its stale duplicate first). It FAILED — and the failure is a real
+finding, not a flake: `save_page_sections` has a **content-regression guard**
+(`save_page_sections_action.go:335-371`) that blocks a save when the
+newly-generated page text is `< existingTextLen/4`. This rebuild produced 6911
+chars vs 31001 existing (threshold 7750) → blocked → item `failed` (1/3).
+**Implication: an empty section on an otherwise content-rich page can't be
+repaired by the page-scoped handler** — whole-page regeneration comes out
+thinner and trips the guard. Needs a targeted single-section repair, or an
+understanding of why whole-page regen is thinner (tool/FAQ content not
+re-emitted?). Corrected in handoff 002 Error D — it is NOT the "10-min win" an
+earlier draft implied. The item is left honestly `failed`.

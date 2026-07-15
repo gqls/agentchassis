@@ -130,3 +130,32 @@ div.footer-legal, slot: footer via closest('footer')), the judge puts them in th
 
   Also worth a git add before your next release commit: my fix_component_template_chrome_overflow_test.go, plus several untracked files from other workstreams (complete_work_item_verification.go,
   verifiers.go, check_required_fields_missing.go) — the same trap that bit T11 and T13.
+
+---
+
+Both halves of what you approved are done, and the loop is closed green on a real bug.
+
+  The self-verifying loop ran end to end, autonomously, on a bug the system found itself. Final state:
+
+  mobile-fit@mobile now PASSES — the acceptance note reads "all 9 of the tool's own checks passed" with mobile-fit@mobile in the Verified list. The full chain that got there: Tier‑4 detected the overflow →
+  attributed it to site chrome (div.footer-legal, footer slot) → routed a correctly-specced chrome_overflow_fix ticket → the fixer patched the right slot → the deploy exposed that the fix was one layer too 
+  shallow → I traced it to the durable source and fixed that → redeployed → re-verified green.
+
+  Part 1 — the durable template fix (migration 151): Added flex-wrap: wrap; justify-content: center to .footer-legal in the shared footer-4-column template, with the full pre-edit template backed up in a
+  doc_note for rollback. This fixes the same footer overflow on all 8 sites that share the template. vonc is live and green; the other 7 self-heal on their next rerender.
+
+  Part 2 — the fixer redesign: fixChromeOverflow now writes to the durable content_components.html_template (resolved via the slot's component_id), so future fixes survive refresh_site_components. It falls
+  back to rendered_html only when a slot has no backing component — and then reports durable: false honestly instead of pretending. It reports the shared-site blast radius rather than editing shared
+  templates silently. I proved the resolution against real data: for vonc's footer it resolves to footer-4-column, shared_sites=8 — exactly the target my migration fixed by hand.
+
+  Everything builds clean and tests pass.
+
+  Three things for you:
+
+  1. One more chassis image carries the redesigned fixer (no adapter rebuild needed — the adapter's attribution shipped in v1.0.1119).
+  2. Migration numbering is colliding repeatedly. There are now two 149s, two 150s, and two 151s from other workstreams landing concurrently — the next free number is 152. More pressingly,
+  151_gripper_spec_sheet_component.sql (not mine) fails on a duplicate content_component and blocks the migration runner from proceeding past it — its owner needs to guard or retire it.
+  3. Untracked files before your next release commit — my fix_component_template_chrome_overflow_test.go, plus several others from parallel workstreams (complete_work_item_verification.go, verifiers.go,
+  check_required_fields_missing.go, check_sprite_css_missing.go). Same trap that bit T11/T13.
+
+  From here it's polish: P3 screenshots, and letting the other 7 sites' footers self-heal on their natural rerender cadence.
