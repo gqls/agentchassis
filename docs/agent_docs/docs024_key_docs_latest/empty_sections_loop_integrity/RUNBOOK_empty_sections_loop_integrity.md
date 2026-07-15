@@ -176,6 +176,65 @@ SELECT count(*) FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
 WHERE s.domain='dartsonline.com' AND swi.item_type='required_fields_missing';
 ```
 
+## 5b. Triggering a page REBUILD — use the dispatch path, NOT direct kcat
+
+To rebuild a page (e.g. after swapping components), do NOT orchestrate
+`page-build-handler` directly via kcat with a `from_agent_type=user`
+envelope. It runs, plan_sections succeeds, it spawns the content-writer —
+but the internal spawn→call_content_writer handshake never delivers the work
+request (the child inits, sends its init response, then idles out after 180s
+with `awaiting_count: 0`), and the parent hangs at `spawn_content_writer`
+until the 90-min reaper fails it. Proven twice on 2026-07-15; the direct
+envelope lacks the parent-orchestration context the sub-spawn needs to route
+`call_content_writer` to the child's job topic.
+
+**Use the real dispatch path instead** — re-drive the page's `empty_section`
+work item (RUNBOOK §3). `build-dispatch-loop` claims it and calls
+`page-build-handler` with the correct envelope; the content-writer then
+receives its request and renders. Confirmed working 2026-07-15: same page,
+same handler, same content-writer — via dispatch it reached
+`process_sections_loop_iter_0_render_section` and rendered; via direct kcat
+it hung. The handler is page-scoped, so re-driving ANY one of a page's
+`empty_section` items rebuilds the whole page (all sections), which is what
+you want after a component swap. Dispatch pickup can lag ~5-7 min (the
+trigger loads a small batch per tick); be patient before assuming a stall.
+
+## 5c. Section lists have THREE sources with a priority order — update ALL of them
+
+When you change a page's section layout (a component swap, a removal), the
+page-build-handler does NOT read `pages.sections` first. `load_page_sections_
+from_spec` (`load_page_sections_from_spec_action.go`) reads in priority order
+and SYNCS the winning source DOWN over `pages.sections`:
+
+  1. `site_plan_sections` table (site_plans family) — **AUTHORITATIVE**
+  2. `site_specs.site_plan` aspect (older planner generation; ~5 sites)
+  3. `pages.sections` (materialised cache / legacy fallback)
+  4. same-role sibling layout synthesis (last resort)
+
+So if you edit only `pages.sections` and the page exists in source 1 or 2,
+the next rebuild resurrects the OLD layout and overwrites your edit. This bit
+the product-detail swap (2026-07-15): migration 153 updated `pages.sections`
++ the `site_specs` aspect, but product-detail was ALSO in the
+`site_plan_sections` table with the old components — rebuild served source 1,
+re-synced it, and the deleted product-hero/product-specs came back.
+gripper-detail was fine only because it isn't in the table (its `site_specs`
+aspect edit won). Fix: migration 154 corrected the table. **Before any
+section-layout change, check which sources list the page:**
+
+```sql
+-- source 1 (authoritative table)
+SELECT sps.ordering, sps.component_name FROM site_plan_sections sps
+JOIN site_plans sp ON sp.id=sps.plan_id
+WHERE sp.site_id=:site AND sp.is_current AND sps.page_name=:page ORDER BY 1;
+-- source 2 (aspect JSON)
+SELECT elem->'sections' FROM site_specs, jsonb_array_elements(data->'pages') elem
+WHERE site_id=:site AND aspect='site_plan' AND is_current AND elem->>'name'=:page;
+-- source 3 (cache)
+SELECT sections FROM pages WHERE site_id=:site AND name=:page;
+```
+Update every source that lists the page, plus `page_components`, in one
+migration.
+
 ## 6. Meta-commentary guard smoke test (deployed in v1.0.1117)
 
 The guard runs inside `validate_page_content` during handler sagas. Cheap

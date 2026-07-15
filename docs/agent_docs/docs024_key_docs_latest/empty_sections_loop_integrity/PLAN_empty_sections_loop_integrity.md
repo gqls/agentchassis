@@ -154,11 +154,43 @@ Split into two sub-phases:
       NOT built** — this is a real gap if the owner wants specs kept fresh
       or the catalog grown beyond 5 rows. Flagged as follow-up, not started.
 
-Both closed for this pass. Remaining before this is actually live: chassis
-rebuild, then re-trigger `page-build-handler` for gripper-detail and
-product-detail (both currently outside the empty_section item queue for this
-change — a direct orchestration, same pattern as the Phase 2 discovery
-trigger), then visually confirm the rendered cards.
+**4 — LIVE AND PROVEN on gripper-detail (2026-07-15).** Chassis v1.0.1120
+carries `resolveProducts`. gripper-detail rebuilt via the real dispatch path
+(re-drove its `empty_section` item → `build-dispatch-loop` →
+`page-build-handler` → content-writer). Verified:
+- `gripper-spec-sheet` rendered 8,448 bytes; all 5 manufacturers present
+  (Schunk/OnRobot/Robotiq/Zimmer Group/Festo), every distinctive real spec
+  present (20–235 N, 85 mm, 11 kg, IP67, 1520 N, 218 N, …), all 5 source
+  attributions with "Verified 2026-07-14".
+- ZERO cart furniture, ZERO meta-commentary/apology text in the render.
+- **Live on https://robot-hands.com/entities/gripper-detail.html** (HTTP 200):
+  all 5 manufacturers present, ZERO empty `pd-title`/`pd-price` shells (the
+  original bug's signature — gone), ZERO cart furniture.
+- Bonus: this was a second live exercise of the Phase 1 gate — the work item
+  completed with `result._verification = {"status":"verified","detail":
+  "component no longer exists"}` (the old product-details component was
+  deleted, so the verifier correctly cleared it).
+
+**product-detail — DONE 2026-07-15** after one regression + fix. Its first
+rebuild resurrected the deleted product-hero/product-specs because the
+authoritative `site_plan_sections` table still held them (migration 153
+updated only `pages.sections` + the `site_specs` aspect). Migration 154
+corrected the table; rebuild #2 held. Now: `gripper-spec-sheet` deployed
+(8,445 bytes, all 5 manufacturers, 5 sources, 0 cart, 0 meta); live at
+https://robot-hands.com/product-detail.html HTTP 200 with all 5 manufacturers,
+0 empty shells, 0 cart. Final consistency check: all three section sources
+agree (`site_plan_sections`, `pages.sections`), gripper-detail unaffected.
+
+**Two deployment gotchas discovered, both now in the RUNBOOK:**
+- §5b: do NOT rebuild a page by orchestrating `page-build-handler` directly
+  via kcat — the internal spawn→call_content_writer handshake never delivers
+  (child idles out at 180s, parent hangs until the 90-min reaper). Use the
+  dispatch path (re-drive an `empty_section` item). Cost 2 failed attempts.
+- §5c: a page's section list has THREE sources in priority order
+  (`site_plan_sections` table → `site_specs` aspect → `pages.sections`), and
+  the winner is synced down over `pages.sections`. Editing only the lower
+  sources silently regresses on rebuild. Cost the product-detail regression
+  (migration 154).
 
 ### Phase 5 — Later / spun out
 - `sectionHasVisibleContent` should measure **resolved data**, not text

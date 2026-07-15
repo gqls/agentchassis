@@ -205,8 +205,82 @@ Phase 4 retrofits onto `/request`.
 
 ---
 
+## I — 2026-07-14/15 · Phase 1 executed, and the handoff's "safe re-plan" premise proved FALSE
+
+Ran the handoff's prescribed fix — emit a `needs_site_plan`, re-run `build-site-planner`, let its
+union preserve the built pages while composing the three empty ones. It did not work as promised, in
+both directions. **This is a fleet-wide landmine, not an idea.uk quirk.**
+
+**What the re-plan actually did** (plan `ff03bdef`, superseding `32be2797`):
+- ✅ composed `guides-index` and `news-index` (2 sections each) — the LLM re-proposed them *with*
+  sections, so these built and deployed cleanly.
+- ❌ left `tool-audience-check` empty — see below, it structurally cannot be composed this way.
+- ⚠️ **invented 10 pages nobody asked for** — 5 more tools + 5 blog posts, all uncomposed — turning 3
+  empty pages into 11.
+- ⚠️ **regressed 4 built pages** it was supposed to preserve: `index` (dropped info-card-grid),
+  `about` (dropped hero-about + info-card-grid, swapped in a generic hero), `contact` (dropped
+  hero-contact for a generic hero), `report` (dropped generic-text-block + info-card-grid), plus nav
+  churn. `about` and `contact` actually **rebuilt and deployed** the regressed versions to B2 before I
+  caught it (proven via `page_components`: both rendered a generic `hero`, not their specific one).
+
+**Why — the two-way failure of the "union is safe" claim:**
+1. `normaliseRealisedToPlanPage`'s union (`v3_site_actions.go:4630`) only protects pages the LLM does
+   **not** re-propose. For a page the LLM re-proposes, the LLM's section list wins and the realised
+   composition is overwritten. `reconcilePlanWithRealised` force-preserves **only adoption-locked**
+   pages — and idea.uk's are not adopted. So "the union preserves the built pages" is false whenever
+   the LLM re-proposes them, which it did for the four flat pages.
+2. The union carries `sections: []` **faithfully**. A catalogued-but-uncomposed page is therefore
+   preserved *as empty* — a re-plan can never fill it. `guides-index`/`news-index` were composed only
+   because the LLM happened to re-propose them with sections; `tool-audience-check` was unioned empty
+   and stayed empty.
+
+**Recovery (all reversible, nothing live-visible — DNS still points at the VM, so B2 is unseen):**
+- Paused the queue: 23 items `triaged`→`detected` (ids in `sql/paused_item_ids.txt`).
+- Backed up idea.uk's pages/plan/work-item state to `_ideauk_bak_20260714_*`.
+- `sql/p1_02_replan_rollback.sql`: restored the 6 built pages' sections + `pages.sections` + nav
+  metadata from the old plan (verified **0 section diffs**), deleted the 10 invented pages and their
+  work items, kept the two wins, re-triaged only what genuinely needed building.
+- `sql/p1_03_rebuild_about_contact.sql`: `about` + `contact` had deployed the regressed artefact and
+  their build items were already terminal, so the rollback's re-triage couldn't catch them — emitted
+  fresh `needs_page` rebuilds from the restored composition.
+
+**Net after recovery:** 9 pages. `guides-index` + `news-index` composed and deployed (2 of 3 targets
+done). `about` + `contact` rebuilding from restored composition. `index`/`tools`/`report`/`privacy`
+untouched-correct. `tool-audience-check` still empty, held at `detected`.
+
+**Correction to the doctrine:** "re-run build-site-planner to compose missing pages" is unsafe on any
+site whose built pages are not adoption-locked. To compose a *single* named page without disturbing
+the rest, the real writer is `write_site_plan_action.go` (only INSERT into `site_plan_sections`), and
+the intended single-page retrigger is the `sectionless_pages` discovery check → `needs_content_page` →
+page-build-handler sibling fallback (`discovery_checks/check_sectionless_pages.go`). **But that check
+only fires for a sectionless page with a same-role sibling that has sections** — its self-healing loop
+is scoped to what the sibling fallback can repair.
+
+## J — 2026-07-15 · `tool-audience-check` has no composition route, and may not need one
+
+`tool-audience-check` is the **only `role='tool'` page**, so it has no same-role sibling — the
+`sectionless_pages` check explicitly excludes this case ("cannot be auto-repaired from a sibling").
+So there is no automated route to compose it.
+
+Investigating what it is *for*: it is **not in any nav** (`in_header=f, in_footer=f`). The only thing
+linking to `/tools/audience-check/index.html` is the **`tool-list` card** on the `index` and `tools`
+pages (`href="/tools/audience-check/index.html"`). Its nav_label is "Free Audience Check — idea.uk".
+
+So this is not really a "compose the page" task — it is a **funnel decision**. After cutover,
+`/audience-check` is the **live tool** (proxied to the VM). Two clean resolutions (RUNBOOK §3b / owner
+decision):
+- **A — retarget + retire:** point the `tool-list` card straight at `/audience-check` (the working
+  tool) and drop the redundant static page. One click to the real thing; no interstitial; 404 gone.
+  Cost: a visual jump from chassis styling into the tool's own embedded page.
+- **B — compose an interstitial:** build `/tools/audience-check/` as a chassis-styled landing page
+  (hero + explanation + CTA → `/audience-check`). Keeps the design consistent up to the tool
+  interaction. Cost: a page that structurally can't auto-compose, so it needs a driven build or a
+  role change to give it a sibling.
+
 ## Open decisions
 
+- **`tool-audience-check`** — retarget the tool card to the live tool and retire the static page (A),
+  or compose a chassis-styled interstitial landing page (B)? (§J)
 - **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)
 - **Cloudflare proxied (orange) or DNS-only (grey)?** Unverifiable from the repo; decides whether the
   real-IP problem is live and whether Cloudflare WAF/Turnstile is reachable as the blocking layer.

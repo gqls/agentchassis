@@ -343,3 +343,79 @@ chassis rebuild (owner's call, per established practice this session — see
 both pages directly (same kcat orchestration pattern as the Phase 2
 discovery trigger — neither page has an open work item for this, so it's a
 direct call, not a work-item re-drive), then visual/DB confirmation.
+
+## 2026-07-15 — Session 7: Phase 4 PROVEN live end-to-end
+
+Owner deployed chassis v1.0.1120 (resolveProducts confirmed in the pod
+binary; exact resolver SQL returns all 5 rows directly).
+
+**Two failed build attempts, then the cause: direct kcat invocation.** Fired
+`page-build-handler` directly via kcat (from_agent_type=user envelope) — both
+times it ran plan_sections fine, spawned the content-writer, then hung at
+`spawn_content_writer` forever (reaper failed it at 90 min). Read the
+content-writer pod logs: it initialised, sent its init response, logged
+"starting agent's own workflow", then idled out after 180s with
+`awaiting_count: 0` — it NEVER received the `call_content_writer` work
+request. The direct envelope lacks the parent-orchestration context the
+sub-spawn needs to route the call to the child's job topic. Confirmed
+systemic-to-my-invocation, not the platform: only my 2 orchestrations sat at
+spawn_content_writer while 121 others COMPLETED in the same window.
+
+**Fix: use the real dispatch path.** Re-drove gripper-detail's `empty_section`
+item (4e37b25b) → `build-dispatch-loop` claimed it → called
+`page-build-handler` with the correct envelope → content-writer received its
+request and rendered every section. Documented in RUNBOOK §5b. (Dispatch
+pickup lagged ~7 min — the trigger batches; not a stall.)
+
+**Result — full end-to-end proof on gripper-detail:**
+- work item → `complete`, `result._verification =
+  {"status":"verified","detail":"component no longer exists"}` (Phase 1 gate's
+  second live exercise: the deleted product-details component correctly
+  cleared).
+- `gripper-spec-sheet` rendered 8,448 bytes: all 5 manufacturers, every
+  distinctive real spec (20–235 N, 85 mm, 11 kg, IP67, 1520 N, 218 N, 925 g,
+  IP30, IP64, 13 mm/jaw), all 5 "Source: manufacturer datasheet · Verified
+  2026-07-14" attributions. Zero cart furniture, zero meta-commentary.
+- **Live: https://robot-hands.com/entities/gripper-detail.html** HTTP 200,
+  all 5 manufacturers, ZERO `pd-title`/`pd-price` empty shells (the original
+  bug's exact signature — gone), ZERO cart furniture. The hollow-shell defect
+  that started this entire workstream is fixed on the live page.
+
+product-detail re-driven the same way; monitoring at time of writing.
+
+**The complete arc, closed:** the workstream opened from a page serving empty
+product shells that the fix loop had falsely marked complete. It closes with
+that same page serving real, sourced, verified gripper specs — and with the
+loop-integrity gate that would now catch the original false completion, proven
+live twice.
+
+### product-detail regressed on first rebuild — three section-list sources
+
+product-detail's first rebuild RESURRECTED the deleted product-hero/
+product-specs and dropped gripper-spec-sheet. Root cause: `page-build-handler`
+reads section lists via `load_page_sections_from_spec` in PRIORITY ORDER and
+syncs the winner down over `pages.sections`:
+  1. `site_plan_sections` table (AUTHORITATIVE) → 2. `site_specs.site_plan`
+  aspect → 3. `pages.sections` → 4. sibling synthesis.
+Migration 153 updated sources 2 and 3 but NOT source 1. gripper-detail isn't
+in source 1, so its aspect edit (source 2) won and held. product-detail IS in
+source 1 with the old components, so rebuild served the stale list and
+re-synced it over my edit. Fixed by migration 154 (corrects
+`site_plan_sections`, re-does the page_components swap, realigns
+pages.sections), then re-drove. Lesson now in RUNBOOK §5c: before any
+section-layout change, check ALL THREE sources and update every one that lists
+the page. This is the same class of "multiple stale section sources" the
+original handoff's §5.1 lesson hinted at (page assembly reading a different
+source than you edited) — now pinned down concretely for the section list.
+product-detail rebuild #2 PROVEN: `gripper-spec-sheet` deployed (8,445 bytes,
+all 5 manufacturers, 5 sources, 0 cart, 0 meta); live at
+https://robot-hands.com/product-detail.html HTTP 200 with all 5 manufacturers,
+0 empty `pd-title` shells, 0 cart. Final check confirms all three section
+sources now agree and gripper-detail is unaffected. **Both robot-hands product
+pages are done, live, and stable.** Phases 1-4 all complete and proven live.
+
+Only remaining workstream item: task #6 (make `sectionHasVisibleContent`
+measure resolved data not text — handoff §5.4). Not started; lower priority
+now that the required_fields_missing check catches the underlying
+missing-data condition directly. Also unbuilt: the reusable scrape/discovery
+workflow for refreshing product specs (named gap, Session 6).

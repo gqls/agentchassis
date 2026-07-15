@@ -938,3 +938,15 @@ content path itself is now believed clean. Its `sections` are `["hero","ai-readi
 the session went into root-causing the honesty defects, the empty pages, the footer mechanism,
 and the imagery-clobber trap instead. `contact` is still empty-content_data CTO-register copy
 and is the right place to start.
+
+### Turn 17 — quiz take-5 also died on infra; stopping re-fires
+
+Re-fired ai-readiness-quiz once more in a window where the cluster looked healthy (20
+COMPLETED orchestrations in the prior 20 min, no stuck pods). It FAILED at
+`spawn_content_writer` with `error = "reaper: stale AWAITING_RESPONSES for >90 min"` — the
+spawned page-content-writer's response was lost, and the reaper eventually killed the parent.
+**No validation error, no content error** — 5th attempt, 5th time blocked by the same
+lost-child-response / Kafka-dial-timeout class. This is not something re-firing fixes reliably.
+**Stopping.** Resume when the cluster is healthy AND you can watch the spawn land its child
+response (or after the platform adds a spawn-timeout that fails fast instead of reaping at 90
+min). The content path is believed clean; the `contact-block` validator blocker is fixed.
