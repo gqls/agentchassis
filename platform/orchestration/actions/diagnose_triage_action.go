@@ -78,6 +78,7 @@ var DiagnoseTriageInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
 		"window_hours", "max_escalations", "diagnose_handler",
 		"repo_owner", "repo_name", "ref", "dry_run", "transient_signatures",
+		"close_out",
 	},
 	Defaults: map[string]interface{}{
 		"window_hours":     336, // 14 days — failed items linger; a wide look is fine, dedup bounds output
@@ -197,7 +198,27 @@ func DiagnoseTriageAction(ctx context.Context, params ActionParams) (interface{}
 		// "capped" would mislabel a preview as a coverage gap.
 		capped = 0
 	}
-	report := renderTriage(hours, time.Now().UTC(), loopPatterns, requeuePatterns, holdPatterns, gaps, created, deduped, capped, maxEsc, dryRun)
+
+	// CLOSE-OUT (Phase 3, minimal honest slice): a parked escalation whose
+	// failure pattern is no longer observed among failed items ANYWHERE
+	// (all-time, not windowed — items aging out of the sweep window is not
+	// resolution) is closed with a note. The dedup index excludes closed rows,
+	// so a pattern that returns re-escalates automatically. Re-driving the
+	// original items after a fix ships stays a HUMAN action; this pass only
+	// observes the result. dry_run previews without closing.
+	closeOut := true
+	if c, ok := config["close_out"].(bool); ok {
+		closeOut = c
+	}
+	var closedKeys []string
+	if closeOut && !dryRun {
+		closedKeys, err = triageCloseResolved(ctx, params.DB)
+		if err != nil {
+			logger.Warn("triage: close-out failed (sweep still reported)", zap.Error(err))
+		}
+	}
+
+	report := renderTriage(hours, time.Now().UTC(), loopPatterns, requeuePatterns, holdPatterns, gaps, created, deduped, capped, maxEsc, closedKeys, dryRun)
 
 	// The report note ALWAYS writes — it is the visibility artifact, harmless,
 	// and the whole point in dry-run. Only the escalation writes are gated.
@@ -228,8 +249,76 @@ func DiagnoseTriageAction(ctx context.Context, params ActionParams) (interface{}
 		"hold_patterns":    len(holdPatterns),
 		"capability_gaps":  len(gaps),
 		"escalated_keys":   escalated,
+		"closed_keys":      closedKeys,
 		"note_id":          noteID,
 	}, nil
+}
+
+// triageCloseResolved closes parked escalations whose pattern has genuinely
+// resolved. It recomputes pattern keys over ALL failed items (no window) with
+// the same grouping and key function the escalation path uses, then completes
+// any triage-created needs_diagnosis still at awaiting_diagnosis whose key no
+// longer exists. 'diagnosing' items are never touched — a run is in flight.
+func triageCloseResolved(ctx context.Context, db *sql.DB) ([]string, error) {
+	patterns, err := triageGatherFailures(ctx, db, "100 years")
+	if err != nil {
+		return nil, fmt.Errorf("close-out gather: %w", err)
+	}
+	live := map[string]bool{}
+	for _, p := range patterns {
+		live[triageItemKey(p.ItemType, p.Handler, p.ErrSig)] = true
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT item_key FROM site_work_items
+		WHERE item_type = 'needs_diagnosis'
+		  AND created_by = 'diagnosis-triage'
+		  AND status = 'awaiting_diagnosis'`)
+	if err != nil {
+		return nil, err
+	}
+	var open []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		open = append(open, k)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	var closed []string
+	for _, k := range triageResolvedKeys(open, live) {
+		res, err := db.ExecContext(ctx, `
+			UPDATE site_work_items
+			SET status = 'complete', completed_at = now(), updated_at = now(),
+			    error = 'closed by triage close-out: failure pattern no longer observed among failed items (resolved upstream); re-escalates automatically if it returns'
+			WHERE item_type = 'needs_diagnosis' AND created_by = 'diagnosis-triage'
+			  AND item_key = $1 AND status = 'awaiting_diagnosis'`, k)
+		if err != nil {
+			return closed, err
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			closed = append(closed, k)
+		}
+	}
+	return closed, nil
+}
+
+// triageResolvedKeys is the close-out decision — pure and tested: open
+// escalation keys whose pattern no longer exists among live failure keys.
+func triageResolvedKeys(open []string, live map[string]bool) []string {
+	var out []string
+	for _, k := range open {
+		if !live[k] {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 // triageGatherFailures groups loud failures by (item_type, handler, error
@@ -348,8 +437,9 @@ func triageSpecJSON(symptom, owner, repo, ref, handler string) string {
 }
 
 // renderTriage is pure — tested. Names what was escalated, what was deduped/
-// capped (never silently dropped), and the open capability gaps.
-func renderTriage(hours int, now time.Time, loop, requeue, hold []failurePattern, gaps []capabilityGap, created, deduped, capped, maxEsc int, dryRun bool) string {
+// capped (never silently dropped), what was closed as resolved, and the open
+// capability gaps.
+func renderTriage(hours int, now time.Time, loop, requeue, hold []failurePattern, gaps []capabilityGap, created, deduped, capped, maxEsc int, closedKeys []string, dryRun bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Triage sweep — last %dh (generated %s UTC)\n\n", hours, now.Format("2006-01-02 15:04"))
 	if dryRun {
@@ -403,6 +493,20 @@ func renderTriage(hours int, now time.Time, loop, requeue, hold []failurePattern
 			patLine(p)
 		}
 		b.WriteString("\n")
+	}
+
+	// → CLOSE-OUT: escalations whose pattern has resolved (Phase 3 slice).
+	if !dryRun {
+		fmt.Fprintf(&b, "## Close-out — escalations resolved (%d)\n\n", len(closedKeys))
+		if len(closedKeys) == 0 {
+			b.WriteString("No parked escalation's pattern has resolved — all remain open.\n\n")
+		} else {
+			b.WriteString("Failure pattern no longer observed among failed items (resolved upstream); closed honestly, re-escalates automatically if it returns:\n\n")
+			for _, k := range closedKeys {
+				fmt.Fprintf(&b, "- `%s`\n", k)
+			}
+			b.WriteString("\n")
+		}
 	}
 
 	// → ROADMAP: capability gaps (no handler yet).

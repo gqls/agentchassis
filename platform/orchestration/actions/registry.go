@@ -677,6 +677,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Run discovery checks, write findings to site_work_items",
 		IsLocal:     true,
 	},
+	"refresh_product_specs": {
+		Handler:     RefreshProductSpecsAction,
+		Category:    "maintenance",
+		Description: "Re-scrape each product's source_url and refresh specs (grounded LLM extraction, factual-only)",
+		IsLocal:     true,
+	},
 	"fix_nav_link_templates": {
 		Handler:     FixNavLinkTemplatesAction,
 		Category:    "maintenance",
@@ -1186,7 +1192,7 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	"diagnose_triage": {
 		Handler:     DiagnoseTriageAction,
 		Category:    "diagnose",
-		Description: "Deterministic router (no LLM) from the operational immune system into the fix loop: escalates loud-failure PATTERNS (deduped, capped) to needs_diagnosis and surfaces capability_gap (no-handler-yet) items to the roadmap; one doc_note per sweep",
+		Description: "Deterministic router (no LLM) from the operational immune system into the fix loop: escalates loud-failure PATTERNS (deduped, capped) to needs_diagnosis, surfaces capability_gap (no-handler-yet) items to the roadmap, and closes parked escalations whose pattern has resolved (Phase 3 close-out); one doc_note per sweep",
 		IsLocal:     true,
 	},
 	"diagnose_silent_check": {

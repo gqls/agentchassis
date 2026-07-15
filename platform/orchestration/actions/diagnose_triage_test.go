@@ -63,10 +63,11 @@ func TestTriageRouteLoopWorthiness(t *testing.T) {
 }
 
 func TestRenderTriageEmptyIsExplicit(t *testing.T) {
-	out := renderTriage(336, time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC), nil, nil, nil, nil, 0, 0, 0, 3, false)
+	out := renderTriage(336, time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC), nil, nil, nil, nil, 0, 0, 0, 3, nil, false)
 	for _, want := range []string{
 		"No code-bug failure patterns in this window.",
 		"Transient / infra → re-queue, NOT the loop (0 pattern(s))",
+		"No parked escalation's pattern has resolved — all remain open.",
 		"No capability_gap / deferred items in this window.",
 		"no model",
 	} {
@@ -87,7 +88,7 @@ func TestRenderTriageGroupsCapAndGaps(t *testing.T) {
 		{ItemType: "content_rewrite", Handler: "page-build-handler", ErrSig: "", Count: 1, Sites: 1},
 	}
 	gaps := []capabilityGap{{Builder: "tool-builder", Count: 5, Sites: 2}}
-	out := renderTriage(336, time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC), loop, requeue, hold, gaps, 0, 0, 1, 1, true)
+	out := renderTriage(336, time.Date(2026, 7, 14, 12, 0, 0, 0, time.UTC), loop, requeue, hold, gaps, 0, 0, 1, 1, nil, true)
 
 	for _, want := range []string{
 		"Code bugs → fix loop (1 pattern(s)",
@@ -108,5 +109,42 @@ func TestTriageSymptomHandlesEmptyError(t *testing.T) {
 	s := triageSymptom(failurePattern{ItemType: "x", Handler: "h", ErrSig: "  ", Count: 1, Sites: 1})
 	if !strings.Contains(s, "(no error text recorded)") {
 		t.Fatalf("empty error not handled: %s", s)
+	}
+}
+
+// Close-out must only close what has genuinely resolved: an open escalation
+// closes iff its pattern key no longer exists among live failure keys.
+func TestTriageResolvedKeys(t *testing.T) {
+	live := map[string]bool{"triage-diag:a:111111": true, "triage-diag:b:222222": true}
+	open := []string{"triage-diag:a:111111", "triage-diag:gone:333333", "triage-diag:b:222222"}
+	got := triageResolvedKeys(open, live)
+	if len(got) != 1 || got[0] != "triage-diag:gone:333333" {
+		t.Fatalf("want only the vanished pattern to close, got %v", got)
+	}
+	if r := triageResolvedKeys(nil, live); len(r) != 0 {
+		t.Fatalf("no open escalations must mean no closures, got %v", r)
+	}
+	if r := triageResolvedKeys(open, map[string]bool{}); len(r) != 3 {
+		t.Fatalf("all patterns gone must close all open escalations, got %v", r)
+	}
+}
+
+func TestRenderTriageCloseOutSection(t *testing.T) {
+	// Live sweep with a closure: the closed key must be named.
+	out := renderTriage(336, time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC), nil, nil, nil, nil, 0, 0, 0, 3,
+		[]string{"triage-diag:gone:333333"}, false)
+	for _, want := range []string{
+		"Close-out — escalations resolved (1)",
+		"`triage-diag:gone:333333`",
+		"re-escalates automatically if it returns",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("triage report missing %q:\n%s", want, out)
+		}
+	}
+	// Dry-run must not render a close-out section at all — nothing was closed.
+	dry := renderTriage(336, time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC), nil, nil, nil, nil, 0, 0, 0, 3, nil, true)
+	if strings.Contains(dry, "Close-out") {
+		t.Fatal("dry-run report must not show a close-out section")
 	}
 }
