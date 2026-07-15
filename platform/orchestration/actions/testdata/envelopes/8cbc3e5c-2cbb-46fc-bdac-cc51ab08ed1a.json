@@ -1,0 +1,60 @@
+{
+  "content": "<h2>Gripper Payload & Safety Factor: What the Calculator Is Doing and Why It Matters</h2><p>Payload capacity is the most frequently misapplied specification in gripper selection. Engineers routinely conflate static holding force with dynamic gripping capacity, or apply safety factors that bear no relationship to the actual kinematic demands of their application. The result is either chronic gripper slippage and dropped parts, or significantly over-specified hardware that consumes unnecessary cycle time, energy, and budget.</p><p>This guide explains the physics behind the calculator, defines every input parameter, states the assumptions explicitly, and gives you the decision criteria to apply the output correctly to your specification.</p>
+
+<h2>The Core Physics: Why Rated Payload Is Not Your Working Payload</h2><p>A gripper's rated payload figure — the number on the datasheet — is almost always a static measurement: the maximum mass the gripper can hold against gravity with the jaws fully closed, at a specified grip point, under controlled laboratory conditions. It tells you the upper bound of the mechanism's force capability. It does not tell you how much mass the gripper can reliably handle in your application.</p><p>Your application imposes dynamic loads that multiply the effective force the gripper must resist. Three primary factors drive this multiplication:</p>
+
+<ul>
+  <li><strong>Acceleration loads:</strong> Any linear or rotational acceleration applied to the gripper-plus-workpiece system generates an inertial force the gripper jaws must resist in addition to gravity. At 10 m/s² acceleration on a 2 kg part, the gripper must resist 20 N of inertial force on top of the 19.6 N gravitational load — nearly doubling the effective demand.</li>
+  <li><strong>Grip geometry and moment arms:</strong> If the workpiece centre of mass is offset from the grip centreline, the gripper must resist a bending moment in addition to the direct pull-out force. This is the most commonly ignored factor in quick payload estimates.</li>
+  <li><strong>Friction coefficient uncertainty:</strong> Vacuum and magnetic grippers aside, most jaw-type grippers rely on friction between the jaw face and the workpiece surface. The friction coefficient between machined aluminium and a rubber jaw pad is not the same as between a wet injection-moulded part and a hardened steel finger. The calculator requires you to specify this — if you do not know it, measure it.</li>
+</ul>
+
+<h2>Input Parameters: Definitions and How to Measure Them</h2>
+
+<h3>Part Mass (kg)</h3>
+<p>The mass of the workpiece at the point of gripping. If the workpiece mass varies across a production run — for example, partially filled containers — use the maximum mass in the range. Do not use nominal or average mass for safety-critical calculations.</p>
+
+<h3>Peak Acceleration (m/s²)</h3>
+<p>The maximum acceleration the robot arm or linear axis applies to the TCP during any phase of the pick-and-place cycle. This is not the average acceleration — it is the peak value, which typically occurs at the start of the lift or at direction reversal. Pull this figure from your robot controller's motion profile or your linear axis drive parameters. If you are in early-stage specification and the motion profile is not yet defined, use a conservative estimate: 15–20 m/s² is a reasonable upper bound for most industrial pick-and-place applications; high-speed SCARA and delta robot applications can exceed 50 m/s².</p>
+
+<h3>Grip Orientation</h3>
+<p>The orientation of the gripper jaw closing direction relative to gravity and the direction of motion determines which force components the jaws must resist. The calculator handles three standard cases:</p>
+<ul>
+  <li><strong>Vertical lift (jaws horizontal):</strong> Gravity acts directly as a pull-out force. The jaws must generate sufficient normal force that friction exceeds the gravitational plus inertial load.</li>
+  <li><strong>Horizontal transfer (jaws vertical):</strong> Gravity acts as a shear force across the jaw face rather than a pull-out force. Required jaw clamping force is typically lower for a given mass, but the calculation differs.</li>
+  <li><strong>Arbitrary angle:</strong> The calculator resolves the gravitational and inertial vectors into pull-out and shear components relative to the jaw closing axis.</li>
+</ul>
+
+<h3>Coefficient of Friction (μ)</h3>
+<p>For jaw-type grippers, the friction coefficient between the jaw contact surface and the workpiece material is a direct multiplier on the required clamping force. The relationship is: required clamping force = effective load / (2 × μ), where the factor of 2 accounts for two opposing jaw faces. Representative values for common pairings:</p>
+<ul>
+  <li>Rubber jaw pad on dry machined steel: μ ≈ 0.5–0.7</li>
+  <li>Hardened steel finger on dry aluminium: μ ≈ 0.15–0.25</li>
+  <li>Polyurethane pad on glass: μ ≈ 0.4–0.6</li>
+  <li>Steel on oily or wet surfaces: μ ≈ 0.05–0.12</li>
+</ul>
+<p>If your process involves cutting fluids, mould release agents, or condensation, use the lower bound of the applicable range. If the surface condition is variable, design to the worst case.</p>
+
+<h3>Centre of Mass Offset (mm)</h3>
+<p>The perpendicular distance between the workpiece centre of mass and the jaw closing axis. A zero offset means the part's mass acts symmetrically through the grip point — the ideal case. Any offset generates a bending moment that the jaw mechanism must resist in addition to the direct clamping load. For irregularly shaped parts, measure or calculate the CoM position relative to the planned grip location before finalising jaw design.</p>
+
+<h2>Safety Factor: Selection Criteria</h2>
+<p>The safety factor (SF) is a multiplier applied to the calculated required gripper force to determine the minimum rated capacity you should specify. It is not an arbitrary margin — it should reflect quantifiable uncertainty and consequence severity in your application.</p>
+
+<blockquote>The safety factor compensates for what you do not know precisely: friction coefficient variation, acceleration overshoot, part mass tolerance, jaw wear over service life, and the consequences of a dropped part. Size it to the uncertainty, not to convention.</blockquote>
+
+<p>The following framework gives you a structured basis for SF selection:</p>
+
+<h3>SF = 1.5 — Minimum, controlled conditions</h3>
+<p>Appropriate when: friction coefficient is measured and consistent, motion profile is precisely characterised, part geometry and mass are tightly toleranced, jaw condition is monitored, and a dropped part causes no safety hazard (e.g., palletising foam blocks in a fenced cell). Not appropriate for any application involving humans in the vicinity, fragile parts, or variable surface conditions.</p>
+
+<h3>SF = 2.0 — Standard industrial pick-and-place</h3>
+<p>The default for most well-characterised industrial applications: known part geometry, controlled surface condition, defined motion profile, periodic jaw inspection. Appropriate for the majority of automotive component handling, electronics board handling, and machined part transfer applications.</p>
+
+<h3>SF = 2.5–3.0 — Variable or uncertain conditions</h3>
+<p>Apply when one or more of the following is true: surface condition varies (wet, oily, or contaminated parts), part mass varies across the production run, the motion profile includes emergency stop deceleration loads, jaw wear rate is unknown, or the gripper operates near the limits of its stroke range where jaw force may be reduced. Also appropriate when the gripper is being specified before final robot motion programming is complete.</p>
+
+<h3>SF ≥ 3.0 — High-consequence or safety-critical applications</h3>
+<p>Required when a dropped part could cause injury, damage capital equipment, or result in a critical quality escape. Also apply when the gripper is handling parts over personnel, or when the application involves hazardous materials. In collaborative robot applications where a human may be within the robot's reach during operation, consult ISO/TS 15066 force and pressure limits — payload safety factor alone is insufficient for cobot risk assessment.</p>
+
+<h2>The Calculator Output: How to Read and Apply It

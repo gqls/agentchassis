@@ -1,0 +1,181 @@
+{
+  "task": "guide-skinner-box completes empty: what source does plan_sections read for readiness and how is ready_count computed",
+  "method": "lexical",
+  "candidates": [
+    {
+      "path": "platform/orchestration/actions/discovery_checks/check_empty_sections.go",
+      "name": "findEmptySections",
+      "kind": "func",
+      "score": 10,
+      "rank": 1
+    },
+    {
+      "path": "platform/orchestration/actions/discovery_checks/check_empty_sections.go",
+      "name": "EmptySectionsCheck",
+      "kind": "struct",
+      "score": 10,
+      "rank": 2
+    },
+    {
+      "path": "platform/orchestration/actions/plan_sections_action.go",
+      "name": "PlanSectionsAction",
+      "kind": "func",
+      "score": 10,
+      "rank": 3
+    },
+    {
+      "path": "z_context/check_empty_sections.go",
+      "name": "findEmptySections",
+      "kind": "func",
+      "score": 10,
+      "rank": 4
+    },
+    {
+      "path": "z_context/check_empty_sections.go",
+      "name": "EmptySectionsCheck",
+      "kind": "struct",
+      "score": 10,
+      "rank": 5
+    },
+    {
+      "path": "platform/orchestration/actions/plan_sections_action.go",
+      "name": "filterSiteLevelSections",
+      "kind": "func",
+      "score": 8,
+      "rank": 6
+    },
+    {
+      "path": "platform/orchestration/actions/plan_sections_action.go",
+      "name": "stringOrEmpty",
+      "kind": "func",
+      "score": 8,
+      "rank": 7
+    },
+    {
+      "path": "platform/orchestration/actions/save_page_sections_action.go",
+      "name": "enrichSectionsWithPlannedNames",
+      "kind": "func",
+      "score": 8,
+      "rank": 8
+    },
+    {
+      "path": "platform/orchestration/actions/discovery_checks/check_empty_sections.go",
+      "name": "emptySectionFinding",
+      "kind": "struct",
+      "score": 7,
+      "rank": 9
+    },
+    {
+      "path": "platform/orchestration/actions/plan_sections_action.go",
+      "name": "planSection",
+      "kind": "func",
+      "score": 7,
+      "rank": 10
+    },
+    {
+      "path": "platform/orchestration/actions/plan_sections_action.go",
+      "name": "sectionPlanItem",
+      "kind": "struct",
+      "score": 7,
+      "rank": 11
+    },
+    {
+      "path": "z_context/check_empty_sections.go",
+      "name": "emptySectionFinding",
+      "kind": "struct",
+      "score": 7,
+      "rank": 12
+    },
+    {
+      "path": "platform/orchestration/actions/apply_adoption_plan_action.go",
+      "name": "countMapKeys",
+      "kind": "func",
+      "score": 6,
+      "rank": 13
+    },
+    {
+      "path": "platform/orchestration/actions/apply_gap_plan_action.go",
+      "name": "defaultSectionsForPage",
+      "kind": "func",
+      "score": 6,
+      "rank": 14
+    },
+    {
+      "path": "platform/orchestration/actions/discovery_checks/check_component_standards.go",
+      "name": "checkEmptyPageSections",
+      "kind": "func",
+      "score": 6,
+      "rank": 15
+    },
+    {
+      "path": "platform/orchestration/actions/reconcile_site_plan_action.go",
+      "name": "ReconcileSitePlanAction",
+      "kind": "func",
+      "score": 6,
+      "rank": 16
+    },
+    {
+      "path": "platform/orchestration/actions/reconcile_site_plan_action.go",
+      "name": "planPageRecord",
+      "kind": "struct",
+      "score": 6,
+      "rank": 17
+    },
+    {
+      "path": "platform/orchestration/actions/save_page_sections_action.go",
+      "name": "SavePageSectionsAction",
+      "kind": "func",
+      "score": 6,
+      "rank": 18
+    },
+    {
+      "path": "platform/orchestration/actions/save_page_sections_action.go",
+      "name": "extractSectionsFromMetadata",
+      "kind": "func",
+      "score": 6,
+      "rank": 19
+    },
+    {
+      "path": "platform/orchestration/actions/save_page_sections_action.go",
+      "name": "saveSectionsExtractFromHTML",
+      "kind": "func",
+      "score": 6,
+      "rank": 20
+    },
+    {
+      "path": "platform/orchestration/actions/save_page_sections_action.go",
+      "name": "enrichSectionsWithComponentIDs",
+      "kind": "func",
+      "score": 6,
+      "rank": 21
+    },
+    {
+      "path": "platform/orchestration/actions/save_page_sections_action.go",
+      "name": "saveSectionsLookupPageID",
+      "kind": "func",
+      "score": 6,
+      "rank": 22
+    },
+    {
+      "path": "platform/orchestration/actions/write_site_plan_action.go",
+      "name": "WriteSitePlanAction",
+      "kind": "func",
+      "score": 6,
+      "rank": 23
+    },
+    {
+      "path": "platform/orchestration/actions/write_site_plan_action.go",
+      "name": "firstNonEmpty",
+      "kind": "func",
+      "score": 6,
+      "rank": 24
+    },
+    {
+      "path": "platform/orchestration/actions/write_site_plan_action.go",
+      "name": "firstNonEmptyField",
+      "kind": "func",
+      "score": 6,
+      "rank": 25
+    }
+  ]
+}

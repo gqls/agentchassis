@@ -1,0 +1,592 @@
+.:
+total 1084
+drwxrwxr-x  8 ant ant  12288 Jun 16 11:11 .
+drwxrwxr-x 34 ant ant   4096 Jun  6 10:51 ..
+-rw-rw-r--  1 ant ant   6901 Jun  7 10:58 001_claude_reasoning
+-rw-rw-r--  1 ant ant  13147 May 27 15:28 001_onboarding_discussion.txt
+-rw-rw-r--  1 ant ant  10373 May 28 12:43 FOCUS_contract_set_review.md
+-rw-rw-r--  1 ant ant   4316 Jun 10 19:22 FOCUS_js_tools_documentation.md
+-rw-rw-r--  1 ant ant   9309 May 27 19:35 FOCUS_onboarding_system_view_check.md
+-rw-rw-r--  1 ant ant  19013 Jun  2 15:23 FOCUS_pre_build_edge_cases(1).md
+-rw-rw-r--  1 ant ant   9241 May 28 12:59 FOCUS_schema_verification_findings.md
+-rw-rw-r--  1 ant ant   9335 May 28 14:06 FOCUS_whole_plan_review.md
+-rw-rw-r--  1 ant ant   8288 Jun  8 17:16 GUIDE_deploy_from_context_packs(1).md
+-rw-rw-r--  1 ant ant   8739 Jun  8 20:57 MAPPING_tool_to_actions_and_agents(2).md
+-rw-rw-r--  1 ant ant   3158 Jun 11 22:03 NNN_add_component_provenance.sql
+-rw-rw-r--  1 ant ant   4906 Jun 12 16:12 NNN_create_code_indexer_agent(1).sql
+-rw-rw-r--  1 ant ant   5289 Jun 12 16:17 NNN_create_code_indexer_agent(2).sql
+-rw-rw-r--  1 ant ant  10483 Jun  9 17:31 NNN_create_code_symbols_index.sql
+-rw-rw-r--  1 ant ant   5824 Jun 11 23:00 NNN_update_tool_prompts_doc_header.sql
+-rw-rw-r--  1 ant ant 126188 Jun 11 20:34 NOTES_running_synthesis_principles(48).md
+-rw-rw-r--  1 ant ant 140713 Jun 11 22:36 NOTES_running_synthesis_principles(49).md
+-rw-rw-r--  1 ant ant 146929 Jun 11 23:05 NOTES_running_synthesis_principles(50).md
+-rw-rw-r--  1 ant ant  14001 May 28 21:25 PLAN_active_config_schema(3).md
+-rw-rw-r--  1 ant ant  20621 May 28 21:26 PLAN_bundle_shape_contract(2).md
+-rw-rw-r--  1 ant ant   9368 May 28 14:06 PLAN_capabilities_catalog_contract(1).md
+-rw-rw-r--  1 ant ant  11359 May 28 21:26 PLAN_change_layer_integration_contract(4).md
+-rw-rw-r--  1 ant ant  12254 May 28 21:26 PLAN_config_work_items_contract(3).md
+-rw-rw-r--  1 ant ant  14873 Jun  8 22:21 PLAN_context_assembly_tool_and_service(2).md
+-rw-rw-r--  1 ant ant  10796 May 28 21:26 PLAN_decision_log_contract(2).md
+-rw-rw-r--  1 ant ant   7017 Jun  7 11:44 PLAN_imagery_sprite_sheet.md
+-rw-rw-r--  1 ant ant  41310 May 28 19:36 PLAN_onboarding_agent_specs(6).md
+-rw-rw-r--  1 ant ant   9441 May 28 19:36 PLAN_onboarding_config_derivation.md
+-rw-rw-r--  1 ant ant  10152 May 28 21:26 PLAN_trust_ledger_contract(4).md
+-rw-rw-r--  1 ant ant  62423 Jun 11 20:34 PLAN_workflows_and_actions_migration(15).md
+-rw-rw-r--  1 ant ant  63153 Jun 11 22:36 PLAN_workflows_and_actions_migration(16).md
+-rw-rw-r--  1 ant ant  64108 Jun 11 23:06 PLAN_workflows_and_actions_migration(17).md
+-rw-rw-r--  1 ant ant     59 May 27 21:12 README_claude_conversation.md
+-rw-rw-r--  1 ant ant   6272 Jun  2 16:50 README_how_to_run_analyser.md
+-rw-rw-r--  1 ant ant    796 Jun  9 13:30 README_useful_grep_for_documentation.sh
+-rw-rw-r--  1 ant ant    638 Jun 10 13:29 README_worker_statuses.md
+-rw-rw-r--  1 ant ant  21334 Jun 11 20:34 RUNBOOK_thin_slice(12).md
+-rw-rw-r--  1 ant ant  23594 Jun 11 23:06 RUNBOOK_thin_slice(13).md
+-rw-rw-r--  1 ant ant  23866 Jun 12 16:13 RUNBOOK_thin_slice(14).md
+drwxrwxr-x  6 ant ant   4096 Jun 16 10:55 _archive
+-rw-rw-r--  1 ant ant      0 Jun 16 11:11 directory_tree.txt
+drwxrwxr-x  5 ant ant   4096 Jun 16 10:55 engines
+-rw-rw-r--  1 ant ant   5239 Jun 16 10:53 engines_tree_proposal.md
+drwxrwxr-x  3 ant ant   4096 Jun 16 10:55 go_files
+drwxrwxr-x  3 ant ant   4096 Jun  8 21:47 go_files_old
+drwxrwxr-x  2 ant ant   4096 Jun  7 11:39 thin_slice_run
+drwxrwxr-x  4 ant ant   4096 Jun 11 21:15 working
+
+./_archive:
+total 32
+drwxrwxr-x 6 ant ant  4096 Jun 16 10:55 .
+drwxrwxr-x 8 ant ant 12288 Jun 16 11:11 ..
+drwxrwxr-x 2 ant ant  4096 Apr 10 09:38 archive_april_26
+drwxrwxr-x 3 ant ant  4096 Jun 16 10:58 chassis-drafts
+drwxrwxr-x 2 ant ant  4096 May 27 15:11 excellent_discussions
+drwxrwxr-x 2 ant ant  4096 Apr  9 18:25 old
+
+./_archive/archive_april_26:
+total 544
+drwxrwxr-x 2 ant ant  4096 Apr 10 09:38 .
+drwxrwxr-x 6 ant ant  4096 Jun 16 10:55 ..
+-rw-rw-r-- 1 ant ant  3674 Feb  7 09:46 001_config_driven_dont_remove_old_pages
+-rw-rw-r-- 1 ant ant 12560 Mar  5 19:24 002_component_standards_validation_design.md
+-rw-rw-r-- 1 ant ant  2114 Mar  7 13:07 003_random_notes_business_case_rollback.md
+-rw-rw-r-- 1 ant ant  3848 Mar  7 13:25 004_unblocking_items.md
+-rw-rw-r-- 1 ant ant  1024 Mar  7 14:19 005_extended_thinking.md
+-rw-rw-r-- 1 ant ant  7933 Mar  8 16:24 008_session_summary_20260308.md
+-rw-rw-r-- 1 ant ant  4916 Mar 10 16:53 009_build_pipeline_vs_improvement_loop_vs_audits.md
+-rw-rw-r-- 1 ant ant  8149 Mar 11 13:49 010_idle_timeout_guide.md
+-rw-rw-r-- 1 ant ant  2176 Mar 11 13:56 011_shared_topics.md
+-rw-rw-r-- 1 ant ant   614 Mar 12 17:57 012_audit_needs.md
+-rw-rw-r-- 1 ant ant  1499 Mar 12 20:53 014_cleanup.md
+-rw-rw-r-- 1 ant ant 18434 Mar 20 12:24 015f_companies_house_enrichment_plan_v7.md
+-rw-rw-r-- 1 ant ant 13275 Mar 13 17:15 016_database_connections.md
+-rw-rw-r-- 1 ant ant  9885 Mar 16 12:26 017_create_user_in_mysql.md
+-rw-rw-r-- 1 ant ant  8383 Mar 20 11:45 019d_admin_dashboard_and_gateway_v4.md
+-rw-rw-r-- 1 ant ant 11327 Mar 16 15:45 020_debugging_guide.md
+-rw-rw-r-- 1 ant ant 13327 Mar 20 11:45 021d_admin_content_governance_plan_v4.md
+-rw-rw-r-- 1 ant ant  9532 Mar 20 19:20 022b_companies_house_matching_cascade_plan_v2.md
+-rw-rw-r-- 1 ant ant 33569 Mar 21 12:11 023_canine_biology_implementation_plan.md
+-rw-rw-r-- 1 ant ant  5269 Mar 25 18:37 024b_agent_backup_and_swap_reference_v2.md
+-rw-rw-r-- 1 ant ant 37509 Mar 24 13:01 025_testing_llm_quality.md
+-rw-rw-r-- 1 ant ant  7941 Mar 25 18:37 026_drain_and_fix_ai_models_session_handoff_20260325.md
+-rw-rw-r-- 1 ant ant 17923 Mar 29 14:10 027g_news_expansion_architecture.md
+-rw-rw-r-- 1 ant ant 22534 Apr  6 14:58 027i_news_feed_pipeline_consolidated_v4.md
+-rw------- 1 ant ant 49778 Apr  9 17:25 028f_adoption_and_infrastructure_layers_v6.md
+-rw------- 1 ant ant  6551 Apr  9 17:25 028j_adoption_and_component_handoff_consolidated.md
+-rw-rw-r-- 1 ant ant  8579 Mar 29 14:31 029_b_ch_vet_med_session_handoff_2026_03_26.md
+-rw-rw-r-- 1 ant ant 14187 Mar 29 14:32 029_med_pricing_collection_plan.md
+-rw------- 1 ant ant  7772 Apr  8 19:18 029b_med_pricing_implementation_status.md
+-rw-rw-r-- 1 ant ant  9736 Mar 30 14:18 030_site_snapshots.md
+-rw-rw-r-- 1 ant ant  1692 Apr  1 17:21 031_guidelines_model_update.md
+-rw------- 1 ant ant 10794 Apr  8 19:18 031_vet_med_pricing_pipeline.md
+-rw------- 1 ant ant  7429 Apr  8 18:43 034_tool_pipeline_handoff_consolidated.md
+-rw-rw-r-- 1 ant ant 12393 Apr  6 16:15 035_batch_processing_architecture.md
+-rw-rw-r-- 1 ant ant 16100 Apr  6 16:45 035b_batch_processing_architecture_v2.md
+-rw-rw-r-- 1 ant ant 31234 Apr  8 15:39 035c_batch_processing_architecture_v3.md
+-rw-rw-r-- 1 ant ant  4018 Apr  9 12:02 036_news_content_diversity_plan.md
+-rw-rw-r-- 1 ant ant 11644 Apr  9 12:29 036b_news_content_diversity_plan_v2.md
+-rw-rw-r-- 1 ant ant   683 Apr  9 20:54 037_unresolved_what_it_does.md
+-rw-rw-r-- 1 ant ant  8971 Apr 10 09:00 038_temp_models_used
+-rw-rw-r-- 1 ant ant  2535 Apr  9 20:55 038_temp_todo_next
+
+./_archive/chassis-drafts:
+total 92
+drwxrwxr-x 3 ant ant  4096 Jun 16 10:58 .
+drwxrwxr-x 6 ant ant  4096 Jun 16 10:55 ..
+-rw-rw-r-- 1 ant ant 17045 Jun 11 17:36 adapter(6).go
+-rw-rw-r-- 1 ant ant  3965 Jun 10 20:26 analyse_action(1).go
+-rw-rw-r-- 1 ant ant  4153 Jun 11 17:37 analyser-adapter(2).yaml
+-rw-rw-r-- 1 ant ant  6244 Jun 16 10:58 analyser_request_action(2).go
+drwxrwxr-x 3 ant ant  4096 Jun 11 19:35 cmd
+-rw-rw-r-- 1 ant ant 15152 Jun 16 10:58 code_symbols_actions(1).go
+-rw-rw-r-- 1 ant ant 16311 Jun 16 10:58 code_symbols_actions(4).go
+-rw-rw-r-- 1 ant ant  5855 Jun 10 20:25 github_source(1).go
+
+./_archive/chassis-drafts/cmd:
+total 12
+drwxrwxr-x 3 ant ant 4096 Jun 11 19:35 .
+drwxrwxr-x 3 ant ant 4096 Jun 16 10:58 ..
+drwxrwxr-x 2 ant ant 4096 Jun 11 19:36 analyser-adapter
+
+./_archive/chassis-drafts/cmd/analyser-adapter:
+total 16
+drwxrwxr-x 2 ant ant 4096 Jun 11 19:36 .
+drwxrwxr-x 3 ant ant 4096 Jun 11 19:35 ..
+-rw-rw-r-- 1 ant ant 3713 Jun 11 18:16 main(10).go
+-rw-rw-r-- 1 ant ant 2805 Jun 11 17:36 main(9).go
+
+./_archive/excellent_discussions:
+total 316
+drwxrwxr-x 2 ant ant  4096 May 27 15:11 .
+drwxrwxr-x 6 ant ant  4096 Jun 16 10:55 ..
+-rw-rw-r-- 1 ant ant 10829 Apr 10 09:41 102_blog_handoff-2026-04-10.md
+-rw-rw-r-- 1 ant ant 10369 May 24 19:01 FOCUS_best_practice_doc_tree(1).md
+-rw-rw-r-- 1 ant ant  9963 May 24 18:15 FOCUS_best_practice_doc_tree.md
+-rw-rw-r-- 1 ant ant  6677 May 24 20:39 FOCUS_context_authored_derived_change.md
+-rw-rw-r-- 1 ant ant  7104 May 24 18:29 FOCUS_doc_tree_adoption.md
+-rw-rw-r-- 1 ant ant  7178 May 24 18:20 FOCUS_mediator_routing_model.md
+-rw-rw-r-- 1 ant ant 21365 May 27 13:43 FOCUS_salience_and_multi_author_mediation(1).md
+-rw-rw-r-- 1 ant ant 26265 May 27 14:20 FOCUS_salience_and_multi_author_mediation(2).md
+-rw-rw-r-- 1 ant ant 28130 May 27 14:53 FOCUS_salience_and_multi_author_mediation(4).md
+-rw-rw-r-- 1 ant ant 11659 May 27 12:47 FOCUS_salience_and_multi_author_mediation.md
+-rw-rw-r-- 1 ant ant 13077 May 24 18:01 FOCUS_self_development_coding_pipeline_reasoning(1).md
+-rw-rw-r-- 1 ant ant  9451 May 24 16:53 FOCUS_self_development_coding_pipeline_reasoning.md
+-rw-rw-r-- 1 ant ant 15057 May 24 20:12 FOCUS_standards_curation_and_governance(1).md
+-rw-rw-r-- 1 ant ant  7450 May 24 19:01 FOCUS_standards_curation_and_governance.md
+-rw-rw-r-- 1 ant ant 13480 May 25 10:19 MASTER_autonomous_build_and_operate(1).md
+-rw-rw-r-- 1 ant ant 20142 May 25 10:30 MASTER_autonomous_build_and_operate(2).md
+-rw-rw-r-- 1 ant ant 26029 May 25 10:35 MASTER_autonomous_build_and_operate(3).md
+-rw-rw-r-- 1 ant ant 29394 May 25 11:10 MASTER_autonomous_build_and_operate(4).md
+-rw-rw-r-- 1 ant ant  6435 May 25 10:07 MASTER_autonomous_build_and_operate.md
+
+./_archive/old:
+total 736
+drwxrwxr-x 2 ant ant  4096 Apr  9 18:25 .
+drwxrwxr-x 6 ant ant  4096 Jun 16 10:55 ..
+-rw-rw-r-- 1 ant ant 28393 Mar 27 13:43 006_entity_feeds_livedata_implementation.md
+-rw-rw-r-- 1 ant ant 20435 Mar 27 13:43 007_entity_feeds_livedata_architecture.md
+-rw------- 1 ant ant 28802 Apr  8 18:43 012d_tool_lifecycle_guide_v4.md
+-rw-rw-r-- 1 ant ant 11291 Mar 12 17:41 015_companies_house_enrichment_plan.md
+-rw-rw-r-- 1 ant ant 14622 Mar 17 17:44 015b_companies_house_enrichment_plan_v2.md
+-rw-rw-r-- 1 ant ant 25483 Mar 18 17:25 015c_companies_house_enrichment_plan_v3.md
+-rw-rw-r-- 1 ant ant 31377 Mar 19 09:55 015d_companies_house_enrichment_plan_v4.md
+-rw-rw-r-- 1 ant ant 19794 Mar 19 19:53 015e_companies_house_enrichment_plan_v6.md
+-rw-rw-r-- 1 ant ant  3559 Mar 16 15:23 018_api_gateway_admin_dashboard.md
+-rw-rw-r-- 1 ant ant 14165 Mar 16 15:56 019_admin_dashboard_and_gateway.md
+-rw-rw-r-- 1 ant ant 17872 Mar 16 19:23 019b_admin_dashboard_and_gateway_v2.md
+-rw-rw-r-- 1 ant ant 20729 Mar 18 13:26 019c_admin_dashboard_and_gateway_v3.md
+-rw-rw-r-- 1 ant ant 17521 Mar 18 14:53 021_adminable_content_governance_plan.md
+-rw-rw-r-- 1 ant ant 21607 Mar 18 17:23 021_adminable_content_governance_plan_v2.md
+-rw-rw-r-- 1 ant ant 19106 Mar 19 19:54 021c_admin_content_governance_plan_v3.md
+-rw-rw-r-- 1 ant ant  9532 Mar 20 19:07 022_companies_houise_matching_cascade_plan.md
+-rw-rw-r-- 1 ant ant  7124 Mar 23 13:32 024_agent_backup_and_swap_reference.md
+-rw-rw-r-- 1 ant ant 24095 Mar 27 13:43 027_news_feed_pipeline.md
+-rw-rw-r-- 1 ant ant   600 Mar 27 15:41 027b_news_feed_notes.md
+-rw-rw-r-- 1 ant ant 35348 Mar 28 18:46 027c_news_feed_pipeline_v2.md
+-rw-rw-r-- 1 ant ant 41190 Mar 29 11:58 027d_news_feed_pipeline_v3.md
+-rw-rw-r-- 1 ant ant 11190 Mar 29 12:52 027f_news_build_pipeline_integration.md
+-rw-rw-r-- 1 ant ant  8389 Apr  2 08:28 027h_news_feed_pipeline_handoff_20260331.md
+-rw-rw-r-- 1 ant ant 21895 Mar 29 14:05 028_adoption_infrastructure_layers_and_adoption.md
+-rw-rw-r-- 1 ant ant 18187 Mar 30 13:38 028b_adoption_and_infrastructure_layers_v2.md
+-rw-rw-r-- 1 ant ant 22393 Mar 31 12:12 028c_adoption_and_infrastructure_layers_v3.md
+-rw-rw-r-- 1 ant ant 35615 Mar 31 12:52 028d_adoption_and_infrastructure_layers_v4.md
+-rw-rw-r-- 1 ant ant 47466 Apr  3 19:32 028e_adoption_and_infrastructure_layers_v5.md
+-rw-rw-r-- 1 ant ant 12145 Apr  2 08:23 028f_adoption_pipeline_handoff.md
+-rw-rw-r-- 1 ant ant 14805 Apr  3 19:22 028g_adoption_pipeline_handoff_v2(1).md
+-rw-rw-r-- 1 ant ant  9165 Apr  6 14:46 028h_adoption_pipeline_handoff_v3.md
+-rw-rw-r-- 1 ant ant 14633 Apr  6 19:49 028i_adoption_pipeline_handoff_v4.md
+-rw-rw-r-- 1 ant ant  9594 Apr  2 11:35 032_tool_handoff_novel_tool_generation.md
+-rw-rw-r-- 1 ant ant 12417 Apr  6 15:29 033_tool_pipeline_end_to_end_handoff.md
+-rw-rw-r-- 1 ant ant 11345 Apr  6 15:33 034_handoff_vonc_component_infrastructure.md
+-rw-rw-r-- 1 ant ant  8708 Apr  8 19:25 034_tool_pipeline_cross_linking_deployed.md
+
+./engines:
+total 28
+drwxrwxr-x 5 ant ant  4096 Jun 16 10:55 .
+drwxrwxr-x 8 ant ant 12288 Jun 16 11:11 ..
+drwxrwxr-x 2 ant ant  4096 Jun 16 10:54 analyser
+drwxrwxr-x 2 ant ant  4096 Jun 16 10:54 contextkit-cli
+drwxrwxr-x 2 ant ant  4096 Jun 16 10:55 tool-docs
+
+./engines/analyser:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jun 16 10:54 .
+drwxrwxr-x 5 ant ant 4096 Jun 16 10:55 ..
+
+./engines/contextkit-cli:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jun 16 10:54 .
+drwxrwxr-x 5 ant ant 4096 Jun 16 10:55 ..
+
+./engines/tool-docs:
+total 8
+drwxrwxr-x 2 ant ant 4096 Jun 16 10:55 .
+drwxrwxr-x 5 ant ant 4096 Jun 16 10:55 ..
+
+./go_files:
+total 76
+drwxrwxr-x 3 ant ant  4096 Jun 16 10:55 .
+drwxrwxr-x 8 ant ant 12288 Jun 16 11:11 ..
+-rw-rw-r-- 1 ant ant  4347 Jun 11 09:52 NNN_create_code_indexer_agent.sql
+drwxr-xr-x 4 ant ant  4096 Jun 16 10:24 contextkit
+-rw-rw-r-- 1 ant ant 22067 Jun 11 18:17 contextkit(6).tar.gz
+-rw-rw-r-- 1 ant ant 22067 Jun 11 18:17 contextkit.tar.gz
+
+./go_files/contextkit:
+total 46276
+drwxr-xr-x  4 ant ant     4096 Jun 16 10:24 .
+drwxrwxr-x  3 ant ant     4096 Jun 16 10:55 ..
+-rw-rw-r--  1 ant ant     1024 Jun  8 22:09 README(0).md
+-rw-rw-r--  1 ant ant     5371 Jun 11 18:16 README(1).md
+-rw-rw-r--  1 ant ant     7817 Jun 11 19:11 README(2).md
+-rw-r--r--  1 ant ant     5371 Jun 11 17:48 README.md
+-rw-rw-r--  1 ant ant  1993824 Jun 11 19:23 analysis1.json
+-rw-rw-r--  1 ant ant  2098823 Jun 15 17:04 analysis2.json
+drwxr-xr-x 10 ant ant     4096 Jun 16 10:58 cmd
+-rw-r--r--  1 ant ant 43223063 Jun 15 20:25 embeddings.json
+-rw-r--r--  1 ant ant       27 Jun  8 21:36 go.mod
+drwxr-xr-x  4 ant ant     4096 Jun  8 21:36 internal
+-rw-rw-r--  1 ant ant       63 Jun 16 10:27 lex.json
+-rw-rw-r--  1 ant ant     5454 Jun 16 10:28 sem.json
+
+./go_files/contextkit/cmd:
+total 40
+drwxr-xr-x 10 ant ant 4096 Jun 16 10:58 .
+drwxr-xr-x  4 ant ant 4096 Jun 16 10:24 ..
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:36 analyser
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:36 assembler
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:36 dbcontext
+drwxrwxr-x  2 ant ant 4096 Jun 16 10:58 dedup
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:36 embed
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:41 eval_targets
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:41 fuse
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:36 resolve_targets
+
+./go_files/contextkit/cmd/analyser:
+total 12
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:36 .
+drwxr-xr-x 10 ant ant 4096 Jun 16 10:58 ..
+-rw-r--r--  1 ant ant 1199 Jun 10 17:57 main.go
+
+./go_files/contextkit/cmd/assembler:
+total 28
+drwxr-xr-x  2 ant ant  4096 Jun  8 21:36 .
+drwxr-xr-x 10 ant ant  4096 Jun 16 10:58 ..
+-rw-r--r--  1 ant ant 16950 Jun  9 15:22 main.go
+
+./go_files/contextkit/cmd/dbcontext:
+total 16
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:36 .
+drwxr-xr-x 10 ant ant 4096 Jun 16 10:58 ..
+-rw-r--r--  1 ant ant 7693 Jun  9 15:20 main.go
+
+./go_files/contextkit/cmd/dedup:
+total 24
+drwxrwxr-x  2 ant ant  4096 Jun 16 10:58 .
+drwxr-xr-x 10 ant ant  4096 Jun 16 10:58 ..
+-rw-rw-r--  1 ant ant 13905 Jun 16 10:58 main.go
+
+./go_files/contextkit/cmd/embed:
+total 20
+drwxr-xr-x  2 ant ant  4096 Jun  8 21:36 .
+drwxr-xr-x 10 ant ant  4096 Jun 16 10:58 ..
+-rw-r--r--  1 ant ant 10015 Jun 10 13:58 main.go
+
+./go_files/contextkit/cmd/eval_targets:
+total 16
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:41 .
+drwxr-xr-x 10 ant ant 4096 Jun 16 10:58 ..
+-rw-r--r--  1 ant ant 4300 Jun  8 21:42 main.go
+
+./go_files/contextkit/cmd/fuse:
+total 12
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:41 .
+drwxr-xr-x 10 ant ant 4096 Jun 16 10:58 ..
+-rw-r--r--  1 ant ant 3238 Jun  8 21:42 main.go
+
+./go_files/contextkit/cmd/resolve_targets:
+total 16
+drwxr-xr-x  2 ant ant 4096 Jun  8 21:36 .
+drwxr-xr-x 10 ant ant 4096 Jun 16 10:58 ..
+-rw-r--r--  1 ant ant 7412 Jun  8 22:15 main.go
+
+./go_files/contextkit/internal:
+total 16
+drwxr-xr-x 4 ant ant 4096 Jun  8 21:36 .
+drwxr-xr-x 4 ant ant 4096 Jun 16 10:24 ..
+drwxr-xr-x 2 ant ant 4096 Jun  8 21:36 analysis
+drwxr-xr-x 2 ant ant 4096 Jun  8 21:41 candidates
+
+./go_files/contextkit/internal/analysis:
+total 20
+drwxr-xr-x 2 ant ant 4096 Jun  8 21:36 .
+drwxr-xr-x 4 ant ant 4096 Jun  8 21:36 ..
+-rw-r--r-- 1 ant ant 7623 Jun 10 17:57 analyse.go
+-rw-r--r-- 1 ant ant 2271 Jun  8 21:36 types.go
+
+./go_files/contextkit/internal/candidates:
+total 12
+drwxr-xr-x 2 ant ant 4096 Jun  8 21:41 .
+drwxr-xr-x 4 ant ant 4096 Jun  8 21:36 ..
+-rw-r--r-- 1 ant ant  768 Jun  8 21:41 types.go
+
+./go_files_old:
+total 168
+drwxrwxr-x 3 ant ant  4096 Jun  8 21:47 .
+drwxrwxr-x 8 ant ant 12288 Jun 16 11:11 ..
+-rw-rw-r-- 1 ant ant  9820 Jun  7 11:05 analyser(2).go
+-rw-rw-r-- 1 ant ant 11630 Jun  7 10:48 assembler(1).go.orig1
+-rw-rw-r-- 1 ant ant 16949 Jun  7 11:05 assembler(2).go
+-rw-rw-r-- 1 ant ant 18128 Jun  8 18:57 assembler(3).go
+-rw-rw-r-- 1 ant ant 18605 Jun  8 20:26 assembler(4).go
+-rw-rw-r-- 1 ant ant  6277 Jun  8 20:26 dbcontext(1).go
+-rw-rw-r-- 1 ant ant  9143 Jun  8 21:30 embed(1).go
+-rw-rw-r-- 1 ant ant  8452 Jun  8 21:18 embed.go
+-rw-rw-r-- 1 ant ant  4482 Jun  8 21:29 eval_targets.go
+-rw-rw-r-- 1 ant ant  3674 Jun  8 21:29 fuse.go
+drwxrwxr-x 2 ant ant  4096 Jun  8 21:51 go_files
+-rw-rw-r-- 1 ant ant  1055 Jun  8 21:29 groundtruth_targets.json
+-rw-rw-r-- 1 ant ant  7887 Jun  8 21:29 resolve_targets(1).go
+-rw-rw-r-- 1 ant ant  7154 Jun  8 20:26 resolve_targets.go
+
+./go_files_old/go_files:
+total 108
+drwxrwxr-x 2 ant ant  4096 Jun  8 21:51 .
+drwxrwxr-x 3 ant ant  4096 Jun  8 21:47 ..
+-rw-rw-r-- 1 ant ant  9820 Jun  7 11:05 analyser.go
+-rw-rw-r-- 1 ant ant 16949 Jun  7 11:05 assembler.go
+-rw-rw-r-- 1 ant ant  6277 Jun  8 20:26 dbcontext.go
+-rw-rw-r-- 1 ant ant  9143 Jun  8 21:30 embed(1).go
+-rw-rw-r-- 1 ant ant  8452 Jun  8 21:18 embed.go
+-rw-rw-r-- 1 ant ant  4482 Jun  8 21:29 eval_targets.go
+-rw-rw-r-- 1 ant ant  3674 Jun  8 21:29 fuse.go
+-rw-rw-r-- 1 ant ant  1055 Jun  8 21:29 groundtruth_targets.json
+-rw-rw-r-- 1 ant ant  7887 Jun  8 21:29 resolve_targets(1).go
+-rw-rw-r-- 1 ant ant  7154 Jun  8 20:26 resolve_targets.go
+-rw-rw-r-- 1 ant ant  2267 Jun  8 21:51 types(1).go
+
+./thin_slice_run:
+total 88
+drwxrwxr-x 2 ant ant  4096 Jun  7 11:39 .
+drwxrwxr-x 8 ant ant 12288 Jun 16 11:11 ..
+-rw-rw-r-- 1 ant ant  9820 Jun  7 11:05 analyser(2).go
+-rw-rw-r-- 1 ant ant  8917 Jun  2 16:43 analyser.go
+-rw-rw-r-- 1 ant ant 16949 Jun  7 11:05 assembler(2).go
+-rw-rw-r-- 1 ant ant 11105 Jun  2 16:43 assembler.go
+-rw-rw-r-- 1 ant ant  4694 Jun  7 11:38 dbcontext.go
+-rw-rw-r-- 1 ant ant  5161 Jun  2 16:43 thin_slice_constitution.md
+
+./working:
+total 32
+drwxrwxr-x 4 ant ant  4096 Jun 11 21:15 .
+drwxrwxr-x 8 ant ant 12288 Jun 16 11:11 ..
+drwxrwxr-x 2 ant ant 12288 Jun 15 19:53 documentation_analysis_tool
+drwxrwxr-x 2 ant ant  4096 Jun 11 21:15 main
+
+./working/documentation_analysis_tool:
+total 4324
+drwxrwxr-x 2 ant ant  12288 Jun 15 19:53 .
+drwxrwxr-x 4 ant ant   4096 Jun 11 21:15 ..
+-rw-rw-r-- 1 ant ant  12105 May 28 20:00 FOCUS_pre_build_edge_cases.md
+-rw-rw-r-- 1 ant ant   9064 Jun  8 16:08 GUIDE_deploy_from_context_packs.md
+-rw-rw-r-- 1 ant ant   7824 Jun  8 18:57 MAPPING_tool_to_actions_and_agents(1).md
+-rw-rw-r-- 1 ant ant   5577 Jun  8 17:41 MAPPING_tool_to_actions_and_agents.md
+-rw-rw-r-- 1 ant ant  11580 May 27 17:31 NOTES_running_synthesis_principles(1).md
+-rw-rw-r-- 1 ant ant  20250 May 28 12:47 NOTES_running_synthesis_principles(10).md
+-rw-rw-r-- 1 ant ant  22407 May 28 13:55 NOTES_running_synthesis_principles(11).md
+-rw-rw-r-- 1 ant ant  24317 May 28 14:10 NOTES_running_synthesis_principles(12).md
+-rw-rw-r-- 1 ant ant  26821 May 28 17:42 NOTES_running_synthesis_principles(13).md
+-rw-rw-r-- 1 ant ant  28133 May 28 19:36 NOTES_running_synthesis_principles(14).md
+-rw-rw-r-- 1 ant ant  32288 May 28 21:25 NOTES_running_synthesis_principles(15).md
+-rw-rw-r-- 1 ant ant  33936 Jun  2 15:24 NOTES_running_synthesis_principles(16).md
+-rw-rw-r-- 1 ant ant  37598 Jun  7 10:48 NOTES_running_synthesis_principles(17).md
+-rw-rw-r-- 1 ant ant  39155 Jun  7 11:05 NOTES_running_synthesis_principles(18).md
+-rw-rw-r-- 1 ant ant  40477 Jun  7 11:45 NOTES_running_synthesis_principles(19).md
+-rw-rw-r-- 1 ant ant  12848 May 27 17:41 NOTES_running_synthesis_principles(2).md
+-rw-rw-r-- 1 ant ant  46175 Jun  8 14:48 NOTES_running_synthesis_principles(20).md
+-rw-rw-r-- 1 ant ant  46175 Jun  8 14:49 NOTES_running_synthesis_principles(21).md
+-rw-rw-r-- 1 ant ant  47454 Jun  8 16:08 NOTES_running_synthesis_principles(22).md
+-rw-rw-r-- 1 ant ant  49259 Jun  8 17:16 NOTES_running_synthesis_principles(23).md
+-rw-rw-r-- 1 ant ant  51508 Jun  8 17:33 NOTES_running_synthesis_principles(24).md
+-rw-rw-r-- 1 ant ant  54674 Jun  8 18:58 NOTES_running_synthesis_principles(25).md
+-rw-rw-r-- 1 ant ant  57105 Jun  8 20:26 NOTES_running_synthesis_principles(26).md
+-rw-rw-r-- 1 ant ant  59146 Jun  8 20:57 NOTES_running_synthesis_principles(27).md
+-rw-rw-r-- 1 ant ant  61533 Jun  8 21:18 NOTES_running_synthesis_principles(28).md
+-rw-rw-r-- 1 ant ant  62983 Jun  8 21:30 NOTES_running_synthesis_principles(29).md
+-rw-rw-r-- 1 ant ant  13787 May 27 17:50 NOTES_running_synthesis_principles(3).md
+-rw-rw-r-- 1 ant ant  64078 Jun  8 21:48 NOTES_running_synthesis_principles(30).md
+-rw-rw-r-- 1 ant ant  64270 Jun  8 22:22 NOTES_running_synthesis_principles(31).md
+-rw-rw-r-- 1 ant ant  65757 Jun  9 14:01 NOTES_running_synthesis_principles(32).md
+-rw-rw-r-- 1 ant ant  67108 Jun  9 14:15 NOTES_running_synthesis_principles(33).md
+-rw-rw-r-- 1 ant ant  68426 Jun  9 14:38 NOTES_running_synthesis_principles(34).md
+-rw-rw-r-- 1 ant ant  69693 Jun  9 15:12 NOTES_running_synthesis_principles(35).md
+-rw-rw-r-- 1 ant ant  70837 Jun  9 15:47 NOTES_running_synthesis_principles(36).md
+-rw-rw-r-- 1 ant ant  72122 Jun  9 16:16 NOTES_running_synthesis_principles(37).md
+-rw-rw-r-- 1 ant ant  73981 Jun  9 16:53 NOTES_running_synthesis_principles(38).md
+-rw-rw-r-- 1 ant ant  75032 Jun  9 17:31 NOTES_running_synthesis_principles(39).md
+-rw-rw-r-- 1 ant ant  14971 May 27 17:57 NOTES_running_synthesis_principles(4).md
+-rw-rw-r-- 1 ant ant  75778 Jun 10 10:28 NOTES_running_synthesis_principles(40).md
+-rw-rw-r-- 1 ant ant  77033 Jun 10 13:27 NOTES_running_synthesis_principles(41).md
+-rw-rw-r-- 1 ant ant  78324 Jun 10 15:42 NOTES_running_synthesis_principles(42).md
+-rw-rw-r-- 1 ant ant  80066 Jun 10 16:04 NOTES_running_synthesis_principles(43).md
+-rw-rw-r-- 1 ant ant  83460 Jun 10 17:40 NOTES_running_synthesis_principles(44).md
+-rw-rw-r-- 1 ant ant  86002 Jun 10 19:22 NOTES_running_synthesis_principles(45).md
+-rw-rw-r-- 1 ant ant  88104 Jun 10 20:25 NOTES_running_synthesis_principles(46).md
+-rw-rw-r-- 1 ant ant  90567 Jun 10 20:49 NOTES_running_synthesis_principles(47).md
+-rw-rw-r-- 1 ant ant  15387 May 27 19:35 NOTES_running_synthesis_principles(5).md
+-rw-rw-r-- 1 ant ant 161235 Jun 13 12:08 NOTES_running_synthesis_principles(51).md
+-rw-rw-r-- 1 ant ant 166636 Jun 13 17:11 NOTES_running_synthesis_principles(52).md
+-rw-rw-r-- 1 ant ant 168625 Jun 15 19:34 NOTES_running_synthesis_principles(53).md
+-rw-rw-r-- 1 ant ant  16054 May 27 21:02 NOTES_running_synthesis_principles(6).md
+-rw-rw-r-- 1 ant ant  17988 May 27 21:11 NOTES_running_synthesis_principles(7).md
+-rw-rw-r-- 1 ant ant  17988 May 28 12:03 NOTES_running_synthesis_principles(9).md
+-rw-rw-r-- 1 ant ant  10620 May 27 17:02 NOTES_running_synthesis_principles.md
+-rw-rw-r-- 1 ant ant  11749 May 28 12:43 PLAN_active_config_schema(1).md
+-rw-rw-r-- 1 ant ant  12360 May 28 12:59 PLAN_active_config_schema(2).md
+-rw-rw-r-- 1 ant ant  10590 May 27 20:50 PLAN_active_config_schema.md
+-rw-rw-r-- 1 ant ant  18768 May 28 19:36 PLAN_bundle_shape_contract(1).md
+-rw-rw-r-- 1 ant ant  17775 May 28 17:42 PLAN_bundle_shape_contract.md
+-rw-rw-r-- 1 ant ant   7661 May 28 12:59 PLAN_capabilities_catalog_contract.md
+-rw-rw-r-- 1 ant ant   9260 May 28 12:03 PLAN_change_layer_integration_contract(1).md
+-rw-rw-r-- 1 ant ant  10606 May 28 14:06 PLAN_change_layer_integration_contract(2).md
+-rw-rw-r-- 1 ant ant  11359 May 28 21:26 PLAN_change_layer_integration_contract(3).md
+-rw-rw-r-- 1 ant ant   9260 May 27 21:11 PLAN_change_layer_integration_contract.md
+-rw-rw-r-- 1 ant ant   9248 May 28 12:43 PLAN_config_work_items_contract(1).md
+-rw-rw-r-- 1 ant ant  10655 May 28 12:59 PLAN_config_work_items_contract(2).md
+-rw-rw-r-- 1 ant ant   7488 May 27 21:01 PLAN_config_work_items_contract.md
+-rw-rw-r-- 1 ant ant  13976 Jun  8 20:57 PLAN_context_assembly_tool_and_service(1).md
+-rw-rw-r-- 1 ant ant  10779 May 27 15:09 PLAN_context_assembly_tool_and_service.md
+-rw-rw-r-- 1 ant ant   9621 May 28 14:06 PLAN_decision_log_contract(1).md
+-rw-rw-r-- 1 ant ant   9377 May 27 21:01 PLAN_decision_log_contract.md
+-rw-rw-r-- 1 ant ant   9411 May 27 17:02 PLAN_onboarding_agent_specs(1).md
+-rw-rw-r-- 1 ant ant  16921 May 27 17:31 PLAN_onboarding_agent_specs(2).md
+-rw-rw-r-- 1 ant ant  24197 May 27 17:40 PLAN_onboarding_agent_specs(3).md
+-rw-rw-r-- 1 ant ant  30176 May 27 17:50 PLAN_onboarding_agent_specs(4).md
+-rw-rw-r-- 1 ant ant  37680 May 27 17:57 PLAN_onboarding_agent_specs(5).md
+-rw-rw-r-- 1 ant ant   6064 May 27 16:53 PLAN_onboarding_agent_specs.md
+-rw-rw-r-- 1 ant ant   8304 May 28 12:03 PLAN_trust_ledger_contract(1).md
+-rw-rw-r-- 1 ant ant   8649 May 28 12:43 PLAN_trust_ledger_contract(2).md
+-rw-rw-r-- 1 ant ant   9076 May 28 14:06 PLAN_trust_ledger_contract(3).md
+-rw-rw-r-- 1 ant ant   8304 May 27 21:11 PLAN_trust_ledger_contract.md
+-rw-rw-r-- 1 ant ant  14975 Jun  9 14:15 PLAN_workflows_and_actions_migration(1).md
+-rw-rw-r-- 1 ant ant  33990 Jun 10 16:04 PLAN_workflows_and_actions_migration(10).md
+-rw-rw-r-- 1 ant ant  39185 Jun 10 17:40 PLAN_workflows_and_actions_migration(11).md
+-rw-rw-r-- 1 ant ant  44383 Jun 10 19:22 PLAN_workflows_and_actions_migration(12).md
+-rw-rw-r-- 1 ant ant  48385 Jun 10 20:25 PLAN_workflows_and_actions_migration(13).md
+-rw-rw-r-- 1 ant ant  53644 Jun 10 20:49 PLAN_workflows_and_actions_migration(14).md
+-rw-rw-r-- 1 ant ant  64687 Jun 13 17:11 PLAN_workflows_and_actions_migration(18).md
+-rw-rw-r-- 1 ant ant  16688 Jun  9 14:38 PLAN_workflows_and_actions_migration(2).md
+-rw-rw-r-- 1 ant ant  16985 Jun  9 15:12 PLAN_workflows_and_actions_migration(3).md
+-rw-rw-r-- 1 ant ant  19465 Jun  9 15:47 PLAN_workflows_and_actions_migration(4).md
+-rw-rw-r-- 1 ant ant  20918 Jun  9 16:16 PLAN_workflows_and_actions_migration(5).md
+-rw-rw-r-- 1 ant ant  24625 Jun  9 16:52 PLAN_workflows_and_actions_migration(6).md
+-rw-rw-r-- 1 ant ant  25803 Jun  9 17:31 PLAN_workflows_and_actions_migration(7).md
+-rw-rw-r-- 1 ant ant  26348 Jun 10 10:28 PLAN_workflows_and_actions_migration(8).md
+-rw-rw-r-- 1 ant ant  28761 Jun 10 13:28 PLAN_workflows_and_actions_migration(9).md
+-rw-rw-r-- 1 ant ant  12534 Jun  9 14:02 PLAN_workflows_and_actions_migration.md
+-rw-rw-r-- 1 ant ant   8280 Jun  7 11:38 RUNBOOK_thin_slice(1).md
+-rw-rw-r-- 1 ant ant  14345 Jun  9 14:15 RUNBOOK_thin_slice(10).md
+-rw-rw-r-- 1 ant ant  17167 Jun 10 15:40 RUNBOOK_thin_slice(11).md
+-rw-rw-r-- 1 ant ant  27443 Jun 13 13:03 RUNBOOK_thin_slice(15).md
+-rw-rw-r-- 1 ant ant  28925 Jun 15 19:34 RUNBOOK_thin_slice(16).md
+-rw-rw-r-- 1 ant ant  29652 Jun 15 19:53 RUNBOOK_thin_slice(17).md
+-rw-rw-r-- 1 ant ant   9462 Jun  8 16:08 RUNBOOK_thin_slice(2).md
+-rw-rw-r-- 1 ant ant  10220 Jun  8 18:57 RUNBOOK_thin_slice(3).md
+-rw-rw-r-- 1 ant ant  11320 Jun  8 20:26 RUNBOOK_thin_slice(4).md
+-rw-rw-r-- 1 ant ant  11517 Jun  8 20:57 RUNBOOK_thin_slice(5).md
+-rw-rw-r-- 1 ant ant  12399 Jun  8 21:18 RUNBOOK_thin_slice(6).md
+-rw-rw-r-- 1 ant ant  13669 Jun  8 21:30 RUNBOOK_thin_slice(7).md
+-rw-rw-r-- 1 ant ant  14175 Jun  8 21:48 RUNBOOK_thin_slice(8).md
+-rw-rw-r-- 1 ant ant  14345 Jun  8 22:21 RUNBOOK_thin_slice(9).md
+-rw-rw-r-- 1 ant ant   6167 Jun  7 10:48 RUNBOOK_thin_slice.md
+-rw-rw-r-- 1 ant ant   7756 Jun 10 20:27 adapter(0).go.orig0
+-rw-rw-r-- 1 ant ant  10042 Jun 11 21:19 adapter(1).go
+-rw-rw-r-- 1 ant ant  10090 Jun 11 21:19 adapter(2).go
+-rw-rw-r-- 1 ant ant  11909 Jun 11 21:19 adapter(3).go
+-rw-rw-r-- 1 ant ant  11909 Jun 11 21:19 adapter(4).go
+-rw-rw-r-- 1 ant ant   3965 Jun 10 19:21 analyse_action(0).go.orig0
+-rw-rw-r-- 1 ant ant   1900 Jun 11 17:37 analyser-adapter(1).yaml
+-rw-rw-r-- 1 ant ant   3148 Jun 10 20:27 analyser-adapter.yaml
+-rw-rw-r-- 1 ant ant   5764 Jun 11 21:19 analyser_request_action(1).go
+-rw-rw-r-- 1 ant ant   5764 Jun 11 21:19 analyser_request_action.go
+-rw-rw-r-- 1 ant ant  15171 Jun 11 21:19 code_symbols_actions.go
+-rw-rw-r-- 1 ant ant  18716 Jun  8 22:21 contextkit(1).tar.gz
+-rw-rw-r-- 1 ant ant  19300 Jun  9 15:47 contextkit(2).tar.gz
+-rw-rw-r-- 1 ant ant  19506 Jun  9 16:15 contextkit(3).tar.gz
+-rw-rw-r-- 1 ant ant  19702 Jun 10 15:40 contextkit(4).tar.gz
+-rw-rw-r-- 1 ant ant  20154 Jun 10 19:21 contextkit(5).tar.gz
+-rw-rw-r-- 1 ant ant  18777 Jun  8 22:06 contextkit.tar.gz.orig1
+-rw-rw-r-- 1 ant ant   5855 Jun 10 19:23 github_source.go.orig0
+
+./working/main:
+total 7104
+drwxrwxr-x 2 ant ant   4096 Jun 11 21:15 .
+drwxrwxr-x 4 ant ant   4096 Jun 11 21:15 ..
+-rw-rw-r-- 1 ant ant 122894 May 26 12:21 001_development_guide(0).md
+-rw-rw-r-- 1 ant ant 123778 May 27 16:32 001_development_guide(3).md
+-rw-rw-r-- 1 ant ant  50720 Apr 21 13:04 007_adoption_pipeline_v3.md
+-rw-rw-r-- 1 ant ant 113020 May 22 18:14 016_debugging_guide.md
+-rw-rw-r-- 1 ant ant   9295 May 27 10:35 016_debugging_guide_addendum_adopted_tools_no_widget(1).md
+-rw-rw-r-- 1 ant ant   9921 May 27 10:51 016_debugging_guide_addendum_adopted_tools_no_widget(3).md
+-rw-rw-r-- 1 ant ant   9921 Jun  3 18:36 016_debugging_guide_addendum_adopted_tools_no_widget(4).md
+-rw-rw-r-- 1 ant ant   7870 May 26 18:57 016_debugging_guide_addendum_adopted_tools_no_widget.md
+-rw-rw-r-- 1 ant ant  93668 May 22 20:37 016_debugging_guide_v2_18_.md
+-rw-rw-r-- 1 ant ant  96630 May 24 10:54 016_debugging_guide_v2_19_.md
+-rw-rw-r-- 1 ant ant 103232 May 24 12:34 016_debugging_guide_v2_20_.md
+-rw-rw-r-- 1 ant ant 103732 May 24 12:44 016_debugging_guide_v2_21_.md
+-rw-rw-r-- 1 ant ant 109946 May 27 10:42 016_debugging_guide_v2_22(1).md
+-rw-rw-r-- 1 ant ant 111961 May 27 12:02 016_debugging_guide_v2_22(2).md
+-rw-rw-r-- 1 ant ant 103732 May 25 10:21 016_debugging_guide_v2_22.md
+-rw-rw-r-- 1 ant ant 117387 May 27 11:08 016_debugging_guide_v2_23.md
+-rw-rw-r-- 1 ant ant 110801 May 27 11:11 016_debugging_guide_v2_24.md
+-rw-rw-r-- 1 ant ant 120868 May 27 12:12 016_debugging_guide_v2_25.md
+-rw-rw-r-- 1 ant ant 124830 May 27 13:06 016_debugging_guide_v2_26(1).md
+-rw-rw-r-- 1 ant ant 123008 May 27 12:43 016_debugging_guide_v2_26.md
+-rw-rw-r-- 1 ant ant 129093 May 27 12:58 016_debugging_guide_v2_27.md
+-rw-rw-r-- 1 ant ant 135013 Jun  2 17:26 016_debugging_guide_v2_28.md
+-rw-rw-r-- 1 ant ant 143001 Jun  3 15:15 016_debugging_guide_v2_29.md
+-rw-rw-r-- 1 ant ant 148594 Jun  4 18:27 016_debugging_guide_v2_30(1).md
+-rw-rw-r-- 1 ant ant 149839 Jun  4 19:02 016_debugging_guide_v2_30(2).md
+-rw-rw-r-- 1 ant ant 150302 Jun  4 19:38 016_debugging_guide_v2_30(3).md
+-rw-rw-r-- 1 ant ant 145933 Jun  3 18:59 016_debugging_guide_v2_30.md
+-rw------- 1 ant ant 146835 Jun  4 14:17 016_debugging_guide_v2_30b.md
+-rw-rw-r-- 1 ant ant 150533 Jun  5 11:46 016_debugging_guide_v2_31(1).md
+-rw-rw-r-- 1 ant ant 151485 Jun  5 15:37 016_debugging_guide_v2_31(2).md
+-rw-rw-r-- 1 ant ant 151809 Jun  6 11:24 016_debugging_guide_v2_31(3).md
+-rw-rw-r-- 1 ant ant 149668 Jun  4 16:43 016_debugging_guide_v2_31.md
+-rw-rw-r-- 1 ant ant 156885 Jun  6 15:51 016_debugging_guide_v2_32(2).md
+-rw-rw-r-- 1 ant ant 153863 Jun  4 18:36 016_debugging_guide_v2_32.md
+-rw-rw-r-- 1 ant ant 162291 Jun  7 10:23 016_debugging_guide_v2_33.md
+-rw-rw-r-- 1 ant ant 167100 Jun  8 20:37 016_debugging_guide_v2_34.md
+-rw-rw-r-- 1 ant ant 171393 Jun  8 21:03 016_debugging_guide_v2_35.md
+-rw-rw-r-- 1 ant ant 171609 Jun  8 22:19 016_debugging_guide_v2_36a.md
+-rw-rw-r-- 1 ant ant 171900 Jun  8 22:31 016_debugging_guide_v2_36b.md
+-rw-rw-r-- 1 ant ant 171900 Jun  9 12:11 016_debugging_guide_v2_37.md
+-rw-rw-r-- 1 ant ant 182744 Jun  9 15:12 016_debugging_guide_v2_38(2).md
+-rw-rw-r-- 1 ant ant 175056 Jun  9 13:22 016_debugging_guide_v2_38.md
+-rw-rw-r-- 1 ant ant 179610 Jun  9 14:38 016_debugging_guide_v2_39.md
+-rw-rw-r-- 1 ant ant 181958 Jun  9 15:03 016_debugging_guide_v2_40.md
+-rw-rw-r-- 1 ant ant 184832 Jun  9 15:46 016_debugging_guide_v2_41.md
+-rw-rw-r-- 1 ant ant 185003 Jun  9 16:53 016_debugging_guide_v2_42(2).md
+-rw-rw-r-- 1 ant ant 185890 Jun  9 17:04 016_debugging_guide_v2_42(3).md
+-rw-rw-r-- 1 ant ant 182821 Jun  9 16:24 016_debugging_guide_v2_42.md
+-rw-rw-r-- 1 ant ant 187191 Jun  9 17:45 016_debugging_guide_v2_43.md
+-rw-rw-r-- 1 ant ant 188800 Jun 10 14:08 016_debugging_guide_v2_44.md
+-rw------- 1 ant ant  14982 Apr 20 10:07 026_component_regeneration_flow.md
+-rw-rw-r-- 1 ant ant  23559 Apr 22 18:53 028_platform_mission_and_pipeline_direction.md
+-rw-rw-r-- 1 ant ant  24428 May  4 10:26 029_site_plan_and_reconciler(1).md
+-rw-rw-r-- 1 ant ant  14914 May  4 19:58 030_phase1_plan_and_reconciler(1).md
+-rw-rw-r-- 1 ant ant  24993 May  5 11:56 030_phase1_plan_and_reconciler(2).md
+-rw-rw-r-- 1 ant ant  24993 May  5 12:01 030_phase1_plan_and_reconciler(3).md
+-rw-rw-r-- 1 ant ant  24993 May  5 12:11 030_phase1_plan_and_reconciler(4).md
+-rw-rw-r-- 1 ant ant  15817 May 22 14:48 031_locks(1).md
+-rw-rw-r-- 1 ant ant  17136 May 22 15:44 031_locks(2).md
+-rw-rw-r-- 1 ant ant  29635 May 16 18:54 033_thunder_adapter_design.md
+-rw-rw-r-- 1 ant ant  16821 May 24 14:01 ARCHITECTURAL_TENSIONS(1).md
+-rw-rw-r-- 1 ant ant  18709 May 24 14:15 ARCHITECTURAL_TENSIONS(2).md
+-rw-rw-r-- 1 ant ant  11384 May 24 13:51 ARCHITECTURAL_TENSIONS.md
+-rw-rw-r-- 1 ant ant  12791 May 16 18:54 FOCUS_dispatch_diagnostic(1).md
+-rw-rw-r-- 1 ant ant  17396 May 16 18:54 FOCUS_dispatch_diagnostic(2).md
+-rw-rw-r-- 1 ant ant  23058 May 16 18:54 FOCUS_dispatch_diagnostic(3).md
+-rw-rw-r-- 1 ant ant   9980 May 16 18:54 FOCUS_dispatch_diagnostic.md
+-rw-rw-r-- 1 ant ant  33404 May  4 20:38 FOCUS_imagery_assessment.md
+-rw-rw-r-- 1 ant ant  18553 May 16 18:54 FOCUS_interactive_content_generation(1).md
+-rw-rw-r-- 1 ant ant  21150 May 16 18:54 FOCUS_interactive_content_generation(2).md
+-rw-rw-r-- 1 ant ant  23195 May 16 18:54 FOCUS_interactive_content_generation(3).md
+-rw-rw-r-- 1 ant ant  16508 May 16 18:54 FOCUS_interactive_content_generation.md

@@ -1,0 +1,94 @@
+# FILE: deploy/analyser-adapter.yaml
+#
+# DRAFT for your cluster (namespace ai-persona-system). Reconcile the image,
+# command/entrypoint, and the Kafka/ServiceConfig wiring with how the thunder
+# adapter is deployed — those mechanisms are environment-specific and should
+# match your existing adapters exactly.
+#
+# Two things are deliberate here:
+#   - The GitHub credential is a SEPARATE, read-only, repo-scoped secret
+#     (analyser-github-read), mounted only on this pod. Least privilege: the
+#     analyser reads source, it never writes. The git adapter keeps its own
+#     write credential.
+#   - Health endpoints (/health, /ready) are served by the adapter's small HTTP
+#     server (see adapter.go startHealthServer), so the probes below are valid.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analyser-adapter
+  namespace: ai-persona-system
+  labels:
+    app: analyser-adapter
+    app.kubernetes.io/part-of: agent-chassis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analyser-adapter
+  template:
+    metadata:
+      labels:
+        app: analyser-adapter
+    spec:
+      containers:
+        - name: analyser-adapter
+          # Reconcile: your adapter image + the entrypoint that calls NewAdapter+Run.
+          image: REPLACE_WITH_YOUR_ADAPTER_IMAGE:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: health
+              containerPort: 8080
+          env:
+            - name: REQUESTS_TOPIC
+              value: "system.adapter.analyser.requests"
+            - name: CONSUMER_GROUP
+              value: "analyser.adapter.group"
+            - name: HEALTH_PORT
+              value: "8080"
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: GITHUB_API_BASE
+              value: "https://api.github.com"
+            - name: GITHUB_READ_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: analyser-github-read
+                  key: token
+            # Kafka brokers + the rest of ServiceConfig come from your existing
+            # mechanism (ConfigMap / env / mounted config) — mirror thunder.
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+# Read-only, repo-scoped GitHub credential. Create it via your secret manager
+# (sealed-secrets / external-secrets) — do NOT commit the token to git. A
+# fine-grained PAT or deploy key with "contents: read" on the chassis repo only.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: analyser-github-read
+  namespace: ai-persona-system
+  labels:
+    app: analyser-adapter
+type: Opaque
+stringData:
+  token: "REPLACE_WITH_FINE_GRAINED_READ_ONLY_TOKEN"

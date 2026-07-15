@@ -1,0 +1,63 @@
+{
+  "content": "<h2>What Gripper Cycle Time Actually Measures — and Why It Matters for Throughput</h2><p>Cycle time is one of the most frequently cited gripper specifications and one of the most frequently misapplied. A manufacturer datasheet may quote a jaw closing time of 80 ms. That figure is real — and largely irrelevant to your throughput calculation unless you understand exactly what it includes, what it excludes, and under what conditions it was measured.</p><p>This guide breaks down the components of gripper cycle time, explains how to calculate actual throughput contribution, and identifies the variables that cause real-world performance to diverge from datasheet figures. The estimator tool on this page automates the calculation once you have your inputs defined — but the inputs matter more than the arithmetic.</p>
+
+<h2>The Four Components of a Complete Gripper Cycle</h2><p>A complete gripper actuation cycle consists of four discrete phases. Manufacturers typically report only one of them.</p>
+
+<h3>1. Actuation Time (Open or Close)</h3><p>This is the figure quoted on datasheets: the time from signal receipt to jaw reaching the commanded position. For pneumatic grippers, this is a function of bore diameter, stroke length, supply pressure, and valve response time. For electric grippers, it depends on motor torque, gear ratio, lead screw pitch, and stroke. Typical ranges:</p>
+<ul>
+  <li><strong>Pneumatic parallel grippers:</strong> 40–150 ms depending on bore and stroke</li>
+  <li><strong>Electric servo grippers:</strong> 80–400 ms depending on stroke and force requirement</li>
+  <li><strong>Vacuum cups (single zone):</strong> 50–200 ms to reach grip threshold pressure</li>
+  <li><strong>Magnetic lifters (permanent):</strong> Near-zero actuation time; release mechanism governs cycle</li>
+</ul>
+<p>Datasheet actuation times are measured at rated supply pressure (typically 6 bar for pneumatic), zero external load, and ambient temperature. Any deviation from these conditions extends actuation time.</p>
+
+<h3>2. Signal Latency and Valve Response</h3><p>The interval between the robot controller issuing the grip command and the gripper beginning to move. For pneumatic systems, this is dominated by solenoid valve response time (typically 5–25 ms for direct-acting valves, longer for pilot-operated). For electric grippers on fieldbus (EtherCAT, PROFINET, DeviceNet), latency is typically 1–4 ms per cycle. For IO-Link devices, add one IO-Link cycle time (typically 2.3 ms at COM3). These figures are small individually but accumulate across thousands of daily cycles.</p>
+
+<h3>3. Settle Time</h3><p>The interval after the gripper reaches commanded position before the robot can safely begin the next motion. For pneumatic grippers, this includes pressure stabilisation in the cylinder — particularly relevant when gripping compliant or deformable workpieces where overshoot causes part movement. For electric grippers with position feedback, settle time can be minimised by monitoring the position confirmation signal. For vacuum systems, settle time includes reaching the minimum grip-confirmation vacuum level, which is application-specific and must be measured, not assumed.</p>
+
+<h3>4. Sensor Confirmation Time</h3><p>The time between physical grip completion and the controller receiving a confirmed grip signal. Magnetic reed switches have inherent hysteresis and bounce time (typically 1–5 ms). Inductive proximity sensors are faster but require precise mounting. Vision-based grip confirmation adds frame capture and processing latency. If your application uses force/torque sensing to confirm grip, add sensor polling interval and threshold-detection processing time.</p>
+
+<blockquote><strong>Total gripper cycle contribution = Actuation time + Signal latency + Settle time + Sensor confirmation time.</strong> For a pneumatic gripper with a 90 ms datasheet close time, total cycle contribution under real conditions is commonly 130–180 ms per actuation event — 45–100% longer than the quoted figure.</blockquote>
+
+<h2>How to Use the Cycle Time Estimator</h2><p>The estimator calculates total gripper cycle contribution and projects throughput impact based on your inputs. Enter values for each phase; if you do not have measured data for a phase, use the default estimates derived from technology-class benchmarks in the catalog. Treat defaults as starting assumptions, not specifications — measure your actual system once integrated.</p>
+
+<h3>Required Inputs</h3>
+<ul>
+  <li><strong>Actuation time (close), ms:</strong> From gripper datasheet, corrected for your supply pressure and stroke if different from rated conditions</li>
+  <li><strong>Actuation time (open), ms:</strong> Often asymmetric for spring-return pneumatic grippers; enter separately</li>
+  <li><strong>Signal latency, ms:</strong> From your control architecture — fieldbus cycle time plus valve response</li>
+  <li><strong>Settle time, ms:</strong> Application-specific; use 20 ms as a conservative default for rigid workpieces on pneumatic grippers</li>
+  <li><strong>Sensor confirmation time, ms:</strong> From sensor datasheet or measured</li>
+  <li><strong>Cycles per robot cycle:</strong> Number of grip/release events per complete robot task cycle (pick-and-place = 2; palletising with regrasp = may be 4+)</li>
+  <li><strong>Robot cycle time excluding gripper, ms:</strong> Total motion time for approach, transfer, and retract, excluding gripper actuation waits</li>
+</ul>
+
+<h3>What the Estimator Calculates</h3>
+<ul>
+  <li>Total gripper time per robot cycle (ms)</li>
+  <li>Gripper time as a percentage of total cycle time</li>
+  <li>Maximum theoretical throughput (cycles/hour) at calculated cycle time</li>
+  <li>Throughput sensitivity: change in cycles/hour per 10 ms reduction in gripper cycle time</li>
+</ul>
+<p>The throughput sensitivity figure is the most actionable output. If your gripper contributes 15% of total cycle time and sensitivity is high, gripper selection materially affects line output. If sensitivity is low, optimising gripper cycle time yields diminishing returns — focus specification effort elsewhere.</p>
+
+<h2>Pneumatic vs Electric: Cycle Time Trade-offs in Practice</h2><p>The cycle time comparison between pneumatic and electric grippers is not straightforward. Pneumatic grippers are faster at raw actuation but introduce compressibility and valve latency. Electric grippers are slower at actuation but offer deterministic motion profiles, position confirmation without additional sensors, and programmable speed/force — which can reduce settle time requirements in some applications.</p>
+
+<h3>Pneumatic Gripper Cycle Time Factors</h3>
+<ul>
+  <li>Supply pressure variation (±0.5 bar) causes actuation time variation of ±10–20% — relevant for cycle time budgeting in systems without pressure regulation at the valve</li>
+  <li>Tubing volume between valve and cylinder adds compressibility delay; minimise tubing length, particularly for small-bore cylinders</li>
+  <li>Exhaust flow restriction (silencer back-pressure) slows return stroke; oversized silencers are a common source of unexpected cycle time extension</li>
+  <li>Temperature affects air viscosity and seal friction; at -10°C, actuation times can increase by 15–25% compared to 20°C baseline</li>
+</ul>
+
+<h3>Electric Gripper Cycle Time Factors</h3>
+<ul>
+  <li>Fieldbus cycle time sets the minimum command latency; EtherCAT at 1 ms cycle is significantly faster than DeviceNet at 5–10 ms</li>
+  <li>Programmable velocity profiles allow trading speed for grip repeatability — slower approach velocity reduces workpiece impact and settle time</li>
+  <li>Built-in position and force feedback eliminates separate sensor confirmation time in most applications</li>
+  <li>Thermal derating: continuous high-cycle-rate operation generates heat in the motor; sustained cycles above rated duty cycle extend actuation time as thermal protection reduces available current</li>
+</ul>
+
+<h3>Vacuum System Cycle Time Factors
