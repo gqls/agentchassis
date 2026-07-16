@@ -470,7 +470,7 @@ func parseClaimNumber(token, after string) (float64, bool) {
 	if err != nil {
 		return 0, false
 	}
-	rest := strings.ToLower(strings.TrimLeft(after, "  "))
+	rest := strings.ToLower(strings.TrimLeft(after, " \t\u00a0"))
 	switch {
 	case strings.HasPrefix(rest, "million"):
 		v *= 1e6

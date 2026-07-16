@@ -153,3 +153,33 @@ the Spanish Grok row).
   discovery async off the hot path.
 - **Next:** watch build → deploy; then P4 `render_rss_feed` + P5 engine legacy
   `/external.php` handler + search-answers. P0 CF real-ip box re-run still operator's.
+
+## 2026-07-16 (b) — news pipeline PROVEN live; build partial; a real repo-routing bug found
+
+- **News pipeline WORKS end to end.** Triggered `content-feed-orchestrator` for the site
+  twice (kcat, adapted from `080_test_content_feed_orchestrator.sh`). Pass 1: 4/5 RSS feeds
+  fetched, **33 items ingested**, rendered 3. Pass 2 (two-pass triage): **15 items scored
+  `relevant`** (relevance 83–85), rendered a full **6-item** `latest-news.json`. Real,
+  current Spanish headlines (Vacheron Overseas Tourbillon, Richard Mille RM 64-01, AP Neo
+  Frame, Patek boutique España, Panerai PAM01756, Grand Seiko 62GS, Zenith DEFY). The 5
+  verified feeds + Grok were the right call.
+- **BUILD partial:** pages `index` (home), `historia`, `contacto` built; `sobre-nosotros`
+  building; `noticias-index` + 4 scaffold pages (`guias-index`, `articulo`,
+  `glosario-index/entrada`) in `needs_human_review` — "no sections ready to build": they
+  have no content behind them yet (news data/components arrive via the feed enrichment; the
+  guide/glossary pages need seed articles/entries; `contacto` wanted business contact info).
+  Site `build_status=pending` — **nothing deployed yet.**
+- **BUG FOUND — feed commits misroute for VM sites.** The feed render committed
+  `/data/latest-news.json` to **`gqls/sites`** (→ B2), NOT `gqls/vm-sites` (→ the box),
+  despite `github_repo='vm-sites'`. Root cause: `resolveGitRepoName` (helpers.go:207) reads
+  `site_record.github_repo` from the workflow's collected_data → the **content-feed-
+  orchestrator never loads the site record**, so it defaults to `"sites"`. So news for any
+  VM-hosted site perpetually lands in the wrong repo. Fix options: (a) load
+  `site_record.github_repo` in the feed orchestrator's workflow so resolveGitRepoName sees
+  it (correct, general); (b) explicit `repo_name` on the commit step (per-site/global, less
+  clean). **VERIFY before trusting P3 deploy:** confirm the main BUILD's deploy step carries
+  `site_record.github_repo` (idea.uk→vm-sites reportedly works, so the build path likely
+  does — but confirm, or pages misroute to `sites` too).
+- **Decisions for operator:** (1) fix the feed repo-routing before/with deploy; (2) scaffold
+  pages — author seed guide/glossary content, or trim those pages from the plan (not core to
+  a news portal); (3) `contacto` details; (4) then P4 `render_rss_feed` + P5 engine handler.

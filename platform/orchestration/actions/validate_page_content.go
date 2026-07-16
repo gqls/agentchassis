@@ -14,6 +14,15 @@
 //      persisted as page content (robot-hands 2026-07-14: a section stored
 //      "The data schema for this section requires product array data…"
 //      as its rendered copy)
+//   8. Claims vs evidence base (opt-in per site) — when the site has a
+//      site_specs 'evidence_base' aspect: banned-claim patterns (the site's
+//      own audited-out fabrications; blocker — these are KNOWN falsehoods)
+//      and unregistered numbers (numbers asserted as facts about the
+//      business that no evidence_base fact supports; error — extraction has
+//      false positives, and error already routes to a human). Sites without
+//      an evidence_base skip both silently. Scans parse assertion TEXT
+//      NODES, never raw HTML (an email/number in a placeholder= attribute or
+//      <code> sample is not an assertion). See SPEC_claims_verification.
 //
 // Returns:
 //   - valid: bool (false if any blockers found)
@@ -182,6 +191,7 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 	// Config toggles (all default to true)
 	checkLinks := configBoolOrDefault(config, "check_internal_links", true)
 	checkEmails := configBoolOrDefault(config, "check_emails", true)
+	checkClaims := configBoolOrDefault(config, "check_claims", true)
 
 	// ── Run all checks ──
 	var issues []ValidationIssue
@@ -216,6 +226,17 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 
 	// 7. LLM meta-commentary persisted as content
 	issues = append(issues, checkMetaCommentary(htmlStr)...)
+
+	// 8. Claims vs evidence base (opt-in: no-op when the site has none)
+	if checkClaims && params.DB != nil && siteIDStr != "" {
+		if siteID, err := uuid.Parse(siteIDStr); err == nil {
+			if eb := loadEvidenceBase(ctx, params.DB, siteID, logger); eb != nil {
+				blocks := datahelpers.ExtractAssertionText(htmlStr)
+				issues = append(issues, checkBannedClaims(blocks, eb)...)
+				issues = append(issues, checkUnregisteredNumbers(blocks, eb)...)
+			}
+		}
+	}
 
 	// ── Categorise results ──
 	blockerCount := 0
@@ -573,17 +594,15 @@ func validateEmails(ctx context.Context, db *sql.DB, html string, siteID uuid.UU
 
 	officialEmail := loadSiteContactEmail(ctx, db, siteID, logger)
 
-	emailRe := regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
-	emails := emailRe.FindAllString(html, -1)
+	// Assertion contexts only: text nodes plus mailto: hrefs. An email that
+	// exists only in a placeholder= attribute, <code> sample, or script body
+	// is an example, not a contact claim — flagging those blocked every build
+	// of every page using the shared contact-block (fixed 2026-07-14; the
+	// checker itself is fixed here). ExtractAssertionEmails returns
+	// lowercased, deduplicated addresses.
+	emails := datahelpers.ExtractAssertionEmails(html)
 
-	seen := make(map[string]bool)
 	for _, email := range emails {
-		email = strings.ToLower(email)
-		if seen[email] {
-			continue
-		}
-		seen[email] = true
-
 		if officialEmail != "" && email == strings.ToLower(officialEmail) {
 			continue
 		}
@@ -613,6 +632,77 @@ func validateEmails(ctx context.Context, db *sql.DB, html string, siteID uuid.UU
 	}
 
 	return issues
+}
+
+// ============================================================================
+// Check 8: Claims vs evidence base (SPEC_claims_verification V1a)
+// ============================================================================
+//
+// Both checks run over assertion text blocks (datahelpers.ExtractAssertionText)
+// — never raw HTML — and share their scan engine with the post-deploy audit
+// (check_unverified_claims), so the gate and the audit agree by one literal
+// implementation on what counts as an asserted claim.
+
+// checkBannedClaims flags the site's own audited-out fabrications. Severity is
+// blocker: every pattern in banned_claims is a KNOWN falsehood for this site,
+// placed there by a human after an audit ruled the claim out.
+func checkBannedClaims(blocks []string, eb *datahelpers.EvidenceBase) []ValidationIssue {
+	var issues []ValidationIssue
+	for _, f := range eb.ScanBannedClaims(blocks) {
+		issues = append(issues, ValidationIssue{
+			Type:        "banned_claim",
+			Category:    "claims",
+			Severity:    "blocker",
+			Location:    f.Snippet,
+			Value:       f.Matched,
+			Description: fmt.Sprintf("Banned claim %q (%s) — %d occurrence(s)", f.Matched, f.Reason, f.Occurrences),
+		})
+	}
+	return issues
+}
+
+// checkUnregisteredNumbers flags numbers asserted as facts about the business
+// that no evidence_base fact supports. Severity is error — never blocker —
+// because number extraction has false positives by design, and error already
+// routes the page to a human (mark_needs_review) rather than deploying it.
+func checkUnregisteredNumbers(blocks []string, eb *datahelpers.EvidenceBase) []ValidationIssue {
+	var issues []ValidationIssue
+	for _, f := range eb.ScanUnregisteredNumbers(blocks) {
+		issues = append(issues, ValidationIssue{
+			Type:        "unregistered_number",
+			Category:    "claims",
+			Severity:    "error",
+			Location:    f.Snippet,
+			Value:       f.Matched,
+			Description: fmt.Sprintf("Unregistered number %q — %s (%d occurrence(s))", f.Matched, f.Reason, f.Occurrences),
+		})
+	}
+	return issues
+}
+
+// loadEvidenceBase reads the site's current evidence_base spec. Returns nil
+// when the site has none (the common case — the claims layer is opt-in per
+// site) or when the row exists but holds nothing scannable.
+func loadEvidenceBase(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) *datahelpers.EvidenceBase {
+	var data []byte
+	err := db.QueryRowContext(ctx, `
+		SELECT data FROM site_specs
+		WHERE site_id = $1 AND aspect = 'evidence_base' AND is_current = true
+	`, siteID).Scan(&data)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		logger.Warn("Failed to load evidence_base spec", zap.Error(err))
+		return nil
+	}
+	eb, err := datahelpers.ParseEvidenceBase(data)
+	if err != nil {
+		logger.Warn("Failed to parse evidence_base spec — claims checks skipped",
+			zap.Error(err))
+		return nil
+	}
+	return eb
 }
 
 // ============================================================================

@@ -177,3 +177,39 @@ imagery phase once that's safe.
 One small thing I did not do, to respect the scope of your request: I didn't force the arrow default live by triggering a discovery pass. It'll roll on its own with the next deploy, and forcing it would
 mean running discovery while the image-landing trap is live in prod — I'd rather confirm all imagery rows are fulfilled first. Say the word if you'd like me to complete that once the format-3 build is
 out.
+
+---
+
+Phase I3 is built end-to-end. Here's the session summary.
+
+What got built (I3: content-linked card imagery / Lane B)
+
+Already live in the DB (no deploy needed):
+- The entity link — assets.entity_type + entity_id columns with lookup + uniqueness indexes (SQL_2026-07-16_assets_entity_link.sql, applied with backup + verify). This is the D2 decision made real — the first
+  working content→asset link in the platform (the recon confirmed the old custom_image_id FK has zero Go callers).
+- asset-deployer content_card mode — chained after sprite_css in the mode switch, snapshot taken.
+- content_image_missing check registered — warn-and-skip until the binary deploys, then self-activates.
+
+Committed Go, riding your next deploy:
+- derive_card_asset — finds the article's plan hero (site brand-hero fallback), downloads the bytes, cover-crops to exactly 800×450 JPG q82, commits card-<page>.jpg to the site repo, and upserts the entity-linked
+  asset row with origin_asset_id recording the derivation lineage. Pure reuse of the I1 favicon/og-card derive pattern.
+- storage.CoverCropResize — new exact-size crop helper, unit-tested including a centre-crop proof. Heroes and cards are both 16:9, so the common path is a pure downscale.
+- The resolver fix, which was the real find of the recon: listing cards were empty because content-listing sources its items from query.blog_posts — a query base that didn't exist in the resolver, and no resolver
+  projected any image field. blog_posts is now implemented, and every page-listing query projects image: entity card first, the page's own hero as fallback.
+- The discovery check — sweeps listed articles lacking a card, with two anti-churn gates (a real query.blog_posts consumer must exist; the page must have a hero to derive from). The entity link itself is the
+  fulfilment stamp, so it goes quiet once cards exist.
+
+Build clean, vet clean (only the known pre-existing note), all four test packages green.
+
+Your decisions logged as D11/D12
+
+D11: JPG now, WebP at I7 (no WebP encoder exists in the repo). D12: card is a derived purpose like og_card, not a plan kind — amends D3's original batch list, and the PLAN records why.
+
+After your next deploy (RUNBOOK B14)
+
+One discovery pass on robot-hands fires both pending self-heals: the B12 arrow-default bullet (sprite format 2→3) and ~9 card derivations. Then a needs_page re-render of learning-center-hub (sections must
+re-resolve — assemble-only won't populate the listing), then your eyeball gate: article cards with per-article hero-family images, click-through matching, each card ≤60KB. The image-landing guard being live and the
+testbed clear makes all of this safe.
+
+All four imagery docs, the 004 handoff correction (its blank-detector under-counts by 15 bytes since I2.5 — 4 pages are still blanked in your separate thread, not 1), and memory are updated. Nothing committed —
+your bulk-commit sweep will pick it all up.
