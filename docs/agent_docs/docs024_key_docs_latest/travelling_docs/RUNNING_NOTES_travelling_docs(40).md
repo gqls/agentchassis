@@ -3098,3 +3098,34 @@ Proof after deploy: 087 at a failing tool → `Evidence: s3://…` in the
 acceptance-fail note, `screenshots` in the item spec.
 
 Categories: (build, design, gotcha)
+
+### 2026-07-16 — P3 proven live on v1.0.1125; the proof caught a dedup bug (157)
+
+Deploy verified against the pods (chassis: symbols + string constants, sha256'd
+copy; adapter: startup log `failure screenshots enabled`, idle ERROR spam gone).
+Proof was a T9-style controlled failure on drop-rate (`p3-proof` check injected,
+in-DB backup first, everything reverted after). Run 1: two full-page screenshots
+stored (desktop 142KB / mobile 443KB), the acceptance-fail note carried the
+`Evidence:` line with both durable URIs — **but no improve_tool item appeared**.
+
+**The screenshots feature paid for itself on its first run**: the missing item
+was a real bug. `idx_swi_dedup` treated `cancelled` as an OPEN status, so T9's
+cancelled 2026-07-12 test ticket still held the `(site_id, item_key)` slot and
+the judge's `ON CONFLICT DO NOTHING` insert vanished silently — the exact
+opposite of the recorded intent (cooldown queries exclude cancelled; T15 parked
+the vonc quiz item as "regenerable", which this index made false). Migration
+**157** rebuilt the index with `cancelled` in the closed set (safe: strict
+subset predicate). Numbering: 152–156 were taken by other workstreams and sit
+PENDING behind the failing gripper-151, so 157 went in OUT OF BAND (`psql -f` +
+manual ledger row) — running `--apply` would have dragged five foreign files
+in. **Next free number: 158.**
+
+Run 2 (post-157): improve_tool item created WITH `spec.screenshots`; curl of
+the presigned view_url → HTTP 200, byte-identical to the adapter log, a real
+1170×5457 PNG of the live tool (note: HEAD gives 403 — the presign signs GET).
+Cleanup zero-orphans: PLAN restored byte-exact (md5 match), both manufactured
+fail notes deleted, ticket cancelled with `result.resolution` (the actual
+convention — site_work_items has NO notes/resolution column), tmp table dropped.
+Left deliberately: 157 + its pipeline note + ledger row; 4 inert PNGs in B2.
+
+Categories: (proof, bug, fix, gotcha)

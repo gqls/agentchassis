@@ -1390,6 +1390,7 @@ an ID prefix, or a status word.
 | ADM-005 | Admin work-item reassign + force-complete override endpoints | superseded | Two narrow overrides replaced by generic PATCH + shared retry/resolve pair | admin-dashboard-and-api.md |
 | BLD-014 | Selective rebuild via build_status | deployed | Two orthogonal page-state columns let rebuilds target only marked pages | build-pipeline.md |
 | STY-048 | page-rerender mode contract and site-uniformity reconcile pattern | deployed | Two page-rerender modes with different skip semantics; idempotent reconcile scripts | styling-render-pipeline.md |
+| STY-049 | missingkey=zero silent-empty-render root pattern + escalate-not-blank guard | partial | Root cause of the image-landing blanking trap; live guard escalates to writer, broader fail-loud fix undeployed | styling-render-pipeline.md |
 | RES-006 | Capability watchlist + real-world event watchlist (dual standing research workflows) | aspirational | Two proposed recurring workflows tracking AI capabilities and scheme/event windows | research-agents.md |
 | TL-016 | Composer selector invention & the delivered-reality principle (Option B) | deployed | Two recurring failure classes in machine-written acceptance criteria, and their durable remedies. (1) The... | tool-lifecycle.md |
 | DIAG-026 | Diagnose loop-back plumbing fault class (state threading + scope encoding) | deployed | Two silent producer/consumer field mismatches left guards and re-scope inert while the loop "worked" | diagnosis-loop.md |

@@ -82,10 +82,57 @@ build-backend: build-auth-service build-core-manager build-agents build-adapters
 .PHONY: build-frontends
 build-frontends: build-admin-dashboard build-user-portal build-agent-playground ## Build all frontend applications
 
+#################################
+# Deploy blast radius (multi_session_coordination HANDOFF 2026-07-16 §3/§7.3)
+#
+# Many sessions share this one working tree. `docker build ... .` sends the
+# TREE as its context, so a working-tree image bundles every session's
+# uncommitted, untested, mid-edit code — not just yours. Two mitigations:
+#
+#   $(call wip_report,<service>)  makes that blast radius VISIBLE before the
+#                                 build, naming what would be swept in.
+#   make build-<service>-ref      makes it IMPOSSIBLE: git archive of a
+#                                 committed ref into a clean context.
+#
+# Prefer the -ref build. Commit your task first (explicit pathspec — see
+# CLAUDE.md), then ship exactly that commit.
+#################################
+
+define wip_report
+@DIRTY=$$(git status --porcelain 2>/dev/null | wc -l); \
+if [ "$$DIRTY" -gt 0 ]; then \
+	echo "$(RED)NOTE: building from the WORKING TREE — this image bundles all $$DIRTY uncommitted change(s) below,$(NC)"; \
+	echo "$(RED)including OTHER SESSIONS' work in progress. For a committed-state image:$(NC)"; \
+	echo "$(RED)  make build-$(1)-ref [REF=<committed ref>]$(NC)"; \
+	git status --porcelain | head -25; \
+	if [ "$$DIRTY" -gt 25 ]; then echo "  ... ($$DIRTY total)"; fi; \
+fi
+endef
+
+# Pattern rule — gives EVERY backend service a committed-state build for free.
+# Requires the build/docker/backend/<service>.dockerfile convention with the
+# repo root as context (true for all backend services). Frontends are excluded
+# deliberately: they build from frontends/<app> with their own Dockerfile.
+# REF defaults to HEAD; the resolved sha is printed so the image is
+# attributable to a commit.
+REF ?= HEAD
+build-%-ref: ## Build <service> from a committed git ref, no WIP bundled: make build-agent-chassis-ref [REF=<ref>]
+	@test -f build/docker/backend/$*.dockerfile || \
+		{ echo "$(RED)No build/docker/backend/$*.dockerfile — ref builds cover backend services only.$(NC)"; exit 1; }
+	@git rev-parse --verify --quiet '$(REF)^{commit}' >/dev/null || \
+		{ echo "$(RED)REF='$(REF)' is not a commit — ref builds must name committed state.$(NC)"; exit 1; }
+	@echo "$(YELLOW)Building $* from committed ref $(REF) = $$(git rev-parse --short $(REF)) — the working tree is NOT included...$(NC)"
+	@CTX=$$(mktemp -d /tmp/ref-ctx-$*.XXXXXX) && \
+	trap 'rm -rf "$$CTX"' EXIT && \
+	git archive $(REF) | tar -x -C "$$CTX" && \
+	docker build -t $(REGISTRY)/$*:$(IMAGE_TAG) \
+		-f "$$CTX/build/docker/backend/$*.dockerfile" "$$CTX"
+
 # Backend services
 .PHONY: build-auth-service
 build-auth-service: ## Build auth-service image
 	@echo "$(YELLOW)Building auth-service...$(NC)"
+	$(call wip_report,auth-service)
 	docker build -t $(REGISTRY)/auth-service:$(IMAGE_TAG) \
 		-f build/docker/backend/auth-service.dockerfile .
 
@@ -98,30 +145,9 @@ build-core-manager: ## Build core-manager image
 .PHONY: build-agent-chassis
 build-agent-chassis: ## Build agent-chassis image from the WORKING TREE (bundles uncommitted WIP; see build-agent-chassis-ref)
 	@echo "$(YELLOW)Building agent-chassis...$(NC)"
-	@DIRTY=$$(git status --porcelain 2>/dev/null | wc -l); \
-	if [ "$$DIRTY" -gt 0 ]; then \
-		echo "$(RED)NOTE: building from the WORKING TREE — this image bundles all $$DIRTY uncommitted change(s) below,$(NC)"; \
-		echo "$(RED)including OTHER SESSIONS' work in progress. For a committed-state image:$(NC)"; \
-		echo "$(RED)  make build-agent-chassis-ref [REF=<committed ref>]$(NC)"; \
-		git status --porcelain | head -25; \
-		[ "$$DIRTY" -gt 25 ] && echo "  ... ($$DIRTY total)" || true; \
-	fi
+	$(call wip_report,agent-chassis)
 	docker build -t $(REGISTRY)/agent-chassis:$(IMAGE_TAG) \
 		-f build/docker/backend/agent-chassis.dockerfile .
-
-# Structural fix for deploy blast radius (multi_session_coordination HANDOFF
-# 2026-07-16 §3/§7.3): an image built from a committed ref via git archive
-# CANNOT bundle any session's uncommitted work. REF defaults to HEAD; the
-# resolved sha is printed so the image is attributable to a commit.
-REF ?= HEAD
-.PHONY: build-agent-chassis-ref
-build-agent-chassis-ref: ## Build agent-chassis from a committed git ref (no WIP bundled): make build-agent-chassis-ref REF=<ref>
-	@echo "$(YELLOW)Building agent-chassis from committed ref $(REF) = $$(git rev-parse --short $(REF)) — the working tree is NOT included...$(NC)"
-	@CTX=$$(mktemp -d /tmp/chassis-ref-ctx.XXXXXX) && \
-	trap 'rm -rf "$$CTX"' EXIT && \
-	git archive $(REF) | tar -x -C "$$CTX" && \
-	docker build -t $(REGISTRY)/agent-chassis:$(IMAGE_TAG) \
-		-f "$$CTX/build/docker/backend/agent-chassis.dockerfile" "$$CTX"
 
 .PHONY: build-reasoning-agent
 build-reasoning-agent: ## Build reasoning-agent image

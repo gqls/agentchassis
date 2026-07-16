@@ -25,7 +25,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -578,70 +577,12 @@ func buildMedExportMetadata(prices []medPriceExportRow, products []medExportProd
 // ============================================================================
 
 func sendMedExportToGit(ctx context.Context, params ActionParams, ec medExportConfig, files map[string]interface{}) (map[string]interface{}, error) {
-	correlationID := params.ExecutionContext.CorrelationID
-	orchestrationID := params.ExecutionContext.OrchestrationID
-	clientID := params.ExecutionContext.ClientID
-
-	responsesTopic := params.ExecutionContext.ResponsesTopic
-	if responsesTopic == "" {
-		if alt, ok := params.CollectedData["__my_responses_topic__"].(string); ok && alt != "" {
-			responsesTopic = alt
-		}
-	}
-	if responsesTopic == "" {
-		if parent, ok := params.CollectedData["__parent_responses_topic__"].(string); ok && parent != "" {
-			responsesTopic = parent
-		}
-	}
-
-	newRequestID := uuid.New().String()
-
 	variantCount := 0
 	if full, ok := files[strings.TrimRight(ec.DataPath, "/")+"/medicine-prices.json"].(string); ok {
 		variantCount = strings.Count(full, `"price"`)
 	}
 	commitMsg := fmt.Sprintf("%s — %d files, %d variants", ec.CommitMessagePrefix, len(files), variantCount)
-
-	adapterRequest := map[string]interface{}{
-		"headers": map[string]interface{}{
-			"correlation_id": correlationID, "orchestration_id": orchestrationID,
-			"client_id": clientID, "step_name": params.ExecutionContext.StepName,
-			"step_id": params.ExecutionContext.StepID, "request_id": newRequestID,
-			"message_type": "request", "sender_agent_type": params.ExecutionContext.Sender.AgentType,
-			"sender_agent_id": orchestrationID, "sender_pod_name": params.ExecutionContext.Sender.PodName,
-			"responses_topic": responsesTopic,
-		},
-		"body": map[string]interface{}{
-			"action": "commit",
-			"data": map[string]interface{}{
-				"repo_name": ec.RepoName, "domain": ec.Domain,
-				"files": files, "commit_message": commitMsg,
-			},
-		},
-	}
-
-	requestBytes, err := json.Marshal(adapterRequest)
-	if err != nil {
-		return nil, fmt.Errorf("marshal git request: %w", err)
-	}
-
-	headers := map[string]string{
-		"correlation_id": correlationID, "orchestration_id": orchestrationID,
-		"request_id": newRequestID, "message_type": "request", "client_id": clientID,
-	}
-
-	if err := params.Producer.Produce(ctx, "system.adapter.git.requests", headers, []byte(correlationID), requestBytes); err != nil {
-		return nil, fmt.Errorf("send to git adapter: %w", err)
-	}
-
-	params.Logger.Info("MedExportJSON: sent to git-adapter",
-		zap.String("request_id", newRequestID), zap.String("domain", ec.Domain),
-		zap.String("repo", ec.RepoName), zap.Int("files", len(files)))
-
-	return map[string]interface{}{
-		"request_id": newRequestID, "topic": "system.adapter.git.requests",
-		"domain": ec.Domain, "file_count": len(files), "await_response": true,
-	}, nil
+	return sendExportFilesToGit(ctx, params, ec.RepoName, ec.Domain, commitMsg, files)
 }
 
 func countVariants(files map[string]interface{}) int {

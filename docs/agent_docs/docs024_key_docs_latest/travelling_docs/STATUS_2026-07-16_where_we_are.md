@@ -105,7 +105,7 @@ pipeline processes; and the fix is re-verified in the same browser tier.
 | **Migration number collisions** | Other workstreams landed duplicate 149/150/151; `151_gripper_spec_sheet_component` fails on a dup and blocks the runner | **being fixed in a SEPARATE chat**; next free number is **152** |
 | **The other 7 footer-4-column sites** | They share the fixed template but still have stale rendered_html | self-heal on their next refresh; not force-rerendered (7 live sites) |
 | **Per-site override for shared-template fixes** | An autonomous per-site failure editing a template shared by N sites is broad blast radius; may want per-site isolation | optional design choice, deferred |
-| **Screenshots on failure (P3)** | Visual evidence attached to a failing verdict | **BUILT 2026-07-16** — full-page PNG per failing (url, profile) → B2; durable `s3://` URI in the note's `Evidence:` line, presigned link in the item spec. Gated on the next chassis + adapter images + adapter storage env |
+| **Screenshots on failure (P3)** | Visual evidence attached to a failing verdict | **LIVE + PROVEN 2026-07-16 (v1.0.1125)** — full-page PNG per failing (url, profile) → B2; durable `s3://` URI in the note's `Evidence:` line, presigned link in the item spec; proof run verified end-to-end incl. downloading the image. Bonus: the proof's first run exposed the cancelled-items dedup bug (fixed, migration 157) |
 | **The 54 legacy `responsive_fix` items** | All lack `slot_name` → they defaulted to the header and were never really fixed | flagged to their owning workstream |
 
 ---

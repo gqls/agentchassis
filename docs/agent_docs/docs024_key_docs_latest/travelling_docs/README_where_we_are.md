@@ -190,3 +190,24 @@ Both halves of what you approved are done, and the loop is closed green on a rea
 
 ---
 
+P3 is live and proven end-to-end on v1.0.1125 — and the proof's first run caught and fixed a real bug.
+
+  Deploy verification (against the pods, per the banked rule):
+  - Chassis binary (copied out, sha256 match): evidenceLine in the symbol table plus the screenshot-extraction and Evidence-line string constants, and the consumer's new empty-poll debug string.
+  - Adapter: startup log reads failure screenshots enabled, bucket personae-prod-uk001-images — the overlay re-apply landed (B2 secret env present) — and the idle ERROR spam is gone.
+
+  The proof (T9-style controlled failure on drop-rate, fully reverted): I injected one deliberately-failing check into its PLAN and drove tool-acceptance twice. The adapter captured full-page PNGs for both profiles
+  at the moment of failure, the acceptance-fail note carried the Evidence: line with both durable s3:// URIs, the improve_tool item spec carried {uri, view_url} per profile, and curling the presigned URL returned the
+  image byte-for-byte — a real 1170×5457 capture of the live Drop Rate Tuner (I've verified it visually). One quirk for the record: HEAD on a presigned URL gives 403 because the signature covers GET.
+
+  The bug the proof caught: run 1 produced no improve_tool item at all. The dedup index idx_swi_dedup treated cancelled as an open status, so T9's cancelled test ticket from 07-12 permanently held the slot and the
+  judge's insert was silently swallowed — meaning every "parked, regenerable" cancelled item (including the vonc quiz one) was actually blocking re-raising forever. Fixed by migration 157 (cancelled moved to the
+  closed set; provably safe — the new predicate is a strict subset). One heads-up: other workstreams took numbers 152–156, all still pending behind the broken gripper-151, so I applied 157 out of band (psql -f +
+  manual ledger row) rather than run --apply and drag five foreign files in. The next free migration number is 158.
+
+  Cleanup was zero-orphan: PLAN restored byte-exact (md5 identical), both manufactured fail notes deleted, the test ticket cancelled with a result.resolution record, backup table dropped. What remains deliberately:
+  migration 157 + its pipeline note, and four inert evidence PNGs in B2. Docs are rolled (HANDOFF T20, RUNBOOK rev 47, RUNNING_NOTES, STATUS) — and note 157_swi_dedup_excludes_cancelled.sql is a new untracked file to
+  git add before your next release commit.
+
+  Nothing is gated anymore. The remaining polish is unchanged: the 7 footer-4-column sites self-heal on their refresh cadence, the optional per-site override for shared-template fixes, and the someday DEBUGaa log
+  sweep.

@@ -132,11 +132,13 @@ quote followed by real JSON structure, so it stays unterminated and
 
 Verified against all 14 live fixtures: exactly 2 are genuinely JSON-complete
 (raw bytes end `"}`) — the newline-only one (repaired since 2026-07-15) and
-`850e356d` (this contact-link page) — both now repair correctly; the other 12
-are genuinely truncated (confirmed by inspecting raw byte tails, independent of
-which parse error encoding/json happened to report) and correctly remain
-unparseable. See `TestParseLLMJSON_LiveEnvelopeDistribution` (repaired=2,
-unparseable=12) and `TestParseLLMJSON_RepairsEmbeddedQuotes`.
+`850e356d` (finetuning.uk llm-cost-calculator-guide's original envelope — a
+DIFFERENT page than the one fixed manually, but the same defect class: it also
+signs off with the same finetuning.uk contact link) — both now repair correctly;
+the other 12 are genuinely truncated (confirmed by inspecting raw byte tails,
+independent of which parse error encoding/json happened to report) and
+correctly remain unparseable. See `TestParseLLMJSON_LiveEnvelopeDistribution`
+(repaired=2, unparseable=12) and `TestParseLLMJSON_RepairsEmbeddedQuotes`.
 
 No further action needed — this closes the follow-up. Ships on the next chassis
 build containing this branch.

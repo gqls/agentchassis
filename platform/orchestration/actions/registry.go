@@ -1547,6 +1547,22 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Discover product URLs via Firecrawl /map endpoint (site-wide)",
 		IsLocal:     true,
 	},
+	"med_export_json": {
+		Handler:     MedExportJSONAction,
+		Category:    "med_pricing",
+		Description: "Export current medicine prices as JSON files and commit to the configured site repo (explicit domain required)",
+		IsLocal:     true,
+	},
+
+	// =========================================================================
+	// DIRECTORY EXPORT — generic business directory + price publication
+	// =========================================================================
+	"directory_export_json": {
+		Handler:     DirectoryExportJSONAction,
+		Category:    "business_intel",
+		Description: "Export a vertical's verified business directory, k-anonymous price aggregates, and consented/attributed price lists as JSON to a site repo",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// HITL — human-in-the-loop approval and input
