@@ -71,3 +71,36 @@ built generic on the chassis (config-driven exporter per vertical and domain). W
 properly. 
 
 ---
+All four decisions are now baked into the plan, and the consultation briefing is written. Here's what changed where.
+
+The plan (PLAN_2026-07-15_rebuild.md) — the old "Standing decision points" section is now "Decisions (owner, 2026-07-16)" with all four resolved, and the details are pushed into the phases where an
+implementer will actually meet them:
+
+1. Attributed prices ON — the Phase 2 exporter config now has attributed_prices: true with five enforced rules: prices only from the practice's own domain (checked against their recorded website, never a
+   third-party compilation), always with source URL and capture date, opted-out practices excluded, quarantined fabrication excluded unconditionally, and claimed figures always superseding scraped ones. The
+   disclaimer text is written verbatim in the plan so the implementer uses it as-is — it cites the CMA's recognition of comparison services and offers the email opt-out, with a compact per-price label ("From
+   the practice's price list, {date} · source ↗ · correct/remove").
+2. No RCVS badge — Phase 5 now states the independent-operator decision, with the two consequences an implementer must respect: any future paid placement must be clearly labelled (the CMA's not-misleading
+   standard still applies to everyone), and we monitor the approval criteria anyway for competitive intelligence about what badge-holding rivals may do.
+3. min_n = 3 — set in the exporter config, with the n always published beside each statistic so a reader can judge the sample, and a note to revisit if small-area reverse-inference ever becomes plausible.
+4. Consultations: responding — recorded with your stance, pointing at the new briefing.
+
+Phase 3 also gained the opt-out mechanism your decision 1 requires: an publication_optout flag on the businesses table, operator verification of the requester, prompt re-export on opt-out, and the rule
+that opting out removes price display only — the practice stays in the directory and in unnamed aggregates, and a later claim reverses it.
+
+The briefing (CONSULTATION_2026-07-16_briefing.md) is written to be read straight through: how the CMA turns its final report into binding Orders, the two consultations (funding — open now, closes 30
+July, via the CMA portal; substantive — still not published as of today, expected imminently), how responding works (who can, the portal, what gets published, what a response can realistically achieve),
+and then our positions under two declared hats. Four arguments for the independents — a size-scaled levy instead of the flat ~£500/yr that hits a single-site practice hardest, closing the three-month
+"corporates look transparent first" window with free templates, hard enforcement of ownership disclosure, and keeping the no-free-text rule absolute. Four for us — proportionate third-party approval
+criteria, an express right to reuse the mandated price lists (the one sentence that would close our database-right ambiguity), machine-readable structure, and treating scrape-blocking of mandated lists as
+non-compliance. One flag inside it: the levy figures (~£150–250 setup, ~£450–550/yr) come from our earlier document review and must be re-verified against the draft Order PDF before they go in any
+submission.
+
+The legal record now carries your decision contemporaneously: attributed publication proceeds ahead of solicitor review, on the narrowing conditions above, with the review kept as an open advisory item.
+That's the honest version of events if anyone ever asks.
+
+Two timing notes. The funding consultation is the only clock running — if you want the levy-scaling point made, it's a one-page portal submission before 30 July, and I can draft it whenever you say. The
+substantive draft Order should appear within days for the CMA to hit its September deadline; when it does, I'll turn the briefing's positions into a clause-referenced draft response for your sign-off —
+nothing gets submitted without it.
+
+--

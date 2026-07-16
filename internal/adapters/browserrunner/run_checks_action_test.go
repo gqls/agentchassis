@@ -328,3 +328,123 @@ func TestResolveProfiles(t *testing.T) {
 		t.Errorf("mobile-only should run mobile, got %v", got)
 	}
 }
+
+// ── P3: screenshots on failure ──────────────────────────────────────────────
+
+func TestP3ScreenshotCapturedOnFailure(t *testing.T) {
+	// mobile overflows → mobile-fit fails → one screenshot for that page.
+	mobile := &fakePage{status: 200, counts: map[string]int{".tool-container": 1, "#tableWrap tr": 1, "#result": 1}, overflow: true, texts: map[string]string{"#result": "1"}}
+	a := actionWith(map[string]*fakePage{"mobile": mobile})
+	st := &fakeStore{}
+	a.store = st
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "run-1", URLs: []string{"u"}, Profiles: []string{"mobile"},
+		CriteriaJSON: criteriaDesktopMobile, Function: "tool-xp-curve-designer", SiteID: "e33263f4",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !mobile.shotTaken {
+		t.Fatal("a failing run must capture a screenshot when a store is configured")
+	}
+	if len(out.Screenshots) != 1 {
+		t.Fatalf("expected 1 screenshot ref, got %+v", out.Screenshots)
+	}
+	ref := out.Screenshots[0]
+	if ref.Profile != "mobile" || ref.URI == "" || ref.ViewURL == "" {
+		t.Errorf("ref must carry profile + durable uri + view url: %+v", ref)
+	}
+	if !strings.HasPrefix(ref.URI, "s3://test-bucket/acceptance-evidence/e33263f4/tool-xp-curve-designer/run-1_mobile") {
+		t.Errorf("unexpected evidence key: %s", ref.URI)
+	}
+	found := false
+	for _, f := range ref.FailingChecks {
+		if f == "mobile-fit@mobile" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("ref must name the failing instances, got %v", ref.FailingChecks)
+	}
+}
+
+func TestP3NoScreenshotWhenAllPass(t *testing.T) {
+	ok := &fakePage{status: 200, counts: map[string]int{".tool-container": 1, "#tableWrap tr": 5, "#result": 1}, texts: map[string]string{"#result": "9"}}
+	a := actionWith(map[string]*fakePage{"desktop": ok})
+	st := &fakeStore{}
+	a.store = st
+	out, err := a.Execute(context.Background(), RunChecksRequest{RunID: "p", URLs: []string{"u"}, Profiles: []string{"desktop"}, CriteriaJSON: criteriaDesktopMobile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok.shotTaken || len(out.Screenshots) != 0 || len(st.keys) != 0 {
+		t.Errorf("a clean pass must not photograph anything: taken=%v refs=%d saves=%d", ok.shotTaken, len(out.Screenshots), len(st.keys))
+	}
+}
+
+func TestP3NoStoreMeansNoScreenshot(t *testing.T) {
+	// store nil (P0 deploys, or storage misconfigured) → failing run unchanged.
+	failing := &fakePage{status: 500, counts: map[string]int{}}
+	a := actionWith(map[string]*fakePage{"desktop": failing})
+	out, err := a.Execute(context.Background(), RunChecksRequest{RunID: "n", URLs: []string{"u"}, Profiles: []string{"desktop"}, CriteriaJSON: criteriaDesktopMobile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if failing.shotTaken {
+		t.Error("no store configured — Screenshot must not even be attempted")
+	}
+	if len(out.Screenshots) != 0 {
+		t.Errorf("no store → no refs, got %+v", out.Screenshots)
+	}
+	if out.Summary.Failed == 0 {
+		t.Error("sanity: this run should have failures")
+	}
+}
+
+func TestP3EvidenceErrorsNeverFailTheRun(t *testing.T) {
+	// Capture error and upload error each degrade to nothing — verdict intact.
+	captureFails := &fakePage{status: 500, counts: map[string]int{}, shotErr: context.DeadlineExceeded}
+	a := actionWith(map[string]*fakePage{"desktop": captureFails})
+	a.store = &fakeStore{}
+	out, err := a.Execute(context.Background(), RunChecksRequest{RunID: "e1", URLs: []string{"u"}, Profiles: []string{"desktop"}, CriteriaJSON: criteriaDesktopMobile})
+	if err != nil || len(out.Screenshots) != 0 {
+		t.Fatalf("capture error must not fail the run or emit refs: err=%v refs=%+v", err, out.Screenshots)
+	}
+
+	uploadFails := &fakePage{status: 500, counts: map[string]int{}}
+	a2 := actionWith(map[string]*fakePage{"desktop": uploadFails})
+	a2.store = &fakeStore{err: context.DeadlineExceeded}
+	out2, err := a2.Execute(context.Background(), RunChecksRequest{RunID: "e2", URLs: []string{"u"}, Profiles: []string{"desktop"}, CriteriaJSON: criteriaDesktopMobile})
+	if err != nil || len(out2.Screenshots) != 0 {
+		t.Fatalf("upload error must not fail the run or emit refs: err=%v refs=%+v", err, out2.Screenshots)
+	}
+	if out2.Summary.Failed == 0 {
+		t.Error("sanity: the run itself should still report its failures")
+	}
+}
+
+func TestP3NoScreenshotOnNavigationFailure(t *testing.T) {
+	p := &fakePage{navErr: "net::ERR_NAME_NOT_RESOLVED"}
+	a := actionWith(map[string]*fakePage{"desktop": p})
+	a.store = &fakeStore{}
+	out, err := a.Execute(context.Background(), RunChecksRequest{RunID: "nav", URLs: []string{"u"}, Profiles: []string{"desktop"}, CriteriaJSON: criteriaDesktopMobile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.shotTaken || len(out.Screenshots) != 0 {
+		t.Error("nothing loaded — there is no page state worth photographing")
+	}
+}
+
+func TestScreenshotKeySanitizes(t *testing.T) {
+	key := screenshotKey("site/../id", "tool fn", "", "mobile", 1)
+	if strings.Contains(key, "..") || strings.Contains(key, " ") {
+		t.Errorf("unsafe characters must not reach the object key: %s", key)
+	}
+	if !strings.Contains(key, "unknown-run") {
+		t.Errorf("empty run id must fall back, got %s", key)
+	}
+	if !strings.HasSuffix(key, "_1.png") {
+		t.Errorf("urlIdx>0 must disambiguate, got %s", key)
+	}
+}

@@ -522,6 +522,31 @@ credits.
 
 ---
 
+Re-verified against the live pod — the premise shifted again
+
+Following the parting note's warning, I checked the DB and pod directly rather than trusting the filed docs. Pod is v1.0.1123 (unchanged). Here's the actual state of the 13 pages from case 004, right now:
+
+9 genuinely recovered — regenerated cleanly via the json-leak-fix batch, content_data now has a proper content key, serving healthy HTML.
+
+1 correctly caught — finetuning.uk/guides/llm-cost-calculator-guide.html → needs_human_review (content validation blocked it, 1 blocker). Working as designed.
+
+3 pages — a new failure mode, worse than the filed one:
+- finetuning.uk/blog/why-most-ai-projects-fail-in-the-first-three-months.html
+- finetuning.uk/guides/tool-ai-data-risk-checker-guide.html
+- gamesdesign.co.uk/guides/tool-xp-curve-designer-guide.html
+
+Their work items report status: complete, success: true, sections_saved: 3/3. But all three are still rendering the blank shell on the live site right now. I pulled the raw content_data: the writer
+generated a full, complete article for each (not truncated — I checked the tail, it closes cleanly) — but it got saved again in the exact same broken envelope shape ({"type":"text","result":"{
+\"content\": ...}"}) instead of being unwrapped. So the pipeline thinks it succeeded while the page stays broken — a false-positive "complete", silently, on live client pages, today.
+
+I traced a plausible cause: aggregate_webpage.go:extractResponseContent returns the raw LLM result string verbatim with no parse/unwrap step at all — a separate, older code path from the
+ai_actions.go/json_envelope.go repair logic that 005 says fixed this. Two competing save paths could explain why 9/13 regenerated clean and 3/13 didn't. I haven't confirmed which path each item actually
+took — that's a diagnosis, not something I should conclude from a grep.
+
+This is a tighter, more current candidate than the abstract "missingkey=zero, call_agent.go:1152" framing in 004 §4.4/SUMMARY: it's a live code bug reproducing the exact defect the fix was supposed to
+close, on 3 concrete pages, with fresh evidence today.
+
+---
 
 
 

@@ -70,6 +70,16 @@ type verticalNewsConfig struct {
 // SeparatePage: true for verticals where news is a primary audience draw
 // (energy, sports, finance, technology). False for verticals where news
 // is supplementary (mortgage, insurance, legal).
+// Shared config for the watch/horology vertical (referenced under several
+// aliases below, incl. the Spanish-domain substrings relojistas/relojes).
+var watchHorologyNews = verticalNewsConfig{
+	Recommended:      true,
+	Reason:           "Watch/horology is news-driven: brand launches, trade fairs (Watches and Wonders), and auction results",
+	VerticalKeywords: []string{"watch news", "new watch releases", "luxury watches", "watch auctions", "Watches and Wonders", "watch repair"},
+	SourceTypes:      []string{"rss", "news_search", "api_news"},
+	SeparatePage:     true,
+}
+
 var verticalNewsMap = map[string]verticalNewsConfig{
 	// Energy — news is primary draw (daily price movements)
 	"energy": {
@@ -159,6 +169,15 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 		SourceTypes:      []string{"rss", "news_search", "api_news"},
 		SeparatePage:     true,
 	},
+
+	// Watches / horology — news is primary draw (launches, fairs, auctions).
+	// Aliased across EN + Spanish-domain substrings so relojistas.com etc. match.
+	"watch":      watchHorologyNews,
+	"watches":    watchHorologyNews,
+	"horology":   watchHorologyNews,
+	"watchmaking": watchHorologyNews,
+	"reloj":      watchHorologyNews, // Spanish domains: relojistas, relojes, relojería
+	"relojes":    watchHorologyNews,
 
 	// Healthcare — not recommended
 	"veterinary": {

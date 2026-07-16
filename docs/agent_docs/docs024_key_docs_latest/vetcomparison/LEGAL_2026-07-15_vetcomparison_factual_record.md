@@ -148,7 +148,13 @@ Verified directly against the CMA case page and CMA guidance on 15 July 2026:
   capture flaw, to be cleaned in the rebuild; they carry no fabricated prices.
 - Obtain a solicitor's review of (a) this record, (b) the database-right position on
   republishing practice price lists at scale (not addressed by the CMA report; genuinely
-  untested), before per-practice price publication resumes at scale.
+  untested). **Owner decision, 16 July 2026:** per-practice price publication will proceed
+  ahead of that review, on defined conditions that narrow the exposure — prices are taken only
+  from the practice's own published price list (never third-party compilations), always shown
+  with source link and capture date, accompanied by a disclaimer citing the CMA final report's
+  recognition of comparison services (Part B ¶3.320–3.321), and subject to a practice opt-out
+  honoured promptly on request. Solicitor review remains an open advisory item; this record of
+  the decision and its conditions is kept contemporaneously.
 - Unresolved detail for schema work: Part B ¶3.88 describes six pet categories while the CMA
   guidance table merges "cat, small dog: <10kg" into one band — resolve against the final
   Order before freezing the comparison schema.

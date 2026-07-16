@@ -37,7 +37,7 @@ func TestIntegrationRealBrowser(t *testing.T) {
 	  ]}`
 
 	logger, _ := zap.NewDevelopment()
-	a := NewRunChecksAction(logger)
+	a := NewRunChecksAction(logger, nil) // no store — the IT exercises the browser, not S3
 	out, err := a.Execute(context.Background(), RunChecksRequest{
 		RunID: "it-1", URLs: []string{url},
 		Profiles: []string{"desktop"}, CriteriaJSON: criteria,
