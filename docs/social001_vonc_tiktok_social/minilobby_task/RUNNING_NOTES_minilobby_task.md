@@ -522,3 +522,64 @@ Everything below verified BY ARTIFACT (DB row / curl), never by work-item status
   (hero/call-to-action). That gap is the top follow-up: broaden applyCTARecompute's function set.
 - Verify tool-generator output by artifact: it ignores the plan slug (TL-003) and doesn't enqueue
   deploy (TP-002).
+
+---
+
+## 2026-07-16 (afternoon) — recompute scope BROADENED: detection and repair now match (the top follow-up, executed)
+
+**The gap named in the close-the-loop state above is closed.** `misdirected_cta` detects on every
+component; `applyCTARecompute` now repairs every button-bearing component we know about.
+
+**Go (in v1.0.1125, verified in-pod by binary string table, not git):**
+- `ctaFieldNames` (the ONE shared set used by build-time `resolve_internal_links` AND repair-time
+  `applyCTARecompute`) extended: `archetype-grid` {cta_url}, `archetype-combinations`
+  {cta_primary_url, cta_secondary_url}, `gauntlet-cta` {cta_primary_url, cta_secondary_url},
+  `content-block-about` {cta_url}. A `""` secondary entry = single-URL component; both writers
+  guard it (`setCTAField` would otherwise emit a bogus unresolved-"" HITL item;
+  `applyCTARecompute` would write under key "").
+- `check_misdirected_cta.go` header + spec `fix` text updated (no longer claims hero/CTA-only).
+- Tests: `TestCTAFieldNamesContract` pins the map to the LIVE schema field names (the 095
+  field-name lesson, now mechanised); empty-field guards covered in `TestApplyCTARecompute` /
+  `TestSetCTAFieldEmptyField`. All green. (Code swept into commit `e10c656f3` by the concurrent
+  session's checkpoint; contents verified identical to what was built and tested here.)
+
+**Schema (migration 098, applied + verify-block passed):** the five `site_specs.*`-sourced url
+fields on archetype-grid/archetype-combinations/gauntlet-cta flipped → `renderer` (091 pattern,
+backup `_fleet_098_backup_20260716_cta_components`). NOT touched: `content-block-about.cta_url`
+(already `llm` — edits win); `provocations-archive-list.cta_url` (097b's static-Arena pin is
+deliberate — adding it to the map would let build-time resolve_internal_links misdirect its Arena
+copy on a rebuild); `required` flags (a renderer/static source short-circuits `planSection`
+BEFORE required-field handling — plan_sections_action.go ~1187, checked 2026-07-16); the still-
+static `*_label` fields (copy authoring = step-3 content pass, 096-style unlock needed first,
+anti-fabrication).
+
+**Order-of-operations note that mattered:** vonc's archetype-grid row had EMPTY
+content_data.cta_url — its rendered `/contact.html` came entirely from plan-time site_specs
+resolution. So: image live first (v1.0.1125 deployed by the parallel session, in-pod verified),
+THEN 098, THEN immediately dispatch the rerenders (the recompute persists real urls into
+content_data, closing the empty-field window).
+
+**Execution:** the 3 open `misdirected_cta` page_rerender items (about/archetypes/index) set
+detected→triaged, one `087` dispatch pass, all three `complete` first attempt (no zombie claims
+this time).
+
+**Verified by artifact:**
+- DB: archetypes/archetype-grid `content_data.cta_url` NULL → `/tools/gauntlet/index.html`;
+  about/content-block-about kept `/archetypes.html`; gauntlet-cta & archetype-combinations rows
+  kept their authored real-page urls (correct KEEPs).
+- Live curl: archetypes `ag-cta-primary` `/contact.html` → `/tools/gauntlet/index.html` (the
+  last of the original 143-button class repaired by the loop, not by hand). All KEEP anchors
+  byte-identical. gauntlet-cta primaries now render stored `/provocations/index.html` (plan-time
+  site_specs value no longer re-applied).
+- Deployed binary: `grep -a` for the new literals in `/app/agent-chassis` — present; the
+  phantom-link `data-runtime-fill` guard (9752bc68d) also confirmed in-pod (handoff caveat
+  cleared).
+
+**Convergence semantics for the KEEPs (read before expecting "zero findings"):** the remaining
+copy/destination disagreements ("See How It Works"→quiz, "Learn More About Us"→archetypes,
+"Explore Your Archetypes"→provocations, and now "Explore All Archetypes"→gauntlet on the
+archetypes page itself — generic repair can never satisfy copy that names the page it sits on)
+are authored links to real pages: the recompute correctly refuses to churn them. They converge
+via `insertWorkItem`'s two-strike rule: re-detection <3h after a terminal item is SUPPRESSED;
+after 2 terminal attempts the item lands `unresolved` for human review. These are content
+decisions and feed the step-3 content pass.

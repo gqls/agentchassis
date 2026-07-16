@@ -81,5 +81,66 @@ reconstructed `pages.sections` from its deployed `page_components` slot names
   the writer prompt forbids invented metrics/testimonials/case-studies, so this is
   a verification, not an expected failure.
 
+## RESOLUTION (2026-07-16) — all 17 article-body instances healthy, verified on served pages
+
+All 13 recovered. 12 regenerated cleanly via `needs_page` rebuilds at the raised
+token ceiling (some needed one retry — transient LLM failures under the load of 12
+concurrent rebuilds). Served pages spot-checked live (article renders,
+no `{ "content"` leak): robot-hands cycle-time, leopardess hierarchical,
+finetuning data-risk. Leopardess regenerated content checked for fabricated
+metrics — none (writer prompt's anti-fabrication rules held).
+
+## FOLLOW-UP #1 (important) — the EMBEDDED-QUOTE gap causes recurrence
+
+One page (finetuning `tool-ai-data-risk-checker-guide`) failed all 3 automated
+retries. Root cause found: its article-body includes a contact CTA —
+`<a href="mailto:…">` / `<a href="tel:…">`. The model emits those attribute quotes
+**unescaped inside the JSON string**, so the response is malformed even though it
+is COMPLETE (2144 tokens, not truncated). `ParseLLMJSON` escapes control chars but
+does NOT repair embedded quotes (by design), so:
+- the DEPLOYED code stores a text envelope → empty render;
+- even AFTER the committed fix deploys, `ExecuteLLMPromptAction` still can't parse
+  it → text envelope → `RenderComponentAction` fails loud → the build fails /
+  needs_human_review. **It does not silently blank (good), but it also never
+  succeeds.**
+
+**Any article the writer decides to end with a contact link will hit this.** That
+page was fixed manually this session: extract the complete content
+(last-quote-before-brace), render through the real article-body template
+(`text/template`, `missingkey=zero`), write `content_data.content` +
+`rendered_html`, deploy via an **assemble-only** `page_rerender` (safe path).
+Row backed up to `bak_pc_holdout_20260716`.
+
+### CLOSED 2026-07-16 (after chassis redeploy) — `repairJSONStringLiterals`
+
+`json_envelope.go`'s repair function was upgraded (superseding the earlier
+"escape control chars only" version and the removed single-field
+`SalvageStringField`): it now distinguishes a quote that ENDS a JSON string from
+a quote that is just literal content (an HTML attribute) by checking what follows
+it. A quote followed (after whitespace) by a JSON structural character — `,` `}`
+`]` `:` — is a real terminator; anything else (a letter, `>`, another `"`) means
+it's content, so it gets escaped and the string continues.
+
+This is a GENERAL fix, not scoped to one field name or to the field being last in
+the object (unlike the removed `SalvageStringField`, which only worked when
+`content` was the sole/last key) — proven by
+`TestParseLLMJSON_RepairsEmbeddedQuotesInNonLastField`. It preserves the
+fail-loud property for genuine truncation: a truncated string never reaches a
+quote followed by real JSON structure, so it stays unterminated and
+`json.Unmarshal` still rejects it
+(`TestParseLLMJSON_TruncatedWithEmbeddedQuoteStillFails`).
+
+Verified against all 14 live fixtures: exactly 2 are genuinely JSON-complete
+(raw bytes end `"}`) — the newline-only one (repaired since 2026-07-15) and
+`850e356d` (this contact-link page) — both now repair correctly; the other 12
+are genuinely truncated (confirmed by inspecting raw byte tails, independent of
+which parse error encoding/json happened to report) and correctly remain
+unparseable. See `TestParseLLMJSON_LiveEnvelopeDistribution` (repaired=2,
+unparseable=12) and `TestParseLLMJSON_RepairsEmbeddedQuotes`.
+
+No further action needed — this closes the follow-up. Ships on the next chassis
+build containing this branch.
+
 ## Backups
-`bak_pc_articlebody_20260715` (broken rows), `bak_agentdef_pcw_20260715` (writer def).
+`bak_pc_articlebody_20260715` (broken rows), `bak_agentdef_pcw_20260715` (writer def),
+`bak_pc_holdout_20260716` (the manually-repaired row).

@@ -247,14 +247,20 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 		}
 	}
 
-	// 3. Store prices (mark old as not current, insert new)
+	// 3. Store service prices (mark old as not current, insert new).
+	// Writes go to the unified products (kind='service') + product_prices
+	// schema; business_prices is deprecated (006_unify_prices_schema.sql).
 	pricesStored := 0
 	if pricesRaw, ok := verResult["prices"].([]interface{}); ok && len(pricesRaw) > 0 {
-		// Mark existing prices as not current
+		// This verification supersedes all prior service prices for the business.
 		_, _ = tx.ExecContext(ctx, `
-			UPDATE business_intel.business_prices 
-			SET is_current = FALSE 
-			WHERE business_id = $1 AND is_current = TRUE`,
+			UPDATE business_intel.product_prices pp
+			SET is_current = FALSE
+			FROM business_intel.products p
+			WHERE pp.product_id = p.id
+			  AND p.kind = 'service'
+			  AND pp.business_id = $1
+			  AND pp.is_current = TRUE`,
 			businessID,
 		)
 
@@ -274,6 +280,40 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 				continue
 			}
 			pricesStored++
+		}
+	}
+
+	// 3b. Store per-practice medicine prices, if the verifier extracted any
+	// (verResult.medicine_prices[]). Same unified schema, kind='medicine'.
+	medicinesStored := 0
+	if medsRaw, ok := verResult["medicine_prices"].([]interface{}); ok && len(medsRaw) > 0 {
+		_, _ = tx.ExecContext(ctx, `
+			UPDATE business_intel.product_prices pp
+			SET is_current = FALSE
+			FROM business_intel.products p
+			WHERE pp.product_id = p.id
+			  AND p.kind = 'medicine'
+			  AND pp.business_id = $1
+			  AND pp.is_current = TRUE`,
+			businessID,
+		)
+
+		sourceType, _ := verResult["source_type"].(string)
+		sourceURL, _ := verResult["source_url"].(string)
+
+		for _, medRaw := range medsRaw {
+			med, ok := medRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			err := insertMedicinePrice(ctx, tx, businessID, med, sourceType, sourceURL)
+			if err != nil {
+				params.Logger.Warn("StoreBusinessVerificationAction: Failed to insert medicine price",
+					zap.Error(err),
+				)
+				continue
+			}
+			medicinesStored++
 		}
 	}
 
@@ -384,16 +424,17 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 	}
 
 	result := map[string]interface{}{
-		"stored":               true,
-		"business_id":          businessID,
-		"updated_fields":       updatedFields,
-		"vet_updated":          vetUpdated,
-		"prices_stored":        pricesStored,
-		"contacts_stored":      contactsStored,
-		"search_cached":        true,
-		"company_number_found": companyNumberFound,
-		"ch_matched":           chMatched,
-		"stored_at":            time.Now().UTC().Format(time.RFC3339),
+		"stored":                  true,
+		"business_id":             businessID,
+		"updated_fields":          updatedFields,
+		"vet_updated":             vetUpdated,
+		"prices_stored":           pricesStored,
+		"medicine_prices_stored":  medicinesStored,
+		"contacts_stored":         contactsStored,
+		"search_cached":           true,
+		"company_number_found":    companyNumberFound,
+		"ch_matched":              chMatched,
+		"stored_at":               time.Now().UTC().Format(time.RFC3339),
 	}
 
 	params.Logger.Info("StoreBusinessVerificationAction: Stored",
@@ -731,12 +772,16 @@ func loadVetDetails(ctx context.Context, db *sql.DB, businessID string) (map[str
 }
 
 func loadCurrentPrices(ctx context.Context, db *sql.DB, businessID string) ([]map[string]interface{}, error) {
+	// Reads the unified schema: products (kind='service') + product_prices.
+	// Output shape is unchanged for callers (service_category/service_name).
 	rows, err := db.QueryContext(ctx, `
-		SELECT service_category, service_name, price_gbp, price_qualifier,
-		       includes_vat, source, source_url, observed_at
-		FROM business_intel.business_prices
-		WHERE business_id = $1 AND is_current = TRUE
-		ORDER BY service_category, service_name`, businessID)
+		SELECT p.category AS service_category, p.name AS service_name,
+		       pp.price_gbp, pp.price_qualifier,
+		       pp.includes_vat, pp.source, pp.product_url AS source_url, pp.observed_at
+		FROM business_intel.product_prices pp
+		JOIN business_intel.products p ON p.id = pp.product_id
+		WHERE pp.business_id = $1 AND pp.is_current = TRUE AND p.kind = 'service'
+		ORDER BY p.category, p.name`, businessID)
 	if err != nil {
 		return nil, err
 	}
@@ -1051,6 +1096,73 @@ func upsertVetDetails(ctx context.Context, tx *sql.Tx, businessID string, data m
 	return err
 }
 
+// offeringSlugPattern matches 006_unify_prices_schema.sql exactly:
+// regexp_replace(lower(...), '[^a-z0-9]+', '-', 'g'). The Go and SQL
+// computations MUST stay identical so migrated and live-written rows
+// dedupe onto the same products row via ON CONFLICT (slug).
+var offeringSlugPattern = regexp.MustCompile(`[^a-z0-9]+`)
+
+func offeringSlug(parts ...string) string {
+	nonEmpty := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if strings.TrimSpace(p) != "" {
+			nonEmpty = append(nonEmpty, p)
+		}
+	}
+	return offeringSlugPattern.ReplaceAllString(strings.ToLower(strings.Join(nonEmpty, "-")), "-")
+}
+
+// upsertOfferingPrice writes one price observation against the unified
+// schema: upsert the canonical products row (by slug), retire prior current
+// observations for this (business, product), insert the new observation.
+func upsertOfferingPrice(ctx context.Context, tx *sql.Tx,
+	kind, slug, name, category, dosage, businessID string,
+	requiresRx bool, priceGBP interface{}, qualifier string, inclVAT bool,
+	inStock interface{}, source, sourceURL string) error {
+
+	if source == "" {
+		source = "verifier"
+	}
+
+	var productID string
+	err := tx.QueryRowContext(ctx, `
+		INSERT INTO business_intel.products
+			(slug, name, category, dosage, kind, requires_prescription, is_active)
+		VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), $5, $6, true)
+		ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
+		RETURNING id`,
+		slug, name, category, dosage, kind, requiresRx,
+	).Scan(&productID)
+	if err != nil {
+		return fmt.Errorf("upsert product %q: %w", slug, err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE business_intel.product_prices
+		SET is_current = FALSE
+		WHERE business_id = $1 AND product_id = $2 AND is_current = TRUE`,
+		businessID, productID,
+	)
+	if err != nil {
+		return fmt.Errorf("retire prior prices for %q: %w", slug, err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO business_intel.product_prices
+			(product_id, business_id, price_gbp, price_qualifier, includes_vat,
+			 in_stock, product_url, source, observed_at, is_current)
+		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, NOW(), TRUE)`,
+		productID, businessID, priceGBP, qualifier, inclVAT, inStock, sourceURL, source,
+	)
+	if err != nil {
+		return fmt.Errorf("insert price for %q: %w", slug, err)
+	}
+	return nil
+}
+
+// insertPrice stores one service price against the unified schema
+// (products kind='service' + product_prices). Replaces the deprecated
+// business_prices write path — see 006_unify_prices_schema.sql.
 func insertPrice(ctx context.Context, tx *sql.Tx, businessID string, price map[string]interface{}, sourceType, sourceURL string) error {
 	category, _ := price["service_category"].(string)
 	name, _ := price["service_name"].(string)
@@ -1074,14 +1186,53 @@ func insertPrice(ctx context.Context, tx *sql.Tx, businessID string, price map[s
 		url = u
 	}
 
-	_, err := tx.ExecContext(ctx, `
-		INSERT INTO business_intel.business_prices 
-			(business_id, service_category, service_name, price_gbp, price_qualifier,
-			 includes_vat, source, source_url, is_current)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)`,
-		businessID, category, name, priceGBP, qualifier, inclVAT, src, url,
-	)
-	return err
+	slug := "service-" + offeringSlug(category, name)
+	return upsertOfferingPrice(ctx, tx,
+		"service", slug, name, category, "", businessID,
+		category == "prescription", priceGBP, qualifier, inclVAT,
+		nil, src, url)
+}
+
+// insertMedicinePrice stores one per-practice medicine price from the
+// verifier's medicine_prices[] output (products kind='medicine').
+// Slug shape per HANDOFF_2026-05-18: {name}-{dosage}-{size_variant},
+// e.g. apoquel-3-6mg-20-tablets.
+func insertMedicinePrice(ctx context.Context, tx *sql.Tx, businessID string, med map[string]interface{}, sourceType, sourceURL string) error {
+	name, _ := med["product_name"].(string)
+	if name == "" {
+		name, _ = med["name"].(string)
+	}
+	if name == "" {
+		return fmt.Errorf("product_name is required")
+	}
+	dosage, _ := med["dosage"].(string)
+	sizeVariant, _ := med["size_variant"].(string)
+
+	priceGBP := nullFloatFromInterface(med["price_gbp"])
+	qualifier, _ := med["price_qualifier"].(string)
+	inclVAT := true
+	if v, ok := med["includes_vat"].(bool); ok {
+		inclVAT = v
+	}
+	var inStock interface{}
+	if v, ok := med["in_stock"].(bool); ok {
+		inStock = v
+	}
+
+	src := sourceType
+	if s, ok := med["source"].(string); ok && s != "" {
+		src = s
+	}
+	url := sourceURL
+	if u, ok := med["source_url"].(string); ok && u != "" {
+		url = u
+	}
+
+	slug := offeringSlug(name, dosage, sizeVariant)
+	return upsertOfferingPrice(ctx, tx,
+		"medicine", slug, name, "", dosage, businessID,
+		true, priceGBP, qualifier, inclVAT,
+		inStock, src, url)
 }
 
 // ============================================================================

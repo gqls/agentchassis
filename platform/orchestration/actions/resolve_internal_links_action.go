@@ -1,7 +1,7 @@
 // FILE: platform/orchestration/actions/resolve_internal_links_action.go
 //
 // ResolveInternalLinksAction is the core action of the internal-link-resolver
-// agent. It augments a page's CTA-bearing sections (hero, call-to-action) with
+// agent. It augments a page's CTA-bearing sections (the ctaFieldNames set) with
 // intent-appropriate internal link destinations resolved from the REAL pages —
 // never a hardcoded or fabricated target — writing them into each section's
 // resolved_data so the existing render path (render_component's merge_with:

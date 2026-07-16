@@ -183,3 +183,29 @@ the Spanish Grok row).
 - **Decisions for operator:** (1) fix the feed repo-routing before/with deploy; (2) scaffold
   pages — author seed guide/glossary content, or trim those pages from the plan (not core to
   a news portal); (3) `contacto` details; (4) then P4 `render_rss_feed` + P5 engine handler.
+
+## 2026-07-16 (c) — vm-sites repo architecture reviewed; misroute is WIDER than the feed
+
+Operator asked for a hard think on vm-sites as a separate repo (several sites will move
+static→dynamic; difference is primarily the deploy stage) + prior-discussion archaeology.
+**Full report: `REPORT_vm_sites_repo_architecture.md`.** Key facts established:
+- Prior decisions found: June probe notes (repo created by hand-private; `github_repo`
+  selects target — designed, unwired) and the **idea.uk workstream 14–16 Jul** (Class A
+  static→B2 / B static→VM+backend / C dynamic-render REJECTED; **pull-not-push** with
+  per-box sparse-checkout of vm-sites; `deploy-targets.json` allowlist for the legacy push
+  Action; four dead wires shipped v1.0.1123). Owner constraint on record: thousands of
+  domains ⇒ per-site repos ungainly.
+- **WIDER BUG CONFIRMED (live, v1.0.1125):** not just the feed — relojistas **page deploys
+  also committed to `gqls/sites`** (14:17, repo_name='sites'). `page-rerender` /
+  `build-dispatch-loop` orchestrations carry **no site_record at all**; only planner-tier
+  workflows run `ensure_site_record`. So ALL relojistas artefacts currently land in the B2
+  repo, invisible; the box webroot still has the probe page. The shipped wiring resolves
+  from workflow state when it should resolve from the site row.
+- **Verdict:** keep vm-sites separate (deploy keys are repo-scoped → box blast-radius cap;
+  sink separation by construction; repo flip = the A→B migration primitive). Fix forward:
+  (1) `git_commit`/`deploy_image_asset` fall back to `SELECT github_repo FROM sites WHERE
+  domain=$1` — workflow-independent routing, kills the class; interim data-only fix = add a
+  load-site step to content-feed-orchestrator; (2) apply the vm-sites Action **allowlist
+  now** (relojistas-only) before any second domain lands; (3) `deploy_config.target` =
+  semantic truth, consistency-check `github_repo`; (4) script the A→B migration incl. stale
+  `sites`/B2 cleanup; (5) converge push→pull; (6) Class B stays the exception.

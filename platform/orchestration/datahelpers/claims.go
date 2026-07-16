@@ -331,7 +331,11 @@ var numberCandidateRe = regexp.MustCompile(`\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\
 // the business. This gate is the main precision control: hypotheticals in
 // guides ("100,000 daily calls"), formulas ("× 100"), and UI text never pass
 // it. Widen only from measurement (spec landmine 2).
-var businessClaimContextRe = regexp.MustCompile(`(?i)\b(clients?|customers?|records?|business(es)?|compan(y|ies)|agents?|sites?|users?|subscribers?|departments?|awards?|employees?|staff|engagements?|projects?|deployments?|case\s+stud(y|ies)|definitions?|orchestration|integrations?|providers?|items?|uptime|verified|enrich(ed|ment)|scored|collected|processed|deployed|delivered|years\s+of\s+experience|uniques?)\b`)
+// Note "businesses" is plural-only: count-claims about businesses use the
+// plural, while singular "business" is descriptive ("business hours",
+// "business functions") and false-positived on calculator help text
+// ("22 for business hours") in the first live run.
+var businessClaimContextRe = regexp.MustCompile(`(?i)\b(clients?|customers?|records?|businesses|compan(y|ies)|agents?|sites?|users?|subscribers?|departments?|awards?|employees?|staff|engagements?|projects?|deployments?|case\s+stud(y|ies)|definitions?|orchestration|integrations?|providers?|items?|uptime|verified|enrich(ed|ment)|scored|collected|processed|deployed|delivered|years\s+of\s+experience|uniques?)\b`)
 
 // Phone-context exclusion — phone numbers are validated separately and their
 // digit groups must not reach the number scan.

@@ -70,3 +70,46 @@ Everything above was safe to prepare without touching production. Before the see
 Next artifact in the queue is P4's render_rss_feed Go action (the one genuinely new piece) — I can draft that against render_news_section_action.go whenever you want, or hold until P0/P1/P2 are applied
 and ingesting. Which would you prefer?
 
+---
+
+Report complete — full version in traffic_probe/REPORT_vm_sites_repo_architecture.md. Here's the substance.
+
+The answer: keep vm-sites as a separate repo — the decision is already settled and sound. What's broken is how commits find it.
+
+What the previous discussions decided
+
+- June (probe go-live): gqls/vm-sites was created by hand, private, deliberately — the git-adapter auto-creates repos public. Same root layout as sites so the chassis could target it unchanged. "github_repo selects
+  the target" was specified then but never wired.
+- idea.uk workstream (14–16 Jul — the deepest treatment, with your constraint on record: thousands of domains ⇒ per-site repos ungainly): a three-class fleet model was agreed. Class A static→B2 for the thousands;
+  Class B static→VM+backend for the handful that sell something; Class C (dynamic rendering on the box) rejected — the VM is a second sink, not a second renderer. Delivery converges on pull: each box sparse-checkouts
+  its own folder from vm-sites with a read-only key (the push Action was rejected for fleet use — one runner SSH key authorized on every box). The "four dead wires" for per-site targeting shipped in v1.0.1123.
+- Your premise is exactly the settled doctrine: static→dynamic is primarily a deploy-stage difference — same artefact, different sink, plus backend components opted in at plan level.
+
+Why the separate repo is right
+
+1. Deploy keys are repo-scoped; GitHub has no path-scoped keys. Under pull, if Class-B sites lived inside gqls/sites, every box's key could read the entire portfolio — thousands of domains including unlaunched
+   staging. vm-sites caps a compromised box's reach at the Class-B handful. This can't be engineered away inside one repo.
+2. Sink separation by construction. The sites Action B2-syncs everything it sees; VM sites inside it would forever double-deploy to B2 (the "elaborate staging copy" pathology idea.uk suffered) or force exclusion
+   lists into the fleet Action.
+3. The repo flip is the migration primitive. Class A→B = flip one column — as close to "only the deploy stage differs" as it gets.
+
+The live finding that sharpens it (worse than yesterday's feed bug)
+
+I verified against today's running cluster (v1.0.1125): relojistas' page deploys also committed to gqls/sites — not just the news JSON. page-rerender and build-dispatch-loop orchestrations carry no site_record at
+all; only planner-tier workflows run ensure_site_record. So despite correct data and shipped wiring, every relojistas artefact is sitting invisible in the B2 repo and the box still serves the old probe page. The
+shipped wiring resolves the repo from workflow state, when it should resolve from the site row.
+
+Recommendations (in the report, priority order)
+
+1. Workflow-independent repo resolution — git_commit/deploy_image_asset fall back to SELECT github_repo FROM sites WHERE domain=$1 before defaulting to "sites". One query; kills the whole misroute class for all ~40
+   workflows. (Interim data-only fix for news: add a load-site step to the feed orchestrator's workflow JSON — immediate, no image rebuild.)
+2. Apply the vm-sites Action allowlist now (deploy-targets.json: {"relojistas.com": "167.233.33.159"}) — today that Action rsyncs every changed folder to relojistas' box; the moment idea.uk lands in vm-sites it
+   deploys to the wrong machine.
+3. One source of truth: deploy_config.target='vm' is semantic; github_repo is the consequence — derive or consistency-check it.
+4. Script the A→B migration (flip, re-render, allowlist/pull provision, and — critically — delete the stale folder from sites/B2).
+5. Converge push→pull (relojistas migrates when convenient), and keep Class B the exception.
+
+Want me to implement recommendation 1 (the Go fallback + the interim feed-workflow fix) so relojistas' pages and news can land on the box?
+
+
+---

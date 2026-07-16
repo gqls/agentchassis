@@ -1094,3 +1094,77 @@ dissolved companies" true), locked components, opt-in per site.
 
 Leopardess is the pilot site (only one with an audit doc to transcribe) but the build itself is
 platform work — belongs to the claims-verification thread, not this one.
+
+## Turn 18 (cont.) — quiz LIVE; heroes LIVE; a real clobber event caught and fixed forward
+
+**ai-readiness-quiz — DONE, live, verified (punch #9 fully closed).** Take 6 built in a healthy
+cluster window: 3 components, 54KB live page, real interactive quiz. Integrity-checked: 0
+invented emails, 0 banned claims, all internal links real, the fixed contact-block placeholder
+renders. (Voice quibble for later: title-case H1 "Find Out If Your AI System Is Ready…".)
+
+**Per-page heroes — the full imagery mechanism is PROVEN END-TO-END and LIVE.**
+`kind:'illustration'` → Banana produced exactly-on-brand images for both pages (charcoal
+ground, hairline gold, no text — reviewed by eye before wiring, both approved):
+who-we-help (three clusters converging on one node) and how-we-work (staged line with an
+open-circle checkpoint). Wired via manual site_plans/site_plan_imagery rows
+(scripts/wire_heroes.sql) + `image_landed` rerenders. **Confirms the §9 routing correction:
+illustration→Banana works; hero→SDXL was the wrong lane for this brand.**
+
+**⚠️ CLOBBER EVENT — the §9 escalation guard has a HOLE, now corrected.** The who-we-help
+`image_landed` rerender ESCALATED to the content writer despite the documented pre-check
+returning 0 empty slots. Root cause: the SQL guard (`content_data IS NULL OR ::text IN
+('{}','null')`) is WEAKER than the Go check (`len(map)==0` after unmarshal) — content_data
+holding a valid JSON **array** (or scalar) fails the map-unmarshal silently → nil map → len 0
+→ whole-page escalation. One old who-we-help slot evidently held array-shaped cd.
+**Correct pre-check:** `content_data IS NULL OR jsonb_typeof(content_data::jsonb) <> 'object'
+OR content_data::jsonb = '{}'::jsonb`.
+
+**What the writer rebuild did (a perfect claims-verification specimen, captured live):**
+the escalated rebuild wrote an honest hero/faq/cta (the pinned specs held), **but fabricated
+four case-study card titles** in a case-studies-grid it added ("Triage Without a Queue",
+"Reconciliation That Runs Itself and Signs Its Work", "Classification at Scale…", "Document
+Review With an Auditable Decision Record" — none exist), and invented a phantom
+`/what-we-build` link + emoji icons in info-card-grid. None of it deployed (the handler
+stalled pre-deploy — the flake, for once, on our side). **Relay to the claims-verification
+thread: fresh benchmark items, generated TODAY by the current writer under the current
+prompt rules.**
+
+**Fix-forward (bak_wwh_rebuild_20260716):** kept hero (with image) + faq (honest) + cta
+headline; restored the old hand-checked card TITLES with new in-voice bodies (old cards were
+title-only), no links; DELETED the fabricated case-studies-grid (row + sections entry);
+patched CTA button labels/urls back (renderer-source urls skip in writer builds — a known
+shape now); closed the needs_page item manually with a do-not-rebuild note (it had reset to
+'triaged' when the reaper killed its claiming orchestration — a re-dispatch would have
+re-clobbered).
+
+**SEO pass (NEXT ACTIONS #5, partially done):** 4 A2-violating titles fixed (index,
+who-we-help, how-we-work, contact — "CTOs & Engineering Leaders", "Production-Grade" etc.
+gone) + honest meta_descriptions written for the 12 key pages that had none (index's live
+description was an EMPTY STRING). All restate audited page copy; no new claims. Reassembled.
+bak_titles_meta_leo_20260716. Sitemap still absent — remaining item.
+
+## Turn 18 (final) — who-we-help LIVE and verified; the escalation guard has TWO branches
+
+**who-we-help deployed & verified:** hero image live, new title + meta, the three old honest
+cards (with new bodies + required eyebrow/subtitle), FAQ, CTA buttons → /contact + /case-studies.
+0 fabricated titles, 0 phantom links.
+
+**Complete escalation picture (supersedes this turn's earlier partial diagnosis) —
+`rerender_page_sections` escalates a page to the content writer on EITHER of:**
+(a) `len(contentData)==0` — which includes valid-JSON **arrays/scalars** (map-unmarshal fails
+silently), not just NULL/`{}`;
+(b) content_data present but **missing any schema-required `source:"llm"` field**
+(`missingRequiredLLMFields`) — this caught who-we-help a SECOND time: info-card-grid requires
+`cards, section_title, section_eyebrow, section_subtitle` and the backfill had only the first
+two. **Before any section rerender, verify stored cd keys ⊇ required llm fields per slot:**
+compare `jsonb_object_keys(pc.content_data)` against
+`input_schema->'fields'->k->>'source'='llm' AND required` — the HANDOFF §9 guard now documents
+both branches. Also: each escalation emits a fresh `content_data_backfill` needs_page item that
+survives orchestration death (resets to 'triaged') — kill them (`status='complete'`) or they
+re-clobber on a later dispatch. Three were killed this turn.
+
+**Cross-thread note (claims-verification, running in parallel):** their V1 scan already found
+9 banned-claim occurrences on leopardess content — including the hierarchical-multi-agent blog
+guide leaking "70+ agents / eight functional departments" on 2026-07-15, AFTER our sweep.
+Owner ruling pending in THAT thread; the content fixes will likely land back here. Two of the
+four flagged pages are archived (for-engineering-teams), lowering urgency.

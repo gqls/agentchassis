@@ -21,11 +21,11 @@ The owner reviewed the live site and raised the items below. Status as of **turn
 | 2 | Nav cluttered / blank "For Leaders" in nav | **FIXED (header + footer)** | Header nav reads `site_nav_items` **primary** group. Turn 17: the FOOTER reads `site_nav_items` **primary+utility+legal** (`render_site_components_action.go:98`) — `pages.in_footer` is DEPRECATED and does nothing. "For Leaders" survived in the footer of every page until its `utility` nav row was DELETED (`bak_navitem_fel_20260714`). |
 | 3 | Card links 404 (how-we-work, who-we-help, use-cases) | **FIXED** | `info-card-grid` rendered `<a href>` ungated → gated `{{if .link_url}}`. Turn 17 found 2 MORE phantom `/tools/tool-ai-readiness-quiz.html` links (use-cases hero + CTA) that turn 15 missed; gone now. Backstop: enable `phantom_internal_links` + `broken_nav_links` discovery checks (still OFF). |
 | 4 | About invented stats (30 Clients Served / 2,767 Awards Won) | **FIXED (made true, not removed)** | Labels were LLM-fallbacks. Set to honest+true (30 yrs / 8 sites / 2,767 records). |
-| 5 | **Missing images site-wide** | **OPEN — mechanism PROVEN, blocked on infra** | Route A-safe works end-to-end (see §9): generated + git-deployed a hero with NO content clobber. **But** (a) the cluster keeps stalling spawned `image-generator` pods on Kafka dial timeouts to broker `10.20.99.93`, and (b) **`kind:'hero'` routes to SDXL, not Banana** (`dynamic_adapter.go:534`) — so a leopardess hero can never be on-brand, because its house style *is* flat illustration. Use `kind:'illustration'` for heroes here. Per-card/section images still need **Phase I3 — NOT built**. |
+| 5 | **Missing images site-wide** | **PARTIALLY DONE — 2 per-page heroes LIVE (turn 18)** | who-we-help + how-we-work carry on-brand Banana-generated heroes (`kind:'illustration'` — NOT `'hero'`, which routes to SDXL and produced garbage), wired via manual `site_plans`/`site_plan_imagery` rows (`scripts/wire_heroes.sql`) + `image_landed` rerenders. **Review every generated image by eye before wiring** (both of these passed; the SDXL one didn't). Remaining: index has its hand-chosen hero; about/services heroes need component work (their hero components have no image field); per-card/section images = Phase I3 (being built in the imagery workstream — content_card plumbing appearing in `url_helpers.go`). |
 | 6 | blog.html broken (empty "min read/Read more", no posts/images) | **FIXED (excerpts + read times live)** | Root cause was empty `pages.meta_description` on the 2 `/blog/` posts. Populated → `rerender-pages` → `rebuild_blog_listing`. Live: 5 cards, real excerpts, real read times. Card **thumbnails** remain blank (Phase I3 gap, `rebuild_blog_listing_action.go:186` hardcodes `image:""`). |
 | 7 | use-cases claims we do things we don't | **FIXED & verified live** | Was worse than reported: 5 fabricated case studies with invented clients + invented results. The rewritten `portfolio` spec already held 5 honest "Not yet done for a client" use_cases — made the spec the source of truth (mirrored `status`→`client`), backfilled content_data on all 3 slots, re-rendered. Live: 0 fabrications, 0 phantom links, 0 navy. |
 | 8 | favicon.png 404 | **FIXED** | Head hardcodes `/assets/images/favicon.png`; only `.ico` was committed. Committed the png → 200. |
-| 9 | Empty pages | **PARTLY FIXED — 1 blocked on infra** | The "3 zero-section pages" was wrong twice over. Truth (via `page_components` count, NOT `pages.sections` — that's just a type-name plan): **llm-cost-calculator-guide** REBUILT & live (linked from the blog listing — never reported); **for-engineering-leaders** ARCHIVED + de-navved (duplicate of for-engineering-teams); **ai-readiness-quiz** STILL BLANK — content path clean (the `contact-block` validator bug is fixed fleet-wide), blocked only by the §8 infra flake (5 attempts, all lost-child-response). 7 further empty case-study pages are `status='archived'`, unlinked, no sitemap → harmless. |
+| 9 | Empty pages | **✅ FULLY CLOSED (turn 18)** | **ai-readiness-quiz LIVE** — take 6 built in a healthy cluster window (54KB interactive quiz, 3 components, integrity-checked: 0 invented emails, 0 banned claims, links real). llm-cost-calculator-guide rebuilt turn 17; for-engineering-leaders archived turn 17 (+ our-approach & for-engineering-teams archived turn 18 by merge decision A11). 7 empty case-study pages remain `archived`, unlinked → harmless. |
 | 10 | **Voice still reads LLM-written** | **DONE for the pages that needed it — verified live** | `specs/VOICE_REWRITE_PROMPT.md`. **4 pages rewritten & verified live:** services (hero+CTA — killed the banned triad "observability, fault isolation, cost controls" that appeared twice; fixed a circular CTA self-link), how-it-works (duplicated text block → honest "What it does not do" limits section), our-approach (hero triad + title-case heading), contact (CTO copy + empty-cd landmine + the 4th phantom quiz link). **Sitewide check: 0 banned-triad occurrences, 0 phantom quiz links.** **Method:** the pipeline path (page-content-writer + `rewrite_guidance`) is the SAME spawn→child path broken by §8, so hand-edit `content_data` + fire a no-LLM `section_data_resolved` rerender (guard: a slot with EMPTY content_data escalates the whole page to the writer — populate first, as done for contact). **Already fine, don't redo:** how-it-works body, engagement-model, who-we-help, for-engineering-teams, services middle sections. **Remaining:** technical-architecture (low priority) + the page-MERGE decision (§6.3). |
 
 Backups (turn 17): `bak_pages_contentdata_leo_20260714`, `bak_usecases_leo_20260714`,
@@ -301,10 +301,24 @@ would clobber the hand-fixed copy.
    `page_id` — `rerender_page_sections` is no-LLM by design; the hero resolves from the
    plan rows.
 **PRECONDITION for step 3 (`rerender_page_sections_action.go:169`):** every
-page_component on that page must have non-empty `content_data`, or the WHOLE page is
-escalated to the content writer (`content_data_backfill`) and rewritten. Only `contact`
-still has empty content_data (use-cases was backfilled turn 17). Check first:
-`SELECT slot_name FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.name='<page>' AND p.site_id='…' AND (pc.content_data IS NULL OR pc.content_data::text IN ('{}','null'));`
+page_component on that page must have non-empty **object** `content_data`, or the WHOLE page
+is escalated to the content writer (`content_data_backfill`) and rewritten.
+**⚠️ The escalation has TWO branches (learned turn 18 the hard way — clobbered who-we-help
+once, nearly twice):**
+(a) `len(contentData)==0` after `json.Unmarshal` into a map — so a valid JSON **array** or
+scalar ALSO escalates (unmarshal fails silently → nil map), not just NULL/`{}`;
+(b) content_data present but **missing ANY schema-required `source:"llm"` field**
+(`missingRequiredLLMFields` — e.g. info-card-grid requires `section_eyebrow` +
+`section_subtitle` on top of the obvious `cards`/`section_title`).
+Pre-check BOTH before any section rerender:
+`SELECT slot_name FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.name='<page>' AND p.site_id='…' AND (pc.content_data IS NULL OR jsonb_typeof(pc.content_data::jsonb) <> 'object' OR pc.content_data::jsonb = '{}'::jsonb);`
+plus compare `jsonb_object_keys(content_data)` against each slot's
+`input_schema->'fields'` where `source='llm' AND required=true`.
+If an escalation DOES fire: it emits a `content_data_backfill` needs_page item that survives
+orchestration death (resets to 'triaged' when the reaper kills its claimer) — close it
+manually (`status='complete'`) or it re-clobbers on a later dispatch. Also know what a writer
+rebuild does: it preserved the honest voice (pinned specs held) but fabricated four case-study
+titles and a phantom link on who-we-help — review everything it writes before deploying.
 
 Also: only pages whose hero component declares an image field can show a hero at all —
 `index`, `who-we-help`, `how-we-work` use `hero` (`background_image` ✓); `about`/`services`

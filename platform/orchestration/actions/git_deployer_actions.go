@@ -91,13 +91,15 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	// Adapter topic
 	adapterTopic := "system.adapter.git.requests"
 
-	// Deploy target: explicit step config → the site's own github_repo → default "sites".
-	// The per-site hop is what lets a VM-hosted site (e.g. idea.uk → "vm-sites") deploy
-	// somewhere other than the B2-backed default without forking the workflow.
-	repoName := resolveGitRepoName(config, params.CollectedData)
-
 	// Extract domain - supports field path extraction
 	domain := extractDomainForGit(params.CollectedData, config, params.Logger)
+
+	// Deploy target: explicit step config → the site's own github_repo (collected, or
+	// looked up in sites by domain for workflows that never load the site record) →
+	// default "sites". The per-site hop is what lets a VM-hosted site (e.g. idea.uk →
+	// "vm-sites") deploy somewhere other than the B2-backed default without forking
+	// the workflow.
+	repoName := resolveGitRepoNameDB(ctx, params.DB, config, params.CollectedData, domain, params.Logger)
 
 	// Extract files - supports files_field path
 	filesMap := extractFilesForGit(params.CollectedData, config, domain, params.Logger)

@@ -477,10 +477,11 @@ func sendGitCommitRequest(ctx context.Context, params ActionParams, domain strin
 
 	newRequestID := uuid.New().String()
 
-	// Same deploy-target resolution as GitCommitAction. Without this the images would
+	// Same deploy-target resolution as GitCommitAction (incl. the sites-table fallback
+	// for workflows without a loaded site record). Without this the images would
 	// still go to "sites" while the pages went to the site's own repo — a split brain
 	// where a VM-hosted site's pages land on the box but its hero/logo do not.
-	repoName := resolveGitRepoName(params.StepConfig.Config, params.CollectedData)
+	repoName := resolveGitRepoNameDB(ctx, params.DB, params.StepConfig.Config, params.CollectedData, domain, logger)
 
 	adapterRequest := map[string]interface{}{
 		"headers": map[string]interface{}{

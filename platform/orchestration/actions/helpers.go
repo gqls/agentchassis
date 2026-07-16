@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"go.uber.org/zap"
 )
 
 // PageInfo holds page details for rendering
@@ -210,6 +211,37 @@ func resolveGitRepoName(config, collected map[string]interface{}) string {
 	}
 	if r := datahelpers.ExtractNestedFieldString(collected, "site_record.github_repo"); r != "" {
 		return r
+	}
+	return "sites"
+}
+
+// resolveGitRepoNameDB: resolveGitRepoName plus a sites-table fallback, so the deploy
+// target is a property of the SITE ROW rather than of whichever workflow happens to be
+// committing. Most workflows never run ensure_site_record (page-rerender,
+// build-dispatch-loop, content-feed-orchestrator), so site_record.github_repo is absent
+// from their collected data and a VM-hosted site's artefacts would silently land in the
+// default "sites" repo (→ B2) instead of its own (e.g. "vm-sites" → the box).
+// Order: explicit step config → collected site_record.github_repo → sites.github_repo
+// by domain → "sites".
+func resolveGitRepoNameDB(ctx context.Context, db *sql.DB, config, collected map[string]interface{}, domain string, logger *zap.Logger) string {
+	if r, _ := config["repo_name"].(string); r != "" {
+		return r
+	}
+	if r := datahelpers.ExtractNestedFieldString(collected, "site_record.github_repo"); r != "" {
+		return r
+	}
+	if db != nil && domain != "" {
+		var repo sql.NullString
+		err := db.QueryRowContext(ctx, `SELECT github_repo FROM sites WHERE domain = $1`, domain).Scan(&repo)
+		switch {
+		case err == sql.ErrNoRows:
+			// unknown domain — default below
+		case err != nil:
+			logger.Warn("resolveGitRepoNameDB: sites lookup failed; defaulting to 'sites'",
+				zap.String("domain", domain), zap.Error(err))
+		case repo.Valid && repo.String != "":
+			return repo.String
+		}
 	}
 	return "sites"
 }

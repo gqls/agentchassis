@@ -548,6 +548,43 @@ close, on 3 concrete pages, with fresh evidence today.
 
 ---
 
+The coverage check worked — first real use, caught it
+
+All 17 article-body rows are now healthy. Zero broken. The finetuning page — the last one, my "clean untouched evidence" — was repaired at 13:06 today, between my earlier query and now. Another session created a
+json-leak-fix-retry2 item at 12:29 and closed it as wont_fix at 14:09, about a minute before I checked, because the page was already fixed by then.
+
+So the evidence I was about to dispatch a diagnosis run at no longer exists. Had I fired, I'd have burned a third run on a repaired page and gotten a second REFUTED — the identical mistake, for the third time in
+one session. The pre-dispatch check we wrote into the handoff an hour ago is the thing that caught it, on its first real outing. That's a decent validation of the design.
+
+That's also the whole case closed: all 13 originally-broken pages from aaa_fails_to_mend/004 are recovered. Not by us — by the other session's retry batches. The case is done, and the loop never got to diagnose it.
+
+Where that leaves the two changes
+
+diagnose-agent is now on claude-sonnet-5 with verdict at max_tokens: 32000 (def backed up to bak_agentdef_diagnose_20260716; DB config is live immediately). The intake needs_diagnosis:envelope-regen-false-complete
+is closed with the honest terminal recorded — UNVERIFIABLE because a concurrent batch repaired the evidence mid-run, not a loop defect.
+
+But both changes are live and completely untested. I have no run to validate them against, and I'm not going to invent one at a target that doesn't need diagnosing.
+
+The unresolved thing worth your attention is what I found while checking the migration — the client never inspects stop_reason (platform/aiservice/anthropic.go). A truncated LLM response returns as partial text
+with no error, silently. That's the same failure class as the article-body truncation, it sits under every agent on the platform, and Sonnet 5's adaptive-thinking-by-default plus its ~30% denser tokenizer both push
+toward that ceiling rather than away from it. The 32000 gives headroom, but headroom isn't a guard.
+
+That's a genuine, code-level, platform-wide defect with a clean citation trail — and unlike the last three candidates, nobody else is fixing it, so it can't shift under us. It's also arguably a better first real
+case than 004 ever was: 004 was being actively repaired by another thread the whole time we were aiming at it.
+
+Three options, and I'd take the first:
+
+1. Fix the stop_reason gap directly (recommended) — it's small and I can see the fix. But it's a Go change, so it's inert until a build, and v1.0.1124 is already staged by another session. Per the coordination
+   handoff, I shouldn't build.
+2. Dispatch the loop at it — tests Sonnet 5 + the raised max_tokens on a real bug that won't move, and the loop's output is gradable since I already know the answer.
+3. Validate Sonnet 5 on the darts benchmark instead — that's what it's for: known answer, pre-registered rubric, still live and unfixed by design. Cleanest way to check the model swap didn't regress anything before
+   pointing it at real work.
+
+Option 2 does double duty; option 3 is the more disciplined test of the model change. Which do you want?
+
+---
+
+
 
 
 

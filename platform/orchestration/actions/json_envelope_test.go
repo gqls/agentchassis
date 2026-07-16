@@ -11,11 +11,18 @@ import (
 // TestParseLLMJSON_LiveEnvelopeDistribution runs the parser against the 14 real
 // LLM responses that blanked or leaked live article bodies (captured from
 // page_components.content_data->>'result' on 2026-07-14) and asserts the actual
-// failure distribution: the dominant cause is TRUNCATION (the writer's
-// generate_content step was capped at max_tokens=2000), which is genuinely
-// incomplete JSON and must stay unparseable so the forward path fails loud
-// rather than salvaging half an article. Only escaping-only malformations
-// (unescaped newlines) are repaired in place.
+// failure distribution.
+//
+// Two axes matter, and they are independent: whether a fixture is JSON-complete
+// (its raw bytes end with a real closing `"}`) and whether ParseLLMJSON can parse
+// it. 12 of the 14 are genuinely TRUNCATED — cut off mid-word by the writer's
+// generate_content max_tokens=2000 ceiling — and must stay unparseable forever;
+// no repair can complete a sentence the model never finished. The other 2 ARE
+// complete: one only had raw newlines (repaired since 2026-07-15), and one
+// (finetuning.uk tool-ai-data-risk-checker-guide, recovered manually 2026-07-16
+// — see aaa_fails_to_mend/005 §Follow-up) is complete but ends its article in a
+// contact link (`<a href="mailto:...">`), so its only fault is the unescaped
+// attribute quotes that repairJSONStringLiterals now handles.
 func TestParseLLMJSON_LiveEnvelopeDistribution(t *testing.T) {
 	paths, err := filepath.Glob("testdata/envelopes/*.json")
 	if err != nil {
@@ -25,8 +32,17 @@ func TestParseLLMJSON_LiveEnvelopeDistribution(t *testing.T) {
 		t.Fatalf("expected 14 captured envelopes, found %d", len(paths))
 	}
 
+	// The two fixtures whose raw bytes are genuinely complete (end in a real
+	// closing `"}`) — everything else is truncated regardless of which parse
+	// error encoding/json happens to report.
+	wantRepairable := map[string]bool{
+		"f8412ad3-7a62-49ba-ab73-82304bb45e74.json": true, // newline-only
+		"850e356d-936b-426d-9a54-8b89efbf91ec.json": true, // embedded quotes, contact link
+	}
+
 	var repairedCount, unparseableCount int
 	for _, p := range paths {
+		name := filepath.Base(p)
 		raw, err := os.ReadFile(p)
 		if err != nil {
 			t.Fatal(err)
@@ -36,33 +52,38 @@ func TestParseLLMJSON_LiveEnvelopeDistribution(t *testing.T) {
 		// ever accepts one, it no longer reproduces the defect.
 		var probe interface{}
 		if json.Unmarshal(raw, &probe) == nil {
-			t.Fatalf("%s parses as valid JSON — no longer reproduces the defect", filepath.Base(p))
+			t.Fatalf("%s parses as valid JSON — no longer reproduces the defect", name)
 		}
 
 		value, repaired, err := ParseLLMJSON(string(raw))
 		switch {
 		case err != nil:
-			unparseableCount++ // truncated / embedded-quote — correctly left for the loud-failure path
+			unparseableCount++
+			if wantRepairable[name] {
+				t.Errorf("%s: expected repairable (complete document), got unparseable: %v", name, err)
+			}
 		case repaired:
 			repairedCount++
+			if !wantRepairable[name] {
+				t.Errorf("%s: repaired but this fixture is genuinely truncated — must not silently accept a partial article", name)
+			}
 			// A repaired envelope must yield the object the model meant.
 			obj, ok := value.(map[string]interface{})
 			if !ok {
-				t.Fatalf("%s: repaired value is %T, want object", filepath.Base(p), value)
+				t.Fatalf("%s: repaired value is %T, want object", name, value)
 			}
 			if c, _ := obj["content"].(string); !strings.Contains(c, "<") {
-				t.Fatalf("%s: repaired content carries no HTML", filepath.Base(p))
+				t.Fatalf("%s: repaired content carries no HTML", name)
 			}
 		default:
-			t.Fatalf("%s: parsed clean but fixture was invalid JSON", filepath.Base(p))
+			t.Fatalf("%s: parsed clean but fixture was invalid JSON", name)
 		}
 	}
 
-	// The captured set: 1 escaping-only (repairable), 13 truncated/embedded-quote
-	// (correctly unparseable). Locks in that we never silently accept a truncated
-	// article as if it were complete.
-	if repairedCount != 1 || unparseableCount != 13 {
-		t.Fatalf("distribution changed: repaired=%d unparseable=%d (want 1 / 13)", repairedCount, unparseableCount)
+	// Locks in the real distribution: 2 repairable (complete documents), 12
+	// truncated (correctly, permanently unparseable).
+	if repairedCount != 2 || unparseableCount != 12 {
+		t.Fatalf("distribution changed: repaired=%d unparseable=%d (want 2 / 12)", repairedCount, unparseableCount)
 	}
 }
 
@@ -111,9 +132,10 @@ func TestParseLLMJSON_RejectsProse(t *testing.T) {
 	}
 }
 
-// TestEscapeControlChars_PreservesStructure checks the repair only ever touches
-// bytes inside string literals — escaped quotes and backslashes must survive.
-func TestEscapeControlChars_PreservesStructure(t *testing.T) {
+// TestRepairJSONStringLiterals_PreservesStructure checks the repair only ever
+// touches bytes inside string literals — escaped quotes and backslashes must
+// survive, alongside a real control-character repair in the same document.
+func TestRepairJSONStringLiterals_PreservesStructure(t *testing.T) {
 	in := "{\n  \"a\": \"line1\nline2\",\n  \"b\": \"quote \\\" and backslash \\\\\"\n}"
 	v, repaired, err := ParseLLMJSON(in)
 	if err != nil {
@@ -128,6 +150,63 @@ func TestEscapeControlChars_PreservesStructure(t *testing.T) {
 	}
 	if m["b"] != `quote " and backslash \` {
 		t.Fatalf("b = %q", m["b"])
+	}
+}
+
+// TestParseLLMJSON_RepairsEmbeddedQuotes is the fix for the follow-up gap found
+// 2026-07-16: an article whose HTML ends in a contact link
+// (<a href="mailto:...">) puts unescaped attribute quotes straight into the JSON
+// string value. The document is otherwise complete — this must parse, not just
+// escape control characters.
+func TestParseLLMJSON_RepairsEmbeddedQuotes(t *testing.T) {
+	in := `{"content":"<p>Reach us at <a href="mailto:hello@example.com">hello@example.com</a> or <a href="tel:+441234567890">call</a>.</p>"}`
+	v, repaired, err := ParseLLMJSON(in)
+	if err != nil {
+		t.Fatalf("repair failed: %v", err)
+	}
+	if !repaired {
+		t.Fatal("expected repaired=true")
+	}
+	c := v.(map[string]interface{})["content"].(string)
+	want := `<p>Reach us at <a href="mailto:hello@example.com">hello@example.com</a> or <a href="tel:+441234567890">call</a>.</p>`
+	if c != want {
+		t.Fatalf("content = %q,\n want %q", c, want)
+	}
+}
+
+// TestParseLLMJSON_RepairsEmbeddedQuotesInNonLastField proves the repair is
+// general — not scoped to a single named field, or to the field being last in
+// the object. A schema with multiple LLM fields (headline + body, say) must
+// recover correctly even when the embedded-quote field is NOT the final key.
+func TestParseLLMJSON_RepairsEmbeddedQuotesInNonLastField(t *testing.T) {
+	in := `{"body":"<p>Call <a href="tel:+441234567890">us</a> today.</p>","headline":"Get in touch","cta_text":"Contact"}`
+	v, repaired, err := ParseLLMJSON(in)
+	if err != nil {
+		t.Fatalf("repair failed: %v", err)
+	}
+	if !repaired {
+		t.Fatal("expected repaired=true")
+	}
+	m := v.(map[string]interface{})
+	if m["body"] != `<p>Call <a href="tel:+441234567890">us</a> today.</p>` {
+		t.Fatalf("body = %q", m["body"])
+	}
+	if m["headline"] != "Get in touch" {
+		t.Fatalf("headline = %q — a field AFTER the embedded-quote field was corrupted", m["headline"])
+	}
+	if m["cta_text"] != "Contact" {
+		t.Fatalf("cta_text = %q — a field AFTER the embedded-quote field was corrupted", m["cta_text"])
+	}
+}
+
+// TestParseLLMJSON_TruncatedWithEmbeddedQuoteStillFails guards the fail-loud
+// property: a document that is BOTH truncated AND has an embedded quote earlier
+// on must still be rejected — the embedded-quote repair must never paper over a
+// genuinely incomplete article.
+func TestParseLLMJSON_TruncatedWithEmbeddedQuoteStillFails(t *testing.T) {
+	in := `{"content":"<p>Call <a href="tel:+441234567890">us</a> today. Also this article continues on and`
+	if _, _, err := ParseLLMJSON(in); err == nil {
+		t.Fatal("a truncated document must stay unparseable even with an embedded quote earlier on")
 	}
 }
 

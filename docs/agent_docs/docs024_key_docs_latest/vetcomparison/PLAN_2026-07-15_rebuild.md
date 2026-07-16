@@ -73,34 +73,59 @@ Each phase is independently shippable and testable. Follow repo conventions: com
 actions, thin workflow JSON, wrapper orchestrator (spawn → call → complete), `logger.Info`,
 `-n ai-persona-system`, variable names in sync between workflow and action.
 
-### Phase 0 — hygiene (small, do first)
+### Phase 0 — hygiene ✅ DONE 2026-07-16
 
-**0a. Kill the unsafe export default.** In `platform/orchestration/actions/vet_med_export_action.go`
-`parseMedExportConfig`: remove `Domain: "vetcomparison.co.uk"` default; return an error if
-`config["domain"]` is empty ("med export requires explicit domain"). Same for repo_name if
-defaulted. Acceptance: unit test that empty config errors; grep confirms no `.co.uk` literal.
+**0a. Unsafe export default killed.** `parseMedExportConfig` no longer defaults `Domain`;
+`MedExportJSONAction` fails closed on empty domain. Unit tests in
+`vet_med_export_config_test.go` (pass). The `.co.uk` value was ALSO seeded in two DB configs —
+both blanked: `agent_definitions` `med-json-exporter` (ea5f6fac) workflow-step config, and
+`scheduled_tasks` `med-export-json` (41735d49) nested input_data. Task remains disabled.
+NOTE: the Go check is in the working tree; it takes effect on the next chassis image
+build+deploy — until then the blanked configs + disabled task are the (sufficient) protection.
 
-**0b. Name-quality cleanup.** Some verified `businesses.name` values are scraped page titles
-(e.g. "26 Vets in Birmingham - Compare Prices & …"). Write one SQL report to list suspects
-(`name ~* 'compare|prices|best|top [0-9]|\|'` or length > 60), then fix by preferring
-`trading_name` where sane, else truncate at " - "/"|" separators. Manual-review file for the
-remainder. Re-export the directory JSON afterwards (same query as LEGAL §5) and redeploy via the
-worktree pattern (below). Acceptance: no directory entry matches the suspect regex.
+**0b. Data quality — turned out bigger than cosmetic.** Findings and actions (all verified in
+production and against the live site):
+- 17 real practices had scraped page-title names ("Eastcott Vets: Award-winning … Near Me") —
+  renamed to clean names, row by row.
+- 20 "verified" rows were not practices at all: Yelp/StarOfService/ThreeBestRated/
+  BestLocalRated ×8/allvets/calmshops listing pages, one wheree.com mirror, one US clinic, one
+  college course page, one call-out-area page → `dismissed`.
+- **177 rows had a `wheree.com`/`bestlocalrated` mirror page as their website** — real
+  practices, junk URLs (verification was unsound) → `pending` for genuine re-verification.
+- Live directory re-exported twice and verified clean: **2,389 practices**, zero junk names,
+  zero mirror websites (commits `e47a8c65`, `c80aa50c`).
 
-### Phase 1 — unified price schema + CMA taxonomy
+**Follow-up for the implementer (feeds Phase 1/5):**
+- **Extend the sweep/verifier deny-list** with the mirror families found: `wheree.com`,
+  `bestlocalrated.co.uk`, `yelp.*`, `starofservice.co.uk`, `threebestrated.co.uk`,
+  `allvets.co.uk`, `calmshops.co.uk`, plus existing (google, yell, rcvs). A verified row's
+  website must resolve to the practice's own domain.
+- **Re-verify the 176 pending wheree rows** (real practices; find their real websites) — a
+  good first live run for the re-verification path.
+- Harness lesson: `set -e` did not stop a Bash script here after a failing check —
+  **verify-then-push must be separate tool calls**, with the push gated on the verify result.
 
-**1a. Go-B from the 2026-05-18 handoff (spec unchanged, still valid):** rewrite `insertPrice` to
-upsert `products (kind='service')` + `product_prices`; add the medicine helper reading
-`verification_result.medicine_prices[]`; stop writing `business_prices`. Slugs per handoff §2.
-**1b. Apply `006_unify_prices_schema.sql`** (idempotent) after Go-B deploys; verify row counts
-per the SELECT at its end.
-**1c. NEW — seed the CMA canonical taxonomy.** Migration inserting the 36 items above as
-`products` rows: `kind='service'`, `slug='cma-<category-n>-<item-slug>'`, plus columns (or a
-JSONB attrs field if adding columns is invasive): `cma_item boolean`, `cma_category smallint`,
-`checkbox_disclosures text[]` for the 4 starred items, and a `pet_band` dimension on
-`product_prices` (enum of the six categories + 'any'). This taxonomy is the mapping target for
-all scraped/claimed prices and — later — the RCVS feed. Acceptance: SELECT returns exactly 36
-`cma_item` rows in 5 categories.
+### Phase 1 — unified price schema + CMA taxonomy ✅ DONE 2026-07-16
+
+**1a. Go-B shipped (code).** In `business_intel_actions.go`: `insertPrice` now upserts
+`products (kind='service')` + `product_prices` via shared `upsertOfferingPrice`; new
+`insertMedicinePrice` reads `verResult.medicine_prices[]` (kind='medicine', slug
+`{name}-{dosage}-{size_variant}`); `loadCurrentPrices` reads the unified schema (same output
+shape); the per-verification "supersede all" flips are scoped by product kind. Zero
+`business_prices` writes remain. `offeringSlug` is pinned byte-identical to 006's SQL
+(`business_intel_slug_test.go`, incl. cross-check against production SQL). Build + full package
+tests pass. **NOT yet deployed** — rides the next chassis image build (working tree also holds
+other in-flight changes; deploying is the owner's call). Until deploy, the old binary still
+writes `business_prices` — harmless: verifier tasks are disabled, and 006 is idempotent
+(re-run it after any interim writes).
+**1b. 006 applied to production 2026-07-16.** 512 service products, 1,953 migrated price rows,
+762 current (803 minus 41 same-instant duplicates collapsed by the designed dedup key —
+originals retained in business_prices), 0 unmigratable rows, **0 quarantined seed_import rows
+current in the unified table**. business_prices deprecated via comment, not dropped.
+**1c. `007_cma_service_taxonomy.sql` (this dir) applied 2026-07-16.** 36 cma_item rows,
+12/6/6/9/3 across categories 1–5, checkbox_disclosures on exactly the 4 starred surgical items,
+vertical=veterinary, `pet_band` column + CHECK on product_prices (six categories + 'any').
+Slugs `cma-<n>-<item>`. Re-verify wording/bands against the final Order before launch.
 
 ### Phase 2 — generic directory/price exporter (replaces the never-built Go-A)
 
