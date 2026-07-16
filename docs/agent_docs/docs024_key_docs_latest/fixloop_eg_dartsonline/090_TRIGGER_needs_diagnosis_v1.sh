@@ -60,6 +60,22 @@
 #   SLUG=guides-nav RUNTIME_SITE=dartsonline.com REF=main \
 #     ./090_TRIGGER_needs_diagnosis_v1.sh "nav links to a guides section with no content"
 #
+# ── 6. PRE-DISPATCH COVERAGE CHECK (added 2026-07-16, multi_session_coordination)
+#    Many sessions work this cluster concurrently. On 2026-07-16 a diagnosis run
+#    was refuted mid-flight because another session's json-leak-fix-retry batch
+#    repaired the evidence underneath it — that batch was five minutes old and
+#    visible in site_work_items at dispatch time. A live-state check is also a
+#    snapshot: checking the pod does not check the queue. So before writing the
+#    intake, this script asks "does any OPEN work item already touch this
+#    target?" and REFUSES to dispatch on a hit unless FORCE=1.
+#    Coverage semantics are copied (not redesigned) from silentCoverageClause,
+#    platform/orchestration/actions/diagnose_silent_check_action.go: status NOT
+#    IN ('complete','cancelled','rejected'). 'complete' does NOT cover — a
+#    completed remedy with the violation still observable is the
+#    remediation-ineffective signal, and that IS a valid diagnosis target.
+#    Coverage key for code-only diagnoses (no site, no pages): the SEED_SCOPE
+#    file set, at file granularity — the symbol part after ':' is ignored.
+#
 # Env:
 #   SLUG           item_key suffix (default: derived from the symptom)
 #   REF            explicit git ref — NEVER HEAD (user decision 2026-07-02)
@@ -70,6 +86,15 @@
 #   SEED_SCOPE     comma-separated path[:Symbol] entries for iteration 1
 #                  (emitted into the envelope as a JSON ARRAY — a bare string
 #                   parses to nil in ExtractStringListHelper and does nothing)
+#   PAGES          comma-separated page names (pages.name slugs) or /urls the
+#                  symptom is about — drives the page-keyed coverage probe,
+#                  matched across ALL sites (a diagnosis can span sites: the
+#                  2026-07-16 incident hit finetuning.uk AND gamesdesign.co.uk).
+#                  No spaces around commas, no quotes in entries.
+#   FORCE          1 = print coverage findings but dispatch anyway (default 0)
+#   RECENT_WINDOW  site-level probe: how recently an open item must have been
+#                  touched to block (default '2 hours'; older open items are
+#                  listed FYI only — a parked backlog is not in-flight work)
 #   DISPATCH       1 (default) fires the Kafka envelope; 0 records the item only
 set -euo pipefail
 
@@ -88,6 +113,9 @@ SITE_ID="${SITE_ID:-}"
 SUBJECT_TYPE="${SUBJECT_TYPE:-}"
 SUBJECT_KEY="${SUBJECT_KEY:-}"
 SEED_SCOPE="${SEED_SCOPE:-}"
+PAGES="${PAGES:-}"
+FORCE="${FORCE:-0}"
+RECENT_WINDOW="${RECENT_WINDOW:-2 hours}"
 DISPATCH="${DISPATCH:-1}"
 CLIENT_ID='demo_client'
 
@@ -101,6 +129,127 @@ if [ -z "${SLUG:-}" ]; then
          | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
 fi
 ITEM_KEY="needs_diagnosis:${SLUG}"
+
+# ── 0. pre-dispatch coverage check (header note 6) ───────────────────────────
+# Every probe excludes our own ITEM_KEY: re-running the same intake is the
+# documented idempotency (idx_swi_dedup + ON CONFLICT DO NOTHING), not a
+# collision. Probes fail closed: if the DB is unreachable, we do not dispatch.
+COVERAGE_HITS=0
+
+run_coverage_probe() { # $1 label, $2 sql — prints hits, counts them
+  local label="$1" sql="$2" rows
+  rows=$(printf '%s' "$sql" | "${PSQL[@]}" -t -A -F' | ')
+  if [ -n "$rows" ]; then
+    echo ""
+    echo "!! COVERED — ${label}:"
+    printf '%s\n' "$rows" | sed 's/^/     /'
+    COVERAGE_HITS=$((COVERAGE_HITS + 1))
+  fi
+}
+
+# comma-separated -> SQL 'a','b' list. Entries must not contain single quotes.
+sql_list() { printf "'%s'" "$(printf '%s' "$1" | sed "s/,/','/g")"; }
+
+echo "-- pre-dispatch coverage check (FORCE=$FORCE) ..."
+
+# resolve the target site if we have one (for the site-level probe only —
+# the page probe deliberately searches ALL sites)
+TARGET_SITE_ID="$SITE_ID"
+if [ -z "$TARGET_SITE_ID" ] && [ -n "$RUNTIME_SITE" ]; then
+  TARGET_SITE_ID=$(printf '%s' \
+    "SELECT id FROM sites WHERE domain = $(sql_list "$RUNTIME_SITE");" \
+    | "${PSQL[@]}" -t -A)
+fi
+
+if [ -n "$PAGES" ]; then
+  PAGES_SQL=$(sql_list "$PAGES")
+  run_coverage_probe "open work items on these pages (any site)" "
+    SELECT s.domain || ' ' || p.name, w.item_key, w.status, w.created_by,
+           to_char(w.created_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI') || 'Z'
+    FROM site_work_items w
+    JOIN pages p ON p.site_id = w.site_id
+    JOIN sites s ON s.id = p.site_id
+    WHERE (p.name IN (${PAGES_SQL}) OR p.url IN (${PAGES_SQL}))
+      AND w.status NOT IN ('complete','cancelled','rejected')
+      AND w.item_key IS DISTINCT FROM '${ITEM_KEY}'
+      AND (w.page_id = p.id
+           OR w.spec->>'page_id' = p.id::text
+           OR w.item_key LIKE '%:' || p.name
+           OR w.item_key LIKE '%:' || p.name || ':%')
+    ORDER BY 5 DESC;"
+elif [ -n "$TARGET_SITE_ID" ]; then
+  # no pages named: block on recently-touched open items for the target site,
+  # list (don't block on) the older open backlog
+  run_coverage_probe "open items on the target site touched in the last ${RECENT_WINDOW}" "
+    SELECT w.item_key, w.item_type, w.status, w.created_by,
+           to_char(GREATEST(w.created_at, w.updated_at) AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI') || 'Z'
+    FROM site_work_items w
+    WHERE w.site_id = '${TARGET_SITE_ID}'
+      AND w.status NOT IN ('complete','cancelled','rejected')
+      AND w.item_key IS DISTINCT FROM '${ITEM_KEY}'
+      AND GREATEST(w.created_at, w.updated_at) > now() - interval '${RECENT_WINDOW}'
+    ORDER BY 5 DESC;"
+  OLDER_OPEN=$(printf '%s' "
+    SELECT count(*) FROM site_work_items w
+    WHERE w.site_id = '${TARGET_SITE_ID}'
+      AND w.status NOT IN ('complete','cancelled','rejected')
+      AND w.item_key IS DISTINCT FROM '${ITEM_KEY}'
+      AND GREATEST(w.created_at, w.updated_at) <= now() - interval '${RECENT_WINDOW}';" \
+    | "${PSQL[@]}" -t -A)
+  [ "${OLDER_OPEN:-0}" != "0" ] && \
+    echo "   FYI: ${OLDER_OPEN} older open item(s) on this site (not blocking; not touched in ${RECENT_WINDOW})"
+fi
+
+if [ -n "$SEED_SCOPE" ]; then
+  SEED_FILES=$(printf '%s' "$SEED_SCOPE" | tr ',' '\n' | cut -d: -f1 | paste -sd, -)
+  run_coverage_probe "open diagnose items sharing a seed_scope file" "
+    SELECT w.item_key, w.status, w.created_by,
+           to_char(w.created_at AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI') || 'Z', e.entry
+    FROM site_work_items w,
+         LATERAL jsonb_array_elements_text(COALESCE(w.spec->'seed_scope','[]'::jsonb)) e(entry)
+    WHERE w.pipeline = 'diagnose'
+      AND w.status NOT IN ('complete','cancelled','rejected')
+      AND w.item_key IS DISTINCT FROM '${ITEM_KEY}'
+      AND split_part(e.entry, ':', 1) IN ($(sql_list "$SEED_FILES"))
+    ORDER BY 4 DESC;"
+  # advisory only: uncommitted local edits to the seed files mean a session
+  # (possibly this one) is mid-change; the diagnosis reads REF, not this tree
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    DIRTY=$(cd "$(git rev-parse --show-toplevel)" && \
+            git status --porcelain -- $(printf '%s' "$SEED_FILES" | tr ',' ' ') 2>/dev/null || true)
+    if [ -n "$DIRTY" ]; then
+      echo ""
+      echo "   ADVISORY (not blocking): seed files have uncommitted local edits —"
+      printf '%s\n' "$DIRTY" | sed 's/^/     /'
+      echo "   the diagnosis will read ${REF}, not this working tree."
+    fi
+  fi
+fi
+
+if [ -z "$PAGES" ] && [ -z "$TARGET_SITE_ID" ] && [ -z "$SEED_SCOPE" ]; then
+  echo "   WARNING: nothing to key coverage on (no PAGES, no site, no SEED_SCOPE) — dispatching blind."
+fi
+
+if [ "$COVERAGE_HITS" -gt 0 ]; then
+  if [ "$FORCE" = "1" ]; then
+    echo ""
+    echo "FORCE=1 — dispatching despite ${COVERAGE_HITS} coverage hit(s) above."
+  else
+    cat <<EOF
+
+=========================================
+REFUSING TO DISPATCH: open work already touches this target (see above).
+Another session may be fixing what you are about to diagnose — that exact
+collision cost a diagnosis run on 2026-07-16 (correlation 781ea4f7).
+If you have looked at the items above and still want the run:
+  FORCE=1 <same command>
+=========================================
+EOF
+    exit 1
+  fi
+else
+  echo "   coverage: clear."
+fi
 
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
