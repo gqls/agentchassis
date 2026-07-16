@@ -234,7 +234,6 @@ k8s/bk_content_components.sql
 k8s/bk_page_components.sql
 	
 platform/resulttextoutputplatform.txt
-scripts/check-secrets.sh
 scripts/documentation_project/01/analysed01.txt
 scripts/documentation_project/02/analysis.json
 scripts/documentation_project/02/bundle.md
@@ -244,7 +243,6 @@ z_context/documentation/
 
 .claude/
 .gitattributes
-.githooks/
 bundle-vonc1/
 
 bundle_minilobby_trim.md

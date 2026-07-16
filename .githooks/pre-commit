@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Shared hooks live here (tracked). Enable once per clone:
+#   git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/check-secrets.sh"
