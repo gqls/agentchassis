@@ -82,6 +82,40 @@ single pilot category-reviewer (pick whichever category the next real
 fix-loop incident's blast radius touches) rather than building all
 category-reviewers at once.
 
+### B5. Pick a stage-3 pilot seat — candidate B fully spec'd 2026-07-16, applying is your call
+Two data-driven candidates were identified (see `PLAN_concept_register.md`
+§Stage 3), both matching FIX-036's originally named roster: **candidate A —
+reuse-agent** (`tool-lifecycle.md`, the single most rediscovered category in
+the register, charter already written as `DEV-001`), and **candidate B —
+bug-historian** (the "silent content loss during rerender" family, directly
+tied to fixloop's active work).
+
+**Candidate B is now fully designed** — see `PILOT_bug_historian_reviewer.md`
+for the complete charter, curated-context digest, prompt template, and the
+exact 4-edit patch to `fixloop_eg_dartsonline/0NN_fix_proposer.sql`. It's
+deliberately advisory-only (offers `approve|object`, never `veto` — confirmed
+via `diagnose_council_decide_action.go` that any reviewer's veto rejects
+regardless of `hard_veto_from`, so giving it veto power would make it a
+second full gatekeeper, not a historian).
+
+**Not yet applied to the live workflow or database — that's your decision.**
+When ready: review §6 of that document, then either approve applying it as
+drafted or ask for changes first. Candidate A (reuse-agent) remains
+unspec'd — build it the same way if you'd rather start there instead, or
+later as a second seat.
+
+### B6. Fixloop's case-004 dispatch may be moot — flagging, not deciding
+2026-07-16 coordination finding: fixloop chose the image-landing/article-body
+trap (`aaa_fails_to_mend/004`) as its first real case. A separate concurrent
+session resolved the underlying data loss the same day
+(`aaa_fails_to_mend/005`, confirmed via file mtime and an independent
+`go test` re-run) — 2 of 004's 3 "open items" are done; only the structural
+`missingkey=zero` defect (`STY-049`) remains. Worth checking whether the other
+queued real cases (001 replan-clobbers-built-pages, 002 errors-to-fix, 003
+spawn-lost-child-response) are now higher-value to dispatch first. This is a
+fixloop-workstream decision, surfaced here because this register's sweep is
+what caught the discrepancy — not actioned by this workstream.
+
 ---
 
 ## C. What you should expect the agent to do (so you don't have to)

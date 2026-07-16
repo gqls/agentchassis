@@ -130,17 +130,91 @@ anticipated as the answer to Q-G.
   `stage2_workflow.js`. Cheap per-run since one review only touches a handful
   of concepts, unlike stage 2's full-corpus sweep.
 
+**Pilot-seat recommendation (2026-07-16), data-driven per FIX-036's own
+suggested method** ("concepts independently rediscovered 4-6× across
+documentation eras... are the strongest signals for which reviewer seat to
+build first" — `SUMMARY_where_we_are_2026-07-16.md`): computed a source-citation
+count across all 1,631 concepts as a rediscovery-frequency proxy. Two strong,
+complementary candidates emerged, both directly matching FIX-036's originally
+named roster:
+
+- **Candidate A — "reuse agent" seat, grounded in `tool-lifecycle.md`.**
+  Tool-lifecycle concepts occupy 5 of the top ~30 most-cited concepts in the
+  *entire* register (TL-001, TL-004, TL-008, TL-014, TL-016) — the single most
+  rediscovered category, empirically proving FIX-036's founding thesis (a chat
+  reinvented a trigger+triage pair that already existed) at scale. Its charter
+  is already written: `DEV-001` ("STEP ZERO — reuse-before-create discipline,"
+  status `convention`) is exactly the review lens — "did this fix plan search
+  for existing coverage before proposing new code?"
+- **Candidate B — "bug-historian" seat, grounded in the "silent content loss
+  during rerender" family.** While adding `STY-049` (the `missingkey=zero`
+  structural defect behind fixloop's own real-case queue, see the
+  2026-07-16 addition below), found it belongs to a **cross-cutting failure
+  family spanning at least 5 categories**: `TL-001` (tool-widget-clobber
+  hazard, tool-lifecycle.md), `PBP-012`/`PBP-019` (page-build-pipeline.md),
+  `STY-004`/`STY-019`/`STY-049` (styling-render-pipeline.md), and `CLC-003`
+  (tool-library.md) — the same "schema says required, renderer says silently
+  empty" shape recurring independently across eras and subsystems. A
+  bug-historian reviewer seeded with this family would answer "has this class
+  recurred?" with a concrete yes, and directly demonstrates the register
+  answering fixloop's own coordination question with live evidence from
+  fixloop's own current work — the strongest case for genuine cross-workstream
+  value, not just raw citation count.
+
+**Candidate B fully spec'd 2026-07-16 — see `PILOT_bug_historian_reviewer.md`.**
+Complete charter, curated-context digest (the exact 7-concept "silent content
+loss during rebuild/rerender" family), full prompt template, and the precise
+4-edit patch to `0NN_fix_proposer.sql` (grounded in a direct read of the live
+workflow file and `diagnose_council_decide_action.go` — confirmed any
+reviewer's `veto` triggers rejection regardless of `hard_veto_from`, so the
+new seat's prompt deliberately offers only `approve|object`, never `veto` —
+purely advisory by design, not by oversight). **Not yet applied** — that step
+is explicitly reserved for the user (see that document's §6).
+
 **Scope boundary — deliberately not yet done:** this design has not been
 implemented against the live `0NN_fix_proposer.sql` workflow. That file belongs
-to the actively-developed [[fixloop-workstream]] (separately live as of
-2026-07-14 — TRIAGE + Phase 2 silent-check), and FIX-035's own standing rule is
-"awareness before autonomy." Changing a production council's decision-gating
-workflow is a cross-workstream architecture change and a judgment call on
-scope/risk that belongs to the user, not something to just proceed on. Next
-concrete step, when ready: pick one pilot category (candidate: whichever
-category the next real fix-loop incident's blast radius touches) and add it as
-a single extra reviewer step, rather than building all category-reviewers at
-once.
+to the actively-developed [[fixloop-workstream]] (tool complete as of
+2026-07-16 — all 4 triage/escalation phases live, v1.0.1122/1123), whose own
+`SUMMARY_where_we_are_2026-07-16.md` independently states the identical
+boundary: "Wiring stage-3 seats into the live fix-loop workflow is a
+cross-workstream production change the owner has reserved for explicit
+sign-off." FIX-035's standing rule is "awareness before autonomy." Next
+concrete step, when ready: pick one pilot category (candidate A or B above) and
+add it as a single extra reviewer step, rather than building all
+category-reviewers at once.
+
+## Coordination checkpoint — 2026-07-16
+
+A ~2-day gap since the last sweep (2026-07-14) accumulated 62 commits across
+many concurrent workstreams. Surveyed for anything relevant to this register or
+its stage-3 coordination with fixloop:
+
+- **The register itself was untouched** by anyone else (confirmed via file
+  mtimes) — no drift to reconcile.
+- **fixloop went "tool complete"** (all 4 triage/escalation phases live,
+  v1.0.1117→v1.0.1123) — a genuinely new subsystem that shipped entirely after
+  extraction froze on 2026-07-13, so none of it was in the register. Closed
+  this gap: added `FIX-051`/`FIX-052`/`FIX-053` and updated `FIX-034`, each
+  independently verified against live code (not just the docs) — see the
+  "2026-07-16 addition" note in `register/000_concept_index.md` for full
+  citations.
+- **Critical cross-thread finding:** fixloop's real-case queue chose the
+  image-landing/article-body-blanking trap (`aaa_fails_to_mend/004`) as its
+  first dispatch target. A *separate* concurrent session
+  (`article-body-json-envelope-workstream`) resolved the underlying data loss
+  the same day — `aaa_fails_to_mend/005` (later same day than 004's last edit,
+  confirmed via file mtime) shows all 17 article-body instances recovered and
+  the `ParseLLMJSON` test suite green (independently re-run: `go test
+  ./platform/orchestration/actions/... -run TestParseLLMJSON` — all pass).
+  **004's "3 open items" framing, and everything in the fixloop docs that
+  quotes it, is now stale for 2 of the 3 items.** Only the structural
+  `missingkey=zero` defect (now `STY-049`) remains genuinely open. This means
+  fixloop's planned dispatch to case 004 may no longer be the right first real
+  case — **flagging for the owner's attention, not deciding unilaterally**; the
+  other three queued cases (001 replan-clobbers-built-pages, 002 errors-to-fix,
+  003 spawn-lost-child-response) may now be more valuable to dispatch first.
+- This produced the pilot-seat recommendation above (candidate B is a direct
+  product of this coordination pass).
 
 ---
 
@@ -164,3 +238,19 @@ once.
   via `verify-later` join, curated-corpus-plus-live-recheck freshness model).
   Not yet implemented against the live fix-loop workflow — that's a separate
   user decision (see Stage 3's "scope boundary" note).
+- **Stage 3 pilot seat** — RECOMMENDED 2026-07-16, two candidates (reuse-agent
+  / tool-lifecycle, or bug-historian / silent-content-loss family). Not yet
+  spec'd in detail or built. See Stage 3's "pilot-seat recommendation" note.
+- **Flag to owner: fixloop's case-004 dispatch may be moot** — 2026-07-16
+  coordination finding, see "Coordination checkpoint" above. The image-landing
+  trap fixloop chose as its first real case appears mostly resolved by a
+  separate session; only the structural defect (`STY-049`) is still open. Not
+  actioned — this is the owner's dispatch decision, not this workstream's.
+- **New register concepts added 2026-07-16** — `FIX-051`/`052`/`053`
+  (fixloop's triage/escalation subsystem) and `STY-049` (the `missingkey=zero`
+  structural defect), plus `FIX-034` updated in place. Not yet run through a
+  formal stage-2-style adversarial verification pass (each was independently
+  verified against live code directly while writing the entry, but not by the
+  separate two-pass workflow pipeline) — low risk since evidence is
+  first-party (commits, `go test` runs, registry greps), but worth noting the
+  process differs slightly from the rest of the register.

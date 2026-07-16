@@ -39,6 +39,8 @@ README.md                  — this file: method + format specs
 PLAN_concept_register.md   — the living 3-stage plan, current status, backlog
 RUNBOOK_concept_register.md — human-operator tasks (rotations, judgment calls, resumes)
 RUNNING_NOTES_concept_register.md — turn-by-turn discussion log, updated every turn
+SUMMARY_where_we_are_2026-07-16.md — calm, read-aloud narrative summary (companion to PLAN)
+PILOT_bug_historian_reviewer.md — stage-3 pilot spec: charter, curated context, prompt, exact patch (not yet applied)
 001_PROMPT_charter.md      — the rewritten task charter
 002_PLAN_extraction.md     — stage-1 work-unit ledger (26 units), extraction-specific
 003_TAXONOMY_seed.md       — starting categories + tagging rules (open-ended)

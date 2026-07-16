@@ -49,3 +49,39 @@ stage-3 council design against the live fix-loop workflow (RUNBOOK B4) — that'
 
 ---
 
+● Everything's reconciled and verified. Here's the summary of this turn's work:
+
+Doc sweep since last visit (2026-07-14 → -16): 62 commits across many concurrent workstreams. Confirmed via file mtimes that the concept register itself was untouched by anyone else — no drift to reconcile there.
+
+Coordinating with the fixloop thread: Read its own journey doc (SUMMARY_where_we_are_2026-07-16.md) — it independently names this workstream as the answer to its council-widening question, and states the same
+boundary already in this register's plan: wiring stage-3 seats into the live workflow is reserved for the owner's explicit sign-off.
+
+Register gap closed: fixloop's entire triage/escalation subsystem (4 phases, all live) shipped after extraction froze, so none of it existed in the register. Added FIX-051/052/053 and updated FIX-034, each
+independently verified against live code, then cross-checked by a dedicated research pass that additionally confirmed every commit against git log. Also added STY-049 for the missingkey=zero structural defect
+behind fixloop's active real-case — and while writing its relations, surfaced a cross-cutting failure family (the same "schema says required, renderer says silently empty" shape recurring across TL-001,
+PBP-012/019, STY-004/019, and CLC-003).
+
+A finding worth your attention, not something I acted on: fixloop chose the image-landing/article-body trap (004) as its first real-case dispatch. A separate concurrent session resolved the underlying data loss the
+same day (005, confirmed via file mtime and an independent go test re-run) — 2 of 004's 3 "open items" are actually done. Only the structural defect remains open. Fixloop's dispatch decision on case 004 may need
+revisiting — flagged in the plan and runbook (B6), left for the owner to decide.
+
+Stage-3 pilot seat, data-driven: computed rediscovery frequency across all 1,631 concepts per fixloop's own suggested method. Two strong candidates, both matching FIX-036's original roster: reuse-agent
+(tool-lifecycle.md, the single most rediscovered category) and bug-historian (the silent-content-loss family above, directly tied to fixloop's active work — recommended first). Neither is built; the choice is
+yours.
+
+Register integrity double-checked end to end: 1,631 concepts, perfectly matched between category files and index, zero loss. All three running docs, README.md, memory, and MEMORY.md updated to match.
+
+---
+
+SUMMARY_where_we_are_2026-07-16.md — a plain-language, read-aloud version (matching the same "calm companion to the technical doc" convention fixloop itself uses): where the register came from, where it is now, and
+where it's going, no jargon or citations, readable aloud in a couple of minutes.
+
+PILOT_bug_historian_reviewer.md — the complete pilot design for the bug-historian seat. I went with bug-historian over reuse-agent: the recurring failure pattern (7 independent occurrences across the platform's
+history) is durable evidence even though the specific triggering incident just closed — a historian's value is catching the next one. Before designing the patch I read the actual live workflow file and the
+council-decision Go code directly, which surfaced something not spelled out anywhere in the docs: any reviewer's veto triggers outright rejection regardless of hard_veto_from — it only affects the audit label. That
+shaped the design directly: the new seat's prompt offers only approve|object, never veto, so it's genuinely advisory rather than an accidental second gatekeeper.
+
+The document contains the charter, the exact 7-concept curated-context digest, a full prompt template matching the existing two reviewers' style precisely, and the exact 4-edit patch needed in 0NN_fix_proposer.sql.
+
+I haven't touched the live file or database — per the boundary established earlier (and independently corroborated by fixloop's own docs), that step needs your explicit go-ahead. Section 6 of the pilot doc lays out
+exactly what applying it would involve. Say the word and I'll do it — as drafted, or with whatever changes you want first.

@@ -27,6 +27,10 @@ entries at the bottom. Update every turn.
 | 2026-07-14 | Extended stage-2 sweep to the 102 superseded + 72 abandoned buckets (last unswept portion of the register) | **confirmed, complete** (18 corrections, 9 overturned) |
 | 2026-07-14 | Stage 2 fully complete: all 1,627 concepts checked, 124 corrections total (~7.6% error rate) across all three batches | **confirmed** |
 | 2026-07-14 | Stage 3 design questions (granularity/activation/freshness) resolved into a concrete recommendation grounded in the live fix-loop mechanism | **confirmed** (design only — implementation deferred to user) |
+| 2026-07-16 | fixloop's triage/escalation subsystem (shipped after extraction froze) added to the register: `FIX-051`/`052`/`053`, `FIX-034` updated, `STY-049` (the missingkey=zero structural defect) | **confirmed** (independently verified against live code + a dedicated research pass) |
+| 2026-07-16 | Stage-3 pilot seat: two data-driven candidates recommended (reuse-agent/tool-lifecycle; bug-historian/silent-content-loss family) | **confirmed** (recommendation only — pick + build deferred to user) |
+| 2026-07-16 | Flagged to owner: fixloop's case-004 (image-landing trap) dispatch may be moot — a separate session resolved 2 of its 3 open items the same day | **flagged, not actioned** (fixloop-workstream's decision) |
+| 2026-07-16 | User picked bug-historian over reuse-agent as the pilot seat to build; wrote a read-aloud summary doc + the full pilot spec (charter, curated context, prompt, exact patch) | **confirmed** (spec complete, application deferred to user) |
 
 ---
 
@@ -227,5 +231,112 @@ credential rotation (RUNBOOK B1) and the stage-3 implementation decision
 (RUNBOOK B4 / PLAN §Stage 3 scope boundary — a cross-workstream change to the
 live fix-loop council that needs the user's sign-off, not something to
 proceed on unilaterally).
+
+## Turn 12 — 2026-07-16 — Doc sweep + fixloop coordination: 4 new concepts, a stale-case finding, pilot-seat recommendation
+
+User asked to survey docs created/updated since the last sweep (2026-07-14) and
+carry on the plan while coordinating with the fixloop ("diagnose") thread.
+
+**Sweep:** 62 commits since 2026-07-14 across many concurrent workstreams.
+Confirmed via file mtimes that `docs026_concept_register/` itself was
+untouched by anyone else — no drift to reconcile in the register's own files.
+Read `fixloop_eg_dartsonline/SUMMARY_where_we_are_2026-07-16.md` (the fixloop
+thread's own journey doc) — it independently names this workstream
+("search-tab2") as the answer to its council-widening question and states the
+identical scope boundary already in `PLAN_concept_register.md`: implementing
+council seats against the live workflow is reserved for owner sign-off.
+
+**Register gap found and closed:** fixloop's triage/escalation subsystem (4
+phases, all live v1.0.1117→v1.0.1123) shipped entirely after extraction froze
+on 2026-07-13, so none of it existed in the register. Added `FIX-051` (triage
+router), `FIX-052` (silent-check verifier), `FIX-053` (feedback close-out), and
+updated `FIX-034` in place (Phase 4 digest addition). Verified every claim
+independently — direct greps for registry entries, action files, function
+line numbers — then cross-checked against a dedicated research agent's
+independent pass, which additionally confirmed every cited commit against
+`git log --oneline --all` and `git merge-base --is-ancestor`. Everything
+matched; the agent added extra precision (e.g. capability-gap routing reuses
+the pre-existing `WriteBuildItemsAction`, not new code; the two named
+silent-check checks `nav_linked_never_built`/`deployed_zero_components`).
+
+**Real-case investigation:** fixloop's real-case queue picked
+`aaa_fails_to_mend/004` (image-landing/article-body blanking trap) as its
+first dispatch target. Traced the mechanism to `call_agent.go:1152`'s
+`Option("missingkey=zero")` and wrote it up as `STY-049`, cross-linking it to
+a **cross-cutting failure family** discovered while researching relations:
+`TL-001` (tool-lifecycle.md, tool-widget-clobber), `PBP-012`/`PBP-019`
+(page-build-pipeline.md), `STY-004`/`STY-019` (styling-render-pipeline.md),
+and `CLC-003` (tool-library.md) are all the same "schema says required,
+renderer says silently empty" shape, independently recurring across at least 5
+categories.
+
+**Critical finding, surfaced not actioned:** `aaa_fails_to_mend/004`'s "3 open
+items" framing is stale. A separate concurrent session
+(`article-body-json-envelope-workstream`) resolved the underlying data loss
+the same day — `005_HANDOFF...FIXED.md` (mtime 17:52, later than 004's 11:58)
+shows all 17 article-body instances recovered; independently re-ran `go test
+./platform/orchestration/actions/... -run TestParseLLMJSON` myself and
+confirmed every test green. Only the structural `missingkey=zero` defect
+remains genuinely open. This means fixloop's planned dispatch to case 004 may
+no longer be its best next move — flagged in `PLAN_concept_register.md`'s new
+"Coordination checkpoint" section and `RUNBOOK_concept_register.md` B6, not
+decided unilaterally (that's fixloop's dispatch call, not this workstream's).
+
+**Stage-3 pilot-seat recommendation:** computed a source-citation count across
+all 1,631 concepts as a rediscovery-frequency proxy (per FIX-036's own
+suggested method). `tool-lifecycle.md` is the single most rediscovered
+category (5 of the top ~30 cited concepts) — candidate A, "reuse-agent," with
+`DEV-001` (reuse-before-create) as its ready-made charter. The silent-content-
+loss family found above is candidate B, "bug-historian" — more concretely tied
+to fixloop's actual current work. Wrote both up in `PLAN_concept_register.md`
+§Stage 3, recommending B first but leaving the choice to the user.
+
+Updated all three running docs, `README.md` (concept count 1,627→1,631,
+directory layout), and `register/000_concept_index.md`'s intro (new
+"2026-07-16 addition" note). Did not touch the live fixloop workflow or make
+any dispatch decision — both remain explicitly the owner's call.
+
+## Turn 13 — 2026-07-16 — Read-aloud summary written; bug-historian pilot fully spec'd
+
+User asked for (1) a summary document they could read out, and (2) to go
+ahead with either the reuse-agent or bug-historian pilot, whichever I
+preferred.
+
+Wrote `SUMMARY_where_we_are_2026-07-16.md` — plain-language, narrative,
+matching this repo's own convention (fixloop keeps a "calm, read-aloud"
+companion to its technical journey doc; did the same here) — a
+where-we-came-from / where-we-are / where-we're-going arc, no code citations,
+readable aloud in a couple of minutes.
+
+Picked **bug-historian** over reuse-agent, consistent with the earlier
+recommendation: the recurring failure family (7 independent occurrences) is
+durable evidence even though the specific triggering incident (the
+image-landing trap) has now fully closed — a historian's whole value is
+catching the *next* occurrence, and this incident is a genuinely excellent
+worked example to seed it with.
+
+Before designing the patch, read the actual live workflow file
+(`fixloop_eg_dartsonline/0NN_fix_proposer.sql`) end to end, plus
+`platform/orchestration/actions/diagnose_council_decide_action.go` — this
+surfaced a precise mechanical fact not spelled out in the register: **any**
+reviewer's `veto` verdict triggers "rejected" identically, regardless of
+`hard_veto_from` (which only changes the audit label, not the outcome). This
+directly shaped the design: the new seat's prompt offers only
+`approve|object`, never `veto`, so it can influence a revise round but never
+single-handedly reject a plan — genuinely advisory, not a second gatekeeper
+by accident.
+
+Wrote `PILOT_bug_historian_reviewer.md`: charter, the exact 7-concept curated
+context digest, a full prompt template matching the existing two reviewers'
+style/contract precisely, and the exact 4-edit patch (new step + 3 config
+changes) to slot it into the sequential
+`review_editquality → review_bug_historian → review_guardian → council_decide`
+chain. **Did not touch the live SQL file or apply anything to a database** —
+per the established (and fixloop-corroborated) boundary, that step waits for
+explicit sign-off, which the document's §6 asks for directly.
+
+Updated `PLAN_concept_register.md` (§Stage 3, pilot-seat section now points to
+the completed spec) and `RUNBOOK_concept_register.md` (B5 updated to reflect
+candidate B is spec'd and awaiting an apply decision).
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
