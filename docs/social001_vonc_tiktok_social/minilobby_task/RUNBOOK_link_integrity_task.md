@@ -1,11 +1,16 @@
 # RUNBOOK — fleet link/flow integrity + vonc repair + Arena (2026-07-14)
 
+> **STATUS 2026-07-16: EXECUTED. Migrations 091–097b applied live, Arena
+> deployed, all verified. Current handoff / summary / next steps:
+> `HANDOFF_link_integrity_arena_2026-07-16.md`. This RUNBOOK is now the
+> historical operational sequence; read the HANDOFF first.**
+
 Operational sequence for the work shipped on branch `085_debug_and_feature_loops`
 (plan: owner-approved 2026-07-14). Everything below runs against the live
 cluster/DB — none of it happened in the authoring session. **Order is
 load-bearing**; each step's gate is stated.
 
-Companion migrations (this directory): `091` … `095`.
+Companion migrations (this directory): `091` … `097b`.
 Go changes (one chassis image): `resolve_internal_links_action.go` (interactive-
 first `chooseCTATargets`, `cta_target_title`, `ctaExcludedDestination`),
 `rerender_page_sections_action.go` (`applyCTARecompute`, gated on
