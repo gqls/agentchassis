@@ -261,6 +261,20 @@ type acceptanceVerdict struct {
 	Details   []string // "id@profile: detail" for each tool-scoped failure
 	SkipList  []string
 	Chrome    []chromeFailure // failures the adapter attributed to SITE CHROME
+	Shots     []screenshotRef // P3 evidence: one full-page screenshot per failing (url, profile)
+}
+
+// screenshotRef is the P3 evidence the adapter attached to a failing run.
+// URI is the durable s3:// pointer — the ONLY form that may enter a doc_note
+// (notes are loaded into LLM prompt contexts; presigned URLs are hundreds of
+// chars of expiring signature). ViewURL is a presigned GET for the work item's
+// spec, where a human triaging the ticket can click it (7-day expiry).
+type screenshotRef struct {
+	Profile string
+	URL     string
+	URI     string
+	ViewURL string
+	Failing []string // id@profile instances the screenshot evidences
 }
 
 // chromeFailure is a document-level failure the adapter proved lies OUTSIDE the
@@ -379,7 +393,75 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 			}
 		}
 	}
+
+	var rawShots interface{}
+	for _, p := range []string{
+		field + ".response.data.screenshots",
+		field + ".response.screenshots",
+		field + ".data.screenshots",
+		field + ".screenshots",
+	} {
+		if rawShots = datahelpers.ExtractNestedField(collected, p); rawShots != nil {
+			break
+		}
+	}
+	if shotItems, ok := rawShots.([]interface{}); ok {
+		for _, it := range shotItems {
+			m, ok := it.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			ref := screenshotRef{}
+			ref.Profile, _ = m["profile"].(string)
+			ref.URL, _ = m["url"].(string)
+			ref.URI, _ = m["uri"].(string)
+			ref.ViewURL, _ = m["view_url"].(string)
+			if fc, ok := m["failing_checks"].([]interface{}); ok {
+				for _, f := range fc {
+					if s, ok := f.(string); ok {
+						ref.Failing = append(ref.Failing, s)
+					}
+				}
+			}
+			if ref.URI != "" {
+				v.Shots = append(v.Shots, ref)
+			}
+		}
+	}
 	return v
+}
+
+// evidenceLine renders the P3 screenshots for a note body — durable URIs only,
+// never the presigned ViewURL (that lives in the item spec). Empty when the
+// run produced no evidence (clean pass, or screenshots not configured).
+func evidenceLine(shots []screenshotRef) string {
+	if len(shots) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(shots))
+	for _, s := range shots {
+		p := s.URI
+		if s.Profile != "" {
+			p += " (" + s.Profile + ")"
+		}
+		parts = append(parts, p)
+	}
+	return "\nEvidence: full-page screenshot(s) at failure: " + strings.Join(parts, "; ")
+}
+
+// shotsForSpec renders screenshot refs for a work item's spec (uri + view_url).
+// profile filters to one profile's evidence; "" keeps everything.
+func shotsForSpec(shots []screenshotRef, profile string) []map[string]interface{} {
+	var out []map[string]interface{}
+	for _, s := range shots {
+		if profile != "" && s.Profile != "" && s.Profile != profile {
+			continue
+		}
+		out = append(out, map[string]interface{}{
+			"profile": s.Profile, "uri": s.URI, "view_url": s.ViewURL,
+		})
+	}
+	return out
 }
 
 func JudgeAcceptanceResultsAction(ctx context.Context, params ActionParams) (interface{}, error) {
