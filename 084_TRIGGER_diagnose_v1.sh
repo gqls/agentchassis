@@ -11,6 +11,17 @@
 #
 # REF is EXPLICIT — never HEAD (user decision 2026-07-02).
 #
+# NO COVERAGE CHECK HERE — DELIBERATE (multi_session_coordination, 2026-07-16).
+# 084 is the bare, no-record escape hatch. Its sibling
+# docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh
+# writes an intake record AND refuses to dispatch when an open work item already
+# touches the target — another session may be fixing what you are about to
+# diagnose (that collision cost a real run on 2026-07-16, correlation 781ea4f7).
+# THIS script will happily fire into that collision. Prefer 090 for any run you
+# would be annoyed to waste; if you use 084, check the queue yourself first:
+#   SELECT item_key, status, created_by FROM site_work_items
+#    WHERE status NOT IN ('complete','cancelled','rejected') AND <your target>;
+#
 # ANCHOR NOTE (2026-07-06 incident): an ANCHORLESS run (no RUNTIME_SITE/SITE_ID)
 # requires the load_runtime error routing migration
 # (0NN_diagnose_load_runtime_error_step.sql) — without it, diagnose_load_runtime
