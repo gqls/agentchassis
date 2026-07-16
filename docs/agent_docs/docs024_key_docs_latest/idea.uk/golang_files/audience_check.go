@@ -49,6 +49,21 @@ func newRateLimiter() *rateLimiter {
 	}
 }
 
+// newIntakeLimiter bounds the /request form. Looser than the taster: a genuine
+// request is rare, but a real person may legitimately submit two or three times
+// (a typo, a second business), so the hour band is generous. The honeypot and
+// timing gate do the heavy lifting against bots; this is the backstop against a
+// flood from one address.
+func newIntakeLimiter() *rateLimiter {
+	return &rateLimiter{
+		hits: map[string][]time.Time{},
+		bands: []rateBand{
+			{window: time.Hour, max: 5},
+			{window: 24 * time.Hour, max: 15},
+		},
+	}
+}
+
 // allow returns (ok, retryAfter). retryAfter is the earliest moment the IP
 // could try again if it's currently throttled; zero when allowed.
 func (rl *rateLimiter) allow(ip string) (bool, time.Duration) {

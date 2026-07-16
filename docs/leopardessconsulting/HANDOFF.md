@@ -4,9 +4,10 @@
 the single source of truth for state. The deeper detail lives in the four companion
 docs, but this file is enough to resume without them.
 
-**Last updated:** 2026-07-14 (turn 17)
+**Last updated:** 2026-07-16 (turn 17, extended)
 **Branch:** `085_debug_and_feature_loops`
 **Site:** `leopardessconsulting.co.uk` · `site_id = 4851f6fc-71cf-4160-a270-e03d6d3e0732`
+**Plain-language status to show someone:** `SUMMARY_where_we_are.md` (this file is the technical resume point).
 
 ---
 
@@ -24,12 +25,14 @@ The owner reviewed the live site and raised the items below. Status as of **turn
 | 6 | blog.html broken (empty "min read/Read more", no posts/images) | **FIXED (excerpts + read times live)** | Root cause was empty `pages.meta_description` on the 2 `/blog/` posts. Populated → `rerender-pages` → `rebuild_blog_listing`. Live: 5 cards, real excerpts, real read times. Card **thumbnails** remain blank (Phase I3 gap, `rebuild_blog_listing_action.go:186` hardcodes `image:""`). |
 | 7 | use-cases claims we do things we don't | **FIXED & verified live** | Was worse than reported: 5 fabricated case studies with invented clients + invented results. The rewritten `portfolio` spec already held 5 honest "Not yet done for a client" use_cases — made the spec the source of truth (mirrored `status`→`client`), backfilled content_data on all 3 slots, re-rendered. Live: 0 fabrications, 0 phantom links, 0 navy. |
 | 8 | favicon.png 404 | **FIXED** | Head hardcodes `/assets/images/favicon.png`; only `.ico` was committed. Committed the png → 200. |
-| 9 | Empty pages | **PARTLY FIXED** | The "3 zero-section pages" was wrong twice over. Truth (via `page_components` count, NOT `pages.sections` — that's just a type-name plan): **llm-cost-calculator-guide** REBUILT & live (linked from the blog listing — never reported); **for-engineering-leaders** ARCHIVED + de-navved (duplicate of for-engineering-teams); **ai-readiness-quiz** rebuild blocked → see §8 `contact-block` bug (now fixed fleet-wide; rebuild re-fired). 7 further empty case-study pages are `status='archived'`, unlinked, no sitemap → harmless. |
-| 10 | **Voice still reads LLM-written** | **IN PROGRESS — 3 pages done turn 17** | `specs/VOICE_REWRITE_PROMPT.md`. **Done & verified live:** services (hero+CTA — killed the exact banned triad "observability, fault isolation, cost controls" that appeared twice, fixed a circular CTA self-link), how-it-works (removed a duplicated text block → honest "What it does not do" limits section), our-approach (hero triad + title-case heading). **Method that works:** the pipeline path (page-content-writer + `rewrite_guidance`) is the SAME spawn→child path broken by the §8 infra flake, so hand-edit `content_data` fields directly + fire a no-LLM `section_data_resolved` rerender (all copy is in structured content_data). **Already fine, don't redo:** how-it-works body, engagement-model, who-we-help, for-engineering-teams, services middle sections. **Remaining:** `contact` (empty content_data — hand-author), technical-architecture (defensibly technical, low priority), + the **merge decision** below. |
+| 9 | Empty pages | **PARTLY FIXED — 1 blocked on infra** | The "3 zero-section pages" was wrong twice over. Truth (via `page_components` count, NOT `pages.sections` — that's just a type-name plan): **llm-cost-calculator-guide** REBUILT & live (linked from the blog listing — never reported); **for-engineering-leaders** ARCHIVED + de-navved (duplicate of for-engineering-teams); **ai-readiness-quiz** STILL BLANK — content path clean (the `contact-block` validator bug is fixed fleet-wide), blocked only by the §8 infra flake (5 attempts, all lost-child-response). 7 further empty case-study pages are `status='archived'`, unlinked, no sitemap → harmless. |
+| 10 | **Voice still reads LLM-written** | **DONE for the pages that needed it — verified live** | `specs/VOICE_REWRITE_PROMPT.md`. **4 pages rewritten & verified live:** services (hero+CTA — killed the banned triad "observability, fault isolation, cost controls" that appeared twice; fixed a circular CTA self-link), how-it-works (duplicated text block → honest "What it does not do" limits section), our-approach (hero triad + title-case heading), contact (CTO copy + empty-cd landmine + the 4th phantom quiz link). **Sitewide check: 0 banned-triad occurrences, 0 phantom quiz links.** **Method:** the pipeline path (page-content-writer + `rewrite_guidance`) is the SAME spawn→child path broken by §8, so hand-edit `content_data` + fire a no-LLM `section_data_resolved` rerender (guard: a slot with EMPTY content_data escalates the whole page to the writer — populate first, as done for contact). **Already fine, don't redo:** how-it-works body, engagement-model, who-we-help, for-engineering-teams, services middle sections. **Remaining:** technical-architecture (low priority) + the page-MERGE decision (§6.3). |
 
 Backups (turn 17): `bak_pages_contentdata_leo_20260714`, `bak_usecases_leo_20260714`,
 `bak_portfolio_spec_leo_20260714`, `bak_blogmeta_leo_20260714`, `bak_fel_page_leo_20260714`,
-`bak_navitem_fel_20260714`, `bak_contactblock_20260714`.
+`bak_navitem_fel_20260714`, `bak_contactblock_20260714`; voice pass:
+`bak_services_leo_20260715`, `bak_howitworks_leo_20260715`, `bak_ourapproach_leo_20260715`,
+`bak_contact_leo_20260715`.
 
 ---
 
@@ -174,37 +177,50 @@ never trust orchestration status alone.
 
 ## 6. NEXT ACTIONS (in priority order)
 
-**FIRST, resume the two things left in flight at end of turn 17** (verify, don't assume):
-- `ai-readiness-quiz` rebuild (take 4, fired after the `contact-block` fix). Check:
-  `SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.name='ai-readiness-quiz' AND p.site_id='…';`
-  If still 0, read `agent_error_log` (context.issues has the real reason). It is linked from
-  the footer AND the use-cases CTA, so it must not stay blank.
-- The footer reassembly batch (~17 `page_rerender` items when turn 17 ended). Verify no live
-  page still links `for-engineering-leaders`:
-  `for p in index about services …; do curl -s https://leopardessconsulting.co.uk/$p.html | grep -c for-engineering-leaders; done`
-  Stale items sometimes stick in `claimed` — reset to `triaged` to unblock.
+**THE ONE OPEN IN-FLIGHT ITEM: `ai-readiness-quiz` is still blank.** Its content path is clean
+(validation passes; the `contact-block` validator bug is fixed fleet-wide) — it is blocked ONLY
+by the infra flake in §8 (5 build attempts, all died on lost-child-response / reaper, never on
+content). Its `sections` are `["hero","ai-readiness-quiz","contact-block"]`; the interactive
+quiz component exists and is active. **To resume: re-fire page-build-handler for it when the
+cluster is healthy, and watch the spawned child land its response** (see
+`docs/HANDOFF_spawn_lost_child_response.md` — that's the separate thread for the actual bug).
+Check state: `SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.name='ai-readiness-quiz' AND p.site_id='4851f6fc-71cf-4160-a270-e03d6d3e0732';`
+It's linked from the footer + use-cases CTA, so it must not stay blank.
 
 1. **[✅ done] Site uniformity / header + footer.** KEY LESSON: use `reassemble_pages.sh`
    (ASSEMBLE mode + page_id) for header/footer changes — `section_data_resolved` SKIPS
    unchanged pages and silently won't update them. For a NAV change you must also re-render
-   the slot first: `rerender-pages` with `spec.refresh_site_components:true`.
-2. **VOICE REWRITE (punch #10) — the biggest remaining content job.** Start with `contact`
-   (empty content_data, CTO-register copy, nothing to lose), then engagement-model,
-   how-it-works, our-approach, technical-architecture, for-engineering-teams. Note
-   page-content-writer accepts `rewrite_guidance` — but read §9's clobber warning first.
-3. **Per-page `<title>` + og:image meta.** Still partly stale (old marketing titles). Also
-   **there is no `sitemap.xml` at all** (0 URLs) — worth generating.
+   the slot first: `rerender-pages` with `spec.refresh_site_components:true`. And when the
+   `page_rerender` queue won't drain (build-dispatch-loop stalls — happens), `reassemble_pages.sh`
+   drives `page-rerender` directly, bypassing `site_work_items` entirely.
+2. **[✅ mostly done] VOICE REWRITE (punch #10).** 4 pages done & verified live this session:
+   services, how-it-works, our-approach, contact (all via hand-edit content_data + no-LLM
+   `section_data_resolved` rerender — the reliable path; the pipeline route is infra-blocked).
+   **Remaining:** technical-architecture (defensibly technical, low priority); the rest of the
+   pages are already in good voice — DON'T redo how-it-works body, engagement-model,
+   who-we-help, for-engineering-teams, or the services middle sections.
+3. **PAGE-MERGE DECISION (owner's call, flagged for you).** how-it-works, our-approach,
+   technical-architecture, and for-engineering-teams share ~80% of their body content
+   (K8s/Kafka/Postgres + hierarchical agents + logging + approval gates + verify-against-source
+   + "we run it on our own sites first"). Recommend collapsing to one "how it works" + one short
+   technical cut and dropping the rest. Polishing each to sound distinct just entrenches the
+   duplication.
 4. **Imagery (punch #5).** Blocked on the infra flake + the hero→SDXL routing gap, both in
-   §8/§9. The safe wiring SQL is written; only run it against an asset you have *looked at*.
-5. **The build-out the brief actually asks for**: tools, illustrated guides, news surface,
+   §8/§9. `scripts/wire_heroes.sql` is written and guarded — only run it against an asset you
+   have *looked at* (the one SDXL hero generated was unusable; nothing is wired).
+5. **Per-page `<title>` + og:image meta** (partly stale marketing titles) and **there is no
+   `sitemap.xml` at all** (0 URLs) — SEO/social polish.
+6. **The build-out the brief actually asks for**: tools, illustrated guides, news surface,
    "AI working frontend" demos (label simulations honestly), infographics. Tool library
    already has reusable interactive components — deploy/adopt rather than rebuild. News feed
    pipeline is real and running — surface it.
-6. **L7 — the chart component** (A5/A7). The one genuinely-new build. Start from real DB
+7. **L7 — the chart component** (A5/A7). The one genuinely-new build. Start from real DB
    numbers (2,767 / 4,672 / 8 / 75,061), Go emits static SVG, JS enhances. See PLAN §5.
 
-**Done in turn 17, don't redo:** theme-color is already `#0D0D0D` live. `for-engineering-leaders`
-is archived (do not "fix" it — it was a deliberate merge-duplicate removal).
+**Done, don't redo:** theme-color is already `#0D0D0D` live. `for-engineering-leaders` is
+archived (do NOT "fix" it — deliberate merge-duplicate removal). All 4 phantom
+`/tools/tool-ai-readiness-quiz.html` links are gone (use-cases ×3 + contact ×1). The banned
+triad "observability, fault isolation, cost controls" is gone sitewide.
 
 ## 7. Open owner questions (RUNBOOK H-items)
 

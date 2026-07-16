@@ -1145,7 +1145,15 @@
             <h3>Request a report. <em>We reply within 24 hours.</em></h3>
             <p class="sub">Tell us briefly about your business and the audience you're trying to reach. Enough detail that we know whether we can do a useful job — we'll come back to you with a confirmed slot or a polite decline.</p>
           </div>
-          <form action="/request" method="POST" class="request-form">
+          <form id="request-form" action="/request" method="POST" class="request-form">
+            <!-- anti-spam (2026-07-16): company_url is a honeypot hidden from humans (off-screen,
+                 aria-hidden, no tab stop) — a filled value means a bot. _elapsed is set by the
+                 script below to the on-screen fill time in ms; the server drops impossibly fast
+                 submissions. Both fail open, so a real visitor is never blocked. -->
+            <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden">
+              <label>Leave this field blank<input type="text" name="company_url" tabindex="-1" autocomplete="off" /></label>
+            </div>
+            <input type="hidden" name="_elapsed" value="" />
             <div class="form-row">
               <label>
                 <span class="field-label">Your name</span>
@@ -1177,6 +1185,19 @@
               <p class="form-meta">£29 per report · payment only on confirmation · refund if not useful</p>
             </div>
           </form>
+          <script>
+            // Records how long the request form was on screen and posts it as _elapsed (ms).
+            // Skew-free: it is a client-side delta. The server treats a too-fast submit as a bot.
+            (function () {
+              var f = document.getElementById('request-form');
+              if (!f) return;
+              var loaded = Date.now();
+              f.addEventListener('submit', function () {
+                var el = f.querySelector('input[name="_elapsed"]');
+                if (el) el.value = String(Date.now() - loaded);
+              });
+            })();
+          </script>
         </div>
       </div>
     </section>

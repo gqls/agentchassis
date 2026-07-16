@@ -1681,4 +1681,34 @@ confirmation of the format-version mechanism. Watch for it.
 
 **I2 remains COMPLETE** — this is a house-style refinement within it, not new scope.
 
+## Turn 43 — 2026-07-16 — Doc sync + status read-out; arrow default confirmed NOT-yet-live
+
+**Housekeeping turn (no code).** Created `READOUT_2026-07-16_imagery_status.md` (a
+spoken-word status briefing for reading aloud) and brought the workstream docs
+current: HANDOFF (WHERE-WE-ARE header + refreshed READ FIRST pointing at the
+separate image-landing thread + refreshed Next actions + doc map), RUNBOOK (B10/B11
+closed, added B12 arrow-default gate + B13 content-loss pointer), PLAN decisions
+already carry D9/D10.
+
+**Live-state check (so the docs are accurate):** prod is now `v1.0.1123`. The
+served `sprites.css` default bullet is STILL `0px 0px` (check) and the plan-row
+stamp is STILL format 2 — so the **arrow default (format 3) is committed but NOT
+yet live.** It self-heals on the next discovery pass once the format-3 binary is
+running (sprite_css_missing sees stamped-2 ≠ code-3 → re-emit arrow). Verify with:
+`curl -s https://robot-hands.com/assets/css/sprites.css | grep -o 'li::before[^}]*background-position:[0-9px -]*}' | head -1`
+→ arrow = `0px -40px`.
+
+**Article-body / image-landing trap: now a SEPARATE active thread** (user driving
+it). Wrote `../aaa_fails_to_mend/004_HANDOFF_image_landing_blanks_article_body.md`.
+Re-verified current state while writing it: 13 pages broken (9 blanked, 4 leak;
+down from 14 since the Turn 41 gate-page repair). The escalate-not-blank GUARD is
+committed in source but ABSENT from prod `v1.0.1123` (has `escalateRerenderToWriter`
+but not `missingRequiredLLMFields`) — so **the trap is still LIVE in prod**; the
+standing "don't land images on affected pages" rule holds. `ParseLLMJSON` writer
+repair exists but its test fails on 14 fixtures (some envelopes truncated →
+unrecoverable). All cross-referenced from the 004 handoff.
+
+**I2 remains COMPLETE.** Next imagery phase is I3. Overall priority = the content-
+loss fix (separate thread), not more imagery.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

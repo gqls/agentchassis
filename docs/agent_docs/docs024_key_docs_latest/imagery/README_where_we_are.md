@@ -144,3 +144,36 @@ Given the content loss is live on five sites, my recommendation is to prioritise
 
 ----
 
+Everything's in place and cross-references resolve. Here's what I did.
+
+New: the read-out doc
+
+imagery/READOUT_2026-07-16_imagery_status.md — a spoken-word status briefing you can read aloud, structured exactly as you asked (what we've done / where we are / where we're going), with an "in one
+breath" opener and a one-sentence closer. It's written in prose, not jargon, and it deliberately gives the three surfaced platform bugs their due — because "the visual upgrade also exposed a class of
+silent content-loss bugs" is the part of this story worth saying out loud.
+
+Docs brought current
+
+- HANDOFF — added a "WHERE WE ARE (2026-07-16)" header up top, rewrote the READ FIRST so it points at the separate image-landing thread you're now driving (and to the aaa_fails_to_mend/004 handoff),
+  refreshed "Next actions" (I2 done → verify arrow default → Phase I3), flagged the stale mid-body "State of the world" as historical, and added the read-out to the document map. A fresh chat can start
+  cleanly from it.
+- RUNBOOK — closed B10/B11 (sprite deploy + eyeball gate), added B12 (your A3 gate: verify the arrow default flipped after the next deploy, with the one-line curl check) and B13 (the content-loss fixes as
+  separate threads, with the standing image-landing hazard).
+- PLAN — added the "✅ PHASE I2 COMPLETE" closure block (D9/D10 honoured, the arrow loose end, the one-page gate repair), so the phase map reflects reality.
+- RUNNING_NOTES — Turn 43 recording the doc sync and the live-state re-verification.
+
+The one accuracy point worth your eye
+
+I re-checked the live cluster rather than trusting my notes, and two things had moved:
+
+- Prod is now v1.0.1123, and the arrow default is committed but not yet live — the served CSS default is still check (0px 0px), stamp format 2. It self-heals on the next discovery pass once the format-3
+  binary is running. B12 has the exact check.
+- On the trap you're fixing separately: the escalate-not-blank guard is in source but still absent from prod v1.0.1123, so the trap remains live in production right now. The 004 handoff leads with that,
+  and the "don't land images on affected pages" rule still stands for this workstream. Current count is 13 broken pages (9 blanked, 4 leaking), down from 14 since the gate-page repair.
+
+Where we're going: the read-out and handoff both say the same thing — the content-loss fix (your separate chat) is the priority above more imagery, and Phase I3 (content-linked card imagery) is the next
+imagery phase once that's safe.
+
+One small thing I did not do, to respect the scope of your request: I didn't force the arrow default live by triggering a discovery pass. It'll roll on its own with the next deploy, and forcing it would
+mean running discovery while the image-landing trap is live in prod — I'd rather confirm all imagery rows are fulfilled first. Say the word if you'd like me to complete that once the format-3 build is
+out.

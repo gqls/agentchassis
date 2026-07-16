@@ -165,22 +165,37 @@ items 6/10/11 (reaper cadence bump, per-item-type circuit breaker) are now the
 highest-leverage infra fix for every future build. Recommended before the next
 site build.
 
-### B10. Next chassis deploy unblocks the sprite-sheet DEPLOY (I2, updated 2026-07-13)
-The gating fix (4629aa17) is already deployed and proven. The NEW pending Go
-change is `23fe6e81` (sprite_sheet → jpg): the sheet GENERATES fine but the
-DEPLOY leg failed "Message Size Too Large" — a lossless PNG of the glyph grid
-exceeds the Kafka git-commit message limit (and the ≤80KB budget). The jpg
-switch fixes it. No urgency; rides your next routine deploy — tell the agent
-when it's out and it re-drives the generation to a clean 768² jpg, then the
-B11 eyeball gate.
+### B10. ~~Sprite-sheet deploy (jpg switch)~~ ✅ DONE 2026-07-13
+The jpg switch deployed; the sheet is live at `/assets/images/sprite-sheet-main.jpg`
+(768², 75,745 bytes, under the ≤80KB budget).
 
-### B11. Sprite-sheet EYEBALL GATE (A3 ritual — after the B10 deploy + generation)
-You'll be shown the generated 3×3 sheet. Your job (≈5 min): (1) is it a
-clean, coherent grid of flat light-grey glyphs on dark charcoal — no
-photographic contamination, no text? If not: reject → regenerate. (2) If
-yes: say what each cell ACTUALLY depicts, reading order — the agent records
-the true cell→name map (requested: check, gauge, gripper, cog, chart,
-download, arrow, info, warning — but never assume the model obeyed).
+### B11. ~~Sprite-sheet EYEBALL GATE~~ ✅ PASSED 2026-07-13/15
+You confirmed the nine glyphs (check, gauge, gripper, cog, chart, download,
+arrow, info, warning) and later confirmed the themed list bullets render
+correctly on a live page. Cell map written back to the plan; **Phase I2 is
+COMPLETE** (see B12).
+
+### B12. Sprite bullets — Phase I2 CLOSED (2026-07-15). One pending gate.
+I2 is complete and live: the sheet, per-page glyph bullets, a self-healing
+fulfilment check (fires once, then quiet), and a "house style" so ordinary
+article lists theme themselves. **You chose the neutral ARROW as the default
+bullet** (check reserved for explicit use). That change is committed but rides
+the next chassis deploy — it self-heals on the next discovery pass.
+**👀 AFTER THE NEXT DEPLOY (your A3):** open the friction-calculator guide and
+confirm the plain content-list bullets flipped from check to arrow. Fast check:
+`curl -s https://robot-hands.com/assets/css/sprites.css | grep -o 'li::before[^}]*background-position:[0-9px -]*}' | head -1`
+— the default should read `background-position:0px -40px` (arrow), not `0px 0px`
+(check). No action if it hasn't flipped yet; it lands with the format-3 binary.
+
+### B13. Content-loss fixes — NOT imagery, but the current top priority
+While doing I2 the work surfaced pre-existing platform bugs that silently lose
+live content (empty product pages; article bodies stored as unparsed JSON; an
+image landing that can blank an article). These are handed off to dedicated
+threads — you are already driving the article-body / image-landing pair.
+Written up in `../aaa_fails_to_mend/004_HANDOFF_image_landing_blanks_article_body.md`,
+`../HANDOFF_2026-07-14_article_body_json_envelope.md`, and
+`../HANDOFF_2026-07-14_empty_product_sections.md`. **Standing hazard until the
+fix deploys: do not let an image land on the affected pages — it blanks them.**
 
 ---
 

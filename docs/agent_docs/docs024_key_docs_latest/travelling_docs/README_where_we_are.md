@@ -159,3 +159,5 @@ Both halves of what you approved are done, and the loop is closed green on a rea
   check_required_fields_missing.go, check_sprite_css_missing.go). Same trap that bit T11/T13.
 
   From here it's polish: P3 screenshots, and letting the other 7 sites' footers self-heal on their natural rerender cadence.
+
+---

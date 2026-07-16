@@ -20,8 +20,10 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/mail"
 	"net/smtp"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -57,6 +59,7 @@ type App struct {
 	deliverHTML func(to, subject, text, htmlBody string)
 	dispatch    func(func()) // how background work runs (goroutine in prod, inline in tests)
 	taster      *rateLimiter // per-IP rate limiter for the public /audience-check endpoint
+	intake      *rateLimiter // per-IP rate limiter for the public /request form
 	landingHTML []byte       // the landing page with CONTACT_EMAIL / MONTH_SLOTS placeholders filled
 }
 
@@ -83,6 +86,7 @@ func NewApp(cfg Config, store *Store, p Provider) *App {
 		deliverHTML: makeDeliverHTML(cfg.OperatorEmail),
 		dispatch:    func(f func()) { go f() },
 		taster:      newRateLimiter(),
+		intake:      newIntakeLimiter(),
 		landingHTML: []byte(rendered),
 	}
 }
@@ -298,23 +302,88 @@ func (a *App) subscribe(w http.ResponseWriter, r *http.Request) {
 <a class="back" href="/">← Back to idea.uk</a>`))
 }
 
+// requestMinFillMillis is the floor on how fast a human fills and submits the
+// /request form. The page's JS posts the on-screen time as _elapsed (a
+// client-side delta, so immune to client/server clock skew). A submit faster
+// than this is treated as a bot. Fail open when _elapsed is absent or
+// unparseable, so a no-JavaScript visitor is never blocked.
+const requestMinFillMillis = 2500
+
 func (a *App) handleRequest(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	name, email := r.FormValue("name"), r.FormValue("email")
-	business, audience := r.FormValue("business"), r.FormValue("audience")
-	notes := r.FormValue("notes")
-	if name == "" || email == "" || business == "" || audience == "" {
-		http.Error(w, "missing required field", 400)
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
 		return
 	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad form", http.StatusBadRequest)
+		return
+	}
+	ip := clientIP(r)
+
+	// Honeypot: a field hidden from humans (off-screen, aria-hidden, no tab stop).
+	// If it carries anything, a bot filled it. Return the ordinary success page so
+	// the bot learns nothing, but save and email nothing.
+	if strings.TrimSpace(r.FormValue("company_url")) != "" {
+		log.Printf("request: dropped honeypot submission from %s", ip)
+		a.requestAccepted(w, r.FormValue("name"))
+		return
+	}
+
+	// Timing gate: reject an impossibly fast fill. Silent drop, same as honeypot.
+	if ms, err := strconv.Atoi(strings.TrimSpace(r.FormValue("_elapsed"))); err == nil && ms > 0 && ms < requestMinFillMillis {
+		log.Printf("request: dropped too-fast submission (%dms) from %s", ms, ip)
+		a.requestAccepted(w, r.FormValue("name"))
+		return
+	}
+
+	// Per-IP flood backstop (looser than the taster; see newIntakeLimiter).
+	if ok, retry := a.intake.allow(ip); !ok {
+		mins := int((retry + 59*time.Second) / time.Minute)
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", int(retry.Seconds())))
+		w.WriteHeader(http.StatusTooManyRequests)
+		writeHTML(w, fmt.Sprintf(
+			`<h1>One moment</h1><p>We've had a lot of requests from your connection just now — please try again in about %d minute(s), or email us directly at %s.</p><a class="back" href="/">← idea.uk</a>`,
+			mins, html.EscapeString(a.contactEmail())))
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	email := strings.TrimSpace(r.FormValue("email"))
+	business := strings.TrimSpace(r.FormValue("business"))
+	audience := strings.TrimSpace(r.FormValue("audience"))
+	notes := strings.TrimSpace(r.FormValue("notes"))
+
+	if name == "" || email == "" || business == "" || audience == "" {
+		http.Error(w, "missing required field", http.StatusBadRequest)
+		return
+	}
+	// Sanity, not strictness: a parseable address and fields within sane bounds —
+	// enough to reject junk and cap payload size without rejecting real people.
+	if _, err := mail.ParseAddress(email); err != nil || len(email) > 254 {
+		http.Error(w, "Please enter a valid email address", http.StatusBadRequest)
+		return
+	}
+	if len(name) > 200 || len(business) > 500 || len(audience) > 2000 || len(notes) > 4000 {
+		http.Error(w, "One of the fields is too long — please shorten it", http.StatusBadRequest)
+		return
+	}
+
 	id := newID()
 	now := time.Now().UTC()
 	a.store.Save(&Order{ID: id, Name: name, Email: email, Domain: business,
 		Audience: audience, Assets: notes, Status: "requested",
-		CreatedAt: now, UpdatedAt: now})
+		CreatedAt: now, UpdatedAt: now, IP: ip, UserAgent: r.UserAgent()})
 	a.deliver(a.cfg.OperatorEmail, fmt.Sprintf("[idea.uk] New report request %s", id),
-		fmt.Sprintf("New idea.uk report request.\n\nRequester: %s (%s)\nBusiness: %s\nAudience: %s\nNotes: %s\n\nOrder id: %s\n\nReview and decide (confirm to run the report, or decline) here:\n%s\n",
-			name, email, business, audience, notes, id, a.opLink(id)))
+		fmt.Sprintf("New idea.uk report request.\n\nRequester: %s (%s)\nBusiness: %s\nAudience: %s\nNotes: %s\n\nIP: %s\nUA: %s\n\nOrder id: %s\n\nReview and decide (confirm to run the report, or decline) here:\n%s\n",
+			name, email, business, audience, notes, ip, r.UserAgent(), id, a.opLink(id)))
+	a.requestAccepted(w, name)
+}
+
+// requestAccepted renders the "we've got your request" page. Extracted so the
+// honeypot and timing silent-drop paths return an identical response to a real
+// accept — a filtered bot gets no signal that it was caught.
+func (a *App) requestAccepted(w http.ResponseWriter, name string) {
 	writeHTML(w, a.page("Request received",
 		`<h1>Thanks, `+html.EscapeString(firstName(name))+` — we've got your request.</h1>
 <div class="accent">

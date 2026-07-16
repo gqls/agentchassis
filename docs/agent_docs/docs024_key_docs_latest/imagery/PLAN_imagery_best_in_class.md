@@ -431,6 +431,18 @@ stylesheet); only the wrapper CLASS remains, blocked on the article-body JSON-en
 repair (`HANDOFF_2026-07-14_article_body_json_envelope.md`). That repair is also
 prerequisite reading: **landing an image on those pages BLANKS the article.**
 
+**✅ PHASE I2 COMPLETE — 2026-07-15/16.** I2.5 landed: the `sprite-bullets` class is
+on the GLOBAL article-body wrapper and PROVEN live on the friction-calculator guide
+(an unclassed content list themes itself; the Safety Factor list keeps its explicit
+glyphs; the page's JSON leak was removed in the same pass). To unblock it, the gate
+page's article was recovered from its unparsed envelope into `content_data.content`
+(one-page scoped repair; the fleet-wide article-body repair is a separate thread).
+**D9/D10 both honoured** (baked-in cell background accepted; container house-style).
+**One loose end:** you chose ARROW as the container default (was check) — committed
+(`spriteDefaultBulletGlyph`, `SpriteCSSFormat` 2→3), rides the next deploy, self-heals
+via `sprite_css_missing` on the next discovery pass. Verify: served CSS default
+`0px -40px`. Acceptance MET. **Next: Phase I3.**
+
 ### Phase I3 — Content-linked card imagery (G3; Lane B foundation)
 - Generalise the content-entity → asset link (D2/Lane B): entity image reference + `needs_content_image` work item + handler composing prompts from the content item + brand guide.
 - `card` kind/purpose with its own size profile (e.g. 800×450 WebP); card components resolve the entity's image. **Confirmed 2026-07-08: the card image is the article's asset re-cropped** (purpose-specific crops of one generation), not a sibling generation — one source image yields article hero, card crop, and OG crop.

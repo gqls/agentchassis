@@ -27,6 +27,10 @@ type Order struct {
 	ProviderSessionID string    `json:"provider_session_id"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
+	// Captured at intake so a future IP block list can be seeded from real orders.
+	// Empty on rows created before this was added (2026-07-16).
+	IP        string `json:"ip,omitempty"`
+	UserAgent string `json:"user_agent,omitempty"`
 }
 
 type Store struct {

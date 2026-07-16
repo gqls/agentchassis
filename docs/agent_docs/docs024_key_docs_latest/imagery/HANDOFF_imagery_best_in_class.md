@@ -1,20 +1,31 @@
 # HANDOFF — Imagery best-in-class workstream (start a new chat from here)
 
-**Last updated: 2026-07-14 (Turn 36). UPDATE THIS DOCUMENT EVERY WORKING
-TURN, alongside the running notes — it is the single entry point for a fresh
-session.**
+**Last updated: 2026-07-16. UPDATE THIS DOCUMENT EVERY WORKING TURN, alongside
+the running notes — it is the single entry point for a fresh session.**
 
-## ⚠️ READ FIRST (Turn 39): a STANDING SAFETY WARNING for this workstream
-**Landing an image on a page fires a SCOPED RERENDER (`image_landed`), and on 14 of
-16 article-body pages that BLANKS THE ARTICLE** — the light re-render path renders
-the missing `{{.content}}` as empty (the writer never parsed the LLM's JSON
-envelope), overwrites the good HTML, and assembly drops the now-empty section. **9
-pages across 5 sites have ALREADY silently lost their article body this way, and
-this workstream's per-page heroes are the likely trigger.** The words are all still
-recoverable from `content_data`. Do NOT land images or fire scoped rerenders on
-those pages until it's fixed. Assemble-only rerenders (no `spec.reason`) are safe.
-→ **`docs024_key_docs_latest/HANDOFF_2026-07-14_article_body_json_envelope.md`**
-(This also BLOCKS I2.5 — the wrapper it needs isn't in the deployed markup.)
+## WHERE WE ARE (2026-07-16) — start here
+- **I0, I1, I2 are ✅ COMPLETE AND LIVE.** Rebuild + per-page heroes; brand layer
+  (locked logo, favicon, OG); sprite-sheet bullets with a self-healing fulfilment
+  check and a content-list house style. Read-out for a status briefing:
+  `READOUT_2026-07-16_imagery_status.md`.
+- **One imagery loose end:** you chose ARROW as the container default bullet; the
+  Go is committed but not yet live (prod `v1.0.1123`, served CSS default still
+  `check`/format 2). Self-heals on the next discovery pass after the format-3
+  deploy — verify per "Next actions" #1.
+- **Next imagery phase: I3** (content-linked card imagery).
+- **BUT the top overall priority is NOT imagery** — see the safety warning next.
+
+## ⚠️ READ FIRST — STANDING SAFETY WARNING (being fixed in a SEPARATE thread)
+**Landing an image on a page fires a scoped re-render (`image_landed`) that BLANKS
+the article body on any page whose content is a never-parsed JSON envelope.** 9
+pages across 5 sites have ALREADY silently lost their article; 4 more leak raw JSON;
+this workstream's image-landings are the trigger. **Do NOT land an image or fire a
+scoped re-render on an affected page** (assemble-only re-renders — no `spec.reason`
+— are safe). The words are all recoverable from `content_data`. **The user is fixing
+this in a dedicated chat.** Full trap write-up (with current live state — the guard
+is committed but NOT yet in prod `v1.0.1123`):
+→ **`../aaa_fails_to_mend/004_HANDOFF_image_landing_blanks_article_body.md`**
+Root cause + recovery: **`../HANDOFF_2026-07-14_article_body_json_envelope.md`**
 
 ## Turn 38–39: I2.2 + I2.3 are DONE, LIVE AND USER-GATED
 Sprite bullets render **four distinct glyphs** (ⓘ info / ✓ check / gauge / ⚠
@@ -62,21 +73,28 @@ uncommitted; forward-only, never reset).
 
 ## Document map (all in this directory)
 1. **THIS FILE** — state + mechanisms + next actions. Start here.
-2. `PLAN_imagery_best_in_class.md` — goals G1–G9, user-confirmed decisions
-   D1–D8, phases I0–I8 with dated status blocks. The map.
-3. `RUNNING_NOTES_imagery_best_in_class.md` — Turns 1–34, every diagnosis
+2. `READOUT_2026-07-16_imagery_status.md` — spoken-word status briefing (what
+   we've done / where we are / where we're going). For reading aloud.
+3. `PLAN_imagery_best_in_class.md` — goals G1–G9, user-confirmed decisions
+   D1–D10, phases I0–I8 with dated status blocks. The map.
+4. `RUNNING_NOTES_imagery_best_in_class.md` — Turns 1–43, every diagnosis
    with evidence. Append a turn each session.
-4. `RUNBOOK_imagery_best_in_class.md` — the human's task queue (A-rituals,
-   B-items). Done: B1–B3, B6, B7, B8, B10, B11. Open: B4 (data-source key, at
-   I4), B5 (budget sign-off), B9 (reaper cadence — the one that keeps biting).
-   The next deploy carries the I2.2/I2.3 Go (emit_sprite_css + head link).
-5. `SCOPE_I2_sprite_sheets.md` — current phase's implementation scope
-   (png→jpg revised).
-6. `SHOWCASE_*.md` (3 files) — shareable summaries (one-pager / narrative /
+5. `RUNBOOK_imagery_best_in_class.md` — the human's task queue (A-rituals,
+   B-items). Done: B1–B3, B6–B8, B10–B12. Open: B4 (data-source key, at I4),
+   B5 (budget sign-off), B9 (reaper cadence), B12 (verify arrow default after
+   deploy), B13 (content-loss fixes — separate threads).
+6. `SCOPE_I2_sprite_sheets.md` — I2 implementation scope (png→jpg revised).
+7. `SHOWCASE_*.md` (3 files) — shareable summaries (one-pager / narrative /
    technical w/ diagrams). Refresh stats before reuse.
-7. `SQL_2026-07-*.sql` — every migration/seed run, each with backup+verify.
+8. `SQL_2026-07-*.sql` — every migration/seed run, each with backup+verify.
 
-## State of the world (2026-07-13, Turn 34)
+## State of the world (historical detail — CURRENT state is at the top of this doc)
+
+**As of 2026-07-16: I0, I1, I2 are all ✅ COMPLETE AND LIVE.** The blocks below
+are the detailed record (kept for the hard-won bug-stacks); read the top of the
+doc for the current one-screen state. Phase I3 is next; the highest-priority OPEN
+item is the article-body content-loss fix, spun out to its own thread (see the
+READ FIRST warning and the Spun-out section).
 
 **Phase I0 (testbed rebuild + render acceptance): ✅ COMPLETE.**
 33-page rebuild w/ live news (9 sources, latest-news on index); 16 distinct
@@ -98,8 +116,10 @@ themselves on other sites' discovery passes).
   (`derive_brand_head_assets`; favicon.png/og-card.png serve 200; og:image +
   twitter:card injected into every head at render time).
 
-**Phase I2 (sprite-sheet bullets): ⏳ IN PROGRESS — code built, ONE deploy +
-finish sequence away from live. This is the active phase.**
+**Phase I2 (sprite-sheet bullets): ✅ COMPLETE AND LIVE (2026-07-15/16).** The
+detail below traces how it got there (I2.0→I2.5); the top-of-doc summary is the
+current state. Remaining loose end: the arrow-default swap is committed but not
+yet live — self-heals on the next discovery pass after the format-3 deploy.
 - Decisions locked: first surface = LIST BULLETS; 3×3 vocabulary = check,
   gauge, gripper, cog, chart, download, arrow, info, warning.
 - Delivery (verified twice): separate committed `/assets/css/sprites.css` +
@@ -261,53 +281,50 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
 - image_source_unsatisfiable check live but has produced 0 flags (heroes all
   resolve now) — expected.
 
-## Next actions, in order (updated Turn 38)
-I2.2 + I2.3 are DONE and live-correct (four distinct glyphs on the guide page).
-I2.4 is BUILT and its SQL is applied; it activates on the next deploy. Remaining:
-1. **USER LIVE GATE** on the four glyphs:
-   `/guides/tool-grip-force-friction-calculator-guide.html` → "Safety Factor
-   Selection Guidance". Hard-refresh (CSS is cached 1h). Criteria: readable at
-   ~20px, one ≤80KB download, on-brand. (D9 already accepted the faint charcoal
-   tile behind each glyph — that is expected, not a defect.)
-2. **On the next deploy — WATCH I2.4 prove itself** (don't assume): the
-   `sprite_css_missing` check should fire ONCE on robot-hands (the plan row has
-   no `sprites_css` stamp yet), emit `needs_sprite_css`, asset-deployer re-commits
-   an identical sprites.css, and the row gets stamped — then it must go SILENT on
-   subsequent passes. If it keeps emitting every pass, the stamp write is broken
-   (that is the idempotence bug the tests guard against). Verify:
-   `SELECT style_hints->'sprites_css' FROM site_plan_imagery …` is non-null.
-3. **I2.5 — container opt-in (D10). Go is DONE; only the CLASS is blocked.**
-   `emit_sprite_css` already emits `.sprite-bullets ul>li::before` (built Turn 39,
-   specificity-safe, rides the next deploy). What remains is adding the
-   `sprite-bullets` class to article-body's `.article-body__content` wrapper — and
-   **that wrapper is not in the deployed markup on 14 of 16 article pages** (see the
-   READ FIRST warning). So:
-   - **BLOCKED until the article-body JSON-envelope defect is fixed**
-     (`HANDOFF_2026-07-14_article_body_json_envelope.md`, being fixed in another
-     chat). Once those rows are repaired and re-rendered, the wrapper exists.
-   - THEN: add the class to the template (NOTE: `article-body` is a GLOBAL
-     component — the class is inert on sites without sprites.css, so it is safe
-     fleet-wide, but say so in the change), re-render, verify on a page whose lists
-     carry NO classes of their own. That is the whole point: it proves generated
-     content themes itself. Closes I2.
-   **WHY (the durability finding):** `ul.sprite-list` needs the class ON the
-   `<ul>`, but article bodies are LLM-generated HTML dropped into `{{.content}}`
-   — **content `<ul>`s never carry classes.** The Turn 36 wiring is a targeted
-   edit to `rendered_html` + `content_data.result` that a content regeneration
-   would wipe. robot-hands' only template-owned `<ul>`s are `pd-features`
-   (renders EMPTY — see the product-page handoff below) and a JS-filled
-   `formula-steps`. A container opt-in is regen-proof and fleet-reusable.
-4. **Then Phase I3** (content-linked card imagery / Lane B): generic
-   `entity_type`+`entity_id` columns on `assets` (user-confirmed D2), a
-   `needs_content_image` work item + handler composing prompts from the
-   content item + style guide, card components resolving the entity's image.
+## Next actions, in order (updated 2026-07-16 — I2 complete)
+I2 is DONE and live. What's left is one small verification, then the next phase —
+but the OVERALL priority is the content-loss fix (spun out, below), not more imagery.
 
-## Spun out of this workstream (Turn 36) — not ours to fix
-While choosing a list to wire, the `/entities/gripper-detail.html` product page
-turned out to be a **hollow shell**: planned, live, `deployed` — and every product
-value (name, price, SKU, features) empty, behind full Add-to-Cart furniture on a
-site that sells nothing. Worse, the `empty_section` check DID fire and
-`page-build-handler` marked the items **`complete`** while the sections stayed
-empty (a fix loop closing without fixing). Written up in full, with evidence and
-a plan, at **`docs024_key_docs_latest/HANDOFF_2026-07-14_empty_product_sections.md`**
-— the user will start that fix in a separate chat. Do not chase it here.
+1. **VERIFY the arrow default after the next deploy (small, self-healing).** You
+   chose arrow as the container default (was check); the Go is committed
+   (`spriteDefaultBulletGlyph`, `SpriteCSSFormat` 2→3) but not yet live — prod is
+   `v1.0.1123`, the served CSS default is still `0px 0px` (check), stamp format 2.
+   On the format-3 deploy, `sprite_css_missing` sees the format mismatch and
+   re-emits the arrow CSS by itself. **Confirm:**
+   `curl -s https://robot-hands.com/assets/css/sprites.css | grep -o 'li::before[^}]*background-position:[0-9px -]*}' | head -1`
+   → default should read `0px -40px` (arrow). If it hasn't flipped, the format-3
+   binary isn't out yet — no action, or trigger a design-discovery-agent pass
+   (checks-only) to force it, AFTER confirming all imagery plan rows are fulfilled
+   so no `needs_imagery` fires (an image landing would blank an article — see below).
+2. **Phase I3 — content-linked card imagery / Lane B** (the next imagery phase):
+   generic `entity_type`+`entity_id` columns on `assets` (user-confirmed D2), a
+   `needs_content_image` work item + handler composing prompts from the content item
+   + style guide, card components resolving the entity's image. See PLAN Phase I3.
+   NOTE the `learning-center-index` empty listing card clears here.
+
+**How I2 closed (2026-07-15, for the record):** to land I2.5's `sprite-bullets`
+class the article-body wrapper had to exist, but robot-hands had no healthy article
+page. I repaired ONE page (the friction-calculator gate page, which was also a
+JSON-leak page) by extracting its article from the unparsed envelope into
+`content_data.content`, added the class to the GLOBAL article-body template, and
+did an assemble-only re-render. Result proven live: an unclassed content list themes
+itself; the Safety Factor list keeps its explicit glyphs; the leak is gone. The
+container opt-in (`.sprite-bullets ul`) exists because content `<ul>`s never carry
+classes (LLM HTML into `{{.content}}`), so a per-list class is a hand-edit that
+regeneration would wipe.
+
+## Spun out of this workstream — NOT imagery, and the current top priority
+Three pre-existing platform bugs surfaced during I2, all the same shape (a
+background process reporting success while silently failing / losing content). Each
+has a full handoff; the user is driving the article-body/image-landing pair in a
+separate chat. **Do not chase these here — but heed the image-landing hazard.**
+- **Image landing blanks the article body** (the one you're fixing separately):
+  landing an image fires a scoped re-render that renders the never-parsed
+  article-body envelope EMPTY and overwrites the good HTML → 9 pages already blanked,
+  4 more leaking, across 5 sites. **STANDING HAZARD for THIS workstream: our image
+  landings are the trigger — do not land an image on an affected page until the
+  guard deploys.** → `../aaa_fails_to_mend/004_HANDOFF_image_landing_blanks_article_body.md`
+  and root cause `../HANDOFF_2026-07-14_article_body_json_envelope.md`.
+- **Product pages ship empty** and the `empty_section` fix-loop marked them
+  `complete` without filling them (a loop closing without fixing). →
+  `../HANDOFF_2026-07-14_empty_product_sections.md`.
