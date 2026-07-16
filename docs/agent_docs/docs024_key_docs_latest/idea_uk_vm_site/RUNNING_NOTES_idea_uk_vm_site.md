@@ -321,11 +321,38 @@ contact page needs either a working backend or its form replaced with a mailto/C
   that node's cgroup driver. Tangential to this workstream, but it **reinforces the migration
   rationale**: idea.uk moving to VM-pull leaves this fragile B2-via-crashy-runner path entirely.
 
+## M — 2026-07-16 · Fresh chassis (v1.0.1123); /request hardened; contact email; error notes
+
+- **Fresh chassis v1.0.1123 shipped** — confirmed the Phase 2 per-site-target wiring is in the tree
+  the image built from (all three greps = 1). So the deploy-target code is now LIVE; activation still
+  gated on the vm-sites Action guard (RUNBOOK §2b) + the `UPDATE sites` (§2c).
+- **`/request` hardened** (task complete) — in the tool source (`golang_files/`): honeypot
+  (`company_url`), timing gate (`_elapsed`<2500ms, skew-free client delta, fail-open for no-JS),
+  intake rate limiter (5/hr+15/day), `mail.ParseAddress` + length caps, IP/UA captured on the Order,
+  method guard (was missing). `requestAccepted` extracted so silent drops are indistinguishable from a
+  real accept. `request_hardening_test.go` — 6 subtests PASS. `go build`(linux/amd64)+`vet` clean.
+  Pre-existing unrelated red test `TestReviewBeforePayFlow` (fails on clean tree too). NOT deployed —
+  owner builds+scp+restart.
+- **Contact email = idea.uk@contactforsales.com.** First attempt (`sql/p1_05`) set only
+  `site_specs.identity.email` (what the section-data resolver renders) → the contact rebuild FAILED
+  `validate_page_content` with `invalid_email`: the validator's canonical is `loadSiteContactEmail`
+  (`validate_page_content.go:735`), which COALESCEs `sites.email` FIRST — still the old
+  idea-uk@leopardess.uk. Render and canonical disagreed. `sql/p1_06` set `sites.email` (+ nested
+  `identity.contact.email`) to the new address; canonical now matches; contact rebuild re-queued.
+  *Lesson:* two different email sources — the resolver reads `identity.email`, the validator reads
+  `sites.email` first. Align both. (The tool's own OPERATOR_EMAIL in its env is a third, separate
+  surface — unchanged.)
+- **Three infra errors logged** to `aaa_fails_to_mend/006_HANDOFF_2026-07-16_idea_uk_infra_errors.md`:
+  (A) crash-looping runner replica (§L), (B) fleet-wide dead `/contact` form (§H), (C) claim-timeout
+  churn (§L). The re-plan landmine handoff is already there as `001`.
+- **Deliverables added this session:** `SUMMARY_idea_uk_vm_site.md` (presentable status) and
+  `HANDOFF_RESUME_idea_uk_vm_site.md` (fresh-chat entry point).
+
 ## Open decisions
 
 - **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)
-- **`/contact.html`** — what business email should it show, and its form posts to a dead `/contact`;
-  replace with a link to the tool's `/request`? (§K)
+- **`/contact.html`** — its form posts to a dead `/contact`; repoint to the tool's `/request` or a
+  `mailto:idea.uk@contactforsales.com`? (§K, and `aaa_fails_to_mend/006` §B.)
 - **Cloudflare proxied (orange) or DNS-only (grey)?** Unverifiable from the repo; decides whether the
   real-IP problem is live and whether Cloudflare WAF/Turnstile is reachable as the blocking layer.
 - **Does relojistas.com migrate from push to pull too**, or do the two mechanisms coexist? (Coexist is
