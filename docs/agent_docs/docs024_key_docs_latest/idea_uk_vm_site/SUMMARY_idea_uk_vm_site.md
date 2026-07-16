@@ -65,7 +65,10 @@ fleet-wide dead contact-form, and a build-system retry-churn bug) into the share
 | Site completed — 9 coherent pages, nav fixed | **Done** |
 | Planner bug that caused a scare | **Recovered; fix handed off** |
 | Per-site VM deploy target — code | **Done, shipped in current image** |
-| Per-site VM deploy target — turn on for idea.uk | Gated on the deploy-safety step below |
+| Per-site VM deploy target — turn on for idea.uk | **Done 2026-07-16** (allowlist guard verified live first) |
+| Shared deploy repo safety (domain→host allowlist) | **Done + proven live** (idea.uk skipped, relojistas deploys) |
+| Deploy repo's Action runner (never existed; image lacked ssh/rsync) | **Fixed: runner live on image v1.0.1126** |
+| idea.uk pages + assets in the deploy repo | **Done — seeded from the built artefact** |
 | Request-form hardening — code + tests | **Done; ready to deploy to the box** |
 | Contact email set | **Done** |
 | VM cutover (nginx, pull-sync, real-client-IP) | Prepared; needs owner SSH to the box |
@@ -83,9 +86,14 @@ fleet-wide dead contact-form, and a build-system retry-churn bug) into the share
    that must keep working (the earlier plan listed only 7 — the gap would have silently broken the
    free taster and the operator flow).
 
-**Before turning on VM deploy for idea.uk (one safety step):** the shared VM deploy repo currently
-points every site at *one* box — the wrong one for idea.uk. It needs a small domain→host map so each
-site goes to its own box. Detailed in the runbook.
+**Update 2026-07-16: the safety step is done and VM deploy is ON.** The shared deploy repo now maps
+each domain to its own box and skips unmapped domains (idea.uk deploys by pulling, not pushing —
+verified live three times). En route we found and fixed the reason the deploy mechanism had *never
+actually run*: the repo had no build runner, and the runner image lacked the ssh/rsync tools. The
+repo now holds idea.uk's complete built site, updating automatically on every future build. The next
+step is the owner's: set up the box's pull-sync, then the nginx cutover — one wrinkle added to the
+cutover config: the static site ships its own copies of the terms/refund/privacy pages, so three
+redirect lines keep the tool's versions (the ones buyers agree to) canonical.
 
 **Can continue without the owner:** the planner-bug fix (handed off), and repointing the dead
 contact-form.

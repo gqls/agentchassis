@@ -348,6 +348,46 @@ contact page needs either a working backend or its form replaced with a mailto/C
 - **Deliverables added this session:** `SUMMARY_idea_uk_vm_site.md` (presentable status) and
   `HANDOFF_RESUME_idea_uk_vm_site.md` (fresh-chat entry point).
 
+## N — 2026-07-16 (later) · Phase 2 EXECUTED: guard, runner, activation, seed
+
+- **Secrets guard now tracked** (30b6aa30d). The handoff's "guard + hook are UNTRACKED" was caused by
+  bulk doc commits sweeping `scripts/check-secrets.sh` and `.githooks/` into `.gitignore` — removed
+  those two lines and committed guard + hook.
+- **§2b executed** — `deploy-targets.json` (`{"relojistas.com": "167.233.33.159"}`) + allowlist
+  workflow pushed to `gqls/vm-sites` (d0fb7a1). Hosts are data; `VM_HOST` secret no longer read;
+  unmapped domains are skipped. Simulated all four domain scenarios locally before pushing.
+- **🔴 Discovery: the vm-sites Action had NEVER run.** Two runs ever, both stuck `queued`: no
+  self-hosted runner was registered on the repo (the cluster runner serves only `gqls/sites`), AND
+  the shared runner image (`aqls/github-actions-runner`) had **no ssh/ssh-keyscan/rsync** — the
+  'Set up SSH' step dies exit-127, invisibly, because its stderr goes to /dev/null. "Commit is
+  deploy" was only ever true for B2. relojistas' box content must have been hand-rsynced at go-live.
+- **Defused before fixing**: the stale queued run (11:44, old unguarded workflow) would have
+  `rsync --delete`'d the repo's then-1-file `relojistas.com/` over the live webroot the moment a
+  runner appeared → **cancelled it** (restorable: `gh run rerun 29495521330`; now superseded — the
+  relojistas session independently mirrored the live webroot into the repo, 19debed, then deployed).
+- **Runner provisioned**: image rebuilt with `openssh-client` + `rsync` as
+  `aqls/github-actions-runner:v1.0.1126` (same tag family as the day's chassis build — different
+  image repo, no clash); new one-replica deployment `github-actions-runner-vmsites`
+  (`deployments/kustomize/services/github-actions-runner-vmsites/`, GITHUB_REPO=vm-sites, same PAT).
+  Landed on the healthy node. The `sites` runner was not touched.
+- **Verified LIVE, both directions**: run 29499847029 → `Changed domains: idea.uk` →
+  `Skipping idea.uk (no mapped host)`; run 29522849364 (relojistas news feed) →
+  `Deploying relojistas.com -> 167.233.33.159` → success. Two further green skip-runs followed
+  (marker removal, seed).
+- **§2c executed**: `UPDATE sites SET github_repo='vm-sites' WHERE domain='idea.uk'` (was NULL;
+  `github_branch` already `main`, which matches vm-sites). Rollback = set NULL.
+- **Repo seeded** (4cbaf2a): copied `idea.uk/` verbatim from `gqls/sites` master (the built B2
+  artefact) into `gqls/vm-sites` — 8 built pages + assets; the pointer page correctly has no
+  artefact. Future chassis builds now commit here via the activated per-site target.
+- **⚠️ §3b premise correction**: static `terms.html` AND `refund-policy.html` DO exist in the
+  artefact (the RUNBOOK said they didn't) and the built footers link all three legal pages **with
+  the `.html` extension**, so exact-match proxy locations alone won't stop the static copies being
+  user-visible. Recommend at cutover: `location = /terms.html { return 301 /terms; }` (same for
+  refund-policy + privacy) so the tool's versions — the terms the buyer agreed to — stay canonical.
+- Housekeeping: commit c9eafa3c8 (overlay tag bump) accidentally swept in a pre-staged empty doc
+  file from another session (`fixloop_eg_dartsonline/SUMMARY_of_the_json_leak.md`) — harmless.
+  Concurrent sessions bulk-committed the dockerfile edit (6880c669e) and kustomize base (87d13b864).
+
 ## Open decisions
 
 - **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)

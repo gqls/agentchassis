@@ -19,7 +19,19 @@ has box-takeover semantics (`ufw --force reset`) — never point it at the live 
 
 ---
 
-## ▶ WHERE WE ARE (2026-07-14)
+## ▶ WHERE WE ARE (2026-07-16, supersedes below)
+
+**Phases 1 and 2 are COMPLETE** (see RUNNING_NOTES §I–§N). Site is 9 coherent pages; per-site
+deploy target is wired (v1.0.1123+), guarded (§2b: `deploy-targets.json` allowlist, verified live),
+activated (§2c: `github_repo='vm-sites'`), and `gqls/vm-sites` is seeded with the built artefact.
+En route we found the vm-sites Action had NEVER run — no runner on the repo and the runner image
+lacked ssh/rsync — fixed: image `v1.0.1126` + `github-actions-runner-vmsites` deployment; relojistas
+deploys green through the allowlist, idea.uk skip proven live 3×. **Next: Phase 3 (owner: §3a
+pull-sync on the box, then §3b–3e nginx), Phase 0 rotation still URGENT, Phase 4 tool deploy.**
+§3b correction: static `terms.html`/`refund-policy.html` DO exist and footers link all three legal
+pages with `.html` — add 301s (`/terms.html → /terms` etc.) at cutover so the tool stays canonical.
+
+## ▶ WHERE WE WERE (2026-07-14)
 
 Design agreed, nothing executed. Phase 0 is urgent and independent; Phase 1 blocks Phase 3.
 
@@ -198,10 +210,15 @@ the operator flow dies. Re-confirm the list against the running binary before wr
 ssh root@116.203.204.115 "grep -n 'HandleFunc' /opt/idea/*.go 2>/dev/null || echo 'source not on box — use service.go:527-543'"
 ```
 
-**DECISION — `/privacy` collides.** The static build generates `/privacy.html`; the tool serves
-`/privacy`. `try_files $uri $uri.html` hands `/privacy` to the static page unless a `location =
-/privacy` block wins. There is **no** static `/terms` or `/refund-policy`, so those two are
-uncontested and stay with the tool.
+**DECISION — the legal pages collide (all three).** The static build generates `/privacy.html` —
+and, **correction 2026-07-16**: `terms.html` and `refund-policy.html` too (this runbook previously
+said it didn't), with footers linking all three *with the `.html` extension*. Exact-match proxy
+locations only catch the extension-less paths, so add 301s at cutover to keep one canonical set:
+```nginx
+location = /terms.html         { return 301 /terms; }
+location = /refund-policy.html { return 301 /refund-policy; }
+location = /privacy.html       { return 301 /privacy; }   # if DECISION stays "tool keeps /privacy"
+```
 *Default (unless overridden): the tool keeps all three legal pages* — they are embedded in the binary
 and tied to the £29 purchase terms, so keeping them beside the money path stops the published terms
 drifting from the terms the buyer agreed to.

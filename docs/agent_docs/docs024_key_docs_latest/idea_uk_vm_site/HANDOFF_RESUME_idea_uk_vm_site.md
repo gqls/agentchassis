@@ -39,7 +39,7 @@ linux/amd64 binary, scp to the box, `systemctl restart idea`.
    `index`+`tools` link straight to the live `/audience-check`.
 3. **Per-site deploy target wired** — `resolveGitRepoName` (`helpers.go:206`) now called by
    `GitCommitAction` + `deploy_image_asset_action`; `upsertSite`/`EnsureSiteRecordAction` surface
-   `github_repo`. Committed and **shipped in v1.0.1123**. NOT yet activated (see pending #1).
+   `github_repo`. Committed and **shipped in v1.0.1123**. **ACTIVATED 2026-07-16** — see #7–#9.
 4. **`/request` hardened** — honeypot (`company_url`) + timing gate (`_elapsed` < 2500ms) + intake
    rate limit (`newIntakeLimiter`, 5/hr+15/day) + `mail.ParseAddress` validation + length caps + IP/UA
    capture on the `Order`; `request_hardening_test.go` (6 subtests PASS); `go build`/`vet` clean.
@@ -49,6 +49,18 @@ linux/amd64 binary, scp to the box, `systemctl restart idea`.
    `sql/p1_05` + `sql/p1_06`).
 6. **Docs corrected** — `../idea_uk_section_data_missing/HANDOFF_spam_and_ip_blocklist.md` rewritten
    (it named the wrong process + datastore); `spam_read.sql` neutered as void.
+7. **§2b DONE (2026-07-16)** — `gqls/vm-sites` Action guarded: `deploy-targets.json` allowlist
+   (relojistas.com → its box only; unmapped domains skipped), `VM_HOST` secret retired. Verified
+   LIVE: idea.uk skip proven 3×, relojistas deploy green through the map. Secrets guard + hook now
+   tracked (were swept into `.gitignore` by bulk commits).
+8. **vm-sites runner EXISTS now** — the Action had NEVER run (no runner on the repo; runner image
+   had no ssh/rsync — silent exit-127). Fixed: image `aqls/github-actions-runner:v1.0.1126`
+   (+openssh-client +rsync) + new `github-actions-runner-vmsites` deployment
+   (`deployments/kustomize/services/github-actions-runner-vmsites/`). RUNNING_NOTES §N.
+9. **§2c DONE + repo seeded** — `sites.github_repo='vm-sites'` for idea.uk (rollback: set NULL);
+   `gqls/vm-sites` seeded with the built artefact from `gqls/sites` (8 pages + assets, 4cbaf2a).
+   ⚠️ RUNBOOK §3b corrected: static `terms.html`/`refund-policy.html` DO exist and are footer-linked
+   with `.html` — cutover config needs 301s to the tool's canonical legal pages.
 
 ## PENDING — next actions
 
@@ -59,22 +71,19 @@ linux/amd64 binary, scp to the box, `systemctl restart idea`.
 - **Deploy the hardened tool**: `cd …/idea.uk/golang_files && GOOS=linux GOARCH=amd64 go build -o idea .`,
   scp to `/opt/idea/idea.new`, mv, `systemctl restart idea`. RUNBOOK Phase 4 shipping note.
 
-### Chat-doable next
-1. **Guard the `vm-sites` Action THEN activate per-site deploy** (RUNBOOK §2b→§2c). The `gqls/vm-sites`
-   Action rsyncs every changed domain to ONE `VM_HOST` secret = relojistas' box `167.233.33.159`.
-   Before `UPDATE sites SET github_repo='vm-sites' WHERE domain='idea.uk'`, add a `deploy-targets.json`
-   (domain→host) at the repo root so idea.uk isn't pushed to the wrong machine. Then the UPDATE
-   activates the (already-shipped) per-site target.
-2. **Provision pull-sync on the idea.uk box** (RUNBOOK §3a): systemd timer + sparse-checkout of
-   idea.uk's own folder into `/var/www/idea.uk`, read-only deploy key. (Owner runs the box commands.)
-3. **nginx cutover** (RUNBOOK §3b–3e): static root + proxy the **16** reserved tool paths
+### Next (all remaining steps run on the box — owner's hands; the chat prepares/verifies)
+1. **Provision pull-sync on the idea.uk box** (RUNBOOK §3a): systemd timer + sparse-checkout of
+   idea.uk's own folder into `/var/www/idea.uk`, read-only deploy key. The repo folder is seeded
+   and live-updating, so this can run TODAY.
+2. **nginx cutover** (RUNBOOK §3b–3e): static root + proxy the **16** reserved tool paths
    (`service.go:527-543` — the full list is in the RUNBOOK; the old runbook's 7-path list would break
-   the taster + operator flow). Prove `/stripe/webhook` through the new config BEFORE cutting over.
-4. **Real-client-IP in nginx** (RUNBOOK §4a): idea.uk is behind Cloudflare but `setup.sh` never sets
+   the taster + operator flow) **+ the three `.html→` 301s for the legal pages (§3b correction)**.
+   Prove `/stripe/webhook` through the new config BEFORE cutting over.
+3. **Real-client-IP in nginx** (RUNBOOK §4a): idea.uk is behind Cloudflare but `setup.sh` never sets
    `set_real_ip_from`/`real_ip_header CF-Connecting-IP`, so nginx (and the new `/request` IP capture)
    would see Cloudflare's IP. Confirm the record is proxied (orange) first. Needed before any IP block
    list is meaningful.
-5. **Remove existing spam** from `/var/lib/idea/orders.json` (owner-side; RUNBOOK §4c): back up, filter
+4. **Remove existing spam** from `/var/lib/idea/orders.json` (owner-side; RUNBOOK §4c): back up, filter
    the all-`test` rows, restart. No DB, no `Delete` method — edit the file.
 
 ## Landmines (do not relearn the hard way)
