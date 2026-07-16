@@ -141,6 +141,29 @@ is now **guard: LIVE / repair: still broken**:
    `required:true` should not render empty — fail the step or flag, not blank
    (same class as the product-page defect).
 
+> **⚠️ 2026-07-16 CORRECTION (found by the imagery workstream) — the §6 query
+> UNDER-REPORTS, and the §5 list is stale.** The `length(rendered_html) = 1326`
+> test in §6 misses blanked pages whose empty shell is a different byte length.
+> After imagery Phase I2.5 added the `sprite-bullets` class to the article-body
+> wrapper, a freshly-blanked shell is **1341 bytes** (`1326 + len(" sprite-bullets")`),
+> so three pages blanked on 2026-07-15 slipped past the length test. Use the
+> length-independent detector instead (empty content div):
+> ```sql
+>   WHEN pc.rendered_html ~ 'article-body__content[^>]*></div>' THEN 'BLANKED'
+> ```
+> **Verified live fleet state 2026-07-16 (guard pod up since 08:44Z): 4 BLANKED,
+> 0 JSON LEAK, 13 healthy.** The separate content-loss thread has repaired all 4
+> leaks and 6 of the original 9 blanks; but three finetuning/gamesdesign pages
+> re-blanked at 22:23–23:17 on 2026-07-15 (BEFORE the guard deployed — not a guard
+> failure), and one April blank remains. **Current BLANKED (4), all recoverable
+> (`content_data.result` present):**
+> - finetuning.uk `/guides/llm-cost-calculator-guide.html` (legacy 1326, from 2026-04-24)
+> - finetuning.uk `/blog/why-most-ai-projects-fail-in-the-first-three-months.html` (1341, 2026-07-15)
+> - finetuning.uk `/guides/tool-ai-data-risk-checker-guide.html` (1341, 2026-07-15)
+> - gamesdesign.co.uk `/guides/tool-xp-curve-designer-guide.html` (1341, 2026-07-15)
+>
+> The original §5/§6 below are kept as the 2026-07-15 snapshot.
+
 ## 5. Affected pages (13, as of 2026-07-15 — re-run the query in §6)
 
 **BLANKED (9 — article already gone from the live page; text still in content_data):**

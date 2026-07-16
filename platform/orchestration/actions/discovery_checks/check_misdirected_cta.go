@@ -13,10 +13,14 @@
 //     (not per anchor — multiple CTAs on a page need one rerender) with
 //     spec.reason = "cta_links_stale", which page-rerender's section
 //     re-render path uses to recompute CTA targets (rerender_page_sections'
-//     applyCTARecompute). Note the recompute only rewrites hero /
-//     call-to-action fields; a misdirected link inside a prose component is
-//     re-detected on the next discovery pass and escalates via the two-strike
-//     rule to human review — loud, not silent.
+//     applyCTARecompute). Note the recompute only rewrites the CTA url
+//     fields of components in the actions package's ctaFieldNames set (hero,
+//     call-to-action, archetype-grid, archetype-combinations, gauntlet-cta,
+//     content-block-about); a misdirected link inside any other component
+//     (e.g. prose) — or one the recompute deliberately keeps because it is
+//     an authored link to a real, non-excluded page — is re-detected on the
+//     next discovery pass and escalates via the two-strike rule to human
+//     review — loud, not silent.
 //
 //   - cta_names_unknown_destination: anchor text names NO real page AND the
 //     href is empty, phantom, self-referential, or lands in an excluded area
@@ -273,8 +277,8 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			"page_id":   agg.pageID,
 			"findings":  agg.misdirects,
 			"fix": "Link copy names a real page but the href points elsewhere. " +
-				"A cta_links_stale rerender recomputes hero/call-to-action targets " +
-				"from real pages (interactive pages first).",
+				"A cta_links_stale rerender recomputes CTA targets from real pages " +
+				"(interactive pages first) for components in the ctaFieldNames set.",
 		})
 
 		var pageIDPtr *uuid.UUID

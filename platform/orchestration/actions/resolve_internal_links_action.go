@@ -23,9 +23,8 @@
 // matching: a guide -> its related tool) without changing callers — page_type is
 // carried for that future use.
 //
-// Field names differ by component:
-//   hero            -> cta_url (primary), secondary_cta_url (secondary)
-//   call-to-action  -> primary_cta_url (primary), secondary_cta_url (secondary)
+// Field names differ by component — see ctaFieldNames for the covered set
+// and each component's primary/secondary url field names.
 //
 // Input handling follows 003/001 contracts: site_id/page_type/page_name are
 // scalars via ExtractActionInputs; `sections` is a complex (array) value whose
@@ -75,9 +74,27 @@ var areasExcludedFromCTA = map[string]bool{
 }
 
 // ctaFieldNames maps a CTA component to its primary/secondary url field names.
+// An empty second entry means the component has a single CTA url field.
+//
+// This set is shared by BOTH writers of CTA destinations:
+//   - build time: this action (setCTAField)
+//   - repair time: rerender_page_sections' cta_links_stale recompute
+//     (applyCTARecompute)
+//
+// The misdirected_cta discovery check scans anchors on EVERY component, so a
+// button-bearing component missing from this set is detectable but not
+// repairable — its findings can only escalate to human review. A component
+// added here must ALSO have its url fields' schema source flipped to
+// "renderer" (migrations 091, 098): a site_specs.*/pages.*/static source is
+// re-resolved into resolved_data on every render and merges last, so no
+// recompute or content edit can win against it.
 var ctaFieldNames = map[string][2]string{
-	"hero":           {"cta_url", "secondary_cta_url"},
-	"call-to-action": {"primary_cta_url", "secondary_cta_url"},
+	"hero":                   {"cta_url", "secondary_cta_url"},
+	"call-to-action":         {"primary_cta_url", "secondary_cta_url"},
+	"archetype-grid":         {"cta_url", ""},
+	"archetype-combinations": {"cta_primary_url", "cta_secondary_url"},
+	"gauntlet-cta":           {"cta_primary_url", "cta_secondary_url"},
+	"content-block-about":    {"cta_url", ""},
 }
 
 func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -242,6 +259,9 @@ func emitUnresolvedCTAItems(ctx context.Context, params ActionParams, siteID uui
 // write CTA copy FOR the actual destination instead of guessing one.
 func setCTAField(resolved map[string]interface{}, field string, target contentHub, validPages datahelpers.PageURLSet,
 	function, sectionName, slot string, unresolved *[]map[string]interface{}) {
+	if field == "" {
+		return // single-URL component — no field in this slot, nothing to resolve or report
+	}
 	if target.URL != "" && validPages.Contains(target.URL) {
 		resolved[field] = target.URL
 		if title := targetTitle(target); title != "" {

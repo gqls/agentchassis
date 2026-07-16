@@ -23,6 +23,8 @@ type fakePage struct {
 	texts    map[string]string
 	stepErr  map[string]error // selector -> error to return from Do
 	steps    []criteriaStep   // recorded
+	shotErr   error // error to return from Screenshot
+	shotTaken bool  // recorded: Screenshot was called
 }
 
 func (f *fakePage) Status() int            { return f.status }
@@ -43,6 +45,27 @@ func (f *fakePage) Do(step criteriaStep) error {
 		}
 	}
 	return nil
+}
+func (f *fakePage) Screenshot(fullPage bool) ([]byte, error) {
+	f.shotTaken = true
+	if f.shotErr != nil {
+		return nil, f.shotErr
+	}
+	return []byte("png-bytes"), nil
+}
+
+// fakeStore records screenshot saves; err makes every Save fail.
+type fakeStore struct {
+	keys []string
+	err  error
+}
+
+func (s *fakeStore) Save(_ context.Context, key string, png []byte) (string, string, error) {
+	if s.err != nil {
+		return "", "", s.err
+	}
+	s.keys = append(s.keys, key)
+	return "s3://test-bucket/" + key, "https://signed.example/" + key, nil
 }
 
 func actionWith(pages map[string]*fakePage) *RunChecksAction {

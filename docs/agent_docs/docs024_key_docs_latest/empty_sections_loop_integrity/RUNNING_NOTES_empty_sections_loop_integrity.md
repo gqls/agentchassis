@@ -538,3 +538,129 @@ thinner and trips the guard. Needs a targeted single-section repair, or an
 understanding of why whole-page regen is thinner (tool/FAQ content not
 re-emitted?). Corrected in handoff 002 Error D — it is NOT the "10-min win" an
 earlier draft implied. The item is left honestly `failed`.
+
+---
+
+## MISSTEP (2026-07-15) — I published a confident wrong root cause. Recorded so it isn't repeated.
+
+**Worth reading even if you skip everything else in these notes.** This
+workstream's whole thesis is "fail loud, don't fail silent." I then did the
+diagnostic equivalent of a silent failure: I asserted a root cause I hadn't
+actually verified, and wrote it into four places as fact.
+
+### What I claimed
+That `page-build-handler` hanging at `spawn_content_writer` was caused by
+`action=orchestrate` wrapping the agent in a generic-orchestrate context, whose
+**awaited-request correlation** didn't match the child's init response. I
+further claimed it "manifests ONLY on manual direct invocation, never on a
+production path." I put this in the RUNBOOK (§5b), the running notes, the
+errors handoff (002), and persistent memory — each stated as settled fact, with
+the phrase *"Root cause (investigated, not guessed)"*.
+
+### What was actually true
+A separate fleet-wide investigation (`../aaa_fails_to_mend/003_HANDOFF_spawn_
+lost_child_response.md`) found it with node-level evidence: a **Kafka broker-2
+network path failure from certain worker nodes**. A spawned child landing on a
+bad node hits `dial tcp 10.20.99.93:9092: i/o timeout` — it processes its
+`initialize` message (hence the init response I saw) but can never dial the
+broker to consume its job topic or publish back. It is **fleet-wide**
+(`spawn_dispatch` 38, `call_content_writer`, image gen, dispatch handlers), and
+the `action=orchestrate` wrapper is a red herring.
+
+### How I got there (the actual failure of reasoning)
+1. **I had 4 data points and built a theory on them.** Direct kcat hung 2/2;
+   dispatch succeeded 2/2. That is node-landing luck, not a mechanism. My
+   "121 orchestrations COMPLETED vs my 2 hung" — which I offered as *evidence* —
+   was pure survivorship: those 121 had children that landed on good nodes.
+2. **I read the code and stopped there.** I traced the orchestrate wrapper in
+   `processor.go`, found a *plausible* correlation story, and never tested it.
+   I never proved a correlation mismatch actually occurred.
+3. **The disproving evidence was already in my hand.** I had READ the child
+   pod's logs — I quoted "idle timeout reached, awaiting_count: 0" in my own
+   analysis. I did not scroll for dial errors. 003 found them in the same logs.
+4. **Plausibility masqueraded as verification.** The theory explained my
+   observation, so I labelled it "investigated, not guessed." Explaining an
+   observation is not the same as being the cause of it.
+
+### The lesson (concrete, not a platitude)
+**When a distributed component doesn't respond, read the failing pod's logs to
+exhaustion BEFORE theorising about the protocol.** Infrastructure (DNS, dial,
+node, broker) is the boring, likely cause; a subtle correlation bug in code
+that works for the rest of the fleet is the exciting, unlikely one. Prefer the
+boring hypothesis until the logs rule it out. And note the tell I ignored: my
+theory required the platform's core message routing to be broken for a whole
+invocation mode, yet everything else worked — that improbability should have
+sent me back to the logs, not into `coordinator.go`.
+
+### Second-order lesson
+Confidence phrasing is a real cost. Writing *"Root cause (investigated, not
+guessed)"* would have sent the next chat into `coordinator.go` — core code,
+100% of agent traffic — chasing a bug that isn't there. A wrong diagnosis
+stated confidently is worse than no diagnosis: it's a false completion of the
+*diagnostic* loop, which is exactly the bug class this workstream exists to
+kill. **Match stated confidence to evidence actually gathered**, and say
+"hypothesis, untested" when that's what it is.
+
+### What was done about it
+Retracted in all four places (RUNBOOK §5b, these notes' Landmine 1 entry,
+handoff 002 Error A, memory), each now pointing at 003 as authoritative and
+explicitly warning off the retracted theory. The operational advice was also
+corrected: "use the dispatch path" is NOT a reliable workaround (dispatch hangs
+too on bad-node landing) — the real mitigation until the infra fix is retry.
+
+---
+
+## 2026-07-16 — Session 9: both pending pieces went live; one works, one doesn't
+
+Chassis **v1.0.1123** shipped overnight and registers BOTH pieces built in
+Session 8 (verified in the pod binary; `product-spec-refresher` and
+`completeness-discovery-agent` both on v1.0.1123). Exercised both live.
+
+### `section_source_drift` — WORKS, proven live ✅
+Triggered completeness discovery for robot-hands (correlation
+`bc93eefd…`, COMPLETED). It emitted **exactly one** work item:
+> Section-list drift on page 'contact': site_plan_sections has [hero-contact,
+> contact-form, contact-info] but pages.sections has [hero-contact,
+> contact-form, contact-block]  → `needs_human_review`
+
+Precisely the real, pre-existing drift predicted in Session 8 — and **zero
+false positives** across every other page (product-detail and gripper-detail,
+which I aligned, correctly stayed clean). The Session-8 landmine is now a
+detector that works. The `contact` decision (which component is intended)
+remains a human call — error **C** in handoff 002.
+
+### `refresh_product_specs` — RUNS but does NOT do its job ❌
+Triggered `product-spec-refresher` for robot-hands (correlation `fc5d433e…`,
+orchestration COMPLETED). Result:
+```
+products: 5, refreshed: 0, failed: 5
+details: all five → "no_fields_extracted"
+```
+`verified_date` still 2026-07-14, specs unchanged. **Read that honestly: the
+capability is built and wired, but it currently refreshes nothing.**
+
+What the evidence does and doesn't say:
+- The status is `no_fields_extracted`, NOT `scrape_failed` → **Firecrawl
+  succeeded**; the failure is in the LLM extraction step.
+- No "LLM call failed" warning was logged → the Ollama HTTP call succeeded.
+- `mistral-small3.1:latest` IS present on ollama-adapter (checked
+  `/api/tags`) → not a missing-model problem.
+- So: scrape OK, model call OK, but the model returned nothing usable.
+
+**HYPOTHESIS (untested — labelled as such deliberately, see the MISSTEP entry
+above):** the action truncates page markdown to 6000 chars before prompting;
+manufacturer pages front-load nav/cookie/marketing, so the spec table may fall
+beyond the cut, leaving the model correctly answering `{}` ("not a spec page
+for this product" per my own prompt). Suggestive but NOT proof: sibling handoff
+`005_HANDOFF_…article_body_root_cause_is_truncation_FIXED.md` — truncation has
+already been a root cause elsewhere in this codebase. I did not verify: probing
+Firecrawl needs the API key and the chassis image ships without curl.
+
+**Fixed my own silent failure while here.** `llmExtractProductSpecs` returned
+`nil` on parse failure *without logging*, and an empty `{}` was
+indistinguishable from unparseable output — a silent failure inside the
+workstream about silent failures. It now logs the model's own words on
+unparseable content and warns explicitly on an empty object, including
+`markdown_chars_sent`. That single log line should make the next run
+self-diagnosing (it will say whether the model saw the specs at all).
+**Needs the next image build to take effect.**

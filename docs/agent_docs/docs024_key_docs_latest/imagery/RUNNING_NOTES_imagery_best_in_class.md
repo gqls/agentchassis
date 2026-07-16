@@ -1712,3 +1712,43 @@ unrecoverable). All cross-referenced from the 004 handoff.
 loss fix (separate thread), not more imagery.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
+
+## Turn 44 — 2026-07-16 — Live re-verification: trap CLOSED, testbed CLEAR → I3 unblocked; detection-query defect found
+
+**Session goal:** resume the workstream (I2 done → I3 next). Before touching
+anything, re-verified live state — and it has MOVED since Turn 43, in our favour.
+
+**1. The image-landing guard is now LIVE in prod (contradicts Turn 43).** Turn 43
+recorded the guard ABSENT from `v1.0.1123`. This turn the RUNNING pod
+(`agent-chassis-5f8ddf649f-dgss6`, started 08:44Z today) greps `2 / 1 / 4` for
+`missingRequiredLLMFields` / `"escalating page to writer instead of blanking"` /
+`escalateRerenderToWriter` — the FULL guard, matching 004 §3's own criterion. So
+the tag `v1.0.1123` was **rebuilt in place** between Turn 43 and now (consistent
+with the build-from-local-filesystem practice — same tag, new binary; the pod is
+ground truth, never the tag string). **The trap is closed.**
+
+**2. robot-hands testbed is fully clear.** All 3 article-body pages healthy; all
+**30** imagery plan rows fulfilled (each has ≥1 active asset) — so nothing will
+fire a `needs_imagery` → no image landing can even be triggered on the testbed.
+I3 acceptance work can land images here safely.
+
+**3. Content-loss recovery has advanced (separate thread) BUT a detection-query
+defect masks 3 pages.** Robust length-independent detector
+(`rendered_html ~ 'article-body__content[^>]*></div>'`) gives the true fleet state:
+**4 BLANKED, 0 JSON LEAK, 13 healthy** (was 9+4 at Turn 43's snapshot). The 004/006
+handoffs' `length(rendered_html)=1326` test UNDER-reports, because **I2.5's
+`sprite-bullets` class made a fresh blank shell 1341 bytes** (`1326 + len(" sprite-bullets")`).
+Three finetuning/gamesdesign pages re-blanked at 22:23–23:17 on 2026-07-15 —
+BEFORE the 08:44Z guard pod, so NOT a guard failure. Corrected 004 §5 (dated note +
+new detector + current 4-page list) so the separate thread doesn't under-count.
+
+**4. Arrow default still not live** (as Turn 43): served CSS default `0px 0px`,
+plan stamp format 2; HEAD `9752bc68d` carries `spriteDefaultBulletGlyph="arrow"` +
+`SpriteCSSFormat=3`. Self-heals on the format-3 deploy. Unchanged.
+
+**Docs updated:** 004 handoff (detection correction), imagery HANDOFF (WHERE-WE-ARE
+re-verified + READ FIRST downgraded from STANDING WARNING to "trap CLOSED / residual
+notes"), this entry. **Kicked off I3 code-surface reconnaissance** (Explore agent
+mapping assets schema, custom_image_id precedent, ImagePurposes, generation entry
+points, resolver, content-entity tables, card components, discovery-check pattern) to
+produce a concrete build plan before running any migration.

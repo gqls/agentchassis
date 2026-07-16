@@ -13,10 +13,14 @@ below is written to be executable without re-deriving context. Read the companio
    domains. Config-driven per vertical + domain, so the same machinery serves the next
    comparison site. The existing bug of this class: `vet_med_export_action.go:56` defaults to
    `vetcomparison.co.uk`, a domain we do not own.
-2. **No direct republication of scraped datasets** (copyright/database-right position, see LEGAL
-   §7). Publish: (a) directory facts, (b) aggregates, (c) per-practice prices only where the
-   practice has claimed the listing (licence) — attributed-scrape publication stays OFF until a
-   solicitor signs it off.
+2. **Publication model (owner decision 2026-07-16).** Publish: (a) directory facts,
+   (b) aggregates (min_n = 3), (c) per-practice prices where the practice has claimed the
+   listing, and (d) **attributed per-practice prices scraped from the practice's OWN published
+   price list only** — never from third-party sources — each with source URL + capture date, a
+   site disclaimer citing the CMA's recognition of comparison services (final report Part B
+   ¶3.320–3.321), and a practice **opt-out honoured promptly** (see Phase 3). Republishing
+   another aggregator's or retailer's compiled dataset remains prohibited. Solicitor review of
+   the database-right position remains an open advisory item (LEGAL §8) but is not a blocker.
 3. **No price without provenance.** Source URL + capture date + retained evidence, or claimed
    consent. This is the policy that replaced the fabrication; it is not negotiable.
 
@@ -112,12 +116,34 @@ config: {
   filters: { verification_status: "verified", require_website: true, require_postcode: true },
   outputs: {
     directory: true,                    // facts only: id,name,location,postcode,website,is_claimed
-    aggregates: { enabled: true, min_n: 5, group_by: "postcode_area", items: "cma_item" },
-    claimed_prices: true,               // per-practice prices WHERE is_claimed=true only
-    attributed_prices: false            // scraped per-practice prices — OFF until solicitor sign-off
+    aggregates: { enabled: true, min_n: 3, group_by: "postcode_area", items: "cma_item" },
+    claimed_prices: true,               // per-practice prices WHERE is_claimed=true
+    attributed_prices: true             // scraped per-practice prices — owner decision 2026-07-16
   }
 }
 ```
+
+Rules for `attributed_prices` (all enforced in the exporter, not the UI):
+- Only rows whose `source_url` is on the practice's **own** domain (match against
+  `businesses.website_url` host) — a price observed anywhere else is never attributed.
+- Every published price carries `source_url` + `observed_at`; rows with either missing are
+  skipped and logged.
+- Practices with `publication_optout = true` are excluded from per-practice price output
+  (they remain in the directory and in aggregates, which don't name them).
+- Rows with `source = 'seed_import'` are excluded unconditionally (quarantined fabrication).
+- Claimed listings supersede scraped figures: if `is_claimed`, publish the claimed prices, not
+  the scraped ones.
+
+**Site disclaimer (implementer: use this text, shown once on any page displaying attributed
+prices, with the per-price source link + date beside each figure):**
+> Prices marked "from the practice's price list" were collected from that practice's own
+> published prices on the date shown — follow the source link to check the original. The CMA's
+> final report (24 March 2026) recognises independent comparison services, including those that
+> collect prices from practice websites. If we've got something wrong, or you'd rather your
+> practice's prices weren't shown here, email us and we'll fix or remove them promptly —
+> claimed listings always show the practice's own figures.
+
+Per-price compact label: `From the practice's price list, {date} · source ↗ · correct/remove`
 
 Aggregates read `product_prices` joined to `products` (kind='service'), **excluding** any row
 whose source is 'seed_import', grouped by postcode area, published only where n ≥ min_n
@@ -140,7 +166,15 @@ yet); nothing in any output lacks provenance or consent.
   where it exists.
 - Exporter (Phase 2) then publishes those prices automatically. Claimed listings get a "prices
   provided by the practice, <date>" badge. Self-serve portal is V2 — out of scope.
-Acceptance: one end-to-end dry run with a friendly/test practice record.
+- **Opt-out mechanism (generic, same phase):** add `publication_optout boolean DEFAULT false`,
+  `optout_at timestamptz`, `optout_note text` to `business_intel.businesses`. Process mirrors
+  the claim flow: opt-out email arrives → operator verifies the sender plausibly represents the
+  practice (domain match or callback) → set the flag → re-run the exporter and redeploy so the
+  removal is live promptly. Opt-out removes per-practice price display only; the practice stays
+  in the directory (facts are facts) and in unnamed aggregates. An opt-out can be reversed by a
+  later claim.
+Acceptance: one end-to-end dry run with a friendly/test practice record, including opt-out then
+claim-reversal on the same record.
 
 ### Phase 4 — adopt the site onto the chassis
 
@@ -160,18 +194,33 @@ per verified practice, looks for the mandated price list (≤1 click from homepa
 vocabulary, no free text — parse-friendly by design), stores observations with evidence, and
 sets a per-practice compliance flag. The site then shows "price list: published / not found" —
 which is both a genuine consumer service and the strongest claim-your-listing motivator.
-Separately: when RCVS approval criteria publish (~Jun 2027), apply for approved-third-party
-status; decision needed then on paid placement (feed recipients may not run paid rankings —
-mutually exclusive with that badge).
+Separately: **owner decision 2026-07-16 — we will NOT pursue RCVS approved-third-party status.**
+We stay an independent operator collecting from practices' own published lists; this keeps paid
+placement available as a future revenue line. Two consequences the implementer must respect:
+(a) any future paid placement must be clearly labelled as such — the CMA's standard for all
+comparison platforms is that information "may not be presented in a misleading or unfair
+manner" (Part B ¶3.321) — and organic rankings must never be silently influenced by payment;
+(b) still monitor the RCVS approval criteria when published (~Jun 2027) for competitive
+intelligence: they define what the badge-holding competitors may and may not do.
 
-## Standing decision points (owner's, not the implementer's)
+## Decisions (owner, 2026-07-16 — resolved; details in the sections above)
 
-1. Attributed-scrape per-practice publication: OFF until solicitor sign-off (LEGAL §8).
-2. Paid placement vs future RCVS-approved status (Phase 5; no rush).
-3. Aggregates min_n (default 5 until told otherwise).
-4. Respond to the substantive draft Order consultation when it opens (expected July 2026) —
-   argue for low-barrier third-party approval; watch the case page. Funding-order consultation
-   (RCVS levy, less relevant to us) closes 30 Jul 2026.
+1. **Attributed per-practice prices: ON.** Scraped from the practice's own published price list
+   only, with source URL + date, the site disclaimer (Phase 2 text), and a prompt email opt-out
+   (Phase 3 mechanism). Solicitor review of the database-right position stays an open advisory
+   item (LEGAL §8), not a blocker.
+2. **RCVS approved-third-party badge: NOT pursued.** Independent operator path; paid placement
+   remains available, subject to clear labelling (Phase 5).
+3. **Aggregates min_n = 3.** Always publish the n alongside the statistic so readers can judge
+   the sample. Revisit if reverse-inference of a named practice's prices ever becomes plausible
+   in small areas.
+4. **CMA consultations: we will respond.** Position: pro-independent-practice, plus our own
+   interests (low-barrier third-party approval, express reuse rights, machine-readable lists).
+   The substantive draft Order consultation had not opened as of 16 Jul 2026 — watch the case
+   page; when it opens, draft the full response against the actual Order text within days. The
+   funding-order consultation (RCVS levy) closes 30 Jul 2026 via the CMA consultation portal.
+   See `CONSULTATION_2026-07-16_briefing.md` (same dir) for process, requirements and our
+   position skeleton.
 
 ## Deploy trap (repeat offender — follow exactly)
 

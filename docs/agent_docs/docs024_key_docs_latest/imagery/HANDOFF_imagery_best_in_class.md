@@ -3,28 +3,41 @@
 **Last updated: 2026-07-16. UPDATE THIS DOCUMENT EVERY WORKING TURN, alongside
 the running notes — it is the single entry point for a fresh session.**
 
-## WHERE WE ARE (2026-07-16) — start here
+## WHERE WE ARE (2026-07-16, re-verified live at start of Turn 44) — start here
 - **I0, I1, I2 are ✅ COMPLETE AND LIVE.** Rebuild + per-page heroes; brand layer
   (locked logo, favicon, OG); sprite-sheet bullets with a self-healing fulfilment
   check and a content-list house style. Read-out for a status briefing:
   `READOUT_2026-07-16_imagery_status.md`.
 - **One imagery loose end:** you chose ARROW as the container default bullet; the
-  Go is committed but not yet live (prod `v1.0.1123`, served CSS default still
-  `check`/format 2). Self-heals on the next discovery pass after the format-3
-  deploy — verify per "Next actions" #1.
-- **Next imagery phase: I3** (content-linked card imagery).
-- **BUT the top overall priority is NOT imagery** — see the safety warning next.
+  Go is committed (HEAD `9752bc68d`) but not yet live (prod `v1.0.1123`, served CSS
+  default still `check`/format 2, plan stamp format 2). Self-heals on the next
+  discovery pass after the format-3 deploy — verify per "Next actions" #1.
+- **The image-landing trap is now CLOSED — I3 is UNBLOCKED.** Re-verified this turn:
+  the escalate-not-blank guard IS in the running pod (`missingRequiredLLMFields`=2,
+  `escalateRerenderToWriter`=4), and **robot-hands' testbed is fully clear** — all 3
+  article-body pages healthy, all 30 imagery plan rows fulfilled (so no `needs_imagery`
+  can fire an image landing). See the (downgraded) safety note next.
+- **Next imagery phase: I3** (content-linked card imagery) — now proceedable.
+- **Overall the content-loss recovery is still higher-value than imagery**, but it's
+  in its own thread and no longer blocks this one.
 
-## ⚠️ READ FIRST — STANDING SAFETY WARNING (being fixed in a SEPARATE thread)
-**Landing an image on a page fires a scoped re-render (`image_landed`) that BLANKS
-the article body on any page whose content is a never-parsed JSON envelope.** 9
-pages across 5 sites have ALREADY silently lost their article; 4 more leak raw JSON;
-this workstream's image-landings are the trigger. **Do NOT land an image or fire a
-scoped re-render on an affected page** (assemble-only re-renders — no `spec.reason`
-— are safe). The words are all recoverable from `content_data`. **The user is fixing
-this in a dedicated chat.** Full trap write-up (with current live state — the guard
-is committed but NOT yet in prod `v1.0.1123`):
-→ **`../aaa_fails_to_mend/004_HANDOFF_image_landing_blanks_article_body.md`**
+## ✅ READ FIRST — image-landing trap CLOSED (guard live); residual notes
+**History:** landing an image fired a scoped re-render (`image_landed`) that BLANKED
+the article body on any page whose content was a never-parsed JSON envelope. The
+**escalate-to-writer guard is now LIVE in prod** (re-verified in the running pod this
+turn — the 004 handoff's own criterion), so a scoped re-render on such a page now
+escalates to the writer instead of blanking. **Residuals to respect:**
+- **The testbed (robot-hands.com) is safe** — its article-body pages are healthy and
+  every imagery row is fulfilled, so no image landing will even fire. Proceed with I3
+  here.
+- **Do not assume every OTHER site is safe to land images on yet:** the writer-side
+  envelope repair (`ParseLLMJSON`) still fails on some fixtures, so an escalation may
+  partially- or not-regenerate. And **4 pages are still blanked** (finetuning×3,
+  gamesdesign×1) awaiting recovery in the separate thread.
+- **Detection-query fix (found this turn):** the 004/006 `length=1326` test now
+  UNDER-reports — I2.5's `sprite-bullets` class made a fresh blank shell 1341 bytes.
+  Use `rendered_html ~ 'article-body__content[^>]*></div>'` instead. 004 §5 corrected.
+Full write-up: **`../aaa_fails_to_mend/004_HANDOFF_image_landing_blanks_article_body.md`**
 Root cause + recovery: **`../HANDOFF_2026-07-14_article_body_json_envelope.md`**
 
 ## Turn 38–39: I2.2 + I2.3 are DONE, LIVE AND USER-GATED

@@ -258,9 +258,9 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 
 		// CTA recompute — ONLY for reason=cta_links_stale, so image_landed /
 		// section_data_resolved rerenders behave byte-identically to before.
-		// After migration 091 the schema no longer sources CTA urls, so a stale
-		// url survives in stored content_data; writing the recomputed target
-		// into plan.ResolvedData wins the merge below (resolved_data last).
+		// After migrations 091/098 the schema no longer sources CTA urls, so a
+		// stale url survives in stored content_data; writing the recomputed
+		// target into plan.ResolvedData wins the merge below (resolved_data last).
 		if reason == "cta_links_stale" {
 			fn := comp.Function
 			if fn == "" {
@@ -371,6 +371,9 @@ func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.
 func applyCTARecompute(resolved, stored map[string]interface{}, field string, target contentHub,
 	validPages datahelpers.PageURLSet, pageURL string) {
 
+	if field == "" {
+		return // single-URL component — no field in this slot
+	}
 	if current, ok := stored[field].(string); ok && current != "" &&
 		validPages.Contains(current) &&
 		!ctaExcludedDestination(current) &&

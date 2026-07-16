@@ -96,12 +96,27 @@ type overflowInfo struct {
 	Located   bool   // the tool's container was found at all
 }
 
+// ScreenshotRef points at one captured full-page screenshot — the P3 evidence
+// for a failing (url, profile) run. URI is the durable s3:// pointer (safe for
+// travelling-doc notes); ViewURL is a presigned GET that expires (for the work
+// item's spec). FailingChecks lists the id@profile instances it evidences.
+type ScreenshotRef struct {
+	URL           string   `json:"url"`
+	Profile       string   `json:"profile"`
+	URI           string   `json:"uri"`
+	ViewURL       string   `json:"view_url,omitempty"`
+	FailingChecks []string `json:"failing_checks"`
+}
+
 // RunChecksResult is the response body.data.
 type RunChecksResult struct {
 	RunID   string        `json:"run_id"`
 	Results []CheckResult `json:"results"`
 	Skipped []CheckResult `json:"skipped"` // not evaluated — never a fake pass
-	Summary struct {
+	// Screenshots is present only when a (url, profile) run had failures AND
+	// object storage is configured — evidence, never load-bearing.
+	Screenshots []ScreenshotRef `json:"screenshots,omitempty"`
+	Summary     struct {
 		Passed  int `json:"passed"`
 		Failed  int `json:"failed"`
 		Skipped int `json:"skipped"`
@@ -184,6 +199,8 @@ type browserPage interface {
 	HorizontalOverflow(container string) (bool, overflowInfo, error)
 	Do(step criteriaStep) error // one interaction step
 	Text(selector string) (string, error)
+	// Screenshot captures the page as PNG bytes (P3 failure evidence).
+	Screenshot(fullPage bool) ([]byte, error)
 	Close()
 }
 
@@ -195,10 +212,11 @@ type openFunc func(ctx context.Context, url, profile string, logger *zap.Logger)
 type RunChecksAction struct {
 	logger *zap.Logger
 	open   openFunc
+	store  screenshotStore // nil = screenshots disabled (P0 behaviour)
 }
 
-func NewRunChecksAction(logger *zap.Logger) *RunChecksAction {
-	return &RunChecksAction{logger: logger.Named("run_checks"), open: openChromium}
+func NewRunChecksAction(logger *zap.Logger, store screenshotStore) *RunChecksAction {
+	return &RunChecksAction{logger: logger.Named("run_checks"), open: openChromium, store: store}
 }
 
 // Execute runs the criteria for each requested URL under each requested profile.
@@ -220,7 +238,7 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 	profiles := resolveProfiles(req.Profiles)
 	out := &RunChecksResult{RunID: req.RunID}
 
-	for _, url := range req.URLs {
+	for urlIdx, url := range req.URLs {
 		for _, profile := range profiles {
 			applicable, skipped := splitByProfile(crit, profile, url)
 			out.Skipped = append(out.Skipped, skipped...)
@@ -235,6 +253,11 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 				return nil, fmt.Errorf("run_checks: browser open failed for %s [%s]: %w", url, profile, err)
 			}
 			res := evaluateOnPage(page, crit, applicable, profile, url)
+			// P3: evidence while the page is still open — a failing verdict
+			// carries what the page actually looked like.
+			if ref, ok := a.captureFailureEvidence(runCtx, page, req, res, profile, url, urlIdx); ok {
+				out.Screenshots = append(out.Screenshots, ref)
+			}
 			page.Close()
 			out.Results = append(out.Results, res...)
 		}
@@ -255,6 +278,46 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 		zap.Int("passed", out.Summary.Passed), zap.Int("failed", out.Summary.Failed),
 		zap.Int("skipped", out.Summary.Skipped))
 	return out, nil
+}
+
+// captureFailureEvidence takes and stores a full-page screenshot when this
+// (url, profile) run has at least one failing check. Best-effort by design:
+// no store, a capture error, or an upload error all degrade to a log line —
+// evidence must never fail, slow-fail, or alter the verdict. Navigation
+// failures are excluded: there is no page state worth photographing.
+func (a *RunChecksAction) captureFailureEvidence(ctx context.Context, page browserPage,
+	req RunChecksRequest, results []CheckResult, profile, url string, urlIdx int) (ScreenshotRef, bool) {
+
+	if a.store == nil || page.NavError() != "" {
+		return ScreenshotRef{}, false
+	}
+	var failing []string
+	for _, r := range results {
+		if !r.Pass {
+			failing = append(failing, r.CheckID+"@"+r.Profile)
+		}
+	}
+	if len(failing) == 0 {
+		return ScreenshotRef{}, false
+	}
+
+	png, err := page.Screenshot(true)
+	if err != nil {
+		a.logger.Warn("failure screenshot capture failed — evidence skipped, verdict unaffected",
+			zap.String("url", url), zap.String("profile", profile), zap.Error(err))
+		return ScreenshotRef{}, false
+	}
+	key := screenshotKey(req.SiteID, req.Function, req.RunID, profile, urlIdx)
+	uri, viewURL, err := a.store.Save(ctx, key, png)
+	if err != nil {
+		a.logger.Warn("failure screenshot upload failed — evidence skipped, verdict unaffected",
+			zap.String("key", key), zap.Error(err))
+		return ScreenshotRef{}, false
+	}
+	a.logger.Info("failure screenshot stored",
+		zap.String("uri", uri), zap.String("profile", profile),
+		zap.Strings("failing_checks", failing), zap.Int("bytes", len(png)))
+	return ScreenshotRef{URL: url, Profile: profile, URI: uri, ViewURL: viewURL, FailingChecks: failing}, true
 }
 
 // resolveProfiles: desktop always runs unless only mobile is asked for; mobile
@@ -641,6 +704,13 @@ func (c *chromiumPage) Do(step criteriaStep) error {
 
 func (c *chromiumPage) Text(selector string) (string, error) {
 	return c.page.Locator(selector).First().InnerText()
+}
+
+func (c *chromiumPage) Screenshot(fullPage bool) ([]byte, error) {
+	return c.page.Screenshot(playwright.PageScreenshotOptions{
+		FullPage: playwright.Bool(fullPage),
+		Type:     playwright.ScreenshotTypePng,
+	})
 }
 
 func (c *chromiumPage) Close() {

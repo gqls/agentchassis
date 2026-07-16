@@ -131,4 +131,58 @@ func TestApplyCTARecompute(t *testing.T) {
 	if len(resolved) != 0 {
 		t.Errorf("wrote a value with no valid target: %v", resolved)
 	}
+
+	// Empty field name (a single-URL component's absent secondary slot):
+	// no-op, no panic, nothing written under "".
+	resolved = map[string]interface{}{}
+	applyCTARecompute(resolved, map[string]interface{}{}, "", gauntlet, valid, pageURL)
+	if len(resolved) != 0 {
+		t.Errorf("empty field name wrote a value: %v", resolved)
+	}
+}
+
+// TestCTAFieldNamesContract pins the covered components and their url field
+// names to the live content_components.input_schema field names — a typo here
+// silently turns a component's recompute into a no-op (the wrong key is never
+// found in stored content_data and the write lands on a key no template reads).
+func TestCTAFieldNamesContract(t *testing.T) {
+	want := map[string][2]string{
+		"hero":                   {"cta_url", "secondary_cta_url"},
+		"call-to-action":         {"primary_cta_url", "secondary_cta_url"},
+		"archetype-grid":         {"cta_url", ""},
+		"archetype-combinations": {"cta_primary_url", "cta_secondary_url"},
+		"gauntlet-cta":           {"cta_primary_url", "cta_secondary_url"},
+		"content-block-about":    {"cta_url", ""},
+	}
+	if len(ctaFieldNames) != len(want) {
+		t.Errorf("ctaFieldNames has %d entries, want %d — update this contract test with the schema evidence for any new component", len(ctaFieldNames), len(want))
+	}
+	for fn, fields := range want {
+		got, ok := ctaFieldNames[fn]
+		if !ok {
+			t.Errorf("ctaFieldNames missing %q", fn)
+			continue
+		}
+		if got != fields {
+			t.Errorf("ctaFieldNames[%q] = %v, want %v", fn, got, fields)
+		}
+	}
+}
+
+// TestSetCTAFieldEmptyField — the build-time writer must also skip an absent
+// secondary slot: nothing written AND nothing reported unresolved (an
+// unresolved entry for field "" would create a bogus HITL work item).
+func TestSetCTAFieldEmptyField(t *testing.T) {
+	valid := datahelpers.NewPageURLSet([]string{"/tools/gauntlet/index.html"})
+	gauntlet := contentHub{Name: "tool-gauntlet", Title: "The Gauntlet", URL: "/tools/gauntlet/index.html"}
+
+	resolved := map[string]interface{}{}
+	var unresolved []map[string]interface{}
+	setCTAField(resolved, "", gauntlet, valid, "archetype-grid", "archetype-grid", "secondary", &unresolved)
+	if len(resolved) != 0 {
+		t.Errorf("empty field name wrote a value: %v", resolved)
+	}
+	if len(unresolved) != 0 {
+		t.Errorf("empty field name reported unresolved: %v", unresolved)
+	}
 }

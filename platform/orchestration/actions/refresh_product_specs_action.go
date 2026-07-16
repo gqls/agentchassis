@@ -334,6 +334,8 @@ Page text:
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logger.Warn("refresh_product_specs: LLM response read failed",
+			zap.String("product", productName), zap.Error(err))
 		return nil
 	}
 
@@ -342,21 +344,42 @@ Page text:
 			Content string `json:"content"`
 		} `json:"message"`
 	}
-	if json.Unmarshal(body, &chat) != nil {
+	if err := json.Unmarshal(body, &chat); err != nil {
+		logger.Warn("refresh_product_specs: LLM envelope unparseable",
+			zap.String("product", productName),
+			zap.String("body", truncate(string(body), 300)), zap.Error(err))
 		return nil
 	}
 
+	// Diagnostics: a silent nil here is indistinguishable from "model said {}",
+	// which is exactly the kind of blind spot this workstream exists to remove.
+	// Log the model's own words whenever we can't turn them into fields.
 	out := map[string]interface{}{}
 	content := strings.TrimSpace(chat.Message.Content)
 	if json.Unmarshal([]byte(content), &out) != nil {
 		// Some models wrap JSON in prose/fences — salvage the first {...} block.
 		if i, j := strings.Index(content, "{"), strings.LastIndex(content, "}"); i >= 0 && j > i {
-			if json.Unmarshal([]byte(content[i:j+1]), &out) != nil {
+			if err := json.Unmarshal([]byte(content[i:j+1]), &out); err != nil {
+				logger.Warn("refresh_product_specs: LLM content not JSON even after salvage",
+					zap.String("product", productName),
+					zap.String("content", truncate(content, 300)), zap.Error(err))
 				return nil
 			}
 		} else {
+			logger.Warn("refresh_product_specs: LLM content has no JSON object",
+				zap.String("product", productName),
+				zap.String("content", truncate(content, 300)))
 			return nil
 		}
+	}
+	// Parsed, but the model may legitimately have returned {} ("not a spec page
+	// for this product" per the prompt). Say so out loud with the evidence —
+	// otherwise "no_fields_extracted" is an unexplainable dead end, which is
+	// what the 2026-07-16 zero-refresh run looked like.
+	if len(out) == 0 {
+		logger.Warn("refresh_product_specs: LLM returned an empty object — page text likely lacks this product's specs (check markdown truncation / wrong page)",
+			zap.String("product", productName),
+			zap.Int("markdown_chars_sent", len(md)))
 	}
 	return out
 }

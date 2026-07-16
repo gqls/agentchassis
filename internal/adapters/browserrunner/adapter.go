@@ -24,6 +24,7 @@ package browserrunner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -111,6 +112,10 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		podName = os.Getenv("HOSTNAME")
 	}
 
+	// P3: failure screenshots ride object storage when configured; nil store
+	// means the runner behaves exactly as at P0–P2 (evidence, not dependency).
+	store := newScreenshotStore(adapterCtx, cfg, logger)
+
 	a := &Adapter{
 		ctx:           adapterCtx,
 		cancel:        cancel,
@@ -119,7 +124,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		consumer:      consumer,
 		producer:      producer,
 		requestsTopic: requestsTopic,
-		runChecks:     NewRunChecksAction(logger),
+		runChecks:     NewRunChecksAction(logger, store),
 		adapterID:     adapterID,
 		senderType:    senderType,
 		podName:       podName,
@@ -131,6 +136,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		zap.String("consumer_group", consumerGroup),
 		zap.String("adapter_id", adapterID.String()),
 		zap.String("sender_agent_type", senderType),
+		zap.Bool("failure_screenshots", store != nil),
 	)
 	return a, nil
 }
@@ -156,7 +162,8 @@ func (a *Adapter) Run() error {
 			cancel()
 
 			if err != nil {
-				if err == context.Canceled || err == context.DeadlineExceeded {
+				// errors.Is, not ==: the kafka library may wrap the context error.
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					continue // no messages — re-poll
 				}
 				select {
