@@ -101,13 +101,83 @@ sessions to re-run `git status` before trusting a snapshot.
 - `git status --cached` is not a flag (`git diff --cached --name-only` is);
   pathspec commits sidestep the shared-index problem entirely.
 
+---
+
+# Round 2 — follow-ups closed, and the practice tested by fire
+
+## The makefile refactor was swept mid-edit — Symptom D, live, on this thread
+
+While generalising the makefile (below), another session's commit
+**`69d6f3ecc` "updates to vet med export for vetcomparison.uk and
+directory_export_action for products"** — an unrelated task — **committed this
+thread's half-finished refactor**. At that moment only 2 of 14 services had the
+`wip_report` call; HEAD briefly carried a partial refactor under a commit
+message about vet med exports. (`git log -S "define wip_report" -- makefile`
+attributes it there, not to this thread.)
+
+**The finding this forces, which the handoff's §6.3 reasoning missed:**
+commit-per-task is **not self-protecting**. Adopted unilaterally it stops *you*
+sweeping *others'* WIP; it does nothing to stop *their* `git add -A` sweeping
+*yours*. The asymmetry matters:
+
+- The only self-protection available today is **commit early, commit narrow** —
+  a long-lived dirty tree is shared mutable state, not a private workspace.
+  This is now in `CLAUDE.md` (`42f90aee2`).
+- It is also the strongest argument yet for the enforcement hook §6.3 deferred.
+  **Not built, deliberately, and flagged for the owner rather than assumed:** a
+  repo-wide git hook rejecting broad adds would change every concurrent
+  session's git behaviour without their knowledge, and could block another
+  thread's commit mid-flight. That is an owner call, not a side effect of this
+  thread. Evidence for it is now on the record if the owner wants it.
+
+Corroborating churn in one session: `IMAGE_TAG` went v1.0.1124 → v1.0.1125 →
+v1.0.1126 under us, and three unrelated commits landed on the branch.
+
+## Deploy blast radius — now covers every backend service (`031e2f074`)
+
+The round-1 fix covered agent-chassis only. Generalised, without pasting
+anything 14 times:
+
+- **`build-%-ref` pattern rule** — ONE rule gives all 14 backend services a
+  committed-state build (`make build-<service>-ref [REF=<ref>]`). Guards: the
+  service must have a `build/docker/backend/<service>.dockerfile`, and `REF`
+  must resolve to a real commit (`git rev-parse --verify '<ref>^{commit}'`) —
+  a ref build that silently accepted a non-commit would defeat its own purpose.
+  Frontends are excluded deliberately: they build from `frontends/<app>` with
+  their own Dockerfile and context, so the convention does not hold.
+- **`$(call wip_report,<service>)` macro** — the round-1 inline snippet, now
+  factored out and called by all 14 working-tree targets, naming the correct
+  per-service `-ref` alternative in its message.
+- Verified: `make -n` expands both correctly (the multi-line `define` collapses
+  to a single shell line via backslash continuations — the classic make trap,
+  checked rather than assumed); frontends carry no `wip_report` (`grep -c` = 0);
+  no target got a duplicate call.
+
+## 084 bare trigger — pointer added, coverage check still absent by design (`63d51441e`)
+
+084 stays the no-record escape hatch. Its header now states plainly that it has
+no coverage check, that 090 does, and gives the queue query to run by hand.
+
+**Found while doing it — NOT fixed, flagged for the fixloop thread:** there are
+**two divergent tracked copies** of 084. `./084_TRIGGER_diagnose_v1.sh` (root)
+is the evolved one — anchor note, 3b subject support, correct `agent-type` pod
+label. `./scripts/initial_messages/310_analysis_adapter/084_TRIGGER_diagnose_v1.sh`
+is stale and greps the **wrong pod label** (`agent_type`), so its follow-up
+command silently returns nothing. A session running the wrong copy is exactly
+this thread's class of problem, but reconciling them is the fixloop thread's
+call, not a coordination-thread drive-by. The pointer went on the root copy only.
+
 ## Open follow-ups (small, none blocking)
 
-- `084_TRIGGER_diagnose_v1.sh` (the bare ad-hoc trigger) still has NO coverage
-  check — deliberate for now (084 is the no-record escape hatch), but worth a
-  one-line pointer at 090 next time it is edited.
-- The WIP report + ref build cover agent-chassis only; the other ~14 service
-  targets still build silently from the tree. Extend if/when those bite.
+- **Two divergent copies of 084** (above) — fixloop thread's call.
+- **Enforcement hook for commit hygiene** — evidence now strong (§Round 2), but
+  it is an owner decision because it changes other live sessions' git behaviour.
+- Ref builds cover backend services only; frontends would need their own rule
+  if they ever start bundling WIP that matters.
+- `build-agent-chassis-ref` has still never been driven through a real
+  `docker build` (multi-minute; the tag belongs to another session's release).
+  The context assembly is verified, the build itself is not — **first real user
+  should watch it**.
 - The 090 self-exclusion is exact-key only; a *differently-slugged* second
   intake at the same target is precisely what the probes are for — do not
   "improve" it to fuzzy-match.
