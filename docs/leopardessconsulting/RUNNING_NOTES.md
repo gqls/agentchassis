@@ -1011,3 +1011,26 @@ short "for engineering teams" technical cut, and dropping the rest.
 technical depth A2 allows, so its register is defensible; left it. contact still has empty
 content_data (its rendered_html is generic) — best done when the spawn pipeline is healthy, or
 hand-authored next.
+
+### Turn 17 — contact page DONE (4 voice pages total); 4th phantom quiz link found + killed
+
+**contact — DONE & verified live.** It had empty content_data on all 3 slots (a rerender
+landmine: empty cd → whole-page escalation to the writer, which is infra-blocked), CTO-register
+copy ("…What AI Agents Can Do for Your Stack", "scoping an initial deployment or evaluating a
+full orchestration layer"), AND a **4th** phantom `/tools/tool-ai-readiness-quiz.html` link
+(turns 15/17 had found 3; this is the last). Fix: populated the `llm` fields on all 3 slots
+(hero-contact headline/subheadline, contact-form heading/description/submit, contact-info
+section_title/intro_text) with honest A2 copy → non-empty content_data defuses the escalation →
+safe `section_data_resolved` rerender. email/phone/address resolve from `site_specs.identity`
+top-level keys automatically (NOTE: they're `data->>'email'` at the identity spec's TOP level,
+NOT `data->'identity'->>'email'`). Verified live: new hero, 0 old CTO copy, **0 phantom quiz
+links sitewide**, real email/phone resolved, and confirmed **no content_data_backfill
+escalation fired**. bak_contact_leo_20260715.
+
+**Voice pass sitewide verification (end of turn 17):** the banned triad "observability, fault
+isolation…" = 0 occurrences anywhere; the phantom quiz link = 0 anywhere (all 4 instances gone).
+4 pages rewritten & verified live this turn: services, how-it-works, our-approach, contact.
+Combined with earlier turns, the primary-nav journey (services / how-it-works / use-cases /
+contact) is now in-voice and honest. Remaining voice work is lower-value: technical-architecture
+(defensibly technical register), for-engineering-teams (already decent), and the page-MERGE
+decision (owner's call). All safe hand-edit + section_data_resolved; zero pipeline dependency.
