@@ -9,13 +9,31 @@ page. Found in the imagery workstream (imagery RUNNING_NOTES Turns 39–41); the
 root-cause + recovery write-up is the parent handoff (see §7).
 
 **Filed:** 2026-07-15
+**Updated:** 2026-07-16 — **the guard is now deployed** (see the box below).
 **Severity:** High — silent live content loss on SEO pages (guides/blog). Already
-happened to 9 pages across 5 sites; 13 pages sit vulnerable right now.
+happened to 9 pages across 5 sites; **those 13 pages are still broken and still need
+recovery** (§4.2), but they are no longer at risk of *further* blanking.
 
-**⚠️ THE TRAP IS LIVE IN PRODUCTION AS OF THIS WRITING** (prod = `v1.0.1122`). The
-committed guard that would stop it is NOT yet in the running binary — see §3. **Until
-it is deployed AND verified, do not land an image or trigger a scoped re-render on any
-page in §5.**
+**✅ THE TRAP IS CLOSED IN PRODUCTION AS OF 2026-07-16** (prod = `v1.0.1123`). The
+guard is in the running binary — verified by 004's own criterion, grepping the pod:
+```
+missingRequiredLLMFields                          → 2   (the full guard)
+"escalating page to writer instead of blanking"   → 1   (its log string)
+escalateRerenderToWriter                          → 4   (the escalation path)
+```
+i.e. the FULL guard, not the earlier partial version that only escalated on *absent*
+content_data. **The §2 operating rule is lifted:** landing an image / triggering a
+scoped re-render on a §5 page now escalates the page to the writer instead of blanking
+it.
+
+*Honest caveat:* this is verified by symbol presence in the binary (the check §3
+prescribed), **not yet by driving an image landing end to end**. The first real image
+landing on a §5 page is worth watching — expect a writer escalation, not a blank. And
+see §4.3: `ParseLLMJSON` still fails on 14 fixtures, so a writer escalation may not
+cleanly regenerate every affected page.
+
+**⚠️ WHAT IS STILL LIVE:** the 9 blanked + 4 JSON-leaking pages in §5 remain broken on
+the served sites until recovered (§4.2). The guard stops new damage; it repairs nothing.
 
 ## Working rules (hold these)
 Go, not Python. British English. **Schema first**: read `\d <table>` before SQL, read
@@ -54,19 +72,26 @@ re-render has run, the raw envelope string is served verbatim, so readers see
 
 ## 2. Trigger surface — what is safe vs unsafe
 
-- **UNSAFE (blanks the article):** anything that produces a `page_rerender` with
-  `spec.reason = "image_landed"` or `"section_data_resolved"` on an affected page —
-  i.e. **an image asset landing on the page**, or a deferred section field becoming
-  resolvable. The imagery workstream lands images (per-page heroes etc.), which is how
-  the original 9 were blanked.
+> **Superseded 2026-07-16 by the deployed guard (v1.0.1123):** the "UNSAFE" path below
+> no longer blanks — it now escalates the page to the writer instead. Kept as the
+> mechanism's description, and because it still tells you which trigger takes the
+> *scoped* path (now: escalation) versus the *assemble-only* path (unchanged).
+
+- **WAS UNSAFE — now guarded (escalates to writer):** anything that produces a
+  `page_rerender` with `spec.reason = "image_landed"` or `"section_data_resolved"` on
+  an affected page — i.e. **an image asset landing on the page**, or a deferred section
+  field becoming resolvable. The imagery workstream lands images (per-page heroes etc.),
+  which is how the original 9 were blanked *before the guard*.
 - **SAFE:** an **assemble-only** `page_rerender` (no `spec.reason`) — it only
   re-concatenates existing `rendered_html`, never re-renders sections. This is how the
   gate page was repaired without risk (imagery Turn 41).
 
 ## 3. Current state — READ THIS, it is time-sensitive
 
-Two fixes for this exist **in source** and are being carried by other workstreams, but
-the state is mixed:
+*(Updated 2026-07-16: the guard shipped. The envelope-repair half has not.)*
+
+Two fixes for this exist **in source** and are carried by other workstreams; the state
+is now **guard: LIVE / repair: still broken**:
 
 - **The guard** (`rerender_page_sections_action.go` ~line 174–207, from the
   `empty_sections_loop_integrity` workstream): before re-rendering, it checks each
@@ -74,13 +99,16 @@ the state is mixed:
   `source:"llm"` field** (`missingRequiredLLMFields`), it escalates the whole page to
   the writer via `escalateRerenderToWriter` **instead of blanking**. This closes the
   trap.
-  - **Committed in source** (HEAD). **NOT in production `v1.0.1122`:** the running
-    binary has `escalateRerenderToWriter` but NOT `missingRequiredLLMFields` /
-    `"escalating page to writer instead of blanking"` — i.e. it has an earlier partial
-    version that escalates only on *absent* content_data, not on the
-    *missing-required-field* case the article-body rows hit. **So the trap is still
-    live in prod for these pages.** Verify after the next deploy by grepping the pod
-    for `escalating page to writer instead of blanking`.
+  - ✅ **LIVE in production as of 2026-07-16 (`v1.0.1123`).** Verified in the running
+    pod: `missingRequiredLLMFields`=2, `"escalating page to writer instead of
+    blanking"`=1, `escalateRerenderToWriter`=4 — the full guard, superseding the
+    earlier partial version that escalated only on *absent* content_data and therefore
+    missed the *missing-required-field* case these article-body rows hit.
+  - Verified by symbol presence (the check this section originally prescribed), **not
+    yet by an end-to-end image landing**. Watch the first one.
+  - *Historical note (why this section shouted):* between 2026-07-15 and the
+    v1.0.1123 deploy, prod (`v1.0.1122`) carried only the partial version, so the trap
+    was live and the §2 rule was in force.
 - **The writer-side envelope repair** `ParseLLMJSON` (`json_envelope.go`, wired at
   `ai_actions.go:478`): repairs escaping-only malformations so future writes store a
   clean `content`. **But its test fails on 14 fixtures** (`002_HANDOFF…` §B —
@@ -96,9 +124,12 @@ the state is mixed:
 
 ## 4. What actually needs doing (beyond the committed guard)
 
-1. **Deploy + VERIFY the guard reaches prod** (grep the pod for `escalating page to
-   writer instead of blanking`). Until then, hold the §2 operating rule.
-2. **Recover the 13 already-broken pages** — the guard prevents *future* blanking; it
+1. ~~**Deploy + VERIFY the guard reaches prod**~~ — ✅ **DONE 2026-07-16 (v1.0.1123)**,
+   verified in the pod (see §3). The §2 operating rule is lifted. Remaining sub-task:
+   confirm behaviourally on the first real image landing that the page escalates to the
+   writer rather than blanking.
+2. **Recover the 13 already-broken pages** — ⬅ **now the top job.** The guard prevents
+   *future* blanking; it
    does not fix existing bad rows. Recovery = extract the article from
    `content_data.result`, set `content_data.content`, re-render. Recipe + caveats
    (the envelope is NOT valid JSON — bare HTML quotes, so string-surgery not a parse;

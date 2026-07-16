@@ -105,12 +105,21 @@ chose the **first case: the image-landing data-loss trap**
 (`004_HANDOFF_image_landing_blanks_article_body.md`). Landing an image on a page
 fires a scoped section re-render that, on any page whose article-body was never
 unwrapped from its LLM JSON envelope, silently overwrites the good HTML with a
-blank shell — 9 pages already blanked, 13 vulnerable, and **the trap is live in
-prod** (the committed guard isn't in the running binary yet). It's a genuine,
-high-severity, already hand-diagnosed platform bug with a clean code map — the
-exact shape the loop was built for, and gradable like the benchmark. It also
-spans two threads (imagery found it; empty_sections owns the guard), so it
-exercises the loop's cross-thread awareness. The other queued cases: replan-
+blank shell — it blanked 9 pages across 5 sites, with 4 more JSON-leaking. It's a
+genuine, high-severity, already hand-diagnosed platform bug with a clean code map
+— the exact shape the loop was built for, and gradable like the benchmark. It
+also spans two threads (imagery found it; empty_sections owns the guard), so it
+exercises the loop's cross-thread awareness.
+
+**The case shifted on 2026-07-16, mid-handoff:** a new chassis (`v1.0.1123`)
+shipped the guard, verified in the running pod — so new blanking is prevented and
+the operating rule against landing images is lifted. What remains is the half a
+guard cannot do: **recover the 13 still-broken live pages**, **fix
+`ParseLLMJSON`'s 14 failing fixtures** (some envelopes are truncated and
+unrecoverable), and the most loop-worthy piece — **the structural defect
+underneath**: a schema-`required` field silently rendering empty
+(`missingkey=zero`, `call_agent.go:1152`), which is the same class as the
+product-page defect. Frame the intake around what's left, not the filed headline. The other queued cases: replan-
 clobbers-built-pages (001), the errors-to-fix list (002), spawn-lost-child-
 response (003). Dispatch order and timing are the owner's call — each run spends
 credits.

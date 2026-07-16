@@ -28,11 +28,18 @@ opened the real-case queue on 2026-07-16 and chose the first case:
 > on a page fires a scoped section re-render; on any page whose article-body was
 > never unwrapped from its LLM JSON envelope, that re-render renders the body
 > empty and **silently overwrites the good HTML with a blank shell** — the
-> article vanishes from the live page. 9 pages already blanked, 4 JSON-leaking,
-> **13 vulnerable right now**. **The trap is LIVE in prod (`v1.0.1122`)**: the
-> committed guard (`missingRequiredLLMFields` / "escalating page to writer
-> instead of blanking", from the empty_sections thread) is in HEAD but NOT in
-> the running binary.
+> article vanishes from the live page. It blanked 9 pages across 5 sites; 4 more
+> sit JSON-leaking.
+>
+> **STATUS UPDATE 2026-07-16 — the bleeding is stopped, the wound is not
+> dressed.** The guard (`missingRequiredLLMFields` / "escalating page to writer
+> instead of blanking", from the empty_sections thread) **is now LIVE in prod
+> (`v1.0.1123`)** — verified in the running pod (2 / 1 / 4 on the three
+> symbols). So new blanking is prevented and the old "don't land an image"
+> operating rule is **lifted**. But **the 13 broken pages are still broken on
+> the live sites** — the guard repairs nothing. Recovery is now the top job
+> (004 §4.2), and `ParseLLMJSON` still fails on 14 fixtures (004 §4.3), so
+> writer-escalation may not cleanly regenerate every page.
 >
 > **Why it's the right first case:** it is a genuine, high-severity, already
 > hand-diagnosed platform bug with a clear code map (004 §7) — exactly the
@@ -45,10 +52,18 @@ opened the real-case queue on 2026-07-16 and chose the first case:
 > bottom, then decide the intake: either (a) hand-write the `needs_diagnosis`
 > symptom (090 contract — see §7 of THIS doc) pointing at 004's mechanism and
 > code map and let the loop confirm/plan it, or (b) if these pages are
-> surfacing as `page_rerender` failures, let triage route them. **Operating
-> rule while unfixed (004 §2):** do NOT land an image or trigger a scoped
-> re-render on any page in 004 §5 until the guard is deployed AND verified in
-> the pod (`grep -c "escalating page to writer instead of blanking"`).
+> surfacing as `page_rerender` failures, let triage route them.
+>
+> **Note the case has SHIFTED since it was filed.** The guard landed, so the
+> live question is no longer "stop the blanking" — it's the remaining half:
+> **recover the 13 broken pages** (string-surgery out of `content_data.result`;
+> the envelope is NOT valid JSON, and some are truncated → only partial
+> recovery), **fix `ParseLLMJSON`'s 14 fixtures** (decide repairable vs
+> quarantine-the-truncated), and consider the structural hardening — a
+> schema-`required` field should never render empty (`missingkey=zero`,
+> `call_agent.go:1152`), which is the same class as the product-page defect.
+> That last one is the most loop-worthy piece: a real, platform-wide, code-level
+> defect. Frame the intake around what's actually left, not the filed headline.
 
 The other queued cases (dispatch order is the owner's call), all in
 `aaa_fails_to_mend/`: `001` replan-clobbers-built-pages, `002` errors-to-fix

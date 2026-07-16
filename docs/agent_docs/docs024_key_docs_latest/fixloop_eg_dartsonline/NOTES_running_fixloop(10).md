@@ -1799,6 +1799,37 @@ two-strike rule can never see, because no work item exists at all).
   three escalations parked inert; tool complete.** Next is real cases (owner
   picks order, starting with 004) + council-widening (concept-register-led).
 
+### Turn 34 (2026-07-16) — the image-landing guard reached prod; the first real case SHIFTED under us
+
+- Owner asked whether a newly deployed chassis carries the image-landing guard.
+  **It does.** Prod is now **v1.0.1123**; grepped the running pod's binary:
+  `missingRequiredLLMFields`=2, `"escalating page to writer instead of
+  blanking"`=1, `escalateRerenderToWriter`=4 → the **full** guard, superseding
+  the partial version in v1.0.1122 that escalated only on *absent* content_data
+  and so missed the missing-required-field case these rows hit.
+- **Consequence:** the trap is closed for NEW blanking and 004 §2's "don't land
+  an image on a §5 page" rule is **lifted**. Verified by symbol presence (004's
+  own prescribed check) — **not yet driven end to end**; the first real image
+  landing on a §5 page should be watched for a writer escalation rather than a
+  blank. Recorded as an open sub-task in 004 §4.1.
+- **What this does NOT fix, and why the case is now a different case:** the 9
+  blanked + 4 JSON-leaking pages are still broken on the live sites (a guard
+  repairs nothing), and `ParseLLMJSON` still fails 14 fixtures (some envelopes
+  truncated → unrecoverable), so writer-escalation may not regenerate them all.
+  The remaining loop-worthy piece is the **structural** one: a schema-`required`
+  field rendering empty silently (`missingkey=zero`, `call_agent.go:1152`) —
+  same class as the product-page defect, platform-wide, code-level.
+- **Docs corrected rather than left to rot** (owner asked): 004's "⚠️ TRAP IS
+  LIVE (v1.0.1122)" banner → "✅ closed in v1.0.1123" with the honest
+  symbol-vs-behaviour caveat and a historical note on why it shouted; §2 marked
+  superseded; §3 rewritten to guard-LIVE/repair-still-broken; §4.1 struck and
+  §4.2 promoted to top job. HANDOFF §1, the 07-16 summary, and memory all
+  updated to frame the intake around **what's left**, not the filed headline.
+- **Lesson worth keeping:** a filed error handoff is a snapshot, and other
+  threads keep shipping. Re-verify a case's premise against the live pod
+  *before* dispatching the loop at it — or the loop diagnoses a bug that no
+  longer exists.
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys
