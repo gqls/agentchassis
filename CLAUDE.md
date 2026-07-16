@@ -9,9 +9,19 @@ looking. Full problem statement and evidence:
 ## Git — commit per task (owner ruling, 2026-07-16)
 
 - Commit with an **explicit pathspec**: `git commit <paths your task touched> -m "..."`.
-  This ignores whatever other sessions have staged in the shared index.
-- Never `git add -A`, never `git add .`, never `git commit -a`. One commit per
+  The pathspec on **`commit`** is the load-bearing part, not the one on `add`: a
+  pathspec commit takes those files from the working tree and **ignores the
+  index**, so whatever another session has left staged cannot ride along. A bare
+  `git commit -m` sweeps their staged files in no matter how careful your `add` was.
+- **New files must be `add`ed first** — `git commit <path>` fails on an untracked
+  file ("pathspec did not match any file(s) known to git"):
+  `git add docs/x/NEW.md && git commit docs/x/NEW.md -m "..."`. Name it twice;
+  the `add` makes it trackable, the path on `commit` still excludes everything else.
+- Never `git add *`, `git add -A`, `git add .`, or `git commit -a`. One commit per
   task, message names the task.
+- A deliberate tidy-up **is** allowed, but must say so: `-m "sweep: leftover docs
+  from concurrent threads"`. What destroys review/bisect/revert is four threads'
+  work arriving under one thread's message, not breadth as such.
 - Forward-only: no resets, no amends, no rebases. Another session may commit
   between your add and your commit — check `git log` before assuming HEAD is yours.
 - Your session-start `git status` is a snapshot; it goes stale within minutes.
@@ -38,10 +48,20 @@ looking. Full problem statement and evidence:
 
 ## Building & deploying images
 
-- The default targets build from the **working tree**: the image bundles every
-  session's uncommitted work. Prefer `make build-agent-chassis-ref REF=<ref>`
-  (git-archive of a committed ref — cannot bundle WIP); the working-tree target
-  prints a report of exactly what it would sweep in.
+- **Committing your own work does not make a default build safe.** The default
+  targets tar the **working tree** — they take no account of what is committed,
+  so they bundle every *other* session's uncommitted work regardless of how
+  clean your own task is. They now print a report of what they would sweep in,
+  but they still build it.
+- **The commit only becomes load-bearing if you use the ref build:**
+  `make build-<service>-ref [REF=<ref>]` (git-archive of a committed ref —
+  structurally cannot bundle WIP; `REF` defaults to `HEAD`). Commit your task
+  first, then ship exactly that commit. Available for all 14 backend services;
+  frontends build from their own context and have no `-ref`.
+- `push-*` and `deploy-*` are entirely git-blind: they ship whatever image is
+  locally tagged `IMAGE_TAG`. Nothing downstream of the build can tell you
+  whether the image came from a commit or from someone's mid-edit tree — which
+  is why it has to be got right at build time, and verified against the pod.
 - Bump `IMAGE_TAG` (makefile ~line 16) for every build — a same-tag rebuild
   ships the node's stale cached binary.
 - Verify a deploy against the **running pod**, never git, never the tag:
