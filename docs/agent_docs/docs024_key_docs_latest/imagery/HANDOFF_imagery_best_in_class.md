@@ -3,23 +3,31 @@
 **Last updated: 2026-07-16. UPDATE THIS DOCUMENT EVERY WORKING TURN, alongside
 the running notes — it is the single entry point for a fresh session.**
 
-## WHERE WE ARE (2026-07-16, re-verified live at start of Turn 44) — start here
+## WHERE WE ARE (2026-07-16, Turn 45) — start here
 - **I0, I1, I2 are ✅ COMPLETE AND LIVE.** Rebuild + per-page heroes; brand layer
   (locked logo, favicon, OG); sprite-sheet bullets with a self-healing fulfilment
   check and a content-list house style. Read-out for a status briefing:
   `READOUT_2026-07-16_imagery_status.md`.
-- **One imagery loose end:** you chose ARROW as the container default bullet; the
-  Go is committed (HEAD `9752bc68d`) but not yet live (prod `v1.0.1123`, served CSS
-  default still `check`/format 2, plan stamp format 2). Self-heals on the next
-  discovery pass after the format-3 deploy — verify per "Next actions" #1.
-- **The image-landing trap is now CLOSED — I3 is UNBLOCKED.** Re-verified this turn:
-  the escalate-not-blank guard IS in the running pod (`missingRequiredLLMFields`=2,
-  `escalateRerenderToWriter`=4), and **robot-hands' testbed is fully clear** — all 3
-  article-body pages healthy, all 30 imagery plan rows fulfilled (so no `needs_imagery`
-  can fire an image landing). See the (downgraded) safety note next.
-- **Next imagery phase: I3** (content-linked card imagery) — now proceedable.
+- **I3 (content-linked card imagery / Lane B) is BUILT — Turn 45.** DB side LIVE
+  (assets `entity_type`+`entity_id`; asset-deployer `content_card` mode;
+  `content_image_missing` check registered). Go side committed, rides the next
+  deploy: `derive_card_asset` (hero → 800×450 JPG card crop, entity-linked,
+  `origin_asset_id` lineage), `storage.CoverCropResize`, queryresolve `blog_posts`
+  base + `image` projection on all page listings (this is what fixes the
+  empty listing-card slots — the resolver didn't know `query.blog_posts` and
+  projected no image field). Decisions D11 (JPG now, WebP at I7) and D12
+  (`card` = derived purpose, NOT a plan kind) user-confirmed. **Acceptance =
+  RUNBOOK B14 after the deploy.**
+- **Two things land in ONE post-deploy discovery pass:** the B12 arrow default
+  (sprite format 2→3 self-heal) and the first ~9 card derivations. Then a
+  needs_page re-render of `learning-center-hub` and the A3 eyeball gate.
+- **The image-landing trap is CLOSED** (Turn 44, verified in the running pod:
+  `missingRequiredLLMFields`=2, `escalateRerenderToWriter`=4); the testbed is fully
+  clear (all article-body pages healthy, all 30 imagery rows fulfilled). See the
+  (downgraded) safety note next.
 - **Overall the content-loss recovery is still higher-value than imagery**, but it's
-  in its own thread and no longer blocks this one.
+  in its own thread and no longer blocks this one (4 pages still blanked there —
+  fixed detection query in 004 §5).
 
 ## ✅ READ FIRST — image-landing trap CLOSED (guard live); residual notes
 **History:** landing an image fired a scoped re-render (`image_landed`) that BLANKED
@@ -294,26 +302,30 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
 - image_source_unsatisfiable check live but has produced 0 flags (heroes all
   resolve now) — expected.
 
-## Next actions, in order (updated 2026-07-16 — I2 complete)
-I2 is DONE and live. What's left is one small verification, then the next phase —
-but the OVERALL priority is the content-loss fix (spun out, below), not more imagery.
+## Next actions, in order (updated 2026-07-16 Turn 45 — I3 built, deploy-gated)
+Everything is staged behind ONE chassis deploy. After it, in order (= RUNBOOK B14):
 
-1. **VERIFY the arrow default after the next deploy (small, self-healing).** You
-   chose arrow as the container default (was check); the Go is committed
-   (`spriteDefaultBulletGlyph`, `SpriteCSSFormat` 2→3) but not yet live — prod is
-   `v1.0.1123`, the served CSS default is still `0px 0px` (check), stamp format 2.
-   On the format-3 deploy, `sprite_css_missing` sees the format mismatch and
-   re-emits the arrow CSS by itself. **Confirm:**
-   `curl -s https://robot-hands.com/assets/css/sprites.css | grep -o 'li::before[^}]*background-position:[0-9px -]*}' | head -1`
-   → default should read `0px -40px` (arrow). If it hasn't flipped, the format-3
-   binary isn't out yet — no action, or trigger a design-discovery-agent pass
-   (checks-only) to force it, AFTER confirming all imagery plan rows are fulfilled
-   so no `needs_imagery` fires (an image landing would blank an article — see below).
-2. **Phase I3 — content-linked card imagery / Lane B** (the next imagery phase):
-   generic `entity_type`+`entity_id` columns on `assets` (user-confirmed D2), a
-   `needs_content_image` work item + handler composing prompts from the content item
-   + style guide, card components resolving the entity's image. See PLAN Phase I3.
-   NOTE the `learning-center-index` empty listing card clears here.
+1. **Trigger a discovery pass for robot-hands.com** (improvement-loop kcat
+   pattern, notes Turn 18). One pass fires BOTH:
+   - `sprite_css_missing` (stamp format 2 ≠ code format 3) → re-emits sprites.css
+     with the ARROW default (B12). Verify:
+     `curl -s https://robot-hands.com/assets/css/sprites.css | grep -o 'li::before[^}]*background-position:[0-9px -]*}' | head -1`
+     → `0px -40px`.
+   - `content_image_missing` → up to 9 `needs_content_image` items → asset-deployer
+     `content_card` mode derives `card-<page>.jpg` from each article's hero and
+     writes the entity-linked assets row. Watch for items completing with
+     `derived: true`; the check goes quiet once the entity links exist.
+2. **Re-render `learning-center-hub`** (needs_page — sections must RE-RESOLVE so
+   `query.blog_posts` fills content-listing's `articles` with items + images;
+   an assemble-only re-render will NOT do it). The image-landing guard is live,
+   and all robot-hands article bodies are healthy — safe.
+3. **A3 gate (user eyeball):** `/learning-center-hub.html` shows article cards
+   with per-article hero-family images; click-through shows the same family on
+   the article page; `card-*.jpg` serves 200 at ≤60KB. That is the I3 acceptance
+   line. The `learning-center-index` orphan slot clears with a listing rebuild.
+4. **Then Phase I4** (data graphics pipeline — go-echarts, real series; needs
+   RUNBOOK B4 data-source key) or extend Lane B to news (I5) / products (I6) on
+   the same entity columns.
 
 **How I2 closed (2026-07-15, for the record):** to land I2.5's `sprite-bullets`
 class the article-body wrapper had to exist, but robot-hands had no healthy article

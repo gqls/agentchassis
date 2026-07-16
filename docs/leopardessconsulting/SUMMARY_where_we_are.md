@@ -1,6 +1,6 @@
 # Leopardess Consulting website — where we are
 
-*A plain-language status of the rebuild. Last updated 2026-07-16.*
+*A plain-language status of the rebuild. Last updated 2026-07-16 (after the page merge).*
 *Site: leopardessconsulting.co.uk*
 
 ---
@@ -92,15 +92,26 @@ In rough priority order:
    platform ("Phase I3") that hasn't been built yet.
 2. **The AI-readiness quiz page.** Still blank. The content is ready to generate and the bug
    that was blocking it is fixed — it's now held up only by the infrastructure flake below.
-3. **Finish the voice pass.** Most pages are done. A couple remain, and there's a content
-   decision to make: four pages currently say much the same thing in different words and should
-   probably be merged rather than individually polished. That's a call for you to make.
+3. **~~Finish the voice pass~~ — done, including the page merge.** Four pages were saying the
+   same six things in different words (in places, twice on the same page). Decision made and
+   executed: the site keeps one plain-language explainer (*how it works*) and one technical
+   page a click deeper (*architecture*); the two redundant pages are retired. While folding
+   their content across, we caught and removed one more buried fabrication ("eight
+   departments") and replaced it with a number we can prove from the database (over 150 agent
+   definitions).
 4. **The build-out the brief actually asks for.** Beyond fixing what was broken: interactive
    tools and calculators (several already exist and can be adopted), illustrated guides, a news
    surface (the pipeline is real and running — it just needs a front end), and data charts
    drawn from real numbers.
 5. **SEO and social polish.** Some page titles are still the old marketing versions, and there
    is currently no sitemap.
+6. **A fact-checking layer for the platform itself** *(new — decided this week)*. Everything
+   above was kept honest by a human checking pages against an audit file; the platform has no
+   layer that compares a claim to evidence — which is how fabrications kept slipping through
+   and, once removed, sneaking back. We've specified a verification system: the evidence
+   becomes machine-readable, known-false claims are blocked at build time, unverifiable claims
+   get flagged to a person (never auto-rewritten), and the site's own past fabrications become
+   the test suite. This is platform work in its own thread; this site is the pilot.
 
 ---
 

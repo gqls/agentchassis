@@ -25,7 +25,18 @@ infrastructure:
   kafka_brokers:
     - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
-  # No database, no object storage at P0 (screenshots are P3).
+  # P3 failure screenshots: same bucket + credentials as the imagegenerator
+  # (secret personae-storage-secrets, injected by deployment-env.yaml), under
+  # the runner's own acceptance-evidence/ key prefix. If the credentials are
+  # absent the adapter logs "screenshots disabled" and runs exactly as P0–P2 —
+  # evidence is never load-bearing.
+  object_storage:
+    endpoint: "https://s3.us-east-005.backblazeb2.com"
+    bucket: "personae-prod-uk001-images"
+    access_key_env_var: "B2_APPLICATION_KEY_ID"
+    secret_key_env_var: "B2_APPLICATION_KEY"
+
+  # No database (still true at P3).
   clients_database: {}
   templates_database: {}
   auth_database: {}

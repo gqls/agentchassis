@@ -91,6 +91,9 @@ artifact (curl/DB/screenshot), never by a "complete" status.
   never a standing isolation/residency guarantee.
 - **A10** Two-tone gold: bright `#C8A951` on dark chrome only; bronze `#836E32` for links
   on light (bright gold fails WCAG AA on light — 2.1:1).
+- **A11** (2026-07-16) Near-duplicate pages MERGED: keep `how-it-works` + `technical-architecture`
+  ("Architecture"); `our-approach` + `for-engineering-leaders` + `for-engineering-teams` are
+  archived. Don't resurrect them; new content goes on the survivors.
 
 **Palette (forked, leopardess-owned, WCAG-validated):** bg `#FAF8F4`, text `#1A1A1A`,
 accent/link `#836E32`, primary `#0D0D0D`, header/footer/hero bg `#0D0D0D`, card `#FFFFFF`,
@@ -199,12 +202,15 @@ It's linked from the footer + use-cases CTA, so it must not stay blank.
    **Remaining:** technical-architecture (defensibly technical, low priority); the rest of the
    pages are already in good voice — DON'T redo how-it-works body, engagement-model,
    who-we-help, for-engineering-teams, or the services middle sections.
-3. **PAGE-MERGE DECISION (owner's call, flagged for you).** how-it-works, our-approach,
-   technical-architecture, and for-engineering-teams share ~80% of their body content
-   (K8s/Kafka/Postgres + hierarchical agents + logging + approval gates + verify-against-source
-   + "we run it on our own sites first"). Recommend collapsing to one "how it works" + one short
-   technical cut and dropping the rest. Polishing each to sound distinct just entrenches the
-   duplication.
+3. **[✅ done — owner decision A11, executed turn 18] PAGE MERGE.** Kept `how-it-works`
+   (canonical, body-linked from all 15 pages) + `technical-architecture` (the "one click down"
+   technical page, nav label "Architecture", hero now "The architecture, in detail").
+   ARCHIVED `our-approach` + `for-engineering-teams` (same six claims, zero inbound body links);
+   their utility nav rows deleted. The two unique for-engineering-teams items were folded into
+   technical-architecture's features **rewritten to verified facts** — the original "Depth
+   Across Business Functions" contained the audited-out "eight departments" fabrication; it's
+   now "over 150 agent definitions" (DB-verified 156). TA's duplicate differentiators section
+   deleted. All verified live. Do NOT un-archive or re-polish the merged pages.
 4. **Imagery (punch #5).** Blocked on the infra flake + the hero→SDXL routing gap, both in
    §8/§9. `scripts/wire_heroes.sql` is written and guarded — only run it against an asset you
    have *looked at* (the one SDXL hero generated was unusable; nothing is wired).
@@ -250,7 +256,17 @@ triad "observability, fault isolation, cost controls" is gone sitewide.
   on `dial tcp 10.20.99.93:9092: i/o timeout` (broker healthy, other nodes fine) — the
   orchestrations sat AWAITING_RESPONSES at the spawn step forever (the workflow's
   `timeout_seconds: 300` did not fire). Remedy: delete the idle pods, re-fire; consider a
-  liveness bail-out when the request consumer can't dial for N minutes.
+  liveness bail-out when the request consumer can't dial for N minutes. **Full write-up for a
+  separate thread: `docs/HANDOFF_spawn_lost_child_response.md`.**
+- **No fact-verification layer exists anywhere in the platform** (turn 18, owner-confirmed
+  gap). Prompt rules say "never invent" (leaky), `validate_page_content` checks form not truth
+  (emails are the sole fact-shaped check — and the only fabrication class ever caught),
+  discovery checks are structural, `content-quality-auditor` is tone-only, and the identity
+  spec's `evidence_base` key has zero code consumers. The audit is manual
+  (AUDIT_verified_facts.md). **Owner decision: build it — spec for a NEW thread at
+  `docs/agent_docs/docs024_key_docs_latest/claims_verification/SPEC_claims_verification.md`**
+  (leopardess is the pilot site; its audit doc transcribes into the evidence base, and its
+  shipped fabrications are the benchmark corpus).
 
 ## 9. IMAGERY playbook (from research 2026-07-14) — how to give leopardess images
 

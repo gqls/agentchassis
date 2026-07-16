@@ -187,15 +187,37 @@ confirm the plain content-list bullets flipped from check to arrow. Fast check:
 — the default should read `background-position:0px -40px` (arrow), not `0px 0px`
 (check). No action if it hasn't flipped yet; it lands with the format-3 binary.
 
-### B13. Content-loss fixes — NOT imagery, but the current top priority
+### B13. Content-loss fixes — NOT imagery; guard now LIVE, recovery still open
 While doing I2 the work surfaced pre-existing platform bugs that silently lose
 live content (empty product pages; article bodies stored as unparsed JSON; an
 image landing that can blank an article). These are handed off to dedicated
 threads — you are already driving the article-body / image-landing pair.
 Written up in `../aaa_fails_to_mend/004_HANDOFF_image_landing_blanks_article_body.md`,
 `../HANDOFF_2026-07-14_article_body_json_envelope.md`, and
-`../HANDOFF_2026-07-14_empty_product_sections.md`. **Standing hazard until the
-fix deploys: do not let an image land on the affected pages — it blanks them.**
+`../HANDOFF_2026-07-14_empty_product_sections.md`.
+**Update 2026-07-16: the escalate-not-blank guard IS live in prod** (verified in
+the running pod) — the standing image-landing hazard is lifted. Still open in
+your separate thread: 4 pages remain blanked (finetuning ×3, gamesdesign ×1;
+the 004 handoff's §5 correction has the exact list and the fixed detection
+query — the old `length=1326` test under-reports).
+
+### B14. Phase I3 (card imagery) — post-deploy acceptance run
+Everything for I3 is built and the DB side is already live (assets entity
+columns; asset-deployer `content_card` mode; `content_image_missing` check
+registered — inert until the binary carrying it deploys). **After your next
+chassis deploy:**
+1. Trigger an improvement-loop / design-discovery pass for robot-hands.com
+   (kcat pattern, notes Turn 18). Two things fire in one pass:
+   `sprite_css_missing` (format 2→3 → the B12 arrow default lands) and
+   `content_image_missing` (→ up to 9 `needs_content_image` items →
+   asset-deployer derives `card-<page>.jpg` crops from each article's hero).
+2. When the card items complete, queue a re-render for `learning-center-hub`
+   (needs_page — it must re-resolve sections so `query.blog_posts` populates
+   the content-listing with items + images; assemble-only won't do that).
+3. **👀 A3 gate:** open `/learning-center-hub.html` (hard-refresh) — the
+   article listing should show cards, each with its own article's hero-family
+   image (800×450 crop, ≤60KB, served from `/assets/images/card-*.jpg`).
+   Click through: the article page shows the same image family as its card.
 
 ---
 

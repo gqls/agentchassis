@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/draw"
 	"image/jpeg"
 	"image/png"
 	_ "image/png" // PNG decoder
@@ -100,6 +101,53 @@ func OptimizeImageForWeb(imageData []byte, purpose string, logger *zap.Logger) (
 		zap.String("format", extension))
 
 	return buf.Bytes(), nil
+}
+
+// CoverCropResize scales an image so it fully covers targetW×targetH
+// (preserving aspect), then centre-crops to exactly those dimensions —
+// CSS object-fit:cover semantics. Unlike resize.Thumbnail (fit-inside,
+// output size varies with the source aspect), the result is always exactly
+// targetW×targetH, which purpose-derived assets (e.g. the Phase I3 card,
+// a fixed 800×450 crop of a hero) require. A same-aspect source degrades
+// to a pure resize with a zero-size crop offset.
+func CoverCropResize(img image.Image, targetW, targetH uint) image.Image {
+	if targetW == 0 || targetH == 0 {
+		return img
+	}
+	b := img.Bounds()
+	srcW, srcH := b.Dx(), b.Dy()
+	if srcW <= 0 || srcH <= 0 {
+		return img
+	}
+
+	// Scale so BOTH dimensions cover the target: pick the larger scale factor.
+	// Computing in cross-multiplied integers avoids float drift on the edge
+	// cases that matter (exact multiples like 1600×900 → 800×450).
+	var scaledW, scaledH uint
+	if uint64(srcW)*uint64(targetH) >= uint64(srcH)*uint64(targetW) {
+		// Source is wider than target aspect → height binds.
+		scaledH = targetH
+		scaledW = uint(uint64(srcW) * uint64(targetH) / uint64(srcH))
+	} else {
+		// Source is taller than target aspect → width binds.
+		scaledW = targetW
+		scaledH = uint(uint64(srcH) * uint64(targetW) / uint64(srcW))
+	}
+	scaled := resize.Resize(scaledW, scaledH, img, resize.Lanczos3)
+
+	// Centre-crop the overhang.
+	sb := scaled.Bounds()
+	offX := (sb.Dx() - int(targetW)) / 2
+	offY := (sb.Dy() - int(targetH)) / 2
+	if offX < 0 {
+		offX = 0
+	}
+	if offY < 0 {
+		offY = 0
+	}
+	out := image.NewRGBA(image.Rect(0, 0, int(targetW), int(targetH)))
+	draw.Draw(out, out.Bounds(), scaled, image.Pt(sb.Min.X+offX, sb.Min.Y+offY), draw.Src)
+	return out
 }
 
 // ProcessedImage holds the result of image processing

@@ -25,8 +25,14 @@ infrastructure:
   kafka_brokers:
     - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
-  # The runner uses no database and no object storage at P0 (screenshots are
-  # P3 — they will add object_storage here when they land).
+  # P3 failure screenshots need object storage; local runs usually have no B2
+  # credentials, so this stays empty and the adapter logs "screenshots
+  # disabled" (P0–P2 behaviour is unaffected). To exercise them locally,
+  # mirror the production overlay's object_storage block and export
+  # B2_APPLICATION_KEY_ID / B2_APPLICATION_KEY.
+  object_storage: {}
+
+  # The runner uses no database.
   clients_database: {}
   templates_database: {}
   auth_database: {}

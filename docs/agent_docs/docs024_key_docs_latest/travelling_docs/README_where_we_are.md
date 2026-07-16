@@ -161,3 +161,32 @@ Both halves of what you approved are done, and the loop is closed green on a rea
   From here it's polish: P3 screenshots, and letting the other 7 sites' footers self-heal on their natural rerender cadence.
 
 ---
+
+ P3 — screenshots on failure — is built and deploy-gated. That was the next unblocked front in the current handoff (the 07-09 one you linked is superseded by
+  HANDOFF_2026-07-10_stage5_live_and_next_fronts.md, whose T18 entry closed the loop and left P3 as the remaining polish).
+
+  What was built
+
+  - Adapter (internal/adapters/browserrunner/): when any check fails on a (url, profile) run, it captures a full-page PNG while the page is still open (so the shot carries post-interaction state) and
+  uploads it via the same S3/B2 client the image-generator uses — key acceptance-evidence/<site>/<function>/<run>_<profile>.png in personae-prod-uk001-images. The response gains screenshots refs: durable
+  s3:// URI, 7-day presigned view_url, and the failing id@profile list. Evidence is never load-bearing: no storage configured, a capture error, or an upload error each degrade to one log line and the
+  verdict is untouched; nav-failed pages aren't photographed.
+  - Judge (tool_acceptance_actions.go): extracts the refs through the same response-shape fallback chain as results. Fail notes (and pass-with-chrome notes) gain an Evidence: line carrying only the durable 
+  URI — presigned URLs never enter doc_notes, because notes are fed into LLM prompts by load_doc_context. The improve_tool spec gets all evidence and each chrome_overflow item gets its own profile's, both
+  with {uri, view_url} so a human triaging can click.
+  - Chassis-wide hygiene: the shared Kafka consumer no longer ERROR-logs the normal empty-poll timeout every 10 seconds on idle adapters (T14's log-drowning defect — it needed errors.Is, not ==). Real fetch
+  errors still log at ERROR.
+  - Deploy wiring: the adapter's production overlay config gains the object_storage block and deployment-env.yaml gains the B2 secret refs (personae-storage-secrets) plus S3_REGION/S3_USE_PATH_STYLE,
+  mirroring the image-generator. A missing secret just logs "screenshots disabled" at startup.
+
+  Verified: 10 new unit tests (6 adapter, 4 judge — including the invariant that presigned URLs never reach a note body), all three touched packages green, full source tree builds, and the kustomize overlay
+  renders correctly. The one go vet warning in that package is pre-existing committed code from another workstream.
+
+  Your deploy gate: next chassis image (judge + consumer fix) and next browser-runner-adapter image (capture/upload), plus re-applying the adapter overlay so the new config/env land. Proof afterwards: fire
+  087 at a failing tool and expect Evidence: s3://… in the acceptance-fail note and screenshots in the item spec.
+
+  Docs are rolled: HANDOFF T19, RUNBOOK rev 46 (new position line), RUNNING_NOTES rev 41, and the STATUS what's-next table. One loose end noted but deliberately not touched: the old DEBUGaa coordinator
+  logging from the 07-09 handoff's Task C is still in the tree — it's a wide sweep across processor.go/agent.go that deserves its own turn if you want it.
+
+---
+

@@ -182,6 +182,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Derive favicon + OG card from the site logo and commit to git",
 		IsLocal:     true,
 	},
+	"derive_card_asset": {
+		Handler:     DeriveCardAssetAction,
+		Category:    "image",
+		Description: "Derive a content entity's card image from its hero and commit to git",
+		IsLocal:     true,
+	},
 	"emit_sprite_css": {
 		Handler:     EmitSpriteCSSAction,
 		Category:    "site",

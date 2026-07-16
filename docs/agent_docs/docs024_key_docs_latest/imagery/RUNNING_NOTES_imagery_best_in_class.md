@@ -1752,3 +1752,65 @@ notes"), this entry. **Kicked off I3 code-surface reconnaissance** (Explore agen
 mapping assets schema, custom_image_id precedent, ImagePurposes, generation entry
 points, resolver, content-entity tables, card components, discovery-check pattern) to
 produce a concrete build plan before running any migration.
+
+## Turn 45 — 2026-07-16 — Phase I3 BUILT (I3.1–I3.4): entity link live, card derivation + resolver + check committed
+
+**Recon findings that shaped the design (full map in the Turn-44 recon):**
+- `assets` has NO entity link; the `affiliate_products.custom_image_id` FK is
+  schema-only — **zero Go callers**. I3 is the first real content→asset link.
+- **Why listing cards are empty, precisely:** `content-listing` declares
+  `articles: {source: "query.blog_posts", on_missing: skip_section}` — and
+  `blog_posts` was NOT in `queryresolve.Resolve`'s vocabulary (only
+  pages_where_type / pages_under_section / section_index_for / products), and
+  NO resolver projected an image field. Two gaps, both closed this turn.
+- No WebP encoder exists anywhere in the codebase; `OptimizeImageForWeb` only
+  fit-resizes (no crop). Heroes 1600×900 and cards 800×450 are both 16:9, so
+  cover-crop degrades to pure downscale on the common path.
+- Fleet article convention: `page_type='blog-post'` (9 pages on robot-hands).
+- `imageryplan.go`'s alias table already names I3 as the designed seam
+  (product_screenshot→hero "until Lane B lands literal keys").
+
+**User decisions (AskUserQuestion): D11** cards = 800×450 JPG q82 now, WebP
+deferred to I7 (no encoder; budget ≤60KB met). **D12** `card` is a derived
+PURPOSE (I1 favicon/og_card pattern, `origin_asset_id` lineage), NOT a
+chk_kind kind — amends D3's batch list with the same logic that kept `chart`
+out. Migration approved and run.
+
+**Built:**
+1. **I3.1 (LIVE):** `SQL_2026-07-16_assets_entity_link.sql` — `entity_type` +
+   `entity_id` on assets, partial lookup index + unique active
+   (site,entity,purpose). Applied, verified.
+2. **I3.2:** `derive_card_asset` action — mirrors derive_brand_head_assets:
+   page-scope plan hero (site-scope fallback) → S3 download →
+   `storage.CoverCropResize` (NEW exact-size cover-crop helper,
+   image_processing.go, unit-tested incl. centre-crop proof) → JPG q82 →
+   `sendGitCommitRequest` commits `/assets/images/card-<page>.jpg` →
+   entity-linked upsert (NOT best-effort — the link is what resolvers read).
+   `card` purpose in ImagePurposes. asset-deployer `content_card` mode
+   chained after sprite_css (SQL applied; explicit Strategy-0 paths per the
+   I2.1 lesson).
+3. **I3.3:** queryresolve — `blog_posts` base (delegates to pages_where_type
+   `blog-post`) + shared `pageImageProjection`/`pageImageJoins` fragments:
+   every page-listing item now carries `image` = entity card → plan hero →
+   "". Card wins the moment it exists (LEFT JOIN preference), heroes serve
+   as day-one fallback so listings aren't imageless while cards derive.
+4. **I3.4:** `content_image_missing` discovery check + registration SQL
+   (applied; warn-and-skip until deploy). Two anti-churn gates: a real
+   query.blog_posts consumer must exist, and the page must be derivable
+   (own hero or site brand hero) — otherwise the handler would complete
+   `derived:false` and the check would re-emit forever (the sprite_css
+   stamp lesson, solved here by the entity link BEING the stamp).
+
+**Verification:** `go build` clean (platform/internal/cmd); vet clean except
+the known pre-existing unreachable-code note; storage, discovery_checks,
+actions, imageryplan tests all pass. (`go build ./...` also trips over a
+pre-existing package clash in docs/…/traffic_probe/deploy_setup — another
+workstream's scratch, not code.)
+
+**Not done / deferred:** card landings don't auto-re-render listing pages
+(eventual consistency via next rebuild; revisit if it bites). News cards =
+I5, product cards = I6, on the same entity columns. WebP = I7.
+
+**Next: deploy → RUNBOOK B14** (one discovery pass fires BOTH
+sprite_css_missing format-3 [the B12 arrow] AND content_image_missing → ~9
+cards; then needs_page re-render of learning-center-hub; then the A3 gate).

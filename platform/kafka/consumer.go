@@ -3,6 +3,7 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -113,7 +114,16 @@ func (c *Consumer) FetchMessage(ctx context.Context) (Message, error) {
 
 	msg, err := c.reader.FetchMessage(ctx)
 	if err != nil {
-		if err == context.Canceled {
+		// Adapters poll with a short timeout context: DeadlineExceeded here is
+		// the NORMAL empty-poll case, not a fault. It used to log at ERROR every
+		// poll interval on every idle adapter, drowning the real log (observed on
+		// the browser-runner, 2026-07-14). errors.Is, not ==: kafka-go may wrap it.
+		if errors.Is(err, context.Canceled) {
+			return Message{}, err
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			c.logger.Debug("No messages available within poll timeout",
+				zap.String("topic", c.reader.Config().Topic))
 			return Message{}, err
 		}
 		c.logger.Error("Failed to fetch message from Kafka",

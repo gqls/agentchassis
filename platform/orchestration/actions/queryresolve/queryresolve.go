@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
 
@@ -89,6 +90,13 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 	case "products":
 		return resolveProducts(ctx, db, req.SiteID, arg, req.Limit, logger)
 
+	case "blog_posts":
+		// Article listings (content-listing, blog-listing components declare
+		// `source: "query.blog_posts"`). Fleet convention: articles are pages
+		// with page_type 'blog-post', so this is pages_where_type with the
+		// type fixed — one vocabulary entry, zero new query machinery.
+		return resolvePagesWhereType(ctx, db, req.SiteID, "blog-post", req.Limit, logger)
+
 	default:
 		return nil, fmt.Errorf("queryresolve.Resolve: unknown query name %q (base %q)", req.Name, base)
 	}
@@ -105,6 +113,56 @@ func parseQueryName(name string) (base, arg string) {
 	return name[:idx], name[idx+1:]
 }
 
+// pageImageProjection / pageImageJoins are the shared SQL fragments that give
+// every page-listing query its item image (Phase I3, Lane B). Two candidates,
+// in preference order:
+//   - ca: the page's entity-linked CARD asset (assets.entity_type='page' +
+//     entity_id, purpose 'card') — the purpose-built listing crop.
+//   - ha: the page's own Lane A plan hero (current plan, page scope) — the
+//     always-present fallback until a card is derived.
+//
+// Alias `p` for pages is required in the enclosing query. The lateral hero
+// lookup runs per returned row; listings are capped at 24 rows so this stays
+// cheap.
+const pageImageProjection = `
+		    COALESCE(ca.asset_key, '') AS card_key,
+		    COALESCE(ha.asset_key, '') AS hero_key,
+		    COALESCE(ha.purpose, '')   AS hero_purpose`
+
+const pageImageJoins = `
+		LEFT JOIN assets ca
+		  ON ca.site_id = p.site_id AND ca.entity_type = 'page'
+		 AND ca.entity_id = p.id AND ca.purpose = 'card' AND ca.status = 'active'
+		LEFT JOIN LATERAL (
+		    SELECT a.asset_key, a.purpose
+		      FROM site_plan_imagery spi
+		      JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
+		      JOIN assets a ON a.site_id = p.site_id AND a.asset_key = spi.key AND a.status = 'active'
+		     WHERE sp.site_id = p.site_id AND spi.kind = 'hero'
+		       AND spi.scope = 'page' AND spi.scope_ref = p.name
+		     LIMIT 1
+		) ha ON true`
+
+// pageImageCols carries the scanned image candidates for one listing row.
+type pageImageCols struct {
+	CardKey     string
+	HeroKey     string
+	HeroPurpose string
+}
+
+// webPath resolves the item's image to a deployed git path: card first, plan
+// hero second, empty when the page has neither. Never assets.url — that holds
+// an expiring presigned S3 URL.
+func (c pageImageCols) webPath() string {
+	if c.CardKey != "" {
+		return storage.DeployedWebPath(c.CardKey, "card")
+	}
+	if c.HeroKey != "" {
+		return storage.DeployedWebPath(c.HeroKey, c.HeroPurpose)
+	}
+	return ""
+}
+
 // resolvePagesWhereType returns all pages on the site with the given
 // page_type, projected to the standard list-item shape.
 //
@@ -115,8 +173,14 @@ func parseQueryName(name string) (base, arg string) {
 //	  "title":            "Jump Physics",
 //	  "url":              "/tools/jump-physics/index.html",
 //	  "meta_description": "...",
-//	  "nav_label":        "Jump Physics Architect"
+//	  "nav_label":        "Jump Physics Architect",
+//	  "image":            "/assets/images/card-tool-jump-physics.jpg"
 //	}
+//
+// image (Phase I3, Lane B) is the page's entity-linked CARD asset when one
+// exists, else the page's own plan hero (heavier, but present — the card
+// supersedes it as derivations land), else "" (components treat a missing
+// image as no-thumbnail).
 //
 // The shape is intentionally generic — components can pick any subset of
 // these keys via their `items.items.X.source: "field.X"` declarations
@@ -154,16 +218,18 @@ func resolvePagesWhereType(
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-		    name,
-		    COALESCE(title, name)               AS title,
-		    url,
-		    COALESCE(meta_description, '')      AS meta_description,
-		    COALESCE(nav_label, title, name)    AS nav_label
-		FROM pages
-		WHERE site_id   = $1
-		  AND page_type = $2
-		  AND status   IN ('active', 'deployed')
-		ORDER BY COALESCE(nav_order, 100), name
+		    p.name,
+		    COALESCE(p.title, p.name)               AS title,
+		    p.url,
+		    COALESCE(p.meta_description, '')        AS meta_description,
+		    COALESCE(p.nav_label, p.title, p.name)  AS nav_label,
+		    `+pageImageProjection+`
+		FROM pages p
+		`+pageImageJoins+`
+		WHERE p.site_id   = $1
+		  AND p.page_type = $2
+		  AND p.status   IN ('active', 'deployed')
+		ORDER BY COALESCE(p.nav_order, 100), p.name
 		LIMIT $3
 	`, siteID, pageType, limit)
 	if err != nil {
@@ -174,7 +240,8 @@ func resolvePagesWhereType(
 	items := make([]map[string]interface{}, 0)
 	for rows.Next() {
 		var name, title, url, metaDesc, navLabel string
-		if err := rows.Scan(&name, &title, &url, &metaDesc, &navLabel); err != nil {
+		var img pageImageCols
+		if err := rows.Scan(&name, &title, &url, &metaDesc, &navLabel, &img.CardKey, &img.HeroKey, &img.HeroPurpose); err != nil {
 			logger.Warn("resolvePagesWhereType: scan failed", zap.Error(err))
 			continue
 		}
@@ -184,6 +251,7 @@ func resolvePagesWhereType(
 			"url":              url,
 			"meta_description": metaDesc,
 			"nav_label":        navLabel,
+			"image":            img.webPath(),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -237,11 +305,13 @@ func resolvePagesUnderSection(
 		    COALESCE(p.title, p.name)              AS title,
 		    p.url,
 		    COALESCE(p.meta_description, '')       AS meta_description,
-		    COALESCE(p.nav_label, p.title, p.name) AS nav_label
+		    COALESCE(p.nav_label, p.title, p.name) AS nav_label,
+		    `+pageImageProjection+`
 		FROM pages p
 		JOIN site_areas sa
 		  ON sa.id = p.site_area_id
 		 AND sa.site_id = p.site_id
+		`+pageImageJoins+`
 		WHERE p.site_id = $1
 		  AND (lower(sa.name) = lower($2)
 		       OR sa.url_prefix = $2
@@ -258,7 +328,8 @@ func resolvePagesUnderSection(
 	items := make([]map[string]interface{}, 0)
 	for rows.Next() {
 		var name, title, url, metaDesc, navLabel string
-		if err := rows.Scan(&name, &title, &url, &metaDesc, &navLabel); err != nil {
+		var img pageImageCols
+		if err := rows.Scan(&name, &title, &url, &metaDesc, &navLabel, &img.CardKey, &img.HeroKey, &img.HeroPurpose); err != nil {
 			logger.Warn("resolvePagesUnderSection: scan failed", zap.Error(err))
 			continue
 		}
@@ -268,6 +339,7 @@ func resolvePagesUnderSection(
 			"url":              url,
 			"meta_description": metaDesc,
 			"nav_label":        navLabel,
+			"image":            img.webPath(),
 		})
 	}
 	if err := rows.Err(); err != nil {

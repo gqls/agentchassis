@@ -1,7 +1,7 @@
 # RUNNING NOTES — Tool & Complex-Component Travelling Docs (PLAN + NOTES)
 
 **Created:** 2026-07-04
-**Last updated:** 2026-07-16 (rev 40 — Tier-4 P1/P2 live; the self-verifying loop CLOSED GREEN on a real bug: detect→attribute→route→durable-fix→deploy→re-verify. Latest session log at the BOTTOM: 2026-07-14→16.)
+**Last updated:** 2026-07-16 (rev 41 — P3 screenshots-on-failure BUILT (deploy-gated); idle-adapter Kafka ERROR spam fixed chassis-wide. Prior: the self-verifying loop CLOSED GREEN on a real bug. Latest session log at the BOTTOM.)
 (Times are per working session on the date shown; add HH:MM in your timezone for
 finer granularity.)
 
@@ -3061,3 +3061,40 @@ number collisions (two 149s/150s/151s; the gripper 151 blocking the runner) are
 being handled in a SEPARATE chat.
 
 Categories: (deploy, docs)
+
+### 2026-07-16 — P3 screenshots-on-failure built (deploy-gated)
+
+The last named polish item from the completed loop, built in one pass. When any
+check fails on a (url, profile) run, the adapter photographs the FULL page
+while it is still open (so the shot carries post-interaction state) and uploads
+it through the same S3/B2 client the imagegenerator uses — key
+`acceptance-evidence/<site>/<function>/<run>_<profile>.png` in
+`personae-prod-uk001-images`. The response gains `screenshots` refs: durable
+`s3://` URI, 7-day presigned `view_url`, and the failing `id@profile` list.
+
+Two design rules worth keeping:
+- **Evidence is never load-bearing.** No storage configured, capture error,
+  upload error → one log line, verdict untouched. Nav-failed pages are not
+  photographed (nothing loaded — no state worth keeping). The "docs never fail
+  the work" rule, applied to pixels.
+- **Presigned URLs never enter doc_notes.** Notes are loaded into LLM prompt
+  contexts by load_doc_context; a signed URL is hundreds of chars of expiring
+  signature. The note's new `Evidence:` line carries the durable URI only;
+  item specs (improve_tool = all evidence; each chrome_overflow item = its own
+  profile's) carry both forms for humans to click. There is a unit test
+  pinning this invariant.
+
+Also fixed chassis-wide while in there: the shared `platform/kafka` consumer
+ERROR-logged the NORMAL empty-poll `context deadline exceeded` every 10s on
+every idle adapter (T14's log-drowning observation). Now `errors.Is`-matched
+and logged at debug; real fetch errors still ERROR. And checked: the old
+`DEBUGaa` coordinator logging (07-09 handoff Task C) is still in the tree —
+left for its own turn, it is a wide sweep across processor.go/agent.go.
+
+Tests: 6 new adapter + 4 new judge, all three touched packages green. Deploy
+gate: next chassis image (judge + consumer) + next adapter image (capture) +
+re-apply the adapter overlay (new object_storage config + B2 secret env).
+Proof after deploy: 087 at a failing tool → `Evidence: s3://…` in the
+acceptance-fail note, `screenshots` in the item spec.
+
+Categories: (build, design, gotcha)

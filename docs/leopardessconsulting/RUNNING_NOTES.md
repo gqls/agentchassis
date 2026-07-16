@@ -1064,3 +1064,33 @@ three had ZERO inbound body links (footer-only orphans).
 
 **Lesson reinforced:** content folded during a merge must be re-audited — one of the two
 "unique items worth saving" contained a known fabrication buried mid-paragraph.
+
+### Turn 18 — "where does the facts audit actually happen?" → answered, and spec'd as a new workstream
+
+Owner asked whether claim/fact verification is part of the content loop — is there a dedicated
+checker and handler? **Investigated in code + live DB; the answer is NO dedicated layer exists.**
+What exists: (1) generation-time "NEVER invent" prompt rules (instructional, leaky — the
+fabrications all shipped through them); (2) `validate_page_content` at build time (form, not
+truth — placeholders/links/meta-commentary/length + exactly ONE fact-shaped check: emails vs
+site contact); (3) 38 post-deploy discovery checks (all structural); (4) `content-quality-auditor`
+(tone/gaps/CTA/differentiation — zero fact vocabulary, never ran here). The audit is manual:
+AUDIT_verified_facts.md + operator discipline. Telling details: the identity spec's
+`evidence_base` key is read by NOTHING in code (grep: zero consumers), and the only fabrication
+class ever caught by the platform (emails) is the only class with a deterministic checker.
+
+**Owner decision: build a claims-verification layer, fully documented, as its own thread.**
+Spec written: `docs/agent_docs/docs024_key_docs_latest/claims_verification/SPEC_claims_verification.md`
+— self-contained thread-starter. Shape: formalize `site_specs.evidence_base` as data
+(facts + banned_claims + allowed_entities; transcribed from this site's audit doc) → V1
+deterministic checks (banned-claims blocker in validate_page_content + `check_unverified_claims`
+discovery check → HITL work items, never auto-rewrite) → V2 writer whitelist injection ("use
+ONLY these numbers/entities" — the fix that worked for emails) → V3 LLM claims-auditor for
+prose assertions → V4 live SQL re-verification of metrics (shares the query layer the L7 chart
+component wants). Benchmark corpus = this site's own shipped fabrications (B1–B7 in the spec:
+"eight departments", "70+ agents", "Awards Won", the fake client case studies, jane@ in body
+vs in placeholder=). Landmines encoded from our scars: DOM position (the placeholder-attribute
+false positive), number false-positive classes, audit caveat semantics (C1 true ≠ "handles
+dissolved companies" true), locked components, opt-in per site.
+
+Leopardess is the pilot site (only one with an audit doc to transcribe) but the build itself is
+platform work — belongs to the claims-verification thread, not this one.

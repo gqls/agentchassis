@@ -498,7 +498,7 @@ func JudgeAcceptanceResultsAction(ctx context.Context, params ActionParams) (int
 
 	// Site-chrome failures are routed FIRST and independently of the tool's own
 	// verdict: they are real, user-visible defects that no tool edit can fix.
-	chromeRouted := routeChromeFailures(ctx, params, logger, v.Chrome, function, siteID, sourceAgent)
+	chromeRouted := routeChromeFailures(ctx, params, logger, v.Chrome, v.Shots, function, siteID, sourceAgent)
 
 	allPassed := len(v.Failed) == 0
 	if allPassed {
@@ -510,14 +510,17 @@ func JudgeAcceptanceResultsAction(ctx context.Context, params ActionParams) (int
 			rootCause = "site chrome, not this tool: " + chromeSummary(v.Chrome)
 			fix = fmt.Sprintf("%d responsive_fix item(s) raised for the site template (handler component-template-fixer); the tool itself needs no change", chromeRouted)
 		}
+		// Evidence exists on a pass ONLY when the page failed for site-chrome
+		// reasons — the screenshot shows the chrome defect, not the tool.
 		body := fmt.Sprintf(`## Tier-4 acceptance PASSED — %s
-Observed: all %d of the tool's own checks passed in headless Chromium%s (%d skipped: %s).
+Observed: all %d of the tool's own checks passed in headless Chromium%s (%d skipped: %s).%s
 Root cause: %s
 Fix: %s
 Verified: browser-runner-adapter run; checks (id@profile): %s
 Categories: acceptance-run`,
 			function, len(v.Passed), profilesPhrase(v.Profiles),
 			len(v.SkipList), strings.Join(orNone(v.SkipList), ", "),
+			evidenceLine(v.Shots),
 			rootCause, fix,
 			strings.Join(v.Passed, ", "))
 		if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
@@ -543,12 +546,13 @@ Categories: acceptance-run`,
 			chromeRouted, chromeSummary(v.Chrome))
 	}
 	body := fmt.Sprintf(`## Tier-4 acceptance FAILED — %s
-Observed: %d of %d evaluated checks failed in headless Chromium%s: %s%s
+Observed: %d of %d evaluated checks failed in headless Chromium%s: %s%s%s
 Root cause: not diagnosed at this tier (behavioural run; the fixer loads PLAN+NOTES first)
 Fix: improve_tool item created carrying the criteria as acceptance_test
 Verified: n/a — failing run recorded
 Categories: acceptance-fail`,
-		function, len(v.Failed), len(v.Results), profilesPhrase(v.Profiles), issue, chromeLine)
+		function, len(v.Failed), len(v.Results), profilesPhrase(v.Profiles), issue, chromeLine,
+		evidenceLine(v.Shots))
 	if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
 		`["acceptance-fail"]`, "tool-acceptance", sourceAgent, "", "tool-acceptance-agent"); err != nil {
 		logger.Warn("judge: acceptance-fail note insert failed", zap.Error(err))
@@ -581,6 +585,9 @@ Categories: acceptance-fail`,
 				"failing_checks":    v.FailedIDs,
 				"failing_instances": v.Failed,
 				"acceptance_test":   json.RawMessage(criteriaOrNull(criteria)),
+			}
+			if shots := shotsForSpec(v.Shots, ""); len(shots) > 0 {
+				spec["screenshots"] = shots // P3 evidence: what the page looked like when it failed
 			}
 			if pageID != "" {
 				spec["page_id"] = pageID
@@ -645,7 +652,7 @@ func chromeSummary(cf []chromeFailure) string {
 // (site_id, item_key) collapses repeat reports while the item is open, and lets
 // it be raised afresh if the defect returns after a fix.
 func routeChromeFailures(ctx context.Context, params ActionParams, logger *zap.Logger,
-	failures []chromeFailure, function, siteID, sourceAgent string) int {
+	failures []chromeFailure, shots []screenshotRef, function, siteID, sourceAgent string) int {
 
 	if len(failures) == 0 || params.DB == nil || siteID == "" {
 		return 0
@@ -684,6 +691,11 @@ func routeChromeFailures(ctx context.Context, params ActionParams, logger *zap.L
 			"original_pipeline":  "build",
 			"original_domain":    "build",
 			"found_via":          map[string]interface{}{"tool": function, "check": cf.CheckID, "profile": cf.Profile},
+		}
+		// P3 evidence: the failing profile's full-page screenshot shows the
+		// chrome defect (the whole page was photographed, footer included).
+		if evidence := shotsForSpec(shots, cf.Profile); len(evidence) > 0 {
+			spec["screenshots"] = evidence
 		}
 		specJSON, _ := json.Marshal(spec)
 

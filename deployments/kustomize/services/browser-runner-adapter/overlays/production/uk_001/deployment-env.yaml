@@ -17,3 +17,21 @@ spec:
               value: "browser-runner.adapter.group"
             - name: AGENT_VERSION
               value: "0.1.0"
+            # P3 failure screenshots — same storage the imagegenerator uses
+            # (bucket + endpoint are in the adapter's config file; region and
+            # path-style are env-only knobs of platform/storage). Missing
+            # secret → screenshots disabled, checks unaffected.
+            - name: S3_REGION
+              value: "us-east-005"
+            - name: S3_USE_PATH_STYLE
+              value: "false"
+            - name: B2_APPLICATION_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY_ID
+            - name: B2_APPLICATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY

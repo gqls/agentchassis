@@ -139,6 +139,13 @@ carries the same theme" requirement.
 | D9 | **Accept the sprite bullet's baked-in cell background.** Each bullet paints its sheet cell *including* the charcoal background, so a faint square tile sits behind every glyph. ACCEPTED as-is — no format change. | JPG has no alpha; that was the deliberate Turn 33 trade (a lossless PNG blew both the Kafka git-commit message-size limit and the ≤80KB budget). The tile reads as a subtle box on the dark theme and is on-brand. Revisit only if a transparent format ever fits the budget. |
 | D10 | **Sprite bullets become a container opt-in, not a per-list opt-in.** `emit_sprite_css` will also emit a container rule (e.g. `.sprite-bullets ul>li::before`), and the class goes on a *component wrapper* (e.g. article-body's `.article-body__content`) — so every content list inside themes itself. Sequenced as **I2.5, AFTER the live gate and I2.4.** | `ul.sprite-list` requires a class ON the `<ul>`, but article bodies are LLM-generated HTML dropped into `{{.content}}` — **content `<ul>`s never carry classes**, so a per-list opt-in is a hand-edit that the next content regeneration wipes. A container opt-in is regen-proof, needs no content edits, and is reusable fleet-wide. |
 
+### D11–D12 confirmed with user 2026-07-16 (I3 design calls)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D11 | **I3 cards ship as 800×450 JPG q82; WebP deferred to Phase I7.** | The plan text said WebP, but the codebase has NO WebP encoder (image_processing.go encodes PNG/JPEG only; pure-Go lossy WebP encoders are scarce/CGO). JPG q82 sits well inside the confirmed ≤60KB card budget, and I7 is already the "WebP for photographic kinds fleet-wide" phase — one migration pass there beats a one-off dependency here. |
+| D12 | **`card` is a derived PURPOSE, not a `site_plan_imagery` kind — amends D3's original batch list.** Cards derive from the entity's hero (I1's favicon/og_card derive pattern, `origin_asset_id` lineage); they are never planner-emitted, so they never appear in plan rows and need no chk_kind/validImageryKinds change. | Same reasoning that kept `chart` out of chk_kind in D3 itself: Lane B artefacts don't get plan kinds. I1 proved the pattern — og_card was in D3's batch list too, and it shipped as purpose-only with zero friction. Keeps the plan-kind constraint tight and the five-place kind checklist short. |
+
 ---
 
 ## 5. Phases
@@ -448,6 +455,42 @@ via `sprite_css_missing` on the next discovery pass. Verify: served CSS default
 - `card` kind/purpose with its own size profile (e.g. 800×450 WebP); card components resolve the entity's image. **Confirmed 2026-07-08: the card image is the article's asset re-cropped** (purpose-specific crops of one generation), not a sibling generation — one source image yields article hero, card crop, and OG crop.
 - Blog-index / news-feed / tool-directory cards consume it.
 - **Acceptance:** robot-hands.com blog index shows cards whose images match their articles; clicking through shows the same visual family on the article.
+
+**Status 2026-07-16 (Turn 45) — I3 BUILT; DB side LIVE; Go rides the next
+deploy.** Design refined by recon before building (D11: JPG not WebP; D12:
+derived purpose, not plan kind; v1 entity = `page`, news → I5, products → I6):
+- **I3.1 ✅ LIVE** — `assets.entity_type` + `entity_id` (nullable, partial
+  index + per-(site,entity,purpose) active-uniqueness), migration
+  `SQL_2026-07-16_assets_entity_link.sql` applied with backup + verify. This
+  is THE Lane B link; the never-wired `affiliate_products.custom_image_id` FK
+  (zero Go callers — recon finding) stays as-is.
+- **I3.2 ✅ built** — `derive_card_asset` action (registry + input spec):
+  page hero (site-hero fallback) → S3 bytes → `storage.CoverCropResize` (new,
+  exact-size cover-crop, unit-tested; heroes are 16:9 so the usual path is a
+  pure downscale) → JPG q82 → git commit `card-<page>.jpg` → entity-linked
+  assets upsert with `origin_asset_id` lineage. `card` added to
+  `ImagePurposes` (800×450×82 jpg). asset-deployer `content_card` mode chained
+  after sprite_css (`SQL_2026-07-16_asset_deployer_content_card_mode.sql`,
+  applied — safe pre-deploy).
+- **I3.3 ✅ built** — queryresolve gains the missing `blog_posts` base
+  (recon: `content-listing` sources `query.blog_posts`, which was UNKNOWN to
+  the resolver — that's why listing sections rendered empty) as
+  pages_where_type fixed to `blog-post`, and ALL page-listing resolvers now
+  project `image`: entity card first, the page's own plan hero as fallback,
+  "" when neither. Never `assets.url`.
+- **I3.4 ✅ built** — `content_image_missing` discovery check (registered,
+  `SQL_2026-07-16_register_content_image_missing.sql`; warn-and-skip until
+  the binary deploys). Gated on (a) a real `query.blog_posts` consumer
+  existing and (b) derivability (hero present), so the handler can't churn;
+  the entity link itself is the fulfilment stamp — no separate stamp needed.
+- **I3.5 ⏳ acceptance after deploy** (RUNBOOK B14): discovery pass →
+  ~9 cards derive → re-render `learning-center-hub` (needs_page, NOT
+  assemble-only — sections must re-resolve) → gate: cards show per-article
+  hero-family images; click-through matches; `card-*.jpg` ≤60KB. The
+  `learning-center-index` orphan slot clears with a listing rebuild here.
+- Known deferred: card landings do NOT auto-re-render listing pages (listings
+  pick cards up on their next rebuild — eventual consistency; revisit if it
+  bites); `assets.url` on old rows still presigned-stale (cosmetic).
 
 ### Phase I4 — Data graphics pipeline (G2 — the flagship)
 Per `FUTURE_data_graph_pipeline.md` and D1:

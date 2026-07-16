@@ -117,3 +117,39 @@ the Spanish Grok row).
   routing supports it (today: xai/openai/perplexity). Flagged in the SQL.
 - All non-destructive to prepare; applied by the operator once the `sites` row exists.
   **Still pending operator:** P0 CF real-ip box re-run; confirm/create the `sites` row.
+
+## 2026-07-16 — SUBMITTED into the framework; P1a/P1b/P2 APPLIED live; build on the news-portal track
+
+- **No sites row existed** (`SELECT … WHERE domain='relojistas.com'` → 0 rows). Submitted
+  FRESH via `082_submit_domain_unified.sh relojistas.com --mission-file
+  relojistas_mission_brief.txt` (new brief pins Spanish + news-portal + forum heritage +
+  link-out-to-sources). Correlation `6cc3a05c…`; submitter orchestration COMPLETED.
+- **Site row created:** `ecf15e75-a966-4900-bcb0-1c85f689dbfd` (status active, build pending).
+- **Critical finding — no watch vertical:** `verticalNewsMap` has energy/gas/finance/boxing/
+  tech/vet/legal… but **nothing for watches/horology**, so `evaluate_news_feed` would return
+  `recommended:false` and build the site with NO news feed. On no-match it returns early
+  WITHOUT writing site_specs — so a forced recommendation is safe from clobber.
+- **P1a APPLIED (before deploy):** onboarding UPDATE via psql — github_repo=vm-sites,
+  deploy_config target=vm + capabilities=[backend] + engine.{base_url, stats_key}. Key read
+  live from the box env (`INTERNAL_API_KEY`, 48 chars, `819419…`), never printed/committed.
+- **P1b + P2 APPLIED (after classifier, before planner — the exact window):** created
+  `relojistas_set_news_feed()` + `seed_relojistas_sources()` and ran them.
+  Classification current spec now `content_features.news_feed.recommended=true,
+  separate_page=true` (source_agent `relojistas-rebuild`; classifier's version superseded).
+  6 content_sources seeded (5 verified Spanish RSS + Spanish Grok api_news).
+- **VALIDATED:** cascade ran classifier → vertical-exemplar → strategist → briefing →
+  site-design-planner; forced classification stayed `cur=true` (not clobbered). Planner
+  produced **27 work items incl. a `noticias-index` page** + index, guias-index, articulo,
+  glosario-index/entrada, historia (forum heritage), sobre-nosotros, contacto — the Spanish
+  news portal, as specified. Pages `not_built`; build now proceeding (pages → design →
+  deploy to vm-sites).
+- **Code (future domains):** added watch/horology to `verticalNewsMap`
+  (`watchHorologyNews`, aliased watch/watches/horology/watchmaking/reloj/relojes; gofmt +
+  build OK). Effective only after a chassis rebuild+redeploy; did NOT affect this build.
+- **Design written:** `news_vertical_autodetect_design.md` — phased plan to make
+  news-vertical detection + RSS sourcing automatic (Phase 1 map entry done; Phase 2 LLM
+  fallback; Phase 3 DB-backed self-learning verticals; Phase 4 VERIFIED feed-discovery — the
+  safe sourcing automation). Careful: never seed unverified feed URLs; LLM only on miss;
+  discovery async off the hot path.
+- **Next:** watch build → deploy; then P4 `render_rss_feed` + P5 engine legacy
+  `/external.php` handler + search-answers. P0 CF real-ip box re-run still operator's.

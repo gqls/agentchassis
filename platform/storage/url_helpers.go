@@ -208,7 +208,13 @@ var ImagePurposes = map[string]struct {
 	// budget (G7). At bullet display size the jpg-muddies-lines concern is
 	// imperceptible; quality 88 on a flat dark ground keeps the lines clean.
 	"sprite_sheet": {768, 768, 88, "jpg"},
-	"default":      {1200, 800, 85, "jpg"},
+	// Content card (Phase I3, Lane B): the listing-card crop of a content
+	// entity's image, derived from the entity's hero — never a sibling
+	// generation. Same 16:9 aspect as heroes so the usual derivation is a
+	// pure downscale. JPG q82 sits well inside the ≤60KB card budget (D11:
+	// WebP deferred to Phase I7 — no encoder in the codebase).
+	"card":    {800, 450, 82, "jpg"},
+	"default": {1200, 800, 85, "jpg"},
 }
 
 // GetImageConfig returns the configuration for an image purpose

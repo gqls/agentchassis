@@ -218,3 +218,92 @@ func TestExtractRunResultsEmpty(t *testing.T) {
 		t.Fatalf("missing field must yield empty verdict, got %+v", v)
 	}
 }
+
+// ── P3: screenshots on failure ──────────────────────────────────────────────
+
+// The adapter attaches screenshots for failing (url, profile) runs; the judge
+// must find them through the same response-shape fallbacks as the results.
+func TestExtractRunResultsFindsScreenshots(t *testing.T) {
+	shots := []interface{}{
+		map[string]interface{}{
+			"profile": "mobile", "url": "https://x/t.html",
+			"uri":            "s3://bucket/acceptance-evidence/site/tool/run_mobile.png",
+			"view_url":       "https://signed.example/k?sig=abc",
+			"failing_checks": []interface{}{"mobile-fit@mobile"},
+		},
+	}
+	results := []interface{}{
+		map[string]interface{}{"check_id": "mobile-fit", "profile": "mobile", "pass": false, "detail": "overflow"},
+	}
+
+	shapes := map[string]map[string]interface{}{
+		"response.data": {"browser_run": map[string]interface{}{
+			"response": map[string]interface{}{
+				"data": map[string]interface{}{"results": results, "screenshots": shots}}}},
+		"flattened": {"browser_run": map[string]interface{}{
+			"results": results, "screenshots": shots}},
+	}
+	for name, collected := range shapes {
+		v := extractRunResults(collected, "browser_run")
+		if len(v.Shots) != 1 {
+			t.Errorf("%s: expected 1 screenshot ref, got %d", name, len(v.Shots))
+			continue
+		}
+		s := v.Shots[0]
+		if s.Profile != "mobile" || s.URI == "" || s.ViewURL == "" || len(s.Failing) != 1 {
+			t.Errorf("%s: ref lost fields: %+v", name, s)
+		}
+	}
+}
+
+// A ref without a durable URI is unusable evidence and must be dropped.
+func TestExtractRunResultsDropsURIlessScreenshots(t *testing.T) {
+	collected := map[string]interface{}{"browser_run": map[string]interface{}{
+		"results":     []interface{}{map[string]interface{}{"check_id": "x", "pass": false}},
+		"screenshots": []interface{}{map[string]interface{}{"profile": "mobile", "view_url": "https://signed"}},
+	}}
+	if v := extractRunResults(collected, "browser_run"); len(v.Shots) != 0 {
+		t.Errorf("a screenshot without a uri must be dropped, got %+v", v.Shots)
+	}
+}
+
+// Notes are loaded into LLM prompt contexts by load_doc_context: the evidence
+// line carries ONLY the durable s3:// URI — never the presigned signature.
+func TestEvidenceLineDurableURIOnly(t *testing.T) {
+	shots := []screenshotRef{
+		{Profile: "mobile", URI: "s3://b/acceptance-evidence/s/t/r_mobile.png", ViewURL: "https://signed.example/k?sig=SECRETSIG"},
+		{Profile: "desktop", URI: "s3://b/acceptance-evidence/s/t/r_desktop.png", ViewURL: "https://signed.example/k2?sig=SECRETSIG2"},
+	}
+	line := evidenceLine(shots)
+	if !strings.Contains(line, "s3://b/acceptance-evidence/s/t/r_mobile.png (mobile)") {
+		t.Errorf("evidence line must carry the durable uri + profile: %q", line)
+	}
+	if strings.Contains(line, "signed.example") || strings.Contains(line, "SECRETSIG") {
+		t.Errorf("presigned URLs must NEVER enter a note body: %q", line)
+	}
+	if evidenceLine(nil) != "" {
+		t.Error("no shots → no evidence line (clean pass / screenshots unconfigured)")
+	}
+}
+
+// Item specs get both forms; a chrome item takes only its own profile's shot.
+func TestShotsForSpecProfileFilter(t *testing.T) {
+	shots := []screenshotRef{
+		{Profile: "mobile", URI: "s3://b/m.png", ViewURL: "https://v/m"},
+		{Profile: "desktop", URI: "s3://b/d.png", ViewURL: "https://v/d"},
+	}
+	all := shotsForSpec(shots, "")
+	if len(all) != 2 {
+		t.Fatalf("empty profile keeps everything, got %d", len(all))
+	}
+	if all[0]["uri"] != "s3://b/m.png" || all[0]["view_url"] != "https://v/m" {
+		t.Errorf("spec shot lost fields: %+v", all[0])
+	}
+	mobile := shotsForSpec(shots, "mobile")
+	if len(mobile) != 1 || mobile[0]["profile"] != "mobile" {
+		t.Errorf("profile filter wrong: %+v", mobile)
+	}
+	if len(shotsForSpec(nil, "mobile")) != 0 {
+		t.Error("no shots → empty spec list")
+	}
+}
