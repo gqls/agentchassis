@@ -1914,3 +1914,84 @@ chat's doc_notes. Q-E/Q-G/Q-H remain open (F2).
   design decision for the builder thread.
 - Was `mark_no_sections` ever written and removed, or only ever intended?
   Git archaeology would settle it and would feed F3's learning record.
+
+---
+
+## Turn 34 — 2026-07-16 (chat "diagnosis fixloop 3") — FIRST REAL-CASE CONFIRMED; Sonnet 5 swap; two config bugs found by failure
+
+### The headline
+The loop delivered its **first real-case CONFIRMED diagnosis**: correlation
+`e505f70f-b9e2-4654-9942-30fb13731ca9`, slug `needs_diagnosis:stop-reason-undecoded`.
+**BUG A — `GenerateText` (platform/aiservice/anthropic.go) never decodes
+`stop_reason`**, so a max_tokens-truncated HTTP 200 returns as a complete
+success at every layer above. CONFIRMED on 3 citations: the response struct
+(only Content+Usage decoded — the rubric's required citation), the
+text-block-return loop, and a state-tier citation of live `llm_call_log` rows
+(17 calls with output_tokens == max_tokens, all success=true) **returned by the
+loop's own data_request** — F0.5 machinery proven on a real case. 5 verdict
+iterations, all Sonnet 5 @ max_tokens 32000, outputs 2,939–10,735 tokens.
+Graded PASS against the pre-registered rubric
+(`RUBRIC_2026-07-16_two_config_bugs.md`, written before dispatch).
+
+### Model swap (owner-requested): claude-sonnet-4-6 → claude-sonnet-5
+- diagnose-agent now `claude-sonnet-5`, root ai_service `max_tokens: 32000`.
+  Def backed up: `bak_agentdef_diagnose_20260716`. Verified live in
+  llm_call_log (`model_resolved=claude-sonnet-5`, max_tokens=32000).
+- **Sonnet 5 gotchas that bit or nearly bit:** (1) omitting `thinking` runs
+  ADAPTIVE (4-6 ran thinking-off) — thinking spend comes out of max_tokens, so
+  at 2048 the model thought the whole budget and produced ZERO text blocks →
+  hard failure "no text content in response (had 1 blocks)". (2) New tokenizer
+  ~30% more tokens. (3) temperature/top_p/top_k 400 — chassis already safe
+  (deliberately never sends temperature; no agent sets budget_tokens).
+
+### BUG B — root ai_service SHADOWS step-level (runbook gotcha is BACKWARDS)
+`ai_actions.go:ExecuteLLMPromptAction` reads the agent's ROOT `ai_service`
+FIRST; the step's block is consulted only `if aiServiceConfig == nil`. So when
+a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
+- Proven by experiment: diagnose-agent's step-level 8000 never applied (every
+  verdict since 2026-07-10 logged max_tokens=2048 — the client default);
+  moving max_tokens to the ROOT block made the next call log 32000.
+- **The runbook line "max_tokens lives INSIDE a step's ai_service block; root
+  is dead config" is INVERTED** — it was true only for agents WITHOUT a root
+  block (page-content-writer has none, which is why its 2000→8000 fix worked
+  and got generalised). CORRECT RULE: root wins; step is dead when root exists.
+- Fleet blast radius: 17 agent defs have a root ai_service with NO max_tokens
+  (→ hardcoded 2048); 10 of them (whole content-creator-* family) declare
+  max_tokens elsewhere = dead config believed live.
+- Loop runs: v1 (`b606dbf6`) = honest UNVERIFIABLE — code citations "DO
+  directly show the precedence structure", but the symptom embedded empirical
+  claims (the 2048→32000 experiment; the 17-agent count) with no evidence in
+  the bundle → cite-or-abstain refused. Correct behaviour; bad symptom
+  authoring. v2 mechanism-only (`af19fa62`) = FAILED on API 529 Overloaded
+  (transient, loud, honest). v2-retry (`80c35dea`) in flight at time of writing.
+
+### Also this turn
+- Three run-burning collisions with concurrent sessions (envelope-regen case
+  repaired mid-run by json-leak-fix-retry; finetuning page repaired before
+  re-dispatch; stale 004 clause refuted because the render guard shipped
+  mid-session). Multi-session coordination handoff filed + being actioned in a
+  separate thread (`docs024_key_docs_latest/multi_session_coordination/`);
+  **the 090 trigger's pre-dispatch coverage check is now LIVE** and correctly
+  refused two dispatches this session (once catching my own stale intake).
+  FORCE=1 used once, legitimately, to retry the same case past its own intake.
+- The intact-premise discipline extended: re-verify not just the pod, but the
+  QUEUE (open work items) and the SYMPTOM'S EVERY CLAUSE against live state.
+  All three non-CONFIRMED verdicts this turn were correct refusals of MY
+  defective symptoms — the honesty gates work.
+- aaa_fails_to_mend/004 fully closed by other threads: all 17 article-body
+  rows healthy; case never needed the loop.
+
+### Symptom-authoring rules earned today (for the runbook)
+1. Mechanism-only symptoms; no downstream-consequence clauses (they go stale).
+2. No empirical claims the bundle cannot verify (experiments, fleet counts) —
+   the verdict correctly refuses to cite what it cannot see; put such evidence
+   in tables the bundle gathers, or leave it out.
+3. Pre-register the rubric before dispatch; grade against it, not the output.
+
+### OPEN
+- BUG B v2-retry verdict pending (`80c35dea`).
+- Fix dispatch for BUG A (CONFIRMED → fix-proposer) awaits owner go.
+- Runbook gotcha correction (root-shadows-step) should land in
+  `RUNBOOK_diagnosis_fix_loop(10).md` after B's verdict grades.
+- 17-agent max_tokens sweep (fleet config fix) — owner decision: fix configs
+  now vs. fix the shadowing code first (configs then self-heal).
