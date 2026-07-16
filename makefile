@@ -139,6 +139,7 @@ build-auth-service: ## Build auth-service image
 .PHONY: build-core-manager
 build-core-manager: ## Build core-manager image
 	@echo "$(YELLOW)Building core-manager...$(NC)"
+	$(call wip_report,core-manager)
 	docker build -t $(REGISTRY)/core-manager:$(IMAGE_TAG) \
 		-f build/docker/backend/core-manager.dockerfile .
 
@@ -152,66 +153,77 @@ build-agent-chassis: ## Build agent-chassis image from the WORKING TREE (bundles
 .PHONY: build-reasoning-agent
 build-reasoning-agent: ## Build reasoning-agent image
 	@echo "$(YELLOW)Building reasoning-agent...$(NC)"
+	$(call wip_report,reasoning-agent)
 	docker build -t $(REGISTRY)/reasoning-agent:$(IMAGE_TAG) \
 		-f build/docker/backend/reasoning-agent.dockerfile .
 
 .PHONY: build-web-search-adapter
 build-web-search-adapter: ## Build web-search-adapter image
 	@echo "$(YELLOW)Building web-search-adapter...$(NC)"
+	$(call wip_report,web-search-adapter)
 	docker build -t $(REGISTRY)/web-search-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/web-search-adapter.dockerfile .
 
 .PHONY: build-web-scrape-adapter
 build-web-scrape-adapter: ## Build web-scrape-adapter image
 	@echo "$(YELLOW)Building web-scrape-adapter...$(NC)"
+	$(call wip_report,web-scrape-adapter)
 	docker build -t $(REGISTRY)/web-scrape-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/web-scrape-adapter.dockerfile .
 
 .PHONY: build-git-adapter
 build-git-adapter: ## Build git-adapter image
 	@echo "$(YELLOW)Building git-adapter...$(NC)"
+	$(call wip_report,git-adapter)
 	docker build -t $(REGISTRY)/git-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/git-adapter.dockerfile .
 
 .PHONY: build-image-generator-adapter
 build-image-generator-adapter: ## Build image-generator-adapter image
 	@echo "$(YELLOW)Building image-generator-adapter...$(NC)"
+	$(call wip_report,image-generator-adapter)
 	docker build -t $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/image-generator-adapter.dockerfile .
 
 .PHONY: build-thunder-adapter
 build-thunder-adapter: ## Build thunder-adapter image
 	@echo "$(YELLOW)Building thunder-adapter...$(NC)"
+	$(call wip_report,thunder-adapter)
 	docker build -t $(REGISTRY)/thunder-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/thunder-adapter.dockerfile .
 
 .PHONY: build-analyser-adapter
 build-analyser-adapter: ## Build analyser-adapter image
 	@echo "$(YELLOW)Building analyser-adapter...$(NC)"
+	$(call wip_report,analyser-adapter)
 	docker build -t $(REGISTRY)/analyser-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/analyser-adapter.dockerfile .
 
 .PHONY: build-browser-runner-adapter
 build-browser-runner-adapter: ## Build browser-runner-adapter image (Tier-4 headless runner; ~1.2GB — Chromium+Playwright baked in)
 	@echo "$(YELLOW)Building browser-runner-adapter (Chromium image — slow, large)...$(NC)"
+	$(call wip_report,browser-runner-adapter)
 	docker build -t $(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG) \
 		-f build/docker/backend/browser-runner-adapter.dockerfile .
 
 .PHONY: build-content-creator-agent
 build-content-creator-agent: ## Build content-creator-agent image
 	@echo "$(YELLOW)Building content-creator-agent...$(NC)"
+	$(call wip_report,content-creator-agent)
 	docker build -t $(REGISTRY)/content-creator-agent:$(IMAGE_TAG) \
 		-f build/docker/backend/content-creator-agent.dockerfile . # NEW
 
 .PHONY: build-remote-job-spawner
 build-remote-job-spawner: ## Build remote-job-spawner image
 	@echo "$(YELLOW)Building remote-job-spawner...$(NC)"
+	$(call wip_report,remote-job-spawner)
 	docker build -t $(REGISTRY)/remote-job-spawner:$(IMAGE_TAG) \
 		-f build/docker/backend/remote-job-spawner.dockerfile .
 
 .PHONY: build-kafka-scheduler
 build-kafka-scheduler: ## Build kafka-scheduler image
 	@echo "$(YELLOW)Building kafka-scheduler...$(NC)"
+	$(call wip_report,kafka-scheduler)
 	docker build -t $(REGISTRY)/kafka-scheduler:$(IMAGE_TAG) \
 		-f build/docker/backend/kafka-scheduler.dockerfile .
 
