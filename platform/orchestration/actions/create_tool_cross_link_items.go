@@ -193,7 +193,10 @@ func CreateToolCrossLinkItemsAction(ctx context.Context, params ActionParams) (i
 
 			itemKey := fmt.Sprintf("tool_crosslink:%s:%s:%s", toolFunction, pageName, siteID)
 
-			_, err := params.DB.ExecContext(ctx, `
+			// The ON CONFLICT WHERE clause must imply idx_swi_dedup's predicate
+			// (see workItemTerminalStatuses) — a hardcoded stale list here
+			// previously made this insert fail 42P10 and only Warn-log.
+			_, err := params.DB.ExecContext(ctx, fmt.Sprintf(`
 				INSERT INTO site_work_items (
 					site_id, source, pipeline, item_type, severity, summary,
 					spec, page_id, priority, handler_agent, status, created_by, item_key
@@ -202,9 +205,9 @@ func CreateToolCrossLinkItemsAction(ctx context.Context, params ActionParams) (i
 					$2, $3::jsonb, $4, 110, 'page-build-handler', 'triaged', 'tool-suggester', $5
 				) ON CONFLICT (site_id, item_key)
 				  WHERE item_key IS NOT NULL
-				  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+				  AND status NOT IN (%s)
 				  DO NOTHING
-			`, siteID,
+			`, sqlInList(workItemTerminalStatuses)), siteID,
 				fmt.Sprintf("Add %s tool reference to %s page", toolName, pageName),
 				string(spec), pageID, itemKey,
 			)

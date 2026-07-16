@@ -33,6 +33,14 @@ var workItemTerminalStatuses = []string{
 	"rejected",
 	"wont_fix",
 	"unresolved",
+	// "cancelled" joined the closed set in migration 157 (2026-07-16):
+	// a cancelled row must not hold the dedup slot. This list is interpolated
+	// into insertWorkItem's ON CONFLICT ... WHERE, whose clause MUST imply
+	// idx_swi_dedup's predicate or every keyed insert fails with SQLSTATE
+	// 42P10 ("no unique or exclusion constraint matching the ON CONFLICT
+	// specification") — which is exactly what happened between 157 being
+	// applied and this line landing. Keep list and index in lockstep.
+	"cancelled",
 }
 
 // sqlInList formats a Go string slice as a SQL IN literal list for
