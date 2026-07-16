@@ -1,0 +1,11 @@
+relojistas.com — portal de noticias de relojería en español.
+
+IDIOMA: todo el sitio debe estar íntegramente en español (es-ES). Público objetivo: aficionados, coleccionistas y curiosos de la relojería en España, Chile, México y Latinoamérica.
+
+HERENCIA: relojistas.com fue durante años un foro de relojería en español ("Relojistas — Foro de relojes"), con secciones de foro general, presentación de nuevos foreros, marcas de relojes, ferias de relojería y un área de compraventa (tiendas profesionales, ventas, outlet, anuncios clasificados). El foro ya no existe, pero el dominio conserva audiencia real: suscriptores que siguen consultando cada día su feed RSS histórico, y buscadores que continúan indexándolo. El nuevo sitio reconoce con honestidad esa herencia — sin fingir que el foro sigue activo y sin prometer su regreso.
+
+PROPÓSITO: un PORTAL DE NOTICIAS de relojería. La sección de noticias es el corazón del sitio: novedades y lanzamientos de marcas, ferias (Watches and Wonders, Ginebra), subastas, alta relojería, relojes vintage, reparación y mantenimiento. Las noticias se actualizan de forma continua y ENLAZAN SIEMPRE A LA FUENTE ORIGINAL (titular + resumen breve + enlace a la fuente); nunca reproducimos artículos completos de terceros.
+
+SECCIONES: una portada con los titulares de noticias más recientes y un buscador de relojes (marca, modelo, reparación, compraventa); una página de noticias (/noticias) con el archivo completo; páginas de contenido propio y perenne en español (guías de marcas, conceptos de relojería y complicaciones, glosario, básicos de reparación y mantenimiento) para que el sitio aporte valor entre ciclos de noticias; y una página que explica la herencia del antiguo foro.
+
+TONO: informativo, riguroso y cercano. Periodismo de relojería, no tienda: no vendemos relojes, no somos un e-commerce y no publicamos precios ni afirmaciones que no podamos respaldar con una fuente.
