@@ -454,3 +454,71 @@ Owner-approved plan (checks + root cause + vonc repair + Arena as a real tool) i
    receive a generic full rebuild** — section-editor targeted path only.
 
 `Categories:` (root-cause, fix, feature, next-task)
+
+---
+
+## 2026-07-15/16 — EXECUTION on live cluster (link-integrity + Arena + residuals)
+
+Applied the plan against prod (chassis v1.0.1117 carried the WS1 Go; symbols verified in-pod).
+Everything below verified BY ARTIFACT (DB row / curl), never by work-item status.
+
+**Applied & verified**
+- 091 (CTA source flip, fleet): 4 hero/call-to-action URL fields pages.*→renderer. Fleet-safety
+  gate passed — ai-agent-orchestration /about.html CTAs byte-identical (DB + live); a plain
+  `image_landed` rerender on vonc catalyst produced byte-identical CTA hrefs (1c gate proof).
+- 092 (enable checks + wiring): phantom_internal_links / misdirected_cta / incomplete_page_group
+  on completeness-discovery-agent; `cta_links_stale` added to page-rerender; writer guidance.
+- Discovery BEFORE repair PROVED the generic loop: it independently found the 19 misdirected CTAs
+  (10 page items), the 2 /how-it-works phantoms, the Arena CTAs (cta_names_unknown_destination),
+  with no hand-holding. This is the value demonstration.
+- 093 (vonc prose 404s): the two /how-it-works* phantoms retargeted.
+- WS3: all 9 archetype pages + archetypes.html → primary Gauntlet / secondary Quiz (DB + live
+  curl). index hero → Gauntlet. Dispatch stalled repeatedly on zombie claims — recovered with
+  reset-and-retry (documented pattern), 10/11 then the last.
+- WS4 Arena: 094 → tool-generator produced a genuine 23KB client-side widget (tool-doc header, all
+  five Reactions, provocation, localStorage take-filing, remix visual, 0 fetch). **Generator drift
+  (TL-003): it created the page at /tools/tool-arena-interface.html, ignoring the plan slug.**
+  Reconciled the page to /tools/arena/index.html (name tool-arena, nav_order 45,
+  built_from_plan_version). Deployed via a direct page-rerender orchestration (TP-002 manual). Live
+  200, interactive.
+- 095 had a FIELD-NAME BUG: it matched call-to-action text as `primary_cta_text` but the live field
+  is `primary_cta` → catalyst's "Enter the Arena" was left on the Gauntlet and 095's verify passed
+  blind. **095b** fixes it (correct field), also retargets the guide + provocations Arena CTAs.
+- 096 (residual): gauntlet-cta's SIX static label fields (stat labels, CTA labels, eyebrow
+  "Limited Offer") static→llm — the 090 landmine on a 2nd component. Did NOT hand-author stat
+  numbers (anti-fabrication); a content pass owns the copy.
+- 097 then 097b (residual): provocations-archive-list "Enter today's Arena" → the Arena. 097's
+  renderer-source approach REVERTED on rerender (no CTA-recompute path + a fallback → resolver wrote
+  the fallback back). 097b pins the static fallback to the Arena (deterministic). Live-verified.
+- phantom_internal_links data-runtime-fill guard (Go, committed 9752bc68d) + unit test (committed
+  6264e3ebb): empty href in a client-hydrated shell is by design; a phantom target in a shell is
+  still flagged. Closed the 2 vonc shell false-positives as wont_fix (guard rides next image).
+- Stale nav phantom: page rename left site_nav_items pointing at the OLD arena URL, so header/footer
+  carried a /tools/tool-arena-interface.html 404. Fixed the nav item + ran nav-updater → phantom
+  purged; nav now consistent (header = main sections, footer = all 3 tools incl. Arena at correct
+  URLs).
+
+**Close-the-loop discovery (honest remaining state — the loop WORKING, surfacing real debt)**
+- ✅ cta_names_unknown_destination (Arena) and nav_drift: GONE.
+- ✅ phantom_internal_link (stale arena nav): fixed; clears next discovery.
+- ⏳ empty_internal_href ×2 (runtime-fill shells): guard ships NEXT chassis image; benign until then.
+- ⚠ misdirected_cta ×3 (about/archetypes/index): the check correctly found copy/dest mismatches on
+  NON-hero/CTA components — content-block-about ("Learn More About Us"→/archetypes.html, my 093
+  target choice), gauntlet-cta ("See How It Works"→quiz), archetype-grid ("Explore All
+  Archetypes"→/contact.html), archetype-combinations ("Explore Your Archetypes"→/provocations).
+  The cta_links_stale recompute only repairs hero/call-to-action (ctaFieldNames); these need a
+  RECOMPUTE-SCOPE BROADENING (add these component functions) or a content-writer pass. FOLLOW-UP.
+- ⚠ incomplete_page_group ×2 (gauntlet/quiz): correct — both are build_status='needs_rebuild' (set
+  21:42 UTC by the close-the-loop run / a concurrent session, NOT these migrations; pages serve
+  fine). Investigate the spurious needs_rebuild, or rebuild the two tools. FOLLOW-UP.
+- ℹ needs_content_page tool-arena (generator companion) + orphan_blog_posts (arena guide not in a
+  blog listing): minor, expected. The quiz "Get Your Full Report" href="" remains a genuine
+  needs_human_review (is a "full report" feature intended?).
+
+**Key transferable lessons**
+- A static/site_specs/renderer-with-fallback URL source RE-APPLIES on render; only source=llm or a
+  component in the CTA-recompute path lets content_data win. 091/096/097b are all this one lesson.
+- misdirected_cta's DETECTION scope (all anchors) is broader than the auto-fix's REPAIR scope
+  (hero/call-to-action). That gap is the top follow-up: broaden applyCTARecompute's function set.
+- Verify tool-generator output by artifact: it ignores the plan slug (TL-003) and doesn't enqueue
+  deploy (TP-002).
