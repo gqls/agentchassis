@@ -96,10 +96,32 @@ build-core-manager: ## Build core-manager image
 		-f build/docker/backend/core-manager.dockerfile .
 
 .PHONY: build-agent-chassis
-build-agent-chassis: ## Build agent-chassis image
+build-agent-chassis: ## Build agent-chassis image from the WORKING TREE (bundles uncommitted WIP; see build-agent-chassis-ref)
 	@echo "$(YELLOW)Building agent-chassis...$(NC)"
+	@DIRTY=$$(git status --porcelain 2>/dev/null | wc -l); \
+	if [ "$$DIRTY" -gt 0 ]; then \
+		echo "$(RED)NOTE: building from the WORKING TREE — this image bundles all $$DIRTY uncommitted change(s) below,$(NC)"; \
+		echo "$(RED)including OTHER SESSIONS' work in progress. For a committed-state image:$(NC)"; \
+		echo "$(RED)  make build-agent-chassis-ref [REF=<committed ref>]$(NC)"; \
+		git status --porcelain | head -25; \
+		[ "$$DIRTY" -gt 25 ] && echo "  ... ($$DIRTY total)" || true; \
+	fi
 	docker build -t $(REGISTRY)/agent-chassis:$(IMAGE_TAG) \
 		-f build/docker/backend/agent-chassis.dockerfile .
+
+# Structural fix for deploy blast radius (multi_session_coordination HANDOFF
+# 2026-07-16 §3/§7.3): an image built from a committed ref via git archive
+# CANNOT bundle any session's uncommitted work. REF defaults to HEAD; the
+# resolved sha is printed so the image is attributable to a commit.
+REF ?= HEAD
+.PHONY: build-agent-chassis-ref
+build-agent-chassis-ref: ## Build agent-chassis from a committed git ref (no WIP bundled): make build-agent-chassis-ref REF=<ref>
+	@echo "$(YELLOW)Building agent-chassis from committed ref $(REF) = $$(git rev-parse --short $(REF)) — the working tree is NOT included...$(NC)"
+	@CTX=$$(mktemp -d /tmp/chassis-ref-ctx.XXXXXX) && \
+	trap 'rm -rf "$$CTX"' EXIT && \
+	git archive $(REF) | tar -x -C "$$CTX" && \
+	docker build -t $(REGISTRY)/agent-chassis:$(IMAGE_TAG) \
+		-f "$$CTX/build/docker/backend/agent-chassis.dockerfile" "$$CTX"
 
 .PHONY: build-reasoning-agent
 build-reasoning-agent: ## Build reasoning-agent image
