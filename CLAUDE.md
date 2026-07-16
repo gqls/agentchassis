@@ -16,6 +16,16 @@ looking. Full problem statement and evidence:
   between your add and your commit — check `git log` before assuming HEAD is yours.
 - Your session-start `git status` is a snapshot; it goes stale within minutes.
   Re-run it before acting on it.
+- **Your uncommitted work is not safe, and this practice does not make it safe.**
+  Committing per task stops *you* sweeping up *others'* WIP; it cannot stop a
+  session that still runs `git add -A` from sweeping up *yours*, half-finished,
+  into a commit about something else entirely. This is not hypothetical — it
+  happened to this file's own makefile change on 2026-07-16 (`69d6f3ecc`,
+  a vet-med-export commit).
+  **So: commit each task the moment it is coherent, narrowly.** A long-lived
+  dirty tree is not a private workspace — it is shared, mutable state.
+  If your work does get swept into someone's commit: nothing is lost, forward-only
+  still holds. Finish the task and commit the remainder; say so in the message.
 
 ## Dispatching work at the cluster
 
