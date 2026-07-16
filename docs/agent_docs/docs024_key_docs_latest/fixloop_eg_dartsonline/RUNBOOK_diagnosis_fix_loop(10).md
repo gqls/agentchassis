@@ -540,7 +540,32 @@ unverifiable → F0.6: a `context` disposition + citation-backed `explained`.
 Four-run arc: wrong-confidently → half-right-confidently → honest abstention →
 right-with-declared-coverage. F0 functionally complete bar F0.3.
 
-## CURRENT POSITION — 2026-07-14 (chat "diagnosis fixloop 2", turn 30): TRIAGE LIVE + PHASE 2 (silent-check) LIVE on v1.0.1118
+## CURRENT POSITION — 2026-07-16 (turn 33): TOOL COMPLETE — all 4 triage/escalation phases LIVE; real-case queue OPEN
+
+The build phase is done. Diagnosis → proposer → council → caged implementer →
+build gate → PR (merged PR #1) is proven, and the immune-system → loop channel
+is complete and self-reporting: **Phase 1 triage (v1.0.1117), Phase 2
+silent-check (v1.0.1118), Phase 4 digest escalation section (v1.0.1120/1121),
+Phase 3 close-out (v1.0.1122) are all LIVE.** Three escalations sit parked
+inert. Everything manual + human-gated.
+
+**NEXT (two owner-gated tracks):**
+1. **Real cases** — the loop stops running on benchmarks. Owner opened
+   `aaa_fails_to_mend/` on 2026-07-16 and chose the FIRST case: the
+   **image-landing data-loss trap**
+   (`004_HANDOFF_image_landing_blanks_article_body.md`) — a live, high-severity,
+   already hand-diagnosed platform bug (13 pages vulnerable; guard committed but
+   not yet in prod). Start the next chat there (HANDOFF §1 has the intake plan
+   and the operating rule). Also queued: 001/002/003.
+2. **Wider council** — informed by the concept register (search-tab2,
+   `docs026_concept_register/`): its stage-3 "council agents per concept area"
+   IS this track; `FIX-036` = the vision; 4–6×-rediscovered concepts = first
+   seats. Owner-sign-off-gated.
+
+Full journey: `SUMMARY_where_we_are_2026-07-16.md`. The detailed per-phase
+history follows below.
+
+## PRIOR POSITION — 2026-07-14 (chat "diagnosis fixloop 2", turn 30): TRIAGE LIVE + PHASE 2 (silent-check) LIVE on v1.0.1118
 
 The escalation channel is CLOSED and the silent-failure class is DETECTED.
 **Triage live** (v1.0.1117, turn 29): dry-run verified the loop-worthiness

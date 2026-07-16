@@ -1773,6 +1773,32 @@ two-strike rule can never see, because no work item exists at all).
   separate track: council-widening (F2 roster) + the real-case queue in
   `aaa_fails_to_mend/` (owner-gated, credits).
 
+### Turn 33 (2026-07-16) — the tool is complete; docs consolidated; real-case queue opens on the image-landing trap
+
+- No new code this turn — consolidation + direction-setting at the owner's
+  request ("summary of where we've come from / are / going; update all docs +
+  the handoff so I can resume from exactly here").
+- **Wrote `SUMMARY_where_we_are_2026-07-16.md`** — the workstream journey doc
+  (from the dissolving-pilots origin → all four phases live → the two forward
+  tracks). Companion to the read-aloud `SUMMARY_where_we_are_2026-07-14.md`.
+- **Rewrote HANDOFF §1**: the stale triage-go-live steps (all done) are
+  replaced by the new immediate action — point the finished tool at its FIRST
+  REAL CASE, the **image-landing data-loss trap**
+  (`aaa_fails_to_mend/004_HANDOFF_image_landing_blanks_article_body.md`),
+  which the owner chose 2026-07-16. Intake guidance + the "don't land an image
+  on a §5 page until the guard is deployed+verified" operating rule carried
+  into §1.
+- **Concept register (search-tab2, `docs026_concept_register/`) now wired into
+  the roadmap.** Its stage-3 "council agents per concept area" IS the
+  council-widening track; `FIX-036` = the wider-council vision; 4–6×
+  rediscovered concepts = the first-seat signals; stage 2 complete (1,627
+  concepts, ~7.6% doc-error rate). Wiring seats into the live workflow is
+  owner-sign-off-gated (that register's RUNBOOK B4). Recorded in HANDOFF §5,
+  the summary, and memory.
+- Net state: **all four triage/escalation phases LIVE (through v1.0.1122);
+  three escalations parked inert; tool complete.** Next is real cases (owner
+  picks order, starting with 004) + council-widening (concept-register-led).
+
 ## DECISIONS (with rationale)
 
 ### 2026-07-09 (turn 6) — benchmark verdict and what it buys

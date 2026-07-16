@@ -1,68 +1,61 @@
-# HANDOFF → "diagnosis fixloop 2" chat
+# HANDOFF → next chat (continues "diagnosis fixloop 2")
 
-*2026-07-14. Cold-start bootstrap for the next chat continuing the diagnosis→fix
-loop. Read this top to bottom; it is self-sufficient. Deeper detail lives in the
-companion docs named at the end. A different model may be running this chat
-(Fable credits are low) — nothing here depends on a specific model.*
+*Updated 2026-07-16 (turn 33). Cold-start bootstrap for the next chat. Read
+this top to bottom; it is self-sufficient. Deeper detail lives in the companion
+docs named at the end — start with `SUMMARY_where_we_are_2026-07-16.md` for the
+full journey (from → now → going). A different model may run this chat (Fable
+credits low) — nothing here depends on a specific model.*
 
 ---
 
 ## 1. The immediate next action (this is why you're here)
 
-> **DONE 2026-07-14 (chat "diagnosis fixloop 2", turn 29).** v1.0.1117 verified
-> in the pod (triageRoute grep=2); dry-run confirmed the filter (only real
-> code bugs in the loop group; timeouts → re-queue; no-signal → hold);
-> `dry_run` flipped to false; live sweep escalated 2 patterns
-> (`triage-diag:needs_new_component:c4ad0be8a0f2`,
-> `triage-diag:needs_component_regeneration:171f7b9c1d60`), parked at
-> `awaiting_diagnosis` (inert); a third sweep proved dedup (deduped 2, wrote
-> nothing). Known cosmetic defect: dry-run counters mislabel would-be
-> escalations as "capped" (fixed in v1.0.1118). **TRIAGE IS LIVE — the
-> tier-2→tier-3 channel is closed.** Same day (turn 30): **Phase 2 built and
-> LIVE too** (v1.0.1118, `diagnose_silent_check` — see §4/§5). Next = Phase 3
-> (feedback close-out) / Phase 4 (digest escalation section); dispatching the
-> parked escalations into the loop is the owner's call. The steps below are
-> kept for the record.
+**The tool is COMPLETE.** All four phases of the triage/escalation design are
+built, deployed, and proven in production (see §3). The loop can already take a
+report, diagnose it with citations, plan a fix, run a two-reviewer council,
+implement it in a caged pod, gate it on build, and open a PR — and PR #1 was
+merged. The whole immune-system → fix-loop channel is closed and self-reporting
+in the digest.
 
-A new chassis image is shipping (was building at handoff; expected **v1.0.1117**
-or later). The moment it's live, finish bringing **triage** online:
+**So the next move is to point the finished tool at REAL bugs.** The owner
+opened the real-case queue on 2026-07-16 and chose the first case:
 
-1. **Verify the image in the pod** (never trust the tag — same-tag deploys ship
-   stale binaries):
-   ```
-   P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
-   kubectl -n ai-persona-system exec ${P#pod/} -- sh -c "grep -ac triageRoute /proc/1/exe"
-   # must be >= 1 (triageRoute = the loop-worthiness filter, this build's new code)
-   ```
-2. **Settle 300s** after the pod (re)started (rebalance-window gotcha), then
-   **re-run the triage dry-run**:
-   ```
-   ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/095_TRIGGER_diagnosis_triage_v1.sh
-   ```
-3. **Read the report** and confirm the filter works — the "Code bugs → fix loop"
-   group should now contain ONLY real handler errors; the claim-timeouts and
-   no-signal patterns should have moved to "re-queue" / "hold":
-   ```
-   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db \
-     -t -A -c "SELECT body FROM doc_notes WHERE categories ? 'triage' ORDER BY created_at DESC LIMIT 1;"
-   ```
-4. **If the preview looks right, flip to live** (one line) and fire again to
-   escalate for real:
-   ```
-   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c "
-     UPDATE agent_definitions SET default_config = jsonb_set(default_config,
-       '{workflow,steps,sweep,config,dry_run}', 'false'::jsonb), updated_at=now()
-     WHERE type='diagnosis-triage' AND is_active AND COALESCE(is_snapshot,false)=false;"
-   ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/095_TRIGGER_diagnosis_triage_v1.sh
-   ```
-   Then confirm needs_diagnosis items were written:
-   ```
-   kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -c "
-     SELECT item_key, summary FROM site_work_items WHERE source='diagnosis-triage' ORDER BY created_at DESC LIMIT 5;"
-   ```
+> ### ▶ FIRST REAL CASE — the image-landing data-loss trap
+> Full self-sufficient handoff:
+> **`docs/agent_docs/docs024_key_docs_latest/aaa_fails_to_mend/004_HANDOFF_image_landing_blanks_article_body.md`**
+>
+> **What it is:** a *platform* data-loss trap (not one site). Landing an image
+> on a page fires a scoped section re-render; on any page whose article-body was
+> never unwrapped from its LLM JSON envelope, that re-render renders the body
+> empty and **silently overwrites the good HTML with a blank shell** — the
+> article vanishes from the live page. 9 pages already blanked, 4 JSON-leaking,
+> **13 vulnerable right now**. **The trap is LIVE in prod (`v1.0.1122`)**: the
+> committed guard (`missingRequiredLLMFields` / "escalating page to writer
+> instead of blanking", from the empty_sections thread) is in HEAD but NOT in
+> the running binary.
+>
+> **Why it's the right first case:** it is a genuine, high-severity, already
+> hand-diagnosed platform bug with a clear code map (004 §7) — exactly the
+> shape the loop was built for, and (like the darts benchmark) diagnosable so
+> its output can be graded. It also spans two threads' territory (imagery found
+> it; empty_sections owns the guard), so it exercises the loop's cross-thread
+> awareness.
+>
+> **How to start it:** DON'T just run the loop blind. First read 004 top to
+> bottom, then decide the intake: either (a) hand-write the `needs_diagnosis`
+> symptom (090 contract — see §7 of THIS doc) pointing at 004's mechanism and
+> code map and let the loop confirm/plan it, or (b) if these pages are
+> surfacing as `page_rerender` failures, let triage route them. **Operating
+> rule while unfixed (004 §2):** do NOT land an image or trigger a scoped
+> re-render on any page in 004 §5 until the guard is deployed AND verified in
+> the pod (`grep -c "escalating page to writer instead of blanking"`).
 
-That closes the escalation channel: the operational immune system → the fix loop.
-Everything stays **manual** (owner: Fable credits low — no auto-cadence).
+The other queued cases (dispatch order is the owner's call), all in
+`aaa_fails_to_mend/`: `001` replan-clobbers-built-pages, `002` errors-to-fix
+list, `003` spawn-lost-child-response.
+
+Everything stays **manual** and human-gated. Each diagnosis run spends credits —
+the owner says go, per case.
 
 ## 2. What the whole thing IS (one paragraph)
 
@@ -158,6 +151,17 @@ through.
 - **Later — wider council** (guidelines / reuse / bug-historian reviewers — the
   F2 roster in the runbook); **capability-builder** (features from specs — the
   ambitious, human-gated direction).
+  **Now informed by the concept register (search-tab2, `docs026_concept_register/`).**
+  Its stage 3 — "build council agents per concept area" — IS this
+  council-widening track. `FIX-036` in that register is explicitly the
+  wider-council-roster vision (flagged "the seam this concept register is meant
+  to fill"), and concepts independently rediscovered 4–6× across doc eras
+  (e.g. "adoption writes first, classifier consumes"; the wrapper-orchestrator
+  pattern) are the strongest signals for which reviewer seats to build FIRST.
+  Stage 2 there is complete (1,627 concepts verified, ~7.6% doc-error rate);
+  wiring stage-3 council seats into the live fix-loop workflow is a
+  cross-workstream production change the owner has reserved for explicit
+  sign-off (that register's RUNBOOK B4).
 - **The real-case queue (owner, 2026-07-15):**
   `docs/agent_docs/docs024_key_docs_latest/aaa_fails_to_mend/` holds handoffs
   of real errors to diagnose **once we're happy with the tool** (001 replan
@@ -215,8 +219,10 @@ through.
 
 ## 8. Companion docs
 
+- `SUMMARY_where_we_are_2026-07-16.md` — the workstream JOURNEY (from → now →
+  going); read this first for the full arc + the two forward tracks.
 - `SUMMARY_where_we_are_2026-07-14.md` — gentle plain-language state (for
-  humans; supersedes the 07-13 one — covers triage + silent-check going live).
+  humans; the read-aloud version — covers triage + silent-check going live).
 - `DESIGN_triage_and_escalation.md` — the triage + escalation architecture (three
   flavours, routing, phasing, decisions).
 - `RUNBOOK_diagnosis_fix_loop(10).md` — task, phases, every gotcha.

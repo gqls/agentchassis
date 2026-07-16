@@ -1,14 +1,17 @@
 # PLAN — F0.1 plumbing, then the dartsonline pilot as a known-answer benchmark
 
-> **STATUS 2026-07-14: this plan is COMPLETE and now historical.** Everything
+> **STATUS 2026-07-16: this plan is COMPLETE and now historical.** Everything
 > here (F0 plumbing, benchmark runs, F1/F2 council, the write step) shipped;
-> the loop opened and the owner merged PR #1; triage and the Phase-2
-> silent-failure checker went live 2026-07-14 (v1.0.1117/1118). The living
-> state is `HANDOFF_diagnosis_fixloop_2.md` (entry point) +
-> `RUNBOOK_diagnosis_fix_loop(10).md` §CURRENT POSITION; the readable account
-> is `SUMMARY_where_we_are_2026-07-14.md`. Kept unedited below as the
-> pre-registered record (rubric §3 especially — the benchmark grading must not
-> drift).
+> the loop opened and the owner merged PR #1; and the entire triage/escalation
+> layer went live afterward — **all four phases** (triage v1.0.1117, silent-
+> check v1.0.1118, digest section v1.0.1120/1121, close-out v1.0.1122). **The
+> tool is complete.** The FORWARD plan now lives in
+> `SUMMARY_where_we_are_2026-07-16.md` §"Where we're going" (real cases,
+> starting with the image-landing trap `aaa_fails_to_mend/004`; wider council
+> led by the concept register `docs026_concept_register/`). The living resume
+> point is `HANDOFF_diagnosis_fixloop_2.md`; the runbook's §CURRENT POSITION
+> is current. This file is kept unedited below as the pre-registered record
+> (rubric §3 especially — the benchmark grading must not drift).
 
 Written 2026-07-09; current through turn 20 (2026-07-10). Supersedes the "order of work" paragraph in the intake.
 
