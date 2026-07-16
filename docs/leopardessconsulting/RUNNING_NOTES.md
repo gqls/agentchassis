@@ -1034,3 +1034,33 @@ Combined with earlier turns, the primary-nav journey (services / how-it-works / 
 contact) is now in-voice and honest. Remaining voice work is lower-value: technical-architecture
 (defensibly technical register), for-engineering-teams (already decent), and the page-MERGE
 decision (owner's call). All safe hand-edit + section_data_resolved; zero pipeline dependency.
+
+## Turn 18 (2026-07-16) — page-merge decision made and EXECUTED
+
+**Owner decision (A11, add to the locked list): keep `how-it-works` (canonical explainer) +
+`technical-architecture` (the "one click down" technical page, nav label "Architecture");
+archive `our-approach` and `for-engineering-teams`.** Evidence that drove it: all four pages
+made the same six claims (some pages TWICE — features and differentiators sections were the
+same list reworded); how-it-works had inbound body links from all 15 other pages; the other
+three had ZERO inbound body links (footer-only orphans).
+
+**Executed (bak_merge_pages/pcs/nav_leo_20260716):**
+1. `technical-architecture` hero sentence-cased ("The architecture, in detail").
+2. Its features array rebuilt: kept the 7 concrete technical items, dropped the sitewide-repeat
+   ("Platform tested on live systems" lives on how-it-works), folded in the two unique
+   for-engineering-teams items **rewritten to verified facts**:
+   - "Model routing as cost control" — per-step model selection is in the audited portfolio
+     spec; the UNVERIFIABLE "caches outputs" clause was dropped.
+   - "One pattern, many kinds of work" — **the original said "more than 70 agents across eight
+     departments"; "eight departments" is one of the audited-out FABRICATIONS.** Rewritten to
+     "over 150 agent definitions" (DB-verified: 156 active in agent_definitions) with the real
+     categories (coordinators/specialists/analysts are actual agent_category values).
+3. Its duplicate `differentiators` section DELETED (page_components row + pages.sections entry)
+   — it repeated the features list on the same page.
+4. `our-approach` + `for-engineering-teams`: status='archived', de-navved (their utility
+   site_nav_items rows deleted — the footer builds from site_nav_items, not pages.in_footer).
+5. Footer slot refreshed (clean of both), technical-architecture section-rerendered, all other
+   pages reassembled directly via reassemble_pages.sh (queue bypassed as before).
+
+**Lesson reinforced:** content folded during a merge must be re-audited — one of the two
+"unique items worth saving" contained a known fabrication buried mid-paragraph.

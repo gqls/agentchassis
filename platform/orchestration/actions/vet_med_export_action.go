@@ -1,7 +1,8 @@
 // FILE: platform/orchestration/actions/vet_med_export_action.go
 //
-// Exports current med prices as JSON files and commits to the vetcomparison.co.uk
-// git repository via the git-adapter.
+// Exports current med prices as JSON files and commits them to the configured
+// target site's git repository via the git-adapter. The target domain is
+// config-driven and mandatory — there is deliberately no default domain.
 //
 // Produces:
 //   - data/medicine-prices.json — full price dataset grouped by product
@@ -52,8 +53,10 @@ type medExportOutputs struct {
 }
 
 func parseMedExportConfig(config map[string]interface{}) medExportConfig {
+	// Domain has no default: exports must name their target site explicitly
+	// (agent config or input_data), so a misconfigured task can never publish
+	// to a domain we don't intend.
 	ec := medExportConfig{
-		Domain:              "vetcomparison.co.uk",
 		RepoName:            "sites",
 		DataPath:            "data",
 		CommitMessagePrefix: "Update medicine prices",
@@ -145,6 +148,10 @@ func MedExportJSONAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	ec := parseMedExportConfig(config)
+
+	if ec.Domain == "" {
+		return nil, fmt.Errorf("med export requires an explicit domain in config or input_data; refusing to export without one")
+	}
 
 	params.Logger.Info("MedExportJSON: config parsed",
 		zap.String("domain", ec.Domain),

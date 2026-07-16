@@ -172,12 +172,12 @@ var verticalNewsMap = map[string]verticalNewsConfig{
 
 	// Watches / horology — news is primary draw (launches, fairs, auctions).
 	// Aliased across EN + Spanish-domain substrings so relojistas.com etc. match.
-	"watch":      watchHorologyNews,
-	"watches":    watchHorologyNews,
-	"horology":   watchHorologyNews,
+	"watch":       watchHorologyNews,
+	"watches":     watchHorologyNews,
+	"horology":    watchHorologyNews,
 	"watchmaking": watchHorologyNews,
-	"reloj":      watchHorologyNews, // Spanish domains: relojistas, relojes, relojería
-	"relojes":    watchHorologyNews,
+	"reloj":       watchHorologyNews, // Spanish domains: relojistas, relojes, relojería
+	"relojes":     watchHorologyNews,
 
 	// Healthcare — not recommended
 	"veterinary": {
