@@ -1,8 +1,48 @@
 # PLAN — Travelling Docs (PLAN + NOTES) for Tools, Complex Components, and Pipelines
 
 **Created:** 2026-07-04
-**Last updated:** 2026-07-10 (rev 5 — Phase A write-hooks COMPLETE AND PROVEN: PLANs at birth (Task 3, run `1923badd`) and NOTES at every fix (Task 4, two machine `fix` notes from the economy-simulator recreation). KB indexing gated on the chunkContent fix deploy — see Rollout outcomes.)
-**Status:** Phase A write/read hooks proven in production; Tier-2/Tier-4 checkers (Phase A item 5 / Phase B) are now the front of the queue. This document is the spec; position lives in the RUNBOOK §0 tracker.
+**Last updated:** 2026-07-16 (rev 7 — THE WHOLE LOOP IS PROVEN GREEN ON A REAL BUG. Tier-4 P1 (mobile) + P2 (interactions) live; behavioural attribution (tool vs site-chrome) + routing; a genuine site-chrome footer overflow found, routed, fixed at the DURABLE content_component layer, deployed, and re-verified `mobile-fit@mobile` GREEN. See the new "Completed loop" section and the RUNBOOK §0 position line. Prior rev 5 line below.)
+**Prior:** 2026-07-10 (rev 5 — Phase A write-hooks COMPLETE AND PROVEN: PLANs at birth (Task 3, run `1923badd`) and NOTES at every fix (Task 4, two machine `fix` notes from the economy-simulator recreation). KB indexing gated on the chunkContent fix deploy — see Rollout outcomes.)
+**Status:** **COMPLETE end-to-end and proven on a real defect** — birth-PLAN → continuous discovery → Tier-4 (desktop+mobile, interactions) → attribution → routing → durable fix → deploy → re-verify. Remaining work is polish (P3 screenshots; per-site override option for shared-template fixes). This document is the spec; live position lives in the RUNBOOK §0 tracker; the blow-by-blow lives in the HANDOFF Turn log (T14–T17).
+
+---
+
+## Completed loop (2026-07-16) — what "done" turned out to mean
+
+The self-verifying tool loop is whole. Proven on a genuine, non-manufactured bug
+(not a manufactured test):
+
+1. **Birth PLAN** — the composer writes acceptance criteria at tool creation, and
+   (migration 149) now emits a `container` selector copied from the generated
+   HTML so a later behavioural run can tell where the tool ends.
+2. **Continuous discovery** — a scheduled sweep (`tool_acceptance_due`) queues an
+   `acceptance_run` for any deployed tool with criteria that is due.
+3. **Tier-4 behavioural run** — `browser-runner-adapter` drives real headless
+   Chromium on the live page, **desktop + mobile**, running P0 (status/selector/
+   console), P1 (`no_horizontal_overflow`) and P2 (`interaction`: fill/click/
+   select then assert). Every result is labelled `id@profile`.
+4. **Attribution** — a document-level failure (overflow) is attributed to the
+   TOOL or to SITE CHROME by asking the browser which element overflows and
+   whether it lies inside the tool's `container`. `scope` = tool | chrome |
+   unknown; `unknown` never blames chrome.
+5. **Routing** — a tool defect → `improve_tool` (tool-improver); a site-chrome
+   defect → `responsive_fix` / `chrome_overflow_fix` (component-template-fixer),
+   deduped per (component, profile) so one footer bug is ONE site ticket.
+6. **Durable fix** — `chrome_overflow_fix` patches the DURABLE layer
+   (`content_components.html_template`, resolved via the slot's backing
+   component), so it survives `refresh_site_components`; it falls back to the
+   rendered artifact only when a slot has no component, reporting that honestly as
+   TRANSIENT, and reports the shared-site blast radius.
+7. **Deploy + re-verify** — a rerender deploys the fix; re-running Tier-4 confirms
+   the once-failing check now PASSES.
+
+**The two lessons the arc banked (durable):**
+- *"Completeness + validation passed" ≠ working, at every layer.* Tier 4 caught a
+  FIXER that reported `fixed:true` and changed nothing (it defaulted to the wrong
+  slot). Behavioural re-verification is the only thing that proved the fix real.
+- *Fix the source, not the artifact.* `site_components.rendered_html` is
+  regenerated from its content_component template; a patch there is wiped by the
+  next refresh. The durable fix lives in the template.
 
 ---
 

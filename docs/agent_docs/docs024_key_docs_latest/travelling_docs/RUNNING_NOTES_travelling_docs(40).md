@@ -1,7 +1,7 @@
 # RUNNING NOTES — Tool & Complex-Component Travelling Docs (PLAN + NOTES)
 
 **Created:** 2026-07-04
-**Last updated:** 2026-07-04 (rev 2)
+**Last updated:** 2026-07-16 (rev 40 — Tier-4 P1/P2 live; the self-verifying loop CLOSED GREEN on a real bug: detect→attribute→route→durable-fix→deploy→re-verify. Latest session log at the BOTTOM: 2026-07-14→16.)
 (Times are per working session on the date shown; add HH:MM in your timezone for
 finer granularity.)
 
@@ -2886,3 +2886,178 @@ deploys AND the chassis carrying 147's config is in effect (147 is DB-only,
 already applied). Both the adapter image and mobile/interaction criteria then
 go live together.
 Categories: (build, proof, gotcha)
+
+---
+
+## Session log — 2026-07-14 → 2026-07-16 — Tier-4 goes live end-to-end; the loop closes GREEN on a real bug
+
+*(Detailed turn-by-turn narrative lives in the HANDOFF Turn log, T14–T17. This is
+the durable chronological summary.)*
+
+### 2026-07-14 — P1/P2 verified live; composer fix; FIRST real failure
+
+**P1/P2 already deployed (verify against the pod, not git).** The v1.0.1114
+browser-runner-adapter build already carried P1 (mobile) + P2 (interactions):
+images build from the LOCAL working tree, so the 07-13 source landed in the
+image regardless of commit order. Confirmed via the binary's SYMBOL TABLE
+(`go tool nm`: `runInteraction`, `splitByProfile`, `(*chromiumPage).HorizontalOverflow`).
+**Durable trap banked:** grepping a Go binary for a SHORT string literal proves
+nothing — Go compiles ≤16-byte constants used only in equality comparisons into
+integer immediates, so `page_status_ok` (14B) greps ABSENT from a binary that
+plainly implements it while `no_horizontal_overflow` (22B) greps present. Use
+`go tool nm` (these images ship unstripped); the in-pod BusyBox has no `strings`,
+so `kubectl cp` the binary out (sha256 both ends). Fixed the memory that had
+recommended the wrong technique.
+
+**Tier-4 P1/P2 proven live** (run `af5a4ac5`, xp-curve): **9 passed / 0 failed /
+1 skipped** vs T8's P0 baseline of 3-evaluated/2-skipped. Adapter log per
+(check,profile): curve-switch interaction "produced the expected result
+(#tableWrap tr)" on desktop AND mobile; mobile-fit "no horizontal overflow on
+mobile"; mobile-fit correctly SKIPPED on desktop.
+
+**Composer/judge defect found + fixed (chassis).** The pass note said "1 skipped:
+mobile-fit" while mobile-fit had PASSED on mobile — the judge counted skips per
+check *id*, not per (check,profile), so a check that ran on mobile and was
+correctly skipped on desktop read as "never checked". Fixed `extractRunResults`
+to label every result `id@profile` (Passed/Failed/SkipList/Details); note gains
+"across profiles: …"; `failing_checks` stays bare deduped ids (fixer matches PLAN
+ids), new `failing_instances` carries the profile detail. Also scoped the
+acceptance-due COOLDOWN to `source='tool-acceptance'` — Tier-2 writes
+`tool-acceptance-tier2`, and letting its STATIC fails suppress a BEHAVIOURAL run
+had it backwards (a static failure is when you most want the browser to look). 6
+unit tests, regressions pinned to the live payload.
+
+**FIRST real (non-manufactured) failure.** The only never-verified tool with
+criteria was `tool-archetype-taster-quiz` on **vonc.com** (a different site, a
+different render path). It failed 3 of 7 checks — of two OPPOSITE kinds:
+- `boots` — FALSE failure: the PLAN asserted `.tool-container` (the generator
+  convention); this page-section tool ships `.tool-archetype-taster-quiz-section`;
+  `.tool-container` occurs ZERO times. Stale criteria (Option-B/143 class).
+- `mobile-fit` — GENUINE failure: the page really overflows at 390px.
+PARKED the improve_tool item before dispatch (it bundled the false criterion with
+the real bug — the fixer would have chased a stale contract). Diagnosed the real
+one in real Chromium: culprit `div.footer-legal` (506px in a 390px viewport),
+inside vonc's SITE FOOTER, overflowing every page (homepage included) — NOT the
+tool.
+
+**Design defect this exposed + fix: ATTRIBUTE, then ROUTE.** `no_horizontal_overflow`
+measures the whole DOCUMENT, but the ticket it raised was TOOL-scoped — one
+overflowing footer would raise an unfixable improve_tool ticket for every tool on
+the site, every run. Fix (user chose "attribute then route"): the adapter now
+locates the tool's `container`, names the widest offender, and stamps each result
+`scope` = tool | chrome | unknown (+ culprit, component). The judge routes:
+`chrome` → a `responsive_fix` item for `component-template-fixer` (the existing,
+dispatched route), `tool`/`unknown` → improve_tool as before. `unknown` NEVER
+routes to chrome (an unlocatable container falls back to the tool). Dedup key
+`chrome_overflow:<component>:<profile>` (no tool → one site ticket, not one per
+tool). Container fallback `.tool-container, [class*="tool-"][class*="-section"]`
+covers both delivery paths. **Verified live on vonc:** scope=chrome,
+component=site-footer, culprit=div.footer-legal.
+
+**Migration 148** superseded the quiz PLAN (143 precedent): boots re-anchored to
+the real section class; the pre-144 `asset_loads` check removed; `container`
+added; and `quiz-flow-EDIT` replaced with a REAL interaction (click
+`.quiz-option-btn` ×3 → `.result-archetype-name`) PROBED PASSING in real Chromium
+before being written into the PLAN (never author a criterion you haven't watched
+pass). **Migration 149** (`149_composer_emits_container`) taught the composer to
+emit `container` (copied from the generated HTML, never assumed) and anchor
+`boots` on that same root. Numbering collided: another workstream landed its own
+149 + 150 — TWO 149s in the ledger; next free was 151. (144's lesson re-learned:
+`prompt_template` holds REAL newlines, so anchor guards on single-line substrings
+and inject the container line with `chr(10)`.)
+
+**Proven on v1.0.1116** (user built chassis+adapter mid-turn; verified by symbol
+table): run `f0019bd6` on the quiz → note "PASSED — all 8 of the tool's own checks
+passed", root cause "site chrome, not this tool: mobile-fit@mobile —
+div.footer-legal in site-footer", ONE responsive_fix item
+(`chrome_overflow:site-footer:mobile`, handler component-template-fixer), NO
+improve_tool item. The tool was not blamed for the footer.
+
+Categories: (proof, build, gotcha, decision)
+
+### 2026-07-14 (cont.) — the fixer LIED; targeted chrome_overflow_fix built
+
+Promoted the routed responsive_fix item. `component-template-fixer` returned
+**`"fixed": true`** and changed NOTHING in the footer — re-measured the live page,
+identical 506px overflow. **The behavioural tier caught a fixer that lied
+("complete" ≠ fixed).** Root cause: `fixInjectResponsiveCSS` reads
+`spec.slot_name`, and when absent DEFAULTS to `slotName := "header"`, then injects
+a hardcoded header-nav CSS block — so it "fixed" the HEADER for a FOOTER defect.
+Systemic: ALL 54 responsive_fix items ever raised have NO slot_name — every one
+defaulted to the header (page-section responsive findings were never really
+fixed, just closed). *(Left untouched — another workstream's backlog; flagged.)*
+REVERTED the unrequested header injection (marker-guarded; it had not gone live).
+
+**Built `chrome_overflow_fix`** (user chose: new targeted fix type, legacy path
+untouched so no mass edits fire elsewhere). Adapter now also emits machine handles
+`culprit_selector` (div.footer-legal) and `slot` (footer, via `closest('footer')`);
+judge puts them in the spec (`fix_type=chrome_overflow_fix, slot_name,
+overflow_selector`); the new fixer REFUSES to run without them rather than guess.
+Selector regex-validated before it reaches a `<style>` block (browser→HTML
+boundary); idempotent per-selector marker; appended after the slot's own style so
+it wins on order without `!important`. **Proved the CSS on the live page BEFORE
+shipping:** injected exactly what `buildOverflowCSS` produces into vonc.com in real
+Chromium → footer-legal 506px→326px, document overflow 58px→0, flex-wrap:wrap.
+
+Categories: (bug, build, proof, gotcha)
+
+### 2026-07-15 — targeted fixer works; then the DEEPER bug: wrong LAYER
+
+v1.0.1119 verified live (both binaries by symbol table). Re-ran 087 (one run
+orphaned in the pod-rollover response-topic gap — re-fired cleanly). Adapter
+returned full attribution (scope=chrome, culprit_selector=div.footer-legal,
+slot=footer). Judge raised a CORRECTLY-specced ticket. Fixer ran `fixChromeOverflow`
+and this time patched the FOOTER slot (header untouched) with the right CSS —
+verified in DB (footer 3741→4017, flex-wrap:wrap targeting div.footer-legal).
+**detect→attribute→route→fix-correct-target proven.**
+
+**But it did not go live — the vonc landmine.** Drove the deploy via the queued
+`stale_sc_footer` rerender, which has `refresh_site_components: true` — that
+REGENERATED the footer from its content_component template and WIPED the patch
+(footer 4017→3935, still_patched=f). `site_components.rendered_html` is a RENDERED
+ARTIFACT; both `chrome_overflow_fix` and the legacy fixer wrote to it, so any
+refresh erases the fix. The durable source is `content_components.html_template`.
+This is the `[[vonc-spark-workstream]]` memory landmine, now shown to bite the
+fixer path.
+
+**Root bug at the durable layer:** vonc's footer renders from content_component
+`footer-4-column` (id 09034086-a581-4bba-a5b4-760d863bb2df), whose template had
+`.footer-legal { display:flex; gap:2rem; }` with NO flex-wrap. Shared by 8 sites
+(incl. gamesdesign e33263f4) — this one rule overflows the footer on 8 sites.
+
+**User chose: fix template + redesign fixer.** Migration **151**
+(`151_footer4col_flexwrap`; numbering collided AGAIN — a `151_gripper_spec_sheet_component`
+from another workstream also exists and FAILS on a duplicate content_component,
+blocking the runner past it — next free number is 152) added flex-wrap:wrap +
+justify-content:center to `.footer-legal` in the shared template, full pre-edit
+template backed up in a doc_note (`created_by='151_footer4col_flexwrap'`;
+subject_type must be tool|pipeline — 'component' is rejected by a check
+constraint). Re-triggered stale_sc_footer (refresh now pulls the FIXED template) →
+footer regenerated WITH the wrap → live on vonc. **Re-ran 087: `mobile-fit@mobile`
+now PASSES** — note "all 9 of the tool's own checks passed", mobile-fit@mobile in
+the Verified list. **THE REAL-BUG LOOP IS PROVEN GREEN END-TO-END.** The other 7
+sites have the fixed template but stale rendered_html; they self-heal on their
+next refresh (not force-rerendered — 7 live sites, left to natural cadence).
+
+**Fixer redesigned (part 2).** `fixChromeOverflow` now resolves the slot's backing
+component (`site_components.component_id` → `content_components.html_template`) and
+patches the DURABLE layer (survives refresh). Falls back to rendered_html ONLY
+when a slot has no backing component, and then reports `durable:false`/"TRANSIENT"
+honestly. Reports `shared_sites` (blast radius) — patching a shared template is
+correct for a genuine shared CSS defect but never silent. Proven against real
+data: the resolution query for (vonc, footer) → footer-4-column, shared_sites=8 —
+the exact durable target 151 fixed by hand. Builds clean; guard tests pass.
+
+Categories: (bug, build, proof, decision, gotcha)
+
+### 2026-07-16 — redesigned fixer deployed; docs rolled forward
+
+v1.0.1123 verified against the pod (symbol table: `patched the DURABLE
+content_component template`, `shared_sites`, `chrome_overflow_fix`, `TRANSIENT`).
+The redesigned durable-layer fixer is LIVE. Rolled the docs forward for a clean
+new-chat start: RUNBOOK rev 45 (this §0), RUNNING_NOTES rev 40 (this entry),
+PLAN rev 6→7, STATUS_2026-07-16. Migration errors from the concurrent-workstream
+number collisions (two 149s/150s/151s; the gripper 151 blocking the runner) are
+being handled in a SEPARATE chat.
+
+Categories: (deploy, docs)
