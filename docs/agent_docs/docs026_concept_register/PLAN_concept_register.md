@@ -161,15 +161,19 @@ named roster:
   fixloop's own current work — the strongest case for genuine cross-workstream
   value, not just raw citation count.
 
-**Candidate B fully spec'd 2026-07-16 — see `PILOT_bug_historian_reviewer.md`.**
-Complete charter, curated-context digest (the exact 7-concept "silent content
-loss during rebuild/rerender" family), full prompt template, and the precise
-4-edit patch to `0NN_fix_proposer.sql` (grounded in a direct read of the live
-workflow file and `diagnose_council_decide_action.go` — confirmed any
-reviewer's `veto` triggers rejection regardless of `hard_veto_from`, so the
-new seat's prompt deliberately offers only `approve|object`, never `veto` —
-purely advisory by design, not by oversight). **Not yet applied** — that step
-is explicitly reserved for the user (see that document's §6).
+**Candidate B is LIVE as of 2026-07-16 — see `PILOT_bug_historian_reviewer.md`.**
+The council is now three reviewers, not two: `review_editquality → review_bug_historian
+→ review_guardian → council_decide`. Applied to `clients_db` with explicit
+owner sign-off after an auto-mode safety classifier correctly blocked even a
+read-only query until the target was specifically named — a deliberate gate,
+not routed around. Prior `fix-proposer` row snapshotted first
+(`agent_definitions_backup`, rollback available). The new seat is
+purely advisory by design (confirmed via `diagnose_council_decide_action.go`
+that any reviewer's `veto` triggers rejection regardless of `hard_veto_from`,
+so its prompt offers only `approve|object`, never `veto`). **Not yet
+exercised on a live fix-loop run** — verified via direct DB read, not yet
+watched end to end in production traffic. Candidate A (reuse-agent,
+`tool-lifecycle.md`) remains unbuilt.
 
 **Scope boundary — deliberately not yet done:** this design has not been
 implemented against the live `0NN_fix_proposer.sql` workflow. That file belongs

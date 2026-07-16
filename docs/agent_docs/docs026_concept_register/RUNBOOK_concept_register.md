@@ -82,27 +82,23 @@ single pilot category-reviewer (pick whichever category the next real
 fix-loop incident's blast radius touches) rather than building all
 category-reviewers at once.
 
-### B5. Pick a stage-3 pilot seat — candidate B fully spec'd 2026-07-16, applying is your call
+### B5. ~~Pick a stage-3 pilot seat~~ — candidate B is LIVE, 2026-07-16
 Two data-driven candidates were identified (see `PLAN_concept_register.md`
-§Stage 3), both matching FIX-036's originally named roster: **candidate A —
-reuse-agent** (`tool-lifecycle.md`, the single most rediscovered category in
-the register, charter already written as `DEV-001`), and **candidate B —
-bug-historian** (the "silent content loss during rerender" family, directly
-tied to fixloop's active work).
+§Stage 3), both matching FIX-036's originally named roster: candidate A —
+reuse-agent (`tool-lifecycle.md`) and candidate B — bug-historian (the
+"silent content loss during rerender" family). You picked bug-historian.
 
-**Candidate B is now fully designed** — see `PILOT_bug_historian_reviewer.md`
-for the complete charter, curated-context digest, prompt template, and the
-exact 4-edit patch to `fixloop_eg_dartsonline/0NN_fix_proposer.sql`. It's
-deliberately advisory-only (offers `approve|object`, never `veto` — confirmed
-via `diagnose_council_decide_action.go` that any reviewer's veto rejects
-regardless of `hard_veto_from`, so giving it veto power would make it a
-second full gatekeeper, not a historian).
+**Applied to `clients_db` with your explicit sign-off.** The council is now
+three reviewers: `review_editquality → review_bug_historian → review_guardian
+→ council_decide`. Full record: `PILOT_bug_historian_reviewer.md` §6.
+Prior `fix-proposer` row snapshotted first (rollback available via
+`agent_definitions_backup`). Committed:
+`docs024_key_docs_latest/fixloop_eg_dartsonline/0NN_fix_proposer_v6_bug_historian.sql`.
 
-**Not yet applied to the live workflow or database — that's your decision.**
-When ready: review §6 of that document, then either approve applying it as
-drafted or ask for changes first. Candidate A (reuse-agent) remains
-unspec'd — build it the same way if you'd rather start there instead, or
-later as a second seat.
+**Remaining:** watch the next real fix-loop run to confirm the new reviewer's
+output parses cleanly in production traffic (verified via direct DB read so
+far, not yet exercised end to end). Candidate A (reuse-agent) remains
+unbuilt — same process applies if a second seat is wanted later.
 
 ### B6. Fixloop's case-004 dispatch may be moot — flagging, not deciding
 2026-07-16 coordination finding: fixloop chose the image-landing/article-body

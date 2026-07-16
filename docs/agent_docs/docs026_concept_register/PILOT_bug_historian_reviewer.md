@@ -1,12 +1,18 @@
 # PILOT — "Bug Historian" council reviewer (stage 3, candidate B)
 
-**Status: DESIGN + DRAFT PATCH COMPLETE. NOT YET APPLIED to the live fix-loop
-workflow.** This document is the full spec — charter, curated context, prompt,
-and the exact SQL patch — ready to review and apply. Applying it means editing
-`fixloop_eg_dartsonline/0NN_fix_proposer.sql` (a file in the actively-developed
-[[fixloop-workstream]]) and running a migration against `clients_db`; per this
-register's own established boundary (and fixloop's own docs, independently),
-that step waits for your explicit go-ahead. See §6.
+**Status: LIVE as of 2026-07-16.** Applied to `clients_db` (`postgres-clients-0`,
+`ai-persona-system`) with explicit owner sign-off, via
+`fixloop_eg_dartsonline/0NN_fix_proposer_v6_bug_historian.sql`. `fix-proposer`'s
+`updated_at` bumped to `2026-07-16 18:24:20 UTC`; the pre-update row was
+snapshotted first (`snapshot_agent`, id `f9d90a2d-cdfc-403d-a949-6e327db7c9a3`,
+confirmed present in `agent_definitions_backup` — rollback available). Verified
+live in the DB: `review_bug_historian` step present, wired
+`review_editquality → review_bug_historian → review_guardian`,
+`council_decide` and `escalate` both carry all three `review_fields`, prompt
+content intact (3,986 chars). Committed:
+`docs024_key_docs_latest/fixloop_eg_dartsonline/0NN_fix_proposer_v6_bug_historian.sql`
+(`187a1208e`). This document remains the design record — charter, curated
+context, prompt, and the patch that was applied.
 
 ---
 
@@ -224,22 +230,30 @@ changes at run time). Recommend (b) for v1 — one fewer moving part — and onl
 promote it to a queried/versioned value if a future iteration wants the
 curated corpus to grow without editing this SQL file each time.
 
-## 6. What happens next — your call
+## 6. What happened (applied 2026-07-16)
 
-This is a complete, ready-to-apply design, but applying it means:
-1. Writing a new versioned file (`0NN_fix_proposer` → next number, per this
-   file's own "Renumber 0NN when filing" convention) with the four edits
-   above folded in.
-2. Following the file's own deploy-sequencing rule at the top (image before
-   SQL, if any new Go action were introduced — it isn't here, this uses only
-   the existing `execute_llm_prompt` action, so no chassis image dependency).
-3. Running it against `clients_db`, which `snapshot_agent`s the prior
-   `fix-proposer` row first (idempotent, reversible per the file's own
-   rollback note).
-4. Watching the next real fix-loop run to confirm the new reviewer's output
-   parses cleanly and `council_decide` picks up its `review_fields` entry
-   without error — a malformed reviewer output fails the step closed (by
-   design), so a bad prompt would surface immediately, not silently.
+1. Wrote the versioned file
+   `0NN_fix_proposer_v6_bug_historian.sql` with the five edits (the four
+   originally planned, plus one caught during a final review pass: the
+   `escalate` step's `review_fields` also needed the new reviewer, so the
+   human hand-off package shows all three reviews, not just two).
+2. No chassis image dependency — the new reviewer uses only the existing
+   `execute_llm_prompt` action, so this was a pure DB change, live immediately.
+3. Ran it against `clients_db` after explicit, specifically-named owner
+   confirmation (an auto-mode safety classifier had blocked even a read-only
+   query until the target was named — a deliberate gate, not worked around).
+   `snapshot_agent` backed up the prior row first (confirmed present in
+   `agent_definitions_backup`).
+4. Verified post-apply: `review_bug_historian` present and correctly wired,
+   both `review_fields` arrays (`council_decide` and `escalate`) carry all
+   three reviewers, prompt content intact.
 
-None of this has been done. I'll apply it as soon as you say so — either
-exactly as drafted, or with changes you want first.
+**Still open — watch the next real fix-loop run** to confirm the new
+reviewer's output parses cleanly in production traffic (only verified via
+direct DB read so far, not a live workflow execution) — a malformed reviewer
+output fails the step closed by design, so a problem would surface
+immediately, not silently, but it hasn't been exercised end to end yet.
+
+**Candidate A (reuse-agent, `tool-lifecycle.md`) remains unbuilt** — the same
+process (charter → curated context → prompt → patch) would apply if a second
+seat is wanted later.

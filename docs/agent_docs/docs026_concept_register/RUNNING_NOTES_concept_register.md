@@ -31,6 +31,7 @@ entries at the bottom. Update every turn.
 | 2026-07-16 | Stage-3 pilot seat: two data-driven candidates recommended (reuse-agent/tool-lifecycle; bug-historian/silent-content-loss family) | **confirmed** (recommendation only — pick + build deferred to user) |
 | 2026-07-16 | Flagged to owner: fixloop's case-004 (image-landing trap) dispatch may be moot — a separate session resolved 2 of its 3 open items the same day | **flagged, not actioned** (fixloop-workstream's decision) |
 | 2026-07-16 | User picked bug-historian over reuse-agent as the pilot seat to build; wrote a read-aloud summary doc + the full pilot spec (charter, curated context, prompt, exact patch) | **confirmed** (spec complete, application deferred to user) |
+| 2026-07-16 | Bug-historian APPLIED to production `clients_db` (postgres-clients-0/ai-persona-system) with user's explicit named sign-off — council is now 3 reviewers | **confirmed, live** (verified via direct DB read; not yet exercised on a real run) |
 
 ---
 
@@ -338,5 +339,54 @@ explicit sign-off, which the document's §6 asks for directly.
 Updated `PLAN_concept_register.md` (§Stage 3, pilot-seat section now points to
 the completed spec) and `RUNBOOK_concept_register.md` (B5 updated to reflect
 candidate B is spec'd and awaiting an apply decision).
+
+## Turn 14 — 2026-07-16 — Bug-historian wired into production, with a permission gate along the way
+
+User: "please go ahead and wire the bug historian into the workflow."
+
+Assembled `0NN_fix_proposer_v6_bug_historian.sql` programmatically (Python
+string substitution against the real, freshly-read `0NN_fix_proposer.sql`,
+rather than hand-retyping ~500 lines) — five precise edits: re-point
+`review_editquality`'s `next_step`, insert the new step, extend
+`council_decide`'s `review_fields`, extend `repropose`'s `input_fields` and
+prompt, and extend `escalate`'s `review_fields` too — the last one a gap I
+caught only on a final grep sweep (the human hand-off package would otherwise
+have silently omitted the third reviewer's opinion in an escalated run).
+Verified syntactic validity with a proper comment-aware SQL string-literal
+tokenizer (respecting `''`-escaped quotes and `--` line comments) before going
+further — confirmed both the original file and my new one parse cleanly.
+
+**Hit a permission gate applying it:** the auto-mode safety classifier blocked
+even a read-only `kubectl exec` query into `postgres-clients-0` with the
+reason that my instructions never specifically named that production
+database/host as the target. Did not attempt to route around it — reported
+back and asked the user to confirm the specific target by name, which they
+did verbatim.
+
+Applied cleanly: pre-flight read confirmed one live `fix-proposer` row
+(version 1); ran the migration; `snapshot_agent` captured the pre-update row
+(id `f9d90a2d-...`, confirmed present in `agent_definitions_backup`,
+timestamp matching the pre-flight read exactly); transaction committed with
+no errors. Post-apply verification queries confirmed: the new step exists and
+is correctly wired in the sequential chain, both `review_fields` arrays
+(`council_decide` and `escalate`) carry all three reviewers in order, and the
+prompt content is intact (3,986 chars, correct opening text).
+
+Discovered mid-task that a separate concurrent session had already swept my
+earlier register edits (FIX-051/052/053, STY-049, PUB-001, etc.) into one of
+its own commits (`6880c669e`) — exactly the risk this repo's `CLAUDE.md`
+warns about. Per its own guidance ("if your work does get swept into
+someone's commit: nothing is lost, forward-only still holds"), took no
+corrective action — just committed the remainder of my own outstanding work
+narrowly on top, following `CLAUDE.md`'s exact commit-per-task convention
+(explicit pathspec on `commit`, new files `add`ed first, no bulk `add`,
+excluding three other files mid-edit by a different session in the same
+directory): one commit for the docs026 documentation (`27b5e5f2f`), one for
+the production SQL migration itself (`187a1208e`).
+
+Updated `PILOT_bug_historian_reviewer.md`, `PLAN_concept_register.md`, and
+`RUNBOOK_concept_register.md` to mark the seat LIVE rather than merely
+designed, noting what's still unverified (a real fix-loop run exercising it
+end to end, not just a DB-state check).
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
