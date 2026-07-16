@@ -8,8 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     git \
     jq \
+    openssh-client \
     python3 \
     python3-pip \
+    rsync \
     && rm -rf /var/lib/apt/lists/*
 
 # Install B2 CLI

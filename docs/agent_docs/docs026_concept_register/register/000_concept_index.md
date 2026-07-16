@@ -1,13 +1,18 @@
 # Concept Index — master register
 
-1,627 concepts across 107 category register files, consolidated from 2,185 raw
-extraction blocks (32 extraction-unit files, ~4,111 source documents under `docs/`).
-Built 2026-07-13. Status tags were documentary signals from the source material.
+1,631 concepts across 107 category register files. 1,627 consolidated from
+2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
+under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
+2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
+missingkey=zero structural defect it surfaced) that shipped after extraction
+froze — see the 2026-07-16 addition note further down. Status tags were
+documentary signals from the source material unless independently verified
+(see below).
 
 **Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
 `006_VERIFICATION_stage2.md` for method and full findings. Every one of the
-1,627 concepts was checked against the live codebase at least once, across
-three batches: all 314 partial/unknown, all 871 deployed (a false-positive
+original 1,627 concepts was checked against the live codebase at least once,
+across three batches: all 314 partial/unknown, all 871 deployed (a false-positive
 sweep added after batch 1 found the riskiest bucket wasn't the one originally
 planned), and all 174 superseded/abandoned. 124 corrections were confirmed
 total (each independently adversarially re-checked before acceptance) and
@@ -17,6 +22,21 @@ code artifacts at all (see status vocabulary in `README.md`). One duplicate
 (PUB-001) was retired to a pointer entry rather than a status change. Status
 column below now reflects verified ground truth for the 124 corrected rows;
 all other rows held up under verification and keep their original signal.
+
+**2026-07-16 addition:** a coordination pass with the fixloop workstream (its
+tool went complete 2026-07-16, all 4 triage/escalation phases live) found a
+genuine gap — that whole subsystem shipped after extraction froze on 2026-07-13,
+so none of it was in the register. Added and independently verified 4 new
+concepts, cross-checked against live code (registry entries, exact file/line
+citations, and — for FIX-051/052/053 — an independent research pass that also
+confirmed every cited commit against `git log`): `FIX-051` (triage router,
+Phase 1), `FIX-052` (silent-check verifier, Phase 2), `FIX-053` (feedback
+close-out, Phase 3), and `STY-049` (the `missingkey=zero` structural defect the
+fixloop's real-case queue surfaced, root-caused via the image-landing/article-body
+incident). `FIX-034` (the pre-existing base digest) was updated in place to
+record the Phase 4 escalation-section enhancement built on top of it. This is
+targeted incremental extraction of genuinely new material, not a re-sweep of
+frozen stage-1 corpus.
 
 Sorted by register file, then by ID. Use your editor's search for a concept name,
 an ID prefix, or a status word.
@@ -1121,6 +1141,9 @@ an ID prefix, or a status word.
 | DBG-050 | gamesdesign silent-staleness: result-contract stub (output_field vs output_fields) | deployed | SagaCoordinator honoured only plural key; resolveResultSpec fix shipped 2026-06-18 | debugging.md |
 | ATM-002 | Requirement-mediation model ("right" as balance) | aspirational | Same balance framing as ABO-004, from the shared preamble | autonomy-trust-model.md |
 | FIX-050 | Transferable machinery: legacy-migration and feature intakes | aspirational | Same gate/council scaffolding proposed for other intake types | fix-loop.md |
+| FIX-051 | Triage router (Phase 1): deterministic failure sorter | deployed | No-LLM router sorts every fleet failure into bug/blip/no-error/capability-gap | fix-loop.md |
+| FIX-052 | Silent-check verifier (Phase 2): the class no work item ever records | deployed | Finds bugs nothing flags (darts nav-page signature), routes via triage router | fix-loop.md |
+| FIX-053 | Feedback close-out (Phase 3): all-time resolution recheck + auto-reescalation | deployed | Closes parked escalations whose pattern genuinely resolved; re-escalates if it returns | fix-loop.md |
 | SOC-013 | Vertical integration of Spark mechanics into domain sites | aspirational | Same mechanics re-flavoured per vertical (vet, finance, fashion, food) | social-media.md |
 | SQLC-001 | SQL needle-gate surgery pattern (guarded, idempotent, reversible DB edits) | convention | Same method as DBG-016, extracted independently under this proposed category | sql-change-management.md |
 | DBG-070 | gpu-provisioner output-shape flattening (output_fields plural vs singular) | deployed | Same output_field/output_fields bug class as DBG-050 on a different agent | debugging.md |
@@ -1390,7 +1413,7 @@ an ID prefix, or a status word.
 | ADM-005 | Admin work-item reassign + force-complete override endpoints | superseded | Two narrow overrides replaced by generic PATCH + shared retry/resolve pair | admin-dashboard-and-api.md |
 | BLD-014 | Selective rebuild via build_status | deployed | Two orthogonal page-state columns let rebuilds target only marked pages | build-pipeline.md |
 | STY-048 | page-rerender mode contract and site-uniformity reconcile pattern | deployed | Two page-rerender modes with different skip semantics; idempotent reconcile scripts | styling-render-pipeline.md |
-| STY-049 | missingkey=zero silent-empty-render root pattern + escalate-not-blank guard | partial | Root cause of the image-landing blanking trap; live guard escalates to writer, broader fail-loud fix undeployed | styling-render-pipeline.md |
+| STY-049 | missingkey=zero silent-empty-render root pattern + escalate-not-blank guard | partial | Root cause of the image-landing trap (now recovered separately); one call site guarded live, root template behaviour still generic/unpatched | styling-render-pipeline.md |
 | RES-006 | Capability watchlist + real-world event watchlist (dual standing research workflows) | aspirational | Two proposed recurring workflows tracking AI capabilities and scheme/event windows | research-agents.md |
 | TL-016 | Composer selector invention & the delivered-reality principle (Option B) | deployed | Two recurring failure classes in machine-written acceptance criteria, and their durable remedies. (1) The... | tool-lifecycle.md |
 | DIAG-026 | Diagnose loop-back plumbing fault class (state threading + scope encoding) | deployed | Two silent producer/consumer field mismatches left guards and re-scope inert while the loop "worked" | diagnosis-loop.md |

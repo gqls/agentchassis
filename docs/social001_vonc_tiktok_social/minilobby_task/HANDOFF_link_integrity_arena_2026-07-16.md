@@ -1,6 +1,21 @@
 # HANDOFF & SUMMARY — vonc link integrity, the Arena, and where we go next
 *2026-07-16. Read top-to-bottom. This is the current bootstrap for a fresh chat.*
 
+> **ADDENDUM 2026-07-16 (afternoon): next-step #1 is DONE.** `applyCTARecompute`'s
+> scope is broadened (ctaFieldNames now covers hero, call-to-action,
+> archetype-grid, archetype-combinations, gauntlet-cta, content-block-about),
+> migration **098** source-unlocked the five site_specs.*-sourced url fields,
+> chassis **v1.0.1125** verified in-pod (including the phantom-link runtime-fill
+> guard — the "verify before relying" caveat below is cleared). The three open
+> misdirected_cta rerenders ran: archetypes' archetype-grid `/contact.html` →
+> Gauntlet (DB + live curl); the other flagged anchors are authored links to
+> real pages the recompute correctly KEEPS — they converge to human review via
+> the two-strike rule (a re-detection <3h after a completed repair is
+> suppressed; two terminal attempts → `unresolved`). Post-repair discovery ran
+> clean (zero new items). Full log: RUNNING_NOTES_minilobby_task.md, 2026-07-16
+> afternoon entry. Next steps are now #2–#4 below, plus a 096-style label
+> unlock for archetype-grid/archetype-combinations before the #3 content pass.
+
 ---
 
 ## The one-paragraph version (read this out)

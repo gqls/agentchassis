@@ -117,6 +117,12 @@ Park rule: if any pass re-emits `needs_page:provocation`, set it back to
 1. Re-trigger vonc completeness discovery → expect ZERO of: misdirected_cta,
    phantom_internal_links, cta_names_unknown_destination, nav_drift,
    incomplete_page_group. (Park `needs_page:provocation` if re-emitted.)
+   **[EXECUTED 2026-07-16 post-098/v1.0.1125: zero new items. Caveat on the
+   "zero" semantics: misdirected_cta KEEPs (authored links to real pages whose
+   copy names a different page) re-detect but are SUPPRESSED by the two-strike
+   rule within 3h of a completed repair; after two terminal attempts they land
+   `unresolved` for human review. They are content decisions (step-3 content
+   pass), not repair failures.]
 2. Browser: Gauntlet/Quiz/Arena in rendered nav; Arena interactive (JS
    present, tool-doc sentinel header in the component, not a prose page).
 3. Regression guard: run the same discovery on robot-hands.com — after its

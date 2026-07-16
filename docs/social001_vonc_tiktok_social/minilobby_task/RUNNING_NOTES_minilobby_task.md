@@ -583,3 +583,23 @@ are authored links to real pages: the recompute correctly refuses to churn them.
 via `insertWorkItem`'s two-strike rule: re-detection <3h after a terminal item is SUPPRESSED;
 after 2 terminal attempts the item lands `unresolved` for human review. These are content
 decisions and feed the step-3 content pass.
+
+**Guideline cross-check (000/001/002/003, done on request before shipping):**
+- 001 Step Zero / reuse-before-creating: no new agents/actions/registry entries — the fix is an
+  extension of the ONE existing shared map + two guards. Both existing writers (build-time
+  resolver, repair-time recompute) stay consistent BY CONSTRUCTION because they read the same set.
+- 001 API-verification discipline: `planSection`'s renderer/static short-circuit verified at the
+  point of use before flipping required:true fields (dated claim in 098's header); deployed binary
+  verified in-pod by string table (never git); "deployed code ≠ migration ran" treated as two
+  separate verified steps (016 §17).
+- 003 Input Schema v2: `renderer` is the documented source for render-time-assembled fields —
+  exactly what these urls now are; no fallbacks present (avoids 097's renderer-with-fallback
+  revert); on_missing defaults to skip_field, templates gate their buttons.
+- 003 source-of-truth: recompute writes into resolved_data; rerender persists content_data =
+  stored ⊕ resolved, so the row stays a complete render source — verified in the archetype-grid row.
+- 003 naming: map keys are live kebab-case function values; field names pinned to live schema by
+  TestCTAFieldNamesContract (mechanises the 095 field-name lesson).
+- 002/004 loop architecture: unchanged — discovery → triage → dispatch → handler → verify; the
+  recompute still gates on spec.reason=cta_links_stale only (image_landed / section_data_resolved
+  rerenders byte-identical); no orchestrator-boundary or topic changes.
+- Anti-fabrication: label copy NOT hand-authored; label source unlock deferred to the content pass.

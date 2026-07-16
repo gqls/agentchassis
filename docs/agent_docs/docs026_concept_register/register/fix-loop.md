@@ -1,6 +1,8 @@
 # Register — fix-loop
 
-50 concepts, consolidated from 123 raw extractions across units U08, U13, U14, U15, U16
+53 concepts (50 from stage 1 consolidation + 3 added 2026-07-16 for the
+triage/escalation subsystem that shipped after extraction froze — FIX-051/052/053),
+consolidated from 123 raw extractions across units U08, U13, U14, U15, U16
 (note: U13's ~47 blocks and U16's autonomy-governance-tagged blocks appeared byte-identically
 twice within the cluster input file — treated as duplicate copies of the same extraction, not
 independent corroboration, and collapsed accordingly).
@@ -277,10 +279,11 @@ independent corroboration, and collapsed accordingly).
 - **status:** deployed
 - **status-evidence:** "IN FLIGHT (turn 29): the AWARENESS SURFACE... Built + committed, awaiting the next chassis image" (HANDOFF_CURRENT_fixloop.md) — realizing an earlier proposal: "the missing organ is a push surface: a periodic digest … before autonomy widens … the awareness surface gets built first" (README_02_evidence_backed_proposals.md#4).
 - **stage2-verified (2026-07-14):** partial → deployed — platform/orchestration/actions/fixloop_digest_action.go + registry.go:1180 register 'fixloop_digest'; git log shows f95004aaf (v1.0.1117) postdates the doc's 'awaiting next chassis image' snapshot (v1.0.1114/1113); docs/fixloop_digests/DIGEST_latest.md + archive/DIGEST_2026-07-13.md exist as delivered output; README...
+- **2026-07-16 addition (Phase 4 — escalation section):** live since v1.0.1120/1121 (commits d827d6334, 2887247b2, "Phase 4 LIVE — digest escalation channel delivered (DIGEST 2026-07-15)"). Extends this same digest with `digestGatherImmune` (`fixloop_digest_action.go:291`, called from `renderDigest` at line 378) to also surface: sweep counts, the **entire** open diagnosis queue on every digest (so parked items — decisions waiting on the owner — never silently fade out of view, and new ones are flagged), silent-check findings (FIX-052) both open and closed, and standing capability gaps (from the triage router's `triageGatherCapabilityGaps`, FIX-051). This is the piece that answers "how does the owner see the whole triage/escalation layer at a glance," not just fix-loop run outcomes — the original 2026-07-14 verification below only covered the narrower base digest.
 - **what:** A deterministic (no-LLM-in-path) digest agent composing a window (default 24h) summary of fix-loop activity — status/terminal/gate/PR outcomes, decisions per correlation, and agent_definitions_backup snapshots — persisted to doc_notes (categories ["digest","fixloop"]). Built to satisfy the owner's standing rule "more awareness before wider autonomy" and to be the grown-up form of the parked F0.3 per-iteration notes. v1 is manual-trigger only; a daily cadence is deliberately deferred; as of the source snapshot it awaits the next chassis image before going live.
-- **sources:** fixloop_eg_dartsonline/0NN_fixloop_digest.sql, fixloop_eg_dartsonline/093_TRIGGER_fixloop_digest_v1.sh, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#IN FLIGHT, README_02_evidence_backed_proposals.md#4
-- **relations:** owner standing rule: awareness before autonomy; diagnosis_artifacts table; council roster expansion vision; F0.3 per-iteration notes
-- **verify-later:** whether the chassis image carrying fixloop_digest action has shipped; doc_notes rows with categories ? 'digest'
+- **sources:** fixloop_eg_dartsonline/0NN_fixloop_digest.sql, fixloop_eg_dartsonline/093_TRIGGER_fixloop_digest_v1.sh, fixloop_eg_dartsonline/HANDOFF_CURRENT_fixloop.md#IN FLIGHT, README_02_evidence_backed_proposals.md#4, fixloop_eg_dartsonline/SUMMARY_where_we_are_2026-07-16.md#Where we are, platform/orchestration/actions/fixloop_digest_action.go:291,378
+- **relations:** owner standing rule: awareness before autonomy; diagnosis_artifacts table; council roster expansion vision; F0.3 per-iteration notes; triage router (FIX-051); silent-check verifier (FIX-052)
+- **verify-later:** whether the chassis image carrying fixloop_digest action has shipped; doc_notes rows with categories ? 'digest'; digestGatherImmune output on a live DIGEST file
 
 ### FIX-035 — Owner standing rule: awareness before autonomy
 - **status:** deployed
@@ -413,3 +416,27 @@ independent corroboration, and collapsed accordingly).
 - **sources:** README_02_evidence_backed_proposals.md#3
 - **relations:** council roster expansion vision; hard deterministic gates between every LLM step
 - **verify-later:** n/a (unbuilt)
+
+### FIX-051 — Triage router (Phase 1): deterministic failure sorter (2026-07-16 addition)
+- **status:** deployed
+- **status-evidence:** Live since v1.0.1117 (commit f95004aaf, "triage LIVE on v1.0.1117 — channel closed, dedup proven"); `SUMMARY_where_we_are_2026-07-16.md`: "Its first live run confirmed the value: ~half of all 'failures' were operational noise it correctly kept out." Independently confirmed 2026-07-16: `platform/orchestration/actions/diagnose_triage_action.go` (526 lines) exists, registered as `diagnose_triage` (`registry.go:1198`).
+- **what:** A deterministic router — no LLM in the classification path — that reads every recorded failure across the fleet and sorts it four ways: genuine code bugs escalate to the diagnosis queue (deduped by pattern via `triageItemKey`, hard-capped per sweep, inserted by `triageInsertNeedsDiagnosis`); operational blips (timeouts, dead pods) get re-queued and never reach the loop; failures with no error text are held for a human; missing-capability signals go to the roadmap (`triageGatherCapabilityGaps`), never the loop. `triageRoute` (line 63) is the classification function; `DiagnoseTriageAction` (line 115) is the entry point.
+- **sources:** fixloop_eg_dartsonline/SUMMARY_where_we_are_2026-07-16.md#Where we are; commit f95004aaf; platform/orchestration/actions/diagnose_triage_action.go:63,115,327,356,383,403
+- **relations:** council roster expansion vision (FIX-036); feedback close-out (FIX-053, same file); fixloop-digest (FIX-034, consumes triage's capability-gap findings)
+- **verify-later:** registry.go:1198 diagnose_triage entry; scheduled_tasks cadence firing the triage sweep
+
+### FIX-052 — Silent-check verifier (Phase 2): the class no work item ever records (2026-07-16 addition)
+- **status:** deployed
+- **status-evidence:** Live since v1.0.1118 (commit b2736a457, "Phase 2 silent-check LIVE on v1.0.1118 — proven end to end incl. cross-thread close-out"); `SUMMARY_where_we_are_2026-07-16.md`: "It found the darts bug on two sites and routed it through triage into the queue." Independently confirmed: `platform/orchestration/actions/diagnose_silent_check_action.go` (532 lines) exists, registered as `diagnose_silent_check` (`registry.go:1204`).
+- **what:** A verification checker for the failure class no work item ever records — the "darts signature": a page referenced in a site's navigation that was never built, with nothing anywhere flagging it. Emits inert findings **only for what the immune system cannot already see** (if any existing work item references the page, it stays out — avoiding duplicate noise), and groups every affected site into one platform-level pattern so the root cause gets fixed once rather than per-site. Routes confirmed findings through the Phase 1 triage router into the diagnosis queue.
+- **sources:** fixloop_eg_dartsonline/SUMMARY_where_we_are_2026-07-16.md#Where we are; commit b2736a457; platform/orchestration/actions/diagnose_silent_check_action.go, diagnose_silent_check_test.go
+- **relations:** triage router (FIX-051, the downstream consumer of its findings); orphan-pages / nav-drift concepts (link-management.md)
+- **verify-later:** registry.go:1204 diagnose_silent_check entry; whether it has since found any silent-failure class beyond the darts nav-page signature
+
+### FIX-053 — Feedback close-out (Phase 3): all-time resolution recheck + auto-reescalation (2026-07-16 addition)
+- **status:** deployed
+- **status-evidence:** Live since v1.0.1122 (commit b869469c8, "fixloop triage Phase 3 close-out: parked escalations close when their failure pattern resolves (all-time check, never window aging); re-escalation automatic via dedup index"); `SUMMARY_where_we_are_2026-07-16.md`: "Proven both ways in production: a real sweep closed nothing (all patterns still real), and a synthetic probe closed itself while the real ones stayed open." Independently confirmed: `triageCloseResolved` at `diagnose_triage_action.go:262`.
+- **what:** Each triage sweep re-checks whether a parked escalation's failure pattern still exists among currently-failed items, using an **all-time** check rather than a recency window — so a pattern that simply aged out of a lookback window is never mistaken for having resolved. `triageCloseResolved` (line 262) does the recheck; `triageResolvedKeys` (line 314) computes which parked keys no longer appear live. Closes genuinely-resolved escalations and re-escalates automatically (via the same `triageItemKey` dedup index as Phase 1) if a closed pattern returns.
+- **sources:** fixloop_eg_dartsonline/SUMMARY_where_we_are_2026-07-16.md#Where we are; commit b869469c8; platform/orchestration/actions/diagnose_triage_action.go:262,314
+- **relations:** triage router (FIX-051, same file/mechanism, same dedup index); the "also open" note in SUMMARY_where_we_are_2026-07-16.md that re-*queuing* (vs. just closing) the original items after a fix ships is still a deliberate human action, not automated
+- **verify-later:** diagnose_triage_action.go:262-326; confirm the auto-reescalation path has fired on a real recurrence (as of 2026-07-16 only proven via synthetic probe + one real sweep finding nothing to close)
