@@ -42,6 +42,7 @@ RUNBOOK_concept_register.md — human-operator tasks (rotations, judgment calls,
 RUNNING_NOTES_concept_register.md — turn-by-turn discussion log, updated every turn
 SUMMARY_where_we_are_2026-07-16.md — calm, read-aloud narrative summary (companion to PLAN)
 SUMMARY_where_we_are_2026-07-17.md — read-aloud summary + bug-historian deep dive (now LIVE)
+SUMMARY_where_we_are_2026-07-17b.md — read-aloud summary: 3 seats live + relevance-filter groundwork
 PILOT_bug_historian_reviewer.md — stage-3 council seat #1 — LIVE 2026-07-16
 PILOT_reuse_agent_reviewer.md — stage-3 council seat #2 — LIVE 2026-07-17
 PILOT_guidelines_agent_reviewer.md — stage-3 council seat #3 (last always-on) — LIVE 2026-07-17
