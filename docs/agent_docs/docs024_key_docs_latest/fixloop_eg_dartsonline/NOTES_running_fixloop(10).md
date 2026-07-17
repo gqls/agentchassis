@@ -1995,3 +1995,41 @@ a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
   `RUNBOOK_diagnosis_fix_loop(10).md` after B's verdict grades.
 - 17-agent max_tokens sweep (fleet config fix) — owner decision: fix configs
   now vs. fix the shadowing code first (configs then self-heal).
+
+### Turn 34 addendum (2026-07-17 morning) — BUG B terminal; a THIRD honesty gate surfaces; live case-003 instance
+- **BUG B final (run `960b554d`): gated UNVERIFIABLE at iteration-cap — graded
+  PARTIAL.** The RAW verdict was CONFIRMED and rubric-perfect: 5 static
+  citations (the root-first assignment, the `if aiServiceConfig == nil` step
+  gate, the step-map assignment, the max_tokens if/else, GenerateText's
+  `"max_tokens": 2048` literal) and symptom_check 3/3 explained with cites.
+  The route coerced it: **the two-evidence-family guard** — a CONFIRM needs
+  BOTH a static citation showing the mechanism AND a state/runtime citation
+  showing it occurring. All five citations were static; the loop iterated to
+  cap and handed to human. The guard is working as designed.
+- **The v1/v2 pair teaches the complete symptom-authoring recipe.** v1 embedded
+  empirical CLAIMS (experiment results, fleet counts) → cite-or-abstain refused
+  (claims not in bundle). v2 stripped ALL empirical content → two-family guard
+  refused (nothing state-tier to cite, and nothing named for a data_request to
+  fetch). BUG A threaded the needle by accident: its symptom NAMED the table
+  ("Live evidence in llm_call_log: 17 rows where…") without over-asserting, so
+  the verdicter DATA_REQUESTED the rows, got a state-tier citation, and passed
+  the guard. RULE 4 for the runbook: **state the mechanism, then POINT at the
+  table(s) where the runtime/state evidence lives — assert neither the rows nor
+  the counts; let the loop fetch and cite them.**
+- BUG B's mechanism is nonetheless fully established: loop-cited code trail +
+  my direct experiment (2048→32000 flip). What's missing is only the gated
+  CONFIRMED artifact — which F1 (fix-proposer) consumes. Owner options: accept
+  the trail and fix by hand; or one v3 dispatch authored per RULE 4 to earn the
+  gated CONFIRMED so the loop can plan the fix itself.
+- **Live instance of aaa_fails_to_mend/003 (spawn-lost-child-response):**
+  retry `80c35dea` (2026-07-16 ~20:24Z) — parent wedged at `spawn_diagnoser`
+  13.7h, child orchestration row never created, zero LLM calls. Deploy churn
+  overnight (v1.0.1126→1128) is the suspected killer. Zombie row DELIBERATELY
+  left in place as evidence for 003. Platform-wide: EXECUTING_STEP zombies
+  exist back 455–1,197 HOURS — long-standing condition, nothing sweeps them.
+  Mitigation added to practice: an early spawn check (child row within ~3 min)
+  in the dispatch poll, so a lost spawn surfaces immediately.
+- Run ledger for the two bugs: A = 1 run, CONFIRMED, PASS. B = 4 runs
+  (honest-abstain / API-529 / spawn-lost / gated-UNVERIFIABLE-PARTIAL). Every
+  non-CONFIRMED terminal was correct behaviour by the loop or external
+  infrastructure — none was a loop defect.
