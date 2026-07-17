@@ -307,3 +307,46 @@ static→dynamic; difference is primarily the deploy stage) + prior-discussion a
 - **Ship:** operator building **v1.0.1130** (includes render_rss_feed via HEAD). Watcher
   armed for rollout + pod symbol check; then: apply SQL → trigger feed pass → verify
   feed.xml on box + well-formed over HTTPS.
+
+## 2026-07-17 — P4 PROVEN LIVE; v1.0.1130→1134 survived; images migrated; **P5.1 DONE**
+
+- **P4 feed.xml LIVE:** after v1.0.1130 (then 1134) rollout + pod-verify, applied the
+  RSS workflow SQL, ran a feed pass (rss_items=30, repo=vm-sites), and
+  **https://relojistas.com/feed.xml serves valid RSS 2.0** (30 items, atom:self = legacy
+  URL, items link out to sources; Go test round-trips the XML — Python check was redundant
+  per CLAUDE.md Go-not-Python). Kafka dispatch vanished once silently (no orchestration
+  row) — refired, fine. **v1.0.1134 redeploy verified:** both symbols in pod; all live DB
+  config survived (0 re-pinned git_commit repos, RSS steps intact, gate+target+forced
+  news_feed intact); all surfaces 200.
+- **Missing-images fixed (operator report):** logo + 4 heroes + 4 icons + styles.css had
+  misrouted to gqls/sites pre-routing-fix; migrated into vm-sites (commit cfd787c), all
+  200 now. Gap: homepage references `/assets/images/favicon.png` — never generated.
+- **P5.1 LIVE — the mission metric:** legacy `/external.php?type=RSS2` (and all
+  `forumids`/`cat` variants) now **200 → serves feed.xml** (~136/day subscriber 404s
+  reactivated). Bare `/external.php` still 404 (correct). Done as a surgical nginx location
+  (`if ($arg_type = RSS2) { rewrite ^ /feed.xml last; }`, the nginx-safe if-use) applied
+  live: backed up conf, `nginx -t` OK, reload. Master-feed-to-all; per-forumid category
+  feeds = later engine step (needs category feeds rendered first). Served statically so it
+  survives engine downtime. **CAVEAT:** the vm-sites.conf is setup.sh-managed and the box
+  is drifted from every repo setup.sh version (box predates the /events endpoint) — my
+  location must be reconciled into the setup.sh generator before any future re-run, else
+  it's lost. Backup: /root/vm-sites.conf.bak-p5-*.
+
+## 2026-07-17 — NAV DEAD-ENDS diagnosed (operator report): two classes, one root-cause
+
+- **Class 1 — header nav to planned pages (404):** Noticias, Guías, Glosario are all
+  `build_status='planned'` with 0 sections. **Root cause for Noticias (the core one):** the
+  planner typed it `page_type='section-index'`, NOT `'news-index'` — so render_news_section
+  (which only produces news-archive.json + attaches news-listing for `page_type='news-index'`)
+  never composed it, and the `missing_news_page` discovery check (fires on separate_page=true
+  AND no news-index page) would route it to content-gap-planner to build a proper
+  news-listing page. Guías (section-index) + Glosario (entity-directory) have NO child
+  content (no guides, no glossary terms) → would be empty listings.
+- **Class 2 — invented CTA links in the homepage info-card-grid (404):** the LLM-written
+  `info-card-grid` cards link to `/ferias`, `/archivo`, `/guias/mantenimiento` — pages that
+  were never planned. Baked into the homepage's rendered component, not the nav.
+- **Fix forks on the deferred scaffold-pages decision** (build content vs trim) + needs the
+  news-index re-typing for Noticias + card-link repair. Risk: composing empty pages via a
+  full re-plan is the known clobber landmine — must use targeted routes
+  (missing_news_page→content-gap-planner for news; nav-updater/link repair for cards), not
+  build-site-planner. Presented to operator for direction.
