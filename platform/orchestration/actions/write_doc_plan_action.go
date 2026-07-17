@@ -135,8 +135,12 @@ func WriteDocPlanAction(ctx context.Context, params ActionParams) (interface{}, 
 // subject_key is direct config or a field path. Shared by the doc actions.
 func docResolveSubject(config map[string]interface{}, collected map[string]interface{}) (string, string, error) {
 	subjectType := datahelpers.GetStringField(config, "subject_type", "")
-	if subjectType != "tool" && subjectType != "pipeline" {
-		return "", "", fmt.Errorf("subject_type must be 'tool' or 'pipeline', got %q", subjectType)
+	// Kept in lockstep with the doc_plans/doc_notes subject_type CHECK
+	// constraint (migration 163 added 'experience' for the experience loop).
+	// A value the DB accepts but this gate rejects — or vice versa — is a
+	// split contract; move both together.
+	if subjectType != "tool" && subjectType != "pipeline" && subjectType != "experience" {
+		return "", "", fmt.Errorf("subject_type must be 'tool', 'pipeline' or 'experience', got %q", subjectType)
 	}
 	subjectKey := datahelpers.GetStringField(config, "subject_key", "")
 	if subjectKey == "" {

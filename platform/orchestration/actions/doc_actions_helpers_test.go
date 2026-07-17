@@ -34,7 +34,14 @@ func TestDocResolveSubject_RejectsBadTypeAndMissingKey(t *testing.T) {
 	if _, _, err := docResolveSubject(
 		map[string]interface{}{"subject_type": "site", "subject_key": "x"},
 		map[string]interface{}{}); err == nil {
-		t.Fatal("subject_type outside tool|pipeline must error")
+		t.Fatal("subject_type outside tool|pipeline|experience must error")
+	}
+	// 'experience' is accepted (migration 163; experience loop). Keep this in
+	// lockstep with the doc_plans/doc_notes subject_type CHECK constraint.
+	if st, sk, err := docResolveSubject(
+		map[string]interface{}{"subject_type": "experience", "subject_key": "vonc-spark-game"},
+		map[string]interface{}{}); err != nil || st != "experience" || sk != "vonc-spark-game" {
+		t.Fatalf("experience subject must resolve: %v %q %q", err, st, sk)
 	}
 	if _, _, err := docResolveSubject(
 		map[string]interface{}{"subject_type": "tool"},
