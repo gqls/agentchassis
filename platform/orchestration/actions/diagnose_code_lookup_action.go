@@ -1,0 +1,291 @@
+// FILE: platform/orchestration/actions/diagnose_code_lookup_action.go
+//
+// F2.3b(c) of the diagnosis→fix loop: the council's CODE-shaped verify tier.
+//
+// Why it exists (real case, 2026-07-17, run ca064df2 / fix_correlation
+// e505f70f): the bug-historian's blocking objection hinged on ONE code fact —
+// "does the codebase have other LLM provider adapters?" — and the council's
+// only verify step (diagnose_run_checks) executes SQL against the platform DB,
+// not questions about the codebase. Three revise rounds burned without the one
+// answer that would have settled the round; the router escalated (honestly).
+// The answer existed the whole time in the code_symbols index:
+//
+//	SELECT path, symbol FROM code_symbols WHERE symbol LIKE '%GenerateText%'
+//	→ anthropic.go AND ollama.go.
+//
+// This action gives reviewers a `code_checks` channel beside their SQL
+// `checks`: structured code questions answered from the code_symbols index —
+// a plain DB read, so it runs in the SHARED chassis pod, which deliberately
+// never holds the GitHub read token (only spawned repo-cloning pods do; see
+// analyse_repo_local_action.go). No tarball fetch, no token, no new trust
+// surface: the index is refreshed by index-orchestrator and carries commit_sha
+// per row, which is rendered so staleness is visible, never hidden.
+//
+// Wire format (mirrors checks:[{sql,why}] — one convention per tier):
+//
+//	code_checks: [{"kind": "symbol|content|ls", "query": "...", "why": "..."}]
+//	  symbol  — match against the symbol name (ILIKE, e.g. "GenerateText" or
+//	            "(*OllamaClient).%"); returns path, symbol, signature, lines.
+//	  content — match against symbol source bodies (ILIKE over the
+//	            trigram-indexed content column, e.g. "%stop_reason%");
+//	            returns path, symbol + a capped matching-line excerpt.
+//	  ls      — path prefix listing (e.g. "platform/aiservice/"); returns the
+//	            distinct indexed paths under it.
+//
+// Every kind is READ-ONLY by construction — the SQL is written HERE, the
+// reviewer supplies only a pattern; nothing model-written is executed.
+package actions
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"go.uber.org/zap"
+)
+
+var DiagnoseCodeLookupInputSpec = datahelpers.ActionInputSpec{
+	Optional: []string{
+		"code_check_fields", "max_checks", "row_cap", "excerpt_chars", "repo",
+	},
+	Defaults: map[string]interface{}{
+		"max_checks":    8,
+		"row_cap":       40,
+		"excerpt_chars": 400,
+	},
+}
+
+func init() {
+	datahelpers.RegisterActionInputSpec("diagnose_code_lookup", DiagnoseCodeLookupInputSpec)
+}
+
+// codeCheck is one reviewer-attached code question.
+type codeCheck struct {
+	Kind  string
+	Query string
+	Why   string
+}
+
+// DiagnoseCodeLookupAction answers the reviewers' code_checks from the
+// code_symbols index and hands the results to the next repropose.
+func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	config := params.StepConfig.Config
+	logger := params.Logger.With(zap.String("action", "diagnose_code_lookup"))
+	if params.ExecutionContext != nil && params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+	if params.DB == nil {
+		return nil, fmt.Errorf("diagnose_code_lookup: no DB handle")
+	}
+
+	fields := configStringSlice(config, "code_check_fields", nil)
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("no code_check_fields configured — a code-verify step with nowhere to look is a wiring mistake")
+	}
+
+	var checks []codeCheck
+	for _, f := range fields {
+		checks = append(checks, codeChecksFromCollected(params.CollectedData, f)...)
+	}
+
+	maxChecks := datahelpers.GetIntField(config, "max_checks", 8)
+	dropped := 0
+	if maxChecks > 0 && len(checks) > maxChecks {
+		dropped = len(checks) - maxChecks
+		checks = checks[:maxChecks]
+	}
+
+	if len(checks) == 0 {
+		logger.Info("diagnose_code_lookup: reviewers asked no code questions")
+		return map[string]interface{}{
+			"results_text":   "(reviewers asked no code_checks this round)",
+			"checks_run":     0,
+			"checks_dropped": 0,
+		}, nil
+	}
+
+	rowCap := datahelpers.GetIntField(config, "row_cap", 40)
+	excerptChars := datahelpers.GetIntField(config, "excerpt_chars", 400)
+	repoFilter := datahelpers.GetStringField(config, "repo", "")
+
+	var b strings.Builder
+	b.WriteString("Code questions your reviewers asked, answered from the code_symbols index\n")
+	b.WriteString("(an INDEXED snapshot — each answer names its commit_sha; treat a stale or\nempty answer as 'unknown', not 'absent'):\n")
+	run := 0
+	for i, c := range checks {
+		fmt.Fprintf(&b, "\n[code_check %d] kind=%s query=%q — %s\n", i+1, c.Kind, c.Query, c.Why)
+		if err := answerCodeCheck(ctx, params.DB, c, repoFilter, rowCap, excerptChars, &b); err != nil {
+			fmt.Fprintf(&b, "  (lookup failed: %v)\n", err)
+			continue
+		}
+		run++
+	}
+	if dropped > 0 {
+		fmt.Fprintf(&b, "\n> %d further code_check(s) dropped (max_checks=%d) — coverage was capped, not complete.\n", dropped, maxChecks)
+	}
+
+	logger.Info("diagnose_code_lookup: answered reviewer code checks",
+		zap.Int("checks_run", run),
+		zap.Int("checks_dropped", dropped),
+		zap.String("orchestration_id", orchIDForLog(params)))
+
+	return map[string]interface{}{
+		"results_text":   b.String(),
+		"checks_run":     run,
+		"checks_dropped": dropped,
+	}, nil
+}
+
+// codeChecksFromCollected extracts code_checks entries from a collected-data
+// field (dot path to a []interface{} of {kind, query, why} maps). Malformed
+// entries are skipped, never fatal — a reviewer that fumbles the format loses
+// that check, not the run. Kinds are validated here (allowlist) so an
+// unrecognised kind is dropped loudly in the caller's rendering, not guessed.
+func codeChecksFromCollected(collected map[string]interface{}, field string) []codeCheck {
+	raw := datahelpers.ExtractNestedField(collected, field)
+	list, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	var out []codeCheck
+	for _, e := range list {
+		m, ok := e.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		kind, _ := m["kind"].(string)
+		query, _ := m["query"].(string)
+		why, _ := m["why"].(string)
+		kind = strings.ToLower(strings.TrimSpace(kind))
+		query = strings.TrimSpace(query)
+		if query == "" || !validCodeCheckKind(kind) {
+			continue
+		}
+		out = append(out, codeCheck{Kind: kind, Query: query, Why: why})
+	}
+	return out
+}
+
+func validCodeCheckKind(kind string) bool {
+	switch kind {
+	case "symbol", "content", "ls":
+		return true
+	}
+	return false
+}
+
+// answerCodeCheck runs ONE check against code_symbols. The SQL is fixed per
+// kind; the reviewer's query arrives only as a bind parameter — nothing
+// model-written is executed as SQL (contrast run_checks, whose whole point is
+// model-written SELECTs under containment; here the containment is that the
+// model writes no SQL at all).
+func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter string, rowCap, excerptChars int, b *strings.Builder) error {
+	switch c.Kind {
+	case "symbol":
+		rows, err := db.QueryContext(ctx, `
+			SELECT path, symbol, COALESCE(signature,''), COALESCE(line_start,0), COALESCE(line_end,0), COALESCE(commit_sha,'')
+			FROM code_symbols
+			WHERE symbol ILIKE '%' || $1 || '%'
+			  AND ($2 = '' OR repo = $2)
+			ORDER BY path, symbol
+			LIMIT $3`, c.Query, repoFilter, rowCap)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		n := 0
+		for rows.Next() {
+			var path, symbol, sig, sha string
+			var ls, le int
+			if err := rows.Scan(&path, &symbol, &sig, &ls, &le, &sha); err != nil {
+				return err
+			}
+			fmt.Fprintf(b, "  - %s : %s  [L%d-%d]  %s  (commit %s)\n", path, symbol, ls, le, truncateCell(sig, 160), shortSHA(sha))
+			n++
+		}
+		if n == 0 {
+			b.WriteString("  (no symbol matches in the index)\n")
+		}
+		return rows.Err()
+
+	case "content":
+		rows, err := db.QueryContext(ctx, `
+			SELECT path, symbol, content, COALESCE(commit_sha,'')
+			FROM code_symbols
+			WHERE content ILIKE '%' || $1 || '%'
+			  AND ($2 = '' OR repo = $2)
+			ORDER BY path, symbol
+			LIMIT $3`, c.Query, repoFilter, rowCap)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		n := 0
+		for rows.Next() {
+			var path, symbol, content, sha string
+			if err := rows.Scan(&path, &symbol, &content, &sha); err != nil {
+				return err
+			}
+			fmt.Fprintf(b, "  - %s : %s  (commit %s)\n    | %s\n",
+				path, symbol, shortSHA(sha), matchingExcerpt(content, c.Query, excerptChars))
+			n++
+		}
+		if n == 0 {
+			b.WriteString("  (no content matches in the index)\n")
+		}
+		return rows.Err()
+
+	case "ls":
+		rows, err := db.QueryContext(ctx, `
+			SELECT DISTINCT path, COALESCE(commit_sha,'')
+			FROM code_symbols
+			WHERE path LIKE $1 || '%'
+			  AND ($2 = '' OR repo = $2)
+			ORDER BY path
+			LIMIT $3`, c.Query, repoFilter, rowCap)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		n := 0
+		for rows.Next() {
+			var path, sha string
+			if err := rows.Scan(&path, &sha); err != nil {
+				return err
+			}
+			fmt.Fprintf(b, "  - %s  (commit %s)\n", path, shortSHA(sha))
+			n++
+		}
+		if n == 0 {
+			b.WriteString("  (no indexed paths under that prefix)\n")
+		}
+		return rows.Err()
+	}
+	return fmt.Errorf("unrecognised kind %q", c.Kind)
+}
+
+// matchingExcerpt returns the first line of content containing the (case-
+// insensitive) query, capped — enough to see the match in context without
+// dumping whole symbol bodies into the round. Falls back to the content head
+// when the match is multi-line-split or not found verbatim.
+func matchingExcerpt(content, query string, cap_ int) string {
+	lq := strings.ToLower(query)
+	for _, line := range strings.Split(content, "\n") {
+		if strings.Contains(strings.ToLower(line), lq) {
+			return truncateCell(strings.TrimSpace(line), cap_)
+		}
+	}
+	return truncateCell(strings.TrimSpace(content), cap_)
+}
+
+func shortSHA(sha string) string {
+	if len(sha) > 8 {
+		return sha[:8]
+	}
+	if sha == "" {
+		return "?"
+	}
+	return sha
+}

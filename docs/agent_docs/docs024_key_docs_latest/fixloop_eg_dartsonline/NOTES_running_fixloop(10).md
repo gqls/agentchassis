@@ -2075,3 +2075,27 @@ a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
   the loop could not self-resolve; escalation was the correct behaviour.
 - NOTE: fix-proposer + reviewers run claude-sonnet-4-6 (only diagnose-agent was
   moved to Sonnet 5) — roster-wide model decision is the owner's call.
+
+### Turn 37 — 2026-07-17 — F2.3b(c) BUILT: the code-lookup check tier
+- Summary doc: `SUMMARY_council_3seat_first_run_2026-07-17.md` (doing/now/going).
+- **`diagnose_code_lookup` action built + registered + unit-tested** (green):
+  reviewers attach `code_checks: [{kind: symbol|content|ls, query, why}]`;
+  answered from the **code_symbols index** (3,723 symbols, source bodies,
+  trigram content search, commit_sha per row — staleness rendered, not hidden).
+  KEY design point vs run_checks: the SQL is FIXED in Go, reviewer input
+  arrives only as bind parameters — the model writes NO SQL in this tier.
+  Chassis-pod-safe: a DB read, no GitHub token (only spawned pods hold it —
+  which is WHY the tarball route was not an option for fix-proposer).
+  Proof it answers the real case: `symbol ILIKE '%GenerateText%'` → BOTH
+  adapters (anthropic.go + ollama.go) — the exact fact the historian needed.
+- **Seed `0NN_fix_proposer_v7_code_lookup.sql`** (PATCH-style, idempotent):
+  run_checks → code_lookup → repropose; repropose renders
+  `{{.code_lookup_results.results_text}}` beside check_results with widen-or-
+  name-the-residual guidance; all 3 reviewer prompts gain the code_checks
+  schema + a CODE QUESTIONS paragraph (shared anchor verified live ×3).
+  ██ DO NOT APPLY until an image > v1.0.1128 carries the action ██ (grep the
+  POD for diagnose_code_lookup first). Discovered while wiring: repropose's
+  input_fields ALREADY name review_reuse_agent + review_guidelines — the next
+  two seats are pre-wired.
+- Re-grade recipe (in the seed footer): re-run 091 on e505f70f after image+seed;
+  expect adapter question as code_check → widened plan → approval within cap.

@@ -1159,6 +1159,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Run the council reviewers' read-only verification queries (checks: [{sql,why}]) under the data_request containment (lint, READ ONLY tx, EXPLAIN gate, capped rows) and hand results to the next repropose",
 		IsLocal:     true,
 	},
+	"diagnose_code_lookup": {
+		Handler:     DiagnoseCodeLookupAction,
+		Category:    "diagnose",
+		Description: "F2.3b(c): answer the council reviewers' code-shaped questions (code_checks: [{kind: symbol|content|ls, query, why}]) from the code_symbols index — fixed SQL, reviewer input only as bind parameters; runs in-chassis, no repo token",
+		IsLocal:     true,
+	},
 	"diagnose_escalate": {
 		Handler:     DiagnoseEscalateAction,
 		Category:    "diagnose",
