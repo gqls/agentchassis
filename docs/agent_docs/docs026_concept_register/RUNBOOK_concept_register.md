@@ -147,10 +147,27 @@ different class of change from the SQL-only seat adds:**
   **image before the §7 SQL** (a workflow naming an action the binary lacks
   fails at that step), no dispatch within ~300s of a chassis restart.
 
-Decision needed: (a) I coordinate with the gate thread and drive the deploy;
-(b) you/another session folds it into a planned chassis release; (c) hold it.
+**DECISION (2026-07-17): option (b) — another thread leads the deploy.** My Go
+(`37468ba65`) is in `HEAD` and rides their next chassis image automatically;
+it's safe to ride unknowingly (inert + backward-compatible, so it can't break
+their release even if they don't know it's there). Nothing more for me to do on
+the image itself.
+
+### B10. STANDING TASK — apply the v10 wiring after the chassis image ships
+The relevance filter is dormant until two things happen: (1) the next chassis
+image (carrying `select_review_panel`) rolls — **not mine to drive** (B7 option
+b); (2) the `v10` SQL wiring is applied. **When the image is confirmed live**
+(`kubectl -n ai-persona-system exec <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c SelectReviewPanelAction'`
+returns ≥1), whoever picks this up should **write the v10 migration against the
+THEN-CURRENT `fix-proposer` definition** (per `DESIGN_relevance_filter.md` §7)
+— not from a pre-written draft, because the council roster is actively evolving
+(more seats, the gate/feature-builder threads) and a draft made now would go
+stale. Then apply it with the usual discipline (pre-flight in-flight check,
+snapshot, verify). Until then the 5-seat council runs all seats every decision,
+exactly as today — correct, just not yet cost-optimised.
+
 The 7 specialist seats (#3 adoption … #10 contextkit) build behind the filter
-once it's deployed.
+once it's live.
 
 ### B9. Retire the DEV-001 mis-grounding note once comfortable (housekeeping)
 Minor: the reuse-agent's grounding was corrected mid-build (tool-lifecycle →

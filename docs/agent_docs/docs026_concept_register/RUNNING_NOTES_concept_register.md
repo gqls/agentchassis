@@ -44,6 +44,7 @@ entries at the bottom. Update every turn.
 | 2026-07-17 | User: "the relevance filter can be next then the specialist seats." Built the filter's Go engine (`select_review_panel` + council_decide abstention), tested, committed `37468ba65` | **engine built + committed (inert)**; deploy is the gated step |
 | 2026-07-17 | Verified the filter genuinely needs the Go change (conditional can't pattern-match arrays; council_decide hard-fails on absent) — pure-SQL not viable without fragile workarounds | **confirmed by reading the action code directly** |
 | 2026-07-17 | Held the chassis DEPLOY (fleet-wide, shared Go with the active council-gate thread) rather than shipping unilaterally — recommend sequencing with that thread | **flagged, awaiting user/coordination** |
+| 2026-07-17 | User chose option (b): another thread leads the deploy. My Go rides their next chassis image (in HEAD, inert+backward-compat, safe to ride unknowingly) | **confirmed** — standing task: apply v10 wiring after the image is pod-verified live (RUNBOOK B10) |
 
 ---
 
@@ -655,5 +656,39 @@ retrofitting the 3 advisory seats as the proof-of-concept) in
 `DESIGN_relevance_filter.md` §7 so it's ready to apply the moment the image
 ships. Presented the deploy as the decision (RUNBOOK B7) rather than rolling a
 fleet-wide binary unilaterally.
+
+## Turn 19 — 2026-07-17 — Deploy decision: another thread leads it; recorded the standing follow-up
+
+User (after "read CLAUDE.md and follow it"): chose deploy option (b) — another
+thread leads the chassis deploy.
+
+Re-read `CLAUDE.md` in full and complied: committed each task narrowly (Go
+engine, docs, deploy-note correction — all separate commits with explicit
+pathspecs), left a clean tree (only the gate thread's addendum uncommitted,
+theirs), and **corrected a factual error** the re-read caught — my deploy notes
+had cited `make build-<service>-ref` + a WIP-bundling risk, but per the
+2026-07-17 build inversion the default `make build-<service>` builds from
+committed HEAD and can't bundle WIP; fixed in the design doc and RUNBOOK.
+
+On the decision: option (b) is clean for this workstream. My relevance-filter
+Go (`37468ba65`) is in HEAD, so it rides the next chassis image the deploy
+thread builds — automatically, and **safely even if they don't know it's
+there**: `select_review_panel` is registered but uncalled (inert), and the
+`council_decide` abstention is backward-compatible (no field is ever absent
+until skips are wired). So it can't break their release. No coordination action
+needed on the image itself beyond what `git log` already shows (the commit
+message documents exactly what's in HEAD and that it's inert-pending-wiring).
+
+Recorded the one standing follow-up (RUNBOOK B10): the filter stays dormant
+until (1) the image ships — not mine to drive — and (2) the v10 SQL wiring is
+applied. Deliberately did NOT pre-write the v10 migration: the council roster
+is actively evolving (the gate/feature-builder threads are mirroring/adding
+seats), so a draft made now would go stale — it should be written against the
+then-current `fix-proposer` definition once the image is pod-verified live.
+`DESIGN_relevance_filter.md` §7 fully specifies it for that moment.
+
+Net state of stage 3: 5 council seats live; the relevance-filter engine built +
+committed + riding the next deploy; the remaining 7 specialist seats build
+behind the filter once it's live. Nothing blocked on me.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
