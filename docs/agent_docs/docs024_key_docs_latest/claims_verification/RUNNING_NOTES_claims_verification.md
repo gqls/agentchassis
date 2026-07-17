@@ -167,6 +167,44 @@ across all current specs (archivist|sentinel|quartermaster|managing agent|peter
 grenfell): CLEAN. No page re-render needed — nothing live referenced them. No
 evidence_base change (per ruling).
 
+## 2026-07-17 — DEPLOYED & PRODUCTION-VERIFIED (V1 live end to end)
+
+Owner deployed the chassis build. Verification per house practice (against the
+pod, never git):
+
+1. **Binary**: `agent-chassis` pod (v1.0.1128 at verification time) —
+   `strings /app/agent-chassis` contains `unverified_claims`,
+   `checkBannedClaims`, `checkUnregisteredNumbers`, `ScanBannedClaims`,
+   `ExtractAssertionText`, `claims:site_components`, "Failed to load
+   evidence_base spec". The gate (V1a) is therefore live for any site with an
+   evidence_base row — leopardess only, today.
+2. **V1b enabled**: `"unverified_claims"` appended to
+   `quality-discovery-agent`'s `run_checks` checks array (home chosen for the
+   `placeholder_contact` precedent — the fabricated-content sibling). Workflows
+   re-read per message → live immediately.
+3. **First production runs** (2026-07-17, leopardess): improvement-loop run —
+   discovery phase executed the check (40 log mentions in the
+   quality-discovery pod during the run), **0 `claims_unverified` items** (the
+   correct result on the cleaned site). The loop itself later FAILED at
+   `call_site_review` ("timed out after 3 retries") — pre-existing
+   site-review-agent timeout class, downstream of and unrelated to discovery.
+   A second, single-agent quality-discovery run: orchestration **COMPLETED**,
+   0 claims items, 0 discovery items of any type. Note: a clean check leaves
+   no positive log/result trace by design (checks emit findings only) — clean
+   runs are evidenced by COMPLETED + zero items.
+4. **Commit hygiene note**: this workstream's code was committed by concurrent
+   sessions (core under `87d13b864 "claims verification further development"`,
+   remainder under `d076c3c8e`/`f51a7accc`) before the repo-root CLAUDE.md
+   commit-per-task rule was followed here — exactly the swept-WIP mode that
+   file documents. Forward-only; nothing lost; the deployed binary carries the
+   final code including the plural-"businesses" precision fix.
+
+**V1 is done.** Remaining phases: V2 writer whitelist injection, V3
+claims-auditor, V4 freshness; vetcomparison as second site. (Concurrent WIP
+observed in this directory: `SPEC_voice_tells_check.md` +
+`datahelpers/voicetells.go` — another session's sibling check; not this
+task's files.)
+
 ## DECISIONS (with rationale)
 
 1. **Shared engine in `datahelpers`** (`claims.go`), consumed by both the gate
