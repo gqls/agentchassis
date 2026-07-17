@@ -85,3 +85,25 @@ The document contains the charter, the exact 7-concept curated-context digest, a
 
 I haven't touched the live file or database — per the boundary established earlier (and independently corroborated by fixloop's own docs), that step needs your explicit go-ahead. Section 6 of the pilot doc lays out
 exactly what applying it would involve. Say the word and I'll do it — as drafted, or with whatever changes you want first.
+--
+
+Done. Here's what happened:
+
+Your memory update flagged that fixloop hit its first real-case CONFIRMED diagnosis — directly relevant to the bug-historian's still-open "not yet exercised" item, so I checked in on it (filesystem only, no DB
+access needed).
+
+Two new platform bugs found, both independently verified against live source and added to the register:
+- MDL-038 (BUG A): GenerateText in platform/aiservice/anthropic.go never decodes stop_reason — confirmed by reading its response struct directly (only Content/Usage decoded). A max_tokens-truncated LLM call
+  silently looks like a complete success; the loop's own diagnosis found 17 live instances via llm_call_log.
+- MDL-039 (BUG B): an agent's root-level ai_service config silently shadows its step-level config — confirmed by reading ExecuteLLMPromptAction directly. 17-agent fleet blast radius.
+
+The bug-historian itself: still live, still unexercised, and confirmed fine either way.
+- BUG A is CONFIRMED but its fix dispatch to fix-proposer "awaits owner go" per fixloop's own notes — the council hasn't actually run yet, so there's nothing new to report on the reviewer's real-world behavior. Not
+  stalled, just not dispatched.
+- I specifically checked whether BUG B affects the bug-historian, since it also uses a step-level ai_service block. It doesn't — I re-read fix-proposer's default_config and confirmed it has no top-level ai_service
+  key, so it's not among the 17 affected agents.
+
+Register is now at 1,633 concepts, integrity-checked clean (no duplicates, files and index perfectly matched). All docs and memory updated, committed in one narrow commit (173bb297e) alongside everything already in
+place from last time.
+
+Nothing left pending on my end right now — the next real update depends on fixloop's owner dispatching BUG A's fix, which will be the bug-historian's actual first outing.
