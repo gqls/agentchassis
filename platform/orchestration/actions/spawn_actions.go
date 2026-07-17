@@ -3034,6 +3034,9 @@ func isRepoCloningAgent(agentType string) bool {
 		// (diagnose_read_repo_files) — READ token only; the write credential
 		// stays in the git-adapter (owner ruling 2026-07-12).
 		"fix-implementer",
+		// Feature builder delta 2 (E1): the stage-loop implementer — same
+		// read-token-only containment as fix-implementer.
+		"feature-implementer",
 	}
 	for _, t := range repoCloningAgents {
 		if t == agentType {

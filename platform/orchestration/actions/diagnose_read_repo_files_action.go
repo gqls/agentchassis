@@ -34,7 +34,7 @@ import (
 
 var DiagnoseReadRepoFilesInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{},
-	Optional: []string{"plan_field", "repo_owner", "repo_name", "ref", "max_file_bytes"},
+	Optional: []string{"plan_field", "repo_owner", "repo_name", "ref", "ref_field", "max_file_bytes"},
 	Defaults: map[string]interface{}{
 		"plan_field":     "plan_row.body",
 		"repo_owner":     "gqls",
@@ -99,6 +99,14 @@ func DiagnoseReadRepoFilesAction(ctx context.Context, params ActionParams) (inte
 	owner := datahelpers.GetStringField(config, "repo_owner", "gqls")
 	repo := datahelpers.GetStringField(config, "repo_name", "agentchassis")
 	ref := datahelpers.GetStringField(config, "ref", "main")
+	// Stage-loop seam (delta 2): a routed per-stage ref wins when configured —
+	// stage 1 reads the base ref, later stages read the feat/* branch so they
+	// see earlier stages' commits. Unset (or unresolvable) keeps the literal.
+	if rf := datahelpers.GetStringField(config, "ref_field", ""); rf != "" {
+		if v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, rf)); v != "" {
+			ref = v
+		}
+	}
 	maxBytes := datahelpers.GetIntField(config, "max_file_bytes", 400_000)
 	client := &http.Client{Timeout: 20 * time.Second}
 

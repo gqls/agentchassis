@@ -38,6 +38,7 @@ var DiagnosePrepareFixCommitInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
 		"plan_field", "files_field", "originals_field",
 		"diagnosis_field", "council_field", "repo_name", "base_branch",
+		"branch_field", "commit_message_field", "expected_symbols_field",
 	},
 	Defaults: map[string]interface{}{
 		"plan_field":      "plan_row.body",
@@ -152,6 +153,16 @@ func DiagnosePrepareFixCommitAction(ctx context.Context, params ActionParams) (i
 			len(violations), strings.Join(violations, "; "))
 	}
 
+	// Stage-loop seam (delta 2): the stage router declares symbols that must
+	// literally appear in the stage's produced files — a deterministic check in
+	// the same spirit as the allowlist. Unset keeps single-plan behaviour.
+	if sf := datahelpers.GetStringField(config, "expected_symbols_field", ""); sf != "" {
+		if missing := missingExpectedSymbols(collectedStringSlice(params.CollectedData, sf), files); len(missing) > 0 {
+			return nil, fmt.Errorf("implementation rejected: expected symbols not present in any produced file: %s",
+				strings.Join(missing, ", "))
+		}
+	}
+
 	// ── payload assembly ─────────────────────────────────────────────────────
 	short := corr
 	if len(short) > 8 {
@@ -163,6 +174,19 @@ func DiagnosePrepareFixCommitAction(ctx context.Context, params ActionParams) (i
 
 	commitMessage := fmt.Sprintf("fix(%s): %s\n\nAutomated fix-implementer commit for diagnosis %s.\nPlan approved by the review council; human review terminal — do not merge without review.",
 		short, firstSentence(plan.Summary), corr)
+
+	// Stage-loop seam (delta 2): the router supplies the feat/* branch and the
+	// per-stage commit message; unset fields keep the derivations above.
+	if bf := datahelpers.GetStringField(config, "branch_field", ""); bf != "" {
+		if v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, bf)); v != "" {
+			branch = v
+		}
+	}
+	if mf := datahelpers.GetStringField(config, "commit_message_field", ""); mf != "" {
+		if v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, mf)); v != "" {
+			commitMessage = v
+		}
+	}
 
 	diagnosis := datahelpers.ExtractNestedFieldString(params.CollectedData,
 		datahelpers.GetStringField(config, "diagnosis_field", "diagnosis_row.conclusion"))
@@ -295,4 +319,56 @@ func firstSentence(s string) string {
 		s = s[:100]
 	}
 	return s
+}
+
+// missingExpectedSymbols returns the declared symbols that appear verbatim in
+// NONE of the produced file bodies (files is the GitCommitData-shaped map).
+// Pure so the tests exercise the real logic.
+func missingExpectedSymbols(symbols []string, files map[string]interface{}) []string {
+	var bodies []string
+	for _, v := range files {
+		if m, ok := v.(map[string]interface{}); ok {
+			if s, ok := m["content"].(string); ok {
+				bodies = append(bodies, s)
+			}
+		}
+	}
+	var missing []string
+	for _, sym := range symbols {
+		sym = strings.TrimSpace(sym)
+		if sym == "" {
+			continue
+		}
+		found := false
+		for _, b := range bodies {
+			if strings.Contains(b, sym) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			missing = append(missing, sym)
+		}
+	}
+	return missing
+}
+
+// collectedStringSlice reads a []string out of collected_data at path,
+// tolerating the []interface{} shape JSON round-trips produce.
+func collectedStringSlice(collected map[string]interface{}, path string) []string {
+	raw := datahelpers.ExtractNestedField(collected, path)
+	switch v := raw.(type) {
+	case []string:
+		return v
+	case []interface{}:
+		out := make([]string, 0, len(v))
+		for _, it := range v {
+			if s, ok := it.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }

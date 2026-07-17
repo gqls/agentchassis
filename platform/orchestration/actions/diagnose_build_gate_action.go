@@ -45,6 +45,7 @@ var DiagnoseBuildGateInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
 		"repo_owner", "repo_name", "changed_files_field",
 		"build_targets", "image", "timeout_seconds", "namespace",
+		"test_packages_field",
 	},
 	Defaults: map[string]interface{}{
 		"repo_owner":          "gqls",
@@ -100,7 +101,15 @@ func DiagnoseBuildGateAction(ctx context.Context, params ActionParams) (interfac
 		}
 	}
 
-	script := buildGateScript(owner, repo, branch, goFiles, targets)
+	// Stage-loop end gate (delta 2, E2/D6): go test over packages the ROUTER
+	// derived from the plan's edited .go files — never a model-declared list.
+	// Unset keeps the gate build-only (the per-stage and fix-loop behaviour).
+	var testPkgs []string
+	if tf := datahelpers.GetStringField(config, "test_packages_field", ""); tf != "" {
+		testPkgs = collectedStringSlice(params.CollectedData, tf)
+	}
+
+	script := buildGateScript(owner, repo, branch, goFiles, targets, testPkgs)
 	jobName := gateJobName(branch)
 
 	k8sConfig, err := rest.InClusterConfig()
@@ -214,8 +223,9 @@ func DiagnoseBuildGateAction(ctx context.Context, params ActionParams) (interfac
 
 // buildGateScript renders the container script. Pure — tested directly.
 // gofmt checks ONLY the changed .go files; go build runs ONLY the configured
-// targets (see the file header for why neither may be repo-wide).
-func buildGateScript(owner, repo, branch string, goFiles, targets []string) string {
+// targets (see the file header for why neither may be repo-wide); go test runs
+// ONLY the router-derived packages, and only in end-gate mode (testPkgs set).
+func buildGateScript(owner, repo, branch string, goFiles, targets, testPkgs []string) string {
 	var b strings.Builder
 	b.WriteString("set -e\n")
 	b.WriteString("echo '=== build gate: clone ==='\n")
@@ -229,6 +239,10 @@ func buildGateScript(owner, repo, branch string, goFiles, targets []string) stri
 	b.WriteString("echo '=== build gate: go build (targeted) ==='\n")
 	for _, t := range targets {
 		fmt.Fprintf(&b, "go build %s\n", shellQuote(t))
+	}
+	if len(testPkgs) > 0 {
+		b.WriteString("echo '=== build gate: go test (derived packages) ==='\n")
+		fmt.Fprintf(&b, "go test -count=1 %s\n", shellQuoteAll(testPkgs))
 	}
 	b.WriteString("echo '=== build gate: PASS ==='\n")
 	return b.String()

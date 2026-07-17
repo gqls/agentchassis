@@ -12,7 +12,7 @@ import (
 func TestBuildGateScriptScoping(t *testing.T) {
 	script := buildGateScript("gqls", "agentchassis", "fix/e08c5b01",
 		[]string{"platform/a.go", "platform/b.go"},
-		[]string{"./platform/...", "./cmd/..."})
+		[]string{"./platform/...", "./cmd/..."}, nil)
 
 	// Clone targets the branch, depth 1, token from env not baked in.
 	if !strings.Contains(script, `--branch "fix/e08c5b01"`) ||
@@ -41,9 +41,23 @@ func TestBuildGateScriptScoping(t *testing.T) {
 func TestBuildGateScriptNoGoFiles(t *testing.T) {
 	// No changed .go files → no gofmt stage at all (e.g. a pure-config plan
 	// that still wants the repo to build).
-	script := buildGateScript("gqls", "agentchassis", "fix/x", nil, []string{"./platform/..."})
+	script := buildGateScript("gqls", "agentchassis", "fix/x", nil, []string{"./platform/..."}, nil)
 	if strings.Contains(script, "gofmt") {
 		t.Fatalf("gofmt stage should be absent with no .go files:\n%s", script)
+	}
+	if strings.Contains(script, "go test") {
+		t.Fatalf("go test stage should be absent with no test packages:\n%s", script)
+	}
+}
+
+// Delta 2 (E2/D6): end-gate mode appends go test over the router-derived
+// packages — and ONLY then; the per-stage gate never runs tests.
+func TestBuildGateScriptTestMode(t *testing.T) {
+	script := buildGateScript("gqls", "agentchassis", "feat/ab12cd34", nil,
+		[]string{"./platform/..."},
+		[]string{"./platform/orchestration/actions", "./platform/aiservice"})
+	if !strings.Contains(script, "go test -count=1 './platform/orchestration/actions' './platform/aiservice'") {
+		t.Fatalf("test stage missing or unquoted:\n%s", script)
 	}
 }
 
