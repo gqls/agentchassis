@@ -307,3 +307,61 @@ func TestShotsForSpecProfileFilter(t *testing.T) {
 		t.Error("no shots → empty spec list")
 	}
 }
+
+// bugs_open/010: the adapter's drill-down attribution must reach the fix ticket.
+// For a TOOL-scoped overflow the forcing element + reason ride on the verdict so
+// the improve_tool spec can point the fixer past the ancestor it kept "fixing".
+func TestExtractRunResultsCapturesToolDrillDown(t *testing.T) {
+	results := []interface{}{
+		map[string]interface{}{
+			"check_id": "mobile-fit", "profile": "mobile", "pass": false, "scope": "tool",
+			"detail":        "page overflows on mobile; widest offending element: fieldset (419px) — inside the tool; the width is forced by div.ltb-row-grid [grid layout]",
+			"forced_by":     "div.ltb-row-grid",
+			"forced_reason": "grid layout — set min-width:0 on the items or let the grid wrap",
+		},
+	}
+	collected := map[string]interface{}{"browser_run": map[string]interface{}{"results": results}}
+
+	v := extractRunResults(collected, "browser_run")
+	if v.ForcedBy != "div.ltb-row-grid" {
+		t.Errorf("verdict must carry the forcing element, got %q", v.ForcedBy)
+	}
+	if v.ForcedReason == "" {
+		t.Errorf("verdict must carry the fix hint")
+	}
+	// Still a tool failure (not chrome), so it goes to improve_tool.
+	if len(v.Failed) != 1 || len(v.Chrome) != 0 {
+		t.Errorf("tool-scoped overflow must stay with the tool; got failed=%v chrome=%d", v.Failed, len(v.Chrome))
+	}
+}
+
+// A site-chrome overflow carries the drill-down too, so component-template-fixer
+// gets pointed at the forcing descendant, and the suggestion says so.
+func TestChromeFailureCarriesDrillDown(t *testing.T) {
+	results := []interface{}{
+		map[string]interface{}{
+			"check_id": "mobile-fit", "profile": "mobile", "pass": false, "scope": "chrome",
+			"component": "site-footer", "culprit": "div.footer-legal (506px)",
+			"culprit_selector": "div.footer-legal", "slot": "footer",
+			"forced_by":     "ul.footer-links",
+			"forced_reason": "flex row does not wrap (flex-wrap:nowrap) — allow wrapping or set min-width:0 on the items",
+			"detail":        "…",
+		},
+	}
+	collected := map[string]interface{}{"browser_run": map[string]interface{}{"results": results}}
+	v := extractRunResults(collected, "browser_run")
+	if len(v.Chrome) != 1 {
+		t.Fatalf("expected 1 chrome failure, got %d", len(v.Chrome))
+	}
+	c := v.Chrome[0]
+	if c.ForcedBy != "ul.footer-links" || c.ForcedReason == "" {
+		t.Errorf("chrome failure lost its drill-down: %+v", c)
+	}
+	hint := chromeForcedHint(c)
+	if !strings.Contains(hint, "ul.footer-links") || !strings.Contains(hint, "fix THAT element") {
+		t.Errorf("chrome suggestion must point at the forcing element: %q", hint)
+	}
+	if chromeForcedHint(chromeFailure{}) != "" {
+		t.Errorf("no drill-down → empty hint (no clutter)")
+	}
+}

@@ -3243,3 +3243,18 @@ widths in a browser, not source CSS. Two transient infra notes: a
 `AWAITING_RESPONSES` is PLURAL (a poll excluding the singular exits early).
 
 Categories: (finding, loop-limit, gotcha)
+
+### 2026-07-17 (later) — drill-down overflow attribution built (bugs_open/010 a)
+
+The overflow signal named the widest ANCESTOR, so the fixer kept constraining it
+(T24: two Sonnet-5 misses). `HorizontalOverflow` now descends the crossing chain
+and names the outermost grid/flex-nowrap container (else the deepest crossing
+leaf) as the fix target, with a reason. New forced_by/forced_reason flow through
+the CheckResult, the detail (→ improve_tool issue) and both specs. Probed on the
+live loot page first: `fieldset (426px)` → "forced by div.ltb-row-grid [grid
+layout 228px 123px — grid items not shrinking; set min-width:0 or wrap]". 4 unit
+tests + live probe; both packages green. Gate: next adapter image (JS) + chassis
+image (judge). Candidate (b), a convergence guard (needs_human_review after N
+failed cycles), still open.
+
+Categories: (build, loop-improvement)

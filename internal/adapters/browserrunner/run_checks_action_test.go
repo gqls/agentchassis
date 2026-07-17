@@ -448,3 +448,70 @@ func TestScreenshotKeySanitizes(t *testing.T) {
 		t.Errorf("urlIdx>0 must disambiguate, got %s", key)
 	}
 }
+
+// bugs_open/010: the widest offender is often just the ancestor that inherited
+// the overflow. When the adapter drills down to the forcing descendant, the
+// result must carry ForcedBy/ForcedReason AND surface both in the human detail,
+// so the fix ticket points at the element to change, not its container.
+func TestP1OverflowDrillDownSurfacedInResult(t *testing.T) {
+	mobile := &fakePage{
+		status:   200,
+		counts:   map[string]int{".tool-container": 1, "#result": 1},
+		overflow: true,
+		ovInfo: overflowInfo{
+			Culprit: "fieldset (419px)", Selector: "fieldset",
+			Component: "loot-section", Located: true, InTool: true,
+			ForcedBy:     "div.ltb-row-grid",
+			ForcedReason: "grid layout (grid-template-columns: 1fr 1fr) — a grid item is not shrinking; set min-width:0 on the items or let the grid wrap",
+		},
+		texts: map[string]string{"#result": "1"},
+	}
+	a := actionWith(map[string]*fakePage{"mobile": mobile})
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "d", URLs: []string{"u"}, Profiles: []string{"mobile"}, CriteriaJSON: criteriaDesktopMobile,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := resultByID(out.Results, "mobile-fit", "mobile")
+	if r == nil || r.Pass {
+		t.Fatalf("mobile-fit should fail, got %+v", r)
+	}
+	if r.ForcedBy != "div.ltb-row-grid" {
+		t.Errorf("result must carry the forcing element, got %q", r.ForcedBy)
+	}
+	if r.ForcedReason == "" || !strings.Contains(r.ForcedReason, "min-width:0") {
+		t.Errorf("result must carry the fix reason, got %q", r.ForcedReason)
+	}
+	// The human detail (which flows into the fix ticket's issue) must name the
+	// forcing element and its reason, not just the fieldset.
+	if !strings.Contains(r.Detail, "forced by div.ltb-row-grid") {
+		t.Errorf("detail must name the forcing element: %q", r.Detail)
+	}
+	if !strings.Contains(r.Detail, "grid layout") {
+		t.Errorf("detail must carry the reason: %q", r.Detail)
+	}
+}
+
+// When the widest offender IS the forcing element, ForcedBy is empty and the
+// detail is not cluttered with a redundant "forced by" clause.
+func TestP1OverflowNoDrillDownWhenOffenderIsCause(t *testing.T) {
+	mobile := &fakePage{
+		status: 200, counts: map[string]int{".tool-container": 1, "#result": 1}, overflow: true,
+		ovInfo: overflowInfo{Culprit: "div.wide (500px)", Selector: "div.wide", Located: true, InTool: true, ForcedReason: "min-width: 500px — reduce it or use min-width:0"},
+		texts:  map[string]string{"#result": "1"},
+	}
+	a := actionWith(map[string]*fakePage{"mobile": mobile})
+	out, _ := a.Execute(context.Background(), RunChecksRequest{RunID: "d", URLs: []string{"u"}, Profiles: []string{"mobile"}, CriteriaJSON: criteriaDesktopMobile})
+	r := resultByID(out.Results, "mobile-fit", "mobile")
+	if r == nil || r.ForcedBy != "" {
+		t.Errorf("no deeper element → ForcedBy empty, got %q", r.ForcedBy)
+	}
+	if strings.Contains(r.Detail, "forced by") {
+		t.Errorf("detail must not add a redundant 'forced by' clause: %q", r.Detail)
+	}
+	// A reason on the offender itself is still useful and should show.
+	if !strings.Contains(r.Detail, "min-width: 500px") {
+		t.Errorf("the offender's own reason should still surface: %q", r.Detail)
+	}
+}

@@ -71,13 +71,25 @@ identical insufficient fix, forever — no escalation, no "we have tried this."
 
 ## Fix candidates
 
-**(a) Drill-down overflow attribution (adapter) — the real fix.** When the
-widest offender is a container, walk *into* it and name the deepest descendant
-whose intrinsic/min-content width (or a fixed/min-width rule) exceeds its
-allotted track — the element a fixer must actually change (a grid column, a
-non-shrinking input/select, a `min-width:Npx`). Emit that as the culprit
-selector, exactly as T15 did for chrome. Then the fix note says "*this grid
-column* won't shrink", not "the fieldset is wide."
+**(a) Drill-down overflow attribution (adapter) — BUILT + VALIDATED 2026-07-17.**
+`HorizontalOverflow` now descends from the widest offender through the children
+that themselves cross the viewport edge, then along that chain names the
+outermost layout container (grid / flex-nowrap) as the fix target — else the
+deepest crossing leaf — and states why it will not shrink. New fields
+`forced_by` / `forced_reason` ride the CheckResult, the fix-ticket detail, and
+the improve_tool / chrome specs (`overflow_forced_by`, `overflow_fix_hint`).
+**Probed against this exact live tool before shipping:** the signal went from
+`fieldset (426px)` to *"the width is forced by `div.ltb-row-grid` [grid layout
+(grid-template-columns: 228px 123px) — a grid item is not shrinking; set
+min-width:0 on the items or let the grid wrap]"*. **Confirmed root cause:** the
+`.ltb-row-grid` grid items keep their default `min-width:auto` and refuse to
+shrink below content, so the two tracks (228+123px) + gap + padding exceed
+390px. Code: `internal/adapters/browserrunner/run_checks_action.go`
+(`HorizontalOverflow` + `evaluateOnPage`), judge threading in
+`platform/orchestration/actions/tool_acceptance_actions.go`. Ships on the next
+browser-runner-adapter image (+ chassis image for the judge). **Not yet
+re-verified end-to-end** — needs the images, then a fresh acceptance run so
+tool-improver receives the pointed hint and can target the grid.
 
 **(b) A convergence guard (judge/loop) — the safety net.** Track fix attempts
 per (function, criterion): after N (say 2) improve_tool cycles that did not

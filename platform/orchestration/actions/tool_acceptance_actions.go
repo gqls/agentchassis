@@ -262,6 +262,11 @@ type acceptanceVerdict struct {
 	SkipList  []string
 	Chrome    []chromeFailure // failures the adapter attributed to SITE CHROME
 	Shots     []screenshotRef // P3 evidence: one full-page screenshot per failing (url, profile)
+	// Drill-down attribution for a tool-scoped overflow: the element that
+	// actually forces the width, and why (bugs_open/010). First non-empty seen —
+	// a run overflows once. Empty when the widest offender is itself the cause.
+	ForcedBy     string
+	ForcedReason string
 }
 
 // screenshotRef is the P3 evidence the adapter attached to a failing run.
@@ -289,6 +294,9 @@ type chromeFailure struct {
 	Slot      string // header | footer | head — which site_components row owns it
 	Detail    string
 	URL       string
+	// The deepest descendant that forces the width, and why (bugs_open/010).
+	ForcedBy     string
+	ForcedReason string
 }
 
 // checkLabel names one result instance: "curve-switch@mobile" (bare id when the
@@ -354,6 +362,8 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 		// A failure the adapter attributed to site chrome is NOT the tool's bug:
 		// route it, never blame the tool for a footer it cannot reach. Anything
 		// else (tool-scoped or unattributed) stays the tool's problem.
+		forcedBy, _ := m["forced_by"].(string)
+		forcedReason, _ := m["forced_reason"].(string)
 		if scope, _ := m["scope"].(string); scope == "chrome" {
 			component, _ := m["component"].(string)
 			culprit, _ := m["culprit"].(string)
@@ -364,12 +374,21 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 				CheckID: id, Profile: profile, Component: component,
 				Culprit: culprit, Selector: selector, Slot: slot,
 				Detail: detail, URL: url,
+				ForcedBy: forcedBy, ForcedReason: forcedReason,
 			})
 			continue
 		}
 		v.Failed = append(v.Failed, label)
 		v.FailedIDs = appendUnique(v.FailedIDs, id)
 		v.Details = append(v.Details, label+": "+detail)
+		// Keep the first drill-down attribution seen for the tool's own overflow
+		// (a run overflows once) — it becomes a structured hint on the fix ticket.
+		if v.ForcedBy == "" && forcedBy != "" {
+			v.ForcedBy = forcedBy
+		}
+		if v.ForcedReason == "" && forcedReason != "" {
+			v.ForcedReason = forcedReason
+		}
 	}
 
 	var rawSkip interface{}
@@ -586,6 +605,14 @@ Categories: acceptance-fail`,
 				"failing_instances": v.Failed,
 				"acceptance_test":   json.RawMessage(criteriaOrNull(criteria)),
 			}
+			// Drill-down attribution: point the fixer at the element that forces
+			// the width and why, not the ancestor that inherited it (bugs_open/010).
+			if v.ForcedBy != "" {
+				spec["overflow_forced_by"] = v.ForcedBy
+			}
+			if v.ForcedReason != "" {
+				spec["overflow_fix_hint"] = v.ForcedReason
+			}
 			if shots := shotsForSpec(v.Shots, ""); len(shots) > 0 {
 				spec["screenshots"] = shots // P3 evidence: what the page looked like when it failed
 			}
@@ -627,6 +654,20 @@ Categories: acceptance-fail`,
 		"failing_checks": v.FailedIDs, "failing_instances": v.Failed,
 		"improve_tool_created": itemCreated,
 	}, nil
+}
+
+// chromeForcedHint appends the drill-down attribution to a fix suggestion when
+// the adapter located an element deeper than the widest offender that forces the
+// width (bugs_open/010). Empty when the widest offender is itself the cause.
+func chromeForcedHint(c chromeFailure) string {
+	if c.ForcedBy == "" && c.ForcedReason == "" {
+		return ""
+	}
+	hint := " The width is actually forced by " + c.ForcedBy
+	if c.ForcedReason != "" {
+		hint += " — " + c.ForcedReason
+	}
+	return hint + "; fix THAT element, not just its container."
 }
 
 // chromeSummary renders site-chrome failures for a note line.
@@ -680,8 +721,8 @@ func routeChromeFailures(ctx context.Context, params ActionParams, logger *zap.L
 				"The page overflows horizontally on %s. The widest offending element is %s, inside %s — OUTSIDE the tool's container, so this is a site-template defect, not a tool defect. Found while running Tier-4 acceptance for %s (%s), but it affects every page that renders this chrome.",
 				cf.Profile, cf.Culprit, component, function, cf.URL),
 			"suggestion": fmt.Sprintf(
-				"Constrain %s to the viewport at mobile widths: let it wrap or shrink (flex-wrap / max-width:100%%) so no descendant exceeds the viewport at 390px.",
-				cf.Selector),
+				"Constrain %s to the viewport at mobile widths: let it wrap or shrink (flex-wrap / max-width:100%%) so no descendant exceeds the viewport at 390px.%s",
+				cf.Selector, chromeForcedHint(cf)),
 			"overflow_selector":  cf.Selector,
 			"current_value":      cf.Culprit,
 			"acceptance_test":    fmt.Sprintf("At 390px viewport width, %s document.scrollWidth <= document.clientWidth (no horizontal overflow)", cf.URL),
@@ -691,6 +732,14 @@ func routeChromeFailures(ctx context.Context, params ActionParams, logger *zap.L
 			"original_pipeline":  "build",
 			"original_domain":    "build",
 			"found_via":          map[string]interface{}{"tool": function, "check": cf.CheckID, "profile": cf.Profile},
+		}
+		// Drill-down attribution (bugs_open/010): the element deeper than the
+		// widest offender that actually forces the width, when the adapter found one.
+		if cf.ForcedBy != "" {
+			spec["overflow_forced_by"] = cf.ForcedBy
+		}
+		if cf.ForcedReason != "" {
+			spec["overflow_fix_hint"] = cf.ForcedReason
 		}
 		// P3 evidence: the failing profile's full-page screenshot shows the
 		// chrome defect (the whole page was photographed, footer included).

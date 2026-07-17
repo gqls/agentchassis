@@ -76,6 +76,15 @@ type CheckResult struct {
 	// one defaulted to "header" and "fixed" the wrong thing).
 	CulpritSelector string `json:"culprit_selector,omitempty"` // e.g. "div.footer-legal"
 	Slot            string `json:"slot,omitempty"`             // header | footer | head | ""
+	// Drill-down attribution: the widest offender (Culprit/CulpritSelector) is
+	// often just the ANCESTOR that inherited an overflow — a fixer told "the
+	// fieldset is 419px" constrains the fieldset and the overflow persists
+	// (observed twice on tool-loot-table-balancer, bugs_open/010). ForcedBy names
+	// the deepest descendant that actually forces the width, and ForcedReason
+	// says why it will not shrink (grid/flex layout, min-width, fixed width,
+	// content). Empty when the widest offender IS the forcing element.
+	ForcedBy     string `json:"forced_by,omitempty"`     // e.g. "div.ltb-row-grid"
+	ForcedReason string `json:"forced_reason,omitempty"` // e.g. "grid layout: set min-width:0 on items or allow wrap"
 }
 
 // Result scopes. "unknown" means the tool's container could not be located, so
@@ -94,6 +103,10 @@ type overflowInfo struct {
 	Slot      string // the site_components slot that owns it: header | footer | head
 	InTool    bool   // culprit lies inside the tool's container
 	Located   bool   // the tool's container was found at all
+	// The deepest descendant that actually forces the width, and why it will not
+	// shrink. Empty when the widest offender is itself the forcing element.
+	ForcedBy     string
+	ForcedReason string
 }
 
 // ScreenshotRef points at one captured full-page screenshot — the P3 evidence
@@ -432,9 +445,18 @@ func evaluateOnPage(page browserPage, doc criteriaDoc, checks []criteriaCheck, p
 						detail += " (" + info.Component + ")"
 					}
 				}
+				// Point the fixer at the element that actually forces the width,
+				// not the ancestor that inherited it (bugs_open/010).
+				if info.ForcedBy != "" {
+					detail += "; the width is forced by " + info.ForcedBy
+				}
+				if info.ForcedReason != "" {
+					detail += " [" + info.ForcedReason + "]"
+				}
 				addScoped(ch.ID, false, detail, CheckResult{
 					Scope: scope, Culprit: info.Culprit, Component: info.Component,
 					CulpritSelector: info.Selector, Slot: info.Slot,
+					ForcedBy: info.ForcedBy, ForcedReason: info.ForcedReason,
 				})
 			} else {
 				add(ch.ID, true, "no horizontal overflow on "+profile)
@@ -647,6 +669,63 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 		if (bestEl.closest('footer')) slot = 'footer';
 		else if (bestEl.closest('header')) slot = 'header';
 
+		// Drill INTO the widest offender to name the element that actually forces
+		// the width. The widest offender is often just the ancestor that inherited
+		// an overflowing descendant's width; a fixer told "the fieldset is 419px"
+		// constrains the fieldset and the overflow persists (bugs_open/010 — twice
+		// on tool-loot-table-balancer). Descend through children that themselves
+		// cross the viewport edge, then along that chain prefer the OUTERMOST
+		// layout container (grid / flex-nowrap) as the fix target — that is where
+		// the CSS fix goes — else the deepest crossing leaf, and explain why it
+		// will not shrink.
+		const crossingChild = (el) => {
+			let pick = null, pickRight = vw + 1;
+			for (const c of el.children) {
+				const r = c.getBoundingClientRect();
+				if ((r.width || r.height) && (r.right > vw + 1 || r.left < -1) && r.right > pickRight) {
+					pick = c; pickRight = r.right;
+				}
+			}
+			return pick;
+		};
+		const chain = [bestEl];
+		for (let g = 0, cur = bestEl; g < 40; g++) {
+			const next = crossingChild(cur);
+			if (!next) break;
+			chain.push(next); cur = next;
+		}
+		let forcedEl = null, forcedReason = '';
+		for (const el of chain) {
+			const cs = getComputedStyle(el);
+			if (cs.display.indexOf('grid') !== -1) {
+				forcedEl = el;
+				forcedReason = 'grid layout (grid-template-columns: ' + cs.gridTemplateColumns + ') — a grid item is not shrinking; set min-width:0 on the items or let the grid wrap';
+				break;
+			}
+			if (cs.display.indexOf('flex') !== -1 && cs.flexWrap === 'nowrap') {
+				forcedEl = el;
+				forcedReason = 'flex row does not wrap (flex-wrap:nowrap) — allow wrapping or set min-width:0 on the items';
+				break;
+			}
+		}
+		if (!forcedEl) {
+			const el = chain[chain.length - 1];
+			const cs = getComputedStyle(el);
+			forcedEl = el;
+			if (el.scrollWidth > el.clientWidth + 1) {
+				forcedReason = 'content is wider than its box (scrollWidth ' + el.scrollWidth + 'px > clientWidth ' + el.clientWidth + 'px) — allow wrap/scroll or reduce content';
+			} else if (cs.minWidth && cs.minWidth.slice(-2) === 'px' && parseFloat(cs.minWidth) > 0) {
+				forcedReason = 'min-width: ' + cs.minWidth + ' — reduce it or use min-width:0';
+			} else if (cs.width && cs.width.slice(-2) === 'px') {
+				forcedReason = 'fixed width: ' + cs.width + ' — use a relative width (max-width:100%)';
+			} else if (cs.whiteSpace === 'nowrap') {
+				forcedReason = 'white-space: nowrap — allow wrapping or overflow-wrap:anywhere';
+			} else {
+				forcedReason = 'intrinsic content width — set min-width:0 / max-width:100% on it';
+			}
+		}
+		const deeper = forcedEl && forcedEl !== bestEl;
+
 		return {
 			over: over,
 			culprit: describe(bestEl) + ' (' + best.width + 'px)',
@@ -655,6 +734,8 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 			slot: slot,
 			located: !!tool,
 			inTool: !!(tool && tool.contains(bestEl)),
+			forcedBy: deeper ? describe(forcedEl) : '',
+			forcedReason: forcedReason,
 		};
 	}`, container)
 	if err != nil {
@@ -671,6 +752,8 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 	info.Slot, _ = m["slot"].(string)
 	info.InTool, _ = m["inTool"].(bool)
 	info.Located, _ = m["located"].(bool)
+	info.ForcedBy, _ = m["forcedBy"].(string)
+	info.ForcedReason, _ = m["forcedReason"].(string)
 	// JS numbers come back as float64/int; tolerate 2px of rounding.
 	switch n := m["over"].(type) {
 	case float64:
