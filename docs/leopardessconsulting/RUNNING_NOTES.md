@@ -1337,3 +1337,41 @@ Minor polish: density findings carry an empty `snippet` (value/threshold are the
 fields; cosmetic). fixloop tools diagnosis still `awaiting_diagnosis` — its dispatch loop
 (`diagnose-pipeline-trigger`) ships DISABLED, so the 090 auto-fire is the only path and it
 didn't land; needs a re-fire or the loop enabled.
+
+## Turn 22 (2026-07-17) — tools diagnosed directly (fixloop dispatcher was disabled); only 1 of 4 actually broken
+
+Owner asked to see if the fixloop could detect+fix the "tools aren't working" complaint. The
+fixloop INTAKE item was written (needs_diagnosis:leo-tools-runtime) but the diagnose
+orchestration NEVER ran — `diagnose-pipeline-trigger` scheduled task ships DISABLED, so the
+090 auto-fire had no dispatcher. So I diagnosed directly with a real browser (local headless
+chromium executes JS via --virtual-time-budget --dump-dom).
+
+**Verdict: 3 of 4 tools WORK; only llm-cost-calculator is broken.**
+- ai-agent-roi-estimator → WORKS. References tool-ai-agent-roi-estimator.js (200); headless
+  render showed real outputs ($520K annual, 1633% ROI). (Numbers are US-centric $ and use an
+  invented cost model — a content quibble, not a break.)
+- password-entropy → WORKS. Self-contained 1709-char inline calc IIFE wiring #entropyInput;
+  the #entropyBits=0 on load is correct (empty password = 0 bits).
+- tool-agent-complexity-estimator → WORKS. Self-contained 9050-char inline calc; empty result
+  panel on load is correct (quiz not yet answered).
+- **llm-cost-calculator → BROKEN.** Its page references `bayesian-ranking-hero-tool.js` (the
+  WRONG tool's JS); its own bundle (tool-llm-cost-calculator.js and every cost-calc name) is
+  404; it has NO inline fallback. Outputs (#output-tokens, #gpu-cost-month, #results-tbody)
+  stay empty. Almost certainly downstream of its `empty_internal_href` deploy FAILURE (the gate
+  fails deploy_page → the tool's assets/correct page never ship).
+
+**Method notes:** no CSP header (scripts not blocked); all element IDs the working JS queries
+are present and correctly scoped inside their `[data-component]` section; the lucide inline
+call is guarded (`if typeof lucide !== undefined`) so a blocked icon CDN is cosmetic, not
+fatal. My curl sandbox can't reach external hosts (unpkg/fonts → 000) so icon-blocking for
+REAL browsers is unconfirmed — but it wouldn't break tool logic either way.
+
+**FIX (belongs to the tool-generation pipeline, NOT a content edit):** regenerate + deploy the
+correct llm-cost-calculator JS bundle and correct the page's script src; unblock its
+empty_internal_href deploy first (the audit already filed that item). Recorded on the intake
+item's spec.operator_diagnosis for the fixloop thread.
+
+**Feedback for the fixloop thread:** its detection couldn't run at all here because
+`diagnose-pipeline-trigger` ships disabled and the 090 direct-fire's diagnose orchestration
+didn't materialise. Worth either enabling the loop for real cases or fixing the 090 direct
+path. The browser-runner-adapter pod IS up (53m) — the capability exists; the dispatch didn't.
