@@ -185,7 +185,32 @@ channel to extend"), 2 edits, grounded and scoped. Correlation
 `72e552df-c120-4fd2-a80a-3ad8c43d0d3d`. Expected panel behaviour: the
 'render'/'_action.go'/'doc_notes' patterns should fire bug-historian,
 reuse-agent and tooling-provenance; guidelines + adoption should SKIP — so
-one run exercises both the run and abstention paths. Verdict to be recorded
-next turn entry.
+one run exercises both the run and abstention paths.
+
+**SMOKE RESULT — PASS, with a real catch.** Completed `complete_revise` in
+~100s. The panel behaved exactly as predicted: 5 seats reviewed, guidelines
++ adoption skipped by their gates (no LLM call), council_decide handled the
+two abstentions cleanly. Verdict: **REVISE — objection from editquality**
+(4 objections + 1 missing, all fixable and correct: struct/summary field
+mismatch, an unaddressed renderDigest caller, an uncited shortID dependency,
+and the doc_notes claim in the rationale with no covering edit). The
+run_checks step answered 8 reviewer queries against live data and — first
+real outing — **empirically refuted the plan's core partition assumption:
+ALL 17 council_report rows have `source_agent='generic'`** (the persist
+actions stamp params.AgentType, which resolves to 'generic' at runtime), so
+the proposed `source_agent='council-gate'` filter would have rendered a
+PERMANENTLY EMPTY digest section with no error — the exact silent-blank
+family the bug-historian watches. The verdict note also honestly reported
+"3 further check(s) dropped (max_checks=8) — coverage was capped, not
+complete." The digest-section change stays on the revise trail (correlation
+`bd12762a`) for whoever picks it up, with the corrected partition key as the
+first revision item. **Cross-flag for the fixloop thread: council_report
+source_agent is 'generic' fleet-wide — any consumer partitioning gate vs
+fix-proposer artifacts needs a different key (e.g. join via the gate's own
+fix_plan rows, or stamp metadata at persist time).**
+
+The gate is COMMISSIONED: applied, verified, and proven end to end on a
+genuine submission — run path, skip path, abstention, checks, doc_note,
+terminal routing all exercised live.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
