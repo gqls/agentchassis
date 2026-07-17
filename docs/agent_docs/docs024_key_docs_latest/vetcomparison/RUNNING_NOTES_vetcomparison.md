@@ -2,6 +2,27 @@
 
 Newest first. Operational log; strategy in SUMMARY/PLAN.
 
+## 2026-07-17 (later — ADOPTED; CLAUDE.md practices in force)
+
+- Read repo CLAUDE.md (multi-session rules) and follow it: pathspec commits per task,
+  forward-only, build-from-HEAD, pod-verified deploys, queue check before dispatch.
+- Discovered our Phases 0–3 files had been SWEPT into concurrent sessions' commits
+  (f51a7accc, d076c3c8e, 37468ba65) — per CLAUDE.md that's fine, forward-only; remainder
+  committed narrowly (f604743e7).
+- **Pod-verified v1.0.1130 (later v1.0.1134) contains our actions** (directory_export_json,
+  insertMedicinePrice) — Phases 0–3 are DEPLOYED. `idx_swi_dedup` now exists in prod
+  (migration 157 applied by fixloop session) with 'cancelled' in the predicate.
+- **ADOPTION COMPLETED** (correlation 9cf8e0e8): crawl→classify→apply_plan seeded
+  content_direction / site_archetype / structure / design_reference / design_intent;
+  dispatch loop already ran domain-research-classifier (identity + classification current;
+  site_type=hub). Site row active, build=pending; cascade rolling.
+- Classifier emits NO content_features (lost 005 patch never landed anywhere) — news-feed
+  decision needs the manual one-off spec patch if/when wanted.
+- WATCH: build cascade will eventually rerender pages — verify the live site's hand-authored
+  pages survive the first faithful pass; never re-plan to fill gaps.
+- Still pending: exporter enable (bump directory-* agent image_tags v1.0.1126→current, smoke
+  via kcat, enable task) per RUNBOOK.
+
 ## 2026-07-17 (site working pass: dedupe + notice off; chassis v1.0.1130 live)
 
 - Owner priority: site presentable before any documentation is submitted. Chassis v1.0.1130
@@ -104,24 +125,3 @@ Newest first. Operational log; strategy in SUMMARY/PLAN.
   pricing pipeline with evidence store. Handoff 2026-05-18 located: Go-A/Go-B never shipped;
   owed "query 4" answered.
 - CMA research (two passes, grounded): final report 24 Mar 2026; dates/remedies as in SUMMARY.
-
-## 2026-07-17 (later — ADOPTED; CLAUDE.md practices in force)
-
-- Read repo CLAUDE.md (multi-session rules) and follow it: pathspec commits per task,
-  forward-only, build-from-HEAD, pod-verified deploys, queue check before dispatch.
-- Discovered our Phases 0–3 files had been SWEPT into concurrent sessions' commits
-  (f51a7accc, d076c3c8e, 37468ba65) — per CLAUDE.md that's fine, forward-only; remainder
-  committed narrowly (f604743e7).
-- **Pod-verified v1.0.1130 (later v1.0.1134) contains our actions** (directory_export_json,
-  insertMedicinePrice) — Phases 0–3 are DEPLOYED. `idx_swi_dedup` now exists in prod
-  (migration 157 applied by fixloop session) with 'cancelled' in the predicate.
-- **ADOPTION COMPLETED** (correlation 9cf8e0e8): crawl→classify→apply_plan seeded
-  content_direction / site_archetype / structure / design_reference / design_intent;
-  dispatch loop already ran domain-research-classifier (identity + classification current;
-  site_type=hub). Site row active, build=pending; cascade rolling.
-- Classifier emits NO content_features (lost 005 patch never landed anywhere) — news-feed
-  decision needs the manual one-off spec patch if/when wanted.
-- WATCH: build cascade will eventually rerender pages — verify the live site's hand-authored
-  pages survive the first faithful pass; never re-plan to fill gaps.
-- Still pending: exporter enable (bump directory-* agent image_tags v1.0.1126→current, smoke
-  via kcat, enable task) per RUNBOOK.
