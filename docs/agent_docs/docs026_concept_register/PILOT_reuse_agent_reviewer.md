@@ -154,3 +154,46 @@ build a couple more of the most broadly-applicable seats (this one, and
 perhaps the guidelines agent) as always-on, and treat the narrower specialist
 seats as candidates for (b) once it exists. Asked in the accompanying message,
 not decided here.
+
+---
+
+## 6. ADDENDUM from the council-gate thread (2026-07-17, later the same day)
+
+*Appended by the "fixloop council on every bugfix" thread — this section adds
+two mechanical facts the §4 patch predates; nothing above is altered.*
+
+**(i) There are now TWO council definitions; a seat migration must patch
+both.** The council-gate thread built (files only, NOT applied — the owner's
+roster ruling gates the launch on more stage-3 seats, i.e. on this very
+pilot) an advisory review-service clone of the council:
+`docs024_key_docs_latest/fixloop_eg_dartsonline/0NN_council_gate.sql`. Its
+reviewer steps are deliberately name-matched to fix-proposer's so seat
+patches stay mechanical. The gate-side edits for this seat (same shape as §4,
+rationale-context instead of diagnosis-context):
+1. `review_bug_historian.next_step` → `'review_reuse_agent'`
+2. New step `review_reuse_agent` — swap the prompt's `## The diagnosis` /
+   `{{.diagnosis_row.conclusion}}` section for `## The author's stated
+   rationale` / `{{.input_data.rationale}}`; `input_fields`
+   `['input_data','plan_persisted','schema_hint']`; `error_step`
+   `'complete_invalid'`
+3. `council_decide.config.review_fields`: append `'review_reuse_agent.result'`
+4. `run_checks.config.check_fields`: append `'review_reuse_agent.result.checks'`
+While the gate seed is unapplied this is a file edit, not a migration —
+cheap now, a silent-drift landmine later (two councils, different rosters —
+the exact failure family this seat reviews for).
+
+**(ii) v6's `run_checks.check_fields` omits the bug-historian — do not
+inherit the omission.** The live v6 workflow runs only
+`review_editquality.result.checks` + `review_guardian.result.checks` on a
+revise round; the bug-historian's prompt solicits checks that are then never
+executed. The §4 patch as written would leave the reuse-agent's checks
+equally unrun. Recommended: the v7 migration's `run_checks.check_fields`
+carries all four reviewers. (The gate seed already runs all seats' checks.)
+
+**(iii) Context for §5's scaling question:** the owner's 2026-07-17 rulings
+for the gate were: scope `platform/`+`internal/`+`pkg/`, advisory launch,
+credits per submission, and **wait for more seats before launch** — so the
+gate's cadence (per task/commit, fleet-wide) is exactly the load §5 warns
+about. That strengthens option (b)/(c) over (a) for the wider roster.
+Decision stays with the owner; recorded here so both threads argue from the
+same facts.
