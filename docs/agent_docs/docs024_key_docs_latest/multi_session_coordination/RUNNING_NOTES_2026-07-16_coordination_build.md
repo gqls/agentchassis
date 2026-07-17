@@ -167,9 +167,66 @@ command silently returns nothing. A session running the wrong copy is exactly
 this thread's class of problem, but reconciling them is the fixloop thread's
 call, not a coordination-thread drive-by. The pointer went on the root copy only.
 
+---
+
+# Round 3 (2026-07-17) — the default is now inverted; the two halves connect
+
+## The gap round 2 left, stated plainly
+
+Round 2 shipped both halves of the deploy fix but they **did not connect**.
+CLAUDE.md said "commit your task when ready"; the build (`docker build ... .`)
+ignored git entirely and tarred the tree. So a session could commit perfectly
+and *still* ship five other threads' mid-edit code, because those files were
+still dirty in the shared tree. The structural fix (`-ref`) existed but was
+opt-in — precisely the "a note nobody reads is worse than nothing" failure the
+original handoff warned about, rebuilt in a new shape. The owner caught it.
+
+## The fix — invert the default (`eed45ed4b`)
+
+`make build-<service>` now builds from committed `HEAD` via `git archive`; the
+old working-tree behaviour moved to an explicit `build-<service>-tree`. Now the
+commit is load-bearing by default: your commit is *what ships*, and you get the
+safe build by not thinking about it.
+
+- **Structure:** two make `define`s, `ref_build` / `tree_build`, plus two
+  pattern rules (`build-%-ref` kept as an alias, `build-%-tree` new). Each of
+  the 14 named backend targets is now one line: `$(call ref_build,<svc>)`.
+  `wip_report` removed (folded into `tree_build`).
+- **Guards (both block before docker, verified at runtime not just -n):**
+  the service must have a `build/docker/backend/<svc>.dockerfile`, and `REF`
+  must resolve to a real commit.
+- **Fail-safe direction (the crux):** forget to commit → the ref build omits
+  *your* change and says so in yellow (N uncommitted changes NOT in this image)
+  → wasted cycle, caught by pod-grep. The OLD default silently shipped everyone
+  *else's* untested change to prod. Failing toward "missing my change" beats
+  failing toward "shipped their WIP".
+- The `UNSHIPPED` note is suppressed when `REF` is pinned (≠ HEAD): pinning a
+  ref is an explicit statement of what ships, so dirty-tree noise is wrong there.
+- Verified: `build-<svc>` (HEAD ref), `build-<svc> REF=<sha>` (pinned, no note),
+  `build-<svc>-tree` (tree + red warning), `-ref` alias, all four aggregates
+  (`build-backend/agents/adapters/all`), and `make help` all expand/parse.
+
+## Deploy scripts inherit the safe default — no edit needed, but note the change
+
+`scripts/deploy/deploy-agents.sh` (`make build-agent-chassis push-agent-chassis`)
+and `scripts/deploy/deploy-production.sh` (`make build-all push-all`) now build
+**committed state**. Correct for deploy scripts, and no code change required.
+**Workflow consequence to know:** you must now COMMIT before running
+deploy-agents.sh, or it ships HEAD without your change (loudly — the yellow note
+fires). This aligns with what today's bug handoffs already tell sessions
+(`bugs_open/008`, `009`: "never build from the working tree"); another session
+already shipped v1.0.1127 via the ref build before this inversion landed.
+
+## Frontends still excluded — deliberate, unchanged
+
+`build-user-portal` / `build-agent-playground` build from `frontends/<app>` with
+their own Dockerfile and context; the backend dockerfile convention doesn't hold,
+so they have no `-ref`/`-tree`. Their blast radius is one subdirectory, not the
+whole tree. Out of scope; flag if they ever bundle WIP that matters.
+
 ## Open follow-ups (small, none blocking)
 
-- **Two divergent copies of 084** (above) — fixloop thread's call.
+- **Two divergent copies of 084** (Round 2 above) — fixloop thread's call.
 - **Enforcement hook for commit hygiene** — evidence now strong (§Round 2), but
   it is an owner decision because it changes other live sessions' git behaviour.
 - Ref builds cover backend services only; frontends would need their own rule
