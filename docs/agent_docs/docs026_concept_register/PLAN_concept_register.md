@@ -262,9 +262,11 @@ in this order.
    `contracts-and-standards.md`. FIX-036's own next-named seat. Grounded in
    `DEV-005` (wrapper-orchestrator pattern, one of the *original two* stage-1
    flagged rediscovered concepts) plus `CTS-002`/`CTS-037`.
-3. **Adoption-pipeline guardian** — `adoption-pipeline.md`. Grounded in
-   `ADO-006` ("adoption writes first, classifier consumes") — the *other*
-   original stage-1 flagship rediscovered concept.
+3. **Adoption-pipeline guardian** — DONE, live 2026-07-17 (the FIRST seat built
+   behind the filter, gated + surgical). `adoption-pipeline.md`, grounded in
+   `ADO-006` ("adoption writes specs first, classifier consumes") — the *other*
+   original stage-1 flagship rediscovered concept. Lens: does the fix respect
+   adoption's write-then-relay contract? `PILOT_adoption_guardian_reviewer.md`.
 4. **Diagnosis-loop guardian** — `diagnosis-loop.md`, the single
    highest-density category in the register (7 of 41 concepts heavily
    rediscovered). Reviews whether the diagnosis behind a fix plan followed
@@ -295,15 +297,15 @@ in this order.
     A narrow specialist — applied always-on for now because the filter isn't
     deployed; its footprint is in the filter config so it auto-gates on deploy.
 
-**Council is now 6 reviewers** (edit-quality, guardian + bug-historian,
-reuse-agent, guidelines, tooling-provenance). #3-9 of the list remain to
-build. **Note the sequencing tension:** #10 was applied always-on though the
-plan was to gate specialists behind the filter — a deliberate, negligible-cost
-interim (the council isn't running on real cases yet) that converges to gated
-the moment the filter deploys. Adding *more* always-on specialists past this
-should wait for the filter, or the always-on cost stops being negligible.
+**Council is now 7 reviewers** (edit-quality, guardian always-on; bug-historian,
+reuse-agent, guidelines, tooling-provenance, adoption-guardian gated behind the
+filter). #4-9 of the list remain. Now that the filter is live, every new seat
+is built **gated + surgically** (footprint + gate + reviewer, via chained
+`jsonb_set` — never a full-config reapply, which would clobber the co-edited
+guardian's `code_checks`/proviso). #10 was applied always-on before the filter
+existed but its footprint is in the filter config, so it's gated too.
 
-None of #3-9 are spec'd to prompt-level detail yet. Each is real design work
+None of #4-9 are spec'd to prompt-level detail yet. Each is real design work
 per seat (charter, curated context grounded in specific register concepts,
 prompt, patch) — not a mechanical checklist, as the reuse-agent regrounding
 above shows (the first framing of it was wrong on closer inspection).

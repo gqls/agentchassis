@@ -51,6 +51,7 @@ entries at the bottom. Update every turn.
 | 2026-07-17 | RELEVANCE FILTER ACTIVATED (v11 wiring applied) — 4 specialists now gate on relevance, editquality+guardian always-on; the sequencing tension is resolved | **confirmed, LIVE**; not yet exercised on a real run |
 | 2026-07-17 | Owner request: add a "prefer not to change long-working core (orchestrator/kafka/messaging)" proviso. Home = the guardian (blast-radius/architecture seat, always-on, hard veto). Applied as clause (d) | **confirmed, LIVE** (surgical patch) |
 | 2026-07-17 | COORDINATION LESSON: my seat migrations reconstruct the WHOLE default_config, which can clobber another thread's edits to shared steps (the guardian gained `code_checks` from another thread). Used a surgical jsonb_set for the proviso to avoid it | **noted** — use surgical patches for shared steps, not full-config reapply |
+| 2026-07-17 | Built candidate #3 (adoption-pipeline guardian, `ADO-006`) — the FIRST seat gated behind the filter, and the first added SURGICALLY (chained jsonb_set); council now 7 | **confirmed, live** — proviso + code_checks + filter all verified intact |
 
 ---
 
@@ -814,5 +815,42 @@ SHARED with other threads (the guardian, and any step they might touch),
 use a surgical `jsonb_set` on the specific field — never a full-config reapply.
 Future seat additions are lower-risk (they add NEW steps), but any change to an
 EXISTING shared step must be surgical.
+
+## Turn 23 — 2026-07-17 — Adoption-pipeline guardian: first seat gated + surgical
+
+User: "yes, please go ahead" — read as: continue the roster, build the next
+seat (#3 adoption). Now that the filter is live, this is the first seat built
+**behind** it (gated), and the first added **surgically** given the co-editing
+lesson from the guardian proviso.
+
+**Grounding:** `ADO-006` — "adoption writes specs first, classifier consumes
+under fidelity rules" — one of the two original stage-1 flagged rediscovered
+concepts. The adoption pipeline has strict architectural contracts a fix could
+break: write-then-relay (`apply_adoption_plan` writes specs + emits exactly one
+`needs_domain_research`, never calls the classifier directly), adopted-specs-are-
+ground-truth (classifier reads-and-extends, never overwrites), no-bypass (adopted
+sites still run strategist→briefing→planner), and LLM-for-reasoning-Go-for-
+extraction. Those became the seat's four judgement points.
+
+**Careful execution given co-editing:** re-checked the live definition for
+drift first (proviso + code_checks both present, 4 gated seats, no surprises).
+Then built it as a GATED seat (footprint in `select_panel` + a `gate_adoption`
+conditional + the reviewer) via **chained `jsonb_set`** on the live config —
+NOT the v6-v11 full-config reapply, which would have clobbered the guardian's
+`code_checks`/proviso. Eight jsonb_set ops in one atomic UPDATE (atomic = no
+race with the other thread). Idempotency guard + snapshot. Syntax-checked
+(78/78 parens), pre-flight (no active runs), applied.
+
+**Verified live:** council now 7 seats; the gated tail routes correctly
+(`tooling_provenance → gate_adoption → [adoption_guardian?] → guardian →
+council_decide`, both run and skip paths converging on `gate_adoption`);
+`council_decide`/`escalate`/`run_checks` all at 7; the adoption footprint is in
+`select_panel`; and — the whole point of surgical — the guardian proviso,
+`code_checks`, the other 6 seats, and the filter wiring are all **byte-intact**.
+
+**Standing pattern confirmed:** every future seat is now gated + surgical.
+Council: 2 → 7 (5 gated specialists). Remaining: #4 diagnosis-loop, #5
+improvement-loop, #6 compliance, #7 render, #8 LLM-reliability, #9 debugging.
+Committed the migration + docs narrowly.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
