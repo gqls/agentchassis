@@ -2033,3 +2033,26 @@ a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
   (honest-abstain / API-529 / spawn-lost / gated-UNVERIFIABLE-PARTIAL). Every
   non-CONFIRMED terminal was correct behaviour by the loop or external
   infrastructure — none was a loop defect.
+
+### Turn 35 — 2026-07-17 — queue moved to /bugs_open; guard closed both ways; design threads spawned
+- Real-case queue moved: `docs/.../aaa_fails_to_mend/` → **`/bugs_open/`** (repo
+  root, owner decision); MOVED.md breadcrumb left (23 docs still reference the
+  old path). Numbering unchanged; 006/007 were added overnight by other threads,
+  ours are 008 (stop_reason) + 009 (root-shadows-step).
+- **Two-evidence-family guard closed from BOTH sides** (guard semantics kept —
+  the guard is right; the evidence was unreachable):
+  1. PROMPT (DB, LIVE now, backup bak_agentdef_diagnose_20260717): verdict rule
+     9 — a static-only CONFIRM must convert to UNVERIFIABLE + data_requests,
+     never repeat (run 960b554d repeated it 5×).
+  2. CODE (inert until next image): diagnose_load_runtime auto-gathers "agent
+     state" — root + per-step ai_service blocks and recent llm_call_log rows for
+     every agent type NAMED in the symptom/hypothesis (whole-token matcher,
+     unit-tested; toPGTextArrayLiteral, no lib/pq). Config-shaped bugs now have
+     state-tier evidence IN the bundle.
+- Handoffs written for the two design items (feature-builder, council-gate);
+  feature-builder thread ALREADY picked its up mid-turn (cc136c902, stages[]
+  schema draft v1). Index races swept foreign files into 2 commits this session
+  and another session staged OUR handoffs before we did — enforcement hook is
+  the coordination thread's open owner call.
+- Spawn-loss decision recorded: zombie 80c35dea deliberately left as evidence
+  for bugs_open/003; EXECUTING_STEP zombies platform-wide up to ~1,200h.
