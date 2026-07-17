@@ -98,7 +98,9 @@ linux/amd64 binary, scp to the box, `systemctl restart idea`.
 
 ## Open decisions (none blocking)
 - `/privacy` after cutover — tool or static? (default: tool; it's embedded in the binary.)
-- `/contact.html`'s form posts to a dead `/contact` — repoint to `/request` or a `mailto:`?
+- ~~`/contact.html` form~~ **RESOLVED 2026-07-17** — mailto (owner's choice); staged at source
+  (`sql/p1_07_contact_form_mailto.sql`), publishes on the next contact-page build. Also fixed a stale
+  `idea-uk@leopardess.uk` in the form description. RUNNING_NOTES §Q.
 
 ## Errors parked for other chats
 `aaa_fails_to_mend/006_HANDOFF_2026-07-16_idea_uk_infra_errors.md` — (A) crash-looping runner replica,

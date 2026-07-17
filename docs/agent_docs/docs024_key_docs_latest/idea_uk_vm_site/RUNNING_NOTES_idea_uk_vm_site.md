@@ -427,11 +427,43 @@ verified **domain** identity with Easy DKIM + ideally a custom MAIL FROM, else D
 and buyer-facing report emails will hit other people's filters too — the quarantine listing showing
 the `…@eu-west-2.amazonses.com` envelope sender is a hint alignment is missing.
 
+## Q — 2026-07-17 · contact-form → mailto (owner decision) + a stale email caught
+
+Owner chose **"Convert form → mailto"** for the dead contact form. Traced the seam: the fleet
+`contact-form` component (`content_components name='contact-form', forked_from IS NULL`) renders
+`<form action="{{.form_action}}" method="POST">` — a template variable, filled from the section's
+**inline** `page_components.content_data` (`data_path` empty; no `site_specs` aspect carries
+`form_action`; `content_hash` NULL; the about/contact recovery rebuild reused this data verbatim,
+which is why `#contact` persisted). So the correct per-site lever is that inline value — **the fleet
+template is untouched** (the fleet-wide dead-form fix stays its own thread, aaa_fails_to_mend/006 §B).
+
+Also caught while there: the form's `form_description` still named the **old** email
+`idea-uk@leopardess.uk` — the `contact-info` block above it was aligned to
+`idea.uk@contactforsales.com` in p1_05/p1_06 but this description was missed. Fixed both in one edit.
+
+`sql/p1_07_contact_form_mailto.sql` (idempotent, guarded on `form_action='#contact'`):
+- `form_action`: `#contact` → `mailto:idea.uk@contactforsales.com?subject=idea.uk enquiry`
+- `form_description`: old email → new. Phone `+44 (0) 7934 524 911` left as-is (no decision to change it).
+Applied & verified (BEFORE/AFTER in the run). `rendered_html` deliberately NOT hand-edited — the
+renderer regenerates it from this corrected `content_data` (editing the rendered artifact is the
+documented revert trap).
+
+**Publish state:** the fix is staged at the source. It reaches the deployed artifact (and gqls/vm-sites)
+on the **next contact-page build**. Not forced now because: (a) single-page rebuilds of already-`deployed`
+pages bounce straight to `needs_human_review` at attempt 0 (observed emitting a no-op `needs_page:privacy`
+proof item — cancelled), and (b) the site isn't live (nothing pulls vm-sites until the owner does §3a),
+so there is no user-visible gap to close in a hurry — the pre-cutover build carries it. On next render the
+form becomes `<form action="mailto:idea.uk@contactforsales.com?subject=idea.uk enquiry" method="POST">`.
+
+Aside (deploy-path proof, task): not done via a forced rebuild — instead **code-verified** that
+`resolveGitRepoName` is present in the running pod `v1.0.1134` (3×) with `sites.github_repo='vm-sites'`
+set, so the chassis→vm-sites routing is live. The live commit will be observed on the first natural build.
+
 ## Open decisions
 
 - **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)
-- **`/contact.html`** — its form posts to a dead `/contact`; repoint to the tool's `/request` or a
-  `mailto:idea.uk@contactforsales.com`? (§K, and `aaa_fails_to_mend/006` §B.)
+- ~~`/contact.html` form~~ **RESOLVED 2026-07-17 §Q** — converted to a mailto (owner's choice); fix
+  staged at source (`sql/p1_07`), publishes on the next contact build.
 - **Cloudflare proxied (orange) or DNS-only (grey)?** Unverifiable from the repo; decides whether the
   real-IP problem is live and whether Cloudflare WAF/Turnstile is reachable as the blocking layer.
 - **Does relojistas.com migrate from push to pull too**, or do the two mechanisms coexist? (Coexist is
