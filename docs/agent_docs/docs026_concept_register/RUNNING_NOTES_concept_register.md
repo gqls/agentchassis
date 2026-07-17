@@ -44,7 +44,9 @@ entries at the bottom. Update every turn.
 | 2026-07-17 | User: "the relevance filter can be next then the specialist seats." Built the filter's Go engine (`select_review_panel` + council_decide abstention), tested, committed `37468ba65` | **engine built + committed (inert)**; deploy is the gated step |
 | 2026-07-17 | Verified the filter genuinely needs the Go change (conditional can't pattern-match arrays; council_decide hard-fails on absent) — pure-SQL not viable without fragile workarounds | **confirmed by reading the action code directly** |
 | 2026-07-17 | Held the chassis DEPLOY (fleet-wide, shared Go with the active council-gate thread) rather than shipping unilaterally — recommend sequencing with that thread | **flagged, awaiting user/coordination** |
-| 2026-07-17 | User chose option (b): another thread leads the deploy. My Go rides their next chassis image (in HEAD, inert+backward-compat, safe to ride unknowingly) | **confirmed** — standing task: apply v10 wiring after the image is pod-verified live (RUNBOOK B10) |
+| 2026-07-17 | User chose option (b): another thread leads the deploy. My Go rides their next chassis image (in HEAD, inert+backward-compat, safe to ride unknowingly) | **confirmed** — standing task: apply filter wiring after the image is pod-verified live (RUNBOOK B10) |
+| 2026-07-17 | User: "please do candidate #10 (documentation/contextkit specialist) next." Built + APPLIED as "tooling & provenance" seat (v10) — council now 6 reviewers | **confirmed, live**; footprint added to filter config so it auto-gates on deploy |
+| 2026-07-17 | Flagged the sequencing tension: #10 applied always-on though specialists were meant to gate behind the (not-yet-deployed) filter — deliberate negligible-cost interim, converges to gated on deploy | **flagged transparently** — no more always-on specialists past this without the filter |
 
 ---
 
@@ -690,5 +692,42 @@ then-current `fix-proposer` definition once the image is pod-verified live.
 Net state of stage 3: 5 council seats live; the relevance-filter engine built +
 committed + riding the next deploy; the remaining 7 specialist seats build
 behind the filter once it's live. Nothing blocked on me.
+
+## Turn 20 — 2026-07-17 — Built candidate #10 (tooling & provenance seat); council now 6
+
+User: "please can you do #10 (documentation/contextkit specialist) next."
+
+**Grounded it properly** in the two concepts behind candidate #10: `CTXK-015`
+(the single most-rediscovered concept in the register — 11 sources — the
+`cmd/bundle`/contextkit investigation lore + the "resolve an action from the
+registry, never by filename convention" trap) and `DOC-010` (travelling docs:
+every tool/pipeline carries a living PLAN + NOTES in `doc_plans`/`doc_notes`;
+notably the fix-loop *itself* adopted this rather than build a rival — a live
+endorsement of the discipline this seat enforces). Named the seat "tooling &
+provenance": does the fix use the platform's own investigation + documentation
+machinery, or reinvent/work around it? Distinct from the reuse-agent (which has
+no travelling-docs lens).
+
+**Surfaced a real sequencing tension rather than glossing it:** this is a
+specialist seat, and I'd just built the relevance filter *specifically* so
+specialists don't run always-on. But the filter isn't deployed (another thread
+leads that). Applying #10 always-on now mildly cuts against that plan. Resolved
+it transparently: applied it always-on as a deliberate, **negligible-cost
+interim** (the council isn't running on real cases yet — BUG A's dispatch
+awaits the owner — so a 6th always-on seat costs ~nothing today), AND added its
+footprint to the filter config (`DESIGN_relevance_filter.md` §7) so it
+**auto-gates the moment the filter deploys**. Its narrowness (most fixes touch
+no tooling) makes it the clearest illustration of why the filter exists — noted
+so this isn't read as abandoning the gated design. Flagged that adding *more*
+always-on specialists past this should wait for the filter.
+
+Built + applied v10 (same proven 5-edit pattern + the v9 check_fields rule, so
+its checks run too), pre-flight-checked no active runs, verified live: council
+now 6 reviewers, `run_checks` covers all 6, prompt intact (2,801 chars). Prior
+row snapshotted (rollback available).
+
+Council seat count: 2 (original) → 6. Remaining from the "ten more" list: #3
+adoption, #4 diagnosis-loop, #5 improvement-loop, #6 compliance, #7 render, #8
+LLM-reliability, #9 debugging — best built behind the filter once it's live.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

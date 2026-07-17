@@ -259,11 +259,11 @@ across the (now 1,633-concept) register, cross-referenced against FIX-036's
 named roster. User confirmed: build reuse-agent (done, above), then the rest
 in this order.
 
-1. **Reuse-agent** — DONE, live (see above).
-2. **Guidelines agent** — `development-guide.md` + `contracts-and-standards.md`.
-   FIX-036's own next-named seat. Grounded in `DEV-005` (wrapper-orchestrator
-   pattern, one of the *original two* stage-1 flagged rediscovered concepts)
-   plus `CTS-002`/`CTS-037`.
+1. **Reuse-agent** — DONE, live.
+2. **Guidelines agent** — DONE, live. `development-guide.md` +
+   `contracts-and-standards.md`. FIX-036's own next-named seat. Grounded in
+   `DEV-005` (wrapper-orchestrator pattern, one of the *original two* stage-1
+   flagged rediscovered concepts) plus `CTS-002`/`CTS-037`.
 3. **Adoption-pipeline guardian** — `adoption-pipeline.md`. Grounded in
    `ADO-006` ("adoption writes first, classifier consumes") — the *other*
    original stage-1 flagship rediscovered concept.
@@ -287,11 +287,25 @@ in this order.
 9. **Debugging/incident-lore historian** — `debugging.md`, the largest
    category (74 concepts, 6 heavily rediscovered), deliberately broader than
    the bug-historian: "has anything like this happened," not one pattern.
-10. **Documentation/contextkit specialist** — `contextkit-toolchain.md` +
-    `documentation-system.md`. `CTXK-015` is cited from 11 independent
+10. **Documentation/contextkit specialist** ("tooling & provenance") — DONE,
+    live 2026-07-17 (built out of order, user's pick). `contextkit-toolchain.md`
+    + `documentation-system.md`. `CTXK-015` is cited from 11 independent
     sources — the single most-rediscovered concept in the entire register.
+    Lens: does the fix use the platform's own investigation (`cmd/bundle`/
+    contextkit) + documentation (`doc_plans`/`doc_notes` travelling docs)
+    machinery, or reinvent/work around it? `PILOT_tooling_provenance_reviewer.md`.
+    A narrow specialist — applied always-on for now because the filter isn't
+    deployed; its footprint is in the filter config so it auto-gates on deploy.
 
-None of #2-10 are spec'd to prompt-level detail yet. Each is real design work
+**Council is now 6 reviewers** (edit-quality, guardian + bug-historian,
+reuse-agent, guidelines, tooling-provenance). #3-9 of the list remain to
+build. **Note the sequencing tension:** #10 was applied always-on though the
+plan was to gate specialists behind the filter — a deliberate, negligible-cost
+interim (the council isn't running on real cases yet) that converges to gated
+the moment the filter deploys. Adding *more* always-on specialists past this
+should wait for the filter, or the always-on cost stops being negligible.
+
+None of #3-9 are spec'd to prompt-level detail yet. Each is real design work
 per seat (charter, curated context grounded in specific register concepts,
 prompt, patch) — not a mechanical checklist, as the reuse-agent regrounding
 above shows (the first framing of it was wrong on closer inspection).

@@ -45,7 +45,8 @@ SUMMARY_where_we_are_2026-07-17.md — read-aloud summary + bug-historian deep d
 SUMMARY_where_we_are_2026-07-17b.md — read-aloud summary: 3 seats live + relevance-filter groundwork
 PILOT_bug_historian_reviewer.md — stage-3 council seat #1 — LIVE 2026-07-16
 PILOT_reuse_agent_reviewer.md — stage-3 council seat #2 — LIVE 2026-07-17
-PILOT_guidelines_agent_reviewer.md — stage-3 council seat #3 (last always-on) — LIVE 2026-07-17
+PILOT_guidelines_agent_reviewer.md — stage-3 council seat #3 — LIVE 2026-07-17
+PILOT_tooling_provenance_reviewer.md — stage-3 council seat #4 (candidate #10) — LIVE 2026-07-17
 DESIGN_relevance_filter.md — how the remaining specialist seats gate behind a relevance filter (designed, not built)
 001_PROMPT_charter.md      — the rewritten task charter
 002_PLAN_extraction.md     — stage-1 work-unit ledger (26 units), extraction-specific

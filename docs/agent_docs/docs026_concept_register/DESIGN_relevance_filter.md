@@ -145,28 +145,35 @@ doesn't have fails at that step. Deploy order: **image → this SQL → fire.**
 
 1. **Insert the panel step.** `persist_plan.next_step` → `select_panel`;
    `select_panel` (`action: select_review_panel`) `next_step` → `review_editquality`.
-   Its config carries the footprint map (v1 retrofits the 3 current advisory
-   seats as the proof-of-concept):
+   Its config carries the footprint map (retrofits the current advisory seats —
+   the 3 originals plus `tooling_provenance`, seat #4/candidate #10, added
+   2026-07-17):
    ```json
    {
      "plan_field": "plan_persisted",
      "extra_text_fields": ["diagnosis_row.conclusion"],
      "footprints": {
-       "bug_historian": ["rerender","render","save_page_sections","sectionhasvisiblecontent","call_agent.go","missingkey","page_components","content_components"],
-       "reuse_agent":   ["_action.go",".sql","migration","create table","new "],
-       "guidelines":    ["input_contract","output_contract","idx_swi_dedup","site_work_items","agent_definitions","input_schema","save_page_sections"]
+       "bug_historian":      ["rerender","render","save_page_sections","sectionhasvisiblecontent","call_agent.go","missingkey","page_components","content_components"],
+       "reuse_agent":        ["_action.go",".sql","migration","create table","new "],
+       "guidelines":         ["input_contract","output_contract","idx_swi_dedup","site_work_items","agent_definitions","input_schema","save_page_sections"],
+       "tooling_provenance": ["contextkit","cmd/bundle","bundle","doc_plans","doc_notes","resolve_action","registry.go","docubundle","travelling","dedup","thin_versions"]
      }
    }
    ```
+   (`tooling_provenance` is deliberately narrow — most fix plans touch none of
+   these, so once the filter is live it abstains on the large majority of
+   fixes. It's applied always-on for now only because the filter image isn't
+   deployed yet; this footprint is what gates it the moment it is.)
 2. **Gate each advisory seat.** Before `review_bug_historian`, insert
    `gate_bug_historian` (`action: conditional`, `condition: "panel.run_bug_historian == true"`,
    `then_step: review_bug_historian`, `else_step: gate_reuse_agent`). Same for
-   `gate_reuse_agent` (else → `gate_guidelines`) and `gate_guidelines` (else →
+   `gate_reuse_agent` (else → `gate_guidelines`), `gate_guidelines` (else →
+   `gate_tooling_provenance`), and `gate_tooling_provenance` (else →
    `review_guardian`). Point `review_editquality.next_step` → `gate_bug_historian`,
    and each reviewer's `next_step` → the *next gate* so run/skip reconverge.
    edit-quality and guardian stay always-on (no gate).
 3. **council_decide / escalate / run_checks unchanged** — their `review_fields`
-   still list all five; the abstention change means a skipped seat's absent
+   still list all reviewers; the abstention change means a skipped seat's absent
    field is now tolerated.
 4. **Footprints, not code** — to add seat #N later, extend the `footprints`
    map + add one gate; no Go rebuild.
