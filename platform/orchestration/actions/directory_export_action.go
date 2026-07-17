@@ -422,8 +422,8 @@ func loadBusinessPrices(ctx context.Context, db *sql.DB, ec dirExportConfig, cla
 		JOIN business_intel.businesses b ON b.id = pp.business_id
 		JOIN business_intel.business_verticals v ON v.id = b.vertical_id
 		CROSS JOIN LATERAL (
-		    SELECT lower(regexp_replace(substring(pp.product_url from '^https?://([^/]+)'), '^www\.', '')) AS price_host,
-		           lower(regexp_replace(substring(b.website_url  from '^https?://([^/]+)'), '^www\.', '')) AS site_host
+		    SELECT lower(regexp_replace(substring(pp.product_url from '^(?:https?://)?(?:www\.)?([^/?#]+)'), '^www\.', '')) AS price_host,
+		           lower(regexp_replace(substring(b.website_url  from '^(?:https?://)?(?:www\.)?([^/?#]+)'), '^www\.', '')) AS site_host
 		) hosts
 		WHERE v.slug = $1
 		  AND pp.is_current

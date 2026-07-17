@@ -127,7 +127,27 @@ current in the unified table**. business_prices deprecated via comment, not drop
 vertical=veterinary, `pet_band` column + CHECK on product_prices (six categories + 'any').
 Slugs `cma-<n>-<item>`. Re-verify wording/bands against the final Order before launch.
 
-### Phase 2 — generic directory/price exporter (replaces the never-built Go-A)
+### Phase 2 — generic directory/price exporter ✅ CODE + SEEDS DONE 2026-07-16 (deploy pending)
+
+Shipped: `directory_export_action.go` (config-driven, fail-closed: no default domain/vertical,
+attributed_prices default false), registered as `directory_export_json`; shared
+`sendExportFilesToGit` (med exporter refactored onto it); **fixed a pre-existing landmine:
+`med_export_json` was never registered in GlobalActionRegistry** — the med exporter agent could
+never have dispatched. `008_publication_optout.sql` applied (optout columns on businesses).
+`009_directory_export_agents.sql` applied: `directory-json-exporter` + `directory-export-
+orchestrator` agents seeded, scheduled task `directory-export-json` seeded **disabled** with the
+vetcomparison.uk config (attributed on, min_n 3, filename vet-full-index.json). ⚠️ Enable only
+after a chassis image containing the action is deployed AND agent image_tags are bumped to it
+(seeded at v1.0.1126 which predates the action).
+
+Pre-deploy smoke (queries run directly against prod 2026-07-16): directory = 2,389 (byte-equal
+to live), aggregates = 15 rows across 14 areas with min n=3 respected, claimed = 0 (correct),
+**attributed = 0 — correct and revealing**: all 803/762 historical price rows carry EMPTY
+source URLs (per-price provenance was never persisted; unrecoverable from data_observations
+either). Consequence: historical prices feed AGGREGATES ONLY; per-practice attributed
+publication starts from fresh scrapes through the new write path, which must persist real
+per-price source URLs. The verifier/scraper (Phase 5, or re-enabled vet-batch-verify) must set
+price.source_url per row — add this to the verifier prompt/handler acceptance criteria.
 
 **One action, fully config-driven:** `directory_export_json` in a new
 `platform/orchestration/actions/directory_export_action.go`, modelled on
@@ -180,7 +200,30 @@ Acceptance: smoke-run against staging produces directory.json byte-compatible wi
 file's shape, an aggregates.json with no group under min_n, and claimed.json empty (no claims
 yet); nothing in any output lacks provenance or consent.
 
-### Phase 3 — claim flow (the business core, V1 deliberately manual)
+### Phase 3 — claim flow ✅ DONE 2026-07-16 (V1 manual; front door live)
+
+`010_claim_requests.sql` applied: generic `business_intel.claim_requests` (claim | optout |
+correction) recording requester, evidence_method (email_domain_match | callback_published_number
+| letterhead | companies_house | other), status, verifier, and a **snapshot of the exact consent
+text** (not a version reference — later rewording must not rewrite what a practice agreed to).
+`businesses.claimed_by` — previously an unused unconstrained uuid — now FKs to the verified
+request that granted the claim, so every claimed listing traces to who asked, what we checked
+and what they consented to.
+
+Site front door live (commit `58e2a837`): the claim CTA now prompts for practice identity,
+requester role, a callback number and a link to their published list — i.e. exactly what
+verification needs — and states the terms (we publish what you send, attributed and dated,
+correctable/withdrawable any time). The **opt-out route the policy promises is now actually on
+the page**, with the "stays in the directory, can claim later" wording.
+
+**Acceptance met — full lifecycle dry-run against prod inside a rolled-back transaction**
+(verified afterwards: zero residue). Proved: verified claim → business marked claimed linked to
+its request → 4 CMA-taxonomy prices entered with pet_bands → exporter's claimed query returns
+them → attributed query excludes the claimed practice; scraped price visible → opt-out hides it
+(attributed 0) → practice still in directory → later claim reverses the opt-out and links the
+granting request; audit trail shows consent snapshot on the claim, none on the opt-out (correct).
+
+Operator SQL for both flows: see RUNBOOK. Self-serve portal remains V2/out of scope.
 
 - `claim_requests` table (generic, keyed to businesses.id): requester name/email/role, evidence
   (e.g. email domain matches practice website), status, notes, consent_text_version, timestamps.

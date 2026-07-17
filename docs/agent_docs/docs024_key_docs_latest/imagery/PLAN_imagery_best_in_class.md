@@ -145,6 +145,7 @@ carries the same theme" requirement.
 |---|----------|-----------|
 | D11 | **I3 cards ship as 800×450 JPG q82; WebP deferred to Phase I7.** | The plan text said WebP, but the codebase has NO WebP encoder (image_processing.go encodes PNG/JPEG only; pure-Go lossy WebP encoders are scarce/CGO). JPG q82 sits well inside the confirmed ≤60KB card budget, and I7 is already the "WebP for photographic kinds fleet-wide" phase — one migration pass there beats a one-off dependency here. |
 | D12 | **`card` is a derived PURPOSE, not a `site_plan_imagery` kind — amends D3's original batch list.** Cards derive from the entity's hero (I1's favicon/og_card derive pattern, `origin_asset_id` lineage); they are never planner-emitted, so they never appear in plan rows and need no chk_kind/validImageryKinds change. | Same reasoning that kept `chart` out of chk_kind in D3 itself: Lane B artefacts don't get plan kinds. I1 proved the pattern — og_card was in D3's batch list too, and it shipped as purpose-only with zero friction. Keeps the plan-kind constraint tight and the five-place kind checklist short. |
+| D13 | **Articles with no hero of their own get a GENERATED per-article "content hero"** (asset_key `content_hero_<page>`, no plan row — the `imageryplan.ContentHeroKey` convention), prompt composed from the article's title + description, emitted as a standard `needs_imagery` item down image-build-handler's generic path, with the site style guide layering medium/mood/palette at generation time. Preference order everywhere (check, deriver, renderer): plan page hero → content hero → site brand hero. Cards re-derive automatically when their `origin_asset_id` no longer matches the current preferred source. | The first live derivation run produced 9 byte-identical cards — every blog-post page fell back to `hero_canonical` because the planner emits no heroes for articles. User chose generation-from-content (option b) over planner-emitted article heroes (option a), 2026-07-16. Origin-staleness makes the fleet converge without manual re-drives: generate (pass 1) → re-derive (pass 2) → silent (pass 3). |
 
 ---
 
@@ -483,14 +484,34 @@ derived purpose, not plan kind; v1 entity = `page`, news → I5, products → I6
   the binary deploys). Gated on (a) a real `query.blog_posts` consumer
   existing and (b) derivability (hero present), so the handler can't churn;
   the entity link itself is the fulfilment stamp — no separate stamp needed.
-- **I3.5 ⏳ acceptance after deploy** (RUNBOOK B14): discovery pass →
-  ~9 cards derive → re-render `learning-center-hub` (needs_page, NOT
-  assemble-only — sections must re-resolve) → gate: cards show per-article
-  hero-family images; click-through matches; `card-*.jpg` ≤60KB. The
-  `learning-center-index` orphan slot clears with a listing rebuild here.
+- **I3.5 ✅ MECHANISM ACCEPTANCE MET LIVE 2026-07-16 (v1.0.1125, Turn 45–46):**
+  the full chain ran in production — `content_image_missing` fired exactly its
+  9 gated items + `sprite_css_missing` re-emitted the arrow default in the SAME
+  pass; 9 cards derived, entity-linked, committed; `query.blog_posts` resolved
+  9 articles WITH per-article images into content-listing; the served
+  `learning-center-hub.html` shows all 9 `card-*.jpg` refs (HTTP 200). Two
+  live-run findings, both fixed same-day: dispatch priority is **ASC** (lower
+  = sooner — the house convention; the checks' 65/70 correctly mean
+  "background"), and q82 cards from a dense hero hit 64,097B > the ≤60KB
+  budget → **q78** committed.
+- **I3.6 (D13) ✅ BUILT 2026-07-16 — rides the next deploy:** all 9 cards were
+  byte-identical (no blog-post page has a plan hero → all derived from
+  `hero_canonical`). Per D13: `content_image_missing` is now a TWO-MODE
+  emitter — generate a per-article content hero (`needs_imagery` via
+  image-build-handler's generic path, prompt from title+meta_description,
+  `ContentHeroKey` convention) when the article has no image of its own;
+  derive/re-derive the card when the source exists and the card is missing or
+  STALE-BY-ORIGIN. `derive_card_asset` and `plan_sections.ensureAssets` both
+  honour plan-hero → content-hero → site-hero, so article page and card share
+  one family. Post-deploy the fleet converges by itself: pass 1 generates ~9
+  article heroes (SDXL — note B5 budget), pass 2 re-derives the 9 cards at q78
+  from them, pass 3 silent.
 - Known deferred: card landings do NOT auto-re-render listing pages (listings
   pick cards up on their next rebuild — eventual consistency; revisit if it
-  bites); `assets.url` on old rows still presigned-stale (cosmetic).
+  bites); `assets.url` on old rows still presigned-stale (cosmetic);
+  queryresolve's fallback chain is card → plan hero → "" (content-hero not in
+  the lateral join — the window where it would matter is hours long and the
+  card supersedes it).
 
 ### Phase I4 — Data graphics pipeline (G2 — the flagship)
 Per `FUTURE_data_graph_pipeline.md` and D1:

@@ -3129,3 +3129,47 @@ convention — site_work_items has NO notes/resolution column), tmp table droppe
 Left deliberately: 157 + its pipeline note + ledger row; 4 inert PNGs in B2.
 
 Categories: (proof, bug, fix, gotcha)
+
+### 2026-07-16 — summary doc; tool pipeline → Sonnet 5 (158)
+
+Wrote `SUMMARY_travelling_docs_2026-07-16.md` (journey / position / roadmap).
+Model audit: agent models live at `default_config → workflow.steps.<step>
+.config.ai_service.model`; the workflow columns are NULL for these agents and
+the chassis client default is claude-sonnet-4-6 (`anthropic.go`). All 7 Sonnet
+steps in the tool pipeline ran claude-sonnet-4-6; recreate_tool runs
+claude-opus-4-6 (64k, deliberate). Migration **158** (snapshots ×4; guard
+demands exactly 7 updates) moved the 7 steps to **claude-sonnet-5** — no
+rebuild needed (alias pass-through, no temperature sent) and diagnose-agent
+had already proven sonnet-5 in prod through this chassis. recreate_tool left
+on Opus 4.6; Opus 4.8 and the ~31 other sonnet-4-6 agents are separate calls.
+Applied out of band (runner still blocked at gripper-151). Next free: **159**.
+Aliases for claude-sonnet-5 / claude-opus-4-8 added to model_aliases.go.
+
+Categories: (docs, build, decision)
+
+### 2026-07-16 — recreate_tool → claude-opus-4-8 (159)
+
+Completes the model refresh. Migration 159 (snapshot taken, guard = exactly 1
+row) moved tool-recreation-handler's recreate_tool step from claude-opus-4-6
+to claude-opus-4-8; 64k max_tokens and everything else untouched; verified
+post-apply. The tool pipeline now runs 7× claude-sonnet-5 + 1× claude-opus-4-8.
+Applied out of band (runner still blocked at gripper-151). Next free: **160**.
+
+Categories: (build, decision)
+
+### 2026-07-16 — runner unblocked: gripper-151 was a ledger omission
+
+The "failing" 151 belonged to the empty-sections/loop-integrity workstream,
+whose own handoff (§7) says 149–156 were applied — but 151–156 never got
+schema_migrations rows, so the runner replayed 151 into its duplicate-component
+error and halted there. Verified all six files' artifacts live in the DB
+(component / 5 products / page slots / plan section / drift check on
+completeness-discovery-agent — not design-discovery, mind — / refresher agent),
+then backfilled six ledger rows (applied_by='ledger-backfill'). Runner:
+"Up to date — no pending migrations". Their handoff updated.
+
+Durable rule: whoever applies out of band inserts the ledger row themselves —
+an applied-but-unrecorded migration turns into a runner roadblock that looks
+like someone else's broken SQL.
+
+Categories: (fix, gotcha, cross-workstream)

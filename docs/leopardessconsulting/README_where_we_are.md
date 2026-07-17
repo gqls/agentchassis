@@ -89,3 +89,79 @@ Left open for next session, cleanly handed off:
   it land rather than firing blind.
 
 Both handoff docs are current. Nothing is in a half-broken state on the live site — every change either landed and verified, or was deliberately not wired.
+
+---
+
+All nine findings are resolved and verified live. Summary of what just happened:
+
+The rulings, applied
+
+The blog guide (the page that leaked the fabrication after the sweep — the strongest evidence the claims layer was needed) got four surgical replacements: the "70+ agents across eight functional departments" claim
+became the DB-verified "registry holds over 150 agent definitions," and the three follow-on sentences that leaned on the invented "department" taxonomy were reworded — while keeping the genuinely true topology
+(head orchestrator → supervisors → narrow workers), which is audit-verified. The falsehood went; the substance stayed.
+
+technical-architecture — the word-form variant ("more than seventy agents operating in eight functional areas") that nearly slipped the regex is now "more than 150 agent definitions — coordinators, specialists,
+analysts."
+
+insights — clean, though with a footnote: the claims thread fixed that one directly at 17:29, after my edit, with their own wording. Same goal, no conflict in the result, but I've flagged the coordination point in
+the notes: two threads are now editing leopardess content_data, and future rulings should flow one way — the claims thread rules, this workstream applies, as the spec designed.
+
+for-engineering-teams (archived, twice-flagged) — fixed in content_data only, not redeployed, so the sleeping copy is safe if the page is ever resurrected.
+
+Process notes worth keeping
+
+- The dual-branch escalation pre-check (the guard I corrected earlier today after the who-we-help clobber) was run on all three live pages before firing any re-render — zero rows, and indeed zero escalations this
+  time. The guard works.
+- Verification greps must strip tags — served HTML splits phrases across <strong> boundaries, which makes literal greps blind in both directions. The notes record the tag-stripped method.
+
+Where leopardess stands now
+
+Punch-list: items 1–4 and 6–10 closed; item 5 (imagery) has two on-brand per-page heroes live plus the hand-chosen index hero, with the remainder being component work and Phase I3 (owned by the imagery workstream).
+Served HTML across the site now carries zero banned claims, checked against the evidence base. The loop the spec designed — check finds → human rules → operator applies in content_data, nothing auto-rewritten —
+has now run end-to-end for real, once.
+
+
+----
+
+That's the punch-list run to ground. Here's where this leaves leopardess:
+
+Completed this stretch
+
+Sitemap — live. The site had none at all (nor does any sibling site — there's no generator anywhere in the platform, which I've logged as a fleet-wide gap worth a generate_sitemap deploy-time action). Generated
+from the pages table — 27 URLs, archived pages verified excluded — and committed through the git-adapter. Verified 200.
+
+robots.txt — checked and fine. The stanza layout looked alarming at first glance, but it's Cloudflare's managed content-signals file: search engines allowed, AI-training crawlers (GPTBot, ClaudeBot, CCBot…)
+blocked. No action needed.
+
+about/services heroes — properly deferred, with evidence. hero-about is shared across 9 sites, hero-services across 5. Adding an image field is a shared-schema change that belongs to the imagery workstream (which
+is mid-build on Phase I3 anyway), not a site session. The fleet-safe pattern for whoever does it — an optional field behind an {{if}} gate, same class as the turn-15 link fix — is written in the notes.
+
+The full picture
+
+Every item on the owner's original punch-list is now closed or accounted for:
+
+┌──────────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                  │                                                 State                                                  │
+├──────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Nav/footer colours & clutter, card 404s, invented stats, favicon │ Fixed (turns 15–17)                                                                                    │
+├──────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ use-cases honesty                                                │ Fixed — spec-driven, zero fabrications                                                                 │
+├──────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Blog                                                             │ Excerpts + read times live; thumbnails arrive with Phase I3                                            │
+├──────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Empty pages                                                      │ All resolved — quiz live (54KB, interactive), guide rebuilt, duplicates archived by merge decision A11 │
+├──────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Voice                                                            │ Done everywhere it was needed; four titles and 12 meta descriptions honest                             │
+├──────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Imagery                                                          │ Three on-brand heroes live; the rest is component work + Phase I3, owned elsewhere                     │
+├──────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Claims                                                           │ All 9 findings ruled and fixed; served HTML site-wide carries zero banned claims                       │
+└──────────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+What remains is genuinely the build-out — tools, illustrated guides, the news surface, the L7 chart component — which is new construction, not repair. The handoff reflects all of this, so the next session (here or
+a fresh chat) starts from a site that is structurally sound, honest end to end, and verified so.
+
+One small observation to leave you with: this session ran the claims-verification loop end-to-end for the first time — scan found, human ruled, operator applied, nothing auto-rewritten — and it worked exactly as
+the spec drew it. The two threads brushed against each other once (both edited insights); worth keeping the "claims thread rules, site thread applies" division going forward.
+
+--

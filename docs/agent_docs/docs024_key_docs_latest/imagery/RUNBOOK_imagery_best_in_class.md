@@ -201,23 +201,28 @@ your separate thread: 4 pages remain blanked (finetuning ×3, gamesdesign ×1;
 the 004 handoff's §5 correction has the exact list and the fixed detection
 query — the old `length=1326` test under-reports).
 
-### B14. Phase I3 (card imagery) — post-deploy acceptance run
-Everything for I3 is built and the DB side is already live (assets entity
-columns; asset-deployer `content_card` mode; `content_image_missing` check
-registered — inert until the binary carrying it deploys). **After your next
-chassis deploy:**
-1. Trigger an improvement-loop / design-discovery pass for robot-hands.com
-   (kcat pattern, notes Turn 18). Two things fire in one pass:
-   `sprite_css_missing` (format 2→3 → the B12 arrow default lands) and
-   `content_image_missing` (→ up to 9 `needs_content_image` items →
-   asset-deployer derives `card-<page>.jpg` crops from each article's hero).
-2. When the card items complete, queue a re-render for `learning-center-hub`
-   (needs_page — it must re-resolve sections so `query.blog_posts` populates
-   the content-listing with items + images; assemble-only won't do that).
-3. **👀 A3 gate:** open `/learning-center-hub.html` (hard-refresh) — the
-   article listing should show cards, each with its own article's hero-family
-   image (800×450 crop, ≤60KB, served from `/assets/images/card-*.jpg`).
-   Click through: the article page shows the same image family as its card.
+### B14. ~~Phase I3 mechanism acceptance~~ ✅ RAN AND PASSED 2026-07-16 (v1.0.1125)
+Both checks fired in one pass; 9 cards derived + entity-linked; the arrow
+default landed (B12 closed); `query.blog_posts` resolved; the served
+learning-center-hub shows all 9 card refs. Two live findings fixed same-day:
+dispatch priority is ASC (lower = sooner) and q82 cards busted the 60KB budget
+(→ q78, rides next deploy). Superseded by B15.
+
+### B15. Phase I3/D13 — per-article heroes: post-deploy convergence + gate
+You chose D13: articles with no hero of their own get a GENERATED content hero
+(prompt from the article's own title/description + your imagery style guide).
+Built; rides your next deploy. **Expect ~9 SDXL generations on robot-hands when
+it first fires (real API spend — the B5 budget question is now live, not
+hypothetical).** After the deploy:
+1. Trigger (or let cycle) a discovery pass → ~9 `needs_imagery` content-hero
+   generations complete; each landing re-renders its article page.
+2. Next pass: 9 cards RE-derive automatically at q78 (origin-staleness — the
+   card's lineage no longer matches its new per-article source). Third pass:
+   silent.
+3. Re-render `learning-center-hub` (needs_page, priority **5** — ASC!).
+4. **👀 A3 gate:** `/learning-center-hub.html` (hard-refresh) — **9 visually
+   DISTINCT article cards**, each ≤60KB; click through — the article page
+   carries the same image family (its own content hero).
 
 ---
 

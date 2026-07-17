@@ -158,3 +158,30 @@ Next in the plan is Phase 2 — the generic directory_export_json action and its
 (own-domain-only attribution, opt-out exclusion, min_n=3 aggregates, claimed-supersedes-scraped, seed_import excluded unconditionally). Say the word and I'll keep going.
 
 ---
+
+Done — Phase 2 is built and seeded, and the full documentation set is written. The summary of this stretch:
+
+Phase 2 (the generic exporter) is code-complete and seeded, pending deploy. The new directory_export_json action is fully config-driven and fail-closed: it refuses to run without an explicit domain and vertical,
+attributed prices default off (the vetcomparison task config turns them on per your decision), aggregates enforce the n≥3 floor in SQL, opted-out practices are excluded, and seed_import rows are excluded
+unconditionally. The agent pair is seeded and the scheduled task is disabled until a chassis image containing the action ships. Along the way I found and fixed a pre-existing landmine: med_export_json was never
+registered in the action registry at all — the med exporter agent could never have dispatched its own action.
+
+The smoke test surfaced the most important data fact of the day. Three outputs validated perfectly against production (directory exactly matches the live 2,389; aggregates produce 15 publishable rows across 14
+areas; claimed is empty as expected). Attributed came back zero — and that's correct behaviour, not a bug: every historical price row has an empty source URL (my earlier "all 803 rows have provenance" was wrong —
+the NULL check passed on empty strings), and nothing is recoverable from the observation records either. So under your no-provenance-no-publication policy, historical prices feed aggregates only, and per-practice
+attributed prices begin with fresh scrapes through the new write path — which means any future scraper/verifier must persist per-price source URLs, now written into the plan as an acceptance criterion.
+
+The documents you asked for, all in docs/agent_docs/docs024_key_docs_latest/vetcomparison/:
+
+- SUMMARY_2026-07-16_where_we_are.md — the full arc: the fabrication found and killed, the regulatory grounding, your four decisions, the honest rebuild, Phases 0–2, and the road ahead through the consultation
+  dates to the Sep 2027 RCVS horizon.
+- RUNBOOK_vetcomparison.md — operator procedures: the sites-repo deploy pattern, how to enable the exporter after deploy (including the image-tag bump it needs), manual claim and opt-out handling, the hard
+  provenance rule, DB access, and every date with a clock on it.
+- RUNNING_NOTES_vetcomparison.md — the session-by-session operational log, newest first.
+- PLAN updated in place — Phases 0, 1 and 2 marked done with their verification numbers and findings.
+
+Standing items for you: the funding-consultation response awaits your review and portal submission before 30 July; the substantive draft Order should appear on the CMA case page any day (I'd draft the
+clause-referenced response as soon as it does); and the next chassis image build ships all of Phases 0–2, after which the exporter can be smoked and enabled per the runbook. Next build phase when you want it: Phase
+3, the claim flow — the exporter already publishes claimed prices the moment the first practice is claimed.
+
+---

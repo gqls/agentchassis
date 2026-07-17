@@ -199,6 +199,30 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 		}
 	}
 
+	// Lane B content hero (Phase I3, D13): a per-article image generated from
+	// the article's own content, stored under the literal ContentHeroKey
+	// convention with no plan row. The planner's page hero (above) always
+	// wins; the site brand hero (below) stays the last resort. This is what
+	// makes the article page show the same image family as its listing card.
+	if _, ok := r.assets["hero"]; !ok && r.pageName != "" {
+		var assetKey, purpose string
+		err := r.db.QueryRowContext(ctx, `
+			SELECT a.asset_key, a.purpose
+			  FROM assets a
+			 WHERE a.site_id = $1
+			   AND a.asset_key = $2
+			   AND a.status = 'active'
+			 LIMIT 1
+		`, r.siteID, imageryplan.ContentHeroKey(r.pageName)).Scan(&assetKey, &purpose)
+		switch {
+		case err == nil && assetKey != "":
+			r.assets["hero"] = storage.DeployedWebPath(assetKey, purpose)
+		case err != nil && err != sql.ErrNoRows:
+			r.logger.Warn("plan_sections: content hero lookup failed",
+				zap.String("page", r.pageName), zap.Error(err))
+		}
+	}
+
 	// Site-scope brand hero: fallback when the page has no hero of its own,
 	// so image-role-aliased fields still resolve to something brand-consistent
 	// rather than nothing. Page-scope (above) always wins.

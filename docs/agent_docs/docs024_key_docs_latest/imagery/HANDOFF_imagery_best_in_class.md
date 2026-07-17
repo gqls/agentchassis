@@ -3,31 +3,31 @@
 **Last updated: 2026-07-16. UPDATE THIS DOCUMENT EVERY WORKING TURN, alongside
 the running notes — it is the single entry point for a fresh session.**
 
-## WHERE WE ARE (2026-07-16, Turn 45) — start here
-- **I0, I1, I2 are ✅ COMPLETE AND LIVE.** Rebuild + per-page heroes; brand layer
-  (locked logo, favicon, OG); sprite-sheet bullets with a self-healing fulfilment
-  check and a content-list house style. Read-out for a status briefing:
+## WHERE WE ARE (2026-07-16, Turn 46) — start here
+- **I0, I1, I2 are ✅ COMPLETE AND LIVE** (incl. B12: served CSS default is the
+  ARROW, self-healed on the v1.0.1125 pass). Read-out for a status briefing:
   `READOUT_2026-07-16_imagery_status.md`.
-- **I3 (content-linked card imagery / Lane B) is BUILT — Turn 45.** DB side LIVE
-  (assets `entity_type`+`entity_id`; asset-deployer `content_card` mode;
-  `content_image_missing` check registered). Go side committed, rides the next
-  deploy: `derive_card_asset` (hero → 800×450 JPG card crop, entity-linked,
-  `origin_asset_id` lineage), `storage.CoverCropResize`, queryresolve `blog_posts`
-  base + `image` projection on all page listings (this is what fixes the
-  empty listing-card slots — the resolver didn't know `query.blog_posts` and
-  projected no image field). Decisions D11 (JPG now, WebP at I7) and D12
-  (`card` = derived purpose, NOT a plan kind) user-confirmed. **Acceptance =
-  RUNBOOK B14 after the deploy.**
-- **Two things land in ONE post-deploy discovery pass:** the B12 arrow default
-  (sprite format 2→3 self-heal) and the first ~9 card derivations. Then a
-  needs_page re-render of `learning-center-hub` and the A3 eyeball gate.
-- **The image-landing trap is CLOSED** (Turn 44, verified in the running pod:
-  `missingRequiredLLMFields`=2, `escalateRerenderToWriter`=4); the testbed is fully
-  clear (all article-body pages healthy, all 30 imagery rows fulfilled). See the
-  (downgraded) safety note next.
-- **Overall the content-loss recovery is still higher-value than imagery**, but it's
-  in its own thread and no longer blocks this one (4 pages still blanked there —
-  fixed detection query in 004 §5).
+- **I3 mechanism acceptance MET LIVE on v1.0.1125 (Turn 46):** both checks fired
+  in one discovery pass; 9 cards derived + entity-linked + committed;
+  `query.blog_posts` resolved 9 articles with per-article images; the served
+  `learning-center-hub.html` shows all 9 `card-*.jpg` (HTTP 200).
+- **D13 (user 2026-07-16): per-article content-hero GENERATION is BUILT, rides
+  the next deploy.** All 9 first-run cards were byte-identical (every blog-post
+  fell back to `hero_canonical` — planner emits no article heroes). The check is
+  now a two-mode emitter (generate content hero via image-build-handler's generic
+  needs_imagery path / derive-or-re-derive the card on ORIGIN-STALENESS), and the
+  preference order plan-hero → content-hero (`ContentHeroKey`) → site-hero is
+  unified across check, deriver, and page renderer. Also riding: card q78 (first
+  run hit 64,097B > the ≤60KB budget at q82). **Post-deploy the fleet converges
+  itself:** pass 1 generates ~9 article heroes (SDXL — B5 budget note), pass 2
+  re-derives the 9 cards from them, pass 3 silent. Then the A3 gate: 9 visually
+  DISTINCT cards.
+- **Dispatch priority is ASC — lower number = sooner** (`ORDER BY wi.priority ASC`;
+  "30 // high" in check comments). The old "needs_page@99" habit meant "run LAST".
+  Front-of-queue nudge for a watched run = set priority 5.
+- **The image-landing trap is CLOSED and the content-loss thread has RECOVERED
+  ALL 17 article-body instances** (004 updated by that thread; root cause was
+  writer max_tokens truncation) — D13's image landings are safe fleet-wide.
 
 ## ✅ READ FIRST — image-landing trap CLOSED (guard live); residual notes
 **History:** landing an image fired a scoped re-render (`image_landed`) that BLANKED
@@ -302,30 +302,32 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
 - image_source_unsatisfiable check live but has produced 0 flags (heroes all
   resolve now) — expected.
 
-## Next actions, in order (updated 2026-07-16 Turn 45 — I3 built, deploy-gated)
-Everything is staged behind ONE chassis deploy. After it, in order (= RUNBOOK B14):
+## Next actions, in order (updated 2026-07-16 Turn 46 — D13 built, deploy-gated)
+Turn 45's B14 sequence RAN and passed (mechanism acceptance met live). What's
+staged behind the NEXT deploy is D13 (per-article generation) + q78 cards:
 
-1. **Trigger a discovery pass for robot-hands.com** (improvement-loop kcat
-   pattern, notes Turn 18). One pass fires BOTH:
-   - `sprite_css_missing` (stamp format 2 ≠ code format 3) → re-emits sprites.css
-     with the ARROW default (B12). Verify:
-     `curl -s https://robot-hands.com/assets/css/sprites.css | grep -o 'li::before[^}]*background-position:[0-9px -]*}' | head -1`
-     → `0px -40px`.
-   - `content_image_missing` → up to 9 `needs_content_image` items → asset-deployer
-     `content_card` mode derives `card-<page>.jpg` from each article's hero and
-     writes the entity-linked assets row. Watch for items completing with
-     `derived: true`; the check goes quiet once the entity links exist.
-2. **Re-render `learning-center-hub`** (needs_page — sections must RE-RESOLVE so
-   `query.blog_posts` fills content-listing's `articles` with items + images;
-   an assemble-only re-render will NOT do it). The image-landing guard is live,
-   and all robot-hands article bodies are healthy — safe.
-3. **A3 gate (user eyeball):** `/learning-center-hub.html` shows article cards
-   with per-article hero-family images; click-through shows the same family on
-   the article page; `card-*.jpg` serves 200 at ≤60KB. That is the I3 acceptance
-   line. The `learning-center-index` orphan slot clears with a listing rebuild.
-4. **Then Phase I4** (data graphics pipeline — go-echarts, real series; needs
-   RUNBOOK B4 data-source key) or extend Lane B to news (I5) / products (I6) on
-   the same entity columns.
+1. **After the deploy, trigger a discovery pass for robot-hands.com**
+   (improvement-loop kcat pattern, notes Turn 18) or let the loop cycle.
+   `content_image_missing` now emits ~9 **needs_imagery GENERATION** items
+   (content heroes, SDXL — expect real API spend, B5) — watch them complete;
+   each landing also re-renders its article page via flag_rebuild (safe: guard
+   live, all article bodies healthy fleet-wide).
+2. **Second discovery pass** (or next loop cycle): the check sees each card's
+   `origin_asset_id` ≠ its new content hero → re-emits 9 DERIVE items → cards
+   re-cut at q78 from the per-article heroes. Third pass: silent (convergence
+   proof, same shape as I2.4's fire-once-then-quiet).
+3. **Re-render `learning-center-hub`** (needs_page, priority 5 — sections must
+   RE-RESOLVE; assemble-only won't refresh the items). Precedent item shape:
+   Turn 46 used item_key `needs_page:learning-center-hub:i3_cards`.
+4. **A3 gate (user eyeball):** `/learning-center-hub.html` shows **9 visually
+   DISTINCT per-article cards**; click-through shows the same image family on
+   the article page (its content hero); `card-*.jpg` ≤60KB now (q78). The
+   `learning-center-index` orphan slot clears with a listing rebuild.
+5. **Then Phase I4** (data graphics — go-echarts, real series; needs RUNBOOK B4
+   data-source key) or extend Lane B to news (I5) / products (I6) on the same
+   entity columns.
+Dispatch reminders: priority is ASC (5 = front, 99 = LAST); clear zombie claims
+>10 min (they block the whole site); watched runs may need both.
 
 **How I2 closed (2026-07-15, for the record):** to land I2.5's `sprite-bullets`
 class the article-body wrapper had to exist, but robot-hands had no healthy article

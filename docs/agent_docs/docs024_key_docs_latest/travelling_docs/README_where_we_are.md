@@ -211,3 +211,28 @@ P3 is live and proven end-to-end on v1.0.1125 — and the proof's first run caug
 
   Nothing is gated anymore. The remaining polish is unchanged: the 7 footer-4-column sites self-heal on their refresh cadence, the optional per-site override for shared-template fixes, and the someday DEBUGaa log
   sweep.
+---
+
+
+ Unblocked — the runner now reports "Up to date, no pending migrations." And the answer to "which thread": the empty-sections / loop-integrity workstream owns gripper-151 (its docs live in
+  docs024_key_docs_latest/empty_sections_loop_integrity/, handoff HANDOFF_2026-07-16_continue_here.md).
+
+  The interesting part is that there was nothing to fix in the SQL. That workstream's own handoff (§7) records that it had already applied 149–156 — but 151–156 were applied without schema_migrations ledger rows. So
+  the runner, seeing them as pending, replayed 151 into its own duplicate-component error and halted, which read as "broken migration blocking the queue" when it was really "applied but unrecorded". Its handoff even
+  called the situation "cosmetic only" — it wasn't, since it gated every later workstream's migrations (it's why 157–159 had to go in out of band today).
+
+  What I did:
+
+  1. Verified before recording — checked each file's artifacts live in the DB: the gripper-spec-sheet component (151), the 5 gripper products (152), the detail-page slot layout (153), the plan-section row (154),
+  section_source_drift in the discovery checks (155 — one trap here: it lives on completeness-discovery-agent, not design-discovery, so a naive verification says "missing"), and the active product-spec-refresher
+  agent (156).
+  2. Backfilled six ledger rows (applied_by='ledger-backfill', notes citing the owning handoff and the verification) — the ledger keys on filename, so the runner now skips them exactly as it would its own records.
+  3. Dry-ran the runner: clean, nothing pending.
+  4. Updated the owning workstream's handoff so its next session sees the resolution rather than re-investigating, plus our T23 turn log, running notes, and both workstream memories.
+
+  One durable rule came out of this, now banked in both workstreams' docs: whoever applies a migration out of band must insert its ledger row themselves (as 157/158/159 did today) — an applied-but-unrecorded
+  migration turns into a runner roadblock wearing someone else's name. Next free migration number is still 160, and future migrations can go through the runner normally again.
+
+
+---
+

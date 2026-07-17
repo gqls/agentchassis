@@ -1814,3 +1814,67 @@ I5, product cards = I6, on the same entity columns. WebP = I7.
 **Next: deploy → RUNBOOK B14** (one discovery pass fires BOTH
 sprite_css_missing format-3 [the B12 arrow] AND content_image_missing → ~9
 cards; then needs_page re-render of learning-center-hub; then the A3 gate).
+
+## Turn 46 — 2026-07-16 — v1.0.1125 DEPLOYED: I3 mechanism acceptance MET LIVE; D13 (per-article generation) decided + built
+
+**B14 executed end-to-end on v1.0.1125** (binary verified by pod grep: all I3
+symbols present). Sequence + results:
+1. Pre-flight: 0/30 imagery rows unfulfilled; zombies cleared.
+2. improvement-loop triggered (kcat, correlation b20b7688). **Both checks
+   proved live in ONE pass:** content_image_missing emitted EXACTLY its 9
+   gated items; sprite_css_missing re-emitted on the format-2≠3 mismatch.
+3. **Live finding #1 — dispatch priority is ASC** (`load_work_item_actions.go:589`
+   `ORDER BY wi.priority ASC`): LOWER number = dispatched SOONER; comments in
+   other checks confirm the convention ("30 // high"). Items at 65/70 are
+   correctly "background" — but they sat behind ~50 stale 35–60 items, so for
+   the watched run I bumped the 10 fresh items to priority 5. NOTE: this
+   workstream's old "needs_page@99" habit actually meant "run LAST" — harmless
+   in an empty queue, wrong mental model. Recorded here to kill it.
+4. **All 10 items completed first-attempt** (~4 min once front-of-queue):
+   9 cards derived + entity-linked + committed; sprite stamp → format 3;
+   **served CSS default = `0px -40px` (ARROW) — B12 CLOSED.**
+5. **Live finding #2 — card budget miss:** q82 on the dense photographic hero
+   → 64,097B > the ≤60KB budget (D8). Fixed: card quality 82→78
+   (`ImagePurposes`, committed, rides next deploy).
+6. learning-center-hub re-rendered via a manual needs_page@5 (one dispatch
+   zombie cleared en route; the item also showed the known completion-race
+   timestamp oddity — completed fine). **`query.blog_posts` RESOLVED IN
+   PRODUCTION:** content_data.articles = 9 items, each with ITS OWN
+   `/assets/images/card-<page>.jpg`; rendered HTML carries all 9 distinct
+   refs; **served page shows all 9 (HTTP 200).** I3 mechanism acceptance MET.
+
+**Live finding #3 → USER DECISION D13.** All 9 cards are byte-identical
+(64,097B): no blog-post page has a plan hero, so every card derived from
+`hero_canonical` (proven via origin_asset_id lineage). Options put to user:
+(a) planner emits article heroes (Lane A) vs (b) generate from article
+content + style guide (Lane B proper). **User chose (b), and confirmed
+today's cards should re-derive after the next deploy.**
+
+**D13 BUILT (same session, all tests green):**
+- `imageryplan.ContentHeroKey(page)` — literal key `content_hero_<page>`;
+  SQL mirrors as `'content_hero_' || replace(name,'-','_')` (pinned by test +
+  comments both sides).
+- `check_content_image_missing` v2 — TWO-MODE emitter with a pure decision
+  fn (`contentImageAction`, table-tested): no plan/content hero → GENERATE
+  (item_type **needs_imagery**, BuildSpec shape → image-build-handler's
+  generic call_imagery_gen path, prompt = title+meta_description subject
+  only, style guide layers at generation; scope/scope_ref set so
+  flag_rebuild re-renders the article page on landing); source exists but
+  card missing OR **card.origin_asset_id ≠ current preferred source** →
+  DERIVE. Origin-staleness = the user's "re-derive at next deploy" for free:
+  pass 1 generates 9 heroes, pass 2 re-derives 9 cards at q78, pass 3 silent.
+- Preference order unified in all three consumers (check, derive_card_asset,
+  plan_sections.ensureAssets): **plan page hero → content hero → site brand
+  hero** — so the article page renders the same image family as its card.
+- Site hero deliberately no longer suppresses generation (D13's point) but
+  remains the deriver's last-resort source.
+
+**Safety note:** the parallel thread has now recovered ALL 17 article-body
+instances (004 updated; root cause was writer max_tokens truncation) — image
+landings from D13 generation are safe fleet-wide, and the escalate-not-blank
+guard is live regardless.
+
+**Next deploy carries:** q78 cards + D13 generation. Post-deploy: trigger
+discovery (or let the loop cycle) → watch 9 generations (SDXL — B5 budget
+note) → next pass re-derives 9 cards → re-render learning-center-hub →
+**A3 EYEBALL GATE: 9 visually DISTINCT per-article cards.**

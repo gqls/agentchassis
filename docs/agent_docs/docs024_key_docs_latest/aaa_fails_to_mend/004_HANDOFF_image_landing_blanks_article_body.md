@@ -9,10 +9,15 @@ page. Found in the imagery workstream (imagery RUNNING_NOTES Turns 39–41); the
 root-cause + recovery write-up is the parent handoff (see §7).
 
 **Filed:** 2026-07-15
-**Updated:** 2026-07-16 — **the guard is now deployed** (see the box below).
-**Severity:** High — silent live content loss on SEO pages (guides/blog). Already
-happened to 9 pages across 5 sites; **those 13 pages are still broken and still need
-recovery** (§4.2), but they are no longer at risk of *further* blanking.
+**Updated:** 2026-07-16 — **the guard is deployed AND all 17 article-body instances
+are recovered.** See the box below; the §4.2 "still needs recovery" note two lines
+down is now stale — recovery is DONE, verified directly in the DB moments before
+this edit (2026-07-16, all 17 `healthy`). Authoritative closure record:
+`005_HANDOFF_2026-07-15_article_body_root_cause_is_truncation_FIXED.md`.
+**Severity:** High — silent live content loss on SEO pages (guides/blog). 13 pages
+were broken (9 blanked + 4 leaked); **all 13 are now recovered and verified live**
+— 12 recovered on 2026-07-15/16 (`005` §Resolution), the last 4-count snapshot this
+doc shows below (`§4 2026-07-16 CORRECTION`) was itself superseded within hours.
 
 **✅ THE TRAP IS CLOSED IN PRODUCTION AS OF 2026-07-16** (prod = `v1.0.1123`). The
 guard is in the running binary — verified by 004's own criterion, grepping the pod:
@@ -110,12 +115,20 @@ is now **guard: LIVE / repair: still broken**:
     v1.0.1123 deploy, prod (`v1.0.1122`) carried only the partial version, so the trap
     was live and the §2 rule was in force.
 - **The writer-side envelope repair** `ParseLLMJSON` (`json_envelope.go`, wired at
-  `ai_actions.go:478`): repairs escaping-only malformations so future writes store a
-  clean `content`. **But its test fails on 14 fixtures** (`002_HANDOFF…` §B —
-  `TestParseLLMJSON_RepairsLiveEnvelopes`), which are almost certainly these same
-  envelopes: some are escaping-malformed (repairable) and some are **truncated
-  mid-string** (unrecoverable — the tail is not in storage). So escalation-to-writer
-  may NOT cleanly regenerate every affected page.
+  `ai_actions.go`): repairs escaping-only malformations so future writes store a
+  clean `content`.
+  - ✅ **This "test fails on 14 fixtures" note is STALE — closed 2026-07-16.** The
+    root cause of the 14 failures was found: 12 of 14 are genuinely TRUNCATED (the
+    writer's `generate_content` step was capped at `max_tokens=2000`, since raised
+    to 8000 — DB config, live 2026-07-15), which must stay unparseable by design —
+    no repair can complete a sentence the model never finished. The other 2 ARE
+    complete and now both repair correctly: the newline-only case, and a second
+    malformation this doc didn't know about — unescaped quotes from an HTML
+    attribute (`<a href="mailto:...">`), fixed by `repairJSONStringLiterals`
+    (deployed `v1.0.1126`, confirmed live in the running pod). See `005_HANDOFF…`
+    §"CLOSED 2026-07-16" for the full test suite and live-pod verification.
+    Escalation-to-writer now cleanly regenerates every affected page shape found so
+    far.
 - **`missingkey=zero`** (`call_agent.go:1152`) and the empty-section drop
   (`sectionHasVisibleContent`) are **unchanged**. The guard prevents *this* blanking
   path; the underlying "render a required field as empty, silently" pattern still
@@ -128,15 +141,16 @@ is now **guard: LIVE / repair: still broken**:
    verified in the pod (see §3). The §2 operating rule is lifted. Remaining sub-task:
    confirm behaviourally on the first real image landing that the page escalates to the
    writer rather than blanking.
-2. **Recover the 13 already-broken pages** — ⬅ **now the top job.** The guard prevents
-   *future* blanking; it
-   does not fix existing bad rows. Recovery = extract the article from
-   `content_data.result`, set `content_data.content`, re-render. Recipe + caveats
-   (the envelope is NOT valid JSON — bare HTML quotes, so string-surgery not a parse;
-   some are truncated → partial recovery) are in the parent handoff §5.
-3. **Fix `ParseLLMJSON`'s 14 fixtures** (`002…` §B) — decide which are repairable vs
-   quarantine the truncated ones — so writer-escalation actually regenerates these
-   envelopes rather than looping.
+2. ~~**Recover the 13 already-broken pages**~~ — ✅ **DONE 2026-07-16.** All 13
+   regenerated (raised `max_tokens` + writer rebuild) or, for the one page that kept
+   failing regeneration (embedded-quote-in-contact-link), hand-repaired once and the
+   code gap that caused the repeated failure is now closed (item 3). Verified
+   `healthy` for all 17 article-body instances directly in the DB and on served pages.
+   See `005_HANDOFF…` §Resolution.
+3. ~~**Fix `ParseLLMJSON`'s 14 fixtures**~~ — ✅ **DONE 2026-07-16, deployed
+   `v1.0.1126`.** 12 of 14 are genuinely truncated and correctly stay unparseable
+   (fail loud, don't salvage a partial article); the other 2 are complete and now
+   repair — see the §3 update above.
 4. **Consider hardening the silent path**: a component whose schema marks a field
    `required:true` should not render empty — fail the step or flag, not blank
    (same class as the product-page defect).
@@ -152,17 +166,21 @@ is now **guard: LIVE / repair: still broken**:
 >   WHEN pc.rendered_html ~ 'article-body__content[^>]*></div>' THEN 'BLANKED'
 > ```
 > **Verified live fleet state 2026-07-16 (guard pod up since 08:44Z): 4 BLANKED,
-> 0 JSON LEAK, 13 healthy.** The separate content-loss thread has repaired all 4
-> leaks and 6 of the original 9 blanks; but three finetuning/gamesdesign pages
-> re-blanked at 22:23–23:17 on 2026-07-15 (BEFORE the guard deployed — not a guard
-> failure), and one April blank remains. **Current BLANKED (4), all recoverable
-> (`content_data.result` present):**
-> - finetuning.uk `/guides/llm-cost-calculator-guide.html` (legacy 1326, from 2026-04-24)
-> - finetuning.uk `/blog/why-most-ai-projects-fail-in-the-first-three-months.html` (1341, 2026-07-15)
-> - finetuning.uk `/guides/tool-ai-data-risk-checker-guide.html` (1341, 2026-07-15)
-> - gamesdesign.co.uk `/guides/tool-xp-curve-designer-guide.html` (1341, 2026-07-15)
+> 0 JSON LEAK, 13 healthy.** *(SUPERSEDED — see below.)*
 >
-> The original §5/§6 below are kept as the 2026-07-15 snapshot.
+> **✅ SUPERSEDED 2026-07-16, later same day: all 4 of these recovered, 17/17
+> healthy.** Re-queried directly against the DB: `llm-cost-calculator-guide`
+> (11:38), `why-most-ai-projects-fail-in-the-first-three-months` (11:38),
+> `tool-ai-data-risk-checker-guide` (13:06 — this was the embedded-quote/contact-link
+> page, hand-repaired then permanently fixed by `repairJSONStringLiterals`),
+> `tool-xp-curve-designer-guide` (11:36) — all show `content_data ? 'content'` =
+> true and clean `<section>`-opening `rendered_html`. Zero article-body instances
+> anywhere in the fleet are in a non-healthy state as of this edit. Full detail:
+> `005_HANDOFF_2026-07-15_article_body_root_cause_is_truncation_FIXED.md`.
+>
+> The original §5/§6 below are kept as the 2026-07-15 snapshot — a point-in-time
+> record, not current state. Re-run §6's query (or the length-independent version
+> above) for a live read.
 
 ## 5. Affected pages (13, as of 2026-07-15 — re-run the query in §6)
 

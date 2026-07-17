@@ -15,42 +15,65 @@ dartsonline.com `5fe8785b-223d-41a3-88ee-c07187622381`.
 
 ## 1. The immediate next action (this is why you're here)
 
-**`refresh_product_specs` runs but refreshes NOTHING — diagnose and fix it.**
+**`refresh_product_specs` — root cause FOUND and MEASURED; fix written and
+proven against the live model; awaiting a live run on v1.0.1126.**
 
-Live run 2026-07-16 (`product-spec-refresher`, robot-hands): orchestration
-COMPLETED, but `products: 5, refreshed: 0, failed: 5`, every product
-`no_fields_extracted`; `verified_date` unchanged at 2026-07-14.
+### The cause was NOT truncation. That hypothesis is RETRACTED.
 
-What's already ruled out (don't redo):
-- NOT a scrape failure — status would be `scrape_failed`; **Firecrawl worked**.
-- NOT a missing model — `mistral-small3.1:latest` IS on ollama-adapter
-  (`/api/tags`), and no "LLM call failed" was logged, so the HTTP call worked.
-- So: scrape OK → model call OK → model returned nothing usable.
+v1.0.1125 shipped the self-diagnosing logging; the re-run answered it flatly:
 
-**Leading hypothesis (UNTESTED — treat as hypothesis, not fact):** the action
-truncates page markdown to **6000 chars** before prompting
-(`refresh_product_specs_action.go`, `if len(md) > 6000`). Manufacturer pages
-front-load nav/cookie/marketing, so the spec table may sit beyond the cut,
-leaving the model correctly returning `{}` per my own prompt ("if the text is
-not a spec page for this product, return {}"). Weak corroboration only:
-sibling `../aaa_fails_to_mend/005_…article_body_root_cause_is_truncation_FIXED.md`
-— truncation has bitten this codebase before.
+- **Zero** `markdown_chars_sent` warnings — the model never returned `{}`. It
+  never returned anything.
+- **5/5** products died identically on `Post ".../api/chat": context deadline
+  exceeded (Client.Timeout exceeded while awaiting headers)`, spaced exactly
+  **92s** apart = the action's 90s HTTP timeout + 1.5s pacing delay.
 
-**Do this first — the run is now self-diagnosing.** I added logging (in the
-working tree, **needs an image build**) that prints the model's own output on
-unparseable content and warns on an empty object with `markdown_chars_sent`.
-So:
-1. Rebuild the chassis image (`make quick-agent-update` or the owner's flow).
-2. Re-run the refresher (RUNBOOK §5d has the exact kcat command).
-3. Read the log: `kubectl logs -n ai-persona-system <chassis-pod> | grep refresh_product_specs`
-   — it will now say whether the model returned `{}` (→ it never saw the specs
-   → truncation/wrong-page) or emitted non-JSON (→ prompt/format problem).
-4. If truncation: don't just raise 6000 — better to select the spec-bearing
-   region of the markdown (or use Firecrawl's extract/JSON mode) than to shove
-   a whole page at a 24B model.
+**Root cause: the 90s HTTP timeout was unreachable on this hardware.** Measured
+live: **no GPU on any node**; mistral-small3.1 is 24B/Q4 on 8 CPUs; prompt eval
+runs at **~3 tok/s**; Mistral-Small's chat template costs **~360 tokens (~120s)
+before our text**; markdown tables tokenize at ~2.6 chars/token. The shipped
+6000-char slice ≈ 3400 tokens ≈ **~19 min of inference behind a 90s timeout —
+off by ~12×**. Content never mattered; every product was doomed identically.
+
+The earlier "no LLM call failed was logged, so the HTTP call worked" conclusion
+came from **already-rotated logs** (~3.6k lines/10min on this pod). Absence of
+evidence read as evidence of absence. Capture with `kubectl logs -f > file`
+*before* triggering.
+
+### The fix (in the working tree; needs v1.0.1126 to be live)
+1. **Timeout 90s → 600s** — matches the same-shape sibling
+   `vet_med_price_scrape_action.go`, which has used 600s against this same model
+   all along. The original build copied that sibling's shape but neither its
+   timeout nor its text budget.
+2. **`selectSpecRegion()` replaces `md[:6000]`** — 1500-char budget, picking the
+   *densest spec-signal region* rather than the head of the page. At 1500 chars,
+   WHICH 1500 decides success. Also stays under Ollama's default **2048 num_ctx**
+   (above it, Ollama silently drops the START of the prompt — a second silent
+   -truncation trap).
+3. **num_predict 400 → 200** — output decodes at ~3 tok/s; 8 fields need ~70.
+
+**Proven before deploy** (port-forward to the live model, exact action prompt):
+**8/8 fields extracted correctly** — Schunk / 3 mm / 140 N / 0.7 kg / 0.19 kg /
+IP40 / Digital I/O / 24 V DC. The model and prompt were never the problem.
+5 unit tests green on `selectSpecRegion`.
+
+### So do this
+1. Confirm v1.0.1126 is on the pod **and contains the fix** (trap 1):
+   `kubectl exec -n ai-persona-system <pod> -- grep -ac "selected page region" /app/agent-chassis`
+2. Re-run the refresher (RUNBOOK §5d).
+3. Expect **~5-6 min per product, ~30 min for 5** — that is normal on CPU, not a
+   stall. Workflow `timeout_seconds: 900` → the reaper kills at **3× = 45 min**
+   (`coordinator.go:780-788`), so 5 products fit with ~13 min headroom. **Beyond
+   ~7 products this needs `limit` batching or a raised `timeout_seconds`** — the
+   constraint is CPU inference and it scales linearly.
+4. Verify: `SELECT name, content_data->>'verified_date', specifications FROM
+   products WHERE site_id='00ff3af5-…' AND category='gripper';` — verified_date
+   should advance to today.
 
 **Verify by evidence, not by plausibility** — see the MISSTEP entry in
-RUNNING_NOTES for why that sentence is in this handoff.
+RUNNING_NOTES. The truncation hypothesis was plausible, had a sibling
+precedent, and was wrong; one captured log line settled it. That is now twice
+this workstream has paid for the same lesson.
 
 ---
 
@@ -91,8 +114,8 @@ fixed the pages.
 
 | thing | state |
 |---|---|
-| `refresh_product_specs` | **runs, refreshes 0** — §1 above. Needs image build + diagnosis. |
-| my new extraction logging | in working tree, **needs image build** |
+| `refresh_product_specs` | **diagnosed + fixed, not yet proven live.** Root cause was the 90s timeout vs ~3 tok/s CPU inference (§1), NOT truncation. Fix proven against the live model offline (8/8 fields) + 5 unit tests; needs the v1.0.1126 run to be called done. |
+| extraction logging | **LIVE in v1.0.1125** — it is what produced the diagnosis. |
 | meta-commentary guard | deployed, never exercised by a real case |
 
 ## 5. Open decisions / known-unfixed (each already has an owner doc)
@@ -148,3 +171,13 @@ is mine**; read it for C/D/E:
   156**. Go: verifier registry + gate, `required_fields_missing`,
   `section_source_drift`, `resolveProducts`, meta-commentary guard,
   `refresh_product_specs`.
+- **RESOLVED 2026-07-16 (by the travelling-docs chat):** 151–156 were applied
+  but never recorded in `schema_migrations`, so the runner kept replaying 151,
+  hitting its duplicate-component error, and blocking there ("not cosmetic"
+  after all — it gated every later workstream's migrations). Each file's
+  artifacts were verified live in the DB (component, 5 products, page slots,
+  plan section, drift check in completeness-discovery config, refresher agent)
+  and ledger rows backfilled (`applied_by='ledger-backfill'`). Runner now
+  reports "Up to date". Convention going forward: whoever applies a migration
+  records it (the runner does this automatically; out-of-band applies must
+  insert the ledger row themselves).

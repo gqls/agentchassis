@@ -214,8 +214,12 @@ It's linked from the footer + use-cases CTA, so it must not stay blank.
 4. **Imagery (punch #5).** Blocked on the infra flake + the hero→SDXL routing gap, both in
    §8/§9. `scripts/wire_heroes.sql` is written and guarded — only run it against an asset you
    have *looked at* (the one SDXL hero generated was unusable; nothing is wired).
-5. **Per-page `<title>` + og:image meta** (partly stale marketing titles) and **there is no
-   `sitemap.xml` at all** (0 URLs) — SEO/social polish.
+5. **[✅ done turn 18] Titles / meta / sitemap.** 4 A2-violating titles fixed; honest
+   meta_descriptions on all 12 key pages that had none; **sitemap.xml LIVE** (27 URLs from the
+   pages table via git-adapter — no platform generator exists; a deploy-time `generate_sitemap`
+   action would fix this fleet-wide, all sibling sites lack one). robots.txt is
+   Cloudflare-managed (search allowed; AI-training bots blocked) — fine as is.
+   Remaining polish: og:image per page (currently site-wide og-card).
 6. **The build-out the brief actually asks for**: tools, illustrated guides, news surface,
    "AI working frontend" demos (label simulations honestly), infographics. Tool library
    already has reusable interactive components — deploy/adopt rather than rebuild. News feed

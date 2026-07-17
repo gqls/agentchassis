@@ -42,6 +42,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -56,6 +57,91 @@ import (
 var productSpecFields = []string{
 	"manufacturer", "stroke", "gripping_force", "payload",
 	"weight", "ip_rating", "interface", "voltage",
+}
+
+// specRegionMaxChars caps how much page text reaches the model, and it is a
+// throughput budget rather than a taste call. Measured 2026-07-16 against this
+// cluster's ollama-adapter (24B Mistral, Q4, CPU-only — no GPU on any node):
+// prompt eval runs at ~3 tok/s and markdown spec tables tokenize at ~2.6
+// chars/token, so every 1000 chars of page text costs ~2 minutes of inference.
+// 1500 chars ≈ 1030 prompt tokens ≈ 5.5 min/product, which fits the 600s
+// per-call timeout and keeps a 5-product run near ~30 min — inside the reaper's
+// 90-min ceiling. It also stays under Ollama's default 2048 num_ctx, which
+// would otherwise silently drop the START of the prompt (our instructions).
+// The old value was 6000, which needed ~19 min of prompt eval against a 90s
+// timeout: unreachable by a factor of 12. Raising this trades directly against
+// wall-clock — re-measure before you touch it. Same budget as the sibling
+// vet_med_price_scrape_action.go, which uses 1500 against this same model.
+const specRegionMaxChars = 1500
+
+// specSignalRe marks text that looks like gripper spec data — a field name or a
+// number with an engineering unit. Used only to RANK regions of a page, so
+// occasional false hits are harmless; missing the spec table is not.
+var specSignalRe = regexp.MustCompile(
+	`(?i)(technical\s+data|specifications?|technical\s+specs|datasheet|data\s+sheet|` +
+		`stroke|gripping\s+force|grip\s+force|payload|workpiece\s+weight|weight|mass|` +
+		`protection\s+class|ip\s?\d{2}|interface|voltage|manufacturer)` +
+		`|\d+([.,]\d+)?\s*(mm|kg|n\b|v\s?dc|vdc|volt|bar|ms\b)`)
+
+// selectSpecRegion returns the densest run of spec-looking lines that fits in
+// limit chars, instead of the page's first limit chars.
+//
+// This is not an optimisation — at 1500 chars the choice of WHICH 1500 decides
+// whether the run works at all. Manufacturer pages front-load nav, cookie
+// banners and marketing; their spec table often sits thousands of chars down,
+// so a head-of-page slice reliably hands the model everything except the data
+// it was asked for, and the model then correctly returns {}.
+//
+// If nothing scores (no spec signals anywhere) this degrades to the head of the
+// page — the old behaviour — and the caller's empty-object warning fires with
+// the evidence, which is the honest outcome for a page that has no specs on it.
+func selectSpecRegion(md string, limit int) string {
+	if len(md) <= limit {
+		return md
+	}
+	lines := strings.Split(md, "\n")
+	scores := make([]int, len(lines))
+	for i, l := range lines {
+		scores[i] = len(specSignalRe.FindAllString(l, -1))
+	}
+
+	bestStart, bestScore := 0, -1
+	for start := range lines {
+		sum, chars := 0, 0
+		for j := start; j < len(lines); j++ {
+			c := len(lines[j]) + 1
+			if chars+c > limit {
+				break
+			}
+			chars += c
+			sum += scores[j]
+		}
+		if sum > bestScore {
+			bestScore, bestStart = sum, start
+		}
+	}
+
+	var b strings.Builder
+	for j := bestStart; j < len(lines); j++ {
+		if b.Len()+len(lines[j])+1 > limit {
+			break
+		}
+		b.WriteString(lines[j])
+		b.WriteString("\n")
+	}
+
+	// A single line can be longer than the whole budget — Firecrawl emits pages
+	// whose body is one unbroken line — and the loop above would then select
+	// nothing and send the model an empty page. Fall back to a hard slice of the
+	// best line rather than silently asking about no text at all.
+	if strings.TrimSpace(b.String()) == "" {
+		tail := strings.Join(lines[bestStart:], "\n")
+		if len(tail) > limit {
+			tail = tail[:limit]
+		}
+		return strings.TrimSpace(tail)
+	}
+	return strings.TrimSpace(b.String())
 }
 
 var RefreshProductSpecsInputSpec = datahelpers.ActionInputSpec{
@@ -133,7 +219,14 @@ func RefreshProductSpecsAction(ctx context.Context, params ActionParams) (interf
 		return map[string]interface{}{"status": "complete", "refreshed": 0, "failed": 0, "products": 0}, nil
 	}
 
-	httpClient := &http.Client{Timeout: 90 * time.Second}
+	// 600s, not 90s. The extraction LLM is a 24B model on CPU-only nodes
+	// (no nvidia.com/gpu anywhere in the cluster), measured at ~3 tok/s prompt
+	// eval, and Mistral-Small's chat template alone costs ~360 tokens (~2 min)
+	// before a single character of page text. 90s could never return: the
+	// 2026-07-16 zero-refresh run was 5/5 "Client.Timeout exceeded while
+	// awaiting headers", not a content problem. Matches the same-shape sibling
+	// vet_med_price_scrape_action.go, which uses 600s against this same model.
+	httpClient := &http.Client{Timeout: 600 * time.Second}
 	refreshed, failed := 0, 0
 	var details []map[string]interface{}
 
@@ -292,10 +385,7 @@ func llmExtractProductSpecs(ctx context.Context, client *http.Client, model, pro
 		ollamaURL = "http://ollama-adapter.ai-persona-system.svc.cluster.local:11434"
 	}
 
-	md := markdown
-	if len(md) > 6000 {
-		md = md[:6000]
-	}
+	md := selectSpecRegion(markdown, specRegionMaxChars)
 
 	prompt := fmt.Sprintf(`You are extracting robot-gripper specifications for the product "%s" from the page text below.
 
@@ -316,7 +406,10 @@ Page text:
 		"messages": []map[string]interface{}{{"role": "user", "content": prompt}},
 		"stream":   false,
 		"format":   "json",
-		"options":  map[string]interface{}{"temperature": 0.0, "num_predict": 400},
+		// num_predict 200: the answer is 8 short fields (~150 tokens at most).
+		// Output decode also runs at ~3 tok/s, so an over-generous cap is pure
+		// wall-clock risk against the 600s timeout, not extra safety.
+		"options": map[string]interface{}{"temperature": 0.0, "num_predict": 200},
 	}
 	reqBytes, _ := json.Marshal(reqBody)
 
@@ -377,9 +470,16 @@ Page text:
 	// otherwise "no_fields_extracted" is an unexplainable dead end, which is
 	// what the 2026-07-16 zero-refresh run looked like.
 	if len(out) == 0 {
-		logger.Warn("refresh_product_specs: LLM returned an empty object — page text likely lacks this product's specs (check markdown truncation / wrong page)",
+		// Say which text the model actually judged, not just how much of it.
+		// "Empty object" has two very different causes — the page genuinely
+		// lacks specs, or selectSpecRegion handed over the wrong slice — and
+		// only the chosen text tells them apart.
+		logger.Warn("refresh_product_specs: LLM returned an empty object — the selected page region did not state this product's specs",
 			zap.String("product", productName),
-			zap.Int("markdown_chars_sent", len(md)))
+			zap.Int("page_chars_scraped", len(markdown)),
+			zap.Int("markdown_chars_sent", len(md)),
+			zap.Int("spec_signals_in_region", len(specSignalRe.FindAllString(md, -1))),
+			zap.String("region_head", truncate(md, 200)))
 	}
 	return out
 }

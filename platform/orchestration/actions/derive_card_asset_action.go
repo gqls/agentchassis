@@ -43,6 +43,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/imageryplan"
 	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
@@ -204,9 +205,11 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 	}, nil
 }
 
-// findCardSourceHero locates the active hero asset a card derives from: the
-// page's own plan hero first, then the site-scope brand hero (the same
-// fallback order plan_sections.ensureAssets uses at render time).
+// findCardSourceHero locates the active hero asset a card derives from, in
+// the canonical preference order (same as plan_sections.ensureAssets and the
+// content_image_missing check, so all three converge on one source): the
+// page's own plan hero, then the Lane B content hero (D13, literal
+// ContentHeroKey convention), then the site-scope brand hero.
 func findCardSourceHero(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string) (assetID, url, assetKey string, err error) {
 	const q = `
 		SELECT a.id::text, a.url, a.asset_key
@@ -219,10 +222,18 @@ func findCardSourceHero(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageN
 		 LIMIT 1`
 	err = db.QueryRowContext(ctx, q, siteID, "page", pageName).Scan(&assetID, &url, &assetKey)
 	if err == sql.ErrNoRows {
+		err = db.QueryRowContext(ctx, `
+			SELECT a.id::text, a.url, a.asset_key
+			  FROM assets a
+			 WHERE a.site_id = $1 AND a.asset_key = $2 AND a.status = 'active'
+			 LIMIT 1
+		`, siteID, imageryplan.ContentHeroKey(pageName)).Scan(&assetID, &url, &assetKey)
+	}
+	if err == sql.ErrNoRows {
 		err = db.QueryRowContext(ctx, q, siteID, "site", "").Scan(&assetID, &url, &assetKey)
 	}
 	if err == sql.ErrNoRows {
-		return "", "", "", fmt.Errorf("no active page or site hero for %q", pageName)
+		return "", "", "", fmt.Errorf("no active page, content, or site hero for %q", pageName)
 	}
 	if err != nil {
 		return "", "", "", fmt.Errorf("hero lookup failed: %w", err)

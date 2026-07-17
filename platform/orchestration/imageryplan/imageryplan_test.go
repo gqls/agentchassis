@@ -31,3 +31,19 @@ func TestImageRoleForPath(t *testing.T) {
 		}
 	}
 }
+
+// ContentHeroKey (Phase I3, D13) is shared by three consumers AND mirrored
+// inline in SQL as 'content_hero_' || replace(name, '-', '_') — pin the
+// transform so a Go-side change can't silently diverge from the SQL.
+func TestContentHeroKey(t *testing.T) {
+	cases := map[string]string{
+		"gripper-payload-calculator-guide": "content_hero_gripper_payload_calculator_guide",
+		"news-post":                        "content_hero_news_post",
+		"index":                            "content_hero_index",
+	}
+	for in, want := range cases {
+		if got := ContentHeroKey(in); got != want {
+			t.Errorf("ContentHeroKey(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

@@ -209,3 +209,37 @@ static→dynamic; difference is primarily the deploy stage) + prior-discussion a
   now** (relojistas-only) before any second domain lands; (3) `deploy_config.target` =
   semantic truth, consistency-check `github_repo`; (4) script the A→B migration incl. stale
   `sites`/B2 cleanup; (5) converge push→pull; (6) Class B stays the exception.
+
+## 2026-07-16 (d) — routing fix BUILT, SHIPPED (v1.0.1126), PROVEN LIVE; news serving on relojistas.com
+
+- **Code:** `resolveGitRepoNameDB` in helpers.go (explicit config → collected site_record →
+  `SELECT github_repo FROM sites WHERE domain=$1` → "sites"); wired into `git_commit`
+  (domain extracted first, then resolve) and `deploy_image_asset`'s `sendGitCommitRequest`.
+  7-subtest table in `git_repo_resolution_test.go` — all PASS (sqlmock; covers precedence,
+  NULL repo, unknown domain, DB error → safe default, nil DB/empty domain).
+- **Multi-session moment:** the working tree shifted mid-build (directory-export refactor
+  transiently broke compile). Discovered `multi_session_coordination/` + new repo-root
+  CLAUDE.md ruling: explicit-pathspec commits, **ref-builds** (`build-agent-chassis-ref` =
+  git-archive, cannot bundle WIP). My changes were swept into another session's commit
+  `87d13b864` — HEAD-archive verified compiling standalone → ref-built v1.0.1126.
+  **Operator shipped it** (push/kustomize/rollout theirs).
+- **Verified against the pod** (doctrine: pod, never tag): image v1.0.1126, `strings`
+  finds resolveGitRepoNameDB ×3.
+- **Allowlist (rec 2) already applied by another session/operator:** vm-sites commit
+  `d0fb7a1` — deploy-targets.json = {"relojistas.com": "167.233.33.159"}. Confirmed on
+  origin/main.
+- **rsync --delete trap disarmed BEFORE first pipeline deploy:** vm-sites' relojistas.com/
+  contained only assets/js/snippets.js (a 12:44 commit that never deployed — flaky runner),
+  while the box webroot held index+gracias from the June manual rsync. First Action run
+  would have wiped them. Mirrored the LIVE box files into the repo (checksums verified),
+  explicit-pathspec commit `19debed`, push → Action ran → box intact (checksums unchanged),
+  assets/ + data/ arrived.
+- **ROUTING FIX PROVEN LIVE:** feed pass 3 → orchestration COMPLETED, `repo=vm-sites`,
+  6 items rendered → Action → box → **https://relojistas.com/data/latest-news.json serving
+  real Spanish watch news** ("Últimas noticias de relojería"; Patek Milán etc., link-outs
+  to sources). News layer live end to end.
+- **Page cutover fired:** 4 built pages (index/historia/contacto/sobre-nosotros) flagged
+  needs_rebuild + page-rebuild orchestration dispatched — commits should now route to
+  vm-sites and replace the probe page. NOTE: new index = hero/latest-news/info-card-grid/CTA
+  — **no search form** until P5 (engine search-that-answers), so intent capture pauses at
+  cutover; accepted per plan sequencing.

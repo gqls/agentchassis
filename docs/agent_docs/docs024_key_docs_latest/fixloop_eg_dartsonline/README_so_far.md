@@ -584,6 +584,47 @@ Option 2 does double duty; option 3 is the more disciplined test of the model ch
 
 ---
 
+Sonnet 5 + 32000 is validated. max_tokens landed at 32000, the run COMPLETED, and the verdict used 10,360 output tokens — five times the old 2048 ceiling. So 32000 was the right call; 8000 would have been tight and
+2048 was fatal.
+
+The verdict hit my pre-registered rubric exactly. I predicted it would cite the response struct at anthropic.go:158-167. It quoted that struct verbatim and concluded: "It is true that GenerateText never decodes
+stop_reason, so a max_tokens-truncated 200 OK is indistinguishable from a complete one AT THAT LAYER." The bug is real and confirmed.
+
+But it returned REFUTED, because my symptom bundled a second claim that is no longer true. I asserted the truncation gets stored and silently rendered as an empty section. The loop found runtime evidence from 12:33
+today contradicting it:
+
+▎ "component article-body is missing required content field(s) [content] — refusing to render an empty section (likely LLM truncation or an unparseable response); leaving existing content untouched"
+
+I verified it: that guard is in the running binary. It shipped in the deploy that landed mid-session. The blanking is now loud, not silent.
+
+So I wrote the symptom from the 004/005 handoffs without re-verifying the downstream half against the pod — the third time today I've dispatched at a premise that had already moved. I wrote the handoff warning
+about exactly this trap, then walked into it again in the symptom text rather than the target. The loop refused to confirm a compound hypothesis with a false clause, cited the contradiction, and named the residue
+precisely: why the generation step produced empty content, and whether that traces to a max_tokens cutoff — "which would require stop_reason, still undecoded."
+
+That's the loop doing its job. The REFUTED is my fault, not its.
+
+Two corrections to what I told you
+
+I was wrong that the loop has been "silently truncating its own verdicts for its entire existence." diagnose-agent's verdict has hit its cap zero times. Old verdicts ran 1310–2008 tokens against a 2048 ceiling —
+tight (2008 is 98%), a latent risk, but never actually truncated. I overstated it and should have checked before saying so.
+
+I was wrong that generic/propose at 2048 was the fix-proposer being truncated. The proposer runs at max_tokens: 8000 and lands well under it. The 2048 propose entries are a different, older caller.
+
+What is solid and proven: the root ai_service shadows the step's (ai_actions.go:151-178); diagnose-agent's step-level max_tokens: 8000 was dead config; 17 calls across five agents hit their caps recorded as
+success=true; and 17 agents fleet-wide run at the hardcoded 2048, ten of them declaring max_tokens that does nothing.
+
+Where this leaves the two candidates
+
+The stop_reason gap is confirmed real and unfixed — but its blast radius is smaller than I framed it, because the render guard now catches the article-body path loudly. It still matters for the other capped agents,
+which have no such guard.
+
+The root-shadowing config bug is now the stronger case: proven by direct experiment (32000 landed only after moving it to root), fleet-wide, nobody else touching it, and it can't shift — plus your runbook actively
+documents it backwards, which will keep costing people hours.
+
+I'd re-dispatch at the stop_reason gap with the stale clause stripped out — mechanism only, no downstream claim — which should CONFIRM cleanly and give a proper graded result. But I've now burned three runs, two of
+them on premises I should have checked first, so I'd rather you call it than assume.
+
+---
 
 
 

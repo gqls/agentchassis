@@ -664,3 +664,97 @@ unparseable content and warns explicitly on an empty object, including
 `markdown_chars_sent`. That single log line should make the next run
 self-diagnosing (it will say whether the model saw the specs at all).
 **Needs the next image build to take effect.**
+
+---
+
+## Session 10 (2026-07-16, later) — the zero-refresh cause, MEASURED
+
+### The hypothesis above was WRONG. Truncation had nothing to do with it.
+
+v1.0.1125 shipped the self-diagnosing logging. Re-ran §5d twice. The evidence
+killed the truncation theory outright:
+
+- **Zero** `markdown_chars_sent` warnings across the whole run — the model
+  never returned `{}`. It never returned *anything*.
+- **5 of 5** products failed identically:
+  `Post ".../api/chat": context deadline exceeded (Client.Timeout exceeded
+  while awaiting headers)`, at 16:27:52, 16:29:24, 16:30:57, 16:32:29,
+  16:34:01 — exactly **92s apart** = the action's 90s HTTP timeout + the 1.5s
+  pacing delay. Metronomic. Not a content problem at all.
+
+**Root cause: the 90s HTTP client timeout was never survivable on this
+hardware.** Measured against the live ollama-adapter (port-forward + timed
+`/api/chat`):
+
+| measurement | value |
+|---|---|
+| GPU on any cluster node | **none** — `nvidia.com/gpu` absent on all 5 |
+| ollama-adapter resources | 8 CPU limit, 20Gi, `ollama/ollama:latest` |
+| model | mistral-small3.1, 24B, Q4_K_M (15.5 GB) |
+| prompt eval rate | **~3.0 tok/s** (measured twice: 3.07, 2.99) |
+| Mistral-Small chat-template overhead | **~360 tokens ≈ 120s before *our* text** |
+| markdown spec tables tokenize at | ~2.6 chars/token |
+| 2500 chars sent | 1404 prompt tok → **469s** eval, 513s wall |
+| **6000 chars (the shipped value)** | **≈3400 tok ≈ 1130s of prompt eval alone** |
+
+So the old config asked for ~19 minutes of inference behind a 90-second
+timeout — **unreachable by ~12×**. Every product was doomed identically
+regardless of what its page contained. Raising 6000 → more would have made it
+*worse*; the handoff's "don't just raise 6000" instinct was right, but for the
+wrong reason.
+
+### Why the earlier session concluded "the HTTP call worked"
+It read logs that had already rotated (the chassis pod emits ~3.6k lines/10min)
+and saw no "LLM call failed". Absence of evidence, taken as evidence of
+absence. This run captured logs with a live `kubectl logs -f` tail into a file
+*before* triggering — rotation can't eat the evidence that way.
+
+### The fix (working tree, needs image)
+1. **Timeout 90s → 600s.** Matches the same-shape sibling
+   `vet_med_price_scrape_action.go`, which has run 600s against this same model
+   all along. That sibling was the precedent the original build half-copied:
+   it took the Firecrawl+LLM shape but not the timeout, and used 4× the text.
+2. **`selectSpecRegion()` replaces `md[:6000]`** — 1500-char budget (the
+   sibling's number), and picks the *densest spec-signal region* of the page
+   rather than the head. At 1500 chars, WHICH 1500 decides whether it works:
+   manufacturer pages front-load nav/cookie/marketing. Degrades to head-of-page
+   when a page has no spec signals, which is the honest answer for such a page.
+   1500 chars also stays under Ollama's default **2048 num_ctx** — above that
+   Ollama silently drops the START of the prompt (our instructions). A second
+   silent-truncation trap, avoided by staying small.
+3. **num_predict 400 → 200.** Output decodes at ~3 tok/s too; 8 short fields
+   need ~70. An over-generous cap was pure wall-clock risk, not safety.
+4. **Fixed a bug in my own new code**: `selectSpecRegion` returned "" when a
+   single line exceeded the budget (Firecrawl emits single-line bodies) — the
+   model would have been asked about an empty page. Now falls back to a hard
+   slice. Caught by review + a test, not in production.
+
+**Proven before deploy** (port-forward to the live model, exact action prompt,
+1500-char region, num_predict=200): all **8/8 fields extracted correctly and
+grounded** — `{"manufacturer":"Schunk","stroke":"3 mm","gripping_force":"140 N",
+"payload":"0.7 kg","weight":"0.19 kg","ip_rating":"IP40","interface":"Digital
+I/O","voltage":"24 V DC"}`. The model and prompt were never the problem.
+Unit tests: 5 green on `selectSpecRegion` (buried table, short page, budget cap,
+long-line fallback, densest-region preference).
+
+### Budget check against the reaper
+Workflow `timeout_seconds: 900` (SQL 156); the reaper fails an orchestration at
+**3× that = 45 min** (`coordinator.go:780-788`). Projected run: ~366s/product ×
+5 ≈ **31 min** + scrapes ≈ ~32 min — fits, with ~13 min headroom. Per-call 600s
+timeout is ~1.6× the expected 366s. If products are ever added beyond ~7, this
+run will need `limit` batching or a raised `timeout_seconds` — the constraint is
+CPU inference, and it scales linearly.
+
+### Standing lesson (second time this workstream has paid for it)
+The MISSTEP entry says *verify by evidence, not plausibility*. The truncation
+hypothesis was plausible, had a sibling precedent, and was **wrong**. What
+settled it was one captured log line with the actual error text in it. Cheap
+instrumentation beat expensive reasoning — again.
+
+**Measurement caveat (recorded so nobody re-derives it):** a repeat of the same
+extraction returned in 41s with prompt eval at 1428 tok/s — that is Ollama's
+**prompt cache** replaying an identical prefix, not real throughput. Across real
+products the pages differ, so only the ~360-token chat template (shared prefix
+before the product name) is cacheable; the region tokens are always paid at the
+uncached ~3 tok/s. The ~31-min projection above deliberately uses the **uncached**
+rate. Don't size this from a warm repeat — that number is a mirage.

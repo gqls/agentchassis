@@ -93,6 +93,80 @@ Plus a false-positive suite (all silent): phone numbers, years, dates,
 guide hypotheticals ("100,000 daily calls"), formulas ("× 100"), Band/Tier
 labels, list ordinals, 24/7, versions, currency, reading times.
 
+## 2026-07-16 — Ruling session: all 9 findings remediated; specs de-poisoned; scan now CLEAN
+
+Owner rulings: **A** (fleet claim) → recast as catalogue capability ("can call on a
+catalogue of more than 150 agent definitions"); **B** (departments taxonomy) → requote
+as real functional areas (site build, design, content, research, quality audits, news,
+interactive tools, business intelligence — the doc-002 agent-family grouping; areas
+NAMED, never counted — a count is another rot-prone number); **C** + all
+least-privilege claims → concept retired entirely, rewrite/remove everywhere.
+Wording choice: "more than 150" over exact "157" on evergreen copy — the gte fact
+(value 157) supports both, survives catalogue growth, and V4 will flag if the
+catalogue ever drops below 150.
+
+**Root cause of the resurfacings, found and fixed: the SPECS were poisoned.** The
+2026-07-10 sweep cleaned pages but not the specs feeding the writer. Found and
+replaced across TWO rounds (first pass revealed only first-match-per-spec — the
+second, wide `regexp_matches(…,'g')` sweep found six more):
+
+1. `content_direction.emphasis` + `.formatted` + `site_plan.content_direction`:
+   "Secondary emphasis … 70+ agents across 8 departments …" → catalogue framing +
+   explicit "never describe the catalogue as a running fleet / no departments
+   taxonomy" guard.
+2. `strategy.content_strategy`: "70+ specialised agents across 8 departments, named
+   managing agents" → catalogue framing.
+3. `briefing.about_us`-adjacent description: "coordinates over 70 specialised agents
+   across 8 departments, each managed by a dedicated managing agent" → orchestrators
+   decompose goals into work items, dispatch to specialists.
+4. Blog-topic list (site_plan + content_direction ×2): least-privilege IAM topic removed.
+5. `content_direction.terminology` whitelist: "least-privilege IAM" element removed.
+6. Jargon rule: "…and least-privilege IAM do not need definition" → trimmed.
+7. **The smoking gun** — a `writing_rules` entry literally instructed the writer:
+   *"When referencing security, be specific about the mechanism — 'least-privilege
+   IAM policies and encrypted inter-agent communication' not 'enterprise-grade
+   security'."* Replaced with: name only mechanisms that actually exist. The writer
+   was never hallucinating — it was obeying direction.
+
+**Page fixes** (content_data AND rendered_html edited identically; no LLM):
+faq (agent-contract framing replaces least-privilege access), for-engineering-teams
+features card ("Depth Across the Catalogue") + closing text block, hierarchical
+guide topology paragraph (real topology: orchestrators → work items → specialists;
+department-supervisor layer removed), insights topics list (IAM → agent failure
+modes and recovery), technical-architecture Kubernetes paragraph (short-lived jobs
+with resource limits), features card ("Isolated agent workloads": own pod, own
+topic, per-type resource limits — all true) and catalogue-breadth paragraph.
+
+**Evidence base rev 4** (row `111b07af`): `least-privilege iam` widened to
+`least[ -]?privilege` per owner ("the concept has long since gone").
+
+**Deploy**: five `page_rerender` items (`triaged`, `item_key page_rerender:<page>`,
+handler page-rerender, plain re-assemble — no `reason`, deliberately: copy already
+corrected in both columns, keep the LLM away). Dispatch loop deploys via commit →
+GitHub Action → S3.
+
+**Acceptance artifact**: claimscan re-run over fresh export (95 components, rev-4
+evidence base): **0 findings, exit 0**. content_data sweep across all pages: CLEAN.
+
+**AI team personas — RULED 2026-07-16 (round 3): delete, NO ban.**
+`briefing.leadership_team` held three named AI personas ("Archivist — Head of
+Research (AI Managing Agent)", "Sentinel — Head of QA", "Quartermaster — Head of
+Operations") — U7-class, dormant (never on a live page). Owner ruled delete without
+banning (personas are not a banned-claim class for this site; a transparently-
+labelled AI-persona page remains a possible future choice). Inspection of the full
+array also found **entry 1 was "Peter Grenfell — Founder & Principal Consultant"** —
+the U5 invented person, ordered deleted 2026-07-09, still alive in the briefing spec
+wrapping the owner's real background (and the C4-overstated "each named agent is
+itself an orchestrator managing teams" claim). Deleted under the standing U5 ruling.
+Applied: `leadership_team` → `[]`; site_plan hero-image prompt dropped "with AI
+managing agents extending capability"; team-page direction rewritten to "presents
+the real founder profile only — no invented staff, and no AI personas presented as
+team members"; the "AI managing agents as social proof" sentence removed from
+content_direction (structured + formatted) and site_plan's nested copy. Wide sweep
+across all current specs (archivist|sentinel|quartermaster|managing agent|peter
+grenfell): CLEAN. No page re-render needed — nothing live referenced them. No
+evidence_base change (per ruling).
+
 ## DECISIONS (with rationale)
 
 1. **Shared engine in `datahelpers`** (`claims.go`), consumed by both the gate

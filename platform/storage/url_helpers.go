@@ -211,9 +211,11 @@ var ImagePurposes = map[string]struct {
 	// Content card (Phase I3, Lane B): the listing-card crop of a content
 	// entity's image, derived from the entity's hero — never a sibling
 	// generation. Same 16:9 aspect as heroes so the usual derivation is a
-	// pure downscale. JPG q82 sits well inside the ≤60KB card budget (D11:
-	// WebP deferred to Phase I7 — no encoder in the codebase).
-	"card":    {800, 450, 82, "jpg"},
+	// pure downscale. JPG q78: the first live run at q82 produced 64,097B
+	// from a busy photographic hero — just OVER the ≤60KB card budget (D8);
+	// q78 keeps dense sources under it. (D11: WebP deferred to Phase I7 —
+	// no encoder in the codebase.)
+	"card":    {800, 450, 78, "jpg"},
 	"default": {1200, 800, 85, "jpg"},
 }
 

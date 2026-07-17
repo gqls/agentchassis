@@ -218,6 +218,22 @@ func BuildSpec(r Row, checkName string) (string, error) {
 	return string(b), nil
 }
 
+// ContentHeroKey is the literal asset_key convention for a Lane B content
+// hero: a per-article image GENERATED from the article's own content (title,
+// description) for a page the planner gave no hero of its own (Phase I3,
+// D13 2026-07-16). Underscored to match the asset_key convention
+// (AssetKeyFilename renders it card-file style: content-hero-<page>.jpg).
+//
+// Shared by all three consumers so the convention cannot drift: the
+// content_image_missing check (emits the generation item under this key),
+// derive_card_asset (prefers it as the card source after the plan hero), and
+// plan_sections' ensureAssets (renders it on the article page after the plan
+// hero, before the site fallback). NOTE: SQL that needs this key inline uses
+// 'content_hero_' || replace(name, '-', '_') — keep in lockstep.
+func ContentHeroKey(pageName string) string {
+	return "content_hero_" + strings.ReplaceAll(pageName, "-", "_")
+}
+
 // HasActiveAsset reports whether an active asset exists for siteID + assetKey.
 func HasActiveAsset(ctx context.Context, db RowQueryer, siteID interface{}, assetKey string) (bool, error) {
 	var n int

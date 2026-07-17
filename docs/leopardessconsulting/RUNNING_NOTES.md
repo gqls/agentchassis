@@ -1168,3 +1168,69 @@ re-clobber on a later dispatch. Three were killed this turn.
 guide leaking "70+ agents / eight functional departments" on 2026-07-15, AFTER our sweep.
 Owner ruling pending in THAT thread; the content fixes will likely land back here. Two of the
 four flagged pages are archived (for-engineering-teams), lowering urgency.
+
+## Turn 18 (cont.) — claims-verification rulings APPLIED (owner accepted suggestions)
+
+The claims thread's V1 scan findings (9 occurrences / 5 slots / 4 pages) were ruled on by the
+owner — suggestions accepted. Applied here (bak_claims_rulings_20260716), replacing the
+fabricated "70+ agents / eight departments|functions|areas" taxonomy and the U10
+"least-privilege IAM" term with evidence-base facts:
+
+| Page | Fix |
+|---|---|
+| hierarchical-…-explained (blog, LIVE) | 4 replacements in article-body: "runs 70+ agents across eight functional departments"→"registry holds over 150 agent definitions"; "inter-department routing"→"routing"; "Each department has its own supervisor"→"Each family of work has its own supervisor"; "Worker agents within a department"→"Worker agents beneath a supervisor". **The TRUE topology (head orchestrator → supervisors → narrow workers, audit C4) was kept** — only the fabricated org taxonomy went. |
+| technical-architecture (LIVE) | "more than seventy agents operating in eight functional areas"→"more than 150 agent definitions — coordinators, specialists, analysts" (the word-form variant the regex almost missed). |
+| insights (LIVE) | "least-privilege IAM"→"least-privilege agent identity" (the verified phrasing). |
+| for-engineering-teams (ARCHIVED, ×2 slots) | cd fixed in place so the sleeping copy is safe if ever resurrected; NOT redeployed. |
+
+Method: text-level replace inside the content field via jsonb_set (targets were unique plain
+prose); **dual-branch escalation pre-check run on all three live pages BEFORE re-rendering**
+(0 rows — the new §9 guard works); section_data_resolved rerenders fired; verification
+monitor watches for zero banned residue + the new fact live.
+
+This closes the loop the claims spec §5 designed: check found → human ruled → operator applied
+in content_data → no auto-rewrite anywhere. The V1b work items will confirm clean on the
+check's next scan once it's deployed and enabled.
+
+## Turn 18 (final) — all 9 claims findings RESOLVED and verified live
+
+Tag-stripped verification (greps must strip tags — served HTML splits phrases like
+`<strong>70+</strong> agents`, which literal greps miss both ways):
+
+| Page | fleet-claim | dept-claim | IAM term | verified fact live |
+|---|---|---|---|---|
+| blog/hierarchical-…-explained | 0 | 0 | 0 | ✓ "150 agent definitions" |
+| technical-architecture | 0 | 0 | 0 | ✓ ×2 |
+| insights | 0 | 0 | 0 | (reworded — see below) |
+| for-engineering-teams (archived) | fixed in cd, not deployed | | | |
+
+**Coordination note:** insights was ALSO fixed by the claims-verification thread directly
+(component updated 17:29, after this thread's edit) — their wording ("agent failure modes and
+recovery") replaced the U10 phrase entirely rather than substituting the verified term. Same
+goal, no conflict in the result; but two threads are now touching leopardess content_data —
+future rulings should be applied from ONE side (suggest: the claims thread rules + this
+workstream applies, as designed in spec §5).
+
+Punch-list state after turn 18: items 1–4, 6–9 CLOSED; item 5 (imagery) two per-page heroes
+live + index hand-chosen, remainder is component work + Phase I3 (imagery workstream); item 10
+(voice) done for all pages that needed it. Site-wide: 0 banned claims in served HTML across
+all pages scanned, verified against the evidence base.
+
+## Turn 18 (close) — sitemap live; about/services heroes formally deferred to the imagery workstream
+
+**sitemap.xml LIVE** (was entirely absent — a fleet-wide gap: robot-hands/vonc/finetuning have
+none either, and no generator exists in the platform). Generated from the pages table
+(status IN active,deployed → 27 URLs, archived pages verified excluded), committed via the
+git-adapter (same route as the favicon; payload pattern in commit_brand_assets.sh). Verified:
+200, 27 <loc> entries, 0 archived leaks. robots.txt is Cloudflare-managed content-signals
+(search allowed, AI-training crawlers disallowed — checked stanza grouping; NOT a
+block-everything file) and can't carry a Sitemap: line from git; the well-known path suffices.
+Platform note: a `generate_sitemap` action run at deploy time would fix this fleet-wide.
+
+**about/services heroes — formally deferred with evidence:** hero-about is shared across
+**9 sites**, hero-services across 5. Adding an image field means a shared-schema change —
+the additive gated-field pattern ({{if .background_image}} + optional schema field, same class
+as turn 15's link_url gate) is the suggested fleet-safe approach, but it belongs to the
+imagery workstream (which owns component imagery and is mid-build on Phase I3), not a site
+session. leopardess imagery state: index (hand-chosen) + who-we-help + how-we-work (Banana
+illustrations) live; blog thumbnails + card images arrive with Phase I3.
