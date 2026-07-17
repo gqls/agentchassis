@@ -69,4 +69,13 @@ the F1.2 pilot through the full chain. The owner's future acts (not now, in
 order): merge/build image carrying `4b3d50f4c`+delta 2 → apply
 `0NN_feature_designer.sql` → approve a pilot spec work item.
 
+**Provenance note (same turn):** this turn's three doc artifacts
+(`0NN_feature_designer.sql`, this file, the schema doc's sign-off edit) were
+swept into a concurrent session's bulk commit `cf3803b49` ("product specs
+additions and miscellaneous runbooks and handoffs") between our add and
+commit — the exact index race `CLAUDE.md` documents. Content verified intact
+in that commit; per the forward-only rule, no corrective action — this note is
+the record. The delta-1 Go change committed cleanly under its own message
+(`4b3d50f4c`).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
