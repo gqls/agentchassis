@@ -2,6 +2,20 @@
 
 Newest first. Operational log; strategy in SUMMARY/PLAN.
 
+## 2026-07-17 (latest — EXPORTER LIVE; first autonomous publish)
+
+- directory-* agent image_tags bumped v1.0.1126 → v1.0.1134 (current pod-verified tag).
+- Kcat smoke (correlation 3a0c7463): COMPLETED in seconds. Exporter queried prod, built 5
+  files, committed via git-adapter (`ac3314fd` on sites/master), deploy served them. **First
+  fully autonomous publish of this site's data.**
+- All publication rules held in prod output: directory 2,109 (= dedupe), aggregates 13 rows
+  min n=3 (was 15 pre-dedupe — two area groups correctly fell below the floor), claimed `[]`,
+  attributed `[]` (no provenance). directory-metadata.json carries the policy string.
+- `directory-export-json` task ENABLED (48h cycle); last_completed_at stamped by the smoke.
+- Adoption cascade progressing meanwhile: classifier/tool-recreation/2 content pages complete,
+  strategy triaged, **needs_rerender triaged — verify hand-authored pages survive the first
+  rerender**; live site intact at time of writing.
+
 ## 2026-07-17 (later — ADOPTED; CLAUDE.md practices in force)
 
 - Read repo CLAUDE.md (multi-session rules) and follow it: pathspec commits per task,
