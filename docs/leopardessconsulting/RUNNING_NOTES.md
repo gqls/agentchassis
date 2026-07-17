@@ -1263,3 +1263,36 @@ scrape + 1 rss). NOT adopted; noted in PLAIN_VOICE_v2.md. Register changes, fact
 **Remaining rollout:** the other rewritten pages (services, how-it-works, our… use-cases,
 who-we-help, contact, about, engagement-model, faq, technical-architecture + the two blog
 posts) still carry v1-dense copy and should be moved to v2 page by page, same safe path.
+
+## Turn 20 (2026-07-17) — voice_tells checker BUILT, TESTED, and run live
+
+Per owner instruction ("make the voice checker exist"), built the deterministic lane of
+SPEC_voice_tells_check in one sitting, mirroring the claims layer exactly:
+
+| Piece | File | Status |
+|---|---|---|
+| Engine | `platform/orchestration/datahelpers/voicetells.go` — VoiceGate config (voice spec `voice_gate` key, opt-in by presence), 7 signals: banned_phrase (global tells + site bans), strawman ("not X, but Y" + staccato "Not a X. Not a Y."), em_dash_density, triad_density, long_sentences (share + mean), no_contractions, flourish_ending. Reuses claims ExtractAssertionText (tag-split solved once). | built, vet clean |
+| Corpus tests | `voicetells_test.go` — V1–V7 from the spec (real shipped copy both directions) + strawman + opt-in + contraction tests | ALL GREEN first run |
+| Discovery check | `discovery_checks/check_voice_tells.go` — name `voice_tells`, opt-in via voice_gate, long-form thresholds for blog/guides, one item per page (`voice:<page_id>`), severity ALWAYS medium, priority 40 (behind claims — truth outranks register), HITL-terminal | built + package tests green |
+| CLI | `cmd/voicescan` — same TSV contract as claimscan, exit 1 on findings | built + used |
+| Config | leopardess voice_gate seeded (10 site bans from banned_language, curated to machine-safe regex; bak_voice_gate_seed_20260717) | LIVE in DB |
+
+**First live scan: 111 findings across 85 components — calibration verified by construction:**
+- The v2 pages (index, services-restored) produced ZERO findings; the v1-dense pages lit up
+  (how-we-work about-content: strawman + 7 triads + 4 em-dashes — the worst page, correctly).
+- Em-dash density is the dominant signal (up to 41/1000 words on privacy) — the v1 register's
+  signature, exactly as the spec predicted.
+- It flagged OUR OWN hand-written 16 July copy (who-we-help cards/faq) as no_contractions —
+  correct: that was the pre-v2 register. The checker has no author bias.
+- Today's writer output on about (leadership-team bio) trips long_sentences — matches the
+  human read.
+
+**Deploy state:** code is local + tested; ships with the next chassis image (owner-gated, per
+practice). Enable AFTER the image lands by adding "voice_tells" to quality-discovery-agent's
+checks array (adding it before the image would hit an unknown check). NOT committed to git yet
+— awaiting owner's word per house rule.
+
+**Rollout implication (task pending):** the scan IS the v1→v2 worklist — the pages it flags
+are exactly the remaining rewrite targets: how-we-work, how-it-works, engagement-model,
+who-we-help (register pass), case-studies, careers, privacy, faq triads, tool guide intros,
+about leadership bio polish.
