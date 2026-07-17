@@ -1201,6 +1201,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Generic git-adapter caller (allowlisted verbs: commit, create_branch, create_pull_request) with data assembled from config paths/literals; awaits the adapter response; the write credential never leaves the adapter",
 		IsLocal:     true,
 	},
+	"select_review_panel": {
+		Handler:     SelectReviewPanelAction,
+		Category:    "diagnose",
+		Description: "Stage-3 relevance filter: deterministic (no-LLM) step that decides which OPTIONAL council reviewer seats are relevant to THIS fix, by matching the plan's edited file paths (+ optional extra text) against a config-driven seat->footprint map; emits panel.run_<seat> booleans the per-seat conditionals gate on. Pairs with council_decide's absent-reviewer=abstention tolerance",
+		IsLocal:     true,
+	},
 	"fixloop_digest": {
 		Handler:     FixloopDigestAction,
 		Category:    "diagnose",

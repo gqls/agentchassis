@@ -95,10 +95,23 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 	}
 
 	var reviews []councilReview
+	abstained := 0
 	for _, field := range reviewFields {
 		raw := datahelpers.ExtractNestedField(params.CollectedData, field)
 		if raw == nil {
-			return nil, fmt.Errorf("reviewer output missing at %q", field)
+			// A configured reviewer produced no output. Historically a hard
+			// error — a council that cannot read its reviewers must not wave a
+			// plan through. But the stage-3 relevance filter
+			// (select_review_panel + per-seat conditionals) deliberately SKIPS
+			// seats not relevant to a given fix, leaving their field absent. A
+			// skipped seat is an ABSTENTION, not a failure: it did not object,
+			// so it does not gate. Tolerate it, and count it so the decision
+			// stays auditable. (edit-quality and guardian are always-on and
+			// never skipped, so a council can never end up with zero opinions.)
+			abstained++
+			logger.Debug("diagnose_council_decide: reviewer abstained (field absent — skipped by relevance filter)",
+				zap.String("field", field))
+			continue
 		}
 		rb, err := planBytes(raw) // same map-or-string defence as the plan itself
 		if err != nil {
@@ -121,16 +134,25 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		reviews = append(reviews, rv)
 	}
 
+	if len(reviews) == 0 {
+		// Defensive: the always-on seats (edit-quality, guardian) mean this
+		// cannot happen in practice, but a council with zero opinions must
+		// never read as "all approve". Fail closed.
+		return nil, fmt.Errorf("no reviewer produced output (all %d configured reviewers abstained) — a council with no opinions cannot decide", abstained)
+	}
+
 	decision, decidedBy := decideCouncil(reviews, hardVeto)
 
 	report, _ := json.Marshal(map[string]interface{}{
 		"decision":   decision,
 		"decided_by": decidedBy,
 		"reviews":    reviews,
+		"abstained":  abstained,
 	})
 	metadata, _ := json.Marshal(map[string]interface{}{
 		"decision":  decision,
 		"reviewers": len(reviews),
+		"abstained": abstained,
 	})
 	if _, err := params.DB.ExecContext(ctx, `
 		INSERT INTO diagnosis_artifacts (
@@ -189,6 +211,7 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		zap.String("decision", decision),
 		zap.String("decided_by", decidedBy),
 		zap.Int("reviewers", len(reviews)),
+		zap.Int("abstained", abstained),
 		zap.Int("round", round),
 		zap.Bool("should_revise", shouldRevise),
 		zap.Bool("should_reframe", shouldReframe))
@@ -197,6 +220,7 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		"decision":       decision,
 		"decided_by":     decidedBy,
 		"reviewers":      len(reviews),
+		"abstained":      abstained,
 		"round":          round,
 		"should_revise":  shouldRevise,
 		"should_reframe": shouldReframe,
