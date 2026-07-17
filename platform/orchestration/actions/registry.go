@@ -1315,6 +1315,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Render latest-news component from content_feed_items",
 		IsLocal:     true,
 	},
+	"render_rss_feed": {
+		Handler:     RenderRSSFeedAction,
+		Category:    "feed",
+		Description: "Render outbound RSS 2.0 feed.xml from content_feed_items (gated by deploy_config.rss_feed)",
+		IsLocal:     true,
+	},
 	"evaluate_news_feed": {
 		Handler:     EvaluateNewsFeedAction,
 		Category:    "feed",
