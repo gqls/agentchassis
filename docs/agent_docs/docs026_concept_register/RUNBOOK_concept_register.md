@@ -97,8 +97,42 @@ Prior `fix-proposer` row snapshotted first (rollback available via
 
 **Remaining:** watch the next real fix-loop run to confirm the new reviewer's
 output parses cleanly in production traffic (verified via direct DB read so
-far, not yet exercised end to end). Candidate A (reuse-agent) remains
-unbuilt — same process applies if a second seat is wanted later.
+far, not yet exercised end to end).
+
+**2026-07-17: candidate A (reuse-agent) also applied — council is now 4
+reviewers.** `review_editquality → review_bug_historian → review_reuse_agent
+→ review_guardian → council_decide`. Full record:
+`PILOT_reuse_agent_reviewer.md`. Correctly re-grounded to `DEV-001` (not
+`tool-lifecycle.md` as first framed — that category's density turned out to
+be about a different, already-covered theme). Pre-flight checked for
+in-flight council activity first (none found).
+
+You then asked for 10 more, in a specific order (see
+`PLAN_concept_register.md` "Ten more council-member candidates"). Building
+started with guidelines-agent next.
+
+### B7. Decide how to scale past 4-5 reviewers — surfaced 2026-07-17
+Going 3→4 reviewers cost ~33% more latency/spend per council round. Building
+all 10 requested seats the same way (more always-on sequential steps) would
+mean 14 sequential LLM calls per decision, on a council about to gate all
+platform commits via the concurrent "council gate" thread
+(`fixloop_eg_dartsonline/DESIGN_feature_builder_and_council_gate.md`). Three
+options, not decided unilaterally: (a) build all 10 as always-on regardless;
+(b) build the relevance-filtering activation mechanism first (already
+sketched in `PLAN_concept_register.md` §Stage 3) so only 2-5 relevant seats
+fire per run; (c) pace it — a couple more broadly-applicable seats now,
+defer narrow specialists until (b) exists. Currently proceeding with your
+given order while this stays open — flag if you want to pause and resolve it
+before seat #3.
+
+### B8. Read the council-gate thread's own open decision — it names this workstream directly
+`fixloop_eg_dartsonline/HANDOFF_2026-07-17_council_gate_thread.md` asks, as
+one of ITS OWN owner-decisions-to-collect: "Seat roster for the gate: the 3
+live seats, or wait for more concept-register stage-3 seats?" That thread is
+building the delivery vehicle for everything this workstream produces — its
+own words: "no competing design." Worth reading both handoffs together before
+deciding how many more seats to build right now vs. let that thread proceed
+with what exists.
 
 **2026-07-17 update:** the loop delivered its first real-case CONFIRMED
 diagnosis (`MDL-038`, "BUG A" — `GenerateText` never decodes `stop_reason`,

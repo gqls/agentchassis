@@ -33,6 +33,10 @@ entries at the bottom. Update every turn.
 | 2026-07-16 | User picked bug-historian over reuse-agent as the pilot seat to build; wrote a read-aloud summary doc + the full pilot spec (charter, curated context, prompt, exact patch) | **confirmed** (spec complete, application deferred to user) |
 | 2026-07-16 | Bug-historian APPLIED to production `clients_db` (postgres-clients-0/ai-persona-system) with user's explicit named sign-off — council is now 3 reviewers | **confirmed, live** (verified via direct DB read; not yet exercised on a real run) |
 | 2026-07-17 | Added `MDL-038`/`039` (BUG A/B, found by fixloop's first real-case run); confirmed independently that `fix-proposer` is unaffected by BUG B (no root `ai_service` key) | **confirmed** (both independently verified against live source, not just docs) |
+| 2026-07-17 | User asked for the next 10 council-member candidates; delivered a ranked list grounded in a fresh rediscovery-frequency scan + FIX-036's named roster | **confirmed** (list delivered, none built yet at time of asking) |
+| 2026-07-17 | User: "yes, reuse agent, then in the order you suggest." Reuse-agent built and APPLIED (council now 4 reviewers); its original grounding (tool-lifecycle.md) corrected to the real charter (DEV-001) while building it | **confirmed, live** |
+| 2026-07-17 | Discovered a concurrent "council gate" thread building a service to run ALL platform commits through this same council — explicitly named this workstream as its seat-roster dependency | **noted, not actioned** (informational, directly relevant to pacing the remaining 9 seats) |
+| 2026-07-17 | Surfaced a scaling concern (10 more always-on sequential reviewers = 14 LLM calls/decision) before building seat #3 onward | **flagged, awaiting user direction** |
 
 ---
 
@@ -432,5 +436,66 @@ addition" note), `PLAN_concept_register.md` (stage-3 status + backlog), and
 `RUNBOOK_concept_register.md` (B5) to reflect the current state: bug-historian
 live but still unexercised, and why that's not a problem (BUG A's dispatch is
 the owner's call, same as it's always been).
+
+## Turn 16 — 2026-07-17 — Ten more candidates, reuse-agent built and applied, a scaling concern surfaced
+
+User: "please list the next 10 council members you have in mind." Recomputed
+the rediscovery-frequency scan fresh against the current 1,633-concept
+register (the earlier one was against 1,627, now stale), cross-referenced
+against FIX-036's named roster (guidelines agent, compliance/legal eye,
+pipeline-guardians per master workflow, specialist knowledge agents — all
+still unbuilt) and the platform's actual master workflows. Delivered a ranked
+10: reuse-agent, guidelines agent, adoption-pipeline guardian, diagnosis-loop
+guardian, improvement-loop guardian, compliance/legal eye, render-pipeline
+guardian, LLM-reliability specialist, debugging/incident-lore historian,
+documentation/contextkit specialist — each grounded in specific register
+concepts, not just a category name.
+
+Mid-turn, user volunteered: "the bug-historian is currently being tested in
+a diagnosis loop" — relevant since it directly concerns the "not yet
+exercised" open item. Noted, but stayed focused on the requested list; a
+filesystem check (no DB access) turned up a flurry of new fixloop activity
+including files literally named `0NN_council_gate.sql` and
+`HANDOFF_2026-07-17_council_gate_thread.md` — read both. **A separate
+concurrent thread is building a service that decouples the review council
+from fix-proposer specifically so any thread's diff (not just fix-loop's own)
+can run through it, eventually gating all platform commits via PR-mode.**
+Its own design doc states explicitly: "seats added via concept register
+stage 3 immediately serve BOTH the fix loop and the gate... no competing
+design," and its handoff lists as one of its own open owner-decisions:
+"Seat roster for the gate: the 3 live seats, or wait for more concept-register
+stage-3 seats?" — this workstream's output is literally that thread's
+dependency.
+
+User: "yes, reuse agent. then in the order you suggest." Building it surfaced
+a correction worth making honestly rather than quietly: the reuse-agent's
+originally-cited grounding (`tool-lifecycle.md`'s citation density) turned out,
+on closer reading of the actual concepts, to be about a different theme
+(tool-clobber protection, already in the bug-historian's curated context) —
+the real charter is `DEV-001` (development-guide.md) plus FIX-036's own
+founding incident (a reinvented trigger+triage SQL pair). Corrected before
+building rather than building the wrong thing to match a stale citation.
+
+Wrote `PILOT_reuse_agent_reviewer.md` and the v7 SQL patch (same 5-edit
+pattern as v6: re-point the chain, insert the step, extend both
+`review_fields` arrays, extend `repropose`). Verified syntax with the same
+comment-aware tokenizer as before. Before applying, checked for in-flight
+fix-proposer/council activity given the user's live-test comment — found
+none (zero orchestrations have ever reached a review step, consistent with
+BUG A's fix dispatch still awaiting the owner's go). Also noticed
+`fix-proposer`'s `updated_at` had changed since the v6 application without
+the step structure changing — verified the content matched exactly before
+overwriting, rather than assuming. Applied v7; verified live: 4-reviewer
+chain wired correctly, both `review_fields` arrays extended, prompt content
+intact (2,906 chars).
+
+**Surfaced, not silently ploughed through:** building the remaining 9
+candidates the same way (more always-on sequential steps) would mean 14
+sequential LLM calls per council decision — a real latency/cost concern for
+a council about to gate all platform commits, not a reason to stop but a
+reason to ask before continuing at that scale. Documented three options in
+`PLAN_concept_register.md` and `RUNBOOK_concept_register.md` (B7/B8); pausing
+on seat #3 to ask directly rather than assume "in the order you suggest"
+meant "all 10, always-on, no further check-in."
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

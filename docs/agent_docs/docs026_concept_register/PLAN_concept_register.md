@@ -172,32 +172,106 @@ purely advisory by design (confirmed via `diagnose_council_decide_action.go`
 that any reviewer's `veto` triggers rejection regardless of `hard_veto_from`,
 so its prompt offers only `approve|object`, never `veto`). **Not yet
 exercised on a live fix-loop run** — verified via direct DB read, not yet
-watched end to end in production traffic. Candidate A (reuse-agent,
-`tool-lifecycle.md`) remains unbuilt.
+watched end to end in production traffic.
 
-**Update 2026-07-17 — still not exercised, but for a good reason.** The
-diagnosis loop delivered its first real-case CONFIRMED diagnosis the same day
-(`MDL-038`, "BUG A" — see below) — but "fix dispatch for BUG A (CONFIRMED →
-fix-proposer) awaits owner go" per fixloop's own running notes. Fix-proposer
-(and therefore the bug-historian) has not actually run yet; the diagnosis
-stage completing is not the same as the council seeing a plan. Also confirmed,
-independently, that a second bug found the same session (`MDL-039`, "BUG B" —
-a root-vs-step `ai_service` config-shadowing defect with a 17-agent fleet
-blast radius) does **not** affect `fix-proposer`: re-read the file directly
-and confirmed its `default_config` has no top-level `ai_service` key, so the
-bug-historian's step-level `max_tokens` config is unaffected.
+**Update 2026-07-17 — candidate A (reuse-agent) is also LIVE.** Applied via
+`0NN_fix_proposer_v7_reuse_agent.sql` after re-grounding it correctly: the
+charter is `DEV-001` (reuse-before-create discipline, `development-guide.md`)
+plus FIX-036's own founding incident (a reinvented trigger+triage SQL pair) —
+not `tool-lifecycle.md`'s citation density as originally framed, which turned
+out to be about a different theme (tool-clobber protection, already in the
+bug-historian's context). Council is now **4 sequential reviewers**:
+`review_editquality → review_bug_historian → review_reuse_agent →
+review_guardian → council_decide`. Full record:
+`PILOT_reuse_agent_reviewer.md`.
 
-**Scope boundary — deliberately not yet done:** this design has not been
-implemented against the live `0NN_fix_proposer.sql` workflow. That file belongs
-to the actively-developed [[fixloop-workstream]] (tool complete as of
-2026-07-16 — all 4 triage/escalation phases live, v1.0.1122/1123), whose own
-`SUMMARY_where_we_are_2026-07-16.md` independently states the identical
-boundary: "Wiring stage-3 seats into the live fix-loop workflow is a
-cross-workstream production change the owner has reserved for explicit
-sign-off." FIX-035's standing rule is "awareness before autonomy." Next
-concrete step, when ready: pick one pilot category (candidate A or B above) and
-add it as a single extra reviewer step, rather than building all
-category-reviewers at once.
+Also confirmed: the diagnosis loop delivered its first real-case CONFIRMED
+diagnosis this week (`MDL-038`, "BUG A") but its fix dispatch to fix-proposer
+"awaits owner go" — the council still has not reviewed a real case yet.
+Pre-flight checked before applying v7 (and would recheck before any future
+seat): zero fix-proposer orchestrations have ever reached a review step.
+Separately confirmed a second bug found the same session (`MDL-039`, "BUG B"
+— root-vs-step `ai_service` config-shadowing, 17-agent blast radius) does
+**not** affect `fix-proposer` (no top-level `ai_service` key).
+
+**A scaling concern, surfaced 2026-07-17 before building further.** Going
+from 3 reviewers to 4 was a modest ~33% latency/cost increase. The user asked
+for 10 more seats (see "Ten more council-member candidates" below) in a
+specific order. Building all 10 the same way — more always-on sequential
+steps in the same chain — would mean **14 sequential LLM reviewer calls
+before every council decision**, including every revise/repropose round. This
+is a real design tension, not a reason to stop, but worth resolving
+explicitly rather than silently compounding: see that section for the three
+options and which one is in progress.
+
+**Scope boundary, still in force:** wiring further seats into the live
+`0NN_fix_proposer.sql` workflow remains a decision made per-seat, following
+the same pattern as the first two — pre-flight check, explicit named DB
+confirmation, apply, verify, document. `fixloop_eg_dartsonline/` belongs to
+the actively-developed [[fixloop-workstream]], whose own
+`SUMMARY_where_we_are_2026-07-16.md` independently states this exact
+boundary. FIX-035's standing rule is "awareness before autonomy."
+
+**2026-07-17 — discovered a directly relevant concurrent thread: the
+"council gate."** A separate fixloop thread ("diagnosis fixloop 3") is
+building `fixloop_eg_dartsonline/DESIGN_feature_builder_and_council_gate.md`
+§2 — a service that decouples the review council from fix-proposer so
+**any** thread's diff can be run through it, eventually gating all
+`platform/`/`internal/`/`pkg/` commits via PR-mode, not just fix-loop's own
+fixes. Its own handoff doc states explicitly: "seats added via concept
+register stage 3 immediately serve BOTH the fix loop and the gate... no
+competing design" — this workstream's seat-building work is that thread's
+literal dependency, not a parallel effort. It also asks, as one of its own
+open owner-decisions: "Seat roster for the gate: the 3 live seats, or wait
+for more concept-register stage-3 seats?" — directly answered by whatever
+this workstream builds next. Worth reading before building seat #5 onward,
+since the gate's stated scope (`platform/`, `internal/`, `pkg/` — never
+docs/site content) is a real signal for which of the remaining 8 candidates
+matter most.
+
+## Ten more council-member candidates (2026-07-17)
+
+Derived the same way as the first two: a fresh rediscovery-frequency scan
+across the (now 1,633-concept) register, cross-referenced against FIX-036's
+named roster. User confirmed: build reuse-agent (done, above), then the rest
+in this order.
+
+1. **Reuse-agent** — DONE, live (see above).
+2. **Guidelines agent** — `development-guide.md` + `contracts-and-standards.md`.
+   FIX-036's own next-named seat. Grounded in `DEV-005` (wrapper-orchestrator
+   pattern, one of the *original two* stage-1 flagged rediscovered concepts)
+   plus `CTS-002`/`CTS-037`.
+3. **Adoption-pipeline guardian** — `adoption-pipeline.md`. Grounded in
+   `ADO-006` ("adoption writes first, classifier consumes") — the *other*
+   original stage-1 flagship rediscovered concept.
+4. **Diagnosis-loop guardian** — `diagnosis-loop.md`, the single
+   highest-density category in the register (7 of 41 concepts heavily
+   rediscovered). Reviews whether the diagnosis behind a fix plan followed
+   its own evidence discipline.
+5. **Improvement-loop guardian** — `improvement-loop.md`, a genuine "master
+   workflow" in FIX-036's framing; 5 hot concepts.
+6. **Compliance/legal eye** — FIX-036's fourth named seat. `legal-and-compliance.md`
+   itself is thin (1 concept — a register gap worth noting), but justified by
+   real severity: two live incidents this platform has already had (fabricated
+   pricing, fabricated marketing claims) that a compliance reviewer would have
+   caught earlier.
+7. **Render-pipeline guardian** — `styling-render-pipeline.md`, broader than
+   the bug-historian's one pattern family; where most silent, visually-invisible
+   bugs live.
+8. **LLM-reliability specialist** — `model-infrastructure.md`, home of
+   `MDL-038`/`039` plus `MDL-005`/`006` (7 citations each, among the highest
+   in the register).
+9. **Debugging/incident-lore historian** — `debugging.md`, the largest
+   category (74 concepts, 6 heavily rediscovered), deliberately broader than
+   the bug-historian: "has anything like this happened," not one pattern.
+10. **Documentation/contextkit specialist** — `contextkit-toolchain.md` +
+    `documentation-system.md`. `CTXK-015` is cited from 11 independent
+    sources — the single most-rediscovered concept in the entire register.
+
+None of #2-10 are spec'd to prompt-level detail yet. Each is real design work
+per seat (charter, curated context grounded in specific register concepts,
+prompt, patch) — not a mechanical checklist, as the reuse-agent regrounding
+above shows (the first framing of it was wrong on closer inspection).
 
 ## Coordination checkpoint — 2026-07-16
 
