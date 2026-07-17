@@ -50,8 +50,9 @@ pilot runs through the finished loop.
 | 2b. feature-implementer seeds | `0NN_feature_implementer.sql` + `_orchestrator.sql` | **DRAFTED** — awaiting owner apply, after image |
 | 2c. Triggers | `0NN_TRIGGER_feature_designer_v1.sh`, `0NN_TRIGGER_feature_implementer_v1.sh` | **DRAFTED** (092 envelope) |
 | 3. Seed discipline | encoded in validation (D4) + PR checklist rendering | **BUILT** (part of 1b/2a) |
-| 4. Pilot (F1.2) | ref/base as per-run input — the loop's own sibling gotcha | **NEXT** — needs image + seeds + an approved spec (RUNBOOK A1–A4) |
-| Image v1.0.1131 | first image carrying deltas 1+2 | **BUILT + PUSHED** 2026-07-17; rollout HELD for a quiet window (live pipeline at check time) |
+| 4. Pilot (F1.2) | ref/base as per-run input — the loop's own sibling gotcha | spec CREATED (`db066cac`, needs_human_review) — **awaiting owner approval + fire go** (RUNBOOK A4–A5) |
+| Image | deltas 1+2 in production | **LIVE** — v1.0.1132 (concurrent thread's rollout), pod binary verified 2026-07-17 |
+| Seeds | three agent defs in clients_db | **APPLIED & VERIFIED** 2026-07-17 (owner-approved in-session); inert until fired |
 
 ## Next steps (in order)
 

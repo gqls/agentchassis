@@ -152,4 +152,28 @@ carries the wrapper-orchestrator / dedup-contract / declared-contracts /
 schema-tier rules + the approve-don't-object meta-rule for stale guidelines.
 Graph re-validated (22 steps, all targets defined).
 
+## Turn 5 — 2026-07-17 — LIVE: image verified (v1.0.1132), three seeds applied, pilot spec created; approval is the owner's
+
+Owner answered the two questions: (1) another thread owns the rollout —
+hands off; (2) yes, apply the seeds after the pod verifies.
+
+The other thread's **v1.0.1132** landed while we watched — running pod
+binary verified (`feature_stage_route` count 3), so A1 closed without us
+touching the deployment. Applied the three seeds to
+postgres-clients-0/clients_db in order (`INSERT 0 1` × 3) and verified:
+step counts 22/22/3, designer chain editquality → bug_historian →
+reuse_agent → guidelines → guardian, 5 review_fields, no root `ai_service`
+anywhere. **The feature builder is now REGISTERED and inert in production.**
+
+A4: created the pilot spec work item
+`db066cac-c647-44bf-a3ca-e04416405b28` (capability_gap,
+needs_human_review, item_key f12-ref-input-pilot, goal + 3 code_pointers).
+Caught a runbook bug on the way: the site anchor is named `System
+(internal)`, not `system.internal` — the drafted INSERT would have silently
+inserted nothing; fixed in the runbook.
+
+**Remaining, both the owner's: the named approval UPDATE (runbook A4) and
+the credit-spending go to fire the designer (A5).** Mind the ~300s
+no-dispatch window if the chassis pod has just restarted.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

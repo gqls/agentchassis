@@ -10,19 +10,12 @@ image ships; the three seeds are DRAFT FILES, deliberately never executed by
 the loop — applying them is yours, after the image (that ordering is the very
 discipline the builder encodes). Then the F1.2 pilot runs the whole chain.
 
-## A1 — build + deploy the chassis image ◐ (built+pushed; ROLLOUT HELD)
+## A1 — build + deploy the chassis image ☑ DONE (via v1.0.1132)
 
-**Done 2026-07-17:** `docker.io/aqls/agent-chassis:v1.0.1131` built from
-committed HEAD (includes `c19b5d097`) and pushed. **Rollout deliberately
-held:** the cluster had a live pipeline (EXECUTING_STEP + 8 awaiting, fresh
-arrivals) — a chassis restart kills the executing step (never reaped,
-`bugs_open/003`) and drops spawns for ~300s. Pick a quiet moment, then:
-
-```
-sed -i 's/newTag:.*/newTag: v1.0.1131/' deployments/kustomize/services/agent-chassis/overlays/production/uk_001/kustomization.yaml
-kubectl apply -k deployments/kustomize/services/agent-chassis/overlays/production/uk_001/
-kubectl -n ai-persona-system rollout status deployment/agent-chassis --timeout=180s
-```
+v1.0.1131 was built from committed HEAD (`c19b5d097`) and pushed; a
+concurrent thread's rollout of **v1.0.1132** (which includes the same
+commits) landed first. Verified against the RUNNING POD 2026-07-17:
+`strings /app/agent-chassis | grep -c feature_stage_route` → 3. Done.
 
 Verify against the RUNNING POD, never git, never the tag:
 
@@ -33,17 +26,13 @@ kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
 
 Mind the ~300s no-dispatch window after the pods (re)start.
 
-## A2 — apply the three seeds (AFTER A1 verifies) ☐
+## A2 — apply the three seeds (AFTER A1 verifies) ☑ DONE
 
-In this order, each via psql into `postgres-clients-0` / `clients_db`
-(each snapshots the prior row itself; renumber 0NN when filing):
-
-1. `0NN_feature_designer.sql`
-2. `0NN_feature_implementer.sql`
-3. `0NN_feature_implementer_orchestrator.sql`
-
-Verify: `SELECT type, version, updated_at FROM agent_definitions WHERE type
-LIKE 'feature-%' AND is_active;` → three rows.
+Applied 2026-07-17 (owner-approved in-session) to
+`postgres-clients-0`/`clients_db`, in order, `INSERT 0 1` each. Verified:
+three active rows; step counts 22/22/3; designer chain editquality →
+bug_historian → reuse_agent → guidelines → guardian; 5 council
+review_fields; NO root `ai_service` key on any (MDL-039 guard).
 
 ## A3 — decide the designer's council roster is current ☐
 
@@ -53,39 +42,22 @@ in one day — re-check it is still current at apply time; if it moved again,
 mirror the edits BEFORE applying (same 4-edit shape as v6→v7→v8; see the
 seed's header note).
 
-## A4 — create + approve the F1.2 pilot spec ☐
+## A4 — create + approve the F1.2 pilot spec ◐ (created; APPROVAL IS YOURS)
 
-One work item, then one approval update (no new status values — approval
-lives in spec jsonb):
+Work item CREATED 2026-07-17 (site anchor is `System (internal)`,
+`eac60db8-…` — the draft's `system.internal` literal matched nothing; fixed):
 
-```sql
-INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity,
-  summary, spec, priority, handler_agent, status, created_by, item_key, max_attempts)
-SELECT id, 'owner', 'maintenance', 'capability_gap', 'medium',
-  'F1.2: make fix-implementer read ref/base per-run inputs (live-set to a stale branch)',
-  '{"builder_needed": "feature-builder",
-    "goal": "ref and base_branch become per-run inputs of the fix-implementer workflow, defaulting to main, so re-fires cannot silently read/branch from a stale base",
-    "code_pointers": [
-      {"path": "platform/orchestration/actions/diagnose_read_repo_files_action.go", "why": "ref resolution — ref_field exists since c19b5d097; the fix-implementer workflow does not use it yet"},
-      {"path": "platform/orchestration/actions/diagnose_prepare_fix_commit_action.go", "why": "base_branch resolution — branch_field/commit_message_field exist since c19b5d097"},
-      {"path": "docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/0NN_fix_implementer.sql", "why": "the live workflow whose v2 seed must pass input_data.ref/base through (read_current_files, prepare, create_branch)"}
-    ]}'::jsonb,
-  40, '', 'needs_human_review', 'feature-builder-runbook', 'f12-ref-input-pilot', 1
-FROM sites WHERE name = 'system.internal' LIMIT 1
-RETURNING id;   -- SAVE this work_item_id
-```
+**work_item_id = `db066cac-c647-44bf-a3ca-e04416405b28`**, status
+`needs_human_review`, item_key `f12-ref-input-pilot`, spec carries goal +
+3 code_pointers.
 
-Approve it (your explicit act, by name):
+Approve it (your explicit act, by name — nothing fires until this exists):
 
 ```sql
 UPDATE site_work_items SET spec = spec ||
   '{"owner_approval": {"approved_by": "<your name>", "date": "2026-07-17"}}'
-WHERE id = '<work_item_id>';
+WHERE id = 'db066cac-c647-44bf-a3ca-e04416405b28';
 ```
-
-(Adjust the sites anchor if `system.internal` is named differently — check
-`SELECT id, name FROM sites WHERE name ILIKE '%system%';` first. Schema
-first: `\d site_work_items` before running, per house rule.)
 
 ## A5 — fire the designer; grade before approving further ☐
 
