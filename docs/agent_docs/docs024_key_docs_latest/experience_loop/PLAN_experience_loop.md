@@ -1,9 +1,10 @@
 # PLAN — the Experience Loop: plan → challenge → build → verify, end to end, without manual intervention
 
 *Drafted 2026-07-17 from the vonc Spark game defects (owner screenshots) + the
-travelling-docs machinery. Status: PROPOSED — awaiting owner reaction, nothing
-built. House style: this PLAN travels; a RUNBOOK and RUNNING_NOTES join it when
-work starts.*
+travelling-docs machinery. Status: **ACTIVE 2026-07-17** — owner accepted the §7
+defaults (gauntlet = minimal-real; provocation details = static daily-emitted
+pages; pilot = fully autonomous on vonc). RUNBOOK_experience_loop.md and
+RUNNING_NOTES_experience_loop.md now accompany this PLAN.*
 
 ---
 
