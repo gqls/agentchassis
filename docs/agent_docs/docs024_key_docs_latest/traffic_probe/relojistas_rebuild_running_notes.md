@@ -350,3 +350,36 @@ static→dynamic; difference is primarily the deploy stage) + prior-discussion a
   full re-plan is the known clobber landmine — must use targeted routes
   (missing_news_page→content-gap-planner for news; nav-updater/link repair for cards), not
   build-site-planner. Presented to operator for direction.
+
+## 2026-07-17 — NAV-BUILD plan (operator: build Noticias + author Guías/Glosario content)
+
+Doc-searched (006_news_feed_pipeline_v2, FOCUS_navigation) + DB-verified. Findings:
+- **Header dead-ends are the DOCUMENTED nav bug — already code-fixed.** `GetHeaderNavFromPages`
+  / `GetFooterNavFromPages` (component_library.go:1731/1792) already filter
+  `build_status='deployed'`. So Noticias/Guías/Glosario show as dead links only because
+  they're `planned`. **Building+deploying them IS the fix** — they resolve and the filter
+  keeps them honest. (The live rendered nav still lists them because the pages were rendered
+  earlier; a rerender after they deploy refreshes it.)
+- **Exact page records:** `noticias-index` (/noticias/index.html, section-index),
+  `guias-index` (/guias/index.html, section-index), `glosario-index` (/glosario/index.html,
+  entity-directory), + templates `articulo` (blog-post) and `glosario-entrada` (entity-page).
+  Sections live in the **`resolved_composition`** aspect (there is NO `site_plan` aspect).
+- **news-listing + latest-news components EXIST** (content_components, 1 each) — Noticias is
+  buildable. Reference: gaswholesalers/robot-hands `/news.html` news-index =
+  `[hero, news-listing, call-to-action]`, archive JSON rendered because page_type='news-index'.
+- **Proven Noticias chain (006 §Ongoing enrichment):** missing_news_page check →
+  content-gap-planner (approach=new_page) → apply_gap_plan (page+nav+build item) →
+  page-build-handler (composes news-listing) → rerender → content-feed-refresh renders
+  news-archive.json. CAVEAT: gap-planner CREATES a page; we already have an empty
+  section-index `noticias-index`. Plan = **re-type noticias-index → news-index** and drive
+  the build onto it (keep the Spanish /noticias URL + nav), rather than let gap-planner mint
+  an English /news.html. render_news_section then produces /data/news-archive.json (it gates
+  on page_type='news-index').
+- **Guías/Glosario need CHILD content** (no guides, no glossary terms) → author starter
+  Spanish content: guide articles (blog-post instances under /guias) + glossary term
+  entities (entity-page instances under /glosario), then the index pages list them.
+- **Invented card links** (/ferias, /archivo, /guias/mantenimiento) live in the homepage
+  `info-card-grid` component's content_data (LLM-fabricated) → repoint archivo/ferias →
+  /noticias, drop/repoint mantenimiento; re-render index.
+- **Task order:** (4) Noticias news-index build → (7) card-link repair + index rerender →
+  (5) Guías articles → (6) Glosario terms. Tasks tracked in the session task list.
