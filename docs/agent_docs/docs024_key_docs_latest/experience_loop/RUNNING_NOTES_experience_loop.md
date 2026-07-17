@@ -62,3 +62,66 @@ PLAN header flipped PROPOSED → ACTIVE.
 
 **Next actor starts at**: RUNBOOK §3 phase table — Phase 1 (foundations
 migration) then Phase 2 (guard rails).
+
+---
+
+## 2026-07-17 (later, same session) — Phase 1 DONE, Phase 2 guard rails 1–4 DONE (code), image roll A next
+
+Owner said "please go ahead"; execution began. Everything below is committed
+per task and verified as stated; RUNBOOK §8a mirrors this as a state table.
+
+**Phase 1 — DONE.** Migration **163** (not 162 — that number was taken
+mid-flight by another session's toolgen-rerender tail, itself good news: it
+closes TP-002). Both subject_type CHECKs now allow `experience`; applied +
+ledgered; probe insert verified. Commit `378054bad`.
+
+**Guard rail 1 — DONE (DB live, Go awaits image).** Migration **164**:
+`pages.rebuild_policy generic|owned`, 38 pages seeded owned (36 `page_type=
+'tool'` fleet-wide + vonc `provocations-index`/`provocation`). Go: reconcile
+now emits `owned_page_review` (needs_human_review, NO handler) instead of
+`needs_page`→page-build-handler for tool/game-role or owned pages — retires
+the manual park step; `save_page_sections` hard-refuses owned pages before
+its heuristic guards. Rerender/assembly deliberately not gated. Commit
+`fb89f1071`.
+
+**Guard rail 2 — DONE (code).** `RekeyTravellingDocs` datahelper (refuses
+two-current collision), `rename_tool_identity` action (atomic function +
+slot_name + doc re-key + rename note; reports pages.name coupling and stale
+js_snippets/nav refs), and `create_tool_component` now derives page identity
+via `CanonicalisePage` (kills TL-003 flat-URL drift at birth;
+sanitiseFunction's tool- prefix keeps pages.name == function). Commit
+`aabd38161`. The arena re-attach (T4.2) is this action's first deliberate use.
+
+**Guard rail 3 — DONE (code).** `IsNoopHref`/`DeadControlAnchors` (+unit
+tests, green): bare `#`, `#!`, javascript:void — the class ClassifyLinkScope
+correctly files under anchor scope, which is why the gauntlet's dead CTAs
+were invisible to phantom_internal_links. Wired as (a) Tier-2 built-in
+`shell-dead-controls` and (b) `dead_controls` discovery check
+(page_components only — chrome nav toggles are legit #+JS; runtime-fill
+shells exempt; emits `dead_control`, needs_human_review, no handler).
+Enable SQL **165 written but NOT applied** — image-first ordering. Commit
+`f2824a713`.
+
+**Guard rail 4 — DONE (live).** Migration **166**: vonc `evidence_base`
+seeded — facts deliberately EMPTY (nothing quantitative is assertable until
+EXPERIENCE_PLAN data contracts exist), 9 banned patterns from a live-page
+harvest, allowed_entities for the fictional product nouns. **claimscan
+baseline: 14 findings across 49 components** — the full known gauntlet set
+PLUS three previously unknown fabrications: `14,203 Happy Customers`
+(gauntlet-cta component on about AND index), `10K+ Players Scored` (index),
+and mangled stat labels on about (`1 Daily Clients Served`, `4 Hours Awards
+Won`). All queued for the T4 strip. Also found: `unverified_claims` was
+already pre-enabled on quality-discovery-agent by its own workstream —
+V1b activates the moment the claims image ships, no further seed needed.
+Commit `c437682a6`.
+
+**Concurrency observed this session** (all handled): migration 162 claimed
+between drafting and execution; the build default inverted fleet-wide
+(default target now builds committed HEAD — RUNBOOK §0 updated); cluster
+rolled 1128→1130 by other sessions; `create_rerender_items_action.go` WIP
+belongs to the toolgen-tail session (file untouched by us, as planned).
+
+**Next**: T2.5 — build v1.0.1132 from committed HEAD, roll
+chassis+business-intel+vet-intel + DB image_tag, in-pod strings proof, apply
+165, trigger vonc completeness discovery (300s rule), verify owned-page
+routing + refusal, write CP1 here.

@@ -4,7 +4,10 @@
 travelling-docs machinery. Status: **ACTIVE 2026-07-17** — owner accepted the §7
 defaults (gauntlet = minimal-real; provocation details = static daily-emitted
 pages; pilot = fully autonomous on vonc). RUNBOOK_experience_loop.md and
-RUNNING_NOTES_experience_loop.md now accompany this PLAN.*
+RUNNING_NOTES_experience_loop.md now accompany this PLAN. Execution began the
+same day: Phase 1 + all four §4 guard rails are built (migrations 163–166;
+guard-rail Go awaits image roll A) — current state lives in RUNBOOK §8a, the
+narrative in RUNNING_NOTES.*
 
 ---
 
@@ -91,6 +94,11 @@ After MVP is GREEN end-to-end, the loop picks the next slice from the LATER
 list and repeats B→D. Images/copy polish are rounds, not blockers.
 
 ## 4. Guard rails this incident demands (independent of the pilot)
+
+*Status 2026-07-17: all four BUILT (RUNBOOK T2.1–T2.4, commits fb89f1071 /
+aabd38161 / f2824a713 / c437682a6). 1+4 are live (DB); 2+3's Go activates on
+image roll A. The claimscan baseline the moment rail 4 went live found 14
+findings — including three fabrications nobody had spotted.*
 
 1. **Page-ownership marker** — a page owned by a tool/widget (`tool-arena`)
    carries a marker that makes generic rebuild/re-render paths REFUSE (TL-001

@@ -18,10 +18,12 @@ Distilled from repo-root CLAUDE.md + HANDOFF §4; they are not optional.
   `platform/orchestration/actions/create_rerender_items_action.go` (a T2.1
   touchpoint) and an untracked probe test in `internal/adapters/browserrunner/`
   (the T5.1 image) — re-check both before editing those areas.
-- **Deploy discipline**: `make build-agent-chassis-ref REF=<committed sha>
-  IMAGE_TAG=<next>` (never the default working-tree build); bump the tag every
-  build; `kubectl set image` on agent-chassis + business-intel + vet-intel
-  (container `agent` on the intel pair) AND
+- **Deploy discipline** (UPDATED 2026-07-17, build default inverted fleet-wide):
+  `make build-agent-chassis IMAGE_TAG=<next>` now builds from **committed
+  HEAD** (git-archive; structurally cannot bundle WIP; `REF=<ref>` pins,
+  `-tree` is the deliberate WIP escape hatch). Commit your task, then build.
+  Bump the tag every build; `kubectl set image` on agent-chassis +
+  business-intel + vet-intel (container `agent` on the intel pair) AND
   `UPDATE agent_definitions SET image_tag='<next>'` (spawned Jobs read the DB tag).
   Verify IN-POD by binary string, never by git/tag:
   `kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "<new symbol>"'`.
@@ -67,7 +69,7 @@ Distilled from repo-root CLAUDE.md + HANDOFF §4; they are not optional.
 | G15 | Council pattern = ONE agent workflow: sequential `execute_llm_prompt` reviewer steps → deterministic Go `diagnose_council_decide` (verdicts `approve|object|veto`, `hard_veto_from`, `max_rounds: 3`, round state = `diagnosis_artifacts` rows `kind='council_report'` counted by orchestration_id) → conditional router (approve→complete / veto→reframe-or-escalate / object→repropose) | `fixloop_eg_dartsonline/0NN_fix_proposer_v6_bug_historian.sql`; `diagnose_council_decide_action.go` |
 | G16 | New-agent seeding convention: copy `image_repository/image_tag/command/resources/topics/health_config/env_vars` FROM an existing def; `snapshot_agent()` before update; upsert `ON CONFLICT (type, version)` | fix-proposer SQL :81-93 |
 | G17 | Trigger convention: durable intake work item (inert status, `ON CONFLICT DO NOTHING`) + kcat `orchestrate` envelope on the SAME correlation_id; coverage probe refuses on open items touching the target unless FORCE=1 | `fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh` |
-| G18 | Claims V1a (build gate, `validate_page_content.go` Check 8) + V1b (discovery check `unverified_claims`) are committed but in NO deployed image; shared engine `datahelpers/claims.go`; operator CLI `cmd/claimscan`. vonc has NO `evidence_base` row → gauntlet numbers currently outside every lane | claims RUNNING_NOTES; survey |
+| G18 | Claims V1a (build gate, `validate_page_content.go` Check 8) + V1b (discovery check `unverified_claims`) are committed but in NO deployed image; shared engine `datahelpers/claims.go`; operator CLI `cmd/claimscan`. UPDATE 2026-07-17: `unverified_claims` is already pre-enabled in quality-discovery-agent's checks array (activates when the image ships), and vonc's `evidence_base` now EXISTS (migration 166, T2.4 done) | claims RUNNING_NOTES; survey; live checks-array query |
 | G19 | `/data/provocations.json` daily emitter is NOT BUILT — live file is a hand-committed sample; design in `docs/social001_vonc_tiktok_social/PLAN_spark_provocation_pipeline.md`; JSON shape fixed by the client loader (`today/lobby/arena` keys); model action `render_news_section_action.go` | survey |
 | G20 | vonc publishes via git-adapter commits to `{domain}/{filename}` in the site repo; `DeployToHostingAction` is a stub; verify = `curl https://vonc.com/...` | `git_deployer_actions.go`; `github_client.go:59-70` |
 | G21 | `item_type` is free-form (no CHECK, no central enum); routing = emitter names `handler_agent`; two-strike + `unresolved` semantics come free via `insertWorkItem` | `load_work_item_actions.go:511,987` |
@@ -371,6 +373,18 @@ One decision menu per round boundary at most (D3).
 | Dead-control Tier-2 check | T2.3 (+T5.1 Tier-4 variant) |
 | (implicit) claims lane for vonc | T2.4 |
 | (implicit, D2) detail-page emitter | T4.1/T4.3 |
+
+## 8a. Execution state (kept current; newest change last)
+
+| Task | State | Evidence |
+|---|---|---|
+| T1.1 subject_type migration | **DONE 2026-07-17** — landed as **163** (162 was taken mid-flight by another session's toolgen-rerender tail) | `163_doc_subjects_experience.sql` applied+ledgered; commit `378054bad`; probe insert/delete verified |
+| T2.1 ownership marker | **DONE (code) 2026-07-17** — migration **164** applied (38 pages owned: 36 tool + vonc provocations-index/provocation); reconcile emits `owned_page_review`, save_page_sections hard-refuses | commit `fb89f1071`; Go awaits image roll A |
+| T2.2 rename re-key | **DONE (code) 2026-07-17** — `RekeyTravellingDocs` + `rename_tool_identity` action + CanonicalisePage at tool birth | commit `aabd38161`; awaits image roll A |
+| T2.3 dead-control check | **DONE (code) 2026-07-17** — helper+tests, Tier-2 shell check, `dead_controls` discovery check; enable SQL **165 written, NOT applied** (image-first) | commit `f2824a713` |
+| T2.4 claims lane | **DONE 2026-07-17** — migration **166** applied (evidence_base: facts empty, 9 banned patterns); claimscan baseline = **14 findings** incl. 3 previously unknown ('14,203 Happy Customers' about+index, '10K+ Players Scored' index, mangled about stat labels) → T4 strip list | commit `c437682a6`; baseline output in session log |
+| T2.5 image roll A + CP1 | **IN PROGRESS** — target tag v1.0.1132 (cluster at 1130, 1131 possibly claimed) | — |
+| T3–T5 | not started | — |
 
 ## 8. Standing landmines while executing
 
