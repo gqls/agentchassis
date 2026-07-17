@@ -1296,3 +1296,44 @@ checks array (adding it before the image would hit an unknown check). NOT commit
 are exactly the remaining rewrite targets: how-we-work, how-it-works, engagement-model,
 who-we-help (register pass), case-studies, careers, privacy, faq triads, tool guide intros,
 about leadership bio polish.
+
+## Turn 21 (2026-07-17) — image deployed; voice_tells LIVE in production and it caught a homepage regression on run one
+
+**CLAUDE.md followed.** Committed the voice checker (feat) + leopardess docs (docs) as two
+narrow pathspec commits. New chassis image deployed by another session; verified MY code is in
+the running pod per CLAUDE.md (`strings /app/agent-chassis | grep -c voice_tells` = 7;
+ScanVoice/voice_gate/"em-dash as a rhythm" = 7). Waited out the ~300s post-restart dispatch
+window before firing anything.
+
+**voice_tells ENABLED + validated end-to-end in production.** Added to quality-discovery-agent
+checks array (bak_qualdisc_agentdef_20260717; DB config, live immediately). Fired the agent →
+**25 voice_tells work items written**, all correctly routed: status needs_human_review,
+severity medium, priority 40, NO handler agent — HITL-terminal by construction, exactly as
+designed. The check produces the same findings in production as the CLI did.
+
+**★ THE CHECK EARNED ITS KEEP ON RUN ONE: it caught a clobbered homepage.** It flagged index
+with 11 findings — but index was my clean v2 page. Investigation: my v2 index (4 clean slots)
+had been **rebuilt at 14:14 into 6 slots** (added system-stats + case-studies-grid), with:
+- a CTO-register hero ("You've validated the use case…", em-dashes) — voice regression;
+- `system-stats` rendering "Functional Areas: 150+" (the audited-OUT functional-areas
+  fabrication, resurrected) and "150+%"/"150++" garbage from the shared suffix forcing;
+- `case-studies-grid` with **invented case-study titles** ("Validation Layer Stops Bad Data
+  Reaching the Warehouse", etc.).
+This is the `replan-clobbers-built-pages` landmine (another session's build-site-planner run
+regressed a built page). **The voice checker surfaced it; the claims V1 check did NOT** — the
+"Functional Areas 150+" is a mislabeled TRUE number (150 agents), a B3-class case the spec
+predicted V1 would miss and V3 would need. The two layers are complementary: voice caught the
+regression that exposed the claim.
+
+**Fixed:** deleted system-stats + case-studies-grid slots; pruned BOTH plan locations
+(pages.sections AND the site_plan aspect) so a rebuild can't resurrect them; re-applied v2
+content to the 4 good slots; re-rendered. Verified live: 0 functional-areas, 0 fake case
+titles, 0 system-stats section, 0 em-dashes, v2 hero back. bak_index_clobber_20260717.
+Only index was hit — who-we-help/about/services/contact all clean.
+
+**Open (for owner / next):** 25 voice_tells items + the claims item (llm-cost-calculator, 1
+banned claim) sit in needs_human_review — the v1→v2 rewrite worklist, now machine-generated.
+Minor polish: density findings carry an empty `snippet` (value/threshold are the useful
+fields; cosmetic). fixloop tools diagnosis still `awaiting_diagnosis` — its dispatch loop
+(`diagnose-pipeline-trigger`) ships DISABLED, so the 090 auto-fire is the only path and it
+didn't land; needs a re-fire or the loop enabled.
