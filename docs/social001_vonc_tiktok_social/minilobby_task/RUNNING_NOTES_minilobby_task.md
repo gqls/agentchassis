@@ -603,3 +603,38 @@ decisions and feed the step-3 content pass.
   recompute still gates on spec.reason=cta_links_stale only (image_landed / section_data_resolved
   rerenders byte-identical); no orchestrator-boundary or topic changes.
 - Anti-fabrication: label copy NOT hand-authored; label source unlock deferred to the content pass.
+
+---
+
+## 2026-07-17 — verification closed out; a fleet-wide 42P10 incident found and fixed en route
+
+**Correction to yesterday's entry:** the post-repair discovery pass (14:24) did NOT return "zero
+new items" — it correctly escalated the three copy-mismatch pages (about/archetypes/index) straight
+to `unresolved` via two-strike (each key already had two completed repair attempts: the 07-15 WS3
+run + the 07-16 broadened-recompute run). My same-day check missed them by querying an 80-minute
+window that had just slid past 14:24. That escalation IS the loop's designed terminal state.
+
+**The 42P10 incident (full write-up in 016b, "split-contract-drift").** Verification re-runs at
+16:57 and 18:05 FAILED at run_checks: migration 157 (claims session) added 'cancelled' to
+idx_swi_dedup's excluded set; Go's `workItemTerminalStatuses` — interpolated into insertWorkItem's
+ON CONFLICT WHERE — stayed at six, so arbiter inference failed (SQLSTATE 42P10) on EVERY keyed
+insert, aborting the whole discovery transaction fleet-wide. Fixed by adding 'cancelled' to the Go
+list (5e2711997, shipped v1.0.1127 via `make build-agent-chassis-ref` — first use of the
+committed-ref target, no WIP bundled) + follow-up sweep of four more stale hardcoded lists
+(21e74808e, incl. create_tool_cross_link_items' own ON CONFLICT copy that had been silently
+42P10-failing already). Verified: post-fix discovery runs COMPLETED with working inserts (the
+19:13 and 09:37 unresolved batches prove the insert path), and today's final run COMPLETED clean.
+
+**Stale-item hygiene (closed by artifact, evidence in result JSONB):** the four open
+phantom_internal_link items were 07-14/07-15 leftovers for defects already fixed (093's
+/how-it-works links, the arena nav rename) — live curl shows 0 occurrences → complete. The two
+07-15 shell empty_internal_href re-raises (lobby-grid / provocation-card) → wont_fix, same ruling
+as their 07-14 twins; the guard (v1.0.1125+) prevents new raises. Left open and genuine: the quiz
+"Get Your Full Report" empty href (product decision), needs_rebuild flags on gauntlet/quiz
+(handoff #2), and the three unresolved misdirected_cta triplets (content pass, handoff #3).
+
+**Observation for the fixloop workstream:** `unresolved` rows sit OUTSIDE idx_swi_dedup (by
+design), and the two-strike suppress window only looks at complete/failed <3h — so each qualifying
+discovery pass adds a fresh unresolved triplet for a persisting issue (three batches now: 14:24,
+19:13, 09:37). Harmless but noisy; within-window suppression (or dedup) for unresolved re-raises
+may be wanted.

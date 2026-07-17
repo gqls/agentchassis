@@ -11,10 +11,15 @@
 > Gauntlet (DB + live curl); the other flagged anchors are authored links to
 > real pages the recompute correctly KEEPS — they converge to human review via
 > the two-strike rule (a re-detection <3h after a completed repair is
-> suppressed; two terminal attempts → `unresolved`). Post-repair discovery ran
-> clean (zero new items). Full log: RUNNING_NOTES_minilobby_task.md, 2026-07-16
-> afternoon entry. Next steps are now #2–#4 below, plus a 096-style label
-> unlock for archetype-grid/archetype-combinations before the #3 content pass.
+> suppressed; two terminal attempts → `unresolved`). Post-repair discovery
+> escalated the three copy-mismatch pages straight to `unresolved` (each had
+> two completed repair attempts on record) — the loop's correct terminal state:
+> repairable links repaired, copy decisions parked loudly for humans. Full log:
+> RUNNING_NOTES_minilobby_task.md, 2026-07-16 afternoon + 2026-07-17 entries
+> (including the 42P10 dedup-index incident found and fixed during
+> verification — see 016b). Next steps are now #2–#4 below, plus a 096-style
+> label unlock for archetype-grid/archetype-combinations before the #3 content
+> pass, and the three `unresolved` misdirected_cta triplets to review.
 
 ---
 

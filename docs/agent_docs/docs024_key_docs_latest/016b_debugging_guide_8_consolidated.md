@@ -528,3 +528,23 @@ Category: content-vs-runtime-mismatch, string-surgery.
 5. **Section-index vocabulary:** give the planner a component vocabulary for archive/list pages — a list component with `kind=dynamic` + `data_feed` in the section descriptor — so this page class gets planned sections at all. (Ties to PLAN_dynamic_sections_and_loaders.md and the complex-tool build loop.)
 
 **Cross-refs.** RUNBOOK_phase2_provocation_js App I; NOTES_provocations-index.md; PLAN_dynamic_sections_and_loaders.md. Category tags: `silent-noop-success` (new), `planning-gap` (new).
+
+### Every keyed work-item insert fails 42P10 after a dedup-index migration — ON CONFLICT arbiter inference broke (2026-07-17)
+
+**Symptom.** Discovery runs (completeness-discovery-agent) FAIL at `run_checks`. Pod log shows a burst of `Failed to insert work item ... SQLSTATE 25P02 (current transaction is aborted)` — but 25P02 is the *cascade*, not the cause. The first failure in the log is the real one: `ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification (SQLSTATE 42P10)`. Because `RunDiscoveryChecksAction` runs ALL checks' inserts in one transaction, the first 42P10 poisons everything after it and the final commit fails — the whole discovery output for the site is lost, fleet-wide, on every run.
+
+**Diagnose.**
+- Find the FIRST error in the pod log, not the loudest. 25P02 lines name innocent items; the 42P10 line names the item whose insert was merely first after the break.
+- 42P10 is a **plan-time** error: the `ON CONFLICT (cols) WHERE <clause>` could not be matched to any index. It fails on EVERY insert through that path regardless of data.
+- Compare the live index predicate with the Go clause: `SELECT indexdef FROM pg_indexes WHERE indexname='idx_swi_dedup';` vs `workItemTerminalStatuses` (work_items_common.go), which is interpolated into `insertWorkItem`'s `ON CONFLICT ... WHERE status NOT IN (...)`.
+
+**Root cause.** Migration `157_swi_dedup_excludes_cancelled.sql` (correctly) added `'cancelled'` to `idx_swi_dedup`'s excluded-status set, but the Go list stayed at six statuses. For partial-index arbiter inference the ON CONFLICT WHERE clause must IMPLY the index predicate; `status NOT IN (6)` does not imply `status NOT IN (7)` (a `cancelled` row satisfies the former, not the latter) → no arbiter → 42P10. The index and the interpolated list are ONE contract split across SQL and Go — either side changing alone breaks every keyed insert.
+
+**Fix.** Add `cancelled` to `workItemTerminalStatuses` (commit `5e2711997`, shipped v1.0.1127) — comment on the constant now names the lockstep rule. Follow-up sweep (commit `21e74808e`): `create_tool_cross_link_items.go` had its own HARDCODED five-status ON CONFLICT clause (already missing `unresolved` — it had been silently 42P10-failing and Warn-logging for some time), plus three EXISTS/UPDATE *filters* using the stale list (store_generated_component, component_selector, core-manager site_admin_handlers) — those don't error but treated `cancelled`/`unresolved` rows as open blockers. All now derive from the shared constant (core-manager: literal kept in sync by comment).
+
+**Transferable rules.**
+1. When a migration touches a partial unique index used as an ON CONFLICT arbiter, grep for every `ON CONFLICT` naming those columns AND every interpolation of the status list — index predicate and clause must move in lockstep, in the same deploy window (DB change is instant; Go rides the next image — the gap is live breakage).
+2. In a shared-transaction insert loop, the first error is the only real one; everything after is 25P02 noise. Also note the loop Warn-logs and continues, then dies at commit — so the work item table shows NOTHING, which reads as "site is clean". Zero findings from a FAILED run is not zero findings.
+3. Never accept "zero new work items" as proof of a clean discovery pass without checking the orchestration status (`orchestration_states.status='COMPLETED'` for the discovery agent, not just the generic wrapper — the wrapper completes even when the child workflow fails).
+
+Category tags: `split-contract-drift` (new), `first-error-vs-cascade`, `silent-noop-success`.
