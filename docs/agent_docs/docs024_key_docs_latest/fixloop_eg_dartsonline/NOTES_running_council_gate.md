@@ -101,4 +101,21 @@ fix belonging to the fixloop/concept-register surface, not this thread's;
 reframed as launch-checklist step 0: launch on 5 seats, or wait for the
 relevance filter? (4) updated the read-aloud summary to match reality.
 
+**AND IT MOVED AGAIN before the turn closed** (their turns 18–19): the
+run_checks gap this thread flagged was fixed by their **v9, applied live**
+(gate docs/seed updated to match); their relevance-filter Go engine is built
+and committed (`37468ba65`) — registered but uncalled, council_decide
+abstention backward-compatible, so it rides the next chassis image inertly;
+and the owner chose deploy option (b): another thread leads the chassis
+deploy, no action assigned here. The v10 SQL wiring is deliberately unwritten
+until the image is pod-verified — when fix-proposer adopts the filter, the
+gate seed adopts it in the same migration (noted in the seed header).
+
+**Committed** (per CLAUDE.md, explicit pathspecs, one commit per task):
+`e8530898f` (the six gate files; 097's content had already been swept
+verbatim into another session's bulk commit `4f581dcf9` — nothing lost,
+forward-only) and `7fd6f6c64` (the PILOT §6 addendum; the running-notes
+cross-note had itself been swept into their `d1129f285` between my status
+check and commit — the concurrency again, again harmless).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
