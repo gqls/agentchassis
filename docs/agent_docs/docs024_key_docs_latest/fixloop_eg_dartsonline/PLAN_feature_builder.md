@@ -45,12 +45,13 @@ pilot runs through the finished loop.
 |---|---|---|
 | 1a. Staged-plan schema | `SCHEMA_staged_plan_v1.md` | **SIGNED OFF** 2026-07-17 (D1–D6) |
 | 1b. Staged validation | `diagnose_persist_fix_plan_action.go` | **BUILT** — commit `4b3d50f4c`, tests green, legacy path unchanged |
-| 1c. feature-designer seed | `0NN_feature_designer.sql` | **DRAFTED** (4-seat council) — awaiting owner apply, after image |
+| 1c. feature-designer seed | `0NN_feature_designer.sql` | **DRAFTED** (5-seat v8 council) — awaiting owner apply, after image |
 | 2a. Stage-loop machinery | `feature_stage_route_action.go` + seams (read `ref_field`, prepare branch/message/symbols, gate `test_packages_field`, spawn gate) | **BUILT** — commit `c19b5d097`, tests green |
 | 2b. feature-implementer seeds | `0NN_feature_implementer.sql` + `_orchestrator.sql` | **DRAFTED** — awaiting owner apply, after image |
 | 2c. Triggers | `0NN_TRIGGER_feature_designer_v1.sh`, `0NN_TRIGGER_feature_implementer_v1.sh` | **DRAFTED** (092 envelope) |
 | 3. Seed discipline | encoded in validation (D4) + PR checklist rendering | **BUILT** (part of 1b/2a) |
 | 4. Pilot (F1.2) | ref/base as per-run input — the loop's own sibling gotcha | **NEXT** — needs image + seeds + an approved spec (RUNBOOK A1–A4) |
+| Image v1.0.1131 | first image carrying deltas 1+2 | **BUILT + PUSHED** 2026-07-17; rollout HELD for a quiet window (live pipeline at check time) |
 
 ## Next steps (in order)
 

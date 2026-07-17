@@ -10,11 +10,18 @@ image ships; the three seeds are DRAFT FILES, deliberately never executed by
 the loop — applying them is yours, after the image (that ordering is the very
 discipline the builder encodes). Then the F1.2 pilot runs the whole chain.
 
-## A1 — build + deploy the chassis image ☐
+## A1 — build + deploy the chassis image ◐ (built+pushed; ROLLOUT HELD)
+
+**Done 2026-07-17:** `docker.io/aqls/agent-chassis:v1.0.1131` built from
+committed HEAD (includes `c19b5d097`) and pushed. **Rollout deliberately
+held:** the cluster had a live pipeline (EXECUTING_STEP + 8 awaiting, fresh
+arrivals) — a chassis restart kills the executing step (never reaped,
+`bugs_open/003`) and drops spawns for ~300s. Pick a quiet moment, then:
 
 ```
-make build-agent-chassis          # committed HEAD (must include c19b5d097)
-# bump IMAGE_TAG first (makefile ~line 16); then push-/deploy- as usual
+sed -i 's/newTag:.*/newTag: v1.0.1131/' deployments/kustomize/services/agent-chassis/overlays/production/uk_001/kustomization.yaml
+kubectl apply -k deployments/kustomize/services/agent-chassis/overlays/production/uk_001/
+kubectl -n ai-persona-system rollout status deployment/agent-chassis --timeout=180s
 ```
 
 Verify against the RUNNING POD, never git, never the tag:
@@ -40,10 +47,11 @@ LIKE 'feature-%' AND is_active;` → three rows.
 
 ## A3 — decide the designer's council roster is current ☐
 
-The designer seed mirrors the fix-proposer's v7 roster (4 seats incl.
-reuse-agent) as of 2026-07-17. If the concept-register thread has changed the
-live roster since, mirror those edits into the designer seed BEFORE applying
-(same 4-edit shape as v6→v7; see the seed's header note).
+The designer seed mirrors the fix-proposer's **v8 roster (5 seats: +
+reuse-agent, + guidelines)** as of 2026-07-17 evening. The roster moved twice
+in one day — re-check it is still current at apply time; if it moved again,
+mirror the edits BEFORE applying (same 4-edit shape as v6→v7→v8; see the
+seed's header note).
 
 ## A4 — create + approve the F1.2 pilot spec ☐
 

@@ -38,11 +38,15 @@
 -- Deliberately NO new status values on site_work_items (the dedup-index/status
 -- contract bit the fleet on 2026-07-16; approval lives in spec jsonb).
 --
--- COUNCIL ROSTER: FOUR seats, mirroring the fix-proposer's live v7 chain
--- (the concept-register thread added review_reuse_agent between bug-historian
--- and guardian on 2026-07-17 — PILOT_reuse_agent_reviewer.md). Reuse is this
--- builder's hard rule 1, so that seat matters MORE here than in the fix loop.
--- Chain: editquality → bug_historian → reuse_agent → guardian (hard veto).
+-- COUNCIL ROSTER: FIVE seats, mirroring the fix-proposer's live v8 chain
+-- (the concept-register thread added review_reuse_agent and review_guidelines
+-- on 2026-07-17 — PILOT_reuse_agent_reviewer.md,
+-- PILOT_guidelines_agent_reviewer.md). Reuse is this builder's hard rule 1,
+-- and the guidelines seat's wrapper-orchestrator/declared-contracts rules are
+-- exactly what new workflows get wrong, so both bite hardest here.
+-- Chain: editquality → bug_historian → reuse_agent → guidelines → guardian
+-- (hard veto). Roster drift is expected — RUNBOOK_feature_builder.md A3:
+-- re-mirror the live roster before applying this file.
 --
 -- DELIBERATE DELTA from fix-proposer: run_checks includes ALL reviewers'
 -- checks (v6/v7 run only editquality+guardian). The advisory seats have no
@@ -72,7 +76,7 @@ INSERT INTO agent_definitions (
 SELECT
     'feature-designer',
     'Feature Designer (FB delta 1)',
-    'Turns an owner-APPROVED capability spec (site_work_items capability_gap with owner_approval + code_pointers in spec) into a STAGED PLAN (plan_format staged-v1: ordered stages, per-stage allowlists incl. to-be-created files, image-before-seed checklist), reviewed by the same 4-seat council + deterministic router as the fix-proposer (editquality, bug-historian, reuse-agent, guardian w/ hard veto). Writes no code; refuses unapproved or pointer-less specs. The stage-loop implementer (delta 2) takes approved staged plans to a branch + ONE PR.',
+    'Turns an owner-APPROVED capability spec (site_work_items capability_gap with owner_approval + code_pointers in spec) into a STAGED PLAN (plan_format staged-v1: ordered stages, per-stage allowlists incl. to-be-created files, image-before-seed checklist), reviewed by the same 5-seat council + deterministic router as the fix-proposer (editquality, bug-historian, reuse-agent, guidelines, guardian w/ hard veto). Writes no code; refuses unapproved or pointer-less specs. The stage-loop implementer (delta 2) takes approved staged plans to a branch + ONE PR.',
     'diagnose', 'coordinator', 'experimental',
     true, 1, '["diagnose", "feature-design"]'::jsonb,
     d.image_repository, d.image_tag, d.command, d.resources, d.topics, d.health_config, d.env_vars,
@@ -205,7 +209,7 @@ SELECT
 
         'review_editquality', jsonb_build_object(
           'action', 'execute_llm_prompt',
-          'description', 'Council reviewer 1/4 — edit quality, staged: real changes, minimality, stage boundaries, spec coverage.',
+          'description', 'Council reviewer 1/5 — edit quality, staged: real changes, minimality, stage boundaries, spec coverage.',
           'output_field', 'review_editquality',
           'next_step', 'review_bug_historian',
           'config', jsonb_build_object(
@@ -235,7 +239,7 @@ SELECT
 
         'review_bug_historian', jsonb_build_object(
           'action', 'execute_llm_prompt',
-          'description', 'Council reviewer 2/4 -- bug historian: documented failure-shape history vs this staged plan. Advisory only (no veto -- PILOT_bug_historian_reviewer.md).',
+          'description', 'Council reviewer 2/5 -- bug historian: documented failure-shape history vs this staged plan. Advisory only (no veto -- PILOT_bug_historian_reviewer.md).',
           'output_field', 'review_bug_historian',
           'next_step', 'review_reuse_agent',
           'config', jsonb_build_object(
@@ -276,9 +280,9 @@ SELECT
 
         'review_reuse_agent', jsonb_build_object(
           'action', 'execute_llm_prompt',
-          'description', 'Council reviewer 3/4 -- reuse agent: does the platform already have this, and did the plan check? Advisory only (no veto -- PILOT_reuse_agent_reviewer.md). Reuse is the feature builder''s hard rule 1, so this seat bites hardest here.',
+          'description', 'Council reviewer 3/5 -- reuse agent: does the platform already have this, and did the plan check? Advisory only (no veto -- PILOT_reuse_agent_reviewer.md). Reuse is the feature builder''s hard rule 1, so this seat bites hardest here.',
           'output_field', 'review_reuse_agent',
-          'next_step', 'review_guardian',
+          'next_step', 'review_guidelines',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
             'ai_service', jsonb_build_object(
@@ -308,9 +312,46 @@ SELECT
           )
         ),
 
+        'review_guidelines', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Council reviewer 4/5 -- guidelines agent: does the plan follow the platform''s documented conventions/contracts, and where it does not, is the plan wrong or the RULE? Advisory only (no veto -- PILOT_guidelines_agent_reviewer.md).',
+          'output_field', 'review_guidelines',
+          'next_step', 'review_guardian',
+          'config', jsonb_build_object(
+            'error_step', 'complete_refused',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 3000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('spec_row', 'plan_persisted', 'schema_hint'),
+            'output_format', 'json',
+            'prompt_template',
+'# Council reviewer: GUIDELINES AGENT' || chr(10) || chr(10) ||
+'You judge two things about this STAGED build plan: (1) does it FOLLOW the platform''s documented conventions and contracts; (2) where it appears not to, is that because the PLAN is wrong, or because the RULE is? You change nothing; you judge.' || chr(10) || chr(10) ||
+'## The platform''s load-bearing rules (the ones people keep relearning)' || chr(10) ||
+'- WRAPPER-ORCHESTRATOR: anything doing substantive work (LLM calls, crawls, heavy DB, minutes of runtime) must run in a spawned pod via a parent (processing_mode:"orchestrator" + spawn_agent), never inline on a shared chassis slot; file writes from non-spawned actions die with a random pod. A feature plan that seeds a NEW agent doing substantive work without this shape breaks the rule.' || chr(10) ||
+'- WORK-ITEM DEDUP: site_work_items dedup is idx_swi_dedup UNIQUE(site_id, item_key) over NON-TERMINAL statuses; the terminal-status set is a contract (drift between it and the Go list breaks every keyed insert fleet-wide); use DELETE+INSERT, not ON CONFLICT.' || chr(10) ||
+'- TRUTHFUL PROVENANCE: hand-made work items copy the real owning path''s metadata, deviate only truthfully (source=''manual'', real created_by), and take URLs from pages.url -- never invent a path.' || chr(10) ||
+'- DECLARED CONTRACTS: any input a workflow reads must be declared in the agent''s input_contract; a call site''s input_mapping must satisfy the callee''s contract. A staged plan seeding a new workflow must declare what it reads.' || chr(10) ||
+'- SCHEMA-SOURCE TIERS: a component field with required:true must set on_missing deliberately -- leaving it skip_field/empty hits the switch default and silently defers the whole section.' || chr(10) || chr(10) ||
+'## The meta-rule for THIS seat (important)' || chr(10) ||
+'A GUIDELINE-GAP is not a violation. If the spec/plan is correct but exposes a documented rule that is itself wrong or stale (this happens -- a runbook rule about max_tokens placement was recently found to be backwards), say so in notes as a recommended side-task / guideline amendment, and APPROVE. Do NOT object: forcing a correct plan to revise because the underlying rule is bad is the wrong move. Object ONLY when the PLAN breaks a rule that is right.' || chr(10) || chr(10) ||
+'Verdicts: approve, object (a stage breaks a live rule -- name the rule and the stage in objections). You do NOT have a veto.' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle, put that query in checks as {"sql": "SELECT ...", "why": "..."} -- SELECT/WITH only. Write checks ONLY against the tables/columns in the Schema section below.' || chr(10) || chr(10) ||
+'## Schema (the ONLY tables available to checks)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
+'## The approved spec' || chr(10) || '{{.spec_row.summary}}' || chr(10) || '{{.spec_row.spec_text}}' || chr(10) || chr(10) ||
+'## The staged plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Output -- ONLY this JSON' || chr(10) ||
+'{"reviewer": "guidelines", "verdict": "approve|object", "objections": [{"stage": "s1", "edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "..."}], "notes": "..."}'
+          )
+        ),
+
         'review_guardian', jsonb_build_object(
           'action', 'execute_llm_prompt',
-          'description', 'Council reviewer 4/4 — pipeline guardian, staged: per-stage blast radius, architecture signals, seed discipline. HARD VETO holder.',
+          'description', 'Council reviewer 5/5 — pipeline guardian, staged: per-stage blast radius, architecture signals, seed discipline. HARD VETO holder.',
           'output_field', 'review_guardian',
           'next_step', 'council_decide',
           'config', jsonb_build_object(
@@ -346,7 +387,7 @@ SELECT
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
             'fix_correlation_id', 'input_data.fix_correlation_id',
-            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_reuse_agent.result', 'review_guardian.result'),
+            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_reuse_agent.result', 'review_guidelines.result', 'review_guardian.result'),
             'hard_veto_from', jsonb_build_array('guardian'),
             'max_rounds', 3
           )
@@ -394,12 +435,12 @@ SELECT
 
         'run_checks', jsonb_build_object(
           'action', 'diagnose_run_checks',
-          'description', 'Run ALL FOUR reviewers'' checks (deliberate delta from fix-proposer, which runs two — see header) under the data_request containment; results feed repropose.',
+          'description', 'Run ALL FIVE reviewers'' checks (deliberate delta from fix-proposer, which runs two — see header) under the data_request containment; results feed repropose.',
           'output_field', 'check_results',
           'next_step', 'repropose',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
-            'check_fields', jsonb_build_array('review_editquality.result.checks', 'review_bug_historian.result.checks', 'review_reuse_agent.result.checks', 'review_guardian.result.checks')
+            'check_fields', jsonb_build_array('review_editquality.result.checks', 'review_bug_historian.result.checks', 'review_reuse_agent.result.checks', 'review_guidelines.result.checks', 'review_guardian.result.checks')
           )
         ),
 
@@ -417,7 +458,7 @@ SELECT
               'max_tokens', 16000
             ),
             'temperature', 0.0,
-            'input_fields', jsonb_build_array('spec_row', 'plan_persisted', 'review_editquality', 'review_bug_historian', 'review_reuse_agent', 'review_guardian', 'check_results'),
+            'input_fields', jsonb_build_array('spec_row', 'plan_persisted', 'review_editquality', 'review_bug_historian', 'review_reuse_agent', 'review_guidelines', 'review_guardian', 'check_results'),
             'output_format', 'json',
             'prompt_template',
 '# PROMPT — REVISE the staged build plan' || chr(10) || chr(10) ||
@@ -428,6 +469,7 @@ SELECT
 '## Edit-quality reviewer said' || chr(10) || '{{.review_editquality.result}}' || chr(10) || chr(10) ||
 '## Bug-historian reviewer said (advisory, no veto)' || chr(10) || '{{.review_bug_historian.result}}' || chr(10) || chr(10) ||
 '## Reuse-agent reviewer said (advisory, no veto)' || chr(10) || '{{.review_reuse_agent.result}}' || chr(10) || chr(10) ||
+'## Guidelines reviewer said (advisory, no veto)' || chr(10) || '{{.review_guidelines.result}}' || chr(10) || chr(10) ||
 '## Guardian reviewer said (holds a hard veto)' || chr(10) || '{{.review_guardian.result}}' || chr(10) || chr(10) ||
 '## Verification results (the reviewers'' own read-only queries, now answered)' || chr(10) || '{{.check_results.results_text}}' || chr(10) || chr(10) ||
 'Use these results to SETTLE any objection that hinged on an unverified fact — cite them in grounded_in. If a result contradicts an edit, change or drop the edit; do not argue with the data.' || chr(10) || chr(10) ||
@@ -467,12 +509,12 @@ SELECT
 
         'escalate', jsonb_build_object(
           'action', 'diagnose_escalate',
-          'description', 'Persist the human hand-off package: decision + spec + final staged plan + all four reviews.',
+          'description', 'Persist the human hand-off package: decision + spec + final staged plan + all five reviews.',
           'output_field', 'escalation',
           'next_step', 'complete_escalated',
           'config', jsonb_build_object(
             'fix_correlation_id', 'input_data.fix_correlation_id',
-            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_reuse_agent.result', 'review_guardian.result')
+            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_reuse_agent.result', 'review_guidelines.result', 'review_guardian.result')
           )
         ),
 

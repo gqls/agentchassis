@@ -127,4 +127,29 @@ forward-only.
 owner acts (RUNBOOK A1–A7) — nothing further to build until the pilot's
 grades come back.**
 
+## Turn 4 — 2026-07-17 — Image built+pushed; rollout HELD on live traffic (user correction); designer synced to v8
+
+User said "let's carry on"; began RUNBOOK A1. Bumped IMAGE_TAG → v1.0.1131
+(commit `202019e6c`), built agent-chassis from committed HEAD, pushed to
+docker.io/aqls. **User stopped the rollout step and said: read CLAUDE.md and
+follow it.** They were right, twice over: (1) acting on the stale
+session-start git status — the chassis kustomization was already dirty with
+another session's uncommitted newTag; (2) restarting the shared chassis
+without checking what's in flight.
+
+Checks then run (the CLAUDE.md way): the dirty kustomization diff is ONLY
+newTag 1128→1130 residue matching the live deployment (v1.0.1130, 1/1
+ready) — safe. But orchestration_states shows a LIVE pipeline: 1
+EXECUTING_STEP (spawn_link_resolver, seconds old) + 8 AWAITING_RESPONSES,
+new arrivals every 1–2 minutes since 17:28. A restart now kills the
+executing step (never reaped — bugs_open/003) and drops spawns for ~300s.
+**Rollout held; owner picks the moment.** v1.0.1131 sits pushed and ready.
+
+Council roster moved AGAIN mid-day (v8, 5 seats: + review_guidelines).
+Synced the designer seed: chain editquality → bug_historian → reuse_agent →
+guidelines → guardian; all five seats' checks answered; guidelines prompt
+carries the wrapper-orchestrator / dedup-contract / declared-contracts /
+schema-tier rules + the approve-don't-object meta-rule for stale guidelines.
+Graph re-validated (22 steps, all targets defined).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
