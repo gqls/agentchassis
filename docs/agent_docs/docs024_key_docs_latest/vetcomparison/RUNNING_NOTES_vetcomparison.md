@@ -2,6 +2,23 @@
 
 Newest first. Operational log; strategy in SUMMARY/PLAN.
 
+## 2026-07-17 (site working pass: dedupe + notice off; chassis v1.0.1130 live)
+
+- Owner priority: site presentable before any documentation is submitted. Chassis v1.0.1130
+  deployed (verified against the pod) — unblocks adoption retry + exporter enable, not done yet.
+- **Directory deduplicated: 2,389 → 2,109 live.** 264 dismissed by (website host, postcode) —
+  www/trailing-slash/http variants from different discovery routes; 9 more by (name, postcode);
+  7 judged individually (corporate cvsvets.com pages shadowing practices' own sites, a
+  rated.club junk row ×2, a digifarm staging domain; kept Harrogate/Swift Referrals as genuinely
+  two businesses). Keep-rule per group: has_prices > latest verified > shortest URL. One
+  scheme-less website_url fixed (`www.argyllclinic.co.uk` → https).
+- **"Price comparison is being rebuilt" notice removed** from the homepage (`ae93824f`); the
+  guides + claim CTA carry the price story. Live-verified: 2,109 entries, 0 dup groups, notice
+  gone, claim CTA intact.
+- Dedup keys worth keeping for the verifier/discovery deny-work: normalise website host
+  (strip www., scheme, trailing slash) BEFORE upsert; rated.club + digifarm.uk join the junk
+  host list.
+
 ## 2026-07-16/17 (Phase 4 adoption — attempted, blocked on missing index)
 
 - Triggered adoption via `082_submit_domain_unified.sh vetcomparison.uk --from
