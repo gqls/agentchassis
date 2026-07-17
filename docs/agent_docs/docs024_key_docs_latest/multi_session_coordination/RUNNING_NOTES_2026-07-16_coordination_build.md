@@ -4,6 +4,36 @@
 `HANDOFF_2026-07-16_multi_session_coordination.md`. All four §7 decisions resolved.
 Everything below is committed per task with explicit pathspecs (practising §5).
 
+> **UPDATE 2026-07-17 — the inverted ref build is PROVEN in production, fleet-wide.**
+> `make release` was run at `IMAGE_TAG=v1.0.1133` (owner-directed full-fleet
+> release). All 14 backend services built from committed `HEAD` via the
+> `git archive` ref builds — first real end-to-end exercise of the inversion,
+> closing the "never driven through a real docker build" open item. Verified:
+> the live `agent-chassis` pod digest (`sha256:ed57728c…8aacde2`) is identical
+> to the pushed registry image AND to a separate earlier standalone build of the
+> same commit — i.e. the ref build is deterministic. Whole fleet READY=AVAIL.
+> Coordination lessons that bit DURING this deploy (all live demonstrations of
+> the problem this thread exists for):
+> - **The tag was a moving target.** We built `137589be2` intending tag
+>   `v1.0.1132`; between build start and finish another session pushed AND
+>   deployed a different `v1.0.1132` to prod. Our local `1132` became a
+>   clobber-live footgun — neutralised by retagging to the free `v1.0.1133`
+>   and dropping the local `1132` tag. LESSON: pick the tag at PUSH time, not
+>   build time; a registry check (`docker manifest inspect`) is mandatory
+>   pre-push. `IMAGE_TAG` churned 1130→1131→1132→1133 across sessions in one hour.
+> - **`make deploy-agents` is FLEET-WIDE, not chassis-only**, and would have
+>   ImagePullBackOff'd 8 services lacking a `1133` image had we not first built
+>   the whole fleet. There is no chassis-only deploy target — the mixed-tag
+>   fleet (chassis 1132, others 1130) was the symptom. `make release` (build all
+>   → push all → deploy all) is the coherent whole-fleet path.
+> - **Deployed into a busy cluster by owner decision.** ~8 live orchestrations
+>   were in flight; the `redeploy-agents` restart dropped them (the 300s
+>   rebalance landmine). Flagged and explicitly accepted before firing. Do a
+>   `orchestration_states` quiet-check before any fleet restart.
+> - Pre-flight that paid off: `go build ./cmd/...` from a clean HEAD archive
+>   confirmed all 14 binaries compile BEFORE the ~10-min release, so no
+>   half-finished rollout.
+
 ## Decision 1 — pre-dispatch coverage check: BUILT and PROVEN LIVE
 
 `090_TRIGGER_needs_diagnosis_v1.sh` (commit `4accef4e3`) now refuses to dispatch
