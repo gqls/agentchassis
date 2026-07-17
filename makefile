@@ -1873,21 +1873,29 @@ verify-agent-images: ## Verify all agent images are consistent
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get deployment agent-chassis -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null && echo || echo "No agent-chassis deployment"
 
 .PHONY: quick-agent-update
-quick-agent-update: ## Build, push and deploy agent-chassis with current IMAGE_TAG
+quick-agent-update: ## Build, push and deploy agent-chassis + image-generator-adapter with current IMAGE_TAG
 	@echo "$(YELLOW)Building agent-chassis:$(IMAGE_TAG)...$(NC)"
 	@$(MAKE) build-agent-chassis IMAGE_TAG=$(IMAGE_TAG)
+	@echo "$(YELLOW)Building image-generator-adapter:$(IMAGE_TAG)...$(NC)"
+	@$(MAKE) build-image-generator-adapter IMAGE_TAG=$(IMAGE_TAG)
 	@echo "$(YELLOW)Pushing agent-chassis:$(IMAGE_TAG)...$(NC)"
 	@docker push $(REGISTRY)/agent-chassis:$(IMAGE_TAG)
+	@echo "$(YELLOW)Pushing image-generator-adapter:$(IMAGE_TAG)...$(NC)"
+	@docker push $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG)
 	@echo "Updating agent-chassis kustomization to $(IMAGE_TAG)...$(NC)"
 	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)/kustomization.yaml
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
+	@echo "Updating image-generator-adapter kustomization to $(IMAGE_TAG)...$(NC)"
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/image-generator-adapter/overlays/$(OVERLAY_PATH)
 	@echo "$(YELLOW)Deploying...$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/agent-chassis/overlays/$(OVERLAY_PATH)
 	@echo "$(YELLOW)Updating database...$(NC)"
 	@$(MAKE) update-agent-images-v2 IMAGE_TAG=$(IMAGE_TAG)
 	@echo "$(YELLOW)Restarting pods...$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/agent-chassis -n ai-persona-system
-	@echo "$(GREEN)Deployment complete with $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl rollout restart deployment/image-generator-adapter -n ai-persona-system
+	@echo "$(GREEN)Deployment complete with $(REGISTRY)/agent-chassis:$(IMAGE_TAG) + $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG)$(NC)"
 
 
 
