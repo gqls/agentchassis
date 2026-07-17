@@ -5,17 +5,24 @@
 `DESIGN_feature_builder_and_council_gate.md` §2. Turn record:
 `NOTES_running_council_gate.md`.
 
-## State: BUILT, NOT LIVE
+## State: LIVE (advisory) — applied 2026-07-17 evening
 
-All three advisory-mode components are built and verified as far as they can
-be without applying anything. **Nothing has been applied to the database** —
-owner ruling 2026-07-17: the gate launches only once more concept-register
-stage-3 seats are live.
+Applied to `clients_db` (`postgres-clients-0` / `ai-persona-system`) with the
+owner's explicit named go. Pre-flight read the LIVE fix-proposer roster from
+the DB first (the owner warned seats are being added frequently) and found it
+had grown to **7 seats** (adoption-guardian + a code_lookup step since the
+v11 files) — mirrored the seventh seat and its gate/footprint from the live
+row before applying; `code_lookup` deliberately not mirrored (reproposer-side
+machinery; recorded in the seed header). Post-apply verification green: row
+active, 27 steps, seven-way review_fields/check_fields, five gated
+footprints, all seven prompts intact. First smoke submission fired
+(correlation `bd12762a-5b10-416b-a70d-90ee3067ce7d` — a genuine change: the
+digest gate-verdicts section the handoff names as the channel to extend).
 
 | # | Component | File | State |
 |---|---|---|---|
 | 1 | Submission wrapper + trigger | `097_TRIGGER_council_review_v1.sh` | built; validations dry-run tested (single-line payload proven — kcat trap) |
-| 2 | Orchestrator seed | `0NN_council_gate.sql` | built, apply-ready, **synced to live fix-proposer v11** — 6 seats + relevance filter, 25 steps, routing integrity verified; needs image ≥ v1.0.1133 (pod-verified live 2026-07-17); **NOT applied** |
+| 2 | Orchestrator seed | `0NN_council_gate.sql` | **APPLIED & VERIFIED 2026-07-17** — mirrors the live 7-seat roster (relevance filter, 27 steps); image ≥ v1.0.1133 pod-verified |
 | 3 | Visibility report | `098_REPORT_unreviewed_commits_v1.sh` | built; live-run 2026-07-17: 28 in-scope commits / 3 days, 0 reviewed |
 | 4 | PR-mode (enforcement) | — | **not built** — owner's explicit go required (build order rule) |
 

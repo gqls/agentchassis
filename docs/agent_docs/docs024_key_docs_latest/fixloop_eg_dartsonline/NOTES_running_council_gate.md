@@ -153,4 +153,39 @@ pod-verified image; seed mirrors it exactly). The single remaining step is
 the owner's named go to apply `0NN_council_gate.sql` to clients_db, then the
 smoke run per RUNBOOK checklist steps 2–5.
 
+## Turn 3 — 2026-07-17 (night) — Named go received; live roster re-read (7 seats!); seed mirrored, APPLIED, smoke fired
+
+Owner: "apply the council-gate seed to clients_db on postgres-clients-0 in
+ai-persona-system. Be aware another thread is frequently adding more council
+members." The warning was load-bearing: pre-flight read of the LIVE
+fix-proposer row (DB, not files) found the council at **7 seats** — an
+adoption-pipeline guardian (`review_adoption_guardian` + `gate_adoption`,
+footprint key `adoption`) and a `code_lookup` step had landed since the v11
+files. Mirrored the seventh seat verbatim from the live row (rationale-context
+swap only), re-pointed the gate chain, went to seven-way
+review_fields/check_fields, and recorded two standing rules in the seed
+header: (1) before ANY re-apply, diff the seed's reviewer steps against the
+live fix-proposer row first — the roster moves frequently; (2) `code_lookup`
+is a DELIBERATE divergence, not drift (it answers code-shaped questions for
+the blind reproposer, which the gate lacks — same reason repropose/reframe
+are absent). Validated: 27 steps, routing integrity + reachability + literal
+balance all green. Committed `9049ec53a`.
+
+**APPLIED** with the owner's named target: snapshot no-op (first row),
+INSERT 1, COMMIT clean. Post-apply verification all green: active
+experimental row, 27 steps, seven-way arrays, five gated footprints
+(adoption, bug_historian, guidelines, reuse_agent, tooling_provenance), all
+seven prompts intact (2.1k–4.0k chars), start=load_schema_hint,
+mode=orchestrator.
+
+**Smoke fired** (pod 60m old, well past the 300s window): a genuine
+submission — the digest gate-verdicts section (the handoff's own "awareness
+channel to extend"), 2 edits, grounded and scoped. Correlation
+`bd12762a-5b10-416b-a70d-90ee3067ce7d`, orchestration
+`72e552df-c120-4fd2-a80a-3ad8c43d0d3d`. Expected panel behaviour: the
+'render'/'_action.go'/'doc_notes' patterns should fire bug-historian,
+reuse-agent and tooling-provenance; guidelines + adoption should SKIP — so
+one run exercises both the run and abstention paths. Verdict to be recorded
+next turn entry.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
