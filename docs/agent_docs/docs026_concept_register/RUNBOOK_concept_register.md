@@ -100,6 +100,16 @@ output parses cleanly in production traffic (verified via direct DB read so
 far, not yet exercised end to end). Candidate A (reuse-agent) remains
 unbuilt — same process applies if a second seat is wanted later.
 
+**2026-07-17 update:** the loop delivered its first real-case CONFIRMED
+diagnosis (`MDL-038`, "BUG A" — `GenerateText` never decodes `stop_reason`,
+so truncated LLM calls silently look complete), but the fix dispatch to
+fix-proposer is "awaits owner go" per fixloop's own notes — so the
+bug-historian still has not actually run. Also confirmed a second bug found
+the same session (`MDL-039`, "BUG B" — root-vs-step `ai_service` config
+shadowing, 17-agent fleet blast radius) does NOT affect `fix-proposer` —
+re-read the file directly, no top-level `ai_service` key present, so the
+bug-historian's `max_tokens` config is unaffected by this defect.
+
 ### B6. Fixloop's case-004 dispatch may be moot — flagging, not deciding
 2026-07-16 coordination finding: fixloop chose the image-landing/article-body
 trap (`aaa_fails_to_mend/004`) as its first real case. A separate concurrent

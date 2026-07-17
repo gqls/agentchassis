@@ -175,6 +175,18 @@ exercised on a live fix-loop run** — verified via direct DB read, not yet
 watched end to end in production traffic. Candidate A (reuse-agent,
 `tool-lifecycle.md`) remains unbuilt.
 
+**Update 2026-07-17 — still not exercised, but for a good reason.** The
+diagnosis loop delivered its first real-case CONFIRMED diagnosis the same day
+(`MDL-038`, "BUG A" — see below) — but "fix dispatch for BUG A (CONFIRMED →
+fix-proposer) awaits owner go" per fixloop's own running notes. Fix-proposer
+(and therefore the bug-historian) has not actually run yet; the diagnosis
+stage completing is not the same as the council seeing a plan. Also confirmed,
+independently, that a second bug found the same session (`MDL-039`, "BUG B" —
+a root-vs-step `ai_service` config-shadowing defect with a 17-agent fleet
+blast radius) does **not** affect `fix-proposer`: re-read the file directly
+and confirmed its `default_config` has no top-level `ai_service` key, so the
+bug-historian's step-level `max_tokens` config is unaffected.
+
 **Scope boundary — deliberately not yet done:** this design has not been
 implemented against the live `0NN_fix_proposer.sql` workflow. That file belongs
 to the actively-developed [[fixloop-workstream]] (tool complete as of
@@ -250,11 +262,16 @@ its stage-3 coordination with fixloop:
   trap fixloop chose as its first real case appears mostly resolved by a
   separate session; only the structural defect (`STY-049`) is still open. Not
   actioned — this is the owner's dispatch decision, not this workstream's.
-- **New register concepts added 2026-07-16** — `FIX-051`/`052`/`053`
-  (fixloop's triage/escalation subsystem) and `STY-049` (the `missingkey=zero`
-  structural defect), plus `FIX-034` updated in place. Not yet run through a
-  formal stage-2-style adversarial verification pass (each was independently
-  verified against live code directly while writing the entry, but not by the
-  separate two-pass workflow pipeline) — low risk since evidence is
-  first-party (commits, `go test` runs, registry greps), but worth noting the
-  process differs slightly from the rest of the register.
+- **New register concepts added 2026-07-16/17** — `FIX-051`/`052`/`053`
+  (fixloop's triage/escalation subsystem), `STY-049` (the `missingkey=zero`
+  structural defect), `MDL-038`/`039` (BUG A/B, found by the fix-loop's own
+  first real-case run), plus `FIX-034` updated in place. Register now 1,633
+  concepts. Not yet run through a formal stage-2-style adversarial
+  verification pass (each was independently verified against live code
+  directly while writing the entry, but not by the separate two-pass workflow
+  pipeline) — low risk since evidence is first-party (commits, `go test`
+  runs, direct code reads, registry greps), but worth noting the process
+  differs slightly from the rest of the register.
+- **BUG A fix dispatch** — `MDL-038` is CONFIRMED but not yet dispatched to
+  fix-proposer; "awaits owner go" per fixloop's own notes. When it dispatches,
+  that will be the bug-historian's first real exercise — worth watching for.

@@ -3,10 +3,11 @@
 Created 2026-07-13. **Stage 1 complete as of 2026-07-13:** 1,627 concepts across
 107 category register files, consolidated from 2,185 raw extraction blocks
 swept from ~4,111 files under `docs/`. **Stage 2 complete 2026-07-14** (see
-`006_VERIFICATION_stage2.md`). 4 more concepts added 2026-07-16 for a subsystem
-that shipped after extraction froze (1,631 total) — see `register/000_concept_index.md`'s
-"2026-07-16 addition" note. Master index at `register/000_concept_index.md`;
-final taxonomy note at `005_TAXONOMY_final.md`.
+`006_VERIFICATION_stage2.md`). 6 more concepts added since, incrementally, for
+genuinely new material that shipped after extraction froze (1,633 total) —
+see `register/000_concept_index.md`'s "2026-07-16 addition" and "2026-07-17
+addition" notes. Master index at `register/000_concept_index.md`; final
+taxonomy note at `005_TAXONOMY_final.md`.
 
 A complete register of every concept — scope, responsibility,
 or behaviour — found anywhere under `docs/`, classified and status-tagged, built

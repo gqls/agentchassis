@@ -1,13 +1,14 @@
 # Concept Index — master register
 
-1,631 concepts across 107 category register files. 1,627 consolidated from
+1,633 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
 missingkey=zero structural defect it surfaced) that shipped after extraction
-froze — see the 2026-07-16 addition note further down. Status tags were
-documentary signals from the source material unless independently verified
-(see below).
+froze; 2 more (MDL-038/039) added 2026-07-17 for two live platform bugs the
+fix-loop's own first real-case run found — see the addition notes further
+down. Status tags were documentary signals from the source material unless
+independently verified (see below).
 
 **Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
 `006_VERIFICATION_stage2.md` for method and full findings. Every one of the
@@ -37,6 +38,21 @@ incident). `FIX-034` (the pre-existing base digest) was updated in place to
 record the Phase 4 escalation-section enhancement built on top of it. This is
 targeted incremental extraction of genuinely new material, not a re-sweep of
 frozen stage-1 corpus.
+
+**2026-07-17 addition:** the fix-loop delivered its first real-case CONFIRMED
+diagnosis (correlation `e505f70f`) and, in the same session, an owner-directed
+model swap surfaced a second live bug — both genuinely new platform defects,
+not previously in the register. Added `MDL-038` (BUG A: `GenerateText` never
+decodes `stop_reason`, so max_tokens-truncated LLM responses silently look
+complete — CONFIRMED by the loop itself on 3 citations including live
+`llm_call_log` state evidence, independently re-confirmed here by direct code
+read) and `MDL-039` (BUG B: an agent's root-level `ai_service` config silently
+shadows its step-level config — proven by direct experiment on `diagnose-agent`,
+17-agent fleet blast radius, terminal state PARTIAL rather than CONFIRMED
+since the loop's own two-evidence-family guard correctly withheld CONFIRMED
+pending a state-tier citation). Also confirmed by direct re-read: `fix-proposer`
+(home of the bug-historian reviewer added 2026-07-16) has no root-level
+`ai_service` key, so it is NOT among the 17 affected agents.
 
 Sorted by register file, then by ID. Use your editor's search for a concept name,
 an ID prefix, or a status word.
@@ -302,6 +318,8 @@ an ID prefix, or a status word.
 | SOC-003 | Arena + Stage dual modes and their mechanic families | aspirational | Competitive Arena vs showcase Stage, feeding each other in a content flywheel | social-media.md |
 | FIX-030 | Whole-file rewrite strategy | deployed | Complete file bodies only, no diffs; caps near ~41KB | fix-loop.md |
 | MDL-037 | llama3.3:70b trained but never used for inference | partial | Completed training run never wired to any agent's production ai_service | model-infrastructure.md |
+| MDL-038 | BUG A: GenerateText never decodes stop_reason | deployed | Truncated LLM responses (max_tokens hit) silently look like complete successes; 17 live instances found | model-infrastructure.md |
+| MDL-039 | BUG B: root ai_service SHADOWS step-level ai_service | deployed | Runbook rule was backwards; 17 agent defs have dead step-level max_tokens config (10 content-creator-* affected) | model-infrastructure.md |
 | WII-003 | complete_work_item flag-preservation guard (Fix A) | deployed | Completion no longer clobbers deliberately-set needs_human_review flags | work-item-integrity.md |
 | SYS-089 | Agent teams: composite/family/service-agent patterns (abandoned) | abandoned | Complex team-composition designs abandoned in favour of simpler agent groups | system-architecture.md |
 | CTS-008 | JS content separation contract (js_content → assets) | deployed | Component JS split from html_template into js_content asset file; js_snippets for shared utils | contracts-and-standards.md |

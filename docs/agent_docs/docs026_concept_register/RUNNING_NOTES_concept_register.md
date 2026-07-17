@@ -32,6 +32,7 @@ entries at the bottom. Update every turn.
 | 2026-07-16 | Flagged to owner: fixloop's case-004 (image-landing trap) dispatch may be moot — a separate session resolved 2 of its 3 open items the same day | **flagged, not actioned** (fixloop-workstream's decision) |
 | 2026-07-16 | User picked bug-historian over reuse-agent as the pilot seat to build; wrote a read-aloud summary doc + the full pilot spec (charter, curated context, prompt, exact patch) | **confirmed** (spec complete, application deferred to user) |
 | 2026-07-16 | Bug-historian APPLIED to production `clients_db` (postgres-clients-0/ai-persona-system) with user's explicit named sign-off — council is now 3 reviewers | **confirmed, live** (verified via direct DB read; not yet exercised on a real run) |
+| 2026-07-17 | Added `MDL-038`/`039` (BUG A/B, found by fixloop's first real-case run); confirmed independently that `fix-proposer` is unaffected by BUG B (no root `ai_service` key) | **confirmed** (both independently verified against live source, not just docs) |
 
 ---
 
@@ -388,5 +389,48 @@ Updated `PILOT_bug_historian_reviewer.md`, `PLAN_concept_register.md`, and
 `RUNBOOK_concept_register.md` to mark the seat LIVE rather than merely
 designed, noting what's still unverified (a real fix-loop run exercising it
 end to end, not just a DB-state check).
+
+## Turn 15 — 2026-07-17 — Checked in on the bug-historian; found two new platform bugs to register
+
+User: "please carry on." Given fixloop's memory entry now said "FIRST
+REAL-CASE CONFIRMED" — directly relevant to the bug-historian's own "not yet
+exercised" open item — checked in on it.
+
+Read `fixloop_eg_dartsonline/NOTES_running_fixloop(10).md` Turn 34 (filesystem
+only, no DB access needed): the loop delivered its first real-case CONFIRMED
+diagnosis (`MDL-038`, "BUG A" — `GenerateText` never decodes `stop_reason`, so
+a max_tokens-truncated LLM response looks like a complete success at every
+layer above; CONFIRMED on 3 citations including 17 live `llm_call_log` rows
+showing the signature at scale). But **the fix-loop's fix-proposer step
+hasn't actually run yet** — "fix dispatch for BUG A awaits owner go" per
+fixloop's own notes — so the bug-historian's real exercise is still pending,
+not yet resolved.
+
+The same session also surfaced a second bug (`MDL-039`, "BUG B"): an agent's
+root-level `ai_service` config silently shadows its step-level config —
+proven by a direct experiment on `diagnose-agent`, 17-agent fleet blast
+radius, and directly relevant to my own bug-historian migration since it also
+uses step-level `ai_service` blocks. Verified by reading
+`platform/orchestration/actions/ai_actions.go`'s `ExecuteLLMPromptAction`
+directly (lines ~147-193): it checks a top-level `default_config.ai_service`
+key first, only falling back to the step's own config if absent. Re-read
+`fix-proposer`'s `default_config` structure (from my own migration file,
+which only ever added content inside the existing `workflow` key) and
+confirmed it has no top-level `ai_service` key at all — **the bug-historian
+is not among the 17 affected agents.** Also independently confirmed BUG A's
+code claim directly: `platform/aiservice/anthropic.go:67`'s `GenerateText`
+response struct (lines 158-167) declares only `Content`/`Usage`, no
+`stop_reason` field, exactly as described.
+
+Added both as new register concepts — `MDL-038` and `MDL-039` in
+`model-infrastructure.md` — following the same incremental-extraction pattern
+as the 2026-07-16 fixloop-subsystem additions: genuinely new material,
+independently verified against live source (not just taking the fixloop
+notes' word for it), not a re-sweep. Register now **1,633 concepts**.
+Updated `README.md`, `register/000_concept_index.md`'s intro (new "2026-07-17
+addition" note), `PLAN_concept_register.md` (stage-3 status + backlog), and
+`RUNBOOK_concept_register.md` (B5) to reflect the current state: bug-historian
+live but still unexercised, and why that's not a problem (BUG A's dispatch is
+the owner's call, same as it's always been).
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
