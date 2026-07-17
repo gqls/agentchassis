@@ -118,4 +118,39 @@ forward-only) and `7fd6f6c64` (the PILOT §6 addendum; the running-notes
 cross-note had itself been swept into their `d1129f285` between my status
 check and commit — the concurrency again, again harmless).
 
+## Turn 2 — 2026-07-17 (evening) — Owner: filter next; the image arrived on its own; seed synced to v11
+
+Owner (here): "I have suggested in the other thread that the relevance filter
+should be next, so please go in that direction." Read
+`DESIGN_relevance_filter.md` + the `select_review_panel` Go (config contract:
+plan_field/extra_text_fields/footprints, fail-open, pairs with
+council_decide abstention; confirmed `37468ba65` in HEAD).
+
+**The deploy resolved itself mid-turn, and the pod-verify rule earned its
+keep twice.** First check: cluster running v1.0.1132, pod 17 min old — but
+`strings` on the running binary found **zero** filter symbols (the tag
+proves nothing; that image predated the engine commit). Prepared to bump to
+v1.0.1133 and lead the deploy — the owner interrupted: a new image was
+already shipping. Confirmed: **v1.0.1133 released fleet-wide by the
+coordination thread**, new pod carries `select_review_panel` (4 symbol
+hits), and the concept-register thread had applied **v10**
+(tooling-provenance, seat #6) and **v11** (select_panel + 4 relevance
+gates) to the live fix-proposer. The interrupt also prevented a tag
+collision — my planned bump target was the tag that had just shipped.
+
+**Synced the gate seed to v11** (owner's caution honoured: re-read the file
+from disk before resuming — another thread edits it; found only my own
+changes, mid-surgery with a gate pointing at a not-yet-existing step):
+select_panel (extra_text_fields = `input_data.rationale` instead of the
+diagnosis), 4 gates, review_tooling_provenance (rationale-context variant),
+six-way review_fields + check_fields, headers to v11 / image ≥ v1.0.1133.
+25 steps; literal balance + routing integrity + reachability all verified
+(every next/then/else/error target resolves, no orphan steps). Committed
+`d1ab1eacf`.
+
+**State: the launch precondition is fully met** (6 seats + filter live on a
+pod-verified image; seed mirrors it exactly). The single remaining step is
+the owner's named go to apply `0NN_council_gate.sql` to clients_db, then the
+smoke run per RUNBOOK checklist steps 2–5.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

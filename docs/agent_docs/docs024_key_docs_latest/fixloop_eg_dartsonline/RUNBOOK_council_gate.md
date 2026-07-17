@@ -15,7 +15,7 @@ stage-3 seats are live.
 | # | Component | File | State |
 |---|---|---|---|
 | 1 | Submission wrapper + trigger | `097_TRIGGER_council_review_v1.sh` | built; validations dry-run tested (single-line payload proven — kcat trap) |
-| 2 | Orchestrator seed | `0NN_council_gate.sql` | built, apply-ready, **synced to the 5-seat v8 roster** (19 steps); literal-balance verified; **NOT applied** |
+| 2 | Orchestrator seed | `0NN_council_gate.sql` | built, apply-ready, **synced to live fix-proposer v11** — 6 seats + relevance filter, 25 steps, routing integrity verified; needs image ≥ v1.0.1133 (pod-verified live 2026-07-17); **NOT applied** |
 | 3 | Visibility report | `098_REPORT_unreviewed_commits_v1.sh` | built; live-run 2026-07-17: 28 in-scope commits / 3 days, 0 reviewed |
 | 4 | PR-mode (enforcement) | — | **not built** — owner's explicit go required (build order rule) |
 
@@ -27,13 +27,13 @@ stage-3 seats are live.
    separate owner call.
 3. **Credit policy:** one council run per submission = per task/commit,
    matching the commit-per-task rule.
-4. **Roster:** WAIT for more concept-register stage-3 seats before launch.
-   **The seats arrived the same day**: the concept-register thread built and
-   applied reuse-agent (v7) and guidelines-agent (v8) to the live
-   fix-proposer — the council is now **5 reviewers**, and this gate's seed is
-   synced to that roster. Whether 5 satisfies the ruling, or the launch also
-   waits for the relevance filter (`DESIGN_relevance_filter.md` — needs a
-   chassis Go change), is the owner's call — see launch checklist step 0.
+4. **Roster:** WAIT for more concept-register stage-3 seats before launch —
+   and subsequently (owner, later the same day, via the concept-register
+   thread): **the relevance filter next**. Both conditions are now MET: the
+   live council is 6 reviewers (v10 tooling-provenance) with the relevance
+   filter wired (v11) on image v1.0.1133 (fleet release, pod-verified), and
+   this gate's seed mirrors all of it. **The launch precondition is
+   satisfied; the remaining step is the owner's named go to apply the seed.**
 
 **Flag → RESOLVED same day:** the v6-inherited `run_checks.check_fields`
 omission (three advisory seats' checks solicited but never run) was flagged
@@ -46,13 +46,13 @@ coming lockstep change in its header.
 
 ## Launch checklist (when the owner says go)
 
-0. Owner confirms the roster ruling is satisfied: the live council is now 5
-   seats (edit-quality, bug-historian, reuse-agent, guidelines, guardian) —
-   launch on these, or wait for the relevance filter / further seats?
-1. Roster lockstep: any new seat lands in **both** `0NN_fix_proposer` (v9+)
-   **and** `0NN_council_gate.sql` in the same migration — the two files'
-   reviewer steps are deliberately name-matched; letting them drift is the
-   dedup-index/Go-list class of failure. (Synced to v8 as of 2026-07-17.)
+0. ~~Roster/filter precondition~~ **MET 2026-07-17**: 6 seats live, filter
+   wired (v11), image v1.0.1133 pod-verified. Remaining: the named go.
+1. Roster lockstep: any seat or filter change lands in **both**
+   `0NN_fix_proposer` (v12+) **and** `0NN_council_gate.sql` in the same
+   migration — the two files' reviewer steps are deliberately name-matched;
+   letting them drift is the dedup-index/Go-list class of failure. (Synced
+   to v11 as of 2026-07-17.)
 2. Apply `0NN_council_gate.sql` to clients_db
    (`kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db`)
    — needs the owner to name the target, per the standing permission gate.
