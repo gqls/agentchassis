@@ -191,4 +191,50 @@ safe timing-wise. Pilot work item `db066cac` still `needs_human_review`,
 cannot be delegated: the NAMED approval UPDATE (A4 — it records who
 approved) and the credit-spending GO to fire the designer (A5).**
 
+## Turn 7 — 2026-07-17 — FIRST FIRE: feature-designer live on the F1.2 pilot
+
+Owner approved (aaa) and gave the fire go. Confirmed pod age 1530s (past the
+300s window), fired `0NN_TRIGGER_feature_designer_v1.sh db066cac`.
+
+- FEATURE correlation: `fc2cf851-ab2d-4303-a8e4-a545275f6ee3`
+- Run orchestration: `69def2d7-8932-461b-8258-93c4444ce3ab`
+
+Confirmed live it passed the spec gate: load_spec → check_spec_approved →
+load_schema_hint → design — i.e. the owner_approval + code_pointers gate
+computed `approved` on real data (first end-to-end proof of the intake gate).
+**RESULT — PARTIAL SUCCESS, validation did its job.** The run went
+load_spec → check_spec_approved → load_schema_hint → design → persist_plan →
+`complete_refused` (COMPLETED, no artifact written), in ~90s. First proof the
+intake gate works on real data, and the designer produced a well-formed
+4-stage staged plan (s1/s2 code, s3 seed, s4 config_change) with a checklist —
+but staged VALIDATION refused it, all three reasons on stage s4 (a
+config_change edit):
+1. config_change `file` was prose with spaces/parens (`fixloop….fix_implementer
+   (live workflow definition row…)`) → tripped the repo-relative/no-whitespace
+   rule (shared with single plans, where config_change targets look like
+   `agent_definitions:page-build-handler`).
+2. `artifact_role: "doc"` on a config_change → my contradiction rule fired.
+3. `config_change` used as a post_merge_checklist act → not in the allowlist
+   (image_deploy|seed_apply|verify).
+
+Diagnosis: two are model-steer gaps (config_change file format; role), one is
+the model over-decomposing — it added a config_change "activate v2" stage that
+is redundant because the seed's `ON CONFLICT DO UPDATE` already activates. NOT
+a schema gap: config_change edits are already surfaced in the PR body's own
+section (buildStagedPRPayload), so they were never meant to be checklist acts.
+No council credits spent (refused before review).
+
+**Fix applied (prompt-steer, contract preserved):** designer seed rule 5
+now states a seed upsert IS the activation (no separate activate stage);
+new rule 5b constrains config_change — `file` = compact `agent_definitions:<type>`,
+role code/omit never seed/doc, appears in PR body not the checklist. Seed
+re-validated (balanced, graph intact). This is a seed-FILE edit — the LIVE
+designer row still has the old prompt until the seed is re-applied (owner act).
+
+**Next (owner calls, both stated):** re-apply the improved designer seed
+(prod DB write) + re-fire on db066cac (credits). Optional spec sharpening:
+the Go seams (ref_field etc.) already exist since c19b5d097, so F1.2's real
+remaining work is the fix_implementer WORKFLOW seed — the spec's goal could
+say so, to stop the designer proposing redundant s1/s2 Go edits.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
