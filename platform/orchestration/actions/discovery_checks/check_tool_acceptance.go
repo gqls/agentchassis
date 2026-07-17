@@ -54,6 +54,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gqls/agentchassis/platform/content"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func init() { Register(&ToolAcceptanceCheck{}) }
@@ -395,6 +396,20 @@ func evaluateStaticCriteria(crit criteriaDoc, httpStatus int, html string) evalu
 	if strings.Contains(html, "<no value>") {
 		ev.failed = append(ev.failed, checkOutcome{"shell-template-residue",
 			"template residue '<no value>' present in deployed page"})
+	}
+	// Dead controls (guard rail 3, experience loop): a no-op href on a
+	// deployed tool page is a failure, not a style choice. Runtime-fill
+	// shells are exempt (placeholder hrefs hydrate client-side); href="" is
+	// phantom_internal_links' class; handler-less <button> is Tier 4's claim.
+	if !strings.Contains(html, "data-runtime-fill") {
+		if dead := datahelpers.DeadControlAnchors(html); len(dead) > 0 {
+			sample := dead[0].Text
+			if sample == "" {
+				sample = dead[0].Href
+			}
+			ev.failed = append(ev.failed, checkOutcome{"shell-dead-controls",
+				fmt.Sprintf("%d no-op control(s) on deployed page (e.g. %q -> %s) — wire, build, or remove; never simulate", len(dead), sample, dead[0].Href)})
+		}
 	}
 
 	return ev

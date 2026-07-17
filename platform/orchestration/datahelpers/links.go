@@ -99,6 +99,35 @@ func ClassifyLinkScope(href string) string {
 	}
 }
 
+// IsNoopHref reports whether an href is a no-op: the control renders as a
+// link/button but clicking it goes nowhere. Bare "#" (no fragment name),
+// "#!", and the javascript: void idioms. NOTE: href="" is NOT included — the
+// empty class belongs to phantom_internal_links (empty_internal_href), and a
+// named fragment ("#section") is a real in-page anchor. A <button> with no
+// handler cannot be judged statically (JS may bind by class at runtime);
+// that is Tier 4's claim, post-hydration.
+func IsNoopHref(href string) bool {
+	h := strings.TrimSpace(strings.ToLower(href))
+	switch h {
+	case "#", "#!", "javascript:void(0)", "javascript:void(0);", "javascript:;", "javascript:":
+		return true
+	}
+	return false
+}
+
+// DeadControlAnchors returns the anchors in the HTML whose href is a no-op
+// (IsNoopHref). Callers exempt runtime-fill shells (data-runtime-fill) —
+// their placeholder hrefs are hydrated client-side.
+func DeadControlAnchors(html string) []Anchor {
+	var dead []Anchor
+	for _, a := range ExtractAnchors(html) {
+		if IsNoopHref(a.Href) {
+			dead = append(dead, a)
+		}
+	}
+	return dead
+}
+
 // IsAssetPath reports whether the path is a static asset rather than a page.
 // Moved verbatim from validate_page_content.go so there is one definition.
 func IsAssetPath(path string) bool {
