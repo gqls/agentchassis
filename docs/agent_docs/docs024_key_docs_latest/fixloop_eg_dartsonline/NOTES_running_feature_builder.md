@@ -78,4 +78,53 @@ in that commit; per the forward-only rule, no corrective action — this note is
 the record. The delta-1 Go change committed cleanly under its own message
 (`4b3d50f4c`).
 
+## Turn 3 — 2026-07-17 — E1–E5 signed off; delta 2 BUILT; standing docs established
+
+User: keep running notes + runbook + plan at all times, write a read-aloud
+summary, carry on with all recommendations. E1–E5 thereby approved.
+
+**Delta 2 built** (commit `c19b5d097`, full package tests green):
+
+1. `feature_stage_route` — the loop's only new control machinery. Emits each
+   stage as a SINGLE-PLAN shape so the proven read/prepare actions loop
+   unchanged; per-stage read ref (base for stage 1, the feat branch after);
+   per-stage commit message; terminal emission carries the PR payload
+   (checklist rendered as an owner task list) + go-test packages DERIVED from
+   the plan's .go edits (D6). E4 enforced at seed time: a pre-existing
+   `feat/*` branch is a hard refusal via a GitHub API existence check.
+2. Seams, all optional-field additions with single-plan behaviour untouched:
+   `diagnose_read_repo_files` gains `ref_field`; `diagnose_prepare_fix_commit`
+   gains `branch_field`/`commit_message_field`/`expected_symbols_field`
+   (symbols checked against produced bodies); `diagnose_build_gate` gains
+   `test_packages_field` (E2); `feature-implementer` joins the
+   isRepoCloningAgent spawn gate (E1).
+3. Seeds DRAFTED as files (`5b131b88a`): `0NN_feature_implementer.sql` (22
+   steps, graph-validated), `0NN_feature_implementer_orchestrator.sql`
+   (dedicated-pod wrapper — the read-token lesson), and two trigger drafts on
+   the proven 092 kcat envelope.
+
+**Council roster moved under us mid-turn:** the concept-register thread
+shipped `review_reuse_agent` (fix-proposer v7, 4 seats). Extended the
+feature-designer seed to mirror it — chain editquality → bug_historian →
+reuse_agent → guardian, all four seats' checks answered. Reuse is this
+builder's hard rule 1, so the new seat bites hardest here. RUNBOOK A3 covers
+future roster drift.
+
+**Standing docs established** (user request): `PLAN_feature_builder.md`,
+`RUNBOOK_feature_builder.md` (A1–A7: image → seeds → roster check → pilot
+spec SQL → fire designer → fire implementer → close out),
+`SUMMARY_feature_builder_2026-07-17.md` (read-aloud), this file continuing as
+the running record. RUNBOOK A5 evolves E5 slightly, flagged as the owner's
+choice: with the designer built, prefer firing the full chain on the pilot
+spec and GRADING its plan against the hand-written §6 reference, over
+hand-injecting the plan.
+
+Another index-race sweep this turn: registry.go's new entry rode into
+`aabd38161` (experience-loop's commit). Content verified intact; noted here,
+forward-only.
+
+**State: all delta-1+2 code committed and inert. Everything from here is
+owner acts (RUNBOOK A1–A7) — nothing further to build until the pilot's
+grades come back.**
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

@@ -1,9 +1,15 @@
-# DESIGN (draft, for owner sign-off) — the implementer stage-loop, feature-builder delta 2
+# DESIGN (SIGNED OFF & BUILT) — the implementer stage-loop, feature-builder delta 2
 
 *2026-07-17, "fixloop feature builder" thread. Delta 1 (staged-v1 schema +
 validation `4b3d50f4c` + feature-designer seed draft) is built; the schema doc's
-compatibility map reserved delta 2 for its own sign-off. This is that draft.
-Decisions E1–E5 at the end. No code until sign-off.*
+compatibility map reserved delta 2 for its own sign-off.*
+
+**SIGNED OFF 2026-07-17: owner accepted all recommendations, E1–E5 (§3).**
+Built same day: `feature_stage_route` + the four seam changes in commit
+`c19b5d097` (tests green); `0NN_feature_implementer.sql` +
+`0NN_feature_implementer_orchestrator.sql` + both trigger drafts in
+`5b131b88a` — seed files only, owner applies after the image
+(`RUNBOOK_feature_builder.md` A1–A2).
 
 ## 0. What the stage-loop is
 
