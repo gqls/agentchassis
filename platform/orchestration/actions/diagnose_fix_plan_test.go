@@ -212,6 +212,13 @@ func TestValidateStagedPlan(t *testing.T) {
 			p.PostMergeChecklist[0].Order = 5 // image now after the seed at 2
 			return p
 		}, "image_deploy must come strictly before any seed_apply"},
+		{"code+seed without image_deploy", func(p stagedPlan) stagedPlan {
+			p.PostMergeChecklist = []stagedChecklistEntry{
+				{Order: 1, Act: "seed_apply", File: "docs/fixloop/0NN_fix_implementer_v2_ref_input.sql", Detail: "apply"},
+				{Order: 2, Act: "verify", Detail: "check"},
+			}
+			return p
+		}, "plan ships code and a seed"},
 		{"duplicate order", func(p stagedPlan) stagedPlan { p.PostMergeChecklist[2].Order = 2; return p },
 			"already used"},
 		{"rogue act", func(p stagedPlan) stagedPlan {
@@ -236,6 +243,30 @@ func TestValidateStagedPlan(t *testing.T) {
 	if problems := validateStagedPlan(goodStagedPlan(), true, testStagedCaps); len(problems) == 0 ||
 		!strings.Contains(strings.Join(problems, "; "), "top-level edits") {
 		t.Fatalf("top-level edits must be rejected, got %v", problems)
+	}
+}
+
+// D4 refinement (found live by the F1.2 pilot, run bcc96877): a SEED-ONLY
+// plan ships no code, so its truthful checklist is seed_apply→verify with no
+// image_deploy — validation must accept it. Ordering is still enforced if an
+// image_deploy entry is present anyway.
+func TestValidateStagedPlan_SeedOnlyNeedsNoImageDeploy(t *testing.T) {
+	p := goodStagedPlan()
+	p.Stages = p.Stages[1:] // drop the code stage; the seed stage remains
+	p.Stages[0].DependsOn = nil
+	p.PostMergeChecklist = []stagedChecklistEntry{
+		{Order: 1, Act: "seed_apply", File: "docs/fixloop/0NN_fix_implementer_v2_ref_input.sql", Detail: "apply to clients_db"},
+		{Order: 2, Act: "verify", Detail: "fire with an explicit ref and confirm"},
+	}
+	if problems := validateStagedPlan(p, false, testStagedCaps); len(problems) != 0 {
+		t.Fatalf("seed-only plan without image_deploy must validate, got: %v", problems)
+	}
+	// an image_deploy AFTER the seed is still a lie about ordering
+	p.PostMergeChecklist = append(p.PostMergeChecklist,
+		stagedChecklistEntry{Order: 3, Act: "image_deploy", Detail: "late"})
+	if problems := validateStagedPlan(p, false, testStagedCaps); len(problems) == 0 ||
+		!strings.Contains(strings.Join(problems, "; "), "strictly before") {
+		t.Fatalf("misordered image_deploy must still fail, got: %v", problems)
 	}
 }
 

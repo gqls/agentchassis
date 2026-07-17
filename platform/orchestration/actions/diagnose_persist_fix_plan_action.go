@@ -558,16 +558,24 @@ func checklistProblems(p stagedPlan) []string {
 	var problems []string
 	seedFiles := map[string]bool{}
 	needChecklist := false
+	shipsCode := false
 	for _, st := range p.Stages {
 		for _, e := range st.Edits {
-			if strings.ToLower(strings.TrimSpace(e.ArtifactRole)) == "seed" {
+			role := strings.ToLower(strings.TrimSpace(e.ArtifactRole))
+			op := strings.ToLower(strings.TrimSpace(e.Operation))
+			if role == "seed" {
 				needChecklist = true
 				if f := strings.TrimSpace(e.File); f != "" {
 					seedFiles[f] = true
 				}
 			}
-			if strings.ToLower(strings.TrimSpace(e.Operation)) == "config_change" {
+			if op == "config_change" {
 				needChecklist = true
+			}
+			// Code edits are what make an image deploy necessary; seed/doc
+			// files ship in the PR but change no binary.
+			if op != "config_change" && (role == "" || role == "code") {
+				shipsCode = true
 			}
 		}
 	}
@@ -622,8 +630,17 @@ func checklistProblems(p stagedPlan) []string {
 			problems = append(problems, fmt.Sprintf("seed file %s has %d seed_apply entries — exactly one expected", f, covered[f]))
 		}
 	}
-	if minSeed > 0 && (minImage == 0 || minImage >= minSeed) {
-		problems = append(problems, "image_deploy must come strictly before any seed_apply — a seed naming an unregistered action fails at runtime (image first, then seed)")
+	// Image-before-seed is hard ONLY when the plan ships code: a seed-only
+	// plan has no image to wait for, and demanding an image_deploy entry
+	// would make the checklist lie (found live by the F1.2 pilot's run 2 —
+	// the designer's truthful seed_apply→verify checklist was refused).
+	if minSeed > 0 {
+		switch {
+		case minImage > 0 && minImage >= minSeed:
+			problems = append(problems, "image_deploy must come strictly before any seed_apply — a seed naming an unregistered action fails at runtime (image first, then seed)")
+		case minImage == 0 && shipsCode:
+			problems = append(problems, "plan ships code and a seed: an image_deploy entry must come strictly before any seed_apply — a seed naming an unregistered action fails at runtime (image first, then seed)")
+		}
 	}
 	return problems
 }
