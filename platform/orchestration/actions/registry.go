@@ -1183,6 +1183,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Fetch the CURRENT bodies of the approved plan's modify/add files via the GitHub contents API (read token from the spawn gate) so sketch_to_files rewrites real code; a modify file that 404s is a hard error",
 		IsLocal:     true,
 	},
+	"feature_stage_route": {
+		Handler:     FeatureStageRouteAction,
+		Category:    "diagnose",
+		Description: "Feature builder delta 2: deterministic stage-loop controller — walks a council-approved staged plan one stage per invocation, emitting each stage as a single-plan shape (so read/prepare loop unchanged), the per-stage read ref/commit message/gates, and finally the PR payload + derived go-test packages; refuses a pre-existing feat/* branch (E4)",
+		IsLocal:     true,
+	},
 	"git_adapter_request": {
 		Handler:     GitAdapterRequestAction,
 		Category:    "site",
@@ -1673,6 +1679,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler:     AppendDocNoteAction,
 		Category:    "documentation",
 		Description: "Append one NOTES entry (row) for a tool/pipeline subject",
+		IsLocal:     true,
+	},
+	"rename_tool_identity": {
+		Handler:     RenameToolIdentityAction,
+		Category:    "documentation",
+		Description: "Atomically rename a tool: component function + slot_name + travelling docs subject_key (guard rail 2)",
 		IsLocal:     true,
 	},
 	"load_doc_context": {

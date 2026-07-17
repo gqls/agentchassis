@@ -202,10 +202,20 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		zap.String("component_id", componentID.String()))
 
 	// --- Create page ---
+	// Canonical identity via CanonicalisePage (guard rail 2 / TL-003): the old
+	// flat /tools/<function>.html ignored the site's canonical URL shape and
+	// every birth needed a manual reconcile. sanitiseFunction guarantees the
+	// tool- prefix, so the canonical name equals function and the acceptance
+	// coupling (pages.name == content_components.function) holds.
 	pageID := uuid.New()
-	pageName := function
-	pageSlug := fmt.Sprintf("tools/%s", function)
-	pageURL := fmt.Sprintf("/%s.html", pageSlug)
+	pageName, pageURL, _ := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+		Role: "tool",
+		Slug: function,
+	})
+	if pageName == "" {
+		pageName = function
+		pageURL = fmt.Sprintf("/tools/%s.html", function)
+	}
 	pageTitle := fmt.Sprintf("%s | %s", displayName, navSection)
 
 	_, err = params.DB.ExecContext(ctx, `
