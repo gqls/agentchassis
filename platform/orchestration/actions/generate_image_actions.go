@@ -63,6 +63,18 @@ var kindDefaults = map[string]imageDefaults{
 		Width:          1024,
 		Height:         1024,
 	},
+	"content_hero": {
+		// Phase I3.1 (D14): per-article editorial hero (article page + card
+		// source). Neutral defaults matching hero — the visual language comes
+		// from the style guide's per-kind override, not from here, so a site
+		// whose content heroes ARE photographic isn't fought by a baked-in
+		// "no photorealism" negative.
+		NegativePrompt: "text, watermark, signature, low quality, blurry, distorted",
+		CfgScale:       7,
+		Steps:          30,
+		Width:          1024,
+		Height:         1024,
+	},
 	"illustration": {
 		NegativePrompt: "photorealistic, watermark, text, signature, low quality",
 		CfgScale:       7,
@@ -316,11 +328,13 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// prompt (avoid terms), and reference-image style anchors.
 	siteID, _ := inputData["site_id"].(string)
 	styleGuide := getImageryStyleGuideForSite(ctx, params.DB, siteID, params.Logger)
-	if styleGuide != nil && styleGuide.Avoid != "" && kind != "logo" {
+	// avoidForKind handles the logo exclusion and D14 per-kind overrides
+	// (an override's avoid replaces the guide-level one wholesale).
+	if avoid := styleGuide.avoidForKind(kind); avoid != "" {
 		if negativePrompt != "" {
-			negativePrompt += ", " + styleGuide.Avoid
+			negativePrompt += ", " + avoid
 		} else {
-			negativePrompt = styleGuide.Avoid
+			negativePrompt = avoid
 		}
 	}
 
@@ -349,12 +363,12 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	// Phase I1 — style-anchor references from the style guide when the caller
-	// supplied none. Photographic kinds only (anchoring an icon or logo to a
-	// photographic brand hero invites contamination). Banana consumes these;
-	// Stability ignores them.
-	if len(referenceImageURIs) == 0 && styleGuide != nil &&
-		directionAppliesToKind(kind) && len(styleGuide.ReferenceAssetKeys) > 0 {
-		refs := resolveReferenceAssetURIs(ctx, params.DB, siteID, styleGuide.ReferenceAssetKeys, params.Logger)
+	// supplied none. referenceKeysForKind (D14) gates: per-kind override keys
+	// flow ungated (deliberate), guide-level keys remain photographic-kinds
+	// only (anchoring an icon or logo to a photographic brand hero invites
+	// contamination). Banana consumes these; Stability ignores them.
+	if refKeys := styleGuide.referenceKeysForKind(kind); len(referenceImageURIs) == 0 && len(refKeys) > 0 {
+		refs := resolveReferenceAssetURIs(ctx, params.DB, siteID, refKeys, params.Logger)
 		if len(refs) > 0 {
 			referenceImageURIs = refs
 			params.Logger.Info("generate_image: style-guide reference anchors applied",

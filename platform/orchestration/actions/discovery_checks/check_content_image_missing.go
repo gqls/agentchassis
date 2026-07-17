@@ -119,6 +119,14 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 
 	// Sweep every listed-type page's imagery state in one query. The inline
 	// 'content_hero_' || replace(...) MUST match imageryplan.ContentHeroKey.
+	//
+	// Eligibility (F2.1, 2026-07-17): only articles that actually shipped —
+	// deployed_at set AND real section content. Plan-era scaffold rows and
+	// never-built /blog/ duplicates sit status='active' with empty sections;
+	// generating imagery for them is wasted spend on pages that 404. This
+	// predicate MUST stay in lockstep with queryresolve's blog_posts base
+	// (resolvePagesWhereType listedOnly) — the listing and the imagery sweep
+	// must agree on which articles exist.
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT p.id::text, p.name,
 		       COALESCE(p.title, p.name)          AS title,
@@ -146,6 +154,8 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 		 WHERE p.site_id = $1
 		   AND p.page_type = 'blog-post'
 		   AND p.status IN ('active', 'deployed')
+		   AND p.deployed_at IS NOT NULL
+		   AND jsonb_array_length(p.sections) > 0
 		 ORDER BY p.name
 	`, dctx.SiteID)
 	if err != nil {
@@ -210,10 +220,15 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 // re-render the article page when the image lands.
 func (c *ContentImageMissingCheck) generationItem(dctx DiscoveryCheckContext, r contentImageRow) (WorkItemSpec, error) {
 	row := imageryplan.Row{
-		Scope:      "page",
-		ScopeRef:   &r.PageName,
-		Key:        imageryplan.ContentHeroKey(r.PageName),
-		Kind:       "hero",
+		Scope:    "page",
+		ScopeRef: &r.PageName,
+		Key:      imageryplan.ContentHeroKey(r.PageName),
+		// content_hero (D14, was "hero"): its own kind so routing (Banana,
+		// which honours style anchors — the Stability path does not) and the
+		// style guide's per-kind override can differ from plan heroes. The
+		// D13 gate failed on exactly this: SDXL drifted off the free-text
+		// style direction card-to-card (colour, medium, text artefacts).
+		Kind:       "content_hero",
 		Prompt:     contentHeroPrompt(r.Title, r.MetaDescription),
 		StyleHints: json.RawMessage(`{"aspect_ratio":"16:9"}`),
 	}

@@ -532,10 +532,16 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 	// (decision A6) and AUDIT_verified_facts.md C5.
 	var p provider.Provider
 	switch data.Kind {
-	case "icon", "logo", "illustration", "infographic", "sprite_sheet":
+	case "icon", "logo", "illustration", "infographic", "sprite_sheet", "content_hero":
 		// sprite_sheet (Phase I2): one coherent N×M grid of flat glyphs —
 		// Banana's gridded-composition tendency is the feature here, and the
 		// sheet may anchor to brand reference images.
+		//
+		// content_hero (Phase I3.1, D14): per-article editorial heroes moved
+		// off Stability after the D13 card gate failed on style drift — SDXL
+		// ignores free-text style direction too often at card size, and only
+		// Banana honours ReferenceImageURIs, so consistent per-site card
+		// styling is structurally impossible on the Stability path.
 		p = a.bananaProvider
 	default:
 		p = a.stabilityProvider

@@ -79,7 +79,7 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 
 	switch base {
 	case "pages_where_type":
-		return resolvePagesWhereType(ctx, db, req.SiteID, arg, req.Limit, logger)
+		return resolvePagesWhereType(ctx, db, req.SiteID, arg, req.Limit, false, logger)
 
 	case "pages_under_section":
 		return resolvePagesUnderSection(ctx, db, req.SiteID, arg, req.Limit, logger)
@@ -95,7 +95,12 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 		// `source: "query.blog_posts"`). Fleet convention: articles are pages
 		// with page_type 'blog-post', so this is pages_where_type with the
 		// type fixed — one vocabulary entry, zero new query machinery.
-		return resolvePagesWhereType(ctx, db, req.SiteID, "blog-post", req.Limit, logger)
+		//
+		// listedOnly (F2.1, 2026-07-17): article listings additionally demand
+		// the page actually shipped — plan-era scaffold rows and never-built
+		// duplicates sit status='active' and were being listed as 404 links
+		// (robot-hands served 6 of them at the D13 gate).
+		return resolvePagesWhereType(ctx, db, req.SiteID, "blog-post", req.Limit, true, logger)
 
 	default:
 		return nil, fmt.Errorf("queryresolve.Resolve: unknown query name %q (base %q)", req.Name, base)
@@ -188,6 +193,15 @@ func (c pageImageCols) webPath() string {
 //
 // Filter: status IN ('active', 'deployed') so unbuilt pages don't appear.
 //
+// listedOnly (F2.1, 2026-07-17) additionally requires deployed_at set AND
+// non-empty sections — the page really shipped with real content. Used by
+// the blog_posts base: plan-era scaffold rows and never-built duplicates
+// pass the status filter and were listed as 404 links. MUST stay in
+// lockstep with check_content_image_missing's sweep predicate — the listing
+// and the imagery sweep must agree on which articles exist. Kept off for
+// the generic pages_where_type base: tool pages are deployed shells whose
+// sections may legitimately be empty.
+//
 // Note on in_header: we deliberately do NOT filter on in_header here.
 // Tool/blog/entity detail pages typically have in_header=false (they are
 // individual items, not nav destinations) but they SHOULD appear in their
@@ -199,6 +213,7 @@ func resolvePagesWhereType(
 	siteID uuid.UUID,
 	pageType string,
 	limit int,
+	listedOnly bool,
 	logger *zap.Logger,
 ) (interface{}, error) {
 	if pageType == "" {
@@ -216,6 +231,12 @@ func resolvePagesWhereType(
 		limit = hardCap
 	}
 
+	eligibility := ""
+	if listedOnly {
+		eligibility = `
+		  AND p.deployed_at IS NOT NULL
+		  AND jsonb_array_length(p.sections) > 0`
+	}
 	rows, err := db.QueryContext(ctx, `
 		SELECT
 		    p.name,
@@ -228,7 +249,7 @@ func resolvePagesWhereType(
 		`+pageImageJoins+`
 		WHERE p.site_id   = $1
 		  AND p.page_type = $2
-		  AND p.status   IN ('active', 'deployed')
+		  AND p.status   IN ('active', 'deployed')`+eligibility+`
 		ORDER BY COALESCE(p.nav_order, 100), p.name
 		LIMIT $3
 	`, siteID, pageType, limit)

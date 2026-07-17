@@ -191,6 +191,10 @@ var ImagePurposes = map[string]struct {
 	"hero_home":     {1600, 900, 85, "jpg"},
 	"hero_about":    {1600, 900, 85, "jpg"},
 	"hero_services": {1600, 900, 85, "jpg"},
+	// Content hero (Phase I3.1, D14): the per-article editorial hero — same
+	// geometry as hero (it renders as the article-page header and the card
+	// derivation cover-crops it to 800×450), only the kind/routing differ.
+	"content_hero": {1600, 900, 85, "jpg"},
 	"logo":          {400, 400, 90, "png"},
 	"icon":          {240, 240, 85, "jpg"},
 	// Brand head assets derived from the logo (Phase I1): favicon is a small

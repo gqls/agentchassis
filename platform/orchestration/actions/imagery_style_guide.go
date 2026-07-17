@@ -10,7 +10,14 @@
 //	  "medium":   "industrial photography, dark atmospheric lighting",
 //	  "mood":     "precise, technical, engineered",
 //	  "avoid":    "stock-photo people, generic technology abstractions",
-//	  "reference_asset_keys": ["hero_canonical"]
+//	  "reference_asset_keys": ["hero_canonical"],
+//	  "kinds": {
+//	    "content_hero": {
+//	      "medium": "flat duotone editorial illustration",
+//	      "avoid":  "photorealism, gradients, text",
+//	      "reference_asset_keys": []
+//	    }
+//	  }
 //	}
 //
 // generate_image composes a per-KIND direction from it (photographic kinds
@@ -20,6 +27,17 @@
 // providers that accept reference images (Banana). When the guide yields a
 // direction it supersedes the free-text design_intent.imagery_direction
 // fallback — one coherent brand voice, no double prepend.
+//
+// Phase I3.1 (D14): the optional `kinds` map holds per-kind OVERRIDES for
+// kinds whose visual language deliberately differs from the site's base
+// voice — the driving case is content_hero, where article heroes/cards moved
+// to flat duotone illustration because photographic SDXL output failed the
+// card-size gate (colour drift, medium drift, text artefacts). An override
+// REPLACES the guide-level fields wholesale for its kind — including empty
+// values: the base `avoid` ("cartoonish rendering, decorative colour"…) and
+// photographic reference anchors would actively fight a flat-illustration
+// direction, so partial merging would reintroduce exactly the contamination
+// the override exists to prevent.
 
 package actions
 
@@ -34,6 +52,18 @@ import (
 )
 
 type imageryStyleGuide struct {
+	Palette            string   `json:"palette"`
+	Medium             string   `json:"medium"`
+	Mood               string   `json:"mood"`
+	Avoid              string   `json:"avoid"`
+	ReferenceAssetKeys []string `json:"reference_asset_keys"`
+	// Kinds holds per-kind overrides (Phase I3.1, D14). A present entry
+	// replaces every guide-level field for that kind — see file header.
+	Kinds map[string]imageryStyleGuideKindOverride `json:"kinds"`
+}
+
+// imageryStyleGuideKindOverride is one kind's complete replacement voice.
+type imageryStyleGuideKindOverride struct {
 	Palette            string   `json:"palette"`
 	Medium             string   `json:"medium"`
 	Mood               string   `json:"mood"`
@@ -87,10 +117,25 @@ func getImageryStyleGuideForSite(ctx context.Context, db interface{}, siteID str
 		return nil
 	}
 	if g.Palette == "" && g.Medium == "" && g.Mood == "" &&
-		g.Avoid == "" && len(g.ReferenceAssetKeys) == 0 {
+		g.Avoid == "" && len(g.ReferenceAssetKeys) == 0 && len(g.Kinds) == 0 {
 		return nil
 	}
 	return &g
+}
+
+// composeDirection joins medium/mood/palette into the prompt-prefix voice.
+func composeDirection(medium, mood, palette string) string {
+	parts := make([]string, 0, 3)
+	if medium != "" {
+		parts = append(parts, medium)
+	}
+	if mood != "" {
+		parts = append(parts, mood)
+	}
+	if palette != "" {
+		parts = append(parts, "colour palette: "+palette)
+	}
+	return strings.Join(parts, ". ")
 }
 
 // directionForKind builds the prompt-prefix direction appropriate to an
@@ -105,6 +150,12 @@ func (g *imageryStyleGuide) directionForKind(kind string) string {
 	if g == nil {
 		return ""
 	}
+	// Per-kind override wins outright (D14) — logos stay locked regardless.
+	if kind != "logo" {
+		if o, ok := g.Kinds[kind]; ok {
+			return composeDirection(o.Medium, o.Mood, o.Palette)
+		}
+	}
 	switch kind {
 	case "logo":
 		return ""
@@ -117,18 +168,43 @@ func (g *imageryStyleGuide) directionForKind(kind string) string {
 		}
 		return "Colour palette: " + g.Palette
 	default:
-		parts := make([]string, 0, 3)
-		if g.Medium != "" {
-			parts = append(parts, g.Medium)
-		}
-		if g.Mood != "" {
-			parts = append(parts, g.Mood)
-		}
-		if g.Palette != "" {
-			parts = append(parts, "colour palette: "+g.Palette)
-		}
-		return strings.Join(parts, ". ")
+		return composeDirection(g.Medium, g.Mood, g.Palette)
 	}
+}
+
+// avoidForKind returns the negative-prompt terms for a kind. A per-kind
+// override replaces the guide-level avoid even when empty (the base avoid
+// may contradict the override's visual language — robot-hands' base forbids
+// "cartoonish rendering", which would fight a flat-illustration override).
+// Logos get nothing: generated once, human-approved, then locked.
+func (g *imageryStyleGuide) avoidForKind(kind string) string {
+	if g == nil || kind == "logo" {
+		return ""
+	}
+	if o, ok := g.Kinds[kind]; ok {
+		return o.Avoid
+	}
+	return g.Avoid
+}
+
+// referenceKeysForKind returns the style-anchor asset keys for a kind. A
+// per-kind override replaces the guide-level list even when empty —
+// anchoring a flat-illustration kind to the site's photographic brand
+// heroes reproduces the 2026-05-20 contamination failure. An override's
+// keys are deliberate, so they flow ungated; the guide-level fallback keeps
+// the directionAppliesToKind gate (implicit anchors are the site's
+// photographic heroes, wrong for flat-vector kinds).
+func (g *imageryStyleGuide) referenceKeysForKind(kind string) []string {
+	if g == nil {
+		return nil
+	}
+	if o, ok := g.Kinds[kind]; ok {
+		return o.ReferenceAssetKeys
+	}
+	if !directionAppliesToKind(kind) {
+		return nil
+	}
+	return g.ReferenceAssetKeys
 }
 
 // resolveReferenceAssetURIs maps the guide's reference asset keys to s3://
