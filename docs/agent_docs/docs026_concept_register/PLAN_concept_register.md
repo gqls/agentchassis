@@ -204,18 +204,28 @@ is right, the rule is wrong — the `MDL-039` shape) as an `approve` + a note,
 never an objection, so a correct fix isn't forced to revise for exposing a bad
 rule (FIX-016/FIX-042). Full record: `PILOT_guidelines_agent_reviewer.md`.
 
-**The relevance-filter is now designed (`DESIGN_relevance_filter.md`) — this
-resolves the scaling concern.** Per the user's direction ("do the guidelines
-member then we can look at the relevance filtering mechanism"), guidelines was
-the last always-on seat; the remaining ~7 specialist seats gate behind a
-relevance filter instead of running on every decision. Key finding from the
-design pass: the filter **cannot** be pure-SQL like the seat adds, because
-`diagnose_council_decide_action.go` hard-fails on any absent reviewer field
-(line 100-102) — so skipping a seat requires a small Go change (treat absent
-as abstention) plus a `select_review_panel` action, i.e. a chassis image
-build. That's the decision the design surfaces: it's a bigger, image-requiring
-change to a workflow now shared with the council-gate thread, so it should be
-sequenced with that thread rather than applied same-day. Not built.
+**The relevance-filter ENGINE is built, tested, committed (2026-07-17,
+`37468ba65`); the deploy is the one gated step.** Per the user's direction
+("do the guidelines member then we can look at the relevance filtering
+mechanism" → "the relevance filter can be next then the specialist seats"),
+guidelines was the last always-on seat, and the ~7 specialists gate behind
+the filter. What's built: `select_review_panel_action.go` (a generic,
+config-driven footprint matcher — `plan_persisted.files` + optional diagnosis
+text vs. a seat→patterns map from SQL config, emitting `panel.run_<seat>`
+booleans; fail-open on empty footprints) and a `council_decide` change (absent
+reviewer = abstention, not error; fails closed only if all abstain). `go build`
++ `go test` green; unit tests cover matching, corpus fallback, fail-open.
+Committed as **inert** — nothing calls it until the SQL wiring adds the step,
+and the abstention path can't trigger until skips exist, so today's behaviour
+is unchanged. The SQL wiring (a `v10`: `select_panel` step + per-seat
+conditional gates + the footprint config, retrofitting the 3 current advisory
+seats as the proof-of-concept) is fully specified in `DESIGN_relevance_filter.md`
+§7, ready to apply **after** the image ships. **The DEPLOY is deliberately not
+taken unilaterally**: a chassis image is fleet-wide (every agent), and the Go
+is shared with the actively-developed council-gate/feature-builder thread —
+ideally one `select_review_panel` binary serves both councils, so the deploy
+should be sequenced with that thread, not shipped as a fix-proposer-only image.
+See `DESIGN_relevance_filter.md` §8.
 
 **Scope boundary, still in force:** wiring further seats into the live
 `0NN_fix_proposer.sql` workflow remains a decision made per-seat, following

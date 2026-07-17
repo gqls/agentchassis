@@ -121,24 +121,37 @@ Per your direction ("do the guidelines member then we can look at the
 relevance filtering mechanism"), guidelines was the last always-on seat —
 the design of the relevance filter follows (see B7).
 
-### B7. Decide whether/how to build the relevance filter — DESIGNED 2026-07-17, your call
-The scaling concern (10 more always-on seats = ~14 sequential LLM calls per
-decision) is now resolved in design: `DESIGN_relevance_filter.md`. The
-remaining specialist seats gate behind a filter that fires each only when the
-fix plan's touched files/tables match that seat's footprint (derived from its
-grounding concepts' `verify-later` fields). **Key finding: this is NOT a
-pure-SQL change** like the seat adds — `diagnose_council_decide_action.go`
-hard-fails on any absent reviewer field (line 100-102), so skipping a seat
-needs a ~2-line Go change (absent → abstain) plus a `select_review_panel`
-action, i.e. a chassis image build + deploy sequencing. That's a bigger,
-image-requiring change to a workflow now shared with the council-gate thread.
-**Recommend:** confirm the approach in the design doc, then build the Go
-action + council_decide change as its own reviewable change, sequenced with
-the council-gate thread — not folded into a seat migration, not applied
-same-day. The 7 remaining specialist seats (#3 adoption, #4 diagnosis-loop,
-#5 improvement-loop, #6 compliance, #7 render, #8 LLM-reliability, #9
-debugging, #10 contextkit) build behind the filter once it exists. Decision
-needed: build the filter now, or add a couple more always-on seats first?
+### B7. Relevance filter — ENGINE BUILT 2026-07-17; the DEPLOY is your call
+Per your "the relevance filter can be next," the Go engine is built, tested,
+and committed (`37468ba65`): `select_review_panel_action.go` (a generic,
+config-driven footprint matcher) + a `council_decide` change (absent reviewer
+= abstention). `go build` + `go test` green; committed **inert** (nothing
+calls it until the SQL wires it; the abstention can't trigger until skips
+exist — today's behaviour unchanged). Full spec + the ready-to-apply `v10`
+SQL wiring (footprint config + per-seat gates, retrofitting the 3 advisory
+seats first) is in `DESIGN_relevance_filter.md` §7.
+
+**The remaining step is a DEPLOY, and it's genuinely your call because it's a
+different class of change from the SQL-only seat adds:**
+- It's a **chassis image**, which is **fleet-wide** — it rebuilds the binary
+  every agent runs, not just fix-proposer.
+- The Go is **shared with the actively-developed council-gate/feature-builder
+  thread**; ideally the SAME `select_review_panel` binary serves both councils,
+  so the deploy should be **sequenced with that thread**, not shipped as a
+  fix-proposer-only image.
+- Deploy sequencing: build a committed-ref image (`make build-<service>-ref`),
+  cluster-quiet rollout, THEN apply the §7 SQL (a workflow referencing an
+  action the binary lacks fails at that step).
+
+Decision needed: (a) I coordinate with the gate thread and drive the deploy;
+(b) you/another session folds it into a planned chassis release; (c) hold it.
+The 7 specialist seats (#3 adoption … #10 contextkit) build behind the filter
+once it's deployed.
+
+### B9. Retire the DEV-001 mis-grounding note once comfortable (housekeeping)
+Minor: the reuse-agent's grounding was corrected mid-build (tool-lifecycle →
+DEV-001); `PILOT_reuse_agent_reviewer.md` §1 records it honestly. No action
+needed — noted only so the correction isn't mistaken for an inconsistency.
 
 ### B8. Read the council-gate thread's own open decision — it names this workstream directly
 `fixloop_eg_dartsonline/HANDOFF_2026-07-17_council_gate_thread.md` asks, as

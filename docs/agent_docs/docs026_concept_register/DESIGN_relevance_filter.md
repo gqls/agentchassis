@@ -1,12 +1,34 @@
 # DESIGN — relevance-filtering for the council reviewer panel
 
-**Status: DESIGN ONLY, not built.** Written 2026-07-17 after seat #3
-(guidelines) brought the council to 5 always-on sequential reviewers. The
-purpose: let the remaining ~7 specialist seats (and, eventually, the 3
-current advisory seats) run **only when relevant to the specific fix**,
-instead of every seat firing on every council decision. This is the "activation"
-half of stage 3's original design (`PLAN_concept_register.md` §Stage 3), now
-that there are enough seats to make it worth building.
+**Status (2026-07-17): the Go ENGINE is BUILT, tested, committed. The SQL
+WIRING is specified below (§6/§7), ready to apply. The chassis DEPLOY is the
+one remaining, owner-gated step — it is fleet-wide and shared with the
+council-gate thread, so it is not applied unilaterally.**
+
+Purpose: let the ~7 specialist seats (and, optionally, the 3 current advisory
+seats) run **only when relevant to the specific fix**, instead of every seat
+firing on every council decision. The "activation" half of stage 3's original
+design (`PLAN_concept_register.md` §Stage 3).
+
+**What's built (committed `37468ba65`):**
+- `platform/orchestration/actions/select_review_panel_action.go` — a
+  deterministic, config-driven matcher. Verified mechanics below.
+- `diagnose_council_decide_action.go` — now treats an absent reviewer field as
+  an abstention (not a hard error), failing closed only if ALL abstain.
+- `select_review_panel_action_test.go` — footprint matching, corpus fallback,
+  fail-open, `[]string` coercion. `go build` + `go test` green.
+
+**Verified mechanics that shaped the build** (read from the live action code,
+not assumed):
+- `plan_persisted.files` is a `[]string` of edited file paths the persist step
+  already extracts — the clean primary signal, no JSON parsing needed.
+- The `conditional` action supports `field == true` / AND / OR, but its array
+  `contains` is exact-membership only — it **cannot** pattern-match file paths.
+  So the filter genuinely needs a compute step (`select_review_panel`) to turn
+  paths into per-seat booleans that the conditionals then check.
+- `diagnose_council_decide` hard-failed on any absent reviewer field, so
+  skipping a seat needed the abstention change. That change is why this is a
+  chassis-image build, not pure SQL.
 
 **A second reason to build this as shared code, learned 2026-07-17:** there
 are now TWO council definitions — fix-proposer's (live) and the council-gate's
@@ -77,53 +99,27 @@ already sketched in `PLAN_concept_register.md` §Stage 3.
 | debugging/incident-lore (#9) | *broad* — any platform code fix | could be near-universal; a candidate to keep always-on OR gate loosely |
 | contextkit/docs specialist (#10) | doc-tooling / contextkit | `contextkit`, `docs026`, doc-generation paths |
 
-## 4. The mechanism — and the one thing that makes it NOT pure-SQL
+## 4. The mechanism — three pieces, engine now built
 
-The seat additions so far have all been pure DB migrations (no chassis image).
-Relevance-filtering **cannot** be, and here is exactly why — a concrete
-finding, not a guess:
-
-`diagnose_council_decide_action.go` (the deterministic aggregator) loops over
-its configured `review_fields` and, for any field whose reviewer output is
-absent, **hard-fails**:
-
-```go
-raw := datahelpers.ExtractNestedField(params.CollectedData, field)
-if raw == nil {
-    return nil, fmt.Errorf("reviewer output missing at %q", field)   // line 100-102
-}
-```
-
-So if a seat is *skipped* (didn't run because it wasn't relevant), its
-`review_<seat>.result` field never gets written, and `council_decide` fails
-the whole run. A relevance-filter that skips steps therefore requires a small
-Go change: **treat an absent review field as an abstention (skip it), not an
-error.** That is a ~2-line change (`if raw == nil { continue }` plus a logged
-count of how many seats abstained), but it means a chassis image build +
-deploy sequencing — a different class of change from the SQL-only seat adds,
-and the reason this is a design doc awaiting a build decision rather than
-another same-day apply.
-
-### The three pieces, in order
-
-1. **A `select_panel` step** (deterministic, no LLM), inserted right after
-   `persist_plan`, before the reviewer chain. It reads `plan_persisted.plan_json`
-   and `diagnosis_row.conclusion`, matches edits/cited-entities against each
-   filterable seat's footprint, and writes a boolean per seat into
-   collected_data (e.g. `panel.run_llm_reliability = true`). Two ways to build
-   this: (a) a `query_database` step doing jsonb extraction + SQL regex
-   matching against a footprint table — pure DB, but clunky and the patterns
-   live in SQL; (b) a small Go action `select_review_panel` with the footprint
-   map in code — cleaner, testable, but part of the same image build the
-   council_decide change already forces. **Recommend (b)** since the image
-   build is already required.
-2. **Per-seat conditional gates.** Each *filterable* reviewer step is preceded
-   by a `conditional` action (the type already used by `check_approved` etc.):
-   `panel.run_<seat> == true` → run the reviewer; else → `next_step` straight
-   to the following step, skipping it. Cheap (no LLM). The always-on seats
-   (edit-quality, guardian) get no gate.
-3. **The council_decide abstention change** (§4 above) so a skipped seat's
-   absent field is tolerated. Without this, steps 1–2 break the aggregator.
+1. **`select_review_panel` step** (BUILT). Deterministic, no LLM. Inserted
+   after `persist_plan`, before the reviewer chain. Reads `plan_persisted.files`
+   (edited paths) plus any `extra_text_fields` (e.g. `diagnosis_row.conclusion`),
+   matches them against a **config-driven** `footprints` map (seat → substring
+   patterns), and writes `panel.run_<seat>` booleans. Config-driven on purpose:
+   the roster/footprints live in the workflow SQL, so adding/rescoping a seat
+   is a config edit, no Go rebuild — and the same action serves both councils.
+   Fail-open: a seat with an empty/absent footprint runs, never silently drops.
+2. **Per-seat conditional gates** (SQL, §7). Each filterable reviewer step is
+   preceded by a `conditional`: `panel.run_<seat> == true` → run the reviewer;
+   else → route straight to the following step. Cheap (no LLM). Verified the
+   `conditional` action supports exactly this (`field == true`, then/else via
+   `next_step_override`, same as `check_approved`).
+3. **council_decide abstention** (BUILT). It now treats an absent reviewer
+   field as an abstention rather than a hard error, so a skipped seat's missing
+   `review_<seat>.result` no longer fails the run — while still failing closed
+   if ALL reviewers abstain. This is the one thing that makes the filter a
+   chassis-image change rather than pure SQL (the old code hard-failed on any
+   absent field). Backward-compatible: nothing is absent until skips are wired.
 
 ## 5. Scope decision baked in: which seats are "always-on" vs filtered
 
@@ -140,22 +136,56 @@ another same-day apply.
   (accepting its cost) or give it a loose gate (fires on any `platform/` or
   `internal/` edit, which is most fixes anyway). Not decided here.
 
-## 6. Recommendation and the decision this needs
+## 7. The SQL wiring (ready to apply AFTER the image ships)
 
-Build order, when green-lit:
-1. The `select_review_panel` Go action + the `council_decide` abstention change,
-   together in one chassis image (they're interdependent).
-2. Wire `select_panel` + per-seat conditionals into the workflow (SQL migration,
-   applied after the image ships — same deploy-sequencing discipline the
-   fix-proposer file already documents).
-3. Build the remaining specialist seats (#3–10) behind the filter from the
-   start, rather than as always-on steps.
-4. Optionally retrofit the 3 current advisory seats behind the filter.
+The migration (a `v10`) does four things to `fix-proposer`'s workflow. It is
+**not** written/applied yet because it must not land before the chassis image
+carrying `select_review_panel` — a workflow referencing an action the binary
+doesn't have fails at that step. Deploy order: **image → this SQL → fire.**
 
-**The decision for the owner:** this is a chassis-image change to a
-production, actively-developed workflow shared with the fix-loop and the
-council-gate threads — bigger than the SQL-only seat adds. It should be
-sequenced with those threads (the council-gate especially, since it will
-consume the filtered panel). Recommend: confirm the approach here, then build
-step 1 (the Go action + council_decide change) as its own reviewable change,
-rather than folding it into a seat migration. Not started.
+1. **Insert the panel step.** `persist_plan.next_step` → `select_panel`;
+   `select_panel` (`action: select_review_panel`) `next_step` → `review_editquality`.
+   Its config carries the footprint map (v1 retrofits the 3 current advisory
+   seats as the proof-of-concept):
+   ```json
+   {
+     "plan_field": "plan_persisted",
+     "extra_text_fields": ["diagnosis_row.conclusion"],
+     "footprints": {
+       "bug_historian": ["rerender","render","save_page_sections","sectionhasvisiblecontent","call_agent.go","missingkey","page_components","content_components"],
+       "reuse_agent":   ["_action.go",".sql","migration","create table","new "],
+       "guidelines":    ["input_contract","output_contract","idx_swi_dedup","site_work_items","agent_definitions","input_schema","save_page_sections"]
+     }
+   }
+   ```
+2. **Gate each advisory seat.** Before `review_bug_historian`, insert
+   `gate_bug_historian` (`action: conditional`, `condition: "panel.run_bug_historian == true"`,
+   `then_step: review_bug_historian`, `else_step: gate_reuse_agent`). Same for
+   `gate_reuse_agent` (else → `gate_guidelines`) and `gate_guidelines` (else →
+   `review_guardian`). Point `review_editquality.next_step` → `gate_bug_historian`,
+   and each reviewer's `next_step` → the *next gate* so run/skip reconverge.
+   edit-quality and guardian stay always-on (no gate).
+3. **council_decide / escalate / run_checks unchanged** — their `review_fields`
+   still list all five; the abstention change means a skipped seat's absent
+   field is now tolerated.
+4. **Footprints, not code** — to add seat #N later, extend the `footprints`
+   map + add one gate; no Go rebuild.
+
+## 8. Scope decisions and the one gated step
+
+- **Always-on:** edit-quality, guardian.
+- **v1 filtered:** the 3 current advisory seats (retrofit — proves the
+  mechanism on live seats before the 7 specialists exist).
+- **Then:** build specialists #3–10 behind the filter from the start.
+- **Judgment call:** the debugging/incident-lore seat (#9) has a near-universal
+  footprint — keep always-on or gate loosely on `platform/`/`internal/`. TBD.
+
+**The one remaining step is the DEPLOY**, and it is deliberately not taken
+unilaterally: building + rolling a chassis image is **fleet-wide** (every
+agent, not just fix-proposer), needs the `make build-<service>-ref` committed-ref
+build + a cluster-quiet rollout, and lands in Go shared with the actively-developed
+council-gate/feature-builder thread. It should be **sequenced with that thread**
+(the gate will consume the same filtered panel; ideally the same
+`select_review_panel` binary serves both). Recommend: coordinate the deploy
+with that thread rather than shipping a fix-proposer-only image, then apply the
+§7 SQL. Everything up to the deploy is done and committed (`37468ba65`).

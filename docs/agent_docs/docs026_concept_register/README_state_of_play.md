@@ -107,3 +107,29 @@ Register is now at 1,633 concepts, integrity-checked clean (no duplicates, files
 place from last time.
 
 Nothing left pending on my end right now — the next real update depends on fixloop's owner dispatching BUG A's fix, which will be the bug-historian's actual first outing.
+---
+
+
+Clean. The only remaining uncommitted files are the two the other thread owns (their addendum in the reuse-agent pilot, and their gate file) — both left for them, exactly as they should be.
+
+Both tasks are done. Summary:
+
+Guidelines-agent (seat #3) is live — council is now 5 sequential reviewers: editquality → bug_historian → reuse_agent → guidelines → guardian. Its distinctive design handles FIX-036's two clauses: a rule violation
+→ object (triggers revise), but a guideline-gap (the fix is right, the rule is wrong — like BUG B's backwards max_tokens runbook rule) → approve + a note, never an objection, so a correct fix isn't punished for
+exposing a bad rule.
+
+The relevance filter is designed (DESIGN_relevance_filter.md). The key finding: unlike the pure-SQL seat additions, it needs a chassis-image Go change — council_decide hard-fails on any absent reviewer, so skipping
+a seat requires teaching it to treat absent as abstention, plus a select_review_panel action. That's a bigger, cross-thread change, so I've presented it as a build decision rather than proceeding.
+
+Two things happened along the way worth flagging:
+
+1. A coordinating thread caught a real defect in my own seats. They reviewed the reuse-agent pilot and noticed run_checks only executed 2 of the 5 reviewers' checks[] — so the three advisory seats could request a
+   fact-check that was silently dropped. I verified it (true, and safe to fix), fixed it in v9, and applied it. A genuine gap I'd missed, caught by exactly the kind of cross-review the council concept is built on.
+2. I nearly collided with that thread's live edit and backed off. I started syncing their council-gate file to keep the two rosters in lockstep — but my exact-match check failed because the file changed under me
+   mid-write: they're actively editing it and already syncing the roster themselves. My script failed cleanly before writing, so nothing was corrupted. Correct call was hands-off — their file, their task. (This
+   collision also sharpened the relevance-filter design: two hand-maintained rosters that must stay identical is itself the drift-failure these seats exist to catch, which argues for the shared-Go-action approach.)
+
+All committed narrowly — my docs, the v8 and v9 migrations as separate commits — leaving the other thread's two files untouched.
+
+---
+

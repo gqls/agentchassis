@@ -41,6 +41,9 @@ entries at the bottom. Update every turn.
 | 2026-07-17 | Designed the relevance-filter (`DESIGN_relevance_filter.md`); found it needs a chassis-image Go change (council_decide hard-fails on absent seats), not pure SQL | **designed, not built** (build decision is the user's — a bigger, image-requiring change) |
 | 2026-07-17 | Council-gate thread's review caught a real gap: advisory seats' `checks[]` were solicited but never run (`check_fields` omitted them). Fixed via v9, applied+verified | **confirmed, live** (latent defect in my own seat adds) |
 | 2026-07-17 | Started lockstep-syncing the gate-file clone's roster, but backed off — the gate thread is actively editing it and syncing it themselves; hands off their file | **not actioned** (correct coordination call — avoided a collision) |
+| 2026-07-17 | User: "the relevance filter can be next then the specialist seats." Built the filter's Go engine (`select_review_panel` + council_decide abstention), tested, committed `37468ba65` | **engine built + committed (inert)**; deploy is the gated step |
+| 2026-07-17 | Verified the filter genuinely needs the Go change (conditional can't pattern-match arrays; council_decide hard-fails on absent) — pure-SQL not viable without fragile workarounds | **confirmed by reading the action code directly** |
+| 2026-07-17 | Held the chassis DEPLOY (fleet-wide, shared Go with the active council-gate thread) rather than shipping unilaterally — recommend sequencing with that thread | **flagged, awaiting user/coordination** |
 
 ---
 
@@ -577,5 +580,80 @@ Committed my own work narrowly per `CLAUDE.md`: the v8 + v9 migrations and the
 docs, excluding the gate file (the other thread's, mid-edit) and
 `PILOT_reuse_agent_reviewer.md` (carries the other thread's uncommitted
 addendum — theirs to commit).
+
+## Cross-thread note — 2026-07-17 evening — from the council-gate thread
+
+*Left by the "fixloop council on every bugfix" thread, per the coordination
+convention; not one of this workstream's own turns.*
+
+Your v7/v8 seat applications landed while the council-gate service was being
+built. Three things now on the record for this workstream: (1) the gate seed
+(`fixloop_eg_dartsonline/0NN_council_gate.sql`, apply-ready, NOT applied) is
+**synced to the v8 five-seat roster** — from v9 onward, any seat migration
+must patch both council definitions in one migration (details in
+`PILOT_reuse_agent_reviewer.md` §6, an attributed addendum appended there).
+(2) A live v8 gap flagged for this thread's surface: `run_checks.check_fields`
+still lists only editquality + guardian, so the three advisory seats'
+solicited checks are never executed on a revise round — inherited from v6,
+one-line config migration. (3) The owner's gate rulings (2026-07-17): scope
+platform/+internal/+pkg/, advisory launch, credits per submission, more
+seats before launch — your seats may have satisfied that ruling; the open
+owner question is now "launch on 5, or wait for the relevance filter?",
+which bears directly on your §Stage-3 scaling options (b)/(c).
+
+## Turn 18 — 2026-07-17 — Built the relevance-filter engine (Go), held the fleet deploy
+
+User: "I think the relevance filter can be next then the specialist seats."
+
+**Verified the mechanics before choosing an approach** — my design had assumed
+the filter needs a chassis Go change; I confirmed it by reading the actual
+action code, and also checked whether a lower-risk pure-SQL path existed:
+- `plan_persisted.files` is a `[]string` of edited file paths, pre-extracted by
+  the persist step — the clean primary signal.
+- The `conditional` action supports `field == true`/AND/OR and routes via
+  `next_step_override`, but its array `contains` is exact-membership only — it
+  **can't** pattern-match file paths. So the filter genuinely needs a compute
+  step to turn paths into per-seat booleans. Pure-SQL regex-over-plan-text +
+  abstain-stubs is *possible* but fragile (uncertain jsonb/output-shaping edge
+  cases, tested only in prod) — rejected in favour of doing it right.
+- `diagnose_council_decide` hard-failed on any absent reviewer field — the
+  reason skipping a seat needs a Go change.
+
+**Checked for duplicate work first (reuse-before-create, literally the seat I
+built):** grepped the council-gate/feature-builder thread's docs — they are
+NOT building relevance filtering (only a roster question). So no collision on
+the panel code.
+
+**Built the engine, tested, committed (`37468ba65`):**
+- `select_review_panel_action.go` — deliberately GENERIC and config-driven: the
+  seat→footprint patterns live in the workflow SQL config, not Go, so the same
+  binary serves both councils and neither thread's roster choices are baked
+  into Go (this also minimises the shared-Go footprint to a plain substring
+  matcher — hard for the gate thread to want differently). Matches
+  `plan_persisted.files` + optional diagnosis text; fail-open on empty
+  footprints (never silently drops a seat).
+- `diagnose_council_decide` — absent reviewer field = abstention, not error;
+  fails closed only if ALL abstain. Backward-compatible (nothing is absent
+  until skips are wired).
+- Registered the action; `go build` + `go vet` + `go test` all green; wrote
+  unit tests (footprint matching, corpus fallback, fail-open, `[]string`
+  coercion) that pass. gofmt clean.
+
+**Committed the Go as INERT** — nothing calls it until the SQL wiring adds the
+step, and the abstention can't trigger without skips, so today's live behaviour
+is unchanged. Committing (vs leaving dirty) is safer per `CLAUDE.md` (a
+long-lived dirty tree is shared mutable state that another session can sweep).
+
+**Held the DEPLOY, deliberately.** The remaining step to make it live is a
+chassis image build + rollout — and that's a genuinely different class of
+change from the SQL-only seat adds: fleet-wide (every agent's binary), and in
+Go shared with the actively-developed council-gate/feature-builder thread.
+Ideally one `select_review_panel` binary serves both councils, so the deploy
+should be sequenced with that thread, not shipped as a fix-proposer-only image.
+Fully specified the `v10` SQL wiring (footprint config + per-seat gates,
+retrofitting the 3 advisory seats as the proof-of-concept) in
+`DESIGN_relevance_filter.md` §7 so it's ready to apply the moment the image
+ships. Presented the deploy as the decision (RUNBOOK B7) rather than rolling a
+fleet-wide binary unilaterally.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
