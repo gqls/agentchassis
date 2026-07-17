@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# /usr/local/bin/sitesync — pull idea.uk's built site from gqls/vm-sites into
+# the web root. Idempotent; safe to run by hand. Installed by provision-pullsync.sh,
+# run every 5 minutes by sitesync.timer as www-data.
+#
+# reset --hard to origin, never merge: the repo is the single source of truth
+# and the box must not accumulate local drift.
+set -euo pipefail
+cd /var/lib/sitesync/repo
+git fetch --quiet origin main
+git reset --hard --quiet origin/main
+rsync -a --delete idea.uk/ /var/www/idea.uk/

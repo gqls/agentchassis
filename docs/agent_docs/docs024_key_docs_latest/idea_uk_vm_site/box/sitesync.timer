@@ -1,0 +1,13 @@
+# /etc/systemd/system/sitesync.timer — run sitesync.service 1 min after boot,
+# then every 5 minutes. Deploy latency = this interval (accepted cost of the
+# pull model, RUNNING_NOTES §E).
+[Unit]
+Description=Periodic idea.uk site sync
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

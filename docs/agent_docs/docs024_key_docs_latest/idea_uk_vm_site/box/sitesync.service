@@ -1,0 +1,15 @@
+# /etc/systemd/system/sitesync.service — one sync pass (fired by sitesync.timer).
+# Runs as www-data so everything rsync writes into /var/www/idea.uk is already
+# correctly owned — no chown step, no root in the sync path.
+[Unit]
+Description=Sync idea.uk static site from gqls/vm-sites
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+ExecStart=/usr/local/bin/sitesync
+# The deploy key lives in /var/lib/sitesync; git needs HOME for ssh config.
+Environment=HOME=/var/lib/sitesync
