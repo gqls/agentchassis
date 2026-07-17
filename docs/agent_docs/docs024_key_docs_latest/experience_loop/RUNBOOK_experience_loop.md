@@ -384,7 +384,7 @@ One decision menu per round boundary at most (D3).
 | T2.3 dead-control check | **DONE (code) 2026-07-17** — helper+tests, Tier-2 shell check, `dead_controls` discovery check; enable SQL **165 written, NOT applied** (image-first) | commit `f2824a713` |
 | T2.4 claims lane | **DONE 2026-07-17** — migration **166** applied (evidence_base: facts empty, 9 banned patterns); claimscan baseline = **14 findings** incl. 3 previously unknown ('14,203 Happy Customers' about+index, '10K+ Players Scored' index, mangled about stat labels) → T4 strip list | commit `c437682a6`; baseline output in session log |
 | T2.5 image roll A + CP1 | **✅ CP1 DONE 2026-07-17** — guard-rail Go shipped in another session's **v1.0.1134** (verified in-pod, not by tag); migration 165 applied; dead_controls + owned_page_review both proven live on vonc; save-refusal code-verified | RUNNING_NOTES CP1 entry; corr 4cedb4fb (discovery) + 4c0c4acf (scoped reconcile) |
-| T3 planner+council | not started — **NEXT** | — |
+| T3 planner+council | **BUILT & STAGED 2026-07-17** — seed 167 + trigger 092 committed (0059521f9), syntax-validated; split-contract Go fix `docResolveSubject` accepts 'experience' (66d32477d). **BLOCKED**: needs a chassis image ≥ 66d32477d (deployed 1134 predates it, in-pod grep = 0). Fire steps in RUNNING_NOTES. | — |
 | T4–T5 | not started | — |
 
 **Note on the reconcile trigger (reusable):** build-site-planner is the only

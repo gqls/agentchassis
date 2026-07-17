@@ -171,3 +171,56 @@ surfaced 5 defects nobody had catalogued — before any experience work began.
 
 **Phase 2 CLOSED.** Next: Phase 3 — experience-planner agent + challenge council,
 run to convergence on vonc-spark-game (CP2).
+
+---
+
+## 2026-07-17 (later) — Phase 3 BUILT & STAGED; blocked on image roll B for the council run
+
+Everything for Phase 3 is written, committed, and validated; the ONE thing left
+before the council can run for CP2 is a chassis image carrying the
+docResolveSubject fix.
+
+**Split contract found & closed.** Migration 163 opened doc_plans/doc_notes to
+`subject_type='experience'`, but `docResolveSubject` (shared by write_doc_plan +
+append_doc_note) still rejected anything but tool/pipeline in Go — the
+experience-planner's persist_plan step would have failed on it. Fixed
+(`write_doc_plan_action.go`, commit **66d32477d**) with a lockstep comment and a
+positive test. **This fix is NOT in the deployed image** — v1.0.1134 was built
+before it (verified in-pod: `strings | grep -c "pipeline' or 'experience'"` = 0).
+
+**experience-planner + council seed** — `167_experience_planner_and_council.sql`
+(commit 0059521f9). ONE workflow, modelled verbatim on fix-proposer v6:
+load_context → load_schema_hint → compose (sonnet-5, 16k) → persist_plan
+(write_doc_plan, subject_type=experience) → 4 critics
+(journeys[veto]/feasibility[veto]/honesty[HARD veto]/mvp[advisory], sonnet-5 4k
+each) → council_decide (diagnose_council_decide reused verbatim, hard_veto_from
+=['honesty'], max_rounds 3) → append_council_note (doc_notes, experience-council)
+→ router (approved→complete / veto→reframe-once→escalate / object→run_checks→
+recompose). No root ai_service (MDL-039). Syntax validated by a rolled-back
+apply (`INSERT 0 1`). **NOT yet applied** — image-first sequencing.
+
+**Two runner traps handled in the seed** (both verified against ai_actions.go):
+(1) execute_llm_prompt ALWAYS attempts JSON-parse and falls back to text — so
+critic JSON parses to a map (council reads `.result`), and the prose plan lands
+as `.result` text; (2) stripMarkdownFromResponse strips a fence only if the whole
+response starts/ends with ``` — the plan ends with a `<!-- END EXPERIENCE_PLAN
+-->` trailer AFTER the criteria fence so the embedded fence survives storage for
+later extractCriteriaBlock. Also: input_data added to compose/recompose/reframe
+input_fields so `{{.experience_name}}`/`{{.experience_domain}}` resolve (the
+extractor promotes input_data keys to root).
+
+**Trigger** — `092_TRIGGER_experience_plan.sh` (090-style: durable
+`needs_experience_plan` intake item + kcat orchestrate on a shared correlation;
+passes experience_key/name/domain/correlation via input_data).
+
+**BLOCKED ON**: a chassis image built from a commit ≥ 66d32477d, deployed to
+agent-chassis (+ business-intel/vet-intel + agent_definitions.image_tag). Image
+deployment is owner/pipeline-driven here (my manual push was interrupted earlier;
+1134 was rolled externally). The moment such an image is live:
+  1. `strings /app/agent-chassis | grep -c "pipeline' or 'experience'"` ≥ 1 (verify in-pod);
+  2. apply 167 (+ ledger row) — image→seed ordering;
+  3. wait ≥300s past any pod restart, then
+     `bash docs/agent_docs/sql_for_agents/092_TRIGGER_experience_plan.sh vonc.com vonc-spark-game "the Spark daily-provocation game"`;
+  4. judge by the experience-planner orchestration row; expect the council to
+     sharpen D2's emitter scoping and D1's minimal-real Gauntlet. On escalation,
+     the disagreement IS the round-boundary decision menu — surface it. → CP2.
