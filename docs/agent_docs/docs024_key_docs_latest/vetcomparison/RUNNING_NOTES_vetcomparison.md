@@ -1,0 +1,66 @@
+# RUNNING NOTES — vetcomparison.uk
+
+Newest first. Operational log; strategy in SUMMARY/PLAN.
+
+## 2026-07-16 (later — Phase 3 claim flow)
+
+- **010 applied:** `business_intel.claim_requests` (claim|optout|correction) with evidence_method,
+  status, verifier and a **consent_text snapshot** (not a version pointer — rewording must never
+  rewrite what a practice agreed to). `businesses.claimed_by` was an unused unconstrained uuid →
+  now FKs to the granting request, so every claim traces to who asked / what we checked / what
+  they consented to.
+- **Full lifecycle dry-run against prod in a rolled-back transaction; zero residue confirmed.**
+  claim → claimed+linked → 4 CMA prices w/ pet_bands → exporter claimed query returns them →
+  attributed excludes claimed. Then: scraped price visible → opt-out → attributed 0, still in
+  directory → later claim reverses opt-out. Audit trail correct (consent on claim, not opt-out).
+- **Site front door live** (`58e2a837`): claim CTA now collects what verification needs (practice
+  identity, role, callback number, link to their price list) instead of a bare mailto, states the
+  terms, and cites the Dec 2026/Mar 2027 deadlines as the reason to act. **Opt-out route now
+  actually on the page** (policy promised it since 07-15; it wasn't there). Verified live.
+- Note: grepping live HTML for mailto body text gives false negatives — it's URL-encoded.
+
+## 2026-07-16 (Phases 0–2 + consultation draft)
+
+- **Phase 2 code done, deploy pending.** `directory_export_action.go` + registry entry
+  (`directory_export_json`); shared `sendExportFilesToGit`; med exporter refactored onto it.
+  **Found pre-existing bug: `med_export_json` was never in GlobalActionRegistry** — registered.
+  008 (optout columns) + 009 (agent pair + disabled task) applied to prod.
+- **Provenance finding:** all 803 historical business_prices rows have EMPTY source_url (NOT
+  NULL but ''); nothing recoverable from data_observations either. Attributed output correctly
+  = 0. Historical data → aggregates only (15 rows, 14 areas, min n=3). Fresh scrapes must
+  persist per-price source_url.
+- **Phase 1 done.** insertPrice → unified schema (+ insertMedicinePrice, loadCurrentPrices
+  cutover); offeringSlug pinned byte-identical to 006's SQL (tests + prod cross-check). 006
+  applied: 512 service products, 1,953 rows, 762 current, 0 seed_import current. 007 applied:
+  36 CMA items (12/6/6/9/3), pet_band on product_prices.
+- **Phase 0 done.** Export domain fail-closed (Go + tests); `.co.uk` blanked in
+  agent_definitions ea5f6fac + scheduled_tasks 41735d49. Data triage: 20 fake "practices"
+  dismissed (yelp/starofservice/bestlocalrated/allvets/calmshops/wheree/US/college), 17 names
+  cleaned, 177 wheree-mirror rows → pending. Live directory 2,389 (commits e47a8c65, c80aa50c).
+- **Consultation:** funding response drafted (CONSULTATION_RESPONSE_funding_DRAFT_2026-07-16.md)
+  — levy basis confirmed flat per-FOP from the portal; owner to verify Notice ¶ + submit by
+  30 Jul. Substantive draft Order not yet published as of 16 Jul.
+- Harness lesson: `set -e` didn't abort after a failed verify → one push raced out before its
+  gate (no harm — still an improvement). Verify and push are now separate steps (RUNBOOK).
+
+## 2026-07-15 (strip live + guides + plan)
+
+- Strip deployed: origin/master `92526ccd` via detached worktree cherry-pick (bot race handled;
+  local clone unusable for pushes). Verified live: prices gone, calc/medicine/guides 404.
+- Guides rewritten sourced + live (`f18eb395`), same URLs; banned-content audit clean (only
+  CMA's own figures £21/£12.50/£500 on site). Homepage cards restored.
+- Interim directory re-exported from 2,579 verified practices (later 2,389 after 07-16 triage).
+- PLAN written (phases 0–5); owner decisions taken 07-16: attributed ON w/ opt-out; no RCVS
+  badge; min_n=3; respond to consultations.
+- LEGAL factual record written + updated with deploy evidence.
+
+## 2026-07-14 (discovery)
+
+- Fabrication identified: 3,124 practices with invented prices (22% at £48; zero source URLs;
+  "_data_rights: do not scrape" claim), fabricated CMA quote, named-practice £33 claim
+  (guides). DB: 997 price rows source='seed_import' on 235 real verified practices → approved
+  quarantine (executed 07-15: is_current=false, retained).
+- Real assets confirmed: 2,767 verified practices; ~330 with (aggregates-grade) prices; med
+  pricing pipeline with evidence store. Handoff 2026-05-18 located: Go-A/Go-B never shipped;
+  owed "query 4" answered.
+- CMA research (two passes, grounded): final report 24 Mar 2026; dates/remedies as in SUMMARY.
