@@ -176,4 +176,19 @@ inserted nothing; fixed in the runbook.
 the credit-spending go to fire the designer (A5).** Mind the ~300s
 no-dispatch window if the chassis pod has just restarted.
 
+## Turn 6 — 2026-07-17 — New chassis image v1.0.1134; machinery re-verified live
+
+Owner: a new chassis image was deployed. Verified the running pod
+(`agent-chassis-6d85fff446-54jzc`, `v1.0.1134`, started 19:34:11Z): binary
+carries `feature_stage_route` (×3) AND the delta-2 expected-symbols guard
+("expected symbols not present"). All three feature agent rows still active
+(an image swap doesn't touch the DB — confirmed, not assumed). At 19:43 the
+pod is ~9 min old, past the ~300s dispatch-drop window, so a fire would be
+safe timing-wise. Pilot work item `db066cac` still `needs_human_review`,
+`owner_approval` absent.
+
+**Nothing new to build or apply. The two remaining acts are the owner's and
+cannot be delegated: the NAMED approval UPDATE (A4 — it records who
+approved) and the credit-spending GO to fire the designer (A5).**
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
