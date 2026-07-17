@@ -28,11 +28,13 @@
 //   }
 //
 // Decision per plan page (in order):
-//   1. existing open needs_page:<name> work item    → skip (queued)
-//   2. no row in pages                              → emit (missing)
-//   3. pages.build_status != 'deployed'             → emit (not built)
-//   4. pages.built_from_plan_version != current id  → emit (stale)
-//   5. otherwise                                    → skip (current)
+//   1. no row in pages / not deployed / stale plan  → candidate (else skip)
+//   2. tool/game role OR pages.rebuild_policy='owned'
+//        → emit owned_page_review (needs_human_review, NO handler) — the
+//          generic builder clobbers owned pages (TP-004 / TL-001; guard
+//          rail 1 of the experience loop)
+//   3. existing open item for the key               → skip (queued)
+//   4. otherwise                                    → emit needs_page
 //
 // "Open" = status NOT IN ('complete','verified','rejected','wont_fix','failed').
 // Same set the dedup index uses; consistent semantics.
@@ -78,6 +80,7 @@ type planPageRecord struct {
 type realisedPageRecord struct {
 	BuildStatus          string
 	BuiltFromPlanVersion uuid.NullUUID
+	RebuildPolicy        string
 }
 
 // ReconcileSitePlanAction handler.
@@ -169,6 +172,7 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 	defer tx.Rollback()
 
 	emitted := 0
+	emittedReview := 0
 	skippedBuilt := 0
 	skippedQueued := 0
 
@@ -181,16 +185,58 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 
 	for _, name := range names {
 		plan := planPages[name]
-		itemKey := "needs_page:" + name
+		real := realised[name]
 
-		if _, queued := openItems[itemKey]; queued {
-			skippedQueued++
+		decision := decideEmit(plan, real, planID)
+		if decision == "skip_built" {
+			skippedBuilt++
 			continue
 		}
 
-		decision := decideEmit(plan, realised[name], planID)
-		if decision == "skip_built" {
-			skippedBuilt++
+		// Page-ownership guard (guard rail 1, experience loop). Tool/game-role
+		// and rebuild_policy='owned' pages must never route to the generic
+		// page builder — it produces a widget-less prose page where an
+		// interactive tool belongs (TP-004; the vonc arena clobber). Emit a
+		// review item with NO handler instead, mirroring
+		// check_incomplete_page_group's tool-role branch.
+		if plan.Role == "tool" || plan.Role == "game" || real.RebuildPolicy == "owned" {
+			reviewKey := "owned_page_review:" + name
+			if _, queued := openItems[reviewKey]; queued {
+				skippedQueued++
+				continue
+			}
+			spec := map[string]interface{}{
+				"page_name":      name,
+				"page_role":      plan.Role,
+				"rebuild_policy": real.RebuildPolicy,
+				"plan_id":        planID.String(),
+				"reason":         decision,
+				"fix": "Owned/interactive page is " + decision + ". Do NOT route to the " +
+					"generic page builder. Build via the tool pipeline " +
+					"(tool-generator/create_tool_component) or the owning experience " +
+					"spec, or remove the page from the plan.",
+			}
+			specJSON, _ := json.Marshal(spec)
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO site_work_items (
+					site_id, source, pipeline, item_type, severity, summary,
+					spec, priority, status, created_by, item_key, batch_id
+				) VALUES ($1, 'reconcile_site_plan', 'build', 'owned_page_review',
+				          'high', $2, $3::jsonb, 30,
+				          'needs_human_review', 'reconcile_site_plan', $4, $5)
+				ON CONFLICT DO NOTHING
+			`, siteID, fmt.Sprintf("Owned page %s is %s — needs owner-aware build, not the generic builder", name, decision),
+				string(specJSON), reviewKey, batchID)
+			if err != nil {
+				return nil, fmt.Errorf("emit owned_page_review for %q: %w", name, err)
+			}
+			emittedReview++
+			continue
+		}
+
+		itemKey := "needs_page:" + name
+		if _, queued := openItems[itemKey]; queued {
+			skippedQueued++
 			continue
 		}
 
@@ -269,6 +315,7 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 		zap.String("batch_id", batchID.String()),
 		zap.Int("pages_total", len(planPages)),
 		zap.Int("pages_emitted", emitted),
+		zap.Int("pages_review_emitted", emittedReview),
 		zap.Int("pages_skipped_built", skippedBuilt),
 		zap.Int("pages_skipped_queued", skippedQueued),
 		zap.Bool("rerender_emitted", rerenderEmitted),
@@ -278,6 +325,7 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 		"plan_id":              planID.String(),
 		"pages_total":          len(planPages),
 		"pages_emitted":        emitted,
+		"pages_review_emitted": emittedReview,
 		"pages_skipped_built":  skippedBuilt,
 		"pages_skipped_queued": skippedQueued,
 		"rerender_emitted":     rerenderEmitted,
@@ -330,7 +378,8 @@ func loadPlanPages(ctx context.Context, db *sql.DB, planID uuid.UUID) (map[strin
 
 func loadRealisedPages(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]realisedPageRecord, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT name, COALESCE(build_status, ''), built_from_plan_version
+		SELECT name, COALESCE(build_status, ''), built_from_plan_version,
+		       COALESCE(rebuild_policy, 'generic')
 		FROM pages
 		WHERE site_id = $1
 	`, siteID)
@@ -343,7 +392,7 @@ func loadRealisedPages(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[s
 	for rows.Next() {
 		var name string
 		var r realisedPageRecord
-		if err := rows.Scan(&name, &r.BuildStatus, &r.BuiltFromPlanVersion); err != nil {
+		if err := rows.Scan(&name, &r.BuildStatus, &r.BuiltFromPlanVersion, &r.RebuildPolicy); err != nil {
 			return nil, err
 		}
 		out[name] = r
@@ -357,7 +406,7 @@ func loadOpenPageItems(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[s
 	rows, err := db.QueryContext(ctx, `
 		SELECT item_key FROM site_work_items
 		WHERE site_id = $1
-		  AND item_type = 'needs_page'
+		  AND item_type IN ('needs_page','owned_page_review')
 		  AND item_key IS NOT NULL
 		  AND status NOT IN ('complete','verified','rejected','wont_fix','failed')
 	`, siteID)

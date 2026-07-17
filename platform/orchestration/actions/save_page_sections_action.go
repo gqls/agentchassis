@@ -135,6 +135,30 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
+	// --- Page-ownership guard (guard rail 1, experience loop) ---
+	// A rebuild_policy='owned' page belongs to a tool/widget or is a
+	// runtime-fill shell; this action's DELETE-and-reinsert of page_components
+	// is exactly the TL-001 clobber. Refuse loudly rather than fall through to
+	// the heuristic guards below: targeted edits go through apply_section_edit,
+	// tool rebuilds through the tool pipeline. (Column ships in migration 164;
+	// a scan error means an older schema, in which case the guard stands down.)
+	{
+		var rebuildPolicy string
+		if scanErr := params.DB.QueryRowContext(ctx, `
+			SELECT COALESCE(rebuild_policy, 'generic') FROM pages WHERE id = $1
+		`, pageID).Scan(&rebuildPolicy); scanErr == nil && rebuildPolicy == "owned" {
+			params.Logger.Warn("SavePageSectionsAction: OWNED PAGE — generic section save refused",
+				zap.String("page_name", pageName),
+				zap.String("page_id", pageID.String()),
+			)
+			return nil, fmt.Errorf(
+				"page %s is rebuild_policy=owned (tool/widget-owned): a generic section save "+
+					"would clobber it. Use apply_section_edit for targeted edits or the tool "+
+					"pipeline for rebuilds. Refusing to overwrite.",
+				pageName)
+		}
+	}
+
 	// --- Try structured metadata path first ---
 
 	var sections []SectionData
