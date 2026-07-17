@@ -26,19 +26,24 @@
 --   correlation do not inherit stale rounds), diagnose_run_checks,
 --   append_doc_note, conditional, complete_workflow.
 --
--- LOCKSTEP WARNING. The six reviewer steps + relevance filter mirror the
--- live fix-proposer v11 (v6 base + v7 reuse-agent + v8 guidelines + v9
--- check_fields fix + v10 tooling-provenance + v11 select_panel/gates — all
--- applied live 2026-07-17) with ONE change each: the "## The diagnosis"
--- context section becomes the author's stated rationale
--- ({{.input_data.rationale}}), and select_panel's extra_text_fields scans
--- the rationale instead of a diagnosis conclusion. A seat or filter change
--- in fix-proposer (v12+) MUST be mirrored here in the same migration, or
--- the gate's council silently lags the fix loop's (same class of drift as
--- the dedup-index/Go-list lockstep bite, 2026-07-16). Both files
--- pattern-match on the same step names to make that patch mechanical.
--- Requires image >= v1.0.1133 (select_review_panel + council_decide
--- abstention — pod-verified live 2026-07-17); image first, then this seed.
+-- LOCKSTEP WARNING. The SEVEN reviewer steps + relevance filter mirror the
+-- live fix-proposer AS READ FROM THE DATABASE at apply time (2026-07-17
+-- evening: v6 base + reuse-agent + guidelines + check_fields fix +
+-- tooling-provenance + select_panel/gates + adoption-guardian) with ONE
+-- change each: the "## The diagnosis" context section becomes the author's
+-- stated rationale ({{.input_data.rationale}}), and select_panel's
+-- extra_text_fields scans the rationale instead of a diagnosis conclusion.
+-- The roster is growing FREQUENTLY (owner's warning) — before ANY re-apply,
+-- diff this file's reviewer steps against the live fix-proposer row first,
+-- and mirror any new seat/gate/footprint here; a seat or filter change in
+-- fix-proposer MUST be mirrored here in the same migration, or the gate's
+-- council silently lags the fix loop's (dedup-index/Go-list class of drift).
+-- DELIBERATE divergence, not drift: fix-proposer's code_lookup step is NOT
+-- mirrored — it answers reviewers' code-shaped questions for the blind
+-- REPROPOSER, which the gate lacks (its authors are code-capable sessions
+-- who read the objections themselves; same reason repropose/reframe are
+-- absent). Requires image >= v1.0.1133 (select_review_panel +
+-- council_decide abstention — pod-verified); image first, then this seed.
 --
 -- DIFFERENCES from the fix-proposer workflow, all deliberate:
 --   * No CONFIRMED-diagnosis gate: intake is a submission, not a diagnosis.
@@ -47,7 +52,7 @@
 --     answered (run_checks still runs, so fact-shaped objections come back
 --     settled with evidence). Resubmit on the SAME correlation so the
 --     artifact trail accumulates rounds in one place.
---   * run_checks includes ALL SIX reviewers' checks. (A v6-inherited
+--   * run_checks includes ALL SEVEN reviewers' checks. (A v6-inherited
 --     omission — only editquality + guardian — was flagged by this thread and
 --     fixed the same day by the concept-register thread's v9, applied live.)
 --   * Terminal always writes a doc_notes verdict entry (deterministic compose
@@ -79,7 +84,7 @@ INSERT INTO agent_definitions (
 SELECT
     'council-gate',
     'Council Gate (advisory review service)',
-    'The F2 council as a service: judges a SUBMITTED change (fix_plan-shaped artifact: diff sketches + rationale, any author, by correlation_id) through the same 6-reviewer council as the live fix-proposer (v11): edit-quality + guardian (hard-veto) always-on, bug-historian / reuse-agent / guidelines / tooling-provenance advisory and relevance-gated by the select_review_panel filter. No repropose loop — the author revises and resubmits on the same correlation. Verdict = council_report artifact + doc_notes entry (categories council-gate+verdict). Advisory: records approval, never enforces it. Scope ruling 2026-07-17: platform/, internal/, pkg/.',
+    'The F2 council as a service: judges a SUBMITTED change (fix_plan-shaped artifact: diff sketches + rationale, any author, by correlation_id) through the same 7-reviewer council as the live fix-proposer: edit-quality + guardian (hard-veto) always-on, bug-historian / reuse-agent / guidelines / tooling-provenance / adoption-guardian advisory and relevance-gated by the select_review_panel filter. No repropose loop — the author revises and resubmits on the same correlation. Verdict = council_report artifact + doc_notes entry (categories council-gate+verdict). Advisory: records approval, never enforces it. Scope ruling 2026-07-17: platform/, internal/, pkg/.',
     'diagnose', 'coordinator', 'experimental',
     true, 1, '["diagnose", "review"]'::jsonb,
     d.image_repository, d.image_tag, d.command, d.resources, d.topics, d.health_config, d.env_vars,
@@ -146,7 +151,8 @@ SELECT
               'bug_historian', jsonb_build_array('rerender','render','save_page_sections','sectionhasvisiblecontent','call_agent.go','missingkey','page_components','content_components'),
               'reuse_agent', jsonb_build_array('_action.go','.sql','migration','create table','new '),
               'guidelines', jsonb_build_array('input_contract','output_contract','idx_swi_dedup','site_work_items','agent_definitions','input_schema','save_page_sections'),
-              'tooling_provenance', jsonb_build_array('contextkit','cmd/bundle','bundle','doc_plans','doc_notes','resolve_action','registry.go','docubundle','travelling','dedup','thin_versions')
+              'tooling_provenance', jsonb_build_array('contextkit','cmd/bundle','bundle','doc_plans','doc_notes','resolve_action','registry.go','docubundle','travelling','dedup','thin_versions'),
+              'adoption', jsonb_build_array('apply_adoption_plan','site-adoption','adoption','needs_domain_research','domain-research-classifier','site_archetype','design_intent','design_reference','content_direction')
             )
           )
         ),
@@ -187,6 +193,16 @@ SELECT
           'config', jsonb_build_object(
             'condition', 'panel.run_tooling_provenance == true',
             'then_step', 'review_tooling_provenance',
+            'else_step', 'gate_adoption'
+          )
+        ),
+
+        'gate_adoption', jsonb_build_object(
+          'action', 'conditional',
+          'description', 'Relevance gate: run the adoption-pipeline guardian only if the submission touches the adoption pipeline; else skip.',
+          'config', jsonb_build_object(
+            'condition', 'panel.run_adoption == true',
+            'then_step', 'review_adoption_guardian',
             'else_step', 'review_guardian'
           )
         ),
@@ -337,7 +353,7 @@ SELECT
           'action', 'execute_llm_prompt',
           'description', 'Council reviewer 1.95 — tooling & provenance: does this change use the platform''s own investigation (cmd/bundle/contextkit) and documentation (doc_plans/doc_notes travelling docs) machinery, or reinvent/work around it? Advisory only (no veto — see PILOT_tooling_provenance_reviewer.md).',
           'output_field', 'review_tooling_provenance',
-          'next_step', 'review_guardian',
+          'next_step', 'gate_adoption',
           'config', jsonb_build_object(
             'error_step', 'complete_invalid',
             'ai_service', jsonb_build_object(
@@ -364,6 +380,41 @@ SELECT
 '## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Output -- ONLY this JSON' || chr(10) ||
 '{"reviewer": "tooling_provenance", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "names the existing tooling ignored/reinvented", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "..."}'
+          )
+        ),
+
+        'review_adoption_guardian', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Council reviewer (gated, candidate #3) — adoption-pipeline guardian: does the change respect the adoption pipeline''s write-then-relay contract (ADO-006)? Advisory only (no veto). Runs only when select_panel matches the adoption footprint.',
+          'output_field', 'review_adoption_guardian',
+          'next_step', 'review_guardian',
+          'config', jsonb_build_object(
+            'error_step', 'complete_invalid',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 3000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('input_data', 'plan_persisted', 'schema_hint'),
+            'output_format', 'json',
+            'prompt_template',
+'# Council reviewer: ADOPTION-PIPELINE GUARDIAN' || chr(10) || chr(10) ||
+'You judge one thing: does this fix respect the adoption pipeline''s event-driven, write-then-relay contract, or break it? You change nothing; you judge.' || chr(10) || chr(10) ||
+'## The adoption pipeline''s load-bearing contracts' || chr(10) ||
+'- WRITE-THEN-RELAY: apply_adoption_plan writes the specs (site_archetype, design_reference, design_intent, content_direction, identity), pages, and work items ITSELF, then emits exactly ONE strategic item: needs_domain_research. It never calls the classifier/planner directly, and never emits build-stage items (needs_composition / needs_design) directly. A fix that makes adoption call a downstream stage directly, or emit a build-stage item, breaks the relay contract.' || chr(10) ||
+'- ADOPTED SPECS ARE GROUND TRUTH: when the relay reaches the site, the domain-research-classifier treats the adopted identity/archetype/content_direction/design_intent as ground truth that OUTRANKS its own search+scrape -- it reads-and-extends, never overwrites. A fix that makes the classifier overwrite adopted specs breaks fidelity.' || chr(10) ||
+'- NO BYPASS: adopted sites run the full strategist -> briefing -> planner chain exactly as fresh builds -- adoption routes THROUGH the planner, it does not replace it.' || chr(10) ||
+'- LLM FOR REASONING, GO FOR EXTRACTION: never pay an LLM to transcribe what a regex/goquery can read (hex colours, fonts, CSS vars are extracted Go-side).' || chr(10) || chr(10) ||
+'Judge the plan: (a) does any edit make adoption call a downstream stage directly, or emit a build-stage work item instead of the single needs_domain_research relay; (b) does it let the classifier overwrite (rather than read-and-extend) adopted specs; (c) does it bypass the strategist/briefing/planner chain for adopted sites; (d) does it move extraction work onto an LLM that Go should do. If the fix does not touch the adoption pipeline, approve.' || chr(10) || chr(10) ||
+'Verdicts: approve (respects the contracts, or does not touch adoption), object (breaks a contract above -- name which). You do NOT have a veto -- put a severe concern in objections at "high" severity and trust the router; note a true architecture-level concern explicitly.' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (does a work_item item_type exist, what does an agent emit), put it in checks as {"sql": "SELECT ...", "why": "what this settles"} -- SELECT/WITH only, never writes. Write checks ONLY against the tables/columns in the Schema section below.' || chr(10) || chr(10) ||
+'## Schema (the ONLY tables available to checks)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
+'## The author''s stated rationale' || chr(10) || '{{.input_data.rationale}}' || chr(10) || chr(10) ||
+'## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Output -- ONLY this JSON' || chr(10) ||
+'{"reviewer": "adoption_guardian", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "names the adoption contract broken", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "..."}'
           )
         ),
 
@@ -405,7 +456,7 @@ SELECT
           'config', jsonb_build_object(
             'error_step', 'complete_invalid',
             'fix_correlation_id', 'input_data.fix_correlation_id',
-            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_reuse_agent.result', 'review_guidelines.result', 'review_tooling_provenance.result', 'review_guardian.result'),
+            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_reuse_agent.result', 'review_guidelines.result', 'review_tooling_provenance.result', 'review_guardian.result', 'review_adoption_guardian.result'),
             'hard_veto_from', jsonb_build_array('guardian'),
             'max_rounds', 3
           )
@@ -432,7 +483,7 @@ SELECT
           'next_step', 'compose_verdict_checked',
           'config', jsonb_build_object(
             'error_step', 'compose_verdict',
-            'check_fields', jsonb_build_array('review_editquality.result.checks', 'review_bug_historian.result.checks', 'review_reuse_agent.result.checks', 'review_guidelines.result.checks', 'review_tooling_provenance.result.checks', 'review_guardian.result.checks')
+            'check_fields', jsonb_build_array('review_editquality.result.checks', 'review_bug_historian.result.checks', 'review_reuse_agent.result.checks', 'review_guidelines.result.checks', 'review_tooling_provenance.result.checks', 'review_guardian.result.checks', 'review_adoption_guardian.result.checks')
           )
         ),
 
@@ -559,7 +610,7 @@ COMMIT;
 -- Post-apply verification (run these before announcing the gate live):
 --   SELECT type, version, is_active, jsonb_object_keys(default_config->'workflow'->'steps')
 --   FROM agent_definitions WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false;
---   -- expect 25 steps; review_fields must list all six reviewers:
+--   -- expect 27 steps; review_fields must list all seven reviewers:
 --   SELECT default_config->'workflow'->'steps'->'council_decide'->'config'->'review_fields'
 --   FROM agent_definitions WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false;
 --
