@@ -98,7 +98,7 @@ reaper is the only backstop, and it's slow by design.
 
 ---
 
-## 4. The two platform gaps to fix (independent of the network fix)
+## 4. The THREE platform gaps to fix (independent of the network fix)
 
 1. **Child pods should fail fast on persistent Kafka dial failure.** Right now a pod that can't
    dial its broker logs `"No activity for 5 minutes"` indefinitely and stays `Running`, so k8s
@@ -111,6 +111,36 @@ reaper is the only backstop, and it's slow by design.
    timeout on the awaiting state, or shorten the reaper thresholds
    (`docs/agent_docs/sql_for_tables/020_scheduled_tasks.sql` ~L1065/L1075). Prefer per-workflow
    timeout over a blanket threshold.
+
+3. **The reaper has a blind spot: `EXECUTING_STEP` is never swept AT ALL.** *(Added 2026-07-17,
+   "diagnosis fixloop 3" thread.)* The reaper's two error strings (§2) show its coverage:
+   `AWAITING_RESPONSES` >90 min, dispatch loops >30 min. A parent that loses the spawn
+   *itself* — the child orchestration row is never created, so the parent never reaches
+   `AWAITING_RESPONSES` — wedges at **`EXECUTING_STEP` on the spawn step forever**. Nothing
+   reaps it; the in-code max-age check (§3c) never fires because the orchestration is never
+   re-processed.
+
+   **Live specimen (preserved deliberately — inspect, do not tidy):** correlation
+   `80c35dea-9488-46b1-97bf-7321af5c5af0` (2026-07-16 ~20:24Z) — a diagnose-orchestrator
+   parent stuck at `spawn_diagnoser`, ZERO child rows, ZERO LLM calls, 13.7h stale when found.
+   Deploy churn (v1.0.1126→1128 overnight) is the suspected spawn-killer, i.e. this gap also
+   converts every deploy-window spawn loss into a permanent zombie.
+
+   **Fleet scale of the blind spot** (query below): wedged `EXECUTING_STEP` rows going back
+   **455–1,197 HOURS** — weeks-old zombies accumulating silently.
+   ```sql
+   SELECT correlation_id, current_step,
+          EXTRACT(EPOCH FROM (NOW()-last_activity))::int/3600 AS stale_h
+   FROM orchestration_states
+   WHERE status='EXECUTING_STEP' AND last_activity < now() - interval '2 hours'
+   ORDER BY last_activity LIMIT 20;
+   ```
+   **Fix shape:** extend the reaper with an `EXECUTING_STEP` clause (threshold can be generous —
+   e.g. >3h — no legitimate step runs that long) OR add per-status thresholds; either way the
+   reaper error string must name the step so triage's failure-pattern grouping (left(error,140))
+   buckets these as one platform pattern. Note the diagnosis loop's own mitigation (an early
+   child-row check ~3 min after dispatch) catches NEW losses at dispatch time but does nothing
+   for the standing zombie population — the sweep is still needed.
 
 ---
 
