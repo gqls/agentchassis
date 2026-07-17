@@ -237,4 +237,33 @@ the Go seams (ref_field etc.) already exist since c19b5d097, so F1.2's real
 remaining work is the fix_implementer WORKFLOW seed — the spec's goal could
 say so, to stop the designer proposing redundant s1/s2 Go edits.
 
+## Turn 8 — 2026-07-17 — Run 2: the designer was RIGHT and validation was wrong; D4 refined
+
+Owner said go: sharpened the spec (goal now states the Go seams exist since
+`c19b5d097`; deliverable = ONE v2 workflow seed; pointers marked REFERENCE
+ONLY), re-applied the fixed designer seed (snapshot `ba8f1fcd`), re-fired →
+run `bcc96877` / correlation `76ed7fee`. Refused again at persist_plan —
+**but the plan was right and the validation was wrong.**
+
+The designer produced exactly what the sharpened spec asked: ONE stage
+(add `0NN_fix_implementer_v2.sql`, role seed) — no redundant Go edits, no
+config_change stage (turn 7's prompt fixes both worked) — and the TRUTHFUL
+checklist `seed_apply → verify`. My D4 rule demanded image-before-seed
+unconditionally; a seed-only feature has no image to deploy, so the rule
+forced the checklist to lie. The pilot found a real validation bug on its
+second fire.
+
+**D4 refined** (code + tests green, schema doc §4 rule 2 amended): image-
+before-seed stays HARD when the plan ships code edits; seed/doc-only plans
+may checklist `seed_apply → verify` with no image entry; ordering still
+enforced if an image entry is present. Designer prompt rule 5 updated to
+match ("do not invent an image step") and re-applied live.
+
+**Blocked on:** the validation fix is Go — inert until the next chassis
+image (rollouts owned by another thread today; HEAD builds pick the commit
+up automatically). Re-firing before that refuses identically. Then the
+owner's per-run credit go. Score so far: 2 fires, 0 council spends, 2 real
+defects found and fixed (1 prompt-steer, 1 validation) — the cheap gates
+are doing exactly their job.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

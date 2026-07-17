@@ -133,9 +133,14 @@ widening by the owner at fire time is a trigger flag, not a plan field.)
 - Validation rules:
   1. every `seed` edit must be referenced (by `file`) from exactly one
      `post_merge_checklist` entry with `act: "seed_apply"`;
-  2. if any checklist entry is `seed_apply`, at least one `image_deploy` entry
-     must exist with a strictly LOWER `order` — image-first-then-seed is thus
-     structurally unexpressible in the wrong order, not merely documented;
+  2. if any checklist entry is `seed_apply` AND the plan ships code edits, at
+     least one `image_deploy` entry must exist with a strictly LOWER `order` —
+     image-first-then-seed is thus structurally unexpressible in the wrong
+     order, not merely documented. **Amended 2026-07-17 (D4 refinement, found
+     live by the pilot's run `bcc96877`):** a SEED-ONLY plan (no code edits)
+     ships nothing an image could carry, so its truthful checklist is
+     `seed_apply → verify` with no `image_deploy` — validation accepts it;
+     ordering is still enforced if an `image_deploy` entry is present anyway;
   3. `order` values are unique positive integers; the PR body renders the
      checklist sorted by `order` as the owner's apply checklist.
 - `config_change` keeps its existing meaning (a described change to a LIVE
