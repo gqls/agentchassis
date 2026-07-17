@@ -1125,8 +1125,9 @@ func createRerenderWorkItem(
 	// Insert with a guard that mirrors the dedup index's WHERE clause.
 	// The guard on the INSERT is redundant given the unique index but
 	// makes the intent readable and avoids a unique-violation error
-	// path that would need error-sniffing.
-	result, err := db.ExecContext(ctx, `
+	// path that would need error-sniffing. Status list from
+	// workItemTerminalStatuses so it tracks the index predicate.
+	result, err := db.ExecContext(ctx, fmt.Sprintf(`
 		INSERT INTO site_work_items (
 			site_id, source, pipeline, item_type, severity,
 			summary, priority, handler_agent, status, created_by,
@@ -1139,9 +1140,9 @@ func createRerenderWorkItem(
 			SELECT 1 FROM site_work_items
 			WHERE site_id = $1::uuid
 			  AND item_key = $5
-			  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+			  AND status NOT IN (%s)
 		)
-	`,
+	`, sqlInList(workItemTerminalStatuses)),
 		siteID,
 		sourceField,
 		summary,

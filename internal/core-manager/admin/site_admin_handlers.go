@@ -741,7 +741,7 @@ func (h *SiteAdminHandlers) HandleRetryWorkItem(c *gin.Context) {
 		  AND dup.site_id = src.site_id
 		  AND dup.item_key = src.item_key
 		  AND dup.id != src.id
-		  AND dup.status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+		  AND dup.status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed', 'unresolved', 'cancelled')
 	`, itemID)
 
 	result, err := h.db.ExecContext(ctx, `

@@ -336,16 +336,17 @@ func CreateNeedsNewComponentItem(
 	// item_key ensures dedup — only one work item per section_type per site
 	itemKey := fmt.Sprintf("needs_new_component:%s", sectionType)
 
-	// Check if an active item already exists (same logic as idx_swi_dedup)
+	// Check if an active item already exists (same logic as idx_swi_dedup;
+	// status list from workItemTerminalStatuses so it tracks the index).
 	var exists bool
-	err := db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, fmt.Sprintf(`
 		SELECT EXISTS(
 			SELECT 1 FROM site_work_items
 			WHERE site_id = $1::uuid
 			  AND item_key = $2
-			  AND status NOT IN ('complete', 'verified', 'rejected', 'wont_fix', 'failed')
+			  AND status NOT IN (%s)
 		)
-	`, siteID, itemKey).Scan(&exists)
+	`, sqlInList(workItemTerminalStatuses)), siteID, itemKey).Scan(&exists)
 	if err != nil {
 		logger.Warn("component_selector: dedup check failed, attempting insert anyway",
 			zap.String("section_type", sectionType),
