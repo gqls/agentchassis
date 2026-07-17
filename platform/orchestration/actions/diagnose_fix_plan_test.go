@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -77,6 +79,187 @@ func TestPlanBytes_StringAndMapShapes(t *testing.T) {
 	// bare string passes through
 	if b, _ = planBytes(`{"summary":"s"}`); string(b) != `{"summary":"s"}` {
 		t.Fatalf("bare string shape: %q", b)
+	}
+}
+
+// ── staged plans (feature builder delta 1 — SCHEMA_staged_plan_v1.md) ────────
+
+func boolPtr(b bool) *bool { return &b }
+
+// goodStagedPlan mirrors the schema doc's worked example (the F1.2 pilot):
+// two stages, a to-be-created seed file, and an image-before-seed checklist —
+// every new mechanism exercised once.
+func goodStagedPlan() stagedPlan {
+	return stagedPlan{
+		PlanFormat: "staged-v1",
+		Summary:    "make the implementer's read ref and base branch per-run inputs",
+		GroundedIn: []string{"HANDOFF: ref/base are live-set to a stale branch"},
+		Stages: []stagedPlanStage{
+			{ID: "s1", Title: "ref/base as inputs",
+				Goal: "both actions resolve ref/base from input_data at run time",
+				Edits: []fixPlanEdit{
+					{File: "platform/orchestration/actions/diagnose_read_repo_files_action.go",
+						Symbol: "DiagnoseReadRepoFilesAction", Operation: "modify",
+						Rationale: "ref is a config literal; a stale live value reads the wrong tree",
+						Sketch:    "resolve ref via the action-input spec (input_data.ref -> config -> 'main')"},
+				},
+				ExpectedSymbols: []string{"input_data.ref"}},
+			{ID: "s2", Title: "re-seed the implementer",
+				Goal:      "the live workflow passes input_data.ref/base through",
+				DependsOn: []string{"s1"},
+				Edits: []fixPlanEdit{
+					{File: "docs/fixloop/0NN_fix_implementer_v2_ref_input.sql",
+						Operation: "add", ArtifactRole: "seed",
+						Rationale: "the workflow config must name the new input fields",
+						Sketch:    "v2 seed: read_current_files/prepare gain ref/base field refs"},
+				},
+				Gate: stagedGate{Build: boolPtr(false)}},
+		},
+		PostMergeChecklist: []stagedChecklistEntry{
+			{Order: 1, Act: "image_deploy", Detail: "make build-agent-chassis-ref; bump IMAGE_TAG; verify pod"},
+			{Order: 2, Act: "seed_apply", File: "docs/fixloop/0NN_fix_implementer_v2_ref_input.sql",
+				Detail: "apply to clients_db"},
+			{Order: 3, Act: "verify", Detail: "fire the implementer with an explicit ref"},
+		},
+	}
+}
+
+var testStagedCaps = stagedPlanCaps{MaxStages: 6, MaxStageEdits: 8, MaxTotalEdits: 24}
+
+func TestValidateStagedPlan(t *testing.T) {
+	if p := validateStagedPlan(goodStagedPlan(), false, testStagedCaps); len(p) != 0 {
+		t.Fatalf("good staged plan must validate, got: %v", p)
+	}
+
+	cases := []struct {
+		name   string
+		mutate func(stagedPlan) stagedPlan
+		expect string
+	}{
+		{"wrong plan_format", func(p stagedPlan) stagedPlan { p.PlanFormat = "staged-v2"; return p },
+			"plan_format must be"},
+		{"no stages", func(p stagedPlan) stagedPlan { p.Stages = nil; return p }, "no stages"},
+		{"ungrounded", func(p stagedPlan) stagedPlan { p.GroundedIn = nil; return p }, "grounded_in is empty"},
+		{"stage cap", func(p stagedPlan) stagedPlan {
+			for i := 0; i < 7; i++ {
+				st := p.Stages[0]
+				st.ID = fmt.Sprintf("x%d", i)
+				st.DependsOn = nil
+				p.Stages = append(p.Stages, st)
+			}
+			return p
+		}, "stages exceeds cap"},
+		{"per-stage edit cap", func(p stagedPlan) stagedPlan {
+			for i := 0; i < 9; i++ {
+				e := p.Stages[0].Edits[0]
+				e.File = fmt.Sprintf("a/b%d.go", i)
+				p.Stages[0].Edits = append(p.Stages[0].Edits, e)
+			}
+			return p
+		}, "per-stage cap"},
+		{"bad stage id", func(p stagedPlan) stagedPlan { p.Stages[0].ID = "Stage One!"; return p }, "must match"},
+		{"duplicate stage id", func(p stagedPlan) stagedPlan { p.Stages[1].ID = "s1"; p.Stages[1].DependsOn = nil; return p },
+			"already used"},
+		{"empty goal", func(p stagedPlan) stagedPlan { p.Stages[0].Goal = " "; return p }, "goal is empty"},
+		{"unknown dep", func(p stagedPlan) stagedPlan { p.Stages[1].DependsOn = []string{"s9"}; return p },
+			"unknown stage"},
+		{"forward dep", func(p stagedPlan) stagedPlan { p.Stages[0].DependsOn = []string{"s2"}; return p },
+			"strictly earlier"},
+		{"self dep", func(p stagedPlan) stagedPlan { p.Stages[0].DependsOn = []string{"s1"}; return p },
+			"strictly earlier"},
+		{"added twice", func(p stagedPlan) stagedPlan {
+			e := p.Stages[1].Edits[0]
+			p.Stages[0].Edits = append(p.Stages[0].Edits, e)
+			return p
+		}, "added more than once"},
+		{"modify before add", func(p stagedPlan) stagedPlan {
+			p.Stages[0].Edits = append(p.Stages[0].Edits, fixPlanEdit{
+				File: p.Stages[1].Edits[0].File, Operation: "modify",
+				Rationale: "r", Sketch: "wire the new seed in"})
+			return p
+		}, "before the stage that adds it"},
+		{"create then delete", func(p stagedPlan) stagedPlan {
+			p.Stages[1].Edits = append(p.Stages[1].Edits, fixPlanEdit{
+				File: p.Stages[1].Edits[0].File, Operation: "remove",
+				Rationale: "r", Sketch: "drop it again", ArtifactRole: "seed"})
+			return p
+		}, "create-then-delete"},
+		{"rogue artifact_role", func(p stagedPlan) stagedPlan { p.Stages[0].Edits[0].ArtifactRole = "binary"; return p },
+			"artifact_role"},
+		{"config_change as seed", func(p stagedPlan) stagedPlan {
+			p.Stages[0].Edits[0].Operation = "config_change"
+			p.Stages[0].Edits[0].ArtifactRole = "seed"
+			return p
+		}, "contradictory"},
+		{"build off for code stage", func(p stagedPlan) stagedPlan { p.Stages[0].Gate.Build = boolPtr(false); return p },
+			"only all-seed/doc stages may skip the build gate"},
+		{"empty expected symbol", func(p stagedPlan) stagedPlan {
+			p.Stages[0].ExpectedSymbols = append(p.Stages[0].ExpectedSymbols, " ")
+			return p
+		}, "expected_symbols contains an empty string"},
+		{"seed without checklist", func(p stagedPlan) stagedPlan { p.PostMergeChecklist = nil; return p },
+			"post_merge_checklist is required"},
+		{"seed uncovered", func(p stagedPlan) stagedPlan {
+			p.PostMergeChecklist = []stagedChecklistEntry{
+				{Order: 1, Act: "image_deploy", Detail: "d"}}
+			return p
+		}, "no seed_apply checklist entry"},
+		{"seed_apply names unshipped file", func(p stagedPlan) stagedPlan {
+			p.PostMergeChecklist[1].File = "docs/fixloop/other.sql"
+			return p
+		}, "no seed edit ships"},
+		{"seed before image", func(p stagedPlan) stagedPlan {
+			p.PostMergeChecklist[0].Order = 5 // image now after the seed at 2
+			return p
+		}, "image_deploy must come strictly before any seed_apply"},
+		{"duplicate order", func(p stagedPlan) stagedPlan { p.PostMergeChecklist[2].Order = 2; return p },
+			"already used"},
+		{"rogue act", func(p stagedPlan) stagedPlan {
+			p.PostMergeChecklist = append(p.PostMergeChecklist,
+				stagedChecklistEntry{Order: 4, Act: "self_merge", Detail: "d"})
+			return p
+		}, "act \"self_merge\" not in the allowlist"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			problems := validateStagedPlan(tc.mutate(goodStagedPlan()), false, testStagedCaps)
+			if len(problems) == 0 {
+				t.Fatal("expected validation failure")
+			}
+			if !strings.Contains(strings.Join(problems, "; "), tc.expect) {
+				t.Fatalf("want %q named, got %v", tc.expect, problems)
+			}
+		})
+	}
+
+	// top-level edits are the legacy shape leaking into a staged plan
+	if problems := validateStagedPlan(goodStagedPlan(), true, testStagedCaps); len(problems) == 0 ||
+		!strings.Contains(strings.Join(problems, "; "), "top-level edits") {
+		t.Fatalf("top-level edits must be rejected, got %v", problems)
+	}
+}
+
+// The discriminator must never mistake one shape for the other: a legacy plan
+// probes legacy, a staged plan (with or without plan_format) probes staged,
+// and invalid JSON probes legacy so the existing truncation hint still fires.
+func TestProbePlan_Discriminator(t *testing.T) {
+	legacy := []byte(`{"summary":"s","edits":[{"file":"a.go"}],"grounded_in":["q"]}`)
+	if p := probePlan(legacy); p.PlanFormat != "" || rawPresent(p.Stages) {
+		t.Fatal("legacy plan must not probe as staged")
+	}
+	stagedByFormat := []byte(`{"plan_format":"staged-v1","summary":"s"}`)
+	if p := probePlan(stagedByFormat); p.PlanFormat == "" {
+		t.Fatal("plan_format must probe as staged")
+	}
+	stagedByStages := []byte(`{"summary":"s","stages":[{"id":"s1"}]}`)
+	if p := probePlan(stagedByStages); !rawPresent(p.Stages) {
+		t.Fatal("a stages key must probe as staged")
+	}
+	truncated := []byte(`{"plan_format":"staged-v1","stages":[{"id":`)
+	p := probePlan(truncated) // must not panic; field values are best-effort
+	_ = p
+	if rawPresent(json.RawMessage(`null`)) || rawPresent(json.RawMessage(``)) {
+		t.Fatal("null/absent must not read as present")
 	}
 }
 
