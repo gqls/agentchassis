@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>The tools write their own docs. A real browser checks them.</title>
+<link rel="stylesheet" href="fonts-local.css">
+<style>
+  :root {
+    --paper:  #fbfaf6;
+    --ink:    #16233c;
+    --ink-2:  #46536b;
+    --ink-3:  #7c879a;
+    --rule:   #dcd8cd;
+    --teal:   #0e7c86;
+    --teal-b: #e3f2f3;
+    --amber:  #b56a12;
+    --amber-b:#fbf0dd;
+    --rose:   #b03a4a;
+    --rose-b: #fbe9ea;
+  }
+
+  @page { size: 297mm 210mm; margin: 0; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--ink);
+    background: #6b6b6b;
+  }
+
+  .slide {
+    position: relative;
+    width: 297mm;
+    height: 210mm;
+    padding: 13mm 15mm 15mm;
+    background: var(--paper);
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+
+  @media screen {
+    body { padding: 12px 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .slide { box-shadow: 0 6px 22px rgba(0,0,0,.4); }
+  }
+
+  .eyebrow {
+    font-size: 8.6pt; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--teal); margin-bottom: 3.5mm;
+  }
+  h1 { font-size: 30pt; font-weight: 800; letter-spacing: -.02em; line-height: 1.08; }
+  h2 { font-size: 21pt; font-weight: 800; letter-spacing: -.015em; line-height: 1.12; margin-bottom: 2mm; }
+  h3 { font-size: 11.5pt; font-weight: 700; line-height: 1.25; }
+  p  { font-size: 10.8pt; line-height: 1.52; color: var(--ink-2); }
+  p + p { margin-top: 3mm; }
+  .lede { font-size: 12.6pt; line-height: 1.45; color: var(--ink); max-width: 205mm; }
+  strong { color: var(--ink); font-weight: 650; }
+  .foot {
+    position: absolute; left: 15mm; right: 15mm; bottom: 6.5mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.6pt; color: var(--ink-3); letter-spacing: .04em;
+    border-top: 1px solid var(--rule); padding-top: 2mm;
+  }
+  .cols { display: grid; gap: 8mm; flex: 1; min-height: 0; }
+  .cols > *, .slide > div > * { min-width: 0; }
+  .c-2  { grid-template-columns: 1fr 1fr; }
+
+  .card {
+    border: 1px solid var(--rule); border-radius: 3px;
+    background: #fff; padding: 5.5mm 6mm;
+  }
+  .card.tint-teal  { background: var(--teal-b);  border-color: #bcdfe1; }
+  .card.tint-amber { background: var(--amber-b); border-color: #ecd9b4; }
+  .card.tint-rose  { background: var(--rose-b);  border-color: #efc9cd; }
+  .card h3 { margin-bottom: 2mm; }
+  .card p  { font-size: 10.2pt; }
+  .dense .card { padding: 4.5mm 5mm; }
+
+  .panel {
+    background: #10151f; border-radius: 4px; overflow: hidden;
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .panel-bar {
+    display: flex; align-items: center; gap: 4px;
+    padding: 2mm 3mm; background: #1b2331; flex: none;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .panel-bar span.t {
+    margin-left: 3mm; font-family: 'Inter', sans-serif; font-size: 7.4pt;
+    color: #8b97a9; letter-spacing: .05em;
+  }
+  .panel pre {
+    font-family: 'DejaVu Sans Mono', ui-monospace, monospace;
+    font-size: 6.5pt; line-height: 1.4; color: #cdd6e2;
+    padding: 3.5mm 4mm; white-space: pre-wrap; overflow: hidden; flex: 1;
+  }
+  .panel pre .k { color: #6fd3c7; }
+  .panel pre .s { color: #e3b341; }
+  .panel pre .c { color: #7d8798; }
+  .panel pre .g { color: #6fcf7f; }
+  .panel pre .r { color: #f0757f; }
+  .panel pre .w { color: #f5f7fa; font-weight: 600; }
+
+  .cap { font-size: 8.4pt; color: var(--ink-3); line-height: 1.4; margin-top: 2.5mm; }
+  .cap b { color: var(--ink-2); font-weight: 650; }
+
+  figure { display: flex; flex-direction: column; min-width: 0; flex: none; }
+  .shot {
+    border: 1px solid #cfcabd; border-radius: 3px; background: #0d0d0d;
+    overflow: hidden; display: block; flex: none;
+  }
+  .shot img { width: 100%; height: auto; display: block; }
+  .shot.phone {
+    background: #fff; flex: 1; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .shot.phone img { width: 100%; height: 100%; object-fit: contain; }
+
+  .kicker {
+    font-family: 'Caveat', cursive; font-size: 17pt; color: var(--amber);
+    font-weight: 700; line-height: 1.2;
+  }
+  .lead-in {
+    font-family: 'Caveat', cursive; font-size: 15.5pt; color: var(--ink-3);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ 1 · COVER ══════════════════ -->
+<section class="slide" style="padding:0;">
+  <div style="display:grid; grid-template-columns: 1.15fr .85fr; height:100%;">
+    <div style="padding:20mm 12mm 12mm 15mm; display:flex; flex-direction:column;">
+      <div class="eyebrow">Running in production · built over two weeks, July 2026</div>
+      <h1 style="font-size:32pt; max-width:152mm;">The tools write their own<br>instructions. Then a real<br>browser checks they work.</h1>
+      <p class="lede" style="margin-top:7mm; max-width:142mm;">
+        Our platform builds websites by itself, including the interactive parts — calculators,
+        simulators, small games. No human writes that code. Which left us with an awkward
+        question: how do you know any of it actually works? Not whether it deployed. Whether
+        it <strong>works</strong>.
+      </p>
+      <svg id="dg-cover" viewBox="0 0 462 146" style="width:140mm; margin-top:8mm;"></svg>
+      <div style="margin-top:auto; display:flex; gap:9mm; align-items:baseline;">
+        <div>
+          <div style="font-size:8pt; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:700;">Built</div>
+          <div style="font-size:10.5pt; font-weight:650;">4 – 16 July 2026</div>
+        </div>
+        <div>
+          <div style="font-size:8pt; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:700;">Status</div>
+          <div style="font-size:10.5pt; font-weight:650;">Live · runs unwatched</div>
+        </div>
+        <div>
+          <div style="font-size:8pt; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:700;">Evidence</div>
+          <div style="font-size:10.5pt; font-weight:650;">Real pages, real records</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:#12203a; padding:14mm 15mm 12mm 10mm; display:flex; flex-direction:column; justify-content:center; gap:6mm;">
+      <div style="font-family:'Caveat',cursive; font-size:21pt; color:#7fd8d0; line-height:1.2;">
+        Deployed isn't working.
+      </div>
+      <p style="color:#b7c2d4; font-size:10.4pt; line-height:1.58;">
+        A generated tool can pass every check we had — valid HTML, a script block, nothing
+        truncated — and still be broken. A slider wired to the wrong variable. A chart line
+        drawn against the wrong axis. None of that shows up in the file. All of it shows up
+        the second someone uses the page.
+      </p>
+      <p style="color:#b7c2d4; font-size:10.4pt; line-height:1.58;">
+        We watched it ship <strong style="color:#fff;">twice on the same game</strong>. The original
+        build put two bugs in. Months later an automatic repair rebuilt the page and put the
+        same two bugs back, faithfully. Everything passed, both times. That's when we stopped
+        arguing about it and built this.
+      </p>
+      <div style="border-top:1px solid #2c3d5e; padding-top:5mm; color:#8697b3; font-size:9.4pt; line-height:1.5;">
+        Every page photographed here is live and you can go and look at it:
+        <span style="color:#7fd8d0;">gamesdesign.co.uk</span> and
+        <span style="color:#7fd8d0;">vonc.com</span>. Every record quoted is copied out of the
+        running database.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 2 · THE PROBLEM ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">The problem</div>
+  <h2>Two things kept going wrong</h2>
+  <p class="lede" style="margin-bottom:5mm;">Different symptoms, same root. Nothing durable tied a thing to the intent behind it, or to a definition of working you could test.</p>
+
+  <div class="cols c-2">
+    <div class="dense" style="display:flex; flex-direction:column; gap:3.5mm; min-height:0;">
+      <div class="card tint-amber">
+        <h3>The reasoning evaporates</h3>
+        <p style="margin-top:2mm;">An agent builds a tool and makes choices on the way. One input field instead of three. A hand-drawn chart instead of a library. Dots hidden above 25 levels because more looked like soup. Then it moves on. Weeks later a second agent tidies the tool up and undoes all of it, because nobody wrote down why any of it was that way. The argument lived in a conversation that no longer exists.</p>
+      </div>
+      <div class="card tint-rose" style="flex:1;">
+        <h3>And the checks were checking the wrong thing</h3>
+        <p style="margin-top:2mm;">Every check we had read the stored HTML. Not one of them could see behaviour. The simulator opposite passed the lot while two bugs sat in plain sight of anyone who used it for ten seconds.</p>
+        <p>The influx slider used its own position as the rate, so “Flood” added five players a tick instead of a hundred. The numbers did move — about twenty times too weakly for anyone to notice. And the players line was drawn against the gold axis, which climbs into the tens of thousands, so two hundred players rendered as a flat line along the bottom.</p>
+        <p style="margin-top:2.5mm;">Neither is visible in the file. Both are obvious in a browser.</p>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:4mm; min-height:0;">
+      <figure>
+        <div class="shot"><img src="shots/economy-sim-desktop.png" alt="Economy Stabilization Sim running on gamesdesign.co.uk"></div>
+        <figcaption class="cap"><b>gamesdesign.co.uk · the simulator as it stands today, fixed.</b> Three separate axes now, and the slider maps its position to a real rate.</figcaption>
+      </figure>
+      <div class="card tint-teal" style="flex:1;">
+        <h3>A machine broke it. A machine put it right.</h3>
+        <p style="margin-top:2mm;">The repair went through the loop in these pages. The tool was rebuilt from a specification that named both defects as requirements, and the result was checked against the live page rather than taken on trust. The whole argument sits in the tool's own notes now, so the next agent to touch it inherits the reasoning instead of guessing at it.</p>
+        <p class="kicker" style="margin-top:3mm;">Two machine-written bugs, documented and fixed by machines.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>The tools write their own docs</span><span>2</span></div>
+</section>
+
+<!-- ══════════════════ 3 · TRAVELLING DOCS ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">The first half of the fix</div>
+  <h2>So now the tool carries its own paperwork</h2>
+  <p class="lede" style="margin-bottom:5mm;">Two documents sit in the database next to the thing they describe. Not in a wiki, not in a repo. Keyed to the tool, so they follow it around.</p>
+
+  <div class="cols" style="grid-template-columns: 1.05fr .95fr;">
+    <div style="display:flex; flex-direction:column; gap:4mm; min-height:0;">
+      <div class="card tint-teal">
+        <h3>A PLAN, and a log of everything that happened</h3>
+        <p style="margin-top:2mm;">The PLAN says what the tool is for, how it's delivered, and which decisions were deliberate — the do-not-touch list. At the bottom is the part that earns its keep: a list of checks spelling out what working means for <em>this</em> tool and nothing else. Change it and the old one is kept.</p>
+        <p>The notes are just a log: every fix, every diagnosis, every dead end. Dead ends are worth as much as the wins — a note saying “it wasn't this” saves the next agent an hour.</p>
+      </div>
+      <div class="card">
+        <h3>Nobody writes them by hand</h3>
+        <p style="margin-top:2mm;">The agent that builds the tool writes the PLAN as it builds. The ones that fix it add a note when they're done. It's the only arrangement I've seen where documentation stays true, because the thing that changes the code is the thing that writes the record.</p>
+      </div>
+      <div class="card">
+        <h3>One rule holds it up</h3>
+        <p style="margin-top:2mm;">A documentation step is never allowed to fail the work. If the PLAN write breaks, the tool still ships. Get that wrong and someone rips the docs out within a month — and they'd be right to.</p>
+      </div>
+    </div>
+
+    <figure>
+      <div class="panel" style="flex:1;">
+        <div class="panel-bar">
+          <span class="dot" style="background:#f0757f"></span><span class="dot" style="background:#e3b341"></span><span class="dot" style="background:#6fcf7f"></span>
+          <span class="t">doc_plans · tool-xp-curve-designer · current version</span>
+        </div>
+<pre><span class="k"># PLAN — tool-xp-curve-designer</span>
+
+<span class="k">## Deliberate decisions — do not re-fix</span>
+- The growth-factor input swaps min/max/step/default per
+  curve type: one reused field, not three — v1 kept simple
+  by design.
+- Raw 2D canvas, not a charting library — no external
+  dependencies.
+- Chart dots suppressed above 25 levels: a deliberate v1
+  threshold.
+
+<span class="k">## Acceptance criteria</span>
+<span class="c">```criteria</span>
+{ <span class="k">"profiles"</span>: [<span class="s">"desktop"</span>,<span class="s">"mobile"</span>],
+  <span class="k">"checks"</span>: [
+    {<span class="k">"id"</span>:<span class="s">"boots"</span>,<span class="k">"type"</span>:<span class="s">"selector_exists"</span>,
+     <span class="k">"selector"</span>:<span class="s">".tool-container"</span>},
+    {<span class="k">"id"</span>:<span class="s">"console"</span>,<span class="k">"type"</span>:<span class="s">"no_console_errors"</span>},
+    {<span class="k">"id"</span>:<span class="s">"status"</span>,<span class="k">"type"</span>:<span class="s">"page_status_ok"</span>},
+    {<span class="k">"id"</span>:<span class="s">"mobile-fit"</span>,<span class="k">"type"</span>:<span class="s">"no_horizontal_overflow"</span>,
+     <span class="k">"profiles"</span>:[<span class="s">"mobile"</span>]},
+    {<span class="k">"id"</span>:<span class="s">"curve-switch"</span>,<span class="k">"type"</span>:<span class="s">"interaction"</span>,
+     <span class="k">"steps"</span>:[{<span class="k">"action"</span>:<span class="s">"select"</span>,<span class="k">"selector"</span>:<span class="s">"#curveType"</span>,
+               <span class="k">"value"</span>:<span class="s">"exponential"</span>}],
+     <span class="k">"expect"</span>:{<span class="k">"selector"</span>:<span class="s">"#tableWrap tr"</span>}}
+  ] }
+<span class="c">```</span>
+
+<span class="k">## Correction log</span>
+- v1 (machine-written) asserted a table-body id the
+  component never defines. Real: rows are rendered by
+  script into <span class="s">#tableWrap</span>.
+</pre>
+      </div>
+      <figcaption class="cap"><b>That's not a mock-up.</b> It's the live record, pulled from the database. A tool wrote the first version of it while building itself. The last block is the machine correcting its own earlier mistake.</figcaption>
+    </figure>
+  </div>
+  <div class="foot"><span>The tools write their own docs</span><span>3</span></div>
+</section>
+
+<!-- ══════════════════ 4 · THE LADDER ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">The second half</div>
+  <h2>Four checks, and only one of them proves anything</h2>
+  <p class="lede" style="margin-bottom:3mm;">Criteria are worthless unless something reads them. We check in tiers, cheapest first — but the cheap ones can't answer the question you actually care about.</p>
+
+  <div style="display:grid; grid-template-columns: 1.1fr .9fr; gap:8mm; flex:1; min-height:0;">
+    <div style="min-height:0; display:flex; flex-direction:column;">
+      <svg id="dg-ladder" viewBox="0 0 560 366" style="width:100%; flex:1;"></svg>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:4mm;">
+      <div class="card tint-amber">
+        <h3>The top one opens the page like a person would</h3>
+        <p style="margin-top:2mm;">A small service starts a real copy of Chrome — headless, which just means the same browser without a window on screen. It loads the deployed page off the live site, waits for the JavaScript to finish, then tries the thing: picks “exponential” from the dropdown, looks to see whether the table rebuilt. Desktop size, then phone size.</p>
+        <p style="margin-top:2mm;">Nothing else here can tell you a slider works. This can.</p>
+      </div>
+      <div class="card tint-teal">
+        <h3>Why the cheap tier only half-looks</h3>
+        <p style="margin-top:2mm;">A check might say “assert <code>#tableWrap tr</code> exists”. Those rows are built by JavaScript, so they're nowhere in the stored HTML — but the container <code>#tableWrap</code> is. So the cheap tier only checks the leftmost part, the anchor. A real-but-empty container passes and the browser settles the rest. A selector that exists nowhere fails — which is how we catch an agent that invented one.</p>
+        <p class="kicker" style="margin-top:2.5mm;">Cheap checks can confirm. They're not allowed to refute.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>The tools write their own docs</span><span>4</span></div>
+</section>
+
+<!-- ══════════════════ 5 · THE LOOP ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">Put together</div>
+  <h2>Nobody starts any of this</h2>
+  <p class="lede" style="margin-bottom:1mm;">A scheduled sweep notices a tool is due a check. Everything after that runs on its own, and the verdict lands back in the same document the checks came from.</p>
+  <svg id="dg-loop" viewBox="0 0 980 430" style="width:100%; flex:1; min-height:0; margin-top:1mm;"></svg>
+  <div class="foot"><span>The tools write their own docs</span><span>5</span></div>
+</section>
+
+<!-- ══════════════════ 6 · ARCHITECTURE ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">Under the bonnet</div>
+  <h2>There's nothing clever in the parts</h2>
+  <p class="lede" style="margin-bottom:2mm;">Postgres, Kafka, some Go services, a browser, one model API. The only decision that matters is where the truth lives — in the database, attached to the tool, written by the agents, readable by anything that needs to know what working means.</p>
+
+  <div style="display:grid; grid-template-columns: 1.36fr .64fr; gap:8mm; flex:1; min-height:0;">
+    <svg id="dg-arch" viewBox="0 0 620 360" style="width:100%; height:100%;"></svg>
+    <div style="display:flex; flex-direction:column; gap:4mm;">
+      <div class="card">
+        <h3>What each bit does</h3>
+        <p style="margin-top:2mm;">Postgres holds the PLAN and the notes, and that's the source of truth — everything else is a copy. Kafka moves requests between the agents and the services. The chassis runs each agent's workflow: load the docs, do the job, write a note. The browser service drives Chrome and reports what it saw. Claude does the writing and the reasoning — Sonnet 5 across the tool pipeline, Opus 4.8 when a tool needs rebuilding from scratch.</p>
+      </div>
+      <div class="card tint-amber">
+        <h3>The rule that keeps it safe</h3>
+        <p style="margin-top:2mm;">Every documentation step routes its failures to “finished”, not “failed”. Writing a note can't break the build it's describing. The same goes for the photographs later: useful, never in the way.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>The tools write their own docs</span><span>6</span></div>
+</section>
+
+<!-- ══════════════════ 7 · REAL BUG ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">A real one, start to finish</div>
+  <h2>The quiz was fine. The footer wasn't.</h2>
+
+  <div style="display:grid; grid-template-columns: .34fr .66fr; gap:8mm; flex:1; min-height:0;">
+    <figure style="min-height:0;">
+      <div class="shot phone"><img src="shots/quiz-mobile.png" alt="Archetype taster quiz on vonc.com at 390px"></div>
+      <figcaption class="cap"><b>vonc.com at 390 pixels, which is how the browser tier sees it.</b> The quiz was innocent. Something else on the page was 506 pixels wide.</figcaption>
+    </figure>
+
+    <div style="display:flex; flex-direction:column; gap:3.5mm; min-height:0;">
+      <svg id="dg-blame" viewBox="0 0 660 172" style="width:100%; flex:none;"></svg>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4mm; flex:1; min-height:0;">
+        <div style="display:flex; flex-direction:column; gap:3.5mm;">
+          <div class="card tint-rose" style="padding:4mm 4.5mm;">
+            <h3 style="font-size:10.5pt;">It found it on the phone</h3>
+            <p style="font-size:9.5pt; margin-top:1.5mm;">Our first failure that wasn't staged. Three of seven checks failed. One was our own fault — the PLAN named a class this tool never had. The other was real. At phone width the page ran off the side.</p>
+          </div>
+          <div class="card" style="padding:4mm 4.5mm;">
+            <h3 style="font-size:10.5pt;">Then it worked out whose fault it was</h3>
+            <p style="font-size:9.5pt; margin-top:1.5mm;">Overflow is measured across the whole page, so the obvious move — blame the tool — would file an unfixable ticket against every tool on the site, forever. Instead it finds the tool's own container, names the widest offender, and says plainly whether it's the tool or the furniture around it.</p>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:3.5mm;">
+          <div class="card" style="padding:4mm 4.5mm;">
+            <h3 style="font-size:10.5pt;">The first repair agent lied</h3>
+            <p style="font-size:9.5pt; margin-top:1.5mm;">It reported <code>"fixed": true</code> and had changed nothing in the footer — it patched the <em>header</em> instead, because that's what it defaults to. We only knew because the browser went back and measured the same 506 pixels. <b>“Complete” isn't “fixed”, and nothing but a real browser can tell you which one you got.</b></p>
+          </div>
+          <div class="card tint-teal" style="padding:4mm 4.5mm;">
+            <h3 style="font-size:10.5pt;">Fixed where it would stick</h3>
+            <p style="font-size:9.5pt; margin-top:1.5mm;">One CSS rule, in a footer template <b>shared by eight sites</b>. Patching the built page would have been wiped on the next rebuild, so the fix went into the template. The next run reported <code>mobile-fit@mobile</code> passing.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>The tools write their own docs</span><span>7</span></div>
+</section>
+
+<!-- ══════════════════ 8 · THE NOTES ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">What it wrote down</div>
+  <h2>Four entries from one tool, unedited</h2>
+  <p class="lede" style="margin-bottom:4mm;">Read top to bottom and you get the whole thing: a failure, a correction, a pass that still points at the real culprit, and finally a clean run.</p>
+
+  <div style="display:grid; grid-template-columns: 1fr .78fr; gap:8mm; flex:1; min-height:0;">
+    <div class="panel" style="min-height:0;">
+      <div class="panel-bar">
+        <span class="dot" style="background:#f0757f"></span><span class="dot" style="background:#e3b341"></span><span class="dot" style="background:#6fcf7f"></span>
+        <span class="t">doc_notes · tool-archetype-taster-quiz · 14–15 July 2026</span>
+      </div>
+<pre><span class="c">--- 14 Jul 10:34 | ["acceptance-fail"] | tool-acceptance ---</span>
+<span class="r">## Tier-4 acceptance FAILED — tool-archetype-taster-quiz</span>
+Observed: 3 of 7 evaluated checks failed in headless Chromium:
+  boots: no element matches .tool-container in the live DOM
+  mobile-fit: page overflows horizontally on mobile
+Fix: improve_tool item created carrying the criteria as
+  acceptance_test
+
+<span class="c">--- 14 Jul 13:24 | ["migration"] | human ---</span>
+<span class="w">## PLAN superseded: real selectors + attribution</span>
+Root cause: composer-invented anchor + a PLAN born before the
+  composer was fixed.
+Fix: boots re-anchored to the REAL section class; quiz-flow
+  replaced with a real interaction (click .quiz-option-btn x3
+  -> .result-archetype-name) <span class="w">VERIFIED passing in real Chromium
+  before being written here</span>.
+<span class="w">NOT fixed here:</span> the page overflows on mobile — the offender is
+  div.footer-legal (506px at 390px) in vonc's SITE FOOTER, which
+  overflows every page on the site. That is site chrome, not this
+  tool: routed to component-template-fixer. <span class="w">Blaming the tool
+  would have sent the fixer to edit a component that cannot
+  reach the footer.</span>
+
+<span class="c">--- 14 Jul 14:06 | ["acceptance-run"] | tool-acceptance ---</span>
+<span class="g">## Tier-4 acceptance PASSED — tool-archetype-taster-quiz</span>
+Observed: all 8 of the tool's own checks passed across profiles:
+  desktop, mobile
+Root cause: site chrome, not this tool: mobile-fit@mobile —
+  div.footer-legal (479px) in site-footer
+Fix: 1 responsive_fix item raised for the site template;
+  <span class="w">the tool itself needs no change</span>
+
+<span class="c">--- 15 Jul 15:13 | ["acceptance-run"] | tool-acceptance ---</span>
+<span class="g">## Tier-4 acceptance PASSED — tool-archetype-taster-quiz</span>
+Observed: <span class="g">all 9 of the tool's own checks passed</span> across
+  profiles: desktop, mobile
+Root cause: not-applicable
+Fix: none required
+Verified: boots@desktop, status@desktop, quiz-flow@desktop,
+  console@desktop, boots@mobile, status@mobile,
+  <span class="g">mobile-fit@mobile</span>, quiz-flow@mobile, console@mobile
+</pre>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:4mm;">
+      <div class="card tint-teal">
+        <h3>Look at the third one again</h3>
+        <p style="margin-top:2mm;">It records a pass and, in the same breath, points at a defect it refuses to pin on this tool — with the element, its width, and where it lives. That's not a test result. That's a diagnosis.</p>
+      </div>
+      <div class="card">
+        <h3>And the last line</h3>
+        <p style="margin-top:2mm;">Between the third entry and the fourth, one CSS rule changed in a shared template. <code>mobile-fit@mobile</code> moves into the verified list by itself. The checks never changed — only the page did.</p>
+        <p style="margin-top:2mm;">That's what a regression test looks like when the spec, the test and the history are all the same document.</p>
+      </div>
+      <div class="card tint-amber">
+        <h3>Steal this habit</h3>
+        <p style="margin-top:2mm;">“Verified in real Chromium <em>before</em> being written here.” No check gets authored from imagination. Somebody watches it pass against the live page first. A test you've never seen pass is a guess with good posture.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>The tools write their own docs</span><span>8</span></div>
+</section>
+
+<!-- ══════════════════ 9 · EVIDENCE ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">The newest bit</div>
+  <h2>When a check fails, it takes a photograph</h2>
+
+  <div style="display:grid; grid-template-columns: .95fr 1.05fr; gap:8mm; flex:1; min-height:0;">
+    <div style="display:flex; flex-direction:column; gap:4mm; min-height:0;">
+      <p class="lede">A failing run photographs the whole page at each size, while the browser is still open — so the picture shows the state after whatever broke, not a fresh reload. The note gets a permanent address for it. The repair ticket gets a link you can click.</p>
+      <div class="card tint-teal" style="flex:1;">
+        <h3>Two rules that came out of building it</h3>
+        <p style="margin-top:2mm;">Evidence never gets a vote. No storage set up, capture failed, upload failed — that's one line in the log and the verdict is untouched. A page that never loaded doesn't get photographed either. There's nothing there worth keeping.</p>
+        <p>And expiring links stay out of the notes. Notes get fed into model prompts, and a signed URL is a few hundred characters of signature that'll be wrong by next week. The note carries the permanent address; the ticket carries the clickable one. There's a test that keeps it that way.</p>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:4mm; min-height:0;">
+      <figure>
+        <div class="shot"><img src="shots/drop-rate-desktop.png" alt="Drop Rate Tuner on gamesdesign.co.uk"></div>
+        <figcaption class="cap"><b>gamesdesign.co.uk · the tool we broke on purpose.</b> A failing check went into its PLAN, the run photographed the page at both sizes, then everything went back exactly as it was — PLAN restored byte for byte, the fake notes deleted. Proving something shouldn't leave litter.</figcaption>
+      </figure>
+      <div class="card tint-amber" style="flex:1;">
+        <h3>It earned its keep on the first run</h3>
+        <p style="margin-top:2mm;">The photographs stored fine. Then no repair ticket turned up. That absence was a real bug: a cancelled ticket from days earlier was still holding the slot, so every new ticket for that fault was being dropped without a word. It had been quietly swallowing them. One line of index fixed it.</p>
+        <p class="kicker" style="margin-top:2.5mm;">Looking hard at a pass is how you find what the pass was hiding.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>The tools write their own docs</span><span>9</span></div>
+</section>
+
+<!-- ══════════════════ 10 · TAKEAWAYS ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">If you're building with agents</div>
+  <h2>What's worth taking, whatever you're building</h2>
+  <p class="lede" style="margin-bottom:5mm;">None of this needs our platform. It's all cheap, and every bit of it came from something going wrong first.</p>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:9mm; flex:1; min-height:0;">
+    <div style="display:flex; flex-direction:column;">
+      <p style="font-size:11pt;"><strong>Give memory an address.</strong> Not notes about the project — notes attached to the thing, loaded whenever an agent touches it. Context you have to remember to paste in is context you'll forget to paste in. Write down what didn't work, too. Half of what saves time later is a record of a wrong turn.</p>
+      <p style="font-size:11pt;"><strong>Let the builder say what done means.</strong> A test suite written in advance can't know what a generated tool was meant to do. That knowledge exists for about a minute, while the thing is being built, and then it's gone. Make the builder write it down in that minute, in a form something else can check later. Keep it where the repair agent will read it.</p>
+      <p style="font-size:11pt;"><strong>Check behaviour, not shape.</strong> Structure checks are free and worth having, and they cannot see a slider that does nothing. One real browser turns “it looks right” into “it did the thing”. It's also the only way you'll catch an agent claiming a fix it never made. That happened to us, and we'd never have known.</p>
+    </div>
+    <div style="display:flex; flex-direction:column;">
+      <p style="font-size:11pt;"><strong>Work out whose fault it is before you file the ticket.</strong> A failure found in one place wasn't necessarily caused there. Send a repair agent at the wrong component and it'll keep trying, keep failing, and keep telling you it succeeded.</p>
+      <p style="font-size:11pt;"><strong>Never let the paperwork fail the work.</strong> If writing a note can break a build, the notes will be gone inside a month and nobody will admit to removing them.</p>
+      <p style="font-size:11pt;"><strong>And make the checks describe what you actually ship.</strong> Ours insisted the JavaScript came out as separate files, because a plan said so once. The pipeline had always put it inline. Every run failed, correctly, on a check that was simply wrong. A check that always fails just teaches everyone to ignore checks — put the ambition in a roadmap, not in a test.</p>
+      <div class="card tint-amber" style="margin-top:auto;">
+        <p class="kicker" style="font-size:16pt;">The pattern underneath all six: make the machine commit to something specific, then go and look.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>The tools write their own docs</span><span>10</span></div>
+</section>
+
+<!-- ══════════════════ 11 · LIMITS ══════════════════ -->
+<section class="slide">
+  <div class="eyebrow">Being straight about it</div>
+  <h2>What it does, and what it doesn't</h2>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8mm; flex:1; min-height:0;">
+    <div style="display:flex; flex-direction:column; gap:4mm;">
+      <div class="card tint-teal">
+        <h3 style="margin-bottom:2.5mm;">Working now, in production</h3>
+        <p>Tools write their own PLAN as they're built. Repair agents and the diagnosis loop write their own notes. A scheduled sweep finds tools due a check and drives them in a real browser, desktop and phone, clicking and selecting the way a person would, with nobody triggering it.</p>
+        <p>Both endings work. A pass gets recorded. A failure gets recorded and turned into a repair ticket carrying the checks that failed. And it closed a real bug end to end — a CSS rule in a template shared by eight sites — then went back and confirmed its own fix. We only chose between options.</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:2.5mm;">What it doesn't do</h3>
+        <p>It covers tools — the self-contained interactive things. Not every page on every site.</p>
+        <p>The checks are only as good as the agent that wrote them. Three times now one has invented an element id that was never in the tool. The anchor rule caught all three, which is rather the point, but it means the writing still needs watching.</p>
+        <p>And a genuine failure hasn't arrived with photographs yet. That part is proven on a bug we caused deliberately and then reverted. Which is honest, but it isn't the same thing.</p>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:4mm; min-height:0;">
+      <figure>
+        <div class="shot"><img src="shots/xp-curve-desktop.png" alt="XP Curve Designer on gamesdesign.co.uk"></div>
+        <figcaption class="cap"><b>The first tool that ever wrote its own PLAN</b> — gamesdesign.co.uk, live. That table on the right is built by JavaScript, so nothing static can see it. The browser counts twenty rows in the page, picks “exponential”, and checks they rebuild. That one assertion is the reason the whole ladder exists.</figcaption>
+      </figure>
+      <div class="card tint-amber" style="flex:1;">
+        <h3>The bit that surprised us</h3>
+        <p style="margin-top:2mm;">Most of the value didn't come from tools fixing themselves. It came from making the machine write down what it believed — because then we could see it was wrong. An invented selector. A delivery mechanism that never existed. An agent reporting a fix it hadn't made. Every one of them was invisible until something had to make a claim you could go and check.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>The tools write their own docs</span><span>11</span></div>
+</section>
+
+<!-- ══════════════════ 12 · CLOSE ══════════════════ -->
+<section class="slide" style="padding:0;">
+  <div style="display:grid; grid-template-columns:1.02fr .98fr; height:100%;">
+    <div style="padding:22mm 12mm 14mm 15mm; display:flex; flex-direction:column;">
+      <div class="eyebrow">The whole thing, in one go</div>
+      <h2 style="font-size:22.5pt; max-width:132mm;">A tool that says what it's for, states what working means, opens itself in a real browser to find out, works out who's to blame when it isn't, and writes down what happened.</h2>
+      <p class="lede" style="margin-top:6mm; max-width:132mm;">
+        The paperwork travels with the thing. The machines that change it are the ones that
+        write its history, which is the only setup where documentation stays true. And working
+        isn't a paragraph anyone can read generously — it's a list of checks, run in a real
+        browser against the real page, that either pass or don't.
+      </p>
+      <svg id="dg-close" viewBox="0 0 400 96" style="width:118mm; margin-top:7mm;"></svg>
+      <div style="margin-top:auto; border-top:1px solid var(--rule); padding-top:5mm; font-size:9pt; color:var(--ink-3); line-height:1.6;">
+        Part of a platform that plans, builds, deploys and looks after websites on its own.
+        This is one mechanism inside it — the one that decides whether the work was any good.<br>
+        Every screenshot is a live page. Every record shown is copied from the running database, unedited.
+      </div>
+    </div>
+    <div style="background:#12203a; padding:22mm 15mm 14mm; display:flex; flex-direction:column; justify-content:center; gap:7mm;">
+      <div>
+        <div style="font-size:8.4pt; letter-spacing:.14em; text-transform:uppercase; color:#7fd8d0; font-weight:700; margin-bottom:4mm;">The shape of it</div>
+        <div style="color:#dbe3ef; font-size:11pt; line-height:1.85;">
+          <div>A tool gets built.</div>
+          <div>It writes down what it's for and what working means.</div>
+          <div>It goes live.</div>
+          <div>Something schedules a check. Nobody presses anything.</div>
+          <div>A real browser opens the real page and tries it.</div>
+          <div>The verdict goes where the next agent will read it.</div>
+          <div>If it failed: whose fault, which ticket, which fixer.</div>
+          <div>The fixer reads the history before touching anything.</div>
+          <div>Then it gets checked again.</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #2c3d5e; padding-top:6mm;">
+        <div style="font-family:'Caveat',cursive; font-size:19pt; color:#7fd8d0; line-height:1.3;">
+          The hard part was never the browser.<br>It was deciding what the tool<br>was allowed to promise.
+        </div>
+      </div>
+      <div style="margin-top:auto; color:#6d7f9c; font-size:8.6pt; letter-spacing:.05em;">
+        Travelling docs &amp; self-verifying tools · 4–16 July 2026 · live sites: gamesdesign.co.uk, vonc.com
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="sketch.js"></script>
+<script>
+const INK = '#16233c', TEAL = '#0e7c86', AMBER = '#b56a12', ROSE = '#b03a4a', GREY = '#8b93a3';
+
+/* ───────── cover ───────── */
+(function () {
+  const svg = document.getElementById('dg-cover'), r = rng(7);
+  box(svg, 4, 40, 96, 48, ['the tool'], { r, fill: '#fff', size: 19, rotate: -0.8 });
+  box(svg, 152, 6, 142, 48, ['PLAN', 'what working means'], { r, stroke: TEAL, fill: '#e3f2f3', size: 15, textFill: TEAL, rotate: 0.7 });
+  box(svg, 152, 74, 142, 48, ['NOTES', 'everything that happened'], { r, stroke: TEAL, fill: '#e3f2f3', size: 14.5, textFill: TEAL, rotate: -0.5 });
+  const g = document.createElementNS(SVGNS, 'g'); svg.appendChild(g);
+  roughArrow(g, 102, 56, 148, 34, { r, stroke: TEAL, width: 1.6, bow: 5 });
+  roughArrow(g, 102, 74, 148, 96, { r, stroke: TEAL, width: 1.6, bow: -5 });
+  roughArrow(g, 296, 30, 344, 50, { r, stroke: AMBER, width: 1.6, bow: -6 });
+  roughArrow(g, 296, 98, 344, 78, { r, stroke: AMBER, width: 1.6, bow: 6 });
+  roughEllipse(g, 400, 64, 54, 32, { r, stroke: AMBER, width: 1.7, fill: '#fbf0dd' });
+  labelLines(g, 400, 58, ['a real browser', 'goes and tries it'], { size: 15.5, fill: AMBER, weight: 700, r });
+  label(g, 223, 141, 'both written by the machine, as it works', { size: 15, fill: GREY, rotate: -1.4 });
+})();
+
+/* ───────── ladder ───────── */
+(function () {
+  const svg = document.getElementById('dg-ladder'), r = rng(23);
+  const g = document.createElementNS(SVGNS, 'g'); svg.appendChild(g);
+
+  const rows = [
+    { y: 300, h: 50, w: 212, t: 'Tier 0 — as it is written', d: 'did the code come out complete?', c: GREY,  cost: 'free' },
+    { y: 232, h: 50, w: 252, t: 'Tier 1 — is it there?', d: 'did it deploy, has it got a script?', c: GREY, cost: 'free' },
+    { y: 156, h: 56, w: 312, t: 'Tier 2 — read the page', d: 'do the bits the checks mention exist?', c: TEAL, cost: 'cheap' },
+    { y: 24,  h: 108, w: 392, t: 'Tier 4 — use the thing', d: 'does it actually work?', c: AMBER, cost: 'a whole browser' }
+  ];
+  const X = 22;
+  rows.forEach((row, i) => {
+    const top = i === 3;
+    roughRect(g, X, row.y, row.w, row.h, {
+      r, stroke: row.c, width: top ? 2.1 : 1.5,
+      fill: top ? '#fbf0dd' : (i === 2 ? '#e3f2f3' : '#fff')
+    });
+    label(g, X + 13, row.y + 23, row.t, { size: 18, weight: 700, fill: row.c, anchor: 'start', r });
+    label(g, X + 13, row.y + 40, row.d, { size: 15, fill: '#5c6678', anchor: 'start', r });
+    label(g, X + row.w + 11, row.y + row.h / 2 + 4, row.cost, { size: 14, fill: GREY, anchor: 'start', rotate: -4 });
+  });
+
+  roughLine(g, 36, 76, 300, 76, { r, stroke: '#e2c48c', width: 1, passes: 1 });
+  label(g, 35, 96, 'real Chrome, no window on screen. desktop + phone.', { size: 14.5, fill: AMBER, anchor: 'start', r });
+  label(g, 35, 116, 'it clicks, types, picks from menus — then looks', { size: 14.5, fill: AMBER, anchor: 'start', r });
+
+  roughArrow(g, 524, 336, 524, 46, { r, stroke: INK, width: 1.5, bow: 9 });
+  label(g, 549, 192, 'cost', { size: 16, fill: INK, rotate: -90 });
+})();
+
+/* ───────── the loop ───────── */
+(function () {
+  const svg = document.getElementById('dg-loop'), r = rng(101);
+  const g = document.createElementNS(SVGNS, 'g'); svg.appendChild(g);
+
+  box(svg, 30, 30, 150, 58, ['a tool gets built'], { r, fill: '#fff', size: 18, rotate: -0.6 });
+  box(svg, 235, 30, 168, 58, ['it writes its PLAN', 'checks and all'], { r, stroke: TEAL, fill: '#e3f2f3', textFill: TEAL, size: 16, rotate: 0.5 });
+  box(svg, 458, 30, 140, 58, ['it goes live'], { r, fill: '#fff', size: 16 });
+  box(svg, 655, 22, 175, 74, ['a sweep notices', "it's due", 'a check'], { r, fill: '#fff', size: 15.5, rotate: 0.6 });
+
+  roughEllipse(g, 762, 218, 118, 56, { r, stroke: AMBER, width: 2, fill: '#fbf0dd' });
+  labelLines(g, 762, 202, ['a real browser opens', 'the real page', 'and tries it'], { size: 15.5, fill: AMBER, weight: 700, r });
+
+  box(svg, 590, 322, 168, 66, ['all good', '→ write it down'], { r, stroke: '#1d6b33', fill: '#e6f5e9', textFill: '#1d6b33', size: 15.5, rotate: -0.5 });
+  box(svg, 330, 322, 190, 66, ['something broke', '→ write it down', '+ raise a ticket'], { r, stroke: ROSE, fill: '#fbe9ea', textFill: ROSE, size: 15, rotate: 0.4 });
+  box(svg, 60, 300, 190, 88, ['a fixer reads the', 'PLAN + NOTES first', 'then fixes it'], { r, stroke: TEAL, fill: '#e3f2f3', textFill: TEAL, size: 15, rotate: -0.7 });
+
+  roughArrow(g, 182, 59, 231, 59, { r, stroke: INK, width: 1.6 });
+  roughArrow(g, 405, 59, 454, 59, { r, stroke: INK, width: 1.6 });
+  roughArrow(g, 600, 59, 651, 59, { r, stroke: INK, width: 1.6 });
+  roughArrow(g, 762, 99, 762, 158, { r, stroke: AMBER, width: 1.8 });
+  roughArrow(g, 730, 276, 690, 318, { r, stroke: '#1d6b33', width: 1.6, bow: 6 });
+  roughArrow(g, 668, 250, 470, 336, { r, stroke: ROSE, width: 1.6, bow: 34 });
+  roughArrow(g, 328, 356, 256, 350, { r, stroke: ROSE, width: 1.6, bow: 6 });
+  roughArrow(g, 92, 296, 78, 96, { r, stroke: TEAL, width: 1.6, bow: -30, dash: '7 5' });
+
+  label(g, 26, 262, 'and round it goes again', { size: 17, fill: TEAL, rotate: -90 });
+  label(g, 878, 152, 'the checks come', { size: 15, fill: GREY, anchor: 'start', r });
+  label(g, 878, 168, "from the tool's own", { size: 15, fill: GREY, anchor: 'start', r });
+  label(g, 878, 184, 'PLAN', { size: 15, fill: GREY, anchor: 'start', weight: 700, r });
+  roughArrow(g, 872, 172, 800, 190, { r, stroke: '#b8bfcb', width: 1.2, bow: 8, head: 7 });
+
+  label(g, 545, 300, "so whose fault is it?", { size: 16, fill: INK, rotate: -3 });
+  label(g, 500, 424, 'nobody presses anything — every arrow runs on its own', { size: 17, fill: AMBER, weight: 700, rotate: -0.6 });
+})();
+
+/* ───────── architecture ───────── */
+(function () {
+  const svg = document.getElementById('dg-arch'), r = rng(55);
+  const g = document.createElementNS(SVGNS, 'g'); svg.appendChild(g);
+
+  roughRect(g, 18, 112, 150, 104, { r, stroke: TEAL, width: 2.2, fill: '#e3f2f3' });
+  label(g, 93, 138, 'Postgres', { size: 20, weight: 700, fill: TEAL, r });
+  label(g, 93, 160, 'doc_plans', { size: 16, fill: '#2b5f66', r });
+  label(g, 93, 178, 'doc_notes', { size: 16, fill: '#2b5f66', r });
+  label(g, 93, 202, 'the truth lives here', { size: 14, fill: '#5d8a90', r });
+  label(g, 93, 240, 'tied to the tool,', { size: 14.5, fill: GREY, r });
+  label(g, 93, 256, 'not to a file path', { size: 14.5, fill: GREY, r });
+
+  box(svg, 238, 28, 158, 56, ['the chassis', 'runs the workflows'], { r, fill: '#fff', size: 15.5, rotate: -0.5 });
+  box(svg, 238, 128, 158, 58, ['Claude', 'writes + reasons'], { r, stroke: '#5b4b8a', fill: '#efeaf7', textFill: '#5b4b8a', size: 16, rotate: 0.5 });
+  box(svg, 238, 232, 158, 56, ['Kafka', 'moves messages'], { r, fill: '#fff', size: 15.5, rotate: 0.4 });
+
+  roughEllipse(g, 518, 92, 88, 52, { r, stroke: AMBER, width: 2, fill: '#fbf0dd' });
+  labelLines(g, 518, 80, ['the browser bit', 'real Chrome,', 'no window'], { size: 15, fill: AMBER, weight: 700, r });
+
+  box(svg, 436, 200, 158, 54, ['the live website', 'a real URL'], { r, fill: '#fff', size: 15.5, rotate: -0.6 });
+  box(svg, 436, 286, 158, 44, ['photos of failures'], { r, stroke: GREY, fill: '#f2f2ef', textFill: '#5c6678', size: 14.5, rotate: 0.5 });
+
+  roughArrow(g, 170, 146, 234, 62, { r, stroke: TEAL, width: 1.6, bow: 8 });
+  roughArrow(g, 234, 96, 170, 138, { r, stroke: TEAL, width: 1.4, bow: 8, dash: '6 4' });
+  roughArrow(g, 170, 164, 234, 164, { r, stroke: '#5b4b8a', width: 1.5 });
+  roughArrow(g, 317, 88, 317, 124, { r, stroke: INK, width: 1.4 });
+  roughArrow(g, 317, 190, 317, 228, { r, stroke: INK, width: 1.4 });
+  roughArrow(g, 400, 252, 466, 136, { r, stroke: AMBER, width: 1.7, bow: 16 });
+  roughArrow(g, 518, 148, 518, 196, { r, stroke: AMBER, width: 1.7 });
+  roughArrow(g, 476, 258, 492, 282, { r, stroke: GREY, width: 1.3, dash: '5 4', head: 7 });
+
+  label(g, 214, 98, 'read', { size: 14, fill: TEAL, rotate: -38 });
+  label(g, 208, 190, 'write', { size: 14, fill: TEAL, rotate: 33 });
+  label(g, 452, 150, 'go and look', { size: 13.5, fill: AMBER, anchor: 'end', rotate: -1.5 });
+  label(g, 532, 176, 'drives', { size: 14, fill: AMBER, anchor: 'start', r });
+  label(g, 515, 348, 'only when something fails', { size: 13.5, fill: GREY, r });
+})();
+
+/* ───────── blame ───────── */
+(function () {
+  const svg = document.getElementById('dg-blame'), r = rng(77);
+  const g = document.createElementNS(SVGNS, 'g'); svg.appendChild(g);
+
+  box(svg, 4, 54, 140, 58, ['the page runs off', 'the side at 390px'], { r, stroke: ROSE, fill: '#fbe9ea', textFill: ROSE, size: 15.5, rotate: -0.6 });
+  roughEllipse(g, 258, 84, 76, 46, { r, stroke: INK, width: 1.8, fill: '#fff' });
+  labelLines(g, 258, 74, ['but whose', 'fault', 'is it?'], { size: 15.5, fill: INK, weight: 700, lineHeight: 15, r });
+
+  box(svg, 386, 10, 150, 52, ['the tool itself', '→ fix the tool'], { r, stroke: GREY, fill: '#f2f2ef', textFill: '#5c6678', size: 15, rotate: 0.5 });
+  box(svg, 386, 106, 150, 56, ['the site footer', '→ fix the template', '(8 sites share it)'], { r, stroke: TEAL, fill: '#e3f2f3', textFill: TEAL, size: 14.5, rotate: -0.4 });
+
+  roughArrow(g, 148, 82, 178, 83, { r, stroke: ROSE, width: 1.6 });
+  roughArrow(g, 336, 68, 382, 42, { r, stroke: GREY, width: 1.4, bow: -5, dash: '6 4' });
+  roughArrow(g, 336, 100, 382, 128, { r, stroke: TEAL, width: 1.8, bow: 5 });
+
+  label(g, 258, 152, "measure the tool's own box first", { size: 14.5, fill: GREY, r });
+  label(g, 546, 44, 'not this time', { size: 14.5, fill: GREY, anchor: 'start', rotate: -6 });
+  label(g, 546, 136, 'this one', { size: 15.5, fill: TEAL, anchor: 'start', weight: 700, rotate: -5 });
+  label(g, 96, 24, 'div.footer-legal — 506px', { size: 15, fill: ROSE, rotate: -2 });
+})();
+
+/* ───────── close ───────── */
+(function () {
+  const svg = document.getElementById('dg-close'), r = rng(9);
+  const g = document.createElementNS(SVGNS, 'g'); svg.appendChild(g);
+  const stops = [
+    { x: 34,  t: 'built' },
+    { x: 130, t: 'writes it down' },
+    { x: 250, t: 'checks itself' },
+    { x: 350, t: 'fixes itself' }
+  ];
+  stops.forEach((s, i) => {
+    roughEllipse(g, s.x, 40, 15, 15, { r, stroke: i > 1 ? AMBER : TEAL, width: 1.7, fill: i > 1 ? '#fbf0dd' : '#e3f2f3' });
+    label(g, s.x, 46, String(i + 1), { size: 17, weight: 700, fill: i > 1 ? AMBER : TEAL });
+    label(g, s.x, 76, s.t, { size: 15.5, fill: '#5c6678', r });
+    if (i) roughArrow(g, stops[i - 1].x + 19, 40, s.x - 19, 40, { r, stroke: i > 1 ? AMBER : TEAL, width: 1.4, head: 7 });
+  });
+  roughArrow(g, 350, 22, 40, 16, { r, stroke: GREY, width: 1.3, bow: -16, dash: '6 4', head: 8 });
+  label(g, 196, 8, 'and round again, on a schedule', { size: 15, fill: GREY, rotate: -1 });
+})();
+</script>
+</body>
+</html>
