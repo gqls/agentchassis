@@ -202,7 +202,7 @@ func (a *App) fulfil(id string) {
 		if a.cfg.ReviewBeforePay {
 			lead = "Draft ready for review — /approve to bill the buyer, or /decline (no charge), before anything is sent"
 		}
-		subject := fmt.Sprintf("[idea.uk] REVIEW %s (%s)", id, o.Domain)
+		subject := fmt.Sprintf("[idea.uk] REVIEW %s (%s)", id, subjectSnippet(o.Domain))
 		link := a.opLink(o.ID)
 		text := fmt.Sprintf("%s to %s.\n\nApprove (send the buyer the pay link) or decline here:\n%s\n\n--- DRAFT REPORT ---\n\n%s", lead, o.Email, link, rep.Text)
 		htmlBody := fmt.Sprintf(`<p style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#4A4540">%s to %s.</p><p style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"><a href="%s">Approve or decline this order</a></p>%s`,
@@ -788,6 +788,26 @@ func b64Body(s string) string {
 		b.WriteString("\r\n")
 	}
 	return b.String()
+}
+
+// subjectSnippet compresses free text (the submitted business description) into
+// something safe for a Subject header: whitespace collapsed, cut at a word
+// boundary. A full multi-hundred-character description in the subject reads as
+// keyword stuffing and got a REVIEW email blocked as "Spam Content" — the body
+// already carries the full text, so the subject only needs enough to recognise
+// the order.
+func subjectSnippet(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	const max = 60
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	cut := strings.TrimRight(string(r[:max]), " ")
+	if i := strings.LastIndex(cut, " "); i > max/2 {
+		cut = cut[:i]
+	}
+	return cut + "…"
 }
 
 func sendOne(operatorEmail, to, subject, text, htmlBody string) {

@@ -405,6 +405,28 @@ rewrite deliberately NOT done — rotation makes it pointless, and a force-push 
 and every SHA in the docs. Stale `IAM_USER` comment removed from `idea.env.example` (don't publish
 the new user name in a public repo).
 
+## P — 2026-07-17 · REVIEW email spam-blocked: subject carried the whole business description
+
+First real order flow after rotation: the "New report request" email arrived, but the operator
+REVIEW email (draft report + /op approve link) was blocked by Clook/MailChannels as "Spam Content".
+Cause: `service.go` built the subject as `[idea.uk] REVIEW <id> (<o.Domain>)` — and `Order.Domain`,
+despite the name, holds the requester's **free-text business description** (here ~480 chars of
+sales-sounding copy → keyword-stuffed subject). The request email survived because its subject is
+short (`New report request <id>`); only the REVIEW subject interpolated the full text.
+
+Fix (in the tool source, tested): `subjectSnippet()` — whitespace collapsed, cut ≤60 runes at a word
+boundary + ellipsis — applied at the one call site; full text stays in the body.
+`TestSubjectSnippet` added (3 subtests PASS); build/vet clean; `TestReviewBeforePayFlow` still the
+known pre-existing red. **Inert until the binary ships** — rides the same
+build+scp+restart as the pending /request hardening.
+
+Owner-side deliverability (not code, still open): (1) release the blocked email via "Not Spam" —
+the order sits `awaiting_review` on the box, nothing lost; (2) whitelist operator mail in Clook
+(sender or `[idea.uk]` subject prefix); (3) check SES: the From domain (leopardess.uk) should be a
+verified **domain** identity with Easy DKIM + ideally a custom MAIL FROM, else DMARC alignment fails
+and buyer-facing report emails will hit other people's filters too — the quarantine listing showing
+the `…@eu-west-2.amazonses.com` envelope sender is a hint alignment is missing.
+
 ## Open decisions
 
 - **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)

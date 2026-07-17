@@ -120,3 +120,31 @@ func TestRequestHardening(t *testing.T) {
 		}
 	})
 }
+
+func TestSubjectSnippet(t *testing.T) {
+	t.Run("short text unchanged", func(t *testing.T) {
+		if got := subjectSnippet("acme widgets ltd"); got != "acme widgets ltd" {
+			t.Errorf("got %q", got)
+		}
+	})
+
+	t.Run("long text cut at a word boundary with ellipsis", func(t *testing.T) {
+		long := "agent framework that creates and maintains websites and that can create, test and fix clientside javascript tools on websites"
+		got := subjectSnippet(long)
+		if !strings.HasSuffix(got, "…") {
+			t.Errorf("want … suffix, got %q", got)
+		}
+		if n := len([]rune(got)); n > 61 {
+			t.Errorf("want ≤61 runes, got %d: %q", n, got)
+		}
+		if strings.Contains(got, "javascript") {
+			t.Errorf("should have been cut well before the tail: %q", got)
+		}
+	})
+
+	t.Run("whitespace and newlines collapsed", func(t *testing.T) {
+		if got := subjectSnippet("two\n\nlines\t here"); got != "two lines here" {
+			t.Errorf("got %q", got)
+		}
+	})
+}
