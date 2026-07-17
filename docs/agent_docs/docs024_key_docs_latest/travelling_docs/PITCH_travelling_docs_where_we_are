@@ -1,0 +1,44 @@
+Both original PDFs are already reposted. Here's what the reverse-engineering turned up.
+
+  What I did
+
+  Four agents each analysed the same before/after passages you provided, but from different angles — sentence mechanics, formatting/structure, rhetoric, and "what specifically reads as AI-written." Each wrote a
+  candidate style prompt, then I blind-tested it: I held back two slides' worth of your target text (the architecture slide and the notes-log slide) and had each agent rewrite the original v1 copy for those two using
+  only their own derived prompt, without ever seeing your actual rewrite of them. I then scored all four against the real text you'd sent, which none of them saw.
+
+  What the test found
+
+  One result stood out. The agent working the "what reads as AI-written" angle, blind, produced:
+
+  ▎ "The interesting decision isn't the technology. It's where the truth lives."
+
+  Your actual text says:
+
+  ▎ "The important decision isn't the technology. It's where the truth lives."
+
+  Near word-for-word, derived without seeing it. That agent's rule set — ground abstract subjects into flat declaratives, kill self-flagging phrases like "the load-bearing part," use contractions in ordinary
+  sentences — forms the backbone of the merged prompt.
+
+  Two shared misses were just as useful. All four agents wrote your "what each piece does" section (Postgres/Kafka/Go/Chrome/Claude) as prose or an invented numbered list — but your real text turns it into a markdown
+  table with the component bolded in the left column. And all four invented a "how a request flows through the system" step-by-step sequence that doesn't exist anywhere in your text at all — the source was a flat
+  list, and your rewrite kept it a flat list. Both misses are now explicit rules in the merged prompt (tables for name+role lists; never invent a sequence the source doesn't already have).
+
+  The deliverable
+
+  The composite prompt, the scoring evidence, and the worked example above are saved at:
+
+  docs/agent_docs/docs024_key_docs_latest/travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT.md
+
+  Versions now in the repo, for comparison
+
+  - PITCH_travelling_docs_self_verifying_tools_v1.pdf — the original (competent, slightly stiff)
+  - PITCH_travelling_docs_self_verifying_tools_v2.pdf — my plain-speech rewrite from last turn
+  - PITCH_travelling_docs_self_verifying_tools.pdf — currently identical to v2
+
+  I haven't built a v3 from your pasted text yet — that's a real design/layout job (your version restructures several slides with tables and split code blocks that my current HTML scaffold doesn't have), and you said
+  explicitly the reverse-engineering was the ask this round. Say the word and I'll lay your actual text into a proper v3, since it's clearly the strongest copy of the three and worth having as a real PDF rather than
+  just markdown.
+
+
+  ------
+
