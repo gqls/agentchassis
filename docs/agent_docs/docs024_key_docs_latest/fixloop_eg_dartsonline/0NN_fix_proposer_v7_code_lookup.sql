@@ -37,6 +37,9 @@ SET default_config = jsonb_set(
           "code_check_fields": [
             "review_editquality.result.code_checks",
             "review_bug_historian.result.code_checks",
+            "review_reuse_agent.result.code_checks",
+            "review_guidelines.result.code_checks",
+            "review_tooling_provenance.result.code_checks",
             "review_guardian.result.code_checks"
           ],
           "max_checks": 8,
@@ -105,72 +108,52 @@ WHERE type = 'fix-proposer'
   AND (default_config #>> '{workflow,steps,repropose,config,prompt_template}')
         NOT LIKE '%code_lookup_results%';
 
--- 5. All three reviewer prompts learn the code_checks schema -----------------
--- Shared anchor verified live 2026-07-17 on all three prompts.
-UPDATE agent_definitions
-SET default_config =
-  jsonb_set(jsonb_set(jsonb_set(default_config,
-    '{workflow,steps,review_editquality,config,prompt_template}',
-    to_jsonb(replace(
-      default_config #>> '{workflow,steps,review_editquality,config,prompt_template}',
-      $a$"checks": [{"sql": "SELECT ...", "why": "what this settles"}]$a$,
-      $b$"checks": [{"sql": "SELECT ...", "why": "what this settles"}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "what this settles"}]$b$
-    ))),
-    '{workflow,steps,review_bug_historian,config,prompt_template}',
-    to_jsonb(replace(
-      default_config #>> '{workflow,steps,review_bug_historian,config,prompt_template}',
-      $a$"checks": [{"sql": "SELECT ...", "why": "what this settles"}]$a$,
-      $b$"checks": [{"sql": "SELECT ...", "why": "what this settles"}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "what this settles"}]$b$
-    ))),
-    '{workflow,steps,review_guardian,config,prompt_template}',
-    to_jsonb(replace(
-      default_config #>> '{workflow,steps,review_guardian,config,prompt_template}',
-      $a$"checks": [{"sql": "SELECT ...", "why": "what this settles"}]$a$,
-      $b$"checks": [{"sql": "SELECT ...", "why": "what this settles"}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "what this settles"}]$b$
-    ))),
-    updated_at = now()
-WHERE type = 'fix-proposer'
-  AND (default_config #>> '{workflow,steps,review_editquality,config,prompt_template}')
-        NOT LIKE '%code_checks%';
-
--- 6. Reviewer guidance paragraph (appended once, per prompt, after the schema)
-UPDATE agent_definitions
-SET default_config =
-  jsonb_set(jsonb_set(jsonb_set(default_config,
-    '{workflow,steps,review_editquality,config,prompt_template}',
-    to_jsonb((default_config #>> '{workflow,steps,review_editquality,config,prompt_template}') || $g$
-
-CODE QUESTIONS (code_checks): when your verdict hinges on a fact about the
-CODEBASE — does another implementation of this mechanism exist? which files
-carry symbol X? does anything reference Y? — attach a code_checks entry rather
-than objecting blind. kind "symbol" matches symbol names, "content" searches
-source bodies, "ls" lists indexed paths under a prefix; all are answered from
-the code_symbols index next round. SQL checks cannot see the codebase;
-code_checks cannot see the database — use each for its own tier.$g$)),
-    '{workflow,steps,review_bug_historian,config,prompt_template}',
-    to_jsonb((default_config #>> '{workflow,steps,review_bug_historian,config,prompt_template}') || $g$
-
-CODE QUESTIONS (code_checks): when your verdict hinges on a fact about the
-CODEBASE — does another implementation of this mechanism exist? which files
-carry symbol X? does anything reference Y? — attach a code_checks entry rather
-than objecting blind. kind "symbol" matches symbol names, "content" searches
-source bodies, "ls" lists indexed paths under a prefix; all are answered from
-the code_symbols index next round. SQL checks cannot see the codebase;
-code_checks cannot see the database — use each for its own tier.$g$)),
-    '{workflow,steps,review_guardian,config,prompt_template}',
-    to_jsonb((default_config #>> '{workflow,steps,review_guardian,config,prompt_template}') || $g$
-
-CODE QUESTIONS (code_checks): when your verdict hinges on a fact about the
-CODEBASE — does another implementation of this mechanism exist? which files
-carry symbol X? does anything reference Y? — attach a code_checks entry rather
-than objecting blind. kind "symbol" matches symbol names, "content" searches
-source bodies, "ls" lists indexed paths under a prefix; all are answered from
-the code_symbols index next round. SQL checks cannot see the codebase;
-code_checks cannot see the database — use each for its own tier.$g$)),
-    updated_at = now()
-WHERE type = 'fix-proposer'
-  AND (default_config #>> '{workflow,steps,review_editquality,config,prompt_template}')
-        NOT LIKE '%CODE QUESTIONS (code_checks)%';
+-- 5+6. Every reviewer seat learns the code_checks schema AND gets the guidance
+-- paragraph — looped over ALL seats so the set survives roster growth (v8 added
+-- reuse_agent, guidelines, tooling_provenance to the original three; a future
+-- seat is picked up by re-running this idempotent block). Per-seat guarded:
+-- the schema replace only fires where the anchor is still present and
+-- code_checks absent; the guidance append only where it is absent.
+DO $do$
+DECLARE
+  seat text;
+  seats text[] := ARRAY[
+    'review_editquality','review_bug_historian','review_reuse_agent',
+    'review_guidelines','review_tooling_provenance','review_guardian'
+  ];
+  tmpl text;
+  path text[];
+  schema_anchor text := '"checks": [{"sql": "SELECT ...", "why": "what this settles"}]';
+  schema_repl  text := '"checks": [{"sql": "SELECT ...", "why": "what this settles"}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "what this settles"}]';
+  guidance text :=
+E'\n\nCODE QUESTIONS (code_checks): when your verdict hinges on a fact about the\n'
+'CODEBASE — does another implementation of this mechanism exist? which files\n'
+'carry symbol X? does anything reference Y? — attach a code_checks entry rather\n'
+'than objecting blind. kind "symbol" matches symbol names, "content" searches\n'
+'source bodies, "ls" lists indexed paths under a prefix; all are answered from\n'
+'the code_symbols index next round. SQL checks cannot see the codebase;\n'
+'code_checks cannot see the database — use each for its own tier.';
+BEGIN
+  FOREACH seat IN ARRAY seats LOOP
+    path := ARRAY['workflow','steps',seat,'config','prompt_template'];
+    -- only act on seats that actually exist in this def
+    IF (SELECT default_config #> path FROM agent_definitions WHERE type='fix-proposer') IS NULL THEN
+      CONTINUE;
+    END IF;
+    SELECT default_config #>> path INTO tmpl FROM agent_definitions WHERE type='fix-proposer';
+    IF tmpl NOT LIKE '%code_checks%' AND position(schema_anchor in tmpl) > 0 THEN
+      tmpl := replace(tmpl, schema_anchor, schema_repl);
+    END IF;
+    IF tmpl NOT LIKE '%CODE QUESTIONS (code_checks)%' THEN
+      tmpl := tmpl || guidance;
+    END IF;
+    UPDATE agent_definitions
+      SET default_config = jsonb_set(default_config, path, to_jsonb(tmpl)),
+          updated_at = now()
+    WHERE type='fix-proposer';
+  END LOOP;
+END
+$do$;
 
 COMMIT;
 
