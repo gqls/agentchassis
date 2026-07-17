@@ -824,3 +824,39 @@ match — only the human's wording was restored). Applied + verified live.
   NOT yet deployed.** Refresher is manual, so nothing re-degrades until someone
   runs it; deploy the guard before the next run. DB is correct now regardless.
 - Applied SQL by this session: **157**.
+
+---
+
+## Session 10 (cont.) — degradation guard DEPLOYED + PROVEN LIVE (v1.0.1130)
+
+Guard (`specValueIsRestatement`) confirmed in the running binary (func symbol
+present; local image nm-verified). Re-ran §5d against the DB holding the good
+(SQL-157-restored) values. Result — the guard's signature, exactly as predicted:
+
+- **5/5 "no fields extracted", 0 refreshed, 0 LLM timeouts.** Looks like a
+  non-event; it's the guard working.
+- **DB byte-identical to the pre-run baseline** — every qualifier survived
+  ("6 mm per jaw", "0.15 kg (recommended workpiece weight)", "24 V DC",
+  "10 mm per jaw", "I/O (IO-Link option)"). Diffed before/after: IDENTICAL.
+- **The cause is unambiguous from the logs:** only **1** empty-object warning
+  (Festo — model genuinely returned {}, its RS-Online page states no specs).
+  The other **4** (OnRobot/Robotiq/Schunk/Zimmer) fired NO empty-object warning
+  — the model DID extract fields — yet still wrote nothing, because every
+  extracted value was either identical to the stored value or a barer
+  restatement the guard suppressed. Pre-guard, those same 4 refreshed WITH
+  degradation; now they refresh to zero changes.
+
+So both halves are proven live now: the timeout/region fix (S10 above — makes
+extraction succeed) and the degradation guard (makes a successful extraction
+safe). A refresh may enrich or correct, never degrade — demonstrated end-to-end.
+
+Minor logging imprecision (noted, NOT worth a build): those 4 products log
+"no fields extracted" when fields WERE extracted but didn't survive the merge.
+The "specs unchanged" clause is accurate and the behaviour is correct; only the
+phrasing is loose. If ever rebuilt for another reason, distinguish
+"extracted-but-all-suppressed" from "model-returned-empty" in that line.
+
+### Refresher: FINAL STATUS — done and proven.
+Both bugs fixed and proven live. Nothing outstanding on the capability itself.
+Open only as future niceties: Festo needs a real mfr spec URL (human discovery,
+by design) to refresh; the log-phrasing note above.

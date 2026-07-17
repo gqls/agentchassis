@@ -15,23 +15,28 @@ dartsonline.com `5fe8785b-223d-41a3-88ee-c07187622381`.
 
 ## 1. The immediate next action (this is why you're here)
 
-### STATUS 2026-07-17: `refresh_product_specs` WORKS. Two follow-ups remain.
+### STATUS 2026-07-17: `refresh_product_specs` is DONE — both bugs fixed + proven live.
 
-The zero-refresh bug is **fixed and proven end-to-end** (v1.0.1128). First
-working run: **4/5 refreshed, 0 LLM timeouts** (was 0/5, 5/5 timeouts). Details
-in RUNNING_NOTES "Session 10 (cont.)". What's left for the next chat:
+The capability works end-to-end. Nothing outstanding on it.
 
-1. **Deploy the degradation guard.** The working run refreshed correctly but
-   *degraded* 5 values by dropping hand-verified qualifiers ("6 mm per jaw" →
-   "6 mm" — halves a parallel gripper's stated stroke). No fabrication; the
-   model copied the page's value cell and lost the label's meaning. Fixed in the
-   working tree (`specValueIsRestatement`, 12 green tests) but **NOT yet in an
-   image**. The refresher is manual, so nothing re-degrades until it's re-run —
-   but deploy this before the next run. **DB already repaired (SQL 157).**
-2. **Festo returns {} — acceptable, not a bug.** Its source_url is an RS-Online
-   distributor listing, not a manufacturer spec page; the model correctly
-   refuses it. Give it a real spec URL if you want it refreshed (human judgement
-   — that's the by-design discovery boundary).
+1. **Zero-refresh bug — FIXED + proven live (v1.0.1128).** Cause was the 90s
+   timeout vs ~3 tok/s CPU inference (NOT truncation — that hypothesis is
+   retracted). First working run: 4/5 refreshed, 0 timeouts.
+2. **Degradation bug — FIXED + proven live (v1.0.1130).** The first working run
+   refreshed correctly but *degraded* 5 values by dropping hand-verified
+   qualifiers ("6 mm per jaw" → "6 mm", which halves a parallel gripper's
+   stroke). No fabrication — the model copied the page's value cell and lost the
+   label's meaning. Guard `specValueIsRestatement` (12 tests) now refuses to
+   trade a richer value for a barer restatement. **Proven live:** re-ran against
+   the good data — 5/5 "no fields extracted", 0 changes, DB byte-identical to
+   baseline; logs confirm 4 products extracted fields that the guard suppressed
+   (only Festo returned {}). DB was repaired mid-session by **SQL 157**.
+
+Only future NICETIES remain (neither is a bug): give Festo a real manufacturer
+spec URL if you want it refreshed (its source is an RS-Online distributor
+listing — the model correctly returns {}; discovery is human by design); and a
+loose log line ("no fields extracted" fires even when fields were extracted-then
+-suppressed — fix the phrasing only if rebuilding for another reason).
 
 Everything below this line is the diagnosis journey; keep for the reasoning.
 
