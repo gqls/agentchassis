@@ -121,7 +121,53 @@ between drafting and execution; the build default inverted fleet-wide
 rolled 1128→1130 by other sessions; `create_rerender_items_action.go` WIP
 belongs to the toolgen-tail session (file untouched by us, as planned).
 
-**Next**: T2.5 — build v1.0.1132 from committed HEAD, roll
-chassis+business-intel+vet-intel + DB image_tag, in-pod strings proof, apply
-165, trigger vonc completeness discovery (300s rule), verify owned-page
-routing + refusal, write CP1 here.
+**Next**: T2.5 — image roll A + CP1.
+
+---
+
+## 2026-07-17 (later) — ✅ CP1 REACHED: guard rails live in prod and proven on vonc
+
+**Image roll A came free.** Another session built+deployed **v1.0.1134** from a
+HEAD that already included all four guard-rail commits — so no separate roll
+was needed (my local 1132 build is moot; I did not push it). Verified in-pod,
+NOT by tag: `strings /app/agent-chassis` in pod `agent-chassis-6d85fff446-54jzc`
+(container name is `agent-chassis`, NOT `agent` — that's only the intel pair)
+shows rebuild_policy×4, owned_page_review×4, rename_tool_identity×4,
+RekeyTravellingDocs×2, shell-dead-controls×1, dead_controls×6, CanonicalisePage×2.
+Deployment AND agent_definitions.image_tag both v1.0.1134.
+
+**Migration 165 applied** (image-first satisfied — dead_controls symbol confirmed
+in-pod): `dead_controls` now in completeness-discovery-agent's checks array.
+
+**CP1 proofs (all live on vonc, artifact-verified):**
+
+1. *Binary*: the 7 symbols above are in the running 1134 binary.
+2. *dead_controls check fired* — completeness discovery (corr
+   4cedb4fb, completeness-discovery-agent row COMPLETED) emitted two live
+   `dead_control` items: index `brief-explanation` "Get Started" → `#` and
+   "Learn More" → `#`, both needs_human_review, no handler. Genuine new finds
+   (the index had dead CTAs too, not just the gauntlet). The gauntlet's own
+   dead CTAs weren't caught here only because tool-gauntlet is
+   build_status=needs_rebuild, not deployed — it's covered by the claims lane
+   and rebuilt in T4.
+3. *owned_page_review routing* — a SCOPED reconcile (corr 4c0c4acf; ran ONLY
+   reconcile_site_plan via a one-step envelope, NOT build-site-planner, to
+   avoid the re-plan clobber) emitted `owned_page_review` (needs_human_review,
+   NO handler) for `provocation`, `tool-gauntlet`, `tool-archetype-taster-quiz`
+   — exactly the tool/owned pages that previously went to needs_page →
+   page-build-handler. `tool-arena` (deployed at current plan version) correctly
+   skipped. **Zero needs_page emitted for any owned page.** The manual park of
+   needs_page:provocation is now mechanical; the stale 07-12 park item
+   (01674b35) was cancelled as superseded.
+4. *save_page_sections refusal*: code-verified in the 1134 binary (the
+   rebuild_policy='owned' guard returns before the DELETE+reinsert); not fired
+   against a live owned page — the reconcile proof already demonstrates the
+   marker is read and enforced, and firing a destructive save purely to see it
+   refuse is not worth the risk.
+
+**Guard-rail bonus already banked**: between the claimscan baseline (14 findings,
+3 previously unknown) and the dead_controls sweep (2 more on index), the rails
+surfaced 5 defects nobody had catalogued — before any experience work began.
+
+**Phase 2 CLOSED.** Next: Phase 3 — experience-planner agent + challenge council,
+run to convergence on vonc-spark-game (CP2).
