@@ -239,10 +239,13 @@ tool-pipeline thread updated llm-cost-calculator's `tool-cta` at 16:42 with
 services" — the retired register (D4), AND no service by that name exists in the
 briefing (verified). The scheduled discovery cycle caught it at 19:43 (~3h
 drift-to-detection) and parked `claims:c67ed17b…` as needs_human_review.
-**OPEN: owner to rule on that item** (rewrite the tool CTA wording to a real
-service name, e.g. "AI Strategy & Architecture Consulting"). This is the
-"catches drift and hand-edits" purpose of the post-deploy lane demonstrated on
-real concurrent traffic, unprompted.
+**RULED & FIXED 2026-07-17**: owner approved the suggested rewrite; tool-cta now
+maps to the two REAL services ("AI Strategy & Architecture Consulting",
+"Hierarchical Multi-Agent Orchestration") in content_data + rendered_html; item
+completed with the ruling in `result`; `page_rerender:llm-cost-calculator`
+queued for deploy. Full drift→detection→human ruling→fix cycle closed on real
+concurrent traffic. Read-out summary added:
+`SUMMARY_where_we_are_claims_verification.md`.
 
 Remaining phases: V3 claims-auditor (prose lane), V4 freshness; vetcomparison
 second site.
