@@ -37,6 +37,10 @@ entries at the bottom. Update every turn.
 | 2026-07-17 | User: "yes, reuse agent, then in the order you suggest." Reuse-agent built and APPLIED (council now 4 reviewers); its original grounding (tool-lifecycle.md) corrected to the real charter (DEV-001) while building it | **confirmed, live** |
 | 2026-07-17 | Discovered a concurrent "council gate" thread building a service to run ALL platform commits through this same council — explicitly named this workstream as its seat-roster dependency | **noted, not actioned** (informational, directly relevant to pacing the remaining 9 seats) |
 | 2026-07-17 | Surfaced a scaling concern (10 more always-on sequential reviewers = 14 LLM calls/decision) before building seat #3 onward | **flagged, awaiting user direction** |
+| 2026-07-17 | User: "do the guidelines member then we can look at the relevance filtering mechanism." Guidelines-agent (seat #3) built + APPLIED — council now 5 reviewers | **confirmed, live** (5th and last always-on seat) |
+| 2026-07-17 | Designed the relevance-filter (`DESIGN_relevance_filter.md`); found it needs a chassis-image Go change (council_decide hard-fails on absent seats), not pure SQL | **designed, not built** (build decision is the user's — a bigger, image-requiring change) |
+| 2026-07-17 | Council-gate thread's review caught a real gap: advisory seats' `checks[]` were solicited but never run (`check_fields` omitted them). Fixed via v9, applied+verified | **confirmed, live** (latent defect in my own seat adds) |
+| 2026-07-17 | Started lockstep-syncing the gate-file clone's roster, but backed off — the gate thread is actively editing it and syncing it themselves; hands off their file | **not actioned** (correct coordination call — avoided a collision) |
 
 ---
 
@@ -497,5 +501,81 @@ reason to ask before continuing at that scale. Documented three options in
 `PLAN_concept_register.md` and `RUNBOOK_concept_register.md` (B7/B8); pausing
 on seat #3 to ask directly rather than assume "in the order you suggest"
 meant "all 10, always-on, no further check-in."
+
+## Turn 17 — 2026-07-17 — Guidelines-agent built + applied; relevance-filter designed (needs a chassis change)
+
+User: "Please do the guidelines member then we can look at the relevance
+filtering mechanism."
+
+**Guidelines-agent (seat #3), applied — council now 5 sequential reviewers.**
+Grounded it properly from the actual register content rather than a category
+label: FIX-036's phrasing is "a guidelines agent (adherence to 000-0xx, or did
+the guideline fall short)," and both clauses turned out load-bearing. Pulled
+`DEV-005` (wrapper-orchestrator), `DEV-027` (dedup mechanics/`idx_swi_dedup`),
+`DEV-018` (truthful provenance), `CTS-037` (declared input/output contracts),
+`CTS-002` (schema-source tiers) as the "rules to adhere to," plus
+FIX-016/FIX-042 for the distinctive second lens: a *guideline-gap* (the rule
+itself is wrong, not the fix) should lean **side-task, not block**. Encoded
+that within the fixed output contract cleanly — a violation → `object` (routes
+to revise), but a guideline-gap → `approve` + a `notes` entry, never an
+objection, so a correct fix isn't forced to revise for exposing a bad rule.
+Fresh live example that makes this concrete: `MDL-039` (BUG B) proved a runbook
+`max_tokens` rule was literally backwards. Built the v8 patch (same 5-edit
+method as v6/v7), verified syntax, pre-flight checked no in-flight council
+activity + confirmed live state was v7, applied, verified live (5-reviewer
+chain, both `review_fields` arrays, prompt intact 2,774 chars).
+
+**Relevance-filter designed (`DESIGN_relevance_filter.md`).** Per the user's
+"then look at" — designed it fully rather than built it, and the design pass
+surfaced the load-bearing constraint: it can't be a pure-SQL change like the
+seat adds. Read `diagnose_council_decide_action.go` directly and confirmed it
+hard-fails on any absent reviewer field (line 100-102: `if raw == nil {
+return ... "reviewer output missing" }`). So skipping a seat when it's not
+relevant requires a small Go change (treat absent as abstention) plus a
+`select_review_panel` action — a chassis image build, a bigger class of change
+than the SQL-only seat adds, and one now shared with the council-gate thread.
+Designed the whole thing: the relevance signal (fix plan's `edits[]` files +
+operations, plus diagnosis-cited entities), each seat's relevance footprint
+(derived from grounding concepts' `verify-later` fields — the exact join the
+stage-3 design always called for), the three build pieces, and which seats
+stay always-on (editquality, guardian) vs gate behind the filter (everything
+else, including retrofitting the 3 current advisory seats). Presented the
+build decision rather than proceeding — it's image-requiring and cross-thread.
+
+Council seat count: 2 (original) → 5 (three stage-3 seats added). Remaining 7
+candidates from the "ten more" list are the specialists the filter is meant to
+gate.
+
+**A coordinating thread reviewed my work and caught two real gaps** (an
+addendum appended to `PILOT_reuse_agent_reviewer.md` by the council-gate /
+feature-builder thread — the exact kind of cross-check the whole council idea
+is for, applied to the council itself):
+1. **`run_checks.check_fields` omitted the advisory seats** — it listed only
+   editquality + guardian, so bug-historian/reuse-agent/guidelines could
+   request read-only SQL checks in their output that were solicited but NEVER
+   executed or fed back on a revise round. Verified against the live DB (true)
+   and against `diagnose_run_checks_action.go` (it explicitly tolerates
+   absent/empty check lists, so the fix is safe). **Fixed: v9 migration
+   (`0NN_fix_proposer_v9_runchecks_fix.sql`)** extends check_fields to all 5
+   reviewers; applied to `clients_db`, verified live. A genuine latent defect
+   in my own seat additions, caught by their review — worth the flag.
+2. **Two council definitions can drift** (fix-proposer's live one, and the
+   gate's file-only clone). I started to sync the gate file to the 5-seat
+   roster in lockstep (the addendum explicitly invited it) — but the sync
+   attempt's exact-match assertion failed because **the file changed under me
+   mid-edit**: the gate/feature-builder thread is actively editing it right now
+   and had already added the reuse_agent + guidelines steps themselves (their
+   `review_fields`/`check_fields` were still mid-update, not yet referencing
+   them). My script failed cleanly *before writing* — no corruption. Correct
+   call: **hands off their file entirely** — they own it and are doing the
+   sync themselves. Left it untouched, not included in my commit. (Good
+   argument for building the relevance-filter's `select_review_panel` as
+   shared code both councils import, rather than two hand-maintained rosters —
+   noted in `DESIGN_relevance_filter.md`.)
+
+Committed my own work narrowly per `CLAUDE.md`: the v8 + v9 migrations and the
+docs, excluding the gate file (the other thread's, mid-edit) and
+`PILOT_reuse_agent_reviewer.md` (carries the other thread's uncommitted
+addendum — theirs to commit).
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

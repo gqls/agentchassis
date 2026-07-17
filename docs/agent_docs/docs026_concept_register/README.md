@@ -42,7 +42,10 @@ RUNBOOK_concept_register.md — human-operator tasks (rotations, judgment calls,
 RUNNING_NOTES_concept_register.md — turn-by-turn discussion log, updated every turn
 SUMMARY_where_we_are_2026-07-16.md — calm, read-aloud narrative summary (companion to PLAN)
 SUMMARY_where_we_are_2026-07-17.md — read-aloud summary + bug-historian deep dive (now LIVE)
-PILOT_bug_historian_reviewer.md — stage-3 pilot spec: charter, curated context, prompt, exact patch — APPLIED 2026-07-16
+PILOT_bug_historian_reviewer.md — stage-3 council seat #1 — LIVE 2026-07-16
+PILOT_reuse_agent_reviewer.md — stage-3 council seat #2 — LIVE 2026-07-17
+PILOT_guidelines_agent_reviewer.md — stage-3 council seat #3 (last always-on) — LIVE 2026-07-17
+DESIGN_relevance_filter.md — how the remaining specialist seats gate behind a relevance filter (designed, not built)
 001_PROMPT_charter.md      — the rewritten task charter
 002_PLAN_extraction.md     — stage-1 work-unit ledger (26 units), extraction-specific
 003_TAXONOMY_seed.md       — starting categories + tagging rules (open-ended)

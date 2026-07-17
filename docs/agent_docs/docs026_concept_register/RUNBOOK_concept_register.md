@@ -107,23 +107,38 @@ reviewers.** `review_editquality → review_bug_historian → review_reuse_agent
 be about a different, already-covered theme). Pre-flight checked for
 in-flight council activity first (none found).
 
-You then asked for 10 more, in a specific order (see
-`PLAN_concept_register.md` "Ten more council-member candidates"). Building
-started with guidelines-agent next.
+**2026-07-17: seat #3 (guidelines) also applied — council is now 5
+reviewers.** `review_editquality → review_bug_historian → review_reuse_agent
+→ review_guidelines → review_guardian → council_decide`. Full record:
+`PILOT_guidelines_agent_reviewer.md`. Distinctive two-lens design: objects on
+rule *violations*, but treats a *guideline-gap* (rule itself is wrong) as an
+approve+note, not an objection — so a correct fix isn't forced to revise for
+exposing a bad rule (grounded in FIX-016/FIX-042, with `MDL-039`/BUG B as the
+live example of a backwards rule). Pre-flight confirmed no in-flight council
+activity and that live state was v7 before applying.
 
-### B7. Decide how to scale past 4-5 reviewers — surfaced 2026-07-17
-Going 3→4 reviewers cost ~33% more latency/spend per council round. Building
-all 10 requested seats the same way (more always-on sequential steps) would
-mean 14 sequential LLM calls per decision, on a council about to gate all
-platform commits via the concurrent "council gate" thread
-(`fixloop_eg_dartsonline/DESIGN_feature_builder_and_council_gate.md`). Three
-options, not decided unilaterally: (a) build all 10 as always-on regardless;
-(b) build the relevance-filtering activation mechanism first (already
-sketched in `PLAN_concept_register.md` §Stage 3) so only 2-5 relevant seats
-fire per run; (c) pace it — a couple more broadly-applicable seats now,
-defer narrow specialists until (b) exists. Currently proceeding with your
-given order while this stays open — flag if you want to pause and resolve it
-before seat #3.
+Per your direction ("do the guidelines member then we can look at the
+relevance filtering mechanism"), guidelines was the last always-on seat —
+the design of the relevance filter follows (see B7).
+
+### B7. Decide whether/how to build the relevance filter — DESIGNED 2026-07-17, your call
+The scaling concern (10 more always-on seats = ~14 sequential LLM calls per
+decision) is now resolved in design: `DESIGN_relevance_filter.md`. The
+remaining specialist seats gate behind a filter that fires each only when the
+fix plan's touched files/tables match that seat's footprint (derived from its
+grounding concepts' `verify-later` fields). **Key finding: this is NOT a
+pure-SQL change** like the seat adds — `diagnose_council_decide_action.go`
+hard-fails on any absent reviewer field (line 100-102), so skipping a seat
+needs a ~2-line Go change (absent → abstain) plus a `select_review_panel`
+action, i.e. a chassis image build + deploy sequencing. That's a bigger,
+image-requiring change to a workflow now shared with the council-gate thread.
+**Recommend:** confirm the approach in the design doc, then build the Go
+action + council_decide change as its own reviewable change, sequenced with
+the council-gate thread — not folded into a seat migration, not applied
+same-day. The 7 remaining specialist seats (#3 adoption, #4 diagnosis-loop,
+#5 improvement-loop, #6 compliance, #7 render, #8 LLM-reliability, #9
+debugging, #10 contextkit) build behind the filter once it exists. Decision
+needed: build the filter now, or add a couple more always-on seats first?
 
 ### B8. Read the council-gate thread's own open decision — it names this workstream directly
 `fixloop_eg_dartsonline/HANDOFF_2026-07-17_council_gate_thread.md` asks, as

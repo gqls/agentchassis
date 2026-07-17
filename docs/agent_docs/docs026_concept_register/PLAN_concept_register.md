@@ -194,15 +194,28 @@ Separately confirmed a second bug found the same session (`MDL-039`, "BUG B"
 — root-vs-step `ai_service` config-shadowing, 17-agent blast radius) does
 **not** affect `fix-proposer` (no top-level `ai_service` key).
 
-**A scaling concern, surfaced 2026-07-17 before building further.** Going
-from 3 reviewers to 4 was a modest ~33% latency/cost increase. The user asked
-for 10 more seats (see "Ten more council-member candidates" below) in a
-specific order. Building all 10 the same way — more always-on sequential
-steps in the same chain — would mean **14 sequential LLM reviewer calls
-before every council decision**, including every revise/repropose round. This
-is a real design tension, not a reason to stop, but worth resolving
-explicitly rather than silently compounding: see that section for the three
-options and which one is in progress.
+**Council is now 5 reviewers; seat #3 (guidelines) is LIVE (2026-07-17)** via
+`0NN_fix_proposer_v8_guidelines.sql`. Chain:
+`editquality → bug_historian → reuse_agent → guidelines → guardian →
+council_decide`. The guidelines seat has a distinctive two-lens design per
+FIX-036 ("adherence to 000-0xx, or did the guideline fall short"): it objects
+on a plan that *violates* a live rule, but treats a *guideline-gap* (the fix
+is right, the rule is wrong — the `MDL-039` shape) as an `approve` + a note,
+never an objection, so a correct fix isn't forced to revise for exposing a bad
+rule (FIX-016/FIX-042). Full record: `PILOT_guidelines_agent_reviewer.md`.
+
+**The relevance-filter is now designed (`DESIGN_relevance_filter.md`) — this
+resolves the scaling concern.** Per the user's direction ("do the guidelines
+member then we can look at the relevance filtering mechanism"), guidelines was
+the last always-on seat; the remaining ~7 specialist seats gate behind a
+relevance filter instead of running on every decision. Key finding from the
+design pass: the filter **cannot** be pure-SQL like the seat adds, because
+`diagnose_council_decide_action.go` hard-fails on any absent reviewer field
+(line 100-102) — so skipping a seat requires a small Go change (treat absent
+as abstention) plus a `select_review_panel` action, i.e. a chassis image
+build. That's the decision the design surfaces: it's a bigger, image-requiring
+change to a workflow now shared with the council-gate thread, so it should be
+sequenced with that thread rather than applied same-day. Not built.
 
 **Scope boundary, still in force:** wiring further seats into the live
 `0NN_fix_proposer.sql` workflow remains a decision made per-seat, following
