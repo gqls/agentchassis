@@ -1918,3 +1918,59 @@ class, overlaps the experience_loop workstream), dead Load More button.
   restoration R1 — the B7 state is INTACT, do NOT re-swap the FK; nav/IA;
   404 page rows; tools w/ experience_loop; load-more).
 This workstream PAUSES I3 polish until those land.
+
+## Turn 48 — 2026-07-17 — D14 decided & BUILT (content_hero kind, flat duotone, eligibility filter); awaiting another thread's rollout
+
+Fix chat for the imagery half of the Turn-47 gate failure. **D14 with user:**
+flat duotone editorial illustration for content heroes/cards (small-format-
+first, per the user's direction), carried by a new `content_hero` KIND routed
+to **Banana** (the only provider honouring reference anchors; SDXL's free-text
+adherence is what failed), with the style guide gaining a **per-kind override
+map** (`kinds`) that replaces direction/avoid/anchors WHOLESALE for its kind —
+partial merging would let the photographic base voice ("cartoonish rendering"
+in avoid, photographic reference anchors) contaminate the flat style.
+Regen budget: **pilot 3, eyeball with user, then the rest**.
+
+**Built & committed `4e35c8064`** (all green, pathspec commit):
+- `check_content_image_missing.go`: Row.Kind → `content_hero`; sweep gains the
+  F2.1 eligibility predicate `deployed_at IS NOT NULL AND
+  jsonb_array_length(sections) > 0` (robot-hands 9→3 listed articles; the 6
+  excluded are R6's build-or-retire rows in the site handoff).
+- `queryresolve.go`: `blog_posts` base passes `listedOnly=true` into
+  `resolvePagesWhereType` — same predicate, lockstep comments both sides.
+  Fleet impact checked: only 3 consumers of query.blog_posts (robot-hands,
+  dartsonline — 4 never-built `planned` rows, listing goes honestly empty —
+  and idea.uk — no blog-post rows).
+- `imagery_style_guide.go`: `Kinds` map + `directionForKind` override branch,
+  new `avoidForKind`/`referenceKeysForKind` (override keys flow ungated; guide-
+  level keys keep the flat-vector gate). Tests extended (`TestStyleGuideKindOverrides`).
+- `generate_image_actions.go`: kindDefaults entry (NEUTRAL negative prompt —
+  the visual language comes from the guide override, so a photographic-content-
+  hero site isn't fought by a baked-in "no photorealism"); avoid/anchor call
+  sites go through the per-kind accessors.
+- `dynamic_adapter.go`: `content_hero` → banana. `url_helpers.go`:
+  ImagePurposes `content_hero` {1600, 900, 85, jpg} (same geometry as hero —
+  BuildSpec sets purpose from kind, so the kind rename changes the stored
+  purpose; all content-hero consumers look up by asset_key, verified).
+
+**Style guide superseded** → row `361f2ed7` (from `439329c4`, I1 seed), adds
+`kinds.content_hero`; SQL artifact
+`SQL_2026-07-17_d14_style_guide_content_hero_override.sql`. Inert until the
+new binary lands (old struct has no `kinds` field; guide-level fields
+unchanged).
+
+**Rollout is another thread's** (v1.0.1132 claimed in their uncommitted
+makefile bump; my commit rides HEAD). Coordination lesson re-learned live:
+my makefile tag-bump edit was rejected → the tag had been claimed under me
+minutes later. Coverage check run before any dispatch: no open imagery items
+on robot-hands; D13 residue = 1 failed grip-force re-render, 2 scaffold
+re-renders in needs_human_review (will be mooted by F2.1/R6), site-chat items
+untouched.
+
+**NEXT (blocked on rollout):** pod-verify `strings /app/agent-chassis | grep
+-c content_hero` (and the image-generator-adapter binary) → pilot: supersede
+the 3 LIVE articles' content heroes (tool-grip-force-friction /
+tool-gripper-payload / tool-gripper-cycle-time — the cycle-time one also
+clears its F2 stale-hero mismatch on re-render) → hand-promote stranded
+`detected` items → eyeball 3 with user → release remainder → re-gate on
+learning-center-hub → then F3 surfaces (featured_article / tool-list).

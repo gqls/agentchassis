@@ -236,3 +236,34 @@ P3 is live and proven end-to-end on v1.0.1125 — and the proof's first run caug
 
 ---
 
+● Everything's landed. Here's where this turn got to.
+
+  New chassis v1.0.1128 — new models proven through the real pipeline
+
+  I verified the deploy on the pods (adapter still reports failure screenshots enabled), then drove a full tool birth on gamesdesign to exercise the Sonnet 5 / Opus 4.8 upgrades through the actual workflows, not just
+  the DB flip:
+
+  - Sonnet 5 confirmed end-to-end: fired tool-generator for a new tool, tool-loot-table-balancer. llm_call_log shows both LLM steps on claude-sonnet-5, with the component, fenced PLAN-at-birth, and index_plan (3
+  chunks/embeddings) all correct.
+
+  Three things came out of it, each fixed durably:
+
+  1. Composer shape defect (migrations 160 + 161). Sonnet 5 emitted the interaction check as {"type":"click", "expect":"<string>"} — not a Tier-4 check type, so the runner skips it and the tool's behaviour goes
+  untested. The selectors were real (the no-invention rule held), but the prompt only described interactions in prose. 160 adds the exact JSON shape to the compose_plan prompt; 161 supersedes the born PLAN to the
+  real interaction shape — probed passing in live Chromium first (the 148 rule: row-4 is absent pre-click, the click produces it, on both profiles).
+  2. The tool-birth deploy gap — CLOSED (your question earlier). tool-generator never enqueued a page_rerender, so every new tool page sat planned until a sweep caught it — all three births needed a hand-inserted
+  item. I taught create_rerender_items a single-page mode (4 unit tests) and wired a tool-generator tail step via migration 162 (index_plan → enqueue_rerender → complete). It's applied and inert now; the Go change
+  activates it on the next image (the 147 pattern).
+  3. The REAL-failure → tool-improver milestone (open since T8) — closed. Acceptance on the corrected PLAN passed 8/9 — including the interaction on both profiles — and found a genuine tool bug: a fieldset 419px wide
+  at 390px, correctly attributed "inside the tool" and routed to improve_tool with the P3 screenshot. tool-improver then fixed it on Sonnet 5, constrained the fieldset in the durable component template, and wrote a
+  machine fix note.
+
+  One leg is not yet observed: re-verify-green. The durable fix is confirmed in the component template, but its rerender is stuck behind a large prod page-rerender backlog on this site (83 items, draining slowly —
+  the reaper is working, the handler is just far behind). That's a build-pipeline backlog outside this workstream, and I deliberately didn't hand-hack around it. The loop needs no human here: once the queued rerender
+  deploys the fixed template, the continuous acceptance sweep re-verifies green on its own.
+
+  Migrations 160/161/162 are applied and ledger-recorded; next free number is 164 (163 and a second 157 were taken concurrently by other workstreams — the collisions continue, so always check max+1). Docs rolled
+  (HANDOFF T24, RUNNING_NOTES, memory). New files to git add before the next release: migrations 160/161/162, and create_rerender_items_action.go + its test.
+
+
+---

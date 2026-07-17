@@ -211,4 +211,84 @@ Please run an auditor to see what problems it picks up. For the tool fix see if 
 like we have been looking at, to flag sites that sound too much like AI llms. Nice catch with the "reads news from hundreds of sources" thank you.
 
 ----
+1. The rewrite prompt — for your review before anything fires
+
+Mechanism first: the writer receives per-run guidance via input_data.spec.suggestion, which lands in its prompt as "## Rewrite Guidance (IMPORTANT — incorporate this into the content)". Combined with the v2 voice
+spec (already in site_specs, which the writer always reads), this is the framework path — I fire page-build-handler per page with this in the spec, and the content writer writes the copy, gated by
+validate_page_content including the now-deployed banned-claims blocker. Nothing hand-written.
+
+The prompt I propose to send, verbatim:
+
+▎ Rewrite this page's copy in the site's plain register. This is a rewrite for readability: keep every fact, number, and claim exactly as given in the specs and section briefs. Do not add new facts, numbers,
+▎ clients, or capabilities. If you do not have a number for something, describe it without one. Never round a number up or dramatise it.
+▎
+▎ How to write:
+▎ - One idea per sentence. If a sentence carries two ideas, split it. Keep most sentences under 20 words.
+▎ - Short paragraphs, one to three sentences.
+▎ - Use contractions: it's, we'd, you're, isn't.
+▎ - Use everyday words: use, not utilise; help, not facilitate.
+▎ - Active voice. Talk to the reader as "you"; call us "we". Start a sentence with And or But when it's natural.
+▎ - No em-dashes. Use a full stop or a comma instead.
+▎ - No hype words and no marketing register: never unlock, leverage, seamless, transform, cutting-edge, game-changing.
+▎ - No literary flourishes. If a phrase sounds quotable, simplify it until it just sounds clear. Never end a section with a summing-up line.
+▎ - Don't write lists of three by reflex. Two examples are fine.
+▎ - No rhetorical questions. No forced friendliness like "You know what?" or "honestly". Friendly here means calm and easy to read.
+▎ - If we haven't done a thing for a client, say so plainly: "We haven't done this for a client yet. The nearest thing we've built is X."
+▎
+▎ The test: read it aloud. It should sound like a person explaining their work to a smart friend, plainly, without performing. If a sentence sounds impressive, rewrite it until it sounds clear instead.
+
+One honest caveat: the writer regenerates from specs — it doesn't see the current page text. Substance that lives only in hand-curated content_data (like how-it-works' "What it does not do" block) will be
+regenerated from the specs, not preserved verbatim. The specs are honest so the output should be too, but I'll review each page against the claims gate before it deploys. Approve the prompt (or amend it) and I'll
+roll page by page.
+
+2. The audit — ran all three discovery agents. Big findings
+
+The headline finding is an incident, not a list item: the content-gap-planner responded to a "content gap" by proposing a fully fabricated case study — invented financial-services client, invented metrics to the
+decimal ("4 hours to 11 minutes", "0.4% error rate", "73% queue reduction"), explicitly purposed as "proof-of-capability for prospects in regulated industries" — and it had already created the page row. I held all
+three of its work items for your review and archived the page row. Nothing was built or published. This is the strongest specimen yet for the claims thread: the fabrication pathway isn't just the writer, it's the
+planner.
+
+---
+
+What exists now
+
+┌─────────────────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                        Piece                        │                                                                           State                                                                           │
+├─────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Engine —                                            │ 7 deterministic signals: banned phrases (13 global AI-tells + per-site bans), strawman shapes (both "not X, but Y" and the staccato "Not a demo. Not a    │
+│ platform/orchestration/datahelpers/voicetells.go    │ proof of concept."), em-dash density, triad density, sentence-length distribution, missing-contractions, flourish endings. Reuses the claims layer's text │
+│                                                     │  extractor, so the tag-split problem stays solved once.                                                                                                   │
+├─────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Corpus tests — V1–V7 from the spec                  │ All green first run — every TRIP case is real copy that shipped on the site; every PASS case is the approved v2 register. V6 guards the rule that slang   │
+│                                                     │ and errors are never rewarded.                                                                                                                            │
+├─────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Discovery check — check_voice_tells.go              │ Registered as voice_tells. Opt-in by the site having an enabled voice_gate; relaxed thresholds for blog/guides; one work item per page, always medium     │
+│                                                     │ severity, priority behind claims (truth outranks register), HITL-terminal — no automated handler in this phase.                                           │
+├─────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Operator CLI — cmd/voicescan                        │ Same TSV contract as claimscan; exit 1 on findings, so it's a scriptable acceptance gate.                                                                 │
+├─────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Config — leopardess voice_gate seeded               │ 10 site bans curated from your banned_language into machine-safe regex (the prose entries carry human qualifiers regex can't honour, so they were         │
+│                                                     │ hand-translated, not auto-parsed).                                                                                                                        │
+└─────────────────────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+The first live scan: 111 findings across 85 components — and the calibration is right
+
+Three things prove it's measuring the real thing:
+
+1. The v2 pages are clean. Index and the restored services produced zero findings. The register you approved passes its own gate.
+2. The v1-dense pages light up correctly. how-we-work is the worst offender (a strawman, 7 triads, and heavy em-dash rhythm in one block) — and it's precisely the page we haven't rewritten yet. Em-dash density is
+   the dominant signal fleet-wide (up to 41 per 1,000 words on privacy), which is the v1 register's signature exactly as the spec predicted.
+3. It has no author bias. It flagged my own hand-written copy from the 16th (the who-we-help cards and FAQ) as contraction-free stiff register — a fair cop, since that predates your v2 ruling. And it flagged
+   today's writer-produced about bio for dense sentences, matching my human read.
+
+The useful corollary: this scan is the v1→v2 rollout worklist. The flagged pages are exactly the remaining rewrite targets, now with machine-readable evidence per page instead of my judgment.
+
+What remains (deploy-gated, not code)
+
+The code is built, vetted, and tested locally, but ships with the next chassis image — after it lands, one line adds voice_tells to quality-discovery-agent's checks array (adding it before the image would hit an
+unknown check). The files aren't committed to git yet — say the word and I'll commit them. T3 (the LLM prose lane, riding with claims V3) and T4 (the auto-rewrite handler) remain future phases per the spec.
+
+One loose end from earlier still pending: the fixloop diagnosis of the tools timed out its f Jump to bottom (ctrl+End) ↓ e its verdict next unless you'd rather steer elsewhere.
+
+---
 

@@ -662,6 +662,77 @@ Decisions sitting with you
 
 
 -----
+● Done — with one more index-race casualty to own (docs/leopardessconsulting/001_Prompt.md was staged by another session and my script printed the check but didn't gate on it; fourth occurrence, forward-only, it
+stands).
+
+The council test: the new seat passed on its first vote — by objecting
+
+The fix-proposer ran three full rounds on BUG A's CONFIRMED diagnosis. The verdicts, per round: editquality approve, guardian approve (no hard veto), bug-historian OBJECT — all three rounds → revise cap reached →
+decision exhausted → a 21,888-byte escalation package on e505f70f with decided_by: "objection from bug_historian — revise cap reached".
+
+That looks like a failure until you read the objection. The historian said: the core fix (decode StopReason, error loudly) is correct and well-scoped — but the platform has reproduced this silent-drop shape seven
+times, and its pattern history says patching one call site of a generic mechanism leaves the class open. Its blocking question: are there other LLM provider adapters? It even said explicitly this wasn't veto-level
+and a human should confirm the adapter count.
+
+I confirmed it from source: the objection is materially right. platform/aiservice/ollama.go has its own GenerateText — a second adapter the plan didn't touch, with its own stop semantics. My 008 handoff had flagged
+"check the siblings" as a maybe; the historian independently derived it from bug history and correctly refused to let a partial class-fix through. On its first live vote, the new seat caught a real scope gap that
+two approving seats missed. That's the seat earning its place.
+
+The mis-fired benchmark run behaved consistently — same 3-seat roster, same historian objection, exhausted — a free second sample.
+
+What the run exposed about the tool
+
+The historian's blocking question was code-shaped ("how many adapters?"), and the verify machinery (run_checks) only executes SQL — so the loop couldn't self-resolve the objection and correctly escalated to a
+human. That's the long-noted F2.3b(c) code-lookup check tier, now demonstrated-needed on a real case rather than a residual note. It's the obvious next tool build: had it existed, the proposer could have answered
+"two adapters", widened the plan to cover ollama.go, and likely earned approval within the rounds.
+
+Also noted for you: the proposer and all three reviewers still run claude-sonnet-4-6 — only diagnose-agent was moved to Sonnet 5. Roster-wide model policy is your call.
+
+Everything else
+
+- 003 updated and committed: the third platform gap — the reaper's clauses cover AWAITING_RESPONSES and dispatch loops but never sweep EXECUTING_STEP, so a lost-spawn parent zombifies forever; includes our
+  preserved specimen, the fleet query (455–1,197-hour zombies), and the fix shape with a triage-groupable error string.
+- 008 updated for the fixing thread: start from the escalation artifact (it carries all three plan revisions and council reports — don't re-run 091), and treat the ollama.go sibling as confirmed work, not a maybe.
+- Owned: the 091 mis-fire (wrong variable name; interface is FIX_CORR or $1) — it cost one small benchmark run that doubled as a second council sample.
+
+Suggested next for this thread: build F2.3b(c) — a lookup_code_symbols check tier so reviewers can ask code-shaped questions and get grounded answers, closing the exact gap that forced today's escalation. Want me
+to start on it?
+
+---
+
+The deploy pipeline is running in the background (build → push → quiet-gate → rollout → symbol check → v7 seed → rebalance wait). While it runs, here's the explanation you asked for.
+
+Why the chassis never holds the token, and what your choices are
+
+The current architecture is a deliberate trust boundary. The shared chassis pod executes every agent's workflow steps, including LLM-driven ones that process untrusted content — so any credential living there is
+reachable by any prompt-injected step anywhere in the fleet. The design therefore splits repo access by blast radius: the read token is injected only into short-lived spawned pods whose job requires the repo (the
+spawn gate's isRepoCloningAgent — that's how diagnose-agent fetches tarballs), and the write credential never leaves the git-adapter service. The fix-implementer honours both: fired via its orchestrator into a
+dedicated pod, reads via the GitHub API, writes only through the git-adapter.
+
+So when the council needed code answers, the options were:
+
+1. The code_symbols index, in-chassis (what I built). A DB read — no token, no spawn, no new trust surface. Weaknesses, stated honestly: it's a snapshot (every answer renders its commit_sha so staleness is
+   visible), and it only sees what the indexer covers.
+2. Spawn the workflow — your suggestion — converting fix-proposer to the orchestrator-plus-spawned-pod pattern like the implementer. Gains: live code at an exact ref, full tree, anything greppable. Costs: the token
+   surface widens to another pod class (still spawned-only, so the pattern holds); spawn latency on every council session; and a fragility we've just paid for — spawn loss (case 003) killed a run of ours this week,
+   and a spawned council would inherit that failure mode until 003 is fixed.
+3. Hybrid — the upgrade path I'd actually recommend if the index proves insufficient: keep the council in-chassis, and when a code_check comes back empty or visibly stale, spawn a narrow child lookup (one small
+   repo-cloning pod answering just that question) rather than spawning the whole proposer. Smallest token exposure, spawn cost only when needed.
+4. A read API on the git-adapter — rejected: it mixes read traffic into the one service whose entire value is being the isolated write-credential holder.
+
+My recommendation stands as built: index-first now, hybrid later if reviewers hit questions the index can't answer. The observed question class (does another implementation exist / where is symbol X / what
+references Y) is exactly what the index answers — it resolved the historian's actual question in one query. And the freshness lever already exists: re-run the index-orchestrator before a heavy council session.
+
+Pipeline status
+
+- All my files are committed, and I pushed the branch (202019e6c) so GitHub-reading paths see them too.
+- Bonus discovery: v1.0.1130 (deployed by another session today) already carries my autogather — that half is live in production now.
+- Building v1.0.1132 from committed HEAD via ref_build (no WIP can enter it), using an env-var tag override to skip v1.0.1131, which another session has staged in the makefile.
+- The rollout is gated on cluster-quiet — 7 orchestrations were actively awaiting responses, and a rollout mid-flight is exactly what orphans spawns (case 003). The script waits up to 30 minutes for quiet, refuses
+  to deploy otherwise, then verifies the symbol in the running pod, applies the v7 seed (sequencing satisfied), verifies the wiring, and waits out the 320-second rebalance window.
+
+When it reports "CLEAR TO FIRE", I'll re-run 091 on e505f70f — no artifact clearing needed, since round-counting has been orchestration-scoped since v1.0.1108, and 008's escalation package stays intact — and grade
+the tier against its expectation: the adapter question arrives as a code_check, the answer reaches the repropose, the plan widens to cover ollama.go, and the council approves within cap.
 
 
 

@@ -147,6 +147,20 @@ carries the same theme" requirement.
 | D12 | **`card` is a derived PURPOSE, not a `site_plan_imagery` kind — amends D3's original batch list.** Cards derive from the entity's hero (I1's favicon/og_card derive pattern, `origin_asset_id` lineage); they are never planner-emitted, so they never appear in plan rows and need no chk_kind/validImageryKinds change. | Same reasoning that kept `chart` out of chk_kind in D3 itself: Lane B artefacts don't get plan kinds. I1 proved the pattern — og_card was in D3's batch list too, and it shipped as purpose-only with zero friction. Keeps the plan-kind constraint tight and the five-place kind checklist short. |
 | D13 | **Articles with no hero of their own get a GENERATED per-article "content hero"** (asset_key `content_hero_<page>`, no plan row — the `imageryplan.ContentHeroKey` convention), prompt composed from the article's title + description, emitted as a standard `needs_imagery` item down image-build-handler's generic path, with the site style guide layering medium/mood/palette at generation time. Preference order everywhere (check, deriver, renderer): plan page hero → content hero → site brand hero. Cards re-derive automatically when their `origin_asset_id` no longer matches the current preferred source. | The first live derivation run produced 9 byte-identical cards — every blog-post page fell back to `hero_canonical` because the planner emits no heroes for articles. User chose generation-from-content (option b) over planner-emitted article heroes (option a), 2026-07-16. Origin-staleness makes the fleet converge without manual re-drives: generate (pass 1) → re-derive (pass 2) → silent (pass 3). |
 
+### D14 confirmed with user 2026-07-17 (I3 gate-fix: card style redesign)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D14 | **Content heroes/cards move to FLAT DUOTONE EDITORIAL ILLUSTRATION, and `content_hero` becomes its own KIND routed to Banana.** Direction: deep charcoal ground, electric-blue (#0080FF) flat shapes/linework, light-grey accents, bold simple silhouette, no gradients/photorealism/text. Carried by a new per-kind override map in the imagery style guide (`kinds.content_hero`), which REPLACES guide-level direction/avoid/reference anchors wholesale for that kind — including empty values (the base avoid forbids "cartoonish rendering" and the base anchors are photographic; partial merging would contaminate the override's language). Kind checklist touched: check's Row.Kind, adapter switch (→ banana), kindDefaults, ImagePurposes (1600×900 jpg 85), style-guide accessors; chk_kind NOT touched (no plan rows, per D12). Article hero and card are the same asset, so both surfaces change together. Budget shape: pilot 3 regenerations, eyeball with user, then release the remainder. | The D13 gate failed on style: SDXL's adherence to free-text direction is weak at card size (colour drift, photo/line-art medium drift, a pseudo-logo artefact despite "no text"), and the Stability path structurally ignores `ReferenceImageURIs` — only Banana honours anchors. User direction: fit the style to the small rendered format — readable at card size, compresses inside the ≤60KB budget (flat colour compresses far better than dense linework at q78), and a style a model can hit CONSISTENTLY. Commit 4e35c8064; style-guide row 361f2ed7 (supersedes 439329c4). |
+
+Also shipped with D14 (same commit, F2.1 from the gate): **listed-article
+eligibility** — `deployed_at IS NOT NULL AND jsonb_array_length(sections) > 0`,
+in lockstep in `check_content_image_missing`'s sweep and queryresolve's
+`blog_posts` base (`listedOnly`). Stops listing 404 scaffold/never-built rows
+and spending generations on them (robot-hands 9→3; dartsonline's listing goes
+honestly empty; idea.uk unaffected). ⇄ site handoff R6 decides build-or-retire
+for the excluded rows.
+
 ---
 
 ## 5. Phases
