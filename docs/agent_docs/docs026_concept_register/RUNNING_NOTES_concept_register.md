@@ -49,6 +49,8 @@ entries at the bottom. Update every turn.
 | 2026-07-17 | Flagged the sequencing tension: #10 applied always-on though specialists were meant to gate behind the (not-yet-deployed) filter — deliberate negligible-cost interim, converges to gated on deploy | **flagged transparently** — no more always-on specialists past this without the filter |
 | 2026-07-17 | Discovered the filter Go already shipped in v1.0.1133 (running pod has SelectReviewPanelAction + the abstention) — the binary dependency was already met, no need for v1.0.1134 | **confirmed via pod grep** |
 | 2026-07-17 | RELEVANCE FILTER ACTIVATED (v11 wiring applied) — 4 specialists now gate on relevance, editquality+guardian always-on; the sequencing tension is resolved | **confirmed, LIVE**; not yet exercised on a real run |
+| 2026-07-17 | Owner request: add a "prefer not to change long-working core (orchestrator/kafka/messaging)" proviso. Home = the guardian (blast-radius/architecture seat, always-on, hard veto). Applied as clause (d) | **confirmed, LIVE** (surgical patch) |
+| 2026-07-17 | COORDINATION LESSON: my seat migrations reconstruct the WHOLE default_config, which can clobber another thread's edits to shared steps (the guardian gained `code_checks` from another thread). Used a surgical jsonb_set for the proviso to avoid it | **noted** — use surgical patches for shared steps, not full-config reapply |
 
 ---
 
@@ -774,5 +776,43 @@ logic.
 improvement-loop, #6 compliance, #7 render, #8 LLM-reliability, #9 debugging) now
 build cheaply behind the filter — each is a footprint entry + one gate, not
 another always-on step. Committed narrowly (v11 migration + docs) per CLAUDE.md.
+
+## Turn 22 — 2026-07-17 — Guardian stability proviso; and a coordination bug caught in time
+
+User: "In which agent can I add the proviso that as a preference we don't want
+to change code that has been working for ages e.g. orchestrator, kafka,
+messaging etc" → then "ok please go ahead carefully."
+
+**Answer: the guardian** — it's already the platform-safety/blast-radius seat
+(judges "which pipelines consume each edited file" + "architecture-change
+signals — edits to shared contracts, wire formats, message shapes"), it's
+always-on (sees every fix), and it holds the hard veto. The proviso is a natural
+fourth judgement clause. Added as `(d) STABILITY PREFERENCE` — prefer a fix at a
+higher, less-foundational layer over editing long-stable core (orchestrator,
+Kafka/messaging, agent spawning, work-item dispatch); object/steer to a higher
+layer, veto reserved for a genuine architecture change (its existing behaviour,
+not a new blanket veto).
+
+**Caught a real coordination bug before applying:** reading the LIVE guardian
+prompt to place the proviso, I noticed it had a `code_checks` mechanism that
+is NOT in any of my seat-migration files. Another thread had enhanced the
+guardian on the live definition. **My seat migrations (v6-v11) reconstruct the
+ENTIRE `default_config` and `SET default_config = EXCLUDED`** — so a full-config
+reapply would have *clobbered* the other thread's `code_checks`. (Checked: my
+v11 apply had NOT clobbered the current state — the other thread re-applied
+their code_checks AFTER my v11, at 19:45:45, and preserved my filter wiring; so
+in the end both coexist. But it was luck of ordering, not safety by design.)
+
+**So applied the proviso SURGICALLY** — a `jsonb_set` + `replace()` on ONLY
+`review_guardian.config.prompt_template`, anchored on a unique substring, with
+an idempotency guard and a snapshot. Verified live: proviso added
+(prompt 2685→3147 chars), and `code_checks` + the relevance-filter wiring +
+all 6 seats **byte-intact**. Committed the patch (`PATCH_guardian_stability_proviso_2026-07-17.sql`).
+
+**Standing lesson (also logged in the decision table):** for edits to steps
+SHARED with other threads (the guardian, and any step they might touch),
+use a surgical `jsonb_set` on the specific field — never a full-config reapply.
+Future seat additions are lower-risk (they add NEW steps), but any change to an
+EXISTING shared step must be surgical.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
