@@ -42,22 +42,11 @@ in one day — re-check it is still current at apply time; if it moved again,
 mirror the edits BEFORE applying (same 4-edit shape as v6→v7→v8; see the
 seed's header note).
 
-## A4 — create + approve the F1.2 pilot spec ◐ (created; APPROVAL IS YOURS)
+## A4 — create + approve the F1.2 pilot spec ☑ DONE
 
-Work item CREATED 2026-07-17 (site anchor is `System (internal)`,
-`eac60db8-…` — the draft's `system.internal` literal matched nothing; fixed):
-
-**work_item_id = `db066cac-c647-44bf-a3ca-e04416405b28`**, status
-`needs_human_review`, item_key `f12-ref-input-pilot`, spec carries goal +
-3 code_pointers.
-
-Approve it (your explicit act, by name — nothing fires until this exists):
-
-```sql
-UPDATE site_work_items SET spec = spec ||
-  '{"owner_approval": {"approved_by": "<your name>", "date": "2026-07-17"}}'
-WHERE id = 'db066cac-c647-44bf-a3ca-e04416405b28';
-```
+Work item `db066cac-c647-44bf-a3ca-e04416405b28` created (site anchor
+`System (internal)` `eac60db8-…`), then APPROVED by **aaa** 2026-07-17. The
+designer's spec gate computes `approved`. Ready to fire.
 
 ## A5 — fire the designer; grade before approving further ☐
 
