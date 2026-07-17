@@ -85,147 +85,129 @@ build-frontends: build-admin-dashboard build-user-portal build-agent-playground 
 #################################
 # Deploy blast radius (multi_session_coordination HANDOFF 2026-07-16 §3/§7.3)
 #
-# Many sessions share this one working tree. `docker build ... .` sends the
-# TREE as its context, so a working-tree image bundles every session's
-# uncommitted, untested, mid-edit code — not just yours. Two mitigations:
+# Many sessions share this ONE working tree. `docker build ... .` sends the
+# whole tree as context, so a working-tree image bundles every session's
+# uncommitted, untested, mid-edit code — not just yours.
 #
-#   $(call wip_report,<service>)  makes that blast radius VISIBLE before the
-#                                 build, naming what would be swept in.
-#   make build-<service>-ref      makes it IMPOSSIBLE: git archive of a
-#                                 committed ref into a clean context.
+# So the DEFAULT is inverted (2026-07-17): build-<service> builds from the
+# committed ref $(REF) (HEAD unless pinned) via `git archive` into a clean
+# context — it CANNOT bundle anyone's WIP. Your commit is what ships: commit
+# your task first (explicit pathspec — see CLAUDE.md), then build.
 #
-# Prefer the -ref build. Commit your task first (explicit pathspec — see
-# CLAUDE.md), then ship exactly that commit.
+#   make build-<service>            committed HEAD               (safe default)
+#   make build-<service> REF=<ref>  a pinned commit
+#   make build-<service>-tree       whole working tree, all WIP  (opt-in only)
+#
+# Failure direction is deliberate: forget to commit and the ref build omits
+# YOUR change (a wasted cycle, caught by the pod-grep check) rather than
+# silently shipping everyone ELSE'S untested change to production.
+#
+# push-*/deploy-* are git-blind — they ship whatever is tagged $(IMAGE_TAG).
+# Provenance is got right HERE, at build time, and verified against the running
+# pod (never git, never the tag).
 #################################
 
-define wip_report
-@DIRTY=$$(git status --porcelain 2>/dev/null | wc -l); \
-if [ "$$DIRTY" -gt 0 ]; then \
-	echo "$(RED)NOTE: building from the WORKING TREE — this image bundles all $$DIRTY uncommitted change(s) below,$(NC)"; \
-	echo "$(RED)including OTHER SESSIONS' work in progress. For a committed-state image:$(NC)"; \
-	echo "$(RED)  make build-$(1)-ref [REF=<committed ref>]$(NC)"; \
-	git status --porcelain | head -25; \
-	if [ "$$DIRTY" -gt 25 ]; then echo "  ... ($$DIRTY total)"; fi; \
+REF ?= HEAD
+
+# ref_build,<service> — committed-state build from $(REF). No WIP can enter it.
+define ref_build
+@test -f build/docker/backend/$(1).dockerfile || \
+	{ echo "$(RED)No build/docker/backend/$(1).dockerfile — ref builds cover backend services only (frontends build from frontends/<app>).$(NC)"; exit 1; }
+@git rev-parse --verify --quiet '$(REF)^{commit}' >/dev/null || \
+	{ echo "$(RED)REF='$(REF)' is not a commit — ref builds must name committed state.$(NC)"; exit 1; }
+@echo "$(GREEN)Building $(1) from committed ref $(REF) = $$(git rev-parse --short $(REF)) — working tree NOT included.$(NC)"
+@UNSHIPPED=$$(git status --porcelain 2>/dev/null | wc -l); \
+if [ "$$UNSHIPPED" -gt 0 ] && [ "$(REF)" = "HEAD" ]; then \
+	echo "$(YELLOW)  $$UNSHIPPED uncommitted change(s) are NOT in this image. Commit anything that belongs in it, then rebuild:$(NC)"; \
+	git status --porcelain | head -15; \
+	if [ "$$UNSHIPPED" -gt 15 ]; then echo "  ... ($$UNSHIPPED total)"; fi; \
 fi
+@CTX=$$(mktemp -d /tmp/ref-ctx-$(1).XXXXXX) && \
+trap 'rm -rf "$$CTX"' EXIT && \
+git archive $(REF) | tar -x -C "$$CTX" && \
+docker build -t $(REGISTRY)/$(1):$(IMAGE_TAG) \
+	-f "$$CTX/build/docker/backend/$(1).dockerfile" "$$CTX"
 endef
 
-# Pattern rule — gives EVERY backend service a committed-state build for free.
-# Requires the build/docker/backend/<service>.dockerfile convention with the
-# repo root as context (true for all backend services). Frontends are excluded
-# deliberately: they build from frontends/<app> with their own Dockerfile.
-# REF defaults to HEAD; the resolved sha is printed so the image is
-# attributable to a commit.
-REF ?= HEAD
-build-%-ref: ## Build <service> from a committed git ref, no WIP bundled: make build-agent-chassis-ref [REF=<ref>]
-	@test -f build/docker/backend/$*.dockerfile || \
-		{ echo "$(RED)No build/docker/backend/$*.dockerfile — ref builds cover backend services only.$(NC)"; exit 1; }
-	@git rev-parse --verify --quiet '$(REF)^{commit}' >/dev/null || \
-		{ echo "$(RED)REF='$(REF)' is not a commit — ref builds must name committed state.$(NC)"; exit 1; }
-	@echo "$(YELLOW)Building $* from committed ref $(REF) = $$(git rev-parse --short $(REF)) — the working tree is NOT included...$(NC)"
-	@CTX=$$(mktemp -d /tmp/ref-ctx-$*.XXXXXX) && \
-	trap 'rm -rf "$$CTX"' EXIT && \
-	git archive $(REF) | tar -x -C "$$CTX" && \
-	docker build -t $(REGISTRY)/$*:$(IMAGE_TAG) \
-		-f "$$CTX/build/docker/backend/$*.dockerfile" "$$CTX"
+# tree_build,<service> — the escape hatch: build from the WORKING TREE, WIP and
+# all. Only when you deliberately want uncommitted code in the image.
+define tree_build
+@echo "$(RED)Building $(1) from the WORKING TREE — this image bundles uncommitted WIP from ALL sessions, not just yours.$(NC)"
+@DIRTY=$$(git status --porcelain 2>/dev/null | wc -l); \
+if [ "$$DIRTY" -gt 0 ]; then git status --porcelain | head -25; \
+	if [ "$$DIRTY" -gt 25 ]; then echo "  ... ($$DIRTY total)"; fi; \
+	echo "$(RED)  ^ all of the above will be in the image. For a committed image instead: make build-$(1)$(NC)"; \
+fi
+docker build -t $(REGISTRY)/$(1):$(IMAGE_TAG) \
+	-f build/docker/backend/$(1).dockerfile .
+endef
 
-# Backend services
+# Every backend service gets both alternatives for free via two pattern rules.
+# (build-<service> below already == the committed-ref build at REF=HEAD; -ref is
+# kept as an explicit alias, mainly for passing REF=<ref>.)
+build-%-ref: ## committed-ref build (alias of build-<service>): make build-agent-chassis-ref [REF=<ref>]
+	$(call ref_build,$*)
+
+build-%-tree: ## WORKING-TREE build — bundles all WIP, opt-in: make build-agent-chassis-tree
+	$(call tree_build,$*)
+
+# Backend services — all build from committed HEAD by default (REF=<ref> to pin,
+# build-<service>-tree for a working-tree image).
 .PHONY: build-auth-service
-build-auth-service: ## Build auth-service image
-	@echo "$(YELLOW)Building auth-service...$(NC)"
-	$(call wip_report,auth-service)
-	docker build -t $(REGISTRY)/auth-service:$(IMAGE_TAG) \
-		-f build/docker/backend/auth-service.dockerfile .
+build-auth-service: ## Build auth-service (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,auth-service)
 
 .PHONY: build-core-manager
-build-core-manager: ## Build core-manager image
-	@echo "$(YELLOW)Building core-manager...$(NC)"
-	$(call wip_report,core-manager)
-	docker build -t $(REGISTRY)/core-manager:$(IMAGE_TAG) \
-		-f build/docker/backend/core-manager.dockerfile .
+build-core-manager: ## Build core-manager (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,core-manager)
 
 .PHONY: build-agent-chassis
-build-agent-chassis: ## Build agent-chassis image from the WORKING TREE (bundles uncommitted WIP; see build-agent-chassis-ref)
-	@echo "$(YELLOW)Building agent-chassis...$(NC)"
-	$(call wip_report,agent-chassis)
-	docker build -t $(REGISTRY)/agent-chassis:$(IMAGE_TAG) \
-		-f build/docker/backend/agent-chassis.dockerfile .
+build-agent-chassis: ## Build agent-chassis (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,agent-chassis)
 
 .PHONY: build-reasoning-agent
-build-reasoning-agent: ## Build reasoning-agent image
-	@echo "$(YELLOW)Building reasoning-agent...$(NC)"
-	$(call wip_report,reasoning-agent)
-	docker build -t $(REGISTRY)/reasoning-agent:$(IMAGE_TAG) \
-		-f build/docker/backend/reasoning-agent.dockerfile .
+build-reasoning-agent: ## Build reasoning-agent (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,reasoning-agent)
 
 .PHONY: build-web-search-adapter
-build-web-search-adapter: ## Build web-search-adapter image
-	@echo "$(YELLOW)Building web-search-adapter...$(NC)"
-	$(call wip_report,web-search-adapter)
-	docker build -t $(REGISTRY)/web-search-adapter:$(IMAGE_TAG) \
-		-f build/docker/backend/web-search-adapter.dockerfile .
+build-web-search-adapter: ## Build web-search-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,web-search-adapter)
 
 .PHONY: build-web-scrape-adapter
-build-web-scrape-adapter: ## Build web-scrape-adapter image
-	@echo "$(YELLOW)Building web-scrape-adapter...$(NC)"
-	$(call wip_report,web-scrape-adapter)
-	docker build -t $(REGISTRY)/web-scrape-adapter:$(IMAGE_TAG) \
-		-f build/docker/backend/web-scrape-adapter.dockerfile .
+build-web-scrape-adapter: ## Build web-scrape-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,web-scrape-adapter)
 
 .PHONY: build-git-adapter
-build-git-adapter: ## Build git-adapter image
-	@echo "$(YELLOW)Building git-adapter...$(NC)"
-	$(call wip_report,git-adapter)
-	docker build -t $(REGISTRY)/git-adapter:$(IMAGE_TAG) \
-		-f build/docker/backend/git-adapter.dockerfile .
+build-git-adapter: ## Build git-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,git-adapter)
 
 .PHONY: build-image-generator-adapter
-build-image-generator-adapter: ## Build image-generator-adapter image
-	@echo "$(YELLOW)Building image-generator-adapter...$(NC)"
-	$(call wip_report,image-generator-adapter)
-	docker build -t $(REGISTRY)/image-generator-adapter:$(IMAGE_TAG) \
-		-f build/docker/backend/image-generator-adapter.dockerfile .
+build-image-generator-adapter: ## Build image-generator-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,image-generator-adapter)
 
 .PHONY: build-thunder-adapter
-build-thunder-adapter: ## Build thunder-adapter image
-	@echo "$(YELLOW)Building thunder-adapter...$(NC)"
-	$(call wip_report,thunder-adapter)
-	docker build -t $(REGISTRY)/thunder-adapter:$(IMAGE_TAG) \
-		-f build/docker/backend/thunder-adapter.dockerfile .
+build-thunder-adapter: ## Build thunder-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,thunder-adapter)
 
 .PHONY: build-analyser-adapter
-build-analyser-adapter: ## Build analyser-adapter image
-	@echo "$(YELLOW)Building analyser-adapter...$(NC)"
-	$(call wip_report,analyser-adapter)
-	docker build -t $(REGISTRY)/analyser-adapter:$(IMAGE_TAG) \
-		-f build/docker/backend/analyser-adapter.dockerfile .
+build-analyser-adapter: ## Build analyser-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,analyser-adapter)
 
 .PHONY: build-browser-runner-adapter
-build-browser-runner-adapter: ## Build browser-runner-adapter image (Tier-4 headless runner; ~1.2GB — Chromium+Playwright baked in)
-	@echo "$(YELLOW)Building browser-runner-adapter (Chromium image — slow, large)...$(NC)"
-	$(call wip_report,browser-runner-adapter)
-	docker build -t $(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG) \
-		-f build/docker/backend/browser-runner-adapter.dockerfile .
+build-browser-runner-adapter: ## Build browser-runner-adapter (Tier-4 headless, ~1.2GB Chromium+Playwright; committed HEAD, -tree for WIP)
+	$(call ref_build,browser-runner-adapter)
 
 .PHONY: build-content-creator-agent
-build-content-creator-agent: ## Build content-creator-agent image
-	@echo "$(YELLOW)Building content-creator-agent...$(NC)"
-	$(call wip_report,content-creator-agent)
-	docker build -t $(REGISTRY)/content-creator-agent:$(IMAGE_TAG) \
-		-f build/docker/backend/content-creator-agent.dockerfile . # NEW
+build-content-creator-agent: ## Build content-creator-agent (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,content-creator-agent)
 
 .PHONY: build-remote-job-spawner
-build-remote-job-spawner: ## Build remote-job-spawner image
-	@echo "$(YELLOW)Building remote-job-spawner...$(NC)"
-	$(call wip_report,remote-job-spawner)
-	docker build -t $(REGISTRY)/remote-job-spawner:$(IMAGE_TAG) \
-		-f build/docker/backend/remote-job-spawner.dockerfile .
+build-remote-job-spawner: ## Build remote-job-spawner (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,remote-job-spawner)
 
 .PHONY: build-kafka-scheduler
-build-kafka-scheduler: ## Build kafka-scheduler image
-	@echo "$(YELLOW)Building kafka-scheduler...$(NC)"
-	$(call wip_report,kafka-scheduler)
-	docker build -t $(REGISTRY)/kafka-scheduler:$(IMAGE_TAG) \
-		-f build/docker/backend/kafka-scheduler.dockerfile .
+build-kafka-scheduler: ## Build kafka-scheduler (committed HEAD; REF=<ref> to pin, -tree for WIP)
+	$(call ref_build,kafka-scheduler)
 
 # Agent targets
 .PHONY: build-agents
