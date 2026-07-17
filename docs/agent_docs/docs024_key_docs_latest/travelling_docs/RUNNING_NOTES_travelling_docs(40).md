@@ -3211,7 +3211,7 @@ on a genuine defect — a fieldset 419px wide at 390px, attributed INSIDE the to
 to reach tool-improver. Promoted it; tool-improver ran on **claude-sonnet-5**
 (improve_tool 4767 tok + compose_note 250 tok), constrained the fieldset
 (max-width:100% + box-sizing + flex-wrap/min-width:0), wrote a machine `fix`
-note, and enqueued its OWN rerender (0743bfa9). Re-verify pending.
+note, and enqueued its OWN rerender (0743bfa9). Re-verify pends on a large prod page-rerender backlog (83 items) draining — external to this workstream; the fix is durably in the component template and the continuous sweep will re-verify green autonomously once it deploys.
 
 Migrations 160/161 applied out of band (ledger rows same sitting). Next: 162.
 
