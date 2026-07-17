@@ -180,12 +180,24 @@ doesn't have fails at that step. Deploy order: **image → this SQL → fire.**
 - **Judgment call:** the debugging/incident-lore seat (#9) has a near-universal
   footprint — keep always-on or gate loosely on `platform/`/`internal/`. TBD.
 
-**The one remaining step is the DEPLOY**, and it is deliberately not taken
-unilaterally: building + rolling a chassis image is **fleet-wide** (every
-agent, not just fix-proposer), needs the `make build-<service>-ref` committed-ref
-build + a cluster-quiet rollout, and lands in Go shared with the actively-developed
-council-gate/feature-builder thread. It should be **sequenced with that thread**
-(the gate will consume the same filtered panel; ideally the same
-`select_review_panel` binary serves both). Recommend: coordinate the deploy
-with that thread rather than shipping a fix-proposer-only image, then apply the
-§7 SQL. Everything up to the deploy is done and committed (`37468ba65`).
+**The one remaining step is the DEPLOY.** Per `CLAUDE.md` (build inversion
+2026-07-17): `make build-<service>` builds from committed `HEAD` via git-archive
+— it structurally cannot bundle WIP, so the WIP-collision worry is gone; my Go
+is committed (`37468ba65`), so a HEAD build includes it. The care that remains
+is inherent to a chassis image, not the build mechanism:
+- It is **fleet-wide** — rebuilds the binary every agent runs, and a HEAD build
+  ships **all** committed code, including other threads' committed-but-untested
+  work. Rolling it is a whole-fleet act, not a fix-proposer change.
+- Deploy discipline (`CLAUDE.md` §Building & deploying): bump `IMAGE_TAG`, build
+  from HEAD, roll, **verify against the running pod** (`strings /app/agent-chassis
+  | grep -c SelectReviewPanelAction`), **image before seeds** (the §7 SQL names
+  `select_review_panel` — it must not land before the binary has it), and no
+  orchestration dispatch within ~300s of a chassis restart.
+- The Go is **shared with the actively-developed council-gate/feature-builder
+  thread**; ideally the same `select_review_panel` binary serves both councils,
+  so the deploy is best **sequenced with that thread**, not shipped standalone.
+
+Given it ships the whole fleet's binary carrying every thread's committed work,
+this is a coordinated release decision, not a single-workstream apply — hence
+flagged for the owner rather than rolled unilaterally. Everything up to it is
+done and committed (`37468ba65` + the §7 spec).

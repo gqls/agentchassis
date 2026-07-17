@@ -139,9 +139,13 @@ different class of change from the SQL-only seat adds:**
   thread**; ideally the SAME `select_review_panel` binary serves both councils,
   so the deploy should be **sequenced with that thread**, not shipped as a
   fix-proposer-only image.
-- Deploy sequencing: build a committed-ref image (`make build-<service>-ref`),
-  cluster-quiet rollout, THEN apply the §7 SQL (a workflow referencing an
-  action the binary lacks fails at that step).
+- Deploy sequencing (per `CLAUDE.md`): `make build-<service>` builds from
+  committed `HEAD` (my Go is committed, so it's included; no WIP-collision
+  worry after the 2026-07-17 build inversion) — but a HEAD build ships ALL
+  committed code, incl. other threads' untested work. Bump `IMAGE_TAG`, roll,
+  verify against the pod (`strings /app/agent-chassis | grep -c SelectReviewPanelAction`),
+  **image before the §7 SQL** (a workflow naming an action the binary lacks
+  fails at that step), no dispatch within ~300s of a chassis restart.
 
 Decision needed: (a) I coordinate with the gate thread and drive the deploy;
 (b) you/another session folds it into a planned chassis release; (c) hold it.
