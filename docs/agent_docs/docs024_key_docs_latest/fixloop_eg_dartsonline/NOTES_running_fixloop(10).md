@@ -2056,3 +2056,22 @@ a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
   the coordination thread's open owner call.
 - Spawn-loss decision recorded: zombie 80c35dea deliberately left as evidence
   for bugs_open/003; EXECUTING_STEP zombies platform-wide up to ~1,200h.
+
+### Turn 36 — 2026-07-17 — bug-historian's first live vote: OBJECT, and it was RIGHT
+- 003 gained gap #3 (reaper never sweeps EXECUTING_STEP; specimen + fleet query).
+- **Council test (owner-requested), F1 on BUG A (`e505f70f`, run `ca064df2`):**
+  3 rounds; editquality approve / guardian approve / **bug-historian object ×3**
+  → `exhausted` → escalation (honest terminal; artifact 21,888B on e505f70f).
+  The objection — "one call site of a generic mechanism; are there other
+  provider adapters?" — is **materially correct: `aiservice/ollama.go` has its
+  own GenerateText**. New seat caught a real scope gap on its first vote,
+  advisory-not-veto as designed, and emitted SQL checks. 008 updated so the
+  fixing thread starts from the escalation artifact and covers ollama.go.
+- Mis-fire owned: first 091 call used a wrong env-var name → default target =
+  darts benchmark (`49d6d256`); it also ran 3-seat council → exhausted/object —
+  consistent second sample, small spend. Trigger interface is FIX_CORR or $1.
+- Residual now demonstrated on a real case: F2.3b(c) code-lookup check tier —
+  the historian's blocking question was code-shaped, run_checks is SQL-only, so
+  the loop could not self-resolve; escalation was the correct behaviour.
+- NOTE: fix-proposer + reviewers run claude-sonnet-4-6 (only diagnose-agent was
+  moved to Sonnet 5) — roster-wide model decision is the owner's call.

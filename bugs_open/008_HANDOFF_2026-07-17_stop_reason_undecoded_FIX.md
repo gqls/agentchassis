@@ -115,3 +115,26 @@ Either way the PR is the gate — no direct-to-main.
 - The render-side guard ("refusing to render an empty section", live since
   v1.0.1126) already catches the article-body consequence — it does NOT cover the
   other 4 capped agent types. This fix is the platform-level closure.
+
+## 7. UPDATE 2026-07-17 — the loop ran F1: council ESCALATED, and the objection is right
+
+Route (a) was fired from the tool thread (fix_correlation `e505f70f`, run
+`ca064df2`). Three full rounds: editquality **approve**, guardian **approve**
+(no hard veto), **bug-historian OBJECT every round** → revise cap → decision
+`exhausted` → **escalation artifact on `e505f70f`** (the full hand-off package;
+`decided_by: "objection from bug_historian — revise cap reached"`).
+
+The historian's objection (its first live vote): the edit is correct but may
+patch ONE call site of a generic mechanism — "does the codebase have other LLM
+provider adapters?" **Answered from source: YES — `platform/aiservice/ollama.go`
+has its own `GenerateText`.** So the fixing thread should treat §3's
+"check the SIBLINGS" as CONFIRMED WORK, not a maybe: either cover ollama.go's
+equivalent (its stop semantics differ — check its `done`/`done_reason` fields)
+in the same PR, or file the follow-on item explicitly, per the historian's own
+framing. The escalation artifact carries the 3 plan revisions + all council
+reports — start from it rather than re-running 091.
+
+Loop residual this exposed (tool thread's problem, not this thread's): the
+historian's blocking question was CODE-shaped; the verify tier only runs SQL
+(`run_checks`), so the loop could not self-resolve it and correctly escalated —
+the F2.3b(c) code-lookup check tier is now demonstrated-needed on a real case.
