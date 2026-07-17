@@ -277,3 +277,33 @@ static→dynamic; difference is primarily the deploy stage) + prior-discussion a
   pages (guias/glosario/articulo) + contacto business details; stale relojistas copy in
   gqls/sites + B2 to clean per migration script (report rec 4); intent_events collector
   still disabled (P4-June).
+
+## 2026-07-17 — P4 BUILT (render_rss_feed); Action-127 diagnosed; awaiting v1.0.1130
+
+- **Deploy-failure report (operator, mid-turn) DIAGNOSED:** vm-sites run 29522203773
+  (the webroot-mirror commit, 18:01Z) died exit **127 in "Set up SSH"** — the new
+  dedicated runner pod `github-actions-runner-vmsites-…` came up at exactly that time and
+  my run raced its first-boot tool install; ssh-keyscan's "not found" was swallowed by
+  `2>/dev/null`, hence the bare 127. **No harm:** the next run (18:10Z news feed) rsync'd
+  the whole relojistas.com/ folder incl. the mirrored files; 7+ consecutive greens since,
+  including the autonomous 6-hourly news deploys (19:42/01:35/07:41 — heartbeat healthy).
+  Runner pod verified: jq/ssh-keyscan/rsync all present now. **Hardened the workflow**
+  (vm-sites `516b8e9`): loud tool guards for jq/ssh-keyscan/rsync/sort + WARN on keyscan
+  failure. (Cosmetic: GitHub masks "deploy" in logs because VM_USER's value is "deploy" —
+  that's why "deploy-targets.json" renders as "***-targets.json".)
+- **P4 CODE COMPLETE** (committed, explicit pathspec): `render_rss_feed_action.go` —
+  outbound RSS 2.0 (atom:self = the legacy `/external.php?type=RSS2` URL; items link OUT
+  to sources; dedupe by URL; RFC1123Z dates; created_at fallback), **per-site gated by
+  `deploy_config.rss_feed.enabled`** so the shared workflow is fleet-safe (non-opted-in
+  sites return item_count=0 → conditional skips commit). Registered in registry.go
+  (registry was clean vs HEAD — directory-export session had committed). Tests PASS
+  (TestLoadRSSItems: escaping/atom:self/dedupe/date-fallback/round-trip;
+  TestRenderRSSFeedGate: skip shape carries no files).
+- **Activation artifact ready:** `relojistas_rss_feed_apply.sql` — adds
+  commit_news→render_rss_xml→check_has_rss→commit_rss to content-feed-orchestrator +
+  enables the relojistas gate (Spanish channel metadata). **Apply only after the image is
+  live** (image first, then seeds). Caveat noted: a no-news cycle also skips the RSS
+  refresh (check_has_news short-circuits) — acceptable.
+- **Ship:** operator building **v1.0.1130** (includes render_rss_feed via HEAD). Watcher
+  armed for rollout + pod symbol check; then: apply SQL → trigger feed pass → verify
+  feed.xml on box + well-formed over HTTPS.
