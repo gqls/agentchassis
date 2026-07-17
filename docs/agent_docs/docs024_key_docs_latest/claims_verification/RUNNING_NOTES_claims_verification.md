@@ -205,6 +205,48 @@ observed in this directory: `SPEC_voice_tells_check.md` +
 `datahelpers/voicetells.go` — another session's sibling check; not this
 task's files.)
 
+## 2026-07-17 (later) — V2 BUILT & PRODUCTION-VERIFIED; V1b's first organic catch
+
+**V2 (writer whitelist injection) is live — both pieces are DB config, no image
+dependency:**
+
+1. Evidence base **rev 5** (`6f088a53`): new `writer_block` field — a
+   writer-readable verified-facts whitelist (numbers with their meanings and
+   dating rules; capabilities without numbers; allowed entities). Follows the
+   `content_direction.formatted` precedent: formatted at write time, referenced
+   by the prompt. Maintained by whoever edits the evidence base (V4 can automate).
+2. `page-content-writer` prompt template: conditional block "## Verified Facts
+   (the ONLY numbers and named entities you may assert about this business)"
+   inserted before the rewrite-guidance section — renders only when
+   `site_specs.specs.evidence_base.writer_block` exists (fleet-safe; leopardess
+   only today). It explicitly overrides STRICT RULE 14 for listed numbers:
+   bounded "use only these" replaces unbounded "don't invent".
+   **Banned claims are deliberately NOT injected** — naming the phrases would
+   seed them into generation context; the deterministic gate stays their backstop.
+
+**End-to-end proof** (needs_page rebuild of for-engineering-teams, item
+`7100be9a`, dispatched 19:46): all **5/5 writer LLM calls carried the whitelist**
+in `llm_call_log.prompt_rendered`; **0 validation blockers**; item complete;
+claimscan on the rebuilt page: **0 findings**. Best artifact — the writer used a
+whitelist fact verbatim WITH honest dating, unprompted beyond the block:
+*"Our own systems have produced more than 90,790 orchestration state records to
+date (live count, 2026-07-16)."* That is exactly the bounded behaviour V2 exists
+to produce.
+
+**V1b's first organic catch (same day it went live).** A concurrent
+tool-pipeline thread updated llm-cost-calculator's `tool-cta` at 16:42 with
+"Directly maps to the Digital Transformation Strategy and Multi-Agent Systems
+services" — the retired register (D4), AND no service by that name exists in the
+briefing (verified). The scheduled discovery cycle caught it at 19:43 (~3h
+drift-to-detection) and parked `claims:c67ed17b…` as needs_human_review.
+**OPEN: owner to rule on that item** (rewrite the tool CTA wording to a real
+service name, e.g. "AI Strategy & Architecture Consulting"). This is the
+"catches drift and hand-edits" purpose of the post-deploy lane demonstrated on
+real concurrent traffic, unprompted.
+
+Remaining phases: V3 claims-auditor (prose lane), V4 freshness; vetcomparison
+second site.
+
 ## DECISIONS (with rationale)
 
 1. **Shared engine in `datahelpers`** (`claims.go`), consumed by both the gate
