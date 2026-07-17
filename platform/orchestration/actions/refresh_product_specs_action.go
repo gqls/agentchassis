@@ -144,6 +144,34 @@ func selectSpecRegion(md string, limit int) string {
 	return strings.TrimSpace(b.String())
 }
 
+// specValueNormalizeRe collapses runs of whitespace so that values differing
+// only in spacing compare equal.
+var specValueNormalizeRe = regexp.MustCompile(`\s+`)
+
+// normalizeSpecValue lowercases, unifies the dash characters spec sheets mix
+// freely (en/em dash vs hyphen), and collapses whitespace.
+func normalizeSpecValue(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.NewReplacer("–", "-", "—", "-", "−", "-").Replace(s)
+	return specValueNormalizeRe.ReplaceAllString(s, " ")
+}
+
+// specValueIsRestatement reports whether `extracted` says the same thing as
+// `existing` but with less information — i.e. existing already contains it and
+// carries extra qualifying detail ("6 mm per jaw" vs "6 mm").
+//
+// Deliberately conservative: it only suppresses writes that strictly LOSE
+// detail. Anything the existing value does not already contain — a changed
+// number, a new unit, an added equivalent — is treated as a real update and
+// written.
+func specValueIsRestatement(existing, extracted string) bool {
+	e, x := normalizeSpecValue(existing), normalizeSpecValue(extracted)
+	if e == x || x == "" {
+		return false // identical values aren't "restatements"; caller no-ops anyway
+	}
+	return len(e) > len(x) && strings.Contains(e, x)
+}
+
 var RefreshProductSpecsInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"site_id"},
 	Optional: []string{"category", "limit", "delay_ms", "llm_model"},
@@ -255,14 +283,38 @@ func RefreshProductSpecsAction(ctx context.Context, params ActionParams) (interf
 		}
 		updatedFields := 0
 		for _, k := range productSpecFields {
-			if val, ok := extracted[k]; ok {
-				if s, ok := val.(string); ok && strings.TrimSpace(s) != "" {
-					if cur, had := merged[k]; !had || fmt.Sprintf("%v", cur) != s {
-						updatedFields++
-					}
-					merged[k] = strings.TrimSpace(s)
-				}
+			val, ok := extracted[k]
+			if !ok {
+				continue
 			}
+			s, ok := val.(string)
+			if !ok || strings.TrimSpace(s) == "" {
+				continue
+			}
+			s = strings.TrimSpace(s)
+
+			cur, had := merged[k]
+			curStr := ""
+			if had {
+				curStr = strings.TrimSpace(fmt.Sprintf("%v", cur))
+			}
+
+			// Never trade a richer value for a barer restatement of itself.
+			// Spec tables split meaning across label and value ("Stroke per jaw
+			// | 6 mm"), so the model correctly extracts "6 mm" where a human had
+			// recorded "6 mm per jaw" — and for a parallel gripper that silently
+			// halves the stated stroke. Same doctrine as the empty-field rule
+			// above: a refresh may enrich or genuinely correct, never degrade.
+			// A real change ("30 N" -> "45 N") is not a restatement and still
+			// lands; an enrichment ("11 kg" -> "11 kg (24.3 lb)") still lands.
+			if had && specValueIsRestatement(curStr, s) {
+				continue
+			}
+
+			if !had || curStr != s {
+				updatedFields++
+			}
+			merged[k] = s
 		}
 
 		if updatedFields == 0 {

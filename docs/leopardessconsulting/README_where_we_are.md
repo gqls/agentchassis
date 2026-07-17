@@ -164,4 +164,51 @@ a fresh chat) starts from a site that is structurally sound, honest end to end, 
 One small observation to leave you with: this session ran the claims-verification loop end-to-end for the first time — scan found, human ruled, operator applied, nothing auto-rewritten — and it worked exactly as
 the spec drew it. The two threads brushed against each other once (both edited insights); worth keeping the "claims thread rules, site thread applies" division going forward.
 
---
+---
+
+Monitor event: "homepage v2 deploy verification relay"
+
+● Monitor "homepage v2 deploy verification relay" stream ended
+
+● The homepage is live in the new register, fully verified. Summary of where the style change stands:
+
+What's now in place
+
+The style is encoded in three layers:
+1. specs/PLAIN_VOICE_v2.md — the distilled rules: one idea per sentence (~20 words max), contractions in, short paragraphs, Flesch ~80 target, no literary moves, em-dashes near zero, friendly-means-calm-not-chummy.
+   It also records what I deliberately rejected from your reference material: deliberate errors/slang, casual fillers ("You know what?", "honestly"), rhetorical questions as a technique, and AI-detector-evasion as a
+   goal — those would hurt a consulting site. All of v1's honesty rules survive untouched.
+2. The DB voice spec — tone, plain_language, a new sentence_shape key, and rewritten LLM-tells. Anything the content writer generates from now on reads these rules.
+3. The homepage, live — as the worked example, pushed further than your sample:
+
+▎ We build systems that take over repetitive work. Each one has a clear job. It knows when to ask a person for help, and it writes down every decision it makes. When it isn't sure, it stops and asks. Nothing
+▎ happens in a black box.
+
+Verified live: contractions throughout ("we've built" ×5, "isn't" ×3, "You're reading one of them"), zero em-dashes, the dense v1 copy gone, and all five audited numbers intact.
+
+One claims catch from your sample
+
+Your illustrative rewrite said "reads news from hundreds of sources" — the evidence base has 18 configured sources. I kept the source types and dropped the count, and noted it in the style guide. The register
+changes; the facts don't. (This is exactly the drift the claims layer exists to catch — style rewrites are where numbers quietly inflate.)
+
+Next
+
+The rest of the site — services, how-it-works, use-cases, who-we-help, contact, about, engagement-model, faq, technical-architecture, and the two blog posts — still carries the v1-dense register. Before I convert
+~12 pages, worth a minute of your eyes on the live homepage: is this the calibration you want, or should it go further still? Say the word and I'll roll it site-wide exactly at this level.
+
+✻ Brewed for 6m 36s
+
+※ recap: Leopardess rebuild: we moved the site to the new plain, friendly copy style; the homepage is live in that register as the worked example. Next: your eyeball on the homepage calibration, then I roll the style
+across the remaining pages.
+
+1 tasks (0 done, 1 open)
+◻ Roll out plain-voice v2 (style guide + spec + homepage first)
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leopardess2 ──
+❯ ok please roll out the copy changes but it needs to be from the framework - the content writer will need to have written them so we need to update the prompt for this site. I don't want it written here "manually"
+Please paste the prompt here so I can look at it first. Then the site itself has many errors. There are no images except for the logo, the tools aren't working and several other problems that we can look at.
+Please run an auditor to see what problems it picks up. For the tool fix see if the runningdocs tool is able to detect and fix it. Please also look at what checking agents we have that check the voice of the copy
+like we have been looking at, to flag sites that sound too much like AI llms. Nice catch with the "reads news from hundreds of sources" thank you.
+
+----
+

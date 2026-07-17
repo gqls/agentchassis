@@ -25,6 +25,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -32,14 +33,63 @@ import (
 )
 
 var CreateRerenderItemsInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id"},
-	Optional:   []string{"domain", "pages_field", "reason", "component_id"},
+	Required: []string{"site_id"},
+	Optional: []string{
+		"domain", "pages_field", "reason", "component_id",
+		// Single-page mode (see singlePageFromScalars): a producer that made
+		// exactly ONE page names it by scalar paths instead of a list.
+		"page_id_field", "page_name_field", "filename_field",
+	},
 	Defaults:   map[string]interface{}{"pages_field": "rerender_pages.pages"},
 	Deprecated: map[string]string{},
 }
 
 func init() {
 	datahelpers.RegisterActionInputSpec("create_rerender_items", CreateRerenderItemsInputSpec)
+}
+
+// singlePageFromScalars builds a one-page list from scalar config paths, for
+// producers that create exactly ONE page and therefore never assemble a pages
+// array. Returns nil unless page_id_field and page_name_field both resolve.
+//
+// Why this exists: tool-generator creates a component, a page, nav and a PLAN,
+// and its create_tool_component result even carries "needs_rerender": true —
+// but nothing ever acted on it, so a newly born tool page sat at
+// build_status='planned' until an unrelated sweep happened to pick it up. All
+// three tool births to date (xp-curve, drop-rate, loot-table) needed a
+// hand-inserted work item shaped exactly like the one below. Rather than a
+// second, near-identical action, the existing one learns to take a single
+// page: the item shape, status and dedup key stay defined in one place.
+//
+// filename_field is optional and tolerates a leading "/" (create_result's
+// page_url is "/tools/x.html" while the item spec wants "tools/x.html").
+func singlePageFromScalars(collected map[string]interface{}, config map[string]interface{}, logger *zap.Logger) map[string]interface{} {
+	idField := datahelpers.GetStringField(config, "page_id_field", "")
+	nameField := datahelpers.GetStringField(config, "page_name_field", "")
+	if idField == "" || nameField == "" {
+		return nil
+	}
+	pageID := datahelpers.ExtractNestedFieldString(collected, idField)
+	pageName := datahelpers.ExtractNestedFieldString(collected, nameField)
+	if pageID == "" || pageName == "" {
+		// Configured for single-page mode but the producer wrote nothing —
+		// say so, rather than silently creating no work.
+		logger.Warn("CreateRerenderItemsAction: single-page mode configured but page id/name did not resolve",
+			zap.String("page_id_field", idField), zap.String("page_name_field", nameField),
+			zap.String("page_id", pageID), zap.String("page_name", pageName))
+		return nil
+	}
+	filename := ""
+	if f := datahelpers.GetStringField(config, "filename_field", ""); f != "" {
+		filename = strings.TrimPrefix(datahelpers.ExtractNestedFieldString(collected, f), "/")
+	}
+	logger.Info("CreateRerenderItemsAction: single-page mode",
+		zap.String("page_name", pageName), zap.String("filename", filename))
+	return map[string]interface{}{
+		"page_id":  pageID,
+		"name":     pageName,
+		"filename": filename,
+	}
 }
 
 func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -126,19 +176,23 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 	if f, ok := config["pages_field"].(string); ok && f != "" {
 		pagesField = f
 	}
+	var pages []interface{}
 	pagesRaw := datahelpers.ExtractNestedField(params.CollectedData, pagesField)
-	if pagesRaw == nil {
+	if pagesRaw != nil {
+		var ok bool
+		pages, ok = pagesRaw.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("pages field is not an array (got %T)", pagesRaw)
+		}
+	} else if single := singlePageFromScalars(params.CollectedData, config, logger); single != nil {
+		pages = []interface{}{single}
+	} else {
 		logger.Info("CreateRerenderItemsAction: No pages found, nothing to create",
 			zap.String("pages_field", pagesField))
 		return map[string]interface{}{
 			"items_created": 0,
 			"reason":        "no pages found",
 		}, nil
-	}
-
-	pages, ok := pagesRaw.([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("pages field is not an array (got %T)", pagesRaw)
 	}
 
 	if len(pages) == 0 {

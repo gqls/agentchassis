@@ -243,3 +243,37 @@ static→dynamic; difference is primarily the deploy stage) + prior-discussion a
   vm-sites and replace the probe page. NOTE: new index = hero/latest-news/info-card-grid/CTA
   — **no search form** until P5 (engine search-that-answers), so intent capture pauses at
   cutover; accepted per plan sequencing.
+
+## 2026-07-16/17 — CUTOVER COMPLETE: the Spanish news portal is LIVE on relojistas.com
+
+- **The misroute had a third layer.** After the DB fallback shipped (v1.0.1126): the first
+  page-rebuild dispatch died silently (spawn near the chassis rollout — the CLAUDE.md ~300s
+  warning, no logs for the correlation); the retry FAILED structurally (page-rebuild →
+  page-content-writer `resolve_links` contract violation — page-rebuild regenerates content,
+  wrong tool anyway). Switched to **page-rerender** (re-render existing content + commit).
+  Round 1 STILL went to `repo=sites`: **three agent definitions hardcode `repo_name:"sites"`
+  in their git_commit step config** — page-rerender(deploy_page), site-deployer(deploy_to_git),
+  deployer-agent(commit_to_git) — and explicit config rightly outranks the DB fallback.
+  Removed the three pins via jsonb `#-` (data-only, immediate; diagnosis/fix agents pinning
+  `agentchassis` left untouched; med-json-exporter left — Class A anyway). Verified 0
+  git_commit steps pin repo_name.
+- **Round 2: all four rerenders COMPLETED, `repo=vm-sites`** (index files=2 → html +
+  latest-news component JS). Action deployed within ~1 min. Box now: index.html 29,772 B
+  (was the 2,337 B probe page), + tools/ (component JS), + data/latest-news.json.
+- **LIVE:** https://relojistas.com/ → 200, `<title>Relojistas — Portal de noticias de
+  relojería en español</title>`, news section wired (fetches /data/latest-news.json —
+  serving 6 curated Spanish items). historia/sobre-nosotros/contacto all 200.
+- **The 6-hourly heartbeat has adopted the site on its own** — three autonomous "Update
+  latest news feed" commits in vm-sites after ours (content-feed-trigger keying on
+  news_feed.recommended=true). News now refreshes without manual triggering.
+- **Fix summary (the whole onion):** (1) v1.0.1126 `resolveGitRepoNameDB` DB fallback
+  [workflows without site_record]; (2) three agent-definition repo_name pins removed
+  [explicit config overrode everything]; (3) rsync --delete disarmed by mirroring the box
+  webroot into the repo BEFORE first pipeline deploy; (4) allowlist already in place.
+- **Remaining (unchanged plan):** P4 `render_rss_feed` → /feed.xml; P5 engine
+  `/external.php` legacy handler (subscriber 404→200 flip = the mission metric) + B
+  search-that-answers (restores intent capture, paused since cutover); compose
+  /noticias/index.html (still 'planned'; the news-listing page + archive JSON); scaffold
+  pages (guias/glosario/articulo) + contacto business details; stale relojistas copy in
+  gqls/sites + B2 to clean per migration script (report rec 4); intent_events collector
+  still disabled (P4-June).

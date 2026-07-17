@@ -208,7 +208,17 @@ learning-center-hub shows all 9 card refs. Two live findings fixed same-day:
 dispatch priority is ASC (lower = sooner) and q82 cards busted the 60KB budget
 (→ q78, rides next deploy). Superseded by B15.
 
-### B15. Phase I3/D13 — per-article heroes: post-deploy convergence + gate
+### B15. ~~Phase I3/D13 convergence + gate~~ ⚠️ RAN 2026-07-17; convergence PROVEN, **GATE FAILED**
+The pipeline converged exactly as designed (9 heroes → 9 auto-re-derived
+distinct cards → live), but the gate failed on style consistency (mixed
+photo/line-art/colour), click-through integrity (6 of 9 listed pages 404; 1
+mismatch), rollout coverage, and site-level damage that is not imagery.
+**Superseded by two fix handoffs** (start new chats there):
+`HANDOFF_2026-07-17_i3_imagery_gate_fixes.md` and
+`../robot_hands/HANDOFF_2026-07-17_robot_hands_site_fixes.md`.
+Original sequence kept below for the record.
+
+### B15-orig. Phase I3/D13 — per-article heroes: post-deploy convergence + gate
 You chose D13: articles with no hero of their own get a GENERATED content hero
 (prompt from the article's own title/description + your imagery style guide).
 Built; rides your next deploy. **Expect ~9 SDXL generations on robot-hands when

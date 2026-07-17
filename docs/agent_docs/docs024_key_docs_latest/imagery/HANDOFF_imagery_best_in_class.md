@@ -3,6 +3,20 @@
 **Last updated: 2026-07-16. UPDATE THIS DOCUMENT EVERY WORKING TURN, alongside
 the running notes — it is the single entry point for a fresh session.**
 
+## ⚠️ 2026-07-17 (Turn 47): THE D13 GATE FAILED — work moved to TWO FIX HANDOFFS
+The D13 machinery ran end-to-end and is PROVEN (9 heroes generated → 9 cards
+auto-re-derived → live on the hub), but the user's gate failed on image
+quality/consistency AND surfaced site-level damage. **Start fix chats from:**
+- **Imagery fixes:** `HANDOFF_2026-07-17_i3_imagery_gate_fixes.md` (style
+  redesigned for the small format, blog_posts eligibility filter, remaining
+  card surfaces).
+- **Site fixes (not imagery):** `../robot_hands/HANDOFF_2026-07-17_robot_hands_site_fixes.md`
+  (blue-brochure regression — NOTE the B7 layout FK is INTACT, damage is
+  component-level; nav sprawl; 404 article rows; broken tools ↔ experience_loop;
+  dead Load More).
+This workstream pauses I3 polish until those land. The state below is
+accurate as of the gate.
+
 ## WHERE WE ARE (2026-07-16, Turn 46) — start here
 - **I0, I1, I2 are ✅ COMPLETE AND LIVE** (incl. B12: served CSS default is the
   ARROW, self-healed on the v1.0.1125 pass). Read-out for a status briefing:

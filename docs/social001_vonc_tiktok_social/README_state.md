@@ -87,3 +87,52 @@ Not started: WS4 (Arena). Want me to move on to that next, or knock out the thre
 
 
 ---
+
+
+All done — the handoff's top job is complete, verified live end to end, and an unrelated fleet-wide breakage found during verification is fixed too. Here's the full picture.
+
+The top job: detection and repair now match
+
+Go (shipped in v1.0.1125, verified in-pod by binary string table): ctaFieldNames — the one shared set used by both the build-time link resolver and the repair-time applyCTARecompute — now covers archetype-grid
+(cta_url), archetype-combinations and gauntlet-cta (cta_primary_url/cta_secondary_url), and content-block-about (cta_url), alongside hero/call-to-action. Single-URL components use an empty secondary slot, guarded
+in both writers so nothing writes under an empty key or files a bogus HITL item. A new TestCTAFieldNamesContract unit test pins the map to the live schema field names — mechanising the field-name lesson from the
+095 bug. The checker's stale "hero/CTA only" comments were updated.
+
+Schema (migration 098, applied, verify block passed): the five site_specs.*-sourced URL fields flipped to renderer, with a backup table. Deliberately untouched: content-block-about.cta_url (already llm),
+provocations-archive-list (097b's static-Arena pin is correct — adding it to the map would let a rebuild misdirect it), the required flags (verified in code that a renderer source short-circuits planSection before
+required-field handling), and the still-static label fields (that's the step-3 content pass, anti-fabrication).
+
+Proof on vonc: the archetypes page's "Explore All Archetypes" button — rendered /contact.html purely from the schema lock, with empty stored content_data — now points at the Gauntlet, confirmed in both the database
+row and live curl. The other four flagged anchors are authored links to real pages, which the recompute correctly keeps; after two completed repair attempts each, discovery escalated them to unresolved for human
+review — the loop's designed terminal state: repairable links self-heal, copy decisions get parked loudly. Fleet-wide, four other sites' content-block-about CTAs pointing at contact/about pages will now self-repair
+on their next flagged rerender.
+
+Guideline cross-check (as requested, against 000/001/002/003)
+
+- 001 Step Zero / reuse: no new agents, actions, or registry entries — the whole fix extends one existing shared map plus two three-line guards; both consumers stay consistent by construction.
+- 001 verification discipline: planSection's renderer handling checked at point of use before flipping required:true fields (dated claim in 098's header); deployed binaries verified against the pod, never git.
+- 003 Input Schema v2: renderer is the documented source for render-time-assembled fields, which is exactly what these are now; no fallbacks present, avoiding 097's renderer-with-fallback revert trap.
+- 003 source-of-truth: the recompute writes into resolved_data and the rerender persists content_data = stored ⊕ resolved — confirmed in the repaired row.
+- 002/004 loop architecture: unchanged — the recompute still gates on reason=cta_links_stale only, so image_landed/section_data_resolved rerenders stay byte-identical.
+
+Found and fixed en route: fleet-wide work-item insert breakage
+
+My verification re-runs failed, and the trail led to a real incident: migration 157 (the claims session, yesterday) added 'cancelled' to idx_swi_dedup's excluded statuses, but Go's workItemTerminalStatuses —
+interpolated into insertWorkItem's ON CONFLICT ... WHERE — stayed at six. Postgres could no longer infer the arbiter index, so every keyed work-item insert failed (SQLSTATE 42P10) and every discovery run's output
+was lost fleet-wide — while looking "clean" (zero items). I added cancelled to the Go list (commit 5e2711997, shipped as v1.0.1127 via the new committed-ref build target), then swept four more stale hardcoded
+copies of the list (21e74808e) — including one ON CONFLICT in create_tool_cross_link_items that had already been silently failing. Post-fix discovery runs complete cleanly with working inserts, verified this
+morning. Full write-up added to 016b ("split-contract-drift"), and a memory saved so any future idx_swi_dedup migration moves in lockstep with the Go list.
+
+Housekeeping and what's next
+
+Six stale vonc items were closed by artifact (the 093 /how-it-works phantoms and arena nav phantoms — live curl shows zero occurrences; the two runtime-fill shell re-raises → wont_fix per the standing ruling). Docs
+are updated and committed: handoff addendum, RUNBOOK close-the-loop marked executed, RUNNING_NOTES entries for both days including a correction of my own first-day claim. One observation left for the fixloop
+workstream: unresolved rows sit outside the dedup index, so each qualifying discovery pass adds a duplicate triplet — harmless but noisy.
+
+Remaining from the handoff, in order: investigate the gauntlet/quiz needs_rebuild flags (#2), the content pass on unlocked components (#3 — needs a 096-style label unlock for archetype-grid/archetype-combinations
+first), and the two minor loose ends (#4), plus reviewing the three unresolved copy-decision triplets.
+
+
+----
+
+

@@ -3173,3 +3173,46 @@ an applied-but-unrecorded migration turns into a runner roadblock that looks
 like someone else's broken SQL.
 
 Categories: (fix, gotcha, cross-workstream)
+
+### 2026-07-17 — new models through the real pipeline; tool-birth gap closed; REAL failure → tool-improver
+
+v1.0.1128. Proved Sonnet 5 through the ACTUAL generator (not just the DB flip):
+fired tool-generator for a new tool `tool-loot-table-balancer` on gamesdesign —
+llm_call_log confirms generate_tool_html + compose_plan both on claude-sonnet-5,
+component + fenced PLAN-at-birth (container present) + index_plan (3 chunks/3
+embeddings), zero errors.
+
+**Composer shape defect (fixed at birth).** Sonnet-5's compose_plan wrote the
+interaction check as `{"type":"click","expect":"<string>"}` — not a Tier-4
+check type, expect must be an object — so the runner skips it and the tool's
+behaviour goes untested. The SELECTORS were real (no-invention rule held); only
+the shape was improvised, because the compose_plan prompt described interactions
+in prose and never showed the JSON. Every prior well-formed interaction check
+was hand-written in a migration (143/148) → gap never exercised. Migration 160
+adds the exact shape to the prompt; 161 supersedes the already-born PLAN to the
+real shape, PROBED passing in live Chromium first (row-4 absent pre-click on
+both profiles → expect not vacuous; #ltbAddItem click produces it).
+
+**Tool-birth deploy gap closed (code).** tool-generator never enqueues a
+page_rerender (its create_result even carries an unused `needs_rerender:true`),
+so a new tool page sits build_status=planned until an unrelated sweep — all 3
+births needed a hand-inserted item. Taught `create_rerender_items` a single-page
+mode (scalar page_id/name/filename config, tolerates leading "/") so one action
+still owns the item shape/status/dedup key; a tool-generator tail step can now
+enqueue it. Trap re-learned: create_rerender_items inserts at **triaged**, not
+detected (detected sits unswept on gamesdesign) — my first hand-insert guessed
+detected and stalled. GATE: tail wiring + Go change ride the next image.
+
+**REAL failure → tool-improver → fix (closes T8/T9 open milestone).**
+Acceptance on the corrected PLAN: 8/9 passed (incl. add-item on BOTH profiles —
+the reshaped interaction genuinely drove the tool), and mobile-fit@mobile FAILED
+on a genuine defect — a fieldset 419px wide at 390px, attributed INSIDE the tool
+→ routed to improve_tool with the P3 screenshot. First non-manufactured failure
+to reach tool-improver. Promoted it; tool-improver ran on **claude-sonnet-5**
+(improve_tool 4767 tok + compose_note 250 tok), constrained the fieldset
+(max-width:100% + box-sizing + flex-wrap/min-width:0), wrote a machine `fix`
+note, and enqueued its OWN rerender (0743bfa9). Re-verify pending.
+
+Migrations 160/161 applied out of band (ledger rows same sitting). Next: 162.
+
+Categories: (proof, build, fix, gotcha, milestone)

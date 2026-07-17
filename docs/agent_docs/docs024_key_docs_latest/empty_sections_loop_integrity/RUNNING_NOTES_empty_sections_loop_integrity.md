@@ -758,3 +758,69 @@ products the pages differ, so only the ~360-token chat template (shared prefix
 before the product name) is cacheable; the region tokens are always paid at the
 uncached ~3 tok/s. The ~31-min projection above deliberately uses the **uncached**
 rate. Don't size this from a warm repeat — that number is a mirage.
+
+---
+
+## Session 10 (cont.) — the fix WORKS, and it exposed a second, subtler bug
+
+v1.0.1128 (fix live, verified in-pod: running digest == pushed digest, both fix
+strings present). Re-ran §5d. **First working run of this capability ever:**
+
+| product | outcome | time |
+|---|---|---|
+| OnRobot 2FG7 | refreshed (2 fields) | ~4 min |
+| Robotiq 2F-85 | refreshed (1) | ~5 min |
+| Schunk EGP 40-N-S-B | refreshed (3) | ~5 min |
+| Zimmer GEP5010IO | refreshed (2) | ~5 min |
+| Festo EHPS-20-A-LK | empty object — logged WHY | — |
+
+**0 LLM timeouts** (was 5/5). Total ~25 min, inside the 45-min reaper ceiling.
+`verified_date` advanced to 2026-07-17 for the four; Festo correctly left at
+07-14 with data intact. The timeout diagnosis is now confirmed end-to-end.
+
+**Festo's empty object is now a diagnosis, not a dead end** — the whole point of
+the logging. `page_chars_scraped=2925, markdown_chars_sent=1491,
+spec_signals_in_region=4`: the RS-Online page WAS scraped and a spec-ish region
+WAS selected, but the model judged it didn't literally state THIS product's
+fields and returned {} — the safe, correct behaviour. Festo keeps its seed data.
+(Left as a known-acceptable outcome; RS-Online is a distributor listing, not the
+manufacturer spec page. If we want Festo refreshed, give it a better source_url —
+a discovery/human judgement, exactly where the design says it belongs.)
+
+### The subtler bug: a working refresh that DEGRADED five values
+No fabrication — every written value was literally on the page. But the merge
+blindly took the page's value-cell text, and spec tables split meaning across
+label+value ("Stroke per jaw | 6 mm"). So hand-verified qualifiers were lost:
+
+| product | field | before | after (pre-guard) |
+|---|---|---|---|
+| Schunk | stroke | 6 mm **per jaw** | 6 mm |
+| Schunk | payload | 0.15 kg **(recommended workpiece weight)** | 0.15 kg |
+| Schunk | voltage | 24 V **DC** | 24 V |
+| Zimmer | stroke | 10 mm **per jaw** | 10 mm |
+| Zimmer | interface | I/O **(IO-Link option)** | I/O |
+
+"per jaw" is not cosmetic: a parallel gripper's per-jaw stroke is HALF the total,
+so "Stroke: 6 mm" understates it 2×. Caught by diffing the run's output against
+the SQL-152 seed BEFORE it shipped (pages are rendered artifacts — robot-hands
+still served the good values; only the DB regressed; next rebuild would have
+pushed the weaker text live).
+
+**Fix (working tree, needs next image):** `specValueIsRestatement()` — the merge
+now refuses to trade a richer value for a strictly-barer restatement of itself
+(normalizes dash-style + whitespace first, so "20–235 N" vs "20 to 235 N" is not
+mistaken for a loss). Genuine changes ("30 N"→"45 N") and enrichments ("11 kg"→
+"11 kg (24.3 lb)") still land. 12 table-driven tests use these exact live pairs.
+Same doctrine as the existing empty-field rule: **a refresh may enrich or
+correct, never degrade.**
+
+**DB already repaired** by SQL **157** (restores the 5 qualifiers, keeps the
+OnRobot enrichment, leaves verified_date at 07-17 since the figures really do
+match — only the human's wording was restored). Applied + verified live.
+
+### State at end of session
+- Timeout/region fix: **LIVE (v1.0.1128), proven end-to-end.**
+- Degradation guard (`specValueIsRestatement`): **working tree + green tests,
+  NOT yet deployed.** Refresher is manual, so nothing re-degrades until someone
+  runs it; deploy the guard before the next run. DB is correct now regardless.
+- Applied SQL by this session: **157**.

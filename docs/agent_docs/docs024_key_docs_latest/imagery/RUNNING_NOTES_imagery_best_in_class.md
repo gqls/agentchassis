@@ -1878,3 +1878,43 @@ guard is live regardless.
 discovery (or let the loop cycle) → watch 9 generations (SDXL — B5 budget
 note) → next pass re-derives 9 cards → re-render learning-center-hub →
 **A3 EYEBALL GATE: 9 visually DISTINCT per-article cards.**
+
+## Turn 47 — 2026-07-17 — D13 ran end-to-end on v1.0.1128 (mechanism PROVEN) but the GATE FAILED → two fix handoffs
+
+**The convergence machinery worked exactly as designed:**
+- 9 content heroes generated (SDXL, first-attempt, all committed + serving);
+  triage stranded the items in `detected` AGAIN (second time this week) —
+  hand-promoted 9; the improvement-loop triage-stranding is now a confirmed
+  recurring platform nit.
+- Origin-staleness re-derived all 9 cards from their own heroes (sizes went
+  nine-identical-64,097B → nine distinct 37–73KB, q78 applied).
+- Served learning-center-hub shows 9 distinct card refs. NOTE learned: card
+  PATHS are stable, so re-derived bytes go live WITHOUT a page re-render.
+  Also: my monitor's 10-min zombie-clear restart-looped a legitimately-long
+  needs_page build — don't blanket-clear while a page build is in flight.
+
+**USER GATE: FAILED — on quality and on site-level context.** Imagery
+failures: style inconsistency across the 9 (photo / studio-with-pseudo-text /
+line-art; at least one in colour — style-guide adherence weak on SDXL, no
+reference anchoring on that path); click-through: only 2 of 9 match (1
+mismatch = cycle-time article's flag_rebuild re-render never landed; 6 of 9
+listed URLs are 404 — scaffold pages + never-deployed /blog/ duplicates ⇒
+query.blog_posts needs an eligibility filter); only one surface (hub) has
+cards. **User direction: redesign the card style around the SMALL FORMAT'S
+limitations.** Site-level failures (NOT imagery): blue-brochure regression
+(evidence: css_themes row + served styles.css are STILL tool-portal-dark —
+the damage is component-level: header/footer regenerated non-theme-aware
+2026-07-16 14:18 by the improvement loop; hardcoded_section_colors handler
+stripped legit dark backgrounds; generic_theme check misjudges the site;
+"37 pages missing header/footer" unresolved×2), yellow-on-white hub text,
+learning-center nav/URL sprawl, tools broken (nav→content page;
+/tools/matchmatrix/index.html 404; description-vs-tool = misdirected_cta
+class, overlaps the experience_loop workstream), dead Load More button.
+
+**HANDOFFS CREATED (start fresh chats from these):**
+- `HANDOFF_2026-07-17_i3_imagery_gate_fixes.md` (imagery: style redesign,
+  blog_posts filter, rollout to other card surfaces).
+- `../robot_hands/HANDOFF_2026-07-17_robot_hands_site_fixes.md` (site: theme
+  restoration R1 — the B7 state is INTACT, do NOT re-swap the FK; nav/IA;
+  404 page rows; tools w/ experience_loop; load-more).
+This workstream PAUSES I3 polish until those land.

@@ -185,3 +185,26 @@ clause-referenced response as soon as it does); and the next chassis image build
 3, the claim flow — the exporter already publishes claimed prices the moment the first practice is claimed.
 
 ---
+
+Adoption is triggered, mostly worked, and hit a real blocker at the final step — here's the honest state.
+
+Your instinct was half right. The site was already hosted by chassis infrastructure, but never registered with it — no sites row, so the build loops and improvement sweeps didn't know it existed. That registration
+is what adoption does, and the May handoff had planned it but never got there.
+
+What happened: I fired the adoption (vetcomparison.uk adopting itself as ground truth, fidelity locked so our hand-built pages are treated as canonical). The pipeline crawled the live site, fingerprinted it,
+analysed it, classified the archetype and derived the content direction — all successfully. It then failed at the very last step, apply_adoption_plan, with a database error: the work-item insert expects a unique
+index (idx_swi_dedup) that doesn't exist in production.
+
+Why, and why I stopped rather than patched it: the code comment traces it to migration 157, written yesterday by the fixloop workstream — it changed the work-item dedup rules, and the Go and schema halves of that
+change must land together, byte-matched, or every keyed insert fails exactly like this. Hand-creating the index now, without confirming which version of the clause the deployed binary emits, has a coin-flip chance
+of recreating the same error from the other side. Your own build practice notes say verify against the pod, never git — so this waits for the deploy.
+
+No damage: the sites row exists (harmless), no specs or work items were written, and the live site is untouched.
+
+The unblock is the chassis deploy you already have queued, which is now carrying three workstreams' worth: the fixloop migration-157 Go, our Phases 0–3, and the fix for this. The sequence after deploy is in the
+running notes: apply the 157 schema in the same window, re-run the same adoption command (safe to re-trigger), then bump the exporter agents' image tags and enable the export per the runbook. One standing rule I've
+recorded from the adoption-faithfulness doc: once adoption succeeds, never re-plan this site to fill gaps — only the first-plan branch is faithful today, and re-plans can silently clobber adopted pages.
+
+Also worth saying plainly: it's now the 17th, so the funding consultation closes in 13 days.
+
+---

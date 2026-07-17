@@ -1,9 +1,14 @@
-# SCHEMA (draft, for owner sign-off) — the staged plan (`stages[]`), feature-builder delta 1
+# SCHEMA (SIGNED OFF) — the staged plan (`stages[]`), feature-builder delta 1
 
 *2026-07-17, "fixloop feature builder" thread. This is the sign-off artifact the
-handoff (`HANDOFF_2026-07-17_feature_builder_thread.md` step 2) requires BEFORE
-any code. Parent design: `DESIGN_feature_builder_and_council_gate.md` §1. Nothing
-here is built; §7 lists the decisions this draft needs from the owner.*
+handoff (`HANDOFF_2026-07-17_feature_builder_thread.md` step 2) required BEFORE
+any code. Parent design: `DESIGN_feature_builder_and_council_gate.md` §1.*
+
+**SIGNED OFF 2026-07-17: owner accepted all recommendations, D1–D6 (§7).**
+Delta-1 build status: staged validation live in
+`diagnose_persist_fix_plan_action.go` (commit `4b3d50f4c`, tests green);
+feature-designer seed drafted as `0NN_feature_designer.sql` (a PR file, not
+applied — owner applies after the image, per this schema's own §4 discipline).
 
 ## 0. What this schema is
 
@@ -48,7 +53,7 @@ live shape), `0NN_fix_implementer.sql`, `0NN_fix_implementer_orchestrator.sql`,
   ],
   "post_merge_checklist": [
     { "order": 1, "act": "image_deploy",
-      "detail": "make build-agent-chassis-ref REF=<merge commit>; bump IMAGE_TAG; verify the running pod binary" },
+      "detail": "make build-agent-chassis REF=<merge commit>; bump IMAGE_TAG; verify the running pod binary" },
     { "order": 2, "act": "seed_apply", "file": "docs/.../0NN_new_agent.sql",
       "detail": "psql clients_db -f <the seed file, from the merged tree>" },
     { "order": 3, "act": "verify",
@@ -195,7 +200,7 @@ The owner-suggested pilot as a staged-v1 instance (abridged sketches):
       "gate": { "build": false } }
   ],
   "post_merge_checklist": [
-    { "order": 1, "act": "image_deploy", "detail": "make build-agent-chassis-ref REF=<merge>; bump IMAGE_TAG; verify pod binary" },
+    { "order": 1, "act": "image_deploy", "detail": "make build-agent-chassis REF=<merge>; bump IMAGE_TAG; verify pod binary" },
     { "order": 2, "act": "seed_apply", "file": "docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/0NN_fix_implementer_v2_ref_input.sql",
       "detail": "apply to clients_db; snapshot_agent runs inside the seed" },
     { "order": 3, "act": "verify", "detail": "delete stale fix/* branches; fire the implementer on a known approved correlation with an explicit ref; confirm it reads/branches from it" }

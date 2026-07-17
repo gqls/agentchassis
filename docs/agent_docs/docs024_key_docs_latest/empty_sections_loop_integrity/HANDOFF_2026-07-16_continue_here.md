@@ -15,8 +15,30 @@ dartsonline.com `5fe8785b-223d-41a3-88ee-c07187622381`.
 
 ## 1. The immediate next action (this is why you're here)
 
+### STATUS 2026-07-17: `refresh_product_specs` WORKS. Two follow-ups remain.
+
+The zero-refresh bug is **fixed and proven end-to-end** (v1.0.1128). First
+working run: **4/5 refreshed, 0 LLM timeouts** (was 0/5, 5/5 timeouts). Details
+in RUNNING_NOTES "Session 10 (cont.)". What's left for the next chat:
+
+1. **Deploy the degradation guard.** The working run refreshed correctly but
+   *degraded* 5 values by dropping hand-verified qualifiers ("6 mm per jaw" →
+   "6 mm" — halves a parallel gripper's stated stroke). No fabrication; the
+   model copied the page's value cell and lost the label's meaning. Fixed in the
+   working tree (`specValueIsRestatement`, 12 green tests) but **NOT yet in an
+   image**. The refresher is manual, so nothing re-degrades until it's re-run —
+   but deploy this before the next run. **DB already repaired (SQL 157).**
+2. **Festo returns {} — acceptable, not a bug.** Its source_url is an RS-Online
+   distributor listing, not a manufacturer spec page; the model correctly
+   refuses it. Give it a real spec URL if you want it refreshed (human judgement
+   — that's the by-design discovery boundary).
+
+Everything below this line is the diagnosis journey; keep for the reasoning.
+
+---
+
 **`refresh_product_specs` — root cause FOUND and MEASURED; fix written and
-proven against the live model; awaiting a live run on v1.0.1126.**
+proven against the live model; DEPLOYED v1.0.1128 and proven live.**
 
 ### The cause was NOT truncation. That hypothesis is RETRACTED.
 

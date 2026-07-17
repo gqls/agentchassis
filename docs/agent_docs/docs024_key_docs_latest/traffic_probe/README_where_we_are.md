@@ -113,3 +113,25 @@ Want me to implement recommendation 1 (the Go fallback + the interim feed-workfl
 
 
 ---
+The cutover is complete — relojistas.com is live as the Spanish watch-news portal. https://relojistas.com/ now serves "Relojistas — Portal de noticias de relojería en español" with the news card pulling six curated
+Spanish stories from /data/latest-news.json, and historia, sobre-nosotros, and contacto all return 200. Better still, the 6-hourly heartbeat has adopted the site on its own — three autonomous "Update latest news
+feed" commits landed in vm-sites after ours, so news now refreshes without any manual triggering.
+
+The misroute turned out to be a three-layer onion, and all three layers are now fixed:
+
+1. Workflow-state dependence — fixed by resolveGitRepoNameDB in v1.0.1126 (your ship), which falls back to sites.github_repo by domain.
+2. Hardcoded pins — the reason round-1 rerenders still went to sites on the new image: three agent definitions (page-rerender, site-deployer, deployer-agent) had repo_name: "sites" baked into their git_commit step
+   config, and explicit config rightly outranks the fallback. I removed the three pins (data-only jsonb edit, immediate; the diagnosis agents pinning agentchassis were left alone). Round 2: all four pages committed to
+   repo=vm-sites and the Action deployed within a minute.
+3. The rsync --delete trap — disarmed before any of this could bite, by mirroring the box's live webroot into the repo first (checksums verified; the box page was never disturbed until its replacement arrived).
+
+Two operational gotchas worth keeping (both in the notes): the first rebuild dispatch vanished silently because it was fired too close to the chassis rollout (the ~300s warning is real), and page-rebuild was the
+wrong tool anyway — it regenerates content via LLM and failed at resolve_links; page-rerender is the correct redeploy path.
+
+What remains, in priority order: P4 render_rss_feed → /feed.xml; P5 the engine's /external.php legacy handler — flipping the ~136 daily subscriber 404s to 200s is the mission metric — plus search-that-answers
+(intent capture is paused since cutover, as the new homepage has no form yet); composing /noticias/index.html (still planned); the scaffold pages and contacto details; and cleaning the stale relojistas copy out of
+gqls/sites/B2.
+
+Shall I proceed with P4 — building the render_rss_feed action?
+
+--

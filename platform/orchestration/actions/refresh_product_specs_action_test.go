@@ -59,6 +59,48 @@ func TestSelectSpecRegion_FindsTableBuriedBelowTheFold(t *testing.T) {
 	}
 }
 
+// The cases below are the REAL before/after pairs from the first working live
+// run (robot-hands, 2026-07-17). The refresher invented nothing, but it traded
+// hand-verified qualifiers for barer page-literal restatements — "6 mm per jaw"
+// became "6 mm", which halves the stated stroke of a parallel gripper.
+func TestSpecValueIsRestatement_LiveRegressions(t *testing.T) {
+	cases := []struct {
+		name              string
+		existing, updated string
+		wantSuppressed    bool
+	}{
+		// Degradations observed live — must be suppressed.
+		{"stroke loses per-jaw", "6 mm per jaw", "6 mm", true},
+		{"zimmer stroke loses per-jaw", "10 mm per jaw", "10 mm", true},
+		{"payload loses meaning", "0.15 kg (recommended workpiece weight)", "0.15 kg", true},
+		{"voltage loses DC", "24 V DC", "24 V", true},
+		{"interface loses IO-Link", "I/O (IO-Link option)", "I/O", true},
+
+		// Real updates — must still be written.
+		{"genuine value change", "30 N", "45 N", false},
+		{"enrichment adds equivalent", "11 kg", "11 kg (24.3 lb)", false},
+		{"identical value", "30 N", "30 N", false},
+		{"dash restyle is not a loss", "20–235 N", "20 to 235 N", false},
+		{"different unit entirely", "IP30", "IP67", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := specValueIsRestatement(c.existing, c.updated); got != c.wantSuppressed {
+				t.Errorf("specValueIsRestatement(%q, %q) = %v, want %v",
+					c.existing, c.updated, got, c.wantSuppressed)
+			}
+		})
+	}
+}
+
+func TestSpecValueIsRestatement_IgnoresSpacingAndDashStyle(t *testing.T) {
+	// "20–235 N" and "20 - 235  n" are the same value written differently; the
+	// richer-vs-barer test must not be fooled into calling that a loss.
+	if specValueIsRestatement("20–235 N", "20 - 235  n") {
+		t.Error("same value in a different style must not count as a restatement")
+	}
+}
+
 func TestSelectSpecRegion_ShortPageUntouched(t *testing.T) {
 	page := "| Gripping force | 140 N |\n| Weight | 0.19 kg |"
 	if got := selectSpecRegion(page, specRegionMaxChars); got != page {

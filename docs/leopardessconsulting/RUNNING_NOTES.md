@@ -1234,3 +1234,32 @@ as turn 15's link_url gate) is the suggested fleet-safe approach, but it belongs
 imagery workstream (which owns component imagery and is mid-build on Phase I3), not a site
 session. leopardess imagery state: index (hand-chosen) + who-we-help + how-we-work (Banana
 illustrations) live; blog thumbnails + card images arrive with Phase I3.
+
+## Turn 19 (2026-07-17) — PLAIN VOICE v2: owner redirects the register
+
+**Owner decision (A12): move the copy further toward plain, friendly, matter-of-fact.** The
+v1 voice killed hype and fabrication but produced dense, literary copy (long packed sentences,
+no contractions, em-dash rhythm, "laundered rumour"-class turns). The owner supplied a
+before/after homepage pair + a stack of humanizing-prompt reference material and asked to go
+"even more in that direction".
+
+**Encoded in three places:**
+1. `specs/PLAIN_VOICE_v2.md` — the distilled rules (one idea per sentence, ≤~20 words,
+   contractions in, short paragraphs, Flesch ~80, no literary moves, em-dashes near zero,
+   friendly = calm not chummy) AND the explicit reject list from the reference material
+   (no deliberate errors/slang, no casual fillers, no rhetorical-question tic, detector
+   evasion is not a goal). v1's honesty rules all survive.
+2. **DB voice spec updated** (site_specs `voice`, bak_voice_spec_leo_20260717): tone,
+   plain_language, new `sentence_shape` key, llm_tells_to_avoid rewritten — future
+   writer-generated content now reads the v2 register.
+3. **Homepage rewritten as the worked example** (bak_index_v2_20260717): all 4 slots (hero,
+   features, differentiators, CTA) in the new register, pushed further than the owner's
+   sample. Dual-branch pre-check 0 rows → section_data_resolved rerender.
+
+**Claims catch:** the owner's illustrative sample introduced "reads news from hundreds of
+sources" — the evidence base has 18 configured sources (13 news_search + 3 api_news + 1
+scrape + 1 rss). NOT adopted; noted in PLAIN_VOICE_v2.md. Register changes, facts do not.
+
+**Remaining rollout:** the other rewritten pages (services, how-it-works, our… use-cases,
+who-we-help, contact, about, engagement-model, faq, technical-architecture + the two blog
+posts) still carry v1-dense copy and should be moved to v2 page by page, same safe path.

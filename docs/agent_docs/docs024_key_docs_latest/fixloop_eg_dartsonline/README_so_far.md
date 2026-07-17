@@ -625,6 +625,43 @@ I'd re-dispatch at the stop_reason gap with the stale clause stripped out — me
 them on premises I should have checked first, so I'd rather you call it than assume.
 
 ---
+Both bugs are now at their terminals. Full report:
+
+BUG B: gated UNVERIFIABLE — graded PARTIAL, and a third honesty gate revealed
+
+The retry ran clean (spawn check passed, 4 verdict iterations on Sonnet 5, outputs 7,372–14,545 tokens). The raw verdict was CONFIRMED and rubric-perfect — five static citations nailing the exact mechanism: the
+root-first assignment, the if aiServiceConfig == nil gate that makes the step block unreachable, the max_tokens if/else that can only see the root map, and GenerateText's hardcoded "max_tokens": 2048 literal. The
+symptom_check explained all three observations with citations.
+
+But the route coerced it to UNVERIFIABLE at the iteration cap, and its reason exposes a guard we hadn't seen fire before: a CONFIRM needs both a static citation showing the mechanism AND a state/runtime citation
+showing it occurring. All five citations were static. My mechanism-only symptom — written that way deliberately to avoid v1's refusal — gave the verdicter nothing to data_request, so it could never produce the
+state-tier citation the guard demands. Five iterations of confirming on code alone, five coercions, cap, hand-to-human.
+
+Put together, the three B attempts plus A's success yield the complete symptom-authoring recipe, now in the notes as rule 4: state the mechanism, point at the tables where runtime evidence lives, but assert neither
+rows nor counts. BUG A passed precisely because its symptom said "llm_call_log shows 17 rows where…" — the verdicter fetched those rows itself and cited them. v1 asserted the evidence (refused: not in bundle); v2
+omitted it entirely (refused: no state tier). The needle is narrow but now mapped.
+
+The bug itself is fully established — loop-cited code trail plus my direct 2048→32000 experiment. What's missing is only the gated CONFIRMED artifact, which matters because the fix-proposer consumes gated
+CONFIRMEDs.
+
+Also banked from the failures
+
+- The overnight wedge (80c35dea) is preserved untouched as a live instance of queued case 003 — parent stuck at spawn_diagnoser 13.7h, child never created, deploy churn the suspected killer. Bonus finding:
+  EXECUTING_STEP zombies exist platform-wide going back 455–1,197 hours; nothing sweeps them.
+- Run ledger: A — 1 run, CONFIRMED, PASS. B — 4 runs (honest-abstain, API 529, lost spawn, gated-UNVERIFIABLE). Every non-CONFIRMED was correct behaviour by the loop or external infrastructure; none was a loop
+  defect.
+
+One thing to own: my addendum commit (34dd88e9a) accidentally swept in 17 files another session had left staged in the shared index — the exact bundling your new commit-per-task rule forbids. I checked staged
+contents on my first commit but skipped it on this one. Forward-only, so it stands; noted so you know that commit isn't all mine.
+
+Decisions sitting with you
+
+1. BUG A → fix-proposer? A gated CONFIRMED is ready for F1; the fix is small (decode StopReason, error on "max_tokens").
+2. BUG B: accept the trail and hand-fix, or one rule-4-authored v3 run to earn the gated CONFIRMED so the loop can plan this fix too.
+3. The 17 agents at the 2048 default: patch their configs now, or fix the shadowing code first so existing step-level config simply starts working.
+
+
+-----
 
 
 

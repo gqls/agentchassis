@@ -2,6 +2,29 @@
 
 Newest first. Operational log; strategy in SUMMARY/PLAN.
 
+## 2026-07-16/17 (Phase 4 adoption — attempted, blocked on missing index)
+
+- Triggered adoption via `082_submit_domain_unified.sh vetcomparison.uk --from
+  https://vetcomparison.uk --fidelity locked` (correlation b0af4625-…). Crawl → fingerprint →
+  css → analyze → classify_archetype → select_content → derive_content_direction all SUCCEEDED.
+- **FAILED at apply_adoption_plan**: `insert needs_domain_research: no unique or exclusion
+  constraint matching the ON CONFLICT specification (42P10)`. Cause: `insertWorkItem`
+  (load_work_item_actions.go:1060) conflicts on `(site_id, item_key) WHERE item_key IS NOT NULL
+  AND status NOT IN (<workItemTerminalStatuses>)`, which must match partial unique index
+  `idx_swi_dedup` — **absent in prod**. work_items_common.go:29 comment says 'cancelled' joined
+  the closed set in **migration 157 (2026-07-16, another workstream)** — schema + Go must land
+  TOGETHER; predicate and clause must be byte-matched or every keyed insert 42P10s.
+- **Do NOT hand-create the index** without confirming which statuses list the DEPLOYED binary
+  emits (verify against the pod, not git — build/deploy practice memory).
+- State left: `sites` row EXISTS (vetcomparison.uk, active/pending), zero site_specs, zero work
+  items, live site untouched. Re-triggering adoption after the fix is safe (same command).
+- **Unblock path:** next chassis deploy (ships fixloop migration-157 Go + our Phases 0–3) +
+  apply migration 157/idx_swi_dedup schema in the same window → re-run the 082 trigger →
+  then bump directory-exporter agent image_tags + smoke + enable per RUNBOOK.
+- Adoption safety noted from FOCUS_adoption_faithfulness_via_locks(5): only the FIRST-plan
+  faithful branch works today; convergence union can clobber adopted sections — after adoption
+  succeeds, never re-plan this site to fill gaps (fleet landmine), hand-edits get permanent locks.
+
 ## 2026-07-16 (later — Phase 3 claim flow)
 
 - **010 applied:** `business_intel.claim_requests` (claim|optout|correction) with evidence_method,
