@@ -3216,3 +3216,30 @@ note, and enqueued its OWN rerender (0743bfa9). Re-verify pends on a large prod 
 Migrations 160/161 applied out of band (ledger rows same sitting). Next: 162.
 
 Categories: (proof, build, fix, gotcha, milestone)
+
+### 2026-07-17 (later) — re-verify RED twice: the fix loop doesn't converge on intrinsic overflow
+
+The loot fix finally deployed (rerender drained the 83-deep backlog). Re-verify:
+STILL RED, `mobile-fit@mobile fieldset 419px`. tool-improver (Sonnet 5) had
+constrained the fieldset the adapter NAMED but not the grid child inside
+`#ltbRows .ltb-row-grid` that forces the width. A SECOND cycle — Sonnet 5,
+loading its own prior fix note — produced a materially identical fix and stayed
+RED. The behavioural tier caught an insufficient fix twice (the whole point),
+but the loop does NOT converge here.
+
+Two causes: (1) the overflow signal names the widest ANCESTOR (fieldset), so the
+one-shot fixer keeps targeting it and never reaches the forcing descendant — the
+same class T15 solved for chrome; (2) nothing bounds a non-converging loop (each
+fail = a fresh improve_tool item, so the 3-attempt cap never engages; only the
+7-day cooldown gates re-tries → weekly re-fail forever). Filed
+`bugs_open/010_HANDOFF_2026-07-17_fix_loop_stuck_on_intrinsic_overflow.md`
+(candidates: drill-down overflow attribution; convergence guard →
+needs_human_review after N cycles). Tool left overflowing as the benchmark.
+
+Corrected an earlier grep guess: the culprit is NOT `.ltb-summary div`
+(min-width:140px) — that div isn't inside the flagged fieldset. Pin computed
+widths in a browser, not source CSS. Two transient infra notes: a
+`request_browser_run` timeout → `complete_error` (re-fire cleanly); and
+`AWAITING_RESPONSES` is PLURAL (a poll excluding the singular exits early).
+
+Categories: (finding, loop-limit, gotcha)
