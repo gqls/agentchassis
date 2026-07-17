@@ -48,20 +48,22 @@ looking. Full problem statement and evidence:
 
 ## Building & deploying images
 
-- **Committing your own work does not make a default build safe.** The default
-  targets tar the **working tree** — they take no account of what is committed,
-  so they bundle every *other* session's uncommitted work regardless of how
-  clean your own task is. They now print a report of what they would sweep in,
-  but they still build it.
-- **The commit only becomes load-bearing if you use the ref build:**
-  `make build-<service>-ref [REF=<ref>]` (git-archive of a committed ref —
-  structurally cannot bundle WIP; `REF` defaults to `HEAD`). Commit your task
-  first, then ship exactly that commit. Available for all 14 backend services;
-  frontends build from their own context and have no `-ref`.
-- `push-*` and `deploy-*` are entirely git-blind: they ship whatever image is
-  locally tagged `IMAGE_TAG`. Nothing downstream of the build can tell you
-  whether the image came from a commit or from someone's mid-edit tree — which
-  is why it has to be got right at build time, and verified against the pod.
+- **`make build-<service>` builds from committed `HEAD`** (inverted 2026-07-17):
+  a `git archive` into a clean context that structurally cannot bundle anyone's
+  WIP — yours or another session's. So the safe build is the one you get by not
+  thinking about it. **Commit your task, then build.** All 14 backend services;
+  frontends build from their own context and are unaffected.
+- If you forgot to commit, the build prints how many uncommitted changes it is
+  **leaving out** and continues — so you get an image missing *your* change (a
+  wasted cycle, caught by the pod-grep below) rather than one silently carrying
+  everyone else's untested work to production. Commit and rebuild.
+- `make build-<service> REF=<ref>` pins a specific commit. `make build-<service>-tree`
+  is the deliberate escape hatch that builds the **working tree**, WIP and all —
+  only when you actually want uncommitted code in the image.
+- `push-*` and `deploy-*` are git-blind: they ship whatever image is locally
+  tagged `IMAGE_TAG`. Nothing downstream of the build records whether it came
+  from a commit — one more reason the build itself must be the committed one,
+  and verified against the pod.
 - Bump `IMAGE_TAG` (makefile ~line 16) for every build — a same-tag rebuild
   ships the node's stale cached binary.
 - Verify a deploy against the **running pod**, never git, never the tag:
