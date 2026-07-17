@@ -26,8 +26,10 @@ deploy target is wired (v1.0.1123+), guarded (§2b: `deploy-targets.json` allowl
 activated (§2c: `github_repo='vm-sites'`), and `gqls/vm-sites` is seeded with the built artefact.
 En route we found the vm-sites Action had NEVER run — no runner on the repo and the runner image
 lacked ssh/rsync — fixed: image `v1.0.1126` + `github-actions-runner-vmsites` deployment; relojistas
-deploys green through the allowlist, idea.uk skip proven live 3×. **Next: Phase 3 (owner: §3a
-pull-sync on the box, then §3b–3e nginx), Phase 0 rotation still URGENT, Phase 4 tool deploy.**
+deploys green through the allowlist, idea.uk skip proven live 3×. **Phase 0 CLOSED 2026-07-17**:
+old SES user deleted, new SMTP user live (email verified), INTERNAL_API_KEY rotated + restart —
+the leaked history values are dead; /op links re-issue on next use. **Next: Phase 3 (owner: §3a
+pull-sync on the box, then §3b–3e nginx), Phase 4 tool deploy.**
 §3b correction: static `terms.html`/`refund-policy.html` DO exist and footers link all three legal
 pages with `.html` — add 301s (`/terms.html → /terms` etc.) at cutover so the tool stays canonical.
 
@@ -37,7 +39,13 @@ Design agreed, nothing executed. Phase 0 is urgent and independent; Phase 1 bloc
 
 ---
 
-## Phase 0 — Leaked credentials (do this first, it is independent)
+## Phase 0 — Leaked credentials — ✅ CLOSED 2026-07-17
+
+**Executed by the owner 2026-07-17:** new SES SMTP IAM user created and verified sending; the old
+user (`ses-smtp-user.20260611-195505`, whose key was the leaked one) **deleted**; `INTERNAL_API_KEY`
+regenerated; `/etc/idea/idea.env` updated; `idea` restarted and healthy. The values in public git
+history are now dead. Operator `/op` links: old ones no longer verify — issue fresh ones on next use.
+Original finding kept below for the record.
 
 `gqls/agentchassis` is **public**. `docs/.../idea.uk/golang_files/idea.env.example` has been on
 `origin/main` since **2026-06-04** with two **real** secrets. Verified by length, not by name:

@@ -14,7 +14,8 @@ the site is now a coherent set of pages, the code that lets a site deploy to the
 written and shipped, and the tool's public request form is hardened against the spam it was getting.
 The remaining work is the cutover itself, which runs on the live box and needs the owner's hands. A
 separate, unplanned security finding — real credentials committed to a public repo — was contained,
-and its rotation is the one urgent owner action.
+and **closed on 2026-07-17**: the owner rotated both exposed credentials and deleted the old AWS
+user, so the values still visible in public git history no longer work.
 
 ---
 
@@ -25,8 +26,8 @@ Real AWS SES email credentials and the tool's internal API key had been sitting 
 repo since 4 June, inside a file named `…example` (which is why nobody had looked). The Stripe and
 Anthropic keys there were only placeholders, so **the payment path was never exposed**. We scrubbed
 the file, added an automatic guard that blocks any future secret from being committed, and verified
-it. **Rotating the two real credentials is the one urgent action left for the owner** — the old
-values remain in public history until then.
+it. **Rotation completed 2026-07-17**: both real credentials replaced, the old AWS user deleted, and
+email sending verified — the values still visible in public history are dead.
 
 **Thread 1 — completing the site.**
 The site had three catalogued-but-unbuilt pages whose links 404'd. Building them exposed a
@@ -61,7 +62,7 @@ fleet-wide dead contact-form, and a build-system retry-churn bug) into the share
 | Area | Status |
 |---|---|
 | Leaked credentials — repo scrubbed + guard installed | **Done** |
-| Leaked credentials — **rotate the real values** | **Owner action, urgent** |
+| Leaked credentials — **rotate the real values** | **Done 2026-07-17** (old AWS user deleted; email verified) |
 | Site completed — 9 coherent pages, nav fixed | **Done** |
 | Planner bug that caused a scare | **Recovered; fix handed off** |
 | Per-site VM deploy target — code | **Done, shipped in current image** |
@@ -79,7 +80,7 @@ fleet-wide dead contact-form, and a build-system retry-churn bug) into the share
 ## Where we're going
 
 **Owner actions (need access we don't have):**
-1. **Rotate** the exposed SES + internal key, update the box's env, restart the tool. *(urgent)*
+1. ~~Rotate the exposed SES + internal key~~ **done 2026-07-17**.
 2. **Deploy the hardened tool** — build the binary, copy to the box, restart. *(the tool has no CI)*
 3. **VM cutover** when ready — put the static site behind the box's nginx while the tool keeps its
    own paths; DNS unchanged, rollback is a one-line nginx revert. The runbook lists all 16 tool paths

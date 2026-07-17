@@ -388,6 +388,23 @@ contact page needs either a working backend or its form replaced with a mailto/C
   file from another session (`fixloop_eg_dartsonline/SUMMARY_of_the_json_leak.md`) — harmless.
   Concurrent sessions bulk-committed the dockerfile edit (6880c669e) and kustomize base (87d13b864).
 
+## O — 2026-07-17 · Phase 0 CLOSED: credentials rotated by the owner
+
+Owner initially believed the leak was resolved because the *current* `idea.env.example` is clean —
+the session demonstrated (lengths/prefixes only, values never printed) that the real values sat in
+pushed public history from 2026-06-10/11 to the 2026-07-14 scrub (SMTP_USER 20 chars `AKIA…`,
+SMTP_PASS 44 chars, INTERNAL_API_KEY 64-hex), retrievable by anyone via `git log -p`. Also caught
+that the scrubbed file's header prematurely claimed "and rotated" — it had NOT been (verified via
+IAM key creation date, per the walkthrough).
+
+**Rotation executed 2026-07-17 by the owner:** fresh SES SMTP IAM user created
+(`ses-smtp-user.20260717-…`) and sending verified; the old June user **deleted** (not merely
+deactivated); `INTERNAL_API_KEY` regenerated; env updated; `idea` restarted healthy. The history
+values are now dead. `/op` links: old ones no longer verify; issue fresh on next use. History
+rewrite deliberately NOT done — rotation makes it pointless, and a force-push would break clones
+and every SHA in the docs. Stale `IAM_USER` comment removed from `idea.env.example` (don't publish
+the new user name in a public repo).
+
 ## Open decisions
 
 - **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)

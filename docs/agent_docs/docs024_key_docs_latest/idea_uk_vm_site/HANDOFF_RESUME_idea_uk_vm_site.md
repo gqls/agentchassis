@@ -65,9 +65,9 @@ linux/amd64 binary, scp to the box, `systemctl restart idea`.
 ## PENDING — next actions
 
 ### Owner (need box SSH / external access; can't be done from the chat sandbox)
-- **ROTATE the exposed creds** (urgent): new AWS SES IAM key + `openssl rand -hex 32` for
-  `INTERNAL_API_KEY`, update `/etc/idea/idea.env`, `systemctl restart idea`, re-issue operator `/op`
-  links. RUNBOOK Phase 0. The scrub does NOT close this — values are in public history.
+- ~~ROTATE the exposed creds~~ **DONE 2026-07-17** — old SES user deleted, new SMTP user verified,
+  `INTERNAL_API_KEY` rotated, service restarted healthy. Leaked history values are dead. `/op` links:
+  issue fresh on next use (old ones no longer verify).
 - **Deploy the hardened tool**: `cd …/idea.uk/golang_files && GOOS=linux GOARCH=amd64 go build -o idea .`,
   scp to `/opt/idea/idea.new`, mv, `systemctl restart idea`. RUNBOOK Phase 4 shipping note.
 
