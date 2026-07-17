@@ -230,6 +230,27 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		runDataRequests(ctx, params.DB, dataReqs, &b, maxRows, maxCost, rowCap, cellChars)
 	}
 
+	// ── agent state (auto-gathered when the hypothesis names agent types) ─────
+	// The two-evidence-family guard (pkg/diagnose/step.go coerceVerdict) demands a
+	// state/runtime citation alongside static code for any CONFIRM. Config-shaped
+	// bugs (dead ai_service blocks, wrong max_tokens, shadowed step config) ARE
+	// observable in state — agent_definitions and llm_call_log — but a code-only
+	// intake previously put none of that in the bundle, so a correct static
+	// diagnosis could never pass the guard (run 960b554d, 2026-07-17: five
+	// static-only confirms coerced to UNVERIFIABLE, iteration-cap). This section
+	// closes that gap: any agent type NAMED in the symptom/hypothesis text gets
+	// its effective LLM config (root + per-step ai_service blocks) and its recent
+	// llm_call_log rows rendered into the runtime evidence — citable at tier
+	// "state" without the verdicter having to invent a data_request first.
+	if agentStateOn, ok := config["agent_state"].(bool); !ok || agentStateOn {
+		symptomText := datahelpers.ExtractNestedFieldString(params.CollectedData,
+			datahelpers.GetStringField(config, "symptom_field", "input_data.symptom")) +
+			" " + datahelpers.ExtractNestedFieldString(params.CollectedData, "route.conclusion")
+		agentStateCap := datahelpers.GetIntField(config, "agent_state_cap", 5)
+		callLogLimit := datahelpers.GetIntField(config, "agent_call_log_limit", 10)
+		gatherAgentState(ctx, params.DB, symptomText, &b, agentStateCap, callLogLimit, logger)
+	}
+
 	// ── schema (live tables) ──────────────────────────────────────────────────
 	// So the verdict names REAL tables/columns instead of guessing (the gamesdesign
 	// loop burned iterations on a non-existent "page_sections"). DENYLIST-driven, so
@@ -611,4 +632,165 @@ func truncateCell(s string, max int) string {
 		return s
 	}
 	return string(r[:max]) + "…"
+}
+
+// ── agent-state autogather (the config-shaped state-evidence section) ─────────
+
+// matchAgentTypes returns the agent types whose name appears as a whole token in
+// text (case-insensitive). Pure; unit-tested in diagnose_load_runtime_test.go.
+// Whole-token matching stops "generic" matching inside "generically" while still
+// matching "diagnose-agent" inside "the diagnose-agent definition had".
+func matchAgentTypes(text string, types []string) []string {
+	lower := strings.ToLower(text)
+	var out []string
+	for _, t := range types {
+		lt := strings.ToLower(strings.TrimSpace(t))
+		if lt == "" {
+			continue
+		}
+		idx := 0
+		for {
+			i := strings.Index(lower[idx:], lt)
+			if i < 0 {
+				break
+			}
+			start := idx + i
+			end := start + len(lt)
+			beforeOK := start == 0 || !isTypeTokenChar(lower[start-1])
+			afterOK := end == len(lower) || !isTypeTokenChar(lower[end])
+			if beforeOK && afterOK {
+				out = append(out, t)
+				break
+			}
+			idx = end
+		}
+	}
+	return out
+}
+
+// isTypeTokenChar: characters that CONTINUE an agent-type token. '-' and '_' are
+// part of type names (page-content-writer, content_researcher), so a match
+// flanked by them is a substring of a longer type, not a whole token.
+func isTypeTokenChar(c byte) bool {
+	return c == '-' || c == '_' ||
+		(c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+}
+
+// gatherAgentState renders, for every agent type named in the symptom/hypothesis
+// text: the ROOT ai_service block, every per-step ai_service block (both cited
+// often in config bugs — the root SHADOWS the step, see bugs_open/009), the
+// top-level max_tokens key, and recent llm_call_log rows (max_tokens vs
+// output_tokens is the truncation signal, see bugs_open/008). Non-fatal
+// throughout: evidence gathering must never abort a diagnosis.
+func gatherAgentState(ctx context.Context, db *sql.DB, symptomText string, b *strings.Builder, typeCap, callLogLimit int, logger *zap.Logger) {
+	if strings.TrimSpace(symptomText) == "" {
+		return
+	}
+	typeRows, err := db.QueryContext(ctx,
+		`SELECT DISTINCT type FROM agent_definitions WHERE deleted_at IS NULL`)
+	if err != nil {
+		logger.Warn("diagnose_load_runtime: agent_state type listing failed", zap.Error(err))
+		return
+	}
+	var allTypes []string
+	for typeRows.Next() {
+		var t string
+		if err := typeRows.Scan(&t); err == nil {
+			allTypes = append(allTypes, t)
+		}
+	}
+	typeRows.Close()
+
+	matched := matchAgentTypes(symptomText, allTypes)
+	if len(matched) == 0 {
+		return
+	}
+	if len(matched) > typeCap {
+		matched = matched[:typeCap]
+	}
+
+	b.WriteString("\n### agent state (auto-gathered: agent types named in the symptom/hypothesis)\n\n")
+
+	// Root ai_service + top-level max_tokens per matched type.
+	cfgRows, err := db.QueryContext(ctx, `
+		SELECT type,
+		       COALESCE(default_config #>> '{ai_service,model}', ''),
+		       COALESCE(default_config #>> '{ai_service,max_tokens}', ''),
+		       COALESCE(default_config #>> '{max_tokens}', ''),
+		       (default_config ? 'ai_service')
+		FROM agent_definitions
+		WHERE type = ANY($1::text[]) AND deleted_at IS NULL`,
+		toPGTextArrayLiteral(matched))
+	if err != nil {
+		fmt.Fprintf(b, "(agent_definitions root-config query failed: %v)\n", err)
+		return
+	}
+	for cfgRows.Next() {
+		var t, rootModel, rootMax, topMax string
+		var hasRoot bool
+		if err := cfgRows.Scan(&t, &rootModel, &rootMax, &topMax, &hasRoot); err != nil {
+			continue
+		}
+		fmt.Fprintf(b, "- agent_definitions[%s]: root ai_service present=%v model=%s max_tokens=%s; top-level max_tokens=%s\n",
+			t, hasRoot, dashIfEmpty(rootModel), dashIfEmpty(rootMax), dashIfEmpty(topMax))
+	}
+	cfgRows.Close()
+
+	// Per-step ai_service blocks (the ones the root SHADOWS when it exists).
+	stepRows, err := db.QueryContext(ctx, `
+		SELECT ad.type, s.key,
+		       COALESCE(s.value #>> '{config,ai_service,model}', ''),
+		       COALESCE(s.value #>> '{config,ai_service,max_tokens}', '')
+		FROM agent_definitions ad,
+		     LATERAL jsonb_each(COALESCE(ad.default_config #> '{workflow,steps}', '{}'::jsonb)) s
+		WHERE ad.type = ANY($1::text[]) AND ad.deleted_at IS NULL
+		  AND s.value #> '{config,ai_service}' IS NOT NULL`,
+		toPGTextArrayLiteral(matched))
+	if err != nil {
+		fmt.Fprintf(b, "(agent_definitions step-config query failed: %v)\n", err)
+	} else {
+		for stepRows.Next() {
+			var t, step, model, max string
+			if err := stepRows.Scan(&t, &step, &model, &max); err != nil {
+				continue
+			}
+			fmt.Fprintf(b, "- agent_definitions[%s] step %q ai_service: model=%s max_tokens=%s\n",
+				t, step, dashIfEmpty(model), dashIfEmpty(max))
+		}
+		stepRows.Close()
+	}
+
+	// Recent llm_call_log rows for the matched types — the observed tier for any
+	// max_tokens / model / truncation claim (output_tokens == max_tokens is the
+	// silent-truncation signature, 17 live rows as of 2026-07-16).
+	logRows, err := db.QueryContext(ctx, `
+		SELECT created_at, agent_type, COALESCE(step_name,''), model,
+		       COALESCE(max_tokens, 0), COALESCE(output_tokens, 0), success
+		FROM llm_call_log
+		WHERE agent_type = ANY($1::text[])
+		ORDER BY created_at DESC
+		LIMIT $2`,
+		toPGTextArrayLiteral(matched), callLogLimit)
+	if err != nil {
+		fmt.Fprintf(b, "(llm_call_log query failed: %v)\n", err)
+		return
+	}
+	n := 0
+	for logRows.Next() {
+		var created, agent, step, model string
+		var maxTok, outTok int
+		var success bool
+		if err := logRows.Scan(&created, &agent, &step, &model, &maxTok, &outTok, &success); err != nil {
+			continue
+		}
+		fmt.Fprintf(b, "- llm_call_log [%s] %s/%s model=%s max_tokens=%d output_tokens=%d success=%v\n",
+			created, agent, step, model, maxTok, outTok, success)
+		n++
+	}
+	logRows.Close()
+	if n == 0 {
+		b.WriteString("(no llm_call_log rows for the named agent types)\n")
+	}
+	logger.Info("diagnose_load_runtime: agent state auto-gathered",
+		zap.Strings("matched_types", matched), zap.Int("call_log_rows", n))
 }
