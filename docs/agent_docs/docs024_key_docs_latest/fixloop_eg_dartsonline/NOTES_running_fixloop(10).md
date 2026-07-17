@@ -2099,3 +2099,32 @@ a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
   two seats are pre-wired.
 - Re-grade recipe (in the seed footer): re-run 091 on e505f70f after image+seed;
   expect adapter question as code_check → widened plan → approval within cap.
+
+### Turn 38 — 2026-07-17 — F2.3b(c) DEPLOYED + PROVEN; config-reseed collision
+- **Deployed v1.0.1132** (build-from-committed-HEAD ref build; rollout gated on
+  cluster-quiet — held until active AWAITING_RESPONSES hit 0; symbol verified in
+  pod code_lookup=5). Applied v7 seed after image. Branch pushed first so any
+  build path sees the commits.
+- **Re-grade run (fc1a0503, on e505f70f) — the tier PASSED end to end:**
+  code_lookup fired (checks_run=8); the bug-historian asked the exact adapter
+  question as a `symbol` code_check; the tier returned BOTH implementations with
+  locations — `anthropic.go:(*AnthropicClient).GenerateText [L67-198]` AND
+  `ollama.go:(*OllamaClient).GenerateText [L60-154]` (+commit shas); and the
+  **repropose CONSUMED it and widened the plan to name ollama** (repropose
+  result LIKE '%ollama%' = true). Yesterday's blind-escalation gap is closed:
+  the fact that could not be reached is now fetched, delivered, and acted on.
+- Overall loop terminated revise→complete_refused after ONE round — the
+  DOCUMENTED round-count caveat (091 header): 4 pre-existing council_reports on
+  e505f70f (yesterday's 3-round exhaustion + today) inflate the count. This is
+  orthogonal to the tier. For a FAIR full-loop re-grade: clear e505f70f's
+  council_reports, re-fire — expect the widened plan to reach a second review
+  round. NOT done here (credits; tier already proven).
+- **NEW coordination hazard — config re-seed clobber.** Another session shipped
+  a v8 fix-proposer (6 seats: +reuse_agent +guidelines +tooling_provenance) at
+  18:33Z and its full re-seed WIPED the v7 code_lookup wiring (DB config is
+  live-mutable; a re-seed clobbers concurrent config work exactly as `git add
+  -A` clobbers WIP). v7 anchors survived v8 structurally → re-applied; seed
+  steps 5+6 rewritten as a DO-loop over ALL seats so it survives further roster
+  growth; code_check_fields now all 6. Restored + verified (6/6 seats). The
+  git-CLAUDE.md coordination rules have a DB-config analog that is NOT yet
+  covered — flagged for the multi_session_coordination workstream.
