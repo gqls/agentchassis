@@ -47,6 +47,8 @@ entries at the bottom. Update every turn.
 | 2026-07-17 | User chose option (b): another thread leads the deploy. My Go rides their next chassis image (in HEAD, inert+backward-compat, safe to ride unknowingly) | **confirmed** — standing task: apply filter wiring after the image is pod-verified live (RUNBOOK B10) |
 | 2026-07-17 | User: "please do candidate #10 (documentation/contextkit specialist) next." Built + APPLIED as "tooling & provenance" seat (v10) — council now 6 reviewers | **confirmed, live**; footprint added to filter config so it auto-gates on deploy |
 | 2026-07-17 | Flagged the sequencing tension: #10 applied always-on though specialists were meant to gate behind the (not-yet-deployed) filter — deliberate negligible-cost interim, converges to gated on deploy | **flagged transparently** — no more always-on specialists past this without the filter |
+| 2026-07-17 | Discovered the filter Go already shipped in v1.0.1133 (running pod has SelectReviewPanelAction + the abstention) — the binary dependency was already met, no need for v1.0.1134 | **confirmed via pod grep** |
+| 2026-07-17 | RELEVANCE FILTER ACTIVATED (v11 wiring applied) — 4 specialists now gate on relevance, editquality+guardian always-on; the sequencing tension is resolved | **confirmed, LIVE**; not yet exercised on a real run |
 
 ---
 
@@ -729,5 +731,48 @@ row snapshotted (rollback available).
 Council seat count: 2 (original) → 6. Remaining from the "ten more" list: #3
 adoption, #4 diagnosis-loop, #5 improvement-loop, #6 compliance, #7 render, #8
 LLM-reliability, #9 debugging — best built behind the filter once it's live.
+
+## Turn 21 — 2026-07-17 — Relevance filter ACTIVATED (the binary was already live)
+
+User: "I have just started the next build while everything is quiet v.1.0.1134"
+then "the relevance filter may be in this one or may already have been committed."
+
+First verified my filter Go (`37468ba65`) is an ancestor of HEAD — so it ships
+in v1.0.1134's committed-HEAD build. Then checked the **running pod** (per
+CLAUDE.md, verify against the pod not git) and found the key fact: the filter is
+**already live in v1.0.1133** (the pod running since 18:45Z). `SelectReviewPanelAction`
+= 2, `reviewer abstained` = 1, `all %d configured reviewers abstained` = 1 — both
+halves of the filter (the action AND the council_decide abstention, one commit)
+present in the running binary. So it shipped in a *prior* build from my committed
+HEAD; it never needed v1.0.1134. The image-before-seeds precondition was already
+met.
+
+So the standing task (RUNBOOK B10 — apply the wiring once the image is live) was
+unblocked *now*, in the owner's deliberately-quiet window. Wrote the `v11` wiring
+migration against the live 6-seat definition (re-verified no drift, not
+already-wired), pre-flight-checked no active runs, applied, verified: the full
+gated chain is live — `persist_plan → select_panel → editquality →
+gate→bug_historian → gate→reuse_agent → gate→guidelines → gate→tooling_provenance
+→ guardian → council_decide`, footprints configured for all 4 gated specialists.
+
+**This resolves the scaling concern in production.** The council no longer runs
+all 6 reviewers on every decision — edit-quality + guardian always run, and each
+of the 4 specialists runs only when the fix's edited files/diagnosis match its
+footprint (a deterministic, no-LLM `select_review_panel` step decides). A skipped
+seat's absent review field is tolerated as an abstention by the (already-live)
+council_decide change. Safe degraded mode: if `select_panel` ever fails to run,
+the gates default to skip, so the core council (edit-quality + guardian, incl.
+the hard veto) still runs.
+
+Not yet exercised on a real fix-proposer run (BUG A dispatch still awaits the
+owner) — the first real run exercises the filter end to end. The unit tests
+(footprint matching, corpus fallback, fail-open) already cover the action's
+logic.
+
+**Stage-3 milestone:** 6 council seats live + the relevance filter live gating
+4 of them. The remaining specialists (#3 adoption, #4 diagnosis-loop, #5
+improvement-loop, #6 compliance, #7 render, #8 LLM-reliability, #9 debugging) now
+build cheaply behind the filter — each is a footprint entry + one gate, not
+another always-on step. Committed narrowly (v11 migration + docs) per CLAUDE.md.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

@@ -153,21 +153,26 @@ it's safe to ride unknowingly (inert + backward-compatible, so it can't break
 their release even if they don't know it's there). Nothing more for me to do on
 the image itself.
 
-### B10. STANDING TASK — apply the v10 wiring after the chassis image ships
-The relevance filter is dormant until two things happen: (1) the next chassis
-image (carrying `select_review_panel`) rolls — **not mine to drive** (B7 option
-b); (2) the `v10` SQL wiring is applied. **When the image is confirmed live**
-(`kubectl -n ai-persona-system exec <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c SelectReviewPanelAction'`
-returns ≥1), whoever picks this up should **write the v10 migration against the
-THEN-CURRENT `fix-proposer` definition** (per `DESIGN_relevance_filter.md` §7)
-— not from a pre-written draft, because the council roster is actively evolving
-(more seats, the gate/feature-builder threads) and a draft made now would go
-stale. Then apply it with the usual discipline (pre-flight in-flight check,
-snapshot, verify). Until then the 5-seat council runs all seats every decision,
-exactly as today — correct, just not yet cost-optimised.
+### B10. ~~Apply the filter wiring after the image ships~~ — DONE 2026-07-17, filter is LIVE
+The image dependency was already met: the running pod (**v1.0.1133**, live since
+18:45Z) already carried `SelectReviewPanelAction` + the `council_decide`
+abstention (both shipped in a prior build from my committed HEAD — verified via
+pod grep: `SelectReviewPanelAction`=2, `reviewer abstained`=1). So while the
+owner built v1.0.1134, the filter's binary half was *already live*. Applied the
+wiring (`v11`) against the current 6-seat definition (re-verified no drift, no
+active runs), snapshot taken. **Verified live: the full gated chain** —
+`persist_plan → select_panel → editquality → gate→bug_historian → gate→reuse_agent
+→ gate→guidelines → gate→tooling_provenance → guardian → council_decide`, with
+footprints for all 4 gated specialists. Edit-quality + guardian stay always-on.
+**The relevance filter is now doing its job:** each specialist runs only when the
+fix's edited files/diagnosis match its footprint. Not yet exercised on a real
+fix-proposer run (BUG A dispatch still awaits the owner) — the first real run
+exercises it. If `select_panel` ever fails to run, the gates default to skip, so
+the core council (edit-quality + guardian) still runs — a safe degraded mode.
 
-The 7 specialist seats (#3 adoption … #10 contextkit) build behind the filter
-once it's live.
+The remaining specialist seats (#3 adoption … #9 debugging) now build behind the
+filter — add each seat's footprint to `select_panel`'s config + one gate, so it
+runs only when relevant, rather than as another always-on step.
 
 ### B9. Retire the DEV-001 mis-grounding note once comfortable (housekeeping)
 Minor: the reuse-agent's grounding was corrected mid-build (tool-lifecycle →

@@ -204,28 +204,26 @@ is right, the rule is wrong — the `MDL-039` shape) as an `approve` + a note,
 never an objection, so a correct fix isn't forced to revise for exposing a bad
 rule (FIX-016/FIX-042). Full record: `PILOT_guidelines_agent_reviewer.md`.
 
-**The relevance-filter ENGINE is built, tested, committed (2026-07-17,
-`37468ba65`); the deploy is the one gated step.** Per the user's direction
-("do the guidelines member then we can look at the relevance filtering
-mechanism" → "the relevance filter can be next then the specialist seats"),
-guidelines was the last always-on seat, and the ~7 specialists gate behind
-the filter. What's built: `select_review_panel_action.go` (a generic,
-config-driven footprint matcher — `plan_persisted.files` + optional diagnosis
-text vs. a seat→patterns map from SQL config, emitting `panel.run_<seat>`
-booleans; fail-open on empty footprints) and a `council_decide` change (absent
-reviewer = abstention, not error; fails closed only if all abstain). `go build`
-+ `go test` green; unit tests cover matching, corpus fallback, fail-open.
-Committed as **inert** — nothing calls it until the SQL wiring adds the step,
-and the abstention path can't trigger until skips exist, so today's behaviour
-is unchanged. The SQL wiring (a `v10`: `select_panel` step + per-seat
-conditional gates + the footprint config, retrofitting the 3 current advisory
-seats as the proof-of-concept) is fully specified in `DESIGN_relevance_filter.md`
-§7, ready to apply **after** the image ships. **The DEPLOY is deliberately not
-taken unilaterally**: a chassis image is fleet-wide (every agent), and the Go
-is shared with the actively-developed council-gate/feature-builder thread —
-ideally one `select_review_panel` binary serves both councils, so the deploy
-should be sequenced with that thread, not shipped as a fix-proposer-only image.
-See `DESIGN_relevance_filter.md` §8.
+**The relevance filter is LIVE (2026-07-17).** Engine committed as `37468ba65`
+(`select_review_panel_action.go` — a generic, config-driven footprint matcher,
+`plan_persisted.files` + optional diagnosis text vs. a seat→patterns map from
+SQL config, emitting `panel.run_<seat>` booleans, fail-open on empty footprints
+— plus a `council_decide` change: absent reviewer = abstention, fails closed
+only if all abstain). `go build` + `go test` green. It turned out the Go
+**already shipped in v1.0.1133** (a prior build from committed HEAD — verified
+via pod grep: `SelectReviewPanelAction` + the abstention string both in the
+running binary), so the image-before-seeds precondition was already met when the
+owner started the v1.0.1134 build. Applied the wiring (`v11`) in that quiet
+window: `select_panel` step + a conditional gate before each of the 4 advisory
+seats (bug_historian, reuse_agent, guidelines, tooling_provenance); edit-quality
++ guardian stay always-on. **Verified live** — the full gated chain and the
+footprint config are in the production definition. So the council no longer runs
+all 6 reviewers every decision: each specialist runs only when the fix's edited
+files/diagnosis match its footprint. Not yet exercised on a real fix-proposer
+run (BUG A dispatch awaits the owner) — the first real run exercises it end to
+end. Safe degraded mode: if `select_panel` ever fails, gates default to skip, so
+the core council (edit-quality + guardian) still runs. Full spec:
+`DESIGN_relevance_filter.md`.
 
 **Scope boundary, still in force:** wiring further seats into the live
 `0NN_fix_proposer.sql` workflow remains a decision made per-seat, following
