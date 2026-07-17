@@ -89,6 +89,13 @@ func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interfa
 	for _, f := range fields {
 		checks = append(checks, codeChecksFromCollected(params.CollectedData, f)...)
 	}
+	// Dedup identical (kind, query) checks BEFORE the cap. Reviewers reviewing
+	// the same plan independently ask the same question — the first live run
+	// (90e989d5, 2026-07-17) requested 13 checks of which several were exact
+	// duplicates (two "content:stop_reason", two "content:done_reason"), and the
+	// cap then dropped 5 DISTINCT questions to make room for repeats. Dedup
+	// reclaims that budget for genuinely different questions.
+	checks = dedupCodeChecks(checks)
 
 	maxChecks := datahelpers.GetIntField(config, "max_checks", 8)
 	dropped := 0
@@ -184,13 +191,22 @@ func validCodeCheckKind(kind string) bool {
 func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter string, rowCap, excerptChars int, b *strings.Builder) error {
 	switch c.Kind {
 	case "symbol":
+		// Match every identifier token in the query as an AND of substrings,
+		// NOT the raw string. A reviewer writes Go methods as "Type.Method"
+		// (e.g. "OllamaClient.GenerateText"), but the index stores the receiver
+		// form "(*OllamaClient).GenerateText" — a raw ILIKE '%Type.Method%'
+		// then misses it (false negative on run 90e989d5, 2026-07-17: the
+		// Ollama-adapter check came back empty and a reviewer nearly read that
+		// as "no such symbol"). Splitting on non-identifier chars and requiring
+		// each token as a substring matches both forms and is still anchored to
+		// the symbol column (never the body).
+		clause, args := symbolTokenClause(c.Query, repoFilter, rowCap)
 		rows, err := db.QueryContext(ctx, `
 			SELECT path, symbol, COALESCE(signature,''), COALESCE(line_start,0), COALESCE(line_end,0), COALESCE(commit_sha,'')
 			FROM code_symbols
-			WHERE symbol ILIKE '%' || $1 || '%'
-			  AND ($2 = '' OR repo = $2)
+			WHERE `+clause+`
 			ORDER BY path, symbol
-			LIMIT $3`, c.Query, repoFilter, rowCap)
+			LIMIT `+fmt.Sprintf("$%d", len(args)+1), append(args, rowCap)...)
 		if err != nil {
 			return err
 		}
@@ -288,4 +304,69 @@ func shortSHA(sha string) string {
 		return "?"
 	}
 	return sha
+}
+
+// dedupCodeChecks removes exact (kind, query) duplicates, preserving order and
+// keeping the first occurrence's `why`. Independent reviewers reviewing one
+// plan ask the same question; running it once is enough and reclaims the cap.
+func dedupCodeChecks(in []codeCheck) []codeCheck {
+	seen := make(map[string]bool, len(in))
+	var out []codeCheck
+	for _, c := range in {
+		key := c.Kind + "\x00" + strings.ToLower(c.Query)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, c)
+	}
+	return out
+}
+
+// symbolTokenClause builds a WHERE clause matching every identifier token in
+// the query as a case-insensitive substring of the symbol column (AND), plus
+// the optional repo filter. Returns the clause and its ordered bind args; the
+// caller appends the LIMIT param. Tokens are the maximal [A-Za-z0-9_] runs, so
+// "OllamaClient.GenerateText", "(*OllamaClient).GenerateText", and
+// "OllamaClient GenerateText" all yield {OllamaClient, GenerateText} and match
+// the stored receiver form. A query with no identifier token falls back to a
+// single raw-substring match so it still does something predictable.
+func symbolTokenClause(query, repoFilter string, _ int) (string, []interface{}) {
+	tokens := identifierTokens(query)
+	var clauses []string
+	var args []interface{}
+	if len(tokens) == 0 {
+		args = append(args, query)
+		clauses = append(clauses, fmt.Sprintf("symbol ILIKE '%%' || $%d || '%%'", len(args)))
+	} else {
+		for _, t := range tokens {
+			args = append(args, t)
+			clauses = append(clauses, fmt.Sprintf("symbol ILIKE '%%' || $%d || '%%'", len(args)))
+		}
+	}
+	args = append(args, repoFilter)
+	clauses = append(clauses, fmt.Sprintf("($%d = '' OR repo = $%d)", len(args), len(args)))
+	return strings.Join(clauses, " AND "), args
+}
+
+// identifierTokens splits s into maximal [A-Za-z0-9_] runs.
+func identifierTokens(s string) []string {
+	var out []string
+	var cur strings.Builder
+	flush := func() {
+		if cur.Len() > 0 {
+			out = append(out, cur.String())
+			cur.Reset()
+		}
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+			cur.WriteByte(c)
+		} else {
+			flush()
+		}
+	}
+	flush()
+	return out
 }
