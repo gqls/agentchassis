@@ -26,14 +26,20 @@
 --   correlation do not inherit stale rounds), diagnose_run_checks,
 --   append_doc_note, conditional, complete_workflow.
 --
--- LOCKSTEP WARNING. The three reviewer steps are fix-proposer v6's prompts
--- with ONE change: the "## The diagnosis" context section becomes the
--- author's stated rationale ({{.input_data.rationale}}), because a submission
--- has no diagnosis behind it. A seat added to fix-proposer (v7+) MUST be
--- added here in the same migration, or the gate's council silently lags the
--- fix loop's (same class of drift as the dedup-index/Go-list lockstep bite,
+-- LOCKSTEP WARNING. The five reviewer steps are the live fix-proposer's
+-- prompts (v6 base + v7 reuse-agent + v8 guidelines + v9 check_fields fix,
+-- all applied live 2026-07-17 by the concept-register thread) with ONE
+-- change each: the "## The diagnosis" context section becomes the author's
+-- stated rationale ({{.input_data.rationale}}), because a submission has no
+-- diagnosis behind it. A seat added to fix-proposer (v10+) MUST be added
+-- here in the same migration, or the gate's council silently lags the fix
+-- loop's (same class of drift as the dedup-index/Go-list lockstep bite,
 -- 2026-07-16). Both files pattern-match on the same step names to make that
--- patch mechanical.
+-- patch mechanical. Synced to the 5-seat roster 2026-07-17, same day.
+-- COMING CHANGE to track: the relevance filter (select_review_panel action +
+-- council_decide absent-seat abstention, Go committed 37468ba65, NOT yet in
+-- a deployed image). When that ships and fix-proposer adopts it, this gate
+-- workflow adopts it in the same migration — same lockstep rule.
 --
 -- DIFFERENCES from the fix-proposer workflow, all deliberate:
 --   * No CONFIRMED-diagnosis gate: intake is a submission, not a diagnosis.
@@ -42,8 +48,9 @@
 --     answered (run_checks still runs, so fact-shaped objections come back
 --     settled with evidence). Resubmit on the SAME correlation so the
 --     artifact trail accumulates rounds in one place.
---   * run_checks includes the bug-historian's checks too (v6 lists only
---     editquality + guardian — an omission, not a design; do not copy it back).
+--   * run_checks includes ALL FIVE reviewers' checks. (A v6-inherited
+--     omission — only editquality + guardian — was flagged by this thread and
+--     fixed the same day by the concept-register thread's v9, applied live.)
 --   * Terminal always writes a doc_notes verdict entry (deterministic compose
 --     by SQL — an awareness surface that could hallucinate would defeat
 --     itself, same rule as the digest). Categories: council-gate + verdict.
@@ -73,7 +80,7 @@ INSERT INTO agent_definitions (
 SELECT
     'council-gate',
     'Council Gate (advisory review service)',
-    'The F2 council as a service: judges a SUBMITTED change (fix_plan-shaped artifact: diff sketches + rationale, any author, by correlation_id) through the same 3-reviewer council (edit-quality, bug-historian advisory, guardian hard-veto) and deterministic decision as fix-proposer v6. No repropose loop — the author revises and resubmits on the same correlation. Verdict = council_report artifact + doc_notes entry (categories council-gate+verdict). Advisory: records approval, never enforces it. Scope ruling 2026-07-17: platform/, internal/, pkg/.',
+    'The F2 council as a service: judges a SUBMITTED change (fix_plan-shaped artifact: diff sketches + rationale, any author, by correlation_id) through the same 5-reviewer council (edit-quality, bug-historian, reuse-agent, guidelines — all advisory; guardian hard-veto) and deterministic decision as the live fix-proposer (v9). No repropose loop — the author revises and resubmits on the same correlation. Verdict = council_report artifact + doc_notes entry (categories council-gate+verdict). Advisory: records approval, never enforces it. Scope ruling 2026-07-17: platform/, internal/, pkg/.',
     'diagnose', 'coordinator', 'experimental',
     true, 1, '["diagnose", "review"]'::jsonb,
     d.image_repository, d.image_tag, d.command, d.resources, d.topics, d.health_config, d.env_vars,
@@ -158,7 +165,7 @@ SELECT
           'action', 'execute_llm_prompt',
           'description', 'Council reviewer 1.5 — bug historian: does this platform have a documented history of this failure shape? Advisory only (no veto — see PILOT_bug_historian_reviewer.md).',
           'output_field', 'review_bug_historian',
-          'next_step', 'review_guardian',
+          'next_step', 'review_reuse_agent',
           'config', jsonb_build_object(
             'error_step', 'complete_invalid',
             'ai_service', jsonb_build_object(
@@ -192,6 +199,77 @@ SELECT
 '## The submitted plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Output -- ONLY this JSON' || chr(10) ||
 '{"reviewer": "bug_historian", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "..."}'
+          )
+        ),
+
+        'review_reuse_agent', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Council reviewer 1.75 — reuse agent: does this platform already have something that does this? Advisory only (no veto — see PILOT_reuse_agent_reviewer.md).',
+          'output_field', 'review_reuse_agent',
+          'next_step', 'review_guidelines',
+          'config', jsonb_build_object(
+            'error_step', 'complete_invalid',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 3000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('input_data', 'plan_persisted', 'schema_hint'),
+            'output_format', 'json',
+            'prompt_template',
+'# Council reviewer: REUSE AGENT' || chr(10) || chr(10) ||
+'You judge one thing: does this platform already have something that does what this plan is about to build, and did the plan check? You change nothing; you judge.' || chr(10) || chr(10) ||
+'## Known discipline: reuse before create (STEP ZERO)' || chr(10) || chr(10) ||
+'This platform has a standing, explicitly-named discipline: before creating any agent, action, function, or migration, search agent_definitions, the action registry, Go code, and existing workflows for an equivalent -- and never create without first demonstrating no existing coverage exists.' || chr(10) || chr(10) ||
+'Documented successes of following it: reused ssh_get_status as a monitor probe rather than writing a new one; reused ListObjects for resume logic; reused datahelpers.GetIntField over a custom helper; reused snapshot_agent() instead of a new side-table migration for backups.' || chr(10) || chr(10) ||
+'THE FOUNDING INCIDENT for this review seat: a prior session reinvented a trigger+triage SQL pair that already existed elsewhere in the codebase -- duplicated work a reuse check would have caught immediately.' || chr(10) || chr(10) ||
+'A cautionary related case: this platform has at least one place (tool creation) where two different code paths independently solve overlapping problems (a "novel" path and a "fork" path for creating tool pages) with inconsistent side effects -- not because either was wrong alone, but because nobody unified them once both existed.' || chr(10) || chr(10) ||
+'Judge the plan: (a) does any edit ADD a new function, action, table, or migration; (b) if so, is there evidence in the plan''s rationale/grounded_in that an existing-coverage search was done; (c) does the submission''s own rationale/grounded_in already name an existing mechanism this plan should extend instead of duplicating; (d) would this create a second way to do something the platform already has one way to do.' || chr(10) || chr(10) ||
+'Verdicts: approve (no reuse concern, or additions are genuinely novel), object (this plan risks duplicating existing coverage -- name what already exists and where, in objections). You do NOT have a veto -- if you see something severe enough that this change should not proceed at all, put it in objections at "high" severity and trust the router; if it is a true architecture-level concern, say so explicitly in notes so a human sees it either way.' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on whether a table, column, or action name already exists, put that query in checks as {"sql": "SELECT ...", "why": "what this settles"} -- SELECT/WITH only, never writes. Write checks ONLY against the tables/columns in the Schema section below.' || chr(10) || chr(10) ||
+'## Schema (the ONLY tables available to checks)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
+'## The author''s stated rationale' || chr(10) || '{{.input_data.rationale}}' || chr(10) || chr(10) ||
+'## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Output -- ONLY this JSON' || chr(10) ||
+'{"reviewer": "reuse_agent", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "..."}'
+          )
+        ),
+
+        'review_guidelines', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Council reviewer 1.9 — guidelines agent: does this follow the platform''s documented conventions/contracts, and if not, is the PLAN wrong or the RULE? Advisory only (no veto; a guideline-gap is a note not an objection — see PILOT_guidelines_agent_reviewer.md).',
+          'output_field', 'review_guidelines',
+          'next_step', 'review_guardian',
+          'config', jsonb_build_object(
+            'error_step', 'complete_invalid',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 3000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('input_data', 'plan_persisted', 'schema_hint'),
+            'output_format', 'json',
+            'prompt_template',
+'# Council reviewer: GUIDELINES AGENT' || chr(10) || chr(10) ||
+'You judge two things about this submitted plan: (1) does it FOLLOW the platform''s documented conventions and contracts; (2) where it appears not to, is that because the PLAN is wrong, or because the RULE is? You change nothing; you judge.' || chr(10) || chr(10) ||
+'## The platform''s load-bearing rules (the ones people keep relearning)' || chr(10) ||
+'- WRAPPER-ORCHESTRATOR: anything doing substantive work (LLM calls, crawls, heavy DB, minutes of runtime) must run in a spawned pod via a parent (processing_mode:"orchestrator" + spawn_agent), never inline on a shared chassis slot; file writes from non-spawned actions die with a random pod.' || chr(10) ||
+'- WORK-ITEM DEDUP: site_work_items dedup is idx_swi_dedup UNIQUE(site_id, item_key) over NON-TERMINAL statuses; the terminal-status set is a contract (drift between it and the Go list breaks every keyed insert fleet-wide); use DELETE+INSERT, not ON CONFLICT.' || chr(10) ||
+'- TRUTHFUL PROVENANCE: hand-made work items copy the real owning path''s metadata, deviate only truthfully (source=''manual'', real created_by), and take URLs from pages.url -- never invent a path.' || chr(10) ||
+'- DECLARED CONTRACTS: any input a workflow reads must be declared in the agent''s input_contract; a call site''s input_mapping must satisfy the callee''s contract.' || chr(10) ||
+'- SCHEMA-SOURCE TIERS: a component field with required:true must set on_missing deliberately -- leaving it skip_field/empty hits the switch default and silently defers the whole section.' || chr(10) || chr(10) ||
+'## The meta-rule for THIS seat (important)' || chr(10) ||
+'A GUIDELINE-GAP is not a violation. If the submission''s evidence shows the change is correct but exposes a documented rule that is itself wrong or stale (this happens -- a runbook rule about max_tokens placement was recently found to be backwards), say so in notes as a recommended side-task / guideline amendment, and APPROVE. Do NOT object: forcing a correct change to revise because the underlying rule is bad is the wrong move. Object ONLY when the PLAN breaks a rule that is right.' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (does a contract column exist, does an agent declare an input), put it in checks as {"sql": "SELECT ...", "why": "what this settles"} -- SELECT/WITH only, never writes. Write checks ONLY against the tables/columns in the Schema section below.' || chr(10) || chr(10) ||
+'## Schema (the ONLY tables available to checks)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
+'## The author''s stated rationale' || chr(10) || '{{.input_data.rationale}}' || chr(10) || chr(10) ||
+'## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Output -- ONLY this JSON' || chr(10) ||
+'{"reviewer": "guidelines", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "names the specific rule violated", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "any guideline-gap goes HERE (approve + note), not in objections"}'
           )
         ),
 
@@ -233,7 +311,7 @@ SELECT
           'config', jsonb_build_object(
             'error_step', 'complete_invalid',
             'fix_correlation_id', 'input_data.fix_correlation_id',
-            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_guardian.result'),
+            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_reuse_agent.result', 'review_guidelines.result', 'review_guardian.result'),
             'hard_veto_from', jsonb_build_array('guardian'),
             'max_rounds', 3
           )
@@ -260,7 +338,7 @@ SELECT
           'next_step', 'compose_verdict_checked',
           'config', jsonb_build_object(
             'error_step', 'compose_verdict',
-            'check_fields', jsonb_build_array('review_editquality.result.checks', 'review_bug_historian.result.checks', 'review_guardian.result.checks')
+            'check_fields', jsonb_build_array('review_editquality.result.checks', 'review_bug_historian.result.checks', 'review_reuse_agent.result.checks', 'review_guidelines.result.checks', 'review_guardian.result.checks')
           )
         ),
 
@@ -387,7 +465,7 @@ COMMIT;
 -- Post-apply verification (run these before announcing the gate live):
 --   SELECT type, version, is_active, jsonb_object_keys(default_config->'workflow'->'steps')
 --   FROM agent_definitions WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false;
---   -- expect 17 steps; review_fields must list all three reviewers:
+--   -- expect 19 steps; review_fields must list all five reviewers:
 --   SELECT default_config->'workflow'->'steps'->'council_decide'->'config'->'review_fields'
 --   FROM agent_definitions WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false;
 --
