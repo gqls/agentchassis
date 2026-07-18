@@ -173,34 +173,81 @@ private because it was made by hand. Keep it that way.
 ### 3a. Provision the pull sync (the box syncs itself)
 
 Chosen over the push Action: a compromised runner holding one fleet-wide SSH key can reach every box;
-a compromised box holding a read-only repo deploy key can reach nothing.
+a compromised box holding a read-only repo deploy key can reach nothing. Full rationale: `BRIEFING §7`.
 
+**The scripts are written and committed — do not hand-type the commands.** They live in the `box/`
+folder beside this runbook: `provision-pullsync.sh` (the one-shot installer), `sitesync` (the sync
+itself), `sitesync.service`, `sitesync.timer`. This section walks through what the installer does so
+you can run it with your eyes open. It is idempotent — safe to re-run if a step fails.
+
+**Safe to run any time.** It stages files onto the box and installs a timer; it does **not** touch
+nginx, so nothing the public sees changes. The cutover is §3b–§3e, a separate deliberate step.
+
+#### Get the scripts onto the box and run the installer
 ```bash
-ssh root@116.203.204.115
-# read-only deploy key for gqls/vm-sites, THIS BOX ONLY (add as a repo Deploy Key, no write access)
-sudo -u www-data ssh-keygen -t ed25519 -f /var/lib/sitesync/id_ed25519 -N ''
-
-install -d -o www-data -g www-data /var/www/idea.uk /var/lib/sitesync
-cd /var/lib/sitesync
-# partial + sparse clone: this box fetches ONLY its own domain folder, so a repo with
-# thousands of domains stays cheap.
-git clone --filter=blob:none --no-checkout git@github.com:gqls/vm-sites.git repo
-cd repo && git sparse-checkout set idea.uk && git checkout main
+# from this folder on your workstation:
+scp -r box root@116.203.204.115:/root/idea-uk-box
+ssh root@116.203.204.115 'cd /root/idea-uk-box && bash provision-pullsync.sh'
 ```
+The installer must run **as root** (it writes to `/usr/local/bin`, `/etc/systemd/system`, `/var/www`)
+and **from its own directory** (it installs `sitesync` + the units that sit beside it).
 
-`/usr/local/bin/sitesync` (idempotent; safe to run by hand):
+#### What each stage does — and what to watch for
+
+**Stage 1 — `== dirs ==`.** Creates `/var/www/idea.uk` (the web root nginx will serve) and
+`/var/lib/sitesync` (the sync's private home), both owned `www-data:www-data`, and locks
+`/var/lib/sitesync/.ssh` to `0700`. Nothing to check; it is `install -d`, so re-runs are no-ops.
+
+**Stage 2 — `== deploy key ==`.** Generates an ed25519 keypair **as `www-data`** at
+`/var/lib/sitesync/.ssh/id_ed25519`. This is the box's read-only identity to GitHub. Generated once;
+on a re-run the `if [ ! -f … ]` guard skips it so the key is stable. It also adds GitHub to
+`known_hosts` so the first fetch isn't blocked on a host-key prompt.
+
+**Stage 3 — the PAUSE (`read -rp`).** The script prints the **public** key and stops. Go to
+`gqls/vm-sites → Settings → Deploy keys → Add deploy key`, paste it, title it `idea.uk-box sitesync`,
+and **leave "Allow write access" UNTICKED** — read-only is the whole security property (§E; a box that
+can only read cannot poison other sites or reach sibling boxes). Press Enter only after it's added.
+- ⚠️ This is a **repo Deploy Key**, not an account SSH key and not the `vm-sites` runner's key. It is
+  specific to `gqls/vm-sites` and read-only. Do not reuse the runner's key here.
+
+**Stage 4 — `== sparse clone ==`.** Clones `gqls/vm-sites` into `/var/lib/sitesync/repo` with
+`--filter=blob:none --no-checkout`, then `sparse-checkout set idea.uk` and `checkout main`. Net: the
+box materialises **only** `idea.uk/`, so a repo of thousands of domains stays cheap. Runs as `www-data`
+with `HOME=/var/lib/sitesync` so git finds the deploy key. Guarded by `if [ ! -d …/repo/.git ]`, so a
+re-run won't re-clone. **If this stage fails with a permission/auth error, the deploy key wasn't added
+(or was added with the wrong repo) — fix Stage 3 and re-run.**
+
+**Stage 5 — `== install script + units ==`.** Installs `sitesync` to `/usr/local/bin` (0755) and the
+two unit files to `/etc/systemd/system`, `daemon-reload`, then `enable --now sitesync.timer`. The timer
+(`OnBootSec=1min`, `OnUnitActiveSec=5min`) is now live and will re-sync every 5 minutes.
+
+**Stage 6 — `== first sync + verify ==`.** Runs one sync immediately and lists the web root, printing
+`OK`/`MISSING` for each of the eight built pages. **This is your gate: all eight must read `OK` before
+you go anywhere near nginx.** (The Free Audience Check is intentionally absent — it's a live-tool
+pointer with no static file.)
+
+#### What `sitesync` itself does (runs every 5 min, and by hand)
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
 cd /var/lib/sitesync/repo
-git fetch --quiet origin main
-git reset --hard --quiet origin/main
-rsync -a --delete idea.uk/ /var/www/idea.uk/
-chown -R www-data:www-data /var/www/idea.uk
+git fetch --quiet origin main          # pull new commits; working tree untouched
+git reset --hard --quiet origin/main   # force the tree to EXACTLY match origin — never merge
+rsync -a --delete idea.uk/ /var/www/idea.uk/   # mirror into the web root; --delete removes orphans
 ```
+`reset --hard` because the box is a read-only mirror: any local drift is obliterated, not merged, since
+the repo is the single source of truth. It runs as `www-data` (via `sitesync.service`), so everything
+rsync writes is already correctly owned — no `chown` step, no root in the sync path.
 
-systemd timer (`sitesync.timer`, `OnUnitActiveSec=5min`) running `sitesync.service` as `www-data`.
-Run it once by hand and confirm `index.html` and the nine pages are on disk **before** touching nginx.
+#### Verify by hand, any time
+```bash
+ssh root@116.203.204.115 '
+  systemctl start sitesync.service                       # force a sync now
+  systemctl list-timers sitesync.timer --no-pager        # confirm it is scheduled
+  systemctl status sitesync.service --no-pager | tail -5 # last run result
+  ls -R /var/www/idea.uk | head'
+```
+`journalctl -u sitesync.service --no-pager | tail -20` shows the history if a sync ever fails.
+
+**Do not proceed to §3b until the eight pages are on disk and a hand-run sync is clean.**
 
 ### 3b. The reserved-path set — this is the whole risk
 

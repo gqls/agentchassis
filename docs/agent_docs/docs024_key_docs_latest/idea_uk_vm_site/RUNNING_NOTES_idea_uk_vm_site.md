@@ -459,6 +459,32 @@ Aside (deploy-path proof, task): not done via a forced rebuild — instead **cod
 `resolveGitRepoName` is present in the running pod `v1.0.1134` (3×) with `sites.github_repo='vm-sites'`
 set, so the chassis→vm-sites routing is live. The live commit will be observed on the first natural build.
 
+## R — 2026-07-17/18 · Box artifacts, email subject-line block, SES/DKIM, briefing + docs
+
+- **REVIEW email spam-block diagnosed and fixed** (§P). Root cause was the tool stuffing the full
+  ~480-char business description into the Subject; `subjectSnippet()` bounds it to 60 runes at a word
+  boundary, body keeps the full text. `TestSubjectSnippet` PASS. Rides the next tool binary deploy
+  with the /request hardening. Commit 08e767b7c.
+- **SES/DKIM walked through with the owner.** Domain identity + Easy DKIM were already in place and
+  passing (verified the live selector `ly4vxsi…._domainkey.leopardess.uk` resolves to a valid key);
+  the one missing piece is a custom MAIL FROM (`bounce.leopardess.uk` — MX + SPF TXT, both absent in
+  DNS). Read the blocked email's own X-SPAM-LEVEL table: the 4.4 CustomCheck (subject) was the block;
+  everything else (DMARC_NONE, HEADER_FROM_DIFFERENT_DOMAINS, the resolver-hiccup DKIM_INVALID) is
+  small and net reputation is negative (ham). So the subject fix is the ballgame; MAIL FROM is
+  worthwhile hardening for the buyer-facing report emails. Two owner DNS records outstanding.
+- **contact-form → mailto executed** (§Q) — `sql/p1_07`, source-only, fleet template untouched;
+  stale `idea-uk@leopardess.uk` in the form description also aligned. Publishes on next contact build.
+- **Box artifacts committed** (`box/`, commit 2b5a797a8): `provision-pullsync.sh`, `sitesync` +
+  `.service`/`.timer`, `proxy_tool.conf`, `idea.uk.nginx` (16 tool paths + the 3 legal-page `.html→`
+  301s + loud-404 static root), `README`. Everything §3a–§3e as ready-to-paste payloads.
+- **Pull-sync explained to the owner in depth** (what/why); the explanation is now written up two
+  ways: `BRIEFING_idea_uk_vm_site.md` §7 (read-aloud), and a step-by-step `provision-pullsync.sh`
+  walkthrough folded into **RUNBOOK §3a** (per-stage: dirs → key → the deploy-key PAUSE → sparse
+  clone → install → verify; plus by-hand verify + journalctl). Commit 795a34b84 (briefing).
+- **Deliverable added:** `BRIEFING_idea_uk_vm_site.md` — a ~3,600-word plain-English, jargon-unpacked
+  narrative (goal → done → status → next → why pull-sync → risks/decisions), safe to read aloud
+  (no IPs/usernames/secret values).
+
 ## Open decisions
 
 - **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)
