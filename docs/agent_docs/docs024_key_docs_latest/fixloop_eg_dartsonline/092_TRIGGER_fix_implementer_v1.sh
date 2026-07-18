@@ -29,7 +29,15 @@ FIX_CORR="${1:-${FIX_CORR:-e08c5b01-01ef-42ad-80d0-b77c50ec9e84}}"
 TARGET_AGENT_TYPE='fix-implementer-orchestrator'
 CLIENT_ID='demo_client'
 
-INPUT_DATA="{\"fix_correlation_id\":\"$FIX_CORR\"}"
+# F1.2: the base branch to fix against is a PER-RUN INPUT — where the implementer
+# reads current code, cuts its fix/* branch, and targets its PR. Set it to the
+# branch the diagnosis ran against (090's REF). Default main. (Was a stale literal
+# '084_site_improvements_local_ai' baked into the def; the def now reads
+# input_data.base_branch.)
+BASE_BRANCH="${BASE_BRANCH:-main}"
+
+INPUT_DATA="{\"fix_correlation_id\":\"$FIX_CORR\",\"base_branch\":\"$BASE_BRANCH\"}"
+echo "  base_branch: ${BASE_BRANCH}   (per-run; where the fix is read from, cut from, and PR'd into)"
 
 # Envelope correlation is the RUN's own id (separate from the fix target), matching
 # how 5ca5dacb was fired. A fresh uuid keeps this run's orchestration_states distinct.
