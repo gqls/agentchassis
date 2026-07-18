@@ -36,6 +36,15 @@ looking. Full problem statement and evidence:
   dirty tree is not a private workspace — it is shared, mutable state.
   If your work does get swept into someone's commit: nothing is lost, forward-only
   still holds. Finish the task and commit the remainder; say so in the message.
+- **Every commit now prints a yellow "commit scope" block** listing what it
+  actually contains, grouped by area (`.githooks/pre-commit` →
+  `scripts/commit-scope-report.sh`). **This is advisory, not an error** — it never
+  blocks. Read it: any file listed that is not part of your task belongs to another
+  session, and a pathspec commit is how you leave it out. It deliberately applies
+  no threshold — breadth does not predict damage (the commit that swept another
+  thread's work was an unremarkable 16 files), so it reports rather than judges.
+  It cannot see a *same-file* passenger — if two sessions edit one file, whoever
+  commits takes both edits, and no hook can prevent that.
 
 ## Council review of platform changes (advisory, live 2026-07-17)
 
