@@ -616,6 +616,15 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Insert a single work item for pipeline chaining between handler agents",
 		IsLocal:     true,
 	},
+	// Documented in checkpoint_for_review_action.go since its creation but never
+	// registered — any workflow referencing it failed validation with "requires a
+	// topic" (found 2026-07-17 when the claims-auditor tried to use it).
+	"checkpoint_for_review": {
+		Handler:     CheckpointForReviewAction,
+		Category:    "orchestration",
+		Description: "Save work and create a needs_human_review item without suspending the orchestration",
+		IsLocal:     true,
+	},
 	"claim_work_item": {
 		Handler:     ClaimWorkItemAction,
 		Category:    "site",

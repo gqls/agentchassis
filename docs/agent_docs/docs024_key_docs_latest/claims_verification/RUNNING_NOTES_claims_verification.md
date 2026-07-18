@@ -250,6 +250,53 @@ concurrent traffic. Read-out summary added:
 Remaining phases: V3 claims-auditor (prose lane), V4 freshness; vetcomparison
 second site.
 
+## 2026-07-17/18 — V3 BUILT & FIRST RUNS: both paths proven; one platform bug found
+
+**`claims-auditor` agent live** (analyst, modelled on content-quality-auditor):
+ensure_site_record → load_evidence_facts (register + allowed entities formatted
+in SQL) → conditional opt-in gate → load_page_text (tag/style/script-stripped
+text of all deployed unlocked pages, 3,500 chars/page) → ONE LLM pass
+(claude-sonnet-4-6, `ai_service` at STEP level only — the fixloop gotcha: a
+root-level ai_service SHADOWS step config) → conditional on findings →
+`create_work_item` (`claims_unverified`, `item_key claims_llm:<domain>`,
+status `needs_human_review`, handler `human-review`) → complete.
+
+Prompt encodes the audit's caveat semantics: a fact supports its WORDING not
+its topic ("handles dissolved companies" fails though a CH fact exists);
+could-framed offers are fine and unreported; true-number-under-false-label is
+unsupported (B3); entity relationships must trace to the allowed list or a
+fact. Reports at most 12 unsupported assertions, worst first; clean = literal `[]`.
+
+**Platform bug found on first dispatch:** `checkpoint_for_review` — the
+documented HITL checkpoint action — was NEVER registered in registry.go, so
+any workflow referencing it fails validation with "requires a topic". Its own
+file header shows the intended registration; nothing else ever used it (dead
+since creation). Worked around with the registered, dedup-aware
+`create_work_item` (same HITL-terminal shape: needs_human_review +
+human-review pseudo-handler, the checkpoint action's own convention);
+**registry entry added in Go** (inert until next image) so the documented
+mechanism exists for future HITL workflows. Lesson re-learned: a header
+comment's "Registration:" block is an intention, not a fact — grep the
+registry (001's dated-claim discipline, against myself this time).
+
+**First runs (verify-by-artifact):**
+- leopardess (opted in): orchestration COMPLETED; one LLM call; response was
+  the literal `[]` (4 output tokens) → conditional skipped item creation.
+  Clean-pass-produces-zero-noise proven on the freshly-scrubbed site.
+- robot-hands (no evidence base): COMPLETED with **zero LLM calls** — the
+  opt-in gate short-circuits before any cost. Landmine 7 (never fleet-wide on
+  data only one site has) holds by construction.
+
+**Honest boundary:** the catch path (auditor actually flagging a fabrication)
+is NOT yet demonstrated — I would not plant fabrications on a live site to
+test it. It will be proven the way V1b was: by the first real drift. Precision
+is likewise unmeasured until then; the prompt is the "design iteration"
+surface the spec predicted.
+
+**Not yet wired into any cadence** — the agent exists and is invocable
+(spawn/call), but adding it to an audit schedule (cost: one LLM call per site
+per pass) is an owner call. V4 (freshness) remains, plus vetcomparison.
+
 ## DECISIONS (with rationale)
 
 1. **Shared engine in `datahelpers`** (`claims.go`), consumed by both the gate
