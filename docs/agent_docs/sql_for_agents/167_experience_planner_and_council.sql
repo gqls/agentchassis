@@ -110,7 +110,7 @@ SELECT
           'next_step', 'persist_plan',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
-            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',16000),
+            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',32000),
             'temperature', 0.2,
             'input_fields', jsonb_build_array('experience_context','input_data'),
             'output_format', 'text',
@@ -331,7 +331,7 @@ SELECT
           'next_step', 'persist_plan',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
-            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',16000),
+            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',32000),
             'temperature', 0.2,
             'input_fields', jsonb_build_array('experience_context','proposal','review_journeys','review_feasibility','review_honesty','review_mvp','check_results','input_data'),
             'output_format', 'text',
@@ -344,7 +344,7 @@ SELECT
 '## Honesty auditor said (hard veto)' || chr(10) || '{{.review_honesty}}' || chr(10) || chr(10) ||
 '## MVP referee said (advisory)' || chr(10) || '{{.review_mvp}}' || chr(10) || chr(10) ||
 '## Verification results (the critics'' own read-only queries, now answered)' || chr(10) || '{{.check_results.results_text}}' || chr(10) || chr(10) ||
-'Use these to settle any objection that hinged on an unverified fact. If a result contradicts the plan, change the plan — do not argue with the data. Output the whole revised plan the same way: start with "# EXPERIENCE_PLAN — {{.experience_name}}", the five sections, the ```criteria fence, then a final line exactly <!-- END EXPERIENCE_PLAN --> after the closing ```. No preamble, no commentary.'
+'LENGTH DISCIPLINE (this loop has truncated before, which is itself an objection): revise by TIGHTENING and REPLACING text, never by appending. The plan must not grow round on round — if it is getting longer, cut narrative, prose rationale and LATER-list detail. The §5 criteria fence has ABSOLUTE priority: it must always be complete, valid, closed JSON followed by the END trailer, even if every other section has to be shortened to fit. A truncated plan is worse than a terse one.' || chr(10) || chr(10) || 'Use these to settle any objection that hinged on an unverified fact. If a result contradicts the plan, change the plan — do not argue with the data. Output the whole revised plan the same way: start with "# EXPERIENCE_PLAN — {{.experience_name}}", the five sections, the ```criteria fence, then a final line exactly <!-- END EXPERIENCE_PLAN --> after the closing ```. No preamble, no commentary.'
           )
         ),
 
@@ -355,7 +355,7 @@ SELECT
           'next_step', 'persist_plan',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
-            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',16000),
+            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',32000),
             'temperature', 0.2,
             'input_fields', jsonb_build_array('experience_context','proposal','review_journeys','review_feasibility','review_honesty','input_data'),
             'output_format', 'text',
