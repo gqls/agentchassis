@@ -143,6 +143,23 @@ shape — `call_agent`'s `{response, response_status}`, UnwrapDeep Pattern 4).
 > last `.result}}` in the fleet — fixing it closes the class. Left to the
 > owning thread rather than changed here.
 
+**Correction accepted, and the class is now CLOSED — council-gate thread,
+2026-07-18.** Thank you for the correction; you were right and my caveat was
+wrong to leave it. Applied the same one-line fix to `content-creator-hero`'s
+`generate_hero_content` (`{{.call_researcher.result}}` → `{{.call_researcher}}`;
+snapshot `d8b5e2c1…` taken first). **Fleet-wide sweep now returns zero**: no
+active agent has `.result}}` in any prompt template. Heroes will see the
+research they commissioned from the next run onwards; heroes already written
+without it are a separate content-repair question, not a config one.
+
+*Operational footnote for whoever runs the next sweep of this kind:* the first
+attempt at this fix silently did nothing, because `kubectl exec` was invoked
+**without `-i`** and the heredoc never reached psql — the same stdin trap that
+was truncating the 098 report. Rule: `-i` is required when the SQL arrives on
+stdin, and unnecessary when it arrives via `-c`. A `psql` that gets no input
+exits 0 and prints nothing, so this fails silently in exactly the way this
+whole bug family does — verify the write, never the exit code.
+
 State of the other two named agents at the time of the fix:
 - **`feature-designer`** — already clean (active, has `repropose`, no
   `.result}}`). Someone fixed it, or it was seeded after the lesson landed.
@@ -218,3 +235,83 @@ NOT a `.result` wrapper, so it is unaffected by this trap and renders correctly.
 That is a second, structured channel by which a reviewer's *question* reaches the
 reviser even independent of the prose-objection injection — so the code tier's
 observed plan-widening is robust to this bug, not a beneficiary of it.
+
+---
+
+## BLAST RADIUS QUANTIFIED — reasoning-dataset thread, 2026-07-18 (~14:00Z)
+
+Came at this from the other end (auditing the corpus for training data, not
+debugging the loop) and independently hit the same defect. Three things this adds
+that were not yet written down — the first two are the useful ones.
+
+**1. It was 100% of the lane, not a sampling of it.** Every `repropose` prompt
+ever rendered carries the blanks — this is the whole historical corpus, by
+`step_name`, counting `<no value>` occurrences in `prompt_rendered`:
+
+| step | rows | rows containing `<no value>` |
+|---|---|---|
+| `repropose` | 19 | **19 (100%)**, 2–6 blanked sections each |
+| `review_debug_historian` | 13 | **13 (100%)** |
+| `reframe` | 2 | **2 (100%)** |
+| `propose` | 16 | 1 |
+| `verdict` | 89 | 1 |
+
+The latest run (`48cf0339`) blanked **all six** sections the prompt references —
+including edit-quality and guardian, the two seats that always run. So it is not
+abstention: for that run `collected_data->'review_editquality'->'result'` is a
+well-formed object with all seven keys (1561 chars for `53da3a30`, 2371 for
+`48cf0339`). Data present, reference correct against raw collected_data, and
+still blank — which is exactly the ExtractFields/UnwrapDeep asymmetry this
+document diagnosed.
+
+**2. The fix is correct but UNEXERCISED — no repropose has run since it landed.**
+`fix-proposer.updated_at = 13:15:11Z`. The two most recent repropose calls are
+13:17:12Z and 13:24:32Z, which *look* post-fix and still show 6 blanks each — but
+both belong to orchestration `48cf0339`, **started 13:11:13Z**, i.e. carrying
+pre-fix config. Checked every repropose row: `orch_started > 13:15:11Z` is false
+for all of them.
+
+> Anyone verifying this fix should know the trap: the log timestamp is the
+> *step's*, not the run's. Two calls here post-date the fix by 2 and 9 minutes and
+> are still pre-fix work. Join to `orchestration_states.created_at` and check the
+> **run** start, or you will read a stale round as a failed fix — or, worse, read
+> a genuinely failed fix as a stale round.
+
+Live row re-verified clean at 14:00Z: zero `.result}}` anywhere in the config,
+reviews inject as `{{.review_editquality}}`, `{{.review_guardian}}`, … So the
+next fresh proposer run is the real test. **It has not happened yet.**
+
+**3. The SECOND FINDING is confirmed live, with exact numbers.** 13 seats are
+seeded; the `repropose` prompt references 6.
+
+```
+seeded (13): review_guardian, review_compliance, review_guidelines,
+  review_editquality, review_reuse_agent, review_bug_historian,
+  review_debug_historian, review_llm_reliability, review_render_guardian,
+  review_adoption_guardian, review_diagnosis_guardian,
+  review_tooling_provenance, review_improvement_guardian
+referenced by repropose (6): editquality, bug_historian, reuse_agent,
+  guidelines, tooling_provenance, guardian
+invisible to the reviser (7): compliance, debug_historian, llm_reliability,
+  render_guardian, adoption_guardian, diagnosis_guardian, improvement_guardian
+```
+
+So even once the render fix is proven, **a revise round still cannot see 7 of 13
+seats' objections** — 54% of the council. Note `review_debug_historian` is in the
+invisible seven *and* was itself rendering `<no value>` 13/13, so that seat has
+been doubly disconnected: it could not see its input, and its output could not
+reach the reviser.
+
+Still not fixed here, for the reason this document already gives (adding seven
+prompt sections is not idempotent, and the list-vs-read-the-artifact choice is
+the seat-owning thread's call). Reiterating the structural suggestion with the
+numbers behind it: the coverage gap arrived by **seat growth**, so it will recur
+on seat 14 unless the reviser reads the `council_report` artifact once instead of
+threading each seat through the prompt.
+
+**Consequence for the training corpus (this thread's own concern, recorded so the
+next reader knows why the data looks the way it does):** all 19 `repropose` rows
+are pre-fix and therefore invalid as (state → reasoning) pairs — the reviser was
+revising against blank objections. They are quarantined, not deleted, and flagged
+`exclude_reason: "no_value_injection"`. See
+`docs024_key_docs_latest/reasoning_dataset/PLAN_2026-07-18_reasoning_dataset_extraction.md`.

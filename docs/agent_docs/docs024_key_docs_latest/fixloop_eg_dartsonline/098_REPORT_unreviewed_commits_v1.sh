@@ -74,7 +74,7 @@ db_decision() { # $1 = trailer id (raw, from a commit message — sanitised here
      ORDER BY created_at DESC LIMIT 1;" 2>/dev/null | tr -d '[:space:]'
 }
 
-reviewed=(); mismatch=(); unreviewed=(); unverified=()
+reviewed=(); mismatch=(); missing=(); unreviewed=(); unverified=()
 count=0
 
 while IFS='|' read -r sha short date subject; do
@@ -91,8 +91,17 @@ while IFS='|' read -r sha short date subject; do
     decision="${resolved%%|*}"; matched="${resolved#*|}"
     if [ "$decision" = "approved" ]; then
       reviewed+=("$line  [${corr:0:8}, by ${matched}]")
+    elif [ -z "$resolved" ]; then
+      # No report row AT ALL is not the same accusation as "reviewed and not
+      # approved". Council reports are deletable, and a documented practice
+      # deletes them (091's "clear them first for a fair run"), so an honestly
+      # reviewed commit can lose its evidence later — proven 2026-07-18:
+      # f32b208e5 resolved as approved at 12:03 and as NO REPORT at 13:29,
+      # because its run's reports were cleared in between. Do not call that a
+      # false claim.
+      missing+=("$line  [trailer: $corr -> evidence gone (cleared or expired)]")
     else
-      mismatch+=("$line  [trailer: $corr -> ${decision:-NO REPORT}]")
+      mismatch+=("$line  [trailer: $corr -> $decision]")
     fi
   fi
 done < <(git log --since="${WINDOW_DAYS} days ago" --pretty='%H|%h|%ad|%s' --date=short -- "${SCOPE_PATHS[@]}")
@@ -120,7 +129,8 @@ REPORT=$(
   if [ "${NO_DB:-0}" = "1" ]; then
     print_bucket "TRAILER-UNVERIFIED (NO_DB=1 — verdicts not checked)" unverified
   else
-    print_bucket "MISMATCH (trailer, but report missing or not approved)" mismatch
+    print_bucket "MISMATCH (trailer + a report that did NOT approve)" mismatch
+    print_bucket "EVIDENCE GONE (trailer, but no report row — cleared/expired, NOT a false claim)" missing
   fi
   print_bucket "UNREVIEWED (no Council-Reviewed trailer)" unreviewed
 )

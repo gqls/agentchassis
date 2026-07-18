@@ -13,12 +13,26 @@
 # up to max_rounds (config, currently 3). Artifacts (fix_plan, council_report)
 # are persisted keyed on fix_correlation_id — NOT the envelope correlation_id.
 #
-# ROUND-COUNTING CAVEAT (deployed v1.0.1107): the shipped binary counts council
-# rounds per fix_correlation_id, so PRE-EXISTING council_report rows on that
-# correlation inflate the count and shorten the loop. For a fair run, clear them
-# first (orchestration_id-scoped counting is fixed in source, rides next image):
+# ROUND-COUNTING CAVEAT — OBSOLETE, AND THE OLD WORKAROUND IS NOW HARMFUL.
+# It once said: the v1.0.1107 binary counted council rounds per
+# fix_correlation_id, so pre-existing council_report rows inflated the count,
+# and advised clearing them before a run:
+#     DELETE FROM diagnosis_artifacts WHERE correlation_id='<fix_corr>'
+#       AND kind='council_report';          <-- DO NOT DO THIS ANY MORE
+# Two reasons it is retired (2026-07-18):
+#  1. FIXED IN CODE. diagnose_council_decide counts rounds scoped by
+#     orchestration_id as well as correlation_id, so earlier runs' reports no
+#     longer inflate anything. Clearing buys nothing.
+#  2. IT DESTROYS COMMIT EVIDENCE. A council_report is what a
+#     `Council-Reviewed: <id>` commit trailer points at. Deleting one turns an
+#     honestly-reviewed commit into an unverifiable claim — observed the same
+#     day: f32b208e5 resolved as APPROVED at 12:03 and as "evidence gone" at
+#     13:29, because this DELETE was run against its orchestration in between.
+# If you must clear for a genuinely fair benchmark, scope it to YOUR run and
+# spare approved verdicts:
 #   DELETE FROM diagnosis_artifacts
-#   WHERE correlation_id='<fix_corr>' AND kind='council_report';
+#   WHERE orchestration_id='<your_run_orch_id>' AND kind='council_report'
+#     AND metadata->>'decision' <> 'approved';
 #
 # Usage:
 #   ./091_TRIGGER_fix_proposer_v1.sh [fix_correlation_id]
