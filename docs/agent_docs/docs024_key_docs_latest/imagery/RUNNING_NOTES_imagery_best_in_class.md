@@ -2029,3 +2029,43 @@ product-card-with-cta, news-listing, info-card-grid, tool-list) — untouched;
 the 6 excluded blog-post rows remain R6's build-or-retire call in the site
 handoff; RUNBOOK B5 (formal budget sign-off) still open — this pilot spent 4
 Banana generations.
+
+## Turn 50 — 2026-07-18 — F3 surveyed: not shovel-ready; council summary filed
+
+**Council gate written up from the submitting side** —
+`../fixloop_eg_dartsonline/SUMMARY_council_first_external_catch_2026-07-18.md`
+(commit 40f547c6d): the three real defects it caught on D14, why the
+evidentiary objections cost extra rounds (the gate reviews the PLAN, not the
+repo — front-load your evidence), and why this thread committed without a
+`Council-Reviewed:` trailer (verdict was revise, and 098 buckets false
+trailers on purpose).
+
+**F3 surveyed before touching code — and the handoff's suggested order was
+wrong.** Live fleet usage per surface: info-card-grid 15 pages/7 sites,
+news-listing 7/5, tool-list 5/3, content-listing 3/3 (done), and
+**featured_article + product-card-with-cta on ZERO pages fleet-wide**. The
+handoff proposed starting at featured_article; it is used nowhere and its
+resolver base is unimplemented, so that would have been speculative work.
+
+The finding that matters: **no decision-free F3 code remains.**
+- `tool-list` is the closest to ready — it is query-fed and the resolver
+  ALREADY hands it an `image` (the shared `pageImageProjection`), so the
+  template is the only missing piece — but **0 of 38 tool pages fleet-wide
+  have any image at all** (no card, no plan hero), so the slot would render
+  nothing. Making it real costs ~38 generations plus extending
+  `content_image_missing` beyond `page_type='blog-post'` (its consumer gate is
+  `query.blog_posts`-specific and would need per-page-type logic). That is the
+  B5 budget call, still formally open.
+- `info-card-grid` has the widest reach by far but is not query-fed and has no
+  `<img>` at all — a design decision about whether info/category cards want
+  imagery, and from which entity.
+- news-listing is I5; product cards are I6.
+
+**Landmine recorded:** `content_components` is a GLOBAL library (no `site_id`;
+`forked_from` for forks). Editing `tool-list`'s template is a fleet-wide change
+to every adopting site, not a per-site tweak — and a component-write guard is
+being built by another thread right now, so hand-editing component HTML in the
+DB is the wrong move this week.
+
+**Next actor:** F3 needs an owner decision before code — see the costed table
+in the handoff's F3 section.

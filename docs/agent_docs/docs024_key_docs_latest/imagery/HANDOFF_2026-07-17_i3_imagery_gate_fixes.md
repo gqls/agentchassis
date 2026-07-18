@@ -139,6 +139,28 @@ gets one), tool directory `tool-list` (has `tl-card` markup; check its image
 slot). Each needs: resolver base (if query-fed) + image projection + the
 component's template actually rendering `{{.image}}`.
 
+**SURVEYED 2026-07-18 — F3 IS NOT SHOVEL-READY, and the order above is wrong.**
+Live fleet usage and the real blocker per surface:
+
+| surface | live pages | sites | state / blocker |
+|---|---|---|---|
+| `info-card-grid` | **15** | **7** | the most-deployed of all of them. NOT query-fed, no `<img>` at all. Needs a **design decision**: do category/info cards want imagery, and from what entity? |
+| `news-listing` | 7 | 5 | client-JS populated from `/tools/assets/*.js` — **I5 territory**, not I3. |
+| `tool-list` | 5 | 3 | query-fed by `pages_where_type:tool`, and **the resolver ALREADY returns `image`** (shared `pageImageProjection`). But: **0 of 38 tool pages fleet-wide have any image** — no card, no plan hero — so a template slot renders nothing. Real cost: ~38 generations + extending `content_image_missing` past `page_type='blog-post'` (its consumer gate is `query.blog_posts`-specific, so that needs per-page-type logic). **Blocked on the B5 budget call.** |
+| `content-listing` | 3 | 3 | **DONE** — the reference implementation. |
+| `featured_article` | **0** | 0 | **unused fleet-wide.** `query.featured_post` unimplemented. Building it is speculative work for a component on no page. |
+| `product-card-with-cta` | **0** | 0 | **unused fleet-wide.** `query.affiliate_products` unimplemented; products are **I6**. |
+
+**So there is no decision-free F3 code left.** Every remaining surface is
+blocked on a budget call (tool-list), a design call (info-card-grid), another
+phase (news-listing → I5, product cards → I6), or is unused (featured_article,
+product-card-with-cta). Do **not** start with `featured_article` as the
+original text suggests — it is on zero pages.
+
+Also note `content_components` is a **global library** (no `site_id`;
+`forked_from` for forks), so editing any of these templates is a fleet-wide
+change to every site that adopts the component — not a per-site tweak.
+
 ## What NOT to redo (working, verified)
 - The pipeline plumbing (check → generate → derive → resolve → render) is
   proven end-to-end; do not rebuild it — fix the STYLE and the FILTER.
