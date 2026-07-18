@@ -26,25 +26,60 @@ from committed HEAD; verify deploys against the pod; queue-check before dispatch
   claimed supersedes scraped, opt-out hides prices but keeps directory+aggregates, claim
   reverses opt-out. Operator SQL in RUNBOOK.
 
-## ⚠️ TOP PRIORITY — homepage regression from the chassis rebuild
+## ⚠️ TOP PRIORITY — the chassis REGENERATED FABRICATED PRACTICE DATA (contained, not fixed)
 
-The first-build rerender replaced the hand-authored homepage. Verified 2026-07-18:
-- **Directory search UI GONE from the homepage** (`#vet-list`, search inputs absent) — the
-  site's core function. Data files all still live under `/data/`; only the page markup lost it.
-- **Claim CTA + opt-out routes GONE** from the homepage (they are the licensing funnel and a
-  policy promise — LEGAL §7.5 says practices can request removal via a published route, so
-  their absence is a live compliance gap with our own policy).
-- Guides SURVIVED at original flat URLs with sourced content intact (last-reviewed stamps,
-  sources lists). New about/contact pages exist; £21/£12.50 on about.html are CMA's own
-  figures. **No unsourced prices anywhere** (audited all pages).
-Fix path: hand-edit the rebuilt homepage to restore the directory component + claim/opt-out
-section (hand edits during the adoption window get PERMANENT locks — the right protection), via
-the sites-repo worktree pattern (RUNBOOK). Note the chassis renders pages from specs — check
-`pages` table/spec for where the homepage sections live so the fix is spec-level if possible,
-not just HTML (else the next rerender may revert it: `source: "pages.*"` fields revert on
-render — fleet landmine).
-Also pending: **7 HITL items** need the owner in the admin UI: 4 needs_page + 1
-owned_page_review + 1 needs_section_data in needs_human_review, 1 needs_page failed.
+**An earlier version of this handoff said the rebuild "dropped the search UI". That was wrong —
+see SUMMARY_2026-07-18_bugs_journey.md §9-10.** The truth, found by checking the rendered page
+rather than work-item status (CLAUDE.md: *trust the rendered artefact, not the status*):
+
+The adoption rebuild's `needs_tool_recreation` (status: **complete**) recreated our practice
+search as a component that **generates synthetic practices client-side** — its own comment:
+*"The original directory holds 2,100+ UK practices. For this recreation we generate a large,
+realistic, deterministic dataset"* — assembling fake names from PREFIXES×SUFFIXES arrays and
+inventing postcodes via a Mulberry32 seeded RNG, then calling `render()`. **Live visitors were
+shown fabricated veterinary practices**: the exact defect this site was remediated for on 14-15
+July, reintroduced autonomously by our own tooling.
+The same rebuild added unsupported claims: "pricing information, ownership data" (we publish
+neither), "Price: Low to High" sort controls (no published prices), and called our real
+2,109-practice directory "a representative sample for demonstration purposes".
+
+**CONTAINED 2026-07-18**: verified homepage restored (commit on sites/master, restored from
+`b2896815`), live-verified clean — 0 generator, 0 unsupported claims, real
+`/data/vet-full-index.json` wired, claim + opt-out routes back. Guides were unaffected
+throughout (sourced content, review stamps intact); no unsourced prices anywhere on the site.
+
+**NOT FIXED — do this first:**
+1. **Stop it recurring.** The restore is a hand edit (takes a permanent lock, the intended
+   protection) but the *spec* still describes a homepage whose `filtered-result-grid` has no
+   data source, so a future render can regenerate fabricated data. Fix at spec level: point
+   that section at `/data/vet-full-index.json` and strip the pricing/ownership/demo-sample copy
+   from the section content. Check `pages.sections` for `index` (hero, filtered-result-grid,
+   info-card-grid, latest-news, call-to-action) and the plan sections behind them.
+2. **Treat this as a platform bug, not a site bug.** A tool-recreation agent that invents data
+   when it cannot reach the real source is fleet-wide dangerous. Grep `/bugs_open/` (001 is the
+   adjacent replan-clobbers case), then file it per CLAUDE.md §Debugging with the evidence
+   above, and add the pattern to 016b §9. Consider the 090 diagnosis trigger — this is exactly
+   its cross-cutting class.
+3. **7 HITL items** need the owner in the admin UI (see "Owner review queue" below).
+
+## Owner review queue (7 items, admin UI)
+
+Needs the owner's judgement:
+- `tool-compliance-deadline-calculator` (owned_page_review) — chassis proposes an interactive
+  CMA-deadline calculator; unbuilt, 0 sections. Good idea on merits (drives claims) but owner
+  decides. **If built, it must not invent data** (see top priority above).
+- Three planned pages with **0 sections**, so the builder correctly refused: `directory-index`,
+  `guides-index`, `practice`. Decide purpose or cancel. `directory-index` is the interesting
+  one — its existence suggests the planner wanted the directory on its own page, which bears on
+  where the search lives.
+Needs a fact only the owner has:
+- `needs_section_data` on contact — identity spec has no email/phone. Site already publishes
+  `vetcomparison@contactforsales.com` in claim/opt-out links; confirm that (and whether to
+  publish a phone).
+Technical, next session can clear:
+- `needs_page` about — **failed**, "claim timed out, handler pod likely died" (transient;
+  about.html is live). Retry or cancel.
+- `needs_page` about re-render — validate_content "1 blockers"; read the blocker.
 
 ## Open items, priority order
 

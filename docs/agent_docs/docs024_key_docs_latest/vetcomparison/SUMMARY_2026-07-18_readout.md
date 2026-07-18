@@ -1,95 +1,89 @@
 # vetcomparison.uk — what we set out to do, what we've done, where we are, where we're going
 
-Written 18 July 2026. A read-out summary of four days' work (14–18 July).
+Written 18 July 2026. A read-out summary. Companion: SUMMARY_2026-07-18_bugs_journey.md covers
+what went wrong along the way, including the one that came back.
 
 ## What we set out to achieve
 
-The goal was to rebuild vetcomparison.uk into the best place for UK pet owners to compare
-veterinary prices — and, secondarily, services — riding a genuine regulatory moment: the
-Competition and Markets Authority has just concluded that vets must publish standardised,
-comparable prices, and we want practices to treat our site as the place that comparison
-happens. Two constraints shaped everything: every platform change had to be generic to the
-chassis so the next comparison site reuses it, and we would not republish other people's data
-unlawfully — no price without a source or the practice's consent.
+To rebuild vetcomparison.uk into the best place in the UK for pet owners to compare what veterinary
+care costs, and secondarily to compare practices themselves — timed to a genuine regulatory
+opening. The Competition and Markets Authority concluded its investigation into the vet market in
+March, and is about to require every practice to publish a standardised, comparable price list.
+That creates a moment where comparison becomes possible for the first time, and we want practices
+to treat our site as the place it happens.
 
-## What we found, and what we did about it
+Two constraints shaped every decision. Everything built on the platform had to be generic, so the
+next comparison site reuses the same machinery rather than having it written again. And we would
+not publish data we had no right to publish, or figures we could not stand behind.
 
-The existing site turned out to be publishing invented prices against roughly 3,100 named real
-practices, under a false claim that the data was proprietary, with a fabricated regulator quote
-in its guides. It had been live since February. We treated that as the emergency it was:
-stripped every price and the calculator off the site, quarantined 997 fabricated database rows,
-removed the guides, and wrote a dated factual record of the discovery and remediation — our
-defence file if a practice or the CMA ever asks. What survived was the genuinely good half:
-a real, verified directory of practices and a working price-collection pipeline with an
-evidence chain.
+## What we've done
 
-We then grounded the regulatory facts from primary sources: final report 24 March 2026, the
-binding Order due by 23 September, a mandated 36-service price list in a fixed format
-(no free text — deliberately comparable), a £21 cap on written prescriptions, compulsory
-ownership disclosure, and an RCVS data platform from 2027 that will feed approved comparison
-sites. The CMA explicitly recognises independent comparison services, including scraping-based
-ones. Four business decisions got taken on the back of that: we publish per-practice prices
-only from a practice's own published list, attributed and dated, with an email opt-out; we stay
-independent rather than seeking the RCVS badge, keeping paid placement open as a future line;
-area statistics need at least three practices behind them, with the count always shown; and we
-will respond to the CMA's consultations, siding with independent practices and arguing for an
-express right to reuse the mandated lists.
+We began by discovering that the existing site was publishing invented prices against roughly
+3,100 named real practices, and had been since February. We stripped every price from the site,
+quarantined the fabricated data in the database, removed guides that contained an invented CMA
+quotation, and wrote a dated factual record of what had been published and what we did about it —
+the file a solicitor would be briefed from if a practice or the regulator ever asks.
 
-## What we built
+We then grounded the regulatory position from primary sources rather than memory, and you took
+four decisions that define the business: we publish per-practice prices only from a practice's own
+published list, attributed and dated, with an email opt-out; we stay independent rather than
+seeking the RCVS's approved-partner badge, which keeps paid placement available later; area
+averages need at least three practices behind them and always show the count; and we will respond
+to the CMA's consultations, siding with independent practices.
 
-In four days the whole plan except the final scraping phase went from design to live:
-
-- The site was rebuilt honestly: a deduplicated directory of 2,109 verified practices (280
-  duplicates and a long tail of junk entries — Yelp pages, mirror sites, a US clinic —
-  removed), three guides rewritten against the final report with every figure sourced and a
-  review date on each, and claim-your-listing and opt-out routes.
-- The data platform was unified on the chassis, generically: one price schema for services and
-  medicines, the CMA's 36 services seeded as the canonical taxonomy every price maps onto, and
-  a config-driven exporter that publishes the directory, k-anonymous area statistics, and
-  consented or attributed price lists for any vertical and domain — fail-closed at every point
-  where the old system had a loaded default.
-- The claim flow — the commercial core — was built and proven end to end: a practice claims its
-  listing, we verify they are who they say, record the exact consent wording, and their own
-  figures publish attributed to them; opting out hides prices but keeps the practice findable;
-  a claim reverses an opt-out. Every step leaves an audit trail.
-- The site was adopted onto the chassis, which then built it autonomously overnight — strategy,
-  design, imagery, new pages — and the exporter made its first fully autonomous publish: five
-  data files, committed and deployed by the platform with no human in the loop, every
-  publication rule holding.
-
-One finding mattered more than expected: our historical price data carries no per-price source
-URLs, so under our own rule it can never be shown against a named practice — it feeds anonymous
-area statistics only. Per-practice prices start from fresh collection that records provenance
-as it goes. Real coverage was always thinner than the old site pretended, and we now say so.
+From there we built the thing properly. The directory was cleaned — junk entries removed, 280
+duplicates collapsed, names repaired — down to 2,109 genuinely verified practices, each linking to
+its own website. Three guides were rewritten against the CMA's final report with every figure
+sourced and a review date shown. The database schema was unified so services and medicines share
+one structure, and the CMA's mandated 36 services were seeded as the canonical list every price
+maps onto. A generic exporter was written that publishes the directory, anonymous area statistics
+and consented price lists for any vertical and any domain, with the publication rules enforced in
+the code rather than by good intentions. The claim flow — a practice proves who it is, agrees to
+recorded wording, and its own prices publish attributed to it — was built and proven end to end.
+And the site was registered with the platform, which then rebuilt and re-designed it autonomously.
 
 ## Where we are now
 
-The site is live, honest, and platform-managed: working directory, sourced guides, published
-area statistics, and an exporter refreshing the data every two days. The pipeline from database
-to public page runs without us. Nothing on the site quotes a figure we cannot source — the only
-prices anywhere are the CMA's own.
+The site is live and working: a real directory of 2,109 practices, searchable, three sourced
+guides, published area statistics, and a claim-your-listing route with an opt-out beside it. The
+exporter refreshes the data every two days without anyone touching it — the pipeline from database
+to public page now runs on its own.
 
-The autonomous build also cost us something: the rebuilt homepage dropped the directory search
-box and the claim/opt-out section. The data and machinery behind both are untouched — it is a
-page-markup restoration, first job for the next session, and a handful of build items are
-waiting for human review in the admin queue.
+Today's work was a correction rather than an advance. The platform's overnight rebuild had
+replaced our homepage with a search component that generated fake veterinary practices — invented
+names and postcodes, produced in the browser — and had added claims about pricing and ownership
+data that we do not publish. That is the same failure the whole project exists to remedy,
+reintroduced by our own tooling four days after we removed it. It is now off the site: the verified
+homepage is restored and live, and I have confirmed against the published page that no generated
+data and no unsupported claim remains.
+
+The honest position on coverage is that we publish no per-practice prices at all yet. Our
+historical price data was collected without recording where each figure came from, so under our own
+rule it can only feed anonymous area averages. Per-practice prices begin when we collect them
+again, properly.
 
 ## Where we're going
 
-Near term: restore the homepage function; submit the funding-consultation response before
-30 July (drafted — it argues the levy should scale by practice size rather than hit a
-single-site independent as hard as a corporate branch); and respond to the consultation on the
-substantive Order the moment the CMA publishes the draft, arguing for low-barrier third-party
-approval and an express right to reuse the mandated price lists.
+Immediately: make sure the platform cannot rebuild fabricated data onto the site again. Restoring
+the page fixes today; the durable fix is at the specification level, so the next automated render
+produces the right page rather than reverting to the wrong one. That is the first job, and there
+are a handful of build items waiting for your review in the admin queue.
 
-Then the last build phase: provenance-first price collection — re-verifying the practices with
-bad website records and scraping practices' own price pages with the source recorded per price,
-which is what fills the attributed-prices file the exporter already publishes. From December,
-when large groups must publish the standard list one click from their homepage, collection
-becomes dramatically easier — and showing which practices have and haven't published becomes
-both a public service and our strongest argument for a practice to claim its listing.
+Before the end of the month: the response to the CMA's funding consultation, which closes on the
+30th and is drafted — it argues the levy should scale with the size of the business rather than
+charging a single-site independent the same as one branch of a national chain. And when the CMA
+publishes the draft of the substantive Order, which is due imminently, a detailed response arguing
+for low-barrier approval of comparison services and an express right to reuse the price lists
+practices will be compelled to publish.
 
-The strategy in one sentence: the CMA is making every vet publish comparable prices; we intend
-to be where that comparison is useful — the directory and statistics carry the site today,
-claimed listings are the product we offer practices as their compliance shop window, attributed
-collection fills the coverage, and we never publish a number we cannot show the source for.
+Then the last piece of building: collecting prices from practices' own published lists with the
+source recorded against every figure, which is what fills the per-practice comparison the site is
+ultimately for. From December, when the large groups must publish their standard lists one click
+from their homepage, that collection becomes dramatically easier — and showing which practices have
+published and which have not becomes both a service to pet owners and our strongest argument for a
+practice to come and claim its listing.
+
+The strategy in a sentence: the CMA is about to make every vet publish comparable prices, and we
+intend to be where that comparison is actually useful — directory and statistics today, claimed
+listings as the product we offer practices, collected prices for coverage, and never a number we
+cannot show the source for.
