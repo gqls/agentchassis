@@ -60,10 +60,12 @@ reviewer max_tokens 3000 → 8000) exposed a real limitation in the mirror:
   are now `claude-sonnet-5`, reviewers `>= 8000`. Backups:
   `bak_agentdef_fixproposer_sonnet5_20260718`, `bak_agentdef_councilgate_sonnet5_20260718`.
 
-**Suggested fix for the mirror (your tool, your call):** in the delta check,
-compare each mirrored step's `config.ai_service` (and ideally a hash of the whole
-transformed step) between fix-proposer and gate, not just the seat-name set —
-and write when they differ even if the roster is structurally identical. Until
-then, a model/max_tokens change to the council needs applying to BOTH types
-directly (the migration seed does this), and CLAUDE.md's "run the mirror, don't
-hand-patch" holds for SEAT changes but not for in-seat config changes.
+**FIXED 2026-07-18 (owner-asked).** The mirror now gates its write on a DEEP
+JSON compare of the fully-mirrored target against the live gate, step by step,
+and reports which steps would change (`drift:` line) — not just the seat-name
+set. Tested both directions (aligned -> no false positive; a max_tokens-only
+gate drift -> detected on the exact seat -> reverted). So `099 --apply` now
+propagates in-seat config changes (model, max_tokens, prompt, footprints,
+review_fields) too, and CLAUDE.md's "run the mirror, don't hand-patch" holds for
+BOTH seat changes AND in-seat config changes. The two councils are currently
+aligned on claude-sonnet-5 @ >=8000.
