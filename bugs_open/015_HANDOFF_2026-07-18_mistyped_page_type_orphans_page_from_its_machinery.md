@@ -80,6 +80,39 @@ WHERE p.build_status='planned' AND (p.in_header OR p.in_footer)
   AND jsonb_array_length(COALESCE(p.sections,'[]'::jsonb))=0;
 ```
 
+## CORRECTION (2026-07-18, after council review) — the link-audit machinery already exists
+
+I drafted a new `unresolvable_internal_links` discovery check for the dead-nav-link half of
+this and submitted it to the council gate (`SUBMISSION_CORR=8a1f7b4f`). **It was a duplicate.**
+The reuse seat's own suggested check ("search for an existing link-resolution/validation
+helper … rather than reimplementing href extraction") surfaced
+**`discovery_checks/check_phantom_internal_links.go`**, which already:
+
+- detects internal links in **deployed** rendered HTML whose target is not a real page,
+  over both `page_components.rendered_html` and `site_components.rendered_html`;
+- reuses the **shared** `ExtractHrefs` / `ClassifyLinkScope` / `PageURLSet` datahelpers —
+  the same ones `validate_page_content` (the deploy gate) uses, so gate and audit agree by
+  one implementation (my draft would have reimplemented extraction/normalisation);
+- **routes by surface**: `site_component` nav literals → `nav-link-fixer`; `page_component`
+  hero/CTA/body links → `page-build-handler`, on the stated reasoning that the link resolver
+  "is a build-time augmenter, not a rendered-HTML patcher". My draft routed both to
+  `page-rerender`, which a reviewer correctly showed would **re-emit an LLM-invented href
+  unchanged** and then mark the item resolved — silent-success.
+
+**Decisive for this bug:** that check treats "real page" as *a `pages` row exists* — so
+"a planned-but-unbuilt page has a row and is **not** flagged". That is deliberate. Therefore:
+
+| Dead link class | Covered by phantom check? | Correct fix |
+|---|---|---|
+| `/ferias`, `/archivo`, `/guias/mantenimiento` (LLM-invented; **no** page row) | **Yes** — would flag | run `completeness-discovery-agent` on the site |
+| `/noticias`, `/guias`, `/glosario` (page rows exist, `planned`) | **No** — excluded by design | build/deploy the pages (this bug) |
+
+State observed 2026-07-18: `phantom_internal_links` **is** enabled in
+`completeness-discovery-agent` (not in design/quality discovery agents) and has produced
+**0 work items fleet-wide** — for relojistas simply because no completeness sweep has run
+on it yet. No new detector is needed; the gap for *this* bug remains the mistyped
+`page_type`, unchanged above.
+
 ## Transferable pattern (also filed to 016b §9)
 
 When a value is used as a **routing key by several independent gates**, a wrong value does
