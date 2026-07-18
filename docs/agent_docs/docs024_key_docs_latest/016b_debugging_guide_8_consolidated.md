@@ -768,6 +768,40 @@ visible symptom, which will be downstream and in a different subsystem. Corollar
 prefer **adopting/re-typing** the existing row over the check's `approach=new_page`, which would mint a
 duplicate (an English `/news.html` beside the Spanish `/noticias`) and leave the orphan in place.
 
+### A generator that commits LLM whole-file output must format it before the gate — un-`gofmt`'d code fails the gate and yields no PR (2026-07-18)
+
+**The family.** Another member of the truncation family above (`005/008/012`), one
+layer up: where those are about a truncated body being *stored as success*, this is
+about a body that is **correct but cosmetically unformatted** being *committed and
+then rejected* — and about the fact that the same check cannot tell "misaligned" from
+"truncated" apart from the parser.
+
+**Symptom.** A fix-implementer run whose generated code is logically correct produces
+**no PR**. The build gate log ends `gofmt FAILED for: <file>` and exits — the run
+(LLM whole-file generation + git push + a k8s clone/build Job) is spent for nothing,
+and a human must hand-finish. Seen 2026-07-18 on BUG A's first implementer run
+(`70680566`): the model inserted a new `StopReason` field into a struct but did not
+re-align the sibling `Usage struct` field, and left a trailing blank line — two edits
+`gofmt -w` fixes instantly. LLMs misalign adjacent struct fields routinely, so this is
+not a rare tail.
+
+**The point.** The gate is RIGHT to fail loud — `gofmt -l` as a read-only verifier is
+its charter ("no PRs for broken code"). The defect is **upstream**: the commit-prep
+step commits the model's bytes verbatim. `diagnose_prepare_fix_commit_action.go`
+assembles the `files` map (path → whole-file body) at L150 and begins payload assembly
+at L166 without passing any `.go` body through `gofmt`. Format at write-time
+(`go/format.Source` over each `.go` body between those lines), and the whitespace class
+can never reach the gate; keep the gate's `gofmt -l` as belt-and-braces. Bonus: a body
+that `format.Source` cannot *parse* is almost always a `max_tokens` truncation — fail
+loud there with the path (cheaper and clearer than failing at `go build` in the Job),
+which extends the same "fail loud on truncation" posture the envelope guard at L132-135
+already holds. Full case + fix sketch + test: `bugs_open/013`.
+
+**Heuristic.** When an automated writer feeds a downstream *verifier* (gofmt, a linter,
+a schema check), the writer must satisfy the verifier's contract at write-time. A
+verifier catching trivia is the writer's missing normaliser, not the verifier's bug —
+and an "unparseable/unformattable" body is a truncation signal, not just a style miss.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -785,11 +819,12 @@ candidates. Read the file before acting — several are already fixed.
 | 005 | Article-body blanking — root cause LLM truncation (`max_tokens`) | FIXED |
 | 006 | Three idea.uk infra errors (runner cgroup, dead contact endpoint, …) | open |
 | 007 | Applied-but-unrecorded migrations block the runner | instance resolved; tooling open |
-| 008 | `GenerateText` never decodes `stop_reason` (silent truncation) | diagnosed; **fix not shipped** |
+| 008 | `GenerateText` never decodes `stop_reason` (silent truncation) | fix COMMITTED `f32b208e5` (br 085, both providers); not yet deployed |
 | 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | diagnosed; fix + fleet sweep open |
 | 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
 | 011 | Generated images cannot render readable text | open |
 | 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard open |
+| 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | filed; fix candidate (format at commit-prep) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
 
