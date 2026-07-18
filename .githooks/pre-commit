@@ -1,4 +1,22 @@
 #!/usr/bin/env bash
 # Shared hooks live here (tracked). Enable once per clone:
 #   git config core.hooksPath .githooks
-exec "$(git rev-parse --show-toplevel)/scripts/check-secrets.sh"
+#
+# Order matters, and so does which of these can block:
+#   1. check-secrets.sh   — a REAL GATE. Its non-zero exit must still stop the
+#                           commit; that is the whole point of it.
+#   2. commit-scope-report.sh — ADVISORY ONLY. Prints what the commit actually
+#                           contains so a file belonging to another session is
+#                           visible before it lands. It must NEVER block, so it
+#                           is wrapped to swallow any failure.
+# This file runs for every session on every commit — a stray non-zero exit here
+# stops the whole fleet committing. Keep it boring.
+ROOT="$(git rev-parse --show-toplevel)"
+
+"$ROOT/scripts/check-secrets.sh" || exit $?
+
+if [ -x "$ROOT/scripts/commit-scope-report.sh" ]; then
+  "$ROOT/scripts/commit-scope-report.sh" || true
+fi
+
+exit 0
