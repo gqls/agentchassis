@@ -9,10 +9,16 @@
 > hero. Full account: `RUNNING_NOTES` Turns 48–49; decision text: PLAN §D14.
 >
 > **Two traps this fix chat hit, worth reading before you start:**
-> 1. **v1.0.1134's adapter binary was stale at a good tag** — the chassis had the
->    new code, the adapter did not, and the pilot would have silently run on SDXL.
->    Fixed at root (`quick-agent-update` now releases the adapter with the chassis,
->    `c0ef457a1`); pattern filed in `016b` §9 "One image tag, two services".
+> 1. **A pod-grep marker the build does not retain reads exactly like a stale
+>    deploy.** I greped `content_hero`/`sprite_sheet` on the image-generator-adapter,
+>    got 0 (twice, plus an "old symbol" control that was also 0), and concluded the
+>    adapter had shipped stale. **That was wrong** — the Dockerfile build
+>    (`-a -installsuffix cgo`, alpine) does not retain those literals, though a host
+>    `go build` does; the binary was current all along. A pod-grep is a **positive
+>    test only**: a miss proves nothing until you show the marker survives a
+>    known-good build. Use **log-message strings** as markers, never `case` values.
+>    Full measured evidence + control recipe: `016b` §9 "A pod-grep marker that the
+>    build does not retain…"; retraction in RUNNING_NOTES Turn 51.
 > 2. **Ground-colour drift is fixed via `avoid`, not `medium`** — Banana put one of
 >    three heroes on a white ground despite "deep charcoal ground" in the medium;
 >    adding explicit light-ground terms to the override's `avoid` fixed it on re-roll.
