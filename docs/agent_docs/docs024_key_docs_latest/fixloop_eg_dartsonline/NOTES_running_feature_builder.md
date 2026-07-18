@@ -404,4 +404,61 @@ two invocations. No bug to file.)
 **Open, both owner calls (credits):** run 5 with a WORKING revise loop, and
 whether to council-review delta 2 before the implementer's first fire.
 
+## Turn 12 — 2026-07-18 — RUN 5 APPROVED (unanimous 5/5) — and the pilot target was fixed by hand one minute earlier
+
+**The milestone: the feature builder produced its first council-APPROVED
+staged plan.** Run `8e837814` / orch `a8b66dee`: 3 plans, 3 council rounds,
+terminal `complete` — final round **editquality, bug_historian, reuse_agent,
+guidelines, guardian ALL approve, zero objections**.
+
+**016 fix PROVEN in the wild** (the reasoning-dataset thread asked to be told
+when a genuinely post-fix repropose landed). Using their run-start join
+(`llm_call_log` → `orchestration_states.created_at`, test the RUN not the
+step): run started 15:27:33, repropose call 15:33:40, **`<no value>` count 0**,
+prompt names `bug_historian`, carries objection text, 31,043 bytes. The
+reviser genuinely read the council. Correction for their corpus work:
+these rows are logged under `agent_type='generic'`, NOT the real agent type
+(`feature-designer` returns 0 rows; all 20 `repropose` rows are `generic`) —
+`agent_type`-keyed queries will miss every orchestrator-run agent; join on
+`orchestration_id`.
+
+**Plan quality — the run-4 lesson visibly absorbed.** The approved plan is
+ONE seed stage using a guarded `DO $$` block: `FOR UPDATE` lock, explicit
+`RAISE EXCEPTION` if the row or either expected path is absent (fails LOUD),
+then three `jsonb_set` calls on specific leaf paths. No `ON CONFLICT`, no
+whole-column replacement — exactly what the bug-historian demanded and rule
+5a encoded. The pre-apply `verify`-before-`seed_apply` checklist shape also
+came through as steered.
+
+**BUT: DO NOT APPLY THE SEED.** The fixloop thread completed F1.2 by hand
+(`0dd750bcc`, `4e9445e49`, `a2e868585` "turn 40 — F1.2 done"), patching the
+live row at **15:26:40 — one minute before run 5 fired**. Their design uses
+ONE per-run input (`base_branch`) driving both read-ref and branch-base, and
+their 092 trigger passes only `base_branch`. The approved plan sets
+`read_current_files.ref_field='input_data.ref'` — an input nothing passes —
+so applying it would make reads fall back to the literal `main` instead of
+following the run's base: a REGRESSION of a working fix. Pilot work item
+`db066cac` closed `complete` with the reason recorded in its spec.
+(My own pre-flight read was already stale by 60s — the row moved between
+my check and the fire. Third co-edit collision today.)
+
+**Structural fix applied — the reviser now reads the ARTIFACT** (their second
+016 finding; the list-vs-artifact call was left to me).
+`PATCH_feature_designer_017_reviser_reads_artifact.sql`: new
+`load_council_report` step (query_database → latest `council_report` body),
+`run_checks → load_council_report → repropose`, repropose `input_fields`
+now `[spec_row, plan_persisted, council_report_row, check_results]`, and the
+five per-seat prompt sections replaced by one artifact section. Verified: 0
+per-seat refs, artifact ref present, checks ref intact, 5 reviewer steps and
+5 `council_decide.review_fields` untouched. Now idempotent under roster
+growth — seat 6 appears in the reviser automatically, because
+`council_decide.review_fields` is the single list, and it is self-enforcing
+(a seat missing there already fails loudly by not counting in the decision).
+Applied surgically, AFTER run 5 terminated, never mid-run.
+
+**Council gate: submission `5a65ec4c` (delta 2) SILENTLY NEVER DISPATCHED** —
+no orchestration row, no artifacts, though `council-gate` is seeded with 10
+prior runs, the pod was 22,600s old, and a designer run fired 2 minutes
+earlier on the same envelope worked. Not diagnosed; flagged to that thread.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
