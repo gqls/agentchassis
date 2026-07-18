@@ -74,8 +74,8 @@ SELECT
               'SELECT ' ||
               ' E''## Pages (name | type | url | rebuild_policy | build_status)\n'' || ' ||
               ' COALESCE((SELECT string_agg(name||'' | ''||COALESCE(page_type,''-'')||'' | ''||url||'' | ''||COALESCE(rebuild_policy,''generic'')||'' | ''||COALESCE(build_status,''-''), E''\n'' ORDER BY name) FROM pages WHERE site_id = $1::uuid), ''(none)'') || ' ||
-              ' E''\n\n## Tool components (function | active)\n'' || ' ||
-              ' COALESCE((SELECT string_agg(DISTINCT cc.function||'' | ''||cc.is_active::text, E''\n'') FROM content_components cc JOIN page_components pc ON pc.component_id=cc.id JOIN pages p ON p.id=pc.page_id WHERE p.site_id = $1::uuid AND cc.component_level=''tool''), ''(none)'') || ' ||
+              ' E''\n\n## Attached components — COMPLETE ground truth (page | slot | function | level | active)\n'' || ' ||
+              ' COALESCE((SELECT string_agg(p.name||'' | ''||COALESCE(pc.slot_name,''-'')||'' | ''||COALESCE(cc.function,''(unlinked)'')||'' | ''||COALESCE(cc.component_level,''-'')||'' | ''||COALESCE(cc.is_active::text,''-''), E''\n'' ORDER BY p.name, pc.position) FROM page_components pc JOIN pages p ON p.id=pc.page_id LEFT JOIN content_components cc ON cc.id=pc.component_id WHERE p.site_id = $1::uuid), ''(none)'') || ' ||
               ' E''\n\n## Open work items (item_type | status | summary)\n'' || ' ||
               ' COALESCE((SELECT string_agg(item_type||'' | ''||status||'' | ''||left(summary,140), E''\n'') FROM site_work_items WHERE site_id = $1::uuid AND status NOT IN (''complete'',''verified'',''rejected'',''wont_fix'',''failed'',''cancelled'')), ''(none)'') ' ||
               ' AS text'
@@ -132,7 +132,9 @@ SELECT
 '2. Every quantitative claim traces to the live feed or an evidence_base fact — vonc''s evidence_base currently has ZERO facts, so an MVP number must come from the feed/client-computed real state or not appear.' || chr(10) ||
 '3. Reference REAL pages and selectors from the live context below; do not invent page names.' || chr(10) ||
 '4. Tool-owned pages (rebuild_policy=owned) are rebuilt via the tool pipeline, never the generic page builder.' || chr(10) || chr(10) ||
-'## Live site context' || chr(10) || '{{.experience_context.text}}' || chr(10) || chr(10) ||
+'## Live site context' || chr(10) ||
+'The "Attached components" list is the COMPLETE ground truth for this site: every component attached to every page, with its level and active flag. If a component is not in that list it is NOT attached. Do not claim a component exists, is active, or is "confirmed by query" unless the list shows it — and equally, do not object that something is unverifiable when the list settles it. Anything missing must be sequenced as a create/attach step.' || chr(10) || chr(10) ||
+'{{.experience_context.text}}' || chr(10) || chr(10) ||
 '## Write the plan as markdown with EXACTLY these sections' || chr(10) ||
 '### 1. Journeys' || chr(10) || 'Each journey is an ordered list of steps; every step names: page, control (a real CSS selector), action, and the OBSERVABLE outcome. No step may end at "#".' || chr(10) ||
 '### 2. Promise ledger' || chr(10) || 'A table: CTA copy → the page/state the destination must deliver. (e.g. "Enter the Gauntlet" → a playable timed round actually starts.)' || chr(10) ||
@@ -207,7 +209,9 @@ SELECT
 'Verdicts: approve (buildable as scoped), object (buildable after fixable changes — list them), veto (the MVP as written cannot be built honestly on this stack — say what is impossible).' || chr(10) || chr(10) ||
 'CHECKS: same rules — SELECT/WITH only, ONLY the Schema tables below.' || chr(10) || chr(10) ||
 '## Schema (the ONLY tables checks may use)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
-'## Live site context' || chr(10) || '{{.experience_context.text}}' || chr(10) || chr(10) ||
+'## Live site context' || chr(10) ||
+'The "Attached components" list is the COMPLETE ground truth for this site: every component attached to every page, with its level and active flag. If a component is not in that list it is NOT attached. Do not claim a component exists, is active, or is "confirmed by query" unless the list shows it — and equally, do not object that something is unverifiable when the list settles it. Anything missing must be sequenced as a create/attach step.' || chr(10) || chr(10) ||
+'{{.experience_context.text}}' || chr(10) || chr(10) ||
 '## The plan' || chr(10) || '{{.proposal}}' || chr(10) || chr(10) ||
 '## Verdict discipline (IMPORTANT)' || chr(10) || 'Use "object" ONLY for a problem of MEDIUM or HIGH severity — something that would actually damage the experience if built as written. Record low-severity nits in "notes" and still verdict "approve". Any single objection forces a full revise round, so a low nit blocks the whole plan and burns a round; do not spend one on polish.' || chr(10) || chr(10) || '## Output — ONLY this JSON. Keep it COMPACT so it cannot truncate: at most 6 objections, each "problem" <= 240 chars, "notes" <= 400 chars, at most 3 checks. Close every brace. TYPE RULE: "edit" MUST be a bare INTEGER — the plan section number 1-5, or 0 for plan-wide. Never a string, never a section title, never quoted.' || chr(10) ||
 '{"reviewer":"feasibility","verdict":"approve|object|veto","objections":[{"edit":0,"problem":"...","severity":"low|medium|high"}],"missing":["unbuilt dependency not sequenced"],"checks":[{"sql":"SELECT ...","why":"..."}],"notes":"..."}'
