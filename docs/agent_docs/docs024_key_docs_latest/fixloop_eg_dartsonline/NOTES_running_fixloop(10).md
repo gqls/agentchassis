@@ -2161,3 +2161,28 @@ a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
 - Config-churn tally this exercise: fix-proposer re-seeded/extended by other
   sessions ~4× across turns 36–39 (3→6→7 seats + panel layer). My patch-style
   seeds survived each; the churn is the standing hazard (FINDING_2026-07-17).
+
+### Turn 40 — 2026-07-18 — F1.2 done: implementer base branch is now a per-run input
+- The standing F1.2 cleanup (flagged in every handoff's gotchas): the
+  fix-implementer had `084_site_improvements_local_ai` HARDCODED in THREE places
+  — `read_current_files.ref`, `prepare.base_branch`, `create_branch.from_branch`
+  — stale since the active branch moved to 085. An implementer run today would
+  READ code from, CUT its fix/* branch FROM, and PR INTO a dead branch.
+- **Fixed as a per-run input** (`input_data.base_branch`, default main via the
+  092 trigger's new `BASE_BRANCH` env var), wired to all three:
+  - read_current_files: `ref_field` → input_data.base_branch (Go already
+    supported ref_field — config-only).
+  - create_branch: `from_branch` moved from data_literals to data_fields →
+    input_data.base_branch (config-only).
+  - prepare: NEW `base_branch_field` → input_data.base_branch. Needed a small Go
+    change mirroring read_current_files' ref_field (literal default wins when the
+    field is unset/unresolvable). Committed; rides the next image.
+- **Applied + verified NOW (no deploy needed for the urgent part):** all three
+  read input_data.base_branch; literal fallbacks = main; **zero stale 084
+  anywhere**. read_current_files + create_branch are fully per-run on the CURRENT
+  image; prepare falls back to `main` (safe) until the base_branch_field image
+  lands, then it too is per-run. Backup: bak_agentdef_fiximpl_F1_2_20260718.
+- Set BASE_BRANCH to the diagnosis's REF (090's ref) when firing 092, so the fix
+  is read from / based on / PR'd into the same branch the diagnosis saw.
+- Verify after the next image: `strings /app/agent-chassis | grep -c base_branch_field`
+  in the pod, then confirm a prepare step logs the input base branch, not main.
