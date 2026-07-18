@@ -1109,49 +1109,81 @@ side); "Every keyed work-item insert fails 42P10…" (the sibling failure where 
 lists drift apart). Category tags: `silent-default`, `enumerable-not-switch`,
 `degraded-not-failed`, `fix-the-mechanism-not-the-instance`.
 
-### One image tag, two services, different vintages — verifying the service you CHANGED does not verify the service you DEPEND ON (2026-07-18)
+### A pod-grep marker that the build does not retain reads exactly like a stale deploy — validate the marker before you believe its absence (2026-07-18)
 
-**Symptom.** A change spanning two services is released under one `IMAGE_TAG`. The
-pod-grep on the service you edited passes, so the release reads as verified — but the
-behaviour still comes out as though the change never shipped, and the natural (wrong)
-conclusion is that the change itself is bad.
+> **This entry replaces an earlier version of itself.** The first version claimed the
+> image-generator-adapter had shipped stale under a good tag, "proven three independent
+> ways". That claim was **WRONG**, and the three proofs were the same invalid test run
+> three times. The corrected finding below is the useful one — and it undermines a
+> verification habit the whole fleet relies on, so it matters more than the original.
 
-**What it actually was (2026-07-18, imagery D14).** The D14 work touched the chassis
-(`platform/…`) and the image adapter (`internal/adapters/imagegenerator/dynamic_adapter.go`).
-The fleet released v1.0.1134; `strings /app/agent-chassis` showed the new symbols, so the
-release looked good. The **adapter** binary at the *same tag* was months-old source: no
-`content_hero`, and not even `sprite_sheet` (Phase I2, weeks earlier). Had the run proceeded,
-every generation would have gone to SDXL and the new style would have "failed" for a reason
-that had nothing to do with the style. Proven stale three independent ways: pod grep,
-`docker run --entrypoint /bin/sh <image> -c 'grep -ac <symbol> /app/<binary>'` on the local
-image, and a `--no-cache` rebuild from `git archive HEAD` (which *did* contain the routing —
-so the shipped image never came from that source).
+**Symptom.** You pod-grep a binary for a symbol from your change, per the CLAUDE.md rule.
+It returns **0**. You grep a much older symbol as a control — also **0**. That reads as
+overwhelming evidence the image is stale garbage, and it is very hard to argue with.
 
-**Root cause.** `quick-agent-update` — the everyday release path — built, pushed and deployed
-**only** the chassis, then restarted other deployments onto whatever image already carried
-the tag. A retagged-but-unrebuilt adapter therefore rides along looking current. Nothing
-downstream of the build records which commit an image came from, so the tag is not evidence.
+**What it actually was (imagery D14).** `strings /app/image-generator-adapter | grep -c
+content_hero` returned 0, and so did the "old symbol" control `sprite_sheet` (weeks older).
+I concluded the shipped adapter predated both changes, rebuilt and re-released it. The next
+release did the same thing — which is what finally exposed the real cause:
 
-**Fix.** `quick-agent-update` now builds/pushes/deploys/restarts the image-generator-adapter
-alongside the chassis (`c0ef457a1`) — the two share the `kind` vocabulary, so they must ship
-together or the vocabulary splits across a version boundary.
+| marker | shipped image (Dockerfile build) | plain `go build` on host |
+|---|---|---|
+| `content_hero` | **0** | 1 |
+| `sprite_sheet` | **0** | 1 |
+| `infographic` | 1 | 1 |
+| `banana` | 72 | 72 |
+| `"dispatching to provider"` (log) | 1 | 1 |
+| `"reference images will be IGNORED"` (log) | 1 | 1 |
 
-**The transferable pattern.** **Pod-verify every service your change spans, not just the one
-you edited** — and pick a marker that is *old* as well as one that is new. A missing new
-symbol says "my change isn't here"; a missing *old* symbol (here, `sprite_sheet`) says
-something much more alarming: "this binary is not what anyone thinks it is." One grep for a
-weeks-old symbol distinguishes "my build didn't land" from "this whole image is stale."
+The binary was **current all along**. Proof: it contains `"reference images will be
+IGNORED"`, a string added to that same file *later* than `content_hero` — a stale binary
+cannot contain the newer string and miss the older one. The Dockerfile builds with
+`CGO_ENABLED=0 go build -a -installsuffix cgo` on `golang:1.24-alpine`; under those flags
+some switch-case string literals are not retained as greppable standalone strings, while
+log-message literals always are. Which literals survive is **not predictable by reading the
+source** — `infographic` survived from the very same `case` clause that dropped
+`content_hero` and `sprite_sheet`.
+
+**The transferable pattern.** A pod-grep is a **positive** test only. A hit proves the code
+is there; **a miss proves nothing until you have shown that marker survives a known-good
+build of the same pipeline.** Before concluding "not deployed", run the control:
+
+```bash
+# Extract the shipped binary and test the marker against a build you trust.
+CID=$(docker create <registry>/<svc>:<tag>); docker cp $CID:/app/<svc> ./shipped; docker rm $CID
+go build -o ./control ./cmd/<svc>
+for m in "<your marker>" "<a log line you know is in it>"; do
+  echo "$m: shipped=$(strings ./shipped | grep -c -- "$m") control=$(strings ./control | grep -c -- "$m")"
+done
+```
+`shipped=0 control=0` means **your marker is useless**, not that the image is stale.
+
+**Choose markers that survive.** Prefer, in order: a **log message string** you added; an
+error message; a long distinctive identifier. Avoid: enum/`case` values, short tokens,
+anything that might be merged or optimised into another literal. This is the practical
+amendment to CLAUDE.md's "verify against the running pod" rule — the rule is right, but it
+is only as good as the marker, and a badly-chosen marker fabricates evidence of a
+non-existent outage.
+
+**Also true (kept from the original, on its own merits).** `quick-agent-update` used to
+build/push/deploy only the chassis while restarting other deployments, so a service sharing
+the `kind` vocabulary could in principle drift across a version boundary. It now releases
+the image-generator-adapter alongside the chassis (`c0ef457a1`). That change is sound
+practice — but note it was **not** validated by a real incident, because the incident that
+motivated it was this measurement error.
 
 **Corollaries.**
-- Two services sharing an enum/vocabulary (`kind`, item_type, action names) are one
-  deployment unit whether or not the makefile says so. A release path that ships one of them
-  is a drift generator.
-- `IMAGE_TAG` equality across services is not evidence of source equality. Neither is a
-  successful rollout, a Running pod, or a fresh `Image ID` — only the binary's contents are.
+- Three "independent" confirmations that share one method are one confirmation. All three
+  of mine used the same absent marker; agreement between them measured nothing.
+- Busybox `strings` (alpine pods) and GNU `strings` (host) differ; if you compare a pod grep
+  against a host grep, you have changed two variables at once.
+- The honest fallback when a marker is unavailable is a **runtime** check — here, the
+  adapter's own log line proving `kind=content_hero → provider=banana` on a real request.
+  Behaviour is evidence; string absence is not.
 
-**Cross-refs.** CLAUDE.md § "Building & deploying images" (verify against the running pod);
-imagery `RUNNING_NOTES` Turn 49. Category tags: `tag-is-not-evidence`,
-`multi-service-release`, `verify-the-dependency`, `grep-an-old-symbol`.
+**Cross-refs.** CLAUDE.md § "Building & deploying images"; imagery `RUNNING_NOTES` Turns
+49–51. Category tags: `marker-must-be-validated`, `absence-is-not-evidence`,
+`positive-test-only`, `same-method-thrice`.
 
 ### One truncated reviewer voids an entire council round — and six good reviews with it (2026-07-18)
 

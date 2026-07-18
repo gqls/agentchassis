@@ -2069,3 +2069,58 @@ DB is the wrong move this week.
 
 **Next actor:** F3 needs an owner decision before code — see the costed table
 in the handoff's F3 section.
+
+## Turn 51 — 2026-07-18 — F3 tool surface SHIPPED; and a CORRECTION: the "stale adapter" was my measurement error
+
+**CORRECTION FIRST, because Turn 49 is wrong and other threads may have read it.**
+Turn 49 (and the first version of the 016b §9 entry, and the handoff's trap #1)
+claimed the image-generator-adapter shipped **stale** at v1.0.1134 — "proven
+three independent ways". **That was FALSE.** All three proofs greped for
+`content_hero` / `sprite_sheet`, and those literals are simply **not retained**
+by the Dockerfile's `CGO_ENABLED=0 go build -a -installsuffix cgo` on
+`golang:1.24-alpine`, though they survive a plain host `go build`. Measured:
+
+| marker | shipped image | host `go build` |
+|---|---|---|
+| `content_hero` | **0** | 1 |
+| `sprite_sheet` | **0** | 1 |
+| `infographic` (same `case` clause!) | 1 | 1 |
+| `"dispatching to provider"` (log) | 1 | 1 |
+| `"reference images will be IGNORED"` (log) | 1 | 1 |
+
+The clincher: the shipped binary contains `"reference images will be IGNORED"`,
+which was added to that file **later** than `content_hero` — a stale binary
+cannot have the newer string and miss the older one. So the adapter was current
+all along, the D14 routing would very likely have worked on v1.0.1134, and the
+rebuild I did was unnecessary. 016b §9 has been rewritten with the real and
+better lesson: **a pod-grep is a POSITIVE test only — a miss proves nothing
+until you show the marker survives a known-good build.** Pick log-message
+strings as markers, never `case` values. The `quick-agent-update` change
+(release the adapter with the chassis) is kept — it is sound practice — but its
+stated justification was a measurement error and now says so.
+
+**F3 tool-page surface SHIPPED (owner funded the ~33-page rollout).**
+- `content_image_missing` now iterates a **surface table** rather than
+  hardcoding `blog-post`: each entry carries the page type, the consumer LIKE
+  that proves the site lists that type, the eligibility predicate and the
+  prompt's subject noun (commit `8b804bc27`). Tool pages differ in **all four**,
+  which is why a widened `IN` list would not have worked: they are listed by
+  `query.pages_where_type:tool`, their substance is the committed
+  `/tools/<name>/` bundle so `sections` is legitimately empty (the article rule
+  would exclude **20 of the fleet's 33** deployed tool pages — hence the new
+  `queryresolve.DeployedPageEligibilitySQL`), and "Article header image" is the
+  wrong phrase for a calculator. The per-pass cap now spans surfaces so a site
+  with both articles and tools cannot spend double.
+- `tool-list` got its image slot (migration `170`, applied): the resolver was
+  **already** handing it an `image` per row (shared `pageImageProjection`) —
+  only the template never rendered it. `{{if .image}}`-guarded `.tl-card-media`
+  at 16/9 `object-fit:cover`; imageless cards keep today's icon treatment, so
+  it is inert on sites without tool imagery. Guarded exact-match replace in the
+  `151` house style, full pre-edit template in a doc_note **and** a
+  `component_versions` snapshot.
+- Released **v1.0.1136** via `quick-agent-update` — which now ships both
+  services, exercising my own fix. Chassis pod-verified on markers that do
+  survive (`contentImageSurfaces`, and the eligibility SQL fragment).
+
+**Landmine for the next actor:** `content_components` is a GLOBAL library
+(no `site_id`), so `170` changed `tool-list` for all 3 adopting sites at once.
