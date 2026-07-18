@@ -243,4 +243,56 @@ out to do, what we did, where we are, where we're going, plain language.
 RUNBOOK gained a live-roster section with the verification query and the
 re-sync procedure, so the next thread does not have to re-derive it.
 
+## Turn 5 — 2026-07-18 — First outside adoption; three corrections to my own tooling; the .result class closed
+
+Owner asked whether threads need telling to re-read CLAUDE.md, and to start
+watching adoption. **Answer: new sessions load it at startup and get it free;
+sessions already running hold the old copy and never re-read** — so the note
+reaches tomorrow's threads automatically and today's only if told.
+
+**Adoption is real.** The watcher (5-min poll on trailer commits, gate verdict
+notes, roster drift) caught, at 13:48, a **second gate submission from another
+thread** — the imagery thread, correlation `098b29b8`, and on its **round 2**:
+it submitted, got REVISE, revised, and resubmitted on the same correlation,
+which is exactly the intended workflow. Separately `f32b208e5` carried a
+`Council-Reviewed:` trailer. Two threads have now used the mechanism without
+being asked to.
+
+**Three corrections, two of them to my own tools, one by another thread:**
+1. `098` was reporting **4 of 41** in-scope commits and looking healthy —
+   `kubectl exec -i` inside the read-loop ate the loop's stdin. Found and fixed
+   by another thread. (My own heredoc later hit the mirror image: no `-i`, psql
+   got nothing, exited 0, printed nothing, changed nothing. Verify the write.)
+2. `098` accused an honest commit: it resolved trailers only against
+   `correlation_id`, so a fix-proposer-approved commit read as MISMATCH. Now
+   resolves correlation **or** run id, by prefix, and says which matched.
+3. Then the verdict it pointed at **vanished** — `091`'s documented "clear
+   council_reports for a fair run" DELETE ran against that orchestration
+   between two runs of the report (approved 12:03 → gone 13:29). Retired that
+   advice (round counting is orchestration-scoped in code, so clearing buys
+   nothing) and split **EVIDENCE GONE** from MISMATCH, because "we cannot find
+   your evidence" is not "you lied".
+
+**Roster mirroring went mechanical.** Seats hit 13 (compliance, render,
+llm-reliability, debug-historian). Wrote `099_SYNC_gate_roster.py` — reads the
+live fix-proposer row and mirrors every `review_*`/`gate_*` step + footprints,
+swapping diagnosis context for the submitter's rationale, refusing on dangling
+routes, snapshotting before write. Applied: gate at 13 seats. Another thread
+then **deepened it to a step-by-step compare** after finding the name-set check
+was blind to config drift (the gate was still on an older model/token setting).
+Both councils now verify in sync.
+
+**bugs_open/016 (owner flagged).** The gate is structurally immune — no
+`.result}}` anywhere, and no reviser at all. Fixed `fix-proposer`'s
+repropose/reframe (snapshot `f9d90a2d`), then, after the experience-loop thread
+corrected its own caveat, `content-creator-hero` too (snapshot `d8b5e2c1`):
+**fleet sweep now returns zero `.result}}` in any live prompt — class closed.**
+Filed a second finding not fixed: `repropose` sees only 6 of 13 seats (the
+newer 7 are in neither its prompt nor `input_fields`), left to the seat-owning
+thread because adding sections is not idempotent under concurrent edits.
+
+**Compliance:** created `PLAN_2026-07-17_council_gate.md` — the workstream had
+RUNBOOK/NOTES/SUMMARY but no PLAN, and CLAUDE.md's new standing-four directive
+requires one. Backfilled with decisions, reasons, and the corrections above.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
