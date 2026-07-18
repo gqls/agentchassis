@@ -21,8 +21,37 @@ if [ ! -f "$SYNC_HOME/.ssh/id_ed25519" ]; then
   sudo -u www-data ssh-keygen -t ed25519 -N '' -C 'sitesync@idea.uk-box' \
     -f "$SYNC_HOME/.ssh/id_ed25519"
 fi
-sudo -u www-data sh -c "ssh-keygen -F github.com -f $SYNC_HOME/.ssh/known_hosts >/dev/null 2>&1 \
-  || ssh-keyscan github.com >> $SYNC_HOME/.ssh/known_hosts 2>/dev/null"
+# GitHub host key → known_hosts. Do NOT trust ssh-keyscan's exit status: it exits 0
+# even when it reaches nothing, which silently leaves an EMPTY known_hosts and the
+# clone then dies with "Host key verification failed" (hit for real 2026-07-18).
+# So: scan to a temp file, assert it is non-empty, and print the fingerprints to
+# check against GitHub's published list before installing.
+if ! sudo -u www-data env HOME="$SYNC_HOME" \
+       ssh-keygen -F github.com -f "$SYNC_HOME/.ssh/known_hosts" >/dev/null 2>&1; then
+  echo "-- fetching GitHub host keys"
+  KS=$(mktemp)
+  ssh-keyscan -t ed25519,rsa,ecdsa github.com > "$KS" 2>/dev/null || true
+  if [ ! -s "$KS" ]; then
+    rm -f "$KS"
+    echo "ERROR: could not fetch GitHub's host keys — outbound SSH (port 22) is probably blocked."
+    echo "       Test:  ssh -T -p 22 git@github.com"
+    echo "       If 22 is blocked, use GitHub's SSH-over-443 endpoint instead:"
+    echo "         ssh-keyscan -t ed25519 -p 443 ssh.github.com"
+    echo "       ...and add to $SYNC_HOME/.ssh/config:"
+    echo "         Host github.com"
+    echo "           HostName ssh.github.com"
+    echo "           Port 443"
+    exit 1
+  fi
+  echo "-- host key fingerprints (compare with GitHub's published list:"
+  echo "   https://docs.github.com/authentication/keeping-your-account-secure/githubs-ssh-key-fingerprints )"
+  ssh-keygen -lf "$KS"
+  echo "   expected ED25519: SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU"
+  cat "$KS" >> "$SYNC_HOME/.ssh/known_hosts"
+  rm -f "$KS"
+  chown www-data:www-data "$SYNC_HOME/.ssh/known_hosts"
+  chmod 644 "$SYNC_HOME/.ssh/known_hosts"
+fi
 
 echo
 echo ">>> Add this as a Deploy Key on gqls/vm-sites (Settings → Deploy keys)."
@@ -31,6 +60,22 @@ echo
 cat "$SYNC_HOME/.ssh/id_ed25519.pub"
 echo
 read -rp "Press Enter once the deploy key is added... "
+
+echo "== pre-flight: can this box authenticate to GitHub? =="
+# `ssh -T git@github.com` exits 1 even on SUCCESS (GitHub allows no shell), so match
+# the greeting text, not the exit status. A deploy key greets with the repo name.
+GH_GREETING=$(sudo -u www-data env HOME="$SYNC_HOME" \
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -T git@github.com 2>&1 || true)
+echo "$GH_GREETING"
+case "$GH_GREETING" in
+  *"successfully authenticated"*) echo "-- OK: deploy key accepted." ;;
+  *"Host key verification failed"*)
+    echo "ERROR: host key still not trusted — known_hosts is empty or unreadable by www-data."; exit 1 ;;
+  *"Permission denied"*)
+    echo "ERROR: GitHub refused the key. Add $SYNC_HOME/.ssh/id_ed25519.pub as a"
+    echo "       Deploy Key on gqls/vm-sites (read-only), then re-run."; exit 1 ;;
+  *) echo "ERROR: unexpected SSH result above — resolve before cloning."; exit 1 ;;
+esac
 
 echo "== sparse clone (this box fetches ONLY idea.uk/) =="
 if [ ! -d "$SYNC_HOME/repo/.git" ]; then
