@@ -68,6 +68,46 @@ and never spend credits. Full runbook + submission schema:
   is changing frequently. Two hand-maintained rosters that must stay identical are
   exactly the drift class the council exists to catch.
 
+## Diagnosis before debugging (opt-in, by judgement — not a gate)
+
+The same loop can diagnose a bug *before* you fix it — read the real code + live
+DB, form a cited theory, and follow the evidence to the cause (which often lives
+in shared infra named nothing like the symptom). This is the one thing the
+council gate above cannot do: the gate reviews the fix you wrote; only the
+diagnosis loop tells you the cause isn't where you're looking.
+
+**It is NOT a gate and NOT a default.** For a bug you can see, debug directly —
+you have full context and will out-diagnose the loop faster and for free (this
+platform's bugs mostly dissolve under grep + a schema read; that is the whole
+reason the loop's value is unattended cited diagnosis, not discovery). Reaching
+for the loop on every bug front-loads minutes + credits before you know it is
+hard, and risks diagnosing a premise you are one commit from changing.
+
+**File it to the loop first (090 trigger) when ANY of these hold:**
+- the cause is still non-obvious after a quick look (grep + read the function);
+- you suspect it is cross-cutting / platform-wide, or that the cause is NOT where
+  the symptom is (a local fix would then paper over a shared defect — how BUG A
+  and BUG B were found);
+- you want a cited, auditable diagnosis (a class of bug, a regression you'll be
+  asked to justify, a fix that will change behaviour fleet-wide).
+
+```
+./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh "<symptom>"
+```
+Symptom-authoring that earns a gradable verdict: state the MECHANISM, then POINT
+at the tables/symbols where the evidence lives — assert neither rows nor counts
+(the loop fetches and cites them); no downstream-consequence clauses (they go
+stale); one coherent bug per run. Minutes + credits per run; the 090 trigger
+already refuses if another thread has open work on the target (FORCE=1 overrides
+after you read the findings).
+
+**You often do not need to do this yourself.** The immune system already sweeps
+every recorded failure fleet-wide (triage + silent-check) and routes genuine
+platform-wide code bugs into the diagnosis queue automatically — so the
+cross-cutting class is largely covered without a manual run. Check the queue
+before filing: `SELECT summary, status FROM site_work_items WHERE
+item_type='needs_diagnosis' AND status='awaiting_diagnosis';`
+
 ## Dispatching work at the cluster
 
 - **Checking the pod does not check the queue.** Before firing a diagnosis or fix
