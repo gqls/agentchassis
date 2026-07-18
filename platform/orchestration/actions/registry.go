@@ -625,6 +625,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Save work and create a needs_human_review item without suspending the orchestration",
 		IsLocal:     true,
 	},
+	"refresh_evidence_base": {
+		Handler:     RefreshEvidenceBaseAction,
+		Category:    "site",
+		Description: "Re-run live-verifiable evidence_base facts, re-sync values, regenerate the writer whitelist, raise drift for human review",
+		IsLocal:     true,
+	},
 	"claim_work_item": {
 		Handler:     ClaimWorkItemAction,
 		Category:    "site",
@@ -708,6 +714,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler:     FixHardcodedColorsAction,
 		Category:    "maintenance",
 		Description: "Replace hardcoded hex colors with CSS variables in component styles",
+		IsLocal:     true,
+	},
+	"fix_forced_text_colors": {
+		Handler:     FixForcedTextColorsAction,
+		Category:    "maintenance",
+		Description: "Strip forced child-text colours that override the --section-* inheritance model (WCAG-checked)",
 		IsLocal:     true,
 	},
 	"fork_theme_from_site": {
