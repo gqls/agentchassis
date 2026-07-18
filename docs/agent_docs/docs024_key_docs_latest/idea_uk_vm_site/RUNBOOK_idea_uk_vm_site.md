@@ -210,12 +210,25 @@ can only read cannot poison other sites or reach sibling boxes). Press Enter onl
 - ⚠️ This is a **repo Deploy Key**, not an account SSH key and not the `vm-sites` runner's key. It is
   specific to `gqls/vm-sites` and read-only. Do not reuse the runner's key here.
 
+**Stage 3b — `== pre-flight ==`.** Before cloning, authenticates to GitHub as `www-data` and matches
+the greeting text (`ssh -T` exits 1 even on success, so exit status is useless here). Success reads
+`Hi gqls/vm-sites! You've successfully authenticated…`. It distinguishes a host-key failure, a
+refused key, and the `/var/www/.ssh` fallback below — so you get the actual problem, not a clone error.
+
 **Stage 4 — `== sparse clone ==`.** Clones `gqls/vm-sites` into `/var/lib/sitesync/repo` with
 `--filter=blob:none --no-checkout`, then `sparse-checkout set idea.uk` and `checkout main`. Net: the
-box materialises **only** `idea.uk/`, so a repo of thousands of domains stays cheap. Runs as `www-data`
-with `HOME=/var/lib/sitesync` so git finds the deploy key. Guarded by `if [ ! -d …/repo/.git ]`, so a
-re-run won't re-clone. **If this stage fails with a permission/auth error, the deploy key wasn't added
-(or was added with the wrong repo) — fix Stage 3 and re-run.**
+box materialises **only** `idea.uk/`, so a repo of thousands of domains stays cheap. Guarded by
+`if [ ! -d …/repo/.git ]`, so a re-run won't re-clone.
+
+> ⚠️ **`HOME` does not point ssh at the key** (hit for real 2026-07-18, `/bugs_open/016`). ssh expands
+> `~` from the **passwd entry**, not `$HOME` — and `www-data`'s passwd home is `/var/www`, which it
+> cannot write. `env HOME=…` configures git but leaves ssh hunting in `/var/www/.ssh`, producing
+> *"Host key verification failed"* and then *"Permission denied (publickey)"* while the GitHub deploy
+> key sits there reading **"Never used"**. The scripts therefore name the identity and known_hosts
+> explicitly via `GIT_SSH_COMMAND` (`-i … -o IdentitiesOnly=yes -o UserKnownHostsFile=…`) — in the
+> provisioner **and** in `sitesync`, since the 5-minutely `git fetch` runs as the same account and
+> would otherwise fail on every tick. To see which files ssh really opens:
+> `sudo -u www-data ssh -v -T git@github.com 2>&1 | grep -iE 'identity file|known hosts'`
 
 **Stage 5 — `== install script + units ==`.** Installs `sitesync` to `/usr/local/bin` (0755) and the
 two unit files to `/etc/systemd/system`, `daemon-reload`, then `enable --now sitesync.timer`. The timer

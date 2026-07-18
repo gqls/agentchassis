@@ -11,5 +11,8 @@ Type=oneshot
 User=www-data
 Group=www-data
 ExecStart=/usr/local/bin/sitesync
-# The deploy key lives in /var/lib/sitesync; git needs HOME for ssh config.
+# HOME is for git itself (.gitconfig). It does NOT point ssh at the deploy key —
+# ssh expands `~` from the passwd entry (/var/www for www-data), not $HOME, so the
+# sitesync script sets GIT_SSH_COMMAND with explicit -i / UserKnownHostsFile paths.
+# See /bugs_open/016.
 Environment=HOME=/var/lib/sitesync

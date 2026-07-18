@@ -6,6 +6,14 @@
 # reset --hard to origin, never merge: the repo is the single source of truth
 # and the box must not accumulate local drift.
 set -euo pipefail
+
+# ssh expands `~` from the passwd entry (getpwuid), NOT $HOME — www-data's passwd
+# home is /var/www, so setting HOME in the unit is not enough: ssh would look for
+# the key in /var/www/.ssh and fail "Permission denied (publickey)". Name the
+# identity and known_hosts explicitly. See /bugs_open/016.
+export GIT_SSH_COMMAND="ssh -i /var/lib/sitesync/.ssh/id_ed25519 -o IdentitiesOnly=yes \
+-o UserKnownHostsFile=/var/lib/sitesync/.ssh/known_hosts -o StrictHostKeyChecking=yes"
+
 cd /var/lib/sitesync/repo
 git fetch --quiet origin main
 git reset --hard --quiet origin/main

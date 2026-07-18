@@ -802,6 +802,40 @@ a schema check), the writer must satisfy the verifier's contract at write-time. 
 verifier catching trivia is the writer's missing normaliser, not the verifier's bug —
 and an "unparseable/unformattable" body is a truncation signal, not just a style miss.
 
+### `$HOME` does not redirect `ssh` — it expands `~` from the passwd entry (2026-07-18)
+
+**Symptom.** Running git-over-ssh as a service account fails in two ways that both point
+at the credential: first `Host key verification failed`, then (once a host key is
+accepted interactively) `Could not create directory '/var/www/.ssh' (Permission denied)`
+followed by `git@github.com: Permission denied (publickey)`. The GitHub Deploy Key page
+shows the key **"Never used"** the whole time — ssh never reached authentication.
+
+**Mechanism.** OpenSSH resolves `~` via `getpwuid()`, **not** `$HOME`. So
+`sudo -u www-data env HOME=/var/lib/sitesync git clone …` configures *git* (which does
+read `$HOME`) while *ssh* still looks in `www-data`'s passwd home, `/var/www` — where the
+key isn't, and which the account cannot even create. One cause, two symptoms wearing
+different hats: a trust failure and an auth failure.
+
+**Do this.** Never point ssh with `HOME`. Name the paths explicitly and hand git the same
+command — and remember every *later* invocation needs it too (a systemd timer running
+`git fetch` as the same account fails identically, so a hand-fixed clone still leaves a
+dead sync):
+```bash
+export GIT_SSH_COMMAND="ssh -i /path/.ssh/id_ed25519 -o IdentitiesOnly=yes \
+  -o UserKnownHostsFile=/path/.ssh/known_hosts -o StrictHostKeyChecking=yes"
+```
+`ssh -v -T git@host 2>&1 | grep -iE 'identity file|known hosts'` prints the paths ssh
+*actually* opened — the one diagnostic that settles this in seconds.
+
+**Two heuristics this cost.** (1) *"Not found" is about the path, not the contents.*
+"Host key verification failed" means the key wasn't found **where ssh looked**; it says
+nothing about the file you wrote. Inferring an empty file from an absence message — and
+then "fixing" the file's contents — is the same error as the guide's "0 rows is not
+decisive", applied to a filesystem path. Check *which* path first. (2) *A probe's exit
+status can lie*: `ssh-keyscan` exits 0 having written nothing, so `set -e` never fires and
+a suppressed stderr hides it; assert the artefact is non-empty rather than trusting the
+exit code (sibling of `003`'s "don't swallow kcat stderr"). Full case: `bugs_open/016`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -827,6 +861,7 @@ candidates. Read the file before acting — several are already fixed.
 | 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | filed; fix candidate (format at commit-prep) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
+| 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts |
 
 **Related-bug rule.** Before filing a new bug, grep this index for the mechanism —
 005/008/009/012 are all one truncation-and-config family found by four different
