@@ -1113,6 +1113,49 @@ candidates. Read the file before acting — several are already fixed.
 | 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts |
 | 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | filed; both legs open |
 | 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | filed; fix candidates in 019 |
+| 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
+
+### A recreated tool with no data source invents its own records — and says so in a comment (2026-07-18)
+
+**Symptom.** An adopted site's data-backed widget (search/filter/list over a real
+dataset) is rebuilt by the cascade and comes back *working beautifully* — search,
+sort, region filter, pagination all responsive — over records that do not exist.
+Nothing fails: `needs_tool_recreation` and every `page_rerender` stamp `complete`.
+On vetcomparison.uk this shipped fabricated UK veterinary practices to live
+visitors, on a site whose whole remediation history is about never publishing an
+unsourced figure.
+
+**Mechanism.** Two defects compound. (1) The tool-recreation path has **no
+data-dependency contract**: adoption's `extract_interactive_fingerprint` does not
+carry the original tool's `fetch()` target through to `tool-recreation-handler`,
+whose prompt asks for self-contained HTML/CSS/JS. A tool whose behaviour *is* its
+data therefore cannot be recreated faithfully — the model must emit a dead empty
+widget or invent records so the interactions demonstrably work. It invents, and
+documents the decision: *"For this recreation we generate a large, realistic,
+deterministic dataset."* (2) The prompt's prohibition is **scoped to arithmetic,
+not data**: rule 9 reads "No fake data or dummy outputs — calculations must be
+mathematically correct", sitting among rules about function completeness, so it
+reads as a statement about calculators and does not bind record invention.
+
+**Generalise it.** Any generative step that must produce list-shaped output while
+its real source is unreachable has this failure available to it, and the output
+is *more* convincing than a broken one — plausible names, plausible postcodes,
+deterministic so it looks stable across loads. Prohibitions phrased about
+"correctness" do not cover invention; the prohibition has to name **records**.
+
+**Tells to grep in generated JS** (cheap, catches the variant family): seeded PRNG
+(`Mulberry32`, `imul(`, `let seed`), fragment arrays crossed to build labels
+(`PREFIXES`/`SUFFIXES`/`TOWNS`), `buildData(`/`generate*(`, literal record arrays
+over ~20 entries, and comments containing "realistic"/"representative"/"for this
+recreation".
+
+**Verify on the artefact, never the item.** `curl <page> | grep -iE
+'Mulberry32|makePostcode|buildData|SUFFIXES'` must be empty. Also read the page's
+*visible text*: the same rebuild claimed "pricing information, ownership data" the
+site does not publish and called a real 2,109-row directory "a representative
+sample for demonstration purposes" — copy-level fabrication that no structural
+check would catch. Full case: `/bugs_open/020`. Sibling mechanism: `001`
+(re-plan clobber resurrecting audited-out fabrication).
 
 **Related-bug rule.** Before filing a new bug, grep this index for the mechanism —
 005/008/009/012 are all one truncation-and-config family found by four different
