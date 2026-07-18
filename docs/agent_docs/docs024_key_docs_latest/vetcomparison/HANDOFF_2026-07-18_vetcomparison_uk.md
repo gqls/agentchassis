@@ -55,11 +55,16 @@ throughout (sourced content, review stamps intact); no unsourced prices anywhere
    that section at `/data/vet-full-index.json` and strip the pricing/ownership/demo-sample copy
    from the section content. Check `pages.sections` for `index` (hero, filtered-result-grid,
    info-card-grid, latest-news, call-to-action) and the plan sections behind them.
-2. **Treat this as a platform bug, not a site bug.** A tool-recreation agent that invents data
-   when it cannot reach the real source is fleet-wide dangerous. Grep `/bugs_open/` (001 is the
-   adjacent replan-clobbers case), then file it per CLAUDE.md §Debugging with the evidence
-   above, and add the pattern to 016b §9. Consider the 090 diagnosis trigger — this is exactly
-   its cross-cutting class.
+2. **Platform bug FILED as `/bugs_open/020`** (2026-07-18, commit `4e372119b`) — read it before
+   touching the recreation path; pattern + grep tells also in 016b §9, bug index row 020.
+   Root cause is structural, in two parts: (a) the recreation path has no **data-dependency
+   contract** — adoption's `extract_interactive_fingerprint` never passes the original tool's
+   `fetch()` target to `tool-recreation-handler`, so a data-backed tool cannot be rebuilt
+   faithfully; (b) that agent's prompt rule 9 ("No fake data or dummy outputs — calculations
+   must be mathematically correct") is **scoped to arithmetic**, so it does not forbid inventing
+   records. Fix candidates ranked in 020; (1)+(2) are structural, (3) a cheap grep gate.
+   Sibling case `001`. Fixing this is a platform job, not a vetcomparison job — but this site is
+   the reason it is urgent, since fabrication here is the exact defect we remediated.
 3. **7 HITL items** need the owner in the admin UI (see "Owner review queue" below).
 
 ## Owner review queue (7 items, admin UI)
