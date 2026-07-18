@@ -1,5 +1,25 @@
 # HANDOFF — I3/D13 imagery gate FAILED: fix card imagery (start a new chat here)
 
+> **STATUS 2026-07-18 — F1 and F2 are CLOSED on learning-center-hub; F3 is what remains.**
+> D14 (flat duotone illustration; `content_hero` as its own kind routed to Banana;
+> per-kind style-guide overrides) and the F2.1 eligibility filter shipped in
+> `4e35c8064`, with council-gate fixes in `358e14af6`, live and pod-verified on
+> **v1.0.1135**. Live result on the hub: 3 listed articles, 3 distinct on-style
+> cards at 22–26KB (budget ≤60KB), every click-through 200 and showing its own
+> hero. Full account: `RUNNING_NOTES` Turns 48–49; decision text: PLAN §D14.
+>
+> **Two traps this fix chat hit, worth reading before you start:**
+> 1. **v1.0.1134's adapter binary was stale at a good tag** — the chassis had the
+>    new code, the adapter did not, and the pilot would have silently run on SDXL.
+>    Fixed at root (`quick-agent-update` now releases the adapter with the chassis,
+>    `c0ef457a1`); pattern filed in `016b` §9 "One image tag, two services".
+> 2. **Ground-colour drift is fixed via `avoid`, not `medium`** — Banana put one of
+>    three heroes on a white ground despite "deep charcoal ground" in the medium;
+>    adding explicit light-ground terms to the override's `avoid` fixed it on re-roll.
+>
+> Start at **F3** below. The 6 excluded blog-post rows remain R6 (build-or-retire)
+> in the sibling site handoff.
+
 **Filed:** 2026-07-17, immediately after the user's A3 gate on the D13 card run.
 **Scope: IMAGERY ONLY.** The same gate surfaced serious SITE-level defects
 (theme regression, broken tools, 404 pages, nav sprawl, dead load-more) — those

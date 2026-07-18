@@ -1974,3 +1974,58 @@ tool-gripper-payload / tool-gripper-cycle-time — the cycle-time one also
 clears its F2 stale-hero mismatch on re-render) → hand-promote stranded
 `detected` items → eyeball 3 with user → release remainder → re-gate on
 learning-center-hub → then F3 surfaces (featured_article / tool-list).
+
+## Turn 49 — 2026-07-17/18 — D14 PILOT PASSED live: 3 flat-duotone heroes + cards, F2.1 filter proven on the served hub
+
+**A stale-adapter trap, caught by the pod-grep and worth remembering.** The
+rollout thread shipped v1.0.1134 and the chassis binary carried my markers —
+but the **image-generator-adapter binary at the same tag was pre-I2 source**
+(no `sprite_sheet`, no `content_hero`; `dispatching to provider` present, so
+it was a real but OLD build). Had I trusted the tag, the pilot would have
+silently generated on SDXL and "failed" the new style for the wrong reason.
+Proven stale three ways: pod grep, a `docker run` grep of the local image,
+and a `--no-cache` rebuild from the HEAD archive (which DID contain the
+routing) — i.e. the shipped image never came from that source. Rebuilt as
+**v1.0.1135** (chassis + adapter), pod-verified both.
+**Fixed at the root:** `quick-agent-update` now builds/pushes/deploys/
+restarts the **image-generator-adapter alongside the chassis** (commit
+c0ef457a1) — a chassis-only release was restarting adapter pods onto a
+retagged-but-stale image, and the two share the kind vocabulary.
+
+**Pilot ran end-to-end, all three generations first-attempt:**
+- Runtime proof of routing, from the adapter's own log: `"kind":"content_hero",
+  "provider":"banana","model_id":"gemini-3-pro-image-preview"` ×3.
+- Items stranded in `detected` AGAIN (third time this week) — hand-promoted.
+  The **derive** items landed as `unresolved` (not `detected`) this time and
+  needed the same promotion; watch for both statuses.
+- **User gate on the 3 heroes: 2 on-style, 1 drift** — grip-force and payload
+  came back charcoal-ground flat duotone; **cycle-time came back on a WHITE
+  ground**. Ruling: tighten `avoid`, re-roll cycle-time only, accept payload's
+  blue-heavy variant. Avoid gained "white background, pale background, light
+  background, bright full-bleed colour field" (row `1c51bafb`, supersedes
+  `361f2ed7`; `SQL_2026-07-18_d14_avoid_tighten_white_grounds.sql`). The
+  re-roll came back correctly dark — **so the avoid list, not the medium
+  description, is the lever for ground-colour drift on Banana.**
+- Cards re-derived from all 3 (origin_asset_id lineage now points at ACTIVE
+  content heroes) and are **22.1KB / 26.4KB / 23.6KB — comfortably inside the
+  ≤60KB D8 budget**, where the D13 photographic set ran 37–73KB (one over).
+  Flat colour compressing better at q78 is exactly the D14 small-format bet,
+  now measured.
+
+**Served state on learning-center-hub (the re-gate):** the listing shows
+**exactly 3 articles, 3 distinct on-style cards, and every click-through
+resolves 200 to an article showing ITS OWN content hero** — F2's mismatch
+(cycle-time) and all six 404 links are gone, the latter because the F2.1
+eligibility filter now excludes the scaffold/never-built rows. F1 (style
+consistency) and F2 (click-through) are closed for this surface.
+
+**Landmine confirmed live:** dispatch is one-site-at-a-time against a
+fleet-wide pool — robot-hands items sat `triaged@5` for ~10 min while
+leopardess/vetcomparison held the loop. Priority 5 does not jump the queue
+across sites; it only orders within one. Budget as wall-clock, not failure.
+
+**STILL OPEN:** F3 rollout to the other surfaces (featured_article,
+product-card-with-cta, news-listing, info-card-grid, tool-list) — untouched;
+the 6 excluded blog-post rows remain R6's build-or-retire call in the site
+handoff; RUNBOOK B5 (formal budget sign-off) still open — this pilot spent 4
+Banana generations.
