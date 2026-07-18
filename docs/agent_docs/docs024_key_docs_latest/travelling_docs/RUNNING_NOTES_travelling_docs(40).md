@@ -3258,3 +3258,36 @@ image (judge). Candidate (b), a convergence guard (needs_human_review after N
 failed cycles), still open.
 
 Categories: (build, loop-improvement)
+
+### 2026-07-18 — drill-down proven live; then it exposed a DESTRUCTIVE improver bug
+
+v1.0.1135 carries both halves of the drill-down (adapter JS + judge threading,
+verified in-pod). Fired acceptance on the loot tool: the note now reads "the
+width is forced by div.ltb-row-grid [grid layout … set min-width:0 on the items
+or let the grid wrap]" instead of the useless "fieldset (419px)", and the
+improve_tool spec carries overflow_forced_by/overflow_fix_hint. **The
+non-convergence is broken**: tool-improver (Sonnet 5) root-caused to the GRID
+this time — "div.ltb-row-grid used fixed grid-template-columns … grid items
+couldn't shrink" — where two prior attempts both said "constrain the fieldset".
+
+**But the re-verify was still RED, and the reason was much worse than a bad fix.**
+improve_tool returned output_tokens=8000 against max_tokens=8000 and the
+TRUNCATED completion was saved over content_components.html_template: a working
+10,272-char tool became a 1,253-char CSS fragment — no <script>, no <div>, no
+<fieldset>, ending mid-declaration. The agent reported success. The live page
+survived only because the render had not re-propagated (rendered-artifact vs
+durable-source, saving us by accident this time).
+
+Restored the component from component_versions (last complete 10,272 version,
+matching live; truncated state kept in tmp_loot_truncated_20260718). Migration
+**168** raised improve_tool + generate_tool_html 8000 → 32000 (recreate_tool, the
+same job, already had 64000; this tool's own BIRTH used 6094/8000 — the generator
+was one bigger tool from shipping a truncated component). Filed
+`bugs_open/012`: the real fix is a completeness guard that refuses to persist a
+component that lost its structure, plus treating output_tokens==max_tokens as a
+truncation signal — raising ceilings only makes it rarer.
+
+Migration numbering: the experience-loop thread holds 163–167, so next free is
+**169** (168 is mine, applied).
+
+Categories: (proof, bug, incident, fix)
