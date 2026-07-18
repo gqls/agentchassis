@@ -91,10 +91,17 @@ func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) 
 		SELECT COUNT(*) FROM site_specs
 		WHERE site_id = $1 AND aspect = 'webdesign' AND is_current = true
 	`, dctx.SiteID).Scan(&webdesignCount)
+	// Test the VALUE, not just the key: a crashed or empty webdesign run can
+	// leave content_data.color_scheme present but null/{}, and treating that
+	// as "spec exists" would suppress the finding for a site that genuinely
+	// has no usable design spec — the mirror-image false negative of the bug
+	// being fixed here (council-gate objection, round 2).
 	if webdesignCount == 0 {
 		dctx.DB.QueryRowContext(dctx.Ctx, `
 			SELECT COUNT(*) FROM sites
-			WHERE id = $1 AND content_data ? 'color_scheme'
+			WHERE id = $1
+			  AND jsonb_typeof(content_data->'color_scheme') = 'object'
+			  AND content_data->'color_scheme' <> '{}'::jsonb
 		`, dctx.SiteID).Scan(&webdesignCount)
 	}
 	finding.HasWebdesignSpec = webdesignCount > 0
