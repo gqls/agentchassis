@@ -198,3 +198,75 @@ the *next* detection of the same type on the same target, ordered by time.
 - [ ] Write the recurrence query properly.
 - [ ] Harvest `feed-triage` in the Phase 1 extractor — it is already well-shaped
       and needs only a query.
+
+---
+
+## Turn 3 — 2026-07-18 (~15:15–16:00Z) — drafting the submissions killed two of my own gaps
+
+**Asked for:** draft council-gate submissions for Gaps 1 and 2.
+
+**Did:** read the actual code paths before writing the plans. Neither gap
+survived. Drafted two submissions for what is really there instead.
+
+### Gap 1 was wrong — a statistic read as a mechanism
+
+The 0% `work_item_id` figures are real; the conclusion was not. Those agents are
+item **producers**, not handlers — they *raise* work items and are never
+dispatched to work on one, so no `work_item_id` exists at spawn time and there is
+nothing to propagate. `tool-recreation-handler` hits 100% purely because
+`build-dispatch-loop` injects `"work_item_id": "pending.first_item.id"`
+(`051_build_dispatch_loop.sql:78`) — the handler path, which none of the four is
+on. And **`feed-triage` never touches `site_work_items` at all**
+(`feed_triage_actions.go:241` updates `content_feed_items`), so it would sit at
+0% for ever. Including it was a measurement artefact.
+
+> **Transferable:** a 0% column is evidence of *absence*, not of *dropping*.
+> I inferred a plumbing failure from a statistic without checking whether the
+> value was ever in scope. The join we want runs the **other way** — from the
+> created item back to the run that raised it.
+
+### Gap 2's premise collapsed — and the real finding is worse
+
+Drafted "write `approved_by`/`resolution_path` in the admin handlers", then
+checked whether the reason was being captured elsewhere. The handlers do write
+`result = jsonb_build_object('resolution', $2, 'resolved_by', 'admin')`. The
+JSONB is empty too:
+
+```
+complete items: 4,599   with result->'resolution': 0   with result->'approved_by': 0
+```
+
+**Zero of 4,599.** The human-resolution path has never been called. Those routes
+are live and uninvoked; `HandleConfirmWorkItem` is fully implemented and **never
+registered in `server.go`** — unreachable. You cannot improve the capture of a
+path nobody takes. 275 items sit in `needs_human_review` as a dead-letter queue;
+whether that queue should be worked is a product question for the owner.
+
+Consolation: `error` **is** populated where it matters (77/96 `failed`, 42/50
+`wont_fix`). The failure reason is already recorded and just not exported — ETL,
+not a platform change.
+
+### What was submitted instead
+
+- **A — origin provenance** (`submission_A_work_item_origin_provenance.json`):
+  `origin_correlation_id` on `site_work_items`, populated at the two INSERT
+  paths. The corrected Gap 1, in the direction that exists.
+- **B — register more verifiers** (`submission_B_register_more_item_verifiers.json`):
+  promoted from Gap 3. The completion-gate framework, the policy and a reference
+  implementation all exist (`verifiers.go`, `complete_work_item_verification.go`,
+  `VerifyEmptySectionResolved`) — but `RegisterVerifier` has been called
+  **once**, for `empty_section`, which is exactly why 4,594 of 4,599 `complete`
+  items were never checked and only 9 items ever reached `verified`.
+
+Both validated against every 097 client-side check (scope, ≤8 edits, non-empty
+`grounded_in`, size). **Neither submitted** — that spends credits and is the
+owner's call.
+
+### Open / next
+
+- [ ] Owner: submit A and/or B via `097_TRIGGER_council_review_v1.sh`.
+- [ ] Owner/product: is the `needs_human_review` queue (275 items) meant to be
+      worked? If yes it is a UI/process gap, not a data one.
+- [ ] Correct the `feed-triage` line in Turn 2 above — it remains a good
+      *reasoning-shape* source (structured, batched judgements) but is NOT a
+      work-item outcome source and never will be.

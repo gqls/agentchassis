@@ -31,7 +31,31 @@ loop's 79. And the cheapest change on this page would take it past 15,000.
 
 ---
 
-## Gap 1 — `work_item_id` is dropped by every large judgement agent (highest ROI by far)
+## Gap 1 — ~~`work_item_id` is dropped by every large judgement agent~~ **WRONG — see correction**
+
+> **CORRECTED 2026-07-18, after reading the code this section reasoned about
+> from DB statistics alone.** The 0% figures below are real. The conclusion drawn
+> from them was not. These agents are item **producers**, not handlers: they
+> *raise* work items, they are never dispatched to *work on* one, so no
+> `work_item_id` exists at their spawn time and there is nothing to propagate.
+> `tool-recreation-handler` hits 100% because it is dispatched by
+> `build-dispatch-loop`, whose `input_mapping` injects
+> `"work_item_id": "pending.first_item.id"` (`051_build_dispatch_loop.sql:78`) —
+> that is the *handler* path, and none of these four is on it. Worse,
+> **`feed-triage` never touches `site_work_items` at all** — it updates
+> `content_feed_items` (`feed_triage_actions.go:241`), so it would sit at 0%
+> for ever regardless of any change. Including it was a measurement artefact.
+>
+> **The join we want runs the other way**: from the created work item back to
+> the run whose reasoning raised it. That is `submission_A_work_item_origin_provenance.json`
+> — an `origin_correlation_id` on `site_work_items`, populated at the two INSERT
+> paths. Same objective, opposite direction, and it actually exists to be built.
+>
+> Lesson worth keeping: a 0% column is evidence of *absence*, not of *dropping*.
+> Reading it as plumbing failure without checking whether the value was ever in
+> scope is how a statistic becomes a wrong recommendation.
+
+### The original (accurate) figures
 
 `llm_call_log` already has a `work_item_id` column, and `llm_call_logger.go`
 already populates it *when it is present in `input_data`*. It usually isn't:
@@ -58,24 +82,42 @@ on this page**: one field threaded through four agents' `input_data`, multiplyin
 the outcome-labelled corpus by an order of magnitude, with no new tables, no
 schema change, and no new LLM spend.
 
-## Gap 2 — human decisions are recorded as a status and nothing else
+## Gap 2 — human decisions are recorded as a status and nothing else — **premise collapsed; the real finding is worse**
 
-316 items have reached `needs_human_review`, `wont_fix`, or `rejected`.
+316 items have reached `needs_human_review`, `wont_fix`, or `rejected`, and
+`approved_by` / `resolution_path` are empty on every one. Both columns exist on
+`site_work_items` and **no Go code writes either, anywhere**.
 
-```
-approved_by populated:      0 / 316
-resolution_path populated:  0 / 316
-handled_by populated:      57 / 316
-```
-
-Both columns already exist on `site_work_items`. So every time a human overrules
-the platform — the highest-quality label obtainable, and the only one expressing
-*preference* rather than mere success — we keep the fact and discard the reason.
-
-For a reasoning model this is the difference between "this was rejected" and
-"this was rejected **because** it named a destination that doesn't exist." Only
-the second teaches anything. Needed: `approved_by` + a free-text
-`resolution_note` written at the moment of the human call, not reconstructed.
+> **CORRECTED 2026-07-18.** The first draft proposed adding writes to the admin
+> resolve/approve handlers. Then we checked whether the reason was being captured
+> somewhere else — the handlers do write
+> `result = jsonb_build_object('resolution', $2, 'resolved_by', 'admin')` — and
+> found the JSONB is empty too:
+>
+> ```
+> complete items: 4,599   with result->'resolution': 0   with result->'approved_by': 0
+> ```
+>
+> **Zero. Not 0 of 316 — 0 of 4,599.** The human-resolution path has never been
+> called. `HandleResolveWorkItem` / `HandleApproveWorkItem`
+> (`site_admin_handlers.go:774`, `:817`) are live routes that nothing invokes,
+> and `HandleConfirmWorkItem` (`confirm_work_item_handler.go:42`) is fully
+> implemented but **never registered in `server.go`** — unreachable code.
+>
+> So adding field writes to those handlers would change nothing: **you cannot
+> improve the capture of a path that is never taken.** 275 items sit in
+> `needs_human_review` as a dead-letter queue. Whether that queue *should* be
+> worked is a product question for the owner, not a data-capture one, and it is
+> the actual finding here.
+>
+> One consolation: `error` **is** populated where it matters — 77 of 96 `failed`,
+> 42 of 50 `wont_fix`, 56 of 275 `needs_human_review`. The failure reason is
+> already being recorded and simply is not exported. That needs ETL, not a
+> platform change.
+>
+> Gap 2's submission slot therefore went to **Gap 3** instead
+> (`submission_B_register_more_item_verifiers.json`), which is a real, unbuilt,
+> high-value change. See §Recommended first move.
 
 ## Gap 3 — `complete` is self-reported; almost nothing is verified
 
@@ -210,16 +252,27 @@ say out loud that the goal is a high-quality specialist corpus, not a big one.
 
 ---
 
-## Recommended first move
+## Recommended first move — two council submissions, drafted
 
-Gap 1 alone — thread `work_item_id` through the four judgement agents. It is the
-smallest change, needs no schema migration, no new spend and no new agent, and it
-is the one that determines whether everything else is joinable. Gap 2 (a
-`resolution_note` on human calls) is second and nearly as cheap, and every day it
-waits is more human judgement thrown away.
+Both are `platform/` changes and therefore **not this thread's to make**; both are
+drafted as council-gate submissions for the owning threads, validated against
+every 097 client-side check (scope, ≤8 edits, grounded_in, size).
 
-Both are `platform/` changes and therefore **not this thread's to make** — they
-belong to the owning threads and should go through the council gate.
+**A — `submission_A_work_item_origin_provenance.json`.** Add
+`origin_correlation_id` to `site_work_items`, populated at the two INSERT paths
+that create items from agent findings. This is the corrected Gap 1: it builds the
+judgement→outcome join in the direction that actually exists. Makes ~15,000
+auditor calls a month joinable to ground truth, and independently gives the first
+per-agent precision signal the platform has ever had.
+
+**B — `submission_B_register_more_item_verifiers.json`.** Register verifiers for
+three more item types. This is Gap 3, promoted after Gap 2's premise collapsed.
+The framework, the completion gate and the reference implementation all already
+exist and are proven; **one** verifier has ever been registered, which is why
+4,594 of 4,599 `complete` items were never checked. Converts self-reported
+`complete` into a checked one, at no new LLM cost.
+
+Neither has been submitted — submitting spends credits and is the owner's call.
 
 ---
 
