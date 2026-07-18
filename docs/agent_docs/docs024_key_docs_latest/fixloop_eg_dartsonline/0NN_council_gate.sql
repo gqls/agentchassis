@@ -26,11 +26,10 @@
 --   correlation do not inherit stale rounds), diagnose_run_checks,
 --   append_doc_note, conditional, complete_workflow.
 --
--- LOCKSTEP WARNING. The SEVEN reviewer steps + relevance filter mirror the
--- live fix-proposer AS READ FROM THE DATABASE at apply time (2026-07-17
--- evening: v6 base + reuse-agent + guidelines + check_fields fix +
--- tooling-provenance + select_panel/gates + adoption-guardian) with ONE
--- change each: the "## The diagnosis" context section becomes the author's
+-- LOCKSTEP WARNING. The NINE reviewer steps + relevance filter mirror the
+-- live fix-proposer AS READ FROM THE DATABASE at apply time (re-synced
+-- 2026-07-18: + diagnosis-loop guardian and improvement-loop guardian,
+-- candidates #4/#5, both gated) with ONE change each: the "## The diagnosis" context section becomes the author's
 -- stated rationale ({{.input_data.rationale}}), and select_panel's
 -- extra_text_fields scans the rationale instead of a diagnosis conclusion.
 -- The roster is growing FREQUENTLY (owner's warning) — before ANY re-apply,
@@ -52,7 +51,7 @@
 --     answered (run_checks still runs, so fact-shaped objections come back
 --     settled with evidence). Resubmit on the SAME correlation so the
 --     artifact trail accumulates rounds in one place.
---   * run_checks includes ALL SEVEN reviewers' checks. (A v6-inherited
+--   * run_checks includes ALL NINE reviewers' checks. (A v6-inherited
 --     omission — only editquality + guardian — was flagged by this thread and
 --     fixed the same day by the concept-register thread's v9, applied live.)
 --   * Terminal always writes a doc_notes verdict entry (deterministic compose
@@ -84,7 +83,7 @@ INSERT INTO agent_definitions (
 SELECT
     'council-gate',
     'Council Gate (advisory review service)',
-    'The F2 council as a service: judges a SUBMITTED change (fix_plan-shaped artifact: diff sketches + rationale, any author, by correlation_id) through the same 7-reviewer council as the live fix-proposer: edit-quality + guardian (hard-veto) always-on, bug-historian / reuse-agent / guidelines / tooling-provenance / adoption-guardian advisory and relevance-gated by the select_review_panel filter. No repropose loop — the author revises and resubmits on the same correlation. Verdict = council_report artifact + doc_notes entry (categories council-gate+verdict). Advisory: records approval, never enforces it. Scope ruling 2026-07-17: platform/, internal/, pkg/.',
+    'The F2 council as a service: judges a SUBMITTED change (fix_plan-shaped artifact: diff sketches + rationale, any author, by correlation_id) through the same 9-reviewer council as the live fix-proposer: edit-quality + guardian (hard-veto) always-on, bug-historian / reuse-agent / guidelines / tooling-provenance / adoption-guardian / diagnosis-guardian / improvement-guardian advisory and relevance-gated by the select_review_panel filter. No repropose loop — the author revises and resubmits on the same correlation. Verdict = council_report artifact + doc_notes entry (categories council-gate+verdict). Advisory: records approval, never enforces it. Scope ruling 2026-07-17: platform/, internal/, pkg/.',
     'diagnose', 'coordinator', 'experimental',
     true, 1, '["diagnose", "review"]'::jsonb,
     d.image_repository, d.image_tag, d.command, d.resources, d.topics, d.health_config, d.env_vars,
@@ -152,7 +151,9 @@ SELECT
               'reuse_agent', jsonb_build_array('_action.go','.sql','migration','create table','new '),
               'guidelines', jsonb_build_array('input_contract','output_contract','idx_swi_dedup','site_work_items','agent_definitions','input_schema','save_page_sections'),
               'tooling_provenance', jsonb_build_array('contextkit','cmd/bundle','bundle','doc_plans','doc_notes','resolve_action','registry.go','docubundle','travelling','dedup','thin_versions'),
-              'adoption', jsonb_build_array('apply_adoption_plan','site-adoption','adoption','needs_domain_research','domain-research-classifier','site_archetype','design_intent','design_reference','content_direction')
+              'adoption', jsonb_build_array('apply_adoption_plan','site-adoption','adoption','needs_domain_research','domain-research-classifier','site_archetype','design_intent','design_reference','content_direction'),
+              'diagnosis', jsonb_build_array('diagnose_','diagnosis_artifacts','diagnose-agent','diagnose-orchestrator','pkg/diagnose','verdict','cite-or-abstain','data_request','sqlguard','symptom'),
+              'improvement', jsonb_build_array('improvement','discovery_check','run_discovery_checks','write_audit_findings','triage_detected','audit_pass','complete_clean','locked_at','acceptance_test','needs_rerender','maintenance_queue')
             )
           )
         ),
@@ -203,6 +204,26 @@ SELECT
           'config', jsonb_build_object(
             'condition', 'panel.run_adoption == true',
             'then_step', 'review_adoption_guardian',
+            'else_step', 'gate_diagnosis'
+          )
+        ),
+
+        'gate_diagnosis', jsonb_build_object(
+          'action', 'conditional',
+          'description', 'Relevance gate: run the diagnosis-loop guardian only if the submission touches the diagnosis machinery; else skip.',
+          'config', jsonb_build_object(
+            'condition', 'panel.run_diagnosis == true',
+            'then_step', 'review_diagnosis_guardian',
+            'else_step', 'gate_improvement'
+          )
+        ),
+
+        'gate_improvement', jsonb_build_object(
+          'action', 'conditional',
+          'description', 'Relevance gate: run the improvement-loop guardian only if the submission touches the improvement/discovery machinery; else skip.',
+          'config', jsonb_build_object(
+            'condition', 'panel.run_improvement == true',
+            'then_step', 'review_improvement_guardian',
             'else_step', 'review_guardian'
           )
         ),
@@ -387,7 +408,7 @@ SELECT
           'action', 'execute_llm_prompt',
           'description', 'Council reviewer (gated, candidate #3) — adoption-pipeline guardian: does the change respect the adoption pipeline''s write-then-relay contract (ADO-006)? Advisory only (no veto). Runs only when select_panel matches the adoption footprint.',
           'output_field', 'review_adoption_guardian',
-          'next_step', 'review_guardian',
+          'next_step', 'gate_diagnosis',
           'config', jsonb_build_object(
             'error_step', 'complete_invalid',
             'ai_service', jsonb_build_object(
@@ -415,6 +436,79 @@ SELECT
 '## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Output -- ONLY this JSON' || chr(10) ||
 '{"reviewer": "adoption_guardian", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "names the adoption contract broken", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "..."}'
+          )
+        ),
+
+        'review_diagnosis_guardian', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Council reviewer (gated, candidate #4) — diagnosis-loop guardian: does the change weaken the diagnosis machinery''s honesty gates or safety disciplines? Advisory only (no veto). Runs only when select_panel matches the diagnosis footprint.',
+          'output_field', 'review_diagnosis_guardian',
+          'next_step', 'gate_improvement',
+          'config', jsonb_build_object(
+            'error_step', 'complete_invalid',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 3000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('input_data', 'plan_persisted', 'schema_hint'),
+            'output_format', 'json',
+            'prompt_template',
+'# Council reviewer: DIAGNOSIS-LOOP GUARDIAN' || chr(10) || chr(10) ||
+'You judge one thing: does this fix weaken the diagnosis machinery''s honesty gates or safety disciplines? You change nothing; you judge. (Yes -- the loop reviewing a fix to itself is exactly the point: its guards were earned from real failures and must not be quietly loosened.)' || chr(10) || chr(10) ||
+'## The diagnosis loop''s load-bearing disciplines' || chr(10) ||
+'- READ-ONLY, CITE-OR-ABSTAIN: the loop reads code and live state but never writes; every verdict claim cites evidence or the verdict abstains (UNVERIFIABLE is an honest terminal, not a failure). A fix that lets a verdict assert uncited claims, or gives the loop a write path, guts the core contract.' || chr(10) ||
+'- THREE-TIER CITATIONS: a CONFIRMED verdict needs BOTH a static (code) citation AND a state/runtime citation. Weakening the tier guard turns plausible-but-unverified theories into CONFIRMED.' || chr(10) ||
+'- READ-ONLY SQL, THREE GUARDS: model-authored data_requests run under layered enforcement (sqlguard lint, read-only role, EXPLAIN size pre-flight). Removing one layer because "the others catch it" is how layers die.' || chr(10) ||
+'- OBSERVABILITY NEVER COSTS A DIAGNOSIS: persistence (diagnosis_artifacts, notes) degrades to a logged warning on failure -- it must never fail the run. And notes are skip-never-guess: a mis-filed note poisons history.' || chr(10) ||
+'- CONFIG-LEVEL error_step: the workflow coordinator reads ONLY step.config.error_step -- a step-level error_step is parsed but silently inert (a real, recurring trap). Any plan adding error routing must place it inside config.' || chr(10) ||
+'- TOKEN/POD ISOLATION: heavy loop work runs in a spawned diagnose-agent pod; shared chassis pods never hold the repo-read token. A fix that moves loop work (or the token) onto shared pods breaks the isolation.' || chr(10) || chr(10) ||
+'Judge the plan: (a) does any edit weaken a verdict guard (cite-or-abstain, tier coverage, symptom gate) or add an uncited-assertion path; (b) does it touch the read-only SQL enforcement layers; (c) does it make persistence/observability able to fail a diagnosis, or guess a note subject; (d) does it place error_step outside config (silently inert), or move loop work/tokens onto shared pods. If the fix does not touch the diagnosis machinery, approve.' || chr(10) || chr(10) ||
+'Verdicts: approve (disciplines intact, or does not touch the loop), object (weakens a discipline above -- name which). You do NOT have a veto -- put a severe concern in objections at "high" severity and trust the router; note a true architecture-level concern explicitly.' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (an artifact kind exists, a guard config value), put it in checks as {"sql": "SELECT ...", "why": "what this settles"} -- SELECT/WITH only, never writes. Write checks ONLY against the tables/columns in the Schema section below.' || chr(10) || chr(10) ||
+'## Schema (the ONLY tables available to checks)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
+'## The author''s stated rationale' || chr(10) || '{{.input_data.rationale}}' || chr(10) || chr(10) ||
+'## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Output -- ONLY this JSON' || chr(10) ||
+'{"reviewer": "diagnosis_guardian", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "names the discipline weakened", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "..."}'
+          )
+        ),
+
+        'review_improvement_guardian', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Council reviewer (gated, candidate #5) — improvement-loop guardian: does the change respect the improvement loop''s termination + enablement contracts? Advisory only (no veto). Runs only when select_panel matches the improvement footprint.',
+          'output_field', 'review_improvement_guardian',
+          'next_step', 'review_guardian',
+          'config', jsonb_build_object(
+            'error_step', 'complete_invalid',
+            'ai_service', jsonb_build_object(
+              'model', 'claude-sonnet-4-6',
+              'provider', 'anthropic',
+              'api_key_env_var', 'ANTHROPIC_API_KEY',
+              'max_tokens', 3000
+            ),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('input_data', 'plan_persisted', 'schema_hint'),
+            'output_format', 'json',
+            'prompt_template',
+'# Council reviewer: IMPROVEMENT-LOOP GUARDIAN' || chr(10) || chr(10) ||
+'You judge one thing: does this fix respect the improvement loop''s termination and enablement contracts? You change nothing; you judge. (These guards exist because the audit->fix->re-audit loop once ran UNBOUNDED -- 845+ findings across 4 domains in ~10 days, consuming most of the token budget. Do not let a fix quietly reopen that.)' || chr(10) || chr(10) ||
+'## The improvement loop''s load-bearing contracts' || chr(10) ||
+'- BOUNDED PASSES: audits are capped (pass-limit gate, >=3 -> complete_clean); sections that pass get locked_at and later audits SKIP them; unlock is always MANUAL. A fix that bypasses the pass cap, auto-unlocks sections, or re-audits locked sections reopens the unbounded drain.' || chr(10) ||
+'- CONFIG-ONLY ENABLEMENT: discovery checks self-register via init() but run ONLY when named in the agent''s checks array; unknown names warn-and-skip. A check must only be ENABLED once its handler agent exists -- otherwise findings accumulate unconsumed. Findings insert at status=detected (unclaimable), so a check can run observe-only; the triager promotes detected->triaged.' || chr(10) ||
+'- RUNNER OWNS INSERTION: checks append WorkItemSpecs; the RUNNER inserts them with dedup. A check/plugin that inserts its own rows bypasses dedup and the two-strike anti-churn machinery.' || chr(10) ||
+'- CHEAP VERIFICATION: fixes are verified via the finding''s acceptance_test (a cheap targeted call), never a full re-audit; per-page sequential processing via depends_on prevents overlapping fixes.' || chr(10) ||
+'- DISPATCH DISCIPLINE: the sweep cadence lives in scheduled_tasks under a shared dispatch concurrency group; discovery never floods an already-backed-up queue.' || chr(10) || chr(10) ||
+'Judge the plan: (a) does any edit bypass the pass cap, unlock sections automatically, or re-audit locked sections; (b) does it enable a discovery check whose handler agent does not exist, or make findings insert at a claimable status; (c) does it make a check insert its own work items instead of appending WorkItemSpecs for the runner; (d) does it replace acceptance-test verification with full re-audits, or break the depends_on sequencing / dispatch concurrency discipline. If the fix does not touch the improvement/discovery machinery, approve.' || chr(10) || chr(10) ||
+'Verdicts: approve (contracts intact, or does not touch the loop), object (breaks a contract above -- name which). You do NOT have a veto -- put a severe concern in objections at "high" severity and trust the router; note a true architecture-level concern explicitly.' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query could settle (is a check named in an agent''s checks array, does a handler agent exist), put it in checks as {"sql": "SELECT ...", "why": "what this settles"} -- SELECT/WITH only, never writes. Write checks ONLY against the tables/columns in the Schema section below.' || chr(10) || chr(10) ||
+'## Schema (the ONLY tables available to checks)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
+'## The author''s stated rationale' || chr(10) || '{{.input_data.rationale}}' || chr(10) || chr(10) ||
+'## The plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
+'## Output -- ONLY this JSON' || chr(10) ||
+'{"reviewer": "improvement_guardian", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "names the contract broken", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "what this settles"}], "notes": "..."}'
           )
         ),
 
@@ -456,7 +550,7 @@ SELECT
           'config', jsonb_build_object(
             'error_step', 'complete_invalid',
             'fix_correlation_id', 'input_data.fix_correlation_id',
-            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_reuse_agent.result', 'review_guidelines.result', 'review_tooling_provenance.result', 'review_guardian.result', 'review_adoption_guardian.result'),
+            'review_fields', jsonb_build_array('review_editquality.result', 'review_bug_historian.result', 'review_reuse_agent.result', 'review_guidelines.result', 'review_tooling_provenance.result', 'review_guardian.result', 'review_adoption_guardian.result', 'review_diagnosis_guardian.result', 'review_improvement_guardian.result'),
             'hard_veto_from', jsonb_build_array('guardian'),
             'max_rounds', 3
           )
@@ -483,7 +577,7 @@ SELECT
           'next_step', 'compose_verdict_checked',
           'config', jsonb_build_object(
             'error_step', 'compose_verdict',
-            'check_fields', jsonb_build_array('review_editquality.result.checks', 'review_bug_historian.result.checks', 'review_reuse_agent.result.checks', 'review_guidelines.result.checks', 'review_tooling_provenance.result.checks', 'review_guardian.result.checks', 'review_adoption_guardian.result.checks')
+            'check_fields', jsonb_build_array('review_editquality.result.checks', 'review_bug_historian.result.checks', 'review_reuse_agent.result.checks', 'review_guidelines.result.checks', 'review_tooling_provenance.result.checks', 'review_guardian.result.checks', 'review_adoption_guardian.result.checks', 'review_diagnosis_guardian.result.checks', 'review_improvement_guardian.result.checks')
           )
         ),
 
@@ -610,7 +704,7 @@ COMMIT;
 -- Post-apply verification (run these before announcing the gate live):
 --   SELECT type, version, is_active, jsonb_object_keys(default_config->'workflow'->'steps')
 --   FROM agent_definitions WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false;
---   -- expect 27 steps; review_fields must list all seven reviewers:
+--   -- expect 31 steps; review_fields must list all nine reviewers:
 --   SELECT default_config->'workflow'->'steps'->'council_decide'->'config'->'review_fields'
 --   FROM agent_definitions WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false;
 --
