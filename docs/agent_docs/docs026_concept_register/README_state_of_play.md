@@ -147,3 +147,21 @@ for), grounding from the register, gated + surgical migration (8 chained jsonb_s
 Remaining candidates: #5 improvement-loop, #6 compliance, #7 render, #8 LLM-reliability, #9 debugging. Say the word and I'll keep going down the list.
 
 ---
+
+All done — clean tree. Three deliverables this turn:
+
+1. The summary is written — SUMMARY_where_we_are_2026-07-18.md, same read-aloud style: what we set out to achieve (grow a 2-member review panel into an evidence-chosen council), where we are (9 reviewers live, the
+   relevance filter routing them, your stability preference on the guardian), and what's next.
+
+2. Your multi-model idea: a different subproject — and here's the honest distinction. The debugging seat is a reviewer: it reads a proposed fix and asks "has anything like this happened before?" against the
+   platform's 74 documented debugging lessons — cheap, advisory, wakes only when relevant. Your idea generates diagnoses that don't exist yet: when the diagnosis loop honestly gives up on a bug (exhausted or
+   unverifiable — both currently hand to you), fan the same evidence bundle out to a diverse panel of models — different vendors, different strengths — and see if any of them cracks it. That belongs at the diagnosis
+   loop's escalation terminal, not in the review chain. I've recorded it in the PLAN as the "multi-model diagnosis gauntlet" with the register-verified groundwork (per-step model routing already exists; the platform
+   has Anthropic + Ollama clients, other vendors need new ones) and one prerequisite worth fixing first: BUG A (MDL-038) — an ensemble comparing model outputs must know when an output was silently truncated. It's
+   ready to start whenever you green-light it.
+
+3. Per your instruction, the list continued as stated — seat #5, the improvement-loop guardian, is live (council now 9). It defends the termination guards born from a real incident: the audit→fix→re-audit loop once
+   ran unbounded, generating 845+ findings in ten days. It objects to anything that bypasses the pass cap, auto-unlocks sections, enables a discovery check with no handler, or lets a check insert its own work items
+   around the dedup machinery. Same routine as always: drift-check, gated + surgical, snapshot, verified intact.
+
+Remaining: #6 compliance, #7 render, #8 LLM-reliability, #9 debugging — then the council side is essentially complete.
