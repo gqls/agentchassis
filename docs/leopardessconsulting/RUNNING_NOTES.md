@@ -1418,3 +1418,50 @@ it is fabrication INJECTION, and it defeats human review. Useful discovery recor
 field first — 9 and 5 sites); replace the garbled `/assets/images/hero.jpg` itself (still the
 fallback on how-it-works); the rest of the trust/honest worklist; infographics (blocked on 011
 §V3). All content work is provisional until 001 is fixed.
+
+## Turn 24 (2026-07-18) — infographics: the capability was already wired; bug 011 CORRECTED
+
+**★ The owner showed two Gemini infographics with perfectly legible text and asked if we could
+wire it up. We already had.** Deployed `BANANA_DEFAULT_MODEL` = `gemini-3-pro-image-preview`
+(the same model), and `kind:'infographic'` ALREADY routes to it
+(`dynamic_adapter.go` switch: icon|logo|illustration|infographic|sprite_sheet|content_hero →
+Banana). Nothing needed building.
+
+**My bug 011 was WRONG and is corrected in place.** It claimed "generated images cannot render
+readable text" and proposed building an SVG renderer — a thread acting on it would have built a
+subsystem we already had. Renamed to the real, narrower bug:
+`011_HANDOFF_2026-07-18_hero_kind_routes_to_a_model_that_cannot_render_text.md`. The garbled
+homepage hero was a ROUTING accident: `kind:'hero'` falls through to Stability/SDXL, which
+genuinely cannot render text. Per CLAUDE.md I also corrected the 016b §10 index entry and added
+the transferable §9 pattern: **"read the dispatch table, not the output"** — when behaviour is
+selected by an enum, one value routing to a weaker backend is indistinguishable, from the
+artefact alone, from the whole capability being missing. Two greps answer it.
+
+**PROVEN first try:** `infographic_what_we_build` — a three-column infographic, fully legible,
+correctly spelled, figures exactly matching the evidence base (2,767/937, 5,652/4,672, 8 sites),
+on-brand charcoal+antique-gold, and it independently honoured the newly-banned "trust" wording
+("how reliable the source has been"). Live at /assets/images/infographic-what-we-build.jpg.
+
+**Dominant variable is PROMPT SPECIFICITY,** not the model. The successful prompt names the
+layout, every column header, every card's heading AND body text verbatim, the palette by hex,
+each icon, and ends with "all text correctly spelled, real words only, do NOT add any number
+not listed above". Thin prompts are what produced the earlier rubbish. Recorded in 011 §2.
+
+**Placed on the homepage** (position 3, between "What we've built" and "What we could build
+with you") as a `generic-text-block` — its `content` field renders RAW HTML because the
+renderer uses Go `text/template`, not `html/template` (verified at
+component_library.go:500). Carries a full descriptive alt text and a caption noting every
+figure is evidence-base backed. bak_index_infographic_20260718.
+
+**Three more generating** in the same lane: `infographic_how_a_job_runs` (how-it-works — the
+six-station pipeline with the human-decision gate drawn largest), `infographic_architecture`
+(technical-architecture — hierarchical agents over a Kubernetes/Kafka/Postgres stack), and the
+themed variant `infographic_leopardess_line` — **a Harry Beck London Underground map, "THE
+LEOPARDESS LINE"**: three lines (Records / Reading / Sites) converging on one interchange
+labelled "A PERSON DECIDES" and terminating at "WRITTEN DOWN", with a service-notes panel
+carrying the audited figures. Chosen as apt: British information design, and a work item
+travelling through stages with a human-approval interchange maps onto the form exactly.
+
+**Review gate still applies:** look at every generated image before wiring it. Even the good
+model errs — the owner's own Gemini map rendered "REPRETITIVE". That is 011's R2 (an OCR/vision
+legibility gate) and it is not built.
