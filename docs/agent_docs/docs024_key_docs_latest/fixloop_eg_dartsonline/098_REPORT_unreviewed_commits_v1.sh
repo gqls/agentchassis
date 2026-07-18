@@ -47,11 +47,25 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 HEAD_SHA=$(git rev-parse --short HEAD)
 NOW_UTC=$(date -u '+%Y-%m-%d %H:%M UTC')
 
-db_decision() { # $1 = correlation id -> prints latest council_report decision, or ""
+# Resolve a trailer id to its latest council verdict. The id may be EITHER a
+# submission/diagnosis correlation_id (what 097 prints) OR the orchestration id
+# of a council RUN (what a fix-proposer run prints as RUN_ORCH_ID) — threads
+# legitimately have both, and v1 only matched the first, so it reported a
+# genuinely-approved fix-proposer commit as a false claim of review (f32b208e5,
+# 2026-07-18: trailer 53da3a30 was the run whose council approved after two
+# revise rounds). Prefix matching too: threads paste short ids.
+# Prints "<decision>|<matched-on>", or "" if nothing matched.
+db_decision() { # $1 = trailer id (raw, from a commit message — sanitised here)
+  local id
+  id=$(printf '%s' "$1" | tr -cd '0-9a-fA-F-')   # commit text never reaches SQL unsanitised
+  [ "${#id}" -ge 8 ] || { echo ""; return; }
   kubectl -n "$NS" exec -i "$PG_POD" -- \
     psql -U clients_user -d clients_db -tA -c \
-    "SELECT COALESCE(metadata->>'decision','') FROM diagnosis_artifacts
-     WHERE correlation_id = '$1' AND kind = 'council_report'
+    "SELECT COALESCE(metadata->>'decision','') || '|' ||
+            CASE WHEN correlation_id LIKE '${id}%' THEN 'correlation' ELSE 'run' END
+     FROM diagnosis_artifacts
+     WHERE kind = 'council_report'
+       AND (correlation_id LIKE '${id}%' OR orchestration_id LIKE '${id}%')
      ORDER BY created_at DESC LIMIT 1;" 2>/dev/null | tr -d '[:space:]'
 }
 
@@ -68,9 +82,10 @@ while IFS='|' read -r sha short date subject; do
   elif [ "${NO_DB:-0}" = "1" ]; then
     unverified+=("$line  [trailer: $corr]")
   else
-    decision=$(db_decision "$corr" || true)
+    resolved=$(db_decision "$corr" || true)
+    decision="${resolved%%|*}"; matched="${resolved#*|}"
     if [ "$decision" = "approved" ]; then
-      reviewed+=("$line  [${corr:0:8}]")
+      reviewed+=("$line  [${corr:0:8}, by ${matched}]")
     else
       mismatch+=("$line  [trailer: $corr -> ${decision:-NO REPORT}]")
     fi

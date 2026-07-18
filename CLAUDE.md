@@ -50,23 +50,32 @@ and never spend credits. Full runbook + submission schema:
   sketch; real diff hunks welcome; plus `grounded_in` evidence quotes):
   `./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh <submission.json>`
   Save the printed `SUBMISSION_CORR`. A run takes ~2 minutes.
-- **Verdicts.** APPROVED → commit with a trailer line `Council-Reviewed: <corr>`
+- **Verdicts.** APPROVED → commit with a trailer line `Council-Reviewed: <id>`
   (that trailer is what makes the coverage report's commit↔verdict join exact).
+  The `<id>` may be **either** the gate's `SUBMISSION_CORR` **or** the
+  orchestration id of a **fix-proposer** council run (`RUN_ORCH_ID`) — a fix the
+  fix loop's own council approved counts as reviewed, and the report resolves
+  both (prefix match, so a short id is fine).
   REVISE → the objections come back with the reviewers' own read-only checks
   already answered; revise and resubmit with `RESUBMIT_CORR=<corr>` so the trail
   accumulates. REJECTED → a guardian veto; its notes name the safest contained
   alternative. Read it: `SELECT body FROM doc_notes WHERE categories ?
   'council-gate' ORDER BY created_at DESC LIMIT 1;`
 - **Cost is relevance-gated**, so submitting is cheaper than it looks: two seats
-  always run (edit-quality, guardian), the other seven fire only when your edited
-  paths match their footprint. One council run per coherent task, not per iteration.
+  always run (edit-quality, guardian); the rest — 11 as of 2026-07-18, and
+  growing — fire only when your edited paths match their footprint. One council
+  run per coherent task, not per iteration.
 - **Coverage** (who reviewed, who didn't):
   `./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/098_REPORT_unreviewed_commits_v1.sh [days]`
-- **If you add or change a council seat, patch BOTH councils in one migration** —
-  `fix-proposer` and `council-gate` — and diff the gate seed against the LIVE
-  `fix-proposer` row first (`agent_definitions.default_config`), because the roster
-  is changing frequently. Two hand-maintained rosters that must stay identical are
-  exactly the drift class the council exists to catch.
+- **If you add or change a council seat**, seat `fix-proposer` as usual, then run
+  the mirror — do not hand-patch the gate:
+  `python3 docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/099_SYNC_gate_roster.py`
+  (dry run; `--apply` writes, taking a snapshot first). It copies every
+  `review_*`/`gate_*` step and the footprint map from the live `fix-proposer` row,
+  swapping the diagnosis context for the submitter's rationale. Two
+  hand-maintained rosters that must stay identical is exactly the drift class this
+  council reviews for — the roster changed five times in 18 hours, so it is
+  mechanical now.
 
 ## Diagnosis before debugging (opt-in, by judgement — not a gate)
 
