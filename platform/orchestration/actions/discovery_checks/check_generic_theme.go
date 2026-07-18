@@ -75,12 +75,28 @@ func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) 
 
 	finding := &genericThemeFinding{}
 
-	// Check for webdesign spec
+	// Check for webdesign spec. Two storage conventions exist:
+	//   - site_specs aspect='webdesign' — this check's original contract,
+	//     which NO code path has ever written (0 rows fleet-wide, 2026-07-17);
+	//   - sites.content_data.color_scheme — what the webdesign-agent's
+	//     update_site step (update_site_content, merge=true,
+	//     content_field=design_spec.result) actually stores.
+	// Testing only the former made this check fire on every themed site
+	// every discovery pass, each time dispatching webdesign-agent — whose
+	// analyze_design LLM re-rolls the palette, drifting site colours run
+	// over run (robot-hands R1, 2026-07-17: four CSS rewrites in a day,
+	// one rolled a light background onto a dark site).
 	var webdesignCount int
 	dctx.DB.QueryRowContext(dctx.Ctx, `
-		SELECT COUNT(*) FROM site_specs 
+		SELECT COUNT(*) FROM site_specs
 		WHERE site_id = $1 AND aspect = 'webdesign' AND is_current = true
 	`, dctx.SiteID).Scan(&webdesignCount)
+	if webdesignCount == 0 {
+		dctx.DB.QueryRowContext(dctx.Ctx, `
+			SELECT COUNT(*) FROM sites
+			WHERE id = $1 AND content_data ? 'color_scheme'
+		`, dctx.SiteID).Scan(&webdesignCount)
+	}
 	finding.HasWebdesignSpec = webdesignCount > 0
 
 	// Check for identity spec (needed by webdesign)
