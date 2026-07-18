@@ -187,15 +187,23 @@ func DiagnosePrepareFixCommitAction(ctx context.Context, params ActionParams) (i
 
 	// Stage-loop seam (delta 2): the router supplies the feat/* branch and the
 	// per-stage commit message; unset fields keep the derivations above.
+	// CONFIGURED-BUT-EMPTY IS AN ERROR (council-gate review 5a65ec4c,
+	// bug-historian, high): falling back here would derive fix/<corr> and commit
+	// a stage's files to a DIFFERENT branch than the one the loop is building —
+	// silently, with no failed work item. Unset keeps the single-plan derivation.
 	if bf := datahelpers.GetStringField(config, "branch_field", ""); bf != "" {
-		if v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, bf)); v != "" {
-			branch = v
+		v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, bf))
+		if v == "" {
+			return nil, fmt.Errorf("branch_field %q is configured but resolved empty — refusing to fall back to %q, which would commit to the wrong branch", bf, branch)
 		}
+		branch = v
 	}
 	if mf := datahelpers.GetStringField(config, "commit_message_field", ""); mf != "" {
-		if v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, mf)); v != "" {
-			commitMessage = v
+		v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, mf))
+		if v == "" {
+			return nil, fmt.Errorf("commit_message_field %q is configured but resolved empty", mf)
 		}
+		commitMessage = v
 	}
 
 	diagnosis := datahelpers.ExtractNestedFieldString(params.CollectedData,

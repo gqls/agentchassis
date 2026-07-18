@@ -104,9 +104,18 @@ func DiagnoseBuildGateAction(ctx context.Context, params ActionParams) (interfac
 	// Stage-loop end gate (delta 2, E2/D6): go test over packages the ROUTER
 	// derived from the plan's edited .go files — never a model-declared list.
 	// Unset keeps the gate build-only (the per-stage and fix-loop behaviour).
+	// CONFIGURED-BUT-EMPTY IS AN ERROR (council-gate review 5a65ec4c,
+	// bug-historian): an unset field means "build-only gate", but a field that
+	// IS configured and resolves to nothing means the derived package list never
+	// arrived — and silently running a build-only gate would forfeit exactly the
+	// D6 guarantee this mode exists to provide (the model cannot narrow its own
+	// test surface). Fail loudly instead of gating on less than intended.
 	var testPkgs []string
 	if tf := datahelpers.GetStringField(config, "test_packages_field", ""); tf != "" {
 		testPkgs = collectedStringSlice(params.CollectedData, tf)
+		if len(testPkgs) == 0 {
+			return nil, fmt.Errorf("test_packages_field %q is configured but resolved to no packages — refusing to run a build-only gate in end-gate mode", tf)
+		}
 	}
 
 	script := buildGateScript(owner, repo, branch, goFiles, targets, testPkgs)

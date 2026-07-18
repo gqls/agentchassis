@@ -145,6 +145,39 @@ func TestStageRepoFiles_ConfigChangeExcluded(t *testing.T) {
 	}
 }
 
+// Council-gate review 5a65ec4c (bug-historian, high): a CONFIGURED routed
+// field that resolves empty must FAIL, never silently fall back — falling back
+// reads the wrong tree / commits to the wrong branch / gates on less than
+// intended. Unset stays the single-plan path. These lock the distinction that
+// the three action-level guards enforce.
+func TestRoutedFieldEmptyIsAnError_Contract(t *testing.T) {
+	// The guards live in the actions (which need DB/k8s), so this test locks the
+	// SHAPE the loop depends on: the router always emits non-empty values for
+	// every field the stage workflow configures. If this ever emits "", the
+	// action-level guards are what turn it into a loud failure rather than a
+	// wrong-tree read.
+	plan := routeTestPlan()
+	seed := featureLoopState{Current: 0, Branch: "feat/ab12cd34", BaseRef: "main"}
+	emit, next := nextStageEmit(plan, seed, "ab12cd34-full-corr", "ab12cd34", nil)
+	for _, k := range []string{"read_ref", "branch", "commit_message"} {
+		if v, _ := emit[k].(string); strings.TrimSpace(v) == "" {
+			t.Fatalf("router emitted empty %q — the action guards would (correctly) fail the run", k)
+		}
+	}
+	// ...and on the advance path too, where the branch matters most.
+	emit2, _ := nextStageEmit(plan, next, "ab12cd34-full-corr", "ab12cd34", nil)
+	if v, _ := emit2["branch"].(string); strings.TrimSpace(v) == "" {
+		t.Fatal("router emitted empty branch on advance — stage 2 would commit to the wrong branch")
+	}
+	// Terminal emission must carry a non-empty derived package list whenever the
+	// plan has .go edits, else the end gate is configured-but-empty (an error).
+	term, _ := nextStageEmit(plan, featureLoopState{Current: 2, Branch: "feat/ab12cd34", BaseRef: "main"},
+		"ab12cd34-full-corr", "ab12cd34", nil)
+	if pkgs, _ := term["test_packages"].([]string); len(pkgs) == 0 {
+		t.Fatal("terminal emitted no test packages for a plan containing .go edits")
+	}
+}
+
 // Delta-2 prepare additions: expected symbols must appear in a produced body.
 func TestMissingExpectedSymbols(t *testing.T) {
 	files := map[string]interface{}{

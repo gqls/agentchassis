@@ -101,11 +101,20 @@ func DiagnoseReadRepoFilesAction(ctx context.Context, params ActionParams) (inte
 	ref := datahelpers.GetStringField(config, "ref", "main")
 	// Stage-loop seam (delta 2): a routed per-stage ref wins when configured —
 	// stage 1 reads the base ref, later stages read the feat/* branch so they
-	// see earlier stages' commits. Unset (or unresolvable) keeps the literal.
+	// see earlier stages' commits.
+	//
+	// CONFIGURED-BUT-EMPTY IS AN ERROR, not a fallback (council-gate review
+	// 5a65ec4c, bug-historian): silently keeping the literal here means stage N
+	// reads `main` instead of the branch carrying stage N-1's commits, and the
+	// implementer then rewrites files from the wrong tree with no error — the
+	// platform's worst-known failure shape. Not configuring ref_field at all
+	// remains the single-plan path and keeps the literal.
 	if rf := datahelpers.GetStringField(config, "ref_field", ""); rf != "" {
-		if v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, rf)); v != "" {
-			ref = v
+		v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, rf))
+		if v == "" {
+			return nil, fmt.Errorf("ref_field %q is configured but resolved empty — refusing to fall back to %q, which would read the wrong tree", rf, ref)
 		}
+		ref = v
 	}
 	maxBytes := datahelpers.GetIntField(config, "max_file_bytes", 400_000)
 	client := &http.Client{Timeout: 20 * time.Second}
