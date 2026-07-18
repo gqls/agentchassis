@@ -144,18 +144,41 @@ def main():
     if dangling:
         sys.exit(f"REFUSING: mirrored workflow has dangling targets: {dangling}")
 
+    # Drift detection is a DEEP compare of the fully-mirrored target against the
+    # current gate, step by step — NOT a seat-name-set compare. The name-set
+    # (added/removed) catches a seat being added or removed; it is blind to a
+    # seat whose NAME is unchanged but whose config drifted (model, max_tokens,
+    # prompt_template, footprints, review_fields). That blind spot silently left
+    # the gate on claude-sonnet-4-6 @ 3000 while fix-proposer moved to
+    # claude-sonnet-5 @ 8000 (the D1 migration, 2026-07-18). We compare the
+    # normalised JSON of every step we would write against the live gate step.
+    def norm(v):
+        return json.dumps(v, sort_keys=True)
+
+    drifted = sorted(
+        k for k in new_steps
+        if k not in gate_steps or norm(new_steps[k]) != norm(gate_steps[k])
+    )
+    dropped_steps = sorted(k for k in gate_steps if k not in new_steps)
+    changed = bool(drifted or dropped_steps)
+
     seats = len(new_steps["council_decide"]["config"]["review_fields"])
     print(f"fix-proposer seats: {len(after)} | council-gate seats before: {len(before)}")
     print(f"  added:   {added or '(none)'}")
     print(f"  removed: {removed or '(none)'}")
     print(f"  footprints: {sorted(new_steps['select_panel']['config'].get('footprints', {}))}")
     print(f"  resulting steps: {len(new_steps)}, review_fields: {seats}, routing: OK")
+    # Config-value drift (the part the old name-set guard missed): which steps
+    # would change even though the seat roster may be structurally identical.
+    print(f"  drift (steps that would change): {drifted or '(none)'}")
+    if dropped_steps:
+        print(f"  dropped (in gate, not mirrored): {dropped_steps or '(none)'}")
 
     if not apply:
         print("\nDRY RUN — nothing written. Re-run with --apply to write.")
         return
-    if not added and not removed:
-        print("\nAlready in sync; --apply would be a no-op. Nothing written.")
+    if not changed:
+        print("\nAlready in sync (deep compare); nothing written.")
         return
 
     gate["steps"] = new_steps
