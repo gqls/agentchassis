@@ -333,3 +333,71 @@ HIGH severity and structural (a page_type with zero prior rows and no proven
 render path), so it survives any severity threshold. Re-running without an
 answer to D2 would burn another ~25 minutes and escalate again. The owner
 decision is the gate, not the round cap.
+
+---
+
+## 2026-07-18 — D2 answered (B); three more MY-side defects found by running it
+
+**Owner ruling: D2 = option B.** Per-provocation detail renders CLIENT-SIDE on
+the existing `/provocations/index.html` runtime-fill shell. No new page_type,
+no new render path, no per-provocation static pages in the MVP; those and the
+daily emitter move to LATER. Written into the compose prompt WITH its rationale
+so the planner cannot re-derive it (commit `5f96a7330`), paired with a hard
+constraint so B cannot reintroduce the original defect in a new coat: opening
+an archive entry must be a REAL observable outcome (deep-linkable
+fragment/param + a detail region populated with that entry's real feed
+content); a class toggle or an empty region is the same dead control, and an
+entry with no detail content must not be presented as openable.
+
+Four council runs followed. Each escalated, and each escalation was correct —
+every one exposed a defect **of mine**, not of the plan:
+
+**1. Verdict discipline worked.** Objection counts per critic fell from 3–5 to
+1–2, low-severity noise largely disappeared, honesty approved in every round of
+every run. Two runs got within ONE medium objection of approval.
+
+**2. `load_context` was lying by omission** (fixed, `7fa27c401`). It filtered
+`cc.component_level='tool'`, but `gauntlet-interface`, `gauntlet-cta`,
+`provocation-card` and `lobby-grid` are all `level='section'`. The context
+surfaced ONE component when five are active and attached — and `tool-gauntlet`
+genuinely DOES have `gauntlet-interface` attached. So the planner asserted the
+gauntlet component existed while the critic could see no evidence, and objected.
+**Correctly. Five rounds running, across two independent runs.** Now surfaces
+per-page attachments with no level filter, labelled COMPLETE ground truth, with
+both planner and critics told not to claim what is absent nor object as
+unverifiable what it settles.
+
+**3. A compose TRUNCATION DEATH SPIRAL** (fixed, `a751397f3`). `llm_call_log` is
+unambiguous — recompose output per round: 13303 → 12599 → 14138 → 15499 →
+**16000/16000**. The plan grew each round absorbing objections until it hit the
+ceiling and truncated mid-JSON *inside the §5 criteria fence*; journeys and
+feasibility then both objected THAT IT WAS TRUNCATED — an objection revising can
+never clear, because revising makes it longer. Same class as the article-body
+fix (2000→8000), new place. Fixed at both ends, because raising the ceiling
+alone only delays it: max_tokens 16000→32000 on compose/recompose/reframe, PLUS
+a LENGTH DISCIPLINE rule (revise by tightening and replacing, never appending;
+§5 criteria fence has absolute priority and must always be complete, closed and
+followed by the END trailer). **The council caught its own document being
+truncated** — without it, a plan with an unparseable criteria fence would have
+gone downstream to the acceptance ladder.
+
+**4. Operator error, mine: a double-fire.** The first D2=B trigger sat in the
+topic ~10 minutes before being consumed, my poll window missed it, I re-fired,
+and two councils ran concurrently on the same experience key. Harmless here
+(each round-counts by its own orchestration_id; both escalated identically, and
+the redundancy was actually informative — two independent runs agreeing) but it
+is exactly what the CLAUDE.md coverage rule exists to prevent. **Check for an
+in-flight run before every fire; the topic lag can exceed 10 minutes.** Now done
+as a matter of course (`SELECT count(*) ... status NOT IN ('COMPLETED','FAILED')`).
+
+**State at handoff**: run `054b358a` fired 15:31 with all three fixes live, and
+is QUEUED — the chassis has consumed nothing fleet-wide since 15:27 (single
+replica, Running 6h19m, 0 restarts, zero AWAITING_RESPONSES backlog, so nothing
+is holding a slot). Deliberately NOT restarting the chassis: it would disrupt
+every concurrent thread and the evidence does not support it — a prior run
+landed fine after a similar ~10 minute lag. Expect it to land and run ~25 min.
+
+**Judge that run by**: whether the persisted plan ends with
+`<!-- END EXPERIENCE_PLAN -->` and a closed ```criteria fence (proves the
+truncation fix), and whether feasibility stops objecting about component
+existence (proves the context fix). If it converges → CP2 closed → T4.
