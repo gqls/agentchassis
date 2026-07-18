@@ -291,3 +291,45 @@ version; that is the standing rule for an escalated experience plan.
 
 **Next**: owner picks A or B → set it in the compose prompt's D2 block → re-fire
 (verdict discipline is already in) → expect convergence → CP2 closed → T4.
+
+---
+
+## 2026-07-18 — this council's escalation VALIDATED against bugs_open/016
+
+Bug 016 (found here while building this council, now circulated and largely
+fixed by the owning threads) raised a question about MY OWN result: if a
+reviser cannot see the objections, a council can look stubborn-but-working
+while actually being broken. The feature-builder thread confirmed the
+pathology is real on their run `3b084712` — three rounds burned with the
+bug-historian's objection UNCHANGED in every one — and named the tell:
+**facts improve while objections never get addressed**.
+
+**This council does not show it.** Per-round verdicts from run `6a4710d2`:
+
+| round | journeys | feasibility | honesty | mvp |
+|---|---|---|---|---|
+| 1 | object(4) | object(5) | approve | approve(3) |
+| 2 | object(3) | object(5) | **object(1)** | object(4) |
+| 3 | object(3) | object(4) | approve | approve(2) |
+| 4 | object(4) | object(3) | approve | approve(2) |
+| 5 | object(3) | object(4) | approve | object(3) |
+
+Verdicts flip and objection counts move every round (honesty
+approve→object→approve; mvp approve→object→approve→approve→object;
+feasibility 5→5→4→3→4). That is a reviser demonstrably reacting to what it
+was told — the opposite of 016's tell. Two reasons this council was clean:
+its template fix landed BEFORE any run that reached a verdict (the first run,
+`cca7ea8c`, died loudly at `{{.proposal.result}}` on a TEXT step rather than
+degrading silently), and its `check_results` reference was always
+`.results_text` — a field ON the unwrapped value, which is correct.
+
+**So the escalation is trustworthy, and its diagnosis stands**: this is
+OSCILLATION across a four-critic panel (each round fixes one critic and trips
+another), not a blind loop. That is what the verdict-discipline change targets
+(object only for medium/high) — applied, but NOT yet exercised.
+
+**It does not, however, remove the blocker.** Feasibility's objection is
+HIGH severity and structural (a page_type with zero prior rows and no proven
+render path), so it survives any severity threshold. Re-running without an
+answer to D2 would burn another ~25 minutes and escalate again. The owner
+decision is the gate, not the round cap.
