@@ -26,7 +26,19 @@ change what this project should aim at — see **Recommendation** below.
 
 ## 1. Corrections to the handoff (verified against the live DB, 2026-07-18)
 
-### 1a. BLOCKING — the `repropose` lane is invalid, 100% of it
+### 1a. The `repropose` lane is invalid, 100% of it — cause already fixed, corpus still poisoned
+
+> **CORRECTED 2026-07-18 ~14:00Z, before any code was written.** As first drafted
+> this section claimed the defect was live and unfiled, and recommended filing it.
+> Both claims were wrong. It was **already filed** as
+> `bugs_open/016_HANDOFF_2026-07-18_council_revise_prompts_drop_reviewer_output.md`
+> — found the same day by the experience-loop thread — and the `fix-proposer` row
+> was **fixed at 13:15:11Z** by the council-gate thread. Grepping the bugs_open
+> index before filing (CLAUDE.md's rule) is what caught this; I had drafted a
+> duplicate first. The evidence below stands and the corpus consequence is
+> unchanged — what changes is that this is a *historical* corruption of the data,
+> not an open bug for this thread to raise. Quantification and the pre/post-fix
+> boundary are recorded in 016.
 
 The handoff lists the `<no value>` trap (`bugs_open/016`) as landmine #5: *"verify
 the input_state a step actually SAW was complete."* It is not an edge case to
@@ -57,11 +69,13 @@ names as premium signal in §1 are not that. The reviser was revising a plan whi
 being shown empty objections; its reasoning is not grounded in what it appears to
 be grounded in. All 19 `repropose` rows are **quarantined, not trained on**.
 
-**Consequence beyond this project:** the council's revise loop is currently
-decorative, on the live platform, including on 2026-07-18 runs. That belongs to
-the fixloop thread, not this one — it is a platform bug, and this thread must not
-fix it (see §6). It should be filed to `/bugs_open/` and raised with that thread
-before anything else here proceeds, because a fix changes the corpus.
+**Consequence beyond this project:** the council's revise loop was decorative for
+the entire life of the corpus. The render cause is fixed but **unexercised** — no
+repropose run has started since 13:15:11Z, so the fix is unproven in the wild.
+And 016's second finding is still open and live: the `repropose` prompt references
+**6 of 13 seeded seats**, so a revise round still cannot see 7 seats' objections.
+Both belong to the fixloop thread; this thread must not fix them (see §6). The
+open item to raise is the 6-of-13 coverage gap, not the render bug.
 
 ### 1b. Benchmark labels are not machine-parseable
 
@@ -278,7 +292,7 @@ is never concatenated into `input_state`.
 
 | phase | work | output | est. |
 |---|---|---|---|
-| **0** | File the `<no value>` bug to `/bugs_open/`; agree the read contract with the fixloop thread (artifact kinds + `collected_data` shape, versioned or frozen) | bug case file; contract note | ½ day |
+| **0** | ~~File the `<no value>` bug~~ — already filed as `bugs_open/016`; evidence appended instead. Raise the 6-of-13 seat gap with the fixloop thread; agree the read contract (artifact kinds + `collected_data` shape, versioned or frozen) | 016 updated; contract note | ½ day |
 | **1** | `extract.sql` + `cmd/reasoningset` → JSONL for all 13 trajectories, with `guard`, `input_complete`, provenance | `reasoning_v1.jsonl` | 1 day |
 | **2** | Hand-curate `LABELS_benchmark.json` from the one rubric + the ~10 graded runs in NOTES(10); join it in | gold labels attached | ½ day |
 | **3** | Quality report: surviving steps per model, per outcome, per task; hand-verify 2 trajectories end-to-end | `NOTES_corpus_quality.md` — **the go/no-go** | ½ day |
@@ -313,9 +327,13 @@ training run.
 
 ## 6. Scope boundary
 
-This thread does **not** fix the `<no value>` bug, change the loop, or touch
-`platform/`, `internal/`, `pkg/`. It reads. The one coordination point is the read
-contract: if the fixloop thread changes the verdict or council JSON shape, this
-ETL breaks — so that shape needs to be either frozen or versioned before Phase 1.
-The `<no value>` fix will change the corpus (repropose becomes usable), which is
-an argument for filing it now and extracting after, not for fixing it here.
+This thread does **not** fix the `<no value>` bug or the seat-coverage gap, change
+the loop, or touch `platform/`, `internal/`, `pkg/`. It reads. The one coordination
+point is the read contract: if the fixloop thread changes the verdict or council
+JSON shape, this ETL breaks — so that shape needs to be either frozen or versioned
+before Phase 1.
+
+Note the corpus is about to become **bimodal**: pre-13:15:11Z repropose rows have
+blank objections, post-fix ones will not. That is a provenance boundary, not a
+reason to wait — extract now, flag by timestamp, and the split is itself a useful
+natural experiment (same task, same models, with and without objections visible).

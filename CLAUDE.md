@@ -117,6 +117,39 @@ cross-cutting class is largely covered without a manual run. Check the queue
 before filing: `SELECT summary, status FROM site_work_items WHERE
 item_type='needs_diagnosis' AND status='awaiting_diagnosis';`
 
+## Working docs — the standing four (owner directive, 2026-07-18)
+
+Any workstream that will outlive one session keeps **four living documents** in
+its own directory under `docs/agent_docs/docs024_key_docs_latest/<workstream>/`.
+Create them at the START, not at handoff time — the point is that a doc exists
+to update while the work is happening. Update them **as you go**; a doc written
+only at the end is a report, and reports lose the wrong turns, which are the
+expensive part.
+
+| doc | what it holds |
+|---|---|
+| `PLAN_<date>_<slug>.md` | design, phasing, decisions **and their reasons**. Corrections to the originating brief live here, marked as corrections — never silently edited away. |
+| `RUNBOOK_<slug>.md` | the commands. Every query/command you had to get right, with its gotcha attached. When one changes, change it HERE, not in your scrollback. |
+| `NOTES_<slug>.md` | running record, append-only, **newest at the bottom**. One entry per session: what was tried, what the system actually said, what was wrong — *especially* your own earlier claims in that file. |
+| `SUMMARY_<date>_<slug>.md` | the read-out for the owner: what we're doing, what we've done, where we are, where we're going. Plain prose, no jargon, written to be read aloud. |
+
+Rules that make them worth the effort:
+
+- **Record what was wrong, not just what is right.** A wrong turn you diagnosed
+  is the most valuable line in the file — it is the one thing the next thread
+  cannot rederive. Correct claims in place, visibly (`> **CORRECTED <date>:** …`),
+  and say what caught the error.
+- **Ground every figure against the live system** before repeating it from
+  another doc. Volumes, counts and statuses go stale within days; a figure
+  carried forward unchecked is how a stale premise gets diagnosed as a bug.
+- **A verified fact needs its evidence inline** — the query, the file:line, the
+  pod output. "Verified" without the check is a claim, not a verification.
+- **Point at bugs, don't restate them.** Durable defects belong in `/bugs_open/`
+  (see Debugging below) — link them; do not fork a second account that drifts.
+- **Grep before you file.** `/bugs_open/` and the workstream dirs first: several
+  threads work concurrently and may have found it hours ago. This has already
+  prevented duplicate bug files.
+
 ## Dispatching work at the cluster
 
 - **Checking the pod does not check the queue.** Before firing a diagnosis or fix
