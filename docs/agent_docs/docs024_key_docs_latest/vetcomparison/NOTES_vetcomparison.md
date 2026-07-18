@@ -169,3 +169,37 @@ Running record, append-only, **newest at the bottom** (per CLAUDE.md "standing f
 - Working docs brought into line with the standing-four directive (this file renamed from
   RUNNING_NOTES_*, re-ordered newest-at-bottom).
 - Live now: 2,109 practices, exporter enabled (48h), guides sourced, claim+opt-out routes live.
+
+## 2026-07-18 (later — spec-level fix: the fabrication was in the DB, not just the file)
+
+- **The file restore was necessary but insufficient.** `page_components.rendered_html` still held
+  the fabrication, `deployed` and unlocked, so the next render would have republished it. Found by
+  querying the components rather than trusting the restored file.
+- **It was not where I assumed.** The generator lived in the **`hero`** slot (18,101 chars — the
+  whole recreated tool), not `filtered-result-grid`. Spread across the index page:
+  hero = generator + "representative sample" demo claim; filtered-result-grid = `Price: Low to
+  High` sort controls; info-card-grid = "pricing information, ownership data" claim.
+- **Fixed at source, keeping the chassis's better UI.** Rewrote the hero's data layer only:
+  same markup/ids/CSS (search, region filter, pagination, help text) but `fetch('/data/vet-full-
+  index.json')` instead of the generator, honest disclaimer, and a comment forbidding record
+  generation with a pointer to bug 020. 18,101 → 11,326 chars.
+- Copy fixes: price-sort options stripped; info-card intro rewritten to what we actually publish;
+  the "Ownership and Group Information" card (a feature we do not have) replaced with the
+  claim-your-listing route (a product we do).
+- **Swept the other pages** — 3 more hits. Only ONE was a false claim: about/differentiators said
+  "The directory identifies independently owned practices separately from those owned by corporate
+  groups" (we stripped ownership data on 15 July) → replaced with a true differentiator. The other
+  two (about/faq, guide-cma-market-investigation) describe the CMA's *findings and obligations*
+  accurately and were LEFT ALONE — a regex sweep would have wrongly "fixed" correct content.
+- All four corrected components set `lock_type='permanent'` (only 1 component in the whole fleet
+  had a permanent lock before this).
+- `page_components.data_path` exists but is **empty fleet-wide (0 rows)** — vestigial, not the
+  live data mechanism. Do not build a fix on it.
+- > **NOT PROVEN:** I could not dispatch a rerender manually to confirm the fixed source renders
+  > correctly — `rerender-pages` is `experimental` and neither
+  > `system.agent.site-builder.requests` nor `system.agent.page-rerender.process` produced an
+  > orchestration state from a kcat trigger. DB state and live site are both verified correct;
+  > the render path is unverified. **Next thread: watch the first natural render.**
+- Self-inflicted, recorded so nobody repeats it: `\set html \`cat file\`` in a piped psql runs
+  `cat` **inside the pod**, which has no such file — it silently blanked the hero to 0 chars
+  (reported `UPDATE 1`). Correct method: generate dollar-quoted SQL locally, pipe via stdin.
