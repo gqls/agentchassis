@@ -945,6 +945,43 @@ against its source query at least once.
 **Cross-refs.** `bugs_open/018`. Category tags: `stdin-theft` (new),
 `silent-truncation`.
 
+### A capability the platform already has, believed missing because one enum value routes elsewhere
+
+**Symptom.** "The system can't do X." A generated artefact is visibly bad in a way that looks
+like a hard limit of the underlying model or library, and the obvious inference is that a new
+subsystem must be built to do X properly.
+
+**What it actually was (2026-07-18, imagery).** A site's hero image came back as a
+convincing-looking flowchart full of gibberish words, which reads as proof that image models
+cannot render text. It was not a model limit: the provider is chosen by an enum
+(`kind`), and `hero` fell through to the photographic model (SDXL, genuinely unable to render
+text) while `infographic` had always routed to a model that renders text well
+(`gemini-3-pro-image-preview`). The capable lane existed, was correctly wired, and had simply
+never been called. The first attempt through it produced a publishable infographic.
+
+**The transferable pattern.** Before concluding a capability is missing, **read the dispatch
+table, not the output**. When behaviour is selected by an enum/kind/type string, one value
+routing to a weaker backend is indistinguishable — from the artefact alone — from the whole
+capability being absent. Ask: *which branch did my request actually take, and what else is in
+that switch?* Two cheap greps (the switch, and the deployed model/env var) answer it.
+
+**Corollaries.**
+- A generalisation drawn from one backend ("this class of model can't do text") silently
+  expires when a backend is upgraded. Re-test the premise before designing around it; the
+  cost of being wrong is building a subsystem you already had.
+- Output quality through a capable lane is dominated by **request specificity**. The same
+  model produced rubbish from a thin prompt and production-quality work from one that named
+  the layout, the exact copy, the permitted figures and the palette. If a lane "doesn't work",
+  check what you asked it for before replacing it.
+- Good-but-imperfect is the new failure mode, and it is harder to catch: the capable model
+  still occasionally misspells a word inside an image, and nothing in the pipeline reads
+  rendered text. Success signals do not cover artefact correctness — see "Trust the rendered
+  artefact, not the status".
+
+**Cross-refs.** `bugs_open/011` (routing fix, legibility guard, evidence-base-driven figures).
+Category tags: `dispatch-table-not-output`, `expired-generalisation`, `unused-lane`,
+`request-specificity`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs

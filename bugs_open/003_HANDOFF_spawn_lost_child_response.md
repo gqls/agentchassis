@@ -98,7 +98,41 @@ reaper is the only backstop, and it's slow by design.
 
 ---
 
-## 4. The THREE platform gaps to fix (independent of the network fix)
+**3d. SECOND ROOT CAUSE — the consume loop is AT-MOST-ONCE, so any restart destroys
+in-flight messages.** *(Added 2026-07-18, "session coordination" thread. Independent of
+the broker-2 network path in 3a–3b: same symptom class, different mechanism. This is the
+mechanism §4.3 was missing when it suspected "deploy churn is the spawn-killer".)*
+
+`platform/kafka/consumer.go` `Consume()` (L74–108) fetches at **L81** and commits the
+offset at **L103** — *before the message is processed*. The comment at L102 reads
+"After successful processing, commit the offset", but nothing happens between the fetch
+and the commit; the handler runs back in the caller, after `Consume()` has returned. The
+intent was at-least-once; the code is **at-most-once**.
+
+Both main chassis loops use it — `platform/agentbase/agent.go:468` (requests) and
+**:528** (responses). So when a pod dies mid-work Kafka has already been told the message
+was handled and **will never redeliver it**. That is the difference between "a restart
+delays orchestrations" and "a restart annihilates them", and it is not deploy-specific:
+OOM kills, evictions and node failures lose work identically. It is also the likely
+mechanism behind the ~300s post-restart "spawn is silently dropped" rule in `CLAUDE.md`.
+
+**The correct shape already exists in-tree**, which is the tell that this is an oversight
+rather than a design choice: `platform/agentbase/client.go:60/105` and
+`platform/agentbase/server.go:62/124` both use the manual `FetchMessage` … process …
+`CommitMessages` pattern. Only the main agent loop takes the shortcut.
+
+**The expensive prerequisite is already built.** Moving to at-least-once means redelivery,
+which means handlers must tolerate reprocessing — and a dedupe table already exists and is
+already used: `platform/orchestration/state.go:170` (seen-check) and **:207** (insert) over
+`processed_messages`. *Unverified and the one real unknown:* whether that guard covers
+**every** inbound path, or only orchestration state handling. Establish that before
+flipping the commit.
+
+**Standing damage, measured 2026-07-18:** 22 wedged `EXECUTING_STEP` orchestrations, oldest
+**1,224 hours (~51 days)** — every one a message that was acknowledged and then lost, with
+§4.3's reaper blind spot ensuring it never gets cleaned up.
+
+## 4. The platform gaps to fix (independent of the network fix)
 
 1. **Child pods should fail fast on persistent Kafka dial failure.** Right now a pod that can't
    dial its broker logs `"No activity for 5 minutes"` indefinitely and stays `Running`, so k8s
@@ -141,6 +175,35 @@ reaper is the only backstop, and it's slow by design.
    buckets these as one platform pattern. Note the diagnosis loop's own mitigation (an early
    child-row check ~3 min after dispatch) catches NEW losses at dispatch time but does nothing
    for the standing zombie population — the sweep is still needed.
+
+4. **Make the consume loop at-least-once, and make a restart survivable.** *(Added
+   2026-07-18; follows from §3d. This is the one that unlocks continuous deploy — see
+   the note at the end of this section.)*
+
+   a. **Commit after the handler succeeds, not on fetch.** Change the two call sites
+      (`agent.go:468`, `:528`) to the `FetchMessage` … process … `CommitMessages` pattern
+      already used by `client.go`/`server.go`, or fix `Consume()` itself to take a handler
+      and commit on its success. Confirm `processed_messages` (§3d) guards every inbound
+      path first — redelivery without dedupe trades lost work for duplicated work.
+   b. **Fix the drain.** The chassis deployment (measured 2026-07-18) has
+      `terminationGracePeriodSeconds=30` while `Agent.Shutdown()`
+      (`platform/agentbase/agent.go:1088`) itself waits **up to 30s** for in-flight
+      goroutines — SIGKILL races the graceful drain and can win. Grace must comfortably
+      exceed the drain wait; add a `preStop` hook (there is none) so the pod stops
+      accepting new messages and quiesces before dying.
+   c. **Add a readiness probe that means it.** There is **none**, so a new pod counts as
+      Ready the instant it starts and k8s kills the old one before the replacement has
+      joined the consumer group and been assigned partitions. Report Ready only once it is
+      actually consuming.
+   d. **`replicas=1`** — a rollout leaves a window with no consumer at all. ≥2 (check the
+      partition count first: with one partition you get failover, not parallelism).
+
+   **Why this ordering matters for CD.** Continuous deploy on top of at-most-once delivery
+   makes things *worse*, not better — it deploys more often, and every deploy destroys
+   in-flight work. Fix (a) and restarts become redelivery rather than loss; (b)–(d) close
+   the rollout gap; only then is automated deploy safe. A drain-before-deploy dance would
+   paper over deploys specifically while doing nothing for crashes or evictions, which is
+   why the delivery guarantee is the durable fix.
 
 ---
 
@@ -203,3 +266,10 @@ blank shell. Attempts 1–5 all FAILED here: none on content/validation, all on 
 - `platform/orchestration/coordinator.go:772–800` — in-code max-age check (only runs on re-process)
 - `platform/agentbase/agent.go:421, 1080, 1410` — idle timeout / "No activity" warn / idle reaper
 - `docs/leopardessconsulting/RUNNING_NOTES.md` turn 17 — the session where this was characterised
+- **§3d/§4.4 (at-most-once) files:**
+  - `platform/kafka/consumer.go:74–108` — `Consume()`; fetch L81, commit L103, misleading comment L102
+  - `platform/agentbase/agent.go:468, 528` — the two call sites (request + response loops)
+  - `platform/agentbase/client.go:60/105`, `platform/agentbase/server.go:62/124` — the CORRECT
+    fetch/process/commit pattern to copy
+  - `platform/orchestration/state.go:170, 207` — the existing `processed_messages` dedupe
+    (verify its coverage before flipping the commit)
