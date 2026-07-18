@@ -338,6 +338,19 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 
+	// bugs_open/011 R1 — the site's provider preference. The adapter routes by
+	// kind alone because it has no DB access; resolving the preference here and
+	// passing it as data is what makes the routing decision site-owned instead
+	// of hardcoded. Empty is the norm (no guide, or no preference in it) and
+	// leaves the adapter's per-kind default untouched.
+	providerHint := styleGuide.providerForKind(kind)
+	if providerHint != "" {
+		params.Logger.Info("generate_image: site provider preference applied",
+			zap.String("site_id", siteID),
+			zap.String("kind", kind),
+			zap.String("provider_hint", providerHint))
+	}
+
 	// Phase 2I — reference image URIs. Plural form preferred (multiple
 	// references for style consistency); singular form accepted for
 	// backward compat with the Phase 2H field name. Stability v1 REST
@@ -485,6 +498,9 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	}
 	if aspectRatio != "" {
 		imageData["aspect_ratio"] = aspectRatio
+	}
+	if providerHint != "" {
+		imageData["provider_hint"] = providerHint
 	}
 	if len(referenceImageURIs) > 0 {
 		imageData["reference_image_uris"] = referenceImageURIs

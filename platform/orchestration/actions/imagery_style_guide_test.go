@@ -137,3 +137,54 @@ func TestStyleGuideKindOverrides(t *testing.T) {
 		t.Errorf("nil referenceKeysForKind = %v", keys)
 	}
 }
+
+// bugs_open/011 R1 — providerForKind is the site-owned escape hatch from the
+// adapter's kind routing. It mirrors avoidForKind's override-wins-even-when-
+// empty contract; that subtlety is the half a later edit would break silently.
+func TestProviderForKind(t *testing.T) {
+	// Nil guide and unset field both mean "no opinion" — the adapter default
+	// stands. This is the fleet's state today (one site has a guide at all),
+	// so it is the case that must not regress.
+	var nilGuide *imageryStyleGuide
+	if p := nilGuide.providerForKind("hero"); p != "" {
+		t.Errorf("nil providerForKind = %q, want empty", p)
+	}
+	plain := &imageryStyleGuide{Medium: "industrial photography"}
+	if p := plain.providerForKind("hero"); p != "" {
+		t.Errorf("providerForKind with no preference = %q, want empty", p)
+	}
+
+	g := &imageryStyleGuide{
+		Provider: "banana",
+		Kinds: map[string]imageryStyleGuideKindOverride{
+			"hero":         {Provider: "stability"},
+			"content_hero": {Medium: "flat duotone"}, // Provider deliberately absent
+		},
+	}
+	// Guide-level preference applies to kinds with no override.
+	if p := g.providerForKind("illustration"); p != "banana" {
+		t.Errorf("providerForKind(illustration) = %q, want banana", p)
+	}
+	// A per-kind override replaces the guide-level value.
+	if p := g.providerForKind("hero"); p != "stability" {
+		t.Errorf("providerForKind(hero) = %q, want stability", p)
+	}
+	// An override without a Provider is a deliberate "no opinion", NOT a
+	// fallthrough to the guide-level value — same rule as avoidForKind.
+	if p := g.providerForKind("content_hero"); p != "" {
+		t.Errorf("providerForKind(content_hero, override w/o provider) = %q, want empty", p)
+	}
+	// Surrounding whitespace in a hand-written spec must not become an
+	// unrecognised hint at the adapter.
+	spaced := &imageryStyleGuide{Provider: "  stability  "}
+	if p := spaced.providerForKind("hero"); p != "stability" {
+		t.Errorf("providerForKind trimmed = %q, want stability", p)
+	}
+
+	// A guide carrying ONLY a provider preference must survive the loader's
+	// all-empty discard, or the field is unusable on its own.
+	onlyProvider := &imageryStyleGuide{Provider: "banana"}
+	if p := onlyProvider.providerForKind("hero"); p != "banana" {
+		t.Errorf("provider-only guide = %q, want banana", p)
+	}
+}

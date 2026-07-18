@@ -52,10 +52,17 @@ import (
 )
 
 type imageryStyleGuide struct {
-	Palette            string   `json:"palette"`
-	Medium             string   `json:"medium"`
-	Mood               string   `json:"mood"`
-	Avoid              string   `json:"avoid"`
+	Palette string `json:"palette"`
+	Medium  string `json:"medium"`
+	Mood    string `json:"mood"`
+	Avoid   string `json:"avoid"`
+	// Provider optionally pins image generation to a named provider
+	// ("banana" | "stability"). Empty means no opinion and the adapter's
+	// per-kind default applies. This is the site-owned escape hatch from
+	// the adapter's hardcoded kind routing (bugs_open/011 R1) — the adapter
+	// has no DB access, so a site that wants a different model for a kind
+	// than the fleet default has no other way to say so.
+	Provider           string   `json:"provider"`
 	ReferenceAssetKeys []string `json:"reference_asset_keys"`
 	// Kinds holds per-kind overrides (Phase I3.1, D14). A present entry
 	// replaces every guide-level field for that kind — see file header.
@@ -68,6 +75,7 @@ type imageryStyleGuideKindOverride struct {
 	Medium             string   `json:"medium"`
 	Mood               string   `json:"mood"`
 	Avoid              string   `json:"avoid"`
+	Provider           string   `json:"provider"`
 	ReferenceAssetKeys []string `json:"reference_asset_keys"`
 }
 
@@ -117,7 +125,8 @@ func getImageryStyleGuideForSite(ctx context.Context, db interface{}, siteID str
 		return nil
 	}
 	if g.Palette == "" && g.Medium == "" && g.Mood == "" &&
-		g.Avoid == "" && len(g.ReferenceAssetKeys) == 0 && len(g.Kinds) == 0 {
+		g.Avoid == "" && g.Provider == "" &&
+		len(g.ReferenceAssetKeys) == 0 && len(g.Kinds) == 0 {
 		return nil
 	}
 	return &g
@@ -211,6 +220,29 @@ func (g *imageryStyleGuide) referenceKeysForKind(kind string) []string {
 		return nil
 	}
 	return g.ReferenceAssetKeys
+}
+
+// providerForKind returns the site's image-provider preference for a kind
+// ("banana" | "stability"), or "" for no opinion — in which case the adapter
+// applies its per-kind default.
+//
+// Mirrors avoidForKind's override semantics: a per-kind override replaces the
+// guide-level value wholesale, INCLUDING when empty. A site whose base voice
+// pins one provider may deliberately want a single kind left on the fleet
+// default, and partial merging would make that impossible to express.
+//
+// Unlike the other three accessors, logo is NOT special-cased. Those suppress
+// logo because prepending style to a locked logo CONTAMINATES it; choosing
+// which model renders it is not contamination, and logo already routes to
+// Banana either way.
+func (g *imageryStyleGuide) providerForKind(kind string) string {
+	if g == nil {
+		return ""
+	}
+	if o, ok := g.Kinds[kind]; ok {
+		return strings.TrimSpace(o.Provider)
+	}
+	return strings.TrimSpace(g.Provider)
 }
 
 // resolveReferenceAssetURIs maps the guide's reference asset keys to s3://

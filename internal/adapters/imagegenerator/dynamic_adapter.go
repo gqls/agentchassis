@@ -76,6 +76,14 @@ type ImageRequestData struct {
 	// when AspectRatio/Width/Height are absent.
 	Kind string `json:"kind,omitempty"`
 
+	// ProviderHint optionally pins this request to a named provider
+	// ("banana" | "stability"), overriding the per-kind routing default.
+	// Set from the site's imagery_style_guide by GenerateImageAction —
+	// this adapter has no DB access, so the site-aware half of the routing
+	// decision has to arrive as data (bugs_open/011 R1). Empty or
+	// unrecognised falls back to the kind switch in generateImage.
+	ProviderHint string `json:"provider_hint,omitempty"`
+
 	// AspectRatio is a semantic ratio label ("1:1", "16:9", "9:16",
 	// "4:3", "3:4", "3:2", "2:3", "21:9", "5:4", etc). Providers
 	// translate to provider-specific dimensions (e.g. Stability snaps
@@ -517,41 +525,40 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 		ReferenceImageURIs: data.ReferenceImageURIs,
 	}
 
-	// Routing: icon/logo/illustration/infographic → banana (flat
-	// illustration quality, and the only provider that honours
-	// ReferenceImageURIs — required for brand-consistent imagery). hero
-	// stays on stability (photographic work). Empty kind also goes to
-	// stability for backward compat with legacy callers that don't set
-	// the field.
-	//
-	// logo/illustration/infographic moved from stability 2026-07-10: a
-	// site's logo is the reference image every other asset is generated
-	// against, so it must go to the provider that actually reads
-	// ReferenceImageURIs, or brand consistency is structurally
-	// impossible. See docs/leopardessconsulting/RUNNING_NOTES.md turn 4
-	// (decision A6) and AUDIT_verified_facts.md C5.
+	// bugs_open/011 R1 — resolve the routing decision (pure policy, see
+	// routeProvider), then bind it to this adapter's provider instances.
+	decision := routeProvider(data.Kind, data.ProviderHint)
+
 	var p provider.Provider
-	switch data.Kind {
-	case "icon", "logo", "illustration", "infographic", "sprite_sheet", "content_hero":
-		// sprite_sheet (Phase I2): one coherent N×M grid of flat glyphs —
-		// Banana's gridded-composition tendency is the feature here, and the
-		// sheet may anchor to brand reference images.
-		//
-		// content_hero (Phase I3.1, D14): per-article editorial heroes moved
-		// off Stability after the D13 card gate failed on style drift — SDXL
-		// ignores free-text style direction too often at card size, and only
-		// Banana honours ReferenceImageURIs, so consistent per-site card
-		// styling is structurally impossible on the Stability path.
+	switch decision.Provider {
+	case providerBanana:
 		p = a.bananaProvider
 	default:
 		p = a.stabilityProvider
 	}
 
-	// Fail loud when anchors are about to be silently dropped. The routing
-	// switch is hand-maintained: a new kind that nobody adds to the Banana
-	// branch falls to Stability, which ignores ReferenceImageURIs entirely —
-	// so brand anchoring stops working with no error anywhere. That is how
-	// content_hero shipped mis-routed (council gate 098b29b8, bug_historian).
+	if decision.BadHint {
+		a.logger.Warn("generateImage: unrecognised provider_hint; falling back to kind routing",
+			zap.String("provider_hint", data.ProviderHint),
+			zap.String("kind", data.Kind))
+	}
+
+	// bugs_open/011 — the unmigrated-kind guard. This is the mechanism that
+	// mis-routed content_hero and then hero: a kind nobody added to the routing
+	// table lands on Stability, which cannot render text and ignores
+	// ReferenceImageURIs, and NOTHING says so. Both incidents were found months
+	// later by looking at a bad image. Warn loudly and by name so the next one
+	// is caught from the logs on its first generation instead.
+	if decision.UnmigratedKind {
+		a.logger.Warn("generateImage: UNROUTED KIND — this kind is not in kindProviderRouting, so it fell back to Stability, which cannot render legible text and silently ignores ReferenceImageURIs; add it to the table if that is not what you want",
+			zap.String("kind", data.Kind),
+			zap.String("provider", p.Name()),
+			zap.Strings("routed_kinds", knownRoutedKinds()))
+	}
+
+	// Fail loud when anchors are about to be silently dropped — the same
+	// mechanism seen from the reference-image side (council gate 098b29b8,
+	// bug_historian).
 	if len(req.ReferenceImageURIs) > 0 && p != a.bananaProvider {
 		a.logger.Warn("generateImage: reference images will be IGNORED by this provider — kind is routed to a provider that cannot honour style anchors; add it to the banana branch if anchoring is intended",
 			zap.String("kind", data.Kind),
