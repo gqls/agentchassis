@@ -98,7 +98,8 @@ linux/amd64 binary, scp to the box, `systemctl restart idea`.
   `complete` to stop the churn. Logged in `aaa_fails_to_mend/006`.
 
 ## Open decisions (none blocking)
-- `/privacy` after cutover — tool or static? (default: tool; it's embedded in the binary.)
+- ~~`/privacy` after cutover~~ **RESOLVED 2026-07-18: the tool keeps all three legal pages**; the
+  static `.html` copies 301 onto them (already staged in `box/idea.uk.nginx`).
 - ~~`/contact.html` form~~ **RESOLVED 2026-07-17** — mailto (owner's choice); staged at source
   (`sql/p1_07_contact_form_mailto.sql`), publishes on the next contact-page build. Also fixed a stale
   `idea-uk@leopardess.uk` in the form description. RUNNING_NOTES §Q.

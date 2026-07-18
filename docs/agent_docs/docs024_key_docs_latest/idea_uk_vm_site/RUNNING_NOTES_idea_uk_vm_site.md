@@ -516,9 +516,26 @@ Ran `box/provision-pullsync.sh` on 116.203.204.115. Clean:
 `refund-policy.html` **and** `privacy.html` present — so the three `.html →` tool 301s in
 `box/idea.uk.nginx` are required, not theoretical.
 
+**Unattended sync tick PROVEN.** `systemctl status sitesync.service` after the first timer-driven run:
+`Process: ExecStart=/usr/local/bin/sitesync (code=exited, status=0/SUCCESS)`, 142ms, triggered by
+`sitesync.timer`. This is the run that matters — it proves the deploy key + `GIT_SSH_COMMAND` work
+under **systemd as www-data**, not merely under an interactive root shell.
+
+**Route coverage verified + legal-page decision settled (2026-07-18).** `/opt/idea/*.go` is not on the
+box (binary only), so the reserved-path set was re-confirmed from `service.go:596-612`: **16 routes**
+plus `/`. `box/idea.uk.nginx` covers all 16 in 15 location blocks (12 exact + 3 prefix; `^~ /order/`
+covers `success`+`cancel`), 15 `proxy_tool.conf` includes, no gaps. **Owner confirmed the tool keeps
+all three legal pages**, closing that open decision — the staged config already matched.
+
+**Box housekeeping noted (not blocking):** the box reports `*** System restart required ***` and 19
+pending updates (1 security). Worth scheduling deliberately — a reboot during/just after cutover would
+muddy diagnosis, and the reboot also exercises `sitesync.timer`'s `OnBootSec`.
+
 ## Open decisions
 
-- **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)
+- ~~`/privacy` — tool or static?~~ **RESOLVED 2026-07-18 (owner): the tool keeps all three legal
+  pages** (`/terms`, `/refund-policy`, `/privacy`); the static `.html` copies 301 onto them. Matches
+  what `box/idea.uk.nginx` already stages.
 - ~~`/contact.html` form~~ **RESOLVED 2026-07-17 §Q** — converted to a mailto (owner's choice); fix
   staged at source (`sql/p1_07`), publishes on the next contact build.
 - **Cloudflare proxied (orange) or DNS-only (grey)?** Unverifiable from the repo; decides whether the

@@ -292,6 +292,16 @@ the operator flow dies. Re-confirm the list against the running binary before wr
 ssh root@116.203.204.115 "grep -n 'HandleFunc' /opt/idea/*.go 2>/dev/null || echo 'source not on box — use service.go:527-543'"
 ```
 
+**✅ ROUTE COVERAGE VERIFIED 2026-07-18.** The box has no source (`/opt/idea/*.go` → "source not on
+box"), so re-confirmed against `service.go:596-612` in the repo: **16 tool routes** + `/` (the landing
+page, which the static site takes over). `box/idea.uk.nginx` covers all 16 with **15 location blocks**
+— 12 exact + 3 prefix (`^~ /stripe/`, `^~ /internal/`, `^~ /order/`; the last covers both
+`/order/success` and `/order/cancel`), 15 `proxy_tool.conf` includes. No gaps.
+
+**DECISION CONFIRMED BY OWNER 2026-07-18 — the tool keeps all three legal pages** (`/terms`,
+`/refund-policy`, `/privacy`), and the static `.html` copies 301 to them. This was previously only
+the recommended default; it is now settled. Rationale below stands.
+
 **DECISION — the legal pages collide (all three).** The static build generates `/privacy.html` —
 and, **correction 2026-07-16**: `terms.html` and `refund-policy.html` too (this runbook previously
 said it didn't), with footers linking all three *with the `.html` extension*. Exact-match proxy
