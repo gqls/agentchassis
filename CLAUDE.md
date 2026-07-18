@@ -37,6 +37,37 @@ looking. Full problem statement and evidence:
   If your work does get swept into someone's commit: nothing is lost, forward-only
   still holds. Finish the task and commit the remainder; say so in the message.
 
+## Council review of platform changes (advisory, live 2026-07-17)
+
+Any thread can put a change through the fix loop's own reviewer council before
+committing it. Advisory: it records a verdict, it cannot block you. Scope is
+`platform/`, `internal/`, `pkg/` — docs and site content are refused client-side
+and never spend credits. Full runbook + submission schema:
+`docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/RUNBOOK_council_gate.md`.
+
+- **Submit**, from a JSON file holding `rationale` (the real why — reviewers judge
+  the plan against it) and a `plan` (≤8 edits, each with file/operation/rationale/
+  sketch; real diff hunks welcome; plus `grounded_in` evidence quotes):
+  `./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh <submission.json>`
+  Save the printed `SUBMISSION_CORR`. A run takes ~2 minutes.
+- **Verdicts.** APPROVED → commit with a trailer line `Council-Reviewed: <corr>`
+  (that trailer is what makes the coverage report's commit↔verdict join exact).
+  REVISE → the objections come back with the reviewers' own read-only checks
+  already answered; revise and resubmit with `RESUBMIT_CORR=<corr>` so the trail
+  accumulates. REJECTED → a guardian veto; its notes name the safest contained
+  alternative. Read it: `SELECT body FROM doc_notes WHERE categories ?
+  'council-gate' ORDER BY created_at DESC LIMIT 1;`
+- **Cost is relevance-gated**, so submitting is cheaper than it looks: two seats
+  always run (edit-quality, guardian), the other seven fire only when your edited
+  paths match their footprint. One council run per coherent task, not per iteration.
+- **Coverage** (who reviewed, who didn't):
+  `./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/098_REPORT_unreviewed_commits_v1.sh [days]`
+- **If you add or change a council seat, patch BOTH councils in one migration** —
+  `fix-proposer` and `council-gate` — and diff the gate seed against the LIVE
+  `fix-proposer` row first (`agent_definitions.default_config`), because the roster
+  is changing frequently. Two hand-maintained rosters that must stay identical are
+  exactly the drift class the council exists to catch.
+
 ## Dispatching work at the cluster
 
 - **Checking the pod does not check the queue.** Before firing a diagnosis or fix

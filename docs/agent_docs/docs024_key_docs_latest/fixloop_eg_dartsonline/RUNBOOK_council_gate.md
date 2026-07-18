@@ -22,7 +22,7 @@ digest gate-verdicts section the handoff names as the channel to extend).
 | # | Component | File | State |
 |---|---|---|---|
 | 1 | Submission wrapper + trigger | `097_TRIGGER_council_review_v1.sh` | built; validations dry-run tested (single-line payload proven — kcat trap) |
-| 2 | Orchestrator seed | `0NN_council_gate.sql` | **APPLIED & VERIFIED 2026-07-17** — mirrors the live 7-seat roster (relevance filter, 27 steps); image ≥ v1.0.1133 pod-verified |
+| 2 | Orchestrator seed | `0NN_council_gate.sql` | **APPLIED & VERIFIED; re-synced 2026-07-18** — mirrors the live **9-seat** roster (relevance filter, 31 steps, 9-way fields); image ≥ v1.0.1133 pod-verified |
 | 3 | Visibility report | `098_REPORT_unreviewed_commits_v1.sh` | built; live-run 2026-07-17: 28 in-scope commits / 3 days, 0 reviewed |
 | 4 | PR-mode (enforcement) | — | **not built** — owner's explicit go required (build order rule) |
 
@@ -98,6 +98,28 @@ coming lockstep change in its header.
   iteration; PR-cadence batching arrives only with PR-mode.
 - The trailer is self-declared. MISMATCH (trailer without a green report) is
   bucketed separately by 098 precisely so a false claim of review is visible.
+
+## The live roster (re-verify before assuming — it changes often)
+
+As of 2026-07-18, 9 seats. Always-on: **edit-quality**, **guardian** (hard
+veto). Relevance-gated advisory seats and their footprints:
+**bug-historian** (rebuild/rerender/render paths), **reuse-agent** (new
+code/SQL/migrations), **guidelines** (contracts, work-items, agent defs,
+schemas), **tooling-provenance** (contextkit/bundle, doc_plans/doc_notes,
+registry), **adoption-guardian**, **diagnosis-guardian**,
+**improvement-guardian**. Check the truth with:
+
+```sql
+SELECT jsonb_array_length(default_config->'workflow'->'steps'->'council_decide'->'config'->'review_fields')
+FROM agent_definitions WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+Re-sync procedure when the fix-proposer gains a seat: read its live row, copy
+the reviewer step verbatim (swap `## The diagnosis` /
+`{{.diagnosis_row.conclusion}}` for `## The author's stated rationale` /
+`{{.input_data.rationale}}`, and `error_step` → `complete_invalid`), add its
+gate + footprint, extend `review_fields`/`check_fields`, re-run the literal +
+routing validator, then re-apply this file (`snapshot_agent` backs up first).
 
 ## Cross-links
 

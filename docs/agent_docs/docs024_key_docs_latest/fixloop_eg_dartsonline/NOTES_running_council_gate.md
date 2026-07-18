@@ -213,4 +213,34 @@ The gate is COMMISSIONED: applied, verified, and proven end to end on a
 genuine submission — run path, skip path, abstention, checks, doc_note,
 terminal routing all exercised live.
 
+## Turn 4 — 2026-07-18 — Re-synced to 9 seats; CLAUDE.md how-to-use note; fresh read-aloud summary
+
+Owner asked for a read-aloud summary and a note telling threads how to use the
+tool, flagging that more council members may exist by now. They did: the live
+fix-proposer had grown to **9 seats** overnight — diagnosis-loop guardian
+(#4) and improvement-loop guardian (#5), both gated, plus their footprints
+(`diagnosis`, `improvement`). Followed the standing rule: read the live row
+from the DB, mirrored both reviewer steps verbatim (rationale-context swap,
+`error_step` → `complete_invalid`), added both gates into the chain
+(adoption → diagnosis → improvement → guardian), extended review_fields and
+check_fields to nine. Validated (31 steps, routing + reachability + literals
+green), committed `0351e193e`, **re-applied to clients_db** — this time
+`snapshot_agent` DID capture the prior row (`be2a7614`, in
+`agent_definitions_backup`, rollback available). Verified live: 31 steps, 9
+reviewers, 7 gated footprints.
+
+**CLAUDE.md** gained a "Council review of platform changes" section — the
+right home for it: every session loads that file at startup, so a how-to-use
+note reaches threads that will never read this directory. Kept it short
+(submit / verdicts / cost is relevance-gated / coverage report / patch BOTH
+councils and diff the live row first) and pointed at the runbook for the
+schema and detail.
+
+**`SUMMARY_council_gate_2026-07-18.md`** written to supersede the 17th's
+(that one predates the gate going live and now reads as stale) — what we set
+out to do, what we did, where we are, where we're going, plain language.
+
+RUNBOOK gained a live-roster section with the verification query and the
+re-sync procedure, so the next thread does not have to re-derive it.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
