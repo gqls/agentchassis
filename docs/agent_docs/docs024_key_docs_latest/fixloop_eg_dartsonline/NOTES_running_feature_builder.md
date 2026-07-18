@@ -308,4 +308,56 @@ Score: 3 fires, 1 council round spent, 3 defects found (2 steer, 1
 validation) — each caught by the cheapest gate that could catch it. Next
 fire should carry the revision through validation into council round 2.
 
+## Turn 10 — 2026-07-18 — Run 4 went the DISTANCE: 3 rounds, correct ESCALATION, and the council caught a real architectural danger
+
+Run 4 (`3b084712` / `eaae17f3`) completed the whole machine for the first
+time: design → persist → 5 seats → revise → **checks executed** → repropose →
+persist → 5 seats → revise → repropose → persist → 5 seats → revise → round
+cap (3) → `escalate` → `complete_escalated`. No errors. Seven artifacts: 3
+fix_plans, 3 council_reports, 1 escalation. Escalation is a FIRST-CLASS
+SUCCESS terminal — the loop refused to approve something it couldn't
+satisfy, and packaged it for a human. That is the design working.
+
+**The checks discovered the real production defect.** Reviewer SQL, executed
+under containment, revealed the live `fix-implementer` row's actual config:
+`read_current_files.config.ref` and `prepare.config.base_branch` and
+`create_branch.config.data_literals.from_branch` are all the STALE LITERAL
+`084_site_improvements_local_ai` — the exact gotcha F1.2 exists to fix,
+confirmed live from the database rather than from our notes. It also
+corrected the plan's structural assumption (only create_branch uses the
+data_literals/data_fields split; the other two carry flat literals).
+
+**Final round: 4 approve, 1 object.** editquality, reuse_agent, guidelines,
+guardian all APPROVED the third plan. The **bug-historian** held out with
+two high-severity objections — and it is RIGHT:
+- The seed reconstructs the WHOLE `default_config` via upsert. Any step or
+  key outside the builder's partial view is silently dropped (its own
+  verification query had truncated). Occurrence-6 shape.
+- The proven safer shape exists and wasn't used: surgical `jsonb_set` on
+  only the changed keys, leaving unaudited steps byte-identical BY
+  CONSTRUCTION.
+
+**This independently rediscovered the concept-register thread's own hard-won
+rule** (their memory, 2026-07-17: seat migrations that `SET default_config =
+EXCLUDED` CLOBBER concurrent threads' edits; any change to an EXISTING shared
+step MUST be surgical `jsonb_set`). Two threads, different evidence, same
+conclusion. The designer wasn't careless — it followed the house seed
+template, which is correct for NEW agents and dangerous for EDITING
+co-edited ones.
+
+Its third objection (are `*_field` keys overlays or ignored-when-literal-
+present?) I settled directly from the deployed source: `ref_field` wins when
+it resolves non-empty, else the literal stands — so the overlay assumption
+holds, BUT the silent fallback to a stale literal is real, which is why the
+plan correcting those literals to `main` is load-bearing.
+
+**Rule encoded + live:** designer rule 5a — NEW definition → full INSERT;
+EDITING an existing definition → surgical `jsonb_set` on only the changed
+paths, never whole-column replacement, because these rows are co-edited and
+your view of them is always partial. Seed re-applied (snapshotted).
+
+Score: 4 fires, 4 council rounds, 4 defects found (3 steer, 1 validation) +
+1 genuine architectural finding + 1 live production defect confirmed. Run 5
+should produce a surgical seed the bug-historian can approve.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
