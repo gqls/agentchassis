@@ -83,15 +83,51 @@ func TestContentImageAction(t *testing.T) {
 }
 
 func TestContentHeroPrompt(t *testing.T) {
-	p := contentHeroPrompt("Gripper Cycle Time Guide", "How to estimate throughput.")
-	for _, want := range []string{"Gripper Cycle Time Guide", "How to estimate throughput.", "no text"} {
+	p := contentHeroPrompt("Gripper Cycle Time Guide", "How to estimate throughput.", "Article header image")
+	for _, want := range []string{"Article header image", "Gripper Cycle Time Guide", "How to estimate throughput.", "no text"} {
 		if !strings.Contains(p, want) {
 			t.Errorf("prompt %q missing %q", p, want)
 		}
 	}
 	// No description → title-only subject, no dangling separator.
-	p2 := contentHeroPrompt("Title Only", "  ")
+	p2 := contentHeroPrompt("Title Only", "  ", "Article header image")
 	if strings.Contains(p2, "—") {
 		t.Errorf("prompt with empty description carries a dangling separator: %q", p2)
+	}
+	// F3: the surface supplies the noun, so a tool page is not described as
+	// an article. Empty noun falls back rather than emitting a bare prompt.
+	if p3 := contentHeroPrompt("Payload Calculator", "", "Header image for a web-based tool"); !strings.HasPrefix(p3, "Header image for a web-based tool representing: Payload Calculator") {
+		t.Errorf("tool-surface prompt = %q", p3)
+	}
+	if p4 := contentHeroPrompt("X", "", ""); !strings.HasPrefix(p4, "Article header image") {
+		t.Errorf("empty subject noun did not fall back: %q", p4)
+	}
+}
+
+// F3 (2026-07-18): the surface table is the check's extension point, so its
+// invariants are worth pinning — a malformed entry silently changes what the
+// fleet spends money generating.
+func TestContentImageSurfaces(t *testing.T) {
+	seenType := map[string]bool{}
+	for _, s := range contentImageSurfaces {
+		if s.PageType == "" || s.ConsumerLike == "" || s.EligibilitySQL == "" || s.SubjectNoun == "" {
+			t.Errorf("surface %+v has an empty field — every field is load-bearing", s)
+		}
+		if seenType[s.PageType] {
+			t.Errorf("duplicate surface for page_type %q — the sweep would double-emit", s.PageType)
+		}
+		seenType[s.PageType] = true
+		// The eligibility fragments require alias `p` and must be AND-able
+		// onto an existing WHERE clause.
+		if !strings.Contains(s.EligibilitySQL, "p.") || !strings.Contains(s.EligibilitySQL, "AND") {
+			t.Errorf("surface %q eligibility is not an AND-able `p`-aliased fragment: %q", s.PageType, s.EligibilitySQL)
+		}
+		// A consumer pattern without wildcards would never match a LIKE.
+		if !strings.HasPrefix(s.ConsumerLike, "%") || !strings.HasSuffix(s.ConsumerLike, "%") {
+			t.Errorf("surface %q ConsumerLike must be wildcard-wrapped for LIKE: %q", s.PageType, s.ConsumerLike)
+		}
+	}
+	if !seenType["blog-post"] || !seenType["tool"] {
+		t.Error("expected both the blog-post and tool surfaces to be registered")
 	}
 }

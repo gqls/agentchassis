@@ -141,6 +141,20 @@ const ListedPageEligibilitySQL = `
 		  AND jsonb_typeof(p.sections) = 'array'
 		  AND jsonb_array_length(p.sections) > 0`
 
+// DeployedPageEligibilitySQL is the weaker sibling for page types whose
+// content is NOT in `sections` — tool pages are the case that forced it:
+// their substance is the interactive tool committed under /tools/<name>/, and
+// 20 of the fleet's 33 deployed tool pages carry zero sections legitimately.
+// Requiring sections there would exclude almost every real tool page.
+//
+// Deliberately NOT applied by resolvePagesWhereType: `tool-list` is meant to
+// advertise the whole tool directory, so the listing keeps its own looser
+// contract. This constant exists for consumers that must not spend money on
+// pages that never shipped — today, the imagery sweep. Same alias contract
+// (`p` for pages) as ListedPageEligibilitySQL.
+const DeployedPageEligibilitySQL = `
+		  AND p.deployed_at IS NOT NULL`
+
 // pageImageProjection / pageImageJoins are the shared SQL fragments that give
 // every page-listing query its item image (Phase I3, Lane B). Two candidates,
 // in preference order:

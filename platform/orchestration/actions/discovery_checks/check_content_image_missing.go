@@ -89,18 +89,88 @@ func contentImageAction(r contentImageRow) string {
 // content. Deliberately subject-only: the per-site imagery style guide
 // prepends medium/mood/palette at generation time (imagery_style_guide.go),
 // so this stays one brand voice without double-direction.
-func contentHeroPrompt(title, metaDescription string) string {
+func contentHeroPrompt(title, metaDescription, subjectNoun string) string {
 	subject := strings.TrimSpace(title)
 	if d := strings.TrimSpace(metaDescription); d != "" {
 		subject += " — " + d
 	}
+	if subjectNoun == "" {
+		subjectNoun = "Article header image"
+	}
 	return fmt.Sprintf(
-		"Article header image representing: %s. Concrete subject matter from the article topic, no text or lettering in the image.",
-		subject)
+		"%s representing: %s. Concrete subject matter from the page topic, no text or lettering in the image.",
+		subjectNoun, subject)
+}
+
+// contentImageSurface is one page type's listed-content contract: which pages
+// count as real, what proves the site actually lists them, and how to phrase
+// the generation prompt. Adding a surface is a data change, not a control-flow
+// change — the sweep, the two-mode decision, the cap and the item shapes are
+// all type-agnostic already.
+//
+// Phase I3.1 (F3, 2026-07-18): `tool` joined `blog-post`. The two differ in
+// every field, which is why this had to become a table rather than a widened
+// IN-list: tool pages are listed by a different query, their content lives in
+// a committed /tools/<name>/ bundle rather than in `sections` (so the article
+// eligibility rule would exclude 20 of the fleet's 33 deployed tool pages),
+// and "Article header image" is the wrong phrase for a calculator.
+type contentImageSurface struct {
+	PageType string
+	// ConsumerLike proves something on the site lists this page type. The
+	// gate is per surface: a site with articles but no tool directory must
+	// not start generating imagery for its tool pages.
+	ConsumerLike string
+	// EligibilitySQL is a WHERE fragment requiring alias `p` (pages).
+	EligibilitySQL string
+	// SubjectNoun opens the generation prompt ("Article header image…").
+	SubjectNoun string
+}
+
+var contentImageSurfaces = []contentImageSurface{
+	{
+		PageType:       "blog-post",
+		ConsumerLike:   "%query.blog_posts%",
+		EligibilitySQL: queryresolve.ListedPageEligibilitySQL,
+		SubjectNoun:    "Article header image",
+	},
+	{
+		PageType:     "tool",
+		ConsumerLike: "%query.pages_where_type:tool%",
+		// Tool pages ship as deployed shells: the tool itself is committed
+		// JS under /tools/<name>/, so `sections` is legitimately empty and
+		// the article rule would wrongly exclude them. deployed_at alone
+		// still keeps spend off pages that never shipped.
+		EligibilitySQL: queryresolve.DeployedPageEligibilitySQL,
+		SubjectNoun:    "Header image for a web-based tool",
+	},
 }
 
 func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
-	// Gate: something on this site actually lists articles.
+	result := &CheckResult{}
+	emitted := 0
+	for _, surface := range contentImageSurfaces {
+		n, err := c.runSurface(dctx, surface, result, emitted)
+		if err != nil {
+			return nil, err
+		}
+		emitted += n
+	}
+	if emitted > 0 {
+		dctx.Logger.Info("content_image_missing: emitted items",
+			zap.Int("count", emitted), zap.Int("cap", contentImageMaxPerPass))
+	}
+	return result, nil
+}
+
+// runSurface sweeps one page type. alreadyEmitted carries the running total so
+// the per-pass cap covers the whole check, not each surface separately — a
+// site with both articles and tools must not spend double.
+func (c *ContentImageMissingCheck) runSurface(dctx DiscoveryCheckContext, surface contentImageSurface, result *CheckResult, alreadyEmitted int) (int, error) {
+	if alreadyEmitted >= contentImageMaxPerPass {
+		return 0, nil
+	}
+
+	// Gate: something on this site actually lists pages of this type.
 	var consumers int
 	err := dctx.DB.QueryRowContext(dctx.Ctx, `
 		SELECT COUNT(*)
@@ -109,24 +179,22 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 		  JOIN pages p ON p.id = pc.page_id
 		 WHERE p.site_id = $1
 		   AND p.status IN ('active', 'deployed')
-		   AND cc.input_schema::text LIKE '%query.blog_posts%'
-	`, dctx.SiteID).Scan(&consumers)
+		   AND cc.input_schema::text LIKE $2
+	`, dctx.SiteID, surface.ConsumerLike).Scan(&consumers)
 	if err != nil {
-		return nil, fmt.Errorf("content_image_missing: consumer scan failed: %w", err)
+		return 0, fmt.Errorf("content_image_missing: consumer scan failed for %s: %w", surface.PageType, err)
 	}
 	if consumers == 0 {
-		return &CheckResult{}, nil
+		return 0, nil
 	}
 
-	// Sweep every listed-type page's imagery state in one query. The inline
+	// Sweep this type's imagery state in one query. The inline
 	// 'content_hero_' || replace(...) MUST match imageryplan.ContentHeroKey.
 	//
-	// Eligibility (F2.1, 2026-07-17): only articles that actually shipped.
-	// Plan-era scaffold rows and never-built /blog/ duplicates sit
-	// status='active' with empty sections; generating imagery for them is
-	// wasted spend on pages that 404. The predicate is queryresolve's shared
-	// constant, not a copy: the listing and this sweep must agree on which
-	// articles exist, and two hand-maintained strings would drift silently.
+	// Eligibility (F2.1) comes from queryresolve's shared constants rather
+	// than a local copy: for articles the listing and this sweep must agree
+	// on which pages exist, and two hand-maintained strings would drift
+	// silently. See the surface table above for why the rule differs by type.
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT p.id::text, p.name,
 		       COALESCE(p.title, p.name)          AS title,
@@ -152,17 +220,16 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 		    ON ca.site_id = p.site_id AND ca.entity_type = 'page'
 		   AND ca.entity_id = p.id AND ca.purpose = 'card' AND ca.status = 'active'
 		 WHERE p.site_id = $1
-		   AND p.page_type = 'blog-post'
+		   AND p.page_type = $2
 		   AND p.status IN ('active', 'deployed')`+
-		queryresolve.ListedPageEligibilitySQL+`
+		surface.EligibilitySQL+`
 		 ORDER BY p.name
-	`, dctx.SiteID)
+	`, dctx.SiteID, surface.PageType)
 	if err != nil {
-		return nil, fmt.Errorf("content_image_missing: sweep failed: %w", err)
+		return 0, fmt.Errorf("content_image_missing: sweep failed for %s: %w", surface.PageType, err)
 	}
 	defer rows.Close()
 
-	result := &CheckResult{}
 	emitted := 0
 	for rows.Next() {
 		var r contentImageRow
@@ -171,9 +238,10 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 			dctx.Logger.Warn("content_image_missing: scan failed", zap.Error(err))
 			continue
 		}
-		if emitted >= contentImageMaxPerPass {
+		if alreadyEmitted+emitted >= contentImageMaxPerPass {
 			dctx.Logger.Info("content_image_missing: per-pass cap reached; remainder next pass",
-				zap.Int("cap", contentImageMaxPerPass))
+				zap.Int("cap", contentImageMaxPerPass),
+				zap.String("page_type", surface.PageType))
 			break
 		}
 
@@ -185,17 +253,18 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 		var item WorkItemSpec
 		switch action {
 		case "generate":
-			item, err = c.generationItem(dctx, r)
+			item, err = c.generationItem(dctx, r, surface)
 		case "derive":
 			item, err = c.deriveItem(dctx, r)
 		}
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
 
 		result.Findings = append(result.Findings, map[string]interface{}{
 			"check":     c.Name(),
 			"action":    action,
+			"page_type": surface.PageType,
 			"page_name": r.PageName,
 			"entity_id": r.PageID,
 		})
@@ -203,21 +272,16 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 		emitted++
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("content_image_missing: rows iter failed: %w", err)
+		return 0, fmt.Errorf("content_image_missing: rows iter failed for %s: %w", surface.PageType, err)
 	}
-
-	if emitted > 0 {
-		dctx.Logger.Info("content_image_missing: emitted items",
-			zap.Int("count", emitted), zap.Int("cap", contentImageMaxPerPass))
-	}
-	return result, nil
+	return emitted, nil
 }
 
 // generationItem shapes the Lane B content-hero GENERATION request. It is a
 // standard needs_imagery item (imageryplan.BuildSpec) so image-build-handler's
 // generic path handles it unchanged; scope/scope_ref make flag_rebuild
 // re-render the article page when the image lands.
-func (c *ContentImageMissingCheck) generationItem(dctx DiscoveryCheckContext, r contentImageRow) (WorkItemSpec, error) {
+func (c *ContentImageMissingCheck) generationItem(dctx DiscoveryCheckContext, r contentImageRow, surface contentImageSurface) (WorkItemSpec, error) {
 	row := imageryplan.Row{
 		Scope:    "page",
 		ScopeRef: &r.PageName,
@@ -228,7 +292,7 @@ func (c *ContentImageMissingCheck) generationItem(dctx DiscoveryCheckContext, r 
 		// D13 gate failed on exactly this: SDXL drifted off the free-text
 		// style direction card-to-card (colour, medium, text artefacts).
 		Kind:       "content_hero",
-		Prompt:     contentHeroPrompt(r.Title, r.MetaDescription),
+		Prompt:     contentHeroPrompt(r.Title, r.MetaDescription, surface.SubjectNoun),
 		StyleHints: json.RawMessage(`{"aspect_ratio":"16:9"}`),
 	}
 	specJSON, err := imageryplan.BuildSpec(row, c.Name())
@@ -242,7 +306,7 @@ func (c *ContentImageMissingCheck) generationItem(dctx DiscoveryCheckContext, r 
 		Pipeline:     "build",
 		ItemType:     "needs_imagery",
 		Severity:     severity,
-		Summary:      fmt.Sprintf("Listed article %q has no image of its own — generate its content hero", r.PageName),
+		Summary:      fmt.Sprintf("Listed %s page %q has no image of its own — generate its content hero", surface.PageType, r.PageName),
 		SpecJSON:     specJSON,
 		Priority:     priority,
 		HandlerAgent: "image-build-handler",
