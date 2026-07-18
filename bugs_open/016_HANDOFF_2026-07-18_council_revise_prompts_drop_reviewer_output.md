@@ -180,3 +180,41 @@ through `input_fields` (which is what makes this recur on every new seat).
 seat-adding routine, because this will recur the next time a seat lands. The
 gate's roster mirror already went mechanical for exactly this reason
 (`099_SYNC_gate_roster.py`).
+
+---
+
+## VERIFICATION 2026-07-18 (diagnosis-fixloop thread) — LIVE rows are already clean
+
+Checked both listed agents against the **live** `agent_definitions` row (not the
+seed), per your own "diff against the LIVE row" caveat:
+
+- **`fix-proposer` — CLEAN.** `repropose`/`reframe` inject reviews with the
+  CORRECT unwrapped form `{{.review_editquality}}`, `{{.review_guardian}}`,
+  `{{.review_bug_historian}}`, … — **no `.result` suffix**. A full sweep of
+  every `execute_llm_prompt` prompt in the agent found **zero** `{{.X.result}}`
+  refs. Last updated 13:15Z (before this handoff was filed at 13:58). So the
+  live reviser DOES see objections.
+- **`feature-designer` — CLEAN** by the same check (no broken `{{.review_X.result}}`
+  refs in any LLM step).
+- **`council-gate` — CLEAN** (migrated + swept today).
+
+So the defect is REAL and well-diagnosed, but its **evidence table is stale for
+the live rows** — both agents were corrected to the unwrapped form at some point
+in the churn. Nothing to fix in these three right now.
+
+**Where the ongoing risk actually is:** a **re-seed reintroducing `.result` in a
+template**. The roster/config for these agents is re-seeded frequently by
+several threads; any seed that still carries `{{.review_X.result}}` in a
+`repropose`/`reframe` prompt would silently re-break the reviser (json-output →
+`<no value>`). Guard: the regression test named above
+(`template_result_wrapper_test.go`) is the contract; seed authors must keep the
+unwrapped form in templates and the `.result` form only in config dot-paths
+(`review_fields`, `check_fields`, `plan_field`).
+
+**Adjacent note (relevant to the "converging because the reviser was blind"
+question):** on this thread's runs the code-lookup verify tier injects its answer
+as `{{.code_lookup_results.results_text}}` — `.results_text` is a real map key,
+NOT a `.result` wrapper, so it is unaffected by this trap and renders correctly.
+That is a second, structured channel by which a reviewer's *question* reaches the
+reviser even independent of the prose-objection injection — so the code tier's
+observed plan-widening is robust to this bug, not a beneficiary of it.
