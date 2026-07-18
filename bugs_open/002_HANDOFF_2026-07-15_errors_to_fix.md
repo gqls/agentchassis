@@ -231,3 +231,41 @@ dartsonline ships. Worth deciding before a rebuild surprises someone.
    NOT a quick fix: it hits the content-regression guard (see its entry) — a
    real guard-vs-repair gap needing a targeted-repair approach.
 5. **E** — dartsonline decision; not urgent but do before its next rebuild.
+
+---
+
+## F — On-demand discovery dispatch: envelope accepted, nothing runs (2026-07-18)
+
+**Found** trying to point the auditors at idea.uk (which had never had a
+discovery run — see `017`). Two distinct problems, both in *how you ask for a
+discovery run*, not in the checks themselves.
+
+**F.1 — `ensure_site_record` resolves BY DOMAIN.** An envelope carrying only
+`site_id` dies at the first step:
+`step ensure_site_record failed: … domain not found in input_data`
+(orchestration `974a56f9-a109-414b-85ef-7b83aa9a4642`). The canonical trigger
+already knows this — `scripts/initial_messages/060improvement_loop/076_improvement_loop_trigger.sh`
+passes **both** `site_id` and `domain`. Anything new must too.
+
+**F.2 — a well-formed envelope produced NO orchestration at all.** After adding
+`domain`, correlations `cd2459ce-06f4-4f64-aa09-66ebd9ccdd3f` and
+`199ba851-f0fd-4fa7-8909-de1a9cc790a5` created **zero** `orchestration_states`
+rows — accepted by Kafka, never executed, no error anywhere. Not the documented
+300s-post-restart drop: the chassis pod was ~6h old (v1.0.1135). Unexplained.
+
+*Difference worth testing first:* the working trigger uses `action=process` with
+an inline `spawn_agent`/`call_agent` workflow and `kcat -P **-c 1**`; the failing
+one used `action=orchestrate` with `config.agent_type` and plain `kcat -P`. So the
+suspects are (a) `action=orchestrate` + bare `agent_type` no longer being a
+supported entry for these agent types, or (b) the missing `-c 1` letting kcat
+publish a malformed/extra message (the known kcat line-splitting trap).
+
+**Why it matters beyond one run:** discovery is how the fleet finds dead
+controls, phantom links and misdirected CTAs. If the only reliable way to run it
+is the full improvement-loop, that should be *documented as the way* — and if
+`action=orchestrate` is genuinely dead for these agents, other hand-rolled
+triggers across the repo are silently no-ops too.
+
+**Do first:** re-run via `076_improvement_loop_trigger.sh <site_id> <domain>`
+(note it has hardcoded SITE_ID/DOMAIN overrides near the top that shadow its own
+arguments — read before running). Reuse it; do not write another trigger.
