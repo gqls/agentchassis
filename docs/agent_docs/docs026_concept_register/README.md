@@ -50,6 +50,7 @@ PILOT_tooling_provenance_reviewer.md — stage-3 council seat #4 (candidate #10)
 PILOT_adoption_guardian_reviewer.md — stage-3 council seat #5 (candidate #3, first gated+surgical) — LIVE 2026-07-17
 PILOT_diagnosis_guardian_reviewer.md — stage-3 council seat #6 (candidate #4) — LIVE 2026-07-18
 PILOT_improvement_guardian_reviewer.md — stage-3 council seat #7 (candidate #5) — LIVE 2026-07-18
+PILOT_final_four_reviewers.md — stage-3 seats #8-11 (compliance, render, LLM-reliability, debugging) — LIVE 2026-07-18; COUNCIL COMPLETE (13 seats)
 SUMMARY_where_we_are_2026-07-18.md — read-aloud summary: 9 seats, debugging-seat explainer, multi-model gauntlet verdict
 DESIGN_relevance_filter.md — how the remaining specialist seats gate behind a relevance filter (designed, not built)
 001_PROMPT_charter.md      — the rewritten task charter

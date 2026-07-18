@@ -277,20 +277,18 @@ in this order.
    (born from the 845-item unbounded-drain incident, IMP-027), config-only
    check enablement, runner-owns-insertion dedup, acceptance-test
    verification. `PILOT_improvement_guardian_reviewer.md`.
-6. **Compliance/legal eye** — FIX-036's fourth named seat. `legal-and-compliance.md`
-   itself is thin (1 concept — a register gap worth noting), but justified by
-   real severity: two live incidents this platform has already had (fabricated
-   pricing, fabricated marketing claims) that a compliance reviewer would have
-   caught earlier.
-7. **Render-pipeline guardian** — `styling-render-pipeline.md`, broader than
-   the bug-historian's one pattern family; where most silent, visually-invisible
-   bugs live.
-8. **LLM-reliability specialist** — `model-infrastructure.md`, home of
-   `MDL-038`/`039` plus `MDL-005`/`006` (7 citations each, among the highest
-   in the register).
-9. **Debugging/incident-lore historian** — `debugging.md`, the largest
-   category (74 concepts, 6 heavily rediscovered), deliberately broader than
-   the bug-historian: "has anything like this happened," not one pattern.
+6. **Compliance/legal eye** — DONE, live 2026-07-18 (v15). Severity-justified:
+   two live fabrication incidents. Judges unevidenced claims/prices, the
+   poisoned-spec class, weakened claims gates, legal surface.
+7. **Render-pipeline guardian** — DONE, live 2026-07-18 (v16). Fail-loud
+   render paths, rerender-mode skip semantics (STY-048), runtime-fill
+   exemption, var() chain (CTS-011), validation layers.
+8. **LLM-reliability specialist** — DONE, live 2026-07-18 (v17). BUG A/B
+   (config precedence, truncation detection), thinking spend, swap discipline.
+9. **Debugging/incident-lore historian** — DONE, live 2026-07-18 (v18,
+   loosely gated on code fixes). Needle-gate SQL discipline, Postgres
+   pitfalls, informational-column blast radius, pod-not-git verification,
+   repair-vs-regenerate taxonomy.
 10. **Documentation/contextkit specialist** ("tooling & provenance") — DONE,
     live 2026-07-17 (built out of order, user's pick). `contextkit-toolchain.md`
     + `documentation-system.md`. `CTXK-015` is cited from 11 independent
@@ -301,17 +299,22 @@ in this order.
     A narrow specialist — applied always-on for now because the filter isn't
     deployed; its footprint is in the filter config so it auto-gates on deploy.
 
-**Council is now 9 reviewers** (edit-quality, guardian always-on; bug-historian,
-reuse-agent, guidelines, tooling-provenance, adoption-guardian,
-diagnosis-guardian, improvement-guardian gated behind the filter). #6-9 of the
-list remain (compliance, render, LLM-reliability, debugging). Now that the filter is live, every new seat
+**THE COUNCIL IS COMPLETE (2026-07-18): 13 reviewers** — edit-quality +
+guardian always-on (guardian holding the hard veto + the stability proviso),
+and 11 gated specialists (bug-historian, reuse-agent, guidelines,
+tooling-provenance, adoption, diagnosis, improvement, compliance, render,
+LLM-reliability, debugging), each woken by the relevance filter only when a
+fix enters its territory. Every candidate from the "ten more" list is built.
+A typical fix wakes 2-5 seats. Combined pilot for the final four:
+`PILOT_final_four_reviewers.md`. Not yet exercised on a real run — BUG A's
+dispatch (owner's call) will be the completed council's first outing. Now that the filter is live, every new seat
 is built **gated + surgically** (footprint + gate + reviewer, via chained
 `jsonb_set` — never a full-config reapply, which would clobber the co-edited
 guardian's `code_checks`/proviso). #10 was applied always-on before the filter
 existed but its footprint is in the filter config, so it's gated too.
 
-None of #6-9 are spec'd to prompt-level detail yet. Each is real design work
-per seat (charter, curated context grounded in specific register concepts,
+All seats are now spec'd and live. (Historical note — each was real design work
+per seat: charter, curated context grounded in specific register concepts,
 prompt, patch) — not a mechanical checklist, as the reuse-agent regrounding
 above shows (the first framing of it was wrong on closer inspection).
 

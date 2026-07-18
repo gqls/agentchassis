@@ -55,6 +55,7 @@ entries at the bottom. Update every turn.
 | 2026-07-18 | Built candidate #4 (diagnosis-loop guardian, `DIAG-001/008/009/028/030`) — gated + surgical; council now 8. Drift-checked first (another thread had touched the row at 09:21; all anchors intact) | **confirmed, live** |
 | 2026-07-18 | Built candidate #5 (improvement-loop guardian, `IMP-003/004/027` — the 845-item unbounded-drain guards) — gated + surgical (v14); council now 9 | **confirmed, live** |
 | 2026-07-18 | Owner's multi-LLM idea (diverse-vendor model panel for intractable bugs) ruled a SEPARATE subproject, not the debugging seat — council seats review plans; this generates diagnoses at the escalation terminal. Recorded in PLAN with groundwork + prerequisite (MDL-038) | **recorded, awaiting green-light** |
+| 2026-07-18 | User: "please go ahead and complete the council." Built + applied v15-v18 (compliance, render, LLM-reliability, debugging) sequentially — THE COUNCIL IS COMPLETE: 13 reviewers, 11 gated | **confirmed, live** — full chain verified, proviso + code_checks intact |
 
 ---
 
@@ -921,5 +922,44 @@ style: what we set out to achieve, where we are (9 seats + the filter + how
 each was installed), a plain-language explainer of the debugging seat vs. the
 multi-model idea, and what's next (#6 compliance, #7 render, #8
 LLM-reliability, #9 debugging; then the gauntlet if green-lit).
+
+## Turn 26 — 2026-07-18 — THE COUNCIL IS COMPLETE: 13 reviewers
+
+User: "please go ahead and complete the council." Built the final four seats
+in one sitting — the routine is settled enough that the migrations were
+generated from a shared template (with per-seat charters individually
+grounded), each verified, then applied sequentially with a pre-flight check
+between every apply.
+
+- **v15 compliance** (#6): the severity seat — two live fabrication incidents
+  (vetcomparison prices, leopardess claims incl. the poisoned writing rule
+  that INSTRUCTED fabrication). Judges unevidenced claims, weakened scanners,
+  poisoned specs, legal surface (`LGL-001`, `CQ-017`).
+- **v16 render-guardian** (#7): fail-loud-not-silent render paths, the two
+  rerender modes' skip semantics (`STY-048` — chrome changes through scoped
+  mode silently miss pages), runtime-fill exemption + rendered-artifacts
+  landmine (`STY-019`), var() chain (`CTS-011`), validation layers (`STY-004`).
+- **v17 LLM-reliability** (#8): BUG B root-shadows-step, BUG A
+  truncation-looks-like-success (the output_tokens==max_tokens signature),
+  thinking-spend budgets, swap discipline (`MDL-038/039/005/006`).
+- **v18 debug-historian** (#9): the deliberately-broad seat, LOOSELY gated
+  (.go/platform//internal//cmd//.sql — most code fixes), carrying the largest
+  lore category: needle-gate SQL surgery + the Postgres pitfall catalogue
+  (`DBG-016`), informational-column blast radius (`DBG-017`), pod-not-git
+  verification, repair-vs-regenerate (`DBG-065`).
+
+One generator bug caught before applying: charter lines for v17/v18 had
+pre-escaped quotes that sql_quote() double-escaped (`''''`) — found by a grep
+sweep, fixed, re-verified. All four applied cleanly (UPDATE 1 each, snapshots
+taken); end-to-end chain verification shows all 26 steps routing correctly,
+run/skip paths converging, all three arrays at 13, guardian proviso +
+code_checks byte-intact, 11 footprints in select_panel.
+
+**Final roster:** select_panel → editquality → 11 gated specialists →
+guardian (hard veto, stability proviso) → council_decide. A typical fix wakes
+2-5 seats. Every candidate from the "ten more" list is now built. What remains
+for stage 3 is watching the council's first real outing (BUG A's dispatch,
+owner's call) — and the proposed multi-model gauntlet subproject if
+green-lit.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
