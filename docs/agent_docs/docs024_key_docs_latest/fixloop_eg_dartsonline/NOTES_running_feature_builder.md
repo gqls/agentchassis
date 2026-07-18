@@ -456,9 +456,61 @@ growth — seat 6 appears in the reviser automatically, because
 (a seat missing there already fails loudly by not counting in the decision).
 Applied surgically, AFTER run 5 terminated, never mid-run.
 
-**Council gate: submission `5a65ec4c` (delta 2) SILENTLY NEVER DISPATCHED** —
-no orchestration row, no artifacts, though `council-gate` is seeded with 10
-prior runs, the pod was 22,600s old, and a designer run fired 2 minutes
-earlier on the same envelope worked. Not diagnosed; flagged to that thread.
+**Council gate: submission `5a65ec4c` (delta 2) — my "never dispatched" call
+was WRONG.** It was QUEUED, not dropped: I checked ~2 min after firing and
+saw no orchestration row, and reported a silent drop. It started at 15:42:59
+and finished 15:50:18. **Lesson: absence of a row shortly after dispatch is
+not evidence of a drop** — the 300s window makes early absence normal. I
+retracted this to the owner.
+
+## Turn 13 — 2026-07-18 — Council gate on delta 2: REVISE, and it found a real high-severity defect
+
+First use of the council gate by this thread (submission `5a65ec4c`). Verdict
+**revise**: 7 seats fired via the relevance filter — diagnosis_guardian
+approve; editquality, bug_historian, reuse_agent, tooling_provenance,
+guardian, debug_historian object (15 objections). Worth the credits on the
+strength of one finding alone.
+
+**THE REAL DEFECT (bug_historian high, + 2 medium — one root cause).** All
+three routed seams used "resolve non-empty, else fall back", which collapses
+*not configured* with *configured but resolved empty* — the platform's
+worst-known failure shape. Concretely: `ref_field` empty → stage N silently
+reads `main` instead of the branch carrying stage N-1's commits, and the
+implementer rewrites files from the wrong tree; `branch_field` empty →
+prepare re-derives `fix/<corr>` and commits a stage's files to a DIFFERENT
+branch than the loop is building; `test_packages_field` empty → a silent
+build-only gate, forfeiting the exact D6 guarantee that mode exists for.
+**Fixed (`9c94cc842`): all three now error when configured-but-empty; unset
+keeps the single-plan path byte-identical.** Test added locking the router's
+side of the contract (it must never emit an empty branch/ref/message, and
+must derive packages for a plan with .go edits). Package green.
+
+**Three objections settled by direct verification rather than assertion:**
+- guardian [high] "confirm no OTHER pipeline uses these actions": live DB
+  sweep — ONLY `fix-implementer` and `feature-implementer`. Blast radius is
+  exactly the two known consumers.
+- guardian [med] "confirm the buildGateScript call sites": 3 test + 1
+  production + the definition, all updated (my submission said "both", i.e.
+  2 — wrong count, right substance).
+- debug_historian [med] "commit hashes are not deploy evidence — grep the
+  RUNNING pod": correct, and my rationale did cite commits. Pod-grep confirms
+  `feature-implementer` IS in the live binary. Their point stands as method.
+
+**Not yet actioned (owner's call):** editquality — registry.go registration
+should be its own declared edit, not buried in a sketch; editquality+guardian
+— `expected_symbols`' verbatim substring check can false-reject a correct
+stage whose symbol lives in an earlier stage's file (self-identified in my
+own risks, still unmitigated; the honest fix is designer-prompt guidance that
+expected_symbols name only symbols the stage's OWN files introduce);
+reuse_agent — asks whether `site_work_items` sequencing (parent_item_id /
+depends_on / batch_id) should carry stage state instead of a new action (my
+view: no — that is work-item queueing, not in-run workflow state, and
+`diagnose_route` is the right precedent — but it deserves a written answer,
+not a dismissal); tooling_provenance — these actions should carry travelling
+PLAN+NOTES subjects.
+
+**Correction to turn 12:** my "council gate silently never dispatched" was
+WRONG — it was queued, and ran 15:42:59→15:50:18. Absence of an orchestration
+row ~2 min after dispatch is normal, not evidence of a drop.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
