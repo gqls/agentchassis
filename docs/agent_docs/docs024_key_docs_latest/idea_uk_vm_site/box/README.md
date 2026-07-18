@@ -27,12 +27,30 @@ Deploy Key on `gqls/vm-sites`, then sparse-clones only `idea.uk/`, installs the
 5-minute timer, runs one sync, and checks all 8 pages are in `/var/www/idea.uk`.
 
 ### §3b–§3c — stage nginx (still serving nothing new)
+
+⚠️ **The live file is `idea.conf`, not `idea.uk`** — `setup.sh` writes
+`/etc/nginx/sites-available/idea.conf` → `sites-enabled/idea.conf`.
+
+**What the live conf carries** (all preserved in `idea.uk.nginx` — dropping any is a silent
+downgrade): the port-80 ACME+redirect block, IPv6 listeners, `ssl_protocols`/ciphers, four security
+headers, `client_max_body_size 1m`, `limit_req zone=idea_rl` on tool paths, **`proxy_read_timeout
+930s`** (the engine takes minutes — nginx's 60s default would cut reports off mid-run), and the
+Stripe webhook's deliberate **exemption** from rate limiting (hence a separate `proxy_stripe.conf`).
+
 ```bash
-cp proxy_tool.conf /etc/nginx/snippets/proxy_tool.conf
-cp idea.uk.nginx  /etc/nginx/sites-available/idea.uk.new
-# copy the real ssl_certificate lines + port-80 block from the live config in,
-nginx -t
+# 1. check which preamble the live conf uses (plain limit_req_zone, or geo+map if
+#    WHITELIST_IPS was set) and copy it verbatim into the top of idea.uk.nginx:
+sed -n '1,/^server {/p' /etc/nginx/sites-available/idea.conf
+
+# 2. stage
+cp proxy_tool.conf   /etc/nginx/snippets/proxy_tool.conf
+cp proxy_stripe.conf /etc/nginx/snippets/proxy_stripe.conf
+cp idea.uk.nginx     /etc/nginx/sites-available/idea.conf.new
 ```
+
+⚠️ **After cutover, `setup.sh` is no longer safe to re-run unmodified** — it rewrites `idea.conf`
+from its own template (reverting the site to tool-only) and does `ufw --force reset`. Port these
+server blocks into its stage-2 template before any re-provision.
 
 ### §3d — prove it BEFORE cutting over
 Every reserved path must reach the tool — expect the TOOL's codes (200/400/401/405),
@@ -48,14 +66,21 @@ the order move in `orders.json` before proceeding.
 
 ### §3e — cutover (one swap, DNS unchanged) + rollback
 ```bash
-cp /etc/nginx/sites-enabled/idea.uk /root/idea.uk.nginx.bak.$(date +%Y%m%d-%H%M%S)
-cp /etc/nginx/sites-available/idea.uk.new /etc/nginx/sites-available/idea.uk
-ln -sf /etc/nginx/sites-available/idea.uk /etc/nginx/sites-enabled/idea.uk
-nginx -t && systemctl reload nginx
+cp /etc/nginx/sites-available/idea.conf /root/idea.conf.bak.$(date +%Y%m%d-%H%M%S)
+cp /etc/nginx/sites-available/idea.conf.new /etc/nginx/sites-available/idea.conf
+nginx -t && systemctl reload nginx && echo CUTOVER_RELOADED
 ```
+The symlink `sites-enabled/idea.conf` already exists and is untouched — only the
+file it points at changes. Replacing the file changes nothing until `reload`, and a
+failed `nginx -t` cannot take the site down (nginx keeps serving the loaded config).
+
 Re-run §3d in full, then a real end-to-end purchase. Purge Cloudflare cache.
-Rollback = copy the `.bak` file back over `sites-enabled/idea.uk`, `nginx -t`,
-reload. The tool binary and systemd service are never touched.
+```bash
+# rollback — seconds, nginx only
+cp /root/idea.conf.bak.<timestamp> /etc/nginx/sites-available/idea.conf
+nginx -t && systemctl reload nginx && echo ROLLED_BACK
+```
+The tool binary, its systemd service and `orders.json` are never touched.
 
 ## Files
 

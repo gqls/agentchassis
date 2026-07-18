@@ -1,22 +1,68 @@
-# /etc/nginx/sites-available/idea.uk.new — §3b staged config. Validate with
-# `nginx -t`, prove §3d (all 16 tool paths + a Stripe test event) BEFORE the
-# §3e swap. Rollback = restore the backed-up current file and reload.
+# idea.uk — static site + the £29 tool on one origin.
+# Stage to /etc/nginx/sites-available/idea.conf.new, prove it (RUNBOOK §3d),
+# then swap onto idea.conf. Derived from the LIVE setup.sh template so the
+# cutover is a superset, never a downgrade.
 #
-# ⚠️ Before using: copy the ssl_certificate lines AND the existing port-80
-# server block (ACME + https redirect) from the CURRENT live config — the
-# paths below are the expected Let's Encrypt defaults, confirm them.
+# ⚠️ THE LIVE FILE IS `idea.conf`, NOT `idea.uk` — setup.sh writes
+#    /etc/nginx/sites-available/idea.conf → symlinked to sites-enabled/idea.conf.
+#
+# ⚠️ RE-RUNNING setup.sh OVERWRITES THIS FILE and reverts the site to tool-only
+#    (its header says "managed by setup.sh — do not edit by hand"). After the
+#    cutover, setup.sh is no longer safe to re-run unmodified. It also does
+#    `ufw --force reset`. If the box ever needs re-provisioning, port these
+#    server blocks into setup.sh's stage-2 template FIRST.
+#
+# Carried over from the live conf (do not drop any of these):
+#   port-80 ACME + redirect block, IPv6 listeners, ssl_protocols/ciphers,
+#   the four security headers, client_max_body_size, limit_req on tool paths,
+#   proxy_read/send_timeout 930s (the engine takes minutes), and the
+#   webhook's deliberate exemption from rate limiting.
+
+# ── preamble (http context) ─────────────────────────────────────────────────────
+# setup.sh emits EITHER this single line, OR — when WHITELIST_IPS was set — a
+# geo+map block ending in the same limit_req_zone. CHECK THE LIVE FILE and copy
+# whichever it has verbatim:
+#     sed -n '1,/^server {/p' /etc/nginx/sites-available/idea.conf
+limit_req_zone $binary_remote_addr zone=idea_rl:10m rate=10r/s;
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name idea.uk;
+
+    # keep certbot renewal working — webroot is setup.sh's ACME_WEBROOT default
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+        default_type "text/plain";
+    }
+    location / { return 301 https://$host$request_uri; }
+}
 
 server {
     listen 443 ssl http2;
-    server_name idea.uk www.idea.uk;
+    listen [::]:443 ssl http2;
+    server_name idea.uk;
 
-    ssl_certificate     /etc/letsencrypt/live/idea.uk/fullchain.pem;   # confirm
-    ssl_certificate_key /etc/letsencrypt/live/idea.uk/privkey.pem;     # confirm
-    location ^~ /.well-known/acme-challenge/ { root /var/www/html; }   # keep renewal working
+    ssl_certificate     /etc/letsencrypt/live/idea.uk/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/idea.uk/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
 
-    # ---- reserved tool paths → the Go service (service.go:527-543, all 16) ----
-    # These exact/prefix matches WIN over the static root. A missing entry
-    # becomes a static 404 and silently kills that function.
+    # security headers (unchanged from the live conf)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # modest body cap — the engine takes small form posts and JSON, not uploads
+    client_max_body_size 1m;
+
+    # ---- THE MONEY PATH — no rate limit (see proxy_stripe.conf) ----------------
+    location ^~ /stripe/       { include snippets/proxy_stripe.conf; }
+
+    # ---- reserved tool paths → the Go service (service.go:596-612, all 16) -----
+    # Exact/prefix matches WIN over the static root below. A missing entry becomes
+    # a static 404 and silently kills that function.
     location = /health         { include snippets/proxy_tool.conf; }
     location = /capacity       { include snippets/proxy_tool.conf; }
     location = /audience-check { include snippets/proxy_tool.conf; }
@@ -28,25 +74,26 @@ server {
     location = /op             { include snippets/proxy_tool.conf; }
     location = /terms          { include snippets/proxy_tool.conf; }
     location = /refund-policy  { include snippets/proxy_tool.conf; }
-    location = /privacy        { include snippets/proxy_tool.conf; }   # DECISION §3b: tool keeps legal pages
-    location ^~ /stripe/       { include snippets/proxy_tool.conf; }
+    location = /privacy        { include snippets/proxy_tool.conf; }
     location ^~ /internal/     { include snippets/proxy_tool.conf; }
     location ^~ /order/        { include snippets/proxy_tool.conf; }
 
-    # ---- legal pages: one canonical set (§3b correction 2026-07-16) ----
-    # The static build ships terms/refund-policy/privacy .html copies and the
-    # footers link them WITH the extension. 301 them onto the tool's versions —
-    # the terms the buyer actually agreed to — so the two sets cannot drift.
+    # ---- legal pages: one canonical set (owner decision 2026-07-18) ------------
+    # The tool keeps /terms, /refund-policy and /privacy — they are embedded in the
+    # binary and tied to the £29 purchase terms, so the published terms cannot
+    # drift from the ones the buyer agreed to. The static build ALSO ships .html
+    # copies (confirmed present in /var/www/idea.uk) and the footers link them
+    # WITH the extension, so redirect those onto the tool's canonical versions.
     location = /terms.html         { return 301 /terms; }
     location = /refund-policy.html { return 301 /refund-policy; }
     location = /privacy.html       { return 301 /privacy; }
 
-    # ---- everything else → the static site ----
+    # ---- everything else → the static site -------------------------------------
     root  /var/www/idea.uk;
     index index.html;
     location / {
         # =404, NOT /index.html — a missed tool path must fail loudly, not
-        # soft-serve the homepage.
+        # soft-serve the homepage and hide the mistake.
         try_files $uri $uri/ $uri.html =404;
     }
 }
