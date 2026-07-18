@@ -485,6 +485,37 @@ set, so the chassis→vm-sites routing is live. The live commit will be observed
   narrative (goal → done → status → next → why pull-sync → risks/decisions), safe to read aloud
   (no IPs/usernames/secret values).
 
+## S — 2026-07-18 · §3a EXECUTED on the box: pull-sync is LIVE
+
+Ran `box/provision-pullsync.sh` on 116.203.204.115. Clean:
+```
+== pre-flight ==  -- OK: deploy key accepted.
+== sparse clone ==  Already on 'main' / up to date with 'origin/main'
+== install script + units ==  symlink → sitesync.timer
+== first sync + verify ==  8/8 OK   (timer next in 5min)
+```
+`/var/www/idea.uk` now holds the built site; `sitesync.timer` re-syncs every 5 min. **nginx untouched
+— nothing public changed.** The site is on the box but not yet served; §3b–§3e is the next step.
+
+**Two bugs found and fixed getting here** (both cost a real cycle, both now trapped in the docs):
+1. **`ssh` ignores `$HOME`** — expands `~` from the passwd entry, so `env HOME=…` configured git but
+   left ssh in `/var/www/.ssh` (www-data's passwd home, unwritable) → "Host key verification failed",
+   then "Permission denied (publickey)" with the deploy key showing **"Never used"**. Fixed by naming
+   identity + known_hosts explicitly via `GIT_SSH_COMMAND`, in the provisioner **and** in `sitesync`
+   (the 5-minutely fetch runs as the same account — a hand-fixed clone would still have left a dead
+   sync). Filed `/bugs_open/016` + pattern in `016b §9`. My first diagnosis (ssh-keyscan exiting 0 on
+   an empty scan) was **wrong** and is recorded as such; the hardening was kept as a real latent flaw.
+2. **`scp -r` nests when the destination exists** — the fixed script landed at
+   `/root/idea-uk-box/box/` while the **stale** one at `/root/idea-uk-box/` re-ran, reproducing the
+   identical failure and reading as "the fix didn't work". RUNBOOK now says `rm -rf` first + grep the
+   copy for a new-version string before running. Also reordered the installer to **authenticate
+   first, prompt only on failure** — the old `read` pause could never work under
+   `ssh host 'bash script'` (no TTY), so re-runs are now fully non-interactive.
+
+**§3b premise re-confirmed on the box:** the webroot listing shows `terms.html`,
+`refund-policy.html` **and** `privacy.html` present — so the three `.html →` tool 301s in
+`box/idea.uk.nginx` are required, not theoretical.
+
 ## Open decisions
 
 - **`/privacy`** — tool or static site? (RUNBOOK §3b; default: tool.)

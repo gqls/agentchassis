@@ -72,7 +72,8 @@ fleet-wide dead contact-form, and a build-system retry-churn bug) into the share
 | idea.uk pages + assets in the deploy repo | **Done — seeded from the built artefact** |
 | Request-form hardening — code + tests | **Done; ready to deploy to the box** |
 | Contact email set | **Done** |
-| VM cutover (nginx, pull-sync, real-client-IP) | Prepared; needs owner SSH to the box |
+| Pull-sync on the box (site files now ON the server) | **Done 2026-07-18** — 8/8 pages, re-syncs every 5 min |
+| VM cutover (nginx swap, real-client-IP) | Prepared; the one step that changes what visitors see |
 | Remove existing spam from the tool | Prepared; needs owner SSH to the box |
 
 ---

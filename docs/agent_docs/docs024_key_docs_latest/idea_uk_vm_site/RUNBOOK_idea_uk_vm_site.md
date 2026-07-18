@@ -28,8 +28,11 @@ En route we found the vm-sites Action had NEVER run — no runner on the repo an
 lacked ssh/rsync — fixed: image `v1.0.1126` + `github-actions-runner-vmsites` deployment; relojistas
 deploys green through the allowlist, idea.uk skip proven live 3×. **Phase 0 CLOSED 2026-07-17**:
 old SES user deleted, new SMTP user live (email verified), INTERNAL_API_KEY rotated + restart —
-the leaked history values are dead; /op links re-issue on next use. **Next: Phase 3 (owner: §3a
-pull-sync on the box, then §3b–3e nginx), Phase 4 tool deploy.**
+the leaked history values are dead; /op links re-issue on next use.
+**§3a DONE 2026-07-18** — pull-sync live on the box: `/var/www/idea.uk` holds all 8 pages,
+`sitesync.timer` re-syncs every 5 min, nginx untouched (nothing public changed). Two traps fixed en
+route: `ssh` ignores `$HOME` (`/bugs_open/016`) and `scp -r` nests onto an existing destination.
+**Next: §3b–3e nginx cutover (the only step that changes what visitors see), Phase 4 tool deploy.**
 §3b correction: static `terms.html`/`refund-policy.html` DO exist and footers link all three legal
 pages with `.html` — add 301s (`/terms.html → /terms` etc.) at cutover so the tool stays canonical.
 

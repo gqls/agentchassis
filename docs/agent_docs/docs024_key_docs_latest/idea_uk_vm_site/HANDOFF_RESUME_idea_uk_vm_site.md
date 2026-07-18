@@ -72,9 +72,10 @@ linux/amd64 binary, scp to the box, `systemctl restart idea`.
   scp to `/opt/idea/idea.new`, mv, `systemctl restart idea`. RUNBOOK Phase 4 shipping note.
 
 ### Next (all remaining steps run on the box — owner's hands; the chat prepares/verifies)
-1. **Provision pull-sync on the idea.uk box** (RUNBOOK §3a): systemd timer + sparse-checkout of
-   idea.uk's own folder into `/var/www/idea.uk`, read-only deploy key. The repo folder is seeded
-   and live-updating, so this can run TODAY.
+1. ~~Provision pull-sync on the idea.uk box~~ **DONE 2026-07-18** — `/var/www/idea.uk` holds all 8
+   pages, `sitesync.timer` syncs every 5 min, read-only deploy key accepted, nginx untouched.
+   Traps fixed en route: `ssh` ignores `$HOME` (`/bugs_open/016`); `scp -r` nests on an existing
+   destination (RUNBOOK §3a). RUNNING_NOTES §S.
 2. **nginx cutover** (RUNBOOK §3b–3e): static root + proxy the **16** reserved tool paths
    (`service.go:527-543` — the full list is in the RUNBOOK; the old runbook's 7-path list would break
    the taster + operator flow) **+ the three `.html→` 301s for the legal pages (§3b correction)**.
