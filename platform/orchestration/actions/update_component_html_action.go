@@ -31,6 +31,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -126,6 +127,67 @@ func UpdateComponentHTMLAction(ctx context.Context, params ActionParams) (interf
 		zap.Int("current_html_len", len(currentHTML)),
 		zap.Int("new_html_len", len(newHTML)),
 	)
+
+	// --- 1a. Refuse structurally regressive rewrites (bugs_open/012) ---
+	// This action is the last gate before the durable source is overwritten.
+	// A truncated generation reaching here used to be persisted verbatim and
+	// reported as success. component_write_guard.go documents what is checked
+	// and why every check is comparative rather than absolute.
+	//
+	// allow_structural_regression is the deliberate escape hatch for a rewrite
+	// that really is meant to shrink or drop a region. It lives in step config
+	// — authored by a human in a seed or migration — not in the LLM's output,
+	// so an agent cannot talk its way past the guard.
+	allowRegression := false
+	if v, ok := config["allow_structural_regression"].(bool); ok {
+		allowRegression = v
+	}
+
+	if issues := componentRegressionIssues(currentHTML, newHTML); len(issues) > 0 {
+		if allowRegression {
+			logger.Warn("UpdateComponentHTMLAction: structural regression ALLOWED by step config",
+				zap.String("component_id", componentIDStr),
+				zap.String("function", componentFunction),
+				zap.Strings("issues", issues),
+			)
+		} else {
+			logger.Error("UpdateComponentHTMLAction: REFUSING write — replacement is structurally worse than the current template",
+				zap.String("component_id", componentIDStr),
+				zap.String("function", componentFunction),
+				zap.Int("current_html_len", len(currentHTML)),
+				zap.Int("new_html_len", len(newHTML)),
+				zap.Strings("issues", issues),
+			)
+
+			recordComponentWriteRejection(
+				ctx, params.DB, logger, params,
+				actionProvenance{
+					AgentType: params.ExecutionContext.Sender.AgentType,
+					StepName:  params.ExecutionContext.StepName,
+					Action:    "update_component_html",
+				},
+				fmt.Sprintf("component write refused for %q (%s): %s",
+					componentName, componentFunction, strings.Join(issues, "; ")),
+				"component_write_regression_blocked",
+				"error",
+				map[string]interface{}{
+					"component_id":     componentIDStr,
+					"component_name":   componentName,
+					"function":         componentFunction,
+					"current_html_len": len(currentHTML),
+					"new_html_len":     len(newHTML),
+					"blocking_issues":  issues,
+				},
+			)
+
+			// Hard error: the component is left untouched and the step fails,
+			// so the workflow's error_step can route the work item to
+			// needs_human_review. Never a silent success.
+			return nil, fmt.Errorf(
+				"refusing to overwrite component %s (%s): replacement is structurally worse than the current template: %s",
+				componentIDStr, componentName, strings.Join(issues, "; "))
+		}
+	}
 
 	// --- 2. Optionally snapshot current HTML to component_versions ---
 	// Best-effort — a snapshot failure is logged but doesn't block the UPDATE.
