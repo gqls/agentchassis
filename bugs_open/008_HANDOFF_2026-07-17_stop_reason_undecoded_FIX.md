@@ -138,3 +138,28 @@ Loop residual this exposed (tool thread's problem, not this thread's): the
 historian's blocking question was CODE-shaped; the verify tier only runs SQL
 (`run_checks`), so the loop could not self-resolve it and correctly escalated —
 the F2.3b(c) code-lookup check tier is now demonstrated-needed on a real case.
+
+## 8. UPDATE 2026-07-18 — council-APPROVED, and a CI-guard to bundle into the PR
+- **BUG A's fix plan is now COUNCIL-APPROVED** (fix-proposer run on e505f70f,
+  all seats incl. bug-historian, round 3). The approved plan already covers BOTH
+  provider adapters (anthropic.go + ollama.go) — the code-lookup tier confirmed
+  ollama.go's `(*OllamaClient).GenerateText` is the only other implementation.
+  You can take the approved plan straight to the implementer (092 → build gate →
+  PR); it does not need re-proposing.
+- **BUNDLE THIS TEST INTO THE PR (owner decision D1/D2, 2026-07-18):** the
+  bug-historian approved WITH one advisory residual it raised twice — nothing
+  stops a FUTURE third provider adapter being added without the stop_reason
+  guard. Add a Go test (or a `discovery_check`) in the same PR asserting every
+  provider client's `GenerateText`-equivalent decodes its stop/finish signal and
+  fails loud on truncation — so a new adapter that skips it fails CI, not
+  production. Ship the guard with the mechanism it guards; do not defer it to a
+  separate workstream.
+- Validation baseline the historian handed you: **23 historical
+  silently-truncated `llm_call_log` rows** (was 17; more accrued) should replay
+  post-fix as `success=false` with the new error string, not `success=true`.
+- Family note (per CLAUDE.md § Debugging): 005/008/009/012 are ONE
+  truncation-and-config family. `bugs_open/012` is a concrete instance of the
+  consequence (a 10,272-char component saved back as 1,253 chars, reported
+  success) — the same silent-CUT the `output_tokens == max_tokens` rule now
+  guards. This fix (fail loud at the client boundary) closes the ROOT of that
+  family for the LLM-generation path.
