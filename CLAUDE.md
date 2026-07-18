@@ -143,6 +143,28 @@ item_type='needs_diagnosis' AND status='awaiting_diagnosis';`
   No orchestration dispatch within ~300s of a chassis pod (re)start — the spawn
   is silently dropped.
 
+## Debugging — read the guide, then file what you learn
+
+- **Before debugging, read the guide**:
+  `docs/agent_docs/docs024_key_docs_latest/016b_debugging_guide_8_consolidated.md`
+  (§ "Durable invariants" first, then §9 patterns; 016 holds the back-catalogue).
+  Most stalled investigations skipped an invariant already written down there.
+- **Open bugs live in `/bugs_open/`** (repo root; was `aaa_fails_to_mend/`). §10 of
+  the guide indexes them. **Grep that index for the mechanism before filing a new
+  bug** — 005/008/009/012 turned out to be one truncation-and-config family found
+  by four separate threads.
+- **When you diagnose something durable**: file the case in
+  `/bugs_open/NNN_HANDOFF_<date>_<slug>.md` (evidence, root cause, fix candidates,
+  how to verify) AND add the transferable pattern to 016b §9. The case file is for
+  the fixing thread; the §9 entry is so nobody re-walks it.
+- Two rules that keep catching real damage:
+  - **`output_tokens == max_tokens` means the completion was CUT**, not finished.
+    Any agent that rewrites a whole artifact can persist a fragment and report
+    success (`bugs_open/012`: a 10,272-char component saved back as 1,253 chars of
+    CSS). Check the artifact's structure after a rewrite, not just the status.
+  - **Trust the rendered artefact, not the status.** `complete` is not proof the
+    work happened; verify against the DB row or the live page.
+
 ## Platform conventions
 
 - Go, not Python. British English. Structural fixes over patches. Reuse existing

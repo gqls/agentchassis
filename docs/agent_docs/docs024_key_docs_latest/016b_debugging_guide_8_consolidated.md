@@ -548,3 +548,211 @@ Category: content-vs-runtime-mismatch, string-surgery.
 3. Never accept "zero new work items" as proof of a clean discovery pass without checking the orchestration status (`orchestration_states.status='COMPLETED'` for the discovery agent, not just the generic wrapper — the wrapper completes even when the child workflow fails).
 
 Category tags: `split-contract-drift` (new), `first-error-vs-cascade`, `silent-noop-success`.
+
+### LLM truncation persisted as a successful artifact — a fix agent destroyed the component it was repairing (2026-07-18)
+
+**The family.** This is one mechanism with several victims: `bugs_open/005`
+(article body blanked), `bugs_open/008` (`GenerateText` never decodes
+`stop_reason` — 17 proven occurrences across 5 agent types, **diagnosed, fix NOT
+yet shipped**), and `bugs_open/012` (below — the first case proven to DESTROY a
+durable artifact). Treat any "the model returned something odd" report as a
+member of this family until the token counts say otherwise.
+
+**Symptom.** An agent that rewrites a whole artifact reports SUCCESS and writes a
+confident note describing a sensible change — but the stored artifact is a
+fragment. Seen 2026-07-18: `tool-improver` was dispatched to fix a mobile
+overflow on `tool-loot-table-balancer`; it root-caused correctly, then reduced a
+working **10,272-char** component to **1,253 chars of CSS only** — no `<script>`,
+no `<div>`, no `<fieldset>`, ending mid-declaration (`font-weight: bold,`). The
+work item read `complete`.
+
+**Diagnose.**
+1. **The signature is `output_tokens == max_tokens`.** Both are already recorded:
+```sql
+SELECT step_name, model, output_tokens, max_tokens, success
+FROM llm_call_log WHERE work_item_id = '<item>' ORDER BY created_at;
+-- out_tokens=8000 max=8000  ⇒ the completion was CUT, not finished.
+```
+2. **Check the artifact for structural collapse**, not just length:
+```sql
+SELECT length(html_template) AS len,
+       (html_template LIKE '%<script%')   AS has_script,
+       (html_template LIKE '%</script>%') AS script_closed,
+       right(html_template, 60)           AS tail
+FROM content_components WHERE function = '<fn>' AND is_active;
+```
+A truncated write ends mid-token; `script_closed=false` with `has_script=true` is
+conclusive.
+3. **Recovery source: `component_versions`** (one row per `update_component_html`
+write). Find the last COMPLETE version — do not assume the newest is good; on
+this incident the newest two were *both* truncated:
+```sql
+SELECT created_at, length(html_template) AS len,
+       (html_template LIKE '%</script>%') AS complete, right(html_template,45) AS tail
+FROM component_versions WHERE component_id = '<id>' ORDER BY created_at;
+```
+
+**Root cause (three layers, all required).**
+1. **No truncation detection.** `stop_reason` is never decoded (`bugs_open/008`),
+   so a cut-off completion is returned as an ordinary success string.
+2. **No completeness guard on the write.** The save path accepted a CSS-only
+   fragment as a valid `html_template` — no length-collapse check, no "did the
+   markup/script survive" check.
+3. **Whole-component writers were sized inconsistently.** Agents doing the SAME
+   job had different ceilings: `recreate_tool` **64000** (correct), while
+   `improve_tool` and `generate_tool_html` sat on **8000**. The tool's own BIRTH
+   had used 6094/8000 — the generator was one slightly larger tool away from
+   shipping a truncated component to a live site.
+
+**Why the site did not go down — and why that is not reassurance.** The page had
+been rendered from the previous complete component and the render had not
+re-propagated. The durable source was wrecked while the artifact still served.
+This is the `rendered artifact vs durable source` split (see the vonc footer
+arc): here it hid the damage rather than causing it. One refresh would have
+shipped a page with no markup and no JavaScript.
+
+**Fix.** Component restored from `component_versions`; migration **168** raised
+`improve_tool` + `generate_tool_html` 8000 → 32000. That is the exposure, not the
+bug. The real fixes, in order: (a) **refuse to persist a structurally-collapsed
+artifact** — leave the row untouched, fail the item honestly
+(`needs_human_review`), write a NOTE recording the refusal; never a silent
+success; (b) **decode `stop_reason`** so the caller can reject a truncated
+completion (`bugs_open/008`, platform-wide); (c) ceilings last.
+
+**Interaction to check before trusting any `max_tokens` change** (`bugs_open/009`):
+a **root** `ai_service` block SHADOWS the step-level block — where a root block
+exists, per-step `max_tokens` is dead config and the effective value may be the
+hardcoded 2048. Verify which one is live before and after your migration:
+```sql
+SELECT type, (default_config #> '{ai_service}') AS root_block,
+       default_config #>> '{workflow,steps,<step>,config,ai_service,max_tokens}' AS step_max
+FROM agent_definitions WHERE type = '<agent>' AND is_active;
+```
+(The four tool-pipeline agents have NO root block, so 168's step-level change is
+live — confirmed by the log showing `max=8000` exactly matching the step value.)
+
+**Transferable rules.**
+1. `output_tokens == max_tokens` is truncation until proven otherwise — never
+   read it as "the model finished".
+2. A fix agent's own note is not evidence the artifact survived. Check the
+   artifact's structure after any whole-file rewrite.
+3. Never let a repair path shrink a durable artifact without a guard. "Docs never
+   fail the work" has a sibling: **a fix must never destroy the work.**
+
+**Cross-refs.** `bugs_open/012` (this incident, full evidence), `bugs_open/008`
+(stop_reason), `bugs_open/005` (article body), `bugs_open/009` (root-block
+shadowing), migration `168_component_writers_max_tokens.sql`,
+RUNNING_NOTES_travelling_docs 2026-07-18. Category tags: `llm-truncation` (new),
+`silent-noop-success`, `fix-destroys-artifact` (new), `durable-vs-rendered`.
+
+### A defect signal that names the ANCESTOR makes the fix loop non-convergent (2026-07-17)
+
+**Symptom.** The same check fails run after run. Each cycle the fixer reports
+success, deploys, and the behavioural tier re-verifies RED with an identical
+message. Seen on `tool-loot-table-balancer`: `mobile-fit@mobile` failed with
+"widest offending element: **fieldset (419px)**"; `tool-improver` constrained the
+fieldset (`width:100%; min-width:0`) — twice, on two separate cycles, the second
+time while loading its own prior fix note — and the overflow never moved.
+
+**Diagnose.** Ask what the signal actually names. The overflow was measured on the
+widest element crossing the viewport edge, which is usually the ancestor that
+*inherited* an overflowing descendant's width, not the element whose intrinsic
+width forces it. The fixer can only act on what it is told, so it kept
+constraining a container that was never the cause. The real culprit here was a
+grid two levels down (`div.ltb-row-grid`) whose items keep the default
+`min-width:auto` and refuse to shrink below content.
+
+**Root cause.** Attribution granularity. Naming the widest offender is enough to
+decide WHOSE problem it is (tool vs site chrome — that part was already right) but
+not enough to say WHAT to change.
+
+**Fix (shipped v1.0.1135).** Drill down: from the widest offender, descend through
+the children that themselves cross the viewport edge; along that chain name the
+outermost layout container (grid, or flex that cannot wrap) as the fix target —
+else the deepest crossing leaf — and state WHY it will not shrink. New
+`forced_by` / `forced_reason` ride the check result, the failure detail, and the
+work-item spec (`overflow_forced_by`, `overflow_fix_hint`). The signal went from
+`fieldset (419px)` to *"forced by div.ltb-row-grid [grid layout — a grid item is
+not shrinking; set min-width:0 on the items or let the grid wrap]"*, and the next
+fixer run root-caused to the grid instead of the fieldset.
+
+**Second defect this exposed: nothing bounds a non-converging loop.** Each failed
+verdict raises a FRESH work item, so a per-item attempt cap never engages; only the
+7-day verdict cooldown gates re-tries. A defect the one-shot fixer cannot solve
+re-fails weekly forever with no escalation. Candidate fix: track attempts per
+(subject, criterion) and route to `needs_human_review` after N non-converging
+cycles (`bugs_open/010` candidate b, still open).
+
+**Transferable rules.**
+1. Before blaming a fixer for not converging, read the signal it was given — a
+   loop that repeats the same wrong fix is usually being told the wrong target.
+2. "Which element is widest" and "which element is the cause" are different
+   questions in any inherited-geometry system.
+3. An escalation path is part of a fix loop, not an optional extra.
+
+**Cross-refs.** `bugs_open/010`; `run_checks_action.go` (`HorizontalOverflow`),
+`tool_acceptance_actions.go` (judge threading). Category tags:
+`attribution-granularity` (new), `non-convergent-fix-loop` (new).
+
+### Applied-but-unrecorded migrations block the runner and wear someone else's name (2026-07-16)
+
+**Symptom.** `run-migrations.sh` halts on a file that fails with a duplicate-key
+error, and — because the runner stops at the first failure — every later
+migration, from every workstream, is gated behind it. It reads as "someone
+committed broken SQL".
+
+**Diagnose.** The file is not broken; it has ALREADY been applied by hand and was
+never recorded in `schema_migrations`, so the runner replays it. A duplicate-key
+error (SQLSTATE 23505) on replay is the classic signature. Verify the file's
+artifacts exist in the DB before concluding anything:
+```sql
+SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 10;
+-- then check the file's own objects (component/agent/rows) actually exist
+```
+
+**Root cause.** Two defects, both needed: (1) an out-of-band apply (`psql -f`)
+records nothing — the runner only ledgers what IT applies, and there is no tooling
+for registering a manual apply; (2) the migration was not idempotent — the shop
+convention is that every migration carries its own guard `DO` block, and a guarded
+file replays as a harmless no-op.
+
+**Fix.** Verify each file's artifacts live, then backfill the ledger rows
+(`applied_by='ledger-backfill'` plus a note citing the evidence). Longer term:
+a `--record-only <file>` flag on the runner, and a failure message that names the
+already-applied possibility when the error is a duplicate key.
+
+**Rule.** **Whoever applies a migration records it** — in the same sitting. An
+applied-but-unrecorded migration becomes a roadblock with the original author's
+name on it, and the diagnosis cost is paid by whoever hits it next.
+
+**Cross-refs.** `bugs_open/007`. Category tags: `migration-ledger` (new),
+`shared-state-coordination`.
+
+---
+
+## 10. Open bug queue (`/bugs_open/`) — index
+
+The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
+awaiting a fixing thread (it was `docs024_key_docs_latest/aaa_fails_to_mend/`
+until 2026-07-17; ~23 documents still reference the old path). §9 above holds the
+durable PATTERNS; the files below hold the case detail, evidence and fix
+candidates. Read the file before acting — several are already fixed.
+
+| # | Bug | State |
+|---|---|---|
+| 001 | Re-planning a site silently discards its built pages' composition | FIX written |
+| 002 | Errors surfaced but not fixed (multi-error handoff, route individually) | open |
+| 003 | Spawned children lose their response; parents hang until reaped | open |
+| 004 | Landing an image can silently blank an article body | superseded by 005 |
+| 005 | Article-body blanking — root cause LLM truncation (`max_tokens`) | FIXED |
+| 006 | Three idea.uk infra errors (runner cgroup, dead contact endpoint, …) | open |
+| 007 | Applied-but-unrecorded migrations block the runner | instance resolved; tooling open |
+| 008 | `GenerateText` never decodes `stop_reason` (silent truncation) | diagnosed; **fix not shipped** |
+| 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | diagnosed; fix + fleet sweep open |
+| 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
+| 011 | Generated images cannot render readable text | open |
+| 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard open |
+
+**Related-bug rule.** Before filing a new bug, grep this index for the mechanism —
+005/008/009/012 are all one truncation-and-config family found by four different
+threads. Filing the fifth copy costs more than reading the first four.
