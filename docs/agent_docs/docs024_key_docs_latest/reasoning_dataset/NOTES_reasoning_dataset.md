@@ -115,3 +115,86 @@ reviser. Quantification appended to `bugs_open/016`.
 pre-fix repropose rows have blank objections, post-fix ones will not. Do not pool
 them. It is a provenance boundary, and also a free natural experiment: same task,
 same models, with and without objections visible.
+
+---
+
+## Turn 2 — 2026-07-18 (~14:30–15:15Z) — where more data actually comes from
+
+**Asked for:** how to get more reasoning training data; what we need to record
+that we don't.
+
+**Did:** surveyed the whole platform's LLM output rather than just the fix loop.
+Wrote `PLAN_capture_gaps_and_volume.md`.
+
+### The finding that reframes the workstream
+
+We had been sizing this project off the fix loop — 445 rows. **The platform has
+logged 40,785 LLM calls and holds 5,292 work items with terminal outcomes.** The
+reasoning is being produced at ~100× the rate we planned to harvest it. What is
+missing is the *join* between a decision and its consequence.
+
+| | |
+|---|---|
+| LLM calls, all time | 40,785 |
+| carrying `work_item_id` | 2,894 (**7.1%**) |
+| joinable to a terminal outcome | **1,165** — already 15× the fix loop |
+| items ever independently `verified` | **9** |
+| human decisions with a reason recorded | **0 of 316** |
+
+### The six gaps (detail in the PLAN)
+
+1. **`work_item_id` dropped by every big judgement agent** — content-quality-auditor
+   (7,119 calls), visual-design-auditor (4,032), site-review-agent (3,987),
+   feed-triage (423) are all at **0%**, while `tool-recreation-handler` is at
+   **100%**. Plumbing, not physics. ~15,500 verdicts currently unjoinable to any
+   outcome. **Highest ROI on the page** — one field, no migration, no new spend.
+2. **Human decisions keep the status and discard the reason.** 316 items in
+   `needs_human_review`/`wont_fix`/`rejected`; `approved_by` 0, `resolution_path`
+   0. Both columns already exist.
+3. **`complete` is self-reported.** 4,583 complete, **9** ever `verified`, all one
+   item type, none since 07-14. Training on `complete` trains on the agent's own
+   say-so — the `bugs_open/012` failure mode exactly.
+4. **Free signals unused:** `attempt_count` (60 items hit 3 attempts, 44 of them
+   stuck — hard cases with ground-truth negatives), plus `severity`, `impact`,
+   `depends_on`.
+5. **Most judgement output isn't structured.** The exception is **`feed-triage`**,
+   which already emits `{score, reason, credibility, credibility_reason,
+   source_tier, flagged}` and **batches many items per call** — 423 calls carry
+   thousands of judgements. Best-shaped non-loop source on the platform and it was
+   on nobody's list.
+6. **No counterfactuals; lossy log.** Rejected alternatives never recorded (the
+   council's approve/object/veto is the exception and shows the shape).
+   `LogLLMCall` is fire-and-forget with a 5s timeout — rows vanish under load, and
+   load correlates with interesting runs.
+
+### Reads taken
+
+- **Plumbing before generation.** Gaps 1–4 need no new LLM spend and multiply
+  whatever every later lever produces. Deliberate volume runs are the *last* move,
+  not the first.
+- **Replay `/bugs_open/` is the cheap volume lever** — 20 cases with documented
+  root causes and verification steps = re-runnable tasks with known answers, and
+  the grading is nearly free.
+- **State the ceiling out loud.** Hundreds of decisions a day, not millions.
+  Realistic six-month scale is tens of thousands of outcome-labelled steps:
+  fine-tuning and eval scale, not pretraining. The goal is a scarce high-quality
+  specialist corpus, not a big one.
+
+### Error made this turn
+
+The recurrence signal ("completed then re-detected = the fix didn't hold") is
+real and valuable, but my query for it was wrong — a naive self-join reported
+**387,301** recurrences for `page_rerender`, which is the join exploding across
+many same-type items per site, not a finding. Left in the PLAN as an open lead
+with the bad number explicitly *not* quoted. Needs a query pairing each item with
+the *next* detection of the same type on the same target, ordered by time.
+
+### Open / next
+
+- [ ] Owner call: commission Gap 1 (`work_item_id` propagation) with the owning
+      threads — it is a `platform/` change, so council gate, and not ours to make.
+- [ ] Gap 2 (`resolution_note` on human calls) — every day it waits is more
+      human judgement discarded.
+- [ ] Write the recurrence query properly.
+- [ ] Harvest `feed-triage` in the Phase 1 extractor — it is already well-shaped
+      and needs only a query.
