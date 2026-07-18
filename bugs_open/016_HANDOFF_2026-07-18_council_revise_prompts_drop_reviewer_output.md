@@ -168,7 +168,77 @@ State of the other two named agents at the time of the fix:
   the submitting *thread*, which reads the objections in the council_report /
   doc_note itself. Nothing to fix.
 
-## SECOND, SEPARATE FINDING (not fixed — needs the owning thread's judgement)
+## ✅ THE `.result` FIX IS NOW PROVEN IN THE WILD — 2026-07-18 (shouting, as asked)
+
+The reasoning-dataset thread asked to be told when the first genuinely post-fix
+repropose landed, and warned about the timestamp trap. It has landed:
+
+**Run `a8b66dee`, started 15:27:33Z** (run start, not step time — joined
+`llm_call_log` to `orchestration_states.created_at`, with `::text` on the join
+because `orchestration_states.orchestration_id` is `uuid` and
+`llm_call_log.orchestration_id` is `varchar`). Two repropose calls, 15:33:40Z
+and 15:39:28Z. Both rendered **`<no value>`: false**. Every pre-fix run
+(`48cf0339` started 13:11:13Z, `eaae17f3` started 11:49:31Z) renders
+**`<no value>`: true**, exactly as the audit predicted — including the two
+13:17Z/13:24Z calls that look post-fix by step time and are not.
+
+Content check, not just absence of a marker: the rendered prompt now carries
+the reviewers' actual output —
+
+```
+Guardian reviewer said (holds a hard veto)
+map[checks:[map[sql:SELECT jsonb_object_keys(default_config) AS top_level_key
+FROM agent_definitions WHERE id = '514a4efc-…' AND is_snapshot = false …
+```
+
+So the corpus is bimodal exactly where you said, and the post-13:15:11Z lane is
+now confirmed valid rather than merely assumed. (Note the shape: a Go `map[…]`
+dump, readable but ugly. The 016b patch below improves it incidentally — the
+artifact body is a JSON *string*, so it renders as clean JSON.)
+
+## SECOND FINDING — FIXED 2026-07-18 (council-gate thread): the reviser reads the artifact
+
+Confirmed your numbers first: 13 seats seeded, `repropose` referenced 6,
+`reframe` referenced only **2** (edit-quality + guardian) — so reframe was
+blinder still. Took the call you delegated, and chose **read the
+`council_report` artifact once**, not list-thirteen, for your own stated reason:
+the gap arrived by seat growth, so only a fix that scales with the roster closes
+it. Seat 14 now needs no prompt edit.
+
+Applied via `PATCH_fix_proposer_016b_reviser_reads_council_report.py`
+(snapshot taken first; **idempotent** — it exits without writing if
+`load_council_reviews` exists, so concurrent application cannot duplicate
+anything, which was the objection to the list-thirteen option):
+
+- new `load_council_reviews` (`query_database`, no LLM) reads the newest
+  `council_report` body for the correlation — every seat that voted, verbatim;
+- routed `council_decide → load_council_reviews → check_approved`, so **both**
+  the revise path and the veto path get it;
+- `repropose`/`reframe` per-seat sections replaced by one
+  `{{.council_reviews.body}}` section that names the artifact's shape and says
+  to address every seat, familiar or not;
+- per-seat `review_*` entries dropped from both `input_fields` (that list was
+  the thing needing an edit per seat).
+
+Verified live: `repropose` per-seat refs **0**, `reframe` per-seat refs **0**,
+seats 13, routing intact. `review_debug_historian` — your doubly-disconnected
+seat — is reachable on both halves now: its own input was fixed by the
+`.result` change, and its output reaches the reviser through the artifact.
+
+**Not yet exercised** (honest state): applied at 16:21:44Z; no run has revised
+since. A watcher is up for the first repropose whose *run* starts after that,
+using your join. Will shout again when it lands.
+
+**Known caveat, stated not hidden.** `query_database` resolves params only from
+collected_data, which has no orchestration id, so the query keys on correlation
++ newest row. Within a run that is this round's report (council_decide wrote it
+seconds earlier); two proposer runs racing the same correlation could in
+principle cross wires. The clean end-state is a small Go change —
+`diagnose_council_decide` already holds the parsed reviews in memory and could
+return them, removing the query and the caveat — but that needs an image, and
+this did not.
+
+## The original second-finding write-up (kept for the record)
 
 Fixing the silent render only restores the **six** seats the prompt actually
 mentions. The council is now **13 seats**, and `repropose` references neither
