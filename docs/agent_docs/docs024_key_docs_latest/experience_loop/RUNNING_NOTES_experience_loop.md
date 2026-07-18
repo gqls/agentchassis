@@ -224,3 +224,70 @@ deployment is owner/pipeline-driven here (my manual push was interrupted earlier
   4. judge by the experience-planner orchestration row; expect the council to
      sharpen D2's emitter scoping and D1's minimal-real Gauntlet. On escalation,
      the disagreement IS the round-boundary decision menu — surface it. → CP2.
+
+---
+
+## 2026-07-18 — CP2: the council is LIVE and WORKING; it escalated, and its
+## reason is an owner decision (D2 is not cheaply feasible)
+
+v1.0.1135 shipped the docResolveSubject fix (verified in-pod, grep=1), seed 167
+applied + ledgered, planner fired. **The loop works end to end**: compose →
+persist (doc_plans subject_type=experience) → 4 critics → deterministic
+council_decide → router → run_checks → recompose, looping and superseding the
+plan each round. Six plan versions written; the final is **18,413B, is_current,
+with an intact ```criteria fence and END trailer** (the stripMarkdown trailer
+defence held).
+
+**Four runner defects found by running it** (all fixed, commit 6c5dc9e13):
+1. `ExtractFields`→`UnwrapDeep` strips the `{result,type}` wrapper, so in
+   TEMPLATE context an LLM step's output IS the value: `{{.proposal.result}}`
+   → `{{.proposal}}`. Config paths (`plan_body_field`, `review_fields`) read RAW
+   collected_data and correctly keep `.result` — that asymmetry is the trap.
+2. Critic `max_tokens` 4000 → 8000: feasibility's JSON truncated mid-object and
+   council_decide **failed closed** ("likely truncated at max_tokens") rather
+   than waving a partial review through. The fail-closed behaviour is correct.
+3. `councilReview.Edit` is an `int`; a critic emitted a string → critics now
+   told `edit` MUST be a bare integer section number. Plus compactness caps.
+4. Plan-contract gaps the council itself proved: §4 must be an ORDERED, GATED
+   step list with prerequisite DATA steps as step 0, and §3 must define the
+   exact computation + honest label of any number a visitor reads as a score.
+
+**Two runs to a terminal, both `complete_escalated`** (max_rounds 3, then 5):
+- Run A (3 rounds): revise×3 → "objection from feasibility — revise cap reached".
+- Run B (5 rounds, tightened contract): revise×5 → "objection from journeys".
+Final round B: honesty **approve**; journeys object (med/low/low); mvp object
+(low/low/med); feasibility object (**HIGH**/med/med/med).
+
+**Why it does not converge — two distinct causes:**
+- *Structural*: `decideCouncil` maps ANY object → revise, with no severity
+  threshold, so one low nit from any of four critics blocks approval and burns
+  a round. `diagnose_council_decide` is SHARED Go (fix-proposer, council-gate)
+  — changing its semantics unilaterally is out of bounds. Fixed instead at the
+  prompt layer, inside my own agent: **verdict discipline** — object only for
+  medium/high; low nits go in `notes` with verdict approve. (Applied; not yet
+  re-run.)
+- *Substantive, and the real one*: **feasibility's HIGH objection says D2's
+  default is not cheaply feasible** — "page_type='provocation' has zero prior
+  rows and no proven build/render pipeline; the plan folds authoring a whole
+  new page-type render path into an MVP step without sequencing it." The
+  planner cannot resolve this because D2 is stated in its prompt as an accepted
+  owner default it must not relitigate. **This is exactly the round-boundary
+  decision menu D3 anticipated: it needs the owner, not another round.**
+
+**DECISION MENU (owner) — per-provocation detail pages:**
+- **A. Keep D2's default** (static per-provocation pages) but sequence the new
+  page-type render path as its OWN prerequisite round before the MVP. Honest,
+  slower, and adds an unproven render path to the critical path.
+- **B. (recommended) Switch to PLAN §7's documented alternative** — client-side
+  detail rendering on the existing archive page. The archive is ALREADY a
+  runtime-fill shell hydrating from the same feed, so there is no new page type,
+  no new render path, and the MVP ships on proven machinery; static per-
+  provocation pages move to LATER once the daily emitter exists.
+The Gauntlet (D1) is NOT the blocker — honesty approved the final plan, and
+feasibility confirmed the timer/scoring/reset are genuinely client-side-doable.
+
+**Do NOT build the current is_current plan** — it is the escalated (rejected)
+version; that is the standing rule for an escalated experience plan.
+
+**Next**: owner picks A or B → set it in the compose prompt's D2 block → re-fire
+(verdict discipline is already in) → expect convergence → CP2 closed → T4.
