@@ -308,8 +308,30 @@ artifact checks per CP3; RUNNING_NOTES entry.
 Go work here can be developed in parallel with Phases 3–4 but goes live after
 image roll A. Two images: browser-runner-adapter AND chassis (roll B).
 
+> **⚠ Coordination ruling from the travelling-docs/tool-acceptance thread
+> (2026-07-18) — binding for T5.1/T5.2, they own these files:**
+> 1. **Make journeys ADDITIVE, do not rework `Execute`.** Today `Execute` opens
+>    a fresh browser per (url, profile) and closes it — deliberate isolation so
+>    a crashed Chromium poisons one run, not the pod. Keep the isolated-per-URL
+>    path exactly as-is for existing tool checks and give journeys their **own
+>    persistent-context path**. Reworking `Execute` would put the proven Tier-4
+>    tool path at risk.
+> 2. **Journeys reusing `evaluateOnPage` inherit the new `forced_by`/
+>    `forced_reason` drill-down on `CheckResult`** — precise overflow
+>    attribution comes free; do NOT re-solve it.
+> 3. **Navigate by SYMBOL, not line number.** Their 2026-07-18 work added ~83
+>    lines to the adapter and ~53 to the judge, so every line pin in this
+>    RUNBOOK (`run_checks_action.go:83`, `extractRunResults:357`,
+>    `JudgeAcceptanceResultsAction:467`) has MOVED. Grep the symbol.
+> 4. **`needs_experience_replan`'s two-strike/unresolved escalation is
+>    candidate (b) in `bugs_open/010`** (their open convergence-guard finding
+>    for the tool path). **Unify with them rather than building it twice** —
+>    talk to that thread before implementing T5.2's routing.
+> 5. Their §0-flagged blockers are CLEARED: the `create_rerender_items_action.go`
+>    WIP is committed and the browserrunner probe test deleted.
+
 **T5.1 — browser-runner journeys** (`internal/adapters/browserrunner/`,
-separate image — check the untracked probe-test WIP first, §0):
+separate image — navigate by symbol, see the ruling above):
 - New check type `journey`: `steps[]` gains `goto` (path) alongside
   `fill|click|select`; a click that navigates waits for load and CONTINUES in
   the same page context (today each URL is an isolated fresh browser, G9);

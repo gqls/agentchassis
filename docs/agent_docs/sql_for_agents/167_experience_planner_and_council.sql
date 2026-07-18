@@ -135,8 +135,8 @@ SELECT
 '## Write the plan as markdown with EXACTLY these sections' || chr(10) ||
 '### 1. Journeys' || chr(10) || 'Each journey is an ordered list of steps; every step names: page, control (a real CSS selector), action, and the OBSERVABLE outcome. No step may end at "#".' || chr(10) ||
 '### 2. Promise ledger' || chr(10) || 'A table: CTA copy → the page/state the destination must deliver. (e.g. "Enter the Gauntlet" → a playable timed round actually starts.)' || chr(10) ||
-'### 3. Data contracts' || chr(10) || 'What /data/provocations.json must contain for this experience, who writes it and when, and what is client-side-only. Name the emitter decision from D2.' || chr(10) ||
-'### 4. MVP cut + LATER' || chr(10) || 'The round-1 scope (the smallest honest playable loop) and an explicit LATER list. Restate the D1/D2 constraints as they apply to the cut.' || chr(10) ||
+'### 3. Data contracts' || chr(10) || 'What /data/provocations.json must contain for this experience, who writes it and when, and what is client-side-only. Name the emitter decision from D2. If the experience computes ANY number a visitor will read as a score/metric, define the EXACT computation and the honest meaning of its label here — an undefined "score" is a soft fabrication, and an acceptance check that only asserts "some digits appeared" cannot tell a real computation from an arbitrary one.' || chr(10) ||
+'### 4. MVP cut + LATER' || chr(10) || 'The round-1 scope (the smallest honest playable loop) and an explicit LATER list. Restate the D1/D2 constraints as they apply to the cut. Write the MVP cut as an ORDERED, GATED step list: any prerequisite DATA step (e.g. committing /data/provocations.json with real today/lobby/arena content) is step 0 with an explicit gate ("do not proceed until it returns 200 with real content"), because a rebuild has nothing to fetch until it exists. Every later step names what must be true before it starts, and any claim that an existing work item is already resolved must be re-verified at build time, not merely cited. A dependency mentioned only in prose is NOT sequenced.' || chr(10) ||
 '### 5. Acceptance criteria' || chr(10) || 'A fenced ```criteria block of JSON the runner executes, using ONLY these check types (multi-page journeys are described narratively in §1; the runner journey type is a later phase):' || chr(10) ||
 '   {"profiles":["desktop","mobile"],"container":".tool-container","checks":[' || chr(10) ||
 '     {"id":"...","type":"selector_exists","selector":".real-selector"},' || chr(10) ||
@@ -171,7 +171,7 @@ SELECT
           'next_step', 'review_feasibility',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
-            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',4000),
+            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
             'temperature', 0.0,
             'input_fields', jsonb_build_array('experience_context','proposal','schema_hint'),
             'output_format', 'json',
@@ -182,8 +182,8 @@ SELECT
 'Verdicts: approve (every journey completes), object (fixable gaps — list them), veto (a core journey has no destination at all, i.e. the plan would ship another dead end).' || chr(10) || chr(10) ||
 'CHECKS: if a verdict hinges on a fact a read-only SQL query settles (does page X exist, is component Y active), put it in checks as {"sql":"SELECT ...","why":"..."} — SELECT/WITH only. Write checks ONLY against the tables/columns in the Schema below. SQL cannot read the plan JSON or Go — judge those directly.' || chr(10) || chr(10) ||
 '## Schema (the ONLY tables checks may use)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
-'## The plan' || chr(10) || '{{.proposal.result}}' || chr(10) || chr(10) ||
-'## Output — ONLY this JSON' || chr(10) ||
+'## The plan' || chr(10) || '{{.proposal}}' || chr(10) || chr(10) ||
+'## Output — ONLY this JSON. Keep it COMPACT so it cannot truncate: at most 6 objections, each "problem" <= 240 chars, "notes" <= 400 chars, at most 3 checks. Close every brace. TYPE RULE: "edit" MUST be a bare INTEGER — the plan section number 1-5, or 0 for plan-wide. Never a string, never a section title, never quoted.' || chr(10) ||
 '{"reviewer":"journeys","verdict":"approve|object|veto","objections":[{"edit":0,"problem":"...","severity":"low|medium|high"}],"missing":["promise or control with no completing journey"],"checks":[{"sql":"SELECT ...","why":"..."}],"notes":"..."}'
           )
         ),
@@ -195,7 +195,7 @@ SELECT
           'next_step', 'review_honesty',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
-            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',4000),
+            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
             'temperature', 0.0,
             'input_fields', jsonb_build_array('experience_context','proposal','schema_hint'),
             'output_format', 'json',
@@ -207,8 +207,8 @@ SELECT
 'CHECKS: same rules — SELECT/WITH only, ONLY the Schema tables below.' || chr(10) || chr(10) ||
 '## Schema (the ONLY tables checks may use)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
 '## Live site context' || chr(10) || '{{.experience_context.text}}' || chr(10) || chr(10) ||
-'## The plan' || chr(10) || '{{.proposal.result}}' || chr(10) || chr(10) ||
-'## Output — ONLY this JSON' || chr(10) ||
+'## The plan' || chr(10) || '{{.proposal}}' || chr(10) || chr(10) ||
+'## Output — ONLY this JSON. Keep it COMPACT so it cannot truncate: at most 6 objections, each "problem" <= 240 chars, "notes" <= 400 chars, at most 3 checks. Close every brace. TYPE RULE: "edit" MUST be a bare INTEGER — the plan section number 1-5, or 0 for plan-wide. Never a string, never a section title, never quoted.' || chr(10) ||
 '{"reviewer":"feasibility","verdict":"approve|object|veto","objections":[{"edit":0,"problem":"...","severity":"low|medium|high"}],"missing":["unbuilt dependency not sequenced"],"checks":[{"sql":"SELECT ...","why":"..."}],"notes":"..."}'
           )
         ),
@@ -220,7 +220,7 @@ SELECT
           'next_step', 'review_mvp',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
-            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',4000),
+            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
             'temperature', 0.0,
             'input_fields', jsonb_build_array('proposal','schema_hint'),
             'output_format', 'json',
@@ -230,8 +230,8 @@ SELECT
 'Judge: (a) any quantitative claim (counts, rates, streaks, "N players") that does NOT trace to the live feed or an evidence_base fact — vonc''s evidence_base has ZERO facts, so ANY hard number that is not read from real client state is fabricated; (b) any invented user, name, leaderboard entry, testimonial, or social-proof ("everyone else has filed"); (c) any control or label that claims a capability the MVP will not actually deliver ("LIVE NOW" over a non-working widget); (d) any not-yet feature that is SIMULATED rather than absent or labelled coming-soon.' || chr(10) || chr(10) ||
 'This is the anti-fabrication rule that the current Gauntlet violates (12,847 competitors, a fake Live leaderboard). The plan must not reproduce it in any form.' || chr(10) || chr(10) ||
 'Verdicts: approve (nothing fabricated), object (a fixable honesty slip — name it), veto (the plan bakes in fabricated stats/users/social-proof, or simulates a not-yet feature). Your veto BLOCKS. If you veto, name the honest alternative in notes (e.g. "show real submitted-position count from the feed, or omit the stat").' || chr(10) || chr(10) ||
-'## The plan' || chr(10) || '{{.proposal.result}}' || chr(10) || chr(10) ||
-'## Output — ONLY this JSON' || chr(10) ||
+'## The plan' || chr(10) || '{{.proposal}}' || chr(10) || chr(10) ||
+'## Output — ONLY this JSON. Keep it COMPACT so it cannot truncate: at most 6 objections, each "problem" <= 240 chars, "notes" <= 400 chars, at most 3 checks. Close every brace. TYPE RULE: "edit" MUST be a bare INTEGER — the plan section number 1-5, or 0 for plan-wide. Never a string, never a section title, never quoted.' || chr(10) ||
 '{"reviewer":"honesty","verdict":"approve|object|veto","objections":[{"edit":0,"problem":"...","severity":"low|medium|high"}],"missing":[],"checks":[],"notes":"the honest alternative if you veto"}'
           )
         ),
@@ -243,7 +243,7 @@ SELECT
           'next_step', 'council_decide',
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
-            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',4000),
+            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
             'temperature', 0.0,
             'input_fields', jsonb_build_array('proposal'),
             'output_format', 'json',
@@ -252,8 +252,8 @@ SELECT
 'You cut scope. You judge whether the MVP cut is the SMALLEST honest playable loop, and challenge anything not needed for the core loop to be playable. You change nothing; you judge.' || chr(10) || chr(10) ||
 'Judge: (a) is anything in the MVP cut that could be moved to LATER without breaking the core loop (land on a provocation → file a position → see the day''s record; enter a real timed Gauntlet round); (b) is the cut trying to build too much at once; (c) is the LATER list honest about what is deferred (esp. the daily emitter).' || chr(10) || chr(10) ||
 'Verdicts: approve (tight and playable), object (over-scoped — say exactly what to defer). You do NOT have a veto; put anything severe in objections at high severity and trust the router.' || chr(10) || chr(10) ||
-'## The plan' || chr(10) || '{{.proposal.result}}' || chr(10) || chr(10) ||
-'## Output — ONLY this JSON' || chr(10) ||
+'## The plan' || chr(10) || '{{.proposal}}' || chr(10) || chr(10) ||
+'## Output — ONLY this JSON. Keep it COMPACT so it cannot truncate: at most 6 objections, each "problem" <= 240 chars, "notes" <= 400 chars, at most 3 checks. Close every brace. TYPE RULE: "edit" MUST be a bare INTEGER — the plan section number 1-5, or 0 for plan-wide. Never a string, never a section title, never quoted.' || chr(10) ||
 '{"reviewer":"mvp","verdict":"approve|object","objections":[{"edit":0,"problem":"...","severity":"low|medium|high"}],"missing":[],"checks":[],"notes":"..."}'
           )
         ),
@@ -268,7 +268,7 @@ SELECT
             'fix_correlation_id', 'input_data.experience_correlation_id',
             'review_fields', jsonb_build_array('review_journeys.result','review_feasibility.result','review_honesty.result','review_mvp.result'),
             'hard_veto_from', jsonb_build_array('honesty'),
-            'max_rounds', 3
+            'max_rounds', 5
           )
         ),
 
@@ -333,11 +333,11 @@ SELECT
             'prompt_template',
 '# PROMPT — REVISE the EXPERIENCE_PLAN' || chr(10) || chr(10) ||
 'The challenge council asked for revision. Produce a NEW full EXPERIENCE_PLAN (same five sections + criteria fence) that addresses EVERY objection and covers everything listed missing. Same hard rules: not-yet features absent or coming-soon never simulated; no dead controls; every number traces to the live feed or a real fact; reference real pages/selectors; tool pages via the tool pipeline.' || chr(10) || chr(10) ||
-'## Your previous plan' || chr(10) || '{{.proposal.result}}' || chr(10) || chr(10) ||
-'## Journeys critic said' || chr(10) || '{{.review_journeys.result}}' || chr(10) || chr(10) ||
-'## Feasibility critic said' || chr(10) || '{{.review_feasibility.result}}' || chr(10) || chr(10) ||
-'## Honesty auditor said (hard veto)' || chr(10) || '{{.review_honesty.result}}' || chr(10) || chr(10) ||
-'## MVP referee said (advisory)' || chr(10) || '{{.review_mvp.result}}' || chr(10) || chr(10) ||
+'## Your previous plan' || chr(10) || '{{.proposal}}' || chr(10) || chr(10) ||
+'## Journeys critic said' || chr(10) || '{{.review_journeys}}' || chr(10) || chr(10) ||
+'## Feasibility critic said' || chr(10) || '{{.review_feasibility}}' || chr(10) || chr(10) ||
+'## Honesty auditor said (hard veto)' || chr(10) || '{{.review_honesty}}' || chr(10) || chr(10) ||
+'## MVP referee said (advisory)' || chr(10) || '{{.review_mvp}}' || chr(10) || chr(10) ||
 '## Verification results (the critics'' own read-only queries, now answered)' || chr(10) || '{{.check_results.results_text}}' || chr(10) || chr(10) ||
 'Use these to settle any objection that hinged on an unverified fact. If a result contradicts the plan, change the plan — do not argue with the data. Output the whole revised plan the same way: start with "# EXPERIENCE_PLAN — {{.experience_name}}", the five sections, the ```criteria fence, then a final line exactly <!-- END EXPERIENCE_PLAN --> after the closing ```. No preamble, no commentary.'
           )
@@ -358,10 +358,10 @@ SELECT
 '# PROMPT — REFRAME after a council VETO' || chr(10) || chr(10) ||
 'The council VETOED your plan — a critic judged it either dishonest (fabrication) or a dead end (a core journey with no destination). Do NOT resubmit the same shape. Produce a plan where the offending feature is made HONEST AND SMALL: the minimal-real version if one exists, otherwise ABSENT or an explicit "coming soon" label (never simulated). Prefer the alternative the vetoing critic named in its notes.' || chr(10) || chr(10) ||
 'Same five sections + criteria fence, same hard rules. If the Gauntlet is what was vetoed and no honest minimal-real round is achievable, demote it to a labelled coming-soon panel and move the real round to the LATER list — that is an acceptable honest MVP.' || chr(10) || chr(10) ||
-'## Your VETOED plan' || chr(10) || '{{.proposal.result}}' || chr(10) || chr(10) ||
-'## Honesty auditor (read its notes for the honest alternative)' || chr(10) || '{{.review_honesty.result}}' || chr(10) || chr(10) ||
-'## Journeys critic' || chr(10) || '{{.review_journeys.result}}' || chr(10) || chr(10) ||
-'## Feasibility critic' || chr(10) || '{{.review_feasibility.result}}' || chr(10) || chr(10) ||
+'## Your VETOED plan' || chr(10) || '{{.proposal}}' || chr(10) || chr(10) ||
+'## Honesty auditor (read its notes for the honest alternative)' || chr(10) || '{{.review_honesty}}' || chr(10) || chr(10) ||
+'## Journeys critic' || chr(10) || '{{.review_journeys}}' || chr(10) || chr(10) ||
+'## Feasibility critic' || chr(10) || '{{.review_feasibility}}' || chr(10) || chr(10) ||
 'Output the whole reframed plan the same way: start with "# EXPERIENCE_PLAN — {{.experience_name}}", the five sections, the ```criteria fence, then a final line exactly <!-- END EXPERIENCE_PLAN --> after the closing ```. No preamble, no commentary.'
           )
         ),
