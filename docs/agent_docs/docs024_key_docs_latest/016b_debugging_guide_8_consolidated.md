@@ -1111,6 +1111,7 @@ candidates. Read the file before acting — several are already fixed.
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
 | 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts |
+| 017 | Static cutover orphans a backend tool's entry forms — funnel unreachable, no auditor models it | open; needs site fix + new check |
 | 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | filed; both legs open |
 | 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | filed; fix candidates in 019 |
 | 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
