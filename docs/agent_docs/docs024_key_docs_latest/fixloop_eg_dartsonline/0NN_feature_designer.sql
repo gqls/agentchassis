@@ -468,11 +468,11 @@ SELECT
 'The SAME hard rules apply: only code_pointers paths or files this plan adds; stages are commits; caps (6 stages / 8 per stage / 24 total); seeds are files; platform not site data; minimal; grounded in the spec; every edit CHANGES something. CHECKLIST ACTS ARE A CLOSED SET: image_deploy | seed_apply | verify — NEVER invent a new act name. A pre-apply confirmation (e.g. "confirm the image carries X") is a verify entry ordered BEFORE the seed_apply; image_deploy is required only when the plan ships code edits.' || chr(10) || chr(10) ||
 '## The approved spec' || chr(10) || '{{.spec_row.summary}}' || chr(10) || '{{.spec_row.spec_text}}' || chr(10) || chr(10) ||
 '## Your previous plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
-'## Edit-quality reviewer said' || chr(10) || '{{.review_editquality.result}}' || chr(10) || chr(10) ||
-'## Bug-historian reviewer said (advisory, no veto)' || chr(10) || '{{.review_bug_historian.result}}' || chr(10) || chr(10) ||
-'## Reuse-agent reviewer said (advisory, no veto)' || chr(10) || '{{.review_reuse_agent.result}}' || chr(10) || chr(10) ||
-'## Guidelines reviewer said (advisory, no veto)' || chr(10) || '{{.review_guidelines.result}}' || chr(10) || chr(10) ||
-'## Guardian reviewer said (holds a hard veto)' || chr(10) || '{{.review_guardian.result}}' || chr(10) || chr(10) ||
+'## Edit-quality reviewer said' || chr(10) || '{{.review_editquality}}' || chr(10) || chr(10) ||
+'## Bug-historian reviewer said (advisory, no veto)' || chr(10) || '{{.review_bug_historian}}' || chr(10) || chr(10) ||
+'## Reuse-agent reviewer said (advisory, no veto)' || chr(10) || '{{.review_reuse_agent}}' || chr(10) || chr(10) ||
+'## Guidelines reviewer said (advisory, no veto)' || chr(10) || '{{.review_guidelines}}' || chr(10) || chr(10) ||
+'## Guardian reviewer said (holds a hard veto)' || chr(10) || '{{.review_guardian}}' || chr(10) || chr(10) ||
 '## Verification results (the reviewers'' own read-only queries, now answered)' || chr(10) || '{{.check_results.results_text}}' || chr(10) || chr(10) ||
 'Use these results to SETTLE any objection that hinged on an unverified fact — cite them in grounded_in. If a result contradicts an edit, change or drop the edit; do not argue with the data.' || chr(10) || chr(10) ||
 '## Output — ONLY the staged-v1 plan JSON. Address the objections; do not merely restate the old plan.'
@@ -503,8 +503,8 @@ SELECT
 'Same staged-v1 schema and remaining hard rules: only code_pointers paths or files this plan adds; caps; grounded in the spec; every edit CHANGES something. CHECKLIST ACTS ARE A CLOSED SET: image_deploy | seed_apply | verify — never invent a new act name; a pre-apply confirmation is a verify entry ordered before seed_apply; image_deploy only when the plan ships code edits.' || chr(10) || chr(10) ||
 '## The approved spec' || chr(10) || '{{.spec_row.summary}}' || chr(10) || '{{.spec_row.spec_text}}' || chr(10) || chr(10) ||
 '## Your VETOED plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
-'## Edit-quality review' || chr(10) || '{{.review_editquality.result}}' || chr(10) || chr(10) ||
-'## Guardian review (the veto — read its notes for the recommended alternative)' || chr(10) || '{{.review_guardian.result}}' || chr(10) || chr(10) ||
+'## Edit-quality review' || chr(10) || '{{.review_editquality}}' || chr(10) || chr(10) ||
+'## Guardian review (the veto — read its notes for the recommended alternative)' || chr(10) || '{{.review_guardian}}' || chr(10) || chr(10) ||
 '## Output — ONLY the staged-v1 plan JSON.'
           )
         ),
