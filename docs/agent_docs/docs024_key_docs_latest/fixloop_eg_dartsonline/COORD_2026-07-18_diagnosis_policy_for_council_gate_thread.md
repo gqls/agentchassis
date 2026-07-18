@@ -37,3 +37,33 @@ Mitigation (patch-style idempotent seeds, never whole-object writes) is in
 `../multi_session_coordination/FINDING_2026-07-17_config_reseed_clobber.md`.
 Your own CLAUDE.md note ("patch BOTH councils in one migration, diff against the
 LIVE row first") is the right discipline — this finding is the why behind it.
+
+---
+
+## ADDENDUM 2026-07-18 — a blind spot in 099_SYNC_gate_roster.py (found doing the Sonnet 5 migration)
+
+Moving the council to Sonnet 5 (owner decision D1: model → claude-sonnet-5,
+reviewer max_tokens 3000 → 8000) exposed a real limitation in the mirror:
+
+- **The sync detects roster STRUCTURE drift (added/removed seats, routing) but
+  NOT config-VALUE drift inside an existing seat** (`config.ai_service.model`,
+  `max_tokens`, and anything else `transform_step` copies verbatim). I migrated
+  `fix-proposer`, ran `099 --apply`, and it reported *"Already in sync — nothing
+  written"* because the seat NAMES and routing were unchanged — leaving the gate
+  reviewers on `claude-sonnet-4-6 @ 3000` while fix-proposer was on
+  `claude-sonnet-5 @ 8000`. Silent divergence, exactly the drift the mirror
+  exists to prevent.
+- I patched `council-gate` directly with the same idempotent patch-style loop
+  (0NN_council_sonnet5_migration.sql, generalised to both types) to align them —
+  this is NOT the structural hand-patch CLAUDE.md warns against (no seat/routing
+  change), only a config-value the mirror provably can't propagate. Both councils
+  are now `claude-sonnet-5`, reviewers `>= 8000`. Backups:
+  `bak_agentdef_fixproposer_sonnet5_20260718`, `bak_agentdef_councilgate_sonnet5_20260718`.
+
+**Suggested fix for the mirror (your tool, your call):** in the delta check,
+compare each mirrored step's `config.ai_service` (and ideally a hash of the whole
+transformed step) between fix-proposer and gate, not just the seat-name set —
+and write when they differ even if the roster is structurally identical. Until
+then, a model/max_tokens change to the council needs applying to BOTH types
+directly (the migration seed does this), and CLAUDE.md's "run the mirror, don't
+hand-patch" holds for SEAT changes but not for in-seat config changes.
