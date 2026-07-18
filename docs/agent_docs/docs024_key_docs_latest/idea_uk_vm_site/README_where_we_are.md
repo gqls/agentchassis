@@ -124,3 +124,548 @@ If it turns out in step 1 that you already rotated on the 14th, tell me and I'll
 
 
 --
+
+All three remaining chat-doable items are done. Here's where this leg landed:
+
+Contact form → mailto (your choice), plus a stale email caught
+
+I traced the dead form to its real seam: the fleet contact-form template renders <form action="{{.form_action}}">, and idea.uk's per-site value was #contact. I changed only idea.uk's section data, not the fleet
+template (that's the separate fleet-wide dead-form thread). While in there I found the form's description still named the old idea-uk@leopardess.uk — the block above it had been moved to idea.uk@contactforsales.com
+back in p1_05/p1_06 but this copy was missed. Both fixed in sql/p1_07 (applied and verified):
+- form_action: #contact → mailto:idea.uk@contactforsales.com?subject=idea.uk enquiry
+- description email → the new address (phone left untouched)
+
+One honest caveat: this is fixed at the source (the authoritative section data), not yet in the deployed artifact. It publishes on the next contact-page build. I deliberately didn't force a single-page rebuild to
+push it out now, because (a) I watched a rebuild of an already-deployed page bounce straight to needs_human_review at attempt 0 — that's the pipeline's review gate, appropriate for a real site — and (b) the site
+isn't live yet (nothing pulls vm-sites until you set up the box sync), so there's no visible gap to close in a hurry. The pre-cutover build carries it. If you'd rather I force it through the review queue now so you
+can approve and publish it immediately, say the word.
+
+Deploy-path proof — reframed to verification
+
+I set out to prove the chassis→vm-sites deploy by rebuilding a page, but an unchanged already-deployed page just bounces to review (no build). So instead of a synthetic build, I verified against the running pod per
+CLAUDE.md: resolveGitRepoName is present in v1.0.1134 (3×) and sites.github_repo='vm-sites' is set — the routing is live in the image. The actual commit-to-vm-sites will be observed on the first natural build. I
+cancelled the synthetic proof item so it doesn't sit in your review queue mislabelled.
+
+Box artifacts ready to paste
+
+Committed docs024_key_docs_latest/idea_uk_vm_site/box/ — the complete §3a/§3b payloads: provision-pullsync.sh (idempotent — deploy key, sparse clone, timer, first sync + 8-page check), the sitesync script and
+systemd units, proxy_tool.conf, idea.uk.nginx (all 16 tool paths + the three legal-page 301s + loud-404 static root), and a README with the §3d proof loop and §3e swap/rollback. When you're ready for the box, it's
+scp -r box … then run the script.
+
+Four commits this leg (guard-hook, box artifacts, contact fix, and the earlier Phase-0/subject work), all local on 085_debug_and_feature_loops with explicit pathspecs per CLAUDE.md — nothing pushed. The workstream
+is now fully prepared up to the box-side cutover, which needs your SSH.
+
+---
+
+
+
+talk me through implementing the pull-sync script and what we are syncing and explain to me why we are not deploying the pages directly to the box
+
+● Good question to slow down on — the "why" here is a real architectural decision, not just a mechanical step. Let me pull up the exact files I committed and the decision record so I explain what's actually there
+rather than from memory.
+
+Read 2 files
+
+● Here's the whole picture, from what's on disk to why it's shaped this way.
+
+The shape in one line
+
+A tiny systemd timer on the Hetzner box pulls idea.uk's built HTML out of the gqls/vm-sites git repo every 5 minutes and mirrors it into the folder nginx serves. The box fetches; nothing in the cluster ever reaches
+into the box.
+
+What we're syncing
+
+The source is one folder — idea.uk/ at the root of gqls/vm-sites. That folder is the built static artefact: the eight rendered HTML pages (index, tools, report, about, contact, privacy, guides/index, news/index),
+plus assets/ (the CSS, the hero and icon images, the JS) and tools/assets/ (the news-feed JS). It's exactly what the chassis renders in Kubernetes and the git-adapter commits — HTML and static files, no code, no
+database, no templates. The ninth page, the "Free Audience Check", deliberately produces no file: it's a pointer to the live tool at /audience-check, which nginx will proxy, so there's nothing static to sync for
+it.
+
+The destination is /var/www/idea.uk on the box, which is what nginx's static root will point at.
+
+Crucially, we sync only that one folder. gqls/vm-sites is designed to eventually hold many domains (relojistas.com is already there), and this box has no business holding anyone else's. That's what the sparse
+checkout buys us — more on that below.
+
+The three parts, and implementing them
+
+There are three files, and one script that installs all of them:
+
+1. sitesync — the sync itself (installed to /usr/local/bin/sitesync). Four lines that matter:
+
+cd /var/lib/sitesync/repo
+git fetch --quiet origin main          # download new commits; working tree untouched
+git reset --hard --quiet origin/main   # force the tree to EXACTLY match origin
+rsync -a --delete idea.uk/ /var/www/idea.uk/
+
+The reset --hard (rather than git pull/merge) is deliberate: the box is a read-only mirror, not a place work happens. If anything on the box ever diverges from the repo — a hand-edited file, a half-applied change —
+we want it obliterated on the next tick, not merged. The repo is the single source of truth, full stop.
+
+The rsync --delete step then copies that clean tree into the webroot, and --delete means a file removed from the repo also disappears from the webroot — a true mirror with no orphaned pages. You might ask why there
+are two copies (a git checkout and a webroot) rather than pointing nginx straight at the checkout. Two reasons: the checkout contains a .git/ directory, and you never want that under a web root
+(https://idea.uk/.git/config would be downloadable); and rsync lets the served copy be a clean, plumbing-free tree. The git checkout is the staging area, the webroot is what the world sees.
+
+2. sitesync.service — a systemd oneshot that runs the script as www-data, so everything rsync writes is already owned by the web user (no chown, no root in the sync path).
+
+3. sitesync.timer — fires the service 1 minute after boot, then every 5 minutes. This 5 minutes is your deploy latency (a commit to the repo shows up on the box within 5 minutes, not instantly) — the accepted cost
+   of this model.
+
+The installer, provision-pullsync.sh, runs once as root on the box and does the whole §3a in order: creates the directories owned by www-data; generates a read-only deploy key as www-data; then pauses and prints
+the public key for you to paste into gqls/vm-sites → Settings → Deploy keys with write access unticked; then does the sparse clone; installs the script and units; runs one sync; and verifies all eight pages are on
+disk. It explicitly does not touch nginx — that's a separate, deliberate step so provisioning can't accidentally cut the site over.
+
+The sparse clone is this bit:
+
+git clone --filter=blob:none --no-checkout git@github.com:gqls/vm-sites.git repo
+git sparse-checkout set idea.uk
+git checkout main
+
+--filter=blob:none means "don't download file contents until asked" and sparse-checkout set idea.uk means "only ever materialise the idea.uk/ folder." So even when the repo holds a thousand domains, this box
+downloads only its own — the clone stays cheap forever.
+
+Why pull, and not push
+
+The obvious alternative is push: a GitHub Action (there's already one in the repo for relojistas) holds an SSH key on the cluster's self-hosted runner and rsyncs files onto the boxes. It works, but look at where
+the credential lives. One SSH key, on the runner, authorised to write to every box. Compromise the runner — which sits in your cluster and runs whatever a repo push tells it to — and you can write to the entire
+fleet. That blast radius grows with every box you add.
+
+Pull inverts the trust. Each box holds its own key, and that key is read-only and only talks to GitHub. Now think about what a compromised box can actually do: it can't write to the repo (read-only, so it can't
+poison the content other sites serve), and it has no SSH path to its sibling boxes (it only knows how to read from GitHub). The damage is contained to the box that's already compromised. One honest caveat so you're
+not surprised later: a GitHub deploy key can read the whole repo — the sparse checkout is about download efficiency, not an access boundary — so the containment is specifically "can't write anywhere, can't reach
+other machines," not "can't see other domains' HTML." For public marketing pages that's a non-issue.
+
+There's an operational bonus too: a box that's offline during a deploy simply catches up on its next 5-minute tick, with no failed-push to retry and no coupling to whether the runner happens to be up.
+
+Why go through git at all — why not deploy pages directly to the box
+
+This is the deeper question, and it's worth separating from pull-vs-push. Why does the chassis render pages, commit them to a git repo, and let the box pull — instead of the renderer just scp/rsync-ing the finished
+HTML straight onto the box?
+
+- One artefact, two sinks — not a new pipeline. The chassis already renders in Kubernetes and commits HTML to a git repo for the whole fleet (that's how the thousands of B2-hosted sites work — "commit is deploy").
+  The VM is a second destination for the same artefact, selected by one column (sites.github_repo). It is not a second renderer and not a second transport. If we bolted a direct box-deploy onto idea.uk, it would be a
+  bespoke path that drifts from how every other site ships. Reusing the git seam keeps idea.uk a normal site that merely points somewhere else.
+    - The cluster shouldn't hold keys to internet-facing boxes. Same blast-radius argument as above, one level up: a direct-deploy renderer would need SSH credentials to the box baked into the cluster. Git-as-transport
+      means the cluster only ever writes to a git repo, and the box reaches out to fetch. Neither side holds a credential that can attack the other's machine.
+    - Versioning and rollback for free. Every deploy is a commit. You can see exactly what changed, diff two states, and roll back by reverting — all with ordinary git. A renderer that rsyncs straight to disk leaves no
+      history; a bad page is just gone, overwritten.
+    - The box stays dumb, and that's the point. Its entire job is nginx plus a git pull. No application sits in the request path, so a crash of the paid tool can't take the marketing pages down with it — which is the
+      whole reliability win of this migration. The moment the renderer deploys directly, you've coupled the box's content to the cluster's availability and lost that separation.
+
+  And the furthest version of this question — why not have the box render the pages itself, dynamically — was rejected for a concrete reason: the chassis renders out of clients_db, the box has no route to that
+  database, and the tool binary has no DB driver at all. Rendering on the box would mean either giving every box a path into the cluster database (coupling and a security problem across a fleet) or re-implementing
+  rendering against a copied dataset — which is just the static artefact again, with extra moving parts. So: render once, in the cluster, where the data lives; ship the finished files; let the box be a file server.
+
+  The cost of all this, stated plainly, is the 5-minute deploy latency and one more mechanism to run. For a marketing site that changes rarely and must stay up when the tool wobbles, that's a good trade — and it's
+  exactly why this VM model is kept as the exception for the handful of sites that sell something, with B2-static remaining the default for the rest.
+
+✻ Churned for 1m 46s
+
+※ recap: Goal: put idea.uk's static site and paid tool on one box behind nginx. Phase 2 is done and the box-cutover files are prepared; I just explained the pull-sync design. Next action: you run
+provision-pullsync.sh on the box to set up §3a.
+
+---
+
+● Fixed and committed (fdbfac3f6). Here's what to run on the box now.
+
+Unblock it in one step
+
+Re-copy the fixed script and re-run it — it's idempotent, so it will skip the directories and reuse the key you've already registered, populate known_hosts properly, and carry on to the clone:
+
+scp -r box root@116.203.204.115:/root/idea-uk-box
+ssh root@116.203.204.115 'cd /root/idea-uk-box && bash provision-pullsync.sh'
+
+When it reaches the pause it will print the same public key you already added — just press Enter, no need to add it again.
+
+What to look for as it runs
+
+It now prints GitHub's host-key fingerprints before trusting them. The ED25519 one should read:
+
+SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU
+
+If it matches, you're good. (Worth a glance against GitHub's published fingerprints — this is the one moment we decide to trust the server, and blindly accepting a scanned key is how you'd miss an interception.)
+
+Then a new pre-flight test runs before the clone. Success looks like:
+
+Hi gqls/vm-sites! You've successfully authenticated, but GitHub does not provide shell access.
+-- OK: deploy key accepted.
+
+That greeting naming the repo confirms the read-only deploy key is working, and GitHub's "Never used" will flip to a timestamp.
+
+If it stops again
+
+The script now tells you which problem you have rather than failing cryptically:
+
+- "could not fetch GitHub's host keys" — outbound port 22 is blocked by the box's firewall. The script prints the fallback: use GitHub's SSH-over-443 endpoint (ssh.github.com:443) via a ~/.ssh/config entry. Hetzner
+  doesn't block this by default, but setup.sh configures ufw, so it's worth knowing.
+- "GitHub refused the key" — the key isn't registered against gqls/vm-sites (wrong repo, or added to a personal account instead).
+
+What went wrong, for the record
+
+My original line was ssh-keyscan github.com >> known_hosts 2>/dev/null. Two flaws compounded: ssh-keyscan exits 0 even when it reaches nothing, so the set -euo pipefail guard never fired, and 2>/dev/null hid the
+reason. The result was an empty known_hosts and a script that marched confidently into a clone that couldn't possibly work. Your deploy key was never the problem — "Never used" was the tell that SSH aborted at
+host-key verification, before authentication. The fix asserts the file is non-empty and shows you what it's trusting, which is what it should have done from the start.
+
+---
+The fix was never tested — you ran a stale copy. Run this:
+
+ssh root@116.203.204.115 'rm -rf /root/idea-uk-box'
+scp -r box root@116.203.204.115:/root/idea-uk-box
+ssh root@116.203.204.115 'grep -c pre-flight /root/idea-uk-box/provision-pullsync.sh'
+ssh root@116.203.204.115 'cd /root/idea-uk-box && bash provision-pullsync.sh'
+
+That third line must print 1 or more. If it prints 0, you're about to run the old script again and there's no point continuing.
+
+How I knew
+
+Two things were missing from your output that the new script always prints: == pre-flight: can this box authenticate to GitHub? ==, and the -- fetching GitHub host keys line. It jumped straight from the deploy key
+to == sparse clone ==, which is the old script's shape exactly. The transferred file is 5572 bytes and does contain the pre-flight stage, so the copy was fine — it just landed somewhere you didn't execute.
+
+The cause is a standard scp -r behaviour: when the destination directory already exists, scp -r box …:/root/idea-uk-box copies the source into it, giving you /root/idea-uk-box/box/provision-pullsync.sh. Your cd
+/root/idea-uk-box then ran the original file still sitting there from the first copy. This is nasty precisely because the symptom is "the fix didn't work" rather than "wrong file" — I've documented it in the
+RUNBOOK with the rm -rf and the grep check, because it would have caught us again.
+
+A second real bug your output exposed
+
+The Press Enter once the deploy key is added... prompt never appeared either. That's because ssh host 'bash script' gives no TTY, so read gets EOF immediately — the pause silently did nothing. My design was wrong:
+it prompted unconditionally even though your key has been registered since yesterday.
+
+I've reordered it so the script authenticates first and only prompts if that fails. Since your key is already on gqls/vm-sites, the pre-flight will now pass silently and go straight to cloning — no interaction
+needed. If a key ever is missing and there's no TTY, it prints the key and exits with instructions rather than pretending to wait.
+
+What to expect
+
+== pre-flight: can this box authenticate to GitHub? ==
+-- OK: deploy key accepted.
+== sparse clone (this box fetches ONLY idea.uk/) ==
+
+If instead you see Permission denied (publickey) at the pre-flight, that's now a genuine result rather than an artefact of the wrong script — it would mean the key is registered somewhere other than gqls/vm-sites.
+And if you see anything mentioning /var/www/.ssh, the GIT_SSH_COMMAND fix isn't reaching ssh and I'd want to see it, since that's the bug 016 mechanism resurfacing.
+
+I haven't added the scp nesting trap to /bugs_open/016 — it's an operator-workflow trap rather than the ssh mechanism that bug documents, and it's now captured in the RUNBOOK where someone doing this work will
+actually meet it. Say if you'd rather it were filed as its own case.
+
+✻ Baked for 2m 12s
+
+※ recap: We're putting idea.uk's static site behind the VM's nginx alongside the paid tool; right now we're provisioning the box's pull-sync, which kept failing on a stale copied script. Next: re-copy after deleting
+/root/idea-uk-box, then re-run provision-pullsync.sh.
+
+
+---
+
+That's Phase 3a done — idea.uk's site is now physically on the server, syncing itself every five minutes, and nothing the public sees has changed yet.
+
+Reading your output back, everything landed as intended: the pre-flight passed (deploy key accepted), proving the GIT_SSH_COMMAND fix reached ssh; the clone pulled only idea.uk/ as designed; the timer is registered
+with the next run five minutes out; and all eight pages verified OK.
+
+One incidental confirmation worth noting: the webroot listing includes terms.html, refund-policy.html and privacy.html. That's the collision I flagged as a late correction — it's now proven on the box rather than
+inferred, so the three .html → redirects in the staged nginx config are genuinely required. Without them you'd end up with two competing copies of your purchase terms.
+
+Where this leaves you
+
+The next step, §3b–3e, is the only one that changes what visitors see — everything so far has been reversible staging. The sequence is deliberately cautious: stage the config, validate it, test all sixteen tool
+paths and push a real Stripe event through, and only then do the one-line swap. Rollback is restoring one file and reloading. The tool's binary and its order data are never touched at any point.
+
+Worth doing before the cutover, while it's cheap: leave the sync running for a bit and confirm a second tick is clean (systemctl status sitesync.service after a few minutes, or journalctl -u sitesync.service). The
+first sync was really part of the install; seeing an unattended one succeed is what proves the timer path works with the deploy key under systemd rather than under your shell.
+
+Recorded
+
+Docs updated and committed (7249d52a4) — RUNNING_NOTES §S with the full run, RUNBOOK "where we are", the resume handoff, and the summary table. The two traps that cost us cycles are captured where the next person
+will hit them: /bugs_open/016 and 016b §9 for the ssh/$HOME mechanism, and the RUNBOOK for the scp -r nesting. Memory updated too.
+
+Still outstanding on your side, unchanged: the nginx cutover, the tool binary deploy (spam defences plus the email subject fix), and the two DNS records for the SES bounce address.
+
+
+---
+
+Everything needed for the cutover is now verified and settled.
+
+The sync is genuinely self-sustaining. That status=0/SUCCESS from a timer-triggered run is the one I wanted to see — the earlier run was part of the install, driven by your root shell. This one proves the deploy
+key and GIT_SSH_COMMAND work under systemd as www-data, which is the path that will run unattended forever.
+
+The route list is confirmed complete. Your box check correctly reported the source isn't deployed there (binary only), so I verified against service.go:596-612 instead: 16 tool routes plus /. The staged config
+covers all 16 in 15 blocks — 12 exact matches plus three prefix matches, where ^~ /order/ deliberately covers both /order/success and /order/cancel. No gaps. Worth flagging that I briefly mis-reported /stripe/,
+/internal/ and /order/ as missing: that was my own grep treating ^ as a regex anchor, not a real hole. I re-checked directly rather than let a shell-quoting artefact stand near the money path.
+
+Your decision is recorded — the tool keeps all three legal pages, with the static .html copies redirecting onto them. That closes the last open decision, and the staged config already implemented it, so nothing
+needs changing.
+
+One thing to schedule deliberately
+
+The box is reporting *** System restart required *** with 19 pending updates, one of them security. Not urgent and not blocking, but I'd choose the timing rather than have it happen mid-diagnosis: rebooting after
+the cutover would make any wobble ambiguous between "the reboot" and "the new nginx config". Doing it before is cleaner, and it doubles as a free test of sitesync.timer's OnBootSec — you'd confirm the sync comes
+back by itself after a restart, which is worth knowing before you depend on it.
+
+What's left
+
+The cutover itself (§3b–3e), which is the only remaining step that changes what visitors see: copy the two config files in, paste your real certificate lines and the port-80 block from the live config, nginx -t,
+run the sixteen-path test loop, push a Stripe test event through, then the one-line swap. Rollback stays one file restore and a reload.
+
+Then, separately and at your convenience: the tool binary deploy (spam defences plus the email subject fix, one build carries both), and the two DNS records for the SES bounce address.
+
+
+-----
+Build verified — clean linux/amd64 ELF, and the source is fully committed at 08e767b7c, so what you ship will match the repo.
+
+Here's the full sequence. I've put the DNS first deliberately (it needs propagation time and carries zero risk, so it verifies in the background while you do everything else), and the tool deploy before the cutover —
+right now nginx sends everything to the tool, which is the simplest possible topology to debug a new binary in. After the cutover, a tool bug and an nginx bug look alike.
+
+  ---
+Step 1 — SES bounce address (do first, then forget)
+
+In the SES console, region Europe (London) eu-west-2 → Identities → leopardess.uk → Custom MAIL FROM domain → Edit:
+- Tick "Use a custom MAIL FROM domain"
+- Subdomain: bounce.leopardess.uk — not mail., which is typically what your mail client's hostname uses; claiming it could break your mailbox access
+- On MX failure: Use default MAIL FROM domain (safe fallback — mail keeps flowing if the record ever breaks)
+
+Then in Clook's DNS zone for leopardess.uk, add exactly two records:
+
+┌──────┬────────┬──────────────────────────────────────────┐
+│ Type │  Name  │                  Value                   │
+├──────┼────────┼──────────────────────────────────────────┤
+│ MX   │ bounce │ 10 feedback-smtp.eu-west-2.amazonses.com │
+├──────┼────────┼──────────────────────────────────────────┤
+│ TXT  │ bounce │ v=spf1 include:amazonses.com ~all        │
+└──────┴────────┴──────────────────────────────────────────┘
+
+Do not touch the root SPF, root MX, or _dmarc — incoming mail stays with Clook, and the SES SPF lives only on this subdomain. That separation is the whole point of a custom MAIL FROM.
+
+Check progress any time:
+dig +short MX bounce.leopardess.uk
+dig +short TXT bounce.leopardess.uk
+Both empty right now; when they answer, SES flips "Custom MAIL FROM" from Pending to Successful.
+
+  ---
+Step 2 — Reboot the box
+
+The restart-required flag comes from updates already applied, so a plain reboot clears it. I'd deliberately not bundle the 19 pending updates into cutover week — one change at a time; apply them (or just the security
+one) as a separate exercise afterwards.
+
+Baseline first, so you know what "back to normal" looks like:
+ssh root@116.203.204.115 'systemctl is-active idea; systemctl is-enabled sitesync.timer; uptime'
+Reboot:
+ssh root@116.203.204.115 '
+
+---
+
+Reboot passed cleanly, and that missing file saved us from a bad cutover.
+
+The reboot is verified
+
+All gates green: idea active, 8 pages on disk, /health 200 — and the timer's last run was 14:21:33, about a minute after boot, which is OnBootSec firing. The sync re-arms itself after a restart, so that's now proven
+rather than assumed.
+
+sites-enabled/idea.uk doesn't exist — and chasing that found a real problem
+
+Rather than guess the path, I read setup.sh (the script that provisioned the box). The live config is /etc/nginx/sites-available/idea.conf. But comparing it against what I'd staged for you turned up something worse than
+a filename: my config would have silently downgraded the box. The live one carries settings mine dropped:
+
+- proxy_read_timeout 930s — setup.sh's own comment says "the engine can take minutes". My snippet had nothing, so nginx's 60s default would have cut report generation off mid-run. This is the one that would have
+  actually hurt: reports failing after the cutover, looking like a tool bug.
+- limit_req zone=idea_rl and its limit_req_zone preamble — rate limiting would have vanished entirely.
+- The port-80 ACME + redirect block, IPv6 listeners, ssl_protocols, four security headers including HSTS, client_max_body_size 1m.
+- The ACME webroot is /var/www/letsencrypt, not /var/www/html as I'd written — certificate renewal could have broken later.
+
+There's also a subtlety I'd have got wrong: setup.sh deliberately gives /stripe/webhook its own location with no rate limit. That's correct — Stripe retries webhooks in bursts, and a 503 from limit_req would read as an
+outage and delay payment confirmation. I've split that into a separate proxy_stripe.conf so the money path can't inherit a limit from the shared snippet.
+
+All of it is now rebuilt as a faithful superset and committed (c5357595b), with all 16 routes verified present.
+
+One standing landmine, now documented
+
+idea.conf says "managed by setup.sh — do not edit by hand". After the cutover, re-running setup.sh would overwrite it and revert the site to tool-only (and it does ufw --force reset). If the box ever needs
+re-provisioning, these server blocks have to go into setup.sh's stage-2 template first.
+
+Revised cutover commands
+
+# 1. see which preamble the live conf uses — copy it verbatim into idea.uk.nginx's top
+ssh root@116.203.204.115 "sed -n '1,/^server {/p' /etc/nginx/sites-available/ide
+
+# 2. re-copy the corrected box files, then stage
+ssh root@116.203.204.115 'rm -rf /root/idea-uk-box'
+scp -r box root@116.203.204.115:/root/idea-uk-box
+ssh root@116.203.204.115 '
+cp /root/idea-uk-box/proxy_tool.conf   /etc/nginx/snippets/proxy_tool.conf
+cp /root/idea-uk-box/proxy_stripe.conf /etc/nginx/snippets/proxy_stripe.conf
+cp /root/idea-uk-box/idea.uk.nginx     /etc/nginx/sites-available/idea.conf.new'
+
+Then check the cert paths in the live file match the staged one, run the port-8443 rehearsal from my previous message (pointing at idea.conf.new), and swap with:
+
+ssh root@116.203.204.115 '
+cp /etc/nginx/sites-available/idea.conf /root/idea.conf.bak.$(date +%Y%m%d-%H%M%S)
+cp /etc/nginx/sites-available/idea.conf.new /etc/nginx/sites-available/idea.conf
+nginx -t && systemctl reload nginx && echo CUTOVER_RELOADED'
+
+The sites-enabled/idea.conf symlink already exists and stays untouched — only the file it points at changes.
+
+Steps 1 (SES DNS), 3 (tool binary) and 5 (SES confirm) from my previous message are unaffected. Given the tool deploy is independent of all this, that's still worth doing first — it's low-risk and gets your spam and
+subject-line fixes live while the nginx work waits for a moment you can watch it.
+
+Wait ~60 seconds, then verify — this doubles as a free test of sitesync.timer's OnBootSec:
+ssh root@116.203.204.115 '
+uptime
+systemctl is-active idea
+systemctl list-timers sitesync.timer --no-pager
+systemctl status sitesync.service --no-pager | tail -3
+ls /var/www/idea.uk/*.html | wc -l'
+curl -s -o /dev/null -w "site: %{http_code}\n" https://idea.uk/health
+Gate: idea active, the timer listed with a next run, the webroot still populated, /health returning 200. If the sync didn't re-arm after boot, stop and tell me — better to know now than after the cutover.
+
+  ---
+Step 3 — Deploy the tool binary
+
+This ships both pending fixes in one go: the /request spam defences and the email subject fix. Both are backward-compatible (the honeypot only rejects when filled; the timing gate fails open when _elapsed is absent), so
+the tool's existing embedded form keeps working.
+
+Confirm the real paths — don't assume:
+ssh root@116.203.204.115 'systemctl cat idea | grep -E "ExecStart|EnvironmentFile|WorkingDirectory"'
+Expect ExecStart=/opt/idea/idea. If it differs, use what it actually says.
+
+Build, from the repo folder:
+cd docs/agent_docs/docs024_key_docs_latest/idea.uk/golang_files
+GOOS=linux GOARCH=amd64 go build -o idea . && ls -la idea
+
+Ship with a backup in the same breath:
+scp idea root@116.203.204.115:/opt/idea/idea.new
+ssh root@116.203.204.115 '
+cp -a /opt/idea/idea /opt/idea/idea.bak.$(date +%Y%m%d-%H%M%S)
+mv /opt/idea/idea.new /opt/idea/idea
+chmod +x /opt/idea/idea
+systemctl restart idea
+sleep 2
+systemctl is-active idea
+journalctl -u idea -n 20 --no-pager'
+
+Verify:
+curl -s -o /dev/null -w "health: %{http_code}\n" https://idea.uk/health
+curl -s https://idea.uk/capacity
+Then the real proof: submit a genuine request through the site and confirm the REVIEW email arrives (not quarantined) with a short subject — [idea.uk] REVIEW ord_… (first 60 chars…) rather than the whole pitch. That
+single email tests the subject fix and the hardened /request path end to end.
+
+
+
+Rollback if needed — instant, no rebuild:
+ssh root@116.203.204.115 'mv /opt/idea/idea.bak.<timestamp> /opt/idea/idea && systemctl restart idea'
+
+  ---
+Step 4 — The cutover
+
+4a. Read the live config and copy out your real certificate lines and the whole port-80 block:
+ssh root@116.203.204.115 'cat /etc/nginx/sites-enabled/idea.uk'
+
+4b. Stage the new files:
+ssh root@116.203.204.115 '
+cp /root/idea-uk-box/proxy_tool.conf /etc/nginx/snippets/proxy_tool.conf
+cp /root/idea-uk-box/idea.uk.nginx  /etc/nginx/sites-available/idea.uk.new'
+ssh -t root@116.203.204.115 'nano /etc/nginx/sites-available/idea.uk.new'
+In that edit: replace the two ssl_certificate* lines with the real ones from 4a, and paste in the port-80 server block verbatim.
+
+4c. Rehearse on a spare port before touching the live one. This is the belt-and-braces bit and it's worth it on a money path:
+ssh root@116.203.204.115 '
+sed "s/listen 443 ssl http2;/listen 8443 ssl http2;/" /etc/nginx/sites-available/idea.uk.new \
+> /etc/nginx/sites-available/idea.uk.test
+ln -sf /etc/nginx/sites-available/idea.uk.test /etc/nginx/sites-enabled/idea.uk.test
+nginx -t && systemctl reload nginx && echo TEST_CONFIG_LIVE_ON_8443'
+Now test every reserved path against the new config without any public exposure — expect the tool's codes (200/400/401/405), never a static 404:
+ssh root@116.203.204.115 '
+for p in /health /capacity /audience-check /subscribe /request /confirm /approve /decline \
+/op /stripe/webhook /internal/run /order/success /order/cancel /terms /refund-policy /privacy; do
+printf "%-16s -> " "$p"
+curl -sk -o /dev/null -w "%{http_code}\n" -H "Host: idea.uk" https://127.0.0.1:8443$p
+done
+echo "--- static + redirects ---"
+for p in / /about.html /tools.html /terms.html /privacy.html /nonexistent-xyz; do
+printf "%-16s -> " "$p"
+curl -sk -o /dev/null -w "%{http_code}\n" -H "Host: idea.uk" https://127.0.0.1:8443$p
+done'
+Gate: all 16 tool paths reach the tool; / and the .html pages return 200; /terms.html and /privacy.html return 301; /nonexistent-xyz returns 404 (loud, not the homepage). Anything wrong here is free to fix — nothing
+public has changed.
+
+
+Tear the rehearsal down:
+ssh root@116.203.204.115 '
+rm -f /etc/nginx/sites-enabled/idea.uk.test /etc/nginx/sites-available/idea.uk.test
+nginx -t && systemctl reload nginx && echo TEST_REMOVED'
+
+4d. The swap. Note the safety property: replacing the file changes nothing until reload, and a failed nginx -t cannot take the site down — nginx keeps serving the old config.
+ssh root@116.203.204.115 '
+cp /etc/nginx/sites-enabled/idea.uk /root/idea.uk.nginx.bak.$(date +%Y%m%d-%H%M%S)
+cp /etc/nginx/sites-available/idea.uk.new /etc/nginx/sites-available/idea.uk
+ln -sf /etc/nginx/sites-available/idea.uk /etc/nginx/sites-enabled/idea.uk
+nginx -t && systemctl reload nginx && echo CUTOVER_RELOADED'
+If nginx -t fails, it stops there and the live site is untouched — restore the backup and investigate.
+
+4e. Verify publicly, then purge the Cloudflare cache for idea.uk:
+for p in /health /capacity /audience-check /subscribe /request /confirm /approve /decline \
+/op /stripe/webhook /internal/run /order/success /order/cancel /terms /refund-policy /privacy; do
+printf '%-16s -> ' "$p"; curl -s -o /dev/null -w '%{http_code}\n' https://idea.uk$p
+done
+curl -s -o /dev/null -w 'home: %{http_code}\n' https://idea.uk/
+
+4f. The money path — the one that actually matters. From the Stripe dashboard, send a test event to the https://idea.uk/stripe/webhook endpoint and confirm the tool receives and verifies it:
+ssh root@116.203.204.115 'journalctl -u idea -n 30 --no-pager | grep -i stripe'
+Then, when you're ready, a real end-to-end purchase: /request → /confirm → /approve → pay → order reaches paid in /var/lib/idea/orders.json.
+
+Rollback, any time, seconds:
+ssh root@116.203.204.115 '
+cp /root/idea.uk.nginx.bak.<timestamp> /etc/nginx/sites-enabled/idea.uk
+nginx -t && systemctl reload nginx && echo ROLLED_BACK'
+The tool's binary, service and order file are never touched by any of this — rollback reverts only the front door.
+
+  ---
+Step 5 — Close out SES
+
+Back in the SES identity page, confirm Custom MAIL FROM: Successful. Then send one more test email through the tool and check the headers show spf=pass … smtp.mailfrom=bounce.leopardess.uk alongside the dkim=pass
+header.d=leopardess.uk you already have. That's full alignment, and it's what stops your paid report emails carrying a deliverability handicap into customers' inboxes.
+
+  ---
+Two things I'd deliberately leave for afterwards rather than bundle in: the 19 pending apt updates, and the real-client-IP work (§4a — the Cloudflare set_real_ip_from / CF-Connecting-IP config, which needs you to
+confirm whether the DNS record is proxied first). Neither blocks anything above.
+
+Want me to fold the port-8443 rehearsal into RUNBOOK §3d? It's a genuine improvement on what's written there — the current text says "prove it before cutting over" without specifying how, and this is the how.
+
+----
+You've found something important, and the headline is worse than the symptoms: the paid funnel is currently unreachable on a live earning site.
+
+What's actually wrong
+
+The tool served its own landing page at /, and that page carried the real entry UI — the audience-check form and the report-request form. Those POST to /audience-check and /request, which are handlers, not pages. The
+cutover gave / to the static site. nginx proxies all 16 routes correctly and the tool is perfectly healthy — but the forms that drove it are gone, and the static site never had any. I verified: the entire site contains
+one form, a newsletter box with no action, and zero things posting to /request. The two /audience-check references are plain href links, so clicking one is a GET to a POST-only handler — your "POST only" page.
+
+So the tool is running, reachable, and unusable. Every smoke test I ran passed, because nothing is erroring; the funnel is simply absent.
+
+Painfully, this was half-seen. RUNBOOK §3b carried the note "…and / (the landing page it loses)" — recorded as a routing fact. Nobody asked what was on that page. The earlier pointer-page decision then aimed the "Free
+Audience Check" card at /audience-check on the assumption it was a page. It never was.
+
+Your other two symptoms are real and separate:
+
+┌─────────────────────┬─────────────────────────────────┬────────────────────────────────────────────────────────────┐
+│       Symptom       │             Markup              │                            Note                            │
+├─────────────────────┼─────────────────────────────────┼────────────────────────────────────────────────────────────┤
+│ "idea.uk logo" text │ <img src="" alt="idea.uk logo"> │ asset exists (logo.jpg → 200) — the URL is never filled in │
+├─────────────────────┼─────────────────────────────────┼────────────────────────────────────────────────────────────┤
+│ Buttons do nothing  │ <a href="">, <a href="#">       │ several per page                                           │
+└─────────────────────┴─────────────────────────────────┴────────────────────────────────────────────────────────────┘
+
+On the auditors
+
+They exist and are configured — dead_controls catches href="#", phantom_internal_links catches href="", plus misdirected_cta and the image checks — spread across three discovery agents. But no discovery check has ever
+run against idea.uk. The site has 112 work items across 13 sources; discovery isn't one of them. I cleared that query against the full source list rather than trust a zero.
+
+I wrote an on-demand trigger (TRIGGER_discovery_agent.sh) and hit two snags worth knowing: the workflow resolves by domain and dies "domain not found in input_data" if given only a site_id (cost one run — now fixed in
+the script), and after that fix later dispatches produced no orchestration row at all. The pod was six hours old, so the documented 300s-post-restart drop doesn't explain it. On-demand discovery dispatch needs its own
+diagnosis; I stopped rather than sink more time while you have a broken funnel.
+
+And there's a genuine auditor gap. No check models the backend. They ask "does this href resolve?" — and /audience-check does resolve. Nothing asks whether a link's target accepts the method the link will use, or
+whether a site with a backend still contains any form that posts to it. That gap is exactly what let this ship.
+
+I've filed /bugs_open/017 with the full diagnosis, a proposed backend_entry_orphaned check (two findings: method_mismatch_link and no_backend_entry, both cheap static analysis that would have fired the moment the
+cutover landed), and the site-fix options.
+
+What I'd do about the funnel now
+
+The fastest restoration is to give the tool a GET page path — add a /start handler serving the landing markup it already has embedded, proxy it, and point the CTAs there. That brings both forms back in one small change.
+The better end state is authoring the forms as chassis sections in the static build (same origin, so no CORS, and the /request honeypot and timing fields can be authored properly) — but that's a bigger piece of work.
+
+Given it's live and selling, I'd suggest the quick path first. Want me to write that /start handler against the tool source? It would ship with the binary deploy that's already pending, so it costs no extra deployment.
+
+-----

@@ -267,3 +267,161 @@ P3 is live and proven end-to-end on v1.0.1125 — and the proof's first run caug
 
 
 ---
+
+I've read their PLAN and RUNBOOK and verified the overlapping pieces against the live cluster. Here's the assessment.
+
+  They fit together as two layers of one system, not two competing tools
+
+  The experience loop is deliberately built on top of my machinery rather than beside it. Their PLAN §2 lists doc_plans/doc_notes, the verification ladder, tool-acceptance-agent and tool_acceptance_due as "reuse,
+  don't rebuild", and their "genuinely NEW" table is short. The division is clean: my loop verifies that a tool works; theirs verifies that an experience is coherent — that a button's promise is kept, a journey has
+  no dead end, and the numbers on the page are real. My checks are all single-artifact-in-isolation, which is exactly the gap they identified: nothing owned the journey between artifacts.
+
+  Where they touch my work (four real seams)
+
+  Schema — already done, and done correctly. Migration 163 extends my doc_plans/doc_notes CHECK constraints to tool|pipeline|experience. An EXPERIENCE_PLAN is just a doc_plans row with subject_type='experience'. They
+  correctly worked out that my one-current-per-subject partial-unique index is type-agnostic and needed no change. One travelling-docs substrate, three subject types — the right call.
+
+  They found and fixed a genuine latent bug in my subsystem. The vonc arena defect was invisible to my ladder: the page was renamed, which detached its doc_plan (subject_key mismatch), so the acceptance sweep never
+  covered the live page — orphaned criteria. Their T2.2 (RekeyTravellingDocs + rename_tool_identity + CanonicalisePage) closes that class, and I confirmed it's live in the deployed v1.0.1135 (6 hits in the pod
+  binary). That's a real improvement to my machinery I'd not have caught.
+
+  The deep overlap is their T5.1/T5.2 — they extend the exact two files I edited today. T5.1 adds a journey check type to my run_checks_action.go, and T5.2 adds ScopeData/ScopePlanGap to my scope vocabulary plus
+  needs_experience_replan routing in my judge. This is the part needing coordination, below.
+
+  Their escalation mechanism is my open finding. They get two-strike/unresolved semantics free for needs_experience_replan. That is essentially candidate (b) from bugs_open/010 — the convergence guard I filed for the
+  tool path. Worth unifying rather than building twice.
+
+  Three things I'd flag to that thread
+
+  1. Their T3 is no longer blocked. Their RUNBOOK still lists it BLOCKED pending a chassis ≥ 66d32477d (the docResolveSubject accepts-'experience' fix). I verified by ancestry that commit is an ancestor of my own
+  commit, which is confirmed in the deployed v1.0.1135, and docResolveSubject is in the pod binary. They can fire the planner+council now.
+  2. Their line-number references are stale, and their flagged blocker is cleared. Their §0 warned about my uncommitted WIP in create_rerender_items_action.go and an untracked probe test in browserrunner/ — both now
+  resolved (committed and deleted respectively). But their RUNBOOK pins run_checks_action.go:83, extractRunResults:357, JudgeAcceptanceResultsAction:467; my drill-down work today added ~83 lines to the adapter and
+  ~53 to the judge, so those have moved. They should navigate by symbol, not line.
+  3. The one architectural risk is the journey browser context. Today Execute opens a fresh browser per (url, profile) and closes it — deliberate isolation so a crashed Chromium poisons one run, not the pod. Journeys
+  need a click to navigate and continue in the same context. I'd strongly suggest making that additive — keep the isolated-per-URL path for existing tool checks and give journeys their own persistent-context path —
+  rather than reworking Execute, which would put the proven Tier-4 tool path at risk. Also worth them knowing: my new forced_by/forced_reason drill-down lands on CheckResult, so if journeys reuse evaluateOnPage they
+  inherit precise overflow attribution free and shouldn't re-solve it.
+
+  Two housekeeping notes: they hold migrations 163–167, so my earlier "next free 164" is stale — it's 168+. And per CLAUDE.md's shared-tree rules, since T5.1/T5.2 edit the same two files I've been changing, the sane
+  split is that they own those edits while I stay out, with commit-per-task pathspecs either way.
+
+  On my own pending item: the loot re-verify I fired never produced an orchestration row (no verdict; the latest note is still the pre-fix 09:42 one), so that trigger didn't land and needs re-firing — I'll do that
+  rather than leave it hanging. The substantive result from this turn stands regardless: with the drill-down signal live in v1.0.1135, tool-improver correctly root-caused to div.ltb-row-grid and applied the min-width
+  fix, which is the non-convergence broken.
+
+
+---
+
+All three done and committed in two clean, narrow commits (10fcbf686, bc5ff71a1).
+
+  The debugging guide
+
+  Added three §9 patterns in house style, plus a new §10 indexing the whole bug queue:
+
+  - LLM truncation persisted as a successful artifact — written as a family, not a one-off, because that's what it turned out to be. The diagnostic signature (output_tokens == max_tokens), the structural-collapse
+  check, and component_versions as the recovery source (with the warning that on this incident the newest two versions were both truncated, so don't assume the latest is good).
+  - A signal that names the ancestor makes a fix loop non-convergent — the 010 finding and the drill-down fix, plus the unbounded-retry defect.
+  - Applied-but-unrecorded migrations block the runner — the 007 ledger trap.
+
+  Something important surfaced while writing it. Cross-checking against the existing queue, bugs 005, 008, 009 and 012 are all one truncation-and-config family, found independently by four different threads. Two
+  consequences:
+
+  - My 012 candidate (b) is bug 008 (stop_reason never decoded) — so I cross-referenced it rather than filing a fifth copy. 008 is diagnosed but not shipped: stop_reason has zero occurrences in the deployed binary,
+  and it's platform-wide (17 occurrences across 5 agent types).
+  - Bug 009 could have made my migration 168 useless — a root ai_service block shadows the step-level one, making per-step max_tokens dead config. I checked before documenting: none of the four tool-pipeline agents
+  has a root block, so 168 is genuinely live (confirmed by the log showing max=8000 exactly matching the step value). I wrote that check into the guide entry so the next person verifies it rather than assuming.
+
+  That's why §10 ends with a "grep the index for the mechanism before filing" rule — the fifth duplicate costs more than reading the first four.
+
+  CLAUDE.md
+
+  Added a short Debugging section, placed before Platform conventions: read 016b first, open bugs live in /bugs_open/ with §10 as the index, file diagnosed cases and add the transferable pattern, plus the two rules
+  that keep catching real damage (output_tokens == max_tokens means cut, not finished; trust the artefact not the status). I verified the edit was purely additive — 22 insertions, zero deletions — which mattered,
+  because another session had modified the file since I last read it.
+
+  Running docs, RUNBOOK, PLAN
+
+  RUNNING_NOTES already carried today's incident. RUNBOOK is now rev 48 with a new §0 position line, and the PLAN is rev 8 with two principles the loop earned today:
+
+  ▎ A signal must name what to change, not merely what is broken.
+  ▎ A fix must never destroy the work — the companion to "docs never fail the work".
+
+  Next free migration number is 169 (the experience-loop thread holds 163–167).
+
+---
+Re-read done — and it turned up two things worth acting on.
+
+  What's new in CLAUDE.md since I last read it
+
+  Two sections added by other sessions:
+
+  A council review gate for platform changes (advisory, live 2026-07-17). Scope is platform/, internal/, pkg/; an approved change commits with a Council-Reviewed: <id> trailer. My drill-down commit 60f0c591e is in 
+  that scope and did not go through it — I committed it before this rule existed in the file I'd read. Forward-only means I can't retro-add a trailer, so it stays visible as unreviewed; I'll route future platform
+  changes through the gate.
+
+  A diagnosis-before-debugging loop (090 trigger, explicitly opt-in). Its own guidance — "for a bug you can see, debug directly… the loop's value is unattended cited diagnosis, not discovery" — matches how I handled
+  the truncation bug: grep plus two DB reads got it in minutes.
+
+  Checking my coverage exposed a bug in the checker itself
+
+  I ran the coverage report to see how my commits looked, and the numbers didn't add up: it reported 4 in-scope commits where the identical git log query returns 41.
+
+  The cause is a classic shell trap. db_decision ran kubectl exec **-i** inside the classifier's while read loop, and -i consumes the loop's stdin — which is the git-log stream. So the report died at the first commit
+  carrying a trailer, and everything older became invisible. That predicted the cut-off exactly in both runs, and the script's own NO_DB=1 path (which skips those calls) proved it: 41 vs 4.
+
+  The SQL is passed with -c, so -i was never needed. Removed it; the report now returns 41, matching the raw query. The other kubectl exec -i in the file legitimately needs it (heredoc-fed) and sits outside the loop,
+  so I left it.
+
+  The consequence was worse than a wrong number: a report whose sole purpose is surfacing unreviewed platform commits was showing 2 unreviewed when there are 40 — so every thread reading it concluded coverage was
+  fine.
+
+  I also hit a second issue I've flagged rather than diagnosed, since it's the gate owner's call: the one trailered commit now classifies as MISMATCH because its id resolves to three fix_plan artifacts and no
+  council_report, which is what the lookup filters on. CLAUDE.md says a fix-proposer run id should count as reviewed, so the filter may be too narrow — but I haven't confirmed which kind a fix-proposer writes, and I
+  didn't want to assert it. (I'd also not trust the pre-fix "REVIEWED" verdict, since that call's stdin was polluted.)
+
+  Filed as bugs_open/018, with the stdin-theft pattern added to 016b §9 — it's the "0 rows is not decisive" family applied to shell, where a truncated loop returns a plausible smaller number instead of failing.
+  Committed as 1493b74f3.
+
+---
+
+Committed as 9bc0adfd7. The outcome here is better than what I set out to do.
+
+  I went to build the guard and found it already built
+
+  I started on bugs_open/012 candidate (a) — the completeness guard that would stop a repair path persisting a wrecked component. Before writing anything I checked for existing machinery, as CLAUDE.md requires, and
+  found another thread had already built it: component_write_guard.go, wired into update_component_html_action.go:146 — the exact path that destroyed my component — and into store_generated_component. So I wrote no
+  new code.
+
+  It's a better implementation than the one I'd sketched. All three checks are comparative (they fire only when the replacement is worse than what it replaces, so an already-broken component stays repairable), and
+  all are gated on the principle that truncation cannot grow an artifact. Its author calibrated the thresholds against all 29 live component_versions transitions and explicitly dropped two candidate checks that
+  misfired on legitimate rewrites — landing at 1 block (my incident) and 0 false positives. On a block it hard-errors: row untouched, step failed so error_step routes to needs_human_review, structured row in
+  agent_error_log, and the override is step-config-only so an agent can't talk past it.
+
+  What I added instead: verification against the real artifacts
+
+  Its tests use representative fixtures. I ran it against the actual stored templates from the incident:
+
+  ┌───────────────────────────────┬─────────────────────────────┐
+  │             Write             │           Result            │
+  ├───────────────────────────────┼─────────────────────────────┤
+  │ 10,280 → 1,253 (the wreck)    │ Blocked on all three checks │
+  ├───────────────────────────────┼─────────────────────────────┤
+  │ 10,280 → 6,771 (intermediate) │ Blocked on structure alone  │
+  ├───────────────────────────────┼─────────────────────────────┤
+  │ 1,253 → 10,280 (my restore)   │ Allowed                     │
+  └───────────────────────────────┴─────────────────────────────┘
+
+  The middle row is the one worth knowing: that write passes the 50% size floor at 66% retained, so it's caught only by the unterminated <script> and the mid-token tail. A size-collapse check on its own would have
+  let it through — which matters because that's the write that was hardest to spot by eye.
+
+  The honest caveat
+
+  Both real fixes — the guard and stop_reason decoding (f32b208e5, bug 008) — are committed but not in the deployed v1.0.1135, confirmed by pod-binary grep. Until an image ships, migration 168's raised ceilings are
+  the only live mitigation, and they only make truncation rarer. So this wants a chassis build to actually be protected.
+
+  Docs updated to match: bugs_open/012 now carries the verification table, the 016b §9 entry records that size-checking alone is insufficient, and the §10 index row reads "guard + stop_reason BUILT, await image". No
+  council submission was needed — my changes here were documentation only, which the gate refuses by design.
+
+
+---

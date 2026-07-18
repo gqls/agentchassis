@@ -168,4 +168,181 @@ deployed code entirely. When you diagnose, pass REF=085_debug_and_feature_loops 
 To be concrete about your deploys: whoever runs make build-…  gets their checked-out branch's HEAD. Since everyone works on 085_debug_and_feature_loops, that's consistent — but if a session ever checked out a
 different branch and built, it would ship that branch. The image is tied to the builder's current checkout, not to any fixed branch.
 
+---
 
+Bug 003 is the key context — and it changes what I can claim. Its §4.3 already suspects deploy churn is the spawn-killer ("converts every deploy-window spawn loss into a permanent zombie") but never identifies why.
+I think I've found the mechanism. One more check first, because it decides how hard the fix is — whether reprocessing a redelivered message is safe:
+
+Ran 1 shell command
+
+● I have the answer, and it's better news than it looks: the interruption isn't inherent to restarting pods — it's a bug. Fix it and CD becomes straightforward. Build CD first and you'd make things materially worse,
+because you'd be deploying more often, and every deploy destroys in-flight work.
+
+Why a restart destroys orchestrations
+
+platform/kafka/consumer.go Consume() fetches a message at line 81 and commits its offset at line 103 — before the message is processed. The comment above the commit says "After successful processing, commit the
+offset", but nothing happens between the fetch and the commit; processing occurs back in the caller, after Consume() has already returned. The intent was at-least-once; the code is at-most-once.
+
+Both main chassis loops use it — agent.go:468 (requests) and :528 (responses). So when a pod dies mid-work, Kafka has already been told the message was handled and will never redeliver it. That's the difference
+between "restarts delay orchestrations" and "restarts annihilate them." It also explains the 300s rebalance landmine in CLAUDE.md, and it isn't limited to deploys — OOM kills, evictions and node failures lose work
+the same way.
+
+Tellingly, the codebase already has the correct shape elsewhere: client.go and server.go use the manual FetchMessage + CommitMessages pattern. Only the main agent loop takes the shortcut.
+
+This lines up with bugs_open/003 §4.3, which already suspected deploy churn was the spawn-killer ("converts every deploy-window spawn loss into a permanent zombie") but never identified the mechanism. I think this
+is it. And the damage is measurable right now: 22 wedged EXECUTING_STEP orchestrations, the oldest 1,224 hours — about 51 days — because the reaper sweeps AWAITING_RESPONSES and dispatch loops but never
+EXECUTING_STEP. Every lost message becomes a permanent zombie.
+
+The fix is much smaller than it should be
+
+The expensive part of moving to at-least-once is normally making handlers idempotent, since redelivery means reprocessing. That already exists — platform/orchestration/state.go:170/207 reads and writes a
+processed_messages table. The dedupe layer is built; the consumer just isn't using the delivery semantics that would need it.
+
+So the core change is moving the commit to after the handler succeeds. The thing to verify first is that processed_messages actually covers every inbound path (I've confirmed it's used in orchestration state
+handling, not that it guards all message types) — that's the one real unknown.
+
+What else is currently working against you
+
+Independently of the commit bug, the chassis deployment is configured about as badly as possible for zero-downtime rollout:
+
+- replicas=1 — a restart means a window with no consumer at all.
+- No readiness probe — so a new pod counts as Ready the instant it starts, and Kubernetes kills the old one before the new one has joined the consumer group.
+- terminationGracePeriodSeconds=30, while Agent.Shutdown() itself waits up to 30s for in-flight goroutines — SIGKILL races the graceful drain and can win.
+- No preStop hook — nothing lets the pod stop taking new work and quiesce before dying.
+
+The order I'd do it in
+
+1. Commit after processing (at-least-once) — the unlock. Restarts become redelivery instead of loss, and it fixes crash/eviction loss too. Verify processed_messages covers all inbound paths first.
+2. Fix the drain — grace period comfortably greater than the shutdown wait, a preStop sleep, and stop fetching on SIGTERM while finishing what's in hand.
+3. Readiness probe that means it — Ready only once the consumer group is joined and partitions assigned, so rollouts hand over to a pod that's genuinely consuming.
+4. replicas ≥ 2 so a rollout never leaves zero consumers (check partition count — with one partition you get failover, not parallelism).
+5. Close the reaper blind spot (003 §4.3) — sweep EXECUTING_STEP regardless, as a backstop, and clear the 22 standing zombies.
+6. Then CD is nearly free — and the quiet-check-before-deploy ritual we did yesterday becomes an optimisation rather than a requirement.
+
+Worth saying plainly: steps 1–4 are what make CD safe. A drain-before-deploy approach (stop accepting new orchestrations, wait, then roll) would paper over deploys specifically, but it does nothing for crashes or
+evictions — which is why I'd fix delivery semantics rather than build deploy choreography around a broken guarantee.
+
+I've deliberately not changed anything — you asked how, not for a fix. If you want, the natural next step per CLAUDE.md is to fold this mechanism into bugs_open/003 rather than file a new bug (it's the same family
+as its deploy-churn suspicion), and the fix plan is a good candidate for the council gate given it touches platform/ and changes a delivery guarantee fleet-wide. Say the word and I'll do either.
+
+---
+
+Confirmed — the 011 row edit is another thread's uncommitted work (the imagery thread refining bug 011's description), not mine. Since git commit <file> takes the whole file and interactive staging isn't available
+here, it will ride along. Per CLAUDE.md the honest thing is to disclose that in the message rather than silently absorb it:
+
+Committed 027aa7588
+
+● Filed, committed as 027aa7588.
+
+What went where
+
+Following CLAUDE.md's rule to grep the index before filing a new bug, this went into the existing family rather than a new bug — 003 already suspected deploy churn was the spawn-killer without knowing why, so the
+finding slots in as the missing mechanism:
+
+- bugs_open/003 §3d — the second root cause, explicitly marked independent of the broker-2 network path in §3a–3b. Consume() commits the offset at L103 before the handler runs, despite the comment at L102 claiming
+  otherwise; both chassis loops use it; client.go/server.go already use the correct shape, which is what makes it an oversight rather than a design choice.
+- bugs_open/003 §4.4 — the fix: commit-after-processing, plus the drain/readiness/replicas gaps, and an explicit note on why this must precede any CD work.
+- bugs_open/003 §8 — file references for the fixing thread.
+- 016b §9 — the transferable pattern, per CLAUDE.md's "the §9 entry is so nobody re-walks it." Its rule generalises past Kafka: an acknowledgement is a promise the work is done — never send it before the work is
+  done, which applies equally to job claims and status='complete' writes. Plus the two corollaries this cost: read the ordering not the comment, and "it only happens on deploys" usually means state is lost on process
+  death.
+- 016b §10 — the index row now surfaces the second root cause so it's findable from the queue.
+
+I verified all five cited line references still resolve before committing, since stale file:line pointers are worse than none.
+
+Two things worth flagging
+
+A passenger rode along, and I disclosed it in the commit message. The 016b 011 index row (SDXL/Gemini wording) is another thread's uncommitted edit. git commit <file> takes the whole file and interactive staging
+isn't available here, so I couldn't exclude it — the honest option was to name it in the message rather than absorb it silently. Nothing is lost; that thread's work is now committed under my message, which is the
+exact asymmetry CLAUDE.md warns about.
+
+No council run. Its scope is platform/, internal/, pkg/ — docs are refused client-side and never spend credits. Worth noting the fix itself would be a strong council candidate when someone writes it: it changes a
+delivery guarantee fleet-wide.
+
+The one genuine unknown I've flagged in both documents rather than papered over: processed_messages demonstrably guards orchestration state handling, but I have not verified it covers every inbound path. That has
+to be established before flipping the commit — otherwise the change trades lost work for duplicated work.
+
+---
+
+Verified — everything landed, nothing lost, working tree clean for both files.
+
+The correction, and why it mattered
+
+Going ahead with the verification I'd flagged overturned my own filed claim. An hour ago I committed that processed_messages already existed and "makes the fix small." That was wrong, and it would have sent the fixing
+thread down a path that doesn't work.
+
+The dedupe has the identical defect to the offset commit. Both paths do seen-check → record → then the work:
+
+┌──────────────┬────────────┬────────┬───────┐
+│     path     │ seen-check │ record │ work  │
+├──────────────┼────────────┼────────┼───────┤
+│ agent.go     │ 801        │ 811    │ 822   │
+├──────────────┼────────────┼────────┼───────┤
+│ processor.go │ 1296       │ 1317   │ 1323+ │
+└──────────────┴────────────┴────────┴───────┘
+
+So had someone fixed the Kafka commit to redeliver, the redelivered copy would hit HasProcessedMessage → true → dropped as "Duplicate message ignored". The work would still be lost — just through a different door. The
+offset fix alone is inert; the two must ship together.
+
+Two things I settled so nobody re-checks them: the a.isStateless gate is not a risk (hardcoded true), but an empty request_id silently disables dedupe entirely — those messages have never had any protection.
+
+§4.4a-bis now specifies the durable shape: a two-phase claim (lease on receipt, complete on success, expired-but-incomplete is reprocessable), reusing site_work_items' existing claimed_at + 40-minute timeout rather than
+inventing a second mechanism. And 016b §9 now carries the generalisation, which is the more valuable output: an acknowledgement layer and a dedupe layer fail the same way because they encode the same belief — that
+receiving a thing is the same as handling it. Find it at one layer, audit the layers above and below before costing the fix.
+
+A live illustration of the thing we've been fixing all session
+
+My commit reported 1 file changed, not 2. Between my pre-commit diff check and the commit itself, the council-gate thread committed 016b — so my §9 correction landed inside their commit 94385507f. I confirmed both the
+correction text and the two-phase-claim guidance are present in HEAD, and my 003 changes are in 841e7a2d5. Nothing lost, forward-only held, exactly as CLAUDE.md predicts.
+
+Worth noting the irony: I disclosed a passenger in my commit message, and by the time it ran, I was the passenger. That's the third time this session the shared tree moved under an in-flight operation.
+
+One caveat on my own verification: I traced the two dedupe call sites and confirmed the ordering at each, but I have not proven those are the only inbound paths — a handler reached by some other route could bypass both.
+That's bounded and stated in the case file rather than assumed away.
+
+The fix itself is now well-specified but unwritten. When someone picks it up it's a strong council candidate — it touches platform/ and changes a delivery guarantee fleet-wide, which is exactly what that gate is for.
+
+✻ Sautéed for 3m 27s
+
+※ recap: We set up multi-session coordination safeguards, then released the whole fleet to v1.0.1133; latest work diagnosed why pod restarts destroy orchestrations and filed it in bugs_open/003. Next: someone writes the
+at-least-once fix, ideally through the council gate.
+
+
+---
+
+The summary is written and committed at docs/agent_docs/docs024_key_docs_latest/multi_session_coordination/SUMMARY_2026-07-18_where_we_are.md (4ff72194d) — narrative prose in four sections, meant to be spoken rather
+than skimmed.
+
+On the hook versus branching — yes, the hook, and my earlier objection was overstated
+
+I talked you out of it partly on a false premise. I said a hook would "change every session's git behaviour without their knowledge." But the repo already runs a tracked, shared pre-commit hook — core.hooksPath =
+.githooks is configured and .githooks/pre-commit is version-controlled (it currently execs the secret-scanner). So a guard is an edit to something that already runs for everyone, visible in git, reviewable, and
+revertable in one commit. That's a much smaller ask than I implied.
+
+But be clear what it does and doesn't fix, because the two options address different halves. Of the three sweeps this session:
+
+- One was cross-file — a vet-med-export commit collected my makefile change, a file that thread never touched. That's the class that destroys reviewability, and it's your original complaint. A hook stops it.
+- Two were same-file — the council thread and I both edited 016b, and whoever committed first took both edits. We both used explicit pathspecs and it happened anyway, because git commits whole files. No hook can prevent
+  that. Only separate working directories can, and then it becomes a visible merge conflict instead of a silent passenger.
+
+One technical constraint shapes the design: git has no hook that fires when you stage a file, so we can't literally forbid git add -A. What we can enforce at commit time is the rule already in CLAUDE.md — a broad commit
+is allowed but must announce itself. So: if a commit spans an unusual number of files or several unrelated areas, require the message to be labelled sweep:, otherwise reject with an explanation. That's a commit-msg
+hook (it can see both the message and the staged set), roughly ten lines.
+
+Recommendation: do the hook, defer the worktrees. The hook is cheap, targeted at the damaging case, and instantly reversible. Worktrees are a genuine restructuring that trades today's collisions for a merge queue — at
+~180 commits per two days across twenty-odd workstreams, that's a real ongoing job, and most of those commits are docs that gain nothing from isolation. Earn that change with evidence: if same-file collisions on the few
+genuinely hot files keep costing time, isolate only the threads that change platform code.
+
+Worth keeping in proportion though — neither matters as much as the delivery fix. The commit problems cost review clarity and some rework; the at-most-once defect is silently destroying production work right now,
+twenty-two orchestrations deep, oldest fifty-one days.
+
+Say the word and I'll write the hook — it's small enough that I'd want you to see the exact rejection rule before it starts blocking anyone's commits.
+
+✻ Cogitated for 4m 27s
+
+※ recap: We've been fixing cross-session collisions in this repo; the read-aloud summary is written and committed, and I've recommended a commit-msg hook over per-thread branches. Next: say the word and I'll write that
+hook for your review before it blocks anyone.
+
+
+
+---

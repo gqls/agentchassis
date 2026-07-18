@@ -92,11 +92,26 @@ import (
 // replacement must retain. Below it, the write is a truncated generation
 // rather than an edit.
 //
-// Grounded in the live history: 9 of 29 transitions shrank the template and
-// the most aggressive LEGITIMATE one retained 64% (provocation-card,
-// 10,300 → 6,618); none has ever retained less than 50%. The bugs_open/012
-// final write retained 12%. A 0.5 floor sits in clear air between the two.
-const componentCollapseRatio = 0.5
+// Grounded in the live component_versions history, and REVISED once already:
+//
+//	2026-07-18, 29 transitions: lowest legitimate shrink retained 64%
+//	  (provocation-card, 10,300 → 6,618) → floor set at 0.5.
+//	2026-07-18, later the same day, 30 transitions: a new transition appeared —
+//	  tool-list 11,588 → 4,535, retaining 39% and ending cleanly on
+//	  "{{end}}</a></div></div></section>". A complete template, not a
+//	  truncation. The 0.5 floor would have REFUSED it.
+//
+// So the floor is 0.3: below the lowest observed legitimate shrink (39%), above
+// the bugs_open/012 wreck (12%, 1,253/10,272). Note this check is the WEAKEST of
+// the three and is defence-in-depth only — the 012 wreck is independently caught
+// by the mid-token check, and the 012 intermediate write (66% retained) is
+// caught by tag balance. So when in doubt bias this floor DOWN: a missed
+// collapse is usually caught structurally, whereas a false refusal is not
+// caught by anything and teaches people to switch the guard off.
+//
+// The lesson, for whoever revises it next: this threshold is empirical and the
+// evidence base grows. Re-run the simulation in the header before trusting it.
+const componentCollapseRatio = 0.3
 
 // balancedPairs are open/close tokens whose balance is checked in the
 // replacement. An unterminated <script> is the direct signature of a

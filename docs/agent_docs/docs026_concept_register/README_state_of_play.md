@@ -165,3 +165,98 @@ All done — clean tree. Three deliverables this turn:
    around the dedup machinery. Same routine as always: drift-check, gated + surgical, snapshot, verified intact.
 
 Remaining: #6 compliance, #7 render, #8 LLM-reliability, #9 debugging — then the council side is essentially complete.
+
+---
+
+The live run is progressing — the panel woke bug_historian and reuse_agent this time, and it's mid-review. The monitor will notify me when it reaches a terminal state; I'll report the full outcome then.
+
+Interim status while it runs:
+
+- I did not dispatch — a concurrent session (acting on your same instruction) fired the run at 10:16, about a minute before I would have. Dispatching again would have double-run the correlation, so my job switched
+  to monitoring.
+- Premise checks all passed first: BUG A still unfixed in HEAD and in the running pod's binary, no competing work items in the queue, the CONFIRMED diagnosis and its evidence bundles intact, pod well past the
+  dispatch-quiet window.
+- The big discovery: fix-proposer already ran against BUG A three times yesterday evening (by the fixloop thread) — and the 20:13 run was approved by the filtered council, with the relevance filter selecting only
+  the reuse-agent and council_decide correctly recording 3 abstentions for the skipped seats. The filter and abstention mechanism have already worked in production; today's run is the first on the complete 13-seat
+  council.
+
+---
+
+The council's first real outing produced a genuinely sound fix — and notably, the revise loop improved it: the final plan covers both provider clients (anthropic.go and ollama.go), because a code lookup during
+reproposal found the identical silent-truncation gap in Ollama that the first-round plan had excluded. Let me confirm the durable artifact was persisted and check what the implementation stage requires.
+
+Ran 1 shell command
+
+● Now I have the complete picture. Let me record this milestone durably before reporting.
+
+Committed 5b0e2b5f0, ran 1 shell command
+
+● The council's first real outing is complete — and it worked.
+
+What happened
+
+I did not re-dispatch: my six premise checks passed (BUG A still absent from HEAD and the running pod's binary, no competing work items, diagnosis and evidence intact), but a concurrent session fired the run at
+10:16 — about a minute before I would have. Re-firing would have double-run the same correlation, so I monitored it through instead.
+
+Run 53da3a30 ran the full 13-seat council and ended APPROVED after 3 revise rounds (10:16 → 10:37). The relevance filter woke 5 specialists — bug-historian, reuse-agent, diagnosis, LLM-reliability, and
+debug-historian — plus the two always-on seats; council_decide correctly recorded the other 6 as abstentions, exactly as designed. A typical fix waking ~5 of 13 seats is precisely the scaling behaviour the filter
+was built for.
+
+The two seats built this week earned their place
+
+Both approved — with grounded, specific review notes rather than rubber stamps:
+
+- LLM-reliability confirmed no ai_service config was touched (so the BUG B root-shadows-step trap was irrelevant), verified the error guard sits after the token write-back so llm_call_log still records
+  output_tokens on the error path, and noted no model swap was implicated.
+- Debug-historian cleared all four lore dimensions (no SQL surgery, no informational-column blast radius, log-state not git/tag deploy verification, no template surgery) and independently flagged the same
+  write-back ordering constraint for code review.
+
+The revise loop demonstrably improved the fix
+
+Round 1 touched only anthropic.go. During reproposal a code lookup found finish_reason absent from the entire codebase — surfacing the identical silent-truncation gap in the Ollama client. The final approved plan
+covers both providers: add StopReason + a max_tokens hard-error guard in anthropic.go, and a parallel DoneReason == "length" guard in ollama.go. It's grounded in 23 real silently-truncated llm_call_log rows (the
+output_tokens == max_tokens fingerprint, across 5 agent types and 2 models). That's a genuinely sound fix that would close the bug where you were about to build the multi-model gauntlet on top of it.
+
+The decision point
+
+The approved fix_plan is persisted. The next stage — the fix-implementer (092 trigger) — is a distinct, outward-facing dispatch: whole-file LLM implementation → allowlist → a fix/* branch → commit → gofmt+build
+gate in a k8s Job → on green, a real PR into main. I've held there rather than assume, since "the fix dispatch" you asked for was the council run, and opening a PR against production LLM-client code is a bigger
+call.
+
+Want me to dispatch the implementer and let it open the PR (build-gated, so a red build leaves the branch + log and opens nothing), or would you rather review the approved plan first?
+
+※ recap: The concept-register council is complete and passed its first real test: the BUG A fix ran through all 13 reviewer seats and was approved. Next action is your call on whether to dispatch the implementer,
+which opens a real PR into main.
+
+--
+
+Re-read done, and it caught two process gaps in my recent work. Here's what I found and corrected.
+
+The real miss: the council-gate roster
+
+CLAUDE.md's "If you add or change a council seat" rule (lines 70–78) changed while I was working, and I violated it. There are two rosters that must stay identical — fix-proposer and the advisory council-gate (the
+one any thread uses via 097). The rule is now: seat fix-proposer, then run the mirror 099_SYNC_gate_roster.py — don't hand-patch the gate. I seated fix-proposer five times (v14–v18) and never ran the mirror.
+
+I checked, and the rosters are in sync — 13 seats, footprint maps byte-identical, review-step sets identical, confirmed by the sanctioned 099 dry run (added/removed: none). But that's because another thread's 099
+run closed the gap, not because I did my half. Nothing to --apply; the correction is that I've now recorded the mechanical method so I (and future sessions) run it after seating rather than relying on luck.
+
+The second miss: a durable diagnosis needs a guide entry, not just a case file
+
+CLAUDE.md (lines 165–168) says when you diagnose something durable you file the bugs_open/ case and add the transferable pattern to the debugging guide's §9. I filed bugs_open/013 but skipped the guide. Now fixed
+(8035e39d2): added the §9 pattern ("a generator feeding a downstream verifier must satisfy its contract at write-time; an unformattable body is a truncation signal"), indexed 013 in §10, and — since I committed the
+BUG A fix — corrected 008's index state from "fix not shipped" to "committed f32b208e5, not yet deployed".
+
+One thing I got right, that I'd earlier worried about
+
+My Council-Reviewed: 53da3a30 trailer on the BUG A fix is valid — lines 53–58 were updated to explicitly accept a fix-proposer council RUN_ORCH_ID, and 098 resolves it by prefix. So no false audit join.
+
+Memory updated to replace my stale "hand-patch both councils" note with the current mirror-script method. Clean tree on everything I touched.
+
+✻ Worked for 4m 7s
+
+※ recap: We completed the 13-seat fix-loop council and proved it end-to-end: BUG A's truncation fix was diagnosed, council-approved, and committed to branch 085. Next action is building and deploying the chassis
+image so the fix goes live.
+
+
+---
+

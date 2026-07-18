@@ -208,3 +208,164 @@ recorded from the adoption-faithfulness doc: once adoption succeeds, never re-pl
 Also worth saying plainly: it's now the 17th, so the funding consultation closes in 13 days.
 
 ---
+
+● CLAUDE.md read and in force — and following it immediately paid off. Here's what it changed and where things now stand.
+
+What the file told me that mattered: this repo and cluster are worked by multiple concurrent Claude sessions — one working tree, one image sequence, one live database — with strict rules: pathspec commits per task,
+forward-only git, builds from committed HEAD only, deploys verified against the running pod, and a queue check before dispatching anything at the cluster.
+
+Applying it surfaced three facts I'd otherwise have got wrong:
+
+1. My Phases 0–3 work had been swept into other sessions' commits (f51a7accc, d076c3c8e, 37468ba65) — the exact hazard the doc documents. Per its ruling: forward-only, nothing lost; I committed my remainder
+   narrowly with pathspec commits and said so in the message.
+2. The deployed chassis does contain our code. I'd assumed v1.0.1130 predated our changes; pod verification (strings on the binary, per the doc — never trust the tag) shows directory_export_json and
+   insertMedicinePrice are in the running binary. The sweeping commits had, ironically, shipped us. The fleet moved to v1.0.1134 mid-session — other sessions are deploying continuously — and it still carries our
+   symbols.
+3. The adoption blocker was gone: idx_swi_dedup now exists in production with the cancelled predicate, landed by the fixloop session with its paired Go.
+
+So I re-ran the adoption, by the book — queue coverage check first (clear), pod age outside the 300-second dispatch window — and this time it completed end-to-end: crawl, fingerprint, analysis, classification, and
+apply_plan seeded all five adoption specs. The dispatch loop had already run the domain-research-classifier before I'd finished watching; the site is classified (as a hub), the spec cascade is current, and the
+build pipeline now owns vetcomparison.uk. Phase 4 — the step that stalled in May and failed on Wednesday — is done.
+
+Two watch items carried into the notes and memory: the classifier emits no content_features (the lost May patch never landed anywhere, so a news feed needs a one-off manual spec patch if you want one), and the
+first build-cascade rerender needs checking against the live site to confirm the hand-authored pages survive the faithful pass — with the standing rule unchanged: never re-plan this site to fill gaps.
+
+One deliberate deferral: enabling the directory exporter (bump the two directory-* agents' image tags from v1.0.1126 to current, one kcat smoke run, then enable) is ready to go per the runbook, but with the build
+cascade actively working the site right now and the fleet mid-deploy every few minutes, firing an exporter commit into the same window felt like avoidable contention. It's a ten-minute job whenever you say.
+
+The consultation clock still stands: funding response closes 30 July, draft awaiting your review.
+
+
+---
+The exporter is live, and with it the last hand-cranked part of the data path is gone. Summary of this stretch:
+
+First autonomous publish, done and verified. I bumped the two exporter agents to the pod-verified v1.0.1134, fired one smoke run through Kafka using the scheduled task's exact payload, and it completed in seconds:
+queried production, built the five JSON artefacts, committed them through the git-adapter (ac3314fd), and the deploy served them. Until now, every data update on this site has been me running psql and pushing by
+hand; from here the platform does it.
+
+Every publication rule held under real conditions. The directory came out at exactly 2,109 (matching the dedupe); the aggregates file has 13 rows, each with its n shown and none below 3 — down from 15 in the
+pre-dedupe smoke because removing priced duplicates dropped two area groups below the floor, which is precisely the behaviour you'd want; claimed and attributed prices are both empty arrays, correctly, since
+nothing yet has consent or provenance; and the metadata file carries the policy statement. The moment a first practice claims, or a provenance-carrying scrape lands, those files populate on the next cycle with no
+further work.
+
+The schedule is on — every 48 hours, same config, and the smoke run stamped the task's completion time so the bookkeeping loop is proven too.
+
+Where that leaves the whole build: Phases 0 through 4 are complete and operational — schema unified, CMA taxonomy seeded, claim flow proven, site adopted onto the chassis with its cascade actively building
+(classifier, tool recreation and two content pages already done), and the exporter publishing on schedule. What remains from the plan is Phase 5, the provenance-first scraping that fills the attributed-prices file
+— the biggest open build item, and sensibly a fresh session's work.
+
+Two watch items, one of them yours: the rerender work item is still queued, and when it fires I want to confirm the hand-authored homepage and guides survive the first faithful pass — I'd check the live site after
+it completes. And the funding consultation closes on the 30th — the draft response has been sitting ready for your review since Wednesday; the site it names as our operation is now something you can point the CMA
+at without a caveat.
+
+---
+
+Both documents are written and committed, and the pre-handoff state check turned up something important that's now recorded in both.
+
+The handoff is at docs/agent_docs/docs024_key_docs_latest/vetcomparison/HANDOFF_2026-07-18_vetcomparison_uk.md. A new thread can start cold from it: verified current state, the hard rules that must not be relaxed
+(no price without provenance or consent, never re-plan this site, the sites-repo deploy pattern, CLAUDE.md's multi-session discipline), open items in priority order, and all the operational pointers. Pointing a
+fresh session at that file is enough.
+
+The read-out summary is beside it (SUMMARY_2026-07-18_readout.md) — the full arc in plain prose: what we set out to achieve, the fabrication we found and how we dealt with it, the regulatory grounding and your four
+decisions, what got built in four days, where it stands, and where it goes. It's written to be read aloud straight through.
+
+What the state check found: the adoption cascade ran the entire build overnight — strategy, design, seven imagery items, new about/contact pages, and full rerenders. The audit results cut both ways. The good: the
+three guides survived at their original URLs with our sourced content intact, and a price audit across every rebuilt page found no unsourced figures anywhere — the only prices on the whole site are the CMA's own
+£21/£12.50. The bad: the rebuilt homepage dropped the directory search UI and the claim/opt-out section. The data files and all the machinery behind them are untouched — it's a page-markup restoration — but it's
+the site's core function plus our licensing funnel, so it's the handoff's top priority, ideally fixed at spec level so the next render doesn't revert it. There are also seven build items waiting for human review in
+the admin queue, which only you can work through.
+
+The two dated items remain: the funding consultation closes 30 July (draft ready for your review and portal submission), and the substantive draft Order should appear on the CMA case page imminently.
+
+Ready for the new thread whenever you are.
+
+---
+
+I need to correct what I told you an hour ago. Re-reading CLAUDE.md sent me to check the rendered page rather than the work-item statuses, and the truth is worse than my handoff says.
+
+My earlier diagnosis was wrong. I reported the directory search and claim CTA were "gone". They aren't. The chassis planned the homepage sensibly — its five sections include a filtered-result-grid and a
+call-to-action — and it built a genuinely good search component with filtering, sorting, pagination and region controls. What it did not do is wire that component to our data. The live homepage says "No results
+found." The directory doesn't work at all.
+
+And the rebuilt page has acquired claims we cannot back. This is the part that matters, because it's the same failure class we spent four days remediating — not fabricated prices this time, but fabricated
+capability:
+
+- It describes the site as "a directory of UK veterinary practices with pricing information, ownership data…" — we publish neither per-practice. We deliberately stripped ownership fields on 15 July because they
+  were unverified.
+- It offers a whole panel headed "Ownership and Group Information — see whether a practice is independently owned…". We don't publish that.
+- The results grid has "Price: Low to High / Price: High to Low" sort controls, on a directory with no published prices.
+- And it carries a disclaimer calling the directory "a representative sample for demonstration and comparison purposes" — which is untrue in the other direction: these are 2,109 real verified practices, not a demo
+  sample.
+
+So right now the site is both broken and overclaiming, and every work item behind that reads complete. That's exactly CLAUDE.md's warning: trust the rendered artefact, not the status. I had verified the guides and
+the price audit against the live site, which is why I caught "no unsourced prices" correctly — but I checked the homepage only for the presence of markers, not for what it actually says. That was a real gap in my
+check and I'd rather flag it than let it stand.
+
+The good news: our working hand-authored homepage is intact in git (b2896815), one restore away, and the chassis's search component is well-built — it needs pointing at /data/vet-full-index.json, not replacing.
+
+Two ways forward, and the choice is yours because it's a platform question you know better than I do:
+
+The fast path is restoring the known-good homepage over the rendered one. The site works again within minutes, and per the adoption-lock design a hand edit takes a permanent lock, which protects it from the next
+rerender. The cost is that we're back to a hand-maintained page the chassis doesn't understand.
+
+The structural path — which CLAUDE.md's "structural fixes over patches" favours — is to fix it at spec level: wire the filtered-result-grid to our directory JSON and strip the unbacked pricing/ownership/demo-sample
+copy from the section content, so the next render produces the right page rather than reverting. Slower, and the site stays broken meanwhile.
+
+My recommendation is both, in that order: restore now so the site works and stops overclaiming today, then fix the spec so the restoration isn't fighting the platform. Shall I go ahead on that basis?
+
+I'll also correct the handoff either way — as written it sends the next thread hunting for a missing search box that isn't missing.
+
+---
+
+Both read-out documents are written, the emergency is contained, and the handoff no longer carries my wrong diagnosis.
+
+The urgent thing first: the site is clean again. I restored the verified homepage and confirmed against the published page that the generated practices are gone, the real 2,109-practice directory is wired back in, the
+claim and opt-out routes are back, and none of the unsupported pricing/ownership/demo-sample claims remain. That took priority over writing anything, because fabricated veterinary practices were live while we talked.
+
+Two documents for you to read out, both in the vetcomparison docs folder:
+
+SUMMARY_2026-07-18_bugs_journey.md — the bugs account you just asked for. Ten of them, in the order they mattered: the founding fabrication and its statistical tell (one in five practices charging exactly £48); the
+exporter aimed at a domain you don't own; an action that was never registered and so could never run; a directory containing Yelp pages and a college course; 280 duplicates from one missing URL normalisation; prices
+whose provenance was never recorded — including the check of mine that gave a false pass by testing for null instead of empty; adoption blocked by a missing database index; and then the big one, the platform
+regenerating fabricated data by itself. It ends on the pattern that connects nearly all of them: a system reporting success while the artefact it produced was wrong.
+
+SUMMARY_2026-07-18_readout.md — the aim, what we've done, where we are, where we're going, rewritten to tell the truth about today rather than yesterday's optimistic version.
+
+What I'd want said plainly: today was a correction, not an advance. The platform we adopted the site onto rebuilt it overnight with invented practice data — the exact defect the whole project exists to remedy,
+reintroduced four days after we removed it, by our own tooling, with every work item reporting success. It is contained but not fixed. The homepage restore is a hand edit; the underlying specification still describes a
+search section with no data source, so a future automated render could regenerate it. That spec-level fix is the first job, and this needs filing as a platform bug rather than a site bug, because an agent that invents
+data when it cannot reach the real source is dangerous on every site, not just this one. Both are written into the handoff as top priority.
+
+I also owe you a correction on my own work: an hour ago I told you the rebuild had dropped the search box. It hadn't — the search was there and well built, filled with fake practices. I found that only because you sent
+me back to CLAUDE.md, whose "trust the rendered artefact, not the status" is precisely the check I'd skipped.
+
+
+---
+
+Yes — it's bug 020: /bugs_open/020_HANDOFF_2026-07-18_tool_recreation_invents_data_when_it_has_no_source.md.
+
+To be straight with you: when you asked, it didn't have a number. I'd written "this needs filing as a platform bug" and left it at that, which is exactly the kind of intention that evaporates when a thread ends. It's
+filed now, along with the transferable pattern in the debugging guide's §9 and a row in the bug index.
+
+Filing it forced a proper root cause, which I hadn't had. I'd been describing the symptom ("an agent that invents data"). Reading the actual prompt and the adoption path, it's two compounding structural defects:
+
+The recreation path has no data-dependency contract. Adoption's fingerprinting step captures that a tool is interactive, but never carries its fetch() target through to the tool-recreation agent, whose brief is to
+produce self-contained HTML/CSS/JS. So a tool whose behaviour is its data — a directory search — literally cannot be recreated faithfully. The model's only options are a dead empty widget or invented records that make
+search, filter and pagination visibly work. It chose the latter and documented the decision in a comment.
+
+And the prohibition that should have stopped it is scoped to arithmetic. Rule 9 of that prompt reads "No fake data or dummy outputs — calculations must be mathematically correct", sitting among rules about function
+completeness. Read in context it's a statement about calculators. It doesn't tell the model that inventing records is forbidden, and the model plainly didn't read it that way.
+
+That second point generalises beyond this agent, which is why it's worth the guide entry: a prohibition phrased about correctness doesn't cover invention. Any generative step that must produce list-shaped output while
+its real source is unreachable has this failure available to it — and the fabricated version is more convincing than a broken one, because it's plausible and deterministic across page loads.
+
+The case file carries four ranked fix candidates (carry the data source through adoption; rewrite rule 9 to bind records; add a fabrication grep-gate beside the existing completeness check; make "audited-content site" a
+machine-readable flag rather than documentation an agent never reads), plus the grep tells and a verification method that checks the rendered artefact rather than the work item.
+
+One thing I noticed while filing: bug 016 is currently used twice by two unrelated cases from concurrent threads, so the numbering has already collided once. I took 020 (019 was the highest) and noted the collision in
+the file.
+
+The handoff now points at 020 with its root cause, so the next thread starts from the diagnosis rather than re-deriving it. Still outstanding on the site side is the spec-level fix — the homepage spec still has that
+search section with no data source, so the restore is protection for one page rather than a cure.
+
+--

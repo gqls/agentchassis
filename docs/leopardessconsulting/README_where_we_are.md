@@ -292,3 +292,117 @@ One loose end from earlier still pending: the fixloop diagnosis of the tools tim
 
 ---
 
+Your review turned up two genuinely fundamental problems, both now filed in bugs_open/, plus several things I fixed today.
+
+Fixed and live now
+
+The homepage hero. You were right about what it was — I pulled the image and it's an SDXL-generated fake flowchart: callout boxes, connector lines, a caption strip, and every single word gibberish. Replaced with a
+text-free Banana illustration (four gold inputs converging into one steady output on charcoal, upper-left kept clear for the headline), wired so a rebuild can't drop it.
+
+The tools nav. Confirmed — the header had no tools; a rebuild had stripped them, and a tools nav group existed that renders in neither header nor footer. Four working tools now linked from the footer. Correction to
+my earlier tool audit: process-automation-scorer is real and works (self-contained 5KB calculator), so four tools work and only llm-cost-calculator is broken.
+
+The overused words. 12 "trust", 9 "honest", 2 "earns its keep" live. Added to the voice gate and prose guidance, and the checker then produced the exact worklist — including your cited pair. Rewrote the homepage
+instances: "can't just be trusted" → "will not match the register on its own"; "how much the source can be trusted" → "how reliable that source has been"; both "the honest answer" cut.
+
+Answering your imagery question directly — bugs_open/011
+
+Better model, better descriptions, or loop until correct? None of them solve it. Diffusion models synthesise glyph-shaped texture, not text — it's a property of the model class. A better model helps marginally;
+better prompts are why the two good heroes are clean but can't make glyphs legible; and a loop can only ever reject a bad image, never make a model render text it structurally cannot render.
+
+The fix is to split the two jobs: heroes are generated, text-free; anything with words, numbers or structure is rendered in code as SVG from real values. That's already your own stated principle (D1/D3: code
+renders data, the LLM never touches values) and the planned L7 chart component — it was just never built, while infographic stayed a diffusion target, which is the trap. That's also the honest route to the
+infographics you want: real legible text, real numbers from the evidence base.
+
+The blank page was a symptom of something worse — bugs_open/001
+
+The "Monitoring Coverage Gap Finder" link is a 404 because the re-plan invented it when it clobbered services at 07:50 today. That bug already existed from idea.uk; I appended fresh evidence that raises its
+severity, because leopardess shows it does something worse than lose content: it injects fabrications. Yesterday it rebuilt the homepage and re-added "Functional Areas: 150+" plus invented case-study titles; today
+it invented a dead tool link you clicked.
+
+This is the thing worth fixing first. Two clobbers in 24 hours while I was actively repairing the site means content fixes currently have an undefined shelf life. One useful discovery: heroes wired through
+site_plan_imagery survive the clobber while copy doesn't — which is why the imagery work is durable and the word pass is worth deferring until 001 is fixed, rather than doing it twice.
+
+The full plan is in docs/leopardessconsulting/PLAN_imagery_and_design_2026-07-18.md, including the remaining heroes (about/services need a shared-component change first) and the still-garbled
+/assets/images/hero.jpg, which is the site-wide fallback and still live on how-it-works.
+
+
+---
+
+You were right, and it's better news than my handoff said: the capability was already wired. I've corrected the record and proved it end-to-end.
+
+What the test showed
+
+BANANA_DEFAULT_MODEL is gemini-3-pro-image-preview — the same model that made your images — and kind:"infographic" already routes to it. Nothing needed wiring. I generated one through that lane and it came back
+publishable on the first attempt:
+
+- Every label legible and correctly spelled
+- Figures exactly right: 2,767 / 937 / 5,652 / 4,672 / 8 sites — all matching the evidence base
+- On-brand charcoal and antique gold, three columns, working CTA buttons
+- It even respects the wording you just banned — "how reliable the source has been", not "trust"
+
+It's live at /assets/images/infographic-what-we-build.jpg.
+
+I corrected my bug filing
+
+My 011 claimed "generated images cannot render readable text" and proposed building an SVG renderer. That was wrong, and a thread acting on it would have built a subsystem we already had. I rewrote it with the
+correction at the top (kept visible, not deleted — it's an easy mistake to repeat) and retitled it to the real, narrower bug: kind:"hero" falls through to SDXL, which genuinely can't render text. That's why the
+homepage hero was gibberish while the infographic lane sat unused.
+
+Per CLAUDE.md — which I re-read, and which has grown a lot — I also did the two things I'd skipped: corrected the §10 bug index entry, and added the transferable pattern to §9. The pattern is worth stating plainly
+because it's general: read the dispatch table, not the output. When behaviour is chosen by an enum, one value routing to a weaker backend looks exactly like the whole capability being missing. Two greps would have
+told me.
+
+What's genuinely still worth fixing
+
+Three narrower things, now in 011:
+
+1. Hero routing — choose the provider from the site's declared house style, not the kind string alone.
+2. A legibility guard — the good model isn't perfect. Your own map rendered "REPRETITIVE". A typo inside an infographic is a real defect and nothing in the pipeline reads rendered text, so generation reports
+   success either way. An OCR pass that flags misspellings and any number not in the request, routed to human review.
+3. Figures from the evidence base — my infographic is accurate because the prompt carried audited numbers and forbade others. That should be structural, not prompt discipline.
+
+And the key practical lesson: prompt specificity dominates. The same model produced rubbish from a thin prompt and this from one naming the layout, every card's copy, the permitted figures, and the palette by hex.
+
+Shall I place this infographic on the site now — homepage or case-studies — and generate a couple more in the same style? I'd also suggest one themed variant, since your House of the Dragon map shows how far the
+style can stretch.
+
+---
+
+● All four infographics are generated, reviewed, and live.
+
+What's on the site now
+
+┌────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────┐
+│          Page          │                                          Graphic                                           │
+├────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+│ index                  │ Three columns — what we've built / what we could build with you / how an engagement starts │
+├────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+│ technical-architecture │ Hierarchical agents over the Kubernetes/Kafka/Postgres stack, with the "built in" panel    │
+├────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+│ how-it-works           │ The six-station pipeline, with "A person decides" drawn largest — exactly as prompted      │
+├────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+│ case-studies           │ The Leopardess Line — the transit map                                                      │
+└────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────┘
+
+The themed one came out well. Three lines (Records, Reading, Sites) run left to right through their real stages, converge on a single ringed interchange labelled A person decides, and terminate at Written down, with a
+Service Notes panel carrying the audited figures. I picked the Beck map over something fantasy-flavoured because it's apt rather than decorative: a work item moving through stages with a human-approval interchange is a
+transit diagram, and the three lines are the three genuinely-running systems — so it's a truthful summary, not an ornament. It also suits a British engineering consultancy's register better than dragons would.
+
+Two things I did carefully
+
+Every image was reviewed by eye before wiring. That gate is doing real work — it's what caught the SDXL hero, and until 011's R2 legibility check exists, generation reporting "success" tells you nothing about whether
+the text is right.
+
+Each is placed with full descriptive alt text — the diagram's content written out in prose, so the pages are usable without the images and the content isn't trapped in a raster. That partly answers the accessibility
+objection I'd raised against generated infographics; the remaining gap is that the text isn't selectable or translatable, which is why code-rendered SVG is still the right answer for exact data (011's R4).
+
+Worth noting
+
+Two of the four hit the spawn flake on first firing — 48 Kafka dial errors, zero generations. Delete the pod, re-fire, both succeeded. Same class as bugs_open/003, and a reminder that these runs need watching rather
+than firing blind.
+
+The remaining imagery work from the plan is heroes on the pages that still lack them (about and services need a shared-component image field first), and replacing the still-garbled /assets/images/hero.jpg, which is the
+site-wide fallback and still live on a couple of pages. Want me to continue with those?
+
+

@@ -734,7 +734,387 @@ Pipeline status
 When it reports "CLEAR TO FIRE", I'll re-run 091 on e505f70f — no artifact clearing needed, since round-counting has been orchestration-scoped since v1.0.1108, and 008's escalation package stays intact — and grade
 the tier against its expectation: the adapter question arrives as a code_check, the answer reaches the repropose, the plan widens to cover ollama.go, and the council approves within cap.
 
+---
 
+The fair-round re-grade is done, and it's a genuine result with caveats I want to be straight about.
+
+The headline: APPROVED on round 3 — the loop turned around
+
+With the round budget reset, the loop ran all three rounds and reached decision: approved, terminal complete — where without the tier it escalated. The final plan covers ollama.go (the reproposed plan widened from
+round 1's anthropic-only to naming ollama in rounds 2–3). And the code tier was used heavily: reviewers requested 13 code_checks across the run. So the fair-round budget worked, and the tier is clearly earning its
+place — reviewers leaned on it to ground their approval.
+
+But three things mean this is not the clean "the tier resolved the historian's objection" story I set up, and you should know all three:
+
+1. The panel that approved was not the panel that objected. Another session added a dynamic reviewer-panel-selection layer (gate steps + a select_panel mechanism) at ~20:00, mid-experiment. This run's panel was
+   editquality + reuse_agent + guardian — the bug-historian never ran. So the seat whose objection started this whole thread wasn't consulted in the run that approved. The approval is real, but it's "a panel used the
+   tier and approved a widened plan," not "the tier flipped the historian's veto."
+
+2. My tier had two real defects, surfaced by the heavy use — and I've fixed both. Committed (platform/orchestration/actions/diagnose_code_lookup_action.go), unit-tested, inert until the next build:
+- False negative: a reviewer queried symbol "OllamaClient.GenerateText" but the index stores Go's receiver form (*OllamaClient).GenerateText, so my raw substring match missed it and returned "no matches" — which a
+  reviewer could misread as "Ollama doesn't exist, don't widen." (The plan widened anyway, because a differently-phrased check, symbol "GenerateText", correctly returned both adapters.) Fixed by tokenizing the query
+  and AND-matching identifier tokens, so both forms resolve.
+- Wasted cap: reviewers asked exact-duplicate checks (two stop_reason, two done_reason); the max_checks=8 cap then dropped 5 distinct questions to make room for repeats. Fixed by deduping before the cap.
+
+3. Config churn is now a running hazard. fix-proposer was re-seeded by other sessions twice during this single grading exercise (roster grew to 6 seats, then gained the panel-selection layer). My v7 wiring survived
+   because I made it patch-style, but the experiment was moving underneath me the whole time — which is exactly the config-reseed finding I filed earlier, now demonstrated live again.
+
+Honest net
+
+The tier works and is valuable — proven by the approval, the widened plan, and reviewers voluntarily firing 13 checks at it. But the strongest possible claim ("it converts the historian's escalation into approval")
+isn't what this run showed, because the historian wasn't in the panel. To make that claim cleanly I'd need to force the historian into the panel (or disable the new panel-selection for one run) and re-fire with
+the two fixes deployed. I didn't, because config is churning and each run costs credits — that's your call.
+
+The backup of the cleared artifacts is in bak_diagartifacts_e505f70f_20260717 if you ever want the pre-clear state back.
+
+
+----
+
+Footprint restored verbatim — the shared config is back to the other thread's design, and the run captured its panel selection before I reverted. The temporary override was live for under two minutes.
+
+Status while the run completes:
+
+- New chassis v1.0.1135 re-verified, and importantly my two tier fixes from yesterday (Go-receiver-aware symbol matching + dedup) are live in the binary — so this run also tests those fixes, not just the historian
+  inclusion.
+- The historian is forced into the panel via the selector's own fail-open lever (empty footprint), backed up (bak_agentdef_fixproposer_20260718) and now restored.
+- Round count reset (council_reports cleared, backed up to bak_diagartifacts_e505f70f_20260718) so the loop gets its full 3-round budget.
+
+This run finally sets up the clean before/after the earlier runs couldn't: the historian and the code tier both in the loop. The poll grades the four things that matter — did the historian actually run, did the
+tier answer its adapter question (now with the receiver-syntax fix so OllamaClient.GenerateText-style queries resolve), did the plan widen to cover ollama, and critically did the historian's objection get resolved
+to an approve rather than persisting to another exhaustion. I'll report the graded outcome when it terminates.
+
+✻ Churned for 4m 22s · 1 shell still running
+
+※ recap: We're extending the diagnosis-fix loop and just built its code-lookup tier for the reviewer council. I'm running the re-grade with the bug-historian forced in; next action is reading the completed run to
+confirm its objection resolved to an approval.
+
+
+---
+
+I am thinking that for bugs that we are fixing locally in threads and chats it would be good to perhaps trigger this diagnosis before they begin to fix it. In another fixloop thread "fixloop council on every       
+bugfix" we are implementing a Claude.md statement that asks threads to check their fixes with the council before deploy. We could possibly do a similar thing here for them to use the diagnosis loop - that has the  
+council - before starting to debug? First is that a reasonable idea - can we do it, second - should we do it?
+
+Good question to stop and think about rather than just wire up. My honest take: yes it's reasonable and yes we can trivially — but the two proposals are not symmetric, and I'd not make diagnosis-first a blanket
+rule the way council-on-fix works as a gate. Let me explain why, because the asymmetry is the whole answer.
+
+Can we? Trivially. The 090 needs_diagnosis trigger already exists, any thread can fire it, the intake contract is documented, and the 090 coverage check now stops two threads colliding on one bug. A CLAUDE.md line
+is a five-minute change. So "can" isn't the constraint.
+
+Why council-on-fix is clearly worth it: a fix is a concrete artifact (a diff), the council reviews artifacts, and it gates the deploy — the rare, hard-to-reverse, dangerous act. Verification is cheap relative to a
+bad ship. The bug-historian caught a real scope gap in this very session's fix. Proportionate cost, clear value, natural fit.
+
+Why diagnosis-on-every-debug is different — four reasons from what this session actually showed:
+
+1. It competes with the human, and usually loses. This workstream's founding lesson is that three pilot bugs dissolved under a cheap pre-check — schema access plus grep answered them before any loop ran. A thread
+   actively working a bug is that cheap pre-check, with full context. For the bugs a thread can see, the human out-diagnoses the loop faster and for free. The loop's value was never discovery; it's unattended, cited,
+   consistent diagnosis across a class.
+2. It's expensive and slow. Every run this session was 4–25 minutes and real credits, with 5 verdict iterations. Gating the start of debugging front-loads that cost before you even know the bug is hard. Debugging
+   is constant; deploy is rare. A rule proportionate for the rare act is disproportionate for the constant one — and disproportionate rules get ignored, the way over-broad lint gets suppressed.
+3. The premise-shift trap, which this session hit repeatedly. The loop diagnoses a committed snapshot. A thread about to start fixing is precisely when the premise is most in flux. Fire-first often means diagnosing
+   a state the thread is one commit away from changing.
+4. The loop refuses a lot, correctly. UNVERIFIABLE / REFUTED / escalate were the majority of this session's terminals. A thread blocked waiting for a loop that then says "need more evidence" has spent time and
+   credits to be told to go look itself.
+
+The strongest argument against the blanket version, though: the cross-cutting value it would add is already delivered automatically. The immune system — triage plus silent-check — already sweeps every recorded
+failure fleet-wide and routes genuine platform-wide code bugs into the diagnosis queue on its own. That's the exact class where the loop beats a single thread ("you're fixing a symptom locally; the cause is
+platform-wide," which is how BUG A and BUG B surfaced). Asking every thread to also pre-diagnose manually largely duplicates what the immune system does, at high per-thread cost.
+
+So my recommendation: not a gate, a targeted judgement prompt. A CLAUDE.md line that says, in effect — before hand-debugging, if the cause is non-obvious after a quick look, or you suspect it's cross-cutting / not
+where the symptom is, or you want a cited auditable diagnosis, file it to the loop (090) first; for a bug you can see, debug directly. That mirrors the workstream's own "cheap pre-check first, escalate only when it
+doesn't dissolve" discipline, keeps the credit posture sane, and points threads at the one thing the council-gate genuinely can't do: the gate reviews the fix you wrote, but only the diagnosis loop can tell you
+the cause isn't where you're looking.
+
+Net: council-on-fix yes; diagnosis-first yes but as opt-in criteria, not a mandatory gate. If you agree, I'll draft the CLAUDE.md paragraph with the criteria — and coordinate it with the "fixloop council on every
+bugfix" thread so the two lines read as one coherent policy rather than two overlapping mandates.
+
+One housekeeping note: the historian-included re-grade (4c3eb393) is still running in the background; I restored the footprint already and will report its graded result when it lands.
+
+---
+The historian-included re-grade is the clean proof, and it landed exactly as the tier was designed to make it land.
+
+The definitive before/after
+
+Before (2026-07-16, no code tier, historian in the loop): the historian objects "do other adapters exist?", the council can't answer it, three rounds exhaust, escalate.
+
+After (today, code tier live with my two fixes, historian forced into the panel): the historian asks the same question as a code_check → the tier answers → the repropose widens the plan to cover ollama.go → the
+historian approves. Decision: approved, round 3, all seats. The historian's own words seal it:
+
+▎ "it covers both provider implementations rather than leaving the second one open."
+
+That is the exact objection, resolved by the exact mechanism the tier was built to provide. This is the claim I couldn't make cleanly yesterday — now proven.
+
+Three things worth flagging beyond the headline:
+
+- The historian approved like a good reviewer, not a rubber stamp. It flagged a genuine residual while still approving: no test/CI guard stops a future third provider being added without the stop-reason guard —
+  correctly labelled "architecture-level, not a blocker for this change." And it handed the fixing thread a validation baseline: 23 historical truncated rows (up from the 17 I found earlier) should replay as
+  success=false post-fix. Both are real gifts for the 008 thread.
+- The roster grew to 7 seats mid-experiment — the concept-register stage-3 track is moving fast, and now includes a llm_reliability seat directly relevant to BUG A. All seven approved. My code_lookup wiring
+  composed cleanly with another thread's panel-selection layer throughout.
+- BUG A now has a council-approved fix plan. The loop closed its own loop end-to-end: diagnosed → planned → widened under review → approved. The 008 thread can take it straight to the implementer (092 → build gate
+  → PR).
+
+Housekeeping: the historian footprint is restored verbatim to the other thread's design, both backups are in place (bak_agentdef_fixproposer_20260718, bak_diagartifacts_e505f70f_20260718), and turn 39 is recorded
+and committed.
+
+On your diagnosis-first question from the previous turn — my recommendation still stands (targeted judgement prompt, not a blanket gate; the immune system already covers the cross-cutting case). If you'd like, I'll
+draft that CLAUDE.md paragraph and coordinate it with the "council on every bugfix" thread so the two policies read as one. Your call on whether to do that now or move to something else.
+
+---
+
+Both deliverables done — two clean, single-file commits (the pathspec-on-commit form kept the ~30 foreign staged files another session had left in the index out of both).
+
+The summary doc
+
+SUMMARY_the_immune_system_2026-07-18.md — a standalone from/now/going of the whole system, written to be read cold. It covers:
+
+- The three tiers — build workflows / immune system (triage + silent-check) / diagnosis→fix loop — and the load-bearing principle that ties every result together: the system is trustworthy because it refuses, and
+  each honest refusal this week became the next capability.
+- Where we came from — the founding lesson (bugs dissolve under a cheap pre-check, so the loop's value is unattended cited diagnosis, not discovery), through the hardening of each slice up to PR #1 and the
+  four-phase immune system.
+- Where we are — the first real cases (BUG A found; BUG B found by the tool failing), the two capabilities grown from two refusals (autogather, code-lookup tier), and the clean historian result written up as the
+  definitive before/after: objection → unanswerable → escalate, then objection-as-code_check → answered → plan widened → approved in the historian's own words.
+- Both operating policies, with the asymmetry explained — why council-on-fix is a proportionate gate and diagnosis-first is deliberately opt-in.
+- Where we're going — BUG A closing its own loop, the two forward threads, the widening roster, the /bugs_open/ backlog, and the open owner decisions.
+
+The CLAUDE.md prompt
+
+Added as its own section, "Diagnosis before debugging (opt-in, by judgement — not a gate)", placed right after the council-gate section so the two read as one coherent policy. The framing matches exactly what we
+agreed:
+
+- Leads with the one thing it uniquely offers — the gate reviews the fix you wrote; only the diagnosis loop tells you the cause isn't where you're looking.
+- States plainly it's not a gate and not a default, with the honest reasons (you'll usually out-diagnose it; front-loading credits; premise-shift).
+- Gives the three opt-in criteria (non-obvious cause / suspected cross-cutting / want a cited diagnosis), the 090 command, and the symptom-authoring rules earned this week.
+- Ends with the key point that most lowers the friction: the immune system already auto-covers the cross-cutting class, so check the queue before firing a manual run.
+
+I coordinated it with the sibling thread's work rather than colliding — their council-on-fix section was already live, so I read it, matched its style, cross-referenced it, and made mine the complement rather than
+a competing mandate.
+
+Two things left on the table for you, neither blocking: whether to have me flag this new section to the "council on every bugfix" thread so they know the two policies now sit together, and the standing owner
+decisions the summary lists (roster-wide model policy; whether to build the CI guard the historian keeps asking for).
+
+✻ Crunched for 2m 31s
+
+※ recap: We're building the self-healing diagnosis→fix loop; this session proved the new code-lookup tier converts the council's escalation into an approval, so BUG A now has an approved fix plan. Next action: hand
+that plan to the implementer thread for the PR.
+
+
+---
+Both done, each a clean single-file commit.
+
+1. Flagged to the council-gate thread
+
+COORD_2026-07-18_diagnosis_policy_for_council_gate_thread.md — left as its own file rather than editing their running notes (so it can't collide with their edits). It tells them:
+- The two CLAUDE.md sections are now a matched pair, mine placed directly after theirs, with the framing contrast made explicit (their gate reviews the fix you wrote; mine tells you the cause isn't where you're
+  looking).
+- The only coupling is my back-reference to "the council gate above" and the section ordering — so if they retitle or move their section, that's the one thing to re-check.
+- No action needed from them; and I noted I have no objection if they'd rather merge the two into one "using the fix loop's brain" section, since theirs landed first.
+- The shared config-clobber landmine both councils sit on, pointing at the filed finding — which is the why behind their own existing "patch both councils in one migration" rule.
+
+2. Owner decisions surfaced
+
+DECISIONS_open_for_owner_2026-07-18.md — both with options and a real recommendation, nothing actioned:
+
+D1 — roster-wide Sonnet 5. Recommend yes, for the review-quality gain, but only as one correct migration, not a bare model swap. The reason that matters: I checked the plumbing, and the reviewers run at max_tokens:
+3000. On Sonnet 5, adaptive thinking turns on by default and eats that budget — so a bare swap risks truncated reviewer verdicts, the exact BUG A class, inside the reviewer of the BUG A fix. The migration has to
+      set the model and raise reviewer max_tokens to ≥8000, on both councils, patch-style. Good news I confirmed: fix-proposer has no root ai_service, so BUG B doesn't complicate it.
+
+D2 — the historian's CI guard. Recommend yes, but fold it into the BUG A fix PR (the 008 thread) rather than spin a separate workstream — the guard ships with the mechanism it guards. Flagged it's also a natural
+feature-builder pilot if that thread wants a first target. Low urgency (preventive; only bites when a third provider is added).
+
+Each decision ends with exactly what I'd do if you approve — D1 is the dual-council migration proven on a re-grade run; D2 is a one-line note to the 008 thread to bundle the guard test. Both are owner-go, and D1's
+proof run is the only thing that would spend credits.
+
+Your call on either whenever you're ready — nothing here commits you to acting.
+
+---
+
+Seat set unchanged, routing OK. Applying — it copies the now-migrated reviewer steps (with sonnet-5 + 8000) to the gate.
+
+Ran 1 shell command
+
+● The sync detects roster structure drift (added/removed seats, routing) but not config-value drift (model, max_tokens) within existing seats — so it saw identical seat names, called it "in sync," and left the gate
+on sonnet-4-6 @ 3000. That's a real blind spot in the mirror. The migration must target the gate directly too. Applying the same patch-style loop to council-gate (idempotent, config-value only — not the structural
+hand-patch CLAUDE.md warns against), then I'll flag the sync's blind spot.
+
+Ran 1 shell command
+
+● Both councils fully migrated. Now the proof run — fire the proposer and confirm reviewers run sonnet-5 at 8000 without truncating. First re-verify the pod is past the rebalance window and clear the round count.
+
+Ran 2 shell commands
+
+● While the proof run executes, let me commit the migration seed and flag the sync's blind spot — both are done work.
+
+Ran 1 shell command
+
+● The migration and coordination flag are committed. Let me check the proof run's progress.
+
+Read 1 file
+
+● Both decisions are actioned; only the D1 proof run is still in flight. Status:
+
+D2 — done. Appended to bugs_open/008: BUG A's plan is council-approved and ready for the implementer, with the historian's CI-guard test to bundle into the same PR, the 23-row validation baseline, and the family
+note tying 005/008/009/012 together. Committed.
+
+D1 — migration applied to both councils, proof run pending. What happened, including one thing that needed care:
+
+- fix-proposer: all 16 LLM steps → claude-sonnet-5; all 13 reviewers → max_tokens: 8000. Clean (no root ai_service, so BUG B didn't complicate it). Patch-style idempotent DO-loop, backed up.
+- The sync had a blind spot. CLAUDE.md now says "don't hand-patch the gate, run 099_SYNC" — so I did. It reported "already in sync, nothing written" and left the gate reviewers on sonnet-4-6 @ 3000. The reason: the
+  mirror detects roster structure drift (seats added/removed, routing) but not config-value drift inside an existing seat. So it never propagated the model/max_tokens change. I applied the same patch-style loop to
+  council-gate directly — which is not the structural hand-patch the rule warns against, just a config value the mirror provably can't carry — and flagged the blind spot to the council-gate thread with a suggested
+  fix (compare each step's ai_service in the delta check, not just seat names). Both councils are now verified aligned: sonnet-5, reviewers ≥8000. Both backed up.
+
+The proof run (00a20123) is the point of the whole exercise — it confirms the reviewers actually run sonnet-5 at 8000 and, critically, that no verdict truncates (output_tokens < max_tokens), which is the exact trap
+the max_tokens raise guards against. It's a few minutes out; I'll report the truncation self-check and whether the council still functions when it lands.
+
+One honest note on sequencing: I've now migrated the live councils before the proof run confirms them safe. That's a deliberate choice — the migration is reversible (backups for both, DB config is
+live-immediately), and the proof run needs the migrated config to test it. If the proof run shows any reviewer truncating, I'll raise max_tokens further or revert from the backup immediately.
+Jump to bottom (ctrl+End) ↓ 
+
+
+---
+
+Read 016 and assessed it against the live state. Here's what I found, plus the D1 proof result that came in alongside.
+
+bugs_open/016 — real bug, but the live rows are clean
+
+016 is a well-diagnosed defect: a template-vs-config .result asymmetry, where {{.review_X.result}} in a prompt renders <no value> silently for a json-output step, leaving the reviser blind to objections. But its
+evidence table was written against seed files, and I verified the live agent_definitions rows:
+
+- fix-proposer (mine) — clean. repropose/reframe use the correct unwrapped form {{.review_editquality}}, {{.review_guardian}}, {{.review_bug_historian}} — no .result. A full sweep of every LLM-step prompt found
+  zero {{.X.result}} refs. So its reviser does see objections.
+- feature-designer — also clean by the same check.
+- council-gate (which I migrated today) — clean.
+
+So there's nothing to fix in these three right now. I added a verification note to 016 for the threads you're flagging, pointing them at where the risk actually lives: a re-seed reintroducing .result in a template
+would silently re-break it, given how often these agents are re-seeded. The regression test 016 references is the contract that guards against that.
+
+One thing I checked carefully because it bears on my earlier claims: whether my code-lookup wiring hit the same trap. It doesn't — I inject the tier's answer as {{.code_lookup_results.results_text}}, and
+.results_text is a real map key (my action returns a 3-key map with no bare result), so none of the four unwrap patterns strip it. That's actually a nice robustness property: the tier delivers a reviewer's
+question-answer as structured data that renders correctly regardless of the prose-objection trap. So the plan-widening I reported is robust to this bug, not a beneficiary of it — and since the live review injection
+is also correct, my "historian objection resolved" result holds on both channels.
+
+D1 proof run — clean pass, and the max_tokens raise proved necessary
+
+The Sonnet 5 migration is verified end to end. All 16 LLM calls ran on claude-sonnet-5 at max_tokens: 8000, zero truncated, council functioning (revise, round 2, editquality objection). The important detail:
+review_editquality emitted 3513 tokens and review_guardian 3205 — both over the old 3000 cap. So at the pre-migration setting those two verdicts would have truncated (the exact BUG A class). The max_tokens raise
+wasn't precautionary; it was required, and the run demonstrates it.
+
+So both councils are on Sonnet 5 with reviewers at 8000, proven non-truncating; D2's note is in 008; the sync's config-drift blind spot is flagged to the council-gate thread; and 016 is assessed with the live state
+documented. Nothing is outstanding on my side unless you want me to take the D1 finding (the sync blind spot) further into an actual fix of 099_SYNC.
+
+✻ Sautéed for 4m 59s
+
+※ recap: We're building the self-healing diagnosis→fix loop; this session shipped the code-lookup council tier and migrated both councils to Sonnet 5, both proven working. Next action is yours: decide whether I
+should fix the 099 sync's config-drift blind spot.
+
+---
+
+Both done. The interleaved commits from other sessions in that log (358e14af6, 1505bd320, etc.) confirm the concurrency is constant — and the pathspec-on-commit discipline kept every one of mine single-file and
+clean.
+
+The config-drift blind spot — explained and fixed
+
+What it was: 099_SYNC_gate_roster.py mirrors the council roster from fix-proposer onto council-gate. Its decision to write was gated on if not added and not removed — and added/removed were computed purely from the
+set of seat names (the review_* step keys). So the script asked one question: "are the seats the same names?" If yes, it declared "already in sync" and returned without writing — even though it had already
+computed the fully-mirrored target carrying the current config. It detected roster-structure drift (a seat added or removed) but was completely blind to config-value drift within an existing seat: model,
+max_tokens, prompt text, footprints, review_fields. That's exactly why my D1 migration left the gate stranded on sonnet-4-6 @ 3000 while fix-proposer moved to sonnet-5 @ 8000 — same seat names, so the mirror saw
+"nothing to do."
+
+The fix: gate the write on a deep JSON compare of the fully-mirrored target against the live gate, step by step, and report which steps would change (a new drift: line). I tested both directions: aligned councils →
+no false positive; a max_tokens-only change on one gate seat → detected on that exact seat where the old guard said "in sync"; then reverted cleanly. Committed (d17524476), and the coordination note updated from
+"suggested" to "fixed." Now 099 --apply propagates in-seat config changes too, so CLAUDE.md's "run the mirror, don't hand-patch" holds for both kinds of change — the manual gate-patch I had to do earlier won't be
+necessary again.
+
+Reasoning capture — my assessment, and a handoff for a separate thread
+
+Yes, separate thread — it's ETL and dataset curation, a different skill and cadence from loop development. The handoff is at
+docs024_key_docs_latest/reasoning_dataset/HANDOFF_2026-07-18_reasoning_training_dataset.md, ready to start a chat from.
+
+The one thing worth telling you now, because it changes the shape of the work: the reasoning is already persisted. I verified it — the diagnosis verdict is a structured JSON object (outcome + citations +
+revised_hypothesis + next_scope + symptom_check) sitting in both llm_call_log and orchestration_states, the multi-iteration scope-narrowing is in the route trail and per-iteration bundles, and the council's
+reasoning is in the review notes and council_reports. 296 verdict/review rows and 26 verdict-bearing trajectories exist today. So the job is curation and labelling, not new capture.
+
+Two things in the handoff you'll want to know before starting it:
+
+1. The raw chain-of-thought is not available — the Anthropic API returns summarised or omitted thinking, never the model's raw private tokens. But you don't want raw CoT here: the loop is designed to emit grounded,
+   cited, outcome-labelled reasoning as its structured output, which is the exact format you'd want a reasoning model to produce, and it comes with labels raw CoT lacks.
+2. This is premium data because it's outcome-labelled — three label families join cheaply: the loop's own verdict, the pre-registered benchmark grades (gold, human-audited on a subset), and the terminal outcome
+   (confirmed → council-approved → human-merged). Even the honest refusals (REFUTED/escalate) are hard positive examples, not noise.
+
+The handoff also carries the landmines the training thread must respect — blind the fixloop docs out (they're the benchmark answers), filter premise-shift and truncated-reasoning rows, honour the 016 <no value>
+trap, and record model+commit provenance since the roster moved from sonnet-4-6 to sonnet-5 mid-week. Its first suggested deliverable is a read-only ETL over the ~26 graded trajectories that already exist — small
+enough to judge the signal before investing in scale.
+
+----
+
+The read-out is written and committed: READOUT_problems_we_faced_2026-07-18.md. It's plain-language and meant to be read aloud — an honest catalogue rather than the triumphant version, organised as six problems with
+what each taught us:
+
+1. The ground kept moving — the dominant one: premise-shift and concurrent sessions, appearing on turn one and recurring four times. The tool was right every time; the waste was us dispatching at stale premises.
+2. The tool found real bugs, one by failing — the silent-truncation root cause, and the config-precedence bug the documentation described backwards.
+3. Moving to a better model had traps — Sonnet 5's default thinking eating the token budget, and the proof that the budget raise was necessary.
+4. The tool's honesty kept creating friction and kept being right — the evidence guard, the historian's block; correct in hindsight every time.
+5. The plumbing has blind spots — the vanished overnight run and the fifty-day-old frozen runs; the sync that checked names but not settings.
+6. My own mistakes, owned plainly — the mis-fired trigger, the bracket bug, and the two overstatements I had to walk back, which is why I now verify before asserting.
+
+It closes on what held throughout: nothing lost, nothing shipped that shouldn't have, every wrong premise caught. I deliberately included my own errors honestly — a read-out that only listed the world's faults wouldn't
+be trustworthy.
+
+I'd paused the F1.2 loop-development investigation to write this. Want me to resume that — making the implementer/diagnoser ref a proper per-run input instead of the stale hardcoded branch it's pinned to — or would you
+rather take the read-out somewhere first?
+
+✻ Brewed for 2m 26s
+
+※ recap: We're developing the diagnosis/fix loop; I just wrote and committed the plain-language read-out of the problems this thread faced. Next action: resume the F1.2 cleanup, making the implementer/diagnoser git ref a
+per-run input instead of the stale hardcoded branch.
+
+
+---
+
+The InputSpec's Optional list drives field extraction, not rejection — and prepare reads base_branch_field via a direct GetStringField, which the old image simply won't call. So applying the seed now is safe: it removes
+all three stale-084 literals immediately (prepare's becomes the safe main fallback), the two config-only steps go fully per-run, and prepare's per-run wiring activates automatically when the base_branch_field image
+lands. Applying and verifying.
+
+Ran 1 shell command
+
+● F1.2 done and verified: all three steps now read input_data.base_branch, literal fallbacks are main, and no stale 084 remains anywhere — the hazard is removed immediately. Let me record it and report.
+
+Ran 1 shell command
+
+● F1.2 is done — the standing cleanup that's been flagged in every handoff's gotchas is closed.
+
+What was wrong
+
+The fix-implementer had 084_site_improvements_local_ai hardcoded in three places, stale since the active branch moved to 085:
+- read_current_files.ref — where it reads the current file bodies
+- prepare.base_branch — the PR base
+- create_branch.from_branch — the branch the fix is cut from
+
+So the next implementer run would read code from, cut its branch from, and open a PR into a dead branch. A latent bug waiting for whoever fired the implementer next.
+
+What I did
+
+Made the base branch a per-run input (input_data.base_branch, default main, passed by the 092 trigger's new BASE_BRANCH env var), wired to all three spots:
+
+- read_current_files and create_branch — config-only, because the actions already support field-based config (ref_field; dynamic data_fields). These are fully per-run on the current image.
+- prepare — needed a small Go change: a new base_branch_field that mirrors the already-proven ref_field pattern (literal default wins when the field is unset/unresolvable). Committed; rides the next image.
+
+State now
+
+Applied and verified: all three read input_data.base_branch, literal fallbacks are main, and zero stale 084 remains anywhere. The urgent hazard — the stale branch — is gone immediately, with no deploy required. I made a
+deliberate call here consistent with CLAUDE.md's "Go rides the next image; DB config is live now" pattern rather than forcing a third heavyweight deploy amid the ongoing config churn: read_current_files and
+create_branch are fully per-run today; prepare safely falls back to main until the base_branch_field image lands, at which point it too becomes per-run automatically. The verification step for after that image is in the
+notes (grep the pod for base_branch_field, confirm a prepare step logs the input base branch).
+
+The operational note that matters for whoever fires the implementer next: set BASE_BRANCH to the branch the diagnosis ran against, so the fix is read from, based on, and PR'd into the same code the diagnosis actually
+saw.
+
+Everything committed narrowly (Go change, seed, trigger, notes — four single-file commits). One clean loop-development item off the standing list. The obvious next candidates, if you want to continue: the diagnosis-side
+equivalent of the code tier (the diagnoser reads code directly via tarball, so it's a different question worth checking), or making BASE_BRANCH default to the diagnosis's own ref automatically rather than requiring the
+operator to set it. Your call on direction.      
+
+---
 
 
 

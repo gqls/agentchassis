@@ -135,3 +135,54 @@ gqls/sites/B2.
 Shall I proceed with P4 — building the render_rss_feed action?
 
 --
+The summary document is written and committed at docs/agent_docs/docs024_key_docs_latest/traffic_probe/SUMMARY_relojistas_rebuild.md — plain language, structured exactly as you asked (what we set out to achieve →
+where we are now → what we aim to do), and written to be read aloud rather than skimmed.
+
+The shape of it:
+
+What we set out to achieve — the dead forum, the discouraging headline traffic number (400k requests, ~99% crawler noise, only 89 real homepage visits), and the two things buried in it: a feed still pulled
+~136×/day by real subscription services all getting error pages, and genuine human watch searches from Spain, Chile and Mexico. The goal: rebuild as a Spanish watch news portal and reactivate that feed at its
+original address.
+
+Where we are now — the site is live and rebuilt; the news updates itself every six hours from five verified Spanish watch magazines plus an AI news search; and the headline result, the dormant feed is answering
+again with 30 current stories at the exact address subscribers have always used. It also credits the platform fixes that came out of the work, and states honestly what isn't finished (three dead nav links, the
+invented homepage links, the temporarily-absent search box).
+
+What we aim to do — finish the navigation, give Guides and Glossary real Spanish content, bring the search box back improved so it answers rather than just records, then map the old per-board subscriptions to
+matching topic feeds and measure the reactivation directly.
+
+It closes with a one-sentence version you can lead with: a dead forum domain turned out to still have a live audience nobody was serving.
+
+Meanwhile the Noticias build is moving — the page is now correctly typed as a news archive with its three sections, and the build item is queued for the builder to pick up. I'll carry on with that and report when
+it's live.
+
+
+---
+
+Verified fixed, and already filed by another thread as bugs_open/018_..._coverage_report_hides_90pc_of_commits.md — so I won't duplicate it (that's the related-bug rule working as intended). The report now
+correctly finds 29 in-scope commits, not 4.
+
+Here's the honest summary of this re-read.
+
+CLAUDE.md changed again in the minutes between my two reads — three deltas, all in the council section: the Council-Reviewed: trailer now accepts a fix-proposer RUN_ORCH_ID as well as a gate SUBMISSION_CORR; the
+relevance-gated seat count moved from seven to "11 as of 2026-07-18, and growing"; and roster changes are now mechanical via 099_SYNC_gate_roster.py rather than hand-patching both councils. The file is under active
+edit by the council thread while I work, which is precisely the concurrency hazard its own opening paragraph describes.
+
+Acting on it surfaced a real bug, independently confirmed. I ran the coverage report, noticed it claimed 4 in-scope commits where git log showed 28, and traced it to kubectl exec -i draining the while read loop's
+stdin — truncating the report at the first commit bearing a trailer. Another session had found the same thing ("4 of 41") and shipped the fix while I was mid-diagnosis. I checked before filing and found
+bugs_open/018 already covers it, so I've added nothing.
+
+Where my own work actually stands on coverage: my platform/ commit 9f515b0d7 (the render_rss_feed action) is genuinely unreviewed — it was never hidden by the bug, it simply predates my knowing the council existed.
+It's now one of 28 unreviewed commits fleet-wide, so this isn't a me-specific gap; the practice is young and the whole branch is behind. I can't retrofit a trailer (forward-only, no amends), so the useful move is
+to route the next platform change through the council — and bugs_open/015 gives me a natural candidate, since its fix candidates (teaching the planner the typed page vocabulary, or making MissingNewsPageCheck adopt
+rather than create) are exactly the fleet-wide behaviour change the council is for.
+
+Earlier in this same re-read cycle I also filed the two durable diagnoses I'd been missing: bugs_open/014 (the VM-site repo misroute, both causes, fixed) and bugs_open/015 (the mistyped page_type orphan, open
+fleet-wide), with both transferable patterns added to 016b §9 and indexed.
+
+Relojistas itself is untouched by all this and still where it was: Noticias re-typed to news-index with its sections, build item queued. Want me to carry on with that build, or first put the 015 planner fix through
+the council now that I know how?
+
+
+----
+
