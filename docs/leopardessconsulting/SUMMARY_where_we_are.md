@@ -1,145 +1,128 @@
 # Leopardess Consulting website — where we are
 
-*A plain-language status of the rebuild. Last updated 2026-07-16 (after the page merge).*
+*A plain-language status of the rebuild. Last updated 2026-07-18. All figures below were
+checked against the live site and database on that date, not carried forward from earlier
+notes.*
 *Site: leopardessconsulting.co.uk*
 
 ---
 
 ## In one paragraph
 
-We are rebuilding the Leopardess Consulting site so that everything on it is true, the branding
-is coherent, and it reads like a person wrote it rather than a language model. The old site was
-fluent but full of fabrications — invented staff, invented client case studies, capabilities
-that don't exist. The engineering it describes is largely real; the framing was not. Over the
-last several working sessions we have audited every claim against the code and database,
-rebranded, forked an accessible colour palette, removed the fabrications, and rewritten the
-core pages in an honest voice. The structure and chrome are now solid. The site is honest. What
-remains is depth — imagery, a few interactive tools and guides, and finishing the voice pass —
-plus two genuine platform bugs that surfaced along the way and are blocking imagery and one page.
+We are rebuilding the Leopardess Consulting site so that everything on it is true, the
+branding is coherent, and it reads like a person wrote it. The old site was fluent but full of
+fabrications — invented staff, invented client case studies, capabilities that don't exist. The
+engineering it describes is largely real; the framing was not. The site is now honest, has a
+consistent voice, and has just gained its first proper graphics. Two automated checkers now
+watch it: one for unverifiable claims, one for machine-sounding prose. One significant problem
+remains, and it is not on the website itself — something else in the platform keeps overwriting
+the pages we fix.
 
 **The rule that governs all of it:** no claim ships without a verified fact behind it. We check
-by artifact — a live page, a database row, a screenshot — never by a "done" status.
+by artifact — a live page, a database row, an image we have actually looked at — never by a
+"done" status.
 
 ---
 
 ## Where we've been
 
-The rebuild has moved through a clear arc:
-
-1. **Audit.** Every claim on the old site was checked against the actual code and database.
-   The fabrications were catalogued and removed. What survived is only what we can prove.
-2. **Rebrand.** A real Leopardess logo, favicon and social card; a forked colour palette
-   (warm light reading surface, dark charcoal chrome, antique-gold accents) that passes
-   accessibility contrast checks.
-3. **Honest rewrite of the main pages.** The homepage, about, services and the rest now
-   describe real systems in concrete terms — the pipeline that checks business records against
-   Companies House, the news pipeline that scores what's worth trusting, the platform that keeps
-   this very site current.
-4. **This session: integrity and voice.** We found and fixed the last dishonest page, cleaned
-   up broken links and dead pages, fixed a platform bug that was silently breaking page builds,
-   and rewrote four more pages into the site's plain, honest voice.
+1. **Audit.** Every claim checked against the real code and database. Fabrications catalogued
+   and removed.
+2. **Rebrand.** Real logo, favicon and social card; an accessible palette of warm light reading
+   surfaces against dark charcoal chrome with antique-gold accents.
+3. **Honest rewrite.** The main pages now describe real systems in concrete terms.
+4. **Voice.** A first pass stripped the marketing tells. A second pass, after your review, made
+   the register plainer and friendlier: short sentences, contractions, no literary flourishes.
+5. **This week: graphics, checkers, and one hard blocker found.**
 
 ---
 
 ## Where we are now
 
-**The site is honest and coherent.** Concretely, as of this session:
+**The site now has real graphics.** Four infographics, each generated and then reviewed by eye
+before going anywhere near the site:
 
-**Integrity — the important one.**
-- The **use-cases page** was the worst remaining problem: five fully fabricated case studies
-  with invented clients ("Revenue Operations at a Growth-Stage SaaS Company") and invented
-  results ("latency drops from days to minutes"). It now presents five honest "here's a pattern
-  we could build with you, and here's the real system it's based on" cards, each openly labelled
-  *"Not yet done for a client."* Zero fabrications remain.
-- Four separate **phantom links** to a page that didn't exist (an AI-readiness quiz) have been
-  tracked down and removed across the site.
+| Page | What it shows |
+|---|---|
+| Homepage | Three columns: what we've built, what we could build with you, how an engagement starts |
+| How it works | The six stages a job passes through, with "a person decides" drawn largest |
+| Technical architecture | The agent hierarchy sitting on Kubernetes, Kafka and Postgres |
+| What we've built | **The Leopardess Line** — an Underground-style route map of the three running systems |
 
-**Structure and chrome.**
-- Consistent gold header and charcoal footer across every page.
-- A dead "For Leaders" link (a blank duplicate page) removed from the footer of all 17 pages;
-  the page itself archived.
-- The blog now shows proper summaries and reading times.
-- A guide page that was silently blank is rebuilt and live.
-- The favicon, logo, and social card all serve correctly.
+Every figure in them (2,767 records verified, 937 enriched, 5,652 items collected, 4,672
+scored, 8 sites) comes from our own database. Each is placed with a full written description
+attached, so the pages still make sense to a screen reader or with images turned off.
 
-**Voice.**
-- Four pages rewritten this session — services, how-it-works, our-approach, contact — to strip
-  the tell-tale marks of machine writing (the neat three-item lists, the "not X but Y" framing,
-  the corporate abstractions) and replace them with concrete, plain, honest sentences. The
-  worst offender appeared twice: a stock phrase — "observability, fault isolation, and cost
-  controls" — that we'd literally cited as the example of what to avoid. It's gone sitewide.
-- The primary navigation journey (services → how it works → use cases → contact) now reads in
-  one consistent human voice.
+**Three pages now have proper hero images** — the homepage, who we help, and how we work. All
+are text-free abstract illustrations in the house style.
 
-**Platform bugs found and fixed.**
-- A shared form component carried a fake example email that a safety check kept flagging as a
-  fabricated contact address — which silently failed the build of *every* page using that
-  component, on this site and others. Fixed once, for the whole fleet.
+**Two automatic checkers are live.** One flags claims that can't be traced to the evidence
+base. The other flags copy that reads machine-written, measured against the site's own voice
+rules — including the words you asked us to stop using ("trust", "honest", "earns its keep").
+Neither ever rewrites anything: they raise it for a person to rule on. There are currently 25
+voice findings waiting, and they double as the to-do list for finishing the rewrite.
 
-Nothing is in a half-broken state. Every change this session either landed and was verified on
-the live site, or was deliberately held back (see below).
+**The tools work, mostly.** Four of the five interactive tools are functional and are now
+linked from the footer, which they weren't. One — the LLM cost calculator — is genuinely
+broken: it loads the wrong file. That's diagnosed and written up.
+
+---
+
+## The one significant problem
+
+**Something else in the platform keeps rebuilding this site's pages and undoing our work.**
+
+It happened twice in twenty-four hours. On Friday it rebuilt the homepage and reinstated a
+fabricated statistic and invented case-study titles. On Saturday it rebuilt the services page
+and *invented a link to a tool that doesn't exist* — which is the blank page you clicked.
+
+This matters more than any single defect, for two reasons. It doesn't just lose our
+corrections, it actively puts fabrications back. And it means anything we fix by hand has an
+undefined shelf life until it's addressed. It is written up as a platform bug with the fresh
+evidence attached.
+
+One useful discovery: images attached properly to the site plan **survive** these rebuilds,
+while page copy does not. So imagery work is durable in a way copy work currently isn't — which
+is why we've prioritised the graphics.
 
 ---
 
 ## Where we're going
 
-In rough priority order:
-
-1. **Imagery.** The site has its logo and a shared hero texture, but no distinctive per-page
-   images, card images, or illustrations. We proved a safe way to generate and place images
-   without disturbing the carefully-fixed copy — but it's currently blocked by two things (see
-   "the two blockers" below). Per-card and per-section images additionally need a piece of the
-   platform ("Phase I3") that hasn't been built yet.
-2. **The AI-readiness quiz page.** Still blank. The content is ready to generate and the bug
-   that was blocking it is fixed — it's now held up only by the infrastructure flake below.
-3. **~~Finish the voice pass~~ — done, including the page merge.** Four pages were saying the
-   same six things in different words (in places, twice on the same page). Decision made and
-   executed: the site keeps one plain-language explainer (*how it works*) and one technical
-   page a click deeper (*architecture*); the two redundant pages are retired. While folding
-   their content across, we caught and removed one more buried fabrication ("eight
-   departments") and replaced it with a number we can prove from the database (over 150 agent
-   definitions).
-4. **The build-out the brief actually asks for.** Beyond fixing what was broken: interactive
-   tools and calculators (several already exist and can be adopted), illustrated guides, a news
-   surface (the pipeline is real and running — it just needs a front end), and data charts
-   drawn from real numbers.
-5. **SEO and social polish.** Some page titles are still the old marketing versions, and there
-   is currently no sitemap.
-6. **A fact-checking layer for the platform itself** *(new — decided this week)*. Everything
-   above was kept honest by a human checking pages against an audit file; the platform has no
-   layer that compares a claim to evidence — which is how fabrications kept slipping through
-   and, once removed, sneaking back. We've specified a verification system: the evidence
-   becomes machine-readable, known-false claims are blocked at build time, unverifiable claims
-   get flagged to a person (never auto-rewritten), and the site's own past fabrications become
-   the test suite. This is platform work in its own thread; this site is the pilot.
+1. **Fix the rebuild problem.** Everything else is provisional until this lands.
+2. **Finish the imagery.** Five pages still have no image at all: about, services, use cases,
+   contact and the blog index. Two of them need a small platform change first, because their
+   page templates have nowhere to put an image.
+3. **Replace one bad image.** A garbled picture is still the fallback on six pages. Replacing
+   that single file fixes all of them at once.
+4. **Finish the wording pass** using the 25 findings the checker produced.
+5. **Repair the LLM cost calculator.**
+6. **The build-out** — more tools, illustrated guides, a news surface.
 
 ---
 
-## The two blockers that aren't about the website
+## Two things worth knowing about how this now works
 
-Both surfaced during this work, both are genuine platform issues, and both are written up in
-detail for a separate engineering thread:
+**We were wrong about image generation, and corrected it.** We had concluded that AI image
+tools simply cannot render readable text, and had planned to build a whole drawing system to
+work around it. You showed us two Gemini infographics with perfectly clear text, and the
+correction turned out to be embarrassing in a useful way: the capable model was *already
+wired into our platform* and had never been used, because one setting sent hero images to an
+older model that genuinely can't do text. The fix was a better instruction, not a new
+subsystem. The wrong turn is recorded rather than quietly deleted.
 
-- **An infrastructure flake.** When the system spins up a helper process to write content or
-  generate an image, that helper sometimes can't reach the message bus and its reply is lost, so
-  the parent job hangs until a cleanup sweep fails it 30–90 minutes later. It's intermittent and
-  tied to certain machines in the cluster, not to this site. It blocked the quiz build five
-  times and stalled image generation. This is the single thing most in the way right now.
-  *(Full technical write-up: `docs/HANDOFF_spawn_lost_child_response.md`.)*
-- **Image routing.** The system sends "hero" images to a photographic image generator, but this
-  site's entire visual language is flat gold-on-charcoal illustration. So a hero here can't come
-  out on-brand under the current routing — it needs to be generated as an illustration instead.
-  We generated one hero as a test, saw it come out wrong, and deliberately did **not** put it on
-  the site. *(Details in `HANDOFF.md` §8/§9.)*
-
-Neither is a reason the website itself is behind; they're the reasons the *imagery* is.
+**The instruction matters more than the model.** The same model produced gibberish from a vague
+prompt and publication-quality work from one that specified the layout, the exact wording, the
+permitted figures and the colours. The prompts that produced these four are kept, so this is
+repeatable.
 
 ---
 
 ## Where to look for more
 
 - **`HANDOFF.md`** — the working document; open a fresh engineering session from it.
-- **`RUNNING_NOTES.md`** — the full turn-by-turn record of what was done and why.
-- **`AUDIT_verified_facts.md`** — the evidence base; every claim traces back to a row here.
-- **`specs/VOICE_REWRITE_PROMPT.md`** — the voice guide the rewrites follow.
-- **`docs/HANDOFF_spawn_lost_child_response.md`** — the infrastructure bug, for a separate thread.
+- **`RUNNING_NOTES.md`** — the full turn-by-turn record, including the wrong turns.
+- **`AUDIT_verified_facts.md`** — the evidence base behind every claim.
+- **`PLAN_imagery_and_design_2026-07-18.md`** — the plan for the graphics work.
+- **`/bugs_open/`** — the platform defects: `001` (the rebuild problem), `003` (an
+  infrastructure flake that stalls image generation), `011` (the image-routing bug).

@@ -4,16 +4,35 @@
 the single source of truth for state. The deeper detail lives in the four companion
 docs, but this file is enough to resume without them.
 
-**Last updated:** 2026-07-16 (turn 17, extended)
+**Last updated:** 2026-07-18 (turn 25)
 **Branch:** `085_debug_and_feature_loops`
 **Site:** `leopardessconsulting.co.uk` · `site_id = 4851f6fc-71cf-4160-a270-e03d6d3e0732`
 **Plain-language status to show someone:** `SUMMARY_where_we_are.md` (this file is the technical resume point).
 
 ---
 
-## ⚡ CURRENT PUNCH-LIST (owner site review, 2026-07-14) — start here
+## 🔴 READ FIRST — the blocker that makes content work provisional
 
-The owner reviewed the live site and raised the items below. Status as of **turn 17**.
+**Another session's `build-site-planner` re-plan keeps clobbering this site's pages.**
+Filed with fresh evidence at **`bugs_open/001`**. It hit twice in 24h:
+- **index, 07-17 14:14** — rebuilt 4→6 sections, re-adding *fabricated* "Functional Areas:
+  150+" and invented case-study titles. Restored by hand; plans pruned.
+- **services, 07-18 07:50** — rebuilt; invented a link to
+  `/tools/tool-monitoring-coverage-gap-finder.html` (**404**) that the owner clicked. **Services
+  is STILL in its clobbered state** (`page_components.updated_at = 2026-07-18 07:50`, verified)
+  — my earlier v2 copy on that page is gone.
+
+It is not only content *loss*, it is fabrication *injection*, and it defeats human review.
+**Anything you hand-fix in `page_components` has an undefined shelf life until 001 is fixed.**
+
+**What survives a clobber:** heroes wired through `site_plans` / `site_plan_imagery` rows.
+That is why imagery work is durable here and copy work is not — prefer imagery until 001 lands.
+
+---
+
+## ⚡ PUNCH-LIST 1 (owner review 2026-07-14) — all items now closed or superseded
+
+Status as of **turn 25**. Item 5 (imagery) is superseded by punch-list 2 below.
 
 | # | Issue | Status | Fix / root cause |
 |---|---|---|---|
@@ -35,6 +54,20 @@ Backups (turn 17): `bak_pages_contentdata_leo_20260714`, `bak_usecases_leo_20260
 `bak_contact_leo_20260715`.
 
 ---
+
+## ⚡ PUNCH-LIST 2 (owner review 2026-07-18) — the current one
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Tools not linked from nav | **FIXED** — a rebuild had stripped them; a `tools` nav group existed that renders in NEITHER header nor footer. 4 working tools now in the `utility` group (footer). |
+| 2 | Blank page behind "Monitoring Coverage Gap Finder" (services) | **ROOT-CAUSED, not fixed** — a phantom link *invented by the re-plan*. See the red box at the top; it is `bugs_open/001`, not a missing page. |
+| 3 | Hero image has unreadable text | **FIXED on index** (new text-free Banana hero). ⚠️ The garbled `/assets/images/hero.jpg` is **still the site-wide fallback** and still live on how-it-works, technical-architecture, engagement-model, faq, careers, insights. Replace the FILE to fix all at once. |
+| 4 | "trust" / "honest" / "earns its keep" overused | **Config done, copy partly done.** Banned in `voice_gate` + `banned_language` (bak_voice_words_20260718). Homepage instances rewritten. The rest are in the 25 `voice_tells` items. |
+| 5 | Want infographics showing system strengths | **DONE ×4** — see the imagery table below. |
+| 6 | Want more imagery / graphics / better design | **In progress** — 3 heroes + 4 infographics live; about/services/use-cases/contact/blog still have nothing. |
+| 7 | Want more hero images | **3 live** (index, who-we-help, how-we-work). `about`/`services` need a shared-component change first: `hero-about` (9 sites) and `hero-services` (5 sites) have **no image field**. Additive gated field (`{{if .background_image}}`) is the fleet-safe pattern. |
+
+Plan for these: `PLAN_imagery_and_design_2026-07-18.md`.
 
 ## 0. The one-paragraph version
 
@@ -180,15 +213,58 @@ never trust orchestration status alone.
 
 ## 6. NEXT ACTIONS (in priority order)
 
-**THE ONE OPEN IN-FLIGHT ITEM: `ai-readiness-quiz` is still blank.** Its content path is clean
-(validation passes; the `contact-block` validator bug is fixed fleet-wide) — it is blocked ONLY
-by the infra flake in §8 (5 build attempts, all died on lost-child-response / reaper, never on
-content). Its `sections` are `["hero","ai-readiness-quiz","contact-block"]`; the interactive
-quiz component exists and is active. **To resume: re-fire page-build-handler for it when the
-cluster is healthy, and watch the spawned child land its response** (see
-`docs/HANDOFF_spawn_lost_child_response.md` — that's the separate thread for the actual bug).
-Check state: `SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.name='ai-readiness-quiz' AND p.site_id='4851f6fc-71cf-4160-a270-e03d6d3e0732';`
-It's linked from the footer + use-cases CTA, so it must not stay blank.
+**STATE AS OF 2026-07-18 (all figures checked live, not carried forward):**
+
+*Imagery — the big change this week.* Four infographics are live, all generated through
+`kind:'infographic'` → Banana → **`gemini-3-pro-image-preview`**, all reviewed by eye, all
+carrying full descriptive `alt` text:
+
+| Page | Graphic | Hero |
+|---|---|---|
+| index | `infographic-what-we-build.jpg` | `hero-home.jpg` ✅ |
+| how-it-works | `infographic-how-a-job-runs.jpg` | `hero.jpg` ⚠️ (the garbled one) |
+| case-studies | `infographic-leopardess-line.jpg` (the Beck transit map) | — |
+| technical-architecture | `infographic-architecture.jpg` | `hero.jpg` ⚠️ |
+| who-we-help / how-we-work | — | good Banana heroes ✅ |
+| **about, services, use-cases, contact, blog** | **— none** | **— none** |
+| engagement-model, faq, careers, insights | — | `hero.jpg` ⚠️ |
+
+> **CORRECTED 2026-07-18:** an earlier version of `bugs_open/011` claimed *"generated images
+> cannot render readable text"* and proposed building an SVG renderer. **Wrong.** The
+> capability was already wired: `infographic` has always routed to Gemini, which renders text
+> well. The real bug is narrower — `kind:'hero'` falls through to Stability/SDXL, which cannot.
+> Caught by the owner showing working Gemini infographics. Pattern recorded in 016b §9
+> ("read the dispatch table, not the output").
+
+*Two new checking layers are LIVE in the deployed chassis* (verified in-pod:
+`strings /app/agent-chassis | grep -c voice_tells` → 7):
+- **claims** (`unverified_claims`) — banned-claim + unregistered-number scan vs the
+  `evidence_base` spec. Spec: `docs024_key_docs_latest/claims_verification/`.
+- **voice_tells** — LLM-tells scan vs the site's `voice_gate` (banned phrases incl. the owner's
+  2026-07-18 ban on *trust / honest / earns its keep*, em-dash + triad density, sentence
+  length, contractions). Engine `platform/orchestration/datahelpers/voicetells.go`;
+  CLI `cmd/voicescan`. Both are HITL-terminal — they never rewrite.
+
+*Owner review queue* (live counts): **25** `voice_tells`, 21 `unresolved_cta`, 17
+`needs_section_data`, 17 `image_source_unsatisfiable`, 13 `cta_names_unknown_destination`,
+11 `content_rewrite`, 6 `needs_content_page`. The `voice_tells` list **is** the v1→v2 rewrite
+worklist. ⚠️ Some `needs_content_page` / `content_rewrite` items are from `content-gap-planner`
+and propose **fabricated** content (it invented a whole financial-services case study with
+metrics) — read before actioning; several are deliberately parked at needs_human_review.
+
+*Tools:* 4 of 5 work (ai-agent-roi-estimator, password-entropy,
+tool-agent-complexity-estimator, process-automation-scorer — the last three are
+self-contained inline JS). **llm-cost-calculator is broken**: references
+`bayesian-ranking-hero-tool.js` (wrong tool) while its own bundle 404s. All 4 working tools are
+now linked from the footer. Diagnosis recorded on `needs_diagnosis:leo-tools-runtime`.
+
+**✅ `ai-readiness-quiz` is FIXED** (turn 21, verified live 2026-07-18: 54,118 bytes, 3
+components). It was blocked by the shared `contact-block` schema whose `email_placeholder`
+fallback was `jane@company.com` — the email validator read that as a hallucinated contact and
+failed *every* build of *any* page using that component, fleet-wide. Fallback changed to
+"Enter your email address"; the page then built. Do not re-open this.
+
+**NEXT ACTIONS (in priority order)**
 
 1. **[✅ done] Site uniformity / header + footer.** KEY LESSON: use `reassemble_pages.sh`
    (ASSEMBLE mode + page_id) for header/footer changes — `section_data_resolved` SKIPS

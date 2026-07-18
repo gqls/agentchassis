@@ -1494,3 +1494,42 @@ also a truthful summary rather than decoration.
 **Infra note:** the first firing of two of these hit the spawn flake again (48 Kafka dial
 errors on the spawned image-generator pod, 0 generations). Delete the pod, re-fire — both then
 succeeded. Same class as bugs_open/003.
+
+## Turn 26 (2026-07-18) — docs brought up to CLAUDE.md's "standing four"; images verified rendering
+
+**Owner reported "the images aren't appearing" with a screenshot of services.html.**
+Investigated: the four infographics DO render — verified the served markup is real HTML
+(`<figure class="infographic"><img src="/assets/images/...">`), not escaped entities, on
+index / how-it-works / case-studies / technical-architecture, and all four files serve 200
+(111–196 KB). **services.html is simply one of the pages that has no image at all** — no hero,
+no infographic. The owner's screenshot is accurate for that page. Ungrounded generalisation
+avoided by checking each page rather than trusting one report.
+
+Live per-page image inventory (2026-07-18, checked not carried forward):
+- hero + content image: index
+- content image only: case-studies
+- hero + content image: how-it-works, technical-architecture (but on the GARBLED hero.jpg)
+- good hero only: who-we-help, how-we-work
+- garbled hero.jpg only: engagement-model, faq, careers, insights
+- **NOTHING: about, services, use-cases, contact, blog**
+
+**CLAUDE.md re-read — it gained a "Working docs — the standing four" directive today**
+(PLAN / RUNBOOK / NOTES / SUMMARY per workstream, created at the start, updated as you go;
+record what was WRONG not just what is right; ground every figure against the live system;
+point at bugs rather than restating them; grep before filing). Leopardess already satisfies it
+(PLAN_leopardess_rebuild + PLAN_imagery_and_design / RUNBOOK / RUNNING_NOTES / SUMMARY), so no
+migration — but the docs were updated to its standard:
+
+- **HANDOFF.md rewritten as a cold-start**: a red READ-FIRST box making the re-plan clobber
+  (bugs_open/001) the first thing a new chat sees, since it makes all copy work provisional;
+  a live-checked state section (imagery table, the two new checking layers verified in-pod,
+  the owner review queue counts, tool status); the 011 correction recorded visibly with
+  `> **CORRECTED**`; punch-list 1 retitled as closed and **punch-list 2 (the 2026-07-18 owner
+  review) added** as the current one.
+- **STALE CLAIM CAUGHT AND FIXED while editing:** the handoff still said "ai-readiness-quiz is
+  still blank — the ONE open in-flight item". It was fixed in turn 21. Verified live before
+  writing (54,118 bytes, 3 components) and replaced with the correct account + the root cause
+  (the fleet-wide `contact-block` `jane@company.com` fallback failing the email validator).
+  This is exactly the failure the "ground every figure" rule exists to prevent.
+- **SUMMARY_where_we_are.md rewritten** for the owner in plain prose, including an honest
+  account of the image-generation mistake and its correction.
