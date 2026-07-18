@@ -2128,3 +2128,36 @@ a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
   growth; code_check_fields now all 6. Restored + verified (6/6 seats). The
   git-CLAUDE.md coordination rules have a DB-config analog that is NOT yet
   covered — flagged for the multi_session_coordination workstream.
+
+### Turn 39 — 2026-07-18 — CLEAN before/after: the code tier CONVERTS the historian's escalation into an approval
+- **The definitive proof the F2.3b(c) tier was built for.** Run 4c3eb393 on
+  e505f70f, with the bug-historian FORCED into the panel (its footprint doesn't
+  match BUG A by design — LLM-boundary truncation isn't its rerender/blanking
+  territory — so a temp fail-open override `footprint=[]` put it in; backed up
+  bak_agentdef_fixproposer_20260718, RESTORED verbatim ~2 min later). My two
+  tier fixes (Go-receiver token match + dedup) were LIVE in v1.0.1135.
+- **Before (2026-07-16, no code tier): historian OBJECTS "other adapters?" →
+  unanswerable → 3 rounds exhaust → escalate.**
+  **After (today, code tier + fixes + historian in panel): historian asks via a
+  code_check → tier answers → repropose widens to cover ollama.go → historian
+  APPROVES.** Decision: **approved, round 3, ALL 7 seats approve.** The
+  historian's own words: "it covers both provider implementations rather than
+  leaving the second one open." That is the objection resolved by the exact
+  mechanism the tier provides.
+- Historian approved WITH a mature advisory residual (not a blocker): no
+  test/CI guard prevents a FUTURE third provider being added without the
+  stop-reason guard — "architecture-level observation." VALUABLE for the 008
+  fixing thread. It also gave a validation baseline: **23 historical
+  silently-truncated rows** (up from 17 — more accrued) should replay as
+  success=false with the new error string post-fix.
+- **Roster grew to 7 seats mid-experiment** (concept-register stage-3 moving
+  fast): editquality, bug_historian, reuse_agent, **diagnosis_guardian**,
+  **llm_reliability**, **debug_historian**, guardian — all approved. The
+  panel-selection layer (select_review_panel, keyword footprints, empty=fail-
+  open) is another session's; my code_lookup wiring composes with it cleanly.
+- **BUG A now has a COUNCIL-APPROVED fix_plan** on e505f70f — ready for the 008
+  thread's implementer (092 → build gate → PR). The loop closed its own loop:
+  diagnosed → planned → widened under review → approved.
+- Config-churn tally this exercise: fix-proposer re-seeded/extended by other
+  sessions ~4× across turns 36–39 (3→6→7 seats + panel layer). My patch-style
+  seeds survived each; the churn is the standing hazard (FINDING_2026-07-17).
