@@ -360,4 +360,48 @@ Score: 4 fires, 4 council rounds, 4 defects found (3 steer, 1 validation) +
 1 genuine architectural finding + 1 live production defect confirmed. Run 5
 should produce a surgical seed the bug-historian can approve.
 
+## Turn 11 — 2026-07-18 — CLAUDE.md re-read: bug 016 fixed here, and run 4's grading was WRONG
+
+Owner asked me to re-read `CLAUDE.md` (two whole new sections since this
+thread started: an advisory **council gate** for platform changes, and
+diagnosis-before-debugging) and flagged `bugs_open/016`.
+
+**016 is ours and it invalidates turn 10's conclusion.** In a prompt
+TEMPLATE, `{{.X.result}}` renders `<no value>` silently — `ExtractFields` →
+`UnwrapDeep` strips the `{type,result}` wrapper, so `.result` is a lookup for
+a key that no longer exists. `feature-designer` had 5 such refs in
+`repropose` and 2 in `reframe`. **The reviser therefore never saw a single
+objection in any run.** Run `3b084712` burned all three rounds with the
+bug-historian's objection unchanged each time — not because the plan was
+unfixable (turn 10's reading) but because the feedback loop was severed.
+Facts still improved between rounds because `{{.check_results.results_text}}`
+is correct (a field ON the unwrapped value), which is exactly what made the
+failure look like stubbornness. **That asymmetry — facts improve, objections
+never get addressed — is the tell for auditing any other council.**
+
+Fixed SURGICALLY (`PATCH_feature_designer_016_revise_prompts.sql`): jsonb_set
+on the two prompt_template leaf paths only, snapshotted, config dot-paths
+untouched — i.e. exactly the co-edited-row rule this thread's own council
+taught it last turn, applied to itself the very next change. Verified 0
+broken refs, `check_results` intact, 5 review_fields intact. Seed file
+corrected too. Live sweep: both feature-* agents clean; the only remaining
+`.result}}` in the fleet is `content-creator-hero`, another thread's to fix.
+Turn 10's rule 5a stands on its own merits (the design prompt DOES render).
+
+**Council-gate compliance gap (mine).** The new CLAUDE.md section asks
+threads to run `platform/` changes past the council before committing, with a
+`Council-Reviewed:` trailer. My three platform commits (`4b3d50f4c`,
+`c19b5d097`, `62018e272`) carry no trailer — the coverage report lists them
+UNREVIEWED. So are 29 of 30 in-scope commits fleet-wide, so this is an
+un-adopted convention rather than a personal lapse, and forward-only forbids
+amending trailers in. The part that genuinely merits review is **delta 2's
+stage-loop machinery**: it has unit tests but has NEVER run live, and it is
+the next thing to fire. Recommend submitting it before the first implementer
+run. (The coverage report itself was mid-fix during this turn — an earlier
+run reported 3 of 30 commits; another thread's stdin fix landed between my
+two invocations. No bug to file.)
+
+**Open, both owner calls (credits):** run 5 with a WORKING revise loop, and
+whether to council-review delta 2 before the implementer's first fire.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
