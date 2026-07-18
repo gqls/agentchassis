@@ -56,6 +56,7 @@ entries at the bottom. Update every turn.
 | 2026-07-18 | Built candidate #5 (improvement-loop guardian, `IMP-003/004/027` — the 845-item unbounded-drain guards) — gated + surgical (v14); council now 9 | **confirmed, live** |
 | 2026-07-18 | Owner's multi-LLM idea (diverse-vendor model panel for intractable bugs) ruled a SEPARATE subproject, not the debugging seat — council seats review plans; this generates diagnoses at the escalation terminal. Recorded in PLAN with groundwork + prerequisite (MDL-038) | **recorded, awaiting green-light** |
 | 2026-07-18 | User: "please go ahead and complete the council." Built + applied v15-v18 (compliance, render, LLM-reliability, debugging) sequentially — THE COUNCIL IS COMPLETE: 13 reviewers, 11 gated | **confirmed, live** — full chain verified, proviso + code_checks intact |
+| 2026-07-18 | THE COUNCIL'S FIRST REAL OUTING: BUG A (MDL-038) fix-proposer run 53da3a30 ran the full 13-seat chain, 3 revise rounds, → **APPROVED** (7 voted, 6 abstained). Filter woke bug_historian+reuse+diagnosis+llm_reliability+debugging. The two purpose-built seats (llm_reliability, debug_historian) gave grounded approvals + flagged the token-write-back ordering constraint. Revise loop IMPROVED the plan: final covers both anthropic.go AND ollama.go | **confirmed** — approved fix_plan persisted; implementer (opens PR) is the next, separate step |
 
 ---
 
@@ -961,5 +962,43 @@ guardian (hard veto, stability proviso) → council_decide. A typical fix wakes
 for stage 3 is watching the council's first real outing (BUG A's dispatch,
 owner's call) — and the proposed multi-model gauntlet subproject if
 green-lit.
+
+## Turn 27 — 2026-07-18 — The council's first real outing: BUG A approved
+
+User: "please go ahead with the BUG A fix dispatch." Ran six premise checks
+first (fixloop discipline — the bug may already be fixed): BUG A still absent
+from HEAD and from the running pod's binary, no competing work items, the
+CONFIRMED diagnosis + evidence bundles intact, pod past the dispatch-quiet
+window. A concurrent session fired the run (53da3a30) at 10:16, ~1 min before
+I would have — so I did NOT re-dispatch (would have double-run the
+correlation) and monitored instead.
+
+**Outcome: APPROVED after 3 revise rounds** (completed 10:37). The complete
+13-seat council's first real case. The relevance filter woke 5 specialists
+(bug_historian, reuse_agent, diagnosis, llm_reliability, debugging) + the 2
+always-on; `council_decide` correctly recorded 6 abstentions for the skipped
+seats. The two seats built THIS WEEK for exactly this bug class earned their
+place: llm_reliability confirmed no ai_service config was touched (BUG B trap
+irrelevant), that the guard sits after the token write-back so llm_call_log
+still records output_tokens on the error path, and that no model swap was
+implicated; debug_historian cleared all four lore dimensions and flagged the
+same ordering constraint. Neither raised a blocking objection — both approved
+with a review note.
+
+**The revise loop demonstrably improved the fix.** Round 1 plan touched only
+anthropic.go. During reproposal a code lookup found finish_reason absent from
+the whole codebase → the identical silent-truncation gap in
+OllamaClient.GenerateText. The FINAL approved plan covers BOTH providers:
+add StopReason (json:stop_reason) + a max_tokens hard-error guard in
+anthropic.go, and a parallel DoneReason (done_reason=='length') guard in
+ollama.go. Grounded in 23 real silently-truncated llm_call_log rows
+(output_tokens==max_tokens fingerprint, 5 agent types, 2 models).
+
+**Pipeline state:** approved fix_plan persisted (diagnosis_artifacts, kind
+fix_plan, correlation e505f70f). The NEXT stage — fix-implementer
+(092 trigger, agent_type fix-implementer-orchestrator) — is a separate,
+outward-facing dispatch: whole-file LLM implementation → allowlist → fix/*
+branch → commit → gofmt+build gate in a k8s Job → (green) **PR into main**.
+Held for owner decision since it opens a real PR.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
