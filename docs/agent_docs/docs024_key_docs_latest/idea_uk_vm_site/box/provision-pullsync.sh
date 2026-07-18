@@ -64,30 +64,51 @@ if ! sudo -u www-data ssh-keygen -F github.com -f "$SSH_KH" >/dev/null 2>&1; the
   chmod 644 "$SSH_KH"
 fi
 
-echo
-echo ">>> Add this as a Deploy Key on gqls/vm-sites (Settings → Deploy keys)."
-echo ">>> Title: idea.uk-box sitesync — LEAVE 'Allow write access' UNTICKED (read-only)."
-echo
-cat "$SYNC_HOME/.ssh/id_ed25519.pub"
-echo
-read -rp "Press Enter once the deploy key is added... "
-
 echo "== pre-flight: can this box authenticate to GitHub? =="
+# Test FIRST, prompt only if it fails: once the key is registered this stage is a
+# silent no-op, so re-runs need no interaction at all. (The old order paused
+# unconditionally — and `read` cannot work under `ssh host 'bash script'`, which has
+# no TTY, so the pause was skipped and the failure came from the clone instead.)
 # `ssh -T git@github.com` exits 1 even on SUCCESS (GitHub allows no shell), so match
 # the greeting text, not the exit status. A deploy key greets with the repo name.
-GH_GREETING=$(sudo -u www-data $SSH_CMD -o BatchMode=yes -T git@github.com 2>&1 || true)
-echo "$GH_GREETING"
+gh_probe() { sudo -u www-data $SSH_CMD -o BatchMode=yes -T git@github.com 2>&1 || true; }
+
+GH_GREETING=$(gh_probe)
+case "$GH_GREETING" in
+  *"successfully authenticated"*) : ;;   # already registered — say nothing, carry on
+  *)
+    echo "$GH_GREETING"
+    echo
+    echo ">>> Add this as a Deploy Key on gqls/vm-sites (Settings → Deploy keys)."
+    echo ">>> Title: idea.uk-box sitesync — LEAVE 'Allow write access' UNTICKED (read-only)."
+    echo
+    cat "${SSH_ID}.pub"
+    echo
+    if [ -t 0 ]; then
+      read -rp "Press Enter once the deploy key is added... "
+      GH_GREETING=$(gh_probe)
+    else
+      echo "NOTE: no TTY (you ran this via 'ssh host bash script'), so I cannot pause."
+      echo "      Add the key above, then re-run — or use: ssh -t root@<box> '…'"
+      exit 1
+    fi
+    ;;
+esac
+
 case "$GH_GREETING" in
   *"successfully authenticated"*) echo "-- OK: deploy key accepted." ;;
   *"Host key verification failed"*)
+    echo "$GH_GREETING"
     echo "ERROR: host key not trusted — $SSH_KH is empty or unreadable by www-data."; exit 1 ;;
   *"/var/www/.ssh"*)
+    echo "$GH_GREETING"
     echo "ERROR: ssh fell back to www-data's passwd home (/var/www) — the explicit"
     echo "       -i/-o UserKnownHostsFile flags did not reach it. See /bugs_open/016."; exit 1 ;;
   *"Permission denied"*)
-    echo "ERROR: GitHub refused the key. Add ${SSH_ID}.pub as a"
-    echo "       Deploy Key on gqls/vm-sites (read-only), then re-run."; exit 1 ;;
-  *) echo "ERROR: unexpected SSH result above — resolve before cloning."; exit 1 ;;
+    echo "$GH_GREETING"
+    echo "ERROR: GitHub still refuses the key. Check it was added to gqls/vm-sites"
+    echo "       (not a personal account) and re-run."; exit 1 ;;
+  *) echo "$GH_GREETING"; echo "ERROR: unexpected SSH result — resolve before cloning."; exit 1 ;;
 esac
 
 echo "== sparse clone (this box fetches ONLY idea.uk/) =="

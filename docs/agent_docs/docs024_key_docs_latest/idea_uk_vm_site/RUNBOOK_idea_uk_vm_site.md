@@ -185,12 +185,23 @@ nginx, so nothing the public sees changes. The cutover is §3b–§3e, a separat
 
 #### Get the scripts onto the box and run the installer
 ```bash
-# from this folder on your workstation:
+# from this folder on your workstation. rm -rf FIRST — see the trap below.
+ssh root@116.203.204.115 'rm -rf /root/idea-uk-box'
 scp -r box root@116.203.204.115:/root/idea-uk-box
+ssh root@116.203.204.115 'grep -c pre-flight /root/idea-uk-box/provision-pullsync.sh'  # ≥1 = fresh copy
 ssh root@116.203.204.115 'cd /root/idea-uk-box && bash provision-pullsync.sh'
 ```
 The installer must run **as root** (it writes to `/usr/local/bin`, `/etc/systemd/system`, `/var/www`)
 and **from its own directory** (it installs `sitesync` + the units that sit beside it).
+
+> ⚠️ **`scp -r` nests when the destination already exists.** `scp -r box host:/root/idea-uk-box`
+> creates `/root/idea-uk-box/` on the first run, but on the *second* run copies into it —
+> `/root/idea-uk-box/box/` — leaving the **old** script at the path you then execute. This cost a
+> real cycle on 2026-07-18: a fixed script was copied, the stale one ran, and the identical failure
+> reappeared, which reads exactly like "the fix didn't work". Always `rm -rf` the destination first,
+> and grep the copy for a string only the new version contains before running it.
+> The installer needs **no TTY** once the deploy key is registered — it tests authentication first and
+> prompts only when the key is missing (a `read` pause cannot work under `ssh host 'bash script'`).
 
 #### What each stage does — and what to watch for
 

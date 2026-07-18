@@ -10,9 +10,18 @@ RUNBOOK stays the narrative authority, these files are the exact payloads.
 
 ### §3a — pull-sync (safe any time; nginx untouched)
 ```bash
+# rm -rf FIRST: `scp -r box dest` NESTS as dest/box/ when dest already exists, so a
+# re-copy silently leaves the OLD script at dest/ and you re-run the bug you just fixed.
+ssh root@116.203.204.115 'rm -rf /root/idea-uk-box'
 scp -r box root@116.203.204.115:/root/idea-uk-box
 ssh root@116.203.204.115 'cd /root/idea-uk-box && bash provision-pullsync.sh'
+
+# Confirm you are running the copy you think you are:
+ssh root@116.203.204.115 'grep -c pre-flight /root/idea-uk-box/provision-pullsync.sh'   # ≥1
 ```
+The script needs **no TTY** once the deploy key is registered (it tests first and only
+prompts if the key is missing). On the very first run, if it reports it cannot pause, add
+the printed key and re-run — or use `ssh -t`.
 The script pauses to let you add the printed public key as a **read-only**
 Deploy Key on `gqls/vm-sites`, then sparse-clones only `idea.uk/`, installs the
 5-minute timer, runs one sync, and checks all 8 pages are in `/var/www/idea.uk`.
