@@ -183,6 +183,61 @@ Deploy repo discovered this thread: **gqls/sites**, files under
   the pages deployed so far); site totals 52 triaged / 1 claimed /
   16 detected. Drain monitor still armed.
 
+## Turn 8 — 2026-07-18 afternoon — CLAUDE.md obligations discharged; 37 pages drained
+
+Prompted by a re-read of CLAUDE.md, two duties this thread had skipped:
+
+**(a) File what you learn (§ Debugging).** Grepped 016b §10 for the mechanism
+first (not the truncation family), then filed **`bugs_open/017`**: the
+`fix_forced_text_colors` pair — action written with handler + input spec but in
+NEITHER registry, so `validation/workflow.go:80` classes it remote and rejects
+it as *"requires a topic"* (the error names the wrong thing; the validator reads
+the DEPRECATED hand list, not the registry-backed `IsLocalAction` at
+`registry.go:1866`) — AND `CompleteWorkItemAction` storing a
+`response.status='failed'` payload next to `status='complete'`. Added the
+transferable §9 pattern + index row 017. Renumbered mid-flight: three other
+sessions took 014–016 while I wrote.
+
+**(b) Council review (§ Council gate).** The `generic_theme` change is
+`platform/` and I had committed it unreviewed. Submitted retroactively,
+correlation **e0ebf6ee-dcc0-4a7b-9a3d-438ce9af5fff**. Three rounds:
+
+- **R1 revise** — editquality: storage shape generalised from one site.
+  bug_historian: trigger patched, damage mechanism untouched. Council's own
+  answered check settled the consumer question: generic_theme routes ONLY to
+  webdesign-agent (7 unresolved + 5 complete), no other consumer.
+- **R2 revise** — I answered the shape doubt with a fleet sweep (**7/12 sites
+  top-level, 0/12 ANY nested variant**, single shared writer) and added a
+  scheme-consistency guard as edit 2. Seats split cleanly: edit 1
+  "approve as-is" (guardian, reuse_agent); edit 2 objected by four seats —
+  unverified helpers, unverified `layouts.scheme`, single call site, blast
+  radius on a shared render boundary.
+- **R3 (submitted)** — took the council's own recommendation and **SPLIT**.
+  Edit 1 alone, plus bug_historian's valid catch fixed in code
+  (**3b52da8ec**): the fallback now tests the color_scheme VALUE
+  (`jsonb_typeof(...)='object' AND <> '{}'`), not mere key presence — a
+  crashed/empty run would otherwise read as "spec exists" and suppress the
+  finding, the false-negative mirror of the original bug. Fleet-checked: the
+  same 7 sites pass, so no classification changes today.
+
+The withdrawn guard is filed as **`bugs_open/022`** rather than left as vapour,
+with the three verifications the council demanded now DONE and recorded:
+`parseHexColor` exists (`color_util.go:26`), `layouts.scheme` exists (text,
+CHECK light/dark/neutral), and `buildPaletteMap`/`loadThemeComposition` have
+**exactly one non-test caller each** — so the guard would have been at the
+mechanism, not a point patch. It returns as its own submission.
+
+**Site state at 15:00–16:00.** The 37-page batch **drained complete**; live
+spot-checks green — index, learning-center-hub, matchmatrix all serve zero
+`#3b82f6`, zero `site-header--gradient`, new `<header class="site-header">`;
+hub lists exactly the 3 real guides with no Load More (R5/R6 confirmed live).
+**Gap caught:** those pages assembled BEFORE the R3 nav flip, so index still
+linked `/learning-center.html`. Re-triggered rerender-pages with
+`refresh_site_components:true` — components re-rendered 15:42 carrying the hub
+nav (header hub-only; footer carries both, by design, since the grid page stays
+a demoted landing) — and promoted the resulting 30-page batch to priority 20.
+Draining at time of writing.
+
 ---
 
 ## Mechanisms learned this thread (beyond the handoff's list)
@@ -206,6 +261,15 @@ Deploy repo discovered this thread: **gqls/sites**, files under
   confusing to humans reading the queue.
 - Monitor windows must use ABSOLUTE cutoffs — a `now() - interval` window
   silently empties as items age, and the monitor reads that as "done".
+- **"requires a topic" almost never means a topic is missing** — it means the
+  action is in neither registry (`bugs_open/017`). Grep both lists first.
+- **A work item's `result` can contradict its `status`.** Sweep for the class:
+  `WHERE status='complete' AND result->'response'->>'status'='failed'`.
+- **The council pays for itself on a change you thought was obvious**: three
+  rounds on a 6-line check fix found a real false-negative gap (key presence vs
+  value) and correctly forced a shared-render-path change out into its own
+  submission. Answer its checks with queries, not prose — the seats that
+  objected on evidence flipped to "approve as-is" once swept.
 - `improvement-sweep` disabled ≠ dispatch dead: build-pipeline-trigger is a
   separate, still-enabled path.
 
