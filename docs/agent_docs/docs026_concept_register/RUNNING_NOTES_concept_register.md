@@ -1001,4 +1001,43 @@ outward-facing dispatch: whole-file LLM implementation → allowlist → fix/*
 branch → commit → gofmt+build gate in a k8s Job → (green) **PR into main**.
 Held for owner decision since it opens a real PR.
 
+## Turn 28 — 2026-07-18 — BUG A fix implemented, gate-blocked on gofmt, hand-finished onto 085
+
+User: "the deploy system uses the current branch rather than main at the
+moment, yes let's dispatch the implementer." Dispatched the fix-implementer
+(092, agent_type fix-implementer-orchestrator) for the approved plan — run
+70680566. Pre-checks all clean (approved decision latest, nothing in flight,
+agent registered, pod past quiet window, no pre-existing branch).
+
+**The orchestrator spawned a child implementer that did the real work.** It
+generated logically-CORRECT whole-file implementations of both guards (matching
+the approved plan exactly), pushed branch `fix/e505f70f` (based on
+084_site_improvements_local_ai — the live base_branch config, not main), and
+ran the gofmt+build gate in a k8s Job (build-gate-fix-e505f70f). **The gate
+FAILED — correctly — on `gofmt FAILED for platform/aiservice/anthropic.go`**
+and opened NO PR. The failure was purely cosmetic: the LLM added the new
+`StopReason` field but didn't re-align the sibling `Usage struct` field, plus a
+trailing blank line. ollama.go was gofmt-clean. The red-build path worked as
+designed: branch + log preserved, nothing merged.
+
+**Process gap worth noting (fixloop candidate):** the implementer does not run
+`gofmt -w` on its own generated files before the build gate, so trivially
+-unformatted LLM output burns a whole build cycle. Running gofmt in commit_prep
+before the gate would fix this class.
+
+**Hand-finished onto 085 (user chose the deploy branch).** Confirmed the two
+aiservice files are byte-identical between the 084 base and current 085, so
+applied the approved guards as SURGICAL edits (not whole-file replace) to the
+working tree, gofmt -w, `go vet` + `go build` green. Committed narrowly as
+`f32b208e5` with Diagnosed-Via + Council-Reviewed:53da3a30 trailers. anthropic:
+decode stop_reason, hard-error on "max_tokens"; ollama: decode done_reason,
+hard-error on "length". Both guards sit AFTER the token write-back (the
+observability constraint both purpose-built seats flagged).
+
+**State:** fix is on the deploy branch (085), gofmt-clean, vet+build green.
+NOT yet built/deployed — chassis image build + roll is another thread's lead /
+owner's call; the next `make build-agent-chassis` from HEAD will include it.
+Loose ends: the stale `fix/e505f70f` remote branch (084-based, gofmt-broken, no
+PR) is now superseded and can be deleted.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
