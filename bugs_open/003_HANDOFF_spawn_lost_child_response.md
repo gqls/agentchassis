@@ -121,12 +121,31 @@ rather than a design choice: `platform/agentbase/client.go:60/105` and
 `platform/agentbase/server.go:62/124` both use the manual `FetchMessage` … process …
 `CommitMessages` pattern. Only the main agent loop takes the shortcut.
 
-**The expensive prerequisite is already built.** Moving to at-least-once means redelivery,
-which means handlers must tolerate reprocessing — and a dedupe table already exists and is
-already used: `platform/orchestration/state.go:170` (seen-check) and **:207** (insert) over
-`processed_messages`. *Unverified and the one real unknown:* whether that guard covers
-**every** inbound path, or only orchestration state handling. Establish that before
-flipping the commit.
+**The dedupe layer has the SAME defect — so fixing the offset commit alone changes nothing.**
+*(Verified 2026-07-18. This CORRECTS the first version of this section, which claimed the
+dedupe "makes the fix small". It does not. Read this paragraph before planning the fix.)*
+
+A `processed_messages` dedupe does exist and is wired into both inbound paths — but **both
+record RECEIPT, not COMPLETION**:
+
+| path | seen-check | record | the work |
+|---|---|---|---|
+| `platform/agentbase/agent.go` | L801 | **L811** | L822 `processor.ProcessMessage` |
+| `platform/messaging/processor.go` | L1296 | **L1317** | L1323+ (`NewMessageContext` → handler) |
+
+So the message is marked processed *before* it is processed. If the pod dies mid-work and
+the offset commit has been fixed to redeliver, the redelivered copy hits
+`HasProcessedMessage` → `true` → **"Duplicate message ignored"** (`agent.go:805`) and is
+dropped. The work is lost exactly as before, just through a different door. **This is the
+same anti-pattern as §3d's offset commit, occurring a second time one layer up.**
+
+Two further holes in the same layer:
+- **No `request_id` ⇒ no dedupe at all, silently.** `HasProcessedMessage` returns `false`
+  and `RecordMessageProcessing` returns `nil` when `RequestID == ""`
+  (`platform/orchestration/state.go:163–165, 188–190`); the processor path is additionally
+  gated on `execCtx.RequestID != ""` and `p.sqlDB != nil`.
+- The agent-path gate `a.isStateless` is **not** a risk: hardcoded `true`
+  (`agent.go:199`, `processor.go:100` "Always stateless now"). Checked, so nobody re-checks.
 
 **Standing damage, measured 2026-07-18:** 22 wedged `EXECUTING_STEP` orchestrations, oldest
 **1,224 hours (~51 days)** — every one a message that was acknowledged and then lost, with
@@ -183,8 +202,21 @@ flipping the commit.
    a. **Commit after the handler succeeds, not on fetch.** Change the two call sites
       (`agent.go:468`, `:528`) to the `FetchMessage` … process … `CommitMessages` pattern
       already used by `client.go`/`server.go`, or fix `Consume()` itself to take a handler
-      and commit on its success. Confirm `processed_messages` (§3d) guards every inbound
-      path first — redelivery without dedupe trades lost work for duplicated work.
+      and commit on its success.
+
+   a-bis. **…and move the dedupe record to completion, or (a) is INERT.** Per §3d, the
+      redelivered message would be suppressed as a duplicate and the work lost anyway.
+      These two must ship together; either alone is a no-op or worse. The naive form —
+      just moving `RecordMessageProcessing` after the handler — reopens a window where two
+      copies in flight *simultaneously* both pass the seen-check, so prefer a **two-phase
+      claim**: insert on receipt with a lease/heartbeat (`processing`), mark `complete` on
+      success, and treat a lease that expired without completing as reprocessable. That
+      shape also gives the reaper in §4.3 something honest to sweep, and it is the same
+      claim/lease pattern `site_work_items` already uses (`claimed_at` + the 40-minute
+      claimed-item timeout) — reuse it rather than inventing a second one.
+      **Also decide what happens with no `request_id`** (§3d): today those messages are
+      undeduped and, post-fix, would be reprocessed on every redelivery. Either guarantee
+      a `request_id` on every inbound path or make its absence loud rather than silent.
    b. **Fix the drain.** The chassis deployment (measured 2026-07-18) has
       `terminationGracePeriodSeconds=30` while `Agent.Shutdown()`
       (`platform/agentbase/agent.go:1088`) itself waits **up to 30s** for in-flight
