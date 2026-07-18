@@ -730,6 +730,44 @@ name on it, and the diagnosis cost is paid by whoever hits it next.
 
 ---
 
+### A routing value resolved from workflow state is only as good as the workflows that populate it (2026-07-18)
+
+`resolveGitRepoName` chose a site's deploy repo as: explicit step config → `site_record.github_repo`
+**from CollectedData** → default `"sites"`. Only planner-tier workflows run `ensure_site_record`;
+`page-rerender`, `build-dispatch-loop` and `content-feed-orchestrator` do not. So a correctly-marked
+VM-hosted site had *every* artefact — pages, news JSON, nine images — committed to the default B2 repo,
+reporting success each time, while its box kept serving the old page. The deploy target was in practice
+a property of *which workflow happened to be committing*, not of the site.
+
+Resolve per-entity routing from the **entity row** (`SELECT github_repo FROM sites WHERE domain=$1`),
+not from accumulated workflow state; `ActionParams.DB` is already there. Two corollaries that cost a
+second debugging round each:
+
+- **Grep for explicit config that already sets the same key before trusting a new fallback.** Three
+  agent definitions pinned `repo_name: "sites"` in their `git_commit` step config. Explicit config
+  rightly outranks the fallback, so shipping the fix changed nothing. A pin whose value equals the old
+  default reads as harmless documentation and silently defeats the new logic — it is invisible precisely
+  because it is redundant.
+- **A repo→host sync with `rsync --delete` will delete live files the repo doesn't know about.** Commit
+  the target's current state *before* the first pipeline deploy (checksum-verified), or the first
+  successful commit wipes what was hand-deployed earlier.
+
+### A mistyped routing key produces silence in every gate at once, not one loud failure (2026-07-18)
+
+A site's news-listing page was created as `page_type='section-index'` instead of `'news-index'`.
+`page_type` is a routing key, not a label, and three independent mechanisms each select on it:
+`render_news_section` emits the archive JSON only for `news-index`; `MissingNewsPageCheck` fires only
+when no `news-index` exists; `page-build-handler` assigns no news component to a `section-index`, so
+`sections` stayed `[]` and the build no-op'd (the zero-sections family above). Each mechanism behaved
+correctly for its own key; collectively they left an empty page that never built, and the symptom
+surfaced somewhere else entirely — a **404 on a live nav link**.
+
+When several gates key on one value, a wrong value is silent everywhere rather than loud once. Diagnose
+by asking *which key does each mechanism select on*, then compare that to the row — do not follow the
+visible symptom, which will be downstream and in a different subsystem. Corollary for remediation:
+prefer **adopting/re-typing** the existing row over the check's `approach=new_page`, which would mint a
+duplicate (an English `/news.html` beside the Spanish `/noticias`) and leave the orphan in place.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -752,6 +790,8 @@ candidates. Read the file before acting — several are already fixed.
 | 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
 | 011 | Generated images cannot render readable text | open |
 | 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard open |
+| 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) |
+| 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
 
 **Related-bug rule.** Before filing a new bug, grep this index for the mechanism —
 005/008/009/012 are all one truncation-and-config family found by four different
