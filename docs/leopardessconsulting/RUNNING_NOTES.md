@@ -1375,3 +1375,46 @@ item's spec.operator_diagnosis for the fixloop thread.
 `diagnose-pipeline-trigger` ships disabled and the 090 direct-fire's diagnose orchestration
 didn't materialise. Worth either enabling the loop for real cases or fixing the 090 direct
 path. The browser-runner-adapter pod IS up (53m) — the capability exists; the dispatch didn't.
+
+## Turn 23 (2026-07-18) — owner design/imagery review: 2 fundamental bugs filed, index fixed
+
+Owner raised 7 items. Plan: `PLAN_imagery_and_design_2026-07-18.md`. Two were fundamental →
+`bugs_open/`.
+
+**★ bugs_open/011 (NEW) — generated images cannot render text.** The live homepage hero was an
+SDXL image that LOOKED like a flowchart and was full of gibberish words. Root cause is the
+model class, not the prompt: diffusion synthesises glyph-shaped texture, not text. Answers the
+owner's question (better model = marginal; better prompts = necessary but insufficient; "loop
+until correct" can only REJECT, never generate legible text). Fix = split the jobs: heroes are
+generated text-free illustration (Banana); anything with words/numbers/structure is
+code-rendered SVG from real values (the site's own D1/D3 principle + the never-built L7 chart
+component). Also flags the trap that `infographic` is a routable DIFFUSION kind — it should not
+be satisfiable by an image model at all.
+
+**★ bugs_open/001 (evidence appended, severity raised) — the re-plan clobber.** It hit
+leopardess TWICE in 24h. 07-17 14:14: homepage rebuilt 4→6 sections, re-adding fabricated
+"Functional Areas: 150+" and INVENTED case-study titles. 07-18 07:50: services rebuilt, which
+INVENTED the link `/tools/tool-monitoring-coverage-gap-finder.html` — a 404 — and that is the
+blank page the owner reported. Key reframing added to the bug: this is not only content LOSS,
+it is fabrication INJECTION, and it defeats human review. Useful discovery recorded there:
+`site_plan_imagery`-wired heroes SURVIVE the clobber while page_components copy does not.
+
+**Fixed and verified live today:**
+- **Nav/tools:** header nav had NO tools (the rebuild stripped them). Removed the dead
+  `tools`-group item (that group renders in neither header nor footer) and linked the 4 WORKING
+  tools from the footer utility group. Tool audit updated: process-automation-scorer is REAL
+  and WORKS (self-contained 5KB calculator) — so 4 work, only llm-cost-calculator is broken.
+- **Index hero replaced.** Generated text-free via Banana `illustration` (four gold inputs
+  converging into one steady output on charcoal; upper-left left clear for the headline),
+  reviewed by eye, wired via `site_plan_imagery` (clobber-resistant). Live.
+- **Overused words:** owner ruled "trust", "honest", "earns its keep" out (live counts 12/9/2).
+  Added to voice_gate banned_phrases AND banned_language prose guidance
+  (bak_voice_words_20260718). The voice checker then produced the exact worklist — including
+  the owner's cited adjacent-articles pair. Rewrote the homepage instances ("can't just be
+  trusted" → "will not match the register on its own"; "how much the source can be trusted" →
+  "how reliable that source has been"; both "the honest answer" cut). Verified 0 live.
+
+**Still to do:** heroes on the remaining pages (about/services need a shared-component image
+field first — 9 and 5 sites); replace the garbled `/assets/images/hero.jpg` itself (still the
+fallback on how-it-works); the rest of the trust/honest worklist; infographics (blocked on 011
+§V3). All content work is provisional until 001 is fixed.

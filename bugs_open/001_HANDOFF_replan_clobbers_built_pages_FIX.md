@@ -148,3 +148,57 @@ that is a workaround, not a fix for the general case.
 - Doc to correct: `idea_uk_section_data_missing/HANDOFF_claude_code_continue.md` OPEN ITEM 1.
 - Full incident + recovery: `idea_uk_vm_site/RUNNING_NOTES_idea_uk_vm_site.md` §I–K; memory
   `replan-clobbers-built-pages`.
+
+---
+
+## FRESH EVIDENCE — 2026-07-18, leopardessconsulting.co.uk (severity raise)
+
+This bug is not dormant and it is not confined to idea.uk. It hit leopardess **twice in 24
+hours**, each time undoing hand-verified human work, and it produced an owner-visible defect.
+
+**Recurrence 1 — homepage, 2026-07-17 14:14.** A hand-written, owner-approved plain-voice
+homepage (4 curated sections) was rebuilt into 6 sections. The rebuild re-added
+`system-stats` and `case-studies-grid` and populated them with **fabricated content**:
+- `system-stats`: *"Functional Areas: 150+"* — resurrecting the exact "functional areas"
+  fabrication that had been audited out of this site days earlier, plus `150+%` / `150++`
+  garbage from the shared component's forced `%/ms/+/x` suffixes;
+- `case-studies-grid`: **invented case-study titles** ("Validation Layer Stops Bad Data
+  Reaching the Warehouse", "Content Operation Running Without Manual Handoffs") — this site
+  has no clients and no case studies.
+
+**Recurrence 2 — services page, 2026-07-18 07:50.** A restored, reviewed services page was
+rebuilt again. Among the generated content it created a link to
+`/tools/tool-monitoring-coverage-gap-finder.html` — **a tool page that does not exist**. The
+site owner clicked it and landed on a blank 404. That is the user-visible bug report that led
+here; the root cause is this one.
+
+### What this adds to the original diagnosis
+
+1. **It is not only *loss*, it is *injection*.** The original write-up frames the bug as built
+   composition being discarded. The worse half is what replaces it: audited-out fabrications
+   return, and phantom links to non-existent pages are created. On a site whose entire
+   governing rule is "no claim ships without an evidence row", a re-plan is a fabrication
+   *source*.
+2. **It defeats human review.** Copy that was read, corrected, and verified by a person is
+   silently replaced by unreviewed LLM output. Any human content pass on a non-adoption-locked
+   site has an undefined shelf life, so the review effort cannot be trusted to hold.
+3. **It is fast enough to outrun a fix.** Two clobbers inside one working day on one site,
+   while a session was actively repairing that site.
+
+### Mitigation that demonstrably survives a clobber (useful for the fix design)
+
+Per-page hero images wired through `site_plans` / `site_plan_imagery` rows **survived both
+recurrences**, while `page_components` content did not. Whatever the fix is, the imagery-plan
+join is a working example of state the re-plan does not trample — worth reading before
+designing the guard.
+
+### Suggested fix direction (unchanged in spirit, sharpened)
+
+A re-plan must not be able to overwrite a page whose content a human has touched. The existing
+`locked_at` / lock_type machinery on `page_components` is the obvious lever: treat
+human-reviewed content as locked and make the planner **refuse** (loudly, as a work item)
+rather than silently regenerate. A `needs_human_review` item saying "the plan wants to change
+this page; here is the diff" is strictly better than a silent rewrite.
+
+**Verification case:** leopardess index + services. Both restored by hand; if the guard works,
+they stay restored across a subsequent `build-site-planner` run.
