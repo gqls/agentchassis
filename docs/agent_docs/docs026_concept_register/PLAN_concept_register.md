@@ -272,8 +272,11 @@ in this order.
    Lens: does the fix weaken the diagnosis machinery's honesty gates
    (cite-or-abstain, tier guards, read-only SQL layers, config-level
    error_step, token/pod isolation)? `PILOT_diagnosis_guardian_reviewer.md`.
-5. **Improvement-loop guardian** — `improvement-loop.md`, a genuine "master
-   workflow" in FIX-036's framing; 5 hot concepts.
+5. **Improvement-loop guardian** — DONE, live 2026-07-18 (gated + surgical,
+   v14). `improvement-loop.md`. Lens: defends the pass cap + section locking
+   (born from the 845-item unbounded-drain incident, IMP-027), config-only
+   check enablement, runner-owns-insertion dedup, acceptance-test
+   verification. `PILOT_improvement_guardian_reviewer.md`.
 6. **Compliance/legal eye** — FIX-036's fourth named seat. `legal-and-compliance.md`
    itself is thin (1 concept — a register gap worth noting), but justified by
    real severity: two live incidents this platform has already had (fabricated
@@ -298,15 +301,16 @@ in this order.
     A narrow specialist — applied always-on for now because the filter isn't
     deployed; its footprint is in the filter config so it auto-gates on deploy.
 
-**Council is now 8 reviewers** (edit-quality, guardian always-on; bug-historian,
+**Council is now 9 reviewers** (edit-quality, guardian always-on; bug-historian,
 reuse-agent, guidelines, tooling-provenance, adoption-guardian,
-diagnosis-guardian gated behind the filter). #5-9 of the list remain. Now that the filter is live, every new seat
+diagnosis-guardian, improvement-guardian gated behind the filter). #6-9 of the
+list remain (compliance, render, LLM-reliability, debugging). Now that the filter is live, every new seat
 is built **gated + surgically** (footprint + gate + reviewer, via chained
 `jsonb_set` — never a full-config reapply, which would clobber the co-edited
 guardian's `code_checks`/proviso). #10 was applied always-on before the filter
 existed but its footprint is in the filter config, so it's gated too.
 
-None of #5-9 are spec'd to prompt-level detail yet. Each is real design work
+None of #6-9 are spec'd to prompt-level detail yet. Each is real design work
 per seat (charter, curated context grounded in specific register concepts,
 prompt, patch) — not a mechanical checklist, as the reuse-agent regrounding
 above shows (the first framing of it was wrong on closer inspection).
@@ -345,6 +349,30 @@ its stage-3 coordination with fixloop:
   product of this coordination pass).
 
 ---
+
+## Proposed subproject — multi-model diagnosis gauntlet (owner idea, 2026-07-18)
+
+The owner's idea, recorded so it isn't lost: for bugs the diagnosis loop finds
+intractable, spin up several different specialised LLMs — different vendors,
+types, and strengths — and put them to work on the same evidence bundle.
+
+**Verdict: a separate subproject, not the debugging council seat.** Council
+seats REVIEW fix plans that already exist (cheap advisory prompt steps in the
+review chain). This idea GENERATES diagnoses that don't exist yet — it belongs
+at the diagnosis loop's escalation terminal: when a run exhausts its iteration
+cap or lands UNVERIFIABLE (both honest terminals today that hand to a human),
+fan the same bundle out to a diverse model panel before/instead of the human
+hand-off, then reconcile (the verdicts could even be judged by this council).
+
+**Groundwork already in place** (register-verified): per-step model routing
+exists (`MDL-035`; each workflow step's `ai_service` block names
+provider/model — the diagnose-agent already swapped to claude-sonnet-5 this
+way). `platform/aiservice` has Anthropic + Ollama clients (`createAIClient`
+switch); other vendors (OpenAI, Google, etc.) would need new clients there.
+**Prerequisite worth fixing first:** `MDL-038` (BUG A — `GenerateText` never
+decodes `stop_reason`, so truncated responses look complete) — an ensemble
+comparing model outputs must know when an output was cut off. Not started;
+awaiting owner green-light as its own project.
 
 ## Backlog / open items
 

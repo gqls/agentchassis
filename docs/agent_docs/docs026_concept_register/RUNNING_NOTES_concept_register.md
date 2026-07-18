@@ -53,6 +53,8 @@ entries at the bottom. Update every turn.
 | 2026-07-17 | COORDINATION LESSON: my seat migrations reconstruct the WHOLE default_config, which can clobber another thread's edits to shared steps (the guardian gained `code_checks` from another thread). Used a surgical jsonb_set for the proviso to avoid it | **noted** — use surgical patches for shared steps, not full-config reapply |
 | 2026-07-17 | Built candidate #3 (adoption-pipeline guardian, `ADO-006`) — the FIRST seat gated behind the filter, and the first added SURGICALLY (chained jsonb_set); council now 7 | **confirmed, live** — proviso + code_checks + filter all verified intact |
 | 2026-07-18 | Built candidate #4 (diagnosis-loop guardian, `DIAG-001/008/009/028/030`) — gated + surgical; council now 8. Drift-checked first (another thread had touched the row at 09:21; all anchors intact) | **confirmed, live** |
+| 2026-07-18 | Built candidate #5 (improvement-loop guardian, `IMP-003/004/027` — the 845-item unbounded-drain guards) — gated + surgical (v14); council now 9 | **confirmed, live** |
+| 2026-07-18 | Owner's multi-LLM idea (diverse-vendor model panel for intractable bugs) ruled a SEPARATE subproject, not the debugging seat — council seats review plans; this generates diagnoses at the escalation terminal. Recorded in PLAN with groundwork + prerequisite (MDL-038) | **recorded, awaiting green-light** |
 
 ---
 
@@ -886,5 +888,38 @@ arrays at 8, diagnosis footprint present, proviso + code_checks byte-intact.
 
 Council: 2 → 8. Remaining: #5 improvement-loop, #6 compliance, #7 render,
 #8 LLM-reliability, #9 debugging.
+
+## Turn 25 — 2026-07-18 — Improvement-loop guardian (#5); summary written; multi-model gauntlet ruled a separate subproject
+
+User asked for three things: a read-aloud summary, an explanation of the
+debugging seat, and a ruling on their idea — spin up several specialised LLMs
+of different vendors/types/strengths for bugs intractable to the current loop
+— with instruction to proceed with the stated list if it's a separate project.
+
+**The ruling (the honest architectural distinction):** council seats REVIEW
+fix plans that already exist — cheap advisory prompt steps in the review
+chain. The multi-LLM idea GENERATES diagnoses that don't exist yet, for bugs
+where the house loop gave up. It belongs at the diagnosis loop's escalation
+terminal (exhausted / UNVERIFIABLE — both honest hand-to-human terminals
+today), not in the council. So: **separate subproject.** Recorded it in
+`PLAN_concept_register.md` as "multi-model diagnosis gauntlet" with the
+register-verified groundwork (per-step model routing exists via `MDL-035`;
+`platform/aiservice` has Anthropic+Ollama clients, other vendors need new
+clients) and one prerequisite worth fixing first: `MDL-038`/BUG A —
+an ensemble comparing outputs must know when an output was truncated.
+
+**Seat #5 (improvement-loop guardian) built per the ruling** — the settled
+gated + surgical routine: drift check (row touched by another thread at 09:31,
+anchors intact), grounding (`IMP-003/004/027` — the loop's termination guards
+exist because it once ran unbounded: 845+ findings in ~10 days), v14 migration
+(8 chained jsonb_set, snapshot, idempotent), pre-flight (no active runs),
+apply, verify (9 seats, chain tail correct, proviso + code_checks intact).
+Council: 2 → 9 (7 gated specialists).
+
+**Summary written** (`SUMMARY_where_we_are_2026-07-18.md`) — same read-aloud
+style: what we set out to achieve, where we are (9 seats + the filter + how
+each was installed), a plain-language explainer of the debugging seat vs. the
+multi-model idea, and what's next (#6 compliance, #7 render, #8
+LLM-reliability, #9 debugging; then the gauntlet if green-lit).
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
