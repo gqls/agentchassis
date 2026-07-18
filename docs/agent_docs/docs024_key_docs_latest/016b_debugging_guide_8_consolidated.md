@@ -876,11 +876,25 @@ transport, job claim, or `status='complete'` write. Two corollaries worth intern
   the identical path. Fixing the deploy choreography (drain windows, quiet checks) treats
   the schedule, not the defect.
 
-**Before flipping such a commit**, confirm the dedupe that redelivery now depends on
-actually covers every inbound path — here `processed_messages`
-(`platform/orchestration/state.go:170/207`) already existed, which makes the fix small, but
-its coverage was never verified. Redelivery without dedupe trades lost work for duplicated
-work. Full case and fix shape: `bugs_open/003` §3d/§4.4.
+**The same defect usually appears more than once — go and look.** Here it did. One layer up,
+the `processed_messages` dedupe that redelivery would depend on *also* records receipt rather
+than completion: seen-check then **record** (`agent.go:801/811`, `processor.go:1296/1317`),
+and only then the work (`agent.go:822`, `processor.go:1323+`). So fixing the offset commit
+alone would have been **inert** — the redelivered copy is dropped as "Duplicate message
+ignored" and the work is lost through a different door. An acknowledgement layer and a
+dedupe layer fail the same way because they encode the same mistaken belief: *that receiving
+a thing is the same as handling it.* Whenever you find this at one layer, audit the layer
+above and below before costing the fix. (The first version of this entry claimed the dedupe
+"makes the fix small"; verifying it showed the opposite — which is itself the lesson.)
+
+**Recording completion has a shape.** "Move the write after the work" reopens a window where
+two in-flight copies both pass the seen-check. The durable form is a **two-phase claim**:
+record on receipt with a lease, mark complete on success, treat an expired-but-incomplete
+lease as reprocessable — which is what `site_work_items` already does with `claimed_at` and
+its 40-minute claimed-item timeout. Also check what happens when the dedupe key is absent:
+here an empty `request_id` silently disables dedupe entirely
+(`platform/orchestration/state.go:163–165, 188–190`), so those messages have never had
+protection at all. Full case and fix shape: `bugs_open/003` §3d/§4.4.
 
 ### An action that exists in code but in no registry fails as "requires a topic" — and the failure is stamped 'complete' (2026-07-18)
 
@@ -993,6 +1007,84 @@ that switch?* Two cheap greps (the switch, and the deployed model/env var) answe
 Category tags: `dispatch-table-not-output`, `expired-generalisation`, `unused-lane`,
 `request-specificity`.
 
+### One image tag, two services, different vintages — verifying the service you CHANGED does not verify the service you DEPEND ON (2026-07-18)
+
+**Symptom.** A change spanning two services is released under one `IMAGE_TAG`. The
+pod-grep on the service you edited passes, so the release reads as verified — but the
+behaviour still comes out as though the change never shipped, and the natural (wrong)
+conclusion is that the change itself is bad.
+
+**What it actually was (2026-07-18, imagery D14).** The D14 work touched the chassis
+(`platform/…`) and the image adapter (`internal/adapters/imagegenerator/dynamic_adapter.go`).
+The fleet released v1.0.1134; `strings /app/agent-chassis` showed the new symbols, so the
+release looked good. The **adapter** binary at the *same tag* was months-old source: no
+`content_hero`, and not even `sprite_sheet` (Phase I2, weeks earlier). Had the run proceeded,
+every generation would have gone to SDXL and the new style would have "failed" for a reason
+that had nothing to do with the style. Proven stale three independent ways: pod grep,
+`docker run --entrypoint /bin/sh <image> -c 'grep -ac <symbol> /app/<binary>'` on the local
+image, and a `--no-cache` rebuild from `git archive HEAD` (which *did* contain the routing —
+so the shipped image never came from that source).
+
+**Root cause.** `quick-agent-update` — the everyday release path — built, pushed and deployed
+**only** the chassis, then restarted other deployments onto whatever image already carried
+the tag. A retagged-but-unrebuilt adapter therefore rides along looking current. Nothing
+downstream of the build records which commit an image came from, so the tag is not evidence.
+
+**Fix.** `quick-agent-update` now builds/pushes/deploys/restarts the image-generator-adapter
+alongside the chassis (`c0ef457a1`) — the two share the `kind` vocabulary, so they must ship
+together or the vocabulary splits across a version boundary.
+
+**The transferable pattern.** **Pod-verify every service your change spans, not just the one
+you edited** — and pick a marker that is *old* as well as one that is new. A missing new
+symbol says "my change isn't here"; a missing *old* symbol (here, `sprite_sheet`) says
+something much more alarming: "this binary is not what anyone thinks it is." One grep for a
+weeks-old symbol distinguishes "my build didn't land" from "this whole image is stale."
+
+**Corollaries.**
+- Two services sharing an enum/vocabulary (`kind`, item_type, action names) are one
+  deployment unit whether or not the makefile says so. A release path that ships one of them
+  is a drift generator.
+- `IMAGE_TAG` equality across services is not evidence of source equality. Neither is a
+  successful rollout, a Running pod, or a fresh `Image ID` — only the binary's contents are.
+
+**Cross-refs.** CLAUDE.md § "Building & deploying images" (verify against the running pod);
+imagery `RUNNING_NOTES` Turn 49. Category tags: `tag-is-not-evidence`,
+`multi-service-release`, `verify-the-dependency`, `grep-an-old-symbol`.
+
+### One truncated reviewer voids an entire council round — and six good reviews with it (2026-07-18)
+
+**Symptom.** A council run reaches `COMPLETED @ complete_invalid` with no verdict,
+no council report and no revise round, after every reviewer visibly executed. The
+same terminal step is ALSO what a malformed submission produces, so the natural
+reading ("my plan was rejected") is wrong.
+
+**Mechanism.** `diagnose_council_decide` iterates the configured reviewer fields.
+A field that is **absent** is treated as a principled abstention (the stage-3
+relevance filter deliberately skips irrelevant seats). A field that is **present
+but unparseable** hard-errors instead — and one seat cut at `max_tokens` produces
+exactly that, so the action returns an error and the orchestration discards every
+other seat's complete, well-formed review. Proven case: `review_guidelines` at
+`output_tokens = max_tokens = 8000` binned six reviews of 2,738–5,548 tokens
+including the guardian's and the bug-historian's. Four of seven seats used over
+half the ceiling on that submission, so the margin is thin on exactly the
+substantial changes most worth reviewing.
+
+**Tell the two `complete_invalid` causes apart** — read
+`collected_data->'__step_error'` and look at `failed_step`:
+`persist_submission` = your submission is malformed (operation must be one of
+`modify|add|remove|config_change`; a file may appear in only ONE edit per stage);
+`council_decide` = a reviewer was truncated, your plan was fine and fully reviewed.
+
+**Wider rule this is the fourth instance of.** `output_tokens == max_tokens` means
+the completion was CUT. The platform keeps detecting that *after* persisting or
+acting on the fragment (005 article bodies, 008 stop_reason, 012 component
+wreckage, now the council). When you add a step that consumes an LLM's structured
+output, decide up front what happens to a truncated one — treating it as a loud
+abstention that can never upgrade a verdict to "approve" beats both "trust it" and
+"destroy the round".
+
+Full case, evidence table and fix candidates: `bugs_open/019`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -1020,6 +1112,7 @@ candidates. Read the file before acting — several are already fixed.
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
 | 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts |
 | 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | filed; both legs open |
+| 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | filed; fix candidates in 019 |
 
 **Related-bug rule.** Before filing a new bug, grep this index for the mechanism —
 005/008/009/012 are all one truncation-and-config family found by four different
