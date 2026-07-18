@@ -133,3 +133,17 @@ All committed narrowly — my docs, the v8 and v9 migrations as separate commits
 
 ---
 
+Done — the diagnosis-loop guardian (candidate #4) is live. Council is now 8 reviewers: edit-quality + guardian always-on, six specialists gated behind the relevance filter.
+
+The seat: grounded in the register's highest hot-concept-density category. Its job is to defend the diagnosis machinery's hard-won honesty gates when a fix touches the loop itself — cite-or-abstain (DIAG-001), the
+two-evidence-family citation standard that correctly withheld CONFIRMED on BUG B (DIAG-008), the three-layer read-only SQL enforcement (DIAG-009), observability-never-fails-a-diagnosis and skip-never-guess notes
+(DIAG-028), the config-level error_step trap (DIAG-030 — step-level placement is silently inert, a recurring class), and token/pod isolation (DIAG-019/022). There's a fitting self-reference in it: the loop
+reviewing fixes to itself is exactly why these guards need a defender — they were earned from benchmark runs that produced CONFIRMED verdicts a fixer must never have acted on.
+
+The execution followed the settled routine: drift-check first (the row had been touched by another thread at 09:21 this morning — all my anchors verified intact, which is precisely what the surgical pattern is
+for), grounding from the register, gated + surgical migration (8 chained jsonb_set, atomic, idempotent, snapshot), pre-flight (no active runs), apply, verify (8 seats, chain tail converging correctly, all arrays at
+8, proviso + code_checks byte-intact), document, commit narrowly.
+
+Remaining candidates: #5 improvement-loop, #6 compliance, #7 render, #8 LLM-reliability, #9 debugging. Say the word and I'll keep going down the list.
+
+---
