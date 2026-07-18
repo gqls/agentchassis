@@ -88,6 +88,25 @@ So `content-creator-hero`'s hero prompt has been rendering `<no value>` where
 the researcher's findings should be — i.e. heroes have been written without the
 research they commissioned. Same one-line fix.
 
+## Status: `feature-designer` FIXED 2026-07-18 (feature-builder thread)
+
+Patched surgically — `PATCH_feature_designer_016_revise_prompts.sql`
+(`jsonb_set` on the two prompt_template leaf paths only; snapshotted; config
+dot-paths untouched). Verified live: 0 broken refs in repropose/reframe,
+`{{.check_results.results_text}}` intact, `council_decide.review_fields` still
+5. Seed file corrected too, so a full re-apply cannot regress it.
+**`fix-proposer` is NOT fixed** — it belongs to the fixloop thread.
+
+**Independent confirmation of the "converging because the reviser never saw
+the objections" worry in the last line below — it is real, and worse:** the
+feature-builder's run `3b084712` (2026-07-18) burned all three revise rounds
+and escalated with the bug-historian's objection UNCHANGED in every round.
+The plan still improved *factually* between rounds because
+`{{.check_results.results_text}}` is correct (`results_text` is a field ON the
+unwrapped value, not the stripped wrapper) — so the run looked like a
+stubborn-but-working loop rather than a broken one. That asymmetry is the
+tell to look for elsewhere: facts improve, objections never get addressed.
+
 ## Suggested fix (for the owning threads)
 
 In `repropose`/`reframe` prompt templates only, `{{.review_X.result}}` →

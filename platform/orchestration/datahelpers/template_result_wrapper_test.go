@@ -77,3 +77,49 @@ func TestUnwrapDeep_TemplateVsConfigPaths(t *testing.T) {
 		t.Fatalf("{{.review_journeys}} must render the critic object: out=%q err=%v", out2, err2)
 	}
 }
+
+// The general rule, which is stronger than any per-agent verdict: UnwrapDeep
+// RECURSES through `result` at every level (Pattern 2), and through the
+// call_agent/spawn_agent `response` wrapper (Pattern 4) into whatever it wraps.
+// So a `result` key can never survive extraction — which means that in a prompt
+// template, ".result" on ANY ExtractFields-supplied field is always wrong,
+// regardless of which action produced it.
+//
+// This is what resolves the open question in bugs_open/016 about
+// content-creator-hero's {{.call_researcher.result}}: it does not matter what
+// research-agent returns.
+func TestUnwrapDeep_ResultKeyNeverSurvives(t *testing.T) {
+	logger := zap.NewNop()
+
+	cases := map[string]interface{}{
+		// execute_llm_prompt, text
+		"text_llm": map[string]interface{}{"type": "text", "result": "plain body"},
+		// execute_llm_prompt, json
+		"json_llm": map[string]interface{}{"type": "json", "result": map[string]interface{}{"verdict": "approve"}},
+		// call_agent whose child returned a result-shaped body
+		"call_agent_result": map[string]interface{}{
+			"request_id": "r1", "response_status": "complete",
+			"response": map[string]interface{}{"result": "child body"},
+		},
+		// call_agent whose child returned a domain-shaped body
+		"call_agent_domain": map[string]interface{}{
+			"request_id": "r2", "response_status": "complete",
+			"response": map[string]interface{}{"research_findings": "findings text"},
+		},
+	}
+
+	for name, raw := range cases {
+		td := ExtractFields(map[string]interface{}{name: raw}, []string{name}, logger)
+		if m, isMap := td[name].(map[string]interface{}); isMap {
+			if _, hasResult := m["result"]; hasResult {
+				t.Fatalf("%s: a 'result' key survived extraction — the general rule is broken", name)
+			}
+		}
+		// Therefore {{.field.result}} can never render the value.
+		out, err := RenderPromptTemplate("[{{."+name+".result}}]", td, *logger)
+		if err == nil && (strings.Contains(out, "body") || strings.Contains(out, "approve") || strings.Contains(out, "findings")) {
+			t.Fatalf("%s: {{.%s.result}} unexpectedly rendered real content %q", name, name, out)
+		}
+		t.Logf("%s: {{.%s.result}} -> out=%q err=%v", name, name, out, err)
+	}
+}
