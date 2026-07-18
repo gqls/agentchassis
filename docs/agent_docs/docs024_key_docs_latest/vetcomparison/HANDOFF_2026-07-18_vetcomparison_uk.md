@@ -48,13 +48,23 @@ neither), "Price: Low to High" sort controls (no published prices), and called o
 `/data/vet-full-index.json` wired, claim + opt-out routes back. Guides were unaffected
 throughout (sourced content, review stamps intact); no unsourced prices anywhere on the site.
 
-**NOT FIXED — do this first:**
-1. **Stop it recurring.** The restore is a hand edit (takes a permanent lock, the intended
-   protection) but the *spec* still describes a homepage whose `filtered-result-grid` has no
-   data source, so a future render can regenerate fabricated data. Fix at spec level: point
-   that section at `/data/vet-full-index.json` and strip the pricing/ownership/demo-sample copy
-   from the section content. Check `pages.sections` for `index` (hero, filtered-result-grid,
-   info-card-grid, latest-news, call-to-action) and the plan sections behind them.
+**SOURCE FIXED 2026-07-18 — one thing left to verify:**
+1. ✅ **Fixed at source, not just in the file.** The fabrication was still in
+   `page_components.rendered_html` (deployed, unlocked) — the generator lived in the **`hero`**
+   slot, not `filtered-result-grid`. Hero's data layer rewritten to `fetch('/data/vet-full-
+   index.json')` keeping the chassis's better UI (region filter, pagination); demo-sample
+   disclaimer, price-sort controls, "pricing information / ownership data" claims and a false
+   about-page "we distinguish independent practices" differentiator all removed. Four components
+   now `lock_type='permanent'`. Two other hits (about/faq, guide-cma-market-investigation) were
+   checked and are ACCURATE statements about CMA findings — leave them; a regex sweep would
+   wrongly "fix" correct content.
+   ⚠️ **NOT PROVEN: no render has been run against the fixed source.** Manual dispatch failed
+   (`rerender-pages` is `experimental`; neither site-builder.requests nor
+   page-rerender.process produced an orchestration state from kcat). **Watch the first natural
+   render and diff the homepage.** Verification one-liner:
+   `curl -s https://vetcomparison.uk/ | grep -ciE 'Mulberry32|makePostcode|representative sample'`
+   must be 0, and `grep -c vet-full-index` must be ≥1.
+   Note `page_components.data_path` is empty fleet-wide — vestigial, do not build on it.
 2. **Platform bug FILED as `/bugs_open/020`** (2026-07-18, commit `4e372119b`) — read it before
    touching the recreation path; pattern + grep tells also in 016b §9, bug index row 020.
    Root cause is structural, in two parts: (a) the recreation path has no **data-dependency
