@@ -1,11 +1,29 @@
 # PLAN — Travelling Docs (PLAN + NOTES) for Tools, Complex Components, and Pipelines
 
 **Created:** 2026-07-04
-**Last updated:** 2026-07-16 (rev 7 — THE WHOLE LOOP IS PROVEN GREEN ON A REAL BUG. Tier-4 P1 (mobile) + P2 (interactions) live; behavioural attribution (tool vs site-chrome) + routing; a genuine site-chrome footer overflow found, routed, fixed at the DURABLE content_component layer, deployed, and re-verified `mobile-fit@mobile` GREEN. See the new "Completed loop" section and the RUNBOOK §0 position line. Prior rev 5 line below.)
+**Last updated:** 2026-07-18 (rev 8 — the loop now CONVERGES. Drill-down attribution (live v1.0.1135) names the element that FORCES a failure and why, not the ancestor that inherited it; that closed the non-convergence recorded in `bugs_open/010`. The proving run exposed a destructive truncation bug in the fixer (`bugs_open/012`) — a repair path saved a cut completion over a working component. New principle added below: **a fix must never destroy the work**. Prior rev 7 line below.)
+**Prior:** 2026-07-16 (rev 7 — THE WHOLE LOOP IS PROVEN GREEN ON A REAL BUG. Tier-4 P1 (mobile) + P2 (interactions) live; behavioural attribution (tool vs site-chrome) + routing; a genuine site-chrome footer overflow found, routed, fixed at the DURABLE content_component layer, deployed, and re-verified `mobile-fit@mobile` GREEN. See the new "Completed loop" section and the RUNBOOK §0 position line. Prior rev 5 line below.)
 **Prior:** 2026-07-10 (rev 5 — Phase A write-hooks COMPLETE AND PROVEN: PLANs at birth (Task 3, run `1923badd`) and NOTES at every fix (Task 4, two machine `fix` notes from the economy-simulator recreation). KB indexing gated on the chunkContent fix deploy — see Rollout outcomes.)
 **Status:** **COMPLETE end-to-end and proven on a real defect** — birth-PLAN → continuous discovery → Tier-4 (desktop+mobile, interactions) → attribution → routing → durable fix → deploy → re-verify. Remaining work is polish (P3 screenshots; per-site override option for shared-template fixes). This document is the spec; live position lives in the RUNBOOK §0 tracker; the blow-by-blow lives in the HANDOFF Turn log (T14–T17).
 
 ---
+
+## Two principles the loop earned the hard way (2026-07-18)
+
+**A signal must name what to CHANGE, not merely what is broken.** A failure
+report that names the widest offending element identifies the symptom's location,
+not its cause; a one-shot fixer can only act on what it is told, so it will
+"repair" the named ancestor forever. Attribution granularity is therefore part of
+the loop's correctness, not a nicety — the same lesson as tool-vs-chrome scope,
+one level deeper (`bugs_open/010`; drill-down live v1.0.1135).
+
+**A fix must never destroy the work.** The companion to "docs never fail the
+work". A repair path that rewrites a whole artifact can persist a truncated one
+and report success — proven 2026-07-18, when a working 10,272-char component came
+back as 1,253 chars of CSS with the work item reading `complete`
+(`bugs_open/012`). Any path that rewrites a durable artifact must refuse to save a
+structurally-collapsed result, fail honestly, and say so in a NOTE. Raising token
+ceilings reduces the frequency; only the guard makes it impossible.
 
 ## Completed loop (2026-07-16) — what "done" turned out to mean
 
