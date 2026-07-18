@@ -267,10 +267,11 @@ in this order.
    `ADO-006` ("adoption writes specs first, classifier consumes") — the *other*
    original stage-1 flagship rediscovered concept. Lens: does the fix respect
    adoption's write-then-relay contract? `PILOT_adoption_guardian_reviewer.md`.
-4. **Diagnosis-loop guardian** — `diagnosis-loop.md`, the single
-   highest-density category in the register (7 of 41 concepts heavily
-   rediscovered). Reviews whether the diagnosis behind a fix plan followed
-   its own evidence discipline.
+4. **Diagnosis-loop guardian** — DONE, live 2026-07-18 (gated + surgical).
+   `diagnosis-loop.md`, the single highest-density category in the register.
+   Lens: does the fix weaken the diagnosis machinery's honesty gates
+   (cite-or-abstain, tier guards, read-only SQL layers, config-level
+   error_step, token/pod isolation)? `PILOT_diagnosis_guardian_reviewer.md`.
 5. **Improvement-loop guardian** — `improvement-loop.md`, a genuine "master
    workflow" in FIX-036's framing; 5 hot concepts.
 6. **Compliance/legal eye** — FIX-036's fourth named seat. `legal-and-compliance.md`
@@ -297,15 +298,15 @@ in this order.
     A narrow specialist — applied always-on for now because the filter isn't
     deployed; its footprint is in the filter config so it auto-gates on deploy.
 
-**Council is now 7 reviewers** (edit-quality, guardian always-on; bug-historian,
-reuse-agent, guidelines, tooling-provenance, adoption-guardian gated behind the
-filter). #4-9 of the list remain. Now that the filter is live, every new seat
+**Council is now 8 reviewers** (edit-quality, guardian always-on; bug-historian,
+reuse-agent, guidelines, tooling-provenance, adoption-guardian,
+diagnosis-guardian gated behind the filter). #5-9 of the list remain. Now that the filter is live, every new seat
 is built **gated + surgically** (footprint + gate + reviewer, via chained
 `jsonb_set` — never a full-config reapply, which would clobber the co-edited
 guardian's `code_checks`/proviso). #10 was applied always-on before the filter
 existed but its footprint is in the filter config, so it's gated too.
 
-None of #4-9 are spec'd to prompt-level detail yet. Each is real design work
+None of #5-9 are spec'd to prompt-level detail yet. Each is real design work
 per seat (charter, curated context grounded in specific register concepts,
 prompt, patch) — not a mechanical checklist, as the reuse-agent regrounding
 above shows (the first framing of it was wrong on closer inspection).

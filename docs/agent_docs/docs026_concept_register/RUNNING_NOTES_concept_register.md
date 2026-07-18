@@ -52,6 +52,7 @@ entries at the bottom. Update every turn.
 | 2026-07-17 | Owner request: add a "prefer not to change long-working core (orchestrator/kafka/messaging)" proviso. Home = the guardian (blast-radius/architecture seat, always-on, hard veto). Applied as clause (d) | **confirmed, LIVE** (surgical patch) |
 | 2026-07-17 | COORDINATION LESSON: my seat migrations reconstruct the WHOLE default_config, which can clobber another thread's edits to shared steps (the guardian gained `code_checks` from another thread). Used a surgical jsonb_set for the proviso to avoid it | **noted** — use surgical patches for shared steps, not full-config reapply |
 | 2026-07-17 | Built candidate #3 (adoption-pipeline guardian, `ADO-006`) — the FIRST seat gated behind the filter, and the first added SURGICALLY (chained jsonb_set); council now 7 | **confirmed, live** — proviso + code_checks + filter all verified intact |
+| 2026-07-18 | Built candidate #4 (diagnosis-loop guardian, `DIAG-001/008/009/028/030`) — gated + surgical; council now 8. Drift-checked first (another thread had touched the row at 09:21; all anchors intact) | **confirmed, live** |
 
 ---
 
@@ -852,5 +853,38 @@ council_decide`, both run and skip paths converging on `gate_adoption`);
 Council: 2 → 7 (5 gated specialists). Remaining: #4 diagnosis-loop, #5
 improvement-loop, #6 compliance, #7 render, #8 LLM-reliability, #9 debugging.
 Committed the migration + docs narrowly.
+
+## Turn 24 — 2026-07-18 — Diagnosis-loop guardian (candidate #4); council now 8
+
+User: "please go ahead" — next seat in the order: #4, the diagnosis-loop
+guardian. Now the routine is settled: drift-check → ground → gated + surgical
+→ pre-flight → apply → verify → document.
+
+**Drift check first** (the workflow is co-edited): the live row had been
+updated by another thread at 09:21 this morning — but all my anchors were
+intact (7 seats, adoption present, guardian proviso + code_checks preserved,
+chain tail correct). The surgical pattern makes this safe: my jsonb_set chain
+only touches the paths it names.
+
+**Grounding:** `diagnosis-loop.md` is the highest hot-concept-density category
+in the register. The seat defends the loop's earned disciplines: read-only
+cite-or-abstain (`DIAG-001`), the two-evidence-family/three-tier citation
+standard (`DIAG-008` — proven live on BUG B, where it correctly withheld
+CONFIRMED), the three-layer read-only SQL enforcement (`DIAG-009`),
+observability-never-fails-a-diagnosis + skip-never-guess notes (`DIAG-028`),
+the config-level `error_step` trap (`DIAG-030` — step-level is silently inert,
+found dormant in other agents too), and token/pod isolation (`DIAG-019`/`022`).
+There's a pleasing self-reference: the loop reviewing fixes to itself is
+exactly the point — these guards exist because early benchmark runs produced
+CONFIRMED verdicts a fixer must never have acted on.
+
+**Applied v13** (8 chained jsonb_set, atomic, idempotent; snapshot taken;
+85/85 parens; no active runs). Verified live: council now 8 (2 always-on + 6
+gated), chain tail `gate_adoption → [adoption?] → gate_diagnosis →
+[diagnosis?] → guardian` with run/skip paths converging correctly, all three
+arrays at 8, diagnosis footprint present, proviso + code_checks byte-intact.
+
+Council: 2 → 8. Remaining: #5 improvement-loop, #6 compliance, #7 render,
+#8 LLM-reliability, #9 debugging.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

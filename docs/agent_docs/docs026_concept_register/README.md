@@ -48,6 +48,7 @@ PILOT_reuse_agent_reviewer.md — stage-3 council seat #2 — LIVE 2026-07-17
 PILOT_guidelines_agent_reviewer.md — stage-3 council seat #3 — LIVE 2026-07-17
 PILOT_tooling_provenance_reviewer.md — stage-3 council seat #4 (candidate #10) — LIVE 2026-07-17
 PILOT_adoption_guardian_reviewer.md — stage-3 council seat #5 (candidate #3, first gated+surgical) — LIVE 2026-07-17
+PILOT_diagnosis_guardian_reviewer.md — stage-3 council seat #6 (candidate #4) — LIVE 2026-07-18
 DESIGN_relevance_filter.md — how the remaining specialist seats gate behind a relevance filter (designed, not built)
 001_PROMPT_charter.md      — the rewritten task charter
 002_PLAN_extraction.md     — stage-1 work-unit ledger (26 units), extraction-specific
