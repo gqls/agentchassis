@@ -743,7 +743,27 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 		agentType = params.ExecutionContext.Sender.AgentType
 	}
 
-	// Completion gate: for item types with a registered verifier, confirm the
+	// Completion gate 1: a response arriving is not the work succeeding. The
+	// dispatch loop calls complete_work_item for every handler saga that came
+	// back, but the envelope's response_status only records DELIVERY — the
+	// saga's own verdict lives at response.status. A workflow that never ran at
+	// all (unregistered or mistyped action → WORKFLOW_INVALID) returns
+	// response.status='failed', and used to be stamped 'complete' alongside the
+	// very error proving nothing was done. The item_key dedup then suppressed
+	// re-detection, so the loop believed the defect class was handled: 54 items
+	// across 6 sites by the 2026-07-18 sweep. This runs before the verifier
+	// because a saga that failed outright is not worth verifying.
+	if detail, failed := handlerReportedFailure(resultData, logger); failed {
+		failedJSON, mErr := json.Marshal(resultData)
+		if mErr != nil {
+			return nil, fmt.Errorf("failed to marshal result: %w", mErr)
+		}
+		return failUnverifiedCompletion(ctx, params.DB, itemID, agentType, string(failedJSON),
+			"completion blocked: handler saga reported failure: "+detail,
+			"handler_reported_failure", logger)
+	}
+
+	// Completion gate 2: for item types with a registered verifier, confirm the
 	// defect is actually gone before stamping 'complete'. A handler saga can
 	// return success without touching the defect (no-op paths exit through
 	// success-labelled complete_workflow steps) — see
@@ -760,7 +780,9 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 
 	if !mayComplete {
 		detail, _ := verification["detail"].(string)
-		return failUnverifiedCompletion(ctx, params.DB, itemID, agentType, string(resultJSON), detail, logger)
+		return failUnverifiedCompletion(ctx, params.DB, itemID, agentType, string(resultJSON),
+			"completion blocked: post-fix verification found the defect still present: "+detail,
+			"verification_failed", logger)
 	}
 
 	// Guard: do NOT overwrite a status a handler deliberately set to a flagged

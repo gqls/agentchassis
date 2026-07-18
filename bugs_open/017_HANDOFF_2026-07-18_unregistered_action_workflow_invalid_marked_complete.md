@@ -2,7 +2,53 @@
 
 **Filed:** 2026-07-18, from the robot-hands R1 thread
 (`docs/agent_docs/docs024_key_docs_latest/robot_hands/RUNNING_NOTES_robot_hands_site_fixes.md`).
-Two coupled defects, one incident. Neither is fixed.
+Two coupled defects, one incident.
+
+---
+
+## ✅ FIXED 2026-07-18 (bugfix thread2) — code committed, INERT until a chassis image ships
+
+**Both legs closed, plus the class fix and a correction to this file's own diagnosis.**
+
+| Leg | Fix | Where |
+|---|---|---|
+| Defect 1 | `fix_forced_text_colors` registered | `actions/registry.go` — landed in HEAD via `06376bcbf` (another session swept my working tree mid-task) |
+| Defect 2 | `handlerReportedFailure` blocks completion on a failed saga verdict, routing to the existing attempt machinery | `complete_work_item_verification.go` + `load_work_item_actions.go` gate 1 |
+| Class | Build fails if any action registers an `ActionInputSpec` with no registry entry | `actions/registry_parity_test.go` (negative-control verified) |
+| Misdiagnosis | Dead `LocalActions` map deleted; the comment + 2 live guide docs that propagated "register in TWO places" corrected | `actioncheck/`, `batch_webscrape_action.go`, 2 docs |
+| Data | 54 mis-stamped rows corrected to `failed` (reversible via `result._correction`); sweep now returns 0 | live `clients_db` |
+
+**⚠️ THIS FILE'S ROOT-CAUSE ANALYSIS FOR DEFECT 1 WAS WRONG.** It blamed drift between
+two hand-maintained rosters (`registry.go` vs the DEPRECATED `actioncheck/local_actions.go`).
+There is only **one** live list: `actioncheck.IsLocalAction` (`actioncheck.go:20`) delegates
+to a checker `registry.go` installs at `init`; the `LocalActions` map's own lookup was
+commented out (`local_actions.go:185-188`) and it had **zero live references repo-wide**.
+It was dead, not drifting. The `batch_webscrape_action.go` header comment telling authors to
+"add to TWO places" is what seeded the belief — and it survived long enough to misdirect the
+diagnosis of the very bug it caused. Lesson recorded in 016b §9 and in `doc_notes`
+(`subject_key='action_registry'`): when a deprecated-looking list sits beside a live one,
+grep the symbol for live references before theorising about drift.
+
+**Defect 2 was 27× larger than filed.** The sweep found **54** mis-stamped items across
+**6 sites** (robot-hands.com, finetuning.uk, gaswholesalers.com, ai-agent-orchestration.com,
+leopardessconsulting.co.uk, idea.uk) and 4 item types, back to May — not the 2 recorded below.
+One of them (`render_js_snippets` vs the registry's `render_js_snippets_for_site`) is a
+**seed typo**, a different cause reaching the same lie — which is why only the leg-2 guard
+closes the class.
+
+**Council-reviewed** (advisory gate): submission `319e23f6-b333-42ba-88ef-069b4426c057`.
+Round 1 → REVISE; all objections answered in round 2 (blast radius measured at 1656
+completions / 43 item types / 30 days with the guard firing on 6, all genuine; all 8
+`status='complete'` call sites audited; unknown-verdict warning added per bug_historian;
+`doc_notes` persisted per tooling_provenance; doc purge per guidelines).
+
+**Still to do:** ship a chassis image (Go changes are inert), then verify against the
+**running pod** — `strings /app/agent-chassis | grep -c handlerReportedFailure` — before
+trusting any functional re-test.
+
+---
+
+## Original report (below, as filed — see the correction above)
 
 ## Symptom
 

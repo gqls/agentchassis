@@ -332,6 +332,18 @@ func GetActionInputSpec(actionName string) (ActionInputSpec, bool) {
 	return spec, ok
 }
 
+// ListActionInputSpecNames returns the names of every registered spec.
+// Used to check spec/registry parity — an action that declares inputs but has
+// no registry entry is invisible to the workflow validator, which then reads it
+// as a remote action and rejects the workflow (see registry_parity_test.go).
+func ListActionInputSpecNames() []string {
+	names := make([]string, 0, len(actionInputSpecs))
+	for name := range actionInputSpecs {
+		names = append(names, name)
+	}
+	return names
+}
+
 // GenerateInputContract creates an input_contract from a spec
 // Can be used to auto-generate contract JSON for agent_definitions
 func GenerateInputContract(spec ActionInputSpec) map[string]interface{} {

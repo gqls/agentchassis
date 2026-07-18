@@ -29,7 +29,10 @@ kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d 
      psql -U templates_user -d templates_db < 003_agent_definitions_business_intel.sql
    ```
 
-3. **Go actions registered** — add to `GlobalActionRegistry` and `LocalActions`:
+3. **Go actions registered** — add to `GlobalActionRegistry` (the ONE registration
+   place; the old `LocalActions` side-list was dead and has been deleted — see
+   `bugs_open/017`, and `registry_parity_test.go` now fails the build on an
+   unregistered action):
    ```go
    "load_business_record":        LoadBusinessRecordAction,
    "store_business_verification": StoreBusinessVerificationAction,

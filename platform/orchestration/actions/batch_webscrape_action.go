@@ -16,14 +16,16 @@ import (
 // BatchWebscrapeAction sends batch scrape requests to the webscrape adapter
 //
 // ==============================================================================
-// REGISTRATION REQUIRED - Add to TWO places:
+// REGISTRATION REQUIRED - GlobalActionRegistry (registry.go) is the ONE place:
 // ==============================================================================
 //
-// 1. LocalActions map (platform/orchestration/actions_list/local_actions.go):
-//        "batch_webscrape": true,
+//	"batch_webscrape": {Handler: BatchWebscrapeAction, Category: …, IsLocal: …},
 //
-// 2. GlobalActionRegistry (registry.go):
-//        "batch_webscrape": BatchWebscrapeAction,
+// An action missing from it is invisible to the workflow validator, which reads
+// it as remote and rejects the workflow with "requires a topic" (bugs_open/017).
+// There used to be a second hand-maintained actioncheck.LocalActions map; it was
+// already dead when 017 was diagnosed and has been deleted — do not resurrect it.
+// registry_parity_test.go now fails the build on an unregistered action.
 //
 // ==============================================================================
 

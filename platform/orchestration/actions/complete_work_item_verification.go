@@ -27,6 +27,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -100,13 +101,69 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, log
 	}, false
 }
 
+// handlerReportedFailure reports whether the result we are about to store is
+// itself a record of failure.
+//
+// The envelope the coordinator writes always carries response_status='complete'
+// once a reply arrives (coordinator.go ~2398) — that records DELIVERY, not
+// success. The saga's own outcome lives at response.status, with response.error
+// carrying the reason: a workflow that never ran at all (an unregistered or
+// mistyped action fails validation) comes back as
+// response.status='failed' + 'WORKFLOW_INVALID: …'.
+//
+// Deliberately narrow, keyed on an explicit failure verdict rather than on the
+// presence of an error string: a handler may legitimately carry a non-fatal
+// error string beside a successful outcome. Measured against live data before
+// choosing the predicate — on the 2026-07-18 sweep, 'failed' was the ONLY value
+// response.status had ever held anywhere in site_work_items (2905 completed
+// items carried no response.status at all; 54 carried 'failed'; nothing else
+// existed). Over the 30 days to that date this guard would have blocked 6 of
+// 1662 completions, and all 6 were genuine failures.
+//
+// The allowlist is therefore already a superset of observed reality; the
+// default branch logs any future dialect rather than swallowing it.
+func handlerReportedFailure(result map[string]interface{}, logger *zap.Logger) (string, bool) {
+	resp, ok := result["response"].(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+
+	status, _ := resp["status"].(string)
+	switch normalised := strings.ToLower(strings.TrimSpace(status)); normalised {
+	case "failed", "failure", "error":
+	case "", "success", "complete", "completed", "ok":
+		return "", false
+	default:
+		// An unrecognised verdict. We complete (the conservative choice — a
+		// novel status is not evidence of failure), but say so loudly: the
+		// allowlist above is a superset of every value response.status has
+		// EVER held in this database, so a new one appearing means a handler
+		// has started speaking a dialect this guard does not read. That is the
+		// precise moment to widen the allowlist — and without this line it
+		// would pass silently, which is the very failure mode bugs_open/017
+		// was about.
+		logger.Warn("handlerReportedFailure: unrecognised response.status — completing, but this verdict is unknown to the guard",
+			zap.String("response_status", status),
+			zap.String("action", "widen the allowlist in handlerReportedFailure if this is a failure verdict"))
+		return "", false
+	}
+
+	detail, _ := resp["error"].(string)
+	if detail = strings.TrimSpace(detail); detail == "" {
+		detail = "handler returned status '" + status + "' with no error detail"
+	}
+	return detail, true
+}
+
 // failUnverifiedCompletion routes a blocked completion into the same
 // attempt machinery as FailWorkItemAction's default branch. The handler
 // saga's result (including _verification) is preserved for forensics, and
 // the claim is released so the item returns to the dispatchable pool.
-func failUnverifiedCompletion(ctx context.Context, db *sql.DB, itemID uuid.UUID, agentType, resultJSON, detail string, logger *zap.Logger) (interface{}, error) {
-	errorMsg := "completion blocked: post-fix verification found the defect still present: " + detail
-
+//
+// errorMsg is the recorded reason and reason is the caller-facing code; the
+// two callers are the post-fix verifier (defect still present) and the
+// handler-failure guard (the saga reported its own failure).
+func failUnverifiedCompletion(ctx context.Context, db *sql.DB, itemID uuid.UUID, agentType, resultJSON, errorMsg, reason string, logger *zap.Logger) (interface{}, error) {
 	var newStatus string
 	err := db.QueryRowContext(ctx, `
 		UPDATE site_work_items
@@ -137,10 +194,11 @@ func failUnverifiedCompletion(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 		return nil, fmt.Errorf("failed to fail unverified completion: %w", err)
 	}
 
-	logger.Warn("CompleteWorkItemAction: completion blocked by verification",
+	logger.Warn("CompleteWorkItemAction: completion blocked",
 		zap.String("item_id", itemID.String()),
 		zap.String("new_status", newStatus),
-		zap.String("detail", detail))
+		zap.String("reason", reason),
+		zap.String("detail", errorMsg))
 
 	return map[string]interface{}{
 		"completed":  false,
@@ -148,7 +206,7 @@ func failUnverifiedCompletion(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 		"item_id":    itemID.String(),
 		"new_status": newStatus,
 		"will_retry": newStatus == "triaged",
-		"reason":     "verification_failed",
-		"detail":     detail,
+		"reason":     reason,
+		"detail":     errorMsg,
 	}, nil
 }

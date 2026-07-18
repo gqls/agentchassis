@@ -26,7 +26,11 @@ Change to:
 "loop":          LoopAction,
 "loop_complete": LoopCompleteAction,
 
-Also add to LocalActions list if needed (in actions_list package).
+That `GlobalActionRegistry` entry is the ONLY registration needed. (This step used
+to say "also add to the LocalActions list in the actions_list package" — that list
+was already dead when `bugs_open/017` was diagnosed, and has been deleted. An action
+missing from `GlobalActionRegistry` fails validation as "requires a topic";
+`registry_parity_test.go` now fails the build instead.)
 
 STEP 5: Integrate coordinator handler
 File: platform/orchestration/coordinator.go
