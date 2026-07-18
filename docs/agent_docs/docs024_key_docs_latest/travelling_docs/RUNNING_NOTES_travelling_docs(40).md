@@ -3291,3 +3291,29 @@ Migration numbering: the experience-loop thread holds 163–167, so next free is
 **169** (168 is mine, applied).
 
 Categories: (proof, bug, incident, fix)
+
+### 2026-07-18 (later) — the 012 guard already existed; verified rather than rebuilt
+
+Went to build bugs_open/012 candidate (a) — the completeness guard — and found
+another thread had already built it: `component_write_guard.go`
+(`componentRegressionIssues`), wired into `update_component_html_action.go:146`
+(the exact path that destroyed the loot component) and into
+store_generated_component. Reuse-before-rebuild held; nothing new written.
+
+It is a good implementation: three COMPARATIVE checks (size collapse <50%
+retained; unterminated script/style/section where the current row was balanced;
+mid-token tail where the current row ended cleanly), all gated on "truncation
+cannot grow an artifact", calibrated against all 29 live component_versions
+transitions — 1 block (our incident), 0 false positives. On a block it hard-errors:
+row untouched, step fails to needs_human_review, structured row in
+agent_error_log. The allow_structural_regression override is step-config-only.
+
+**Verified against the REAL artifacts** (exported from component_versions +
+tmp_loot_truncated_20260718, not fixtures): final wreck 10,280→1,253 BLOCKED on
+all three checks; intermediate 10,280→6,771 BLOCKED on structure alone — it PASSES
+the size floor at 66%, so the size check by itself would have missed it; the
+restore 1,253→10,280 correctly ALLOWED. Candidate (b) (stop_reason decoding,
+f32b208e5) is also committed. **Neither is in the deployed v1.0.1135** — until an
+image ships, migration 168's ceilings are the only mitigation.
+
+Categories: (verification, reuse, incident-followup)

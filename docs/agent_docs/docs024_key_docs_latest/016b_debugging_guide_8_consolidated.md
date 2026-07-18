@@ -611,13 +611,24 @@ This is the `rendered artifact vs durable source` split (see the vonc footer
 arc): here it hid the damage rather than causing it. One refresh would have
 shipped a page with no markup and no JavaScript.
 
-**Fix.** Component restored from `component_versions`; migration **168** raised
-`improve_tool` + `generate_tool_html` 8000 → 32000. That is the exposure, not the
-bug. The real fixes, in order: (a) **refuse to persist a structurally-collapsed
-artifact** — leave the row untouched, fail the item honestly
-(`needs_human_review`), write a NOTE recording the refusal; never a silent
-success; (b) **decode `stop_reason`** so the caller can reject a truncated
-completion (`bugs_open/008`, platform-wide); (c) ceilings last.
+**Fix — all three layers now exist (2026-07-18); (a) and (b) await an image roll.**
+(a) **A write-time completeness guard**, `component_write_guard.go`
+(`componentRegressionIssues`), wired into `update_component_html` and
+`store_generated_component`: on a structurally-worse replacement it hard-errors —
+row untouched, step failed, `error_code='component_write_regression_blocked'` in
+`agent_error_log`, `error_step` routing to `needs_human_review`. Three
+COMPARATIVE checks (size collapse <50% retained; unterminated
+`<script>/<style>/<section>` where the current row was balanced; a mid-token tail
+where the current row ended on a closed tag), each gated on *truncation cannot
+grow an artifact*, and calibrated against all 29 live `component_versions`
+transitions (1 block, 0 false positives). Verified against this incident's REAL
+artifacts: the 1,253-char wreck blocked on all three; the 6,771-char intermediate
+blocked on structure alone (it passed the size floor at 66% — the size check by
+itself is NOT sufficient); the restore correctly allowed.
+(b) **`stop_reason` decoded** in `GenerateText` so a capped completion hard-errors
+(`f32b208e5`, `bugs_open/008`).
+(c) Ceilings last — migration **168** raised `improve_tool`/`generate_tool_html`
+8000 → 32000. That was the exposure, never the bug.
 
 **Interaction to check before trusting any `max_tokens` change** (`bugs_open/009`):
 a **root** `ai_service` block SHADOWS the step-level block — where a root block
@@ -1003,7 +1014,7 @@ candidates. Read the file before acting — several are already fixed.
 | 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | diagnosed; fix + fleet sweep open |
 | 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
 | 011 | `kind:"hero"` routes to SDXL (cannot render text); the Gemini infographic lane works and was unused | open |
-| 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard open |
+| 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard + stop_reason BUILT, await image |
 | 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | filed; fix candidate (format at commit-prep) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |

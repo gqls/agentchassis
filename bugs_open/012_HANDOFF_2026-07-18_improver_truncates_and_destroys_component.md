@@ -71,6 +71,44 @@ has never been applied to component writes.
 - **Migration 168 applied**: `improve_tool` and `generate_tool_html` raised
   8000 → **32000** (snapshots taken). This removes the immediate exposure only.
 
+## STATUS 2026-07-18 (later) — both real fixes are BUILT; both await an image roll
+
+Candidates (a) and (b) below were **built by other threads** while this case was
+open. Verified by this thread rather than rebuilt:
+
+- **(a) completeness guard — BUILT.** `platform/orchestration/actions/component_write_guard.go`
+  (`componentRegressionIssues`), wired into `update_component_html_action.go:146`
+  — the exact path that destroyed this component — and into
+  `store_generated_component`. On a blocked write it hard-errors: component left
+  untouched, step fails so `error_step` routes to `needs_human_review`, and a
+  structured row lands in `agent_error_log`
+  (`error_code='component_write_regression_blocked'`). The
+  `allow_structural_regression` escape hatch is step-config-only, so an agent
+  cannot talk its way past it. Three comparative checks: size collapse (<50%
+  retained), unterminated `<script>/<style>/<section>` where the current row was
+  balanced, and a mid-token tail where the current row ended on a closed tag —
+  all gated on "truncation cannot grow an artifact", and calibrated against all
+  29 live `component_versions` transitions (1 block = this incident, 0 false
+  positives).
+- **(b) truncation detection — BUILT.** `f32b208e5` decodes `stop_reason` /
+  `done_reason` in `GenerateText` and hard-errors on a capped completion
+  (`bugs_open/008`). Council-reviewed.
+
+**Verified against the REAL artifacts of this incident** (not fixtures) —
+exported from `component_versions` + `tmp_loot_truncated_20260718` and run
+through the live guard:
+
+| Write | Result |
+|---|---|
+| 10,280 → 1,253 (final wreck) | **BLOCKED** — 12% retained; `<style>` unterminated; ends `font-weight: bold;` |
+| 10,280 → 6,771 (intermediate) | **BLOCKED** — passes the 50% size floor at 66%, caught by unterminated `<script>` + tail `'Epic` |
+| 1,253 → 10,280 (the restore) | **ALLOWED** |
+
+The intermediate case is the important one: the size check alone would have let
+it through. Both fixes are committed but **NOT in the deployed chassis
+(v1.0.1135)** — confirmed by pod-binary grep. Until an image ships, the exposure
+is mitigated only by migration 168's raised ceilings.
+
 ## Fix candidates
 
 **(a) A completeness guard on component writes — the real fix.** Refuse to
