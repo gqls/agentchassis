@@ -59,7 +59,12 @@ db_decision() { # $1 = trailer id (raw, from a commit message — sanitised here
   local id
   id=$(printf '%s' "$1" | tr -cd '0-9a-fA-F-')   # commit text never reaches SQL unsanitised
   [ "${#id}" -ge 8 ] || { echo ""; return; }
-  kubectl -n "$NS" exec -i "$PG_POD" -- \
+  # NO `-i`, and stdin closed: this runs INSIDE the `while read` loop below, and
+  # `kubectl exec -i` consumes that loop's stdin — the report then stops dead at
+  # the FIRST commit carrying a trailer. It was silently reporting 4 of 41
+  # in-scope commits (proven 2026-07-18: NO_DB=1, which skips this call, printed
+  # the full 41). The SQL is passed with -c, so stdin was never needed.
+  kubectl -n "$NS" exec "$PG_POD" -- \
     psql -U clients_user -d clients_db -tA -c \
     "SELECT COALESCE(metadata->>'decision','') || '|' ||
             CASE WHEN correlation_id LIKE '${id}%' THEN 'correlation' ELSE 'run' END

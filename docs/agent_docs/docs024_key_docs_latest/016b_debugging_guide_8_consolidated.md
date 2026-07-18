@@ -836,6 +836,115 @@ status can lie*: `ssh-keyscan` exits 0 having written nothing, so `set -e` never
 a suppressed stderr hides it; assert the artefact is non-empty rather than trusting the
 exit code (sibling of `003`'s "don't swallow kcat stderr"). Full case: `bugs_open/016`.
 
+### Acknowledging a message before doing the work makes every restart destroy it (2026-07-18)
+
+**Symptom.** Orchestrations vanish across a deploy or pod restart — not delayed, *gone*.
+Parents wedge at `EXECUTING_STEP` on a spawn step with no child row, forever (22 of them
+when this was found, the oldest 1,224 hours). The folklore rule "no orchestration dispatch
+within ~300s of a chassis (re)start — the spawn is silently dropped" is this bug wearing a
+workaround.
+
+**Mechanism.** `platform/kafka/consumer.go` `Consume()` fetches (L81) and **commits the
+offset (L103) before the handler ever runs** — the handler executes back in the caller,
+after `Consume()` returns. The comment directly above the commit says "After successful
+processing"; no processing happens there. Intent at-least-once, behaviour **at-most-once**:
+once committed, Kafka will never redeliver, so anything in flight when the process dies is
+unrecoverable. Both chassis loops use it (`agent.go:468` requests, `:528` responses), while
+`client.go`/`server.go` in the same package use the correct fetch→process→commit pattern —
+the asymmetry is the tell that it's an oversight, not a design.
+
+**The transferable rule.** *An acknowledgement is a promise that the work is done — never
+send it before the work is done.* This generalises past Kafka to any at-least-once
+transport, job claim, or `status='complete'` write. Two corollaries worth internalising:
+
+- **Read the ordering, not the comment.** A comment asserting "after successful processing"
+  sat directly above a commit that ran before processing, and survived because the words
+  matched the intent. When a delivery guarantee matters, follow the control flow.
+- **"It only happens on deploys" usually means state is lost on process death.** Deploys are
+  merely the most *frequent* way a process dies; OOM kills, evictions and node failures hit
+  the identical path. Fixing the deploy choreography (drain windows, quiet checks) treats
+  the schedule, not the defect.
+
+**Before flipping such a commit**, confirm the dedupe that redelivery now depends on
+actually covers every inbound path — here `processed_messages`
+(`platform/orchestration/state.go:170/207`) already existed, which makes the fix small, but
+its coverage was never verified. Redelivery without dedupe trades lost work for duplicated
+work. Full case and fix shape: `bugs_open/003` §3d/§4.4.
+
+### An action that exists in code but in no registry fails as "requires a topic" — and the failure is stamped 'complete' (2026-07-18)
+
+**Symptom.** A handler agent's work items complete on schedule, yet the defect they
+describe never changes. The item's own `result` holds the confession:
+`response.status='failed'`, `response.error='WORKFLOW_INVALID: … step X with action
+Y requires a topic'`.
+
+**Mechanism, leg 1 (the misleading error).** Workflow validation
+(`platform/validation/workflow.go:80`) classifies any action it does not find in
+`actioncheck.IsLocalAction` as *remote* and demands a Kafka `topic`. That list
+(`actioncheck/local_actions.go`) is hand-maintained and marked DEPRECATED in its own
+header, while `actions/registry.go:1866` has a registry-backed `IsLocalAction` the
+validator does not use. So "requires a topic" almost never means a topic is missing —
+it means **the action was never registered**. `fix_forced_text_colors` is the proven
+case: handler + input spec written, present in NEITHER list (same never-registered
+family as `checkpoint_for_review`, and the same two-hand-rosters drift class as the
+council seats).
+
+**Mechanism, leg 2 (the lie).** `CompleteWorkItemAction`
+(`load_work_item_actions.go` ~735-800) verifies before completing only for item
+types with a registered verifier, and never reads the response it stores: a payload
+whose own `status` is `failed` is written next to `status='complete'` in one UPDATE.
+The item_key dedup then suppresses re-detection — churn that reads as progress.
+
+**Diagnose in one query.** `SELECT id, item_type FROM site_work_items WHERE
+status='complete' AND result->'response'->>'status'='failed';` — any row is this
+class. And when you see "requires a topic": grep BOTH registries for the action name
+before touching topics.
+
+**Cross-refs.** `bugs_open/017` (case + fix candidates: register once, reconcile the
+validator to the registry-backed list, and make complete_work_item treat a failed
+response as a failed attempt). Kin: "Trust the rendered artefact, not the status"
+(§ durable invariants) — this is the mechanical version for work items. Category
+tags: `never-registered-action`, `two-roster-drift`, `false-complete`.
+
+### A command that reads stdin truncates the `while read` loop that calls it (2026-07-18)
+
+**Symptom.** A shell loop that should process N items silently processes the first
+few and stops. No error, no warning — the output simply looks like there were
+fewer items. Seen in the council coverage report (`098_REPORT_unreviewed_commits_v1.sh`):
+it announced **"In-scope commits found: 4"** when the identical `git log` query
+returned **41**, hiding 90% of unreviewed platform commits from the report whose
+entire purpose is to surface them.
+
+**Diagnose.** Look for a stdin-reading command inside the loop body:
+```
+while IFS='|' read -r a b c; do
+    kubectl exec -i POD -- psql ...      # <-- `-i` reads STDIN
+done < <(git log ...)                    # <-- the loop's stdin IS that stream
+```
+`kubectl exec -i` / `ssh` / `psql` without `-c` / `ffmpeg` consume whatever remains
+on stdin — here, the rest of the git log — and the loop then ends normally.
+Tell-tale: the cut-off tracks the FIRST item that triggers the inner command (here,
+the first commit carrying a trailer), so the truncation point moves as data changes.
+
+**Confirm cheaply.** Run the loop with the inner command disabled (this script
+already had a `NO_DB=1` path) and compare counts — 41 vs 4 settled it in one
+command. Or count iterations inside the loop and diff against the source query.
+
+**Fix.** Close the inner command's stdin (`< /dev/null`), drop the interactive flag
+when it is not needed (the fix here: the SQL was passed with `-c`, so `-i` was
+pointless), or feed the loop from a dedicated descriptor
+(`while read -u 3 ...; done 3< <(cmd)`). A sibling call OUTSIDE the loop may
+legitimately need `-i` (a heredoc-fed `psql`) — fix the one in the loop, not both.
+
+**Why it earns a §9 entry.** This is "0 rows is not decisive" applied to shell: a
+truncated loop reports a plausible smaller number rather than failing, so a
+confident wrong conclusion follows ("coverage is good", "only 4 commits touched
+platform"). Any report that counts things should have its total cross-checked
+against its source query at least once.
+
+**Cross-refs.** `bugs_open/018`. Category tags: `stdin-theft` (new),
+`silent-truncation`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -848,7 +957,7 @@ candidates. Read the file before acting — several are already fixed.
 |---|---|---|
 | 001 | Re-planning a site silently discards its built pages' composition | FIX written |
 | 002 | Errors surfaced but not fixed (multi-error handoff, route individually) | open |
-| 003 | Spawned children lose their response; parents hang until reaped | open |
+| 003 | Spawned children lose their response; parents hang until reaped. **§3d (2026-07-18): second root cause — the consume loop commits Kafka offsets BEFORE processing (at-most-once), so any restart destroys in-flight work; §4.4 is the at-least-once + rollout fix that unlocks CD** | open |
 | 004 | Landing an image can silently blank an article body | superseded by 005 |
 | 005 | Article-body blanking — root cause LLM truncation (`max_tokens`) | FIXED |
 | 006 | Three idea.uk infra errors (runner cgroup, dead contact endpoint, …) | open |
@@ -856,12 +965,13 @@ candidates. Read the file before acting — several are already fixed.
 | 008 | `GenerateText` never decodes `stop_reason` (silent truncation) | fix COMMITTED `f32b208e5` (br 085, both providers); not yet deployed |
 | 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | diagnosed; fix + fleet sweep open |
 | 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
-| 011 | Generated images cannot render readable text | open |
+| 011 | `kind:"hero"` routes to SDXL (cannot render text); the Gemini infographic lane works and was unused | open |
 | 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard open |
 | 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | filed; fix candidate (format at commit-prep) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
 | 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts |
+| 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | filed; both legs open |
 
 **Related-bug rule.** Before filing a new bug, grep this index for the mechanism —
 005/008/009/012 are all one truncation-and-config family found by four different
