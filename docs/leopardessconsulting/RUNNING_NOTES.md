@@ -1465,3 +1465,32 @@ travelling through stages with a human-approval interchange maps onto the form e
 **Review gate still applies:** look at every generated image before wiring it. Even the good
 model errs — the owner's own Gemini map rendered "REPRETITIVE". That is 011's R2 (an OCR/vision
 legibility gate) and it is not built.
+
+## Turn 25 (2026-07-18) — four infographics generated, reviewed and placed
+
+All four came out of `kind:'infographic'` → Banana → gemini-3-pro-image-preview. Each was
+downloaded and **reviewed by eye before wiring** (the standing gate — 011 R2 is not built).
+All four: legible, correctly spelled, figures matching the evidence base, on-brand.
+
+| Asset | Page | Content |
+|---|---|---|
+| `infographic_what_we_build` | index (pos 3) | Three columns: what we've built / what we could build / how an engagement starts |
+| `infographic_architecture` | technical-architecture (pos 2) | Hierarchical agents over the K8s/Kafka/Postgres stack + "built in" panel; states the AUDITED "over 150 agent definitions" |
+| `infographic_how_a_job_runs` | how-it-works (pos 2) | Six-station pipeline; "A PERSON DECIDES" drawn largest and highlighted, exactly as prompted |
+| `infographic_leopardess_line` | case-studies (pos 2) | **The themed variant** — a Harry Beck Underground map, "THE LEOPARDESS LINE": Records / Reading / Sites lines converging on one interchange "A PERSON DECIDES", terminus "WRITTEN DOWN", service-notes panel with the real figures |
+
+Placement mechanism: a `generic-text-block` per page holding a `<figure>` with a full
+descriptive `alt` (the diagram's content in prose, so the page is usable without the image),
+`loading="lazy"`, explicit width/height, and `style="width:100%;height:auto"`. Works because
+the renderer is Go `text/template`, not `html/template`. Backups:
+bak_index_infographic_20260718, bak_ta_infographic_20260718, bak_hiw_cs_infographic_20260718.
+
+**The themed variant was chosen for aptness, not novelty:** a work item travelling through
+stages, with a human-approval interchange, maps exactly onto a transit diagram — and Beck's
+map is the canonical British information-design object, which suits the register better than a
+fantasy map would. The three lines are the three genuinely-running systems, so the graphic is
+also a truthful summary rather than decoration.
+
+**Infra note:** the first firing of two of these hit the spawn flake again (48 Kafka dial
+errors on the spawned image-generator pod, 0 generations). Delete the pod, re-fire — both then
+succeeded. Same class as bugs_open/003.
