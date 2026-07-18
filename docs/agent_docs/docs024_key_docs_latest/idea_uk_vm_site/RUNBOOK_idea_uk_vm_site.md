@@ -29,10 +29,18 @@ lacked ssh/rsync — fixed: image `v1.0.1126` + `github-actions-runner-vmsites` 
 deploys green through the allowlist, idea.uk skip proven live 3×. **Phase 0 CLOSED 2026-07-17**:
 old SES user deleted, new SMTP user live (email verified), INTERNAL_API_KEY rotated + restart —
 the leaked history values are dead; /op links re-issue on next use.
-**§3a DONE 2026-07-18** — pull-sync live on the box: `/var/www/idea.uk` holds all 8 pages,
-`sitesync.timer` re-syncs every 5 min, nginx untouched (nothing public changed). Two traps fixed en
-route: `ssh` ignores `$HOME` (`/bugs_open/016`) and `scp -r` nests onto an existing destination.
-**Next: §3b–3e nginx cutover (the only step that changes what visitors see), Phase 4 tool deploy.**
+**§3a DONE 2026-07-18** — pull-sync live on the box (8 pages, 5-min timer, `OnBootSec` proven across a
+reboot). Traps fixed en route: `ssh` ignores `$HOME` (`/bugs_open/016`); `scp -r` nests onto an
+existing destination.
+**🎉 §3b–3e CUTOVER DONE 2026-07-18 14:55 UTC** — idea.uk now serves the chassis static site with all
+16 tool paths proxied; verified live from outside (homepage is the chassis build; `/op`'s 404 is the
+tool's own branded page, not a static miss; legal `.html` 301s work; `/nonexistent` 404s loudly;
+security headers intact). The live file is **`idea.conf`**; the staged config was rebuilt as a
+superset of setup.sh's template first — it had been dropping `proxy_read_timeout 930s`, `limit_req`,
+the port-80 block, IPv6, ssl_protocols and the security headers. RUNNING_NOTES §T.
+**Next: prove the money path (Stripe test event), confirm `proxy_read_timeout` landed, purge
+Cloudflare, Phase 4 tool deploy, SES bounce records.**
+⚠️ **`setup.sh` must not be re-run unmodified** — it rewrites `idea.conf` back to tool-only.
 §3b correction: static `terms.html`/`refund-policy.html` DO exist and footers link all three legal
 pages with `.html` — add 301s (`/terms.html → /terms` etc.) at cutover so the tool stays canonical.
 

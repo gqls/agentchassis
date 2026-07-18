@@ -531,6 +531,47 @@ all three legal pages**, closing that open decision — the staged config alread
 pending updates (1 security). Worth scheduling deliberately — a reboot during/just after cutover would
 muddy diagnosis, and the reboot also exercises `sitesync.timer`'s `OnBootSec`.
 
+## T — 2026-07-18 · 🎉 CUTOVER DONE — idea.uk is one site
+
+Reboot verified first (uptime 3min, `idea` active, 8 pages, `/health` 200, and the timer's last run
+1 min after boot = `OnBootSec` proven). Then `nginx -t` + reload → `CUTOVER_RELOADED` at 14:55 UTC.
+
+**Live conf was `idea.conf`, not `idea.uk`** — chasing that (via `setup.sh`, which provisioned the box)
+caught that the staged config was a **downgrade**: it dropped `proxy_read_timeout 930s` ("the engine
+can take minutes" — reports would have died at nginx's 60s default, invisible to every smoke test),
+`limit_req`, the port-80 ACME+redirect block, IPv6 listeners, ssl_protocols, four security headers,
+`client_max_body_size`, and used the wrong ACME webroot. Rebuilt as a faithful superset (`c5357595b`),
+plus a separate `proxy_stripe.conf` because setup.sh deliberately exempts the webhook from
+rate-limiting (Stripe retries in bursts; a 503 reads as an outage). Live preamble confirmed as the
+plain `limit_req_zone $binary_remote_addr zone=idea_rl:10m rate=10r/s;` branch.
+
+**Verified live from outside, post-cutover:**
+- **Homepage is now the chassis site** — `<title>idea.uk — Where You Take an Idea Seriously</title>`
+  + `assets/css/styles.css`, not the tool's embedded page. *The workstream's goal, achieved.*
+- All **16 tool paths reach the tool**: 200 health/capacity/order·success/cancel/terms/refund/privacy,
+  405 audience-check + request, 400 subscribe + stripe/webhook, 401 confirm/approve/decline/internal·run.
+- **`/op` 404 is the TOOL's**, not a static miss — body is its branded `<title>Link not valid ·
+  idea.uk</title>`; a real static 404 is nginx's plain page (checked `/definitely-not-here`).
+  *Distinguishing these by body, not status, is the check that makes a 404 in this list safe.*
+- Static: `/`, index/about/tools/report/contact, `/guides/`, `/news/` all 200; `/nonexistent-xyz` 404
+  (loud, as designed). Legal 301s: `/terms.html`→`/terms`, `/refund-policy.html`, `/privacy.html`. ✓
+- Security headers intact (HSTS, nosniff, SAMEORIGIN, referrer-policy).
+
+**Process note (honest):** the port-8443 rehearsal was skipped — the swap went straight to live. It
+came out clean and the post-cutover checks above cover the same ground, but the rehearsal existed so
+a mistake would have been free rather than public. Rollback stayed one command away throughout.
+
+**Still open after cutover:** (1) confirm the deployed `proxy_tool.conf` really carries
+`proxy_read_timeout 930s` (the earlier stale-copy incident makes this worth an explicit grep — a
+missing timeout is invisible until a real paid run); (2) **the money path is not yet proven** — send a
+Stripe test event and watch `journalctl -u idea`; (3) purge the Cloudflare cache; (4) tool binary
+deploy; (5) SES bounce records. Cosmetic: `listen … http2` deprecation warnings, inherited from
+setup.sh's template, predate this change.
+
+**Standing landmine recorded:** `idea.conf` is headed "managed by setup.sh — do not edit by hand".
+Re-running `setup.sh` now **reverts the site to tool-only** and does `ufw --force reset`. Port these
+server blocks into its stage-2 template before any re-provision.
+
 ## Open decisions
 
 - ~~`/privacy` — tool or static?~~ **RESOLVED 2026-07-18 (owner): the tool keeps all three legal
