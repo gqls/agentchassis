@@ -77,10 +77,9 @@ Candidates (a) and (b) below were **built by other threads** while this case was
 open. Verified by this thread rather than rebuilt:
 
 - **(a) completeness guard — BUILT.** `platform/orchestration/actions/component_write_guard.go`
-  (`componentRegressionIssues`), wired into `update_component_html_action.go:146`
-  — the exact path that destroyed this component — and into
-  `store_generated_component`. On a blocked write it hard-errors: component left
-  untouched, step fails so `error_step` routes to `needs_human_review`, and a
+  (`componentRegressionIssues`), wired into `update_component_html_action.go`
+  — the exact path that destroyed this component. On a blocked write it
+  hard-errors: component left untouched, step fails, and a
   structured row lands in `agent_error_log`
   (`error_code='component_write_regression_blocked'`). The
   `allow_structural_regression` escape hatch is step-config-only, so an agent
@@ -93,6 +92,40 @@ open. Verified by this thread rather than rebuilt:
 - **(b) truncation detection — BUILT.** `f32b208e5` decodes `stop_reason` /
   `done_reason` in `GenerateText` and hard-errors on a capped completion
   (`bugs_open/008`). Council-reviewed.
+
+> **CORRECTED 2026-07-18** by the thread that wrote the guard. The section above
+> was written by a second thread which found the guard's code **uncommitted in
+> the shared working tree**, assumed another thread had finished it, and
+> reasonably inferred the rest. (Its independent verification against the real
+> stored artifacts stands and is valuable — that part is confirmed.) Two claims
+> were wrong:
+>
+> **(i) The guard is wired into `update_component_html` ONLY** — not into
+> `store_generated_component`. The birth path keeps its own separate,
+> schema-shaped gate. A proposed consolidation of the two recorders was
+> **withdrawn** after the council gate's edit-quality and guardian seats objected
+> that it was scope creep on working code; see the NOTE in
+> `store_generated_component_action.go`.
+>
+> **(ii) There was NO `error_step` routing to `needs_human_review`.**
+> `tool-improver`'s `update_component` step had `error_step = null`, so a refusal
+> would reach `failWorkflow`: orchestration FAILED, work item left to the reaper,
+> **no note** — a thread reading that would see a generic failure, not "a fix was
+> rejected as mangled". Migration **`169_tool_improver_refusal_path.sql`** adds
+> that route (`refuse_mangled_write` → `note_refusal` → `complete`, both reading
+> `__step_error.message` so the recorded reason is the guard's own).
+> **169 is NOT YET APPLIED.** Until it is, the guard prevents the destruction but
+> the outcome is still a bare orchestration failure.
+>
+> *What caught it:* writing 169 required dumping the live `tool-improver` step
+> graph, which showed the null `error_step`.
+
+**Guard committed** `cc7bcc881`; council revisions `f485eb8cb` (gate correlation
+`e8827490-764a-4c90-b4db-72e358f9be87`). **Follow-up filed as `bugs_open/021`**:
+the guard covers this one write path, while `page_components.rendered_html` and
+`pages.rendered_header/footer/head` share the same unguarded overwrite shape —
+raised by the council's bug-historian seat, which asked that a human confirm the
+follow-up exists before the next incident lands there.
 
 **Verified against the REAL artifacts of this incident** (not fixtures) —
 exported from `component_versions` + `tmp_loot_truncated_20260718` and run
