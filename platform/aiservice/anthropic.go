@@ -160,7 +160,8 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
-		Usage struct {
+		StopReason string `json:"stop_reason"`
+		Usage      struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
@@ -174,6 +175,10 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 	if options != nil {
 		options["__usage_input_tokens"] = response.Usage.InputTokens
 		options["__usage_output_tokens"] = response.Usage.OutputTokens
+	}
+
+	if response.StopReason == "max_tokens" {
+		return "", fmt.Errorf("response truncated: stop_reason=max_tokens (output_tokens=%d reached the configured cap); raise max_tokens or shorten the prompt", response.Usage.OutputTokens)
 	}
 
 	if len(response.Content) == 0 {

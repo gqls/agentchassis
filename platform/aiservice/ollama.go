@@ -133,6 +133,7 @@ func (c *OllamaClient) GenerateText(ctx context.Context, prompt string, options 
 			Content string `json:"content"`
 		} `json:"message"`
 		Model           string `json:"model"`
+		DoneReason      string `json:"done_reason"`
 		PromptEvalCount int    `json:"prompt_eval_count"`
 		EvalCount       int    `json:"eval_count"`
 	}
@@ -148,6 +149,10 @@ func (c *OllamaClient) GenerateText(ctx context.Context, prompt string, options 
 		if response.Model != "" {
 			options["__model_used"] = response.Model
 		}
+	}
+
+	if response.DoneReason == "length" {
+		return "", fmt.Errorf("response truncated: done_reason=length (context length cap reached); raise the context window or shorten the prompt")
 	}
 
 	return response.Message.Content, nil
