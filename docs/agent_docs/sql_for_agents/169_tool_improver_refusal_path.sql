@@ -44,14 +44,26 @@ DO $$
 DECLARE
   n int := 0;
 BEGIN
-  -- Guard: the step we are attaching an error route to must exist and must not
-  -- already have one (another thread may have wired this differently).
+  -- Idempotency gate. Re-running this migration must be a 0-row no-op, not a
+  -- silent re-apply of the same jsonb_set (needle-gate discipline; raised by
+  -- the council gate's debug-historian seat).
+  SELECT count(*) INTO n FROM agent_definitions
+  WHERE type='tool-improver' AND is_active
+    AND default_config #>> '{workflow,steps,update_component,error_step}' = 'refuse_mangled_write';
+  IF n > 0 THEN
+    RAISE NOTICE '169: already applied (% row(s) already route update_component to refuse_mangled_write) — no-op', n;
+    RETURN;
+  END IF;
+
+  -- Pre-condition: the step we are attaching an error route to must exist and
+  -- must not already have a DIFFERENT one (another thread may have wired this
+  -- its own way — in that case stop and let a human reconcile).
   SELECT count(*) INTO n FROM agent_definitions
   WHERE type='tool-improver' AND is_active
     AND default_config #> '{workflow,steps,update_component}' IS NOT NULL
     AND default_config #>> '{workflow,steps,update_component,error_step}' IS NULL;
   IF n <> 1 THEN
-    RAISE EXCEPTION '169: expected exactly 1 active tool-improver with update_component and no error_step, found %', n;
+    RAISE EXCEPTION '169: expected exactly 1 active tool-improver with update_component and no error_step, found % — reconcile by hand', n;
   END IF;
 
   UPDATE agent_definitions
@@ -94,7 +106,10 @@ BEGIN
           "error_step": "complete"
         }$json$::jsonb,
         true)
-  WHERE type='tool-improver' AND is_active;
+  WHERE type='tool-improver' AND is_active
+    -- Gated on the pre-state, so the UPDATE itself is a no-op on re-run
+    -- rather than relying on the guard above alone.
+    AND default_config #>> '{workflow,steps,update_component,error_step}' IS NULL;
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 1 THEN
     RAISE EXCEPTION '169: expected to update 1 tool-improver row, updated %', n;

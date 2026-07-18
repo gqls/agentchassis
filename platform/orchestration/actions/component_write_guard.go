@@ -48,6 +48,32 @@
 // than the row it would replace, never merely because the result is imperfect.
 // An absolute quality gate here would block legitimate repairs on exactly the
 // components most likely to need them — the already-broken ones.
+//
+// ---------------------------------------------------------------------------
+// Why this is not folded into the existing quality pipeline.
+// content_components already carries quality_score / quality_issues /
+// quality_checked_at, populated by compute_component_quality.go's
+// scoreComponent(), and store_generated_component gates the BIRTH path on it.
+// That machinery was read first and deliberately not extended here (the
+// question was put by the council gate's reuse seat):
+//
+//   - scoreComponent is ABSOLUTE and single-artifact — it scores one template
+//     against a contract. Every check here needs the row being REPLACED, which
+//     that signature has no access to. "Is this component good?" and "is this
+//     replacement worse than what it overwrites?" are different questions, and
+//     only the second one can be answered without blocking repairs.
+//   - Its structural check, TemplateClosed, requires open>0 balanced <section>
+//     tags. The component this bug destroyed opens on <style> and has no
+//     <section> at all, so TemplateClosed is false for it in BOTH the healthy
+//     and the wrecked state — it cannot separate them.
+//   - Its remaining checks are schema-shaped (placeholder counts, schema/
+//     template sync, stranded fields), which truncation does not disturb in
+//     any consistent direction.
+//
+// So this is not a second opinion on component quality; it is a narrower
+// question the quality pipeline does not ask. If scoreComponent ever grows a
+// comparative form, fold checks 2 and 3 into it and delete them here.
+// ---------------------------------------------------------------------------
 
 package actions
 

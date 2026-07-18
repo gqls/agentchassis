@@ -613,13 +613,31 @@ shipped a page with no markup and no JavaScript.
 
 **Fix — all three layers now exist (2026-07-18); (a) and (b) await an image roll.**
 (a) **A write-time completeness guard**, `component_write_guard.go`
-(`componentRegressionIssues`), wired into `update_component_html` and
-`store_generated_component`: on a structurally-worse replacement it hard-errors —
-row untouched, step failed, `error_code='component_write_regression_blocked'` in
-`agent_error_log`, `error_step` routing to `needs_human_review`. Three
-COMPARATIVE checks (size collapse <50% retained; unterminated
+(`componentRegressionIssues`), wired into `update_component_html`: on a
+structurally-worse replacement it hard-errors — row untouched, step failed,
+`error_code='component_write_regression_blocked'` in `agent_error_log`. Three
+COMPARATIVE checks — detailed below the correction.
+
+> **CORRECTED 2026-07-18** (by the thread that wrote the guard; the entry above
+> was written by a second thread that found the code uncommitted in the shared
+> tree and reasonably inferred the rest). Two claims were wrong:
+> **(i)** the guard is wired into `update_component_html` ONLY, not into
+> `store_generated_component` — the birth path keeps its own, separate,
+> schema-shaped gate, and a proposed consolidation of the two was dropped on
+> council objection (see the NOTE in `store_generated_component_action.go`).
+> **(ii)** there was NO `error_step` routing to `needs_human_review`:
+> `tool-improver`'s `update_component` step had `error_step = null`, so a refusal
+> would have reached `failWorkflow` — orchestration FAILED, item left to the
+> reaper, no note. Migration **169** supplies that route
+> (`refuse_mangled_write` → `note_refusal` → `complete`) and is **not yet
+> applied**. Until it is, the guard prevents the destruction but the outcome is
+> still a bare orchestration failure.
+> *What caught it:* writing the migration required dumping the live
+> `tool-improver` workflow step graph, which showed the null `error_step`.
+
+The three checks: size collapse <50% retained; unterminated
 `<script>/<style>/<section>` where the current row was balanced; a mid-token tail
-where the current row ended on a closed tag), each gated on *truncation cannot
+where the current row ended on a closed tag — each gated on *truncation cannot
 grow an artifact*, and calibrated against all 29 live `component_versions`
 transitions (1 block, 0 false positives). Verified against this incident's REAL
 artifacts: the 1,253-char wreck blocked on all three; the 6,771-char intermediate
@@ -904,15 +922,32 @@ describe never changes. The item's own `result` holds the confession:
 Y requires a topic'`.
 
 **Mechanism, leg 1 (the misleading error).** Workflow validation
-(`platform/validation/workflow.go:80`) classifies any action it does not find in
-`actioncheck.IsLocalAction` as *remote* and demands a Kafka `topic`. That list
-(`actioncheck/local_actions.go`) is hand-maintained and marked DEPRECATED in its own
-header, while `actions/registry.go:1866` has a registry-backed `IsLocalAction` the
-validator does not use. So "requires a topic" almost never means a topic is missing —
-it means **the action was never registered**. `fix_forced_text_colors` is the proven
-case: handler + input spec written, present in NEITHER list (same never-registered
-family as `checkpoint_for_review`, and the same two-hand-rosters drift class as the
-council seats).
+(`platform/validation/workflow.go:69,80`) classifies any action it does not find in
+`actioncheck.IsLocalAction` as *remote* and demands a Kafka `topic`. So "requires a
+topic" almost never means a topic is missing — it means **the action was never
+registered**. `fix_forced_text_colors` is the proven case: handler + input spec
+written, no `GlobalActionRegistry` entry (same never-registered family as
+`checkpoint_for_review`, registered by another thread in `0540698a4`).
+
+> **CORRECTION (2026-07-18, the thread that fixed it).** The first version of this
+> entry — and `bugs_open/017` — blamed *two hand-maintained rosters drifting*:
+> `registry.go` versus the DEPRECATED `actioncheck/local_actions.go` list. **That was
+> wrong.** `actioncheck.IsLocalAction` (`actioncheck.go:20`) delegates to a checker
+> that `registry.go` installs at `init`; the `LocalActions` map's own lookup was
+> commented out (`local_actions.go:185-188`) and the map had **zero live references
+> repo-wide**. There was only ever ONE live list. The dead map has now been deleted,
+> along with the `batch_webscrape_action.go` header comment instructing authors to
+> "add to TWO places" — the comment that seeded the belief and survived to misdirect
+> this very diagnosis. **The transferable lesson is the sharper one:** when a
+> deprecated-looking list sits next to a live one, confirm which one the caller
+> actually reaches before theorising about drift — `grep` the symbol for live
+> references. A plausible story about two rosters cost more than reading the ten-line
+> delegation would have.
+
+**Prevention (shipped).** `actions/registry_parity_test.go` fails the build if any
+action registering an `ActionInputSpec` has no `GlobalActionRegistry` entry, with an
+explicit `dormantActions` allowlist for the deliberately-unreachable ones — so the
+next orphan is a red test, not a production silence.
 
 **Mechanism, leg 2 (the lie).** `CompleteWorkItemAction`
 (`load_work_item_actions.go` ~735-800) verifies before completing only for item
@@ -920,16 +955,38 @@ types with a registered verifier, and never reads the response it stores: a payl
 whose own `status` is `failed` is written next to `status='complete'` in one UPDATE.
 The item_key dedup then suppresses re-detection — churn that reads as progress.
 
+The root confusion is **two different `status` fields one level apart**. The envelope's
+`response_status` is set to `'complete'` by the coordinator (`coordinator.go:2398-99`)
+whenever *any* reply arrives — it records **delivery**. The saga's own verdict lives at
+`response.status`. Reading the outer one as success is the bug. Generalise it: *whenever
+a stored envelope wraps a payload, name which layer you are trusting.*
+
+**Fixed (2026-07-18), leg 2 is now guarded.** `handlerReportedFailure`
+(`complete_work_item_verification.go`) blocks completion when `response.status` is
+`failed`/`failure`/`error`, routing the item into the existing attempt machinery
+(`attempt_count+1` → `triaged`, or `failed` at max attempts) instead of `complete`.
+Deliberately keyed on an explicit failure verdict and **not** on the presence of
+`response.error`, because handlers legitimately carry a non-fatal error string beside a
+successful outcome. The predicate was chosen against live data, which is the reusable
+move: `GROUP BY response.status` over completed items returned 2905 rows with no
+`response.status` at all and 54 with `failed`, and nothing in between — a guard with a
+measured empty gap between the two populations cannot mis-fire on the success path.
+
 **Diagnose in one query.** `SELECT id, item_type FROM site_work_items WHERE
 status='complete' AND result->'response'->>'status'='failed';` — any row is this
-class. And when you see "requires a topic": grep BOTH registries for the action name
-before touching topics.
+class. On 2026-07-18 it returned **54 rows across 6 sites and 4 item types**, back to
+May; the filed case had spotted 2. After the guard ships this should only ever return
+rows predating the deploy. And when you see "requires a topic": grep
+`GlobalActionRegistry` for the action name before touching topics.
 
-**Cross-refs.** `bugs_open/017` (case + fix candidates: register once, reconcile the
-validator to the registry-backed list, and make complete_work_item treat a failed
-response as a failed attempt). Kin: "Trust the rendered artefact, not the status"
-(§ durable invariants) — this is the mechanical version for work items. Category
-tags: `never-registered-action`, `two-roster-drift`, `false-complete`.
+**A second cause reaches the same query.** One of the 54 was `render_js_snippets`
+where the registry has `render_js_snippets_for_site` — a **seed naming an action that
+does not exist**, not an unregistered action. Registration fixes one; only the leg-2
+guard covers both. Fix the class, not the instance.
+
+**Cross-refs.** `bugs_open/017` (case, now closed). Kin: "Trust the rendered artefact,
+not the status" (§ durable invariants) — this is the mechanical version for work items.
+Category tags: `never-registered-action`, `false-complete`, `envelope-vs-payload`.
 
 ### A command that reads stdin truncates the `while read` loop that calls it (2026-07-18)
 
@@ -1006,6 +1063,51 @@ that switch?* Two cheap greps (the switch, and the deployed model/env var) answe
 **Cross-refs.** `bugs_open/011` (routing fix, legibility guard, evidence-base-driven figures).
 Category tags: `dispatch-table-not-output`, `expired-generalisation`, `unused-lane`,
 `request-specificity`.
+
+### A dispatch table's `default:` branch is a silent bug factory — the same one, once per new enum value (2026-07-18)
+
+**Symptom.** The same class of defect ships two or three times, months apart, each found by a
+human noticing a bad artefact rather than by any signal. Each instance looks like a one-off
+oversight ("nobody added this case"), so each is fixed by adding one more case to the switch.
+
+**What it actually was (2026-07-18, imagery provider routing).** Provider selection was a
+hand-maintained `switch` on `kind` whose `default:` fell to the weaker provider. `content_hero`
+was never added → shipped mis-routed. `hero` was never added → shipped a gibberish diagram as a
+client homepage, and it was the **largest** kind on the fleet (84 of 155 planned images). The
+switch's own comment already blamed itself in writing — *"a new kind that nobody adds to the
+Banana branch falls to Stability… with no error anywhere"* — and the next fix was still going to
+be "add `hero` to the list". The defect is not the missing case. **The defect is that a missing
+case is indistinguishable from a deliberate one.**
+
+**The transferable pattern.** A `default:` branch that silently produces *degraded but valid*
+output is unfalsifiable at runtime: nothing can tell "routed here on purpose" from "nobody ever
+routed this". Fix the mechanism, not the instance — **make the handled set enumerable data**
+(a map, not switch cases), so the code can ask *"is this value actually routed?"* and say so
+when it isn't. Adding a value stays a code change; **forgetting to stops being silent.**
+
+**Getting the guard right.**
+- **Warn on the unhandled case, not on the fallback itself.** Here, an *empty* kind is a
+  documented legacy path that legitimately uses the fallback, so it must not warn — a warning
+  that fires constantly is one nobody reads, which is how you lose the signal you just built.
+- **Name the value and list the valid set in the log line.** Whoever reads it at 2am should not
+  need to open the source to learn what was expected.
+- **Still route.** An unknown value must be *visible*, not fatal — degrade and shout.
+- **A log line is the floor, not the finish.** Detection that lives only in process logs still
+  depends on someone tailing the right pod. The durable form is a row in `agent_error_log` or a
+  `site_work_item`. **Trap:** if the detecting service has no DB handle (adapters here don't),
+  do **not** relocate the detection to a service that does — separate services run separate
+  images, so the second copy of the table drifts from the deployed one. Have the deciding
+  service *report* the condition and let the one with the DB persist it.
+
+**How to find these before they bite.** Grep for `default:` in provider/handler/renderer
+selection and ask of each: *if a new enum value reached this, what would tell me?* If the answer
+is "a human eventually looks at the output", it is this bug, already written and waiting.
+
+**Cross-refs.** `bugs_open/011` §6 (the fix, and the persistence still owed);
+"A capability the platform already has…" above (the same routing table seen from the diagnosis
+side); "Every keyed work-item insert fails 42P10…" (the sibling failure where two hand-maintained
+lists drift apart). Category tags: `silent-default`, `enumerable-not-switch`,
+`degraded-not-failed`, `fix-the-mechanism-not-the-instance`.
 
 ### One image tag, two services, different vintages — verifying the service you CHANGED does not verify the service you DEPEND ON (2026-07-18)
 
@@ -1106,7 +1208,7 @@ candidates. Read the file before acting — several are already fixed.
 | 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | diagnosed; fix + fleet sweep open |
 | 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
 | 011 | `kind:"hero"` routes to SDXL (cannot render text); the Gemini infographic lane works and was unused | open |
-| 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard + stop_reason BUILT, await image |
+| 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard COMMITTED `cc7bcc881` + stop_reason `f32b208e5`, await image; refusal-routing migration 169 NOT yet applied |
 | 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | filed; fix candidate (format at commit-prep) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
@@ -1115,6 +1217,7 @@ candidates. Read the file before acting — several are already fixed.
 | 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | filed; both legs open |
 | 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | filed; fix candidates in 019 |
 | 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
+| 021 | The 012 completeness guard covers ONE write path; `page_components.rendered_html` and `pages.rendered_*` have the same unguarded overwrite shape | filed (council bug_historian objection); needs scope decision |
 
 ### A recreated tool with no data source invents its own records — and says so in a comment (2026-07-18)
 

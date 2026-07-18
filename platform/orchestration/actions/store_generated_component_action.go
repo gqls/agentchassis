@@ -1255,6 +1255,11 @@ func recordValidationRejection(
 		}
 	}
 
+	// Pull context from the action params.
+	workItemID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.work_item_id")
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.site_id")
+	domain := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.domain")
+
 	contextPayload := map[string]interface{}{
 		"function":                functionName,
 		"section_type":            sectionType,
@@ -1272,6 +1277,11 @@ func recordValidationRejection(
 		"blocking_issues":         blockingIssues,
 		"all_issues":              score.QualityIssues,
 	}
+	contextJSON, _ := json.Marshal(contextPayload)
+	if contextJSON == nil {
+		contextJSON = []byte("{}")
+	}
+
 	errorMessage := fmt.Sprintf(
 		"component validation rejected for function=%q section_type=%q: %s",
 		functionName, sectionType, strings.Join(blockingIssues, "; "))
@@ -1284,20 +1294,45 @@ func recordValidationRejection(
 		errorCode = "component_validation_unknown_template_var"
 	}
 
-	// Shared insert (component_write_guard.go) — the update path records
-	// rejections the same way, and one insert means one place for the
-	// agent_error_log column contract to be right. Provenance is passed
-	// explicitly rather than hardcoded in the helper, so a row always names
-	// the writer that actually refused.
-	recordComponentWriteRejection(
-		ctx, db, logger, params,
-		actionProvenance{
-			AgentType: "component-creator",
-			StepName:  "store_component",
-			Action:    "store_generated_component",
-		},
-		errorMessage, errorCode, severity, contextPayload,
+	// NOTE: component_write_guard.go carries a near-identical insert
+	// (recordComponentWriteRejection) for the UPDATE path. Consolidating the
+	// two was proposed and deliberately dropped: the council gate's
+	// edit-quality and guardian seats both objected that refactoring this
+	// BIRTH-path recorder is not required by the bug being fixed (the 012
+	// wreck happened on the update path; this guard worked correctly), and
+	// that a provenance-literal slip here would silently misfile birth-path
+	// rejections fleet-wide. Left standing on purpose — the duplication is
+	// cheaper than the blast radius.
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO agent_error_log (
+			site_id, domain, work_item_id, orchestration_id,
+			agent_type, agent_id, pod_name, step_name, action,
+			error_message, error_code, severity, context
+		) VALUES (
+			NULLIF($1, '')::uuid, $2, NULLIF($3, '')::uuid, $4,
+			$5, $6, $7, $8, $9,
+			$10, $11, $12, $13::jsonb
+		)
+	`,
+		siteID,
+		domain,
+		workItemID,
+		params.ExecutionContext.OrchestrationID,
+		"component-creator",
+		params.ExecutionContext.Sender.AgentID,
+		params.ExecutionContext.Sender.PodName,
+		"store_component",
+		"store_generated_component",
+		errorMessage,
+		errorCode,
+		severity,
+		string(contextJSON),
 	)
+	if err != nil {
+		logger.Warn("recordValidationRejection: failed to write to agent_error_log",
+			zap.Error(err),
+			zap.String("function", functionName))
+	}
 }
 
 // deriveRenderMode inspects a JSON-encoded input_schema and returns "agent"
