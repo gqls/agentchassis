@@ -119,6 +119,14 @@ func TestStyleGuideKindOverrides(t *testing.T) {
 	if keys := g.referenceKeysForKind("sprite_sheet"); len(keys) != 1 || keys[0] != "sprite_master" {
 		t.Errorf("referenceKeysForKind(sprite_sheet override) = %v", keys)
 	}
+	// ...but logo stays locked in ALL THREE accessors, override or not.
+	g.Kinds["logo"] = imageryStyleGuideKindOverride{
+		Avoid:              "anything",
+		ReferenceAssetKeys: []string{"hero_canonical"},
+	}
+	if keys := g.referenceKeysForKind("logo"); keys != nil {
+		t.Errorf("referenceKeysForKind(logo with override) = %v, want nil — logos are locked", keys)
+	}
 
 	// Nil guide is safe across all accessors.
 	var nilGuide *imageryStyleGuide

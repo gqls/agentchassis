@@ -118,6 +118,29 @@ func parseQueryName(name string) (base, arg string) {
 	return name[:idx], name[idx+1:]
 }
 
+// ListedPageEligibilitySQL is the ONE definition of "this page actually
+// shipped" — a WHERE-clause fragment requiring the alias `p` for pages.
+//
+// It exists as a shared constant, not as two hand-copied strings, because the
+// article listing and the imagery sweep that decides which articles get images
+// MUST agree on which articles exist. If they drift, the failure is silent in
+// both directions: image-generation credits spent on pages nobody can reach,
+// or listed pages that never get an image. That is the same shape as the
+// dedup-index ↔ workItemTerminalStatuses contract this platform has already
+// paid for once, so the two consumers (here and
+// discovery_checks.ContentImageMissingCheck) share the literal.
+//
+// jsonb_typeof guards the length call: jsonb_array_length raises a Postgres
+// ERROR on an object-shaped value — which would abort the whole sweep for a
+// site rather than skip one bad row — and returns NULL (silently falsy, a
+// silent-drop) when sections is NULL. Every one of the 269 live pages is
+// array-shaped today; the guard is here so one malformed row can never take a
+// site's listing or imagery loop down with it.
+const ListedPageEligibilitySQL = `
+		  AND p.deployed_at IS NOT NULL
+		  AND jsonb_typeof(p.sections) = 'array'
+		  AND jsonb_array_length(p.sections) > 0`
+
 // pageImageProjection / pageImageJoins are the shared SQL fragments that give
 // every page-listing query its item image (Phase I3, Lane B). Two candidates,
 // in preference order:
@@ -233,9 +256,7 @@ func resolvePagesWhereType(
 
 	eligibility := ""
 	if listedOnly {
-		eligibility = `
-		  AND p.deployed_at IS NOT NULL
-		  AND jsonb_array_length(p.sections) > 0`
+		eligibility = ListedPageEligibilitySQL
 	}
 	rows, err := db.QueryContext(ctx, `
 		SELECT

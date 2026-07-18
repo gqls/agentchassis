@@ -40,6 +40,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/imageryplan"
 	"go.uber.org/zap"
 )
@@ -120,13 +121,12 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 	// Sweep every listed-type page's imagery state in one query. The inline
 	// 'content_hero_' || replace(...) MUST match imageryplan.ContentHeroKey.
 	//
-	// Eligibility (F2.1, 2026-07-17): only articles that actually shipped —
-	// deployed_at set AND real section content. Plan-era scaffold rows and
-	// never-built /blog/ duplicates sit status='active' with empty sections;
-	// generating imagery for them is wasted spend on pages that 404. This
-	// predicate MUST stay in lockstep with queryresolve's blog_posts base
-	// (resolvePagesWhereType listedOnly) — the listing and the imagery sweep
-	// must agree on which articles exist.
+	// Eligibility (F2.1, 2026-07-17): only articles that actually shipped.
+	// Plan-era scaffold rows and never-built /blog/ duplicates sit
+	// status='active' with empty sections; generating imagery for them is
+	// wasted spend on pages that 404. The predicate is queryresolve's shared
+	// constant, not a copy: the listing and this sweep must agree on which
+	// articles exist, and two hand-maintained strings would drift silently.
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT p.id::text, p.name,
 		       COALESCE(p.title, p.name)          AS title,
@@ -153,9 +153,8 @@ func (c *ContentImageMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 		   AND ca.entity_id = p.id AND ca.purpose = 'card' AND ca.status = 'active'
 		 WHERE p.site_id = $1
 		   AND p.page_type = 'blog-post'
-		   AND p.status IN ('active', 'deployed')
-		   AND p.deployed_at IS NOT NULL
-		   AND jsonb_array_length(p.sections) > 0
+		   AND p.status IN ('active', 'deployed')`+
+		queryresolve.ListedPageEligibilitySQL+`
 		 ORDER BY p.name
 	`, dctx.SiteID)
 	if err != nil {

@@ -195,7 +195,13 @@ func (g *imageryStyleGuide) avoidForKind(kind string) string {
 // the directionAppliesToKind gate (implicit anchors are the site's
 // photographic heroes, wrong for flat-vector kinds).
 func (g *imageryStyleGuide) referenceKeysForKind(kind string) []string {
-	if g == nil {
+	if g == nil || kind == "logo" {
+		// Logos stay locked in all three accessors, override or not: a logo is
+		// generated once, human-approved and then frozen, and anchoring it to
+		// other brand imagery is how it drifts. directionForKind and
+		// avoidForKind both suppress logo; this one did not, which would have
+		// let a stray kinds.logo entry feed it anchors (council gate 098b29b8,
+		// editquality).
 		return nil
 	}
 	if o, ok := g.Kinds[kind]; ok {

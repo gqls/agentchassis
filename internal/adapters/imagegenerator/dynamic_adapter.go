@@ -547,6 +547,18 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 		p = a.stabilityProvider
 	}
 
+	// Fail loud when anchors are about to be silently dropped. The routing
+	// switch is hand-maintained: a new kind that nobody adds to the Banana
+	// branch falls to Stability, which ignores ReferenceImageURIs entirely —
+	// so brand anchoring stops working with no error anywhere. That is how
+	// content_hero shipped mis-routed (council gate 098b29b8, bug_historian).
+	if len(req.ReferenceImageURIs) > 0 && p != a.bananaProvider {
+		a.logger.Warn("generateImage: reference images will be IGNORED by this provider — kind is routed to a provider that cannot honour style anchors; add it to the banana branch if anchoring is intended",
+			zap.String("kind", data.Kind),
+			zap.String("provider", p.Name()),
+			zap.Int("reference_count", len(req.ReferenceImageURIs)))
+	}
+
 	a.logger.Info("generateImage: dispatching to provider",
 		zap.String("kind", data.Kind),
 		zap.String("provider", p.Name()),
