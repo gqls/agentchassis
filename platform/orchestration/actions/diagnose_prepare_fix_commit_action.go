@@ -37,7 +37,7 @@ var DiagnosePrepareFixCommitInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"fix_correlation_id"},
 	Optional: []string{
 		"plan_field", "files_field", "originals_field",
-		"diagnosis_field", "council_field", "repo_name", "base_branch",
+		"diagnosis_field", "council_field", "repo_name", "base_branch", "base_branch_field",
 		"branch_field", "commit_message_field", "expected_symbols_field",
 	},
 	Defaults: map[string]interface{}{
@@ -171,6 +171,16 @@ func DiagnosePrepareFixCommitAction(ctx context.Context, params ActionParams) (i
 	branch := "fix/" + short
 	repoName := datahelpers.GetStringField(config, "repo_name", "agentchassis")
 	baseBranch := datahelpers.GetStringField(config, "base_branch", "main")
+	// F1.2: a per-run base branch wins over the literal when configured, mirroring
+	// read_current_files' ref_field — so the implementer bases the fix branch and
+	// PR on the branch the run names (input_data.base_branch), not a literal that
+	// goes stale the moment the active branch moves. Unset/unresolvable keeps the
+	// literal default (main).
+	if bf := datahelpers.GetStringField(config, "base_branch_field", ""); bf != "" {
+		if v := strings.TrimSpace(datahelpers.ExtractNestedFieldString(params.CollectedData, bf)); v != "" {
+			baseBranch = v
+		}
+	}
 
 	commitMessage := fmt.Sprintf("fix(%s): %s\n\nAutomated fix-implementer commit for diagnosis %s.\nPlan approved by the review council; human review terminal — do not merge without review.",
 		short, firstSentence(plan.Summary), corr)
