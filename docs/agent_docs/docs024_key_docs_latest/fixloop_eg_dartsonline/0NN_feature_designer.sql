@@ -464,7 +464,7 @@ SELECT
             'prompt_template',
 '# PROMPT — REVISE the staged build plan' || chr(10) || chr(10) ||
 'A council reviewed your previous staged plan and asked for revision. Produce a NEW full plan (same staged-v1 JSON schema) that addresses every objection and covers every capability listed missing. You still write no code — you name stages and edits.' || chr(10) || chr(10) ||
-'The SAME hard rules apply: only code_pointers paths or files this plan adds; stages are commits; caps (6 stages / 8 per stage / 24 total); seeds are files with an image-before-seed checklist; platform not site data; minimal; grounded in the spec; every edit CHANGES something.' || chr(10) || chr(10) ||
+'The SAME hard rules apply: only code_pointers paths or files this plan adds; stages are commits; caps (6 stages / 8 per stage / 24 total); seeds are files; platform not site data; minimal; grounded in the spec; every edit CHANGES something. CHECKLIST ACTS ARE A CLOSED SET: image_deploy | seed_apply | verify — NEVER invent a new act name. A pre-apply confirmation (e.g. "confirm the image carries X") is a verify entry ordered BEFORE the seed_apply; image_deploy is required only when the plan ships code edits.' || chr(10) || chr(10) ||
 '## The approved spec' || chr(10) || '{{.spec_row.summary}}' || chr(10) || '{{.spec_row.spec_text}}' || chr(10) || chr(10) ||
 '## Your previous plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Edit-quality reviewer said' || chr(10) || '{{.review_editquality.result}}' || chr(10) || chr(10) ||
@@ -499,7 +499,7 @@ SELECT
 'The council REJECTED your staged plan outright — the guardian judged it architecture-level change (or live-state mutation) dressed as a contained build. Do NOT resubmit the same shape: it will be vetoed again. Produce ONE of:' || chr(10) || chr(10) ||
 '(a) a STRICTLY NARROWER staged plan the guardian could accept — prefer the reviewer''s own recommended alternative if its review names one; fewer stages, smaller blast radius, every DB-side artifact a seed file; or' || chr(10) || chr(10) ||
 '(b) if no contained build exists at all, a plan whose only stages are the minimal safe preparatory steps, with risks stating plainly which decision the architecture review must take.' || chr(10) || chr(10) ||
-'Same staged-v1 schema and remaining hard rules: only code_pointers paths or files this plan adds; caps; image-before-seed checklist; grounded in the spec; every edit CHANGES something.' || chr(10) || chr(10) ||
+'Same staged-v1 schema and remaining hard rules: only code_pointers paths or files this plan adds; caps; grounded in the spec; every edit CHANGES something. CHECKLIST ACTS ARE A CLOSED SET: image_deploy | seed_apply | verify — never invent a new act name; a pre-apply confirmation is a verify entry ordered before seed_apply; image_deploy only when the plan ships code edits.' || chr(10) || chr(10) ||
 '## The approved spec' || chr(10) || '{{.spec_row.summary}}' || chr(10) || '{{.spec_row.spec_text}}' || chr(10) || chr(10) ||
 '## Your VETOED plan' || chr(10) || '{{.plan_persisted.plan_json}}' || chr(10) || chr(10) ||
 '## Edit-quality review' || chr(10) || '{{.review_editquality.result}}' || chr(10) || chr(10) ||

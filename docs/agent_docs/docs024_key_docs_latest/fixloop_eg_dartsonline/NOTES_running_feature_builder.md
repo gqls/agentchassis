@@ -266,4 +266,46 @@ owner's per-run credit go. Score so far: 2 fires, 0 council spends, 2 real
 defects found and fixed (1 prompt-steer, 1 validation) — the cheap gates
 are doing exactly their job.
 
+## Turn 9 — 2026-07-18 — Run 3: plan PERSISTED, the five-seat council ran for the first time, one steer gap left
+
+New image v1.0.1135 verified (carries the D4 refinement); owner's
+image-landed message = the agreed go; fired run 3 (correlation `f7806376`,
+orchestration `a6d1d6d3`).
+
+**The furthest run yet, and the first council exercise ever:**
+1. Plan persisted (kind=fix_plan, 1 stage — the D4 seed-only fix proven live).
+2. ALL FIVE seats reviewed, valid JSON, genuinely distinct catches:
+   editquality OBJECT (sketch used non-existent `definition` column — it's
+   `default_config`; invented `base_branch_field` key would be silently
+   ignored); **bug-historian OBJECT — the charter's first real exercise,
+   on-target**: applied pattern #7 (missingkey=zero) to the seed's new field
+   paths + flagged the ON CONFLICT overwrite shape, demanded fail-loud;
+   reuse-agent APPROVE (seams reused, nothing parallel); guidelines APPROVE
+   with an input_contract hygiene NOTE (the FIX-016 meta-rule working as
+   designed — did not block a correct plan); guardian OBJECT below veto
+   (same schema mismatches independently + mid-flight activation ownership).
+3. council_decide → revise; router → run_checks (reviewers' SQL EXECUTED) →
+   repropose.
+4. The REVISED plan failed validation: checklist act `image_check` invented —
+   the act set is closed but the repropose/reframe prompts never restated it.
+   complete_refused; round-1 artifacts survive on the correlation.
+
+**Fix applied + live:** repropose AND reframe prompts now state the closed
+act set (image_deploy|seed_apply|verify; pre-apply confirmation = a verify
+entry ordered before seed_apply). Designer seed re-applied (snapshotted).
+
+**Cross-thread drift, flagged not actioned:** the fix-proposer's council is
+now THIRTEEN seats (2 always-on + 11 gated via the relevance filter,
+migrations v6–v18) — my designer's always-on 5-seat chain is an architecture
+generation behind, not just a roster behind. Run 3 shows 5 always-on works;
+adopting the gated architecture is a seed-only change (the filter Go is in
+the running image) but it is the OWNER's call, post-pilot. Also noted
+precisely: run 3 exercised the bug-historian CHARTER (this workflow's copy);
+the fix-proposer's own seat instance is still unexercised (their BUG A
+dispatch remains their first test).
+
+Score: 3 fires, 1 council round spent, 3 defects found (2 steer, 1
+validation) — each caught by the cheapest gate that could catch it. Next
+fire should carry the revision through validation into council round 2.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
