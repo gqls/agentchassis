@@ -858,3 +858,78 @@ commoner one, and it is now measurable.**
 concurrently. A serial consumer at roughly one orchestration per couple of minutes, with a backlog
 that grew while being watched, means *every* thread's dispatch latency is a function of how many
 other threads are firing. Worth its own bug file; noted here because it changed how this task ran.
+
+### §X.2 — chrome templates fixed and driven; both council rounds voided by bugs_open/019 (2026-07-19)
+
+> **CORRECTION to §X.1.** I wrote there that "production is outpacing consumption by roughly an
+> order of magnitude", from a 2.5-minute sample (lag 41→62, offset +1). **Too strong.** Over the
+> following ~35 minutes lag went 41 → 62 → **24**, and the consumer cleared 133 messages. The queue
+> is **bursty, not diverging** — it drains, but head-of-queue age (~26 min) is the real symptom.
+> Corrected figures live in `/bugs_open/030`. What caught it: continuing to sample instead of
+> filing the first reading.
+
+**THE FIX IS APPLIED (DB, live at next render).** `sql/p3_01_chrome_templates_gated.sql`:
+both templates rewritten against the renderer's actual vocabulary, **every anchor gated**, CSS
+preserved verbatim except the footer grid (`2fr 1fr 1fr 1fr` → `2fr 1fr 1fr`, since 3 hardcoded
+link columns became 2 data-driven ones). `input_schema` rewritten to match. `sites.logo_url` set to
+`/assets/images/logo.jpg` (asset served 200; column was empty). Originals backed up beside the SQL.
+
+**Verified BEFORE applying, not after** — rendered both templates through `text/template` with
+`Option("missingkey=zero")`, the same engine as `executeGoTemplate` (`call_agent.go:1150-1152`),
+against live-shaped data (`scratchpad/tplcheck/main.go`):
+
+| case | empty href/src |
+|---|---|
+| full data (6 nav items, cta_url, logo set) | **0** |
+| logo_url empty (today's data) | **0** |
+| **renderer supplies NOTHING at all** | **0** — only the literal `/` logo link survives |
+
+That last row is the point: correct-or-absent (LNK-005) now holds **by construction**, not by the
+data happening to be present.
+
+**Driving it.** Reused the existing `needs_rerender` item `dce4e4ac` (spec already carried
+`refresh_site_components:true` + all 9 pages) rather than inserting a duplicate — it was stuck at
+`status='detected'` and the loader only consumes `('triaged','approved')`
+(`load_work_item_actions.go:559`). Promoted it and **corrected its false stated reason** in the same
+write (`sql/p3_02`), keeping the old text as `superseded_reason` so nobody re-acts on it. Also fired
+an explicit dispatch, `scripts/initial_messages/001_assemble_all_pages_rerender/081e_rerender_pages_for_idea.uk.sh`
+(orchestration `c6179a53`, published 13:32:37Z).
+
+⚠️ **`refresh_site_components:true` is load-bearing.** Without it the run reassembles from the
+STORED `site_components.rendered_html`, which still holds the broken chrome —
+`renderAndStoreSiteComponent` skips a slot that already has `rendered_html` unless forced
+(`render_site_components_action.go:468-483`). A rerender without that flag would look like it
+worked and change nothing.
+
+**NOT YET VERIFIED LIVE.** At the time of writing `site_components` still hold the 2026-07-02
+`rendered_html` with `href=""`. The deployed pages have chrome **baked in**, so nothing changes on
+idea.uk until the rerender runs, deploys to `gqls/vm-sites`, and the box's `sitesync.timer` pulls
+(≤5 min). Verify against the artefact, never the item status:
+```bash
+curl -s https://idea.uk/ | grep -oE '<a href="[^"]*"' | sort | uniq -c | sort -rn   # want: no href="" rows
+curl -s https://idea.uk/ | grep -o 'header-logo-img[^>]*'                            # want: non-empty src=
+```
+
+**BOTH COUNCIL ROUNDS VOIDED — and not on the merits.** Runs `3e7f7507` (13:01) and `b8a0c8a5`
+(13:14) both ended `complete_invalid`. Cause, from `collected_data->>'__step_error'`:
+`response truncated: stop_reason=max_tokens (output_tokens=8000 reached the configured cap)`.
+That is `/bugs_open/019` — one truncated reviewer voids the whole round. Token log:
+
+| run | seat | ok | output | % of 8000 |
+|---|---|---|---|---|
+| 3e7f7507 | editquality | t | 7,296 | **91%** |
+| 3e7f7507 | bug_historian | t | 5,293 | 66% |
+| 3e7f7507 | reuse_agent | t | 3,352 | 42% |
+| 3e7f7507 | **guidelines** | **f** | — | truncated → void |
+| b8a0c8a5 | **editquality** | **f** | — | truncated → void |
+
+**A different seat failed each time on the byte-identical submission** — so this is several seats
+sitting just under the ceiling, not one pathological writer, and "shorten it until it passes" is not
+a reliable workaround. Appended to `/bugs_open/019` as its second reproduction. The panel *had*
+selected 6 relevant seats (render, debugging, compliance, guidelines, reuse_agent, bug_historian),
+so the relevance filter worked; three reviews completed and were then discarded.
+
+**Consequence for this task: the Go proposal has no verdict, and cannot get one until 019 is
+resolved or the plan is cut.** The submission JSON is committed
+(`sql/../council_submission_chrome_schema_driven.json`) so a resubmission starts from the reviewed
+text. Not worked around — filed.
