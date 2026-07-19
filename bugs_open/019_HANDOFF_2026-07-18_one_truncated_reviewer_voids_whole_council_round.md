@@ -141,3 +141,67 @@ Read `collected_data->'__step_error'->>'message'` to tell them apart. The
   another local check: the platform detects truncation *after* persisting or
   acting on the fragment, over and over.
 - `CLAUDE.md` § Debugging — the rule that found this in one query.
+
+## LIVE REPRODUCTION IN NORMAL USE — 2026-07-19 (diagnosis-fixloop thread)
+
+Not a synthetic `max_tokens: 200` reproduction — this is the bug hitting an
+ordinary submission, and it cost a real round. Recorded because it converts the
+"substantial submissions push seats toward the ceiling" concern from a
+prediction into a measurement.
+
+**What happened.** Submission `eba040a9` (the diagnosis-side code tier), ROUND 2.
+Round 1 of the same submission completed normally and returned a real verdict
+(`revise`, 10 seats, 7 approve / 3 object). Round 2 differed only in being a
+*resubmission that answered the objections* — so its rationale carried the
+council's own questions plus the evidence answering them, and was roughly 40%
+longer in prose. That is the perverse part: **the round that engaged most
+carefully with the council's feedback is the one the ceiling killed.**
+
+```
+orchestration 825a2819-2e62-49ef-bbce-4b96b3de53c8
+  select_panel -> review_editquality -> complete_invalid
+llm_call_log:
+  step_name=review_editquality  success=f  output_tokens=(null)
+  error: "response truncated: stop_reason=max_tokens
+          (output_tokens=8000 reached the configured cap); raise max_tokens or shorten"
+```
+
+Nine other seats had been selected by the relevance filter and never ran. No
+verdict, no council report for the round, no partial credit for the seat's own
+(truncated but substantive) review.
+
+**Three things this adds.**
+
+1. **The trigger is submission SIZE, and it is self-inflicted by good practice.**
+   Round 1 plan = 51,306 bytes → fine. Round 2 plan = 50,521 bytes with a longer
+   rationale → truncated. The plan got marginally *smaller*; the rationale grew.
+   So the pressure comes from prose the reviewer must read and respond to, not
+   from diff volume alone. A thread that answers objections thoroughly — exactly
+   what REVISE asks for — is the thread most likely to void its next round.
+
+2. **The failure is indistinguishable from a malformed submission at a glance.**
+   Both land on `complete_invalid`. A thread that does not open `llm_call_log`
+   will conclude its JSON was bad and start editing schema fields that were
+   never wrong. The terminal step name is doing double duty for two unrelated
+   causes.
+
+3. **The detection is working correctly and is the only reason this was
+   diagnosable in one query.** `stop_reason=max_tokens` is surfaced as a hard
+   error rather than a successful short review — that is BUG A's fix
+   (`bugs_open/008`) paying out in a different subsystem. The defect here is
+   purely what the gate DOES with a detected truncation: void everything.
+
+**What this thread did NOT do.** Raise the ceiling. The 8000 value is D1's,
+owned by another thread, and "raise the ceiling vs change void-on-overrun" is
+the open decision already flagged for the gate thread — quietly bumping it
+during an unrelated submission is precisely the config-clobber pattern the
+platform keeps getting bitten by. Worked around it instead by resubmitting a
+leaner round 3 (drop the already-approved unchanged edits, compress the answers),
+which is the right move for a submission but not a fix for the bug.
+
+**What the fix should preserve, on this evidence.** A truncated seat should
+degrade to "this seat could not be read" and let the round proceed on the
+surviving seats, rather than voiding. Losing one seat's opinion is a known,
+recordable gap; losing the whole round silently converts a careful resubmission
+into a wasted one, and — because the cause looks like a schema error — teaches
+the submitter the wrong lesson about why.
