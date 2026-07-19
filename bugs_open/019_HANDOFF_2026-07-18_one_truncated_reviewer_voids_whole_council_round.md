@@ -310,3 +310,54 @@ output_tokens FROM llm_call_log WHERE orchestration_id='<run>' ORDER BY
 created_at;` — a truncated call logs `success=f` with NULL token counts and the
 `stop_reason=max_tokens` error text, so the successful rounds are where the
 headroom numbers live.
+
+---
+
+## Second reproduction, 2026-07-19 — same submission, DIFFERENT seat overran each time
+
+A council-gate submission from the idea.uk thread (schema-driven chrome renderer; plan 18,451
+bytes, well inside the 65,536 cap) hit this twice in a row. Both rounds ended `complete_invalid`
+with **zero verdicts**, after 3–4 seats had already reviewed successfully.
+
+The exact error, from `collected_data->>'__step_error'`:
+
+```json
+{"message": "step review_guidelines failed: failed to execute action execute_llm_prompt:
+  AI call failed with unhandled error: response truncated: stop_reason=max_tokens
+  (output_tokens=8000 reached the configured cap); raise max_tokens or shorten the prompt",
+ "failed_step": "review_guidelines"}
+```
+
+`SELECT step_name, success, input_tokens, output_tokens FROM llm_call_log …` for the two runs:
+
+| run | seat | success | input | output | % of 8000 |
+|---|---|---|---|---|---|
+| `3e7f7507` | `review_editquality` | t | 12,731 | **7,296** | **91%** |
+| `3e7f7507` | `review_bug_historian` | t | 13,421 | 5,293 | 66% |
+| `3e7f7507` | `review_reuse_agent` | t | 13,027 | 3,352 | 42% |
+| `3e7f7507` | `review_guidelines` | **f** | — | — | **truncated → round void** |
+| `b8a0c8a5` | `review_editquality` | **f** | — | — | **truncated → round void** |
+
+**Three things this adds to the case above.**
+
+1. **It is not only edit-quality.** The seat that voided round 1 was `review_guidelines`. The prior
+   analysis sized headroom against edit-quality as "the seat that writes most"; on a full-size
+   submission, guidelines overran while edit-quality survived at 91%.
+2. **It is marginal and nondeterministic.** Rounds 1 and 2 reviewed the **byte-identical
+   submission** (same file, same trail id `7152c7cf`), and a *different* seat blew the cap each
+   time. That is the signature of several seats sitting just under the ceiling, not of one
+   pathological writer. It also means "shorten the plan until it passes" is not a reliable
+   workaround — the same input can pass or fail.
+3. **The 91% figure sharpens the sizing argument.** The earlier measurement (6,002 = 75%) came from
+   a submission already cut by 60%. At full size the always-on seat reached **7,296 — 704 tokens of
+   margin**. The prior recommendation of ~12,000–16,000 if the ceiling is raised looks right, and
+   the "raising it moves the failure rather than removing it" conclusion is strengthened, not
+   weakened, by this run.
+
+**Cost of these two rounds:** 3 successful reviewer calls (~15.9k output tokens) plus 2 truncated
+ones, for **zero verdicts**. The void discards work that was already done and paid for — which
+remains the part of this bug with no upside.
+
+**Compounding factor worth knowing:** each of these rounds also waited ~25–36 minutes in the
+dispatch queue before starting (`/bugs_open/030`). So a voided round is not a 2-minute retry; it is
+a ~30-minute round trip to learn nothing.
