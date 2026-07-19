@@ -145,3 +145,91 @@ the loop, in layers:
 
 Layer 2 is what removes the class; layer 3 preserves the safety property the
 current hard error exists to protect.
+
+---
+
+## 2026-07-19 — diagnosis verdict: UNVERIFIABLE, and what it caught
+
+Run `a92b2a55` terminated `complete|COMPLETED` after one iteration with outcome
+**UNVERIFIABLE** — not refuted, but it could not confirm the mechanism. Its three
+stated gaps, and what each turned out to be:
+
+1. *"the actual source of the three named symbols is not in the bundle"* — a
+   bundle-assembly gap (`symbol_count: 3`, `body_chars: 6778`, the bodies absent).
+   The mechanism is nonetheless directly readable in the repo, which is how it was
+   found; the loop simply could not see it.
+2. *"no llm_call_log rows for the named agent types"* — **an attribution artifact,
+   not an absence.** See below.
+3. *"the truncation errors are attributed to 'experience-planner' and 'generic',
+   not to council-gate/fix-proposer/feature-designer"* — same cause, and it is the
+   thing worth keeping.
+
+### MY MISSTEP — I asserted "9 of 14 voided COUNCIL runs" without verifying they were council runs
+
+My original query grouped `orchestration_states` by `__step_error`, keyed on step
+names only. **`orchestration_states` has no `agent_type` column at all**, so that
+query could not have told me which agent owned those runs — I inferred "council"
+from the step names (`review_editquality`, `review_guidelines`) and wrote the
+number down as though I had checked. The loop's gap 3 is what made me go back.
+
+The claim survives verification, but that is luck of the draw, not method:
+
+```sql
+SELECT agent_type, count(*) AS calls, count(*) FILTER (WHERE success=false) AS failed
+FROM llm_call_log WHERE step_name LIKE 'review_%' AND created_at > now() - interval '10 days'
+GROUP BY 1 ORDER BY 2 DESC;
+```
+
+| agent_type | calls | failed |
+|---|---|---|
+| `generic` | 431 | **9** |
+| `experience-planner` | 176 | 3 |
+
+Nine failed `review_*` calls under `generic`, matching the nine voided
+orchestrations exactly. So the count was right.
+
+### FINDING 5 — councils log as `agent_type='generic'`, which blinded the loop
+
+The councils do **not** log under `council-gate` / `fix-proposer` /
+`feature-designer`; they log under **`generic`**. This is the already-known
+landmine (`council_report source_agent='generic'` fleet-wide — partition by
+another key), surfacing here in a new place.
+
+Consequence worth flagging beyond this bug: **the diagnosis loop's own evidence
+gathering is blind to council runs.** It filtered `llm_call_log` and
+`agent_error_log` by the three council agent-type names, found nothing, and
+correctly declined to confirm. Any future diagnosis filed against a council will
+hit the same wall unless the symptom names `generic` explicitly. The
+UNVERIFIABLE verdict was therefore *correct behaviour on incomplete evidence*,
+and the incompleteness is a harness defect, not a reviewer error.
+
+### FINDING 6 — a 32,000-token cap ALSO truncated. This settles the raise-vs-void question.
+
+```
+agent_error_log: experience-planner / compose
+"response truncated: stop_reason=max_tokens (output_tokens=32000 reached the
+ configured cap); raise max_tokens or shorten the prompt"
+```
+
+`experience-planner` is a fourth affected council, absent from the case file
+entirely (steps `compose`, `review_contracts`, `review_feasibility`). Its
+`compose` step has a cap **four times** the council seats' 8000 — and still hit it.
+
+This is the empirical answer to the open "raise the ceiling vs change
+void-on-overrun" decision that two prior threads correctly declined to take
+unilaterally: **raising the cap demonstrably does not remove the failure.** The
+case file argued this from reasoning ("whatever the number, the seat that writes
+most will approach it"); this is the same conclusion from a measurement, at 4x
+the disputed number. Recorded so the owner's decision can rest on evidence rather
+than on the argument.
+
+It also widens the blast radius: the case file scopes the bug to three councils;
+it is at least four, and `compose` is not a reviewer seat, so the class is
+"any LLM step whose output can grow", not "a council seat".
+
+### Net effect on the plan
+
+Mechanism **stands, now verified from the code and the logs**; the loop's
+inability to confirm was an attribution artifact I could resolve directly. The
+three-layer shape in PLAN is unchanged, and Finding 6 strengthens its constraint
+4 (do not fix this by raising the cap) from an argument into a measurement.
