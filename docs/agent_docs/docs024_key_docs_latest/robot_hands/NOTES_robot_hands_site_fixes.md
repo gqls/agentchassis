@@ -310,3 +310,68 @@ Draining at time of writing.
    batch with the next planned deploy; not while a drain is mid-flight.
 5. Learning-center grid page content (phantom-CTA cards): fold into hub or
    fix targets once tools exist.
+
+## Turn 9 — 2026-07-19 — council closed at 7/8; generic_theme fix PROVEN LIVE; docs conformed
+
+**Council round 3 (correlation e0ebf6ee): revise, but 7 of 8 seats APPROVE.**
+Only bug_historian objected — one LOW (two coexisting "spec exists" markers in
+different tables invite divergence) and one MEDIUM (does any other check use the
+existence-only shape?).
+
+- MEDIUM answered by grep, no code needed: **no other discovery check has the
+  exposure.** `check_integrity.go:81` and `check_image_source_unsatisfiable.go:83-84`
+  both extract VALUES (`->>` with `COALESCE`), not key existence.
+- LOW answered in code (**5151d4a79**): two sequential probes collapsed into ONE
+  OR'd `EXISTS` — the dead-but-contractual site_specs arm survives as a term,
+  not its own fallback branch. Consolidating also exposed a stale user-facing
+  string I would have shipped: the finding's detail still read "No webdesign
+  spec in site_specs", untrue the moment a second source was added. Now names
+  both. Fleet-verified identical classification (7/12) before and after.
+- **Loop stopped there deliberately** — CLAUDE.md: one council run per coherent
+  task, not per iteration. A 4th round on a low-severity design point spends
+  credits against explicit guidance.
+
+**The generic_theme fix is LIVE and PROVEN — and I nearly misread the evidence.**
+Pod changed under me: `agent-chassis-5c568b8c74-2f4qv`, image **v1.0.1137**,
+started 2026-07-18 22:21 (another session's roll). First grep
+(`grep -c 'jsonb_typeof(content_data'` → 1) I took as "my consolidation is live".
+**Wrong.** A second grep on a string unique to the LATER commit
+(`sites.content_data.color_scheme`, the new detail message) → **0**. So the pod
+carries the *functional* fix (3437f2212 + 3b52da8ec hardening) but NOT the
+round-3 consolidation — which is structural only, so nothing is missing.
+*Lesson: to tell WHICH of two candidate commits is live, grep a symbol unique to
+the later one; a shared symbol proves only that one of them shipped.*
+
+**Real-world verification (the payoff):** zero `generic_theme` detections
+**fleet-wide** since the roll (`WHERE item_type='generic_theme' AND created_at >
+'2026-07-18 22:21'` → 0 rows). The perpetual misfire is over in production.
+
+**R3 nav flip confirmed live:** 30-page batch drained complete; index header
+links `/learning-center-hub.html`; 1 remaining `/learning-center.html` is the
+demoted grid landing, by design.
+
+**Concurrency check (owner asked):** `git log 5151d4a79..HEAD --` over my files
+returns only my own commit; `git status --short` clean on all my paths. No other
+thread is editing beneath this work, though HEAD has moved a long way on others'
+files.
+
+**Docs conformed to the standing five** (CLAUDE.md 2026-07-18/19 directive, read
+fresh this turn): `RUNNING_NOTES_*` → **`NOTES_*`** (git mv), added **PLAN**
+(decisions + the four corrections to the originating brief), **RUNBOOK** (the
+commands with gotchas), **SUMMARY_2026-07-19** (five-part read-aloud),
+**README_where_we_are** (was an EMPTY file — filled, in the owner's register;
+it is his doc, append-only from here), and **HANDOFF_2026-07-19_…start_here**.
+
+**Bug-numbering trap hit for real:** my `bugs_open/017…unregistered_action…`
+collides with `017…static_cutover_orphans_backend_entry_forms…`. CLAUDE.md now
+documents this ("016 and 017 are each used by two different cases — resolve by
+slug") and `/bugs_closed/README.md` says numbering is **never reassigned**, so
+the file stays as-is and every reference to it must use the slug.
+`/bugs_closed/README.md` also already names `017 (unregistered action)` as
+deliberately open — correct: committed-but-inert fixes stay in `/bugs_open/`.
+
+**Process debt recorded, not hidden:** CLAUDE.md's diagnosis-loop section was
+INVERTED on 2026-07-19 — the 090 loop is now the DEFAULT before asserting any
+durable claim. `bugs_open/017…unregistered_action…` and `bugs_open/022` were
+both authored before that correction and have NOT been through it. Flagged in
+the handoff for whoever picks them up.

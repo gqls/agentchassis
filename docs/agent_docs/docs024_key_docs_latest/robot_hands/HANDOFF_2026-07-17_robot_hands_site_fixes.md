@@ -1,4 +1,21 @@
-# HANDOFF — robot-hands.com site defects (start a new chat here)
+# HANDOFF — robot-hands.com site defects (SUPERSEDED)
+
+> **SUPERSEDED 2026-07-19 — do NOT start a new chat here.**
+> Start at **`HANDOFF_2026-07-19_robot_hands_start_here.md`**.
+> R1, R2, R3, R5 and R6 are DONE and verified live; R4 is partly done (the
+> "blank MatchMatrix" is diagnosed and fixed; two tool pages remain unbuilt).
+>
+> **Four of this file's stated causes were WRONG** — corrected in
+> `PLAN_2026-07-19_robot_hands_site_fixes.md` and evidenced in
+> `NOTES_robot_hands_site_fixes.md`. In brief: the blue header predates the
+> 2026-07-16 regeneration by a week (it entered 07-09); `component_versions`
+> holds NO snapshots to restore from; `hardcoded_section_colors` never modified
+> anything (every run fails and is stamped complete anyway — now
+> `bugs_open/017…unregistered_action…`); and MatchMatrix was never blank.
+> The real cause was three un-migrated palette copies plus deactivated
+> colour-baking components, amplified by a fleet-wide `generic_theme` misfire.
+>
+> Kept unedited below for the R1–R6 framing and its prior-art pointers.
 
 **Filed:** 2026-07-17 after the imagery D13 gate surfaced site-wide problems
 that are NOT imagery. The imagery-quality half is the SIBLING handoff:
