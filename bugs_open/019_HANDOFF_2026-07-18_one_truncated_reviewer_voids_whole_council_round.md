@@ -274,3 +274,39 @@ Retrieve it with:
 SELECT collected_data::jsonb->'__step_error'->>'message'
 FROM orchestration_states WHERE orchestration_id='<orch>'::uuid;
 ```
+
+### Follow-up measurement: the ceiling is tight even for a LEAN submission (2026-07-19)
+
+After round 2 was voided, round 3 of the same submission was deliberately
+stripped back — unchanged edits dropped, prose compressed — from a 50,521-byte
+plan to 20,009 bytes, roughly 60% smaller. Reviewer output that round:
+
+| seat | output_tokens | % of the 8000 cap |
+|---|---|---|
+| `review_editquality` | 6,002 | **75%** |
+| `review_bug_historian` | 3,206 | 40% |
+| `review_reuse_agent` | 1,439 | 18% |
+
+**That is the number that matters for the raise-vs-void decision.** A submission
+cut by 60% still put the lead reviewer at three-quarters of its budget, leaving
+under 2,000 tokens of margin. So this is not "oversized submissions overrun" —
+the ceiling sits close enough to the length of a NORMAL thorough review that any
+substantive change risks it, and edit-quality (an always-on seat, so present in
+every single round) is consistently the longest writer.
+
+Two consequences for whoever takes the decision:
+
+1. **Raising the ceiling alone does not remove the failure mode**, it moves it.
+   Whatever the number, the seat that writes most will approach it on the
+   submissions that most deserve review. The void-on-overrun behaviour is the
+   part that converts "one seat wrote too much" into "no verdict at all", and
+   that is the part with no upside.
+2. **If the ceiling is raised, edit-quality is the seat to size against**, not
+   the average. On this evidence a 2x headroom over its typical output means
+   ~12,000-16,000, not 10,000.
+
+Method note, for reproduction: `SELECT step_name, success, input_tokens,
+output_tokens FROM llm_call_log WHERE orchestration_id='<run>' ORDER BY
+created_at;` — a truncated call logs `success=f` with NULL token counts and the
+`stop_reason=max_tokens` error text, so the successful rounds are where the
+headroom numbers live.
