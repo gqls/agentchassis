@@ -753,7 +753,11 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 	// re-detection, so the loop believed the defect class was handled: 54 items
 	// across 6 sites by the 2026-07-18 sweep. This runs before the verifier
 	// because a saga that failed outright is not worth verifying.
-	if detail, failed := handlerReportedFailure(resultData, logger); failed {
+	detail, failed, unknownVerdict := handlerReportedFailure(resultData)
+	if unknownVerdict != "" {
+		recordUnknownVerdict(ctx, params, itemID, unknownVerdict, logger)
+	}
+	if failed {
 		failedJSON, mErr := json.Marshal(resultData)
 		if mErr != nil {
 			return nil, fmt.Errorf("failed to marshal result: %w", mErr)

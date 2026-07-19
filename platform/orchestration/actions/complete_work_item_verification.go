@@ -121,38 +121,96 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, log
 // 1662 completions, and all 6 were genuine failures.
 //
 // The allowlist is therefore already a superset of observed reality; the
-// default branch logs any future dialect rather than swallowing it.
-func handlerReportedFailure(result map[string]interface{}, logger *zap.Logger) (string, bool) {
+// default branch records any future dialect rather than swallowing it — see
+// recordUnknownVerdict for why a log line alone was not enough.
+// Returns (detail, failed, unknownVerdict). unknownVerdict is non-empty when the
+// saga reported a status this guard does not recognise: the item still COMPLETES
+// (a novel status is not evidence of failure — inverting that would retry real
+// work), but the caller must record it. Kept as a return value rather than a log
+// call inside here so the function stays pure and table-testable, and so the
+// record is written where the DB handle lives.
+func handlerReportedFailure(result map[string]interface{}) (string, bool, string) {
 	resp, ok := result["response"].(map[string]interface{})
 	if !ok {
-		return "", false
+		return "", false, ""
 	}
 
 	status, _ := resp["status"].(string)
 	switch normalised := strings.ToLower(strings.TrimSpace(status)); normalised {
 	case "failed", "failure", "error":
 	case "", "success", "complete", "completed", "ok":
-		return "", false
+		return "", false, ""
 	default:
-		// An unrecognised verdict. We complete (the conservative choice — a
-		// novel status is not evidence of failure), but say so loudly: the
-		// allowlist above is a superset of every value response.status has
-		// EVER held in this database, so a new one appearing means a handler
-		// has started speaking a dialect this guard does not read. That is the
-		// precise moment to widen the allowlist — and without this line it
-		// would pass silently, which is the very failure mode bugs_open/017
-		// was about.
-		logger.Warn("handlerReportedFailure: unrecognised response.status — completing, but this verdict is unknown to the guard",
-			zap.String("response_status", status),
-			zap.String("action", "widen the allowlist in handlerReportedFailure if this is a failure verdict"))
-		return "", false
+		// The allowlist above is a superset of every value response.status has
+		// EVER held in this database, so a new one appearing means a handler has
+		// started speaking a dialect this guard cannot read. That is precisely
+		// when to widen the allowlist — and it must not depend on someone
+		// happening to read pod logs, which is why this is surfaced rather than
+		// merely logged (council objection, bug_historian, 2026-07-18).
+		return "", false, status
 	}
 
 	detail, _ := resp["error"].(string)
 	if detail = strings.TrimSpace(detail); detail == "" {
 		detail = "handler returned status '" + status + "' with no error detail"
 	}
-	return detail, true
+	return detail, true, ""
+}
+
+// recordUnknownVerdict persists an unrecognised handler verdict to
+// agent_error_log — a queryable, alertable surface — as well as the pod log.
+//
+// Why not a log line alone (council objection, bug_historian, 2026-07-18): a
+// zap.Warn lives only in an ephemeral pod log, and 016b's own deploy-verification
+// pattern records that pod logs do not survive rollouts. A handler that starts
+// emitting a new failure dialect would therefore leave NO queryable trace, which
+// is the same silent-failure shape bugs_open/017 was filed about. Severity is
+// 'warning', not 'error': the completion itself was legitimate under the
+// conservative rule; what needs attention is the vocabulary drift.
+//
+// Best-effort by design — a failure to record must never block a completion that
+// the guard has already judged legitimate.
+func recordUnknownVerdict(ctx context.Context, params ActionParams, itemID uuid.UUID, status string, logger *zap.Logger) {
+	logger.Warn("handlerReportedFailure: unrecognised response.status — completing, but this verdict is unknown to the guard",
+		zap.String("response_status", status),
+		zap.String("item_id", itemID.String()),
+		zap.String("remedy", "widen the allowlist in handlerReportedFailure if this is a failure verdict"))
+
+	if params.DB == nil {
+		return
+	}
+
+	contextJSON, _ := json.Marshal(map[string]interface{}{
+		"response_status": status,
+		"guard":           "handlerReportedFailure",
+		"known_verdicts":  []string{"failed", "failure", "error"},
+		"remedy":          "if this is a failure verdict, widen the allowlist in handlerReportedFailure (complete_work_item_verification.go); see bugs_open/017",
+	})
+	if contextJSON == nil {
+		contextJSON = []byte("{}")
+	}
+
+	if _, err := params.DB.ExecContext(ctx, `
+		INSERT INTO agent_error_log (
+			work_item_id, orchestration_id, agent_type, agent_id, pod_name,
+			step_name, action, error_message, error_code, severity, context
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
+	`,
+		itemID,
+		params.ExecutionContext.OrchestrationID,
+		params.ExecutionContext.Sender.AgentType,
+		params.ExecutionContext.Sender.AgentID,
+		params.ExecutionContext.Sender.PodName,
+		params.ExecutionContext.StepName,
+		"complete_work_item",
+		"unrecognised handler verdict '"+status+"' — item completed, but this guard cannot tell success from failure for this vocabulary",
+		"UNKNOWN_HANDLER_VERDICT",
+		"warning",
+		string(contextJSON),
+	); err != nil {
+		logger.Warn("recordUnknownVerdict: could not persist to agent_error_log (completion unaffected)",
+			zap.Error(err))
+	}
 }
 
 // failUnverifiedCompletion routes a blocked completion into the same

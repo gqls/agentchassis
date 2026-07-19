@@ -7,11 +7,7 @@
 
 package actions
 
-import (
-	"testing"
-
-	"go.uber.org/zap"
-)
+import "testing"
 
 func TestHandlerReportedFailure(t *testing.T) {
 	tests := []struct {
@@ -19,6 +15,9 @@ func TestHandlerReportedFailure(t *testing.T) {
 		result     map[string]interface{}
 		wantFailed bool
 		wantDetail string
+		// wantUnknown is the status the guard could not classify: the item
+		// completes, but recordUnknownVerdict must surface it to agent_error_log.
+		wantUnknown string
 	}{
 		{
 			// The exact shape stored for work item e4fd567e (robot-hands,
@@ -97,16 +96,18 @@ func TestHandlerReportedFailure(t *testing.T) {
 			wantFailed: false,
 		},
 		{
-			// Council objection (bug_historian, 2026-07-18): the allowlist
-			// cannot know a future handler's dialect. An unrecognised verdict
-			// must COMPLETE (a novel status is not evidence of failure) but
-			// must not pass silently — the default branch warns. Asserting the
-			// completing half here pins the conservative choice.
+			// Council objection (bug_historian, 2026-07-18, rounds 1+2): the
+			// allowlist cannot know a future handler's dialect. An unrecognised
+			// verdict must COMPLETE (a novel status is not evidence of failure)
+			// but must not pass silently — it is returned as unknownVerdict so
+			// the caller records it to agent_error_log, a queryable surface,
+			// rather than only to an ephemeral pod log. Both halves pinned here.
 			name: "unrecognised verdict completes rather than guessing",
 			result: map[string]interface{}{
 				"response": map[string]interface{}{"status": "timeout", "error": "upstream slow"},
 			},
-			wantFailed: false,
+			wantFailed:  false,
+			wantUnknown: "timeout",
 		},
 		{
 			name: "explicit success vocabulary completes",
@@ -117,10 +118,15 @@ func TestHandlerReportedFailure(t *testing.T) {
 		},
 	}
 
-	logger := zap.NewNop()
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			detail, failed := handlerReportedFailure(tc.result, logger)
+			detail, failed, unknown := handlerReportedFailure(tc.result)
+			if tc.wantUnknown != "" && unknown != tc.wantUnknown {
+				t.Errorf("unknownVerdict = %q, want %q", unknown, tc.wantUnknown)
+			}
+			if tc.wantUnknown == "" && unknown != "" {
+				t.Errorf("unknownVerdict = %q, want empty", unknown)
+			}
 			if failed != tc.wantFailed {
 				t.Fatalf("handlerReportedFailure() failed = %v, want %v (detail %q)", failed, tc.wantFailed, detail)
 			}
