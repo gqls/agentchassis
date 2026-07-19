@@ -426,3 +426,65 @@ so it describes this file properly instead of dismissing it, and this entry is m
 
 ※ recap: the site is clean and working, the docs are current and a new chat can pick up from the handoff. Two things are waiting on you — the consultation response before the 30th, and seven build items in the admin queue.
 The one thing to watch is the first automatic render, to confirm the fabrication fix survives it.
+
+---
+--
+
+I did not wait to watch the render. The handoff said the first job was to watch the next automatic
+render and check the fabrication fix survived it, and that the homepage would change for the better
+when it happened. Instead of waiting, I put together what that render *would* produce and read it.
+It was as well I did, because two of the five sections on the new homepage were broken, and one of
+them would have been embarrassing.
+
+The first was a second search box. The real one works — you type a name, town or postcode, filter by
+region, page through the results, and it reads the genuine list of 2,109 practices. Directly beneath
+it the render would have placed another search box over an empty grid that said "No results found."
+and would have said that forever, because nothing was ever wired to fill it. Two search boxes, one
+of them permanently empty. I have removed it, after taking a copy of everything first. The working
+one already does the entire job, so nothing was lost.
+
+The second was the news section: a confident headline about the CMA's remedies order with absolutely
+nothing underneath it. It was trying to load news from a file that does not exist on the site.
+
+I want to be clear that neither of these was invented data. Both of them refused to make anything up
+and showed an empty state instead, which is exactly what this site is supposed to do and the whole
+reason it exists. They were simply dead — and dead is still not good enough to publish.
+
+You asked me to build the news feed properly rather than delete it, and that turned out to be the
+more interesting job, because the thing blocking it was hiding in plain sight. Item seven on the
+handoff's own list was described as optional and cosmetic — a classifier setting, if a news feed is
+ever wanted. It was not optional. It was the gate. The system that goes out and fetches news only
+looks at sites whose settings say a news feed is recommended, and this site's settings had no such
+entry at all. So a news source could have been added and would simply have sat there doing nothing.
+That is now fixed.
+
+Then a decision I want to flag, because it is the kind of thing that could quietly undo the last
+month of work. When you tell this platform a site should have news, it can create the sources
+automatically, and one of the kinds it creates is an AI that *writes* the news itself from a prompt.
+On any other site that is a reasonable convenience. On this one it is precisely the thing we spent
+weeks removing. So I have restricted this site to real feeds only, and written the reason into the
+setting itself, so that a future session that comes along and thinks it is being helpful by adding
+the AI source has to read why it was excluded before it can do it.
+
+The feed I have given it is the CMA's own announcements, filtered to veterinary matters. That
+matters for two reasons beyond the site. The unfiltered CMA feed is all mergers and parking charges
+and dentistry, with no vet content at all, so the filter is doing real work. And the very first item
+in it today is the funding consultation that closes on the 30th — which means the site will now
+carry it, and it means we get told the moment the substantive draft Order finally appears, instead
+of you or me remembering to go and look at the case page. That has been sitting overdue since the
+end of June.
+
+Two other things worth knowing. I found a mistake in our own handoff: the command it gave for
+checking the site was healthy was looking in the wrong file, and would have reported a perfectly
+clean site as broken. Anyone following it faithfully would have raised a false alarm. That is
+corrected. And I have sent the underlying platform question — how a section with no data in it can
+still pass the check that is meant to catch empty sections — off to be diagnosed properly rather
+than assert the answer myself, since that one affects every site, not just this one.
+
+The news should start appearing on its own at the next six-hourly sweep. I will confirm it actually
+arrived rather than trust that it should have.
+
+※ recap: the homepage would have published a dead second search box and an empty news headline; the
+first is removed and the second is now a real CMA veterinary feed, restricted to genuine sources so
+nothing on this site is ever AI-written. The consultation still closes on the 30th and still needs
+you.

@@ -248,3 +248,119 @@ Running record, append-only, **newest at the bottom** (per CLAUDE.md "standing f
 - Added `SUMMARY_2026-07-19_readout.md` in the five-part structure CLAUDE.md now specifies
   (trying to do · come from · done · where we are · where going). Earlier summaries kept as
   milestone records at their dates.
+
+## 2026-07-19 (later still — the render was going to ship two dead sections; news feed built)
+
+Picked up from `HANDOFF_2026-07-19`. Its priority 1 was "watch the first render". Rather than
+wait for it, I assembled what the render *would* produce and inspected that. Two of the five
+index sections were defective, so the handoff's framing — "that change is expected and is an
+improvement" — was only half right.
+
+**State re-verified first (all still true):** live page 6,154 bytes = still the hand-authored
+version; last `page_rerender` item 2026-07-17 22:45Z, restore was 07-18, so **no render has
+exercised the fix**. DB: 4 components locked `permanent`, hero carries the real fetch, zero
+fabrication markers anywhere. `/data/vet-full-index.json` = 2,109 real practices.
+
+### The handoff shipped a verification command that always fails
+
+```
+curl -s "https://vetcomparison.uk/?cb=$RANDOM" | grep -c 'vet-full-index'   # "must be >= 1"
+```
+Returns **0**, and always will. The live page loads `assets/js/vet-search.js?v5`; the fetch of
+`/data/vet-full-index.json` lives *inside that script*, not in the HTML. The check greps the
+wrong artefact. A session running it would read a clean site as a regression. Correct form:
+
+```
+curl -s "https://vetcomparison.uk/assets/js/vet-search.js?cb=$RANDOM" | grep -c 'vet-full-index'   # >= 1
+```
+Handoff corrected. **The underlying site was fine throughout** — this was a bad check, not a bug.
+
+### What the render would have published
+
+| slot | verdict |
+|---|---|
+| `hero` | fine — real `fetch('/data/vet-full-index.json')`, region filter, pagination, honest disclaimer, graceful error state |
+| `filtered-result-grid` | **dead** — a *second* search box over an empty grid with a hardcoded "No results found."; its script binds `.filter-btn`/`.result-card`, neither of which exists |
+| `info-card-grid` | fine — careful copy ("We do not publish figures we cannot attribute") |
+| `latest-news` | **empty** — headline with nothing under it; its JS fetches `/data/latest-news.json`, which **404s** |
+| `call-to-action` | fine |
+
+Neither defect is fabrication — both correctly decline to invent data, which is the site's whole
+point. They are dead UI, and `hero` already does the directory job completely, so
+`filtered-result-grid` was redundant as well as broken.
+
+### Two mechanisms worth keeping (both cost me a wrong assumption first)
+
+- > **MISSTEP, caught before acting:** I was about to remove the dead grid by editing
+  > `pages.sections`, which lists exactly the five slots in order. **That would have been a
+  > silent no-op.** Both assembly paths — `rerenderLoadSections`
+  > (`rerender_pages_actions.go:592`) and `getPageSections` (`rerender_single_page_action.go:381`)
+  > — `SELECT ... FROM page_components WHERE page_id = $1 ORDER BY position` and **never read
+  > `pages.sections` at all**. To drop a component you must delete or blank the
+  > `page_components` row. Caught by reading the functions, which is precisely what CLAUDE.md's
+  > corrected "diagnosis before debugging" section tells you to do — it names
+  > `rerenderLoadSections` as the function a confident thread skipped.
+- **The empty-section guard does not catch shells.** `sectionHasVisibleContent`
+  (`rerender_single_page_action.go:446`) strips style/script/tags/entities/whitespace and
+  requires `len > 10`. `filtered-result-grid` reduces to ~34 chars — *its own empty-state copy*
+  ("Sort: Recommended", "No results found.") is what admits it. `latest-news` passes on its
+  headline while its body is a 404. And only one of the two paths has the guard at all:
+  `rerenderLoadSections` applies none. Filed to the diagnosis loop, corr
+  `be60b0d7-21c4-4e02-be95-2ec37387004f` (queue was clear — no covering item).
+
+- > **MISSTEP:** I first concluded "this site has no news" from `SELECT count(*) FROM
+  > content_items` = 0. **Wrong table.** News lives in `content_feed_items`. The conclusion
+  > survived re-checking against the right table (also 0), but the evidence I'd have written
+  > into a doc would have been wrong, and the next thread would have grepped a table that has
+  > nothing to do with news.
+
+### Actions taken
+
+1. **Removed `filtered-result-grid`** from the index page. Snapshot first:
+   `_vetcomparison_bak_20260719_index_components` (all 5 rows), then `DELETE`. Page is now
+   hero → info-card-grid → latest-news → call-to-action. Positions are now 1,3,4,5 — gaps are
+   harmless, both paths `ORDER BY position`.
+2. **Built the news feed properly** (owner's call — the empty slot is real work, not something
+   to delete). Chain, verified end to end:
+   - **The gate was `content_features`, exactly as handoff item 7 suspected.**
+     `content-feed-trigger`'s selection query requires
+     `(data->'content_features'->'news_feed'->>'recommended')::boolean = true` on the *current
+     classification spec*. vetcomparison had **no `content_features` key at all**, so it was
+     never selected — the source alone would have been inert. Patched by superseding the spec
+     row (`is_current=false, superseded_at=now()`) and inserting a new current one, per the
+     unique index `idx_site_specs_current`.
+   - **`source_types: ["rss"]` only — this is a load-bearing integrity decision, not a default.**
+     `seed_content_sources_action.go:195-219` auto-creates sources per declared type:
+     `api_news` spawns an **xAI/Grok LLM source** that *authors* news text, `news_search` one per
+     keyword. `rss` is explicitly skipped ("requires manual URL config"). On a site remediated
+     for fabricated content, LLM-authored news is exactly the wrong thing, so listing only `rss`
+     structurally prevents the seeder from ever adding one. The reason is written into the spec's
+     `reason` field so a later thread cannot "helpfully" add `api_news` back without reading why.
+   - **Source:** the *keyword-filtered* GOV.UK feed, not the CMA org feed —
+     `https://www.gov.uk/search/all.atom?keywords=veterinary&organisations%5B%5D=competition-and-markets-authority`.
+     The unfiltered org feed has **zero** vet mentions (it is mergers, parking, dental); the
+     filtered one returns 10 entries, all veterinary, top item *"Vets market investigation: draft
+     funding Order and Undertakings"*. Checked the parser handles it: `feed_actions.go:203`
+     tries RSS then Atom, and the real XML has exactly one `<link rel="alternate">` per entry (so
+     `entry.Link.Href` is unambiguous), `<summary>` present, `<published>` absent but `<updated>`
+     is RFC3339 and `parseAtomBody` falls back to it.
+   - **No LLM in the display path either:** `loadNewsItems` selects `source_title`,
+     `source_summary`, `source_url`, `source_published_at` straight from `content_feed_items`.
+     Triage only scores `relevance_score`/`status`; it does not author.
+   - Verified by running `content-feed-trigger`'s selection query **verbatim**: vetcomparison
+     now returns. Feed due at the next 6-hourly sweep (~13:40Z; last 07:40Z).
+
+### Landmine found while doing it
+
+That selection query ends `ORDER BY s.domain LIMIT 5`, and there are now **exactly 5** eligible
+sites. `vetcomparison.uk` sorts **last**. A sixth news site would starve it — deterministically,
+by alphabet, not at random, and silently. Not filed yet; recorded here and in the handoff.
+
+### Server-rendering the news (owner's second question) — see `/bugs_open/027`
+
+Measured rather than estimated; full findings appended to the bug file, not restated here. The
+short version: cheaper than 027 assumed, because **`latest-news.js` is already
+progressive-enhancement-safe** (it only overwrites the container when the fetch returned items,
+and swallows errors), so server-rendered markup survives an empty or failed fetch with no JS
+change. Against that: `data_sources`/`go_template` are **dead metadata** — zero Go readers
+repo-wide — so there is no binding engine to reuse. `news-listing.js` is **unverified**.

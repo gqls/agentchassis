@@ -72,9 +72,32 @@ is an improvement. Verify it the moment it lands:
 ```
 curl -s "https://vetcomparison.uk/?cb=$RANDOM" \
   | grep -ciE 'Mulberry32|makePostcode|PREFIXES|representative sample|ownership data|Price: Low to High'   # must be 0
-curl -s "https://vetcomparison.uk/?cb=$RANDOM" | grep -c 'vet-full-index'                                  # must be >= 1
+curl -s "https://vetcomparison.uk/assets/js/vet-search.js?cb=$RANDOM" | grep -c 'vet-full-index'            # must be >= 1
 ```
+
+> **CORRECTED 2026-07-19 (later):** the second check used to grep the **homepage HTML** for
+> `vet-full-index` and said "must be >= 1". It returns **0**, and always will while the
+> hand-authored page is live: that page loads `assets/js/vet-search.js`, and the fetch lives
+> *inside the script*. The check greps the wrong artefact — a clean site reads as a regression.
+> Fixed above to grep the JS. Once the chassis `hero` component renders, the fetch moves inline
+> into the HTML and **both** forms will pass, so run the HTML form as well after the render and
+> treat either hit as a pass. The site was never broken; the check was.
 If fabrication returns, the locks did not hold — that is a platform finding; add it to bug 020.
+
+> **UPDATED 2026-07-19 (later) — the render would have shipped two dead sections; both handled.**
+> Rather than wait and watch, I assembled what the render *would* produce and inspected it.
+> `hero`, `info-card-grid` and `call-to-action` were fine. Two were not:
+> - **`filtered-result-grid`** — a *second* search box over an empty grid with a hardcoded
+>   "No results found.", redundant with `hero` which already does the whole directory job.
+>   **Removed** (snapshot: `_vetcomparison_bak_20260719_index_components`).
+> - **`latest-news`** — a headline with nothing under it; its JS fetches `/data/latest-news.json`,
+>   which 404s. **Feed now built** (see open item 7, which turned out to be the actual gate).
+>
+> Neither was fabrication — both correctly declined to invent data. They were dead UI.
+> The index page is now `hero → info-card-grid → latest-news → call-to-action`.
+> **Note for anyone removing a component:** editing `pages.sections` does **nothing**. Both
+> assembly paths read `page_components` ordered by `position` and never look at `sections`.
+> Delete or blank the `page_components` row.
 
 ---
 
@@ -124,8 +147,23 @@ If fabrication returns, the locks did not hold — that is a platform finding; a
    candidates ranked in the case file. Fleet-wide risk, not just ours.
 6. Solicitor review (LEGAL §8): the factual record and the database-right position. Owner
    decision 2026-07-16 was that attributed publication proceeds meanwhile under stated conditions.
-7. Optional: classifier `content_features` patch if a news feed is wanted (the May 005 patch was
-   lost and never landed anywhere).
+7. ~~Optional: classifier `content_features` patch if a news feed is wanted (the May 005 patch was
+   lost and never landed anywhere).~~ **DONE 2026-07-19.** It was not optional and not cosmetic —
+   it was *the gate*. `content-feed-trigger` selects sites on
+   `(data->'content_features'->'news_feed'->>'recommended')::boolean = true` in the current
+   classification spec; vetcomparison had no `content_features` key at all, so it was never
+   selected and any feed source would have sat inert. Spec superseded and re-inserted with
+   `news_feed.recommended = true` and **`source_types: ["rss"]` only** — deliberately, because
+   `seed_content_sources_action.go` auto-creates an **xAI/Grok `api_news` source that authors
+   news text** for any site declaring that type, and this site must not publish LLM-written
+   content. `rss` is skipped by the seeder, so the source is hand-configured: the *keyword-filtered*
+   GOV.UK feed (`search/all.atom?keywords=veterinary&organisations[]=competition-and-markets-authority`
+   — the unfiltered CMA org feed contains zero veterinary items). Display path is provenance-only:
+   `source_title`/`source_summary`/`source_url` straight from the feed; triage scores relevance,
+   it does not author. **Watch:** first sweep after 2026-07-19 ~13:40Z.
+   **Landmine:** that selection query is `ORDER BY s.domain LIMIT 5` and there are now exactly
+   5 eligible sites — `vetcomparison.uk` sorts **last**, so a sixth news site starves it
+   deterministically and silently.
 
 ---
 
