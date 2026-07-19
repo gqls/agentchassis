@@ -221,6 +221,15 @@ Rules that make them worth the effort:
   the guide indexes them. **Grep that index for the mechanism before filing a new
   bug** — 005/008/009/012 turned out to be one truncation-and-config family found
   by four separate threads.
+- **Closed cases live in `/bugs_closed/`** (split out 2026-07-19 so `/bugs_open/`
+  answers "what is biting prod right now"). The bar is **fixed AND live** — a fix
+  that is committed but inert until the next image roll stays OPEN, because the
+  defect is still reproducible until it ships. **Grep BOTH directories before
+  filing**, and note the two traps in `/bugs_closed/README.md`: numbering is one
+  sequence shared across both dirs and is never reassigned (so a stale
+  `bugs_open/NNN` or `aaa_fails_to_mend/NNN` pointer resolves by number in the
+  other dir), and **`016` and `017` are each used by two different cases** — a
+  bare number is ambiguous, resolve by slug.
 - **When you diagnose something durable**: file the case in
   `/bugs_open/NNN_HANDOFF_<date>_<slug>.md` (evidence, root cause, fix candidates,
   how to verify) AND add the transferable pattern to 016b §9. The case file is for

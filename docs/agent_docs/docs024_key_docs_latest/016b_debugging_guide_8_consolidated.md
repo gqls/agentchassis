@@ -1347,13 +1347,23 @@ until 2026-07-17; ~23 documents still reference the old path). §9 above holds t
 durable PATTERNS; the files below hold the case detail, evidence and fix
 candidates. Read the file before acting — several are already fixed.
 
+**Two directories, one index (split 2026-07-19).** Rows marked **`→ bugs_closed/`**
+have moved to `/bugs_closed/`; everything else is still in `/bugs_open/`. The bar
+for moving is **fixed AND live in prod** — a fix that is committed but inert until
+the next image roll stays open (so `008`, `012`, `017`-unregistered remain in
+`/bugs_open/` deliberately). **Numbering is one sequence across both dirs and is
+never reassigned**, so a stale `bugs_open/NNN` or `aaa_fails_to_mend/NNN` pointer
+resolves by number in the other directory. **`016` and `017` are each used by two
+different cases** — resolve a bare number by slug, never by the number alone.
+See `/bugs_closed/README.md`.
+
 | # | Bug | State |
 |---|---|---|
 | 001 | Re-planning a site silently discards its built pages' composition | FIX written |
 | 002 | Errors surfaced but not fixed (multi-error handoff, route individually) | open |
 | 003 | Spawned children lose their response; parents hang until reaped. **§3d (2026-07-18): second root cause — the consume loop commits Kafka offsets BEFORE processing (at-most-once), so any restart destroys in-flight work; §4.4 is the at-least-once + rollout fix that unlocks CD** | open |
-| 004 | Landing an image can silently blank an article body | superseded by 005 |
-| 005 | Article-body blanking — root cause LLM truncation (`max_tokens`) | FIXED |
+| 004 | Landing an image can silently blank an article body | superseded by 005 — **`→ bugs_closed/`** |
+| 005 | Article-body blanking — root cause LLM truncation (`max_tokens`) | FIXED; re-verified live 2026-07-19 (19/19 healthy, `max_tokens` 8000 survived a re-seed, repair fn in the running pod, zero writer truncation since 07-15) — **`→ bugs_closed/`** |
 | 006 | Three idea.uk infra errors (runner cgroup, dead contact endpoint, …) | open |
 | 007 | Applied-but-unrecorded migrations block the runner | instance resolved; tooling open |
 | 008 | `GenerateText` never decodes `stop_reason` (silent truncation) | fix COMMITTED `f32b208e5` (br 085, both providers); not yet deployed |
@@ -1362,9 +1372,9 @@ candidates. Read the file before acting — several are already fixed.
 | 011 | `kind:"hero"` routes to SDXL (cannot render text); the Gemini infographic lane works and was unused | open |
 | 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard COMMITTED `cc7bcc881` + stop_reason `f32b208e5`, await image; refusal-routing migration 169 NOT yet applied |
 | 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | filed; fix candidate (format at commit-prep) |
-| 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) |
+| 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) — **`→ bugs_closed/`** |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
-| 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts |
+| 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts — **`→ bugs_closed/`** (note: a *different* case also numbered 016 — council revise — remains open) |
 | 017 | Static cutover orphans a backend tool's entry forms — funnel unreachable, no auditor models it | open; needs site fix + new check |
 | 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | **FIXED 2026-07-18** — both legs + parity test + dead-map deletion; 54 rows corrected; inert until image ships |
 | 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | filed; fix candidates in 019 |
