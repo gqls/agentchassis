@@ -88,6 +88,36 @@ coming lockstep change in its header.
 4. `./098_REPORT_unreviewed_commits_v1.sh [days]` shows fleet coverage;
    `PERSIST=1` files it to doc_notes (categories digest+council-gate).
 
+### Traps met in real use (2026-07-18, bugs_open/012 submission)
+
+- **On a resubmit, update the `sketch` fields — not just the `rationale`.**
+  Reviewers judge the **sketch**; it is the only view of your code they get. A
+  round-2 submission that fixed the SQL and described the fix in prose, while
+  leaving the round-1 sketch in place, drew two confident objections about code
+  that no longer existed (debug-historian: "no `error_step IS NULL` predicate
+  visible anywhere in the WHERE clause" — it was in the file, not in the
+  sketch). Those objections cost a whole round and read as real defects.
+- **Seats can contradict each other across rounds, and that is not a bug in
+  your plan.** Round 1: edit-quality + guardian objected to a refactor as scope
+  creep and it was withdrawn. Round 2: the reuse seat objected that there were
+  now two near-identical recorders. Both readings are defensible. Advisory means
+  advisory — pick one, record WHY in the code, and move on (the withdrawal note
+  now lives in `store_generated_component_action.go`).
+- **The printed `RUN_ORCH_ID` is not the orchestration the chassis creates.** It
+  assigns its own id and its own `generic-orchestrate-*` name, so looking up the
+  printed id returns 0 rows and a healthy run looks dropped. Find your run by
+  payload instead:
+  `SELECT orchestration_id, status, current_step FROM orchestration_states
+   WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';`
+  This matters beyond debugging: CLAUDE.md offers `RUN_ORCH_ID` as an
+  alternative for the `Council-Reviewed:` trailer, and for a **gate** submission
+  that id never exists — so the 098 join would silently miss it. Use
+  `SUBMISSION_CORR`.
+- **Runs can be slow to start.** A submission may sit before its orchestration
+  row appears. Absence a minute later is not evidence of a dropped dispatch —
+  poll by `fix_correlation_id` before concluding anything (this cost two
+  needless resubmissions).
+
 ## Honest limits (advisory mode)
 
 - The gate cannot intercept a hand-commit to the shared branch; the 098
