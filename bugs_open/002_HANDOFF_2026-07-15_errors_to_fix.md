@@ -220,6 +220,18 @@ JSON-repair behaviour used broadly, so it deserves its own focused change.
 >   `jsonb_typeof(...)='array'` on **both** sides or the query under-reports and
 >   looks clean.
 >
+> ### Where the two migrations actually live (git provenance is misleading here)
+> `176` is in the fix commit for this entry. **`175` is NOT** — between my
+> `git add` and my `git commit`, another session's broad `add` swept my staged
+> file into **`754577564`** ("v1.0.1138 — multiple docs, robot hands contact
+> plan sections fix sql, reasoning debate", 42 files). Content verified
+> byte-identical, nothing lost, and forward-only means it stays there. Recorded
+> because `git log` on this bug will not show 175, and because it is a live
+> instance of the hazard CLAUDE.md § Git already warns about: committing per
+> task protects others from you, not you from others. The practical lesson is
+> narrower than "add early" — it is **`add` and `commit` in the same breath for
+> new files**, since the exposure window is exactly the gap between them.
+>
 > ### Verify (expect 0 rows)
 > The corrected fleet-wide drift query, with its three gotchas, is in
 > `docs024_key_docs_latest/empty_sections_loop_integrity/RUNBOOK_empty_sections_loop_integrity.md`
