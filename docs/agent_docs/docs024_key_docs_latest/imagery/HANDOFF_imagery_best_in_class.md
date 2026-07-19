@@ -1,7 +1,80 @@
 # HANDOFF — Imagery best-in-class workstream (start a new chat from here)
 
-**Last updated: 2026-07-16. UPDATE THIS DOCUMENT EVERY WORKING TURN, alongside
+**Last updated: 2026-07-19. UPDATE THIS DOCUMENT EVERY WORKING TURN, alongside
 the running notes — it is the single entry point for a fresh session.**
+
+## WHERE WE ARE (2026-07-19) — read this block, then "Mechanisms" below
+
+**The D13 gate failure is resolved on the imagery side. Nothing is blocked, and
+no fix chat is outstanding.** Phases **I0, I1, I2 and I3 are complete and live**
+on **v1.0.1136**. The two things left in I3 need *your decisions*, not code
+(RUNBOOK **B16**).
+
+**What "live" means, verified on robot-hands.com 2026-07-19:**
+- `learning-center-hub.html` — 3 listed articles, 3 distinct on-style cards,
+  every click-through 200 and showing its own hero.
+- `index.html` tool directory — 3 tool cards with matching imagery.
+- Card files 22–36KB against the ≤60KB budget (the failed D13 set ran 37–73KB).
+
+**The three decisions that produced this (D14 + F2.1 + F3):**
+1. **D14 — content heroes are their own KIND, routed to Banana, in flat duotone
+   illustration.** The D13 styles were inconsistent because content heroes were
+   emitted as `kind='hero'`, which routes to Stability/SDXL — and *that path
+   structurally ignores `ReferenceImageURIs`*, so per-site style anchoring was
+   impossible. `content_hero` now routes to Banana, and the style guide takes a
+   per-kind **override map** (`kinds.<kind>`) that replaces
+   direction/avoid/anchors **wholesale** for its kind (partial merging would let
+   the site's photographic base voice contaminate a flat-illustration kind).
+2. **F2.1 — listed-page eligibility.** One shared constant,
+   `queryresolve.ListedPageEligibilitySQL`, governs BOTH the listing and the
+   imagery sweep so they cannot drift; it removed the six 404 links.
+3. **F3 — the check now iterates a SURFACE TABLE**
+   (`contentImageSurfaces` in `check_content_image_missing.go`) instead of
+   hardcoding `blog-post`. Each entry carries page type, the consumer LIKE that
+   proves the site lists that type, the eligibility predicate, and the prompt's
+   subject noun. **Adding a surface is a data change.** `tool` joined it and
+   differs in all four fields.
+
+**Commits:** `4e35c8064` (D14 + F2.1) · `358e14af6` (council fixes) ·
+`8b804bc27` (F3 surface table) · migration `170` (tool-list image slot, applied)
+· `c0ef457a1` (release the adapter with the chassis).
+
+**What is left in I3 — both are RUNBOOK B16, both need the owner:**
+- **B16.1 `info-card-grid`** — the most-deployed listing we have (15 live pages,
+  7 sites), but NOT query-fed and with **no image slot at all**. Whether it
+  should carry imagery, and from what source, is a design call. Do not just build it.
+- **B16.2** — the I5/I6 volume sign-off (B5). ~33 tool-page generations were
+  funded 2026-07-18; **7 spent**. gamesdesign.co.uk (9 tool pages) and idea.uk (1)
+  draw on it automatically at their next discovery passes; the other 7 sites with
+  tool pages have no `tool-list`, so the consumer gate spends nothing on them.
+
+**Do NOT start with `featured_article` or `product-card-with-cta`** — both are on
+**zero live pages fleet-wide** (the older fix handoff suggested otherwise and is
+corrected). `news-listing` is Phase I5's own scope.
+
+**Two corrections a fresh session must not re-inherit:**
+- **The "stale adapter" incident did not happen.** I reported the
+  image-generator-adapter shipped stale at v1.0.1134 and "proved" it three ways.
+  All three used the same invalid marker: `content_hero`/`sprite_sheet` are not
+  retained by the Dockerfile build (`-a -installsuffix cgo`, alpine) though a host
+  `go build` keeps them. **A pod-grep is a POSITIVE test only** — validate the
+  marker against a known-good build before believing a miss, and prefer
+  log-message strings. Full evidence + control recipe: `016b` §9; RUNBOOK **A6.3**.
+- **A page re-render does NOT pick up a component-template change** unless
+  `spec.reason` ∈ (`image_landed`, `section_data_resolved`, `cta_links_stale`);
+  otherwise it reassembles the stored `page_components.rendered_html` and reports
+  success having changed nothing. RUNBOOK **A6.2**.
+
+**Where to read next:** `SUMMARY_2026-07-19_imagery_i3_card_imagery.md` (plain
+prose, current state) · `RUNNING_NOTES_…` Turns 48–52 (the technical log,
+including every wrong turn) · `RUNBOOK_…` §A6 (the commands that cost a cycle,
+each with its gotcha) · `README_where_we_are.md` (the owner's running log).
+
+---
+
+<details>
+<summary>Superseded state, kept for the trail — the 2026-07-17 gate failure and the 2026-07-16 position</summary>
+
 
 ## ⚠️ 2026-07-17 (Turn 47): THE D13 GATE FAILED — work moved to TWO FIX HANDOFFS
 The D13 machinery ran end-to-end and is PROVEN (9 heroes generated → 9 cards
@@ -42,6 +115,8 @@ accurate as of the gate.
 - **The image-landing trap is CLOSED and the content-loss thread has RECOVERED
   ALL 17 article-body instances** (004 updated by that thread; root cause was
   writer max_tokens truncation) — D13's image landings are safe fleet-wide.
+
+</details>
 
 ## ✅ READ FIRST — image-landing trap CLOSED (guard live); residual notes
 **History:** landing an image fired a scoped re-render (`image_landed`) that BLANKED
@@ -316,7 +391,31 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
 - image_source_unsatisfiable check live but has produced 0 flags (heroes all
   resolve now) — expected.
 
-## Next actions, in order (updated 2026-07-16 Turn 46 — D13 built, deploy-gated)
+## Next actions, in order (updated 2026-07-19 — I3 CLOSED bar two owner decisions)
+
+**Nothing here is blocking and nothing needs a fix chat.** In priority order:
+
+1. **Ask the owner B16.1** (should `info-card-grid` carry imagery, and from what
+   source?). It is the widest-reach surface left and a wrong guess is a
+   fleet-wide visual change across 7 sites.
+2. **Let the funded tool rollout drain** — gamesdesign.co.uk (9 deployed tool
+   pages) and idea.uk (1) emit on their next discovery passes, 10/site/pass cap.
+   To watch or nudge one: RUNBOOK **A6.1** (fire a pass) + **A6.4** (promote
+   items stranded in `detected` AND `unresolved`). After the cards land, the
+   listing needs a re-render with `reason='image_landed'` — **A6.2**, this is the
+   step that bites.
+3. **Then Phase I4** (data graphics — go-echarts, real series; needs RUNBOOK B4
+   data-source key), or extend Lane B to news (I5) / products (I6) on the same
+   entity columns. Both are sized in the PLAN.
+
+Dispatch reminders: priority is ASC (5 = front, 99 = LAST) and orders only
+*within* a site — dispatch is one site at a time against a fleet-wide pool, so a
+`triaged` item waiting ten minutes is usually queued, not broken. Clear zombie
+claims >15 min, but never while a `needs_page` build is in flight (they run 20+).
+
+<details>
+<summary>Superseded 2026-07-16 sequence (D13 deploy-gated), kept for the trail</summary>
+
 Turn 45's B14 sequence RAN and passed (mechanism acceptance met live). What's
 staged behind the NEXT deploy is D13 (per-article generation) + q78 cards:
 
@@ -342,6 +441,8 @@ staged behind the NEXT deploy is D13 (per-article generation) + q78 cards:
    entity columns.
 Dispatch reminders: priority is ASC (5 = front, 99 = LAST); clear zombie claims
 >10 min (they block the whole site); watched runs may need both.
+
+</details>
 
 **How I2 closed (2026-07-15, for the record):** to land I2.5's `sprite-bullets`
 class the article-body wrapper had to exist, but robot-hands had no healthy article
