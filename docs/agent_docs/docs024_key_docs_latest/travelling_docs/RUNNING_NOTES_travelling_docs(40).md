@@ -3340,3 +3340,77 @@ pre-inversion build rule, and the long-resolved gripper-151 blockage). Next free
 migration **171**. Machine-authored to date: 8 PLANs, 125 notes, 12 Tier-4 verdicts.
 
 Categories: (docs, milestone, handoff)
+
+### 2026-07-19 (later) — the benchmark can't go green: tool fixes never render to the page
+
+Picked up T27's NEXT item 1 (watch `tool-loot-table-balancer` go GREEN). It did
+not go green, and the reason is a defect nobody had found: **the live page has
+not changed since the tool was born.** Filed as `bugs_open/024`.
+
+**What I did.** Verified the mechanism was ready (32k ceiling from 168, write
+guard, 169 refusal path — all live in v1.0.1137, pod up 12h), then promoted the
+open improve_tool item `ce06e06e` (detected → triaged, mirroring
+`triage_detect_items_action.go`). tool-improver ran clean in ~4 min on
+claude-sonnet-5: component 10,272 → **10,626 chars, structurally whole**
+(`</script>`, `<fieldset>` intact), a real `fix` note written, and the grid rule
+now `minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) auto`. **168 worked — no
+truncation this time.** That part is a genuine success.
+
+Then the fix didn't appear on the live page, and unpicking why took three
+findings in series (full evidence in bugs_open/024):
+
+1. tool-improver's rerender item is born `unresolved` and never dispatches. The
+   **two-strike rule** (`load_work_item_actions.go:1019`) counts
+   `status IN ('complete','failed')` as "attempts that did not fix the issue" —
+   but for a *rerender* `complete` means it **succeeded**. Two successful
+   rerenders on 07-17 poisoned the key for 7 days. Compounded by
+   `create_work_item_action.go:128` building `item_key` as `<prefix>_<domain>`
+   only, so every tool on the site shares one key. Note scoping the key per-page
+   would NOT fix it — the same tool fixed twice still poisons itself on the third.
+2. Hand-inserting a correctly-keyed rerender deployed the page and marked it
+   `deployed` — **with stale HTML**. tool-improver's rerender carries no
+   `spec.reason`, and page-rerender gates on it: no reason → `render_page` →
+   `rerender_single_page`, which is assemble-only ("Simple concatenation - no
+   template re-rendering") over the stored `rendered_html`.
+3. Forcing the good branch (`reason=section_data_resolved`, item `478c44c9`)
+   proved the gate diagnosis right — `rerender_sections` ran — and exposed the
+   last defect: it **escalated** rather than rendering, because tool sections
+   carry `content_data = {}` and the article-body blanking guard
+   (`rerender_page_sections_action.go:186`) treats empty content_data as unsafe.
+   `check_escalated` then routes to `complete`, bypassing `save_sections` — the
+   only step that writes `rendered_html`. The render is computed and discarded.
+
+`update_component_html` marks `page_components.build_status='pending'` expecting
+a regeneration that never comes; **nothing in the repo reads `pending`** — the
+code says so itself at `store_generated_component_action.go:455`.
+
+**Two things I got wrong today, both the same mistake.**
+- I first reported "the repair survived, the component carries the fix" after
+  matching `min-width:0`. Wrong: `min-width:0` dates from attempt 1. The
+  distinguishing marker was `minmax(`, and checking the *actual `.ltb-row-grid`
+  rule* is what settled it. Caught by comparing against `component_versions`.
+- I then matched `minmax(` on the live page and nearly repeated the error — the
+  page has 4 unrelated `minmax(` rules in site chrome. Caught by grepping the
+  specific rule instead of the property.
+> **This is the same trap that produced T24's false claim** that the durable fix
+> reached the live page ("`max-width` present ×10" — all 10 in unrelated chrome
+> rules; the tool's own fieldset rule has none). **Rule: verify a specific fix by
+> matching its specific rule, never a generic CSS property.** Corrected in
+> bugs_open/024 and 016b §9.
+
+**Consequence for `bugs_open/010`:** its non-convergence evidence — two RED
+re-verifications, two "materially identical" fixes — is explained by an
+**unchanged page**, not by a fixer that cannot aim. The drill-down (candidate a)
+was still a real improvement; the convergence guard (candidate b) would have
+fired on a loop that was never being given a chance to converge.
+
+**Side effect cleaned up:** the escalation in step 3 emitted a `needs_page` full
+rebuild (`79203a68`) at needs_human_review. A full rebuild is the WRONG remedy
+for a tool page — it regenerates the tool and would destroy the benchmark (the
+re-plan-clobbers-built-pages landmine). Cancelled with a `result.resolution`
+recording why (the T9/T20 convention).
+
+Nothing deployed, no migration applied, no Go change made. The benchmark tool is
+still RED and still the benchmark.
+
+Categories: (diagnosis, bug, gotcha, correction)

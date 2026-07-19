@@ -1077,3 +1077,69 @@ is handed to `diagnose_assemble_bundle`. `rag_lookup` for discovery. Read
 - Workflows flat; complexity in Go; `logger.Info`; check schemas before SQL;
   pods `-n ai-persona-system`, Kafka `-n kafka`; deploys via GitHub → Actions →
   Backblaze.
+
+## 9. Verifying that a fix actually reached the live page (added 2026-07-19)
+
+Written after `bugs_open/024`: three separate claims that "the fix is live" were
+wrong, two of them mine, all from the same mistake.
+
+- **Match the SPECIFIC rule, never a generic CSS property.** `min-width`,
+  `max-width` and `minmax(` all appear many times in unrelated site-chrome rules
+  on any page. Grepping the property finds a hit and proves nothing. This is what
+  produced T24's false "the durable fix reached the live page (`max-width`
+  present ×10)" — all ten were chrome.
+
+  ```bash
+  # WRONG — matches chrome rules, always "passes"
+  curl -s "$URL" | grep -c 'max-width'
+  # RIGHT — the tool's own rule, with its context
+  curl -s "$URL" | grep -A5 '\.ltb-row-grid {'
+  ```
+
+- **The three layers must be compared, not assumed to agree.** A fix can sit in
+  the durable template while the render and the live page stay months stale:
+
+  ```sql
+  SELECT (cc.html_template  LIKE '%minmax(0, 2fr)%') AS template_has_fix,
+         (pc.rendered_html  LIKE '%minmax(0, 2fr)%') AS render_has_fix,
+         length(cc.html_template) AS tmpl_len, length(pc.rendered_html) AS rendered_len
+  FROM page_components pc JOIN content_components cc ON cc.id = pc.component_id
+  WHERE pc.page_id = '<page_id>';
+  ```
+  If `rendered_len` equals the **v1 born length** in `component_versions`, the
+  page has never been re-rendered — regardless of `pages.build_status='deployed'`.
+
+- **`page_components.build_status='pending'` is dead state.** Nothing in the repo
+  scans it (`store_generated_component_action.go:455` says so). Never treat it as
+  evidence that a rebuild is queued.
+
+- **A `page_rerender` work item completing proves nothing about content.** The
+  gate is `spec.reason`:
+  ```sql
+  SELECT default_config->'workflow'->'steps'->'check_rerender_mode'->'config'->>'condition'
+  FROM agent_definitions WHERE type='page-rerender' AND deleted_at IS NULL;
+  ```
+  Only `image_landed` / `section_data_resolved` / `cta_links_stale` re-render from
+  the template; anything else (including **no** reason) assembles the stored HTML
+  and reports success.
+
+- **Check whether the render escalated instead of saving.** `rerender_sections`
+  returning `escalated:true` means `save_sections` — the only writer of
+  `rendered_html` — was bypassed:
+  ```sql
+  SELECT jsonb_object_keys(result->'response') FROM site_work_items WHERE id='<item>';
+  -- save_sections ABSENT + rerender_sections present => render computed, discarded
+  SELECT jsonb_pretty(result->'response'->'rerender_sections') FROM site_work_items WHERE id='<item>';
+  ```
+
+- **Schema traps hit this turn** (schema-first, per CLAUDE.md): `pages` has no
+  `page_name` (it is `name`) and no `rendered_html`; `site_work_items` has no
+  `attempts` (it is `attempt_count`); `agent_definitions` has no `agent_type`
+  (it is `type`); `orchestration_states` has no `id` (it is `orchestration_id`);
+  `agent_error_log` has no `created_at` (it is `occurred_at`).
+
+- **`error_step` sits at STEP level, not inside `config`.** Probing
+  `steps.<step>.config.error_step` returns null even when routing is correctly
+  wired — read `steps.<step>.error_step`. (016b says it lives in `step.Config`;
+  for these agents it does not. Dump the whole step map rather than probing one
+  path.)

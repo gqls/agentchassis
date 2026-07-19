@@ -1385,6 +1385,48 @@ See `/bugs_closed/README.md`.
 | 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
 | 021 | The 012 completeness guard covers ONE write path; `page_components.rendered_html` and `pages.rendered_*` have the same unguarded overwrite shape | filed (council bug_historian objection); needs scope decision |
 | 023 | A button's label and its destination are unrelated schema fields — nothing checks that a control with text has somewhere to go. 51 dead controls / 7 of 11 sites; 84% of library CTA anchors ungated; detected findings die at `needs_human_review` (zero consumers) | filed 2026-07-19; plan in `cta_link_integrity/`, no fix started |
+| 024 | A tool-improver fix is written durably to `content_components.html_template` and **never rendered to the page** — three defects in series (dead `pending` flag; rerender request carries no `spec.reason` so it assembles stale HTML and reports success; the article-body guard escalates any section with empty `content_data`, which is every tool, bypassing the only writer of `rendered_html`). Explains `bugs_open/010`'s "non-convergence" — the page never changed | filed 2026-07-19; diagnosed with live evidence, no fix started |
+
+### "Verified live" by grepping a generic property — the fix that was never rendered (2026-07-19)
+
+**Symptom.** A fix is applied, deployed, reported successful, and re-verification
+still fails with a byte-identical signal. Repeated cycles produce "materially
+identical" fixes and the defect never moves. It reads as a model that cannot
+aim, or a loop that will not converge.
+
+**Root cause (the class).** The artefact being *tested* was never updated. A
+durable-layer write (`content_components.html_template`) and the thing actually
+served (`page_components.rendered_html` → the live page) are **different
+storage**, joined only by a re-render step that can silently no-op. In
+`bugs_open/024` three mechanisms stacked: a `build_status='pending'` flag nothing
+reads; a rerender gate keyed on `spec.reason` that falls through to
+assemble-the-stored-HTML when the field is absent; and a safety guard that
+escalates (and discards the render) for any section with empty `content_data` —
+which is every self-contained tool. All three report success.
+
+**The verification mistake that hid it for two days.** Every "the fix is live"
+claim was made by grepping a **generic CSS property** (`max-width`, `min-width`,
+`minmax(`) on the page. Those appear many times in unrelated site-chrome rules,
+so the check finds a hit and can never fail. Three separate claims — including
+one in a turn log and two made by the diagnosing thread itself, one caught before
+publication — were wrong for exactly this reason.
+
+**Durable rules.**
+1. **Verify a specific fix by matching its specific rule, not a property it uses.**
+   `grep -A5 '\.the-actual-selector {'`, never `grep -c 'max-width'`.
+2. **Compare the layers explicitly** — template vs stored render vs live bytes —
+   and treat agreement as something to prove, not assume. If the stored render's
+   length still equals the **v1 born length** in `component_versions`, it has
+   never been re-rendered, whatever the page's `build_status` says.
+3. **A green work item is not evidence that content changed.** Extend the
+   standing `complete` ≠ *it happened* invariant one layer: here the work item,
+   the orchestration AND the page status were all legitimately green over an
+   unchanged page.
+4. **Before diagnosing a fixer as unable to converge, prove the input to the
+   re-test actually changed between attempts.** Two identical RED results are
+   much more likely to mean an identical page than an identically-wrong fix.
+5. **A flag is not a mechanism.** `build_status='pending'` looked like wiring and
+   was read by nothing. Grep for a consumer before believing a status field.
 
 ### A recreated tool with no data source invents its own records — and says so in a comment (2026-07-18)
 
