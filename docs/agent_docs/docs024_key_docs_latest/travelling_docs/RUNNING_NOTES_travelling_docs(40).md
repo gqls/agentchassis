@@ -3317,3 +3317,26 @@ f32b208e5) is also committed. **Neither is in the deployed v1.0.1135** — until
 image ships, migration 168's ceilings are the only mitigation.
 
 Categories: (verification, reuse, incident-followup)
+
+### 2026-07-19 — protection chain closed (169 applied); read-out written for a new chat
+
+v1.0.1137 verified in-pod: drill-down (adapter + chassis), component write guard,
+and stop_reason detection all LIVE. Applied migration **169** — tool-improver's
+`update_component` had `error_step: null`, so a guard refusal would hit
+failWorkflow (orchestration FAILED, item to the reaper, NO note). It now routes
+`refuse_mangled_write → note_refusal → complete`: needs_human_review carrying the
+guard's own reason. bugs_open/012's chain is now complete end to end.
+
+Absorbed two corrections from the guard's author: the guard is wired into
+`update_component_html` ONLY (store_generated_component keeps its own gate), and
+there was no error_step route until 169 — both were my over-claims. My
+verification against the real artifacts stands. Also: my 098 stdin-theft fix was
+kept and extended (new EVIDENCE GONE bucket; my "kind filter" hypothesis was
+wrong — council reports get deleted by 091's clear-for-a-fair-run practice).
+
+Wrote `SUMMARY_readout_2026-07-19.md` (plain-language read-out) and refreshed the
+HANDOFF §0 cold-start block, which was badly stale (wrong branch, v1.0.1123, the
+pre-inversion build rule, and the long-resolved gripper-151 blockage). Next free
+migration **171**. Machine-authored to date: 8 PLANs, 125 notes, 12 Tier-4 verdicts.
+
+Categories: (docs, milestone, handoff)
