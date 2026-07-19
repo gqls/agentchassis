@@ -58,6 +58,42 @@ Everything else in this plan is cheaper and less valuable than this. Do it first
 **P1.1** Replace `ctaFieldNames` with schema-derived pairing (§3). Keep the map as an
 override for the handful of components whose fields don't follow the convention.
 
+> **Grounded 2026-07-19 by reading the code, not a trace.** Three things the plan didn't know:
+>
+> 1. **The derivation needs no new query.** `plan_sections_action.go:1085` attaches the full
+>    component row (`Component: comp.Raw`) to each section, `input_schema` included — so
+>    `resolve_internal_links` can derive pairs from data it already holds.
+> 2. **The rule must be "url field with a sibling `*_label`/`*_text` on the same stem", NOT
+>    "any `*_url`."** Naive matching over-captures 32 image fields (`site_assets.image` ×24,
+>    `site_assets.logo` ×8). The sibling test excludes them cleanly — verified against the
+>    live library.
+> 3. **Measured coverage: the derived rule finds 33 component functions / 119 CTA url
+>    fields. The hardcoded map covers 5 of those 33 — about 15%.** That is the size of the
+>    "detectable but not repairable" class, and it is much larger than the six-entry map
+>    suggested.
+>
+> **⚠️ Blast radius, therefore.** Deriving takes `resolve_internal_links` from writing ~10
+> fields to potentially 119. That is a real behaviour change, not a refactor. Stage it: land
+> the derivation behind a comparison log first (derive, log what *would* change vs the map,
+> change nothing), read one build's output, then switch the write over.
+>
+> **⚠️ And derivation alone is not sufficient** — `resolve_internal_links_action.go:85-90`
+> is right: a field whose schema source is `site_specs.*`/`static` is re-resolved by
+> `plan_sections_action.go:1211-1218` on every render and merges last, so the resolver's
+> write loses. Of the 119 derived fields only **6 are `source:renderer`** (already freed by
+> 091/098); the rest are `site_specs.cta.*` (16), `static` (7), nav/legal, and `llm` (21).
+> So P1.1 needs a companion decision — either a migration flipping derived CTA url fields to
+> `renderer`, or (better, and it retires the recurring migration) teach `plan_sections` to
+> skip source-resolution for fields the resolver owns, using the *same shared helper*. One
+> derivation function, three call sites: `plan_sections`, `resolve_internal_links`,
+> `applyCTARecompute`.
+
+**P1.1b — the LLM-authored URL surface is 21 fields, not 1.** `tool-guide-intro.cta_secondary_url`
+was not a one-off: **21 of the 119 derived CTA url fields are `source:llm` across 7
+components.** Every one is an instruction to a model to author a URL it cannot look up. This
+is class **E** at fleet scale and it belongs in P1, not P2 — treat P2.3's schema-lint rule
+("no URL field may be `source:llm`") as the fleet-wide sweep it actually is.
+
 **P1.2** New build-time validation in `validate_page_content.go`: for every derived CTA
 pair, if the **label resolves non-empty** and the **URL resolves empty/absent** → finding
 `cta_without_destination`. This is class **A**, caught before render.
