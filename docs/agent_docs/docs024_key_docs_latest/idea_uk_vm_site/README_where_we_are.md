@@ -733,3 +733,54 @@ destination are never checked against each other), which measured `page_componen
 in as many words that header and footer were "not yet counted". Now they are. 023's fix #2 —
 "gate every CTA anchor" — is exactly what this needs.
 
+
+## 2026-07-19 (later) — put to the council, and a wrong turn of mine on the way
+
+Per your steer, I put the **Go fix** to the council rather than doing it, and I went looking for the
+prior discussions first. You were right that they exist, and they changed the submission rather than
+just decorating it.
+
+The important one: **this exact surface was fixed once before, the opposite way.** A decision on
+record as LNK-007, deployed in June, fixed header/footer phantom links by *hardcoding more* into the
+renderer — and the register says plainly why: the template-level fixer "excludes ContentData values
+and literal anchors — which is why the header/footer phantoms had to be fixed at source in Go
+instead." So I am arguing with a deployed decision, and the submission says so in its first
+paragraph rather than pretending to be a fresh idea. My argument is narrow: LNK-007 repaired the
+*values the map already supplies*; it could never help a component asking for names the map does not
+contain, because the map is the ceiling. I am proposing to stop the ceiling being fixed, not to undo
+LNK-007.
+
+The second useful find: the schema-driven principle is **already approved by you** — the CTA plan
+names "one derivation function, three call sites: plan_sections, resolve_internal_links,
+applyCTARecompute." The chrome renderer simply isn't on that list. So the submission is framed as
+adding the missing fourth call site. And a runbook note explains why nobody spotted the gap: the CTA
+census covers page components only and explicitly "does not cover site_components (header/footer)".
+
+**The prior-art search caught a regression I was about to ship.** My first draft applied each
+field's declared fallback whenever a value couldn't be resolved. That sounds harmless. But the
+header component nine sites use declares its button URL as `pages.contact` with a fallback of
+`/contact.html` — which the notes describe as "the literal fossil of the 143-of-144-buttons-point-at-
+contact bug". My rule would have re-created that phantom across nine live sites, undoing the very
+thing LNK-007 was deployed to fix. Changed before submitting: fallbacks now apply only to fields
+declared as static literals; anything that fails to resolve is left empty for the template to hide.
+
+**Now the wrong turn, which cost a little money.** After submitting I couldn't find the run in the
+database and found nothing in the logs, while other people's council runs were visibly completing.
+I concluded the message had been dropped and re-sent it. That was wrong. The requests all go through
+a **single queue with a single consumer**, strictly in order, and it was **26 minutes behind** — my
+message was sitting near the front of a backlog, not missing. "Mine hasn't run but later ones have"
+is what a queue looks like from the outside, and I read it as a hole. The cost: the same plan will
+be reviewed twice and bill twice. I can't recall it — it's already sent.
+
+**Worth knowing beyond this task**, because it isn't really an idea.uk matter: while I watched, the
+backlog grew from 41 to 62 messages and the consumer advanced by one. Production is outrunning
+consumption by roughly ten to one. With several sessions firing work at the cluster at once, every
+thread's dispatch is queuing behind every other thread's. It also retro-explains an earlier puzzle
+in this workstream — a session recorded discovery dispatches "producing no orchestration row at all"
+and couldn't explain it; that was almost certainly this, and it cost that session a run too. I've
+noted the one command that settles it in future.
+
+**Where the fix itself stands:** submitted, trail id `7152c7cf`, waiting on the queue. It is
+advisory — a verdict, not a gate — so it records a judgement either way. Separately, and still true:
+this Go change would not by itself make idea.uk navigable, because its two templates have no
+conditional guards at all. That part is a database-only change and needs no deploy.

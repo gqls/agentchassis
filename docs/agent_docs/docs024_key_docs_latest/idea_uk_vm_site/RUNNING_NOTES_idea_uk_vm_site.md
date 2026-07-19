@@ -715,3 +715,146 @@ symbol greps, HTTP status codes and tag names.
   real-IP problem is live and whether Cloudflare WAF/Turnstile is reachable as the blocking layer.
 - **Does relojistas.com migrate from push to pull too**, or do the two mechanisms coexist? (Coexist is
   fine and is what §2b's allowlist enables.)
+
+## §X — 018 root-caused; the Go fix put to the council (2026-07-19)
+
+**Fleet check first, per 018's own instruction.** idea.uk is the ONLY affected site.
+```sql
+SELECT s.domain, count(*) FILTER (WHERE sc.rendered_html LIKE '%href=""%') AS empty_href
+FROM site_components sc JOIN sites s ON s.id=sc.site_id
+WHERE sc.rendered_html IS NOT NULL GROUP BY s.domain ORDER BY empty_href DESC;
+-- idea.uk 2 (of 3 components); all ten other domains 0.
+```
+
+**Root cause (established, not guessed).** `render_site_components_action.go:222-262` builds
+`RenderContext.ContentData` as a hardcoded literal map and `:530` renders the component's
+`html_template` against it. `input_schema` appears **nowhere** in that file; `site_components.
+content_data` (`{}` fleet-wide) is not read either. idea.uk's two per-site fork components
+(`site-header` f420f3fa, `site-footer` 4238e467, created 2026-05-06, each used by exactly one site)
+declare a completely different vocabulary — `nav_link_1_url`…`nav_link_4_label`, `cta_primary_url`,
+`nav_aria_label`, `col1_link1_url`…`col3_link4_label`. None is in the map, so each gets `""`.
+
+**The confirming detail.** `company_name` IS in the map, and is the *only* chrome value that
+rendered (`<span class="header-logo-name">idea.uk</span>`, `aria-label="idea.uk home"`). Everything
+absent from the map is blank. That is the whole bug in one line.
+
+**Why it was silent.** `component_library.go:544-559` — Go's `missingkey=zero` yields `<no value>`
+for a missing key; the renderer counts them, `strings.ReplaceAll` them to `""`, and logs a **count
+only** with a 100-char template preview. 30 dead controls → one unread log line.
+
+**MISSTEP / CORRECTION — 018's stated theory is wrong and I nearly inherited it.** 018 proposed a
+URL-shape mismatch (`/about` vs `/about.html`). Checked: idea.uk's `site_nav_items` holds 6 primary
++ 1 utility + 1 legal, all `status='active'`, all correctly `.html`-suffixed. `GetNavItems` would
+return every one. The data is fine; nothing consumes it. Corrected in `/bugs_open/018` (commit
+`46feb0f74`) with the superseded block kept and labelled, not deleted.
+
+**MISSTEP — a regression I drafted and only caught via prior-art search.** My first submission
+applied each field's declared `fallback` whenever resolution missed. `header-bold-gradient.cta_url`
+is `{source: pages.contact, fallback: /contact.html}` — documented in
+`NOTES_cta_link_integrity.md:333-336` as *"the literal fossil of the 143 of 144 buttons point at
+/contact.html bug"*. That rule would have re-fabricated the phantom **LNK-007 was deployed to kill,
+across nine live sites**. Fixed before submitting: fallbacks apply **only** to `source:static`;
+a missed data-source resolution leaves the field unset, which is LNK-005 (correct-or-absent) by
+construction. Lesson: *a schema's `fallback` is not a safe default — on a URL field it is a
+fabrication licence.*
+
+**Prior art that reframed the submission** (owner asked for it, and he was right — it changed the
+argument, not just the citations):
+- **LNK-007** (`docs026_concept_register/register/link-management.md:52-58`, status *deployed*)
+  fixed this same hardcoded-ContentData surface by hardcoding **more**. **LNK-016** (`:127`) records
+  why: *"Its scope excludes ContentData values and literal anchors — which is why the header/footer
+  phantoms (LNK-007) had to be fixed at source in Go instead."* So the submission argues with a
+  deployed decision and must say so up front.
+- `PLAN_2026-07-19_cta_link_integrity.md:86-89` names *"one derivation function, three call sites:
+  plan_sections, resolve_internal_links, applyCTARecompute"*. **The chrome renderer is absent.**
+  The submission is therefore framed as *adding the missing fourth call site* to an
+  already-owner-approved principle, not as a new idea.
+- `RUNBOOK_cta_link_integrity.md:40-42` — the CTA census is `page_components` only and *"does not
+  cover site_components (header/footer)"*. That is why chrome was never measured.
+- `093_component_creator.sql:1185` — the component-creator agent is contractually told to emit
+  TIER C `site_specs.*` / `site_assets.*` sources. **The generator produces, by design, schemas the
+  chrome renderer cannot honour** — which is why this recurs rather than being one bad component.
+
+**Reuse (the council has a reuse seat; this is the answer).** `sourceResolver`
+(`plan_sections_action.go:65-475`) already resolves `site_specs.*`, `site_assets.*` (incl. image-role
+alias), `pages.*`, `config.*`, and already refuses to fabricate URLs (`:449-453`). Same package —
+callable with no export or refactor. Zero new resolution code. `newSourceResolver`'s own comment
+says an empty `pageName` *"degrades safely"*, which is exactly the site-wide chrome case.
+
+**Submission.** 3 edits, all in `render_site_components_action.go`; two deliberate limits chosen to
+preserve LNK-007 — (a) resolved values **fill gaps only**, the hardcoded map stays authoritative
+wherever it supplies a value, so the nine working sites render byte-identically; (b) fallbacks
+**static-only**, per the missteps above.
+```
+./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/council_submission_chrome_schema_driven.json
+SUBMISSION_CORR=7152c7cf-5c4d-41b3-8ab4-0c3d8d40fbd5
+RUN_ORCH_ID=3e7f7507-e1eb-4a40-b39b-9b2c5c593a69   # council-gate-132453
+```
+Submission JSON kept in this directory so a resubmission starts from the reviewed text, not memory.
+
+**Known and stated in the submission, not hidden:** this Go change does **not** by itself make
+idea.uk navigable. Both its templates have **zero** `{{if}}` gates (`grep -c '{{if'` → 0), so a
+legitimately-unresolved field still emits an empty attribute. Gating them is a separate DB-only
+change. Also flagged as the one visible change to a working site: `sites.logo_url` is empty for
+vonc.com too, and `header-bold-gradient.logo_url` declares `site_assets.logo`, so vonc may newly
+render a logo where it currently shows its `{{else}}` glyph.
+
+### §X.1 — MISSTEP: I called a queued message a dropped one, and paid for it (2026-07-19)
+
+**What I claimed, and it was wrong.** After submitting (12:24:53 UTC) I found no
+`orchestration_states` row and no `orchestration_requests` row for the run, and nothing in the
+chassis log for my ids. I checked the topic, found my message intact, saw *other* council runs
+completing in the same window, and concluded: *"the message was skipped, not delayed."* I then
+re-submitted.
+
+**That was wrong, and the reasoning error is worth naming.** The evidence I used — my message
+appearing FIRST in a `kcat -o -60` window while later council notes were being written — is exactly
+what an **in-order backlog** looks like on a single-partition topic. The council notes I saw landing
+were from messages produced *before* mine. First-in-window means *oldest unprocessed*, not *skipped*.
+I read a queue as a hole.
+
+**What is actually true** (`kafka-consumer-groups.sh --describe --group generic-requests-group`):
+```
+GROUP                  TOPIC                          PARTITION CURRENT-OFFSET LOG-END-OFFSET LAG
+generic-requests-group system.agent.generic.requests  0         93403          93465          62
+```
+- **One partition, one consumer** (`agent-chassis-5c568b8c74-2f4qv`, segmentio/kafka-go). Strict
+  in-order, serial processing.
+- Across ~2.5 min of observation `CURRENT-OFFSET` advanced by **1** while `LAG` grew **41 → 62**.
+  Production is outpacing consumption by roughly an order of magnitude.
+- The message at the consumer head (offset 93403) carries timestamp **12:24:43 UTC**, i.e. the
+  consumer is **~26 minutes behind wall-clock**.
+
+**The tell that settles it:** the head-of-queue message is timestamped 12:24:43 and my submission
+was 12:24:53 — mine is roughly *at* the head. It was always going to run; it just had not got there
+yet. Nothing was dropped.
+
+**Cost of the misstep.** The resubmission (`RESUBMIT_CORR` kept the trail id stable, so both land on
+`7152c7cf`) means the same plan will now be reviewed **twice** and spend council credits twice. It
+cannot be recalled — the message is already in the topic. Recorded rather than quietly absorbed.
+
+**The transferable rule.** *On a single-partition topic, "my message hasn't been processed but later
+ones have" is not evidence of a drop — verify against consumer-group LAG before concluding anything.*
+Check `CURRENT-OFFSET` vs `LOG-END-OFFSET` and the head message's timestamp FIRST; it is one command
+and it is decisive:
+```bash
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group generic-requests-group
+```
+(Gotcha: the broker pod is `personae-kafka-cluster-combined-pool-prod-0`; the CLI is under
+`/opt/kafka/bin/`, not on `$PATH`. `--all-groups` across every group takes >120s — describe the one
+group.)
+
+**This also retro-explains an earlier entry in these notes.** §S recorded that on-demand discovery
+dispatches "produced no orchestration row at all" and that "the pod was six hours old, so the
+documented 300s-post-restart drop doesn't explain it." That thread almost certainly hit *this* —
+a backlog, not a drop — and it cost a run and an unresolved TODO. The 300s-post-restart rule in
+CLAUDE.md is real but is not the only reason a dispatch appears to vanish; **queue depth is the
+commoner one, and it is now measurable.**
+
+**Wider significance (not idea.uk's problem alone).** Many sessions fire triggers at this one topic
+concurrently. A serial consumer at roughly one orchestration per couple of minutes, with a backlog
+that grew while being watched, means *every* thread's dispatch latency is a function of how many
+other threads are firing. Worth its own bug file; noted here because it changed how this task ran.
