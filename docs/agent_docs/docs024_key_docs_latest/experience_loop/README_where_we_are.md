@@ -113,3 +113,67 @@ Say A or B and I'll set it in the compose prompt, re-fire, and drive to CP2 and 
 
 B
 -----------
+The run just landed and is composing. Here's where things stand.
+
+D2=B is applied, and running it found three more defects — all mine
+
+I wrote B into the compose prompt with its rationale (so the planner can't re-derive it), plus a hard constraint so B couldn't reintroduce the original defect in a new coat: opening an archive entry must be a real observable
+outcome (deep-linkable fragment + a populated detail region), not a class toggle or an empty panel.
+
+Four council runs followed. All escalated — and every escalation was correct, each exposing a bug of mine rather than a fault in the plan:
+
+Verdict discipline worked. Objections per critic fell from 3–5 to 1–2, low-severity noise largely vanished, honesty approved in every round. Two runs came within a single medium objection of approval.
+
+load_context was lying by omission. It filtered component_level='tool', but gauntlet-interface, gauntlet-cta, provocation-card and lobby-grid are all level='section'. So the context showed one component when five are active and
+attached — and tool-gauntlet genuinely does have gauntlet-interface attached. The planner asserted the component existed; the critic could see no evidence and objected. Correctly, five rounds running, across two independent
+runs. I'd been reading that as a stubborn critic; it was a truthful one reading a misleading brief.
+
+A compose truncation death spiral. llm_call_log settled it: recompose output ran 13303 → 12599 → 14138 → 15499 → 16000/16000. Each round the plan grew absorbing objections until it hit the ceiling and truncated inside the §5
+criteria fence — at which point two critics objected that it was truncated, an objection revising can never clear because revising makes it longer. Same class as the article-body fix, new place. Fixed at both ends (32000
+ceiling plus a length-discipline rule prioritising the criteria fence), because raising the ceiling alone only delays it. Worth noting: the council caught its own document being truncated — otherwise a plan with an unparseable
+criteria fence would have reached the acceptance ladder.
+
+My own operator error. The first D2=B trigger sat in the Kafka topic ~10 minutes before being consumed, my poll window missed it, I re-fired, and two councils ran concurrently on the same key. Harmless here — and the two runs
+agreeing was actually informative — but it's exactly what the coverage rule exists to prevent. I now check for in-flight runs before every fire.
+
+Right now
+
+Run 054b358a is live and composing with all three fixes in. It had been queued behind a fleet-wide quiet period (chassis consumed nothing from 15:27); I deliberately did not restart the chassis — single healthy replica, 6h19m
+uptime, zero AWAITING_RESPONSES backlog, and a prior run had landed fine after similar lag, so the evidence pointed to lag rather than failure, and a restart would have disrupted every concurrent thread.
+
+Judge it by two things: whether the persisted plan ends with <!-- END EXPERIENCE_PLAN --> and a closed ```criteria fence (proves the truncation fix), and whether feasibility stops objecting about component existence (proves the
+context fix). If it converges, that's CP2 closed and the MVP build round is next.
+
+It runs ~25 minutes. Want me to keep watching it through to a verdict, or pick it up next session?
+
+---
+
+## 2026-07-19, later — the reviewer finally stopped finding our bugs and started finding the plan's
+
+Picking this up from the resume handoff. The first job was the small resilience change I'd recommended last time: stop one flaky critic from killing a whole council run.
+
+Reading the code before writing it changed the shape of the fix, in two ways I want to record because the original recommendation would have caused a quieter problem than the one it solved.
+
+The idea was to let a critic that errors simply not vote. The machinery already supports that — a missing opinion counts as an abstention, and it refuses outright if *every* critic goes missing, so silence can never be mistaken for approval. But my earlier note said to send a failed critic straight to the counting step. That would have skipped every critic *after* the failed one too, turning one dead reviewer into three. So each critic now falls through to the next one instead.
+
+The second correction matters more. I'd said to apply this to all four critics. Three, in the end. The honesty auditor — the one that checks nothing is invented — is the only seat with a blocking veto, so letting it quietly abstain would mean a plan could be approved with the anti-fabrication check never actually run. That is precisely the failure this whole subproject exists to prevent. So a dead honesty auditor still stops the run, and I've written the reason into the file next to the setting, because the inconsistency looks like an oversight and someone will otherwise tidy it away.
+
+Then I ran it. **It survived all five rounds — the first time that has ever happened.** Every previous run died in round one or escalated early. Round four got to three approvals out of four: one objection away.
+
+It still didn't get an approved plan, but the reason has changed, and that's the news. Every previous escalation was the council correctly reporting a bug in our own tooling. This one isn't. Both big fixes from last session held up under sustained pressure — the plan document stayed complete and stable in size through all five rounds instead of growing until it truncated, and the critic that had been objecting for five rounds that it couldn't verify a component now approves in round one and spends its objections on real build risks instead.
+
+What it escalated on this time is the plan being too ambitious, and us not listening.
+
+One critic — the one whose job is arguing for a smaller first version — said essentially the same thing in four of the five rounds: this Arena rebuild isn't needed for the core game to be playable, defer it. The plan never cut it. Meanwhile every revision answered a different critic by adding more detail, which made the plan bigger, which set the scope critic off again. Round four to five is the clearest case: two critics went to approve, then the revision that satisfied a third pushed one straight back to objecting.
+
+I found why, and it was our fault rather than the model's. The revision prompt introduced that critic as "advisory". That's true of its voting rights — it can't veto. But it's false in practice, because the council revises if *any* critic objects at all. So we told the writer that objection was optional, and it treated it as optional, entirely reasonably. Meanwhile it was blocking approval exactly like a veto would.
+
+You chose to fix that by making the scope cuts binding rather than by silencing the critic, which I think is right: that critic has been correct every round — the plan genuinely is over-scoped. The revision step now has to either cut what it's told to cut, or say in one line why the game can't work without it. And it's told outright that answering one critic must never grow the plan to satisfy another. Run eight is going now.
+
+Two other things worth knowing.
+
+The resilience fix I opened with is deployed but **unproven**. No critic flaked during the run, so the new path never actually executed. I'd rather say that plainly than count it as tested.
+
+And chasing a warning from last session's notes — that some site components were "deactivated across sixteen pages" — turned up something worth having, though it wasn't what the note said. That claim mixed up two different things; every one of the site's page-level components is fine. What is real: the site's header, footer and page-head all point at library entries marked inactive, and the repair job for that has been sitting in a queue since the 11th, eleven days, never picked up. Nothing is visibly broken, because the already-built versions are still being served — but it's stale, and it's the same fault another thread diagnosed this morning on the buttons bug: the system detects a problem, files it, and then nothing ever consumes it. Theirs died in one queue, this one dies in another, one step earlier. I added the evidence to their bug rather than opening a second one, since it's the same disease.
+
+Worth flagging for when we build: this site's homepage is queued for a generic rebuild, and the council itself spotted that our planned edits could be wiped out by it. That's a sequencing problem to solve before any building starts, not after.
