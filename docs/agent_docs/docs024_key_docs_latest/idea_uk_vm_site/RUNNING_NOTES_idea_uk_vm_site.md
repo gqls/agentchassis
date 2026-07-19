@@ -639,6 +639,71 @@ untouched.
 the header/footer `empty_internal_href` (blank logo `src`, dead buttons) and the phantom `.html`-less
 links. All are chrome-level, affect every page, and want their own pass. The forms work regardless.
 
+## V — 2026-07-19 · The chrome is broken on every page (`/bugs_open/018`)
+
+Chasing the auditors' header/footer findings to the deployed artefact produced a worse number than
+expected. Counted on the live homepage: **31 of 33 links are `href=""`** — the entire primary nav
+(8 × `nav-link`), every page CTA, all three social links; only the two *literal* logo hrefs (`/`)
+work. `<img class="header-logo-img" src="">` too, though `/assets/images/logo.jpg` serves 200. Some
+footer links have empty text as well as empty href, so they are invisible rather than merely dead.
+**The site is effectively unnavigable**, and has presumably been so since it was first built — it
+only became visible when the cutover put it in front of the public.
+
+Shape of the evidence: the chrome **templates** render correctly (classes, structure, `site-footer.js`,
+the nav element). Only **resolved values** are missing. Both working links are template literals;
+everything requiring data is empty. Combined with the 9 `phantom_internal_link` findings — the nav
+model uses `/about`, the built site is `/about.html` — a URL-shape mismatch between the nav data and
+`pages.url` would explain the empties and the phantoms together. Root cause NOT established; not
+guessed. Fleet check included in 018 — the filler is shared code, so fix the filler, not the rows.
+
+**Verification trap recorded** (I fell into it): the footer is emitted as `<section class="footer-…">`,
+**not** `<footer>`. `grep '<footer'` returns 0 and *appears* to confirm the auditors'
+`missing_structure` finding ("9 pages deployed without header/footer"). That finding is **false for
+the artefact** — the chrome is all there. I reported "footer missing" to the owner before checking
+properly, then corrected it. Anyone acting on `missing_structure` as written would re-run a rerender,
+see chrome "return", and record a fix that fixed nothing.
+
+## W — Missteps in this workstream, collected (so they are not repeated)
+
+Kept together deliberately: each cost real time or nearly shipped a defect.
+
+1. **Diagnosed from a message about a path as if it described contents** (`/bugs_open/016`).
+   "Host key verification failed" means the host key was not found *where ssh looked*; I inferred an
+   empty file and "fixed" a file ssh would never read. The actual cause — ssh expands `~` from the
+   passwd entry, not `$HOME` — was only visible in the *second* error. `ssh -v` prints the paths and
+   would have ended it in seconds.
+2. **Re-ran a stale copy and read it as "the fix didn't work."** `scp -r box host:/root/idea-uk-box`
+   **nests** when the destination exists, so the fixed script landed in `…/box/` while the old one
+   ran. Symptom is indistinguishable from a failed fix. Now: `rm -rf` first, then grep the copy for a
+   string only the new version contains.
+3. **Staged an nginx config that was a silent downgrade.** The live conf is `idea.conf` (not
+   `idea.uk`), and my version dropped `proxy_read_timeout 930s` — "the engine can take minutes" —
+   along with `limit_req`, the port-80 ACME block, IPv6, ssl_protocols and four security headers.
+   Every smoke test would still have passed; reports would have died at nginx's 60s default. Caught
+   by reading `setup.sh`, the script that provisioned the box, instead of assuming.
+4. **Declared the deploy path "code-verified" against the wrong symbol.** I grepped the pod for
+   `resolveGitRepoName`; `/bugs_open/014` (filed the same day by another thread) showed the real fix
+   is `resolveGitRepoNameDB`, because the old resolver read workflow state most workflows never
+   populate. Right answer, wrong evidence.
+5. **Cut over without the rehearsal I had written.** The port-8443 dry run existed precisely so a
+   mistake would be free; the swap went straight to live. It came out clean, and the post-cutover
+   checks covered the same ground — but that was luck, not method.
+6. **Trusted green smoke tests over the funnel** (`/bugs_open/017`). All 16 routes returned the
+   tool's codes, so the cutover was called a success — while the tool's entry forms had vanished with
+   the landing page it lost. **A funnel can be absent without a single non-2xx.**
+7. **Said the auditors had missed it. They had not — they had never been run.** Worse, I wrote a
+   duplicate trigger without searching; `076_improvement_loop_trigger.sh` already existed and passes
+   `domain`, which is exactly why my envelope died. Deleted; dispatch faults filed as `002 F`.
+8. **Nearly shipped a silent security regression** (`sql/p2_02`). A raw SQL INSERT bypasses
+   `separateInlineJS`, so the request form landed in the shape `016b §9` calls broken — no JS asset
+   published, `_elapsed` never set, and the `/request` timing gate **failing open while appearing
+   present**. Caught by checking my own work against the guide before deploy.
+9. **Reported "footer missing" from a grep that could not see it** (§V above).
+
+Common thread in 1, 4, 6, 9: *a check that cannot see the thing it is asked about returns a clean
+answer.* The guide's "0 rows is not decisive" generalises further than SQL — to filesystem paths,
+symbol greps, HTTP status codes and tag names.
+
 ## Open decisions
 
 - ~~`/privacy` — tool or static?~~ **RESOLVED 2026-07-18 (owner): the tool keeps all three legal

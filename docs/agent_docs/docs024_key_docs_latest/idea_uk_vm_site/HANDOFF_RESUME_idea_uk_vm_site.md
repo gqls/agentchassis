@@ -1,6 +1,38 @@
 # RESUME HANDOFF — idea.uk VM site (start a fresh chat here)
 
-**Updated 2026-07-16.** This is the single entry point to continue the idea.uk → VM workstream.
+> ## ▶ START HERE — state as of 2026-07-19
+>
+> **The migration is DONE and LIVE.** idea.uk serves the chassis static site with all 16 tool paths
+> proxied on one origin (cutover 2026-07-18 14:55 UTC). Pull-sync runs every 5 min; the
+> chassis→vm-sites→box pipeline is proven end-to-end by a real build. Credentials rotated. Both tool
+> entry forms restored and live.
+>
+> **THE TOP JOB — `/bugs_open/018`: the site chrome is broken on every page.**
+> 31 of 33 homepage links are `href=""` — the entire nav, every CTA, all social links; only the two
+> literal logo hrefs work. `<img class="header-logo-img" src="">` too, though the asset serves 200.
+> The site is effectively **unnavigable**, live and public. Templates render fine; only *resolved
+> values* are missing, which points at the data-fill for `site_components`, not the templates. It
+> almost certainly pre-dates the cutover — the pages went to B2 where nobody looked. **Check whether
+> it is fleet-wide before fixing per-site** (query in 018).
+>
+> **Then, in order:** prove the money path (Stripe test event through the new nginx); confirm
+> `proxy_read_timeout 930s` really landed in `/etc/nginx/snippets/proxy_tool.conf` on the box; purge
+> Cloudflare; deploy the tool binary (spam defences + email subject fix, one build carries both);
+> add the two SES bounce DNS records.
+>
+> **Read in this order:** `BRIEFING` (plain English, read-aloud) → this file → `RUNNING_NOTES §T–§W`
+> (execution record + collected missteps) → `RUNBOOK` (how) → `/bugs_open/016,017,018` + `002 F`.
+>
+> **Three rules this workstream learned the hard way:**
+> 1. **Verify against the deployed artefact, never the work-item status.** A `failed` item here had
+>    rendered and deployed correctly; a `missing_structure` finding is false because the footer is a
+>    `<section class="footer-…">`, so `grep '<footer'` "confirms" it.
+> 2. **A green smoke test cannot see a missing form.** All 16 routes returned the tool's codes while
+>    the funnel was entirely absent (`017`).
+> 3. **Reuse before rebuild** — `076_improvement_loop_trigger.sh` already runs the auditors; a
+>    hand-rolled trigger cost a run (`002 F`).
+
+**Updated 2026-07-19.** This is the single entry point to continue the idea.uk → VM workstream.
 Read `SUMMARY_idea_uk_vm_site.md` for the plain-English state, then this for the operational detail.
 Companions in this directory: `PLAN`, `RUNBOOK`, `RUNNING_NOTES`, and `sql/` (every change applied,
 in order). The `HANDOFF_replan_clobbers_built_pages_FIX.md` here is a SEPARATE chassis-fix task.

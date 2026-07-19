@@ -1,6 +1,25 @@
 # PLAN — idea.uk: one site, one origin, behind the VM nginx
 
-**Status:** design agreed 2026-07-14, not yet executed.
+> **STATUS 2026-07-19 — the plan below is EXECUTED. It is retained as the design record.**
+> Phases 0–3 are done: credentials rotated, site completed, per-site deploy target wired + guarded +
+> activated, pull-sync live on the box, and the **nginx cutover shipped 2026-07-18**. idea.uk now
+> serves the chassis static site with all 16 tool paths proxied on one origin.
+>
+> **What the plan did not anticipate, and what now matters more than anything left in it:**
+> 1. **The cutover orphaned the tool's entry forms** (`/bugs_open/017`). The tool served its own
+>    landing page at `/`, and that page carried the audience-check and report-request forms.
+>    Giving `/` to the static site removed the funnel. **Fixed** — both forms are now authored as
+>    chassis sections and live (`sql/p2_01`, `p2_02`).
+> 2. **The static site's chrome is broken on every page** (`/bugs_open/018`): 31 of 33 homepage
+>    links are `href=""` — the whole nav, every CTA — plus an empty logo `src`. Almost certainly
+>    true since the pages were first built; invisible until the cutover put them in front of the
+>    public. **Open, unstarted, and now the top job.**
+> 3. Discovery auditors had **never been run** against this site (`/bugs_open/002 F`).
+>
+> Read `RUNNING_NOTES §T–§W` for the execution record and the collected missteps; `BRIEFING` for the
+> plain-English version; `HANDOFF_RESUME` to start a fresh chat.
+
+**Status:** design agreed 2026-07-14; executed 2026-07-14 → 2026-07-19.
 **Site:** idea.uk, `site_id 1244516d-014d-421c-88c6-090bb1e9552a`.
 **Box:** Hetzner (Nuremberg) `116.203.204.115`. Live, earning. Do not break the money path.
 

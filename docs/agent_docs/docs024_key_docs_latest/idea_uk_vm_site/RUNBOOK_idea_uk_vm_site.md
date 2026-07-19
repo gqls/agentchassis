@@ -38,9 +38,24 @@ tool's own branded page, not a static miss; legal `.html` 301s work; `/nonexiste
 security headers intact). The live file is **`idea.conf`**; the staged config was rebuilt as a
 superset of setup.sh's template first — it had been dropping `proxy_read_timeout 930s`, `limit_req`,
 the port-80 block, IPv6, ssl_protocols and the security headers. RUNNING_NOTES §T.
-**Next: prove the money path (Stripe test event), confirm `proxy_read_timeout` landed, purge
-Cloudflare, Phase 4 tool deploy, SES bounce records.**
+**2026-07-19 — post-cutover reality.** Two things the cutover exposed, both now understood:
+- **Funnel was orphaned** (`/bugs_open/017`): the tool's forms lived on the `/` page it lost.
+  **FIXED** — `audience-check-form` (tools.html) and `report-request-form` (report.html) authored as
+  chassis sections and verified live, including the honeypot, `_elapsed`, and the JS asset at
+  `/tools/assets/report-request-form.js` (200). `sql/p2_01` + `p2_02`.
+- **Chrome broken site-wide** (`/bugs_open/018`): **31 of 33 homepage links are `href=""`** (whole
+  nav, every CTA) + empty logo `src`. Pre-dates the cutover; the cutover only made it visible.
+  **OPEN — this is now the top job.**
+- The chassis→vm-sites→box pipeline is **proven end-to-end** by a real build (was only code-verified).
+
+**Next: (1) fix the chrome — `/bugs_open/018`; (2) prove the money path (Stripe test event);
+(3) confirm `proxy_read_timeout` landed on the box; (4) purge Cloudflare; (5) Phase 4 tool deploy;
+(6) SES bounce records.**
 ⚠️ **`setup.sh` must not be re-run unmodified** — it rewrites `idea.conf` back to tool-only.
+⚠️ **Verify against the deployed artefact, never the work-item status** — this site has produced a
+`failed` item for a page that rendered and deployed correctly (claim-timeout churn), and a
+`missing_structure` finding that is false because the footer is a `<section class="footer-…">`, so
+`grep '<footer'` "confirms" it.
 §3b correction: static `terms.html`/`refund-policy.html` DO exist and footers link all three legal
 pages with `.html` — add 301s (`/terms.html → /terms` etc.) at cutover so the tool stays canonical.
 
