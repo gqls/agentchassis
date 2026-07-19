@@ -383,3 +383,43 @@ Doc-searched (006_news_feed_pipeline_v2, FOCUS_navigation) + DB-verified. Findin
   /noticias, drop/repoint mantenimiento; re-render index.
 - **Task order:** (4) Noticias news-index build → (7) card-link repair + index rerender →
   (5) Guías articles → (6) Glosario terms. Tasks tracked in the session task list.
+
+## 2026-07-18/19 — /noticias LIVE; council caught a duplicate; handoff written
+
+- **NOTICIAS BUILT + DEPLOYED.** The targeted fix worked exactly as diagnosed: re-type
+  `noticias-index` section-index→**news-index** + `sections=[hero,news-listing,call-to-action]`
+  (copied from the gaswholesalers reference) + re-queue the `needs_page` item. No re-plan, so
+  no clobber. Verified live: `/noticias/` 200, `<title>Noticias de relojería | Relojistas</title>`,
+  carries `data-component="news-listing"`, and `/data/news-archive.json` now renders **20
+  items** (render_news_section gates the archive on page_type='news-index' — which is exactly
+  why it produced nothing before). Work item `complete`.
+- **COUNCIL GATE used for the first time** on the bugs_open/015 fix (a proposed
+  `unresolvable_internal_links` check). `SUBMISSION_CORR=8a1f7b4f`, run `745e1913`.
+  **Outcome: withdrawn as a DUPLICATE — the council was right.**
+  - The reuse seat's own suggested check ("search for an existing link-resolution helper
+    rather than reimplementing href extraction") surfaced
+    **`discovery_checks/check_phantom_internal_links.go`**, which already does it, reusing the
+    shared `ExtractHrefs`/`ClassifyLinkScope`/`PageURLSet` datahelpers that the deploy gate
+    uses — my draft would have reimplemented extraction.
+  - A second seat found the real flaw: I routed BOTH defect classes to `page-rerender`, but a
+    rerender **re-emits an LLM-invented href unchanged** from component content_data and then
+    marks the item resolved — silent-success. It routes by surface instead
+    (`nav-link-fixer` vs `page-build-handler`).
+  - Decisive nuance: the phantom check treats "real page" as *a pages row exists*, so
+    **planned-but-unbuilt pages are deliberately NOT flagged** → it covers /ferias, /archivo,
+    /guias/mantenimiento (no rows) but not Noticias/Guías/Glosario (rows, unbuilt).
+    It IS enabled in `completeness-discovery-agent` but has 0 work items fleet-wide — it has
+    simply never swept this site. **So task 7 needs no code, just the sweep.**
+  - Correction recorded in `bugs_open/015`.
+- **INFRA FINDING (unfiled, operator to decide):** the council run produced **no verdict
+  artifact** — `council_decide` died on `review_editquality.result` being *"invalid JSON —
+  likely truncated at max_tokens"* (the 005/008/012 truncation family). Reviews survived only
+  in `orchestration_states.collected_data`; the coverage report will score such runs MISMATCH
+  rather than reviewed. The council thread owns that code.
+- **Handoff + summary written:** `HANDOFF_RESUME_relojistas_rebuild.md` (fresh-chat entry
+  point: coordinates, live-verified state, remaining tasks, traps) and a rewritten
+  `SUMMARY_relojistas_rebuild.md` (read-aloud, full arc).
+- **Remaining:** Guías/Glosario content (operator chose author-starter-content); phantom
+  sweep for invented links; P5.2 search-that-answers (intent capture paused since cutover);
+  per-forumid category feeds; measure the 404→200 reactivation; housekeeping (stale
+  gqls/sites copy + B2, favicon.png, CF real-ip re-run, intent_events collector).
