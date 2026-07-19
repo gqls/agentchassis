@@ -69,6 +69,36 @@ Backups (turn 17): `bak_pages_contentdata_leo_20260714`, `bak_usecases_leo_20260
 
 Plan for these: `PLAN_imagery_and_design_2026-07-18.md`.
 
+## ⚡ PUNCH-LIST 3 (owner review 2026-07-19) — broken buttons
+
+| # | Item | Status |
+|---|---|---|
+| 1 | 4 buttons on the tool pages broken/meaningless: *Start Ranking Free*, *See How It Works*, *Start the Guide*, *Visit the Tool* | **DIAGNOSED & PLANNED, not fixed** (deliberate — owner scoped the fix to a later thread). Bug: `bugs_open/023`. Plan + evidence + queries: `docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/`. |
+
+**Summary of the diagnosis** (full detail in the plan — do not re-derive):
+Four buttons, four *different* mechanisms, each defeating a different check. `href=""`
+(warning-only, never blocks); `href="#guide-start"` with no such id (fragment scope is
+skipped by every check); a fabricated external host (external scope skipped by every check,
+zero HTTP checks exist in `platform/`); and a frozen `source:static` label from a *different
+tool* (`bayesian-ranking-hero-tool_pre_037` — a `_pre_037` backup row that is the sole live
+component for its function).
+
+Two things matter beyond this site:
+- **It is fleet-wide.** 51 dead/suspect controls across 7 of 11 sites; **75 of 89 URL-bound
+  CTA anchors in the component library are ungated**, so a missing address renders a dead
+  button instead of no button — violating the platform's own LNK-005 invariant.
+- **One of the four was correctly detected on 2026-07-17** and filed at
+  `needs_human_review`, which nothing consumes (21 `unresolved_cta` + 13
+  `cta_names_unknown_destination` open here, oldest 2026-07-13). The delivery gap is a
+  separate fix from the detection gap.
+
+⚠️ **Fix at component/schema level, NOT in `page_components`** — `bugs_open/001` gives
+anything written there an undefined shelf life on this site.
+⚠️ **Do not run the experience loop on this yet** — it is a detection loop and these are
+already correctly described in 34 unread items. Build the handler first.
+⚠️ Open owner question: `leopardessconsulting.com` is owner-owned but serves a blank page,
+and a live button points at it. A redirect to `.co.uk` fixes one of the four for free.
+
 ## 0. The one-paragraph version
 
 We are rebuilding leopardessconsulting.co.uk (a real, live site the agentchassis platform
