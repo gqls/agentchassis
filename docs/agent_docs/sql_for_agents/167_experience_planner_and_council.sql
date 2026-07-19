@@ -88,7 +88,17 @@ SELECT
               ' E''Any data contract you specify MUST match the EXACT access paths in the source below. A field the loader never reads is dead weight; an access path the contract does not supply leaves that region SILENTLY EMPTY — these loaders fail gracefully by design, and runtime-fill shells are deliberately exempt from the dead-control and phantom-link checks, so NOTHING will flag it. Read the source. Never infer the shape from a component name.\n\n'' || ' ||
               ' COALESCE((SELECT string_agg(''### '' || js.name || E''\n'' || ''hydrates component(s): '' || js.applies_to::text || E''\n'' || COALESCE(js.description,'''') || E''\n```javascript\n'' || left(js.js_content, 8000) || CASE WHEN length(js.js_content) > 8000 THEN E''\n/* … TRUNCATED at 8000 chars — ask for the rest rather than guessing … */'' ELSE '''' END || E''\n```\n'', E''\n'' ORDER BY js.name) ' ||
               ' FROM js_snippets js WHERE js.is_active AND js.applies_to ?| (SELECT COALESCE(array_agg(DISTINCT cc.function), ARRAY[]::text[]) FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN content_components cc ON cc.id=pc.component_id WHERE p.site_id = $1::uuid AND cc.function IS NOT NULL)), ' ||
-              ' ''(no active runtime loader matches this site''''s attached components — if the plan assumes client-side hydration, that assumption is unverified)'') ' ||
+              ' ''(no active runtime loader matches this site''''s attached components — if the plan assumes client-side hydration, that assumption is unverified)'') || ' ||
+              -- 175: component-owned JS is a SECOND, distinct source of DOM
+              -- contract (ships as /tools/assets/<function>.js). 174 surfaced
+              -- only js_snippets, so gauntlet-interface's 3909 bytes of js_content
+              -- stayed invisible and the contract critic could not verify
+              -- Journey E. Third instance of this same omission class.
+              ' E''\n\n## Component-owned JavaScript (content_components.js_content) — ALSO BINDING\n'' || ' ||
+              ' E''Distinct from js_snippets above: this JS ships as /tools/assets/<function>.js and owns its component''''''''s DOM contract. If the plan names a selector or a computation for one of these components, it must appear in the source below. A selector the plan assumes and this source lacks does not exist.\n\n'' || ' ||
+              ' COALESCE((SELECT string_agg(''### '' || cc.function || E'' (component-owned js)\n```javascript\n'' || left(cc.js_content, 8000) || CASE WHEN length(cc.js_content) > 8000 THEN E''\n/* … TRUNCATED at 8000 chars — ask for the rest rather than guessing … */'' ELSE '''' END || E''\n```\n'', E''\n'' ORDER BY cc.function) ' ||
+              ' FROM (SELECT DISTINCT cc2.function, cc2.js_content FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN content_components cc2 ON cc2.id=pc.component_id WHERE p.site_id = $1::uuid AND cc2.js_content IS NOT NULL AND cc2.js_content <> '''''''') cc), ' ||
+              ' ''(no attached component carries its own js_content — any plan step assuming client-side behaviour from a component must say which script will provide it)'') ' ||
               ' AS text'
           )
         ),
