@@ -129,3 +129,51 @@ happening rather than reading a report at the end.
 
 Nothing is fixed yet. Next step is the shared derivation helper with tests, since three
 separate places in the code need to agree on what a button destination is.
+
+----
+
+**2026-07-19, later still — the diagnosis loop came back, and it caught me out.**
+
+You asked me to put the "same migration written four times" question to the diagnosis loop
+rather than take my own preference. Good call, because it corrected me.
+
+**The verdict was CONFIRMED** — the mechanism I described is real. When a page is rebuilt,
+certain button-destination fields get looked up fresh from the database every time, and that
+lookup overwrites whatever the link resolver had worked out. So the resolver can compute the
+right answer and have it thrown away on the next render. That is genuinely what happens.
+
+**But I had one of the details wrong, and it matters.** I told you that only fields marked
+`renderer` survive, and that `static` fields overwrite the resolver. The loop showed me the
+code says otherwise: `static` and `renderer` are handled by the *same* line and both leave the
+resolver alone. The fields that actually get overwritten are the ones that pull from site
+settings or the page list.
+
+Where I went wrong is worth knowing, because it's the kind of mistake that repeats. I'd
+worked out how `static` behaves for button *labels* — where it does re-apply every time, which
+is exactly why "Start Ranking Free" is frozen onto your page — and then assumed it behaved the
+same way for button *destinations*. It doesn't. The same setting does opposite things
+depending on whether a default value is declared alongside it. My original finding about the
+frozen label stands; my generalisation from it didn't.
+
+**The practical effect is that the job got smaller and sharper.** I'd told you the problem
+covered around 113 fields across 33 components. Measured properly against the correction:
+**83 fields across 18 components**. The rest were never at risk.
+
+**One more thing the loop found on its own** — a component in your header still carries
+`source: pages.contact`, with a hard-coded fallback to the contact page. That is the actual
+fossil of the old "every button on every site points at contact" bug, still sitting in the
+schema.
+
+**What it didn't do, by design:** it diagnosed the cause but didn't pick between the two
+remedies. That's the correct division — the diagnosis loop tells you what's wrong, the council
+gate reviews a proposed fix. So the direction question is still open, but now it's a
+better-informed question about a smaller target.
+
+**A trap I nearly walked into.** The diagnosis trigger defaults to running against `main`.
+I checked first: `main` is 345 commits behind and carries an early version of the very list
+I was asking about — two entries where the working branch has six. Had I taken the default,
+the loop would have confidently diagnosed a version of the code where the problem barely
+exists. That's now written into the runbook as a standing check.
+
+Next: I'd like your steer on the two remedies, or I can put a proposal through the council
+gate and let it arbitrate.
