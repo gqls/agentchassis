@@ -86,25 +86,29 @@ func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) 
 	// analyze_design LLM re-rolls the palette, drifting site colours run
 	// over run (robot-hands R1, 2026-07-17: four CSS rewrites in a day,
 	// one rolled a light background onto a dark site).
-	var webdesignCount int
+	// ONE predicate, not two sequential probes: two independent "does a spec
+	// exist" paths in different tables are a standing invitation to diverge
+	// (council-gate objection, round 3). The site_specs arm stays so the
+	// original contract remains satisfiable if a writer ever appears; it is
+	// an OR term here, not a separate query with its own fallback branch.
+	// The content_data arm tests the VALUE, not key presence — a crashed or
+	// empty run can leave color_scheme as null/{}, and reading that as
+	// "spec exists" would suppress the finding for a site with no usable
+	// spec: the mirror-image false negative of the bug being fixed.
+	var hasWebdesignSpec bool
 	dctx.DB.QueryRowContext(dctx.Ctx, `
-		SELECT COUNT(*) FROM site_specs
-		WHERE site_id = $1 AND aspect = 'webdesign' AND is_current = true
-	`, dctx.SiteID).Scan(&webdesignCount)
-	// Test the VALUE, not just the key: a crashed or empty webdesign run can
-	// leave content_data.color_scheme present but null/{}, and treating that
-	// as "spec exists" would suppress the finding for a site that genuinely
-	// has no usable design spec — the mirror-image false negative of the bug
-	// being fixed here (council-gate objection, round 2).
-	if webdesignCount == 0 {
-		dctx.DB.QueryRowContext(dctx.Ctx, `
-			SELECT COUNT(*) FROM sites
-			WHERE id = $1
-			  AND jsonb_typeof(content_data->'color_scheme') = 'object'
-			  AND content_data->'color_scheme' <> '{}'::jsonb
-		`, dctx.SiteID).Scan(&webdesignCount)
-	}
-	finding.HasWebdesignSpec = webdesignCount > 0
+		SELECT EXISTS (
+		         SELECT 1 FROM site_specs
+		          WHERE site_id = $1 AND aspect = 'webdesign' AND is_current = true
+		       )
+		    OR EXISTS (
+		         SELECT 1 FROM sites
+		          WHERE id = $1
+		            AND jsonb_typeof(content_data->'color_scheme') = 'object'
+		            AND content_data->'color_scheme' <> '{}'::jsonb
+		       )
+	`, dctx.SiteID).Scan(&hasWebdesignSpec)
+	finding.HasWebdesignSpec = hasWebdesignSpec
 
 	// Check for identity spec (needed by webdesign)
 	var identityCount int
@@ -133,7 +137,7 @@ func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) 
 	// Determine if this is a problem
 	isGeneric := false
 	if !finding.HasWebdesignSpec {
-		finding.Detail = "No webdesign spec in site_specs — agent never produced themed CSS"
+		finding.Detail = "No webdesign spec in site_specs or sites.content_data.color_scheme — agent never produced themed CSS"
 		isGeneric = true
 	} else if finding.UsesDefaultColor {
 		finding.Detail = "CSS uses default fallback colours — webdesign may have had no identity context"
