@@ -358,3 +358,83 @@ routing vocabulary — 016b §9 has a pattern about mistyped routing keys produc
 every gate at once. Consequence: the verdict lives only in
 `orchestration_states.collected_data->'diagnosis'`, not in `doc_notes`. Retrieve it with the
 query in RUNBOOK R11.
+
+---
+
+## 2026-07-19 — council gate: REJECTED (guardian veto), and it caught a real error in my staging
+
+Submission trail `2525f980-3fde-4b62-aff3-225de8454000`. Round 1 voided by `bugs_open/019`
+(reviewer truncation — third instance, evidence appended to that case file). Round 2 ran the
+full panel: **8 seats reported, 5 abstained, decision `rejected`, decided_by "hard veto from
+guardian".**
+
+### The direction — and it is neither of the two options I posed
+
+Near-unanimous across seats, including both that objected and most that approved:
+
+> **Ship Option A (the fifth migration) NOW as the safe stopgap, AND land Option B's
+> consolidation with the `plan_sections` edit staged observe-only first — then retire A's
+> pattern.** Sequence, not choice.
+
+`guidelines` put it most compactly: *"ship A now as the safety valve, land B behind the
+observe-only stage, then retire A's pattern."* The guardian's veto is narrower than
+"Option B is wrong": *"ship Option A now; keep edits 1, 2 (observe-only) and 4 as prep, drop
+edit 3 pending a real architecture review of resolution ownership."*
+
+### ⚠️ MY ERROR: I staged the wrong edit. Exactly backwards.
+
+Flagged independently by `bug_historian` (medium) and `debug_historian` (**high**):
+
+> *"THE CONTESTED EDIT ships live and unstaged in the single hottest render path on the
+> platform, while the sibling edit (resolve_internal_links) gets an observe-only logging round
+> before any write changes. That asymmetry is exactly backwards."*
+
+I applied careful staging to the **low**-risk call site and none to the **high**-risk one —
+having myself labelled the latter "THE CONTESTED EDIT". `debug_historian` names the
+aggravating factor: *"the plan itself demonstrates it knows how to de-risk this via staging,
+and simply didn't apply it to the riskiest edit."* That is not a judgement call I got wrong;
+it is an inconsistency I should have caught by reading my own plan.
+
+### Three further defects in the plan, all real
+
+1. **`required:true` + nil fallback → the field is left unset** (`guidelines`, medium). My
+   sketch does a bare `continue` when `ctaOwnedURLFields[fieldName]` is true and no fallback
+   is declared. *"if that field's schema marks required:true, this is exactly the
+   skip_field/empty default the rule forbids, now applied to up to 83 fields."* A genuine bug
+   in the proposed code, not a stylistic note.
+2. **The sibling-label rule relocates the map's failure mode rather than removing it**
+   (`bug_historian`). A component whose CTA url does not follow the convention silently drops
+   out of both detection and repair — *"the map's exact failure mode, relocated into schema
+   shape."* Needs a **loud-fail guard**: log any `*_url` field with no sibling label AND a
+   query-resolved source, so an uncovered CTA is visible rather than silently reverting to
+   overwrite-prone behaviour. My risk #2 admitted the problem and proposed no remedy.
+3. **No pod-binary deploy verification** (`debug_historian`, medium) — Go changes are inert
+   until an image roll, so the new binary must be **grepped from the running pod**, never
+   inferred from a git commit or image tag. That is CLAUDE.md's own standing rule and my plan
+   omitted it.
+
+Minor: `editquality` caught an internal inconsistency — I wrote "only six could ever be
+repaired" while my own citation says the map covers **5 of 33** functions.
+
+### How the four questions came back
+
+| Q | Answer |
+|---|---|
+| 1. Is the `plan_sections` blast radius justified? | **Not as submitted** — because the staging is on the wrong edit. `editquality` alone said justified outright. |
+| 2. Is the sibling-label rule a durable contract? | **Unanimous: no** — today's naming convention. Keep `ctaFieldNames`' override slot **permanently**, not transitionally. |
+| 3. Does a fifth migration count as pragmatic? | **Split, and this is the real disagreement.** Five seats: the repetition *is* the defect; a fifth fixes 83 fields and leaves the mechanism live for the next component. Guardian: *"contained toil — each migration touches only registry rows, never a hot Go path; four migrations is cheaper than one live-hot-path incident."* |
+| 4. Does the inert-until-image-roll asymmetry decide it? | Guardian: **yes, strong tiebreaker.** `editquality`: no, liveness shouldn't override correctness — *and* Option A "isn't as purely mechanical as advertised" because it still needs the map extended to cover 28 more components before a migration reaches them. |
+
+### Worth keeping
+
+- `render_guardian` flagged a **silent-blank risk** nobody else did: the skip-with-fallback
+  branch could leave a CTA url unset *between build and repair*. Outside its mandate, routed
+  rather than judged — the relevance-gated panel working as designed.
+- **Seat edit-indexing is inconsistent** between reviewers (some 0-indexed, some 1-indexed),
+  so "edit 3" means `resolve_internal_links` to `editquality` and `plan_sections` to
+  `guardian`/`bug_historian`/`guidelines`. The substance is unambiguous, but do not machine-
+  read the `edit` field across seats.
+- `council_report.metadata->>'source_agent'` is **empty**, not the seat name — the known
+  fleet-wide landmine. Partition by the `reviews[].reviewer` field inside the body instead.
+
+**Status: the plan is NOT to be shipped as submitted.** REJECTED is a veto, not a score.

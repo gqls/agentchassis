@@ -177,3 +177,53 @@ exists. That's now written into the runbook as a standing check.
 
 Next: I'd like your steer on the two remedies, or I can put a proposal through the council
 gate and let it arbitrate.
+
+----
+
+**2026-07-19, evening — the council answered, and it told me off. Correctly.**
+
+You asked me to let the council arbitrate rather than take my own preference. It did, and the
+answer was better than either of the two options I gave it.
+
+**The verdict was REJECTED** — a hard veto from the guardian seat. That means my plan does not
+ship as written. But the useful part isn't the veto, it's the direction underneath it, which
+almost every seat agreed on:
+
+**Do both, in order.** Run the migration now as a safe stopgap, *and* build the proper
+consolidation — but with its riskiest change staged carefully first, which mine wasn't. Then
+retire the migration pattern for good. It was never A or B; it was A now, B properly, then A's
+pattern deleted. I framed it as a choice and that framing was the weakest thing about the
+submission.
+
+**The error it caught in my plan is one I should have caught myself.** I had two code changes:
+a low-risk one and a high-risk one. I gave the *low*-risk one a careful "log what would happen,
+change nothing, read the results first" rollout — and let the high-risk one, which I had
+personally labelled "the contested edit", go live immediately. Exactly backwards. Two separate
+reviewers flagged it, one at high severity, and one of them made the point that stings: the
+plan clearly knows how to de-risk a change, and simply didn't do it where it mattered.
+
+**Three other real defects**, none cosmetic:
+- My code would have left a button's destination **empty** in a case where the schema marks it
+  required — the very failure we're trying to eliminate, applied to up to 83 fields.
+- My "smarter rule" for finding buttons doesn't remove the old fragility, it **moves** it: a
+  component that names its fields unconventionally still silently disappears from both
+  detection and repair. I'd admitted this in the risks section and then proposed nothing to
+  address it. The fix is to make it complain loudly instead of failing quietly.
+- I specified no way to **verify the change is actually live** in the running system after
+  deploy — which is a standing rule here precisely because code changes do nothing until an
+  image is rebuilt.
+
+**The one genuine disagreement among reviewers** is worth your attention, because it's your
+original question. Five seats said a migration written four times means the *repetition is the
+defect* and a fifth just postpones a sixth. The guardian disagreed: each migration only touches
+configuration rows, never live code on the hot path, so four cheap migrations beat one
+expensive outage. Both are defensible. The compromise everyone landed on — migration now,
+proper fix staged behind it — is what I'd now recommend.
+
+**Also worth knowing:** the first attempt at this submission never reached a verdict at all. It
+was destroyed by a known open bug where a single over-long reviewer response discards the
+entire round, including the other five seats' work. That's now recorded as the third occurrence,
+with new evidence about why it's hard to avoid.
+
+Nothing has been built. Next step is a revised plan along the council's lines, which I'd
+resubmit against the same trail.
