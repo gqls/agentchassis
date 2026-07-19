@@ -57,7 +57,8 @@
 # Usage:
 #   ./090_TRIGGER_needs_diagnosis_v1.sh "symptom text — keep free of \" and \\"
 #
-#   SLUG=guides-nav RUNTIME_SITE=dartsonline.com REF=main \
+#   # REF defaults to the current branch; override only to pin a different one
+#   SLUG=guides-nav RUNTIME_SITE=dartsonline.com \
 #     ./090_TRIGGER_needs_diagnosis_v1.sh "nav links to a guides section with no content"
 #
 # ── 6. PRE-DISPATCH COVERAGE CHECK (added 2026-07-16, multi_session_coordination)
@@ -78,7 +79,12 @@
 #
 # Env:
 #   SLUG           item_key suffix (default: derived from the symptom)
-#   REF            explicit git ref — NEVER HEAD (user decision 2026-07-02)
+#   REF            git ref the diagnosis reads. DEFAULT = the current branch
+#                  (changed from 'main' 2026-07-19 — main is routinely hundreds
+#                  of commits behind here, and diagnosing a stale tree returns a
+#                  confident wrong answer). Never the literal "HEAD". Refuses if
+#                  the ref is not on origin, or if the branch cannot be
+#                  determined — it does NOT fall back.
 #   RUNTIME_SITE   domain of the site under diagnosis (runtime evidence tier)
 #   SITE_ID        uuid of the site under diagnosis (goes in spec, not site_id)
 #   SUBJECT_TYPE   tool | pipeline   } together, these open the tools chat's
@@ -107,7 +113,50 @@ SYSTEM_SITE_ID='eac60db8-b032-432b-b36d-76f37632045d'
 TARGET_AGENT_TYPE='diagnose-orchestrator'
 OWNER="${OWNER:-gqls}"
 REPO="${REPO:-agentchassis}"
-REF="${REF:-main}"
+# REF — the git ref the diagnosis reads. Still NEVER the literal "HEAD" (user
+# decision 2026-07-02); the loop fetches from the REMOTE, so it must be a ref
+# the remote knows.
+#
+# Default changed from 'main' to the CURRENT BRANCH (owner decision 2026-07-19).
+# Why: on this repo main is routinely hundreds of commits behind the working
+# branch. On 2026-07-19 origin/main carried a 2-entry ctaFieldNames map while
+# the working branch carried 6 and was 345 commits ahead — a diagnosis taken on
+# the old default would have examined a tree in which the reported bug barely
+# existed, and returned a confident wrong answer. A cited diagnosis of the wrong
+# tree is worse than no diagnosis, because it reads as authoritative.
+#
+# Both checks below REFUSE rather than fall back. A silent fallback to main is
+# precisely the failure this change exists to remove.
+if [ -z "${REF:-}" ]; then
+  if REPO_ROOT_FOR_REF=$(git rev-parse --show-toplevel 2>/dev/null); then
+    REF=$(cd "$REPO_ROOT_FOR_REF" && git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  fi
+  if [ -z "${REF:-}" ] || [ "$REF" = "HEAD" ]; then
+    echo "REFUSING TO DISPATCH: cannot determine the current branch" >&2
+    echo "  (detached HEAD, or not run from inside a git checkout)." >&2
+    echo "  Set it explicitly to a ref the remote has:  REF=<branch> $0 \"<symptom>\"" >&2
+    exit 2
+  fi
+fi
+
+# A ref that exists only locally cannot be fetched by the loop.
+if REPO_ROOT_FOR_REF=$(git rev-parse --show-toplevel 2>/dev/null); then
+  if ! (cd "$REPO_ROOT_FOR_REF" && git ls-remote --exit-code --heads origin "$REF" >/dev/null 2>&1); then
+    echo "REFUSING TO DISPATCH: ref '$REF' does not exist on origin." >&2
+    echo "  The diagnosis clones from the REMOTE, not this working tree." >&2
+    echo "  Push the branch, or set REF to a ref the remote already has." >&2
+    exit 2
+  fi
+  # Advisory: the remote ref can lag your working tree, and the loop reads the
+  # remote. Commits you have made but not pushed are INVISIBLE to the diagnosis.
+  AHEAD_OF_REMOTE=$(cd "$REPO_ROOT_FOR_REF" && \
+                    git rev-list --count "origin/${REF}..HEAD" 2>/dev/null || echo 0)
+  if [ "${AHEAD_OF_REMOTE:-0}" -gt 0 ]; then
+    echo "   ADVISORY (not blocking): local HEAD is ${AHEAD_OF_REMOTE} commit(s) ahead of"
+    echo "   origin/${REF} — the diagnosis reads origin/${REF}, so those commits are"
+    echo "   INVISIBLE to it. Push first if the symptom depends on them."
+  fi
+fi
 RUNTIME_SITE="${RUNTIME_SITE:-}"
 SITE_ID="${SITE_ID:-}"
 SUBJECT_TYPE="${SUBJECT_TYPE:-}"
