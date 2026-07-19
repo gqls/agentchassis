@@ -72,6 +72,19 @@ func TestComponentRegressionIssues(t *testing.T) {
 			wantBlock: false,
 		},
 		{
+			// tool-list v3→v4, 11,588 → 4,535 — retains only 39% yet ends
+			// cleanly on "{{end}}</a></div></div></section>". This is the
+			// transition that appeared AFTER the collapse floor was first set
+			// at 50% and forced it down to 30%: a hard but legitimate shrink.
+			// It is the reason the floor is where it is — if it starts failing,
+			// re-run the simulation in the guard's header rather than nudging
+			// the constant.
+			name:      "legitimate — shrank to 39% but ends cleanly",
+			current:   pad(11588, "<section><div>", "</div></section>"),
+			next:      pad(4535, "<section><div>", "</div></section>"),
+			wantBlock: false,
+		},
+		{
 			// header-with-search_pre_037, 2,919 → 11,043. Grew 4x and does not
 			// end on a tag; still a deliberate rewrite, not a truncation.
 			name:      "legitimate — grew 4x, untidy tail",

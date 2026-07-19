@@ -37,11 +37,30 @@
 // That produced the organising principle: TRUNCATION CANNOT GROW AN ARTIFACT.
 // Every false positive observed was a replacement that grew, so the structural
 // checks below are gated on the replacement being no larger than what it
-// replaces. Final calibration: 1 block across 29 transitions — the confirmed
-// bugs_open/012 write — and 0 false positives.
+// replaces. Calibration: 1 block across the recorded transitions — the
+// confirmed bugs_open/012 write — and 0 false positives.
 //
-// If you add a check here, re-run that simulation first. A guard that refuses
-// good work gets switched off, and then it protects nothing.
+// If you add or change a check here, RE-RUN THAT SIMULATION FIRST. The evidence
+// base grows, and it has already invalidated one threshold within a single day:
+// a transition retaining 39% and ending cleanly appeared hours after the
+// collapse floor was set at 50%, and would have been refused (see
+// componentCollapseRatio). A guard that refuses good work gets switched off,
+// and then it protects nothing.
+//
+// The simulation, for reuse — compare consecutive versions of each component:
+//
+//	WITH v AS (SELECT component_id, version_number, html_template AS cur,
+//	       lead(html_template) OVER (PARTITION BY component_id ORDER BY version_number) AS nxt
+//	     FROM component_versions)
+//	SELECT c.name, length(cur), length(nxt),
+//	       round(100.0*length(nxt)/length(cur)) AS pct,
+//	       (right(rtrim(nxt),1)='>') AS ends_cleanly
+//	FROM v JOIN content_components c ON c.id=v.component_id
+//	WHERE nxt IS NOT NULL AND length(nxt) < length(cur)
+//	ORDER BY 1.0*length(nxt)/length(cur) ASC;
+//
+// A row that shrinks hard AND ends cleanly is a legitimate rewrite; one that
+// ends mid-token is the shape this guard exists to refuse.
 // ---------------------------------------------------------------------------
 //
 // Every check is also COMPARATIVE: it fires only when the replacement is worse
@@ -118,10 +137,18 @@ const componentCollapseRatio = 0.3
 // completion cut mid-stream — it is what catches the bugs_open/012
 // intermediate write (6,765 chars, 66% retained, comfortably inside the
 // legitimate size band, but with <script> left open).
+// <div> and <fieldset> were added after the council gate's edit-quality seat
+// noted the wrecked artifact was missing those too, so covering only
+// script/style/section narrowed the guard's generality for no reason. Simulated
+// before adding: both contribute ZERO additional blocks across the recorded
+// transitions, so they cost nothing and widen what a mid-stream cut can be
+// caught by.
 var balancedPairs = []struct{ open, close string }{
 	{"<script", "</script>"},
 	{"<style", "</style>"},
 	{"<section", "</section>"},
+	{"<div", "</div>"},
+	{"<fieldset", "</fieldset>"},
 }
 
 // componentRegressionIssues compares a proposed html_template against the row
