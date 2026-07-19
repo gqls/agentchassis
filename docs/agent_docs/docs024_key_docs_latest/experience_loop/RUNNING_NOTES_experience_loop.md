@@ -401,3 +401,51 @@ landed fine after a similar ~10 minute lag. Expect it to land and run ~25 min.
 `<!-- END EXPERIENCE_PLAN -->` and a closed ```criteria fence (proves the
 truncation fix), and whether feasibility stops objecting about component
 existence (proves the context fix). If it converges → CP2 closed → T4.
+
+---
+
+## 2026-07-18 late — run `054b358a`: BOTH fixes confirmed; killed by a known bug
+
+The run landed and both fixes are **proven**:
+
+- **Truncation fixed.** Persisted plan: 13,578 B, closed ```criteria fence,
+  `<!-- END EXPERIENCE_PLAN -->` present. (Previous run: 26,522 B, no trailer,
+  cut off mid-selector.) The LENGTH DISCIPLINE rule also made it *terser*, not
+  just longer-ceilinged — which was the point.
+- **Context gap fixed.** Feasibility's objections changed class entirely: no
+  more "the only tool component surfaced is tool-arena-interface / cannot
+  verify the gauntlet component exists". Round 1 objections are now substantive
+  — who authors the `/data/provocations.json` fields, and that
+  `header-bold-gradient` / `footer-4-column` / `Document Head` are deactivated
+  site-wide across 16 pages.
+
+**It still did not converge, for a reason outside this loop.**
+`review_feasibility` failed with:
+
+```
+AI call failed with unhandled error: no text content in response (had 1 blocks)
+```
+
+The step's `error_step` routed to `complete_refused`, so the whole run
+terminated after round 1 and four critics' work was discarded.
+
+This is **`bugs_open/008` item 5**, verbatim: "handle `stop_reason == 'refusal'`
+explicitly (Sonnet 5+ returns it; currently it would surface as *no text content
+in response*)" — filed as **optional** and left undone. The only other
+occurrence in 7 days is 008's own originating case (`diagnose-agent`/`verdict`,
+07-16). Real-case evidence appended to 008; the fix belongs to the fixloop
+thread.
+
+**Resilience lesson for this loop, worth doing regardless of 008**: a single
+flaky critic should not destroy a whole council run. `diagnose_council_decide`
+already treats an absent reviewer as an **abstention** (it only fails closed if
+ALL reviewers are missing), so pointing the four critic steps' `error_step` at
+`council_decide` instead of `complete_refused` would let a run survive one dead
+critic. Two-line config change; recommended as the first action next session.
+
+**Also surfaced, not ours**: vonc's header/footer/head site components are
+deactivated across 16 pages including `provocations-index` and the tool pages.
+Verify before building on those pages (T4 touches them).
+
+**Handoff written**: `HANDOFF_2026-07-19_experience_loop_resume.md` — start
+there.
