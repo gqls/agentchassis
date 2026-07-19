@@ -186,3 +186,69 @@ the council now that I know how?
 
 ----
 
+Both documents are written and committed, and memory is updated so a new chat picks this up cleanly.
+
+Best news first: /noticias went live while we were in the council loop. The targeted fix worked exactly as diagnosed — re-typing section-index → news-index plus the three sections was enough, and render_news_section immediately
+produced the archive it had been withholding. Verified live, not assumed: the page returns 200, carries the news-listing component, and news-archive.json renders 20 items. That was the most important dead link on the site.
+
+HANDOFF_RESUME_relojistas_rebuild.md — the fresh-chat entry point. It carries the coordinates (site id, box, repos, DB access), a live-verified table of what's actually serving, the remaining task list, the platform work
+delivered, and a traps section that will save the next session real time: nginx is setup.sh-managed and the box is drifted, so a re-run will silently delete the legacy-feed handler; page-rebuild is the wrong tool for redeploys
+(use page-rerender); a full re-plan clobbers built pages; don't dispatch within ~300s of a pod restart; kcat dispatches can vanish silently.
+
+SUMMARY_relojistas_rebuild.md — rewritten for reading aloud, with the arc you asked for: what we're doing → where we've come from → what we've done → where we are now → where we're going. I included the council episode, because
+it's the most interesting thing that happened: the review didn't rubber-stamp our fix, it sent us looking for existing machinery, we found a component that already did the job better, and we withdrew the proposal. Two minutes
+of review saved shipping a duplicate with a hidden flaw.
+
+One thing I've deliberately left for you rather than filing myself: the council run produced no verdict artifact, because council_decide died on a reviewer's output being truncated at max_tokens — the same truncation family as
+bugs_open 005/008/012. The reviews survived only inside collected_data. Every verbose submission will hit this, and the coverage report will score it as a mismatch rather than a review. The council thread owns that code and may
+already know, so it's flagged in both the handoff and the notes for you to decide.
+
+The remaining work is well-scoped: Guías/Glosario content (your author-starter-content decision), the phantom sweep for invented links (no code needed), search-that-answers, per-board category feeds, then measuring the 404→200
+reactivation — which is the number that tells you whether this domain earns more investment.
+
+✻ Churned for 3m 16s · 1 shell still running
+
+※ recap: We're rebuilding relojistas.com as a Spanish watch news portal to reactivate its dormant RSS subscribers; that feed and the news archive are now live. Next: author starter Spanish content for the Guías and Glosario
+sections, whose nav links still 404.
+
+---
+
+## 2026-07-19 (new session) — the reactivation number is in
+
+I took the measurement you were left waiting for, and it's decisive. I did it first because it's
+the number that says whether this domain earns any more investment, and it turned out to cost one
+command.
+
+Before the cutover, the old feed URL failed for everybody, every time. For as long as the logs go
+back — 9 July onward — it was between fifty and ninety requests a day and a 404 for every single
+one of them. After the cutover on the 17th it flips clean: the 18th was the first full day and it
+served 122 successes against 3 failures. The 19th, to mid-morning, is 50 against 3. So the URL
+those subscribers have had in their readers for years went from never working to working about
+97% of the time, and it did it the same day we pointed it at real content.
+
+Now the honest part, because the raw number flatters us. Most of that traffic is crawlers. Google,
+Meta and Apple all re-discovered the URL the moment it started returning content instead of an
+error, and between them they account for well over half the successful fetches. That is not
+nothing — it means the feed is being indexed — but it is not a reactivated subscriber. Stripping
+the known crawlers out leaves about 55 fetches from ordinary clients, and the most interesting of
+those is a Java HTTP client polling on a schedule, which is exactly the signature of the
+server-side feed reader we were hoping to wake up.
+
+There's a limit on how much further I can take that, and it's worth knowing about because it
+changes the priority of something we'd filed as tidying. Every request reaches us from a
+Cloudflare address rather than the visitor's own, so I cannot count distinct subscribers at all.
+When I say I see 86 distinct addresses, that means 86 Cloudflare edge nodes — it tells us nothing
+about how many actual readers are behind them. Fixing that is the "CF real-ip" item that has been
+sitting in housekeeping since P0, and it turns out to be load-bearing for measurement rather than
+cosmetic. If you want a real subscriber count, that's the thing to do, and I'd promote it.
+
+The three failures a day that remain are not mysterious. They're three specific variants we didn't
+catch: the URL spelled with a lowercase type=rss2, the bare URL with no parameters at all, and the
+old /ventas/ classifieds path. All three are cheap to add — but they live in the nginx config,
+which is the drifted, setup.sh-managed file the handoff warns about, so I'd rather reconcile that
+into the generator than pile a fourth surgical edit onto a file that a single re-run will wipe.
+
+Carrying on now with the Guías and Glosario content, which is your author-starter-content decision
+and the most visible thing still broken on the site.
+
+---

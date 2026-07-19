@@ -423,3 +423,56 @@ Doc-searched (006_news_feed_pipeline_v2, FOCUS_navigation) + DB-verified. Findin
   sweep for invented links; P5.2 search-that-answers (intent capture paused since cutover);
   per-forumid category feeds; measure the 404→200 reactivation; housekeeping (stale
   gqls/sites copy + B2, favicon.png, CF real-ip re-run, intent_events collector).
+
+## 2026-07-19 (session 2) — TASK 5 DONE: reactivation measured; CF real-ip is load-bearing
+
+Handoff `HANDOFF_RESUME_relojistas_rebuild.md` re-verified end to end before acting — every
+claim in its §3 table held (all 8 URLs returned the stated codes; the 9 `pages` rows match
+§4 exactly: `guias-index`/`glosario-index` `planned` with `sections=0`, `noticias-index`
+`news-index`/`deployed`/3 sections). No corrections needed to the handoff.
+
+**Mission metric — legacy feed 404→200.** Counted across both live logs (`access.log.1`
+covers 9–15 Jul, `access.log` 15–19 Jul):
+
+```
+ssh root@167.233.33.159 'cat /var/log/nginx/access.log.1 /var/log/nginx/access.log \
+  | grep -i "external\.php" \
+  | awk "{split(\$4,a,\":\"); print substr(a[1],2), \$9}" | sort | uniq -c'
+```
+
+| day | 200 | 404 |
+|---|---|---|
+| 09–16 Jul | 0 | 49–122/day |
+| 17 Jul (cutover) | 29 | 91 |
+| **18 Jul (first full day)** | **122** | **3** |
+| 19 Jul (to ~11:00Z) | 50 | 3 |
+
+100% failure → ~97.6% success. (The 301s in the raw counts are the http→https redirect and
+are re-counted as a 200/404 on the follow-up line — not failures, don't add them in.)
+
+**Who is actually fetching it — the number flatters us.** Of ~201 successful fetches:
+Googlebot 56, meta-webindexer ~79, Applebot 4, `curl/8.14.1` 6 (almost certainly our own
+verification). Excluding known crawlers leaves **55 non-crawler fetches**. The strongest
+genuine-subscriber signal is `Apache-HttpClient/4.5.5 (Java/1.8.0_181)` — a scheduled
+server-side poller, the exact class the mission targeted. Crawler re-discovery is a real
+benefit (the feed gets indexed) but it is NOT a reactivated subscriber; do not report the
+raw 200 count as subscribers.
+
+> **Trap for anyone repeating this: subscriber counts are currently IMPOSSIBLE.** Every
+> client IP in the log is a Cloudflare edge address (172.70.x, 104.22.x). "86 distinct IPs
+> on 200s" = 86 CF nodes, not 86 subscribers. The outstanding **P0 CF real-ip `setup.sh`
+> re-run** (filed as housekeeping in the handoff §6) is therefore load-bearing for
+> measurement, not cosmetic — promote it if a real subscriber count is wanted. Note
+> setup.sh is no longer on the box; re-scp first.
+
+**Residual 404s are three named variants, not a long tail.** Post-cutover only (18–19 Jul):
+`/external.php?type=rss2` (lowercase) ×3, `/ventas/external.php?type=RSS2&cat=…&ppuser=…`
+×2, bare `/external.php` (no params) ×1. Pre-cutover the 404 list was dominated by
+`forumids=` variants — those now correctly fall through to the master feed, so the
+handoff's "all `type=RSS2` variants get the master feed" is confirmed *for the uppercase
+spelling only*; lowercase is a genuine miss.
+
+Deliberately NOT fixed by a fourth surgical nginx edit: the conf is setup.sh-managed and
+already drifted (handoff §6 trap), and each hand-edit deepens the debt that one re-run
+erases. Reconcile the legacy-feed location + these three variants into the generator
+together.
