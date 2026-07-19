@@ -286,3 +286,43 @@ re-queue, or you will duplicate work and lose a half-finished page.
 Also: **the dispatch loop takes roughly one item per invocation.** Firing it three times in
 a row does not parallelise a 12-page batch — the extra dispatches complete as no-ops while
 one item is in flight. Fire once, wait on the page count with an `until` loop, fire again.
+
+> **CORRECTED 2026-07-19 (same session):** the note above says the dispatch loop "takes
+> roughly one item per invocation". That is wrong — `orchestration_states` showed
+> `process_item_iter_4_check_claim`, so **one invocation iterates several items**. The
+> correction matters because I acted on the wrong version and caused an outage of my own.
+
+### DO NOT parallel-dispatch `build-dispatch-loop` — I hung four builds doing it
+
+Seeing a batch drain slowly, I fired the loop repeatedly on a 75-second timer. Each
+invocation claimed a *different* item and spawned its own handler. Four ended up
+simultaneously at `AWAITING_RESPONSES / process_item_iter_0_spawn_handler` and stayed there
+— the oldest for 20 minutes with no progress and `attempt_count` still 0. That is
+`bugs_open/003` (spawn lost child response): the parent awaits a child response that never
+arrives, and nothing times it out or retries.
+
+Symptoms, so it is recognisable:
+```sql
+-- items stuck claimed with attempt_count 0 and no error
+SELECT item_key, status, attempt_count, claimed_by FROM site_work_items
+ WHERE site_id='<site>' AND item_type='needs_page' AND status='claimed';
+-- and the giveaway: several parents awaiting spawns, oldest minutes old
+SELECT count(*) FILTER (WHERE current_step LIKE '%spawn_handler%') AS awaiting_spawns,
+       min(updated_at) AS oldest
+  FROM orchestration_states
+ WHERE status='AWAITING_RESPONSES' AND updated_at > now() - interval '30 minutes';
+```
+
+**Recovery:** reset the stuck items and go single-flight.
+```sql
+UPDATE site_work_items SET status='triaged', claimed_by=NULL, updated_at=now()
+ WHERE site_id='<site>' AND item_type='needs_page' AND status='claimed';
+```
+Then drive with a **single-flight** loop — dispatch only when nothing is claimed:
+```bash
+inflight=$(psql -t -A -c "SELECT count(*) FROM site_work_items
+  WHERE site_id='<site>' AND item_type='needs_page' AND status='claimed';")
+[ "$inflight" = "0" ] && <dispatch once>
+```
+Slower in appearance, faster in practice: a hung spawn costs 20 minutes and a manual reset,
+and the batch was never going to parallelise anyway.
