@@ -478,3 +478,62 @@ earlier, filed bug 027 — the *same underlying mistake* in a neighbouring funct
 in the same file. Two of us found one flaw independently in a day. That is a
 reasonable sign the pattern is real and worth the write-up I gave it, rather than
 a one-off.
+
+## 2026-07-19 (later still) — I wrote the three style guides, piloted two pictures, and the pilot failed usefully
+
+You chose: write the style guides and get on with it. Done — all three sites now have
+one, applied live (config, so it took effect immediately, no software release).
+
+Where I did use judgement: I decided each site's **reference image** by actually
+looking at the candidate rather than assuming. Leopardess has a hero picture that is
+flat gold linework on near-black with no text, made by the good image model — exactly
+the house style its own notes describe, so I anchored to it. Finetuning's "hero"
+turned out to be a mark on a **pale grey background**; anchoring to that would have
+pulled the very white background we spent 18 July stamping out, so I left it
+unanchored. Gamesdesign's are all in the old photographic style, so likewise.
+
+**Then I generated two pictures rather than all nine — and they came out wrong.**
+The ground colour was right, but the accent colour was invented: one came back orange
+and navy, the other on a teal field, and the two look nothing like each other. That is
+the same inconsistency you rejected at the gate in the first place.
+
+**The reason is worth your attention, because it affects robot-hands too.** The system
+builds its instruction to the image model as: what medium, then what mood, then what
+colours — and then **cuts the whole thing off at 200 characters**. The colours come
+last, so they are the first thing to be cut. The instruction that actually reached the
+model ended at "near-black ground" and the word "cyan" never made it. The model did
+what anyone would do with a background colour and no accent colour: it picked one.
+
+Robot-hands has the same problem and got lucky. Its instruction is also over the
+limit, but the cut happens to fall just after its blue, so it loses only a trailing
+phrase. In other words the difference between our good site and our bad one is where a
+character count happened to land. Nothing warns you; the picture just looks like
+someone chose it.
+
+I have fixed our side in config — shorter phrasing, colour named first — which brings
+all three sites well inside the limit, and I am regenerating the two pictures to check.
+The proper fix is in the software (put the colours first, or don't truncate a
+structured guide at all) and I have written it up as bug 027 for the council to review
+rather than changing generation behaviour fleet-wide on my own. **I have deliberately
+not touched robot-hands**, because its pictures currently pass and it is the testbed
+for another gate — changing it unasked would invalidate a result you already accepted.
+
+**One thing the config fix does not solve.** Both pictures had words in them ("HP",
+"ARMOR", and so on) even though we tell the model not to include text, twice over. The
+model we route these to is genuinely good at rendering text — that is why we use it for
+infographics — so "no text" has to be enforced properly rather than asked politely. I
+have not yet confirmed whether our "avoid" list is even being sent to that model as a
+negative instruction. If it isn't, every "avoid" list we have is decorative for that
+whole family of images. That is the next thing I check.
+
+**On the card grid** (the other question): you chose reusing the linked page's picture,
+and when I went to build it I found the source does not exist. None of the pages those
+cards link to has a card picture — we only make those for listed articles and tools,
+and these cards point at ordinary pages like /about and /contact. Worse, 41 of the 72
+links don't resolve to any page at all, and on one page all six cards point at the same
+URL, so they'd have shown the same picture six times. You then chose to leave them as
+emoji cards, which is where they stay. The dead links are a real problem but they
+belong to the link-integrity work, not to imagery.
+
+**The nine gamesdesign pictures are still held** at the point before they cost
+anything. Seven are untouched; two are the pilot. Nothing else has spent.
