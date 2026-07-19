@@ -1293,7 +1293,9 @@ Full case, evidence and fix candidates: `bugs_open/023`. Plan, queries and fleet
 handoff — while the identical defect is still live a few steps away in the same workflow.
 Nothing contradicts the "fixed" claim, because the path that was tested is genuinely fixed.
 
-**The instance.** `bugs_open/016` finding 2: council revisers referenced seats one-by-one in
+**The instance.** `bugs_open/016_…council_revise_prompts_drop_reviewer_output` finding 2
+(resolve 016 by SLUG — `bugs_closed/016` is a different case, the ssh/`$HOME` one):
+council revisers referenced seats one-by-one in
 `input_fields`, so seats added later were invisible to them. The agreed fix was "read the
 `council_report` artifact once" — roster-proof. On `fix-proposer` the load step was placed
 **before** the routers (`council_decide → load_council_reviews → check_approved`), so every
@@ -1334,7 +1336,8 @@ placement is a fix you must remember to repeat, which is the same non-idempotenc
 was meant to remove — here it had already recurred once at the level above (per-seat prompt
 refs), so the remedy reproduced the disease one layer down.
 
-**Cross-refs.** `bugs_open/016`; `PATCH_feature_designer_018_reframe_reads_artifact.sql`;
+**Cross-refs.** `bugs_open/016_…council_revise_prompts_drop_reviewer_output` (by slug — see
+above); `PATCH_feature_designer_018_reframe_reads_artifact.sql`;
 `NOTES_running_fixloop(10).md` turn 41. Kin: "A dispatch table's `default:` branch is a
 silent bug factory" (same family — the untravelled path is the one that rots).
 Category tags: `partial-fix`, `router-branch-asymmetry`, `false-closure`.

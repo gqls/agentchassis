@@ -385,3 +385,62 @@ are pre-fix and therefore invalid as (state → reasoning) pairs — the reviser
 revising against blank objections. They are quarantined, not deleted, and flagged
 `exclude_reason: "no_value_injection"`. See
 `docs024_key_docs_latest/reasoning_dataset/PLAN_2026-07-18_reasoning_dataset_extraction.md`.
+
+## SECOND FINDING, RESIDUAL — `feature-designer`'s VETO path was still blind (2026-07-19, diagnosis-fixloop thread)
+
+The section above is accurate about **`fix-proposer`** — I re-verified it live
+today: `load_council_reviews` present, routed `council_decide →
+load_council_reviews → check_approved`, both revisers on the artifact, zero
+per-seat refs. That fix is sound and its placement is the reason it is sound.
+
+It was **not** true of `feature-designer`, which got its own patch
+(`PATCH_feature_designer_017_reviser_reads_artifact.sql`) covering `repropose`
+ONLY. That patch wired the load step onto the revise branch:
+
+```
+run_checks -> load_council_report -> repropose     <- roster-proof
+check_reframe -> reframe                           <- still per-seat
+```
+
+so `reframe` still carried `review_editquality` + `review_guardian` in
+`input_fields` — **2 of the designer's 5 seats**, blind to bug_historian,
+guidelines and reuse_agent, and it would not have gained seat 6 either.
+PATCH_017's header asserted the designer was "currently complete (5/5/5)": true
+of the path it touched, and the reason nobody looked again.
+
+Note the shape, because it is the transferable part: the fix-proposer patch
+placed the load step **before the routers**, so every exit inherited it; the
+designer patch placed it **on one branch**. Same fix, same author-intent, same
+day — different placement, and only one of them closed the bug. A fix covering
+one branch of a two-branch router reads as done in the diff and in the notes.
+
+**Closed by `PATCH_feature_designer_018_reframe_reads_artifact.sql`** (commit
+`d6ea21ddf`), which mirrors fix-proposer's placement rather than adding a second
+query step: `council_decide → load_council_report → check_approved`, with
+`run_checks → repropose` restored. `repropose` is untouched — `collected_data`
+carries `council_report_row` across the branch.
+
+Verified live against the row, not the patch output: both revisers render
+`{{.council_report_row.body}}`; **zero** residual `review_*` refs in either;
+graph walk from `start_step` = 23/23 steps reachable, no dangling targets,
+`reframe` reached via `council_decide → load_council_report → check_approved →
+check_rejected → check_reframe → reframe`. Correlation param checked rather than
+assumed (`0NN_TRIGGER_feature_designer_v1.sh` line 31 sets
+`input_data.fix_correlation_id`) — had it been wrong, `council_report_row` would
+have been empty on BOTH paths and the fix would have read as applied while doing
+nothing.
+
+**Finding 2 is now closed across all three council-bearing agents:** fix-proposer
+(built), feature-designer (this), and `council-gate` — which turns out to be
+**not applicable**: it has 13 seats but no reviser loop at all (`complete_revise`
+is terminal; objections go back to the human submitter). The "mirror to the gate
+via 099" step that earlier handoffs carried was never needed. Recorded so the
+next thread does not re-derive it.
+
+**016 stays OPEN on finding 1** (the `.result}}` render fix is still unexercised
+— no fix-proposer repropose has STARTED post-fix; see the timestamp trap above).
+Per the `/bugs_closed/` bar, finding 2's fixes are DB config and therefore live
+immediately, but the case does not move while finding 1 is unproven.
+
+Transferable pattern filed: 016b §9, "A fix applied to one branch of a
+two-branch router reads as done" (commit `f593f8dac`).
