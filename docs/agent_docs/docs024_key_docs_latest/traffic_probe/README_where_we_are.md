@@ -310,3 +310,55 @@ page, and given the whole point of this site is news, that's worth a decision at
 
 Next: curate the allowed-facts list from the corpus, then author the four guides and twelve
 glossary terms against it.
+
+## 2026-07-19 (later still) — the content is written, and it holds up
+
+Twelve new pages are live: four guides and eight glossary terms, all in Spanish, all built
+by the platform rather than typed by me. The thing I most wanted to know was whether the
+fabrication fence would actually hold on a live public site, and the answer is yes for the
+part that matters and no for a part that doesn't much.
+
+Where it held: the maintenance guide is the page I was most worried about, because that is
+where an invented service interval would live — "get it serviced every five years" is the
+kind of sentence that reads as authoritative and is completely made up. That page contains
+no numbers at all. The model refused, twice, in its own words, and explained why: it says
+consult the interval your manufacturer publishes, because every calibre is different. That
+is the rule I wrote coming back out as editorial voice, which is about the best outcome
+available.
+
+The dive-watch guide is the clearest demonstration. Every specific figure on it is one of
+the facts I registered, and it names its source in the copy: the Certina rated to 300
+metres "según lo publicado por Relojes y Estilo", the Panerai with three days of power
+reserve "según lo publicado por TR Magazine". It even warns the reader that a
+water-resistance rating is not a diving depth. Nothing on that page is invented, and the
+page tells you where it got what it knows.
+
+Where it didn't hold: the model still adds things it knows from general knowledge. It
+mentions Breguet inventing the tourbillon in 1801, and a tourbillon cage weighing under
+half a gram. Both are true, neither came from our sources. So the accurate way to describe
+what we built is this — **it makes the model cite what it has, but it doesn't stop it
+adding what it knows.** The leftover is encyclopaedia rather than invention, which changes
+the review question from "did it make this up?" to "is this right?", and that is a much
+cheaper question. But it is not nothing, and anything numeric still wants an eye on it.
+
+Two things I got wrong, both worth you knowing because they cost time. I set the page
+sections in the wrong table — there are two, and the builder reads the other one — so the
+first builds quietly did nothing. And I copied a component from another site without
+checking what it was for; it turned out to write "about our company" copy, so the first
+tourbillon page went live saying nothing about tourbillons.
+
+That second one exposed something worse than my mistake, and I've filed it. The build had
+already recorded internally that it had done nothing — and the system still marked it
+finished and published the page anyway, wearing another page's headline. Every status said
+success. I only caught it because I read the page instead of the status. On a platform that
+builds sites unattended, a job that fails silently and then publishes is the expensive kind
+of bug, so that one is written up properly.
+
+I also hung four builds myself by being impatient — firing the build loop repeatedly to
+hurry it along, which made four copies of it each grab a job and then wait forever for a
+reply that never came. Reset them and went back to one at a time. Noted in the runbook so
+nobody repeats it, including me.
+
+Still to do: the two section front pages are building now, then I'll re-run the link sweep —
+one of the three invented homepage links, /guias/mantenimiento, is a real page as of today,
+because I pointed the repurposed stray page at it rather than deleting the link.
