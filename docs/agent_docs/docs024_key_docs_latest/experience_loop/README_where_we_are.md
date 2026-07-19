@@ -195,3 +195,23 @@ The plans also stopped growing. Across the run they went 15.5k, 13.6k, 13.7k, 13
 What I'd flag, plainly: the flaky-critic fix from this morning has still never actually run. No critic has failed since I put it in, across ten rounds. It's correct as written and it's in place, but I'd be overstating things to call it tested, so I'm not going to.
 
 The build phase is now unblocked — until today the live plan was an unapproved draft that nothing was allowed to build from, and now it's the approved one. Before any building starts, though, the homepage is queued for a generic rebuild that could wipe out the edits we're planning, which the council spotted on its own. That's a sequencing job to sort out first.
+
+---
+
+## 2026-07-19, end of session — I sent my own finding to the diagnosis loop and it told me I was wrong
+
+You asked me to put the clobbering problem through the diagnosis loop rather than just fix it. That was the right call, and not for the reason either of us expected.
+
+Before filing I grepped the bug directories, as the house rules require, and found that another thread had filed a closely related bug hours earlier — a tool fix that gets written to the database correctly and never actually reaches the live page. Reading theirs sharpened mine: they had found that one of the two page-republishing routes serves a stale cached copy instead of re-rendering. I had found that the *other* route doesn't publish component JavaScript. So I filed it as one bug: two routes, each carrying half of what a component needs, so neither can fully publish a change.
+
+The loop came back in about nine minutes and refuted it. I checked its reasoning against the code myself before accepting it, and it is right.
+
+My mistake was a specific and slightly embarrassing one. I had searched the file for a keyword, seen two matches, and concluded from the matches alone that the bulk route re-renders page sections from the component template. It doesn't. When I actually opened the function the loop pointed me at, it reads the same cached copy the other route does. The two matches I'd relied on turned out to be loading the page's `<head>` block and a contact-info block — neither of them anything to do with page sections. I asserted a structural claim about the whole fleet on the strength of two search hits without opening the function.
+
+What survives is the narrower half, and it happens to be the half that was already written down in a comment in the source: only one of the two routes publishes component JavaScript. That part is real.
+
+The corrected picture is simpler than mine and rather worse. Both routes serve a cache. The real question — which the loop put its finger on and which I had framed past — is whether anything ever refreshes that cache. The other thread's bug already answers it: no, because the flag that is supposed to mark a page as needing regeneration is read by nothing at all. So theirs is the substantive bug, and mine was a mis-framing of it rather than an extension of it.
+
+I've not re-run the loop. The one real asymmetry left is already documented in the code itself, so there's nothing to *diagnose* — what remains is a decision about what to do, which isn't the loop's job.
+
+Two things worth saying plainly. First, the advice I gave you earlier about how to build — prefer per-page data over shared component JavaScript — is unaffected. I checked rather than assumed: it rested on three risks, and none of them depended on the part that was refuted. Second, the standing guidance says that for a bug you can see, you'll out-diagnose the loop yourself for free. I had full context here and still got it wrong, and the loop caught it in nine minutes for a few credits. I wouldn't rewrite the rule on one data point, but it's worth knowing that the loop is useful as a check on a confident claim, not only as a way to crack hard bugs.
