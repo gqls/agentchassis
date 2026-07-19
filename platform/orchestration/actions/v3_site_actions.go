@@ -2656,11 +2656,12 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("pages must be non-empty array")
 	}
 
-	// ── Deterministic convergence with adoption-locked pages ────────────────
+	// ── Deterministic convergence with realised pages ───────────────────────
 	// existing_pages is loaded by the load_existing_pages workflow step and
-	// carries an adoption_locked flag per page. reconcilePlanWithRealised
-	// force-preserves only the locked subset; it is a no-op once the adoption
-	// lock has expired (or for from-scratch builds). See
+	// carries adoption_locked and build_status per page. reconcilePlanWithRealised
+	// force-preserves every page that is adoption-locked OR built, so a re-plan
+	// can no longer silently redesign or drop a built page (bugs_open/001). It is
+	// a no-op only for a genuinely from-scratch build. See
 	// FOCUS_adoption_faithfulness_via_locks.md.
 	existingField := "existing_pages"
 	if ef, ok := config["existing_pages_field"].(string); ok && ef != "" {
@@ -2688,32 +2689,37 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("ValidateSitePlanAction: existing pages loaded for convergence",
 		zap.Int("existing_pages", len(existingPages)),
 		zap.String("existing_pages_field", existingField))
-	var unionedIn, droppedCollision, snappedRename int
-	pages, unionedIn, droppedCollision, snappedRename =
+	var unionedIn, droppedCollision, snappedRename, snappedSections int
+	pages, unionedIn, droppedCollision, snappedRename, snappedSections =
 		reconcilePlanWithRealised(pages, existingPages, params.Logger)
 	plan["pages"] = pages
-	params.Logger.Info("ValidateSitePlanAction: reconciled with adoption-locked pages",
+	params.Logger.Info("ValidateSitePlanAction: reconciled with realised pages",
 		zap.Int("unioned_in", unionedIn),
 		zap.Int("dropped_collision", droppedCollision),
 		zap.Int("snapped_rename", snappedRename),
+		zap.Int("snapped_sections", snappedSections),
 		zap.Int("pages_after", len(pages)))
 
-	// ── Truncate, preserving adoption-locked pages ──────────────────────────
+	// ── Truncate, preserving adoption-locked AND built pages ────────────────
 	maxPages := 20
 	if mp, ok := config["max_pages"].(float64); ok {
 		maxPages = int(mp)
 	}
 	if len(pages) > maxPages {
-		// Build the must-keep set: only the adoption-locked existing pages.
-		var lockedOnly []interface{}
+		// Must-keep mirrors reconcilePlanWithRealised's preservation set: a
+		// built page must survive truncation for exactly the reason it must
+		// survive the plan — the LLM re-proposing 80 pages must not be able to
+		// evict a page that is live on the site (bugs_open/001, fix step 3).
+		var mustKeep []interface{}
 		for _, rp := range existingPages {
 			if rm, ok := rp.(map[string]interface{}); ok {
-				if locked, _ := rm["adoption_locked"].(bool); locked {
-					lockedOnly = append(lockedOnly, rp)
+				locked, _ := rm["adoption_locked"].(bool)
+				if locked || realisedPageIsBuilt(rm) {
+					mustKeep = append(mustKeep, rp)
 				}
 			}
 		}
-		pages = truncatePreservingRealised(pages, lockedOnly, maxPages, params.Logger)
+		pages = truncatePreservingRealised(pages, mustKeep, maxPages, params.Logger)
 		plan["pages"] = pages
 	}
 
@@ -4517,47 +4523,85 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 }
 
 // reconcilePlanWithRealised enforces preservation of and convergence on the
-// realised pages that are CURRENTLY under an active adoption lock.
+// realised pages a re-plan must not silently redesign or drop.
 //
-// The load_existing_pages query carries an "adoption_locked" boolean per page:
-// true while the 90-day adoption lock is live, false once expired (or for any
-// page never adoption-locked). This function force-preserves ONLY the
-// adoption_locked pages:
-//   - During the window: every adopted page is locked -> preserved faithfully.
-//   - After the window: nothing locked -> no-op -> site develops normally.
-//   - From-scratch builds: never locked -> always a no-op.
+// PRESERVATION SET (widened 2026-07-19, bugs_open/001). Formerly this was the
+// adoption-locked subset alone, which made the whole function a no-op for any
+// site without a live adoption lock — i.e. most sites, since adoption locks
+// expire after 90 days and from-scratch builds are never locked. The realised
+// composition of a BUILT page was then carried by nothing: a page the LLM
+// re-proposed under the same name was silently re-composed to whatever the LLM
+// proposed that run, and a page the LLM omitted was dropped from the plan
+// outright. Proven on idea.uk 2026-07-14 (plan 32be2797 -> ff03bdef): four
+// built pages regressed, two of which re-rendered and re-deployed the regressed
+// artefact.
 //
-// Three passes over the locked subset:
+// A built page deserves preservation whether or not it is adoption-locked, so
+// the set is now:
 //
-//	Pass C — section-collision dedup: drop an LLM page whose slug equals the
-//	         stem of a realised section index ("games" vs "games-index").
-//	Pass B — rename snap-back: same URL as a realised page, different name ->
-//	         replace with the realised identity.
-//	Pass A — union: append every locked realised page not already present.
+//	adoption_locked == true  OR  build_status == "deployed"
+//
+// Both flags come from the load_existing_pages query. build_status is only
+// surfaced by that query as of the same change — if it is absent the term is
+// simply empty and behaviour falls back to the adoption-locked set, so the Go
+// change and the query change are safe to land in either order.
+//
+// Passes over the preservation set:
+//
+//	Pass C  — section-collision dedup: drop an LLM page whose slug equals the
+//	          stem of a realised section index ("games" vs "games-index").
+//	Pass C2 — item-topic dedup. Deliberately still scoped to the ADOPTION-LOCKED
+//	          subset, not the widened set: it is a name-stem heuristic, and a
+//	          false positive suppresses a legitimately new page (a new
+//	          "tool-pricing" beside a built "guide-pricing" shares the stem
+//	          "pricing"). Bounded to the 90-day window that risk is acceptable;
+//	          made permanent for every built page it is not, and it is not needed
+//	          for this bug — invented pages carry new topics and so collide with
+//	          nothing. See bugs_open/001 "pages invented", which this does not
+//	          claim to fix.
+//	Pass B  — rename snap-back: same URL as a realised page, different name ->
+//	          replace with the realised identity.
+//	Pass B2 — composition snap-back: same NAME as a realised page whose realised
+//	          sections are NON-EMPTY -> restore those sections over the LLM's.
+//	          The non-empty gate is what makes this safe in both directions: a
+//	          built page cannot be re-composed, while a catalogued page with
+//	          sections=[] keeps the LLM's proposal, so composition is finally
+//	          allowed to happen. Carrying emptiness forward unconditionally is
+//	          what made "re-plan to compose the missing pages" structurally
+//	          impossible (bugs_open/001, second defect).
+//	Pass A  — union: append every preserved realised page not already present.
 //
 // Returns the reconciled page slice plus counts for logging.
 func reconcilePlanWithRealised(
 	llmPages []interface{},
 	existingPages []interface{},
 	logger *zap.Logger,
-) ([]interface{}, int, int, int) {
-	// Force-preserve only the pages under a live adoption lock.
+) ([]interface{}, int, int, int, int) {
+	// Force-preserve adoption-locked OR built pages (see header).
+	var preserved []interface{}
 	var lockedPages []interface{}
 	for _, rp := range existingPages {
-		if rm, ok := rp.(map[string]interface{}); ok {
-			if locked, _ := rm["adoption_locked"].(bool); locked {
-				lockedPages = append(lockedPages, rp)
-			}
+		rm, ok := rp.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		locked, _ := rm["adoption_locked"].(bool)
+		if locked {
+			lockedPages = append(lockedPages, rp)
+		}
+		if locked || realisedPageIsBuilt(rm) {
+			preserved = append(preserved, rp)
 		}
 	}
-	if len(lockedPages) == 0 {
-		// No active adoption locks: post-window, from-scratch, or a normally-
-		// developing site. Leave the LLM plan untouched.
-		return llmPages, 0, 0, 0
+	if len(preserved) == 0 {
+		// Nothing realised worth converging on: a genuinely from-scratch build.
+		// Leave the LLM plan untouched.
+		return llmPages, 0, 0, 0, 0
 	}
-	existingPages = lockedPages
+	existingPages = preserved
 
 	realisedByURL := make(map[string]map[string]interface{})
+	realisedByName := make(map[string]map[string]interface{})
 	sectionStems := make(map[string]string) // stem -> realised index name
 	for _, rp := range existingPages {
 		rm, ok := rp.(map[string]interface{})
@@ -4570,6 +4614,9 @@ func reconcilePlanWithRealised(
 		if url != "" {
 			realisedByURL[url] = rm
 		}
+		if name != "" {
+			realisedByName[name] = rm
+		}
 		if stem := sectionStemOf(name, url, pageType); stem != "" {
 			sectionStems[stem] = name
 		}
@@ -4581,8 +4628,12 @@ func reconcilePlanWithRealised(
 	// and a guide) does not false-positive on either of them. Lets Pass C2 drop
 	// an LLM page that re-proposes an adopted item under a different
 	// prefix/role/URL.
+	//
+	// Built deliberately from lockedPages, NOT the widened preservation set —
+	// see the Pass C2 note in the header for why this one heuristic stays inside
+	// the adoption window.
 	itemStemSets := make(map[string]map[string]bool)
-	for _, rp := range existingPages {
+	for _, rp := range lockedPages {
 		rm, ok := rp.(map[string]interface{})
 		if !ok {
 			continue
@@ -4601,9 +4652,10 @@ func reconcilePlanWithRealised(
 		itemStemSets[stem][name] = true
 	}
 
-	// Pass C (collision) + Pass B (rename) over the LLM pages.
+	// Pass C (collision) + Pass B (rename) + Pass B2 (composition) over the
+	// LLM pages.
 	var kept []interface{}
-	droppedCollision, snappedRename := 0, 0
+	droppedCollision, snappedRename, snappedSections := 0, 0, 0
 	for _, lp := range llmPages {
 		lm, ok := lp.(map[string]interface{})
 		if !ok {
@@ -4647,10 +4699,29 @@ func reconcilePlanWithRealised(
 				continue
 			}
 		}
+
+		// Pass B2: same NAME as a preserved realised page -> restore that page's
+		// composition over whatever the LLM proposed, but ONLY when the realised
+		// composition is non-empty. Non-empty means the page is really built, and
+		// a re-plan must not redesign it; empty means the page is catalogued but
+		// uncomposed, and the LLM's proposal is exactly what it needs. Only
+		// "sections" is snapped — title/meta/nav stay the LLM's, so a re-plan can
+		// still refresh copy and navigation without touching the layout.
+		if rp, ok := realisedByName[lname]; ok {
+			if rs := realisedSectionsOf(rp); len(rs) > 0 {
+				if !sameSectionList(lm["sections"], rs) {
+					logger.Info("validate: snapped built page composition back to realised sections",
+						zap.String("page", lname),
+						zap.Int("realised_sections", len(rs)))
+					lm["sections"] = rs
+					snappedSections++
+				}
+			}
+		}
 		kept = append(kept, lm)
 	}
 
-	// Pass A: union — add locked realised pages not present by name.
+	// Pass A: union — add preserved realised pages not present by name.
 	presentName := make(map[string]bool)
 	for _, p := range kept {
 		if pm, ok := p.(map[string]interface{}); ok {
@@ -4674,12 +4745,64 @@ func reconcilePlanWithRealised(
 		unioned++
 	}
 
-	return kept, unioned, droppedCollision, snappedRename
+	return kept, unioned, droppedCollision, snappedRename, snappedSections
+}
+
+// realisedPageIsBuilt reports whether a realised pages-table row (as returned by
+// the load_existing_pages query) represents a page that is actually built and
+// deployed. Mirrors decideEmit's "skip_built" test in
+// reconcile_site_plan_action.go — build_status='deployed' is the platform's
+// single definition of "built", so keep the two in step.
+//
+// Returns false when build_status is absent, which is what makes the widened
+// preservation set degrade safely to the adoption-locked set on a chassis whose
+// load_existing_pages query has not yet been updated to surface the column.
+func realisedPageIsBuilt(rm map[string]interface{}) bool {
+	status, _ := rm["build_status"].(string)
+	return status == "deployed"
+}
+
+// realisedSectionsOf extracts a realised page's section list. The
+// load_existing_pages query runs via query_database, which stringifies jsonb, so
+// "sections" normally arrives as a JSON string; a native []interface{} is
+// tolerated too. Returns nil for missing, empty, or unparseable values — callers
+// treat nil/empty as "no realised composition to preserve".
+func realisedSectionsOf(rm map[string]interface{}) []interface{} {
+	switch v := rm["sections"].(type) {
+	case []interface{}:
+		return v
+	case string:
+		if v == "" {
+			return nil
+		}
+		var parsed []interface{}
+		if err := json.Unmarshal([]byte(v), &parsed); err != nil {
+			return nil
+		}
+		return parsed
+	}
+	return nil
+}
+
+// sameSectionList reports whether an LLM-proposed sections value already equals
+// the realised one, so Pass B2 only logs and counts a snap-back that actually
+// changed something.
+func sameSectionList(proposed interface{}, realised []interface{}) bool {
+	pl, ok := proposed.([]interface{})
+	if !ok || len(pl) != len(realised) {
+		return false
+	}
+	for i := range pl {
+		if fmt.Sprintf("%v", pl[i]) != fmt.Sprintf("%v", realised[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // truncatePreservingRealised caps the plan at maxPages but never drops a
-// must-keep (adoption-locked) page. Locked pages are kept first; net-new
-// proposed pages fill the remaining budget in order.
+// must-keep page — adoption-locked or built (see the caller). Must-keep pages
+// are kept first; net-new proposed pages fill the remaining budget in order.
 func truncatePreservingRealised(
 	pages, mustKeep []interface{},
 	maxPages int,
