@@ -225,6 +225,42 @@ bug_historian, render, debugging, compliance — and not one of them was reached
 mechanism is exactly as documented above; what follows is the part the case file did
 not yet have.
 
+> **CORRECTED 2026-07-19 (bugfix-019 thread) — the cap IS configured per-seat, and
+> visibly. The claim below rests on a query that is off by one nesting level.**
+> The path is `steps.<seat>.**config**.ai_service.max_tokens`, not
+> `steps.<seat>.ai_service.max_tokens`. The query below omits `->'config'`, so it
+> returns NULL for all 13 seats and reads as "unset" when the value is right there:
+>
+> ```
+> SELECT default_config::text ~ '8000' FROM agent_definitions
+> WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+> --  t          <-- the config does contain 8000
+> ```
+>
+> Walking every `max_tokens` key in that config returns **13 rows, one per seat**:
+> `.workflow.steps.review_editquality.config.ai_service.max_tokens = 8000`,
+> and identically for guardian, guidelines, compliance, reuse_agent, bug_historian,
+> debug_historian, llm_reliability, render_guardian, adoption_guardian,
+> diagnosis_guardian, tooling_provenance, improvement_guardian.
+>
+> So consequence **1** below ("you cannot inspect the limit you are about to
+> exceed") does not hold, and the error's advice to *"raise max_tokens"* points at
+> a key that **does** exist and is per-seat editable. Consequences **2** and **3**
+> are unaffected — they are about the submitter being unable to *predict* reviewer
+> output length, which remains true and is the real point.
+>
+> Correct query, for whoever needs it:
+> ```sql
+> SELECT k, v->'config'->'ai_service'->>'max_tokens'
+> FROM agent_definitions, jsonb_each(default_config->'workflow'->'steps') AS e(k,v)
+> WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false
+>   AND deleted_at IS NULL AND k LIKE 'review_%';
+> ```
+> Caught by walking the config tree for the key rather than probing an assumed
+> path — a `->>` on a wrong path is indistinguishable from an unset value, which
+> is a trap worth naming: **a NULL from a JSON path query is not evidence of
+> absence.**
+
 **NEW: the cap is not configured anywhere a submitter can see.** `council-gate` has
 **no `ai_service` block at root, and none on any `review_*` step**:
 
