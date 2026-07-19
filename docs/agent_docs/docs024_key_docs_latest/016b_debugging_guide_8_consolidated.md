@@ -1287,6 +1287,58 @@ stated in a doc, measure its actual compliance before assuming it holds.
 Full case, evidence and fix candidates: `bugs_open/023`. Plan, queries and fleet sizing:
 `docs024_key_docs_latest/cta_link_integrity/`.
 
+### A fix applied to one branch of a two-branch router reads as done — and the other branch keeps the bug (2026-07-19)
+
+**Symptom.** A defect is filed, patched, closed in the notes, and stated as fixed in the
+handoff — while the identical defect is still live a few steps away in the same workflow.
+Nothing contradicts the "fixed" claim, because the path that was tested is genuinely fixed.
+
+**The instance.** `bugs_open/016` finding 2: council revisers referenced seats one-by-one in
+`input_fields`, so seats added later were invisible to them. The agreed fix was "read the
+`council_report` artifact once" — roster-proof. On `fix-proposer` the load step was placed
+**before** the routers (`council_decide → load_council_reviews → check_approved`), so every
+downstream path inherited it. On `feature-designer` the same fix was wired onto the revise
+branch only:
+
+```
+run_checks -> load_council_report -> repropose     <- fixed
+check_reframe -> reframe                           <- still per-seat: 2 of 5 seats
+```
+
+`reframe` still named `review_editquality` + `review_guardian` and was blind to
+bug_historian, guidelines and reuse_agent. The patch's own header asserted the agent was
+"currently complete (5/5/5)" — true of the path it touched.
+
+**Why it survives review.** A router has one entry and several exits. Reading the diff shows
+a correct fix; reading the *routing* is what shows the exit it never reaches. Both patches
+here were written by threads that understood the bug perfectly — the gap was placement, not
+comprehension, and placement is exactly what a diff does not show.
+
+**Diagnose.** Do not grep for the fix; grep for what the fix was supposed to remove, and
+count what should have gone to zero:
+
+```python
+# per-seat refs that should no longer exist anywhere downstream of the council
+for step in ('repropose', 'reframe'):
+    refs = set(re.findall(r'review_[a-z_]+', json.dumps(steps[step])))
+    print(step, refs or 'none')     # any non-empty set is this class
+```
+
+Then walk the graph from `start_step` following `next_step` / `then_step` / `else_step` and
+confirm the shared step is reached on **every** path that needs it, not just the one you
+exercised. That walk also catches orphaned and dangling steps for free.
+
+**The general rule.** When a fix introduces a shared prerequisite step, place it **before the
+branch**, not on a branch. One placement covers every current and future exit; per-branch
+placement is a fix you must remember to repeat, which is the same non-idempotence the fix
+was meant to remove — here it had already recurred once at the level above (per-seat prompt
+refs), so the remedy reproduced the disease one layer down.
+
+**Cross-refs.** `bugs_open/016`; `PATCH_feature_designer_018_reframe_reads_artifact.sql`;
+`NOTES_running_fixloop(10).md` turn 41. Kin: "A dispatch table's `default:` branch is a
+silent bug factory" (same family — the untravelled path is the one that rots).
+Category tags: `partial-fix`, `router-branch-asymmetry`, `false-closure`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
