@@ -37,10 +37,27 @@ One of them (`render_js_snippets` vs the registry's `render_js_snippets_for_site
 closes the class.
 
 **Council-reviewed** (advisory gate): submission `319e23f6-b333-42ba-88ef-069b4426c057`.
-Round 1 → REVISE; all objections answered in round 2 (blast radius measured at 1656
-completions / 43 item types / 30 days with the guard firing on 6, all genuine; all 8
-`status='complete'` call sites audited; unknown-verdict warning added per bug_historian;
-`doc_notes` persisted per tooling_provenance; doc purge per guidelines).
+Round 1 → REVISE. Round 2 → REVISE but **8 approve / 2 object** (guardian moved
+high→medium; tooling_provenance, guidelines and debug_historian flipped to approve).
+Answered across the two rounds: blast radius measured (1656 completions / 43 item types
+/ 30 days, guard fires on 6, all genuine); all 8 `status='complete'` call sites audited;
+unknown-verdict handling added and then upgraded to `agent_error_log` per bug_historian;
+`doc_notes` persisted per tooling_provenance; doc purge per guidelines; dormantActions'
+"unseeded" claim verified against `agent_definitions` per guardian.
+
+Commits: `c82b2872c` (the fix) and `c80fffc83` (round-2 follow-up). No
+`Council-Reviewed:` trailer is claimed — the verdict is REVISE, and the two residual
+objections are *"verify the author's audit independently"* asks rather than identified
+defects. A fourth council run was judged not worth the credits; a reviewer who wants
+those checks can run the SQL in the grounded_in list.
+
+> **⚠️ PROCESS COST, RECORDED SO NOBODY REPEATS IT.** This review cost **four** council
+> runs, not two. Rounds 2's dispatches produced no `orchestration_state_audit` rows for
+> minutes, which I read as silently-dropped spawns; they were merely **queued** (~16 min
+> under backlog vs ~10 s when quiet). I resubmitted three times, twice on untested
+> transport hypotheses (payload size, then `RESUBMIT_CORR`) — both wrong. Full pattern
+> and the one query that settles it: 016b §9 "A queued orchestration is indistinguishable
+> from a dropped one".
 
 **Still to do:** ship a chassis image (Go changes are inert), then verify against the
 **running pod** — `strings /app/agent-chassis | grep -c handlerReportedFailure` — before

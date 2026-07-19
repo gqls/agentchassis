@@ -1342,6 +1342,49 @@ above); `PATCH_feature_designer_018_reframe_reads_artifact.sql`;
 silent bug factory" (same family — the untravelled path is the one that rots).
 Category tags: `partial-fix`, `router-branch-asymmetry`, `false-closure`.
 
+### A queued orchestration is indistinguishable from a dropped one — and "resubmit" is the expensive guess (2026-07-18)
+
+**Symptom.** You dispatch a council run (or any orchestration). Nothing appears in
+`orchestration_state_audit` for that `orchestration_id`. Two, then five minutes pass —
+still nothing. A previous, apparently identical run had produced its first audit row
+within ~10 seconds. Everything says the spawn was silently dropped, and CLAUDE.md
+even documents a real drop mechanism (dispatch within ~300s of a chassis pod restart),
+which makes the wrong conclusion feel confirmed.
+
+**What it actually is.** The run is **queued**, not dropped. Under a deep backlog the
+gap between dispatch and the first audit row stretched from ~10s to **~16 minutes** —
+submitted 16:41, first audit row 16:57, then it ran normally to a verdict. Absence of
+audit rows measures *queue depth*, not delivery.
+
+**The cost of guessing wrong.** Reading it as a drop, I resubmitted three times,
+including two "fixes" for hypotheses I had not tested — first that the ~27KB payload
+exceeded what `kubectl run -i` stdin carries (the 097 script's own cap is 65536), then
+that `RESUBMIT_CORR` was broken. Both were wrong; every attempt was queued and every
+one eventually ran, so a single review cost four council runs' credits. **All four
+hypotheses were consistent with the evidence I had, because "no rows yet" is consistent
+with everything.**
+
+**The check that settles it in one query** — ask when *other* orchestrations started,
+not whether yours has:
+```sql
+SELECT orchestration_id, min(changed_at) AS started, max(changed_at) AS last
+FROM orchestration_state_audit WHERE changed_at > now() - interval '45 minutes'
+GROUP BY 1 ORDER BY started DESC LIMIT 10;
+```
+If recent rows exist but every `started` is minutes after its dispatch, the pipe is
+moving and you are in a queue — wait. If nothing has started platform-wide, suspect
+the dispatch path. Your own run appearing in that list *is* the answer: mine was
+sitting there, 16 minutes late, while I was busy proving it had never arrived.
+
+**Rules.** Before resubmitting ANY credit-spending dispatch: (1) confirm the run is
+absent from the platform-wide start list above, not merely absent from your own
+polling window; (2) baseline the latency when the system is quiet so you know what
+"late" means; (3) never ship a fix for a transport hypothesis you have not tested —
+a resubmission is not a free retry, it is another full council. Kin: "Trust the
+rendered artefact, not the status" (§ durable invariants) — the same error, applied
+to a queue instead of an artifact. Category tags: `queue-latency`,
+`false-drop-diagnosis`, `wasted-credits`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
