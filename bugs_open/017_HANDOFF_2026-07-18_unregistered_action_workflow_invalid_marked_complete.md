@@ -6,9 +6,16 @@ Two coupled defects, one incident.
 
 ---
 
-## ✅ FIXED 2026-07-18 (bugfix thread2) — code committed, INERT until a chassis image ships
+## STAYS OPEN — fix committed 2026-07-18 (bugfix thread2), but INERT until a chassis image ships
 
-**Both legs closed, plus the class fix and a correction to this file's own diagnosis.**
+**Both legs fixed in code, plus the class fix and a correction to this file's own
+diagnosis — but the defect is still reproducible in production.** Per the
+`/bugs_closed/` bar (CLAUDE.md, 2026-07-19: *fixed AND live*), a fix that is committed
+but inert until the next image roll stays here. Move to `/bugs_closed/` only after the
+image ships AND the running pod is grepped for `handlerReportedFailure`.
+
+**Workstream docs:** `docs/agent_docs/docs024_key_docs_latest/work_item_completion_integrity/`
+(the standing five — PLAN/RUNBOOK/NOTES/README_where_we_are/SUMMARY).
 
 | Leg | Fix | Where |
 |---|---|---|
@@ -46,10 +53,22 @@ unknown-verdict handling added and then upgraded to `agent_error_log` per bug_hi
 "unseeded" claim verified against `agent_definitions` per guardian.
 
 Commits: `c82b2872c` (the fix) and `c80fffc83` (round-2 follow-up). No
-`Council-Reviewed:` trailer is claimed — the verdict is REVISE, and the two residual
-objections are *"verify the author's audit independently"* asks rather than identified
-defects. A fourth council run was judged not worth the credits; a reviewer who wants
-those checks can run the SQL in the grounded_in list.
+`Council-Reviewed:` trailer is claimed — the verdict is REVISE.
+
+> **CORRECTED 2026-07-19.** This paragraph previously dismissed the two residual
+> objections as *"verify the author's audit independently" asks rather than identified
+> defects*. **That was the wrong call.** The objections (bug_historian low, guardian
+> medium) said my "only `CompleteWorkItemAction` completes from a handler reply" claim
+> rested on an author-run regex audit described in prose — and they were right: I had
+> read four of the eight call sites and inferred the three admin paths from their
+> filenames. An unverified structural claim IS a defect, especially once it has reached a
+> commit message, this handoff, a §9 guide entry and two `doc_notes`. **Now actually
+> verified:** `confirm_work_item_handler.go:212`, `site_admin_handlers.go:793` and `:987`
+> each construct `result` via `jsonb_build_object` from human input
+> (`'resolved_by','admin'` / `'approved_by','admin'`) and never read or store a `response`
+> envelope, so none can carry a failed verdict. The claim holds; the method did not.
+> **Caught by:** the owner asking me to re-read CLAUDE.md, whose diagnosis section had
+> been inverted the same day — see the note below.
 
 > **⚠️ PROCESS COST, RECORDED SO NOBODY REPEATS IT.** This review cost **four** council
 > runs, not two. Rounds 2's dispatches produced no `orchestration_state_audit` rows for

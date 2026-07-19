@@ -1423,7 +1423,7 @@ See `/bugs_closed/README.md`.
 | 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts — **`→ bugs_closed/`** (note: a *different* case also numbered 016 — council revise — remains open) |
 | 017 | Static cutover orphans a backend tool's entry forms — funnel unreachable, no auditor models it | open; needs site fix + new check |
 | 018 | idea.uk chrome renders with every link `href=""` (31/33) — site unnavigable; check fleet | open, unstarted |
-| 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | **FIXED 2026-07-18** — both legs + parity test + dead-map deletion; 54 rows corrected; inert until image ships |
+| 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | **OPEN — fix committed, INERT** (`c82b2872c`, `c80fffc83`): both legs + parity test + dead-map deletion; 54 rows corrected. Stays open until the image ships and the pod is grepped |
 | 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | filed; fix candidates in 019 |
 | 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
 | 021 | The 012 completeness guard covers ONE write path; `page_components.rendered_html` and `pages.rendered_*` have the same unguarded overwrite shape | filed (council bug_historian objection); needs scope decision |
