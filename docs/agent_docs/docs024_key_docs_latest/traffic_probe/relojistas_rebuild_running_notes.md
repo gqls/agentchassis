@@ -785,3 +785,38 @@ appears once per guide, so it is systematic rather than a slip. Worth a correcti
 the site's content_direction or a banned_claims entry — it is a credibility tell on a
 Spanish-language specialist site, and exactly the sort of thing no automated gate here
 checks.
+
+### Refinement after reading the REBUILT tourbillon page — the fence's exact shape
+
+The rebuilt `glosario-tourbillon` (correct `site_plan_sections`, `generic-text-block`
+instead of `content-block-about`) is genuinely about tourbillons, which closes the section
+mistake. More interesting is what it reveals about the fence's precise behaviour.
+
+It **cited, unprompted by anything except the writer_block's own phrasing convention**:
+
+> "Richard Mille presentó el RM 64-01 Tourbillon Colnago, una edición limitada desarrollada
+> junto al fabricante de bicicletas Colnago … **según informó TR Magazine**."
+
+The `(reported by TR Magazine)` suffix I wrote into each `writer_line` came back out as real
+in-copy attribution. That is a cheap and effective trick worth reusing: **phrase the
+writer_line the way you want the sentence to read, attribution included.**
+
+But the same page also asserts `menos de medio gramo` for a tourbillon cage — a specific
+quantitative claim supported by nothing we hold — alongside the Breguet/1801 pattern seen in
+`guia-complicaciones`.
+
+> **The precise characterisation, and the one to carry forward:
+> the fence makes the model CITE what it has; it does not stop it ADDING what it knows.**
+> Sourced facts come through correctly attributed to the right model. Unsourced general
+> knowledge still arrives, unmarked, sitting flush against the cited material — which is
+> the harder review problem, because the cited sentences lend the uncited ones their
+> credibility.
+
+Practical consequence for anyone extending this: the residue is *encyclopedic* claims, not
+*invented* ones, so the review question is "is this true?" rather than "did it make this
+up?" — a much cheaper question, but not a free one. If it must be airtight, the missing
+piece is enforcement, not prompting: `ScanUnregisteredNumbers` would have to be taught a
+non-English/product-spec context gate (see the evidence_base header for why it is inert
+here), or banned_claims extended with unit-shaped patterns (`\d+\s*gramos?`, `\d+\s*mm`) —
+accepting that those will also block legitimate cited specs unless the fact list carries
+them first.
