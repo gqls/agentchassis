@@ -161,3 +161,104 @@ curl -sS -H "X-Internal-Key: <KEY>" https://relojistas.com/stats
 - git_commit component/data files via **files_field** (the HTML-only content_field bug drops JS).
 - setup.sh is idempotent + has box-takeover semantics — only ever run it against this box.
 - Confirm exact env/flag names against the **deployed** setup.sh, not the repo copy (stale-copy trap, debug guide #26).
+
+---
+
+## P7 — content pages (Guías + Glosario). Commands that had to be right.
+
+### Dispatch any agent at a site (the ONE pattern; kcat)
+
+Source: `FOCUS_dispatch_diagnostic(4).md:130-159`. Works for
+`completeness-discovery-agent`, `build-dispatch-loop`, `design-audit-agent`, …
+
+```bash
+set -u
+AGENT_TYPE="build-dispatch-loop"           # or completeness-discovery-agent, …
+SITE_ID="ecf15e75-a966-4900-bcb0-1c85f689dbfd"; DOMAIN="relojistas.com"
+CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
+ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
+REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
+MESSAGE_ID=$(cat /proc/sys/kernel/random/uuid)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+kubectl -n kafka run -i --rm "kcat-$(date +%s)" \
+  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -c 1 \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$CORRELATION_ID -H orchestration_id=$ORCHESTRATION_ID \
+  -H request_id=$REQUEST_ID -H message_id=$MESSAGE_ID \
+  -H message_type=request -H client_id=demo_client \
+  -H action=orchestrate -H sender_agent_type=cli -H sender_agent_id=cli-user \
+  -H responses_topic=system.agent.generic.responses \
+  -H timestamp=$TIMESTAMP <<JSON
+{"action":"orchestrate","config":{"agent_type":"${AGENT_TYPE}"},"input_data":{"site_id":"${SITE_ID}","domain":"${DOMAIN}"}}
+JSON
+```
+**Gotchas.** Print `$ORCHESTRATION_ID` before firing — a kcat dispatch can vanish with no
+orchestration row; if nothing moves, refire. Don't dispatch within ~300s of a chassis pod
+restart (`kubectl -n ai-persona-system get pods | grep agent-chassis` — check AGE).
+`orchestration_states` keys on **`orchestration_id`**, not `id`.
+
+### Do NOT use build-site-planner to add pages
+
+`reconcile_site_plan` lives ONLY inside `build-site-planner`, and running that agent is the
+`bugs_open/001` clobber. To add pages without it, write the work item reconcile *would* have
+written and let `build-dispatch-loop` pull it. Shape copied from the proven `/noticias` row:
+
+```sql
+INSERT INTO site_work_items
+  (site_id, source, item_type, severity, summary, spec, priority,
+   handler_agent, status, created_by, item_key, pipeline)
+VALUES ('<site>', 'reconcile_site_plan', 'needs_page', 'medium',
+  'Build <page> page (not_built)',
+  jsonb_build_object('reason','not_built','plan_id','<plan>',
+                     'page_name','<page>','page_role','<role>'),
+  50, 'page-build-handler', 'triaged', '<you>', 'needs_page:<page>', 'build');
+```
+- `status='triaged'` is what makes it dispatchable — the loop selects
+  `status IN ('triaged','approved')` ordered by `priority ASC, created_at ASC`.
+- **`item_key` collides on a partial unique index** `idx_swi_dedup (site_id,item_key)
+  WHERE status NOT IN (complete,verified,rejected,wont_fix,failed,unresolved,cancelled)`.
+  A stale non-terminal item with the same key blocks the insert — UPDATE it instead.
+- **Order children BEFORE their index page.** `query.pages_where_type` filters on
+  `pages.status IN ('active','deployed')`, **not** `build_status` — so an index built while
+  its children are still `planned` renders a list of links to pages that do not exist.
+  Give children a lower priority number and hold the index back until they deploy.
+
+### The two queries that tell you where a build actually is
+
+```sql
+-- queue
+SELECT status, count(*) FROM site_work_items
+ WHERE site_id='<site>' AND item_type='needs_page' AND priority=50 GROUP BY status;
+-- pages
+SELECT build_status, count(*) FROM pages
+ WHERE site_id='<site>' AND page_type IN ('guide','entity-page') GROUP BY build_status;
+```
+Wait on them with an `until` loop, not a fixed sleep — a 12-page batch is claimed a few at a
+time and takes minutes.
+
+### Claims fence (evidence_base) — apply, verify, and what it does NOT cover
+
+```sql
+SELECT jsonb_array_length(data->'facts')         AS facts,
+       jsonb_array_length(data->'banned_claims') AS bans,
+       length(data->>'writer_block')             AS block_chars
+  FROM site_specs
+ WHERE site_id='<site>' AND aspect='evidence_base' AND is_current;   -- 13 | 9 | 3453
+```
+- The column is **`data`**, not `specs` (the prompt path `site_specs.specs.evidence_base…`
+  misleads — `specs` is the prompt's own keying by aspect).
+- Confirm the fence is live in the **prod prompt**, never the repo copy:
+  ```sql
+  SELECT default_config::text ~ 'writer_block' FROM agent_definitions
+   WHERE type='page-content-writer' AND deleted_at IS NULL;   -- expect t
+  ```
+- **Test banned_claims patterns by compiling them in Go RE2 before applying.** They are
+  BLOCKER severity, and an invalid regex silently degrades to a literal substring rather
+  than erroring. A throwaway `regexp.MustCompile` + match table over ~12 fabrication
+  sentences and ~8 legitimate ones caught three real defects here that reading did not.
+- **`ScanUnregisteredNumbers` is inert on any non-English or product-spec site** — it gates
+  on `businessClaimContextRe`, an English business word list (clients|customers|records|…).
+  A clean claims report on such a site means "no banned pattern matched", NOT "no invented
+  numbers".
