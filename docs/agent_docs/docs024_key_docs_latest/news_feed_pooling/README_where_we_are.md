@@ -82,3 +82,66 @@ actual readers rather than spreading it thin across the dormant majority.
 
 Nothing has been built. This is design only, and the plan, notes and runbook are
 now in place alongside this file.
+
+---
+
+## 2026-07-19 — answers back, and a new directory
+
+Owner came back on all three open questions.
+
+The duplicate domains are meant to be **separate sites aimed at different target
+markets**, so that the news on each can be angled differently. That's a bigger
+decision than it sounds, because it moves the per-site ranking layer from being a
+cost optimisation to being the thing that makes two similarly-named domains
+genuinely different sites rather than the same site twice. It also means we now
+need a real definition of who each domain is *for* — and that can't be derived
+from the domain name, because the names are nearly identical in exactly the
+families we most need to separate. I've flagged that as the critical unknown to
+settle before anything gets built.
+
+We're starting with the domains that have traffic. Agreed and recorded.
+
+On the paid tier — yes, but the owner's point is that dedicated news sources
+alone aren't a product, and I think that's right. A buyer can't tell a dedicated
+feed from a pooled one. So that's filed as a direction with candidate axes
+(bespoke research, calculators and tools, data pages that update themselves, lead
+capture) rather than a spec, to be decided once the free tier actually works.
+
+The most interesting thing to come out of this round is the owner's idea for
+**packaged topic features**: pick a topic each week, break it into its parts —
+for gas prices you'd pull in oil price history, the Hormuz situation, inflation,
+collected opinion — and build a proper feature out of it that gets updated until
+it stops being relevant. That's a much better instrument than a headline list,
+and it's the owner's own answer to the duplicate content problem.
+
+I'd add one thing to it, which I've written into the file. If we write one
+package and publish it across all 231 money domains, that's *worse* for duplicate
+content than headlines were, not better — long-form near-identical prose is the
+shape that gets punished hardest. The fix is the same trick that makes the feed
+pooling work in the first place, applied one level up: the research is shared and
+done once (the expensive part), and each site generates its own angle on top of
+it (the cheap part). Same facts and citations, genuinely different articles,
+because they really are different articles. A haulage site gets what Hormuz means
+for diesel; a landlord insurance site gets energy costs and tenant arrears. That
+also happens to be exactly what the owner asked for when he said each domain
+should be focused on a different target market.
+
+New directory this session: **`features_open/`** at the repo root. We had nowhere
+to put "things we've decided to build" — `bugs_open/` is explicitly for what's
+broken in production right now, and putting design ideas there would wreck the
+one question that directory exists to answer. So `features_open/` mirrors it, with
+`FEATURE_` files for things to build and `RISK_` files for known hazards in things
+we're about to build. Three entries so far: the packaged features idea, the paid
+tier, and the duplicate content risk.
+
+The duplicate content problem is worth reading properly (it's `002`). The short
+version is that it's invisible from inside any single site — every site looks
+fine on its own, and the defect only exists in the relationship between them. And
+because so many of these domains are the same phrase on different endings, the
+risk isn't just that a duplicated block ranks badly, it's that the whole estate
+starts to look like a low-quality domain network. I've written down how to
+actually measure it rather than just worry about it, and the rule that we test it
+on one pool before rolling anything out fleet-wide — because pulling the feeds
+back later doesn't undo the footprint.
+
+027 is another thread's, so I've left it alone.

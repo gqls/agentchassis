@@ -90,16 +90,55 @@ and seasonal freshness*. That is a calendar and a content-refresh cadence, not a
 feed. **Out of scope for this workstream.** Recording it here so the gap is a
 decision rather than an oversight.
 
+## Decision 4 — every domain is a separate site with its own target market (owner, 2026-07-19)
+
+Answering the open question below: the near-duplicate families are **not**
+redirects. Each domain is intended to be a distinct site aimed at a different
+target market, so that news selection can be angled differently per domain.
+
+**This raises the stakes on the per-site ranking layer rather than lowering them.**
+It is now load-bearing product behaviour, not just a cost optimisation: the
+per-site profile is what makes `bestinsurancerate.co.uk` and
+`bestinsurancerate.uk` different sites rather than the same site twice. The
+profile therefore needs a real target-market definition per domain, not a
+keyword list derived from the domain name — two domains with near-identical names
+must carry deliberately different audience profiles or they will rank the pool
+identically.
+
+It also makes `features_open/002_RISK_portfolio_duplicate_content.md` the
+governing constraint of this workstream.
+
+## Decision 5 — launch order follows traffic (owner, 2026-07-19)
+
+Start with the domains that have readers. Only 21.7% of the list has any views;
+`wayfaringlondoner.com` alone is 27% of portfolio traffic. Piloting on
+traffic-bearing domains also gives the duplicate-content measurement (002) a real
+signal instead of a synthetic one.
+
+## Decision 6 — differentiation comes from synthesis, not selection (owner, 2026-07-19)
+
+Owner: *"We will have to think how to avoid the serious duplicate content feed
+problem more and maybe it comes when we start analysing feed topics and writing
+our own brief rundowns."* Agreed and filed as
+`features_open/001_FEATURE_packaged_topic_features.md`. The key structural note
+recorded there: a package written once per pool and syndicated is **worse** than
+a headline list; the package must be a shared research substrate with a per-site
+angle generated on top.
+
 ## Open questions for the owner
 
-1. **The duplicate-TLD families.** 146 concept families cover 358 domains — 11
-   `insurance*`, 10 `landlordinsurance*`, 9 `healthinsurance*`,
-   `bestinsurancerate.co.uk` vs `.uk` and so on. Are these distinct sites or
-   redirects to one? It decides whether we need per-site divergence within a
-   family or no feed at all for the duplicates.
-2. **Tiering.** Keep per-site sources alive as a paid tier (shared pool by default,
-   dedicated sources for domains that justify it)? This matches the
-   `saas_cheap` vs `portfolio` cost-profile flag that BIZ-014 already asks for.
+1. ~~**The duplicate-TLD families.**~~ **RESOLVED 2026-07-19** — separate sites,
+   separate target markets. See Decision 4.
+2. ~~**Tiering.**~~ **RESOLVED 2026-07-19** — yes, but it needs to be more than
+   news to be a product. Filed as
+   `features_open/003_FEATURE_paid_tier_beyond_news.md`. Keep the per-site source
+   path alive; the pooling work demotes it from default to opt-in, never deletes it.
+3. **Where do per-domain target-market profiles come from?** Decision 4 makes this
+   the critical unknown. Hand-authored per domain does not scale to thousands;
+   derived from the domain name collapses exactly the families we need to
+   separate. Candidate: derive once at site creation from the site's own
+   classification spec + a stated audience, then embed. Needs deciding before the
+   ranking layer is built.
 
 ## Risks carried into the build
 

@@ -163,3 +163,71 @@ intra-family feed divergence or no feed for the duplicates.
   (per-source interleaving in the render) as **downgraded to aspirational on
   verification** — `loadNewsItems` has no `PARTITION BY`. Diversity constraints
   are to be built, not inherited.
+
+---
+
+## 2026-07-19 — session 1 continued: owner decisions, `features_open/` created
+
+### Owner resolved all three open questions
+
+1. **Duplicate families are separate sites**, each aimed at a different target
+   market, so news selection can be angled per domain.
+2. **Launch order follows traffic.**
+3. **Paid tier: yes, but it needs to be more than news to be a product.**
+
+Recorded as Decisions 4–6 in PLAN.
+
+### Consequence I did not anticipate when proposing the design
+
+Decision 1 (shared pool, per-site ranking) was framed as a *cost* argument. Under
+Decision 4 the per-site ranking layer becomes **load-bearing product behaviour**:
+it is the only thing distinguishing `bestinsurancerate.co.uk` from
+`bestinsurancerate.uk`. That promotes a question I had not treated as urgent —
+**where per-domain target-market profiles come from**. Deriving the profile from
+the domain name is the obvious approach and is exactly wrong here: the names are
+near-identical in precisely the families we most need to separate, so a
+name-derived profile guarantees identical ranking. Logged as open question 3.
+
+### Where to file the new material — options considered
+
+Owner asked me to search and suggest rather than assume. Checked:
+
+- **`bugs_open/`** — its README scopes it to "what is biting production right
+  now"; `bugs_closed/README.md` reinforces that the bar is about current
+  reproducibility in prod. A latent defect in an unbuilt design fails that bar,
+  and filing it there degrades the one question the directory answers. **Rejected.**
+- **`docs026_concept_register/`** — a *derived* extraction swept from `docs/`
+  ("Nothing outside this directory is modified by this work"), status-tagged from
+  documentary signals. Hand-authoring forward-looking entries is off-pattern.
+  **Rejected.**
+- **The workstream PLAN** — already carries the risk, but is workstream-scoped;
+  concurrent threads will not read it. Insufficient alone. **Kept, plus a
+  root-level home.**
+- **New `features_open/`** — mirrors `bugs_open/`/`bugs_closed/`, root-level and
+  discoverable, own independent numbering sequence. **Chosen.** Suggested to the
+  owner with the reasoning rather than presented as done.
+
+Created with a README stating the bar explicitly, and the `FEATURE_` vs `RISK_`
+distinction — a latent defect in an unbuilt design is a RISK here, and *becomes*
+a bug (and moves) the day the design ships and the defect is reproducible.
+
+### Substantive addition to the owner's packaged-features idea
+
+The owner proposed weekly topic packages as the duplicate-content mitigation. Noted
+in `001` that the **naive version makes the problem worse, not better**: one
+package syndicated to 231 domains is long-form near-identical prose, the most
+heavily penalised duplication shape — strictly worse than a duplicated headline
+list. The fix is the same shared-substrate/per-site-projection split that makes
+pooled feeds work, applied one level up: research once (expensive, shared), angle
+per site (cheap, differentiating). This also satisfies Decision 4 directly.
+
+Cost check on that: one package/week × ~231 money-pool domains = ~231 generations
+/week. Against the naive per-site feed design's projected ~8,000 triage calls/day
+at 2,000 sites, this is affordable and spent on the differentiating layer rather
+than the commodity one.
+
+### Not touched
+
+`bugs_open/027` (news renders nothing without JavaScript) — **another thread is on
+it**, per the owner. Left alone; still noted in PLAN as a rollout blocker because
+it gates fleet rollout regardless of who fixes it.
