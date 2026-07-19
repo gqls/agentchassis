@@ -670,3 +670,75 @@ blocks rather than warns. relojistas becomes the **third** site on the claims ma
 > **Caveat carried forward:** the repo's `sql_for_agents/` copy of the writer prompt is
 > already stale relative to prod. Live prompts live in `agent_definitions.default_config`.
 > Check prod before believing any prompt in the repo.
+
+## 2026-07-19 (session 2) — P7 build: I got the sections wrong, and a no-op deployed anyway
+
+Applied the evidence_base fence (13 facts / 9 bans / 3453-char writer_block, verified live),
+created 19 pages, queued 12 child builds, dispatched. Then read the first deployed page
+instead of trusting its status — which is the only reason the next three findings exist.
+
+### MISTAKE (mine): `pages.sections` is NOT what page-build-handler reads
+
+I set `pages.sections` on all 12 new pages and assumed that composed them. It does not.
+`page-build-handler` reads its **spec sections from `site_plan_sections`**
+`(plan_id, page_name, ordering, component_name)` — a table I never populated. Every build
+logged, in `site_work_items.error`:
+
+> `page-build-handler no-op: no sections ready to build (empty spec sections, or all sections deferred for missing data)`
+
+Caught by comparing against gamesdesign.co.uk, which runs this exact shape in production and
+**does** have `site_plan_sections` rows (2 per guide: `hero`, `generic-text-block`).
+relojistas had them only for the 4 originally-planned pages. Fixed by inserting 28 rows.
+
+> **Durable, and not obvious:** `pages.sections` and `site_plan_sections` are two different
+> section lists and the build reads the second. The first is what the *listing/query* layer
+> and rerender use. Setting one without the other yields a silent no-op, not an error.
+
+### THE BAD ONE: a no-op build was marked `complete` and the page DEPLOYED
+
+`glosario-tourbillon` recorded that same "no sections ready to build" no-op **and** came out
+`status='complete'`, `build_status='deployed'`, live at `/glosario/tourbillon.html`. The
+handler built nothing, and the page still shipped — carrying two components that are not
+its own:
+
+- `hero` with the **site homepage's** headline ("Relojería en español: noticias, guías y
+  glosario") rather than anything about tourbillons;
+- `content-block-about` with generic about-us copy.
+
+So a page titled "Tourbillon" published saying nothing whatsoever about a tourbillon, and
+every status field said success. This is the `016b` invariant in its purest form — *trust
+the rendered artefact, not the status* — and it is worth filing separately: a no-op must not
+report `complete`, and must certainly not deploy. Reset to `planned`, components deleted,
+re-queued.
+
+### MY SECOND MISTAKE: `content-block-about` on a glossary page
+
+I copied vonc.com's entity-page shape `["hero","content-block-about","call-to-action"]`
+without checking what that middle component is for. `content-block-about` writes
+*about-the-company* copy — it will do that on any page, whatever the page is about. Moved
+all 8 glossary terms to `["hero","generic-text-block"]`, the gamesdesign guide shape, which
+demonstrably produces page-specific prose (its "The Skinner Box in Game Design" hero +
+substantive body is the proof).
+
+### What the fence DID and DID NOT do — both worth knowing
+
+**It reached the writer.** The generated about-copy contained "No vendemos relojes, no
+representamos marcas y no cobramos por recomendar nada" — that is fact R13 and the
+governing_rule coming back out in the model's own words, unprompted by anything else. The
+writer_block is genuinely steering.
+
+**It does not cover links.** The same component emitted `"cta_url": "/sobre-relojistas"` —
+a page that does not exist (ours is `/sobre-nosotros.html`). An invented internal link
+sailed straight through, because the claims layer scans *assertion text* for banned patterns
+and unregistered numbers; it has no opinion about hrefs. That is exactly the
+`check_phantom_internal_links` / `bugs_open/023` class, and it means **the two layers are
+complementary and neither substitutes for the other** — a page can be claim-clean and still
+full of dead links. Re-run the phantom sweep after this content lands.
+
+**It also did not stop invented stat fields.** The same block produced
+`"stat_2_value": "100%"` (labelled "Independencia editorial") and `"stat_3_value": "0€"`
+("Relojes vendidos"). Neither number traces to a fact. They survived because
+`ScanUnregisteredNumbers` is inert here (English business-context gate — see the
+evidence_base header) and because no banned pattern covers a bare "100%". Arguably both are
+defensible as editorial rather than factual claims, but they are exactly the shape the gate
+was supposed to catch, and on this site it cannot.
