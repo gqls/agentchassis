@@ -742,3 +742,46 @@ full of dead links. Re-run the phantom sweep after this content lands.
 evidence_base header) and because no banned pattern covers a bare "100%". Arguably both are
 defensible as editorial rather than factual claims, but they are exactly the shape the gate
 was supposed to catch, and on this site it cannot.
+
+### How well the cite-or-omit fence actually held — measured, not assumed
+
+Read both completed guides in full rather than sampling. Verdict: **the fence works, and it
+is not airtight.** Both halves matter.
+
+**What it got right.**
+- `guia-mantenimiento` — the highest-risk page, because maintenance advice is where an
+  invented service interval would live — contains **no numbers at all**. The model refused
+  the figure in its own words, twice, and explained why: *"cuál es el intervalo de revisión
+  que recomienda la marca … nosotros no publicamos intervalos genéricos porque cada calibre
+  es distinto"*, and *"La frecuencia exacta depende de la reserva de marcha … que el
+  fabricante especifica para cada calibre. Consulta esa cifra en la documentación oficial de
+  tu modelo."* That is `governing_rule` reproduced as editorial voice, unprompted.
+- `guia-complicaciones` used **four registered facts and attributed every one to the right
+  model**: RM 64-01 Tourbillon Colnago as a limited edition with the cycle maker (R4), Zenith
+  DEFY Extreme Ultraviolet measuring to the hundredth (R6), AP Neo Frame Horas Saltantes
+  reading the time without hands (R5), Longines Conquest Heritage recovering a historic
+  central power-reserve indicator (R3). No model was given a specification belonging to
+  another — the failure mode I most expected.
+- Zero prices, zero water-resistance figures, zero invented references across both.
+
+**What got through.** `guia-complicaciones` asserts two unregistered facts:
+`Breguet … en 1801` (the tourbillon's invention) and the perpetual calendar running
+`hasta 2100`. Both are true and are standard horological reference, but neither traces to
+our corpus, so under a strict reading of D1 they should have been omitted or cited. They
+survived for a reason worth writing down: **years are structurally exempt from the number
+scan** — `isExcludedNumber` (claims.go) drops any standalone 1900–2099 token as a date — and
+`ScanUnregisteredNumbers` is inert here anyway (English business-context gate). So the only
+thing standing between us and an unsourced date is the prompt, and the prompt is
+persuasion, not enforcement.
+
+> **The honest characterisation, for the owner:** the fence removed the *dangerous* class
+> (invented specs, prices, service intervals, mis-attributed models) and left a residue of
+> *encyclopedic* claims that happen to be correct. That is a large improvement, not a
+> guarantee. Anything numeric and historical still wants a human eye before it ships.
+
+**Language defect, both pages:** the writer produced **"escapamento"**, which is not a
+Spanish word (Spanish for the escapement is *escape*; *escapamento* is Portuguese). It
+appears once per guide, so it is systematic rather than a slip. Worth a corrective line in
+the site's content_direction or a banned_claims entry — it is a credibility tell on a
+Spanish-language specialist site, and exactly the sort of thing no automated gate here
+checks.
