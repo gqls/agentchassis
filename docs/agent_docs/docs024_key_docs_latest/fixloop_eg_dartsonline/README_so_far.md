@@ -1116,7 +1116,202 @@ operator to set it. Your call on direction.
 
 ---
 
+Both deliverables are written and committed. Here's everything, including a correction I owe you.
+
+A correction first — 016 finding 1, and something I got wrong
+
+The reasoning-dataset thread's timestamp-trap warning caught a real error in my own reporting. I verified it: my D1 "proof run" (00a20123) started at 13:11:13Z — four minutes before the .result fix landed at 13:15:11Z — so it
+carried pre-fix config, and its repropose did render <no value>. In that run the reviser was blind to the review text, and I didn't catch it when I reported the run as a clean pass.
+
+To be precise about what still holds: the D1 run's truncation conclusion is untouched — no reviewer exceeded its budget, and that's independent of the review-injection bug. But my implication that the run's council behaviour
+was clean was wrong. No genuinely post-fix fix-proposer repropose has landed yet, so the .result fix remains unproven in the wild. I'll shout when one lands — the test is a repropose whose orchestration starts after 13:15:11Z,
+joining llm_call_log to orchestration_states.created_at, not the step time.
+
+016 finding 2 — confirmed, and my call made
+
+I confirmed the numbers exactly: 13 seats seeded, 6 threaded into the repropose prompt, 7 invisible to the reviser — your thread's list matched precisely. Since it arrived by seat growth, listing the missing seven just
+re-breaks on seat 14.
+
+Decision: read the artifact, don't list the seats. The council_report artifact already carries every reviewer's verdict in one reviews: [{reviewer, verdict, notes}] array. The reviser should read that once — idempotent,
+survives roster growth, seat 14 flows through automatically. It needs a small council_decide change (emit the rendered reviews) plus a one-reference prompt change. Planned concretely in the design doc §6; I stopped short of
+implementing it inline because it touches council plumbing that's actively churning and deserves its own focused build — but it's arguably the first thing to build, since it's a live correctness bug.
+
+The diagnosis-side code tier — planned
+
+DESIGN_diagnosis_side_code_tier.md. The core idea: the two halves of the loop have a state tier (SQL) each, the council has a code-search tier (what I built this week), and the diagnosis side has code-navigation (call-graph
+following) but no code-search. The gap is exactly the diagnosis-side version of the historian's "do other adapters exist?" — the diagnoser can follow the trail it's on but can't sweep the codebase for a pattern, which is where
+cross-cutting causes hide.
+
+The plan is reuse, not rebuild: add code_requests to the verdict wire (sibling of data_requests), forward it through the router, and answer it in the gather phase with the same diagnose_code_lookup action the council uses. It's
+complementary to call-graph following — breadth vs depth. One nuance I flagged: the diagnoser has the real tarball so it could grep locally, but I recommend index-based first for symmetry and reuse, with local-tree grep only
+if staleness ever misleads a diagnosis.
+
+The where-we-are summary + the 019 flag
+
+SUMMARY_where_we_are_2026-07-18_evening.md — current state, honestly including the correction above. And I recorded bugs_open/019's interaction with my D1 migration: the gate voids a round if a reviewer overruns 8000 tokens,
+and I set the ceiling at 8000. So my raise prevents truncation but sits exactly where 019's void triggers — and substantial submissions (the ones most worth reviewing) push reviewers toward it. That's worth revisiting: either
+the ceiling should be higher than 8000, or 019's void-on-overrun is the thing that should change rather than the ceiling. I've flagged it for the gate thread and noted it as an open decision, since it's their agent's behaviour
+but my ceiling.
+
+Net: two planned build items (both small, because the action/index/artifact already exist), one live correctness bug decided but not yet built, one honest correction, and the model/branch/mirror improvements confirmed live.
+Which would you like next — the 016-finding-2 reviser fix (live bug), or the diagnosis-side code tier (new capability)?
+
+----
+
+Done. The docs are updated for a clean cold-start, and memory points a fresh session to the right entry point.
+
+What a new chat will land on
+
+HANDOFF_diagnosis_fixloop_3.md — the fresh cold-start entry point, superseding _2 (which now carries a one-line pointer forward so nobody starts from the stale one). It's self-sufficient and covers:
+
+- The one-paragraph delta since the last handoff — the tool went from "complete, go point it at real bugs" to actually running real cases, finding a bug by failing, and growing two capabilities.
+- Immediate next actions, ordered by value: the 016-finding-2 reviser fix (live bug, decision already made — read the artifact), the diagnosis-side code tier (planned), proving the .result fix, and BUG A's approved plan →
+  implementer.
+- Live state, open correctness issues (016 f1/f2, the 019-vs-8000 tension), companion docs, the hard-won gotchas (including the UTC/BST clock trap that bit me, the config-reseed clobber, round inflation, and the inverted BUG B
+  rule), and the key triggers/queries.
+
+Supporting docs, all committed:
+- SUMMARY_where_we_are_2026-07-18_evening.md — operational state
+- DESIGN_diagnosis_side_code_tier.md — the code-tier plan plus the 016-f2 fix decision
+- The immune-system journey summary and the problems read-out from earlier
+
+Memory updated — both the fixloop-workstream memory and the MEMORY.md index line now name HANDOFF_diagnosis_fixloop_3.md as the cold-start and carry the open-items shortlist, so a fresh session recalls where to begin.
+
+Everything committed narrowly with pathspec-on-commit — and you can see from the interleaved log (f42dff161, c82b2872c, the vetcomparison/imagery commits) that other threads were committing throughout, so that discipline kept
+mine clean.
+
+One honest note carried into the handoff: the correction about my D1 "proof run" being pre-fix and rendering <no value> is recorded plainly in both the handoff (§1.3) and the summary, so the next chat inherits the accurate
+picture rather than my earlier overstated one.
+
+A new chat can start from HANDOFF_diagnosis_fixloop_3.md and pick up cleanly. The highest-value first move it'll find is the 016-finding-2 reviser fix — a live correctness bug with the decision already made.
+
+
+---------------
 
 
 
 
+
+
+----
+
+## 2026-07-19 — a stale handoff, a half-finished fix, and the diagnoser learns to search code
+
+**Starting on the wrong page.** This session was pointed at a handoff from 9 July
+that described the loop as still being designed — "discussion phase", first job
+being to build the very first slice. All of that shipped days ago. The current
+entry point is the one written on the 18th. Nothing was lost, because the first
+thing I did was check the live system rather than act on the file, but it is the
+second time someone has picked up a superseded handoff by its filename, so I put
+a large "do not start here" banner at the top of the old one. It keeps its
+history — the reasoning about how the first real case was chosen is still the
+clearest record we have of that — it just can't be mistaken for current any more.
+
+**The top-priority job turned out to be mostly done.** The current handoff said
+the highest-value thing to build was a fix for the council reviser being
+half-blind: when the council grew from six seats to thirteen, the part of the
+system that rewrites a rejected plan was still being handed only six of the
+reviewers' opinions. The handoff said the decision had been made but nothing had
+been built.
+
+It had been built — just not everywhere. Checking the three agents that carry a
+council:
+
+- The **fix-proposer** was properly fixed.
+- The **council gate** turned out not to need fixing at all. It has thirteen
+  seats but no automatic reviser — when it says "revise", it hands the objections
+  straight back to a human. So the bug simply cannot occur there. Earlier
+  handoffs carried an instruction to mirror the fix across to it; that
+  instruction was never needed, and I have said so in writing so nobody spends
+  an afternoon on it.
+- The **feature-designer** was fixed on one path and not the other.
+
+**The half that was missed, and why it's worth understanding.** These agents have
+a fork in the road after the council votes: if the council says "revise", one
+path runs; if it vetoes outright, a different path runs. The fix — have the
+reviser read the full council report once, rather than listing each reviewer by
+name — was applied to the revise path only. The veto path was still working from
+a hand-written list of two reviewers out of five. It was blind to three of them,
+and it would have stayed blind as the roster grew.
+
+What makes this worth writing down is that it wasn't carelessness. The two
+patches were written the same day, by people who understood the bug precisely.
+The difference was *where* they put the shared step: the fix-proposer patch put
+it before the fork, so every road past it inherits it; the designer patch put it
+on one road. Same fix, same intent, opposite outcomes. And the patch that only
+went half-way said in its own header that the agent was now complete — true of
+the path it touched, which is exactly why nobody looked again. A fix that covers
+one branch of a two-branch fork reads as finished in the diff, in the notes, and
+in the handoff. I've filed that as a general pattern in the debugging guide,
+because it will happen again in something that has nothing to do with councils.
+
+I closed it by copying the fix-proposer's *placement* rather than bolting on a
+second lookup — so the two agents now have the same shape, which is the thing
+that stops this drifting apart again. Checked it against the live system rather
+than trusting the patch's own output: both revisers now read the full report,
+neither has any leftover per-reviewer references, and every step in the workflow
+is still reachable. I also verified the one assumption that would have made the
+whole thing a silent no-op — that the field it looks the report up by is
+actually the field the trigger sets. It is. Had it not been, the fix would have
+reported success while quietly finding nothing.
+
+**Then: teaching the diagnoser to search the codebase.** The next item was a new
+capability, and it closes a real asymmetry.
+
+When the loop investigates a bug, it can follow a trail — "this function calls
+that one, let me look there". What it could not do is ask a question about the
+codebase as a whole: "does this same mistake exist anywhere else? is there a
+second implementation of this? what else touches this?" It could only see code
+that the trail it was already on happened to reach. That matters because the
+causes worth finding are usually the ones that aren't where the symptom is — the
+shared piece of infrastructure named nothing like the thing that broke.
+
+The reviewing half of the system already had exactly this ability, built last
+week after a reviewer got stuck for three rounds on a question ("do other
+adapters like this exist?") that nothing could answer. So this was mostly
+plumbing rather than invention: the diagnoser can now attach code questions to
+its verdict, and they get answered from the code index before the next round,
+using the same machinery the reviewers use.
+
+Two things I had to get right that the plan hadn't called out, both of which
+would have quietly spoiled it:
+
+*First, the loop has a guard that stops it spinning* — if a round produces no new
+evidence, it halts rather than going round forever. But a round where the
+diagnoser says "I can't settle this yet, go and search the code for X" produces
+no new evidence *by definition*; the evidence arrives next round. Without
+teaching the guard that asking a question counts as progress, the new feature
+would have been actively harmful: using it would have looked like spinning, and
+the loop would have stopped one round before the answer it just asked for showed
+up.
+
+*Second, and more subtle: where the answers get printed matters.* The loop has a
+deliberate rule that it won't confirm a diagnosis on code alone — it needs the
+mechanism in the code *and* evidence of it actually happening in the live system.
+Code-search results are code. If I had folded them in alongside the runtime
+evidence, the diagnoser could have cited a code-search hit as the "it really
+happened" half and confirmed a plausible story with no evidence that it ever
+occurred — quietly defeating the one rule that stops confident fiction. So the
+results get their own section with a heading that says, in words the model
+reads, that this is code and cannot show occurrence.
+
+I also made the answers persist across rounds rather than appearing once — we
+learned that lesson the hard way with database queries, where an answer arrived,
+the round was rejected for an unrelated reason, and the evidence vanished so the
+loop asked for it all over again.
+
+**Where this leaves things.** The code half is committed and tested, but it is
+Go, so it does nothing until the next image is built and rolled out. The prompt
+change that tells the diagnoser this ability exists is written and ready but
+deliberately **not** applied yet — applying it early would invite the model to
+ask questions nothing can answer, and an unanswered question looks exactly like
+an empty answer, which reads as "no, that doesn't exist anywhere" — the single
+most dangerous wrong answer this feature could give. So: image first, then the
+prompt. That order is written into the patch file itself.
+
+One honest note on testing: the shared working tree currently doesn't compile,
+because another session has changed a function's signature without updating its
+test. That's their in-flight work, not a break I introduced or should fix. I
+tested my changes by building a clean copy of the last committed state and laying
+only my files on top, which is how I can say the tests genuinely pass rather than
+that they pass except for something unrelated.

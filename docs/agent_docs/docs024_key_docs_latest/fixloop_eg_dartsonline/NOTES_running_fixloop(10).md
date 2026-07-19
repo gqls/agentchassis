@@ -2236,3 +2236,59 @@ a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
   fix-proposer repropose whose ORCHESTRATION starts after 13:15:11Z), 019 vs the
   8000 ceiling, the diagnosis-side code tier (planned, not built), BUG A →
   implementer (008 thread's call).
+
+### Turn 42 — 2026-07-19 — the diagnosis-side code tier, built (Go committed, prompt staged)
+
+- Built `DESIGN_diagnosis_side_code_tier.md` §1-5. Commit `927b11ba0`. Three
+  pieces as planned — `code_requests` on the verdict wire, forwarded by
+  `diagnose_route` into `route.code_requests`, answered in the gather by
+  `diagnose_load_runtime` calling the SAME helpers the council tier uses
+  (`answerCodeCheck`/`dedupCodeChecks`, same Go package — reuse, not a second
+  implementation, per the design's explicit instruction).
+- **Two things the design did NOT call out, both load-bearing.** Recording them
+  because they are the class of thing a plan does not catch and a build must:
+  1. **The spin guard would have made the feature harmful.** `guardAfter` stops
+     the loop when a round adds no new evidence. A round that says "I can't
+     settle this — search the code for X" adds no evidence BY DEFINITION; the
+     answer arrives next gather. Un-taught, the guard would have tripped
+     `evidence-not-growing` exactly one iteration before the evidence it just
+     asked for. So a new code question now counts as progress, on the identical
+     reasoning that already credits a new `data_request`. Tracked in its OWN map,
+     NOT `SeenRequests` — the route re-forwards that map's keys AS SQL
+     (`withPriorRequests`), so a code question parked there would be re-issued as
+     a query and silently dropped by the read-only lint.
+  2. **Where the answers render decides whether the two-family guard survives.**
+     Code search returns CODE = static evidence. Folding it into the
+     "Runtime / DB evidence" section would let a verdicter cite an index hit as
+     the OBSERVED half of the static+observed requirement and confirm a
+     code-only story — defeating the single guard that stops plausible fiction
+     being confirmed. It gets its own return field (`code_evidence`) and its own
+     bundle heading that says in words that it is static and cannot show
+     occurrence. The model reads the heading, not our comments.
+- Also: cumulative re-forwarding (F0.5's argument transfers unchanged — a
+  one-shot answer is LOST when a guard refuses the confirm that follows, and the
+  loop then re-asks a question it already had answered); and **code-specific
+  caps** — I first reused load_runtime's SQL `row_cap` (200) and caught it on
+  re-read: 200 rows of near-duplicate matched code lines would bury the bundle's
+  signal (B4a). Now `code_row_cap`/`code_excerpt_chars` = 40/400, matching the
+  council tier's already-exercised values.
+- **Testing gotcha, worth keeping.** The shared working tree's
+  `platform/orchestration/actions` test package DOES NOT COMPILE right now —
+  another session changed `handlerReportedFailure`'s signature in
+  `complete_work_item_verification.go` without updating its `_test.go`
+  (`platform/orchestration_test.go` likewise, `NewSagaCoordinator`). Confirmed
+  pre-existing by stashing all my changes and re-running `go vet`: still fails.
+  Tested instead by `git archive HEAD | tar -x` into a scratch dir and copying
+  ONLY my files over it — clean signal, both packages `ok`. That technique is
+  the answer whenever the shared tree won't build; do not "fix" the other
+  session's test to get a green run.
+- **Prompt half deliberately NOT applied**:
+  `PATCH_diagnose_agent_020_code_requests_prompt.py` (dry-run default,
+  idempotent, refuses if its anchors moved). Sequencing is IMAGE FIRST: at an old
+  image a model emitting `code_requests` has them ignored, and an unanswered
+  question reads back identically to an EMPTY answer — i.e. "the mechanism is
+  absent", the worst answer this tier can give. Verify before applying:
+  `strings /app/agent-chassis | grep -c code_requests_field`.
+- Status: Go committed + tested, INERT until the next chassis image. Prompt
+  staged. Nothing exercised on a real diagnosis yet — that is the proof still
+  owed, and it needs the image.
