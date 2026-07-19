@@ -29,17 +29,33 @@ still open (§3).
 Pick from these — all are small because the hard parts already exist. Owner
 gives the go per item; runs spend credits.
 
-1. **Build the 016-finding-2 reviser fix (a LIVE correctness bug — do this
-   first).** 13 council seats are seeded but the `repropose`/`reframe` prompts
-   thread only 6 per-seat refs, so **7 seats' objections are invisible to the
-   reviser** (adoption_guardian, compliance, debug_historian, llm_reliability,
-   diagnosis_guardian, improvement_guardian, render_guardian) — 54% of the
-   council, and it recurs on seat 14. **Decision already made: read the
-   `council_report` artifact's `reviews:[{reviewer,verdict,notes}]` array ONCE**,
-   not per-seat refs (idempotent, survives roster growth). Plan:
-   `DESIGN_diagnosis_side_code_tier.md` §6. Needs a small `diagnose_council_decide`
-   change (emit rendered reviews into collected) + a one-ref prompt change on
-   repropose/reframe; then mirror to the gate via `099` (now drift-aware).
+1. ~~**Build the 016-finding-2 reviser fix.**~~ **DONE — see the correction
+   below. Do not start here.**
+
+   > **CORRECTED 2026-07-19 (turn 41):** this item said "decision already made,
+   > not built". It was already built on fix-proposer, and the claim was checked
+   > against the live `agent_definitions` rows, not inferred:
+   > - **fix-proposer** — `load_council_reviews` present and wired
+   >   `council_decide → load_council_reviews → check_approved`, so both reviser
+   >   paths inherit it. Built before this handoff was written.
+   > - **council-gate** — 13 seats but **no reviser loop at all**
+   >   (`complete_revise` is terminal; objections go back to the human
+   >   submitter). The bug class does not apply. The "mirror to the gate via
+   >   `099`" instruction above was a step that never needed taking — noted so
+   >   the next thread doesn't re-derive it.
+   > - **feature-designer** — `PATCH_017` had fixed the REVISE path only. The
+   >   VETO path (`reframe`) still named `review_editquality` + `review_guardian`
+   >   in `input_fields`: **2 of 5 seats**, blind to bug_historian, guidelines
+   >   and reuse_agent. Closed by `PATCH_018_reframe_reads_artifact.sql`, which
+   >   mirrors fix-proposer's placement (load step ahead of the routers) rather
+   >   than adding a second query step. Verified live: both revisers render
+   >   `{{.council_report_row.body}}`, zero residual `review_*` refs, 23/23
+   >   steps reachable.
+   >
+   > The transferable lesson: a fix that covers **one branch of a two-branch
+   > router** reads as done and is not. PATCH_017's own header asserted the
+   > designer was "complete (5/5/5)" — true of the path it touched. Details:
+   > `NOTES_running_fixloop(10).md` turn 41.
 
 2. **Build the diagnosis-side code tier (new capability, planned).** Give the
    DIAGNOSER the code-search the council already has, by REUSING the
@@ -101,8 +117,10 @@ without observing the mechanism, no blessing a partial class-fix.
 ## 4. Open correctness issues (confirmed live) + tensions
 
 - **bugs_open/016 finding 1** — `.result}}` render fix UNPROVEN (see §1.3).
-- **bugs_open/016 finding 2** — reviser half-blind (see §1.1). Decision made,
-  not built.
+- ~~**bugs_open/016 finding 2** — reviser half-blind.~~ **CLOSED 2026-07-19**
+  across all three agents: built on fix-proposer, not applicable to council-gate
+  (no reviser loop), and the designer's veto path closed by `PATCH_018`. See the
+  corrected §1.1.
 - **bugs_open/019 vs D1** — the council gate VOIDS a round if a reviewer overruns
   8000 tokens; substantial submissions push seats toward it, and D1 set the
   ceiling AT 8000. Open question: raise the ceiling, or change 019's

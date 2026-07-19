@@ -1,5 +1,19 @@
 # HANDOFF — Diagnosis→Fix Loop → fresh context
 
+> ## ⛔ SUPERSEDED — 2026-07-09. DO NOT START HERE.
+> **Current cold-start: `HANDOFF_diagnosis_fixloop_3.md`.**
+>
+> This file describes the loop before it was built: everything below — F0.1, the
+> dartsonline guides pilot, the "generate BUNDLE_fixloop_F0.md first" opening
+> move — is history. F0–F3 shipped, the loop has diagnosed real bugs, and the
+> council has grown to 13 seats. Acting on the "Opening move" in §4 would rebuild
+> things that exist.
+>
+> Kept for the lineage (the pilot-selection reasoning in §4 is still the clearest
+> record of how the first case was chosen). This banner was added 2026-07-19
+> after a session was pointed here by filename — the second time a superseded
+> handoff has been picked up that way.
+
 STATUS: DISCUSSION PHASE — this file updates as the originating chat's
 critical discussion takes positions; at cutover it is the complete start
 state. (Travelling-docs pattern: runbook = plan, notes = history, this =

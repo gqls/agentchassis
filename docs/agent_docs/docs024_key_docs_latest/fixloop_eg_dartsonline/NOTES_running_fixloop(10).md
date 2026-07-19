@@ -2186,3 +2186,53 @@ a root block exists, the step's ENTIRE ai_service (incl. max_tokens) is dead.
   is read from / based on / PR'd into the same branch the diagnosis saw.
 - Verify after the next image: `strings /app/agent-chassis | grep -c base_branch_field`
   in the pod, then confirm a prepare step logs the input base branch, not main.
+
+### Turn 41 — 2026-07-19 — 016-finding-2 was half-done; the VETO path was still blind
+- Entered from a **stale handoff**: the session was pointed at
+  `HANDOFF_fixloop_thread(8).md` (9 July, "DISCUSSION PHASE, first action: slice
+  F0.1"). The live cold-start is `HANDOFF_diagnosis_fixloop_3.md`. Cost nothing
+  this time because the first move was to check the live DB rather than act on
+  the file, but it is the second time a superseded handoff has been picked up by
+  filename — hence the pointer added to (8) in this commit.
+- **HANDOFF_3 §1.1 was wrong**, and I have corrected it in place. It said the
+  016-f2 reviser fix was "decision made, not built". Live check:
+  - **fix-proposer** — `load_council_reviews` present. BUILT, contrary to §1.1.
+  - **council-gate** — 13 seats but NO reviser loop at all (`complete_revise` is
+    terminal; objections go to the human). The bug class does not apply, so the
+    "mirror to the gate via 099" in §1.1 was a step that never needed taking.
+    Recorded because the next thread will otherwise re-derive it.
+  - **feature-designer** — PATCH_017 fixed `repropose` only. `reframe` still
+    listed `review_editquality` + `review_guardian`: **2 of 5 seats**, blind to
+    bug_historian, guidelines and reuse_agent.
+- The residual is the SAME signature fix-proposer's own patch recorded closing —
+  "reframe gains eleven seats it never saw (it referenced only edit-quality and
+  guardian)". PATCH_017's header claim that the designer was "currently complete
+  (5/5/5)" was true of the revise path and **not** of the veto path. A fix that
+  covers one branch of a two-branch router reads as done and is not.
+- **Fixed by PATCH_018** — mirrored fix-proposer's PLACEMENT rather than adding a
+  second query step: the load moves ahead of the routers, so every downstream
+  path inherits it.
+  - `council_decide → load_council_report → check_approved` (was
+    `run_checks → load_council_report → repropose`, i.e. revise-branch only)
+  - `run_checks → repropose` restored; repropose UNCHANGED (collected_data
+    carries council_report_row across the branch)
+  - `reframe.input_fields` → `[spec_row, plan_persisted, council_report_row]`,
+    prompt's two per-seat sections → one artifact section
+- **Verified live, not from the patch output:** both revisers render
+  `{{.council_report_row.body}}`; **zero** residual `review_*` refs in either;
+  graph walk from `start_step` = 23/23 reachable, no dangling targets, reframe
+  reached via `council_decide → load_council_report → check_approved →
+  check_rejected → check_reframe → reframe`. Snapshot taken (`snapshot_agent`,
+  source_id ba8f1fcd). Dry-run in a rolled-back txn first — that is what
+  confirmed the JSON parsed and the routing landed before anything was written.
+- Correlation param **checked, not assumed**: `0NN_TRIGGER_feature_designer_v1.sh`
+  line 31 sets `input_data.fix_correlation_id` (the feature correlation reuses
+  the fix-loop field name), which is what `load_council_report` keys on. Had this
+  been wrong, `council_report_row` would have been silently empty on BOTH paths
+  and the "fix" would have read as applied while doing nothing.
+- Not sent to the council gate: scope is `platform/`/`internal/`/`pkg/`; a docs
+  `.sql` patch is refused client-side.
+- **Still open, unchanged:** 016 f1 (`.result}}` render fix unproven — needs a
+  fix-proposer repropose whose ORCHESTRATION starts after 13:15:11Z), 019 vs the
+  8000 ceiling, the diagnosis-side code tier (planned, not built), BUG A →
+  implementer (008 thread's call).
