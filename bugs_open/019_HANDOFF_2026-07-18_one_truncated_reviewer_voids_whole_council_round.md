@@ -205,3 +205,72 @@ surviving seats, rather than voiding. Losing one seat's opinion is a known,
 recordable gap; losing the whole round silently converts a careful resubmission
 into a wasted one, and — because the cause looks like a schema error — teaches
 the submitter the wrong lesson about why.
+
+---
+
+## THIRD INSTANCE — 2026-07-19 (cta_link_integrity thread), and the part that is new
+
+Round 1 of submission `2525f980-3fde-4b62-aff3-225de8454000` (orchestration
+`6df1c893`) died identically:
+
+```
+step review_editquality failed: failed to execute action execute_llm_prompt:
+AI call failed with unhandled error: response truncated:
+stop_reason=max_tokens (output_tokens=8000 reached the configured cap)
+```
+
+Terminal state `COMPLETED / complete_invalid`, **zero `council_report` rows**. The
+panel selector had already matched **six** relevant seats — guidelines, reuse_agent,
+bug_historian, render, debugging, compliance — and not one of them was reached. The
+mechanism is exactly as documented above; what follows is the part the case file did
+not yet have.
+
+**NEW: the cap is not configured anywhere a submitter can see.** `council-gate` has
+**no `ai_service` block at root, and none on any `review_*` step**:
+
+```sql
+SELECT default_config ? 'ai_service' FROM agent_definitions
+WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+--  f
+
+SELECT k, v->'ai_service'->>'max_tokens'
+FROM agent_definitions, jsonb_each(default_config->'workflow'->'steps') AS e(k,v)
+WHERE type='council-gate' AND ... AND k LIKE 'review_%';
+--  all 13 seats: NULL
+```
+
+So the 8000 is inherited from a global default. Consequences worth recording:
+
+1. **You cannot inspect the limit you are about to exceed.** The advice in the error
+   ("raise max_tokens") points at a key that does not exist on this agent — a reader
+   following it will look at the seat config, find nothing, and be stuck.
+2. **Every client-side guard passes.** The 097 trigger validates ≤8 edits, ≤64KB,
+   all edit fields present, correct scope — this submission satisfied all of them
+   (5 edits, 12,113 plan bytes). The binding constraint is the reviewer's *output*
+   length, which is not a function of anything the submitter can measure, and which
+   no validation models. **The gate's own checks give false assurance.**
+3. **Submission content drives it, not just size.** Round 1's rationale ended with
+   "answer the four questions even if you approve" — an explicit invitation to a long
+   reply. Round 2 cut the plan by a third (12,113 → 8,152 bytes) *and* instructed
+   reviewers to be brief and not restate the plan. That the remedy is prompt-shaping
+   rather than sizing is itself evidence that a length budget cannot be validated
+   client-side.
+
+**Did not bump the cap** — same reasoning as the diagnosis-fixloop thread's note
+above, reached independently: it is shared fleet config with an open decision on it,
+and quietly changing it during an unrelated submission is the config-clobber pattern.
+Two threads declining the same shortcut for the same reason on the same day is a
+reasonable signal that the shortcut is wrong and the fix candidate at §"Fix
+candidates" 1 is right.
+
+**One more consequence for whoever fixes this.** `complete_invalid` is
+indistinguishable from a genuine schema rejection at a glance: the orchestration
+reports `status=COMPLETED`, `error` is NULL, and the failure is only visible in
+`collected_data->'__step_error'`. A submitter who trusts the status will conclude
+their submission was malformed and start rewriting a plan that was fine.
+Retrieve it with:
+
+```sql
+SELECT collected_data::jsonb->'__step_error'->>'message'
+FROM orchestration_states WHERE orchestration_id='<orch>'::uuid;
+```
