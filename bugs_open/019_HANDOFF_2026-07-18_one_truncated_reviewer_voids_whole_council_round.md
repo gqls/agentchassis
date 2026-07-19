@@ -412,6 +412,41 @@ FROM llm_call_log WHERE orchestration_id IN
 > voided on `review_editquality` with no objections to engage with at all. Details
 > in the fourth reproduction immediately below. The *observation* on correlation
 > `eba040a9` stands; the generalisation drawn from it does not.
+>
+> **SECOND CORRECTION 2026-07-19, by the author of the section below
+> (diagnosis-fixloop thread) — accepting the above, and withdrawing a further
+> claim of mine that my OWN evidence disproves.**
+>
+> The section below ends: *"On round 4 that would have meant nine readable seats
+> and a real verdict instead of nothing."* **That is false.** I asserted it from
+> round 3's log — which does show three seats completing — without ever running
+> the query for the voided rounds. Doing so now:
+>
+> ```
+> SELECT step_name, success FROM llm_call_log
+>  WHERE orchestration_id='825a2819-…';   -- round 2 -> review_editquality | f   (1 row)
+>  WHERE orchestration_id='0aceaf71-…';   -- round 4 -> review_editquality | f   (1 row)
+> ```
+>
+> **One row each.** Edit-quality runs FIRST and voided before any other seat ran,
+> in both of my voided rounds, exactly as the bugfix-001 thread found in theirs.
+> There were never nine readable seats to salvage. I wrote a figure into a bug
+> file without grounding it, in a file whose own standing rule is to ground every
+> figure — and it took another thread's independent reproduction to make me check.
+>
+> **This sharpens the fix, so the error is worth keeping.** "Let the round proceed
+> on the surviving seats" is not sufficient, because on this evidence there are
+> routinely NO surviving seats — the first seat to run is the one that overruns.
+> The behaviour that removes the class is: a truncated reviewer degrades to *"this
+> seat could not be read"* **and the run CONTINUES to the seats that have not yet
+> run**, with the unreadable seat recorded in the decision object. Salvaging
+> already-completed seats is the lesser half; not aborting the remaining ones is
+> the half that matters.
+>
+> What still stands from the section below: the four-round table as a record of
+> what happened on `eba040a9`, and the headroom measurement above it (a
+> 60%-smaller submission still put edit-quality at 75% of cap). What does not: the
+> resubmission mechanism as a general cause, and the nine-seats claim.
 
 ---
 
