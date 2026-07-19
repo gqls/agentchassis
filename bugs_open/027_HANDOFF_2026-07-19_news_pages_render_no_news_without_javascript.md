@@ -145,10 +145,22 @@ replaced by fresher items when the fetch succeeds. **No JS edit, no risk of doub
 Use `html/template`, not string concatenation: these are third-party titles and summaries.
 
 **Honest scope and unknowns:**
-- **Two components, not one.** `latest-news` (homepage snippet) and `news-listing` (archive
-  page). I verified the progressive-enhancement property for `latest-news.js` only —
-  **`news-listing.js` is unverified**; check it before assuming the same. Fixing one and
-  calling it done is the failure mode this platform keeps hitting.
+- > **VERIFIED, and the two halves are NOT alike — do not generalise finding 3.** I first wrote
+  > that `news-listing.js` was unverified and to check before assuming it matched. Checked it:
+  > **it does not.** Where `latest-news.js` leaves the DOM alone when it has nothing, the
+  > listing script *overwrites the container in both failure modes*:
+  > ```js
+  > if (!data.items || data.items.length === 0) {
+  >   container.innerHTML = "<p class=\"news-listing-empty\">No news items available yet...</p>"; }
+  > .catch(function(err) {
+  >   container.innerHTML = "<p class=\"news-listing-empty\">Unable to load news...</p>"; });
+  > ```
+  > So on the archive page, server-rendered items would be **destroyed** by the very script
+  > meant to enhance them — on an empty feed, on a 404, on any B2 blip. The homepage half needs
+  > no JS change; **the archive half needs the JS fixed first, or it is a regression, not a fix.**
+  > The asset is byte-identical across robot-hands, relojistas and gaswholesalers (one md5), so
+  > one edit covers the fleet. This is exactly the fix-one-branch-and-call-it-done failure this
+  > platform keeps hitting, and it was one `curl` away from shipping.
 - **Freshness moves to the deploy cadence.** `rendered_html` only reaches the live site on the
   next rerender+deploy, whereas the JSON deploys as a file. The hybrid is what saves this: HTML
   for crawlers, JS refresh for currency. Do not drop the JSON.
