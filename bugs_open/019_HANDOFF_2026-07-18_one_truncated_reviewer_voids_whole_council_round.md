@@ -361,3 +361,48 @@ remains the part of this bug with no upside.
 **Compounding factor worth knowing:** each of these rounds also waited ~25–36 minutes in the
 dispatch queue before starting (`/bugs_open/030`). So a voided round is not a 2-minute retry; it is
 a ~30-minute round trip to learn nothing.
+
+### The decisive shape: it is the RESUBMISSIONS that void (2026-07-19, four rounds on one correlation)
+
+Correlation `eba040a9` ran four rounds. The pattern is not about size, and this
+is the table that settles it:
+
+| round | plan bytes | what it was | outcome |
+|---|---|---|---|
+| 1 | 51,306 | fresh submission | verdict: revise (10 seats, 7 approve / 3 object) |
+| 2 | 50,521 | resubmission answering 3 objections | **VOIDED** (editquality 8000) |
+| 3 | 20,009 | lean resubmission, unchanged edits dropped | verdict: revise (10 seats, 9 approve / 1 object) |
+| 4 | 33,048 | resubmission answering the class objection | **VOIDED** (editquality 8000) |
+
+**Round 1 was LARGER than round 2 and completed fine.** So plan size is not the
+variable. The variable is what the reviewer is provoked to write: a resubmission
+carries the council's own objections plus the evidence answering them, and
+edit-quality then writes a long review engaging with all of it. The more
+carefully a thread answers, the longer that review, the likelier the void.
+
+**This is a feedback loop that punishes the behaviour the gate exists to
+produce.** REVISE means "answer these objections". Answering them thoroughly is
+what voids the next round. A thread learns, correctly, that the way to get a
+verdict is to say less — which is the opposite of what a review gate is for. On
+this correlation the two rounds that engaged most seriously with the council are
+precisely the two that produced no verdict at all, and cost credits for nothing.
+
+**Why the workaround is not a fix.** A thread can strip its resubmission until
+it fits (round 3 did, and got a verdict). But it is then shaping the submission
+to dodge a platform bug rather than to be reviewed well, and the reviewers see
+less of the change than they asked to see. That is a worse review, achieved by
+spending a round to learn the trick.
+
+**Bearing on the raise-vs-void decision.** Raising the ceiling would buy rounds
+2 and 4 some room, but the loop remains: every REVISE→resubmit cycle grows the
+prose the reviewer responds to, so the ceiling is approached again on the rounds
+that matter most. Changing void-on-overrun is the part that removes the class:
+a truncated seat should degrade to "this seat could not be read", the round
+should proceed on the surviving seats, and the decision object should record the
+unreadable one. On round 4 that would have meant nine readable seats and a real
+verdict instead of nothing.
+
+Evidence for each row: `SELECT step_name, success, output_tokens, error_message
+FROM llm_call_log WHERE orchestration_id IN
+('2ee0ed60-…','825a2819-…','a7e8197b-…','0aceaf71-…')`. Voided rounds log
+`success=f`, NULL tokens, `stop_reason=max_tokens`.
