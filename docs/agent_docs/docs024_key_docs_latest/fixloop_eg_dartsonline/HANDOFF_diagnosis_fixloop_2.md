@@ -1,5 +1,9 @@
 # HANDOFF → next chat (continues "diagnosis fixloop 2")
 
+> **SUPERSEDED 2026-07-18 by `HANDOFF_diagnosis_fixloop_3.md`** — start there for a
+> fresh chat. This doc is kept for history (its "tool is complete, go point it at
+> real bugs" framing is what turns 34-40 then executed).
+
 *Updated 2026-07-16 (turn 33). Cold-start bootstrap for the next chat. Read
 this top to bottom; it is self-sufficient. Deeper detail lives in the companion
 docs named at the end — start with `SUMMARY_where_we_are_2026-07-16.md` for the
