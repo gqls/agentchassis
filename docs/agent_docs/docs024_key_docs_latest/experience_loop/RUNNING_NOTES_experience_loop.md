@@ -443,9 +443,139 @@ ALL reviewers are missing), so pointing the four critic steps' `error_step` at
 `council_decide` instead of `complete_refused` would let a run survive one dead
 critic. Two-line config change; recommended as the first action next session.
 
+> **CORRECTED 2026-07-19:** the diagnosis above is right, the prescription was
+> wrong in two ways — see the 2026-07-19 entry below. (1) Routing a critic to
+> `council_decide` skips every critic *after* it, turning one dead seat into
+> three abstentions; the fall-through must be to the NEXT critic. (2) It must
+> NOT be applied to all four: `review_honesty` is the sole `hard_veto_from`
+> seat, so letting it abstain would let a plan reach "approved" with the
+> anti-fabrication gate never applied. Caught by reading `council_decide`'s
+> config (`hard_veto_from: ["honesty"]`) before writing the change.
+
 **Also surfaced, not ours**: vonc's header/footer/head site components are
 deactivated across 16 pages including `provocations-index` and the tool pages.
 Verify before building on those pages (T4 touches them).
 
 **Handoff written**: `HANDOFF_2026-07-19_experience_loop_resume.md` — start
 there.
+
+---
+
+## 2026-07-19 (session "experience loop 2") — abstention-tolerant critics; CP2 re-attempt
+
+Picked up from the resume handoff. First action was the recommended resilience
+fix, but reading the code before writing it changed the shape of the change.
+
+**What the previous session's recommendation got wrong.** Two things, both found
+by reading rather than by failure:
+
+1. **Fall-through target.** Critics run in sequence
+   `review_journeys → review_feasibility → review_honesty → review_mvp →
+   council_decide`. Pointing a failed critic at `council_decide` skips the
+   remaining critics as well — one dead seat would have become three
+   abstentions. Each critic now falls through to the **next critic**.
+2. **Not all four.** `council_decide`'s config is
+   `hard_veto_from: ["honesty"]`. Since an absent field reads as an abstention,
+   making `review_honesty` fall through would let a plan reach `approved` with
+   the anti-fabrication gate never applied — the exact class the loop exists to
+   catch. `review_honesty` **keeps** `error_step: complete_refused`; a dead
+   honesty auditor must refuse the run. The asymmetry is commented in the seed
+   so it does not get "made consistent" later.
+
+**Verified before changing** (`diagnose_council_decide_action.go`): absent review
+field → `abstained++`, skipped (`:98-112`); all-absent → hard error, fails closed
+(`:141`). So this cannot degrade into silence-means-approval.
+`routeToErrorStep` (`coordinator.go:3184`) never writes the step's
+`output_field`, so a routed-around critic genuinely leaves its field absent —
+which is what makes the abstention path fire.
+
+**Applied**: `sql_for_agents/171_experience_council_abstention_tolerant.sql`
+(config-only, live on commit, no image roll), with a `DO` block asserting all
+four end states including the deliberate asymmetry. Seed 167 patched in-place
+so a re-apply cannot clobber it. Ledgered same sitting. Commit `da2c5dea3`.
+
+**Migration numbering**: the handoff said "next free 168" — 168/169/170 had all
+been taken by other sessions overnight. Claimed **171**. The re-check-at-
+execution-time rule earned its place again.
+
+**Chassis is now v1.0.1137**, not the 1135 the handoff recorded (rolled by
+another session). Re-verified in-pod by binary string that the
+`subject_type must be 'tool', 'pipeline' or 'experience'` literal is still
+present before firing — it is.
+
+**Run fired**: `fbe12212-1d7a-433b-9f70-d6988ce44d7b` (nothing in flight, pod
+12h old so no 300s restart window).
+
+### Result: 5 full rounds, escalated at the cap. CP2 still open — but the failure moved.
+
+`COMPLETED / complete_escalated` at 11:07:34, ~20 min, 5 rounds. **This is the
+first run to survive past round 1.** Verdict trail:
+
+| Round | journeys | feasibility | honesty | mvp | decision |
+|---|---|---|---|---|---|
+| 1 | object ×3 | **approve** | object | object | revise |
+| 2 | object | object | **approve** | object | revise |
+| 3 | object | object | **approve** | object | revise |
+| 4 | **approve** | object | **approve** | **approve** | revise |
+| 5 | **approve** | object ×3 | **approve** | object | exhausted → escalate |
+
+**Round 4 reached 3-of-4 approve** — one objection from converging. Nothing in
+six previous runs got close to this.
+
+**What is now proven, not just believed:**
+- **Truncation fix holds under sustained pressure.** All 5 persisted plans are
+  complete (closed criteria fence + `<!-- END EXPERIENCE_PLAN -->`) and stable in
+  size — 14392 / 14032 / 14657 / 14594 / 14871 B. No growth spiral; LENGTH
+  DISCIPLINE is doing exactly what it was written for. (Compare the previous
+  run's first plan: 26,522 B, truncated mid-selector.)
+- **`load_context` fix holds.** Feasibility's round-1 verdict was a clean
+  **approve**, and every later objection cites the attached-components ground
+  truth *correctly* — including using it to contradict the plan ("§3 asserts
+  `.system-stats` has two live instances; ground truth shows ONE").
+- **The abstention fix did not fire, because nothing flaked.** `abstained: 0` in
+  all 5 rounds; all four critics returned every round. So 171 is deployed and
+  correct-by-construction but **still unproven in anger** — do not record it as
+  battle-tested. `bugs_open/008` item 5 simply did not recur this run.
+
+**Why it did not converge — and it is NOT a harness defect this time.** Two
+distinct behaviours, both visible in the trail:
+
+1. **The MVP referee's objection is never acted on.** It said essentially the
+   same thing in rounds 1, 2, 3 and 5: *defer the tool-arena rebuild / Journey C;
+   the core loop only needs `arena.timer_seconds`.* The composer never cut it.
+2. **Scope oscillation.** Each recompose satisfies the previous round's objector
+   by ADDING specification, which enlarges scope, which re-triggers the MVP
+   referee. Round 4 → 5 is the clearest instance: journeys and mvp both went to
+   approve in round 4, then the recompose that answered feasibility pushed mvp
+   straight back to object.
+
+**A design contradiction underneath it** (found by reading, worth fixing
+whichever way): seed 167 documents the MVP referee as *"ADVISORY (approve|object
+only — an MVP opinion must not gate on its own)"*. But `decideCouncil`
+(`diagnose_council_decide_action.go:263-267`) returns `revise` on **ANY**
+reviewer's `object`. So the advisory seat gates exactly as hard as a veto seat —
+the only difference is `revise` vs `rejected` routing. Four of five rounds were
+decided by an objection; the seat we designed not to block has been blocking.
+Resolve it deliberately in one of two directions, do not leave it ambiguous:
+either exclude advisory seats from the revise trigger, or accept that it gates
+and make the composer treat its scope cuts as binding.
+
+**The round-5 objections are worth reading on their own merit** — this is the
+council doing the job it was built for rather than reporting our own bugs:
+- `gauntlet-cta` is a **shared** component on both `about` and `index`; editing
+  its `js_content` for index would also execute on about's instance. Real
+  cross-page side effect, unaddressed by the plan.
+- `index` has `rebuild_policy='generic'` and is queued for header/footer
+  reassembly, so component `js_content` edits **risk being clobbered** by that
+  pass — the [[replan-clobbers-built-pages]] landmine, reached independently.
+- The `.system-stats` instance-count error above.
+
+**Side finding, verified and filed elsewhere.** Chasing the handoff's §4 item 1
+("site components deactivated across 16 pages") showed that claim conflated two
+tables: all 49 vonc `page_components` attachments are **active**; the
+deactivation is 3 rows in `site_components` (`header`/`footer`/`head`). Not a
+live breakage — all three serve baked `rendered_html`. But their repair items
+have sat at status `detected` since **2026-07-11**, because `detected` is not
+dispatchable without a triage promotion that never ran. That is `bugs_open/023`
+class G, so the evidence went **there**, not into a new bug file — commit
+`1260dd726`. Fleet-wide: `head` inactive on 11/11 sites.
