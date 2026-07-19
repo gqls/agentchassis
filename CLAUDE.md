@@ -126,21 +126,38 @@ cross-cutting class is largely covered without a manual run. Check the queue
 before filing: `SELECT summary, status FROM site_work_items WHERE
 item_type='needs_diagnosis' AND status='awaiting_diagnosis';`
 
-## Working docs — the standing four (owner directive, 2026-07-18)
+## Working docs — the standing five (owner directive, 2026-07-18; cadence added 2026-07-19)
 
-Any workstream that will outlive one session keeps **four living documents** in
+Any workstream that will outlive one session keeps **five living documents** in
 its own directory under `docs/agent_docs/docs024_key_docs_latest/<workstream>/`.
 Create them at the START, not at handoff time — the point is that a doc exists
 to update while the work is happening. Update them **as you go**; a doc written
 only at the end is a report, and reports lose the wrong turns, which are the
 expensive part.
 
-| doc | what it holds |
-|---|---|
-| `PLAN_<date>_<slug>.md` | design, phasing, decisions **and their reasons**. Corrections to the originating brief live here, marked as corrections — never silently edited away. |
-| `RUNBOOK_<slug>.md` | the commands. Every query/command you had to get right, with its gotcha attached. When one changes, change it HERE, not in your scrollback. |
-| `NOTES_<slug>.md` | running record, append-only, **newest at the bottom**. One entry per session: what was tried, what the system actually said, what was wrong — *especially* your own earlier claims in that file. |
-| `SUMMARY_<date>_<slug>.md` | the read-out for the owner: what we're doing, what we've done, where we are, where we're going. Plain prose, no jargon, written to be read aloud. |
+**The cadence column is the load-bearing part.** These are not end-of-session
+deliverables. Writing them is part of doing the work, not part of finishing it.
+
+| doc | what it holds | when you write it |
+|---|---|---|
+| `PLAN_<date>_<slug>.md` | design, phasing, decisions **and their reasons**. Corrections to the originating brief live here, marked as corrections — never silently edited away. | at the start; then the moment a decision, correction or resizing lands |
+| `RUNBOOK_<slug>.md` | the commands. Every query/command you had to get right, with its gotcha attached. When one changes, change it HERE, not in your scrollback. | the moment a command was hard to get right — not later |
+| `NOTES_<slug>.md` | running record, append-only, **newest at the bottom**. What was tried, what the system actually said, and **every misstep: dead ends, wrong turns, mistaken diagnoses, and your own earlier claims in that file that turned out false.** The missteps are not an appendix — they are the point. | at least once per session, and again each time you get something wrong |
+| `README_where_we_are.md` | the owner's running **plain-prose log**, append-only, newest at the bottom. What you'd say out loud: what was found, what broke and why, what you decided, what you need a choice on. No jargon, no tables of field names, no file:line unless it genuinely helps a non-specialist. | **frequently — at every natural break where you stop to summarise, present a choice, or explain a bug.** Roughly: if you wrote a substantial reply in chat, it belongs here too |
+| `SUMMARY_<date>_<slug>.md` | the milestone read-out, so the owner can talk about the subproject to someone else. Five parts, in this order: **what we're trying to do · where we've come from · what we've done · where we are now · where we're going.** Plain prose, written to be read aloud. | at milestones, not at the end — roughly once or twice a day, or whenever something significant lands |
+
+**`README_where_we_are.md` is the owner's document.** He maintains it too.
+**Append to it; never rewrite or reorder it**, and never edit his words — add a
+dated correction below instead, the same way NOTES corrections work. If it looks
+like a pasted chat transcript, that is because it is one and that is fine; match
+the register, don't tidy it. (A session mistook it for a stray file and
+overwrote it on 2026-07-19 — flagging a file as suspicious is not permission to
+replace it.)
+
+Keep the three prose docs distinct or they collapse into one drifting account:
+**NOTES** is the technical log (evidence, commands, what the system said),
+**README_where_we_are** is the plain-English history (what happened, in order),
+**SUMMARY** is current state only (no chronology — that's the other two).
 
 Rules that make them worth the effort:
 
