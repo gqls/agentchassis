@@ -218,6 +218,50 @@ Current leopardess queue: **21 `unresolved_cta` + 13 `cta_names_unknown_destinat
   every one of those pages carries a broken hero CTA pair. "The tool works" and "the page
   works" are different claims.
 
+### 2026-07-19 — session 2 (experience loop 2): class G is wider than `needs_human_review`
+
+*Added by a different thread. I was verifying a precondition for the Experience Loop's
+build phase, not working this bug — but what I found is class G, so it belongs here
+rather than in a new file.*
+
+Class G is currently stated as findings dying at `needs_human_review`, which nothing
+consumes. **The `detected` status leaks the same way, and that case is worse, because
+those items DO have a handler.**
+
+Evidence, vonc.com (`9ec3b9ee-…`), live 2026-07-19:
+
+| Item | State |
+|---|---|
+| 3 × `deactivated_component` (slots `header`/`footer`/`head`) | `detected` since **2026-07-11**, `updated_at` never moved — 8 days |
+| all vonc work items at `detected` | **11**, oldest 07-11, newest 07-15 |
+| fleet-wide `deactivated_component` | 14 `unresolved`, 6 `detected`, 21 `complete` |
+
+The check (`discovery_checks/check_integrity.go:158` `DeactivatedSiteComponentsCheck`) is
+**enabled** (on `design-discovery-agent`) and fires correctly, and it names a real handler
+(`HandlerAgent: "rerender-pages"`). It still never runs, because emission is at
+`Status: "detected"` and `detected` is not dispatchable — it must first be promoted to
+`triaged` by `TriageDetectedItemsAction` (`triage_detect_items_action.go:91-104`, the same
+file the plan already cites for class G). That promotion is per-site and promotes
+everything at once; for vonc it has evidently not run since 07-11.
+
+So class G has two distinct leaks, and the plan's P3.3 should cover both:
+1. **no handler** — `needs_human_review`, the case already documented;
+2. **handler exists, never reached** — `detected` with no triage run. Adding a handler
+   fixes nothing here; the item never gets far enough to reach it.
+
+**Not currently a live breakage, and I want to be precise about that.** All three vonc
+slots have `build_status='rendered'` with real baked HTML (3,638 / 3,903 / 8,605 B), so the
+chrome serves fine today. The exposure is latent: the library components behind them are
+`is_active=false`, so a re-render of those slots may skip them. This is fleet-wide — `head`
+is inactive on **11 of 11** sites, `site-footer` on 9, `site-header` on 8.
+
+> Correcting a claim from the experience-loop thread's own handoff, which recorded the
+> council critic's report as "site components **deactivated across 16 pages**". That
+> conflated two tables. Every one of vonc's 49 `page_components` attachments is active;
+> the deactivation is in `site_components` (3 slot rows), which is not per-page at all.
+> The critic named the right three components — `header-bold-gradient`, `footer-4-column`,
+> `Document Head` — and those names match the three stuck work items exactly.
+
 ### Prior art found (so nobody re-walks it)
 
 The link-integrity loop (`docs/social001_vonc_tiktok_social/minilobby_task/`) closed the
