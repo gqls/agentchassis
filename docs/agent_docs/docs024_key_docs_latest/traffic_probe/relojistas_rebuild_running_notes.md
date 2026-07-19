@@ -476,3 +476,100 @@ Deliberately NOT fixed by a fourth surgical nginx edit: the conf is setup.sh-man
 already drifted (handoff §6 trap), and each hand-edit deepens the debt that one re-run
 erases. Reconcile the legacy-feed location + these three variants into the generator
 together.
+
+## 2026-07-19 (session 2) — TASK 2 detection DONE; a handoff premise CORRECTED
+
+**Phantom sweep run — the council was right, no code needed.** Dispatched
+`completeness-discovery-agent` (pattern from `FOCUS_dispatch_diagnostic(4).md:130-159`;
+orchestration `cb80a881-9ac4-4d86-861d-86fb54129b7e`). It found all three invented links
+plus three defects nobody was looking for:
+
+| item_type | summary | handler |
+|---|---|---|
+| `phantom_internal_link` ×3 | `/archivo`, `/ferias`, `/guias/mantenimiento` in `index:info-card-grid` | `page-build-handler` |
+| `empty_section` | `news-listing` on `noticias-index` | `page-build-handler` |
+| `needs_rerender` | 9 pages missing header/footer — need reassembly | `rerender-pages` |
+| `page_rerender` | 4 misdirected CTAs on `index` — copy names a different page than the link target | `page-rerender` |
+
+Routing confirmed correct: the phantom items go to **`page-build-handler`, not
+`page-rerender`** — so the silent-success flaw the council caught in my withdrawn draft
+(a rerender re-emits the invented href unchanged and marks the item resolved) does not
+apply to the shipped check.
+
+> **TRAP — discovery does not dispatch itself.** All six landed at `status='detected'`, and
+> per `FOCUS_dispatch_diagnostic(4).md:110-116` there is **no automated coupling between
+> discovery and triage**. `detected` items sit indefinitely; the build-dispatch loop only
+> claims `triaged`/`approved`. Running the sweep is therefore read-only and safe, but
+> nothing happens until something promotes them.
+
+Two of these are probably NOT what they look like — do not action them blind:
+- `empty_section: news-listing` on a page that demonstrably renders 20 items live. Almost
+  certainly the runtime-fill-template class (the section HTML is filled from
+  `news-archive.json` at render time), which is a known false-positive shape.
+- `misdirected_cta` ×4 on index overlaps the CTA/link-integrity workstream's own class
+  (`bugs_open/023`) — check there before treating it as a relojistas defect.
+
+### > **CORRECTED 2026-07-19:** `articulo` and `glosario-entrada` are NOT templates.
+
+The handoff (§4) and this file (~line 365) both call them "templates" that spawn
+instances. **There is no template mechanism in this codebase at all** — grep for
+`is_template` / `template_page` / `instance_of` / `page_template_id` / `from_template`
+across `platform/`, `internal/`, `pkg/`, `sql_for_tables/` returns zero. The `pages` table
+has no template column.
+
+They are ordinary one-off pages, exactly what `datahelpers.CanonicalisePage`
+(`page_canonical.go:190-213`) emits for a leaf page the planner LLM happened to name in
+Spanish: `articulo` → role blog-post, no ParentSection → dir defaults to `blog` →
+`/blog/articulo.html`; `glosario-entrada` → role entity-page → dir defaults to `entities`
+→ `/entities/glosario-entrada.html`. The "template" reading was operator shorthand in
+these notes that hardened into an assumed mechanism. Caught by reading
+`page_canonical.go` rather than trusting the doc.
+
+**Consequence — they are a latent defect, not a resource.** If built as-is they become two
+real published pages titled "Artículo" and "Glosario Entrada", and they will then *list
+themselves* inside the Guías/Glosario indexes, because the listing query filters on
+`page_type` + `status` only and ignores URL (`queryresolve.go` `resolvePagesWhereType`).
+`glosario-entrada` also sits at `/entities/…`, orphaned from its own hub. Disposition
+needed before either index is built.
+
+### Route findings for authoring the child content
+
+- **Listings are a COMPONENT behaviour, not a page-type behaviour.** There is no
+  section-index builder. A component declares `"source": "query.pages_where_type:<type>"`
+  in its `input_schema`; `PlanSectionsAction` (`plan_sections_action.go:1175-1207`)
+  resolves it via `queryresolve.Resolve`. Selection is by **`page_type`**, ordered
+  `nav_order, name`, default limit 12 / cap 24. Not by URL prefix, not by topics.
+- **An empty listing renders empty — it does not fail or defer.** `resolvePagesWhereType`
+  returns a non-nil empty slice, which passes the `value != nil` check, so the section is
+  marked ready with zero items. `min_items` is parsed but **never compared against a
+  resolved array anywhere**. So children are not a precondition for the index to build.
+- **What actually blocks `guias-index`/`glosario-index` is `pages.sections = []`** →
+  `plan_sections_action.go:673-680` returns "no sections to plan" → `needs_human_review`.
+  That is precisely the state both are in, and it is the same state `/noticias` was in
+  before the fix that worked. **The index pages need SECTIONS, not children, to build.**
+- **`entity-directory` has a builder capability gap.**
+  `load_work_item_actions.go:217-238` has `entity-directory`/`entity-page` **commented out**
+  of `availableBuilders` and listed in `unavailableBuilders` → `write_build_items` emits a
+  `capability_gap` item, never a build item. `section-index` is in neither map so it falls
+  through to the `page-build-handler` default — which is why section-index builds and
+  entity-directory does not on that path. **`reconcile_site_plan` ignores those maps
+  entirely** (`reconcile_site_plan_action.go:200-268`) and routes everything to
+  `page-build-handler`, so the reconcile route does build them.
+  (Caution: `load_work_item_actions.go` is under concurrent edit by another session as of
+  this writing — do not plan a change to that file without re-checking.)
+- **Only ONE route yields `/guias/<slug>.html`.** `apply_gap_plan` hardcodes
+  `"/" + pageName + ".html"` (`:351`, flat only) and `create_blog_posts` hardcodes
+  `/blog/%s.html` (`:204`). Arbitrary paths come only from inserting `site_plan_pages` +
+  `pages` rows and running **`reconcile_site_plan`**, which skips anything already
+  `deployed` at the current `plan_id` (`skip_built`, `:341-355`) — that is the property
+  that makes it non-clobbering. Worked example in-repo:
+  `docs/social001_vonc_tiktok_social/minilobby_task/088_archetype_entity_pages.sql`.
+- **`page-build-handler` does NOT create missing pages** (`load_page_record_action.go:184-193`
+  returns `{found:false}` → `complete_error`). The `pages` row must pre-exist.
+- **Nothing pushes work items to Kafka on insert** — `build-dispatch-loop` pulls
+  `status IN ('triaged','approved')` by `pipeline`, so one kick of that loop with
+  `input_data.site_id` is the only dispatch needed.
+- Incidental bug spotted, not filed: `defaultSectionsForPage(pageName, pageType)`
+  (`apply_gap_plan_action.go:459`) declares `pageType` but never reads it — the switch is on
+  `pageName` alone, contradicting its own doc comment at `:454-458`. A new blog-post gets
+  `[hero, generic-text-block, call-to-action]` rather than an article shape.
