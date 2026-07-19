@@ -153,6 +153,11 @@ that is a workaround, not a fix for the general case.
 
 ## FRESH EVIDENCE — 2026-07-18, leopardessconsulting.co.uk (severity raise)
 
+> **CORRECTED 2026-07-19 — this whole section is MISATTRIBUTED. The leopardess damage was
+> real, but this bug did not cause it.** Read the correction at the end of the section
+> before acting on anything in it. The section is left standing, unedited, because the
+> damage it records is real and still needs owners — just not this one.
+
 This bug is not dormant and it is not confined to idea.uk. It hit leopardess **twice in 24
 hours**, each time undoing hand-verified human work, and it produced an owner-visible defect.
 
@@ -202,3 +207,105 @@ this page; here is the diff" is strictly better than a silent rewrite.
 
 **Verification case:** leopardess index + services. Both restored by hand; if the guard works,
 they stay restored across a subsequent `build-site-planner` run.
+
+---
+
+## CORRECTION — 2026-07-19: the leopardess evidence above belongs to two OTHER bugs
+
+The section above attributes both leopardess recurrences to this bug and says "the root cause
+is this one". **It is not.** Checked against the live DB before writing the fix:
+
+**`reconcile_site_plan` has never emitted a work item on leopardess — not once in the site's
+entire history.**
+
+```sql
+SELECT source, item_type, count(*), min(created_at), max(created_at)
+FROM site_work_items WHERE site_id='4851f6fc-71cf-4160-a270-e03d6d3e0732'
+GROUP BY 1,2 ORDER BY 4 DESC;
+-- 48 rows across 20 sources. reconcile_site_plan is absent from all of them.
+```
+
+Since `reconcile_site_plan` is the only route from a plan to a page rebuild, no re-plan ever
+touched that site. What actually did:
+
+- **Recurrence 2 (services, 2026-07-18 07:50) — `tool-suggester`, not the planner.** At
+  02:32 the suggester wrote nine `content_rewrite` items, one of them *"Add Monitoring
+  Coverage Gap Finder tool reference to services page"* with spec `suggestion` = *"Weave a
+  natural reference to 'Monitoring Coverage Gap Finder' …"*. Status `complete`. The
+  suggester writes these at **suggestion** time, alongside (not after) its `add_tool` item,
+  so the rewrite instruction names a tool that has no page:
+  `SELECT name FROM pages WHERE site_id='4851…' AND name ILIKE '%monitoring%'` → **0 rows**.
+  The writer duly emitted a link to `/tools/tool-monitoring-coverage-gap-finder.html`. That
+  is the owner's 404. Confirmed at the orchestration too — run `615bee1d` at 07:44:54 carries
+  `{"page":"services","source":"tool-suggester","suggestion":"Weave a natural reference to
+  'Monitoring Coverage Gap Finder'…"}`, and the services `page_components` rows all update at
+  07:50:41.
+- **Recurrence 1 (homepage, 2026-07-17 14:15) — a `page-rerender` run.** Orchestration
+  `f8a5bbbf`, workflow steps `check_rerender_mode → rerender_sections → save_sections →
+  render_page → deploy_page`. Again not the planner.
+
+**What this changes.** The fix in this file is still correct and still worth shipping — the
+idea.uk evidence is sound and the code plainly does what the diagnosis says. But:
+
+1. **Shipping it will not stop the leopardess clobbers.** Anyone who believed the section
+   above would have shipped this fix, watched leopardess get rewritten again, and concluded
+   the fix failed.
+2. **The severity raise does not transfer.** This bug needs someone to fire a re-plan, which
+   is rare and deliberate. The tool-suggester path runs autonomously — which is the more
+   urgent property, and it belongs to that bug, not this one.
+3. The phantom-link mechanism is filed separately as **`/bugs_open/029`**.
+
+**What caught it:** checking `site_work_items` by `source` for the affected site before
+trusting the attribution. The lesson is the cheap one — *"a page was rewritten"* does not
+identify **what** rewrote it, and on this platform at least four independent paths can rewrite
+a page. Attribute by the emitting source row, not by the damage.
+
+A `needs_diagnosis` item was also filed for the tool-suggester mechanism (item_key
+`needs_diagnosis:tool-suggester-writes-content-rewrite-wo`), but **the run never dispatched** —
+no orchestration exists for correlation `a8b483ff-55af-463d-9622-837c73780e48`. The finding
+above rests on the primary DB evidence quoted, not on a loop verdict.
+
+---
+
+## FIX APPLIED — 2026-07-19
+
+Both halves are written; the Go half is **inert until the chassis image rolls**.
+
+- **Go** — `v3_site_actions.go`: preservation set widened from adoption-locked to
+  **adoption-locked OR `build_status='deployed'`** (fix steps 1 + 3); new **Pass B2** snaps a
+  built page's composition back by name, **gated on the realised sections being non-empty**,
+  which closes the main defect and the second (empty-sections) defect together (fix step 2);
+  truncation must-keep widened to match. `realisedPageIsBuilt` mirrors `decideEmit`'s
+  `skip_built` test so "built" has one definition across planner and reconciler.
+- **DB** — `sql_for_agents/173_load_existing_pages_build_status.sql`, **applied and verified
+  live**: the step query now surfaces `build_status` (it previously did not, so the Go side
+  could not have seen it). Also deduplicated a repeated `p.sections, p.meta_description,
+  p.nav_order` tail left when the carry-fields migration landed on top of 054.
+- **Landing order is free.** `realisedPageIsBuilt` returns false on a missing column, so the
+  Go half degrades to the old adoption-locked-only behaviour; the query change is inert on the
+  current chassis. Neither half can break the other while in flight. There is a test for this.
+- **Tests** — `v3_site_reconcile_test.go`, 7 cases from the idea.uk fixtures. Verified
+  **discriminating**: neutralising `realisedPageIsBuilt` fails exactly the two built-page
+  tests and reproduces the recorded symptoms (`about` re-composed to a generic `hero`,
+  `report` dropped from the plan).
+
+**Deliberately NOT done, and why:**
+
+- **Pass C2 (item-topic stem dedup) was left at the adoption-locked scope.** It is a name-stem
+  heuristic; a false positive suppresses a legitimately new page (a new `tool-pricing` beside
+  a built `guide-pricing` shares the stem `pricing`). Bounded to the 90-day window that is
+  acceptable; permanent for every built page it is not. It is also not needed here — invented
+  pages carry new topics and so collide with nothing.
+- **"Pages invented" (original symptom 3) is NOT fixed.** Nothing here stops the LLM proposing
+  net-new pages; truncation now merely can't evict a built one to make room. Suppressing
+  invention outright would block legitimate site growth, so it needs the explicit-intent
+  plumbing of fix step 4 (a `rebuild:true` / scope field on the `needs_site_plan` spec) — a
+  policy call, not a bug fix.
+- **Fix step 4 (explicit-intent rebuild gating) is not built.** A deliberate redesign of a
+  built page is now impossible through a re-plan rather than merely un-silent. If that blocks
+  a real workflow, step 4 is the designed way back in.
+
+**Still to verify** (the fix is unproven in production until this runs): the handoff's own
+"How to verify" procedure, after the next image roll. Watch the validate step's log line
+`ValidateSitePlanAction: reconciled with realised pages` — `snapped_sections` / `unioned_in`
+should be non-zero where the convergence previously no-op'd.

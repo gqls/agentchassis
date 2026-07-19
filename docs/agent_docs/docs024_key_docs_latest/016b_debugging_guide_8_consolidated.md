@@ -1385,6 +1385,56 @@ rendered artefact, not the status" (§ durable invariants) — the same error, a
 to a queue instead of an artifact. Category tags: `queue-latency`,
 `false-drop-diagnosis`, `wasted-credits`.
 
+### "A page was rewritten" does not say what rewrote it — attribute by the emitting row, not by the damage (2026-07-19)
+
+**Symptom.** A page you had hand-corrected comes back rewritten, with fabrications
+restored and a link to a page that does not exist. There is an open bug whose
+description fits the damage exactly — *"re-planning a site silently discards its built
+pages' composition"* — so the damage gets appended to that bug as fresh evidence, and
+its severity is raised on the strength of it.
+
+**What it actually is.** On this platform **at least four independent paths can rewrite
+a live page**: `reconcile_site_plan` (a re-plan), `page-rerender`, `content_rewrite`
+(from `discovery`, `content-gap-planner` **or** `tool-suggester`), and the tool
+pipeline. They produce near-identical damage — regenerated components, new copy, new
+links — and the damage carries no signature of its source. Two recurrences on
+leopardessconsulting.co.uk were filed under the re-plan bug (`/bugs_open/001`). Neither
+was: `reconcile_site_plan` has **never** emitted a work item on that site. One was a
+`page-rerender` run, the other a `tool-suggester` `content_rewrite`
+(`/bugs_open/029`).
+
+**The check that settles it in one query** — ask what has *ever* emitted work for the
+site, before believing any attribution:
+```sql
+SELECT source, item_type, count(*), min(created_at), max(created_at)
+FROM site_work_items WHERE site_id = '<site>'
+GROUP BY 1,2 ORDER BY 4 DESC;
+```
+If the source you are blaming is not in that list, it did not do it — full stop. Then
+pin the specific event by time: find the `page_components.updated_at` cluster for the
+damaged page, and read `orchestration_states.initial_request_data` in a window around
+it. That request payload names the agent and carries the spec that drove the write, so
+it identifies the culprit outright — `{"page":"services","source":"tool-suggester",
+"suggestion":"Weave a natural reference to 'Monitoring Coverage Gap Finder'…"}` is not
+something a re-plan could ever produce.
+
+**Why this one is expensive.** A misattribution does not fail loudly — it *strengthens*
+the wrong bug. The evidence reads as corroboration ("not dormant, not confined to one
+site, hit twice in 24 hours"), which raises the wrong fix's priority, and the fix then
+ships and appears not to work because the real emitter is untouched. Worse, the true
+mechanism is left unfiled: the leopardess damage was autonomous and recurring, while the
+bug it was filed under needs a human to deliberately fire a re-plan. **The urgency
+belonged to the mechanism, and it was transferred to the wrong one.**
+
+**Rules.** (1) Symptom similarity is not attribution — a shared *effect* means nothing
+when several paths share it. (2) Before appending evidence to an existing bug, confirm
+the accused path actually ran **on that site**, by row, not by plausibility. (3) When
+several subsystems can produce one symptom, enumerate them *first* and eliminate, rather
+than matching the symptom to the bug you already know about. Kin: "A fix applied to one
+branch of a two-branch router reads as done" (§9) — both are the failure to enumerate
+the paths before believing one. Category tags: `misattribution`, `shared-symptom`,
+`multi-writer`, `evidence-by-source-row`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -1405,7 +1455,7 @@ See `/bugs_closed/README.md`.
 
 | # | Bug | State |
 |---|---|---|
-| 001 | Re-planning a site silently discards its built pages' composition | FIX written |
+| 001 | Re-planning a site silently discards its built pages' composition | **FIX APPLIED 2026-07-19, INERT**: preservation set widened to adoption-locked OR `build_status='deployed'` + non-empty-gated composition snap-back + truncation must-keep; query migration 173 applied LIVE; 7 discriminating tests. Stays open until the image rolls. **Its "FRESH EVIDENCE" (leopardess) section is MISATTRIBUTED — that damage is `029`/page-rerender, corrected in-file** |
 | 002 | Errors surfaced but not fixed (multi-error handoff, route individually) | open |
 | 003 | Spawned children lose their response; parents hang until reaped. **§3d (2026-07-18): second root cause — the consume loop commits Kafka offsets BEFORE processing (at-most-once), so any restart destroys in-flight work; §4.4 is the at-least-once + rollout fix that unlocks CD** | open |
 | 004 | Landing an image can silently blank an article body | superseded by 005 — **`→ bugs_closed/`** |
@@ -1429,6 +1479,12 @@ See `/bugs_closed/README.md`.
 | 021 | The 012 completeness guard covers ONE write path; `page_components.rendered_html` and `pages.rendered_*` have the same unguarded overwrite shape | filed (council bug_historian objection); needs scope decision |
 | 023 | A button's label and its destination are unrelated schema fields — nothing checks that a control with text has somewhere to go. 51 dead controls / 7 of 11 sites; 84% of library CTA anchors ungated; detected findings die at `needs_human_review` (zero consumers) | filed 2026-07-19; plan in `cta_link_integrity/`, no fix started |
 | 024 | A tool-improver fix is written durably to `content_components.html_template` and **never rendered to the page** — three defects in series (dead `pending` flag; rerender request carries no `spec.reason` so it assembles stale HTML and reports success; the article-body guard escalates any section with empty `content_data`, which is every tool, bypassing the only writer of `rendered_html`). Explains `bugs_open/010`'s "non-convergence" — the page never changed | filed 2026-07-19; diagnosed with live evidence, no fix started |
+| 029 | `tool-suggester` emits `content_rewrite` items at SUGGESTION time telling the writer to "weave a natural reference" to a tool that has no `pages` row — the writer invents the URL, producing an owner-visible 404. Autonomous, and it regenerates human-reviewed copy while doing it. **This is the true cause of the leopardess damage wrongly filed under `001`** | filed 2026-07-19; primary DB evidence, no fix started; check `023` first — likely the same family |
+
+> **Index gap (noted 2026-07-19):** `025`–`028` exist in `/bugs_open/` but are not
+> yet indexed here, and `027` is already used by **two** different cases. Filed by
+> concurrent threads; list them with `ls bugs_open/` rather than trusting this table
+> to be complete.
 
 ### "Verified live" by grepping a generic property — the fix that was never rendered (2026-07-19)
 
