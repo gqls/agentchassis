@@ -740,3 +740,64 @@ every site on the fleet. This is the "want a cited, auditable diagnosis for a fi
 that changes behaviour fleet-wide" case in CLAUDE.md, not the "bug you can see"
 case. T4 does not block on it — the recommended T4 route (prefer per-page
 `content_data` over library `js_content`) avoids the defect entirely.
+
+### 2026-07-19 — **the diagnosis loop REFUTED my hypothesis, and it was right**
+
+Run `8d86f110` came back `REFUTED` in ~9.5 min with two static citations. I
+verified the refutation against the code myself before accepting it. It holds.
+
+> **CORRECTED 2026-07-19 — the "complementary halves" table in the two entries
+> above is WRONG in its left-hand column.** The bulk path does NOT re-render
+> body sections from `content_components.html_template`.
+> `rerender_pages_actions.go:592 rerenderLoadSections` selects
+> `COALESCE(pc.rendered_html,'') FROM page_components` — the *same* durable
+> cache the single-page path reads.
+>
+> **How I got it wrong**: I grepped `html_template` in that file, saw hits at
+> `:486` and `:680`, and inferred "the bulk path re-renders sections from
+> html_template" **without reading either function**. Reading them now:
+> `:486` loads the **head-seo-standard** component for the `<head>` block, and
+> `:680` loads **contact-info** for a contact-info injection. Neither is body
+> section rendering. This is the "read the function before changing it"
+> convention, broken by me while writing a table that asserted a structural
+> claim about the fleet.
+>
+> **What caught it**: the diagnosis loop, on the first iteration, by reading
+> `rerenderLoadSections` — the function I never opened.
+
+**What survives, and it is the half backed by the explicit code comment**: only
+`RerenderSinglePageAction` emits `content_components.js_content` (via
+`collectJSAssets`); the bulk path has no equivalent. The loop confirmed this
+with the `:569` comment as its own citation. So risk **B** as recorded is real.
+
+**Corrected picture:**
+
+| republish path | body sections | JS assets |
+|---|---|---|
+| `rerender_single_page` | reads `page_components.rendered_html` | **emits** via `collectJSAssets` |
+| bulk `rerender_pages` | reads `page_components.rendered_html` | **none** |
+
+Neither path re-renders `html_template` for body sections. That is a *simpler and
+worse* shape than the one I filed: not two paths carrying complementary halves,
+but **two paths that both serve a cache, and one open question about whether that
+cache is ever refreshed.**
+
+**The loop named that open question**: "whether an `html_template` change ever
+reaches `page_components.rendered_html` at all … is not shown here and is the
+real open question." **`bugs_open/024` already answers it** — it proves the edits
+do not arrive, because `build_status='pending'` is dead state nothing reads and
+tool-improver's rerender routes to the stale-assembly path. So 024 is the
+substantive bug and mine was a mis-framed superset of it, not a superset.
+
+**Not re-firing the loop.** The surviving asymmetry (JS assets) is already
+documented by an explicit comment in the source — there is nothing left to
+*diagnose*; what remains is a design decision about what to do, which is not the
+loop's job. The refuted framing is corrected here and the real question belongs
+to 024's thread.
+
+**The T4 recommendation is unaffected** — I checked rather than assuming. It
+rested on risks A (component regeneration overwrites js_content,
+`store_generated_component:420`, unchanged), B (confirmed by the loop) and C
+(shared `gauntlet-cta`, verified empirically). None of those depended on the
+refuted left-hand column. Prefer per-page `content_data` over library
+`js_content` still stands.
