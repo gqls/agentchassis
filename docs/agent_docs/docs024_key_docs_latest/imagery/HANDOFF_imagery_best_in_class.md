@@ -39,8 +39,30 @@ on **v1.0.1136**. The two things left in I3 need *your decisions*, not code
 `8b804bc27` (F3 surface table) · migration `170` (tool-list image slot, applied)
 · `c0ef457a1` (release the adapter with the chassis).
 
-**⚠️ 2026-07-19 (Turn 53) — DO NOT let the tool rollout drain yet. See
-`/bugs_open/027`.** Two live-verified findings changed the position below:
+**⚠️ 2026-07-19 (Turn 53) — the tool rollout is HELD at the no-spend point, and the
+style-guide fix alone is NOT sufficient. See `/bugs_open/027` §4b.**
+
+**State right now:** 9 `needs_imagery` items on gamesdesign.co.uk sit at `detected`
+(nothing spends until promoted — that IS the control point). 2 were promoted as a
+pilot and **failed**: correct ground colour, invented accent, inconsistent with each
+other, text in both. **Root cause is NOT the missing style guide** (that was fixed):
+`composeDirection` puts the palette LAST and the direction is capped at 200 chars
+(`maxImageryDirectionInPrompt`), so a verbose medium+mood silently truncates the
+colour instruction away. **robot-hands composes to 233 chars too** — it only looks
+right because its cut lands after its accent colour. Config mitigation applied to the
+three sites (139–147 chars, accent first); robot-hands deliberately NOT touched.
+Re-pilot of the 2 was queued and had not completed at handoff — **check it before
+promoting the other 7.** Owner decisions taken this turn: **B16.3 = write the guides
+and run** (done); **B16.1 = leave the card grid as emoji cards, CLOSED** (its chosen
+image source turned out not to exist — 0 of 86 cards' destinations have a card asset,
+41 of 72 links resolve to no page).
+
+**Unverified and next:** whether the Banana path sends `avoid` as a negative prompt at
+all. Both pilot images carried lettering despite `avoid` listing it AND the positive
+prompt forbidding it. If it does not, every `avoid` list in the fleet is inert for all
+Banana-routed (flat) kinds.
+
+Two live-verified findings changed the position below:
 - **`content_hero` is unstyled on every site but robot-hands.** D14 added the kind
   to the style guide's override map but NOT to `directionAppliesToKind`, so a site
   with no `kinds.content_hero` override falls back to the free-text
