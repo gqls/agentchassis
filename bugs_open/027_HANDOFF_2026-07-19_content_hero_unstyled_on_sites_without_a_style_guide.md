@@ -1,0 +1,173 @@
+# HANDOFF — `content_hero` generates unstyled on every site without an imagery style guide
+
+**Filed:** 2026-07-19, from the imagery workstream (checking whether the funded tool
+rollout was safe to let drain).
+**Severity:** Medium — no data loss, but it spends real image-API credits producing
+output of the exact class that failed the D13 owner gate, and it is armed on three
+sites right now.
+**Status:** OPEN. Diagnosed from the code path + live DB. No fix applied — the right
+fix is a design decision (see §5), and one of the two candidate fixes is config-only.
+
+---
+
+## 1. The defect
+
+D14 (2026-07-18) made `content_hero` its own imagery KIND: flat duotone editorial
+illustration, routed to Banana, with its style supplied by a per-kind override map in
+the site's `imagery_style_guide` spec (`kinds.content_hero`).
+
+The style-guide side of that was wired correctly. The **free-text fallback gate was
+not**. In `platform/orchestration/actions/generate_image_actions.go:407-433`:
+
+```go
+direction := styleGuide.directionForKind(kind)      // "" when the site has no guide
+if direction == "" && directionAppliesToKind(kind) {
+    direction = getImageryDirectionForSite(...)     // design_intent.imagery_direction
+}
+```
+
+`directionAppliesToKind` (`generate_image_actions.go:1109`) excludes only
+`icon`, `logo`, `sprite_sheet`; **`content_hero` falls to the `default: return true`
+branch.** So on a site with no `kinds.content_hero` override, a kind defined as flat
+illustration receives the site's free-text imagery direction — which is written to
+describe the site's *photographic* house style.
+
+That is the contamination class the function's own doc comment exists to prevent:
+
+> "prepending a photography directive to an icon prompt makes the model render a
+> photograph with the icon composited into a corner (observed on icon_cycle_time,
+> 2026-05-20)"
+
+`referenceKeysForKind` has the same shape but is harmless here: with no guide it
+returns nil, so the generation is simply unanchored rather than wrongly anchored.
+
+**The five-place checklist for a new kind (HANDOFF_imagery_best_in_class.md,
+"Mechanisms") says a new kind must be added to BOTH gating functions.** D14 added
+`content_hero` to `directionForKind` (via the `Kinds` override map) but not to
+`directionAppliesToKind`. It reads as done because the only site exercising it —
+robot-hands.com — has the override, so its output is correct and proved nothing about
+anyone else.
+
+## 2. Who it bites, verified live 2026-07-19
+
+Only robot-hands.com has an `imagery_style_guide` row at all:
+
+```sql
+SELECT s.domain, (sd.id IS NOT NULL) AS has_guide,
+       (sd.data->'kinds' ? 'content_hero') AS content_hero_override
+  FROM sites s LEFT JOIN site_specs sd
+    ON sd.site_id=s.id AND sd.aspect='imagery_style_guide' AND sd.is_current=true;
+```
+| domain | has_guide | content_hero_override |
+|---|---|---|
+| robot-hands.com | t | t |
+| finetuning.uk | f | — |
+| gamesdesign.co.uk | f | — |
+| leopardessconsulting.co.uk | f | — |
+
+Their `design_intent.imagery_direction` — what would be prepended instead — varies in
+how badly it fits a flat-illustration kind:
+- **gamesdesign.co.uk**: *"Minimal — primarily icons and emoji-style glyphs as section
+  markers; no photography…"* — compatible, arguably fine.
+- **finetuning.uk**: *"Abstract, geometric, and atmospheric. Network patterns, data
+  flow visualisations…"* — broadly compatible.
+- **leopardessconsulting.co.uk**: *"Two families, kept apart on purpose. Explanatory
+  images — how a pipeline flows, what a wor…"* — a direction that describes **two**
+  styles and relies on a human choosing between them. Prepended wholesale to a single
+  prompt, it is incoherent by construction.
+
+So the harm is not uniform, and this handoff does **not** claim all 19 images would be
+unusable. What it claims, and what is verified, is that **the kind's style is a lottery
+per site instead of a defined default** — and style consistency is precisely the axis
+on which the D13 gate failed on 2026-07-17.
+
+## 3. Why it is armed right now
+
+`content_image_missing`'s F3 surface table (`check_content_image_missing.go:129`) added
+the `tool` surface. It gates on a site having a component that consumes
+`query.pages_where_type:tool`, and takes deployed tool pages. Live counts:
+
+| domain | tool-list consumers | deployed tool pages | current imagery state |
+|---|---|---|---|
+| gamesdesign.co.uk | 2 | 9 | none — all 9 would emit `generate` |
+| finetuning.uk | 1 | 5 | none — all 5 would emit `generate` |
+| leopardessconsulting.co.uk | 2 | 5 | none — all 5 would emit `generate` |
+| robot-hands.com | 1 | 3 | fulfilled (hero + fresh card) — silent |
+| idea.uk | 2 | 1 | **`deployed_at IS NULL` → excluded, emits nothing** |
+
+**19 generations across three unstyled sites**, at 10 per site per pass, on the next
+discovery pass on any of them. The check is registered on `design-discovery-agent`
+itself (`SQL_2026-07-16_register_content_image_missing.sql` patches the agent
+definition by `type`), so it runs on **every** site's discovery pass — no per-site
+opt-in stands between this and a routine sweep.
+
+**It is not on a timer.** `scheduled_tasks` has no discovery/improvement-loop entry
+(the 12 enabled tasks are health checks, reapers, build-pipeline-trigger and feed
+refresh). Discovery passes are fired by hand. So this trips when **any concurrent
+session runs a routine discovery pass on one of those three sites** — leopardess had
+123 discovery items in the last two days, so that is a live possibility, not a
+theoretical one.
+
+Their last discovery items all predate the F3 tool-surface deploy, which is why it has
+not fired yet:
+```
+gamesdesign.co.uk           2026-07-13 12:05
+finetuning.uk               2026-07-17 13:03
+leopardessconsulting.co.uk  2026-07-17 19:43
+robot-hands.com             2026-07-19 10:30   ← the only one post-F3
+```
+
+## 4. This also corrects the imagery handoff's rollout figures
+
+`HANDOFF_imagery_best_in_class.md` (B16.2 / next-actions §2) says the funded rollout
+drains via *"gamesdesign.co.uk (9 tool pages) and idea.uk (1) … the other 7 sites with
+tool pages have no `tool-list`, so the consumer gate spends nothing on them."*
+
+Both halves are wrong against the live DB:
+- **finetuning.uk and leopardessconsulting.co.uk DO have tool-list consumers** (1 and 2)
+  and 5 deployed tool pages each → +10 generations nobody has counted.
+- **idea.uk spends nothing**: its single tool page has `deployed_at IS NULL`, and the
+  tool surface uses `DeployedPageEligibilitySQL`.
+
+Net: pending exposure is **19 generations across 3 sites**, not 10 across 2. That is a
+material input to the B16.2 volume sign-off, which was sized on the smaller number.
+
+## 5. Fix candidates
+
+Two independent fixes; they are not alternatives, they address different halves.
+
+**(a) Structural — give `content_hero` a defined default (code, inert until an image
+roll).** Either add `content_hero` to `directionAppliesToKind`'s exclusion list (so an
+override-less site gets *no* direction: unstyled but uncontaminated), or — better and
+matching D14's intent — give the kind a **fleet default flat-illustration direction**
+used when no site override exists. The second is more code but removes the lottery
+instead of just muting it. This wants the council gate: it changes generation
+behaviour fleet-wide.
+
+**(b) Per-site — write the three sites an `imagery_style_guide` with a
+`kinds.content_hero` override (config, live immediately, no image roll).** This is what
+robot-hands has and what made its cards consistent. Cheap and reversible, but it is a
+brand decision per site, so it needs the owner — and it does not stop the next new site
+hitting the same hole.
+
+**Containment if a pass must run before either lands:** the emitted items are
+`needs_imagery` at status `detected`; they do not spend until triaged and dispatched.
+Deleting or cancelling them before triage costs nothing.
+
+## 6. How to verify a fix
+
+- Unit: `directionAppliesToKind("content_hero")` / whatever the chosen default is,
+  asserted alongside the existing icon/logo/sprite_sheet cases.
+- Live, the honest test: force one generation on **leopardessconsulting.co.uk** (the
+  worst-fit direction) via A6.5 + A6.1, then read the adapter log line
+  `Prepended imagery direction` and check `source` — `+style_guide` is right,
+  `+imagery_direction` means the fallback still wins — and eyeball the image.
+- Do **not** verify by grepping the pod binary for `content_hero`: that marker is not
+  retained by the Dockerfile build and a miss proves nothing (016b §9, RUNBOOK A6.3).
+
+## 7. What is NOT claimed
+
+I have not run a generation on any of the three sites, so the *output* harm is inferred
+from the code path plus the D13 gate precedent, not observed. The code path itself, the
+absence of the three style guides, the 19-page exposure and the corrected rollout
+figures are all verified live and quoted above.
