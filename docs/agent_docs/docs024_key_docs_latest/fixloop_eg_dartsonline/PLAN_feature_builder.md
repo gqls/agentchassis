@@ -3,8 +3,8 @@
 *Standing plan for the "fixloop feature builder" workstream. Companions:
 `NOTES_running_feature_builder.md` (turn-by-turn record),
 `RUNBOOK_feature_builder.md` (the owner's tasks),
-`SUMMARY_feature_builder_2026-07-17.md` (read-aloud). Parent design:
-`DESIGN_feature_builder_and_council_gate.md` §1. Last updated 2026-07-17.*
+`SUMMARY_feature_builder_2026-07-19.md` (read-aloud, current). Parent design:
+`DESIGN_feature_builder_and_council_gate.md` §1. Last updated 2026-07-19.*
 
 ## Mission
 
@@ -19,9 +19,11 @@ approval, merge, seed apply) a deliberate human decision.
 spec (`site_work_items` capability_gap + `owner_approval` + `code_pointers`)
 → **feature-designer** (staged plan: `plan_format staged-v1`, stages[] with
 per-stage allowlists incl. to-be-created files, image-before-seed checklist)
-→ **4-seat council** (editquality, bug-historian, reuse-agent, guardian w/
-hard veto — the fix-proposer's live v7 roster) + the proven deterministic
-router (approve / revise+checks / reframe / escalate)
+→ **5-seat council** (editquality, bug-historian, reuse-agent, guidelines,
+guardian w/ hard veto — mirroring fix-proposer's v8 roster) + the proven
+deterministic router (approve / revise+checks / reframe / escalate). The
+reviser reads the **council_report artifact** (patch 017), not per-seat prompt
+sections — so a 6th seat needs no prompt edit
 → **feature-implementer** (dedicated pod, read token only):
 `feature_stage_route` walks the plan — one `feat/<short-corr>` branch, one
 commit + build gate per stage, stage N reads the branch so it sees stage
@@ -45,24 +47,55 @@ pilot runs through the finished loop.
 |---|---|---|
 | 1a. Staged-plan schema | `SCHEMA_staged_plan_v1.md` | **SIGNED OFF** 2026-07-17 (D1–D6) |
 | 1b. Staged validation | `diagnose_persist_fix_plan_action.go` | **BUILT** — commit `4b3d50f4c`, tests green, legacy path unchanged |
-| 1c. feature-designer seed | `0NN_feature_designer.sql` | **DRAFTED** (5-seat v8 council) — awaiting owner apply, after image |
+| 1c. feature-designer seed | `0NN_feature_designer.sql` (+ patches 016, 017) | **APPLIED & LIVE**; 5-seat council; reviser reads the artifact |
 | 2a. Stage-loop machinery | `feature_stage_route_action.go` + seams (read `ref_field`, prepare branch/message/symbols, gate `test_packages_field`, spawn gate) | **BUILT** — commit `c19b5d097`, tests green |
-| 2b. feature-implementer seeds | `0NN_feature_implementer.sql` + `_orchestrator.sql` | **DRAFTED** — awaiting owner apply, after image |
-| 2c. Triggers | `0NN_TRIGGER_feature_designer_v1.sh`, `0NN_TRIGGER_feature_implementer_v1.sh` | **DRAFTED** (092 envelope) |
+| 2b. feature-implementer seeds | `0NN_feature_implementer.sql` + `_orchestrator.sql` | **APPLIED & LIVE** 2026-07-17 — but **NEVER FIRED** |
+| 2c. Triggers | `0NN_TRIGGER_feature_designer_v1.sh`, `0NN_TRIGGER_feature_implementer_v1.sh` | designer **PROVEN** (5 fires); implementer trigger **UNUSED** |
 | 3. Seed discipline | encoded in validation (D4) + PR checklist rendering | **BUILT** (part of 1b/2a) |
-| 4. Pilot (F1.2) | ref/base as per-run input — the loop's own sibling gotcha | spec CREATED (`db066cac`, needs_human_review) — **awaiting owner approval + fire go** (RUNBOOK A4–A5) |
+| 4. Pilot (F1.2) | ref/base as per-run input | **CLOSED — superseded.** Run 5 produced a council-APPROVED plan (unanimous 5/5), but the fixloop thread fixed F1.2 by hand 60s before the run; applying the plan would regress it. Item `db066cac` closed `complete`; reason in its spec. Pilot proved the DESIGNER; a fresh target is needed to exercise the IMPLEMENTER. |
+| 5. Designer, live | 5 runs, each surfacing a real defect | **PROVEN** — run `8e837814` approved unanimously; 016 revise-loop fix verified from `llm_call_log` (0 `<no value>`, 31KB of real reviewer content) |
+| 6. Delta 2 through the council gate | our own platform code reviewed | **REVISE → fixed.** Found a high-severity fail-loud defect our tests missed (`9c94cc842`); 4 objections still open (see below) |
 | Image | deltas 1+2 in production | **LIVE** — v1.0.1132 (concurrent thread's rollout), pod binary verified 2026-07-17 |
 | Seeds | three agent defs in clients_db | **APPLIED & VERIFIED** 2026-07-17 (owner-approved in-session); inert until fired |
 
-## Next steps (in order)
+## Next steps (in order) — the ONE thing left is the implementer's first fire
 
-1. Owner: RUNBOOK A1–A3 (image ≥ `c19b5d097` → verify pod → apply 3 seeds).
-2. Owner: A4 — create + approve the F1.2 pilot spec (pointers in the RUNBOOK).
-3. Fire the designer on it; grade its staged plan against the hand-written
-   reference instance in `SCHEMA_staged_plan_v1.md` §6 before approving.
-4. Fire the implementer on the approved correlation; owner reviews the PR,
-   merges, walks the checklist. First feature = the loop fixing the fix
-   loop's standing stale-ref gotcha.
+**The designer half is proven. The implementer half has never executed.**
+Everything below serves that single gap.
+
+1. **Pick a fresh pilot target** (RUNBOOK B1). The F1.2 pilot was overtaken by
+   a hand-fix, so its approved plan must not be applied. Needs: a small, real
+   capability; a known-good shape we can grade against; and — critically —
+   a target NO other thread is touching (check `site_work_items` AND
+   `git log --since` before choosing).
+2. **Owner: write + approve the spec** (`owner_approval` + `code_pointers` in
+   spec jsonb; RUNBOOK B2 has the SQL shape).
+3. **Fire the designer**, grade the plan, let the council approve it.
+4. **Fire the implementer via its ORCHESTRATOR** (`feature-implementer-
+   orchestrator`, never the implementer directly) — the first live exercise of
+   `feature_stage_route`, the per-stage allowlist, the stage gates and the
+   derived test gate.
+5. **Review the PR as a human**; decide the merge; walk its checklist.
+
+Optional, before step 4: resubmit delta 2 to the council gate
+(`RESUBMIT_CORR=5a65ec4c-686c-40c7-813e-7c7fce03a779`) once the four open
+objections are answered — the high-severity one is already fixed.
+
+## Open council-gate objections on delta 2 (from `5a65ec4c`, verdict revise)
+
+- **editquality:** `registry.go` registration was buried in another edit's
+  sketch; it should be its own declared edit.
+- **editquality + guardian:** `expected_symbols`' verbatim substring check can
+  false-reject a correct stage whose symbol lives in an earlier stage's file.
+  Self-identified in the submission's own risks, still unmitigated. Honest fix
+  = designer-prompt guidance (name only symbols the stage's OWN files
+  introduce), not weakening the gate.
+- **reuse_agent:** should `site_work_items` sequencing (`parent_item_id`,
+  `depends_on`, `batch_id`) carry stage state instead of a new action? Our
+  view: no — that is work-item QUEUEING, this is in-run workflow state, and
+  `diagnose_route` is the precedent. Owes a written answer, not a dismissal.
+- **tooling_provenance:** the three shared actions should carry travelling
+  PLAN+NOTES subjects (`subject_type='action'`).
 
 ## Backlog / later options (explicitly deferred)
 

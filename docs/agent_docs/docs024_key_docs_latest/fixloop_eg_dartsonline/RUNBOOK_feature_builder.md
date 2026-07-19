@@ -1,14 +1,18 @@
 # RUNBOOK — feature builder (the owner's tasks)
 
 *Human tasks only — agent work lives in `PLAN_feature_builder.md`. Tasks are
-ordered; each names its verification. Last updated 2026-07-17.*
+ordered; each names its verification. Last updated 2026-07-19.*
 
 ## Standing summary
 
-Delta 1 + 2 code is committed (`4b3d50f4c`, `c19b5d097`) but INERT until an
-image ships; the three seeds are DRAFT FILES, deliberately never executed by
-the loop — applying them is yours, after the image (that ordering is the very
-discipline the builder encodes). Then the F1.2 pilot runs the whole chain.
+**A1–A5 are DONE.** Code is live (image v1.0.1132+, pod-verified), all three
+agents are seeded and active, and the designer has been fired five times —
+the last returning a **unanimous council approval**. The original F1.2 pilot
+is CLOSED as superseded (another thread hand-fixed the target 60s before our
+run; its approved plan must NOT be applied).
+
+**The one thing left: the implementer has never run.** Tasks B1–B4 below are
+that, and nothing else. A1–A4 are kept for provenance.
 
 ## A1 — build + deploy the chassis image ☑ DONE (via v1.0.1132)
 
@@ -48,43 +52,99 @@ Work item `db066cac-c647-44bf-a3ca-e04416405b28` created (site anchor
 `System (internal)` `eac60db8-…`), then APPROVED by **aaa** 2026-07-17. The
 designer's spec gate computes `approved`. Ready to fire.
 
-## A5 — fire the designer; grade before approving further ☐
+## A5 — fire the designer; grade the plan ☑ DONE (5 runs)
+
+Five fires on the F1.2 spec, each surfacing a real defect before the next:
+runs 1–2 refused at validation (prompt steer; then an over-strict rule of our
+own — seed-only plans need no image_deploy); run 3 sat the full council for
+the first time; run 4 escalated correctly after 3 rounds; **run 5
+(`8e837814`) was APPROVED unanimously, 5/5, zero objections.** Grading and
+evidence in `NOTES_running_feature_builder.md` turns 7–12.
+
+---
+
+# What is actually next — B tasks
+
+## B1 — choose a fresh pilot target ☐
+
+The F1.2 pilot is spent. Pick a NEW capability that is:
+- small, real, and genuinely wanted;
+- of a known-good shape, so the plan can be graded rather than guessed at;
+- **not being touched by another thread** — this bit is not optional. Check
+  BOTH before choosing (the F1.2 collision cost a whole pilot):
+```sql
+SELECT id, item_type, status, left(summary,80) FROM site_work_items
+WHERE status NOT IN ('complete','cancelled','rejected')
+  AND (summary ILIKE '%<target>%' OR spec::text ILIKE '%<target>%');
+```
+```
+git log --since="3 days ago" --oneline -- <paths the target would touch>
+```
+
+Good shape for a first implementer exercise: a change with **at least one Go
+file edit and one new file**, so the stage loop, the per-stage allowlist, the
+build gate AND the derived test gate all get exercised. A seed-only target
+would leave most of the machinery untested.
+
+## B2 — write + approve the spec ☐
+
+```sql
+INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity,
+  summary, spec, priority, handler_agent, status, created_by, item_key, max_attempts)
+VALUES ('eac60db8-b032-432b-b36d-76f37632045d', 'manual', 'maintenance',
+  'capability_gap', 'medium', '<one-line summary>',
+  '{"builder_needed": "feature-builder",
+    "goal": "<what exists after this that did not before>",
+    "code_pointers": [{"path": "platform/...", "why": "..."}],
+    "deployment_reality": "<what is deployed vs merely committed — VERIFY BY POD GREP>",
+    "seed_shape_rule": "if this edits an existing live agent row, the seed MUST be a surgical jsonb_set, never a whole-column replacement"}'::jsonb,
+  40, '', 'needs_human_review', '<you>', '<unique-item-key>', 1)
+RETURNING id;
+```
+(Site anchor `eac60db8…` is `System (internal)` — the name is not
+`system.internal`.) Then approve it, by name:
+```sql
+UPDATE site_work_items SET spec = spec ||
+  '{"owner_approval": {"approved_by": "<name>", "date": "YYYY-MM-DD"}}'
+WHERE id = '<work_item_id>';
+```
+
+## B3 — fire the designer, grade, let the council approve ☐
 
 ```
-./0NN_TRIGGER_feature_designer_v1.sh <work_item_id>    # SAVE FEATURE_CORR
+./0NN_TRIGGER_feature_designer_v1.sh <work_item_id>   # SAVE the FEATURE_CORR
 ```
+Watch: `SELECT kind, metadata->>'decision' FROM diagnosis_artifacts WHERE
+correlation_id='<corr>' ORDER BY created_at;` — proceed only on `approved`.
 
-Grade its staged plan against the hand-written reference
-(`SCHEMA_staged_plan_v1.md` §6) BEFORE moving on: right stages, right files,
-seed + checklist present, image before seed. The council must land
-`approved`. Escalations/rejections park in `diagnosis_artifacts`
-kind=escalation — read, decide, re-fire or hand-build.
-
-## A6 — fire the implementer; review the PR ☐
+## B4 — THE FIRST IMPLEMENTER FIRE ☐ ← the actual milestone
 
 ```
 FEATURE_CORR=<uuid> ./0NN_TRIGGER_feature_implementer_v1.sh
 ```
+**Via the orchestrator only** (the trigger already targets
+`feature-implementer-orchestrator`) — fired directly it dies with no read
+token, the fix loop's proven 2026-07-13 failure.
 
-Expect: `feat/<short-corr>` with one commit per stage, green gates, ONE PR.
-A red gate = no PR, branch + log left — that is the hand-off working, not a
-failure of it. Review, merge (or don't), then walk the PR's checklist IN
-ORDER: image → apply the v2 fix-implementer seed → verify → delete stale
-`fix/*` branches.
+Expect: `feat/<short-corr>`, one commit per stage, green gate per stage, a
+derived `go test` end gate, then ONE PR whose body carries the post-merge
+checklist as a task list. A red gate = NO PR, branch + log left for
+inspection: that is the hand-off working, not a failure of it.
 
-## A7 — close the loop on the pilot ☐
-
-After the checklist: fire the fix-implementer once with an explicit ref on a
-known approved correlation and confirm it reads/branches from it. Then the
-feature builder's first feature is LIVE — record the grade in
-`NOTES_running_feature_builder.md` and update the PLAN's status table.
+Nothing here has ever executed. Watch it closely and expect to find defects —
+that has been the pattern of every first fire so far, and it is the point.
 
 ## Parked / recurring
 
 - Credits: every designer/council/implementer run spends them — the go is
   yours per run.
-- Roster drift: if the council gains/loses seats, A3 applies to any future
-  designer re-seed.
-- If pointer-curation (A4-style specs) proves too costly, the upgrade path is
-  a dedicated-pod designer with repo read — a Go change; ask for it as a
-  feature through this very tool.
+- Roster drift: if the council gains/loses seats, the designer's
+  `council_decide.review_fields` is now the ONLY list to update (patch 017
+  made the reviser read the artifact).
+- Delete stale `feat/*` branches before re-firing — the loop refuses them
+  loudly (E4), by design.
+- Delta 2's council-gate resubmission (`RESUBMIT_CORR=5a65ec4c-686c-40c7-813e-7c7fce03a779`)
+  once the four open objections in the PLAN are answered.
+- If pointer-curation proves too costly, the upgrade path is a dedicated-pod
+  designer with repo read — a Go change; ask for it as a feature through this
+  very tool.
