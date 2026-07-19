@@ -669,3 +669,67 @@ The better end state is authoring the forms as chassis sections in the static bu
 Given it's live and selling, I'd suggest the quick path first. Want me to write that /start handler against the tool source? It would ship with the binary deploy that's already pending, so it costs no extra deployment.
 
 -----
+## 2026-07-19 — the broken chrome (bugs_open/018): found it, and it is not what 018 guessed
+
+Short version: **the nav data is fine, the templates just ask for it by names nobody supplies.**
+
+I started with the question 018 said to answer first — is this fleet-wide? It is not. Across all
+11 sites, idea.uk is the only one with any empty links in its header or footer. Everyone else is
+clean. So this is not a shared filler that broke; it is idea.uk sitting on two components nobody
+else uses.
+
+Here is the mechanism, and it is simple once you see it.
+
+When the platform renders a site's header and footer, it builds a fixed list of values and hands
+them to the template — things like `company_name`, `logo_url`, `nav_items_html` (the whole
+navigation, pre-rendered as one blob), `cta_url`. That list is **hardcoded in Go**. The renderer
+never looks at what the component says it needs; there is no `input_schema` anywhere in
+`render_site_components_action.go`.
+
+Nine sites use older header/footer components written against exactly that vocabulary. idea.uk
+uses two newer ones — literally named `site-header` and `site-footer`, created 2026-05-06 — which
+ask for a completely different set: `nav_link_1_url`, `nav_link_1_label`, … `cta_primary_url`,
+`nav_aria_label`, and in the footer `col1_link1_url` through `col3_link4_label`. **None of those
+names exist in the renderer's list.** Every one comes back as an empty string.
+
+The confirming detail is the one field that does work. `company_name` **is** in the renderer's
+list — and sure enough it is the one thing on the page that rendered: the logo says "idea.uk" and
+the link's aria-label says "idea.uk home". Everything absent from that list is blank. That is not
+a coincidence; that is the whole bug in one line.
+
+Two things then turn a data gap into a visibly broken page:
+
+1. **The old components gate their links, the new ones do not.** vonc's header wraps every link in
+   `{{if .cta_url}}…{{end}}` — no value, no anchor, nothing shows. idea.uk's two templates contain
+   **zero** conditionals, so an empty value becomes `href=""` — a visible, clickable, dead control.
+2. **The schemas point at data that has never existed.** `site-header` declares its URLs come from
+   `site_specs.navigation.link_1_url`. There is no `navigation` aspect in `site_specs` for any site
+   on the platform — I checked the full aspect list across all 11. The logo comes from
+   `site_assets.logo`, similarly unread. Those `source:` lines are decorative: nothing resolves
+   them. That is also why `nav_aria_label` rendered empty despite having a static fallback of
+   "Main navigation" — the fallback machinery never runs for chrome either.
+
+**A correction to 018, which I got to test.** 018 theorised the empties came from a URL-shape
+mismatch — the resolver thinking in `/about` while the site is built as `/about.html`. That is
+wrong. idea.uk's navigation table is in good order: 6 primary items, 1 utility, 1 legal, all
+`active`, all correctly `.html`-suffixed (Home, Tools, About, Guides, News, Report, Contact,
+Privacy and Terms). The data the header needs is sitting right there. Nothing consumes it.
+
+So the good news is real: **there is nothing to rebuild and nothing to re-plan.** The pages are
+fine, the nav is fine, the assets are fine. Two templates are asking the wrong questions.
+
+The fix is a rewrite of those two templates to use the vocabulary the renderer actually provides,
+with every anchor gated. It is a database change, so it goes live on the next render — **no chassis
+image, no deploy**. The CSS stays exactly as it is, so the site keeps the sticky header and mobile
+menu it was designed with; the only visible change is that the nav will show the six real pages
+instead of four empty slots.
+
+One separate, smaller thing while I am in here: `sites.logo_url` is empty for idea.uk even though
+`/assets/images/logo.jpg` serves 200. vonc has the same empty value but its gated template falls
+back to a glyph, so nobody noticed. Setting that one field makes the logo appear.
+
+Where this connects: this is the header/footer half of `/bugs_open/023` (a button's label and its
+destination are never checked against each other), which measured `page_components` only and said
+in as many words that header and footer were "not yet counted". Now they are. 023's fix #2 —
+"gate every CTA anchor" — is exactly what this needs.
+

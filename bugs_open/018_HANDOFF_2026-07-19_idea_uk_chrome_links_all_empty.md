@@ -58,9 +58,64 @@ The two `empty_internal_href` findings against **site_component (header)** and *
 accurate diagnosis: this is a *chrome* defect, not a per-page one. That is why it is uniform across
 all nine pages.
 
-## Root cause — not yet established
+## Root cause — ESTABLISHED 2026-07-19
 
-Unknown, and deliberately not guessed. The shape of the evidence:
+> **The chrome renderer fills templates from a hardcoded key vocabulary and never reads the
+> component's `input_schema`. idea.uk's two chrome components declare a different vocabulary, so
+> every field they name resolves to the empty string; their templates are ungated, so each empty
+> value becomes a visible `href=""` rather than a suppressed element.**
+
+Evidence, in order:
+
+- **Not fleet-wide.** The query below, run across all 11 sites: idea.uk is the only domain with any
+  empty-href chrome component (2 of its 3). Every other site: 0.
+- **idea.uk is alone on its components.** `site-header` (`f420f3fa…`) and `site-footer`
+  (`4238e467…`), both created 2026-05-06, `is_active=t`, each used by **exactly one** site. The
+  fleet's nine other sites sit on `header-bold-gradient` / `footer-4-column` (`is_active=f`, used
+  by 5 and 9).
+- **The renderer's vocabulary is hardcoded.** `render_site_components_action.go:222-262` builds
+  `RenderContext.ContentData` as a literal map — `company_name`, `logo_url`, `logo_text`,
+  `nav_items_html`, `quick_links_html`, `cta_url`, `cta_text`, `legal_links`, … — and
+  `:530` renders the template against it. **`input_schema` appears nowhere in the file**, and
+  `site_components.content_data` (`{}` fleet-wide) is not read either.
+- **The two vocabularies do not intersect.** `site-header` asks for `nav_link_1_url` …
+  `nav_link_4_label`, `cta_primary_url`, `cta_secondary_url`, `nav_aria_label`. `site-footer` asks
+  for `col1_link1_url` … `col3_link4_label`, `newsletter_*`, `cookies_url`. None of these is in the
+  map.
+- **The one field that works proves it.** `company_name` *is* in the map — and is the only value
+  that rendered: `<span class="header-logo-name">idea.uk</span>` and
+  `aria-label="idea.uk home"`. Everything absent from the map is empty. 
+- **Ungated is what makes it visible.** `grep -c '{{if'` → **0** in both idea.uk templates;
+  `header-bold-gradient` gates every anchor (`{{if .cta_url}}…{{end}}`) and its `logo_url` has an
+  `{{else}}` glyph fallback. vonc's `sites.logo_url` is *also* empty — its gate hides that, idea.uk's
+  absence of one emits `src=""`.
+- **The declared sources do not exist.** `site-header` sources URLs from
+  `site_specs.navigation.link_N_url`; there is **no `navigation` aspect in `site_specs` for any
+  site** (checked against the full fleet-wide aspect list). `logo_url` claims `site_assets.logo`.
+  These `source:` declarations are decorative — nothing resolves them. Same reason
+  `nav_aria_label` (`source:static`, `fallback:"Main navigation"`) rendered empty: **the fallback
+  machinery never runs for chrome components at all.** (Note this differs from
+  `plan_sections_action.go:1210-1218`, which *does* apply static fallbacks for page sections —
+  cited in `023`. Chrome is a separate, thinner path.)
+
+### CORRECTED — the URL-shape theory below is wrong
+
+The original text speculated that empties and phantoms shared a cause: a resolver modelling
+`/about` against a site built as `/about.html`. **Not so, for the empties.** idea.uk's nav tables
+are in good order — 6 primary + 1 utility + 1 legal `site_nav_items`, all `status='active'`, all
+correctly `.html`-suffixed (Home `/index.html`, Tools `/tools.html`, About `/about.html`, Guides
+`/guides/index.html`, News `/news/index.html`, Report `/report.html`, Contact `/contact.html`,
+Privacy `/privacy.html`). `GetNavItems` would return all of them. The header simply never asks for
+`nav_items_html`. The `phantom_internal_link` findings come from **page** content and remain a
+separate matter.
+
+**What this means for the fix:** nothing needs rebuilding, re-planning or re-deriving. The data is
+present and correct. Rewriting the two templates against the renderer's real vocabulary, with every
+anchor gated, is a **DB-only change — live on the next render, no chassis image**.
+
+### Original (superseded) speculation
+
+The shape of the evidence:
 
 - The chrome **templates render** — classes, structure, `site-footer.js` and the nav element are all
   present and correct.
