@@ -165,10 +165,18 @@ the card re-derives on the next pass by origin-staleness.
 UPDATE assets SET status='superseded', updated_at=now()
  WHERE site_id='<site>' AND asset_key='content_hero_<page_underscored>' AND status='active';
 ```
-Then A6.1 to sweep, A6.4 to promote. **Style drift in the ground colour is fixed
-via the style guide's `avoid`, not its `medium`** — "deep charcoal ground" in
-`medium` did not stop a white background; adding "white background, pale
-background, light background" to `avoid` did.
+Then A6.1 to sweep, A6.4 to promote.
+
+> **CORRECTED 2026-07-19 — this said `avoid` fixes ground drift. It does not, and
+> cannot.** The original text read: *"Style drift in the ground colour is fixed via
+> the style guide's `avoid`, not its `medium`"*. **`avoid` reaches only the negative
+> prompt, and Banana discards negative prompts entirely**
+> (`banana/provider.go:18`), while every declared kind now routes to Banana. The
+> 2026-07-18 improvement was a re-roll that happened to come out darker; the `avoid`
+> edit made alongside it took the credit. Proven at n=9 on 2026-07-19: 4 of 9
+> gamesdesign heroes violated their own `avoid` list (white grounds, numerals).
+> Full evidence: **`/bugs_open/028`**. Caught by asking why the pilot images still
+> had text in them after the guide was fixed.
 
 ---
 
