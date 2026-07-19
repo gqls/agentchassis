@@ -364,3 +364,37 @@ progressive-enhancement-safe** (it only overwrites the container when the fetch 
 and swallows errors), so server-rendered markup survives an empty or failed fetch with no JS
 change. Against that: `data_sources`/`go_template` are **dead metadata** — zero Go readers
 repo-wide — so there is no binding engine to reuse. `news-listing.js` is **unverified**.
+
+### Owner queue: 7 → 5 (two cancelled, owner-approved)
+
+Both about-page items had stale premises — `about.html` is built and live (36 KB, sound heading
+structure, zero fabrication markers, `curl`-verified 2026-07-19).
+
+- `ff65cc65` "Build about page (not_built)" — was `failed` at **attempt 2 of 3**. Cancelling was
+  *protective, not tidying*: a third attempt would rebuild a page that already exists, which is
+  the clobber risk in `/bugs_open/001` and the "never re-plan this site to fill gaps" hard rule.
+- `f9bf92e7` "Re-render about after its image asset landed" — moot; the live page carries only
+  the logo, and a re-render is the same unexercised render path we had just finished cleaning.
+
+Reason recorded in each item's `spec.cancelled_reason` so the decision is auditable from the DB.
+Remaining 5 all genuinely need the owner (three 0-section pages, the contact email fact, the
+deadline-calculator review).
+
+### The publish chain, verified before trusting it
+
+Ingested feed items are not the same as news on the page. Checked `content-feed-orchestrator`'s
+step list rather than assuming:
+
+```
+dispatch_feed_sources → render_news_section → render_rss_feed → git_commit
+```
+
+So rendered files reach the site repo and deploy — the chain is complete. Two things fall out:
+
+- **`seed_content_sources` runs on every cycle**, not once at setup. So `source_types: ["rss"]`
+  is a standing guard, not a one-time choice: on any cycle where that list said `api_news`, the
+  seeder would create the Grok source. This is the single most important line of config on this
+  site.
+- **vetcomparison also gets `/feed.xml`** from `render_rss_feed` — server-rendered and complete,
+  which is precisely the artefact `/bugs_open/027` notes is *unaffected* by the client-side news
+  defect. So the site gets a crawler-visible news surface even before 027 is fixed.
