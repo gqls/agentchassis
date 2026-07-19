@@ -220,12 +220,34 @@ correlation **e0ebf6ee-dcc0-4a7b-9a3d-438ce9af5fff**. Three rounds:
   finding, the false-negative mirror of the original bug. Fleet-checked: the
   same 7 sites pass, so no classification changes today.
 
+- **R3 verdict: revise, 7 of 8 seats APPROVE** (editquality, reuse_agent,
+  guidelines, guardian, improvement_guardian, render_guardian, debug_historian);
+  bug_historian alone objected — one LOW (two coexisting "spec exists" markers
+  in different tables invite divergence) and one MEDIUM (is the existence-only
+  shape used by other checks?).
+- **Both answered, and the loop STOPPED there** — CLAUDE.md says one council
+  run per coherent task, not per iteration, and a 4th round on a low-severity
+  design point would spend credits against that guidance. The MEDIUM is
+  answered empirically with a grep, no code needed: **no other discovery check
+  has the exposure** — `check_integrity` and `check_image_source_unsatisfiable`
+  both extract VALUES (`->>` + `COALESCE`), not key existence. The LOW is
+  answered in code (**5151d4a79**): the two sequential probes are now ONE
+  OR'd `EXISTS` query — the dead-but-contractual site_specs arm survives as a
+  term rather than its own fallback branch — and the finding's detail message
+  now names both sources instead of only `site_specs`. Fleet-verified
+  identical classification (7/12) before and after.
+
 The withdrawn guard is filed as **`bugs_open/022`** rather than left as vapour,
 with the three verifications the council demanded now DONE and recorded:
 `parseHexColor` exists (`color_util.go:26`), `layouts.scheme` exists (text,
 CHECK light/dark/neutral), and `buildPaletteMap`/`loadThemeComposition` have
 **exactly one non-test caller each** — so the guard would have been at the
 mechanism, not a point patch. It returns as its own submission.
+
+**R3 nav flip CONFIRMED LIVE (2026-07-18 evening).** The 30-page nav batch
+drained complete; `https://robot-hands.com/index.html` header now links
+`/learning-center-hub.html` (4 hub links page-wide, 1 remaining
+`/learning-center.html` — the demoted grid landing, by design).
 
 **Site state at 15:00–16:00.** The 37-page batch **drained complete**; live
 spot-checks green — index, learning-center-hub, matchmatrix all serve zero
