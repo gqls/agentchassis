@@ -801,3 +801,60 @@ rested on risks A (component regeneration overwrites js_content,
 (shared `gauntlet-cta`, verified empirically). None of those depended on the
 refuted left-hand column. Prefer per-page `content_data` over library
 `js_content` still stands.
+
+### 2026-07-19 — T4 STOPPED at Step 0: the approved §3 data contract does not match the live loaders
+
+Started T4 (owner: "please go ahead"). Step 0 is the blocking data gate — make
+`/data/provocations.json` conform to §3. Before rewriting the file I went looking
+for its consumers, because changing a shape without reading the consumer is the
+mistake I had refuted this morning. **The consumers contradict the approved plan.**
+
+**Who actually consumes the feed** (verified by fetching the live assets, not by
+grep inference): NOT `gauntlet-interface.js` — that asset contains **zero**
+references to `provocations.json` and no `fetch` at all. The real consumer is
+**`/assets/js/snippets.js`** (14,293 B), a site-wide asset loaded on all four
+pages, holding **three** loaders that each fetch the feed:
+
+| loader | guard, read verbatim from source | needs |
+|---|---|---|
+| `fillProvocationCard` | `if (!section \|\| !data \|\| !data.today) return;` | `today` |
+| `fillLobbyGrid` | `if (!section \|\| !data \|\| !data.arena) return;` then `var entries = Array.isArray(a.cards) ? a.cards : [];` | `arena.cards` |
+| `fillArchive` | `if (… \|\| !Array.isArray(data.archive.entries)) return;` | `archive.entries` |
+
+**Against §3 of the approved plan:**
+
+| §3 says | loader needs | result if §3 is implemented literally |
+|---|---|---|
+| `today{…}` | `data.today` | ✅ compatible |
+| `archive[]` — top-level array | `data.archive.entries` array | ❌ `Array.isArray(undefined)` → **early return**, archive never fills |
+| `arena` = `{status:"coming_soon"}` **only** | `data.arena.cards` | ❌ `entries=[]`, `n=0` → **no card filled**, lobby grid never fills |
+| `lobby[≤4]` top-level | — | ❌ **read by nothing** |
+
+So implementing the approved contract verbatim silently blanks two of the three
+runtime-fill regions. **Silently** is the sharp part: all three loaders fail
+gracefully by design ("leave the shell as-is"), and G22 means the dead-control
+and phantom-link checks *deliberately exempt* runtime-fill shells. The regression
+would be invisible to exactly the guard rails built to catch this class.
+
+**This is the council's first substantive escape, and the cause is the same class
+we already fixed once.** Fix #3 taught `load_context` to surface component
+attachments — but the loaders live in **`js_snippets`**, a table nothing surfaces
+to the council. The council could see the components and could not see the
+JavaScript that hydrates them, so feasibility approved a data contract whose
+consumer it had never been shown. Same shape as the `component_level='tool'`
+filter: **context lying by omission**, one table over.
+
+**Also wrong in §3** (same root cause): "`gauntlet-interface` … real runtime
+timer, **real fetch**". `gauntlet-interface.js` fetches nothing. Step 1's "ensure
+prompt populates from `today` before Start" therefore requires a fetch that does
+not exist in that asset today.
+
+**Not proceeding on my own judgement.** A compatible shape exists that satisfies
+every *honesty* rule in §3 (editorial-only stats, no counts, no fake live state,
+no dead anchors) while keeping the nesting the loaders require — the substantive
+rules and the key layout are separable. But quietly building a shape the council
+did not approve would make CP2 meaningless. Escalated to the owner.
+
+**Nothing was written.** No file published, no component touched. The live feed
+still carries its fabricated stats (`1,284 Positions Filed`, `62% Disagree`,
+`3h 12m Until Close`, six arena cards with `312 positions` and `Closes 18:00`).
