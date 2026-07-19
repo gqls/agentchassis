@@ -90,14 +90,30 @@ Prefer (1)+(2) structurally; (3) is the cheap net that catches the next variant.
 - Regression case: adopt a site whose homepage tool reads a JSON file; assert the deployed tool
   requests that file.
 
-## Containment already applied (site side, not a platform fix)
+## Containment applied (site side — the platform defect above is still unfixed)
 
-`sites` repo: verified homepage restored from `b2896815` (real directory, claim + opt-out
-routes), pushed and live-verified clean — 0 generator symbols, 0 unsupported claims. The hand
-edit takes a permanent lock, which protects *this* page only.
-**Still exposed:** the `index` page spec still lists a `filtered-result-grid` section with no
-data source, so a future render can regenerate this. Spec-level fix outstanding — see
-`docs/agent_docs/docs024_key_docs_latest/vetcomparison/HANDOFF_2026-07-19_vetcomparison_uk.md`.
+Both layers, 2026-07-18:
+
+1. **Published file** — verified homepage restored from `b2896815`, pushed, live-verified clean
+   (0 generator symbols, 0 unsupported claims).
+2. **Source** — `page_components.rendered_html` still held the fabrication, `deployed` and
+   unlocked, so the next render would have republished it. Note *where*: the generator was in the
+   **`hero`** slot (18,101 chars — the whole recreated tool), **not** `filtered-result-grid`.
+   Hero's data layer rewritten to `fetch('/data/vet-full-index.json')` keeping the chassis's UI
+   (region filter, pagination); demo-sample disclaimer, price-sort options, "pricing information /
+   ownership data" claims and a false about-page differentiator removed. Four components set
+   `lock_type='permanent'` (index: hero, filtered-result-grid, info-card-grid; about:
+   differentiators).
+
+> **UNVERIFIED (as at 2026-07-19):** no render has run against the corrected source — nothing has
+> touched `vetcomparison.uk/` since the restore, and manual dispatch failed (`rerender-pages` is
+> `experimental`; neither `system.agent.site-builder.requests` nor
+> `system.agent.page-rerender.process` produced an orchestration state from kcat). **Whoever sees
+> the first render must run the greps in "How to verify a fix" above.** If fabrication returns,
+> the permanent locks did not hold — record that here, it changes the fix ranking.
+
+Site-side containment does not fix the defect: any other adopted site with a data-backed tool is
+still exposed. See `docs/agent_docs/docs024_key_docs_latest/vetcomparison/HANDOFF_2026-07-19_vetcomparison_uk.md`.
 
 ## Note on numbering
 
