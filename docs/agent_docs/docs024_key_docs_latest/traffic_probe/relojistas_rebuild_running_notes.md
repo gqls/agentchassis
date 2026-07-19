@@ -601,3 +601,72 @@ no DELETE against a live plan. The pleasing case: `articulo` → `/guias/manteni
 which is one of the three phantom homepage links — so the invented link is satisfied by the
 stray page rather than by deleting either. Requires updating plan row and `pages` row in
 lockstep or reconcile will orphan one against the other.
+
+## 2026-07-19 (session 2) — cite-or-omit is ALREADY BUILT; feed-grounding is not
+
+Traced how page content is actually generated, to find the lever for the operator's
+cite-or-omit decision. Three results, one of them a filed bug.
+
+**1. `pages.content_direction` is a DEAD COLUMN — filed as `bugs_open/025`.** Its own SQL
+comment says "Passed to content-writer prompt", and nothing reads it. The trap is a name
+collision: `content_direction` appears all over the Go source, but every hit is the
+*site-level* `site_specs` aspect, not the column. I planned against the column before
+checking. Caught by grepping the two page loaders
+(`get_pages_to_build_actions.go:98-104`, `load_page_record_action.go:167`) for the column
+name and finding it absent from both SELECTs.
+
+**2. The V2 claims-verification `writer_block` IS cite-or-omit, and it is live.** Verified
+against prod, not the repo:
+
+```sql
+SELECT default_config::text ~ 'writer_block', default_config::text ~ 'Verified Facts'
+  FROM agent_definitions WHERE type='page-content-writer' AND deleted_at IS NULL;
+-- t | t
+```
+
+The whole claims layer is **opt-in per site purely by the presence of a `site_specs` row
+with `aspect='evidence_base'`** — `loadEvidenceBase` returns nil and every check silently
+skips (`validate_page_content.go:683-686`). When present it turns on three things with no
+code change: the writer prompt gains a bounded "state only these" block that **explicitly
+overrides STRICT RULE 14**'s unbounded "don't invent"; `validate_page_content` check 8 runs
+`ScanBannedClaims` (blocker) + `ScanUnregisteredNumbers` (error) *between writer and save*;
+and the post-deploy `check_unverified_claims` sweep catches drift.
+
+> **CORRECTION to a figure I was given:** the claims docs say leopardessconsulting is the
+> only site with an evidence base. **Stale — `vonc.com` has had one since 2026-07-17.** Two
+> sites, not one. Grounded against the live table, per the standing rule.
+
+Live schema, read off `vonc.com`'s row (`site_specs.data`, not `.specs` — the column is
+`data`):
+```
+{ facts[]:          {id, kind: capability|metric, claim, value?, source:{sql|artifact}, tolerance?, verified_at},
+  banned_claims[]:  {pattern (regex over LOWERCASED assertion text), reason},
+  allowed_entities[]: nouns that are NOT claims,
+  governing_rule:   the one-line rule the reviewers judge against,
+  audit_doc, schema_notes }
+```
+
+**3. Grounding generation in `content_feed_items` does NOT exist — it is new code.** The
+feed is a *link-list pipeline, not a generation corpus*: `render_news_section_action.go:341-363`
+and `render_rss_feed_action.go:232` read it deterministically into JSON/RSS with no LLM,
+and the only LLM that touches feed rows is triage, which writes `relevance_score`,
+`credibility` and `source_attribution` back. **`source_attribution` is written by triage and
+read by nothing.** No prompt template anywhere references `content_feed_items`, and
+`create_article_from_feed` does not exist (zero hits across `*.go` and `*.sql`).
+
+### What this means for P7 — the approach changes, the decision does not
+
+The operator's cite-or-omit choice is achievable **with existing machinery and no image
+roll**, but not the way the question implied. "Generate guides *from* the corpus" is new
+code. "Generate guides constrained *to facts curated from* the corpus" is a config change.
+
+So: read the 50 relevant items (34 high-credibility), curate what they actually support
+into an `evidence_base` row for relojistas — `governing_rule` forbidding any unsourced
+interval/rating/price/date, `banned_claims` regexes for exactly those shapes,
+`allowed_entities` for the horological vocabulary that is *definitional and therefore not a
+claim* — and the writer is then bounded by it automatically, with a build-time gate that
+blocks rather than warns. relojistas becomes the **third** site on the claims machinery.
+
+> **Caveat carried forward:** the repo's `sql_for_agents/` copy of the writer prompt is
+> already stale relative to prod. Live prompts live in `agent_definitions.default_config`.
+> Check prod before believing any prompt in the repo.
