@@ -246,6 +246,67 @@ SELECT sections FROM pages WHERE site_id=:site AND name=:page;
 Update every source that lists the page, plus `page_components`, in one
 migration.
 
+## 5c-bis. Fleet-wide drift sweep — find EVERY page a rebuild would change
+
+Added 2026-07-19 (bugs_open/002 error C). §5c checks one page at a time; this
+finds all of them at once. It computes the **effective** authoritative list
+(*table if present, else aspect*) and compares it to `pages.sections`. Expect
+**0 rows** — anything returned is a page whose next rebuild will silently add
+or delete a section.
+
+```sql
+WITH tbl AS (
+  SELECT sp.site_id, sps.page_name,
+         string_agg(sps.component_name, ',' ORDER BY sps.ordering) AS lst
+  FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id=sp.id
+  WHERE sp.is_current GROUP BY sp.site_id, sps.page_name
+), asp AS (
+  SELECT ss.site_id, pg->>'name' AS page_name,
+         CASE WHEN jsonb_typeof(pg->'sections')='array'
+              THEN (SELECT string_agg(v,',') FROM jsonb_array_elements_text(pg->'sections') v) END AS lst
+  FROM site_specs ss, jsonb_array_elements(ss.data->'pages') pg
+  WHERE ss.aspect='site_plan' AND ss.is_current AND jsonb_typeof(ss.data->'pages')='array'
+), cache AS (
+  SELECT site_id, name AS page_name,
+         (SELECT string_agg(v,',') FROM jsonb_array_elements_text(sections) v) AS lst
+  FROM pages WHERE jsonb_typeof(sections)='array' AND jsonb_array_length(sections)>0
+), eff AS (
+  SELECT c.site_id, c.page_name, COALESCE(t.lst, a.lst) AS auth, c.lst AS cached
+  FROM cache c LEFT JOIN tbl t ON t.site_id=c.site_id AND t.page_name=c.page_name
+               LEFT JOIN asp a ON a.site_id=c.site_id AND a.page_name=c.page_name
+)
+SELECT (SELECT domain FROM sites WHERE id=eff.site_id) AS domain, page_name, auth, cached
+FROM eff WHERE auth IS NOT NULL AND auth IS DISTINCT FROM cached ORDER BY 1,2;
+```
+
+**Three gotchas, each of which makes this query lie by looking clean:**
+
+- **Check BOTH sources, not just the table.** A query that only compares
+  `site_plan_sections` misses every aspect-authoritative site. Some sites have
+  a current `site_plans` row with **zero** `site_plan_sections` rows — source 1
+  misses entirely and the aspect governs. leopardess is one, and its two
+  drifted pages were invisible to a table-only sweep.
+- **Guard `jsonb_typeof(...)='array'` on both sides.** An aspect entry can have
+  `"sections": null`, and `jsonb_array_elements` on it raises
+  `ERROR: cannot extract elements from a scalar` — or, worse, yields NULL that
+  a `WHERE auth IS NOT NULL` then silently filters out, so the page vanishes
+  from the report instead of erroring.
+- **`"sections": null` in the aspect is SAFE, not drift.** Source 2's type
+  assertion fails, so it falls through to source 3 (`pages.sections`). Only an
+  aspect entry holding a real *array* that disagrees is a live revert risk.
+  Of 16 leopardess pages carrying a `generic-text-block`, only 2 were at risk
+  for exactly this reason.
+
+**A section name is not a component name.** Resolution Pass 1 exact-matches
+`content_components.name` (`v3_site_actions.go:3383-3398`), but falls back to
+`function` and then `section_type` — and `section_type` is written from the
+*requested* name while the LLM names the row whatever it likes
+(`store_generated_component_action.go:636-645`). So `hero-contact` resolves to
+a component actually named `contact-hero`, and **any `section_type` value acts
+as a permanent invisible alias**. Nothing enforces `name == section_type`.
+Before "fixing" a name mismatch, check whether it is an alias that already
+resolves correctly.
+
 ## 5d. Refresh / add product specs (product-spec-refresher agent)
 
 Reusable capability (built Session 8, needs the image that registers

@@ -1,5 +1,15 @@
 # HANDOFF — errors surfaced but NOT fixed (route each to its own chat)
 
+> **STATUS 2026-07-19 (bugfix thread).**
+> **B ✅ FIXED** (already resolved by the truncation work in `/bugs_closed/005`;
+> verified green — the entry was stale, not the code).
+> **C ✅ FIXED** — migrations **175** + **176**, both applied and
+> ledger-recorded. It turned out to be **two sites, not one**; fleet-wide
+> section drift is now **0 pages**.
+> **A** superseded by `003`. **D**, **E**, **F** still open — D and E
+> re-grounded against the live system 2026-07-19 (see Priorities).
+> This file stays in `/bugs_open/` because D/E/F remain live.
+
 **Created 2026-07-15 from the `empty_sections_loop_integrity` workstream.**
 Each section below is an INDEPENDENT error — self-contained, can be handed to a
 separate chat in any order. They were found while doing other work and
@@ -76,7 +86,35 @@ correctness/ergonomics fix, not an outage.
 
 ---
 
-## B. FAILING TEST — `TestParseLLMJSON_RepairsLiveEnvelopes` (14 fixtures)
+## B. FAILING TEST — `TestParseLLMJSON_RepairsLiveEnvelopes` (14 fixtures) — ✅ FIXED
+
+> **RESOLVED 2026-07-19 (bugfix thread).** The test no longer exists under that
+> name and the package's envelope tests are green. It was rewritten as
+> `TestParseLLMJSON_LiveEnvelopeDistribution`
+> (`json_envelope_test.go:26`) when the truncation root cause was found and
+> closed — see `/bugs_closed/005_…article_body_root_cause_is_truncation_FIXED.md`.
+>
+> The rewrite answers the exact question this entry said nobody had determined
+> ("should the repair logic handle these, or are they genuinely unrepairable?").
+> The answer was **both, and the test now asserts the split**: 12 of the 14
+> fixtures are genuinely truncated by the old `max_tokens=2000` ceiling and must
+> stay permanently unparseable ("no repair can complete a sentence the model
+> never finished"); 2 are complete documents whose only fault was raw newlines /
+> unescaped attribute quotes, and `repairJSONStringLiterals` now handles those.
+> The test fails if that 2/12 distribution ever changes — so it also guards
+> against the repair function silently accepting a partial article.
+>
+> **Verified 2026-07-19:**
+> `go test ./platform/orchestration/actions/ -run 'TestParseLLMJSON|TestRepairJSON|TestMissingRequired'`
+> → `ok` — all 9 envelope tests PASS, including all 14 fixtures.
+>
+> **Note for whoever runs the full package:** `go test ./platform/orchestration/actions/`
+> currently still FAILS, but on `TestReconcile_BuiltPageCompositionSurvivesReplan`
+> and `TestReconcile_BuiltPageOmittedByLLMIsUnioned` in
+> `v3_site_reconcile_test.go` — an **untracked** file belonging to another
+> session working error 001. That is not this entry, and not yours to fix.
+
+**Original entry (retained for the record):**
 
 **Severity: pre-existing red test in `go test ./platform/orchestration/actions/`.
 Not introduced by this workstream (touches none of its code).**
@@ -110,7 +148,84 @@ JSON-repair behaviour used broadly, so it deserves its own focused change.
 
 ---
 
-## C. DATA DRIFT — `contact` page section sources disagree (robot-hands)
+## C. DATA DRIFT — `contact` page section sources disagree (robot-hands) — ✅ FIXED
+
+> **RESOLVED 2026-07-19 (bugfix thread), and it was TWO sites, not one.**
+> Migrations `175_robot_hands_contact_plan_sections_fix.sql` and
+> `176_leopardess_aspect_generic_text_block_fix.sql`, both applied and
+> ledger-recorded. **Fleet-wide drift is now 0 pages** (query below).
+>
+> ### C.1 robot-hands `contact` — intended component was `contact-block`
+> The mechanism claim in this entry is **CONFIRMED**, not assumed: resolution
+> Pass 1 is an *exact* match on `content_components.name`
+> (`v3_site_actions.go:3383-3398`), so a plan naming `contact-info` binds the
+> component named `contact-info` and `contact-block` is never a candidate. The
+> swap was real.
+>
+> `contact-block` is intended. Sources 2 (aspect), 3 (`pages.sections`),
+> `page_components` and the live page **all already said `contact-block`** —
+> only the authoritative table, rewritten by the 2026-07-08 replan, disagreed.
+> It is also bespoke to this one site, 28 schema fields against `contact-info`'s
+> 6, template 12066 chars against 2573, and maintained 4 months more recently.
+> Swapping would additionally have rendered an *incomplete* section:
+> `contact-info` needs a business contact email this site does not supply.
+> Migration 175 corrects source 1 only — unlike 154, the resurrection had not
+> happened yet, so `page_components`/`pages.sections` were already right and
+> were left alone.
+>
+> ### C.2 leopardess `index` + `case-studies` — same class, OTHER source
+> Found while verifying C.1. leopardess has a current `site_plans` row with
+> **zero** `site_plan_sections` rows, so source 1 misses and the **aspect** is
+> authoritative for it. 16 leopardess pages carry a deployed
+> `generic-text-block` (added 2026-07-18 at the `page_components` level, never
+> written back up); on 14 it is harmless (page absent from the aspect, or its
+> aspect entry has `"sections": null`, so source 2 misses). On **two** the
+> aspect holds a real array that omits the block, so a rebuild would have
+> **deleted live editorial copy** — verified live 2026-07-19: "The whole thing
+> on one page / Every figure here comes from our own database…" (index) and
+> "The three systems, as a route map…" (case-studies). Migration 176 aligns the
+> aspect *up* to what is deployed — it makes no editorial decision. If the
+> leopardess workstream wants those blocks gone, remove them from the aspect
+> **and** `pages.sections` together.
+>
+> ### Work items closed
+> `94de6b92` (robot-hands contact drift) — fixed by 175.
+> `f50a8161` (leopardess `who-we-help` drift) — **stale**: that drift had
+> self-resolved when the page rebuilt on 2026-07-18. The predicted revert *did*
+> fire and restored `case-studies-grid` — but with the **audited honest
+> framing** ("not client pitches dressed up as outcomes"), so no fabrication was
+> resurrected. Checked because that site's audit had removed invented client
+> case studies.
+>
+> ### Missteps worth keeping (they cost me time, or nearly cost a finding)
+> - **I hypothesised the planner flip-flops between component names fleet-wide**
+>   (the plan history alternates `contact-info`/`contact-block` and
+>   `hero-contact`/`contact-hero` across five replans). **REFUTED** — a
+>   fleet-wide comparison found **1 drifted page out of 91**. The alternation is
+>   historical, not an active fleet defect. Confidence was not a signal.
+> - **`hero-contact` is not a component at all.** Only `contact-hero`,
+>   `contact-info`, `contact-block` exist. The slot binds `contact-hero` because
+>   resolution falls back to `content_components.section_type`, which the
+>   component-creator writes from the *requested* name while the LLM names the
+>   row whatever it likes (`store_generated_component_action.go:636-645`). **Any
+>   `section_type` value is a permanent, invisible alias**, and nothing enforces
+>   `name == section_type`. Do not assume a section name is a component name.
+> - **My first fleet drift query only compared the TABLE path** and so missed
+>   every aspect-authoritative site — which is how leopardess nearly went
+>   unnoticed. The effective authoritative source is *table if present, else
+>   aspect*; a query that checks only one is not a fleet check.
+> - **A scalar/`null` `sections` value silently drops pages from the
+>   comparison** (`ERROR: cannot extract elements from a scalar`, or a NULL that
+>   a `WHERE auth IS NOT NULL` then filters out). Guard with
+>   `jsonb_typeof(...)='array'` on **both** sides or the query under-reports and
+>   looks clean.
+>
+> ### Verify (expect 0 rows)
+> The corrected fleet-wide drift query, with its three gotchas, is in
+> `docs024_key_docs_latest/empty_sections_loop_integrity/RUNBOOK_empty_sections_loop_integrity.md`
+> **§5c-bis**. Ran clean (0 rows) after both migrations.
+
+**Original entry (retained for the record):**
 
 **Severity: latent — a rebuild of the contact page will silently swap a
 component. Caught by the new `section_source_drift` check.**
@@ -221,16 +336,32 @@ dartsonline ships. Worth deciding before a rebuild surprises someone.
 ---
 
 ## Priorities (suggested)
+
+> **STATUS 2026-07-19 (bugfix thread): B and C are DONE. A, D, E, F remain.**
+
 1. **A** — SUPERSEDED; all work is in `003_HANDOFF_spawn_lost_child_response.md`
    (Kafka broker-2 node network path + two platform gaps). Highest leverage —
    it hurts the whole fleet. Do NOT chase my retracted action=orchestrate
    theory.
-2. **B** — red test; quick to triage, unblocks a clean `go test`.
-3. **C** — one migration, low risk, template exists (154).
+2. ~~**B** — red test~~ — ✅ **FIXED** (was already fixed by the truncation work
+   in `/bugs_closed/005`; verified green 2026-07-19). Note the package still
+   fails on another session's untracked `v3_site_reconcile_test.go` (error 001).
+3. ~~**C** — one migration~~ — ✅ **FIXED** 2026-07-19, migrations **175** and
+   **176**. It was **two sites**, not one; fleet-wide drift now 0 pages.
 4. **D** — news-listing is another subsystem (news feed). tool-guide-intro is
    NOT a quick fix: it hits the content-regression guard (see its entry) — a
    real guard-vs-repair gap needing a targeted-repair approach.
+   *Re-grounded 2026-07-19:* those items are now `unresolved` (2 attempts
+   spent), not `detected`/`failed`, and the news-listing half is additionally
+   covered by `/bugs_open/026` (hardcoded English + dropped `h1`) and
+   `/bugs_open/027` (news pages render no news without JavaScript). Read those
+   before treating it as a data-supply problem.
 5. **E** — dartsonline decision; not urgent but do before its next rebuild.
+   *Re-grounded 2026-07-19: unchanged and still latent* — `products` for
+   dartsonline is still **0**, and both `product-grid` sections are still
+   frozen `rendered_html` last touched 2026-07-06 (index 3055 chars,
+   new-arrivals 3048). Still the owner's call, so deliberately not actioned.
+6. **F** — on-demand discovery dispatch. Untouched; needs a live trigger run.
 
 ---
 

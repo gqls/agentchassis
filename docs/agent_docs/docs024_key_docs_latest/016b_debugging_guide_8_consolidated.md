@@ -1435,6 +1435,59 @@ branch of a two-branch router reads as done" (§9) — both are the failure to e
 the paths before believing one. Category tags: `misattribution`, `shared-symptom`,
 `multi-writer`, `evidence-by-source-row`.
 
+### A one-source check of a two-source authority under-reports, and looks clean doing it
+
+*Added 2026-07-19 from bugs_open/002 error C.*
+
+`load_page_sections_from_spec` resolves a page's section list from **table if
+present, else aspect**, then syncs the winner down over `pages.sections`. A drift
+sweep that compares only `site_plan_sections` therefore misses every
+aspect-authoritative site — and some sites have a current `site_plans` row with
+**zero** `site_plan_sections` rows, so source 1 misses entirely. My table-only
+sweep returned "1 drifted page out of 91" and read as near-clean; the corrected
+two-source sweep found the real set, including two pages whose next rebuild would
+have deleted live editorial copy on a client site.
+
+Two compounding traps in the same query:
+
+- **JSON `null` where you assumed an array.** `jsonb_array_elements` on a scalar
+  raises `cannot extract elements from a scalar`; and if you paper over that, the
+  NULL it produces gets silently removed by a later `WHERE … IS NOT NULL`. The
+  page then disappears from the report rather than erroring. Guard
+  `jsonb_typeof(x)='array'` on **both** sides.
+- **The `null` case is genuinely safe, so you cannot just treat it as drift.**
+  Source 2's type assertion fails and it falls through to source 3. Of 16 pages
+  carrying the section, only 2 were actually at risk. A check that flags all 16
+  gets ignored as noise; one that flags 0 misses the 2.
+
+**Rules.** (1) Before writing a fleet sweep, read the resolver and enumerate
+*every* source it consults, in order — a sweep is only as wide as the authority
+model it encodes. (2) A near-zero result from a sweep you just wrote is a reason
+to test the sweep, not to relax. (3) Prove the sweep can *see* a known-bad row
+before trusting a clean run. Kin: "A fix applied to one branch of a two-branch
+router reads as done" (§9). Category tags: `partial-coverage`, `authority-order`,
+`jsonb-null`, `false-clean`.
+
+### A section name is not a component name — `section_type` is an invisible alias
+
+*Added 2026-07-19 from bugs_open/002 error C.*
+
+Section→component resolution is exact-match, but against **three** columns in
+order: `name`, then `function`, then `section_type`
+(`v3_site_actions.go:3383-3465`, `component_selector.go:164-190`). `section_type`
+is written from the *requested* section name, while the LLM names the row
+whatever it likes (`store_generated_component_action.go:636-645`), and nothing
+reconciles the two. So a plan asking for `hero-contact` binds a component
+actually named `contact-hero` — permanently, invisibly, and correctly.
+
+The consequence for debugging: **a name mismatch between a plan and
+`page_components` is not by itself a defect.** It may be an alias that resolves
+fine. Conversely a name that *matches* something real is not safe either — when
+the plan named `contact-info`, Pass 1 exact-matched the generic library component
+of that name and the bespoke `contact-block` was never a candidate. Determine
+which pass will win before concluding either way. Category tags:
+`alias-by-side-channel`, `resolution-order`, `name-is-not-identity`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -1479,12 +1532,57 @@ See `/bugs_closed/README.md`.
 | 021 | The 012 completeness guard covers ONE write path; `page_components.rendered_html` and `pages.rendered_*` have the same unguarded overwrite shape | filed (council bug_historian objection); needs scope decision |
 | 023 | A button's label and its destination are unrelated schema fields — nothing checks that a control with text has somewhere to go. 51 dead controls / 7 of 11 sites; 84% of library CTA anchors ungated; detected findings die at `needs_human_review` (zero consumers) | filed 2026-07-19; plan in `cta_link_integrity/`, no fix started |
 | 024 | A tool-improver fix is written durably to `content_components.html_template` and **never rendered to the page** — three defects in series (dead `pending` flag; rerender request carries no `spec.reason` so it assembles stale HTML and reports success; the article-body guard escalates any section with empty `content_data`, which is every tool, bypassing the only writer of `rendered_html`). Explains `bugs_open/010`'s "non-convergence" — the page never changed | filed 2026-07-19; diagnosed with live evidence, no fix started |
+| 031 | A wrong entry in the concept register (`styling-render-pipeline.md:389` + 2 `.buckets` copies) claims scoped page-rerender "SKIPS pages whose content hash is unchanged". No such code exists and `git log -S` shows it never did — but a council seat quoted it as "the pipeline's own contract" and blocked a correct plan at HIGH severity, costing a full round | filed 2026-07-19; register NOT yet corrected |
 | 029 | `tool-suggester` emits `content_rewrite` items at SUGGESTION time telling the writer to "weave a natural reference" to a tool that has no `pages` row — the writer invents the URL, producing an owner-visible 404. Autonomous, and it regenerates human-reviewed copy while doing it. **This is the true cause of the leopardess damage wrongly filed under `001`** | filed 2026-07-19; primary DB evidence, no fix started; check `023` first — likely the same family |
 
 > **Index gap (noted 2026-07-19):** `025`–`028` exist in `/bugs_open/` but are not
 > yet indexed here, and `027` is already used by **two** different cases. Filed by
 > concurrent threads; list them with `ls bugs_open/` rather than trusting this table
 > to be complete.
+
+### A confident claim in our own knowledge base is not evidence (2026-07-19)
+
+**Symptom.** A review, a plan or a debugging session is stopped by a stated
+"contract" of the system — quoted with authority, specific enough to sound
+load-bearing, and fatal to the approach if true. In the originating case a
+council seat blocked a correct fix at HIGH severity by quoting the concept
+register: scoped page-rerender *"SKIPS pages whose content hash is unchanged"*,
+which would have made the fix a guaranteed no-op.
+
+**Root cause.** The claim had **never been true**. `grep` found no `content_hash`
+anywhere in the rerender path and `git log -S "content_hash"` over those files
+returned **no commits at all**. What almost certainly happened: an earlier thread
+observed a real symptom (pages not updating after a change), inferred a mechanism
+for it, and wrote the inference into the register in the register's confident
+declarative voice — with no file:line and no reproduction. From outside, the
+three legitimate `carried` paths and a pre-check escalation are indistinguishable
+from "skipped because nothing changed".
+
+**Why it bites harder than an ordinary stale doc.** The register is **agent-facing
+input**. A wrong entry is not just misleading prose — it gets quoted as evidence
+in machine reviews and treated as decisive. And it was replicated across five
+files, so correcting one fixes nothing.
+
+**Durable rules.**
+1. **Verify a cited contract against the code before revising your plan around
+   it.** Three greps and one live probe disproved this one. Reorganising a
+   correct design around an unverified quote is the expensive failure.
+2. **`git log -S "<symbol>" -- <files>` distinguishes *stale* from *never true*.**
+   That distinction changes the fix: stale means update the entry; never-true
+   means find out what the author actually observed, because that symptom was
+   real and is probably still unexplained.
+3. **An assertion about code behaviour needs a file:line.** Without one it is an
+   observation, and should be voiced as one ("we observed X"), not as a contract
+   ("the pipeline skips Y"). Applies to the register, to handoffs, and to §9
+   entries like this one.
+4. **When a doc and the code disagree, the code wins — and the doc is now a bug.**
+   File it (`bugs_open/031`), don't just fix your own copy; the next reader gets
+   the same wrong answer.
+5. **Chase the objection anyway.** Disproving this one meant reading the area
+   properly, which surfaced a genuine adjacent defect nobody had named
+   (`plan_sections_action.go` carries, never re-renders, an empty-schema component
+   whose function name matches article/content/body/text/blog). A wrong objection
+   pointed at the right neighbourhood.
 
 ### "Verified live" by grepping a generic property — the fix that was never rendered (2026-07-19)
 

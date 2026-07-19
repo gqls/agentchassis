@@ -28,6 +28,35 @@ It is not only content *loss*, it is fabrication *injection*, and it defeats hum
 **What survives a clobber:** heroes wired through `site_plans` / `site_plan_imagery` rows.
 That is why imagery work is durable here and copy work is not — prefer imagery until 001 lands.
 
+### 🔧 2026-07-19 — a second, quieter clobber path on this site, now closed (not by your thread)
+
+A bugfix thread working `bugs_open/002` error C changed **this site's
+`site_specs.site_plan` aspect** — telling you so it isn't a surprise. Migration
+`176_leopardess_aspect_generic_text_block_fix.sql`, applied and ledger-recorded.
+
+**Why it mattered here specifically.** This site has a current `site_plans` row with
+**zero `site_plan_sections` rows**, so the section-list authority is the **aspect**, not
+the table. 16 pages carry a deployed `generic-text-block` (added 2026-07-18 at the
+`page_components` level, never written back up). On 14 that is harmless — the page is
+absent from the aspect, or its aspect entry is `"sections": null`, so the aspect misses
+and `pages.sections` governs. On **index** and **case-studies** the aspect held a real
+array *omitting* the block, so the next rebuild would have **silently deleted live
+copy**: "The whole thing on one page / Every figure here comes from our own database…"
+and "The three systems, as a route map…". Both verified live before the fix. The
+migration aligns the aspect **up** to what is deployed — it makes no editorial choice.
+**If you want those blocks gone, remove them from the aspect AND `pages.sections`
+together**, or the mismatch simply comes back.
+
+Two things checked while there, both reassuring: the `who-we-help` drift that was filed
+on 07-17 had already self-resolved in the 07-18 rebuild, and the `case-studies-grid` it
+restored came back carrying the **audited honest framing** ("not client pitches dressed
+up as outcomes") — no fabrication was resurrected. Fleet-wide section drift is now 0
+pages; the sweep query is RUNBOOK §5c-bis in `empty_sections_loop_integrity/`.
+
+This is the same *class* as 001 but a different *path* — 001 is the re-planner rewriting
+built pages; this was an authority source that never learned about a hand-added section.
+Fixing it does not close 001, and your "undefined shelf life" warning above still stands.
+
 ---
 
 ## ⚡ PUNCH-LIST 1 (owner review 2026-07-14) — all items now closed or superseded
