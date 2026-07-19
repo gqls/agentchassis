@@ -1,6 +1,17 @@
 # HANDOFF — I3/D13 imagery gate FAILED: fix card imagery (start a new chat here)
 
-> **STATUS 2026-07-18 — F1 and F2 are CLOSED on learning-center-hub; F3 is what remains.**
+> # ⛔ THIS FIX CHAT IS FINISHED — do not start a new chat here.
+> **Start from `HANDOFF_imagery_best_in_class.md`** (the workstream entry point,
+> current as of 2026-07-19). This document is kept for its evidence and its
+> record of what failed; its "suggested fix order" and F3 ordering are **spent or
+> superseded**. Everything below is history unless the banner says otherwise.
+>
+> **STATUS 2026-07-19 — F1 and F2 CLOSED; F3's first two surfaces LIVE.**
+> The article listing and the tool directory both carry on-style card imagery on
+> robot-hands (v1.0.1136). What remains of F3 is two OWNER DECISIONS, not work —
+> RUNBOOK B16. See the entry-point handoff.
+>
+> **STATUS 2026-07-18 — F1 and F2 are CLOSED on learning-center-hub.**
 > D14 (flat duotone illustration; `content_hero` as its own kind routed to Banana;
 > per-kind style-guide overrides) and the F2.1 eligibility filter shipped in
 > `4e35c8064`, with council-gate fixes in `358e14af6`, live and pod-verified on
