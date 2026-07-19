@@ -227,3 +227,24 @@ Running record, append-only, **newest at the bottom** (per CLAUDE.md "standing f
 - Docs brought to the standing four + handoff refreshed to 2026-07-19 with today's grounded
   figures. Runbook gained: DB component editing (dollar-quoted SQL via stdin), the whole-site
   component audit query, and the unsolved render-trigger.
+
+## 2026-07-19 (later — CLAUDE.md re-read: standing FIVE, and a doc I misread)
+
+- CLAUDE.md gained a fifth standing doc since this morning: **`README_where_we_are.md` is the
+  OWNER'S plain-prose running log**, append-only, to be written at every natural break ("if you
+  wrote a substantial reply in chat, it belongs here too").
+- > **CORRECTED 2026-07-19:** earlier today I told the owner this file was "STALE, do not act on
+  > it" and wrote that into the handoff, because its opening still describes the 15 July strip.
+  > That was a misreading — it is a chronological history, so early entries are supposed to be
+  > old. Handoff corrected to describe it properly. Caught by re-reading CLAUDE.md.
+- Checked whether I was the session that overwrote it on 07-19 (CLAUDE.md now warns about this):
+  **not me** — `git log` shows only the owner has committed that file, and the working-tree change
+  is a +35-line append, not a rewrite. I only ever read it.
+- Appended this session's entry to it in the owner's register (prose, `--` separator, `※ recap:`).
+  Never rewrote or reordered.
+- `/bugs_closed/` now exists (split 07-19). Grep BOTH dirs before filing. Numbering is one shared
+  sequence, never reassigned; `016` and `017` each name two different cases, so resolve by slug.
+  Checked ours: **020 is unique across both dirs** (019/020/021 all distinct).
+- Added `SUMMARY_2026-07-19_readout.md` in the five-part structure CLAUDE.md now specifies
+  (trying to do · come from · done · where we are · where going). Earlier summaries kept as
+  milestone records at their dates.

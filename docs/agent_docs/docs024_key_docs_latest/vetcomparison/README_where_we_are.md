@@ -369,3 +369,60 @@ The handoff now points at 020 with its root cause, so the next thread starts fro
 search section with no data source, so the restore is protection for one page rather than a cure.
 
 --
+
+Re-read done — CLAUDE.md had gained a "standing four" working-docs directive since this morning, which my workstream was violating, and then I got on with the build.
+
+Docs brought into line first. The notes file is renamed NOTES_vetcomparison.md and reordered newest-at-the-bottom — I'd deliberately reordered it newest-first this morning, so that was doubly wrong. The directive also asks for
+corrections to be made visibly rather than silently edited away, so the file now carries two marked corrections: my wrong "the rebuild dropped the search UI" claim, and the earlier "all 803 rows have source URLs" claim that was
+a false pass from testing NULL instead of empty.
+
+The real build work: the fabrication was still in the database. My restore yesterday fixed the published file, not the source. Querying the components showed the generator sitting in page_components.rendered_html, deployed and
+unlocked — so the next render would have republished it. It also wasn't where I'd assumed: the whole recreated tool lives in the hero slot (18KB of it), not filtered-result-grid. The false claims were spread across three
+components.
+
+I fixed it at source while keeping the chassis's better UI — its component has a region filter and pagination that our hand-written one lacked. Only the data layer was rewritten: same markup, IDs and styling, but fetching the
+real /data/vet-full-index.json, with an honest disclaimer and a comment forbidding record generation that points at bug 020. Then the copy: price-sort controls gone, the "pricing information / ownership data" claim rewritten to
+what we actually publish, and the "Ownership and Group Information" card — a feature we don't have — replaced with the claim-your-listing route, which is a product we do have. All four corrected components are now permanently
+locked; before today exactly one component in the entire fleet had such a lock.
+
+The sweep of other pages was worth doing, and worth doing by reading rather than by regex. Three more hits. Only one was genuinely false — the about page claimed "the directory identifies independently owned practices
+separately from those owned by corporate groups", which we stripped on 15 July. The other two describe the CMA's findings and obligations accurately; a blanket find-and-replace would have corrupted correct content.
+
+What I could not prove, and won't pretend otherwise: no render has been run against the fixed source. I tried twice to dispatch one manually and neither topic produced an orchestration state — rerender-pages is marked
+experimental. So the database and the live site are both verified correct, but the render path is unverified. That's written into the handoff as the one thing to watch, with a one-line curl check for whoever sees the first
+natural render.
+
+One self-inflicted error worth flagging because it nearly did damage: I tried to load the corrected component using \set html \cat file`through a piped psql, and thecatran *inside the database pod*, which has no such file — 
+  silently blanking the hero to zero characters while reportingUPDATE 1`. Caught it immediately by verifying rather than trusting the status, which is the same lesson this whole day has been about. It's recorded in the notes with
+the correct method.
+
+✻ Worked for 16m 49s
+
+※ recap: We're rebuilding vetcomparison.uk as an honest vet price comparison site; the live site is clean and the fabricated data is now removed from both the page and the database, with components locked. Next: watch the first
+natural render to confirm the fix survives it.
+
+
+---
+--
+
+Docs and handoff refreshed so a new chat can start cold. The handoff is now HANDOFF_2026-07-19_vetcomparison_uk.md, rewritten with every figure re-checked against the live system rather than carried forward from
+yesterday's file — I re-fetched the site, re-queried the database and re-read the CMA case page before writing a word of it. That grounding changed three things I would otherwise have written from memory.
+
+The render path is still unexercised. Nothing has touched the site since Friday's restore, so the fabrication fix is verified in the database and on the live page, but no render has ever joined the two. When one finally
+runs the homepage will visibly change — the live page is our simpler hand-written version, while the database now holds the richer chassis component with a region filter and pagination reading the real data. That change is
+expected and is an improvement, but it is also the untested moment, so the handoff makes watching it the first job with the exact checks to run.
+
+The substantive CMA Order still is not published. The case page's latest entry is still 30 June, so it is now overdue against its own July timetable with a hard 23 September deadline. The funding consultation closes in
+eleven days and the draft response is still sitting waiting on you.
+
+I also found the RCVS research you have been adding here — about 150KB across three documents on their institutional efficacy, financial stewardship and software delivery record. That is strategically live and is not folded
+into any plan yet: the RCVS both builds the official comparison tool that will be our main competitor and writes the approval criteria for third parties, so how well they deliver bears directly on the argument we are making
+to the CMA. It deserves a session of its own.
+
+One correction to something I told you earlier today. I described this file as stale and told the next session to disregard it, because its opening still talks about the strip needing a push and quotes a practice count from
+the 15th. That was a misreading — this is a running history, so of course its early entries are old; that is what a history is for. CLAUDE.md has since made it explicit that this is your document, appended to and never
+rewritten, and that I should be adding to it whenever I write a substantial reply in chat. I have not been doing that, which is why the last few days of it are your paste rather than my writing. I have corrected the handoff
+so it describes this file properly instead of dismissing it, and this entry is me starting to keep my side of it.
+
+※ recap: the site is clean and working, the docs are current and a new chat can pick up from the handoff. Two things are waiting on you — the consultation response before the 30th, and seven build items in the admin queue.
+The one thing to watch is the first automatic render, to confirm the fabrication fix survives it.

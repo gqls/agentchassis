@@ -3,9 +3,11 @@
 **Written 2026-07-19. Every figure below was re-checked against the live system today**
 (live page fetched, DB queried, CMA case page fetched) — not carried forward from another doc.
 
-**Read in this order:** this file → `SUMMARY_2026-07-18_readout.md` (what/why, plain prose) →
-`PLAN_2026-07-15_rebuild.md` (phases + statuses) → `RUNBOOK_vetcomparison.md` (commands) →
-`NOTES_vetcomparison.md` (running log, newest at the bottom, includes my own corrected mistakes).
+**Read in this order:** this file → `SUMMARY_2026-07-19_readout.md` (milestone read-out, plain
+prose) → `PLAN_2026-07-15_rebuild.md` (phases + statuses) → `RUNBOOK_vetcomparison.md` (commands)
+→ `NOTES_vetcomparison.md` (technical log, newest at the bottom, includes my corrected mistakes)
+→ `README_where_we_are.md` (the owner's plain-prose history — append to it as you work).
+The standing five for this workstream are PLAN / RUNBOOK / NOTES / README_where_we_are / SUMMARY.
 Also `LEGAL_2026-07-15_*` (factual record — update it whenever publication-relevant facts change)
 and `SUMMARY_2026-07-18_bugs_journey.md` (what went wrong, incl. the one that recurred).
 
@@ -154,12 +156,19 @@ If fabrication returns, the locks did not hold — that is a platform finding; a
 - Adoption re-trigger if ever needed: `bash 082_submit_domain_unified.sh vetcomparison.uk --from
   https://vetcomparison.uk --fidelity locked`.
 
-## Other files in this directory (not written by this workstream)
+## Other files in this directory
 
-- **`README_where_we_are.md` — STALE, do not act on it.** It is a paste of chat messages from
-  15 July: it still says the strip needs pushing and quotes 2,579 practices. Superseded entirely
-  by this handoff. `README_vet_legal.md` is a similar paste of the copyright discussion — its
-  reasoning still stands, but `LEGAL_2026-07-15_*` is the authoritative version.
+- **`README_where_we_are.md` — the OWNER'S document, and one of the standing five.** Plain-prose
+  running history, append-only, newest at the bottom.
+  > **CORRECTED 2026-07-19:** an earlier version of this handoff called this file "STALE, do not
+  > act on it" because its opening still describes the 15 July strip. That was a misreading — it
+  > is a chronological log, so early entries are *supposed* to be old. **Append to it; never
+  > rewrite, reorder or edit the owner's words** (add a dated correction below instead). Write to
+  > it at every natural break — per CLAUDE.md, if you wrote a substantial reply in chat, it
+  > belongs here too. Match the register: plain prose, no jargon, no field-name tables.
+  For current *state* read this handoff; for the *story* read that file.
+- `README_vet_legal.md` — a paste of the copyright/database-right discussion. Reasoning still
+  stands; `LEGAL_2026-07-15_*` is the authoritative version.
 - **`RCVS_mismanagement.md`, `RCVS2_mismanagement.md`, `RCVS2_who_should_manage_it.md`,
   `RCVS3_report_and_discussion`** — owner-supplied research (~150 KB) on RCVS institutional
   efficacy, regulatory overreach, financial stewardship and its software-project record.
