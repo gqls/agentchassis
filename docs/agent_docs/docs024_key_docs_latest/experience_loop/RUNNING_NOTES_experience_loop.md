@@ -627,3 +627,71 @@ the fix landed, so the fall-through has never actually executed.
 **The landmine is now retired**: the previous handoff's "the current `is_current`
 plan is an escalated/unapproved one, do not build from it" no longer applies. The
 current plan is the round-5 approved one. T4 may build from it.
+
+### 2026-07-19 — the js_content clobber risk, traced to mechanism (T4 precondition)
+
+The council's round-5 objection said component `js_content` edits "risk being
+clobbered" by index's pending generic rebuild. Traced it before planning around
+it. **The risk is real but it is NOT what the objection describes, and
+`rebuild_policy` does not fix it.**
+
+**Ground truth first** (this reframes everything):
+
+| component | level | js_content | on pages | page policy |
+|---|---|---|---|---|
+| `gauntlet-interface` | section | **3,909 B** | tool-gauntlet | **owned** |
+| `provocation-card` | section | *empty* | index | generic |
+| `gauntlet-cta` | section | *empty* | **about + index** | generic |
+| `lobby-grid` | section | *empty* | index | generic |
+| `brief-explanation` | section | *empty* | index | generic |
+
+So the only component that has JS today sits on an **owned** page and is already
+protected. The exposure is entirely **prospective** — it appears the moment T4
+*adds* js_content to a component on a generic page.
+
+**Who actually writes `js_content`** (`grep` over `platform/`, `internal/`, `cmd/`):
+exactly one writer — `store_generated_component_action.go:420-430`, a single
+UPDATE setting `html_template`, `input_schema`, `js_content` and `render_mode`
+together. That is **component (re)generation**, not page rerender.
+
+**Page rerender never writes it.** `rerender_single_page_action.go:149`
+(`collectJSAssets`) only READS it, to emit `/tools/assets/{function}.js`. So the
+three real risks are:
+
+- **A — component regeneration overwrites the edit.** The genuine clobber. Any
+  re-run of component generation over these functions replaces html_template AND
+  js_content in one statement. It snapshots to `component_versions` first, but
+  **warn-and-continue** if the snapshot fails (`:405-414`), so recovery is not
+  guaranteed. **`pages.rebuild_policy` does NOT gate this** — it gates only
+  `save_page_sections_action.go:148` and `reconcile_site_plan_action.go:202`.
+  Marking index `owned` would not prevent it.
+- **B — bulk rerender silently drops the JS asset.** The sharper one, and it runs
+  the opposite way to the objection. `rerender_pages_actions.go:568` states
+  outright that the bulk path "has no collectJSAssets equivalent — js_content
+  assets are only emitted by single-page rerenders." So a bulk `rerender-pages`
+  pass emits HTML referencing a JS file it does not republish: **DB row intact,
+  live page broken.** And the stuck `deactivated_component` items
+  (header/footer/head) route to `rerender-pages` — that IS the pass the council
+  smelled, but the failure mode is a stale/missing asset, not a lost row.
+- **C — shared-component blast radius.** `gauntlet-cta` is attached to **about
+  AND index**, and js_content is library-level, so one edit executes on both
+  pages. Not a clobber; a scope problem the plan must state.
+
+**The truncation guard does not cover this.** `componentRegressionIssues`
+(`component_write_guard.go:133`) is wired into `update_component_html_action.go`
+only — `store_generated_component` merely references it in a comment
+(`:1297-1302`). That is `bugs_open/021` exactly ("covers ONE durable-write path").
+Worse for us: the guard compares **HTML only**, so `js_content` is never compared
+on *any* path.
+
+**Recommended resolution for T4** (in order):
+1. **Prefer `page_components.content_data` over library `js_content`.** It is
+   per-page, so it dodges A, B and C at once. The approved plan already leans
+   this way — its Step 1 notes the content_data path works without a rerender.
+2. **Anything that genuinely needs library-level JS should live on an `owned`
+   page** — which is where the only existing js_content already sits.
+3. **If a bulk rerender does run over a page with js_content, follow it with a
+   single-page rerender** of that page, or the asset never re-emits (B).
+4. Durable fix is `bugs_open/021`'s: extend the guard to `store_generated_component`
+   and make it compare js_content, not just HTML. Not T4's job — pointed at, not
+   forked.
