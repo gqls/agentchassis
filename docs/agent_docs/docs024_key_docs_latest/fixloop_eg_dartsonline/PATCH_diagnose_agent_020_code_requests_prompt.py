@@ -124,13 +124,31 @@ def main():
         print("DRY RUN — re-run with --apply to write (snapshots first).")
         return 0
 
-    payload = json.dumps(new)
+    # DOLLAR-QUOTED, not a JSON-encoded string embedded in SQL text.
+    #
+    # The first version of this script did `{json.dumps(json.dumps(new))}::jsonb`
+    # and psql died with `invalid command \` (2026-07-19). Two faults in one line:
+    # the payload was double-encoded, and — the fatal one — psql reads piped SQL
+    # line by line and treats ANY line beginning with a backslash as a
+    # meta-command, so an escaped sequence landing at a line start is executed as
+    # `\d`-style input rather than data. Dollar-quoting sidesteps the escaping
+    # question entirely (the same shape used for the doc_notes insert that
+    # worked), and to_jsonb() does the text->JSON-string conversion server-side
+    # where it cannot be mangled in transit.
+    #
+    # The transaction did roll back cleanly on that failure (ON_ERROR_STOP + the
+    # explicit BEGIN), leaving no stray snapshot — verified, not assumed.
+    tag = "prompt020"
+    if f"${tag}$" in new:
+        print(f"REFUSING: the new prompt contains the dollar-quote tag ${tag}$", file=sys.stderr)
+        return 1
     sql = f"""
 BEGIN;
 SELECT snapshot_agent('diagnose-agent', 'pre-update: 020 — verdict prompt gains the code_requests channel (diagnosis-side code tier)');
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
-       '{{workflow,steps,verdict,config,prompt_template}}', {json.dumps(payload)}::jsonb)
+       '{{workflow,steps,verdict,config,prompt_template}}',
+       to_jsonb(${tag}${new}${tag}$::text))
  WHERE type='diagnose-agent' AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
 COMMIT;
 """
