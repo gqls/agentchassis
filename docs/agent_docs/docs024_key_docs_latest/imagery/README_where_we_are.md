@@ -369,3 +369,54 @@ for articles and now for robot-hands' tool directory. Two other sites use the
 same tool listing and will pick up their images on their next sweep. What is left
 needs decisions from you rather than typing from me: whether the category card
 grid should carry imagery at all, and the formal sign-off on the image budget.
+
+---
+
+## 2026-07-19 (later) — I checked whether the tool rollout was safe to let run. It isn't yet, and I need two decisions from you
+
+Last session I said two other sites would pick up their tool images on their next
+sweep, and that nothing was left but your decisions. Before letting that happen I
+checked what would actually be generated. Two things came back, and both change
+the picture.
+
+**First, I had the numbers wrong.** I said gamesdesign and idea.uk would draw on
+the image budget — about ten pictures. Running the check's own test instead of
+trusting my earlier survey: **finetuning.uk and leopardessconsulting.co.uk also
+qualify**, with five tool pages each, and **idea.uk qualifies for nothing at all**
+because its one tool page was never actually published. So the real number is
+**nineteen images across three sites**, not ten across two. My apologies — I
+asserted that from a survey rather than from the query that decides it.
+
+**Second, and this is the one that matters: those three sites have no imagery
+style guide.** Robot-hands is the only site in the fleet that has one. The style
+guide is what tells the image model what the pictures should look like, and it is
+what we added on 18 July to make robot-hands' cards consistent after your gate
+failed on exactly that. Without it, the system falls back to a free-text style
+note written for *photographs* and hands it to the model we use for *flat
+illustrations*. For gamesdesign that note happens to be fairly harmless. For
+leopardess it describes two different styles and expects a person to choose
+between them — fed to a machine wholesale, it is incoherent by construction.
+
+So if a sweep runs on those sites today, we spend real money on nineteen pictures
+in a style nobody has specified. That is the same failure you rejected at the gate
+in the first place, on three sites at once instead of one.
+
+Two honest caveats. It is **not on fire** — these sweeps are fired by hand, not on
+a schedule, so nothing happens until someone runs one. But any of the other
+sessions working this cluster could run one as routine housekeeping and trip it
+without knowing. And I have **not** generated a test image to prove the output is
+bad; I am going on the code path and on what happened last time. I have written
+all of it up as bug 027 with the evidence.
+
+**What I need from you** — the original question, plus a new one:
+
+1. **The category card grid** (the old question): should it carry pictures at all,
+   and if so should they come from the page each card links to, or from a new
+   generated icon per card? It is on fifteen pages across seven sites, so a wrong
+   answer is a visible change everywhere.
+2. **The nineteen tool images** (the new one): do we hold them until those three
+   sites have a style guide, write the style guides now and then let them run, or
+   let them run as-is and accept the inconsistency? My recommendation is to hold —
+   writing three style guides is config, it goes live immediately with no software
+   release, and it is the difference between nineteen usable pictures and nineteen
+   we look at and regret.

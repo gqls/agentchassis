@@ -39,14 +39,40 @@ on **v1.0.1136**. The two things left in I3 need *your decisions*, not code
 `8b804bc27` (F3 surface table) · migration `170` (tool-list image slot, applied)
 · `c0ef457a1` (release the adapter with the chassis).
 
-**What is left in I3 — both are RUNBOOK B16, both need the owner:**
+**⚠️ 2026-07-19 (Turn 53) — DO NOT let the tool rollout drain yet. See
+`/bugs_open/027`.** Two live-verified findings changed the position below:
+- **`content_hero` is unstyled on every site but robot-hands.** D14 added the kind
+  to the style guide's override map but NOT to `directionAppliesToKind`, so a site
+  with no `kinds.content_hero` override falls back to the free-text
+  `design_intent.imagery_direction` — written for photography, handed to a
+  flat-illustration kind on Banana. **Only robot-hands.com has an
+  `imagery_style_guide` row at all**, so every other site generates in an
+  unspecified style: the F1 class that failed the D13 gate. It reads as done
+  because robot-hands, the only site exercising the kind, has the override —
+  one branch of a two-branch router again.
+- **The rollout figures below were wrong.** Real exposure is **19 generations
+  across 3 sites** (gamesdesign 9, finetuning 5, leopardess 5), not 10 across 2:
+  finetuning.uk and leopardessconsulting.co.uk both pass the tool-list consumer
+  gate and were missed, and **idea.uk spends nothing** (its one tool page has
+  `deployed_at IS NULL`). Get this from the check's gate query, not a survey.
+- **Armed, not on fire:** `scheduled_tasks` has no discovery entry (passes are
+  fired by hand), but the check is registered on `design-discovery-agent` by
+  `type`, so *any* session's routine sweep of those three sites trips it.
+  Containment if one runs: emitted items sit at `detected` and do not spend until
+  triaged — delete or cancel them pre-triage at no cost.
+
+**What is left in I3 — RUNBOOK B16, all three need the owner:**
 - **B16.1 `info-card-grid`** — the most-deployed listing we have (15 live pages,
   7 sites), but NOT query-fed and with **no image slot at all**. Whether it
   should carry imagery, and from what source, is a design call. Do not just build it.
 - **B16.2** — the I5/I6 volume sign-off (B5). ~33 tool-page generations were
-  funded 2026-07-18; **7 spent**. gamesdesign.co.uk (9 tool pages) and idea.uk (1)
-  draw on it automatically at their next discovery passes; the other 7 sites with
-  tool pages have no `tool-list`, so the consumer gate spends nothing on them.
+  funded 2026-07-18; **7 spent**. Pending: **19 across gamesdesign.co.uk (9),
+  finetuning.uk (5) and leopardessconsulting.co.uk (5)** — corrected above.
+- **B16.3 (NEW)** — hold / style / accept those 19, given none of the three sites
+  has a style guide. Recommendation: **hold**, write the three style guides
+  (config, live immediately, no image roll), then let it drain. The fleet-wide code
+  half — give `content_hero` a defined default instead of a per-site lottery —
+  is 027 §5(a) and wants the council gate.
 
 **Do NOT start with `featured_article` or `product-card-with-cta`** — both are on
 **zero live pages fleet-wide** (the older fix handoff suggested otherwise and is
@@ -395,11 +421,13 @@ decisions D1–D8 user-confirmed (see PLAN §4/§8).
 
 **Nothing here is blocking and nothing needs a fix chat.** In priority order:
 
-1. **Ask the owner B16.1** (should `info-card-grid` carry imagery, and from what
-   source?). It is the widest-reach surface left and a wrong guess is a
-   fleet-wide visual change across 7 sites.
-2. **Let the funded tool rollout drain** — gamesdesign.co.uk (9 deployed tool
-   pages) and idea.uk (1) emit on their next discovery passes, 10/site/pass cap.
+1. **Ask the owner B16.1 and B16.3** (should `info-card-grid` carry imagery, and
+   from what source? and: hold / style / accept the 19 pending tool generations?).
+   B16.1 is a fleet-wide visual change across 7 sites; B16.3 is real spend in an
+   unspecified style — `/bugs_open/027`.
+2. **Do NOT let the funded tool rollout drain until B16.3 is answered.** When it
+   is: gamesdesign.co.uk (9), finetuning.uk (5) and leopardessconsulting.co.uk (5)
+   emit on their next discovery passes, 10/site/pass cap. (idea.uk emits nothing.)
    To watch or nudge one: RUNBOOK **A6.1** (fire a pass) + **A6.4** (promote
    items stranded in `detected` AND `unresolved`). After the cards land, the
    listing needs a re-render with `reason='image_landed'` — **A6.2**, this is the

@@ -357,6 +357,26 @@ change across 7 sites.
 
 **B16.2 — The I5/I6 volume agreement** (see B5 "still unsigned").
 
+> **CORRECTED 2026-07-19 (Turn 53):** the pending tool-surface volume this was
+> sized against was wrong. It is **19 generations across 3 sites**, not 10 across
+> 2 — `finetuning.uk` and `leopardessconsulting.co.uk` both pass the tool-list
+> consumer gate (5 deployed tool pages each) and were missed; `idea.uk` passes the
+> gate but its one tool page has `deployed_at IS NULL`, so it spends nothing.
+> Caught by running the check's own gate query instead of trusting the survey.
+
+**B16.3 — Hold, style, or accept the 19 tool-header generations?** (NEW 2026-07-19)
+Those three sites have **no `imagery_style_guide` at all** — robot-hands is the only
+site in the fleet with one, so it is the only site where D14's `kinds.content_hero`
+override exists. Everywhere else `content_hero` falls back to the free-text
+`design_intent.imagery_direction` (written for photography) — the F1 style-consistency
+class that failed the D13 gate. Full evidence: **`/bugs_open/027`**. Options:
+- **hold** the rollout until the three sites have a style guide (recommended);
+- **write the three style guides now**, then let it run — config only, live
+  immediately, no image roll needed;
+- **let it run as-is** and accept per-site inconsistency.
+There is also a fleet-wide code half (give `content_hero` a defined default rather
+than a per-site lottery) — 027 §5(a), wants the council gate, inert until an image roll.
+
 *Not waiting on you:* `featured_article` and `product-card-with-cta` are on
 **zero live pages fleet-wide**, so they need no decision and no work — the
 earlier handoff's suggestion to start there was wrong and is corrected. The news

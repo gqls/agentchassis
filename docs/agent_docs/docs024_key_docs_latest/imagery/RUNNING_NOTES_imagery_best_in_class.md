@@ -2171,3 +2171,68 @@ message was ever produced.**
 pass emits for their deployed tool pages, capped at 10/site/pass. The other 7
 sites have tool pages but **no `tool-list` component**, so the per-surface
 consumer gate correctly keeps them from spending anything.
+
+## Turn 53 — 2026-07-19 — checked whether the tool rollout was safe to let drain. It is not: `content_hero` is unstyled off robot-hands, and the rollout figures were wrong
+
+The handoff's next action #2 was "let the funded tool rollout drain". Before
+firing anything I checked what would actually emit. Two findings, both live-
+verified, both filed as **`/bugs_open/027`**.
+
+**FINDING 1 — the rollout figures in my own handoff were wrong in both
+directions.** I wrote (B16.2 / next-actions §2) that gamesdesign.co.uk (9) and
+idea.uk (1) draw on the funded budget and "the other 7 sites with tool pages have
+no `tool-list`, so the consumer gate spends nothing on them". Against the live DB,
+running the check's own gate query:
+
+```sql
+SELECT s.domain,
+       COUNT(*) FILTER (WHERE cc.input_schema::text LIKE '%query.pages_where_type:tool%') AS tool_list_consumers
+  FROM page_components pc
+  JOIN content_components cc ON cc.id = pc.component_id
+  JOIN pages p ON p.id = pc.page_id
+  JOIN sites s ON s.id = p.site_id
+ WHERE p.status IN ('active','deployed') GROUP BY 1;
+```
+`finetuning.uk` (1 consumer) and `leopardessconsulting.co.uk` (2) also pass the
+gate, with **5 deployed tool pages each** — 10 generations nobody had counted.
+And `idea.uk` spends **nothing**: its single tool page has `deployed_at IS NULL`,
+which the tool surface's `DeployedPageEligibilitySQL` excludes.
+
+So the real pending exposure is **19 generations across 3 sites**, not 10 across
+2. I had asserted the smaller figure from a survey rather than from the gate
+query, which is the mistake — the check's own predicate is the only thing that
+answers "what will emit", and it was a two-minute query away.
+
+**FINDING 2 — and the reason that exposure matters: `content_hero` has no
+defined style on any site but robot-hands.** D14 gave the kind a per-kind
+override map (`imagery_style_guide.kinds.content_hero`). What it did not do is
+add `content_hero` to `directionAppliesToKind` — so when a site has no override,
+`generate_image_actions.go:415` falls through to the free-text
+`design_intent.imagery_direction`, which is written to describe the site's
+*photographic* house style. That is the contamination class the function's own
+doc comment was written to prevent.
+
+Live: **only robot-hands.com has an `imagery_style_guide` row at all.** The three
+sites queued to generate have none, so all 19 would take whatever free text their
+`design_intent` holds — including leopardess's, which describes *two* styles and
+expects a human to pick one.
+
+**Why this reads as done and isn't:** the five-place checklist for a new kind is
+written in the handoff's own Mechanisms section and says a new kind must be added
+to BOTH gating functions. D14 satisfied one of them via the override map, and
+robot-hands — the only site exercising the kind — has the override, so every
+observation of `content_hero` to date has been of the branch that works. A fix
+covering one branch of a two-branch router reads as done; this is that shape
+again.
+
+**Not on fire, but armed.** `scheduled_tasks` has no discovery/improvement-loop
+entry (12 enabled tasks: health checks, reapers, build-pipeline-trigger, feed
+refresh), so passes are fired by hand — but the check is registered on
+`design-discovery-agent` by `type`, so it runs on *every* site's pass. Any
+concurrent session running a routine sweep on those three sites trips it.
+Leopardess had 123 discovery items in the last two days.
+
+**Not verified:** I have not run a generation on the three sites, so the output
+harm is inferred from the code path plus the D13 gate precedent, not observed.
+The code path, the missing style guides, the 19-page exposure and the corrected
+figures are all verified and quoted in 027.
