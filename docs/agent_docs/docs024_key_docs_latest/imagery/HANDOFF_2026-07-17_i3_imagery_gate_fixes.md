@@ -1,4 +1,4 @@
-# HANDOFF — I3/D13 imagery gate FAILED: fix card imagery (start a new chat here)
+# HANDOFF — I3/D13 imagery gate FAILED: fix card imagery (CLOSED — historical record)
 
 > # ⛔ THIS FIX CHAT IS FINISHED — do not start a new chat here.
 > **Start from `HANDOFF_imagery_best_in_class.md`** (the workstream entry point,
@@ -34,8 +34,8 @@
 >    three heroes on a white ground despite "deep charcoal ground" in the medium;
 >    adding explicit light-ground terms to the override's `avoid` fixed it on re-roll.
 >
-> Start at **F3** below. The 6 excluded blog-post rows remain R6 (build-or-retire)
-> in the sibling site handoff.
+> The 6 excluded blog-post rows remain R6 (build-or-retire) in the sibling site
+> handoff — still open, still not an imagery task.
 
 **Filed:** 2026-07-17, immediately after the user's A3 gate on the D13 card run.
 **Scope: IMAGERY ONLY.** The same gate surfaced serious SITE-level defects
