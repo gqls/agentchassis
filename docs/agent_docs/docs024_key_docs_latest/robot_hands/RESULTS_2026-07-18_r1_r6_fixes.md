@@ -1,5 +1,14 @@
 # RESULTS — robot-hands.com site fixes (R1–R6), 2026-07-17/18
 
+> **SUPERSEDED 2026-07-19 for current state** — see
+> `HANDOFF_2026-07-19_robot_hands_start_here.md`. The root-cause analysis below
+> still holds; the *status* lines do not. Since this was written: the 37-page
+> and 30-page batches both drained, **R1/R2/R3/R5/R6 are all verified live**
+> (this file says R2/R4 "verify visually after the drain" — done, they pass),
+> and the `generic_theme` fix is **live and proven** in v1.0.1137 with zero
+> fleet-wide detections since the roll (this file says "inert until the next
+> chassis image build+roll").
+
 Continuation of `HANDOFF_2026-07-17_robot_hands_site_fixes.md`. This doc
 records what was actually found (several root causes differ from the handoff's
 working hypotheses), what was changed, and what remains.
