@@ -384,6 +384,19 @@ This is the same failure as the earlier three: concluding a **mechanism** from a
 **absence**, confidently, without the check that would have settled it. Cost this
 time was real money, not just a wrong sentence.
 
+> **Checked whether `bugs_open/029` excuses this. It does not — and the near-miss
+> is instructive.** 029 (filed the same day, relojistas thread) documents twelve
+> orchestrations hanging in `AWAITING_RESPONSES` and saturating the `dispatch`
+> concurrency group **between 12:52 and 13:28** — almost exactly this session's
+> submission window. It would have been very easy, and wrong, to file my latency
+> under it. The bug's own observation section rules it out: *"Meanwhile
+> `council-gate`, `endpoint-health-checker` and other groups continued normally"*
+> — council-gate is a different concurrency group and was unaffected throughout.
+> My runs were ordinary queueing, and my diagnosis was ordinary impatience.
+> A plausible, same-day, same-window bug report is exactly the kind of evidence
+> that makes a wrong conclusion feel confirmed; the thing that settled it was
+> reading the bug rather than pattern-matching its title.
+
 ### Where each submission actually stands
 
 **A — converging.** 5 objections from 2 reviewers → 2 from 1 (both procedural:
