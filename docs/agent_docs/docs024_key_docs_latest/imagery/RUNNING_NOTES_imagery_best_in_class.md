@@ -2124,3 +2124,50 @@ stated justification was a measurement error and now says so.
 
 **Landmine for the next actor:** `content_components` is a GLOBAL library
 (no `site_id`), so `170` changed `tool-list` for all 3 adopting sites at once.
+
+## Turn 52 — 2026-07-19 — F3 surface #2 LIVE: robot-hands' tool directory has card imagery
+
+3 tool content heroes generated (Banana, flat duotone, on-style — the tightened
+`avoid` held: dark grounds, no white drift), 3 cards derived, and the live
+`/index.html` tool directory now renders them. Served: `card-tool-*.jpg` at
+**22.3 / 27.1 / 36.4 KB**, all inside the ≤60KB budget.
+
+**Exactly 3 of robot-hands' 5 tool pages emitted** — `DeployedPageEligibilitySQL`
+correctly excluded the 2 that never deployed, and the 2 imageless cards render
+with no media div at all (the `{{if .image}}` guard), so nothing regressed.
+
+**THE MECHANISM FINDING — a page_rerender does NOT pick up a component template
+change, and this is not obvious.** `page-rerender`'s workflow branches on
+**`input_data.spec.reason`**:
+
+```
+check_rerender_mode: condition
+  spec.reason IN ('image_landed','section_data_resolved','cta_links_stale')
+      -> rerender_sections   (re-renders from the TEMPLATE + freshly resolved fields)
+  else -> render_page        (assembles the STORED page_components.rendered_html)
+```
+
+I queued a rerender with no `reason`, it completed green, the page redeployed —
+and the template change was still invisible, because `page_components.rendered_html`
+is a **stored rendered artifact** (this instance's was frozen at 07-18 03:26).
+Re-queuing the identical item with `"reason":"image_landed"` re-rendered the
+sections and the imagery appeared immediately. **If a component template edit
+"doesn't take", check the reason field before you doubt the edit.** Same family
+as the known landmine that `site_components.rendered_html` is a rendered artifact
+regenerated from its template.
+
+**Also confirmed live:** the manual kcat trigger is **flaky via
+`kubectl run -i --rm`** — two fires produced NOTHING on the topic (verified by
+consuming the topic tail: no design-discovery message at all), which reads
+exactly like a broken consumer. The stdin attach races the container start.
+Reliable form, used for every subsequent fire:
+`kubectl run <pod> --restart=Never --attach=false --env="PAYLOAD=$JSON" --command -- sh -c 'printf "%s" "$PAYLOAD" | kcat -P ...'`
+Note `--rm` is rejected with `--attach=false`; delete the pod afterwards.
+**Before concluding "the dispatch is broken", consume the topic and check the
+message was ever produced.**
+
+**Remaining F3 spend (owner funded ~33 fleet-wide, ~5 used):** gamesdesign.co.uk
+(9 tool pages) and idea.uk (1) also carry `tool-list`, so their next discovery
+pass emits for their deployed tool pages, capped at 10/site/pass. The other 7
+sites have tool pages but **no `tool-list` component**, so the per-surface
+consumer gate correctly keeps them from spending anything.
