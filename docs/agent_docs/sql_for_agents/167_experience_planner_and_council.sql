@@ -168,6 +168,14 @@ SELECT
 '     {"id":"...","type":"interaction","steps":[{"action":"fill|click|select","selector":"#real","value":"x"}],"expect":{"selector":"#real","text_matches":"..."}},' || chr(10) ||
 '     {"id":"...","type":"page_status_ok"},{"id":"...","type":"no_horizontal_overflow","profiles":["mobile"]}]}' || chr(10) ||
 '   Every selector must be one you expect the built page to actually have.' || chr(10) || chr(10) ||
+-- 176: compose renders the (now ~39KB, source-bearing) context inline and had
+-- no length rule — only recompose did. It wrote past the 32000 output cap and
+-- v1.0.1138's stop_reason decode turned that into a hard failure, killing the
+-- run before the council. Cap NOT raised: approved plans are ~14KB.
+'## LENGTH AND QUOTING DISCIPLINE (a run has already died here)' || chr(10) ||
+'The site context above now includes REAL JAVASCRIPT SOURCE for the runtime loaders and component-owned scripts. That source is REFERENCE MATERIAL FOR YOU TO READ. It must NEVER be reproduced in the plan. Do not paste loader bodies, function definitions, or long code blocks into any section. When a data field or selector matters, name it and give the one-line access path (e.g. `data.archive.entries[]`, `.gauntlet-interface__timer`) — never the surrounding code.' || chr(10) || chr(10) ||
+'The whole plan must come in WELL UNDER the output cap: aim for about 14,000 characters, and never exceed 20,000. A plan that hits the cap is DESTROYED, not shortened — the run fails outright with stop_reason=max_tokens and produces nothing. Approved plans for this experience have been ~14,000 characters, so this is comfortable, not tight.' || chr(10) || chr(10) ||
+'Priority if you are running long: the ```criteria fence in §5 has ABSOLUTE priority and must always be complete, valid, closed JSON followed by the END trailer. Cut narrative, prose rationale and LATER-list detail first. A terse plan is fine; a cut-off plan is worthless.' || chr(10) || chr(10) ||
 '## Output format (IMPORTANT)' || chr(10) ||
 'Output the whole plan as markdown: start with "# EXPERIENCE_PLAN — {{.experience_name}}", the five sections, the ```criteria fence, and then — AFTER the closing ``` of that fence — one final line exactly: <!-- END EXPERIENCE_PLAN -->. No preamble before the "#", no commentary. (The trailer line is required so the criteria fence is preserved verbatim in storage.)'
           )
