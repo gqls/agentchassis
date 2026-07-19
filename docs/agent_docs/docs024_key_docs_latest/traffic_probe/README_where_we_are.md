@@ -252,3 +252,61 @@ Carrying on now with the Guías and Glosario content, which is your author-start
 and the most visible thing still broken on the site.
 
 ---
+
+## 2026-07-19 (same session, later) — the content job turned out to be a different job
+
+Three things happened after the reactivation measurement, and the middle one changes what
+P7 actually is.
+
+**The link sweep worked, and found more than we were looking for.** The council was right
+that this needed no new code — I just ran the existing sweep at the site and it found all
+three invented homepage links straight away. It also found three things nobody had asked
+it about: nine pages missing their header and footer, four buttons on the homepage whose
+wording names a different page from the one they link to, and an apparently empty news
+section. Nothing has been actioned yet — findings sit in a "detected" state and nothing
+picks them up until they're promoted, so running the sweep is safe and reversible.
+
+**I had a premise wrong, and it was in the handoff I inherited.** We had two pages we
+believed were templates that would stamp out guides and glossary entries. They are not
+templates. There is no template mechanism in this system at all — I grepped for every name
+such a thing could have and there is nothing. They are two ordinary unbuilt pages that the
+original planner named in Spanish and never attached to a section, which is why they ended
+up at odd addresses. Left alone they would have published as two real pages called
+"Artículo" and "Glosario Entrada" and then listed *themselves* inside the very Guías and
+Glosario sections they were supposed to fill. So they were a latent embarrassment rather
+than a resource. I'd rather repurpose them than delete them: one of them can become the
+maintenance guide, which happens to be one of the three invented links on the homepage — so
+that link gets satisfied by a real page instead of being deleted.
+
+**Your cite-or-omit decision turned out to be half-built already, and half not.** The good
+half: this platform already has exactly the mechanism you asked for. It's the claims
+verification work another thread has been building. Give a site a curated list of facts it
+is allowed to assert, and three things switch on automatically — the writer is told "state
+only these" instead of the weaker "don't invent things", a check refuses to save a page
+that breaks it, and a sweep re-checks after publication. No code, no rebuild. Two sites use
+it today; relojistas would be the third.
+
+The half that isn't built: I had assumed we could point the writer at our own 50 ingested
+news articles and have it write from them. That connection does not exist anywhere. The
+news feed is plumbing that turns articles into links and RSS — no writing agent has ever
+read it. Building that link is real work, not configuration. So the workable version of
+your decision is that I read the corpus myself, pull out what it genuinely supports, and
+write that into the allowed-facts list — after which the writer is fenced in by machinery
+rather than by good intentions. Same outcome, one manual step in the middle.
+
+**Two bugs filed along the way**, both fleet-wide rather than ours. The first is a column in
+the database whose own description promises it steers page writing; nothing reads it. I
+planned against it before checking, which is exactly the cost of that kind of false
+advertisement. The second is in the shared news component every site uses: the "Loading
+latest news…" message is hardcoded English, so it shows in English on our Spanish site and
+is what a search crawler sees permanently if it doesn't run JavaScript. The same component
+also leaves an empty heading on the page — and the more interesting part of that is that
+the heading is marked *required*, so something that should have refused to save the page
+didn't. That last bit is worth someone's attention beyond this site.
+
+Worth saying plainly: the news page does work for a normal visitor — the articles load a
+moment after the page does. But a crawler that doesn't run JavaScript sees an empty news
+page, and given the whole point of this site is news, that's worth a decision at some point.
+
+Next: curate the allowed-facts list from the corpus, then author the four guides and twelve
+glossary terms against it.
