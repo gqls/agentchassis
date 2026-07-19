@@ -238,9 +238,16 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 	// iteration, so answered evidence PERSISTS for the price of a few capped
 	// SELECTs. The spin guard is unaffected — it judges what the MODEL issues,
 	// never what the route forwards.
-	dataReqs = withPriorRequests(dataReqs, st.SeenRequests, maxForwardedDataRequests)
+	dataReqs, droppedFwdDR := withPriorRequests(dataReqs, st.SeenRequests, maxForwardedDataRequests)
 	if len(dataReqs) > 0 {
 		result["data_requests"] = dataReqs
+	}
+	// Same reasoning as the code-request cap below: the guard credited these as
+	// progress, so a silent drop breaks that promise with nothing in the trail.
+	if droppedFwdDR > 0 {
+		result[dataRequestsDroppedKey] = droppedFwdDR
+		logger.Warn("diagnose_route: data_requests capped at the route — some requests will not be run this iteration",
+			zap.Int("dropped", droppedFwdDR), zap.Int("cap", maxForwardedDataRequests))
 	}
 	if droppedDR > 0 {
 		logger.Warn("diagnose_route: dropped non-read-only data_requests at route", zap.Int("dropped", droppedDR))
@@ -275,7 +282,7 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 	// load_runtime can say so in the bundle, exactly as it already does for its
 	// own max_code_checks drop: coverage was capped, not complete.
 	if droppedCR > 0 {
-		result["code_requests_dropped"] = droppedCR
+		result[codeRequestsDroppedKey] = droppedCR
 		logger.Warn("diagnose_route: code_requests capped at the route — some questions will not be answered this iteration",
 			zap.Int("dropped", droppedCR),
 			zap.Int("cap", maxForwardedCodeRequests))
@@ -289,6 +296,19 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 		zap.String("next_step", gatherStep))
 	return result, nil
 }
+
+// The keys diagnose_route writes into its result map, and the prefix under which
+// diagnose_load_runtime reads them back (the route step's output_field, "route"
+// by convention). Shared constants rather than string literals at each end:
+// these are a name-based coupling ACROSS action boundaries with no schema or
+// compile-time tie, so a rename at one end would silently re-open exactly the
+// silence this reporting exists to close (council-gate eba040a9, bug_historian).
+// diagnose_load_runtime_dropfields_test.go asserts the two ends still agree.
+const (
+	routeOutputPrefix      = "route."
+	codeRequestsDroppedKey = "code_requests_dropped"
+	dataRequestsDroppedKey = "data_requests_dropped"
+)
 
 // maxForwardedCodeRequests caps route.code_requests (this verdict's plus every
 // prior one's). Each is a single indexed read bounded by the lookup action's own
@@ -380,19 +400,32 @@ const maxForwardedDataRequests = 12
 // The state round-trips through collected_data, so treat its keys as data:
 // anything failing the read-only lint is skipped, and load_runtime's read-only
 // transaction remains the real guarantee.
-func withPriorRequests(current []interface{}, seen map[string]bool, max int) []interface{} {
+// Returns the forwarded list AND the number of requests the cap dropped.
+//
+// The count was added 2026-07-19 by AUDIT, not by a failure: the council caught
+// the identical silent-truncation defect in the code-request sibling and asked
+// whether this twin had been checked (council-gate eba040a9, bug_historian,
+// medium — "one call site of a class of forwarding-cap truncation gets the
+// loud-fail treatment while the twin mechanism stays generic and unaudited").
+// It had not been. It has the same shape and the same consequence: guardAfter
+// credits a NEW data_request as progress on the promise that its answer arrives
+// in the next gather, so a request this cap drops is never run, and a
+// re-forwarded prior request dropped here loses an answer that was persisting
+// (the F0.5 loss). This defect predates the code tier — it shipped with F0.5.
+func withPriorRequests(current []interface{}, seen map[string]bool, max int) (out []interface{}, dropped int) {
 	have := map[string]bool{}
-	out := make([]interface{}, 0, len(current))
+	out = make([]interface{}, 0, len(current))
 	for _, it := range current {
 		if m, ok := it.(map[string]interface{}); ok {
 			if s, _ := m["sql"].(string); s != "" {
 				have[strings.TrimSpace(s)] = true
 			}
 		}
-		out = append(out, it)
 		if len(out) >= max {
-			return out
+			dropped++ // a request THIS verdict issued, and the guard just credited
+			continue
 		}
+		out = append(out, it)
 	}
 	prior := make([]string, 0, len(seen))
 	for k := range seen {
@@ -404,14 +437,15 @@ func withPriorRequests(current []interface{}, seen map[string]bool, max int) []i
 	sort.Strings(prior)
 	for _, k := range prior {
 		if len(out) >= max {
-			break
+			dropped++ // a prior request whose ANSWER was persisting until now (F0.5)
+			continue
 		}
 		out = append(out, map[string]interface{}{
 			"sql": k,
 			"why": "re-run of a prior iteration's request so its answer persists across iterations (F0.5)",
 		})
 	}
-	return out
+	return out, dropped
 }
 
 // readOnlyDataRequestsFromWire pulls the verdict's data_requests out of the RAW

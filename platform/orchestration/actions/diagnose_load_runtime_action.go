@@ -37,6 +37,7 @@ var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 		"site_id_field", "correlation_id_field", "domain_field",
 		"error_limit", "work_item_limit", "data_requests_field",
 		"code_requests_field", "max_code_checks", "code_row_cap", "code_excerpt_chars",
+		"code_requests_dropped_field", "data_requests_dropped_field",
 		"schema_exclude_patterns", "schema_include_patterns", "schema_full", "schema_table_cap",
 		"explain_max_rows", "explain_max_cost", "row_cap", "cell_chars",
 	},
@@ -63,6 +64,14 @@ var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 		// cap that has already been exercised on real runs.
 		"code_row_cap":       40,
 		"code_excerpt_chars": 400,
+		// Where diagnose_route reports what its FORWARDING cap dropped. Kept in
+		// step with the route's writer keys by
+		// TestRouteDropFieldsStayInSyncWithLoadRuntimeDefaults — that test caught
+		// these two missing from Defaults on its first run (declared Optional but
+		// never defaulted, so the action's contract did not carry them even though
+		// the inline fallback made it work).
+		"code_requests_dropped_field": routeOutputPrefix + codeRequestsDroppedKey,
+		"data_requests_dropped_field": routeOutputPrefix + dataRequestsDroppedKey,
 		// Schema section: denylist so new tables appear automatically; relevance
 		// include (used unless schema_full) keeps it to the build/content domain.
 		"schema_exclude_patterns": []interface{}{"%backup%", "%bak%", "%archive%", "%supersede%"},
@@ -242,6 +251,16 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		b.WriteString("\n### data_requests (model-written, read-only)\n")
 		runDataRequests(ctx, params.DB, dataReqs, &b, maxRows, maxCost, rowCap, cellChars)
 	}
+	// Requests the route's forwarding cap dropped were never run and never will
+	// be — same class of silence the code-request path reports (audited on the
+	// council's prompting, council-gate eba040a9).
+	dataDropField := datahelpers.GetStringField(config, "data_requests_dropped_field", routeOutputPrefix+dataRequestsDroppedKey)
+	if n := datahelpers.GetIntField(params.CollectedData, dataDropField, 0); n > 0 {
+		if len(dataReqs) == 0 {
+			b.WriteString("\n### data_requests (model-written, read-only)\n")
+		}
+		b.WriteString(upstreamDropNotice("data_request", n))
+	}
 
 	// ── agent state (auto-gathered when the hypothesis names agent types) ─────
 	// The two-evidence-family guard (pkg/diagnose/step.go coerceVerdict) demands a
@@ -330,9 +349,8 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		// bundle. Reported separately from the local cap because the two mean
 		// different things: this one says a question was never even forwarded to be
 		// answered, though the spin guard has already credited it as progress.
-		if routeDropped := datahelpers.GetIntField(params.CollectedData, "route.code_requests_dropped", 0); routeDropped > 0 {
-			fmt.Fprintf(&cb, "\n> %d further code_request(s) were dropped BEFORE this gather (route forwarding cap) — they were asked but not answered. Coverage was capped, not complete; do not read their absence as an answer.\n", routeDropped)
-		}
+		codeDropField := datahelpers.GetStringField(config, "code_requests_dropped_field", routeOutputPrefix+codeRequestsDroppedKey)
+		cb.WriteString(upstreamDropNotice("code_request", datahelpers.GetIntField(params.CollectedData, codeDropField, 0)))
 		codeEvidence = cb.String()
 		logger.Info("diagnose_load_runtime: answered code requests",
 			zap.Int("code_requests", len(codeChecks)),
@@ -865,4 +883,21 @@ func gatherAgentState(ctx context.Context, db *sql.DB, symptomText string, b *st
 	}
 	logger.Info("diagnose_load_runtime: agent state auto-gathered",
 		zap.Strings("matched_types", matched), zap.Int("call_log_rows", n))
+}
+
+// upstreamDropNotice renders the bundle line for requests the ROUTE's forwarding
+// cap dropped before this gather ran — or "" when none were dropped.
+//
+// Its own function so it can be unit-tested without a DB (council-gate
+// eba040a9, editquality: the render branch was "the second half of the fix and
+// currently unverified"). The wording is load-bearing, not decoration: the
+// verdicter must not read a capped-away question as an answered one, which is
+// the same empty-vs-absent trap the code tier guards against everywhere else.
+func upstreamDropNotice(kind string, dropped int) string {
+	if dropped <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"\n> %d further %s(s) were dropped BEFORE this gather (route forwarding cap) — they were asked but never answered. Coverage was capped, not complete; do not read their absence as an answer.\n",
+		dropped, kind)
 }

@@ -25,7 +25,7 @@ func TestWithPriorRequests(t *testing.T) {
 			"SELECT build_status FROM pages WHERE name='guides-index'": true,
 			"SELECT 1 FROM site_work_items":                            true,
 		}
-		got := withPriorRequests(nil, seen, 12)
+		got, _ := withPriorRequests(nil, seen, 12)
 		if len(got) != 2 {
 			t.Fatalf("want both prior requests forwarded, got %d: %v", len(got), got)
 		}
@@ -38,7 +38,7 @@ func TestWithPriorRequests(t *testing.T) {
 
 	t.Run("current requests keep their why and dedupe against seen", func(t *testing.T) {
 		seen := map[string]bool{"SELECT a FROM b": true}
-		got := withPriorRequests(cur("SELECT a FROM b"), seen, 12)
+		got, _ := withPriorRequests(cur("SELECT a FROM b"), seen, 12)
 		if len(got) != 1 {
 			t.Fatalf("identical current+seen must not duplicate, got %d: %v", len(got), got)
 		}
@@ -52,7 +52,7 @@ func TestWithPriorRequests(t *testing.T) {
 		for _, s := range []string{"SELECT 1", "SELECT 2", "SELECT 3"} {
 			seen[s] = true
 		}
-		got := withPriorRequests(cur("SELECT 9"), seen, 2)
+		got, _ := withPriorRequests(cur("SELECT 9"), seen, 2)
 		if len(got) != 2 {
 			t.Fatalf("cap 2 not honoured: %v", got)
 		}
@@ -64,14 +64,63 @@ func TestWithPriorRequests(t *testing.T) {
 	t.Run("a non-read-only key in state is skipped, not forwarded", func(t *testing.T) {
 		// SeenRequests round-trips through collected_data; treat keys as data.
 		seen := map[string]bool{"UPDATE pages SET build_status='deployed'": true}
-		if got := withPriorRequests(nil, seen, 12); len(got) != 0 {
+		if got, _ := withPriorRequests(nil, seen, 12); len(got) != 0 {
 			t.Fatalf("write SQL in state must never be re-forwarded: %v", got)
 		}
 	})
 
 	t.Run("empty everything stays empty", func(t *testing.T) {
-		if got := withPriorRequests(nil, nil, 12); len(got) != 0 {
+		if got, _ := withPriorRequests(nil, nil, 12); len(got) != 0 {
 			t.Fatalf("want empty, got %v", got)
+		}
+	})
+}
+
+// The class fix: the data-request forwarder had the SAME silent-truncation
+// defect the council caught in its code-request twin, and it shipped with F0.5.
+// guardAfter credits a new data_request as progress on the promise its answer
+// arrives next gather, so a request this cap drops is never run.
+func TestWithPriorRequestsReportsDrops(t *testing.T) {
+	cur := func(sqls ...string) []interface{} {
+		var out []interface{}
+		for _, s := range sqls {
+			out = append(out, map[string]interface{}{"sql": s, "why": "fresh"})
+		}
+		return out
+	}
+
+	t.Run("requests THIS verdict issued, dropped by the cap, are counted", func(t *testing.T) {
+		got, dropped := withPriorRequests(cur("SELECT 1", "SELECT 2", "SELECT 3"), nil, 2)
+		if len(got) != 2 || dropped != 1 {
+			t.Fatalf("want 2 forwarded / 1 dropped, got %d / %d", len(got), dropped)
+		}
+	})
+
+	t.Run("prior requests dropped by the cap are counted (the F0.5 answer-loss case)", func(t *testing.T) {
+		seen := map[string]bool{
+			"SELECT a FROM t": true, "SELECT b FROM t": true,
+			"SELECT c FROM t": true, "SELECT d FROM t": true,
+		}
+		got, dropped := withPriorRequests(nil, seen, 2)
+		if len(got) != 2 || dropped != 2 {
+			t.Fatalf("want 2 forwarded / 2 dropped, got %d / %d", len(got), dropped)
+		}
+	})
+
+	t.Run("non-read-only keys are skipped, NOT counted as drops", func(t *testing.T) {
+		seen := map[string]bool{"DELETE FROM pages": true, "SELECT ok FROM t": true}
+		got, dropped := withPriorRequests(nil, seen, 12)
+		if len(got) != 1 {
+			t.Fatalf("only the read-only key should forward, got %v", got)
+		}
+		if dropped != 0 {
+			t.Fatalf("a lint-refused key was never a runnable request; got dropped=%d", dropped)
+		}
+	})
+
+	t.Run("nothing dropped when under the cap", func(t *testing.T) {
+		if _, dropped := withPriorRequests(cur("SELECT 1"), nil, 12); dropped != 0 {
+			t.Fatalf("want 0, got %d", dropped)
 		}
 	})
 }
