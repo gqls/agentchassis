@@ -262,3 +262,27 @@ SELECT jsonb_array_length(data->'facts')         AS facts,
   on `businessClaimContextRe`, an English business word list (clients|customers|records|…).
   A clean claims report on such a site means "no banned pattern matched", NOT "no invented
   numbers".
+
+### Is a `claimed` work item stuck, or just slow? (I got this wrong once)
+
+A `needs_page` item sits at `status='claimed'`, `claimed_by='generic'`, and its
+`updated_at` **does not move for the whole build** — because the timestamp reflects the last
+row write, not build progress. After ~13 minutes I read that as a stuck claim and was about
+to reset it. It was healthy: each page runs an LLM call per section, so minutes per page is
+normal.
+
+**Progress lives in `orchestration_states`, not in the work item:**
+```sql
+SELECT orchestration_id, status, current_step, updated_at
+  FROM orchestration_states
+ WHERE updated_at > now() - interval '25 minutes'
+ ORDER BY updated_at DESC LIMIT 12;
+```
+A live build shows `EXECUTING_STEP` at `call_content_writer` or
+`process_sections_loop_iter_N_render_section`; the dispatch loop itself shows
+`AWAITING_RESPONSES` at `process_item_iter_0_call_handler`. If you see those, wait — do not
+re-queue, or you will duplicate work and lose a half-finished page.
+
+Also: **the dispatch loop takes roughly one item per invocation.** Firing it three times in
+a row does not parallelise a 12-page batch — the extra dispatches complete as no-ops while
+one item is in flight. Fire once, wait on the page count with an `until` loop, fire again.
