@@ -1315,3 +1315,82 @@ test. That's their in-flight work, not a break I introduced or should fix. I
 tested my changes by building a clean copy of the last committed state and laying
 only my files on top, which is how I can say the tests genuinely pass rather than
 that they pass except for something unrelated.
+
+----
+
+## 2026-07-19 (later) — putting the code tier through the council, and what it found
+
+I sent the new code-search work through the council gate — the reviewer panel we
+built, reviewing our own change to the machinery it runs on. Ten of the thirteen
+seats were selected as relevant. It took four rounds. Two of those rounds never
+produced a verdict at all, for reasons that turned out to be a known bug of ours,
+and that is its own story below.
+
+**What the reviewers caught.** Four things, and I would not have found any of
+them myself.
+
+The first was a real defect. My change had a cap on how many code questions get
+carried forward between rounds, and when it hit that cap it silently dropped the
+extras. That sounds minor, but it isn't, because of how the loop decides whether
+it's making progress: asking a new question *counts* as progress, on the grounds
+that the answer arrives next round. So a question dropped by the cap kept the
+loop alive while guaranteeing nothing would ever answer it. Nothing anywhere
+recorded that it had happened.
+
+The second is the one worth telling you about. Having fixed that, I submitted
+again — and a reviewer pointed out that I'd fixed one instance of a class. There
+is a sibling piece of code doing the same job for database queries, I had
+explicitly mentioned it in my own write-up while explaining why I wasn't merging
+the two, and I never checked whether it had the same fault. It did. It has had
+it longer than my code has existed.
+
+What makes that worth recording rather than quietly fixing: **this morning, in
+this same session, I wrote a page in our debugging guide titled "a fix applied to
+one branch reads as done" — and then did exactly that eight hours later.** The
+written pattern didn't stop me. What it did do was make the objection instantly
+recognisable the moment someone else raised it. That seems like the honest
+lesson about what writing these things down actually buys: it doesn't inoculate
+you, it makes you quicker to accept the correction.
+
+The third and fourth were smaller. One reviewer noted I'd tested half my own fix
+and not the other half. Another caught that a database query I'd used to prove
+something was written with a subtle flaw — I'd used a pattern-match where the
+underscore character is a wildcard, so the query wasn't literally searching for
+what I said it was. The answer came out the same when I redid it properly, but
+"verified" has to mean the check actually tested the claim, so I conceded that
+one rather than pointing at the result.
+
+There was also a small piece of poetry: the test I wrote to satisfy one of those
+objections failed the first time I ran it, having caught a genuine gap nobody had
+asked about.
+
+**A mistake of mine, now corrected in the record.** After the first round I
+committed the fix with a line claiming the change had been council-reviewed. It
+hadn't — the verdict was "revise", and that marker is only earned by an approval.
+I'd jumped the gun. Our coverage report specifically looks for that discrepancy,
+which is to say the system is designed to catch people doing what I did. I can't
+edit history here, so there is now an explicit correction commit saying so.
+
+**Why two rounds produced nothing.** Both times, one reviewer wrote a response
+longer than the size limit we set on them, and our gate throws away the *entire*
+round when that happens — nine other reviewers' work included. This is a bug we'd
+already filed. What these four rounds added is the shape of it: the rounds that
+died were the ones where I answered the objections most thoroughly. The first
+round was *bigger* than the round that died, and it was fine. So it isn't about
+size — it's that a resubmission carries the council's questions plus my answers,
+and the reviewer then writes at length about all of it. The better you engage,
+the likelier the round is thrown away. That is a loop that punishes exactly the
+behaviour the review process exists to encourage, and I've written it up with the
+numbers.
+
+I deliberately did not fix that by raising the limit. It's another thread's
+setting, the decision is already open with them, and quietly changing it to
+unblock myself would have destroyed the evidence that it's set wrong.
+
+**Where I've left it.** Every substantive objection raised across the four rounds
+is fixed and committed. The last real verdict was nine approvals and one
+objection, and that objection is the one I've since fixed. There is no formal
+"approved" stamp, because getting one would have meant shrinking the submission
+until the reviewers saw less of the change than they'd asked to see — which is
+gaming the process rather than passing it. You chose to stop there, which I think
+is right.

@@ -112,3 +112,40 @@ instead, so "the tests pass" means what it says.
 
 Everything remains manual. Nothing dispatches itself, each run costs credits, and
 the owner says go per item.
+
+---
+
+## Addendum — the code tier went through the council gate (same day)
+
+Written after the main summary above; the state it describes has moved.
+
+The code-search work was submitted to our own reviewer council — ten of thirteen
+seats selected as relevant. Four rounds. The council found one real defect (a cap
+that silently discarded questions the loop had already counted as progress), then
+found that my fix for it covered one instance of a class and not its sibling,
+then found the second half of the fix untested, then found a flaw in the database
+query I had used to prove an earlier claim. All four are fixed and committed.
+
+Two rounds produced no verdict at all — a reviewer overran its size limit and our
+gate discards the whole round when that happens, a bug we had already filed. The
+four rounds established its actual shape: the rounds that die are the ones that
+answer objections most thoroughly, because a resubmission carries the objections
+plus the answers and the reviewer writes at length about all of it. The first
+round was larger than the round that died and completed fine. So the failure
+tracks engagement, not size — a loop that punishes the behaviour the gate exists
+to encourage. That evidence is now in the bug file for the thread that owns the
+raise-vs-void decision.
+
+Two things recorded honestly rather than smoothed over. I filed a pattern in the
+debugging guide that morning — "a fix applied to one branch reads as done" — and
+committed exactly that mistake eight hours later; the written pattern did not
+prevent it, though it made the objection immediately legible when raised. And I
+marked a commit as council-reviewed before earning it (the verdict was "revise",
+not "approved"); there is now a correction commit saying so, and our own coverage
+report is designed to flag precisely that discrepancy.
+
+**Current state: no approval stamp, and that is deliberate.** Every substantive
+objection is addressed; the last real verdict was nine approvals to one, and that
+one is fixed. Earning the stamp would have meant shrinking the submission until
+the reviewers saw less of the change than they asked for. Stopped there by
+owner's decision.
