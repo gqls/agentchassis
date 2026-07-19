@@ -260,3 +260,60 @@ image so the fix goes live.
 
 ---
 
+> **Note 2026-07-19:** this file was renamed from `README_state_of_play.md` to
+> `README_where_we_are.md` — the canonical name in CLAUDE.md's new "standing five"
+> working-docs directive, so you can find it where you'd expect. Same file, full
+> history preserved; nothing above was edited. Also filling a cadence gap: the two
+> turns below (the implementer run and the doc-compliance turn) happened but were
+> never logged here as they went — which is exactly the habit the directive is
+> pushing against. Caught up now.
+
+**Landing BUG A's fix (2026-07-18, filling the gap above).** You said to dispatch
+the implementer, and noted the deploy system currently builds from the working
+branch (085) rather than main. I ran the implementer against the approved plan. It
+did the right thing and it also showed me a real rough edge:
+
+- The implementer spawned a child that generated *logically correct* code for both
+  guards (anthropic + ollama) and pushed a branch — but the build gate then failed
+  it on `gofmt`, because the model had added a new struct field without re-aligning
+  the neighbouring one (two whitespace characters) and left a trailing blank line.
+  So: no PR. **The gate did its job** — it refuses to open a PR for code that isn't
+  clean, even when the fault is cosmetic. Better a wasted run than a messy PR.
+- Rather than re-roll the dice on the model (it tends to make the same alignment
+  slip), I finished the last mile by hand: applied the two approved guards as small
+  edits to the working tree, ran `gofmt`, confirmed it vets and builds, and committed
+  it narrowly to 085 as `f32b208e5`. The fix is now on the branch that deploys — but
+  **not yet built or rolled**, so it isn't live; that image build is still yours /
+  the deploy thread's call. Both guards sit *after* the token write-back, so the log
+  table still records the token count even on the new error path — a detail two of
+  the council seats had specifically flagged.
+- You asked me to file the rough edge as a bug. It's `bugs_open/013`: the implementer
+  should run `gofmt` on its own generated files *before* the gate, so trivially-
+  unformatted output doesn't burn a whole run. Filed with the exact fix location, and
+  the transferable lesson added to the debugging guide. I also deleted the stale
+  branch the implementer had left behind.
+
+**Two CLAUDE.md re-reads (2026-07-18/19) — process housekeeping.** You twice asked me
+to re-read CLAUDE.md, and both times it had genuinely changed under me (it's edited
+constantly by other threads; the copy I load at startup goes stale). What that caught:
+
+- I'd added the last five council seats to the `fix-proposer` roster but hadn't run
+  the mirror that keeps the *second* roster (the advisory gate any thread submits to)
+  in step — a rule that had just changed to "run the mirror script, don't hand-patch."
+  They happened to be in sync because another thread ran the mirror, but I'd only done
+  my half. Recorded the method so it's not left to luck next time.
+- A durable bug diagnosis is supposed to leave *two* traces — the case file and a
+  pattern entry in the debugging guide — and I'd only left the case file. Added the
+  pattern.
+- This turn: the docs directive itself. I had all five standing docs but this one under
+  the wrong name and one turn behind — renamed and caught up, as above. The honest
+  lesson for me is the cadence: this log should grow while the work happens, not get
+  reconstructed when you ask where things are.
+
+**Where we are now.** The council is complete and proven (13 seats, first real case
+passed). BUG A's fix is committed to 085, awaiting an image build to go live. The
+open threads are unchanged: build+deploy the fix (yours/deploy thread), and the
+proposed multi-model diagnosis gauntlet whenever you want to start it.
+
+---
+
