@@ -156,3 +156,25 @@ Reminder for whoever reads this: `output_tokens >= max_tokens` grouped by
 `agent_type, step_name` over `llm_call_log` is a cheap fleet-wide truncation
 sweep, and it distinguishes pre-fix from live rows via `max(created_at)` — which
 is what stopped this session from re-filing 012 as a new bug.
+
+### Addendum — 005's case file MOVED (same session, commit `ae670946d`)
+
+`/bugs_open/` had accumulated closed cases, so its listing no longer answered
+"what is biting prod right now". Split closed cases into **`/bugs_closed/`**;
+this workstream's case file is now
+**`bugs_closed/005_HANDOFF_2026-07-15_article_body_root_cause_is_truncation_FIXED.md`**
+(and its predecessor at `bugs_closed/004_...`). 21 cases remain open.
+
+The bar is **fixed AND live**, not "fix written" — 008, 012 and 017-unregistered
+have fixes committed but inert until the next image roll, so they stay OPEN.
+
+Two things worth knowing, both recorded in `/bugs_closed/README.md`:
+- **Numbering is one sequence across both dirs and is never reassigned**, so a
+  stale `bugs_open/NNN` (or `aaa_fails_to_mend/NNN`) pointer resolves by number
+  in the other directory. This was chosen over rewriting ~40 references across
+  docs, Go comments and SQL — several owned by concurrently-running threads whose
+  trees must not be touched. No reference is load-bearing, so nothing breaks a build.
+- **Pre-existing trap found while doing this: `016` and `017` are each used by TWO
+  different cases.** A bare `bugs_open/016` in older docs or code comments is
+  ambiguous — resolve by slug, never by number. Deliberately NOT renumbered; the
+  numbers are already cited in commit messages and Go comments.
