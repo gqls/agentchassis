@@ -1416,7 +1416,7 @@ See `/bugs_closed/README.md`.
 | 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | diagnosed; fix + fleet sweep open |
 | 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
 | 011 | `kind:"hero"` routes to SDXL (cannot render text); the Gemini infographic lane works and was unused | open |
-| 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); guard COMMITTED `cc7bcc881` + stop_reason `f32b208e5`, await image; refusal-routing migration 169 NOT yet applied |
+| 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); refusal-routing migration **169 APPLIED & verified 2026-07-19**; guard COMMITTED `cc7bcc881`/`614db7768` + stop_reason `f32b208e5` — **stays OPEN: both are inert until an image roll** |
 | 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | filed; fix candidate (format at commit-prep) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) — **`→ bugs_closed/`** |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |

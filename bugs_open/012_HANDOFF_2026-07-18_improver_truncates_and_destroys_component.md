@@ -114,8 +114,11 @@ open. Verified by this thread rather than rebuilt:
 > rejected as mangled". Migration **`169_tool_improver_refusal_path.sql`** adds
 > that route (`refuse_mangled_write` → `note_refusal` → `complete`, both reading
 > `__step_error.message` so the recorded reason is the guard's own).
-> **169 is NOT YET APPLIED.** Until it is, the guard prevents the destruction but
-> the outcome is still a bare orchestration failure.
+> **169 APPLIED 2026-07-19 09:31:37** (ledger row present; `snapshot_agent`
+> taken 09:31:35; live config verified field-by-field against the migration).
+> `update_component.error_step = refuse_mangled_write`, and both new steps exist
+> with the intended config. So the refusal now routes to `needs_human_review`
+> plus a NOTE — **as soon as the guard can fire**, which still needs the image.
 >
 > *What caught it:* writing 169 required dumping the live `tool-improver` step
 > graph, which showed the null `error_step`.
