@@ -1219,6 +1219,62 @@ abstention that can never upgrade a verdict to "approve" beats both "trust it" a
 
 Full case, evidence table and fix candidates: `bugs_open/019`.
 
+### Two fields that must agree, with no relationship in the schema — the check you want cannot be written (2026-07-19)
+
+**Symptom.** Live customer-facing buttons that have words on them and nowhere to go:
+`href=""`, `href="#some-id"` where no such id exists, a link to a hostname that does not
+resolve, and a label describing a completely different tool. Four buttons on one site, four
+different mechanisms, and every one of them passed every gate.
+
+**Mechanism.** A button is two schema fields — `cta_x_label` and `cta_x_url` — and **nothing
+anywhere expresses that one implies the other.** The label is typically `source:static`,
+which (`plan_sections_action.go:1210-1218`) writes its fallback and `continue`s, *bypassing
+`required` and `on_missing` entirely* and re-applying every render. The URL may be absent
+from the schema, unresolvable, empty, or LLM-authored. The template renders the anchor
+ungated, so an empty value becomes `href=""` rather than no button.
+
+**Why it hid.** Each failure mode fell in a different check's blind spot, and the blind spots
+tile the space: `href=""` is a *warning* in `validate_page_content` (`:551-560`, and `:257`
+blocks only on blockers/errors); `#frag` classifies as `LinkScopeAnchor` and is skipped by
+phantom, misdirected and validate alike, with nothing anywhere resolving a fragment against
+the page's ids; external URLs are skipped by every consumer and **no HTTP reachability check
+exists in `platform/` at all**; and at content_data level `check_required_fields_missing.go:189-192`
+skips any field whose `source != "llm"` — which is *every* CTA url field by design.
+
+**Three transferable rules.**
+
+1. **When two fields must agree and the schema encodes no relationship between them, the
+   inconsistency is not merely undetected — it is unrepresentable.** No check can be written
+   until the pairing exists as data. Reach for the pairing first; the validation is trivial
+   afterwards. Corollary: a hardcoded map of "which components have CTAs"
+   (`resolve_internal_links_action.go:91-98`, six entries, hand-patched by migrations 091,
+   096, 097b and 098 — the same lesson four times) is that pairing written in the *least*
+   durable place. Derive it from the schema.
+2. **A `required:true` field whose source cannot answer is an instruction to fabricate.**
+   `source:llm` + `required` + no fallback + nothing to look up = the model must return
+   something, so it invents. Here it invented two different hostnames on two adjacent pages,
+   assembled from real domains in the owner's own estate — plausible by construction, which
+   is exactly why no heuristic caught them. **Audit for `required` fields whose source has no
+   resolvable ground truth; that combination manufactures the fabrication you later hunt.**
+3. **A finding filed at a status nothing consumes is indistinguishable from no finding.**
+   One of these four was correctly detected, with the right component and page named, *two
+   days before the owner clicked it* — and filed `needs_human_review`, which
+   `TriageDetectedItemsAction` never promotes, no `handler_agent` claims, and
+   `load_work_item_actions.go:804` excludes from re-open queries. Grepping `platform/` for
+   `unresolved_cta` / `cta_names_unknown_destination` / `dead_control` returns emission sites
+   only, **zero consumers**; 34 sat open on the one site. Detection gap and delivery gap are
+   different bugs. **Before adding a check, grep for who consumes its output** — otherwise
+   you convert a visible problem into a larger invisible one.
+
+**A measurement worth repeating elsewhere.** The platform has a written invariant for this
+(LNK-005: "an unresolvable destination renders nothing rather than a broken link"), and
+**75 of 89 URL-bound CTA anchors in the component library violate it** (~84%, RUNBOOK R9).
+An agreed invariant with no mechanical enforcement decays to a comment. When you find one
+stated in a doc, measure its actual compliance before assuming it holds.
+
+Full case, evidence and fix candidates: `bugs_open/023`. Plan, queries and fleet sizing:
+`docs024_key_docs_latest/cta_link_integrity/`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -1250,6 +1306,7 @@ candidates. Read the file before acting — several are already fixed.
 | 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | filed; fix candidates in 019 |
 | 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
 | 021 | The 012 completeness guard covers ONE write path; `page_components.rendered_html` and `pages.rendered_*` have the same unguarded overwrite shape | filed (council bug_historian objection); needs scope decision |
+| 023 | A button's label and its destination are unrelated schema fields — nothing checks that a control with text has somewhere to go. 51 dead controls / 7 of 11 sites; 84% of library CTA anchors ungated; detected findings die at `needs_human_review` (zero consumers) | filed 2026-07-19; plan in `cta_link_integrity/`, no fix started |
 
 ### A recreated tool with no data source invents its own records — and says so in a comment (2026-07-18)
 
