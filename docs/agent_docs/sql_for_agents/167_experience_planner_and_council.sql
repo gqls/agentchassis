@@ -173,7 +173,11 @@ SELECT
           'output_field', 'review_journeys',
           'next_step', 'review_feasibility',
           'config', jsonb_build_object(
-            'error_step', 'complete_refused',
+            -- ABSTENTION-TOLERANT (171): a flaky critic falls through to the NEXT
+            -- critic, not to complete_refused. diagnose_council_decide reads an
+            -- absent review field as an abstention, so this seat simply does not
+            -- vote; the round still decides. Advisory seat — safe to lose.
+            'error_step', 'review_feasibility',
             'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
             'temperature', 0.0,
             'input_fields', jsonb_build_array('experience_context','proposal','schema_hint'),
@@ -197,7 +201,9 @@ SELECT
           'output_field', 'review_feasibility',
           'next_step', 'review_honesty',
           'config', jsonb_build_object(
-            'error_step', 'complete_refused',
+            -- ABSTENTION-TOLERANT (171) — see review_journeys. This is the seat
+            -- that actually died on bugs_open/008 item 5 in run 054b358a.
+            'error_step', 'review_honesty',
             'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
             'temperature', 0.0,
             'input_fields', jsonb_build_array('experience_context','proposal','schema_hint'),
@@ -224,6 +230,13 @@ SELECT
           'output_field', 'review_honesty',
           'next_step', 'review_mvp',
           'config', jsonb_build_object(
+            -- DELIBERATELY NOT abstention-tolerant (171). This is the sole
+            -- hard_veto seat. An absent review field reads as an abstention,
+            -- so falling through would let a plan reach "approved" with the
+            -- anti-fabrication gate never applied — precisely the failure the
+            -- loop exists to catch (the Gauntlet's 12,847 fake competitors).
+            -- A dead honesty auditor must refuse the run, not wave it through.
+            -- Do NOT "make this consistent" with the other three.
             'error_step', 'complete_refused',
             'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
             'temperature', 0.0,
@@ -247,7 +260,9 @@ SELECT
           'output_field', 'review_mvp',
           'next_step', 'council_decide',
           'config', jsonb_build_object(
-            'error_step', 'complete_refused',
+            -- ABSTENTION-TOLERANT (171) — last critic, so it falls through to
+            -- council_decide itself.
+            'error_step', 'council_decide',
             'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
             'temperature', 0.0,
             'input_fields', jsonb_build_array('proposal'),
