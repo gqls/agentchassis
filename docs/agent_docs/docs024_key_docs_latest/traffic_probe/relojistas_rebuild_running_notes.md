@@ -573,3 +573,31 @@ needed before either index is built.
   (`apply_gap_plan_action.go:459`) declares `pageType` but never reads it — the switch is on
   `pageName` alone, contradicting its own doc comment at `:454-458`. A new blog-post gets
   `[hero, generic-text-block, call-to-action]` rather than an article shape.
+
+### Plan-row state behind the two stray pages (checked before touching anything)
+
+Site has exactly one plan, `f12ab433-f7c4-4209-8c21-dcfdaed43078` (`is_current`), created
+2026-07-16. `articulo` and `glosario-entrada` are **in `site_plan_pages`**, both with
+`parent_section` NULL and `nav_order` 100:
+
+```
+articulo         | blog-post   | /blog/articulo.html
+glosario-entrada | entity-page | /entities/glosario-entrada.html
+```
+
+The NULL `parent_section` is the whole story — that is exactly the input under which
+`CanonicalisePage` defaults the directory to `blog`/`entities`. Nothing malformed happened;
+the planner simply emitted two leaf pages without attaching them to a section.
+
+**Consequence for disposition:** deactivating or deleting the `pages` rows alone would NOT
+work — reconcile diffs plan-vs-realised, so the plan rows would re-emit them as `missing`
+on the next run. Plan row and page row must move together, matched on `name`
+(`ON CONFLICT (site_id, name)`).
+
+**Preferred disposition — repurpose, don't delete.** Both already carry the correct roles
+for what we need (`blog-post`, `entity-page`). Giving them a real `parent_section`, slug,
+url and title turns a latent defect into the first guide and the first glossary term, with
+no DELETE against a live plan. The pleasing case: `articulo` → `/guias/mantenimiento.html`,
+which is one of the three phantom homepage links — so the invented link is satisfied by the
+stray page rather than by deleting either. Requires updating plan row and `pages` row in
+lockstep or reconcile will orphan one against the other.
