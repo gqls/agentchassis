@@ -2424,3 +2424,45 @@ are what failed the D13 gate).
 **Incidentally surfaced, not chased:** 41 of 72 card links resolve to no page. That
 overlaps `/bugs_open/023` (CTA/link integrity — dead controls, findings dying at
 `needs_human_review`) and belongs to that workstream, not this one.
+
+### Turn 53 (cont. 2) — re-pilot PASSED; the truncation fix is proven end-to-end
+
+Re-drove the two pilot items after superseding their assets (A6.5 shape) with the
+terse directions in place. **The fix is proven at both ends:**
+
+`assets.origin_prompt` now reads:
+> `flat duotone editorial illustration. bold simple silhouette, minimal detail. colour
+> palette: cyan #00bcd4 on near-black #121212, light grey accents. Header image for a
+> web-based tool represe…`
+
+— the cyan reaches the model, where before the prompt stopped dead at
+`colour palette: near-black ground (#121212).`
+
+And the output matches: **both images came back cyan #00bcd4 on near-black, flat
+duotone, and — the axis that actually failed the D13 gate — CONSISTENT WITH EACH
+OTHER.** Both are also free of lettering, where v1 carried "HP"/"EHP"/"ARMOR" and
+"g"/"v".
+
+**Two things I am NOT claiming:**
+- **The text disappearance is not cleanly attributable.** I changed two variables at
+  once — the terse direction AND a strengthened `avoid` ("words, labels, captions"
+  added). n=2. Whether `avoid` even reaches Banana as a negative prompt is still
+  UNVERIFIED and remains the next check; if it does not, the text improvement came
+  from the shorter positive prompt alone and is luck.
+- **Ground drift is not fully solved.** The ehp-calculator image carries pale
+  near-white diagonal bands at left and right, despite `avoid` listing "white
+  background, pale background". Same family as the D14 white-ground drift, not as
+  severe. jump-physics has large flat cyan fills — in-palette, arguably fine.
+
+Sizes 497KB / 406KB — these are HEROES; the ≤60KB budget applies to the derived
+cards, so no budget concern.
+
+**Remaining 7 released** to triaged after the pilot passed, per the owner's standing
+"write the guides and run" decision. Expect 9 content heroes on gamesdesign, then
+cards to derive by origin-staleness on the next pass, then the tool listing needs a
+re-render with **`reason='image_landed'`** (A6.2 — the step that bites).
+
+**Still to do after they land:** eyeball the 9 as a set (the D13 gate was about
+consistency ACROSS the set, which 2 images cannot prove); then finetuning.uk (5) and
+leopardessconsulting.co.uk (5), whose guides are written but whose sweeps have not
+been fired.
