@@ -258,3 +258,114 @@ exact hazard CLAUDE.md warns is not self-protecting.
 
 
 ---
+Both surfaces are live and verified. Here's where things stand.
+
+What you asked for
+
+The council summary is filed at docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/SUMMARY_council_first_external_catch_2026-07-18.md and I presented it above. The short version: three rounds, three real defects
+caught (the unguarded jsonb_array_length that would abort a whole site's sweep on one malformed row, the two-copy predicate drift, the missing logo guard), and two lessons for the next submitter — front-load your evidence, and
+don't claim a trailer you didn't earn.
+
+F3 — surveyed, then shipped one surface
+
+The survey overturned the handoff's plan: featured_article and product-card-with-cta, which it suggested starting with, are on zero live pages fleet-wide. info-card-grid has the widest reach (15 pages, 7 sites) but needs a
+design call, and news-listing is I5 territory. So tool-list was the only fundable surface, which is what you chose.
+
+It's live on robot-hands: three tool content heroes generated, three cards derived at 22–36KB, and the tool directory on /index.html now renders them. The check now iterates a surface table rather than hardcoding blog-post —
+tool pages differ in all four fields (different listing query, different eligibility because their content is a committed JS bundle rather than sections, different prompt noun), which is why a widened IN list wouldn't have
+worked. Of your ~33 funded generations, ~5 are spent; gamesdesign (9 pages) and idea.uk (1) drain on their next discovery passes, and the seven sites with tool pages but no tool-list correctly spend nothing.
+
+A correction you should know about
+
+I retracted my earlier "stale adapter" finding — it was my measurement error, not an incident. I'd greped content_hero/sprite_sheet on the adapter binary, got zero three ways, and declared v1.0.1134 stale. Wrong: the Dockerfile
+build (-a -installsuffix cgo on alpine) doesn't retain those literals, though a plain go build does. The clincher is that the shipped binary contains a log string added later than content_hero — it was current all along, and
+my rebuild was unnecessary. All three "independent" proofs shared one invalid method, so their agreement measured nothing.
+
+I've rewritten the 016b §9 entry with the real and more useful lesson: a pod-grep is a positive test only — a miss proves nothing until you've shown the marker survives a known-good build. Use log-message strings as markers,
+never case values. That matters fleet-wide, because CLAUDE.md's verify-against-the-pod rule is only as good as the marker chosen. The notes, handoff and memory are corrected too; quick-agent-update keeps shipping the adapter
+with the chassis, but now says plainly that no real incident justified it.
+
+Two traps worth remembering
+
+A page_rerender does not pick up a component template change unless spec.reason is image_landed, section_data_resolved, or cta_links_stale — otherwise it assembles the stored page_components.rendered_html, and your edit stays
+invisible through a green, deployed rerender. That cost me a full cycle. And kubectl run -i --rm kcat fires are racy: two of mine produced nothing on the topic while looking exactly like a dead consumer. Verify by consuming the
+topic before concluding dispatch is broken.
+
+Left open: info-card-grid (design call), news-listing (I5), product cards (I6), and RUNBOOK B5's formal budget sign-off.
+
+---
+## 2026-07-19 — a correction to the entry above, then the tool directory going live
+
+**First, I have to correct something in the entry above, because it is wrong and
+it is mine.**
+
+Above I wrote that the image adapter had shipped stale at v1.0.1134 — "missing
+content_hero and even sprite_sheet", and that I had "proved it stale three ways".
+That was wrong. The adapter was fine the whole time.
+
+What actually happened is that I picked a bad way to test it. The way we check a
+deploy is to look inside the running program for a word we know we just added. I
+looked for the words `content_hero` and `sprite_sheet`, found neither, and
+concluded the program was old. But those particular words are not kept in the
+finished program — the way it gets compiled for the cluster throws them away,
+while a normal build on my own machine keeps them. So I was looking for something
+that was never going to be there, and reading its absence as damage.
+
+The thing that proves it: the program I accused of being months out of date
+contains a phrase I added *later the same day*. It cannot be old and contain the
+newest thing. My "three independent proofs" were the same flawed test run three
+times, which is worth remembering on its own — three confirmations that share one
+method are one confirmation.
+
+The lesson is better than the false alarm was, and I have written it into the
+debugging guide: **this check can only prove something is there, never that it is
+missing.** If you look for your marker and don't find it, the first question is
+whether that marker survives the build at all — not whether the deploy failed.
+Use a distinctive phrase from a log message; those always survive. I have
+corrected the guide, the working notes and the handoff. The one change I made off
+the back of the false alarm — making our everyday release command ship the image
+adapter alongside the main service — I have kept, because it is sensible on its
+own, but it now says plainly that no real incident justified it.
+
+**Now the good news: the tool directory has pictures.**
+
+You funded roughly 33 images across the fleet for tool pages. I have spent five
+of them so far, all on robot-hands, and the result is live: the tool listing on
+the front page now shows a picture on each tool card, in the same flat
+charcoal-and-blue style as the article cards. The files are 22–36KB, comfortably
+inside our size budget.
+
+Two details you might like. Three of robot-hands' five tool pages got pictures,
+not five — the other two were never actually published, and the rule I wrote
+deliberately refuses to spend money on pages nobody can reach. And the two
+pictureless cards look exactly as they did before; nothing regressed for them.
+
+Before doing any of this I surveyed the remaining places we could put card
+imagery, and the survey changed the plan. The handoff had suggested starting with
+a component called `featured_article` — it turns out that one is not used on a
+single page anywhere in the fleet, so building it would have been work for
+nobody. The widest-reaching one left (on 15 pages across 7 sites) is a category
+card grid that has no picture slot at all and was never designed to have one, so
+that is a design question for you rather than something I should just do. The
+news feed is a different phase's work.
+
+**Two traps that cost me real time, both now written down.**
+
+Re-rendering a page does *not* pick up a change to a component's template unless
+you tell it the right reason for re-rendering. There is a hidden switch: certain
+reasons cause a genuine re-render from the template, and anything else just
+reassembles the stored copy of what the page looked like last time. My first
+attempt completed successfully, deployed, and changed nothing — which is the
+worst kind of failure, because everything reports green. The second attempt, with
+the reason set correctly, worked immediately.
+
+And the command I use to poke the cluster by hand is unreliable in the form I had
+been using: twice it silently sent nothing at all, which looks exactly like the
+system being broken. I now check whether the message actually arrived before
+concluding anything, and I use a more reliable form of the command.
+
+**Where that leaves us.** The imagery problems you found at the gate are closed
+for articles and now for robot-hands' tool directory. Two other sites use the
+same tool listing and will pick up their images on their next sweep. What is left
+needs decisions from you rather than typing from me: whether the category card
+grid should carry imagery at all, and the formal sign-off on the image budget.
