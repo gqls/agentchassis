@@ -132,9 +132,65 @@ Both halves are wrong against the live DB:
 Net: pending exposure is **19 generations across 3 sites**, not 10 across 2. That is a
 material input to the B16.2 volume sign-off, which was sized on the smaller number.
 
+## 4b. A SECOND, SHARPER DEFECT found by piloting the fix (added 2026-07-19)
+
+Writing the three sites a style guide (§5(b)) was applied — and the pilot **failed**,
+which exposed a defect that bites **every site including robot-hands**.
+
+Two pilot content heroes on gamesdesign.co.uk came back with the correct near-black
+GROUND but an **invented accent** — orange/navy on one, a teal field on the other, no
+cyan anywhere — and inconsistent with each other. `assets.origin_prompt` says why. The
+prompt actually sent ended:
+
+> `... colour palette: near-black ground (#121212). Header image for a web-based tool
+> representing: Effective Health (EHP) Calculator ...`
+
+**The cyan is simply gone.** Mechanism, both halves verified in code:
+- `composeDirection` (`imagery_style_guide.go:136`) joins `medium` → `mood` →
+  `"colour palette: "+palette` — **the palette is always LAST**;
+- `composeImagePromptWithDirection` truncates the whole direction at
+  **`maxImageryDirectionInPrompt = 200`** (`generate_image_actions.go:1037`).
+
+So a verbose `medium`+`mood` silently eats the colour instruction — the single most
+brand-identifying part of the guide — and the model invents an accent.
+
+**This is why robot-hands looked fine and gamesdesign did not.** robot-hands'
+content_hero direction composes to **233 chars** — also over the cap — but its cut
+lands *after* `electric blue (#0080FF)`, so it loses only "light grey secondary
+accents only". The same config shape works or fails on whether the accent colour
+happens to fall before character 200. Nothing warns; the truncation is silent and the
+generated image looks deliberate.
+
+Check any site with:
+```sql
+SELECT s.domain, length((d->>'medium')||'. '||(d->>'mood')||'. colour palette: '||(d->>'palette')) AS composed_len
+  FROM site_specs sd JOIN sites s ON s.id=sd.site_id,
+       LATERAL (SELECT sd.data->'kinds'->'content_hero') AS k(d)
+ WHERE sd.aspect='imagery_style_guide' AND sd.is_current=true;
+```
+
+**Mitigated in config** (`SQL_2026-07-19_style_guides_terse_directions.sql`, applied):
+terse medium+mood and the accent FIRST inside the palette string, bringing the three
+sites to 139–147 chars. **robot-hands is still at 233 and has NOT been changed** —
+its output is currently acceptable and it is another gate's testbed; changing it
+unprompted would invalidate a passed gate.
+
+**A third symptom the config fix does NOT address:** both pilot images contained
+lettering ("HP", "EHP", "ARMOR"; "g", "v") despite `avoid` listing text/lettering AND
+the positive prompt ending "no text or lettering in the image". Banana/gemini renders
+text readily (that is precisely the capability `bugs_open/011` celebrates for
+infographics). Whether the Banana path sends `avoid` as a negative prompt at all is
+UNVERIFIED and is the next thing to check — if it does not, every `avoid` list in the
+fleet is inert for Banana-routed kinds, which is all the flat kinds.
+
 ## 5. Fix candidates
 
 Two independent fixes; they are not alternatives, they address different halves.
+
+**(c) NEW, and the highest-value one — compose the palette FIRST, or exempt structured
+guides from the 200-char cap** (see §4b). Truncating a structured, brand-approved guide
+at a fixed character count, palette last, silently discards the most important field.
+Code, fleet-wide, wants the council gate.
 
 **(a) Structural — give `content_hero` a defined default (code, inert until an image
 roll).** Either add `content_hero` to `directionAppliesToKind`'s exclusion list (so an
