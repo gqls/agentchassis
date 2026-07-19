@@ -97,7 +97,7 @@ routes), pushed and live-verified clean — 0 generator symbols, 0 unsupported c
 edit takes a permanent lock, which protects *this* page only.
 **Still exposed:** the `index` page spec still lists a `filtered-result-grid` section with no
 data source, so a future render can regenerate this. Spec-level fix outstanding — see
-`docs/agent_docs/docs024_key_docs_latest/vetcomparison/HANDOFF_2026-07-18_vetcomparison_uk.md`.
+`docs/agent_docs/docs024_key_docs_latest/vetcomparison/HANDOFF_2026-07-19_vetcomparison_uk.md`.
 
 ## Note on numbering
 

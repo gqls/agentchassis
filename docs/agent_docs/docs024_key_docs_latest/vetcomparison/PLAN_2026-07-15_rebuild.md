@@ -7,6 +7,15 @@ below is written to be executable without re-deriving context. Read the companio
 - `LEGAL_2026-07-15_vetcomparison_factual_record.md` (same dir) — what happened and the publication policy now in force
 - `006_unify_prices_schema.sql` (same dir) — the surviving migration, still unapplied
 
+
+> **STATUS 2026-07-19 (grounded against the live system).** Phases 0–4 done and deployed.
+> Live: 2,109 practices, 3 sourced guides, area statistics, claim + opt-out routes, exporter on a
+> 48h cycle. Phase 5 is the remaining build. **Open risk:** the chassis regenerated fabricated
+> practice data on 2026-07-17 (`/bugs_open/020`); fixed at both the published-file and
+> `page_components` levels with 4 permanent locks, but **no render has run since, so the render
+> path is unverified** — see HANDOFF_2026-07-19 for the check to run when one lands.
+
+
 ## Hard constraints (from the owner — do not relax)
 
 1. **Everything on the chassis must be generic.** No `vetcomparison`-named actions, no hardcoded
@@ -200,7 +209,7 @@ Acceptance: smoke-run against staging produces directory.json byte-compatible wi
 file's shape, an aggregates.json with no group under min_n, and claimed.json empty (no claims
 yet); nothing in any output lacks provenance or consent.
 
-### Phase 3 — claim flow ✅ DONE 2026-07-16 (V1 manual; front door live)
+### Phase 3 — claim flow ✅ DONE 2026-07-16 (V1 manual; front door live; 0 claims received as at 2026-07-19)
 
 `010_claim_requests.sql` applied: generic `business_intel.claim_requests` (claim | optout |
 correction) recording requester, evidence_method (email_domain_match | callback_published_number
@@ -244,7 +253,7 @@ Operator SQL for both flows: see RUNBOOK. Self-serve portal remains V2/out of sc
 Acceptance: one end-to-end dry run with a friendly/test practice record, including opt-out then
 claim-reversal on the same record.
 
-### Phase 4 — adopt the site onto the chassis
+### Phase 4 — adopt the site onto the chassis ✅ DONE 2026-07-17 (cascade ran; see bug 020 for what it cost)
 
 Only after Phases 1–2 (data pipeline honest end-to-end): adopt vetcomparison.uk via
 site-adoption-orchestrator (handoff Phase 4 steps still apply — the classifier will treat the
