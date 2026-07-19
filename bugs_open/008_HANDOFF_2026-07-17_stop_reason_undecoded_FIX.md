@@ -163,3 +163,35 @@ the F2.3b(c) code-lookup check tier is now demonstrated-needed on a real case.
   success) — the same silent-CUT the `output_tokens == max_tokens` rule now
   guards. This fix (fail loud at the client boundary) closes the ROOT of that
   family for the LLM-generation path.
+
+---
+
+## REAL-CASE EVIDENCE for item 5 (experience-loop thread, 2026-07-18)
+
+Item 5 above — handle `stop_reason == "refusal"` explicitly, "currently it
+would surface as 'no text content in response'" — was filed as **optional**.
+It has now happened in production, exactly as predicted:
+
+```
+step review_feasibility failed: failed to execute action execute_llm_prompt:
+AI call failed with unhandled error: no text content in response (had 1 blocks)
+```
+
+`experience-planner` / `review_feasibility`, 2026-07-18 15:52, on
+`claude-sonnet-5`. It killed a council round outright — the workflow routed to
+`error_step` and the whole run terminated at `complete_refused` after round 1,
+discarding four critics' work and ~6 minutes of LLM spend. The only other
+occurrence in 7 days is `diagnose-agent`/`verdict` on 07-16, i.e. this
+document's own originating case.
+
+Two things this adds:
+1. **Item 5 is not optional.** Sonnet 5 is now the default model for several
+   agents (migration 158 moved the travelling-docs family), so the shape that
+   produces this is in the fleet's hot path, not a corner.
+2. **"had 1 blocks" is diagnostic and should be preserved.** A non-text single
+   block is the tell. Whatever the fix decodes (`refusal`, or a thinking-only
+   response), the error text should name the `stop_reason` and the block type
+   rather than just the absence of text — otherwise the next person gets the
+   same uninformative message this one did.
+
+Not fixed here; this belongs with the rest of 008 in the fixloop thread.
