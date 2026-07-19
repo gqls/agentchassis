@@ -270,3 +270,173 @@ owner's call.
 - [ ] Correct the `feed-triage` line in Turn 2 above — it remains a good
       *reasoning-shape* source (structured, batched judgements) but is NOT a
       work-item outcome source and never will be.
+
+---
+
+## Turn 4 — 2026-07-19 (~13:10Z) — both submissions fired
+
+**Asked for:** update the docs with where we are including the missteps, then
+fire both submissions.
+
+### Pre-flight re-verification (do this every time; it caught drift)
+
+A day had passed, so every `grounded_in` claim was re-checked against live before
+spending credits. All three load-bearing claims held:
+
+- `RegisterVerifier(` still appears **once** (`check_empty_sections.go:38`)
+- `origin_correlation_id` still does not exist anywhere in `platform/ internal/ pkg/`
+- nothing had landed on either target file (last relevant commit `3b52da8ec`,
+  a `generic_theme` fallback fix, untouching)
+
+Two things *had* drifted and were corrected in the JSONs before firing:
+
+- work-item counts: `complete` 4,599 → **4,570**, `failed` 96 → **152**,
+  `unresolved` 200 → **236**. No claim changed meaning, but an unexplained
+  mismatch between a submission and the live DB reads as carelessness to a
+  reviewer who checks.
+- **the gate roster grew 9 → 13 seats overnight.** Exactly the churn CLAUDE.md
+  warns about. Re-read it rather than assuming which seats fire.
+
+### Fired
+
+| | submission | SUBMISSION_CORR | RUN_ORCH_ID |
+|---|---|---|---|
+| **A** | work-item origin provenance | `61105914-fe50-4e23-b36f-70654ed25727` | `e19504c7-b812-4072-ba41-9033c5d878c0` |
+| **B** | register more item verifiers | `66dbd0dd-de5f-4f50-acd3-f5f3d817dbd9` | `0bef2b48-56f7-4aae-8b42-05c35d58cdf7` |
+
+Two runs, not one: they are separate coherent tasks, which is the credit policy's
+unit. Plan sizes 7,498 and 8,997 bytes, both well inside the 64KB cap.
+
+### The missteps this workstream has made, collected in one place
+
+Four now, and the pattern in them is worth more than any single correction:
+
+1. **Claimed a bug was live and unfiled** (Turn 1). It was filed the same day
+   *and already fixed*. Caught by grepping `/bugs_open/` before filing — the
+   cheapest possible check, and the only reason a duplicate didn't go out.
+2. **Claimed the fix hadn't taken** (Turn 1). Two calls post-dated the fix and
+   still showed the defect — but belonged to a run that *started* before it. The
+   log timestamp is the step's, not the run's.
+3. **Read a 0% column as a dropped field** (Turn 3). It was an absent one: those
+   agents are producers, never dispatched with a work item. A statistic became a
+   wrong recommendation because I didn't check whether the value was ever in
+   scope.
+4. **Proposed writes to a code path nobody calls** (Turn 3). 0 of 4,570 complete
+   items carry a resolution in *either* the column or the JSONB, because the
+   human-resolve handlers have never been invoked and `HandleConfirmWorkItem`
+   isn't even registered.
+
+> **The common thread:** every one came from reasoning about the system from its
+> *data* without reading its *code*, or from reading a doc without checking the
+> live row. Both are fast and both feel like evidence. The corrective is
+> mechanical, not clever — before asserting a mechanism, read the code that
+> implements it; before asserting a state, query the thing itself. All four were
+> caught before anything shipped, three of them by checks this repo's own
+> CLAUDE.md already mandates.
+
+### Open / next
+
+- [ ] Read both verdicts; APPROVED → hand the submission to the owning thread
+      with the trailer id. REVISE → the objections come back with the reviewers'
+      own read-only checks already answered.
+- [ ] Neither change is ours to implement — `platform/` belongs to the owning
+      threads. This thread's role ends at an approved plan.
+- [ ] Phase 1 of the extractor is still unstarted and is not blocked by either.
+
+---
+
+## Turn 5 — 2026-07-19 (~13:10–15:00Z) — six council runs, and a self-inflicted one
+
+### Run ledger
+
+| submission | round | RUN_ORCH_ID | verdict | objectors |
+|---|---|---|---|---|
+| A | 1 | `e19504c7` | revise | editquality ×3, tooling_provenance ×2 |
+| A | 2 | `8c085080` | revise | debug_historian ×2 (both procedural) |
+| A | 3 | `b52d9694` | revise | **reuse_agent ×2** (new seat, first fire) |
+| B | 1 | `0bef2b48` | revise | editquality ×2, bug_historian ×3, guardian ×3 |
+| B | 2 | `1d534983` | revise | editquality ×2, bug_historian ×2, guardian ×3 |
+| B | 2-dup | `4e7a1d1e` | revise | **wasted run — see misstep below** |
+
+SUBMISSION_CORRs: A `61105914-fe50-4e23-b36f-70654ed25727`,
+B `66dbd0dd-de5f-4f50-acd3-f5f3d817dbd9`.
+
+### MISSTEP — "the spawn was dropped". It never was, three times over.
+
+After firing, `orchestration_states` showed no row for the run. I polled for ~7
+minutes, concluded the spawn had been silently dropped, cited CLAUDE.md's ~300s
+post-restart rule, checked the pod (15h old, so the rule didn't apply), declared
+it lost anyway — and **re-fired B, spending a council run on a duplicate**.
+
+Every one of those runs landed. `1d534983` completed at 13:38, well after I had
+written it off. The orchestration row is created when the coordinator picks the
+message up, which under normal platform load lags the Kafka publish by **several
+minutes** — and the platform was busy (constant orchestrations at 13:52).
+
+> **Transferable — the polling window is not the timeout.** Absence of an
+> `orchestration_states` row is not evidence of a dropped spawn until you have
+> waited longer than the queue depth, which is not a number you can see. Poll for
+> at least 10–15 minutes before concluding loss, and check whether *other*
+> orchestrations are being created in the meantime — a busy platform is the
+> explanation, not a counter-argument.
+
+This is the same failure as the earlier three: concluding a **mechanism** from an
+**absence**, confidently, without the check that would have settled it. Cost this
+time was real money, not just a wrong sentence.
+
+### Where each submission actually stands
+
+**A — converging.** 5 objections from 2 reviewers → 2 from 1 (both procedural:
+pod-verification step, migration verify/rollback files — both added) → round 3
+drew a *different* seat, `reuse_agent`, firing for the first time because the
+plan now touches a migration. Its two points:
+1. `batch_id` already exists on this INSERT path — show it isn't already the
+   per-run key before adding a parallel column. **Checked: it is not.**
+   `batch_id := uuid.New()` (`write_audit_findings_action.go:600`) is a fresh
+   random uuid per invocation, mapped to no correlation or orchestration id
+   anywhere. It groups an audit run's items but cannot identify *which* run. The
+   objection is refuted — but the reviewer was right that the plan asserted this
+   by omission rather than showing it.
+2. Two insert paths writing the same table, one now provenance-aware and one not,
+   is a fork with no unification plan — architecture-level, and belongs in the
+   plan body, not a doc_notes footnote. Fair; unaddressed.
+
+**B — not converging, and the reason is legitimate.** Objection count held at 8
+across both rounds. The hits that matter:
+- **`VerifyPhantomInternalLinkResolved` is "a stub dressed as an edit"** —
+  comments only, no query, no return, while edits 1 and 2 carry real compilable
+  logic. Completely fair. I wrote prose where the plan needed code.
+- **guardian caught an internal contradiction in my own plan**: it cites 9 items
+  at `status='verified'` while asserting "no Go code sets that today". Both are
+  true (the 9 are historical/hand-set; the grep genuinely finds no Go writer) but
+  the plan presents them side by side without reconciling, which reads as one of
+  them being wrong.
+- **`VerifierCoverage()` only sees item_types with a registered discovery check** —
+  any item_type created by another path is invisible to the coverage guard, so
+  the guard under-reports the very gap it exists to expose.
+- The ~47-entry allowlist is sketched as `"... the remaining current gaps"`, so
+  the test cannot compile as written.
+
+### Decision: stop firing
+
+Six runs is enough. A is two small edits from plausible approval. B's remaining
+objections require *writing the actual predicate extraction and enumerating 47
+item types* — that is implementation work in `platform/`, which this thread is
+explicitly not allowed to do (see PLAN §6). Iterating a plan toward the level of
+detail the council wants would mean doing the owning thread's job in a JSON file.
+
+> **What six runs taught about the gate that is worth keeping:** it is most
+> valuable on the *first* round, where it caught two real design defects (the
+> silent-null UUID parse; the absent-row blind spot in live code). By round three
+> it is mostly enforcing plan-completeness, and a plan detailed enough to satisfy
+> it is nearly the change itself. The gate reviews plans; past a point the honest
+> move is to hand over the plan and let the implementing thread take the next
+> verdict on real code.
+
+### Open / next
+
+- [ ] **Owner call:** hand A and B to the owning threads as-is (recommended), or
+      spend a 7th run on A after adding the two `reuse_agent` answers.
+- [ ] If A goes another round: add the `batch_id` refutation above verbatim, and
+      promote the two-insert-path fork from doc_notes into the plan body.
+- [ ] Phase 1 extractor — still unstarted, still unblocked by any of this.

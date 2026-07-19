@@ -174,7 +174,7 @@ deliverables. Writing them is part of doing the work, not part of finishing it.
 | `RUNBOOK_<slug>.md` | the commands. Every query/command you had to get right, with its gotcha attached. When one changes, change it HERE, not in your scrollback. | the moment a command was hard to get right — not later |
 | `NOTES_<slug>.md` | running record, append-only, **newest at the bottom**. What was tried, what the system actually said, and **every misstep: dead ends, wrong turns, mistaken diagnoses, and your own earlier claims in that file that turned out false.** The missteps are not an appendix — they are the point. | at least once per session, and again each time you get something wrong |
 | `README_where_we_are.md` | the owner's running **plain-prose log**, append-only, newest at the bottom. What you'd say out loud: what was found, what broke and why, what you decided, what you need a choice on. No jargon, no tables of field names, no file:line unless it genuinely helps a non-specialist. | **frequently — at every natural break where you stop to summarise, present a choice, or explain a bug.** Roughly: if you wrote a substantial reply in chat, it belongs here too |
-| `SUMMARY_<date>_<slug>.md` | the milestone read-out, so the owner can talk about the subproject to someone else. Five parts, in this order: **what we're trying to do · where we've come from · what we've done · where we are now · where we're going.** Plain prose, written to be read aloud. | at milestones, not at the end — roughly once or twice a day, or whenever something significant lands |
+| `SUMMARY_<date>_<slug>.md` | the milestone read-out, so the owner can talk about the subproject to someone else. Five parts, in this order: **what we're trying to do · where we've come from · what we've done · where we are now · where we're going.** Plain prose, written to be read aloud. **Every summary is a NEW FILE — never an edit of the last one** (see below). | at milestones, not at the end — roughly once or twice a day, or whenever something significant lands |
 
 **`README_where_we_are.md` is the owner's document.** He maintains it too.
 **Append to it; never rewrite or reorder it**, and never edit his words — add a
@@ -188,6 +188,22 @@ Keep the three prose docs distinct or they collapse into one drifting account:
 **NOTES** is the technical log (evidence, commands, what the system said),
 **README_where_we_are** is the plain-English history (what happened, in order),
 **SUMMARY** is current state only (no chronology — that's the other two).
+
+**Write a NEW summary each time; never overwrite the last one** (owner directive,
+2026-07-19). Each file stays current-state-only, but **the series is the record.**
+`SUMMARY_2026-07-19_x.md`, then `SUMMARY_2026-07-20_x.md`; for a second on the
+same day, suffix the date — `SUMMARY_2026-07-19b_x.md`. The concept register
+already works this way (`SUMMARY_where_we_are_2026-07-16/17/17b/18.md`) — follow it.
+
+Why: a summary is what we believed at a milestone, written for the owner to say
+out loud to someone else. Overwriting it destroys the only record of how the
+understanding actually moved — and that trajectory is often the most useful thing
+in the directory, because a summary that turned out to be wrong is evidence about
+*how* we get things wrong, which no other doc captures at that altitude. NOTES
+records missteps you caught yourself; the summary series shows the ones you did
+not catch at the time. **This rule was written because a session overwrote a
+summary the same morning it wrote it** — the replacement was accurate and it was
+still a loss, so "the new one is better" is not the test.
 
 Rules that make them worth the effort:
 

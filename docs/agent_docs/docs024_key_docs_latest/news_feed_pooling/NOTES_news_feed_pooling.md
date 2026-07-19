@@ -353,3 +353,27 @@ two parallel paths to `target_audience` (the `site_specs` path and the
 `render_context` path), causing the content-quality-auditor to report "no target
 audience defined" when the data is in `content_data.response`. Any profile work
 must pick one path deliberately rather than adding a third.
+
+### MISSTEP 4 — I overwrote the morning's SUMMARY instead of writing a new one
+
+Asked for a summary per CLAUDE.md, I rewrote `SUMMARY_2026-07-19_news_feed_pooling.md`
+in place, reasoning from the rule that *"SUMMARY is current state only (no
+chronology — that's the other two)"* that the file should therefore be replaced
+when the state moves.
+
+That reading was wrong, and the owner corrected it: **each summary is a new file;
+the series is the record.** Current-state-only describes what goes *inside* one
+file, not whether the file is disposable. The concept register already worked this
+way (`SUMMARY_where_we_are_2026-07-16/17/17b/18.md`) and I had that pattern in
+front of me during the earlier survey without drawing the inference.
+
+**Repaired:** recovered the morning version via `git show 9647cadf2^:<path>` and
+restored it to its original filename; the evening version moved to
+`SUMMARY_2026-07-19b_news_feed_pooling.md`. Nothing lost — but only because it had
+been committed. Had I written both within one commit window it would have been
+gone, which is the real lesson.
+
+**Recorded in CLAUDE.md** as an explicit directive with the reason, since this is
+shared practice and not specific to this workstream: overwriting destroys the
+record of how the understanding moved, and *"the new one is better"* is not the
+test, because the replacement here was accurate and it was still a loss.

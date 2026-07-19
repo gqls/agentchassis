@@ -59,3 +59,152 @@ It's in the doc as an open lead with the bad number explicitly not quoted.
 Gaps 1 and 2 are platform/ changes, so not mine to make — they'd go to the owning threads through the council gate. Want me to draft those two submissions?
 
 ---
+
+## 2026-07-18, later — drafting the submissions killed both of the gaps above
+
+Two of the claims in the entry above are wrong. Leaving them there, as the rules
+say, and correcting underneath.
+
+**CORRECTED — "the gap that matters most … it's plumbing, not physics" is wrong.**
+The 0% figures are real, but I read them as a field being *dropped* when it is a
+field that was never *there*. Those auditors are producers: they raise work items,
+they are never handed one to work on, so there is no id at that moment to
+propagate. `tool-recreation-handler` shows 100% only because it is on the
+dispatch path, which injects the id — a path none of the auditors is on. And
+`feed-triage` never touches work items at all; it writes to a different table
+entirely, so it would have read 0% for ever no matter what anyone changed.
+Including it was my error. The join we want runs the *other* way — from the item
+that got created back to the run whose reasoning created it.
+
+**CORRECTED — "human decisions keep the status and throw away the reason" is
+worse than stated.** I said the reason columns are empty. Then I checked whether
+the reason was being kept somewhere else, and found the handlers do write a
+resolution into a JSON blob — and that blob is empty too. Not 0 of 316. **0 of
+4,570.** The human-resolution path has never once been called. Those admin
+routes are live and nothing invokes them, and a third one was written, finished,
+and never wired up at all. So my proposed fix — "record the reason properly" —
+would have changed nothing, because nobody walks that path. The real question is
+yours, not a data one: those 278 items waiting for human review are a queue
+nobody works. Is that intended?
+
+What I got out of being wrong twice: both errors came from reasoning about the
+system from its *numbers* without reading its *code*. Both were caught before
+anything shipped, by reading the code when I sat down to write a change plan.
+
+**What went to the council instead.** Two submissions:
+
+- **A — record where a work item came from.** Add one column holding the id of
+  the run whose findings raised it. That is the corrected version of the first
+  gap, pointing the right way round. It makes about 15,000 auditor judgements a
+  month checkable against what actually happened to them, and separately it would
+  give the first per-agent accuracy signal this platform has ever had — today an
+  auditor that cries wolf twenty times looks identical to one that is right.
+- **B — actually check that fixes worked.** This one is the better find. There is
+  already a mechanism that re-checks whether a defect is really gone before
+  marking an item done. It was built properly, it works, and it has been switched
+  on for exactly **one** kind of item. Everything else takes the agent's word for
+  it. That is why only 9 items in the platform's history have ever been
+  independently verified.
+
+## 2026-07-19 — both fired, both came back REVISE, and the council was right
+
+I submitted both. Each takes about two minutes and pulls in whichever reviewers
+match the files you touched — 8 reviewers on A, 10 on B.
+
+**Both came back "revise", and I think that is the system working rather than
+failing.** Neither was rejected; both got specific, checkable objections. I
+checked every factual one against the live database and the code before
+responding, and the reviewers were right on all of them.
+
+On **A**, the sharpest objection was one I would not have caught. I had planned
+to store the run id as a strict UUID and quietly write "unknown" whenever it
+didn't parse. The reviewer pointed out that this can only ever turn a *real*
+origin into something indistinguishable from a missing one — silently
+undermining the exact link the change exists to create, while looking like
+perfectly normal missing data. It is now stored as plain text, which cannot
+fail. A second objection caught me widening the change onto a second code path I
+had never actually justified; I have removed it.
+
+On **B**, a reviewer found a genuine bug in the *existing* code that I was about
+to copy. The current check treats "the component has vanished" as "the problem
+was fixed" — but a vanished component is equally the signature of this
+platform's most common failure, where a rebuild silently deletes content. So a
+content-loss incident currently reads as a success, and I was about to spread
+that blind spot to two more checks while citing it as the precedent to follow.
+The revised plan fixes it at source: a missing target now records "could not
+verify" instead of "verified". Nothing wedges — the item still completes — but
+the false success becomes a visible unknown.
+
+Two other things B got right: I called one item type "highest-volume" on figures
+that were a 30-day window quoted as if a total (it is 180 items, the largest of
+my three, but eighth overall). And one of my three picks — checking broken image
+URLs — turned out to have **4 items and zero completions**, so the one choice
+carrying real risk (an outbound network call on a hot path) had no volume to
+justify it. Dropped. A reviewer also noted my anti-recurrence measure was a code
+comment, which would not stop the next 46 item types doing the same thing; it is
+now a test that breaks the build.
+
+**Where that leaves us.** Both revisions are written and going back for a second
+round. Neither change is mine to implement — they belong to the threads that own
+that code; my job ends at a plan good enough to hand over.
+
+The extraction work itself — the thing that actually produces the dataset — has
+not started, and is not blocked by any of this.
+
+**One thing I should own.** This thread has now made four wrong calls (two above,
+two more in the technical log). Every one came from the same habit: reasoning
+from data or documents without opening the code underneath, and being confident
+while doing it. All four were caught before anything shipped, but three were
+caught by checks this repo already mandates and I had skipped — and the fourth
+was caught by the council, not by me.
+
+---
+
+## 2026-07-19, later — six council rounds, one wasted, and where I've stopped
+
+Both went back for second and third rounds. Here is the honest state.
+
+**A is nearly there.** It started with five objections from two reviewers, came
+back with two (both procedural — name how you'll verify the deploy against the
+running pod, and ship a rollback file with the migration; both added), and then
+on the third round pulled in a reviewer that hadn't fired before, because the
+plan now touched a database migration. That reviewer asked one genuinely good
+question: there is already a "batch" column on the same insert — have you shown
+it isn't already doing the job you want your new column to do? I checked. It
+isn't: it's a fresh random id per run, tied to nothing, so it can group an audit
+run's items but can't tell you *which* run made them. The objection doesn't
+stand — but the reviewer was right that I'd assumed it rather than shown it.
+
+**B is not converging, and the reason is fair.** The objection count stayed at
+eight across both rounds. The one that stung, correctly: one of my three edits
+was described as "a stub dressed as an edit" — I'd written a paragraph of
+comments explaining what the function should do, where the other two edits had
+real code. That's exactly right. A reviewer also caught my plan contradicting
+itself (I quote a figure showing nine items in a particular state, and elsewhere
+assert nothing in the code produces that state — both true, but I never
+reconciled them, so it reads as an error).
+
+**I've stopped at six runs, and I think that's the right call.** B's remaining
+objections would be answered by writing the actual code and listing out
+forty-seven item types — which is implementation work in code this thread isn't
+allowed to touch. Iterating further would mean doing the owning thread's job
+inside a JSON file. A is two small additions from likely approval, if you want
+one more round.
+
+**What the exercise taught about the gate itself**, which I think is worth more
+than either submission: it earns its cost on the *first* round. It caught two
+real design defects — a silent-failure mode I'd built into A, and a genuine bug
+in existing live code that B was about to copy. By the third round it's mostly
+enforcing plan completeness, and a plan detailed enough to satisfy it is nearly
+the change itself. Submit once, take the design hits, then hand over.
+
+**And a fifth wrong call, this one with a price.** Twice the runs didn't show up
+in the database after I fired them. I waited about seven minutes, concluded the
+platform had silently dropped them, checked the one documented cause (didn't
+apply), and re-fired one — spending a council run on a duplicate. Every single
+one of those runs landed. They just take several minutes to appear when the
+platform is busy, and it was. Same mistake as the other four in a different
+costume: I concluded a *mechanism* from an *absence*, without waiting long enough
+to know. The other four cost credibility; this one cost money.
+
+---

@@ -405,4 +405,91 @@ than firing blind.
 The remaining imagery work from the plan is heroes on the pages that still lack them (about and services need a shared-component image field first), and replacing the still-garbled /assets/images/hero.jpg, which is the
 site-wide fallback and still live on a couple of pages. Want me to continue with those?
 
+---
+
+Done — and first, the images question.
+
+The images are working; that page just hasn't got any
+
+I verified rather than assumed: the four infographics render as real HTML (not escaped), and all four files serve 200 at 111–196 KB. services.html — the page in your screenshot — is one of five pages with no image at all. Your
+screenshot is accurate for that page; it's a gap, not a bug.
+
+Live inventory, checked just now:
+
+┌───────────────────────────┬─────────────────────────────────────────────┐
+│           State           │                    Pages                    │
+├───────────────────────────┼─────────────────────────────────────────────┤
+│ Hero + infographic        │ index, how-it-works, technical-architecture │
+├───────────────────────────┼─────────────────────────────────────────────┤
+│ Infographic only          │ case-studies                                │
+├───────────────────────────┼─────────────────────────────────────────────┤
+│ Good hero only            │ who-we-help, how-we-work                    │
+├───────────────────────────┼─────────────────────────────────────────────┤
+│ Only the garbled hero.jpg │ engagement-model, faq, careers, insights    │
+├───────────────────────────┼─────────────────────────────────────────────┤                       
+│ Nothing at all            │ about, services, use-cases, contact, blog   │
+└───────────────────────────┴─────────────────────────────────────────────┘
+
+Two things fall straight out of that: replacing the single file hero.jpg fixes six pages at once, and about/services need a small shared-component change first because their hero templates have nowhere to put an image.
+
+CLAUDE.md — re-read, and it changed today
+
+It gained a "Working docs — the standing four" directive: PLAN / RUNBOOK / NOTES / SUMMARY per workstream, created at the start and updated as you go, with three rules I've applied — record what was wrong not just what's right,
+ground every figure against the live system, and point at bugs rather than restating them. Leopardess already had all four, so no migration was needed.
+
+That rule immediately earned its keep: while updating the handoff I found it still claimed "ai-readiness-quiz is still blank — the one open in-flight item." It was fixed in turn 21. I checked live (54,118 bytes, 3 components)
+and corrected it. A fresh chat would have started by re-solving a solved problem.
+
+The handoff is ready for a new chat
+
+It now opens with a red READ FIRST box on the re-plan clobber — because that's the thing that makes all copy work provisional, and services is still sitting in its clobbered state from 07:50 this morning. Below that: a
+live-checked state table (imagery per page, both new checkers verified in-pod, the review-queue counts, tool status), the 011 correction recorded visibly rather than edited away, and punch-list 2 — your 2026-07-18 review — as
+the current list, with punch-list 1 retitled as closed.
+
+----
+
+Redirect added, and your instinct about the coincidence was right — but checking it turned up something better.
+
+You were right, and the real mechanism is sharper
+
+leopardessconsulting.com is coincidence. It's just the obvious .com variant of the site's own name — the model needs no knowledge of what you own to guess it.
+My original framing ("assembled from two domains in the owner's estate") implied it knew. It doesn't. That's now corrected visibly in all five docs.
+
+But leopardess.contactforsales.com isn't a guess at all, and that's the useful part. Your site's own identity spec holds the real contact address
+leopardess@contactforsales.com. The model read it and turned an email into a hostname by swapping @ for a dot.
+
+The parts were true and in-context; only the recombination was invented. That's the classic fabrication shape — and it's far more tractable than I'd assumed:
+
+- "Is this hostname plausible?" — unanswerable by a machine.
+- "Is this hostname one of our own contact emails with the @ changed to a dot?" — a string comparison against data the platform already holds. No network call,
+  no heuristic, no LLM.
+
+And it generalises. contactforsales.com is your contact domain on six sites — agents@, finetuning@, gas@, idea.uk@, leopardess@ — all in their current identity
+specs. Any of them can produce this exact fabrication. That's now plan step P1.5, and it's cheap enough to ship well before the structural work.
+
+Redirect is on the list
+
+P4.1 in the plan, item 7 in the bug: 301 leopardessconsulting.com → .co.uk, path preserved so /tools/llm-cost-calculator lands on the real page. Cloudflare
+redirect rule, no new origin. Owner/DNS action — not blocked on any code work.
+
+One caution I've flagged in every doc: it makes a URL the system invented start working. Genuine improvement for visitors, but it isn't the bug fixed — the
+field is still source:llm, required:true and will invent a different hostname on the next build, and the ROI page's button stays dead regardless. Do both.
+
+One thing I should flag
+
+My previous commit used a directory pathspec and swept in a stray file — a raw terminal capture of my own chat reply, sitting in the new workstream folder,
+carrying the exact claim I'd just corrected. I didn't write it and don't know what produced it (the project has no transcript hook; only a psql read-only
+gate).
+
+I didn't delete it: README_where_we_are.md is an established convention across your other workstream dirs. I rewrote it to match that convention instead, with
+the correction folded in. The original is preserved in 9b5b117bb if you want to see what landed.
+
+Worth knowing generally: a directory pathspec isn't a narrow pathspec. CLAUDE.md's warning applies one level down from where I'd been applying it.
+
+Commits: db9a4259b, 47a86c61b, 9b5b117bb, caea02324 — all on 085_debug_and_feature_loops, still diagnosis-and-plan only.
+
+
+----
+
+
 

@@ -177,7 +177,64 @@ $PSQL -t -A -c "SELECT body FROM diagnosis_artifacts
 
 ---
 
-## 5. Gotchas (each one cost someone real time)
+## 5. Council submissions from this workstream
+
+This thread is read-only, so any platform change it wants goes through the gate.
+Drafts live beside this file as `submission_*.json`.
+
+**Before firing, re-verify every `grounded_in` claim against live.** The repo
+moves overnight; a submission whose evidence has gone stale wastes a council run
+and earns objections you can't answer. The checks that matter for the two drafts:
+
+```bash
+# B: is the verifier count still 1?
+grep -rn "RegisterVerifier(" platform/orchestration/actions/discovery_checks/*.go
+
+# A: has the column been added by someone else?
+grep -rn "origin_correlation_id" platform/ internal/ pkg/
+
+# both: has anything landed on the target files?
+git log --oneline -8 -- platform/orchestration/actions/discovery_checks/ \
+  platform/orchestration/actions/write_audit_findings_action.go
+```
+
+Then re-pull the cited figures (§1, §2) and update the JSON so a reviewer
+checking live sees a match, not a near-miss. On 2026-07-19 the numbers had
+already drifted (`complete` 4,599 → 4,570) without any claim changing meaning —
+update them anyway; an unexplained mismatch reads as carelessness.
+
+Submit, one run per coherent task:
+
+```bash
+./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/reasoning_dataset/submission_A_work_item_origin_provenance.json
+```
+
+Save the printed `SUBMISSION_CORR`. A run takes ~2 minutes. Then:
+
+```bash
+# the verdict note
+$PSQL -c "SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;"
+# the structured report
+$PSQL -c "SELECT metadata->>'decision', metadata->'reviewers', created_at
+          FROM diagnosis_artifacts WHERE kind='council_report'
+          AND correlation_id='<SUBMISSION_CORR>' ORDER BY created_at DESC;"
+```
+
+APPROVED → commit with trailer `Council-Reviewed: <SUBMISSION_CORR>`.
+REVISE → revise and resubmit with `RESUBMIT_CORR=<corr>` so the trail
+accumulates. REJECTED → guardian veto; its notes name the contained alternative.
+
+**Roster note:** the gate was 9 seats on 2026-07-18 and **13 on 2026-07-19**.
+It changes often and cost is relevance-gated, so re-read it rather than assuming
+which seats will fire:
+
+```bash
+$PSQL -c "SELECT jsonb_array_length(default_config->'workflow'->'steps'->'council_decide'->'config'->'review_fields')
+          FROM agent_definitions WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;"
+```
+
+## 6. Gotchas (each one cost someone real time)
 
 - **`orchestration_states.last_activity` is `timestamp WITHOUT time zone`** while
   `created_at` is `timestamptz`, on a BST host. Interval arithmetic across them is

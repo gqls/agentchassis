@@ -3414,3 +3414,82 @@ Nothing deployed, no migration applied, no Go change made. The benchmark tool is
 still RED and still the benchmark.
 
 Categories: (diagnosis, bug, gotcha, correction)
+
+### 2026-07-19 (later still) — bug 024 through the council gate: three rounds
+
+Owner's steer: council gate before touching the shared rerender machinery.
+Submission trail correlation **7ef4de4e-3930-47fe-8ca6-ba40a2d440cc** (all three
+rounds share it; `RESUBMIT_CORR` accumulates the trail). Submission files live
+beside this doc as `submission_024_tool_render_path{,_r2,_r3}.json`.
+
+**The plan (3 edits, unchanged in intent across all rounds):**
+1. `update_component_html_action.go` — REQUEST the re-render by reusing the
+   `markPagesPendingRebuild` + `createRerenderWorkItem` pair that
+   `store_generated_component` already uses, instead of relying on
+   `build_status='pending'` that nothing scans. The helper stamps
+   `reason=section_data_resolved` + `component_id`, keys per-component, inserts
+   at `triaged`, and goes in via raw SQL so the two-strike rule cannot touch it.
+2. `rerender_page_sections_action.go` — stop escalating sections whose component
+   needs no LLM-authored content.
+3. Migration 171 — drop tool-improver's redundant, mis-keyed, reason-less
+   `create_rerender_item` step.
+
+**Round 1 → REVISE** (editquality + bug_historian; 5 abstained).
+- editquality: I asserted `createRerenderWorkItem` stamps the gated fields
+  without quoting its body; a sketch too abbreviated to compile (`componentIDStr`
+  / `componentFunction` "not in scope" — they ARE, lines 86 and 110, so a sketch
+  defect not a code defect); and edit 3's jsonb path unconfirmed against the live
+  row.
+- **bug_historian's objection was the valuable one, and it was right.** My
+  predicate (`missingRequiredLLMFields(schema, nil)` empty → skip) exempted a
+  *broader* class than the rationale justified: it also covers components
+  declaring OPTIONAL `source:"llm"` fields that were nonetheless expected to be
+  populated — reopening a silent-drop path for a class I had never examined. Its
+  "missing" note pointed at the fix: use an **explicit intent marker**, not a
+  derived proxy.
+- **It was right that a marker exists.** `content_components.component_level` —
+  and the loot component is `component_level='tool'`. Census over active
+  components: tool+template 14 (12 schemaless), tool+standalone 12, section+
+  template 75 (5 schemaless), site 3 (2 schemaless); 122 total. So keying on the
+  marker changes **12** components, not the 19 schemaless the reviewers sized —
+  and leaves the 5 schemaless *sections* and 2 schemaless *site* components
+  completely untouched, which my heuristic would have altered.
+- `component_level` is already SELECTed by `loadSectionComponents`
+  (`v3_site_actions.go:3389`) and carried on `componentInfo.Raw` — no new query,
+  no struct change. Pure reuse.
+- **The reviewers' own read-only checks found something none of the objections
+  stated:** `complete.config.output_fields` still lists `"rerender_item"`, the
+  removed step's `output_field`. Removing the step without clearing that leaves a
+  dangling reference — the exact bug class edit 3 exists to prevent.
+
+**Round 2 → REVISE**, on ONE medium objection: nothing had confirmed
+`compose_note` exists as a step key, so the rewire target might dangle.
+editquality's note was otherwise positive — the marker shift "directly answers
+bug_historian's round-1 objection and is measured rather than asserted", the
+`output_fields` catch "a genuine catch", and: *"The one open thread is the
+compose_note rewire target, which should be a one-query confirmation before this
+goes from object to approve."*
+
+**Round 3** (submitted 14:17): that one query, answered —
+`has_compose_note=t, has_append_note=t, compose_note.action=execute_llm_prompt,
+compose_note.next_step=append_note`. Nothing else changed. bug_historian's
+standing architectural objection (a shared guard special-cased per component
+class, rather than required-vs-optional-but-expected content intent made
+structural — the missingkey=zero root) is recorded as **accepted and deferred**,
+not narrowed away: that is a 122-component schema-contract change and a human
+decision. The mitigation is that the special case is now a *named, queryable*
+marker, so a future structural fix can find every site of it with one query.
+
+**Operational notes for the next council user:**
+- These runs are **stateless** — no `orchestration_states` row is written, so the
+  097 banner's "watch the run" query returns nothing. Poll `diagnosis_artifacts`
+  (`kind='council_report'`, `correlation_id=<SUBMISSION_CORR>`) instead, and
+  filter by `orchestration_id` or `created_at` or you will keep reading the
+  PREVIOUS round's verdict.
+- **The topic is shared and busy.** Round 1 sat ~6 min behind another session's
+  run; round 2 sat ~27 min. Absence from the chassis logs is not evidence of a
+  dropped message — grep for the orchestration id over a wide `--since` before
+  concluding anything. I nearly declared round 2 lost when it was merely queued.
+- Cost note: 5 of 7 seats abstained on every round (relevance filter working).
+
+Categories: (council, review, correction, gotcha)
