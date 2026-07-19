@@ -858,3 +858,66 @@ did not approve would make CP2 meaningless. Escalated to the owner.
 **Nothing was written.** No file published, no component touched. The live feed
 still carries its fabricated stats (`1,284 Positions Filed`, `62% Disagree`,
 `3h 12m Until Close`, six arena cards with `312 positions` and `Closes 18:00`).
+
+### 2026-07-19 — runs 9/10/11: the contract seat works, and my rule for it is too strict
+
+**Run 9 (`eae6278b`)** — 5-seat council, first fire. `contracts=object` all 5
+rounds, escalated. The seat independently found the exact §3↔loader mismatch I
+had found by hand, quoting the alias verbatim: *"lobby-grid-loader never reads
+`data.lobby` — it only reads `data.arena.cards` (`var a = data.arena; ...
+a.cards`)"*. That alias is precisely why 174 surfaced SOURCE instead of
+regex-extracted paths; the choice paid for itself on the first run.
+
+It also found three mismatches **I missed**: the loader reads
+`a.eyebrow/a.title/a.subtitle/a.cta_label` which §3 never defines; the loader's
+own comment fixes card DOM order at `cards[0..5]` (6 slots) while §3 caps
+`arena.cards` at ≤4, so 2 of 6 render as stub against the plan's own "never a
+stub" promise; and `entry.tag` has no source in §3.
+
+**Run 10 (`20a1581b`) — died at `complete_refused`, zero council reports. My
+regression.** `compose` failed with `stop_reason=max_tokens (output_tokens=32000)`.
+174+175 grew load_context 13KB→39KB with real JS source; compose renders it
+inline and had **no length rule** — LENGTH DISCIPLINE was added to `recompose`
+only, by the run-6 fix, because compose had never needed one. Fixed by **176**
+(length + quoting discipline; cap deliberately NOT raised — approved plans are
+~14KB). **The fresh build v1.0.1138 is why this surfaced rather than corrupted**:
+it decodes `stop_reason` and hard-errors on a capped completion, where the old
+image would have persisted a truncated plan and drawn unclearable truncation
+objections (run 6's spiral). New image caught my regression on its first run.
+
+**Run 11 (`4f6a3997`)** — 176 confirmed: all 5 plans complete with trailer, and
+**tighter** than before (12748/11401/12994/12933/12469 B vs ~14KB). Escalated;
+`contracts=object` all 5 rounds again.
+
+**175 confirmed too — "unverifiable" became "provably wrong".** Run 9: *"no
+gauntlet-interface script source is in context — cannot verify."* Run 11: *"the
+given gauntlet-interface js_content (ground truth) has NO fetch call and NO
+reference to these selectors — only objectives/timer/stat-counter code exists."*
+That matches my hand check: zero occurrences of all six Journey-E selectors.
+
+> **MY DESIGN ERROR, three runs to see it.** The seat's rule — *"a pair you
+> cannot verify from context is itself an objection"* — is correct for an
+> EXISTING consumer and **wrong for one the plan will CREATE**. Run 11's
+> objections include *"Step 2 creates a new provocations-archive-detail hydrator
+> … this consumer's source is not in context and does not exist yet"* and
+> *"Step 1 adds a new fetch … cannot be checked against any real source"*. Both
+> are true and neither is a defect: a plan proposing new code has no source to
+> quote, and that is what a plan IS. So the seat has a **false-positive class
+> that blocks every greenfield step**, which is a large part of why runs 9 and 11
+> could not converge. The rule needs to split:
+> - existing consumer whose source CONTRADICTS the plan → hard objection (correct
+>   today, and it is catching real defects);
+> - consumer the plan explicitly creates/changes → NOT an objection provided the
+>   plan states the exact access path the new code must implement AND §5 carries
+>   an acceptance criterion that would fail if it does not.
+> Unfixed as of this entry — owner decision pending, since it is a deliberate
+> strictness trade-off, not an obvious bug.
+
+**A third context gap the seat named** (it is systematically mapping the
+boundary): `content_components.html_template` is not surfaced either, so it
+cannot settle whether the archive item template carries a default `href="#"`.
+Sharp objection, and one I had not thought of.
+
+**Cost so far**: 3 council runs (~75 min + credits) since the seat landed, none
+converged. It is finding real, provable defects every round; it is also blocking
+on its own over-strict rule. Both are true and should be weighed together.
