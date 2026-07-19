@@ -695,3 +695,48 @@ on *any* path.
 4. Durable fix is `bugs_open/021`'s: extend the guard to `store_generated_component`
    and make it compare js_content, not just HTML. Not T4's job — pointed at, not
    forked.
+
+### 2026-07-19 — filed to the diagnosis loop: the two republish paths carry complementary halves
+
+Owner judged the js_content finding cross-cutting and asked for a cited
+diagnosis to choose the fix. Grepping both bug dirs first (per CLAUDE.md) turned
+up `bugs_open/024` — *"a tool-improver fix is written durably and NEVER reaches
+the live page"*, filed hours earlier by the travelling-docs thread. Reading it
+before filing sharpened the finding rather than duplicating it.
+
+024 establishes that `RerenderSinglePageAction` is *"Simple concatenation - no
+template re-rendering"* — it assembles stored `page_components.rendered_html` and
+never re-renders `content_components.html_template`. But that is the same path I
+had found calls `collectJSAssets`. Checking the other path closed the shape:
+
+| republish path | re-renders template from `html_template` | emits JS from `js_content` |
+|---|---|---|
+| `rerender_single_page_action.go` | **no** — stale `rendered_html` (024) | **yes** — `collectJSAssets:121` |
+| `rerender_pages_actions.go` (bulk) | **yes** — `:486`, `:680` | **no** — stated at `:569` |
+
+**Neither path does both**, yet `store_generated_component_action.go:420-430`
+writes `html_template` and `js_content` in a **single UPDATE**. So a component
+change spanning both fields is split across two publish paths that each carry
+only one half. That is the platform's own **split-contract-drift** class (the
+name comes from the 42P10 incident), one level up: not two lists that must agree,
+but two publish paths that must jointly cover one write.
+
+This is a superset of 024's finding, not a rival to it — 024 is the html half.
+Filed as one coherent bug, code-only (no `RUNTIME_SITE`: the defect is
+structural, and the coverage key for code-only diagnoses is the SEED_SCOPE file
+set). Coverage check passed — no other thread holds open work on those files.
+
+- corr `8d86f110-447d-48ec-9857-32e7992326ca`, item_key
+  `needs_diagnosis:rerender-paths-split-publish`, REF pinned to `57fc4f484`.
+- SEED_SCOPE: `rerender_single_page_action.go:collectJSAssets`,
+  `rerender_pages_actions.go`, `store_generated_component_action.go`,
+  `update_component_html_action.go`.
+
+**Why this was worth a loop run rather than a direct fix**: there are at least
+three defensible repairs (give the bulk path a `collectJSAssets`; make the
+single-page path re-render templates; or split the component write so the two
+fields publish independently) and they have very different blast radii across
+every site on the fleet. This is the "want a cited, auditable diagnosis for a fix
+that changes behaviour fleet-wide" case in CLAUDE.md, not the "bug you can see"
+case. T4 does not block on it — the recommended T4 route (prefer per-page
+`content_data` over library `js_content`) avoids the defect entirely.
