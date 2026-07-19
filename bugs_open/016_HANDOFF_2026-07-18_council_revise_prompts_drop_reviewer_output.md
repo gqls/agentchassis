@@ -243,6 +243,26 @@ approval proves the step, a revise proves the whole path. A watcher is up for
 the first repropose/reframe whose *run* starts after 16:21:44Z, using your
 join. Will shout again when it lands.
 
+> **Still unexercised at 2026-07-19 12:41Z**, and worth recording *how* that was
+> established, because two obvious checks both lie:
+> - `llm_call_log.agent_type='fix-proposer'` returns **nothing ever** — the
+>   chassis stamps these rows `generic` (the same reason `council_report`'s
+>   `source_agent` is `generic` fleet-wide). Filtering on it reads as "never
+>   ran".
+> - `persist_plan` is **not** fix-proposer-only — `feature-designer` and
+>   `experience-planner` have a step of that name too. Eleven `persist_plan`
+>   executions on the 19th (10:44–11:48) looked like fix-proposer activity and
+>   were the experience-planner's council (fingerprinted by its distinctive
+>   steps: `review_journeys`, `review_feasibility`, `review_mvp`,
+>   `review_honesty`, `compose`/`recompose`).
+>
+> The reliable probe is `load_council_reviews`, which **only** `fix-proposer`
+> has: `SELECT count(*) FROM orchestration_state_audit WHERE
+> new_current_step='load_council_reviews';` → **0**. Cross-checked: the last
+> `propose`/`repropose`/`load_diagnosis` of any kind was 2026-07-18 15:39:29Z.
+> So fix-proposer has not run since before the patch — the fix is untested
+> because the loop has been idle, not because anything is wrong with it.
+
 *Mirror note, checked so it does not surprise anyone:* `099_SYNC_gate_roster.py`
 mirrors only `review_*`/`gate_*` steps, so `load_council_reviews` is **not**
 copied to the council-gate — correct, since the gate has no reviser (its

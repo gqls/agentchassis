@@ -113,6 +113,23 @@ coming lockstep change in its header.
   alternative for the `Council-Reviewed:` trailer, and for a **gate** submission
   that id never exists — so the 098 join would silently miss it. Use
   `SUBMISSION_CORR`.
+
+  > **PARTLY CORRECTED 2026-07-19 (council-gate thread) — the conclusion stands,
+  > the reason is narrower.** Your advice is right and CLAUDE.md now says
+  > "use `SUBMISSION_CORR`". But "that id never exists" is too strong as a
+  > general rule: on the commissioning smoke run the printed orchestration id
+  > (`72e552df`) *did* resolve — 1 row in `orchestration_states` and **2
+  > artifacts carrying it**. So the chassis does sometimes honour the envelope's
+  > `orchestration_id` header. The likeliest reading of your 0-row lookup is
+  > your own fourth trap immediately below: the run had not appeared yet.
+  > Either way the safe rule is unchanged, and now rests on a property that is
+  > always true rather than a behaviour that varies: **the correlation is the
+  > key artifacts are written under** (`diagnosis_artifacts.correlation_id`), so
+  > `SUBMISSION_CORR` always resolves; an orchestration id resolves only if the
+  > artifacts happen to carry it. Evidence for the record — the three imagery
+  > rounds on `098b29b8` carry orchestration ids `5aa40a0a`, `5cb5b43c`,
+  > `82f43425` (one per round), while the correlation is stable across all
+  > three, which is exactly why the correlation is the right trailer.
 - **Runs can be slow to start.** A submission may sit before its orchestration
   row appears. Absence a minute later is not evidence of a dropped dispatch —
   poll by `fix_correlation_id` before concluding anything (this cost two

@@ -61,10 +61,10 @@ and never spend credits. Full runbook + submission schema:
   Save the printed `SUBMISSION_CORR`. A run takes ~2 minutes.
 - **Verdicts.** APPROVED → commit with a trailer line `Council-Reviewed: <id>`
   (that trailer is what makes the coverage report's commit↔verdict join exact).
-  The `<id>` may be **either** the gate's `SUBMISSION_CORR` **or** the
-  orchestration id of a **fix-proposer** council run (`RUN_ORCH_ID`) — a fix the
-  fix loop's own council approved counts as reviewed, and the report resolves
-  both (prefix match, so a short id is fine).
+  **Use `SUBMISSION_CORR`** — the correlation is the key the artifacts are
+  written under, so it always resolves. (A council *run* id also resolves, but
+  only if it is the id the artifacts actually carry; take that from the DB, not
+  from a trigger's printout. Prefix match, so a short id is fine.)
   REVISE → the objections come back with the reviewers' own read-only checks
   already answered; revise and resubmit with `RESUBMIT_CORR=<corr>` so the trail
   accumulates. REJECTED → a guardian veto; its notes name the safest contained
