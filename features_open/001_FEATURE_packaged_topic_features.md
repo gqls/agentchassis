@@ -26,7 +26,7 @@ A headline list is inherently near-identical across sites drawing on the same
 pool. A synthesised feature does not have to be, because the synthesis is where
 the angle lives.
 
-## The structural point: the same pooling shape, one level up
+## The design: substrate + angle (owner-endorsed 2026-07-19)
 
 **A package written once per pool and published to all its domains is *worse* for
 duplicate content than a headline list, not better** — it is long-form
@@ -52,6 +52,48 @@ articles, not spun ones.
 This also serves the owner's stated goal directly ("I want each domain separate
 and focused to different target markets... so the news selection can hopefully be
 targeted slightly differently"). The per-site angle is where that focus lives.
+
+### What the angle is generated *from*
+
+The angle needs an audience to be angled at, so this feature depends on the
+per-domain target-market profile settled in the pooling workstream's Decision 7:
+the `site_specs` aspect **`audience`**, inherited from a pool-level default and
+**forked** per site when the domain needs its own position. That aspect is the
+input to angle generation. Without it, every angle is generated from the same
+implicit audience and the packages converge — which is exactly the failure this
+design exists to prevent.
+
+Note the dependency direction: **the audience profile is a prerequisite, not a
+parallel task.** Building packages before profiles exist produces 231 variations
+on one article.
+
+### How this maps to machinery that already exists
+
+The substrate/angle split is not a new pattern for this platform — it is the
+`forked_from IS NULL` component-library model applied to editorial content:
+
+| component library | packaged features |
+|---|---|
+| library row (`forked_from IS NULL`), shared by `function` | the research substrate, shared by pool |
+| per-site fork, carrying that site's voice | the per-site angle |
+| "regenerate the shared base only for neutral, purely-additive improvements; site-specific voice must FORK" (TLIB-022) | update the substrate with new facts; never rewrite an angle from the pool |
+| field-set guard, additions allowed, renames/drops rejected (`store_generated_component_action.go:331`) | substrate updates must be additive — an angle citing a removed fact breaks silently |
+| blast radius counted and recorded before a shared mutation (`fix_component_template_action.go:411-433`) | a substrate update touches every angle derived from it; record how many |
+
+The last row is the one most likely to be skipped and most likely to hurt: when
+the substrate updates ("Hormuz situation changed"), every derived angle is now
+potentially stale or contradicted. That fan-out needs to be counted and recorded
+at update time, not discovered later.
+
+### Lifecycle implication of the split
+
+"Updated as we go until it gets irrelevant" is cheap on the substrate and
+expensive on the angles: refreshing facts is one operation, but propagating a
+material change to N angles is N generations. Worth distinguishing two update
+classes up front — **substrate-only** (new figures, no narrative change; angles
+re-render from the same claims) versus **narrative** (the story changed; angles
+must be regenerated). Only the second costs per-site money, and only the second
+needs the blast-radius record.
 
 ## Cost shape
 

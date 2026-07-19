@@ -145,3 +145,81 @@ on one pool before rolling anything out fleet-wide — because pulling the feeds
 back later doesn't undo the footprint.
 
 027 is another thread's, so I've left it alone.
+
+---
+
+## 2026-07-19 — the piggyback question, and a design of mine that was wrong
+
+Owner asked me to look hard at how the platform already handles decisions that
+span multiple sites, so we could lean on that rather than invent something. Good
+instinct — it paid off twice, once by finding what to reuse and once by showing me
+something I'd got wrong.
+
+**The thing I got wrong.** When I first sketched how pooling would work, I said
+we'd add a "pool" column to the feed tables and allow the site column to be empty
+for pooled items — and I pointed out that the items table already allows an empty
+site, which I read as evidence someone had anticipated pooling. That was a
+plausible story and it was wrong. This platform has an established way of handling
+work that doesn't belong to any one customer site, and it's the opposite of what I
+proposed: it creates a **fake site** to own the shared work. There's one already,
+called `system.internal`, and the reason it exists is written down — they
+deliberately chose a synthetic site record over allowing an empty owner, so that
+all the ordinary per-site machinery keeps working unchanged on shared things.
+
+Applied to us, that means **each news pool should just be a site**. A fake one,
+flagged as such, that subscribes to sources and ingests articles exactly the way a
+real site does today. The upshot is much less work: no schema changes, none of the
+existing fetching or de-duplication code has to be touched, and we avoid changing
+a database index that has already caused a fleet-wide outage in this repo once
+before. Only the "which articles does this real site show" part is new.
+
+I've written that up as a visible correction rather than quietly editing the old
+plan, because the reason I got it wrong is worth keeping: nothing about my first
+sketch looked wrong from the inside. It was coherent and I had a story for it. It
+was wrong because I hadn't looked at how the platform already solves that shape of
+problem — which is exactly the failure mode our own guidance warns about.
+
+**On the target market question**, the news is better than I expected. Site
+records already carry a free-form set of "aspects" — identity, strategy, design
+intent and so on — with no restriction on what you can add, so a new one costs
+nothing. And there's already an `audience` aspect with a couple of entries in it,
+plus a piece of dead code in the admin API that was clearly written in
+anticipation of exactly this. Someone reached for this once and stopped. On top of
+that, every one of our eleven sites already has a written description of who it's
+for, and several are genuinely good — relojistas' says "enthusiasts, collectors
+and the curious about watchmaking in Spain, Mexico, Chile and the rest of Latin
+America". So we're not starting from a blank page.
+
+The rule for how a pool's default profile relates to a single site's own profile
+is one we already have and have already been burned by: the component library. A
+shared component sits in a library, a site takes a copy when it needs its own
+version, and the standing rule is that you only edit the shared one for neutral
+improvements — anything with the site's own voice in it has to be its own copy.
+That maps onto our problem exactly. A pool gets a default audience profile;
+near-identical domains like the insurance ones must take their own copy, because
+sharing one guarantees they rank the pool identically, which is the whole thing
+we're trying to avoid.
+
+**One genuine gap, which nothing can cover.** Everywhere the platform talks about
+what makes a site distinctive, it means distinctive *versus outside competitors* —
+never versus another one of ours. There is no field anywhere that says "this site
+is positioned differently from that site of ours". That's the one actually new
+thing needed, and it's small, but it has to be deliberate.
+
+**Two warnings I'd want us to heed.** A very similar audience design was written
+before and then deliberately reverted, and I don't know why — worth finding out
+before we rebuild the same shape. And the question "who is your target audience?"
+used to be a required question when a site was set up, and has since been dropped
+from the form. We've been quietly losing this information, which is part of why
+we're now short of it.
+
+Last useful find: the duplicate-content check I said we'd need is nearly written
+already. There's a check that spots two sites accidentally sharing a colour
+palette, and it works by comparing every site against every other site. That's the
+same shape as comparing news blocks — same join, same output, different thing
+compared. So the measurement isn't a research project, it's a sibling of something
+that already runs.
+
+The packaged-features idea is now written up as the design rather than a footnote,
+including the point that the audience profiles have to come first — build packages
+before profiles and you get 231 variations on one article.

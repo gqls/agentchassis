@@ -67,6 +67,23 @@ accidentally, which is precisely how it would be made.
 
 ## How to measure it (a risk with no test is an opinion)
 
+**There is already a working template for this check in the codebase.**
+`platform/orchestration/actions/discovery_checks/check_duplicate_palette.go:69-83`
+is the platform's only cross-site discovery check: it self-joins
+`sites a JOIN sites b ON b.id != a.id` through `style_collections`/`css_themes`
+and raises a `duplicate_palette` work item carrying `matching_domains`. That is
+precisely the shape needed here — same join, same work-item output, different
+comparand. Build the duplicate-content check as a sibling of it rather than
+inventing a mechanism.
+
+Worth noting *why* that check exists: the platform already decided that two sites
+accidentally sharing a palette is a defect worth raising automatically. Two sites
+sharing their news block is the same class of defect with higher stakes.
+
+Contrast `platform/orchestration/queryresolve/queryresolve.go:39` — "this package
+is site-scoped — there are **no** cross-site queries." Most of the platform cannot
+see this problem by construction, which is the point of the section above.
+
 Before rollout, and continuously after:
 
 - Render the news block for every site in a pool, normalise, and compute

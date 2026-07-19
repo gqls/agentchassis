@@ -231,3 +231,125 @@ than the commodity one.
 `bugs_open/027` (news renders nothing without JavaScript) — **another thread is on
 it**, per the owner. Left alone; still noted in PLAN as a rollout blocker because
 it gates fleet rollout regardless of who fixes it.
+
+---
+
+## 2026-07-19 — session 1 part 3: cross-site machinery survey
+
+Owner: *"look hard in the docs to see how we handle cross-site/multi-site
+decisions and we can hopefully piggy back on that work."* Two Explore agents over
+`docs/`, `platform/`, `internal/`, `pkg/`; findings then verified against the live
+DB where they were load-bearing.
+
+### MISSTEP 3 — my own Decision 1 implementation sketch ran against the platform's idiom
+
+In my first reply I proposed adding `pool_id` to `content_sources` and
+`content_feed_items`, making `content_sources.site_id` nullable, and treating
+`content_feed_items.site_id`'s existing nullability as "the pooling slot that
+already exists". I described that nullability as a structural hint that pooling
+was anticipated.
+
+**It is not the platform's idiom, and I proposed it before looking.** The
+established pattern for work with no owning customer site is a **synthetic site
+row**. `system.internal` exists precisely because `site_work_items.site_id` is
+`NOT NULL` and the platform chose a synthetic site *"rather than inventing a
+null-site mechanism"* (DBI-010). TLIB-018 makes the intent explicit: a synthetic
+site record owns library-level work *"so the ordinary site_work_items/dispatch
+machinery can operate on the shared component library exactly as it does on a
+customer site."*
+
+Verified live:
+```
+SELECT id, domain, status FROM sites WHERE domain='system.internal';
+ eac60db8-b032-432b-b36d-76f37632045d | system.internal | system
+```
+Matches `triageSystemSiteID` at `diagnose_triage_action.go:41`.
+
+**Making each pool a synthetic site** satisfies `content_sources.site_id NOT NULL`
+with no schema change, leaves every ingest action and the dedup index untouched,
+and removes the `idx_cfi_dedup` lockstep hazard entirely — the class that already
+caused a fleet-wide 42P10 in this repo. Recorded as Decision 8 with a visible
+CORRECTION block in PLAN.
+
+**What caught it:** the survey the owner asked for. Nothing about my original
+sketch was self-evidently wrong; it was locally coherent and I had a plausible
+story for it ("the nullable column is the anticipated slot"). It was wrong because
+I had not looked at how the platform already solves this shape of problem. Same
+failure mode CLAUDE.md's diagnosis-loop correction describes — not missing
+information, just not looking.
+
+### The audience question — verified live, better news than expected
+
+| check | result |
+|---|---|
+| `site_specs` constraints | only `site_specs_pkey` + `site_specs_site_id_fkey` — **no aspect constraint**. Free-form; new aspect = no migration. |
+| distinct current aspects | **38** |
+| `audience` aspect | **already exists**, 2 current rows (`ai-agent-orchestration.com`, `leopardessconsulting.co.uk`), `source_agent = content-gap-planner` |
+| `identity.target_audience` | populated for **all 11** sites with rich prose |
+
+The two existing `audience` rows have **inconsistent key shapes** —
+`primary_buyer_hierarchy` in one, `target_audience` in the other. Written ad hoc
+by an agent that was not designed to own this aspect. So the aspect exists but has
+no settled schema; that is the work, not creating it.
+
+Also found: `internal/core-manager/admin/spec_admin_handlers.go:226` already
+branches on `aspect == "audience"` — dead anticipatory code for an aspect nothing
+officially writes.
+
+**Aspect sprawl is real and this decision can worsen it.** 38 aspects, many
+singletons, with already-overlapping families: `voice` / `voice_and_tone` /
+`voice_and_audience`; `content_direction` / `content_standards` / `content_rules`.
+Adding a 39th ad-hoc shape is the wrong move; settling `audience` is the right one.
+
+### Cross-site machinery: what is actually live
+
+Verified BUILT (subagent read the source; statuses cross-checked against the
+concept register):
+
+| mechanism | anchor | use to us |
+|---|---|---|
+| shared component library, `forked_from IS NULL` | `component_library.go:176`, `deploy_tool_action.go:10-13`, TLIB-022 | **the share/fork rule for audience profiles and package substrates** |
+| field-set guard on shared-base regen | `store_generated_component_action.go:331` | additions ok, renames/drops rejected — mirror for profile changes |
+| blast radius counted + recorded before shared mutation | `fix_component_template_action.go:411-433` | substrate updates fan out to N angles; record it |
+| `system.internal` synthetic site | `diagnose_triage_action.go:41`, DBI-010/TLIB-018 | **pools are synthetic sites** (Decision 8) |
+| `js_snippets.applies_to` declarative targeting | `render_js_snippets_for_site_action.go:150-159` | site→pool binding without a join table |
+| cross-site duplicate-palette check | `check_duplicate_palette.go:69-83` | **the template for the duplicate-content check in `features_open/002`** |
+| fleet scan over deployed sites | `maintenance_actions.go:694-698` | the only whole-fleet loop |
+| `count(DISTINCT site_id)` fleet-pattern signal | `diagnose_triage_action.go:331,359` | how a finding becomes fleet-wide |
+
+Verified NOT usable:
+- **`networks`** — a dead FK. One hardcoded `default` row auto-created at
+  `site_db_actions.go:983`; `networks.settings` never read by any Go code; zero
+  references in core-manager or frontends. DBI-007 status `superseded`. It is a
+  clean empty hook, nothing more.
+- **`vertical_registry`** — 0 hits in any `.go` or `.sql`. VKA-001..004 all
+  `aspirational`. (Do not confuse with `business_intel.business_verticals`, which
+  is real but scopes data-collection agents, not sites.)
+- **site groups / cohorts / portfolios** — PEV-001/002/003 all `abandoned`.
+  PEV-001 is notable for taking an explicit *anti*-fleet-wide-decision stance.
+
+### The genuine gap
+
+Nothing records *"this site is positioned differently from our **other** site"*.
+Every differentiation field is against external competitors
+(`strategy.competitive_position`, `identity.unique_selling_points`,
+`identity.competitors_found`). Intra-portfolio positioning has no home anywhere in
+the platform. That is the one new thing Decision 4 actually requires.
+
+### Two cautions carried into PLAN
+
+- `identity.audience_primary`/`audience_secondary`/`sophistication` was designed
+  and **explicitly reverted** in `003_site_classifier.sql`. Reason unknown —
+  **find out before rebuilding the same shape.** Not treated as a blocker, but it
+  is exactly the kind of prior art that turns into a rediscovered problem.
+- The audience question was **dropped** from the live briefing questionnaire
+  (`026_pageflow_builder.sql:868` has no audience section; the backups had a
+  required one). We have been losing audience capture over time.
+
+### Also relevant, not chased
+
+`docs024_key_docs_latest/021_site_spec_and_classifier.md:17` records a live bug:
+two parallel paths to `target_audience` (the `site_specs` path and the
+`render_context` path), causing the content-quality-auditor to report "no target
+audience defined" when the data is in `content_data.response`. Any profile work
+must pick one path deliberately rather than adding a third.
