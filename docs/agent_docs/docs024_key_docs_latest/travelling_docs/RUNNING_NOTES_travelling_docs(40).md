@@ -3493,3 +3493,82 @@ marker, so a future structural fix can find every site of it with one query.
 - Cost note: 5 of 7 seats abstained on every round (relevance filter working).
 
 Categories: (council, review, correction, gotcha)
+
+### 2026-07-19 (evening) — council rounds 3 & 4: converged to 8/10 approve, still advisory REVISE
+
+**Round 3 → REVISE** (6 approve; decided_by render_guardian).
+editquality flipped to APPROVE (compose_note confirmed live). bug_historian
+APPROVED with its architectural objection recorded as disclosed-and-deferred.
+reuse_agent approved, noting the plan "detects and resolves a latent
+two-paths-to-one-outcome problem" by deleting tool-improver's competing step.
+Blocked by a NEW seat, **render_guardian (HIGH)**: edit 1 routes into scoped
+rerender mode, which "REGENERATES section HTML from content_data but SKIPS pages
+whose content hash is unchanged" — which, if true, makes this fix a no-op, since
+a template-only change leaves content_data identical.
+
+**That objection was wrong, and tracking down why is the most useful thing in
+this round.** The sentence is real but it is NOT from the code — it is quoted
+from the **concept register**
+(`docs026_concept_register/register/styling-render-pipeline.md:389`, plus two
+`.buckets` copies). Against the implementation:
+- `grep -rn content_hash --include=*.go platform/ internal/` — **zero** hits in
+  `rerender_page_sections_action.go`, `create_rerender_items_action.go` or
+  `save_page_sections_action.go`. The only users are rag_actions, code_symbols,
+  vet_med_price_scrape and one struct field.
+- The re-render loop has exactly **three** skip paths, none hash-based:
+  component not found (~229), `planSection` status != "ready" (~239), empty
+  html_template (~250). Anything else re-renders from `htmlTemplate` — the
+  changed template.
+- Empirical: probe `478c44c9` (reason=section_data_resolved, this page) reached
+  `rerender_sections` and processed it (`section_count:1`). Scoped mode engaged
+  and skipped nothing.
+> **A council seat cited a stale knowledge-base entry as fact and it became a
+> high-severity blocker on a correct plan.** That is a real cost and it will
+> recur for anyone else touching this pipeline. The register entry needs
+> correcting — logged as a follow-up, not fixed in this thread.
+
+**But checking render_guardian's area surfaced a real risk it did not name**, now
+disclosed in the submission: `plan_sections_action.go:1090-1108` defers an
+empty-schema component — so the section is CARRIED, not re-rendered — when
+`comp.Function` contains `article`/`content`/`body`/`text`/`blog`.
+`tool-loot-table-balancer` matches none, so it is "ready" and re-renders; a
+future `tool-content-*` would be silently carried. Same silent-carry-by-inferred-
+heuristic shape as the bug being fixed, one function away from it.
+
+**Round 4 → REVISE** (8 approve / 2 object; abstained 3). **render_guardian
+APPROVED** after the evidenced rebuttal. Also fixed this round, all from
+debug_historian: migration 171 is now gated on the pre-state marker
+(`steps ? 'create_rerender_item'`) so a re-run is a 0-row no-op per the
+needle-gate rule; `RETURNING` asserts post-conditions inline instead of a
+comment; and an explicit **VERIFY-AGAINST-THE-POD** pre-flight (grep the running
+binary for `createRerenderWorkItem`) guards the sequencing hazard. reuse_agent's
+asymmetry closed by quoting `markPagesPendingRebuild`'s body/file:line.
+
+Remaining objections (advisory, not blocking):
+- **improvement_guardian (MEDIUM)** — fair, and aimed at my framing: I *touted*
+  that `createRerenderWorkItem` bypasses `insertWorkItem`'s dedup/two-strike
+  machinery and inserts straight at `triaged`. That is "precisely the shape the
+  RUNNER OWNS INSERTION and status-gating contracts exist to prevent". The
+  bypass is pre-existing helper behaviour, not something this change introduces —
+  but celebrating it entrenches a contract violation. The cleaner answer is to
+  fix the two-strike rule so the bypass is not a *feature*.
+- **bug_historian (low ×2)** — the planSection heuristic residual above, and that
+  both helpers only `logger.Warn` on failure, so a failed rerender request
+  reverts silently to exactly this bug with nothing failing loudly.
+
+**Status: no Go written, no migration applied, nothing deployed.** The fix is
+still a plan. Four rounds spent; the gate is advisory and cannot block. Owner
+decision needed on whether to accept and implement, or first fix the two-strike
+rule so edit 1 need not lean on the bypass.
+
+**Council operational traps banked** (see also the earlier entry):
+- A submission fired within ~300s of a chassis (re)start is **silently dropped**
+  — round 4 was lost twice this way around the v1.0.1138 deploy (no artifact, no
+  error, no log line). Re-firing after the pod settled worked first time. Check
+  pod start time before submitting, and confirm a `fix_plan` artifact appears
+  within a few minutes or assume it was dropped.
+- Poll `diagnosis_artifacts` filtered by `orchestration_id`, never by
+  correlation alone — every round shares the trail correlation, so an unfiltered
+  poll happily returns the PREVIOUS round's verdict and looks like success.
+
+Categories: (council, review, correction, gotcha, register-defect)

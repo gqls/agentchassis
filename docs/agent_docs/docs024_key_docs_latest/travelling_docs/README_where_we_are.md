@@ -518,3 +518,42 @@ Done — committed as ece827ead, four files, all mine.
 
 ※ recap: The benchmark tool can't go green — no repair to a tool has ever reached a tool page, for three stacked reasons, now filed as bugs_open/024. The truncation fix (168) did work. I also corrected a wrong claim from the
   17th about a fix reaching the live page. Next: decide how to fix the render path — I'd suggest the council gate, since it's shared machinery.
+
+
+---
+
+2026-07-19 (evening) — the fix for bug 024 went through the council four times. It is a better fix than the one I started with, and it is still not written.
+
+  Where it landed
+
+  Four rounds. The last one came back eight approvals to two objections, and neither remaining objection is about whether the fix works — they're about shape and about things I'd already flagged myself. The verdict is still formally "revise", but the gate is advisory: it records an opinion, it can't stop me. So this is a decision point for you rather than a blocker.
+
+  What the council actually bought us
+
+  Two things I'd have got wrong on my own.
+
+  The first was a design improvement. My original fix told the re-render guard "skip any section whose component demands no required content". One reviewer pointed out that also covers components declaring *optional* content that was nonetheless expected — a class I had never looked at — and said, in effect, use an explicit marker rather than inferring one. It was right that a marker exists: components carry a component_level field, and tools are marked 'tool'. Keying on that instead changes twelve components rather than nineteen, and leaves the schemaless page sections and site components completely untouched. That is a materially safer change and it came out of the review, not out of me.
+
+  The second was a catch I'd have shipped past. The reviewers' own read-only queries noticed that removing the redundant step from tool-improver would leave a dangling reference to it in the agent's output fields — the exact class of bug that step removal was meant to prevent.
+
+  The one where the council was wrong
+
+  Round three was blocked, at high severity, on the claim that the re-render mode I'm using "skips pages whose content hash is unchanged" — which would make the whole fix pointless, since a template change leaves the content untouched.
+
+  I chased it. The sentence is real, but it isn't from the code: it's from our own concept register, the knowledge base the agents read. Against the actual implementation there is no content-hash check anywhere in that path — the re-render loop has exactly three skip conditions and none of them is a hash — and my earlier probe had already driven that mode through this very page without skipping. I put the evidence in the next round and the reviewer withdrew and approved.
+
+  Worth saying plainly: a reviewer quoted a stale entry in our knowledge base as fact, and it became a high-severity blocker on a correct plan. That will happen to the next person who touches this pipeline. The register entry needs fixing, and that's a follow-up I haven't done.
+
+  Chasing it down did find a real problem, though, which nobody had named: right next to the guard I'm fixing, there's another decision that carries a section over unchanged instead of re-rendering it — and it decides by pattern-matching the component's name against words like "article", "content" and "body". Our loot-table tool doesn't match, so it's fine today. A future tool called something like "tool-content-planner" would be silently skipped. Same shape as the bug we're fixing, one function away from it. It's disclosed in the submission and not fixed.
+
+  What I'd like you to decide
+
+  The remaining medium objection is a fair hit on me. My fix leans on an existing helper that writes work items directly and bypasses the platform's anti-churn machinery — and I'd described that bypass as a *benefit*, because it dodges the two-strike bug I found this morning. The reviewer's point is that reusing a contract-violating shape to fix a bug entrenches the violation. I think that's right.
+
+  So: either we accept the fix as reviewed and implement it, or we first fix the two-strike rule properly so the fix doesn't need to lean on the bypass at all. The second is cleaner and slower. My inclination is the second, but it's your call on appetite.
+
+  Nothing is written, applied or deployed. No Go, no migration. The benchmark tool is still red.
+
+  One operational note: a fresh chassis went out mid-afternoon, and two of my submissions were silently swallowed because they landed within the few minutes after a pod restart, which drops dispatches without any error. Re-firing once the pod settled worked immediately. That's now written down.
+
+※ recap: The council improved the fix twice, was wrong once (citing a stale entry in our own knowledge base as a high-severity blocker — I disproved it with the code and it withdrew), and left one fair objection: my fix leans on a helper that bypasses platform anti-churn machinery. Decide whether to implement as-is or fix the underlying two-strike rule first. Nothing written yet.
