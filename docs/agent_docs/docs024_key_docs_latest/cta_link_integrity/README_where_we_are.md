@@ -1,74 +1,83 @@
-Opened 2026-07-19 (session "leopardess3") from an owner review of leopardessconsulting.co.uk:
-four buttons he couldn't make sense of — *Start Ranking Free*, *See How It Works*, *Start the
-Guide*, *Visit the Tool*. He was right on both counts: they are broken, and they are also
-mislabelled, which is why they made no sense. **Diagnosis and plan are complete; nothing is
-fixed.** That split is deliberate — the owner scoped the fix to a later thread.
+Done. Research, plan, and bug report are filed and committed.
 
-Entry points: `PLAN_2026-07-19_cta_link_integrity.md` (defect classes A–H, phasing),
-`NOTES_cta_link_integrity.md` (the evidence, including my own corrections),
-`RUNBOOK_cta_link_integrity.md` (every query with its gotcha),
-`SUMMARY_2026-07-19_cta_link_integrity.md` (the plain-prose owner read-out).
-Bug: `bugs_open/023`. Pattern: 016b §9, indexed §10.
+Your four buttons are all genuinely broken — in four different ways
 
-**What the four buttons turned out to be.** Four buttons, four *different* mechanisms, each
-defeating a different check — which is the whole reason none was caught. One renders
-`href=""` (a warning in `validate_page_content`, never a blocker). One renders
-`href="#guide-start"` where no such id exists (fragment scope is skipped by every check, and
-nothing anywhere resolves a fragment against a page's ids). One points at a hostname that
-does not resolve (external scope is skipped by every check, and there are zero HTTP
-reachability checks in `platform/`). The last carries a frozen `source:static` label
-belonging to a *different tool* — a Bayesian ranker — served by
-`bayesian-ranking-hero-tool_pre_037`, a `_pre_037` row that is the sole live component for
-its function.
+┌─────────────┬─────────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│   Button    │    What it does     │                                                         Why                                                         │
+├─────────────┼─────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Start       │ goes to             │ Label belongs to a different tool — a Bayesian ranker. It's a frozen source:static fallback that re-applies every   │
+│ Ranking     │ /contact.html       │ render, so page content can't override it. Same origin as "Calculate Rankings" and "Try the Bayesian Ranker"        │
+│ Free        │                     │ appearing on an LLM cost page.                                                                                      │
+├─────────────┼─────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ See How It  │ href="" — nothing   │ Its URL resolves from an unset site_specs key → empty → the template is ungated, so it emits an empty href instead  │
+│ Works       │                     │ of no button.                                                                                                       │
+├─────────────┼─────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Start the   │ href="#guide-start" │ Hardcoded fragment in the template; no such id exists on any page using it. Dead on 4 pages / 3 sites.              │
+│ Guide       │                     │                                                                                                                     │
+├─────────────┼─────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Visit the   │ NXDOMAIN / blank    │ Field is source:llm + required:true with nothing to look up. It invented two different hostnames on adjacent pages. │
+│ Tool        │ page                │  Thanks for the domain clarification — that it's built from two domains you do own is what makes it undetectable by │
+│             │                     │  heuristic.                                                                                                         │
+└─────────────┴─────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-Underneath all four: a button's label and its URL are unrelated schema fields, and nothing
-expresses "a label implies a destination". Static labels re-apply their fallback every render
-(`plan_sections_action.go:1210-1218`), bypassing `required`/`on_missing` entirely, so the
-words always appear whether or not there is anywhere to go.
+Root cause: a button's label and its URL are unrelated schema fields, and nothing anywhere expresses "a label implies a destination". Each of the four then
+fell in a different check's blind spot, and the blind spots tile the space.
 
-**Two findings that outrank the buttons.** First, it is fleet-wide and measured, not
-estimated: 51 dead or suspect controls across 7 of 11 sites, and **75 of 89 URL-bound CTA
-anchors in the component library are ungated (~84%)** — an agreed, documented invariant
-(LNK-005, "an unresolvable destination renders nothing") that almost nothing enforces.
-Second, and sharper: **one of the four was correctly detected on 2026-07-17**, right
-component and right page, two days before the owner clicked it — and filed at
-`needs_human_review`, which triage never promotes and no handler consumes. A grep of
-`platform/` for `unresolved_cta` / `cta_names_unknown_destination` / `dead_control` returns
-emission sites only, zero consumers; 34 sit open on this site. That is a *delivery* gap, and
-it is a different fix from the detection gap. Adding checks without building the handler
-would convert a visible problem into a larger invisible one — which is why I recommended
-against running the experience loop on this yet, despite the owner asking about it.
+Two findings that outrank the buttons
 
-**A correction worth carrying forward.** I first wrote that the fabricated hostname
-`leopardess.contactforsales.com` was "assembled from two real domains in the owner's estate",
-implying the model knew what he owns. The owner challenged it — he thought his owning
-`leopardessconsulting.com` was coincidence. He was right, and checking produced a far better
-mechanism: the `.com` is simply the obvious variant of the site's own name, while
-`leopardess.contactforsales.com` is a **transform of the real contact email in the site's own
-identity spec** (`leopardess@contactforsales.com`, `@`→`.`). The parts were true and
-in-context; only the recombination was invented. That turns an unanswerable question ("is
-this hostname plausible?") into a one-line deterministic check needing no network call — now
-plan step P1.5 — and it generalises: **six sites carry `<label>@contactforsales.com` in their
-current identity spec**, so any of them can produce the same fabrication. The general lesson
-went into 016b §9: when you catch a fabrication, work out which real in-context tokens it
-recombined, because that rule is usually cheap to test for.
+It's fleet-wide, and measured: 51 dead/suspect controls across 7 of your 11 sites, and 75 of 89 URL-bound CTA anchors in the component library are ungated
+(~84%) — violating the platform's own written LNK-005 invariant. That invariant is agreed, documented, and almost entirely unenforced.
 
-**Owner-approved alongside it (P4.1):** 301 `leopardessconsulting.com` → `.co.uk`, path
-preserved. It fixes one of the four buttons immediately and is independent of all code work.
-The trap is flagged in every doc here: it makes a *fabricated* URL start resolving, which is
-not the defect fixed — the field still invents on the next build, and the other page's button
-stays dead.
+The sharper one is a delivery gap, not a detection gap. The platform caught "Start Ranking Free" correctly — right component, right page — on 17 July, two days
+before you clicked it. It filed the finding at needs_human_review, which triage never promotes and no handler consumes. Grepping the whole platform for those
+item types returns emission sites only, zero consumers. There are 34 such notes open on this site, oldest 13 July.
 
-**Git note (commit-per-task).** Three narrow pathspec commits: `db9a4259b` (bug + plan),
-`47a86c61b` (016b), `9b5b117bb` (the correction + redirect). A lesson for the next thread:
-`9b5b117bb` used a *directory* pathspec for this folder and swept in a stray file — a raw
-terminal capture of my own chat reply, carrying the very claim I had just corrected. Nothing
-was lost and nothing of anyone else's was taken, but it is the hazard CLAUDE.md warns about,
-one level down: **a directory pathspec is not a narrow pathspec.** This file is that stray,
-rewritten to match the convention the other workstream dirs use.
+So adding more checks without building a handler would make the pile bigger, not smaller.
 
-**Where to start if you are picking this up.** Read the plan's §3 first. The highest-leverage
-change is not the obvious one: replace the hardcoded six-entry `ctaFieldNames` map with CTA
-pairs derived from `input_schema`. Four migrations (091, 096, 097b, 098) have already
-hand-patched that map with the same lesson, and until the label/url pairing exists as data,
-the check everyone wants cannot be written at all.
+Two places I'd push back on the brief
+
+Don't invoke the experience loop yet. You asked whether it was needed — it's a detection loop, and detection isn't what's missing. Running it now re-discovers
+what's already correctly written in 34 unread items. Build the handler first.
+
+Don't ship the build-time check as a blocker straight away. 30 empty hrefs are live right now; a strict gate fails most of the fleet's next rebuild and gets
+switched off. Stage it — the repo already learned this with phantom_internal_links.
+
+The highest-leverage fix also isn't the obvious one: replace the hardcoded 6-component ctaFieldNames map with pairs derived from input_schema. Four migrations
+have hand-patched that map with the same lesson.
+
+Filed: bugs_open/023, plan/notes/runbook/summary in docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/, pattern in 016b §9, leopardess HANDOFF
+updated. Commits db9a4259b and 47a86c61b. Nothing fixed, per your scope.
+
+One question for you: leopardessconsulting.com is yours but serves a blank 114-byte page, and a live button points at it. Redirecting it to the .co.uk would
+turn one of these four into a working button for free.
+
+-----
+----
+
+**Correction to the summary above (2026-07-19, later the same session).** Two claims in
+the table above were superseded within the hour — kept here rather than edited away,
+because the wrong turns are the part that can't be rederived:
+
+1. **"built from two domains you do own" is wrong.** The model has no knowledge of the
+   owner's domain estate. `leopardessconsulting.com` is just the obvious `.com` variant of
+   the site's own name (the owner happening to own it is coincidence — he said so, and he
+   was right). `leopardess.contactforsales.com` is a **transform of the real contact email
+   in the site's own identity spec**, `leopardess@contactforsales.com`, `@` swapped for a
+   dot. Parts true and in-context; only the recombination invented. That makes it
+   deterministically checkable (plan step P1.5), and it generalises — 6 sites carry
+   `<label>@contactforsales.com` in their current identity spec.
+
+2. **The redirect option is dropped.** `leopardessconsulting.com` → `.co.uk` was offered as
+   a free fix for one button; the owner declined it in favour of the root cause. Correct
+   call — it would only have made a fabricated URL resolve.
+
+**And the finding that dropping it exposed:** all four broken buttons live in
+`page_components` positions 1 and 2 of the two tool pages — `bayesian-ranking-hero-tool`
+(wrong component) and `tool-guide-intro` (wrong page type: a guide intro on a tool page).
+The genuine tool sits at position 3 and is fine. So "Visit the Tool" is a self-link *by
+construction*, which is why `required:true` had nothing to resolve against. The fabricated
+external URL then **concealed** the self-link — `LinkScopeExternal` is skipped by every
+check, whereas an internal self-link would likely have tripped `misdirected_cta`.
+
+Owner scope decision: **full platform fix** (schema-derived CTA pairing, anchor gating,
+work-item handler, site fix, planner cause). In progress.
