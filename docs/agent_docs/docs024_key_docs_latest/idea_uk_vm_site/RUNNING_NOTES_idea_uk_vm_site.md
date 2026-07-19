@@ -572,6 +572,73 @@ setup.sh's template, predate this change.
 Re-running `setup.sh` now **reverts the site to tool-only** and does `ufw --force reset`. Port these
 server blocks into its stage-2 template before any re-provision.
 
+## U — 2026-07-18/19 · The cutover broke the funnel; forms authored as sections; auditors finally run
+
+**The break (`/bugs_open/017`).** Owner: *"/audience-check produces page: POST only … I can't find the
+tool."* The tool served its OWN landing page at `/`, and **that page carried the entry forms**.
+The cutover gave `/` to the static site; `/audience-check` and `/request` are POST-only *handlers*,
+so the two surviving `href="/audience-check"` links were GET requests. Verified: the whole static
+site contained **one** form (a newsletter box, no action) and **nothing** posting to `/request`. The
+tool was healthy, reachable and unusable — no way to buy. RUNBOOK §3b had noted *"`/` (the landing
+page it loses)"* as a routing fact; nobody asked what was ON that page.
+
+**Correction to §T's confidence:** the post-cutover smoke tests all passed *because nothing errored*.
+A funnel can be absent without a single non-2xx. Status codes cannot see a missing form.
+
+**The auditors were right; they had never been run.** I first reported they'd missed this — wrong.
+`SELECT source…` for the site showed 13 sources, none `discovery`. Once a run completed it caught the
+owner's symptoms exactly: `empty_internal_href` in **site_component (header)** and **(footer)** (the
+blank logo `src=""` and `href=""` buttons — correctly traced to the shared chrome, not per-page),
+9 × `phantom_internal_link` (`/about`, `/report`, `/tools`, `/how-it-works`, `/method` — the site uses
+`.html`, so all dead-end), 7 × `cta_names_unknown_destination`, 9 × `misdirected_cta`, and
+**`needs_rerender`: 9 pages missing header/footer**. The genuine gap is narrower than I claimed: no
+check models the *backend*, so nothing noticed a GET link to a POST-only route (`017` proposes
+`backend_entry_orphaned`).
+- ⚠️ **I wrote a duplicate trigger before searching.** `scripts/initial_messages/060improvement_loop/
+  076_improvement_loop_trigger.sh` already spawns all three discovery agents — and passes `domain`,
+  which is exactly why my hand-rolled envelope died. Deleted mine. Dispatch problems recorded as
+  **error F in `bugs_open/002`**, including a well-formed envelope that produced *no orchestration at
+  all* (unexplained; not the 300s rule).
+
+**The fix — forms authored as chassis sections** (`sql/p2_01`): `audience-check-form` → tools page,
+`report-request-form` → report page. Field names read from the tool source, never guessed
+(`audience_check.go:159-160`; `service.go:327-355`), including the `company_url` honeypot and
+`_elapsed` timing field. Appended to existing pages — no new pages, so the re-plan landmine is
+untouched.
+- **Own-goal caught before it shipped** (`sql/p2_02`): a raw SQL INSERT **bypasses
+  `separateInlineJS`**, so `report-request-form` landed in exactly the shape 016b §9 calls broken
+  (`js_len=0, src_ref=f, raw_inline=t`). `collectJSAssets` only publishes
+  `/tools/assets/{function}.js` when `js_content` is non-empty — so `_elapsed` would never be set and
+  the timing gate would **fail open silently while appearing present**. Also `function` had defaulted
+  to `generic-text-block`, which would have published the JS under a colliding name. Both corrected.
+
+**Outcome so far:**
+- ✅ **Free taster LIVE** — `<form class="ac-form" action="/audience-check" method="POST">` is on
+  idea.uk/tools.html.
+- ✅ **The chassis→vm-sites→box pipeline is now PROVEN end-to-end by a real build** (the item that
+  §T left outstanding): the build committed to `gqls/vm-sites`, the box's 5-minute sync pulled it,
+  nginx served it. Previously only code-verified.
+- ⚠️ *"Trust the artefact, not the status"* again: the tools work item reads **`failed` — "Claim
+  timed out — handler pod likely died"** while the page rendered and deployed correctly. Known
+  claim-timeout churn; the artefact is authoritative.
+- ⚠️ The first report build failed `validate_content … 0 blockers, 1 errors` →
+  `needs_human_review` (by design: error severity routes to a human rather than deploying). Detail
+  was unrecoverable — the orchestration rows had been reaped. Most likely cause: that build ran
+  against the **pre-p2_02 component** (raw inline `<script>`, `function='generic-text-block'`); the
+  shape fix landed after it started. A straight re-drive on the corrected component passed
+  `complete` first attempt, with no other change.
+- ✅ **FUNNEL RESTORED — both forms live and verified end-to-end:**
+  - `report.html` → `<form class="rr-form" action="/request">` carrying **all seven** fields:
+    `name, email, business, audience, notes` + `company_url` (honeypot) + `_elapsed` (timing).
+  - `tools.html` → `<form class="ac-form" action="/audience-check">` with `business, audience`.
+  - `/tools/assets/report-request-form.js` serves **200** — so `collectJSAssets` published it and
+    the timing gate is genuinely armed, not merely declared. This is the exact failure p2_02
+    prevented, now positively confirmed rather than assumed.
+
+**Still open on this site:** the `needs_rerender` finding — **9 pages missing header/footer** — plus
+the header/footer `empty_internal_href` (blank logo `src`, dead buttons) and the phantom `.html`-less
+links. All are chrome-level, affect every page, and want their own pass. The forms work regardless.
+
 ## Open decisions
 
 - ~~`/privacy` — tool or static?~~ **RESOLVED 2026-07-18 (owner): the tool keeps all three legal
