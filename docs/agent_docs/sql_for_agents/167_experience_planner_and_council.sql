@@ -77,7 +77,18 @@ SELECT
               ' E''\n\n## Attached components — COMPLETE ground truth (page | slot | function | level | active)\n'' || ' ||
               ' COALESCE((SELECT string_agg(p.name||'' | ''||COALESCE(pc.slot_name,''-'')||'' | ''||COALESCE(cc.function,''(unlinked)'')||'' | ''||COALESCE(cc.component_level,''-'')||'' | ''||COALESCE(cc.is_active::text,''-''), E''\n'' ORDER BY p.name, pc.position) FROM page_components pc JOIN pages p ON p.id=pc.page_id LEFT JOIN content_components cc ON cc.id=pc.component_id WHERE p.site_id = $1::uuid), ''(none)'') || ' ||
               ' E''\n\n## Open work items (item_type | status | summary)\n'' || ' ||
-              ' COALESCE((SELECT string_agg(item_type||'' | ''||status||'' | ''||left(summary,140), E''\n'') FROM site_work_items WHERE site_id = $1::uuid AND status NOT IN (''complete'',''verified'',''rejected'',''wont_fix'',''failed'',''cancelled'')), ''(none)'') ' ||
+              ' COALESCE((SELECT string_agg(item_type||'' | ''||status||'' | ''||left(summary,140), E''\n'') FROM site_work_items WHERE site_id = $1::uuid AND status NOT IN (''complete'',''verified'',''rejected'',''wont_fix'',''failed'',''cancelled'')), ''(none)'') || ' ||
+              -- 174: the runtime loaders ARE the binding data contract. Without
+              -- this section the council approved a §3 contract whose consumer
+              -- it had never seen (archive[] vs data.archive.entries). Source,
+              -- not a regex-extracted path list: the loaders alias their arg
+              -- (var a = data.arena; … a.cards), so a regex silently misses
+              -- paths and yields an authoritative-looking wrong answer.
+              ' E''\n\n## Runtime JS loaders that hydrate this site (js_snippets) — THE BINDING DATA CONTRACT\n'' || ' ||
+              ' E''Any data contract you specify MUST match the EXACT access paths in the source below. A field the loader never reads is dead weight; an access path the contract does not supply leaves that region SILENTLY EMPTY — these loaders fail gracefully by design, and runtime-fill shells are deliberately exempt from the dead-control and phantom-link checks, so NOTHING will flag it. Read the source. Never infer the shape from a component name.\n\n'' || ' ||
+              ' COALESCE((SELECT string_agg(''### '' || js.name || E''\n'' || ''hydrates component(s): '' || js.applies_to::text || E''\n'' || COALESCE(js.description,'''') || E''\n```javascript\n'' || left(js.js_content, 8000) || CASE WHEN length(js.js_content) > 8000 THEN E''\n/* … TRUNCATED at 8000 chars — ask for the rest rather than guessing … */'' ELSE '''' END || E''\n```\n'', E''\n'' ORDER BY js.name) ' ||
+              ' FROM js_snippets js WHERE js.is_active AND js.applies_to ?| (SELECT COALESCE(array_agg(DISTINCT cc.function), ARRAY[]::text[]) FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN content_components cc ON cc.id=pc.component_id WHERE p.site_id = $1::uuid AND cc.function IS NOT NULL)), ' ||
+              ' ''(no active runtime loader matches this site''''s attached components — if the plan assumes client-side hydration, that assumption is unverified)'') ' ||
               ' AS text'
           )
         ),
@@ -258,11 +269,11 @@ SELECT
           'action', 'execute_llm_prompt',
           'description', 'Critic 4 — MVP referee (advisory: approve|object only).',
           'output_field', 'review_mvp',
-          'next_step', 'council_decide',
+          'next_step', 'review_contracts',
           'config', jsonb_build_object(
-            -- ABSTENTION-TOLERANT (171) — last critic, so it falls through to
-            -- council_decide itself.
-            'error_step', 'council_decide',
+            -- ABSTENTION-TOLERANT (171) — falls through to the NEXT critic,
+            -- which since 174 is review_contracts, not council_decide.
+            'error_step', 'review_contracts',
             'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
             'temperature', 0.0,
             'input_fields', jsonb_build_array('proposal'),
@@ -278,6 +289,44 @@ SELECT
           )
         ),
 
+        -- Critic 5, added by 174 after the council's first substantive escape:
+        -- it unanimously approved a §3 data contract (archive[], arena{status}
+        -- only) that the live loaders cannot read (data.archive.entries,
+        -- a.cards), which would have silently blanked two runtime-fill regions.
+        -- Its axis is deliberately NOT folded into feasibility — overlapping
+        -- remits produce "each assumed the other checked it".
+        'review_contracts', jsonb_build_object(
+          'action', 'execute_llm_prompt',
+          'description', 'Critic 5 — contract agreement / integration (approve|object; no veto, but objections block).',
+          'output_field', 'review_contracts',
+          'next_step', 'council_decide',
+          'config', jsonb_build_object(
+            'error_step', 'council_decide',
+            'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',8000),
+            'temperature', 0.0,
+            'input_fields', jsonb_build_array('experience_context','proposal','schema_hint'),
+            'output_format', 'json',
+            'prompt_template',
+'# Council critic: CONTRACT AGREEMENT (integration)' || chr(10) || chr(10) ||
+'You judge ONE thing: wherever the plan names two artefacts that must agree, do they PROVABLY agree? You change nothing; you judge.' || chr(10) || chr(10) ||
+'This platform''s most expensive defects are not bad code — they are two sides of one contract drifting apart, each side correct on its own. Real instances: a dedup index and a Go status list that had to match and did not (every keyed insert failed fleet-wide, invisibly); a component key required to be identical in three places (content_components.function, pages.name, doc subject_key) that was not (a tool''s acceptance criteria silently stopped covering it); two page-republish paths each assumed to publish a whole component.' || chr(10) || chr(10) ||
+'Judge every producer/consumer pair the plan implies:' || chr(10) ||
+'(a) DATA CONTRACT vs RUNTIME LOADER — for every field the plan defines, does a loader actually read it, and for every access path in the loader source, does the plan supply it? BOTH directions. A guard like `if (!data.x) return;` or `!Array.isArray(data.x.y)` is a HARD requirement: fail it and the region stays silently empty.' || chr(10) ||
+'(b) COMPONENT vs BINDING — does every selector/field the plan names actually exist on the component it names?' || chr(10) ||
+'(c) CONTROL vs DESTINATION — does every control the plan wires have a real destination?' || chr(10) ||
+'(d) any other pair the plan asserts must match.' || chr(10) || chr(10) ||
+'## THE RULE THAT MAKES THIS SEAT WORTH ITS COST' || chr(10) ||
+'You may NOT approve a pair by reasoning about what a name implies. Quote the consumer''s own source from the context below. And if the source needed to settle a pair is NOT in your context, that is itself an OBJECTION — say exactly which source you needed and could not see. Never approve an unverifiable pair; an unseen consumer is how a mismatched contract reaches production.' || chr(10) || chr(10) ||
+'## Live site context (includes the runtime loader sources — this is ground truth)' || chr(10) || '{{.experience_context.text}}' || chr(10) || chr(10) ||
+'## Schema (the ONLY tables checks may use)' || chr(10) || '{{.schema_hint.text}}' || chr(10) || chr(10) ||
+'## The plan' || chr(10) || '{{.proposal}}' || chr(10) || chr(10) ||
+'CHECKS: if a verdict hinges on a fact a read-only SQL query settles, put it in checks as {"sql":"SELECT ...","why":"..."} — SELECT/WITH only, ONLY the Schema tables.' || chr(10) || chr(10) ||
+'Verdicts: approve (every pair provably agrees, and you quoted the proof), object (a pair does not agree, or you could not verify one — name it and quote both sides). You have NO veto, but the council decides by "ANY objection => revise", so your objection BLOCKS approval exactly as hard as a veto does. Do not spend one on style or naming preference — only on a pair that will not fit.' || chr(10) || chr(10) ||
+'## Output — ONLY this JSON. Keep it COMPACT so it cannot truncate: at most 6 objections, each "problem" <= 240 chars, "notes" <= 400 chars, at most 3 checks. Close every brace. TYPE RULE: "edit" MUST be a bare INTEGER — the plan section number 1-5, or 0 for plan-wide. Never a string, never quoted.' || chr(10) ||
+'{"reviewer":"contracts","verdict":"approve|object","objections":[{"edit":0,"problem":"...","severity":"low|medium|high"}],"missing":["contract half with no counterpart"],"checks":[{"sql":"SELECT ...","why":"..."}],"notes":"..."}'
+          )
+        ),
+
         'council_decide', jsonb_build_object(
           'action', 'diagnose_council_decide',
           'description', 'Deterministic aggregation (reused verbatim): any veto→rejected, any object→revise, else approved. Honesty holds the hard veto. Persists kind=council_report; sets should_revise/should_reframe.',
@@ -286,7 +335,9 @@ SELECT
           'config', jsonb_build_object(
             'error_step', 'complete_refused',
             'fix_correlation_id', 'input_data.experience_correlation_id',
-            'review_fields', jsonb_build_array('review_journeys.result','review_feasibility.result','review_honesty.result','review_mvp.result'),
+            -- 174 added review_contracts. A seat missing from this list RUNS and
+            -- is never read — its objections would vanish silently.
+            'review_fields', jsonb_build_array('review_journeys.result','review_feasibility.result','review_honesty.result','review_mvp.result','review_contracts.result'),
             'hard_veto_from', jsonb_build_array('honesty'),
             'max_rounds', 5
           )
@@ -348,7 +399,9 @@ SELECT
             'error_step', 'complete_refused',
             'ai_service', jsonb_build_object('model','claude-sonnet-5','provider','anthropic','api_key_env_var','ANTHROPIC_API_KEY','max_tokens',32000),
             'temperature', 0.2,
-            'input_fields', jsonb_build_array('experience_context','proposal','review_journeys','review_feasibility','review_honesty','review_mvp','check_results','input_data'),
+            -- review_contracts added by 174. A critic absent from input_fields
+            -- renders as <no value> and the reviser revises blind — bugs_open/016.
+            'input_fields', jsonb_build_array('experience_context','proposal','review_journeys','review_feasibility','review_honesty','review_mvp','review_contracts','check_results','input_data'),
             'output_format', 'text',
             'prompt_template',
 '# PROMPT — REVISE the EXPERIENCE_PLAN' || chr(10) || chr(10) ||
@@ -358,6 +411,7 @@ SELECT
 '## Feasibility critic said' || chr(10) || '{{.review_feasibility}}' || chr(10) || chr(10) ||
 '## Honesty auditor said (hard veto)' || chr(10) || '{{.review_honesty}}' || chr(10) || chr(10) ||
 '## MVP referee said (NO veto, but its objections BLOCK approval just like any other seat — see SCOPE DISCIPLINE)' || chr(10) || '{{.review_mvp}}' || chr(10) || chr(10) ||
+'## Contract-agreement critic said (NO veto, but its objections BLOCK — a mismatch here ships a silently empty region)' || chr(10) || '{{.review_contracts}}' || chr(10) || chr(10) ||
 '## Verification results (the critics'' own read-only queries, now answered)' || chr(10) || '{{.check_results.results_text}}' || chr(10) || chr(10) ||
 'SCOPE DISCIPLINE (run 7 escalated on exactly this): the council decides by "ANY objection => revise", so the MVP referee''s objection blocks approval as hard as a veto. Its scope cuts are NOT optional advice. For EVERY MVP-referee objection you must do one of two things, visibly: (a) MOVE the named item to the LATER list, or (b) keep it and state in §4, in one sentence, why the core loop genuinely cannot play without it. Silently keeping it is not an option and has already cost four rounds. Above all: answering one critic must NEVER enlarge the MVP cut to satisfy another — if fixing a feasibility or journeys objection requires adding scope, prefer CUTTING the feature that caused the objection over specifying it further. A smaller plan that all four seats approve beats a complete plan that never converges.' || chr(10) || chr(10) ||
 'LENGTH DISCIPLINE (this loop has truncated before, which is itself an objection): revise by TIGHTENING and REPLACING text, never by appending. The plan must not grow round on round — if it is getting longer, cut narrative, prose rationale and LATER-list detail. The §5 criteria fence has ABSOLUTE priority: it must always be complete, valid, closed JSON followed by the END trailer, even if every other section has to be shortened to fit. A truncated plan is worse than a terse one.' || chr(10) || chr(10) || 'Use these to settle any objection that hinged on an unverified fact. If a result contradicts the plan, change the plan — do not argue with the data. Output the whole revised plan the same way: start with "# EXPERIENCE_PLAN — {{.experience_name}}", the five sections, the ```criteria fence, then a final line exactly <!-- END EXPERIENCE_PLAN --> after the closing ```. No preamble, no commentary.'
