@@ -20,7 +20,7 @@ func TestWithPriorCodeRequests(t *testing.T) {
 			diagnose.CodeRequestKey("symbol", "GenerateText"):   true,
 			diagnose.CodeRequestKey("content", "%stop_reason%"): true,
 		}
-		got := withPriorCodeRequests(nil, seen, 10)
+		got, _ := withPriorCodeRequests(nil, seen, 10)
 		if len(got) != 2 {
 			t.Fatalf("want both prior code questions forwarded, got %d: %v", len(got), got)
 		}
@@ -37,7 +37,7 @@ func TestWithPriorCodeRequests(t *testing.T) {
 
 	t.Run("current questions keep their why and dedupe against seen", func(t *testing.T) {
 		seen := map[string]bool{diagnose.CodeRequestKey("symbol", "GenerateText"): true}
-		got := withPriorCodeRequests(
+		got, _ := withPriorCodeRequests(
 			cur(diagnose.CodeRequest{Kind: "symbol", Query: "GenerateText", Why: "fresh"}), seen, 10)
 		if len(got) != 1 {
 			t.Fatalf("identical current+seen must not duplicate, got %d: %v", len(got), got)
@@ -49,7 +49,7 @@ func TestWithPriorCodeRequests(t *testing.T) {
 
 	t.Run("dedup is case-insensitive on the query, matching the action's own dedup", func(t *testing.T) {
 		seen := map[string]bool{diagnose.CodeRequestKey("symbol", "generatetext"): true}
-		got := withPriorCodeRequests(
+		got, _ := withPriorCodeRequests(
 			cur(diagnose.CodeRequest{Kind: "symbol", Query: "GenerateText", Why: "fresh"}), seen, 10)
 		if len(got) != 1 {
 			t.Fatalf("case-different spellings of one question must collapse, got %d: %v", len(got), got)
@@ -61,7 +61,7 @@ func TestWithPriorCodeRequests(t *testing.T) {
 		for _, q := range []string{"a", "b", "c"} {
 			seen[diagnose.CodeRequestKey("symbol", q)] = true
 		}
-		got := withPriorCodeRequests(
+		got, _ := withPriorCodeRequests(
 			cur(diagnose.CodeRequest{Kind: "content", Query: "zzz", Why: "fresh"}), seen, 2)
 		if len(got) != 2 {
 			t.Fatalf("cap 2 not honoured: %v", got)
@@ -81,12 +81,68 @@ func TestWithPriorCodeRequests(t *testing.T) {
 			diagnose.CodeRequestKey("symbol", ""):                true, // empty query
 			diagnose.CodeRequestKey("ls", "platform/aiservice/"): true, // the only good one
 		}
-		got := withPriorCodeRequests(nil, seen, 10)
+		got, _ := withPriorCodeRequests(nil, seen, 10)
 		if len(got) != 1 {
 			t.Fatalf("only the well-formed key should survive, got %d: %v", len(got), got)
 		}
 		if got[0].(map[string]interface{})["query"] != "platform/aiservice/" {
 			t.Fatalf("wrong survivor: %v", got[0])
+		}
+	})
+}
+
+// The route cap must NOT drop silently (council-gate eba040a9, bug-historian,
+// medium). The spin guard credits a code question as progress on the promise
+// that its answer arrives next gather; a question dropped here is never
+// forwarded to be answered, and a re-forwarded prior one dropped here loses an
+// answer that was persisting. Either way the trail must be able to say so.
+func TestWithPriorCodeRequestsReportsDrops(t *testing.T) {
+	t.Run("a question THIS verdict asked, dropped by the cap, is counted", func(t *testing.T) {
+		cur := []diagnose.CodeRequest{
+			{Kind: "symbol", Query: "A"},
+			{Kind: "symbol", Query: "B"},
+			{Kind: "symbol", Query: "C"},
+		}
+		got, dropped := withPriorCodeRequests(cur, nil, 2)
+		if len(got) != 2 {
+			t.Fatalf("cap 2 not honoured: %v", got)
+		}
+		if dropped != 1 {
+			t.Fatalf("the dropped question must be counted, got dropped=%d", dropped)
+		}
+	})
+
+	t.Run("prior questions dropped by the cap are counted (the F0.5 answer-loss case)", func(t *testing.T) {
+		seen := map[string]bool{}
+		for _, q := range []string{"a", "b", "c", "d"} {
+			seen[diagnose.CodeRequestKey("symbol", q)] = true
+		}
+		got, dropped := withPriorCodeRequests(nil, seen, 2)
+		if len(got) != 2 || dropped != 2 {
+			t.Fatalf("want 2 forwarded / 2 counted as dropped, got %d / %d", len(got), dropped)
+		}
+	})
+
+	t.Run("malformed keys are NOT counted as drops — they were never askable", func(t *testing.T) {
+		seen := map[string]bool{
+			"no-separator":                         true,
+			diagnose.CodeRequestKey("wat", "x"):    true,
+			diagnose.CodeRequestKey("symbol", "y"): true,
+		}
+		got, dropped := withPriorCodeRequests(nil, seen, 10)
+		if len(got) != 1 {
+			t.Fatalf("only the well-formed key should forward, got %v", got)
+		}
+		if dropped != 0 {
+			t.Fatalf("skipping an unaskable key is not a DROP; got dropped=%d", dropped)
+		}
+	})
+
+	t.Run("nothing dropped when under the cap", func(t *testing.T) {
+		_, dropped := withPriorCodeRequests(
+			[]diagnose.CodeRequest{{Kind: "ls", Query: "platform/"}}, nil, 10)
+		if dropped != 0 {
+			t.Fatalf("want 0, got %d", dropped)
 		}
 	})
 }

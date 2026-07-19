@@ -262,9 +262,23 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 	// only the bundle after the requesting verdict, so a guard-refused confirm LOSES
 	// the evidence and the loop re-asks. Re-forwarding every question ever issued
 	// makes an answer PERSIST for the price of a few indexed reads.
-	codeReqs := withPriorCodeRequests(verdict.CodeRequests, st.SeenCodeRequests, maxForwardedCodeRequests)
+	codeReqs, droppedCR := withPriorCodeRequests(verdict.CodeRequests, st.SeenCodeRequests, maxForwardedCodeRequests)
 	if len(codeReqs) > 0 {
 		result["code_requests"] = codeReqs
+	}
+	// A drop here must NOT be silent (council-gate eba040a9, bug-historian,
+	// medium). The spin guard credits EVERY code question as progress on the
+	// stated promise that "the answer arrives in the next gather" — so a question
+	// the cap drops BEFORE it is ever forwarded breaks that promise, and a
+	// re-forwarded prior question dropped here silently loses an answer that was
+	// persisting (the F0.5 loss, re-introduced by the cap). Carry the count so
+	// load_runtime can say so in the bundle, exactly as it already does for its
+	// own max_code_checks drop: coverage was capped, not complete.
+	if droppedCR > 0 {
+		result["code_requests_dropped"] = droppedCR
+		logger.Warn("diagnose_route: code_requests capped at the route — some questions will not be answered this iteration",
+			zap.Int("dropped", droppedCR),
+			zap.Int("cap", maxForwardedCodeRequests))
 	}
 
 	logger.Info("diagnose_route: iterating",
@@ -291,19 +305,25 @@ const maxForwardedCodeRequests = 10
 // than trusted. The `why` is not stored in the guard map — a re-forwarded entry
 // says plainly that it is a re-run, so a reader of the bundle can tell a fresh
 // question from a persisted answer.
-func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool, max int) []interface{} {
+// Returns the forwarded list AND the number of well-formed questions the cap
+// dropped. The count is not cosmetic: the spin guard credits a code question as
+// progress on the promise that its answer arrives next gather, so a silent drop
+// breaks that promise with nothing in the trail (council-gate eba040a9).
+// Malformed keys are NOT counted as drops — they were never askable questions.
+func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool, max int) (out []interface{}, dropped int) {
 	have := map[string]bool{}
-	out := make([]interface{}, 0, len(current))
+	out = make([]interface{}, 0, len(current))
 	for _, cr := range current {
 		key := diagnose.CodeRequestKey(cr.Kind, cr.Query)
 		if have[key] {
 			continue
 		}
 		have[key] = true
-		out = append(out, map[string]interface{}{"kind": cr.Kind, "query": cr.Query, "why": cr.Why})
 		if len(out) >= max {
-			return out
+			dropped++ // a question THIS verdict just asked, and the guard just credited
+			continue
 		}
+		out = append(out, map[string]interface{}{"kind": cr.Kind, "query": cr.Query, "why": cr.Why})
 	}
 	prior := make([]string, 0, len(seen))
 	for k := range seen {
@@ -314,11 +334,12 @@ func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool,
 	}
 	sort.Strings(prior)
 	for _, k := range prior {
-		if len(out) >= max {
-			break
-		}
 		kind, query, ok := strings.Cut(k, "\x00")
 		if !ok || strings.TrimSpace(query) == "" || !diagnose.ValidCodeRequestKind(kind) {
+			continue
+		}
+		if len(out) >= max {
+			dropped++ // a prior question whose ANSWER was persisting until now (F0.5)
 			continue
 		}
 		out = append(out, map[string]interface{}{
@@ -327,7 +348,7 @@ func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool,
 			"why":   "re-run of a prior iteration's code question so its answer persists across iterations (F0.5)",
 		})
 	}
-	return out
+	return out, dropped
 }
 
 // seedScopeForRoute builds the FIRST iteration's loop scope from the SAME chain

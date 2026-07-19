@@ -325,6 +325,14 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		if codeDropped > 0 {
 			fmt.Fprintf(&cb, "\n> %d further code_request(s) dropped (max_code_checks=%d) — coverage was capped, not complete.\n", codeDropped, maxCodeChecks)
 		}
+		// Drops that happened UPSTREAM, at the route's forwarding cap, never reach
+		// this step at all — so without this they would be invisible here and in the
+		// bundle. Reported separately from the local cap because the two mean
+		// different things: this one says a question was never even forwarded to be
+		// answered, though the spin guard has already credited it as progress.
+		if routeDropped := datahelpers.GetIntField(params.CollectedData, "route.code_requests_dropped", 0); routeDropped > 0 {
+			fmt.Fprintf(&cb, "\n> %d further code_request(s) were dropped BEFORE this gather (route forwarding cap) — they were asked but not answered. Coverage was capped, not complete; do not read their absence as an answer.\n", routeDropped)
+		}
 		codeEvidence = cb.String()
 		logger.Info("diagnose_load_runtime: answered code requests",
 			zap.Int("code_requests", len(codeChecks)),
