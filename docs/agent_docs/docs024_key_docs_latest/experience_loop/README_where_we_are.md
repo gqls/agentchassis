@@ -177,3 +177,21 @@ The resilience fix I opened with is deployed but **unproven**. No critic flaked 
 And chasing a warning from last session's notes — that some site components were "deactivated across sixteen pages" — turned up something worth having, though it wasn't what the note said. That claim mixed up two different things; every one of the site's page-level components is fine. What is real: the site's header, footer and page-head all point at library entries marked inactive, and the repair job for that has been sitting in a queue since the 11th, eleven days, never picked up. Nothing is visibly broken, because the already-built versions are still being served — but it's stale, and it's the same fault another thread diagnosed this morning on the buttons bug: the system detects a problem, files it, and then nothing ever consumes it. Theirs died in one queue, this one dies in another, one step earlier. I added the evidence to their bug rather than opening a second one, since it's the same disease.
 
 Worth flagging for when we build: this site's homepage is queued for a generic rebuild, and the council itself spotted that our planned edits could be wiped out by it. That's a sequencing problem to solve before any building starts, not after.
+
+---
+
+## 2026-07-19, later still — it approved a plan
+
+Run eight came back unanimous. All four critics, no objections, the workflow finished on "complete" instead of escalating. That's CP2, the thing this phase has been trying to reach since the 17th.
+
+Two things I checked before believing it, both of which mattered.
+
+The first is a trap I'd created myself earlier today. Because I'd just made three of the four critics able to drop out without killing the run, an "approved" verdict could in principle mean *nobody objected because nobody voted*. So I checked the count: four reviewers, zero abstentions. It's a real unanimous approval, not silence dressed up as consent. I've written that check into the runbook as mandatory for every future approval, because it's exactly the kind of thing that gets skipped once the result starts looking routine.
+
+The second is whether it approved for the right reason or just got tired. The scope critic — the one we'd been ignoring for four rounds — asked repeatedly that the Arena rebuild be dropped from the first version. The approved plan now marks the Arena "coming soon" and defers it. And where it *does* keep something that critic had questioned, it now says in one line why: those buttons need only a data fix, no new build, so testing them costs nothing. That's precisely the discipline I put in this morning — either cut it, or say why you're keeping it — and the writer followed it in its own words. It also reached that position at round three and held it through rounds four and five, where in the previous run it had flipped straight back to objecting. The oscillation is gone.
+
+The plans also stopped growing. Across the run they went 15.5k, 13.6k, 13.7k, 13.9k, 14.4k — it shrank after the first round and stayed flat, where the run before it drifted upward and the run before that ran off the end of its size limit mid-sentence.
+
+What I'd flag, plainly: the flaky-critic fix from this morning has still never actually run. No critic has failed since I put it in, across ten rounds. It's correct as written and it's in place, but I'd be overstating things to call it tested, so I'm not going to.
+
+The build phase is now unblocked — until today the live plan was an unapproved draft that nothing was allowed to build from, and now it's the approved one. Before any building starts, though, the homepage is queued for a generic rebuild that could wipe out the edits we're planning, which the council spotted on its own. That's a sequencing job to sort out first.

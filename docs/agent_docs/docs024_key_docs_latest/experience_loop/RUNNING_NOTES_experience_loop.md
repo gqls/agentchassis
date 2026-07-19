@@ -579,3 +579,51 @@ have sat at status `detected` since **2026-07-11**, because `detected` is not
 dispatchable without a triage promotion that never ran. That is `bugs_open/023`
 class G, so the evidence went **there**, not into a new bug file — commit
 `1260dd726`. Fleet-wide: `head` inactive on 11/11 sites.
+
+### Run 8 (`17be3962`) — **CP2 CLOSED.** First approved EXPERIENCE_PLAN.
+
+`COMPLETED / complete` (not `complete_escalated`) at 11:50:56, 5 rounds, ~29 min.
+
+| Round | journeys | feasibility | honesty | mvp | decision |
+|---|---|---|---|---|---|
+| 1 | object | **approve** | object | object | revise |
+| 2 | object | object | **approve** | object | revise |
+| 3 | **approve** | object | **approve** | **approve** | revise |
+| 4 | object | object | **approve** | **approve** | revise |
+| 5 | **approve** | **approve** | **approve** | **approve** | **approved** |
+
+**Verified, not assumed** — the checks that matter given what 171 changed:
+
+- `abstained: 0`, `reviewers = 4` in the final round. This is a **genuine
+  unanimous approval, not an approval-by-abstention**. Migration 171 made
+  approval-with-a-silent-seat structurally possible for the three advisory
+  critics, so this check is now mandatory on every approved round; do not skip
+  it. `decided_by = "all reviewers approve"`.
+- The approved plan is `is_current`, **14,414 B**, closed criteria fence +
+  `<!-- END EXPERIENCE_PLAN -->`.
+- Plan sizes across the run: 15504 → 13589 → 13722 → 13928 → 14414. It **shrank**
+  after round 1 and stayed flat. Contrast run 7 (14392 → 14871, drifting up) and
+  the pre-fix run (13303 → 16000, truncated).
+
+**Migration 172 worked, and for the right reason — not by luck.** The evidence is
+in the plan text, not just the verdict:
+- §3 now carries `arena{status:"coming_soon"}`. The Arena rebuild — the thing the
+  MVP referee demanded be deferred in four of five rounds of run 7, and which was
+  never cut — is now deferred *and honestly labelled*, which also satisfies the
+  anti-fabrication rule rather than dodging it.
+- §4 now *explicitly answers* the referee where it keeps something: "Journey D's
+  four onboarding CTAs stay as-is; each maps to an already-existing component
+  needing only a `content_data`/template-binding fix, no new build, so the cost
+  of testing them is negligible and the core loop is unaffected." That is exactly
+  the (a)-apply-or-(b)-rebut discipline 172 required, in the composer's own words.
+- The referee reached `approve` at round 3 and **held it** through rounds 4 and 5.
+  In run 7 it oscillated straight back to `object`. The oscillation is gone.
+
+**Still unproven, and I am not counting it as tested**: the 171 abstention path.
+`abstained: 0` in all 10 rounds across runs 7 and 8 — no critic has flaked since
+the fix landed, so the fall-through has never actually executed.
+`bugs_open/008` item 5 remains the underlying defect and is still open.
+
+**The landmine is now retired**: the previous handoff's "the current `is_current`
+plan is an escalated/unapproved one, do not build from it" no longer applies. The
+current plan is the round-5 approved one. T4 may build from it.

@@ -408,7 +408,19 @@ One decision menu per round boundary at most (D3).
 | T2.5 image roll A + CP1 | **✅ CP1 DONE 2026-07-17** — guard-rail Go shipped in another session's **v1.0.1134** (verified in-pod, not by tag); migration 165 applied; dead_controls + owned_page_review both proven live on vonc; save-refusal code-verified | RUNNING_NOTES CP1 entry; corr 4cedb4fb (discovery) + 4c0c4acf (scoped reconcile) |
 | T3 planner+council | **CP2 NOT YET REACHED (2026-07-19)** — machinery proven end-to-end; 6 runs, every escalation correct and each exposed a harness defect, all 4 now fixed (template refs, critic tokens, load_context level filter, compose truncation spiral). Last run confirmed both major fixes but died on `bugs_open/008` item 5 (`no text content in response`). Next: make critics' `error_step` = `council_decide` (abstention-tolerant), then re-fire. | corr 054b358a; HANDOFF_2026-07-19 |
 | T3 (run 7) | **CP2 STILL OPEN, but the failure class changed (2026-07-19).** Migration **171** made the 3 advisory critics abstention-tolerant (honesty deliberately excluded — sole hard_veto seat). First run to survive all 5 rounds; **round 4 hit 3-of-4 approve**. Escalated at the cap. No harness defect this time: it fails on **scope oscillation** — each recompose answers one critic by adding specification, re-triggering the MVP referee, whose same scope-cut objection went unactioned in rounds 1/2/3/5. Truncation + load_context fixes proven under 5 rounds (plans 14.0–14.9 KB, all complete). Abstention fix NOT exercised (`abstained: 0` throughout) — deployed, unproven. **Open design contradiction**: seed 167 calls the MVP seat advisory, but `decideCouncil:263` makes ANY object → revise, so it gates like a veto. | corr `fbe12212`; commit `da2c5dea3`; RUNNING_NOTES 2026-07-19 |
-| T4–T5 | not started | — |
+| T3 (run 8) | **✅ CP2 CLOSED 2026-07-19** — first approved EXPERIENCE_PLAN. 5 rounds, unanimous `approved` at round 5, terminated `complete` (not escalated). Migration **172** (MVP referee's scope cuts binding on recompose) is what closed it: the Arena is now deferred as `arena{status:"coming_soon"}` and §4 rebuts what it keeps, in the composer's own words. Referee reached approve at round 3 and HELD it — the run-7 oscillation is gone. **Verified `abstained: 0` / `reviewers: 4`** — a genuine unanimous approval, not approval-by-abstention. Approved plan is `is_current`, 14,414 B, fence closed. | corr `17be3962`; commit `bc1dfcb7e`; RUNNING_NOTES 2026-07-19 |
+| T4–T5 | not started — **T4 is now unblocked**: the `is_current` plan is the approved one, so the old "do not build from the current plan" landmine is retired | — |
+
+**Mandatory check on any future approved round** (new, 2026-07-19): migration 171
+made the three advisory critics abstention-tolerant, so a seat can now be silently
+absent. An approved verdict is only trustworthy alongside `abstained: 0`:
+```sql
+SELECT body::jsonb->>'abstained', jsonb_array_length(body::jsonb->'reviews')
+FROM diagnosis_artifacts
+WHERE kind='council_report' AND correlation_id='<corr>'
+ORDER BY created_at DESC LIMIT 1;
+```
+Anything other than `0` / `4` means seats did not vote — read which before building.
 
 **Note on the reconcile trigger (reusable):** build-site-planner is the only
 agent that runs `reconcile_site_plan`, and firing it re-plans (clobber risk).
