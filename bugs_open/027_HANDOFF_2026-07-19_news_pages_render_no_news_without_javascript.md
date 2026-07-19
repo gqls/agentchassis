@@ -93,3 +93,72 @@ page and not a `complete` status.
 - The `empty_section` discovery check flags these sections as empty. Today that is a false
   positive. Under fix option 1 it would become a true signal again — a small extra reason to
   prefer it.
+
+---
+
+## Addendum 2026-07-19 (vetcomparison thread) — feasibility of fix option 1, measured
+
+The owner asked how hard it would actually be to server-render the feed. I read the code
+rather than estimating. **Option 1 is cheaper than this file implies**, for one reason nobody
+had checked: the client JS is already progressive-enhancement-safe.
+
+**1. There is no declarative binding engine to reuse — `data_sources` is dead metadata.**
+`content_components.data_sources` is populated on four components and one carries
+`render_mode='go_template'`. Both are read by **zero** lines of Go:
+
+```bash
+grep -rn "data_sources\|DataSources\|go_template" --include=*.go .   # → no matches, repo-wide
+```
+
+So "populate data_sources and let the template engine bind it" is not available — that engine
+does not exist. Option 1 has to be implemented where the data already is. (Separately: those
+four rows are misleading metadata that reads like a working feature. Worth a tidy-up.)
+
+**2. The data is already in hand, in the right function, in one file.**
+`RenderNewsSectionAction` (`platform/orchestration/actions/render_news_section_action.go`)
+already does all the hard parts:
+- `loadNewsItems` (:340) returns `[]newsJSONItem` — title, summary, url, published_at, source
+  name, topics — straight from `content_feed_items` with no LLM in the path;
+- it *already locates the component row*, joining `pages` → `page_components` →
+  `content_components` on `cc.function = 'latest-news'` (:145-152), to read the headline out of
+  `content_data`.
+
+So the change is: render `[]newsJSONItem` → HTML, and write it to that row's `rendered_html`.
+No new action, no new orchestration step, no schema change.
+
+**3. The decisive finding: `latest-news.js` needs no change at all.**
+The deployed script only overwrites the container when the fetch actually returned items, and
+swallows failures:
+
+```js
+if (data.items && data.items.length > 0) { container.innerHTML = ... }   // else: leaves DOM alone
+.catch(function() {});                                                   // failure keeps server HTML
+```
+
+That is exactly the hybrid contract this file's option 1 asks for, already implemented by
+accident. Server-rendered markup survives an empty feed, a 404, and an offline B2 — and is
+replaced by fresher items when the fetch succeeds. **No JS edit, no risk of double-rendering.**
+
+**4. The markup is trivial to port.** The Go renderer must emit what the JS emits — one
+`<article class="news-card">` per item (`news-card-title` + link, `news-card-summary`,
+`news-card-meta` with `news-source` and `news-date`). ~40 lines with `html/template` escaping.
+Use `html/template`, not string concatenation: these are third-party titles and summaries.
+
+**Honest scope and unknowns:**
+- **Two components, not one.** `latest-news` (homepage snippet) and `news-listing` (archive
+  page). I verified the progressive-enhancement property for `latest-news.js` only —
+  **`news-listing.js` is unverified**; check it before assuming the same. Fixing one and
+  calling it done is the failure mode this platform keeps hitting.
+- **Freshness moves to the deploy cadence.** `rendered_html` only reaches the live site on the
+  next rerender+deploy, whereas the JSON deploys as a file. The hybrid is what saves this: HTML
+  for crawlers, JS refresh for currency. Do not drop the JSON.
+- **Locking is an open risk.** `page_components.lock_type='permanent'` and
+  `component_write_guard.go` (`componentRegressionIssues`) both sit near this write path. A
+  locked news component could reject or silently skip the write. Verify against a locked row.
+
+**Effort:** one file, one render function, one UPDATE, plus tests — roughly half a day
+including the `news-listing` half and a locked-component check. The expensive unknowns above
+are checks, not design.
+
+**How to verify** is unchanged and still the only thing that counts: `curl` the page, with JS
+never executing, and count server-rendered `<article>` elements.
