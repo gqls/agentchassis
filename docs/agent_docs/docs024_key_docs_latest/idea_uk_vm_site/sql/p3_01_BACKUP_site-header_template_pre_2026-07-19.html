@@ -1,0 +1,216 @@
+<style>
+  .site-header-section {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: var(--color-header-bg, var(--color-background));
+    color: var(--color-header-text, var(--color-text));
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    width: 100%;
+  }
+  .site-header-section .header-inner {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+  .site-header-section .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+  .site-header-section .header-logo-img {
+    height: 36px;
+    width: auto;
+    display: block;
+  }
+  .site-header-section .header-logo-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-header-text, var(--color-heading));
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  .site-header-section nav.header-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .site-header-section .nav-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-header-text, var(--color-text));
+    text-decoration: none;
+    border-radius: var(--border-radius, 6px);
+    transition: background 0.15s, color 0.15s;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .site-header-section .nav-link:hover,
+  .site-header-section .nav-link:focus-visible {
+    background: rgba(0,0,0,0.06);
+    outline: none;
+  }
+  .site-header-section .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+  .site-header-section .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1.1rem;
+    min-height: 44px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-header-text, var(--color-text));
+    background: transparent;
+    border: 1.5px solid currentColor;
+    border-radius: var(--border-radius, 6px);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .site-header-section .btn-secondary:hover,
+  .site-header-section .btn-secondary:focus-visible {
+    background: rgba(0,0,0,0.06);
+    outline: none;
+  }
+  .site-header-section .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1.25rem;
+    min-height: 44px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-primary-text, #fff);
+    background: var(--color-primary);
+    border: none;
+    border-radius: var(--border-radius, 6px);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .site-header-section .btn-primary:hover,
+  .site-header-section .btn-primary:focus-visible {
+    background: var(--color-primary-hover, var(--color-primary));
+    outline: none;
+  }
+  .site-header-section .hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    border-radius: var(--border-radius, 6px);
+  }
+  .site-header-section .hamburger span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--color-header-text, var(--color-text));
+    border-radius: 2px;
+    transition: transform 0.2s, opacity 0.2s;
+  }
+  .site-header-section .hamburger[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+  .site-header-section .hamburger[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+  }
+  .site-header-section .hamburger[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+  .site-header-section .mobile-menu {
+    display: none;
+    flex-direction: column;
+    background: var(--color-header-bg, var(--color-background));
+    border-top: 1px solid var(--color-border, rgba(0,0,0,0.1));
+    padding: 1rem 2rem 1.5rem;
+  }
+  .site-header-section .mobile-menu.is-open {
+    display: flex;
+  }
+  .site-header-section .mobile-menu .nav-link {
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--color-border, rgba(0,0,0,0.07));
+    border-radius: 0;
+  }
+  .site-header-section .mobile-menu .nav-link:last-of-type {
+    border-bottom: none;
+  }
+  .site-header-section .mobile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+  .site-header-section .mobile-actions .btn-secondary,
+  .site-header-section .mobile-actions .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+  @media (max-width: 768px) {
+    .site-header-section nav.header-nav,
+    .site-header-section .header-actions {
+      display: none;
+    }
+    .site-header-section .hamburger {
+      display: flex;
+    }
+  }
+</style>
+<section class="site-header-section" data-component="site-header">
+  <div class="header-inner">
+    <a href="/" class="header-logo" aria-label="{{.company_name}} home">
+      <img class="header-logo-img" src="{{.logo_url}}" alt="{{.company_name}} logo" />
+      <span class="header-logo-name">{{.company_name}}</span>
+    </a>
+    <nav class="header-nav" aria-label="{{.nav_aria_label}}">
+      <a href="{{.nav_link_1_url}}" class="nav-link">{{.nav_link_1_label}}</a>
+      <a href="{{.nav_link_2_url}}" class="nav-link">{{.nav_link_2_label}}</a>
+      <a href="{{.nav_link_3_url}}" class="nav-link">{{.nav_link_3_label}}</a>
+      <a href="{{.nav_link_4_url}}" class="nav-link">{{.nav_link_4_label}}</a>
+    </nav>
+    <div class="header-actions">
+      <a href="{{.cta_secondary_url}}" class="btn-secondary">{{.cta_secondary_label}}</a>
+      <a href="{{.cta_primary_url}}" class="btn-primary">{{.cta_primary_label}}</a>
+    </div>
+    <button class="hamburger" aria-expanded="false" aria-controls="mobile-menu" aria-label="{{.mobile_menu_toggle_label}}">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </div>
+  <div class="mobile-menu" id="mobile-menu" role="navigation" aria-label="{{.nav_aria_label}}">
+    <a href="{{.nav_link_1_url}}" class="nav-link">{{.nav_link_1_label}}</a>
+    <a href="{{.nav_link_2_url}}" class="nav-link">{{.nav_link_2_label}}</a>
+    <a href="{{.nav_link_3_url}}" class="nav-link">{{.nav_link_3_label}}</a>
+    <a href="{{.nav_link_4_url}}" class="nav-link">{{.nav_link_4_label}}</a>
+    <div class="mobile-actions">
+      <a href="{{.cta_secondary_url}}" class="btn-secondary">{{.cta_secondary_label}}</a>
+      <a href="{{.cta_primary_url}}" class="btn-primary">{{.cta_primary_label}}</a>
+    </div>
+  </div>
+</section>
+<script src="/tools/assets/site-header.js"></script>
+

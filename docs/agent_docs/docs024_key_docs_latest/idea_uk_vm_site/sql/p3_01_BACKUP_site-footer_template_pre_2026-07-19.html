@@ -1,0 +1,277 @@
+<style>
+.site-footer-section {
+  --section-text: color-mix(in srgb, var(--color-footer-text, var(--color-text)) 90%, transparent);
+  --section-text-muted: color-mix(in srgb, var(--color-footer-text, var(--color-text)) 70%, transparent);
+  --section-heading: var(--color-footer-text, var(--color-heading));
+  --section-surface: color-mix(in srgb, var(--color-footer-text, var(--color-text)) 5%, transparent);
+  --section-border: color-mix(in srgb, var(--color-footer-text, var(--color-text)) 20%, transparent);
+  background: var(--color-footer-bg, var(--color-surface));
+  color: var(--section-text);
+  padding: 4rem 2rem 2rem;
+}
+.site-footer-section * {
+  box-sizing: border-box;
+}
+.site-footer-section .footer-inner {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+}
+.site-footer-section .footer-top {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 3rem;
+  padding-bottom: 3rem;
+  border-bottom: 1px solid var(--section-border);
+}
+.site-footer-section .footer-brand .footer-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--section-heading);
+  text-decoration: none;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+.site-footer-section .footer-brand .footer-tagline {
+  font-size: 0.95rem;
+  color: var(--section-text-muted);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  max-width: 280px;
+}
+.site-footer-section .footer-social {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.site-footer-section .footer-social a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--section-surface);
+  border: 1px solid var(--section-border);
+  color: var(--section-text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.2s, border-color 0.2s;
+  min-width: 44px;
+  min-height: 44px;
+}
+.site-footer-section .footer-social a:hover {
+  background: var(--color-primary, #4f46e5);
+  border-color: var(--color-primary, #4f46e5);
+}
+.site-footer-section .footer-col h4 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--section-heading);
+  margin: 0 0 1.25rem;
+}
+.site-footer-section .footer-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.site-footer-section .footer-col ul li a {
+  color: var(--section-text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+}
+.site-footer-section .footer-col ul li a:hover {
+  color: var(--section-text);
+}
+.site-footer-section .footer-newsletter {
+  margin-top: 2.5rem;
+  padding: 2rem;
+  background: var(--section-surface);
+  border: 1px solid var(--section-border);
+  border-radius: var(--border-radius, 8px);
+}
+.site-footer-section .footer-newsletter h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--section-heading);
+  margin: 0 0 0.5rem;
+}
+.site-footer-section .footer-newsletter p {
+  font-size: 0.875rem;
+  color: var(--section-text-muted);
+  margin: 0 0 1rem;
+}
+.site-footer-section .newsletter-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.site-footer-section .newsletter-form input[type="email"] {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.65rem 1rem;
+  border-radius: var(--border-radius, 8px);
+  border: 1px solid var(--section-border);
+  background: var(--section-surface);
+  color: var(--section-text);
+  font-size: 0.9rem;
+  outline: none;
+  min-height: 44px;
+}
+.site-footer-section .newsletter-form input[type="email"]::placeholder {
+  color: var(--section-text-muted);
+}
+.site-footer-section .newsletter-form input[type="email"]:focus {
+  border-color: var(--color-primary, #4f46e5);
+}
+.site-footer-section .newsletter-form button {
+  padding: 0.65rem 1.25rem;
+  background: var(--color-primary, #4f46e5);
+  color: var(--color-primary-text, #fff);
+  border: none;
+  border-radius: var(--border-radius, 8px);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.site-footer-section .newsletter-form button:hover {
+  background: var(--color-primary-hover, #4338ca);
+}
+.site-footer-section .footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 2rem;
+  margin-top: 2rem;
+}
+.site-footer-section .footer-copyright {
+  font-size: 0.85rem;
+  color: var(--section-text-muted);
+}
+.site-footer-section .footer-legal {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.site-footer-section .footer-legal a {
+  font-size: 0.85rem;
+  color: var(--section-text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.site-footer-section .footer-legal a:hover {
+  color: var(--section-text);
+}
+.site-footer-section .newsletter-success {
+  display: none;
+  font-size: 0.875rem;
+  color: var(--section-text);
+  margin-top: 0.5rem;
+}
+@media (max-width: 768px) {
+  .site-footer-section .footer-top {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+  .site-footer-section .footer-brand {
+    grid-column: 1 / -1;
+  }
+  .site-footer-section .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .site-footer-section .footer-newsletter {
+    margin-top: 0;
+  }
+}
+@media (max-width: 480px) {
+  .site-footer-section .footer-top {
+    grid-template-columns: 1fr;
+  }
+  .site-footer-section .newsletter-form {
+    flex-direction: column;
+  }
+  .site-footer-section .newsletter-form input[type="email"],
+  .site-footer-section .newsletter-form button {
+    width: 100%;
+  }
+}
+</style>
+<section class="site-footer-section" data-component="site-footer">
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="/" class="footer-logo">{{.company_name}}</a>
+        <p class="footer-tagline">{{.footer_tagline}}</p>
+        <nav class="footer-social" aria-label="{{.social_nav_label}}">
+          <a href="{{.social_twitter_url}}" aria-label="Twitter" rel="noopener noreferrer">{{.social_twitter_label}}</a>
+          <a href="{{.social_linkedin_url}}" aria-label="LinkedIn" rel="noopener noreferrer">{{.social_linkedin_label}}</a>
+          <a href="{{.social_facebook_url}}" aria-label="Facebook" rel="noopener noreferrer">{{.social_facebook_label}}</a>
+        </nav>
+      </div>
+      <div class="footer-col">
+        <h4>{{.col1_heading}}</h4>
+        <ul>
+          <li><a href="{{.col1_link1_url}}">{{.col1_link1_label}}</a></li>
+          <li><a href="{{.col1_link2_url}}">{{.col1_link2_label}}</a></li>
+          <li><a href="{{.col1_link3_url}}">{{.col1_link3_label}}</a></li>
+          <li><a href="{{.col1_link4_url}}">{{.col1_link4_label}}</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>{{.col2_heading}}</h4>
+        <ul>
+          <li><a href="{{.col2_link1_url}}">{{.col2_link1_label}}</a></li>
+          <li><a href="{{.col2_link2_url}}">{{.col2_link2_label}}</a></li>
+          <li><a href="{{.col2_link3_url}}">{{.col2_link3_label}}</a></li>
+          <li><a href="{{.col2_link4_url}}">{{.col2_link4_label}}</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>{{.col3_heading}}</h4>
+        <ul>
+          <li><a href="{{.col3_link1_url}}">{{.col3_link1_label}}</a></li>
+          <li><a href="{{.col3_link2_url}}">{{.col3_link2_label}}</a></li>
+          <li><a href="{{.col3_link3_url}}">{{.col3_link3_label}}</a></li>
+          <li><a href="{{.col3_link4_url}}">{{.col3_link4_label}}</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-newsletter">
+      <h4>{{.newsletter_heading}}</h4>
+      <p>{{.newsletter_description}}</p>
+      <form class="newsletter-form" aria-label="{{.newsletter_form_label}}" novalidate>
+        <input type="email" name="email" placeholder="{{.newsletter_email_placeholder}}" aria-label="{{.newsletter_email_aria}}" required />
+        <button type="submit">{{.newsletter_submit_label}}</button>
+      </form>
+      <p class="newsletter-success" role="status" aria-live="polite">{{.newsletter_success_message}}</p>
+    </div>
+    <div class="footer-bottom">
+      <p class="footer-copyright">{{.copyright_text}}</p>
+      <nav class="footer-legal" aria-label="{{.legal_nav_label}}">
+        <a href="{{.privacy_url}}">{{.privacy_label}}</a>
+        <a href="{{.terms_url}}">{{.terms_label}}</a>
+        <a href="{{.cookies_url}}">{{.cookies_label}}</a>
+      </nav>
+    </div>
+  </div>
+</section>
+<script src="/tools/assets/site-footer.js"></script>
+
