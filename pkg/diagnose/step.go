@@ -28,6 +28,10 @@ type StepInput struct {
 	MaxExpandedScope int
 	SeenCitations    map[string]bool
 	SeenRequests     map[string]bool
+	// SeenCodeRequests is the code-search analogue of SeenRequests (kept separate
+	// — see guardAfter). Nil is safe: the guard simply stops crediting code
+	// requests as progress, which is the pre-code-tier behaviour.
+	SeenCodeRequests map[string]bool
 	HypHistory       []string
 	PrevScopeSize    int
 }
@@ -49,9 +53,10 @@ type StepDecision struct {
 	NamedScopeSize int
 
 	// updated guard memory to carry into the next iteration
-	SeenCitations map[string]bool
-	SeenRequests  map[string]bool
-	HypHistory    []string
+	SeenCitations    map[string]bool
+	SeenRequests     map[string]bool
+	SeenCodeRequests map[string]bool
+	HypHistory       []string
 }
 
 // coerceVerdict applies the standing verdict coercions in one place so
@@ -168,20 +173,25 @@ func DecideStep(in StepInput) StepDecision {
 	if seenReq == nil {
 		seenReq = map[string]bool{}
 	}
+	seenCodeReq := in.SeenCodeRequests
+	if seenCodeReq == nil {
+		seenCodeReq = map[string]bool{}
+	}
 	hypHistory := append([]string{}, in.HypHistory...)
 
 	switch verdict.Outcome {
 	case Confirmed:
 		return StepDecision{
-			Decision:       "stop",
-			StopReason:     "confirmed",
-			TerminalStatus: Confirmed,
-			Conclusion:     confirmConclusion(in.Hypothesis, verdict),
-			NextHypothesis: in.Hypothesis,
-			NextScope:      in.Scope,
-			SeenCitations:  seen,
-			SeenRequests:   seenReq,
-			HypHistory:     hypHistory,
+			Decision:         "stop",
+			StopReason:       "confirmed",
+			TerminalStatus:   Confirmed,
+			Conclusion:       confirmConclusion(in.Hypothesis, verdict),
+			NextHypothesis:   in.Hypothesis,
+			NextScope:        in.Scope,
+			SeenCitations:    seen,
+			SeenRequests:     seenReq,
+			SeenCodeRequests: seenCodeReq,
+			HypHistory:       hypHistory,
 		}
 
 	case Refuted:
@@ -189,38 +199,41 @@ func DecideStep(in StepInput) StepDecision {
 		// expansion is the engine's enrichment and must not count against "is the
 		// model narrowing". nextScope runs only after the guard passes.
 		named := namedScope(in.Scope, verdict)
-		if stop := guardAfter(verdict, named, in.PrevScopeSize, seen, seenReq, &hypHistory, in.Hypothesis); stop != "" {
+		if stop := guardAfter(verdict, named, in.PrevScopeSize, seen, seenReq, seenCodeReq, &hypHistory, in.Hypothesis); stop != "" {
 			return StepDecision{
-				Decision:       "stop",
-				StopReason:     stop,
-				TerminalStatus: Unverifiable,
-				Conclusion:     bestEffortConclusion(stop, in.Hypothesis, verdict),
-				SeenCitations:  seen,
-				SeenRequests:   seenReq,
-				HypHistory:     hypHistory,
+				Decision:         "stop",
+				StopReason:       stop,
+				TerminalStatus:   Unverifiable,
+				Conclusion:       bestEffortConclusion(stop, in.Hypothesis, verdict),
+				SeenCitations:    seen,
+				SeenRequests:     seenReq,
+				SeenCodeRequests: seenCodeReq,
+				HypHistory:       hypHistory,
 			}
 		}
 		// check the iteration cap AFTER a clean iteration
 		if in.Iteration >= in.MaxIterations {
 			return StepDecision{
-				Decision:       "stop",
-				StopReason:     "iteration-cap",
-				TerminalStatus: Unverifiable,
-				Conclusion:     bestEffortConclusion("iteration-cap", verdict.RevisedHypothesis, verdict),
-				SeenCitations:  seen,
-				SeenRequests:   seenReq,
-				HypHistory:     hypHistory,
+				Decision:         "stop",
+				StopReason:       "iteration-cap",
+				TerminalStatus:   Unverifiable,
+				Conclusion:       bestEffortConclusion("iteration-cap", verdict.RevisedHypothesis, verdict),
+				SeenCitations:    seen,
+				SeenRequests:     seenReq,
+				SeenCodeRequests: seenCodeReq,
+				HypHistory:       hypHistory,
 			}
 		}
 		next := nextScope(in.Scope, verdict, in.CallGraph, cfg)
 		return StepDecision{
-			Decision:       "continue",
-			NamedScopeSize: named.size(),
-			NextHypothesis: verdict.RevisedHypothesis,
-			NextScope:      next,
-			SeenCitations:  seen,
-			SeenRequests:   seenReq,
-			HypHistory:     hypHistory,
+			Decision:         "continue",
+			NamedScopeSize:   named.size(),
+			NextHypothesis:   verdict.RevisedHypothesis,
+			NextScope:        next,
+			SeenCitations:    seen,
+			SeenRequests:     seenReq,
+			SeenCodeRequests: seenCodeReq,
+			HypHistory:       hypHistory,
 		}
 
 	default: // Unverifiable
@@ -228,37 +241,40 @@ func DecideStep(in StepInput) StepDecision {
 		// expansion is the engine's enrichment and must not count against "is the
 		// model narrowing". nextScope runs only after the guard passes.
 		named := namedScope(in.Scope, verdict)
-		if stop := guardAfter(verdict, named, in.PrevScopeSize, seen, seenReq, &hypHistory, in.Hypothesis); stop != "" {
+		if stop := guardAfter(verdict, named, in.PrevScopeSize, seen, seenReq, seenCodeReq, &hypHistory, in.Hypothesis); stop != "" {
 			return StepDecision{
-				Decision:       "stop",
-				StopReason:     stop,
-				TerminalStatus: Unverifiable,
-				Conclusion:     bestEffortConclusion(stop, in.Hypothesis, verdict),
-				SeenCitations:  seen,
-				SeenRequests:   seenReq,
-				HypHistory:     hypHistory,
+				Decision:         "stop",
+				StopReason:       stop,
+				TerminalStatus:   Unverifiable,
+				Conclusion:       bestEffortConclusion(stop, in.Hypothesis, verdict),
+				SeenCitations:    seen,
+				SeenRequests:     seenReq,
+				SeenCodeRequests: seenCodeReq,
+				HypHistory:       hypHistory,
 			}
 		}
 		if in.Iteration >= in.MaxIterations {
 			return StepDecision{
-				Decision:       "stop",
-				StopReason:     "iteration-cap",
-				TerminalStatus: Unverifiable,
-				Conclusion:     bestEffortConclusion("iteration-cap", in.Hypothesis, verdict),
-				SeenCitations:  seen,
-				SeenRequests:   seenReq,
-				HypHistory:     hypHistory,
+				Decision:         "stop",
+				StopReason:       "iteration-cap",
+				TerminalStatus:   Unverifiable,
+				Conclusion:       bestEffortConclusion("iteration-cap", in.Hypothesis, verdict),
+				SeenCitations:    seen,
+				SeenRequests:     seenReq,
+				SeenCodeRequests: seenCodeReq,
+				HypHistory:       hypHistory,
 			}
 		}
 		next := nextScope(in.Scope, verdict, in.CallGraph, cfg)
 		return StepDecision{
-			Decision:       "continue",
-			NamedScopeSize: named.size(),
-			NextHypothesis: in.Hypothesis, // unchanged on Unverifiable
-			NextScope:      next,
-			SeenCitations:  seen,
-			SeenRequests:   seenReq,
-			HypHistory:     hypHistory,
+			Decision:         "continue",
+			NamedScopeSize:   named.size(),
+			NextHypothesis:   in.Hypothesis, // unchanged on Unverifiable
+			NextScope:        next,
+			SeenCitations:    seen,
+			SeenRequests:     seenReq,
+			SeenCodeRequests: seenCodeReq,
+			HypHistory:       hypHistory,
 		}
 	}
 }

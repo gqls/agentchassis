@@ -92,6 +92,10 @@ type Verdict struct {
 	//                                 (the DATA analogue of NextScope). Each is linted to read-only
 	//                                 at parse (Guard 2) and MUST run under a read-only transaction/role
 	//                                 (Guard 3); the prompt instructs SELECT-only (Guard 1).
+	CodeRequests []CodeRequest // Refuted/Unverifiable: code-search questions the gather should
+	//                            answer from the code_symbols index (the BREADTH analogue of
+	//                            NextScope's depth). Kind is validated to a closed set at parse;
+	//                            no model-written SQL is ever executed.
 	SymptomCheck []SymptomCheck `json:"symptom_check,omitempty"` // Confirmed: REQUIRED coverage of the ORIGINAL symptom (F0.4d)
 }
 
@@ -128,6 +132,46 @@ type SymptomCheck struct {
 type DataRequest struct {
 	SQL string `json:"sql"`           // a SINGLE read-only SELECT (or WITH … SELECT)
 	Why string `json:"why,omitempty"` // what this query would settle (for the trail)
+}
+
+// CodeRequest is one code-SEARCH question the verdict asks the next gather to
+// answer from the code_symbols index — the breadth counterpart to NextScope's
+// depth. NextScope follows the call graph ("what does this code call?"), which
+// only ever reaches code the current scope already touches; a CodeRequest asks
+// "does this mechanism exist ELSEWHERE?" — another implementation, a second call
+// site, anything referencing X — which is precisely where cross-cutting causes
+// hide. Answered by the same diagnose_code_lookup action the council's verify
+// tier uses (one convention across both halves of the loop).
+//
+// Unlike DataRequest, nothing model-written is ever executed: the SQL is fixed
+// per kind inside the action and Query arrives only as a bind parameter, so
+// there is no lint/containment analogue to Guards 2-3 — the containment is that
+// the model writes no SQL at all. Kind IS validated (closed set) at parse.
+//
+// All-strings, so one type serves both the domain Verdict and the wire.
+type CodeRequest struct {
+	Kind  string `json:"kind"`          // "symbol" | "content" | "ls" — a CLOSED set
+	Query string `json:"query"`         // the pattern to match (a bind parameter, never SQL)
+	Why   string `json:"why,omitempty"` // what this would settle (for the trail)
+}
+
+// CodeRequestKey is the identity of a code request for guard/dedup purposes:
+// kind + case-folded query. Shared by the spin guard (loop.go), the route's
+// cumulative re-forwarding, and the action's dedup, so all three agree on what
+// "the same question" means.
+func CodeRequestKey(kind, query string) string {
+	return strings.ToLower(strings.TrimSpace(kind)) + "\x00" + strings.ToLower(strings.TrimSpace(query))
+}
+
+// ValidCodeRequestKind reports whether kind is one the code-lookup action can
+// answer. Kept here (not in the action) because the verdict parser drops invalid
+// kinds at the wire boundary — the same closed set must be enforced at both ends.
+func ValidCodeRequestKind(kind string) bool {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "symbol", "content", "ls":
+		return true
+	}
+	return false
 }
 
 // Scope is the bundle scope for one iteration. The loop narrows this over time.
@@ -217,6 +261,7 @@ func Run(seedHypothesis string, seedScope Scope, g Gatherer, v Verdicter, cg Cal
 	// Guard memory across iterations.
 	seenCitations := map[string]bool{} // dedup key for evidence-must-grow
 	seenRequests := map[string]bool{}  // dedup key for in-flight data_requests (guardAfter)
+	seenCodeReqs := map[string]bool{}  // dedup key for in-flight code_requests (guardAfter)
 	var hypHistory []string            // for no-thrash detection
 	prevScopeSize := scope.size() + 1  // ensure first iteration always "narrows"
 
@@ -235,17 +280,18 @@ func Run(seedHypothesis string, seedScope Scope, g Gatherer, v Verdicter, cg Cal
 		// One iteration of the shared decision logic (guards + re-scope + the
 		// no-citation coercion). Run() owns the IO above; Step() owns the decision.
 		d := DecideStep(StepInput{
-			Iteration:       i,
-			MaxIterations:   cfg.MaxIterations,
-			Hypothesis:      hyp,
-			Scope:           scope,
-			Verdict:         verdict,
-			CallGraph:       cg,
-			FollowCallGraph: cfg.FollowCallGraph,
-			SeenCitations:   seenCitations,
-			SeenRequests:    seenRequests,
-			HypHistory:      hypHistory,
-			PrevScopeSize:   prevScopeSize,
+			Iteration:        i,
+			MaxIterations:    cfg.MaxIterations,
+			Hypothesis:       hyp,
+			Scope:            scope,
+			Verdict:          verdict,
+			CallGraph:        cg,
+			FollowCallGraph:  cfg.FollowCallGraph,
+			SeenCitations:    seenCitations,
+			SeenRequests:     seenRequests,
+			SeenCodeRequests: seenCodeReqs,
+			HypHistory:       hypHistory,
+			PrevScopeSize:    prevScopeSize,
 		})
 
 		// Record this iteration in the trail coerced the same way DecideStep
@@ -266,6 +312,7 @@ func Run(seedHypothesis string, seedScope Scope, g Gatherer, v Verdicter, cg Cal
 		// continue: carry the advanced state into the next iteration
 		seenCitations = d.SeenCitations
 		seenRequests = d.SeenRequests
+		seenCodeReqs = d.SeenCodeRequests
 		hypHistory = d.HypHistory
 		prevScopeSize = scope.size()
 		hyp = d.NextHypothesis
@@ -361,7 +408,7 @@ func namedScope(prev Scope, v Verdict) Scope {
 // on the first real 515-file graph, unbounded expansion of six named symbols
 // tripped scope-not-narrowing at iteration 1; the stale 69-file graph had
 // masked the difference because empty neighbourhoods made expansion a no-op).
-func guardAfter(v Verdict, next Scope, prevSize int, seen, seenReq map[string]bool, hypHistory *[]string, currentHyp string) string {
+func guardAfter(v Verdict, next Scope, prevSize int, seen, seenReq, seenCodeReq map[string]bool, hypHistory *[]string, currentHyp string) string {
 	// Scope must NARROW (or hold) — a widening scope is not converging.
 	// Exception: Unverifiable MAY widen once to fetch named evidence, but the
 	// guard still trips if it balloons beyond the previous size + a small slack.
@@ -392,6 +439,25 @@ func guardAfter(v Verdict, next Scope, prevSize int, seen, seenReq map[string]bo
 			}
 			if !seenReq[key] {
 				seenReq[key] = true
+				newRequest = true
+			}
+		}
+	}
+	// A NEW code_request is progress on exactly the same reasoning as a new
+	// data_request: the answer arrives in the next gather, so stopping now would
+	// halt the loop one iteration before the evidence it just asked for. Tracked
+	// in their OWN map, not seenReq — the route re-forwards seenReq's keys as SQL
+	// (withPriorRequests), so a code question living there would be re-issued as a
+	// query and silently dropped by the read-only lint. Same key as the action's
+	// dedup, so "the same question" means one thing across guard, route and action.
+	if seenCodeReq != nil {
+		for _, cr := range v.CodeRequests {
+			if strings.TrimSpace(cr.Query) == "" {
+				continue
+			}
+			key := CodeRequestKey(cr.Kind, cr.Query)
+			if !seenCodeReq[key] {
+				seenCodeReq[key] = true
 				newRequest = true
 			}
 		}

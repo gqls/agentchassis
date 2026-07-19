@@ -246,12 +246,88 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 		logger.Warn("diagnose_route: dropped non-read-only data_requests at route", zap.Int("dropped", droppedDR))
 	}
 
+	// Forward the verdict's code_requests so the next gather answers them from the
+	// code_symbols index (diagnose_load_runtime → diagnose_code_lookup helpers).
+	// This is the BREADTH channel: NextScope (above) follows the call graph from
+	// evidence, which only reaches code the current scope already touches; these
+	// ask "does this mechanism exist elsewhere?" — where cross-cutting causes hide.
+	//
+	// Read from the PARSED verdict, not the raw wire (the deliberate difference
+	// from data_requests above): the closed kind-set is enforced once, at the wire
+	// parse, and re-reading the map here would mean a second place to keep in step
+	// with that set. data_requests read raw for the documented reason that their
+	// read-only lint must not depend on the engine's Verdict shape.
+	//
+	// Cumulative, for the SAME reason as F0.5 (run 5120c0dc): one-shot answers ride
+	// only the bundle after the requesting verdict, so a guard-refused confirm LOSES
+	// the evidence and the loop re-asks. Re-forwarding every question ever issued
+	// makes an answer PERSIST for the price of a few indexed reads.
+	codeReqs := withPriorCodeRequests(verdict.CodeRequests, st.SeenCodeRequests, maxForwardedCodeRequests)
+	if len(codeReqs) > 0 {
+		result["code_requests"] = codeReqs
+	}
+
 	logger.Info("diagnose_route: iterating",
 		zap.Int("next_iteration", st.Iteration+1),
 		zap.Int("scope_size", len(decision.NextScope.Symbols)),
 		zap.Int("data_requests", len(dataReqs)),
+		zap.Int("code_requests", len(codeReqs)),
 		zap.String("next_step", gatherStep))
 	return result, nil
+}
+
+// maxForwardedCodeRequests caps route.code_requests (this verdict's plus every
+// prior one's). Each is a single indexed read bounded by the lookup action's own
+// row/excerpt caps, and the action applies its own max_checks on top; this bound
+// is about keeping bundle noise down, not safety.
+const maxForwardedCodeRequests = 10
+
+// withPriorCodeRequests returns this verdict's code requests followed by the
+// prior iterations' (LoopState.SeenCodeRequests keys, maintained by the spin
+// guard), deduped on the shared CodeRequestKey, sorted for determinism, capped.
+//
+// The state round-trips through collected_data, so its keys are treated as DATA:
+// a key that does not split into a valid (kind, query) pair is skipped rather
+// than trusted. The `why` is not stored in the guard map — a re-forwarded entry
+// says plainly that it is a re-run, so a reader of the bundle can tell a fresh
+// question from a persisted answer.
+func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool, max int) []interface{} {
+	have := map[string]bool{}
+	out := make([]interface{}, 0, len(current))
+	for _, cr := range current {
+		key := diagnose.CodeRequestKey(cr.Kind, cr.Query)
+		if have[key] {
+			continue
+		}
+		have[key] = true
+		out = append(out, map[string]interface{}{"kind": cr.Kind, "query": cr.Query, "why": cr.Why})
+		if len(out) >= max {
+			return out
+		}
+	}
+	prior := make([]string, 0, len(seen))
+	for k := range seen {
+		if have[k] {
+			continue
+		}
+		prior = append(prior, k)
+	}
+	sort.Strings(prior)
+	for _, k := range prior {
+		if len(out) >= max {
+			break
+		}
+		kind, query, ok := strings.Cut(k, "\x00")
+		if !ok || strings.TrimSpace(query) == "" || !diagnose.ValidCodeRequestKind(kind) {
+			continue
+		}
+		out = append(out, map[string]interface{}{
+			"kind":  kind,
+			"query": query,
+			"why":   "re-run of a prior iteration's code question so its answer persists across iterations (F0.5)",
+		})
+	}
+	return out
 }
 
 // seedScopeForRoute builds the FIRST iteration's loop scope from the SAME chain

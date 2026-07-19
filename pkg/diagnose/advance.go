@@ -27,8 +27,12 @@ type LoopState struct {
 	Scope         Scope           `json:"scope"`
 	SeenCitations map[string]bool `json:"seen_citations"`
 	SeenRequests  map[string]bool `json:"seen_requests"`
-	HypHistory    []string        `json:"hyp_history"`
-	PrevScopeSize int             `json:"prev_scope_size"`
+	// SeenCodeRequests mirrors SeenRequests for the code-search tier. omitempty
+	// so a state written before the code tier existed round-trips unchanged;
+	// a nil map rehydrates as nil, which the guard treats as "no code memory".
+	SeenCodeRequests map[string]bool `json:"seen_code_requests,omitempty"`
+	HypHistory       []string        `json:"hyp_history"`
+	PrevScopeSize    int             `json:"prev_scope_size"`
 	// MaxExpandedScope caps nextScope enrichment (0 = engine default, <0 =
 	// unlimited); set each call by diagnose_route from step config.
 	MaxExpandedScope int    `json:"max_expanded_scope,omitempty"`
@@ -54,14 +58,15 @@ func InitLoopState(seedHypothesis string, seed Scope, maxIter int, follow bool) 
 		maxIter = 5
 	}
 	return LoopState{
-		Iteration:     0,
-		MaxIterations: maxIter,
-		Hypothesis:    seedHypothesis,
-		Scope:         seed,
-		SeenCitations: map[string]bool{},
-		SeenRequests:  map[string]bool{},
-		PrevScopeSize: seed.size() + 1,
-		Follow:        follow,
+		Iteration:        0,
+		MaxIterations:    maxIter,
+		Hypothesis:       seedHypothesis,
+		Scope:            seed,
+		SeenCitations:    map[string]bool{},
+		SeenRequests:     map[string]bool{},
+		SeenCodeRequests: map[string]bool{},
+		PrevScopeSize:    seed.size() + 1,
+		Follow:           follow,
 	}
 }
 
@@ -83,6 +88,7 @@ func Advance(st *LoopState, verdict Verdict, cg CallGraph) AdvanceResult {
 		MaxExpandedScope: st.MaxExpandedScope,
 		SeenCitations:    st.SeenCitations,
 		SeenRequests:     st.SeenRequests,
+		SeenCodeRequests: st.SeenCodeRequests,
 		HypHistory:       st.HypHistory,
 		PrevScopeSize:    st.PrevScopeSize,
 	})
@@ -107,6 +113,7 @@ func Advance(st *LoopState, verdict Verdict, cg CallGraph) AdvanceResult {
 	// continue: advance the state exactly as Run() does between iterations
 	st.SeenCitations = d.SeenCitations
 	st.SeenRequests = d.SeenRequests
+	st.SeenCodeRequests = d.SeenCodeRequests
 	st.HypHistory = d.HypHistory
 	// model-named size, NOT the expanded scope: the guard compares model intent
 	// iteration-over-iteration (guard-vs-expansion fix, run 17933a83).

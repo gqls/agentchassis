@@ -16,6 +16,7 @@ package diagnose
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -29,6 +30,7 @@ type VerdictWire struct {
 	NeededEvidence    string         `json:"needed_evidence"`         // UNVERIFIABLE only
 	RuntimeSite       string         `json:"runtime_site"`            // optional: a runtime fault site to follow
 	DataRequests      []DataRequest  `json:"data_requests,omitempty"` // optional: read-only SQL to gather next
+	CodeRequests      []CodeRequest  `json:"code_requests,omitempty"` // optional: code-search questions to answer next
 	SymptomCheck      []SymptomCheck `json:"symptom_check,omitempty"` // CONFIRMED: coverage of the ORIGINAL symptom (F0.4d)
 }
 
@@ -96,6 +98,29 @@ func (w VerdictWire) toVerdict() Verdict {
 			continue
 		}
 		v.DataRequests = append(v.DataRequests, dr)
+	}
+	// The code-request analogue of the lint above. There is no read-only concern
+	// here (the model supplies a pattern, never SQL — see CodeRequest), so the
+	// only thing to enforce is the CLOSED kind set: an unrecognised kind cannot
+	// be answered, and dropping it silently would look to the verdicter exactly
+	// like a question that returned nothing — i.e. "the mechanism is absent",
+	// the most dangerous wrong answer this tier can give. Surface it in
+	// NeededEvidence so the trail shows the question was never asked.
+	for _, cr := range w.CodeRequests {
+		if strings.TrimSpace(cr.Query) == "" {
+			continue
+		}
+		if !ValidCodeRequestKind(cr.Kind) {
+			v.NeededEvidence = strings.TrimSpace(v.NeededEvidence +
+				" — dropped code_request with unknown kind " + strconv.Quote(cr.Kind) +
+				" (want symbol|content|ls); this question was NOT asked, treat it as unknown, not absent")
+			continue
+		}
+		v.CodeRequests = append(v.CodeRequests, CodeRequest{
+			Kind:  strings.ToLower(strings.TrimSpace(cr.Kind)),
+			Query: strings.TrimSpace(cr.Query),
+			Why:   cr.Why,
+		})
 	}
 	if err != nil {
 		v.Outcome = Unverifiable

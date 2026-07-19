@@ -72,7 +72,7 @@ var DiagnoseAssembleBundleInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
 		"loop_scope_field", "scope_field", "code_results_field",
 		"hypothesis_field", "seed_hypothesis_field", "symptom_field",
-		"analysis_field", "repo_root_field", "runtime_field", "schema_field", "max_body_chars",
+		"analysis_field", "repo_root_field", "runtime_field", "schema_field", "code_field", "max_body_chars",
 		"persist_bundle", "iteration_field", "site_id_field", "bundle_retention_days",
 	},
 	Defaults: map[string]interface{}{
@@ -86,6 +86,7 @@ var DiagnoseAssembleBundleInputSpec = datahelpers.ActionInputSpec{
 		"repo_root_field":       "repo_analysis.root",
 		"runtime_field":         "runtime.runtime_evidence",
 		"schema_field":          "runtime.schema",
+		"code_field":            "runtime.code_evidence",
 		"max_body_chars":        60000,
 		// Durable egress (F0.1). Bundles are ~60KB × ≤5 iterations, so they
 		// expire sooner than the prose notes they sit beside; 0 keeps forever.
@@ -128,6 +129,7 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	repoRootField := datahelpers.GetStringField(config, "repo_root_field", "repo_analysis.root")
 	runtimeField := datahelpers.GetStringField(config, "runtime_field", "runtime.runtime_evidence")
 	schemaField := datahelpers.GetStringField(config, "schema_field", "runtime.schema")
+	codeField := datahelpers.GetStringField(config, "code_field", "runtime.code_evidence")
 	maxBodyChars := datahelpers.GetIntField(config, "max_body_chars", 60000)
 
 	// Scope FALLBACK CHAIN (doc-003 action-level defense): (1) loop scope from
@@ -247,6 +249,22 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 			b.WriteString(steps)
 			b.WriteString("\n")
 		}
+	}
+
+	// Code-search answers (the breadth tier) — rendered BEFORE the runtime section
+	// and under an explicitly STATIC heading. These are index reads returning
+	// source code, so they are static-tier evidence: the two-evidence-family guard
+	// must not be satisfiable by them alone, and the surest way to keep that true
+	// is to never let them appear under a heading a verdicter could read as
+	// observed state. The heading says so in words, because the model reads the
+	// heading and not this comment.
+	if ce := datahelpers.ExtractNestedFieldString(params.CollectedData, codeField); ce != "" {
+		b.WriteString("## Code search results (from the code_symbols index — STATIC tier)\n\n")
+		b.WriteString("These answer code questions a previous iteration asked. They are CODE, so\n")
+		b.WriteString("they are static evidence: they can show a mechanism EXISTS, never that it\n")
+		b.WriteString("OCCURRED. A confirm still needs a state/runtime citation showing it happening.\n\n")
+		b.WriteString(ce)
+		b.WriteString("\n")
 	}
 
 	// Runtime/DB evidence already gathered upstream — include verbatim so the

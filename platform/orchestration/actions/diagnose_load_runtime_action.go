@@ -36,6 +36,7 @@ var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
 		"site_id_field", "correlation_id_field", "domain_field",
 		"error_limit", "work_item_limit", "data_requests_field",
+		"code_requests_field", "max_code_checks", "code_row_cap", "code_excerpt_chars",
 		"schema_exclude_patterns", "schema_include_patterns", "schema_full", "schema_table_cap",
 		"explain_max_rows", "explain_max_cost", "row_cap", "cell_chars",
 	},
@@ -50,6 +51,18 @@ var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 		// gather_step = load_runtime), so each iteration runs them. Empty on the
 		// first iteration (route has not run yet).
 		"data_requests_field": "route.data_requests",
+		// The code-search analogue, forwarded by diagnose_route the same way and
+		// likewise empty on the first iteration (route has not run yet).
+		"code_requests_field": "route.code_requests",
+		"max_code_checks":     8,
+		// Deliberately NOT the SQL row_cap/cell_chars above: those bound rows of a
+		// model-written SELECT (200/600), while these bound index hits rendered as
+		// source lines. A broad `content` pattern can match hundreds of symbols, so
+		// reusing 200 here would bury the bundle's signal in near-duplicate code
+		// lines (B4a). These match the council's code tier — one convention, and a
+		// cap that has already been exercised on real runs.
+		"code_row_cap":       40,
+		"code_excerpt_chars": 400,
 		// Schema section: denylist so new tables appear automatically; relevance
 		// include (used unless schema_full) keeps it to the build/content domain.
 		"schema_exclude_patterns": []interface{}{"%backup%", "%bak%", "%archive%", "%supersede%"},
@@ -269,6 +282,55 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		logger.Warn("diagnose_load_runtime: schema introspection failed", zap.Error(schErr))
 	}
 
+	// ── model-written code requests (the code-SEARCH tier) ───────────────────
+	// The breadth counterpart to the call-graph re-scope: forwarded by
+	// diagnose_route into route.code_requests and answered from the code_symbols
+	// index by the SAME helpers the council's verify tier uses
+	// (diagnose_code_lookup_action.go — same package, so this is reuse, not a
+	// second implementation).
+	//
+	// Deliberately built into its OWN string, NOT appended to `b` (the runtime
+	// evidence). Code search returns CODE, which is static-tier evidence; the
+	// two-evidence-family guard (pkg/diagnose coerceVerdict) requires a CONFIRM to
+	// carry both a static citation showing the mechanism AND a state/runtime
+	// citation showing it occurring. Folding index results into a section headed
+	// "Runtime / DB evidence" would invite the verdicter to cite them as the
+	// observed half and satisfy the guard with code alone — defeating the one
+	// check that stops a plausible code-only story being confirmed. The assembler
+	// renders this under its own static-tier heading.
+	var codeEvidence string
+	codeReqField := datahelpers.GetStringField(config, "code_requests_field", "route.code_requests")
+	if codeChecks := codeChecksFromCollected(params.CollectedData, codeReqField); len(codeChecks) > 0 {
+		codeChecks = dedupCodeChecks(codeChecks)
+		maxCodeChecks := datahelpers.GetIntField(config, "max_code_checks", 8)
+		codeDropped := 0
+		if maxCodeChecks > 0 && len(codeChecks) > maxCodeChecks {
+			codeDropped = len(codeChecks) - maxCodeChecks
+			codeChecks = codeChecks[:maxCodeChecks]
+		}
+		codeRowCap := datahelpers.GetIntField(config, "code_row_cap", 40)
+		codeExcerpt := datahelpers.GetIntField(config, "code_excerpt_chars", 400)
+		var cb strings.Builder
+		cb.WriteString("Code questions this diagnosis asked, answered from the code_symbols index\n")
+		cb.WriteString("(an INDEXED snapshot — each answer names its commit_sha; treat a stale or\nempty answer as 'unknown', NOT as 'absent'):\n")
+		for i, c := range codeChecks {
+			fmt.Fprintf(&cb, "\n[code_request %d] kind=%s query=%q — %s\n", i+1, c.Kind, c.Query, c.Why)
+			if err := answerCodeCheck(ctx, params.DB, c, "", codeRowCap, codeExcerpt, &cb); err != nil {
+				// Never fatal: a failed lookup is one unanswered question, not a
+				// failed gather. Surfaced in-band so the verdicter sees it was
+				// attempted rather than silently reading absence as evidence.
+				fmt.Fprintf(&cb, "  (lookup failed: %v)\n", err)
+			}
+		}
+		if codeDropped > 0 {
+			fmt.Fprintf(&cb, "\n> %d further code_request(s) dropped (max_code_checks=%d) — coverage was capped, not complete.\n", codeDropped, maxCodeChecks)
+		}
+		codeEvidence = cb.String()
+		logger.Info("diagnose_load_runtime: answered code requests",
+			zap.Int("code_requests", len(codeChecks)),
+			zap.Int("code_requests_dropped", codeDropped))
+	}
+
 	logger.Info("diagnose_load_runtime: gathered runtime evidence",
 		zap.String("site_id", siteID),
 		zap.String("correlation_id", correlationID),
@@ -277,10 +339,12 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		zap.Int("data_requests", len(dataReqs)),
 		zap.Bool("schema_full", schemaFull))
 
-	// Returned under "runtime_evidence" + "schema" — both read by diagnose_assemble_bundle.
+	// Returned under "runtime_evidence" + "schema" + "code_evidence" — all read by
+	// diagnose_assemble_bundle, which renders each under its own tier heading.
 	return map[string]interface{}{
 		"runtime_evidence": b.String(),
 		"schema":           schemaText,
+		"code_evidence":    codeEvidence,
 		"error_rows":       errCount,
 	}, nil
 }
