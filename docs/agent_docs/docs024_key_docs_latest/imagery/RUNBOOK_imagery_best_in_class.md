@@ -79,6 +79,99 @@ Nothing here is destructive; run as provided and paste the output back.
 
 ---
 
+## A6. Commands that were hard to get right (agent-facing; each with its gotcha)
+
+*Added 2026-07-18/19. These are the ones that cost a cycle when done the obvious
+way. The gotcha is the point — the command alone is not the lesson.*
+
+### A6.1 Fire a discovery pass by hand — the reliable form
+**Gotcha: `kubectl run -i --rm` silently produces NOTHING, perhaps half the
+time.** The stdin attach races the container start, so the message is never
+written to the topic. It looks exactly like a dead consumer, and I lost two
+cycles to it. Use the detached form, passing the payload as an env var:
+```bash
+PAYLOAD=$(printf '{"headers":{...},"config":{"agent_type":"design-discovery-agent"},"input_data":{"site_id":"<site>","domain":"<domain>"}}')
+kubectl -n kafka run kcat-fire --image=edenhill/kcat:1.7.1 --restart=Never \
+  --attach=false --env="PAYLOAD=$PAYLOAD" --command -- \
+  sh -c 'printf "%s" "$PAYLOAD" | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+     -t system.agent.generic.requests -H action=orchestrate -H message_type=request ...'
+kubectl -n kafka delete pod kcat-fire     # --rm is REJECTED with --attach=false
+```
+**Verify it was actually produced before diagnosing anything downstream:**
+```bash
+kubectl -n kafka run kcat-read -i --rm --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -C -b <broker> -t system.agent.generic.requests -o -15 -e -q | grep -o '"agent_type":"[a-z-]*"'
+```
+
+### A6.2 Make a COMPONENT TEMPLATE change actually appear on a page
+**Gotcha: an ordinary page re-render will not do it, and will report success.**
+`page-rerender` branches on `spec.reason`:
+`image_landed` / `section_data_resolved` / `cta_links_stale` re-render from the
+template with freshly resolved fields; **anything else reassembles the stored
+`page_components.rendered_html`**, which is a rendered artifact that may be days
+old. A reason-less item completes green, redeploys the page, and changes nothing.
+```sql
+INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity, summary,
+                             spec, priority, handler_agent, status, created_by, item_key, triaged_at)
+SELECT p.site_id, 'discovery', 'build', 'page_rerender', 'medium', '<why>',
+       jsonb_build_object('domain','<domain>','page_id',p.id::text,'filename','<file>.html',
+                          'page_name',p.name,'reason','image_landed'),   -- ← load-bearing
+       5, 'page-rerender', 'triaged', '<who>', 'page_rerender_<slug>_'||p.site_id::text, now()
+  FROM pages p WHERE p.site_id='<site>' AND p.name='<page>';
+```
+
+### A6.3 Verify a deploy — and validate the marker FIRST
+**Gotcha: a pod-grep is a POSITIVE test only.** Some string literals (notably
+switch-`case` values like `content_hero`, `sprite_sheet`) are **not retained** by
+the Dockerfile build (`CGO_ENABLED=0 go build -a -installsuffix cgo`, alpine),
+though a plain host `go build` keeps them. A miss therefore proves nothing, and
+reads exactly like a stale deploy — this produced a false "the adapter shipped
+stale" alarm on 2026-07-18 (retracted; 016b §9).
+```bash
+# Control test: does this marker survive a known-good build of the same pipeline?
+CID=$(docker create <registry>/<svc>:<tag>); docker cp $CID:/app/<svc> ./shipped; docker rm $CID
+go build -o ./control ./cmd/<svc>
+for m in "<marker>" "<a log line you know is in it>"; do
+  echo "$m shipped=$(strings ./shipped | grep -c -- "$m") control=$(strings ./control | grep -c -- "$m")"
+done
+```
+`shipped=0 control=0` ⇒ **the marker is useless**, not the image. Prefer a
+**log-message string** as your marker; those always survive. Best evidence of all
+is runtime behaviour (e.g. the adapter logging `kind=content_hero →
+provider=banana` on a real request).
+
+### A6.4 Unstick imagery work items
+**Gotcha: discovery items strand in `detected` AND in `unresolved`** — promote
+both, not just `detected` (the derive items came back `unresolved`).
+```sql
+UPDATE site_work_items SET status='triaged', triaged_at=now(), priority=5
+ WHERE site_id='<site>' AND item_type IN ('needs_imagery','needs_content_image')
+   AND status IN ('detected','unresolved') AND created_at > now() - interval '15 minutes';
+```
+Zombie claims block the queue; clear ONLY when no long page build is in flight
+(page builds legitimately run 20+ minutes — do not blanket-clear on a timer):
+```sql
+UPDATE site_work_items SET status='triaged', claimed_at=NULL, claimed_by=NULL, priority=5
+ WHERE id='<id>' AND status='claimed' AND claimed_at < now() - interval '15 minutes';
+```
+**Dispatch is one site at a time against a fleet-wide pool** — priority 5 orders
+*within* a site, it does not jump the queue ahead of other sites. Items sitting
+`triaged` for ten minutes are usually waiting, not broken.
+
+### A6.5 Force-regenerate a content hero (and let its card follow)
+The check only GENERATES when no active content hero exists, so supersede first;
+the card re-derives on the next pass by origin-staleness.
+```sql
+UPDATE assets SET status='superseded', updated_at=now()
+ WHERE site_id='<site>' AND asset_key='content_hero_<page_underscored>' AND status='active';
+```
+Then A6.1 to sweep, A6.4 to promote. **Style drift in the ground colour is fixed
+via the style guide's `avoid`, not its `medium`** — "deep charcoal ground" in
+`medium` did not stop a white background; adding "white background, pale
+background, light background" to `avoid` did.
+
+---
+
 ## B. One-off tasks (current queue)
 
 ### B1. ~~Confirm the API-key scrub and rotation happened~~ ✅ DONE 2026-07-08
