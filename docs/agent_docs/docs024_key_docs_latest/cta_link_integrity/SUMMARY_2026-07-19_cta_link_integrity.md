@@ -31,8 +31,23 @@ That section doesn't exist. Nothing happens when you click it.
 `leopardess.contactforsales.com`, which doesn't exist — you've confirmed you never set that
 subdomain up. On the other it goes to your `.com` domain, which is yours but currently
 serves a blank page. Either way, a visitor who clicks it leaves your working site for
-nothing. The system invented that first address by gluing together two domains you really
-own, which is exactly why no automatic check spotted it.
+nothing.
+
+**You were right to question my explanation of that one.** I'd said the system glued
+together two domains you own, which implied it knew what you own. It doesn't. Checking
+properly gave a better answer:
+
+- The `.com` address is just the obvious guess from the site's own name. **Your owning it is
+  coincidence**, exactly as you suspected.
+- The other one is not a guess at all. Your site's own settings record your real contact
+  address, `leopardess@contactforsales.com`. The system read that and **turned an email
+  address into a web address by swapping the `@` for a dot.**
+
+That is much better news for fixing it. "Is this web address plausible?" is unanswerable by
+a machine. "Is this web address just one of our own email addresses with the @ changed to a
+dot?" is a one-line check needing no internet lookup. **And it matters beyond this site:
+six of your sites use `contactforsales.com` for contact, so any of them could produce the
+same invented address.** That check is now in the plan.
 
 ## Why it happened
 
@@ -91,6 +106,17 @@ Four stages, in the plan. In plain terms:
 4. **Fix the four buttons on Leopardess** — but at the component level, because anything
    fixed directly on the page can be wiped out by the separate re-planning bug (001).
 
+**Plus one thing you can do without waiting for any of that: redirect
+`leopardessconsulting.com` to `leopardessconsulting.co.uk`**, keeping the path. That turns
+*Visit the Tool* on the LLM cost page into a working button straight away, and it's worth
+doing anyway — an owned `.com` sitting next to your live `.co.uk` shouldn't serve a blank
+page to anyone who guesses it or types it. A Cloudflare redirect rule alongside your existing
+setup; no new hosting.
+
+One caution: that makes an address the system *made up* start working. It's a real
+improvement for visitors, but it isn't the bug fixed — the underlying field will invent a
+different address on the next rebuild, and the other page's button stays dead. Do both.
+
 ## Two judgement calls I'd flag
 
 **I don't recommend running the experience loop on this yet**, even though you asked whether
@@ -111,7 +137,6 @@ yet** — that's deliberate, per your instruction that the fix needn't happen in
 - Bug report: `bugs_open/023_HANDOFF_2026-07-19_cta_label_url_pairing_unchecked.md`
 - Plan, evidence and commands: `docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/`
 
-One open question for you: **what do you want `leopardessconsulting.com` to do?** It's
-yours, it currently serves a blank page, and at least one button on the live site points at
-it. Redirecting it to the `.co.uk` would turn one of these four broken buttons into a
-working one for free.
+**Approved by you 2026-07-19:** redirect `leopardessconsulting.com` → `.co.uk`. It's on the
+list as step P4.1 in the plan and item 7 in the bug's fix candidates. It's an owner/DNS
+action, not a platform change, so it isn't blocked on any of the code work above.

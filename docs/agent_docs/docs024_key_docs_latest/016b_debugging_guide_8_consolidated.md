@@ -1252,10 +1252,22 @@ skips any field whose `source != "llm"` — which is *every* CTA url field by de
    durable place. Derive it from the schema.
 2. **A `required:true` field whose source cannot answer is an instruction to fabricate.**
    `source:llm` + `required` + no fallback + nothing to look up = the model must return
-   something, so it invents. Here it invented two different hostnames on two adjacent pages,
-   assembled from real domains in the owner's own estate — plausible by construction, which
-   is exactly why no heuristic caught them. **Audit for `required` fields whose source has no
-   resolvable ground truth; that combination manufactures the fabrication you later hunt.**
+   something, so it invents. Here it invented two different hostnames on two adjacent pages.
+   **Audit for `required` fields whose source has no resolvable ground truth; that
+   combination manufactures the fabrication you later hunt.**
+
+   **And look at *how* it invents, because that is usually checkable.** Neither hostname was
+   a wild guess. One was the obvious `.com` variant of the site's own name. The other,
+   `leopardess.contactforsales.com`, was a **transform of a real contact email** in the
+   site's own identity spec (`leopardess@contactforsales.com`, `@`→`.`). The parts were true
+   and in-context; only the recombination was invented — the classic fabrication shape.
+   That yields a *deterministic* check (string identity against data already held, no
+   network call), where "is this hostname plausible?" yields none. **When you catch a
+   fabrication, work out which real in-context tokens it recombined; that recombination rule
+   is usually cheap to test for, and it generalises** — here to six sites sharing one contact
+   domain. Corollary from the same case: an owner owning the fabricated domain does not mean
+   the model knew about it. I made that inference, stated it as mechanism, and the owner
+   corrected me.
 3. **A finding filed at a status nothing consumes is indistinguishable from no finding.**
    One of these four was correctly detected, with the right component and page named, *two
    days before the owner clicked it* — and filed `needs_human_review`, which

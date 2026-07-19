@@ -32,8 +32,23 @@ different mechanism that defeats a different check**:
 | Visit the Tool | `https://leopardess.contactforsales.com` (NXDOMAIN) and `https://leopardessconsulting.com/…` (owner's domain, but a 114-byte blank page) | Field is `source:llm, required:true` with no source of truth. **The schema requires a model to produce a URL it cannot look up, so it invents one** — two different hostnames on two adjacent pages. |
 
 Owner-confirmed: he owns `contactforsales.com` and `leopardessconsulting.com` but never
-created the `leopardess.` subdomain. So the model assembled a plausible hostname out of two
-real domains in his own estate — which is precisely why no heuristic caught it.
+created the `leopardess.` subdomain.
+
+> **CORRECTED 2026-07-19** (owner challenged the first framing; he was right). I initially
+> wrote that the model "assembled a hostname from two real domains in the owner's estate",
+> implying estate knowledge. It has none. The real mechanisms are sharper and both are
+> checkable:
+> - `leopardessconsulting.com` is just the obvious `.com` variant of the site's own name.
+>   The owner happening to own it **is** coincidence.
+> - `leopardess.contactforsales.com` is a **transform of a real contact email**. The site's
+>   identity spec holds `leopardess@contactforsales.com`; the model swapped `@` for `.`.
+>
+> The parts were true and in-context; only the recombination was invented. **That makes it
+> deterministically detectable** — a hostname equal to a known contact address with `@`→`.`
+> is fabricated by construction, no network call needed. **Exposure: 6 sites share
+> `contactforsales.com` as their contact domain** (`agents@`, `finetuning@`, `gas@`,
+> `idea.uk@`, `leopardess@`), each in its *current* identity spec, so any of them can produce
+> the same fabrication. Filed as plan step P1.5.
 
 ## Root cause
 
@@ -112,6 +127,12 @@ Full phasing in the plan. The headline:
    what created *Start Ranking Free → /contact.html*.
 4. Ban `source:llm` + `required:true` on any URL field as a schema-lint rule.
 5. Post-hoc `external_link_unreachable` check (never at build time).
+6. **Deterministic email→hostname check (P1.5)** — reject any external host equal to a known
+   contact address with `@`→`.`. Cheap, no network, catches this exact class fleet-wide.
+7. **Owner action, approved 2026-07-19: 301 `leopardessconsulting.com` →
+   `leopardessconsulting.co.uk`**, path preserved (P4.1). Fixes one of the four buttons
+   immediately and independently of all code work. ⚠️ It makes a *fabricated* URL resolve —
+   do not mistake that for the defect being fixed; the field still invents on next build.
 
 ## How to verify a fix
 

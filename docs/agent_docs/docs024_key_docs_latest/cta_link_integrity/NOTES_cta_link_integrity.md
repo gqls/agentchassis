@@ -35,10 +35,46 @@ Verified independently:
   does not exist. `#guide-start` scrolls nowhere.
 - `leopardess.contactforsales.com` → **NXDOMAIN**. **Owner-confirmed 2026-07-19: he owns
   `contactforsales.com` and `leopardessconsulting.com`, but never created the
-  `leopardess.` subdomain.** So this is not a third-party leak — it is a hostname the
-  model *assembled from two real domains in the owner's own estate*. That is worse for
-  detection purposes, not better: it is exactly the kind of plausible string no
-  heuristic catches.
+  `leopardess.` subdomain.** So this is not a third-party leak.
+
+> **CORRECTED 2026-07-19 (same session, before hand-off).** I first wrote that the model
+> "assembled a hostname from two real domains in the owner's own estate", which implies it
+> had knowledge of what the owner owns. **That was wrong, and the owner challenged it** —
+> he suggested his ownership of `leopardessconsulting.com` was probably coincidence. He was
+> right, and checking it produced a sharper mechanism for both hostnames:
+>
+> - **`leopardessconsulting.com`** — simply the obvious `.com` variant of the site's own
+>   name. The model needs no knowledge of the owner's estate to guess it. That the owner
+>   happens to own it **is** coincidence (a common one — people who buy a `.co.uk` often
+>   buy the `.com`).
+> - **`leopardess.contactforsales.com`** — *not* coincidence, and *not* estate knowledge.
+>   The site's own identity spec carries the real contact email
+>   **`leopardess@contactforsales.com`** (`docs/leopardessconsulting/specs/identity.json`,
+>   and the live `site_specs` identity row). The model saw a real email in its context and
+>   **transformed it into a hostname by swapping `@` for `.`**.
+>
+> So the parts were true and in-context; only the *recombination* was invented. That is the
+> classic fabrication shape, and it is far more checkable than "plausible string" — see the
+> deterministic rule below. Caught by grepping the repo and DB for `contactforsales` instead
+> of accepting my own first framing.
+
+**Fleet exposure of the email→hostname transform.** `contactforsales.com` is the owner's
+shared contact domain across **six sites**, each with a `<label>@contactforsales.com` address
+in its *current* identity spec:
+
+```
+ai-agent-orchestration.com | agents@contactforsales.com
+finetuning.uk              | finetuning@contactforsales.com
+gaswholesalers.com         | gas@contactforsales.com
+idea.uk                    | idea.uk@contactforsales.com
+leopardessconsulting.co.uk | leopardess@contactforsales.com
+dartsonline.com            | sales@darts.com
+```
+
+Any of them can produce the same fabrication. **This yields a cheap deterministic check:
+a hostname equal to a known contact email with `@` → `.` is fabricated by construction.**
+No HTTP call needed, no heuristic — it is a string identity against data the platform
+already holds. Added to the plan as P1.5.
 - `leopardessconsulting.com` (owner's, but not the live site) returns **200 with a
   114-byte body and no `<title>`/`<h1>` for every path tested**, including the root and
   the fabricated tool path. A visitor clicking *Visit the Tool* leaves the real site for

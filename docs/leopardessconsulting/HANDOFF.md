@@ -96,8 +96,17 @@ Two things matter beyond this site:
 anything written there an undefined shelf life on this site.
 ⚠️ **Do not run the experience loop on this yet** — it is a detection loop and these are
 already correctly described in 34 unread items. Build the handler first.
-⚠️ Open owner question: `leopardessconsulting.com` is owner-owned but serves a blank page,
-and a live button points at it. A redirect to `.co.uk` fixes one of the four for free.
+✅ **Owner-approved 2026-07-19 (P4.1): 301 `leopardessconsulting.com` → `.co.uk`, path
+preserved.** Owner/DNS action, not blocked on any code work; fixes one of the four buttons
+immediately. ⚠️ It makes a *fabricated* URL resolve — not the defect fixed; the field still
+invents on the next build.
+
+**Provenance of the fabricated hostnames (corrected 2026-07-19 after owner challenge):** the
+model has no knowledge of the owner's domain estate. `leopardessconsulting.com` is just the
+obvious `.com` variant of the site name (owner ownership = coincidence).
+`leopardess.contactforsales.com` is a transform of the site's own identity-spec contact email
+`leopardess@contactforsales.com` (`@`→`.`). **6 sites share `contactforsales.com` as their
+contact domain, so any can produce this.** Yields a deterministic check — plan step P1.5.
 
 ## 0. The one-paragraph version
 

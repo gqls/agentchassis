@@ -69,6 +69,25 @@ pair, if the **label resolves non-empty** and the **URL resolves empty/absent** 
 see whether a sibling component defines the id. It belongs at assemble time. This is class
 **D**, and it is the one place the plan needs new plumbing rather than a new rule.
 
+**P1.5 — the email→hostname transform (deterministic, cheap, do it early).**
+`leopardess.contactforsales.com` was not a wild guess: the site's identity spec holds the
+real contact email `leopardess@contactforsales.com`, and the model turned it into a hostname
+by swapping `@` for `.`. **A hostname equal to a known contact address with `@`→`.` is
+fabricated by construction** — that is a string identity against data the platform already
+holds, needing no network call and no heuristic. Check every external URL's host against the
+site's own contact emails (and, cheaply, the reverse: any host that is a `<local>.<domain>`
+recomposition of any current `site_specs` identity email, fleet-wide).
+
+> **Exposure: 6 sites share `contactforsales.com` as their contact domain**
+> (`agents@`, `finetuning@`, `gas@`, `idea.uk@`, `leopardess@`), each in its *current*
+> identity spec. Any of them can produce this exact fabrication. See NOTES for the table.
+
+Also worth a cheap sibling rule: **an external URL whose host is a different-TLD variant of
+the site's own registrable domain** (`example.com` on an `example.co.uk` site) is
+near-always either a mistake or an unintended off-site exit. Today
+`checkDomainContamination` (`validate_page_content.go:481-534`) cannot see this — it
+substring-matches a hardcoded 5-domain list and never compares against `expectedDomain`.
+
 ### Phase 2 — Remove the class structurally (templates + schemas)
 
 **P2.1** Gate every CTA anchor fleet-wide: `{{if .x_url}}<a href="{{.x_url}}">…{{end}}`.
@@ -124,11 +143,28 @@ Two lanes:
   product decision — but it must arrive somewhere a human actually reads, not a queue with
   34 items and no reader.
 
-### Phase 4 — leopardess remediation
+#### Phase 4 — leopardess remediation
 
 Fix the four buttons. **Do it at component/schema level (Phase 2), not in
 `page_components`** — `bugs_open/001` means anything written to `page_components` has an
 undefined shelf life on this site, while template and schema fixes survive a re-plan.
+
+**P4.1 — owner action, approved 2026-07-19: redirect `leopardessconsulting.com` →
+`leopardessconsulting.co.uk`.** The `.com` is owner-owned and currently serves a 114-byte
+blank page for every path, and a live button points at it. A 301 at the apex (with path
+preserved, so `/tools/llm-cost-calculator` lands on the real page) turns *Visit the Tool* on
+the LLM-cost page into a working button immediately, independently of every code fix above.
+
+Do it as a Cloudflare redirect rule alongside the existing `.co.uk` setup, not as a new
+origin. **This is worth doing regardless of the button** — an owned `.com` next to a live
+`.co.uk` brand should not serve a blank page to anyone who guesses it, and search engines
+and typed traffic reach it too.
+
+> Note the ordering interaction: P4.1 makes one fabricated URL *resolve*. That is a genuine
+> improvement for visitors, but it must **not** be mistaken for the defect being fixed — the
+> field is still `source:llm, required:true` and will invent a different hostname on the next
+> build. **Do P2.3 as well**, and do not let a green link lull the fix. (The other page's
+> button, `leopardess.contactforsales.com`, is unaffected by the redirect and stays dead.)
 
 ## 5. Staging — do not turn the blocker on cold
 
