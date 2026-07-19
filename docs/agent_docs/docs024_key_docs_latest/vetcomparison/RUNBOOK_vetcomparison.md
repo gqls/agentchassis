@@ -124,12 +124,51 @@ Migrations 006–009 in this dir are all idempotent; apply with `-v ON_ERROR_STO
 - **~Dec 2026 / ~Mar 2027** — mandated price lists appear (large/small) → compliance-watch
   scraping + claim funnel.
 
+## Editing a rendered component in the DB (fabrication / copy fixes)
+
+The renderer builds pages from `page_components.rendered_html`. **Fixing the published file is
+not enough** — the DB copy is republished on the next render. Fix the DB, then lock it.
+
+Audit every component on the site first — the fabrication was in the `hero` slot, not the one
+whose name suggested it:
+
+```sql
+SELECT p.name, pc.slot_name, LENGTH(pc.rendered_html) AS len, COALESCE(pc.lock_type,'-') AS lock,
+       (pc.rendered_html ~ 'Mulberry32|makePostcode|PREFIXES|buildData')::text AS generator,
+       (pc.rendered_html ~ 'representative sample|ownership data|independently owned|Price: Low to High')::text AS false_claim
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='vetcomparison.uk' ORDER BY p.name, pc.position;
+```
+
+**Read every hit before changing it.** Of three hits outside the homepage, only one was a false
+claim about us; the other two accurately described the CMA's findings and obligations. A blanket
+regex sweep would have corrupted correct content.
+
+To write large HTML into the column: generate dollar-quoted SQL **locally** (a short python
+script writing `UPDATE ... SET rendered_html = $tag$<html>$tag$, lock_type='permanent', ...`)
+and pipe the resulting file into psql via stdin.
+
+**GOTCHA that cost me the hero component:** `\set html` backtick-`cat file`-backtick inside a
+piped psql runs `cat` *in the pod*, which has no such file. It wrote 0 bytes and still printed
+`UPDATE 1`. Always re-query `LENGTH(rendered_html)` afterwards.
+
+`page_components.data_path` exists but is empty fleet-wide — vestigial, do not build on it.
+
+## Triggering a render — UNSOLVED
+
+`rerender-pages` is `experimental`; `page-rerender` is active. Neither
+`system.agent.site-builder.requests` nor `system.agent.page-rerender.process` produced an
+orchestration state from a kcat trigger (2026-07-18). Renders currently only happen when the
+build loop raises them. **If you solve this, record it here** — it is the missing verification
+step for the bug-020 fix.
+
 ## Standing safety rails
 
 - Nothing may export without an explicit domain (Go fail-closed + blanked DB configs). We do
   NOT own vetcomparison.co.uk — never reintroduce it.
-- All vet scheduled tasks are disabled: med-export-json, med-discover-urls, vet-sweep-continue,
-  ch-vet-collect, vet-batch-verify, directory-export-json. Enable deliberately, one at a time.
+- Scheduled tasks: `directory-export-json` is **ENABLED** (48h). All others remain disabled —
+  med-export-json, med-discover-urls, vet-sweep-continue, ch-vet-collect, vet-batch-verify.
+  Enable deliberately, one at a time.
 - Before re-enabling vet-batch-verify: extend the sweep/verifier deny-list (wheree.com,
   bestlocalrated.co.uk, yelp.*, starofservice, threebestrated, allvets.co.uk, calmshops.co.uk)
   and make the verifier persist per-price source_url.

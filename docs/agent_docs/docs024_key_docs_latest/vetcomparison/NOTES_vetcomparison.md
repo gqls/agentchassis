@@ -203,3 +203,27 @@ Running record, append-only, **newest at the bottom** (per CLAUDE.md "standing f
 - Self-inflicted, recorded so nobody repeats it: `\set html \`cat file\`` in a piped psql runs
   `cat` **inside the pod**, which has no such file — it silently blanked the hero to 0 chars
   (reported `UPDATE 1`). Correct method: generate dollar-quoted SQL locally, pipe via stdin.
+
+## 2026-07-19 (state grounded for handoff; nothing changed)
+
+- Re-checked every figure against the live system rather than carrying them forward. Live page:
+  0 fabrication, 0 false claims, real directory wired, claim CTA present, 6,133 bytes.
+  DB: 2,109 published / 238 pending / 0 fabricated current / 0 claims / 0 claimed.
+  4 permanent component locks intact, no generator in any of them.
+- **No render has run since the 07-18 restore** (no commit has touched vetcomparison.uk/), so the
+  bug-020 fix remains verified at DB + live-file level but the render path is STILL unexercised.
+  When it does run the homepage will change to the richer chassis component (11.3 KB, region
+  filter + pagination) — expected and an improvement; verify with the greps in the handoff.
+- Exporter last completed 2026-07-17 20:25Z on a 48h cycle → next due ~2026-07-19 20:25Z.
+- CMA case page re-fetched: substantive draft Order **still not published** (latest entry remains
+  30 June 2026); funding consultation still closes 30 July 23:59. Order not yet made.
+- Found files in this dir not written by this workstream: `README_where_we_are.md` (a paste of my
+  15 July chat messages — now STALE and misleading: says the strip needs pushing, quotes 2,579
+  practices), `README_vet_legal.md` (paste of the copyright discussion), and ~150 KB of
+  owner-supplied RCVS research (`RCVS_mismanagement.md`, `RCVS2_*`, `RCVS3_report_and_discussion`)
+  on RCVS institutional efficacy and its software-project record. The RCVS material is
+  strategically live — they build the competing official tool and set third-party approval
+  criteria — and is not yet folded into any plan. All flagged in the handoff.
+- Docs brought to the standing four + handoff refreshed to 2026-07-19 with today's grounded
+  figures. Runbook gained: DB component editing (dollar-quoted SQL via stdin), the whole-site
+  component audit query, and the unsolved render-trigger.
