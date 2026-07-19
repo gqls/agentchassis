@@ -81,3 +81,51 @@ check, whereas an internal self-link would likely have tripped `misdirected_cta`
 
 Owner scope decision: **full platform fix** (schema-derived CTA pairing, anchor gating,
 work-item handler, site fix, planner cause). In progress.
+
+----
+
+**2026-07-19, later — grounding the fix, and a docs convention change.**
+
+You chose the full platform fix over the redirect, so I stopped writing plans and went and
+read the actual code — the earlier map of how CTA checking works came from a research agent,
+not from me, and I didn't want to start editing on someone else's reading. Three things came
+back different enough to matter.
+
+**The hardcoded list of "components that have buttons" covers about 15% of them.** There is a
+six-entry list in the code that decides which components the platform is allowed to repair. I
+derived the real answer from the component library instead: **33 component types, 119 button
+destination fields.** The list covers five of the thirty-three. So "the platform can detect
+this but not fix it" isn't an edge case — it's nearly every button on every site.
+
+**My proposed rule was wrong and testing caught it.** I'd written that a button destination is
+"any field ending in `_url` that has a matching label field". Run against the live library,
+plain `_url` matching also swallows **32 image fields** — logos and photographs. Had I written
+that as specified, the link resolver would have started rewriting image sources. Requiring the
+matching label field fixes it cleanly. Cheap to catch now, expensive to catch after a fleet
+rebuild.
+
+**The invented-web-address problem is 21 fields, not one.** The field that produced
+`leopardess.contactforsales.com` is not unusual: **21 of the 119 destination fields ask an AI
+to write a web address**, across 7 components. Every one of them is the same instruction that
+produced your broken button — write a URL you have no way of looking up.
+
+**One thing I want to flag rather than just do.** Fixing the derivation alone won't hold.
+Fields sourced from site settings get re-resolved on every page render and overwrite whatever
+the link resolver wrote — only 6 of the 119 are currently in a state where the resolver wins.
+So there's a choice: another migration flipping fields over (the same migration has now been
+written four times), or change the render step to stop overwriting fields the resolver owns.
+The second is more invasive but retires the recurring migration. I've flagged it in the plan
+rather than picking unilaterally.
+
+**And a change to how I keep these docs, at your direction.** CLAUDE.md now describes a
+standing **five**, not four, with a cadence attached to each — this file is now an official
+part of it rather than something you maintain by hand alone. I'll append to it at every
+natural break like this one, so you stop copy-pasting. It's recorded as *your* document:
+append-only, never rewritten, corrections go underneath rather than editing your words. That
+rule exists because I overwrote it earlier today after wrongly deciding it was a stray file.
+The running notes now also explicitly require every misstep, and SUMMARY moves to a
+milestone cadence — once or twice a day — so you can talk about progress while it's
+happening rather than reading a report at the end.
+
+Nothing is fixed yet. Next step is the shared derivation helper with tests, since three
+separate places in the code need to agree on what a button destination is.
