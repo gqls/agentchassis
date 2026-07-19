@@ -1379,6 +1379,7 @@ See `/bugs_closed/README.md`.
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
 | 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts — **`→ bugs_closed/`** (note: a *different* case also numbered 016 — council revise — remains open) |
 | 017 | Static cutover orphans a backend tool's entry forms — funnel unreachable, no auditor models it | open; needs site fix + new check |
+| 018 | idea.uk chrome renders with every link `href=""` (31/33) — site unnavigable; check fleet | open, unstarted |
 | 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | **FIXED 2026-07-18** — both legs + parity test + dead-map deletion; 54 rows corrected; inert until image ships |
 | 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | filed; fix candidates in 019 |
 | 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
