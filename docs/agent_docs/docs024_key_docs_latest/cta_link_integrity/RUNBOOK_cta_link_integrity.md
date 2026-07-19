@@ -213,3 +213,39 @@ live component.** Rename or supersede deliberately.
 The five genuine function collisions are per-site forks (`site-header`,
 `tool-llm-cost-calculator`, `site-footer`, `tool-bayesian-ranking`, `tool-meme-generator`)
 and are expected.
+
+## R11 — Retrieve a diagnosis-loop verdict
+
+The terminal verdict does **not** live in `diagnosis_artifacts` (that holds only the evidence
+bundles) and lands in `doc_notes` **only if** `SUBJECT_TYPE` *and* `SUBJECT_KEY` were both set
+at trigger time — they are a subject gate on `persist_note`. Without them the run still
+completes and still diagnoses; the verdict is in the orchestration's collected data:
+
+```bash
+CORR=<correlation-id>
+kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -tAc \
+ "SELECT collected_data::jsonb -> 'diagnosis' FROM orchestration_states
+  WHERE correlation_id='$CORR'::uuid AND collected_data::jsonb ? 'diagnosis' LIMIT 1;" > diag.json
+```
+
+Keys: `status` (CONFIRMED/…), `is_fix`, `stopped_by`, `summary`, `conclusion`,
+`evidence_trail`. **Read `conclusion`, not `summary`** — `summary` is a stock line
+("Diagnosis CONFIRMED — see conclusion"), the substance and the citations are in `conclusion`.
+
+Progress while it runs (poll by correlation id, never by `created_at`):
+
+```sql
+SELECT status, current_step, EXTRACT(EPOCH FROM (NOW()-last_activity))::int AS since_s
+FROM orchestration_states WHERE correlation_id='<corr>'::uuid ORDER BY created_at DESC LIMIT 1;
+```
+
+> **Gotcha — the trigger's `REF` default.** It is `main`. On this repo `main` can be hundreds
+> of commits behind the working branch: on 2026-07-19 `origin/main` carried a 2-entry
+> `ctaFieldNames` map while the branch carried 6. **Diff the symbol you are diagnosing across
+> refs before firing**, and pin `REF` to a branch you have verified carries the current code:
+> `git show origin/<branch>:<path> | sed -n '/^var ctaFieldNames/,/^}/p'`
+
+> **Gotcha — closing the intake.** The item parks at `status='awaiting_diagnosis'` and no
+> sweep selects that status, so it stays open (and blocks the 090 coverage check for the same
+> target) until closed by hand:
+> `UPDATE site_work_items SET status='complete', completed_at=now() WHERE item_key='needs_diagnosis:<slug>' AND status NOT IN ('complete','verified');`

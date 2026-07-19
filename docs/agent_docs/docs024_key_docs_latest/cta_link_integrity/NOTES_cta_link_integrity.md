@@ -282,3 +282,79 @@ big one on 2026-07-16: migration 091 removed the `pages.contact` lock, 092 enabl
   (leopardess HANDOFF §3) and never generalised to any other component.
 
 Full citation set in the plan's appendix.
+
+---
+
+## 2026-07-19 — session 1 (cont): diagnosis loop CONFIRMS the mechanism and CORRECTS my attribution
+
+Fired the diagnosis loop on the source-authority question (owner's call — the "same migration
+written four times" worried him enough to want a cited direction rather than my preference).
+Correlation `c84940fb-6a43-47eb-86ea-eb1690b9f305`, item_key `needs_diagnosis:cta-source-authority`,
+3 iterations, bundles 67k → 97k → 131k, verdict **CONFIRMED**.
+
+### ⚠️ MISSTEP OF MINE, caught by the loop — `static` does NOT overwrite the resolver
+
+I wrote, in the plan and in chat, that *"only a field whose source is `renderer` lets the
+resolver win"*, listing `static` among the sources that beat it. **That is wrong**, and the
+loop grounded the correction in the code I had already read:
+
+> `planSection`'s per-field loop groups `static` **with** `renderer` under one shared guard
+> clause (`plan_sections_action.go:1211-1218`). Both skip resolver re-resolution entirely and
+> only apply a fallback **if one is declared**. `sourceResolver.resolve` returns `(nil, true)`
+> for both without ever querying.
+
+The genuinely vulnerable sources are the **query-resolved** ones — `site_specs.*`, `pages.*`,
+`site_assets.*`, `config.*` — which re-run their DB lookups (`ensurePages`/`ensureSpecs`)
+fresh on **every** `plan_sections` call, with nothing cached from the prior build.
+
+**Where my error came from, because the distinction is worth keeping.** I generalised from
+*label* behaviour to *url* behaviour. For a **label**, `static` + a declared fallback genuinely
+does re-apply every render — that is exactly why "Start Ranking Free" is frozen, and that part
+of the original diagnosis stands. For a **url with no fallback declared**, the same `static`
+source writes nothing and the resolver's value survives untouched. **Same source keyword,
+opposite behaviour, decided entirely by whether a `fallback` key is present.** I had the
+mechanism right for one field type and carried it to the other without checking.
+
+The loop also flagged, correctly, that it could not establish which sources the *real* CTA
+fields carry from its bundle. I could — measured live, against the derived CTA set:
+
+| class | fields | components |
+|---|---|---|
+| **VULNERABLE** — `site_specs.*` / `pages.*` / `site_assets.*` / `config.*` | **83** | **18** |
+| immune — `llm` (writer-authored, not resolver-overwritten) | 21 | 7 |
+| immune — `renderer` / `static` guard | 13 | 6 |
+| `query.section_index_for:{game,tool}` — separate `queryresolve` path, almost certainly also re-resolved | 2 | 2 |
+
+> **CORRECTED figure.** The plan said *"only 6 of the 119 are `source:renderer`; the rest get
+> re-resolved and beat the resolver."* Wrong on both halves — **13** are immune by guard, and
+> the vulnerable set is **83, not ~113**. The target is meaningfully smaller and sharper than
+> I claimed: 18 components, not 33.
+
+The loop independently found a live example confirming `pages.*` as a real overriding source:
+`header-bold-gradient` / `site-header` carries
+`"cta_url": {"source": "pages.contact", "fallback": "/contact.html", ...}` — which is the
+literal fossil of the "143 of 144 buttons point at /contact.html" bug, still in the schema.
+
+### What the loop did NOT do
+
+`is_fix: false`, `stopped_by: confirmed`. It diagnosed the cause; it did not choose between
+the two remedies (migrate sources vs. teach `plan_sections` to yield to the resolver). That is
+the expected division of labour — the diagnosis loop tells you the cause, the **council gate**
+reviews a proposed fix. The direction question is council-shaped and still open.
+
+### Trap for the next thread: the trigger's default `REF` is dangerous here
+
+`090_TRIGGER_needs_diagnosis_v1.sh` defaults to `REF=main`. **`origin/main` carries a
+2-entry `ctaFieldNames` map; the working branch carries 6, and is 345 commits ahead.**
+Diagnosing on the default would have shown the loop a state in which the bug is barely
+present and the "amended repeatedly" evidence largely absent. Pinned to
+`085_debug_and_feature_loops` after verifying the remote branch carries both the current map
+and the commit that produced it (`e10c656f3`). **Check what your REF actually contains before
+firing — a confident diagnosis of the wrong tree is worse than no diagnosis.**
+
+Also: omitting `SUBJECT_TYPE`/`SUBJECT_KEY` means `persist_note` runs but writes no
+`doc_notes` row (it is a subject gate). I omitted them deliberately rather than guess a
+routing vocabulary — 016b §9 has a pattern about mistyped routing keys producing silence in
+every gate at once. Consequence: the verdict lives only in
+`orchestration_states.collected_data->'diagnosis'`, not in `doc_notes`. Retrieve it with the
+query in RUNBOOK R11.
