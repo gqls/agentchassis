@@ -406,3 +406,67 @@ Evidence for each row: `SELECT step_name, success, output_tokens, error_message
 FROM llm_call_log WHERE orchestration_id IN
 ('2ee0ed60-…','825a2819-…','a7e8197b-…','0aceaf71-…')`. Voided rounds log
 `success=f`, NULL tokens, `stop_reason=max_tokens`.
+
+> **CORRECTED 2026-07-19 (bugfix-001 thread) — "it is the RESUBMISSIONS that void"
+> does not hold as a general rule.** A **fresh** submission, and a very small one,
+> voided on `review_editquality` with no objections to engage with at all. Details
+> in the fourth reproduction immediately below. The *observation* on correlation
+> `eba040a9` stands; the generalisation drawn from it does not.
+
+---
+
+## Fourth reproduction, 2026-07-19 (bugfix-001 thread) — a FRESH, SMALL submission voids, and edit-quality goes first
+
+Submitting the `/bugs_open/001` re-plan fix (trail `8843a624`). Two rounds, both
+`complete_invalid`, both on `review_editquality`:
+
+| round | plan bytes | what it was | outcome |
+|---|---|---|---|
+| 1 | 9,655 | **fresh** submission | **VOIDED** (editquality 8000) |
+| 2 | 6,026 | lean resubmission, 37% smaller | **VOIDED** (editquality 8000) |
+
+```
+SELECT orchestration_id, step_name, success, input_tokens, output_tokens
+FROM llm_call_log WHERE orchestration_id IN
+('028e4139-5e38-429f-8484-b598f17f97c1','470f0ffe-f433-431c-9271-919abf2d7732');
+-- both rows: review_editquality | f | NULL | NULL | stop_reason=max_tokens
+```
+
+**What this changes.**
+
+1. **A fresh submission voids.** Round 1 carried no council objections and no
+   prior round's prose — the mechanism the "decisive shape" section proposes
+   (*"a resubmission carries the council's own objections plus the evidence
+   answering them, and edit-quality then writes a long review engaging with all
+   of it"*) was entirely absent, and edit-quality still overran. That explanation
+   cannot be the general cause.
+2. **Small does not save you, and the correlation with size is inverted here.**
+   9,655 and 6,026 bytes both voided, while this file records a **51,306**-byte
+   fresh round completing fine and a 20,009-byte round returning a verdict. My
+   6,026-byte plan is the smallest submission recorded anywhere in this file and
+   it failed. "Shorten until it passes" is not merely unreliable (as the second
+   reproduction says) — on this evidence it can be *actively useless*.
+3. **Edit-quality ran FIRST and failed, so zero seats reviewed.** In the earlier
+   reproductions 3–4 seats reviewed successfully before a later seat blew the cap,
+   so the void discarded completed work. Here `llm_call_log` has exactly one row
+   per round: the round died before any other seat ran. Cheaper in credits, but
+   the same zero verdicts — and it means **the void is reachable on the very
+   first seat**, so "surviving seats" degradation would have yielded nothing here
+   either. Whatever the fix, it has to make edit-quality itself readable, not just
+   let the round continue past it.
+
+This all points back to the second reproduction's point 2 — **marginal and
+nondeterministic**, several seats sitting just under a ceiling — rather than to
+any property of the submission. It also weakens the "raise it to 12,000–16,000"
+sizing: that figure was derived from edit-quality's *typical* output on large
+submissions, but a 6KB fresh plan producing >8,000 tokens suggests the seat's
+output length is not reliably driven by input length at all, so headroom sized
+from input size may not hold.
+
+**Decision taken on this thread, for the record:** I did **not** submit a third
+round. Two voids at ~30 minutes each (`/bugs_open/030` queue latency), with the
+lean-plan remedy already refuted by round 2, put a third attempt squarely in the
+"resubmission is not a free retry" trap in 016b §9. The `001` fix was committed
+**without** a `Council-Reviewed:` trailer, and the two commits (`c41e9ddbc`,
+`fcd8812f3`) say so. That is a real coverage gap in the 098 report caused by this
+bug, not by the thread skipping review.

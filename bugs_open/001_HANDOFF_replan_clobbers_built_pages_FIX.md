@@ -305,6 +305,25 @@ Both halves are written; the Go half is **inert until the chassis image rolls**.
   built page is now impossible through a re-plan rather than merely un-silent. If that blocks
   a real workflow, step 4 is the designed way back in.
 
+**Known residual — Pass B still carries emptiness forward (found 2026-07-19, after committing).**
+Pass B (the URL-match rename snap-back) replaces the LLM page with
+`normaliseRealisedToPlanPage(rp)` **wholesale**, which carries the realised `sections` *including
+an empty `[]`*. Pass B2's non-empty gate does not protect this path, because Pass B `continue`s
+before B2 runs. So the second defect survives in one narrow case: **a catalogued (uncomposed) page
+whose URL the LLM reuses under a different name** is snapped back to the realised identity *and* to
+its empty composition, and can never be filled. The common case (same name) is fixed; this one is
+not. The fix would be to keep the realised identity but take the LLM's sections when the realised
+ones are empty — i.e. give Pass B the same gate — but that changes which fields Pass B is allowed
+to carry, so it wants its own review rather than a quiet widening. Not attempted here.
+
+**Council review: NOT obtained.** Two rounds were voided by `/bugs_open/019` (a truncated
+`review_editquality` at the 8000-token cap discards the whole round). Round 1 was a fresh
+9,655-byte plan; round 2 a 6,026-byte lean resubmission — **both** voided on the first seat, so no
+reviewer read this change. A third round was not attempted (see the fourth reproduction in 019 for
+the reasoning and for what these two rounds add to that bug). Commits `c41e9ddbc` and `fcd8812f3`
+therefore carry **no `Council-Reviewed:` trailer**, and will show as unreviewed in the 098 report.
+That is this bug's doing, not a skipped review.
+
 **Still to verify** (the fix is unproven in production until this runs): the handoff's own
 "How to verify" procedure, after the next image roll. Watch the validate step's log line
 `ValidateSitePlanAction: reconciled with realised pages` — `snapped_sections` / `unioned_in`
