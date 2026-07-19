@@ -213,12 +213,27 @@ generic fallbacks: FRED https://fred.stlouisfed.org/docs/api/, EIA
 https://www.eia.gov/opendata/). Your task: register and add the API key(s) as
 cluster secrets.
 
-### B5. Budget sign-off for increased generation volume
+### B5. Budget sign-off for increased generation volume — STILL OPEN; spend to date recorded
 Best-in-class imagery multiplies per-site image counts (cards, news items,
 product sketches). Banana runs on a paid Google Cloud tier. Before Phases
 I3/I5/I6 scale beyond the testbed, review expected volumes with the agent and
-set per-pass caps you're comfortable with (current default: ~20 generations
-per site per discovery pass).
+set per-pass caps you're comfortable with.
+
+**Actual caps in force:** `contentImageMaxPerPass = 10` per site per discovery
+pass, and that cap now spans BOTH page types (articles + tools), so a site with
+both cannot spend double in one pass.
+
+**Spent so far (all robot-hands, all Banana):** 4 on the D14 article pilot
+(3 heroes + 1 re-roll after the white-ground drift), 3 on tool pages = **7**.
+
+**Authorised but unspent:** you funded the tool-page rollout on 2026-07-18 at
+~33 deployed tool pages fleet-wide. gamesdesign.co.uk (9) and idea.uk (1) will
+draw on it automatically at their next discovery passes. The other 7 sites with
+tool pages carry no `tool-list` component, so the per-surface consumer gate
+spends nothing on them.
+
+**Still unsigned:** the formal per-site/per-phase volume agreement for I5 (news)
+and I6 (products), which are the phases that actually multiply counts.
 
 ### B6. ~~Logo approval for robot-hands.com~~ ✅ DONE 2026-07-11
 You approved the existing (May-8) logo as-is. It is now **locked**
@@ -301,7 +316,21 @@ learning-center-hub shows all 9 card refs. Two live findings fixed same-day:
 dispatch priority is ASC (lower = sooner) and q82 cards busted the 60KB budget
 (→ q78, rides next deploy). Superseded by B15.
 
-### B15. ~~Phase I3/D13 convergence + gate~~ ⚠️ RAN 2026-07-17; convergence PROVEN, **GATE FAILED**
+### B15. ~~Phase I3/D13 convergence + gate~~ ⚠️ FAILED 2026-07-17 → **IMAGERY HALF CLOSED 2026-07-18/19 (D14 + F3)**
+
+> **UPDATE 2026-07-19.** The imagery failures F1 (style consistency) and F2
+> (click-through) are **fixed and verified live**; F3 (rollout) has its first two
+> surfaces done. D14 moved content heroes/cards to flat duotone illustration
+> under a new `content_hero` kind routed to Banana, with per-kind style-guide
+> overrides; the listed-article eligibility rule removed the 404 links. Live on
+> robot-hands: learning-center-hub shows 3 articles / 3 on-style cards / all
+> click-throughs matching, and the front-page tool directory shows 3 tool cards.
+> Card sizes 22–36KB against the ≤60KB budget. Live on **v1.0.1136**.
+> **Nothing is needed from you for B15 itself.** What remains needs your
+> decisions and is listed in B16.
+> Detail: `SUMMARY_2026-07-19_imagery_i3_card_imagery.md`, notes Turns 48–52.
+
+**Original failure record, kept for the trail:**
 The pipeline converged exactly as designed (9 heroes → 9 auto-re-derived
 distinct cards → live), but the gate failed on style consistency (mixed
 photo/line-art/colour), click-through integrity (6 of 9 listed pages 404; 1
@@ -310,6 +339,28 @@ mismatch), rollout coverage, and site-level damage that is not imagery.
 `HANDOFF_2026-07-17_i3_imagery_gate_fixes.md` and
 `../robot_hands/HANDOFF_2026-07-17_robot_hands_site_fixes.md`.
 Original sequence kept below for the record.
+
+### B16. Two imagery decisions waiting on you (2026-07-19)
+
+**B16.1 — Should the category card grid carry imagery at all?**
+`info-card-grid` is the most-deployed listing we have: **15 live pages across 7
+sites**. Unlike the article and tool listings it is *not* query-fed and has **no
+image slot in its template at all** — it was designed as text cards. So this is a
+design decision, not a build task:
+- do these cards want pictures, or is the current text treatment right for
+  category/navigation cards?
+- if yes, where does the picture come from — the card's *linked page* (reuse the
+  existing card asset, no new spend), or a generated icon/sprite per card (new
+  spend, but visually lighter)?
+Nothing happens here until you answer; a wrong answer is a fleet-wide visual
+change across 7 sites.
+
+**B16.2 — The I5/I6 volume agreement** (see B5 "still unsigned").
+
+*Not waiting on you:* `featured_article` and `product-card-with-cta` are on
+**zero live pages fleet-wide**, so they need no decision and no work — the
+earlier handoff's suggestion to start there was wrong and is corrected. The news
+feed is Phase I5's own scope.
 
 ### B15-orig. Phase I3/D13 — per-article heroes: post-deploy convergence + gate
 You chose D13: articles with no hero of their own get a GENERATED content hero
