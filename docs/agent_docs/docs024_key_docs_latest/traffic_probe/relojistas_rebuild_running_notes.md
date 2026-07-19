@@ -820,3 +820,62 @@ non-English/product-spec context gate (see the evidence_base header for why it i
 here), or banned_claims extended with unit-shaped patterns (`\d+\s*gramos?`, `\d+\s*mm`) —
 accepting that those will also block legitimate cited specs unless the fact list carries
 them first.
+
+## 2026-07-19 (session 2, end) — P7 COMPLETE; task 2 closed; a fleet-wide outage found and cleared
+
+**All 14 pages live.** 4 guides (`/guias/<slug>/`), 8 glossary terms
+(`/glosario/<slug>.html`), and both index pages (`/guias/`, `/glosario/`), which now list
+5 and 9 links respectively — so `query.pages_where_type` resolution works as read.
+
+**Task 2 closed, and the re-sweep proves the repurpose worked.** First sweep (11:36) found
+**3** phantom links. Re-sweep after the content landed (17:58) found **2** —
+`/guias/mantenimiento` dropped out on its own, because it is now a real page. That is the
+cleanest possible confirmation that repurposing the stray `articulo` page beat deleting the
+link.
+
+The last two (`/ferias`, `/archivo`) were closed by editing the homepage
+`info-card-grid` `content_data` directly and re-rendering, rather than by letting
+`page-build-handler` rebuild the homepage (which regenerates copy and risks losing good
+content). **Both cards needed more than a URL change:** the `/archivo` card claimed *"Años
+de contenido sobre marcas, calibres y tendencias del mercado, organizados y accesibles"* —
+years of back catalogue we do not have. Repointing the link alone would have left a
+fabrication about ourselves in place, which the site's own `governing_rule` forbids. Copy
+rewritten to describe what the archive actually is.
+
+> **Method note:** editing `content_data` does not change what is served — `rendered_html`
+> does. The council's finding that *"a rerender re-emits the invented href unchanged from
+> content_data"* is exactly what makes this work: fix `content_data` first, and the rerender
+> then emits the corrected href. Rerender is the delivery step, not the fix.
+
+### The expensive detour: I halted the build pipeline fleet-wide (`bugs_open/029`)
+
+Two index pages sat `triaged` and would not build. I burned a long time on the wrong
+suspects — pod health, pod age, the kcat vanish trap, Kafka consumer lag, `sites.locked_at`,
+and every dispatch field on the work item (all correct: `pipeline='build'`,
+`approval_mode='auto'`, `attempt_count=0 < max_attempts=3`).
+
+The actual cause: `build-pipeline-trigger` has `concurrency_group='dispatch'`,
+`max_concurrent=8`, and **twelve orchestrations were hung in `AWAITING_RESPONSES` waiting on
+spawned children that never returned** (`bugs_open/003`). Nothing ages them out, so the pool
+was permanently full. From 13:25 **no build orchestration was created anywhere on the
+platform** while the scheduler kept firing every 30 seconds and its `last_triggered_at`
+advanced normally — which is what makes it invisible.
+
+Four of the twelve were mine, from re-dispatching a slow batch. Five belonged to another
+session's `diagnose-orchestrator` runs. **Any thread's hung spawn stalls every other
+thread's builds.** I cancelled only the six build-* ones (mine + the scheduler's own,
+clearly dead 15+ min) and deliberately left the other session's five alone. A new
+`build-pipeline-trigger` appeared within one scheduler tick after 22 minutes of silence, and
+both index pages built immediately after. The recovery is the proof; filed as
+`bugs_open/029`.
+
+### Still open on this site (not attempted)
+
+- `missing_structure` — the re-sweep reports **19 pages** missing head/header/footer,
+  i.e. every page including the 12 new ones. Pre-existing (the first sweep said 9), so the
+  new pages inherited it rather than caused it. Not investigated.
+- `misdirected_cta` ×6 and `empty_sections` ×1 (the `empty_heading` on `news-listing` —
+  that is `bugs_open/026`'s required-field defect, now confirmed by the checker itself:
+  `"empty_pattern": "empty_heading", "is_runtime_fill": false`).
+- `escapamento` (Portuguese, not Spanish) now appears on the Glosario index page too, not
+  just the guides — it has propagated into the section intro copy.
