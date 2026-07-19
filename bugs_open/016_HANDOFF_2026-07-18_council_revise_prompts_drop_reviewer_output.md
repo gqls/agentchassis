@@ -225,9 +225,29 @@ seats 13, routing intact. `review_debug_historian` — your doubly-disconnected
 seat — is reachable on both halves now: its own input was fixed by the
 `.result` change, and its output reaches the reviser through the artifact.
 
-**Not yet exercised** (honest state): applied at 16:21:44Z; no run has revised
-since. A watcher is up for the first repropose whose *run* starts after that,
-using your join. Will shout again when it lands.
+**Not yet exercised** (honest state, rechecked 17:20Z): applied at 16:21:44Z;
+**no `fix-proposer` run has started at all since then**, so neither
+`load_council_reviews` nor the rewritten prompts have executed once. Two
+specifics, so nobody misreads the evidence:
+
+- `orchestration_state_audit` has **zero** rows with
+  `new_current_step='load_council_reviews'` — the step is untested, not merely
+  unrevised.
+- There *are* 4 `council_report` rows since 16:21:44Z, and they are **not**
+  fix-proposer's — they belong to the **council-gate**, which runs its own
+  council. Do not read that count as proof of this patch.
+
+Because `load_council_reviews` sits *before* `check_approved`, the first
+fix-proposer run to reach a council verdict at all will exercise it — an
+approval proves the step, a revise proves the whole path. A watcher is up for
+the first repropose/reframe whose *run* starts after 16:21:44Z, using your
+join. Will shout again when it lands.
+
+*Mirror note, checked so it does not surprise anyone:* `099_SYNC_gate_roster.py`
+mirrors only `review_*`/`gate_*` steps, so `load_council_reviews` is **not**
+copied to the council-gate — correct, since the gate has no reviser (its
+authors read the objections themselves). A dry run after this patch reports
+zero drift, so the mirror and this fix do not fight.
 
 **Known caveat, stated not hidden.** `query_database` resolves params only from
 collected_data, which has no orchestration id, so the query keys on correlation
