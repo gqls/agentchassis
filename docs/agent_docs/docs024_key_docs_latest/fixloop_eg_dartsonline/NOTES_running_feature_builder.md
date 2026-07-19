@@ -513,4 +513,27 @@ PLAN+NOTES subjects.
 WRONG — it was queued, and ran 15:42:59→15:50:18. Absence of an orchestration
 row ~2 min after dispatch is normal, not evidence of a drop.
 
+## Turn 14 — 2026-07-19 — Session close: docs squared for a fresh chat
+
+Owner asked for a read-aloud summary and a handoff so a new chat can resume.
+Written and committed (`768b549a4`):
+- `SUMMARY_feature_builder_2026-07-19.md` — read-aloud; supersedes the 07-18
+  one (written before the machine had ever been approved).
+- `HANDOFF_2026-07-19_feature_builder_thread.md` — cold-start: what is live,
+  the five hard-won lessons, explicit do-NOTs, open items with owners.
+- `PLAN_feature_builder.md` — architecture now 5 seats + artifact-reading
+  reviser; status table says designer PROVEN / implementer NEVER FIRED; the
+  four open council-gate objections recorded.
+- `RUNBOOK_feature_builder.md` — A1–A5 closed with evidence; new **B1–B4**
+  aimed at one thing only: the implementer's first fire.
+
+**State at close.** Designer half: proven, unanimous council approval (run
+`8e837814`). Implementer half: live, never executed — the whole remaining
+gap. F1.2 pilot closed as superseded; its approved plan must NOT be applied.
+Delta 2 reviewed by the council gate (verdict revise): the high-severity
+fail-loud defect is fixed (`9c94cc842`), four objections remain open.
+
+Nothing is mid-flight; no background runs pending; no uncommitted work of
+ours in the tree.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
