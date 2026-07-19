@@ -5,7 +5,7 @@ self-contained: the origin story, the evidence, the current-state map (verified 
 and the live DB on 2026-07-16), the proposed architecture, phases, landmines, and a benchmark.
 
 **Status:** V0 + V1a + V1b BUILT 2026-07-16 (deploy pending, owner-gated) — see
-`RUNNING_NOTES_claims_verification.md` in this directory. §8's baseline
+`NOTES_claims_verification.md` in this directory. §8's baseline
 assumption was falsified on day one: the first live scan found 9 banned-claim
 occurrences across 4 pages (one written 2026-07-15, after the fabrication
 sweep). V2–V4 remain to build.

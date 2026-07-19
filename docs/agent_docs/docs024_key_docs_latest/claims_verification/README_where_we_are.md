@@ -76,4 +76,83 @@ size.
 
 
 ---
+Written and committed: SUMMARY_2026-07-19_claims_verification_complete.md (77970a92d), in the claims_verification folder alongside the two earlier dated snapshots it supersedes.
 
+It's structured for reading aloud, in five movements:
+
+Where we've been — the gap: every quality layer we had asked whether a page was well-made, none asked whether it was true. Then the concrete cost: invented case studies, an invented founder with a 404 photograph, "2,767 Awards
+Won", an eight-department taxonomy that exists nowhere, fabricated vet prices with legal exposure. And the detail that decided the design — the one fabrication class with a deterministic checker is the one class that was ever
+caught.
+
+What we set out to do — the three principles: evidence is data; deterministic first; truth decisions are human.
+
+What we've done — the five components in plain language, including both things you asked be covered explicitly: the whitelist that flips "never invent statistics" into "these are the only numbers you may assert", and the
+reasoning for keeping the banned claims out of the prompt (don't-think-of-an-elephant — the blacklist is enforced by the deterministic gate instead, so each mechanism does what it's actually good at). Freshness gets the same
+treatment, including the humans-own-the-words / machine-owns-the-numbers split and the two safety properties (untrusted SQL, and compare-and-swap so a person's edit is never lost).
+
+The results — history as a test suite; the first scan falsifying our own "clean site" assumption; the poisoned specs that were instructing the fabrication; the writer citing a whitelisted figure with honest dating unprompted;
+the stranger caught within hours and ruled on; and the two platform faults found on the way past, including the council defect that voided its own review.
+
+Where we are and where we're going — four of five live, freshness awaiting one image build, the two honest boundaries stated plainly (the auditor's catch is undemonstrated because we won't stage a fabrication; its cadence is a
+cost decision that's yours), then vetcomparison, then the fleet by invitation.
+
+✻ Brewed for 1m 12s
+
+※ recap: We built a claims-verification layer so the platform can't publish unsupported claims; V0–V4 are done, with V1–V3 live and V4 committed but inert. Next action is one chassis image build, then switch on the freshness
+scheduled task.
+
+
+----
+
+**2026-07-19 — freshness built, the council broke on us, and the docs caught up**
+
+Since the last entry, three things happened.
+
+**Freshness (the last component) is built and committed.** It re-runs every fact
+whose source is a live database query, updates the number and the date it was
+checked, and raises anything that has drifted for a human to rule on — including
+the case where the site is *under*-claiming, saying 2,767 when the database now
+says more. Not a lie, but stale, and worth knowing. It also regenerates the
+writer's whitelist, and the split there matters: humans own the words, the machine
+owns the numbers. Each fact carries a human-written line with a gap where the
+figure goes, so a caveat like "this is a catalogue count, never present it as a
+running fleet" survives regeneration word for word. A fact nobody has worded is
+left out entirely rather than auto-worded.
+
+Two safety details worth knowing about, because both were deliberate. The queries
+live in a data column, so they are treated as untrusted — read-only, one statement,
+must begin with SELECT, nothing that could write. And because the pass rewrites a
+whole record that a human owns, it checks nobody edited it in the meantime; if
+somebody did, it writes nothing and says so. Losing a refresh costs one scheduled
+run. Losing your edit costs trust.
+
+**The platform's own review council broke while reviewing it.** I put the change
+through the advisory council as the house rules now ask. All seven reviewers read
+it and produced verdicts — and then the round was thrown away, because one
+reviewer's answer was cut off at its length limit, and the code that tallies
+verdicts refuses to work if any single reviewer is unreadable. Six complete
+reviews binned. That is a real defect, so I wrote it up as a bug with a proposed
+fix rather than working around it. Within a day another thread hit exactly the same
+thing on an ordinary submission and added their evidence to the file.
+
+I also got something wrong that is worth recording. When my own council run was
+slow to appear, I went looking for it by "most recent run" — and found another
+thread's run instead, and reported its progress and its verdict as if it were
+mine. Every council run looks the same in that table, so recency cannot tell them
+apart. The right handle is the submission's own correlation id. I corrected it as
+soon as the other monitor fired.
+
+**And the documentation caught up with the rules.** Re-reading the house
+instructions, this workstream was missing two of the five standing documents — a
+plan recording decisions *and their reasons*, and a runbook of commands. Both now
+exist. The runbook is the one that will save time: every query that was fiddly to
+get right, with its trap written next to it. The plan records four places where the
+original design turned out to be wrong, marked as corrections rather than quietly
+fixed — including that its stated baseline ("the site is currently clean") was
+false on day one.
+
+**Where that leaves us.** Four of the five components are live. The fifth needs one
+image build to activate, and its scheduled task is written and waiting. Nothing is
+imposed on any site that hasn't asked for it. The one open choice for you is
+whether to put the prose auditor on a schedule, which costs one model call per site
+per pass.

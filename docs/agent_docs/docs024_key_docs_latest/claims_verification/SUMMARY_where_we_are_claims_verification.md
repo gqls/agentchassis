@@ -1,7 +1,7 @@
 # Claims Verification — what we're doing, where we've got to, where we're going
 
 *Written 2026-07-17, to be read aloud. Detail and evidence live in
-`RUNNING_NOTES_claims_verification.md`; the design is `SPEC_claims_verification.md`.*
+`NOTES_claims_verification.md`; the design is `SPEC_claims_verification.md`.*
 
 ---
 

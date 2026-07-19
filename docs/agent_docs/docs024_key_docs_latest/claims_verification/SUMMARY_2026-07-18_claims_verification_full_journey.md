@@ -2,7 +2,7 @@
 
 *2026-07-18. Supersedes nothing: `SUMMARY_where_we_are_claims_verification.md` is
 the shorter mid-week version. Evidence and dated detail:
-`RUNNING_NOTES_claims_verification.md`. Design: `SPEC_claims_verification.md`.*
+`NOTES_claims_verification.md`. Design: `SPEC_claims_verification.md`.*
 
 ---
 

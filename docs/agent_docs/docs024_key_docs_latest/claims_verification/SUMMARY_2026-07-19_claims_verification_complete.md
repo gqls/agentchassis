@@ -2,11 +2,26 @@
 
 *2026-07-19. The current summary; supersedes the 07-17 and 07-18 read-outs, which
 remain as dated snapshots. Evidence and turn-by-turn detail:
-`RUNNING_NOTES_claims_verification.md`. Original design: `SPEC_claims_verification.md`.*
+`NOTES_claims_verification.md`. Original design: `SPEC_claims_verification.md`.*
 
 ---
 
-## Where we've been
+## What we're trying to do
+
+Three principles, fixed before any code was written:
+
+1. **Evidence is data.** Every site that wants protection gets a machine-readable
+   evidence base: verified facts, each with its value, its source — a live SQL
+   query, a code artifact, or a named human attestation — a verified-on date and a
+   tolerance; plus that site's own list of audited-out fabrications; plus the named
+   entities its copy may claim relationships with.
+2. **Deterministic first.** Anything that can be a string or number comparison is
+   one, before any language model is involved.
+3. **Truth decisions are human.** The system flags; a person rules. It never
+   rewrites a factual claim on its own. That is a rule about power, not
+   convenience, and there is no code path that breaks it.
+
+## Where we've come from
 
 The platform writes website copy with a language model. Until this week, nothing
 anywhere in it ever compared a **claim** to **evidence**.
@@ -32,21 +47,6 @@ One detail decided the design. The single fabrication class that had a
 deterministic checker — email addresses, compared against the site's real contact —
 is the single class that was ever caught. Every time. The lesson was not "write
 better prompts". It was: **prompts leak, humans don't scale, checkers work.**
-
-## What we set out to do
-
-Three principles, fixed before any code was written:
-
-1. **Evidence is data.** Every site that wants protection gets a machine-readable
-   evidence base: verified facts, each with its value, its source — a live SQL
-   query, a code artifact, or a named human attestation — a verified-on date and a
-   tolerance; plus that site's own list of audited-out fabrications; plus the named
-   entities its copy may claim relationships with.
-2. **Deterministic first.** Anything that can be a string or number comparison is
-   one, before any language model is involved.
-3. **Truth decisions are human.** The system flags; a person rules. It never
-   rewrites a factual claim on its own. That is a rule about power, not
-   convenience, and there is no code path that breaks it.
 
 ## What we've done
 
