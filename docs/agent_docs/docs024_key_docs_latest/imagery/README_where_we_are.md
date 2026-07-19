@@ -537,3 +537,43 @@ belong to the link-integrity work, not to imagery.
 
 **The nine gamesdesign pictures are still held** at the point before they cost
 anything. Seven are untouched; two are the pilot. Nothing else has spent.
+
+## 2026-07-19 (end of session) — the nine pictures are in, and chasing why some still broke the rules found something bigger
+
+The colour fix worked. All nine gamesdesign tool pictures came back in the right
+cyan-on-near-black, in the same flat style, and — the thing that actually failed your
+gate in July — they look like a set. Seven of the nine are genuinely good.
+
+But four of them break rules we explicitly set: one has numbers written in it, and
+three have white or pale backgrounds. We forbid both, in writing, in that site's own
+style guide. So I asked why, and the answer is that **we have been talking to
+ourselves**.
+
+Our style guide has two halves: what we want (colours, medium, mood) and what we
+forbid — the "avoid" list. The second half is sent to the image service as a "negative
+prompt". **The image service we now use for every picture throws negative prompts
+away.** It is written in our own code, in plain words: *"NegativePrompt on
+provider.Request is ignored here (Gemini has no negative-prompt concept)."* It notes
+the fact in a debug log nobody reads, and carries on.
+
+So every "avoid" list on every site has had no effect at all since we moved everything
+to that provider. Every "no text", every "no white background", every "no stock photos
+of people pointing at screens" — assembled, sent, discarded.
+
+**The part that costs us most is not the bug, it's what we concluded from it.** On 18
+July we recorded a lesson — it is in the runbook, the handoff and my own notes — that
+ground-colour drift is fixed by putting the unwanted colours in the "avoid" list
+rather than describing the wanted one. That cannot be true. What actually happened was
+that someone re-generated a picture, it came out darker by chance, and the change made
+at the same time got the credit. Today's nine pictures are that supposed fix failing
+its first real test: four violations out of nine. I have corrected the runbook in
+place, marked as a correction, and written the whole thing up as bug 028.
+
+I have not fixed it. The fix — put the forbidden things into the positive instruction,
+where this model does listen — changes how every picture on every site is generated,
+so it goes to the review council rather than being something I do quietly on a Sunday.
+
+**Where that leaves the nine:** they are generated and stored but not yet on the site.
+The cards still need deriving and the tool listing needs re-rendering. Whether you want
+to keep the four rule-breakers or regenerate them is your call — regenerating without
+fixing bug 028 is a coin flip, which is rather the point.
