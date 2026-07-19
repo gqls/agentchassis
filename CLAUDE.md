@@ -86,7 +86,7 @@ and never spend credits. Full runbook + submission schema:
   council reviews for — the roster changed five times in 18 hours, so it is
   mechanical now.
 
-## Diagnosis before debugging (opt-in, by judgement — not a gate)
+## Diagnosis before debugging (the DEFAULT for any durable claim)
 
 The same loop can diagnose a bug *before* you fix it — read the real code + live
 DB, form a cited theory, and follow the evidence to the cause (which often lives
@@ -94,14 +94,29 @@ in shared infra named nothing like the symptom). This is the one thing the
 council gate above cannot do: the gate reviews the fix you wrote; only the
 diagnosis loop tells you the cause isn't where you're looking.
 
-**It is NOT a gate and NOT a default.** For a bug you can see, debug directly —
-you have full context and will out-diagnose the loop faster and for free (this
-platform's bugs mostly dissolve under grep + a schema read; that is the whole
-reason the loop's value is unattended cited diagnosis, not discovery). Reaching
-for the loop on every bug front-loads minutes + credits before you know it is
-hard, and risks diagnosing a premise you are one commit from changing.
+**The test is not how hard the bug feels — it is what you are about to assert.**
+File it BEFORE you commit to a root cause whenever the claim is durable: a
+mechanism, a structural property of the platform, a cause that lives outside the
+symptom, or a fix that changes behaviour beyond the one site in front of you.
+Debug directly only when the fix is local and **self-evidencing** — you can watch
+it fail, change it, watch it pass, and nothing outside that file depends on your
+being right.
 
-**File it to the loop first (090 trigger) when ANY of these hold:**
+> **CORRECTED 2026-07-19 — this section used to say the opposite, and the premise
+> was tested and failed.** It read: *"It is NOT a gate and NOT a default … you
+> have full context and will out-diagnose the loop faster and for free."*
+> That day a thread with full context filed a confident structural claim about
+> the two rerender paths, built from grep hits whose functions it had never
+> opened. The loop **refuted it in 9.5 minutes** by reading the one function the
+> thread had skipped (`rerenderLoadSections`), and the refutation held on
+> re-check. The same day, the experience-loop council escalated **eight runs
+> running** — every escalation correct, each exposing a defect in our own harness
+> rather than in the plan under review.
+> **Confidence is not a signal.** The wrong claim felt obvious; that is exactly
+> why "obvious" cannot be the gate. Full context is no protection, because the
+> failure mode is not missing information — it is not looking.
+
+**Always file when ANY of these hold** (the strongest cases, unchanged):
 - the cause is still non-obvious after a quick look (grep + read the function);
 - you suspect it is cross-cutting / platform-wide, or that the cause is NOT where
   the symptom is (a local fix would then paper over a shared defect — how BUG A
@@ -115,16 +130,31 @@ hard, and risks diagnosing a premise you are one commit from changing.
 Symptom-authoring that earns a gradable verdict: state the MECHANISM, then POINT
 at the tables/symbols where the evidence lives — assert neither rows nor counts
 (the loop fetches and cites them); no downstream-consequence clauses (they go
-stale); one coherent bug per run. Minutes + credits per run; the 090 trigger
-already refuses if another thread has open work on the target (FORCE=1 overrides
-after you read the findings).
+stale); one coherent bug per run. The 090 trigger already refuses if another
+thread has open work on the target (FORCE=1 overrides after you read the
+findings).
 
-**You often do not need to do this yourself.** The immune system already sweeps
-every recorded failure fleet-wide (triage + silent-check) and routes genuine
-platform-wide code bugs into the diagnosis queue automatically — so the
-cross-cutting class is largely covered without a manual run. Check the queue
-before filing: `SELECT summary, status FROM site_work_items WHERE
-item_type='needs_diagnosis' AND status='awaiting_diagnosis';`
+**Still not a blocking gate, and the cost is real** (minutes + credits per run) —
+but spend it *before* you assert, not after you are contradicted. A refuted
+hypothesis costs one run. A wrong root cause that reaches a handoff costs every
+thread that then believes it, and those are expensive to unpick precisely because
+they arrive stated with confidence. **A REFUTED verdict is a success, not a
+waste** — it is the cheapest possible place to be wrong. Record it as a visible
+correction where you made the claim (see the working-docs rules), naming what
+caught it.
+
+**Check the queue first — it may already be filed, by a sweep or by a thread.**
+The immune system sweeps every recorded failure fleet-wide (triage +
+silent-check) and routes genuine platform-wide code bugs into the diagnosis queue
+automatically, so part of the cross-cutting class arrives without a manual run:
+`SELECT summary, status FROM site_work_items WHERE item_type='needs_diagnosis'
+AND status='awaiting_diagnosis';`
+This is a **de-duplication** check, not a reason to skip filing: the sweep only
+sees failures the platform already *recorded*. A wrong belief you are about to
+write into a handoff has no failure row and no sweep will ever catch it. Also
+grep `/bugs_open/` and `/bugs_closed/` for the mechanism before filing — on
+2026-07-19 that turned a would-be duplicate into a sharper finding, and then into
+a correction when the loop refuted it.
 
 ## Working docs — the standing five (owner directive, 2026-07-18; cadence added 2026-07-19)
 
