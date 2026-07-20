@@ -746,7 +746,60 @@ func contextToInterfaceMap(ctx *RenderContext) map[string]interface{} {
 	// Only apply SAFE aliases that don't affect content fields
 	applySafeAliases(result)
 
+	// form_action MUST be sanitised after the ContentData merge, not defaulted
+	// in the base map above. The broken values are ones the LLM actively wrote
+	// ("#contact" on 8 live sites), so a base-map default would be overwritten
+	// by the merge and would only ever fix the empty case. See bugs_open/006 §B.
+	sanitiseFormAction(result, ctx)
+
 	return result
+}
+
+// nonDeliveringFormActions are the values observed in live content_data that
+// render a form that submits nowhere. "#contact" and friends POST to the
+// current URL, which on a static host is a 405/404: the visitor gets no error
+// they can act on and the message is silently lost.
+var nonDeliveringFormActions = map[string]bool{
+	"":              true,
+	"#":             true,
+	"#contact":      true,
+	"#contact-form": true,
+	"/contact":      true, // no such backend has ever existed in the chassis
+}
+
+// sanitiseFormAction replaces a non-delivering form_action with a mailto: built
+// from the site's real contact address — the pattern the owner chose on
+// 2026-07-17 (idea_uk_vm_site/RUNNING_NOTES §Q) and which idea.uk already uses.
+//
+// It deliberately does NOT fall back to a synthesised "info@<domain>" the way
+// some render paths do for display-only contact blocks. An address nobody reads
+// makes the form look repaired while still losing the message, which is worse
+// than the visible breakage: the failure stops being detectable from outside.
+// Where no real address is resolvable the action is left as-is for the
+// contact_form_undeliverable discovery check to raise for a human.
+func sanitiseFormAction(data map[string]interface{}, ctx *RenderContext) {
+	raw, present := data["form_action"]
+	if !present {
+		// Absent is only a defect if this component actually has a form to
+		// point somewhere; templates without one must not gain the field.
+		return
+	}
+
+	current := strings.TrimSpace(fmt.Sprintf("%v", raw))
+	if !nonDeliveringFormActions[strings.ToLower(current)] {
+		return // already points somewhere real (a mailto:, a live handler)
+	}
+
+	email := strings.TrimSpace(ctx.Email)
+	if email == "" || !strings.Contains(email, "@") {
+		return // nothing honest to substitute — leave it for the check
+	}
+
+	subject := ctx.Domain
+	if subject == "" {
+		subject = "website"
+	}
+	data["form_action"] = fmt.Sprintf("mailto:%s?subject=%s enquiry", email, subject)
 }
 
 // applySafeAliases only adds aliases for non-content fields

@@ -1,0 +1,150 @@
+// FILE: platform/orchestration/actions/component_library_form_action_test.go
+//
+// Guards the fleet-wide dead-contact-form fix (bugs_open/006 §B).
+//
+// The load-bearing property is ORDERING, not the substitution itself:
+// ContentData is merged over the base map, so the broken values — which the
+// content LLM actively wrote — would survive any default set alongside
+// cta_url. TestFormActionSurvivesContentDataMerge is the regression that
+// actually fails if someone "simplifies" this into a defaultString() call.
+
+package actions
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestSanitiseFormAction(t *testing.T) {
+	cases := []struct {
+		name    string
+		action  interface{}
+		present bool
+		email   string
+		domain  string
+		want    string
+		wantKey bool
+	}{
+		{
+			name:   "hash anchor with a real address becomes a mailto",
+			action: "#contact", present: true,
+			email: "gas@contactforsales.com", domain: "gaswholesalers.com",
+			want:    "mailto:gas@contactforsales.com?subject=gaswholesalers.com enquiry",
+			wantKey: true,
+		},
+		{
+			name:   "empty action with a real address becomes a mailto",
+			action: "", present: true,
+			email: "finetuning@contactforsales.com", domain: "finetuning.uk",
+			want:    "mailto:finetuning@contactforsales.com?subject=finetuning.uk enquiry",
+			wantKey: true,
+		},
+		{
+			name:   "the historic /contact endpoint that never existed is also repaired",
+			action: "/contact", present: true,
+			email: "darts@contactforsales.com", domain: "dartsonline.com",
+			want:    "mailto:darts@contactforsales.com?subject=dartsonline.com enquiry",
+			wantKey: true,
+		},
+		{
+			// The honesty case. robot-hands, relojistas, vetcomparison and vonc
+			// had no contact address at all on 2026-07-20. Synthesising
+			// info@<domain> would make the form look repaired while still
+			// dropping the message — and would remove the only outward sign
+			// that anything is wrong.
+			name:   "no resolvable address leaves the action alone rather than fabricating one",
+			action: "#contact", present: true,
+			email: "", domain: "robot-hands.com",
+			want:    "#contact",
+			wantKey: true,
+		},
+		{
+			name:   "a malformed address is not treated as an address",
+			action: "#contact", present: true,
+			email: "not-an-address", domain: "vonc.com",
+			want:    "#contact",
+			wantKey: true,
+		},
+		{
+			name:   "an existing mailto is left untouched",
+			action: "mailto:idea.uk@contactforsales.com?subject=idea.uk enquiry", present: true,
+			email: "someone@else.com", domain: "idea.uk",
+			want:    "mailto:idea.uk@contactforsales.com?subject=idea.uk enquiry",
+			wantKey: true,
+		},
+		{
+			// idea.uk's tool genuinely accepts POST at /request. Rewriting a
+			// live backend route to a mailto would break a working funnel.
+			name:   "a real backend handler is left untouched",
+			action: "/request", present: true,
+			email: "idea.uk@contactforsales.com", domain: "idea.uk",
+			want:    "/request",
+			wantKey: true,
+		},
+		{
+			name:    "a component with no form does not acquire a form_action",
+			present: false,
+			email:   "gas@contactforsales.com", domain: "gaswholesalers.com",
+			wantKey: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			data := map[string]interface{}{}
+			if tc.present {
+				data["form_action"] = tc.action
+			}
+			ctx := &RenderContext{Email: tc.email, Domain: tc.domain}
+
+			sanitiseFormAction(data, ctx)
+
+			got, ok := data["form_action"]
+			if ok != tc.wantKey {
+				t.Fatalf("form_action present = %v, want %v", ok, tc.wantKey)
+			}
+			if !tc.wantKey {
+				return
+			}
+			if gotStr, _ := got.(string); gotStr != tc.want {
+				t.Errorf("form_action = %q, want %q", gotStr, tc.want)
+			}
+		})
+	}
+}
+
+// TestFormActionSurvivesContentDataMerge is the real regression guard.
+//
+// contextToInterfaceMap merges ContentData OVER the base map. "#contact" is a
+// value the content LLM wrote into content_data, so a default declared next to
+// cta_url would be silently overwritten — the fix would appear to work (the 3
+// sites with an empty action would be repaired) while the 8 sites carrying
+// "#contact" stayed broken. That is precisely the shape this test exists to
+// catch, because it fails loudly rather than half-passing.
+func TestFormActionSurvivesContentDataMerge(t *testing.T) {
+	ctx := &RenderContext{
+		Domain: "vonc.com",
+		Email:  "hello@vonc.com",
+		ContentData: map[string]interface{}{
+			"form_action": "#contact",
+			"heading":     "Say Something Worth Saying",
+		},
+	}
+
+	data := contextToInterfaceMap(ctx)
+
+	got, _ := data["form_action"].(string)
+	if got == "#contact" {
+		t.Fatal("form_action is still #contact after the merge — the sanitiser " +
+			"ran before ContentData was merged, or was replaced by a base-map " +
+			"default. Live submissions would still be lost. See bugs_open/006 §B.")
+	}
+	if !strings.HasPrefix(got, "mailto:hello@vonc.com") {
+		t.Errorf("form_action = %q, want a mailto to the site address", got)
+	}
+
+	// The merge itself must still work — sanitising must not clobber content.
+	if h, _ := data["heading"].(string); h != "Say Something Worth Saying" {
+		t.Errorf("heading = %q, want the ContentData value preserved", h)
+	}
+}
