@@ -308,3 +308,38 @@ detected days ago); the button-gating sweep across the other 75 ungated buttons 
 component library; and a neutral "tool hero" component — the library still has exactly
 one component that answers "give me a tool hero", and it's the Bayesian one, so the next
 tool page built anywhere would re-adopt it.
+
+----
+
+**2026-07-20, afternoon — your two instructions carried out, and a confession that matters.**
+
+**The seat proposal you asked for is written** —
+`PROPOSAL_council_seat_sketch_falsifier.md` in this folder, with the handover paragraph at
+the top ready to give to the council workstream. The short version: every council seat
+judges a plan through its own lens — plausibility, history, process, reuse — but **no seat's
+job is to open the file being patched and check the sketched code would actually run**. My
+dead observe-log survived three rounds and ten-plus seats because everyone reviewed the
+*idea* and nobody traced the *code*. The proposed seat is a "sketch-falsifier": for every
+edit that modifies an existing function, it fetches that function's real body and tries to
+refute the sketch against it — symbols exist, conditions are reachable, borrowed invariants
+are quoted from source. It has to include the quoted lines in its review, so an unchecked
+assertion is visible as such.
+
+**The implementation is done and tested**, ahead of the verdict as you instructed. The
+shared pairing helper (with the concurrent thread's two corrections baked in as regression
+tests), the observe-only delta and uncovered-field logging in the link resolver, the
+ownership-conflict log at the true loss site in the rerender merge, and the design notes
+persisted to the database alongside the corrections. All tests green, formatting clean,
+zero behaviour change anywhere — these are eyes, not hands.
+
+**The confession:** the correction that reshaped all this had been sitting in my own notes
+file since 12:30 today, written by the other session *specifically to warn this thread
+before round 4* — and I submitted rounds 4 and 5 without re-reading the file after seeing
+it had changed. The protocol a reviewer forced on me in round 5 ("load existing notes
+before writing new ones") is what finally surfaced it. Two council rounds ran on refuted
+sketches because I didn't re-read a file I own. That's now recorded in NOTES as this
+session's misstep, and it is the strongest argument for the seat proposal above: neither
+I nor ten reviewers read the function; the one session that did found the bug in minutes.
+
+Round 6's verdict is due shortly. Per your instruction: if it isn't approved, the code
+ships anyway and the objections get reported here verbatim.
