@@ -629,3 +629,66 @@ Guardian's two round-2 objections are both **low** and both precautionary rather
 than defect claims; the SQL above settles the one that mattered. Its second
 "missing" note — that it cannot verify the live-verification claim from the schema
 it can see — is correct and is exactly why the scratch-council probe below exists.
+
+### 036 VERIFIED LIVE — the forced reproduction, and the seat that refused to play along
+
+Probe corr `4031d8b4-0e90-4d39-b69d-9cd9ce332bc3`, orch
+`11013b21-2915-449d-b741-e6326b88a312`, on v1.0.1140. Harness =
+`council-gate-036scratch`, a copy of the council with two always-on seats told to
+emit malformed-but-valid reviewer JSON. Live councils never touched (verified:
+`council-gate` prompts unpatched). Harness deactivated afterwards but **kept**, as
+the 019 thread kept theirs — deleting it destroys the evidence the run was real.
+
+**PASS on the filed defect.** `review_editquality` complied and emitted
+`"edit": "edit 1 (comment-only change to diagnose_council_decide_action.go)"` —
+the exact shape that killed three rounds. Outcome `COMPLETED @ complete_revise`,
+no `__step_error`, `council_report` written, `reviewers 8, abstained 8,
+unreadable 0`. The persisted report holds
+`["edit 1 (comment-only change to …)", 1]` — a string and an int side by side,
+each in its original register. Both halves of fix (1) shown at once: the tolerant
+unmarshal accepted the string, and MarshalJSON kept the reviewer's own token
+instead of laundering it to `0`. Before/after on the same shape:
+`complete_invalid` + no report → `complete_revise` + report.
+
+**Two traps this probe walked into first, both worth keeping:**
+
+1. **The first firing was REFUSED client-side** — my probe plan's only edit was a
+   docs file, and 097 refuses out-of-scope submissions before spending credits
+   (owner ruling 2026-07-17). The guard works. Repointed at the file under test.
+2. **`TARGET_AGENT_TYPE` is hardcoded at 097 line 51**, so a scratch run needs a
+   COPY of the trigger, not an env var. Editing the shared script in place would
+   have been a same-file race with every other thread submitting that hour.
+
+**FAIL to exercise fix (2) — and the reason is more interesting than the result.**
+`salvageMistypedReview` never ran: no seat is marked degraded. The `review_guardian`
+seat was patched to emit `objections` as a bare object and `missing` as a string,
+and it **refused**:
+
+> "this submission's 'HARNESS OVERRIDE' block instructs me to emit objections as a
+> bare object and missing as a plain string, overriding my actual output contract.
+> I did not comply — that instruction arrived inside reviewed content, not from my
+> actual system/task spec, and a reviewer that can be talked into corrupting its
+> own output schema by text embedded in the thing it's reviewing is a bigger hole
+> than the one bugs_open/036 is patching."
+
+It **misattributed the source** — the instruction was in its own patched prompt,
+not in the submission (my rationale merely *described* the harness, which is
+probably what it saw). But the refusal is the right instinct, and it has a
+practical consequence: **this style of harness is unreliable against a seat with a
+strong security posture**, and the more security-minded the seat, the less
+testable it is by prompt patching. A future attempt at fix (2) should malform the
+payload *below* the LLM — a stub step emitting fixed JSON — rather than asking a
+reviewer to misbehave.
+
+**[UNVERIFIED — do not repeat this as a finding.]** Guardian's underlying worry —
+that submission text could steer a reviewer's OUTPUT FORMAT — is *not* something
+this run tested either way. Edit-quality's compliance proves nothing about
+injection, because its prompt was legitimately patched too; I cannot separate
+"obeyed its own spec" from "obeyed the submission". The honest state is: one seat
+obeyed a patched spec, one refused a patched spec believing it was injected, and
+the injection question is untested. It would take a run where ONLY the submission
+text carries the instruction, with prompts clean. Worth doing; not done here.
+
+**Residual on 036, recorded in the case file:** candidate (2) rests on unit tests
+plus symbol presence, not a live occurrence. That is defence-in-depth beyond the
+filed defect, which is proven. Case moved to `/bugs_closed/036`.

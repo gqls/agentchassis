@@ -5,7 +5,8 @@ died at `council_decide` after all seats had reviewed.
 **Severity:** Medium-high. No crash, no bad verdict — the round is simply *lost*,
 after every seat has already been paid for. The submitter gets no verdict and no
 objections, and the failure names a reviewer, which reads like the reviewer's fault.
-**Status:** OPEN. Diagnosed from the live failure + code. **No fix applied** — the
+**Status:** CLOSED 2026-07-20 — fixed (58f5a6bb6 + ab158c32a) and VERIFIED LIVE on v1.0.1140 by
+forced reproduction; see §8. Originally filed as: OPEN, diagnosed from the live failure + code, no fix applied because the
 fix is in `diagnose_council_decide_action.go`, which another thread had open at the
 time (the bugs_open/019 work), and racing it in the same file is how same-file
 passengers get committed by whoever commits first.
@@ -268,11 +269,75 @@ list, with tests for the coercion and for a genuinely uncoercible payload.
 No round 2 (the gate has no reviser loop; objections go to the human, which is
 that record), and **no `Council-Reviewed` trailer** — earned by APPROVED only.
 
-### Verify after the next image roll
+### VERIFIED LIVE 2026-07-20 on v1.0.1140 — reproduced, and the round survived
+
+**Status: CLOSED.** The defect is no longer reproducible in production. I tried to
+reproduce it deliberately and got a completed round instead of a void.
+
+**1. The binary carries the change** (discriminating — symbols this change
+*created*, plus a negative control, on pod `agent-chassis-5567d99bd6-5snzn`):
 
 ```
-kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
-  'strings /app/agent-chassis | grep -c salvageMistypedReview'   # created by this change
+salvageMistypedReview        2
+objectionEdit                7
+ZZZ_definitely_not_a_symbol  0     <- the grep discriminates
 ```
-Grep a symbol this change **created** (`salvageMistypedReview`), not one it merely
-uses — a string the old binary also contains passes on a stale image.
+
+**2. Forced reproduction.** A scratch copy of the council
+(`council-gate-036scratch`; live councils untouched, verified `patched=f` on the
+real `council-gate`) with the always-on `review_editquality` seat instructed to
+emit `edit` as free text. Probe correlation `4031d8b4-0e90-4d39-b69d-9cd9ce332bc3`,
+orchestration `11013b21-2915-449d-b741-e6326b88a312`. The seat complied and emitted:
+
+```json
+"edit": "edit 1 (comment-only change to diagnose_council_decide_action.go)"
+```
+
+That is the exact shape that produced `json: cannot unmarshal string into Go
+struct field .objections.edit of type int` and destroyed three rounds. Result:
+
+| | before (3 live cases) | now |
+|---|---|---|
+| terminal | `COMPLETED @ complete_invalid` | **`COMPLETED @ complete_revise`** |
+| `__step_error` | the unmarshal error | **none** |
+| `council_report` | absent — the symptom | **written** |
+| seats counted | none | `reviewers 8, abstained 8, unreadable 0` |
+
+**3. The report round-trips both registers.** Persisted `edit` tokens in that one
+report: `["edit 1 (comment-only change to diagnose_council_decide_action.go)", 1]`
+— a string and an int side by side, each in its original form. That is
+`objectionEdit.UnmarshalJSON` tolerating the string *and* `MarshalJSON` preserving
+the reviewer's own token rather than laundering it to `0`.
+
+### Residual: fix candidate (2)'s salvage path is NOT proven live
+
+`salvageMistypedReview` did **not** execute — the report shows no degraded seat
+(`$.reviews[*] ? (@.degraded == true)` → `[]`). The probe also patched the
+`review_guardian` seat to emit `objections` as a single object and `missing` as a
+string, and **guardian refused to comply**, in terms worth quoting:
+
+> "a reviewer that can be talked into corrupting its own output schema by text
+> embedded in the thing it's reviewing is a bigger hole than the one bugs_open/036
+> is patching"
+
+It had misread the source — the instruction was in its own patched prompt, not in
+the submission — but the refusal is the right instinct and it makes this harness
+unreliable for seats with a strong security posture. So candidate (2) rests on unit
+tests (`TestSalvageMistypedReview`, `TestOneBadSeatDoesNotVoidTheRound`) and symbol
+presence, not on a live occurrence. That is a **defence-in-depth generalisation**,
+not the filed defect: 036 as filed is the tolerant-pointer case, and that is proven.
+Anyone who exercises the salvage path in the wild should record it here.
+
+### Blast radius (corrected)
+
+`diagnose_council_decide` is shared by **five active pipelines** — `council-gate`,
+`fix-proposer`, `experience-planner`, `feature-designer` (+ scratch copies):
+
+```sql
+SELECT type, is_active FROM agent_definitions
+WHERE default_config->'workflow'->'steps' ? 'council_decide';
+```
+
+An earlier answer of mine implied one pipeline. The types are unexported so there
+is no cross-package consumer, but every council on the platform shares this
+decider — the fix is broader, and uniformly conservative.

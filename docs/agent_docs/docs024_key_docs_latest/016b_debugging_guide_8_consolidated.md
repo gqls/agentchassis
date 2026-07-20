@@ -1346,9 +1346,27 @@ gets recorded unreadable, deliberately *not* mapped to the nearest legal value:
 guessing what a seat meant is how a veto becomes an approval. Tolerance belongs on
 the *pointer* fields, never on the decision field.
 
-**Fixed 2026-07-20**, inert until image roll. Category tags:
-`strict-type-loses-meaning`, `one-seat-not-the-round`, `aggregator-fails-last`,
-`partial-decode-on-type-error`.
+**Fixed and VERIFIED LIVE 2026-07-20** (v1.0.1140) by forced reproduction — a
+scratch-council seat emitted `"edit": "edit 1 (comment-only change to …)"` and the
+round reached `complete_revise` with a report written, where the same shape
+previously gave `complete_invalid` and no report. The persisted report carries a
+string and an int side by side, proving both the tolerant unmarshal and that the
+reviewer's own token survives instead of being laundered to `0`. `/bugs_closed/036`.
+
+**Verifying a "one bad participant" fix needs a FORCED bad participant.** A
+passing round proves nothing here — the healthy path was never broken. The
+discriminating test is to manufacture the exact malformed input and show the
+aggregate survives, which is also what the sibling 019 case did (a scratch seat
+capped at 200 tokens). Two costs worth knowing before you try it: a harness that
+works by patching a reviewer's PROMPT is unreliable against a security-minded
+seat — the guardian seat here read its own patched instruction as injected content
+and refused to malform its output, correctly in spirit — so malform the payload
+**below the model** (a stub step emitting fixed JSON) when the seat must
+misbehave. And the council trigger's `TARGET_AGENT_TYPE` is hardcoded, so a
+scratch run needs a COPY of the script, never an in-place edit of the shared one.
+
+Category tags: `strict-type-loses-meaning`, `one-seat-not-the-round`,
+`aggregator-fails-last`, `partial-decode-on-type-error`, `forced-bad-participant`.
 
 ### Two fields that must agree, with no relationship in the schema — the check you want cannot be written (2026-07-19)
 
@@ -2087,7 +2105,7 @@ See `/bugs_closed/README.md`.
 | 029 | `tool-suggester` emits `content_rewrite` items at SUGGESTION time telling the writer to "weave a natural reference" to a tool that has no `pages` row — the writer invents the URL, producing an owner-visible 404. Autonomous, and it regenerates human-reviewed copy while doing it. **This is the true cause of the leopardess damage wrongly filed under `001`** | filed 2026-07-19; primary DB evidence, no fix started; check `023` first — likely the same family |
 | 034 *(collision RESOLVED 2026-07-20: the second `034`, slug `replan_rebuilds_every_deployed_page…`, was renumbered to `038` by its own author while both were minutes old — this number is now unambiguous)* | A failed message is classified by **substring** (`"is required"`/`"validation"`/`"invalid"`) and, on a match, returns before `handleProcessingError` — skipping the error response to the waiting parent, the retry, **and any DB write**. Residue is one `zap.Warn` on a pod that rotates in minutes + a counter with no correlation_id. The match is unanchored, so it also eats driver errors, nil derefs and truncated-LLM parse failures. Explains `002` F.2's "accepted, never executed, no error anywhere" (`client_id is required` returns before `getOrCreateState` → zero rows) | filed 2026-07-20; mechanism proven from code, application to F.2's two correlations is hypothesis (evidence rotated away — which is the bug). Fix 1 = the `017`/`c80fffc83` template applied here. Do NOT conflate with `003` |
 | 035 | `site_work_items.updated_at` is not maintained (4,156 of 4,643 complete rows have `updated_at == created_at`; no trigger, one unrelated Go writer) — so a finished job reads as one that never ran. `completed_at` IS reliable | filed 2026-07-20; one-trigger fix candidate |
-| 036 | A reviewer emitting `"edit": "<free text>"` where the struct wants `int` voids the whole council round at `council_decide` — after every seat has run and been paid for. **Not `019`**: the JSON is complete and VALID, so the truncation salvage cannot help. 3 of 5 `council_decide` voids in 14 days, all naming the same seat | **FIX BUILT 2026-07-20** (`58f5a6bb6`), INERT until an image roll so it stays OPEN. All 3 live payloads were plan-level *descriptions* (`"plan-level (deploy verification)"`), not malformed indices — the reviewers meant plan-wide, which the contract already spells `0`, so `json.Number` (the case file's own candidate) would have parsed NONE of them. Fix = tolerant `objectionEdit` + every per-seat failure now routes into `019`'s `unreadable` seam. Council submission `80cdd428` |
+| 036 | A reviewer emitting `"edit": "<free text>"` where the struct wants `int` voids the whole council round at `council_decide` — after every seat has run and been paid for. **Not `019`**: the JSON is complete and VALID, so the truncation salvage cannot help. 3 of 5 `council_decide` voids in 14 days, all naming the same seat | **CLOSED 2026-07-20 → `/bugs_closed/`** — fixed (`58f5a6bb6` + `ab158c32a`) and VERIFIED LIVE on v1.0.1140 by **forced reproduction**: a scratch-council seat emitted `"edit": "edit 1 (comment-only change to…)"` and the round reached `complete_revise` with a `council_report` written and `unreadable 0`, where the same shape previously gave `complete_invalid` + no report. The report round-trips a string and an int side by side. All 3 live payloads had been plan-level *prose*, so `json.Number` (the case file's own candidate) would have parsed NONE of them. Residual: candidate (2)'s `salvageMistypedReview` is unit-proven only — the guardian seat refused to self-corrupt, correctly. Shared by **5 pipelines**, not one |
 | 037 | A page flagged `needs_rebuild` is outside `001`'s guard, so a re-plan takes the LLM's composition — dartsonline `index` lost `differentiators` + `content-listing`. May be fix step 4's intended escape hatch; filed so the boundary is decided, not inherited. 34 pages currently `needs_rebuild` | filed 2026-07-20; decision needed |
 | 038 | A re-plan rebuilds EVERY deployed page and regenerates its content — `decideEmit` needs `built_from_plan_version == planID`, and a re-plan changes `planID` for the whole site, so `skip_built` never fires after the first plan (`pages_skipped_built: 0` measured). `001` secures structure; this is copy | filed 2026-07-20; measured live, no fix started |
 | 039 | `pages.sections` stores the component **function**, `page_components` reference the component **name** (`hero-about` ⟷ `about-hero`) — a naive comparison reads correct pages as regressed. AND: 11 section entries resolve to no component at all, rendering a hollow 208-byte `<section>` on deployed pages (7 live stubs) while the build reports success. Detected by `check_empty_sections`, but every item is `unresolved` — same delivery gap as 023/033 | filed 2026-07-20; convention + real defect |
