@@ -1365,6 +1365,23 @@ placement is a fix you must remember to repeat, which is the same non-idempotenc
 was meant to remove — here it had already recurred once at the level above (per-seat prompt
 refs), so the remedy reproduced the disease one layer down.
 
+**MECHANICAL CHECK (added 2026-07-20).** This entry now has teeth:
+`scripts/pattern-check.py`, run advisory from `.githooks/pre-commit`, flags a commit
+that edits one Go function and not its near-identical twin (twins = names differing by
+exactly one CamelCase segment; test doubles excluded). Measured before wiring in: **3
+findings across 150 commits**, all three on one genuinely-paired function, no unrelated
+hits. It also carries §9 #16 (gofmt), #20 (stdin-eating `while read`) and a short table
+of declared co-change pairs.
+
+The origin is the argument for it. This entry was written on the morning of 2026-07-19,
+and the same session committed exactly this mistake eight hours later — fixing
+`withPriorCodeRequests` and leaving `withPriorRequests`. The pattern was not forgotten;
+it had just been written by the person who then broke it. **Knowing a pattern does not
+fire it — something at the moment of the edit has to.** A reviewer council did catch it,
+correctly, but spent two rounds and real credits on a question `grep` answers in
+milliseconds. Most of §9 is judgement and cannot be checked this way; the few entries
+that can, should be, so review effort goes where only a reader can help.
+
 **Cross-refs.** `bugs_open/016_…council_revise_prompts_drop_reviewer_output` (by slug — see
 above); `PATCH_feature_designer_018_reframe_reads_artifact.sql`;
 `NOTES_running_fixloop(10).md` turn 41. Kin: "A dispatch table's `default:` branch is a

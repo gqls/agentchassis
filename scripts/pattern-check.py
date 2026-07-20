@@ -43,7 +43,8 @@ Set PATTERN_CHECK_STRICT=1 to make findings exit non-zero (opt-in, per-session).
 
 USAGE:
     scripts/pattern-check.py            # staged changes (what the hook runs)
-    scripts/pattern-check.py --ref HEAD~5   # audit a range, for measuring
+    scripts/pattern-check.py --commit <sha>  # audit ONE past commit in isolation
+    scripts/pattern-check.py --ref HEAD~5    # audit a range, for measuring
 """
 import os
 import re
@@ -58,8 +59,9 @@ def sh(*args):
 
 
 def changed_files(ref=None):
+    """ref is (base, head) for an audit, or None for the staged commit."""
     if ref:
-        out = sh("git", "diff", "--name-only", "--diff-filter=ACMR", ref, "HEAD")
+        out = sh("git", "diff", "--name-only", "--diff-filter=ACMR", ref[0], ref[1])
     else:
         out = sh("git", "diff", "--cached", "--name-only", "--diff-filter=ACMR")
     return [f for f in out.splitlines() if f.strip()]
@@ -68,7 +70,7 @@ def changed_files(ref=None):
 def file_content(path, ref=None):
     """Content as of the commit under test (HEAD for a ref audit, worktree for staged)."""
     if ref:
-        return sh("git", "show", f"HEAD:{path}")
+        return sh("git", "show", f"{ref[1]}:{path}")
     try:
         with open(path, encoding="utf-8", errors="replace") as fh:
             return fh.read()
@@ -76,13 +78,54 @@ def file_content(path, ref=None):
         return ""
 
 
+def raw_diff(path, ref=None):
+    if ref:
+        return sh("git", "diff", "-U0", ref[0], ref[1], "--", path)
+    return sh("git", "diff", "--cached", "-U0", "--", path)
+
+
 def changed_hunk_text(path, ref=None):
     """Only the ADDED/REMOVED lines for this file — what this commit actually touched."""
-    if ref:
-        d = sh("git", "diff", "-U0", ref, "HEAD", "--", path)
-    else:
-        d = sh("git", "diff", "--cached", "-U0", "--", path)
+    d = raw_diff(path, ref)
     return "\n".join(l for l in d.splitlines() if re.match(r"^[+-][^+-]", l))
+
+
+HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", re.M)
+
+
+def changed_lines(path, ref=None):
+    """1-based line numbers touched in the NEW file. A zero-length hunk (pure
+    deletion) still marks the line it was removed from, so deleting a function's
+    guts counts as touching it."""
+    out = set()
+    for m in HUNK.finditer(raw_diff(path, ref)):
+        start = int(m.group(1))
+        count = int(m.group(2)) if m.group(2) is not None else 1
+        for n in range(start, start + max(count, 1)):
+            out.add(n)
+    return out
+
+
+def functions_with_spans(content):
+    """[(name, first_line, last_line)] — a Go func runs to the line before the
+    next top-level func. Crude, and correct for this purpose: we only need to
+    know which function a changed line falls inside."""
+    marks = [(m.start(), m.group(1)) for m in GO_FUNC.finditer(content)]
+    if not marks:
+        return []
+    line_of = {}
+    line = 1
+    for i, ch in enumerate(content):
+        line_of[i] = line
+        if ch == "\n":
+            line += 1
+    total = line
+    spans = []
+    for idx, (off, name) in enumerate(marks):
+        start = line_of.get(off, 1)
+        end = (line_of.get(marks[idx + 1][0], total) - 1) if idx + 1 < len(marks) else total
+        spans.append((name, start, end))
+    return spans
 
 
 # ── the CamelCase twin rule ─────────────────────────────────────────────────
@@ -95,7 +138,16 @@ def segments(name):
     return re.findall(r"[A-Z]+(?![a-z])|[A-Z][a-z0-9_]*|^[a-z0-9_]+", name)
 
 
+# A test double is not a twin: changing a real function without changing its
+# fake is normal and correct. Measured — ExecuteLLMPromptAction vs
+# ExecuteLLMPromptActionFAKE was the only twin false positive in 150 commits
+# (a3b606798), and it is this entire class.
+DOUBLE = re.compile(r"(FAKE|Fake|Mock|Stub|Spy|Dummy|Noop|NoOp|Test)$")
+
+
 def is_twin(a, b):
+    if DOUBLE.search(a) or DOUBLE.search(b):
+        return False
     sa, sb = segments(a), segments(b)
     if len(sa) == len(sb):
         return False
@@ -108,6 +160,8 @@ def is_twin(a, b):
     return False
 
 
+RECENT_TWIN_COMMITS = 10
+
 GO_FUNC = re.compile(r"^func(?:\s+\([^)]*\))?\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", re.M)
 
 
@@ -119,19 +173,37 @@ def check_untouched_twin(files, ref, findings):
         content = file_content(path, ref)
         if not content:
             continue
-        all_funcs = GO_FUNC.findall(content)
-        hunks = changed_hunk_text(path, ref)
-        touched = {f for f in all_funcs if re.search(r"\b" + re.escape(f) + r"\b", hunks)}
+        spans = functions_with_spans(content)
+        all_funcs = [n for n, _, _ in spans]
+        # Attribute changed LINES to their enclosing function. Matching on "the
+        # name appears in the diff" (the first implementation) silently missed
+        # the commonest case of all — an edit INSIDE a function body, where the
+        # name never appears in any changed line. Found by running the real hook
+        # against a real staged edit rather than trusting the past-commit audit,
+        # which happened to consist only of added functions and signature changes.
+        touched_lines = changed_lines(path, ref)
+        touched = {n for n, a, b in spans if any(a <= ln <= b for ln in touched_lines)}
         for t in sorted(touched):
             for other in all_funcs:
                 if other in touched or not is_twin(t, other):
                     continue
+                why = ("016b section 9 #26 — same shape, same file, one edited. If the change is a "
+                       "fix, the twin probably has the same defect; if it is a feature, the twin "
+                       "probably needs it too. Deliberate? Say so in the commit message.")
+                # A twin corrected in a RECENT commit is a deliberate two-commit
+                # sequence, not an oversight — measured: 03e86fc32 (the class fix)
+                # tripped this because its twin had been fixed one commit earlier.
+                # Still reported, because "I already did it" and "I forgot" look
+                # identical from inside; but say which, so the reader can dismiss
+                # it in one glance instead of re-deriving it.
+                recent = sh("git", "log", "-1", "--format=%h %s", "-S", other,
+                            f"-{RECENT_TWIN_COMMITS}", "--", path).strip()
+                if recent:
+                    why += f"  [{other} was last touched in: {recent[:64]} — if that was this same piece of work, this is expected]"
                 findings.append((
                     "untouched-twin", path,
                     f"changed {BOLD}{t}(){RESET} but not its twin {BOLD}{other}(){RESET}",
-                    "016b section 9 #26 — same shape, same file, one edited. If the change is a "
-                    "fix, the twin probably has the same defect; if it is a feature, the twin "
-                    "probably needs it too. Deliberate? Say so in the commit message.",
+                    why,
                 ))
 
 
@@ -190,9 +262,33 @@ DECLARED_PAIRS = [
 ]
 
 
+CODE_EXT = (".go", ".sql", ".sh", ".py", ".ts", ".tsx", ".js")
+
+COMMENT = re.compile(r"(//|--|#).*$")
+
+
+def strip_comments(text):
+    """Drop line comments so a comment ABOUT an invariant is not read as a change
+    to it. Crude (it will also blank a // inside a string literal) and that is the
+    safe direction here: it can only ever suppress a finding, never invent one."""
+    return "\n".join(COMMENT.sub("", l) for l in text.splitlines())
+
+
 def check_declared_pairs(files, ref, findings):
-    blobs = {p: (changed_hunk_text(p, ref) or "") for p in files}
-    joined = "\n".join(blobs.values())
+    # Docs are EXCLUDED, and this is not a detail: measured over 150 commits the
+    # only unpaired-change hit was a docs commit that merely DISCUSSED
+    # idx_swi_dedup in prose (41e3345b2). A file explaining an invariant is not a
+    # change to it, and a check that cannot tell the difference trains people to
+    # ignore it — which is the failure mode this whole script is written against.
+    code = [p for p in files if p.endswith(CODE_EXT) and not p.startswith("docs/")]
+    if not code:
+        return
+    # Strip comments before matching. Excluding docs FILES was not enough: a Go
+    # comment explaining the invariant ("// Dedup is NOT waived by this flag —
+    # idx_swi_dedup still refuses...") tripped this on f6e3f3166, a commit that
+    # never touched the index. Naming a rule is not changing it — the same
+    # distinction the docs exclusion already makes, one level down.
+    joined = "\n".join(strip_comments(changed_hunk_text(p, ref) or "") for p in code)
     for a, b, why in DECLARED_PAIRS:
         has_a, has_b = re.search(a, joined), re.search(b, joined)
         if bool(has_a) != bool(has_b):
@@ -205,8 +301,11 @@ def check_declared_pairs(files, ref, findings):
 
 def main():
     ref = None
-    if "--ref" in sys.argv:
-        ref = sys.argv[sys.argv.index("--ref") + 1]
+    if "--commit" in sys.argv:                      # audit ONE commit in isolation
+        c = sys.argv[sys.argv.index("--commit") + 1]
+        ref = (c + "~1", c)
+    elif "--ref" in sys.argv:                       # audit a range base..HEAD
+        ref = (sys.argv[sys.argv.index("--ref") + 1], "HEAD")
     files = changed_files(ref)
     if not files:
         return 0

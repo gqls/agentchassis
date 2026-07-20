@@ -9,6 +9,12 @@
 #                           contains so a file belonging to another session is
 #                           visible before it lands. It must NEVER block, so it
 #                           is wrapped to swallow any failure.
+#   3. pattern-check.py   — ADVISORY ONLY. Runs the mechanically checkable
+#                           subset of 016b section 9 against the staged diff
+#                           (untouched twin, gofmt, stdin-eating read loop,
+#                           declared co-change pairs). Measured at a 2% fire
+#                           rate over 150 commits before being wired in here.
+#                           Same rule: it must NEVER block, so it is wrapped.
 # This file runs for every session on every commit — a stray non-zero exit here
 # stops the whole fleet committing. Keep it boring.
 ROOT="$(git rev-parse --show-toplevel)"
@@ -17,6 +23,10 @@ ROOT="$(git rev-parse --show-toplevel)"
 
 if [ -x "$ROOT/scripts/commit-scope-report.sh" ]; then
   "$ROOT/scripts/commit-scope-report.sh" || true
+fi
+
+if [ -x "$ROOT/scripts/pattern-check.py" ]; then
+  "$ROOT/scripts/pattern-check.py" || true
 fi
 
 exit 0
