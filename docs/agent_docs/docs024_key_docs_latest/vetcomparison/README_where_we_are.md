@@ -488,3 +488,50 @@ arrived rather than trust that it should have.
 first is removed and the second is now a real CMA veterinary feed, restricted to genuine sources so
 nothing on this site is ever AI-written. The consultation still closes on the 30th and still needs
 you.
+
+---
+--
+
+The news feed is half working, and the half that is not working turned out to be a three-day
+window. Two real CMA items came in overnight — the funding consultation that closes on the 30th,
+and the case page for the market investigation — both with proper links back to gov.uk and no
+invented text anywhere. So the part I built is doing what it should.
+
+But nothing reached the site, and the reason is almost silly. The system only shows news
+published in the last three days. Both our items were published on 30 June, so they are about
+nineteen days old, and the renderer quietly decided there was nothing to show. When it finds
+nothing it skips the publishing step entirely, which is why the file the page asks for was never
+created at all. Three days is a sensible window for a site about gas prices or watch releases,
+where something happens daily. It is quite wrong for a site about a regulator that publishes a
+few times a month. I have widened it to thirty days, which is the same age at which the system
+already throws items away, so the two now agree with each other instead of contradicting.
+
+I had to make that change in two places, and I only found that out by getting it wrong. I changed
+the live setting yesterday evening, and the run an hour later still used the old value, because
+the setting also lives in a setup file that quietly reapplies itself. So the fix had not taken at
+all. It is in both places now.
+
+I also owe you a correction on something I said earlier. I told you the news system looked broken
+across every site, not just ours, and I sent that off to be diagnosed. That was wrong. It was
+running late, not failing — it caught up about an hour later and has run normally since. What I
+actually had was ten minutes of nothing happening on a system that queues work, and I read
+absence as evidence. The likely explanation is mundane and already written down in our own notes:
+when a new build is deployed, jobs started in the first few minutes get silently dropped, and a
+new build had just gone out. I have withdrawn that report with an explanation attached so nobody
+wastes time on it.
+
+Now the thing that actually matters more than any of the above. **The directory exporter is
+failing.** That is the job that refreshes the list of 2,109 practices — the core of the site. It
+ran on Sunday evening for the first time in two days and stopped with an error saying it had no
+domain to work with, even though the domain is plainly sitting there in its configuration. It
+last worked on the 17th, and several new builds have gone out since, so this looks like something
+that broke rather than something misconfigured. Nothing is visibly wrong on the site: the existing
+file is still being served and still has all 2,109 practices in it. But it has stopped being
+updated, and the same fault appears likely to affect the equivalent job on the vet-medicines side
+too. I have sent that for a proper diagnosis rather than guess at it.
+
+※ recap: the news feed is ingesting real CMA items correctly; they were invisible because of a
+three-day window that I have widened to thirty and fixed in both places it lives. I was wrong
+that the news system was broken fleet-wide — it was just late, and I have withdrawn that. The
+more serious thing is that the directory exporter has been failing since Sunday, so the practice
+list has quietly stopped refreshing even though the site still looks fine.
