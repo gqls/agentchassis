@@ -1268,7 +1268,8 @@ does not remove the class: an `experience-planner/compose` call truncated at a
 `TruncatedError` carries the partial out of aiservice; `tolerate_truncation`
 step config lets a council seat degrade instead of aborting the chain; the
 decider salvages a verdict or counts the seat `unreadable` and never approves
-alongside one. Full case, evidence and the corrected mechanism: `bugs_open/019`
+alongside one. **CLOSED 2026-07-20, verified live on v1.0.1140** — full case,
+evidence and the corrected mechanism: `bugs_closed/019`
 + `docs024_key_docs_latest/bugfix_019_council_truncation/`.
 
 ### A strict field type turns "which one?" into a lost round — the wrong register is not garbage (2026-07-20)
@@ -1941,7 +1942,7 @@ See `/bugs_closed/README.md`.
 | 017 | Static cutover orphans a backend tool's entry forms — funnel unreachable, no auditor models it | open; needs site fix + new check |
 | 018 | idea.uk chrome renders with every link `href=""` (31/33) — site unnavigable; check fleet | open, unstarted |
 | 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | **CLOSED 2026-07-20 → `/bugs_closed/`** — live in v1.0.1139, pod-verified with discriminating strings; both legs + parity test + dead-map deletion; 54 rows corrected; sweep 0 |
-| 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | **FIX BUILT 2026-07-20** (`a3b606798` + round-2 `11a72dc31` + migration 177 applied live), INERT until an image roll so it stays OPEN. Corrected mechanism: 9 of 11 voids died UPSTREAM at `execute_llm_prompt`, not at the decider — only 2 hit the `json.Valid` path the case file describes. See `036` for the sibling cause on the same seam |
+| 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | **CLOSED 2026-07-20 → `/bugs_closed/`** — verified by live reproduction on v1.0.1140 (scratch council, seat capped at 200): one `TOLERATED`-prefixed forensic row, 9 further readable seats, `complete_revise` with `unreadable: 1` in the report — vs the old zero-review `complete_invalid`. Corrected mechanism: 9 of 11 voids died UPSTREAM at `execute_llm_prompt`, not at the decider. See `036` for the sibling cause on the same seam (fix in the same image, verification pending) |
 | 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
 | 021 | The 012 completeness guard covers ONE write path; `page_components.rendered_html` and `pages.rendered_*` have the same unguarded overwrite shape | filed (council bug_historian objection); needs scope decision |
 | 023 | A button's label and its destination are unrelated schema fields — nothing checks that a control with text has somewhere to go. 51 dead controls / 7 of 11 sites; 84% of library CTA anchors ungated; detected findings die at `needs_human_review` (zero consumers) | filed 2026-07-19; plan in `cta_link_integrity/`, no fix started |
