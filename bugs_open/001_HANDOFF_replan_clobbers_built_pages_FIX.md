@@ -359,6 +359,10 @@ ephemeral and its logs were already gone):
 only happen via the snap-back. Pre-fix the convergence early-returned and `pages.sections` would now
 read the LLM's string.
 
+> **SUPERSEDED 2026-07-20 by the second re-plan below — the clean rescue case this paragraph said
+> was missing has now been observed twice.** The caveat below remains accurate about *run 1*; keep
+> it, because it is the reason run 2 was worth doing.
+
 > **Honest limit on that one, corrected before claiming more than it shows.** `differentiators` is
 > the `function` and `differentiators-section` is the `name` of the SAME component row
 > (`content_components`: `name='differentiators-section', function='differentiators'`; likewise
@@ -397,7 +401,52 @@ files hold the evidence and fix candidates.
 3. **Pages are still invented.** Two net-new pages (`grip-styles`, `shaft-length`) — as documented
    above, unfixed by design.
 
-**Cleanup state:** the re-plan queued 16 `needs_page` items. `about` completed; 13 were paused
+## SECOND RE-PLAN — 2026-07-20, the genericity proof (plan `5d438145` → `dcc7834e`)
+
+Run 1 left a hole: every deployed page it "preserved" had been proposed identically by the LLM
+except `about`, whose snap turned out to be a naming variant. So preservation was demonstrated but
+never actually *exercised*. The owner's instruction closed that hole — rather than hand-restoring
+`index`, refresh it through the framework and re-plan again, so the guard has to prove itself on a
+page whose status changed by the platform's own route rather than by a hand edit.
+
+`index` was rebuilt via its own `needs_page` item and reached `build_status='deployed'` (that
+rebuild also exposed `/bugs_open/040`). `guides-index` had likewise gone `planned`→`deployed`. Both
+were then in the preserved set for the first time. Second `needs_site_plan` emitted; run
+`b6c30dba`, LLM proposed 18 pages.
+
+**Two genuine snap-backs, on distinct components — this is the rescue case:**
+
+| page | LLM proposed | plan got (realised) | what was prevented |
+|---|---|---|---|
+| `index` | `hero, product-grid, features, call-to-action, testimonials, content-listing` | `hero, product-grid, category-listing, features, call-to-action, testimonials` | **`category-listing` dropped and `content-listing` swapped in** |
+| `shipping-returns` | `generic-text-block, faq` | `generic-text-block` | an unrequested `faq` section added to a built page |
+
+Distinctness checked, not assumed (the run-1 trap): `category-listing`, `content-listing` and `faq`
+are three separate rows in `content_components`, each its own `function`. So a real section would
+have been lost from `index` and a foreign one added, and the guard stopped both.
+
+`about`, `new-arrivals` and `guides-index` were re-proposed identically this run, so preservation was
+not exercised on them — recorded so the table above is not read as five rescues.
+
+**Why this proves the fix is generic and not a dartsonline artefact.** `index` is the *same page*
+that **lost** `differentiators` + `content-listing` on run 1. Nothing about the page, the site or
+the plan changed in kind between the two runs — only its `build_status`, `needs_rebuild` →
+`deployed`, and that transition was performed by the framework's own build path, not by hand. Same
+site, same page, opposite outcome, explained solely by the status the guard keys on. That is the
+mechanism working as designed rather than a site-specific coincidence, and it simultaneously
+demonstrates `/bugs_open/037` from the other side: a page is unprotected as `needs_rebuild` and
+protected as `deployed`.
+
+**`/bugs_open/038` reproduced identically**: `reconcile_result` again returned
+`pages_skipped_built: 0`, so all five deployed pages were re-emitted `stale` despite four of them
+being byte-identical to the plan. Composition preserved, rebuild still requested.
+
+Also this run: `brands-index` and `shop-index` (both `planned`, empty) were composed from the LLM's
+proposal — the second defect's fix working again — and one page was invented (`brand-comparison`),
+consistent with that remaining unfixed. The run's 6 emitted rebuilds were cancelled once the result
+was read.
+
+**Cleanup state:** run 1's re-plan queued 16 `needs_page` items. `about` completed; 13 were paused
 (`triaged`→`detected`) once the verification result was in, to stop unnecessary spend. Snapshot
 tables retained. `index` is paused and still carries the re-proposed composition; restoring it from
 `_darts_bak_20260719_pages` would desync `pages.sections` from the new `site_plan_sections`, so it
