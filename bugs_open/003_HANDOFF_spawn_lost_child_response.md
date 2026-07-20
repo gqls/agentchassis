@@ -305,3 +305,51 @@ blank shell. Attempts 1–5 all FAILED here: none on content/validation, all on 
     fetch/process/commit pattern to copy
   - `platform/orchestration/state.go:170, 207` — the existing `processed_messages` dedupe
     (verify its coverage before flipping the commit)
+
+---
+
+## Fresh occurrence — 2026-07-19, on a DIAGNOSIS spawn (claims-verification thread)
+
+Recorded because this one is **not** a site-content pipeline: it killed a
+`090_TRIGGER_needs_diagnosis` run, which widens the blast radius stated above
+(image generation, page builds, dispatch-loop handlers) to include **the
+diagnosis loop itself**. A thread following CLAUDE.md's "file it to the loop
+before you assert" rule can therefore be silently denied the verdict the rule
+tells it to obtain.
+
+**Evidence.**
+
+| fact | value |
+|---|---|
+| correlation | `46253496-f8e0-471f-9ae0-29c9e630ada5` |
+| parent orchestration | `fa5ce58b-c46a-49be-a95e-fb15170f93b5` (owner `generic`) |
+| parent state | `AWAITING_RESPONSES @ spawn_diagnoser`, unchanged for 45+ min |
+| awaited request | step `spawn_diagnoser`, target `diagnose-agent`, **status `expired`**, `timeout_at 13:14:06`, **`retry_version = 0`** |
+| child pod | `agent-diagnose-agent-98d8f09c-fdf7r`, phase Running, 63 log lines, **zero error-level lines** |
+| child's last substantive log | `"Probably child agent. Initialization complete, now starting agent's own workflow"` — then only 5-minute idle warnings |
+| child init response | `SendInitializationResponse` → `agent producer.go Successfully produced message` (the child DID reply) |
+| artifacts written | none (`diagnosis_artifacts` empty for the correlation) |
+| intake item | `needs_diagnosis:diagnose-council-decide-in-platform-orch`, still `awaiting_diagnosis` |
+
+**Two things this occurrence adds to the case above.**
+
+1. **The sweeper did not rescue it.** `retry_version = 0` on an expired request
+   45 minutes past `timeout_at`. Whatever reclassification the stale-orchestration
+   sweeper is supposed to perform (001 §"Stale Orchestration Sweeper": synthesize
+   from the child's `final_result`, or re-send up to 3 times) did not fire here.
+   Worth checking whether the sweeper skips `spawn_*` steps, or whether it requires
+   a child orchestration row — there is none, because the child never got as far as
+   creating one.
+
+2. **It leaves a queue-blocking residue.** The intake item stays
+   `awaiting_diagnosis`, and the 090 trigger's own pre-dispatch coverage check
+   refuses to dispatch when open work exists on the target. So one lost spawn also
+   blocks the *retry* of that same diagnosis unless the operator passes `FORCE=1`
+   or closes the item by hand. A stall that self-blocks its own remedy is worth
+   fixing above its raw frequency.
+
+**Observability note for whoever picks this up.** The failure is completely silent
+from the child's side: no error, no failed status, just a healthy-looking pod
+logging idle warnings. The only positive signal is `awaited_requests.status =
+'expired'` joined to the parent. Any monitor that watches pod health or log
+severity will report this as fine.
