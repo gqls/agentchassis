@@ -227,3 +227,45 @@ with new evidence about why it's hard to avoid.
 
 Nothing has been built. Next step is a revised plan along the council's lines, which I'd
 resubmit against the same trail.
+
+----
+
+**2026-07-20 — your four buttons are gone from the live site.**
+
+All four are fixed and I've checked the actual live pages, not the system's own status report.
+`/tools/llm-cost-calculator.html` and `/tools/ai-agent-roi-estimator.html` now carry the real
+calculator and nothing else. No "Start Ranking Free", no "See How It Works", no "Start the
+Guide", no "Visit the Tool", no empty links, no invented web address. Both calculators still
+work.
+
+**What I actually removed.** Two whole sections from each page: the Bayesian ranker panel that
+belonged to a different tool, and the "guide intro" that belonged on the guide page. Everything
+useful stayed. The pages are roughly a third smaller, which is entirely the weight of the two
+things that shouldn't have been there.
+
+I checked before deleting that the guide content wasn't being lost — your real guide pages
+already carry the full write-up, so the tool page was duplicating it badly rather than adding
+anything.
+
+**The cause turned out to be smaller and cheaper than I expected.** I'd assumed the page
+planner was making bad choices. It wasn't. The plan asked for a "tool hero" — a perfectly
+sensible generic request — and the library contains **exactly one** component that can answer
+that request, hard-wired to a Bayesian ranking tool. So every site that asks for a tool hero
+gets Bayesian ranking vocabulary. It's a missing component, not a broken planner. Building one
+neutral tool-hero component fixes it everywhere, and that's a far smaller job than
+re-diagnosing the planner.
+
+**Something worth telling you about the new build.** The re-planning bug (the one that made
+everything on this site provisional, and that I'd been carefully working around) is genuinely
+fixed and live. But its accompanying database change was applied without being recorded in the
+migration log. Had I trusted the log I'd have concluded it was still broken and kept avoiding
+the straightforward fix for no reason. I checked the running system instead. I have **not**
+written the missing log entry — it isn't my change, and signing for someone else's work is the
+part of that particular trap that does the damage. Flagging it for whoever owns it.
+
+**What this did not fix.** The two faulty components are still live on finetuning.uk and
+robot-hands.com, with the same dead button and the same invented-URL field. Today's work fixed
+your site; the components themselves are still broken, and that's the next piece of work along
+with the council's revised plan.
+
+Fleet-wide, dead links dropped from 30 to 25 and dead in-page jumps from 4 to 2.

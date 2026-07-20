@@ -438,3 +438,87 @@ repaired" while my own citation says the map covers **5 of 33** functions.
   fleet-wide landmine. Partition by the `reviews[].reviewer` field inside the body instead.
 
 **Status: the plan is NOT to be shipped as submitted.** REJECTED is a veto, not a score.
+
+---
+
+## 2026-07-20 — P4 leopardess page fix APPLIED AND VERIFIED LIVE
+
+All four owner-reported buttons are gone from the live site. Verified against the rendered
+artefact, not the orchestration status.
+
+**What changed.** Both tool pages lost their two misplaced sections; the genuine tool and
+`tool-cta` are untouched.
+
+```
+llm-cost-calculator     hero-tool · tool-guide-intro · tool-llm-cost-calculator · tool-cta
+                     -> tool-llm-cost-calculator · tool-cta
+ai-agent-roi-estimator  hero-tool · tool-guide-intro · tool-ai-agent-roi-estimator · tool-cta
+                     -> tool-ai-agent-roi-estimator · tool-cta
+```
+
+Applied in one transaction (`scratchpad/leo_toolpages_fix.sql`): backups →
+`page_components` delete (4 rows) → position renumber → `pages.sections` align → in-transaction
+verify → commit. Backups: `bak_leo_toolpages_20260720_pc` (8 rows),
+`bak_leo_toolpages_20260720_pages` (2 rows). Deployed via `reassemble_pages.sh` (ASSEMBLE
+mode — a structural change must not go through `section_data_resolved`, which skips
+content-unchanged pages).
+
+**Live verification, both pages:** 0 occurrences of all four button strings, 0 `href=""`,
+0 `#guide-start`, 0 fabricated hosts, 0 Bayesian residue; `calc-btn` and
+`roi-payback`/`roi-roi-percent` still present. Page sizes 62,627→44,373 and 41,632→23,243
+bytes — the removed weight is the two wrong components.
+
+**Fleet census moved:** empty hrefs **30 → 25**, fragments **4 → 2**. Bare `#` unchanged at 17
+(a different class, untouched by this fix).
+
+### The planner-selection cause, and it is smaller than I assumed
+
+`pages.sections` asked for **`hero-tool`** — a generic, entirely sensible section name. It
+resolved to `bayesian-ranking-hero-tool`. So the planner did **not** propose a Bayesian ranker;
+the *selection* did, because:
+
+```sql
+SELECT name, function FROM content_components
+WHERE is_active AND (function LIKE '%hero%tool%' OR name LIKE '%hero%tool%');
+--  bayesian-ranking-hero-tool_pre_037 | bayesian-ranking-hero-tool   (the ONLY row)
+```
+
+> **The component library contains exactly one active component that can serve a `hero-tool`
+> section, and it is hard-coded to a different tool.** That is a *missing component* problem,
+> not a planner defect. Any site whose plan asks for a tool hero gets the Bayesian ranker's
+> frozen vocabulary — which is precisely what happened on finetuning.uk too.
+
+This is materially cheaper to fix than "diagnose the planner": build one generic `hero-tool`
+component (no product-specific static fallbacks, gated CTA anchors) and the selection resolves
+correctly everywhere. Added to the plan; **not** done here.
+
+### Checks that changed the fix, worth repeating
+
+1. **Section authority is the ASPECT on this site**, flagged by the bugfix thread's handoff
+   note: the current `site_plans` row has zero `site_plan_sections`, so an
+   aspect/`pages.sections` mismatch silently reverts. Verified the aspect lists 13 pages and
+   **neither tool page is among them** → `pages.sections` governs, no aspect edit needed. Had I
+   assumed either way I would have been wrong half the time.
+2. **Removal is not lossy.** Checked before deleting: the real guide pages carry hero + an
+   8.9KB `article-body` + CTA. The tool-page `tool-guide-intro` duplicated content that already
+   lives where it belongs — a "read time" and a "Start the Guide" button do not belong on the
+   tool itself.
+3. **bugs_open/001 is fixed and ACTIVE in v1.0.1138**, which is what made a `page_components`
+   fix durable enough to be worth doing. Verified both halves: Go symbols
+   (`realised_sections`, `snapped_sections`) in the running pod AND `build_status` present in
+   the live `build-site-planner` query — the migration's own header states the Go silently
+   degrades to the old behaviour without it. Both pages are `build_status='deployed'`, so they
+   are in the preserved set.
+   > **Ledger trap:** migration **173 is absent from `schema_migrations`** (172, 174, 175 are
+   > all recorded) yet its effect IS live in `agent_definitions`. Applied-but-unrecorded —
+   > `bugs_open/007`'s exact shape. **Had I trusted the ledger I would have concluded 001 was
+   > still broken and steered away from `page_components` for no reason.** I did not add a
+   > ledger row: it is another thread's migration and attributing an application I did not
+   > perform is the half of 007 that causes damage. Flagged to the owner instead.
+
+### Still broken fleet-wide — this fixed the site, not the components
+
+`tool-guide-intro` remains live on **finetuning.uk** (`llm-cost-calculator`) and
+**robot-hands.com** (`gripper-cycle-time-estimator`) with the same dead `#guide-start` and the
+same `source:llm, required:true` URL field. `bayesian-ranking-hero-tool` remains on
+finetuning.uk's `llm-cost-calculator`. Those are P2.2/P2.3 and unaffected by today's change.
