@@ -157,3 +157,120 @@ A round takes **~25 minutes** end to end (submission → `fix_plan` artifact →
 `council_report`), not the ~2 minutes the docs suggest — size any waiter
 accordingly. A round that produces no `fix_plan` artifact at all did not run;
 see `bugs_open/019` (a truncated reviewer can void a whole round).
+
+## Building a tool page by hand (R4, 2026-07-20)
+
+**When:** the tool is data-backed. `tool-generator` has no fake-data rule
+(`has_no_fake_data_rule=f`) and forbids fetch, so it invents the dataset —
+`/bugs_open/020`. Check before routing anything through it:
+
+```sql
+SELECT type,
+       (default_config::text ILIKE '%no fake data%')      AS has_no_fake_data_rule,
+       (default_config::text ILIKE '%no fetch%')          AS forbids_fetch
+FROM agent_definitions WHERE type IN ('tool-generator','tool-recreation-handler');
+```
+**Gotcha:** `agent_definitions` keys on `type`, not `name`.
+
+**The shell.** Do not hand-write page chrome. Take a working tool page and splice:
+
+```bash
+curl -s https://robot-hands.com/tools/gripper-payload-calculator/index.html > pc.html
+grep -n -oE '<(main|/main)' pc.html        # -> 423 <main   1024 </main
+sed -n '1,423p'    pc.html > head.part     # head + header chrome + <main>
+sed -n '1024,1083p' pc.html > tail.part    # </main> + footer
+cat head.part MY_TOOL.html tail.part > index.html
+sed -i 's#<title>.*</title>#<title>NEW TITLE</title>#' head.part   # BEFORE cat
+```
+**Gotcha:** `sed 's|…|…|'` breaks here — the replacement contains `|`. Use `#`.
+
+**House style is `var(--color-*)` throughout** (R1's whole saga was hardcoded
+hex). Check before deploying: `grep -c '#3b82f6' index.html` → 0.
+
+**Test the JS.** No node locally; use a container:
+```bash
+docker run --rm -v "$PWD":/w -w /w node:20-alpine node --check mm.js
+docker run --rm -v "$PWD":/w -w /w node:20-alpine node test_mm.js
+```
+A DOM stub of ~25 lines (`document.getElementById` returning fake elements with
+`classList`/`addEventListener`) is enough to exercise the real submit handler —
+see `NOTES` Turn 9. **Test the arithmetic, not just that it renders**: a tool that
+renders and computes wrongly is worse than no tool.
+
+**Deploy** (no local checkout of gqls/sites):
+```bash
+gh api -X PUT "repos/gqls/sites/contents/robot-hands.com/tools/<slug>/index.html" \
+  -f message="..." -f content="$(base64 -w0 index.html)" --jq '.commit.sha'
+```
+Then **verify the artefact, not the commit** — takes ~1 min to publish:
+```bash
+until [ "$(curl -s -o /dev/null -w '%{http_code}' https://robot-hands.com/tools/<slug>/index.html)" = "200" ]; do sleep 15; done
+```
+
+## Auditing CTA label↔URL pairs (R4)
+
+**Repoint by LABEL, never by the old URL.** A URL-keyed find-and-replace cements
+every mismatch — 14 of 20 primaries here named a destination other than the one
+they pointed at.
+
+```sql
+-- primaries: mind the THREE different field spellings
+SELECT p.name, cc.name,
+       COALESCE(pc.content_data->>'cta_text',  pc.content_data->>'primary_cta',
+                pc.content_data->>'cta_label') AS label,
+       COALESCE(pc.content_data->>'cta_url',   pc.content_data->>'primary_cta_url') AS url
+FROM page_components pc JOIN pages p ON p.id=pc.page_id
+LEFT JOIN content_components cc ON cc.id=pc.component_id
+WHERE p.site_id='00ff3af5-dad8-4770-9f70-3edc267a3c92'
+ORDER BY p.name;
+
+-- secondaries: these are the invisible ones — they 200, they are just wrong
+SELECT p.name, pc.content_data->>'secondary_cta', pc.content_data->>'secondary_cta_url'
+FROM page_components pc JOIN pages p ON p.id=pc.page_id
+WHERE p.site_id='00ff3af5-dad8-4770-9f70-3edc267a3c92'
+  AND pc.content_data ? 'secondary_cta_url';
+```
+
+## Auditing statistics for fabrication (`/bugs_open/043`)
+
+```sql
+-- note BOTH spellings: stat_1_value AND stat1_value
+SELECT p.name, e.k, e.v
+FROM page_components pc JOIN pages p ON p.id=pc.page_id,
+LATERAL jsonb_each_text(pc.content_data) AS e(k,v)
+WHERE p.site_id='...' AND e.k ~ 'stat[_]?[0-9]+_?(value|label)'
+ORDER BY p.name, e.k;
+```
+Every value must trace to a query. Ground truth for this site:
+```sql
+SELECT count(*)                                        FROM products WHERE site_id='...' AND category='gripper'; -- 5
+SELECT count(DISTINCT specifications->>'manufacturer') FROM products WHERE site_id='...' AND category='gripper'; -- 5
+SELECT count(*) FROM products p, LATERAL jsonb_each_text(p.specifications) s(k,v)
+ WHERE p.site_id='...' AND p.category='gripper' AND s.k<>'manufacturer';                                          -- 24
+```
+**Also grep the rendered page** — the placeholder-suffix tell (`2,400+%`,
+`140+ms`) is invisible in `content_data`:
+```bash
+curl -s <page> | grep -oE '[0-9,]+\+(%|ms|x)'
+```
+
+## Queueing a re-render that actually re-renders
+
+Reason matters. Per `/bugs_open/024` an item with no usable reason falls to
+stale-HTML assembly and the page never changes while every status reports green.
+`cta_links_stale` reaches the real `rerender_sections` branch.
+
+```sql
+INSERT INTO site_work_items
+  (site_id, source, item_type, severity, summary, status, created_by, pipeline,
+   priority, triaged_at, spec)
+SELECT p.site_id, '<your-source-tag>', 'page_rerender', 'medium',
+       'Rerender '||p.name||' — <why>', 'triaged', '<your-thread>', 'build',
+       20, now(),
+       jsonb_build_object('domain','robot-hands.com','reason','cta_links_stale',
+                          'page_id',p.id,'page_name',p.name,'filename',ltrim(p.url,'/'))
+FROM pages p WHERE p.site_id='...' AND p.name IN (...);
+```
+Required NOT NULL columns: `site_id, source, item_type, severity, summary,
+status, created_by, pipeline`. Priority is **ASC** — 20 jumps the inherited
+backlog. Watch it with an **absolute** cutoff, never `now() - interval`.

@@ -67,3 +67,90 @@ context recently filed a confident claim that was refuted in ten minutes. Two
 of my write-ups were done before that change. The evidence in them is cited and
 checkable, but if either becomes the basis for someone else's work, it should
 go through the loop first.
+
+---
+
+## 20 July 2026 — the MatchMatrix tool is built, and I found something worse on the way
+
+**The short version.** MatchMatrix now exists and works. But going after the
+broken buttons turned up two things that matter more than the buttons did: the
+site's links were pointing almost at random, and three pages were publishing
+numbers that were simply made up.
+
+**On the buttons.** The plan was to repoint five homepage buttons away from a
+dead page. When I actually looked, it was twenty buttons across eleven pages —
+and only about six of them were *about* MatchMatrix. The dead MatchMatrix
+address had quietly become a dumping ground: a button saying "Search the Gripper
+Catalog" pointed at it, so did "Browse the Learning Center", so did "Open the
+Payload Calculator", so did "Request Integration Support". Each of those had a
+perfectly good page sitting there unused.
+
+The second layer was worse and completely invisible. There are twenty more
+"secondary" buttons, and essentially all of them were pointing at the wrong page
+too — but none of them were *broken*, so nothing ever flagged them. Fourteen
+buttons saying "Read the MatchMatrix Methodology" pointed at the services page,
+while the actual methodology page sat there working fine the whole time.
+
+The important bit: I fixed these by matching **what the button says** to where it
+should go, not by find-and-replacing the dead address. The obvious quick fix — and
+the one my own previous handoff suggested — would have sent "Search the Gripper
+Catalog" to the MatchMatrix page and locked the mistake in permanently.
+
+**On the made-up numbers.** This is the one I'd want you to see. The about page
+was telling visitors the site indexes **"1,200+ gripper models"**. It indexes
+**five**. Another page claimed 2,400+ models, 140+ manufacturers, and scoring
+across 18 parameters. None of those numbers came from anywhere. There's also a
+claim, repeated all over the site, that the catalogue spans six actuation
+technologies — pneumatic, electric, vacuum and so on — and the database doesn't
+record actuation type at all, so there's no honest version of that number at any
+value.
+
+The giveaway that nobody had ever looked at the finished page: one block was
+rendering "2,400+%" and "140+ms" — leftover placeholder symbols stuck onto a
+model count and a manufacturer count. It had been live like that.
+
+I've corrected every one of these to figures that come from an actual query, and
+written the query into the file so the next person can check them. I've also
+filed it as a platform bug (043), because this isn't a robot-hands problem — the
+content generator invented these, and nothing anywhere checks a number against
+the data before publishing it. It's the same family as the fake veterinary
+practices, but a different route in, so the fix for that one wouldn't have caught
+this one.
+
+**One thing I deliberately did not do.** That six-technologies claim also appears
+in **forty-two** other places in the site's ordinary prose — body text, headings,
+FAQ answers. Correcting a statistic is a bug fix; rewriting forty-two paragraphs
+of copy is a decision about what the site says it is, and that's yours, not mine.
+I've left them and recorded the count.
+
+**On the tool itself.** I built MatchMatrix by hand rather than through the
+platform's tool generator, and I want to be straight about why. The generator has
+no rule against inventing data, and a gripper-matching tool is exactly the kind
+that gets invented — it needs a catalogue to match against, so if you don't give
+it one it makes one up. That's the bug you've currently got a hold on. Building
+it by hand meant it could be honest about only having five grippers.
+
+It does real work: you enter your part's weight, what it's made of, how hard the
+robot accelerates and what safety margin you want, and it calculates the actual
+clamping force needed, then tests all five grippers against it and shows you
+which criterion each one passes or fails — and, importantly, where a manufacturer
+simply doesn't publish a figure, it says so rather than guessing.
+
+The most useful thing it does came out of a mistake I made. I'd assumed a gripper
+advertised as "11 kg payload" would obviously handle an 8 kg part, and wrote a
+test saying so. It doesn't — an 8 kg part on dry steel needs about 523 newtons of
+grip and that gripper produces 140. The 11 kg figure quietly assumes very grippy
+surfaces. My test was wrong and the tool was right, and if I hadn't written the
+test I'd have "corrected" the working code to match my wrong assumption. The tool
+now explains that trap on screen whenever it comes up, which is probably the
+single most valuable thing on the page, because it's the mistake a real buyer
+would make.
+
+**Where it stands right now.** The tool is live and I've checked the real page,
+not just the status — it loads, it has the working form, all five grippers are
+there, and the dark theme survived. The link and number corrections are saved and
+twelve pages are queued to be rebuilt with them. **Those corrections are not
+visible on the site until that queue drains**, which takes a while because the
+system rebuilds one page per site at a time. Anyone picking this up should check
+the live pages rather than trusting the queue's own "done" marks — that caution is
+in the handoff.

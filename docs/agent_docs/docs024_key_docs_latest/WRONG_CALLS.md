@@ -32,7 +32,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **grep for the capability before asserting it does not exist** | **1** |
 | **prove the artefact is current before reasoning from it** | **1** |
 | measure a property before describing it | 1 |
-| **look at the real values before designing for the assumed ones** | **1** |
+| **look at the real values before designing for the assumed ones** | **2** |
 | grep the index before filing | 1 |
 | read the rule before inferring its purpose | 1 |
 
@@ -386,3 +386,22 @@ The bar, following the checks already wired in:
 
 Rows 1, 3, 4, 5 and 8 above are **not** mechanically checkable — they need
 judgement at assertion time, which is what the diagnosis loop is for.
+
+### 2026-07-20 — robot-hands — "the OnRobot 2FG7 is rated 11 kg, so it clears an 8 kg part"
+**Asserted:** written into a test as an expected PASS while validating the new MatchMatrix tool —
+the assertion being that a gripper whose published payload is 11 kg obviously satisfies an 8 kg
+requirement, so a tool that failed it must be miscalculating.
+**Actually:** the tool was right and the test was wrong. An 8 kg part on dry steel (μ 0.15, S=2)
+needs **523.2 N** of clamping force; the 2FG7 publishes **140 N** maximum. Its 11 kg headline
+implies μ ≈ 0.77 — rubber or form-fit fingers, not a bare machined surface. The two figures are not
+in conflict, they answer different questions, and the headline one is the wrong question.
+**Caught by:** the test itself, on first run — I had written the expectation and the implementation
+from different premises, so they disagreed immediately. Luck, in the sense that I only wrote a test
+at all because the tool was going to production; had I hand-checked the output I would have "fixed"
+the correct code to match my wrong expectation.
+**The cheap check that would have caught it:** do the arithmetic before asserting the expectation.
+One line of Python. The published payload rating is a *derived* figure resting on the
+manufacturer's own friction assumption — the primary figure is the force.
+**Cost:** nothing, and it turned into the tool's most useful feature: MatchMatrix now explains this
+exact discrepancy inline whenever a gripper passes on rated payload but fails on computed force,
+naming the implied μ. The trap that caught me is the one the tool's users were most likely to hit.

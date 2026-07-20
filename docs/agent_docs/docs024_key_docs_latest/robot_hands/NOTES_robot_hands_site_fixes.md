@@ -375,3 +375,115 @@ INVERTED on 2026-07-19 — the 090 loop is now the DEFAULT before asserting any
 durable claim. `bugs_open/017…unregistered_action…` and `bugs_open/022` were
 both authored before that correction and have NOT been through it. Flagged in
 the handoff for whoever picks them up.
+
+---
+
+## Turn 9 — 2026-07-20 — R4 closed: MatchMatrix built, CTA pairing fixed, live fabrication found
+
+**Resumed from `HANDOFF_2026-07-19_…start_here.md`.** Checked what had moved under
+it first; five things had.
+
+**What changed underneath the handoff.**
+- Image rolled **v1.0.1137 → v1.0.1139** (pod `agent-chassis-645674b498-rndg9`,
+  started 2026-07-20 07:35Z). The handoff's optional item 4 is moot.
+- `bugs_open/017…unregistered_action…` now reads **fixed-and-live** in 1.0.1139
+  (`strings /app/agent-chassis | grep -c handlerReportedFailure` → 6; registration
+  at `platform/orchestration/actions/registry.go:719`). Its own file still says
+  "STAYS OPEN … INERT until a chassis image ships" — that line is **stale**. Left
+  for its owning thread to close; I did not move it. `[UNVERIFIED]` whether the
+  saga-completion half is equally covered — I checked the registration and the
+  guard symbol, not a live failing saga.
+- **Owner ruling 2026-07-20 11:17** (`3f6f1febf`): hold tool *imagery* until
+  `bugs_open/020` is fixed. Literal scope is imagery, not tool building.
+- Six new bugs bearing on the tool action: `020`, `024`, `028`, `029`, `030`, `033`.
+- Another thread touched this site directly — migration `175` (`bugs_open/002`
+  error C), preventative fix to `contact`'s section authority. Verified applied on
+  the current plan (`contact-block` present, `contact-info` gone). No collision.
+
+**Why I did not build the tools the platform way.** Three independent blockers,
+each verified rather than assumed: `028` (both target pages had **zero**
+`site_plan_sections` and zero components — the `add_tool` item was already
+`complete` with `{"completed_steps": 0}` and no `create_result`, i.e. the build
+had already run and done nothing); `020` (a gripper match-matrix is data-backed,
+and `tool-generator` — the *new*-tool path, not the recreation handler the owner's
+hold names — has `has_no_fake_data_rule=f` and forbids fetch, so it is
+structurally pushed to invent a catalogue); `024` (any later fix could never reach
+the page). So MatchMatrix was **hand-authored**.
+
+**Correction to my own read of `bugs_open/039`.** I expected the sections path to
+be the trap here — 039 (filed the same morning) says an unresolvable section name
+renders a 208-byte hollow stub. It does not apply: tool pages on this site carry
+`sections = []` and have **no** `site_plan_sections` rows *even when they work*.
+The three live tool pages each have exactly one `page_components` row at position
+2 pointing at a bespoke `content_components` row (`name = tool-<slug>-robot-hands-com`,
+`function = tool-<slug>`, `render_mode = template`, 17–24 KB of template). That is
+the reference implementation; 039's Part 1 naming rule is still the thing to know,
+it just is not what gates a tool page.
+
+**Also confirmed live, `bugs_open/024` leg (a):** all three working tool components
+sit at `build_status='pending'` with `deploy_commit` NULL and have done since
+April, while serving 200. The field is written and never read.
+
+**The finding that mattered more than R4.** Chasing label↔URL pairs turned up
+**~40 mismatches across 20 components, and only 2 URLs actually 404.**
+`/tools/matchmatrix/index.html` had become a **default dumping ground**: 20
+components on 11 pages pointed at it while only ~6 of their labels named
+MatchMatrix. The others said "Search the Gripper Catalog", "Browse the Learning
+Center", "Open the Payload Calculator", "Request Integration Support" — each with
+a live 200 destination sitting unused. Secondary CTAs were worse: 20 of them,
+essentially all mispaired, **none 404** — 14 labelled "Read the MatchMatrix
+Methodology" pointed at `/services.html` while `/matchmatrix-methodology.html`
+served 200 throughout. Nothing flagged any of it precisely because nothing was
+broken. This is `bugs_open/023` in a severe instance, and it is why this site has
+20 `cta_names_unknown_destination` items rotting in `needs_human_review`
+(`bugs_open/033`).
+
+**Every UPDATE is keyed on the LABEL, not the old URL.** Repointing by URL — the
+obvious move, and what the handoff's interim suggestion implied — would have
+cemented every mismatch. That is the single most important line in
+`SQL_2026-07-20_r4_matchmatrix_and_cta_pairing.sql`.
+
+**Then: live fabricated statistics.** The verify query in R4b surfaced a second
+stat block, and a site-wide sweep found a third. `about` was serving **"1,200+
+Gripper Models Indexed"** against an index of **five**; `gripper-detail` was
+serving **2,400+ / 140+ / 6 / 18**; `index` had the fabricated "6 actuation
+technologies" left behind after a *partial* cleanup that blanked its two
+neighbours to em dashes. `products.specifications` has **no actuation-type field
+at all**, so no honest actuation count exists at any value. Filed as
+**`/bugs_open/043`** — same family as `020` but a different path (ordinary content
+generation, not tool recreation), so a site with no tools is still exposed.
+
+The tell that nobody had ever read the rendered output: `gripper-detail` carried
+`stat1_suffix='%'` on a model count and `stat2_suffix='ms'` on a manufacturer
+count — unedited generic-template placeholders. The live page was rendering
+**"2,400+%"** and **"140+ms"**.
+
+**Scoped out, deliberately:** the same six-technology claim survives in **42
+further `content_data` fields** on this site (body prose, `features`,
+`subheadline`, FAQ `questions`, `cards`). Those are substantive copy, not stat
+fields; rewriting them is a content decision and is the owner's call, not a
+containment step. Recorded in `043` because the 9-vs-42 ratio is the useful signal
+for anyone sizing the fleet-wide version: **stat blocks are the visible tip.**
+
+**My own wrong call this turn**, logged to `WRONG_CALLS.md`: I asserted in a test
+that the OnRobot 2FG7 (rated 11 kg) would clear an 8 kg part. It does not — that
+part needs 523.2 N and the 2FG7 publishes 140 N; the 11 kg headline implies
+μ ≈ 0.77. The tool was right and my expectation was wrong. Had I not written a
+test I would have "fixed" correct code to match it. It became the tool's best
+feature: MatchMatrix now explains that discrepancy inline, naming the implied μ.
+
+**Verification, artefacts not statuses.**
+- `/tools/matchmatrix/index.html` → **200**, 38,144 B, 1 form / 4 inputs /
+  4 selects / 4 `addEventListener`, all five real grippers present, **0** hardcoded
+  `#3b82f6`, **0** fabrication tells (`Mulberry32|makePostcode|buildData|SUFFIXES|
+  Math.random`). Deployed to `gqls/sites` @ `0a6dc426`.
+- **19/19 logic tests pass** (`node` in a container; the tool has no test harness
+  on the platform, so the tests live in this workstream's scratch and are
+  reproduced in the RUNBOOK).
+- All nine stat values now trace to a query recorded in the SQL header:
+  5 models / 5 manufacturers / 4 parameters compared / 24 published figures.
+- 12 `page_rerender` items queued at priority 20,
+  `source='robot-hands-r4-cta-pairing'`, reason `cta_links_stale` (chosen because
+  per `024` that reason reaches the real `rerender_sections` branch rather than
+  stale-HTML assembly). **The DB edits are inert until that batch drains** — the
+  live pages still carry the old CTAs and old stats until then.
