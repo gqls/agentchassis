@@ -556,22 +556,46 @@ Categories: acceptance-run`,
 	}
 
 	// Failures: one acceptance-fail note + ONE improve_tool item carrying the
-	// criteria as acceptance_test (findings pattern; bounded by the fixer's
-	// max_fix_attempts convention).
+	// criteria as acceptance_test (findings pattern). The fixer's per-item
+	// max_fix_attempts convention never engages ACROSS cycles — each verdict
+	// raises a fresh item once the last went terminal — so the convergence
+	// guard below is what bounds the loop (bugs_open/010 candidate b).
 	issue := strings.Join(v.Details, "; ")
 	chromeLine := ""
 	if len(v.Chrome) > 0 {
 		chromeLine = fmt.Sprintf("\nSite chrome (NOT this tool, routed separately as %d responsive_fix item(s)): %s",
 			chromeRouted, chromeSummary(v.Chrome))
 	}
+	// Convergence guard (bugs_open/010 b): how many cycles have already failed at
+	// THESE criteria? Counted before the note is written so the note records what
+	// actually happened. Fail-open — a counting error must not cost a fix cycle.
+	maxCycles := datahelpers.GetIntField(config, "max_fix_cycles", 2)
+	attempts := 0
+	if params.DB != nil && siteID != "" {
+		n, err := convergenceAttempts(ctx, params.DB, function, siteID, v.FailedIDs)
+		if err != nil {
+			logger.Warn("judge: convergence attempt count failed — raising improve_tool as usual",
+				zap.Error(err))
+		} else {
+			attempts = n
+		}
+	}
+	stuck := attempts >= maxCycles
+
+	fixLine := "improve_tool item created carrying the criteria as acceptance_test"
+	if stuck {
+		fixLine = fmt.Sprintf(
+			"NOT auto-fixed — %d previous improve_tool cycle(s) failed to turn %s green, so this is escalated to human review instead of a %d%s identical attempt",
+			attempts, strings.Join(v.FailedIDs, ", "), attempts+1, ordinalSuffix(attempts+1))
+	}
 	body := fmt.Sprintf(`## Tier-4 acceptance FAILED — %s
 Observed: %d of %d evaluated checks failed in headless Chromium%s: %s%s%s
 Root cause: not diagnosed at this tier (behavioural run; the fixer loads PLAN+NOTES first)
-Fix: improve_tool item created carrying the criteria as acceptance_test
+Fix: %s
 Verified: n/a — failing run recorded
 Categories: acceptance-fail`,
 		function, len(v.Failed), len(v.Results), profilesPhrase(v.Profiles), issue, chromeLine,
-		evidenceLine(v.Shots))
+		evidenceLine(v.Shots), fixLine)
 	if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
 		`["acceptance-fail"]`, "tool-acceptance", sourceAgent, "", "tool-acceptance-agent"); err != nil {
 		logger.Warn("judge: acceptance-fail note insert failed", zap.Error(err))
@@ -581,6 +605,7 @@ Categories: acceptance-fail`,
 		datahelpers.GetStringField(config, "criteria_field", "doc_context.criteria_json"))
 
 	itemCreated := false
+	escalated := false
 	if params.DB != nil && siteID != "" {
 		// The improve_tool spec needs the component; recreated/adopted tools
 		// have no content_components row — record the miss honestly instead.
@@ -593,7 +618,58 @@ Categories: acceptance-fail`,
 			WHERE cc.function = $1 AND cc.is_active
 			LIMIT 1`, function, siteID).Scan(&componentID, &pageID)
 
-		if componentID != "" {
+		if componentID != "" && stuck {
+			// Two cycles have already failed at these criteria. A third would be
+			// the same fix again — the failure mode this guard exists to stop —
+			// so hand it to a human and stop the auto-loop for this criterion.
+			// Not deduped away by idx_swi_dedup: needs_human_review is an OPEN
+			// status, so the weekly re-verdict finds this item still standing and
+			// ON CONFLICT DO NOTHING keeps it as raised rather than duplicating it.
+			spec := map[string]interface{}{
+				"component_id":      componentID,
+				"check":             "tool_acceptance_tier4",
+				"issue":             issue,
+				"failing_checks":    v.FailedIDs,
+				"failing_instances": v.Failed,
+				"fix_cycles_spent":  attempts,
+				"why_escalated": fmt.Sprintf(
+					"%d improve_tool cycle(s) since the last passing Tier-4 verdict left %s still failing; the one-shot fixer is not converging on this defect",
+					attempts, strings.Join(v.FailedIDs, ", ")),
+			}
+			if v.ForcedBy != "" {
+				spec["overflow_forced_by"] = v.ForcedBy
+			}
+			if v.ForcedReason != "" {
+				spec["overflow_fix_hint"] = v.ForcedReason
+			}
+			if shots := shotsForSpec(v.Shots, ""); len(shots) > 0 {
+				spec["screenshots"] = shots
+			}
+			if pageID != "" {
+				spec["page_id"] = pageID
+			}
+			specJSON, _ := json.Marshal(spec)
+			_, err := params.DB.ExecContext(ctx, `
+				INSERT INTO site_work_items (
+					site_id, source, pipeline, item_type, severity, summary,
+					priority, handler_agent, status, created_by, spec, item_key, batch_id
+				) VALUES ($1::uuid, 'acceptance', 'build', 'acceptance_stuck',
+				          'medium', $2, 20, 'human-review', 'needs_human_review',
+				          'tool-acceptance-agent', $3::jsonb, $4, $5::uuid)
+				ON CONFLICT DO NOTHING`,
+				siteID,
+				fmt.Sprintf("Tier-4 acceptance not converging for %s after %d fix cycle(s): %s",
+					function, attempts, first(v.Details)),
+				string(specJSON),
+				fmt.Sprintf("acceptance_stuck:%s:%s", function, siteID),
+				uuid.NewString(),
+			)
+			if err != nil {
+				logger.Warn("judge: acceptance_stuck insert failed", zap.Error(err))
+			} else {
+				escalated = true
+			}
+		} else if componentID != "" {
 			spec := map[string]interface{}{
 				"component_id": componentID,
 				"check":        "tool_acceptance_tier4",
@@ -648,12 +724,81 @@ Categories: acceptance-fail`,
 	logger.Info("judge: acceptance FAILED",
 		zap.String("function", function),
 		zap.Strings("failed", v.Failed),
-		zap.Bool("improve_tool_created", itemCreated))
+		zap.Bool("improve_tool_created", itemCreated),
+		zap.Bool("escalated", escalated),
+		zap.Int("fix_cycles_spent", attempts))
 	return map[string]interface{}{
 		"all_passed": false, "passed": len(v.Passed), "failed": len(v.Failed),
 		"failing_checks": v.FailedIDs, "failing_instances": v.Failed,
 		"improve_tool_created": itemCreated,
+		"escalated":            escalated,
+		"fix_cycles_spent":     attempts,
 	}, nil
+}
+
+// convergenceAttempts counts the improve_tool cycles that have already tried,
+// and failed, to turn THESE criteria green — the count the loop was missing
+// (bugs_open/010 b). Each acceptance verdict raises a FRESH item, so the
+// fixer's per-item max_fix_attempts never engages across cycles; without this
+// count nothing distinguishes a first attempt from a fourth identical one.
+//
+// Bounded three ways, so it measures non-convergence rather than history:
+//
+//   - terminal attempts only — an item still open is the CURRENT cycle, not a
+//     past failure, and counting it would escalate a loop mid-flight;
+//   - only attempts raised since the tool last PASSED Tier 4 — a green verdict
+//     resets the count, so a criterion that regresses weeks later is treated as
+//     a new defect rather than inheriting an old tally;
+//   - only attempts overlapping the criteria failing NOW — a fixer that fixed X
+//     and left Y unfixed has not yet failed at Y twice.
+//
+// The item_key matches the one the judge writes below, so the count sees the
+// judge's own history and nothing else. jsonb_typeof guards the array cast:
+// older improve_tool rows raised by other paths carry no failing_checks.
+func convergenceAttempts(ctx context.Context, db *sql.DB, function, siteID string, failedIDs []string) (int, error) {
+	if len(failedIDs) == 0 {
+		return 0, nil
+	}
+	var n int
+	err := db.QueryRowContext(ctx, `
+		SELECT count(*)
+		FROM site_work_items w
+		WHERE w.site_id = $1::uuid
+		  AND w.item_type = 'improve_tool'
+		  AND w.item_key = $2
+		  AND w.status IN ('complete', 'failed')
+		  AND w.created_at > COALESCE((
+		        SELECT max(n.created_at) FROM doc_notes n
+		        WHERE n.subject_type = 'tool' AND n.subject_key = $3
+		          AND n.source = 'tool-acceptance'
+		          AND n.categories @> '["acceptance-run"]'::jsonb
+		      ), '-infinity'::timestamptz)
+		  AND jsonb_typeof(w.spec->'failing_checks') = 'array'
+		  AND EXISTS (
+		        SELECT 1 FROM jsonb_array_elements_text(w.spec->'failing_checks') e
+		        WHERE e = ANY($4::text[]))`,
+		siteID,
+		fmt.Sprintf("acceptance_fail:%s:%s", function, siteID),
+		function,
+		toPGTextArrayLiteral(failedIDs),
+	).Scan(&n)
+	return n, err
+}
+
+// ordinalSuffix renders 1st/2nd/3rd/4th for a note that has to read like prose.
+func ordinalSuffix(n int) string {
+	if n%100 >= 11 && n%100 <= 13 {
+		return "th"
+	}
+	switch n % 10 {
+	case 1:
+		return "st"
+	case 2:
+		return "nd"
+	case 3:
+		return "rd"
+	}
+	return "th"
 }
 
 // chromeForcedHint appends the drill-down attribution to a fix suggestion when
