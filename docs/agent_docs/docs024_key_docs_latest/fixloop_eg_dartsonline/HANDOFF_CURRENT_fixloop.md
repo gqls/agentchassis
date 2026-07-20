@@ -279,6 +279,11 @@ first, planted bug never needed".
 - **Rebalance window**: never fire within ~300s of a chassis pod (re)start.
 - **max_tokens** lives INSIDE a step's `ai_service` block; root is dead config
   (client defaults to 2048 and truncates JSON mid-plan).
+  > **CORRECTED 2026-07-20 — this line is INVERTED; see `bugs_open/009`.** The
+  > ROOT block won (first-found-wins); the step block was dead whenever a root
+  > block existed. The rule above only held for agents with no root block.
+  > Fixed by the step-wins overlay (`resolveAIServiceConfig`, ai_actions.go);
+  > from that image on, the step block overrides root key-by-key.
 - **Round counting on <v1.0.1108** was per-correlation (stale reports inflate
   rounds) — fixed, but relevant when reading old run data.
 - **Git: forward-only.** Other chats commit to the same branch concurrently —

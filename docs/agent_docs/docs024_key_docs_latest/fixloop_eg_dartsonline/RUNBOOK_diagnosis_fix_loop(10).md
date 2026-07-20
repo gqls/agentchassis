@@ -512,6 +512,16 @@ precedes persist_note by ~2 min — don't read doc_notes in that gap.
   found (byte counts ~7.5-8.1KB ≈ 2048 tokens — the tell). Put `max_tokens`
   INSIDE `ai_service`. Same family as 001 §16's error_step placement bug:
   config that looks right, parses fine, and is silently ignored.
+  > **CORRECTED 2026-07-20 (bugs_open/009):** "put it inside the STEP's
+  > `ai_service` block" was INVERTED for any agent that also has a ROOT
+  > `ai_service` block — selection was first-found-wins and the ROOT block won,
+  > so the step's entire block was dead config whenever a root block existed.
+  > The advice only ever worked for agents with NO root block
+  > (page-content-writer), and that success was wrongly generalised. Caught by
+  > loop run `960b554d` + direct experiment. Fixed by the step-wins overlay in
+  > `resolveAIServiceConfig` (ai_actions.go, this date): root is the per-key
+  > default, the step block overrides key-by-key — once THAT image is live, the
+  > advice above becomes true. Full mechanism + sweep: `bugs_open/009`.
 
 ## BENCHMARK RUN 3 — 2026-07-10 (corr `5120c0dc`; F0.4d live on v1.0.1102)
 Honest UNVERIFIABLE in 3 iterations (~16 min): iteration 2's state-only
