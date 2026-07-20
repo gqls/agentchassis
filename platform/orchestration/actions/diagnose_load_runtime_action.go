@@ -768,7 +768,8 @@ func isTypeTokenChar(c byte) bool {
 
 // gatherAgentState renders, for every agent type named in the symptom/hypothesis
 // text: the ROOT ai_service block, every per-step ai_service block (both cited
-// often in config bugs — the root SHADOWS the step, see bugs_open/009), the
+// often in config bugs — the step OVERLAYS the root per key since bugs_open/009
+// was fixed; before that the root shadowed the step entirely), the
 // top-level max_tokens key, and recent llm_call_log rows (max_tokens vs
 // output_tokens is the truncation signal, see bugs_open/008). Non-fatal
 // throughout: evidence gathering must never abort a diagnosis.
@@ -826,7 +827,14 @@ func gatherAgentState(ctx context.Context, db *sql.DB, symptomText string, b *st
 	}
 	cfgRows.Close()
 
-	// Per-step ai_service blocks (the ones the root SHADOWS when it exists).
+	// Per-step ai_service blocks. These OVERLAY the root block key-by-key
+	// (resolveAIServiceConfig, ai_actions.go). Both are emitted unannotated and
+	// the two lines can disagree — that is intentional: the bundle states what
+	// the config HOLDS and lets the verdicter reason about precedence, rather
+	// than baking in a precedence claim that a later fix would falsify. It did
+	// falsify one: until bugs_open/009 shipped, the root shadowed the step
+	// wholesale, and a bundle asserting the opposite would have been evidence
+	// for a wrong diagnosis.
 	stepRows, err := db.QueryContext(ctx, `
 		SELECT ad.type, s.key,
 		       COALESCE(s.value #>> '{config,ai_service,model}', ''),
