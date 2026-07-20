@@ -86,3 +86,49 @@ a deliberate test of the restart path (block one pod's access to Kafka and
 watch it recover), and what to do about a 93 MB compiled binary that the sweep
 commit accidentally added to the repository — it belongs to another session's
 commit, so I've left it alone.
+
+---
+
+**2026-07-20, later that evening.** We ran the restart test, and it failed —
+which is the best thing that happened all day.
+
+First, the binary: it's out of the repository, and it turned out to matter more
+than tidiness. Because builds work by exporting a snapshot of the repository
+into a clean folder, that 93 MB file was being copied into the build folder of
+every single service, on every build. It's now removed and blocked from coming
+back. (One honest limit: it still exists in the project's history, and removing
+that would mean rewriting history, which this repo forbids for good reasons.)
+Worth noting the removal took two goes — my first attempt looked like it
+worked and silently didn't, because of the same git subtlety the repo's rules
+rely on elsewhere.
+
+Then the test. Rather than disturb a working pod, I started a throwaway one
+pointed at a dead-end network address, so it couldn't reach Kafka at all. It
+was thoroughly stuck — every attempt to talk to Kafka timed out, it couldn't
+create any of the channels it needed. And my new health check cheerfully
+reported that everything was fine, for six minutes, and never restarted.
+
+So the fix I described this afternoon as "verified live" was broken. Both
+things I checked were true — the new code was running, the endpoint returned
+real data — but I had only ever exercised the case where the answer is "yes".
+I never once asked what it says when the answer should be "no", which is the
+only case the thing exists for. Two separate mistakes were hiding behind that:
+the check was reading its list of Kafka servers from a different place than the
+rest of the program does, so it was watching the wrong Kafka; and it was
+testing reachability by simply opening a connection, which in this network
+succeeds even against addresses where nothing is listening.
+
+Both are now fixed: it reads the same setting the rest of the program uses, and
+it now has a genuine conversation with Kafka rather than just opening a socket.
+That's committed but won't take effect until the next image build — and the
+restart behaviour is still officially unproven until we re-run this test
+afterwards, which is now a test that can actually fail.
+
+Two things for you. There's a policy question I don't want to decide alone: the
+check currently reports healthy if it can reach *any* Kafka server, so a pod
+that has lost just one of the three — the original symptom in this bug — would
+still look fine. Making it stricter would catch that, but risks restarting pods
+unnecessarily during routine maintenance. And a caution for anyone repeating
+the test: my throwaway pod ended up listening to the main shared channel and
+replayed eleven days of old messages. It did no damage (I checked — it wrote
+nothing to the database), but the runbook now says how to avoid it.
