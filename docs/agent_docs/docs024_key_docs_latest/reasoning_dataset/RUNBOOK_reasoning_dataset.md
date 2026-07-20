@@ -134,18 +134,38 @@ from an object"* — use `jsonb_object_keys` / `->'<step name>'`.
 
 ---
 
-## 3. Extraction (Phase 1 — not yet built)
+## 3. Extraction — BUILT and proven (2026-07-20)
 
-Runs **outside** the cluster. Do not run it as a pod:
-`platform/orchestration/actions/training_data_export.go:3-8` records that
-file-writing "landed on ephemeral chassis pods" and was retired for it.
+`cmd/reasoningset` + `cmd/reasoningset/extract.sql`. Runs **outside** the
+cluster: psql extracts, Go transforms (the `cmd/claimscan` idiom). Do not run it
+as a pod — `training_data_export.go:3-8` records that file-writing "landed on
+ephemeral chassis pods" and was retired for it.
 
 ```bash
-# intended shape once cmd/reasoningset exists
-$PSQL -At -f cmd/reasoningset/extract.sql | go run ./cmd/reasoningset \
+cat cmd/reasoningset/extract.sql \
+  | kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+      psql -U clients_user -d clients_db -At \
+  > raw.txt
+
+go run ./cmd/reasoningset \
   --labels docs/agent_docs/docs024_key_docs_latest/reasoning_dataset/LABELS_benchmark.json \
-  --out reasoning_v1.jsonl
+  --out reasoning_v1.jsonl < raw.txt
 ```
+
+> **Do NOT add `-f -` to psql.** `psql -At -f -` under `kubectl exec -i`
+> **silently truncates after the first statement** — the first run emitted 781
+> `step` rows and zero `trail`/`bundle` rows, with only a "Waiting for server to
+> close stdin failed" on stderr to show for it. psql reads stdin by default;
+> dropping `-f -` returns all three result sets. Classic silent-partial-success:
+> exit code 0, plausible-looking output, a third of the data.
+
+The extractor emits **one JSON object per line, tagged `_t`** (`step` / `trail` /
+`bundle`); the Go side joins them. Bad rows are **flagged, never dropped** —
+filter on `input_complete`. Census goes to stderr, JSONL to `--out`.
+
+Baseline run, 2026-07-20: 820 records / 112 trajectories; 689 complete, 131
+flagged (69 `no_value_injection`, 43 `blinded_docs`, 16 `truncated`, 3
+`call_failed`); 7 guard trips, 14 guard-unaligned; 10 benchmark-graded.
 
 Fetch one artifact body by hand (the documented route,
 `090_TRIGGER_needs_diagnosis_v1.sh:364-371`) — used to byte-check `input_state`:
@@ -159,11 +179,28 @@ $PSQL -t -A -c "SELECT body FROM diagnosis_artifacts
 
 ## 4. Verifying an extraction run
 
-1. **Counts reconcile** — JSONL records per task/model must equal §1. A mismatch
-   means a join dropped rows, most likely a uuid/text cast:
-   `orchestration_states.correlation_id` is `uuid`,
-   `diagnosis_artifacts.correlation_id` is `text`,
-   `llm_call_log.correlation_id` is `varchar(255)`.
+1. **Counts reconcile — but bound the comparison by the extract's own newest
+   row.** The corpus is LIVE and grows while you work (council runs, including
+   your own, add `review_*` rows continuously). Comparing JSONL against a
+   live count invents a discrepancy: on 2026-07-20 the JSONL held 676 review
+   rows against a live 694, and the 18 "missing" were rows created *after* the
+   extract. Bound it:
+
+   ```bash
+   LAST=$(grep '"_t": "step"' raw.txt | jq -r '.provenance.created_at' | sort | tail -1)
+   $PSQL -At -c "SELECT count(*) FROM llm_call_log
+                 WHERE step_name ~ '^review_' AND created_at <= '$LAST';"   # == JSONL count
+   ```
+
+   Only once that matches is a residual gap a real join fault — most likely a
+   uuid/text cast (`orchestration_states.correlation_id` is `uuid`,
+   `diagnosis_artifacts.correlation_id` is `text`, `llm_call_log.correlation_id`
+   is `varchar(255)`).
+
+   > Note the wrong turn taken here: the gap was first blamed on SQL `LIKE
+   > 'review_%'` treating `_` as a wildcard. Plausible, and false — the query
+   > `WHERE step_name LIKE 'review_%' AND step_name !~ '^review_'` returns zero
+   > rows. Check the plausible theory before acting on it.
 2. **Two trajectories hand-checked** end-to-end, one CONFIRMED and one
    guard-degraded: emitted `input_state` must byte-match the bundle body from §3.
 3. **Guard block** — find a verdict where raw ≠ coerced; `guard.diagnostic` must

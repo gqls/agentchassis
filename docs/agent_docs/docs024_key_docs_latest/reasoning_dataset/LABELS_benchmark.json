@@ -1,0 +1,45 @@
+{
+  "_README": [
+    "Hand-curated gold labels, keyed on the 8-char correlation prefix used throughout",
+    "NOTES_running_fixloop(10).md. Consumed by cmd/reasoningset via --labels.",
+    "",
+    "WHY HAND-CURATED, NOT PARSED: there is exactly ONE RUBRIC_*.md in the repo, and",
+    "~21 lines in a 141KB notes file carry a grade, in at least four incompatible prose",
+    "shapes (a prospective grading key; two markdown tables with DIFFERENT columns;",
+    "inline bolded prose; a narrative run-ledger carrying several runs at once). The",
+    "value vocabulary is open ('partial', '**PASS, CITED**', '**FAIL - and actively",
+    "dismissed**', 'not reached', 'abstained (neutral)'). Worst of all, several uses of",
+    "FAILED mean an API 529 or a lost spawn, NOT a rubric grade - a regex would",
+    "confidently mislabel those as negatives, which is the one error a benchmark cannot",
+    "absorb. Enumerating ~10 runs by hand is faster and correct.",
+    "",
+    "STATUS: INCOMPLETE - only entries this thread could ground in evidence it actually",
+    "read are present. Do not treat absence as 'ungraded'; treat it as 'not yet",
+    "curated'. Completing it means reading NOTES_running_fixloop(10).md end to end.",
+    "",
+    "FIELDS: benchmark_grade PASS|PARTIAL|FAIL|null (null = no rubric grade, including",
+    "when a run died of infrastructure); terminal merged|approved|escalated|rejected|",
+    "infra_failure|null.",
+    "",
+    "BLINDING: this file is never concatenated into input_state. It ships separately",
+    "and joins at emit time, so the corpus cannot leak the benchmark's own answers."
+  ],
+
+  "e505f70f": {
+    "benchmark_grade": "PASS",
+    "terminal": "approved",
+    "_note": "BUG A, stop_reason undecoded. First real-case CONFIRMED, 2026-07-16, graded PASS against a rubric pre-registered before dispatch. Council-approved; the fix landed as f32b208e5."
+  },
+
+  "960b554d": {
+    "benchmark_grade": "PARTIAL",
+    "terminal": "escalated",
+    "_note": "BUG B final run. Gated UNVERIFIABLE at iteration-cap. NOTES(10):2001 records the RAW verdict as CONFIRMED and rubric-perfect (5 static citations) with the coercion producing the gate - so this is a run where guard.tripped should be true and the PARTIAL is a grade on the gated output, not on the reasoning."
+  },
+
+  "af19fa62": {
+    "benchmark_grade": null,
+    "terminal": "infra_failure",
+    "_note": "v2 mechanism-only. NOTES(10):1965 says 'FAILED on API 529 Overloaded'. This is EXACTLY the row a regex would mislabel: FAILED here means the API was overloaded, not that the reasoning was wrong. Grade is null, not FAIL."
+  }
+}
