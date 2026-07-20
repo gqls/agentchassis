@@ -208,3 +208,49 @@ costume: I concluded a *mechanism* from an *absence*, without waiting long enoug
 to know. The other four cost credibility; this one cost money.
 
 ---
+## 2026-07-19, end of day — handed over
+
+Both are now with the threads that own the code.
+
+**B went to the work-item-completion thread**, and that placement is itself worth
+a note: I first assigned it, from the code's git history, to the thread that
+originally built the verifier. Reading the workstream documents rather than the
+commit log showed a different thread owns this class — and its own plan, written
+the day before, **already names this exact gap, down to the same item type I'd
+picked**. So the handoff went there, with a pointer left for the thread that built
+the verifier, since the defect sits in their code and they may hold context we
+don't. (Sixth wrong call of the workstream, same shape as the rest, caught in
+about two minutes and for free.)
+
+**Along the way I filed the bug the council found.** The verifier that checks
+whether a defect is really gone reports *success* when the thing it's checking has
+vanished — and a vanished component is exactly what happens when a rebuild
+silently deletes content. So a content-loss incident currently gets recorded as a
+verified fix, by the mechanism built to stop us trusting self-reported successes.
+That's `bugs_open/032`, with a conservative fix that leaves item flow unchanged
+and turns a false success into a visible "couldn't check".
+
+I did *not* file a second bug for the coverage problem — that this verification
+mechanism has been switched on for one item type out of about fifty. Another
+thread had already filed that exact pattern yesterday, from a council objection of
+its own, so I added mine as an instance underneath rather than starting a rival
+account. The general lesson also went into the debugging guide so nobody re-walks
+it.
+
+**A has no owner, and that's the honest blocker.** The file it changes has no
+active thread and no workstream tracking it — its last meaningful commits are
+generic and old. Rather than dump it on the nearest plausible thread, I've filed
+it where the motivation lives and flagged it for you to assign. It's two small
+edits from likely approval, and both are written out so whoever picks it up
+doesn't re-spend the council rounds.
+
+**Twice today my documents were swept into other sessions' broad commits.**
+Nothing was lost and I've verified the content landed intact, but it's worth you
+knowing it happens — the repo's own guidance says committing narrowly protects
+others from you, not you from others, and today was a live demonstration.
+
+**What's actually left for this workstream:** the extractor. None of the above
+blocks it. That's the piece that produces the dataset, and it hasn't been
+started.
+
+---
