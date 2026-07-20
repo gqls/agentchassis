@@ -152,7 +152,15 @@ MatchMatrix was hand-authored for exactly this reason.
    listed it as open and so did this one, until `scripts/who-owns.py` surfaced
    the closure. Nothing to do.
 
-6. **Optional: `tool-robot-payload-budget-calculator`.** Still `planned`, no page,
+6. **`bugs_open/052` — filed this turn, unowned, and the one build-workflow
+   change worth arguing for.** A listing regenerates from the page set with no
+   build-state filter, so it re-advertises never-built pages; it undid the dead
+   card removal on this site's homepage. Measured honestly: currently biting ONE
+   site (the other two never-built tool pages fleet-wide are unreferenced). The
+   trap for a fixer is that `needs_rebuild` pages usually still serve 200 —
+   exclude `planned`, do not include-only `deployed`.
+
+7. **Optional: `tool-robot-payload-budget-calculator`.** Still `planned`, no page,
    card removed, CTA repointed — so nothing is user-visibly broken. If it is ever
    built, it is the *safer* of the two (formula-based, not data-backed) and the
    reference implementation above is the route.
