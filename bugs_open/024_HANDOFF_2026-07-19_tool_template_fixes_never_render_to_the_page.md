@@ -146,3 +146,54 @@ Not tool-specific in principle: **any** component whose fix is written via
 Tools are simply the population where that is the normal shape.
 Adjacent to `bugs_open/021` (the durable write guard covers one path only) — same
 `page_components.rendered_html` surface, different failure.
+
+---
+
+## Second, independent reproduction — 2026-07-20, idea.uk, and the scope is WIDER than tool components
+
+The idea.uk thread hit defect **(2)** (rerender routes to assemble-from-stale) from a completely
+different direction: no tool-improver, no `update_component_html`, just a hand-edited
+`content_components.html_template` plus a plain `rerender-pages` run. Same outcome.
+
+**What was edited:** `audience-check-form`'s template (added a `<script src>` ref and an
+`#ac-result` div) and `tool-list`'s resolved URL, via `sql/p3_03`.
+
+**What the platform reported:** total success. **9/9** `page_rerender` items `complete`; a real
+commit per page to `gqls/vm-sites`; and the JS asset genuinely published —
+`/tools/assets/audience-check-form.js` → **HTTP 200, 1469B**.
+
+**What actually changed on the page:** nothing. No `<script>` ref, no `#ac-result`, cards still
+`href="/audience-check"`.
+
+**Why it matters for this bug file:**
+
+1. **The trigger is not tool-specific.** `rerender-pages` creates its `page_rerender` items with
+   **no `spec.reason` at all** — verified: `{"domain","page_id","filename","page_name"}` and nothing
+   else. So *every* item it produces takes `else_step: render_page`. This is not "the tool-improver
+   sends the wrong reason"; it is **the general-purpose site rerender entry point that cannot ever
+   re-render a template**, for any component, on any site. Anyone editing an `html_template` and
+   reaching for the obvious rerender gets a green run and no change.
+2. **`rerender-pages` exposes no way to set the reason.** Its input takes `site_id`, `domain`,
+   `refresh_site_components` — there is no reason parameter to pass through. The only route to
+   `rerender_sections` found was inserting `page_rerender` items by hand with
+   `reason='section_data_resolved'` (`sql/p3_04`). That worked: both pages re-rendered from the
+   template and deployed correctly, verified live.
+3. **A partial success is the worst signal.** The asset published while the tag referencing it did
+   not, because `collectJSAssets` reads `content_components.js_content` **directly** rather than the
+   rendered HTML. Result: a file that exists, returns 200, and nothing loads. Anyone spot-checking
+   "did my change ship?" by curling the asset gets a false green.
+4. **I nearly mis-diagnosed it the other way.** Seeing stale `page_components.rendered_html`
+   timestamps I first concluded "reported complete, did nothing" — wrong; the deploys were real. The
+   work item's own `result` JSON lists the deployed files verbatim and is what settles it. *A stale
+   `page_components.rendered_html` is not evidence that a rerender did nothing.*
+
+**Correction to this file's quoted gate.** The condition above is right (3 reasons — the LIVE
+`page-rerender` definition confirms `image_landed OR section_data_resolved OR cta_links_stale`), but
+note the **source comment in the Go is stale**: `rerender_page_sections_action.go:47-51` documents
+only two (`image_landed OR section_data_resolved`) and omits `cta_links_stale`. Read the agent
+definition, not the comment.
+
+**Suggested addition to the fix candidates:** whatever else changes, `rerender-pages` should either
+pass a reason through or default to the section-rerender path. As it stands the platform's most
+obvious "re-render this site" button is the one that cannot apply a template change, and it reports
+success while doing so.
