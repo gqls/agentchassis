@@ -151,3 +151,49 @@ isn't a reliable one, and the variability *is* the finding.
 Worth noting all three of us could have read the code instead. It explains the whole
 behaviour in ten minutes and would have told us up front that there was no steady
 rate to go looking for. We each reached for the stopwatch with the source open.
+
+## 2026-07-20 (evening) — it turns out the queue is almost entirely the robot's own housekeeping
+
+After three of us had spent the afternoon arguing about how *fast* the queue empties,
+it occurred to me that nobody had looked at what was actually in it. That turned out
+to be the useful question.
+
+Ninety-three per cent of the messages in the queue are put there by our own
+scheduler, not by anyone working. Two routine jobs — a health check on the AI
+endpoints, and a trigger that looks for pages to build — account for eighty-four per
+cent of everything in the lane on their own. The council reviews and diagnosis runs
+that this whole bug is *about* make up about six per cent. They are queuing behind
+the housekeeping.
+
+And the housekeeping is winning. Over seventy minutes I watched, the scheduler put
+messages in at about 2.6 a minute and the system took them out at about 1.4 a
+minute. The backlog grew from 82 to 164, which is exactly the difference — the
+arithmetic balances to the penny. So this isn't sessions getting in each other's way,
+which is how the bug was originally framed. It's two routine chores running more
+often than the system can service them, and everything else waiting behind.
+
+That's much better news than it sounds, because the schedule lives in a database
+column rather than in code — it can be changed immediately, without a rebuild.
+
+**One warning I've written up carefully, because it's the kind of thing that gets
+"tidied".** Both those jobs are configured to run every 30 seconds, but they actually
+run every 60. The reason is a hair's-breadth timing quirk: the scheduler wakes up
+every 30 seconds too, and when it wakes at the exact moment a job becomes due, it
+checks a fraction of a second early, decides the job isn't due yet, and picks it up
+on the next pass. So we're getting half the configured rate — and if someone spots
+that discrepancy and "corrects" it, the load doubles overnight and the backlog goes
+from growing slowly to growing fast.
+
+I also checked something the bug file asserts: that everything in the system funnels
+through this one lane. It doesn't. Each spawned worker gets its own private queue and
+its own pod — there are over 800 such queues. Only the top-level "start this job"
+messages go through the single lane. That makes the problem narrower and the fix
+smaller than the file implies.
+
+**One awkward practical note.** The diagnosis run I submitted to check my own
+reasoning has now been waiting fifty-five minutes and still hasn't started, because
+it's stuck in exactly the queue it was sent to investigate. And since the queue is
+currently growing rather than shrinking, I can't honestly tell you when it will run
+— it'll go when the job at the front happens to be a quick one. So "wait for the
+verdict before doing anything" may not be a workable plan today, and you may want to
+decide without it.

@@ -255,3 +255,71 @@ files and reached for the stopwatch instead; the code predicts non-stationarity
 outright, which would have told us the rate was not a thing to go and measure.
 
 Logged as `WRONG_CALLS.md` (9), with that synthesis.
+
+---
+
+## 2026-07-20 (evening) — the question nobody had asked: what is IN the queue
+
+Three threads had now argued about how fast the consumer drains. None of us had
+looked at what we were draining. `kcat -o -300`, headers only:
+
+- **93%** of messages are `from_agent_type=kafka-scheduler` (550/588); 6.5% `user`.
+- **84%** are two jobs: `sched-ai-endpoint-health-check` (43%) and
+  `sched-build-pipeline-trigger` (41%).
+- `council-gate` is 5%, `needs-diagnosis` 1%. **The interactive work this bug is
+  about is a rounding error queued behind cron.** [VERIFIED — headers]
+
+### The mass balance closes, which is the strongest evidence yet
+
+19:05 → 20:15 UTC (70 min), from offsets:
+
+| | | rate |
+|---|---|---|
+| produced | 96040 → 96222 (+182) | 2.60/min |
+| consumed | 95958 → 96058 (+100) | 1.43/min |
+| shortfall | | **1.17/min** |
+
+Observed LAG: 82 → 164 = **+1.17/min**. To two decimals. Nothing else is going on.
+
+**On quoting rates after retracting rates:** this is a *mass balance over one closed
+window with both endpoints stated* — an account of where 82 messages came from, not
+a forecast. That is the distinction my retraction turns on, and I want it explicit
+so the next reader does not think I have quietly resumed the habit. Do not carry
+1.43/min forward as an ETA.
+
+### Config, and a landmine in it
+
+`scheduled_tasks` — twelve enabled tasks target this lane; the two dominant ones are
+`interval_seconds = 30`. Nominal configured load **≈6 msg/min** against a consumer
+draining 1.43/min.
+
+But `TICK_INTERVAL_SECONDS` is **also 30**, and the due check is
+`last_triggered_at + interval <= NOW()` (`cmd/scheduler/main.go` `loadDueTasks`), so
+the boundary tick is marginally early, the task is not yet due, and it fires on the
+*next* tick. **A 30 s task fires every 60 s.** Confirmed on the wire: 59–60 s
+spacing, drifting a second at a time — the aliasing signature.
+
+**So the queue is currently protected by an off-by-one, and correcting it would
+double production to ~4/min against a ~1.4/min consumer.** Recorded as a landmine in
+the bug file. This is the sort of thing that gets "tidied" by someone who sees
+`interval_seconds=30` and a 60 s reality and assumes a bug.
+
+### Blast radius narrowed [VERIFIED]
+
+`spawnAgentKubernetesJobFromDefinition` (`spawn_actions.go:2320`) launches each
+spawned agent as its **own Kubernetes pod** on its own `job.*` topic — 815 topics,
+8 `agent-*` pods live during the measurement. So this lane is **top-level dispatch
+only**; per-agent work is genuinely concurrent. 030's "every trigger from every
+concurrent session funnels through that single lane" is right about *triggers* and
+too broad if read as *work*.
+
+The contention is **cron-vs-everything**, not session-vs-session. That is a sharper
+bug and a cheaper fix: `interval_seconds` is a DB column and therefore live with no
+image roll.
+
+### Status — the wait-for-the-verdict plan is being defeated by the bug itself
+
+Diagnosis corr `78470372` has been `awaiting_diagnosis` for **55 minutes** and has
+not started. LAG 168 and rising at ~1.2/min. Since the queue is *diverging*, there
+is no basis for expecting it to start at any particular time — it will start when
+the head of the queue happens to be cheap, or not today. Flagged to the owner.
