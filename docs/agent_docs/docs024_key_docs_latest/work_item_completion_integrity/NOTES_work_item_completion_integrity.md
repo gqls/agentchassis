@@ -182,3 +182,68 @@ already failing OPEN on verifier error, which is a property of the code this thr
 no `UNKNOWN_HANDLER_VERDICT` rows in `agent_error_log`. All three are the expected values,
 and the second two are *absence of evidence*, recorded as such rather than as proof.
 
+---
+
+## 2026-07-20 (later) — the verifier coverage gap (bugs_open/021 §INSTANCE 2)
+
+Owner asked to fix the gap and chose the full scope: contract widening + a
+page_rerender verifier + the coverage guard. Shipped two of the three; the third is
+held, and that is the substance of this entry.
+
+**Corrected the filed diagnosis.** 021 and `verifiers.go` both attribute "one
+verifier for 69 item types" to the mechanism being opt-in — *"stays at one unless an
+author remembers"*. Incomplete, and it points the fix at discipline instead of code.
+The contract passed only `(ctx, db, spec, logger)`. Measured over all 5,514 live
+items: 2,370 specs carry `page_id`, 310 carry `component_id`, **9** carry `site_id`.
+So for a site-aggregate type — `hardcoded_section_colors` files ONE item per site and
+its predicate needs the site_id — a verifier was **unwritable**, however willing the
+author. submission_B proposed exactly that verifier, so it was unimplementable as
+specced. `VerifyTarget` fixes the real blocker.
+
+### MISSTEP 4 — I recommended page_rerender as the easy win. It was the trap.
+
+Reasoned from volume + identity: 1,849 of 4,644 completions, `page_id` on 1,914 of
+1,929, per-target items, predicate already in `check_misdirected_cta`. I put it to
+the owner as the recommended scope on that basis, and used it to argue
+council-reviewed submission_B had chosen badly.
+
+Wrote it. Tested it — six cases, all passing. Then, writing the verifier's own
+scope-guard comment (explaining why an unrecognised `spec.reason` must refuse), I
+had to state what the handler is responsible for — which sent me to
+`check_misdirected_cta`'s header:
+
+> *"the recompute only rewrites the CTA url fields of components in the actions
+> package's ctaFieldNames set ... a misdirected link inside any other component
+> (e.g. prose) ... is re-detected on the next discovery pass and escalates via the
+> two-strike rule to human review — loud, not silent."*
+
+My verifier checked **every** anchor on the page. It was **stricter than the
+handler's remit**: a correctly-handled rerender with an out-of-remit prose misdirect
+would verify unresolved, burn attempts, and land in `failed` — destroying the
+designed escalation across 1,849 items. A regression wearing a fix's clothing.
+
+**My tests all passed because they tested the predicate I chose, not the one the
+handler implements.** That is the transferable bit: test-green says your code does
+what you meant, never that you meant the right thing.
+
+Held it on the owner's call. Removed the verifier and reverted the
+`loadCTAMatchIndexFor` split with it — an uncalled helper is dead code, and dead code
+misleading a future diagnosis is precisely what bugs_open/017 was. Kept
+`ctaClassifyAnchor` (Run uses it) and its 9 test cases, which the check's core
+classification logic had never had. Logged in `WRONG_CALLS.md`; tally row *"read the
+code before asserting a mechanism"* 4 → 5.
+
+**Also caught while writing my own tests:** one case I asserted FAILED —
+`NormalizePagePath` does not insert a leading slash, so a relative href would read as
+a misdirect. Checked before calling it a bug: 0 components carry relative internal
+hrefs against 169 absolute. Latent asymmetry, not a live defect; documented in the
+test, not filed.
+
+**Shipped:** `VerifyTarget` contract, the predicate extraction + its tests, and the
+coverage guard (69 item types classified: 1 verified, 35 mechanical, 2 no_target,
+15 creation, 17 judgement). Net new verifiers: **zero**. The gain is that the gap is
+now a checked, categorised decision that breaks the build when a new item type
+appears unclassified — not an invisible default. Categories are marked [INFERRED]
+where I did not open the check, per CLAUDE.md's new marker rule, because misstep 4
+was that exact error one level down.
+

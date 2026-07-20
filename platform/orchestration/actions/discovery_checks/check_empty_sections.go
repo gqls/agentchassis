@@ -189,8 +189,8 @@ var emptyHeadingRe = regexp.MustCompile(`(?i)<h[1-6][^>]*>\s*</h[1-6]>`)
 // single component named in the item spec. Registered for item_type
 // "empty_section" so CompleteWorkItemAction can refuse to stamp 'complete'
 // while the section still renders empty.
-func VerifyEmptySectionResolved(ctx context.Context, db *sql.DB, spec map[string]interface{}, logger *zap.Logger) (VerifyResult, error) {
-	componentID, _ := spec["component_id"].(string)
+func VerifyEmptySectionResolved(ctx context.Context, db *sql.DB, target VerifyTarget, logger *zap.Logger) (VerifyResult, error) {
+	componentID, _ := target.Spec["component_id"].(string)
 	if componentID == "" {
 		return VerifyResult{}, fmt.Errorf("empty_section spec has no component_id")
 	}

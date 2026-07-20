@@ -91,3 +91,43 @@ GROUP BY 1 ORDER BY started DESC LIMIT 10;
 orchestration measures queue depth, not delivery. Latency was ~10s quiet, **~16 minutes**
 under backlog. Ask when OTHER orchestrations started before concluding anything. Full
 pattern: 016b §9 "A queued orchestration is indistinguishable from a dropped one".
+
+## Verifier coverage (bugs_open/021 §INSTANCE 2)
+
+**Refresh the coverage guard's denominator.** `verifier_coverage_test.go` holds a
+hand-maintained list of live item types, because they cannot be derived in Go: the
+check registry keys on check NAME and item types are string literals inside each
+`Run`, and the highest-volume types come from paths with no discovery check at all.
+
+```sql
+-- the denominator. Paste into liveItemTypes, update the "refreshed" date.
+SELECT DISTINCT item_type FROM site_work_items ORDER BY 1;
+
+-- the shape of the gap: volume + which target ids are available per type
+SELECT item_type,
+       count(*) FILTER (WHERE status='complete')      AS completed,
+       count(*) FILTER (WHERE spec ? 'page_id')       AS has_page_id,
+       count(*) FILTER (WHERE spec ? 'component_id')  AS has_component_id
+FROM site_work_items GROUP BY 1 ORDER BY 2 DESC;
+
+-- coverage today
+SELECT count(*) FILTER (WHERE status='complete')                AS complete_total,
+       count(*) FILTER (WHERE status='complete' AND result ? '_verification') AS verified
+FROM site_work_items;   -- 2026-07-20: 4,644 / 5
+```
+
+**Gotcha — the one that cost this thread a build.** Do NOT conclude an item type is
+verifiable from its *detector's* predicate. A verifier asserts the HANDLER did its
+job, so read the handler's remit first. `page_rerender` looked ideal (1,849
+completions, page_id on 1,914 of 1,929) but its handler only rewrites CTA fields in
+six component types; a whole-page predicate would mark correctly-handled items
+unresolved and destroy the designed two-strike escalation. See WRONG_CALLS.md
+2026-07-20 and the `page_rerender` entry in the guard's gap map.
+
+**Gotcha — `go test` output is the report.** `TestVerifierCoverageIsReported` never
+fails; run it with `-v` to see coverage by category:
+
+```bash
+go test ./platform/orchestration/actions/discovery_checks/ -run TestVerifierCoverage -v
+```
+

@@ -41,10 +41,12 @@ import (
 func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, logger *zap.Logger) (map[string]interface{}, bool) {
 	var itemType string
 	var specJSON []byte
+	var siteID uuid.UUID
+	var pageID uuid.NullUUID
 	err := db.QueryRowContext(ctx, `
-		SELECT item_type, COALESCE(spec, '{}'::jsonb)
+		SELECT item_type, COALESCE(spec, '{}'::jsonb), site_id, page_id
 		FROM site_work_items WHERE id = $1
-	`, itemID).Scan(&itemType, &specJSON)
+	`, itemID).Scan(&itemType, &specJSON, &siteID, &pageID)
 	if err != nil {
 		// Row missing or unreadable — the completion UPDATE will no-op or
 		// fail on its own; nothing to verify here.
@@ -69,7 +71,17 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, log
 		}, true
 	}
 
-	result, err := verifier(ctx, db, spec, logger)
+	target := checks.VerifyTarget{
+		ItemID:   itemID,
+		SiteID:   siteID,
+		ItemType: itemType,
+		Spec:     spec,
+	}
+	if pageID.Valid {
+		target.PageID = &pageID.UUID
+	}
+
+	result, err := verifier(ctx, db, target, logger)
 	if err != nil {
 		logger.Warn("verifyBeforeComplete: verifier error — failing open",
 			zap.String("item_id", itemID.String()),

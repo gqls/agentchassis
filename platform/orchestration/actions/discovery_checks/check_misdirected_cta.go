@@ -147,6 +147,41 @@ func bestPageMatch(anchorTokens []string, pages []ctaMatchPage) *ctaMatchPage {
 	return best
 }
 
+// ctaClassifyAnchor is THE definition of "this CTA is misdirected", shared by
+// the discovery check and the completion verifier so the two cannot drift. If
+// they drifted, a verifier could resolve a defect the next discovery pass
+// immediately re-detects — churn that reads as progress, the failure bugs_open/017
+// was filed about.
+//
+// Three outcomes, which the caller must distinguish:
+//   - named=false            → the anchor's copy names no real page. Not a
+//     misdirect; the check applies its own unknown-destination rules to it.
+//   - named=true, nil        → copy names a page and the href agrees. Healthy.
+//   - named=true, non-nil    → copy names one page, href points elsewhere.
+//
+// Generic link text ("Learn More") reduces to zero distinctive tokens and is
+// reported as named=false, so it is never a misdirect.
+func ctaClassifyAnchor(a datahelpers.Anchor, slotName string, pages []ctaMatchPage) (*misdirectedAnchor, bool) {
+	tokens := ctaTokens(a.Text)
+	if len(tokens) == 0 {
+		return nil, false
+	}
+	best := bestPageMatch(tokens, pages)
+	if best == nil {
+		return nil, false
+	}
+	if datahelpers.NormalizePagePath(best.URL) == datahelpers.NormalizePagePath(a.Href) {
+		return nil, true
+	}
+	return &misdirectedAnchor{
+		SlotName:             slotName,
+		Text:                 a.Text,
+		Href:                 a.Href,
+		SuggestedTarget:      best.URL,
+		SuggestedTargetTitle: best.Title,
+	}, true
+}
+
 // misdirectedAnchor is one flagged anchor on a page.
 type misdirectedAnchor struct {
 	SlotName             string `json:"slot_name"`
@@ -199,16 +234,9 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			if scope != datahelpers.LinkScopePage && scope != datahelpers.LinkScopeEmpty {
 				continue // external/mailto/asset/anchor — not internal page links
 			}
-			tokens := ctaTokens(a.Text)
-			if len(tokens) == 0 {
-				continue // generic text ("Learn More") names nothing — skip
-			}
-
-			best := bestPageMatch(tokens, pages)
-			hrefNorm := datahelpers.NormalizePagePath(a.Href)
-
-			if best != nil {
-				if datahelpers.NormalizePagePath(best.URL) == hrefNorm {
+			misdirect, named := ctaClassifyAnchor(a, slotName, pages)
+			if named {
+				if misdirect == nil {
 					continue // copy and destination agree
 				}
 				agg, seen := misdirectedByPage[pageName]
@@ -217,15 +245,11 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 					misdirectedByPage[pageName] = agg
 					misdirectedOrder = append(misdirectedOrder, pageName)
 				}
-				agg.misdirects = append(agg.misdirects, misdirectedAnchor{
-					SlotName:             slotName,
-					Text:                 a.Text,
-					Href:                 a.Href,
-					SuggestedTarget:      best.URL,
-					SuggestedTargetTitle: best.Title,
-				})
+				agg.misdirects = append(agg.misdirects, *misdirect)
 				continue
 			}
+
+			hrefNorm := datahelpers.NormalizePagePath(a.Href)
 
 			// Distinctive text matching NO page: only a problem when the href
 			// is itself wrong — empty, phantom, circular, an excluded area, or

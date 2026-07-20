@@ -87,7 +87,7 @@ func TestVerifyMissingComponentIsNotSuccess(t *testing.T) {
 
 	res, err := VerifyEmptySectionResolved(
 		context.Background(), db,
-		map[string]interface{}{"component_id": componentID},
+		VerifyTarget{Spec: map[string]interface{}{"component_id": componentID}},
 		zap.NewNop(),
 	)
 
@@ -125,7 +125,7 @@ func TestVerifyPresentButEmptyStillFailsClosed(t *testing.T) {
 
 	res, err := VerifyEmptySectionResolved(
 		context.Background(), db,
-		map[string]interface{}{"component_id": componentID},
+		VerifyTarget{Spec: map[string]interface{}{"component_id": componentID}},
 		zap.NewNop(),
 	)
 	if err != nil {
