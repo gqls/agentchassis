@@ -1175,3 +1175,60 @@ structurally unable to check the tables this class of submission rests on.
 all sources the validator COALESCEs" — that sweep evidently missed `sites.content_data`. Not
 rendering today (the footer takes `email` from the render context), but it is a live wrong address
 one code path away. **Verify before repeating the "fixed everywhere" claim.**
+
+### §X.7 — COUNCIL ROUND 2: REVISE again (2026-07-20 20:36) — 6 approve / 5 object, and the split is real
+
+Round 2 completed (queued ~40 min, ran ~14 min — bug 030's queue, not the council). **REVISE**,
+decided_by editquality. `unreadable: ["review_guidelines.result"]` — a DIFFERENT seat truncated this
+round (guidelines, vs editquality in round 1) and the round again carried on rather than voiding, so
+019's fix is holding across seats. One high objection (down from two), 6 medium, 11 low.
+
+**Two are genuine defects in MY sketch — accept:**
+1. **editquality (medium), edit 2/4 wiring:** `unresolved` is declared inside `if len(inputSchemaRaw)
+   > 0 { … }` but edit 4 reads it at the RenderTemplate call site OUTSIDE that block — a Go scoping
+   bug as written. Must declare `var unresolved []string` at function scope. Correct, and it is the
+   join between the two edits, so it matters.
+2. **editquality/prior_art (low), the href/src heuristic:** `missingBareFields` only matches
+   double-quoted `href="{{.x}}"`. I checked the corpus: the escalation is the only new actionable
+   signal, so its precision matters. Single-quoted/whitespace variants slip through. Fixable by
+   widening the regex; still a heuristic (acknowledged in risk 5).
+
+**The recurring HIGH (bug_historian) is now a genuine design fork, not a defect — this needs an
+owner call, not another silent revise:**
+> the strip `ReplaceAll("<no value>","")` still fires on ANY runtime `<no value>` (e.g. `{{.Foo.Bar}}`,
+> `{{.Foo | fn}}`), but the NEW log only fires when `missingBareFields` (regex on `{{.Name}}` in the
+> SOURCE) matched. So detection NARROWS vs the old unconditional count-log, even as it gains field
+> names. And render_guardian (medium) + the FAIL-LOUD contract: **a named log is still not
+> escalation** — content is still blanked, just better-documented.
+
+They are right that a log is not a gate. My submission argued that on purpose (bugs_open/023: the
+platform's problem here is a DELIVERY gap — 34 findings unread — so another unconsumed signal helps
+nobody). **That disagreement is now explicit and repeated, and it will not resolve by me revising
+wording.** The council wants fail-loud to MEAN something (block or escalate); the plan deliberately
+chose observability because the consumers don't exist. That is an owner decision about scope.
+
+**Everything else the reviewers asked for, I have now MEASURED (they flagged these as asserted, and
+several seats literally cannot query the tables):**
+- **Log-volume risk (guardian, medium — the one real unquantified item):** components with a
+  URL-bound bare placeholder = **71 total / 59 active**; of the active, **30 ungated / 29 gated**. So
+  edit 3 could newly log at Error on up to ~30 active components fleet-wide when their URL fields are
+  unresolved. That is the real cost of the mechanism change, and it was unquantified. NOT trivial.
+- **Blast radius (guardian/prior_art, asserted):** confirmed by query — `render_site_components` is a
+  step in exactly the six agents named (nav-link-fixer, nav-updater, pageflow-builder, rerender-pages,
+  rerender-site, site-work-orchestrator). Attachable as a check next round.
+- **The existing guard (reuse/prior_art, medium):** `store_generated_component_action.go:305-318` is
+  **generation-time and blocking** — it refuses to STORE a template that already contains `<no value>`,
+  and refuses a regeneration that drops/renames a field. It does NOT detect render-time blanking of a
+  correctly-stored template. So it is not the same guard and edit 3 does not duplicate it; they are
+  complementary (store-time contract vs render-time signal). The reviewers were right to ask; the
+  answer is that they are different layers.
+- **doc_notes (reuse/guardian/tooling, low):** table verified — `(subject_type, subject_key, body,
+  categories jsonb, …)`. Edit 6's INSERT matches. Real table, established provenance mechanism.
+- **sourceResolver signature (multiple, low):** confirmed against source — `newSourceResolver(siteID,
+  db, logger, pageName)` and `(r *sourceResolver) resolve(ctx, source) (interface{}, bool)`. The
+  sketch's call matches.
+
+**So round 3 is not mechanical.** The measurable objections I can close in the plan. The load-bearing
+one is a scope decision — does the fix stop at "name the dead control loudly" (my position, grounded
+in 023's delivery gap) or must it escalate/gate (the council's position, grounded in FAIL-LOUD)? I am
+taking that to the owner rather than revising past it a third time. See README entry.
