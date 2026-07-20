@@ -613,3 +613,29 @@ class is not a better verify query; it is **re-reading after a render**, which i
 CLAUDE.md's "trust the rendered artefact, not the status" applied to the DB row
 as well as the page. My `content_data` verify ran inside the writing transaction
 and could not, in principle, have caught any of them.
+
+## Turn (bugfix-022 thread) — 2026-07-20 evening — scheme-guard live test touched this site
+
+Context: `bugs_open/022` (the R1 damage mechanism — spec background silently
+overriding `scheme=dark`) got its structural fix (`enforceLayoutScheme`,
+`9c3b0c3e7`) into the v1.0.1140 roll. This site is the canonical scheme=dark
+target, so its live verification ran here. What was done TO robot-hands:
+
+- `design_intent` superseded twice and **restored verbatim** from a pre-test
+  snapshot — net state: the R1b palette pin exactly as before (`background
+  #0F1218`, hard "never light" guidance). The two `bugfix-022-thread` rows in
+  `site_specs` history document the test window.
+- One real webdesign-agent run (orch `fb744273`) completed WITH THE PIN
+  REMOVED: the LLM proposed dark anyway (`#0F1219` — it anchors on
+  `content_data.color_scheme`), CSS rendered dark, deployed, live URL
+  verified. So: one routine CSS commit on gqls/sites (#0F1218→#0F1219
+  hairline drift in some values), site visually unchanged, guard live in the
+  render path.
+- A deterministic reject-path test (pin pointed at light values) was
+  attempted; both dispatches vanished (003-class producer-side drop, noted in
+  003) and the test was abandoned with the pin restored rather than left
+  armed. If anyone wants that live-fire later, the method is in
+  `bugs_closed/022`'s closure record.
+
+R-series implication: the R1 churn mechanism is now guarded at the merge seam
+fleet-wide, not just by this site's pin. The pin stays (defence-in-depth).

@@ -624,3 +624,23 @@ health metrics as evidence.
   90 min.
 - `EXECUTING_STEP` zombie count drops to 0 and stays there.
 - Re-run §2's SQL after a week: `spawn_*` reaper deaths should collapse.
+
+---
+
+## Occurrence 2026-07-20 ~18:45 & ~19:00 UTC — [INFERRED] the same network fault at the PRODUCER side (bugfix-022 thread)
+
+Two consecutive `kcat -P` dispatches to `system.agent.generic.requests`
+(ephemeral `kubectl -n kafka run` kcat pods, the runbook-standard envelope,
+fresh UUIDs) produced **no orchestration row, ever** — no error either; kcat
+exits 0 and the pod is deleted. An identical dispatch 40 minutes earlier
+(orch `fb744273`) appeared within seconds, and the cluster processed 38
+orchestrations in the surrounding 12 minutes, so consumers were healthy.
+[INFERRED] this is this bug's broker-2 network path fault surfacing at the
+**producer**: `kcat -P` delivery is async and unconfirmed — if the ephemeral
+pod lands on a bad node, the publish dies with the pod and nothing anywhere
+records it. Each `kubectl run` schedules onto a fresh node, which fits the
+worked/failed/failed sequence. Not proven (the kcat pods are gone; no node
+placement retained). If F2–F4 land, producer-side loss stays out of scope —
+a dispatch wrapper that produces with `-X request.required.acks=all` and
+confirms delivery (or just polls for the orchestration row before declaring
+success, as CLAUDE.md's council runbook already advises) is the cheap guard.

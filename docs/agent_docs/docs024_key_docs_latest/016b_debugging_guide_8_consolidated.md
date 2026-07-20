@@ -1932,6 +1932,40 @@ LAST reader" (`bugs_closed/028`). One discards the tail of what it keeps, the
 other discards a whole field — both silently, both leaving output that reads as
 intended. Fleet enumeration + fix candidates: `bugs_open/027` §4b.
 
+### A recorded user decision with no enforcement point is decorative — an LLM re-guesses it every run (2026-07-20)
+
+**Symptom.** robot-hands runs `tool-portal-dark` (`layouts.scheme='dark'`, a
+user decision taken twice); a routine webdesign run shipped
+`--color-background: #F4F5F7` — light — onto it. No error, no warning
+(`bugs_closed/022`).
+
+**Mechanism.** The palette merge's core-slot rule ("spec wins") is right for
+site identity and wrong for *scheme*: `analyze_design` emits a fresh
+`color_scheme` on every run, and **nothing anywhere compared the proposed
+background against the layout's declared scheme**. The decision was recorded
+in the DB but had no enforcement point, so the per-run LLM guess silently
+overrode it — every run was a fresh roll of the dice.
+
+**The transferable test.** When config records a user decision (a scheme, a
+lock, a pin) and any pipeline stage merges generated output over related
+fields, grep for the code that COMPARES them. If no comparison exists, the
+decision is decorative regardless of how prominently it is stored. Prompt-side
+mitigation (design_intent pins) only lowers the trigger rate — the merge seam
+is where authority must live.
+
+**Fix shape that survived five council rounds** (corr `0328ddc7`): guard at
+the merge boundary's single verified call site; restore paired slots
+TOGETHER (background+text — a half-swap breaks contrast; round 1 caught my
+draft doing exactly that); **hard-fail what you cannot repair** — a Warn
+nobody is paged on is the original silent failure re-shaped (round 2); and a
+resubmission is judged standalone, so carry all standing evidence every
+round (round 4, now in `RUNBOOK_council_gate.md` traps).
+
+**Cross-refs.** `bugs_closed/022` (full trail + live verification),
+`enforceLayoutScheme` in `render_css_from_spec_action.go` (`9c3b0c3e7`,
+live v1.0.1140). Category tags: `authority-boundary`, `merge-seam`,
+`llm-overrides-user-decision`, `fail-loud-not-silent`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -1977,6 +2011,7 @@ See `/bugs_closed/README.md`.
 | 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | **CLOSED 2026-07-20 → `/bugs_closed/`** — verified by live reproduction on v1.0.1140 (scratch council, seat capped at 200): one `TOLERATED`-prefixed forensic row, 9 further readable seats, `complete_revise` with `unreadable: 1` in the report — vs the old zero-review `complete_invalid`. Corrected mechanism: 9 of 11 voids died UPSTREAM at `execute_llm_prompt`, not at the decider. See `036` for the sibling cause on the same seam (fix in the same image, verification pending) |
 | 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
 | 021 | The 012 completeness guard covers ONE write path; `page_components.rendered_html` and `pages.rendered_*` have the same unguarded overwrite shape | filed (council bug_historian objection); needs scope decision |
+| 022 | Nothing compares a spec's proposed `background` against `layouts.scheme` — a per-run LLM guess silently overrides the user's recorded scheme decision (robot-hands: light `#F4F5F7` onto scheme=dark, shipped) | **CLOSED 2026-07-20 → `/bugs_closed/`** — `enforceLayoutScheme` guards the merge seam (restore background+text together; hard-fail what the theme can't repair), `9c3b0c3e7`, live v1.0.1140 pod-verified (symbol + refusal string); pass-through path proven by a real pin-removed run (CSS stayed dark); reject path unit-proven, live-fire [UNEXERCISED] (two dispatches vanished — `003`-class, noted there). See §9 `authority-boundary` |
 | 023 | A button's label and its destination are unrelated schema fields — nothing checks that a control with text has somewhere to go. Filed from four owner-reported buttons; 51 dead controls / 7 of 11 sites; 84% of library CTA anchors ungated | **SYMPTOM FIXED & VERIFIED LIVE 2026-07-20**, bug stays OPEN on its structural scope. Done: all placements of both bad components removed fleet-wide (3 sites), migration 179 fixed `tool-guide-intro` (gated anchors, renderer-owned urls, dead `#guide-start` gone) — census 51→39, **fragment class extinct (4→0)**, held through the v1.0.1140 roll. Remaining scope = classes A/B/C/E: **70 ungated anchors / 37 components**, **22 `source:llm` url fields**, no build-time pairing check. **Rescoped 2026-07-20: class F → `045`, class G → `033`, class H → council trail `2525f980` (observe stage live in v1.0.1140).** Verify-criteria rewritten — it no longer waits on another bug's work |
 | 024 | A tool-improver fix is written durably to `content_components.html_template` and **never rendered to the page** — three defects in series (dead `pending` flag; rerender request carries no `spec.reason` so it assembles stale HTML and reports success; the article-body guard escalates any section with empty `content_data`, which is every tool, bypassing the only writer of `rendered_html`). Explains `bugs_open/010`'s "non-convergence" — the page never changed | filed 2026-07-19; diagnosed with live evidence, no fix started |
 | 031 | A wrong entry in the concept register claimed scoped page-rerender "SKIPS pages whose content hash is unchanged". No such code exists and `git log -S` shows it never did — but a council seat quoted it as "the pipeline's own contract" and blocked a correct plan at HIGH severity. Replication was wider than filed: 6 register-file occurrences **plus the live seat prompts** in both `fix-proposer` and `council-gate` rows | **FIXED & LIVE 2026-07-20** — register + sources corrected, live rows patched (`PATCH_render_guardian_031` + 099 sync, verified), citation convention added to docs026 README — **`→ bugs_closed/`** |

@@ -1,5 +1,9 @@
 # 022 — Nothing stops a spec from flipping a site's colour scheme: light palette rendered onto a dark layout
 
+**CLOSED 2026-07-20 — fixed AND live.** Fix `9c3b0c3e7`, live in the
+v1.0.1140 chassis image (deployed 18:58 BST); verification record at the
+foot of this file.
+
 **Filed:** 2026-07-18 from the robot-hands R1 thread. This is the **damage
 mechanism** behind that incident; `bugs_open/017` and the `generic_theme` check
 fix (commits 3437f2212 + 3b52da8ec) only reduce how often it is *triggered*.
@@ -193,6 +197,46 @@ NOTE for the rolling thread: the roll also activates other threads'
 inert fixes (019, 001, code-lookup tier, V4 — see their bug files);
 quiet-check first, and no orchestration dispatch within ~300s of the
 restart.
+
+## CLOSED 2026-07-20 — live verification record (v1.0.1140, deployed 18:58 BST)
+
+- **Binary**: `9c3b0c3e7` is an ancestor of the build commit
+  (`bca5d8255`); pod `agent-chassis-5567d99bd6-5snzn`:
+  `strings /app/agent-chassis | grep -c enforceLayoutScheme` → 2, and
+  the refusal string `refusing to render scheme-violating CSS` → 1.
+  These strings are CREATED by this change (016b §9 pod-grep rule).
+- **Live pipeline run, pin REMOVED** (the §How-to-verify test): a real
+  webdesign-agent run (orch `fb744273`) on robot-hands with
+  `design_intent.palette` superseded away. The LLM proposed a
+  CONFORMING dark palette (`design_spec.color_scheme.background
+  #0F1219` — it anchors on the previous spec in `content_data`), the
+  guard passed it through, rendered CSS carries `--color-background:
+  #0F1219`, deployed and confirmed on the live URL. Pass-through path
+  proven live end-to-end on the new binary.
+- **Reject path**: proven by unit tests with the incident's exact
+  values (#F4F5F7 vs dark theme → theme background+text restored, Warn
+  with rejected/kept fields) and by the strings in the pod binary.
+  **[UNEXERCISED live]** — a deterministic live-fire (design_intent
+  temporarily pointed at light reference_values so the spec would
+  violate) was attempted twice (~18:45 and ~19:00 UTC); both kcat
+  dispatches to `system.agent.generic.requests` vanished — no
+  orchestration row, no error — while the cluster processed other
+  work normally. [INFERRED] this is `bugs_open/003`'s broker-2 network
+  fault at the PRODUCER side (kcat -P exits 0 on failed async
+  delivery; each ephemeral kcat pod schedules onto a different node);
+  occurrence noted in 003. The test was abandoned rather than left
+  running against a mutated live site.
+- **Site state restored**: the R1b pinned `design_intent` re-superseded
+  VERBATIM from the pre-test snapshot (`background #0F1218`, guidance
+  intact, `created_by='bugfix-022-thread'` rows document the test
+  window). Live styles.css dark; pin retained as defence-in-depth.
+- **Closure judgement**: the defect ("nothing anywhere compares the
+  proposed background against the layout's declared scheme") is
+  structurally closed by code proven present and functional in the
+  production binary. If a live reject-fire is later wanted, the
+  deterministic method is documented above: supersede the pin with
+  light reference_values, dispatch webdesign-agent, expect dark CSS +
+  the Warn, restore the pin.
 
 - `render_css_composition_loader.go`: `l.scheme` selected in the existing
   JOIN, scanned as NullString (column nullable — live distribution 2026-07-20:
