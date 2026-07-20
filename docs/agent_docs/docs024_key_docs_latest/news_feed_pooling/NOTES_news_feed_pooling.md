@@ -512,3 +512,65 @@ Two findings worth the owner's attention (in PLAN Decision 11):
 pooled selection exists, and it wants the 002 similarity check running first so
 verdicts can cite a baseline instead of intuition. Footprint + four-form review
 posture specified; mechanism is the standard 099 roster mirror.
+
+---
+
+## 2026-07-20 — session 2 continued: profiles authored for all 11 live sites; research in flight
+
+Owner (same message): archive.org deep-research on the opaque traffic domains;
+other-language domains are exceptions with per-language feeds (relojistas
+precedent); real-traffic domains get dedicated feeds. Then mid-turn: "please go
+ahead with the audience profiles."
+
+### Deep research launched, running in background
+
+Run `wf_2f8a91fd-b77` (task `w0i5fis9g`) over the 9 opaque/traffic no-feed
+domains (zdec, komunikatif, makeitaquote, nanangmrk, bigotime, outfax, ijih,
+smartbusinesssupplies, buysportskit) — prior content, active period, which legacy
+URLs still attract the traffic, rebuild recommendation. Results to land in this
+directory when complete.
+
+### Scope call on "the audience profiles"
+
+The 31 pilot domains have **no sites rows** — a profile cannot exist for them
+(`site_specs.site_id NOT NULL`), and authoring from the domain name alone is the
+Decision 4 trap. So "go ahead" was executed as: **the 11 live sites, now**, with
+pilot-domain profiles deferred to onboarding where the classifier chain provides
+a real derivation source. Recorded as Decision 15.
+
+### Authoring — 9 new rows + 2 v2s, one transaction, verified
+
+Derivation: `who` restructured verbatim from each site's `identity.target_audience`
+(pulled fresh); `sophistication` judged from evidence; `out_of_scope` only where
+the source stated a contrast (gaswholesalers); `editorial` null everywhere —
+authoring copy directives is `content_direction`/`voice` ground, not this pass;
+`position` **only for the AI trio** (finetuning / ai-agent-orchestration /
+leopardess), the sole live sibling cluster, each position written against the
+others' actual audience rows. relojistas' `who` kept in Spanish deliberately
+(Decision 13 — the audience is Spanish-speaking; an English rewrite would be
+translation loss in the embeddable field).
+
+v2 mechanics for the two migrated rows: supersede → insert with
+`data || '{"position": ...}'` — top-level jsonb merge, `who`/`editorial` carried
+unchanged.
+
+Verified: 11 current rows, all `audience.v1`, sophistication spread
+4 technical / 2 professional / 3 casual / 2 editorial, position exactly on the
+trio, 16 total rows (5 superseded versions preserved: 2 gap-planner originals,
+2 migrated v1s, 1 pre-existing March leopardess).
+
+### MISSTEP 6 (caught in seconds, worth one line) — wrong spot-check phrases
+
+First v2 verification query tested leopardess's row for "Technical Discovery
+Call" and "build-vs-buy" — **ai-agent-orchestration's phrases**. It returned
+false and briefly looked like the `||` merge had dropped who/editorial. Re-ran
+with leopardess's own distinctive clauses ("production credibility", "register
+consistency") → both true, merge intact. The verification failure mode from the
+guide — a check that greps the wrong thing — cuts both ways: it can pass wrongly
+(generic CSS property) or fail wrongly (someone else's phrase). Match the probe
+to the artefact.
+
+### Live totals after this session
+
+`site_specs` aspect `audience`: 11 current / 16 total. Every live site is now
+rankable the moment pooled selection exists.

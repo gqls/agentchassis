@@ -273,3 +273,45 @@ The council seat idea is written up and ready but deliberately not created yet.
 It has nothing to review until pooled selection exists, and it will give better
 verdicts once the duplication measurement is running and it can point at numbers
 instead of instinct.
+
+---
+
+## 2026-07-20 later — every live site now has its audience profile; digging into the mystery domains
+
+Three more calls from the owner today, all acted on.
+
+The mystery domains are being investigated. Several of the domains with the most
+traffic have opaque names — zdec, komunikatif, makeitaquote and friends — and the
+traffic has to be coming from somewhere: old links pointing at whatever used to
+live there. A background research job is now working through the Internet
+Archive's snapshots of nine of them to find out what they hosted, when they died,
+and which old pages still attract visitors. That history will tell us what to
+build on each one to inherit the traffic rather than squander it. Results will
+land here when it finishes.
+
+Languages are officially an exception, not a problem. Foreign-language domains
+get feeds in their own language, the way relojistas already runs Spanish news
+from Spanish sources. One consequence stays firm: the bug that hardcodes English
+into news listings has to be fixed before the pilot, because the pilot includes
+Romanian, Dutch, German and Spanish-market domains.
+
+The domains with real readers get their own dedicated news sources on top of the
+shared pool — the owner's phrase was "to give them the best chance in life".
+Pleasingly, this costs nothing to build: it's the existing per-site machinery,
+which our design deliberately left intact. The pool is the floor; dedicated
+sources are the ceiling.
+
+And the audience profiles are done — for everything that actually exists. All
+eleven live sites now carry a structured profile: who the site is for, how it
+differs from our sibling sites, each in the new three-part shape. The only three
+sites that genuinely compete with each other — our AI services trio — got the
+"how we differ" part written properly, each one defined against the other two:
+one sells outcomes to small businesses, one sells architecture to enterprises,
+one sells delivery track record to scale-ups. Everywhere else that field is
+deliberately empty with a note saying which future site will make it necessary —
+the twenty-plus vet domains being the clearest case.
+
+The thirty-one pilot domains don't get profiles yet, on purpose. They aren't
+sites yet, and writing a profile from nothing but a domain name is exactly the
+mistake this whole design guards against. They'll get theirs at onboarding, when
+the research and classification machinery has something real to say about them.

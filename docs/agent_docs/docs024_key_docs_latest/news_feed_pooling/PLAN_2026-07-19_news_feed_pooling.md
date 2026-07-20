@@ -414,6 +414,61 @@ also the moment it has something to veto. Mechanism is standard: seat
 `fix-proposer`, then run the 099 roster mirror (CLAUDE.md). The seat's footprint
 and review posture are specified in the feature file.
 
+## Decision 13 — other-language domains are exceptions with per-language feeds (owner, 2026-07-20)
+
+Non-English domains get feeds **in their own language**, following the relojistas
+precedent (Spanish Grok prompt + Spanish RSS sources, live today). A pool's
+language is part of its identity: a Dutch-language savings-investing domain
+(`hoeinvestereninvastgoed.com`) is served by Dutch sources, not by translating
+the UK pool. Whether that means a language-variant of the pool or a per-site
+source set is a sizing question — one Dutch finance domain does not justify a
+pool; five might. `bugs_open/026` (news-listing hardcodes English) remains a
+pilot blocker regardless — rendering must honour the site's language before any
+non-English feed ships.
+
+## Decision 14 — real-traffic domains get dedicated feeds (owner, 2026-07-20)
+
+Traffic-bearing domains get **their own specific news sources on top of pool
+membership** — "to give them the best chance in life". This is the
+`features_open/003` per-site mechanism, applied internally to our best domains
+rather than sold: the existing per-site `content_sources` path (which Decision 8
+deliberately left untouched) is the implementation, so nothing new is needed —
+dedicated sources are rows, exactly as relojistas' five hand-verified Spanish RSS
+feeds are today. The pool remains the floor; dedicated sources are the ceiling.
+Which sources each traffic domain gets is informed by the domain-history research
+(in flight — deep-research run `wf_2f8a91fd-b77` on the opaque traffic domains).
+
+## Decision 15 — audience profiles: all 11 live sites DONE; pilot domains wait for onboarding (2026-07-20)
+
+**Every live site now carries a current `audience.v1` row** (authored 2026-07-20,
+verified: 11 current rows, all four keys, originals preserved beneath — 16 rows
+total including history).
+
+Authoring rules applied, and binding for future profile authorship:
+- `who` restructures the site's real `identity.target_audience` — nothing invented.
+- `sophistication` from evidence (result: 4 technical, 2 professional, 3 casual,
+  2 editorial — the spread itself shows the field carries signal).
+- `out_of_scope` only where the source states one (gaswholesalers' "over
+  low-touch commodity brokering" contrast; leopardess' explicit exclusion).
+- `editorial` stays null until a genuine directive exists — `content_direction`
+  and `voice` own that ground today.
+- **`position` only where grounded against LIVE siblings.** The AI trio
+  (finetuning.uk / ai-agent-orchestration.com / leopardessconsulting.co.uk) is
+  the only live cluster, so those three have positions — each written against the
+  others' actual audience rows: SME-outcomes vs enterprise-architecture vs
+  delivery-credibility. The two migrated rows took a v2 (supersede→insert, `||`
+  merge preserving who/editorial).
+- Null positions carry the **reason** in `notes` (which sibling isn't live yet),
+  so onboarding threads know when to fill them. vetcomparison's note flags the
+  20+ vet* domains as the estate's clearest future position-need.
+
+**The 31 pilot domains get profiles at onboarding, not before.** They have no
+sites rows, and authoring from nothing but a domain name is the name-derived trap
+Decision 4 exists to prevent. The onboarding chain (domain-research-classifier →
+`identity.target_audience`) provides the derivation source; re-adding the dropped
+audience question to the briefing questionnaire (Decision 7 caution) is part of
+that path.
+
 ## Risks carried into the build
 
 1. **Near-duplicate content across the portfolio.** 500 sites rendering the same six
