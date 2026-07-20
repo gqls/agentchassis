@@ -770,3 +770,53 @@ position 0, ledger row present.
 - `finetuning.ai` (the fabricated different-TLD host) RESOLVES via Cloudflare to a page
   the owner does not control — live confirmation of P1.5's different-TLD sibling rule
   value. The live instance is gone with the section; the rule remains unimplemented.
+
+---
+
+## 2026-07-20 (leopardess3, later) — round 5, and the misstep the protocol caught
+
+**Round 5** (v5, orch `e48cc2fc`): REVISE again — 8 approvals, decided by reuse_agent's two
+LOW objections plus a new seat (`prior_art_librarian`, medium) re-raising doc_notes
+existence because the table sits outside its schema view. Roster grew mid-trail; each new
+seat re-litigates evidence prior seats accepted. Treadmill risk noted for the owner.
+
+### ⚠️ MY MISSTEP — I missed bugfix-023's warnings for two full rounds
+
+tooling_provenance's round-5 "load before write" item, executed, found **two doc_notes rows
+written by the bugfix-023 session at 12:44 (commit `b6e374fc2`) — corrections to MY v3–v5
+sketches, written "for the council-trail thread before round 4."** They also appended the
+12:30 entry to THIS file. I saw the file had changed externally and did not re-read its tail
+before submitting v4 or v5. That is the memory rule — the startup copy goes stale, re-read
+from disk before acting — violated in my own workstream file. Two council rounds ran on
+sketches a concurrent thread had already refuted.
+
+Their corrections, **both independently re-verified this session**:
+1. **The plan_sections observe log was DEAD CODE.** `resolvedData` is a fresh local map in
+   `planSection`; each field is written at most once; `prev, ok` can never be true. The
+   observe round would have logged a structural ZERO and green-lit the flip on false
+   evidence — the exact failure the staging existed to prevent. Five council rounds and I
+   all missed it; a thread that read the function caught it. True loss site:
+   `rerender_page_sections_action.go:281-307` (stored content_data merges first, fresh
+   ResolvedData merges last and wins). v6 moves the log there, carrying `spec.reason`.
+2. **The sibling rule was lossy both ways.** Misses 3 of the map's own 10 fields
+   (bare-stem pairs: `hero.secondary_cta_url`↔`secondary_cta`, call-to-action's
+   primary/secondary) — verified live; and derives `header-leopardess.logo_url`
+   (site_assets.logo, sibling `logo_text`) — the resolver could overwrite a logo with a
+   page link. v6: bare stem as a third sibling form + a site_assets source guard, both as
+   regression tests.
+
+**And the fleet state moved under me:** bugfix-023 did not just feed findings — they
+completed the fleet fix. finetuning.uk (both components) and robot-hands.com cleaned,
+verified live (empty hrefs 30→22, fragment class 4→0 EXTINCT), and **migration 179**
+(applied+ledgered) fixed `tool-guide-intro` itself: cta urls renderer/optional, anchors
+gated, `#guide-start` gone. Zero placements of either bad component remain. My v6 risk note
+("bugfix-023 is not implementing") was already stale when submitted — harmless to the
+edits, corrected here. P2.2/2.3 is CLOSED by them; the generic `hero-tool` component gap
+remains open (the `_pre_037` Bayesian row is placement-free but still the only selectable
+answer to a hero-tool section request).
+
+**Round 6** (v6, orch `5bb7c934`, submitted): incorporates both corrections with regression
+tests, extracts `ParseInputSchemaValue` (reuse_agent), cites the doc_notes DDL from repo
+source (`125_doc_plans_and_notes.sql:46`, prior_art), evidences the needs_human_review
+write-only claim, and appends its design rows alongside their correction rows. Verdict
+pending.
