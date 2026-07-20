@@ -27,6 +27,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go/format"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -153,6 +154,10 @@ func DiagnosePrepareFixCommitAction(ctx context.Context, params ActionParams) (i
 			len(violations), strings.Join(violations, "; "))
 	}
 
+	if err := formatGeneratedGo(files); err != nil {
+		return nil, err
+	}
+
 	// Stage-loop seam (delta 2): the stage router declares symbols that must
 	// literally appear in the stage's produced files — a deterministic check in
 	// the same spirit as the allowlist. Unset keeps single-plan behaviour.
@@ -230,6 +235,45 @@ func DiagnosePrepareFixCommitAction(ctx context.Context, params ActionParams) (i
 		"pr_body":        prBody,
 		"files_count":    len(files),
 	}, nil
+}
+
+// formatGeneratedGo canonicalises every generated .go body with go/format —
+// exactly what `gofmt` runs — so the committed bytes are byte-identical to what
+// the build gate's `gofmt -l` step expects (bugs_open/013).
+//
+// Why here rather than at the gate: the gate is correct and stays unchanged
+// ("no PRs for broken code" is its charter). The defect was upstream — the LLM's
+// bytes were committed verbatim, so a purely cosmetic misalignment failed the
+// gate and spent the entire run: whole-file LLM generation, a git push, and a
+// k8s clone/build Job, yielding no PR and needing a human to hand-finish. That
+// is not a rare tail; LLMs routinely leave a sibling struct field misaligned
+// after inserting one, which is precisely how BUG A's first implementer run
+// (70680566) died with two whitespace edits outstanding.
+//
+// A body that will not parse is a DIFFERENT failure and must stay loud: a
+// whole-file body that won't format is most often a max_tokens truncation, the
+// same root class bugs_open/008 closes at the client boundary. Failing here
+// names the file and the cause, which is cheaper and clearer than the `go build`
+// error the Job would otherwise produce — and far better than silently falling
+// back to the raw body, which would commit known-broken Go. This extends the
+// truncation posture the JSON-envelope guard above already takes to the file
+// bodies themselves.
+func formatGeneratedGo(files map[string]interface{}) error {
+	for path, body := range files {
+		if !strings.HasSuffix(path, ".go") {
+			continue
+		}
+		src, ok := body.(string)
+		if !ok {
+			return fmt.Errorf("generated %s has a non-string body (%T)", path, body)
+		}
+		formatted, err := format.Source([]byte(src))
+		if err != nil {
+			return fmt.Errorf("generated %s is not valid Go (cannot format — likely truncated at max_tokens): %w", path, err)
+		}
+		files[path] = string(formatted)
+	}
+	return nil
 }
 
 // validateImplementation is the ALLOWLIST core (Q-C), extracted pure so the

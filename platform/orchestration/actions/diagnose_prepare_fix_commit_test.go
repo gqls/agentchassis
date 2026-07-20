@@ -2,6 +2,7 @@ package actions
 
 import (
 	"encoding/json"
+	"go/format"
 	"strings"
 	"testing"
 )
@@ -129,4 +130,63 @@ func hasViolation(violations []string, substr string) bool {
 		}
 	}
 	return false
+}
+
+// TestFormatGeneratedGoCanonicalisesBodies pins bugs_open/013. The implementer
+// committed the LLM's bytes verbatim, so a cosmetically-unformatted file failed
+// the build gate's first step (`gofmt -l`) and spent the whole run — LLM
+// generation, git push and a k8s build Job — for no PR. This is the exact shape
+// that killed BUG A's first implementer run: a new struct field inserted without
+// re-aligning its sibling.
+func TestFormatGeneratedGoCanonicalisesBodies(t *testing.T) {
+	unformatted := "package aiservice\n\ntype response struct {\n" +
+		"StopReason string `json:\"stop_reason\"`\n" +
+		"Usage struct{ InputTokens int } `json:\"usage\"`\n" +
+		"}\n"
+
+	files := map[string]interface{}{
+		"platform/aiservice/anthropic.go": unformatted,
+		"docs/notes.md":                   "# not go, must be left alone\n   ragged   ",
+	}
+
+	if err := formatGeneratedGo(files); err != nil {
+		t.Fatalf("valid-but-unformatted Go must format, not error: %v", err)
+	}
+
+	got, _ := files["platform/aiservice/anthropic.go"].(string)
+	want, err := format.Source([]byte(unformatted))
+	if err != nil {
+		t.Fatalf("fixture is not valid Go: %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("body not canonicalised.\n got: %q\nwant: %q", got, string(want))
+	}
+	if got == unformatted {
+		t.Error("body unchanged — the gate would still reject it")
+	}
+	// Non-Go files must pass through untouched: the gate only gofmts .go, and
+	// rewriting anything else would be an unrequested edit to a committed file.
+	if files["docs/notes.md"] != "# not go, must be left alone\n   ragged   " {
+		t.Errorf("non-Go file was modified: %q", files["docs/notes.md"])
+	}
+}
+
+// A body that will not parse is a different failure and must stay loud — it is
+// most often a max_tokens truncation. Silently committing the raw bytes would
+// push known-broken Go and defer the error to the build Job.
+func TestFormatGeneratedGoFailsLoudOnUnparseableBody(t *testing.T) {
+	files := map[string]interface{}{
+		// Truncated mid-function, the classic max_tokens shape.
+		"platform/aiservice/anthropic.go": "package aiservice\n\nfunc GenerateText() {\n\tif x {\n",
+	}
+
+	err := formatGeneratedGo(files)
+	if err == nil {
+		t.Fatal("an unparseable body must fail commit-prep, not reach the gate")
+	}
+	for _, want := range []string{"platform/aiservice/anthropic.go", "truncated"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q must name %q", err.Error(), want)
+		}
+	}
 }
