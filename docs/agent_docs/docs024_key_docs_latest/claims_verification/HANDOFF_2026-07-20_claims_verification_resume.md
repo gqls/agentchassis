@@ -87,13 +87,43 @@ covers them with no seed change.
 
 ## Open decisions — owner's, not the next thread's
 
-1. **Cadence for the claims auditor (V3).** Costs one LLM call per site per pass.
-   Currently manual-only. Wire it into a discovery/audit schedule, or leave it.
-2. **Second site: vetcomparison.** Its rebuild already requires claim-licensing —
-   every price in copy tracing to a licensed source row — which is this layer's
-   deterministic lane applied to the class with legal exposure. Not started.
+1. **Cadence for the claims auditor (V3).** Recommendation now evidence-based:
+   **schedule it where prose dominates the claim surface, leave it manual where
+   numbers do.** Leopardess is numbers-dominant and self-describing, so V1 does the
+   work there and V3 returned a literal `[]` — run it after significant content
+   builds, not on a clock. gaswholesalers is the opposite: no machine-verifiable
+   ground truth at all, so V3 is not a supplement there, it is the only lane that
+   functions.
+2. **Second site: gaswholesalers.com** (owner chose it 2026-07-20 over
+   vetcomparison, which another thread is working). Recon done, question resolved:
+   the site asserts a business the owner is not in — **all 174 measured operational
+   assertions are false**. It is now the **cold-audit pilot**, with a measured
+   expected result to grade against. See
+   `PLAN_2026-07-20_gaswholesalers_second_site.md`. The repositioning/rewrite and
+   its new AI-influence page are routed OUT to `features_open/006`; the deferred
+   freemium chatbot is `features_open/007`. **This thread does not write that copy.**
 3. **Re-file bug 019 to the diagnosis loop?** See below; needs `FORCE=1` or the
    intake item closed. My view: not worth it until `bugs_open/003` is fixed.
+
+## Next build work for THIS thread (from the 07-20 owner direction)
+
+1. **Cold-audit posture** — the layer cannot audit a site with an empty register
+   (V3 gates on `facts_text`), which is backwards for the site that needs it most.
+   Add `"posture": "cold_audit"` to satisfy the gate with zero facts and tell the
+   prompt to report every unsupported operational assertion. Benchmark: ~174 on
+   gaswholesalers, concentrated in `pricing-transparency` (19),
+   `supply-terms-and-eligibility` (17), `who-we-serve` (17), `service-areas` (15).
+2. **Citation source kind** — the AI-influence page (feature `006`) must be
+   "very well researched and verified", i.e. claims sourced to external
+   publications. Schema has `sql` / `artifact` / `attested_by`; none fits. Likely
+   `source: {citation: "...", accessed: "..."}` plus a staleness policy. **Design
+   it before that page is written**, or it ships unaudited.
+3. **Forward mode.** That page is the first chance to run the layer the other way
+   round — register first, copy second. Every use so far has been remediation.
+4. **Open question that shapes V5:** should the claims layer gate the planned
+   chatbot's responses (`features_open/007`)? If yes, verification becomes
+   *pre-response* rather than post-publish — materially harder. Do not plan beyond
+   V4 without an answer.
 
 ## Bugs this workstream found (all filed, none fixed here)
 

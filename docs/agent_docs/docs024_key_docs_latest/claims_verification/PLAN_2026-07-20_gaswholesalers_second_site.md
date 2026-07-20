@@ -119,8 +119,10 @@ captured in `features_open/006_FEATURE_gaswholesalers_repositioning_and_ai_influ
 1. **Cold audit first** — there is nothing to attest about the CURRENT copy; it
    describes a business that does not exist. Build the cold-audit posture, run it,
    and use its output as the demolition list for the rewrite (feature `006`).
-2. Build the cold-audit posture (§3) if the register starts thin.
-3. Run V3 → work the findings list → each ruling either adds a fact or removes copy.
-4. Only then wire V1's number lane; it will have little to do here, which is itself
+2. Hand that list to the rewrite (feature `006`) — this thread does not write copy.
+3. As the new site takes shape, build its register FORWARDS: facts attested or
+   cited before the copy asserting them ships. This needs the citation source kind
+   (§4b.2), so design that first.
+4. V1's number lane comes last and will have little to do here — which is itself
    the finding: **the deterministic lane does not generalise to non-self-describing
-   sites, and the prose lane is the product for them.**
+   sites; the prose lane is the product for them.**
