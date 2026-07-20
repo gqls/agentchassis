@@ -2,12 +2,23 @@
 
 > **STATUS 2026-07-20 — code fix WRITTEN, COMMITTED, and INERT.** The step-wins
 > overlay is in `4b11f223e` (`resolveAIServiceConfig` in `ai_actions.go` +
-> `ai_service_overlay_test.go`, 11 cases green). The inverted runbook gotcha is
-> corrected in `99dc0f95d`. **Not deployed** — inert until the chassis image is
-> rebuilt and rolled, so the defect is still live and this case stays OPEN.
-> Council submission `581754c8-390c-4f91-a3e6-43cd08a34e99` in flight (queued at
-> 20:14Z; no verdict yet, hence no `Council-Reviewed` trailer on the commit).
-> §4's fleet sweep is NOT done. See §7 for the audit that sized the change.
+> `ai_service_overlay_test.go`, 12 cases green), with a follow-up refactor
+> (swept into `119e14071 v1.0.1143`) making it reuse `datahelpers.MergeInputData`
+> for the overlay. The inverted runbook gotcha is corrected in `99dc0f95d`.
+> **Not deployed** — inert until the chassis image is rebuilt and rolled (live
+> pod is still v1.0.1140), so the defect is still live and this case stays OPEN.
+> §9 is the enforced rollout checklist.
+>
+> **Council:** submission `581754c8` returned **REVISE** (round 1, 21:09Z),
+> decided solely by `reuse_agent` — the overlay was a bespoke inline merge with
+> no evidence a reuse search had been done. Addressed: the check was run, an
+> existing helper (`datahelpers.MergeInputData`) *does* exist, and the code now
+> reuses it. Guardian objected but explicitly **not a veto**; its three points
+> (re-verify audit at merge time; shallow-copy aliasing; deployment ordering)
+> are all resolved — see §7 (fresh audit incl. the nested-value check) and §9
+> (the ordering checklist). 8 of 11 seats approved on round 1. Resubmitted on
+> the same correlation. **No `Council-Reviewed` trailer** anywhere until an
+> APPROVED verdict lands. §4's fleet sweep is deprioritised (§7a: all dormant).
 
 **Filed:** 2026-07-17, from the "diagnosis fixloop 3" thread. Cold-start for a fixing
 thread. Mechanism is fully established (loop-cited + proven by direct experiment);
@@ -138,6 +149,11 @@ step 8000 vs root 32000 (root should now LOSE per-key) → then sweep the 7.**
   fix, its step-level 8000 would WIN for the verdict step. Decide which value stays
   (32000 was sized for Sonnet 5 adaptive thinking; 8000 is too tight — probably
   move 32000 INTO the step block and drop it from root).
+  > **RESOLVED 2026-07-20 (see §7 query E):** the step block is no longer 8000 —
+  > it is already `32000`, byte-identical to root. Someone folded the interim
+  > value in at some point. So the overlay is a **no-op** for diagnose-agent and
+  > there is no value to decide. This is why §9's checklist marks it "none needs
+  > an edit today."
 - Sonnet 5: omitting `thinking` runs ADAPTIVE and thinking spends from max_tokens —
   at 2048 the verdict produced ZERO text blocks (hard fail). Any agent moved to
   Sonnet 5 needs its cap re-sized, not just carried over.
@@ -263,3 +279,31 @@ state that reads as done and isn't.
 confirm `llm_call_log` shows **8192**, not 4000. That is the one call in the
 fleet whose logged cap changes, which makes it the discriminating test — a
 green run of any *other* agent proves only that nothing broke.
+
+## 9. Rollout checklist (enforced gate — do these IN ORDER)
+
+The council's guardian seat asked for the deployment-ordering hazard to be an
+explicit checklist, not a prose aside. It is below. **The one config-sequencing
+trap §6 warned about is already moot** — the audit (§7 query E) shows
+`diagnose-agent`'s `verdict` step block is already `32000`, byte-identical to
+root, so there is nothing to "fold" and no ordering to get wrong for it. The
+general rule still holds for any FUTURE config edit and is the gate:
+
+- [ ] **Do NOT edit any dual-block agent's `ai_service` config until the image
+      carrying the overlay is live in the pod.** Before the overlay ships, root
+      still wins; a step-level edit made early is silently dead, and a root-level
+      edit made early to compensate becomes wrong the moment the overlay lands.
+      The three dual-block agents are `diagnose-agent`, `feed-triage`,
+      `site-adoption-agent` (§7 query A) — none needs an edit today.
+- [ ] Build `agent-chassis` from committed `HEAD` (the fix is in HEAD as of the
+      `bugs_open/009` commits — swept into `119e14071 v1.0.1143`, verified with
+      `git show HEAD:…/ai_actions.go | grep MergeInputData`). Bump `IMAGE_TAG`.
+- [ ] Quiet-check the queue, roll, wait out the ~300s settle window.
+- [ ] **Pod-verify the CREATED literal:** `kubectl exec <pod> -- sh -c 'strings
+      /app/agent-chassis | grep -c "ai_service: step overlay applied"'` (positive
+      control: `ai_service: single source`). A tag or git check is not proof.
+- [ ] Fire `feed-triage/score_relevance`; confirm `llm_call_log.max_tokens = 8192`.
+- [ ] Only then, if a future need arises, move `diagnose-agent`'s cap between
+      root and step — and re-run §7 query E first to confirm the current state.
+- [ ] Flip this case to `/bugs_closed/` only when the pod-grep AND the live 8192
+      check both pass (the bar is fixed AND live).
