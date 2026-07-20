@@ -1203,11 +1203,26 @@ including the guardian's and the bug-historian's. Four of seven seats used over
 half the ceiling on that submission, so the margin is thin on exactly the
 substantial changes most worth reviewing.
 
+> **CORRECTED 2026-07-20 (bugfix-019 thread): the mechanism above is the MINORITY
+> path.** Measured over 10 days of `complete_invalid` runs, 9 of 11 truncation
+> voids never reached `diagnose_council_decide` at all — they died UPSTREAM at
+> `execute_llm_prompt`, because the provider client returns `""` + a hard error on
+> `stop_reason=max_tokens` (the partial is destroyed at the transport layer), the
+> step fails, and its `error_step` routes the round to the terminal. Seats run
+> SEQUENTIALLY with `review_editquality` first, so most voided rounds have ZERO
+> completed reviews — the "six good reviews binned" case above is the rarer shape.
+> Only 2 of 11 hit the `json.Valid` path this entry describes. The transferable
+> lesson: when a failure can occur at two layers, count which layer before fixing
+> either — the queued diagnosis item for this bug targeted the minority mechanism
+> and would have sent the fixing thread to the wrong file.
+
 **Tell the two `complete_invalid` causes apart** — read
 `collected_data->'__step_error'` and look at `failed_step`:
 `persist_submission` = your submission is malformed (operation must be one of
 `modify|add|remove|config_change`; a file may appear in only ONE edit per stage);
-`council_decide` = a reviewer was truncated, your plan was fine and fully reviewed.
+any `review_*` step = that reviewer's CALL was truncated and the round died there
+(the dominant case); `council_decide` = a truncated review reached the decider,
+your plan was fine and fully reviewed.
 
 **Wider rule this is the fourth instance of.** `output_tokens == max_tokens` means
 the completion was CUT. The platform keeps detecting that *after* persisting or
@@ -1217,7 +1232,21 @@ output, decide up front what happens to a truncated one — treating it as a lou
 abstention that can never upgrade a verdict to "approve" beats both "trust it" and
 "destroy the round".
 
-Full case, evidence table and fix candidates: `bugs_open/019`.
+**Three companion traps found while fixing it (2026-07-20).** (a) The councils log
+under `agent_type='generic'`, so a diagnosis filtered by council names finds
+nothing — the loop returned UNVERIFIABLE for exactly this reason; name `generic`
+in any council-scoped symptom. (b) A NULL from a JSON path query is not evidence
+of absence: the per-seat cap lives at `steps.<seat>.config.ai_service.max_tokens`,
+and a query missing `->'config'` read all 13 seats as "unset". (c) Raising the cap
+does not remove the class: an `experience-planner/compose` call truncated at a
+32,000-token cap the same week.
+
+**Fixed 2026-07-20** (`a3b606798` + migration 177, inert until image roll):
+`TruncatedError` carries the partial out of aiservice; `tolerate_truncation`
+step config lets a council seat degrade instead of aborting the chain; the
+decider salvages a verdict or counts the seat `unreadable` and never approves
+alongside one. Full case, evidence and the corrected mechanism: `bugs_open/019`
++ `docs024_key_docs_latest/bugfix_019_council_truncation/`.
 
 ### Two fields that must agree, with no relationship in the schema — the check you want cannot be written (2026-07-19)
 
@@ -1736,3 +1765,55 @@ something other than the fix: cache entries, rendered artefacts, generated files
 child rows behind a DELETE+INSERT rebuild. Ask "could absence here mean the thing
 I am guarding against *already happened*?" — if yes, absence is evidence, not
 exemption.
+
+### "Verify against the current code" silently means "against every session's uncommitted work" (2026-07-20)
+
+**Symptom.** A triage pass audited all 33 files in `/bugs_open/` against the tree,
+explicitly to avoid trusting each file's stale self-description. It reported
+`bugs_open/008` item 5 (undecoded `stop_reason=refusal`) as already fixed and
+shipped in commit `f32b208e5`, citing a line number and a test file. Both
+citations were real and readable. The verdict was wrong: `f32b208e5` is the
+*truncation* fix and contains neither.
+
+**Mechanism.** This repo has many concurrent sessions on one working tree. The
+audit read the tree — correctly, since that is where current code lives — found
+another session's uncommitted refusal fix and its untracked test file, and then
+attributed them to the most plausible nearby commit. Every individual step is
+defensible; the composition invents provenance. Nothing in the tree distinguishes
+"committed and shipped" from "someone is mid-edit", so a file-level read cannot
+tell a fixed bug from a bug being fixed *right now* by someone else.
+
+**Why it is worse than a stale bug file.** The failure it produced was
+*confidence in the wrong direction*. A stale file over-reports work as
+outstanding, and the cost is a re-check. This under-reported work as done, and
+recommended moving the case to `/bugs_closed/` — which would have closed a live
+defect on the strength of an edit that might never be committed at all. It also
+credited one session's work to another session's commit, which is exactly the
+attribution damage `bugs_open/001`'s misattributed evidence section caused.
+
+**The rule.** For any claim about what the codebase *is* — as opposed to what you
+are about to change — read the committed ref, not the tree:
+
+```
+git show HEAD:<path>                       # what the code actually says
+git merge-base --is-ancestor <sha> HEAD    # is that fix even in this branch
+git status --short <path>                  # is what I just read someone's WIP
+```
+
+For any claim about what *production* does, neither is enough — grep the running
+pod's binary (§ "Verifying a deploy"). The three answer different questions and
+this pattern is what happens when one is used for another's.
+
+**Generalises to.** Every automated or delegated audit in a shared tree: coverage
+reports, "is this still broken" sweeps, dependency checks, subagent triage. If
+the task says "check current state", say which ref, and have it report the ref it
+read. A verdict without a ref is not a verification — a distinction this guide
+already draws for "verified" claims generally, now with a second way to get it
+wrong.
+
+**Corollary for delegated work.** A subagent given "verify against the tree" will
+not know the tree is shared. Put the constraint in the prompt, not in your own
+head, and treat any provenance claim it returns (commit shas, "already shipped")
+as unverified until you check it yourself. Three of that pass's four
+already-fixed verdicts held up; the fourth was the one touching the file the
+delegating session had open.

@@ -1,5 +1,38 @@
 # HANDOFF — FIX: `GenerateText` never decodes `stop_reason` (silent max_tokens truncation)
 
+> ## STATUS 2026-07-20 — ALL ITEMS NOW FIXED IN CODE; OPEN ONLY UNTIL THE IMAGE ROLLS
+>
+> **Read this before §3–§8, which describe work that has since shipped.** The
+> sections below are preserved as the diagnosis and decision record, not as a
+> to-do list.
+>
+> | item | state | where |
+> |---|---|---|
+> | 1–2. decode `stop_reason`, fail loud on `max_tokens` | **DONE, in image** | `f32b208e5`, `anthropic.go:163,195` |
+> | 3. retry semantics | **DONE** — typed error; the retry loop (`ai_actions.go:428`) retries 5xx only, so a cap is never re-spent | `f32b208e5` |
+> | 4. siblings | **DONE** — `ollama.go:158` decodes `done_reason=="length"` | `f32b208e5` |
+> | 5. `stop_reason == "refusal"` | **DONE, NOT YET IN AN IMAGE** | `45e90acbb`, `anthropic.go` + new `refusal.go` |
+> | §8 CI guard (owner D1/D2) | **DONE, NOT YET IN AN IMAGE** | `stop_signal_test.go` |
+>
+> Beyond the original scope, `f32b208e5` also made `TruncatedError` carry the
+> **partial text** (`truncation.go`), which is the transport-layer half of
+> `bugs_open/019` — the case file there had assumed the partial was unrecoverable.
+>
+> **Why this file is still in `/bugs_open/`:** the bar is *fixed AND live*. Item 5
+> and the CI guard are committed but inert until a chassis image is rebuilt and
+> rolled. Verify against the running pod, then move to `/bugs_closed/`:
+> ```
+> kubectl exec -n ai-persona-system <pod> -- sh -c \
+>   'strings /app/agent-chassis | grep -c "model declined to answer"'
+> ```
+>
+> **A trap this file caused, worth carrying elsewhere:** a triage pass on
+> 2026-07-20 read the working tree, found the refusal fix and the test file, and
+> reported item 5 as already shipped in `f32b208e5` — which contains neither. It
+> had read another session's uncommitted work. In this repo "verify against
+> current code" must mean `git show HEAD:<path>`, not the tree. Pattern filed in
+> `016b §9`.
+
 **Filed:** 2026-07-17, from the "diagnosis fixloop 3" thread. Cold-start for a fixing
 thread. **Diagnosis is DONE — the loop CONFIRMED it** (see §2); this handoff is about
 the FIX only.
