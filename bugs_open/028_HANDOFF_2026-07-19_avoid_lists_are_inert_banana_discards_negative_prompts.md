@@ -5,9 +5,18 @@ gamesdesign.co.uk violated their own `avoid` list in exactly the ways it forbids
 **Severity:** Medium-high. Nothing crashes; the imagery style guide's entire negative
 half has simply had no effect since the Banana migration, and at least one documented
 "hard-won fact" was attributed to it.
-**Status:** OPEN — **FIX APPLIED 2026-07-20, INERT UNTIL AN IMAGE ROLL.** Stays OPEN
-because the bar for `/bugs_closed/` is fixed AND live: this is Go, so the defect is
-still reproducible in prod until a chassis image ships. Fix + evidence in §7 below.
+~~**Status:** OPEN — **FIX APPLIED 2026-07-20, INERT UNTIL AN IMAGE ROLL.**~~
+
+**Status: OPEN — FIX IS NOW LIVE (v1.0.1140, rolled 2026-07-20 ~17:58 UTC / 18:58 BST),
+BINARY-VERIFIED, BUT NEVER EXERCISED.** Fix + evidence in §7; live verification in §7c.
+
+**Why this is still OPEN despite meeting "fixed AND live" on the letter of the bar:**
+the discard is provably gone from the running binary, but **not one image has been
+generated through the new path** — zero `assets` rows since the roll, consistent with
+the owner's tool-imagery HOLD (`bugs_open/020`). "The binary contains the code" is not
+"the code ran". This is the same gap `bugs_open/011` R1 recorded for itself, and it
+closes the same way: **one real generation, checked in the adapter log.** See §7c for
+the exact observation and §6 for why the image itself proves less than you'd think.
 
 > **CONFIRMED 2026-07-20 (bugfix-028 thread), beyond the original filing.** The
 > mechanism was re-verified from code independently, and then proven end-to-end
@@ -352,6 +361,53 @@ block the Banana fix. Options, none taken:
    re-opens the placement question this fix closed.
 3. **Accept the comment**, on the grounds that with only two implementers and a
    now-explicit contract, the marginal defect risk is small.
+
+## 7c. LIVE VERIFICATION 2026-07-20 (v1.0.1140) — present in the binary, absent in behaviour
+
+The fix ships in the **image-generator-adapter**, NOT the chassis — `banana/provider.go`
+lives under `internal/adapters/imagegenerator/`. A chassis-only roll would not carry it.
+Both rolled to v1.0.1140; both adapter replicas were checked.
+
+```
+kubectl exec -n ai-persona-system <image-generator-adapter-pod> -- sh -c \
+  'strings /app/image-generator-adapter | grep -c "folded NegativePrompt into positive prompt"'
+```
+
+| marker | 6df8q | drwlg |
+|---|---|---|
+| `folded NegativePrompt into positive prompt` (new Info log) | 1 | 1 |
+| `must not contain or use` (the prohibition clause literal) | 1 | 1 |
+| `foldNegativeIntoPrompt` (symbol) | 2 | 2 |
+| **`NegativePrompt provided but Banana ignores it`** (the OLD discard) | **0** | **0** |
+
+**The last row is the one that makes this a verification rather than a hopeful grep.**
+A present-marker check alone can pass against a stale binary that happens to contain a
+similar string; new-present AND old-absent, on both replicas, cannot. Log-message
+strings were used deliberately — the Docker build (`-a -installsuffix cgo`, alpine)
+does not retain `case` values, and a miss on one of those reads exactly like a stale
+deploy (the trap logged in 016b §9 and paid for once already on this workstream).
+
+**What is NOT verified, and it is the important half:**
+`SELECT … FROM assets WHERE created_at > '2026-07-20 17:55+00'` → **0 rows.** No image
+has traversed the fold. Everything above proves the code is *loaded*, not that it
+*works*.
+
+**The cheapest closing observation** (spends credits — needs the owner's go, and note
+the `bugs_open/020` HOLD covers TOOL imagery specifically):
+
+1. Generate one `content_hero` on a site whose guide has a real `avoid` list —
+   gamesdesign.co.uk names white grounds and numerals (§3).
+2. `kubectl logs -n ai-persona-system <adapter-pod> | grep "folded NegativePrompt"` —
+   the line carries `negative_prompt` (400-char preview), `prompt_len_before` and
+   `prompt_len_after`. **`after > before` is the proof the terms reached the model.**
+   Absence of the line on a generation with a non-empty avoid list = the fold did not
+   fire, and this bug is not fixed.
+3. Only then look at the image — and per §6, **at five or more**, counting violations.
+   One compliant image is indistinguishable from the luck that produced the 5-of-9
+   compliance that hid this defect for a release cycle.
+
+Step 2 closes this bug. Step 3 answers a *different* question — whether Gemini obeys a
+prohibition clause — which this bug never claimed and which remains genuinely open.
 
 ## 8. Related
 
