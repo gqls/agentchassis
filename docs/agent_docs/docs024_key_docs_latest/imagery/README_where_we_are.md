@@ -860,9 +860,11 @@ exists to cure, so it was worth fixing properly.
 
 One thing happened that you should know about, because it's a process problem rather
 than a technical one. I was holding the code back from being committed while waiting
-for the review verdict. While I waited, another session ran a sweep commit that picked
-up everything sitting in the shared working folder — including my unfinished work —
-and shipped it to production in the evening build. Nothing was lost and the code is
+for the review verdict. While I waited, a sweep commit picked up everything sitting in
+the shared working folder — including my unfinished work — and shipped it to
+production in the evening build. (I first wrote here that another automated session
+did that; you've since told me it was your own manual commit. Correcting it rather
+than quietly editing: I guessed at the culprit and stated the guess as fact.) Nothing was lost and the code is
 sound (I checked it is genuinely running on all four relevant containers, not just
 assumed it from the version number), but it went live before it was approved. The
 lesson is that holding work back for safety does the opposite here: the shared folder

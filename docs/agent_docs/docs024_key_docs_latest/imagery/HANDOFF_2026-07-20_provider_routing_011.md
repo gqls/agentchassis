@@ -105,6 +105,17 @@ To put a site's heroes back on SDXL, no code change — one spec edit:
 
 ## 4. What is left — in priority order
 
+> **STATUS 2026-07-20 evening — item 1 is BUILT and LIVE; see `bugs_open/011` §7 for the
+> full account.** The mechanism below was implemented exactly as prescribed (adapter
+> reports → chassis persists to `agent_error_log`), verified on both replicas of both
+> services, and reached prod via an owner sweep (`bca5d8255`, v1.0.1140) while the
+> council verdict was still REVISE — **no `Council-Reviewed` trailer is claimed.**
+> Round 8 (corr `e996bf0a`, orchestration `49512359`) was queued at ~18:10Z and is the
+> outstanding item. Two council-imposed constraints must not be undone: the **sender
+> allowlist** (guardian hard veto — an unconditional parse in shared dispatch is a
+> fleet-wide ungoverned bus) and the **absent ≠ malformed ≠ partly-dropped** distinction
+> (bug_historian, twice). Live-fire proof is deliberately still owed.
+
 **1. The council residual: `UnmigratedKind` is a log line, not a record.**
 `bug_historian` objected (high → medium across rounds) that detection living only in
 process logs still depends on someone tailing the right pod, which this repo's own

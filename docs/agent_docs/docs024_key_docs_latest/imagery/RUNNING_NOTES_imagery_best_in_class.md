@@ -2839,3 +2839,17 @@ reviewing code that already serves traffic.
 **3. Round 8 submitted** (`49512359`) with both objections answered by checks.
 The gate is what makes the accidental early ship tolerable: every non-sanctioned
 pipeline is provably unaffected, which is the property the guardian insisted on.
+
+> **CORRECTED 2026-07-20 (owner, same evening):** the entry above attributes the
+> v1.0.1140 sweep (`bca5d8255`) to "another session". **It was the owner's own manual
+> commit, not an agent session.** I inferred an agent because the message read like the
+> sweep pattern CLAUDE.md warns about, and I stated that inference as fact — the
+> `[INFERRED]` marker the working-docs rules now require is exactly what was missing.
+> What caught it: the owner said so directly.
+>
+> **The lesson survives the correction, and generalises:** it does not matter *who*
+> holds the broom. A working tree shared by many sessions AND a human is mutable state;
+> "I'll commit once the council approves" leaves finished code exposed to anyone's next
+> `git add`. Commit narrowly when coherent; let the trailer, not the tree, carry review
+> status. What is now WRONG in the entry above is only the actor — not the mechanism,
+> not the exposure, and not the remedy.

@@ -299,3 +299,59 @@ uses. See `bugs_open/027` §4b, which found the same cap truncating palettes.
 - `platform/orchestration/actions/generate_image_actions.go` — prompt assembly, `constraints` → negative prompt, per-kind defaults
 - `docs/leopardessconsulting/PLAN_imagery_and_design_2026-07-18.md` — the site-side plan this came from
 - Working example prompt + result: scratchpad `infographic.json`; live asset `infographic-what-we-build.jpg`
+
+## 7. R1's council residual — BUILT, LIVE, still under review (2026-07-20 evening)
+
+`bug_historian`'s objection across rounds 1–3 (detection lives only in pod logs) is
+**implemented and running in production** on `v1.0.1140`, but the council verdict is
+**REVISE** — round 8 was queued at ~18:10Z and is the outstanding item.
+
+**What the mechanism is.** The adapter detects a routing condition against the table
+*its own binary ships* and reports it in the success response as `reported_conditions`;
+the chassis coordinator persists each to `agent_error_log` (severity `warning`,
+`resolved=false`, attributed to the reporting service) at `handleCompleteResponse` —
+the sole crossing point for every remote completion, reachable only after the atomic
+per-request claim, so redelivery cannot duplicate rows. Three codes:
+`UNROUTED_IMAGE_KIND`, `UNRECOGNISED_PROVIDER_HINT`, `REFERENCE_ANCHORS_DROPPED`.
+Neither service re-derives the other's config; the coupling is one field name plus one
+consumer-owned allowlist.
+
+**Two design constraints came from the council and must not be undone:**
+1. **The sender allowlist is load-bearing** (`conditionReportingAgentTypes`, currently
+   `{image-generator}`). A guardian **hard veto** (round 5) established that an
+   unconditional parse in shared dispatch is a fleet-wide ungoverned reporting bus.
+   Adding a sender IS the review. `senderMayReportConditions` is the single swap seam
+   if architecture review later prefers declaring via `agent_definitions.output_contract`.
+2. **Absent ≠ malformed ≠ partly-dropped.** Absent is silent and healthy; a
+   present-but-unusable field warns "the reporting contract broke"; a *mixed* list warns
+   with an explicit dropped/parsed count. Collapsing any of these reintroduces the exact
+   silence the mechanism exists to cure (`bug_historian`, rounds 5 and 7).
+
+**Live-verified** on both replicas of both services, greping strings the change
+*creates* (never `case` values): chassis `UNSANCTIONED sender`=1, `Persisted
+adapter-reported conditions`=1, `the reporting contract broke`=1; adapter
+`UNROUTED_IMAGE_KIND`=1, `REFERENCE_ANCHORS_DROPPED`=1 on `-6df8q` and `-drwlg`.
+
+**How it reached prod without approval:** an owner sweep commit (`bca5d8255`) took the
+then-uncommitted tree into the v1.0.1140 build. **No `Council-Reviewed` trailer is
+claimed and none may be** until an APPROVED verdict. Disclosed to the council in the
+round-8 rationale.
+
+**Owed, in order:**
+1. Round 8 verdict (corr `e996bf0a`, orchestration `49512359`). If APPROVED, commit the
+   trailer against the landing commits (`8ec9e2ab8` + the swept `bca5d8255`).
+2. **Live-fire proof, deliberately not yet run:** one generation with an unrouted kind,
+   then `SELECT error_code, severity, agent_type FROM agent_error_log WHERE
+   error_code='UNROUTED_IMAGE_KIND' ORDER BY occurred_at DESC LIMIT 1`. Deferred because
+   the design was still under review and it costs a real generation plus a junk asset;
+   do it once the verdict settles.
+3. A `doc_note` recording the contract against diagnosis item `5db192c5`, which **stays
+   open** — it names the wider unmatched-case family (`directionAppliesToKind`, the
+   per-kind accessors); this fixed only the routing-observability member.
+4. A guideline side-task raised by the `guidelines` seat (twice): DECLARED CONTRACTS has
+   no clause for chassis-parsed generic response fields (headers already work this way,
+   undeclared). Worth an explicit exemption clause so future reviewers do not relitigate.
+
+Commits: `8ec9e2ab8` (per-entry drop counting) · `bca5d8255` (owner sweep carrying the
+rest) · `58a7c7a8d` (`bugs_open/019` reproduction #3 — a council round of this work was
+voided by the truncated-reviewer defect, still live pre-roll).
