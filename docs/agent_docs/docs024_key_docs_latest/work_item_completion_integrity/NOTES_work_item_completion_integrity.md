@@ -247,3 +247,52 @@ appears unclassified — not an invisible default. Categories are marked [INFERR
 where I did not open the check, per CLAUDE.md's new marker rule, because misstep 4
 was that exact error one level down.
 
+---
+
+## 2026-07-20 (later still) — re-read CLAUDE.md; I had broken the SUMMARY rule twice
+
+Owner asked me to re-read CLAUDE.md. It had grown 285 → 323 lines since my last full
+read, across two commits I had only partly seen:
+
+- `2bb5821c5` (08:32) — **SUMMARY cadence cut**: milestones only, not on a clock.
+  *"Rarity is part of the design… if answering the five headings would produce
+  substantially the last summary again, the milestone has not happened yet."*
+- `622ee2642` (16:13) — `WRONG_CALLS.md` ledger + the **mark-the-unverified** rule
+  (`[INFERRED]`/`[UNMEASURED]`/`[ASSUMED]`). I had already complied with both, having
+  seen them injected mid-session.
+
+### MISSTEP 5 — I edited a SUMMARY in place, twice
+
+The older half of that section — *"Every summary is a NEW FILE, never an edit of the
+last one"* — I broke in `93edb02f7` (**20 added / 7 deleted**) and again in
+`08100857a` (13 / 1). Those deletions destroyed what we believed at the 07-18
+milestone: that the fix was written but inert and the bug still open. That is
+precisely the record the rule protects — a summary that later proved incomplete is
+evidence about how we get things wrong, and overwriting it leaves only the corrected
+version, which teaches nobody anything.
+
+Restored `SUMMARY_2026-07-18` verbatim from `41e3345b2`; wrote `SUMMARY_2026-07-20` as
+a new file (`d471f0fc4`). Applied the new rarity test rather than the clock before
+writing it: 017 moved from committed-and-inert to closed-and-live-and-pod-verified,
+the verifier gap was diagnosed/corrected/half-built, and a verifier for 40% of
+completions was written and held — "where we are now" is substantially different, so
+it is an inflection.
+
+**Checked rather than assumed while fixing it:** `README_where_we_are.md` has never
+lost a line (42/0, 33/0, 77/0 across all three commits), so append-only held there.
+`scripts/pattern-check.py` is silent on this tree.
+
+**The uncomfortable bit, worth keeping.** `check_append_only_docs` fires when a
+SUMMARY loses **≥20 lines**. Mine lost **7** and **1**. So the automated check would
+NOT have caught either violation — it was calibrated (deliberately, at a 2.0% fire
+rate) to catch wholesale rewrites, not incremental erosion. Two lessons: the script is
+a backstop for the loud case, and reading the rule is still the only thing that
+catches the quiet one; and my instinct to treat "the check passed" as "I complied" is
+the same error as MISSTEP 4, where six passing tests said nothing about whether I had
+tested the right rule.
+
+**Not logged in `WRONG_CALLS.md`** — deliberately. That ledger is for a *claim written
+down at a confidence the evidence did not support*; this was a process violation, not
+a false claim, and its own header warns that mixing categories buries both. Recorded
+here and in the commit message instead.
+
