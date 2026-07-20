@@ -1108,3 +1108,70 @@ rediscovered):**
   fix ride the same build).
 - 2 × `href="#"` on index/tools — `brief-explanation` CTAs, page content, on 018's `dead_control`
   list. Untouched by this work.
+
+### §X.6 — COUNCIL VERDICT: REVISE (2026-07-20 18:37) — and 019's fix proven live en route
+
+**The round completed instead of voiding — that is the first thing to record.** The chassis image
+deployed 17:58:20 UTC contains `tolerate_truncation` (probed in-pod: 1 occurrence, vs **0** in the
+Jul 19 16:42 binary; controls `max_tokens` 15→18, `stop_reason` 3→6). The report shows
+`"unreadable": ["review_editquality.result"]` — **edit-quality truncated again and the round carried
+on regardless**, degrading that one seat instead of discarding everyone's work. That is exactly the
+behaviour `/bugs_open/019` specifies, now proven on a real submission. Third attempt on this trail;
+the first two voided.
+
+Queue latency, for `/bugs_open/030`'s record: published 18:07:00 UTC, orchestration created
+**18:23:46** — **16 min 46 s**.
+
+**Verdict: REVISE**, `decided_by: objection from bug_historian`. Tally: **7 approve** (reuse_agent,
+guidelines, compliance, render_guardian, debug_historian, constitution, mission), **4 object**
+(bug_historian, guardian, tooling_provenance, prior_art_librarian), **4 abstained**, 1 unreadable.
+
+**TWO CONCRETE DEFECTS THE COUNCIL CAUGHT THAT WOULD HAVE SHIPPED.** These are not style notes:
+
+1. **The `{"fields": {...}}` assumption is wrong for real components.** A reviewer's own check
+   enumerated live `input_schema` shapes and found several with **no `fields` wrapper at all** —
+   `Hero Section` and `Call to Action` have `fields_type = NULL` and their top-level keys ARE the
+   field names (`headline`, `primary_cta`, `primary_cta_url`, `secondary_cta_url`). My edit 2
+   unmarshals into `struct{ Fields map[...] }`, which for those yields an **empty map with no
+   error** — the resolution would silently do nothing, exactly the class of silent no-op this
+   submission exists to remove. Caught by `guardian` (low) and confirmed by data, not opinion.
+2. **The gap-fill precedence is wrong for non-string values.** `render_guardian` (low): my check
+   `if s, isStr := existing.(string); !isStr || s != "" { continue }` treats any NON-string existing
+   value (e.g. the bool `show_subscribe`) as "not present" and falls through to resolution — so a
+   legitimately-set non-string hardcoded value could be overwritten. The stated guarantee
+   ("wherever the hardcoded map already supplies a non-empty value it stays authoritative") is *not*
+   what the code implements. My own sketch, my own bug.
+
+**THE DECISIVE OBJECTION (bug_historian, high ×2) — and it is right.**
+- *"patches ONE call site of a shared underlying mechanism while leaving the mechanism itself
+  generic and exploitable elsewhere"*: `component_library.go:544-559`'s blanket `<no value>→""`
+  substitution stays untouched, so any other renderer of a `content_components.html_template`
+  against an incomplete map inherits the identical silent blanking with no signal at all.
+- *"the plan's own corroboration documents a SECOND instance … and does not touch it"*: I cited
+  `bugs_open/041` (collectJSAssets omitting `site_components`, with the correct UNION already
+  written in `render_js_snippets_for_site_action.go:203-219`) as my strongest argument that this is
+  a class — while my edit list leaves it alone. Using an instance as evidence and not fixing it is
+  the inconsistency. Fair, and I did not see it.
+
+**Blast radius, now measured rather than assumed.** `guardian` objected that I asserted it; the
+reviewers' check answered it: **six** agent definitions reference this action —
+`nav-updater`, `rerender-pages`, `site-work-orchestrator`, `rerender-site`, `nav-link-fixer`,
+`pageflow-builder`. The "nine sites render byte-identically" argument has to hold across all six
+callers, not the one I had in mind. That belongs in the revised risks section as fact.
+
+**Also owed (tooling_provenance, medium):** the plan reads `PLAN_2026-07-19_cta_link_integrity.md`
+et al as prior decisions but writes nothing back. Adding the fourth call site to a principle that
+documents three should append a `doc_notes` entry for that pipeline — the read side of the contract
+was done meticulously, the write side not at all.
+
+**Harness limitation, not a plan defect (`prior_art_librarian`):** its Schema section omits
+`site_components` and `site_specs`, so it could not verify the load-bearing "no `navigation` aspect
+on any of the 11 sites" claim and flagged it as unverified. Worth knowing that this seat is
+structurally unable to check the tables this class of submission rests on.
+
+**SIDE-FINDING from a reviewer's check — a stale value this workstream believed fixed.**
+`sites.content_data` for idea.uk still carries `"email": "idea-uk@leopardess.uk"`. §DONE item 5 and
+`sql/p1_05`/`p1_06` record the contact email as corrected to `idea.uk@contactforsales.com` "across
+all sources the validator COALESCEs" — that sweep evidently missed `sites.content_data`. Not
+rendering today (the footer takes `email` from the render context), but it is a live wrong address
+one code path away. **Verify before repeating the "fixed everywhere" claim.**
