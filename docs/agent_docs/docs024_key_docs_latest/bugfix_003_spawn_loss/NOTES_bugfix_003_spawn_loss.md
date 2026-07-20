@@ -85,3 +85,31 @@ F2/F3 premise double-checks (owner asked before go-ahead) — ALL PASS:
   item closed as cancelled with a note. Claim rests on direct code reading.
 - Owner's "scheduled_tasks has retry machinery" point: verified & reconciled
   (see 2026-07-20b nuance in the bug file) — work-item layer only.
+
+**2026-07-20 (later still).** Council round 1 on the health fix: **REVISE**
+(reuse_agent objection decisive; guardian + debug_historian + prior_art also
+objected; 8 abstained). The objections were fair and improved the change:
+
+- **Misstep (mine): built the prober as a chassis-local file** when
+  `platform/health` already existed as the natural shared home — exactly the
+  reuse-vs-build discipline the seat enforces. Round 2 moves it to
+  `platform/health/kafka_reachability.go`, bridged to the existing
+  `Checkers` machinery via `Checker()`; chassis-local health.go deleted.
+- **Misstep (mine): round-1 sketch under-showed the ctx move** — editquality
+  read it as a second unlinked context. The runbook literally warns "the
+  sketch is the only view of your code reviewers get"; re-learned it anyway.
+- The survey the reuse seat asked for found the pattern is WORSE than 003
+  recorded: git adapter (:855), browserrunner (:189), thunder, analyser,
+  webscrape, imagegenerator, auth-service ALL serve hardcoded health JSON.
+  All named as follow-up adopters in round 2.
+- Guardian's blast-radius check (their own SQL): 165 agent types, 6 pipelines
+  on this image. Restart-storm answer firmed up: liveness restarts are
+  IN-PLACE kubelet restarts with capped exponential backoff — not evictions,
+  PDBs inapplicable, no scheduling churn.
+- debug_historian: post-rollout verification now an explicit plan step —
+  curl /health expecting `kafka_last_ok_seconds_ago` (old binary returns bare
+  "OK" — a discriminating literal) + strings-grep with positive control.
+
+Round 2 resubmitted on the same trail (`RESUBMIT_CORR=3a18a1a4`), run orch
+`e4da4360`. No FORCE needed this round — the main file is now `platform/`.
+Build + gofmt + vet clean after the refactor. Verdict pending.
