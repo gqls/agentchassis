@@ -263,3 +263,11 @@ docs/agent_docs/docs024_key_docs_latest/finetuning/working/scripts/02_train_llam
 docs/agent_docs/docs024_key_docs_latest/finetuning/working/scripts/logs-thunder-adapter.json
 docs/agent_docs/docs024_key_docs_latest/idea.uk/golang_files/idea
 
+
+# Compiled Go binaries at repo root (a 93MB agent-chassis binary was committed
+# by accident 2026-07-20 in bca5d8255; builds use `git archive`, so a tracked
+# binary is extracted into EVERY service build context).
+/agent-chassis
+/remote-job-spawner
+/core-manager
+/auth-service
