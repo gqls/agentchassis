@@ -97,18 +97,36 @@ production probe shape, and shortened windows
 (`KAFKA_UNHEALTHY_AFTER_SECONDS=60`, `KAFKA_HEALTH_PROBE_INTERVAL_SECONDS=10`).
 
 **Two gotchas that cost the first run:**
-1. **Set `KAFKA_TOPIC` explicitly.** A custom `AGENT_TYPE` is NOT enough:
-   `personae-prod-config` supplies `KAFKA_TOPIC`, and `main.go` prefers the env
-   var over the agent-type-derived default, so the pod consumes
-   `system.agent.generic.*`. With a fresh consumer group and the reader's
-   `StartOffset: FirstOffset`, it then **replays the topic from the beginning**
-   (11-day-old messages, in the observed run). A distinct consumer group means
-   its own copies — it does not steal from the real group — but expect the
-   replay and check afterwards for writes:
+1. **Set `REQUESTS_TOPIC` and `RESPONSES_TOPIC` explicitly.** A custom
+   `AGENT_TYPE` is NOT enough, and neither is `KAFKA_TOPIC`.
+   > **CORRECTED 2026-07-20 (owner: "we are not using system.agent.generic.\*,
+   > the dynamic pods create their topics dynamically").** The first version of
+   > this note blamed `KAFKA_TOPIC` from `personae-prod-config`. Wrong twice
+   > over: that ConfigMap contains **no topic keys at all** (it is set in the
+   > agent-chassis *Deployment's* own env block), and `main.go`'s
+   > `cfg.Custom["topic"]` is not what opens the consumers anyway.
+
+   The real mechanism is a **hardcoded fallback in `setupConsumers()`**
+   (`platform/agentbase/agent.go:332` and `:362`): when `REQUESTS_TOPIC` /
+   `RESPONSES_TOPIC` are unset it silently listens on
+   `system.agent.generic.requests` / `.responses` — the comment there reads
+   *"Only the main orchestrator listens on the generic topic"*. Spawned dynamic
+   agents never hit this: the spawner injects their `job.<corr>-<orch>-<type>-…`
+   topics, which they create at startup. A hand-made test pod that omits those
+   two vars therefore turns itself into a second main-orchestrator listener.
+
+   With a fresh consumer group and the reader's `StartOffset: FirstOffset`, it
+   then **replays that topic from the beginning** (11-day-old messages in the
+   observed run). A distinct consumer group means its own copies — it does not
+   steal from the real `generic-requests-group`, whose consumer stayed active
+   and kept its own offsets throughout — but expect the replay, and check
+   afterwards for writes:
    ```sql
    SELECT count(*) FROM orchestration_states WHERE processing_node='<pod>';
    SELECT count(*) FROM processed_messages  WHERE processed_by='<pod>';
    ```
+   **Never give such a pod the real consumer group** (`generic-requests-group`):
+   same group *would* take work from the live chassis.
 2. **A pass is a RESTART, not a JSON body.** Watch `restartCount` 0→1 AND
    `kubectl describe pod` events for
    `Liveness probe failed ... statuscode: 503`. If the container dies without

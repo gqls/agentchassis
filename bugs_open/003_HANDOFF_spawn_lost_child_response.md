@@ -210,14 +210,34 @@ Two further holes in the same layer:
    > brokers would catch it but risks false restarts during routine broker
    > rollouts. That is a fleet-wide restart-policy call.
    >
-   > **Landmine found while testing:** a throwaway pod inherits `KAFKA_TOPIC`
-   > from `personae-prod-config`, so despite a custom `AGENT_TYPE` it consumed
-   > `system.agent.generic.*`; with a fresh consumer group and
-   > `StartOffset: FirstOffset` it replayed 11-day-old messages from the start
-   > of the topic. Harmless here (separate group = its own copies, not stolen;
-   > **zero** `orchestration_states` or `processed_messages` rows written; the
-   > orchestrations it replayed were `COMPLETED` on 2026-07-09), but anyone
-   > repeating this must set `KAFKA_TOPIC` explicitly and expect a full replay.
+   > **Landmine found while testing — an unset `REQUESTS_TOPIC` silently makes
+   > a pod a second "main orchestrator".** `setupConsumers()`
+   > (`platform/agentbase/agent.go:332`, `:362`) falls back to
+   > `system.agent.generic.requests` / `.responses` when `REQUESTS_TOPIC` /
+   > `RESPONSES_TOPIC` are unset. **Spawned dynamic agents never reach this
+   > fallback** — the spawner injects their `job.<corr>-<orch>-<type>-…` topics,
+   > which they create dynamically (owner, 2026-07-20). Only a hand-made pod
+   > that omits those vars lands on the generic topics.
+   >
+   > That is what the test pod did: with a fresh consumer group and the reader's
+   > `StartOffset: FirstOffset` it replayed the topic from the beginning
+   > (11-day-old messages). Harmless — separate group means its own copies, the
+   > live `generic-requests-group` consumer kept its own offsets throughout,
+   > **zero** `orchestration_states` and `processed_messages` rows were written,
+   > and the replayed orchestrations were already `COMPLETED` on 2026-07-09.
+   > Anyone repeating the test must set both topic vars explicitly, and must
+   > **never** reuse `generic-requests-group` — the same group *would* take work
+   > from the live chassis.
+   >
+   > **[CORRECTED 2026-07-20]** an earlier version of this note blamed
+   > `KAFKA_TOPIC` from `personae-prod-config`; that ConfigMap has no topic keys
+   > at all (they live in the agent-chassis Deployment's env), and
+   > `cfg.Custom["topic"]` is not what opens the consumers. Caught by the owner.
+   >
+   > **Still live, for the record:** `system.agent.generic.requests` is not
+   > dormant — the static chassis pod was an active consumer during this test
+   > (`generic-requests-group`, offset 95963 / end 96053, lag 90). The dynamic
+   > half of the fleet is what runs on `job.*`.
    > **Governance caveat, stated plainly:** this shipped **without an APPROVED
    > council verdict.** The trail (`3a18a1a4`) ran three rounds — REVISE, then a
    > round voided by 019-class reviewer truncation, then REVISE again — and the

@@ -702,3 +702,26 @@ sitting right there.
 broken instrument is not a verification, and the next person reading that query in my
 runbook would have inherited the instrument. Fixed in `/bugs_open/029`'s addendum and
 in the robot-hands RUNBOOK.
+
+### 2026-07-20 — bugfix 003 — "the test pod inherited KAFKA_TOPIC from the shared ConfigMap"
+**Asserted:** in the bugfix_003 runbook, the bug file, and to the owner — explaining why a
+throwaway test pod ended up consuming `system.agent.generic.*` despite a custom `AGENT_TYPE`.
+**Actually:** `personae-prod-config` contains **no topic keys whatsoever** (`KAFKA_TOPIC` is
+set in the agent-chassis *Deployment's* env block, which the test pod never copied), and
+`main.go`'s `cfg.Custom["topic"]` is not what opens the consumers in the first place. The real
+mechanism is a hardcoded fallback in `setupConsumers()` (`agent.go:332`, `:362`): unset
+`REQUESTS_TOPIC`/`RESPONSES_TOPIC` → listen on the generic topics, comment and all
+(*"Only the main orchestrator listens on the generic topic"*). Spawned dynamic agents never
+reach it — the spawner injects their `job.*` topics.
+**Caught by:** the owner, flatly — *"we are not using system.agent.generic.\*, the dynamic pods
+create their topics dynamically."* Correct about the dynamic half, and it did not match my
+story, which is what made me go and read `setupConsumers()`.
+**The cheap check that would have caught it:** `kubectl get cm personae-prod-config -o json`
+and one grep for the topic key — I asserted the ConfigMap's contents without ever reading it,
+in the same breath as reporting a possible production-traffic incident. Reading the function
+that opens the consumer would have done it too.
+**Cost:** a wrong mechanism written into a runbook whose whole purpose is to stop the next
+person repeating the mistake — the most expensive place to be wrong. Corrected in place.
+**Pattern:** this is the third entry today from the same root — asserting a plausible cause
+without opening the thing that would confirm it. The other two were `health.NewServer` having
+no callers, and "verified live" that only exercised the healthy branch.
