@@ -129,3 +129,52 @@ silent for its full 45 min on a dead run (Monitor coverage lesson).
 **Bug-number collision:** another thread filed a different `040` today
 (failed-page-build). Recorded in `bugs_closed/README.md` duplicate-numbers
 table + a header note in our file; cite ours as **040-kafka-dial**.
+
+**2026-07-20 ~19:00Z. The health fix WENT LIVE — swept into another session's
+commit, before its verdict.** Owner deployed v1.0.1140. Sequence:
+`bca5d8255` ("v1.0.1140 - sweep. includes imagegenerator changes,
+coordinator.go amend.") took `cmd/agent-chassis/main.go`,
+`platform/health/kafka_reachability.go` and the base `deployment.yaml` along
+with its own work — the CLAUDE.md landmine, from the other side this time
+(my WIP was the passenger). Nothing was lost; forward-only holds.
+
+**Live verification (against pods, not git):**
+- chassis pod `agent-chassis-5567d99bd6-5snzn` and spawned Job pod
+  `agent-build-dispatch-loop-06bd9258-k5jxq` both return
+  `{"kafka_last_ok_seconds_ago":N,"status":"ok"}`; `/ready` → `{"status":"ready"}`.
+- Discriminating grep: `kafka_last_ok_seconds_ago` → 1 in the pod binary;
+  positive control `^READY$` (the old hardcoded literal) → 0. Both directions.
+- Probes attached on the live Deployment (liveness /health 60/15/5/4,
+  readiness /ready 10/10/3/3).
+- **Fleet restarts: 0 across 44 pods.** The guardian's restart-storm worry has
+  not materialised — though nothing has yet been *sustainedly* unreachable, so
+  this is absence of the trigger, not proof of the guard [UNMEASURED].
+
+**Round 3 verdict: REVISE** (decided by editquality; abstained 6). Movement:
+**reuse_agent flipped to APPROVE** — the refactor answered it — as did
+debug_historian, llm_reliability, guidelines, constitution, mission,
+diagnosis_guardian. Remaining objections, and what the live system says:
+- editquality/edit-3: "do spawned Jobs really inherit?" — **partly right, and
+  my wording was loose.** They inherit the *endpoint honesty* from the shared
+  image, NOT the probe stanzas (theirs come from the spawner and always
+  existed). Verified: the spawned pod above runs v1.0.1140 with probe path
+  `/health` and serves real JSON.
+- guardian/edit-2: "does an overlay already set probes?" — **no**;
+  `grep -rn 'livenessProbe|readinessProbe' deployments/.../agent-chassis/overlays/`
+  returns nothing. No conflict.
+- editquality/edit-2 + guardian/edit-1: the ctx relocation is asserted, not
+  shown. Fair — a sketch limitation, not a code defect; the built binary
+  compiles with one root ctx.
+- prior_art/edit-1: **this one lands, against me.** See WRONG_CALLS.md
+  2026-07-20 — `health.NewServer` has ZERO callers, so the `Checkers`
+  "machinery" I claimed to bridge into is itself dead. Placement still right;
+  the reuse *claim* was overstated, and I never re-grepped it because it was
+  the claim that flattered the plan.
+
+**Consequence for the record: NO `Council-Reviewed` trailer for this change.**
+Three rounds, no APPROVED verdict; the trailer is earned, not assumed.
+
+**Also spotted, NOT touched (owner call):** `bca5d8255` committed a **93 MB
+`agent-chassis` binary** into the repo root (`git ls-files agent-chassis`
+confirms it is tracked). That is another session's commit and possibly
+deliberate, so flagged rather than removed.

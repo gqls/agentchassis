@@ -165,6 +165,32 @@ Two further holes in the same layer:
    Kafka consumer can't dial for N minutes. Entry point: `platform/agentbase/agent.go` around
    the idle-warn at line 1080 and `IDLE_TIMEOUT_SECONDS` handling at line 421.
 
+   > **FIXED AND LIVE 2026-07-20 (v1.0.1140).** `/health` and `/ready` now report
+   > real state via `health.KafkaReachability`
+   > (`platform/health/kafka_reachability.go`, wired in `cmd/agent-chassis/main.go`);
+   > the chassis Deployment gained its first probe stanzas. **Verified against
+   > running pods, not git:** the chassis pod and a spawned
+   > `agent-build-dispatch-loop` Job pod both return
+   > `{"kafka_last_ok_seconds_ago":N,"status":"ok"}` (the old binary returned bare
+   > `OK`; the discriminating literal `kafka_last_ok_seconds_ago` greps 1 in the
+   > pod binary, positive control `READY` greps 0). Fleet restart count after the
+   > roll: **0** across 44 pods (the one crashlooping pod is a long-standing,
+   > unrelated `github-actions-runner`). Liveness fails only after
+   > `KAFKA_UNHEALTHY_AFTER_SECONDS` (default 300) of *continuous* all-broker
+   > unreachability, so 040-kafka-dial's intermittent flakes cannot trip it.
+   > **The restart-on-sustained-unreachability path is NOT yet observed in the
+   > wild [UNVERIFIED]** — no pod has been in that state since the roll; the
+   > deliberate test (block one pod's broker egress, expect restart at ~300s +
+   > probe lag) is still owed.
+   > **Governance caveat, stated plainly:** this shipped **without an APPROVED
+   > council verdict.** The trail (`3a18a1a4`) ran three rounds — REVISE, then a
+   > round voided by 019-class reviewer truncation, then REVISE again — and the
+   > code was swept into another session's commit `bca5d8255` ("v1.0.1140 -
+   > sweep") and deployed before the third verdict landed. Do **not** cite a
+   > `Council-Reviewed` trailer for this change; the surviving round-3 objections
+   > are answered in the workstream NOTES, with three of them checked against the
+   > live system.
+   >
    > **CORRECTED 2026-07-20:** spawned Jobs already HAVE liveness+readiness probes
    > (`cmd/remote-job-spawner/main.go:450–478` and `spawn_actions.go:2792–2812`) — but they
    > point at `/health` and `/ready`, which are **hardcoded 200s**
