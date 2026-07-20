@@ -1208,6 +1208,31 @@ motivated it was this measurement error.
 49–51. Category tags: `marker-must-be-validated`, `absence-is-not-evidence`,
 `positive-test-only`, `same-method-thrice`.
 
+### A guard before an action switch breaks the one action that lacks the guarded field — at 100%, disguised as a timeout (2026-07-20)
+
+**Symptom.** A workflow step calling an adapter fails with an EXPIRED awaited
+request after retries, `__step_error` empty. Everything upstream looks perfect.
+It reproduces every time, yet reads like a transient adapter timeout.
+
+**Mechanism.** The webscrape adapter validated the top-level `url` before
+switching on `action`. `batch_scrape` carries `data["urls"]` (array) and has no
+top-level `url` by construction of its own sender — so every batch request was
+rejected as "Empty URL in request" before reaching `handleBatchScrape`
+(`bugs_open/047`). The caller never sees the rejection: the adapter's error
+response is not claimed as the awaited response (the 003/035-envelope family),
+so each retry meets the same fate and the await expires silently. Blast radius
+included the entire research lane (research-agent's scrape step).
+
+**The transferable rules.**
+1. Shared pre-switch validation must only assert fields that EVERY action
+   requires; an action with a different payload shape branches out first.
+2. A 100%-deterministic failure can masquerade as flakiness when the error
+   channel is broken — before blaming timeouts, read the SERVING pod's log for
+   the request id; one line there ("Empty URL") ended the mystery.
+3. When adding an action to a shared handler, grep for guards ABOVE the switch
+   you are extending — batch_scrape's author wired the case correctly and was
+   defeated by a guard eight lines earlier.
+
 ### One truncated reviewer voids an entire council round — and six good reviews with it (2026-07-18)
 
 **Symptom.** A council run reaches `COMPLETED @ complete_invalid` with no verdict,
@@ -2029,6 +2054,7 @@ See `/bugs_closed/README.md`.
 | 045 | The active library contains **exactly one** component able to serve a generic `hero-tool` section, and it is hard-wired to a Bayesian ranker — 14 `source:static` fallbacks (`Start Ranking Free`, `Calculate Rankings`, `Try the Bayesian Ranker`) that `content_data` cannot override. So every tool page asking for a tool hero gets another product's vocabulary. **Not a planner defect** — the plan asked for `hero-tool` and that was correct; the library is missing the component. Sibling of `039` (same selector: that one resolves to *nothing*, this one to the *wrong* thing) | filed 2026-07-20, split out of `023` class F. **Armed on 2 live pages** (`finetuning.uk/ai-agent-roi-estimator`, `ai-agent-orchestration.com/agent-complexity-estimator`) — both `needs_rebuild` with `hero-tool` still in `pages.sections`, clean today only because they have not been rebuilt. Fix = build a generic gated tool hero; **do NOT delete the `_pre_037` row**, it is the sole active row for its function |
 
 | 041 | Section lookup (`loadSectionComponents`, `v3_site_actions.go:3353`) resolves by name then by function and **never normalises**, while a sibling path (`:3730`) does — so a `snake_case` section (`call_to_action`) matches nothing, `plan_sections` Path 3 raises a `needs_new_component` for a component that **already exists** as `call-to-action`, and the page deploys without the section. 10 such items, 4 sites, since 2026-05-18, all `failed`. Explains the BULK of 040's fleet sweep (`call_to_action` ×14, `hero` ×6, vs only 4 legitimate `skip_section`) | filed 2026-07-20; cause proven from code + live rows, no fix started |
+| 047 | Every `batch_scrape` rejected as "Empty URL" before its own handler (guard preceded the action switch) — research-agent's scrape lane + V5 acquisition dead, disguised as await-timeouts | FIX COMMITTED 8d9d9051a; open until a web-scrape-adapter image rolls |
 
 > **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
 > `/bugs_open/` but are not all indexed here (`034`–`041` are; `042`–`047` exist and are not), and `027` is already used by **two** different cases. Filed by
