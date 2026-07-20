@@ -283,7 +283,12 @@ until curl -s -o page.html -w '%{http_code}' "$URL" | grep -q 200 \
 Status + good marker + bad-marker absence, all three. Dispatch-to-deploy latency under a
 busy chassis was ~35 min (queue, not a drop — pod uptime 5h, nothing restarted).
 
-## R12 — Watching the observe stage (LIVE in v1.0.1140, 2026-07-20)
+## R14 — Watching the observe stage (LIVE in v1.0.1140, 2026-07-20)
+
+> **Renumbered R12→R14 by the bugfix-023 session, 19:10.** Two threads appended to
+> this file within hours and both claimed R12 (mine at 14:00: section-authority; yours
+> at 19:06: this one). Nothing referenced either number, so no pointer broke. Sequence
+> is by commit order, so the later entry moved. Content untouched.
 
 Deploy verified in-pod (never the tag): all four markers present in
 `/app/agent-chassis` — `cta derivation delta`, `cta ownership conflict`,

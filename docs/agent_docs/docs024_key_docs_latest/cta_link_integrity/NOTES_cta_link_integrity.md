@@ -859,3 +859,63 @@ the loud-fail guard, the doc_notes persistence protocol (which surfaced the conc
 thread's refutation), the dead-code catch relocating the observe log to the true loss site,
 two derivation-rule corrections as regression tests, the flip-round contract (5 binding
 constraints from 5 seats), and the merge-loop inventory. None of that was in v1.
+
+---
+
+## 2026-07-20 19:10 — session 3 (bugfix-023): post-roll verification of v1.0.1140 — everything held
+
+Owner deployed a fresh chassis at 18:58:33 BST. Three things needed checking and all three
+pass; recording the *checks*, because "it deployed fine" is not evidence.
+
+**1. The observe stage is genuinely in the running binary** (pod
+`agent-chassis-5567d99bd6-5snzn`, 4 min old). Discriminating grep per the memory rule —
+literals the change CREATED, plus controls:
+
+```
+cta derivation delta      1     resolve_internal_links: augmented CTA sections  1  <- positive control
+cta ownership conflict    1     cta_links_stale                                 2  <- positive control
+uncovered cta url field   1     cta flip round active                           0  <- negative control
+DeriveCTAURLFields        4
+ParseInputSchemaValue     2
+```
+
+The negative control matters: it proves a `grep -c` of an absent string returns 0 here, so
+the four positives are not an artefact of the grep always matching. (Independent of the
+other thread's identical conclusion in R14 — two threads, same answer, different runs.)
+
+**2. Neither of my config fixes was clobbered by the release.** This is the check the
+"config re-seed clobber" landmine exists for — a fleet image can carry patch-style seeds
+that re-apply component definitions over DB edits:
+
+```
+tool-guide-intro  cta_primary_url renderer/false · cta_secondary_url renderer/false
+                  #guide-start position 0 · both anchors gated · updated_at 12:42:26 (MY migration, unchanged)
+page_components placements of tool-guide-intro + bayesian-ranking-hero-tool: 0
+```
+
+`updated_at` still carrying my 12:42 timestamp is the discriminating bit — a re-seed would
+have moved it even if it wrote identical values.
+
+**3. No re-plan restored the removed sections.** `bugs_open/034` (re-plan rebuilds every
+deployed page) makes this a live risk on any roll, so it is checked against the rendered
+artefacts, not just `page_components`:
+
+```
+finetuning.uk/tools/llm-cost-calculator.html                 200  44,255B  defects=0
+robot-hands.com/gripper-cycle-time-estimator.html            200  44,880B  defects=0
+leopardessconsulting.co.uk/tools/llm-cost-calculator.html    200  44,373B  defects=0
+leopardessconsulting.co.uk/tools/ai-agent-roi-estimator.html 200  23,243B  defects=0
+```
+(defects = combined count of the four button labels, `href=""`, and `guide-start`.)
+
+**The delta stream is silent so far, and that is expected, not disappointing.** 1,325 log
+lines since restart, zero `resolve_internal_links` / `rerender_page_sections` activity —
+nothing has built a CTA-bearing page yet. Per R14 that silence means "no build has run",
+not "no gap". **I deliberately did NOT trigger a build to force evidence**: the delta
+stream is meant to accumulate across real fleet traffic (R14's own gotcha), and a forced
+re-plan/rebuild is exactly the `bugs_open/034` hazard I had just finished verifying
+against. The flip round is now gated on time and traffic, not on the image.
+
+**Housekeeping:** the observe-stage runbook entry was committed as a second `R12` (mine
+from 14:00 already held it). Renumbered the later one to **R14**, content untouched,
+nothing referenced either number.
