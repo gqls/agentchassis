@@ -274,3 +274,55 @@ FROM pages p WHERE p.site_id='...' AND p.name IN (...);
 Required NOT NULL columns: `site_id, source, item_type, severity, summary,
 status, created_by, pipeline`. Priority is **ASC** — 20 jumps the inherited
 backlog. Watch it with an **absolute** cutoff, never `now() - interval`.
+
+## When a queued batch will not dispatch (2026-07-20)
+
+Hit twice in one session, two different causes. Check in this order — the first is
+yours to fix, the second is fleet-wide and is not your fault.
+
+**1. Is the item routable?** An item with `handler_agent IS NULL` sits at `triaged`
+forever, unclaimed, with **no error** — indistinguishable from "waiting behind the
+backlog". This cost ~15 minutes.
+
+```sql
+SELECT status, coalesce(handler_agent,'NULL'), attempt_count
+FROM site_work_items WHERE source='<your-tag>';
+-- handler_agent must be set: 'page-rerender' for page_rerender
+```
+
+**2. Is the dispatch pool saturated?** `/bugs_open/029`. The `dispatch`
+concurrency group has `max_concurrent = 8`; hung orchestrations are counted as
+running forever and nothing reaps them.
+
+```sql
+SELECT coalesce(initial_request_data->'config'->>'agent_type','-') AS agent,
+       count(*), date_trunc('second', max(now()-updated_at)) AS oldest_idle
+FROM orchestration_states WHERE status='AWAITING_RESPONSES' GROUP BY 1 ORDER BY 2 DESC;
+-- 8 x build-pipeline-trigger against a pool of 8 = builds are halted FLEET-WIDE
+```
+
+Recovery is 029's, unmodified — **build-* only, never "everything AWAITING"**; other
+agents' rows belong to their threads:
+
+```sql
+UPDATE orchestration_states SET status='CANCELLED'
+ WHERE status='AWAITING_RESPONSES' AND updated_at < now() - interval '15 minutes'
+   AND initial_request_data->'config'->>'agent_type'
+       IN ('build-dispatch-loop','build-pipeline-trigger');
+```
+Recovery signature: a fresh `build-pipeline-trigger` at `EXECUTING_STEP /
+spawn_dispatch` within a tick or two.
+
+**⚠️ This reproduces after every chassis image roll** — the scheduler fires into a
+just-restarted pod, one spawn per minute, each dropped spawn leaving a permanent
+`AWAITING_RESPONSES` row, and eight minutes fills the pool. **Check it as part of
+the post-roll routine**, not after your own batch mysteriously stalls.
+
+**Measuring a stall: use `completed_at`, never `updated_at`.**
+`site_work_items.updated_at` is not maintained (`/bugs_open/035`), so a
+"nothing completed" query built on it returns 0 whether or not anything completed.
+
+```sql
+SELECT count(*) FROM site_work_items
+ WHERE status='complete' AND completed_at > '<roll timestamp>';
+```

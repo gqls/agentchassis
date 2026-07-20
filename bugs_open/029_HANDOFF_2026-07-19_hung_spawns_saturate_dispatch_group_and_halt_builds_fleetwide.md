@@ -127,3 +127,68 @@ the bug.
 - `bugs_open/003` — spawn lost child response. The cause; this is the blast radius.
 - `bugs_open/028` — filed the same day from the same batch: a build no-op reporting
   `complete` and deploying. Both are silent-failure defects in the build path.
+
+---
+
+## SECOND REPRODUCTION 2026-07-20 — and the trigger is worse than this file says
+
+Reproduced by the robot-hands thread ~25 minutes after the **v1.0.1140 image roll**
+(pod `agent-chassis-5567d99bd6-5snzn`, started `2026-07-20T17:58:20Z`). Recovery was
+this file's own SQL, unmodified, and it worked exactly as documented.
+
+**The important difference: it was not self-inflicted this time.** The original write-up
+attributes it to a thread hammering `build-dispatch-loop` to hurry a slow batch, and calls
+it "self-inflicted by a reasonable action". Today nobody dispatched anything. The hangs
+appeared **one per minute, on the minute, starting at 17:59 — sixty seconds after the pod
+came up** — and simply accumulated until the pool was full:
+
+```
+AWAITING_RESPONSES | build-pipeline-trigger | age 18:50 | idle 18:30 | generic-orchestrate-0720-1759
+AWAITING_RESPONSES | build-pipeline-trigger | age 17:50 | idle 17:31 | ...-1800
+AWAITING_RESPONSES | build-pipeline-trigger | age 16:50 | idle 16:31 | ...-1801
+   ... one per minute through ...-1805, 8 in total, against a pool of 8
+```
+
+Every one idle for essentially its entire life — they never did anything. So the trigger
+is not "a thread over-dispatches"; it is **the scheduler firing normally into a chassis
+that has just restarted**. CLAUDE.md's "no orchestration dispatch within ~300s of a pod
+(re)start — the spawn is silently dropped" describes the same window from the caller's
+side; what this shows is that the *scheduler's own* spawns are dropped too, and unlike a
+thread's one-off dispatch, the scheduler keeps firing every 30s and each dropped spawn
+**leaves a permanent AWAITING_RESPONSES row**. Eight minutes of that fills the pool.
+
+**Therefore: every chassis image roll halts builds fleet-wide until a human notices.**
+That is a much stronger claim than the original file makes, and it means the reaping fix
+is not an edge-case nicety — it is on the critical path of every deploy. Until it lands,
+**checking for this should be part of the post-roll routine**, not something you discover
+25 minutes later while debugging your own stuck item.
+
+Measured impact of this instance: **zero work items completed fleet-wide between the roll
+(17:58:20Z) and the recovery (18:23Z)**, and the first completion afterwards was the item
+whose stall led me here.
+
+### Measurement trap — do not use `updated_at` for this
+
+`SELECT count(*) ... WHERE status='complete' AND updated_at > <roll>` returns **0 even
+after recovery**, because `site_work_items.updated_at` is not maintained (`/bugs_open/035`).
+I reported the halt from that column first and it happened to agree with the truth for the
+wrong reason. **Use `completed_at`:**
+
+```sql
+-- the halt, measured correctly
+SELECT count(*) FROM site_work_items
+ WHERE status='complete' AND completed_at > '<roll>' AND completed_at < '<recovery>';   -- 0
+SELECT count(*) FROM site_work_items
+ WHERE status='complete' AND completed_at > '<recovery>';                               -- 1, immediately
+```
+
+The independent evidence that does not depend on either column is the one to lead with:
+**N hung `build-pipeline-trigger` rows in `AWAITING_RESPONSES` against `max_concurrent`**,
+which is directly observable and is the mechanism itself.
+
+### Leave other threads' orchestrations alone
+
+Same as the first reproduction: a live `webdesign-agent` orchestration (idle 2:50) was
+present and was **not** touched. The recovery SQL's `agent_type IN
+('build-dispatch-loop','build-pipeline-trigger')` clause is what keeps it safe — do not
+broaden it to "everything AWAITING_RESPONSES".
