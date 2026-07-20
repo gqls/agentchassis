@@ -104,19 +104,17 @@ MatchMatrix was hand-authored for exactly this reason.
 
 ## Next actions, in order
 
-1. **Verify the R4 re-render batch drained, against the live pages.** 12
-   `page_rerender` items, `source='robot-hands-r4-cta-pairing'`, priority 20,
-   reason `cta_links_stale`. **The DB edits are inert until these run** — the live
-   pages carry the old CTAs and old statistics until then. `complete` is not
-   proof; fetch the pages:
-   ```bash
-   curl -s https://robot-hands.com/about.html | grep -oE '1,200\+|>5<'   # expect 5, not 1,200+
-   curl -s https://robot-hands.com/index.html | grep -c '/tools/robot-payload-budget-calculator/'  # expect 0
-   curl -s https://robot-hands.com/services.html | grep -oE 'href="[^"]*"[^>]*>Review the MatchMatrix'
-   ```
-   If the batch stalls, see RUNBOOK "Making a batch actually run" — and note
-   `bugs_open/030` (single-consumer dispatch): do **not** re-fire a dispatch that
-   looks dropped.
+1. **DONE — the re-render batch drained and is verified live.** 12/12 complete,
+   plus a 13th (`robot-hands-r4e-archive`) for the tool list. Verified against the
+   rendered pages, not the statuses, at 2026-07-20 19:30 BST:
+   `/`, `/about.html`, `/entities/gripper-detail.html`,
+   `/tools/matchmatrix/index.html`, `/matchmatrix.html`, `/services.html` all
+   **200**; **zero** occurrences of `1,200+` / `2,400+` / `140+` /
+   "Actuation Technologies" anywhere; **zero** links to the dead
+   `robot-payload-budget-calculator` across five pages. `gripper-detail` renders
+   5 / 5 / 4 / 24 with the `2,400+%` and `140+ms` placeholder suffixes gone.
+   Nothing outstanding on this item.
+
 2. **`bugs_open/023` — DO NOT START IT HERE. It has an active owning thread.**
    The `cta_link_integrity` workstream
    (`../cta_link_integrity/`) is six council rounds in and its **observe-only
