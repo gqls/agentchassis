@@ -1063,3 +1063,48 @@ see template changes.* If you edited `content_components.html_template`, a plain
 will deploy and report success without applying it. You need `spec.reason='section_data_resolved'`
 (or `image_landed`). Worth noting `rerender-pages` offers no way to set that — hence the manual
 insert.
+
+### §X.5 — VERIFIED LIVE end-to-end (2026-07-20 11:05)
+
+`p3_04` (`reason='section_data_resolved'`) was the right route and is now proven. Final state,
+checked against the deployed site and the running tool, not against work-item status:
+
+```
+1. JS asset          /tools/assets/audience-check-form.js   HTTP 200, 1469B
+2. /tools.html        audience-check-form.js  ×1   id="ac-result"  ×1
+                      href="/tools.html#audience-check" ×1   href="/audience-check" ×0
+3. /index.html        href="/tools.html#audience-check" ×1   href="/audience-check" ×0
+4. site-wide sweep    href="/audience-check" → 0 on /, /tools.html, /index.html,
+                                                  /report.html, /about.html
+5. FUNCTIONAL         POST /audience-check → HTTP 200, 2537B, body begins
+                      "<h4>Your stated audience</h4><p>independent vets in the UK</p>…"
+                      and contains exactly 1 × href="#request" — the dead anchor the
+                      injector retargets to /report.html#request-a-report
+```
+
+So the taster now runs in place: the form intercepts, POSTs by fetch, and injects that 2537B
+fragment into `#ac-result` **without leaving the page**, so chrome is retained; and no route
+anywhere on the site still advertises the POST-only endpoint to a browser.
+
+**One stall en route, recorded in `/bugs_open/006` C addendum.** The `tools` item sat `claimed` by
+`build-dispatch-loop` for 16 minutes, `attempt_count=0`, `result='{}'`, no log line — while its
+same-second sibling (`index`) completed in ~90s. There is **no requeue predicate on `claimed_at`
+anywhere in `platform/`**, so the "claim-timeout sweep" 006 describes is not in the Go tree and its
+window is >16 min. Reset to `triaged` by hand and it completed in under a minute. Safe here
+*because* nothing had been done — `attempt_count=0`, empty result, no handler log — so there was
+nothing to duplicate. That condition is the whole justification; do not generalise the reset to the
+churn case, where the work HAS succeeded and the right action is to mark it `complete`.
+
+**Still outstanding on this page (not regressions — pre-existing, and named so they are not
+rediscovered):**
+- `/tools/assets/site-header.js` **404** — hamburger/mobile menu dead on every page. Cause:
+  `collectJSAssets` reads `page_components` only (`rerender_single_page_action.go:157`), never
+  `site_components`, so chrome can reference a JS asset that is never published. Note
+  `render_js_snippets_for_site_action.go:203-219` DOES union both tables for `snippets.js` — the two
+  JS paths disagree about whether chrome exists. Fleet-wide.
+- The tool's fragment emits `href="#request"`, an id on no page. Retargeted client-side by the
+  injector as a **stopgap**; delete that line once the tool binary emits
+  `/report.html#request-a-report`. Tool deploy is still pending (hardened `/request` + email subject
+  fix ride the same build).
+- 2 × `href="#"` on index/tools — `brief-explanation` CTAs, page content, on 018's `dead_control`
+  list. Untouched by this work.
