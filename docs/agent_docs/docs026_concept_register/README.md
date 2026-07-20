@@ -137,3 +137,24 @@ One file per category: `register/<category-slug>.md`, entries sorted by concept 
 `<PREFIX>-NNN` (prefix per category, assigned at consolidation). Same fields as the
 extraction entry plus `id` and a merged `sources` list. The index file lists every
 concept as `| id | name | status | one-line summary | register file |`.
+
+## Contract claims need a citation (convention, 2026-07-20 — from `bugs_closed/031`)
+
+A **what:** line that asserts a *code contract* — "the pipeline skips X", "mode Y
+does Z" — must carry a `file:line` citation into the implementation, or be voiced
+as an observation instead ("we observed X during <event>", with the source doc).
+An uncited contract claim reads as verified ground truth to every downstream
+consumer — including the stage-3 council seats, whose prompts are built from
+these entries.
+
+Why this is load-bearing: STY-048 carried an uncited inference ("SKIPS pages
+whose content hash is unchanged") in confident contract voice. The mechanism had
+**never existed in the code** (`git log -S` finds no commit), but a council seat
+quoted it as "the pipeline's own contract" and blocked a correct plan at HIGH
+severity — a full round of credits and queue time to disprove with three greps
+and one probe (`bugs_closed/031`). The register is agent-facing input: a wrong
+entry is not misleading prose, it is false evidence in machine reviews.
+
+Reviewer-side corollary (now in the render seat's prompt): a seat judging a
+claim about code behaviour should cite the code path, not a register entry —
+"the register says" and "the code does" are different statements.

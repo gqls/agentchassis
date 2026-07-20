@@ -8,10 +8,13 @@
 #  1. Assemble mode's render_page needs **page_id**, not just page_name — without it,
 #     rerender_single_page fails "page_id not found". We look it up per page.
 #  2. Use ASSEMBLE mode (no spec.reason) for a header/footer change, NOT
-#     section_data_resolved: the latter SKIPS pages whose content is unchanged
-#     (content-hash match), so it silently never updates their header. Assemble mode
-#     deploys unconditionally. A header change MUST go through here, not O8's
-#     rerender_pages.sh.
+#     section_data_resolved. [CORRECTED 2026-07-20, bugs_closed/031: NOT because of a
+#     content-hash skip — none exists in the code, that was a wrong inference. Scoped
+#     mode bails at page level (skipped: no stored components; escalated: incomplete
+#     content_data — rerender_page_sections_action.go:157,:186) and neither bail-out
+#     writes or deploys, so chrome-only changes can silently miss those pages.]
+#     Assemble mode deploys unconditionally. A header change MUST go through here,
+#     not O8's rerender_pages.sh.
 set -euo pipefail
 S="${1:?}"; DOMAIN="${2:?}"; shift 2
 PSQL=(kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -tAc)

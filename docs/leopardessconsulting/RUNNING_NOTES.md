@@ -684,6 +684,19 @@ re-embedded the new header. The pages that DID flip were the ones whose content 
 **Assemble mode (page_id, NO spec.reason) deploys unconditionally** — that's the correct
 mode for a header/footer change. Switched to it and the holdouts flipped immediately.
 
+> **CORRECTED 2026-07-20 (`bugs_closed/031`):** the mechanism asserted above is wrong —
+> there is **no content-hash comparison anywhere in the page-rerender path**
+> (`grep -rn content_hash --include=*.go platform/ internal/` → nothing in the rerender
+> actions; `git log -S "content_hash"` → it never existed). What scoped mode actually does:
+> bail at page level — `skipped` when a page has no stored components, `escalated` to the
+> writer when stored content_data is absent or missing a required llm field
+> (`rerender_page_sections_action.go:157,:186`) — and in both cases nothing is written or
+> deployed, which from outside is indistinguishable from "skipped because unchanged".
+> The practical conclusion stands (assemble mode IS correct for a chrome-only change),
+> but for those reasons, not a hash. This inference was later harvested into the concept
+> register as a contract and blocked a correct plan at HIGH severity in council review —
+> the cost of writing an inference in contract voice.
+
 **Result: 27/30 active pages carry the gold header + logo.** The 3 remaining
 (`ai-readiness-quiz`, `for-engineering-leaders`, `guides/llm-cost-calculator-guide`) have
 **zero sections** — they're the known-empty pages (AUDIT D2); they need a content REBUILD,

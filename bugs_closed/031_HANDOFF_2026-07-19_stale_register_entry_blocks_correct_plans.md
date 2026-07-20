@@ -129,3 +129,58 @@ content-hash objection.
 - Pattern for 016b §9: **verify a cited "contract" against the code before
   revising a plan around it** — a confident claim in our own knowledge base is not
   evidence, and this one had never been true.
+
+---
+
+## RESOLUTION — FIXED & LIVE 2026-07-20 (bugfix-031 thread)
+
+**Status: CLOSED.** Every surface asserting the claim is corrected; the live
+council rows are patched and verified. Nothing is inert — no image roll involved.
+
+**Re-verified before fixing** (evidence items 1–3 re-run against HEAD `867049c04`):
+zero `content_hash` in the rerender actions; the three section-level carries at
+`rerender_page_sections_action.go:229/:239/:251`; plus the two **page-level**
+bail-outs the original enumeration under-counted — `skipped` (no stored
+components, `:157`) and `escalated` (incomplete content_data, `:186`), neither of
+which writes or deploys. Those two are the likely true mechanism behind the
+originating observation, and they are what the corrections now say.
+
+**The replication was wider than filed** — six occurrences in five docs026 files
+(not three): `register/styling-render-pipeline.md` STY-048, `.buckets/` ×2,
+`.clusters/styling-nav-links.md` ×2, `extractions/U25_leopardess_social.md` — plus
+`PILOT_final_four_reviewers.md` (seat #9 description), the docs014 mirror of the
+leopardess RUNNING_NOTES, **and the live seat prompts themselves**: the claim was
+embedded verbatim in `agent_definitions` rows for `fix-proposer` AND
+`council-gate` (`review_render_guardian.config.prompt_template`), seeded by
+`0NN_fix_proposer_v16_render.sql:47`. The register fix alone would have left the
+blocking reviewer quoting the false contract indefinitely.
+
+**What was done (all fix candidates):**
+1. Register + all copies corrected with visible `CORRECTED 2026-07-20` markers
+   citing the code (candidate 1). Remaining greps for the phrase hit only
+   correction/refutation records that quote it to name what was wrong.
+2. Source docs corrected (candidate 2): `docs/leopardessconsulting/RUNNING_NOTES.md`
+   Turn 14 (visible correction block, owner's practical conclusion preserved —
+   assemble mode IS right for chrome changes, for the bail-out reasons, not a
+   hash), its docs014 mirror, and `scripts/reassemble_pages.sh` header comment.
+3. Convention added (candidate 3): docs026 `README.md` § "Contract claims need a
+   citation" — a **what:** asserting a code contract carries `file:line` or is
+   voiced as an observation.
+4. Council-side guard (candidate 4): the corrected seat bullet now ends
+   "cite the code path, not a register entry — the register is documentation,
+   not the implementation."
+   **Live fix**: `PATCH_render_guardian_031_content_hash.sql` (snapshot +
+   surgical two-substring replace, LIKE-guarded/idempotent) applied to
+   `fix-proposer` (`UPDATE 1`, false-claim position 0, correction at 702), then
+   `099_SYNC_gate_roster.py --apply` mirrored to `council-gate` (dry-run drift:
+   `review_render_guardian` only; 15 seats stable; gate transform intact —
+   `input_data.rationale` present). v16 seed corrected so a replay cannot
+   resurrect the claim.
+
+**Verification run** (2026-07-20): both live rows show
+`position('content hash is unchanged')=0` across the whole config and the
+corrected text present; `grep content_hash` over the rerender actions still
+returns nothing. The remaining test — a council submission touching the rerender
+path drawing no content-hash objection — will be proven by the next real
+submission; the text that produced the objection no longer exists anywhere the
+seat can read.

@@ -26,9 +26,12 @@ machinery.
 
 Where most silent, visually-invisible bugs live. Judges: render paths that can
 silently drop/blank content (fail-loud-not-silent, the escalate-not-blank
-posture); the two rerender modes' skip semantics (`STY-048` — scoped mode
-hash-skips, silently wrong for chrome changes; assemble mode re-embeds
-unconditionally); the `data-runtime-fill` exemption and
+posture); the two rerender modes' skip semantics (`STY-048` — scoped mode's
+page-level skipped/escalated bail-outs can leave pages undeployed, silently
+wrong for chrome changes; assemble mode re-embeds unconditionally. CORRECTED
+2026-07-20, `bugs_closed/031`: the seat's original "hash-skips" wording was a
+false register claim — no content-hash skip ever existed; the seat's live
+prompt was patched the same day); the `data-runtime-fill` exemption and
 rendered-artifacts-are-not-sources landmine (`STY-019`, vonc); the `var()`
 colour inheritance chain (`CTS-011`); the three validation layers (`STY-004`).
 Footprint: rerender/assemble/styling/page_components terms. Overlaps the
