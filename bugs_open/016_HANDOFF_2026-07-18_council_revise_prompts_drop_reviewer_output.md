@@ -484,3 +484,125 @@ immediately, but the case does not move while finding 1 is unproven.
 
 Transferable pattern filed: 016b §9, "A fix applied to one branch of a
 two-branch router reads as done" (commit `f593f8dac`).
+
+---
+
+## RE-CHECK 2026-07-20 (bugfix-016 thread) — a NEW recurrence, fixed; and the "PROVEN IN THE WILD" section is MISATTRIBUTED
+
+Three things, in order of how much they change the picture.
+
+### 1. The class re-opened, in a seat added the same day — found and fixed
+
+The fleet sweep this document closed at "zero" on 2026-07-18 returned **one** hit
+today:
+
+| agent | step | reference | producer shape | failure mode |
+|---|---|---|---|---|
+| `domain-research-classifier` | `review_mission_alignment` | `{{.analysis.result}}` | `analysis` = `{type: json, result: {...}}`, confirmed live in `collected_data` | silent `<no value>` |
+
+Seeded today by the R0/R1 mission lane
+(`SEED_classifier_mission_R0_R1_2026-07-20.sql`, commit `6a1d5b8f3`) — i.e. the
+predicted regression vector in §"Where the ongoing risk actually is" fired, via a
+**new seat**, not a re-seed of an old one. The seat is observe-only and had
+**never executed** (`llm_call_log` rows for `review_mission_alignment` = 0), so
+nothing was damaged; it was caught before its first run.
+
+**Fixed** (snapshot `e6ca8cca…` taken first): `{{.analysis.result}}` →
+`{{.analysis}}` in the prompt template only. Verified against the row, not the
+exit code — template now matches `{{.analysis}}`, no `.result}}` remains, and the
+fleet sweep is **back to zero**. The seed file was corrected too, plus a comment
+naming the asymmetry, so a fresh-environment apply cannot reintroduce it. (The
+seed's own `UPDATE` is guarded by `NOT (steps ? 'review_mission_alignment')` and
+matches 0 rows today, so the LIVE fix was the load-bearing one.)
+
+This seat is a good teaching case for the asymmetry, because it contains **both
+forms, both correct**: the template needs `{{.analysis}}`, while the sibling
+`gate_mission_note` condition `mission_review.result.objection_found` is a CONFIG
+dot-path reading raw `collected_data` and **must keep** `.result`. Left untouched.
+
+### 2. CORRECTION — run `a8b66dee` is the FEATURE-DESIGNER, not fix-proposer
+
+§"✅ THE `.result` FIX IS NOW PROVEN IN THE WILD" attributes run `a8b66dee`
+(started 15:27:33Z, `<no value>`: false) to `fix-proposer`. It is not. Its
+workflow steps are:
+
+```
+load_spec, design, check_spec_approved, persist_plan, run_checks,
+council_decide, repropose, reframe + 5 seats (editquality, guardian,
+bug_historian, guidelines, reuse_agent)
+```
+
+That is `feature-designer`. `fix-proposer`'s shape — `load_diagnosis`, `propose`,
+`code_lookup`, `select_panel`, 13 seats + 12 `gate_*` steps — belongs to
+`48cf0339`, whose run started **13:11:13Z**, four minutes BEFORE fix-proposer's
+13:15:11Z fix. Every fix-proposer repropose on record is pre-fix.
+
+**This is the `persist_plan` trap that §"Still unexercised at 2026-07-19" already
+warns about, one level down: `repropose` is not fix-proposer-only either.** Three
+agents have a step of that name, and the earlier section's own join filters on
+none of them. The tell that caught it was reading the rendered prompt rather than
+the timestamp: `a8b66dee`'s repropose opens "REVISE the staged build plan …
+stages are commits … capabilities listed missing", which is designer language —
+fix-proposer revises an *edit plan* against a *diagnosis*.
+
+So finding 1's true state is per-agent, not fleet-wide:
+
+| agent | `.result` fix | exercised post-fix? |
+|---|---|---|
+| `feature-designer` | applied | **YES — proven by `a8b66dee`** |
+| `fix-proposer` | applied | **NO** — last repropose run started 13:11:13Z, fix at 13:15:11Z |
+| `content-creator-hero` | applied | [UNVERIFIED] — `generate_hero_content` has **zero** rows in `llm_call_log` ever, so this table cannot answer it either way |
+
+**The closing line of the previous section is therefore CORRECT** ("016 stays OPEN
+on finding 1 … no fix-proposer repropose has STARTED post-fix"). Recording that
+explicitly because this thread first concluded the opposite — that the closing
+line contradicted the proof section — and was one query away from writing "016
+finding 1 is proven, close it". The proof section is the wrong one, not the
+closing line. Logged in `WRONG_CALLS.md`.
+
+### 3. Finding 2 is still unexercised on BOTH agents — and today's re-seed did not regress it
+
+```
+orchestration_state_audit, new_current_step='load_council_reviews' (fix-proposer)  -> 0 rows
+orchestration_state_audit, new_current_step='load_council_report'  (feature-designer) -> 0 rows
+```
+
+Neither reviser-reads-the-artifact patch has ever executed. `fix-proposer` has
+not run since 2026-07-18 15:39Z; the loop is idle, not broken.
+
+**Re-seed check (the risk this document names):** 162 active agents share
+`updated_at = 2026-07-20 17:57:45Z`, so a fleet-wide re-seed ran today. It did
+**not** regress either patch — verified against the live rows:
+`council_decide → load_council_reviews → check_approved` and `council_decide →
+load_council_report → check_approved` both intact, per-seat `review_*` entries
+still absent from every reviser's `input_fields`, no `.result}}` in either agent.
+
+### What can be said about the unexercised path WITHOUT spending a council round
+
+Rather than fire a run, the three fragile parts were tested separately. The
+first two are live checks; only the wiring is left.
+
+- **The query works.** `load_council_reviews`'s SQL, run verbatim against a live
+  correlation (`0a07f5ed…`), returns a **16,294-char** `council_report` body
+  carrying every seat verbatim (`{"abstained":4,"decided_by":"objection from
+  bug_historian","decision":"revise","reviews":[…`). The documented type worry is
+  a non-issue: `diagnosis_artifacts.correlation_id` is **`text`**, so the `$1`
+  param needs no cast (unlike `load_diagnosis`, which casts `$1::uuid`).
+- **`{{.council_reviews.body}}` is the right form, not a guess.** A
+  `query_database` step with `output_format: object` flattens the selected
+  columns onto the result map alongside the envelope. Proven from a step that HAS
+  run — `diagnosis_row`'s live keys are `rows, count, status, columns,
+  conclusion`, where `conclusion` is a selected column. So `council_reviews` will
+  carry `body` the same way `diagnosis_row` carries `conclusion`, and
+  `{{.council_reviews.body}}` is structurally identical to
+  `{{.diagnosis_row.conclusion}}` — which rendered real content, no `<no value>`,
+  in a live prompt.
+- **[UNPROVEN] the wiring itself**: that `council_decide` actually routes into the
+  load step, that `output_field: council_reviews` lands in `collected_data`, and
+  that the reviser prompt renders it. Only a run proves that, and per this
+  document an APPROVED round proves the step while a REVISE round proves the
+  whole path.
+
+**016 stays OPEN**, on the same finding 1 it has been open on — now stated
+per-agent: `fix-proposer` unexercised, `feature-designer` proven. Finding 2
+unexercised on both. The one-line class fix in §1 is closed and live.

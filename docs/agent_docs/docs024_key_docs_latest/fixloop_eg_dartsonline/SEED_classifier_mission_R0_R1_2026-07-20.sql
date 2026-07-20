@@ -47,6 +47,12 @@ SET default_config =
 ' || 'Return ONLY valid JSON with identity, classification, content_direction, and design_intent keys.'
     ))
   ),
+    -- bugs_open/016: in a prompt TEMPLATE an input_fields value is already
+    -- unwrapped, so it is '{{.analysis}}' — never '{{.analysis.result}}', which
+    -- renders '<no value>' silently for a json-output producer. The '.result'
+    -- form stays correct in CONFIG dot-paths: see gate_mission_note's condition
+    -- 'mission_review.result.objection_found' below, which reads raw
+    -- collected_data and must keep it.
     '{workflow,steps,review_mission_alignment}',
     jsonb_build_object(
       'action', 'execute_llm_prompt',
@@ -70,7 +76,7 @@ You are reviewing a site classification that has JUST been written, against the 
 4. DIRECTION, NOT DRIFT: does anything in the classification push against the mission (best-site-per-domain, minimal human input, classifier-as-strategic-brain)?
 
 ## The classification just produced
-{{.analysis.result}}
+{{.analysis}}
 
 ## Output -- ONLY this JSON
 {"objection_found": true|false, "concerns": [{"test": 1, "problem": "..."}], "note": "MISSION-REVIEW <domain if known>: one readable paragraph a human can act on -- what drifted, which test, what the classifier should have done. Empty string when objection_found is false."}'

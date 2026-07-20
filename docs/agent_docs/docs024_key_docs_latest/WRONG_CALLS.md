@@ -1240,3 +1240,46 @@ is not a column; a row count is not the rows.
 > append and the commit, which is the CLAUDE.md hazard doing exactly what it says
 > on the tin. Nothing was lost; forward-only holds; the content is simply recorded
 > under someone else's message.
+
+---
+
+## 2026-07-20 — bugfix-016 thread: "the bug file's own closing line is wrong" (it wasn't)
+
+**The claim I nearly wrote.** `bugs_open/016` ends with *"016 stays OPEN on finding
+1 — no fix-proposer repropose has STARTED post-fix"*. An earlier section of the
+same file shouts that the fix is *"PROVEN IN THE WILD"* via run `a8b66dee`
+(started 15:27:33Z, well after the 13:15:11Z fix, `<no value>`: false). I
+reproduced that query, got exactly the documented numbers, and concluded the file
+contradicted itself and that finding 1 was provable-closed. I was about to report
+"the closing line is stale — 016 finding 1 is proven".
+
+**Actually:** `a8b66dee` is the **feature-designer**, not `fix-proposer`. Its
+steps are `load_spec`/`design`/`check_spec_approved` + 5 seats; fix-proposer's
+are `load_diagnosis`/`propose`/`code_lookup`/`select_panel` + 13 seats + 12
+`gate_*`. Fix-proposer's last repropose belongs to `48cf0339`, started 13:11:13Z
+— **four minutes before** its own fix. The closing line is right; the
+PROVEN-IN-THE-WILD section is the misattributed one. Had I "corrected" the file,
+I would have closed a finding on evidence from a different agent, and the next
+thread would have inherited it stated with confidence.
+
+**What caught it:** reading the *rendered prompt text* on a whim, not the
+timestamps. It opens "REVISE the staged build plan … stages are commits …
+capabilities listed missing" — designer vocabulary. Fix-proposer revises an edit
+plan against a diagnosis. Nothing in the numbers would ever have shown this.
+
+**The cheap check:** the file *already told me*. It warns two sections earlier
+that `persist_plan` is not fix-proposer-only and that filtering on
+`agent_type='fix-proposer'` reads as "never ran" because the chassis stamps rows
+`generic`. `repropose` is shared by the same three agents for the same reason. I
+read that warning, applied it to `persist_plan`, and did not generalise it to the
+step I was actually querying. **One `jsonb_object_keys` on `workflow_plan->'steps'`
+— which is what finally settled it — costs one query and identifies the agent
+unambiguously.**
+
+**The move, again:** trusting a *step name* as a stand-in for the agent that ran
+it — the same "a name is not the thing" failure as the `adoption_locked` map-key
+row above. New wrinkle worth its own line: **a document warning you about a trap
+does not inoculate you against that trap in its neighbouring paragraph.** The
+warning was scoped to one step name and I let that scoping stand.
+
+**Tally:** "look at the real values, not the name" 4→5. One new row.
