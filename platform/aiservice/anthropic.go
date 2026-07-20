@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 // AnthropicClient implements the AIService interface for Anthropic's Claude
@@ -181,6 +182,19 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 	// completion can carry its partial back to the caller. Returning "" here is
 	// what made bugs_open/019 unrecoverable: the platform detected the cut and
 	// then destroyed the only thing that could survive it.
+	// Block TYPES, not just a count. A single non-text block is the tell that
+	// separates a refusal from a thinking-only response, and the old terminal
+	// error reported only "had 1 blocks" — a number that distinguishes neither
+	// (bugs_open/008 §REAL-CASE).
+	blockTypes := make([]string, 0, len(response.Content))
+	for _, block := range response.Content {
+		if block.Type == "" {
+			blockTypes = append(blockTypes, "(untyped)")
+			continue
+		}
+		blockTypes = append(blockTypes, block.Type)
+	}
+
 	partial := ""
 	for _, block := range response.Content {
 		if block.Type == "text" || block.Type == "" {
@@ -204,8 +218,21 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 		}
 	}
 
+	// A refusal is a DECISION, not a failure to produce: the model understood the
+	// request and declined it. Decoded here so it cannot fall through to the
+	// terminal fallback below, where it read as a parse fault and sent the last
+	// reader looking in the wrong layer entirely (bugs_open/008 item 5).
+	if response.StopReason == "refusal" {
+		return "", &RefusalError{
+			Reason:   "stop_reason=refusal",
+			Blocks:   blockTypes,
+			Provider: "anthropic",
+			Model:    c.model,
+		}
+	}
+
 	if len(response.Content) == 0 {
-		return "", fmt.Errorf("no content in response")
+		return "", fmt.Errorf("no content in response (stop_reason=%q)", response.StopReason)
 	}
 
 	if partial != "" {
@@ -219,7 +246,10 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 		}
 	}
 
-	return "", fmt.Errorf("no text content in response (had %d blocks)", len(response.Content))
+	// Name the cause. "had 1 blocks" was a count that distinguished a refusal, a
+	// thinking-only response and a genuine parse fault from each other not at all.
+	return "", fmt.Errorf("no text content in response (stop_reason=%q, %d block(s): %s)",
+		response.StopReason, len(response.Content), strings.Join(blockTypes, ", "))
 }
 
 // GenerateEmbedding generates embeddings (not implemented for Anthropic)
