@@ -891,3 +891,47 @@ Twice today, then, I stated a guess as though it were a finding: first about who
 that commit, and earlier about a document's contents in a council submission. Both
 times something external caught it rather than me. The habit worth building is marking
 the guess as a guess at the moment I write it.
+
+---
+
+**2026-07-20 later — it works. The avoid list now reaches the model, proven on a real
+picture. Bug 028 is closed.**
+
+You said go ahead on a tool page, so I did exactly one. I took the XP Curve Designer
+picture — the one that came back on a near-white background last week, which is what
+started all this — threw it away and let the system make it again.
+
+**It worked, and I can show you the moment it did.** The adapter wrote this at 18:38:53:
+the instruction going to the model grew from 517 characters to 905, and the extra 388
+characters are the avoid list, spelled out as a plain "do not draw these" sentence. The
+list that arrived includes *numerals* and *white background* — the exact two things the
+old pictures were breaking. Before today those words were thrown away silently. They now
+arrive.
+
+**And the new picture is on a near-black background with no numbers on it.** Cyan and
+grey on near-black, flat, no photo textures. So on the two things we cared about, this one
+behaves.
+
+**But I want to be careful about what that proves, because being careless here is what
+caused the original mess.** One picture is not evidence. Four of the original nine were
+fine too, purely by chance — that luck is precisely what hid the fault for a whole
+release. So: **the terms are now definitely delivered** (that part is proven and the bug is
+closed on it), **and whether the model actually obeys them is still unmeasured.** To know
+that we need five or more pictures with the breaches counted. I have written that up as
+the next job for the imagery work.
+
+**Two things I found along the way that you may want to know about.**
+
+First, a wrinkle in our own settings, not a fault: the new picture has a *person* in it.
+The site's main avoid list says no people — but the content-hero settings replace that
+list wholesale rather than adding to it, and the content-hero list doesn't mention people.
+So the picture is obeying the rule that actually applies, and the "no people" instruction
+quietly doesn't reach content heroes at all. Worth deciding whether that's what we want.
+
+Second, getting one picture made took eighteen minutes and went through two known faults.
+One of them (hung jobs clogging the dispatch pool) was genuinely there and I cleared it —
+but it wasn't the thing blocking us. The real one was the queue: everything in the whole
+system goes through a single lane, and we were sitting behind a long council job. It
+cleared on its own. **I nearly reported this as a serious outage** — the queue counter sits
+completely still while a long job runs, which looks exactly like something being dead. It
+isn't. I've written that trap down so the next person doesn't lose the same half hour.
