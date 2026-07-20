@@ -359,3 +359,48 @@ our counting because it blocks robots — some of our "empty" domains may not be
 dead, one still trading under a different address. Inheriting their *visitors*
 is fair game; inheriting their *identity* is not. Anything built there serves
 the arriving demand under our own name, never theirs.
+
+---
+
+## 2026-07-20 close — ownership answered, and the plan for each mystery domain
+
+The owner cleared up all four question marks in one go: every one of the nine
+domains is his, the "for sale" redirects are just registrar parking, and the
+thriving Indonesian tutorial site — nanangmrk — is his own, YouTube channel and
+all. So nothing was amiss; the research just couldn't know that from outside.
+
+What each one becomes:
+
+**nanangmrk** gets adopted into the framework as a managed site. That's the same
+kind of job as taking over relojistas was — a living site with a real audience
+that must not be broken — so it becomes its own piece of work rather than a task
+inside this one. Its content engine is tutorials feeding off the YouTube
+channel, not news.
+
+**The shopping domains** — sports kit and business supplies — become genuinely
+useful directories: categorised product listings that link through to real
+retailers. No affiliate deals yet; usefulness first, monetisation when the
+listings deserve it. **The fax domain** gets the same treatment pointed at
+current fax services.
+
+**Makeitaquote** gets its tool built, deliberately different from and better
+than the Discord bot people are guessing at — our own branding, features the bot
+doesn't have, and a clear "not affiliated" line, so we serve the arriving demand
+without straying anywhere near passing-off.
+
+**All five join the pilot**, which now stands at about thirty-six domains and
+includes the portfolio's second-biggest traffic source.
+
+**zdec stays on the bench deliberately.** Ideas were invited and mine is: measure
+before strategising. Those 409 views are of unknown quality — the domain spent
+years hacked and stuffed with casino spam, and search engines may well distrust
+it. Two or three weeks of a simple holding page with analytics tells us whether
+the traffic is human beings or spam-network residue, and the answer decides
+between building something real (its oldest clean history is industrial
+controls) or treating it as a blank four-letter name and rebuilding its
+reputation slowly. Committing content before measuring risks pouring effort into
+a poisoned asset.
+
+The komunikatif question is still open: it has the best news-shaped history of
+the lot — a real Indonesian regional news site until 2023 — and would be the
+natural first foreign-language pool site. Awaiting a yes or no.

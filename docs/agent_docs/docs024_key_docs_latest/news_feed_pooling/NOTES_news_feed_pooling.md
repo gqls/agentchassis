@@ -631,3 +631,31 @@ generator; name-collision demand from a bot in ~1.12M Discord servers; sibling
 of memecreator.co.uk — a real future `position` case); outfax → fax-tools theme;
 buysportskit → sport-retail if ownership confirms; zdec/ijih/bigotime stay
 no-feed. Impersonation lines drawn for the two domains shadowing real businesses.
+
+---
+
+## 2026-07-20 — session 2 close: ownership answered, Decisions 16–19
+
+Owner resolved everything in one message: **all nine domains are his**, the
+Afternic redirects are registrar parking (so the research's "conflicts with the
+premise that we own it" claim was a wrong inference from true evidence — the
+redirect is real, the conclusion "not ours" was not); **nanangmrk is owner-run**
+(site AND the 551k-sub YouTube channel) and is to be **adopted into the
+framework** — the relojistas class of work, flagged as its own future workstream,
+check `adoption-pipeline.md` register state first.
+
+New instrument recorded (Decision 17): **retailer-directory utilities** for the
+commerce-legacy domains (buysportskit, smartbusinesssupplies, outfax) —
+categorised product/service listings linking to real retailers, utility-first,
+affiliate wrapping deferred. Neither a feed nor a brochure; prior art to check:
+register `affiliate-commerce.md`, strategist `revenue_models`.
+
+makeitaquote (Decision 18): build the tool differentiated — own branding, webby
+feature set the bot doesn't have, explicit non-affiliation line. The domain name
+describing the function is fine; passing-off risk lives in imitating identity.
+
+Pilot now ~36 (Decision 19): + smartbusinesssupplies, makeitaquote, buysportskit,
+nanangmrk (adoption track), outfax. komunikatif recommended, not yet directed.
+zdec deliberately unstrategised — measure-first proposal recorded in PLAN (2–3
+weeks of holding-page analytics to characterise the 409 views before any
+investment; spam-era backlink profile may mean search distrust).

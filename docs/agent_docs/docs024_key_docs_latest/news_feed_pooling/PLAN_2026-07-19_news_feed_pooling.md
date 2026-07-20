@@ -469,6 +469,88 @@ Decision 4 exists to prevent. The onboarding chain (domain-research-classifier �
 audience question to the briefing questionnaire (Decision 7 caution) is part of
 that path.
 
+## Decision 16 — ownership resolved: all nine are ours; nanangmrk is owner-run and gets ADOPTED (owner, 2026-07-20)
+
+The reconciliation question from the research is answered: **the owner owns all
+nine**, including the two showing Afternic for-sale redirects (registrar parking,
+not third-party ownership). **nanangmrk.com is run by the owner personally** —
+the live Indonesian tutorial site and its 551k-subscriber YouTube channel are
+his. Directive: **adopt it into the framework and start managing it**.
+
+Adoption is a distinct track from a domain build — the site has real content, a
+real audience and a real external traffic engine (YouTube), so this is the
+relojistas class of work (take over a living property without breaking it), not
+the greenfield class. The platform has an adoption pipeline concept
+(`docs026_concept_register/register/adoption-pipeline.md`,
+`adopting-and-scraping.md`) — check its real state before starting; this becomes
+its own workstream, not a task inside this one. Its content instrument is
+evergreen tutorials + YouTube companionship, not a news feed.
+
+## Decision 17 — retail-legacy domains become retailer-directory utilities (owner, 2026-07-20)
+
+For the commerce-legacy traffic domains — **buysportskit.com,
+smartbusinesssupplies.com, and outfax.com on the same pattern** — the owner's
+directive: *"set up categorised product listings that link through to real
+retailers, we can later do affiliate feeds but for now just be as useful to the
+users as we can."*
+
+This is a **new content instrument** — neither a news feed nor a brochure site: a
+categorised directory of real products/services at real retailers, honest about
+what it is, that inherits the arriving purchase intent by actually serving it.
+Sequencing is utility-first: no affiliate wrapping until the listings are
+genuinely useful (which also keeps the early sites clean of the thin-affiliate
+signature while they re-establish standing).
+
+- buysportskit: teamwear/kit categories → real UK kit retailers. The predecessor
+  (BSK Pro) still trades at `.shop` — **no Errea product naming lifted from their
+  old URLs, no club-shop branding**; serve the intent, not their catalogue.
+- smartbusinesssupplies: office/business-supplies categories → real UK suppliers.
+  The shadowed company is dead but may exist legally — our own identity throughout.
+- outfax: "send a fax online" → current fax service providers, comparison-style.
+  The fax-affiliate space is mature, so the later-affiliate step is natural here.
+
+Prior art to check before building: the concept register has an
+`affiliate-commerce.md` entry and the strategist's `revenue_models` already
+includes `lead_generation`/`affiliate` — reuse the machinery view first.
+
+## Decision 18 — makeitaquote: build the tool, deliberately different (owner, 2026-07-20)
+
+Build the quote-image tool but *"slightly different (better) so we're not copying
+or landing into passing off territory"*. Concretely that means: our own name and
+branding on the tool itself (the domain name describes the function, which is
+fine — passing-off risk lives in imitating the bot's look, name-styling, or
+claiming to BE the bot); a web-first feature set the Discord bot doesn't offer
+(paste text, upload avatar, style/palette choices, direct download/share) rather
+than a webified clone of its reply-to-a-message flow; and an explicit "not
+affiliated with the Discord bot" line. Sibling positioning vs memecreator.co.uk /
+memegenerator.uk goes in the `position` field at onboarding — this trio is the
+second genuine position cluster after the AI trio.
+
+## Decision 19 — pilot list grows to ~36 (owner, 2026-07-20)
+
+Added on the strength of their legacies: **smartbusinesssupplies.com (748),
+makeitaquote.com (226), buysportskit.com (215), nanangmrk.com (95, via the
+adoption track), outfax.com (64)**. That puts the portfolio's #2, #6 and #7
+traffic domains in the pilot. komunikatif.com (253, Indonesian news legacy)
+remains **recommended but not yet directed** — it is the strongest news-shaped
+inheritance in the set and the natural first Indonesian language exception.
+
+**zdec.com is deliberately NOT strategised yet.** Owner: "we can completely
+restrategise zdec.com then, ideas welcome." Proposal recorded below as a
+proposal, not a decision:
+
+> **Measure before strategising.** The domain's 409 views are of unknown quality
+> (hacked-era casino-spam backlinks; possible search-engine distrust). Cheapest
+> honest first step: serve a minimal holding page with analytics for 2–3 weeks
+> and characterise the traffic — human vs bot, referrers, geography, landing
+> paths. Then branch: (a) if there is real Chinese-industrial residue, the
+> industrial-controls history suggests an industrial-plant-pool site (possibly
+> bilingual); (b) if the traffic is spam residue, treat zdec as a clean-slate
+> 4-letter brandable and accept that its search standing may need a disavow file
+> and patience — build for direct/type-in value, not SEO, until standing is
+> proven. Committing content before measuring risks investing in a penalised
+> asset.
+
 ## Risks carried into the build
 
 1. **Near-duplicate content across the portfolio.** 500 sites rendering the same six
