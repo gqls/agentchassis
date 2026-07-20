@@ -534,3 +534,46 @@ server-renders news into the page, per `/bugs_open/027` — which is my own adde
 `/bugs_open/027`'s fix is **committed but not deployed** — `persistNewsSectionHTML` is absent from
 the running binary. It is inert until the next image roll, so 027 stays OPEN by the standing bar
 (fixed AND live).
+
+### 2026-07-20 evening — 042 fixed in code; new build carries 027 but not 042
+
+Fresh chassis build deployed ~17:58 UTC. Verified against the **pod**, not the tag:
+
+```
+strings /app/agent-chassis | grep -c persistNewsSectionHTML   -> 8   (027 server-render IS live)
+strings /app/agent-chassis | grep -c components_rendered      -> 1
+```
+
+So `/bugs_open/027`'s fix is now deployed. **042 is not** — `config[field].(string)` unchanged,
+no commit touched `action_inputs.go`. So the effective window is still 72 h.
+
+**Checked before assuming the new build was safe for our page.** With 042 unfixed the render
+still sees zero items, and 027's new code writes component HTML — so it could have overwritten
+the homepage's `latest-news` component with an empty section. It does not:
+`renderLatestNewsCardsHTML` returns `""` for zero items, and `persistNewsSectionHTML` starts
+`if db == nil || inner == "" { return 0 }`. It also **skips locked components**
+(`lock_type IS NULL OR lock_expires_at < NOW()`) and `html.EscapeString`s third-party titles and
+URLs. Nothing regresses; the card just stays empty.
+
+**042 fixed** (owner-approved, non-string scalars only): Strategy 5 in `action_inputs.go`, plus
+`action_inputs_literal_test.go`. 5 tests pass, `datahelpers` + `actions` build and pass.
+Narrowed from what I first wrote in the bug file — see the correction there: taking *any* type
+literally would turn an unresolved reference into a silent literal string, which is a worse and
+less visible failure than the one being fixed. Inert until the next image roll.
+
+> **Landmine — a submission fired into the post-deploy quiet window is silently dropped.**
+> The orchestration layer created **nothing at all** between 18:53 and 19:06 UTC while the
+> scheduler kept beating (30 s tasks firing normally). My council submission at ~19:03 landed in
+> that window: zero `orchestration_state_audit` rows, zero artifacts, never started. Resubmitted
+> at 19:12 once orchestrations were flowing again.
+> **I did NOT declare an outage this time** — that was this morning's mistake, and 12 minutes of
+> silence looked identical. Waited, re-checked, saw 8 orchestrations in 5 minutes, concluded
+> settling rather than failure. CLAUDE.md documents a ~300 s no-dispatch window after a chassis
+> restart; the observed quiet here was longer and started ~55 min *after* the roll, so the
+> documented rule does not fully cover it. Check that orchestrations are actually being created
+> before trusting any dispatch.
+
+**Where this leaves the news feed:** every link is now in place except the image roll. On the
+next build, 042's fix makes `max_age_hours: 720` real, the two CMA items load, the JSON
+publishes, and 027 server-renders them into the page for crawlers. Verify in that order —
+pod, then artefact, then page — and trust none of the statuses.
