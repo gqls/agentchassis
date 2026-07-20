@@ -465,3 +465,105 @@ echo "Queue depth ahead of you: ${LAG} messages (~$((LAG * 4 / 3)) min at recent
 
 Do **not** re-fire a queued dispatch. At lag 161 the temptation is strongest and the cost is highest:
 a duplicate spends the same LLM credits and lands even further back in the same queue.
+
+## NEW FINDING 2026-07-20 (bugfix-030 thread) — the lane is 93% cron, and two 60-second jobs outproduce the consumer
+
+Everything above (including my own corrections) argues about *how fast the consumer
+drains*. Nobody had asked **what is actually in the queue**. It is not sessions
+competing with each other. It is two scheduled jobs.
+
+### What is in the lane [VERIFIED — message headers, not inference]
+
+`kcat -o -300` on `system.agent.generic.requests`, headers only:
+
+| producer | share |
+|---|---|
+| `from_agent_type=kafka-scheduler` | **550 / 588 (93%)** |
+| `from_agent_type=user` | 38 / 588 (6.5%) |
+
+By workload (`orchestration_name`, suffix stripped):
+
+| job | count | |
+|---|---|---|
+| `sched-ai-endpoint-health-check` | 258 | **43%** |
+| `sched-build-pipeline-trigger` | 244 | **41%** |
+| `sched-diagnose-pipeline-trigger` | 36 | 6% |
+| `council-gate` | 28 | 5% |
+| `sched-stale-orchestration-reaper` | 10 | |
+| `needs-diagnosis` | 6 | |
+
+**Two scheduled jobs are 84% of the traffic.** Interactive work — the council and
+diagnosis dispatches this bug is *about* — is a rounding error queued behind them.
+
+### Their cadence [VERIFIED — distinct fire-time suffixes]
+
+```
+ai-endpoint-health-check : 19:57:06 19:58:05 19:59:05 20:00:06 20:01:05 ...
+build-pipeline-trigger   : 19:56:35 19:57:35 19:58:36 19:59:35 20:00:35 ...
+```
+
+Both fire **exactly every 60 seconds**. That is a hard floor of **2 msg/min**
+injected by cron, continuously, regardless of whether the consumer can keep up.
+
+### The mass balance closes [VERIFIED — offsets, 19:05 → 20:15 UTC, 70 min]
+
+| | offsets | rate |
+|---|---|---|
+| produced | 96040 → 96222 (+182) | **2.60 /min** |
+| consumed | 95958 → 96058 (+100) | **1.43 /min** |
+| shortfall | | **1.17 /min** |
+
+Observed `LAG` over the same window: **82 → 164 = +82 in 70 min = +1.17/min.**
+The accounting closes to two decimal places, which is the strongest evidence in
+this file that nothing else is going on.
+
+> **Note on why quoting rates here is legitimate when I just argued it is not.**
+> This is a **mass balance over one closed window with the endpoints stated** — an
+> account of where 82 messages came from, not a forecast. It is exactly the use my
+> retraction above permits and the use it forbids is the other one: do not carry
+> "1.43/min" forward as an ETA. It will be wrong the moment the head of the queue
+> changes.
+
+Corroboration from the other side (`orchestration_states` starts per hour — an
+**upper bound** on this lane's consumption, since it also counts orchestrations
+started from `job.*` topics):
+
+```
+15:00  2.52/min      18:00  1.38/min
+16:00  2.92/min      19:00  1.55/min
+17:00  1.37/min      20:00  0.52/min (partial)
+```
+
+Consumption exceeded 2.6/min until ~17:00 and has been below it since. **The
+backlog has been growing structurally for roughly three hours**, and will keep
+growing until either the head of the queue gets cheap or the cron rate drops.
+
+### Blast radius — 030's "everything funnels through" is too broad [VERIFIED]
+
+Spawned agents do **not** use this lane. `spawnAgentKubernetesJobFromDefinition`
+(`platform/orchestration/actions/spawn_actions.go:2320`) launches each spawned agent
+as its own **Kubernetes pod** with its own `job.<id>-<name>.requests` topic — 815
+topics exist, and 8 `agent-*` job pods were running during this measurement. So the
+single lane carries **top-level orchestration starts only**; per-agent work runs
+genuinely concurrently in its own pods.
+
+That narrows the bug and makes it *sharper*: the contention is not session-vs-session,
+it is **cron-vs-everything**, in the one lane every new dispatch must pass through.
+
+### What this implies for the fix candidates above
+
+- **Candidate 3 (separate lanes) is promoted, and now has a specific shape.** Give
+  `kafka-scheduler` its own topic and consumer, and interactive dispatches stop
+  queueing behind ~500 health checks. This is reversible, needs no partition-count
+  decision, and addresses 84% of the volume.
+- **Cheaper still, and worth checking first:** does an AI-endpoint health check need
+  to run *every 60 seconds*, and does a build-pipeline trigger? At 1/min each they
+  consume the entire serial capacity of the platform's only dispatch lane. Halving
+  the cadence would restore headroom today with a config change and no code.
+- **Candidate 2 (partitioning) drops further.** It is one-way, and with `replicas: 1`
+  it changes nothing — but note it would not help *even with more replicas* while two
+  cron jobs are 84% of the volume; it would just spread cron across more consumers.
+
+**[UNVERIFIED]** — I have not checked what either scheduled job *does*, whether the
+health check is idempotent/cheap, or whether anything depends on the 60 s cadence.
+That is the next thing to establish before touching either.
