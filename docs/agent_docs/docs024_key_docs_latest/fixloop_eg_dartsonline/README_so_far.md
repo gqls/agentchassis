@@ -1394,3 +1394,76 @@ objection, and that objection is the one I've since fixed. There is no formal
 until the reviewers saw less of the change than they'd asked to see — which is
 gaming the process rather than passing it. You chose to stop there, which I think
 is right.
+
+----
+
+## 2026-07-20 — the code tier goes live, and the review process finally worked properly
+
+**It's switched on.** The new image carried all the code, so I applied the last
+piece — the instruction that tells the diagnoser its code-search ability exists.
+Both halves are now live. The ability to ask "does this mistake exist anywhere
+else in the codebase?" is available to the diagnosing half of the loop for the
+first time, and is waiting for its first real bug.
+
+Switching it on took two attempts. My patch script built its database command by
+gluing text together, and one of the escape sequences landed at the start of a
+line, where the database tool reads a backslash as a command rather than data. It
+failed cleanly and wrote nothing, which is the good outcome, and it rolled back
+without leaving a half-applied state. Fixed and applied properly.
+
+**A gap found before resubmitting, and it mattered.** Another thread had fixed
+the bug that kept killing my review rounds — a reviewer writing too much would
+cause the whole round to be thrown away. Their fix was applied to the reviewers
+that existed at the time. Since then a sixteenth reviewer had been added — a
+librarian seat that runs on *every* round rather than only when relevant. It had
+not been given the fix. So the one reviewer still able to destroy a round was the
+one guaranteed to be present in every round.
+
+I fixed it the documented way (change the source roster, then run the mirror
+tool, rather than hand-editing both), and the mirror's own drift detector
+independently pointed at exactly that seat. Worth noticing: this is the fifth
+time in two days we've hit the same shape — *a fix whose scope was a snapshot of
+a growing set*. The reviewer list grew and the fix didn't follow. It's becoming
+the characteristic failure of this system, and it's worth treating as a category
+rather than as five unrelated bugs.
+
+**Then the review worked — and proved the fix.** I resubmitted the whole change
+at full size rather than the shrunken version I'd used to sneak under the limit.
+The lead reviewer overran again, exactly as in the two rounds that died. This
+time the round carried on through twelve more reviewers and produced a real
+verdict. Same submission, same reviewer, same overrun — the only difference was
+the fix. That's about as clean a demonstration as you get, and I've written it up
+in the (now closed) bug file for the thread that built it.
+
+Result: **ten approvals, two objections.** Including approvals from all three
+reviewers added since I started, who were seeing the change for the first time.
+
+**What the two objections found.** One asked whether I'd checked for a *third*
+instance of the silent-truncation problem, beyond the two I'd fixed. I hadn't. I
+searched properly and there was one — a place that quietly caps how many workflow
+steps get included in the evidence bundle, so the diagnoser could see three and
+have no way of knowing there were eight. Fixed, along with a smaller
+inconsistency where I'd made every discard path announce itself except one, which
+I'd argued my way out of at the time.
+
+The other objection asked me to *show* rather than assert that these changes are
+contained to one pipeline. Fair — and the annoying part is I had proved exactly
+that in an earlier round and dropped it when I rewrote the submission shorter.
+Trimming for length trimmed away the evidence answering a live objection, so a
+reviewer had to ask twice.
+
+**One thing left open on purpose.** Two files agree on a piece of configuration
+by string name, and the test I added proves the defaults match — but not that
+someone couldn't override one of them and silently reopen the problem. Fixing
+that properly means a runtime check, which is a design decision rather than a
+tidy-up, so I've documented it rather than quietly building it. You chose to stop
+the review rounds here, which I think is right: everything raised has either been
+fixed or written down.
+
+**Two of my own mistakes, for the record.** A commit message of mine contained
+backticks, and the shell executed them as a command instead of treating them as
+punctuation — so one word is missing from that message permanently. And I
+appended the proof notes to the bug file's old location without checking, not
+realising another thread had moved it now that it's fixed; the append silently
+created a new stray file containing only my text. Both harmless, both my own
+carelessness with tools I use constantly.

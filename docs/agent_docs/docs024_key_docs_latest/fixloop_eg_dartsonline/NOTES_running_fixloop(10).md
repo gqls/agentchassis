@@ -2354,3 +2354,68 @@ Bumping it mid-submission to unblock myself is the config-clobber pattern, and
 it would have destroyed the evidence that the ceiling is mis-set. Instead 019
 now carries the headroom measurement (a 60%-smaller submission still put
 edit-quality at 75% of cap) and the resubmission-loop finding.
+
+### Turn 44 — 2026-07-20 — code tier LIVE end-to-end; round 5 = 10 approve / 2 object; STOPPED
+
+- **Image landed carrying everything** (verified in the running pod, not git/tag):
+  `code_requests_field`=1, `code_requests_dropped`=2, `upstreamDropNotice`=1,
+  and `base_branch_field`=1 (which quietly closes F1.2's long-pending Go half).
+  Also `tolerate_truncation`=1 / `TruncatedError`=7 — another thread's 019 fix.
+- **Applied PATCH_020** (verdict prompt) per its own image-first rule. First
+  attempt FAILED: `invalid command \` and wrote nothing. My bug, twice over —
+  `json.dumps(json.dumps(...))` double-encoded the payload, and psql reads piped
+  SQL line by line and executes any line starting with a backslash as a
+  meta-command. Rolled back cleanly (ON_ERROR_STOP + explicit BEGIN; verified
+  zero stray snapshots). Re-applied dollar-quoted with server-side `to_jsonb` —
+  the shape that had already worked for the doc_note. Live: prompt 10,971 →
+  12,700 chars, rule 10 + output schema present, 9 steps intact.
+  **The tier is now complete end to end: Go live, prompt live.**
+- **Found and fixed the last 019 hole before resubmitting.** 15 of 16 seats had
+  `tolerate_truncation`; `review_prior_art` did not, *identically on both
+  councils* — so a genuine omission, not gate drift (the mirror had faithfully
+  copied the hole). It is ALWAYS-ON (no `gate_` step, absent from
+  `select_panel`), so the one seat that could still void a round was the one
+  guaranteed to run. Seated on fix-proposer, mirrored with `099 --apply` per
+  CLAUDE.md rather than hand-patching the gate; 099's drift detector
+  independently named exactly that seat. Verified: both councils 16/16, 0
+  missing (c9950522b).
+- **Round 5 (full 51KB submission, not the shrunken one): REVISE, 10 approve /
+  2 object — and the 019 fix PROVED ITSELF.** `review_editquality` truncated
+  exactly as in rounds 2 and 4, and the round continued through twelve more
+  seats to a real verdict instead of voiding. Same submission, same correlation,
+  same overrunning seat. `review_prior_art` ran clean at 4,448 tokens. All three
+  seats new since round 1 (constitution, mission, prior_art) approved. Evidence
+  filed to `bugs_closed/019`.
+- **Accepted and fixed (bd003f67a):**
+  - bug_historian MISSING — "no audit shown for a THIRD silent-truncation cap".
+    Audited by SHAPE, not instance. It existed: `workflowRefsFromRuntime` capped
+    with a bare `break`, so a bundle could inline 3 step definitions while the
+    evidence named 8 and the verdicter could not tell "not inlined" from "not
+    involved". Now reports what it excluded. Confirmed NOT instances in the same
+    sweep: `diagnose_run_checks` and `diagnose_load_runtime` already report.
+  - bug_historian (low) — malformed guard-map keys skipped with a bare
+    `continue`, the one discard path I carved out while making every other loud.
+    The carve-out reasoning was true and beside the point: those keys are written
+    by `CodeRequestKey` and read back through collected_data, so a malformed one
+    means corruption or encoding drift. Counted separately from `dropped` (a
+    defect signal, not a coverage signal) and logged.
+- **Answered with evidence, no code needed:** all three diagnose actions are
+  invoked by exactly ONE agent_definition (diagnose-agent), and no live workflow
+  overrides the route step's `output_field` away from `route`. **My error:** I
+  had the first query in round 4 and dropped it when rewriting round 5, so
+  guardian had to ask for it twice. Trimming a submission must not trim the
+  evidence answering a standing objection.
+- **STILL OPEN, deliberately not built:** the cross-action field-name coupling
+  survives a defaults test but not a workflow-level override. That wants a
+  runtime check, not another unit test — a design decision, not a fix. Owner
+  stopped the rounds here with this documented.
+- **Own-goal worth recording:** my commit message for bd003f67a used backticks
+  around an identifier in `git commit -m`, and **bash executed them as command
+  substitution** — the message permanently reads "Counted separately from  and
+  logged". Forward-only, so it stands. Use `git commit -F <file>` for any message
+  containing backticks or `$`.
+- **Second own-goal:** I appended the 019 proof to `bugs_open/019...` without
+  checking, but another thread had moved 019 to `bugs_closed/` — so `cat >>`
+  silently CREATED a stray untracked file containing only my text. Removed, and
+  re-appended to the real file. `>>` to a path you have not just listed will
+  happily invent it.
