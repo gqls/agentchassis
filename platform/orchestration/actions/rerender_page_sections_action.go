@@ -184,6 +184,25 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	//    In either case escalate the WHOLE page to the writer (regenerate +
 	//    backfill) and do NOT re-render here, leaving the existing HTML intact. ─
 	for _, s := range stored {
+		// A self-contained TOOL section legitimately has no content_data: a tool
+		// is complete HTML with no LLM-authored fields, so content_data={} is
+		// its correct shape, not the missing-content defect this pre-check
+		// exists to catch. Escalating it bypasses save_sections — the ONLY
+		// writer of rendered_html — so the re-render is computed and thrown
+		// away, and a durable template fix never reaches the page
+		// (bugs_open/024).
+		//
+		// Keyed on the EXPLICIT component_level='tool' marker plus an empty
+		// input_schema, never on a heuristic about field shape: predicating on
+		// "has no required LLM fields" would also exempt components declaring
+		// OPTIONAL source:"llm" fields, a broader class than is justified.
+		if comp, ok := schemas[s.slotName]; ok && isSelfContainedSection(comp) {
+			logger.Info("rerender_page_sections: self-contained tool section, no content_data expected — rendering from template",
+				zap.String("page", pageName),
+				zap.String("section", s.slotName))
+			continue
+		}
+
 		reason := ""
 		if len(s.contentData) == 0 {
 			reason = "no stored content_data"
@@ -275,6 +294,31 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 				}
 				applyCTARecompute(plan.ResolvedData, s.contentData, fields[0], cta.primary, cta.validPages, pageURL)
 				applyCTARecompute(plan.ResolvedData, s.contentData, fields[1], cta.secondary, cta.validPages, pageURL)
+			}
+		}
+
+		// OBSERVE-ONLY (council trail 2525f980): this merge is where a
+		// resolver-written CTA destination is actually lost — stored
+		// content_data (the resolver's last write) merges FIRST, fresh
+		// plan.ResolvedData merges LAST and wins. Log each derived CTA field
+		// where the fresh value would replace a differing stored one,
+		// carrying the rerender reason so deliberate cta_links_stale
+		// recomputes are distinguishable from silent clobbers. No behaviour
+		// change; the precedence flip returns to the council gate with this
+		// log as its evidence. (An earlier sketch placed this log inside
+		// planSection, where resolvedData is a fresh local map and the
+		// condition could never fire — doc_notes correction, b6e374fc2.)
+		if schema := datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"]); schema != nil {
+			for _, cf := range datahelpers.DeriveCTAURLFields(schema) {
+				stored, hasStored := s.contentData[cf.URLField]
+				fresh, hasFresh := plan.ResolvedData[cf.URLField]
+				if hasStored && hasFresh && stored != fresh {
+					logger.Info("rerender_page_sections: cta ownership conflict (observe-only)",
+						zap.String("section", s.slotName),
+						zap.String("field", cf.URLField),
+						zap.String("source", cf.Source),
+						zap.String("reason", reason))
+				}
 			}
 		}
 
@@ -488,6 +532,29 @@ func buildRerenderBaseData(ctx context.Context, db *sql.DB, siteID uuid.UUID, do
 // escalateRerenderToWriter emits a needs_page work item so page-build-handler
 // rebuilds the page through the writer (regenerate + backfill content_data).
 // Keyed needs_page:<page> so it co-dedups with reconcile_site_plan's items.
+// isSelfContainedSection reports whether a section's component renders entirely
+// from its own template, with no LLM-authored content_data to supply.
+//
+// Both signals are required and both are explicit:
+//   - component_level == "tool", the marker set at component creation. It is
+//     already SELECTed by loadSectionComponents (COALESCE(component_level,
+//     'section')) and carried on componentInfo.Raw, so reading it here costs no
+//     extra query and no struct change.
+//   - an empty input_schema, i.e. the component declares no content fields at
+//     all.
+//
+// Deliberately NOT a heuristic over field shape (e.g. "has no REQUIRED llm
+// fields"), which would also exempt components declaring optional source:"llm"
+// fields — a broader class than the evidence justifies. As of 2026-07-20 this
+// matches 12 of 122 active components.
+func isSelfContainedSection(comp componentInfo) bool {
+	if len(comp.InputSchema) > 0 {
+		return false
+	}
+	level, _ := comp.Raw["component_level"].(string)
+	return level == "tool"
+}
+
 func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, logger *zap.Logger) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {

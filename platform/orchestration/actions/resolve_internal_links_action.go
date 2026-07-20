@@ -76,6 +76,13 @@ var areasExcludedFromCTA = map[string]bool{
 // ctaFieldNames maps a CTA component to its primary/secondary url field names.
 // An empty second entry means the component has a single CTA url field.
 //
+// STAGED ROLLOUT (council trail 2525f980): this map is now an OVERRIDE on the
+// schema-derived pairing in datahelpers/ctafields.go, which currently runs
+// OBSERVE-ONLY (the delta between the two is logged below; the map still
+// decides every write). Stage 2 inverts the precedence after a real build's
+// delta log has been reviewed, via a further council round — see the doc_notes
+// rows under subject_keys resolve_internal_links / rerender_page_sections.
+//
 // This set is shared by BOTH writers of CTA destinations:
 //   - build time: this action (setCTAField)
 //   - repair time: rerender_page_sections' cta_links_stale recompute
@@ -148,6 +155,20 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 		}
 		function := sectionComponentFunction(section)
 		fields, isCTA := ctaFieldNames[function]
+		// STAGE 1 (observe-only, trail 2525f980): derive the CTA pairing from
+		// the component's own schema and log the delta vs the map, plus a Warn
+		// per url field the derivation cannot see. ctaFieldNames still decides
+		// every write this stage.
+		if schema := sectionInputSchema(section); schema != nil {
+			if d := ctaDerivationDelta(fields, isCTA, datahelpers.DeriveCTAURLFields(schema)); d != "" {
+				logger.Info("resolve_internal_links: cta derivation delta (observe-only)",
+					zap.String("component", function), zap.String("delta", d))
+			}
+			for _, f := range datahelpers.UncoveredCTAURLFields(schema) {
+				logger.Warn("resolve_internal_links: uncovered cta url field",
+					zap.String("component", function), zap.String("field", f))
+			}
+		}
 		if !isCTA {
 			continue
 		}
@@ -340,6 +361,60 @@ func ctaExcludedDestination(url string) bool {
 	}
 	p = strings.TrimSuffix(p, ".html")
 	return areasExcludedFromCTA[p]
+}
+
+// sectionInputSchema extracts the component's input_schema from a
+// sections_ready entry. plan_sections attaches the full component row
+// (Component: comp.Raw), whose input_schema is a JSON string after a DB
+// round-trip or an already-parsed map in-process — ParseInputSchemaValue
+// handles both.
+func sectionInputSchema(section map[string]interface{}) map[string]interface{} {
+	comp, ok := section["component"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return datahelpers.ParseInputSchemaValue(comp["input_schema"])
+}
+
+// ctaDerivationDelta describes how the schema-derived CTA field set differs
+// from the hardcoded map's entry for this component. Empty string = identical
+// coverage (nothing to observe). Observe-only: consumed by a log line, never
+// by control flow.
+func ctaDerivationDelta(mapped [2]string, isCTA bool, derived []datahelpers.CTAField) string {
+	mappedSet := make(map[string]bool, 2)
+	if isCTA {
+		for _, f := range mapped {
+			if f != "" {
+				mappedSet[f] = true
+			}
+		}
+	}
+	var extra, missing []string
+	seen := make(map[string]bool, len(derived))
+	for _, cf := range derived {
+		seen[cf.URLField] = true
+		if !mappedSet[cf.URLField] {
+			extra = append(extra, cf.URLField+"("+cf.Source+")")
+		}
+	}
+	for f := range mappedSet {
+		if !seen[f] {
+			missing = append(missing, f)
+		}
+	}
+	if len(extra) == 0 && len(missing) == 0 {
+		return ""
+	}
+	sort.Strings(extra)
+	sort.Strings(missing)
+	var parts []string
+	if len(extra) > 0 {
+		parts = append(parts, "derived-not-mapped: "+strings.Join(extra, ","))
+	}
+	if len(missing) > 0 {
+		parts = append(parts, "mapped-not-derived: "+strings.Join(missing, ","))
+	}
+	return strings.Join(parts, "; ")
 }
 
 func sectionComponentFunction(section map[string]interface{}) string {
