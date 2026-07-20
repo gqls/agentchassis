@@ -248,6 +248,18 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 
 	totalItemCount := len(snippetItems)
 
+	// -----------------------------------------------------------------------
+	// 7b. Server-render the same items into the component's HTML (bugs_open/027)
+	// -----------------------------------------------------------------------
+	// The JSON above is the freshness path and stays authoritative. This makes
+	// the page complete for consumers that never execute JavaScript — crawlers,
+	// link unfurlers, feed previewers — which on a news site is a large part of
+	// who actually arrives. Best-effort by design: it must not fail the render.
+	componentsRendered := persistNewsSectionHTML(
+		ctx, params.DB, siteID, pageName, false,
+		"latest-news", latestNewsAnchors,
+		renderLatestNewsCardsHTML(snippetItems), logger)
+
 	// Only produce archive JSON if a news listing page exists
 	if hasListingPage {
 		archiveItems, err := loadNewsItems(ctx, params.DB, siteID, maxAgeHours*4, archiveMaxItems, true, logger)
@@ -315,6 +327,15 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 					zap.Int("archive_items", len(archiveItems)),
 					zap.Int("total_available", totalAvailable))
 			}
+
+			// Server-render the archive too (bugs_open/027). Located by
+			// page_type, matching how the headline above is read. This is the
+			// half that REQUIRES migration 178 — before it, news-listing.js
+			// wiped this container on an empty feed or a fetch error.
+			componentsRendered += persistNewsSectionHTML(
+				ctx, params.DB, siteID, "news-index", true,
+				"news-listing", newsListingAnchors,
+				renderNewsListingItemsHTML(archiveItems), logger)
 		}
 	}
 
@@ -325,13 +346,14 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 		zap.Bool("has_archive", hasListingPage))
 
 	return map[string]interface{}{
-		"files":       filesMap,
-		"domain":      domain,
-		"item_count":  totalItemCount,
-		"headline":    headline,
-		"file_path":   "data/latest-news.json",
-		"has_archive": hasListingPage,
-		"rendered":    true,
+		"files":               filesMap,
+		"domain":              domain,
+		"item_count":          totalItemCount,
+		"headline":            headline,
+		"file_path":           "data/latest-news.json",
+		"has_archive":         hasListingPage,
+		"rendered":            true,
+		"components_rendered": componentsRendered,
 	}, nil
 }
 
