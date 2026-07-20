@@ -22,7 +22,7 @@ digest gate-verdicts section the handoff names as the channel to extend).
 | # | Component | File | State |
 |---|---|---|---|
 | 1 | Submission wrapper + trigger | `097_TRIGGER_council_review_v1.sh` | built; validations dry-run tested (single-line payload proven — kcat trap) |
-| 2 | Orchestrator seed | `0NN_council_gate.sql` | **APPLIED & VERIFIED; re-synced 2026-07-18** — mirrors the live **9-seat** roster (relevance filter, 31 steps, 9-way fields); image ≥ v1.0.1133 pod-verified |
+| 2 | Orchestrator seed | `0NN_council_gate.sql` | **APPLIED & LIVE**; roster now maintained by `099_SYNC_gate_roster.py`, not by editing this file. **16 seats as of 2026-07-20**, zero drift vs `fix-proposer`; chassis v1.0.1140 pod-verified (carries the 036/019 council fixes) |
 | 3 | Visibility report | `098_REPORT_unreviewed_commits_v1.sh` | built; live-run 2026-07-17: 28 in-scope commits / 3 days, 0 reviewed |
 | 4 | PR-mode (enforcement) | — | **not built** — owner's explicit go required (build order rule) |
 
@@ -134,6 +134,20 @@ coming lockstep change in its header.
   row appears. Absence a minute later is not evidence of a dropped dispatch —
   poll by `fix_correlation_id` before concluding anything (this cost two
   needless resubmissions).
+
+  > **NOW MEASURED, 2026-07-20 (council-gate thread): publish → run start was
+  > 29 minutes** under normal fleet load (published 18:51:57Z, run `0b8bcc1b`
+  > created 19:20:36Z, completed normally). **Budget ~30 minutes end to end**;
+  > the council itself is only 2–5 of them. I ignored this very bullet, called
+  > it a dropped dispatch at 13 minutes, resubmitted, and spent ~25 minutes on
+  > publish-path forensics — logged in `WRONG_CALLS.md`. If you genuinely need
+  > to know whether the message left, read the topic instead of guessing:
+  > `kcat -C -b <bootstrap> -t system.agent.generic.requests -o -400 -e -q -f '%T|%s\n' | grep <corr>`
+  > — that proves the publish independently of the consumer, and it showed both
+  > of mine had been on the topic all along.
+- **The status is `COMPLETED`, uppercase.** A poll loop with
+  `case "$R" in *completed*) break;;` never fires. Lower-case the subject
+  (`${R,,}`) or match both — this cost 10 minutes of a 12-iteration loop.
 - **A resubmission must re-state ALL standing evidence, not just the new
   round's** (2026-07-20, bugs_open/022 submission, corr `0328ddc7`). Seats
   have no cross-round memory: round 4's rationale answered round 3's

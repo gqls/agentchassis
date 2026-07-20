@@ -58,7 +58,14 @@ and never spend credits. Full runbook + submission schema:
   the plan against it) and a `plan` (≤8 edits, each with file/operation/rationale/
   sketch; real diff hunks welcome; plus `grounded_in` evidence quotes):
   `./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh <submission.json>`
-  Save the printed `SUBMISSION_CORR`. A run takes ~2 minutes.
+  Save the printed `SUBMISSION_CORR`. **Budget ~30 minutes, not ~2.** The council
+  itself takes 2–5 minutes, but the dispatch queues behind the fleet: measured
+  2026-07-20, publish→run start was **29 minutes** under normal load. A missing
+  orchestration row is almost always latency, not a dropped dispatch — do not
+  retry on that evidence (it costs a duplicate round), and find your run by
+  payload, not by the printed id:
+  `SELECT current_step, status FROM orchestration_states WHERE
+   collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';`
 - **Verdicts.** APPROVED → commit with a trailer line `Council-Reviewed: <id>`
   (that trailer is what makes the coverage report's commit↔verdict join exact).
   **Use `SUBMISSION_CORR`** — the correlation is the key the artifacts are
@@ -71,9 +78,12 @@ and never spend credits. Full runbook + submission schema:
   alternative. Read it: `SELECT body FROM doc_notes WHERE categories ?
   'council-gate' ORDER BY created_at DESC LIMIT 1;`
 - **Cost is relevance-gated**, so submitting is cheaper than it looks: two seats
-  always run (edit-quality, guardian); the rest — 11 as of 2026-07-18, and
-  growing — fire only when your edited paths match their footprint. One council
-  run per coherent task, not per iteration.
+  always run (edit-quality, guardian); the rest — 14 of 16 as of 2026-07-20, and
+  still growing — fire only when your edited paths match their footprint (a real
+  submission that day drew 10 of 16). One council run per coherent task, not per
+  iteration. Read the live count rather than trusting this line:
+  `SELECT jsonb_array_length(default_config->'workflow'->'steps'->'council_decide'->'config'->'review_fields')
+   FROM agent_definitions WHERE type='council-gate' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;`
 - **Coverage** (who reviewed, who didn't):
   `./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/098_REPORT_unreviewed_commits_v1.sh [days]`
 - **If you add or change a council seat**, seat `fix-proposer` as usual, then run

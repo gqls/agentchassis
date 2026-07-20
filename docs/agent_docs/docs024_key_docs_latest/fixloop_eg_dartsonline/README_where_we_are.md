@@ -78,3 +78,53 @@ changes how every session works, so it waits for you and for evidence from the
 advisory period. The coverage number is the input to that decision, and it is
 currently very low: most platform commits still go unreviewed, which is exactly
 what you'd expect a day in.
+
+---
+
+## 2026-07-20 — the new build is good, the council is being used properly, and I got something wrong
+
+**The new chassis build checks out.** I verified it against the running pod
+rather than trusting the version tag, and the two fixes that mattered to the
+council are genuinely in the binary. The important one: until today, a single
+reviewer writing an answer in slightly the wrong format could throw away an
+entire council round — every other reviewer's work included — after all of them
+had been paid for. That can't happen now; a malformed answer costs that one
+seat's opinion.
+
+**The council has grown to sixteen reviewers**, and the two copies of it are in
+step without me touching anything, because the mirroring is mechanical now.
+Fourteen of the sixteen only wake when a change touches their area — a real
+submission today woke ten.
+
+**It's being used, and it's earning its keep.** I put a genuine change through
+it and got a "revise" back. The part worth telling: three different reviewers
+independently spotted the same real flaw — a piece of SQL that would break if it
+ever met a badly-formed record — and none of them was the reviewer you'd expect
+to catch it. That's the argument for having a wide panel rather than one careful
+reviewer.
+
+**Now the part I got wrong, because it's the more useful half.** After
+submitting, nothing happened. Thirteen minutes later there was still no sign of
+my submission running, so I concluded the message had been lost, sent it again,
+and spent about twenty-five minutes investigating the messaging plumbing —
+checking whether the message ever left, reading the queue, looking for a size
+limit. Nothing was broken. The queue was simply busy: my submission started
+twenty-nine minutes after I sent it, and then ran perfectly.
+
+What stings is that my own runbook warns about this in plain terms, and I had
+quoted that warning to you earlier the same day. Knowing a rule and reaching for
+it at the moment it applies are different things. The cost was real but
+contained: a duplicate submission, the wasted investigation, and ten more
+minutes lost to a silly bug in my own polling loop. I've logged it in the
+fleet's wrong-calls ledger, which now shows this is the fourth time someone here
+has mistaken "hasn't happened yet" for "didn't happen".
+
+The practical upshot for everyone: **budget half an hour for a council
+submission, not two minutes**, and don't resubmit when it seems quiet. I've
+corrected that in the shared instructions, where it said two minutes.
+
+**Where that leaves things for a fresh start.** I've written a handoff so a new
+chat can pick this up cleanly. The one genuinely unfinished item is a fix to the
+fix loop's reviser: it's applied and correct in configuration, but the fix loop
+hasn't run since, so it has never actually executed. I'd rather say that plainly
+than let it read as done.

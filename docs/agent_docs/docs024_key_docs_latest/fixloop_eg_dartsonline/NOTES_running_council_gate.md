@@ -295,4 +295,57 @@ thread because adding sections is not idempotent under concurrent edits.
 RUNBOOK/NOTES/SUMMARY but no PLAN, and CLAUDE.md's new standing-four directive
 requires one. Backfilled with decisions, reasons, and the corrections above.
 
+## Turn 6 — 2026-07-20 — v1.0.1140 verified; round 2 ran (10/16 seats); I called a queue delay a dropped dispatch
+
+Owner: "a fresh chassis build has been deployed."
+
+**Image verified against the pod, not the tag.** v1.0.1140 carries the
+`bugs_open/036` fix — `objectionEdit` 7 symbol hits, so a reviewer answering
+`"3"` instead of `3` now costs one seat, not the whole paid round — plus 019's
+truncation fix. Read the code to confirm the abstention path my gated seats
+depend on survived the struct change: intact, now with an `abstained` counter.
+Note `load_council_reviews` greps **0** in the binary and that is correct — it is
+a workflow step name in DB config, not a Go symbol.
+
+**Roster moved again while I was away: 16 seats** (new: constitution, mission,
+prior_art_librarian). `099` dry run: zero drift, footprints identical — another
+thread ran the mirror. The mechanical sync is doing its job without me.
+
+**Exercised the gate on the new binary with real work** — round 2 of the digest
+gate-verdicts change on `bd12762a`. This time I verified the discriminator
+BEFORE submitting (round 1's lesson): correlations with a `kind='bundle'`
+artifact are diagnosis-backed (2 correlations / 14 reports) vs without (37 /
+110); spot-checked e505f70f=true, 098b29b8=false, bd12762a=false. Stated the
+honest limit in the submission itself — "no bundle" means "not diagnosis-backed",
+which lumps the gate together with feature-designer and experience-planner, not
+a gate-only filter.
+
+**Verdict: REVISE, 10 of 16 seats** (2026-07-20 19:28, run `0b8bcc1b`). Four
+objected. The good result: **three seats independently caught the same real
+risk** — `body::jsonb` cast unguarded against a non-JSON row (guardian,
+bug_historian, debug_historian). Also caught: the edit declares one file but
+changes `fixloop_digest_test.go` too; gatherer error handling unstated;
+travelling-docs NOTES entry unaddressed. That is the council doing exactly what
+it is for.
+
+**MISSTEP — I called a 29-minute queue delay a dropped dispatch.** No
+orchestration row appeared 13 minutes after publish, so I wrote "the dispatch was
+dropped, not slow", retried it (a duplicate 16-seat round's worth of credits at
+risk), and spent ~25 minutes probing Kafka and reading the topic tail for a
+payload-size threshold. The run started at 19:20:36 — **29 minutes after the
+18:51:57Z publish** — from the FIRST dispatch, and completed normally. My own
+RUNBOOK carries that exact trap, and I had quoted it to the owner earlier the
+same session. Logged in `WRONG_CALLS.md`; the standing "wait / query again before
+calling an absence a failure" tally went to 4. Second, smaller misstep in the
+same stretch: a poll loop matching `*completed*` against a status of `COMPLETED`
+never broke and burned 10 minutes.
+
+Two facts corrected in CLAUDE.md as a result: a run is **~30 minutes**
+end-to-end, not ~2 (with the find-your-run-by-payload query attached), and the
+seat count is 14-of-16 gated with a live query to check it rather than trusting
+the line.
+
+**Docs for the next chat:** wrote `HANDOFF_2026-07-20_council_gate_thread.md`
+(supersedes the 07-17 one, which described a gate that did not yet exist).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
