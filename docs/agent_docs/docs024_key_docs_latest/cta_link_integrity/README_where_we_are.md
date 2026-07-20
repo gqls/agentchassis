@@ -269,3 +269,42 @@ your site; the components themselves are still broken, and that's the next piece
 with the council's revised plan.
 
 Fleet-wide, dead links dropped from 30 to 25 and dead in-page jumps from 4 to 2.
+
+----
+
+**2026-07-20 afternoon — the broken buttons are now gone from every site, and the component that made them can't make them again.**
+
+A second session picked up the bug file this afternoon and finished what the morning's
+leopardess fix started. The same two faulty page sections were still live on two other
+sites — finetuning's LLM cost calculator had both (the wrong-tool Bayesian panel with two
+dead buttons, and the guide intro whose "Visit the Tool" pointed at **finetuning.ai** — a
+web address the AI invented by swapping your .uk for .ai, which turns out to be someone
+else's live site), and robot-hands' cycle-time estimator had the guide intro (dead "Start
+the Guide", empty "Visit the Tool"). Both pages are fixed and checked on the live sites:
+the calculators work, the junk is gone, and nothing that mattered was lost — the guide
+content those sections pretended to offer lives on the real guide pages.
+
+The deeper fix: the guide-intro component itself has been repaired, so no future page can
+adopt it and get the broken buttons. Its "Start the Guide" button no longer points at a
+place that never existed, and the field that ordered an AI to invent a web address no
+longer does — buttons without a real destination now simply don't render, which is the
+platform's own written rule, finally enforced in one component.
+
+Numbers, fleet-wide: dead empty links are down from 30 yesterday to 22; dead in-page
+jumps are down from 4 to zero — that entire failure type is extinct.
+
+Two threads worked this bug at once today, and mostly it went well: we found the same
+"the planned migration does nothing" fact independently, which is good confirmation. One
+coordination catch worth knowing about: the other thread's plan — three council rounds
+in — still contains a logging change that reads correctly but can never actually log
+anything, so the evidence round it's meant to produce would come back "no problems" no
+matter what. I've written the correction where the next implementer must trip over it
+(the platform's own notes system, plus the shared log). Their council trail continues;
+nothing broken ships either way because this round is observation-only.
+
+Still to come, in rough order of value: the handler (findings about broken buttons
+currently pile up somewhere nobody reads — one of today's pages had its problem correctly
+detected days ago); the button-gating sweep across the other 75 ungated buttons in the
+component library; and a neutral "tool hero" component — the library still has exactly
+one component that answers "give me a tool hero", and it's the Bayesian one, so the next
+tool page built anywhere would re-adopt it.

@@ -249,3 +249,36 @@ FROM orchestration_states WHERE correlation_id='<corr>'::uuid ORDER BY created_a
 > sweep selects that status, so it stays open (and blocks the 090 coverage check for the same
 > target) until closed by hand:
 > `UPDATE site_work_items SET status='complete', completed_at=now() WHERE item_key='needs_diagnosis:<slug>' AND status NOT IN ('complete','verified');`
+
+## R12 — Section-authority check, per site, before touching page composition
+
+Run BOTH before any page_components/pages.sections edit — the answer differed across all
+three sites fixed so far (leopardess: aspect current but page absent → sections governs;
+finetuning: no current plan → sections governs; robot-hands: plan current AND lists the
+page, with a THIRD composition → only page_components edited):
+
+```sql
+SELECT sp.id, sp.is_current FROM site_plans sp
+JOIN sites s ON s.id=sp.site_id WHERE s.domain='<domain>' AND sp.is_current;
+
+SELECT page_name, string_agg(component_name,' · ' ORDER BY ordering)
+FROM site_plan_sections WHERE plan_id='<plan id>' AND page_name='<page>' GROUP BY 1;
+```
+
+> **Gotcha.** `site_plans` has no `status` column (`is_current` boolean) and
+> `site_plan_sections` keys on `plan_id`, not `site_plan_id`.
+
+## R13 — Verifying a redeploy: poll for the GOOD content, not the bad content's absence
+
+A mid-deploy fetch of a B2-backed page can return a **310-byte JSON `NoSuchKey` error
+body** (HTTP 404) — which contains no markup at all and therefore PASSES any
+"broken-marker absent" check. This false-green bit this workstream on 2026-07-20.
+
+```bash
+until curl -s -o page.html -w '%{http_code}' "$URL" | grep -q 200 \
+  && grep -q '<distinctive-good-marker>' page.html \
+  && ! grep -qE '<bad-marker>' page.html; do sleep 10; done
+```
+
+Status + good marker + bad-marker absence, all three. Dispatch-to-deploy latency under a
+busy chassis was ~35 min (queue, not a drop — pod uptime 5h, nothing restarted).

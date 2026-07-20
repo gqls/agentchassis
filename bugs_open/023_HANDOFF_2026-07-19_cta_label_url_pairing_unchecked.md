@@ -167,3 +167,36 @@ Full phasing in the plan. The headline:
 - Link-integrity loop, closed 2026-07-16 (`docs/social001_vonc_tiktok_social/minilobby_task/`)
   — fixed the `/contact.html` lock for six components; its own documented residue (repair
   scope < detection scope, `*_label` fields left static) is exactly what bit us here.
+
+---
+
+## STATUS 2026-07-20 (bugfix-023 session) — the four buttons are extinct fleet-wide; the structural work is staged
+
+**Fixed and verified live:**
+- **All placements of both offending components are gone** — leopardess ×2 (P4,
+  2026-07-20 morning, other session), finetuning.uk ×1 (both components),
+  robot-hands.com ×1 (tool-guide-intro). Zero placements remain. R1 census: empty
+  hrefs 30 → 22, **fragment class 4 → 0 (extinct)**. Evidence + backups in
+  `cta_link_integrity/NOTES` (entries of 2026-07-20).
+- **`tool-guide-intro` can no longer ship classes C/D/E** — migration 179 (applied +
+  ledgered live, commit a6a31b8b1): `cta_primary_url` added (renderer/optional),
+  `cta_secondary_url` flipped off `llm+required:true`, both anchors gated, `#guide-start`
+  hardcode removed. Fix candidate 4's schema-lint rule ("no source:llm URL") is NOT yet
+  a lint — 20 other llm-sourced URL fields remain (fleet sweep still owed).
+- The fabricated-host class gained live confirmation: `finetuning.ai` (different-TLD
+  variant) RESOLVES to a third-party-controlled page. P1.5 remains unimplemented.
+
+**In flight (other thread, leopardess3):** fix candidate 1 (schema-derived pairing) is at
+council trail `2525f980` round 5 REVISE — observe-only staging agreed, migration measured
+a NO-OP (091/098 already flipped the mapped six; the residual 57 site_specs.* fields are
+all UNMAPPED, so no config-only flip is safe). ⚠️ Their v3–v5 sketch carries a dead
+observe-log (planSection's fresh map can never hold a prior value — the loss site is the
+rerender merge) and a sibling rule that misses 3 mapped bare-stem fields while capturing
+one image; corrections filed in `doc_notes` (`pipeline/plan_sections`,
+`pipeline/resolve_internal_links`, category `correction`) and in NOTES 12:30/13:50.
+
+**Still open:** fix candidates 3 (the handler — the delivery gap), 2/P2.1 (fleet anchor
+gating, 75 ungated), 4 (schema-lint), 5 (external reachability), 6 (P1.5 email→hostname +
+different-TLD), the generic `hero-tool` component (the selection landmine that caused the
+Bayesian adoptions — `_pre_037` row is now placement-free but still the sole selectable),
+and the class-A build check (P1.2).
