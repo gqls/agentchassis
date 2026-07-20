@@ -408,3 +408,60 @@ The mechanism findings in my correction above are unaffected — those came from
 reading `agent.go` and `coordinator.go`, not from the clock, and the divergence
 measured here is consistent with them: a 15-minute stall is one message running a
 long inline step-run, which is precisely what the code predicts.
+
+---
+
+## Update 2026-07-20 evening — it is not always bursty. Under load it DIVERGES, and the council becomes unusable.
+
+The original measurements (lag 41 → 62 → 24, "bursty rather than permanently diverging") were taken
+in a quiet period and **understate the problem**. Same day, evening, with several sessions active:
+
+| time (UTC) | CURRENT-OFFSET | LAG |
+|---|---|---|
+| 18:13 | 95915 | 21 |
+| 18:26 | 95958 | 67 |
+| 20:03 | 96029 | **161** |
+
+**Consumption ≈ 0.73 msg/min** (71 messages in 97 minutes). Production over the same window ≈ 1.7
+msg/min. **Production is outrunning consumption by ~2.3×, and the backlog grew 21 → 161 in under two
+hours.** It is not draining; it is falling behind.
+
+### Measured end-to-end latencies now total four, and the trend is bad
+
+| submission | published (UTC) | orchestration created | latency |
+|---|---|---|---|
+| council-gate-132453 (2026-07-19) | 12:24:53 | 13:01:16 | 36 min 23 s |
+| council-gate-134936 (2026-07-19) | 12:49:36 | 13:14:37 | 25 min 01 s |
+| council-gate round 2 (2026-07-20) | 18:07:00 | 18:23:46 | 16 min 46 s |
+| council-gate round 3 (2026-07-20) | 19:22 | **still queued at 20:03** | **>40 min, 35 messages still ahead** |
+
+At the observed 0.73 msg/min, the last one starts roughly **48 minutes after** the check above, i.e.
+~90 minutes end-to-end.
+
+### The operational consequence, stated plainly
+
+**A council review currently costs an hour or more of wall-clock before it starts.** A REVISE verdict
+therefore has a ~2-hour round trip, and the revise→resubmit loop the gate is built around becomes
+impractical during busy periods. That is a usability failure of the review mechanism itself, caused
+entirely by this queue — nothing about the council is slow (the round that did run took 14 minutes
+end to end).
+
+### This sharpens fix candidate 1
+
+Printing the current LAG at publish time is no longer just a diagnosability nicety — at lag 161 the
+trigger scripts are telling operators "Submitted. Watch the run:" alongside a query that will return
+nothing for an hour and a half. **The script should print the lag and the implied wait**, so the
+operator can decide whether to submit at all right now. That is a few lines in
+`097_TRIGGER_council_review_v1.sh` / `090_TRIGGER_needs_diagnosis_v1.sh` and needs no topology change:
+
+```bash
+LAG=$(kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group generic-requests-group 2>/dev/null | awk '/generic\.requests/{print $6}')
+echo "Queue depth ahead of you: ${LAG} messages (~$((LAG * 4 / 3)) min at recent throughput)"
+```
+
+### Still true, and still the thing not to do
+
+Do **not** re-fire a queued dispatch. At lag 161 the temptation is strongest and the cost is highest:
+a duplicate spends the same LLM credits and lands even further back in the same queue.
