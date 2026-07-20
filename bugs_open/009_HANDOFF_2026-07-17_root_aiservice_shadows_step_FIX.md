@@ -183,8 +183,48 @@ Two further checks, both clean:
 > per-step config from being silently inert. The 16 capped agents are unaffected
 > either way. Caught by running §4's own audit query before trusting its prose.
 
-Sweep list (all `is_active`, root block, no cap anywhere — each needs a
-deliberate decision; 2048 may be right for short steps):
+### 7a. The §4 sweep is LOW PRIORITY: all 16 are dormant
+
+Before deciding a cap for each, check whether the agent runs at all. **None of
+the 16 has ever logged an LLM call** — not in 14 days, not ever:
+
+```sql
+SELECT agent_type, COUNT(*), MAX(created_at)::date FROM llm_call_log
+WHERE agent_type IN (<the 16>) GROUP BY 1;   -- 0 rows
+SELECT MIN(created_at), COUNT(*) FROM llm_call_log;
+-- 2026-03-25, 41,716 rows  <- so "never" spans ~4 months of logging, not a quiet fortnight
+```
+
+They are `is_active` but unexercised — legacy or superseded definitions (the
+live content path is `page-content-writer`, 1,256 calls in 14 days, which is
+precisely the agent with NO root block whose step-level fix worked and started
+this whole misunderstanding). **Raising caps on definitions nothing dispatches
+is churn against a live table for no behavioural gain**, and each edit is a
+chance to clobber a concurrent seed. Do the sweep only for an agent you are
+about to put back into service, and decide its cap from that job's output size.
+
+The genuinely useful sweep is the inverse: when an agent is *revived*, check its
+effective cap before trusting its config. That check is now cheap — post-fix,
+the step block means what it says.
+
+### 7b. The one changed cap is headroom, not a behaviour change
+
+`feed-triage/score_relevance` 4000 → 8192 is the only live delta, and current
+traffic does not reach even 4000:
+
+| era | max_tokens logged | calls | at ceiling | max output |
+|---|---|---|---|---|
+| 2026-03-30 → 05-27 | (not yet logged) | 188 | **23** (21 at exactly 4000, 2 at 3999) | 4000 |
+| 2026-05-28 → 07-20 | 4000 | 251 | 0 | 3276 |
+
+So the cap **was** biting — 23 truncated completions, every one recorded
+`success = true` (the `bugs_open/012` class: truncation persisted as success) —
+but has not since May. The raise therefore buys headroom against a ceiling this
+step has demonstrably hit, while changing nothing about today's calls. That is
+the safest possible shape for the fix's only live delta.
+
+Sweep list (all `is_active`, root block, no cap anywhere — see 7a: all dormant,
+so this is a reference list, not a work queue):
 `content-creator-about`, `content-creator-contact`, `content-creator-cta`,
 `content-creator-features`, `content-creator-hero`,
 `content-creator-hero-without-research`, `content-creator-testimonials`,
