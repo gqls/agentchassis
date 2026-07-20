@@ -174,3 +174,37 @@ are checks, not design.
 
 **How to verify** is unchanged and still the only thing that counts: `curl` the page, with JS
 never executing, and count server-rendered `<article>` elements.
+
+---
+
+## Addendum 2026-07-20 (relojistas thread) — STATUS: interim fix LIVE in v1.0.1140; proper fix designed, not yet built
+
+An implementation of fix option 1 was committed (`1005e1af2`: migration 178 JS guard +
+`persistNewsSectionHTML` string-injection into `rendered_html`) and rode another thread's
+sweep build into production (`v1.0.1140`, pod-verified 2026-07-20 ~18:00Z). **It is the
+WRONG mechanism and is scheduled for removal:**
+
+- The council gate returned REVISE (correlation `4b91237a`): render_guardian showed a
+  scoped rerender regenerates `rendered_html` from `html_template` + `content_data`, so
+  injected news that lives in neither is silently wiped — recreating this bug
+  intermittently.
+- A guidelines check confirmed it violates 003's source-of-truth contract verbatim ("HTML
+  patching was rejected as an edit mechanism").
+
+**Interim behaviour to expect:** on each `render_news_section` run, news pages' components
+gain server-rendered `<article>` markup in the DB, which reaches live pages on their next
+deploy and may later vanish again on a scoped rerender. So this bug's symptom will
+INTERMITTENTLY appear fixed. Do not close 027 on a `curl` showing articles while the
+injection mechanism is the thing producing them.
+
+**The contract-compliant design (agreed, not yet built):** declare the items as
+`query.latest_news` / `query.news_archive` sources in the two components' `input_schema`;
+add those resolvers to `queryresolve` over `content_feed_items`; render items in the
+`html_template` (`{{if .items}}{{range …}}` — nil guard mandatory); deliver via the
+existing `page_rerender` / `section_data_resolved` light path. Then news lives in
+`content_data`, rerenders REFRESH it instead of wiping it, and the injection machinery is
+deleted. Migration 178 (the JS guard) stays — it is correct under either mechanism.
+
+**Close criteria updated:** 027 closes when the query-source route is live in an image,
+the injection call sites are REMOVED, and a from-curl check shows `<article>` elements that
+survive a scoped rerender of the same page.
