@@ -453,3 +453,62 @@ the schema on the strength of one real row using it unprompted.
 Note both classifiers show `updated_at` of today, likely from a fleet re-seed by
 another session. Not chased; flagged in case a later thread finds classifier
 behaviour changed under it.
+
+---
+
+## 2026-07-20 — session 2 continued: four owner directives executed
+
+Owner: pilot traffic-bearing sites first; maybe a duplicate-content council seat;
+split the big pools; migrate the two audience rows thoroughly.
+
+### Audience migration — DONE, live
+
+Pre-checks before writing: no active agent config references `specs.audience`
+(regex over `agent_definitions.default_config`); the only Go reader is the dead
+allowlist branch (`spec_admin_handlers.go:226`); `content-gap-planner`'s
+`update_spec` route actually targets `identity.target_audience` — its two
+`audience`-aspect rows were the LLM improvising an aspect name. So nothing
+consumes the old shape; a future clobber would supersede, not destroy.
+
+Executed as one transaction (supersede→insert, forced by
+`idx_site_specs_current`). Verified:
+- version chains intact — leopardess shows THREE rows (a March pair + today's),
+  so the aspect's history predates us and survived;
+- both current rows carry the four v1 keys, `sophistication='technical'`,
+  leopardess `out_of_scope='Non-technical SMB buyers.'`;
+- `position` null in both — the source prose contained none and none was
+  invented;
+- distinctive-phrase spot-check: `Technical Discovery Call`, `bridges both
+  registers`, `production credibility`, `register consistency` all present.
+
+Clause-by-clause mapping was done at write time (every sentence of both originals
+assigned to who/editorial; nothing dropped, nothing added). SQL + gotchas now in
+RUNBOOK.
+
+### Pools v2 — 17 pools, coverage unchanged (63.8%)
+
+Re-cut with uk-money split (insurance 83 / mortgages-lending 80 /
+savings-investing 68) and marketing-web split (design-creative 126 / web-tech 54
+/ marketing-digital 51). Full table in PLAN Decision 10.
+
+**Classifier misfits caught in the pilot list** (regex crudeness biting exactly
+where predicted): `whatvacancy.com` → travel via "vacan"; `greenpowerjuicers.com`
+→ energy via "power". Hand-corrected in Decision 11; the caveat in RUNBOOK stands.
+
+### Pilot cohort — 31 domains, ~4,300 views, 14/17 pools
+
+Two findings worth the owner's attention (in PLAN Decision 11):
+- 12 no-feed domains hold ≥25 views each, including the portfolio's #2
+  (`smartbusinesssupplies.com` 748). Some are honestly excluded (zdec,
+  komunikatif, makeitaquote — brandables/tools); `buysportskit` (215) and
+  `smartbusinesssupplies` are arguable. Needs eyes, not a rule.
+- The pilot is multilingual on day one (Romanian, Dutch, German, Spanish-market
+  domains in the top 25), which **promotes `bugs_open/026` from fleet blocker to
+  pilot blocker**.
+
+### Council seat — specified, not seated
+
+`features_open/004`. Deliberately not built: the seat has nothing to veto until
+pooled selection exists, and it wants the 002 similarity check running first so
+verdicts can cite a baseline instead of intuition. Footprint + four-form review
+posture specified; mechanism is the standard 099 roster mirror.

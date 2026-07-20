@@ -323,10 +323,96 @@ only. Excluding `editorial` is not tidiness — including it would make two site
 with similar copy rules rank alike regardless of audience, which is the exact
 failure we are designing against.
 
-**Open:** whether to migrate the two existing rows now (splitting their prose into
-the three blocks) or leave them and write the schema forward. Leaning migrate —
-two rows is cheap, and leaving two non-conforming rows in a newly-schema'd aspect
-is how the next thread learns the wrong shape.
+~~**Open:** whether to migrate the two existing rows now.~~ **RESOLVED — owner
+chose migrate, thoroughly. DONE 2026-07-20.** Both rows migrated to `audience.v1`
+in one transaction (supersede-then-insert; the partial unique index on
+`(site_id, aspect) WHERE is_current` forces that order). Verified: originals
+preserved as superseded versions (leopardess retains an older March version too —
+the history chain is intact), all four v1 keys present on both current rows,
+`position` correctly null (the source prose contained none — not invented),
+and distinctive clauses from each original spot-checked present
+(`Technical Discovery Call`, `bridges both registers`, `production credibility`,
+`register consistency`). SQL preserved in RUNBOOK.
+
+## Decision 10 — pools v2: the big groups split (owner, 2026-07-20)
+
+Owner: with ~231 domains in one finance group we can afford more specific
+categories. Re-cut with the money and marketing groups split; now **17 pools,
+1,037 domains (63.8%)** — the coverage barely moves, the pools get sharper:
+
+| pool | domains | views | was |
+|---|---|---|---|
+| design-creative | 126 | 207 | marketing-web |
+| insurance | 83 | 34 | uk-money |
+| mortgages-lending | 80 | 113 | uk-money |
+| construction-trades | 78 | 268 | — |
+| travel-leisure | 74 | 2,246 | — |
+| industrial-plant | 68 | 84 | — |
+| savings-investing | 68 | 265 | uk-money |
+| health-medical | 65 | 151 | — |
+| vehicles-transport | 64 | 65 | — |
+| business-services | 62 | 164 | — |
+| web-tech | 54 | 12 | marketing-web |
+| marketing-digital | 51 | 19 | marketing-web |
+| ai-agents | 47 | 812 | ai-tech |
+| energy-utilities | 41 | 20 | — |
+| property | 37 | 177 | — |
+| vet-animal | 26 | 50 | — |
+| jobs-work | 13 | 2 | — |
+
+uk-money (231) → insurance + mortgages-lending + savings-investing (+ property
+already separate); marketing-web (218) → design-creative + web-tech +
+marketing-digital. Each split still clears the supply test: insurance trade
+press, BoE/lender news, and markets news are three genuinely different streams.
+
+Two candidate merges if any pool runs thin in practice: `jobs-work` (13) into
+`business-services`, `vet-animal` (26) already has a head start from the vet
+workstreams so it stays despite size. **These numbers are regex-crude sizing, not
+assignments** — final pool membership is set per-site at onboarding, where the
+classifier caveat (RUNBOOK) doesn't bite.
+
+## Decision 11 — pilot cohort: traffic-bearing, pool-eligible (owner, 2026-07-19/20)
+
+Pilot = pool-eligible domains with ≥10 views. **31 domains, ~4,300 views** after
+hand-correcting two classifier misfits (`whatvacancy.com` → jobs-work, matched
+"vacan"→travel; `greenpowerjuicers.com` → no-feed, a juicer shop that matched
+"power"). Top of the cohort:
+
+| views | domain | pool |
+|---|---|---|
+| 1,997 | wayfaringlondoner.com | travel-leisure |
+| 655 | traderboltai.com | ai-agents |
+| 226 | kitchensep.com | construction-trades |
+| 146 | monitorizare.com | ai-agents |
+| 131 | thecentralbanker.com | savings-investing |
+| 125 | hcare.co.uk | health-medical |
+| 113 | thoroughcleaners.com | business-services |
+| 108 | lodgeswithhottubs.club | travel-leisure |
+| 105 | toletonline.com | property |
+| 88 | hoeinvestereninvastgoed.com | savings-investing |
+
+The cohort touches **14 of the 17 pools**, so the pilot exercises breadth as well
+as traffic. Two flags:
+
+1. **The no-feed class holds serious traffic that needs an owner pass.** 12
+   excluded domains have ≥25 views, including the portfolio's #2
+   (`smartbusinesssupplies.com`, 748), `zdec.com` (409), `komunikatif.com` (253),
+   `makeitaquote.com` (226), `buysportskit.com` (215). Most are brandables or
+   tools (correctly excluded), but `buysportskit`/`sportswearinc` could join a
+   sport-adjacent pool and `smartbusinesssupplies` could take business news.
+   Worth ten minutes of owner eyes rather than a rule.
+2. **The pilot is multilingual on day one.** `monitorizare` (Romanian),
+   `hoeinvestereninvastgoed` (Dutch), `apetlon` (German), `ideal-property-mallorca`
+   (Spanish market). `bugs_open/026` (news-listing hardcodes English) is therefore
+   a **pilot** blocker, not just a fleet blocker.
+
+## Decision 12 — duplicate-content council seat (owner, 2026-07-20: "we might need")
+
+Filed as `features_open/004_FEATURE_duplicate_content_council_seat.md` rather than
+built — the seat becomes reviewable the moment pooled selection exists, which is
+also the moment it has something to veto. Mechanism is standard: seat
+`fix-proposer`, then run the 099 roster mirror (CLAUDE.md). The seat's footprint
+and review posture are specified in the feature file.
 
 ## Risks carried into the build
 

@@ -223,3 +223,53 @@ that already runs.
 The packaged-features idea is now written up as the design rather than a footnote,
 including the point that the audience profiles have to come first — build packages
 before profiles and you get 231 variations on one article.
+
+---
+
+## 2026-07-20 — four decisions executed, and the first live change of the workstream
+
+Today the owner settled four things and we acted on all of them.
+
+First, the reassuring discovery. Yesterday I'd flagged a worry: an earlier
+audience design had been built and then rolled back, reason unknown, and I wanted
+to know why before rebuilding the same shape. The answer turned out to be
+harmless — the rollback was cleaning up two bad scripts wholesale, and the
+audience fields just happened to be on board. Nobody ever rejected them on their
+merits. Even better, they belonged to an agent that's been superseded anyway. So
+what looked like a warning is actually a head start: someone already arrived at
+the same design, and we can use it.
+
+Second, the two existing audience descriptions in the database have been properly
+migrated — the first live change this workstream has made. Reading them closely
+turned out to matter: they weren't really descriptions of an audience at all,
+they were instructions to copywriters that happened to mention the audience along
+the way ("CTA language is 'Technical Discovery Call' sitewide"). A ranking system
+can't do anything with that. So the new shape keeps three things separate: who
+the reader is, how this domain differs from our other domains, and what all that
+means for the copy. Only the first two feed the news selection. The migration
+kept every sentence of the originals, invented nothing (where the originals had
+no answer to "how does this differ from our other sites", the field is
+deliberately empty rather than made up), and the old versions are preserved
+underneath, so nothing is lost.
+
+Third, the pools got sharper. With the owner's go-ahead to be more specific, the
+big money group split into insurance, mortgages and lending, and savings and
+investing — three genuinely different news streams — and the big
+marketing group split into design, web, and digital marketing. Seventeen pools
+now instead of thirteen, covering the same two thirds of the portfolio.
+
+Fourth, the pilot is chosen: the domains that actually have readers. Thirty-one
+domains, about four thousand views between them, touching fourteen of the
+seventeen pools. Two things came out of picking it that need saying. A dozen of
+the domains we'd ruled out of news feeds altogether turn out to carry real
+traffic — including the portfolio's number two. Most are correctly excluded, but
+a couple (the sports kit shop, the business supplies site) are arguable, and I'd
+rather the owner spent ten minutes on that list than have a rule decide. And the
+pilot is multilingual from day one — Romanian, Dutch, German and Spanish-market
+domains are all in it — which turns the "news pages are hardcoded to English" bug
+from a someday problem into a before-the-pilot problem.
+
+The council seat idea is written up and ready but deliberately not created yet.
+It has nothing to review until pooled selection exists, and it will give better
+verdicts once the duplication measurement is running and it can point at numbers
+instead of instinct.

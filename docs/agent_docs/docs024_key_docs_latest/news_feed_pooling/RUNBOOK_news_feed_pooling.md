@@ -91,6 +91,54 @@ SELECT extname, extversion FROM pg_extension ORDER BY 1;
 -- vector 0.8.0 present as at 2026-07-19
 ```
 
+## Migrating a site_specs aspect to a new schema (done for `audience`, 2026-07-20)
+
+**GOTCHA — order is forced by the index.** `idx_site_specs_current` is
+`UNIQUE (site_id, aspect) WHERE is_current = true`, so you must supersede the old
+row *before* inserting the new one, in one transaction:
+
+```sql
+BEGIN;
+UPDATE site_specs SET is_current = false, superseded_at = NOW()
+ WHERE aspect = '<aspect>' AND is_current = true AND site_id = (SELECT id FROM sites WHERE domain = '<domain>');
+INSERT INTO site_specs (site_id, aspect, data, source, source_agent, notes, created_by)
+SELECT id, '<aspect>', $j$ {...new shape...} $j$::jsonb,
+ 'migration', '<workstream>', '<what changed and why, pointing at the PLAN decision>', 'claude/<workstream>'
+FROM sites WHERE domain = '<domain>';
+COMMIT;
+```
+
+- `created_by` is NOT NULL — forgetting it fails the insert.
+- Dollar-quote the JSON (`$j$…$j$`): the prose contains apostrophes.
+- **Never UPDATE the old row's data in place** — versioning is the rollback.
+- Verify by reading back: version chain (`is_current`, `superseded_at`), the new
+  row's key set (`jsonb_object_keys`), and **spot-check distinctive phrases** from
+  the original so nothing was dropped:
+  `SELECT data::text LIKE '%<distinctive phrase>%' FROM site_specs WHERE ...`
+- Do NOT invent content the source didn't have — `position` was left null in both
+  migrated rows because the source prose contained no intra-portfolio positioning.
+
+The applied one-shot for the two `audience` rows is preserved at
+`scratchpad newsfeed/migrate_audience.sql` (session-local) and inline in NOTES.
+
+## The audience.v1 shape (Decision 9)
+
+```json
+{
+  "schema": "audience.v1",
+  "who": {
+    "audience_primary":  "<who the reader is>",
+    "audience_secondary": "<secondary reader or null>",
+    "out_of_scope":      "<who this site is explicitly NOT for, or null>",
+    "sophistication":    "technical|professional|casual|luxury|institutional|editorial"
+  },
+  "position":  "<how this domain differs from OUR sibling domains, or null>",
+  "editorial": "<copy/CTA/register directives — content agents only, NEVER ranking>"
+}
+```
+
+The ranking embedding is computed from `who` + `position` only.
+
 ## Domain-list analysis
 
 Scratch analysis lives outside the repo (session scratchpad); the method is in
