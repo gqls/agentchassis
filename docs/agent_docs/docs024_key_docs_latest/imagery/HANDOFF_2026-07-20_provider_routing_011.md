@@ -116,7 +116,20 @@ To put a site's heroes back on SDXL, no code change — one spec edit:
 > fleet-wide ungoverned bus) and the **absent ≠ malformed ≠ partly-dropped** distinction
 > (bug_historian, twice). Live-fire proof is deliberately still owed.
 
-**1. The council residual: `UnmigratedKind` is a log line, not a record.**
+**1. ~~The council residual: `UnmigratedKind` is a log line, not a record.~~ ✅ DONE AND
+LIVE on `v1.0.1140` (2026-07-20 18:58 BST) — built by another thread, not this one.**
+The adapter now reports `reported_conditions` in its success response and the chassis
+coordinator persists each to `agent_error_log` via `persistReportedConditions`
+(`coordinator.go:2258`, commit `8ec9e2ab8`) — exactly the *adapter reports → action
+persists* shape prescribed below. Verified in the deployed binaries: the three condition
+codes on **both** adapter replicas, and the persister's own log strings on the chassis.
+**Full account and the two design constraints that must not be undone (the sender
+allowlist, and absent ≠ malformed ≠ partly-dropped) are in `bugs_open/011` §7** — read
+that before touching it; its own council review was still running at round 8.
+The paragraph below is retained because the trap it names is what that implementation
+had to avoid, and remains the trap for anyone changing it.
+
+*Original statement of the residual:*
 `bug_historian` objected (high → medium across rounds) that detection living only in
 process logs still depends on someone tailing the right pod, which this repo's own
 history says is unreliable. The platform already has the right shape:

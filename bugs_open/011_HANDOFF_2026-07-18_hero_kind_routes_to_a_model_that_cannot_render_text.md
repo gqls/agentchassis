@@ -153,7 +153,16 @@ consumes). **`GenerateImageAction` is the exclusive path, so no caller bypasses 
 The `imagery_style_guide` JSON likewise has exactly one reader (`getImageryStyleGuideForSite`)
 plus one seed file — no UI, frontend or other service — so the new field is safe to add.
 
-### Still owed — the residual objection (`bug_historian`, medium; `guardian`, low)
+### ~~Still owed~~ — the residual objection (`bug_historian`, medium; `guardian`, low)
+
+> **RESOLVED 2026-07-20 evening — see §7, which supersedes this subsection.** Another thread
+> built it in exactly the shape prescribed below (*adapter reports → chassis persists*) and it
+> is **live on `v1.0.1140`**, verified in the deployed binaries: `UNROUTED_IMAGE_KIND` /
+> `REFERENCE_ANCHORS_DROPPED` present on **both** adapter replicas, and the chassis carries
+> `persistReportedConditions` (`coordinator.go:2258`, commit `8ec9e2ab8`) — confirmed by its
+> `"reported_conditions from an UNSANCTIONED sender"` and `"…but MALFORMED"` strings. The
+> paragraphs below are kept because the **trap** they describe is what the implementation had
+> to avoid, and it is still the trap for anyone who touches this again.
 
 **`UnmigratedKind` is a log line, not a record.** It closes the silent-failure gap only for
 someone reading logs on the right pod — which this repo's own history says is unreliable. The
@@ -263,6 +272,14 @@ like a stale deploy:
 > Grep both. One observation for `bugs_open/028`, not this bug: the hero dispatch carried
 > `has_negative_prompt:true`, and the running adapter predates `32f2d51e2` (pods started
 > 07:35, no restart since), so that negative prompt still reached Banana's discard path.
+>
+> > **CLOSED 2026-07-20 18:58 BST.** A fresh build shipped both services to **`v1.0.1140`**,
+> > which carries `32f2d51e2`: the string `"folded NegativePrompt into positive prompt as a
+> > prohibition clause"` is present on **both** adapter replicas
+> > (`…-6df8q`, `…-drwlg`). So from 17:58Z the discard path is gone and **`avoid` lists —
+> > including heroes' — reach the model again**, folded into the positive prompt. The
+> > 10:41Z hero above was generated in the ~7-hour window where it did not, and is the last
+> > one that will be.
 
 **But NOT yet observed end-to-end** *(state as of the roll, 07:35Z — superseded above)*.
 Zero assets have been generated since the roll
