@@ -343,3 +343,44 @@ I nor ten reviewers read the function; the one session that did found the bug in
 
 Round 6's verdict is due shortly. Per your instruction: if it isn't approved, the code
 ships anyway and the objections get reported here verbatim.
+
+----
+
+**2026-07-20 evening — bug 023 stays open, but it's a smaller and more honest bug now.**
+
+You asked whether to close it. Short answer: not yet, but there's nothing left to *diagnose* —
+everything remaining is building something we've already designed. Three things came out of
+checking properly.
+
+**It had a finish line it could never cross.** The bug's own definition of "done" included
+"the 34 unread findings must be cleared by an automated handler". Those 34 are still exactly
+34, untouched since the day it was filed — and fleet-wide, of 119 findings of that kind, not
+one has *ever* been actioned, going back to June. But that queue problem got its own bug
+today, filed independently by another thread, covering 292 items across everything, and it's
+waiting on a decision from you about what that queue is even for. So bug 023 was waiting on a
+different bug's decision. It would have stayed open forever with its own work finished. I've
+removed that condition and pointed at the other bug instead.
+
+**One piece was hiding in there and it's live.** The reason your LLM cost page had a Bayesian
+ranking panel is that the component library contains exactly one component that can answer a
+request for a "tool hero" — and it's hard-wired to a Bayesian ranker, with fourteen frozen
+labels the page content cannot override. That's not the page planner making bad choices; it
+asked for a generic tool hero, which was correct. It's a missing component.
+
+It's now its own bug (045), and grounding it turned up something we didn't know: **two live
+pages are still queued to do this again** — finetuning's ROI estimator and
+ai-agent-orchestration's complexity estimator. Both are flagged for rebuild, both still ask
+for the tool hero. They look perfectly fine today, and they're clean only because nobody has
+rebuilt them yet. Removing the broken sections from pages never removed them from the plans.
+Building one neutral tool-hero component fixes both and every future tool page.
+
+**What's actually left on 023** is one coherent job: no component in the library should be
+able to show a button with nowhere to go. Right now 70 button links across 37 components
+render unguarded, and 22 fields still ask an AI to invent a web address (that count went *up*,
+not down — which is why the lint rule is worth doing). I rewrote the finish line to say that
+structurally, so it can't be "met" by cleaning up pages again while the library still
+manufactures the problem.
+
+The structural half is with the other thread's council trail and is going fine — its
+observe-only stage went live in this evening's build and I verified it's genuinely in the
+running system.
