@@ -296,3 +296,44 @@ down at a confidence the evidence did not support*; this was a process violation
 a false claim, and its own header warns that mixing categories buries both. Recorded
 here and in the commit message instead.
 
+---
+
+## 2026-07-20 18:58 BST — v1.0.1140 rolled; the 021 contract widening is LIVE
+
+Pod `agent-chassis-5567d99bd6-5snzn`, image **v1.0.1140**, started 17:58:20 UTC. All
+three of my 021 commits (15:19–15:59 UTC) predate it.
+
+Verified with **discriminating** symbols — literals that cannot exist unless the change
+shipped — not with names the changed files merely use:
+
+| symbol | count | proves |
+|---|---|---|
+| `COALESCE(spec, '{}'::jsonb), site_id, page_id` | 1 | the widened query in `verifyBeforeComplete` |
+| `ctaClassifyAnchor` | 2 | the extracted shared predicate |
+| `RegisteredVerifierItemTypes` | **0** | **expected** — called only from a test, so the linker dead-strips it. Confirms the guard is test-only by design; would have looked alarming without thinking it through |
+| `completion blocked: handler saga…` (control) | 1 | `strings` works, so the 0 above is real |
+| `unrecognised handler verdict` (control) | 1 | 017's round-2 follow-up still present |
+
+**The honest gap: zero behavioural evidence.** Zero work items completed
+platform-wide in the first six minutes after the roll, so the widened contract is
+*present* and *not observed running*. Recording that as absence of evidence rather
+than letting "verified live" imply it was exercised. It is also behaviour-neutral by
+construction — same verifier, same items, strictly more information — so there is no
+new outcome to observe even when traffic resumes; what would show up is a regression,
+not a success.
+
+**`bugs_open/032` closed by its owner, and I nearly duplicated the work.** I had
+written a "verified live, the bar is now met" note for their file — and the write
+failed because the file was already gone: `ed1e20602` (19:07) closed 008, 013 and 032
+together, having verified against the same pod roll. Their evidence is sound; they used
+discriminating literals (`"cannot verify: component"` for 032, `"is not valid Go
+(cannot format"` for 013), and three independent strings all returning 1 corroborate
+each other. Nothing lost — but it is the third time this session that a doc I was
+about to write was already stale. **Check the target still exists before annotating
+another thread's file**, the same rule as not forwarding a stale handoff.
+
+**021 §INSTANCE 2 stays OPEN.** The contract widening and the coverage guard are live,
+but net verifiers remain 1 of 86 classified item types — which is `bug_historian`'s
+standing objection and it is correct. Live coverage is unchanged: 5 `_verification`
+records against 4,644 completions.
+

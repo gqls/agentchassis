@@ -18,8 +18,9 @@ to mean what it says.
 | **Commits** | `c82b2872c` (fix) · `c80fffc83` (council r2 follow-up) · `205b73a28` (§9 queue trap) · `41e3345b2` (standing five + corrections) · `93edb02f7` (closure) |
 | **Council** | `SUBMISSION_CORR=319e23f6-b333-42ba-88ef-069b4426c057` — r1 REVISE, r2 REVISE at **8 approve / 2 object**. No `Council-Reviewed:` trailer claimed (verdict was never APPROVED) |
 | **Live check** | defining sweep = **0**; no regressions |
-| **`bugs_open/021` §2** | **WORKED 2026-07-20** (`08b35ccc4`, `0c6cab66d`) — verifier contract widened + coverage guard; still OPEN (inert, coverage still 1 verifier by choice) |
-| **In flight** | council `9f7bd637-081f-45c4-bf10-1f9645424ce8` on the 021 work — queued behind a deep backlog when this was written; check for its verdict before assuming anything |
+| **`bugs_open/021` §2** | **WORKED + LIVE 2026-07-20** (`08b35ccc4`, `c46e57bea`) — contract widened + coverage guard (now a source-scan SENSOR, which found 17 item types the DB snapshot could not see). Live in **v1.0.1140**, pod-verified with discriminating symbols. **Still OPEN**: net verifiers remain 1 of 86 |
+| **Council (021)** | `9f7bd637-081f-45c4-bf10-1f9645424ce8` — **REVISE at 9 approve / 2 object**, best result yet. bug_historian's deciding objection (the guard was a stale snapshot, reproducing the "relies on someone remembering" failure it was built to stop) was RIGHT and is fixed in `c46e57bea`. Two objections stand: net verifiers still 1, and the blast-radius claim rests on my grep. No trailer claimed |
+| **`bugs_open/032`** | CLOSED by `empty_sections_loop_integrity` (`ed1e20602`) — also live in v1.0.1140. Not ours |
 | **Next** | **submission A** (owner-assigned, §3B) — genuinely unstarted. Then a real verifier, remit-first |
 
 ## 2. What 017 was, and what shipped
