@@ -735,12 +735,57 @@ re-fails weekly forever with no escalation. Candidate fix: track attempts per
 (subject, criterion) and route to `needs_human_review` after N non-converging
 cycles (`bugs_open/010` candidate b, still open).
 
+> **UPDATE 2026-07-20 — candidate (b) BUILT (`b13238be6`, inert until the next
+> chassis image), and this entry's framing needs one correction.**
+>
+> **The correction.** The evidence above — "two separate cycles, the second time
+> while loading its own prior fix note" — reads as proof the fixer cannot aim.
+> It is not. The live page had **never re-rendered since the tool was born**, so
+> both re-verifications tested an unchanged page (`bugs_open/024`, a five-defect
+> delivery chain). Transferable rule 1 below still holds and the drill-down fix
+> was still right; but the same rule has a sharper form: **before blaming a
+> fixer for not converging, confirm its output actually reached the thing being
+> re-tested.** A fix loop has at least three places to fail — the signal, the
+> fix, and the DELIVERY of the fix — and a RED re-verification looks identical
+> in all three.
+>
+> **The counting design, which is the transferable part of (b).** A cross-cycle
+> attempt count is easy to write and easy to get subtly wrong; three bounds
+> earned their place, each against a real row in the live DB:
+> - **exclude in-flight work.** Count only terminal attempts. An item still open
+>   is the CURRENT cycle — counting it escalates a loop mid-flight. There was a
+>   live open item on the benchmark tool the day this shipped, put there by
+>   another session.
+> - **reset on success.** Count only since the subject last PASSED, or a
+>   regression months later inherits an old tally and escalates immediately.
+> - **match the specific criterion.** A fixer that fixed X and left Y has not
+>   failed at Y twice. Counting "attempts on this subject" conflates them.
+>
+> **And fail OPEN.** If the count query errors, do the un-guarded thing. A guard
+> that fails closed converts a transient DB error into a silently dropped fix —
+> strictly worse than one extra cycle.
+>
+> **The residual risk, which is general to escalation guards:** stopping a loop
+> only helps if someone reads the escalation. A `needs_human_review` item with
+> no handler and no dashboard affordance is a no-op that ALSO stops the retries.
+> Ask where the escalation will be READ before deciding the loop should stop.
+
 **Transferable rules.**
 1. Before blaming a fixer for not converging, read the signal it was given — a
    loop that repeats the same wrong fix is usually being told the wrong target.
+   **And confirm its output reached the artefact being re-tested** (2026-07-20).
 2. "Which element is widest" and "which element is the cause" are different
    questions in any inherited-geometry system.
 3. An escalation path is part of a fix loop, not an optional extra.
+4. **A retry cap scoped to a record cannot bound a loop that creates a new record
+   per attempt.** Wherever "attempts" are counted on the work item, ask what
+   happens when the next cycle brings a new one. This is not specific to tool
+   acceptance — it applies to any detect→fix→re-verify loop whose detector
+   raises a fresh item each pass.
+5. A cross-cycle count must exclude in-flight attempts, reset on success, and
+   match the specific failing criterion (see the update block above).
+6. Guards fail open. The un-guarded behaviour is the safe default, because the
+   guard is the new and less-tested code.
 
 **Cross-refs.** `bugs_open/010`; `run_checks_action.go` (`HorizontalOverflow`),
 `tool_acceptance_actions.go` (judge threading). Category tags:
