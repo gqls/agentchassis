@@ -37,7 +37,16 @@ kubectl exec -n ai-persona-system <agent-chassis-pod> -- \
   sh -c 'strings /app/agent-chassis | grep -c "site provider preference applied"'  # → 1
 ```
 
-**NOT proven end-to-end.** Zero assets have generated since the roll
+> **UPDATED 2026-07-20 ~11:50Z — PROVEN end-to-end.** Eight assets generated on
+> dartsonline.com (`5fe8785b`) 10:41–10:56Z: 1 `hero` + 7 `icon`, all
+> `origin_model = 'banana/gemini-3-pro-image-preview'`. Adapter log (replica `-pl6jc`)
+> shows `"msg":"generateImage: dispatching to provider","kind":"hero","provider":"banana"`
+> at `dynamic_adapter.go:569`; no `UNROUTED KIND` on either replica. Trap: the adapter
+> runs **two replicas** and only one carried traffic — grep both before reading an empty
+> log as "nothing generated". Full evidence in `bugs_open/011` §6.
+
+**NOT proven end-to-end** *(morning state — superseded above)*. Zero assets have
+generated since the roll
 (`SELECT count(*) FROM assets WHERE created_at > '2026-07-20 07:35'` → 0),
 consistent with the owner's tool-imagery HOLD (see the memory / `bugs_open/020`).
 So no hero has actually travelled the new path. **The first hero generated after the
@@ -131,11 +140,28 @@ infographics are good enough for *explanatory* graphics now; they remain wrong f
 charts whose values must be exact, selectable, translatable and screen-reader
 accessible.
 
-**5. Cost/latency parity — UNVERIFIED and owner-facing.** This moved the fleet's
-largest kind (84 of 155 planned images) onto Gemini. No billing data was available
-for either provider and **no parity is asserted**. The adapter's 120s HTTP timeout
-was tuned around SDXL's 30–60s generation. Reversible per-site as data, fleet-wide by
-one line in `kindProviderRouting`.
+**5. Cost — ANSWERED, and the change is APPROVED (owner, 2026-07-20).** Costed from
+list prices against real volume: **~14× more per hero, but trivial in absolute terms —
+about +$5/month, with the fleet's whole image bill under $15/month.**
+Gemini 3 Pro Image **$0.134**/1K–2K image (Google official); SDXL at our exact hero
+config (1024², 30 steps) **~$0.0094**. Real volume: **40 heroes / 108 images in July**
+(up from 15/46 in June, 8/22 in May). One-off backlog: **89 planned heroes** = ~$11.93
+if a sweep drains them. Full table, sources and caveats in `bugs_open/011` §6.
+> **The lever, if volume grows:** the **Batch API is exactly half price ($0.067)** and
+> our image pipeline is *already fully asynchronous* — Kafka, work items, hand-fired
+> sweeps, nothing waits on an image interactively — so the ≤24h turnaround costs us
+> nothing we use. **Unverified:** whether `banana/api` and our provider wrapper can
+> submit batch jobs at all. That is the highest-value cost work left, and only worth
+> doing if volume climbs.
+>
+> **Watch the growth, not the total** (8 → 15 → 40 heroes/month). At 10× today's
+> volume the bill is ~$145/month and batch stops being optional.
+>
+> Two things remain genuinely unmeasured: **latency** (the adapter's 120s timeout was
+> tuned around SDXL's 30–60s; Gemini's is untested), and **actual spend** — the
+> platform records **no cost data at all** for image generation (`llm_call_log` covers
+> text only), so per-image cost is unknowable from our own data. A cost column on
+> `assets`, or reusing `llm_call_log` for image calls, would fix that cheaply.
 
 ## 5. What this fix armed — owned by other threads, do not duplicate
 

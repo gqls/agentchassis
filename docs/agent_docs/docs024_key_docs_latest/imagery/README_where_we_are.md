@@ -727,3 +727,67 @@ finding out before the hold lifts and volume resumes — undoing it is one line,
 config change per site.
 
 Resume point for all of this: `HANDOFF_2026-07-20_provider_routing_011.md`.
+
+---
+
+## 20 July (later) — you approved it, so here is what it costs
+
+Approved and recorded. Then I went and found the number, because "we'll find out
+later" is how a small recurring cost becomes a surprise.
+
+**The short answer: it is about fourteen times dearer per hero image, and that
+works out at roughly five dollars a month.** Both of those are true at once, which
+is why the multiplier on its own would have been a misleading thing to worry about.
+
+The detail:
+
+- The new model costs **13.4 cents** per picture. The old one, at the exact settings
+  we use, costs about **0.9 of a cent**.
+- We actually generated **40 heroes in July** (and 108 images of all kinds). At that
+  rate the switch adds about **$5 a month**.
+- Our entire image bill across every site, after this change, is about **$14.50 a
+  month**. It was about $8.50 before.
+- There are **89 heroes planned but not yet made**. If a sweep runs them all, that is
+  a one-off **twelve dollars**.
+
+So: comfortable. Nothing here changes the decision.
+
+**The thing worth knowing for later.** The same model has a "batch" price at exactly
+half — 6.7 cents — the only catch being it can take up to 24 hours. Our image
+pipeline is *already* entirely background work: nothing and nobody waits on a picture
+while it generates. So that discount looks close to free money if we ever want it. I
+have not checked whether our code can actually submit batch jobs — that is a real
+piece of work, not a setting — so I have written it up rather than claiming it.
+
+**Two honest gaps.** First, I could not find the old provider's own published price
+for the specific legacy endpoint we use; they have stopped listing it. I used the
+rate for an identical configuration elsewhere, which puts the multiplier somewhere
+between 14× and 65× — but since the base is a fraction of a penny, the pounds-and-
+pence answer barely moves. Second, and more useful to fix: **we record no cost data
+at all.** Every one of these figures is list price times a count I had to derive.
+Nothing in our system knows what an image cost us. That is cheap to fix and would
+make this question answerable in seconds next time.
+
+**What I would actually watch:** not the total, the slope. Heroes went 8, then 15,
+then 40 a month. At ten times today's volume this is £115-ish a month and the batch
+option stops being optional.
+
+---
+
+**2026-07-20, late morning — the routing fix has now been seen working for real.**
+This morning's deploy of the image-provider routing had one caveat: nothing had
+actually generated an image through it yet, so "verified" meant "the code is in the
+running binaries", not "we watched it work". That gap closed at about twenty to
+eleven: dartsonline.com generated a hero and seven icons, and every one went to the
+good model — the adapter's own log shows it choosing "banana" for the hero kind, and
+the database records the right model on all eight. No unrouted-kind warnings fired.
+So the fix is no longer just deployed, it is proven in use.
+
+One small lesson from checking it: the image service runs as two identical copies,
+and all the traffic happened to go through the second one. Looking at the first
+copy's log shows nothing at all, which looks alarmingly like "it never ran". Worth
+remembering for anyone checking logs: look at both copies before concluding anything.
+
+Next up on this thread is the reviewers' one outstanding objection: when an unknown
+image kind falls through to the weaker provider, that fact currently lands only in a
+log line. It should become a proper record the dashboards can see.

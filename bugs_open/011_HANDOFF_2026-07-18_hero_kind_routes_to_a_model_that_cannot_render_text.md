@@ -170,11 +170,55 @@ dedup-index↔Go-list drift class this platform has already been bitten by. The 
 correct shape is **adapter reports the condition in its response → the action, which has the DB
 and the orchestration context, persists it**. That is a coherent task of its own.
 
-**Also unresolved and owner-facing: cost and latency.** This moves the fleet's largest image
-kind onto Gemini. **No cost or latency parity has been established** — no billing data was
-available for either provider and none is asserted here. The adapter's HTTP timeout (120s) was
-tuned around SDXL's 30-60s generation. Reversible per-site as data (`provider:"stability"`) and
-fleet-wide by one line in `kindProviderRouting`.
+### Cost — ANSWERED 2026-07-20, and the change is APPROVED by the owner
+
+The routing change is **approved**. The cost question that was left open at sign-off has been
+costed from list prices against real generation volume. **Headline: ~14× more per hero image,
+but the absolute amounts are trivial — about +$5/month at current volume, and the fleet's
+entire image bill is under $15/month.**
+
+| | per image | source |
+|---|---|---|
+| Gemini 3 Pro Image, 1K/2K (`gemini-3-pro-image-preview`) | **$0.134** | Google's official pricing page (1120 tokens @ $120/1M) |
+| Gemini, **Batch API** (async, ≤24h) | **$0.067** | same page — exactly 50% |
+| SDXL 1024×1024 @ 30 steps (our exact `hero` config) | **~$0.0094** | getimg.ai's rate for that identical config — see caveat |
+
+**Real volume** (`assets`, excluding `derived-*`):
+
+| month | heroes generated | all images |
+|---|---|---|
+| 2026-05 | 8 | 22 |
+| 2026-06 | 15 | 46 |
+| 2026-07 (to 20th) | **40** | **108** |
+
+- **Delta from this change:** heroes only. At July's rate, 40 × ($0.134 − $0.0094) ≈ **+$5.00/month**.
+- **Fleet total after the change** (every declared kind is now Banana): 108 × $0.134 ≈ **$14.50/month**,
+  against ~$8.50 for the mixed routing it replaces.
+- **One-off backlog:** `site_plan_imagery` holds **89 planned heroes** not yet generated. If a
+  sweep drains them: 89 × $0.134 ≈ **$11.93**, against ~$0.84 on SDXL.
+
+**The lever, if volume grows.** The Batch API halves the price and our image pipeline is
+**already fully asynchronous** — Kafka, work items, hand-fired sweeps; nothing waits on an image
+interactively — so the ≤24h turnaround costs us nothing we are using. That would take the fleet
+to ~$7.25/month. **Not verified:** whether `banana/api` and our provider wrapper can submit batch
+jobs at all; that is a code question nobody has looked at.
+
+**Caveats, so the figures are not over-trusted.**
+- The SDXL number is a **proxy**: Stability no longer publishes a legacy v1 REST rate card for
+  `stable-diffusion-xl-1024-v1-0` (1 credit = $0.01 is confirmed; the legacy engine is listed
+  only as "varies by resolution/steps"). Published estimates span **$0.002–$0.009**, so the
+  multiple is somewhere between **~14× and ~65×** — but since the base is fractions of a cent,
+  the absolute delta barely moves either way.
+- These are **list prices**. No invoice was consulted, and **the platform records no cost data
+  at all** — `llm_call_log` covers text calls only (`provider` ∈ {anthropic, ollama}); image
+  generations write nothing anywhere. Per-image spend is currently unknowable from our own data.
+- **What to watch is the growth, not the total**: heroes went 8 → 15 → 40 per month. At 10× this
+  volume the fleet bill is ~$145/month and batch stops being optional.
+- **Latency parity remains unverified.** The adapter's HTTP timeout (120s) was tuned around
+  SDXL's 30–60s generation; no measurement of Gemini's has been taken.
+
+Reversible per-site as data (`provider:"stability"`) and fleet-wide by one line in
+`kindProviderRouting`.
 
 **Content risk:** photographic-house-style sites (`00ff3af5` robot-hands, `5fe8785b` darts,
 `ecf15e75` relojistas) will get *new* heroes from a different model than their existing ones,
@@ -192,7 +236,26 @@ like a stale deploy:
 | agent-chassis | `…-645674b498-rndg9` | `strings /app/agent-chassis \| grep -c "site provider preference applied"` | 1 |
 | agent-chassis | `…-645674b498-rndg9` | `… grep -c "provider_hint"` | 1 |
 
-**But NOT yet observed end-to-end.** Zero assets have been generated since the roll
+> **UPDATED 2026-07-20 ~11:50Z — now PROVEN end-to-end.** The paragraph below recorded
+> the morning's state (zero post-roll generations); the proof arrived the same day.
+> Eight assets generated on dartsonline.com (`5fe8785b`), 10:41–10:56Z, the first since
+> the roll: **1 `hero` + 7 `icon`, every one
+> `origin_model = 'banana/gemini-3-pro-image-preview'`**. The adapter's own decision is
+> in its log:
+> ```
+> {"ts":"2026-07-20T10:41:08.308Z","caller":"imagegenerator/dynamic_adapter.go:569",
+>  "msg":"generateImage: dispatching to provider","kind":"hero","provider":"banana",
+>  "aspect_ratio":"16:9","prompt_len":519,"has_negative_prompt":true}
+> ```
+> No `UNROUTED KIND` line on either replica. **Trap found while checking: the adapter
+> runs TWO replicas** (`…-lmp5j`, `…-pl6jc`); all traffic hit `-pl6jc`, and grepping only
+> the first replica returns nothing — which reads exactly like "no generation happened".
+> Grep both. One observation for `bugs_open/028`, not this bug: the hero dispatch carried
+> `has_negative_prompt:true`, and the running adapter predates `32f2d51e2` (pods started
+> 07:35, no restart since), so that negative prompt still reached Banana's discard path.
+
+**But NOT yet observed end-to-end** *(state as of the roll, 07:35Z — superseded above)*.
+Zero assets have been generated since the roll
 (`SELECT … FROM assets WHERE created_at > '2026-07-20 07:35'` → 0 rows), consistent with
 the owner's tool-imagery HOLD. The code is live and the binaries carry it; **no hero has
 actually been generated through the new path.** Per "trust the rendered artefact, not the

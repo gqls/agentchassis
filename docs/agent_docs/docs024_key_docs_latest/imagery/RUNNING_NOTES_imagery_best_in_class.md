@@ -2598,3 +2598,37 @@ hold that a comment cannot stop the next provider repeating the discard —
 routes it explicitly to a human while saying it must not block the Banana fix. Three
 options in 028 §7b (conformance test needing an injectable client; a capability method on
 the shared interface; or accept the comment given only two implementers).
+
+---
+
+## 2026-07-20 ~11:55Z — provider routing (011 R1) PROVEN end-to-end
+
+Resumed the provider-routing thread from `HANDOFF_2026-07-20_provider_routing_011.md`.
+The handoff's one missing piece — no real generation had exercised the new routing —
+resolved itself before the session started: **eight assets generated on dartsonline.com
+(`5fe8785b`) 10:41–10:56Z, 1 `hero` + 7 `icon`, all
+`origin_model = 'banana/gemini-3-pro-image-preview'`**. The adapter's own decision is in
+its log at `dynamic_adapter.go:569`: `"msg":"generateImage: dispatching to provider",
+"kind":"hero","provider":"banana"`. No `UNROUTED KIND` on either replica. Evidence
+recorded in `bugs_open/011` §6 (dated update block).
+
+**Misstep worth keeping: the adapter runs TWO replicas** (`-lmp5j`, `-pl6jc`) and all
+traffic went through the second. My first log grep hit the first replica, returned
+nothing, and for a moment read exactly like "the generations never touched the adapter" —
+the same false-negative shape as the strings/`case`-values trap in the handoff. Grep all
+replicas of a service before concluding from an empty log.
+
+**Observation handed to the 028 thread, not acted on here:** the hero dispatch carried
+`has_negative_prompt:true`, and the running adapter predates `32f2d51e2` (pods up since
+07:35, no restart), so that negative prompt still reached Banana's discard path. 028's
+fix remains inert until the next image roll — this generation is evidence of the gap, not
+a regression.
+
+Concurrent-thread note: while this session was verifying, another thread answered the
+cost question in `bugs_open/011` §6 and the resume handoff §4.5 — **owner APPROVED the
+routing change**; ~14× per hero but ~+$5/month absolute. Their working-tree edits and
+mine share those two files, so whichever session commits first carries the other's
+section as a named passenger (CLAUDE.md same-file rule).
+
+Next per the handoff: §4 item 1, the council residual — persist `UnmigratedKind` via
+adapter response → action, never by duplicating the routing table in the action layer.
