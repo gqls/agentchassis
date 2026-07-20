@@ -374,3 +374,60 @@ check_tool_completeness (Tier 0) · check_tool_health (Tier 1) · tool-auditor
 derivation · docselect (pipelines, later) · content_components.function +
 site_work_items.pipeline (keys) · inline tool-doc header (untouched) ·
 lifecycle agents as write hooks · git adapter (optional mirror).
+
+---
+
+## CORRECTION + phase added, 2026-07-19 — the delivery gap (`bugs_open/024`)
+
+> **CORRECTED 2026-07-19:** this plan (and the RUNBOOK §0 position line, and the
+> morning read-out) recorded the self-verifying loop as **COMPLETE, remaining
+> work = polish**. That is wrong for tool components and must not be repeated
+> forward. The loop's green proof — the vonc footer arc — is real, but it ran
+> through **site-chrome**, a different delivery path. For a **tool**, the last
+> mile was never connected: a fix reaches `content_components.html_template`
+> and is **never rendered** onto `page_components.rendered_html`, so the live
+> page never changes and every re-verification tests an unchanged artefact.
+> Caught by trying to finish the one outstanding proof (the benchmark tool).
+> Full evidence: `bugs_open/024`. What caught it: comparing the three layers
+> (template / stored render / live bytes) instead of assuming they agree.
+
+**Design decisions taken, and why:**
+
+1. **Fix the two-strike rule rather than route around it.** (Owner ruling,
+   2026-07-19.) The reviewed plan had `update_component_html` raise the rerender
+   via `createRerenderWorkItem`, whose raw SQL bypasses `insertWorkItem`'s
+   dedup/anti-churn machinery — and the submission *touted* that bypass, because
+   it dodged the rule that was killing the request. The council's
+   `improvement_guardian` objected that reusing a contract-violating shape to fix
+   a bug entrenches the violation. Agreed. `workItem.recurrenceExpected` now
+   exists (committed `f6e3f3166`, opt-in, inert until a caller sets it), and the
+   rerender goes through the sanctioned path.
+   *Consequence: edits 1 and 3 of the council-reviewed plan are now materially
+   different from what was reviewed. If the `Council-Reviewed:` trailer is to
+   mean anything, the reshaped plan wants one more round before the Go lands.*
+
+2. **An action request is not a detected defect.** The rule read a repeat
+   `item_key` as "we keep fixing this and it keeps coming back" — right for a
+   defect that a detector re-finds, wrong for "re-render this page, I changed its
+   template", where a terminal predecessor means the request **succeeded**. This
+   distinction is the design, not the workaround.
+
+3. **Explicit markers over inferred shape.** (From the council, round 1.) The
+   escalation-guard fix originally keyed on schema shape — "no required LLM
+   fields" — which silently also covered components declaring *optional* content.
+   It now keys on the library's own `component_level='tool'` marker plus an empty
+   `input_schema`: 12 of 122 active components rather than 19, with schemaless
+   *section* and *site* components untouched. **Principle worth keeping: when
+   special-casing shared machinery, key on a declared marker, never on an
+   inferred one — a marker is queryable, so the special case can be found and
+   removed when the structural fix is scheduled.**
+
+4. **Deferred, deliberately, not silently:** required-vs-optional-but-expected
+   content intent is not structural anywhere (the `missingkey=zero` root sits
+   behind this guard). Making it structural is a 122-component schema-contract
+   change and a human decision, not a rider on a delivery fix. Recorded here so
+   it survives past the review trail, per the `guidelines` seat's recommendation.
+
+**Phase status:** parts 1 (two-strike rule) done and committed but INERT; parts
+2–4 (item_key scoping, `spec.reason` stamp, escalation guard) not started. Resume
+instructions: handoff §7.

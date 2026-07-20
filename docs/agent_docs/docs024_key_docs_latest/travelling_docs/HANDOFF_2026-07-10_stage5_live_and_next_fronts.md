@@ -1,20 +1,21 @@
 # HANDOFF — travelling docs: Phase A proven · Stage 5 LIVE · next fronts
 **Written:** 2026-07-10 · **updated every turn** (turn-stamp at the bottom) · supersedes `HANDOFF_2026-07-09_recreation_and_chassis.md`.
-**Companions (current revs):** `RUNBOOK_travelling_docs(39).md` (rev 48, position tracker — read §0 first), `RUNNING_NOTES_travelling_docs(40).md` (chronological log), `PLAN_travelling_docs(7).md` (spec, rev 8), **`SUMMARY_readout_2026-07-19.md` (plain-language read-out — start here for the story)**, `STATUS_2026-07-16_where_we_are.md` (older snapshot), `PLAN_tool_acceptance_runner.md` (Tier-4 runner plan).
+**Companions (current revs):** `RUNBOOK_travelling_docs(39).md` (rev 48, position tracker — read §0 first), `RUNNING_NOTES_travelling_docs(40).md` (chronological log), `PLAN_travelling_docs(7).md` (spec, rev 8), **`SUMMARY_2026-07-19_evening_the_delivery_gap.md` (plain-language read-out — START HERE for the story; supersedes `SUMMARY_readout_2026-07-19.md`, which is kept, corrected in place, because what it got wrong is the useful part)**, `STATUS_2026-07-16_where_we_are.md` (older snapshot), `PLAN_tool_acceptance_runner.md` (Tier-4 runner plan).
 
 ---
 
-## 0. First actions in a new chat *(refreshed T27, 2026-07-19 — trust this block)*
-1. **Read `/CLAUDE.md` first** (repo root, owner-maintained, changes often): many sessions share this tree/branch/cluster/tag-sequence. Commit per task with an explicit pathspec, forward-only, never `git add -A`. Then read `SUMMARY_readout_2026-07-19.md`, this doc's turn log (newest first), and the RUNBOOK §0 position line.
-2. Environment: repo `~/projects/agentchassis`, branch **`085_debug_and_feature_loops`**; DB via `kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db`. Deploys are **USER-driven**. ⚠️ **The build rule INVERTED on 2026-07-17**: `make build-<service>` now builds from **committed HEAD** (git-archive; cannot bundle WIP) — *commit your task, then build*; `-tree` is the deliberate WIP escape hatch. Chassis + adapter are **SEPARATE images**; currently **v1.0.1137** (both). Never infer a deployed binary's contents from git — grep the running pod (`kubectl exec … -- grep -ac "<a string from your change>" /app/agent-chassis`). Short (≤16B) Go literals compile to immediates and won't grep — pick a long, distinctive string (T14).
-3. Migrations: home `docs/agent_docs/sql_for_agents/`, ledger `schema_migrations` (keyed on `filename`), runner `./scripts/migration/run-migrations.sh` (dry-run default). The old gripper-151 blockage is **RESOLVED** (ledger backfilled, T23). This workstream applied **157, 158, 159, 160, 161, 162, 168, 169**; **next free number is 171** (163–167 = experience-loop thread, 170 = another thread). Out-of-band `psql -f` is fine but **you must insert the ledger row in the same sitting** (`bugs_open/007`).
-4. Sites: trial = gamesdesign.co.uk `e33263f4-74f8-494f-b191-546845dbbddf`; real-bug/Tier-4 = vonc.com `9ec3b9ee-5b08-461b-b4f8-9e1e03579c74`. **Benchmark tool** = `tool-loot-table-balancer` (gamesdesign), component `3862f72f-8a67-4dda-b0ef-6be83bc22fe6`, page `f25dd4d8-6e25-44eb-a021-689d3057d7a3` — deliberately left with a minor mobile overflow as `bugs_open/010`'s reproducible case; do not hand-fix it.
+## 0. First actions in a new chat *(refreshed T30, 2026-07-19 — trust this block)*
+1. **Read `/CLAUDE.md` first** (repo root, owner-maintained, changes often): many sessions share this tree/branch/cluster/tag-sequence. Commit per task with an explicit pathspec, forward-only, never `git add -A`. Then read **`SUMMARY_2026-07-19_evening_the_delivery_gap.md`**, **§7 (RESUME HERE)** below, this doc's turn log (newest first), and the RUNBOOK §0 position line.
+2. Environment: repo `~/projects/agentchassis`, branch **`085_debug_and_feature_loops`**; DB via `kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db`. Deploys are **USER-driven**. ⚠️ **The build rule INVERTED on 2026-07-17**: `make build-<service>` now builds from **committed HEAD** (git-archive; cannot bundle WIP) — *commit your task, then build*; `-tree` is the deliberate WIP escape hatch. Chassis + adapter are **SEPARATE images**; currently **v1.0.1139** (both, verified against the pods 2026-07-19 — it moved 1137→1138→1139 during one session, so re-check rather than trusting this line). Never infer a deployed binary's contents from git — grep the running pod (`kubectl exec … -- grep -ac "<a string from your change>" /app/agent-chassis`). Short (≤16B) Go literals compile to immediates and won't grep — pick a long, distinctive string (T14).
+3. Migrations: home `docs/agent_docs/sql_for_agents/`, ledger `schema_migrations` (keyed on `filename`), runner `./scripts/migration/run-migrations.sh` (dry-run default). The old gripper-151 blockage is **RESOLVED** (ledger backfilled, T23). This workstream applied **157, 158, 159, 160, 161, 162, 168, 169**; **next free number is 178** (ledger max 177; other threads hold 163–177 and there are DUPLICATE 175s and 176s — collisions are routine, so always take `max+1` from the live ledger AND the directory, never from this line). Out-of-band `psql -f` is fine but **you must insert the ledger row in the same sitting** (`bugs_open/007`).
+4. Sites: trial = gamesdesign.co.uk `e33263f4-74f8-494f-b191-546845dbbddf`; real-bug/Tier-4 = vonc.com `9ec3b9ee-5b08-461b-b4f8-9e1e03579c74`. **Benchmark tool** = `tool-loot-table-balancer` (gamesdesign), component `3862f72f-8a67-4dda-b0ef-6be83bc22fe6`, page `f25dd4d8-6e25-44eb-a021-689d3057d7a3`, page_component `45229c85-5600-4e8c-b4ae-e8058f74b185` — still RED on `mobile-fit@mobile`; **do not hand-fix it.** ⚠️ **T28 reframed WHY it is red:** not a fixer that cannot aim (`bugs_open/010`'s reading) but **`bugs_open/024` — no tool fix has ever been RENDERED to the page.** The component template carries a correct fix (`minmax(0, 2fr) …`, 10,626 chars); `page_components.rendered_html` is still **9,901 chars = the v1 born length**. Re-verification was RED every cycle because the page under test never changed.
 5. Triggers live in the scratchpad, not the repo (the old `drafts/` workspace is gone): an 087-style acceptance trigger and an 085 toolgen trigger are reconstructed each session — mirror `scripts/initial_messages/320_tool_notes_generation_and_fixes/085_TRIGGER_toolgen_gamesdesign_v1.sh` (kcat → `system.agent.generic.requests`, `action=orchestrate`, `config.agent_type=<agent>`, **body compacted to ONE line** — kcat -P is line-delimited).
-6. Our open bugs: **`bugs_open/010`** (convergence guard, candidate b — open), **`bugs_open/012`** (truncation — guard + `stop_reason` + 168 + 169 all LIVE; case closed bar the benchmark proof), **`bugs_open/021`** (widen the write guard to `page_components.rendered_html` / `pages.rendered_*` — open). `016b_debugging_guide_8_consolidated.md` §9 holds the patterns, §10 indexes every open bug.
+6. Our open bugs: **`bugs_open/024`** (**the live one** — tool fixes never render to the page; three defects in series; diagnosed with evidence, fix part-built, see §7), **`bugs_open/010`** (convergence guard, candidate b — open; **re-read it alongside 024**, its non-convergence evidence is explained by an unchanged page), **`bugs_open/012`** (truncation — guard + `stop_reason` + 168 + 169 all LIVE; **168 is now PROVEN** by a clean 10,626-char improver run), **`bugs_open/021`** (widen the write guard to `page_components.rendered_html` / `pages.rendered_*` — open), **`bugs_open/031`** (a wrong concept-register entry became a HIGH-severity council blocker — **filed by us, OWNED BY ANOTHER THREAD, do not work it**). `016b_debugging_guide_8_consolidated.md` §9 holds the patterns, §10 indexes every open bug.
 
 ---
 
 ## 1. Where the project stands (all proven in production)
+> **CORRECTED 2026-07-19 (T28):** read this section with `bugs_open/024` in hand. Everything below is true of the mechanism, and the loop's green proof (the vonc footer arc) stands — but that proof ran through **site-chrome**, a different delivery path. For **tool** components the last mile is broken: a fix reaches the durable template and is never rendered onto the page. "Proven in production" does not currently extend to tool fixes reaching users.
 - **Task 3 — PLANs at birth: PROVEN.** tool-generator runs `save_tool → compose_plan → write_plan → index_plan → complete`.
 - **Task 4 — NOTES at every fix: PROVEN.** Two machine `fix` notes `('pipeline','build')` from tool-recreation-handler (economy-simulator recreation, 2026-07-09).
 - **Task 5 — economy simulator recreated with both bugs FIXED**, live on gamesdesign.co.uk (influx rate map `[0,1,5,15,40,100]`; Players on its own `yPlayers` axis). Took 3 runs; lessons in §4.
@@ -62,7 +63,81 @@ site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk) · tools `tool-x
 
 ---
 
+## 7. RESUME HERE — `bugs_open/024`, part-built *(written T30, 2026-07-19)*
+
+**The single sentence:** a tool-improver fix is written correctly to
+`content_components.html_template` and **never rendered onto the page**, so every
+re-verification tests an unchanged page. Three defects in series, all evidenced
+in `bugs_open/024`:
+
+| # | defect | status |
+|---|---|---|
+| 1 | `update_component_html` only sets `page_components.build_status='pending'` — **nothing in the repo scans it** (`store_generated_component_action.go:455` says so) | not started |
+| 2 | tool-improver's rerender request carries **no `spec.reason`**, so `check_rerender_mode` falls to `else_step: render_page` = `rerender_single_page` = *"Simple concatenation - no template re-rendering"* → deploys stale HTML, reports success | not started |
+| 3 | forcing the correct branch **escalates instead of rendering**: the content pre-check refuses any section with empty `content_data`, which every self-contained tool has by design → `check_escalated` routes to `complete`, bypassing `save_sections`, the ONLY writer of `rendered_html` | not started |
+
+Plus the enabler found on the way: `insertWorkItem`'s two-strike rule counted a
+**successful** `complete` as a failed attempt, so two successful rerenders
+poisoned a site-wide key and later rerenders were born `unresolved`.
+
+### What is already done
+- **Two-strike rule FIXED and committed** — `f6e3f3166`, `workItem.recurrenceExpected`
+  skips both the two-strike label and the within-cycle suppression (the latter
+  drops the item silently, which is worse). **Opt-in, default false, so it is
+  INERT until a caller sets it.** 6 tests, none existed before.
+- **Council gate: 4 rounds**, trail `7ef4de4e-3930-47fe-8ca6-ba40a2d440cc`,
+  ended **8 approve / 2 object** (advisory REVISE — it cannot block). Submissions
+  saved as `travelling_docs/submission_024_tool_render_path{,_r2,_r3,_r4}.json`.
+  Round 4 is the good one; **reuse its `grounded_in` block**, it holds every
+  quote and live figure you need.
+
+### What is left (owner ruled: **fix the rule, do NOT lean on the bypass**)
+1. Set `recurrenceExpected` at the rerender call site and route tool-improver's
+   request through the **normal** `insertWorkItem` path. *(The council-reviewed
+   plan had `update_component_html` call `createRerenderWorkItem`, whose raw SQL
+   bypasses that machinery; `improvement_guardian` objected that reusing a
+   contract-violating shape entrenches it, and the owner agreed. So edits 1 and 3
+   of the reviewed plan are now materially different — **if you want the
+   `Council-Reviewed:` trailer to be honest, put the reshaped plan through one
+   more round before the Go lands.**)*
+2. **Scope the `item_key`.** `create_work_item_action.go:128` builds
+   `<prefix>_<domain>` — site-wide. Even with the rule fixed, two tools fixed
+   close together collide on `idx_swi_dedup` and one request is lost.
+3. **Stamp `spec.reason`** so the rerender re-renders instead of assembling stale
+   HTML. Note `spec_data` is a *path* into collected data, not a literal, so this
+   needs either a literal-spec affordance or a different carrier.
+4. **The escalation-guard fix** — key on the explicit `component_level='tool'`
+   marker + empty `input_schema` (12 of 122 active components; already SELECTed by
+   `loadSectionComponents`, carried on `componentInfo.Raw`, so no new query).
+   This one is unchanged from the reviewed plan and had 8 approvals.
+5. Then: **image → verify against the pod → apply the migration → re-run
+   improve→rerender→acceptance** and finally watch the benchmark go green.
+
+### Traps that cost time here — do not re-pay them
+- **Verify a fix by matching its SPECIFIC rule, never a generic CSS property.**
+  `max-width`/`min-width`/`minmax(` all appear many times in unrelated site
+  chrome, so the check finds a hit and can never fail. This produced three false
+  "the fix is live" claims, including one in T24 and two of mine.
+- **A council submission within ~300s of a chassis (re)start is SILENTLY
+  DROPPED** — no artifact, no error, no log line. Lost twice around the v1.0.1139
+  deploys. Confirm a `fix_plan` artifact appears within minutes or assume it died.
+- **Council runs are stateless** — no `orchestration_states` row, so the 097
+  banner's watch query returns nothing. Poll `diagnosis_artifacts` **filtered by
+  `orchestration_id`**, never by correlation alone, or you read the PREVIOUS
+  round's verdict as success. Queueing on the shared topic ran 6–27 min.
+- **Verify a cited "contract" against code before revising your plan around it**
+  (`bugs_open/031`): a reviewer quoted our own concept register as the pipeline's
+  contract and blocked a correct plan at HIGH severity. `git log -S` proved the
+  claim had never been true.
+
+---
+
 ## Turn log (newest first — update EVERY turn)
+- **T30 (2026-07-19, late):** **Owner ruled against the bypass; two-strike rule FIXED (`f6e3f3166`); §0 + §7 rewritten for a clean new-chat start.** The council's one open objection (`improvement_guardian`) was that edit 1 leaned on `createRerenderWorkItem`'s raw-SQL insert, which bypasses `insertWorkItem`'s dedup/two-strike machinery — and my rationale had *touted* that bypass. Owner: **"don't write the bypass, fix the two strike rule."** Done: **`workItem.recurrenceExpected`** skips BOTH anti-churn heuristics — the two-strike label and the **within-cycle (<3h) suppression**, the latter being the more dangerous since it drops the item entirely and returns no error, so a fix landing within 3h of a previous rerender loses its deploy silently. **Dedup is NOT waived** (`idx_swi_dedup` still refuses a second OPEN item for the same key). **Opt-in, default false → INERT until a caller sets it**; none of the 24 existing `insertWorkItem` call sites change. **6 tests added (there were none for this rule)** — and the first version of the "poison" test passed without ever proving the row was branded `unresolved`, so they now assert the written **status and summary** ($12/$6), not merely that a row landed. Live scale of the defect: **111 items born `unresolved` in 30 days across 9 item types** (`undeployed_asset` 53, `needs_internal_links` 14, `page_rerender` 12, `deactivated_component` 11, `needs_sprite_css` 10, `needs_rerender` 4) — only the tool path is opted in; the rest is a per-type judgement.
+  - **`bugs_open/031` filed then handed over.** The register-staleness case (a seat quoting our own concept register as "the pipeline's own contract" and blocking a correct plan at HIGH severity). Evidence went further than "stale": `git log -S "content_hash"` over the three rerender files returns **no commits at all** — the mechanism was **never** true, so the originating thread most likely observed a real symptom (pages not updating) and inferred a wrong cause. **Owner says another thread now owns it — marked as such in the case file, the 016b §10 row and T29; do NOT open a parallel front** (the correction spans five files). ⚠️ Until it lands, **any submission touching the rerender path will draw the same objection** — the disproof is in T29 and round 4's `grounded_in`.
+  - **Fleet moved under us twice:** chassis+adapter **v1.0.1137 → 1138 → 1139** during this session, and migrations reached **177** (with duplicate 175s and 176s). §0 re-grounded against the live pods and ledger; **next free migration 178**. Both my round-4 submissions were eaten by the ~300s post-restart dispatch hole.
+  - **Commit hygiene, live instance:** three of my file sets were swept into other sessions' broad commits (`754577564`, `c8c3088fd`) before my own pathspec commit ran — the exact hazard CLAUDE.md documents. Nothing lost, forward-only held, remainder committed narrowly.
+  - **NEXT:** §7 is the resume block — items 1–5 there, starting with routing tool-improver's rerender through the normal path now the rule is fixed. Consider one more council round first, since the reshaped plan differs materially from the reviewed one.
 - **T29 (2026-07-19, evening):** **Bug 024's fix through the COUNCIL GATE — 4 rounds, converged to 8 approve / 2 object, still advisory REVISE. NO code written, NO migration applied, nothing deployed.** Trail correlation **`7ef4de4e-3930-47fe-8ca6-ba40a2d440cc`** (all rounds; submissions saved as `travelling_docs/submission_024_tool_render_path{,_r2,_r3,_r4}.json`). Plan = 3 edits: (1) `update_component_html_action.go` REQUESTS the re-render by reusing `markPagesPendingRebuild`+`createRerenderWorkItem` (stamps `reason=section_data_resolved`+`component_id`, per-component key, `triaged`) instead of the dead `build_status='pending'` flag; (2) `rerender_page_sections_action.go` stops escalating sections whose component needs no LLM content; (3) migration **171** drops tool-improver's redundant/mis-keyed/reason-less `create_rerender_item` step.
   - **The council materially improved the fix, twice.** (i) **bug_historian (round 1) was right**: my predicate (`missingRequiredLLMFields(schema,nil)` empty → skip) exempted a BROADER class than justified — it also covered components declaring OPTIONAL `source:"llm"` fields, a class I had never examined. Its "missing" note said use an EXPLICIT marker, and one exists: **`content_components.component_level`**, and the loot component is `component_level='tool'`. Re-keyed on the marker → **12 of 122** components change, not 19, and the 5 schemaless *sections* + 2 schemaless *site* components are now untouched. `component_level` is already SELECTed by `loadSectionComponents` (`v3_site_actions.go:3389`) and carried on `componentInfo.Raw` — no new query, no struct change. (ii) **The reviewers' own read-only checks** found `complete.config.output_fields` still lists `"rerender_item"` — removing the step without clearing it leaves a dangling reference, the exact class edit 3 exists to prevent.
   - **The council was WRONG once, at HIGH severity, and the cause matters.** `render_guardian` (round 3) blocked on: scoped rerender "SKIPS pages whose content hash is unchanged" — which would make this fix a no-op. **The sentence is real but is NOT from the code — it is quoted from the concept register** (`docs026_concept_register/register/styling-render-pipeline.md:389` + two `.buckets` copies). Disproof: `grep -rn content_hash --include=*.go platform/ internal/` → **zero** hits in `rerender_page_sections_action.go`/`create_rerender_items_action.go`/`save_page_sections_action.go`; the re-render loop has exactly **three** skip paths, none hash-based (component not found / `planSection` != "ready" / empty html_template); and probe `478c44c9` had already driven scoped mode through this page without skipping (`section_count:1`). Round 4 carried the evidence and **render_guardian APPROVED**. ⚠️ **A seat citing a stale register entry as fact produced a high-severity blocker on a correct plan — the register entry needs correcting. Filed as `bugs_open/031`; **OWNED BY ANOTHER THREAD as of 2026-07-19 (owner-confirmed) — this thread is NOT working it, do not start a parallel fix.** Note the register still carried the false claim when last checked, so until that lands, expect the same objection on any submission touching the rerender path — the disproof above is the answer.** *[UPDATE 2026-07-20: 031 is FIXED & LIVE → `bugs_closed/031`. Register + all copies corrected, and the claim was ALSO embedded in the live `render_guardian` seat prompts of BOTH council rows — patched (`PATCH_render_guardian_031_content_hash.sql` + 099 sync, verified). The content-hash objection cannot recur from that text; this note kept for the trail.]*

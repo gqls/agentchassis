@@ -557,3 +557,26 @@ Done — committed as ece827ead, four files, all mine.
   One operational note: a fresh chassis went out mid-afternoon, and two of my submissions were silently swallowed because they landed within the few minutes after a pod restart, which drops dispatches without any error. Re-firing once the pod settled worked immediately. That's now written down.
 
 ※ recap: The council improved the fix twice, was wrong once (citing a stale entry in our own knowledge base as a high-severity blocker — I disproved it with the code and it withdrew), and left one fair objection: my fix leans on a helper that bypasses platform anti-churn machinery. Decide whether to implement as-is or fix the underlying two-strike rule first. Nothing written yet.
+
+
+---
+
+2026-07-19 (end of session) — docs are updated so a new chat can pick this up cold.
+
+  If you're starting a fresh chat, the entry point is the handoff — travelling_docs/HANDOFF_2026-07-10_stage5_live_and_next_fronts.md. I've rewritten its opening block and added a new section 7 called RESUME HERE, which is the one-page version: what the bug is, what's already done, what's left in order, and the traps that cost me time today. The story in plain language is in a new read-out, SUMMARY_2026-07-19_evening_the_delivery_gap.md.
+
+  I've also corrected this morning's read-out rather than deleting it. It closed with "the mechanism is done and proven, what remains is polish", and listed watching the benchmark tool go green as the last outstanding proof. That framing was wrong, and the way it was wrong is worth keeping: the benchmark could never have gone green, because no repair has ever been rendered onto that page. So the old summary now carries a note at the top pointing at the new one, and the rest is left exactly as it was.
+
+  Where we actually stand
+
+  Two things are genuinely fixed. The truncation protection is proven — the repair agent re-ran and produced a complete, sound tool where its last attempt had destroyed one. And the anti-churn rule that was counting successful work as failed attempts is fixed and tested, though it's opt-in and nothing has opted in yet, so it changes nothing until the next piece lands.
+
+  Everything else is diagnosis and a reviewed plan. No Go written for the three delivery faults, no migration applied, nothing deployed. The benchmark tool is still red, and it should stay red until the loop turns it green on its own — fixing it by hand would destroy the only evidence we have.
+
+  Two things I'd flag for whoever picks this up
+
+  The plan changed after the council reviewed it. You told me to fix the two-strike rule rather than lean on the bypass, which was the right call, but it means two of the three edits are now materially different from what the council approved. If the "reviewed" trailer on the eventual commit is going to mean anything, it's worth one more round before the code lands. I've written that into the resume block rather than quietly letting it slide.
+
+  And the fleet moved under me twice today — the chassis went from 1137 to 1139 while I was working, and the migration numbers reached 177 with two sets of duplicates. So I've re-grounded the version and migration figures in the handoff against the live system rather than copying them forward, and noted that anyone reading them should do the same rather than trusting the line.
+
+※ recap: Docs are ready for a cold start — handoff section 7 is the resume block, and a new evening read-out replaces this morning's, which I corrected in place rather than removing because what it got wrong is the useful part. Two fixes committed (one proven, one inert); the three delivery faults are diagnosed and planned but unwritten.

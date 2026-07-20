@@ -1,5 +1,16 @@
 # Self-verifying tools — a read-out
 
+> **CORRECTED / SUPERSEDED the same day — see
+> `SUMMARY_2026-07-19_evening_the_delivery_gap.md`.** This read-out closes with
+> "the mechanism is done and proven; what remains is polish", and lists watching
+> the benchmark tool go green as the one outstanding proof. That framing is
+> wrong. Later on 2026-07-19 we found the benchmark could never go green: **no
+> tool repair has ever been rendered onto the live page** (`bugs_open/024`) —
+> three faults in series between the durable template and what a visitor sees.
+> The loop's green proof (the vonc footer) stands, but it ran through
+> site-chrome, a different delivery path. Left unedited below, because what it
+> got wrong is the useful part.
+
 *Written 2026-07-19. Plain-language, meant to be read aloud. Covers: what this
 subproject is, where it came from, what we built, where we are today, and what
 comes next. Detail lives in `RUNBOOK_travelling_docs(39).md` §0 (position),

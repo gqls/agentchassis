@@ -1143,3 +1143,77 @@ wrong, two of them mine, all from the same mistake.
   wired — read `steps.<step>.error_step`. (016b says it lives in `step.Config`;
   for these agents it does not. Dump the whole step map rather than probing one
   path.)
+
+## 10. Council gate — the commands, with the gotchas attached (added 2026-07-19)
+
+Earned over 4 rounds on `bugs_open/024` (trail `7ef4de4e-3930-47fe-8ca6-ba40a2d440cc`).
+
+**Submit / resubmit.** One JSON file: `rationale` (the real why — reviewers judge
+the plan AGAINST it) + a `plan` (≤8 edits, each with file/operation/rationale/
+sketch, plus `grounded_in` evidence quotes and `risks`).
+
+```bash
+./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh sub.json
+# resubmission — SAME trail id, so the rounds accumulate in one place:
+RESUBMIT_CORR=<submission_corr> ./…/097_TRIGGER_council_review_v1.sh sub_r2.json
+```
+Pre-flight it yourself first; the script refuses late and you will have rewritten
+the file for nothing:
+```bash
+jq -e '.plan.edits|length<=8' sub.json
+jq -e '[.plan.edits[].file|select(test("^(platform|internal|pkg)/"))]|length>0' sub.json   # scope gate
+```
+
+**⚠️ A submission fired within ~300s of a chassis (re)start is SILENTLY DROPPED.**
+No artifact, no error, no log line. Cost two lost rounds around the v1.0.1139
+deploy. Check first, and confirm the run actually started:
+```bash
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  -o custom-columns=STARTED:.status.startTime,IMAGE:.spec.containers[0].image
+# then, within a few minutes, a fix_plan artifact MUST exist — else assume dropped:
+SELECT kind, created_at FROM diagnosis_artifacts
+WHERE orchestration_id='<RUN_ORCH_ID>' ORDER BY created_at;
+```
+
+**⚠️ These runs are STATELESS — `orchestration_states` stays EMPTY**, so the 097
+banner's "watch the run" query returns nothing and looks like failure. Poll the
+artifacts, and **filter by `orchestration_id`**: every round shares the trail
+correlation, so an unfiltered poll cheerfully returns the PREVIOUS round's
+verdict and reads as success.
+```sql
+SELECT metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report'
+  AND orchestration_id='<RUN_ORCH_ID>';          -- the orchestration_id is load-bearing
+```
+
+**Read the verdict properly.** The `doc_notes` note shows only the deciding
+objection plus the reviewers' answered checks. The full per-seat breakdown is in
+the report body:
+```bash
+psql … -At -c "SELECT body FROM diagnosis_artifacts
+  WHERE correlation_id='<CORR>' AND kind='council_report'
+    AND orchestration_id='<RUN>';" | python3 -c "
+import sys,json; d=json.load(sys.stdin)
+print(d['decision'],'|',d['decided_by'],'| abstained',d['abstained'])
+for r in d['reviews']:
+    print('---',r['reviewer'],'=>',r['verdict'])
+    for o in r.get('objections',[]): print('  [',o.get('severity'),'] edit',o.get('edit'),':',o['problem'][:300])
+"
+```
+
+**Working with the verdicts:**
+- **Answer every objection explicitly in the next round's `rationale`**, including
+  the ones you are rejecting and why. Round 3's note said outright which single
+  check would move a seat from object to approve — read the `notes`, not just the
+  `objections`.
+- **The reviewers' own read-only checks are free evidence.** One of them printed
+  a step config that answered a later round's objection, and another found a
+  dangling field neither side had raised. Read them.
+- **Verify a cited "contract" against the code before revising around it**
+  (`bugs_open/031`): a seat quoted our concept register as the pipeline's
+  contract and blocked a correct plan at HIGH severity. `git log -S "<symbol>" --
+  <files>` distinguishes *stale* from *never true*; this one had never been true.
+- Queueing on the shared topic ran **6–27 minutes** before a run started. Absence
+  from the chassis logs is not proof of a drop — grep the orchestration id over a
+  wide `--since` window first.
+- Cost is relevance-gated: 3–5 of the seats abstained on every round.
