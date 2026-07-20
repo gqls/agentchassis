@@ -8,7 +8,7 @@
 > | **A** | superseded by `/bugs_open/003` — never was this file's work |
 > | **B** | ✅ **FIXED** — was already fixed by the truncation work in `/bugs_closed/005`; the entry was stale, not the code. Verified green 2026-07-19 |
 > | **C** | ✅ **FIXED** — migrations **175** + **176**, applied and ledger-recorded. Was **two sites, not one**; fleet-wide section drift now **0 pages** |
-> | **D** | **REROUTED** — news-listing half is owned by `/bugs_open/026` + `/bugs_open/027`; tool-guide-intro half is a real guard-vs-repair architectural gap, still unowned (see its entry) |
+> | **D** | **REROUTED** — news-listing half is owned by `/bugs_open/026` + `/bugs_open/027`; tool-guide-intro half is a **wiring gap, not an architectural one** (corrected 2026-07-20 — the targeted repair mechanism already exists and is production-proven; see the correction in its entry), still unowned |
 > | **E** | **OWNER DECISION**, not a bug. Re-grounded 2026-07-19, unchanged |
 > | **F** | **DIAGNOSED & REROUTED** — both suspects refuted; the real mechanism is filed as `/bugs_open/034`. Only the untested `kcat -c 1` suspect remains here |
 >
@@ -316,6 +316,47 @@ preserved on rebuild?); or richer content-writer output. A real architectural
 gap (guard vs. repair), its own small investigation — not the 10-minute job an
 earlier draft implied.
 
+> **CORRECTED 2026-07-20 (bugfix thread; caught by the owner asking me to
+> double-check): the "targeted single-section repair" named above as a fix to
+> be built ALREADY EXISTS, is deployed, and has run in production.** The
+> claim "no targeted repair path exists" was carried from this entry into a
+> sign-off without either thread grepping the registry. Verified 2026-07-20:
+>
+> - **`apply_section_edit`** (`section_editor_actions.go`, added **2026-02-19**
+>   — five months before this handoff) edits ONE `page_components` row:
+>   merges `field_updates` into `content_data` (or replaces it), re-renders
+>   that component's template, reassembles the page via `assemblePage`. It
+>   does **not** go through `save_page_sections`, so the content-regression
+>   guard is never in the path — exactly the "fill only the empty fields, no
+>   whole-page re-save" this entry asked for.
+> - The **`section-editor` agent** is seeded and active (workflow:
+>   `load_edit_context → apply_edit → git_commit → update_page_status →
+>   deploy`), both actions are in the deployed pod binary (verified by
+>   `strings`), there is a trigger
+>   (`scripts/initial_messages/130_section_editor/073_section_editor.sh`), and
+>   `orchestration_states` shows **3 COMPLETED runs, latest 2026-07-10**.
+>
+> **What is genuinely missing is narrower than claimed:** (a) the
+> section-editor *applies* caller-authored content — it has no LLM step, so
+> something still has to WRITE the 12 missing `source: llm` field values; and
+> (b) nothing routes `empty_section` items to it — they go to
+> `page-build-handler`, whose only mode is whole-page regen. So D's repair is:
+> author the fields (a thread, or a small generate step), apply via the
+> section-editor, done — plus optionally wire the routing so the loop can do
+> it unattended. Not an architectural gap; a wiring gap.
+>
+> The page-scoped-handler half of the claim **stands**: the guard
+> (`save_page_sections_action.go` — now ~lines 357-395, they have drifted from
+> the 335-371 cited above) hard-errors with no bypass flag when new text <
+> existing/4, and both guard commits predate the 2026-07-15 blocked re-drive
+> (`7cd1bb92d` 06-24, text guard earlier still), so the arithmetic that
+> blocked then blocks now. Strictly: "can't be repaired **by whole-page
+> regen while regenerated text stays under a quarter of existing**" — it is
+> conditional, not absolute. The light rerender path is no way round it:
+> `rerender_page_sections` needs stored `content_data` for EVERY section and
+> escalates the whole page to the content generator when any is missing — an
+> empty section is precisely the missing case, so it lands back at the guard.
+
 ### Dedup debt
 `news-index` still carries a `failed` + a `detected` item for the same slot
 (tool-guide-intro's duplicate was already retired). Harmless but messy.
@@ -391,14 +432,30 @@ dartsonline ships. Worth deciding before a rebuild surprises someone.
 
 ## What is actually left in this file
 
-**One thing: D's `tool-guide-intro` half** — the content-regression guard
-(`save_page_sections_action.go:335-371`) blocks a page-scoped rebuild whose
-regenerated text comes out thinner than a quarter of what is there, which means
-**an empty section on an otherwise-rich page cannot be repaired by the
-page-scoped handler at all.** The guard is correct; the gap is that there is no
-targeted single-section repair path. That needs an owner and a small design
-decision, not a re-drive. Everything else here is fixed, superseded, rerouted to
-a bug that owns it, or an owner's call.
+**One thing: D's `tool-guide-intro` half.** The content-regression guard
+(`save_page_sections_action.go`, ~lines 357-395 as of 2026-07-20) blocks a
+page-scoped rebuild whose regenerated text comes under a quarter of what is
+there, so whole-page regen stays blocked on this page while that arithmetic
+holds (demonstrated 2026-07-15: 6911 vs 31001 chars). The guard is correct.
+
+> **CORRECTED 2026-07-20 (caught by the owner asking for a double-check):** an
+> earlier version of this section said "there is no targeted single-section
+> repair path". **False** — `apply_section_edit` / the `section-editor` agent
+> is exactly that path: seeded, active, in the deployed binary, trigger script
+> at `scripts/initial_messages/130_section_editor/073_section_editor.sh`, and
+> **3 COMPLETED production runs** (latest 2026-07-10). Full evidence in D's
+> entry above. Neither the original handoff author nor the signing-off thread
+> grepped the registry before asserting the mechanism didn't exist — the fix
+> option D asked to be designed had been in the codebase since February.
+
+So the remaining work is **authorship + wiring, not design**: something must
+write the 12 missing `source: llm` field values (the section-editor applies
+content, it does not generate it), apply them via the section-editor — and
+optionally route `empty_section` items there so the loop can repair rich pages
+unattended instead of failing into the guard. That still needs an owner, but it
+is an afternoon's wiring against a proven mechanism, not an investigation.
+Everything else here is fixed, superseded, rerouted to a bug that owns it, or
+an owner's call.
 
 ---
 
