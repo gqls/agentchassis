@@ -820,3 +820,42 @@ tests, extracts `ParseInputSchemaValue` (reuse_agent), cites the doc_notes DDL f
 source (`125_doc_plans_and_notes.sql:46`, prior_art), evidences the needs_human_review
 write-only claim, and appends its design rows alongside their correction rows. Verdict
 pending.
+
+---
+
+## 2026-07-20 (leopardess3, evening) — round 6 REVISE; shipped without the trailer on owner instruction
+
+**Round 6** (v6, orch `5bb7c934`): REVISE — **10 approvals** (every seat except the two
+below), decided by editquality. Owner instruction executed: implementation shipped anyway
+(`f6b4aea5a`), **no Council-Reviewed trailer** (trailer discipline: APPROVED only), residual
+objections reported verbatim and dispositioned:
+
+1. **editquality (medium ×2).** (a) The v6 *sketch* called `ctaDerivationDelta` without any
+   edit defining it — true of the sketch (I trimmed the definition out of later rounds for
+   brevity; a self-inflicted 019-avoidance wound). The helper is defined in the shipped
+   commit. (b) The delta comparison "reuses an unaudited observe-comparison pattern of the
+   exact shape just found broken" — answered with executable proof:
+   `resolve_internal_links_cta_delta_test.go` exercises all four coverage relations; the two
+   sides are independent sources (static map vs schema), unlike the plan_sections case
+   (a fresh map compared against itself). **Note with satisfaction:** editquality is now
+   doing precisely what the owner's sketch-falsifier seat proposal mandates — it learned the
+   trail's own lesson mid-trail. The proposal should cite this round as evidence the
+   behaviour works and needs a mandate, not an invention.
+2. **bug_historian (medium, ACCEPTED as an open item).** The rerender merge loop's
+   stored-first/fresh-wins overwrite is generic — EVERY field class flows through it, and
+   this round instruments only derived CTA fields. Logos, images, and any other
+   ownership-shaped field continue to lose silently with zero signal. This is pattern
+   occurrence 7's shape (one call site guarded, generic mechanism live) and the seat asked
+   that the council/human be told explicitly rather than leaving it implicit. **It is now a
+   named flip-round item: the merge-loop ownership inventory** — enumerate which field
+   classes pass stored-vs-fresh through this merge and decide per class whether they need
+   the same observation. Recorded in the flip-constraint list (commit message + doc_notes).
+
+**Trail summary for the record:** 2525f980 = voided (019) → REJECTED → REVISE ×4. Final
+round: 10 approve / 2 object, both mediums either satisfied-in-code or converted to a named
+follow-up. The gate is advisory; the owner directed shipping. What the six rounds actually
+bought, versus my day-one plan: the A-then-B sequencing, the discovery that A was a no-op,
+the loud-fail guard, the doc_notes persistence protocol (which surfaced the concurrent
+thread's refutation), the dead-code catch relocating the observe log to the true loss site,
+two derivation-rule corrections as regression tests, the flip-round contract (5 binding
+constraints from 5 seats), and the merge-loop inventory. None of that was in v1.
