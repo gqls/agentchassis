@@ -17,9 +17,25 @@
 //
 // The report is persisted to diagnosis_artifacts (kind='council_report') on
 // the SAME correlation_id as the diagnosis and the plan, and the decision is
-// returned so the workflow can route on it. Like the plan-persist action and
-// unlike the bundle write-through, a malformed reviewer verdict FAILS the
-// step: a council that cannot read its reviewers must not wave a plan through.
+// returned so the workflow can route on it.
+//
+// A malformed reviewer output used to FAIL the step, on the principle that a
+// council which cannot read its reviewers must not wave a plan through. The
+// principle is right and is kept; failing the step was the wrong place to
+// enforce it. The council's whole value is that it is MANY INDEPENDENT
+// OPINIONS, so one seat's bad output must cost one seat — never the round, and
+// least of all at the final step, after every seat has been run and paid for.
+// So every per-seat failure mode now converges on the same three-way handling
+// (bugs_open/019 truncation, bugs_open/036 schema slip):
+//
+//	recover the opinion if it is there  → count it, marked Degraded
+//	no opinion recoverable              → count the seat UNREADABLE
+//	zero readable opinions in the round → THEN fail, because that is the one
+//	                                      state that must not become a verdict
+//
+// The original principle is enforced where it actually bites: an unreadable
+// seat blocks an approval (downgraded to revise) further down, so this can only
+// ever make an outcome more conservative, never less.
 //
 // F2.3 adds the routing flags for the decision router: should_revise (revise
 // with rounds left → repropose), should_reframe (first rejection with rounds
@@ -30,6 +46,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -50,20 +67,79 @@ func init() {
 // councilReview is one reviewer's structured opinion (the verdict-wire-style
 // contract the F2 design asked for: verdict + objections + suggestions).
 type councilReview struct {
-	Reviewer   string `json:"reviewer"`
-	Verdict    string `json:"verdict"` // approve | object | veto
-	Objections []struct {
-		Edit     int    `json:"edit"` // 1-based index into the plan's edits; 0 = plan-wide
-		Problem  string `json:"problem"`
-		Severity string `json:"severity,omitempty"` // low | medium | high
-	} `json:"objections,omitempty"`
-	Missing []string `json:"missing,omitempty"` // mechanisms the plan should cover but doesn't
-	Notes   string   `json:"notes,omitempty"`
+	Reviewer   string             `json:"reviewer"`
+	Verdict    string             `json:"verdict"` // approve | object | veto
+	Objections []councilObjection `json:"objections,omitempty"`
+	Missing    []string           `json:"missing,omitempty"` // mechanisms the plan should cover but doesn't
+	Notes      string             `json:"notes,omitempty"`
 	// Degraded marks a review recovered from a TRUNCATED response by closing its
 	// open brackets: the verdict and any objections before the cut are real, but
 	// anything after it is missing. Surfaced in the report so a reader can tell a
 	// complete opinion from a salvaged fragment.
 	Degraded bool `json:"degraded,omitempty"`
+}
+
+// councilObjection is one thing a reviewer wants changed, and which edit it is
+// about.
+type councilObjection struct {
+	Edit     objectionEdit `json:"edit"`
+	Problem  string        `json:"problem"`
+	Severity string        `json:"severity,omitempty"` // low | medium | high
+}
+
+// objectionEdit points at WHICH edit an objection concerns. The wire contract
+// asks for a 1-based index into the plan's edits (0 = plan-wide), and it used to
+// be a plain int — which meant exactly one of the three registers a model
+// naturally answers "which edit?" in would parse. Live evidence (bugs_open/036,
+// three voided rounds, all the same seat): `3`, `"3"`, and free text such as
+// "plan-level (deploy verification)" or "risks/summary (item 5)". The last form
+// is the interesting one — it is not a malformed index, it is a reviewer saying
+// the objection is about the PLAN rather than any single edit, which the contract
+// already spells 0. So the tolerant reading is not a leniency hack; it recovers
+// the meaning the strict one discarded.
+//
+// Unparseable pointers land on 0 (plan-wide) rather than failing, because an
+// objection whose target is unclear is still an objection, and the problem text
+// is the part that carries the review's value. Raw keeps the reviewer's own token
+// so the persisted report shows what was actually written rather than a laundered
+// 0 — the report is read by humans deciding whether the council was fair.
+type objectionEdit struct {
+	Index int             // 1-based index into the plan's edits; 0 = plan-wide/unresolved
+	Raw   json.RawMessage // exactly what the reviewer wrote
+}
+
+// UnmarshalJSON never returns an error, by design: this field must not be able to
+// cost a review, let alone a round.
+func (e *objectionEdit) UnmarshalJSON(b []byte) error {
+	e.Raw = append(json.RawMessage(nil), b...)
+	e.Index = 0
+
+	// A bare number, including the 3.0 an LLM sometimes emits for 3.
+	var num json.Number
+	if err := json.Unmarshal(b, &num); err == nil {
+		if f, ferr := num.Float64(); ferr == nil {
+			e.Index = int(f)
+		}
+		return nil
+	}
+	// A number in string clothing ("3"), or free text — which resolves to
+	// plan-wide.
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		if n, aerr := strconv.Atoi(strings.TrimSpace(s)); aerr == nil {
+			e.Index = n
+		}
+	}
+	return nil
+}
+
+// MarshalJSON round-trips the reviewer's own token so the council report is a
+// faithful record. Falls back to the index for a value built in Go (tests).
+func (e objectionEdit) MarshalJSON() ([]byte, error) {
+	if len(e.Raw) > 0 {
+		return e.Raw, nil
+	}
+	return json.Marshal(e.Index)
 }
 
 var councilVerdicts = map[string]bool{"approve": true, "object": true, "veto": true}
@@ -107,6 +183,44 @@ func salvageTruncatedReview(rb []byte) (councilReview, bool) {
 	if !councilVerdicts[rv.Verdict] {
 		return rv, false
 	}
+	return rv, true
+}
+
+// salvageMistypedReview recovers an opinion from a review that is VALID, COMPLETE
+// JSON which simply does not fit the schema — a field emitted in the wrong
+// register (bugs_open/036). This is the sibling of salvageTruncatedReview and
+// deliberately NOT the same mechanism: there is nothing to repair here, the
+// document is whole, so the recovery is to decode field by field and keep what
+// decodes instead of losing the review to whichever field did not.
+//
+// Reviewer and verdict are read strictly because they are load-bearing; the rest
+// is best-effort, since an objection list that will not decode costs the detail,
+// not the opinion. Returns ok=false unless a RECOGNISED verdict comes back — a
+// document with no usable verdict is not an opinion, and must be counted
+// unreadable rather than quietly become one (same bar as the truncation path).
+func salvageMistypedReview(rb []byte) (councilReview, bool) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(rb, &fields); err != nil {
+		return councilReview{}, false
+	}
+	var rv councilReview
+	var verdict string
+	if err := json.Unmarshal(fields["verdict"], &verdict); err != nil {
+		return rv, false
+	}
+	rv.Verdict = strings.ToLower(strings.TrimSpace(verdict))
+	if !councilVerdicts[rv.Verdict] {
+		return rv, false
+	}
+	// Best-effort from here: a field that will not decode is left at its zero
+	// value rather than taking the review down with it. Note encoding/json
+	// continues past a TYPE error (unlike a syntax error) and keeps what did
+	// decode, so a mistyped `severity` costs that field and not the objection
+	// around it — the ignored errors below are doing more work than they look.
+	_ = json.Unmarshal(fields["reviewer"], &rv.Reviewer)
+	_ = json.Unmarshal(fields["objections"], &rv.Objections)
+	_ = json.Unmarshal(fields["missing"], &rv.Missing)
+	_ = json.Unmarshal(fields["notes"], &rv.Notes)
 	return rv, true
 }
 
@@ -168,7 +282,12 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		}
 		rb, err := planBytes(raw) // same map-or-string defence as the plan itself
 		if err != nil {
-			return nil, fmt.Errorf("reviewer output at %q not serialisable: %w", field, err)
+			// One seat's output being unserialisable is that seat's loss, not the
+			// round's — same rule as every other per-seat failure below.
+			unreadable = append(unreadable, field)
+			logger.Warn("diagnose_council_decide: reviewer output is UNREADABLE (not serialisable) — recorded as unreadable; an approval cannot stand alongside it",
+				zap.String("field", field), zap.Error(err))
+			continue
 		}
 		var rv councilReview
 		if err := json.Unmarshal(rb, &rv); err != nil {
@@ -201,11 +320,47 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 					zap.Error(err))
 				continue
 			}
-			return nil, fmt.Errorf("reviewer output at %q does not match the review schema: %w", field, err)
+			// SCHEMA SLIP (bugs_open/036). The JSON is complete and well-formed but
+			// a field arrived in the wrong register, so 019's salvage cannot help —
+			// there is nothing to repair. This used to return, discarding every other
+			// seat's completed review at the LAST step of the round, after all of them
+			// had been paid for. It is the same principle as the truncation branch and
+			// gets the same answer: recover the opinion if it is there, else record
+			// the seat unreadable. One seat's malformed output costs one seat.
+			salvaged, ok := salvageMistypedReview(rb)
+			if ok {
+				salvaged.Degraded = true
+				if strings.TrimSpace(salvaged.Reviewer) == "" {
+					salvaged.Reviewer = field
+				}
+				logger.Warn("diagnose_council_decide: reviewer output did not match the schema — verdict recovered field-by-field, some detail may be dropped",
+					zap.String("field", field),
+					zap.String("recovered_verdict", salvaged.Verdict),
+					zap.Int("objections_recovered", len(salvaged.Objections)),
+					zap.Error(err))
+				reviews = append(reviews, salvaged)
+				continue
+			}
+			unreadable = append(unreadable, field)
+			logger.Warn("diagnose_council_decide: reviewer output does not match the review schema and no verdict could be recovered — recorded as unreadable; an approval cannot stand alongside it",
+				zap.String("field", field),
+				zap.Int("bytes", len(rb)),
+				zap.Error(err))
+			continue
 		}
 		rv.Verdict = strings.ToLower(strings.TrimSpace(rv.Verdict))
 		if !councilVerdicts[rv.Verdict] {
-			return nil, fmt.Errorf("reviewer %q returned unknown verdict %q (want approve|object|veto)", rv.Reviewer, rv.Verdict)
+			// A well-formed review carrying a verdict outside the contract
+			// ("approve-with-comments", "") is an opinion we cannot count. Deliberately
+			// NOT normalised into the nearest legal verdict — guessing what a seat
+			// meant is how a veto becomes an approval. Unreadable, which blocks
+			// approval below without inventing a position for the seat.
+			unreadable = append(unreadable, field)
+			logger.Warn("diagnose_council_decide: reviewer returned an unrecognised verdict — recorded as unreadable; an approval cannot stand alongside it",
+				zap.String("field", field),
+				zap.String("reviewer", rv.Reviewer),
+				zap.String("verdict", rv.Verdict))
+			continue
 		}
 		if strings.TrimSpace(rv.Reviewer) == "" {
 			rv.Reviewer = field

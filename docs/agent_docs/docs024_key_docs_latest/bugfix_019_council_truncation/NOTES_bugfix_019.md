@@ -398,3 +398,68 @@ learned it the expensive way; stopping here is that lesson applied.
 verified, rollback + snapshot in place); docs complete; work items closed;
 bugs_open/019 OPEN pending image roll. Council record: corr 2eed453a, rounds
 1+2 both revise, full objection trail in council_report artifacts.
+
+---
+
+## 2026-07-20 (later) — bugs_open/036: the SECOND cause on the same seam (bugfix-036 thread)
+
+Not 019, and recorded here rather than in a new directory because it is the same
+function, the same contract and the same seam 019 built — a second account would
+drift. The case file is `bugs_open/036`; this is only what the 019 workstream
+needs to know.
+
+**What it is.** A reviewer emitting `"edit": "<string>"` where the struct wanted
+`int` voided the whole round — `COMPLETED @ complete_invalid`, `error` EMPTY, no
+`council_report`, every seat paid for. Identical symptom to 019, different cause:
+the JSON is **complete and valid**, so `salvageTruncatedReview` cannot help.
+019's `unreadable` mechanism was the right seam; it was simply guarded by
+`!json.Valid(rb)` and so never reached this case.
+
+**Measured split (14 days of `complete_invalid`)** — worth having because 016b §9's
+own correction says to count the layer first: `review_editquality` upstream
+truncation **9**, `council_decide` schema slip **3**, `council_decide` truncation
+**2**, other **2**. So this cause is the majority of what still reaches the decider
+now that 019's upstream fix exists.
+
+**The wrong turn worth recording — mine, and the bug file's.** `bugs_open/036` §5
+proposed `json.Number` as the tolerant type, and I started out expecting the live
+payloads to be `"3"` — a malformed index. They are not. All three voided rounds
+carried a *plan-level description*: `"plan-level (deploy verification)"`, `"risks
+note on the 54 mis-stamped rows"`, `"risks/summary (item 5)"`, all from
+`review_debug_historian`. `json.Number` would have parsed **none** of them. The
+reviewers were not emitting garbage — they were saying "this objection is about
+the plan, not any single edit", which the contract already spells `0`. The strict
+type was discarding a meaning it had a representation for. Reading the actual
+payloads before picking the tolerant type is the whole lesson.
+
+**Second wrong turn, in the tests.** I asserted that a mistyped `severity` deep
+inside an objection loses the objection. It does not: `encoding/json` continues
+past a TYPE error (unlike a syntax error) and keeps what did decode. Better than
+assumed, and it is why field-by-field salvage retains as much as it does. Test now
+pins the real behaviour.
+
+**What changed on the shared seam** (`diagnose_council_decide_action.go`) — matters
+to this workstream because it alters code 019 wrote:
+- `Objections []struct{...}` → named `councilObjection`, with `Edit` now
+  `objectionEdit{Index, Raw}`; `UnmarshalJSON` never errors, `MarshalJSON`
+  round-trips the reviewer's own token so `council_report` is not laundered.
+- `salvageMistypedReview` added **beside** `salvageTruncatedReview` (per 036 §7:
+  extend the seam, do not invent a parallel degraded-round path).
+- The three surviving `return nil, err` exits in the per-seat loop — `planBytes`,
+  schema mismatch, **unrecognised verdict** — now all route to `unreadable`.
+  Unrecognised verdicts are deliberately NOT normalised to the nearest legal
+  value: guessing what a seat meant is how a veto becomes an approval.
+- Untouched, and still what keeps this safe: the `len(reviews)==0` fail-closed
+  guard and the `approved + unreadable → revise` downgrade. 019's five tests pass
+  unchanged.
+
+**Sequencing gate honoured.** 036 §7 said not to touch this file until the 019
+truncation work landed. It had (`11a72dc31`), and the tree was clean, so no
+same-file race. Anyone extending this function next: check `git status` on it
+first, for the same reason.
+
+**Also noticed, not fixed:** two orchestrations hung at `spawn_ingester` (idle
+~4,300s and ~4,600s) and one at `route` (~12,200s) while this ran — the
+`bugs_open/029` hung-spawn class, still live and still saturating the dispatch
+group. Both this thread's diagnosis run and its council submission sat queued
+behind it for well over the usual latency.

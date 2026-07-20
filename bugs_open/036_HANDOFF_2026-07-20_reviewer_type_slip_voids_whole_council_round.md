@@ -145,3 +145,112 @@ lines and not worth a same-file race on its own.
 **Unchanged and worth restating:** §4's "one edit entry per file" is a submission
 habit that reduces the trigger rate. It is not a fix, and adopting it as one is
 how this class stays open — the schema should not be able to lose a round.
+
+---
+
+## 8. FIX APPLIED 2026-07-20 (bugfix-036 thread) — INERT until the next image roll
+
+**Status: still OPEN.** The bar for `/bugs_closed/` is fixed AND live; this is a Go
+change, so the defect stays reproducible in prod until a chassis image ships.
+
+**Sequencing gate from §7 is cleared.** The 019 truncation work landed
+(`a3b606798`, then `11a72dc31` round 2) and `diagnose_council_decide_action.go` was
+clean in the shared tree, so the same-file race §7 was avoiding no longer applied.
+
+### What the live evidence changed about the diagnosis
+
+The handoff guessed the reviewer would emit `"3"` — a malformed index. **It does
+not.** All three voided rounds in the last 14 days carried a *plan-level
+description* in `edit`:
+
+| orchestration | `edit` value |
+|---|---|
+| `5438f851…` (this case) | `"plan-level (deploy verification)"` |
+| `32a379cb…` | `"risks note on the 54 mis-stamped rows"` |
+| `9f9970b8…` | `"risks/summary (item 5)"` |
+
+All three name the **same seat** (`review_debug_historian`). This reframes the fix
+rather than just confirming it: those reviewers were not emitting garbage — they
+were saying *the objection is about the plan, not any single edit*, which the
+contract **already spells `0`**. So the tolerant reading is not a leniency hack; it
+recovers the meaning the strict one discarded. It also kills §5's `json.Number`
+suggestion outright: `json.Number` would have parsed **none** of the three.
+
+Measured cause split over 14 days of `complete_invalid` runs — worth having,
+because 016b §9's own correction says to count the layer before fixing it:
+
+| failed step | cause | n |
+|---|---|---|
+| `review_editquality` (upstream) | truncation, 019's dominant path | 9 |
+| `council_decide` | **schema slip (this bug)** | **3** |
+| `council_decide` | truncation | 2 |
+| `persist_submission` / `review_guidelines` | other | 2 |
+
+### The fix
+
+Both candidates, as §5 and §7 sequenced them, in
+`platform/orchestration/actions/diagnose_council_decide_action.go`:
+
+1. **(1) Tolerant pointer.** `Edit int` → `objectionEdit{Index int; Raw
+   json.RawMessage}` with an `UnmarshalJSON` that *never returns an error*:
+   accepts `3`, `3.0`, `"3"`, `" 4 "`, and lands free text / `null` / an object on
+   `0` (plan-wide). `MarshalJSON` round-trips the reviewer's **own token**, so the
+   persisted `council_report` shows what was actually written instead of a
+   laundered `0` — the report is read by humans judging whether the council was fair.
+2. **(2) Structural.** The three remaining `return nil, err` exits in the per-seat
+   loop — `planBytes` failure, schema mismatch on **valid** JSON, and an
+   **unrecognised verdict** — now route into the `unreadable` mechanism 019 already
+   built, via `salvageMistypedReview`, a sibling of `salvageTruncatedReview`. Per
+   §7 this **extends** that seam rather than adding a parallel degraded-round path.
+   An unrecognised verdict is deliberately **not** normalised to the nearest legal
+   one: guessing what a seat meant is how a veto becomes an approval.
+
+The contract is now uniform across every per-seat failure mode:
+
+```
+recover the opinion if it is there   → count it, marked Degraded
+no opinion recoverable               → count the seat UNREADABLE
+zero readable opinions in the round  → THEN fail — the one state that must
+                                       not become a verdict
+```
+
+The safety property the old hard error protected is kept, enforced where it bites:
+an unreadable seat downgrades `approved` → `revise`, so the change can only ever
+make an outcome **more conservative, never less**.
+
+### Verification (§6's two tests, plus what testing taught)
+
+`go test ./platform/orchestration/actions/` — all green, five pre-existing council
+tests unchanged. New: `TestObjectionEditTolerance` (built on the three **real**
+payloads above, asserting `Index` *and* that `Raw` round-trips),
+`TestMistypedEditDoesNotVoidTheReview`, `TestSalvageMistypedReview`,
+`TestOneBadSeatDoesNotVoidTheRound`.
+
+> **Wrong turn, recorded:** the first `TestSalvageMistypedReview` asserted that a
+> mistyped `severity` deep inside an objection loses the whole objection. It
+> failed — `encoding/json` **continues past a TYPE error** (unlike a syntax error)
+> and keeps everything that did decode, so the objection survives with only the
+> bad field zeroed. Better than assumed, and load-bearing: it is why the
+> per-field salvage retains as much as it does. The test now pins the real
+> behaviour and the code says why the ignored errors are doing more work than
+> they look.
+
+### Deliberately NOT done — §5 candidate (3)
+
+`error` staying empty on a voided round is **not** a property of this action. The
+workflow routes a step failure to the terminal `complete_invalid` step and the
+orchestration then genuinely *completes*, so `error` is empty by engine design
+(`coordinator.go` `routeToErrorStep` stores the real reason at
+`collected_data.__step_error`). Fixing it is a workflow-seed / engine question with
+a fleet-wide blast radius, not a council one — it wants its own bug, and it now
+matters less because this class should no longer void rounds. Until then, the
+diagnostic remains: **absence of a `council_report` row is the symptom, not `error`.**
+
+### Verify after the next image roll
+
+```
+kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c salvageMistypedReview'   # created by this change
+```
+Grep a symbol this change **created** (`salvageMistypedReview`), not one it merely
+uses — a string the old binary also contains passes on a stale image.

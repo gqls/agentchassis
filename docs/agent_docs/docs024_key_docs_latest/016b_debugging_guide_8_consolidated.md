@@ -1271,6 +1271,59 @@ decider salvages a verdict or counts the seat `unreadable` and never approves
 alongside one. Full case, evidence and the corrected mechanism: `bugs_open/019`
 + `docs024_key_docs_latest/bugfix_019_council_truncation/`.
 
+### A strict field type turns "which one?" into a lost round — the wrong register is not garbage (2026-07-20)
+
+**Symptom.** Identical to the truncation entry above — `COMPLETED @
+complete_invalid`, `error` EMPTY, no `council_report`, every seat run and paid
+for — but `__step_error` says `does not match the review schema: json: cannot
+unmarshal string into Go struct field .objections.edit of type int`. The JSON is
+**complete and valid**, so 019's salvage path cannot help: there is nothing to
+repair. Same blast radius, different cause. (`bugs_open/036`.)
+
+**Mechanism.** `councilReview.Objections[].Edit` was a plain `int` — a 1-based
+index into the plan's edits, `0` = plan-wide. A model asked *which edit do you
+object to?* answers in three natural registers and a plain `int` parses exactly
+one of them. The other two returned an error from the per-seat loop, which
+discarded every other seat's completed review at the **last step of the round**.
+
+**The finding that reframes it — and the transferable one.** The three live
+payloads were not malformed indices. They were `"plan-level (deploy
+verification)"`, `"risks note on the 54 mis-stamped rows"`, `"risks/summary (item
+5)"` — reviewers saying *this objection is about the plan, not any single edit*,
+which the contract **already spells `0`**. The strict type was not rejecting
+noise; it was **discarding a meaning it had a representation for**. So `json.Number`
+— the obvious tolerant type, and the one the bug file first suggested — would have
+parsed **none** of the three. When a strict field keeps failing, read what was
+actually sent before choosing the tolerant type: the sender may be answering a
+question your schema asked badly.
+
+**Wider rule, and the third instance of it.** *One participant's malformed output
+must cost one participant, never the round.* A council's whole value is that it is
+many independent opinions; the same is true of any fan-out that aggregates. Every
+per-seat failure mode should converge on one contract — recover the opinion if it
+is there (mark it degraded), else count that seat **unreadable**, and fail only
+when **zero** readable opinions remain. Enforce "cannot read its reviewers ⇒ must
+not wave it through" at the *decision* (unreadable blocks an approval), not by
+voiding the round: that way the guard can only make an outcome more conservative,
+never less. Note the failure order — a per-item strictness bug fails at the
+**aggregation** step, i.e. last and most expensively, so it is worth auditing
+aggregators for `return err` inside a per-item loop *before* one bites.
+
+**Go trap worth keeping.** `encoding/json` **continues past a TYPE error** (unlike
+a syntax error) and keeps everything that did decode. So a mistyped field costs
+that field, not the struct around it — a failed `Unmarshal` on valid JSON still
+leaves usable data in the target. Field-by-field salvage retains far more than it
+looks like it should, and a test asserting "the whole objection is lost" fails.
+
+**Do not normalise a verdict.** An unrecognised verdict (`"approve-with-comments"`)
+gets recorded unreadable, deliberately *not* mapped to the nearest legal value:
+guessing what a seat meant is how a veto becomes an approval. Tolerance belongs on
+the *pointer* fields, never on the decision field.
+
+**Fixed 2026-07-20**, inert until image roll. Category tags:
+`strict-type-loses-meaning`, `one-seat-not-the-round`, `aggregator-fails-last`,
+`partial-decode-on-type-error`.
+
 ### Two fields that must agree, with no relationship in the schema — the check you want cannot be written (2026-07-19)
 
 **Symptom.** Live customer-facing buttons that have words on them and nowhere to go:
@@ -1589,6 +1642,45 @@ before trusting a clean run. Kin: "A fix applied to one branch of a two-branch
 router reads as done" (§9). Category tags: `partial-coverage`, `authority-order`,
 `jsonb-null`, `false-clean`.
 
+### An unbusted GET is not the rendered artefact — it is a cache's opinion of it
+
+*Added 2026-07-20 from bugs_open/002 D (see `WRONG_CALLS.md` for the full row).*
+
+The standing rule here is **"trust the rendered artefact, not the status"** — it
+has caught real damage and it stays. This is its missing corollary: **only if you
+have proven the artefact is the current one.**
+
+A thread fetched a live page, found a broken empty section, and reconstructed a
+whole mechanism to explain how it survived (removed from the DB, orphaned in the
+deployed artifact) — one step from forcing a production re-deploy of a live
+client page. The section was already gone. The fetch had hit a **stale edge
+cache**: origin updated at 12:46, `cache-control: max-age=3600` still serving the
+pre-update copy. Stale 52,624 bytes; real page 44,880.
+
+**The tell was already on screen and skimmed past:** `last-modified` was two
+hours *before* the fetch and two days *after* `pages.deployed_at`. A page whose
+file is newer than its recorded deploy, serving content older than its database,
+is a caching question, not a mechanism question.
+
+**The diagnostic inversion that matters.** Four independent DB checks said the
+section did not exist; the page said it did. The thread kept inventing mechanisms
+to explain the page. **When the artefact contradicts the database, suspect the
+fetch before you invent a mechanism** — the database is one system, the fetch
+crosses three (origin, CDN, whatever your client caches). The elaborate
+explanation is the smell: if reconciling a page with its own DB needs a novel
+mechanism nobody has seen before, test the cheap boring cause first.
+
+```bash
+curl -s -H 'Cache-Control: no-cache' "<url>?cb=$(date +%s)" -o /tmp/a -w '%{size_download}\n'
+curl -sI "<url>" | grep -iE 'last-modified|cf-cache-status|age'
+# compare size against an unbusted fetch; compare last-modified against pages.deployed_at
+```
+
+Related trap in the same family: verifying a fix by grepping a **generic** CSS
+property always passes (travelling-docs). Both are "I checked the page" where the
+check could not have failed. Category tags: `stale-cache`, `artefact-not-current`,
+`verification-that-cannot-fail`.
+
 ### "The fix needs X to be built" is a claim about the codebase — grep before repeating it
 
 *Added 2026-07-20 from bugs_open/002 D; the error was made independently by two
@@ -1828,7 +1920,7 @@ See `/bugs_closed/README.md`.
 | # | Bug | State |
 |---|---|---|
 | 001 | Re-planning a site silently discards its built pages' composition | **FIXED & PROVEN LIVE 2026-07-20** (v1.0.1138/1139): preservation set widened to adoption-locked OR `build_status='deployed'` + non-empty-gated composition snap-back + truncation must-keep; migration 173 live; 7 discriminating tests. Two re-plans on dartsonline: run 2 snapped `index` (LLM dropped `category-listing`, added `content-listing`) and `shipping-returns` (LLM added `faq`) back to realised — the SAME `index` that lost sections in run 1 as `needs_rebuild`, protected in run 2 as `deployed`, so the guard keys on status generically. **Stays OPEN**: `037`/`038`/`040` are the residuals. **Its "FRESH EVIDENCE" (leopardess) section is MISATTRIBUTED — that damage is `029`/page-rerender, corrected in-file** |
-| 002 | Errors surfaced but not fixed (multi-error handoff, route individually) | open |
+| 002 | Errors surfaced but not fixed (multi-error handoff, route individually) | **SIGNED OFF 2026-07-20 — `→ bugs_closed/`.** A routing doc that routed. B was already fixed (`005`); C fixed via SQL 175+176 (two sites, fleet drift 0); D closed — the section had been gone since 07-10, 8 stale items closed; A→`003`, F→`034`; E is an owner decision. **Its two most confident entries were its two wrongest** (A's retracted root cause; D's "needs a targeted repair built" when the mechanism had shipped 5 months earlier) — see §9 `asserted-absence` and two `WRONG_CALLS.md` rows |
 | 003 | Spawned children lose their response; parents hang until reaped. **§3d (2026-07-18): second root cause — the consume loop commits Kafka offsets BEFORE processing (at-most-once), so any restart destroys in-flight work; §4.4 is the at-least-once + rollout fix that unlocks CD** | open |
 | 004 | Landing an image can silently blank an article body | superseded by 005 — **`→ bugs_closed/`** |
 | 005 | Article-body blanking — root cause LLM truncation (`max_tokens`) | FIXED; re-verified live 2026-07-19 (19/19 healthy, `max_tokens` 8000 survived a re-seed, repair fn in the running pod, zero writer truncation since 07-15) — **`→ bugs_closed/`** |
