@@ -219,3 +219,153 @@ audit and require **zero 404 targets** on the affected sites. Criteria:
   new findings: more detection without a consumer makes the invisible pile bigger.
 - `bugs_open/040-partial-build` / `037` / `038` — the `needs_rebuild` / undeployed-page population
   that mechanism 2 links into.
+
+---
+
+# ADDENDUM 2026-07-20 (bugfix-015→049 session) — the two owner questions are now answerable, and two of this file's own claims are corrected
+
+I picked this bug up to action it, and the blocking item was the owner question in
+`cta_link_integrity/README_where_we_are.md`: *"rebuilding also brings three months of
+accumulated menu changes onto live customer sites in one go"*. That risk was **unbounded
+because nobody had measured it**. It is now measured, read-only, and it is much smaller than
+feared — but the re-render does **not** do what candidate 1 says it does on two of the three
+sites. Both corrections below are evidenced inline.
+
+## Still live, re-verified 2026-07-20 ~21:15 BST
+
+`/privacy.html` and `/terms.html` return **404** on all three sites, and all three still ship
+`href="/privacy.html"` in the footer. Nothing has drifted since filing.
+
+## CORRECTION 1 — "if none, the list is empty" is false for 2 of the 3 sites
+
+This file (and `render_site_components_action.go:183-195`'s own comment) states that when no
+legal page exists the list is empty and no legal links render. **That is only true when the
+site has a `legal` nav-group row.** `GetNavItems` (`nav_tables.go:65-75`) treats *zero rows
+from the nav tables* as "this site has no nav tables" and **falls through to
+`getNavItemsFromPagesFallback`** — a different query whose footer branch matches
+
+```sql
+(in_footer = true OR LOWER(name) IN ('privacy','terms','cookies','disclaimer'))
+```
+
+The `in_footer` disjunct dominates, so the **legal slot is filled with every footer page**.
+
+Legal nav-group rows, fleet:
+
+| site | legal nav items | chrome rendered | legal slot is therefore |
+|---|---|---|---|
+| leopardessconsulting.co.uk | **6** | 2026-07-18 | correct (nav-tables path) |
+| finetuning.uk | **1** | 2026-04-28 | would be correct |
+| robot-hands.com | 0 | 2026-07-18 | **fallback** |
+| dartsonline.com / relojistas.com / vetcomparison.uk / vonc.com | 0 | post-fix | **fallback** |
+| ai-agent-orchestration.com / gaswholesalers.com | 0 | pre-fix | **fallback** |
+
+**Proven live, and the alternative explanation ruled out.** robot-hands.com has post-fix
+chrome and 0 legal items. Its live `.footer-legal` div contains **14 links, none of them
+legal** — Gripper Catalog, MatchMatrix, Tools, About, Contact… including duplicate
+Catalog/News/Selection-Guide pairs. The pages fallback returns **exactly those 14 rows in
+exactly that order**; the competing hypothesis (that the template renders `quickLinksItems`
+into `.footer-legal`) predicts **15** and is refuted.
+
+> **So this file's control is weaker than it reads.** "Every site whose chrome rendered after
+> 2026-06-10 is correct" holds for **leopardess only** — the one post-fix site with legal nav
+> rows. And `NOTES_cta_link_integrity.md`'s *"robot-hands' chrome emits no legal links at
+> all"* is **wrong**: it emits fourteen, none of which are legal. That reads as "no legal
+> links" only because none of them look like one.
+>
+> Filed separately as **`/bugs_open/053`** — it is a distinct defect from this one and it is
+> fleet-wide, not confined to the three stale sites.
+
+## CORRECTION 2 — candidate 4's predicate over-flags by 61%
+
+Candidate 4 says *"treat a target whose page is not `build_status='deployed'` as broken"*.
+Measured against live HTTP, that is wrong:
+
+| population | count | live result |
+|---|---|---|
+| `needs_rebuild` **and** `deployed_at IS NOT NULL` | 34 | **34/34 return 200** |
+| `deployed_at IS NULL` (18 `planned` + 4 `needs_rebuild`) | 22 | **21/23 tested return 404** |
+
+So candidate 4 as written flags 56 pages and would be **wrong about 34 of them**. The
+predicate that actually tracks fetchability is **`deployed_at IS NULL`** — a page deployed
+once and later flagged `needs_rebuild` keeps serving its old artefact.
+
+Discriminating pair, same `build_status`, opposite outcome:
+
+```
+gaswholesalers /fuel-pricing-framework.html  needs_rebuild  deployed_at NULL      -> 404
+aao            /tools.html                   needs_rebuild  deployed_at 2026-05-02 -> 200
+```
+
+Two exceptions, both explainable and both excluded by adding `build_status <> 'deployed'`:
+`idea.uk /tools.html#audience-check` (`deployed` yet unstamped — the only such row fleet-wide,
+and a `bugs_open/040` shape; note the stored `url` carries a `#fragment`) and
+`gamesdesign.co.uk /games/jelly-invaders/index.html` (never stamped, serves 200 — `[UNMEASURED]`
+why; a different deploy path is the obvious guess and I did not chase it).
+
+**This also refines `/bugs_open/052`,** which independently found the same asymmetry and
+concluded *"`planned` is the state that means never-built"*. Nearly right: **4 pages are
+`needs_rebuild` AND never deployed**, and one of them is
+`gaswholesalers.com/fuel-pricing-framework.html` — this bug's mechanism 2, linked from 28 live
+footers. 052's fix candidate 1 (`exclude build_status='planned'`) would leave the worst
+real-world instance undetected. Noted in that file too.
+
+## What a chrome re-render would ACTUALLY do — measured per site
+
+Header nav: **byte-identical on all three sites** (8 links stored, 8 would be emitted, zero
+added, zero removed). Footer quick-links: **nothing new appears on any site**; the only
+removals are the two phantoms plus `aao /tools/password-entropy.html` (which is live-200, so
+that is a real if minor content change). **The "three months of accumulated menu changes" fear
+is essentially unfounded** — the only substantive change is the legal slot.
+
+| site | pages | broken anchors removed | legal slot after | broken anchors introduced | verdict |
+|---|---|---|---|---|---|
+| **finetuning.uk** | 41 | **82** (`/privacy.html`+`/terms.html` ×41) | 1 link → `/privacy-policy.html` (**200**) | **0** | **clean — fire it** |
+| **ai-agent-orchestration.com** | 33 | **66** | 16 links, **all 200**, but it is the whole footer nav | **0** | net good, cosmetically wrong row |
+| **gaswholesalers.com** | 28 | **56** | 21 links, 20×200 + `/fuel-pricing-framework.html` **404** | **28** | **hold — see below** |
+
+Every URL in that table was fetched; the only 404 among the 38 links a re-render would emit is
+`/fuel-pricing-framework.html`.
+
+**Recommended sequencing (my read; the go is still the owner's):**
+
+1. **finetuning.uk — fire now.** Strictly removes 82 broken anchors, introduces nothing, and
+   it is the one site whose legal nav row makes the fixed path actually run.
+2. **ai-agent-orchestration.com — fire.** Removes 66, introduces 0. The legal row will look
+   odd (16 footer links) until 053 is fixed; that is cosmetic, not a 404.
+3. **gaswholesalers.com — HOLD.** As-is it trades 56 broken anchors for 28 new ones, and the
+   28 are a link to this bug's own mechanism-2 page. Clear `in_footer` on
+   `/fuel-pricing-framework.html`, or build it, **first** — then it becomes a clean −56.
+
+Net across all three if sequenced this way: **204 broken anchors removed, 0 introduced.**
+Fired blind, it is 204 removed and 28 introduced.
+
+## What I did not do
+
+I did **not** fire `scripts/049_TRIGGER_chrome_refresh.sh` on any site. It is outward-facing on
+three live customer sites, the owner was asked and has not answered, and question 2 (*do these
+sites need real privacy/terms pages?*) is untouched by any of the above — a re-render makes the
+broken links **disappear**, it does not give finetuning a terms page or the other two a privacy
+policy. That remains a legal/business call.
+
+Rollback for whoever does fire it: `bak_site_components_chrome_20260720` holds all 9 pre-change
+rows. Verify per the script's own steps, and re-run `scripts/live_link_audit.sh` after.
+
+## Evidence — how to re-derive any figure above
+
+```sql
+-- legal nav rows per site (drives fallback vs nav-tables path)
+SELECT s.domain, count(*) FILTER (WHERE ng.group_type='legal' AND ni.status='active')
+FROM sites s LEFT JOIN site_nav_items ni ON ni.site_id=s.id
+LEFT JOIN site_nav_groups ng ON ni.group_id=ng.id GROUP BY 1 ORDER BY 1;
+
+-- fetchability truth table (the candidate-4 correction)
+SELECT build_status, (deployed_at IS NOT NULL) AS ever_deployed, count(*)
+FROM pages WHERE status='active' GROUP BY 1,2 ORDER BY 1,2;
+
+-- exactly what the legal slot would contain after a re-render, per site
+--   (nav-tables path for finetuning; pages fallback for the other two)
+```
+Header/footer diffs were taken by extracting `href="/..."` from
+`site_components.rendered_html` and comparing against the nav-table rows for
+`primary` / `primary+utility`.

@@ -120,3 +120,45 @@ Prefer (1) now and (2) if the survey in `[UNMEASURED]` above comes back positive
 - `/bugs_open/028` — a page-build no-op reporting `complete` is one way pages end up
   `planned` forever.
 - `/bugs_open/033` — why a detection-only fix would rot.
+
+---
+
+## ADDENDUM 2026-07-20 (bugfix-049 session) — the predicate should be `deployed_at IS NULL`, not `build_status='planned'`
+
+This file's asymmetry section is right and I relied on it: `needs_rebuild` pages usually still
+serve, so "list only `deployed`" would delist working pages. Measured fleet-wide, that holds
+exactly — **34 of 34** `needs_rebuild` pages with a non-null `deployed_at` return **200**.
+
+But the conclusion drawn from it, *"`planned` is the state that means never-built"*, is very
+nearly right rather than right, and fix candidate 1 (`exclude build_status='planned'`) inherits
+the gap:
+
+| population | count | live |
+|---|---|---|
+| `planned`, never deployed | 18 | 404 |
+| **`needs_rebuild`, never deployed** | **4** | **404** |
+| `needs_rebuild`, deployed once | 34 | 200 |
+| `deployed`, never stamped | 1 | 200 (`idea.uk`, a `/bugs_open/040` shape) |
+
+**Four pages are `needs_rebuild` AND have never been deployed**, and candidate 1 would treat
+all four as listable. One of them is `gaswholesalers.com/fuel-pricing-framework.html` —
+`bugs_open/049`'s mechanism 2, live 404, linked from **28 live footers**. So the naive
+predicate misses the worst confirmed real-world instance of this very class.
+
+The predicate that tracks fetchability is **`deployed_at IS NULL`** (optionally with
+`build_status <> 'deployed'` to exclude the single unstamped-but-deployed row). Discriminating
+pair, same `build_status`, opposite live outcome:
+
+```
+gaswholesalers /fuel-pricing-framework.html  needs_rebuild  deployed_at NULL       -> 404
+aao            /tools.html                   needs_rebuild  deployed_at 2026-05-02  -> 200
+```
+
+Validated by fetching every row in both populations, not inferred from the flag.
+Full evidence in `/bugs_open/049`'s addendum (Correction 2). `[UNMEASURED]`: one exception,
+`gamesdesign.co.uk /games/jelly-invaders/index.html`, is never-stamped yet serves 200 — a
+different deploy path is the obvious guess and I did not chase it.
+
+If candidate 2 (a shared "listable pages" helper) is built, this is the predicate it should
+carry — and `/bugs_open/053` fix candidate 3 wants the same one for chrome nav, which is a
+third derivation of the same question.
