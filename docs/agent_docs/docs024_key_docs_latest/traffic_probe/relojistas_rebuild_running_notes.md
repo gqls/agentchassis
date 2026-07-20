@@ -964,3 +964,43 @@ Forward-only (no revert): a follow-up commit will remove `injectNewsItems`/
 query-source route. The markup-generation + escaping + date-expansion helpers and their
 tests carry over — the template needs the same item shape the JS emits. Council resubmission
 on the same correlation (4b91237a) once reworked, per the REVISE protocol.
+
+## 2026-07-20 (evening) — v1.0.1140 deployed by another thread; my interim 027 code went LIVE with it
+
+Owner notified: fresh chassis build deployed 18:58:33 BST. Verified against the running pod,
+not the tag (`agent-chassis-5567d99bd6-5snzn`, image `v1.0.1140`, deploy commit
+`bca5d8255` — another thread's sweep build from HEAD, which includes my `1005e1af2`):
+
+```
+strings /app/agent-chassis | grep -c "persistNewsSectionHTML"        → 8
+strings /app/agent-chassis | grep -c "container anchors not found"   → 1
+```
+
+**So the injection mechanism — the one the council REVISE and the guidelines check both
+concluded must be reworked — is now live in the fleet binary.** This is the build-from-HEAD
+default doing exactly what it is designed to do (any committed code rides the next sweep
+build); the miss was mine for committing implementation-before-verdict, which CLAUDE.md's
+commit-early rule and the council's advisory-not-blocking design jointly permit but which
+lands interim mechanisms into production on someone else's build.
+
+**Current live state, checked:** the injection has NOT yet run — zero `news-list-item` /
+`news-card` markup in any `rendered_html` across the three news sites. It will first fire on
+the next `render_news_section` execution (6-hourly content-feed cycle).
+
+**Risk assessment of the interim period (until the rework ships):**
+- Not destructive: refuse-on-missing-anchors, idempotent, locked-rows skipped; worst case is
+  injected HTML later clobbered by a scoped rerender = back to today's state, silently.
+- Ordering constraint remains satisfied per-deploy: migration 178's guarded JS lives in
+  `js_content`, and the same rerender files-map that ships a page's HTML ships its
+  `/tools/assets/news-listing.js` from that column — HTML and guard travel together.
+- **Trap for anyone verifying 027 in the meantime: a `curl` showing server-rendered
+  `<article>` elements does NOT mean 027 is properly fixed.** It means the interim
+  mechanism ran. The contract-compliant fix (query-source → content_data → template) is
+  still the required end state; do not close 027 on the strength of the interim markup.
+  Corollary: `check_empty_sections` false-positives on news sections may quietly resolve —
+  same caveat applies.
+
+**Consequence for sequencing:** the rework is now not just correctness but cleanup of a live
+mechanism — it should land in the next image roll so the injection path's lifetime is one
+feed-cycle window, and the rework commit must REMOVE the injection call sites (not just add
+the new route) or both paths will write the same rows.
