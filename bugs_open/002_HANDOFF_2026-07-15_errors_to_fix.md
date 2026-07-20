@@ -403,6 +403,46 @@ suspects are (a) `action=orchestrate` + bare `agent_type` no longer being a
 supported entry for these agent types, or (b) the missing `-c 1` letting kcat
 publish a malformed/extra message (the known kcat line-splitting trap).
 
+> **⚠️ 2026-07-20 — suspect (a) is REFUTED, and the mechanism is now filed as
+> `/bugs_open/034`.**
+>
+> **`action=orchestrate` is NOT dead.** It is the *first* clause of
+> `isOrchestrationAction` (`platform/messaging/processor.go:983-988`); the path
+> reads `config.agent_type` (`extractGroupInfo`, `processor.go:991-1057`) and
+> looks the workflow up from `agent_definitions` (`FindByType`,
+> `agent_discovery.go:109-125`) — no inline workflow required. Git history shows
+> no removal or rename. All three discovery agents verified live 2026-07-20:
+> `is_active=true`, not deleted, `default_config->'workflow'` present and an
+> object. **So the closing worry — "other hand-rolled triggers across the repo
+> are silently no-ops too" — does not follow from `action=orchestrate`.** It may
+> still be true for the *other* reason below.
+>
+> **Two corrections to the premise while I was there.** The canonical trigger's
+> `action=process` works **not** because `process` is a valid action — it is not
+> in the set — but because an inline `config.workflow` is checked at Priority 1,
+> *before* any action test (`processor.go:893-899`). And the action is read from
+> **Kafka headers only** (`types/context.go:545`): `action` in the JSON body but
+> not passed as `-H` yields `action == ""`, which falls through to the
+> *consuming agent's own default workflow* with no log saying so. There is no
+> `default:` branch and no dead-letter on that path.
+>
+> **The likely real cause of F.2**, and why it left no trace:
+> `coordinator.go:142-144` returns `client_id is required to execute a workflow`
+> **before** `getOrCreateState`, so no `orchestration_states` row is ever
+> created; and `agent.go:828-845` swallows any error whose text contains
+> `"is required"` / `"validation"` / `"invalid"` — skipping the error response
+> to the parent, the retry, and any durable record. The only trace is one
+> stdout line in a pod that rotates ~3.6k lines/10min. **That is exactly the
+> "accepted, never executed, no error anywhere" symptom.**
+>
+> **Not proven for these two correlations** — the trigger was deleted
+> (`15f612346`) and the 07-18 pod logs and metrics are gone. The mechanism is
+> proven from code; its application to these runs is a strong hypothesis. The
+> fact that it *cannot* be checked is itself the finding, which is why 034 is
+> filed as a diagnostic-surface bug rather than closed here.
+>
+> Suspect **(b)** (`kcat -P` without `-c 1`) is untouched and still open.
+
 **Why it matters beyond one run:** discovery is how the fleet finds dead
 controls, phantom links and misdirected CTAs. If the only reliable way to run it
 is the full improvement-loop, that should be *documented as the way* — and if

@@ -1564,6 +1564,94 @@ invitation to stop reading a component that nobody else is reading either.
 Category tags: `false-positive-is-a-pointer`, `runtime-fill`,
 `server-vs-rendered`, `dismissal-cost`.
 
+### A field the backend has no parameter for gets accepted and discarded — and the comment saying so is why it survives (2026-07-20)
+
+*Added 2026-07-20 from bugs_open/028 (Banana discards every negative prompt).*
+
+`provider.Request.NegativePrompt` crossed three layers — style guide → action →
+Kafka → adapter → provider — and died in the Banana provider at `logger.Debug`,
+because Gemini has no negative-prompt parameter. Every `avoid` list in every
+site's `imagery_style_guide` was therefore inert fleet-wide, along with every
+`kindDefaults.NegativePrompt`. Nothing errored. The field was still set, still
+validated, still shipped; it just reached nothing.
+
+**The general shape: a field is only as live as its LAST reader.** A struct
+field that crosses a boundary into a backend with no equivalent concept is a
+void unless someone translated it. Grep the field to its terminus before
+believing it does anything — `avoid` had exactly three references in the whole
+tree, and the third was a log line.
+
+Four things made this survive, each transferable:
+
+- **The drop was documented as intent.** The file header said *"callers
+  shouldn't rely on it being honoured"*. That reads as a considered decision, so
+  nobody questions it. A comment explaining why data loss is fine is a defect
+  smell, not a mitigation.
+- **The interface contract licensed it.** `provider.Request` told implementers
+  that providers without support "log and ignore". Banana was *obeying the
+  contract*. Fixing only the call site would leave the next provider author the
+  same licence — when a defect was permitted by a contract, fix the contract.
+- **`Debug` is `/dev/null`.** A discard nobody can see is a discard nobody
+  finds. If a layer drops a caller's constraint, that is Warn at minimum.
+- **The routing change that caused it was correct.** Every kind moved to Banana
+  for good reasons (bugs_open/011). The defect was its unnoticed *consequence*.
+  When you migrate a path to a new backend, enumerate what the old backend
+  honoured that the new one does not — the migration diff will not show you a
+  field that simply stops being read.
+
+**The expensive half is an attribution trap, and it is the part worth
+remembering.** A style-guide `avoid` edit was made, the next generation came out
+better, and "ground colour is fixed via `avoid`, not `medium`" was written up in
+three documents as a hard-won fact. The edited field was never read. What
+happened was a re-roll that came out darker, and the coincident edit took the
+credit. **With a nondeterministic backend, one before/after observation cannot
+distinguish a working fix from a lucky sample** — and a config edit costs
+nothing, so it is exactly the kind of change people "verify" at n=1. Before
+recording *how the system works* from an output change, confirm the thing you
+changed is read at all.
+
+Related signature, useful on sight: of nine images, four violated the avoid list
+and five complied. **That ratio is what an IGNORED constraint looks like** —
+compliance by luck. A partly-working constraint and a wholly-ignored one are
+indistinguishable at small n, so count violations across a set rather than
+eyeballing one, and treat "mostly fine" as unproven rather than as evidence.
+
+Category tags: `field-only-as-live-as-its-last-reader`, `silent-discard`,
+`documented-as-intent`, `contract-licensed-the-bug`, `debug-is-devnull`,
+`coincident-edit-takes-the-credit`, `compliance-by-luck`.
+
+### "No error anywhere" usually means no error *surface*, not no error
+
+*Added 2026-07-20 from bugs_open/002 F → bugs_open/034.*
+
+A thread reported a Kafka envelope "accepted, never executed, no error anywhere"
+and left it unexplained for two days. There *was* an error — it just had nowhere
+durable to land. `agent.go:828-845` classifies a failed message by **substring**
+(`"is required"`, `"validation"`, `"invalid"`) and on a match returns early,
+skipping `handleProcessingError`. That skips the error response to the waiting
+parent, the retry, **and any DB write**. The residue is one `zap.Warn` on a pod
+that rotates ~3.6k lines/10min, plus a Prometheus counter labelled
+`(agent_type, reason)` with no correlation_id. Everyone here investigates via the
+database, so the message reads as though it never existed.
+
+**The generalisable point:** before concluding "it vanished silently", establish
+whether the failure mode you are hunting has a durable surface *at all*. Absence
+of a row is evidence only if something was supposed to write one. Ask: which
+table would record this, and does the code path actually reach the write? A
+`return` above the recording call makes every downstream investigation a search
+through an empty room.
+
+**Substring error classification is the underlying smell.** `strings.Contains(err,
+"invalid")` is unanchored: it catches `invalid character 'w' after object
+key:value pair` (a truncated-LLM parse failure), `invalid memory address`,
+`invalid connection`, `strconv … invalid syntax`, `x509: … invalid`. A branch
+meant for malformed envelopes silently eats driver errors, nil derefs and TLS
+failures. Prefer a typed sentinel (`errors.Is`). Kin: bugs_open/017, the same
+class already fixed at one narrow site (`c80fffc83`) — when you find one
+`Warn`-only branch, grep for its siblings rather than fixing the one in front of
+you. Category tags: `no-durable-surface`, `substring-classification`,
+`silent-drop`, `absence-is-not-evidence`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -1610,6 +1698,7 @@ See `/bugs_closed/README.md`.
 | 024 | A tool-improver fix is written durably to `content_components.html_template` and **never rendered to the page** — three defects in series (dead `pending` flag; rerender request carries no `spec.reason` so it assembles stale HTML and reports success; the article-body guard escalates any section with empty `content_data`, which is every tool, bypassing the only writer of `rendered_html`). Explains `bugs_open/010`'s "non-convergence" — the page never changed | filed 2026-07-19; diagnosed with live evidence, no fix started |
 | 031 | A wrong entry in the concept register claimed scoped page-rerender "SKIPS pages whose content hash is unchanged". No such code exists and `git log -S` shows it never did — but a council seat quoted it as "the pipeline's own contract" and blocked a correct plan at HIGH severity. Replication was wider than filed: 6 register-file occurrences **plus the live seat prompts** in both `fix-proposer` and `council-gate` rows | **FIXED & LIVE 2026-07-20** — register + sources corrected, live rows patched (`PATCH_render_guardian_031` + 099 sync, verified), citation convention added to docs026 README — **`→ bugs_closed/`** |
 | 029 | `tool-suggester` emits `content_rewrite` items at SUGGESTION time telling the writer to "weave a natural reference" to a tool that has no `pages` row — the writer invents the URL, producing an owner-visible 404. Autonomous, and it regenerates human-reviewed copy while doing it. **This is the true cause of the leopardess damage wrongly filed under `001`** | filed 2026-07-19; primary DB evidence, no fix started; check `023` first — likely the same family |
+| 034 | A failed message is classified by **substring** (`"is required"`/`"validation"`/`"invalid"`) and, on a match, returns before `handleProcessingError` — skipping the error response to the waiting parent, the retry, **and any DB write**. Residue is one `zap.Warn` on a pod that rotates in minutes + a counter with no correlation_id. The match is unanchored, so it also eats driver errors, nil derefs and truncated-LLM parse failures. Explains `002` F.2's "accepted, never executed, no error anywhere" (`client_id is required` returns before `getOrCreateState` → zero rows) | filed 2026-07-20; mechanism proven from code, application to F.2's two correlations is hypothesis (evidence rotated away — which is the bug). Fix 1 = the `017`/`c80fffc83` template applied here. Do NOT conflate with `003` |
 
 > **Index gap (noted 2026-07-19):** `025`–`028` exist in `/bugs_open/` but are not
 > yet indexed here, and `027` is already used by **two** different cases. Filed by
