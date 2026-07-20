@@ -282,3 +282,38 @@ until curl -s -o page.html -w '%{http_code}' "$URL" | grep -q 200 \
 
 Status + good marker + bad-marker absence, all three. Dispatch-to-deploy latency under a
 busy chassis was ~35 min (queue, not a drop — pod uptime 5h, nothing restarted).
+
+## R12 — Watching the observe stage (LIVE in v1.0.1140, 2026-07-20)
+
+Deploy verified in-pod (never the tag): all four markers present in
+`/app/agent-chassis` — `cta derivation delta`, `cta ownership conflict`,
+`uncovered cta url field`, `DeriveCTAURLFields`.
+
+Collect the evidence the flip round is gated on:
+
+```bash
+# all chassis-family deployments; widen --since as needed
+for dep in agent-chassis business-intel vet-intel; do
+  kubectl logs -n ai-persona-system deploy/$dep --since=24h 2>/dev/null \
+    | grep -E "cta derivation delta|uncovered cta url field|cta ownership conflict"
+done
+```
+
+**How to read each stream — and what silence means (this matters):**
+
+| line | fires when | silence means |
+|---|---|---|
+| `cta derivation delta` (Info) | `internal-link-resolver` runs on a section whose schema-derived CTA set differs from `ctaFieldNames` | no CTA-bearing page build has run — NOT "no gap"; the gap is structural (map covers 5 of 33 functions) and will log on the first build touching an unmapped component |
+| `uncovered cta url field` (Warn) | build touches a component with a query-resolved `*_url` and no sibling in any form | same as above |
+| `cta ownership conflict` (Info) | a rerender's fresh `ResolvedData` would replace a **differing** stored value on a derived CTA field | genuinely no conflict on rendered traffic — equal values are correct silence. Unmapped fossil fields re-resolve to the same value every time (the resolver never wrote them), so they are *expected* to be silent here while loud in the delta stream |
+
+> **Gotcha — spawned pods.** Builds run in short-lived spawned chassis pods;
+> `deploy/agent-chassis` logs miss them once reaped. For a thorough sweep use
+> the label selector while pods are alive, or rely on the delta stream
+> accumulating across days before the flip review — one build's logs are a
+> sample, not the census.
+
+> **Gotcha — do not judge the flip on conflict-log volume alone.** The delta
+> stream is the coverage evidence; the conflict stream is the damage evidence.
+> A quiet conflict stream with a loud delta stream still justifies the flip
+> (unmapped fields are unrepairable today even when not actively clobbered).
