@@ -1910,8 +1910,10 @@ candidates. Read the file before acting — several are already fixed.
 **Two directories, one index (split 2026-07-19).** Rows marked **`→ bugs_closed/`**
 have moved to `/bugs_closed/`; everything else is still in `/bugs_open/`. The bar
 for moving is **fixed AND live in prod** — a fix that is committed but inert until
-the next image roll stays open (so `008`, `012`, `017`-unregistered remain in
-`/bugs_open/` deliberately). **Numbering is one sequence across both dirs and is
+the next image roll stays open. (This sentence used to name `008`, `012` and
+`017`-unregistered as the examples; all three have since shipped and closed —
+a named example of a transient state expires within days, so check the rows
+below rather than the prose.) **Numbering is one sequence across both dirs and is
 never reassigned**, so a stale `bugs_open/NNN` or `aaa_fails_to_mend/NNN` pointer
 resolves by number in the other directory. **`016` and `017` are each used by two
 different cases** — resolve a bare number by slug, never by the number alone.
@@ -1926,12 +1928,13 @@ See `/bugs_closed/README.md`.
 | 005 | Article-body blanking — root cause LLM truncation (`max_tokens`) | FIXED; re-verified live 2026-07-19 (19/19 healthy, `max_tokens` 8000 survived a re-seed, repair fn in the running pod, zero writer truncation since 07-15) — **`→ bugs_closed/`** |
 | 006 | Three idea.uk infra errors (runner cgroup, dead contact endpoint, …) | open |
 | 007 | Applied-but-unrecorded migrations block the runner | instance resolved; tooling open |
-| 008 | `GenerateText` never decodes `stop_reason` (silent truncation) | fix COMMITTED `f32b208e5` (br 085, both providers); not yet deployed |
+| 008 | `GenerateText` never decodes `stop_reason` — a truncation returned as success, a refusal as "no text content in response (had 1 blocks)" | **CLOSED 2026-07-20 → `/bugs_closed/`** — all 5 items live in the 18:58 BST image, pod-verified (`model declined to answer` → 1). Items 1–4 in `f32b208e5` (both providers, plus `TruncatedError` carrying the partial — the transport half of `019`); item 5 + the provider-parity CI guard in `45e90acbb` |
 | 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | diagnosed; fix + fleet sweep open |
 | 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
 | 011 | `kind:"hero"` routes to SDXL (cannot render text); the Gemini infographic lane works and was unused | open |
 | 012 | tool-improver truncates a component and saves the wreckage | **CLOSED 2026-07-20 → `/bugs_closed/`** — guard live in v1.0.1139, migrations 168/169/**170**; whole chain driven against prod (component untouched · refusal logged · item `needs_human_review` · note written). 170 was found BY that test: 169 put `error_step` top-level, where the workflow plan drops it |
-| 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | filed; fix candidate (format at commit-prep) |
+| 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | **CLOSED 2026-07-20 → `/bugs_closed/`** — `formatGeneratedGo` runs `go/format` at commit-prep (`fc38c6058`), pod-verified. Unparseable bodies still fail LOUD there rather than falling back to raw bytes — usually a `max_tokens` truncation, so the message names it |
+| 032 | The completion verifier reads a DELETED component as a successful fix — absence is equally a rebuild silently dropping it | **CLOSED 2026-07-20 → `/bugs_closed/`** — returns an error, not a verdict, so the gate's fail-OPEN policy turns a false success into a visible unknown (`a467baa11`), pod-verified. **Closed on its safe floor:** treating absence as *deletion* when the page still expects the component is the better verdict and stays open for the `empty_sections_loop_integrity` thread. Coverage half remains in `021` |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) — **`→ bugs_closed/`** |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
 | 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts — **`→ bugs_closed/`** (note: a *different* case also numbered 016 — council revise — remains open) |
