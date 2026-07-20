@@ -305,3 +305,51 @@ concurrent session) between my edit and my docs commit — the same-file-passeng
 case the commit-scope hook explicitly cannot see. Content verified present in
 HEAD; nothing lost. But my docs commit `2cb37685a` *claims* the 016b correction
 while not containing it — this note is the pointer for anyone tracing that edit.
+
+---
+
+## 2026-07-20 — council round 1: REVISE (and the round itself is half the story)
+
+Verdict on corr `2eed453a` (orch `21dc9751`): **revise**, decided by
+bug_historian's objection. 10 seats reviewed, 5 abstained via relevance filter,
+5 approve (editquality, guidelines, llm_reliability, constitution, mission) /
+5 object (bug_historian, reuse_agent, guardian, diagnosis_guardian,
+debug_historian). **The round COMPLETED** — a substantive, long-rationale
+submission of exactly the class that voided four rounds this week ran all ten
+seats without an overrun (editquality at 4,738 of 8,000). Luck of the draw, not
+proof of anything, but worth recording that the gate CAN review its own fix.
+
+Two objections earned code changes (round 2, in tree, tests green via
+`git archive HEAD` overlay — another session's uncommitted
+diagnose_prepare_fix_commit WIP breaks the shared package build; their file,
+not touched):
+
+1. **The convergent one (3 seats, verdict-deciding): a truncated partial that
+   PARSES cleanly passed as an ordinary review** — no degraded mark, because the
+   decider never consulted the `__truncated` marker. I had self-flagged this as
+   risk 3 and shipped anyway; three seats independently refused to let it slide.
+   Fixed: `markerFieldFor` derives the sibling marker path and a clean parse
+   with the marker set is forced `Degraded`. The lesson: a self-disclosed risk
+   in a review submission is a REQUEST for pushback, and the council provided
+   it — this is the gate working.
+2. **llm_call_log blind spot: tolerated vs fatal truncation indistinguishable**
+   (3 seats, all low). Fixed: tolerance detected before logging; the single
+   failed row's error_message now leads with
+   `TOLERATED (step continued on the partial): `.
+
+Answered with evidence, no change: third-provider gap (enumeration: exactly two
+GenerateText implementations exist, both patched); guardian's platform-wide
+partial-return concern (all five call sites audited — every one returns/continues
+on err, none consumes the result); repairTruncatedJSON provenance
+(apply_adoption_plan_action.go:950, pre-existing); typed-error and `__` marker
+conventions (AIUnavailableError and __step_error/__usage_* are the precedents).
+
+**Accepted as a process miss** (debug_historian): migration 177 was applied with
+no pre-write backup and no needle-gate query — the lore requires both for
+production jsonb surgery. Mitigation recorded: additive single key, rollback =
+strip-key UPDATE (now in RUNBOOK). Do the backup next time.
+
+Round 2 submitted on the SAME correlation (RESUBMIT_CORR), orch `a8b3e765` —
+3-edit delta plan. Round-2 code deliberately HELD UNCOMMITTED until the verdict:
+the diff is ~60 lines (vs round 1's 330), so the sweep-risk calculus inverts and
+an APPROVED verdict can put a legitimate Council-Reviewed trailer on the commit.
