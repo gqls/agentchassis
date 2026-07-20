@@ -128,8 +128,38 @@ have ZERO components.** Worst offenders: `gaswholesalers.com/wholesale-pricing-e
 > `<main>` contains 0 characters of text.** The 11.8KB is entirely header/footer/nav chrome. **A
 > live, blank page marked `deployed`.**
 >
-> So for this one the DB signal and the live artefact agree. Verify each of the other 24 the same
-> way (fetch it, strip tags, measure `<main>`) rather than assuming either direction.
+> So for this one the DB signal and the live artefact agree.
+
+### All 25 checked live (2026-07-20) — the split is 4 broken, 21 degraded
+
+Every row above was fetched and its `<main>` text measured. **The DB signal is a poor predictor of
+severity: being short by 2 of 7 sections can mean a totally blank page, or a perfectly serviceable
+one.** Do not triage from the DB counts alone.
+
+**Group A — 4 pages, genuinely blank and live** (`<main>` = 0 characters; all are the zero-component
+rows). These are unambiguous damage:
+
+| page | sections planned |
+|---|---|
+| `finetuning.uk/blog/chatgpt-has-your-data-does-that-matter.html` | 3 |
+| `finetuning.uk/blog/what-is-rag-and-do-small-businesses-need-it.html` | 3 |
+| `gaswholesalers.com/wholesale-pricing-explained.html` | 7 |
+| `leopardessconsulting.co.uk/case-study-multi-agent-cost-control-platform.html` | 4 |
+
+Two are blog posts with a title and no article. One is a pricing explainer with nothing in it. The
+leopardess one is a **case study on a site that has no clients** — so blank is arguably the safer
+failure here, and it should be deleted rather than rebuilt unless there is a real case study to
+tell. Check `/bugs_open/029`'s fabrication concern before regenerating any of them.
+
+**Group B — 21 pages, short by one or two sections but serving real content** (`<main>` from 1.6k to
+17k characters). e.g. `leopardessconsulting.co.uk/our-approach.html` renders 5 of 6 sections and
+11,650 characters. These are degraded, not broken; each needs a per-page judgement about whether the
+missing section mattered (a CTA and a FAQ are not the same loss). Eleven of the 21 are leopardess.
+
+Caveat on the method: counting `<section>` tags is unreliable across templates — the four
+`gamesdesign.co.uk/games/*` pages report zero `<section>` elements while serving 12k–17k characters
+of real content in different markup. `<main>` text length is the trustworthy signal; the section
+count is not.
 
 ## Related
 
