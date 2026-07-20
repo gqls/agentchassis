@@ -34,6 +34,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **grep for the capability before asserting it does not exist** | **3** |
 | **prove the artefact is current before reasoning from it** | **3** |
 | measure a property before describing it | 1 |
+| **record the CLOCK beside a reading, never infer it afterwards** | **1** |
 | **run a census against a known-positive control before reporting the count** | **1** |
 | **look at the real values before designing for the assumed ones** | **3** |
 | grep the index before filing | 1 |

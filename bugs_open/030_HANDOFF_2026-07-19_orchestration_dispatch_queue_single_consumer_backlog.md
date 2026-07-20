@@ -198,6 +198,14 @@ not survive many concurrent sessions, which is exactly the situation `CLAUDE.md`
 
 ## Measured throughput, 2026-07-20 19:16–19:31 UTC (bugfix-036 thread)
 
+> **WRONG — see the CORRECTION section below before using any number in here.**
+> The rate (0.21 msg/min) and the ~6.5h queue estimate are artifacts: my two
+> readings were ~69 seconds apart, not 14 minutes, because I *inferred* the first
+> reading's timestamp from when I thought I had launched the sampling job instead
+> of recording it. Author's note, left at the head of my own section so nobody
+> takes the figure from here and misses the correction. The mechanism conclusions
+> below stand; the arithmetic does not. — bugfix-036 thread
+
 A hard number for the drain rate, since the file so far describes the shape but not
 the speed. Two `kafka-consumer-groups.sh --describe --group generic-requests-group`
 readings 14 minutes apart, on `system.agent.generic.requests`:
