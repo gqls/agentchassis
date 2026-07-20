@@ -185,7 +185,9 @@ func truncateForLog(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "..."
+	// Rune-safe via the shared primitive (bugs_open/027): the raw byte slice
+	// here could split a multi-byte rune and emit invalid UTF-8 into logs.
+	return datahelpers.SafeCut(s, maxLen) + "..."
 }
 
 // Helper functions
@@ -193,7 +195,7 @@ func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "..."
+	return datahelpers.SafeCut(s, maxLen) + "..."
 }
 
 // errString returns the error message or empty string.

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode/utf8"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
@@ -1009,11 +1010,33 @@ func GetMapKeys(m map[string]interface{}) []string {
 	return keys
 }
 
+// SafeCut returns at most n BYTES of s, never splitting a multi-byte rune.
+// The one truncation primitive in this package: TruncateString is expressed in
+// terms of it, and callers that need a cut WITHOUT an ellipsis (e.g. image
+// prompt composition, where a trailing "..." would reach the model as an
+// instruction rather than a display affordance) use it directly.
+// Added 2026-07-20, bugs_open/027 §4b (council correlation 0a07f5ed).
+func SafeCut(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
+}
+
 func TruncateString(s string, maxLength int) string {
 	if len(s) <= maxLength {
 		return s
 	}
-	return s[:maxLength] + "..."
+	// was: s[:maxLength] + "..." — a raw byte slice, which split multi-byte
+	// runes landing on the boundary and emitted invalid UTF-8 into logs and
+	// prompt previews. SafeCut backs off to the last rune start instead.
+	return SafeCut(s, maxLength) + "..."
 }
 
 func GetValueByPath(data map[string]interface{}, path string, logger *zap.Logger) (interface{}, bool) {

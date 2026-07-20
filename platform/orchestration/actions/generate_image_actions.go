@@ -417,11 +417,25 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 			directionSource = "+imagery_direction"
 		}
 		if direction != "" {
-			composed := composeImagePromptWithDirection(promptTemplate, direction)
+			composed, truncated := composeImagePromptWithDirection(promptTemplate, direction)
+			if truncated {
+				// bugs_open/027 §4b: a silently clipped direction reads as a
+				// deliberate style choice in the output. Say so, loudly, with
+				// what was lost. NOTE for deploy verification: this format
+				// string is the marker to grep the pod binary for (log-message
+				// literals survive the build; identifier symbols may not —
+				// RUNBOOK A6.3).
+				params.Logger.Warn("Imagery direction TRUNCATED before generation",
+					zap.String("site_id", siteID),
+					zap.String("kind", kind),
+					zap.Int("direction_len", len(direction)),
+					zap.Int("cap", maxImageryDirectionInPrompt))
+			}
 			params.Logger.Info("Prepended imagery direction",
 				zap.String("site_id", siteID),
 				zap.String("kind", kind),
 				zap.String("source", directionSource),
+				zap.Bool("truncated", truncated),
 				zap.String("direction_preview", datahelpers.TruncateString(direction, 100)),
 				zap.String("composed_preview", datahelpers.TruncateString(composed, 250)))
 			promptTemplate = composed
@@ -1120,29 +1134,43 @@ func directionAppliesToKind(kind string) bool {
 }
 
 // composeImagePromptWithDirection prepends a design direction to the subject
-// prompt. The direction is truncated to maxImageryDirectionInPrompt with a
-// preference for ending at a sentence or comma boundary so the truncation
-// reads naturally. The full subject prompt is preserved — never truncated —
-// because losing the subject is unrecoverable while losing trailing style
-// modifiers is graceful.
+// prompt, and reports whether the direction had to be truncated. The direction
+// is truncated to maxImageryDirectionInPrompt with a preference for ending at
+// a sentence or comma boundary so the truncation reads naturally. The full
+// subject prompt is preserved — never truncated — because losing the subject
+// is unrecoverable while losing trailing style modifiers is graceful.
+//
+// The truncated return exists so the caller can be LOUD about the loss
+// (bugs_open/027 §4b): a silently clipped direction reads as a deliberate
+// style choice in the generated image, which is how a brand palette went
+// missing fleet-wide without anything erroring. The bool is returned from
+// here — the one scope that knows — rather than recomputed at call sites.
 //
 // Format is intentionally label-less. SDXL doesn't reason about "Style:" /
 // "Subject:" meta-instructions and they cost ~17 tokens of the 77-token
 // budget for no model benefit.
-func composeImagePromptWithDirection(prompt, direction string) string {
+func composeImagePromptWithDirection(prompt, direction string) (string, bool) {
 	prompt = strings.TrimSpace(prompt)
 	direction = strings.TrimSpace(direction)
 	if prompt == "" || direction == "" {
-		return prompt
+		return prompt, false
 	}
-	if len(direction) > maxImageryDirectionInPrompt {
-		cut := direction[:maxImageryDirectionInPrompt]
-		// Prefer first sentence boundary within the cap; fall back to comma;
-		// fall back to hard cut. The minKeep guard avoids degenerate cases
-		// where a sentence boundary near the start would lose most of the
+	truncated := len(direction) > maxImageryDirectionInPrompt
+	if truncated {
+		// Rune-safe cut (bugs_open/027): a raw byte slice here could split a
+		// multi-byte rune landing on the boundary. The boundary preferences
+		// below then operate on a valid string.
+		cut := datahelpers.SafeCut(direction, maxImageryDirectionInPrompt)
+		// Prefer the LAST sentence boundary within the cap — not the first
+		// (changed 2026-07-20, bugs_open/027 §4b): with a long leading clause,
+		// e.g. the palette composed first, the FIRST '. ' past minKeep is that
+		// clause's end, and cutting there discards later clauses that fit.
+		// LastIndex keeps every complete sentence that fits. Fall back to
+		// comma; fall back to hard cut. The minKeep guard avoids degenerate
+		// cases where a boundary near the start would lose most of the
 		// direction.
 		minKeep := maxImageryDirectionInPrompt / 2
-		if idx := strings.Index(cut, ". "); idx > minKeep {
+		if idx := strings.LastIndex(cut, ". "); idx > minKeep {
 			cut = cut[:idx+1]
 		} else if idx := strings.LastIndex(cut, ", "); idx > minKeep {
 			cut = cut[:idx]
@@ -1154,7 +1182,7 @@ func composeImagePromptWithDirection(prompt, direction string) string {
 	if endsWithSentenceBoundary(direction) {
 		sep = " "
 	}
-	return direction + sep + prompt
+	return direction + sep + prompt, truncated
 }
 
 // endsWithSentenceBoundary reports whether s ends with ., !, or ?.

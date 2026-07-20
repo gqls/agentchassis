@@ -1,6 +1,9 @@
 package actions
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestStyleGuideDirectionForKind(t *testing.T) {
 	g := &imageryStyleGuide{
@@ -10,10 +13,12 @@ func TestStyleGuideDirectionForKind(t *testing.T) {
 		Avoid:   "stock-photo people",
 	}
 
-	// Photographic kinds get the full voice.
+	// Photographic kinds get the full voice — palette FIRST since 2026-07-20
+	// (bugs_open/027 §4b: composed last, the palette was the truncation tail
+	// and silently never reached the model on over-cap directions).
 	for _, kind := range []string{"hero", "illustration", "infographic", ""} {
 		d := g.directionForKind(kind)
-		if d != "industrial photography, atmospheric lighting. precise, engineered. colour palette: deep charcoal, electric blue" {
+		if d != "colour palette: deep charcoal, electric blue. industrial photography, atmospheric lighting. precise, engineered" {
 			t.Errorf("directionForKind(%q) = %q", kind, d)
 		}
 	}
@@ -71,13 +76,14 @@ func TestStyleGuideKindOverrides(t *testing.T) {
 		},
 	}
 
-	// Override composes its own direction (no Mood set → skipped cleanly).
-	want := "flat duotone editorial illustration. colour palette: charcoal ground, electric blue shapes"
+	// Override composes its own direction (no Mood set → skipped cleanly);
+	// palette first (bugs_open/027 §4b).
+	want := "colour palette: charcoal ground, electric blue shapes. flat duotone editorial illustration"
 	if d := g.directionForKind("content_hero"); d != want {
 		t.Errorf("directionForKind(content_hero) = %q, want %q", d, want)
 	}
 	// Non-overridden kinds keep the guide-level voice.
-	if d := g.directionForKind("hero"); d != "industrial photography. precise, engineered. colour palette: deep charcoal, electric blue" {
+	if d := g.directionForKind("hero"); d != "colour palette: deep charcoal, electric blue. industrial photography. precise, engineered" {
 		t.Errorf("directionForKind(hero) = %q", d)
 	}
 
@@ -186,5 +192,54 @@ func TestProviderForKind(t *testing.T) {
 	onlyProvider := &imageryStyleGuide{Provider: "banana"}
 	if p := onlyProvider.providerForKind("hero"); p != "banana" {
 		t.Errorf("provider-only guide = %q, want banana", p)
+	}
+}
+
+// TestComposeImagePromptWithDirectionKeepsPaletteAndMedium drives the REAL
+// composition path with robot-hands.com's verbatim content_hero override — the
+// fixture that distinguishes the old first-sentence backoff from the new
+// last-sentence one: its palette clause (122 chars) exceeds minKeep, so under
+// strings.Index the cut landed at the palette's end and discarded the medium
+// and mood that fit. bugs_open/027 §4b; council correlation 0a07f5ed.
+func TestComposeImagePromptWithDirectionKeepsPaletteAndMedium(t *testing.T) {
+	g := &imageryStyleGuide{Kinds: map[string]imageryStyleGuideKindOverride{
+		"content_hero": {
+			Medium:  "flat duotone editorial illustration",
+			Mood:    "bold simple silhouette of the subject, minimal detail, precise, technical",
+			Palette: "deep charcoal ground, electric blue (#0080FF) flat shapes and linework, light grey secondary accents only",
+		},
+	}}
+	direction := g.directionForKind("content_hero")
+	if len(direction) <= maxImageryDirectionInPrompt {
+		t.Fatalf("fixture must exceed the cap to exercise truncation; got %d", len(direction))
+	}
+	got, truncated := composeImagePromptWithDirection("Article header image for a robotics guide", direction)
+	if !truncated {
+		t.Fatal("expected truncated=true for an over-cap direction")
+	}
+	for _, want := range []string{
+		"#0080FF",                             // the accent that used to be invented
+		"accents only",                        // the palette's TAIL — whole clause survived
+		"flat duotone editorial illustration", // the medium the first-sentence backoff discarded
+		"Article header image for a robotics guide", // the subject is never truncated
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("lost %q from the composed prompt.\ngot: %q", want, got)
+		}
+	}
+}
+
+// TestComposeDirectionPaletteFirst pins the survival ORDER property: the
+// palette is composed first so no subsequent prefix truncation ≥ its length
+// can remove it. Asserting position rather than mere presence means a future
+// reordering cannot silently reintroduce bugs_open/027.
+func TestComposeDirectionPaletteFirst(t *testing.T) {
+	got := composeDirection("medium prose", "mood prose", "gold on charcoal")
+	if !strings.HasPrefix(got, "colour palette: gold on charcoal") {
+		t.Errorf("palette must lead the composed direction; got %q", got)
+	}
+	// Omitted fields must not leave separators behind.
+	if got := composeDirection("", "", "gold on charcoal"); got != "colour palette: gold on charcoal" {
+		t.Errorf("palette-only composition wrong: %q", got)
 	}
 }

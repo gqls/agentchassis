@@ -135,14 +135,21 @@ func getImageryStyleGuideForSite(ctx context.Context, db interface{}, siteID str
 // composeDirection joins medium/mood/palette into the prompt-prefix voice.
 func composeDirection(medium, mood, palette string) string {
 	parts := make([]string, 0, 3)
+	// Palette FIRST (2026-07-20, bugs_open/027 §4b): the composed direction is
+	// truncated at maxImageryDirectionInPrompt, and the palette is both the
+	// shortest field and the one carrying brand identity, so it must not be
+	// the tail. Composed last, a verbose medium+mood silently evicted the
+	// colours entirely and the model invented an accent per image — and the
+	// output looked deliberate. medium/mood are prose and degrade gracefully
+	// when clipped; every palette in the fleet fits inside the cap whole.
+	if palette != "" {
+		parts = append(parts, "colour palette: "+palette)
+	}
 	if medium != "" {
 		parts = append(parts, medium)
 	}
 	if mood != "" {
 		parts = append(parts, mood)
-	}
-	if palette != "" {
-		parts = append(parts, "colour palette: "+palette)
 	}
 	return strings.Join(parts, ". ")
 }
