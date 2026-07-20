@@ -477,6 +477,20 @@ tables retained. `index` is paused and still carries the re-proposed composition
 `_darts_bak_20260719_pages` would desync `pages.sections` from the new `site_plan_sections`, so it
 was left alone pending a decision.
 
+> **CLEANUP STATE RE-CHECKED 2026-07-20 against the live DB, because the paragraph above had already
+> gone stale.** The 16 queued `needs_page` items are **`cancelled`**, not paused — nothing is
+> spending, and no orchestration has run on the site in six hours (28 `COMPLETED`, none active).
+> `index` is now `build_status='deployed'` with 6 sections. What remains on the site is ordinary
+> queue: 5 `needs_page` + 1 `unresolved_cta` group at `needs_human_review` (see `/bugs_open/033` for
+> why that status has no working surface) and 1 `failed`.
+>
+> **The `_darts_bak_20260719_*` snapshots are being KEPT deliberately — do not drop them.** They are
+> 3 tables × 15 rows × 16 kB, so retention costs nothing, and they are the only record of this site's
+> pre-verification state while **`/bugs_open/037`, `/039` and `/040` are all still open on it** — 040
+> in particular concerns `index` being permanently short of its plan, and this snapshot holds its
+> original 7-section composition. Dropping them would be an irreversible loss of the recovery path
+> for an open bug in exchange for 48 kB.
+
 ---
 
 ## CLOSED — 2026-07-20
