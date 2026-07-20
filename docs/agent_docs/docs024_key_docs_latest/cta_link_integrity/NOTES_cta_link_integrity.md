@@ -522,3 +522,91 @@ correctly everywhere. Added to the plan; **not** done here.
 **robot-hands.com** (`gripper-cycle-time-estimator`) with the same dead `#guide-start` and the
 same `source:llm, required:true` URL field. `bayesian-ranking-hero-tool` remains on
 finetuning.uk's `llm-cost-calculator`. Those are P2.2/P2.3 and unaffected by today's change.
+
+---
+
+## 2026-07-20 12:30 — session 3 (bugfix-023): ⚠️ TWO DEFECTS IN v4, FOR THE THREAD DRIVING THE COUNCIL TRAIL — READ BEFORE SUBMITTING ROUND 4
+
+*A second session was pointed at `bugs_open/023` this morning and independently ground
+the v3 plan against the live code and DB before discovering this thread's v4 (written
+12:24, three minutes before this entry). The migration no-op finding CONVERGES — measured
+independently, same zero-row result, 091/098 already banked Option A. But two defects in
+v4's edits survive from v3, and both council rounds missed them. Evidence inline; verify
+before trusting, as always.*
+
+### 1. Edit 4's conflict log is dead code — it can never fire, and a dead observe log green-lights the flip on a false zero
+
+v4 sketches the ownership-conflict log inside `planSection`, keyed on
+`prev, ok := resolvedData[fieldName]`. But `resolvedData` is a fresh local map created at
+`plan_sections_action.go:1118` (`resolvedData := make(map[string]interface{})`), and the
+per-field loop writes each field at most once — **no field ever has a prior value inside
+planSection**, so `ok` is never true and the log never emits. The observe round would
+come back "zero conflicts" and the flip would ship on evidence that is structurally
+incapable of being anything but zero.
+
+The overwrite the diagnosis (c84940fb) confirmed does not happen inside `planSection` at
+all — it happens at the **rerender merge**. `rerender_page_sections_action.go:281-283`:
+*"Render context: base ⊕ stored content_data ⊕ fresh resolved_data (resolved_data merged
+last so it overrides stale values)"* — stored `s.contentData` holds the resolver's last
+write; fresh `plan.ResolvedData` holds the re-resolved `site_specs.*` value; the second
+clobbers the first, and `:297-307` persists the clobber back to `content_data`. The
+correct observe-only placement is in that caller loop, after `plan := planSection(...)`:
+
+```go
+for _, cf := range datahelpers.DeriveCTAURLFields(comp.InputSchema) {
+    if fresh, ok := plan.ResolvedData[cf.URLField]; ok {
+        if stored, ok2 := s.contentData[cf.URLField]; ok2 && stored != fresh {
+            logger.Info("rerender: cta ownership conflict (observe-only)",
+                zap.String("component", s.slotName), zap.String("field", cf.URLField),
+                zap.String("source", cf.Source), zap.String("reason", reason))
+        }
+    }
+}
+```
+
+Carrying `reason` distinguishes deliberate `cta_links_stale` recomputes
+(`applyCTARecompute` writes `plan.ResolvedData` on purpose) from silent clobbers.
+In the FULL build path there is nothing to compare inside `planSection` either — the
+resolver runs *after* plan_sections in that workflow and wins within the build; the loss
+is rerender-only. Note the full-build placement in edit 3 (resolve_internal_links delta
+log) is unaffected and correct.
+
+### 2. The derivation rule as sketched misses 3 of the map's own 10 fields, and DOES capture one image
+
+Measured live 2026-07-20 (active components):
+
+- **Bare-stem pairs.** `hero.secondary_cta_url` pairs with **`secondary_cta`** (no
+  `_label`/`_text` sibling exists); `call-to-action.primary_cta_url` /
+  `secondary_cta_url` pair with bare **`primary_cta`** / **`secondary_cta`**. Under the
+  v4 rule these three DERIVE AS NOTHING — the delta log reads "map covers 3 fields the
+  derivation cannot see" on the two busiest CTA components, and at flip time the resolver
+  would silently DROP coverage of 3 currently-working fields. Extending the sibling rule
+  with the bare stem adds exactly these 3 fields fleet-wide and zero image fields
+  (measured: the only url-fields whose sole sibling is the bare stem are those three).
+- **The sibling test does NOT exclude all images.** `header-leopardess.logo_url`
+  (source `site_assets.logo`) has sibling `logo_text` — it derives under the v4 rule.
+  v3/v4's own sketch comment ("32 site_assets image/logo fields … the sibling test
+  excludes them cleanly") is right for 31 of 32 and wrong for this one. Deterministic
+  guard: **a `*_url` field whose own source is `site_assets.*` never derives** (v4
+  already applies exactly this exclusion to `UncoveredCTAURLFields` — apply it to
+  `DeriveCTAURLFields` too).
+
+### Census note (for whoever reconciles figures)
+
+The 16-fossil list in v4's rationale (`site_specs.cta.*`, unscoped) and this session's
+57-field census (`site_specs.*`, all prefixes, derived pairs only) are different cuts of
+the same population, not a contradiction. By source class, active components, derived
+rule incl. bare stem, `site_assets.*` excluded: site_specs.* 57/16 fns · llm 21/7 ·
+renderer 10/6 · static 7/2 · query.* 2/2 · pages.* 1/1 (the `header-bold-gradient`
+`pages.contact` fossil).
+
+### Coordination
+
+- This session (bugfix-023) drafted a corrected v4 before discovering yours; it is NOT
+  being submitted — **the trail stays yours**. The draft died unwritten; this entry is
+  its useful residue.
+- To avoid working the same ground twice: bugfix-023 is taking the **remaining live
+  breakage** lane instead — `tool-guide-intro` (dead `#guide-start` + `source:llm,
+  required:true` URL) and `bayesian-ranking-hero-tool_pre_037` on **finetuning.uk** and
+  **robot-hands.com** (P2.2/P2.3-shaped, config-level, non-overlapping with the
+  source-authority Go/observe work). Will append findings here as usual.
