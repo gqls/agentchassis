@@ -574,3 +574,60 @@ to the artefact.
 
 `site_specs` aspect `audience`: 11 current / 16 total. Every live site is now
 rankable the moment pooled selection exists.
+
+---
+
+## 2026-07-20 — session 2 continued: domain-history research landed (partially), synthesised by hand
+
+### Workflow outcome, honestly stated
+
+`wf_2f8a91fd-b77`: 103 agents, 83 completed, 20 failed — **all 20 failures were
+"session limit / resets 1:20pm"**, concentrated on the buysportskit and
+smartbusinesssupplies *verification* votes and the final synthesis step. So the
+workflow returned 14 verified claims + 6 unverified, unmerged. I synthesised the
+report myself (`RESEARCH_2026-07-20_dormant_domain_history.md`), keeping
+per-claim vote counts and marking every domain [verified]/[unverified]/[direct].
+Two verifier notes also flagged that the safety classifier was unavailable for
+two subagents — their outputs were re-read before use.
+
+Gaps the workflow left (`zdec`, `ijih` — no claims at all) were filled by direct
+CDX pulls. **WebFetch cannot reach web.archive.org** (hard refusal) — `curl` can;
+recorded here because it will bite the next thread that tries.
+
+### zdec decode — the GBK trap
+
+The 2017 zdec.com snapshot 500s through `utf-8` decoding (`0xc9`). It is **GBK**
+(Chinese). Decoded: an industrial control-systems company site whose footer is
+stuffed with injected Macau casino spam + a literal "出售外链" (backlinks for
+sale) contact. High views (409) ≈ poisoned link-farm residue, not demand.
+
+### MISSTEP 7 — my bigotime "watch-adjacent" speculation was wrong
+
+The relojistas audience-row note (written this morning) speculated bigotime.com
+"may be watch-adjacent" from the name. Evidence: templated dropship-storefront
+shell route (`/index/selectLogistic?coll_id=`), zero CDX captures, now an
+Afternic for-sale redirect. Not watches. The DB row's note was hedged ("may be…
+under deep-research — revisit"), so it self-corrects on read; resolution recorded
+here and in the research file rather than churning the row. The lesson is the
+name-derivation trap AGAIN, in miniature — I inferred content from a domain name
+in the same session in which Decision 4 said not to.
+
+### The two structural findings
+
+1. **Ownership reconciliation needed on 4 of 9** (bigotime + buysportskit →
+   Afternic for-sale; nanangmrk + ijih → live content operated by someone).
+   Blocking for those domains only. Also: nanangmrk 403s non-browser agents —
+   crawler-based "hosting nothing" measurements undercount Cloudflare-fronted
+   sites, a fleet-wide measurement caveat.
+2. **Views ≠ value**: the largest opaque number (zdec 409) is the least valuable
+   traffic in the set.
+
+### Outcomes folded into the plan
+
+smartbusinesssupplies → business-services pool (reverses no-feed);
+komunikatif → Indonesian-language exception with a real news legacy (strongest
+news-shaped inheritance in the set); makeitaquote → tool-build (quote-image
+generator; name-collision demand from a bot in ~1.12M Discord servers; sibling
+of memecreator.co.uk — a real future `position` case); outfax → fax-tools theme;
+buysportskit → sport-retail if ownership confirms; zdec/ijih/bigotime stay
+no-feed. Impersonation lines drawn for the two domains shadowing real businesses.

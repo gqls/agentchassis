@@ -315,3 +315,47 @@ The thirty-one pilot domains don't get profiles yet, on purpose. They aren't
 sites yet, and writing a profile from nothing but a domain name is exactly the
 mistake this whole design guards against. They'll get theirs at onboarding, when
 the research and classification machinery has something real to say about them.
+
+---
+
+## 2026-07-20 evening — the mystery domains gave up their secrets, and two of them raise questions
+
+The archive dig on the nine opaque traffic domains is done (the research job hit
+a usage limit partway through its checking phase, so I finished the last two
+domains by hand and marked clearly which findings are triple-checked and which
+are single-source). The full write-up is in the research file alongside this one.
+The headlines:
+
+**The good inheritances.** The business-supplies domain shadows a real Surrey
+office-supplies company whose website died in 2024 leaving customers with
+nowhere to go — that's purchase-shaped demand, and it moves the domain into the
+business pool. The komunikatif domain was a genuine Indonesian regional news
+site for Central Java, publishing until 2023 — the strongest news-shaped legacy
+of the lot, and a perfect fit for the language-exception rule. The makeitaquote
+domain gets its traffic from people guessing the web address of a Discord bot
+installed in over a million servers — they arrive wanting to turn text into a
+quote image, and we build interactive tools for a living; that one should be a
+tool, not a news site. The old fax service domain still gets people hitting its
+dead login page — "how to send a fax online" content would serve exactly what
+they came for.
+
+**The warning.** The biggest number of the lot — zdec, 409 views — is the one to
+distrust. It was a Chinese industrial company site that got hacked years ago and
+stuffed with casino spam links, with backlinks literally offered for sale. Its
+traffic is the residue of that spam network, not real demand. Big numbers aren't
+automatically good news.
+
+**The questions I need answered.** Four of the nine aren't what the list says
+they are. Two of them (bigotime, buysportskit) currently redirect to
+domain-for-sale pages — if we own them, why are they listed for sale? And two
+(nanangmrk, ijih) are serving live content right now — nanangmrk is a thriving
+Indonesian networking-tutorials site fed by a YouTube channel with half a
+million subscribers. If those are ours, who set them up? If they're not, they
+shouldn't be on our list. Nothing gets built on those four until that's
+straightened out. One measurement lesson came free: nanangmrk looked empty to
+our counting because it blocks robots — some of our "empty" domains may not be.
+
+**One line we must hold.** Two of these domains shadow real businesses — one
+dead, one still trading under a different address. Inheriting their *visitors*
+is fair game; inheriting their *identity* is not. Anything built there serves
+the arriving demand under our own name, never theirs.
