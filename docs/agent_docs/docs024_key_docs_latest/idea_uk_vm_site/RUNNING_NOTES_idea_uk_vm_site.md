@@ -933,3 +933,77 @@ so the relevance filter worked; three reviews completed and were then discarded.
 resolved or the plan is cut.** The submission JSON is committed
 (`sql/../council_submission_chrome_schema_driven.json`) so a resubmission starts from the reviewed
 text. Not worked around — filed.
+
+### §X.3 — chrome VERIFIED LIVE; the taster's two remaining defects fixed (2026-07-19/20)
+
+**The chrome fix worked. Verified against the deployed artefact, not the item status:**
+```
+$ curl -s https://idea.uk/ | grep -oE '<a href="[^"]*"' | sort | uniq -c | sort -rn
+      4 <a href="/about.html"     3 <a href="/tools.html"    3 <a href="/report.html"
+      3 <a href="/news/index.html" 3 <a href="/index.html"   3 <a href="/guides/index.html"
+      3 <a href="/contact.html"   2 <a href="/"              2 <a href="#"
+      1 <a href="/privacy.html"
+$ curl -s https://idea.uk/ | grep -o 'header-logo-img[^>]*'
+  header-logo-img" src="/assets/images/logo.jpg" alt="idea.uk logo" /
+```
+**Zero `href=""` — down from 30.** `site_components` re-rendered 13:55:44, work item `complete`.
+The logo renders. The 2 remaining `href="#"` are the `brief-explanation` CTAs — page components,
+already on 018's list as `dead_control`, NOT chrome, and untouched by this work.
+
+**Then the owner reported two things that are NOT the chassis at all — both the tool.**
+
+**(1) "The audience check page has no chrome, just the text."** `/audience-check` is an **AJAX
+fragment endpoint by design**: `audience_check.go:135-138` is POST-only and
+`renderAudienceHTML`'s own comment says it *"produces the HTML fragment the taster widget drops
+into its result div"*. There was no widget. p2_01 seeded the form as a plain native POST with no
+JS, so the browser NAVIGATED to the endpoint and rendered the bare fragment.
+
+The diagnosis came from putting the two forms side by side on the live pages:
+```
+/report.html : <form class="rr-form" action="/request">  + <script src="/tools/assets/report-request-form.js">
+/tools.html  : <form class="ac-form" action="/audience-check">   ← and no script at all
+```
+Measured cause: `collectJSAssets` (`rerender_single_page_action.go:156-176`) publishes
+`/tools/assets/{function}.js` **only when `js_content` is non-empty**.
+```
+report-request-form  js_content = 266 bytes → /tools/assets/report-request-form.js  HTTP 200
+audience-check-form  js_content =   0 bytes → /tools/assets/audience-check-form.js  HTTP 404
+```
+So this is **the same defect p2_02 fixed for the other form, never applied to this one** — and the
+fix is that established mechanism, not a new one. `sql/p3_03` adds the interceptor
+(`ev.preventDefault()` is the whole bug), a result div, and styles for the tool's own classes.
+Post-apply shape check passes: `js_len=1463, src_ref=t, result_div=t, raw_inline=f`.
+
+**(2) "The tool link still shows POST only."** Live: `GET /audience-check` → **HTTP 405**. The
+tool-list cards on index + tools pointed at it. Crucially the card URLs are **not hand-written** —
+`tool-list.items` is `source: "query.pages_where_type:tool"`, derived from the `pages` table. So the
+pointer page `tool-audience-check` (`url='/audience-check'`) is the source of truth, and that is
+what p3_03 corrects, to `/tools.html#audience-check` (the id the seeded form section already
+carries). The already-resolved `page_components.content_data` copies are patched too — transient by
+nature (`bugs_open/001`), which is exactly why the `pages` row is fixed as well rather than instead.
+
+**MISSTEP AVOIDED, worth recording.** My first instinct was to patch the two `content_data` rows,
+which would have "fixed" it until the next plan pass silently reverted it. Reading the component's
+`input_schema` — `source: query.pages_where_type:tool` — is what showed the URLs are derived. *A
+rendered value that looks hand-authored may be a resolved query; check the source before editing
+the copy.*
+
+**Stopgap flagged, not hidden.** The tool's fragment ends with `<a href="#request">`, and **no page
+on this site has `id="request"`** (the real form is `/report.html#request-a-report`). That href
+comes from the box binary, so it cannot be fixed from the DB. The injector retargets that one known
+anchor after injection, and says so in a comment — **delete it once the tool emits the right href**.
+
+**NEW STRUCTURAL FINDING — `/tools/assets/site-header.js` 404s.** The chrome template references it
+(inherited from the original), but `collectJSAssets` reads **`page_components` only** (`:157`),
+never `site_components`. So a site component can reference a JS asset that is **never published**,
+with no error anywhere. The hamburger/mobile menu is therefore dead on every page. Note
+`render_js_snippets_for_site_action.go:203-219` DOES union both tables for the `snippets.js` bundle
+— so the two JS paths disagree about whether chrome exists. Fleet-wide; not fixed here.
+
+**Pending:** rerender `4a66f0bd` fired 10:05:05Z to publish `audience-check-form.js` and rebuild
+the pages. Expect ~25-35 min queue (`bugs_open/030`) plus ≤5 min box sync. Verify with:
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://idea.uk/tools/assets/audience-check-form.js   # want 200
+curl -s https://idea.uk/tools.html | grep -c 'audience-check-form.js'                          # want 1
+curl -s https://idea.uk/tools.html | grep -oE 'href="/tools.html#audience-check"' | head       # cards retargeted
+```
