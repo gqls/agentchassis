@@ -367,3 +367,84 @@ func TestToolAndSectionGuardsDisagreeOnToolShape(t *testing.T) {
 		t.Fatal("toolTemplateValid must accept a structurally whole tool template")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Round-6 council findings
+// ---------------------------------------------------------------------------
+
+// bug_historian (r6, MEDIUM) predicted a SECOND call site of the same
+// template-validity judgement, from this platform's documented history of the
+// identical filter existing twice. It was right: loadSingleComponentSchema was
+// still rejecting self-contained tool templates on the '</section>' marker
+// while loadComponentSchemas had been fixed. Both now share this predicate, and
+// this test is what stops them drifting apart again.
+func TestComponentTemplateValid_RoutesByLevel(t *testing.T) {
+	pad := strings.Repeat("x", 200)
+	toolShape := `<div class="ltb">` + pad + `<script>renderRows();</script></div>`
+	sectionShape := `<section>` + pad + `</section>`
+
+	cases := []struct {
+		name  string
+		tpl   string
+		level string
+		want  bool
+	}{
+		{"tool template judged as a tool", toolShape, "tool", true},
+		{"the SAME tool template judged as a section is rejected", toolShape, "section", false},
+		{"section template judged as a section", sectionShape, "section", true},
+		{"truncated tool rejected even with </section> upstream",
+			`<section>` + pad + `</section><script>const x = 'Epic`, "tool", false},
+		{"empty component_level falls back to the section rule", toolShape, "", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := componentTemplateValid(tc.tpl, tc.level); got != tc.want {
+				t.Fatalf("componentTemplateValid(level=%q) = %v, want %v", tc.level, got, tc.want)
+			}
+		})
+	}
+}
+
+// The asymmetry both editquality (r5) and bug_historian (r6) named: a
+// configured-but-unresolved item_key_suffix_field used to Warn and fall back to
+// the site-wide key — which IS the collision the field exists to prevent — while
+// spec_paths in the same function hard-failed. Now both hard-fail.
+func TestCreateWorkItem_ItemKeySuffix_UnresolvedIsHardError(t *testing.T) {
+	_, err := runCreateWorkItem(t,
+		map[string]interface{}{
+			"site_id":               "input_data.site_id",
+			"item_key_prefix":       "rerender_tool_fix",
+			"item_key_suffix_field": "update_result.component_id",
+		},
+		siteCollected(nil), // update_result absent
+	)
+	if err == nil {
+		t.Fatal("expected a hard error: falling back to the site-wide key silently reinstates the dedup collision")
+	}
+	if !strings.Contains(err.Error(), "item_key_suffix_field") {
+		t.Fatalf("error should name the field, got: %v", err)
+	}
+}
+
+// ...and the resolving case still scopes the key rather than leaving it site-wide.
+func TestCreateWorkItem_ItemKeySuffix_ScopesTheKey(t *testing.T) {
+	componentID := uuid.New().String()
+	spec, err := runCreateWorkItem(t,
+		map[string]interface{}{
+			"site_id":               "input_data.site_id",
+			"item_key_prefix":       "rerender_tool_fix",
+			"item_key_suffix_field": "update_result.component_id",
+			"spec_literal":          map[string]interface{}{"reason": "section_data_resolved"},
+		},
+		siteCollected(map[string]interface{}{
+			"update_result": map[string]interface{}{"component_id": componentID},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if spec == "" {
+		t.Fatal("no insert captured")
+	}
+}

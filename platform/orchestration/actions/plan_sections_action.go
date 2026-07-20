@@ -911,11 +911,7 @@ func loadComponentSchemas(ctx context.Context, db *sql.DB, sectionNames []string
 		// the cut.
 		htmlTpl, _ := comp["html_template"].(string)
 		level, _ := comp["component_level"].(string)
-		valid := sectionTemplateValid(htmlTpl)
-		if level == "tool" {
-			valid = toolTemplateValid(htmlTpl)
-		}
-		if !valid {
+		if !componentTemplateValid(htmlTpl, level) {
 			name, _ := comp["name"].(string)
 			function, _ := comp["function"].(string)
 			logger.Warn("plan_sections: component template truncated, skipping",
@@ -977,6 +973,27 @@ func sectionTemplateValid(htmlTemplate string) bool {
 		return true
 	}
 	return strings.Contains(htmlTemplate, "</section>")
+}
+
+// componentTemplateValid is THE truncation gate for a loaded component, and the
+// only one either loader should call.
+//
+// It exists because there are TWO call sites making this identical judgement —
+// loadComponentSchemas (the bulk loader) and loadSingleComponentSchema (the
+// by-function loader) — and the first fix for bugs_open/024 patched only the
+// bulk one. The council's bug_historian seat predicted the second call site from
+// this platform's documented history of the same filter existing twice, and it
+// was right: `loadSingleComponentSchema` was still rejecting self-contained tool
+// templates on the '</section>' marker and returning nil, silently.
+//
+// Both loaders now share this predicate so the two cannot drift again. A
+// component that is dropped here is invisible downstream — no error, no work
+// item — which is what made the original defect cost three fix cycles.
+func componentTemplateValid(htmlTemplate, componentLevel string) bool {
+	if componentLevel == "tool" {
+		return toolTemplateValid(htmlTemplate)
+	}
+	return sectionTemplateValid(htmlTemplate)
 }
 
 // toolTemplateValid is the truncation guard for component_level='tool'
@@ -1080,9 +1097,11 @@ func loadSingleComponentSchema(ctx context.Context, db *sql.DB, function string,
 		}
 
 		htmlTpl, _ := raw["html_template"].(string)
-		if !sectionTemplateValid(htmlTpl) {
+		level, _ := raw["component_level"].(string)
+		if !componentTemplateValid(htmlTpl, level) {
 			logger.Warn("loadSingleComponentSchema: template truncated, rejecting",
-				zap.String("function", function))
+				zap.String("function", function),
+				zap.String("component_level", level))
 			return nil
 		}
 

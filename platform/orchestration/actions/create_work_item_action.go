@@ -158,17 +158,25 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		// components fixed close together on one site collide on
 		// idx_swi_dedup (site_id, item_key) and one request is simply lost.
 		// A step that knows what it is acting on names it here.
-		// Additive by design — unset or unresolved leaves the key exactly as
-		// it was, so no existing caller changes.
+		//
+		// Unset, the key is exactly as it was, so no existing caller changes.
+		// CONFIGURED BUT UNRESOLVED IS A HARD ERROR, matching spec_paths below.
+		// The earlier version logged a Warn and fell back to the site-wide key,
+		// on the reasoning that the fallback is non-regressive. Two council
+		// seats (editquality r5, bug_historian r6) independently called that
+		// inconsistent with spec_paths in this same function, and they are
+		// right: the site-wide key IS the collision defect, so "fall back to
+		// it" means "silently reinstate the bug this field exists to fix" —
+		// the log-only shape that is the root cause of every prior occurrence
+		// in this family.
 		if f, ok := config["item_key_suffix_field"].(string); ok && f != "" {
-			if sfx := datahelpers.ExtractNestedFieldString(params.CollectedData, f); sfx != "" {
-				itemKey = fmt.Sprintf("%s_%s", itemKey, sfx)
-			} else {
-				logger.Warn("create_work_item: item_key_suffix_field did not resolve, key stays site-wide",
-					zap.String("field", f),
-					zap.String("item_key", itemKey),
-				)
+			sfx := datahelpers.ExtractNestedFieldString(params.CollectedData, f)
+			if sfx == "" {
+				return nil, fmt.Errorf(
+					"item_key_suffix_field: path %q did not resolve; refusing to fall back to the site-wide key %q, which is the collision this field prevents",
+					f, itemKey)
 			}
+			itemKey = fmt.Sprintf("%s_%s", itemKey, sfx)
 		}
 	}
 
