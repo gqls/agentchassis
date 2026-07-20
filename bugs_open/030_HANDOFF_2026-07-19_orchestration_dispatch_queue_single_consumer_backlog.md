@@ -621,3 +621,58 @@ options are 60 s, 90 s, 120 s… — asking for 45 s gets you 60 s.
 - Whether `build-pipeline-trigger`'s `max_concurrent = 8` interacts with
   `/bugs_open/029` (hung spawns saturating the dispatch group) — same
   `concurrency_group = 'dispatch'`, and 029 is about that group filling up.
+
+### Follow-up 2: what the two jobs do — and 030 is the mirror image of 029 (same thread, 2026-07-20)
+
+Resolving the two `[UNVERIFIED]` items from the previous section.
+
+**`ai-endpoint-health-check`** (`check_endpoint_health_action.go`) pings each active
+row in `ai_endpoint_health` (Ollama `GET /api/tags`; Claude a 1-token haiku,
+~$0.000003) and updates the health table. It is a **single local action**, 15 s
+timeout, and the *action itself* re-checks a per-endpoint interval, so most fires do
+little work. It has **no `pre_query`**, so it fires **unconditionally every cycle**
+regardless of whether anything needs checking. Cheap per message, but it still costs
+a queue slot and a consumer turn every 60 s. It is **not** the head-of-line blocker —
+the 8–15 min stalls are the council/build/diagnosis orchestrations, not this.
+
+**`build-pipeline-trigger`** *is* gated — its `pre_query` fires a message only when
+triaged build work exists:
+
+```sql
+SELECT COUNT(*)::text FROM sites s WHERE s.locked_at IS NULL
+AND EXISTS (SELECT 1 FROM site_work_items wi WHERE wi.site_id=s.id
+  AND wi.status='triaged' AND wi.pipeline='build' AND wi.attempt_count < wi.max_attempts)
+HAVING COUNT(*) > 0;
+```
+
+Right now that returns **3**. So it is not firing blindly — there is a **persistent
+build backlog** feeding it, and that is why it is 41% of the lane.
+
+**The coupling, and why this bug is partly self-sustaining.** A page build is itself
+a multi-step orchestration that runs on this same lane. If the lane is slow, build
+work items stay `triaged` longer, so the `pre_query` keeps returning > 0, so
+`build-pipeline-trigger` keeps firing every 60 s. **The slower the lane, the more
+persistently the trigger feeds it.** It is capped (`max_concurrent = 8` on the
+`dispatch` group, so concurrent build-dispatch orchestrations cannot exceed 8), not
+runaway — but the build-trigger contribution will not self-limit while any backlog
+exists, which under load it always will.
+
+**030 is the mirror image of `/bugs_open/029`.** Both are failure modes of the same
+`dispatch`/generic-lane machinery, at opposite ends:
+
+| | `/bugs_open/029` | this bug (030) |
+|---|---|---|
+| what saturates | the `dispatch` **concurrency group** (scheduler-side gate) | the generic **requests topic** (the lane itself) |
+| trigger | hung spawns (`/bugs_open/003`) fill the group to `max_concurrent=8` | cron out-produces the single consumer |
+| symptom | `build-pipeline-trigger` **can't fire** → builds halt fleet-wide, silently | everything **queues** → tens-of-minutes latency |
+| when | spawns are hanging | spawns are healthy and the cluster is busy |
+
+They can even alternate on the same job: when spawns hang you get 029 (nothing
+fires); when they recover, the backlog that accumulated floods the lane and you get
+030 (everything queues). A fix for either should be checked against the other — e.g.
+moving `kafka-scheduler` to its own lane (030 candidate 3) must preserve 029's
+`dispatch`-group gate, or hung spawns would no longer be capped at 8.
+
+Both `[UNVERIFIED]` items are now resolved. What remains genuinely unverified is only
+the core root-cause claim (inline handler vs `PartitionCount`), which is the subject
+of diagnosis corr `78470372` — still unstarted, queued in this very backlog.
