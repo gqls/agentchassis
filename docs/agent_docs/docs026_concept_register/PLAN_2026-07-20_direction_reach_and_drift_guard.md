@@ -1,6 +1,11 @@
 # PLAN — direction reach into the build pipeline, and the direction-document drift guard
 
-**2026-07-20. Status: PLAN — nothing here is applied.** Owner asked for both plans
+**2026-07-20. Status: PARTIALLY IMPLEMENTED same day (owner approved D2-as-gate
+and the staged R sequencing).** LIVE: R0+R1 (classifier seed, snapshotted),
+D1 (`DIRECTION_LEDGER.md`), D2 (`.githooks/commit-msg`, tested on all three
+paths), D3 (`100_CHECK_direction_integrity.py`, first run ALL GREEN) + `101`
+(R1's consumer). NOT started: R2 (gated on R1's numbers), R3 (needs an image
+window), R4 (other councils), D4 (standards table). Owner asked for both plans
 after the v19 constitution + mission seats went live on the two review councils.
 Everything below is grounded in checks run against the live system on 2026-07-20;
 each grounded fact is marked. Companion: `PLAN_concept_register.md` §Direction
@@ -54,10 +59,21 @@ A new advisory LLM step in the classifier workflow after
 defaulted)? (b) any consultancy-shape default where the signal is absent?
 (c) shape-mixing (a tools site with a "Start a Project" CTA)? (d) were
 aspirational items marked rather than silently trimmed?
-On objection: **write a `mission_review` site_work_item at `status='detected'`**
-(observe-only per `IMP-004` — unclaimable, no behaviour change), then continue the
-build unchanged. **Named consumer: the immune-system triage sweep** (which already
-promotes `detected` findings), NOT `needs_human_review` (the 023 trap).
+On objection: record the finding, then continue the build unchanged.
+
+> **CORRECTED 2026-07-20 (during implementation, before applying):** this plan
+> originally said "write a `mission_review` site_work_item at `status='detected'`;
+> consumer = the triage sweep." Reading `triage_detect_items_action.go:91-103`
+> refuted that: the triager is **site-scoped and type-blind** — it promotes ALL
+> `detected` items into the dispatch pipeline, so a `mission_review` item would
+> be swept toward a nonexistent handler: the opposite of observe-only, and a new
+> instance of the 023 class. **As built:** objections append a `doc_notes` row
+> (categories `['mission-review']` — the same machinery the council gate records
+> verdicts in; reuse before recreate), which nothing can dispatch. **Named
+> consumer: `101_REPORT_mission_review_findings.sh`** (run weekly alongside 098,
+> and before any R2 decision). What caught it: the pre-apply grounding read of
+> the consumer's actual code — the exact check the plan's own "named consumer"
+> rule demanded.
 Cost: one LLM call per classifier run — the classifier already makes several.
 Measure ≥1 week: objection rate, and hand-grade a sample for false positives
 (remember: a consultancy shape is *legitimate* when the evidence supports it —
@@ -109,9 +125,14 @@ per blessed doc — path, sha256, date, approver ("uk", the owner), and the sha 
 each sanctioned copy. The ledger is the drift reference; updating it is what
 "owner sign-off" concretely writes down.
 
-**D2 — a real-gate pre-commit hook (the actual guard).**
-`check-direction-docs.sh` in the `.githooks/pre-commit` chain, real-gate tier
-(alongside `check-secrets.sh`, whose precedent explicitly allows blocking): if the
+**D2 — a real-gate commit hook (the actual guard).**
+
+> **CORRECTED 2026-07-20 (during implementation):** planned as a `pre-commit`
+> chain entry, built as **`.githooks/commit-msg`** — a trailer check needs the
+> commit message, which does not exist yet at pre-commit time. Same tier, same
+> behaviour.
+
+Real-gate tier (alongside `check-secrets.sh`, whose precedent explicitly allows blocking): if the
 staged diff touches a blessed path (or any tracked copy of one) AND the commit
 message lacks a `Direction-Approved: <name>` trailer → **block**, printing why and
 the exact trailer to add after getting the owner's word. Deliberately narrow: it
