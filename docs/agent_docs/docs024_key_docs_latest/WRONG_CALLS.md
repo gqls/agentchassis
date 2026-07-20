@@ -1230,4 +1230,13 @@ that reads a **map key**, not a column.
 session:** trusting a name or a count as a stand-in for the thing itself. A map key
 is not a column; a row count is not the rows.
 
-**Two tally rows incremented; one new row.**
+**One tally row incremented ("look at the real values", 3→4); two new rows.**
+
+> **CORRECTED immediately after writing:** this line first read *"Two tally rows
+> incremented; one new row"*, which is the wrong way round. Noting it rather than
+> silently fixing it, because miscounting my own tally in an entry about not
+> trusting counts is the joke writing itself — and because these two edits were
+> swept into another session's commit (`d90a2a5b0`, a bug-009 commit) between the
+> append and the commit, which is the CLAUDE.md hazard doing exactly what it says
+> on the tin. Nothing was lost; forward-only holds; the content is simply recorded
+> under someone else's message.
