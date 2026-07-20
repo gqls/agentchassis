@@ -690,3 +690,83 @@ components are deleted from finetuning.uk + robot-hands.com (P4 extended fleet-w
 rerenders queued; migration 179 applied+ledgered live — `tool-guide-intro` now has
 renderer-owned optional url fields, gated anchors, no `#guide-start`. Live verification
 pending; full entry to follow.*
+
+---
+
+## 2026-07-20 14:00 — session 3 (bugfix-023): fleet completion of P4 + component fix — VERIFIED LIVE
+
+**The two broken components now have ZERO live placements fleet-wide, and `tool-guide-intro`
+itself can no longer ship its defects.** Verified against the rendered pages, not the status.
+
+### Page fixes (P4 extended to the remaining two sites)
+
+Same transaction shape as the leopardess fix (`scratchpad/ft_rh_toolpages_fix.sql`, this
+session's scratchpad; backups `bak_ft_toolpage_20260720_pc/_pages` 4+1 rows,
+`bak_rh_toolpage_20260720_pc/_pages` 6+1 rows):
+
+```
+finetuning.uk  llm-cost-calculator           bayesian-hero · tool-guide-intro · tool · tool-cta
+                                          ->  tool · tool-cta        (pages.sections aligned)
+robot-hands.com gripper-cycle-time-estimator hero · tool · TGI · text · faq · cta
+                                          ->  hero · tool · text · faq · cta   (sections NOT edited — see below)
+```
+
+- **Authority differs per site — check it each time.** finetuning has NO current
+  `site_plans` row → `pages.sections` governs → aligned it (P4-style). robot-hands has a
+  CURRENT plan (7a40a0f9) listing this page as `hero · generic-text-block · call-to-action`
+  — neither the aspect nor `pages.sections` ever asked for `tool-guide-intro` (or the
+  tool!), so only `page_components` changed. **Pre-existing 3-way drift on robot-hands**
+  (aspect 3 ≠ sections 3 ≠ live 5, tool + faq unknown to both plan layers) is recorded here
+  as a hazard for the re-plan work (`bugs_open/034`'s class) — the page is
+  `build_status='deployed'` so 001's preserved set protects it today.
+- Deployed via `reassemble_pages.sh` (ASSEMBLE mode). **Dispatches sat queued ~35 min**
+  (chassis busy with council runs; the queue-latency memory holds — pod was 5h old, no
+  restart, nothing dropped).
+
+**Live verification (curl, 2026-07-20 ~13:55 BST):**
+- FT: 62,315 → 44,255 B; 0 `href=""`, 0 `guide-start`, 0 `finetuning.ai`, calculator ids
+  present; only tool-cta's two anchors remain.
+- RH: 52,624 → 44,880 B (−7,744 ≈ the TGI section exactly); 0 `tgi-*`, 0 `guide-start`,
+  0 `href=""`; hero/tool/faq/cta all present, estimator interactive (8 form controls).
+- **R1 census: empty hrefs 25 → 22, fragment class 2 → 0 (extinct).** Bare `#` 17 unchanged
+  (different class).
+
+### Component fix (P2.2 + P2.3) — migration 179, applied + ledgered live
+
+`179_tool_guide_intro_cta_integrity.sql` (committed a6a31b8b1): adds `cta_primary_url`
+(renderer, optional, skip_field), flips `cta_secondary_url` `llm+required:true` →
+`renderer+optional+skip_field`, gates BOTH anchors `{{if .x_url}}`, removes the hardcoded
+`#guide-start`. Needle-gated in-transaction (0 placements asserted; exact anchor strings
+asserted pre-replace; post-conditions on gates/sources), ledger row in the same transaction
+(007). Both pairs derive under the pending schema-derived pairing and sit in its immune
+renderer class. Verified live post-apply: sources `renderer`/`false`, `#guide-start`
+position 0, ledger row present.
+
+### Missteps (mine, this session)
+
+1. **My deploy poll's success condition was absence of the bad marker — and a transient
+   B2 `NoSuchKey` 404 (310 B JSON error body) satisfied it** mid-redeploy on robot-hands.
+   "Marker absent" is not "page correct": poll for the GOOD content (or at least
+   `http_code==200` + size sanity), never only for the bad content's absence. Caught
+   within a minute by re-curling; the page was healthy (the 404 was the deploy window).
+2. Earlier this session I concluded "v3 was never submitted" from a payload regex that
+   didn't match how the submission is actually serialised. **Absence of rows proves the
+   regex, not the absence** — found the real runs by fingerprinting content strings
+   (`ctafields|leopardess3`). Cost: nothing (checked before acting), but the wrong belief
+   stood for ~20 minutes.
+
+### Residuals (recorded, deliberately NOT fixed here)
+
+- **FT tool-cta**: "Explore All Tools" → `/tools/llm-cost-calculator` — a SELF-LINK
+  (label promises the hub, href is the page itself). Class A adjacent; lives in tool-cta's
+  content, survives this fix.
+- **RH call-to-action**: "Run the Cycle Time Estimator" → `/contact.html` — the estimator
+  is ON THIS PAGE. This is a MAPPED component (in `ctaFieldNames`), i.e. repairable today;
+  the recompute path exists and has never been delivered here — fresh class G evidence.
+- **`bayesian-ranking-hero-tool_pre_037`** now has zero placements but remains the ONLY
+  active component answering a `hero-tool` section request — the next tool-page plan
+  re-adopts the Bayesian panel. The generic `hero-tool` component build (P4 addendum)
+  is still the structural fix. NOT deactivated: sole active row for its function (R10).
+- `finetuning.ai` (the fabricated different-TLD host) RESOLVES via Cloudflare to a page
+  the owner does not control — live confirmation of P1.5's different-TLD sibling rule
+  value. The live instance is gone with the section; the rule remains unimplemented.
