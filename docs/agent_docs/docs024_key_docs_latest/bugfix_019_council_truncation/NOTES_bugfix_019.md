@@ -591,3 +591,41 @@ exercised; the binary evidence is theirs to use.
 
 **This file's final state: the bug found by four threads is closed by the fifth,
 with the fix verified by the reproduction the first four wrote down.**
+
+### 036 round 2 — corr `80cdd428`, REVISE again (8 approve / 1 object), and a correction I owe
+
+Resubmitted after the v1.0.1140 roll. `decision revise, reviewers 9, abstained 7,
+**unreadable 0**` — the round completed without voiding for the second time.
+Objection count fell 2 → 1 and severity fell medium → low: **edit-quality now
+approves** (its round-1 asks were answered), leaving only guardian.
+
+> **CORRECTION 2026-07-20 — a blast-radius claim of mine was imprecise, and the
+> guardian seat caught it.** Answering round 1 I wrote that the types are
+> unexported "so the blast radius is the `council_decide` step, as claimed".
+> Guardian declined to take that on trust and asked whether `council_decide` is a
+> step name wired into more than one pipeline. It is. Measured:
+>
+> ```sql
+> SELECT type, is_active, default_config->'workflow'->'steps'->'council_decide'->>'action'
+> FROM agent_definitions WHERE default_config->'workflow'->'steps' ? 'council_decide';
+> ```
+> → **`council-gate`, `fix-proposer`, `experience-planner`, `feature-designer`**
+> (all active), plus the two scratch copies. **Five real pipelines, not one.**
+>
+> The underlying claim was true — the types ARE unexported and no other Go file
+> reads `objections[].edit`, so there is no cross-package consumer. What was wrong
+> was the *implication*: "one step" is not "one pipeline". Every council on the
+> platform shares this decider.
+>
+> That makes the change **broader and more valuable** than I framed it, not more
+> dangerous: all five councils gain the same tolerance and the same fail-closed
+> guard, and the change can only make a verdict more conservative. But a reviewer
+> should have been told that up front, and "I grepped the Go and it's private" is
+> the wrong evidence for a question about *workflow* wiring — the answer lives in
+> `agent_definitions`, not in the source. That is the same shape as this file's
+> standing lesson about reasoning from data instead of code, run in reverse.
+
+Guardian's two round-2 objections are both **low** and both precautionary rather
+than defect claims; the SQL above settles the one that mattered. Its second
+"missing" note — that it cannot verify the live-verification claim from the schema
+it can see — is correct and is exactly why the scratch-council probe below exists.
