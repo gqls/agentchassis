@@ -324,7 +324,75 @@ the reasoning and for what these two rounds add to that bug). Commits `c41e9ddbc
 therefore carry **no `Council-Reviewed:` trailer**, and will show as unreviewed in the 098 report.
 That is this bug's doing, not a skipped review.
 
-**Still to verify** (the fix is unproven in production until this runs): the handoff's own
-"How to verify" procedure, after the next image roll. Watch the validate step's log line
-`ValidateSitePlanAction: reconciled with realised pages` — `snapped_sections` / `unioned_in`
-should be non-zero where the convergence previously no-op'd.
+## VERIFIED LIVE — 2026-07-20, dartsonline.com
+
+Chassis rolled (pod `agent-chassis-55d7774dc4-pzt9j` on `v1.0.1138`; the planner runs in its own
+ephemeral pod, `v1.0.1139`). Both binaries grep positive for `realisedPageIsBuilt`,
+`reconciled with realised pages` and `snapped built page composition`. Migration 173 re-checked and
+still applied (no re-seed clobber).
+
+Test site **dartsonline.com** (`5fe8785b-…`): 3 `deployed` pages with real compositions, 10
+catalogued-but-empty, one current plan from 2026-07-06 — i.e. a genuinely **non-adopted** site, the
+exact case where the function used to no-op. Snapshotted to `_darts_bak_20260719_{pages,plan_pages,
+plan_sections}` first, then emitted a `needs_site_plan` (item `2845b23d`).
+
+**Trap hit on the way:** the work item read `status='complete'` with `updated_at` **identical to
+`created_at`** — which reads exactly like "nothing ran". It had run. The real evidence is the new
+`site_plans` row (`5d438145`, `is_current`, 09:43:29). This is CLAUDE.md's "trust the artefact, not
+the status" in its most literal form; `updated_at` on `site_work_items` is not maintained.
+
+**The decisive comparison** — `orchestration_states.collected_data` for run `c342cffa` stores BOTH
+the LLM's raw proposal (`llm_plan.result.pages`) and the post-convergence plan (`validate_plan.pages`),
+so the two can be diffed directly rather than inferred from logs (the validate step's pod is
+ephemeral and its logs were already gone):
+
+| page | build_status | LLM proposed | plan got | realised |
+|---|---|---|---|---|
+| `about` | deployed | `…, differentiators-section, …` | `…, differentiators, …` | `…, differentiators, …` |
+| `new-arrivals` | deployed | same as realised | unchanged | unchanged |
+| `shipping-returns` | deployed | same as realised | unchanged | unchanged |
+| `guides-index` | planned | `[hero, content-listing]` | kept | was `[]` |
+| `index` | **needs_rebuild** | dropped `differentiators`+`content-listing`, added `features` | **taken as proposed** | 7 sections |
+
+**PROVEN: all three `deployed` pages kept their exact composition**, and Pass B2 provably fired on
+`about` — the plan records `differentiators` where the LLM wrote `differentiators-section`, which can
+only happen via the snap-back. Pre-fix the convergence early-returned and `pages.sections` would now
+read the LLM's string.
+
+> **Honest limit on that one, corrected before claiming more than it shows.** `differentiators` is
+> the `function` and `differentiators-section` is the `name` of the SAME component row
+> (`content_components`: `name='differentiators-section', function='differentiators'`; likewise
+> `about-hero`/`hero-about`). So this snap **proves the code path executes** but did not
+> demonstrably rescue the page from a visible regression — both strings point at one component.
+> A clean rescue case is still unobserved in production. Do not quote this row as "prevented a
+> regression"; quote it as "convergence now runs and rewrites the plan, where before it returned
+> early".
+
+**Rendered artefact checked, not just the DB row.** `about` was rebuilt (09:48:51) and its
+`page_components` are `about-hero, about-content, differentiators-section, call-to-action` — which
+*looks* like a mismatch against `pages.sections` `["hero-about","about-content","differentiators",
+"call-to-action"]` but is not: sections store the **function**, `page_components` reference the
+**component**. Verified against `content_components`. The rebuild rendered the preserved composition.
+
+### Three things this run measured that the fix does NOT address
+
+1. **`needs_rebuild` pages are not protected.** `index` had a live 7-section composition and lost
+   `differentiators` + `content-listing` (both distinct components, not aliases — checked). It is
+   `needs_rebuild`, so `realisedPageIsBuilt` excludes it. This is arguably fix step 4's intended
+   escape hatch ("a page whose `build_status` was set to `needs_rebuild`" as explicit rebuild
+   intent) — but it means **"built page" == "deployed" only**, and a flagged page still loses its
+   composition silently. Whether that is the wanted boundary is an open decision, not a settled one.
+2. **Every deployed page is still REBUILT.** `reconcile_result` came back `pages_skipped_built: 0` —
+   all three deployed pages emitted as `stale` because `built_from_plan_version != <new plan id>`.
+   So composition survives, but the page is re-rendered and its **content regenerated**. This fix
+   secures structure, not copy. Anything relying on "a re-plan won't touch my reviewed text" is
+   still wrong. (`decideEmit`'s stale test is the lever; re-stamping `built_from_plan_version` when
+   the composition is unchanged would close it.)
+3. **Pages are still invented.** Two net-new pages (`grip-styles`, `shaft-length`) — as documented
+   above, unfixed by design.
+
+**Cleanup state:** the re-plan queued 16 `needs_page` items. `about` completed; 13 were paused
+(`triaged`→`detected`) once the verification result was in, to stop unnecessary spend. Snapshot
+tables retained. `index` is paused and still carries the re-proposed composition; restoring it from
+`_darts_bak_20260719_pages` would desync `pages.sections` from the new `site_plan_sections`, so it
+was left alone pending a decision.
