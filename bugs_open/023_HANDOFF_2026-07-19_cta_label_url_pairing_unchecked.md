@@ -122,9 +122,10 @@ Full phasing in the plan. The headline:
    is the highest-leverage single change and it is not the obvious one.**
 2. Gate every CTA anchor (`{{if .x_url}}`) — the `info-card-grid` precedent already exists
    *on this very site* and was never generalised.
-3. Build the **handler** for CTA findings. Where a real destination exists, repair. Where
-   none exists, **drop the button** — do not point it at `/contact.html`; that heuristic is
-   what created *Start Ranking Free → /contact.html*.
+3. ~~Build the **handler** for CTA findings.~~ → **MOVED TO `bugs_open/033`** (2026-07-20).
+   The design guidance stands and is worth carrying over: where a real destination exists,
+   repair; where none exists, **drop the button** — do not point it at `/contact.html`, that
+   heuristic is what created *Start Ranking Free → /contact.html* in the first place.
 4. Ban `source:llm` + `required:true` on any URL field as a schema-lint rule.
 5. Post-hoc `external_link_unreachable` check (never at build time).
 6. **Deterministic email→hostname check (P1.5)** — reject any external host equal to a known
@@ -136,11 +137,33 @@ Full phasing in the plan. The headline:
 
 ## How to verify a fix
 
-- RUNBOOK R1 (dead-control census) → the 51 should fall, and **stay** fallen after a
-  rebuild, which is the real test: a content-level fix regresses, a template/schema fix does not.
-- RUNBOOK R8 against the two live tool pages: zero `href=""`, zero unresolvable fragments,
-  no external host that fails DNS.
-- The 34 inert work items must reach a terminal state via a handler, not by hand.
+> **REWRITTEN 2026-07-20 (bugfix-023 session).** The original third criterion — *"the 34
+> inert work items must reach a terminal state via a handler"* — has been **removed, not
+> satisfied**. It is not this bug's to meet: the write-only-queue defect is now owned by
+> **`bugs_open/033`** (human-review queue has no working surface — 292 items fleet-wide,
+> none ever actioned, 47 of them `cta_names_unknown_destination`), and 033 is blocked on an
+> owner decision about intent, not on code. Leaving it here made 023 permanently
+> un-closeable on its own scope: a bug cannot be gated on another bug's work. Class **G**
+> stays *documented* here as the origin evidence — it was found from this investigation —
+> but it is **tracked** in 033. Do not fix it here; do not close 023 waiting for it.
+
+Criteria, all re-measured 2026-07-20 19:15 (see NOTES for the queries):
+
+| # | Criterion | State |
+|---|---|---|
+| 1 | RUNBOOK R1 census falls **and stays fallen after a rebuild** — the real test, since a content-level fix regresses and a template/schema fix does not | **PARTIAL.** 51 → **39** (22 empty href + 17 bare `#`); the fragment class is **extinct** (4 → 0). Survived a full rebuild *and* the v1.0.1140 image roll on 2026-07-20 — so the fixes are structural, as intended. The 17 bare `#` were never in scope (different class). Target: the 22 empty hrefs, which fall with candidate 2. |
+| 2 | RUNBOOK R8 against the affected live tool pages: zero `href=""`, zero unresolvable fragments, no external host failing DNS | **MET**, and wider than filed. All four pages across three sites verified against the rendered artefacts post-image-roll: `finetuning.uk/tools/llm-cost-calculator`, `robot-hands.com/gripper-cycle-time-estimator`, both leopardess tool pages — 200, zero defects. |
+| 3 | **No component in the active library can pair a rendered label with an absent destination** — i.e. classes A/C/E are structurally impossible, not merely absent from today's pages | **NOT MET** — this is the real remaining bar. Current: **70 ungated anchors / 37 components** (was 75/38) and **22 `source:llm` url fields / 6 components** (was 21). Close it with candidates 2 + 4. |
+
+**Closure bar for this file:** criteria 1–3 above — i.e. classes **A, B, C, E**. Everything
+else has moved out, so that this file can close when *its own* scope is done:
+
+| class | now tracked in | why it left |
+|---|---|---|
+| **D** hardcoded dead fragment | — **CLOSED HERE** | migration 179 removed it; class extinct fleet-wide (4 → 0 anchors) |
+| **F** wrong-product static vocabulary | **`bugs_open/045`** | it is a *component-selection* defect (the library's only tool hero is a Bayesian ranker), not a label/url pairing one. Different fix, different blast radius. **Armed on 2 live `needs_rebuild` pages.** |
+| **G** detection with no consumer | **`bugs_open/033`** | wider than CTA — 292 items fleet-wide, none ever actioned; blocked on an owner decision |
+| **H** repair scope < detection scope | **council trail `2525f980`** | observe stage live in v1.0.1140, verified in-pod 2026-07-20; flip round follows the accumulated delta logs |
 
 ## Landmines
 
@@ -155,10 +178,19 @@ Full phasing in the plan. The headline:
   like an orphan; joining on `component_id` "finds" ~100 false orphans. I made the second
   mistake and corrected it — see NOTES.
 - **Running the experience loop now will not help.** It is a detection loop, and these
-  buttons are already correctly described in 34 unread items. Build the handler first.
+  buttons are already correctly described in unread items — 34 on leopardess at filing,
+  **still exactly 34 on 2026-07-20, none ever actioned.** More detection makes the invisible
+  pile bigger. The consuming surface is `bugs_open/033`'s work, not this file's.
 
 ## Related
 
+- **`bugs_open/045`** — class **F** split out 2026-07-20: the library's only tool-hero
+  component is hard-wired to a Bayesian ranker. Armed on 2 live `needs_rebuild` pages.
+- **`bugs_open/033`** — class **G** moved there 2026-07-20: the human-review queue has no
+  working surface (292 items, none ever actioned).
+- `bugs_open/039` — a section name resolving to **no** component renders a hollow stub; the
+  sibling branch of the same selector that produced class F (which is: resolving to the
+  **wrong** component). Worth fixing together with 045.
 - `bugs_open/001` — re-plan clobbers built pages (constrains where the leopardess fix can live)
 - `bugs_open/015` — mistyped `page_type` orphaned a page; same "routing key wrong → silence
   in every gate at once" shape

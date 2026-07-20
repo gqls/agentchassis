@@ -919,3 +919,69 @@ against. The flip round is now gated on time and traffic, not on the image.
 **Housekeeping:** the observe-stage runbook entry was committed as a second `R12` (mine
 from 14:00 already held it). Renumbered the later one to **R14**, content untouched,
 nothing referenced either number.
+
+---
+
+## 2026-07-20 19:30 — session 3 (bugfix-023): 023 RESCOPED on owner instruction — class F split to 045, class G handed to 033
+
+Owner asked whether to close 023. **Answer: keep it open — but it was carrying a closure
+criterion it could never meet**, and the fix for that is structural, not more debugging.
+
+### The trap that prompted this
+
+023's "How to verify a fix" required *"the 34 inert work items must reach a terminal state
+via a handler"*. Measured today:
+
+```
+leopardess:  21 unresolved_cta + 13 cta_names_unknown_destination = 34   (IDENTICAL to filing)
+fleet-wide:  66 unresolved_cta + 47 cta_names + 6 dead_control  = 119
+             ALL 119 at needs_human_review. Zero have EVER reached a terminal state.
+             oldest 2026-06-22.
+```
+
+That work is now owned by **`bugs_open/033`** (human-review queue has no working surface —
+292 items fleet-wide, none ever actioned, 47 of them `cta_names_unknown_destination`), filed
+today by the reasoning-dataset thread and blocked on an **owner decision about intent**, not
+on code. **A bug gated on another bug's owner-decision can never close on its own scope** —
+023 would have stayed open forever with its own work finished. Criterion removed and
+cross-referenced; class G stays *documented* in 023 as origin evidence, *tracked* in 033.
+
+> Found by grepping both bug dirs before recommending a new file, per the standing rule.
+> Had I not, I would have filed a duplicate of 033 — it was filed the same day by another
+> thread and is broader than CTA.
+
+### Class F split out as `bugs_open/045` — and it is ARMED, which the plan did not know
+
+Class F ("static fallbacks carry another tool's vocabulary") is a **component-selection**
+defect, not a label/url one: different fix, different blast radius. It was getting buried in
+a bug whose headline symptom reads as fixed. Grounding it for the new file turned up
+something neither 023 nor the plan recorded:
+
+```
+pages still REQUESTING hero-tool in pages.sections, build_status='needs_rebuild':
+  finetuning.uk              ai-agent-roi-estimator      ["hero-tool","tool-guide-intro",…]
+  ai-agent-orchestration.com agent-complexity-estimator  ["hero-tool","tool-guide-intro",…]
+live now: both 200, 0 Bayesian strings — clean ONLY because they have not been rebuilt
+```
+
+**Both are loaded guns.** The 023 cleanup removed the *placements*; it never touched the
+*plans*. The next rebuild of either page re-resolves `hero-tool` → the Bayesian component
+(still the only active match) and re-adopts it. So "the page looks fine" is not evidence
+here — a rebuild is what arms it. Also measured: **14** `source:static` Bayesian fallbacks
+on that component, not the 2 buttons the plan discussed; 37 tool pages / 10 sites latent.
+
+045 also cross-links **`bugs_open/039`** — the sibling branch of the same selector (039: a
+section name resolving to *no* component → hollow stub; 045: resolving to the *wrong*
+component). Worth fixing together; neither file knew about the other.
+
+### 023's remaining scope, re-measured
+
+Classes A/B/C/E only: **70 ungated anchors / 37 components** (was 75/38), **22 `source:llm`
+url fields / 6 components** (was 21 — it went UP, so the schema-lint is still earning its
+place), no build-time pairing check, no fragment/external checks. New criterion 3 states the
+bar structurally ("no component in the active library can pair a rendered label with an
+absent destination") rather than as a page-level snapshot, so it cannot be satisfied by
+cleaning pages again.
+
+**Nothing here needs further diagnosis** — the mechanism is confirmed and cited. What remains
+is construction with a known design. 016b §10 index updated for both files.
