@@ -47,11 +47,11 @@ from the homepage tool list per owner ruling, and its single inbound CTA repoint
   Tool pages here carry `sections = []` and have **zero** `site_plan_sections`
   rows *even when they work*. 039's Part 1 naming rule is still worth knowing; it
   just is not the trap here.
-- **`bugs_open/017…unregistered_action…` reads fixed-and-live in v1.0.1139**
-  (`grep -c handlerReportedFailure` → 6; registration at `registry.go:719`). Its
-  own file still says "STAYS OPEN … INERT until a chassis image ships" — **stale**.
-  Left for its owning thread. `[UNVERIFIED]`: I checked registration + guard
-  symbol, not a live failing saga.
+- **`017…unregistered_action…` is now CLOSED and lives in `/bugs_closed/`.**
+  This handoff first reported it as "reads fixed-and-live in v1.0.1139, own file
+  says otherwise, left for its owning thread" — they have since closed it
+  (`93edb02f7`, pod-verified). **Number 017 is still ambiguous**: the *other* 017
+  (`static_cutover_orphans_backend_entry_forms`) remains open. Resolve by slug.
 - **The image rolled to v1.0.1139** (pod started 2026-07-20 07:35Z), so the
   previous handoff's optional item 4 (`5151d4a79`) is moot.
 
@@ -134,6 +134,9 @@ MatchMatrix was hand-authored for exactly this reason.
    reverting to nav-order defaults until that thread lands its fix. The ones that
    currently read correctly do so because the resolver would choose that URL
    anyway.
+   **Moved on since:** that thread has rescoped 023 and split the library gap out
+   as `/bugs_open/045` — the only tool-hero component in the library is hardwired
+   to a Bayesian ranker — so 023 is no longer gated on it (`0bd6aa09d`).
 3. **`bugs_open/043` — generated copy invents quantitative claims.** Filed this
    turn, robot-hands contained. **The fleet-wide sweep has NOT been run** — that
    is the first thing the fixing thread should do (sweep query is in the file).
@@ -143,10 +146,12 @@ MatchMatrix was hand-authored for exactly this reason.
    on this site (body prose, `features`, `subheadline`, FAQ `questions`, `cards`).
    Correcting a statistic was containment; rewriting 42 paragraphs is a decision
    about what the site claims to be. Query to list them is in `043`.
-5. **`bugs_open/022` — the scheme guard.** Unchanged from the last handoff, still
-   unfixed (`grep -rn LayoutScheme platform/` → nothing). Its three
-   council-demanded verifications are already done; needs a council submission and
-   a fix. Per-site mitigation (`design_intent.palette` pin) is live and holding.
+5. **DONE by another thread — `bugs_open/022` is CLOSED.** The scheme guard
+   went live in v1.0.1140, verified against the pod and a real run
+   (`7812d4664`); the file has moved to `/bugs_closed/`. The previous handoff
+   listed it as open and so did this one, until `scripts/who-owns.py` surfaced
+   the closure. Nothing to do.
+
 6. **Optional: `tool-robot-payload-budget-calculator`.** Still `planned`, no page,
    card removed, CTA repointed — so nothing is user-visibly broken. If it is ever
    built, it is the *safer* of the two (formula-based, not data-backed) and the
