@@ -91,6 +91,53 @@ as applied. Keep the human in the verify step; make the tooling make that step e
 2. Force a duplicate-key failure on a scratch file → the failure message shows the hint.
 3. Dry run stays "Up to date" on the production ledger (nothing regressed).
 
+## RECURRENCE 2026-07-20 — it sprang again, three files, three different workstreams
+
+Found incidentally by a bugfix thread working `bugs_open/002`. The dry run reported
+**3 pending** — `157_restore_gripper_spec_qualifiers.sql`,
+`170_tool_list_card_image.sql`, `173_load_existing_pages_build_status.sql` — all three
+**already applied and unrecorded**, by three unrelated threads. The process rule above
+did not hold; ~4 days after it was written, the trap was fully re-armed.
+
+**Verified live BEFORE backfilling** (the check is the load-bearing part — a ledger row
+for a migration that never ran skips it *forever*, which is strictly worse than a
+replay):
+
+| file | artifact checked | result |
+|---|---|---|
+| 157 | `products.specifications->>'stroke'` for the two named grippers | `6 mm per jaw` / `10 mm per jaw`, voltage `24 V DC` — present |
+| 170 | `content_components.tool-list.html_template` | contains `{{if .image}}`, retains `tl-card-icon` |
+| 173 | `build-site-planner` `load_existing_pages` query | contains `p.build_status` and `adoption_locked` |
+
+Backfilled with `applied_by='ledger-backfill'` and a note naming the owning handoff and
+the exact check. Dry run now reports one genuinely-pending file
+(`177_council_tolerate_truncation.sql`, another thread's — deliberately left for its
+owner, since applying someone else's migration can violate an image-first ordering).
+
+**What this recurrence actually tells us.** The process rule is necessary and is not
+sufficient — it asks every thread to remember a second step, at the exact moment its
+task feels finished, in a repo where threads routinely hand off mid-task. It failed
+three times independently. That is not three careless threads; it is a rule doing a
+job that wants a mechanism. It strengthens the case for fix candidate 2
+(**`--record-only`**) and, more so, for the runner **detecting** an already-applied
+migration rather than dying on it. Until one of those lands, expect this to recur, and
+**run the dry run before believing the queue is clean** — the queue lies in the
+optimistic direction (it reports work that is already done, so the danger is a replay,
+not an omission).
+
+### Numbering collision, 2026-07-19/20 — do NOT "tidy" it
+
+Two `175_*` and two `176_*` files now exist (`175_experience_context_component_js.sql` +
+`175_robot_hands_contact_plan_sections_fix.sql`; `176_experience_compose_length_and_quoting.sql`
++ `176_leopardess_aspect_generic_text_block_fix.sql`), from two threads picking the next
+number concurrently. **This is harmless and must be left alone.** The ledger is keyed on
+`filename`, not on the number, so all four are recorded and none replays; the runner
+orders by `sort` and applies each once. **Renaming any of them to de-duplicate the number
+would break its ledger row and make an applied migration look pending again** — i.e. it
+would re-arm exactly the trap this file documents. The 2026-07-16 instance already
+recorded a numbering collision being dismissed as "cosmetic only"; the correct reading is
+that the number is cosmetic and the *filename* is the key.
+
 ## References
 
 - Travelling-docs `HANDOFF_2026-07-10_stage5_live_and_next_fronts.md` **T23** (discovery + backfill detail).
