@@ -41,6 +41,14 @@ locked). Its own header comment says so (`:4499-4505`), and the caller comment i
 
 **Consequence for any site NOT under a live adoption lock** (i.e. most sites: adoption locks expire
 after 90 days, and from-scratch builds are never locked):
+
+> **CORRECTED 2026-07-20 — there is no 90-day adoption lock; see `/bugs_open/051`.** The live
+> `load_existing_pages` query derives `adoption_locked` **per site** as "this site has no current
+> plan", so it is true for every page on a site's FIRST plan and false on every re-plan after it.
+> The per-page timed lock designed in `053_build_site_planner.sql` §054 branch (b) is absent from
+> the live query and has zero rows behind it fleet-wide (462 `site_plan_directives`, `locked_by`
+> NULL on all). The conclusion below is unaffected — if anything it is stronger, since the no-op
+> applied to **every** re-plan rather than to "most sites". What is wrong is only the stated reason.
 - `reconcilePlanWithRealised` is a **no-op** → the plan is the **raw LLM proposal**.
 - A built page the LLM **re-proposes by the same name** falls through every pass and is kept as the
   LLM's version (`:4627 kept = append(kept, lm)`). Its realised `sections` are **not** carried. →
@@ -312,6 +320,17 @@ Both halves are written; the Go half is **inert until the chassis image rolls**.
   a real workflow, step 4 is the designed way back in.
 
 **Known residual — Pass B still carries emptiness forward (found 2026-07-19, after committing).**
+
+> **SPLIT OUT AND CORRECTED 2026-07-20 → `/bugs_open/050`. The prescription in this paragraph is
+> UNSAFE — do not implement it.** Two errors. (a) The reachable set is wrong: a merely-catalogued
+> page cannot reach Pass B, because `existingPages = preserved` filters to adoption-locked-or-deployed
+> before `realisedByURL` is built. (b) More seriously, "take the LLM's sections when the realised ones
+> are empty" would let a re-plan attach a generic layout to the 18 deployed pages that carry no
+> sections — and all 18 are tool / blog-index pages that another subsystem renders (15 of them have
+> rendered `page_components` regardless). For a **deployed** page, `sections=[]` is a positive
+> statement — "not section-composed" — not an absence awaiting a fill. Implementing this paragraph
+> would inject content onto built pages: the class this very bug exists to stop. 050 carries the
+> measurement and a corrected fix that gates on deployed-ness rather than emptiness.
 Pass B (the URL-match rename snap-back) replaces the LLM page with
 `normaliseRealisedToPlanPage(rp)` **wholesale**, which carries the realised `sections` *including
 an empty `[]`*. Pass B2's non-empty gate does not protect this path, because Pass B `continue`s
@@ -457,3 +476,41 @@ was read.
 tables retained. `index` is paused and still carries the re-proposed composition; restoring it from
 `_darts_bak_20260719_pages` would desync `pages.sections` from the new `site_plan_sections`, so it
 was left alone pending a decision.
+
+---
+
+## CLOSED — 2026-07-20
+
+Moved to `/bugs_closed/`. The bar is **fixed AND live**, and the headline defect meets it: a re-plan
+can no longer silently re-compose or drop a `build_status='deployed'` page. Fixed in `c41e9ddbc` +
+migration 173, live on chassis `v1.0.1138`/planner `v1.0.1139`, and proven **twice** on dartsonline —
+the second run being the genuine rescue case (`index` kept `category-listing` against an LLM that
+proposed swapping in `content-listing`; `shipping-returns` refused an injected `faq`), on the same
+page that had lost sections in run 1 while it was `needs_rebuild`. Migration 173 re-checked live on
+2026-07-20 and still applied — no re-seed clobber.
+
+**Everything this bug did not fix now has an owner**, so nothing is lost by closing it:
+
+| left open by 001 | now |
+|---|---|
+| Pass B carries emptiness forward | `/bugs_open/050` — **and its prescription here was wrong; 050 corrects it** |
+| `needs_rebuild` pages unprotected (fix step 4 boundary) | `/bugs_open/037` |
+| every deployed page still rebuilt, content regenerated | `/bugs_open/038` |
+| function-vs-name confusion; section naming a missing component | `/bugs_open/039` |
+| failed build leaves a page deployed + stamped | `/bugs_open/040` |
+| `site_work_items.updated_at` not maintained (the trap this hit) | `/bugs_open/035` |
+| the "90-day adoption lock" premise, and Pass C2 being first-plan-only | `/bugs_open/051` |
+| pages still invented by the LLM | unfixed **by design** — needs fix step 4's explicit-intent plumbing, a policy call |
+
+**Council review: never obtained**, and now never will be for this change. Both rounds were voided by
+`/bugs_closed/019`; a third was not attempted. `c41e9ddbc` and `fcd8812f3` carry no
+`Council-Reviewed:` trailer and will show as unreviewed in the 098 report. That is 019's doing, not a
+skipped review. 019 is now closed, so the successor change in `/bugs_open/050` can and should go
+through the gate.
+
+**What this case is worth re-reading for.** Not the fix — the two corrections. The leopardess
+severity-raise was confidently attributed to this bug and belonged to two others (`/bugs_open/029` +
+a page-rerender path); the first live "proof" of Pass B2 firing compared a component's `name` against
+its own `function` and proved nothing about rescue. Both were caught by resolving the two things
+being compared to the same ground before comparing them — the shape that earned four tally rows in
+`WRONG_CALLS.md` from this workstream alone.

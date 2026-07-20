@@ -4528,7 +4528,7 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 // PRESERVATION SET (widened 2026-07-19, bugs_open/001). Formerly this was the
 // adoption-locked subset alone, which made the whole function a no-op on every
 // re-plan. NOTE what adoption_locked actually is (corrected 2026-07-20,
-// bugs_open/049): NOT a per-page 90-day lock — the live load_existing_pages
+// bugs_open/051): NOT a per-page 90-day lock — the live load_existing_pages
 // query derives it per SITE as "this site has no current plan", so it is true
 // for every page on a site's FIRST plan and false for every page on every
 // re-plan after that. The two-branch design in 053 §054 (branch (b): a live
@@ -4563,7 +4563,7 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 //	          acceptable, and it is not needed for this bug — invented pages carry
 //	          new topics and so collide with nothing. See bugs_open/001 "pages
 //	          invented", which this does not claim to fix.
-//	          CORRECTED 2026-07-20 (bugs_open/049): this used to read "bounded to
+//	          CORRECTED 2026-07-20 (bugs_open/051): this used to read "bounded to
 //	          the 90-day window that risk is acceptable". There is no 90-day
 //	          window — see the preservation-set note above. Because lockedPages is
 //	          empty whenever the site has a current plan, Pass C2 can fire ONLY on
@@ -4642,7 +4642,7 @@ func reconcilePlanWithRealised(
 	// Built deliberately from lockedPages, NOT the widened preservation set —
 	// see the Pass C2 note in the header for why this one heuristic stays
 	// narrow. In practice that makes it first-plan-only: lockedPages is empty
-	// whenever the site has a current plan (bugs_open/049).
+	// whenever the site has a current plan (bugs_open/051).
 	itemStemSets := make(map[string]map[string]bool)
 	for _, rp := range lockedPages {
 		rm, ok := rp.(map[string]interface{})

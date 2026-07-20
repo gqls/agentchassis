@@ -64,7 +64,7 @@ either way, what a deployed page's empty `sections` records is "not composed her
 
 The original second defect is real: a page preserved with `sections=[]` that genuinely *is* awaiting
 composition can never be filled, because the emptiness is carried forward every run. But that page
-is **not deployed** — it is preserved because it is adoption-locked, which per `/bugs_open/049`
+is **not deployed** — it is preserved because it is adoption-locked, which per `/bugs_open/051`
 means the site is on its **first plan**. Every case where the empty-gate was observed helping was a
 non-deployed page: dartsonline `guides-index`, `brands-index` and `shop-index` were all `planned`
 when they were composed (see 001's live-verification sections).
@@ -131,6 +131,6 @@ so the next thread does not read it as evidence for this bug.
   preserved-set filter (:4601), Pass B (:4698), Pass B2 (:4709), `normaliseRealisedToPlanPage` (:4487),
   `realisedPageIsBuilt` (:4757), `realisedSectionsOf` (:4767).
 - `/bugs_open/001` — the residual this splits out; **its prescription is superseded by §2 here**.
-- `/bugs_open/049` — why "adoption-locked" means "first plan only", which §3 depends on.
+- `/bugs_open/051` — why "adoption-locked" means "first plan only", which §3 depends on.
 - `/bugs_open/037` — the `needs_rebuild` boundary, a different slice of the same guard.
 - `/bugs_closed/019` — why 001 never got a council review.
