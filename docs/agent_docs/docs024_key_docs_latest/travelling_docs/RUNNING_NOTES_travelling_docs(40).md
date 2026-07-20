@@ -3622,3 +3622,124 @@ is only named in a comment; no index change. Worth knowing the check matches on
 mention, not modification.
 
 Categories: (fix, tests, owner-ruling, gotcha)
+
+---
+
+## 2026-07-20 (T31) — the reshaped plan, a FIFTH defect, and the Go half shipping without me
+
+### The plan got smaller once I read the call site
+
+Round 4's plan moved the re-render request OUT of tool-improver's workflow config
+and INTO `update_component_html_action.go`, calling `createRerenderWorkItem` —
+whose raw SQL bypasses `insertWorkItem`. `improvement_guardian` objected, the
+owner ruled "don't write the bypass, fix the two strike rule", and the two-strike
+fix landed as `f6e3f3166` (inert, opt-in).
+
+Reading the actual call site made two of the three reviewed edits unnecessary.
+**`create_work_item` ALREADY calls `insertWorkItem`** (`create_work_item_action.go:170`)
+— it is the normal path, not a bypass. So the fix is not to move the request into
+Go; it is to make the existing config-driven request carry what the pipeline
+needs. Nothing is deleted, so round 4's dangling `complete.config.output_fields`
+reference (found by the reviewers' own read-only check) cannot arise.
+
+The propagation was **already wired**, which I had not known:
+`rerender-pages.create_rerender_items.config` maps `reason ← input_data.spec.reason`
+and `component_id ← input_data.spec.component_id`; `create_rerender_items_action.go:139`
+sets `scoped = (reason IN section_data_resolved/image_landed) && component_id != ""`,
+and :243 stamps the reason onto each per-page item, which is exactly what
+`check_rerender_mode` gates on. The chain works the moment the item carries both
+values. It carried neither, and could not: `spec_data` resolves as a **path** only
+(`action_inputs.go:125-141` — Strategy 0 takes `config[field]` only when it is a
+dot-containing string), so no step could stamp a constant.
+
+### THE FIFTH DEFECT — and why the reviewed plan would not have worked
+
+Double-checking before committing, I found `loadComponentSchemas` **drops** any
+component failing `sectionTemplateValid`, which keys on containing `</section>`.
+A tool is self-contained HTML, not a section wrapper. The benchmark tool is
+10,626 chars, contains **no `</section>`** and ends `</script>` — so it never
+entered the schemas map. My exemption reads
+`if comp, ok := schemas[slot]; ok && isSelfContainedSection(comp)`. With `ok=false`
+**the exemption never fires**, and the page escalates exactly as before.
+
+Six of 27 active tool components were in that state, including all three
+gamesdesign tools. **Five council rounds reasoned about the guard; none of us
+asked whether the component reached it.** Added `toolTemplateValid`, reusing the
+write guard's own absolute signals (`balancedPairs` balanced + `endsCleanly`),
+calibrated against all 27 live templates: 19 whole ones pass, 8 truncated ones
+fail — and **four of those eight contain `</section>` upstream of the cut**, so
+the current guard admits them and would render broken markup.
+
+### The Go half shipped without me, on a REVISE
+
+Another session's sweep commit `bca5d8255` ("v1.0.1140 - sweep") picked up my four
+uncommitted files, and that commit is what v1.0.1140 was built from. Verified in
+pod `agent-chassis-5567d99bd6-5snzn` with a **discriminating** grep — positive
+control present, three strings my change CREATED present, negative control absent.
+
+This is the CLAUDE.md hazard, live: committing per task stops *me* sweeping
+*others'* WIP; it cannot stop a session running `git add -A` from sweeping mine.
+Nothing was lost, forward-only held. But it shipped on a **REVISE**, so no commit
+may carry a `Council-Reviewed:` trailer, and **[UNMEASURED]** nothing has
+exercised it — zero work items and zero errors since the 17:58Z roll, on a fleet
+quiet since 15:00. That is absence of exercise, not evidence of safety.
+
+Only two changes are live and non-opt-in: the tool exemption and
+`toolTemplateValid`. The four `create_work_item` affordances are default-off with
+no caller, so they are inert until migration 180.
+
+### MISSTEPS — mine, this session
+
+1. **The page's `build_status='needs_rebuild'` is NOT a blocker.** I read it as a
+   fifth defect for several minutes. `get_pages_for_rerender` filters on
+   **`p.status`** (`get_pages_for_rerender_action.go:153`), which is `'active'`.
+   Two different columns. Caught before it reached the submission.
+2. **"12 of 122 components" was wrong** — live it is **13 of 123**. Worse, my
+   stated justification, *"no tool has an input_schema"*, was **false**: 14 of 27
+   active tool components declare one. The predicate is fine because it tests the
+   schema; the defence I wrote for it was not true. Carried forward unchecked from
+   round 4, a **one-day-old** figure. Caught by the council refusing to take a
+   population on prose, not by me.
+3. **A stale `file:line`, shifted by my own edit.** Cited the sibling heuristic at
+   `plan_sections_action.go:1090-1108`; it is at **1141-1160**, moved partly by my
+   own `toolTemplateValid` insertion in that same file. I also called it "silent":
+   it is not — it logs at **Warn** with function and section and sets an explicit
+   `item.Reason`. The invisible part is the *consequence* (a deferred section is
+   carried, so a template fix is discarded), which is the sharper claim.
+   Caught by opening the function before filing `bugs_open/044`.
+
+Both 2 and 3 are logged in `WRONG_CALLS.md`, including a new tally row:
+*re-resolve a file:line you carried across sessions — above all one you edited
+yourself*.
+
+### Round 6 dispositions (round 5 = 9 approve / 3 object / 3 abstained → REVISE)
+
+- `bug_historian` MED → sibling heuristic **filed as `bugs_open/044`**, not left
+  in prose. Verified latent: 0 of 27 tools trip the five substrings.
+- `bug_historian`/`guardian` LOW → population corrected (above).
+- `guardian` MED (blast radius) → **9 agent types** call `create_work_item`, one
+  step each; after 180 exactly one sets a new key.
+- `guardian` MED ("could the key scoping be config-only?") → **no**:
+  `item_key_prefix` is a static string, the component varies per run, so a
+  per-component key needs a *resolved* value. That is why the suffix is a path.
+- `debug_historian` MED → migration hardened: defensive `ROLLBACK`, counting
+  pre-flight that distinguishes "already applied" from "target missing",
+  needle gate, `RETURNING` post-conditions, post-condition block, separate
+  VERIFY + ROLLBACK files. Rollback **strips the four keys** rather than restoring
+  the snapshot, because a snapshot restore would revert other threads' later
+  changes to the same agent (its `error_step` moved twice today, `40c8f00b4`).
+- `tooling_provenance` MED → loaded the subject's travelling NOTES first (three
+  `fix` notes, every one ending *"Verified: pending rerender + acceptance"* — the
+  docs record the loop believing it succeeded three times while the page never
+  changed), and 180 now **writes** a `('pipeline','build')` note.
+- `reuse_agent` LOW → no existing literal-vs-path convention exists to extend;
+  Strategies 1-3 are `input_fields`, recursive extraction, deprecated `*_field`.
+
+### Numbering, re-grounded twice in one day
+
+**179 was taken** by another thread between rounds
+(`179_tool_guide_intro_cta_integrity.sql`, now in ledger AND directory), so mine
+is **180**. `177` and `178` remain on disk with **no ledger rows** —
+`bugs_open/007`'s trap, still armed. Next free bug number was **044**.
+
+Categories: (fix, gotcha, owner-ruling, council, misstep)

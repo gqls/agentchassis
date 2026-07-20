@@ -63,18 +63,58 @@ site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk) · tools `tool-x
 
 ---
 
-## 7. RESUME HERE — `bugs_open/024`, part-built *(written T30, 2026-07-19)*
+## 7. RESUME HERE — `bugs_open/024`: Go half LIVE, config half pending *(rewritten T31, 2026-07-20 evening)*
+
+> **T31 SUPERSEDES most of what follows.** The Go is **already in production**
+> (v1.0.1140) — swept in by another session's commit `bca5d8255` while round 5 was
+> being judged, and verified in pod `agent-chassis-5567d99bd6-5snzn` with a
+> discriminating grep. It shipped on a **REVISE**, so **no commit may carry a
+> `Council-Reviewed:` trailer for it.** The single remaining step is applying
+> **migration 180** (committed `dbb19169d`, NOT applied). Until then the live Go
+> does nothing for the bug.
 
 **The single sentence:** a tool-improver fix is written correctly to
 `content_components.html_template` and **never rendered onto the page**, so every
-re-verification tests an unchanged page. Three defects in series, all evidenced
-in `bugs_open/024`:
+re-verification tests an unchanged page. **Five** defects in series (T30 knew of
+three; T31 found the fifth, and it is the one that made the reviewed plan a no-op):
 
 | # | defect | status |
 |---|---|---|
-| 1 | `update_component_html` only sets `page_components.build_status='pending'` — **nothing in the repo scans it** (`store_generated_component_action.go:455` says so) | not started |
-| 2 | tool-improver's rerender request carries **no `spec.reason`**, so `check_rerender_mode` falls to `else_step: render_page` = `rerender_single_page` = *"Simple concatenation - no template re-rendering"* → deploys stale HTML, reports success | not started |
-| 3 | forcing the correct branch **escalates instead of rendering**: the content pre-check refuses any section with empty `content_data`, which every self-contained tool has by design → `check_escalated` routes to `complete`, bypassing `save_sections`, the ONLY writer of `rendered_html` | not started |
+| 1 | `update_component_html` only sets `page_components.build_status='pending'` — **nothing in the repo scans it** (`store_generated_component_action.go:455` says so) | **not a blocker after all** — the request is made by tool-improver's own `create_rerender_item` step, which uses `create_work_item` → `insertWorkItem` (the NORMAL path, `create_work_item_action.go:170`). The dead flag remains dead; see 024 candidate 3 |
+| 2 | tool-improver's rerender request carries **no `spec.reason`** and no `spec.component_id`, so `create_rerender_items` computes `scoped=false`, `check_rerender_mode` falls to `else_step: render_page` = *"Simple concatenation - no template re-rendering"* → deploys stale HTML, reports success | **FIXED, pending apply** — migration **180** |
+| 3 | the content pre-check escalates any section with empty `content_data`, which every self-contained tool has by design → `check_escalated` routes to `complete`, bypassing `save_sections`, the ONLY writer of `rendered_html` | **FIXED & LIVE** — `isSelfContainedSection`, keyed on `component_level='tool'` + empty `input_schema` |
+| 4 | `item_key` is `<prefix>_<domain>` = **site-wide**, so `insertWorkItem`'s anti-churn block counted two **SUCCESSFUL** predecessors as strikes and branded later requests `unresolved` | **FIXED & LIVE** (`item_key_suffix_field` + `recurrence_expected`), **activated by 180** |
+| 5 | **`loadComponentSchemas` DROPS tool components entirely.** `sectionTemplateValid` keys on containing `</section>`; a tool is self-contained HTML ending `</script>`. The benchmark (10,626 chars, no `</section>`) never entered the schemas map — so defect 3's exemption looks it up, finds nothing, and **never fires**. 6 of 27 active tools were in this state, incl. all three gamesdesign tools | **FIXED & LIVE** — `toolTemplateValid`, calibrated against all 27 live templates (19 pass / 8 truncated fail; 4 of those 8 pass the OLD guard and would render broken markup) |
+
+**Do this next, in order:**
+1. Read the round-6 verdict (`RUN_ORCH_ID=5688a8b2-48cc-4285-9372-3eb753017751`,
+   trail `7ef4de4e-…`). Poll `diagnosis_artifacts` **filtered by
+   `orchestration_id`**, never by correlation alone.
+2. Apply **`docs/agent_docs/sql_for_agents/180_tool_improver_rerender_request.sql`**,
+   then run its `_VERIFY.sql`. **Insert the ledger row in the same sitting** —
+   `177` and `178` are already on disk with no ledger row (`bugs_open/007`, still
+   armed).
+3. Re-run improve → rerender → acceptance and watch `tool-loot-table-balancer` go
+   GREEN on `mobile-fit@mobile`. **Do not hand-fix the benchmark.** The proof
+   query is in `bugs_open/024` § "How to verify a fix" — match the **specific**
+   rule (`minmax(0, 2fr)`), never a generic CSS property.
+4. **Watch for up to 8 new `needs_new_component` items** fleet-wide: `toolTemplateValid`
+   now rejects 8 genuinely truncated tool templates that the old guard admitted.
+   Correct, but it is a visible side effect nobody asked for.
+
+**[UNMEASURED]** Nothing has exercised the live changes: zero work items and zero
+errors since the 17:58Z roll, on a fleet quiet since 15:00. Absence of exercise,
+not evidence of safety.
+
+**Corrected figures** (both of mine were wrong, see `WRONG_CALLS.md`): the
+exemption matches **13 of 123** active components, not 12 of 122; and **14 of 27**
+active tool components **do** declare an `input_schema`, so the empty-schema half
+of the predicate is load-bearing, not a formality.
+
+**Sibling bug filed:** `bugs_open/044` — a second call site makes the same
+"is this emptiness legitimate?" judgement by matching the function name against
+`article/content/body/text/blog` (`plan_sections_action.go:1141-1160`). Latent:
+0 of 27 tools trip it today.
 
 Plus the enabler found on the way: `insertWorkItem`'s two-strike rule counted a
 **successful** `complete` as a failed attempt, so two successful rerenders
@@ -133,6 +173,14 @@ poisoned a site-wide key and later rerenders were born `unresolved`.
 ---
 
 ## Turn log (newest first — update EVERY turn)
+- **T31 (2026-07-20, evening):** **The Go half of 024 is LIVE in v1.0.1140 — swept in by another session, on a REVISE verdict. A FIFTH defect found on double-check, without which the council-reviewed plan would not have worked. Migration 180 written + committed, NOT applied.**
+  - **The plan got SMALLER once I read the call site.** Round 4 moved the re-render request into `update_component_html_action.go` via `createRerenderWorkItem`'s raw-SQL bypass; the owner ruled against that and the two-strike fix landed (`f6e3f3166`, inert). Reading the call site made two of three reviewed edits unnecessary: **`create_work_item` ALREADY calls `insertWorkItem`** (`create_work_item_action.go:170`) — the normal path, not a bypass. And the propagation was **already wired**: `rerender-pages.create_rerender_items` maps `reason ← input_data.spec.reason` and `component_id ← input_data.spec.component_id`, `create_rerender_items_action.go:139` sets `scoped` from both, `:243` stamps the reason onto each per-page item, which is what `check_rerender_mode` gates on. The chain works the moment the item carries both values. It carried neither, and **could not**: `spec_data` resolves as a **path** only (`action_inputs.go:125-141`), so no step could stamp a constant. Hence `spec_literal`/`spec_paths`.
+  - **THE FIFTH DEFECT — the reviewed plan was a no-op.** `loadComponentSchemas` DROPS any component failing `sectionTemplateValid`, which keys on `</section>`. A tool ends `</script>`. The benchmark never entered the schemas map, so the exemption's `schemas[slot]` lookup fails and **it never fires**. 6 of 27 active tools, incl. all three gamesdesign tools. Five council rounds reasoned about the guard; **none of us asked whether the component reached it.** `toolTemplateValid` reuses the write guard's own signals (`balancedPairs` + `endsCleanly`), calibrated against all 27 live templates: 19 pass, 8 truncated fail — **4 of those 8 contain `</section>` upstream of the cut**, so the OLD guard admits them and can render broken markup.
+  - **Shipped without me.** Sweep commit `bca5d8255` ("v1.0.1140 - sweep") took my four uncommitted files; that commit is what v1.0.1140 was built from. Verified in pod `agent-chassis-5567d99bd6-5snzn`: positive control present, three strings my change CREATED present, negative control absent. **The CLAUDE.md hazard, live** — committing per task stops *me* sweeping *others'* WIP; it cannot stop a session running `git add -A` from sweeping mine. Nothing lost, forward-only held. **On a REVISE, so no `Council-Reviewed:` trailer is legitimate.** Only two changes are non-opt-in (the exemption, `toolTemplateValid`); the four `create_work_item` affordances are default-off with no caller until 180.
+  - **Round 5 = 9 approve / 3 object / 3 abstained → REVISE.** Dispositions: `bug_historian` MED → sibling heuristic **filed as `bugs_open/044`** (latent: 0 of 27 tools trip it); `guardian` MED → blast radius settled, **9 agent types** call `create_work_item`, one step each; `guardian` MED ("could key scoping be config-only?") → **no**, `item_key_prefix` is a static string and the component varies per run, so it needs a *resolved* value; `debug_historian` MED → migration hardened (defensive `ROLLBACK`, counting pre-flight distinguishing "already applied" from "target missing", needle gate, `RETURNING` post-conditions, post-condition block, separate VERIFY + ROLLBACK files, rollback **strips keys** rather than restoring the snapshot since that would revert other threads' later changes — `40c8f00b4` moved this agent's `error_step` twice today); `tooling_provenance` MED → loaded the subject's travelling NOTES first (three `fix` notes, each ending *"Verified: pending rerender + acceptance"* — the docs record the loop believing it succeeded three times while the page never changed) and 180 now **writes** a `('pipeline','build')` note. Round 6 submitted, `RUN_ORCH_ID=5688a8b2-48cc-4285-9372-3eb753017751`.
+  - **THREE WRONG CALLS OF MINE, two logged in `WRONG_CALLS.md`.** (i) Read the page's `build_status='needs_rebuild'` as a fifth blocker — `get_pages_for_rerender` filters on **`p.status`** (`:153`), which is `'active'`. Two different columns; caught before it reached the submission. (ii) **"12 of 122" was wrong (live: 13 of 123), and my justification "no tool has an `input_schema`" was FALSE — 14 of 27 do.** Carried forward unchecked from a **one-day-old** doc; caught by the council refusing to take a population on prose. (iii) Cited `plan_sections_action.go:1090-1108`; it is **1141-1160**, shifted partly **by my own edit to that file**, and it is **not "silent"** — it logs at Warn with function and section. New tally row: *re-resolve a file:line you carried across sessions — above all one you edited yourself*.
+  - **Numbering moved twice in one day:** **179 was taken** by another thread mid-round (`179_tool_guide_intro_cta_integrity.sql`), so mine is **180**. `177`/`178` remain on disk with **no ledger rows** — `bugs_open/007` still armed. Next free bug was **044**.
+  - **NEXT:** §7. Read the round-6 verdict, apply 180 + its VERIFY (ledger row same sitting), re-run improve→rerender→acceptance, watch the benchmark go green, and watch for up to 8 new `needs_new_component` items from `toolTemplateValid`'s reject direction.
 - **T30 (2026-07-19, late):** **Owner ruled against the bypass; two-strike rule FIXED (`f6e3f3166`); §0 + §7 rewritten for a clean new-chat start.** The council's one open objection (`improvement_guardian`) was that edit 1 leaned on `createRerenderWorkItem`'s raw-SQL insert, which bypasses `insertWorkItem`'s dedup/two-strike machinery — and my rationale had *touted* that bypass. Owner: **"don't write the bypass, fix the two strike rule."** Done: **`workItem.recurrenceExpected`** skips BOTH anti-churn heuristics — the two-strike label and the **within-cycle (<3h) suppression**, the latter being the more dangerous since it drops the item entirely and returns no error, so a fix landing within 3h of a previous rerender loses its deploy silently. **Dedup is NOT waived** (`idx_swi_dedup` still refuses a second OPEN item for the same key). **Opt-in, default false → INERT until a caller sets it**; none of the 24 existing `insertWorkItem` call sites change. **6 tests added (there were none for this rule)** — and the first version of the "poison" test passed without ever proving the row was branded `unresolved`, so they now assert the written **status and summary** ($12/$6), not merely that a row landed. Live scale of the defect: **111 items born `unresolved` in 30 days across 9 item types** (`undeployed_asset` 53, `needs_internal_links` 14, `page_rerender` 12, `deactivated_component` 11, `needs_sprite_css` 10, `needs_rerender` 4) — only the tool path is opted in; the rest is a per-type judgement.
   - **`bugs_open/031` filed then handed over.** The register-staleness case (a seat quoting our own concept register as "the pipeline's own contract" and blocking a correct plan at HIGH severity). Evidence went further than "stale": `git log -S "content_hash"` over the three rerender files returns **no commits at all** — the mechanism was **never** true, so the originating thread most likely observed a real symptom (pages not updating) and inferred a wrong cause. **Owner says another thread now owns it — marked as such in the case file, the 016b §10 row and T29; do NOT open a parallel front** (the correction spans five files). ⚠️ Until it lands, **any submission touching the rerender path will draw the same objection** — the disproof is in T29 and round 4's `grounded_in`.
   - **Fleet moved under us twice:** chassis+adapter **v1.0.1137 → 1138 → 1139** during this session, and migrations reached **177** (with duplicate 175s and 176s). §0 re-grounded against the live pods and ledger; **next free migration 178**. Both my round-4 submissions were eaten by the ~300s post-restart dispatch hole.

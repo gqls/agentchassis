@@ -580,3 +580,39 @@ Done — committed as ece827ead, four files, all mine.
   And the fleet moved under me twice today — the chassis went from 1137 to 1139 while I was working, and the migration numbers reached 177 with two sets of duplicates. So I've re-grounded the version and migration figures in the handoff against the live system rather than copying them forward, and noted that anyone reading them should do the same rather than trusting the line.
 
 ※ recap: Docs are ready for a cold start — handoff section 7 is the resume block, and a new evening read-out replaces this morning's, which I corrected in place rather than removing because what it got wrong is the useful part. Two fixes committed (one proven, one inert); the three delivery faults are diagnosed and planned but unwritten.
+
+---
+
+2026-07-20 (evening) — the fix is written, half of it is already live, and it got there by accident.
+
+  Short version: the repair loop's last broken link is fixed in code, that code is running in production, and it went out without my putting it there. The remaining piece is a one-row database change I've written and committed but not yet applied.
+
+  What I actually found, and it's the important bit
+
+  I'd had a plan reviewed by the council four times over two days. Before committing it I went back and checked it properly, and found it wouldn't have worked.
+
+  The fix teaches the re-render step that a tool legitimately has no text content, so it should render it rather than bail out. Sound as far as it goes. But further upstream there's a check that decides whether a component's template looks complete, and it decides by looking for a closing `</section>` tag. A tool isn't a section — it's a self-contained lump of HTML that ends with a closing script tag. So the tool was being thrown out before it ever reached the part I was fixing. My exemption looks the component up in a list it had already been dropped from, finds nothing, and does nothing.
+
+  Six of our twenty-seven tools were in that state, including all three on the games site. Five rounds of review, several of them mine, and every one of us reasoned about the check without asking whether the thing being checked ever got that far. I've replaced that test for tools with the one we already use elsewhere — is every tag closed, does it end cleanly — and calibrated it against all twenty-seven real templates. Nineteen healthy ones pass. Eight damaged ones fail, and four of those eight sail through the current test, which means today we can render a half-written tool onto a live page.
+
+  The bit you should be annoyed about
+
+  While the review was running, another session committed everything in the working tree, including my four unfinished files, and that commit is what tonight's build was made from. So my changes are live. I checked the actual running binary rather than trusting git, and they're definitely in there.
+
+  Two of them apply to every site, not just the one I'm working on. Nothing has exercised them yet — the fleet's been quiet since three o'clock, no work items, no errors — so I can't tell you they're safe, only that nothing has touched them. I've written it up as unverified rather than dressing it up as clean.
+
+  I'd also flag that they went out on a "revise" verdict, not an approval. So none of this can honestly carry the "council reviewed" marker, and I haven't put one on it.
+
+  Where it stands
+
+  The live code does nothing on its own. Until the database change lands, the repair step still doesn't say why it wants a re-render, so the system still takes the cheap path, re-publishes the old page, and reports success. That change is written, hardened against everything the reviewers objected to, and committed with its own verify and rollback scripts. It's waiting on the sixth review round, which is queued.
+
+  Three things I got wrong today, all now written down
+
+  I read a database column as a blocker for about five minutes before noticing I was looking at the wrong one of two similarly-named columns. I repeated a population figure from yesterday's document without re-checking it — it was 13 of 123, not 12 of 122 — and worse, I'd justified the fix by saying no tool has a content schema, when in fact fourteen of the twenty-seven do. The code was right; my reason for it wasn't. And I cited a line number that had moved, partly because I'd moved it myself earlier in the session.
+
+  The council caught the second one by refusing to accept a number without a query. I caught the third by opening the file before filing. All three are in the wrong-calls ledger.
+
+  I've also filed a separate bug for something the reviewers pushed me on: there's a second place in the code making the same judgement about empty components, and it still decides by pattern-matching the component's name against words like "article" and "content". Nothing trips it today. The first tool named something like "tool-content-planner" will.
+
+※ recap: The fix is written and half of it is already live in production, swept in by another session's commit and verified in the running binary — on a "revise" verdict, so it carries no review claim, and nothing has exercised it yet. Checking my own work before committing found a fifth defect that would have made the whole plan a no-op. The remaining database change is written, committed, and waiting on the review round now queued.
