@@ -237,3 +237,88 @@ verification that needs a round trip through this topic can be a **multi-hour**
 proposition with no failure signal at all — the run simply does not exist yet.
 Check `LAG` before you start, and do not read an absent `orchestration_states` row
 as a dropped spawn (that misreading is already a `WRONG_CALLS.md` row, twice).
+
+## CORRECTION 2026-07-20 (bugfix-030 thread) — the 0.21 msg/min figure is an artifact; ~2.4 msg/min measured
+
+> **This corrects the "Measured throughput, 2026-07-20 19:16–19:31 UTC" section
+> immediately above, not the entry as a whole.** That section's *mechanism*
+> conclusion is right and is independently confirmed below. Its *rate* — and the
+> "~6.5 hours" wait that follows from it — comes from a mistimed first reading.
+
+**What is wrong.** That section's two readings are, exactly and to the digit, two
+samples from a continuous 30-second sampling run this thread had going at the same
+time:
+
+```
+their "19:16"  current=96013  end=96099  lag=86   <- my sample at 19:29:48 UTC
+their "19:30"  current=96016  end=96102  lag=86   <- my sample at 19:30:57 UTC
+```
+
+So the two readings are **69 seconds apart, not 14 minutes.** The first one cannot
+have been taken at 19:16, because the offset was pinned at **96010** for the whole
+of 19:21:16–19:28:40 (15 consecutive samples) — for `current=96013` to be true at
+19:16 the committed offset would have had to run *backwards*, which it does not do
+absent a group reset. Full sample file:
+`docs024_key_docs_latest/dispatch_queue_serialisation/EVIDENCE_lag_samples_2026-07-20.txt`.
+
+3 messages / 69 s ≈ **2.6 msg/min**, not 0.21. The stated figure is ~12× too slow
+and the ~6.5-hour queue estimate is wrong by the same factor.
+
+**What the rate actually is.** Continuous sampling, 19:10:37 → 19:32:39 UTC
+(22 minutes, offset 95963 → 96016): **53 messages ≈ 2.4 msg/min.** At that rate a
+queue 86 deep clears in **~36 minutes** — which lands squarely on the **25–36 min**
+this entry measured on 2026-07-19. The original figure was right; nothing had
+degraded by an order of magnitude.
+
+**Why the error is easy to make, and the rule that prevents it.** Two point
+readings cannot measure this queue, because the drain is a **sawtooth**: it pins at
+one offset for minutes while a single long message is processed, then bursts.
+Measured here: pinned at 95963 (≥2 min), then **+47 messages in ~8.5 min**, then
+pinned at 96010 for **~8 min**, then moving again. Any two samples that happen to
+straddle a stall give an arbitrarily low rate; two inside a burst give an
+arbitrarily high one. This is the same trap as the frozen-offset landmine above,
+one level up: **a static offset misleads about liveness, and two static offsets
+mislead about throughput.** Sample continuously for ≥20 min and take the slope —
+see RUNBOOK R2 in the workstream dir.
+
+**What that section gets right, and this thread confirms from the source.** Its
+inference that "the rate is set by orchestration DURATION, not by queue mechanics …
+consistent with the consumer running each orchestration to its wait point before
+taking the next message" is **correct**, and was reached independently here by
+reading the code rather than the clock:
+
+- `platform/agentbase/agent.go` `processRequests()` calls `processMessage()`
+  **synchronously** — the loop cannot fetch again until the message is fully handled.
+- `platform/orchestration/coordinator.go` `continueExecution()` is a `for {}` loop
+  calling `executeStep` repeatedly, advancing consecutive steps **inline**;
+  `grep -n "go func\|go p\.\|go c\.\|go sc\." platform/orchestration/coordinator.go`
+  returns **nothing** — that file spawns no goroutines at all.
+- One local LLM step measured at ~28 s in the pod log
+  (`ai_actions.go:234 Rendered prompt template` 19:14:16 → `ai_actions.go:479 LLM
+  response received` 19:14:44), with `coordinator.go:923 Transitioning to next step`
+  immediately after.
+
+So throughput really is ≈ `1 / (mean duration of an inline step-run)`, and the
+8-minute stalls are single messages executing multi-step segments.
+
+**Consequence for "Fix candidates" above — candidate 2 is not sufficient alone.**
+`agent-chassis` runs `replicas: 1` with **no HPA** (verified 2026-07-20:
+`kubectl -n ai-persona-system get deploy agent-chassis -o jsonpath='{.spec.replicas}'`
+→ `1`; `get hpa` → no resources). Raising `PartitionCount` would hand every
+partition to that single consumer, which would still run one blocking goroutine —
+**no throughput gain, and partition count cannot be reduced later.** Whatever else
+is done, the replica count and the synchronous handler have to be part of it.
+**[This specific claim is UNCONFIRMED — filed for diagnosis 2026-07-20, corr
+`78470372-7617-40e4-888c-66cac94006bf`, rather than asserted.]**
+
+**Also: the frozen-offset landmine above explains the right symptom with the wrong
+mechanism.** It states offsets "are committed *after* a message is fully
+processed". They are not — `platform/kafka/consumer.go` `Consume()` calls
+`CommitMessages` **immediately after `FetchMessage`, before the message is returned
+to the caller**, so the commit happens before `processMessage` runs (the adjacent
+comment, "After successful processing, commit the offset", is inaccurate). The
+landmine's practical advice is still correct, for a different reason: the loop is
+blocked inside `processMessage` and therefore never calls `Consume()` again, so no
+new offset is fetched or committed. (The commit-on-fetch behaviour is at-most-once
+delivery and is already recorded as a root cause in the bugfix-003 spawn-loss
+workstream — not new, but not what this entry says.)
