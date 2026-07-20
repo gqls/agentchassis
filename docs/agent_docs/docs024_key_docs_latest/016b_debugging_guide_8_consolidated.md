@@ -777,6 +777,24 @@ already-applied possibility when the error is a duplicate key.
 applied-but-unrecorded migration becomes a roadblock with the original author's
 name on it, and the diagnosis cost is paid by whoever hits it next.
 
+**Fixed 2026-07-20** — the runner now has `--record-only <file> --note "<why>"`
+and a failure message that names the already-applied possibility. Shell only, so
+live on commit.
+
+**A companion trap in the same file: a file-selection pattern decides what is
+"work", so anything that merely *looks* like the work item gets done to you.**
+The runner's candidate regex `^[0-9]{3}_[A-Za-z0-9_]+\.sql$` matched
+`180_..._ROLLBACK.sql` and `180_..._VERIFY.sql` — hand-run companions, never
+meant to be auto-applied — so both were listed as pending migrations. The
+rollback strips its migration's keys and deletes its ledger row; its guard is no
+help, because the guard fires when the migration is *absent* and it was present.
+Generalise: **when a glob or regex defines a work queue, ask what else in that
+directory satisfies it** — the dangerous match is the one whose name is *more*
+specific than the pattern, not less. And when you exclude something from a
+queue, **print what you excluded**: a silent skip is indistinguishable from an
+empty directory. Found by taking a baseline dry run before starting the fix,
+which is the only reason it surfaced at all.
+
 **Cross-refs.** `bugs_open/007`. Category tags: `migration-ledger` (new),
 `shared-state-coordination`.
 
@@ -2493,3 +2511,65 @@ answer to the second is no, verify the RUNTIME value before trusting the config.
 whether config is wired up"* (same family — config that reads as live but was never
 parsed); `/bugs_open/008` (a capped call should fail loudly, closing this class end
 to end); `/bugs_open/012` (`output_tokens == max_tokens` means CUT, not finished).
+
+### A step name is not an agent — several workflows share one, and the run that "proves" your fix may belong to a different agent (2026-07-20)
+
+**Symptom.** You verify a fix by querying a log keyed on `step_name`, get a clean
+post-fix row with correct timestamps, and conclude the fix is proven. It is proven
+— for a different agent. Your agent never ran. Nothing in the numbers shows this,
+because every column you selected is genuinely correct.
+
+**The instance.** `bugs_open/016_…council_revise_prompts_drop_reviewer_output`
+(resolve 016 by SLUG — `bugs_closed/016` is the ssh/`$HOME` case). Finding 1: council
+revisers rendered every reviewer as `<no value>`. The fix landed on `fix-proposer` at
+13:15:11Z. A verification query joined `llm_call_log.step_name='repropose'` to
+`orchestration_states.created_at` — correctly avoiding the step-time-vs-run-time trap
+the same document warns about — and found run `a8b66dee`, started 15:27:33Z, rendering
+**no** `<no value>`. That was written up as "PROVEN IN THE WILD".
+
+`a8b66dee` is the **feature-designer**. Three agents (`fix-proposer`,
+`feature-designer`, `experience-planner`) each have a step called `repropose`.
+`fix-proposer`'s last repropose belongs to run `48cf0339`, started 13:11:13Z — four
+minutes *before* its own fix. Every fix-proposer repropose on record is pre-fix, and
+the fix is still unexercised two days later. Two threads read the write-up and neither
+caught it; a third nearly "corrected" the bug file's accurate closing line to match
+the inaccurate proof.
+
+**Why the usual defences don't fire.** `owner_agent_type` is `generic` fleet-wide on
+these rows, and `llm_call_log.agent_type='fix-proposer'` returns *nothing ever* — so
+the obvious discriminators read as "never ran" rather than as "wrong question", and
+you fall back to the step name. The document even warned that `persist_plan` is not
+fix-proposer-only. That warning was scoped to one step name, and the scoping stood:
+**a document warning you about a trap does not inoculate you against the same trap in
+its neighbouring paragraph.**
+
+**The check.** Fingerprint the run by the steps it actually carries, which is
+unambiguous and costs one query:
+
+```sql
+SELECT string_agg(k, ', ' ORDER BY k)
+FROM orchestration_states o, LATERAL jsonb_object_keys(o.workflow_plan->'steps') k
+WHERE o.orchestration_id::text LIKE '<orch-prefix>%';
+```
+
+`load_diagnosis`/`propose`/`code_lookup`/`select_panel` + 13 seats → `fix-proposer`;
+`load_spec`/`design`/`check_spec_approved` + 5 seats → `feature-designer`;
+`review_journeys`/`review_feasibility`/`compose` → `experience-planner`. Better still,
+key the probe on a step only ONE agent has (`load_council_reviews` is fix-proposer's).
+
+Cheapest tell of all, and what actually caught it: **read the rendered prompt, not just
+the flags you selected on it.** `a8b66dee`'s opened *"REVISE the staged build plan …
+stages are commits … capabilities listed missing"* — designer vocabulary. `fix-proposer`
+revises an *edit plan* against a *diagnosis*. One `left(prompt_rendered, 700)` settles
+what no amount of timestamp arithmetic can.
+
+**The general form.** `step_name`, `agent_type`, `orchestration_name` and `source_agent`
+are all *labels applied by the writer*, and the chassis flattens several of them to
+`generic`. The `workflow_plan` is *structure* and cannot be flattened. When a label is
+load-bearing for a claim, verify it against structure.
+
+**Related:** §9 *"A pod-grep marker that the build does not retain reads exactly like a
+stale deploy"* and *"The pod-grep passes even when nothing shipped"* (same family — a
+check that passes on something other than what you meant); §9 *"A fix applied to one
+branch of a two-branch router reads as done"* (the sibling entry from the same bug);
+`WRONG_CALLS.md` 2026-07-20 for the near-miss this came from.
