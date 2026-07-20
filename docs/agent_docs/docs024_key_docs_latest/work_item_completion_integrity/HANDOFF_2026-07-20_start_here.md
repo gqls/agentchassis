@@ -110,6 +110,11 @@ and its `hardcoded_section_colors` verifier was unimplementable under the old co
    whole-page verifier would mark correctly-handled items unresolved and strand them in
    `failed`. **Six tests passed** — they tested the predicate I chose, not the one the
    handler implements. → `WRONG_CALLS.md` 2026-07-20.
+   **Verified in the handler 2026-07-20** (it had rested on the detector's comment):
+   `rerender_page_sections_action.go:283-296` gates on `ctaFieldNames[fn]`, and
+   `applyCTARecompute` declines twice more — it keeps an already-valid authored link and
+   writes nothing when there is no valid target. The remit is narrower than the comment
+   says, so the hold was more right than the reasoning behind it.
 2. **The pod-grep passes on a string your change merely USES.** `grep -c
    fix_forced_text_colors` returned 1 *before* the fix too. Grep a literal from the
    changed line (`"Strip forced child-text colours"`, the widened SELECT), plus a

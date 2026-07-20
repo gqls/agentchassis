@@ -237,7 +237,16 @@ responsible for, and that was written down, in English, at the top of the same
 file I took the predicate from.
 **Cost:** nothing shipped — the verifier was held before commit on the owner's
 call, and the finding is recorded in the coverage guard's own gap entry for
-`page_rerender` so the next thread starts from the remit problem. It did cost most
+`page_rerender` so the next thread starts from the remit problem.
+**FOLLOW-UP 2026-07-20, and it is its own small wrong call:** the entry above rests on
+the DETECTOR's header comment. I never opened the handler — so my correction to a
+comment-reading error was itself sourced from a comment, and I propagated it into four
+documents in that state. Now read: `rerender_page_sections_action.go:283-296` does gate
+the recompute on `ctaFieldNames[fn]`, so the claim HOLDS; and `applyCTARecompute` has two
+further early-returns (keeps an already-valid authored link; declines when no valid
+target), making the remit NARROWER than I claimed. Right conclusion, unearned method,
+twice in one session. The cheap check is unchanged and I skipped it twice: **read the
+handler.** It did cost most
 of a session's build, and it briefly made a council-reviewed plan (`submission_B`)
 look worse than mine when its two "harder, lower-volume" targets may simply have
 been the ones whose handlers had matching remits.
@@ -1283,3 +1292,24 @@ does not inoculate you against that trap in its neighbouring paragraph.** The
 warning was scoped to one step name and I let that scoping stand.
 
 **Tally:** "look at the real values, not the name" 4→5. One new row.
+
+> **Postscript, same session, ~1 hour later — I did it again with the corrected number.**
+> Having replaced 70/37 with **171/41**, I wrote 171 into the bug file, this file, the
+> debugging guide and a commit message. **15 of those 171 are not CTA anchors.** They sit
+> inside a `{{range}}`, so the field belongs to the ranged item, not the component:
+> `{{range .items}}<a href="{{.url}}">` is an item link from a query-provided list — a
+> different class with a different fix. The CTA worklist was **156/32**, not 171/41.
+>
+> **Caught by:** writing a migration whose post-condition was a blanket *"no ungated
+> `{{.x_url}}` anchor remains"*. `tool-cta`'s range-scoped `.url` would have tripped it and
+> rolled back a correct change. I read the third anchor before applying, and the distinction
+> fell out. So it was caught by **the strictness of a gate I wrote for a different purpose**,
+> not by re-examining the number.
+>
+> **The lesson is not "be more careful with numbers."** It is that a corrected figure inherits
+> the authority of the correction and stops being questioned — I had just finished documenting
+> that a figure travels without its caveat, and then produced a fresh figure with a fresh
+> uncaveated meaning. The durable fix is not a better number, it is **making the tool emit the
+> distinction**: `parse_gates.py` now prints the range/CTA split on every run, so the next
+> reader cannot collapse them by accident. Where a caveat has to be remembered, it will be
+> forgotten; where the tool prints it, it survives.

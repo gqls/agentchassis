@@ -131,6 +131,20 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// its spec section's component.function so the verdict is scoped to what the
 	// handler is actually responsible for. Do that first; do not re-derive the
 	// trap. Design notes: work_item_completion_integrity/PLAN + NOTES 2026-07-20.
+	//
+	// VERIFIED IN THE HANDLER 2026-07-20 (previously this rested on the detector's
+	// header comment, which is not evidence about the handler).
+	// rerender_page_sections_action.go:283-296 gates the recompute:
+	//     if reason == "cta_links_stale" {
+	//         fn := comp.Function; if fn == "" { fn = s.slotName }
+	//         if fields, isCTA := ctaFieldNames[fn]; isCTA { applyCTARecompute(...) }
+	//     }
+	// The remit is in fact NARROWER than the comment implies: applyCTARecompute
+	// itself returns early, leaving the field untouched, when the stored url is
+	// already a valid non-excluded non-self page ("authored link ... keep it") and
+	// when the recomputed target is empty or not a valid page. So even inside the
+	// ctaFieldNames set the handler deliberately declines to rewrite. A whole-page
+	// verifier would have been MORE wrong than the hold assumed.
 	"page_rerender": {catMechanical, "verifier written and held: a whole-page predicate is stricter than the handler's ctaFieldNames remit and would destroy the designed two-strike escalation — needs component→spec-function scoping first"},
 
 	"hardcoded_section_colors":      {catNoTarget, "site-aggregate item; predicate is a site-wide component count. UNBLOCKED by VerifyTarget.SiteID — this is the next verifier to write"},
