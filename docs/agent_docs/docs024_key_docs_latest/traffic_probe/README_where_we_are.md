@@ -362,3 +362,48 @@ nobody repeats it, including me.
 Still to do: the two section front pages are building now, then I'll re-run the link sweep —
 one of the three invented homepage links, /guias/mantenimiento, is a real page as of today,
 because I pointed the repurposed stray page at it rather than deleting the link.
+
+## 2026-07-20 — on the news-rendering find, and whether to formalise it
+
+You asked me to write up the server-rendering suggestion as an example of finding something
+useful while looking for something else, and whether we should encode that habit in
+CLAUDE.md. Here is the honest version of both.
+
+**How it actually happened, because the mechanism matters more than the result.** I was not
+being clever. The link sweep flagged the news section as "empty", and I was fairly sure that
+was wrong — the page visibly works. I nearly wrote it off. What stopped me was an existing
+rule in our own guide: trust the rendered artefact, not the status. So I fetched the page
+instead of reasoning about it, and found no news in the HTML at all. Following that down
+gave three things: an English loading message hardcoded into a component every site shares,
+a required heading that was rendering empty while something that should have refused the
+save let it through, and the underlying one — the news only ever exists once a browser runs
+JavaScript, so anything that doesn't run scripts sees an empty news page. On a site whose
+measured audience is mostly crawlers, that is not a footnote.
+
+So the credit chain is: an existing rule caused it, I followed the rule, and then **another
+session** did the part that made it actionable. The vetcomparison thread read the code and
+established that the fix is far cheaper than my write-up assumed — the data is already in
+hand in the right function, and the browser script already leaves server-rendered content
+alone when it can't fetch, which is exactly the behaviour you'd otherwise have to build. I
+would have guessed at that; they checked. That addendum is what turns it from a rewrite into
+a small change.
+
+**On formalising it: I'd say no, and I'd rather fix the thing that actually went wrong.**
+
+The generic version — "stay alert for adjacent improvements" — is the kind of instruction
+that can't be violated, and rules that can't be violated dilute the ones that can. CLAUDE.md
+works because nearly every line is something you can be caught not doing: commit with a
+pathspec, verify against the pod, grep before you file. "Notice things" isn't in that
+category, and adding it would make the sharp rules marginally less sharp. Your instinct
+about muddying the focus is right.
+
+The specific version is worth keeping, and it already had a home I failed to use. CLAUDE.md
+says that when you diagnose something durable you file the case AND add the transferable
+pattern to the debugging guide. I filed the cases and skipped the pattern. So the gap wasn't
+a missing rule — it was me not following one that exists. I've now written it up there: a
+false positive is a location, not a dismissal. The checker's reasoning was wrong; its aim was
+perfect, and closing it on the strength of the wrong reasoning would have buried what it was
+pointing at.
+
+That framing is concrete enough to act on and narrow enough not to compete with anything.
+It's the version I'd want the next session to read.
