@@ -1080,4 +1080,46 @@ councils and the build pipeline (bigger, separate); (2) protect the
 constitution/mission DOCUMENTS from drift (owner-sign-off gate) — these seats
 enforce conformance TO the docs, they don't guard the docs themselves.
 
+## Turn 30 — 2026-07-20 — Rerender trap into render-guardian; prior-art librarian (v20, 16 seats); direction reach + drift-guard PLAN
+
+Three owner asks this turn (two arrived mid-turn):
+
+**1. Render trap (owner-named, applied+mirrored).** "page-rerender re-deploys
+the existing HTML — it does not regenerate it from content_data." Added to the
+render-guardian charter + judge clause (e), phrased in the CORRECTED
+bugs_closed/031 mechanics. Method note that matters: the seat's live prompt
+CHANGED UNDER THIS SESSION between my needle-count and my full dump (the 031
+thread's own patch landed in that window) — so the patch re-asserts both anchors
+inside the UPDATE's WHERE and no-ops if the text moved again. Also: judged a
+text-only additive prompt patch safe with a run mid-chain (run was at
+bug_historian, before the seat; no routing/schema change; 031 thread precedent)
+— the strict 0-runs rule stays for STRUCTURAL changes.
+
+**2. Prior-art librarian (owner suggestion, v20, applied+mirrored).** New
+ALWAYS-ON seat: asserted-absence / dormant-machinery — no other seat verifies
+the rationale's existence claims; all seats inherit a false premise (section-
+editor case; 031's adjacent face). Mechanical lookups mapped to the LIVE check
+tiers: code_checks symbol/content/ls (prior art), SQL checks (agent seeded?
+ever run?), and an explicit CANNOT for pod-binary liveness (names the pod-grep
+instead of guessing). Always-on per owner's lean — the tell is rationale
+LANGUAGE; a path footprint misses it, a keyword gate is mushy. Both councils now
+**16 seats** (5 always-on: editquality, constitution, mission, prior_art,
+guardian; 11 gated), 099 deep-compare drift NONE. Chain: mission →
+prior_art → gate_bug_historian. The inverted-lookup dormant-machinery sweep is
+recorded in the plan as a complement, NOT built.
+
+**3. The main ask — PLAN for build-pipeline reach + doc drift guard** —
+`PLAN_2026-07-20_direction_reach_and_drift_guard.md`. Grounding done first:
+NO standards table exists (CTS-029 unbuilt); classifier dispatch sites read from
+Go; all constitution/mission copies hash-identical today; .githooks two-tier
+precedent (check-secrets = real gate). Reach: R0 inject platform-mission digest
+into classifier prompts → R1 observe-only mission-review step on classifier
+output (detected + triage-sweep consumer — 023's lesson) → R2 enforcement only
+on measured FP rate (owner-gated) → R3 fleet discovery check (Go+image) → R4
+feature/experience councils. Guard: D1 bless canonicals + DIRECTION_LEDGER →
+D2 real-gate hook requiring `Direction-Approved:` trailer (owner picks
+gate/advisory) → D3 three-surface integrity check (files/copies/seat prompts) →
+D4 standards-table migration as the structural close. Nothing applied from the
+plan; commits 6a25f... family + this turn's three.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

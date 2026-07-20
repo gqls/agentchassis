@@ -350,3 +350,34 @@ deciding how you want that guarded.
 more structural one from another thread — it now carries the truncated text back
 to the caller instead of discarding it. A live example of exactly the root-cause-
 over-patch principle you're now having the council enforce.)
+
+**Two more seats' worth of teeth, and the two plans you asked for (2026-07-20,
+later).** Your rerender trap — "page-rerender re-deploys the existing HTML, it
+does not regenerate it from content_data" — is now in the render reviewer's
+charter, worded to match the corrected understanding another thread nailed down
+yesterday, and the reviewer now objects when a plan cites "the rerender
+completed" as proof a content or template edit is live (that false green has
+already burned us — it's the mechanism behind an open bug). Your suggested
+prior-art librarian is live too, on both councils: it fact-checks a plan's
+claims that something "doesn't exist" or "needs to be built" by actually looking
+— code search, agent records, run history — because we've twice watched a plan
+sail through every reviewer on a false premise they all inherited. The council
+is now sixteen reviewers: five that always sit (craftsmanship, constitution,
+mission, the librarian, safety) and eleven specialists woken by relevance.
+
+And the two plans are written, not started, awaiting your word. Reaching the
+mission into the site-building pipeline itself: first let the strategic-brain
+classifier actually see the platform mission, then an observe-only reviewer on
+its output that files findings somewhere they'll actually be read (we checked —
+one earlier lane died precisely because nothing consumed its findings), then
+enforcement only once a week of numbers shows it isn't crying wolf, then a fleet
+audit for already-built sites. Guarding the direction documents themselves:
+bless one canonical copy of each, a ledger of their fingerprints, a commit gate
+that blocks edits to them unless the message carries your explicit sign-off
+mark (same tier as the existing secrets gate — it fires only when someone
+touches the constitution, which is exactly when friction is wanted), a checker
+that watches all three places the words live (the files, the copies, the
+reviewer prompts in the database), and eventually the long-promised move of the
+constitution into proper database rows. Decisions that are yours in it: whether
+the commit gate blocks or just shouts, and when observation is allowed to
+become enforcement.
