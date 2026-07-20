@@ -200,3 +200,58 @@ Root-cause claim still **UNCONFIRMED** — diagnosis corr
 It is queued behind the backlog it is about. Per
 [[council-queue-latency-trap]] and 030's own landmine: **do not resubmit.**
 Owner's call (2026-07-20): wait for the verdict before building any fix.
+
+---
+
+## 2026-07-20 (later still) — I made the same error I had just written up
+
+> **CORRECTED — the "~2.4 msg/min" figure earlier in this file, and in my
+> `bugs_open/030` correction, is WRONG.** Recording it here in full because this
+> file's stated purpose is that the missteps are the point.
+
+I published the correction from a **partial read of a sampler I had already
+started**. At the time I wrote it I had 21 of 40 samples. The completed run says
+something different:
+
+| window | messages | rate | LAG |
+|---|---|---|---|
+| 19:12:51 → 19:21:16 (contains the +47 burst — the window I used) | 47 in 8.4 min | 5.6/min | 96 → 68 |
+| 19:21:16 → 19:44:01 (full sampler run) | 14 in 22.8 min | **0.62/min** | 68 → **109** |
+| 19:10:37 → 19:51:16 (everything sampled) | 61 in 40.7 min | **1.50/min** | 90 → **130** |
+
+`LAG` **grew 82 → 130** across the session, with one message pinning the offset for
+**≥15.4 minutes**. The queue was **diverging**. My "clears in ~36 min, nothing had
+degraded" was false in both halves.
+
+**The shape of my error is precisely the one I had documented one paragraph
+earlier.** I wrote "any two samples inside a burst give an arbitrarily high rate"
+and then computed my headline number over a window built around a burst. Knowing
+the trap by name did not prevent it — I was looking for the trap in *their* data,
+having already decided what mine showed.
+
+**And the worse half is not arithmetic.** The bugfix-036 thread's conclusion —
+"variance is large; 'how long will my submission wait' has no stable answer" — was
+**correct**, and I overturned it. Their derivation really was invalid (the 69-second
+finding stands, and they have since owned it, `7c43e6aee`). But being right about
+their *method* is what licensed me to be wrong about their *conclusion*, and I did
+not separate the two. **Faulting a derivation does not entitle you to reverse the
+finding.**
+
+### What all three errors actually share, and it is not window choice
+
+Three threads, three defensible rates from one queue in one afternoon: 0.21, 2.4,
+0.62. When three careful measurements of a quantity disagree by 12×, the fault has
+stopped being in the measurements. **There is no single rate here to measure.**
+Throughput is `1 / (duration of the orchestration segment currently running inline
+on the consumer goroutine)` — the mechanism established from the source earlier in
+this file — and that duration spans milliseconds to ≥15 minutes depending entirely
+on what sits at the head. It is a non-stationary signal; its mean describes no
+moment and predicts nothing.
+
+So the remedy I proposed in `WRONG_CALLS` (7)/(8) — "sample ≥20 min and take the
+slope" — **is itself withdrawn** (RUNBOOK R2 marked corrected, R7 added). A longer
+window buys stability, not truth. All three of us had the mechanism available in two
+files and reached for the stopwatch instead; the code predicts non-stationarity
+outright, which would have told us the rate was not a thing to go and measure.
+
+Logged as `WRONG_CALLS.md` (9), with that synthesis.

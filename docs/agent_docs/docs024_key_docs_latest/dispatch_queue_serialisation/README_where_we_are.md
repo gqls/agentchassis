@@ -111,3 +111,43 @@ behaviour.
 checked properly, and it's queued — behind the backlog it's about, which is either
 poetic or annoying depending on the hour. You've said wait for that verdict before
 building anything, so nothing is being changed in the meantime.
+
+## 2026-07-20 (later still) — and then I made the same mistake myself
+
+I have to correct the account I gave above, because the tidy version I wrote — where
+I spotted another session's error and put the number right — is not what happened.
+
+My replacement figure was wrong too. I said the queue drains at about 2.4 messages a
+minute and clears in half an hour, and that nothing had really degraded. I had a
+twenty-minute measurement running when I wrote that, and I used the first half of it.
+When it finished, it said the opposite: over the full run the queue was draining at
+about *0.6* messages a minute, the backlog grew from 82 to 130 while I watched, and
+at one point a single message held everything up for more than fifteen minutes. The
+queue wasn't holding steady. It was falling behind.
+
+So the other session's conclusion — that this is slow, that the variation is huge,
+and that there's no dependable answer to "how long will I wait" — was closer to the
+truth than mine. Their *working* was genuinely faulty and they've since owned that.
+But I took "their method was wrong" as licence to overturn what they'd concluded, and
+those are two different things. That's the part I'd most want to avoid repeating.
+
+The useful thing to come out of it is bigger than the correction. Three of us have now
+measured this queue on the same afternoon and got 0.21, 2.4 and 0.62 messages a
+minute. All three sums are correct. When three careful measurements disagree by
+twelvefold, the problem isn't the measuring — **it's that the thing being measured
+doesn't exist as a stable quantity.** The speed of this queue is just however long
+the job currently at the front happens to take, and that ranges from instant to a
+quarter of an hour. An average of that describes no actual moment and can't forecast
+anything.
+
+Which means the advice I confidently wrote down earlier — "measure it for twenty
+minutes and you'll get the right answer" — was also wrong, and I've withdrawn it. A
+longer measurement gives you a steadier number, not a truer one. I've replaced it
+with the honest version: you can find out whether your job is queued (that's the
+question that actually costs us time, and it's easy), and you can see what kind of
+work is in front of it. If someone wants an ETA, the right answer is that there
+isn't a reliable one, and the variability *is* the finding.
+
+Worth noting all three of us could have read the code instead. It explains the whole
+behaviour in ten minutes and would have told us up front that there was no steady
+rate to go looking for. We each reached for the stopwatch with the source open.
