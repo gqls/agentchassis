@@ -84,6 +84,24 @@ MatchMatrix was hand-authored for exactly this reason.
 
 ---
 
+> **CORRECTED 2026-07-20, same session — read this before acting on R4 below.**
+> The CTA repair is **partly not durable**, and I found out by watching a page
+> re-render rather than by trusting my own verify query.
+> `resolve_internal_links_action.go` **owns** the CTA url fields
+> (`ctaFieldNames`, `:99-105`) and recomputes them on every render via
+> `chooseCTATargets` (`:319`), which **never reads the label** — it sorts
+> interactive pages then hubs by `NavOrder`/`Name` and takes `[0]` and `[1]`.
+> So the "dumping ground" was deterministic assignment, not drift, and
+> `content_data` is not the source of truth for a CTA URL.
+> **Durable:** the statistics (`stat_*` is not resolver-owned; `about.html`
+> renders 5/5/4 live) and the tool page (a committed artefact).
+> **Not durable:** the primary CTA URL edits. The ones that still look right do
+> so because the resolver would choose that URL anyway — *building the tool* is
+> what fixed them, not the SQL. `/contact.html` is permanently excluded as a CTA
+> destination (`areasExcludedFromCTA`, `:72-74`), so "Request Integration
+> Support" cannot be paired correctly from `content_data` at all.
+> Full write-up in `NOTES` and in the addendum on `/bugs_open/023`.
+
 ## Next actions, in order
 
 1. **Verify the R4 re-render batch drained, against the live pages.** 12
@@ -99,20 +117,29 @@ MatchMatrix was hand-authored for exactly this reason.
    If the batch stalls, see RUNBOOK "Making a batch actually run" — and note
    `bugs_open/030` (single-consumer dispatch): do **not** re-fire a dispatch that
    looks dropped.
-2. **`bugs_open/043` — generated copy invents quantitative claims.** Filed this
+2. **`bugs_open/023` — now the highest-value fix here, and it is a code fix.**
+   Its cause is stronger than the file originally said: the URL is not authored
+   at all. A content-side fix is overwritten by the next render, so this belongs
+   in `chooseCTATargets` — make it label-aware, or let an explicitly-authored URL
+   win. Land it inside the staged rollout already described at
+   `resolve_internal_links_action.go:79-84` (`ctaFieldNames` is currently an
+   OVERRIDE on the schema-derived pairing in `datahelpers/ctafields.go`, running
+   OBSERVE-ONLY pending a council round) rather than beside it. Until that lands,
+   robot-hands' primary CTAs will keep reverting to nav-order defaults.
+3. **`bugs_open/043` — generated copy invents quantitative claims.** Filed this
    turn, robot-hands contained. **The fleet-wide sweep has NOT been run** — that
    is the first thing the fixing thread should do (sweep query is in the file).
    Same family as `020`, different path, so a site with no tools is still exposed.
-3. **Owner decision: the 42 remaining prose fields.** The unsupported
+4. **Owner decision: the 42 remaining prose fields.** The unsupported
    "six actuation technologies" claim survives in 42 further `content_data` fields
    on this site (body prose, `features`, `subheadline`, FAQ `questions`, `cards`).
    Correcting a statistic was containment; rewriting 42 paragraphs is a decision
    about what the site claims to be. Query to list them is in `043`.
-4. **`bugs_open/022` — the scheme guard.** Unchanged from the last handoff, still
+5. **`bugs_open/022` — the scheme guard.** Unchanged from the last handoff, still
    unfixed (`grep -rn LayoutScheme platform/` → nothing). Its three
    council-demanded verifications are already done; needs a council submission and
    a fix. Per-site mitigation (`design_intent.palette` pin) is live and holding.
-5. **Optional: `tool-robot-payload-budget-calculator`.** Still `planned`, no page,
+6. **Optional: `tool-robot-payload-budget-calculator`.** Still `planned`, no page,
    card removed, CTA repointed — so nothing is user-visibly broken. If it is ever
    built, it is the *safer* of the two (formula-based, not data-backed) and the
    reference implementation above is the route.
