@@ -161,7 +161,12 @@ rather than piling up duplicates.
 is only right if someone reads the escalation. `acceptance_stuck` has no handler
 — it lands in the generic `needs_human_review` list. If nobody reads that list,
 an escalation is a no-op that *also* stops the retry, which is worse for that
-tool than the status quo. Related: on this very benchmark the guard would have
+tool than the status quo. **Measured 2026-07-20: that list is 302 items deep**
+(`SELECT count(*) FROM site_work_items WHERE status='needs_human_review'`). The
+admin dashboard's old hardcoded 50-item cap has since been fixed — it pages
+properly (`site_admin_handlers.go:520`, `parseBoundedQueryInt`) — so this is a
+backlog-depth problem now, not a visibility bug. An escalation arriving as
+item 303 is not obviously read sooner than a weekly retry is noticed. Related: on this very benchmark the guard would have
 fired on a **delivery** defect (024) while reporting a **fixer** defect. Both
 risks are in the council submission (`submission_010_convergence_guard.json`,
 correlation `eeeccdaa-f14b-49cb-b11f-06e7f053add8`).
