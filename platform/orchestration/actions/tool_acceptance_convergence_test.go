@@ -197,6 +197,22 @@ func TestConvergenceGuard_EscalatesAfterTwoFailedCycles(t *testing.T) {
 	if !strings.Contains(run.note, "escalated to human review") {
 		t.Errorf("acceptance-fail note does not record the escalation:\n%s", run.note)
 	}
+	// On re-escalation the standing item must be REFRESHED, not left with a stale
+	// count (DO NOTHING would freeze it at the first cycle's number) and not
+	// DELETE+INSERTed (which would disturb a row a human may be triaging). The
+	// arbiter predicate must be the canonical dedup one so it matches
+	// idx_swi_dedup rather than failing 42P10. Guards the council's edit-3 concern.
+	ins := run.itemInsert()
+	if !strings.Contains(ins, "DO UPDATE") {
+		t.Errorf("escalation must refresh a standing item (DO UPDATE), not DO NOTHING:\n%s", ins)
+	}
+	if !strings.Contains(ins, "ON CONFLICT (site_id, item_key)") ||
+		!strings.Contains(ins, "status NOT IN ('complete','failed'") {
+		t.Errorf("escalation ON CONFLICT must use the canonical dedup arbiter predicate:\n%s", ins)
+	}
+	if strings.Contains(ins, "DELETE FROM site_work_items") {
+		t.Errorf("escalation must not DELETE+INSERT — no such dedup contract exists:\n%s", ins)
+	}
 }
 
 // Below the threshold the loop must be untouched — the guard bounds the loop,

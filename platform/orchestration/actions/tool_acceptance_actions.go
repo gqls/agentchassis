@@ -603,9 +603,12 @@ Categories: acceptance-run`,
 			// Two cycles have already failed at these criteria. A third would be
 			// the same fix again — the failure mode this guard exists to stop —
 			// so hand it to a human and stop the auto-loop for this criterion.
-			// Not deduped away by idx_swi_dedup: needs_human_review is an OPEN
-			// status, so the weekly re-verdict finds this item still standing and
-			// ON CONFLICT DO NOTHING keeps it as raised rather than duplicating it.
+			// idx_swi_dedup holds one open escalation per (site, key):
+			// needs_human_review is a non-terminal status, so a later verdict
+			// CONFLICTS with the standing item and DO UPDATE refreshes its count
+			// and reason in place (a re-escalation should say "5 cycles", not the
+			// stale "2" a DO NOTHING would leave) without minting a duplicate or
+			// disturbing the row a human may already be triaging.
 			spec := map[string]interface{}{
 				"component_id":      componentID,
 				"check":             "tool_acceptance_tier4",
@@ -630,14 +633,20 @@ Categories: acceptance-run`,
 				spec["page_id"] = pageID
 			}
 			specJSON, _ := json.Marshal(spec)
-			_, err := params.DB.ExecContext(ctx, `
+			// The arbiter predicate is the canonical dedup one (insertWorkItem's,
+			// via the shared terminal-status list), so the ON CONFLICT target
+			// matches idx_swi_dedup's partial index rather than risking 42P10.
+			_, err := params.DB.ExecContext(ctx, fmt.Sprintf(`
 				INSERT INTO site_work_items (
 					site_id, source, pipeline, item_type, severity, summary,
 					priority, handler_agent, status, created_by, spec, item_key, batch_id
 				) VALUES ($1::uuid, 'acceptance', 'build', 'acceptance_stuck',
 				          'medium', $2, 20, 'human-review', 'needs_human_review',
 				          'tool-acceptance-agent', $3::jsonb, $4, $5::uuid)
-				ON CONFLICT DO NOTHING`,
+				ON CONFLICT (site_id, item_key)
+					WHERE item_key IS NOT NULL AND status NOT IN (%s)
+				DO UPDATE SET spec = EXCLUDED.spec, summary = EXCLUDED.summary,
+				              updated_at = now()`, sqlInList(workItemTerminalStatuses)),
 				siteID,
 				fmt.Sprintf("Tier-4 acceptance not converging for %s after %d fix cycle(s): %s",
 					function, attempts, first(v.Details)),
