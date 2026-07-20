@@ -2558,3 +2558,43 @@ answering "which edit" with a string). Workaround, not a fix; noted as such in 0
 **Trap for the next thread:** a voided council round records itself as `COMPLETED` with
 an empty `error`. Check for the `council_report` row — **absence of the report is the
 symptom**, not presence of an error.
+
+### Council round 2: REVISE — and it caught me committing this bug's own failure mode
+
+Verdict `revise` on `d35844da`, `decided_by: objection from editquality`. 7 approve,
+3 object (editquality, bug_historian, guardian), **`abstained: 5`** (relevance filter;
+the memory's "verify abstained: 0" trap applies to APPROVED rounds, not this one).
+**No trailer claimed on any commit** — REVISE never earns one.
+
+The Banana fix drew no objection from any seat. `constitution`: *"a genuine translation
+rather than a workaround, and the rejected alternative is explicitly stated with three
+concrete reasons"*. `reuse_agent`: *"the rejected alternative is the one that would
+actually have produced a second, competing implementation"*. The objections were all on
+**edit 2, the interface contract, being comment-only**.
+
+Four challenges, all answered by checking (details + table in `/bugs_open/028` §7b):
+SDXL's negative-prompt use **verified** at `stability/provider.go:185–201` (weighted
+`api.TextPrompt` — true negative conditioning); **exactly two** `Provider` implementers;
+nothing coupled to the old wording, **but the same "log and ignore" licence sat one field
+down on `ReferenceImageURIs`** — now rewritten, and the useful distinction recorded: that
+discard is fine *because it is loud* (Warn in two layers vs Debug in one). `reuse_agent`
+was right that `endsWithSentenceBoundary` already exists in
+`generate_image_actions.go:1161`, but importing `platform/orchestration/actions` into a
+provider adapter inverts the dependency direction — duplication kept, deliberately.
+
+**The misstep worth recording.** I wrote in the submission that three documents still
+assert the disproven "avoid fixes ground colour" lesson and that fixing them was out of
+scope. **False — and I had opened none of them.** All three were already corrected before
+I started (RUNBOOK A6.5 carries a dated 07-19 correction; the memory carries its own;
+HANDOFF had been reframed to *"Unverified and next: whether the Banana path sends `avoid`
+as a negative prompt at all"*). editquality filed it as a *missing* item, which is what
+sent me to read them. So while fixing a bug that exists because someone asserted a
+mechanism instead of checking it, I asserted a document state instead of checking it. The
+council caught it; nothing else would have. Corrected in place in 028 §4.
+
+**Left open, deliberately, as an owner call:** editquality + bug_historian (both medium)
+hold that a comment cannot stop the next provider repeating the discard —
+*"documentation-as-guard has already failed once on this exact field"* — and bug_historian
+routes it explicitly to a human while saying it must not block the Banana fix. Three
+options in 028 §7b (conformance test needing an injectable client; a capability method on
+the shared interface; or accept the comment given only two implementers).
