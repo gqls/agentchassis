@@ -131,19 +131,27 @@ type reportedCondition struct {
 // report must never break response processing. Pure — unit-tested without a
 // coordinator.
 //
-// The second return distinguishes "field absent" (healthy, silent) from
-// "field present but unusable" — bug_historian's round-5 catch: collapsing
-// those two is the silent-failure shape this mechanism exists to cure,
-// applied to the cure itself. A contract break (adapter emits an object
-// instead of a list, a reshape upstream) must surface, not read as healthy.
-func parseReportedConditions(normalisedData map[string]interface{}) (conditions []reportedCondition, malformed bool) {
+// Two returns beyond the conditions, both there because silence about lost
+// data is the very failure this mechanism exists to cure — and the cure
+// must not reproduce it at its own edges (bug_historian, council rounds 5
+// and 7):
+//
+//	malformed — the field was PRESENT but unusable as a whole (not a list,
+//	  or a list yielding nothing). Distinct from absent, which is healthy
+//	  and silent. A contract reshape upstream must surface, not read as "no
+//	  conditions to report".
+//	skipped — how many individual entries were dropped as junk while others
+//	  parsed fine. A mixed list is the subtler case: without this count, some
+//	  conditions vanish and the surviving ones make the response look wholly
+//	  healthy. The caller warns on any non-zero value.
+func parseReportedConditions(normalisedData map[string]interface{}) (conditions []reportedCondition, malformed bool, skipped int) {
 	raw, present := normalisedData["reported_conditions"]
 	if !present {
-		return nil, false
+		return nil, false, 0
 	}
 	list, ok := raw.([]interface{})
 	if !ok {
-		return nil, true // present but not a list — the contract broke
+		return nil, true, 0 // present but not a list — the contract broke
 	}
 
 	for _, item := range list {
@@ -152,6 +160,7 @@ func parseReportedConditions(normalisedData map[string]interface{}) (conditions 
 		}
 		m, ok := item.(map[string]interface{})
 		if !ok {
+			skipped++
 			continue
 		}
 		c := reportedCondition{}
@@ -160,7 +169,8 @@ func parseReportedConditions(normalisedData map[string]interface{}) (conditions 
 		c.Message, _ = m["message"].(string)
 		c.Context, _ = m["context"].(map[string]interface{})
 		if c.Code == "" && c.Message == "" {
-			continue // nothing worth a row
+			skipped++ // nothing worth a row, but it was MEANT to be one
+			continue
 		}
 		if c.Severity == "" {
 			c.Severity = "warning"
@@ -170,12 +180,13 @@ func parseReportedConditions(normalisedData map[string]interface{}) (conditions 
 		}
 		conditions = append(conditions, c)
 	}
-	// A non-empty list that yielded nothing usable is also a broken
-	// contract, not a healthy absence.
+	// A non-empty list that yielded nothing usable is a broken contract,
+	// not a healthy absence — reported as malformed rather than as N
+	// skipped entries, because there is no surviving signal at all.
 	if len(list) > 0 && len(conditions) == 0 {
-		return nil, true
+		return nil, true, skipped
 	}
-	return conditions, false
+	return conditions, false, skipped
 }
 
 // persistReportedConditions writes each adapter-reported condition to
@@ -197,18 +208,27 @@ func (s *SagaCoordinator) persistReportedConditions(ctx context.Context, state *
 		return
 	}
 
-	conditions, malformed := parseReportedConditions(normalisedData)
+	conditions, malformed, skipped := parseReportedConditions(normalisedData)
 	if malformed {
 		s.logger.Warn("reported_conditions present but MALFORMED — the reporting contract broke; conditions were lost, fix the emitter",
 			zap.String("sender_agent_type", senderType),
 			zap.String("step_name", stepName))
 		return
 	}
+	// A partially-bad list is the dangerous case: the entries that DID
+	// parse make the response look healthy while others vanish. Say so.
+	if skipped > 0 {
+		s.logger.Warn("reported_conditions partly UNPARSEABLE — some entries were dropped and are lost; the surviving ones are not the whole picture, fix the emitter",
+			zap.Int("dropped", skipped),
+			zap.Int("parsed", len(conditions)),
+			zap.String("sender_agent_type", senderType),
+			zap.String("step_name", stepName))
+	}
 	if len(conditions) == 0 {
 		return
 	}
-	if raw, ok := normalisedData["reported_conditions"].([]interface{}); ok && len(raw) > len(conditions) {
-		s.logger.Warn("reported_conditions truncated or partly malformed",
+	if raw, ok := normalisedData["reported_conditions"].([]interface{}); ok && len(raw) > len(conditions)+skipped {
+		s.logger.Warn("reported_conditions truncated at the per-response cap",
 			zap.Int("received", len(raw)),
 			zap.Int("persisted", len(conditions)),
 			zap.String("step_name", stepName))

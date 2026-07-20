@@ -13,7 +13,7 @@ import "testing"
 func TestParseReportedConditionsAbsentIsSilent(t *testing.T) {
 	// Absent field — the healthy case for every adapter that predates or
 	// never uses the contract. Not malformed: nothing was attempted.
-	got, malformed := parseReportedConditions(map[string]interface{}{"image_uri": "s3://x"})
+	got, malformed, _ := parseReportedConditions(map[string]interface{}{"image_uri": "s3://x"})
 	if got != nil || malformed {
 		t.Errorf("absent field parsed as (%v, malformed=%v), want (nil, false)", got, malformed)
 	}
@@ -24,20 +24,20 @@ func TestParseReportedConditionsPresentButBrokenIsMalformed(t *testing.T) {
 	// read as healthy — a contract break upstream (object instead of list,
 	// a key reshape) has to surface, or the cure inherits the disease.
 	for _, bad := range []interface{}{"warning", 42, map[string]interface{}{"code": "X"}} {
-		got, malformed := parseReportedConditions(map[string]interface{}{"reported_conditions": bad})
+		got, malformed, _ := parseReportedConditions(map[string]interface{}{"reported_conditions": bad})
 		if got != nil || !malformed {
 			t.Errorf("non-list %T parsed as (%v, malformed=%v), want (nil, true)", bad, got, malformed)
 		}
 	}
 	// A non-empty list yielding nothing usable is also a broken contract.
-	got, malformed := parseReportedConditions(map[string]interface{}{
+	got, malformed, _ := parseReportedConditions(map[string]interface{}{
 		"reported_conditions": []interface{}{"junk", map[string]interface{}{}},
 	})
 	if got != nil || !malformed {
 		t.Errorf("all-junk list parsed as (%v, malformed=%v), want (nil, true)", got, malformed)
 	}
 	// But an EMPTY list is a benign no-op, not a break.
-	got, malformed = parseReportedConditions(map[string]interface{}{
+	got, malformed, _ = parseReportedConditions(map[string]interface{}{
 		"reported_conditions": []interface{}{},
 	})
 	if got != nil || malformed {
@@ -56,7 +56,7 @@ func TestParseReportedConditionsWellFormed(t *testing.T) {
 			},
 		},
 	}
-	got, malformed := parseReportedConditions(data)
+	got, malformed, _ := parseReportedConditions(data)
 	if malformed {
 		t.Fatal("well-formed input flagged malformed")
 	}
@@ -83,12 +83,15 @@ func TestParseReportedConditionsDefaultsAndSkips(t *testing.T) {
 			map[string]interface{}{"severity": "error"}, // no code AND no message
 		},
 	}
-	got, malformed := parseReportedConditions(data)
+	got, malformed, skipped := parseReportedConditions(data)
 	if malformed {
 		t.Fatal("partly-usable list flagged malformed — junk beside a good entry must degrade, not fail")
 	}
 	if len(got) != 1 {
 		t.Fatalf("parsed %d conditions, want 1 (junk skipped)", len(got))
+	}
+	if skipped != 3 {
+		t.Errorf("skipped = %d, want 3 — dropped entries must be COUNTED, not silently discarded", skipped)
 	}
 	if got[0].Severity != "warning" {
 		t.Errorf("missing severity defaulted to %q, want warning", got[0].Severity)
@@ -98,13 +101,39 @@ func TestParseReportedConditionsDefaultsAndSkips(t *testing.T) {
 	}
 }
 
+func TestParseReportedConditionsMixedListReportsWhatItDropped(t *testing.T) {
+	// bug_historian, council round 7 — the subtle case the round-5 fix
+	// missed: a list where SOME entries parse and some are junk. Without a
+	// count, the survivors make the response look wholly healthy while the
+	// rest vanish. That is the same silence, one level down.
+	data := map[string]interface{}{
+		"reported_conditions": []interface{}{
+			map[string]interface{}{"code": "UNROUTED_IMAGE_KIND"},
+			"junk string",
+			map[string]interface{}{"code": "UNRECOGNISED_PROVIDER_HINT"},
+			42,
+			map[string]interface{}{"code": "REFERENCE_ANCHORS_DROPPED"},
+		},
+	}
+	got, malformed, skipped := parseReportedConditions(data)
+	if malformed {
+		t.Fatal("mixed list must not be flagged wholly malformed — three entries are usable")
+	}
+	if len(got) != 3 {
+		t.Errorf("parsed %d conditions, want 3 survivors", len(got))
+	}
+	if skipped != 2 {
+		t.Errorf("skipped = %d, want 2 — the caller cannot warn about losses it is not told about", skipped)
+	}
+}
+
 func TestParseReportedConditionsIsCapped(t *testing.T) {
 	// A misbehaving adapter must not turn one response into unbounded rows.
 	var raw []interface{}
 	for i := 0; i < maxReportedConditionsPerResponse*3; i++ {
 		raw = append(raw, map[string]interface{}{"code": "FLOOD"})
 	}
-	got, malformed := parseReportedConditions(map[string]interface{}{"reported_conditions": raw})
+	got, malformed, _ := parseReportedConditions(map[string]interface{}{"reported_conditions": raw})
 	if malformed {
 		t.Fatal("capped flood flagged malformed")
 	}
