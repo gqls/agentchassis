@@ -250,6 +250,15 @@ pre-existing symbol would give a false pass):
 `ai_service: step overlay applied`. Positive control: `ai_service: single source`
 (also new) or any known-present symbol.
 
+**Who ships this is not decided by this thread.** The fix is committed, so it
+rides whichever thread builds `agent-chassis` next — a sweep build by an
+unrelated workstream will carry it to prod with no knowledge of §7. (At the time
+of writing another session holds `IMAGE_TAG` at v1.0.1141 for a `bugs_open/033`
+core-manager roll, while the live chassis is v1.0.1140.) **So the verification
+below is owed regardless of who rolls it**, and this case stays OPEN until
+someone does it — a committed-but-unverified precedence change is exactly the
+state that reads as done and isn't.
+
 **Live check after the roll:** fire `feed-triage`'s `score_relevance` and
 confirm `llm_call_log` shows **8192**, not 4000. That is the one call in the
 fleet whose logged cap changes, which makes it the discriminating test — a
