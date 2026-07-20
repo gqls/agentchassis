@@ -5,8 +5,40 @@ rollout was safe to let drain).
 **Severity:** Medium — no data loss, but it spends real image-API credits producing
 output of the exact class that failed the D13 owner gate, and it is armed on three
 sites right now.
-**Status:** OPEN. Diagnosed from the code path + live DB. No fix applied — the right
-fix is a design decision (see §5), and one of the two candidate fixes is config-only.
+**Status:** OPEN — **§4b's CODE FIX APPLIED 2026-07-20 (`1191cecdb`), INERT UNTIL AN
+IMAGE ROLL.** Stays OPEN because the /bugs_closed/ bar is fixed AND live. §1's
+missing-style-guide half was mitigated in config 2026-07-19 (three sites seeded,
+live immediately); the fleet-default-direction candidate (§5(a)) remains unbuilt.
+
+> **Fix trail (2026-07-20).** Seven council-gate rounds on correlation `0a07f5ed`
+> (one round voided by bugs 019), final tally **11 approve / 2 object / 4 abstain**
+> — REVISE, not APPROVED, so the commit carries **no `Council-Reviewed:` trailer**;
+> this note is the honest record of that gap (precedent: 011 R1, same residual
+> class, also shipped on a REVISE). What shipped: palette composed FIRST; the
+> truncation backoff changed first-'. ' → LAST-'. ' within the cap (**a latent bug
+> my own reorder would have armed — my round-2 computation was wrong, no council
+> seat caught it, and the owner's "think hard before committing" prompt is what
+> caught it**: under the old backoff robot-hands would have kept ONLY its palette);
+> `composeImagePromptWithDirection` returns a `truncated` bool and the call site
+> WARNs `Imagery direction TRUNCATED before generation` (the deploy marker);
+> `datahelpers.SafeCut` is the one rune-safe cut, with `TruncateString` (31 sites)
+> and helpers.go's two truncators delegating to it. Tests: survival fixture that
+> FAILS under the old backoff, palette-first order pin, rune-safety edges — all
+> green against `git archive HEAD` + fix overlaid (the working tree carries
+> another session's broken WIP test, tool_acceptance_convergence_test.go).
+> **Unresolved objections, recorded as follow-ups, not smuggled in:** persist
+> truncation signals beyond a log line (bug_historian; same class as 011's
+> UnmigratedKind residual); loud-cap treatment for the remaining 30 TruncateString
+> sites (the 016b §9 "silent cap" entry names the sweep). **Landing gate before
+> §4b closes:** regenerate robot-hands' 3 ARTICLE content heroes vs the D13
+> criteria (its 3 TOOL heroes wait out the bugs 020 owner hold); verify the deploy
+> via the WARN log literal, not a symbol grep (A6.3); ≥5 observed generations —
+> 028 is live in v1.0.1140 and precedes this, so post-roll deltas attribute here.
+> **Base-voice trade, decided and stated:** all four base voices (304–398 chars)
+> cannot fit palette AND prose in 200; they flip from prose-without-colours to
+> colours-without-prose. Remedy is config (shorten palette glosses — the WARN now
+> names every over-cap site); the three guides I authored get a backed-up
+> needle-gate migration after the roll; robot-hands' base guide is the owner's.
 
 ---
 

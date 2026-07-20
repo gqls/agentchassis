@@ -935,3 +935,34 @@ system goes through a single lane, and we were sitting behind a long council job
 cleared on its own. **I nearly reported this as a serious outage** — the queue counter sits
 completely still while a long job runs, which looks exactly like something being dead. It
 isn't. I've written that trap down so the next person doesn't lose the same half hour.
+
+## 2026-07-20 (evening) — the colour-truncation fix is written, reviewed seven times, and committed; your "think hard" instruction earned its keep
+
+The fix for the truncated-colours bug is done and committed. Before it went in, it
+survived seven rounds of the review council — and, more importantly, the re-check you
+asked for. That re-check found a real flaw the council never saw: my fix as first
+written would have made robot-hands' pictures WORSE (keeping only the colours and
+throwing away the "flat illustration" instruction), and the claim I'd made to a
+reviewer about exactly that site was arithmetic hand-waving that turned out false. I
+simulated the real code against every style direction in the fleet, corrected the
+claim on the record, and changed one word in the truncation logic so the fix keeps
+everything that fits rather than cutting at the first full stop.
+
+The council never said an outright yes — eleven seats approving, two still objecting
+at the end. The two hold-outs wanted follow-on work (a database record of every
+truncation, not just a log line; the same loud treatment for thirty other places that
+quietly shorten text). Those are fair ideas and are written down as follow-ups, but
+they are new work, not flaws in this fix — the same judgement call a previous thread
+made on the provider-routing fix, which shipped the same way and is now live. So the
+commit says plainly: reviewed seven times, never formally approved, gap documented.
+
+Nothing changes on the sites until the next software release. When that lands: we
+regenerate robot-hands' three ARTICLE pictures and check them against your original
+gate — its three TOOL pictures stay parked under your bug-020 hold. And one honest
+consequence to expect: for the four sites' BASE styles (the long prose ones), the fix
+flips what gets lost when the instruction is too long — they'll now keep their colours
+and lose their prose descriptions. The new warning tells us exactly which sites need
+their wording shortened, which is a five-minute config change per site.
+
+Meanwhile: the DNS record for your SES bounce address still hasn't appeared at the
+nameservers — the watch is running and will say the moment it does.
