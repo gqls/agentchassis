@@ -1,7 +1,9 @@
 # PLAN — gaswholesalers.com as the second evidence-base site
 
 *Owner proposed 2026-07-20 (vetcomparison is being worked in another thread).
-Reconnaissance done; **blocked on one owner decision** — see §4.*
+Reconnaissance done; the blocking question was ANSWERED the same day — see §4.
+The site's repositioning is routed to `features_open/006`; this thread keeps only
+the verification slice (§4b).*
 
 ---
 
@@ -64,28 +66,59 @@ first-person and operational should be reported. The output is then the audit li
 human works down — turning the auditor into a discovery tool, not just a regression
 check. This costs one prompt branch and one condition; no new pipeline.
 
-## 4. ⇢ BLOCKED: the question only the owner can answer
+## 4. RESOLVED 2026-07-20 — neither real nor demo: the site is simply WRONG
 
-**Is Gas Wholesalers a real trading business, or a demonstration site?**
+Owner's answer:
 
-The honest remedy differs completely, and I cannot tell from inside the platform:
+> "gaswholesalers.com is not a demo site and I do not trade gas wholesale, it
+> should be a site aimed at users (highly paid gas traders and ceo's of big oil
+> corporations perhaps) providing top quality analysis and tools… The content on
+> there is substantially wrong."
 
-- **If it is real** — the owner attests the facts (coverage area, product range,
-  whether deliveries are actually operated or brokered, whether there are clients),
-  those become `attested_by` fact rows, and anything the owner will not attest gets
-  removed or reframed as an offer ("we can arrange") rather than an operating claim.
-- **If it is a demo** — then all 174 assertions are fiction presented as fact, and
-  the fix is not a register but a decision about what a demo site may say. That is a
-  policy question about the whole demo fleet, not a claims-verification task.
+So both branches of the question were wrong. It is a **real site with a real
+intended audience, currently asserting a business the owner is not in.** All 174
+operational assertions are false — not exaggerated, not stale: false. There is no
+register to build from them, because none of them can become a fact.
 
-Nothing should be written to this site's evidence base until that is settled:
-seeding a register with guesses would be inventing the very facts this layer exists
-to prevent.
+**What this makes gaswholesalers, for this workstream:** the cleanest possible
+**cold-audit pilot**. Leopardess was remediation of a mostly-true site with pockets
+of fabrication. This is a site whose entire assertion surface is unsupported, with
+an empty register — exactly the case §3 says the layer cannot currently handle.
 
-## 5. Once unblocked — the sequence
+**Routed out of this thread:** the repositioning itself, the rewrite, and the new
+AI-influence page are content/site work, not claims-verification work. They are
+captured in `features_open/006_FEATURE_gaswholesalers_repositioning_and_ai_influence_page.md`
+(and the later chatbot in `007`). This thread does not write that copy.
 
-1. Owner attests what is true → build `evidence_base` with `attested_by` facts,
-   plus `banned_claims` for anything ruled out.
+## 4b. What this thread SHOULD take from it
+
+1. **Build the cold-audit posture (§3).** gaswholesalers is now a real, waiting
+   test case with a measured expected result: a correct cold audit should report on
+   the order of 174 unsupported assertions concentrated in
+   `pricing-transparency` / `supply-terms-and-eligibility` / `who-we-serve` /
+   `service-areas`. That is a benchmark, in the same spirit as the leopardess B1–B7
+   corpus: history graded as a test.
+2. **A new source kind is coming.** The AI-influence page (feature `006`) must be
+   "very well researched and verified" — which means claims sourced to external
+   citations. The schema today has `sql`, `artifact` and `attested_by`; a cited
+   publication is none of them. Likely
+   `source: {citation: "<publisher, title, date, url>", accessed: "<date>"}`, with
+   a staleness policy, since adoption statistics age badly. **Design this before
+   that page is written**, or it will be written first and audited never.
+3. **Forward mode, not just remediation.** Every use so far has been catching what
+   already shipped. That page is the first chance to run the layer the other way
+   round: evidence base first, copy second, nothing asserted that is not already in
+   the register. If that works it is the more valuable mode by far.
+4. **Watch the chatbot question.** `007` asks whether the claims layer should gate
+   bot responses. If yes, verification has to become *pre-response* rather than
+   post-publish — a materially harder problem, and it would reshape this workstream's
+   roadmap beyond V4. Do not plan V5 without an answer.
+
+## 5. Sequence, now unblocked
+
+1. **Cold audit first** — there is nothing to attest about the CURRENT copy; it
+   describes a business that does not exist. Build the cold-audit posture, run it,
+   and use its output as the demolition list for the rewrite (feature `006`).
 2. Build the cold-audit posture (§3) if the register starts thin.
 3. Run V3 → work the findings list → each ruling either adds a fact or removes copy.
 4. Only then wire V1's number lane; it will have little to do here, which is itself
