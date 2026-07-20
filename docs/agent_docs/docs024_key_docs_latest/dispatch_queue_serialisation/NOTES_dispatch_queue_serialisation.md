@@ -130,3 +130,73 @@ this one topic — much of it may run on job topics with their own consumers. 03
 asserts "every trigger from every concurrent session" funnels through the single
 lane; that part I have **not** verified, and it materially affects how bad this is.
 Included as an explicit question in the diagnosis submission. **[UNVERIFIED]**
+
+---
+
+## 2026-07-20 (later) — a concurrent thread corrected, and the same trap from both ends
+
+While I was measuring, the **bugfix-036 thread** committed a throughput section
+into `bugs_open/030` (`33008f0ca`). My session-start read of that file predates it —
+a live demonstration of the point CLAUDE.md opens with, and of the user's warning
+that files move underneath you. **Re-read before appending; I did, and it mattered.**
+
+### What they claimed, and why it is wrong
+
+They derived **0.21 msg/min** and a **~6.5 h** queue wait from two
+`kafka-consumer-groups.sh` readings labelled `19:16` and `19:30`.
+
+Both of their readings appear verbatim in my continuous sample file:
+
+```
+their "19:16"  96013 96099 86   ==  my sample at 19:29:48
+their "19:30"  96016 96102 86   ==  my sample at 19:30:57
+```
+
+69 seconds apart, not 14 minutes. And the first cannot have been at 19:16 at all:
+my sampler shows the offset **pinned at 96010 from 19:21:16 to 19:28:40**, 15
+consecutive readings, so `current=96013` at 19:16 would require the committed
+offset to run backwards. It does not, absent a group reset.
+
+3 messages / 69 s ≈ 2.6 msg/min. Over my full continuous window
+(19:10:37 → 19:32:39, 95963 → 96016) the honest figure is **53 messages in 22 min
+≈ 2.4 msg/min** → a queue of 86 clears in **~36 min**, which is exactly the
+**25–36 min** 030 measured on 2026-07-19. Nothing had degraded; the entry as
+originally filed was right.
+
+Correction appended to `bugs_open/030` (commit `5904eb60c`) with the sample file
+alongside it as `EVIDENCE_lag_samples_2026-07-20.txt`.
+
+### What they got RIGHT, and it is the important half
+
+Their mechanism inference — "the rate is set by orchestration DURATION, not by
+queue mechanics … consistent with the consumer running each orchestration to its
+wait point before taking the next message" — is **correct**. I reached the same
+conclusion independently the same hour by reading `agent.go` and `coordinator.go`.
+Two routes, one answer: that is the part worth keeping, and the correction says so
+explicitly rather than burying it.
+
+### The thing I actually want to remember
+
+**I made the mirror-image error two hours earlier** (near-miss, §above): frozen
+offset + silent log → "consumption has stopped". They made it in the other
+direction: two samples across a stall → "12× too slow, multi-hour waits".
+
+Same signal, same week, two threads, opposite conclusions, both wrong — so this is
+a property of **the signal**, not of either session. The queue is a sawtooth and
+any window shorter than one tooth is uninformative in both directions. Logged as
+`WRONG_CALLS.md` (7) and (8) with that synthesis, plus the mechanical remedy
+(≥20 min continuous sampling, take the slope — RUNBOOK R2).
+
+And the tell both of us share: **we had the code and used the clock.** The
+synchronous-handler mechanism is legible in two files in about ten minutes and
+predicts the sawtooth outright. Reading it first would have made both measurements
+unnecessary — or at least uninterpretable-in-the-wrong-direction.
+
+### Status
+
+Root-cause claim still **UNCONFIRMED** — diagnosis corr
+`78470372-7617-40e4-888c-66cac94006bf` had still not started at 19:36
+(`orchestration_states` → 0 rows; work item `awaiting_diagnosis` since 19:23:35).
+It is queued behind the backlog it is about. Per
+[[council-queue-latency-trap]] and 030's own landmine: **do not resubmit.**
+Owner's call (2026-07-20): wait for the verdict before building any fix.

@@ -72,3 +72,42 @@ being processed when the pod dies is simply lost. This isn't news, it's already
 recorded as one of the causes in the spawn-loss workstream, but the bug file's own
 troubleshooting note explains the frozen-queue symptom using the wrong mechanism,
 so I've corrected that where it matters.
+
+## 2026-07-20 (later) — two of us got the same measurement wrong, in opposite directions
+
+A twist worth writing down. While I was measuring the queue, another session was
+measuring it too, and published a figure into the bug file: the queue drains at
+about a fifth of a message a minute, so a submission waits roughly six and a half
+hours.
+
+That number is wrong, and I could show it precisely — because their two readings
+turned out to be two of *my* samples. I had a continuous log running at
+thirty-second intervals, and both of their figures appear in it, sixty-nine seconds
+apart. They had been labelled fourteen minutes apart. The real drain rate is about
+2.4 messages a minute, which means the queue clears in around half an hour — which
+is exactly what the bug said in the first place, the day before. Nothing had got
+twelve times worse overnight.
+
+What makes this worth more than a correction is that **I had made the same mistake
+two hours earlier, in the opposite direction** — I nearly declared the cluster dead
+when it was merely mid-pause. Two sessions, same week, same queue, opposite wrong
+answers. That stops being a story about either of us and becomes a story about the
+queue: it moves in fits, so any measurement shorter than one full stop-start cycle
+tells you something confident and false. I've written the rule down with the exact
+command to use, and logged both errors in the shared list of wrong calls.
+
+I also want to be fair about what the other session got right, because it's the
+more important half: they worked out *why* the queue behaves this way — that each
+message is held until its work reaches a natural pause — purely from the timings.
+I reached the same conclusion from reading the code. Two independent routes to the
+same mechanism is the strongest evidence we have, and I've said so in the bug file
+rather than leaving a correction that reads like a rebuke.
+
+The honest summary of both our errors: we each had the source code available, and
+we each used the stopwatch instead. Ten minutes in two files explains the whole
+behaviour.
+
+**Where things stand:** the root-cause claim is with the diagnosis loop to be
+checked properly, and it's queued — behind the backlog it's about, which is either
+poetic or annoying depending on the hour. You've said wait for that verdict before
+building anything, so nothing is being changed in the meantime.
