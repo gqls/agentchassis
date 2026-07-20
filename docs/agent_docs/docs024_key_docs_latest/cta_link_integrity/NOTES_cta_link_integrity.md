@@ -1143,3 +1143,55 @@ a two-directional control, so no diagnosis run was filed. The two `[INFERRED]` i
 why finetuning's recent discovery produced no findings, and whether robot-hands' 33 `complete`
 phantom items regressed or never held — are marked as such in that file and are the honest
 candidates for a run if anyone needs them settled.
+
+---
+
+## 2026-07-20 21:45 — session 4 cont'd: gaswholesalers chrome refresh SHIPPED — outcome measured
+
+Owner approved "all three now" for candidate 1 (049). Fired gaswholesalers first.
+
+**Two dispatch failures worth recording before the result:**
+
+1. First trigger (`35d74254`) **sent nothing.** The inherited `kubectl run -i ... <<JSON`
+   pattern races: `-i` attaches stdin only after the container starts, kcat hits EOF first,
+   produces zero messages, exits 0, pod deleted — and the script prints its whole success
+   banner. Caught by a **positive control on the chassis log** (a known-good correlation
+   appeared 21×, mine 0×) and then by reading the **topic** (`kcat -C -o -20`): my correlation
+   absent. This is the council queue-latency trap **inverted** — there, no orchestration row
+   meant QUEUED; here it meant NEVER SENT. Only the topic distinguishes them. Fixed the script
+   to `sh -c 'echo … | kcat'` (payload inside the pod, no stdin) and added a produce-verify step.
+
+2. Second trigger (`cdb64932`) confirmed in the topic, consumed ~21:41, orchestration `COMPLETED`.
+
+**Result on gaswholesalers (live audit, RUNBOOK R15):**
+
+```
+                     broken anchor instances   unique 404 targets
+before (chrome 05-21):        87                      8
+after  (chrome 07-20):        37                      8*
+```
+
+`* ` the two phantom legal links (`/privacy.html` ×28, `/terms.html` ×28 = 56 instances) are
+**gone from the live footer** — the actual owner-reported defect. 26 of 29 pages verified on the
+new clean chrome; 3 stragglers still show old chrome (CDN/deploy lag, orchestration already
+complete). The residual 37 are **not** chrome and were never in this fix's scope:
+`/contact /delivery /eligibility /pricing /products` (extension-less **content** links,
+mechanism 3) and `/fuel-pricing-framework.html` (the `needs_rebuild` page, mechanism 2).
+
+**But it confirmed `bugs_open/053` live, exactly as the pre-flight predicted.** gaswholesalers
+has no `legal` nav group, so the footer's legal slot now renders `GetNavItems`' pages-table
+fallback — a **21-link copy of the footer nav** (`<div class="footer-legal">About · Services ·
+Contact · … · Supply Terms · … · FAQ · Tools`), including `/fuel-pricing-framework.html` (404).
+Cosmetically wrong, all-200 except that one. **Not rolled back:** the alternative is restoring
+56 phantom 404s. Net is a clear improvement; the 053 cosmetic issue is tracked in its own file
+and its proper fix is either the Go change (nav_tables fallback overload) or real legal pages.
+
+**Held:** ai-agent-orchestration.com (same 053 exposure — no legal group) and finetuning.uk
+(has a legal group, safe) are NOT fired — awaiting the owner's call on proceed-all-three vs
+hold-for-legal-pages, given 053 was discovered after the "all three" approval. Snapshot for all
+three chrome rows: `bak_site_components_chrome_20260720`.
+
+> **Correction to my own earlier framing this session:** I told the owner "chrome is still
+> untouched, nothing has shipped" while `cdb64932` was queued. That was true at the instant but
+> misleading — the dispatch was authorized and unstoppable, so gaswholesalers *was* going to
+> ship regardless. It has now. The other two genuinely are untouched.

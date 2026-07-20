@@ -160,6 +160,18 @@ Recorded so nobody counts the gating sweep as covering it.
    chrome render in the fleet produced correct legal links. Removes 204 of the 312 broken anchors.
    ⚠️ **Outward-facing, needs an owner go** — it also replays ~3 months of accumulated nav changes
    onto three live sites in one step. Do not fire it as a side effect of something else.
+
+   > **DONE on gaswholesalers.com, 2026-07-20 (owner-approved).** Trigger
+   > `scripts/049_TRIGGER_chrome_refresh.sh` (in the cta_link_integrity workstream), orchestration
+   > `cdb64932`, `rerender-pages` with `refresh_site_components:true`. Live audit before/after:
+   > **87 → 37 broken anchor instances**; the two phantom legal links (56 instances) gone from the
+   > live footer, 26/29 pages verified on new chrome. **Caveat — it triggered `bugs_open/053`:**
+   > gaswholesalers has no `legal` nav group, so the legal slot now renders the 21-link pages-table
+   > fallback. Net still positive (rolling back restores the 56 404s), so left in place; the clean
+   > outcome needs candidate 2 (real legal pages) or 053's Go fix first. **ai-agent-orchestration.com
+   > (also no legal group) and finetuning.uk (has one) held pending owner decision.** Chrome snapshot:
+   > `bak_site_components_chrome_20260720`. Two dispatch traps recorded in NOTES (stdin-race produce;
+   > verify against the topic, not the orchestration table).
 2. **Owner decision: the legal pages themselves.** finetuning.uk has `/privacy-policy.html` but no
    terms page; ai-agent-orchestration.com and gaswholesalers.com have neither. A re-render makes
    the broken links *disappear*; it does not give the sites a privacy policy or terms of service.
