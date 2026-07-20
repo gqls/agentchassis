@@ -312,6 +312,18 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			sentMaxTokens = mt
 		}
 
+		// Detect a tolerated truncation BEFORE logging, so the one forensic row
+		// this call gets says whether the chain continued past it. Without the
+		// prefix, a tolerated cut and a fatal one are indistinguishable in
+		// llm_call_log, and per-step success-rate queries misread tolerated
+		// calls as pure failures (council round 2eed453a, three seats).
+		truncErr, isTruncatedCall := aiservice.IsTruncated(err)
+		tolerateTruncation := datahelpers.GetBoolField(params.StepConfig.Config, "tolerate_truncation", false)
+		logErrMsg := err.Error()
+		if isTruncatedCall && tolerateTruncation {
+			logErrMsg = "TOLERATED (step continued on the partial): " + logErrMsg
+		}
+
 		// Log the failed call
 		LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
 			AgentType:       params.AgentType,
@@ -326,7 +338,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			PromptRendered:  renderedPrompt,
 			LatencyMs:       llmLatencyMs,
 			Success:         false,
-			ErrorMessage:    err.Error(),
+			ErrorMessage:    logErrMsg,
 			Temperature:     sentTemperature,
 			MaxTokens:       sentMaxTokens,
 			WorkItemID:      flywheelWorkItemID,
@@ -353,18 +365,16 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		// response — no bypass — so it gets ParseLLMJSON's repair attempt, and the
 		// llm_call_log row above stays success=false, keeping the forensic trail
 		// the case file's own diagnostic queries rely on.
-		if te, isTrunc := aiservice.IsTruncated(err); isTrunc &&
-			datahelpers.GetBoolField(params.StepConfig.Config, "tolerate_truncation", false) {
-
+		if isTruncatedCall && tolerateTruncation {
 			truncationTolerated = true
-			truncatedTokens = te.OutputTokens
-			result = te.Partial
+			truncatedTokens = truncErr.OutputTokens
+			result = truncErr.Partial
 
 			params.Logger.Warn("LLM response was TRUNCATED — tolerating per step config; downstream must treat this result as partial",
 				zap.String("step_name", params.ExecutionContext.StepName),
-				zap.String("reason", te.Reason),
-				zap.Int("output_tokens", te.OutputTokens),
-				zap.Int("partial_chars", len(te.Partial)),
+				zap.String("reason", truncErr.Reason),
+				zap.Int("output_tokens", truncErr.OutputTokens),
+				zap.Int("partial_chars", len(truncErr.Partial)),
 				zap.Int("sent_max_tokens", sentMaxTokens),
 			)
 

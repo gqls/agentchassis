@@ -68,6 +68,18 @@ type councilReview struct {
 
 var councilVerdicts = map[string]bool{"approve": true, "object": true, "veto": true}
 
+// markerFieldFor maps a reviewer field path to its step's __truncated marker:
+// "review_editquality.result" -> "review_editquality.__truncated". The marker is
+// a SIBLING of the terminal segment (ExecuteLLMPromptAction stamps it on the
+// step's result map), so a path with no parent has nowhere to look — return "".
+func markerFieldFor(field string) string {
+	dot := strings.LastIndex(field, ".")
+	if dot <= 0 {
+		return ""
+	}
+	return field[:dot] + ".__truncated"
+}
+
 // salvageTruncatedReview tries to recover a usable opinion from a review cut off
 // at max_tokens, reusing repairTruncatedJSON (apply_adoption_plan_action.go) —
 // the same helper the truncation family has needed in three other places.
@@ -197,6 +209,20 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		}
 		if strings.TrimSpace(rv.Reviewer) == "" {
 			rv.Reviewer = field
+		}
+		// A partial that PARSES is still a partial. A review cut mid-array can
+		// close into valid JSON with a recognised verdict and silently missing
+		// objections — so a clean parse is not proof of a complete opinion
+		// (council round 2eed453a: three seats converged on exactly this gap).
+		// The step that tolerated the truncation stamped __truncated beside
+		// .result; consult it, so luck of the cut cannot outrank the record.
+		if mf := markerFieldFor(field); mf != "" {
+			if tm, ok := datahelpers.ExtractNestedField(params.CollectedData, mf).(bool); ok && tm {
+				rv.Degraded = true
+				logger.Warn("diagnose_council_decide: review parsed cleanly but the step recorded a TRUNCATION — marking degraded; trailing objections may be missing",
+					zap.String("field", field),
+					zap.String("verdict", rv.Verdict))
+			}
 		}
 		reviews = append(reviews, rv)
 	}

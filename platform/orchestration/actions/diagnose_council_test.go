@@ -167,3 +167,20 @@ func TestUnreadableSeatCannotApprove(t *testing.T) {
 		t.Fatalf("a readable objection must stay decisive, got %s", got)
 	}
 }
+
+// Round-2 fix from council review 2eed453a: a truncated partial that happens to
+// parse as valid JSON must still be marked degraded — the decider consults the
+// step's __truncated marker, derived as a sibling of the reviewer field.
+func TestMarkerFieldFor(t *testing.T) {
+	cases := map[string]string{
+		"review_editquality.result": "review_editquality.__truncated",
+		"a.b.result":                "a.b.__truncated",
+		"bare":                      "",
+		".result":                   "",
+	}
+	for in, want := range cases {
+		if got := markerFieldFor(in); got != want {
+			t.Fatalf("markerFieldFor(%q): want %q got %q", in, want, got)
+		}
+	}
+}
