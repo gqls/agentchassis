@@ -577,3 +577,34 @@ so it goes to the review council rather than being something I do quietly on a S
 The cards still need deriving and the tool listing needs re-rendering. Whether you want
 to keep the four rule-breakers or regenerate them is your call — regenerating without
 fixing bug 028 is a coin flip, which is rather the point.
+
+## 2026-07-20 — holding the tool imagery until bug 020 is fixed (your instruction)
+
+You've said to wait for 020, and I've stopped. Recording why it's the right call, and
+what I checked.
+
+Bug 020 is the one where the tool-recreation process **invents a dataset** when the
+original tool was backed by real data — it shipped fake veterinary practices, with
+invented postcodes, to a live public site, and every work item reported success.
+Everything this imagery rollout dresses is a **tool page**. Making those pages more
+attractive, and promoting them with pictures in the tool directory, is the wrong
+direction of travel while that defect is open.
+
+I checked whether it actually touches us here, and it does: **gamesdesign.co.uk has
+eleven completed tool-recreation items**, so the nine tool pages I just made pictures
+for came through exactly that process. I have *not* verified whether those specific
+tools invented anything — 020's failure mode is tools backed by data, and these are
+formula-based game calculators, which is a different risk — but that check hasn't been
+done and the hold doesn't depend on it.
+
+**Nothing needs undoing.** The nine pictures exist as stored files only. I checked the
+live pages: they serve fine and carry no reference to them. The cards were never cut and
+the listing was never rebuilt, so nothing is published and nothing is half-done. It
+simply stops here until you say otherwise.
+
+Also holding: the five pictures each for finetuning and leopardess. Their style guides
+are written and ready, but I haven't started their sweeps.
+
+What I'd still do while we wait, unless you'd rather I didn't: put the two picture bugs
+(027, the truncated colour instruction; 028, the ignored "avoid" lists) to the review
+council, since neither is about tools and both currently affect every site.

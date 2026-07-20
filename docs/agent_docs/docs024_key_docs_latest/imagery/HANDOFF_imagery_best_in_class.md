@@ -39,6 +39,32 @@ on **v1.0.1136**. The two things left in I3 need *your decisions*, not code
 `8b804bc27` (F3 surface table) · migration `170` (tool-list image slot, applied)
 · `c0ef457a1` (release the adapter with the chassis).
 
+## 🛑 STOP — TOOL IMAGERY IS HELD BY OWNER RULING UNTIL `/bugs_open/020` IS FIXED (2026-07-20)
+
+**Do not publish, derive, re-render or extend tool-page imagery. Do not fire the
+tool sweeps on finetuning.uk or leopardessconsulting.co.uk.** This is an owner
+instruction, not a technical block — the machinery works.
+
+**Why:** `bugs_open/020` is the tool-recreation path inventing datasets and reporting
+`complete` (live fabrication reached a public site on vetcomparison). Everything this
+rollout dresses is a **tool page**, and **gamesdesign.co.uk has 11 completed
+`needs_tool_recreation` items** — its nine tool pages came through that exact handler.
+Publishing card imagery would promote them in the tool directory and make them look
+more credible. Whether gamesdesign's specific tools invented anything is **UNVERIFIED**
+— 020's failure mode is data-backed tools, and game calculators are formula-based — but
+that check has not been done, and the hold does not depend on it.
+
+**State at the hold (nothing to roll back):** 9 `content_hero` assets generated and
+stored on gamesdesign. **Not live** — the deployed tool pages serve 200 with zero hero
+references. Cards were never derived; the listing was never re-rendered. 7 of the 9 are
+good; 4 violate their own `avoid` list (3 white/pale grounds, 1 with numerals) for the
+reason in `/bugs_open/028`.
+
+**Safe to continue meanwhile** (not tool-imagery): the `/bugs_open/027` §4b and
+`/bugs_open/028` code fixes, both of which want the council gate.
+
+---
+
 **⚠️ 2026-07-19 (Turn 53) — the tool rollout is HELD at the no-spend point, and the
 style-guide fix alone is NOT sufficient. See `/bugs_open/027` §4b.**
 
