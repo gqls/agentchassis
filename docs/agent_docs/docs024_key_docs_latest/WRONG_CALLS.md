@@ -29,8 +29,9 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 |---|---|
 | read the code before asserting a mechanism | 6 |
 | **read the CONTRACT a thing plugs into, not just its logic** | **1** |
+| **name the LAYERS a claim spans, and touch each one** | **3** |
 | wait / query again before calling an absence a failure | 3 |
-| **grep for the capability before asserting it does not exist** | **1** |
+| **grep for the capability before asserting it does not exist** | **2** |
 | **prove the artefact is current before reasoning from it** | **2** |
 | measure a property before describing it | 1 |
 | **run a census against a known-positive control before reporting the count** | **1** |
@@ -725,3 +726,35 @@ person repeating the mistake — the most expensive place to be wrong. Corrected
 **Pattern:** this is the third entry today from the same root — asserting a plausible cause
 without opening the thing that would confirm it. The other two were `health.NewServer` having
 no callers, and "verified live" that only exercised the healthy branch.
+
+### 2026-07-20 — reasoning-dataset — "the human-review queue has no working surface"
+**Asserted:** filed `bugs_open/033` under that title, having established that the
+three Go admin routes had never run, that a fourth handler was written and never
+registered, and that two columns were dead. Concluded there was nowhere for a
+human to action a review item, and put the prior question to the owner as
+*"queue or bin?"*.
+**Actually:** a **complete** review surface exists and always did — in the admin
+dashboard frontend. `frontends/admin-dashboard/src/App.tsx` has the work-item
+list, a `needs_human_review` filter with a count badge, and wired
+Approve / Retry / Resolve / Reject / Skip buttons calling the very endpoints I
+had declared unused. The real defect is narrower and better: the list loads the
+**newest 50** non-complete items, so it shows **0 of the 208** build-pipeline
+review items and reports the queue as empty. Not absent — **blind**.
+**Caught by:** a bugfix thread re-grounding the file the same day, and reading
+the frontend.
+**The cheap check that would have caught it:** `grep -rn "needs_human_review"
+frontends/` — one command, in the layer where a *human* surface would obviously
+live. I searched `platform/` and `internal/` exhaustively and never once left Go.
+**Cost:** a bug filed under a false title, and a "queue or bin?" question put to
+the owner that did not need asking — most of the fix needs no ruling at all.
+
+> **This is the third time in one session the same shape has failed**, and the
+> repetition is the point. `work_item_id` "is being dropped" (checked the log
+> table, not the dispatch path). The resolution reason "is never captured"
+> (checked one status, not the table). The review surface "does not exist"
+> (checked the backend, not the frontend). Each time I searched **one layer
+> exhaustively** and reported a property of **the whole system**. Thoroughness
+> inside a boundary reads exactly like thoroughness overall, which is what makes
+> it convincing and wrong. The check is not "look harder" — it is **name the
+> layers the claim spans, and touch each one**, before writing "never", "no", or
+> "does not exist".
