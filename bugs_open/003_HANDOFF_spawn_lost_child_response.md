@@ -232,12 +232,27 @@ Two further holes in the same layer:
    > **[CORRECTED 2026-07-20]** an earlier version of this note blamed
    > `KAFKA_TOPIC` from `personae-prod-config`; that ConfigMap has no topic keys
    > at all (they live in the agent-chassis Deployment's env), and
-   > `cfg.Custom["topic"]` is not what opens the consumers. Caught by the owner.
+   > `cfg.Custom["topic"]` is not what opens the consumers. My error, found
+   > while checking the owner's challenge.
    >
-   > **Still live, for the record:** `system.agent.generic.requests` is not
-   > dormant — the static chassis pod was an active consumer during this test
-   > (`generic-requests-group`, offset 95963 / end 96053, lag 90). The dynamic
-   > half of the fleet is what runs on `job.*`.
+   > **Both halves settled against the docs, 2026-07-20** —
+   > `001_development_guide(5).md:476–486` is the authoritative Topics section
+   > and documents three patterns, not one:
+   > - `job.<stable-identity>.requests` — per-spawn dedicated topics, created by
+   >   the parent before the Job launches; identity is
+   >   `<corr[:8]>-<orch[:8]>-<agent_type>-<parent_step>`. Doctrine: *"Always use
+   >   this when you can — if you have a parent workflow, `spawn_agent` it."*
+   >   **This is the dynamic half, and it is most of the fleet.**
+   > - `system.agent.generic.requests` — *"the generic entry point"*, consumed by
+   >   the generic chassis Deployment; callers are `trigger-*.sh` and the
+   >   kafka-scheduler. Not deprecated, but explicitly *"the current door"* —
+   >   *"don't treat [it] as a permanent interface."* Live and consuming during
+   >   this test (`generic-requests-group`, offset 95963 / end 96053, lag 90).
+   > - per-type fixed topics for long-lived adapter Deployments.
+   >
+   > So a test pod on the generic topic is not on a dead topic, and equally the
+   > spawned fleet never touches it. Both were true at once, which is why the
+   > question felt contested.
    > **Governance caveat, stated plainly:** this shipped **without an APPROVED
    > council verdict.** The trail (`3a18a1a4`) ran three rounds — REVISE, then a
    > round voided by 019-class reviewer truncation, then REVISE again — and the
@@ -325,6 +340,32 @@ Two further holes in the same layer:
       actually consuming.
    d. **`replicas=1`** — a rollout leaves a window with no consumer at all. ≥2 (check the
       partition count first: with one partition you get failover, not parallelism).
+
+      > **⚠ DO NOT APPLY (d) AS WRITTEN — added 2026-07-20, from the docs.**
+      > `ANALYSIS_chassis_response_consumer_group_race.md` (2026-05-10, status
+      > *"Discovery, not yet remediated"*) documents that each chassis pod joins
+      > **its own per-pod consumer group** on `system.agent.generic.responses`,
+      > so **every response is delivered to every chassis pod**; two pods then
+      > run `ProcessResponse` on the same message (observed 215 ms apart), and
+      > the loser's optimistic-concurrency check fails. That doc's own
+      > explanation of why it surfaced: *"the generic chassis Deployment has 3
+      > replicas, which is why we hit it here."* Production is `replicas: 1`
+      > today — which is precisely what masks it.
+      >
+      > So (d) would **reintroduce a known, unfixed defect**. Sequence it
+      > properly: give the responses consumer a **stable shared group name**
+      > (the fix that ANALYSIS proposes and nobody has applied) FIRST, then
+      > raise replicas. Verified live 2026-07-20: **101 consumer groups on the
+      > cluster, 76 of them per-pod UUID-shaped** — the sprawl that doc
+      > described has grown, not gone.
+      >
+      > **Open lead for this bug, [UNVERIFIED]:** that race is a candidate
+      > FOURTH mechanism for 003's own symptom. A duplicate `ProcessResponse`
+      > whose loser fails an optimistic-lock check is a response that arrived
+      > and was then effectively discarded — indistinguishable, from the
+      > parent's side, from a response that never came. Worth checking against
+      > the wedged specimens before assuming the three known causes cover
+      > everything.
 
    **Why this ordering matters for CD.** Continuous deploy on top of at-most-once delivery
    makes things *worse*, not better — it deploys more often, and every deploy destroys

@@ -469,6 +469,22 @@ The system uses two quite different kafka patterns depending on whether a messag
 
 **How a pod decides what to subscribe to.** Every chassis-based pod reads `KAFKA_TOPIC(S)` from its environment at startup. That env var is set differently depending on how the pod came into existence:
 
+> **CORRECTED 2026-07-20 (bugfix 003 thread) — the env var named here is not the one that opens the consumers.**
+> `KAFKA_TOPIC(S)` is read by `cmd/agent-chassis/main.go` into `cfg.Custom["topic"]`, but the
+> consumers are opened by `Agent.setupConsumers()` (`platform/agentbase/agent.go:327–362`), which
+> reads **`REQUESTS_TOPIC` and `RESPONSES_TOPIC`** — and when either is unset it falls back to a
+> **hardcoded** `system.agent.generic.requests` / `.responses` ("Only the main orchestrator listens
+> on the generic topic"). The practical consequence: a pod given `AGENT_TYPE` and `KAFKA_TOPIC` but
+> **not** `REQUESTS_TOPIC`/`RESPONSES_TOPIC` silently becomes a second generic-entry-point listener.
+> Proven by a test pod on 2026-07-20 that did exactly that. Spawned Jobs are unaffected — the
+> spawner injects both vars. The rest of this section (who sets what, and why) is unchanged and
+> correct; only the variable name is wrong.
+>
+> **Also stale here:** "currently three replicas" — the production `agent-chassis` Deployment is
+> `replicas: 1` as of 2026-07-20. That is load-bearing, not cosmetic: see
+> `ANALYSIS_chassis_response_consumer_group_race.md`, where three replicas is exactly what exposed
+> the duplicate-response race, and `bugs_open/003` §4.4d, which must not be applied without it.
+
 - **Fixed-topic deployments** (adapters, the "generic" chassis, any long-lived Deployment): `KAFKA_TOPIC(S)` is baked into the Deployment manifest at deploy time. The `web-scrape-adapter` pods listen on `system.agent.webscrape-adapter.process`, the "generic" `agent-chassis` pods listen on `system.agent.generic.requests`, and so on. The `agent_definitions.topics` jsonb column is a *declaration* of where this agent expects to be reachable, but it's the Deployment manifest that actually subscribes — the jsonb is informational unless something (a Helm chart, a kustomize overlay) pulls it into a manifest.
 
 - **Spawned Job pods:** `KAFKA_TOPIC(S)` is set per-spawn by `spawnAgentKubernetesJobFromDefinition` (see `setupAgentTopics`). It's a `job.<stable-identity>.requests` topic, created in kafka by `createTopics` just before the Job launches. The stable identity is `<correlationID[:8]>-<orchestrationID[:8]>-<agent_type>-<parent_step>`, so concurrent spawns in different orchestrations get different topics. Sequential spawns of the same type at the same step in one orchestration (e.g. a dispatch loop) reuse the same topic — the previous Job has already completed before the next is spawned, so reuse is safe. The Job pod subscribes only to its own topic. When the workflow completes the Job terminates; kafka retention cleans the topic up.

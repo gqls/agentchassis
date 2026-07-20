@@ -715,8 +715,18 @@ mechanism is a hardcoded fallback in `setupConsumers()` (`agent.go:332`, `:362`)
 (*"Only the main orchestrator listens on the generic topic"*). Spawned dynamic agents never
 reach it — the spawner injects their `job.*` topics.
 **Caught by:** the owner, flatly — *"we are not using system.agent.generic.\*, the dynamic pods
-create their topics dynamically."* Correct about the dynamic half, and it did not match my
-story, which is what made me go and read `setupConsumers()`.
+create their topics dynamically."* It did not match my story, which is what made me go and read
+`setupConsumers()` and find the real mechanism.
+
+> **FOLLOW-UP 2026-07-20:** the owner then retracted the premise, and the docs settle it —
+> `001_development_guide(5).md:476-486` documents BOTH: `job.<stable-identity>.*` per-spawn
+> topics for the dynamic fleet (*"Always use this when you can"*), AND
+> `system.agent.generic.requests` as *"the generic entry point"* for trigger scripts and the
+> scheduler, live and consuming. Both statements were true of different halves of the system.
+> **The retraction does not retire this entry**: the challenge was right that my explanation
+> was wrong, and my ConfigMap claim was independently false whoever raised it. A correction
+> prompted by a premise that later turns out to be mistaken is still a correction — the lesson
+> (read the thing before asserting its contents) is untouched.
 **The cheap check that would have caught it:** `kubectl get cm personae-prod-config -o json`
 and one grep for the topic key — I asserted the ConfigMap's contents without ever reading it,
 in the same breath as reporting a possible production-traffic incident. Reading the function
