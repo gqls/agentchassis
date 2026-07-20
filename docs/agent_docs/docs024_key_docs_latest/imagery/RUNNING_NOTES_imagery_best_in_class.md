@@ -2466,3 +2466,95 @@ re-render with **`reason='image_landed'`** (A6.2 — the step that bites).
 consistency ACROSS the set, which 2 images cannot prove); then finetuning.uk (5) and
 leopardessconsulting.co.uk (5), whose guides are written but whose sweeps have not
 been fired.
+
+---
+
+## 2026-07-20 — bugs_open/028 (avoid lists inert): confirmed end-to-end, fixed, council round 1 lost to a harness bug
+
+**Thread:** bugfix-028. Bug file carries the full account (`/bugs_open/028`, §7 is the fix).
+
+### Diagnosis — deliberately NOT sent to the diagnosis loop, and why
+
+CLAUDE.md's default is to file before asserting a durable cause. I judged this one
+self-evidencing and skipped the loop. The reasoning, so it can be challenged: `avoid`
+has **exactly three references in the entire Go tree** — `imagery_style_guide.go:128`
+(emptiness check), `:194`, `:196` (the accessor) — and its only consumer is
+`generate_image_actions.go:333` → `negativePrompt` → `banana/provider.go:105`, a
+`logger.Debug`. The consumer set is *enumerable and enumerated*; there is no room for
+the cause to be elsewhere. That is the narrow condition the guide allows.
+
+What I did instead of the loop was **verify live**, which the original filing had not:
+
+```sql
+-- every sampled image was served by the discarding provider
+SELECT a.asset_key, a.origin_model FROM assets a JOIN sites s ON s.id=a.site_id
+WHERE s.domain LIKE '%gamesdesign%' AND a.created_at > '2026-07-18';
+-- → 11/11 rows: banana/gemini-3-pro-image-preview
+```
+
+and read `assets.origin_prompt` for `content_hero_tool_xp_curve_designer`: medium,
+mood and palette present, **zero terms** of the site's 240-char avoid list. That
+upgraded the filing's "verified in code" to proven in prod.
+
+### The fix, and the one contestable decision
+
+`banana/provider.go` now folds `NegativePrompt` into the positive prompt
+(`foldNegativeIntoPrompt`) and logs at Info; `provider.Request.NegativePrompt`'s
+contract was tightened (it had *licensed* the drop — "providers that don't support
+negative prompts log and ignore" — so Banana was obeying it); 7 unit tests added to a
+package that had none.
+
+**Placement was the real decision: provider, not action layer.** Three reasons, in
+`/bugs_open/028` §7. Short form: negation in the positive prompt helps Gemini and
+*hurts* SDXL (CLIP can't negate), so the action layer would need the routing decision,
+which lives only in `routing.go` — and a second hand-maintained provider list is the
+drift class `routing.go`'s header exists to prevent, and that queued item `5db192c5`
+is already filed against. It also keeps the fold downstream of
+`maxImageryDirectionInPrompt = 200`, so it cannot evict the palette (027 §4b).
+
+**Cost accepted, recorded so nobody trips on it:** `origin_prompt` is written by the
+ACTION layer, so it will never show the avoid terms — fix or no fix. §6 of the bug file
+told the next thread to verify exactly there, so **§6 is now corrected**; verify from
+the adapter's Info log (`grep "folded NegativePrompt into positive prompt"`) instead.
+Rejected adding `FinalPrompt` to `provider.Result`: unconsumed surface, and actually
+recording it means repointing `origin_prompt_field` in 4+ workflows (107) and changing
+what the column means for every historical row.
+
+### Misstep / correction to our own record
+
+The D14 lesson "ground colour is fixed via `avoid`, not `medium`" (in
+`HANDOFF_imagery_best_in_class.md`, the imagery memory, and RUNBOOK A6.5) is
+**disproven, not merely doubted** — those generations were Banana-routed, so the
+`avoid` edit reached nothing. The mechanism is worth naming because it will recur: a
+free config edit plus a re-roll of a nondeterministic generator, improvement credited
+to the edit, n=1. `SQL_2026-07-18_d14_avoid_tighten_white_grounds.sql` is that edit.
+**Not corrected in those three docs by this thread** (imagery workstream's to make);
+flagged in `/bugs_open/028` §4 so it is not lost. Pattern written up in 016b §9
+("A field the backend has no parameter for gets accepted and discarded").
+
+### Council gate — round 1 VOID (harness), round 2 pending
+
+`SUBMISSION_CORR=d35844da-f533-42da-b096-4f82cc2839bc`. Round 1
+(orch `5438f851`) reached `complete_invalid` with **`error` empty**, `status` COMPLETED,
+and no `council_report`. Cause was only in `collected_data.__step_error`:
+
+```
+reviewer output at "review_debug_historian.result" does not match the review schema:
+json: cannot unmarshal string into Go struct field .objections.edit of type int
+```
+
+`councilReview.Objections[].Edit` is a plain `int` (`diagnose_council_decide_action.go:56`)
+under a strict unmarshal, so one seat writing `"3"` instead of `3` discarded **every**
+seat's review after all had been paid for. **Filed as `/bugs_open/036`.** Distinct from
+019 (truncation → invalid JSON, salvageable); this is well-formed JSON with a wrong type,
+so 019's bracket-closing salvage cannot help. Did not fix it: `diagnose_council_decide_action.go`
+was dirty in the shared tree (another session on the 019 work), and two edits to one file
+cannot be separated by a pathspec commit.
+
+Resubmitted with `RESUBMIT_CORR` so the trail accumulates, **consolidated to one edit
+entry per file** (round 1 had 5 edits, 3 naming the same file — a plausible pull toward
+answering "which edit" with a string). Workaround, not a fix; noted as such in 035 §4.
+
+**Trap for the next thread:** a voided council round records itself as `COMPLETED` with
+an empty `error`. Check for the `council_report` row — **absence of the report is the
+symptom**, not presence of an error.

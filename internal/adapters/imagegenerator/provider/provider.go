@@ -57,9 +57,17 @@ type Request struct {
 	// Prompt is the positive text prompt. Required; empty → ErrInvalidRequest.
 	Prompt string
 
-	// NegativePrompt is the negative text prompt. SDXL uses this directly;
-	// providers that don't support negative prompts (e.g. Gemini) log
-	// and ignore. Empty means "use provider default for this kind".
+	// NegativePrompt is the negative text prompt. Empty means "use provider
+	// default for this kind".
+	//
+	// Every provider must HONOUR this, by its own best available means — SDXL
+	// passes it as true negative conditioning; Banana has no such parameter
+	// and folds it into the positive prompt as a prohibition clause. What a
+	// provider must NOT do is accept it and discard it: that was bugs_open/028,
+	// which made every site's `avoid` list inert fleet-wide without a single
+	// error, because the field kept being accepted long after anything read it.
+	// A new provider that genuinely cannot express a constraint should fail or
+	// warn loudly, not swallow it.
 	NegativePrompt string
 
 	// AspectRatio is a semantic ratio label ("1:1", "16:9", "4:3", "3:4",

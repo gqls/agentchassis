@@ -608,3 +608,64 @@ are written and ready, but I haven't started their sweeps.
 What I'd still do while we wait, unless you'd rather I didn't: put the two picture bugs
 (027, the truncated colour instruction; 028, the ignored "avoid" lists) to the review
 council, since neither is about tools and both currently affect every site.
+
+---
+
+**2026-07-20 — the "avoid" lists (bug 028): fixed in code, waiting on a rebuild, and
+one of our written-down lessons turns out to be wrong.**
+
+I picked up 028, the one where the "avoid" lists are ignored. It is confirmed, and it
+is worse than "probably": I proved it end to end rather than just reading the code.
+Every one of the eleven pictures made for gamesdesign last week was made by Banana —
+that is recorded against each picture — and Banana is the engine that throws the avoid
+list away. I also pulled up the exact instruction we sent for one of them. It carries
+the medium, the mood and the colours, and **not a single word** of the 240-character
+avoid list the site has written out. So the list was assembled, sent across, and
+dropped on the floor. Nothing anywhere said so.
+
+**The awkward part.** We have written down, in three places, that "ground colour is
+fixed by the avoid list, not by the medium" — presented as a hard-won lesson. It cannot
+be true. The pictures that taught us that were all made by the engine that ignores the
+avoid list, so the edit we made had no effect whatsoever. What actually happened is that
+we changed the setting, asked for the picture again, it came back darker, and we credited
+the change. The picture generator gives a different result every time, so one
+before-and-after simply cannot tell a real fix from a lucky roll — and because the edit
+was free, nobody thought to check it twice. **I have not corrected those three documents**
+(they belong to the main imagery thread, not this bugfix) but I have written the
+correction into the bug file so it cannot be missed. It matters more after the rebuild
+than before, because at that point the avoid list will genuinely start doing something,
+and a stale "we already know how this works" note is at its most expensive precisely then.
+
+**The fix.** Banana has no way to be told "don't draw X" — that setting simply doesn't
+exist in it. So instead of discarding the list, it now turns it into a plain sentence at
+the end of the instruction: *"Do not depict any of the following — the image must not
+contain or use: …"*. Gemini follows plain English reasonably well. I put it in the engine
+rather than further upstream for a slightly boring but important reason: the other engine,
+SDXL, gets actively *worse* if you phrase things that way, so whoever does the folding has
+to know which engine is about to be used — and only one place in the code knows that. It
+also means it cannot collide with bug 027 (the truncated colour instruction), because by
+the time the text reaches the engine the truncation has already happened, so nothing the
+fix adds can push the colours off the end.
+
+**Two honest caveats.** First, this is not live: it is Go code, so nothing changes until
+somebody rebuilds and rolls a chassis image. Until then prod behaves exactly as before and
+the bug stays open. Second — and I want to be clear, because this is the kind of claim
+that got us into the mess above — **I am not saying the avoid lists will now be obeyed.**
+A sentence in the instruction is weaker than a real "don't draw this" setting. The proof
+is in this very bug: one of the pictures had "near-black" in its instruction and still came
+back nearly white. What this fix does is make the list *have an effect at all*. Whether it
+has enough effect has to be measured across five or more pictures, counting violations —
+not by looking at one and feeling reassured.
+
+One knock-on worth expecting: after the rebuild, sites whose avoid lists are badly written
+or self-contradictory will start showing it, where before the list was inert and harmless.
+Some things may look worse before they look better. That is the constraint working, not a
+regression.
+
+**On the review council.** I did put it to the council, as I said I would. The first round
+was lost — not a rejection, a fault in the council itself: one reviewer wrote a number as
+text, and that single slip threw away the whole round including the other reviewers' work,
+after we had already paid for all of them. I have filed that as bug 036 and resubmitted.
+Worth knowing that the run recorded itself as "completed" while having produced nothing at
+all, which is the same trap we keep meeting elsewhere: the status said fine, the output was
+empty.

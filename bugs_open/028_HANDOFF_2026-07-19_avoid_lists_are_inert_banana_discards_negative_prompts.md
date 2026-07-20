@@ -5,8 +5,23 @@ gamesdesign.co.uk violated their own `avoid` list in exactly the ways it forbids
 **Severity:** Medium-high. Nothing crashes; the imagery style guide's entire negative
 half has simply had no effect since the Banana migration, and at least one documented
 "hard-won fact" was attributed to it.
-**Status:** OPEN. Diagnosed from code + 9 live samples. **No fix applied** — the fix
-changes generation behaviour fleet-wide and belongs at the council gate.
+**Status:** OPEN — **FIX APPLIED 2026-07-20, INERT UNTIL AN IMAGE ROLL.** Stays OPEN
+because the bar for `/bugs_closed/` is fixed AND live: this is Go, so the defect is
+still reproducible in prod until a chassis image ships. Fix + evidence in §7 below.
+
+> **CONFIRMED 2026-07-20 (bugfix-028 thread), beyond the original filing.** The
+> mechanism was re-verified from code independently, and then proven end-to-end
+> against the live DB, which the original filing had not done:
+> - **All 11** gamesdesign.co.uk `content_hero` rows generated 2026-07-19 carry
+>   `origin_model = 'banana/gemini-3-pro-image-preview'`. Every sampled image was
+>   served by the discarding provider — so this is no longer an inference from the
+>   routing table.
+> - `assets.origin_prompt` for `content_hero_tool_xp_curve_designer` contains the
+>   medium, mood and palette and **not one term** of the site's 240-char avoid list.
+>   Assembled, shipped over Kafka, gone.
+> - `avoid` has exactly **three** references in the whole Go tree
+>   (`imagery_style_guide.go:128` emptiness check, `:194`, `:196`), and its only
+>   consumer path terminates in that Debug log. There is no second path.
 
 ---
 
@@ -102,6 +117,22 @@ I am stating the code fact as **verified** and the misattribution as **strongly
 implied** — I have not re-run the original D14 generations with and without the `avoid`
 edit, which is the experiment that would settle it beyond doubt.
 
+> **STRENGTHENED 2026-07-20 (bugfix-028 thread).** The premise is now proven rather than
+> inferred: every one of the 11 gamesdesign `content_hero` rows carries
+> `origin_model = 'banana/…'`, and the stored `origin_prompt` for one of them contains
+> no avoid term at all. So on the D14 generations the `avoid` edit provably reached
+> nothing. The misattribution is as close to settled as it gets without re-running D14.
+>
+> **The three documents still say it, and this thread has not corrected them** —
+> `HANDOFF_imagery_best_in_class.md` (D14 findings), the imagery memory, and RUNBOOK
+> **A6.5**. That is deliberate scope, not an oversight: they belong to the imagery
+> workstream. Whoever picks that up should note the lesson is not merely "this fact was
+> wrong" but **how it was made** — a config edit and a re-roll happened together, the
+> output improved, and the edit took the credit. Nothing in the loop was capable of
+> noticing that the edited field was never read. After an image roll the `avoid` edit
+> genuinely *will* do something, which is precisely when a stale "we already know how
+> this works" note is most expensive.
+
 ## 5. Fix candidates
 
 1. **Fold `avoid` into the POSITIVE prompt for providers with no negative-prompt
@@ -121,15 +152,105 @@ edit, which is the experiment that would settle it beyond doubt.
 
 ## 6. How to verify a fix
 
+> **CORRECTED 2026-07-20 — the second bullet was wrong for the fix that was actually
+> applied, and following it would produce a false negative.** It said to read
+> `assets.origin_prompt` and expect the avoid terms there. `origin_prompt` is written
+> by the **action layer** (from the workflow's `origin_prompt_field`; see
+> `sql_for_agents/107_image_build_handler.sql`), and the applied fix folds the
+> constraint **downstream of that**, inside the Banana provider. So `origin_prompt`
+> will *never* show the avoid terms, fix or no fix — and a thread checking there would
+> conclude the list is still inert. That is the same shape of mistake this bug is made
+> of, which is exactly why it is corrected here rather than quietly dropped.
+> Why the fix went downstream anyway, and what was traded away, is in §7.
+
 - Generate one `content_hero` on gamesdesign.co.uk (its guide's `avoid` names white
   grounds and numerals) and check the produced image for both.
-- Confirm the constraint reached the model: read `assets.origin_prompt` — under fix (1)
-  the avoid terms should be visible **in the stored prompt**, which is the same
-  evidence trail that proved `/bugs_open/027` §4b.
+- Confirm the constraint reached the model **from the adapter log**, not the DB. The
+  provider logs the fold at Info:
+  ```
+  kubectl logs -n ai-persona-system <image-generator-adapter-pod> \
+    | grep "folded NegativePrompt into positive prompt"
+  ```
+  The line carries `negative_prompt` (400-char preview — wide enough for real ~350-char
+  avoid lists), `prompt_len_before` and `prompt_len_after`. A generation with a
+  non-empty avoid list and **no such line** means the fix is not in the running image.
+- Check the image itself, not the log line: the log proves the terms were *sent*, which
+  is all this fix claims. It does **not** prove Gemini obeyed them — see §7's honest
+  caveat.
 - n=1 proves nothing here. Both defects in this file were only visible across a set;
   use 5+ and count violations rather than eyeballing one.
+- **Do not verify by grepping the pod binary for `avoid` or `NegativePrompt`** — both
+  symbols were present throughout the defect. Grep for `foldNegativeIntoPrompt`.
 
-## 7. Related
+## 7. THE FIX AS APPLIED (2026-07-20, bugfix-028 thread)
+
+**Shape:** candidate (1) from §5 — fold `avoid` into the positive prompt — but placed
+in the **Banana provider**, not the action layer, plus candidate (2)'s "make it loud".
+Candidate (3)'s warning was respected: nothing was routed back to SDXL.
+
+`banana/provider.go` now translates `NegativePrompt` into a trailing prohibition clause
+(`foldNegativeIntoPrompt`) instead of dropping it, and logs the fold at **Info**. The
+`provider.Request.NegativePrompt` interface contract was tightened too: it used to tell
+implementers that providers without negative-prompt support "log and ignore" — Banana
+was *following the contract correctly*, so fixing only the call site would have left the
+next provider author the same licence. 7 unit tests added (the package had none).
+
+### Why the provider and not the action layer — the decision to re-examine
+
+The action layer is the tempting place, because `assets.origin_prompt` would then show
+the terms. Rejected for three reasons:
+
+1. **Folding negation into the positive prompt is right for Gemini and WRONG for SDXL.**
+   SDXL's CLIP text encoder cannot represent negation and tends to render what you asked
+   it to omit. So the action layer would need to know which provider will serve the
+   request — and that answer lives only in `routing.go`.
+2. **A second hand-maintained provider list in a second package is the documented drift
+   class here.** `routing.go`'s own header exists because a hand-maintained kind switch
+   shipped two separate defects (`content_hero`, then `hero`/bugs_open/011). Queued
+   diagnosis item `5db192c5` is already filed against exactly this shape: "the per-kind
+   accessors ... each carry their own hand-maintained kind lists."
+3. **It would feed `/bugs_open/027` §4b.** The action layer caps its composed direction
+   at `maxImageryDirectionInPrompt = 200` with the palette composed **last**, so
+   appending avoid terms up there silently pushes the brand colours off the end. By the
+   time a prompt reaches the provider the cap is already applied, so nothing the fold
+   adds can evict anything. §5 candidate (1) flagged this hazard; placing the fold
+   downstream removes it rather than working around it.
+
+One edit in the provider also covers the whole class at once — the style guide's
+`avoid`, every `kindDefaults.NegativePrompt` (including the logo entry §2 names), and
+the `input_data.constraints` folding — for every kind and caller.
+
+### What was traded away, stated plainly
+
+`origin_prompt` no longer witnesses the constraint (see the §6 correction). Mitigations:
+the Info log with a 400-char preview, an in-code comment at the log site saying why
+`origin_prompt` is the wrong place to look, and the §6 correction itself.
+
+A `FinalPrompt` field on `provider.Result` to carry the sent prompt back for storage was
+considered and **rejected as unconsumed surface**: `origin_prompt` is populated from
+workflow config (`origin_prompt_field`) at four-plus sites per
+`107_image_build_handler.sql`, so actually recording it is a multi-workflow config change
+that would also change what `origin_prompt` means for every historical row. That is a
+separate, deliberate piece of work — worth doing if a thread ever needs the
+prompt-as-sent for more than this bug.
+
+### What this fix does NOT claim
+
+**That the constraint is now obeyed.** A prohibition in the positive prompt is a softer
+instrument than SDXL's true negative conditioning, and the evidence that it is only
+partly honoured is inside this very bug: `xp_curve_designer` had `near-black #121212`
+in its **positive** prompt and still came back on a near-white ground. This restores the
+constraint to having *any effect at all*. The wording ("the image must not contain or
+use: …" — phrased for objects *and* styles, since avoid lists mix them) is a first
+attempt that wants tuning from observation. **Count violations across 5+ generations.**
+
+Expect fleet-wide visible change on the next image roll: every Banana generation now
+carries a prohibition clause it did not carry before. Sites whose avoid lists are wrong
+or self-contradictory will now *show* that, where the list was previously inert and
+harmless. Some may look worse before they look better — that is a true signal, not a
+regression.
+
+## 8. Related
 
 - `/bugs_open/027` §4b — the palette-truncation defect, found in the same session. Both
   are the same shape: **a structured, brand-approved instruction is silently discarded
