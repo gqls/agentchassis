@@ -1,10 +1,27 @@
+# WireGuard VPN gateway — private access to cluster-internal services.
+#
+# Why this exists (bugs_open/033): the admin dashboard is a ClusterIP service
+# with no Ingress, so the only way in was `kubectl port-forward`. Rather than
+# make the admin plane the cluster's first public surface — there is no
+# cert-manager and no LoadBalancer here, so that would have meant DNS + manual
+# TLS in front of an admin API — the owner chose a VPN (2026-07-20).
+#
+# Split tunnel by design: peers route ONLY the pod and service CIDRs over the
+# tunnel (see ALLOWEDIPS), so ordinary internet traffic is untouched.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: wireguard
   namespace: ai-persona-system
+  labels:
+    app: wireguard
 spec:
+  # Exactly 1. This is a stateful VPN endpoint with a single keypair on a
+  # ReadWriteOnce volume; a second replica would fail to attach and would in any
+  # case present a different server key to peers.
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: wireguard
@@ -19,6 +36,10 @@ spec:
           securityContext:
             capabilities:
               add: ["NET_ADMIN", "SYS_MODULE"]
+            # Required, not incidental: the container sets net.ipv4.ip_forward
+            # and conf.all.src_valid_mark itself, and neither is in kubelet's
+            # default allowed-sysctl list, so they cannot be granted through
+            # securityContext.sysctls instead.
             privileged: true
           ports:
             - containerPort: 51820
@@ -30,24 +51,47 @@ spec:
               value: "1000"
             - name: TZ
               value: "Europe/London"
+            # Peer configs generated on first start, one per name. Adding a name
+            # later generates that peer on the next restart; existing peers keep
+            # their keys.
+            - name: PEERS
+              value: "laptop,phone"
+            # What peers dial. Any node IP works — this is a NodePort service and
+            # every node answers on it; the value here is only what gets baked
+            # into the generated peer configs.
+            - name: SERVERURL
+              value: "134.213.168.37"
+            # The NODE port, not the container port: it is the port the client
+            # connects to, and NodePort is what is exposed externally.
+            - name: SERVERPORT
+              value: "31820"
+            - name: INTERNAL_SUBNET
+              value: "10.13.13.0"
+            # Split tunnel: pod CIDR (10.20.0.0/16) and service CIDR
+            # (10.21.0.0/16) only. Confirmed against kubeadm-config podSubnet /
+            # serviceSubnet, 2026-07-20.
+            - name: ALLOWEDIPS
+              value: "10.20.0.0/16,10.21.0.0/16"
+            # kube-dns, so peers can use cluster DNS names. Safe as a global
+            # resolver for the peer because CoreDNS forwards unmatched names
+            # upstream (`forward . /etc/resolv.conf` in its Corefile), so normal
+            # browsing still resolves while connected.
+            - name: PEERDNS
+              value: "10.21.0.10"
           volumeMounts:
             - name: wg-config
               mountPath: /config
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
       volumes:
+        # A PVC, not a Secret. The image GENERATES the server keypair and every
+        # peer config into /config on first start; a Secret mount is read-only,
+        # so the original skeleton here could never have started successfully.
         - name: wg-config
-          secret:
-            secretName: wireguard-config
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: wireguard
-  namespace: ai-persona-system
-spec:
-  type: LoadBalancer  # or NodePort if no cloud LB
-  ports:
-    - port: 51820
-      protocol: UDP
-      targetPort: 51820
-  selector:
-    app: wireguard
+          persistentVolumeClaim:
+            claimName: wireguard-config

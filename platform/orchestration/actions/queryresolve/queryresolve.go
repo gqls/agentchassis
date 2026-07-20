@@ -90,6 +90,17 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 	case "products":
 		return resolveProducts(ctx, db, req.SiteID, arg, req.Limit, logger)
 
+	case "latest_news":
+		// Homepage news cards (latest-news component). Items come from
+		// content_feed_items, not pages — see news_items.go for why the
+		// selection is shared with the JSON path and the output is escaped.
+		return resolveLatestNews(ctx, db, req.SiteID, req.Limit, logger)
+
+	case "news_archive":
+		// News-index listing (news-listing component). Same machinery,
+		// archive depth and window, topics included.
+		return resolveNewsArchive(ctx, db, req.SiteID, req.Limit, logger)
+
 	case "blog_posts":
 		// Article listings (content-listing, blog-listing components declare
 		// `source: "query.blog_posts"`). Fleet convention: articles are pages

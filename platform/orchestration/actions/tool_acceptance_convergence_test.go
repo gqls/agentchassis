@@ -94,25 +94,30 @@ func runJudgeFailPath(t *testing.T, config map[string]interface{}, priorAttempts
 	} else {
 		countQ.WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(priorAttempts))
 	}
-	// 2. the acceptance-fail doc_note
+	// 2. the component lookup
+	componentRows := sqlmock.NewRows([]string{"id", "page_id"})
+	if componentID != "" {
+		componentRows = componentRows.AddRow(componentID, "page-1")
+	}
+	mock.ExpectQuery("content_components").WillReturnRows(componentRows)
+	// 3. whichever work item the guard chose (none, if the component is missing)
+	if componentID != "" {
+		mock.ExpectExec("site_work_items").
+			WithArgs(
+				sqlmock.AnyArg(),              // $1 site_id
+				captureArg{got: &run.summary}, // $2 summary
+				captureArg{got: &run.spec},    // $3 spec
+				captureArg{got: &run.itemKey}, // $4 item_key
+				sqlmock.AnyArg(),              // $5 batch_id
+			).
+			WillReturnResult(sqlmock.NewResult(1, 1))
+	}
+	// 4. the acceptance-fail doc_note — written LAST, from the outcome
 	mock.ExpectQuery("doc_notes").
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 			captureArg{got: &run.note}, sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("note-1"))
-	// 3. the component lookup
-	mock.ExpectQuery("content_components").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "page_id"}).AddRow("comp-1", "page-1"))
-	// 4. whichever work item the guard chose
-	mock.ExpectExec("site_work_items").
-		WithArgs(
-			sqlmock.AnyArg(),              // $1 site_id
-			captureArg{got: &run.summary}, // $2 summary
-			captureArg{got: &run.spec},    // $3 spec
-			captureArg{got: &run.itemKey}, // $4 item_key
-			sqlmock.AnyArg(),              // $5 batch_id
-		).
-		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	stepConfig := map[string]interface{}{}
 	for k, v := range config {

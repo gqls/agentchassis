@@ -10,7 +10,10 @@ import (
 // empty href inside a client-hydrated shell is by design (not emitted), while a
 // phantom non-empty href baked into that same shell is still a real defect.
 func TestAccumulateLinkIssuesRuntimeFill(t *testing.T) {
-	validPages := datahelpers.NewPageURLSet([]string{"/real.html"})
+	targets := sitePageTargets{
+		valid:   datahelpers.NewPageURLSet([]string{"/real.html"}),
+		unbuilt: map[string]string{},
+	}
 
 	cases := []struct {
 		name        string
@@ -43,7 +46,7 @@ func TestAccumulateLinkIssuesRuntimeFill(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			counts := make(map[plKey]int)
-			accumulateLinkIssues(counts, "page_component", "p", "id", "slot", tc.html, validPages)
+			accumulateLinkIssues(counts, make(map[plKey]string), "page_component", "p", "id", "slot", tc.html, targets)
 
 			var gotEmpty, gotPhantom int
 			for k, n := range counts {

@@ -582,25 +582,6 @@ Categories: acceptance-run`,
 	}
 	stuck := attempts >= maxCycles
 
-	fixLine := "improve_tool item created carrying the criteria as acceptance_test"
-	if stuck {
-		fixLine = fmt.Sprintf(
-			"NOT auto-fixed — %d previous improve_tool cycle(s) failed to turn %s green, so this is escalated to human review instead of a %d%s identical attempt",
-			attempts, strings.Join(v.FailedIDs, ", "), attempts+1, ordinalSuffix(attempts+1))
-	}
-	body := fmt.Sprintf(`## Tier-4 acceptance FAILED — %s
-Observed: %d of %d evaluated checks failed in headless Chromium%s: %s%s%s
-Root cause: not diagnosed at this tier (behavioural run; the fixer loads PLAN+NOTES first)
-Fix: %s
-Verified: n/a — failing run recorded
-Categories: acceptance-fail`,
-		function, len(v.Failed), len(v.Results), profilesPhrase(v.Profiles), issue, chromeLine,
-		evidenceLine(v.Shots), fixLine)
-	if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
-		`["acceptance-fail"]`, "tool-acceptance", sourceAgent, "", "tool-acceptance-agent"); err != nil {
-		logger.Warn("judge: acceptance-fail note insert failed", zap.Error(err))
-	}
-
 	criteria := datahelpers.ExtractNestedFieldString(params.CollectedData,
 		datahelpers.GetStringField(config, "criteria_field", "doc_context.criteria_json"))
 
@@ -719,6 +700,39 @@ Categories: acceptance-fail`,
 			logger.Info("judge: no content_components row for function — improve_tool item not created (recreated/adopted tool; route manually)",
 				zap.String("function", function))
 		}
+	}
+
+	// The note is written LAST and from the outcome, not from the intent: it is
+	// the loop's own durable record, and a note claiming a fix was queued when
+	// the insert missed is the "trust the status, not the artefact" failure this
+	// codebase keeps paying for. Both branches can miss — a recreated or adopted
+	// tool has no content_components row at all.
+	var fixLine string
+	switch {
+	case escalated:
+		fixLine = fmt.Sprintf(
+			"NOT auto-fixed — %d previous improve_tool cycle(s) failed to turn %s green, so this is escalated to human review (acceptance_stuck) instead of a %d%s identical attempt",
+			attempts, strings.Join(v.FailedIDs, ", "), attempts+1, ordinalSuffix(attempts+1))
+	case itemCreated:
+		fixLine = "improve_tool item created carrying the criteria as acceptance_test"
+	case stuck:
+		fixLine = fmt.Sprintf(
+			"NOT auto-fixed — %d previous improve_tool cycle(s) failed to turn %s green, and the escalation item could NOT be raised (no active content_components row for this function, or the insert failed); route this manually",
+			attempts, strings.Join(v.FailedIDs, ", "))
+	default:
+		fixLine = "none — no improve_tool item could be created (no active content_components row for this function, or the insert failed); route this manually"
+	}
+	body := fmt.Sprintf(`## Tier-4 acceptance FAILED — %s
+Observed: %d of %d evaluated checks failed in headless Chromium%s: %s%s%s
+Root cause: not diagnosed at this tier (behavioural run; the fixer loads PLAN+NOTES first)
+Fix: %s
+Verified: n/a — failing run recorded
+Categories: acceptance-fail`,
+		function, len(v.Failed), len(v.Results), profilesPhrase(v.Profiles), issue, chromeLine,
+		evidenceLine(v.Shots), fixLine)
+	if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
+		`["acceptance-fail"]`, "tool-acceptance", sourceAgent, "", "tool-acceptance-agent"); err != nil {
+		logger.Warn("judge: acceptance-fail note insert failed", zap.Error(err))
 	}
 
 	logger.Info("judge: acceptance FAILED",

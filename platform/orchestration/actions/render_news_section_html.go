@@ -1,36 +1,21 @@
 // FILE: platform/orchestration/actions/render_news_section_html.go
 //
-// Server-side rendering of news items into page_components.rendered_html
-// (bugs_open/027).
+// Freshness delivery for server-rendered news (bugs_open/027, reworked).
 //
-// WHY: RenderNewsSectionAction writes data/latest-news.json and
-// data/news-archive.json, and the deployed components fetch those files in the
-// browser. That means every news page on the platform serves ZERO news to any
-// consumer that does not execute JavaScript — crawlers that skip JS, link
-// unfurlers, feed previewers. Confirmed live on relojistas.com,
-// gaswholesalers.com and robot-hands.com: HTTP 200, loading placeholder
-// present, no <article> elements.
+// HISTORY, kept because the wrong version shipped: the first implementation
+// in this file injected news HTML into page_components.rendered_html by
+// string-anchor surgery (persistNewsSectionHTML / injectNewsItems). It went
+// live in v1.0.1140 and was then removed: 003's source-of-truth contract
+// rejects HTML patching outright — a scoped rerender regenerates
+// rendered_html from html_template + content_data, so anything living in
+// neither is silently wiped. Council REVISE 4b91237a (render_guardian) caught
+// it; the operator's guidelines check confirmed it.
 //
-// WHAT THIS DOES: the same items that go into the JSON are also rendered to
-// HTML and injected into the component's own container, so the page ships
-// complete. The JSON and the client script are KEPT — they remain the
-// freshness path, because rendered_html only reaches the live site on the next
-// rerender+deploy whereas the JSON deploys as a file. Server HTML for
-// correctness, client fetch for currency.
-//
-// ORDERING CONSTRAINT (do not reorder): migration 178 must be applied first.
-// The news-listing script used to overwrite its container on an empty feed AND
-// on a fetch error, which would have destroyed server-rendered items on any
-// blip. 178 guards both paths on "is there a server-rendered article here
-// already". latest-news never had that defect. Injecting before 178 is applied
-// is a regression, not a fix.
-//
-// The emitted markup is deliberately byte-compatible with what each script
-// produces, so a JS-enabled visitor sees no change when the script swaps the
-// container contents. One deliberate divergence: this code HTML-escapes, and
-// the scripts do not. Feed titles and summaries are third-party text, so
-// escaping is correct; the difference is invisible except on content that
-// contains markup characters, where the server version is the safe one.
+// The replacement: news items are query.latest_news / query.news_archive
+// schema fields (queryresolve/news_items.go), rendered by the components' own
+// html_template into content_data-backed HTML. This file now holds only the
+// freshness trigger — after a feed refresh, queue the scoped re-render that
+// makes the static HTML track the feed.
 
 package actions
 
@@ -38,254 +23,105 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"html"
-	"strings"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
-// newsContainerAnchors locates the fillable container inside a component's
-// rendered_html. Start is matched first; the injection ends at the last
-// "</div>" occurring before End. Both components follow the same shape:
-// a container div, then a sibling footer div.
-type newsContainerAnchors struct {
-	Start string
-	End   string
-}
-
-var (
-	// <div class="news-grid" id="news-container"> ... </div><div id="news-footer">
-	latestNewsAnchors = newsContainerAnchors{
-		Start: `id="news-container">`,
-		End:   `<div id="news-footer"`,
-	}
-	// <div class="news-listing-items" id="news-listing-items"> ... </div>
-	// <div class="news-listing-footer" ...>
-	newsListingAnchors = newsContainerAnchors{
-		Start: `id="news-listing-items">`,
-		End:   `<div class="news-listing-footer"`,
-	}
-)
-
-// renderLatestNewsCardsHTML mirrors latest-news.js's card markup.
-func renderLatestNewsCardsHTML(items []newsJSONItem) string {
-	var b strings.Builder
-	for _, it := range items {
-		b.WriteString(`<article class="news-card"><div class="news-card-content">`)
-		b.WriteString(fmt.Sprintf(
-			`<h3 class="news-card-title"><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></h3>`,
-			html.EscapeString(it.URL), html.EscapeString(it.Title)))
-		if it.Summary != "" {
-			b.WriteString(fmt.Sprintf(`<p class="news-card-summary">%s</p>`, html.EscapeString(it.Summary)))
-		}
-		b.WriteString(`<div class="news-card-meta">`)
-		if it.Source != "" {
-			b.WriteString(fmt.Sprintf(`<span class="news-source">%s</span>`, html.EscapeString(it.Source)))
-		}
-		if it.Date != "" {
-			b.WriteString(fmt.Sprintf(`<time class="news-date">%s</time>`, html.EscapeString(expandRelativeNewsDate(it.Date))))
-		}
-		b.WriteString(`</div></div></article>`)
-	}
-	return b.String()
-}
-
-// renderNewsListingItemsHTML mirrors news-listing.js's item markup.
-func renderNewsListingItemsHTML(items []newsJSONItem) string {
-	var b strings.Builder
-	for _, it := range items {
-		b.WriteString(`<article class="news-list-item"><div class="news-list-item-content">`)
-		b.WriteString(fmt.Sprintf(
-			`<h3 class="news-list-item-title"><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></h3>`,
-			html.EscapeString(it.URL), html.EscapeString(it.Title)))
-		if it.Summary != "" {
-			b.WriteString(fmt.Sprintf(`<p class="news-list-item-summary">%s</p>`, html.EscapeString(it.Summary)))
-		}
-		b.WriteString(`<div class="news-list-item-meta">`)
-		if it.Source != "" {
-			b.WriteString(fmt.Sprintf(`<span class="news-list-item-source">%s</span>`, html.EscapeString(it.Source)))
-		}
-		if it.Date != "" {
-			b.WriteString(fmt.Sprintf(`<span class="news-list-item-date">%s</span>`, html.EscapeString(expandRelativeNewsDate(it.Date))))
-		}
-		b.WriteString(`</div>`)
-		if it.Topics != "" {
-			b.WriteString(`<div class="news-list-item-topics">`)
-			for _, tag := range strings.Split(it.Topics, ", ") {
-				if tag == "" {
-					continue
-				}
-				b.WriteString(fmt.Sprintf(`<span class="news-list-tag">%s</span>`, html.EscapeString(tag)))
-			}
-			b.WriteString(`</div>`)
-		}
-		b.WriteString(`</div></article>`)
-	}
-	return b.String()
-}
-
-// expandRelativeNewsDate reproduces the scripts' formatNewsDate(), which turns
-// the compact forms produced by the Go formatNewsDate ("3d ago", "5h ago") into
-// long forms ("3 days ago", "5 hours ago"). Kept here so server and client text
-// agree; absolute dates ("2 Jan 2006") and "Just now"/"Yesterday" pass through.
-func expandRelativeNewsDate(s string) string {
-	units := []struct {
-		suffix   string
-		singular string
-		plural   string
-	}{
-		{"d ago", " day ago", " days ago"},
-		{"h ago", " hour ago", " hours ago"},
-		{"m ago", " minute ago", " minutes ago"},
-		{"w ago", " week ago", " weeks ago"},
-	}
-	for _, u := range units {
-		if !strings.HasSuffix(s, u.suffix) {
-			continue
-		}
-		n := strings.TrimSuffix(s, u.suffix)
-		if n == "" || strings.ContainsFunc(n, func(r rune) bool { return r < '0' || r > '9' }) {
-			continue
-		}
-		if n == "1" {
-			return n + u.singular
-		}
-		return n + u.plural
-	}
-	return s
-}
-
-// injectNewsItems replaces the contents of the anchored container in
-// rendered_html with inner. It is idempotent: on the first run it displaces the
-// loading placeholder (or the <noscript> block), on later runs it displaces the
-// previous items.
+// queueNewsPageRerenders emits one scoped re-render work item per page that
+// carries a news component, so freshly ingested items reach the deployed HTML.
 //
-// Returns ok=false and leaves the HTML untouched when either anchor is missing
-// or they appear in the wrong order — a component whose template has drifted
-// must be left alone rather than corrupted.
-func injectNewsItems(renderedHTML string, a newsContainerAnchors, inner string) (string, bool) {
-	if renderedHTML == "" || inner == "" {
-		return renderedHTML, false
-	}
-	si := strings.Index(renderedHTML, a.Start)
-	if si < 0 {
-		return renderedHTML, false
-	}
-	openEnd := si + len(a.Start)
-
-	ei := strings.Index(renderedHTML[openEnd:], a.End)
-	if ei < 0 {
-		return renderedHTML, false
-	}
-	ei += openEnd
-
-	// The container's own closing tag is the last </div> before the sibling.
-	closeIdx := strings.LastIndex(renderedHTML[openEnd:ei], "</div>")
-	if closeIdx < 0 {
-		return renderedHTML, false
-	}
-	closeIdx += openEnd
-
-	return renderedHTML[:openEnd] + inner + renderedHTML[closeIdx:], true
-}
-
-// persistNewsSectionHTML injects rendered items into every matching
-// page_components row for a site and writes them back.
+// Shape copied from reconcile_section_data / flag_page_image_rebuild — the
+// two existing "data resolved, re-render the page" emitters: item_type
+// needs_page with spec.reason section_data_resolved routes page-build-handler
+// down its scoped path (re-resolve queries, re-render from stored
+// content_data, no LLM), and item_key page_rerender:<page> collapses
+// concurrent triggers through idx_swi_dedup.
 //
-// pageFilter is applied to pages: either a name ("index") or, when nameIsType
-// is true, a page_type ("news-index"). That mirrors how the action already
-// locates each component's content_data for its headline.
-//
-// LOCKED COMPONENTS ARE SKIPPED, not overwritten. page_components carries
-// lock_type/locked_at/lock_expires_at, and a locked row represents a deliberate
-// human or agent decision to freeze that markup. Silently rewriting one would
-// be exactly the class of defect this change exists to fix.
-//
-// Failures are logged and counted, never fatal: server-side rendering is an
-// enhancement to a JSON pipeline that already works, so it must not be able to
-// fail the feed render.
-func persistNewsSectionHTML(
-	ctx context.Context,
-	db *sql.DB,
-	siteID uuid.UUID,
-	pageFilter string,
-	nameIsType bool,
-	function string,
-	anchors newsContainerAnchors,
-	inner string,
-	logger *zap.Logger,
-) int {
-	if db == nil || inner == "" {
+// Best-effort by design: the JSON path has already succeeded when this runs,
+// and a duplicate-suppressed insert (two-strike rule, open item with the same
+// key) is normal, not an error. Returns the number of items actually queued.
+func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) int {
+	if db == nil {
 		return 0
 	}
 
-	pageClause := "p.name = $2"
-	if nameIsType {
-		pageClause = "p.page_type = $2"
-	}
-
-	rows, err := db.QueryContext(ctx, fmt.Sprintf(`
-		SELECT pc.id, COALESCE(pc.rendered_html, '')
-		FROM page_components pc
+	rows, err := db.QueryContext(ctx, `
+		SELECT DISTINCT p.name
+		FROM pages p
+		JOIN page_components pc ON pc.page_id = p.id
 		JOIN content_components cc ON cc.id = pc.component_id
-		JOIN pages p ON p.id = pc.page_id
 		WHERE p.site_id = $1
-		  AND %s
-		  AND cc.function = $3
-		  AND (pc.lock_type IS NULL
-		       OR (pc.lock_expires_at IS NOT NULL AND pc.lock_expires_at < NOW()))
-	`, pageClause), siteID, pageFilter, function)
+		  AND cc.function IN ('latest-news', 'news-listing')
+		  AND p.build_status = 'deployed'
+	`, siteID)
 	if err != nil {
-		logger.Warn("persistNewsSectionHTML: select failed",
-			zap.String("function", function), zap.Error(err))
+		logger.Warn("queueNewsPageRerenders: page lookup failed", zap.Error(err))
 		return 0
 	}
 	defer rows.Close()
 
-	type target struct {
-		id   string
-		html string
-	}
-	var targets []target
+	var pages []string
 	for rows.Next() {
-		var t target
-		if err := rows.Scan(&t.id, &t.html); err != nil {
-			logger.Warn("persistNewsSectionHTML: scan failed", zap.Error(err))
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			logger.Warn("queueNewsPageRerenders: scan failed", zap.Error(err))
 			continue
 		}
-		targets = append(targets, t)
+		pages = append(pages, name)
+	}
+	if len(pages) == 0 {
+		return 0
 	}
 
-	updated := 0
-	for _, t := range targets {
-		newHTML, ok := injectNewsItems(t.html, anchors, inner)
-		if !ok {
-			// Anchors absent — the component template has drifted from the one
-			// this renderer knows. Leave it alone and say so; a silent skip here
-			// would look identical to success.
-			logger.Warn("persistNewsSectionHTML: container anchors not found, skipping",
-				zap.String("function", function),
-				zap.String("page_component_id", t.id))
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		logger.Warn("queueNewsPageRerenders: begin tx failed", zap.Error(err))
+		return 0
+	}
+	defer tx.Rollback()
+
+	batchID := uuid.New()
+	queued := 0
+	for _, page := range pages {
+		item := workItem{
+			siteID:       siteID,
+			source:       "render_news_section",
+			pipeline:     "build",
+			itemType:     "needs_page",
+			severity:     "low",
+			summary:      fmt.Sprintf("Re-render %s — fresh news items available", page),
+			spec:         fmt.Sprintf(`{"reason":"section_data_resolved","page_name":%q}`, page),
+			priority:     99,
+			handlerAgent: "page-build-handler",
+			status:       "triaged",
+			createdBy:    "render_news_section",
+			itemKey:      fmt.Sprintf("page_rerender:%s", page),
+			batchID:      batchID,
+
+			// A re-request every feed cycle is the design, not a failed fix:
+			// fresh items are a recurring event, so suppress the two-strike
+			// unresolved labelling for these.
+			recurrenceExpected: true,
+		}
+		inserted, err := insertWorkItem(ctx, tx, item, logger)
+		if err != nil {
+			logger.Warn("queueNewsPageRerenders: insert failed",
+				zap.String("page", page), zap.Error(err))
 			continue
 		}
-		if newHTML == t.html {
-			continue
+		if inserted {
+			queued++
 		}
-		if _, err := db.ExecContext(ctx,
-			`UPDATE page_components SET rendered_html = $1, updated_at = NOW() WHERE id = $2`,
-			newHTML, t.id); err != nil {
-			logger.Warn("persistNewsSectionHTML: update failed",
-				zap.String("page_component_id", t.id), zap.Error(err))
-			continue
-		}
-		updated++
+	}
+	if err := tx.Commit(); err != nil {
+		logger.Warn("queueNewsPageRerenders: commit failed", zap.Error(err))
+		return 0
 	}
 
-	if updated > 0 {
-		logger.Info("persistNewsSectionHTML: server-rendered news into components",
-			zap.String("function", function),
-			zap.Int("components_updated", updated))
+	if queued > 0 {
+		logger.Info("queueNewsPageRerenders: queued scoped re-renders",
+			zap.Int("queued", queued), zap.Int("news_pages", len(pages)))
 	}
-	return updated
+	return queued
 }

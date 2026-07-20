@@ -56,6 +56,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -248,18 +249,6 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 
 	totalItemCount := len(snippetItems)
 
-	// -----------------------------------------------------------------------
-	// 7b. Server-render the same items into the component's HTML (bugs_open/027)
-	// -----------------------------------------------------------------------
-	// The JSON above is the freshness path and stays authoritative. This makes
-	// the page complete for consumers that never execute JavaScript — crawlers,
-	// link unfurlers, feed previewers — which on a news site is a large part of
-	// who actually arrives. Best-effort by design: it must not fail the render.
-	componentsRendered := persistNewsSectionHTML(
-		ctx, params.DB, siteID, pageName, false,
-		"latest-news", latestNewsAnchors,
-		renderLatestNewsCardsHTML(snippetItems), logger)
-
 	// Only produce archive JSON if a news listing page exists
 	if hasListingPage {
 		archiveItems, err := loadNewsItems(ctx, params.DB, siteID, maxAgeHours*4, archiveMaxItems, true, logger)
@@ -327,16 +316,26 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 					zap.Int("archive_items", len(archiveItems)),
 					zap.Int("total_available", totalAvailable))
 			}
-
-			// Server-render the archive too (bugs_open/027). Located by
-			// page_type, matching how the headline above is read. This is the
-			// half that REQUIRES migration 178 — before it, news-listing.js
-			// wiped this container on an empty feed or a fetch error.
-			componentsRendered += persistNewsSectionHTML(
-				ctx, params.DB, siteID, "news-index", true,
-				"news-listing", newsListingAnchors,
-				renderNewsListingItemsHTML(archiveItems), logger)
 		}
+	}
+
+	// -----------------------------------------------------------------------
+	// 7b. Queue a scoped re-render of the news pages (bugs_open/027)
+	// -----------------------------------------------------------------------
+	// The news components now declare their items as query.latest_news /
+	// query.news_archive schema fields, so the server-rendered HTML comes from
+	// the normal template path (plan_sections → queryresolve → content_data →
+	// RenderComponentAction) — NOT from patching rendered_html here; 003
+	// rejects HTML patching, and a scoped rerender would wipe it. What this
+	// step does is deliver freshness: fresh feed items ARE "section data
+	// resolved", so emit the same item reconcile_section_data emits, and the
+	// scoped path re-resolves the queries and re-renders from stored
+	// content_data (no LLM). item_key page_rerender:<page> collapses with
+	// concurrent image/data triggers via idx_swi_dedup. Best-effort: a failed
+	// emit must not fail the feed render the JSON path just completed.
+	rerenderQueued := 0
+	if totalItemCount > 0 {
+		rerenderQueued = queueNewsPageRerenders(ctx, params.DB, siteID, logger)
 	}
 
 	logger.Info("RenderNewsSectionAction: JSON produced",
@@ -346,81 +345,46 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 		zap.Bool("has_archive", hasListingPage))
 
 	return map[string]interface{}{
-		"files":               filesMap,
-		"domain":              domain,
-		"item_count":          totalItemCount,
-		"headline":            headline,
-		"file_path":           "data/latest-news.json",
-		"has_archive":         hasListingPage,
-		"rendered":            true,
-		"components_rendered": componentsRendered,
+		"files":           filesMap,
+		"domain":          domain,
+		"item_count":      totalItemCount,
+		"headline":        headline,
+		"file_path":       "data/latest-news.json",
+		"has_archive":     hasListingPage,
+		"rendered":        true,
+		"rerender_queued": rerenderQueued,
 	}, nil
 }
 
 // loadNewsItems queries feed items with the improved sort order.
 // includeTopics controls whether topic tags are included (for archive view).
+// loadNewsItems projects the shared selection (queryresolve.QueryNewsItems —
+// ONE query for both the JSON files and the query.latest_news/news_archive
+// template fields, so the two can never disagree about which items exist)
+// into the JSON shape: raw text, compact dates the client scripts expand,
+// comma-joined topics.
 func loadNewsItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxAgeHours, maxItems int, includeTopics bool, logger *zap.Logger) ([]newsJSONItem, error) {
-	rows, err := db.QueryContext(ctx, `
-		SELECT 
-			cfi.source_title,
-			cfi.source_summary,
-			cfi.source_url,
-			cfi.source_published_at,
-			COALESCE(cs.name, '') as source_name,
-			COALESCE(cfi.topics::text, '[]') as topics_json
-		FROM content_feed_items cfi
-		LEFT JOIN content_sources cs ON cs.id = cfi.source_id
-		WHERE cfi.site_id = $1 
-		  AND cfi.status IN ('relevant', 'ingested')
-		  AND cfi.created_at > NOW() - make_interval(hours => $2)
-		  AND (cfi.source_published_at IS NULL 
-		       OR (cfi.source_published_at > NOW() - make_interval(hours => $2)
-		           AND cfi.source_published_at <= NOW() + INTERVAL '1 day'))
-		ORDER BY 
-			CASE WHEN cfi.status = 'relevant' THEN 0 ELSE 1 END,
-			cfi.relevance_score DESC NULLS LAST,
-			cfi.source_published_at DESC NULLS LAST, 
-			cfi.created_at DESC
-		LIMIT $3
-	`, siteID, maxAgeHours, maxItems)
+	raw, err := queryresolve.QueryNewsItems(ctx, db, siteID, maxAgeHours, maxItems, logger)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var items []newsJSONItem
-	for rows.Next() {
-		var title, summary, url, sourceName sql.NullString
-		var publishedAt sql.NullTime
-		var topicsJSON string
-
-		if err := rows.Scan(&title, &summary, &url, &publishedAt, &sourceName, &topicsJSON); err != nil {
-			logger.Warn("loadNewsItems: scan error", zap.Error(err))
-			continue
-		}
-
+	for _, r := range raw {
 		item := newsJSONItem{
-			Title:   title.String,
-			Summary: truncateNewsSummary(summary.String, 200),
-			URL:     url.String,
-			Source:  sourceName.String,
+			Title:   r.Title,
+			Summary: truncateNewsSummary(r.Summary, 200),
+			URL:     r.URL,
+			Source:  r.Source,
 		}
-
-		if publishedAt.Valid {
-			item.Date = formatNewsDate(publishedAt.Time)
+		if !r.PublishedAt.IsZero() {
+			item.Date = formatNewsDate(r.PublishedAt)
 		}
-
-		// Include topics for archive view (comma-separated string for display)
-		if includeTopics && topicsJSON != "" && topicsJSON != "[]" {
-			var topics []string
-			if json.Unmarshal([]byte(topicsJSON), &topics) == nil && len(topics) > 0 {
-				item.Topics = strings.Join(topics, ", ")
-			}
+		if includeTopics && len(r.Topics) > 0 {
+			item.Topics = strings.Join(r.Topics, ", ")
 		}
-
 		items = append(items, item)
 	}
-
 	return items, nil
 }
 
