@@ -628,3 +628,30 @@ record stands untouched. But the update I wrote argued a closure position the
 owning thread had already decided differently with better evidence, so if the
 commit had succeeded it would have shipped a contradictory fork of a closed
 case.
+
+### 2026-07-20 — bugfix 003 — "the health fix is verified live: the endpoint returns real JSON"
+**Asserted:** to the owner, and written into `bugs_open/003`, after v1.0.1140 shipped: the new
+`/health` was "verified against running pods, not git" because the chassis pod and a spawned
+Job pod both returned `{"kafka_last_ok_seconds_ago":N,"status":"ok"}`, the discriminating
+literal greped 1 in the pod binary and the old `READY` literal greped 0.
+**Actually:** every one of those checks was true, and the endpoint was still **broken**. All I
+had proven was that the new code was *running* — not that it *reported correctly*. A
+deliberately wedged test pod (Kafka pointed at an unroutable address; `wget` timed out, every
+real client logged `i/o timeout`, topic creation failed) reported `{"status":"ok"}`
+continuously for six minutes and never restarted. Two causes: (1) the prober read
+`cfg.Infrastructure.KafkaBrokers` — viper, i.e. the config *file* — while every real client
+resolves brokers from the *environment* via `kafka.GetBrokers()`, so it probed a different
+Kafka than the process was using; (2) a bare `net.DialTimeout` to `10.255.255.1:9092`
+**succeeded**, so TCP connect is not evidence of a reachable broker in this pod network.
+**Caught by:** the restart test the owner asked for — and only because it was run against a
+genuinely wedged pod rather than a healthy one. A "does the endpoint respond" test would have
+passed forever.
+**The cheap check that would have caught it:** ask what the endpoint says when the answer
+should be NO. I verified the healthy path four ways and never once exercised the unhealthy
+path — the only path the change exists to serve.
+**Cost:** a fleet-wide health check that could not detect the failure it was built for, live
+in production for ~4 hours, described to the owner as verified. Fixed in `976618dbb`
+(GetBrokers + a Kafka metadata round-trip via `Conn.Brokers()`), inert until the next roll.
+**The transferable rule:** *"verified live" must name which BRANCH was exercised.* A green
+positive path plus a discriminating grep proves deployment, not correctness — for anything
+whose job is to detect a fault, the fault must be induced.
