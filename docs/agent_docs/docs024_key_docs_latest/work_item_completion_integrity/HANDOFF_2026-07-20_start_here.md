@@ -18,8 +18,9 @@ to mean what it says.
 | **Commits** | `c82b2872c` (fix) · `c80fffc83` (council r2 follow-up) · `205b73a28` (§9 queue trap) · `41e3345b2` (standing five + corrections) · `93edb02f7` (closure) |
 | **Council** | `SUBMISSION_CORR=319e23f6-b333-42ba-88ef-069b4426c057` — r1 REVISE, r2 REVISE at **8 approve / 2 object**. No `Council-Reviewed:` trailer claimed (verdict was never APPROVED) |
 | **Live check** | defining sweep = **0**; no regressions |
-| **In flight** | **nothing.** No dispatches pending, no uncommitted work of mine |
-| **Next** | two inbound assignments — §3. One was assigned to this thread **by the owner** |
+| **`bugs_open/021` §2** | **WORKED 2026-07-20** (`08b35ccc4`, `0c6cab66d`) — verifier contract widened + coverage guard; still OPEN (inert, coverage still 1 verifier by choice) |
+| **In flight** | council `9f7bd637-081f-45c4-bf10-1f9645424ce8` on the 021 work — queued behind a deep backlog when this was written; check for its verdict before assuming anything |
+| **Next** | **submission A** (owner-assigned, §3B) — genuinely unstarted. Then a real verifier, remit-first |
 
 ## 2. What 017 was, and what shipped
 
@@ -78,7 +79,18 @@ them.
 > is deletion, and `Resolved:false` is the honest verdict. Bigger change, assigned to
 > `empty_sections_loop_integrity`, and the error-return floor does not preclude it.
 
-- **Coverage gap (021 §2) — STILL OPEN and still this thread's policy call.** Re-verified
+- **Coverage gap (021 §2) — WORKED 2026-07-20 (`08b35ccc4`), still OPEN.** Contract
+  widened (`VerifyTarget`) so verifiers are writable at all — the real blocker, which
+  021 had mis-attributed to opt-in discipline; coverage guard built (all 69 live item
+  types must be verified or classified or the build fails). **Coverage is still 1
+  verifier, deliberately**: the `page_rerender` attempt was written, tested and held
+  because a whole-page predicate is stricter than the handler's `ctaFieldNames` remit
+  and would have destroyed two-strike escalation across 1,849 items (WRONG_CALLS.md
+  2026-07-20). **Next on this:** write a real verifier — read the HANDLER's remit
+  first, not the detector's predicate. The guard's gap map is the triage list, but its
+  categories are [INFERRED] except the three checks I read. Original framing below,
+  kept for context:
+- **(original)** Re-verified
   2026-07-20: `RegisterVerifier` is called **exactly once** repo-wide
   (`check_empty_sections.go`), against ~50 item types with discovery checks. 4,570
   completions carry 5 `_verification` records. The mechanism is opt-in by construction
