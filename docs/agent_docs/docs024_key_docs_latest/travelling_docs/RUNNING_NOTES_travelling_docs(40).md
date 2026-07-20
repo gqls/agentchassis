@@ -3572,3 +3572,53 @@ rule so edit 1 need not lean on the bypass.
   poll happily returns the PREVIOUS round's verdict and looks like success.
 
 Categories: (council, review, correction, gotcha, register-defect)
+
+### 2026-07-19 (late) — owner ruling: fix the two-strike rule, don't lean on the bypass
+
+Owner's call on the council's open objection: **"don't write the bypass, fix the
+two strike rule."** That changes bug 024's plan shape — edit 1 no longer routes
+around `insertWorkItem` via `createRerenderWorkItem`'s raw SQL.
+
+**Done and committed (`f6e3f3166`): `workItem.recurrenceExpected`.**
+`insertWorkItem`'s anti-churn block reads a repeat `item_key` as "we keep fixing
+this and it keeps coming back" — right for a DETECTED DEFECT (it recurs because
+a detector found it again), wrong for an ACTION REQUEST, where a terminal
+predecessor means the request SUCCEEDED. The new flag skips **both** heuristics:
+the two-strike label AND the within-cycle (<3h) suppression — the latter being
+the more dangerous, since it drops the item entirely and returns no error, so a
+fix landing within 3h of a previous rerender loses its deploy silently. Dedup is
+NOT waived; `idx_swi_dedup` still refuses a second OPEN item for the same key.
+
+**Opt-in, default false — inert until a caller sets it.** None of the 24 existing
+`insertWorkItem` call sites change behaviour. 6 tests added (there were none for
+this rule), asserting the written **status and summary** rather than merely that
+a row landed — the first version of the "poison" test passed without ever
+proving the row was branded `unresolved`, which would have been a test in name
+only.
+
+**Scale check, live:** 111 items born `unresolved` in 30 days across 9 item
+types — `undeployed_asset` 53, `needs_internal_links` 14, `page_rerender` 12,
+`deactivated_component` 11, `needs_sprite_css` 10, `needs_rerender` 4. Not all
+are action requests, but the rerender types plainly are. Only the tool path is
+being opted in for now; the rest is a follow-up judgement per type.
+
+**Still to do for 024** (the plan the council reviewed, now re-shaped):
+1. Set `recurrenceExpected` at the rerender call site and route tool-improver's
+   request through the **normal** path (no bypass).
+2. **Scope the `item_key`** — `create_work_item_action.go:128` builds
+   `<prefix>_<domain>`, so ALL tool rerenders on a site share one key. Even with
+   the rule fixed, two tools fixed close together collide on the dedup index and
+   one request is lost.
+3. **Stamp `spec.reason`** so the rerender actually re-renders instead of
+   assembling stale HTML (024 mechanism 2).
+4. The escalation-guard fix, `component_level='tool'` (024 mechanism 3) —
+   unchanged from the council-reviewed plan.
+Then: image, verify against the pod, apply 171, re-run improve→rerender→
+acceptance.
+
+**Hook note:** the commit-time pattern check flagged `unpaired-change: touches
+idx_swi_dedup but not workItemTerminalStatuses`. **False positive** — the index
+is only named in a comment; no index change. Worth knowing the check matches on
+mention, not modification.
+
+Categories: (fix, tests, owner-ruling, gotcha)
