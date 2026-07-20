@@ -453,3 +453,97 @@ detail the council wants would mean doing the owning thread's job in a JSON file
 - [ ] If A goes another round: add the `batch_id` refutation above verbatim, and
       promote the two-insert-path fork from doc_notes into the plan body.
 - [ ] Phase 1 extractor — still unstarted, still unblocked by any of this.
+
+---
+
+## Turn 6 — 2026-07-20 — bug 033 filed, A assigned, Phase 1 BUILT
+
+### 033 — the human-review queue, and a correction to our own claim
+
+Filed `bugs_open/033`. 292 items in `needs_human_review`, oldest 2026-03-15,
+arriving faster than ever (216 in July, 47 of them `cta_names_unknown_destination`)
+and never drained. The three admin routes that could action one have **never
+run**; a fourth (`HandleConfirmWorkItem`) is fully implemented and **never
+registered** in `server.go`. `approved_by` and `resolution_path` are dead columns.
+
+**MISSTEP corrected while filing.** We had written "0 of 4,570 have a
+resolution". That query was scoped to `status='complete'`. Unscoped it returns
+**8** — good prose, written by working threads via direct SQL (all with empty
+`resolved_by`, which the API would have stamped `'admin'`), seven `cancelled`
+and one `section_source_drift`. So reasons ARE captured: rarely, ad hoc, without
+identity, never yet for a `needs_human_review` item. Corrected in
+`PLAN_capture_gaps_and_volume.md` too.
+
+033 deliberately proposes **no code**. It asks the prior question — queue or bin?
+Wiring the surface is wasted if it is a bin; re-tuning the producers is wrong if
+it is a queue. It also records that "record who decided" is blocked on auth:
+those handlers have no user context at all.
+
+### A assigned
+
+To `work_item_completion_integrity` — it adds a provenance column to
+`site_work_items` and their remit is whether such a row can be trusted to mean
+what it says; they already hold `017`, `032` and the verifier-coverage handoff.
+Stated weakness (this is the *creation* end, their name says *completion*) with
+an explicit written route to decline.
+
+### Phase 1 EXTRACTOR — built, run, verified
+
+`cmd/reasoningset` + `extract.sql`. **820 records / 112 trajectories.**
+689 `input_complete`; 131 flagged (69 `no_value_injection`, 43 `blinded_docs`,
+16 `truncated`, 3 `call_failed`); 7 guard trips; 14 guard-unaligned; 10 graded.
+
+**Verification found two real defects in my own first cut.** Both fixed; both
+would have shipped silently.
+
+1. **Guard misalignment.** `llm_call_log` has no iteration column, so I paired
+   verdict calls to trail entries **by index**. Unsound — runs exist with 5
+   verdict calls against a trail of length 1 (retries and failures leave no
+   trail entry). It emitted a raw `UNVERIFIABLE` against a coerced `CONFIRMED`,
+   which the coercion logic **cannot produce** (it only ever degrades). That
+   impossibility is what exposed it. Now the guard asserts only when the counts
+   agree, and records `alignment` otherwise.
+
+   > **Transferable:** when pairing two sequences with no shared key, assert the
+   > invariant the pairing must satisfy and let it fail loudly. Here the
+   > invariant was free — "coercion never upgrades" — and it caught an error that
+   > eyeballing the output would not have.
+
+2. **Blinding leak.** 47 rows carried fixloop doc text. Not from the diagnosis
+   corpus — from **council-gate submissions legitimately proposing changes to
+   those scripts**. Flagged `blinded_docs` rather than dropped: an eval consumer
+   must drop them, a training-only consumer may keep them, and that is the
+   consumer's call to make, not the extractor's.
+
+**Passed:** `input_state` byte-matches the DB bundle (30,269 bytes both sides);
+zero impossible inversions; `tripped` set only when aligned; every excluded row
+carries a reason; zero unflagged blinded rows.
+
+### Two traps, both now in the RUNBOOK
+
+- **`psql -At -f -` under `kubectl exec -i` silently truncates after the first
+  statement.** First run: 781 `step` rows, zero `trail`/`bundle`, exit 0, and
+  only "Waiting for server to close stdin failed" on stderr. psql reads stdin by
+  default — drop the `-f -`. Silent partial success, the family this whole
+  workstream keeps meeting.
+- **Reconcile against a snapshot, not a live count.** JSONL held 676 review rows
+  against a live 694. The 18 "missing" were council runs — *including my own* —
+  that landed mid-extract. Bounding the count by the extract's newest row gives
+  676 exactly.
+
+  > **MISSTEP (#7).** I first blamed SQL `LIKE 'review_%'` treating `_` as a
+  > wildcard. Plausible, tidy, and false: `WHERE step_name LIKE 'review_%' AND
+  > step_name !~ '^review_'` returns zero rows. I checked before acting, which is
+  > the only reason it cost nothing. The pattern is now familiar enough to name:
+  > **a plausible mechanism is not a diagnosis.**
+
+### Open / next
+
+- [ ] Complete `LABELS_benchmark.json` — 3 of ~10 entries curated. Needs a
+      careful read of `NOTES_running_fixloop(10).md`; deliberately not parsed.
+- [ ] Phase 3 quality report — surviving steps per model slice is the go/no-go.
+      Early read: 231 sonnet-4-6 / 589 sonnet-5, so the slices are usable for
+      eval and still far short of training scale.
+- [ ] Harvest `feed-triage` (423 calls × many judgements each, already
+      structured) — needs a second extract query, no new machinery.
+- [ ] Owner call on 033 (queue or bin) and on whether to generate volume.
