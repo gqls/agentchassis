@@ -155,15 +155,37 @@ edit, which is the experiment that would settle it beyond doubt.
 > no avoid term at all. So on the D14 generations the `avoid` edit provably reached
 > nothing. The misattribution is as close to settled as it gets without re-running D14.
 >
-> **The three documents still say it, and this thread has not corrected them** —
+> ~~**The three documents still say it, and this thread has not corrected them** —
 > `HANDOFF_imagery_best_in_class.md` (D14 findings), the imagery memory, and RUNBOOK
 > **A6.5**. That is deliberate scope, not an oversight: they belong to the imagery
-> workstream. Whoever picks that up should note the lesson is not merely "this fact was
-> wrong" but **how it was made** — a config edit and a re-roll happened together, the
-> output improved, and the edit took the credit. Nothing in the loop was capable of
-> noticing that the edited field was never read. After an image roll the `avoid` edit
-> genuinely *will* do something, which is precisely when a stale "we already know how
-> this works" note is most expensive.
+> workstream.~~
+>
+> > **CORRECTED 2026-07-20, SAME DAY, BY THE AUTHOR OF THE LINE ABOVE — and the way
+> > it was caught is the point.** That claim was false, and I made it without opening
+> > any of the three files. All three were **already corrected before I started**:
+> > RUNBOOK A6.5 carries a dated `> **CORRECTED 2026-07-19**` block written by the
+> > filing thread; the imagery memory carries its own correction; and
+> > `HANDOFF_imagery_best_in_class.md` had already been reframed to *"Unverified and
+> > next: whether the Banana path sends `avoid` as a negative prompt at all"* — a
+> > flagged open question, not an assertion.
+> >
+> > **What caught it:** the council gate's `editquality` seat filed it as a *missing*
+> > item — "the plan does not correct the three artifacts that actually assert the
+> > false causal claim" — which sent me to read the files for the first time. It was
+> > right that the submission asserted it; it inherited my error.
+> >
+> > So this bug's own fix repeated this bug's own failure mode: **I asserted the state
+> > of three documents from a filing written a day earlier, rather than checking, while
+> > writing up a defect that exists because someone asserted a mechanism rather than
+> > checking.** Confidence was no signal in either case. Recorded here rather than
+> > quietly deleted because a correction with the catching mechanism named is worth
+> > more than a clean file.
+>
+> The durable lesson is not merely "this fact was wrong" but **how it was made** — a
+> config edit and a re-roll happened together, the output improved, and the edit took
+> the credit. Nothing in the loop was capable of noticing that the edited field was
+> never read. After an image roll the `avoid` edit genuinely *will* do something, which
+> is precisely when a stale "we already know how this works" note is most expensive.
 
 ## 5. Fix candidates
 
@@ -281,6 +303,46 @@ carries a prohibition clause it did not carry before. Sites whose avoid lists ar
 or self-contradictory will now *show* that, where the list was previously inert and
 harmless. Some may look worse before they look better — that is a true signal, not a
 regression.
+
+## 7b. Council gate verdict — REVISE (`d35844da-f533-42da-b096-4f82cc2839bc`)
+
+Round 1 was **void, not a verdict** — a harness defect, filed as `/bugs_open/036`.
+Round 2 returned **REVISE**: 7 approve, 3 object (editquality, bug_historian,
+guardian), 5 abstained on relevance. **No `Council-Reviewed:` trailer is claimed on
+the fix commit** (`32f2d51e2`) — that trailer is earned by APPROVED only.
+
+The core Banana fix was endorsed by every seat that looked at it, including the
+placement argument (`constitution`: *"a genuine translation rather than a workaround,
+and the rejected alternative is explicitly stated with three concrete reasons"*;
+`reuse_agent`: *"the rejected alternative is the one that would actually have produced
+a second, competing implementation"*). What drew objections was **edit 2 — the
+interface-contract change — being comment-only.**
+
+**Resolved by checking, in response to the objections:**
+
+| Challenge | Seat | Outcome |
+|---|---|---|
+| *"SDXL uses this directly" is asserted, not verified — despite the author's own stated methodology* | bug_historian | **Verified, claim holds.** `stability/provider.go:185–201` reads `req.NegativePrompt`, falls back to the kind default, and appends it as a weighted `api.TextPrompt`. It is true negative conditioning. The seat was right that I had taken it from the old comment rather than reading the code. |
+| Are Banana and Stability the only implementers? | guardian | **Yes, exactly two** — `var _ provider.Provider` appears only in `banana/provider.go:84` and `stability/provider.go:139`. No third provider is at risk. |
+| Is any code or test coupled to the old "log and ignore" wording? | guardian | **No** — but the grep found the *same licence phrase* one field down, on `ReferenceImageURIs`. Now rewritten too. That discard is legitimate **because it is loud** (Warn in `stability/provider.go` *and* again in `dynamic_adapter.go`), which is precisely the standard the new wording sets: the difference was never the phrasing, it was Warn-in-two-layers versus Debug-in-one. |
+| Was an existing sentence-boundary/append helper missed? | reuse_agent | **Checked.** `endsWithSentenceBoundary` does exist in `generate_image_actions.go:1161` — but in `platform/orchestration/actions`, and importing that into a provider adapter inverts the dependency direction. Six lines of pure duplication is the right call; recorded so the next reader knows it was a decision. |
+| The three documents asserting the false lesson are not corrected | editquality | **The objection was right, my premise was wrong** — all three were already corrected before I started. See the correction block in §4; this seat is what caught it. |
+
+**OPEN — deliberately not resolved here, because it is an owner call.** Two seats
+(editquality, bug_historian, both medium) object that a comment cannot stop the next
+provider repeating the bug, and bug_historian says so explicitly: *"documentation-as-guard
+has already failed once on this exact field ... a human should decide whether the
+interface-contract half needs an enforced fail-loud mechanism."* Both agree it does not
+block the Banana fix. Options, none taken:
+
+1. **Conformance test** iterating registered providers, asserting each either consumes
+   `NegativePrompt` or fails loudly. Needs the API client injectable per provider —
+   `banana.New` constructs `p.client` internally today, so this is a constructor change.
+2. **Capability on the interface** (e.g. `HonoursNegativePrompt() bool`), letting the
+   action layer choose a strategy. A real signature change to a shared interface, and it
+   re-opens the placement question this fix closed.
+3. **Accept the comment**, on the grounds that with only two implementers and a
+   now-explicit contract, the marginal defect risk is small.
 
 ## 8. Related
 

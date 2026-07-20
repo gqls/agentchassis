@@ -78,9 +78,18 @@ type Request struct {
 
 	// ReferenceImageURIs are optional style/content anchors. S3 URIs
 	// (s3://...) or HTTPS URLs. Providers that support reference images
-	// fetch them via the injected ReferenceFetcher; providers that don't
-	// support log and ignore. Currently: Banana supports up to 20;
-	// Stability v1 REST ignores.
+	// fetch them via the injected ReferenceFetcher. Currently: Banana
+	// supports up to 20; Stability v1 REST cannot honour them at all.
+	//
+	// Stability DROPS these, and that is acceptable only because the drop is
+	// LOUD: stability/provider.go warns, and dynamic_adapter.go warns again
+	// naming the kind before dispatching. That is the standard the
+	// NegativePrompt note above sets — honour it, or make the loss visible to
+	// someone who is not reading this file. This comment used to say providers
+	// without support "log and ignore", the same phrasing that licensed
+	// bugs_open/028 one field up; the difference was never the wording, it was
+	// that one discard logged at Warn in two layers and the other at Debug in
+	// one.
 	ReferenceImageURIs []string
 }
 
