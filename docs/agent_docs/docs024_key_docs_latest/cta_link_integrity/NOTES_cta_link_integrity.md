@@ -659,3 +659,34 @@ Landmines re-confirmed this round: seat edit-indexing still inconsistent (0- vs 
 the `problem` text, not the `edit` number; `abstained: 3` on round 3 with the relevance filter
 working as designed (compliance/render/diagnosis seats self-declared out of jurisdiction and
 still reported — the abstentions were elsewhere).
+
+---
+
+## 2026-07-20 13:50 — session 3 (bugfix-023): ⚠️⚠️ v5 STILL CARRIES BOTH DEFECTS — read the 12:30 entry above BEFORE implementing the approved plan
+
+Round 5 was in flight when this was written, and its edit 4 sketch is unchanged from v3:
+the `planSection` conflict log keyed on `prev, ok := resolvedData[fieldName]` **cannot ever
+fire** (`resolvedData` is a fresh local map, `plan_sections_action.go:1118`; each field is
+written at most once). Three council rounds have now reviewed this edit without catching it —
+the seats reason about the sketch, and the sketch looks plausible. The observe round it
+produces reports a **structural zero** and the flip round would ship on that false evidence.
+The real loss site is the **rerender merge** (`rerender_page_sections_action.go:281-307`);
+corrected placement with code is in the 12:30 entry above.
+
+Likewise edit 1's sibling rule still misses the 3 bare-stem mapped fields
+(`hero.secondary_cta_url`, `call-to-action.primary/secondary_cta_url`) and still derives
+`header-leopardess.logo_url` (an image with a `logo_text` sibling).
+
+**Both corrections are now ALSO in `doc_notes`** on the exact subjects edit 5 persists to
+(`pipeline/plan_sections`, `pipeline/resolve_internal_links`, categories
+`cta-link-integrity` + `correction`, created_by `bugfix-023`) — whoever implements will hit
+them when reading or writing those keys. An APPROVED verdict on v5 approves the *intent*
+(observe-only staging); implement the conflict log at the placement that can actually
+observe, and say so in the commit — or resubmit the corrected sketch first if you want the
+trailer to match the shipped code exactly.
+
+*Meanwhile in the other lane (this session): all 4 remaining placements of the two broken
+components are deleted from finetuning.uk + robot-hands.com (P4 extended fleet-wide),
+rerenders queued; migration 179 applied+ledgered live — `tool-guide-intro` now has
+renderer-owned optional url fields, gated anchors, no `#guide-start`. Live verification
+pending; full entry to follow.*
