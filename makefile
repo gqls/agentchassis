@@ -217,7 +217,13 @@ build-agents: build-agent-chassis build-reasoning-agent build-content-creator-ag
 build-adapters: build-web-search-adapter build-web-scrape-adapter build-git-adapter build-image-generator-adapter build-thunder-adapter build-analyser-adapter build-browser-runner-adapter ## Build all adapters
 
 # Frontend applications
+# build-admin-dashboard was declared .PHONY here with no recipe — the line below
+# it defines deploy-admin-dashboard — so `make build-frontends` died on the first
+# prerequisite. The real target is build-dashboard.
 .PHONY: build-admin-dashboard
+build-admin-dashboard: build-dashboard ## Build admin-dashboard (alias for build-dashboard)
+
+.PHONY: deploy-admin-dashboard
 deploy-admin-dashboard: deploy-dashboard ## Deploy admin-dashboard (alias)
 
 .PHONY: build-user-portal
@@ -1157,8 +1163,10 @@ clean: ## Clean build artifacts
 	rm -rf frontends/*/dist/
 
 .PHONY: port-forward-admin
-port-forward-admin: ## Port forward admin dashboard to localhost:3000
-	kubectl port-forward -n $(PROJECT_NAME) svc/admin-dashboard 3000:80
+port-forward-admin: dashboard-port-forward ## Port forward admin dashboard (alias for dashboard-port-forward)
+# Was `svc/admin-dashboard 3000:80`, which could never connect: the Service
+# listens on 8080, not 80. Aliased rather than re-fixed so there is one
+# definition to keep correct.
 
 .PHONY: port-forward-grafana
 port-forward-grafana: ## Port forward Grafana to localhost:3001
