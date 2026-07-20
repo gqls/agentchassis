@@ -31,13 +31,14 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read the CONTRACT a thing plugs into, not just its logic** | **1** |
 | wait / query again before calling an absence a failure | 3 |
 | **grep for the capability before asserting it does not exist** | **1** |
-| **prove the artefact is current before reasoning from it** | **1** |
+| **prove the artefact is current before reasoning from it** | **2** |
 | measure a property before describing it | 1 |
 | **run a census against a known-positive control before reporting the count** | **1** |
 | **look at the real values before designing for the assumed ones** | **2** |
 | grep the index before filing | 1 |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
+| **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
 | read the rule before inferring its purpose | 1 |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
@@ -602,3 +603,28 @@ touches the file, and I was the one who touched it.
 **Cost:** none — corrected in place in `bugs_open/044` before first commit, with
 the correction kept visible. But it went into a council submission first, so
 reviewers reasoned about a citation that did not resolve.
+
+---
+
+## 2026-07-20 — appended a case update to `bugs_open/008` after it had moved to `bugs_closed/`
+
+**The claim:** implicit but load-bearing — "008 still lives in `/bugs_open/`"
+(and, in the update I wrote into it, "closure awaits behavioural proof"). Both
+false when written: another thread had closed the case ~30 minutes earlier,
+with its own pod verification, and moved the file. My `cat >>` recreated the
+path as an untracked 1.6KB orphan — a fork of a closed case, the exact
+"second account that drifts" CLAUDE.md warns about — and my follow-up
+`git commit <path>` failed on it, which is what surfaced the mistake.
+**Caught by:** the commit's pathspec error ("did not match any file(s) known to
+git") + `git ls-files | grep 008` showing the tracked copy in `bugs_closed/`.
+**The cheap check that would have caught it:** `ls bugs_open/NNN* bugs_closed/NNN*`
+(or `git ls-files | grep NNN`) BEFORE writing to a case file — CLAUDE.md already
+says "grep BOTH directories before filing"; the same check applies before
+*updating*, because on a busy day a case can close between your premise and
+your write. Same freshness class as "your session-start git status is a
+snapshot": case-file locations are live state, not context.
+**Cost:** near-zero — orphan deleted before any commit; the closing thread's
+record stands untouched. But the update I wrote argued a closure position the
+owning thread had already decided differently with better evidence, so if the
+commit had succeeded it would have shipped a contradictory fork of a closed
+case.
