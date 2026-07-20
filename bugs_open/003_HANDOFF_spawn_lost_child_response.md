@@ -473,17 +473,26 @@ deploy windows are so destructive.
 failed_wedged AS (
     UPDATE orchestration_states
     SET status = 'FAILED',
-        error = 'reaper: stale EXECUTING_STEP for >3h; step=' || current_step,
+        error = 'reaper: stale EXECUTING_STEP for >4h; step=' || COALESCE(current_step, '(none)'),
         updated_at = NOW()
     WHERE status = 'EXECUTING_STEP'
-      AND last_activity < NOW() - INTERVAL '3 hours'
+      AND last_activity < NOW() - INTERVAL '4 hours'
     RETURNING orchestration_id
 )
 ```
 
-First firing drains the 24 standing zombies. Apply via `UPDATE scheduled_tasks`
+First firing drains the standing zombies. Apply via `UPDATE scheduled_tasks`
 AND mirror into `020_scheduled_tasks.sql` (the patch-style re-seed clobber
-landmine). No legitimate step runs 3h.
+landmine).
+
+> **CORRECTED & APPLIED 2026-07-20 12:43Z:** the draft said `>3h` / "no
+> legitimate step runs 3h". Checked against `orchestration_state_audit`
+> (7.5 weeks of history) before applying: exactly ONE healthy exit from an
+> EXECUTING_STEP stint over 3h (3.72h, a `check_health` step, 2026-06-28),
+> none over 4h — so the applied threshold is **>4h** (zero historical false
+> positives). Also added `COALESCE(current_step,'(none)')` — the draft's bare
+> `|| current_step` would NULL the entire error string on a NULL step.
+> Live in `scheduled_tasks` and mirrored to `020_scheduled_tasks.sql`.
 
 **F2 — durable, DB-driven retry of expired requests (Go).** Keep the sleeping
 goroutine as the fast path; make the DB the guarantee. The per-pod 1-min ticker
