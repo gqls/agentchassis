@@ -108,3 +108,45 @@ I also decided *not* to manufacture proof by re-running the colour fixer at one 
 three sites still holding old items. That would have exercised the fix nicely, but it would
 also have edited a live site with an action the bug report itself called misconceived — and
 your instruction was to mark them failed and start fresh, not to re-run them.
+
+---
+
+**2026-07-20 (later) — handing this over so you can pick it up in a fresh chat**
+
+Everything is committed and nothing is left running, so there's no state trapped in this
+conversation. The entry point for the next chat is
+`HANDOFF_2026-07-20_start_here.md` in this folder — it has the 30-second state, what
+shipped, what's next, and the traps we paid for, in reading order.
+
+The short version of where this leaves you: the bug we started on is done and live, and the
+thread now has **two things waiting**. Both arrived from the reasoning-dataset thread while
+we were working, and both already carry council review that somebody has paid for — but
+only one of them is still work for us, for the reason below.
+
+The first one I nearly got wrong, and it's worth saying how. The note handed to us
+describes a live defect: the one completion verifier we have treats "the component isn't
+there any more" as "the problem was fixed" — when a missing component is equally what it
+looks like when a rebuild has silently *deleted* it. So content loss could be filed as a
+verified success, by the exact mechanism meant to stop us trusting "complete". Real
+problem, and I was about to write "go and fix this" into the handover.
+
+I checked first, and another thread had already fixed it that morning. What's left on it
+isn't code at all — it just needs the next image build to go out, same as ours did
+yesterday, and it belongs to the thread that owns that area. The general lesson, which I've
+written down: a note handed to you describes how things were when it was written, not how
+they are.
+
+The second is the one you assigned to this thread on the 20th: adding a column that records
+which auditor's judgement created a work item. Right now an auditor that flags twenty
+non-issues looks identical in the data to one that flags twenty real defects, because
+nothing connects a judgement to what happened to it. That one is three council rounds in
+and close to approval.
+
+So my suggestion is the provenance column — the one you assigned anyway. It's genuinely
+unstarted (I checked the database; the column isn't there), it's small and additive, and
+it's already three council rounds in with the remaining objections written down.
+
+The other thing left over is bigger and needs a decision from you rather than code: we have
+exactly one of these completion verifiers, covering one item type out of about fifty. That
+gap is why the bug we just fixed could happen at all. Worth deciding what shape the answer
+takes before anyone writes anything.

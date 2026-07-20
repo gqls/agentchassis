@@ -1,8 +1,14 @@
 # PLAN — work-item completion integrity (bugs_closed/017)
 
-**Started:** 2026-07-18 (session "bugfix thread2"). **Status: CLOSED 2026-07-20** — live in
-v1.0.1139, verified against the running pod with discriminating strings; case moved to
-`/bugs_closed/017_…`.
+**Started:** 2026-07-18 (session "bugfix thread2"). **Status of 017: CLOSED 2026-07-20** —
+live in v1.0.1139, verified against the running pod with discriminating strings; case moved
+to `/bugs_closed/017_…`.
+
+> **COLD START? Read `HANDOFF_2026-07-20_start_here.md` first.** This PLAN covers the 017
+> phase only. The workstream now also holds two inbound, council-reviewed assignments that
+> are NOT designed here: `bugs_open/032` + `021` §2 (the verifier layer) and submission A
+> (work-item origin provenance, owner-assigned 2026-07-20). Design for those belongs in a
+> new PLAN when one is picked up.
 
 ## The problem, in one line
 
@@ -72,9 +78,17 @@ that turns "orphaned by accident" into "dormant by decision".
    controls. The obvious grep — the action name — was a false pass: that string predated
    the fix. See NOTES misstep 3 and 016b §9.
 
+## Phase 2 — not designed yet
+
+Two inbound assignments arrived while phase 1 was in flight; both are described in their
+own handoffs in this directory and neither is started. When one is picked up, write
+`PLAN_<date>_<slug>.md` for it rather than extending this file — this one is the 017 record.
+
 ## Open questions for the owner
 
-- None outstanding. Residual monitoring only: the guard's *blocking* path has not yet
+- **Which inbound to take first** (see `HANDOFF_2026-07-20_start_here.md` §6). Suggestion:
+  `032`'s conservative fix — small, contained, and a live content-loss blind spot.
+- On 017 itself, none outstanding. Residual monitoring only: the guard's *blocking* path has not yet
   fired in production (nothing has failed since deploy). It will surface as
   `site_work_items.error LIKE 'completion blocked: handler saga reported failure%'`, or
   `agent_error_log.error_code='UNKNOWN_HANDLER_VERDICT'` for an unfamiliar verdict.

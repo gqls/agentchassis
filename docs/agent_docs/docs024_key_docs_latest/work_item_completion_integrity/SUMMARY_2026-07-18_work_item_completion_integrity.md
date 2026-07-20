@@ -68,7 +68,19 @@ off.
 
 ## Where we're going
 
-Nothing is outstanding on this case. One thing is watched rather than finished: the guard's
+**Cold-start entry point: `HANDOFF_2026-07-20_start_here.md`.**
+
+The thread does not stop here. Two council-reviewed assignments arrived from the
+reasoning-dataset thread while this work was in flight, and neither is started. The first
+is a live defect in the one completion verifier that exists: it reads a missing component
+as a successful fix, when absence is equally the signature of a rebuild having deleted it —
+so content loss can be recorded as a verified success by the mechanism built to stop
+`complete` being taken on trust. The second, assigned to this thread by the owner on
+2026-07-20, records which auditor's judgement created a work item, so that ~15,000 LLM
+judgements a month stop being unattributable — today an auditor that flags twenty
+non-issues is indistinguishable in the data from one that flags twenty real defects.
+
+Nothing is outstanding on the 017 case itself. One thing is watched rather than finished: the guard's
 *blocking* path has not yet fired in production, because nothing has failed since the
 deploy — which is the expected consequence of the other half of the fix removing what was
 causing those failures. Its logic rests on tests rather than on an observed live block, and

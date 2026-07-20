@@ -136,3 +136,49 @@ the binary makes the "requires a topic" failure structurally impossible; that is
 without editing a live site to prove it.
 
 Moved to `/bugs_closed/017_…` (number and filename preserved, per that dir's rules).
+
+---
+
+## 2026-07-20 (later) — handed off
+
+Wrote `HANDOFF_2026-07-20_start_here.md` as the cold-start entry point and pointed PLAN,
+SUMMARY and README_where_we_are at it. Nothing is in flight: no pending dispatches, no
+uncommitted work of mine, no background jobs.
+
+**Two inbound assignments discovered in this directory during closure**, both placed by the
+reasoning-dataset thread while phase 1 was running, neither started:
+
+- `HANDOFF_2026-07-19_verifier_absent_row_defect_and_coverage.md` → `bugs_open/032` +
+  `bugs_open/021` §INSTANCE 2 (one `RegisterVerifier` call for ~50 item types). Plan
+  `submission_B`, 2 council rounds, both REVISE, objections enumerated.
+
+  > **CHECKED BEFORE WRITING THE HANDOFF — and the inbound doc was already stale.** It
+  > describes 032 as an open defect with a fix "drafted". The fix is **written and
+  > committed** (`a467baa11`), in the conservative shape it recommended. I nearly told the
+  > next thread to go and implement it. Applied the discriminating-symbol rule from misstep
+  > 3 in the other direction, to prove something is NOT live: pod-grep for
+  > `"genuinely fixed or silently deleted"` → **0**, with my own 017 guard string → **1**
+  > as the positive control, and the commit (10:33 UTC) postdating the pod start (07:35
+  > UTC). So 032 is fixed-but-INERT — the state 017 was in yesterday — and correctly stays
+  > in `/bugs_open/`. Next action is an image roll, owned by
+  > `empty_sections_loop_integrity`. The lesson generalises: **an inbound handoff is a
+  > claim about the past; verify its state before forwarding it.** What actually remains of
+  > that handoff for this thread is the 021 coverage policy, re-verified today
+  > (`RegisterVerifier` still called exactly once).
+- `HANDOFF_2026-07-20_submission_A_work_item_origin_provenance.md` → **owner-assigned to
+  this thread on 2026-07-20**. `site_work_items.origin_correlation_id`, 3 council rounds,
+  all REVISE, "two small answers away". **Verified genuinely unstarted:** the column does
+  not exist on `site_work_items` and the identifier appears nowhere in `platform/`.
+
+Note the shape of 032 relative to our own work: our PLAN had already named the gap it
+exploits — *"the verifier is opt-in per item_type"* — and the council's `bug_historian`
+seat found the defect while reviewing a proposal to COPY that verifier's behaviour to two
+more item types. The blind spot propagates by being reused. Worth remembering when
+implementing: the conservative fix (return an error, not a verdict) relies on our gate
+already failing OPEN on verifier error, which is a property of the code this thread owns.
+
+**Verified before handing over:** defining sweep = 0; no work items carry
+`error LIKE 'completion blocked%'` (the guard has not yet blocked in production);
+no `UNKNOWN_HANDLER_VERDICT` rows in `agent_error_log`. All three are the expected values,
+and the second two are *absence of evidence*, recorded as such rather than as proof.
+
