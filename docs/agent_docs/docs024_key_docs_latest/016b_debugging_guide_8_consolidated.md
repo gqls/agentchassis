@@ -1900,6 +1900,38 @@ class already fixed at one narrow site (`c80fffc83`) — when you find one
 you. Category tags: `no-durable-surface`, `substring-classification`,
 `silent-drop`, `absence-is-not-evidence`.
 
+### A hard cap that silently discards its input's tail rewrites meaning — and the tail is whatever was composed LAST (2026-07-20)
+
+*Added 2026-07-20 from `bugs_open/027` §4b (imagery style-guide palette truncated
+away before generation); the council's bug_historian seat asked for the
+transferable pattern (round 6, correlation 0a07f5ed).*
+
+`composeDirection` joins medium → mood → **palette last**;
+`composeImagePromptWithDirection` truncates the result at
+`maxImageryDirectionInPrompt = 200` — unconditional, unreported. The most
+brand-identifying field silently never reached the model on 5 of the fleet's 8
+palette-carrying directions; the model invented an accent per image; the output
+looked deliberate. The testbed that PASSED its owner gate was over the cap too —
+its cut just happened to land after the accent hex. A false "hard-won fact"
+(`avoid` fixes ground drift) grew in the gap and reached three documents.
+
+**Two generalisations:**
+- **A silent cap converts "too long" into "means something else".** If a budget
+  must drop content it must (a) drop by stated priority — compose so the
+  load-bearing field cannot be the tail — and (b) say so (WARN naming the loss).
+  "Fits, or silently shrinks" is how a passed gate and a false lesson coexisted.
+- **A cap is a claim about its CONSUMER; re-check it when the consumer changes.**
+  The constant's own comment stated its precondition — "until provider routing
+  lands... the only generation backend (SDXL)". Routing landed (v1.0.1139, every
+  declared kind → Banana, ~1000+ chars tolerated) and nothing flagged the expiry.
+  When you swap the thing a limit protects, grep limit constants for their
+  justifying comments.
+
+Sibling shape, found the same weekend: `016b` §9 "a field is only as live as its
+LAST reader" (`bugs_closed/028`). One discards the tail of what it keeps, the
+other discards a whole field — both silently, both leaving output that reads as
+intended. Fleet enumeration + fix candidates: `bugs_open/027` §4b.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
