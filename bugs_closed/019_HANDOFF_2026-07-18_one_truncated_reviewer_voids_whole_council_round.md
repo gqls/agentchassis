@@ -1,10 +1,34 @@
 # 019 — One truncated reviewer voids the entire council round
 
-> **FIX BUILT 2026-07-20 (bugfix-019 thread) — code committed `a3b606798`, config
-> migration 177 committed `76ff5ed25` and APPLIED LIVE. Stays OPEN: inert until
-> the next image roll after v1.0.1139.** Diagnosis, corrected mechanism and the
-> full decision log live in
+> **CLOSED 2026-07-20 — FIXED AND LIVE, verified by reproduction on v1.0.1140.**
+> Image `agent-chassis:v1.0.1140` (pod start 17:58:20Z) carries all fix commits,
+> pod-verified by binary grep (`tolerate_truncation`, `markerFieldFor`,
+> `salvageTruncatedReview`, `TruncatedError`, the `TOLERATED` log prefix — and
+> `036`'s `objectionEdit`, for that thread's own verification).
+>
+> **Live reproduction, the exact recipe this file prescribes** (scratch copy of
+> council-gate, `review_editquality` capped at `max_tokens=200`, real submission;
+> orch `2e56d2b7-08fa-4b4a-9689-3e132b017332`, corr `97aa75a3`):
+>
+> - OLD behaviour: seat 1 truncates → `complete_invalid`, zero reviews, no verdict.
+> - OBSERVED: seat 1 truncated; `llm_call_log` logged ONE row, `success=f`,
+>   `error_message` prefixed `TOLERATED (step continued on the partial):`; the
+>   chain ran **9 further readable seats**; terminal `complete_revise` with a
+>   persisted `council_report`, metadata
+>   `{"decision": "revise", "reviewers": 9, "abstained": 6, "unreadable": 1}`,
+>   the truncated seat named in `unreadable`
+>   (`['review_editquality.result']`), and no approve alongside it.
+>
+> Scratch definition retired (`deleted_at` set) after the run. Snapshot
+> `bak_agentdef_councils_20260720` retained.
+>
+> Full history: code `a3b606798` + round-2 `11a72dc31`, config migration 177
+> (35 seats), two advisory council rounds (both REVISE, dispositions in the
+> workstream NOTES). Diagnosis, corrected mechanism and decision log:
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_019_council_truncation/`.
+> The sibling cause on the same seam — a complete, VALID review with a free-text
+> edit pointer — is `036` (fix shipped in the same image, verification pending by
+> its own thread).
 >
 > **The dominant mechanism was upstream of everything this file documents as the
 > root cause.** Counted over 10 days: 9 truncation voids died at
