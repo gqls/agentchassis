@@ -1,0 +1,21 @@
+# Holds the generated server keypair and the per-peer configs. Losing this
+# volume regenerates the server key, which invalidates every peer config already
+# handed out — so it is deliberately Retain-worthy state, small and long-lived.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wireguard-config
+  namespace: ai-persona-system
+  labels:
+    app: wireguard
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ssd
+  resources:
+    requests:
+      # 5Gi is the FLOOR this provider accepts, not a capacity estimate — the
+      # config is a few kB. A 1Gi request is rejected by the Cinder backend with
+      # "'size' parameter must be between 5 and 20" and the PVC sits Pending
+      # forever, taking the deployment with it (observed 2026-07-20).
+      storage: 5Gi

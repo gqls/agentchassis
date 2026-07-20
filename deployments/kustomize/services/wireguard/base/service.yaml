@@ -1,0 +1,27 @@
+# NodePort, not LoadBalancer.
+#
+# The skeleton this replaces specified `type: LoadBalancer  # or NodePort if no
+# cloud LB`. There is no cloud LB in this cluster — no LoadBalancer service
+# exists anywhere, and ingress-nginx itself runs on NodePort — so a
+# LoadBalancer service would have sat in <pending> forever. The nodes carry
+# routable addresses (134.213.168.x), so a NodePort is directly dialable.
+apiVersion: v1
+kind: Service
+metadata:
+  name: wireguard
+  namespace: ai-persona-system
+  labels:
+    app: wireguard
+spec:
+  type: NodePort
+  ports:
+    - name: wireguard
+      port: 51820
+      targetPort: 51820
+      # Pinned, because this number is baked into every generated peer config
+      # (SERVERPORT in the deployment). Letting Kubernetes allocate it would
+      # invalidate every peer config on any re-create.
+      nodePort: 31820
+      protocol: UDP
+  selector:
+    app: wireguard
