@@ -153,3 +153,107 @@ there is nothing to duplicate. Do **not** apply it blind to the churn case above
 **Open question for whoever takes C:** where does the claim-timeout sweep actually live, and what is
 its window? The two observed behaviours (revert-after-success vs stall-with-no-work) may have
 different causes and should not be assumed to be one bug.
+
+---
+
+## Verification pass, 2026-07-20 (bugfix-006 thread)
+
+All three re-checked against the live cluster and the current tree. **A confirmed and worse, B real
+but its stated mechanism is STALE, C's open question answered.** Evidence inline below.
+
+### A — CONFIRMED, degraded further
+
+```
+$ kubectl -n ai-persona-system get pods | grep runner
+github-actions-runner-5c44ddb44d-5pqdv           1/1  Running            0     22d
+github-actions-runner-5c44ddb44d-lhg9l           0/1  CrashLoopBackOff   6365  23d
+github-actions-runner-vmsites-5bf4b47c57-zdtjb   1/1  Running            0     4d1h
+```
+Restarts have gone **4906 → 6365** since filing (18d → 23d). Diagnosis unchanged; still a
+single-point-of-failure on the fleet deploy path. Needs node-level access (cordon/drain or fix that
+node's containerd `SystemdCgroup`), so it is an owner/infra action, not a code change.
+
+Note: a **third** runner deployment now exists (`github-actions-runner-vmsites`, healthy, 4d) that
+did not exist when this was filed.
+
+### B — > **CORRECTED 2026-07-20: real, but not for the reason stated. Nothing posts to `/contact`.**
+
+The defect (contact forms on live sites silently discard submissions) is **confirmed and fleet-wide**.
+The stated *cause* no longer holds, so the fix options as written aim at a string that is not there.
+
+Measured across every live form component:
+```sql
+SELECT substring(rendered_html from 'action="([^"]*)"'), count(*)
+FROM page_components WHERE rendered_html ILIKE '%<form%' GROUP BY 1;
+-- (empty) 12 | #contact 9 | /audience-check 1 | /request 1  →  action="/contact": ZERO
+```
+The component template is **not** hardcoded. `k8s/bk_content_components.sql:134` renders
+`action="{{.form_action}}"`, and `form_action` comes from each component's own `content_data`.
+**No Go code sets `form_action` at all** (`grep -rn 'form_action' --include='*.go' platform/ internal/`
+returns only an unrelated file-header comment) — so there is no default and no validation. Whatever
+the content LLM happens to emit is what ships:
+
+| form_action | sites |
+|---|---|
+| `#contact` | ai-agent-orchestration, dartsonline, gaswholesalers, leopardess, relojistas, robot-hands, vetcomparison, vonc |
+| `""` (empty) | finetuning.uk, leopardess, robot-hands |
+| `mailto:idea.uk@contactforsales.com` | idea.uk (hand-fixed) |
+
+`#contact` and `""` both POST to the current URL. On a static host that is a 405/404 — the message is
+lost and the visitor gets no error they can act on. Only 6 of 24 form components have any JS submit
+handler, and those are the tool calculators, not the contact forms — so these submissions are real
+navigations, not intercepted.
+
+**So: 10 of 11 live sites have a contact form that cannot deliver a message.** Severity as filed is
+right; `apply_gap_plan_action.go:465` and `k8s/bk_page_components.sql:140` are the wrong fix sites.
+The real fix is a **default + a validation check on `form_action`** (an unset/`#`/empty action on a
+`contact-form` should fail a discovery check), not building a `/contact` backend.
+
+**Also — idea.uk's mailto fix has NOT rendered.** Its `content_data.form_action` is the mailto, but
+its deployed `rendered_html` still carries `action="#contact"`. This is the known
+"content_data edits do not hold until re-render" landmine; the fix is staged, not live.
+
+### C — the open question is ANSWERED: the sweep is a scheduled task, not Go
+
+The addendum grepped `platform/` and concluded "not in the Go tree" — correct, but it is not absent,
+it is **in the database**. `scheduled_tasks` row **`claimed-item-timeout`**, `interval_seconds=120`,
+enabled, firing normally (last trigger was seconds before this check). Its `pre_query` has **two
+branches with different windows**:
+
+1. **auto-complete on evidence — 15 minutes.** Marks the item `complete` where the targeted artifact
+   is provably written (`error = 'Auto-completed: work verified done despite lost response'`).
+2. **reset — 40 minutes.** `claimed → triaged` (or `failed` at max attempts) with
+   `'Claim timed out — handler pod likely died'`.
+
+**This fully explains the 16-minute stall.** The reset window is **40 minutes**, not 10 — so at 16
+minutes nothing was due to happen yet. The addendum's inference ("its window is at minimum longer
+than 16 minutes") was right; the figure is 40. The operator-recovery SQL above uses a 10-minute
+predicate, which is *more aggressive than the live reaper by design* — fine for the
+nothing-was-done case it is scoped to, but it is not what the platform would have done on its own.
+
+**NEW, and the part still worth fixing: the evidence branch covers 3 item types out of 18.** It tests
+only `needs_content_page`, `page_rerender` and `needs_design`. Every other item type falls through to
+the 40-minute reset **even when its work succeeded** — which is exactly the churn this section
+describes. Measured over 14 days:
+
+| item_type | timed out | auto-completed |
+|---|---|---|
+| `page_rerender` | 64 | 30 |
+| `needs_content_page` | 0 | 6 |
+| **`needs_page`** | **42** | **0** |
+| `phantom_internal_link` | 23 | 0 |
+| `content_rewrite` | 7 | 0 |
+| *(11 further types)* | 15 | 0 |
+
+`needs_page` — **the exact item type in this section's original symptom** — has 42 timeouts and has
+never once been auto-completed, because no branch knows what artifact proves a `needs_page` done.
+So C is not fixed; it is fixed for three item types and live for the other fifteen. The structural
+fix this section asks for (complete atomically, or retry the completion write idempotently) is still
+the right one, and would make the per-item-type evidence branches unnecessary rather than needing
+fifteen more of them.
+
+### Found while verifying C — filed separately as `bugs_open/048`
+
+Four `scheduled_tasks` have not fired in **79 days** while `enabled=true`, because a fifth task in
+their concurrency group consumes the group's only slot on every tick and then does nothing. Not a
+duplicate of `029` (that is hung orchestrations holding real slots). See `048`.
